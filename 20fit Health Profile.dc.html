@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:ital,wght@0,400;0,900;1,400;1,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-ms-overflow-style:none;scrollbar-width:none;}
+    *::-webkit-scrollbar{display:none;}
+    body{font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+    button,input{font-family:inherit;}
+    input{outline:none;}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    @keyframes check{from{stroke-dashoffset:44;}to{stroke-dashoffset:0;}}
+    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.25;}}
+  </style>
+</helmet>
+
+<div style="display:flex; flex-direction:{{ layoutDir }}; height:100vh; overflow:hidden; background:{{ bg }};">
+
+  <!-- ══ SIDEBAR — desktop only, always dark ══ -->
+  <sc-if value="{{ isDesktop }}" hint-placeholder-val="{{ true }}">
+    <nav style="width:220px; flex-shrink:0; height:100vh; background:#0A0908; border-right:1px solid rgba(255,255,255,0.06); display:flex; flex-direction:column; overflow:hidden;">
+
+      <!-- Logo -->
+      <div style="padding:28px 20px 14px; flex-shrink:0;">
+        <div style="font-family:'Anton',sans-serif; font-size:26px; color:#F0EDE6; letter-spacing:-0.5px; line-height:1; margin-bottom:5px;">20<span style="color:#C41101;">fit</span></div>
+        <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:8px; letter-spacing:3px; text-transform:uppercase; color:#3A3530;">HEALTH PROFILE</p>
+      </div>
+      <div style="height:1px; background:rgba(255,255,255,0.05); margin:0 16px;"></div>
+
+      <!-- Nav -->
+      <div style="flex:1; padding:12px 10px; display:flex; flex-direction:column; gap:2px;">
+
+        <button onClick="{{ goToProfile }}" style="width:100%; padding:10px 12px; border-radius:10px; background:{{ profileNavBg }}; border:none; display:flex; align-items:center; gap:10px; cursor:pointer;" style-hover="background:rgba(255,255,255,0.03);">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;"><circle cx="9" cy="5.8" r="3" stroke="{{ profileNavColor }}" stroke-width="1.4" fill="none"/><path d="M3 17C3 14 5.7 11.5 9 11.5S15 14 15 17" stroke="{{ profileNavColor }}" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg>
+          <span style="font-size:13.5px; font-weight:{{ profileNavFW }}; color:{{ profileNavColor }};">Profil Saya</span>
+        </button>
+
+        <button onClick="{{ goToRecords }}" style="width:100%; padding:10px 12px; border-radius:10px; background:{{ recordsNavBg }}; border:none; display:flex; align-items:center; gap:10px; cursor:pointer;" style-hover="background:rgba(255,255,255,0.03);">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;"><rect x="2.5" y="1.5" width="10" height="13" rx="2" stroke="{{ recordsNavColor }}" stroke-width="1.4" fill="none"/><path d="M5.5 6.5h5M5.5 9.5h3.5" stroke="{{ recordsNavColor }}" stroke-width="1.2" stroke-linecap="round"/><circle cx="13.5" cy="12.5" r="3" fill="#0A0908" stroke="{{ recordsNavColor }}" stroke-width="1.2"/><path d="M12.5 12.5h2M13.5 11.5v2" stroke="{{ recordsNavColor }}" stroke-width="1.1" stroke-linecap="round"/></svg>
+          <span style="font-size:13.5px; font-weight:{{ recordsNavFW }}; color:{{ recordsNavColor }};">Medical Records</span>
+        </button>
+
+        <button onClick="{{ goToPlan }}" style="width:100%; padding:10px 12px; border-radius:10px; background:{{ planNavBg }}; border:none; display:flex; align-items:center; gap:10px; cursor:pointer;" style-hover="background:rgba(255,255,255,0.03);">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style="flex-shrink:0;"><path d="M9 1.5L10.8 6.5H16L11.5 9.6L13.3 14.5L9 11.5L4.7 14.5L6.5 9.6L2 6.5H7.2Z" stroke="{{ planNavColor }}" stroke-width="1.4" stroke-linejoin="round" fill="none"/></svg>
+          <span style="font-size:13.5px; font-weight:{{ planNavFW }}; color:{{ planNavColor }};">Your Plan</span>
+        </button>
+
+      </div>
+
+      <div style="height:1px; background:rgba(255,255,255,0.05); margin:0 16px;"></div>
+
+      <!-- User + dark toggle -->
+      <div style="padding:14px 14px 20px; flex-shrink:0;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,#C41101,#7A0800); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#FFF; flex-shrink:0; letter-spacing:0.5px;">RA</div>
+          <div style="flex:1; min-width:0;">
+            <p style="font-size:13px; font-weight:500; color:#E8E2D8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Ria Putri Andini</p>
+            <p style="font-size:11px; color:#D4A800; margin-top:1px; font-weight:500;">Plus Member</p>
+          </div>
+          <button onClick="{{ toggleDark }}" style="width:30px; height:30px; border-radius:8px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" style-hover="background:rgba(255,255,255,0.08);">
+            <sc-if value="{{ isDark }}">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2.8" stroke="#6E665C" stroke-width="1.2" fill="none"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10.1 10.1l1 1M2.9 11.1l1-1M10.1 3.9l1-1" stroke="#6E665C" stroke-width="1.1" stroke-linecap="round"/></svg>
+            </sc-if>
+            <sc-if value="{{ isLight }}">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1.5C3.9 1.5 1.8 3.5 1.8 6.5C1.8 9 3.8 11.2 6.5 11.2C8.2 11.2 9.7 10.4 10.5 9.1C10 9.3 9.4 9.4 8.9 9.4C6.6 9.4 4.7 7.5 4.7 5.3C4.7 4 5.4 2.8 6.4 2.1C6.4 1.9 6.5 1.7 6.5 1.5Z" stroke="#6E665C" stroke-width="1.1" fill="none"/></svg>
+            </sc-if>
+          </button>
+        </div>
+      </div>
+
+    </nav>
+  </sc-if>
+
+  <!-- ══ MAIN AREA ══ -->
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden;">
+
+    <!-- TOP BAR -->
+    <div style="flex-shrink:0; height:60px; display:flex; align-items:center; gap:10px; padding:0 {{ tbSide }}; background:{{ card }}; border-bottom:1px solid {{ border }};">
+
+      <!-- Left: back OR logo -->
+      <sc-if value="{{ showBack }}">
+        <button onClick="{{ goBack }}" style="width:38px; height:38px; border-radius:10px; background:{{ card2 }}; border:1px solid {{ border }}; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" style-hover="opacity:0.7;">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 14L6.5 9L11 4" stroke="{{ text }}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </sc-if>
+      <sc-if value="{{ showLeftSpacer }}">
+        <div style="width:38px; flex-shrink:0;"></div>
+      </sc-if>
+      <sc-if value="{{ showMobileLogo }}">
+        <div style="font-family:'Anton',sans-serif; font-size:22px; color:{{ text }}; letter-spacing:-0.5px; line-height:1; flex-shrink:0;">20<span style="color:#C41101;">fit</span></div>
+      </sc-if>
+
+      <!-- Center: title -->
+      <sc-if value="{{ showTitle }}">
+        <p style="font-size:15px; font-weight:600; color:{{ text }}; flex:1; {{ titleAlign }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ headerTitle }}</p>
+      </sc-if>
+      <sc-if value="{{ showMobileLogo }}">
+        <div style="flex:1;"></div>
+      </sc-if>
+
+      <!-- Right: dark toggle + maybe avatar -->
+      <sc-if value="{{ isMobile }}">
+        <button onClick="{{ toggleDark }}" style="width:38px; height:38px; border-radius:10px; background:{{ card2 }}; border:1px solid {{ border }}; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;" style-hover="opacity:0.7;">
+          <sc-if value="{{ isDark }}">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.2" stroke="{{ muted }}" stroke-width="1.3" fill="none"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.3 3.3l1 1M11.7 11.7l1 1M3.3 12.7l1-1M11.7 4.3l1-1" stroke="{{ muted }}" stroke-width="1.2" stroke-linecap="round"/></svg>
+          </sc-if>
+          <sc-if value="{{ isLight }}">
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5C5 1.5 2.5 3.5 2.5 6.5C2.5 9 4.8 11.5 7.5 11.5C9.2 11.5 10.7 10.7 11.5 9.3C11 9.5 10.5 9.5 10 9.5C7.5 9.5 5.5 7.5 5.5 5.5C5.5 4 6.2 2.8 7.2 2C7.3 1.8 7.4 1.7 7.5 1.5Z" stroke="{{ muted }}" stroke-width="1.2" fill="none"/></svg>
+          </sc-if>
+        </button>
+      </sc-if>
+      <sc-if value="{{ showAvatar }}">
+        <div style="width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,#C41101,#7A0800); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#FFF; cursor:pointer; flex-shrink:0;">RA</div>
+      </sc-if>
+      <sc-if value="{{ showRightSpacer }}">
+        <div style="width:38px; flex-shrink:0;"></div>
+      </sc-if>
+
+    </div>
+
+    <!-- SCROLLABLE CONTENT -->
+    <div style="flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;">
+      <div style="max-width:720px; margin:0 auto; width:100%; padding:0 {{ cPad }} 40px;">
+
+        <!-- ════ PROFILE ════ -->
+        <sc-if value="{{ isProfile }}">
+          <div style="animation:fadeUp 0.3s ease both;">
+
+            <!-- Hero -->
+            <div style="padding:22px 0 18px;">
+              <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:9px; letter-spacing:3px; text-transform:uppercase; color:{{ muted }}; margin-bottom:9px;">SELAMAT PAGI</p>
+              <h1 style="font-family:'Anton',sans-serif; font-size:{{ heroSize }}; color:{{ text }}; text-transform:uppercase; letter-spacing:-0.5px; line-height:1.05; margin-bottom:13px;">RIA PUTRI ANDINI</h1>
+              <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(212,168,0,0.08); border:1px solid rgba(212,168,0,0.24); border-radius:20px; padding:5px 12px 5px 10px;">
+                <div style="width:6px; height:6px; border-radius:50%; background:#D4A800;"></div>
+                <span style="font-size:12px; font-weight:600; color:#D4A800; letter-spacing:0.3px;">Plus Member</span>
+              </div>
+            </div>
+
+            <!-- HEALTH STATS -->
+            <div style="margin-bottom:26px;">
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:13px;">
+                <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:9px; letter-spacing:3px; text-transform:uppercase; color:{{ muted }}; white-space:nowrap;">RINGKASAN KESEHATAN</p>
+                <div style="flex:1; height:1px; background:{{ border }};"></div>
+              </div>
+              <div style="display:grid; grid-template-columns:{{ statsGrid }}; gap:10px;">
+
+                <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:16px; box-shadow:{{ shadow }};">
+                  <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:8px; letter-spacing:2.5px; text-transform:uppercase; color:{{ muted }}; margin-bottom:10px;">BMI</p>
+                  <p style="font-family:'JetBrains Mono',monospace; font-size:32px; font-weight:700; color:{{ text }}; line-height:1; margin-bottom:9px;">24.2</p>
+                  <span style="font-size:11px; font-weight:600; color:#1A9A58; background:rgba(26,154,88,0.1); border:1px solid rgba(26,154,88,0.2); padding:3px 10px; border-radius:20px;">Normal</span>
+                </div>
+
+                <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:16px; box-shadow:{{ shadow }};">
+                  <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:8px; letter-spacing:2.5px; text-transform:uppercase; color:{{ muted }}; margin-bottom:10px;">BERAT BADAN</p>
+                  <div style="display:flex; align-items:baseline; gap:3px; margin-bottom:7px;">
+                    <p style="font-family:'JetBrains Mono',monospace; font-size:32px; font-weight:700; color:{{ text }}; line-height:1;">65</p>
+                    <span style="font-size:14px; color:{{ muted }};">kg</span>
+                  </div>
+                  <p style="font-size:11px; color:{{ muted }};">Target: 60 kg</p>
+                </div>
+
+                <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:16px; box-shadow:{{ shadow }};">
+                  <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:8px; letter-spacing:2.5px; text-transform:uppercase; color:{{ muted }}; margin-bottom:10px;">TEKANAN DARAH</p>
+                  <p style="font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:700; color:{{ text }}; line-height:1; margin-bottom:9px;">118/76</p>
+                  <span style="font-size:11px; font-weight:600; color:#1A9A58; background:rgba(26,154,88,0.1); border:1px solid rgba(26,154,88,0.2); padding:3px 10px; border-radius:20px;">Normal</span>
+                </div>
+
+                <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:16px; box-shadow:{{ shadow }};">
+                  <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:8px; letter-spacing:2.5px; text-transform:uppercase; color:{{ muted }}; margin-bottom:10px;">CHECK-UP TERAKHIR</p>
+                  <p style="font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:700; color:{{ text }}; line-height:1; margin-bottom:7px;">3 bln</p>
+                  <p style="font-size:11px; color:{{ muted }};">RS Pondok Indah</p>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- GOALS (EDITABLE) -->
+            <div style="margin-bottom:26px;">
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:13px;">
+                <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:9px; letter-spacing:3px; text-transform:uppercase; color:{{ muted }}; white-space:nowrap;">TUJUAN KESEHATAN</p>
+                <div style="flex:1; height:1px; background:{{ border }};"></div>
+                <span style="font-size:11px; color:{{ muted }}; white-space:nowrap; flex-shrink:0;">{{ goalCount }} goal</span>
+              </div>
+
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <sc-for list="{{ goals }}" as="goal" hint-placeholder-count="3">
+                  <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:14px 16px; box-shadow:{{ shadow }};">
+
+                    <!-- Editing -->
+                    <sc-if value="{{ goal.isEditing }}">
+                      <div>
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                          <div style="width:28px; height:28px; border-radius:8px; background:{{ goal.iconBg }}; border:{{ goal.iconBorder }}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <div style="width:7px; height:7px; border-radius:50%; background:{{ goal.iconColor }};"></div>
+                          </div>
+                          <input value="{{ editingText }}" onChange="{{ onEditInput }}" data-goal-edit="true" style="flex:1; background:{{ card2 }}; border:1px solid {{ border }}; border-radius:8px; padding:9px 12px; font-size:13px; color:{{ text }};" placeholder="Masukkan tujuan..." style-focus="border-color:#C41101;" />
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                          <button onClick="{{ goal.save }}" style="flex:1; padding:9px; background:#C41101; border:none; border-radius:8px; font-size:13px; font-weight:600; color:#FFF; cursor:pointer;" style-hover="background:#A80E00;">Simpan</button>
+                          <button onClick="{{ goal.cancel }}" style="padding:9px 14px; background:transparent; border:1px solid {{ border }}; border-radius:8px; font-size:13px; color:{{ muted }}; cursor:pointer;" style-hover="opacity:0.7;">Batal</button>
+                        </div>
+                      </div>
+                    </sc-if>
+
+                    <!-- View -->
+                    <sc-if value="{{ goal.isView }}">
+                      <div>
+                        <div style="display:flex; align-items:flex-start; gap:10px;">
+                          <div style="width:28px; height:28px; border-radius:8px; background:{{ goal.iconBg }}; border:{{ goal.iconBorder }}; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px;">
+                            <div style="width:7px; height:7px; border-radius:50%; background:{{ goal.iconColor }};"></div>
+                          </div>
+                          <p style="font-size:13.5px; font-weight:500; color:{{ text }}; flex:1; line-height:1.45; text-wrap:pretty;">{{ goal.text }}</p>
+                          <div style="display:flex; gap:6px; flex-shrink:0;">
+                            <button onClick="{{ goal.onEdit }}" style="width:28px; height:28px; border-radius:7px; background:{{ card2 }}; border:1px solid {{ border }}; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="border-color:#C41101;">
+                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5L10.5 3.5L3.5 10.5L1 11L1.5 8.5L8.5 1.5Z" stroke="{{ muted }}" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                            </button>
+                            <button onClick="{{ goal.onDelete }}" style="width:28px; height:28px; border-radius:7px; background:{{ card2 }}; border:1px solid {{ border }}; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="border-color:#C41101;">
+                              <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 2.5h8M4 2.5V1.5h3V2.5M4.5 9V4.5M6.5 9V4.5" stroke="{{ muted }}" stroke-width="1.2" stroke-linecap="round"/></svg>
+                            </button>
+                          </div>
+                        </div>
+                        <sc-if value="{{ goal.hasProgress }}">
+                          <div style="margin-top:10px; padding-top:10px; border-top:1px solid {{ border }};">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                              <p style="font-size:11px; color:{{ muted }};">{{ goal.progressLabel }}</p>
+                              <span style="font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:{{ goal.iconColor }};">{{ goal.progressPct }}</span>
+                            </div>
+                            <div style="height:3px; background:{{ card2 }}; border-radius:2px; overflow:hidden;">
+                              <div style="width:{{ goal.progressPct }}; height:100%; background:{{ goal.iconColor }}; border-radius:2px;"></div>
+                            </div>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+
+                  </div>
+                </sc-for>
+
+                <!-- Add Goal Input -->
+                <sc-if value="{{ showAddGoal }}">
+                  <div style="background:{{ card }}; border:1px solid rgba(196,17,1,0.3); border-radius:14px; padding:14px 16px; box-shadow:{{ shadow }};">
+                    <input value="{{ newGoalText }}" onChange="{{ onNewGoalInput }}" data-goal-new="true" style="width:100%; background:{{ card2 }}; border:1px solid {{ border }}; border-radius:8px; padding:10px 14px; font-size:13.5px; color:{{ text }}; margin-bottom:10px;" placeholder="Tulis tujuan kesehatanmu..." style-focus="border-color:#C41101;" />
+                    <div style="display:flex; gap:8px;">
+                      <button onClick="{{ addGoal }}" style="flex:1; padding:10px; background:#C41101; border:none; border-radius:8px; font-size:13px; font-weight:600; color:#FFF; cursor:pointer;" style-hover="background:#A80E00;">Tambah Goal</button>
+                      <button onClick="{{ cancelAddGoal }}" style="padding:10px 14px; background:transparent; border:1px solid {{ border }}; border-radius:8px; font-size:13px; color:{{ muted }}; cursor:pointer;" style-hover="opacity:0.7;">Batal</button>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <button onClick="{{ startAddGoal }}" style="width:100%; padding:14px; background:transparent; border:1.5px dashed {{ border }}; border-radius:14px; font-size:13px; color:{{ muted }}; cursor:pointer;" style-hover="border-color:#C41101; color:#C41101;">+ Tambah Tujuan Kesehatan</button>
+              </div>
+            </div>
+
+            <!-- RECENT ACTIVITY -->
+            <div style="margin-bottom:26px;">
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:13px;">
+                <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:9px; letter-spacing:3px; text-transform:uppercase; color:{{ muted }}; white-space:nowrap;">AKTIVITAS DI 20FIT</p>
+                <div style="flex:1; height:1px; background:{{ border }};"></div>
+                <span style="font-size:12px; font-weight:500; color:#C41101; cursor:pointer; flex-shrink:0;">Semua →</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; box-shadow:{{ shadow }};">
+                  <div style="display:flex; align-items:center; gap:12px;"><div style="width:8px; height:8px; border-radius:50%; background:#C41101; flex-shrink:0;"></div><div><p style="font-size:13.5px; font-weight:500; color:{{ text }};">EMS Training</p><p style="font-size:11px; color:{{ muted }}; margin-top:1px;">Kemarin · 60 menit</p></div></div>
+                  <span style="font-size:11px; font-weight:600; color:#1A9A58; background:rgba(26,154,88,0.08); border:1px solid rgba(26,154,88,0.18); padding:3px 10px; border-radius:20px; flex-shrink:0; margin-left:10px;">Selesai</span>
+                </div>
+                <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; box-shadow:{{ shadow }};">
+                  <div style="display:flex; align-items:center; gap:12px;"><div style="width:8px; height:8px; border-radius:50%; background:#C41101; flex-shrink:0;"></div><div><p style="font-size:13.5px; font-weight:500; color:{{ text }};">Personal Training</p><p style="font-size:11px; color:{{ muted }}; margin-top:1px;">3 hari lalu · 75 menit</p></div></div>
+                  <span style="font-size:11px; font-weight:600; color:#1A9A58; background:rgba(26,154,88,0.08); border:1px solid rgba(26,154,88,0.18); padding:3px 10px; border-radius:20px; flex-shrink:0; margin-left:10px;">Selesai</span>
+                </div>
+                <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; box-shadow:{{ shadow }};">
+                  <div style="display:flex; align-items:center; gap:12px;"><div style="width:8px; height:8px; border-radius:50%; background:#C41101; flex-shrink:0;"></div><div><p style="font-size:13.5px; font-weight:500; color:{{ text }};">Physiotherapy</p><p style="font-size:11px; color:{{ muted }}; margin-top:1px;">1 minggu lalu · 45 menit</p></div></div>
+                  <span style="font-size:11px; font-weight:600; color:#1A9A58; background:rgba(26,154,88,0.08); border:1px solid rgba(26,154,88,0.18); padding:3px 10px; border-radius:20px; flex-shrink:0; margin-left:10px;">Selesai</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- QUICK ACCESS -->
+            <div>
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:13px;">
+                <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:9px; letter-spacing:3px; text-transform:uppercase; color:{{ muted }}; white-space:nowrap;">AKSES CEPAT</p>
+                <div style="flex:1; height:1px; background:{{ border }};"></div>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div onClick="{{ goToRecords }}" style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:18px; cursor:pointer; box-shadow:{{ shadow }};" style-hover="opacity:0.85;">
+                  <div style="width:40px; height:40px; background:{{ card2 }}; border:1px solid {{ border }}; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:12px;">
+                    <svg width="19" height="19" viewBox="0 0 19 19" fill="none"><rect x="2.5" y="1.5" width="11" height="14" rx="2" stroke="#C41101" stroke-width="1.3" fill="none"/><path d="M5.5 7h7M5.5 10h5" stroke="#C41101" stroke-width="1.2" stroke-linecap="round"/><circle cx="14.5" cy="14" r="3.2" fill="{{ card }}" stroke="#C41101" stroke-width="1.2"/><path d="M13.7 14h1.6M14.5 13.2v1.6" stroke="#C41101" stroke-width="1.1" stroke-linecap="round"/></svg>
+                  </div>
+                  <p style="font-size:14px; font-weight:600; color:{{ text }}; margin-bottom:3px;">Medical Records</p>
+                  <p style="font-size:12px; color:{{ muted }};">3 dokumen tersimpan</p>
+                </div>
+                <div onClick="{{ goToPlan }}" style="background:#C41101; border:1px solid #C41101; border-radius:14px; padding:18px; cursor:pointer;" style-hover="background:#A80E00; border-color:#A80E00;">
+                  <div style="width:40px; height:40px; background:rgba(0,0,0,0.15); border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:12px;">
+                    <svg width="19" height="19" viewBox="0 0 19 19" fill="none"><path d="M9.5 1.5L11.3 6.8H17L12.3 9.9L14.1 15.5L9.5 12.3L4.9 15.5L6.7 9.9L2 6.8H7.7Z" fill="rgba(255,255,255,0.3)"/></svg>
+                  </div>
+                  <p style="font-size:14px; font-weight:600; color:#FFF; margin-bottom:3px;">Your Plan</p>
+                  <p style="font-size:12px; color:rgba(255,255,255,0.6);">5 rekomendasi aktif</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </sc-if>
+
+        <!-- ════ MEDICAL RECORDS ════ -->
+        <sc-if value="{{ isRecords }}">
+          <div style="animation:fadeUp 0.3s ease both;">
+
+            <div style="margin:16px 0 20px; background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.18); border-radius:12px; padding:14px 16px; display:flex; align-items:flex-start; gap:10px;">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0; margin-top:1px;"><path d="M8 1.5L13 3.5V8C13 10.8 10.8 13.2 8 14C5.2 13.2 3 10.8 3 8V3.5L8 1.5Z" stroke="#3B82F6" stroke-width="1.2" fill="rgba(59,130,246,0.08)"/><path d="M5.5 8L7 9.5L10.5 6" stroke="#3B82F6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <div><p style="font-size:12px; font-weight:600; color:#3B82F6; margin-bottom:3px;">Dokumen Terlindungi</p><p style="font-size:12px; color:{{ textSoft }}; line-height:1.5;">Hanya kamu dan dokter 20fit yang dapat mengakses dokumen ini. Tidak ada pihak lain.</p></div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:13px;">
+              <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:9px; letter-spacing:3px; text-transform:uppercase; color:{{ muted }}; white-space:nowrap;">{{ docCount }} DOKUMEN</p>
+              <div style="flex:1; height:1px; background:{{ border }};"></div>
+              <span style="font-size:11px; color:{{ muted }}; flex-shrink:0;">Terbaru</span>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:18px;">
+              <sc-for list="{{ documents }}" as="doc" hint-placeholder-count="3">
+                <div onClick="{{ doc.onClick }}" style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:16px; cursor:pointer; box-shadow:{{ shadow }};" style-hover="opacity:0.85;">
+                  <div style="display:flex; align-items:flex-start; gap:14px; margin-bottom:12px;">
+                    <div style="width:44px; height:54px; background:{{ card2 }}; border:1px solid {{ border }}; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding:6px; flex-shrink:0; gap:4px;">
+                      <div style="display:flex; flex-direction:column; gap:2.5px; width:100%; flex:1; justify-content:center; padding:0 4px;">
+                        <div style="height:1.5px; background:{{ border }}; border-radius:1px;"></div>
+                        <div style="height:1.5px; background:{{ border }}; border-radius:1px; width:80%;"></div>
+                        <div style="height:1.5px; background:{{ border }}; border-radius:1px; width:60%;"></div>
+                        <div style="height:1.5px; background:{{ border }}; border-radius:1px; width:75%;"></div>
+                      </div>
+                      <span style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:8px; letter-spacing:1px; color:#C41101;">{{ doc.type }}</span>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                      <p style="font-size:14px; font-weight:600; color:{{ text }}; margin-bottom:4px; line-height:1.3;">{{ doc.title }}</p>
+                      <p style="font-size:12px; color:{{ muted }};">{{ doc.date }}</p>
+                      <p style="font-size:12px; color:{{ muted }}; margin-top:1px;">{{ doc.facility }}</p>
+                    </div>
+                    <span style="font-size:11px; font-weight:600; color:{{ doc.statusColor }}; background:{{ doc.statusBg }}; border:{{ doc.statusBorder }}; padding:3px 10px; border-radius:20px; flex-shrink:0; white-space:nowrap; margin-top:1px;">{{ doc.statusLabel }}</span>
+                  </div>
+                  <div style="display:flex; align-items:center; justify-content:space-between; padding-top:10px; border-top:1px solid {{ border }};">
+                    <p style="font-size:12px; color:{{ muted }};">Lihat ringkasan dokumen</p>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4.5L10 8L6 11.5" stroke="{{ muted }}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+
+            <button onClick="{{ goToUpload }}" style="width:100%; padding:16px; background:#C41101; border:none; border-radius:14px; font-size:15px; font-weight:700; color:#FFF; cursor:pointer;" style-hover="background:#A80E00;">+ Upload Dokumen Baru</button>
+
+          </div>
+        </sc-if>
+
+        <!-- ════ UPLOAD ════ -->
+        <sc-if value="{{ isUpload }}">
+          <div style="animation:fadeUp 0.3s ease both;">
+
+            <div style="margin:16px 0 22px; background:rgba(59,130,246,0.04); border:1px solid rgba(59,130,246,0.15); border-radius:12px; padding:13px 16px; display:flex; align-items:flex-start; gap:10px;">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style="flex-shrink:0; margin-top:2px;"><path d="M7.5 1L12 3V7C12 9.5 10 11.8 7.5 12.5C5 11.8 3 9.5 3 7V3L7.5 1Z" stroke="#3B82F6" stroke-width="1.1" fill="rgba(59,130,246,0.08)"/></svg>
+              <p style="font-size:12px; color:{{ textSoft }}; line-height:1.5;">File kamu terenkripsi end-to-end. Hanya <strong style="color:{{ text }};">kamu dan dokter 20fit</strong> yang bisa mengaksesnya.</p>
+            </div>
+
+            <!-- IDLE -->
+            <sc-if value="{{ isUploadIdle }}">
+              <div>
+                <div onClick="{{ startUpload }}" style="border:2px dashed {{ border }}; border-radius:16px; padding:48px 24px; display:flex; flex-direction:column; align-items:center; gap:16px; cursor:pointer; background:{{ card }}; box-shadow:{{ shadow }};" style-hover="border-color:#C41101;">
+                  <div style="width:60px; height:60px; background:{{ card2 }}; border:1px solid {{ border }}; border-radius:14px; display:flex; align-items:center; justify-content:center;">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 22V8M14 8L9 13M14 8L19 13" stroke="#C41101" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 24h18" stroke="{{ muted }}" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  </div>
+                  <div style="text-align:center;">
+                    <p style="font-size:16px; font-weight:600; color:{{ text }}; margin-bottom:6px;">Pilih atau seret file ke sini</p>
+                    <p style="font-size:13px; color:{{ muted }};">PDF, JPG, PNG · Maks. 10 MB</p>
+                  </div>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:14px; margin:22px 0;">
+                  <div style="flex:1; height:1px; background:{{ border }};"></div>
+                  <span style="font-size:12px; color:{{ muted }};">atau isi form</span>
+                  <div style="flex:1; height:1px; background:{{ border }};"></div>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:24px;">
+                  <div>
+                    <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:8px; letter-spacing:2.5px; text-transform:uppercase; color:{{ muted }}; margin-bottom:7px;">TANGGAL PEMERIKSAAN</p>
+                    <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:10px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; box-shadow:{{ shadow }}; cursor:pointer;">
+                      <span style="font-size:14px; color:{{ muted }};">Pilih tanggal...</span>
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="11" rx="1.5" stroke="{{ muted }}" stroke-width="1.2" fill="none"/><path d="M5 1.5v2M11 1.5v2M2 7h12" stroke="{{ muted }}" stroke-width="1.2" stroke-linecap="round"/></svg>
+                    </div>
+                  </div>
+                  <div>
+                    <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:8px; letter-spacing:2.5px; text-transform:uppercase; color:{{ muted }}; margin-bottom:7px;">FASILITAS KESEHATAN</p>
+                    <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:10px; padding:14px 16px; box-shadow:{{ shadow }}; cursor:text;">
+                      <span style="font-size:14px; color:{{ muted }};">Nama RS / klinik / laboratorium...</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:8px; letter-spacing:2.5px; text-transform:uppercase; color:{{ muted }}; margin-bottom:7px;">JENIS PEMERIKSAAN</p>
+                    <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:10px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; box-shadow:{{ shadow }}; cursor:pointer;">
+                      <span style="font-size:14px; color:{{ muted }};">Pilih jenis...</span>
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="{{ muted }}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </div>
+                  </div>
+                </div>
+
+                <button onClick="{{ startUpload }}" style="width:100%; padding:16px; background:#C41101; border:none; border-radius:14px; font-size:15px; font-weight:700; color:#FFF; cursor:pointer;" style-hover="background:#A80E00;">Upload Dokumen</button>
+              </div>
+            </sc-if>
+
+            <!-- PROCESSING -->
+            <sc-if value="{{ isUploadProcessing }}">
+              <div style="display:flex; flex-direction:column; align-items:center; padding:48px 0; gap:32px;">
+                <div style="width:72px; height:72px; border-radius:50%; border:2.5px solid {{ card2 }}; border-top-color:#C41101; animation:spin 1s linear infinite;"></div>
+                <div style="text-align:center;">
+                  <h2 style="font-family:'Anton',sans-serif; font-size:24px; color:{{ text }}; text-transform:uppercase; letter-spacing:-0.3px; margin-bottom:8px;">MEMPROSES DOKUMEN</h2>
+                  <p style="font-size:13px; color:{{ muted }}; line-height:1.65;">Mengidentifikasi isi dokumen secara<br/>aman dan terenkripsi</p>
+                </div>
+                <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:16px 20px; width:100%; max-width:380px; display:flex; flex-direction:column; gap:12px; box-shadow:{{ shadow }};">
+                  <div style="display:flex; align-items:center; gap:12px;"><div style="width:8px; height:8px; border-radius:50%; background:#C41101; animation:pulse 1.2s ease infinite; flex-shrink:0;"></div><span style="font-size:13px; color:{{ textSoft }};">Mengenkripsi dan mengunggah file...</span></div>
+                  <div style="display:flex; align-items:center; gap:12px;"><div style="width:8px; height:8px; border-radius:50%; background:{{ muted }}; animation:pulse 1.2s ease 0.4s infinite; flex-shrink:0;"></div><span style="font-size:13px; color:{{ muted }};">Mengidentifikasi isi dokumen...</span></div>
+                  <div style="display:flex; align-items:center; gap:12px;"><div style="width:8px; height:8px; border-radius:50%; background:{{ border }}; flex-shrink:0;"></div><span style="font-size:13px; color:{{ muted }}; opacity:0.5;">Menyimpan ke profil kamu...</span></div>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- DONE -->
+            <sc-if value="{{ isUploadDone }}">
+              <div style="animation:fadeUp 0.3s ease both; display:flex; flex-direction:column; align-items:center; padding:40px 0 24px; gap:24px;">
+                <div style="width:80px; height:80px; border-radius:50%; background:rgba(26,154,88,0.08); border:1.5px solid rgba(26,154,88,0.25); display:flex; align-items:center; justify-content:center;">
+                  <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M8 18L15 25L28 11" stroke="#1A9A58" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="44" style="animation:check 0.5s ease 0.1s both;"/></svg>
+                </div>
+                <div style="text-align:center;">
+                  <h2 style="font-family:'Anton',sans-serif; font-size:24px; color:{{ text }}; text-transform:uppercase; letter-spacing:-0.3px; margin-bottom:6px;">BERHASIL DIUPLOAD</h2>
+                  <p style="font-size:13px; color:{{ muted }}; line-height:1.65;">Dokumen tersimpan dengan aman. Tim dokter<br/>20fit akan melakukan review segera.</p>
+                </div>
+                <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:18px; width:100%; max-width:460px; box-shadow:{{ shadow }};">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1L10.5 2.8V6.5C10.5 8.9 8.7 11 6.5 11.5C4.3 11 2.5 8.9 2.5 6.5V2.8L6.5 1Z" stroke="#3B82F6" stroke-width="1" fill="rgba(59,130,246,0.08)"/></svg>
+                    <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:8px; letter-spacing:2.5px; text-transform:uppercase; color:#3B82F6;">RINGKASAN OTOMATIS</p>
+                  </div>
+                  <p style="font-size:13px; color:{{ textSoft }}; line-height:1.65; margin-bottom:12px;">Dokumen ini tampaknya berisi hasil <strong style="color:{{ text }};">Annual Health Screening</strong> dengan 22 parameter terdeteksi. Dokter 20fit akan meninjau dan memberikan rekomendasi.</p>
+                  <div style="background:{{ card2 }}; border-radius:8px; padding:10px 14px; border:1px solid {{ border }};">
+                    <p style="font-size:11px; color:{{ muted }}; line-height:1.5;">ⓘ Ringkasan ini bukan diagnosis medis — hanya identifikasi otomatis isi dokumen.</p>
+                  </div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px; width:100%; max-width:460px;">
+                  <button onClick="{{ goToRecordsFromUpload }}" style="width:100%; padding:16px; background:#C41101; border:none; border-radius:14px; font-size:15px; font-weight:700; color:#FFF; cursor:pointer;" style-hover="background:#A80E00;">Lihat Medical Records</button>
+                  <button onClick="{{ resetUpload }}" style="width:100%; padding:14px; background:transparent; border:1px solid {{ border }}; border-radius:14px; font-size:14px; color:{{ muted }}; cursor:pointer;" style-hover="opacity:0.7;">Upload Dokumen Lain</button>
+                </div>
+              </div>
+            </sc-if>
+
+          </div>
+        </sc-if>
+
+        <!-- ════ DOCUMENT DETAIL ════ -->
+        <sc-if value="{{ isDocument }}">
+          <div style="animation:fadeUp 0.3s ease both;">
+
+            <div style="display:flex; align-items:center; gap:8px; margin:14px 0 18px;">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1L11.5 3V7C11.5 9.5 9.5 11.5 7 12C4.5 11.5 2.5 9.5 2.5 7V3L7 1Z" stroke="#3B82F6" stroke-width="1" fill="rgba(59,130,246,0.08)"/><path d="M4.5 7L6.2 8.7L9.5 5.3" stroke="#3B82F6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span style="font-size:12px; font-weight:500; color:#3B82F6;">Hanya kamu dan dokter 20fit yang dapat melihat dokumen ini</span>
+            </div>
+
+            <!-- Doc card -->
+            <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:16px; margin-bottom:18px; display:flex; align-items:flex-start; gap:14px; box-shadow:{{ shadow }};">
+              <div style="width:46px; height:56px; background:{{ card2 }}; border:1px solid {{ border }}; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; padding:6px; flex-shrink:0; gap:4px;">
+                <div style="display:flex; flex-direction:column; gap:2.5px; width:100%; flex:1; justify-content:center; padding:0 4px;"><div style="height:1.5px; background:{{ border }};"></div><div style="height:1.5px; background:{{ border }}; width:80%;"></div><div style="height:1.5px; background:{{ border }}; width:60%;"></div></div>
+                <span style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:8px; letter-spacing:1px; color:#C41101;">{{ docType }}</span>
+              </div>
+              <div style="flex:1; min-width:0;">
+                <p style="font-size:15px; font-weight:600; color:{{ text }}; margin-bottom:5px; line-height:1.3;">{{ docTitle }}</p>
+                <p style="font-size:12px; color:{{ muted }};">{{ docDate }} · {{ docFacility }}</p>
+              </div>
+              <span style="font-size:11px; font-weight:600; color:{{ docStatusColor }}; background:{{ docStatusBg }}; border:{{ docStatusBorder }}; padding:3px 10px; border-radius:20px; flex-shrink:0; white-space:nowrap; margin-top:2px;">{{ docStatusLabel }}</span>
+            </div>
+
+            <!-- Summary -->
+            <div style="margin-bottom:18px;">
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:13px;">
+                <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:9px; letter-spacing:3px; text-transform:uppercase; color:{{ muted }}; white-space:nowrap;">RINGKASAN DOKUMEN</p>
+                <div style="flex:1; height:1px; background:{{ border }};"></div>
+              </div>
+              <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:18px; box-shadow:{{ shadow }};">
+                <p style="font-size:14px; color:{{ textSoft }}; line-height:1.7; margin-bottom:18px; text-wrap:pretty;">{{ docSummary }}</p>
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                  <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:8px; letter-spacing:2.5px; text-transform:uppercase; color:{{ muted }}; white-space:nowrap;">PARAMETER TERDETEKSI</p>
+                  <div style="flex:1; height:1px; background:{{ border }};"></div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:9px;">
+                  <sc-for list="{{ docParams }}" as="param" hint-placeholder-count="5">
+                    <div style="display:flex; align-items:center; gap:10px;"><div style="width:5px; height:5px; border-radius:50%; background:#C41101; flex-shrink:0;"></div><span style="font-size:13px; color:{{ text }};">{{ param }}</span></div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <!-- Disclaimer -->
+            <div style="background:rgba(212,168,0,0.05); border:1px solid rgba(212,168,0,0.22); border-radius:12px; padding:14px 16px; margin-bottom:18px; display:flex; align-items:flex-start; gap:10px;">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0; margin-top:1px;"><circle cx="8" cy="8" r="6.5" stroke="#D4A800" stroke-width="1.2" fill="none"/><path d="M8 5v3.5" stroke="#D4A800" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11" r="0.9" fill="#D4A800"/></svg>
+              <div><p style="font-size:12px; font-weight:600; color:#D4A800; margin-bottom:4px;">Bukan Diagnosa Medis</p><p style="font-size:12px; color:{{ textSoft }}; line-height:1.6; text-wrap:pretty;">Ringkasan ini hanya menggambarkan isi dokumen yang terdeteksi secara otomatis. Evaluasi medis hanya dilakukan oleh dokter 20fit secara langsung.</p></div>
+            </div>
+
+            <!-- Doctor review -->
+            <sc-if value="{{ isDocReviewed }}">
+              <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:14px; padding:14px 16px; margin-bottom:18px; display:flex; align-items:center; gap:12px; box-shadow:{{ shadow }};">
+                <div style="width:40px; height:40px; border-radius:50%; background:rgba(26,154,88,0.08); border:1px solid rgba(26,154,88,0.22); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                  <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M3.5 8.5L7 12L13.5 5" stroke="#1A9A58" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div><p style="font-size:13.5px; font-weight:600; color:#1A9A58; margin-bottom:2px;">Sudah Direview oleh Dokter 20fit</p><p style="font-size:12px; color:{{ muted }};">dr. Amelia Surya, Sp.KO · 18 Mar 2025</p></div>
+              </div>
+            </sc-if>
+
+            <button onClick="{{ goToPlan }}" style="width:100%; padding:16px; background:#C41101; border:none; border-radius:14px; font-size:15px; font-weight:700; color:#FFF; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px;" style-hover="background:#A80E00;">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.8 6.5H15L11 9.5L12.7 14.5L8 11.5L3.3 14.5L5 9.5L1 6.5H6.2Z" fill="rgba(255,255,255,0.35)"/></svg>
+              Lihat Your Plan
+            </button>
+
+          </div>
+        </sc-if>
+
+        <!-- ════ YOUR PLAN ════ -->
+        <sc-if value="{{ isPlan }}">
+          <div style="animation:fadeUp 0.3s ease both;">
+
+            <div style="padding:16px 0 22px;">
+              <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:9px; letter-spacing:3px; text-transform:uppercase; color:{{ muted }}; margin-bottom:9px;">BERDASARKAN PROFIL KESEHATANMU</p>
+              <h1 style="font-family:'Anton',sans-serif; font-size:{{ heroSize }}; color:{{ text }}; text-transform:uppercase; letter-spacing:-0.5px; line-height:1.05; margin-bottom:10px;">YOUR PLAN</h1>
+              <p style="font-size:14px; color:{{ textSoft }}; line-height:1.65; text-wrap:pretty;">Tim 20fit merekomendasikan layanan berikut berdasarkan data kesehatan dan hasil medical check-up kamu.</p>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+              <p style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:9px; letter-spacing:3px; text-transform:uppercase; color:{{ muted }}; white-space:nowrap;">REKOMENDASI</p>
+              <div style="flex:1; height:1px; background:{{ border }};"></div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:24px;">
+              <sc-for list="{{ products }}" as="product" hint-placeholder-count="5">
+                <div style="background:{{ card }}; border:1px solid {{ border }}; border-radius:16px; padding:20px; box-shadow:{{ shadow }};">
+                  <div style="display:flex; align-items:flex-start; gap:14px; margin-bottom:12px;">
+                    <div style="width:50px; height:50px; background:#C41101; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                      <span style="font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:12px; letter-spacing:1px; color:#FFF; text-transform:uppercase;">{{ product.code }}</span>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:3px;">
+                        <p style="font-size:15px; font-weight:700; color:{{ text }};">{{ product.name }}</p>
+                        <sc-if value="{{ product.hasBadge }}">
+                          <span style="font-size:10px; font-weight:600; color:{{ product.badgeColor }}; background:{{ product.badgeBg }}; border:{{ product.badgeBorder }}; padding:2px 9px; border-radius:20px; white-space:nowrap;">{{ product.badge }}</span>
+                        </sc-if>
+                      </div>
+                      <p style="font-size:12px; color:{{ muted }};">{{ product.tagline }}</p>
+                    </div>
+                  </div>
+                  <p style="font-size:13.5px; color:{{ textSoft }}; line-height:1.65; margin-bottom:14px; text-wrap:pretty;">{{ product.reason }}</p>
+                  <button style="width:100%; padding:12px; background:{{ card2 }}; border:1px solid {{ border }}; border-radius:10px; font-size:13px; font-weight:600; color:{{ text }}; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;" style-hover="border-color:#C41101; color:#C41101;">
+                    Pelajari &amp; Daftar
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3.5L9 7L5 10.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="background:{{ card2 }}; border:1px solid {{ border }}; border-radius:12px; padding:14px 16px; text-align:center;">
+              <p style="font-size:12px; color:{{ muted }}; line-height:1.6;">Rekomendasi ini disusun berdasarkan data kesehatan kamu.<br/>Untuk konsultasi langsung, hubungi tim 20fit.</p>
+            </div>
+
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+
+    <!-- ══ MOBILE BOTTOM NAV ══ -->
+    <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+      <div style="flex-shrink:0; background:{{ card }}; border-top:1px solid {{ border }}; padding:10px 0 24px; display:flex; justify-content:space-around; align-items:center;">
+
+        <button onClick="{{ goToProfile }}" style="display:flex; flex-direction:column; align-items:center; gap:5px; background:none; border:none; cursor:pointer; padding:6px 20px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="7.5" r="3.5" stroke="{{ profileTabColor }}" stroke-width="1.6" fill="none"/><path d="M4.5 21C4.5 17.5 7.9 14.5 12 14.5C16.1 14.5 19.5 17.5 19.5 21" stroke="{{ profileTabColor }}" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
+          <span style="font-size:10px; font-weight:{{ profileTabFW }}; color:{{ profileTabColor }};">Profil</span>
+        </button>
+
+        <button onClick="{{ goToRecords }}" style="display:flex; flex-direction:column; align-items:center; gap:5px; background:none; border:none; cursor:pointer; padding:6px 20px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="4" y="2" width="12" height="17" rx="2" stroke="{{ recordsTabColor }}" stroke-width="1.6" fill="none"/><path d="M7.5 8h7M7.5 12h5" stroke="{{ recordsTabColor }}" stroke-width="1.4" stroke-linecap="round"/><circle cx="18.5" cy="16.5" r="3.5" fill="{{ card }}" stroke="{{ recordsTabColor }}" stroke-width="1.4"/><path d="M17 16.5h3M18.5 15v3" stroke="{{ recordsTabColor }}" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <span style="font-size:10px; font-weight:{{ recordsTabFW }}; color:{{ recordsTabColor }};">Rekam Medis</span>
+        </button>
+
+        <button onClick="{{ goToPlan }}" style="display:flex; flex-direction:column; align-items:center; gap:5px; background:none; border:none; cursor:pointer; padding:6px 20px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9H22L16.5 13.5L18.5 20.5L12 16.5L5.5 20.5L7.5 13.5L2 9H9.5Z" stroke="{{ planTabColor }}" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>
+          <span style="font-size:10px; font-weight:{{ planTabFW }}; color:{{ planTabColor }};">Your Plan</span>
+        </button>
+
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    screen: 'profile',
+    selectedDoc: 0,
+    uploadStage: 'idle',
+    isDark: (localStorage.getItem('my20fit_theme') === 'dark') ||
+            (!localStorage.getItem('my20fit_theme') && window.matchMedia?.('(prefers-color-scheme: dark)').matches) || false,
+    isDesktop: window.innerWidth >= 1024,
+    goals: [
+      { id: 1, text: 'Turunkan berat badan ke 60 kg', progress: 38, progressLabel: '38% tercapai — 5 kg lagi', iconBg: 'rgba(196,17,1,0.08)', iconBorder: '1px solid rgba(196,17,1,0.2)', iconColor: '#C41101' },
+      { id: 2, text: 'Tingkatkan kesehatan kardiovaskular', progress: 0, progressLabel: 'Dipantau oleh dokter 20fit', iconBg: 'rgba(59,130,246,0.08)', iconBorder: '1px solid rgba(59,130,246,0.2)', iconColor: '#3B82F6' },
+      { id: 3, text: 'Aktif berolahraga 4× seminggu', progress: 75, progressLabel: '3 dari 4 sesi minggu ini ✓', iconBg: 'rgba(26,154,88,0.08)', iconBorder: '1px solid rgba(26,154,88,0.2)', iconColor: '#1A9A58' },
+    ],
+    editingGoalId: null,
+    editingText: '',
+    showAddGoal: false,
+    newGoalText: '',
+  };
+
+  componentDidMount() {
+    this._onResize = () => this.setState({ isDesktop: window.innerWidth >= 1024 });
+    window.addEventListener('resize', this._onResize);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('resize', this._onResize);
+  }
+
+  toggleDark() {
+    this.setState(s => {
+      const next = !s.isDark;
+      localStorage.setItem('my20fit_theme', next ? 'dark' : 'light');
+      return { isDark: next };
+    });
+  }
+
+  goBack() {
+    const map = { records: 'profile', upload: 'records', document: 'records', plan: 'profile' };
+    this.setState(s => ({ screen: map[s.screen] || 'profile' }));
+  }
+
+  get iconPalette() {
+    return [
+      { iconBg: 'rgba(196,17,1,0.08)', iconBorder: '1px solid rgba(196,17,1,0.2)', iconColor: '#C41101' },
+      { iconBg: 'rgba(59,130,246,0.08)', iconBorder: '1px solid rgba(59,130,246,0.2)', iconColor: '#3B82F6' },
+      { iconBg: 'rgba(26,154,88,0.08)', iconBorder: '1px solid rgba(26,154,88,0.2)', iconColor: '#1A9A58' },
+      { iconBg: 'rgba(212,168,0,0.08)', iconBorder: '1px solid rgba(212,168,0,0.2)', iconColor: '#D4A800' },
+    ];
+  }
+
+  get docs() {
+    return [
+      { title: 'Annual Health Screening', date: '15 Mar 2025', facility: 'RS Pondok Indah', type: 'PDF', statusLabel: 'Reviewed', statusColor: '#1A9A58', statusBg: 'rgba(26,154,88,0.08)', statusBorder: '1px solid rgba(26,154,88,0.2)', summary: 'Dokumen ini berisi hasil pemeriksaan kesehatan tahunan lengkap, mencakup panel darah rutin, fungsi hati dan ginjal, profil lipid, serta metabolisme glukosa.', params: ['Hemoglobin & Hematokrit', 'Profil Lipid (LDL, HDL, Trigliserida)', 'Fungsi Hati (SGOT, SGPT)', 'Gula Darah Puasa & HbA1c', 'Fungsi Ginjal (Kreatinin, Ureum)', '+17 parameter lainnya'], isReviewed: true },
+      { title: 'Cardiac Risk Assessment', date: '08 Jan 2025', facility: 'Prodia', type: 'PDF', statusLabel: 'Reviewed', statusColor: '#1A9A58', statusBg: 'rgba(26,154,88,0.08)', statusBorder: '1px solid rgba(26,154,88,0.2)', summary: 'Dokumen ini merupakan penilaian risiko kardiovaskular, mencakup rekam jantung (EKG), biomarker jantung, dan panel profil risiko kardiovaskular lengkap.', params: ['Hasil EKG (Elektrokardiogram)', 'Troponin I & T', 'CK-MB (Creatine Kinase)', 'BNP (Brain Natriuretic Peptide)', '+5 parameter lainnya'], isReviewed: true },
+      { title: 'Body Composition Analysis', date: '20 Nov 2024', facility: 'RS Siloam Semanggi', type: 'IMG', statusLabel: 'Menunggu Review', statusColor: '#C07800', statusBg: 'rgba(192,120,0,0.08)', statusBorder: '1px solid rgba(192,120,0,0.2)', summary: 'Dokumen ini berisi hasil analisis komposisi tubuh menggunakan DEXA scan, mencakup persentase lemak tubuh, massa otot, dan kepadatan mineral tulang.', params: ['Persentase Lemak Tubuh (Body Fat %)', 'Massa Otot (Lean Mass)', 'Kepadatan Tulang (Bone Density)', 'Indeks Lemak Viseral'], isReviewed: false },
+    ];
+  }
+
+  get prods() {
+    return [
+      { code: 'PT', name: 'Personal Training', tagline: 'Program latihan personal untuk hasil optimal', badge: 'Top Pick', badgeColor: '#C41101', badgeBg: 'rgba(196,17,1,0.08)', badgeBorder: '1px solid rgba(196,17,1,0.2)', hasBadge: true, reason: 'Berdasarkan tujuanmu untuk menurunkan berat badan, program latihan personal bersama trainer bersertifikat adalah cara paling efektif dan aman untuk mencapai target 60 kg.' },
+      { code: 'EMS', name: 'EMS Training', tagline: '20 menit setara 90 menit latihan konvensional', badge: 'Recommended', badgeColor: '#1A9A58', badgeBg: 'rgba(26,154,88,0.08)', badgeBorder: '1px solid rgba(26,154,88,0.2)', hasBadge: true, reason: 'Teknologi Electrical Muscle Stimulation mengaktifkan 90% serat otot secara bersamaan — sangat efisien untuk pembakaran lemak dan pembentukan otot.' },
+      { code: 'PHY', name: 'Physiotherapy', tagline: 'Pulihkan dan optimalkan gerak tubuh kamu', badge: 'Doctor Suggested', badgeColor: '#3B82F6', badgeBg: 'rgba(59,130,246,0.08)', badgeBorder: '1px solid rgba(59,130,246,0.2)', hasBadge: true, reason: 'Dokter 20fit merekomendasikan sesi physiotherapy untuk mendukung program kardiovaskular kamu dan mencegah risiko cedera selama berlatih.' },
+      { code: 'NUT', name: 'Nutrition Consultation', tagline: 'Makan lebih cerdas, capai goal lebih cepat', badge: '', badgeColor: '', badgeBg: '', badgeBorder: '', hasBadge: false, reason: 'Konsultasi dengan ahli gizi 20fit untuk rencana makan yang disesuaikan dengan tujuan penurunan berat badan dan kondisi kesehatan kamu saat ini.' },
+      { code: 'GYM', name: 'Gym Membership', tagline: 'Akses penuh ke fasilitas premium 20fit', badge: '', badgeColor: '', badgeBg: '', badgeBorder: '', hasBadge: false, reason: 'Fasilitas gym premium dengan peralatan terkini untuk mendukung perjalanan kesehatanmu setiap hari, sesuai jadwal yang fleksibel.' },
+    ];
+  }
+
+  renderVals() {
+    const { screen, selectedDoc, uploadStage, isDark, isDesktop, goals, editingGoalId, editingText, showAddGoal, newGoalText } = this.state;
+    const isMobile = !isDesktop;
+    const D = isDark;
+
+    // ── Color palette ──────────────────────────────────
+    const bg       = D ? '#0A0908' : '#EDE8DF';
+    const card     = D ? '#131310' : '#FFFFFF';
+    const card2    = D ? '#1A1A1A' : '#F0EDE5';
+    const text     = D ? '#F0EDE6' : '#0A0908';
+    const textSoft = D ? '#A09880' : '#5C4E42';
+    const muted    = D ? '#6E665C' : '#9E8E7A';
+    const border   = D ? 'rgba(255,255,255,0.07)' : '#DDD5C8';
+    const shadow   = D ? 'none' : '0 1px 3px rgba(0,0,0,0.06)';
+
+    // ── Nav state ──────────────────────────────────────
+    const isProfileActive = screen === 'profile';
+    const isRecordsActive = ['records', 'upload', 'document'].includes(screen);
+    const isPlanActive = screen === 'plan';
+    const navColor = a => a ? '#C41101' : muted;
+    const navBg    = a => a ? 'rgba(196,17,1,0.08)' : 'transparent';
+    const navFW    = a => a ? '600' : '400';
+
+    // ── Top bar layout ─────────────────────────────────
+    const showBack       = isDesktop ? ['upload','document'].includes(screen) : screen !== 'profile';
+    const showMobileLogo = isMobile && screen === 'profile';
+    const showTitle      = !(isMobile && screen === 'profile');
+    const showAvatar     = isMobile && screen === 'profile';
+    const showRightSpacer = isMobile && !showAvatar && !showBack;
+    const showLeftSpacer = isMobile && !showBack && !showMobileLogo;
+    const titleAlign     = isMobile && showBack ? 'text-align:center;' : '';
+
+    const screenTitles = { profile: 'Profil Saya', records: 'Medical Records', upload: 'Upload Dokumen', plan: 'Your Plan' };
+    const doc = this.docs[selectedDoc] || this.docs[0];
+
+    // ── Goals with handlers ────────────────────────────
+    const pal = this.iconPalette;
+    const goalsWithMeta = goals.map((g, i) => {
+      const p = g.iconColor ? g : pal[i % pal.length];
+      return {
+        ...g,
+        iconBg: p.iconBg, iconBorder: p.iconBorder, iconColor: p.iconColor,
+        isEditing: editingGoalId === g.id,
+        isView: editingGoalId !== g.id,
+        hasProgress: !!(g.progressLabel),
+        progressPct: (g.progress || 0) + '%',
+        onEdit: () => this.setState({ editingGoalId: g.id, editingText: g.text }, () => {
+          setTimeout(() => { const el = document.querySelector('[data-goal-edit]'); if (el) { el.focus(); el.select(); } }, 80);
+        }),
+        onDelete: () => this.setState(s => ({ goals: s.goals.filter(x => x.id !== g.id), editingGoalId: null })),
+        save: () => {
+          const txt = this.state.editingText.trim();
+          if (!txt) return;
+          this.setState(s => ({ goals: s.goals.map(x => x.id === g.id ? { ...x, text: txt } : x), editingGoalId: null, editingText: '' }));
+        },
+        cancel: () => this.setState({ editingGoalId: null, editingText: '' }),
+      };
+    });
+
+    return {
+      // Theme
+      isDark, isDesktop, isMobile, isLight: !isDark,
+      bg, card, card2, text, textSoft, muted, border, shadow,
+      toggleDark: () => this.toggleDark(),
+
+      // Layout
+      layoutDir: isDesktop ? 'row' : 'column',
+      tbSide: isDesktop ? '28px' : '18px',
+      cPad: isDesktop ? '36px' : '18px',
+      statsGrid: isDesktop ? 'repeat(4,1fr)' : 'repeat(2,1fr)',
+      heroSize: isDesktop ? '36px' : '30px',
+
+      // Top bar
+      showBack, showMobileLogo, showTitle, showAvatar, showRightSpacer, showLeftSpacer,
+      titleAlign,
+      headerTitle: screenTitles[screen] || doc.title,
+
+      // Sidebar nav
+      profileNavBg: navBg(isProfileActive), profileNavColor: navColor(isProfileActive), profileNavFW: navFW(isProfileActive),
+      recordsNavBg: navBg(isRecordsActive), recordsNavColor: navColor(isRecordsActive), recordsNavFW: navFW(isRecordsActive),
+      planNavBg: navBg(isPlanActive), planNavColor: navColor(isPlanActive), planNavFW: navFW(isPlanActive),
+
+      // Bottom nav tabs
+      profileTabColor: navColor(isProfileActive), profileTabFW: navFW(isProfileActive),
+      recordsTabColor: navColor(isRecordsActive), recordsTabFW: navFW(isRecordsActive),
+      planTabColor: navColor(isPlanActive), planTabFW: navFW(isPlanActive),
+
+      // Screen flags
+      isProfile: screen === 'profile',
+      isRecords: screen === 'records',
+      isUpload: screen === 'upload',
+      isDocument: screen === 'document',
+      isPlan: screen === 'plan',
+
+      // Nav handlers
+      goBack: () => this.goBack(),
+      goToProfile: () => this.setState({ screen: 'profile' }),
+      goToRecords: () => this.setState({ screen: 'records' }),
+      goToUpload: () => this.setState({ screen: 'upload', uploadStage: 'idle' }),
+      goToPlan: () => this.setState({ screen: 'plan' }),
+      goToRecordsFromUpload: () => this.setState({ screen: 'records' }),
+
+      // Documents list
+      documents: this.docs.map((d, i) => ({ ...d, onClick: () => this.setState({ screen: 'document', selectedDoc: i }) })),
+      docCount: this.docs.length,
+      docTitle: doc.title, docDate: doc.date, docFacility: doc.facility, docType: doc.type,
+      docSummary: doc.summary, docParams: doc.params,
+      docStatusLabel: doc.statusLabel, docStatusColor: doc.statusColor,
+      docStatusBg: doc.statusBg, docStatusBorder: doc.statusBorder,
+      isDocReviewed: doc.isReviewed,
+
+      // Upload
+      isUploadIdle: uploadStage === 'idle',
+      isUploadProcessing: uploadStage === 'processing',
+      isUploadDone: uploadStage === 'done',
+      startUpload: () => { this.setState({ uploadStage: 'processing' }); setTimeout(() => this.setState({ uploadStage: 'done' }), 2800); },
+      resetUpload: () => this.setState({ uploadStage: 'idle' }),
+
+      // Goals
+      goals: goalsWithMeta,
+      goalCount: goals.length,
+      editingText,
+      onEditInput: e => this.setState({ editingText: e.target.value }),
+      newGoalText,
+      onNewGoalInput: e => this.setState({ newGoalText: e.target.value }),
+      showAddGoal,
+      startAddGoal: () => this.setState({ showAddGoal: true, newGoalText: '' }, () => {
+        setTimeout(() => { const el = document.querySelector('[data-goal-new]'); if (el) el.focus(); }, 80);
+      }),
+      cancelAddGoal: () => this.setState({ showAddGoal: false, newGoalText: '' }),
+      addGoal: () => {
+        const txt = this.state.newGoalText.trim();
+        if (!txt) return;
+        const p = pal[this.state.goals.length % pal.length];
+        this.setState(s => ({ goals: [...s.goals, { id: Date.now(), text: txt, progress: 0, progressLabel: '', ...p }], showAddGoal: false, newGoalText: '' }));
+      },
+
+      // Products
+      products: this.prods,
+    };
+  }
+}
+</script>
+</body>
+</html>
