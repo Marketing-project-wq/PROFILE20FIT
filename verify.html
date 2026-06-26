@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Verifikasi · 20fit</title>
+<style>
+  :root { --green:#1db954; --dark:#0e1b13; --muted:#6b7c70; --line:#e3eae5; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:#f4f8f5; color:var(--dark); display:flex; min-height:100vh; align-items:center; justify-content:center; padding:20px; }
+  .card { background:#fff; width:100%; max-width:380px; border-radius:20px; padding:28px 24px;
+          box-shadow:0 10px 40px rgba(0,0,0,.06); text-align:center; }
+  h2 { margin:0 0 6px; font-size:20px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:20px; }
+  .demo { background:#eafaf0; border:1px dashed var(--green); border-radius:12px; padding:12px; margin-bottom:18px; font-size:13px; }
+  .demo b { font-size:22px; letter-spacing:4px; color:var(--green); display:block; margin-top:4px; }
+  input { width:100%; padding:14px; border:1px solid var(--line); border-radius:11px; font-size:22px; text-align:center; letter-spacing:8px; }
+  input:focus { outline:none; border-color:var(--green); }
+  .btn { width:100%; margin-top:18px; padding:14px; border:0; border-radius:12px; background:var(--green); color:#fff; font-weight:700; font-size:15px; cursor:pointer; }
+  .msg { margin-top:14px; font-size:13px; min-height:18px; color:#d63031; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h2>Verifikasi Email</h2>
+    <div class="sub">Masukkan 6 digit kode verifikasi.</div>
+
+    <div class="demo">
+      Kode verifikasi kamu (sementara tampil di layar, email belum disambung):
+      <b id="democode">------</b>
+    </div>
+
+    <input id="otp" inputmode="numeric" maxlength="6" placeholder="______" />
+    <button class="btn" onclick="verify()">Verifikasi</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    (async function init() {
+      await Auth.requireAuth();
+      // generate OTP & tampilkan (sementara, karena email belum disambung)
+      const code = Auth.startOtp();
+      document.getElementById("democode").textContent = code;
+    })();
+    async function verify() {
+      const input = document.getElementById("otp").value;
+      if (!Auth.checkOtp(input)) {
+        document.getElementById("msg").textContent = "Kode salah atau kedaluwarsa.";
+        return;
+      }
+      try {
+        await Auth.markVerified();
+        await Auth.routeAfterAuth();
+      } catch (e) {
+        document.getElementById("msg").textContent = e.message;
+      }
+    }
+  </script>
+</body>
+</html>
