@@ -37,13 +37,14 @@
   }
 
   // ---------- AUTH ----------
-  async function signUp(email, password, fullName) {
+  async function signUp(email, password, fullName, phone) {
     await ready;
     if (fullName) sessionStorage.setItem("pending_name", fullName);
+    if (phone) sessionStorage.setItem("pending_phone", phone);
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName || null } },
+      options: { data: { full_name: fullName || null, phone: phone || null } },
     });
     if (error) throw error;
     return data;
@@ -88,13 +89,17 @@
     if (error) throw error;
     if (rows && rows.length) return rows[0];
 
-    const pendingName =
-      (user.user_metadata && user.user_metadata.full_name) ||
-      sessionStorage.getItem("pending_name") ||
-      null;
+    const md = user.user_metadata || {};
+    const pendingName = md.full_name || sessionStorage.getItem("pending_name") || null;
+    const pendingPhone = md.phone || sessionStorage.getItem("pending_phone") || null;
     const { data: inserted, error: insErr } = await supabase
       .from("my20fit_profile")
-      .insert({ auth_user_id: user.id, email: user.email, full_name: pendingName })
+      .insert({
+        auth_user_id: user.id,
+        email: user.email,
+        full_name: pendingName,
+        phone: pendingPhone,
+      })
       .select()
       .single();
     if (insErr) throw insErr;
@@ -133,7 +138,7 @@
   }
 
   // ---------- ONBOARDING ----------
-  async function saveOnboarding({ gender, birthdate, height_cm, weight_kg }) {
+  async function saveOnboarding({ gender, birthdate, height_cm, weight_kg, main_goal, health_conditions }) {
     const user = await requireAuth();
     await ensureProfile(user);
 
@@ -154,11 +159,26 @@
         age: age,
         height_cm: height_cm || null,
         weight_kg: weight_kg || null,
+        main_goal: main_goal || null,
+        health_conditions: health_conditions || [],
         onboarding_completed: true,
         updated_at: new Date().toISOString(),
       })
       .eq("auth_user_id", user.id);
     if (error) throw error;
+  }
+
+  // Hitung kategori BMI (dipakai live preview di form)
+  function bmiInfo(weightKg, heightCm) {
+    if (!weightKg || !heightCm) return null;
+    const m = heightCm / 100;
+    const bmi = weightKg / (m * m);
+    let label, color, desc;
+    if (bmi < 18.5) { label = "Underweight"; color = "#e11d2a"; desc = "Berat di bawah ideal."; }
+    else if (bmi < 25) { label = "Normal"; color = "#2A7A4F"; desc = "Berat ideal, pertahankan!"; }
+    else if (bmi < 30) { label = "Overweight"; color = "#C87000"; desc = "Sedikit di atas ideal."; }
+    else { label = "Obese"; color = "#e11d2a"; desc = "Jauh di atas ideal."; }
+    return { bmi: bmi.toFixed(1), label, color, desc };
   }
 
   // ---------- ROUTING ----------
@@ -182,6 +202,7 @@
     sendOtp,
     verifyOtp,
     saveOnboarding,
+    bmiInfo,
     routeAfterAuth,
     go,
   };

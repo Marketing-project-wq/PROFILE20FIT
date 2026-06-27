@@ -9,53 +9,114 @@
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
-    display:flex;align-items:center;justify-content:center;padding:20px}
-  .card{width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:30px 26px}
+    display:flex;align-items:flex-start;justify-content:center;padding:24px 16px}
+  .card{width:100%;max-width:440px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:28px 24px}
   .logo{display:flex;align-items:center;gap:2px;font-weight:900;font-size:24px;margin-bottom:14px}
   .logo .dot{width:16px;height:16px;border-radius:50%;background:var(--red);margin:0 1px}
   h2{margin:0 0 4px;font-size:20px}
   .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
-  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.5px}
-  input,select{width:100%;padding:13px 14px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:15px}
-  input:focus,select:focus{outline:none;border-color:var(--red)}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:16px 0 6px;text-transform:uppercase;letter-spacing:.5px}
+  input{width:100%;padding:13px 14px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:15px}
+  input:focus{outline:none;border-color:var(--red)}
   .row{display:flex;gap:12px}.row>div{flex:1}
-  .gender{display:flex;gap:10px}
-  .gender button{flex:1;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--inp);cursor:pointer;font-weight:700;color:var(--muted)}
-  .gender button.active{border-color:var(--red);background:rgba(225,29,42,.12);color:#fff}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .opt{padding:13px;border:1px solid var(--line);border-radius:10px;background:var(--inp);cursor:pointer;font-weight:700;color:var(--muted);text-align:center;font-size:14px}
+  .opt.active{border-color:var(--red);background:rgba(225,29,42,.12);color:#fff}
+  .chk{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--inp);cursor:pointer;font-size:14px;color:var(--txt)}
+  .chk.active{border-color:var(--red);background:rgba(225,29,42,.10)}
+  .chk input{width:auto}
+  .bmi{margin-top:14px;border-radius:12px;padding:14px;display:none;border:1px solid}
+  .bmi .num{font-size:30px;font-weight:900;line-height:1}
+  .bmi .lab{font-weight:700;margin-top:2px}
+  .bmi .d{font-size:12px;color:var(--muted);margin-top:4px}
   .btn{width:100%;margin-top:24px;padding:14px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer}
   .btn:disabled{opacity:.55}
   .msg{margin-top:12px;font-size:13px;min-height:18px;text-align:center;color:#ff6b6b}
+  .sec{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--red);font-weight:700;margin:22px 0 2px}
 </style>
 </head>
 <body>
   <div class="card">
     <div class="logo">20<span class="dot"></span>FIT</div>
-    <h2>Sedikit lagi 🙌</h2>
-    <div class="sub">Lengkapi data ini biar profil kamu pas.</div>
+    <h2>Lengkapi Profil 🙌</h2>
+    <div class="sub">Data ini bikin rekomendasi kamu makin pas.</div>
 
     <label>Jenis Kelamin</label>
-    <div class="gender">
-      <button type="button" data-g="male" onclick="pickGender('male')">Pria</button>
-      <button type="button" data-g="female" onclick="pickGender('female')">Wanita</button>
+    <div class="grid2">
+      <div class="opt" data-g="male" onclick="pickGender('male')">Pria</div>
+      <div class="opt" data-g="female" onclick="pickGender('female')">Wanita</div>
     </div>
 
     <label>Tanggal Lahir</label>
     <input id="birthdate" type="date" max="2026-06-27" />
 
     <div class="row">
-      <div><label>Berat (kg)</label><input id="weight" type="number" inputmode="decimal" placeholder="65" min="20" max="400" /></div>
-      <div><label>Tinggi (cm)</label><input id="height" type="number" inputmode="decimal" placeholder="170" min="80" max="250" /></div>
+      <div><label>Berat (kg)</label><input id="weight" type="number" inputmode="decimal" placeholder="65" min="30" max="200" oninput="updateBmi()" /></div>
+      <div><label>Tinggi (cm)</label><input id="height" type="number" inputmode="decimal" placeholder="170" min="100" max="250" oninput="updateBmi()" /></div>
     </div>
+
+    <!-- Preview BMI live -->
+    <div class="bmi" id="bmiCard">
+      <div class="num" id="bmiNum">–</div>
+      <div class="lab" id="bmiLab"></div>
+      <div class="d" id="bmiDesc"></div>
+    </div>
+
+    <div class="sec">Tujuan Utama Kamu</div>
+    <label style="margin-top:8px">Mau capai apa?</label>
+    <div class="grid2">
+      <div class="opt" data-goal="lose" onclick="pickGoal('lose')">Turunkan Berat</div>
+      <div class="opt" data-goal="muscle" onclick="pickGoal('muscle')">Bangun Otot</div>
+      <div class="opt" data-goal="health" onclick="pickGoal('health')">Lebih Sehat</div>
+      <div class="opt" data-goal="fit" onclick="pickGoal('fit')">Tingkatkan Kebugaran</div>
+    </div>
+
+    <div class="sec">Kondisi Kesehatan</div>
+    <label style="margin-top:8px">Ada yang perlu kami tahu? (boleh lebih dari satu / kosong)</label>
+    <div class="grid2" id="conditions">
+      <label class="chk"><input type="checkbox" value="Hipertensi"> Hipertensi</label>
+      <label class="chk"><input type="checkbox" value="Diabetes"> Diabetes</label>
+      <label class="chk"><input type="checkbox" value="Kolesterol"> Kolesterol</label>
+      <label class="chk"><input type="checkbox" value="Jantung"> Jantung</label>
+      <label class="chk"><input type="checkbox" value="Asma"> Asma</label>
+      <label class="chk"><input type="checkbox" value="Cedera"> Cedera</label>
+    </div>
+    <label>Lainnya (opsional)</label>
+    <input id="condOther" type="text" placeholder="cth: alergi tertentu" />
 
     <button class="btn" id="save" onclick="save()">Simpan & Lanjut</button>
     <div class="msg" id="msg"></div>
   </div>
+
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
   <script>
-    let gender=null;
+    let gender=null, goal=null;
     (async function(){await Auth.requireAuth()})();
-    function pickGender(g){gender=g;document.querySelectorAll(".gender button").forEach(b=>b.classList.toggle("active",b.dataset.g===g))}
+
+    function pickGender(g){gender=g;document.querySelectorAll('[data-g]').forEach(b=>b.classList.toggle("active",b.dataset.g===g))}
+    function pickGoal(g){goal=g;document.querySelectorAll('[data-goal]').forEach(b=>b.classList.toggle("active",b.dataset.goal===g))}
+
+    // chk active styling
+    document.querySelectorAll('#conditions .chk').forEach(l=>{
+      l.querySelector('input').addEventListener('change',e=>l.classList.toggle('active',e.target.checked));
+    });
+
+    function updateBmi(){
+      const w=parseFloat(document.getElementById("weight").value);
+      const h=parseFloat(document.getElementById("height").value);
+      const info=Auth.bmiInfo(w,h);
+      const card=document.getElementById("bmiCard");
+      if(!info){card.style.display="none";return}
+      card.style.display="block";
+      card.style.borderColor=info.color;
+      card.style.background=info.color+"1a";
+      const num=document.getElementById("bmiNum");
+      num.textContent="BMI "+info.bmi; num.style.color=info.color;
+      const lab=document.getElementById("bmiLab"); lab.textContent=info.label; lab.style.color=info.color;
+      document.getElementById("bmiDesc").textContent=info.desc;
+    }
+
     async function save(){
       const birthdate=document.getElementById("birthdate").value;
       const weight=parseFloat(document.getElementById("weight").value);
@@ -65,9 +126,14 @@
       if(!birthdate)return msg.textContent="Isi tanggal lahir.";
       if(!weight)return msg.textContent="Isi berat badan.";
       if(!height)return msg.textContent="Isi tinggi badan.";
+      if(!goal)return msg.textContent="Pilih tujuan utama kamu.";
+      // kumpulkan kondisi kesehatan
+      const conds=[...document.querySelectorAll('#conditions input:checked')].map(i=>i.value);
+      const other=document.getElementById("condOther").value.trim();
+      if(other)conds.push(other);
       const btn=document.getElementById("save");btn.disabled=true;
       try{
-        await Auth.saveOnboarding({gender,birthdate,weight_kg:weight,height_cm:height});
+        await Auth.saveOnboarding({gender,birthdate,weight_kg:weight,height_cm:height,main_goal:goal,health_conditions:conds});
         Auth.go("dashboard.html");
       }catch(e){msg.textContent=e.message;btn.disabled=false}
     }
