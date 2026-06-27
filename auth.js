@@ -37,9 +37,14 @@
   }
 
   // ---------- AUTH ----------
-  async function signUp(email, password) {
+  async function signUp(email, password, fullName) {
     await ready;
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (fullName) sessionStorage.setItem("pending_name", fullName);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName || null } },
+    });
     if (error) throw error;
     return data;
   }
@@ -83,9 +88,13 @@
     if (error) throw error;
     if (rows && rows.length) return rows[0];
 
+    const pendingName =
+      (user.user_metadata && user.user_metadata.full_name) ||
+      sessionStorage.getItem("pending_name") ||
+      null;
     const { data: inserted, error: insErr } = await supabase
       .from("my20fit_profile")
-      .insert({ auth_user_id: user.id, email: user.email })
+      .insert({ auth_user_id: user.id, email: user.email, full_name: pendingName })
       .select()
       .single();
     if (insErr) throw insErr;
