@@ -181,6 +181,40 @@
     return { bmi: bmi.toFixed(1), label, color, desc };
   }
 
+  // ---------- DAILY LOG (sleep / water / breathing) -> my20fit_daily_log ----------
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  async function getDailyLog() {
+    const user = await requireAuth();
+    const { data, error } = await supabase
+      .from("my20fit_daily_log")
+      .select("*")
+      .eq("auth_user_id", user.id)
+      .eq("log_date", todayStr())
+      .limit(1);
+    if (error) throw error;
+    return (data && data[0]) || null;
+  }
+
+  // Upsert sebagian field untuk hari ini (per user + tanggal)
+  async function saveDaily(fields) {
+    const user = await requireAuth();
+    const row = Object.assign(
+      { auth_user_id: user.id, log_date: todayStr(), updated_at: new Date().toISOString() },
+      fields
+    );
+    const { data, error } = await supabase
+      .from("my20fit_daily_log")
+      .upsert(row, { onConflict: "auth_user_id,log_date" })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   // ---------- ROUTING ----------
   async function routeAfterAuth() {
     const user = await requireAuth();
@@ -203,6 +237,8 @@
     verifyOtp,
     saveOnboarding,
     bmiInfo,
+    getDailyLog,
+    saveDaily,
     routeAfterAuth,
     go,
   };

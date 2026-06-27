@@ -213,6 +213,33 @@ app.post("/api/verify-otp", async (req, res) => {
   }
 });
 
+// ---------- Weather & AQI (placeholder Jakarta; ganti dgn API asli nanti) ----------
+// TODO: ganti dengan WeatherAPI / IQAir pakai API key di env kalau sudah ada.
+app.get("/api/weather", (req, res) => {
+  const hour = new Date().getHours();
+  const temp = 28 + (hour % 6); // variasi ringan 28-33
+  const humid = temp > 31;
+  res.json({
+    city: req.query.city || "Jakarta",
+    temp_c: temp,
+    description: humid ? "Berawan · Lembap" : "Cerah Berawan",
+    outdoor_ok: temp <= 32,
+    suggestions: temp > 32
+      ? ["EMS Training · Indoor 20 min", "Swimming · Pool 45 min", "Gym Session · Indoor 60 min"]
+      : ["Run · Outdoor 30 min", "Cycling · 45 min", "Gym Session · 60 min"],
+  });
+});
+
+app.get("/api/aqi", (req, res) => {
+  const hour = new Date().getHours();
+  const aqi = 70 + (hour % 5) * 12; // variasi 70-118
+  let label, advice;
+  if (aqi <= 50) { label = "Good"; advice = "Udara bagus, aman olahraga di luar."; }
+  else if (aqi <= 100) { label = "Moderate"; advice = "Cukup oke, sensitif sebaiknya kurangi outdoor."; }
+  else { label = "Unhealthy"; advice = "Sebaiknya olahraga di dalam ruangan."; }
+  res.json({ city: req.query.city || "Jakarta", aqi, label, advice });
+});
+
 // ---------- Static + fallback ----------
 app.use(express.static(path.join(__dirname)));
 app.get("*", (req, res) => {
