@@ -8,19 +8,21 @@
 (function () {
   let supabase = null;
 
-  // Bootstrap async: ambil config dari server, lalu buat client
+  // URL + anon key PUBLIK — ditanam sebagai fallback supaya web SELALU konek
+  // walau /api/config kosong / server belum di-update.
+  const FALLBACK_URL = "https://cpvzwqptzcxnwzfzgrmt.supabase.co";
+  const FALLBACK_ANON =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI";
+
+  // Bootstrap async: pakai config server kalau ada, kalau tidak pakai fallback
   const ready = (async function init() {
-    let cfg = { supabaseUrl: "", supabaseAnonKey: "" };
+    let url = FALLBACK_URL, key = FALLBACK_ANON;
     try {
       const r = await fetch("/api/config");
-      cfg = await r.json();
-    } catch (e) {
-      console.error("[20fit] Gagal ambil /api/config:", e);
-    }
-    if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
-      console.warn("[20fit] Supabase belum dikonfigurasi di server (env vars).");
-    }
-    supabase = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+      const c = await r.json();
+      if (c && c.supabaseUrl && c.supabaseAnonKey) { url = c.supabaseUrl; key = c.supabaseAnonKey; }
+    } catch (e) { /* pakai fallback */ }
+    supabase = window.supabase.createClient(url, key, {
       auth: { persistSession: true, autoRefreshToken: true },
     });
     return supabase;

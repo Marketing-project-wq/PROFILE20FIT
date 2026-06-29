@@ -126,7 +126,12 @@ async function getUserFromReq(req) {
 
 // Config publik untuk frontend (URL + anon key — keduanya memang publik)
 app.get("/api/config", (req, res) => {
-  res.json({ supabaseUrl: SUPABASE_URL || "", supabaseAnonKey: SUPABASE_ANON_KEY || "" });
+  res.json({
+    supabaseUrl: SUPABASE_URL || "",
+    supabaseAnonKey: SUPABASE_ANON_KEY || "",
+    version: "auth-fix-1",
+    serviceKeySet: !!SUPABASE_SERVICE_KEY,
+  });
 });
 
 // Kirim OTP ke email user yang sedang login
