@@ -12,8 +12,8 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:18px 14px 60px}
   .wrap{max-width:480px;margin:0 auto}
   .top{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 18px}
-  .logo{display:flex;align-items:center;gap:2px;font-weight:900;font-size:22px}
-  .logo .dot{width:15px;height:15px;border-radius:50%;background:var(--red);margin:0 1px}
+  .logo{display:flex;align-items:center}
+  .logo img{height:28px;width:auto}
   .logout{border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:9px;padding:8px 13px;font-size:13px;cursor:pointer}
   .hk{color:var(--red);font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px}
   .hello{font-size:24px;font-weight:900;margin:2px 2px 16px;text-transform:uppercase;letter-spacing:-.5px}
@@ -71,7 +71,7 @@
 <body>
   <div class="wrap">
     <div class="top">
-      <div class="logo">20<span class="dot"></span>FIT</div>
+      <div class="logo"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" /></div>
       <button class="logout" onclick="Auth.signOut()">Keluar</button>
     </div>
     <div class="hk" id="greet">Selamat datang</div>
