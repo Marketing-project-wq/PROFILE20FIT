@@ -27,7 +27,7 @@
       // cycle
       cycle_intro:"Track your cycle for workout tips that fit your body.",
       cycle_lastperiod:"First day of your last period", cycle_save:"Save", cycle_edit:"Change Date",
-      cycle_dayof:"Day", cycle_of:"of", cycle_next:"next period in", cycle_days:"days",
+      cycle_starttoday:"My period started today", cycle_dayof:"Day", cycle_of:"of", cycle_next:"next period in", cycle_days:"days",
       // medical
       med_title:"Medical Record", med_sub:"Your medical check-up results & recommendations.",
       med_upload:"Upload Medical Check-Up", med_uploadsub:"PDF / JPG / PNG from any facility — analysed automatically with AI",
@@ -71,7 +71,7 @@
       water_label:"Air (gelas) · target 8", glasses_of:"gelas",
       daysync_note:"Data tidur & air minum tersimpan otomatis ke akun kamu.",
       cycle_intro:"Lacak siklusmu untuk rekomendasi latihan yang pas.",
-      cycle_lastperiod:"Hari pertama haid terakhir", cycle_save:"Simpan", cycle_edit:"Ubah Tanggal",
+      cycle_lastperiod:"Hari pertama haid terakhir", cycle_save:"Simpan", cycle_edit:"Ubah Tanggal", cycle_starttoday:"Haid mulai hari ini",
       cycle_dayof:"Hari ke-", cycle_of:"dari", cycle_next:"haid berikutnya dalam", cycle_days:"hari",
       med_title:"Rekam Medis", med_sub:"Hasil medical check-up & rekomendasi kamu.",
       med_upload:"Upload Medical Check-Up", med_uploadsub:"PDF / JPG / PNG dari faskes mana pun — dianalisa otomatis dengan AI",

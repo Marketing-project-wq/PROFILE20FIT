@@ -358,7 +358,8 @@
           '<div style="flex:1;background:var(--inp);border-radius:10px;padding:10px 12px"><div class="muted" style="font-size:11px">'+L({en:"Next period",id:"Haid berikutnya"})+'</div><div style="font-weight:800">'+fmtDate(c.nextStart)+'</div></div>'+
           '<div style="flex:1;background:var(--inp);border-radius:10px;padding:10px 12px"><div class="muted" style="font-size:11px">'+L({en:"In",id:"Dalam"})+'</div><div style="font-weight:800">'+c.toNext+' '+I18N.t("cycle_days")+'</div></div>'+
         '</div>'+
-        '<button class="btn dark" style="margin-top:12px" onclick="editCycle()">'+I18N.t("cycle_edit")+'</button>';
+        '<button class="btn" style="margin-top:12px" onclick="startPeriodToday()">'+I18N.t("cycle_starttoday")+'</button>'+
+        '<button class="btn dark" style="margin-top:8px" onclick="editCycle()">'+I18N.t("cycle_edit")+'</button>';
     }
     async function saveCycle(){
       const d=document.getElementById("cyDate").value;
@@ -366,6 +367,15 @@
       const u=await Auth.requireAuth();
       try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:d,cycle_length:profile.cycle_length||28}).eq("auth_user_id",u.id);
         profile.cycle_last_period=d;if(!profile.cycle_length)profile.cycle_length=28;renderCycle();toast(L({en:"Cycle saved ✅",id:"Siklus tersimpan ✅"}));}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
+    }
+    // Tandai haid mulai hari ini -> mulai siklus baru (Hari 1)
+    async function startPeriodToday(){
+      if(!confirm(L({en:"Mark your period as started today? This starts a new cycle (Day 1).",id:"Tandai haid mulai hari ini? Ini memulai siklus baru (Hari 1)."})))return;
+      const today=new Date().toISOString().slice(0,10);
+      const u=await Auth.requireAuth();
+      try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:today,cycle_length:profile.cycle_length||28}).eq("auth_user_id",u.id);
+        profile.cycle_last_period=today;if(!profile.cycle_length)profile.cycle_length=28;renderCycle();
+        toast(L({en:"New cycle started 🩸 — Day 1, Menstruation",id:"Siklus baru dimulai 🩸 — Hari 1, Menstruasi"}));}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
     function editCycle(){profile.cycle_last_period=null;renderCycle();}
 
