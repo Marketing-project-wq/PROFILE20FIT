@@ -53,7 +53,16 @@
     // supaya user GAK perlu sign in lagi. User sudah auto-confirmed di DB.
     if (!data.session) {
       const { error: e2 } = await supabase.auth.signInWithPassword({ email, password });
-      if (e2) throw e2;
+      if (e2) {
+        // signUp tanpa sesi + signin gagal "invalid" = email sudah terdaftar
+        // (dgn password berbeda). Kasih pesan jelas.
+        if (String(e2.message || "").toLowerCase().includes("invalid login")) {
+          const err = new Error("Email sudah terdaftar. Klik Sign In (pakai password lama) atau daftar pakai email lain.");
+          err.code = "email_exists";
+          throw err;
+        }
+        throw e2;
+      }
     }
     return data;
   }

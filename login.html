@@ -153,7 +153,7 @@
     function terjemah(m){
       m=(m||"").toLowerCase();
       if(m.includes("invalid login"))return "Email atau password salah.";
-      if(m.includes("already registered")||m.includes("already been"))return "Email sudah terdaftar. Coba Sign In.";
+      if(m.includes("already registered")||m.includes("already been")||m.includes("sudah terdaftar"))return "Email sudah terdaftar. Klik Sign In & pakai password lama, atau daftar pakai email lain.";
       if(m.includes("not confirmed"))return "Akun belum aktif. Coba lagi sebentar / hubungi admin.";
       if(m.includes("password"))return "Password minimal 8 karakter.";
       if(m.includes("supabaseurl")||m.includes("not configured")||m.includes("anon"))return "Server belum siap. Coba refresh sebentar lagi.";

@@ -129,7 +129,7 @@ app.get("/api/config", (req, res) => {
   res.json({
     supabaseUrl: SUPABASE_URL || "",
     supabaseAnonKey: SUPABASE_ANON_KEY || "",
-    version: "auth-fix-2",
+    version: "auth-fix-3",
     serviceKeySet: !!SUPABASE_SERVICE_KEY,
   });
 });
