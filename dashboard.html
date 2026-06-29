@@ -153,6 +153,11 @@
       </div>
     </div>
 
+    <div id="cycleSection" style="display:none">
+      <div class="sec">Siklus Menstruasi</div>
+      <div class="card" id="cycleCard"></div>
+    </div>
+
     <div class="card" style="margin-top:18px;background:rgba(225,29,42,.08);border-color:rgba(225,29,42,.25);color:#ffb3b8;font-size:13px">
       ✅ Data tidur & air minum tersimpan otomatis ke Supabase (my20fit_daily_log).
     </div>
@@ -178,11 +183,51 @@
       if(profile.height_cm)document.getElementById("tinggi").innerHTML=profile.height_cm+' <small>cm</small>';
       const info=Auth.bmiInfo(profile.weight_kg,profile.height_cm);
       if(info){const b=document.getElementById("bmi");b.textContent=info.bmi;b.style.color=info.color}
+      if((profile.gender||"")==="female"){document.getElementById("cycleSection").style.display="block";renderCycle();}
       try{ daily = await Auth.getDailyLog(); }catch(e){ daily=null; }
       if(daily){ sleepH=Number(daily.sleep_hours||0); water=Number(daily.water_glasses||0); }
       renderSleep(); renderWater();
       loadWeather();
     })();
+
+    // ---- Siklus menstruasi (khusus wanita) ----
+    function cycleInfo(){
+      const len=profile.cycle_length||28;
+      const last=profile.cycle_last_period?new Date(profile.cycle_last_period):null;
+      if(!last)return null;
+      let diff=Math.floor((new Date()-last)/864e5);if(diff<0)diff=0;
+      const day=(diff%len)+1;let phase,tip,color;
+      if(day<=5){phase="Menstruasi";color="#C41101";tip="Istirahat cukup. Olahraga ringan: yoga / jalan santai."}
+      else if(day<=13){phase="Folikuler";color="#C87000";tip="Energi naik — cocok untuk latihan intens / EMS."}
+      else if(day<=15){phase="Ovulasi";color="#D4A800";tip="Puncak energi & kekuatan. Maksimalkan latihan."}
+      else{phase="Luteal";color="#8e6fd6";tip="Energi menurun — latihan sedang, jaga nutrisi & tidur."}
+      return {len,day,phase,tip,color,toNext:len-day+1};
+    }
+    function renderCycle(){
+      const c=cycleInfo();const el=document.getElementById("cycleCard");
+      if(!c){
+        el.innerHTML='<div class="muted">Lacak siklusmu untuk rekomendasi latihan yang pas.</div>'+
+          '<div style="font-size:12px;color:#8a8a8a;margin:12px 0 6px">Hari pertama haid terakhir</div>'+
+          '<input id="cyDate" type="date" max="'+new Date().toISOString().slice(0,10)+'" style="width:100%;padding:12px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:#fff">'+
+          '<div style="font-size:12px;color:#8a8a8a;margin:12px 0 6px">Panjang siklus (hari)</div>'+
+          '<input id="cyLen" type="number" value="28" min="20" max="40" style="width:100%;padding:12px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:#fff">'+
+          '<button class="btn" style="margin-top:12px" onclick="saveCycle()">Simpan</button>';
+        return;
+      }
+      el.innerHTML='<div style="display:flex;align-items:center;gap:14px">'+
+        '<div style="width:64px;height:64px;border-radius:50%;border:3px solid '+c.color+';display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;color:'+c.color+'">'+c.day+'</div>'+
+        '<div><div style="font-size:20px;font-weight:900;color:'+c.color+'">'+c.phase+'</div><div class="muted">Hari ke-'+c.day+' dari '+c.len+' · ~'+c.toNext+' hari lagi menstruasi berikutnya</div></div></div>'+
+        '<div style="margin-top:12px;font-size:13px">'+c.tip+'</div>'+
+        '<button class="btn dark" style="margin-top:12px" onclick="editCycle()">Ubah Tanggal</button>';
+    }
+    async function saveCycle(){
+      const d=document.getElementById("cyDate").value;const len=parseInt(document.getElementById("cyLen").value)||28;
+      if(!d){toast("Isi tanggal haid dulu");return}
+      const u=await Auth.requireAuth();
+      try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:d,cycle_length:len}).eq("auth_user_id",u.id);
+        profile.cycle_last_period=d;profile.cycle_length=len;renderCycle();toast("Siklus tersimpan ✅");}catch(e){toast("Gagal simpan")}
+    }
+    function editCycle(){profile.cycle_last_period=null;renderCycle();}
 
     function wmo(c){
       if(c===0)return"Cerah";if(c<=3)return"Cerah Berawan";if(c<=48)return"Berkabut";

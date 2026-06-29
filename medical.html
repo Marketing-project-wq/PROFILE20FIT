@@ -29,12 +29,13 @@
     <h1>Medical Record</h1>
     <div class="muted">Hasil medical check-up & rekomendasi kamu.</div>
 
-    <div class="card up" onclick="uploadSoon()">
+    <div class="card up" onclick="document.getElementById('mcufile').click()">
       <div class="ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></div>
       <div style="font-weight:800;margin-top:6px">Upload Medical Check-Up</div>
-      <div class="muted">PDF / JPG / PNG dari faskes mana pun</div>
-      <div class="soon">Analisa otomatis (AI) segera hadir</div>
+      <div class="muted">PDF / JPG / PNG dari faskes mana pun — dianalisa otomatis dengan AI</div>
     </div>
+    <input id="mcufile" type="file" accept="image/*,application/pdf" style="display:none" onchange="analyzeMCU(event)" />
+    <div id="result"></div>
 
     <div class="card">
       <div style="font-weight:800;margin-bottom:6px">Riwayat</div>
@@ -46,18 +47,47 @@
   <script src="auth.js"></script>
   <script src="nav.js"></script>
   <script>
-    function uploadSoon(){alert("Fitur upload + analisa hasil lab (AI) lagi disiapin ya. Sebentar lagi bisa dipakai!");}
-    (async function(){
-      const user=await Auth.requireAuth();
+    const AI_URL="https://cpvzwqptzcxnwzfzgrmt.supabase.co/functions/v1/my20fit-ai";
+    const ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI";
+    let user=null;
+    function fileURL(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
+
+    async function analyzeMCU(e){
+      const f=e.target.files[0];if(!f)return;
+      const box=document.getElementById("result");
+      box.innerHTML='<div class="card"><div class="muted">Membaca & menganalisa dokumen… ⏳ (bisa 10-30 detik)</div></div>';
+      try{
+        const url=await fileURL(f);
+        const r=await fetch(AI_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"mcu",file:url,mime:f.type})});
+        const j=await r.json();
+        if(!r.ok||!j.result)throw new Error(j.error||"Gagal menganalisa dokumen");
+        renderResult(j.result);
+        try{await Auth.supabase.from("my20fit_mcu_result").insert({auth_user_id:user.id,result:j.result,analyzed_at:new Date().toISOString()});loadList();}catch(err){}
+      }catch(err){box.innerHTML='<div class="card" style="color:#ff6b6b">'+err.message+'</div>'}
+      e.target.value="";
+    }
+    function renderResult(res){
+      const params=(res.parameters||[]).map(p=>{
+        const att=p.status==="attention";
+        return '<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><b>'+p.label+'</b><span style="color:'+(att?"#ff8a8a":"#7fe0a8")+';font-weight:700">'+(p.value||"")+'</span></div><div class="muted">Normal: '+(p.normal_range||"-")+'</div><div style="font-size:13px;margin-top:4px">'+(p.explanation||"")+'</div></div>';
+      }).join("");
+      const unread=(res.unreadable&&res.unreadable.length)?'<div class="card" style="border-color:#5a4020;background:#2a2410;color:#ffcf66"><b>Bagian yang tidak terbaca:</b><ul style="margin:6px 0 0 18px">'+res.unreadable.map(u=>'<li>'+u+'</li>').join("")+'</ul></div>':"";
+      document.getElementById("result").innerHTML=
+        '<div class="card"><div style="font-weight:800">'+(res.document_type||"Hasil MCU")+'</div><div class="muted">'+[res.patient_name,res.date].filter(Boolean).join(" · ")+'</div><div style="margin-top:8px">'+(res.summary||"")+'</div></div>'+
+        (params?'<div class="card"><div style="font-weight:800;margin-bottom:4px">Parameter</div>'+params+'</div>':"")+
+        unread+
+        '<div class="card" style="border-color:rgba(196,17,1,.3);background:rgba(196,17,1,.08);color:#ffb3b8;font-size:13px">⚠️ '+(res.disclaimer||"Interpretasi ini bukan pengganti konsultasi dokter. Konsultasikan ke dokter 20fit untuk saran yang tepat.")+'</div>';
+    }
+    async function loadList(){
       let rows=[];
       try{const {data}=await Auth.supabase.from("my20fit_mcu_result").select("*").eq("auth_user_id",user.id).order("created_at",{ascending:false});rows=data||[]}catch(e){}
       const el=document.getElementById("list");
       if(!rows.length){el.innerHTML='<div class="empty">Belum ada hasil MCU.<br>Upload hasil check-up kamu di atas.</div>';return}
-      el.innerHTML=rows.map(r=>{
-        const res=r.result||{};const grade=res.grade||"–";const date=(r.created_at||"").slice(0,10);
-        return `<div class="rec"><div class="grade">${grade}</div><div><div style="font-weight:700">${res.document_type||"Hasil MCU"}</div><div class="muted">${date} · ${res.source||"upload"}</div></div></div>`;
+      el.innerHTML=rows.map(r=>{const res=r.result||{};const date=(r.analyzed_at||r.created_at||"").slice(0,10);
+        return '<div class="rec"><div class="grade"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:var(--red);stroke-width:2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="flex:1;cursor:pointer"><div style="font-weight:700">'+(res.document_type||"Hasil MCU")+'</div><div class="muted">'+date+'</div></div></div>';
       }).join("");
-    })();
+    }
+    (async function(){ user=await Auth.requireAuth(); loadList(); })();
   </script>
 </body>
 </html>
