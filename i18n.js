@@ -47,7 +47,8 @@
       prof_title:"My Profile", prof_name:"Full Name", prof_email:"Email", prof_phone:"Phone",
       prof_gender:"Gender", prof_male:"Male", prof_female:"Female", prof_weight:"Weight (kg)", prof_height:"Height (cm)",
       prof_goal:"Main Goal", prof_pick:"— choose —", prof_lose:"Lose Weight", prof_muscle:"Build Muscle",
-      prof_healthier:"Get Healthier", prof_fit:"Improve Fitness", prof_save:"Save Changes", prof_logout:"Log Out"
+      prof_healthier:"Get Healthier", prof_fit:"Improve Fitness", prof_save:"Save Changes", prof_logout:"Log Out",
+      prof_tour:"Replay app tutorial"
     },
     id: {
       nav_home:"Beranda", nav_medical:"Medis", nav_progress:"Progress", nav_calories:"Kalori", nav_profile:"Profil", nav_scan:"Scan",
@@ -81,7 +82,8 @@
       prof_title:"Profil Saya", prof_name:"Nama Lengkap", prof_email:"Email", prof_phone:"Nomor HP",
       prof_gender:"Jenis Kelamin", prof_male:"Pria", prof_female:"Wanita", prof_weight:"Berat (kg)", prof_height:"Tinggi (cm)",
       prof_goal:"Tujuan Utama", prof_pick:"— pilih —", prof_lose:"Turunkan Berat", prof_muscle:"Bangun Otot",
-      prof_healthier:"Lebih Sehat", prof_fit:"Tingkatkan Kebugaran", prof_save:"Simpan Perubahan", prof_logout:"Keluar / Log Out"
+      prof_healthier:"Lebih Sehat", prof_fit:"Tingkatkan Kebugaran", prof_save:"Simpan Perubahan", prof_logout:"Keluar / Log Out",
+      prof_tour:"Putar ulang tutorial"
     }
   };
 
@@ -105,8 +107,8 @@
   function injectToggle(){
     if(document.querySelector(".lang")) return; // login/reset sudah punya
     const css=document.createElement("style");
-    css.textContent=".langfab{position:fixed;top:14px;right:14px;z-index:60;display:flex;gap:3px;background:#0A0908;border-radius:9px;padding:3px;box-shadow:0 4px 14px rgba(0,0,0,.18)}"+
-      ".langfab button{border:0;background:transparent;color:#cfc7ba;font-weight:800;font-size:12px;padding:6px 10px;border-radius:7px;cursor:pointer;font-family:inherit}"+
+    css.textContent=".langfab{position:fixed;top:14px;right:14px;z-index:80;display:flex;gap:3px;background:#fff;border:1px solid #E8E2DB;border-radius:10px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,.20)}"+
+      ".langfab button{border:0;background:transparent;color:#8A7C68;font-weight:800;font-size:12px;padding:6px 11px;border-radius:7px;cursor:pointer;font-family:inherit}"+
       ".langfab button.on{background:#C41101;color:#fff}";
     document.head.appendChild(css);
     const box=document.createElement("div");box.className="langfab";
