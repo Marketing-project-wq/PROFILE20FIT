@@ -86,19 +86,56 @@
         }catch(e){resolve(await readData(f));}
       });
     }
+    // Muat PDF.js sekali (dari CDN) untuk render PDF -> gambar
+    function loadScript(src){return new Promise((res,rej)=>{if([].some.call(document.scripts,s=>s.src===src))return res();const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("load fail"));document.head.appendChild(s);});}
+    // PDF (sering hasil scan & berat) -> render maksimal 3 halaman jadi 1 JPEG kecil -> upload cepat
+    async function pdfToImage(f){
+      await loadScript("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js");
+      const pdfjsLib=window.pdfjsLib||window["pdfjs-dist/build/pdf"];
+      pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      const buf=await f.arrayBuffer();
+      const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+      const n=Math.min(pdf.numPages,3);
+      const canvases=[];let W=0,H=0;
+      for(let i=1;i<=n;i++){
+        const page=await pdf.getPage(i);
+        let vp=page.getViewport({scale:1});
+        const scale=Math.min(1400/vp.width,2.2);
+        vp=page.getViewport({scale});
+        const c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;
+        await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;
+        canvases.push(c);W=Math.max(W,c.width);H+=c.height;
+      }
+      const big=document.createElement("canvas");big.width=W;big.height=H;
+      const g=big.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,W,H);
+      let y=0;for(const c of canvases){g.drawImage(c,0,y);y+=c.height;}
+      return big.toDataURL("image/jpeg",0.82);
+    }
 
     async function analyzeMCU(e){
       const f=e.target.files[0];if(!f)return;
       const box=document.getElementById("result");
       box.innerHTML='<div class="card"><div class="muted">'+I18N.t("med_analysing")+'</div></div>';
+      let url,mime;
       try{
-        const url=await fileURL(f);
-        const r=await fetch(AI_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"mcu",file:url,mime:f.type,lang:I18N.lang})});
+        if(String(f.type).includes("pdf")){
+          try{ url=await pdfToImage(f); mime="image/jpeg"; }
+          catch(e2){ url=await fileURL(f); mime=f.type; } // fallback: kirim PDF mentah
+        }else{ url=await fileURL(f); mime=f.type; }
+      }catch(e3){ box.innerHTML='<div class="card" style="color:var(--red)">'+L({en:"Couldn't read the file. Try another.",id:"Gagal membaca file. Coba file lain."})+'</div>'; e.target.value=""; return; }
+      try{
+        const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),90000);
+        const r=await fetch(AI_URL,{method:"POST",signal:ctrl.signal,headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"mcu",file:url,mime:mime,lang:I18N.lang})});
+        clearTimeout(to);
         const j=await r.json();
         if(!r.ok||!j.result)throw new Error(j.error||L({en:"Failed to analyse document",id:"Gagal menganalisa dokumen"}));
         renderResult(j.result);
         try{await Auth.supabase.from("my20fit_mcu_result").insert({auth_user_id:user.id,result:j.result,analyzed_at:new Date().toISOString()});loadList();}catch(err){}
-      }catch(err){box.innerHTML='<div class="card" style="color:#ff6b6b">'+err.message+'</div>'}
+      }catch(err){
+        const msg=(err&&err.name==="AbortError")?L({en:"Took too long — please try again.",id:"Terlalu lama — coba lagi ya."}):
+          /fetch/i.test(err.message||"")?L({en:"Connection failed. Check internet & try again.",id:"Koneksi gagal. Cek internet & coba lagi."}):err.message;
+        box.innerHTML='<div class="card" style="color:var(--red)">'+msg+'</div>';
+      }
       e.target.value="";
     }
 
