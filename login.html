@@ -1,37 +1,35 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Masuk · 20fit Health Profile</title>
+<title>Sign In · 20fit Health Profile</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --red:#C41101; --bg:#EDE8DF; --card:#FFFFFF; --dark:#0A0908;
-    --txt:#0A0908; --soft:#555; --muted:#9E8E7A; --border:#E8E2DB; --inp:#F0EDE5;
-  }
+  :root{--red:#C41101;--bg:#EDE8DF;--card:#FFFFFF;--dark:#0A0908;--txt:#0A0908;--soft:#555;--muted:#9E8E7A;--border:#E8E2DB;--inp:#F0EDE5}
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}
   .split{display:flex;min-height:100vh}
-  /* LEFT hero */
-  .hero{flex:0 0 45%;background:var(--dark);color:#F0EDE6;padding:48px 44px;display:flex;flex-direction:column;justify-content:space-between;
+  .hero{flex:0 0 45%;background:var(--dark);color:#F0EDE6;padding:40px 44px;display:flex;flex-direction:column;justify-content:space-between;position:relative;
     background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:46px 46px}
-  .brand-logo{height:72px;width:auto;display:block}
+  .herotop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .brand-logo{height:64px;width:auto;display:block}
   .brand-sub{font-family:"Barlow Condensed";font-weight:600;letter-spacing:3px;font-size:11px;color:var(--muted);text-transform:uppercase;margin-top:8px}
+  .lang{display:flex;gap:4px;background:rgba(255,255,255,.08);border-radius:9px;padding:3px}
+  .lang button{border:0;background:transparent;color:#cfc7ba;font-weight:700;font-size:12px;padding:6px 11px;border-radius:7px;cursor:pointer}
+  .lang button.on{background:var(--red);color:#fff}
   .label{font-family:"Barlow Condensed";font-weight:600;letter-spacing:3px;font-size:12px;color:var(--red);text-transform:uppercase;display:flex;align-items:center;gap:10px}
   .label::before{content:"";width:32px;height:2px;background:var(--red)}
   .headline{font-family:Anton;font-size:46px;line-height:1.02;margin:14px 0 16px;letter-spacing:.5px;
     background:linear-gradient(100deg,#bdb39e 0%,#bdb39e 28%,#ffffff 44%,#ffffff 50%,#fff3cf 54%,#bdb39e 70%,#bdb39e 100%);
-    background-size:300% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
-    -webkit-text-fill-color:transparent;animation:shine 2.8s linear infinite;
-    will-change:background-position}
+    background-size:300% auto;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+    animation:shine 2.8s linear infinite;will-change:background-position}
   @keyframes shine{0%{background-position:200% center}100%{background-position:-100% center}}
-  .tagline{color:#bdb4a6;font-size:15px;line-height:1.6;max-width:360px}
+  .tagline{color:#bdb4a6;font-size:15px;line-height:1.6;max-width:380px}
   .feat{display:flex;align-items:center;gap:10px;color:#cfc7ba;font-size:13px;margin-top:12px}
   .feat .ic{width:30px;height:30px;border-radius:8px;background:rgba(196,17,1,.15);display:flex;align-items:center;justify-content:center;color:var(--red);font-size:15px}
-  /* RIGHT form */
   .panel{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 24px}
   .form{width:100%;max-width:380px}
   .form h2{font-family:Anton;font-size:26px;margin:0 0 4px;letter-spacing:.5px}
@@ -49,11 +47,11 @@
   .msg{margin-top:14px;font-size:13px;text-align:center;min-height:18px}
   .msg.err{color:var(--red)}.msg.ok{color:#2A7A4F}
   .hide{display:none}
-  /* mobile */
   @media(max-width:860px){
     .split{flex-direction:column}
-    .hero{flex:none;padding:32px 26px 26px}
-    .headline{font-size:34px}
+    .hero{flex:none;padding:26px 24px}
+    .brand-logo{height:50px}
+    .headline{font-size:32px}
     .tagline,.feat{display:none}
     .panel{padding:26px 22px 40px}
   }
@@ -62,49 +60,55 @@
 <body>
   <div class="split">
     <div class="hero">
-      <div>
-        <img class="brand-logo" src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" />
-        <div class="brand-sub">Health Profile · profile.20fit.id</div>
+      <div class="herotop">
+        <div>
+          <img class="brand-logo" src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" />
+          <div class="brand-sub">Health Profile · profile.20fit.id</div>
+        </div>
+        <div class="lang">
+          <button id="lang-en" onclick="setLang('en')">EN</button>
+          <button id="lang-id" onclick="setLang('id')">ID</button>
+        </div>
       </div>
       <div>
-        <div class="label">Digital Health Platform</div>
+        <div class="label" data-k="dhp">Digital Health Platform</div>
         <div class="headline">ALL YOUR HEALTH NEEDS, ONE PLACE.</div>
-        <div class="tagline">Upload hasil medical check-up dari rumah sakit mana pun, pantau kesehatanmu real-time, dan dapat rekomendasi olahraga & nutrisi dari dokter 20fit.</div>
+        <div class="tagline" data-k="tag"></div>
       </div>
       <div>
-        <div class="feat"><span class="ic">🩺</span> Upload lab results — PDF/JPG/PNG dari faskes mana pun</div>
-        <div class="feat"><span class="ic">⚡</span> Program personal: Gym, PT, EMS & Physiotherapy</div>
+        <div class="feat"><span class="ic">🩺</span> <span data-k="feat1"></span></div>
+        <div class="feat"><span class="ic">⚡</span> <span data-k="feat2"></span></div>
       </div>
     </div>
 
     <div class="panel">
       <div class="form">
-        <h2 id="title">Selamat Datang</h2>
-        <div class="h-sub">Masuk atau buat akun untuk mulai.</div>
+        <h2 id="title">Welcome</h2>
+        <div class="h-sub" id="sub" data-k="sub"></div>
 
         <div class="tabs">
-          <button id="tab-in" class="active" onclick="setMode('in')">Sign In</button>
-          <button id="tab-up" onclick="setMode('up')">Buat Akun</button>
+          <button id="tab-in" class="active" onclick="setMode('in')"></button>
+          <button id="tab-up" onclick="setMode('up')"></button>
         </div>
 
         <div id="name-wrap" class="hide">
-          <label>Nama Lengkap</label>
-          <input id="name" type="text" placeholder="Nama kamu" autocomplete="name" />
+          <label data-k="name"></label>
+          <input id="name" type="text" autocomplete="name" />
         </div>
 
-        <label>Email</label>
-        <input id="email" type="email" placeholder="nama@email.com" autocomplete="email" />
+        <label data-k="email">Email</label>
+        <input id="email" type="email" placeholder="name@email.com" autocomplete="email" />
 
         <div id="phone-wrap" class="hide">
-          <label>Nomor HP</label>
-          <input id="phone" type="tel" placeholder="+62 812 3456 7890" autocomplete="tel" />
+          <label data-k="phone"></label>
+          <input id="phone" type="tel" autocomplete="tel" />
         </div>
 
-        <label>Password</label>
+        <label data-k="password">Password</label>
         <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
 
-        <button class="btn" id="submit" onclick="submit()">Masuk</button>
-        <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600">Lupa password?</a></div>
+        <button class="btn" id="submit" onclick="submit()"></button>
+        <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600"></a></div>
         <div class="msg" id="msg"></div>
       </div>
     </div>
@@ -113,38 +117,84 @@
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
   <script>
-    // Kalau sudah login (pernah daftar/sign in), langsung masuk ke halaman —
-    // form login cuma muncul saat belum login / sudah logout.
-    (async function autoEnter(){
-      try{
-        await Auth.ready;
-        const user = await Auth.getUser();
-        if(user){ await Auth.routeAfterAuth(); }
-      }catch(e){}
-    })();
+    const T = {
+      en: {
+        dhp:"Digital Health Platform",
+        tag:"Upload medical check-up results from any hospital, track your health in real-time, and get exercise & nutrition recommendations from 20fit doctors.",
+        feat1:"Upload lab results — PDF/JPG/PNG from any facility",
+        feat2:"Personalised program: Gym, PT, EMS & Physiotherapy",
+        sub:"Sign in or create an account to get started.",
+        tabIn:"Sign In", tabUp:"Create Account",
+        name:"Full Name", email:"Email", phone:"Phone", password:"Password",
+        titleIn:"Welcome", titleUp:"Create Account",
+        btnIn:"Sign In", btnUp:"Create Account",
+        forgot:"Forgot password?",
+        namePh:"Your name", phonePh:"+62 812 3456 7890",
+        errCred:"Wrong email or password.", errExists:"Email already registered. Tap Sign In or use another email.",
+        errPw:"Password must be at least 8 characters.", errFill:"Please fill in email & password.",
+        errName:"Please enter your name.", processing:"Processing..."
+      },
+      id: {
+        dhp:"Platform Kesehatan Digital",
+        tag:"Upload hasil medical check-up dari rumah sakit mana pun, pantau kesehatanmu real-time, dan dapat rekomendasi olahraga & nutrisi dari dokter 20fit.",
+        feat1:"Upload hasil lab — PDF/JPG/PNG dari faskes mana pun",
+        feat2:"Program personal: Gym, PT, EMS & Physiotherapy",
+        sub:"Masuk atau buat akun untuk mulai.",
+        tabIn:"Masuk", tabUp:"Buat Akun",
+        name:"Nama Lengkap", email:"Email", phone:"Nomor HP", password:"Password",
+        titleIn:"Selamat Datang", titleUp:"Buat Akun Baru",
+        btnIn:"Masuk", btnUp:"Buat Akun",
+        forgot:"Lupa password?",
+        namePh:"Nama kamu", phonePh:"+62 812 3456 7890",
+        errCred:"Email atau password salah.", errExists:"Email sudah terdaftar. Klik Masuk atau pakai email lain.",
+        errPw:"Password minimal 8 karakter.", errFill:"Isi email & password dulu ya.",
+        errName:"Isi nama kamu dulu.", processing:"Memproses..."
+      }
+    };
+    let lang = localStorage.getItem("lang") || "en";
+    let mode = "in";
 
-    let mode="in";
+    function setLang(l){ lang=l; localStorage.setItem("lang",l); applyLang(); }
+    function applyLang(){
+      const d=T[lang];
+      document.documentElement.lang=lang;
+      document.getElementById("lang-en").classList.toggle("on",lang==="en");
+      document.getElementById("lang-id").classList.toggle("on",lang==="id");
+      document.querySelectorAll("[data-k]").forEach(el=>{const k=el.getAttribute("data-k"); if(d[k]!=null) el.textContent=d[k];});
+      document.getElementById("name").placeholder=d.namePh;
+      document.getElementById("phone").placeholder=d.phonePh;
+      document.getElementById("forgot").textContent=d.forgot;
+      refreshMode();
+    }
+    function refreshMode(){
+      const d=T[lang];
+      document.getElementById("tab-in").textContent=d.tabIn;
+      document.getElementById("tab-up").textContent=d.tabUp;
+      document.getElementById("submit").textContent=mode==="in"?d.btnIn:d.btnUp;
+      document.getElementById("title").textContent=mode==="in"?d.titleIn:d.titleUp;
+    }
     function setMode(m){
       mode=m;
       document.getElementById("tab-in").classList.toggle("active",m==="in");
       document.getElementById("tab-up").classList.toggle("active",m==="up");
       document.getElementById("name-wrap").classList.toggle("hide",m!=="up");
       document.getElementById("phone-wrap").classList.toggle("hide",m!=="up");
-      document.getElementById("submit").textContent=m==="in"?"Masuk":"Buat Akun";
-      document.getElementById("title").textContent=m==="in"?"Selamat Datang":"Buat Akun Baru";
       document.getElementById("password").autocomplete=m==="in"?"current-password":"new-password";
       msg("");
+      refreshMode();
     }
     function msg(t,type){const el=document.getElementById("msg");el.textContent=t||"";el.className="msg"+(type?" "+type:"")}
+
     async function submit(){
+      const d=T[lang];
       const email=document.getElementById("email").value.trim();
       const password=document.getElementById("password").value;
       const name=document.getElementById("name").value.trim();
       const phone=document.getElementById("phone").value.trim();
-      if(!email||!password)return msg("Isi email & password dulu ya.","err");
-      if(mode==="up"&&!name)return msg("Isi nama kamu dulu.","err");
-      if(mode==="up"&&password.length<8)return msg("Password minimal 8 karakter.","err");
-      const btn=document.getElementById("submit");btn.disabled=true;msg("Memproses...","");
+      if(!email||!password)return msg(d.errFill,"err");
+      if(mode==="up"&&!name)return msg(d.errName,"err");
+      if(mode==="up"&&password.length<8)return msg(d.errPw,"err");
+      const btn=document.getElementById("submit");btn.disabled=true;msg(d.processing,"");
       try{
         if(mode==="up"){await Auth.signUp(email,password,name,phone);}
         else{await Auth.signIn(email,password);}
@@ -152,15 +202,18 @@
       }catch(e){msg(terjemah(e.message),"err");btn.disabled=false}
     }
     function terjemah(m){
-      m=(m||"").toLowerCase();
-      if(m.includes("invalid login"))return "Email atau password salah.";
-      if(m.includes("already registered")||m.includes("already been")||m.includes("sudah terdaftar"))return "Email sudah terdaftar. Klik Sign In & pakai password lama, atau daftar pakai email lain.";
-      if(m.includes("not confirmed"))return "Akun belum aktif. Coba lagi sebentar / hubungi admin.";
-      if(m.includes("password"))return "Password minimal 8 karakter.";
-      if(m.includes("supabaseurl")||m.includes("not configured")||m.includes("anon"))return "Server belum siap. Coba refresh sebentar lagi.";
-      if(m.includes("fetch")||m.includes("network"))return "Koneksi ke server gagal. Cek internet / coba lagi.";
-      return "Error: "+(m||"tidak diketahui");
+      const d=T[lang]; m=(m||"").toLowerCase();
+      if(m.includes("invalid login"))return d.errCred;
+      if(m.includes("already registered")||m.includes("already been")||m.includes("sudah terdaftar"))return d.errExists;
+      if(m.includes("password"))return d.errPw;
+      if(m.includes("supabaseurl")||m.includes("not configured")||m.includes("anon"))return lang==="en"?"Server not ready. Refresh in a moment.":"Server belum siap. Coba refresh.";
+      if(m.includes("fetch")||m.includes("network"))return lang==="en"?"Connection failed. Try again.":"Koneksi gagal. Coba lagi.";
+      return "Error: "+(m||"unknown");
     }
+
+    // Auto-enter if already logged in
+    (async function(){ try{ await Auth.ready; const u=await Auth.getUser(); if(u){ await Auth.routeAfterAuth(); } }catch(e){} })();
+    applyLang();
   </script>
 </body>
 </html>
