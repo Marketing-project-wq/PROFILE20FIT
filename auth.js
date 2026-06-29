@@ -7,6 +7,7 @@
 
 (function () {
   let supabase = null;
+  let cfgUrl = null, cfgKey = null;
 
   // URL + anon key PUBLIK — ditanam sebagai fallback supaya web SELALU konek
   // walau /api/config kosong / server belum di-update.
@@ -22,11 +23,42 @@
       const c = await r.json();
       if (c && c.supabaseUrl && c.supabaseAnonKey) { url = c.supabaseUrl; key = c.supabaseAnonKey; }
     } catch (e) { /* pakai fallback */ }
+    cfgUrl = url; cfgKey = key;
     supabase = window.supabase.createClient(url, key, {
-      auth: { persistSession: true, autoRefreshToken: true },
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
     });
     return supabase;
   })();
+
+  // ---------- LOGIN GOOGLE (OAuth) ----------
+  async function signInWithGoogle() {
+    await ready;
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + "/login.html" },
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  // ---------- MAGIC LINK / LOGIN PAKAI KODE EMAIL (isolated via my20fit-otp) ----------
+  async function loginSend(email) {
+    await ready;
+    const r = await fetch(cfgUrl + "/functions/v1/my20fit-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfgKey, "apikey": cfgKey },
+      body: JSON.stringify({ action: "login_send", email: email }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Gagal mengirim kode login.");
+    return j; // { ok, sent, devCode? }
+  }
+  async function verifyLoginCode(email, token) {
+    await ready;
+    const { data, error } = await supabase.auth.verifyOtp({ email: email, token: token, type: "email" });
+    if (error) throw error;
+    return data;
+  }
 
   function go(page) {
     window.location.href = page;
@@ -248,6 +280,9 @@
     ready,
     signUp,
     signIn,
+    signInWithGoogle,
+    loginSend,
+    verifyLoginCode,
     signOut,
     getUser,
     requireAuth,
@@ -262,4 +297,5 @@
     routeAfterAuth,
     go,
   };
+  Object.defineProperty(window.Auth, "supabase", { get: function () { return supabase; } });
 })();

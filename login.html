@@ -46,6 +46,15 @@
   .btn:disabled{opacity:.6}
   .msg{margin-top:14px;font-size:13px;text-align:center;min-height:18px}
   .msg.err{color:var(--red)}.msg.ok{color:#2A7A4F}
+  .orsep{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;margin:18px 0 14px}
+  .orsep::before,.orsep::after{content:"";flex:1;height:1px;background:var(--border)}
+  .sbtn{width:100%;margin-top:10px;padding:13px;border-radius:12px;font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px}
+  .gbtn{background:#fff;border:1px solid var(--border);color:#1f1f1f}
+  .gbtn:hover{background:#faf8f4}
+  .gbtn svg{width:18px;height:18px}
+  .mbtn{background:var(--dark);border:0;color:#fff}
+  .mbtn svg{width:17px;height:17px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .otp{text-align:center;letter-spacing:8px;font-size:20px}
   .hide{display:none}
   @media(max-width:860px){
     .split{flex-direction:column}
@@ -109,6 +118,21 @@
 
         <button class="btn" id="submit" onclick="submit()"></button>
         <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600"></a></div>
+
+        <div class="orsep"><span data-k="orsep">or</span></div>
+        <button class="sbtn gbtn" onclick="googleLogin()">
+          <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.6 7l7.1 5.5c4.2-3.9 6.6-9.6 6.6-16z"/><path fill="#FBBC05" d="M10.4 28.3c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-7.8-6.1C1 16.1 0 19.9 0 24s1 7.9 2.6 11.1l7.8-6.8z"/><path fill="#34A853" d="M24 48c6.1 0 11.3-2 15.1-5.5l-7.1-5.5c-2 1.3-4.5 2.1-8 2.1-6.4 0-11.7-3.7-13.6-9.8l-7.8 6.8C6.5 42.6 14.6 48 24 48z"/></svg>
+          <span data-k="google">Continue with Google</span>
+        </button>
+        <button class="sbtn mbtn" onclick="magicStart()">
+          <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg>
+          <span data-k="magiclink">Email me a login code</span>
+        </button>
+        <div id="magicPanel" class="hide" style="margin-top:14px">
+          <label data-k="codeLabel">Code from email</label>
+          <input id="magicCode" class="otp" inputmode="numeric" maxlength="6" placeholder="------" />
+          <button class="btn" onclick="magicVerify()" data-k="verifyBtn" style="margin-top:12px">Verify & Sign In</button>
+        </div>
         <div class="msg" id="msg"></div>
       </div>
     </div>
@@ -132,7 +156,11 @@
         namePh:"Your name", phonePh:"+62 812 3456 7890",
         errCred:"Wrong email or password.", errExists:"Email already registered. Tap Sign In or use another email.",
         errPw:"Password must be at least 8 characters.", errFill:"Please fill in email & password.",
-        errName:"Please enter your name.", processing:"Processing..."
+        errName:"Please enter your name.", processing:"Processing...",
+        orsep:"or", google:"Continue with Google", magiclink:"Email me a login code",
+        codeLabel:"Code from email", verifyBtn:"Verify & Sign In",
+        emailNeed:"Enter your email first.", codeNeed:"Enter the code from your email.",
+        magicSent:"Login code sent! Check your email.", sending:"Sending code..."
       },
       id: {
         dhp:"Platform Kesehatan Digital",
@@ -148,7 +176,11 @@
         namePh:"Nama kamu", phonePh:"+62 812 3456 7890",
         errCred:"Email atau password salah.", errExists:"Email sudah terdaftar. Klik Masuk atau pakai email lain.",
         errPw:"Password minimal 8 karakter.", errFill:"Isi email & password dulu ya.",
-        errName:"Isi nama kamu dulu.", processing:"Memproses..."
+        errName:"Isi nama kamu dulu.", processing:"Memproses...",
+        orsep:"atau", google:"Lanjut dengan Google", magiclink:"Kirim kode login ke email",
+        codeLabel:"Kode dari email", verifyBtn:"Verifikasi & Masuk",
+        emailNeed:"Isi email kamu dulu.", codeNeed:"Masukkan kode dari email.",
+        magicSent:"Kode login terkirim! Cek email kamu.", sending:"Mengirim kode..."
       }
     };
     let lang = localStorage.getItem("lang") || "en";
@@ -211,8 +243,41 @@
       return "Error: "+(m||"unknown");
     }
 
-    // Auto-enter if already logged in
-    (async function(){ try{ await Auth.ready; const u=await Auth.getUser(); if(u){ await Auth.routeAfterAuth(); } }catch(e){} })();
+    // ---- Google login ----
+    async function googleLogin(){
+      msg(T[lang].processing,"");
+      try{ await Auth.signInWithGoogle(); }catch(e){ msg(terjemah(e.message),"err"); }
+    }
+    // ---- Magic link / login pakai kode email (isolated Mailtrap) ----
+    let magicEmail="";
+    async function magicStart(){
+      const email=document.getElementById("email").value.trim();
+      if(!email)return msg(T[lang].emailNeed,"err");
+      msg(T[lang].sending,"");
+      try{
+        const r=await Auth.loginSend(email); magicEmail=email;
+        document.getElementById("magicPanel").classList.remove("hide");
+        document.getElementById("magicCode").focus();
+        msg(T[lang].magicSent,"ok");
+        if(r.devCode){ msg("DEV — code: "+r.devCode,"ok"); }
+      }catch(e){ msg(terjemah(e.message),"err"); }
+    }
+    async function magicVerify(){
+      const code=document.getElementById("magicCode").value.trim();
+      if(!code)return msg(T[lang].codeNeed,"err");
+      msg(T[lang].processing,"");
+      try{ await Auth.verifyLoginCode(magicEmail,code); await Auth.routeAfterAuth(); }
+      catch(e){ msg(terjemah(e.message),"err"); }
+    }
+
+    // Auto-enter if already logged in (also catches Google OAuth redirect back)
+    (async function(){
+      try{
+        await Auth.ready;
+        Auth.supabase.auth.onAuthStateChange((evt,sess)=>{ if(sess&&sess.user){ Auth.routeAfterAuth(); } });
+        const u=await Auth.getUser(); if(u){ await Auth.routeAfterAuth(); }
+      }catch(e){}
+    })();
     applyLang();
   </script>
 </body>

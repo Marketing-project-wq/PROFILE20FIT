@@ -1,69 +1,69 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Calorie Tracker · 20fit</title>
 <style>
-  :root{--red:#e11d2a;--bg:#0a0a0a;--card:#141414;--line:#262626;--txt:#f5f5f5;--muted:#8a8a8a;--inp:#1c1c1c}
+  :root{--red:#C41101;--bg:#EDE8DF;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--inp:#F0EDE5;--dark:#0A0908}
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 70px}
   .wrap{max-width:640px;margin:0 auto}
-  .logo img{height:38px;margin-bottom:16px}
+  .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:14px;display:flex;align-items:center}
+  .logobar img{height:36px}
   h1{font-size:24px;font-weight:900;margin:0 0 12px;text-transform:uppercase}
   .sec{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:20px 2px 8px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 2px 10px rgba(10,9,8,.04)}
   .ring{text-align:center}
-  .ring .num{font-size:46px;font-weight:900;line-height:1}
+  .ring .num{font-size:46px;font-weight:900;line-height:1;color:var(--red)}
   .ring .goal{color:var(--muted);font-size:14px}
   .bar{height:10px;background:var(--inp);border-radius:6px;overflow:hidden;margin-top:12px}
   .bar i{display:block;height:100%;background:var(--red);width:0;transition:width .3s}
   .add{display:flex;gap:8px;margin-top:10px}
   .add input{flex:1;padding:11px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt)}
   .add input.k{flex:0 0 90px}
+  .add input:focus{outline:none;border-color:var(--red)}
   .add button{padding:11px 14px;border:0;border-radius:10px;background:var(--red);color:#fff;font-weight:800;cursor:pointer}
   .item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
   .item:last-child{border-bottom:0}
   .item .kc{color:var(--muted)}
   .food{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
   .food:last-child{border-bottom:0}
-  .food .em{width:38px;height:38px;border-radius:10px;background:rgba(225,29,42,.12);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .food .em{width:38px;height:38px;border-radius:10px;background:rgba(196,17,1,.10);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
   .food .em svg{width:20px;height:20px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .food .nm{font-weight:700;font-size:14px}.food .ds{font-size:12px;color:var(--muted)}
-  .soon svg{width:18px;height:18px;vertical-align:-3px;fill:none;stroke:#ffb3b8;stroke-width:2}
   .muted{color:var(--muted);font-size:13px}
-  .soon{background:rgba(225,29,42,.08);border:1px solid rgba(225,29,42,.25);color:#ffb3b8;border-radius:12px;padding:14px;margin-top:14px;font-size:13px}
   .scanbtn{width:100%;padding:13px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer}
 </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="logo"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" /></div>
-    <h1>Calorie Tracker</h1>
+    <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" /></div>
+    <h1 data-i18n="cal_title">Calorie Tracker</h1>
 
     <div class="card ring">
       <div class="num"><span id="consumed">0</span></div>
-      <div class="goal">dari <span id="goal">2000</span> kkal hari ini</div>
+      <div class="goal"><span data-i18n="cal_of">of</span> <span id="goal">2000</span> <span data-i18n="cal_today">kcal today</span></div>
       <div class="muted" id="goalnote" style="margin-top:4px;font-size:11px"></div>
       <div class="bar"><i id="calbar"></i></div>
       <div class="add">
-        <input id="fname" placeholder="Nama makanan" />
-        <input id="fkcal" class="k" type="number" placeholder="kkal" />
+        <input id="fname" data-i18n-ph="cal_foodname" placeholder="Food name" />
+        <input id="fkcal" class="k" type="number" placeholder="kcal" />
         <button onclick="addFood()">+</button>
       </div>
     </div>
 
-    <div class="sec">Makanan Hari Ini</div>
-    <div class="card"><div id="log"><div class="muted">Belum ada catatan. Tambah makanan di atas.</div></div></div>
+    <div class="sec" data-i18n="cal_today_sec">Today's Food</div>
+    <div class="card"><div id="log"></div></div>
 
-    <div class="sec">Rekomendasi Makanan</div>
+    <div class="sec" data-i18n="cal_recs">Food Recommendations</div>
     <div class="card" id="recs"></div>
 
-    <div class="sec" id="scanbox">Scan Makanan (AI)</div>
+    <div class="sec" id="scanbox" data-i18n="cal_scan">Scan Food (AI)</div>
     <div class="card">
       <button class="scanbtn" onclick="document.getElementById('foodfile').click()">
         <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2;vertical-align:-4px"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
-        Foto / Upload Makanan
+        <span data-i18n="cal_photo">Photo / Upload Food</span>
       </button>
       <input id="foodfile" type="file" accept="image/*" capture="environment" style="display:none" onchange="scanFood(event)" />
       <div id="scanresult" style="margin-top:12px"></div>
@@ -72,10 +72,11 @@
 
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
+  <script src="i18n.js"></script>
   <script src="nav.js"></script>
   <script>
     function todayKey(){const d=new Date();return "my20fit_cal_"+d.toISOString().slice(0,10)}
-    let goal=2000, items=[];
+    let goal=2000, items=[], curGoal="health";
     function calcGoal(p){
       const w=+p.weight_kg,h=+p.height_cm,age=+p.age||25;
       if(!w||!h)return 2000;
@@ -87,13 +88,14 @@
     }
     function load(){try{items=JSON.parse(localStorage.getItem(todayKey())||"[]")}catch(e){items=[]}}
     function save(){localStorage.setItem(todayKey(),JSON.stringify(items))}
+    function kc(){return L({en:"kcal",id:"kkal"})}
     function render(){
       const total=items.reduce((s,i)=>s+(+i.kcal||0),0);
       document.getElementById("consumed").textContent=total;
       document.getElementById("goal").textContent=goal;
       document.getElementById("calbar").style.width=Math.min(total/goal*100,100)+"%";
       const log=document.getElementById("log");
-      log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}</span><span class="kc">${i.kcal} kkal <a onclick="del(${idx})" style="color:#ff6b6b;cursor:pointer;margin-left:8px">✕</a></span></div>`).join(""):'<div class="muted">Belum ada catatan. Tambah makanan di atas.</div>';
+      log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}</span><span class="kc">${i.kcal} ${kc()} <a onclick="del(${idx})" style="color:var(--red);cursor:pointer;margin-left:8px">✕</a></span></div>`).join(""):'<div class="muted">'+I18N.t("cal_empty")+'</div>';
     }
     function addFood(){
       const name=document.getElementById("fname").value.trim();const kcal=parseInt(document.getElementById("fkcal").value);
@@ -111,38 +113,43 @@
     async function scanFood(e){
       const f=e.target.files[0];if(!f)return;
       const box=document.getElementById("scanresult");
-      box.innerHTML='<div class="muted">Menganalisa makanan… ⏳</div>';
+      box.innerHTML='<div class="muted">'+I18N.t("cal_analysing")+'</div>';
       try{
         const url=await fileURL(f);
-        const r=await fetch(AI_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"food",image:url})});
+        const r=await fetch(AI_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"food",image:url,lang:I18N.lang})});
         const j=await r.json();
-        if(!r.ok||!j.result)throw new Error(j.error||"Gagal menganalisa");
+        if(!r.ok||!j.result)throw new Error(j.error||L({en:"Analysis failed",id:"Gagal menganalisa"}));
         const res=j.result;lastScan=res.items||[];
-        if(!lastScan.length){box.innerHTML='<div class="muted">'+(res.note||"Gak kedeteksi makanan di foto.")+'</div>';return}
-        box.innerHTML='<div style="font-weight:800;margin-bottom:6px">Terdeteksi · ~'+(res.total_kcal||0)+' kkal</div>'+
-          lastScan.map(i=>'<div class="item"><span>'+i.name+'</span><span class="kc">'+i.kcal+' kkal</span></div>').join('')+
-          '<button class="scanbtn" style="margin-top:10px" onclick="addScanned()">+ Tambah ke Log Hari Ini</button>'+
+        if(!lastScan.length){box.innerHTML='<div class="muted">'+(res.note||L({en:"No food detected in the photo.",id:"Gak kedeteksi makanan di foto."}))+'</div>';return}
+        box.innerHTML='<div style="font-weight:800;margin-bottom:6px">'+I18N.t("cal_detected")+' · ~'+(res.total_kcal||0)+' '+kc()+'</div>'+
+          lastScan.map(i=>'<div class="item"><span>'+i.name+'</span><span class="kc">'+i.kcal+' '+kc()+'</span></div>').join('')+
+          '<button class="scanbtn" style="margin-top:10px" onclick="addScanned()">'+I18N.t("cal_addlog")+'</button>'+
           (res.note?'<div class="muted" style="margin-top:8px">'+res.note+'</div>':'');
-      }catch(err){box.innerHTML='<div style="color:#ff6b6b">'+err.message+'</div>'}
+      }catch(err){box.innerHTML='<div style="color:var(--red)">'+err.message+'</div>'}
       e.target.value="";
     }
-    function addScanned(){lastScan.forEach(i=>items.push({name:i.name,kcal:Math.round(i.kcal)||0}));save();render();document.getElementById("scanresult").innerHTML='<div style="color:#46d369">Ditambahkan ke log ✅</div>'}
+    function addScanned(){lastScan.forEach(i=>items.push({name:i.name,kcal:Math.round(i.kcal)||0}));save();render();document.getElementById("scanresult").innerHTML='<div style="color:#2A7A4F">'+I18N.t("cal_added")+'</div>'}
+
+    const RECS={
+      lose:[{en:["Chicken salad","~350 kcal · high protein"],id:["Salad ayam","~350 kkal · tinggi protein"]},{en:["Vegetable soup","~200 kcal · low calorie"],id:["Sup sayur","~200 kkal · rendah kalori"]},{en:["Cut fruit","~120 kcal · fiber"],id:["Buah potong","~120 kkal · serat"]}],
+      muscle:[{en:["Chicken breast + rice","~550 kcal · high protein"],id:["Dada ayam + nasi","~550 kkal · protein tinggi"]},{en:["3 boiled eggs","~230 kcal"],id:["Telur rebus 3","~230 kkal"]},{en:["Protein shake","~250 kcal"],id:["Protein shake","~250 kkal"]}],
+      health:[{en:["Fish + veggies","~400 kcal · omega-3"],id:["Ikan + sayur","~400 kkal · omega-3"]},{en:["Avocado toast","~300 kcal · good fats"],id:["Alpukat toast","~300 kkal · lemak baik"]},{en:["Greek yogurt","~150 kcal"],id:["Greek yogurt","~150 kkal"]}],
+      fit:[{en:["Banana + oats","~350 kcal · energy"],id:["Pisang + oat","~350 kkal · energi"]},{en:["Grilled chicken","~400 kcal"],id:["Ayam panggang","~400 kkal"]},{en:["Fruit smoothie","~250 kcal"],id:["Smoothie buah","~250 kkal"]}]
+    };
+    const foodIcon='<svg viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h0a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/></svg>';
+    function renderRecs(){
+      const list=RECS[curGoal]||RECS.health;
+      document.getElementById("recs").innerHTML=list.map(r=>{const v=L(r);return `<div class="food"><div class="em">${foodIcon}</div><div><div class="nm">${v[0]}</div><div class="ds">${v[1]}</div></div></div>`}).join("");
+    }
+    function refreshGoalNote(){document.getElementById("goalnote").textContent=I18N.t("cal_goalnote");}
+
     (async function(){
       const p=await Auth.getProfile();
-      goal=calcGoal(p);
-      load();render();
-      document.getElementById("goalnote").textContent="Dihitung dari profil kamu (BB, TB, umur, gender, tujuan).";
-      const recsByGoal={
-        lose:[["🥗","Salad ayam","~350 kkal · tinggi protein"],["🍲","Sup sayur","~200 kkal · rendah kalori"],["🍎","Buah potong","~120 kkal · serat"]],
-        muscle:[["🍗","Dada ayam + nasi","~550 kkal · protein tinggi"],["🥚","Telur rebus 3","~230 kkal"],["🥛","Protein shake","~250 kkal"]],
-        health:[["🐟","Ikan + sayur","~400 kkal · omega-3"],["🥑","Alpukat toast","~300 kkal · lemak baik"],["🍵","Greek yogurt","~150 kkal"]],
-        fit:[["🍌","Pisang + oat","~350 kkal · energi"],["🍗","Ayam panggang","~400 kkal"],["🥤","Smoothie buah","~250 kkal"]]
-      };
-      const list=recsByGoal[g]||recsByGoal.health;
-      const foodIcon='<svg viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h0a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/></svg>';
-      document.getElementById("recs").innerHTML=list.map(r=>`<div class="food"><div class="em">${foodIcon}</div><div><div class="nm">${r[1]}</div><div class="ds">${r[2]}</div></div></div>`).join("");
+      goal=calcGoal(p); curGoal=p.main_goal||"health";
+      load();render();refreshGoalNote();renderRecs();
       if(location.hash==="#scan"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});}
     })();
+    I18N.onChange(()=>{render();refreshGoalNote();renderRecs();});
   </script>
 </body>
 </html>

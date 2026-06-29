@@ -11,21 +11,22 @@
   const svg = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + '</svg>';
 
   const items = [
-    { href: "dashboard.html", label: "Home", k: "home" },
-    { href: "medical.html", label: "Medical", k: "medical" },
-    { href: "progress.html", label: "Progress", k: "progress" },
-    { href: "calories.html", label: "Kalori", k: "calories" },
-    { href: "profile.html", label: "Profil", k: "profile" },
+    { href: "dashboard.html", key: "nav_home", k: "home" },
+    { href: "medical.html", key: "nav_medical", k: "medical" },
+    { href: "progress.html", key: "nav_progress", k: "progress" },
+    { href: "calories.html", key: "nav_calories", k: "calories" },
+    { href: "profile.html", key: "nav_profile", k: "profile" },
   ];
   const cur = (location.pathname.split("/").pop() || "dashboard.html").toLowerCase();
+  const tr = (key, fb) => (window.I18N ? I18N.t(key) : fb);
 
   const css = `
     body{padding-bottom:96px !important}
-    .bnav{position:fixed;left:0;right:0;bottom:0;z-index:40;background:#141414;border-top:1px solid #262626;
-      display:flex;justify-content:center;gap:4px;padding:8px 8px calc(8px + env(safe-area-inset-bottom));}
-    .bnav a{flex:1;max-width:90px;text-align:center;text-decoration:none;color:#8a8a8a;font-size:10px;font-weight:600;
+    .bnav{position:fixed;left:0;right:0;bottom:0;z-index:40;background:#fff;border-top:1px solid #E8E2DB;
+      display:flex;justify-content:center;gap:4px;padding:8px 8px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -2px 16px rgba(10,9,8,.06)}
+    .bnav a{flex:1;max-width:90px;text-align:center;text-decoration:none;color:#9E8E7A;font-size:10px;font-weight:600;
       padding:6px 2px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:3px}
-    .bnav a.on{color:#fff}
+    .bnav a.on{color:#0A0908}
     .bnav svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
     .bnav a.on svg{stroke:#C41101}
     .scanfab{position:fixed;right:18px;bottom:96px;z-index:41;background:#C41101;color:#fff;border:0;border-radius:50%;
@@ -33,7 +34,7 @@
       display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
     .scanfab svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
     @media(min-width:900px){
-      .bnav{max-width:560px;margin:0 auto;border:1px solid #262626;border-radius:16px;bottom:16px;left:0;right:0}
+      .bnav{max-width:560px;margin:0 auto;border:1px solid #E8E2DB;border-radius:16px;bottom:16px;left:0;right:0}
     }
   `;
   const style = document.createElement("style");
@@ -42,14 +43,20 @@
 
   const nav = document.createElement("nav");
   nav.className = "bnav";
-  nav.innerHTML = items.map(it =>
-    `<a href="${it.href}" class="${cur === it.href ? "on" : ""}">${svg(it.k)}${it.label}</a>`
-  ).join("");
+  function renderNav(){
+    nav.innerHTML = items.map(it =>
+      `<a href="${it.href}" class="${cur === it.href ? "on" : ""}">${svg(it.k)}${tr(it.key, it.k)}</a>`
+    ).join("");
+  }
+  renderNav();
   document.body.appendChild(nav);
 
   const fab = document.createElement("button");
   fab.className = "scanfab";
-  fab.innerHTML = svg("scan") + "Scan";
+  function renderFab(){ fab.innerHTML = svg("scan") + tr("nav_scan", "Scan"); }
+  renderFab();
   fab.onclick = () => { location.href = "calories.html#scan"; };
   document.body.appendChild(fab);
+
+  if (window.I18N) I18N.onChange(() => { renderNav(); renderFab(); });
 })();

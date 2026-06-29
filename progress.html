@@ -1,34 +1,36 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Progress · 20fit</title>
 <style>
-  :root{--red:#e11d2a;--bg:#0a0a0a;--card:#141414;--line:#262626;--txt:#f5f5f5;--muted:#8a8a8a}
+  :root{--red:#C41101;--bg:#EDE8DF;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--dark:#0A0908}
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
     display:flex;align-items:center;justify-content:center;padding:24px}
   .box{text-align:center;max-width:380px}
-  .logo img{height:42px;margin-bottom:24px}
-  .ic{width:84px;height:84px;border-radius:24px;background:rgba(225,29,42,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+  .logo{display:inline-block;background:var(--dark);padding:9px 14px;border-radius:12px;margin-bottom:24px}
+  .logo img{height:34px;display:block}
+  .ic{width:84px;height:84px;border-radius:24px;background:rgba(196,17,1,.10);display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
   .ic svg{width:40px;height:40px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;animation:rise 2s ease-in-out infinite}
   @keyframes rise{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
   h1{font-size:26px;font-weight:900;margin:0 0 10px;text-transform:uppercase}
   p{color:var(--muted);font-size:15px;line-height:1.6}
-  .badge{display:inline-block;margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:8px 16px;font-size:13px;font-weight:700;color:var(--red)}
+  .badge{display:inline-block;margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:8px 16px;font-size:13px;font-weight:700;color:var(--red);box-shadow:0 2px 10px rgba(10,9,8,.04)}
 </style>
 </head>
 <body>
   <div class="box">
     <div class="logo"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" /></div>
     <div class="ic"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
-    <h1>Progress</h1>
-    <p>Statistik mingguan, achievement, dan kalender latihan kamu lagi disiapin di sini.</p>
-    <div class="badge">🚧 Segera Hadir</div>
+    <h1 data-i18n="prog_title">Progress</h1>
+    <p data-i18n="prog_text">Weekly stats, achievements, and your training calendar are coming soon.</p>
+    <div class="badge">🚧 <span data-i18n="prog_soon">Coming Soon</span></div>
   </div>
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
+  <script src="i18n.js"></script>
   <script src="nav.js"></script>
   <script>(async function(){try{await Auth.requireAuth()}catch(e){}})();</script>
 </body>
