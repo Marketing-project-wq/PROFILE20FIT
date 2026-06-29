@@ -197,10 +197,11 @@
         <div class="sec" data-i18n="sec_breath">Breathing Exercise</div>
         <div class="card">
           <div class="seg">
-            <button data-p="478" class="active" onclick="pickPattern('478')">4-7-8</button>
-            <button data-p="box" onclick="pickPattern('box')">Box 4×4</button>
-            <button data-p="relax" onclick="pickPattern('relax')" data-i18n="breath_relax">Relax 5-5</button>
+            <button data-p="478" class="active" onclick="pickPattern('478')" data-i18n="breath_anxiety">Anxiety</button>
+            <button data-p="box" onclick="pickPattern('box')" data-i18n="breath_workout">Workout</button>
+            <button data-p="relax" onclick="pickPattern('relax')" data-i18n="breath_relax">Relax</button>
           </div>
+          <div class="muted" id="bcap" style="font-size:12px;text-align:center;margin:2px 0 4px"></div>
           <div class="ring" id="ring"><div><div class="ph" id="bphase" data-i18n="ready">Ready</div><div class="cd" id="bcd" data-i18n="press_start">Tap start</div></div></div>
           <div class="dots" id="bdots"></div>
           <button class="btn" id="bbtn" onclick="toggleBreath()" data-i18n="start">Start</button>
@@ -452,7 +453,13 @@
                     relax:{seq:[["in",5],["out",5]],cycles:6}};
     function phaseLabel(t){return t==="in"?L({en:"Breathe in",id:"Tarik napas"}):t==="hold"?L({en:"Hold",id:"Tahan"}):L({en:"Breathe out",id:"Buang napas"});}
     let pat="478",running=false,timer=null;
-    function pickPattern(p){if(running)return;pat=p;document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle("active",b.dataset.p===p));renderDots(0)}
+    const BREATH_DESC={
+      478:{en:"4-7-8 · calms the nervous system, eases anxiety & helps sleep",id:"4-7-8 · menenangkan saraf, redakan cemas & bantu tidur"},
+      box:{en:"Box 4×4 · sharpen focus & recovery — great around workouts",id:"Box 4×4 · fokus & pemulihan — pas buat sebelum/sesudah latihan"},
+      relax:{en:"5-5 · slow breathing to relax & wind down",id:"5-5 · napas pelan untuk rileks & menenangkan diri"}
+    };
+    function updateBreathCap(){document.getElementById("bcap").textContent=L(BREATH_DESC[pat]);}
+    function pickPattern(p){if(running)return;pat=p;document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle("active",b.dataset.p===p));renderDots(0);updateBreathCap()}
     function renderDots(done){const c=PATTERNS[pat].cycles;let h="";for(let i=0;i<c;i++)h+='<i class="'+(i<done?"on":"")+'"></i>';document.getElementById("bdots").innerHTML=h}
     function toggleBreath(){running?stopBreath(false):startBreath()}
     function startBreath(){
@@ -609,9 +616,11 @@
     }
 
     renderDots(0);
+    updateBreathCap();
 
     // Re-render konten dinamis saat bahasa diganti
     I18N.onChange(()=>{
+      updateBreathCap();
       if(!profile)return;
       document.getElementById("greet").textContent=greetWord();
       renderSleep(); renderWater(); renderChecklist();

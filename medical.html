@@ -75,11 +75,11 @@
           const dataUrl=await readData(f);
           const img=new Image();
           img.onload=()=>{
-            const MAX=1600; let{width:w,height:h}=img;
+            const MAX=1500; let{width:w,height:h}=img;
             if(Math.max(w,h)>MAX){const s=MAX/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}
             const c=document.createElement("canvas");c.width=w;c.height=h;
             c.getContext("2d").drawImage(img,0,0,w,h);
-            resolve(c.toDataURL("image/jpeg",0.82));
+            resolve(c.toDataURL("image/jpeg",0.8));
           };
           img.onerror=()=>resolve(dataUrl);
           img.src=dataUrl;

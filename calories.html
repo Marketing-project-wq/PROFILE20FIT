@@ -15,11 +15,16 @@
   .sec{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:20px 2px 8px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 2px 10px rgba(10,9,8,.04)}
   .ring{text-align:center}
-  .ring .num{font-size:46px;font-weight:900;line-height:1;color:var(--red)}
-  .ring .goal{color:var(--muted);font-size:14px}
-  .bar{height:10px;background:var(--inp);border-radius:6px;overflow:hidden;margin-top:12px}
-  .bar i{display:block;height:100%;background:var(--red);width:0;transition:width .3s}
-  .add{display:flex;gap:8px;margin-top:10px}
+  .ring .tlbl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .ring .num{font-size:60px;font-weight:900;line-height:1;color:var(--red);margin:4px 0 2px}
+  .ring .goal{color:var(--muted);font-size:13px}
+  .rem{font-size:13px;color:var(--txt);margin-top:10px}
+  .rem b{color:var(--red)}
+  .bar{height:10px;background:var(--inp);border-radius:6px;overflow:hidden;margin-top:10px}
+  .bar i{display:block;height:100%;background:var(--red);width:0;transition:width .35s}
+  .scanbtn{width:100%;padding:14px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+  .ormanual{font-size:11px;color:var(--muted);margin:14px 0 6px;text-align:center;text-transform:uppercase;letter-spacing:1px}
+  .add{display:flex;gap:8px}
   .add input{flex:1;padding:11px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt)}
   .add input.k{flex:0 0 90px}
   .add input:focus{outline:none;border-color:var(--red)}
@@ -27,13 +32,23 @@
   .item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
   .item:last-child{border-bottom:0}
   .item .kc{color:var(--muted)}
-  .food{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
-  .food:last-child{border-bottom:0}
-  .food .em{width:38px;height:38px;border-radius:10px;background:rgba(196,17,1,.10);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
-  .food .em svg{width:20px;height:20px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .food .nm{font-weight:700;font-size:14px}.food .ds{font-size:12px;color:var(--muted)}
   .muted{color:var(--muted);font-size:13px}
-  .scanbtn{width:100%;padding:13px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer}
+  /* meal tabs + recipes */
+  .mtabs{display:flex;gap:8px;margin-bottom:10px}
+  .mtabs button{flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer}
+  .mtabs button.on{border-color:var(--red);background:rgba(196,17,1,.08);color:var(--red)}
+  .dish{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+  .dish:last-child{margin-bottom:0}
+  .dhead{display:flex;align-items:center;gap:12px}
+  .dhead .di{width:40px;height:40px;border-radius:10px;background:rgba(196,17,1,.10);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .dhead .di svg{width:21px;height:21px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .dhead .dn{font-weight:800;font-size:15px}
+  .dhead .dk{font-size:12px;color:var(--muted)}
+  .rlink{color:var(--red);font-weight:700;font-size:13px;cursor:pointer;background:none;border:0;padding:8px 0 0;font-family:inherit}
+  .recipe{margin-top:10px;border-top:1px dashed var(--line);padding-top:10px;font-size:13.5px}
+  .recipe h4{margin:6px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .recipe ul,.recipe ol{margin:4px 0;padding-left:18px;line-height:1.6}
+  .raddbtn{margin-top:10px;padding:10px 12px;border:0;border-radius:10px;background:var(--inp);color:var(--txt);font-weight:700;cursor:pointer;font-size:13px}
 </style>
 </head>
 <body>
@@ -42,10 +57,20 @@
     <h1 data-i18n="cal_title">Calorie Tracker</h1>
 
     <div class="card ring">
-      <div class="num"><span id="consumed">0</span></div>
-      <div class="goal"><span data-i18n="cal_of">of</span> <span id="goal">2000</span> <span data-i18n="cal_today">kcal today</span></div>
-      <div class="muted" id="goalnote" style="margin-top:4px;font-size:11px"></div>
+      <div class="tlbl" data-i18n="cal_targetlbl">Your daily calorie target</div>
+      <div class="num" id="goal">2000</div>
+      <div class="goal" data-i18n="cal_perday">kcal / day — from your BMI & profile</div>
+      <div class="rem"><span data-i18n="cal_eaten">Eaten</span> <b id="consumed">0</b> · <span data-i18n="cal_left">Left</span> <b id="remain">0</b> kcal</div>
       <div class="bar"><i id="calbar"></i></div>
+
+      <button class="scanbtn" id="scanbox" style="margin-top:14px" onclick="document.getElementById('foodfile').click()">
+        <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+        <span data-i18n="cal_scanbtn">Scan food to count calories</span>
+      </button>
+      <input id="foodfile" type="file" accept="image/*" capture="environment" style="display:none" onchange="scanFood(event)" />
+      <div id="scanresult" style="margin-top:12px"></div>
+
+      <div class="ormanual" data-i18n="cal_ormanual">or add manually</div>
       <div class="add">
         <input id="fname" data-i18n-ph="cal_foodname" placeholder="Food name" />
         <input id="fkcal" class="k" type="number" placeholder="kcal" />
@@ -56,17 +81,14 @@
     <div class="sec" data-i18n="cal_today_sec">Today's Food</div>
     <div class="card"><div id="log"></div></div>
 
-    <div class="sec" data-i18n="cal_recs">Food Recommendations</div>
-    <div class="card" id="recs"></div>
-
-    <div class="sec" id="scanbox" data-i18n="cal_scan">Scan Food (AI)</div>
+    <div class="sec" data-i18n="cal_recs">Meal Ideas & Recipes</div>
     <div class="card">
-      <button class="scanbtn" onclick="document.getElementById('foodfile').click()">
-        <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2;vertical-align:-4px"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
-        <span data-i18n="cal_photo">Photo / Upload Food</span>
-      </button>
-      <input id="foodfile" type="file" accept="image/*" capture="environment" style="display:none" onchange="scanFood(event)" />
-      <div id="scanresult" style="margin-top:12px"></div>
+      <div class="mtabs">
+        <button data-m="breakfast" class="on" onclick="pickMeal('breakfast')" data-i18n="meal_breakfast">Breakfast</button>
+        <button data-m="lunch" onclick="pickMeal('lunch')" data-i18n="meal_lunch">Lunch</button>
+        <button data-m="dinner" onclick="pickMeal('dinner')" data-i18n="meal_dinner">Dinner</button>
+      </div>
+      <div id="meals"></div>
     </div>
   </div>
 
@@ -93,6 +115,7 @@
       const total=items.reduce((s,i)=>s+(+i.kcal||0),0);
       document.getElementById("consumed").textContent=total;
       document.getElementById("goal").textContent=goal;
+      document.getElementById("remain").textContent=Math.max(0,goal-total);
       document.getElementById("calbar").style.width=Math.min(total/goal*100,100)+"%";
       const log=document.getElementById("log");
       log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}</span><span class="kc">${i.kcal} ${kc()} <a onclick="del(${idx})" style="color:var(--red);cursor:pointer;margin-left:8px">✕</a></span></div>`).join(""):'<div class="muted">'+I18N.t("cal_empty")+'</div>';
@@ -103,13 +126,32 @@
       items.push({name,kcal});save();render();
       document.getElementById("fname").value="";document.getElementById("fkcal").value="";
     }
+    function addToLog(name,kcal){items.push({name:name,kcal:Math.round(kcal)||0});save();render();}
     function del(i){items.splice(i,1);save();render()}
 
-    // ---- Scan makanan (AI via OpenRouter/Gemini) ----
+    // ---- Scan makanan (AI vision via OpenRouter/Gemini) ----
     const AI_URL="https://cpvzwqptzcxnwzfzgrmt.supabase.co/functions/v1/my20fit-ai";
     const ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI";
     let lastScan=[];
-    function fileURL(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
+    // perkecil gambar dulu biar cepat
+    function fileURL(f){
+      return new Promise(async(resolve,reject)=>{
+        const r=new FileReader();
+        r.onload=()=>{
+          const img=new Image();
+          img.onload=()=>{
+            const MAX=1100;let{width:w,height:h}=img;
+            if(Math.max(w,h)>MAX){const s=MAX/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}
+            const c=document.createElement("canvas");c.width=w;c.height=h;
+            c.getContext("2d").drawImage(img,0,0,w,h);
+            resolve(c.toDataURL("image/jpeg",0.8));
+          };
+          img.onerror=()=>resolve(r.result);
+          img.src=r.result;
+        };
+        r.onerror=reject;r.readAsDataURL(f);
+      });
+    }
     async function scanFood(e){
       const f=e.target.files[0];if(!f)return;
       const box=document.getElementById("scanresult");
@@ -128,28 +170,62 @@
       }catch(err){box.innerHTML='<div style="color:var(--red)">'+err.message+'</div>'}
       e.target.value="";
     }
-    function addScanned(){lastScan.forEach(i=>items.push({name:i.name,kcal:Math.round(i.kcal)||0}));save();render();document.getElementById("scanresult").innerHTML='<div style="color:#2A7A4F">'+I18N.t("cal_added")+'</div>'}
+    function addScanned(){lastScan.forEach(i=>addToLog(i.name,i.kcal));document.getElementById("scanresult").innerHTML='<div style="color:#2A7A4F">'+I18N.t("cal_added")+'</div>'}
 
-    const RECS={
-      lose:[{en:["Chicken salad","~350 kcal · high protein"],id:["Salad ayam","~350 kkal · tinggi protein"]},{en:["Vegetable soup","~200 kcal · low calorie"],id:["Sup sayur","~200 kkal · rendah kalori"]},{en:["Cut fruit","~120 kcal · fiber"],id:["Buah potong","~120 kkal · serat"]}],
-      muscle:[{en:["Chicken breast + rice","~550 kcal · high protein"],id:["Dada ayam + nasi","~550 kkal · protein tinggi"]},{en:["3 boiled eggs","~230 kcal"],id:["Telur rebus 3","~230 kkal"]},{en:["Protein shake","~250 kcal"],id:["Protein shake","~250 kkal"]}],
-      health:[{en:["Fish + veggies","~400 kcal · omega-3"],id:["Ikan + sayur","~400 kkal · omega-3"]},{en:["Avocado toast","~300 kcal · good fats"],id:["Alpukat toast","~300 kkal · lemak baik"]},{en:["Greek yogurt","~150 kcal"],id:["Greek yogurt","~150 kkal"]}],
-      fit:[{en:["Banana + oats","~350 kcal · energy"],id:["Pisang + oat","~350 kkal · energi"]},{en:["Grilled chicken","~400 kcal"],id:["Ayam panggang","~400 kkal"]},{en:["Fruit smoothie","~250 kcal"],id:["Smoothie buah","~250 kkal"]}]
+    // ---- Ide menu + resep (sarapan / makan siang / makan malam) ----
+    const RECIPES={
+      breakfast:[
+        {n:{en:"Oats, Banana & Honey",id:"Oat, Pisang & Madu"},k:350,
+         ing:{en:["50g rolled oats","200ml low-fat milk","1 banana","1 tbsp honey","Pinch of cinnamon"],id:["50g oat","200ml susu rendah lemak","1 pisang","1 sdm madu","Sejumput kayu manis"]},
+         st:{en:["Cook oats with milk over low heat 3–4 min.","Pour into a bowl, slice banana on top.","Drizzle honey & sprinkle cinnamon."],id:["Masak oat dengan susu, api kecil 3–4 menit.","Tuang ke mangkuk, iris pisang di atasnya.","Tambah madu & taburi kayu manis."]}},
+        {n:{en:"Veggie Egg Omelette",id:"Telur Dadar Sayur"},k:280,
+         ing:{en:["2 eggs","Handful spinach","1/4 onion","1 tomato","Pinch salt & pepper","1 tsp olive oil"],id:["2 telur","Segenggam bayam","1/4 bawang bombay","1 tomat","Sejumput garam & lada","1 sdt minyak zaitun"]},
+         st:{en:["Whisk eggs with salt & pepper.","Sauté onion, tomato & spinach 2 min.","Pour eggs, cook until set, fold & serve."],id:["Kocok telur dengan garam & lada.","Tumis bawang, tomat & bayam 2 menit.","Tuang telur, masak hingga matang, lipat & sajikan."]}}
+      ],
+      lunch:[
+        {n:{en:"Grilled Chicken & Rice Bowl",id:"Nasi Ayam Panggang"},k:520,
+         ing:{en:["150g chicken breast","150g cooked rice","Mixed veggies","1 tbsp soy sauce","1 tsp olive oil","Garlic & pepper"],id:["150g dada ayam","150g nasi","Sayuran campur","1 sdm kecap asin","1 sdt minyak zaitun","Bawang putih & lada"]},
+         st:{en:["Marinate chicken with soy, garlic & pepper.","Grill/pan-sear 4–5 min each side.","Steam veggies, serve over rice."],id:["Lumuri ayam dengan kecap, bawang putih & lada.","Panggang 4–5 menit tiap sisi.","Kukus sayur, sajikan di atas nasi."]}},
+        {n:{en:"Tuna Avocado Salad",id:"Salad Tuna Alpukat"},k:380,
+         ing:{en:["1 can tuna in water","1/2 avocado","Lettuce & tomato","1 tbsp lemon juice","Olive oil, salt"],id:["1 kaleng tuna (air)","1/2 alpukat","Selada & tomat","1 sdm air lemon","Minyak zaitun, garam"]},
+         st:{en:["Drain tuna, slice avocado & tomato.","Toss with lettuce.","Dress with lemon, olive oil & salt."],id:["Tiriskan tuna, iris alpukat & tomat.","Campur dengan selada.","Beri air lemon, minyak zaitun & garam."]}}
+      ],
+      dinner:[
+        {n:{en:"Baked Fish & Veggies",id:"Ikan Panggang & Sayur"},k:420,
+         ing:{en:["150g white fish fillet","Broccoli & carrot","1 tsp olive oil","Lemon, garlic, salt & pepper"],id:["150g fillet ikan putih","Brokoli & wortel","1 sdt minyak zaitun","Lemon, bawang putih, garam & lada"]},
+         st:{en:["Season fish with lemon, garlic, salt & pepper.","Place with veggies on a tray, drizzle oil.","Bake 200°C ~15–18 min."],id:["Bumbui ikan dengan lemon, bawang putih, garam & lada.","Letakkan bersama sayur di loyang, beri minyak.","Panggang 200°C ~15–18 menit."]}},
+        {n:{en:"Tofu & Veggie Stir-fry",id:"Tumis Tahu Sayur"},k:340,
+         ing:{en:["200g firm tofu","Mixed stir-fry veggies","1 tbsp soy sauce","Garlic, ginger","1 tsp sesame oil"],id:["200g tahu padat","Sayuran tumis campur","1 sdm kecap asin","Bawang putih, jahe","1 sdt minyak wijen"]},
+         st:{en:["Pan-fry cubed tofu until golden.","Add garlic, ginger & veggies, stir 3 min.","Season with soy & sesame oil, serve."],id:["Goreng tahu kotak hingga keemasan.","Tambah bawang putih, jahe & sayur, tumis 3 menit.","Bumbui kecap & minyak wijen, sajikan."]}}
+      ]
     };
-    const foodIcon='<svg viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h0a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/></svg>';
-    function renderRecs(){
-      const list=RECS[curGoal]||RECS.health;
-      document.getElementById("recs").innerHTML=list.map(r=>{const v=L(r);return `<div class="food"><div class="em">${foodIcon}</div><div><div class="nm">${v[0]}</div><div class="ds">${v[1]}</div></div></div>`}).join("");
+    let curMeal="breakfast", openDish=-1;
+    const dishIcon='<svg viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/></svg>';
+    function pickMeal(m){curMeal=m;openDish=-1;document.querySelectorAll('.mtabs button').forEach(b=>b.classList.toggle("on",b.dataset.m===m));renderMeals();}
+    function toggleRecipe(i){openDish=(openDish===i)?-1:i;renderMeals();}
+    function renderMeals(){
+      const list=RECIPES[curMeal]||[];
+      document.getElementById("meals").innerHTML=list.map((d,i)=>{
+        const open=openDish===i;
+        let html='<div class="dish"><div class="dhead"><div class="di">'+dishIcon+'</div>'+
+          '<div style="flex:1"><div class="dn">'+L(d.n)+'</div><div class="dk">~'+d.k+' '+kc()+'</div></div></div>'+
+          '<button class="rlink" onclick="toggleRecipe('+i+')">'+(open?I18N.t("recipe_hide"):I18N.t("recipe_view"))+'</button>';
+        if(open){
+          html+='<div class="recipe"><h4>'+I18N.t("recipe_ing")+'</h4><ul>'+L(d.ing).map(x=>'<li>'+x+'</li>').join("")+'</ul>'+
+            '<h4>'+I18N.t("recipe_steps")+'</h4><ol>'+L(d.st).map(x=>'<li>'+x+'</li>').join("")+'</ol>'+
+            '<button class="raddbtn" onclick="addToLog(\''+L(d.n).replace(/'/g,"")+'\','+d.k+')">'+I18N.t("recipe_add")+' ('+d.k+' '+kc()+')</button></div>';
+        }
+        return html+'</div>';
+      }).join("");
     }
-    function refreshGoalNote(){document.getElementById("goalnote").textContent=I18N.t("cal_goalnote");}
 
     (async function(){
       const p=await Auth.getProfile();
       goal=calcGoal(p); curGoal=p.main_goal||"health";
-      load();render();refreshGoalNote();renderRecs();
+      load();render();renderMeals();
       if(location.hash==="#scan"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});}
     })();
-    I18N.onChange(()=>{render();refreshGoalNote();renderRecs();});
+    I18N.onChange(()=>{render();renderMeals();});
   </script>
 </body>
 </html>
