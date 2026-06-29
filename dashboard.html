@@ -30,13 +30,41 @@
   .big{font-size:32px;font-weight:900;line-height:1}
   .muted{color:var(--muted);font-size:13px}
   .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
-  .scene{height:60px;border-radius:10px;margin:8px 0;position:relative;overflow:hidden}
-  .sun{position:absolute;width:22px;height:22px;border-radius:50%;background:#ffd23f;top:8px;left:14px;animation:sunPulse 3s infinite ease-in-out}
-  .cloud{position:absolute;font-size:18px;top:6px;animation:floatCloud 4s infinite ease-in-out}
-  .particle{position:absolute;width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.5);animation:particleDrift 3s infinite}
-  @keyframes sunPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.12);opacity:.85}}
-  @keyframes floatCloud{0%,100%{transform:translateX(0)}50%{transform:translateX(8px)}}
-  @keyframes particleDrift{0%{transform:translateY(0);opacity:.7}100%{transform:translateY(-26px);opacity:0}}
+  /* ---- Weather animated scene ---- */
+  .wcard{position:relative;overflow:hidden;padding:0}
+  .wscene{position:absolute;inset:0;transition:background 1s}
+  .wover{position:relative;z-index:2;padding:18px}
+  .wover .muted{color:rgba(255,255,255,.85)}
+  .wover .big{color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.35)}
+  .sun{position:absolute;width:46px;height:46px;border-radius:50%;background:radial-gradient(circle,#fff3b0,#ffd23f);top:14px;right:18px;
+    box-shadow:0 0 26px 6px rgba(255,210,63,.65);animation:sunPulse 4s infinite ease-in-out}
+  .sun::before{content:"";position:absolute;inset:-10px;border-radius:50%;border:2px dashed rgba(255,223,100,.55);animation:spin 14s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .moon{position:absolute;width:40px;height:40px;border-radius:50%;background:#e8edf5;top:16px;right:20px;box-shadow:inset -10px -4px 0 0 #c4ccd8,0 0 20px 4px rgba(220,230,250,.4)}
+  .star{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;animation:twinkle 2.5s infinite}
+  @keyframes twinkle{0%,100%{opacity:.2}50%{opacity:1}}
+  .cl{position:absolute;background:#fff;border-radius:40px;opacity:.95;animation:drift 9s infinite linear}
+  .cl::before,.cl::after{content:"";position:absolute;background:#fff;border-radius:50%}
+  .cl.c1{width:46px;height:16px;top:18px;left:-50px;animation-duration:13s}
+  .cl.c1::before{width:22px;height:22px;top:-10px;left:8px}.cl.c1::after{width:16px;height:16px;top:-7px;left:24px}
+  .cl.c2{width:34px;height:12px;top:40px;left:-40px;opacity:.75;animation-duration:18s;animation-delay:-4s}
+  .cl.c2::before{width:16px;height:16px;top:-8px;left:6px}.cl.c2::after{width:12px;height:12px;top:-5px;left:18px}
+  @keyframes drift{from{transform:translateX(0)}to{transform:translateX(260px)}}
+  .rain{position:absolute;width:2px;height:11px;background:linear-gradient(rgba(180,210,255,.1),rgba(180,210,255,.9));border-radius:2px;animation:fall .8s infinite linear}
+  @keyframes fall{from{transform:translateY(-12px);opacity:0}20%{opacity:1}to{transform:translateY(120px);opacity:.2}}
+  .bolt{position:absolute;top:30px;left:46%;font-size:0;width:0;height:0;animation:flash 3.5s infinite}
+  @keyframes flash{0%,92%,100%{opacity:0}94%,98%{opacity:1}}
+  @keyframes sunPulse{0%,100%{transform:scale(1);box-shadow:0 0 26px 6px rgba(255,210,63,.6)}50%{transform:scale(1.08);box-shadow:0 0 34px 10px rgba(255,210,63,.8)}}
+  /* ---- AQI gauge ---- */
+  .aqiwrap{position:relative;width:120px;height:120px;margin:12px auto 6px}
+  .aqigauge{width:120px;height:120px;display:block}
+  .aqicenter{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+  .aqinum{font-size:30px;font-weight:900;line-height:1}
+  .aqilbl{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-top:2px}
+  .aqiparts{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:50%}
+  .pm{position:absolute;border-radius:50%;background:rgba(255,255,255,.45);animation:rise2 linear infinite}
+  @keyframes rise2{0%{transform:translateY(60px) scale(.6);opacity:0}20%{opacity:.8}100%{transform:translateY(-10px) scale(1);opacity:0}}
+  .scene{display:none}
   .wrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
   .wrow:last-child{border-bottom:0}
   .wrow .em{width:38px;height:38px;border-radius:10px;background:rgba(225,29,42,.12);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
@@ -69,6 +97,26 @@
   .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(80px);background:#fff;color:#0a0a0a;
     padding:12px 18px;border-radius:12px;font-weight:700;font-size:14px;opacity:0;transition:all .4s;z-index:9}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+  /* Sleep time inputs */
+  .sleeprow{display:flex;gap:10px;margin:10px 0 2px}
+  .sleepfld{flex:1}
+  .sleepfld label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px}
+  .sleepfld input{width:100%;padding:11px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:#fff;font-size:15px;font-family:inherit}
+  /* Checklist harian */
+  .chk{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
+  .chk:last-child{border-bottom:0}
+  .chk .box{width:24px;height:24px;border-radius:7px;border:2px solid var(--line);flex:0 0 auto;display:flex;align-items:center;justify-content:center;transition:all .2s}
+  .chk .box svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.5);transition:all .2s}
+  .chk.done .box{background:var(--red);border-color:var(--red)}
+  .chk.done .box svg{opacity:1;transform:scale(1)}
+  .chk .lbl{font-size:14px;font-weight:600;transition:all .2s}
+  .chk.done .lbl{color:var(--muted);text-decoration:line-through}
+  .chk .ico{width:34px;height:34px;border-radius:9px;background:rgba(225,29,42,.12);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .chk .ico svg{width:18px;height:18px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .chkhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  .chkprog{font-size:12px;font-weight:800;color:var(--red)}
+  .chkbar{height:7px;background:var(--inp);border-radius:6px;overflow:hidden;margin:10px 0 2px}
+  .chkbar>i{display:block;height:100%;background:linear-gradient(90deg,#C41101,#ff5a4d);width:0;transition:width .4s}
   /* Mobile: semua nge-stack 1 kolom */
   @media(max-width:560px){
     body{padding:18px 14px 70px}
@@ -99,17 +147,31 @@
       <div>
         <div class="sec">Cuaca & Kualitas Udara</div>
         <div class="grid2">
-          <div class="card">
-            <div class="muted" id="wcity">Weather · Jakarta</div>
-            <div class="big" id="wtemp" style="margin-top:6px">–</div>
-            <div class="muted" id="wdesc"></div>
-            <div id="wbadge" style="margin-top:8px"></div>
+          <div class="card wcard">
+            <div class="wscene" id="wscene"></div>
+            <div class="wover">
+              <div class="muted" id="wcity">Cuaca · Jakarta</div>
+              <div class="big" id="wtemp" style="margin-top:2px">–</div>
+              <div class="muted" id="wdesc"></div>
+              <div id="wbadge" style="margin-top:8px"></div>
+            </div>
           </div>
           <div class="card">
-            <div class="muted">Air Quality · AQI</div>
-            <div class="scene" id="scene"></div>
-            <div class="big" id="aqinum">–</div>
-            <div class="muted" id="aqiadvice"></div>
+            <div class="muted">Kualitas Udara · AQI</div>
+            <div class="aqiwrap">
+              <svg class="aqigauge" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="52" fill="none" stroke="#1c1c1c" stroke-width="10"/>
+                <circle id="aqiArc" cx="60" cy="60" r="52" fill="none" stroke="#3b82f6" stroke-width="10"
+                  stroke-linecap="round" stroke-dasharray="327" stroke-dashoffset="327"
+                  transform="rotate(-90 60 60)" style="transition:stroke-dashoffset 1.2s ease,stroke .6s"/>
+              </svg>
+              <div class="aqicenter">
+                <div class="aqinum" id="aqinum">–</div>
+                <div class="aqilbl" id="aqilabel">AQI</div>
+              </div>
+              <div class="aqiparts" id="aqiparts"></div>
+            </div>
+            <div class="muted" id="aqiadvice" style="text-align:center"></div>
           </div>
         </div>
 
@@ -134,12 +196,18 @@
         <div class="sec">Tidur & Air Minum</div>
         <div class="grid2">
           <div class="card">
-            <div class="muted">Tidur (jam)</div>
-            <div class="step">
-              <button onclick="sleepAdj(-0.5)">−</button>
-              <div class="big" id="sleepVal">0</div>
-              <button onclick="sleepAdj(0.5)">+</button>
+            <div class="muted">Tidur — jam berapa tidur & bangun</div>
+            <div class="sleeprow">
+              <div class="sleepfld">
+                <label>Tidur</label>
+                <input id="sleepBed" type="time" onchange="onSleepChange()" />
+              </div>
+              <div class="sleepfld">
+                <label>Bangun</label>
+                <input id="sleepWake" type="time" onchange="onSleepChange()" />
+              </div>
             </div>
+            <div class="big" id="sleepVal" style="text-align:center;margin:6px 0 2px">0<small style="font-size:14px;color:var(--muted);font-weight:600"> jam</small></div>
             <div class="bar"><i id="sleepBar"></i></div>
             <button class="btn dark" style="margin-top:10px" onclick="saveSleep()">Simpan Tidur</button>
           </div>
@@ -151,6 +219,16 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="sec">Checklist Hari Ini</div>
+    <div class="card">
+      <div class="chkhead">
+        <div class="muted" id="chkDay">—</div>
+        <div class="chkprog" id="chkProg">0/0</div>
+      </div>
+      <div class="chkbar"><i id="chkBar"></i></div>
+      <div id="checklist" style="margin-top:6px"></div>
     </div>
 
     <div id="cycleSection" style="display:none">
@@ -169,7 +247,7 @@
   <script src="auth.js"></script>
   <script src="nav.js"></script>
   <script>
-    let profile=null, daily=null, aqiVal=80, sleepH=0, water=0;
+    let profile=null, daily=null, aqiVal=80, sleepH=0, sleepBed="", sleepWake="", water=0, checkState={};
 
     function toast(t){const el=document.getElementById("toast");el.textContent=t;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),3000)}
     function greetWord(){const h=new Date().getHours();if(h<11)return"Selamat pagi";if(h<15)return"Selamat siang";if(h<19)return"Selamat sore";return"Selamat malam"}
@@ -185,8 +263,13 @@
       if(info){const b=document.getElementById("bmi");b.textContent=info.bmi;b.style.color=info.color}
       if((profile.gender||"")==="female"){document.getElementById("cycleSection").style.display="block";renderCycle();}
       try{ daily = await Auth.getDailyLog(); }catch(e){ daily=null; }
-      if(daily){ sleepH=Number(daily.sleep_hours||0); water=Number(daily.water_glasses||0); }
-      renderSleep(); renderWater();
+      if(daily){
+        sleepH=Number(daily.sleep_hours||0);
+        sleepBed=daily.sleep_bed||""; sleepWake=daily.sleep_wake||"";
+        water=Number(daily.water_glasses||0);
+        try{ checkState=(typeof daily.checklist==="string"?JSON.parse(daily.checklist):daily.checklist)||{}; }catch(e){ checkState={}; }
+      }
+      renderSleep(); renderWater(); renderChecklist();
       loadWeather();
     })();
 
@@ -242,29 +325,51 @@
         try{const g=await (await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude="+lat+"&longitude="+lon+"&localityLanguage=id")).json();city=g.city||g.locality||g.principalSubdivision||"Lokasimu";}catch(e){}
       }catch(e){ /* GPS ditolak -> pakai Jakarta */ }
       try{
-        const w=(await (await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lon+"&current=temperature_2m,weather_code")).json()).current;
+        const w=(await (await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lon+"&current=temperature_2m,weather_code,is_day")).json()).current;
         const temp=Math.round(w.temperature_2m);
         document.getElementById("wcity").textContent="Cuaca · "+city;
         document.getElementById("wtemp").textContent=temp+"°C";
         document.getElementById("wdesc").textContent=wmo(w.weather_code);
         const outdoorOk=temp<=33 && w.weather_code<60;
-        document.getElementById("wbadge").innerHTML='<span class="pill" style="background:'+(outdoorOk?"rgba(42,122,79,.2);color:#7fe0a8":"rgba(200,112,0,.2);color:#ffce8a")+'">'+(outdoorOk?"Bagus buat outdoor":"Mending indoor")+'</span>';
+        document.getElementById("wbadge").innerHTML='<span class="pill" style="background:'+(outdoorOk?"rgba(42,122,79,.35);color:#aef0c8":"rgba(200,112,0,.35);color:#ffce8a")+'">'+(outdoorOk?"Bagus buat outdoor":"Mending indoor")+'</span>';
+        drawWeatherScene(w.weather_code, w.is_day!==0);
         const a=(await (await fetch("https://air-quality-api.open-meteo.com/v1/air-quality?latitude="+lat+"&longitude="+lon+"&current=us_aqi")).json()).current;
         aqiVal=Math.round(a.us_aqi||0);
-        const label=aqiVal<=50?"Good":aqiVal<=100?"Moderate":"Unhealthy";
-        const advice=aqiVal<=50?"Udara bagus, aman outdoor.":aqiVal<=100?"Cukup oke, sensitif kurangi outdoor.":"Sebaiknya olahraga di dalam ruangan.";
-        const col=aqiVal<=50?"#3b82f6":aqiVal<=100?"#C87000":"#a36";
-        const an=document.getElementById("aqinum");an.textContent=aqiVal+" AQI";an.style.color=col;
-        document.getElementById("aqiadvice").textContent=label+" · "+advice;
-        drawScene(aqiVal);
+        drawAqi(aqiVal);
         loadRecs();
-      }catch(e){ document.getElementById("wtemp").textContent="–"; document.getElementById("wcity").textContent="Cuaca"; loadRecs(); }
+      }catch(e){ document.getElementById("wtemp").textContent="–"; document.getElementById("wcity").textContent="Cuaca"; drawWeatherScene(1,true); loadRecs(); }
     }
-    function drawScene(aqi){
-      const s=document.getElementById("scene");
-      if(aqi<=50){s.style.background="linear-gradient(#bfe3ff,#e8f5ff)";s.innerHTML='<div class="sun"></div><div class="cloud-s" style="left:58%"></div>';}
-      else if(aqi<=100){s.style.background="linear-gradient(#e8c98a,#d4b06a)";s.innerHTML='<div class="cloud-s" style="left:30%;background:rgba(255,255,255,.7);box-shadow:14px 4px 0 -2px rgba(255,255,255,.6),-10px 4px 0 -3px rgba(255,255,255,.5)"></div>';}
-      else{s.style.background="linear-gradient(#5a4030,#3a2a1f)";let p="";for(let i=0;i<6;i++)p+='<div class="particle" style="left:'+(10+i*15)+'%;bottom:0;animation-delay:'+(i*0.4)+'s"></div>';s.innerHTML=p;}
+    // Scene cuaca beranimasi sesuai kode WMO Open-Meteo + siang/malam
+    function drawWeatherScene(code, day){
+      const s=document.getElementById("wscene");
+      let bg, html="";
+      const sky=day?["#4a90d9","#7db8e8"]:["#1a2740","#2d3e5f"];
+      bg="linear-gradient(160deg,"+sky[0]+","+sky[1]+")";
+      if(!day){ for(let i=0;i<12;i++)html+='<div class="star" style="top:'+(8+Math.random()*60)+'%;left:'+(Math.random()*100)+'%;animation-delay:'+(Math.random()*2.5)+'s"></div>'; }
+      if(code===0||code===1){ html+= day?'<div class="sun"></div>':'<div class="moon"></div>'; }
+      else if(code<=3){ html+= day?'<div class="sun"></div>':'<div class="moon"></div>'; html+='<div class="cl c1"></div><div class="cl c2"></div>'; }
+      else if(code<=48){ bg="linear-gradient(160deg,#9aa5b1,#c3ccd6)"; html+='<div class="cl c1"></div><div class="cl c2"></div>'; }
+      else if(code<=67||(code>=80&&code<=82)){ bg="linear-gradient(160deg,#5b6470,#7a828c)"; html+='<div class="cl c1"></div><div class="cl c2"></div>'; for(let i=0;i<14;i++)html+='<div class="rain" style="left:'+(Math.random()*100)+'%;animation-delay:'+(Math.random()*0.8)+'s"></div>'; }
+      else if(code<=77){ bg="linear-gradient(160deg,#8893a3,#b9c2cf)"; html+='<div class="cl c1"></div>'; for(let i=0;i<12;i++)html+='<div class="rain" style="left:'+(Math.random()*100)+'%;background:#fff;height:4px;width:4px;border-radius:50%;animation-delay:'+(Math.random()*1.2)+'s"></div>'; }
+      else{ bg="linear-gradient(160deg,#2b3340,#444b57)"; html+='<div class="cl c1"></div><div class="bolt">⚡</div>'; for(let i=0;i<16;i++)html+='<div class="rain" style="left:'+(Math.random()*100)+'%;animation-delay:'+(Math.random()*0.7)+'s"></div>'; }
+      s.style.background=bg; s.innerHTML=html;
+    }
+    // Gauge AQI beranimasi + partikel polusi (makin banyak makin buruk)
+    function drawAqi(aqi){
+      const label=aqi<=50?"Baik":aqi<=100?"Sedang":aqi<=150?"Kurang":"Buruk";
+      const advice=aqi<=50?"Udara bagus, aman outdoor.":aqi<=100?"Cukup oke, yang sensitif kurangi outdoor.":aqi<=150?"Kelompok sensitif olahraga di dalam.":"Sebaiknya olahraga di dalam ruangan.";
+      const col=aqi<=50?"#34c759":aqi<=100?"#ffcc00":aqi<=150?"#ff9500":"#ff3b30";
+      document.getElementById("aqinum").textContent=aqi;
+      document.getElementById("aqinum").style.color=col;
+      document.getElementById("aqilabel").textContent=label;
+      document.getElementById("aqiadvice").textContent=advice;
+      const arc=document.getElementById("aqiArc");
+      const C=327, frac=Math.min(aqi/200,1);
+      arc.setAttribute("stroke",col);
+      requestAnimationFrame(()=>{arc.style.strokeDashoffset=String(C*(1-frac));});
+      const cnt=aqi<=50?3:aqi<=100?7:aqi<=150?12:18;
+      let p="";for(let i=0;i<cnt;i++){const sz=2+Math.random()*3;p+='<div class="pm" style="width:'+sz+'px;height:'+sz+'px;left:'+(15+Math.random()*70)+'%;background:'+col+'55;animation-duration:'+(2+Math.random()*2.5)+'s;animation-delay:'+(Math.random()*2)+'s"></div>';}
+      document.getElementById("aqiparts").innerHTML=p;
     }
 
     function loadRecs(){
@@ -316,9 +421,29 @@
       if(done){ try{ await Auth.saveDaily({breathing_done:true}); toast("Sesi napas selesai! 🎉"); }catch(e){} }
     }
 
-    function renderSleep(){document.getElementById("sleepVal").textContent=sleepH;document.getElementById("sleepBar").style.width=Math.min(sleepH/8*100,100)+"%"}
-    function sleepAdj(d){sleepH=Math.max(0,Math.min(12,+(sleepH+d).toFixed(1)));renderSleep()}
-    async function saveSleep(){try{await Auth.saveDaily({sleep_hours:sleepH});toast(sleepH>=8?"Tidur cukup! 🌙":"Tidur tersimpan ✓")}catch(e){toast("Gagal simpan")}}
+    // Hitung durasi tidur dari jam tidur -> jam bangun (lewat tengah malam diperhitungkan)
+    function calcSleepHours(bed,wake){
+      if(!bed||!wake)return 0;
+      const [bh,bm]=bed.split(":").map(Number),[wh,wm]=wake.split(":").map(Number);
+      let mins=(wh*60+wm)-(bh*60+bm);
+      if(mins<=0)mins+=24*60; // bangun keesokan hari
+      return +(mins/60).toFixed(1);
+    }
+    function onSleepChange(){
+      const bed=document.getElementById("sleepBed").value,wake=document.getElementById("sleepWake").value;
+      sleepBed=bed;sleepWake=wake;sleepH=calcSleepHours(bed,wake);renderSleep();
+    }
+    function renderSleep(){
+      document.getElementById("sleepVal").innerHTML=sleepH+'<small style="font-size:14px;color:var(--muted);font-weight:600"> jam</small>';
+      document.getElementById("sleepBar").style.width=Math.min(sleepH/8*100,100)+"%";
+      if(sleepBed)document.getElementById("sleepBed").value=sleepBed;
+      if(sleepWake)document.getElementById("sleepWake").value=sleepWake;
+    }
+    async function saveSleep(){
+      if(!sleepBed||!sleepWake){toast("Isi jam tidur & bangun dulu");return}
+      try{await Auth.saveDaily({sleep_bed:sleepBed,sleep_wake:sleepWake,sleep_hours:sleepH});
+        toast(sleepH>=7?"Tidur cukup! 🌙":"Tidur tersimpan ✓")}catch(e){toast("Gagal simpan")}
+    }
 
     function renderWater(){
       let h="";for(let i=0;i<8;i++)h+='<div class="glass '+(i<water?"full":"")+'" onclick="setWater('+(i+1)+')"></div>';
@@ -327,6 +452,84 @@
       document.getElementById("waterTxt").textContent=water+" / 8 gelas";
     }
     async function setWater(n){water=(water===n)?n-1:n;renderWater();try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast("Target air tercapai! 💧")}catch(e){}}
+
+    // ---- Checklist harian (beda tiap hari & tiap minggu) ----
+    const CHK_ICON={
+      food:'<path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/>',
+      water:'<path d="M12 2.5S5 10 5 14a7 7 0 0 0 14 0c0-4-7-11.5-7-11.5z"/>',
+      ex:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+      walk:'<circle cx="13" cy="4" r="2"/><path d="m9 20 2-5 2 2 1 4"/><path d="M11 12 9 9l-3 1"/><path d="m15 11 1-3 3 1"/>',
+      sleep:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>',
+      mind:'<path d="M12 2a7 7 0 0 0-7 7c0 3 2 4 2 7h10c0-3 2-4 2-7a7 7 0 0 0-7-7z"/><path d="M9 21h6"/>',
+      sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/>',
+      stretch:'<circle cx="12" cy="5" r="2"/><path d="M12 7v6m0 0-3 7m3-7 3 7M7 11h10"/>',
+      nosugar:'<path d="M3 3l18 18"/><path d="M7 7c-1 2-1 4 0 6 1.5 3 5 3 7 1"/><path d="M14 5c2 0 4 1 4 4 0 1-.3 2-1 3"/>',
+      protein:'<path d="M6 3h12l-1 7a5 5 0 0 1-10 0z"/><path d="M9 21h6M12 17v4"/>',
+      veg:'<path d="M12 22c4-2 7-6 7-11 0-1-2-3-4-3-1 0-2 .5-3 1.5C11 8 10 7 8 7 6 7 5 9 5 11c0 5 3 9 7 11z"/><path d="M12 9V4"/>',
+      posture:'<circle cx="12" cy="4" r="2"/><path d="M12 6v7m-4 8 4-8 4 8M8 10h8"/>'
+    };
+    const CHK_POOL=[
+      {id:"water8",ic:"water",lbl:"Minum 8 gelas air"},
+      {id:"food_log",ic:"food",lbl:"Catat semua makanan hari ini"},
+      {id:"workout",ic:"ex",lbl:"Olahraga / latihan 30 menit"},
+      {id:"steps",ic:"walk",lbl:"Jalan kaki 7.000 langkah"},
+      {id:"sleep7",ic:"sleep",lbl:"Tidur minimal 7 jam"},
+      {id:"breathe",ic:"mind",lbl:"Latihan pernapasan / meditasi"},
+      {id:"protein",ic:"protein",lbl:"Cukupi asupan protein"},
+      {id:"veg",ic:"veg",lbl:"Makan sayur & buah"},
+      {id:"nosugar",ic:"nosugar",lbl:"Hindari minuman manis"},
+      {id:"stretch",ic:"stretch",lbl:"Stretching / peregangan"},
+      {id:"sun",ic:"sun",lbl:"Kena sinar matahari pagi"},
+      {id:"posture",ic:"posture",lbl:"Perbaiki postur saat duduk"},
+      {id:"noscreen",ic:"sleep",lbl:"No gadget 30 menit sebelum tidur"},
+      {id:"warmup",ic:"stretch",lbl:"Pemanasan sebelum latihan"},
+      {id:"earlyeat",ic:"food",lbl:"Makan malam sebelum jam 8"},
+      {id:"mindful",ic:"mind",lbl:"Luangkan waktu untuk diri sendiri"},
+      {id:"activebreak",ic:"walk",lbl:"Berdiri & gerak tiap 1 jam"},
+      {id:"hydrate_wake",ic:"water",lbl:"Minum air segelas saat bangun"}
+    ];
+    const DAY_NAMES=["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+    function weekNumber(d){const o=new Date(Date.UTC(d.getFullYear(),0,1));const day=Math.floor((d-o)/864e5);return Math.floor((day+o.getUTCDay())/7);}
+    function todaysTasks(){
+      const d=new Date();
+      const seed=weekNumber(d)*7+d.getDay(); // beda tiap hari & tiap minggu
+      const n=CHK_POOL.length, count=5, picks=[], used={};
+      // ambil 5 task berbeda, bergeser tiap hari berdasarkan seed
+      for(let i=0;i<count;i++){
+        let idx=(seed*3+i*7+ (seed%5))%n;
+        let guard=0; while(used[idx]&&guard++<n){idx=(idx+1)%n;}
+        used[idx]=1; picks.push(CHK_POOL[idx]);
+      }
+      return picks;
+    }
+    let currentTasks=[];
+    function renderChecklist(){
+      const d=new Date();
+      currentTasks=todaysTasks();
+      document.getElementById("chkDay").textContent=DAY_NAMES[d.getDay()]+", "+d.getDate()+"/"+(d.getMonth()+1);
+      const cl=document.getElementById("checklist");
+      cl.innerHTML=currentTasks.map(t=>{
+        const done=!!checkState[t.id];
+        return '<div class="chk'+(done?" done":"")+'" onclick="toggleCheck(\''+t.id+'\')">'+
+          '<div class="ico"><svg viewBox="0 0 24 24">'+CHK_ICON[t.ic]+'</svg></div>'+
+          '<div class="lbl" style="flex:1">'+t.lbl+'</div>'+
+          '<div class="box"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div></div>';
+      }).join("");
+      updateChkProg();
+    }
+    function updateChkProg(){
+      const total=currentTasks.length;
+      const done=currentTasks.filter(t=>checkState[t.id]).length;
+      document.getElementById("chkProg").textContent=done+"/"+total;
+      document.getElementById("chkBar").style.width=(total?done/total*100:0)+"%";
+    }
+    async function toggleCheck(id){
+      checkState[id]=!checkState[id];
+      renderChecklist();
+      const done=currentTasks.filter(t=>checkState[t.id]).length;
+      try{await Auth.saveDaily({checklist:checkState});}catch(e){}
+      if(done===currentTasks.length&&currentTasks.length)toast("Semua checklist selesai! 🔥");
+    }
 
     renderDots(0);
   </script>

@@ -21,6 +21,20 @@
   .grade{width:38px;height:38px;border-radius:10px;background:rgba(225,29,42,.15);color:var(--red);display:flex;align-items:center;justify-content:center;font-weight:900}
   .empty{text-align:center;color:var(--muted);padding:30px 10px}
   .soon{display:inline-block;font-size:11px;background:var(--inp);color:#aaa;padding:3px 9px;border-radius:20px;margin-top:6px}
+  .param{padding:11px 0;border-bottom:1px solid var(--line)}
+  .param:last-child{border-bottom:0}
+  .param .ph{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .param .pv{font-weight:800;display:flex;align-items:center;gap:6px}
+  .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .find{border-left:3px solid;border-radius:10px;padding:12px 14px;margin-top:10px;background:var(--inp)}
+  .find .ft{font-weight:800;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .sevtag{font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px}
+  .plan{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;line-height:1.5}
+  .plan:last-child{border-bottom:0}
+  .plan .pi{width:26px;height:26px;border-radius:8px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .ch{font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:9px}
+  .ch svg{width:19px;height:19px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .rec{cursor:pointer}
 </style>
 </head>
 <body>
@@ -49,13 +63,32 @@
   <script>
     const AI_URL="https://cpvzwqptzcxnwzfzgrmt.supabase.co/functions/v1/my20fit-ai";
     const ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI";
-    let user=null;
-    function fileURL(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
+    let user=null, history=[];
+    function readData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
+    // Perkecil gambar sebelum dikirim -> upload & OCR jauh lebih cepat (PDF dilewati)
+    function fileURL(f){
+      if(!String(f.type).startsWith("image/"))return readData(f);
+      return new Promise(async(resolve)=>{
+        try{
+          const dataUrl=await readData(f);
+          const img=new Image();
+          img.onload=()=>{
+            const MAX=1600; let{width:w,height:h}=img;
+            if(Math.max(w,h)>MAX){const s=MAX/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}
+            const c=document.createElement("canvas");c.width=w;c.height=h;
+            c.getContext("2d").drawImage(img,0,0,w,h);
+            resolve(c.toDataURL("image/jpeg",0.82));
+          };
+          img.onerror=()=>resolve(dataUrl);
+          img.src=dataUrl;
+        }catch(e){resolve(await readData(f));}
+      });
+    }
 
     async function analyzeMCU(e){
       const f=e.target.files[0];if(!f)return;
       const box=document.getElementById("result");
-      box.innerHTML='<div class="card"><div class="muted">Membaca & menganalisa dokumen… ⏳ (bisa 10-30 detik)</div></div>';
+      box.innerHTML='<div class="card"><div class="muted">Mengompres & menganalisa dokumen… ⏳</div></div>';
       try{
         const url=await fileURL(f);
         const r=await fetch(AI_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"mcu",file:url,mime:f.type})});
@@ -66,27 +99,56 @@
       }catch(err){box.innerHTML='<div class="card" style="color:#ff6b6b">'+err.message+'</div>'}
       e.target.value="";
     }
+
+    const SEV={tinggi:{c:"#ff3b30",t:"Perlu Perhatian"},sedang:{c:"#ff9500",t:"Sedang"},ringan:{c:"#ffcc00",t:"Ringan"}};
+    function statusColor(s){return s==="attention"?"#ff6b6b":s==="unknown"?"#8a8a8a":"#46d369"}
+    function planCard(title,icon,iconColor,items){
+      if(!items||!items.length)return"";
+      return '<div class="card"><div class="ch" style="color:'+iconColor+'"><svg viewBox="0 0 24 24" stroke="'+iconColor+'">'+icon+'</svg>'+title+'</div>'+
+        items.map(it=>'<div class="plan"><div class="pi" style="background:'+iconColor+'22;color:'+iconColor+'">•</div><div>'+it+'</div></div>').join("")+'</div>';
+    }
     function renderResult(res){
       const params=(res.parameters||[]).map(p=>{
-        const att=p.status==="attention";
-        return '<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between"><b>'+p.label+'</b><span style="color:'+(att?"#ff8a8a":"#7fe0a8")+';font-weight:700">'+(p.value||"")+'</span></div><div class="muted">Normal: '+(p.normal_range||"-")+'</div><div style="font-size:13px;margin-top:4px">'+(p.explanation||"")+'</div></div>';
+        const col=statusColor(p.status);
+        const arrow=p.direction==="high"?" ↑":p.direction==="low"?" ↓":"";
+        return '<div class="param"><div class="ph"><b>'+(p.label||"")+'</b><span class="pv" style="color:'+col+'"><span class="dot" style="background:'+col+'"></span>'+(p.value||"")+arrow+'</span></div>'+
+          '<div class="muted">Normal: '+(p.normal_range||"-")+'</div>'+
+          (p.explanation?'<div style="font-size:13px;margin-top:4px;color:#d8d8d8">'+p.explanation+'</div>':"")+'</div>';
       }).join("");
+
+      const findings=(res.abnormal_findings||[]).map(fd=>{
+        const sv=SEV[(fd.severity||"sedang").toLowerCase()]||SEV.sedang;
+        return '<div class="find" style="border-color:'+sv.c+'"><div class="ft"><span>'+(fd.label||"")+(fd.value?' · '+fd.value:'')+'</span><span class="sevtag" style="background:'+sv.c+'22;color:'+sv.c+'">'+sv.t+'</span></div>'+
+          (fd.why_it_matters?'<div style="font-size:13px;margin-top:6px;color:#e8c0c0"><b>Kenapa perlu diperhatikan:</b> '+fd.why_it_matters+'</div>':"")+
+          (fd.what_to_do?'<div style="font-size:13px;margin-top:5px;color:#bfe0c8"><b>Yang bisa dilakukan:</b> '+fd.what_to_do+'</div>':"")+'</div>';
+      }).join("");
+
       const unread=(res.unreadable&&res.unreadable.length)?'<div class="card" style="border-color:#5a4020;background:#2a2410;color:#ffcf66"><b>Bagian yang tidak terbaca:</b><ul style="margin:6px 0 0 18px">'+res.unreadable.map(u=>'<li>'+u+'</li>').join("")+'</ul></div>':"";
+
+      const ICO={fork:'<path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/>',
+        ex:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+        life:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'};
+
       document.getElementById("result").innerHTML=
-        '<div class="card"><div style="font-weight:800">'+(res.document_type||"Hasil MCU")+'</div><div class="muted">'+[res.patient_name,res.date].filter(Boolean).join(" · ")+'</div><div style="margin-top:8px">'+(res.summary||"")+'</div></div>'+
-        (params?'<div class="card"><div style="font-weight:800;margin-bottom:4px">Parameter</div>'+params+'</div>':"")+
+        '<div class="card"><div style="font-weight:800;font-size:16px">'+(res.document_type||"Hasil MCU")+'</div><div class="muted">'+[res.patient_name,res.date].filter(Boolean).join(" · ")+'</div><div style="margin-top:8px;line-height:1.55">'+(res.summary||"")+'</div></div>'+
+        (findings?'<div class="sec" style="font-weight:800;margin:16px 2px 2px;color:#ff8a8a">Yang Perlu Diperhatikan</div>'+findings:"")+
+        (params?'<div class="card"><div style="font-weight:800;margin-bottom:6px">Detail Parameter</div>'+params+'</div>':"")+
+        planCard("Rencana Makan (Eating Plan)",ICO.fork,"#46d369",res.eating_plan)+
+        planCard("Rekomendasi Olahraga",ICO.ex,"#3b82f6",res.exercise_plan)+
+        planCard("Gaya Hidup & Tindak Lanjut",ICO.life,"#C87000",res.lifestyle_plan)+
         unread+
         '<div class="card" style="border-color:rgba(196,17,1,.3);background:rgba(196,17,1,.08);color:#ffb3b8;font-size:13px">⚠️ '+(res.disclaimer||"Interpretasi ini bukan pengganti konsultasi dokter. Konsultasikan ke dokter 20fit untuk saran yang tepat.")+'</div>';
+      document.getElementById("result").scrollIntoView({behavior:"smooth"});
     }
     async function loadList(){
-      let rows=[];
-      try{const {data}=await Auth.supabase.from("my20fit_mcu_result").select("*").eq("auth_user_id",user.id).order("created_at",{ascending:false});rows=data||[]}catch(e){}
+      try{const {data}=await Auth.supabase.from("my20fit_mcu_result").select("*").eq("auth_user_id",user.id).order("created_at",{ascending:false});history=data||[]}catch(e){history=[]}
       const el=document.getElementById("list");
-      if(!rows.length){el.innerHTML='<div class="empty">Belum ada hasil MCU.<br>Upload hasil check-up kamu di atas.</div>';return}
-      el.innerHTML=rows.map(r=>{const res=r.result||{};const date=(r.analyzed_at||r.created_at||"").slice(0,10);
-        return '<div class="rec"><div class="grade"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:var(--red);stroke-width:2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="flex:1;cursor:pointer"><div style="font-weight:700">'+(res.document_type||"Hasil MCU")+'</div><div class="muted">'+date+'</div></div></div>';
+      if(!history.length){el.innerHTML='<div class="empty">Belum ada hasil MCU.<br>Upload hasil check-up kamu di atas.</div>';return}
+      el.innerHTML=history.map((r,i)=>{const res=r.result||{};const date=(r.analyzed_at||r.created_at||"").slice(0,10);const flag=(res.abnormal_findings||[]).length;
+        return '<div class="rec" onclick="openHistory('+i+')"><div class="grade"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:var(--red);stroke-width:2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="flex:1"><div style="font-weight:700">'+(res.document_type||"Hasil MCU")+'</div><div class="muted">'+date+(flag?' · '+flag+' perlu perhatian':'')+'</div></div></div>';
       }).join("");
     }
+    function openHistory(i){const r=history[i];if(r&&r.result)renderResult(r.result);}
     (async function(){ user=await Auth.requireAuth(); loadList(); })();
   </script>
 </body>
