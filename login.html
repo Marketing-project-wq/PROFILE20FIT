@@ -112,6 +112,16 @@
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
   <script>
+    // Kalau sudah login (pernah daftar/sign in), langsung masuk ke halaman —
+    // form login cuma muncul saat belum login / sudah logout.
+    (async function autoEnter(){
+      try{
+        await Auth.ready;
+        const user = await Auth.getUser();
+        if(user){ await Auth.routeAfterAuth(); }
+      }catch(e){}
+    })();
+
     let mode="in";
     function setMode(m){
       mode=m;

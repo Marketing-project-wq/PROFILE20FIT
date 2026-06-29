@@ -47,6 +47,12 @@
       options: { data: { full_name: fullName || null, phone: phone || null } },
     });
     if (error) throw error;
+    // Kalau signUp belum memberi sesi (mis. konfirmasi email), langsung login
+    // supaya user GAK perlu sign in lagi. User sudah auto-confirmed di DB.
+    if (!data.session) {
+      const { error: e2 } = await supabase.auth.signInWithPassword({ email, password });
+      if (e2) throw e2;
+    }
     return data;
   }
 
@@ -219,7 +225,8 @@
   async function routeAfterAuth() {
     const user = await requireAuth();
     const profile = await ensureProfile(user);
-    if (!profile.email_verified_at) return go("verify.html");
+    // Verifikasi email (OTP) opsional untuk sekarang -> langsung masuk.
+    // User lama yang sudah onboarding -> dashboard; user baru -> onboarding.
     if (profile.onboarding_completed) return go("dashboard.html");
     return go("onboarding.html");
   }
