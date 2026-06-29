@@ -23,7 +23,12 @@
   .brand-sub{font-family:"Barlow Condensed";font-weight:600;letter-spacing:3px;font-size:11px;color:var(--muted);text-transform:uppercase;margin-top:4px}
   .label{font-family:"Barlow Condensed";font-weight:600;letter-spacing:3px;font-size:12px;color:var(--red);text-transform:uppercase;display:flex;align-items:center;gap:10px}
   .label::before{content:"";width:32px;height:2px;background:var(--red)}
-  .headline{font-family:Anton;font-size:46px;line-height:1.02;margin:14px 0 16px;letter-spacing:.5px}
+  .headline{font-family:Anton;font-size:46px;line-height:1.02;margin:14px 0 16px;letter-spacing:.5px;
+    background:linear-gradient(110deg,#e9e2d4 0%,#e9e2d4 38%,#ffffff 48%,#fff6e0 52%,#e9e2d4 62%,#e9e2d4 100%);
+    background-size:220% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
+    -webkit-text-fill-color:transparent;animation:shine 4.5s linear infinite;
+    filter:drop-shadow(0 1px 0 rgba(255,255,255,.12))}
+  @keyframes shine{0%{background-position:140% center}100%{background-position:-40% center}}
   .tagline{color:#bdb4a6;font-size:15px;line-height:1.6;max-width:360px}
   .feat{display:flex;align-items:center;gap:10px;color:#cfc7ba;font-size:13px;margin-top:12px}
   .feat .ic{width:30px;height:30px;border-radius:8px;background:rgba(196,17,1,.15);display:flex;align-items:center;justify-content:center;color:var(--red);font-size:15px}
