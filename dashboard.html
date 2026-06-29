@@ -159,6 +159,7 @@
 
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
+  <script src="nav.js"></script>
   <script>
     let profile=null, daily=null, aqiVal=80, sleepH=0, water=0;
 
@@ -180,21 +181,36 @@
       loadWeather();
     })();
 
+    function wmo(c){
+      if(c===0)return"Cerah";if(c<=3)return"Cerah Berawan";if(c<=48)return"Berkabut";
+      if(c<=67)return"Hujan";if(c<=77)return"Salju";if(c<=82)return"Hujan Deras";if(c<=99)return"Badai Petir";return"Berawan";
+    }
+    // Cuaca + AQI LIVE sesuai lokasi GPS user (Open-Meteo, gratis tanpa API key)
     async function loadWeather(){
+      let lat=-6.2088, lon=106.8456, city="Jakarta"; // fallback default
       try{
-        const w=await (await fetch("/api/weather?city=Jakarta")).json();
-        document.getElementById("wcity").textContent="Weather · "+w.city;
-        document.getElementById("wtemp").textContent=w.temp_c+"°C";
-        document.getElementById("wdesc").textContent=w.description;
-        document.getElementById("wbadge").innerHTML='<span class="pill" style="background:'+(w.outdoor_ok?"rgba(42,122,79,.2);color:#7fe0a8":"rgba(200,112,0,.2);color:#ffce8a")+'">'+(w.outdoor_ok?"Bagus buat outdoor":"Mending indoor")+'</span>';
-        const a=await (await fetch("/api/aqi?city=Jakarta")).json();
-        aqiVal=a.aqi;
-        const col=a.aqi<=50?"#3b82f6":a.aqi<=100?"#C87000":"#a36";
-        const an=document.getElementById("aqinum");an.textContent=a.aqi+" AQI";an.style.color=col;
-        document.getElementById("aqiadvice").textContent=a.label+" · "+a.advice;
-        drawScene(a.aqi);
+        const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{timeout:8000,maximumAge:600000}));
+        lat=pos.coords.latitude; lon=pos.coords.longitude; city="Lokasimu";
+        try{const g=await (await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude="+lat+"&longitude="+lon+"&localityLanguage=id")).json();city=g.city||g.locality||g.principalSubdivision||"Lokasimu";}catch(e){}
+      }catch(e){ /* GPS ditolak -> pakai Jakarta */ }
+      try{
+        const w=(await (await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lon+"&current=temperature_2m,weather_code")).json()).current;
+        const temp=Math.round(w.temperature_2m);
+        document.getElementById("wcity").textContent="Cuaca · "+city;
+        document.getElementById("wtemp").textContent=temp+"°C";
+        document.getElementById("wdesc").textContent=wmo(w.weather_code);
+        const outdoorOk=temp<=33 && w.weather_code<60;
+        document.getElementById("wbadge").innerHTML='<span class="pill" style="background:'+(outdoorOk?"rgba(42,122,79,.2);color:#7fe0a8":"rgba(200,112,0,.2);color:#ffce8a")+'">'+(outdoorOk?"Bagus buat outdoor":"Mending indoor")+'</span>';
+        const a=(await (await fetch("https://air-quality-api.open-meteo.com/v1/air-quality?latitude="+lat+"&longitude="+lon+"&current=us_aqi")).json()).current;
+        aqiVal=Math.round(a.us_aqi||0);
+        const label=aqiVal<=50?"Good":aqiVal<=100?"Moderate":"Unhealthy";
+        const advice=aqiVal<=50?"Udara bagus, aman outdoor.":aqiVal<=100?"Cukup oke, sensitif kurangi outdoor.":"Sebaiknya olahraga di dalam ruangan.";
+        const col=aqiVal<=50?"#3b82f6":aqiVal<=100?"#C87000":"#a36";
+        const an=document.getElementById("aqinum");an.textContent=aqiVal+" AQI";an.style.color=col;
+        document.getElementById("aqiadvice").textContent=label+" · "+advice;
+        drawScene(aqiVal);
         loadRecs();
-      }catch(e){ document.getElementById("wtemp").textContent="–"; loadRecs(); }
+      }catch(e){ document.getElementById("wtemp").textContent="–"; document.getElementById("wcity").textContent="Cuaca"; loadRecs(); }
     }
     function drawScene(aqi){
       const s=document.getElementById("scene");

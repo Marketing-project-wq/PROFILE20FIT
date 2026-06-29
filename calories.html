@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Calorie Tracker · 20fit</title>
+<style>
+  :root{--red:#e11d2a;--bg:#0a0a0a;--card:#141414;--line:#262626;--txt:#f5f5f5;--muted:#8a8a8a;--inp:#1c1c1c}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 70px}
+  .wrap{max-width:640px;margin:0 auto}
+  .logo img{height:38px;margin-bottom:16px}
+  h1{font-size:24px;font-weight:900;margin:0 0 12px;text-transform:uppercase}
+  .sec{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:20px 2px 8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .ring{text-align:center}
+  .ring .num{font-size:46px;font-weight:900;line-height:1}
+  .ring .goal{color:var(--muted);font-size:14px}
+  .bar{height:10px;background:var(--inp);border-radius:6px;overflow:hidden;margin-top:12px}
+  .bar i{display:block;height:100%;background:var(--red);width:0;transition:width .3s}
+  .add{display:flex;gap:8px;margin-top:10px}
+  .add input{flex:1;padding:11px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt)}
+  .add input.k{flex:0 0 90px}
+  .add button{padding:11px 14px;border:0;border-radius:10px;background:var(--red);color:#fff;font-weight:800;cursor:pointer}
+  .item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
+  .item:last-child{border-bottom:0}
+  .item .kc{color:var(--muted)}
+  .food{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .food:last-child{border-bottom:0}
+  .food .em{font-size:22px}.food .nm{font-weight:700;font-size:14px}.food .ds{font-size:12px;color:var(--muted)}
+  .muted{color:var(--muted);font-size:13px}
+  .soon{background:rgba(225,29,42,.08);border:1px solid rgba(225,29,42,.25);color:#ffb3b8;border-radius:12px;padding:14px;margin-top:14px;font-size:13px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" /></div>
+    <h1>Calorie Tracker</h1>
+
+    <div class="card ring">
+      <div class="num"><span id="consumed">0</span></div>
+      <div class="goal">dari <span id="goal">2000</span> kkal hari ini</div>
+      <div class="bar"><i id="calbar"></i></div>
+      <div class="add">
+        <input id="fname" placeholder="Nama makanan" />
+        <input id="fkcal" class="k" type="number" placeholder="kkal" />
+        <button onclick="addFood()">+</button>
+      </div>
+    </div>
+
+    <div class="sec">Makanan Hari Ini</div>
+    <div class="card"><div id="log"><div class="muted">Belum ada catatan. Tambah makanan di atas.</div></div></div>
+
+    <div class="sec">Rekomendasi Makanan</div>
+    <div class="card" id="recs"></div>
+
+    <div class="soon" id="scanbox">📷 <b>Scan Calories</b> — foto makanan & auto-hitung kalori. Fitur AI ini lagi disiapin, segera hadir!</div>
+  </div>
+
+  <script src="vendor-supabase.js"></script>
+  <script src="auth.js"></script>
+  <script src="nav.js"></script>
+  <script>
+    function todayKey(){const d=new Date();return "my20fit_cal_"+d.toISOString().slice(0,10)}
+    let goal=2000, items=[];
+    function load(){try{items=JSON.parse(localStorage.getItem(todayKey())||"[]")}catch(e){items=[]}}
+    function save(){localStorage.setItem(todayKey(),JSON.stringify(items))}
+    function render(){
+      const total=items.reduce((s,i)=>s+(+i.kcal||0),0);
+      document.getElementById("consumed").textContent=total;
+      document.getElementById("goal").textContent=goal;
+      document.getElementById("calbar").style.width=Math.min(total/goal*100,100)+"%";
+      const log=document.getElementById("log");
+      log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}</span><span class="kc">${i.kcal} kkal <a onclick="del(${idx})" style="color:#ff6b6b;cursor:pointer;margin-left:8px">✕</a></span></div>`).join(""):'<div class="muted">Belum ada catatan. Tambah makanan di atas.</div>';
+    }
+    function addFood(){
+      const name=document.getElementById("fname").value.trim();const kcal=parseInt(document.getElementById("fkcal").value);
+      if(!name||!kcal)return;
+      items.push({name,kcal});save();render();
+      document.getElementById("fname").value="";document.getElementById("fkcal").value="";
+    }
+    function del(i){items.splice(i,1);save();render()}
+    (async function(){
+      const p=await Auth.getProfile();
+      const g=p.main_goal;goal=2000+(g==="lose"?-300:g==="muscle"?300:g==="fit"?100:0);
+      load();render();
+      const recsByGoal={
+        lose:[["🥗","Salad ayam","~350 kkal · tinggi protein"],["🍲","Sup sayur","~200 kkal · rendah kalori"],["🍎","Buah potong","~120 kkal · serat"]],
+        muscle:[["🍗","Dada ayam + nasi","~550 kkal · protein tinggi"],["🥚","Telur rebus 3","~230 kkal"],["🥛","Protein shake","~250 kkal"]],
+        health:[["🐟","Ikan + sayur","~400 kkal · omega-3"],["🥑","Alpukat toast","~300 kkal · lemak baik"],["🍵","Greek yogurt","~150 kkal"]],
+        fit:[["🍌","Pisang + oat","~350 kkal · energi"],["🍗","Ayam panggang","~400 kkal"],["🥤","Smoothie buah","~250 kkal"]]
+      };
+      const list=recsByGoal[g]||recsByGoal.health;
+      document.getElementById("recs").innerHTML=list.map(r=>`<div class="food"><div class="em">${r[0]}</div><div><div class="nm">${r[1]}</div><div class="ds">${r[2]}</div></div></div>`).join("");
+      if(location.hash==="#scan"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});}
+    })();
+  </script>
+</body>
+</html>
