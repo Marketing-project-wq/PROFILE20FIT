@@ -154,9 +154,11 @@
       m=(m||"").toLowerCase();
       if(m.includes("invalid login"))return "Email atau password salah.";
       if(m.includes("already registered")||m.includes("already been"))return "Email sudah terdaftar. Coba Sign In.";
+      if(m.includes("not confirmed"))return "Akun belum aktif. Coba lagi sebentar / hubungi admin.";
       if(m.includes("password"))return "Password minimal 8 karakter.";
       if(m.includes("supabaseurl")||m.includes("not configured")||m.includes("anon"))return "Server belum siap. Coba refresh sebentar lagi.";
-      return m||"Terjadi kesalahan.";
+      if(m.includes("fetch")||m.includes("network"))return "Koneksi ke server gagal. Cek internet / coba lagi.";
+      return "Error: "+(m||"tidak diketahui");
     }
   </script>
 </body>

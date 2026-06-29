@@ -73,8 +73,10 @@
 
   async function getUser() {
     await ready;
-    const { data } = await supabase.auth.getUser();
-    return data.user || null;
+    // Pakai sesi LOKAL (localStorage) — tidak bergantung panggilan jaringan,
+    // jadi langsung kebaca tepat setelah daftar/login (gak balik ke login).
+    const { data } = await supabase.auth.getSession();
+    return (data.session && data.session.user) || null;
   }
 
   async function requireAuth() {
