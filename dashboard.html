@@ -9,41 +9,41 @@
         --green:#2A7A4F;--orange:#C87000;--blue:#3b82f6}
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:18px 14px 60px}
-  .wrap{max-width:480px;margin:0 auto}
-  .top{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 18px}
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 20px 70px}
+  .wrap{max-width:1100px;margin:0 auto}
+  .top{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 20px}
   .logo{display:flex;align-items:center}
-  .logo img{height:42px;width:auto}
-  .logout{border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:9px;padding:8px 13px;font-size:13px;cursor:pointer}
+  .logo img{height:44px;width:auto}
+  .logout{border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:9px;padding:9px 15px;font-size:14px;cursor:pointer}
   .hk{color:var(--red);font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px}
-  .hello{font-size:24px;font-weight:900;margin:2px 2px 16px;text-transform:uppercase;letter-spacing:-.5px}
-  .sec{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:22px 2px 8px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-  .stat .k{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px}
-  .stat .v{font-size:24px;font-weight:900;margin-top:6px}
-  .stat .v small{font-size:12px;color:var(--muted);font-weight:600}
-  .big{font-size:30px;font-weight:900;line-height:1}
-  .muted{color:var(--muted);font-size:12px}
+  .hello{font-size:28px;font-weight:900;margin:2px 2px 18px;text-transform:uppercase;letter-spacing:-.5px}
+  .sec{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:20px 2px 8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  /* Desktop: 2 kolom besar */
+  .main{display:grid;grid-template-columns:1fr;gap:0 24px;align-items:start}
+  @media(min-width:900px){ .main{grid-template-columns:1fr 1fr} }
+  .stat .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+  .stat .v{font-size:30px;font-weight:900;margin-top:6px}
+  .stat .v small{font-size:13px;color:var(--muted);font-weight:600}
+  .big{font-size:32px;font-weight:900;line-height:1}
+  .muted{color:var(--muted);font-size:13px}
   .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
-  /* AQI scene */
-  .scene{height:54px;border-radius:10px;margin:8px 0;position:relative;overflow:hidden}
+  .scene{height:60px;border-radius:10px;margin:8px 0;position:relative;overflow:hidden}
   .sun{position:absolute;width:22px;height:22px;border-radius:50%;background:#ffd23f;top:8px;left:14px;animation:sunPulse 3s infinite ease-in-out}
   .cloud{position:absolute;font-size:18px;top:6px;animation:floatCloud 4s infinite ease-in-out}
   .particle{position:absolute;width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.5);animation:particleDrift 3s infinite}
   @keyframes sunPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.12);opacity:.85}}
   @keyframes floatCloud{0%,100%{transform:translateX(0)}50%{transform:translateX(8px)}}
   @keyframes particleDrift{0%{transform:translateY(0);opacity:.7}100%{transform:translateY(-26px);opacity:0}}
-  /* workout rows */
-  .wrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .wrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
   .wrow:last-child{border-bottom:0}
   .wrow .em{font-size:22px}
-  .wrow .nm{font-weight:700;font-size:14px}
-  .wrow .rs{font-size:12px;color:var(--muted);font-style:italic}
+  .wrow .nm{font-weight:700;font-size:15px}
+  .wrow .rs{font-size:13px;color:var(--muted);font-style:italic}
   .tag{font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px}
-  /* breathing */
-  .ring{width:104px;height:104px;border-radius:50%;margin:14px auto;display:flex;align-items:center;justify-content:center;
+  .ring{width:120px;height:120px;border-radius:50%;margin:16px auto;display:flex;align-items:center;justify-content:center;
     background:radial-gradient(circle,rgba(225,29,42,.25),rgba(225,29,42,.05));border:2px solid var(--red);
     transition:transform 4s ease-in-out;transform:scale(1)}
   .ring .ph{font-weight:900;font-size:18px}
@@ -52,20 +52,26 @@
   .dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}
   .dots i.on{background:var(--red)}
   .seg{display:flex;gap:8px;margin-bottom:6px}
-  .seg button{flex:1;padding:9px;border:1px solid var(--line);border-radius:9px;background:var(--inp);color:var(--muted);font-weight:700;font-size:12px;cursor:pointer}
+  .seg button{flex:1;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--inp);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer}
   .seg button.active{border-color:var(--red);background:rgba(225,29,42,.12);color:#fff}
-  .btn{padding:11px 14px;border:0;border-radius:10px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;width:100%}
+  .btn{padding:12px 14px;border:0;border-radius:10px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;width:100%}
   .btn.dark{background:var(--inp);border:1px solid var(--line);color:var(--txt)}
-  .step{display:flex;align-items:center;gap:14px;justify-content:center;margin:8px 0}
-  .step button{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--inp);color:#fff;font-size:20px;cursor:pointer}
-  .bar{height:7px;background:var(--inp);border-radius:6px;overflow:hidden;margin-top:8px}
+  .step{display:flex;align-items:center;gap:16px;justify-content:center;margin:10px 0}
+  .step button{width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--inp);color:#fff;font-size:22px;cursor:pointer}
+  .bar{height:8px;background:var(--inp);border-radius:6px;overflow:hidden;margin-top:8px}
   .bar > i{display:block;height:100%;background:var(--red);width:0;transition:width .3s}
-  .glasses{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
-  .glass{width:26px;height:32px;border:2px solid var(--line);border-radius:3px 3px 6px 6px;cursor:pointer}
+  .glasses{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
+  .glass{width:28px;height:34px;border:2px solid var(--line);border-radius:3px 3px 6px 6px;cursor:pointer}
   .glass.full{background:var(--red);border-color:var(--red)}
   .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(80px);background:#fff;color:#0a0a0a;
     padding:12px 18px;border-radius:12px;font-weight:700;font-size:14px;opacity:0;transition:all .4s;z-index:9}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+  /* Mobile: semua nge-stack 1 kolom */
+  @media(max-width:560px){
+    body{padding:18px 14px 70px}
+    .grid2{grid-template-columns:1fr}
+    .hello{font-size:24px}
+  }
 </style>
 </head>
 <body>
@@ -77,65 +83,70 @@
     <div class="hk" id="greet">Selamat datang</div>
     <div class="hello" id="hello">—</div>
 
-    <!-- Stats -->
+    <!-- Stats (full width) -->
     <div class="grid3">
       <div class="card stat"><div class="k">BMI</div><div class="v" id="bmi">–</div></div>
       <div class="card stat"><div class="k">Berat</div><div class="v" id="berat">–</div></div>
       <div class="card stat"><div class="k">Tinggi</div><div class="v" id="tinggi">–</div></div>
     </div>
 
-    <!-- Weather + AQI -->
-    <div class="sec">Cuaca & Kualitas Udara</div>
-    <div class="grid2">
-      <div class="card">
-        <div class="muted" id="wcity">Weather · Jakarta</div>
-        <div class="big" id="wtemp" style="margin-top:6px">–</div>
-        <div class="muted" id="wdesc"></div>
-        <div id="wbadge" style="margin-top:8px"></div>
-      </div>
-      <div class="card">
-        <div class="muted">Air Quality · AQI</div>
-        <div class="scene" id="scene"></div>
-        <div class="big" id="aqinum">–</div>
-        <div class="muted" id="aqiadvice"></div>
-      </div>
-    </div>
-
-    <!-- Recommended workouts -->
-    <div class="sec">Rekomendasi Latihan</div>
-    <div class="card" id="recs"><div class="muted">Memuat…</div></div>
-
-    <!-- Breathing -->
-    <div class="sec">Latihan Pernapasan</div>
-    <div class="card">
-      <div class="seg">
-        <button data-p="478" class="active" onclick="pickPattern('478')">4-7-8</button>
-        <button data-p="box" onclick="pickPattern('box')">Box 4×4</button>
-        <button data-p="relax" onclick="pickPattern('relax')">Relax 5-5</button>
-      </div>
-      <div class="ring" id="ring"><div><div class="ph" id="bphase">Siap</div><div class="cd" id="bcd">Tekan mulai</div></div></div>
-      <div class="dots" id="bdots"></div>
-      <button class="btn" id="bbtn" onclick="toggleBreath()">Mulai</button>
-    </div>
-
-    <!-- Sleep + Water -->
-    <div class="sec">Tidur & Air Minum</div>
-    <div class="grid2">
-      <div class="card">
-        <div class="muted">Tidur (jam)</div>
-        <div class="step">
-          <button onclick="sleepAdj(-0.5)">−</button>
-          <div class="big" id="sleepVal">0</div>
-          <button onclick="sleepAdj(0.5)">+</button>
+    <!-- 2 kolom di desktop -->
+    <div class="main">
+      <!-- Kolom kiri -->
+      <div>
+        <div class="sec">Cuaca & Kualitas Udara</div>
+        <div class="grid2">
+          <div class="card">
+            <div class="muted" id="wcity">Weather · Jakarta</div>
+            <div class="big" id="wtemp" style="margin-top:6px">–</div>
+            <div class="muted" id="wdesc"></div>
+            <div id="wbadge" style="margin-top:8px"></div>
+          </div>
+          <div class="card">
+            <div class="muted">Air Quality · AQI</div>
+            <div class="scene" id="scene"></div>
+            <div class="big" id="aqinum">–</div>
+            <div class="muted" id="aqiadvice"></div>
+          </div>
         </div>
-        <div class="bar"><i id="sleepBar"></i></div>
-        <button class="btn dark" style="margin-top:10px" onclick="saveSleep()">Simpan Tidur</button>
+
+        <div class="sec">Rekomendasi Latihan</div>
+        <div class="card" id="recs"><div class="muted">Memuat…</div></div>
       </div>
-      <div class="card">
-        <div class="muted">Air (gelas) · target 8</div>
-        <div class="glasses" id="glasses"></div>
-        <div class="bar"><i id="waterBar"></i></div>
-        <div class="muted" id="waterTxt" style="margin-top:8px">0 / 8 gelas</div>
+
+      <!-- Kolom kanan -->
+      <div>
+        <div class="sec">Latihan Pernapasan</div>
+        <div class="card">
+          <div class="seg">
+            <button data-p="478" class="active" onclick="pickPattern('478')">4-7-8</button>
+            <button data-p="box" onclick="pickPattern('box')">Box 4×4</button>
+            <button data-p="relax" onclick="pickPattern('relax')">Relax 5-5</button>
+          </div>
+          <div class="ring" id="ring"><div><div class="ph" id="bphase">Siap</div><div class="cd" id="bcd">Tekan mulai</div></div></div>
+          <div class="dots" id="bdots"></div>
+          <button class="btn" id="bbtn" onclick="toggleBreath()">Mulai</button>
+        </div>
+
+        <div class="sec">Tidur & Air Minum</div>
+        <div class="grid2">
+          <div class="card">
+            <div class="muted">Tidur (jam)</div>
+            <div class="step">
+              <button onclick="sleepAdj(-0.5)">−</button>
+              <div class="big" id="sleepVal">0</div>
+              <button onclick="sleepAdj(0.5)">+</button>
+            </div>
+            <div class="bar"><i id="sleepBar"></i></div>
+            <button class="btn dark" style="margin-top:10px" onclick="saveSleep()">Simpan Tidur</button>
+          </div>
+          <div class="card">
+            <div class="muted">Air (gelas) · target 8</div>
+            <div class="glasses" id="glasses"></div>
+            <div class="bar"><i id="waterBar"></i></div>
+            <div class="muted" id="waterTxt" style="margin-top:8px">0 / 8 gelas</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -159,19 +170,16 @@
       const nm = profile.full_name || (profile.email?profile.email.split("@")[0]:"");
       document.getElementById("greet").textContent = greetWord();
       document.getElementById("hello").textContent = nm;
-      // stats
       if(profile.weight_kg)document.getElementById("berat").innerHTML=profile.weight_kg+' <small>kg</small>';
       if(profile.height_cm)document.getElementById("tinggi").innerHTML=profile.height_cm+' <small>cm</small>';
       const info=Auth.bmiInfo(profile.weight_kg,profile.height_cm);
       if(info){const b=document.getElementById("bmi");b.textContent=info.bmi;b.style.color=info.color}
-      // daily log restore
       try{ daily = await Auth.getDailyLog(); }catch(e){ daily=null; }
       if(daily){ sleepH=Number(daily.sleep_hours||0); water=Number(daily.water_glasses||0); }
       renderSleep(); renderWater();
       loadWeather();
     })();
 
-    // ---- Weather + AQI ----
     async function loadWeather(){
       try{
         const w=await (await fetch("/api/weather?city=Jakarta")).json();
@@ -195,7 +203,6 @@
       else{s.style.background="linear-gradient(#5a4030,#3a2a1f)";let p="";for(let i=0;i<6;i++)p+='<div class="particle" style="left:'+(10+i*15)+'%;bottom:0;animation-delay:'+(i*0.4)+'s"></div>';s.innerHTML=p;}
     }
 
-    // ---- Recommended workouts (dari goal + AQI) ----
     function loadRecs(){
       const goal=profile.main_goal||"health";
       const base={
@@ -205,7 +212,6 @@
         fit:[["🔥","HIIT","Tingkatkan VO2max","Goal"],["🏃","Running","Stamina","Goal"],["🏋️","Gym Session","Kekuatan","Goal"]]
       };
       let list=(base[goal]||base.health).slice();
-      // AQI tinggi -> paksa indoor
       if(aqiVal>100){ list=[["⚡","EMS Training","Indoor — AQI tinggi","MCU"],["🏊","Swimming","Indoor pool","MCU"],["🏋️","Gym Session","Indoor","MCU"]]; }
       const tagCol={Goal:"background:var(--inp);color:#bbb",MCU:"background:var(--red);color:#fff",Sleep:"background:#333;color:#bbb"};
       document.getElementById("recs").innerHTML=list.map(r=>
@@ -213,7 +219,6 @@
       ).join("");
     }
 
-    // ---- Breathing ----
     const PATTERNS={478:{seq:[["Tarik napas",4],["Tahan",7],["Buang napas",8]],cycles:4},
                     box:{seq:[["Tarik napas",4],["Tahan",4],["Buang napas",4],["Tahan",4]],cycles:4},
                     relax:{seq:[["Tarik napas",5],["Buang napas",5]],cycles:6}};
@@ -246,12 +251,10 @@
       if(done){ try{ await Auth.saveDaily({breathing_done:true}); toast("Sesi napas selesai! 🎉"); }catch(e){} }
     }
 
-    // ---- Sleep ----
     function renderSleep(){document.getElementById("sleepVal").textContent=sleepH;document.getElementById("sleepBar").style.width=Math.min(sleepH/8*100,100)+"%"}
     function sleepAdj(d){sleepH=Math.max(0,Math.min(12,+(sleepH+d).toFixed(1)));renderSleep()}
     async function saveSleep(){try{await Auth.saveDaily({sleep_hours:sleepH});toast(sleepH>=8?"Tidur cukup! 🌙":"Tidur tersimpan ✓")}catch(e){toast("Gagal simpan")}}
 
-    // ---- Water ----
     function renderWater(){
       let h="";for(let i=0;i<8;i++)h+='<div class="glass '+(i<water?"full":"")+'" onclick="setWater('+(i+1)+')"></div>';
       document.getElementById("glasses").innerHTML=h;
@@ -260,7 +263,6 @@
     }
     async function setWater(n){water=(water===n)?n-1:n;renderWater();try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast("Target air tercapai! 💧")}catch(e){}}
 
-    // tampilkan titik siklus napas dari awal
     renderDots(0);
   </script>
 </body>
