@@ -38,6 +38,7 @@
       med_attention:"Needs Attention", med_params:"Parameter Details", med_normal:"Normal",
       med_eating:"Eating Plan", med_exercise:"Exercise Recommendations", med_lifestyle:"Lifestyle & Follow-up",
       med_why:"Why it matters:", med_do:"What you can do:", med_unread:"Unreadable parts:",
+      med_consult_t:"Talk to a 20fit doctor", med_consult_s:"Have questions about your results? Book a consultation with our Sport Clinic doctor.", med_consult_cta:"Consult a Doctor",
       // calories
       cal_title:"Calorie Tracker", cal_of:"of", cal_today:"kcal today",
       cal_goalnote:"Calculated from your profile (weight, height, age, gender, goal).",
@@ -84,6 +85,7 @@
       med_attention:"Yang Perlu Diperhatikan", med_params:"Detail Parameter", med_normal:"Normal",
       med_eating:"Rencana Makan", med_exercise:"Rekomendasi Olahraga", med_lifestyle:"Gaya Hidup & Tindak Lanjut",
       med_why:"Kenapa perlu diperhatikan:", med_do:"Yang bisa dilakukan:", med_unread:"Bagian yang tidak terbaca:",
+      med_consult_t:"Konsultasi dengan dokter 20fit", med_consult_s:"Punya pertanyaan soal hasilmu? Booking konsultasi dengan dokter Sport Clinic kami.", med_consult_cta:"Konsultasi Dokter",
       cal_title:"Pelacak Kalori", cal_of:"dari", cal_today:"kkal hari ini",
       cal_goalnote:"Dihitung dari profil kamu (BB, TB, umur, gender, tujuan).",
       cal_targetlbl:"Target kalori harian kamu", cal_perday:"kkal / hari — dari BMI & profil kamu",
