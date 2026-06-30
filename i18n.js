@@ -152,7 +152,12 @@
     fcss.textContent="body{font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif !important}"+
       "h1,.hello,.headline{font-family:'Anton',sans-serif !important;font-weight:400 !important;letter-spacing:.5px}"+
       ".sec,.hk{font-family:'Barlow Condensed',sans-serif !important;font-weight:700}"+
-      ".stat .v,.ring .num,.bgcount,.chkprog{font-family:'JetBrains Mono',monospace !important}";
+      ".stat .v,.ring .num,.bgcount,.chkprog{font-family:'JetBrains Mono',monospace !important}"+
+      // ---- Hardening anti-overflow (semua widget rapi di desktop & mobile) ----
+      "input[type=time],input[type=date]{min-width:150px;max-width:100%}"+
+      "img,svg,canvas{max-width:100%}"+
+      ".card{overflow-wrap:anywhere}"+
+      ".grid2>*,.grid3>*,.main>*,.calgrid>*,#result>*{min-width:0}";
     document.head.appendChild(fcss);
     const css=document.createElement("style");
     css.textContent=".langfab{position:fixed;top:14px;right:14px;z-index:80;display:flex;gap:3px;background:#fff;border:1px solid #E8E2DB;border-radius:10px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,.20)}"+

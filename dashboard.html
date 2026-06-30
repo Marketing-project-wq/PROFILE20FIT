@@ -135,14 +135,13 @@
     padding:12px 18px;border-radius:12px;font-weight:700;font-size:14px;opacity:0;transition:all .4s;z-index:9;box-shadow:0 8px 24px rgba(0,0,0,.2)}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
   /* Sleep time inputs */
-  .sleeprow{display:flex;flex-direction:column;gap:10px;margin:10px 0 2px}
-  .sleepfld{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .sleepfld label{margin-bottom:0 !important}
-  .sleepfld label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px}
+  .sleeprow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0 2px}
+  .sleepfld{display:block;min-width:0}
+  .sleepfld label{display:block;font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
   .tpick{display:flex;align-items:center;gap:4px}
-  .tpick input{min-width:0;padding:10px 4px;background:var(--inp);border:1px solid var(--line);border-radius:9px;color:var(--txt);font-size:14px;font-family:inherit;text-align:center}
-  .tpick input.tn{width:42px}
-  .tpick input.ta{width:48px;text-transform:uppercase}
+  .tpick input{min-width:0;padding:10px 2px;background:var(--inp);border:1px solid var(--line);border-radius:9px;color:var(--txt);font-size:14px;font-family:inherit;text-align:center}
+  .tpick input.tn{flex:1 1 0;width:auto}
+  .tpick input.ta{flex:1 1 0;width:auto;text-transform:uppercase}
   .tpick input:focus{outline:none;border-color:var(--red)}
   .tpick span{color:var(--muted);font-weight:700}
   /* Checklist harian */
