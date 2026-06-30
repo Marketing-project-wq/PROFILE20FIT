@@ -115,6 +115,9 @@
     async function analyzeMCU(e){
       const f=e.target.files[0];if(!f)return;
       const box=document.getElementById("result");
+      const sig="mcu_"+(f.name||"")+"_"+f.size+"_"+(f.lastModified||0);
+      // Kalau file yang sama pernah dianalisa -> tampilkan instan tanpa panggil AI lagi
+      try{const cached=localStorage.getItem(sig);if(cached){renderResult(JSON.parse(cached));e.target.value="";return;}}catch(e0){}
       box.innerHTML='<div class="card"><div class="muted">'+I18N.t("med_analysing")+'</div></div>';
       let url,mime;
       try{
@@ -130,6 +133,7 @@
         const j=await r.json();
         if(!r.ok||!j.result)throw new Error(j.error||L({en:"Failed to analyse document",id:"Gagal menganalisa dokumen"}));
         renderResult(j.result);
+        try{localStorage.setItem(sig,JSON.stringify(j.result));}catch(e1){}
         try{await Auth.supabase.from("my20fit_mcu_result").insert({auth_user_id:user.id,result:j.result,analyzed_at:new Date().toISOString()});loadList();}catch(err){}
       }catch(err){
         const msg=(err&&err.name==="AbortError")?L({en:"Took too long — please try again.",id:"Terlalu lama — coba lagi ya."}):
@@ -146,7 +150,7 @@
       return '<div class="card"><div class="ch" style="color:'+iconColor+'"><svg viewBox="0 0 24 24" stroke="'+iconColor+'">'+icon+'</svg>'+title+'</div>'+
         items.map(it=>'<div class="plan"><div class="pi" style="background:'+iconColor+'22;color:'+iconColor+'">•</div><div>'+it+'</div></div>').join("")+'</div>';
     }
-    function renderResult(res){
+    function renderResult(res,noScroll){
       const params=(res.parameters||[]).map(p=>{
         const col=statusColor(p.status);
         const arrow=p.direction==="high"?" ↑":p.direction==="low"?" ↓":"";
@@ -177,7 +181,7 @@
         planCard(I18N.t("med_lifestyle"),ICO.life,"#C87000",res.lifestyle_plan)+
         unread+
         '<div class="card" style="border-color:rgba(196,17,1,.3);background:rgba(196,17,1,.07);color:#8a1f15;font-size:13px">⚠️ '+(res.disclaimer||L({en:"This interpretation is not a substitute for a doctor. Consult the 20fit doctor for proper advice.",id:"Interpretasi ini bukan pengganti konsultasi dokter. Konsultasikan ke dokter 20fit untuk saran yang tepat."}))+'</div>';
-      document.getElementById("result").scrollIntoView({behavior:"smooth"});
+      if(!noScroll)document.getElementById("result").scrollIntoView({behavior:"smooth"});
     }
     async function loadList(){
       try{const {data}=await Auth.supabase.from("my20fit_mcu_result").select("*").eq("auth_user_id",user.id).order("created_at",{ascending:false});history=data||[]}catch(e){history=[]}
@@ -188,7 +192,12 @@
       }).join("");
     }
     function openHistory(i){const r=history[i];if(r&&r.result)renderResult(r.result);}
-    (async function(){ user=await Auth.requireAuth(); loadList(); })();
+    (async function(){
+      user=await Auth.requireAuth();
+      await loadList();
+      // Setelah refresh: tampilkan otomatis hasil terakhir (tanpa upload ulang)
+      if(history[0]&&history[0].result){ renderResult(history[0].result,true); }
+    })();
     I18N.onChange(()=>{ loadList(); });
   </script>
 </body>
