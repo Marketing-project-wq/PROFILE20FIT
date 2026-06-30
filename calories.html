@@ -66,6 +66,18 @@
   .togo{margin-top:8px;font-size:13px;color:var(--muted)}
   .togo b{font-size:24px;color:var(--red);font-family:'JetBrains Mono',monospace;margin-right:4px}
   .mtime{font-size:11px;color:var(--muted);font-weight:600;margin-left:6px}
+  /* intermittent fasting */
+  .ifopt{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .ifopt:last-child{border-bottom:0}
+  .ifname{font-weight:800;font-size:14px}
+  .ifdesc{font-size:12px;color:var(--muted);line-height:1.4}
+  .ifpick{flex:0 0 auto;background:var(--red);color:#fff;border-radius:9px;padding:8px 12px;font-weight:800;font-size:12px}
+  .ifhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .ifchange{background:none;border:0;color:var(--red);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}
+  .ifstate{display:inline-block;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:4px 10px;border-radius:20px}
+  .ifstate.eat{background:rgba(42,122,79,.15);color:#2A7A4F}
+  .ifstate.fast{background:rgba(200,112,0,.15);color:#C87000}
+  .iftime{font-size:24px;font-weight:900;margin-top:8px;font-family:'JetBrains Mono',monospace}
   .calgrid{display:grid;grid-template-columns:1fr;gap:14px}
   .calcol{display:flex;flex-direction:column;gap:0}
   @media(min-width:900px){ .wrap{max-width:920px} .calgrid{grid-template-columns:1fr 1fr;align-items:start} }
@@ -116,6 +128,7 @@
       </div>
       <div id="estresult" class="muted" style="margin-top:8px"></div>
     </div>
+    <div id="ifSection"></div>
      </div>
      <div class="calcol">
     <div class="sec" data-i18n="cal_today_sec" style="margin-top:0">Today's Food</div>
@@ -137,6 +150,7 @@
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
   <script src="i18n.js"></script>
+  <script src="fasting.js"></script>
   <script src="nav.js"></script>
   <script>
     function todayKey(){const d=new Date();return "my20fit_cal_"+d.toISOString().slice(0,10)}
@@ -300,13 +314,43 @@
       }).join("");
     }
 
+    // ---- Intermittent Fasting ----
+    function renderIF(){
+      const el=document.getElementById("ifSection"); if(!el)return;
+      const c=Fasting.get();
+      if(!c){
+        el.innerHTML='<div class="sec">'+L({en:"Intermittent Fasting",id:"Intermittent Fasting"})+'</div>'+
+          '<div class="card"><div class="muted" style="margin-bottom:8px">'+L({en:"Pick a fasting style to adopt:",id:"Pilih gaya puasa yang mau kamu adopsi:"})+'</div>'+
+          Fasting.STYLES.map(s=>'<div class="ifopt" onclick="chooseIF(\''+s.id+'\')"><div style="flex:1"><div class="ifname">'+L(s.name)+'</div><div class="ifdesc">'+L(s.desc)+'</div></div><span class="ifpick">'+L({en:"Choose",id:"Pilih"})+'</span></div>').join("")+'</div>';
+        return;
+      }
+      const st=Fasting.state(), s=st.style;
+      let body;
+      if(st.weekly){ body='<div class="muted">'+L(s.desc)+'</div>'; }
+      else {
+        const hrs=Math.floor(st.untilMin/60), mn=st.untilMin%60;
+        body='<span class="ifstate '+(st.eating?"eat":"fast")+'">'+(st.eating?L({en:"Eating window",id:"Jendela makan"}):L({en:"Fasting",id:"Sedang puasa"}))+'</span>'+
+          '<div class="iftime">'+hrs+'h '+mn+'m</div>'+
+          '<div class="muted" style="font-size:13px">'+(st.eating?L({en:"left in your eating window",id:"sisa di jendela makanmu"}):L({en:"until your eating window",id:"sampai jendela makanmu"}))+'</div>'+
+          '<div class="muted" style="margin-top:8px">'+L({en:"Eating window",id:"Jendela makan"})+': <b>'+st.window.start+' – '+st.window.end+'</b></div>'+
+          '<div style="margin-top:10px"><span class="muted" style="font-size:12px">'+L({en:"Start eating at",id:"Mulai makan jam"})+'</span> <input type="time" value="'+st.chosen.start+'" onchange="setIFStart(this.value)" style="padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--inp);color:var(--txt);font-family:inherit"></div>';
+      }
+      el.innerHTML='<div class="sec">'+L({en:"Intermittent Fasting",id:"Intermittent Fasting"})+'</div>'+
+        '<div class="card"><div class="ifhead"><div class="ifname" style="font-size:16px">'+L(s.name)+'</div><button class="ifchange" onclick="changeIF()">'+L({en:"Change style",id:"Ganti gaya"})+'</button></div>'+body+'</div>';
+    }
+    function chooseIF(id){Fasting.set({id:id,start:"12:00"});renderIF();}
+    function changeIF(){Fasting.clear();renderIF();}
+    function setIFStart(v){const c=Fasting.get()||{};c.start=v;Fasting.set(c);renderIF();}
+
     (async function(){
       const p=await Auth.getProfile();
       goal=calcGoal(p); macroT=calcMacros(p); curGoal=p.main_goal||"health";
-      load();render();renderMeals();
+      load();render();renderMeals();renderIF();
       if(location.hash==="#scan"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});}
+      if(location.hash==="#fasting"){document.getElementById("ifSection").scrollIntoView({behavior:"smooth"});}
     })();
-    I18N.onChange(()=>{render();renderMeals();});
+    setInterval(renderIF,60000); // update countdown tiap menit
+    I18N.onChange(()=>{render();renderMeals();renderIF();});
   </script>
 </body>
 </html>

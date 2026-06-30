@@ -19,6 +19,10 @@
   .hrrow{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)}
   .hrrow:last-of-type{border-bottom:0}
   .hrdot{width:9px;height:9px;border-radius:50%;background:var(--red);flex:0 0 auto;margin-top:5px}
+  .ifbadge{font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:4px 10px;border-radius:20px}
+  .ifbadge.eat{background:rgba(42,122,79,.18);color:#2A7A4F}
+  .ifbadge.fast{background:rgba(200,112,0,.18);color:#C87000}
+  .ift{font-size:24px;font-weight:900;font-family:'JetBrains Mono',monospace}
   .wrap{max-width:1100px;margin:0 auto}
   .top{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 20px;
     background:var(--dark);border-radius:16px;padding:14px 18px}
@@ -225,6 +229,8 @@
           <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <span data-i18n="book_recworkout">Ready to train? Book your class at 20fit.</span>
         </a>
+
+        <div id="ifWidget"></div>
       </div>
 
       <!-- Kolom kanan -->
@@ -309,6 +315,7 @@
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
   <script src="i18n.js"></script>
+  <script src="fasting.js"></script>
   <script src="nav.js"></script>
   <script src="tour.js"></script>
   <script>
@@ -354,6 +361,7 @@
       renderWater(); renderChecklist();
       loadWeather();
       loadHealthReminder();
+      renderIFWidget();
     })();
 
     // Ringkasan penting dari halaman lain -> tampil di Dashboard
@@ -400,6 +408,28 @@
       }catch(e){}
       el.innerHTML=html;
     }
+
+    // ---- Widget Intermittent Fasting ----
+    function renderIFWidget(){
+      const el=document.getElementById("ifWidget"); if(!el)return;
+      const st=Fasting.state();
+      const sec='<div class="sec">'+L({en:"Intermittent Fasting",id:"Intermittent Fasting"})+'</div>';
+      if(!st){
+        el.innerHTML=sec+'<a class="card" href="calories.html#fasting" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)"><div style="flex:1"><div style="font-weight:800">'+L({en:"Choose a fasting style",id:"Pilih gaya puasa"})+'</div><div class="muted" style="font-size:12px">'+L({en:"16:8, 18:6, OMAD & more — tap to adopt.",id:"16:8, 18:6, OMAD, dll — ketuk untuk adopsi."})+'</div></div><span style="color:var(--pagemut);font-weight:800">›</span></a>';
+        return;
+      }
+      const s=st.style;
+      if(st.weekly){ el.innerHTML=sec+'<div class="card"><div style="font-weight:900">'+L(s.name)+'</div><div class="muted" style="margin-top:4px">'+L(s.desc)+'</div></div>'; return; }
+      const hrs=Math.floor(st.untilMin/60), mn=st.untilMin%60;
+      const totalMin=(st.eating?s.eat:s.fast)*60;
+      const pct=Math.max(0,Math.min(100,(1-st.untilMin/totalMin)*100));
+      el.innerHTML=sec+'<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:900">'+L(s.name)+'</div><span class="ifbadge '+(st.eating?"eat":"fast")+'">'+(st.eating?L({en:"Eating",id:"Makan"}):L({en:"Fasting",id:"Puasa"}))+'</span></div>'+
+        '<div class="ift" style="margin-top:6px">'+hrs+'h '+mn+'m <span class="muted" style="font-size:12px;font-family:inherit;font-weight:600">'+(st.eating?L({en:"left in window",id:"sisa jendela"}):L({en:"until eating",id:"sampai makan"}))+'</span></div>'+
+        '<div class="bar" style="margin-top:8px"><i style="width:'+pct+'%;background:'+(st.eating?"#2A7A4F":"#C87000")+'"></i></div>'+
+        '<div class="muted" style="margin-top:6px;font-size:12px">'+L({en:"Window",id:"Jendela"})+': '+st.window.start+'–'+st.window.end+'</div>'+
+        '<a class="muted" href="calories.html#fasting" style="font-size:12px;text-decoration:none;color:var(--red);font-weight:700;display:inline-block;margin-top:6px">'+L({en:"Manage ›",id:"Atur ›"})+'</a></div>';
+    }
+    setInterval(renderIFWidget,60000);
 
     // ---- Siklus menstruasi (khusus wanita) ----
     const PHASES=[
@@ -744,6 +774,7 @@
       if(aqiVal!=null) drawAqi(aqiVal);
       loadRecs();
       loadHealthReminder();
+      renderIFWidget();
       if((profile.gender||"")==="female") renderCycle();
     });
 
