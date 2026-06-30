@@ -7,6 +7,8 @@
 // =============================================================
 (function () {
   const KEY = "tour_done_v1";
+  let uid = "";
+  const keyFor = () => KEY + (uid ? "_" + uid : "");
   const t = (o) => (window.L ? window.L(o) : (o.en || ""));
 
   const ICON = {
@@ -100,7 +102,7 @@
     clearHi();
     if(navEl)navEl.style.zIndex="";
     const ov=document.getElementById("tourOv"); if(ov)ov.remove();
-    try{ localStorage.setItem(KEY,"1"); }catch(e){}
+    try{ localStorage.setItem(keyFor(),"1"); }catch(e){}
   }
   function next(){ if(i>=STEPS.length-1){close();return;} i++; render(); }
 
@@ -124,11 +126,12 @@
   window.__tourClose = close;
   window.startTour = open; // putar ulang manual
 
-  // Auto-show sekali, hanya di dashboard
-  function maybeAuto(){
+  // Auto-show sekali per USER per device (device baru / user baru -> tampil lagi)
+  async function maybeAuto(){
     const page=(location.pathname.split("/").pop()||"dashboard.html").toLowerCase();
     if(page!=="dashboard.html" && page!=="" ) return;
-    let done=false; try{ done=localStorage.getItem(KEY)==="1"; }catch(e){}
+    try{ if(window.Auth&&Auth.getUser){ const u=await Auth.getUser(); if(u&&u.id) uid=u.id; } }catch(e){}
+    let done=false; try{ done=localStorage.getItem(keyFor())==="1"; }catch(e){}
     if(done) return;
     setTimeout(open, 700); // kasih waktu nav & data ke-load
   }

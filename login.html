@@ -100,23 +100,25 @@
           <button id="tab-up" onclick="setMode('up')"></button>
         </div>
 
+        <form id="authform" autocomplete="on" onsubmit="event.preventDefault();doLogin();return false;">
         <div id="name-wrap" class="hide">
           <label data-k="name"></label>
-          <input id="name" type="text" autocomplete="name" />
+          <input id="name" name="name" type="text" autocomplete="name" />
         </div>
 
         <label data-k="email">Email</label>
-        <input id="email" type="email" placeholder="name@email.com" autocomplete="email" />
+        <input id="email" name="username" type="email" placeholder="name@email.com" autocomplete="username" />
 
         <div id="phone-wrap" class="hide">
           <label data-k="phone"></label>
-          <input id="phone" type="tel" autocomplete="tel" />
+          <input id="phone" name="phone" type="tel" autocomplete="tel" />
         </div>
 
         <label data-k="password">Password</label>
-        <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
+        <input id="password" name="password" type="password" placeholder="••••••••" autocomplete="current-password" />
 
-        <button class="btn" id="submit" onclick="submit()"></button>
+        <button class="btn" id="submit" type="submit"></button>
+        </form>
         <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600"></a></div>
 
         <div class="orsep"><span data-k="orsep">or</span></div>
@@ -217,7 +219,16 @@
     }
     function msg(t,type){const el=document.getElementById("msg");el.textContent=t||"";el.className="msg"+(type?" "+type:"")}
 
-    async function submit(){
+    // Simpan email+password ke password manager browser (sinkron antar device)
+    function saveCredential(id,password){
+      try{
+        if(window.PasswordCredential && navigator.credentials){
+          const c=new window.PasswordCredential({id:id,password:password,name:id});
+          navigator.credentials.store(c).catch(function(){});
+        }
+      }catch(e){}
+    }
+    async function doLogin(){
       const d=T[lang];
       const email=document.getElementById("email").value.trim();
       const password=document.getElementById("password").value;
@@ -230,6 +241,7 @@
       try{
         if(mode==="up"){await Auth.signUp(email,password,name,phone);}
         else{await Auth.signIn(email,password);}
+        saveCredential(email,password);
         await Auth.routeAfterAuth();
       }catch(e){msg(terjemah(e.message),"err");btn.disabled=false}
     }
@@ -270,12 +282,26 @@
       catch(e){ msg(terjemah(e.message),"err"); }
     }
 
+    // Prefill email & password dari password manager browser (kalau ada)
+    async function tryAutofill(){
+      try{
+        if(navigator.credentials && window.PasswordCredential){
+          const cred=await navigator.credentials.get({password:true, mediation:"optional"});
+          if(cred){
+            if(cred.id) document.getElementById("email").value=cred.id;
+            if(cred.password) document.getElementById("password").value=cred.password;
+          }
+        }
+      }catch(e){}
+    }
+
     // Auto-enter if already logged in (also catches Google OAuth redirect back)
     (async function(){
       try{
         await Auth.ready;
         Auth.supabase.auth.onAuthStateChange((evt,sess)=>{ if(sess&&sess.user){ Auth.routeAfterAuth(); } });
-        const u=await Auth.getUser(); if(u){ await Auth.routeAfterAuth(); }
+        const u=await Auth.getUser(); if(u){ await Auth.routeAfterAuth(); return; }
+        tryAutofill();
       }catch(e){}
     })();
     applyLang();
