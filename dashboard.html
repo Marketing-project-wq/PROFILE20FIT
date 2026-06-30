@@ -426,7 +426,7 @@
       el.innerHTML=sec+'<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:900">'+L(s.name)+'</div><span class="ifbadge '+(st.eating?"eat":"fast")+'">'+(st.eating?L({en:"Eating",id:"Makan"}):L({en:"Fasting",id:"Puasa"}))+'</span></div>'+
         '<div class="ift" style="margin-top:6px">'+hrs+'h '+mn+'m <span class="muted" style="font-size:12px;font-family:inherit;font-weight:600">'+(st.eating?L({en:"left in window",id:"sisa jendela"}):L({en:"until eating",id:"sampai makan"}))+'</span></div>'+
         '<div class="bar" style="margin-top:8px"><i style="width:'+pct+'%;background:'+(st.eating?"#2A7A4F":"#C87000")+'"></i></div>'+
-        '<div class="muted" style="margin-top:6px;font-size:12px">'+L({en:"Window",id:"Jendela"})+': '+st.window.start+'–'+st.window.end+'</div>'+
+        '<div class="muted" style="margin-top:6px;font-size:12px">'+L({en:"Window",id:"Jendela"})+': '+st.window.start+'–'+st.window.end+(function(){var t=profile?calCalGoal(profile):2000;var m=Fasting.mealsFor(s.id);var pm=Math.max(1,Math.round(t/m/10)*10);return ' · ≈'+pm+' '+L({en:"kcal/meal",id:"kkal/makan"})+' ('+m+'×)';})()+'</div>'+
         '<a class="muted" href="calories.html#fasting" style="font-size:12px;text-decoration:none;color:var(--red);font-weight:700;display:inline-block;margin-top:6px">'+L({en:"Manage ›",id:"Atur ›"})+'</a></div>';
     }
     setInterval(renderIFWidget,60000);

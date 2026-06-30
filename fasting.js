@@ -20,6 +20,8 @@
   ];
   function fmt(min){min=((min%1440)+1440)%1440;return String(Math.floor(min/60)).padStart(2,"0")+":"+String(min%60).padStart(2,"0");}
   function styleById(id){return STYLES.find(s=>s.id===id)||null;}
+  // Saran jumlah makan dalam jendela (buat bagi kalori per makan)
+  function mealsFor(id){return ({"14:10":3,"16:8":3,"18:6":2,"20:4":2,"omad":1,"5:2":3})[id]||3;}
   function get(){try{return JSON.parse(localStorage.getItem("my20fit_if")||"null");}catch(e){return null;}}
   function set(o){localStorage.setItem("my20fit_if",JSON.stringify(o));}
   function clear(){localStorage.removeItem("my20fit_if");}
@@ -37,5 +39,5 @@
     if(until<=0)until=1;
     return {style:s,chosen:c,eating:eating,untilMin:until,window:{start:fmt(startM),end:fmt(endM)}};
   }
-  window.Fasting = { STYLES, styleById, get, set, clear, state, fmt };
+  window.Fasting = { STYLES, styleById, mealsFor, get, set, clear, state, fmt };
 })();

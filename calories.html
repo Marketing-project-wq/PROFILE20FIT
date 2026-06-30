@@ -78,6 +78,9 @@
   .ifstate.eat{background:rgba(42,122,79,.15);color:#2A7A4F}
   .ifstate.fast{background:rgba(200,112,0,.15);color:#C87000}
   .iftime{font-size:24px;font-weight:900;margin-top:8px;font-family:'JetBrains Mono',monospace}
+  .ifplan{margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}
+  .ifplanrow{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:4px 0}
+  .ifplanrow b{font-family:'JetBrains Mono',monospace}
   .calgrid{display:grid;grid-template-columns:1fr;gap:14px}
   .calcol{display:flex;flex-direction:column;gap:0}
   @media(min-width:900px){ .wrap{max-width:920px} .calgrid{grid-template-columns:1fr 1fr;align-items:start} }
@@ -326,14 +329,25 @@
       }
       const st=Fasting.state(), s=st.style;
       let body;
-      if(st.weekly){ body='<div class="muted">'+L(s.desc)+'</div>'; }
+      // Rencana kalori sesuai style (total tetap, dibagi per makan dalam jendela)
+      function planBlock(){
+        if(s.weekly){
+          return '<div class="ifplan"><div class="ifplanrow"><span>'+L({en:"Normal days (5/wk)",id:"Hari normal (5/mgg)"})+'</span><b>'+goal+' '+kc()+'</b></div>'+
+            '<div class="ifplanrow"><span>'+L({en:"Fast days (2/wk)",id:"Hari puasa (2/mgg)"})+'</span><b style="color:var(--red)">~500–600 '+kc()+'</b></div></div>';
+        }
+        const meals=Fasting.mealsFor(s.id), perMeal=Math.max(1,Math.round(goal/meals/10)*10);
+        return '<div class="ifplan"><div class="ifplanrow"><span>'+L({en:"Daily target (unchanged)",id:"Target harian (tetap)"})+'</span><b>'+goal+' '+kc()+'</b></div>'+
+          '<div class="ifplanrow"><span>'+L({en:"Meals in your window",id:"Makan dalam jendelamu"})+'</span><b>'+meals+'×</b></div>'+
+          '<div class="ifplanrow"><span>'+L({en:"≈ per meal",id:"≈ per makan"})+'</span><b style="color:var(--red)">'+perMeal+' '+kc()+'</b></div></div>';
+      }
+      if(st.weekly){ body='<div class="muted">'+L(s.desc)+'</div>'+planBlock(); }
       else {
         const hrs=Math.floor(st.untilMin/60), mn=st.untilMin%60;
         body='<span class="ifstate '+(st.eating?"eat":"fast")+'">'+(st.eating?L({en:"Eating window",id:"Jendela makan"}):L({en:"Fasting",id:"Sedang puasa"}))+'</span>'+
           '<div class="iftime">'+hrs+'h '+mn+'m</div>'+
           '<div class="muted" style="font-size:13px">'+(st.eating?L({en:"left in your eating window",id:"sisa di jendela makanmu"}):L({en:"until your eating window",id:"sampai jendela makanmu"}))+'</div>'+
           '<div class="muted" style="margin-top:8px">'+L({en:"Eating window",id:"Jendela makan"})+': <b>'+st.window.start+' – '+st.window.end+'</b></div>'+
-          '<div style="margin-top:10px"><span class="muted" style="font-size:12px">'+L({en:"Start eating at",id:"Mulai makan jam"})+'</span> <input type="time" value="'+st.chosen.start+'" onchange="setIFStart(this.value)" style="padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--inp);color:var(--txt);font-family:inherit"></div>';
+          '<div style="margin-top:10px"><span class="muted" style="font-size:12px">'+L({en:"Start eating at",id:"Mulai makan jam"})+'</span> <input type="time" value="'+st.chosen.start+'" onchange="setIFStart(this.value)" style="padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--inp);color:var(--txt);font-family:inherit"></div>'+planBlock();
       }
       el.innerHTML='<div class="sec">'+L({en:"Intermittent Fasting",id:"Intermittent Fasting"})+'</div>'+
         '<div class="card"><div class="ifhead"><div class="ifname" style="font-size:16px">'+L(s.name)+'</div><button class="ifchange" onclick="changeIF()">'+L({en:"Change style",id:"Ganti gaya"})+'</button></div>'+body+'</div>';
