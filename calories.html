@@ -49,6 +49,15 @@
   .recipe h4{margin:6px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
   .recipe ul,.recipe ol{margin:4px 0;padding-left:18px;line-height:1.6}
   .raddbtn{margin-top:10px;padding:10px 12px;border:0;border-radius:10px;background:var(--inp);color:var(--txt);font-weight:700;cursor:pointer;font-size:13px}
+  .macros{margin-top:14px;text-align:left;display:flex;flex-direction:column;gap:9px}
+  .macro .mtop{display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:3px}
+  .macro .mv{color:var(--muted);font-weight:600}
+  .mbar{height:8px;background:var(--inp);border-radius:6px;overflow:hidden}
+  .mbar>i{display:block;height:100%;width:0;transition:width .35s}
+  #pBar{background:#C41101}#cBar{background:#3b82f6}#fBar{background:#C87000}
+  .calgrid{display:grid;grid-template-columns:1fr;gap:14px}
+  .calcol{display:flex;flex-direction:column;gap:0}
+  @media(min-width:900px){ .wrap{max-width:920px} .calgrid{grid-template-columns:1fr 1fr;align-items:start} }
 </style>
 </head>
 <body>
@@ -56,12 +65,20 @@
     <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" /></div>
     <h1 data-i18n="cal_title">Calorie Tracker</h1>
 
+    <div class="calgrid">
+     <div class="calcol">
     <div class="card ring">
       <div class="tlbl" data-i18n="cal_targetlbl">Your daily calorie target</div>
       <div class="num" id="goal">2000</div>
       <div class="goal" data-i18n="cal_perday">kcal / day — from your BMI & profile</div>
       <div class="rem"><span data-i18n="cal_eaten">Eaten</span> <b id="consumed">0</b> · <span data-i18n="cal_left">Left</span> <b id="remain">0</b> kcal</div>
       <div class="bar"><i id="calbar"></i></div>
+
+      <div class="macros">
+        <div class="macro"><div class="mtop"><span data-i18n="cal_protein">Protein</span><span class="mv" id="pVal">0 / 0g</span></div><div class="mbar"><i id="pBar"></i></div></div>
+        <div class="macro"><div class="mtop"><span data-i18n="cal_carbs">Carbs</span><span class="mv" id="cVal">0 / 0g</span></div><div class="mbar"><i id="cBar"></i></div></div>
+        <div class="macro"><div class="mtop"><span data-i18n="cal_fat">Fat</span><span class="mv" id="fVal">0 / 0g</span></div><div class="mbar"><i id="fBar"></i></div></div>
+      </div>
 
       <button class="scanbtn" id="scanbox" style="margin-top:14px" onclick="document.getElementById('foodfile').click()">
         <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
@@ -78,8 +95,9 @@
       </div>
       <div id="estresult" class="muted" style="margin-top:8px"></div>
     </div>
-
-    <div class="sec" data-i18n="cal_today_sec">Today's Food</div>
+     </div>
+     <div class="calcol">
+    <div class="sec" data-i18n="cal_today_sec" style="margin-top:0">Today's Food</div>
     <div class="card"><div id="log"></div></div>
 
     <div class="sec" data-i18n="cal_recs">Meal Ideas & Recipes</div>
@@ -91,6 +109,8 @@
       </div>
       <div id="meals"></div>
     </div>
+     </div>
+    </div>
   </div>
 
   <script src="vendor-supabase.js"></script>
@@ -99,7 +119,7 @@
   <script src="nav.js"></script>
   <script>
     function todayKey(){const d=new Date();return "my20fit_cal_"+d.toISOString().slice(0,10)}
-    let goal=2000, items=[], curGoal="health";
+    let goal=2000, items=[], curGoal="health", macroT={p:120,c:230,f:60};
     function calcGoal(p){
       const w=+p.weight_kg,h=+p.height_cm,age=+p.age||25;
       if(!w||!h)return 2000;
@@ -109,15 +129,32 @@
       const g=p.main_goal;tdee+=(g==="lose"?-400:g==="muscle"?300:g==="fit"?100:0);
       return Math.max(1200,Math.round(tdee/10)*10);
     }
+    // Target makro dari kalori + berat + tujuan (protein per kg badan)
+    function calcMacros(p){
+      const w=+p.weight_kg||0, g=p.main_goal;
+      const proteinG = w ? Math.round(w*(g==="muscle"?1.8:g==="lose"?1.6:1.4)) : Math.round(goal*0.25/4);
+      const fatG = Math.round(goal*0.25/9);
+      let carbsG = Math.round((goal - proteinG*4 - fatG*9)/4);
+      if(carbsG<0) carbsG = Math.round(goal*0.45/4);
+      return {p:proteinG,c:carbsG,f:fatG};
+    }
     function load(){try{items=JSON.parse(localStorage.getItem(todayKey())||"[]")}catch(e){items=[]}}
     function save(){localStorage.setItem(todayKey(),JSON.stringify(items))}
     function kc(){return L({en:"kcal",id:"kkal"})}
+    function setMacro(id,val,tot,bar){
+      document.getElementById(id).textContent=Math.round(val)+" / "+tot+"g";
+      document.getElementById(bar).style.width=Math.min(tot?val/tot*100:0,100)+"%";
+    }
     function render(){
       const total=items.reduce((s,i)=>s+(+i.kcal||0),0);
+      const tp=items.reduce((s,i)=>s+(+i.p||0),0), tc=items.reduce((s,i)=>s+(+i.c||0),0), tf=items.reduce((s,i)=>s+(+i.f||0),0);
       document.getElementById("consumed").textContent=total;
       document.getElementById("goal").textContent=goal;
       document.getElementById("remain").textContent=Math.max(0,goal-total);
       document.getElementById("calbar").style.width=Math.min(total/goal*100,100)+"%";
+      setMacro("pVal",tp,macroT.p,"pBar");
+      setMacro("cVal",tc,macroT.c,"cBar");
+      setMacro("fVal",tf,macroT.f,"fBar");
       const log=document.getElementById("log");
       log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}</span><span class="kc">${i.kcal} ${kc()} <a onclick="del(${idx})" style="color:var(--red);cursor:pointer;margin-left:8px">✕</a></span></div>`).join(""):'<div class="muted">'+I18N.t("cal_empty")+'</div>';
     }
@@ -135,13 +172,13 @@
         const it=(j.result.items&&j.result.items[0])||{};
         const kcal=Math.round(j.result.total_kcal||it.kcal||0);
         if(!kcal)throw new Error(j.result.note||L({en:"Couldn't estimate that.",id:"Tidak bisa menghitung itu."}));
-        addToLog(name+" ("+gram+"g)",kcal);
+        addToLog(name+" ("+gram+"g)",kcal,it.protein_g,it.carbs_g,it.fat_g);
         out.style.color="#2A7A4F";out.textContent="+"+kcal+" "+kc()+" · "+name+" ("+gram+"g)";
         document.getElementById("fname").value="";document.getElementById("fgram").value="";
       }catch(e){out.style.color="var(--red)";out.textContent=e.message;}
       btn.disabled=false;
     }
-    function addToLog(name,kcal){items.push({name:name,kcal:Math.round(kcal)||0});save();render();}
+    function addToLog(name,kcal,p,c,f){items.push({name:name,kcal:Math.round(kcal)||0,p:Math.round(+p||0),c:Math.round(+c||0),f:Math.round(+f||0)});save();render();}
     function del(i){items.splice(i,1);save();render()}
 
     // ---- Scan makanan (AI vision via OpenRouter/Gemini) ----
@@ -185,7 +222,7 @@
       }catch(err){box.innerHTML='<div style="color:var(--red)">'+err.message+'</div>'}
       e.target.value="";
     }
-    function addScanned(){lastScan.forEach(i=>addToLog(i.name,i.kcal));document.getElementById("scanresult").innerHTML='<div style="color:#2A7A4F">'+I18N.t("cal_added")+'</div>'}
+    function addScanned(){lastScan.forEach(i=>addToLog(i.name,i.kcal,i.protein_g,i.carbs_g,i.fat_g));document.getElementById("scanresult").innerHTML='<div style="color:#2A7A4F">'+I18N.t("cal_added")+'</div>'}
 
     // ---- Ide menu + resep (sarapan / makan siang / makan malam) ----
     const RECIPES={
@@ -236,7 +273,7 @@
 
     (async function(){
       const p=await Auth.getProfile();
-      goal=calcGoal(p); curGoal=p.main_goal||"health";
+      goal=calcGoal(p); macroT=calcMacros(p); curGoal=p.main_goal||"health";
       load();render();renderMeals();
       if(location.hash==="#scan"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});}
     })();
