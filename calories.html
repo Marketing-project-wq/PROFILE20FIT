@@ -88,6 +88,11 @@
   .ifplan{margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}
   .ifplanrow{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:4px 0}
   .ifplanrow b{font-family:'JetBrains Mono',monospace}
+  .ifexplore{width:100%;margin-top:12px;background:var(--inp);border:1px solid var(--line);border-radius:11px;padding:13px;font-weight:800;font-size:13px;color:var(--txt);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px}
+  .ifexplore #ifChev{color:var(--red);font-size:11px}
+  .ifgroups{margin-top:4px}
+  .iflvl{font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;font-size:12px;color:var(--red);margin:16px 0 0}
+  .ifquick{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--inp);margin-top:4px}
   .calgrid{display:grid;grid-template-columns:1fr;gap:14px}
   .calcol{display:flex;flex-direction:column;gap:0}
   @media(min-width:900px){ .wrap{max-width:920px} .calgrid{grid-template-columns:1fr 1fr;align-items:start} }
@@ -326,13 +331,36 @@
     }
 
     // ---- Intermittent Fasting ----
+    // Tipe puasa dikelompokkan per level biar gampang dipilih
+    const IF_LEVELS=[
+      {t:{en:"Beginner",id:"Pemula"},      ids:["14:10"]},
+      {t:{en:"Intermediate",id:"Menengah"},ids:["16:8","18:6"]},
+      {t:{en:"Advanced",id:"Lanjut"},      ids:["20:4","omad"]},
+      {t:{en:"Special",id:"Khusus"},       ids:["5:2"]}
+    ];
+    let ifExploreOpen=false;
+    function toggleIFExplore(){ ifExploreOpen=!ifExploreOpen; renderIF(); }
+    function ifOptHTML(s){return '<div class="ifopt" onclick="chooseIF(\''+s.id+'\')"><div style="flex:1"><div class="ifname">'+L(s.name)+'</div><div class="ifdesc">'+L(s.desc)+'</div></div><span class="ifpick">'+L({en:"Choose",id:"Pilih"})+'</span></div>';}
+    function ifGroupsHTML(){
+      return '<div class="ifgroups">'+IF_LEVELS.map(g=>{
+        const items=g.ids.map(id=>Fasting.styleById(id)).filter(Boolean);
+        if(!items.length)return"";
+        return '<div class="iflvl">'+L(g.t)+'</div>'+items.map(ifOptHTML).join("");
+      }).join("")+'</div>';
+    }
     function renderIF(){
       const el=document.getElementById("ifSection"); if(!el)return;
       const c=Fasting.get();
       if(!c){
+        const pop=Fasting.styleById("16:8");
         el.innerHTML='<div class="sec">'+L({en:"Intermittent Fasting",id:"Intermittent Fasting"})+'</div>'+
-          '<div class="card"><div class="muted" style="margin-bottom:8px">'+L({en:"Pick a fasting style to adopt:",id:"Pilih gaya puasa yang mau kamu adopsi:"})+'</div>'+
-          Fasting.STYLES.map(s=>'<div class="ifopt" onclick="chooseIF(\''+s.id+'\')"><div style="flex:1"><div class="ifname">'+L(s.name)+'</div><div class="ifdesc">'+L(s.desc)+'</div></div><span class="ifpick">'+L({en:"Choose",id:"Pilih"})+'</span></div>').join("")+'</div>';
+          '<div class="card">'+
+            '<div class="ifname" style="font-size:16px">'+L({en:"Adopt a fasting style",id:"Adopsi gaya puasa"})+'</div>'+
+            '<div class="muted" style="font-size:13px;margin:4px 0 12px">'+L({en:"Fasting can sharpen your calorie deficit. Start with the most popular, or explore by level.",id:"Puasa bisa mempertajam defisit kalorimu. Mulai dari yang paling populer, atau jelajahi per level."})+'</div>'+
+            '<div class="ifquick"><div class="ifopt" style="border:0;padding:0" onclick="chooseIF(\'16:8\')"><div style="flex:1"><div class="ifname">⭐ 16:8 · '+L({en:"Most popular",id:"Paling populer"})+'</div><div class="ifdesc">'+(pop?L(pop.desc):"")+'</div></div><span class="ifpick">'+L({en:"Choose",id:"Pilih"})+'</span></div></div>'+
+            '<button class="ifexplore" onclick="toggleIFExplore()">'+(ifExploreOpen?L({en:"Hide styles",id:"Sembunyikan gaya"}):L({en:"Explore all styles",id:"Jelajahi semua gaya"}))+' <span id="ifChev">'+(ifExploreOpen?'▲':'▼')+'</span></button>'+
+            (ifExploreOpen?ifGroupsHTML():'')+
+          '</div>';
         return;
       }
       const st=Fasting.state(), s=st.style;

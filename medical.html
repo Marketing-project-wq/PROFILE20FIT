@@ -189,7 +189,7 @@
         const j=await r.json();
         if(!r.ok||!j.result)throw new Error((j.error||L({en:"Failed to analyse document",id:"Gagal menganalisa dokumen"}))+(j.detail?" — "+j.detail:""));
         j.result._lang=I18N.lang;
-        renderResult(j.result);
+        showResult(j.result);
         try{localStorage.setItem(sig,JSON.stringify(j.result));}catch(e1){}
         try{await Auth.supabase.from("my20fit_mcu_result").insert({auth_user_id:user.id,result:j.result,analyzed_at:new Date().toISOString()});loadList();}catch(err){}
       }catch(err){
@@ -243,7 +243,9 @@
     }
 
     // Lifestyle follow-up -> Achievement Board (bisa dicentang & tersimpan)
-    let achKey="", achState={}, achItems=[], currentRes=null;
+    let achKey="", achState={}, achItems=[], currentRes=null, baseRes=null, transCache={};
+    // Tampilkan hasil baru sebagai sumber (reset cache terjemahan)
+    function showResult(res,noScroll){ baseRes=res; transCache={}; transCache[res._lang||"en"]=res; renderResult(res,noScroll); }
     function buildAch(res){
       achItems=res.lifestyle_plan||[];
       achKey="mcu_ach_"+simpleHash((res.date||"")+"|"+achItems.join("|"));
@@ -301,7 +303,7 @@
 
       document.getElementById("result").innerHTML=
         overall+
-        (findings?'<div class="card"><div class="ch" style="color:var(--red)">'+warn+I18N.t("med_attention")+'</div>'+findings+'</div>':"")+
+        (findings?'<div class="card rfull"><div class="ch" style="color:var(--red)">'+warn+I18N.t("med_attention")+'</div>'+findings+'</div>':"")+
         (params?'<div class="card"><div style="font-weight:800;margin-bottom:6px">'+I18N.t("med_params")+'</div>'+params+'</div>':"")+
         planCard(I18N.t("med_eating"),ICO.fork,"#2A7A4F",res.eating_plan)+
         shopBanner()+
@@ -320,24 +322,29 @@
         return '<div class="rec" onclick="openHistory('+i+')"><div class="grade"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:var(--red);stroke-width:2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="flex:1"><div style="font-weight:700">'+(res.document_type||L({en:"MCU Result",id:"Hasil MCU"}))+'</div><div class="muted">'+date+(flag?' · '+flag+' '+L({en:"need attention",id:"perlu perhatian"}):'')+'</div></div><span class="seemore">'+L({en:"See more",id:"Lihat detail"})+' ›</span></div>';
       }).join("");
     }
-    function openHistory(i){const r=history[i];if(r&&r.result)renderResult(r.result);}
-    // Terjemahkan hasil yang sedang tampil ke bahasa aktif (lewat AI)
+    function openHistory(i){const r=history[i];if(r&&r.result)showResult(r.result);}
+    // Terjemahkan hasil yang sedang tampil ke bahasa aktif (lewat AI), dengan cache + timeout
     async function translateCurrent(){
-      const res=currentRes; if(!res){return;}
-      if(res._lang===I18N.lang){ renderResult(res,true); return; }
+      const base=baseRes; if(!base){return;}
+      const want=I18N.lang;
+      // sudah pernah diterjemahkan -> instan
+      if(transCache[want]){ renderResult(transCache[want],true); return; }
+      // label langsung ganti bahasa dulu (teks AI nyusul beberapa detik)
+      renderResult(base,true);
       try{
-        const r=await fetch(AI_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"translate",lang:I18N.lang,data:res})});
+        const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),45000);
+        const r=await fetch(AI_URL,{method:"POST",signal:ctrl.signal,headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"translate",lang:want,data:base})});
+        clearTimeout(to);
         const j=await r.json();
-        if(r.ok&&j.result){ j.result._lang=I18N.lang; renderResult(j.result,true); }
-        else { renderResult(res,true); }
-      }catch(e){ renderResult(res,true); }
+        if(r.ok&&j.result&&I18N.lang===want){ j.result._lang=want; transCache[want]=j.result; renderResult(j.result,true); }
+      }catch(e){ /* biarkan render terkini — label sudah sesuai bahasa aktif */ }
     }
     (async function(){
       user=await Auth.requireAuth();
       try{ profile=await Auth.getProfile(); }catch(e){ profile=null; }
       await loadList();
       // Setelah refresh: tampilkan otomatis hasil terakhir (tanpa upload ulang)
-      if(history[0]&&history[0].result){ renderResult(history[0].result,true); }
+      if(history[0]&&history[0].result){ showResult(history[0].result,true); }
     })();
     I18N.onChange(()=>{ loadList(); if(currentRes)translateCurrent(); });
   </script>
