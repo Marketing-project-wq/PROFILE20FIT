@@ -366,6 +366,13 @@
     async function loadHealthReminder(){
       const el=document.getElementById("healthReminder"); if(!el||!profile)return;
       let html="";
+      // 0) nudge lengkapi data (user dari app 20fit yang belum onboarding)
+      if(!profile.onboarding_completed || !profile.weight_kg || !profile.gender){
+        html+='<div class="card" style="margin-top:14px;border-color:rgba(196,17,1,.35);background:rgba(196,17,1,.06);display:flex;align-items:center;gap:12px">'+
+          '<div style="flex:1"><div style="font-weight:800">'+L({en:"Complete your health profile",id:"Lengkapi profil kesehatanmu"})+'</div>'+
+          '<div class="muted" style="font-size:12px">'+L({en:"Add weight, height, gender & goal to unlock your stats & recommendations.",id:"Isi berat, tinggi, gender & tujuan untuk membuka statistik & rekomendasimu."})+'</div></div>'+
+          '<a class="bookbtn" style="width:auto;margin-top:0;padding:11px 16px;flex:0 0 auto" href="onboarding.html">'+L({en:"Complete",id:"Lengkapi"})+'</a></div>';
+      }
       // 1) kalori hari ini (dari tracker)
       try{
         const key="my20fit_cal_"+new Date().toISOString().slice(0,10);

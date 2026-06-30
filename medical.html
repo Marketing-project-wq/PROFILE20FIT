@@ -188,6 +188,7 @@
         clearTimeout(to);
         const j=await r.json();
         if(!r.ok||!j.result)throw new Error((j.error||L({en:"Failed to analyse document",id:"Gagal menganalisa dokumen"}))+(j.detail?" — "+j.detail:""));
+        j.result._lang=I18N.lang;
         renderResult(j.result);
         try{localStorage.setItem(sig,JSON.stringify(j.result));}catch(e1){}
         try{await Auth.supabase.from("my20fit_mcu_result").insert({auth_user_id:user.id,result:j.result,analyzed_at:new Date().toISOString()});loadList();}catch(err){}
@@ -320,6 +321,17 @@
       }).join("");
     }
     function openHistory(i){const r=history[i];if(r&&r.result)renderResult(r.result);}
+    // Terjemahkan hasil yang sedang tampil ke bahasa aktif (lewat AI)
+    async function translateCurrent(){
+      const res=currentRes; if(!res){return;}
+      if(res._lang===I18N.lang){ renderResult(res,true); return; }
+      try{
+        const r=await fetch(AI_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"translate",lang:I18N.lang,data:res})});
+        const j=await r.json();
+        if(r.ok&&j.result){ j.result._lang=I18N.lang; renderResult(j.result,true); }
+        else { renderResult(res,true); }
+      }catch(e){ renderResult(res,true); }
+    }
     (async function(){
       user=await Auth.requireAuth();
       try{ profile=await Auth.getProfile(); }catch(e){ profile=null; }
@@ -327,7 +339,7 @@
       // Setelah refresh: tampilkan otomatis hasil terakhir (tanpa upload ulang)
       if(history[0]&&history[0].result){ renderResult(history[0].result,true); }
     })();
-    I18N.onChange(()=>{ loadList(); if(currentRes)renderResult(currentRes,true); });
+    I18N.onChange(()=>{ loadList(); if(currentRes)translateCurrent(); });
   </script>
 </body>
 </html>
