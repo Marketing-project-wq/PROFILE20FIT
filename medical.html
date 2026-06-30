@@ -36,6 +36,7 @@
   .ch{font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:9px}
   .ch svg{width:19px;height:19px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .rec{cursor:pointer}
+  .seemore{flex:0 0 auto;color:var(--red);font-weight:800;font-size:12px;white-space:nowrap}
   .bookbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:13px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;text-decoration:none}
   .bookbtn.alt{background:var(--inp);color:var(--txt);border:1px solid var(--line)}
   .bookbtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -276,7 +277,7 @@
       const el=document.getElementById("list");
       if(!history.length){el.innerHTML='<div class="empty">'+I18N.t("med_empty")+'</div>';return}
       el.innerHTML=history.map((r,i)=>{const res=r.result||{};const date=(r.analyzed_at||r.created_at||"").slice(0,10);const flag=(res.abnormal_findings||[]).length;
-        return '<div class="rec" onclick="openHistory('+i+')"><div class="grade"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:var(--red);stroke-width:2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="flex:1"><div style="font-weight:700">'+(res.document_type||L({en:"MCU Result",id:"Hasil MCU"}))+'</div><div class="muted">'+date+(flag?' · '+flag+' '+L({en:"need attention",id:"perlu perhatian"}):'')+'</div></div></div>';
+        return '<div class="rec" onclick="openHistory('+i+')"><div class="grade"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:var(--red);stroke-width:2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="flex:1"><div style="font-weight:700">'+(res.document_type||L({en:"MCU Result",id:"Hasil MCU"}))+'</div><div class="muted">'+date+(flag?' · '+flag+' '+L({en:"need attention",id:"perlu perhatian"}):'')+'</div></div><span class="seemore">'+L({en:"See more",id:"Lihat detail"})+' ›</span></div>';
       }).join("");
     }
     function openHistory(i){const r=history[i];if(r&&r.result)renderResult(r.result);}
