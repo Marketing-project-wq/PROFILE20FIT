@@ -78,6 +78,13 @@
   .ifstate.eat{background:rgba(42,122,79,.15);color:#2A7A4F}
   .ifstate.fast{background:rgba(200,112,0,.15);color:#C87000}
   .iftime{font-size:24px;font-weight:900;margin-top:8px;font-family:'JetBrains Mono',monospace}
+  .iftl{position:relative;height:14px;background:var(--inp);border-radius:7px;margin:12px 0 4px}
+  .iftl .seg{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,#2A7A4F,#34c759);border-radius:7px}
+  .iftl .now{position:absolute;top:-3px;bottom:-3px;width:3px;background:var(--red);border-radius:2px}
+  .iftlx{display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}
+  .ifremind{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;background:var(--inp);border-radius:10px;padding:10px 12px}
+  .ifremind button{border:0;border-radius:9px;padding:9px 13px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}
+  .rbtn-on{background:var(--red);color:#fff}.rbtn-off{background:#dfe9e0;color:#2A7A4F}
   .ifplan{margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}
   .ifplanrow{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:4px 0}
   .ifplanrow b{font-family:'JetBrains Mono',monospace}
@@ -157,7 +164,8 @@
   <script src="nav.js"></script>
   <script>
     function todayKey(){const d=new Date();return "my20fit_cal_"+d.toISOString().slice(0,10)}
-    let goal=2000, items=[], curGoal="health", macroT={p:120,c:230,f:60};
+    let goal=2000, baseGoal=2000, profileRef=null, items=[], curGoal="health", macroT={p:120,c:230,f:60};
+    function recompute(){ goal=Fasting.adjustGoal(baseGoal); if(profileRef)macroT=calcMacros(profileRef); }
     function calcGoal(p){
       const w=+p.weight_kg,h=+p.height_cm,age=+p.age||25;
       if(!w||!h)return 2000;
@@ -335,30 +343,46 @@
           return '<div class="ifplan"><div class="ifplanrow"><span>'+L({en:"Normal days (5/wk)",id:"Hari normal (5/mgg)"})+'</span><b>'+goal+' '+kc()+'</b></div>'+
             '<div class="ifplanrow"><span>'+L({en:"Fast days (2/wk)",id:"Hari puasa (2/mgg)"})+'</span><b style="color:var(--red)">~500–600 '+kc()+'</b></div></div>';
         }
-        const meals=Fasting.mealsFor(s.id), perMeal=Math.max(1,Math.round(goal/meals/10)*10);
-        return '<div class="ifplan"><div class="ifplanrow"><span>'+L({en:"Daily target (unchanged)",id:"Target harian (tetap)"})+'</span><b>'+goal+' '+kc()+'</b></div>'+
+        const meals=Fasting.mealsFor(s.id), perMeal=Math.max(1,Math.round(goal/meals/10)*10), adj=goal!==baseGoal;
+        return '<div class="ifplan"><div class="ifplanrow"><span>'+L({en:"Daily target",id:"Target harian"})+'</span><b>'+(adj?'<span style="color:var(--muted);text-decoration:line-through;font-weight:400">'+baseGoal+'</span> ':'')+goal+' '+kc()+'</b></div>'+
+          (adj?'<div class="muted" style="font-size:11px;margin:-2px 0 4px">'+L({en:"Adjusted for "+s.id+" fasting",id:"Disesuaikan untuk puasa "+s.id})+'</div>':'')+
           '<div class="ifplanrow"><span>'+L({en:"Meals in your window",id:"Makan dalam jendelamu"})+'</span><b>'+meals+'×</b></div>'+
           '<div class="ifplanrow"><span>'+L({en:"≈ per meal",id:"≈ per makan"})+'</span><b style="color:var(--red)">'+perMeal+' '+kc()+'</b></div></div>';
       }
       if(st.weekly){ body='<div class="muted">'+L(s.desc)+'</div>'+planBlock(); }
       else {
         const hrs=Math.floor(st.untilMin/60), mn=st.untilMin%60;
+        const sp=String(st.chosen.start).split(":").map(Number), startM=sp[0]*60+sp[1], span=s.eat*60;
+        const nd=new Date(), curM=nd.getHours()*60+nd.getMinutes(), a=((startM%1440)+1440)%1440, bb=a+span;
+        let segs=(bb<=1440)?'<div class="seg" style="left:'+(a/14.4)+'%;width:'+(span/14.4)+'%"></div>'
+          :'<div class="seg" style="left:'+(a/14.4)+'%;width:'+((1440-a)/14.4)+'%"></div><div class="seg" style="left:0;width:'+((bb-1440)/14.4)+'%"></div>';
+        const tl='<div class="iftl">'+segs+'<div class="now" style="left:'+(curM/14.4)+'%"></div></div><div class="iftlx"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>';
+        const on=Fasting.notifEnabled();
+        const remind='<div class="ifremind"><div><div style="font-weight:800;font-size:13px">🔔 '+L({en:"Meal reminders",id:"Pengingat makan"})+'</div><div class="muted" style="font-size:11px">'+L({en:"Notify me when the window opens / closes",id:"Ingatkan saat jendela buka / tutup"})+'</div></div>'+(on?'<button class="rbtn-off" onclick="toggleReminders()">'+L({en:"On ✓",id:"Aktif ✓"})+'</button>':'<button class="rbtn-on" onclick="toggleReminders()">'+L({en:"Enable",id:"Aktifkan"})+'</button>')+'</div>';
         body='<span class="ifstate '+(st.eating?"eat":"fast")+'">'+(st.eating?L({en:"Eating window",id:"Jendela makan"}):L({en:"Fasting",id:"Sedang puasa"}))+'</span>'+
           '<div class="iftime">'+hrs+'h '+mn+'m</div>'+
           '<div class="muted" style="font-size:13px">'+(st.eating?L({en:"left in your eating window",id:"sisa di jendela makanmu"}):L({en:"until your eating window",id:"sampai jendela makanmu"}))+'</div>'+
-          '<div class="muted" style="margin-top:8px">'+L({en:"Eating window",id:"Jendela makan"})+': <b>'+st.window.start+' – '+st.window.end+'</b></div>'+
-          '<div style="margin-top:10px"><span class="muted" style="font-size:12px">'+L({en:"Start eating at",id:"Mulai makan jam"})+'</span> <input type="time" value="'+st.chosen.start+'" onchange="setIFStart(this.value)" style="padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--inp);color:var(--txt);font-family:inherit"></div>'+planBlock();
+          tl+
+          '<div class="muted" style="margin-top:4px">'+L({en:"Eating window",id:"Jendela makan"})+': <b>'+st.window.start+' – '+st.window.end+'</b></div>'+
+          '<div style="margin-top:10px"><span class="muted" style="font-size:12px">'+L({en:"Start eating at",id:"Mulai makan jam"})+'</span> <input type="time" value="'+st.chosen.start+'" onchange="setIFStart(this.value)" style="padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--inp);color:var(--txt);font-family:inherit"></div>'+planBlock()+remind;
       }
       el.innerHTML='<div class="sec">'+L({en:"Intermittent Fasting",id:"Intermittent Fasting"})+'</div>'+
         '<div class="card"><div class="ifhead"><div class="ifname" style="font-size:16px">'+L(s.name)+'</div><button class="ifchange" onclick="changeIF()">'+L({en:"Change style",id:"Ganti gaya"})+'</button></div>'+body+'</div>';
     }
-    function chooseIF(id){Fasting.set({id:id,start:"12:00"});renderIF();}
-    function changeIF(){Fasting.clear();renderIF();}
+    async function toggleReminders(){
+      if(Fasting.notifEnabled()){ Fasting.disableReminders(); renderIF(); return; }
+      const ok=await Fasting.enableReminders();
+      if(!ok){ alert(L({en:"Please allow notifications in your browser/phone settings to get meal reminders.",id:"Izinkan notifikasi di pengaturan browser/HP untuk dapat pengingat makan."})); }
+      renderIF();
+    }
+    function chooseIF(id){Fasting.set({id:id,start:"12:00"});recompute();render();renderIF();}
+    function changeIF(){Fasting.clear();recompute();render();renderIF();}
     function setIFStart(v){const c=Fasting.get()||{};c.start=v;Fasting.set(c);renderIF();}
 
     (async function(){
       const p=await Auth.getProfile();
-      goal=calcGoal(p); macroT=calcMacros(p); curGoal=p.main_goal||"health";
+      profileRef=p; baseGoal=calcGoal(p); curGoal=p.main_goal||"health";
+      recompute();
       load();render();renderMeals();renderIF();
       if(location.hash==="#scan"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});}
       if(location.hash==="#fasting"){document.getElementById("ifSection").scrollIntoView({behavior:"smooth"});}
