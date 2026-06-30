@@ -73,11 +73,15 @@
     timers.push(t);
   }
   async function enableReminders(){
-    if(!("Notification" in window))return false;
-    let p=Notification.permission;
-    if(p==="default"){ try{ p=await Notification.requestPermission(); }catch(e){ p=Notification.permission; } }
-    if(p!=="granted")return false;
-    setNotif(true); arm(); return true;
+    setNotif(true); // opt-in (email channel utama)
+    let web=false;
+    if("Notification" in window){
+      let p=Notification.permission;
+      if(p==="default"){ try{ p=await Notification.requestPermission(); }catch(e){ p=Notification.permission; } }
+      web = (p==="granted");
+    }
+    arm();
+    return { ok:true, web:web };
   }
   function disableReminders(){ setNotif(false); timers.forEach(clearTimeout); timers=[]; }
 
