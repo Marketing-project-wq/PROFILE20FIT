@@ -39,6 +39,32 @@
   .bookbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:13px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;text-decoration:none}
   .bookbtn.alt{background:var(--inp);color:var(--txt);border:1px solid var(--line)}
   .bookbtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  /* hasil scan: grid biar side-by-side di desktop */
+  #result{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
+  #result .card{margin-top:0}
+  .rfull{grid-column:1/-1}
+  @media(min-width:900px){ .wrap{max-width:1000px} #result{grid-template-columns:1fr 1fr} }
+  /* overall summary stats */
+  .ohrow{display:flex;gap:10px;margin-top:10px}
+  .ohstat{flex:1;background:var(--inp);border-radius:12px;padding:10px 12px;text-align:center}
+  .ohstat .l{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .ohstat .v{font-weight:900;font-size:20px;margin-top:2px}
+  /* program rows (bookable) */
+  .prow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .prow:last-child{border-bottom:0}
+  .prow .pn{font-weight:800;font-size:14px}.prow .pd{font-size:12px;color:var(--muted)}
+  .bookchip{flex:0 0 auto;background:var(--red);color:#fff;border:0;border-radius:9px;padding:8px 12px;font-weight:800;font-size:12px;text-decoration:none;cursor:pointer}
+  .bookchip.clinic{background:#2563eb}
+  /* achievement board */
+  .achbar{height:8px;background:var(--inp);border-radius:6px;overflow:hidden;margin:4px 0 8px}
+  .achbar>i{display:block;height:100%;background:linear-gradient(90deg,#C87000,#f0a93a);width:0;transition:width .4s}
+  .achrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;font-size:13.5px}
+  .achrow:last-child{border-bottom:0}
+  .achbox{width:24px;height:24px;border-radius:7px;border:2px solid var(--line);flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+  .achbox svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+  .achrow.done .achbox{background:#C87000;border-color:#C87000}
+  .achrow.done .achbox svg{opacity:1}
+  .achrow.done{color:var(--muted);text-decoration:line-through}
 </style>
 </head>
 <body>
@@ -68,7 +94,7 @@
   <script>
     const AI_URL="https://cpvzwqptzcxnwzfzgrmt.supabase.co/functions/v1/my20fit-ai";
     const ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI";
-    let user=null, history=[];
+    let user=null, history=[], profile=null;
     function readData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
     // Perkecil gambar sebelum dikirim -> upload & OCR jauh lebih cepat (PDF dilewati)
     function fileURL(f){
@@ -153,17 +179,51 @@
       return '<div class="card"><div class="ch" style="color:'+iconColor+'"><svg viewBox="0 0 24 24" stroke="'+iconColor+'">'+icon+'</svg>'+title+'</div>'+
         items.map(it=>'<div class="plan"><div class="pi" style="background:'+iconColor+'22;color:'+iconColor+'">•</div><div>'+it+'</div></div>').join("")+'</div>';
     }
-    const BOOK_CLINIC="https://booking.20fit.id/clinic";
+    const BOOK_BOOK="https://booking.20fit.id/book";
     const BOOK_GYM="https://booking.20fit.id/gym";
-    const calIcon='<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
-    function bookCTA(hasFindings){
-      return '<div class="card" style="background:rgba(196,17,1,.06);border-color:rgba(196,17,1,.25)">'+
-        '<div style="font-weight:800;margin-bottom:4px">'+I18N.t("book_title")+'</div>'+
-        '<div class="muted" style="margin-bottom:6px">'+I18N.t("book_recmed")+'</div>'+
-        (hasFindings?'<a class="bookbtn" href="'+BOOK_CLINIC+'" target="_blank" rel="noopener">'+calIcon+I18N.t("book_consult")+'</a>':'')+
-        '<a class="bookbtn alt" href="'+BOOK_GYM+'" target="_blank" rel="noopener">'+calIcon+I18N.t("book_class")+'</a></div>';
+    const BOOK_CLINIC="https://booking.20fit.id/clinic";
+    function simpleHash(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h+s.charCodeAt(i))|0;}return Math.abs(h).toString(36);}
+
+    // Program 20fit yang bisa langsung di-booking sesuai health journey
+    function programsCard(hasFindings){
+      let list=[
+        {n:"HYROX Foundation",d:{en:"Beginner functional strength",id:"Kekuatan fungsional, pemula"},u:BOOK_BOOK},
+        {n:"Hyper Class",d:{en:"High-intensity training",id:"Latihan intensitas tinggi"},u:BOOK_GYM},
+        {n:"EMS",d:{en:"Smart muscle activation",id:"Aktivasi otot pintar"},u:BOOK_GYM},
+        {n:"Vinyasa Yoga",d:{en:"Gentle, breath-led",id:"Lembut, mengikuti napas"},u:BOOK_GYM}
+      ];
+      if(hasFindings){ list=[
+        {n:L({en:"Doctor Consultation",id:"Konsultasi Dokter"}),d:{en:"Discuss your results with a doctor",id:"Bahas hasil check-up dengan dokter"},u:BOOK_CLINIC,clinic:true},
+        {n:"Physiotherapy",d:{en:"Guided, safe recovery",id:"Pemulihan terpandu & aman"},u:BOOK_CLINIC,clinic:true}
+      ].concat(list); }
+      const exIcon='<svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:#2563eb;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>';
+      return '<div class="card"><div class="ch" style="color:#2563eb">'+exIcon+L({en:"Recommended Programs",id:"Program yang Disarankan"})+'</div>'+
+        list.map(p=>'<div class="prow"><div style="flex:1"><div class="pn">'+p.n+'</div><div class="pd">'+L(p.d)+'</div></div>'+
+          '<a class="bookchip'+(p.clinic?" clinic":"")+'" href="'+p.u+'" target="_blank" rel="noopener">'+L({en:"Book",id:"Booking"})+'</a></div>').join("")+'</div>';
     }
+
+    // Lifestyle follow-up -> Achievement Board (bisa dicentang & tersimpan)
+    let achKey="", achState={}, achItems=[], currentRes=null;
+    function buildAch(res){
+      achItems=res.lifestyle_plan||[];
+      achKey="mcu_ach_"+simpleHash((res.date||"")+"|"+achItems.join("|"));
+      try{achState=JSON.parse(localStorage.getItem(achKey)||"{}")}catch(e){achState={}}
+    }
+    function achCard(){
+      if(!achItems.length)return"";
+      const total=achItems.length, done=achItems.filter((_,i)=>achState[i]).length;
+      const trophy='<svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:#C87000;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M5 4H3v2a3 3 0 0 0 3 3M19 4h2v2a3 3 0 0 1-3 3"/></svg>';
+      const check='<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+      return '<div class="card"><div class="ch" style="color:#C87000">'+trophy+L({en:"Achievement Board",id:"Papan Pencapaian"})+'</div>'+
+        '<div class="muted" style="margin-bottom:4px">'+L({en:"Tick these off as you build the habit",id:"Centang saat kamu mulai membiasakan"})+' · '+done+'/'+total+(done===total?" 🎉":"")+'</div>'+
+        '<div class="achbar"><i style="width:'+(total?done/total*100:0)+'%"></i></div>'+
+        achItems.map((it,i)=>'<div class="achrow'+(achState[i]?" done":"")+'" onclick="toggleAch('+i+')"><div class="achbox">'+check+'</div><div>'+it+'</div></div>').join("")+'</div>';
+    }
+    function toggleAch(i){achState[i]=!achState[i];try{localStorage.setItem(achKey,JSON.stringify(achState))}catch(e){} if(currentRes)renderResult(currentRes,true);}
+
     function renderResult(res,noScroll){
+      currentRes=res; buildAch(res);
+      const att=res.abnormal_findings||[];
       const params=(res.parameters||[]).map(p=>{
         const col=statusColor(p.status);
         const arrow=p.direction==="high"?" ↑":p.direction==="low"?" ↓":"";
@@ -171,30 +231,44 @@
           '<div class="muted">Normal: '+(p.normal_range||"-")+'</div>'+
           (p.explanation?'<div style="font-size:13px;margin-top:4px;color:#555">'+p.explanation+'</div>':"")+'</div>';
       }).join("");
-
-      const findings=(res.abnormal_findings||[]).map(fd=>{
+      const findings=att.map(fd=>{
         const sv=SEV[(fd.severity||"sedang").toLowerCase()]||SEV.sedang;
         return '<div class="find" style="border-color:'+sv.c+'"><div class="ft"><span>'+(fd.label||"")+(fd.value?' · '+fd.value:'')+'</span><span class="sevtag" style="background:'+sv.c+'22;color:'+sv.c+'">'+sv.t+'</span></div>'+
           (fd.why_it_matters?'<div style="font-size:13px;margin-top:6px;color:#9a2a22"><b>'+I18N.t("med_why")+'</b> '+fd.why_it_matters+'</div>':"")+
           (fd.what_to_do?'<div style="font-size:13px;margin-top:5px;color:#2A7A4F"><b>'+I18N.t("med_do")+'</b> '+fd.what_to_do+'</div>':"")+'</div>';
       }).join("");
-
-      const unread=(res.unreadable&&res.unreadable.length)?'<div class="card" style="border-color:#e7c98a;background:#fbf3df;color:#8a6d1a"><b>'+I18N.t("med_unread")+'</b><ul style="margin:6px 0 0 18px">'+res.unreadable.map(u=>'<li>'+u+'</li>').join("")+'</ul></div>':"";
-
+      const unread=(res.unreadable&&res.unreadable.length)?'<div class="card rfull" style="border-color:#e7c98a;background:#fbf3df;color:#8a6d1a"><b>'+I18N.t("med_unread")+'</b><ul style="margin:6px 0 0 18px">'+res.unreadable.map(u=>'<li>'+u+'</li>').join("")+'</ul></div>':"";
       const ICO={fork:'<path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/>',
-        ex:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
-        life:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'};
+        ex:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>'};
+      const heart='<svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M19 14c1.5-1.5 3-3.3 3-5.5A4.5 4.5 0 0 0 12 5 4.5 4.5 0 0 0 2 8.5c0 4.5 7 9.5 10 11.5 1.5-1 4-2.8 6-5"/></svg>';
+      const warn='<svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12" y2="17"/></svg>';
+
+      // ---- Overall summary (plain language + BMI/gender/age) ----
+      const bi = profile ? Auth.bmiInfo(profile.weight_kg, profile.height_cm) : null;
+      let stats="";
+      if(bi) stats+='<div class="ohstat"><div class="l">BMI</div><div class="v" style="color:'+bi.color+'">'+bi.bmi+'</div><div class="muted" style="font-size:11px">'+bi.label+'</div></div>';
+      if(profile&&profile.gender) stats+='<div class="ohstat"><div class="l">'+L({en:"Gender",id:"Gender"})+'</div><div class="v" style="font-size:15px;margin-top:6px">'+(profile.gender==="female"?L({en:"Female",id:"Perempuan"}):L({en:"Male",id:"Laki-laki"}))+'</div></div>';
+      if(profile&&profile.age) stats+='<div class="ohstat"><div class="l">'+L({en:"Age",id:"Usia"})+'</div><div class="v">'+profile.age+'</div></div>';
+      const attLine = att.length
+        ? L({en:att.length+" thing(s) to watch: ",id:att.length+" hal perlu diperhatikan: "})+att.map(f=>f.label).join(", ")
+        : L({en:"All readable values look within the normal range. 🎉",id:"Semua nilai yang terbaca tampak dalam batas normal. 🎉"});
+      const overall='<div class="card rfull"><div class="ch" style="color:var(--red)">'+heart+L({en:"Overall Summary",id:"Ringkasan Keseluruhan"})+'</div>'+
+        '<div class="muted">'+[res.document_type,res.patient_name,res.date].filter(Boolean).join(" · ")+'</div>'+
+        (stats?'<div class="ohrow">'+stats+'</div>':'')+
+        (res.summary?'<div style="margin-top:10px;line-height:1.55"><b>'+L({en:"What it means: ",id:"Artinya: "})+'</b>'+res.summary+'</div>':'')+
+        '<div style="margin-top:8px;font-weight:700;color:'+(att.length?"#b3402f":"#2A7A4F")+'">'+attLine+'</div>'+
+        (bi?'<div class="muted" style="margin-top:6px">'+L({en:"Overall, based on your BMI & profile: ",id:"Secara umum dari BMI & profilmu: "})+bi.desc+'</div>':'')+'</div>';
 
       document.getElementById("result").innerHTML=
-        '<div class="card"><div style="font-weight:800;font-size:16px">'+(res.document_type||"Hasil MCU")+'</div><div class="muted">'+[res.patient_name,res.date].filter(Boolean).join(" · ")+'</div><div style="margin-top:8px;line-height:1.55">'+(res.summary||"")+'</div></div>'+
-        (findings?'<div class="sec" style="font-weight:800;margin:16px 2px 2px;color:var(--red)">'+I18N.t("med_attention")+'</div>'+findings:"")+
+        overall+
+        (findings?'<div class="card"><div class="ch" style="color:var(--red)">'+warn+I18N.t("med_attention")+'</div>'+findings+'</div>':"")+
         (params?'<div class="card"><div style="font-weight:800;margin-bottom:6px">'+I18N.t("med_params")+'</div>'+params+'</div>':"")+
         planCard(I18N.t("med_eating"),ICO.fork,"#2A7A4F",res.eating_plan)+
+        programsCard(att.length>0)+
         planCard(I18N.t("med_exercise"),ICO.ex,"#2563eb",res.exercise_plan)+
-        planCard(I18N.t("med_lifestyle"),ICO.life,"#C87000",res.lifestyle_plan)+
-        bookCTA((res.abnormal_findings||[]).length>0)+
+        achCard()+
         unread+
-        '<div class="card" style="border-color:rgba(196,17,1,.3);background:rgba(196,17,1,.07);color:#8a1f15;font-size:13px">⚠️ '+(res.disclaimer||L({en:"This interpretation is not a substitute for a doctor. Consult the 20fit doctor for proper advice.",id:"Interpretasi ini bukan pengganti konsultasi dokter. Konsultasikan ke dokter 20fit untuk saran yang tepat."}))+'</div>';
+        '<div class="card rfull" style="border-color:rgba(196,17,1,.3);background:rgba(196,17,1,.07);color:#8a1f15;font-size:13px">⚠️ '+(res.disclaimer||L({en:"This interpretation is not a substitute for a doctor. Consult the 20fit doctor for proper advice.",id:"Interpretasi ini bukan pengganti konsultasi dokter. Konsultasikan ke dokter 20fit untuk saran yang tepat."}))+'</div>';
       if(!noScroll)document.getElementById("result").scrollIntoView({behavior:"smooth"});
     }
     async function loadList(){
@@ -208,11 +282,12 @@
     function openHistory(i){const r=history[i];if(r&&r.result)renderResult(r.result);}
     (async function(){
       user=await Auth.requireAuth();
+      try{ profile=await Auth.getProfile(); }catch(e){ profile=null; }
       await loadList();
       // Setelah refresh: tampilkan otomatis hasil terakhir (tanpa upload ulang)
       if(history[0]&&history[0].result){ renderResult(history[0].result,true); }
     })();
-    I18N.onChange(()=>{ loadList(); });
+    I18N.onChange(()=>{ loadList(); if(currentRes)renderResult(currentRes,true); });
   </script>
 </body>
 </html>
