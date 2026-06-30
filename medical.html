@@ -153,14 +153,15 @@
       return '<div class="card"><div class="ch" style="color:'+iconColor+'"><svg viewBox="0 0 24 24" stroke="'+iconColor+'">'+icon+'</svg>'+title+'</div>'+
         items.map(it=>'<div class="plan"><div class="pi" style="background:'+iconColor+'22;color:'+iconColor+'">•</div><div>'+it+'</div></div>').join("")+'</div>';
     }
-    const BOOK="https://booking.20fit.id/";
+    const BOOK_CLINIC="https://booking.20fit.id/clinic";
+    const BOOK_GYM="https://booking.20fit.id/gym";
     const calIcon='<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
     function bookCTA(hasFindings){
       return '<div class="card" style="background:rgba(196,17,1,.06);border-color:rgba(196,17,1,.25)">'+
         '<div style="font-weight:800;margin-bottom:4px">'+I18N.t("book_title")+'</div>'+
         '<div class="muted" style="margin-bottom:6px">'+I18N.t("book_recmed")+'</div>'+
-        (hasFindings?'<a class="bookbtn" href="'+BOOK+'" target="_blank" rel="noopener">'+calIcon+I18N.t("book_consult")+'</a>':'')+
-        '<a class="bookbtn alt" href="'+BOOK+'" target="_blank" rel="noopener">'+calIcon+I18N.t("book_class")+'</a></div>';
+        (hasFindings?'<a class="bookbtn" href="'+BOOK_CLINIC+'" target="_blank" rel="noopener">'+calIcon+I18N.t("book_consult")+'</a>':'')+
+        '<a class="bookbtn alt" href="'+BOOK_GYM+'" target="_blank" rel="noopener">'+calIcon+I18N.t("book_class")+'</a></div>';
     }
     function renderResult(res,noScroll){
       const params=(res.parameters||[]).map(p=>{

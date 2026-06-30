@@ -200,7 +200,7 @@
 
         <div class="sec" data-i18n="sec_recs">Recommended Workouts</div>
         <div class="card" id="recs"></div>
-        <a class="bookbtn" href="https://booking.20fit.id/" target="_blank" rel="noopener">
+        <a class="bookbtn" href="https://booking.20fit.id/gym" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <span data-i18n="book_recworkout">Ready to train? Book your class at 20fit.</span>
         </a>
@@ -467,16 +467,17 @@
       document.getElementById("aqiparts").innerHTML=p;
     }
 
-    // Hanya produk yang BENAR-BENAR tersedia di booking.20fit.id
-    const BOOK="https://booking.20fit.id/";
+    // Hanya produk yang BENAR-BENAR tersedia di booking.20fit.id + deep-link per lokasi
+    const BOOK_LOC={ book:"https://booking.20fit.id/book", gym:"https://booking.20fit.id/gym", clinic:"https://booking.20fit.id/clinic" };
+    // [nama, {desc}, lokasi]  -> Arena=book, Gym=gym
     const PRODUCTS={
-      hyroxC:["HYROX Complete",{en:"All levels · 60 min",id:"Semua level · 60 mnt"}],
-      hyroxF:["HYROX Foundation",{en:"Beginner · functional strength",id:"Pemula · kekuatan fungsional"}],
-      hyper:["Hyper Class",{en:"High-intensity training",id:"Latihan intensitas tinggi"}],
-      ems:["EMS",{en:"Smart muscle activation",id:"Aktivasi otot pintar"}],
-      bws:["Bodyweight Strength",{en:"No equipment needed",id:"Tanpa alat"}],
-      vinyasa:["Vinyasa Yoga",{en:"Breath-led flow",id:"Mengalir mengikuti napas"}],
-      hatta:["Hatta Yoga",{en:"Mindful & restorative",id:"Menenangkan & pemulihan"}]
+      hyroxC:["HYROX Complete",{en:"All levels · 60 min",id:"Semua level · 60 mnt"},"book"],
+      hyroxF:["HYROX Foundation",{en:"Beginner · functional strength",id:"Pemula · kekuatan fungsional"},"book"],
+      hyper:["Hyper Class",{en:"High-intensity training",id:"Latihan intensitas tinggi"},"gym"],
+      ems:["EMS",{en:"Smart muscle activation",id:"Aktivasi otot pintar"},"gym"],
+      bws:["Bodyweight Strength",{en:"No equipment needed",id:"Tanpa alat"},"gym"],
+      vinyasa:["Vinyasa Yoga",{en:"Breath-led flow",id:"Mengalir mengikuti napas"},"gym"],
+      hatta:["Hatta Yoga",{en:"Mindful & restorative",id:"Menenangkan & pemulihan"},"gym"]
     };
     const RECS_BY_GOAL={ lose:["hyper","hyroxC","ems"], muscle:["bws","ems","hyroxF"], health:["hatta","vinyasa","hyroxF"], fit:["hyroxF","hyper","hyroxC"] };
     function loadRecs(){
@@ -490,7 +491,7 @@
       const goIcon='<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:var(--pagemut);stroke-width:2;flex:0 0 auto"><polyline points="9 18 15 12 9 6"/></svg>';
       document.getElementById("recs").innerHTML=keys.map(k=>{
         const p=PRODUCTS[k];
-        return '<a class="wrow" href="'+BOOK+'" target="_blank" rel="noopener"><div class="em">'+exIcon+'</div><div style="flex:1"><div class="nm">'+p[0]+'</div><div class="rs">'+L(p[1])+'</div></div><span class="tag" style="'+tagCol[tag]+'">'+tagTxt+'</span>'+goIcon+'</a>';
+        return '<a class="wrow" href="'+BOOK_LOC[p[2]]+'" target="_blank" rel="noopener"><div class="em">'+exIcon+'</div><div style="flex:1"><div class="nm">'+p[0]+'</div><div class="rs">'+L(p[1])+'</div></div><span class="tag" style="'+tagCol[tag]+'">'+tagTxt+'</span>'+goIcon+'</a>';
       }).join("");
     }
 
