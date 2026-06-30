@@ -112,6 +112,7 @@
     document.querySelectorAll("[data-i18n]").forEach(el=>{ const k=el.getAttribute("data-i18n"); const v=t(k); if(v!=null) el.textContent=v; });
     document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ const k=el.getAttribute("data-i18n-ph"); const v=t(k); if(v!=null) el.placeholder=v; });
     document.querySelectorAll("[data-lang-btn]").forEach(b=>b.classList.toggle("on", b.getAttribute("data-lang-btn")===lang));
+    if(typeof renderThemeBtn==="function") renderThemeBtn();
   }
   function setLang(l){ lang=l; localStorage.setItem("lang",l); apply(); cbs.forEach(fn=>{try{fn(l)}catch(e){}}); }
   function onChange(fn){ cbs.push(fn); }
@@ -119,21 +120,42 @@
   // helper global untuk teks dinamis
   window.L = function(o){ return (o && (o[lang]!=null?o[lang]:o.en)) || ""; };
 
+  // ---- Tema (Dark default / Light opsional) ----
+  let theme = localStorage.getItem("theme") || "dark";
+  const SUN='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></svg>';
+  const MOON='<svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>';
+  function renderThemeBtn(){
+    const tb=document.getElementById("themeFab"); if(!tb)return;
+    // di dark -> tawarkan Light (matahari); di light -> tawarkan Dark (bulan)
+    tb.innerHTML = (theme==="light") ? (MOON+"<span>"+(lang==="id"?"Gelap":"Dark")+"</span>") : (SUN+"<span>"+(lang==="id"?"Terang":"Light")+"</span>");
+  }
+  function applyTheme(){
+    document.documentElement.classList.toggle("theme-light", theme==="light");
+    renderThemeBtn();
+  }
+  function toggleTheme(){ theme=(theme==="light")?"dark":"light"; localStorage.setItem("theme",theme); applyTheme(); }
+
   // toggle melayang (kalau halaman belum punya .lang sendiri spt login)
   function injectToggle(){
     if(document.querySelector(".lang")) return; // login/reset sudah punya
     const css=document.createElement("style");
     css.textContent=".langfab{position:fixed;top:14px;right:14px;z-index:80;display:flex;gap:3px;background:#fff;border:1px solid #E8E2DB;border-radius:10px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,.20)}"+
       ".langfab button{border:0;background:transparent;color:#8A7C68;font-weight:800;font-size:12px;padding:6px 11px;border-radius:7px;cursor:pointer;font-family:inherit}"+
-      ".langfab button.on{background:#C41101;color:#fff}";
+      ".langfab button.on{background:#C41101;color:#fff}"+
+      ".themefab{position:fixed;top:52px;right:14px;z-index:80;display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #E8E2DB;border-radius:10px;padding:7px 11px;box-shadow:0 4px 16px rgba(0,0,0,.20);cursor:pointer;color:#8A7C68;font-weight:800;font-size:12px;font-family:inherit}"+
+      ".themefab svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}"+
+      "html.theme-light{--bg:#EDE8DF;--pagetx:#0A0908;--pagemut:#8A7C68}";
     document.head.appendChild(css);
     const box=document.createElement("div");box.className="langfab";
     box.innerHTML='<button data-lang-btn="en" onclick="I18N.setLang(\'en\')">EN</button><button data-lang-btn="id" onclick="I18N.setLang(\'id\')">ID</button>';
     document.body.appendChild(box);
+    const tb=document.createElement("button");tb.className="themefab";tb.id="themeFab";tb.setAttribute("aria-label","theme");tb.onclick=toggleTheme;
+    document.body.appendChild(tb);
+    renderThemeBtn();
   }
 
-  window.I18N = { get lang(){return lang;}, t, setLang, apply, onChange };
+  window.I18N = { get lang(){return lang;}, get theme(){return theme;}, t, setLang, apply, onChange, toggleTheme };
 
-  function boot(){ injectToggle(); apply(); }
+  function boot(){ injectToggle(); applyTheme(); apply(); }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot); else boot();
 })();
