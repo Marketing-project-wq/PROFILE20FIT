@@ -114,8 +114,12 @@
   /* Gelas besar yang keisi */
   .bigglass{position:relative;width:104px;height:138px;margin:14px auto 4px;border:3px solid var(--blue);border-top-width:2px;
     border-radius:10px 10px 18px 18px;overflow:hidden;background:rgba(59,130,246,.06);cursor:pointer}
-  .bgfill{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,#5aa3ff,#2f6fe0);transition:height .55s cubic-bezier(.2,.8,.2,1)}
-  .bgwave{position:absolute;left:-30%;width:160%;height:18px;top:-9px;border-radius:42%;background:#7fb4ff;animation:wave 2.3s linear infinite}
+  .bgfill{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,#5aa3ff,#2f6fe0);transition:height .55s cubic-bezier(.2,.8,.2,1);overflow:visible}
+  /* permukaan air: miring sesuai --wtilt (kemiringan device/kursor) + goyang halus, TANPA muter */
+  .bgwave{position:absolute;left:-40%;width:180%;height:26px;top:-13px;border-radius:50%;background:#7fb4ff;
+    transform:rotate(var(--wtilt,0deg));transition:transform .15s ease-out;animation:wbob 3.6s ease-in-out infinite}
+  .bgwave::after{content:"";position:absolute;left:0;right:0;top:6px;height:26px;border-radius:50%;background:#5aa3ff;opacity:.6}
+  @keyframes wbob{0%,100%{margin-top:0}50%{margin-top:-3px}}
   .bgcount{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:26px;color:#0A0908;text-shadow:0 1px 3px rgba(255,255,255,.7)}
   .wctrl{display:flex;gap:10px;justify-content:center;margin-top:6px}
   .wctrl button{width:48px;height:42px;border-radius:11px;border:1px solid var(--line);background:var(--inp);color:var(--txt);font-size:22px;font-weight:800;cursor:pointer}
@@ -688,6 +692,23 @@
       loadRecs();
       if((profile.gender||"")==="female") renderCycle();
     });
+
+    // ---- Air bergerak sesuai kemiringan device (HP) / gerak kursor (laptop) ----
+    (function(){
+      let orientActive=false;
+      function setTilt(deg){deg=Math.max(-16,Math.min(16,deg));document.documentElement.style.setProperty("--wtilt",deg.toFixed(1)+"deg");}
+      function onOrient(e){ if(e&&e.gamma!=null){ orientActive=true; setTilt(e.gamma*0.5); } }
+      window.addEventListener("deviceorientation", onOrient, true);
+      // laptop / device tanpa sensor: ikuti posisi kursor horizontal
+      window.addEventListener("pointermove", function(e){ if(orientActive)return; const c=window.innerWidth/2; setTilt(((e.clientX-c)/c)*12); });
+      // iOS butuh izin -> minta saat user tap gelas
+      const g=document.getElementById("bigGlass");
+      if(g) g.addEventListener("click", function(){
+        try{ if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){
+          DeviceOrientationEvent.requestPermission().then(function(s){ if(s==="granted") window.addEventListener("deviceorientation", onOrient, true); }).catch(function(){});
+        } }catch(e){}
+      });
+    })();
   </script>
 </body>
 </html>
