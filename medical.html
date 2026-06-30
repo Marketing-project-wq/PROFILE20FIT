@@ -75,6 +75,13 @@
   .consultbn .cbs{font-size:12.5px;opacity:.92;margin-top:2px;line-height:1.4}
   .cbbtn{flex:0 0 auto;background:#fff;color:#C41101;border-radius:11px;padding:11px 16px;font-weight:800;font-size:13px;text-decoration:none;white-space:nowrap}
   @media(max-width:560px){ .consultbn{flex-wrap:wrap} .cbbtn{width:100%;text-align:center} }
+  /* banner belanja bahan makanan (affiliate) */
+  .shopbn{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;color:#fff;
+    background:linear-gradient(135deg,#2A7A4F,#15512f);box-shadow:0 6px 20px rgba(42,122,79,.3)}
+  .shopbn .cbic{width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .shopbn .cbic svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .shopbn .cbt{font-weight:900;font-size:16px}.shopbn .cbs{font-size:12.5px;opacity:.92;margin-top:2px;line-height:1.4}
+  @media(max-width:560px){ .shopbn{flex-wrap:wrap} .shopbn .cbbtn{width:100%;text-align:center} }
 </style>
 </head>
 <body>
@@ -202,6 +209,15 @@
     const BOOK_BOOK="https://booking.20fit.id/book";
     const BOOK_GYM="https://booking.20fit.id/gym";
     const BOOK_CLINIC="https://booking.20fit.id/clinic";
+    // TODO: ganti ke URL toko affiliate B2B kita (mis. https://toko-partner.com)
+    const SHOP_URL="https://booking.20fit.id/";
+    function shopBanner(){
+      const cart='<svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>';
+      return '<div class="shopbn rfull"><div class="cbic">'+cart+'</div><div style="flex:1">'+
+        '<div class="cbt">'+L({en:"Shop your ingredients",id:"Belanja bahan makanannya"})+'</div>'+
+        '<div class="cbs">'+L({en:"Buy the recommended foods from our partner store.",id:"Beli makanan yang disarankan langsung dari toko partner kami."})+'</div></div>'+
+        '<a class="cbbtn" style="color:#1d6b41" href="'+SHOP_URL+'" target="_blank" rel="noopener">'+L({en:"Shop Food",id:"Belanja"})+'</a></div>';
+    }
     function simpleHash(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h+s.charCodeAt(i))|0;}return Math.abs(h).toString(36);}
 
     // Program 20fit yang bisa langsung di-booking sesuai health journey
@@ -284,6 +300,7 @@
         (findings?'<div class="card"><div class="ch" style="color:var(--red)">'+warn+I18N.t("med_attention")+'</div>'+findings+'</div>':"")+
         (params?'<div class="card"><div style="font-weight:800;margin-bottom:6px">'+I18N.t("med_params")+'</div>'+params+'</div>':"")+
         planCard(I18N.t("med_eating"),ICO.fork,"#2A7A4F",res.eating_plan)+
+        shopBanner()+
         programsCard(att.length>0)+
         planCard(I18N.t("med_exercise"),ICO.ex,"#2563eb",res.exercise_plan)+
         achCard()+
