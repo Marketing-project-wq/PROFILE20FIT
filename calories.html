@@ -55,6 +55,17 @@
   .mbar{height:8px;background:var(--inp);border-radius:6px;overflow:hidden}
   .mbar>i{display:block;height:100%;width:0;transition:width .35s}
   #pBar{background:#C41101}#cBar{background:#3b82f6}#fBar{background:#C87000}
+  /* termometer kalori */
+  .thermowrap{display:flex;align-items:center;gap:20px;justify-content:center;margin:8px 0 4px;text-align:left}
+  .thermo{position:relative;width:34px;height:150px;flex:0 0 auto}
+  .thframe{position:absolute;top:0;left:8px;width:18px;height:128px;border:3px solid var(--line);border-bottom:0;border-radius:11px 11px 0 0;background:var(--inp)}
+  .thmerc{position:absolute;left:11px;width:12px;bottom:30px;height:0;background:linear-gradient(180deg,#ff7a45,#C41101);border-radius:6px 6px 0 0;transition:height .55s cubic-bezier(.2,.8,.2,1)}
+  .thbulb{position:absolute;bottom:0;left:2px;width:30px;height:30px;border-radius:50%;background:#C41101;border:3px solid var(--line)}
+  .thnums{min-width:0}
+  .thnums .num{font-size:46px}
+  .togo{margin-top:8px;font-size:13px;color:var(--muted)}
+  .togo b{font-size:24px;color:var(--red);font-family:'JetBrains Mono',monospace;margin-right:4px}
+  .mtime{font-size:11px;color:var(--muted);font-weight:600;margin-left:6px}
   .calgrid{display:grid;grid-template-columns:1fr;gap:14px}
   .calcol{display:flex;flex-direction:column;gap:0}
   @media(min-width:900px){ .wrap{max-width:920px} .calgrid{grid-template-columns:1fr 1fr;align-items:start} }
@@ -69,10 +80,20 @@
      <div class="calcol">
     <div class="card ring">
       <div class="tlbl" data-i18n="cal_targetlbl">Your daily calorie target</div>
-      <div class="num" id="goal">2000</div>
-      <div class="goal" data-i18n="cal_perday">kcal / day — from your BMI & profile</div>
-      <div class="rem"><span data-i18n="cal_eaten">Eaten</span> <b id="consumed">0</b> · <span data-i18n="cal_left">Left</span> <b id="remain">0</b> kcal</div>
-      <div class="bar"><i id="calbar"></i></div>
+      <div class="thermowrap">
+        <div class="thermo">
+          <div class="thframe"></div>
+          <div class="thmerc" id="thmerc"></div>
+          <div class="thbulb"></div>
+        </div>
+        <div class="thnums">
+          <div class="num" id="goal">2000</div>
+          <div class="goal" data-i18n="cal_perday">kcal / day — from your BMI & profile</div>
+          <div class="togo"><b id="togo">0</b> <span id="togoLbl" data-i18n="cal_togo">kcal to go</span></div>
+          <div class="rem"><span data-i18n="cal_eaten">Eaten</span> <b id="consumed">0</b> · <span data-i18n="cal_left">Left</span> <b id="remain">0</b> kcal</div>
+        </div>
+      </div>
+      <div class="bar" style="display:none"><i id="calbar"></i></div>
 
       <div class="macros">
         <div class="macro"><div class="mtop"><span data-i18n="cal_protein">Protein</span><span class="mv" id="pVal">0 / 0g</span></div><div class="mbar"><i id="pBar"></i></div></div>
@@ -150,13 +171,20 @@
       const tp=items.reduce((s,i)=>s+(+i.p||0),0), tc=items.reduce((s,i)=>s+(+i.c||0),0), tf=items.reduce((s,i)=>s+(+i.f||0),0);
       document.getElementById("consumed").textContent=total;
       document.getElementById("goal").textContent=goal;
-      document.getElementById("remain").textContent=Math.max(0,goal-total);
+      const left=goal-total;
+      document.getElementById("remain").textContent=Math.max(0,left);
+      // termometer + sisa kalori
+      const frac=Math.min(total/goal,1);
+      document.getElementById("thmerc").style.height=(frac*108)+"px";
+      const togo=document.getElementById("togo"), togoLbl=document.getElementById("togoLbl");
+      if(left>=0){ togo.textContent=left; togo.style.color="var(--red)"; togoLbl.textContent=I18N.t("cal_togo"); }
+      else { togo.textContent=Math.abs(left); togo.style.color="#C87000"; togoLbl.textContent=I18N.t("cal_over"); }
       document.getElementById("calbar").style.width=Math.min(total/goal*100,100)+"%";
       setMacro("pVal",tp,macroT.p,"pBar");
       setMacro("cVal",tc,macroT.c,"cBar");
       setMacro("fVal",tf,macroT.f,"fBar");
       const log=document.getElementById("log");
-      log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}</span><span class="kc">${i.kcal} ${kc()} <a onclick="del(${idx})" style="color:var(--red);cursor:pointer;margin-left:8px">✕</a></span></div>`).join(""):'<div class="muted">'+I18N.t("cal_empty")+'</div>';
+      log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}${i.t?`<span class="mtime">${i.t}</span>`:""}</span><span class="kc">${i.kcal} ${kc()} <a onclick="del(${idx})" style="color:var(--red);cursor:pointer;margin-left:8px">✕</a></span></div>`).join(""):'<div class="muted">'+I18N.t("cal_empty")+'</div>';
     }
     async function estimateFood(){
       const name=document.getElementById("fname").value.trim();
@@ -178,7 +206,8 @@
       }catch(e){out.style.color="var(--red)";out.textContent=e.message;}
       btn.disabled=false;
     }
-    function addToLog(name,kcal,p,c,f){items.push({name:name,kcal:Math.round(kcal)||0,p:Math.round(+p||0),c:Math.round(+c||0),f:Math.round(+f||0)});save();render();}
+    function nowHM(){const d=new Date();return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
+    function addToLog(name,kcal,p,c,f){items.push({name:name,kcal:Math.round(kcal)||0,p:Math.round(+p||0),c:Math.round(+c||0),f:Math.round(+f||0),t:nowHM()});save();render();}
     function del(i){items.splice(i,1);save();render()}
 
     // ---- Scan makanan (AI vision via OpenRouter/Gemini) ----

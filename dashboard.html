@@ -15,6 +15,10 @@
   .bookbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;padding:13px;
     border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;text-decoration:none}
   .bookbtn svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .bookbtn.ghost{background:var(--inp);color:var(--txt);border:1px solid var(--line)}
+  .hrrow{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)}
+  .hrrow:last-of-type{border-bottom:0}
+  .hrdot{width:9px;height:9px;border-radius:50%;background:var(--red);flex:0 0 auto;margin-top:5px}
   .wrap{max-width:1100px;margin:0 auto}
   .top{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 20px;
     background:var(--dark);border-radius:16px;padding:14px 18px}
@@ -174,6 +178,9 @@
       <div class="card stat"><div class="k" data-i18n="stat_weight">Weight</div><div class="v" id="berat">–</div></div>
       <div class="card stat"><div class="k" data-i18n="stat_height">Height</div><div class="v" id="tinggi">–</div></div>
     </div>
+
+    <!-- Pengingat dari medical check-up terakhir -->
+    <div id="healthReminder"></div>
 
     <!-- 2 kolom di desktop -->
     <div class="main">
@@ -346,7 +353,46 @@
       onSleepChange();
       renderWater(); renderChecklist();
       loadWeather();
+      loadHealthReminder();
     })();
+
+    // Ringkasan penting dari halaman lain -> tampil di Dashboard
+    function calCalGoal(p){
+      const w=+p.weight_kg,h=+p.height_cm,age=+p.age||25; if(!w||!h)return 2000;
+      const bmr=10*w+6.25*h-5*age+((p.gender==="female")?-161:5);
+      let tdee=bmr*1.375; const g=p.main_goal; tdee+=(g==="lose"?-400:g==="muscle"?300:g==="fit"?100:0);
+      return Math.max(1200,Math.round(tdee/10)*10);
+    }
+    async function loadHealthReminder(){
+      const el=document.getElementById("healthReminder"); if(!el||!profile)return;
+      let html="";
+      // 1) kalori hari ini (dari tracker)
+      try{
+        const key="my20fit_cal_"+new Date().toISOString().slice(0,10);
+        const items=JSON.parse(localStorage.getItem(key)||"[]");
+        const eaten=items.reduce((s,i)=>s+(+i.kcal||0),0);
+        const tgt=calCalGoal(profile); const leftK=Math.max(0,tgt-eaten);
+        html+='<div class="sec">'+L({en:"Today",id:"Hari Ini"})+'</div>'+
+          '<a class="card" href="calories.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)">'+
+          '<div class="em" style="width:38px;height:38px;border-radius:10px;background:rgba(196,17,1,.1);display:flex;align-items:center;justify-content:center;flex:0 0 auto"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></div>'+
+          '<div style="flex:1"><div style="font-weight:800">'+eaten+' / '+tgt+' '+L({en:"kcal",id:"kkal"})+'</div><div class="muted" style="font-size:12px">'+(leftK>0?(leftK+" "+L({en:"kcal to go",id:"kkal lagi"})):L({en:"target reached 🎉",id:"target tercapai 🎉"}))+'</div></div>'+
+          '<span style="color:var(--pagemut);font-weight:800">›</span></a>';
+      }catch(e){}
+      // 2) pengingat dari medical check-up terakhir
+      try{
+        const {data}=await Auth.supabase.from("my20fit_mcu_result").select("result,created_at").eq("auth_user_id",profile.auth_user_id).order("created_at",{ascending:false}).limit(1);
+        const res=data&&data[0]&&data[0].result; const att=(res&&res.abnormal_findings)||[];
+        if(att.length){
+          html+='<div class="sec">'+L({en:"Health Reminder",id:"Pengingat Kesehatan"})+'</div>'+
+            '<div class="card" style="border-color:rgba(196,17,1,.3)">'+
+            '<div class="muted" style="margin-bottom:8px">'+L({en:"From your latest check-up — keep an eye on:",id:"Dari medical check-up terakhirmu — perhatikan:"})+'</div>'+
+            att.slice(0,4).map(f=>'<div class="hrrow"><span class="hrdot"></span><div><b>'+(f.label||"")+'</b>'+(f.what_to_do?'<div class="muted" style="font-size:12px">'+f.what_to_do+'</div>':"")+'</div></div>').join("")+
+            '<a class="bookbtn ghost" href="medical.html" style="margin-top:12px">'+L({en:"View full results",id:"Lihat hasil lengkap"})+' ›</a>'+
+            '<a class="bookbtn" href="https://booking.20fit.id/clinic" target="_blank" rel="noopener">'+L({en:"Consult a 20fit doctor",id:"Konsultasi dokter 20fit"})+'</a></div>';
+        }
+      }catch(e){}
+      el.innerHTML=html;
+    }
 
     // ---- Siklus menstruasi (khusus wanita) ----
     const PHASES=[
@@ -690,6 +736,7 @@
       refreshWeatherText();
       if(aqiVal!=null) drawAqi(aqiVal);
       loadRecs();
+      loadHealthReminder();
       if((profile.gender||"")==="female") renderCycle();
     });
 
