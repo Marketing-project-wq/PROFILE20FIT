@@ -160,7 +160,10 @@
     <div class="main">
       <!-- Kolom kiri -->
       <div>
-        <div class="sec" data-i18n="sec_weather">Weather & Air Quality</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 2px 8px">
+          <div class="sec" data-i18n="sec_weather" style="margin:0">Weather & Air Quality</div>
+          <button onclick="loadWeather(true)" title="refresh location" style="background:none;border:0;color:var(--pagemut);cursor:pointer;font-size:17px;line-height:1;padding:2px 6px">↻</button>
+        </div>
         <div class="grid2">
           <div class="card wcard">
             <div class="wscene" id="wscene"></div>
@@ -390,20 +393,32 @@
       return L({en:"Cloudy",id:"Berawan"});
     }
     // Cuaca + AQI LIVE sesuai lokasi GPS user (Open-Meteo, gratis tanpa API key)
-    async function loadWeather(){
-      let lat=-6.2088, lon=106.8456, city="Jakarta"; // fallback default
+    // Ambil lokasi SEKARANG (GPS fresh, tanpa cache) -> fallback IP -> Jakarta
+    async function getLocation(){
       try{
-        const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{timeout:8000,maximumAge:600000}));
-        lat=pos.coords.latitude; lon=pos.coords.longitude; city="Lokasimu";
-        try{const g=await (await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude="+lat+"&longitude="+lon+"&localityLanguage=id")).json();city=g.city||g.locality||g.principalSubdivision||"Lokasimu";}catch(e){}
-      }catch(e){ /* GPS ditolak -> pakai Jakarta */ }
+        const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:9000,maximumAge:0}));
+        let city=L({en:"Your location",id:"Lokasimu"});
+        try{const g=await (await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude="+pos.coords.latitude+"&longitude="+pos.coords.longitude+"&localityLanguage="+I18N.lang,{cache:"no-store"})).json();city=g.city||g.locality||g.principalSubdivision||city;}catch(e){}
+        return {lat:pos.coords.latitude, lon:pos.coords.longitude, city};
+      }catch(e){}
+      // Fallback: lokasi berdasarkan IP (kira-kira lokasi sekarang)
       try{
-        const w=(await (await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lon+"&current=temperature_2m,weather_code,is_day")).json()).current;
+        const ip=await (await fetch("https://ipwho.is/",{cache:"no-store"})).json();
+        if(ip && ip.success!==false && ip.latitude) return {lat:ip.latitude, lon:ip.longitude, city:ip.city||ip.region||L({en:"Your location",id:"Lokasimu"})};
+      }catch(e){}
+      return {lat:-6.2088, lon:106.8456, city:"Jakarta"};
+    }
+    async function loadWeather(manual){
+      if(manual){document.getElementById("wcity").textContent=L({en:"Updating…",id:"Memperbarui…"});}
+      const loc=await getLocation();
+      const lat=loc.lat, lon=loc.lon, city=loc.city;
+      try{
+        const w=(await (await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lon+"&current=temperature_2m,weather_code,is_day",{cache:"no-store"})).json()).current;
         const temp=Math.round(w.temperature_2m);
         lastTemp=temp; lastCode=w.weather_code; lastCity=city;
         refreshWeatherText();
         drawWeatherScene(w.weather_code, w.is_day!==0);
-        const a=(await (await fetch("https://air-quality-api.open-meteo.com/v1/air-quality?latitude="+lat+"&longitude="+lon+"&current=us_aqi")).json()).current;
+        const a=(await (await fetch("https://air-quality-api.open-meteo.com/v1/air-quality?latitude="+lat+"&longitude="+lon+"&current=us_aqi",{cache:"no-store"})).json()).current;
         aqiVal=Math.round(a.us_aqi||0);
         drawAqi(aqiVal);
         loadRecs();
