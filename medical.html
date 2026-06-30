@@ -36,6 +36,9 @@
   .ch{font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:9px}
   .ch svg{width:19px;height:19px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .rec{cursor:pointer}
+  .bookbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:13px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;text-decoration:none}
+  .bookbtn.alt{background:var(--inp);color:var(--txt);border:1px solid var(--line)}
+  .bookbtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 </style>
 </head>
 <body>
@@ -150,6 +153,15 @@
       return '<div class="card"><div class="ch" style="color:'+iconColor+'"><svg viewBox="0 0 24 24" stroke="'+iconColor+'">'+icon+'</svg>'+title+'</div>'+
         items.map(it=>'<div class="plan"><div class="pi" style="background:'+iconColor+'22;color:'+iconColor+'">•</div><div>'+it+'</div></div>').join("")+'</div>';
     }
+    const BOOK="https://booking.20fit.id/";
+    const calIcon='<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+    function bookCTA(hasFindings){
+      return '<div class="card" style="background:rgba(196,17,1,.06);border-color:rgba(196,17,1,.25)">'+
+        '<div style="font-weight:800;margin-bottom:4px">'+I18N.t("book_title")+'</div>'+
+        '<div class="muted" style="margin-bottom:6px">'+I18N.t("book_recmed")+'</div>'+
+        (hasFindings?'<a class="bookbtn" href="'+BOOK+'" target="_blank" rel="noopener">'+calIcon+I18N.t("book_consult")+'</a>':'')+
+        '<a class="bookbtn alt" href="'+BOOK+'" target="_blank" rel="noopener">'+calIcon+I18N.t("book_class")+'</a></div>';
+    }
     function renderResult(res,noScroll){
       const params=(res.parameters||[]).map(p=>{
         const col=statusColor(p.status);
@@ -179,6 +191,7 @@
         planCard(I18N.t("med_eating"),ICO.fork,"#2A7A4F",res.eating_plan)+
         planCard(I18N.t("med_exercise"),ICO.ex,"#2563eb",res.exercise_plan)+
         planCard(I18N.t("med_lifestyle"),ICO.life,"#C87000",res.lifestyle_plan)+
+        bookCTA((res.abnormal_findings||[]).length>0)+
         unread+
         '<div class="card" style="border-color:rgba(196,17,1,.3);background:rgba(196,17,1,.07);color:#8a1f15;font-size:13px">⚠️ '+(res.disclaimer||L({en:"This interpretation is not a substitute for a doctor. Consult the 20fit doctor for proper advice.",id:"Interpretasi ini bukan pengganti konsultasi dokter. Konsultasikan ke dokter 20fit untuk saran yang tepat."}))+'</div>';
       if(!noScroll)document.getElementById("result").scrollIntoView({behavior:"smooth"});
