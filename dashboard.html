@@ -72,6 +72,8 @@
   @keyframes rise2{0%{transform:translateY(60px) scale(.6);opacity:0}20%{opacity:.8}100%{transform:translateY(-10px) scale(1);opacity:0}}
   .scene{display:none}
   .wrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+  a.wrow{text-decoration:none;color:inherit;transition:opacity .15s}
+  a.wrow:active{opacity:.6}
   .wrow:last-child{border-bottom:0}
   .wrow .em{width:38px;height:38px;border-radius:10px;background:rgba(225,29,42,.12);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
   .wrow .em svg{width:21px;height:21px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -465,21 +467,31 @@
       document.getElementById("aqiparts").innerHTML=p;
     }
 
+    // Hanya produk yang BENAR-BENAR tersedia di booking.20fit.id
+    const BOOK="https://booking.20fit.id/";
+    const PRODUCTS={
+      hyroxC:["HYROX Complete",{en:"All levels · 60 min",id:"Semua level · 60 mnt"}],
+      hyroxF:["HYROX Foundation",{en:"Beginner · functional strength",id:"Pemula · kekuatan fungsional"}],
+      hyper:["Hyper Class",{en:"High-intensity training",id:"Latihan intensitas tinggi"}],
+      ems:["EMS",{en:"Smart muscle activation",id:"Aktivasi otot pintar"}],
+      bws:["Bodyweight Strength",{en:"No equipment needed",id:"Tanpa alat"}],
+      vinyasa:["Vinyasa Yoga",{en:"Breath-led flow",id:"Mengalir mengikuti napas"}],
+      hatta:["Hatta Yoga",{en:"Mindful & restorative",id:"Menenangkan & pemulihan"}]
+    };
+    const RECS_BY_GOAL={ lose:["hyper","hyroxC","ems"], muscle:["bws","ems","hyroxF"], health:["hatta","vinyasa","hyroxF"], fit:["hyroxF","hyper","hyroxC"] };
     function loadRecs(){
       const goal=profile.main_goal||"health";
-      const base={
-        lose:[["Cardio / Run",{en:"Max calorie burn",id:"Bakar kalori maksimal"}],["EMS Training",{en:"Efficient & fast",id:"Efisien & cepat"}],["Cycling",{en:"Low-impact",id:"Low-impact"}]],
-        muscle:[["Strength Training",{en:"Build muscle mass",id:"Bangun massa otot"}],["EMS Training",{en:"Deep muscle activation",id:"Aktivasi otot dalam"}],["Personal Training",{en:"Keep good form",id:"Form terjaga"}]],
-        health:[["Brisk Walk",{en:"Heart health",id:"Jaga jantung"}],["Yoga",{en:"Flexibility & stress",id:"Fleksibilitas & stress"}],["Swimming",{en:"Full body",id:"Seluruh tubuh"}]],
-        fit:[["HIIT",{en:"Boost VO2max",id:"Tingkatkan VO2max"}],["Running",{en:"Stamina",id:"Stamina"}],["Gym Session",{en:"Strength",id:"Kekuatan"}]]
-      };
-      let list=(base[goal]||base.health).map(r=>[r[0],L(r[1]),"Goal"]);
-      if(aqiVal>100){ list=[["EMS Training",L({en:"Indoor — high AQI",id:"Indoor — AQI tinggi"}),"AQI"],["Swimming",L({en:"Indoor pool",id:"Indoor pool"}),"AQI"],["Gym Session",L({en:"Indoor",id:"Indoor"}),"AQI"]]; }
+      let keys=(RECS_BY_GOAL[goal]||RECS_BY_GOAL.health).slice();
+      let tag="Goal";
+      if(aqiVal>100){ keys=["ems","bws","hyper"]; tag="AQI"; } // semua indoor saat AQI tinggi
       const tagCol={Goal:"background:var(--inp);color:#8A7C68",AQI:"background:var(--red);color:#fff"};
+      const tagTxt=(tag==="Goal")?L({en:"Goal",id:"Tujuan"}):"AQI";
       const exIcon='<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>';
-      document.getElementById("recs").innerHTML=list.map(r=>
-        '<div class="wrow"><div class="em">'+exIcon+'</div><div style="flex:1"><div class="nm">'+r[0]+'</div><div class="rs">'+r[1]+'</div></div><span class="tag" style="'+tagCol[r[2]]+'">'+(r[2]==="Goal"?L({en:"Goal",id:"Tujuan"}):r[2])+'</span></div>'
-      ).join("");
+      const goIcon='<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:var(--pagemut);stroke-width:2;flex:0 0 auto"><polyline points="9 18 15 12 9 6"/></svg>';
+      document.getElementById("recs").innerHTML=keys.map(k=>{
+        const p=PRODUCTS[k];
+        return '<a class="wrow" href="'+BOOK+'" target="_blank" rel="noopener"><div class="em">'+exIcon+'</div><div style="flex:1"><div class="nm">'+p[0]+'</div><div class="rs">'+L(p[1])+'</div></div><span class="tag" style="'+tagCol[tag]+'">'+tagTxt+'</span>'+goIcon+'</a>';
+      }).join("");
     }
 
     const PATTERNS={478:{seq:[["in",4],["hold",7],["out",8]],cycles:4},
