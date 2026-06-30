@@ -92,7 +92,8 @@
   .dots i.on{background:var(--red)}
   .seg{display:flex;gap:8px;margin-bottom:6px}
   .seg button{flex:1;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--inp);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer}
-  .seg button.active{border-color:var(--red);background:rgba(225,29,42,.12);color:#fff}
+  .seg button{color:var(--txt)}
+  .seg button.active{border-color:var(--red);background:rgba(196,17,1,.12);color:var(--red)}
   .btn{padding:12px 14px;border:0;border-radius:10px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;width:100%}
   .btn.dark{background:var(--inp);border:1px solid var(--line);color:var(--txt)}
   .step{display:flex;align-items:center;gap:16px;justify-content:center;margin:10px 0}
@@ -110,12 +111,21 @@
   .glass .fill::after{background:#5aa3ff;opacity:.7;animation:wave 2.9s linear infinite reverse}
   @keyframes wave{0%{transform:translateX(0) rotate(0)}100%{transform:translateX(-33%) rotate(360deg)}}
   #waterBar{background:var(--blue)}
+  /* Gelas besar yang keisi */
+  .bigglass{position:relative;width:104px;height:138px;margin:14px auto 4px;border:3px solid var(--blue);border-top-width:2px;
+    border-radius:10px 10px 18px 18px;overflow:hidden;background:rgba(59,130,246,.06);cursor:pointer}
+  .bgfill{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,#5aa3ff,#2f6fe0);transition:height .55s cubic-bezier(.2,.8,.2,1)}
+  .bgwave{position:absolute;left:-30%;width:160%;height:18px;top:-9px;border-radius:42%;background:#7fb4ff;animation:wave 2.3s linear infinite}
+  .bgcount{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:26px;color:#0A0908;text-shadow:0 1px 3px rgba(255,255,255,.7)}
+  .wctrl{display:flex;gap:10px;justify-content:center;margin-top:6px}
+  .wctrl button{width:48px;height:42px;border-radius:11px;border:1px solid var(--line);background:var(--inp);color:var(--txt);font-size:22px;font-weight:800;cursor:pointer}
   .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(80px);background:#0A0908;color:#fff;
     padding:12px 18px;border-radius:12px;font-weight:700;font-size:14px;opacity:0;transition:all .4s;z-index:9;box-shadow:0 8px 24px rgba(0,0,0,.2)}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
   /* Sleep time inputs */
-  .sleeprow{display:flex;gap:10px;margin:10px 0 2px}
-  .sleepfld{flex:1}
+  .sleeprow{display:flex;flex-direction:column;gap:10px;margin:10px 0 2px}
+  .sleepfld{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .sleepfld label{margin-bottom:0 !important}
   .sleepfld label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px}
   .tpick{display:flex;align-items:center;gap:4px}
   .tpick input{min-width:0;padding:10px 4px;background:var(--inp);border:1px solid var(--line);border-radius:9px;color:var(--txt);font-size:14px;font-family:inherit;text-align:center}
@@ -252,11 +262,16 @@
             <div class="bar"><i id="sleepBar"></i></div>
             <button class="btn dark" style="margin-top:10px" onclick="saveSleep()" data-i18n="save_sleep">Save Sleep</button>
           </div>
-          <div class="card">
-            <div class="muted" data-i18n="water_label">Water (glasses) · target 8</div>
-            <div class="glasses" id="glasses"></div>
-            <div class="bar"><i id="waterBar"></i></div>
-            <div class="muted" id="waterTxt" style="margin-top:8px">0 / 8 gelas</div>
+          <div class="card" style="text-align:center">
+            <div class="muted" data-i18n="water_label" style="text-align:left">Water (glasses) · target 8</div>
+            <div class="bigglass" id="bigGlass" onclick="setWater(water+1)" title="tap to add">
+              <div class="bgfill" id="bgFill"><span class="bgwave"></span></div>
+              <div class="bgcount" id="bgCount">0/8</div>
+            </div>
+            <div class="wctrl">
+              <button onclick="event.stopPropagation();setWater(water-1)">−</button>
+              <button onclick="event.stopPropagation();setWater(water+1)">+</button>
+            </div>
           </div>
         </div>
       </div>
@@ -275,10 +290,6 @@
     <div id="cycleSection" style="display:none">
       <div class="sec" data-i18n="sec_cycle">Menstrual Cycle</div>
       <div class="card" id="cycleCard"></div>
-    </div>
-
-    <div class="card" style="margin-top:18px;background:rgba(196,17,1,.07);border-color:rgba(196,17,1,.22);color:#8a1f15;font-size:13px">
-      ✅ <span data-i18n="daysync_note">Sleep & water are saved automatically to your account.</span>
     </div>
   </div>
 
@@ -578,12 +589,13 @@
     }
 
     function renderWater(){
-      let h="";for(let i=0;i<8;i++)h+='<div class="glass '+(i<water?"full":"")+'" onclick="setWater('+(i+1)+')"><div class="fill"></div></div>';
-      document.getElementById("glasses").innerHTML=h;
-      document.getElementById("waterBar").style.width=Math.min(water/8*100,100)+"%";
-      document.getElementById("waterTxt").textContent=water+" / 8 "+I18N.t("glasses_of");
+      document.getElementById("bgFill").style.height=Math.min(water/8*100,100)+"%";
+      document.getElementById("bgCount").textContent=water+"/8";
     }
-    async function setWater(n){water=(water===n)?n-1:n;renderWater();try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached! 💧",id:"Target air tercapai! 💧"}))}catch(e){}}
+    async function setWater(n){
+      water=Math.max(0,Math.min(8,n));renderWater();
+      try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached! 💧",id:"Target air tercapai! 💧"}))}catch(e){}
+    }
 
     // ---- Checklist harian (beda tiap hari & tiap minggu) ----
     const CHK_ICON={

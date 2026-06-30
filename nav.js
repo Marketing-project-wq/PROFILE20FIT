@@ -35,6 +35,7 @@
     .scanfab svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
     @media(min-width:900px){
       .bnav{max-width:560px;margin:0 auto;border:1px solid #E8E2DB;border-radius:16px;bottom:16px;left:0;right:0}
+      .scanfab{right:calc(50vw - 290px);bottom:90px}
     }
   `;
   const style = document.createElement("style");

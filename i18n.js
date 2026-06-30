@@ -138,6 +138,16 @@
   // toggle melayang (kalau halaman belum punya .lang sendiri spt login)
   function injectToggle(){
     if(document.querySelector(".lang")) return; // login/reset sudah punya
+    // Font brand 20fit (Inter body + Anton heading)
+    const fl=document.createElement("link");fl.rel="stylesheet";
+    fl.href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700;900&family=JetBrains+Mono:wght@400;700&family=Manrope:wght@400;500;600;700;800&display=swap";
+    document.head.appendChild(fl);
+    const fcss=document.createElement("style");
+    fcss.textContent="body{font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif !important}"+
+      "h1,.hello,.headline{font-family:'Anton',sans-serif !important;font-weight:400 !important;letter-spacing:.5px}"+
+      ".sec,.hk{font-family:'Barlow Condensed',sans-serif !important;font-weight:700}"+
+      ".stat .v,.ring .num,.bgcount,.chkprog{font-family:'JetBrains Mono',monospace !important}";
+    document.head.appendChild(fcss);
     const css=document.createElement("style");
     css.textContent=".langfab{position:fixed;top:14px;right:14px;z-index:80;display:flex;gap:3px;background:#fff;border:1px solid #E8E2DB;border-radius:10px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,.20)}"+
       ".langfab button{border:0;background:transparent;color:#8A7C68;font-weight:800;font-size:12px;padding:6px 11px;border-radius:7px;cursor:pointer;font-family:inherit}"+
