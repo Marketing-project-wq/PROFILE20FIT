@@ -5,33 +5,198 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Progress · 20fit</title>
 <style>
-  :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#9a907f;--dark:#000000;--pagetx:#EDE8DF;--pagemut:#9a907f}
+  :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#9a907f;--inp:#F4F1EC;--dark:#000000;--pagetx:#EDE8DF;--pagemut:#9a907f}
   *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
-    display:flex;align-items:center;justify-content:center;padding:24px}
-  .box{text-align:center;max-width:380px}
-  .logo{display:inline-block;background:var(--dark);padding:9px 14px;border-radius:12px;margin-bottom:24px}
-  .logo img{height:34px;display:block}
-  .ic{width:84px;height:84px;border-radius:24px;background:rgba(196,17,1,.10);display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
-  .ic svg{width:40px;height:40px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;animation:rise 2s ease-in-out infinite}
-  @keyframes rise{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-  h1{font-size:26px;font-weight:900;margin:0 0 10px;text-transform:uppercase}
-  p{color:var(--muted);font-size:15px;line-height:1.6}
-  .badge{display:inline-block;margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:8px 16px;font-size:13px;font-weight:700;color:var(--red);box-shadow:0 2px 10px rgba(10,9,8,.04)}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:0 0 90px}
+  .wrap{max-width:920px;margin:0 auto;padding:18px 16px}
+  .top{background:var(--dark);border-radius:0 0 18px 18px;padding:16px 18px;display:flex;align-items:center;justify-content:center;margin:0 -16px 4px}
+  .top img{height:38px}
+  .hk{color:var(--red);font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:16px 2px 0}
+  .hello{font-size:28px;font-weight:900;margin:2px 2px 6px;text-transform:uppercase;letter-spacing:-.5px}
+  .sec{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--pagemut);font-weight:700;margin:22px 2px 8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 2px 10px rgba(10,9,8,.04);color:var(--txt)}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+  .stat .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+  .stat .v{font-size:26px;font-weight:900;margin-top:6px;font-family:'JetBrains Mono',monospace}
+  .stat .v small{font-size:12px;color:var(--muted);font-weight:600;font-family:inherit}
+  .muted{color:var(--muted);font-size:13px}
+  /* streak */
+  .streak{display:flex;align-items:center;gap:16px}
+  .streak .fire{font-size:40px;line-height:1}
+  .streak .big{font-size:34px;font-weight:900;font-family:'JetBrains Mono',monospace;line-height:1}
+  .cbar{height:9px;background:var(--inp);border-radius:6px;overflow:hidden;margin-top:8px}
+  .cbar i{display:block;height:100%;background:linear-gradient(90deg,#ff7a45,#C41101);border-radius:6px}
+  /* bar chart */
+  .chrow{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .chrow .lbl{width:34px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;flex:0 0 auto;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px}
+  .chtrack{flex:1;height:20px;background:var(--inp);border-radius:6px;overflow:hidden;min-width:0}
+  .chtrack i{display:block;height:100%;border-radius:6px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+  .chrow .val{width:64px;text-align:right;font-size:12px;font-weight:700;flex:0 0 auto;font-family:'JetBrains Mono',monospace}
+  .chgoal{font-size:11px;color:var(--muted);margin-top:2px}
+  /* weight */
+  .wlog{display:flex;gap:8px;margin-top:12px}
+  .wlog input{flex:1;min-width:0;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--inp);color:var(--txt);font-size:15px;font-family:inherit;text-align:center}
+  .wlog button{flex:0 0 auto;background:var(--red);color:#fff;border:0;border-radius:10px;padding:0 18px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit}
+  .wrow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .wrow:last-child{border-bottom:0}
+  .wrow .kg{font-weight:800;font-family:'JetBrains Mono',monospace}
+  .delta{font-size:12px;font-weight:800;padding:2px 8px;border-radius:20px}
+  /* achievements */
+  .achg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .ach{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--inp)}
+  .ach.on{background:rgba(42,122,79,.10);border-color:rgba(42,122,79,.35)}
+  .ach.off{opacity:.5}
+  .ach .em{font-size:22px;flex:0 0 auto}
+  .ach .t{font-size:12px;font-weight:800;line-height:1.25}
+  .ach .s{font-size:10px;color:var(--muted)}
+  .empty{color:var(--muted);text-align:center;padding:22px 8px;font-size:14px}
+  @media(min-width:900px){ .main2{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:start} }
+  @media(max-width:560px){ .wrap{padding:16px 12px} .card{padding:14px} .achg{grid-template-columns:1fr} .hello{font-size:24px} }
 </style>
 </head>
 <body>
-  <div class="box">
-    <div class="logo"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" /></div>
-    <div class="ic"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
-    <h1 data-i18n="prog_title">Progress</h1>
-    <p data-i18n="prog_text">Weekly stats, achievements, and your training calendar are coming soon.</p>
-    <div class="badge">🚧 <span data-i18n="prog_soon">Coming Soon</span></div>
+  <div class="wrap">
+    <div class="top"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" /></div>
+    <div class="hk" id="hk">Your journey</div>
+    <div class="hello" id="hello">Progress</div>
+    <div id="content"><div class="card"><div class="muted" id="loading">Loading…</div></div></div>
   </div>
+
+  <div class="toast" id="toast" style="position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--dark);color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;font-size:14px;opacity:0;transition:all .4s;z-index:9;pointer-events:none"></div>
+
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
   <script src="i18n.js"></script>
   <script src="nav.js"></script>
-  <script>(async function(){try{await Auth.requireAuth()}catch(e){}})();</script>
+  <script>
+    let user=null, profile=null, days=[], weights=[];
+    const WD_EN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], WD_ID=["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
+    function todayStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+    function lastNDates(n){const out=[];const base=new Date();for(let i=n-1;i>=0;i--){const d=new Date(base);d.setDate(base.getDate()-i);out.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));}return out;}
+    function wdLabel(ds){const d=new Date(ds+"T00:00:00");return (I18N.lang==="id"?WD_ID:WD_EN)[d.getDay()];}
+    function readCal(d){try{const it=JSON.parse(localStorage.getItem("my20fit_cal_"+d)||"[]");return it.reduce((s,i)=>s+(+i.kcal||0),0);}catch(e){return 0;}}
+    function readWeights(){try{return JSON.parse(localStorage.getItem("my20fit_weight")||"[]");}catch(e){return [];}}
+    function calGoal(p){const w=+p.weight_kg,h=+p.height_cm,age=+p.age||25;if(!w||!h)return 2000;const bmr=10*w+6.25*h-5*age+((p.gender==="female")?-161:5);let t=bmr*1.375;const g=p.main_goal;t+=(g==="lose"?-400:g==="muscle"?300:g==="fit"?100:0);return Math.max(1200,Math.round(t/10)*10);}
+    function toast(t){const el=document.getElementById("toast");el.textContent=t;el.style.opacity=1;el.style.transform="translateX(-50%) translateY(0)";setTimeout(()=>{el.style.opacity=0;el.style.transform="translateX(-50%) translateY(20px)";},2600);}
+
+    function barChart(title,rows,goal,unit,color,goalTxt){
+      const max=Math.max(goal||0,...rows.map(r=>r.v),1);
+      const bars=rows.map(r=>{const pct=Math.max(r.v>0?6:0,Math.min(100,r.v/max*100));
+        return '<div class="chrow"><span class="lbl">'+r.l+'</span><div class="chtrack"><i style="width:'+pct+'%;background:'+(r.v>0?color:"transparent")+'"></i></div><span class="val">'+(r.v>0?r.disp:'–')+'</span></div>';}).join("");
+      return '<div class="card"><div style="font-weight:800;margin-bottom:4px">'+title+'</div>'+(goalTxt?'<div class="chgoal">'+goalTxt+'</div>':'')+bars+'</div>';
+    }
+
+    function render(){
+      const c=document.getElementById("content");
+      document.getElementById("hk").textContent=L({en:"Your journey",id:"Perjalananmu"});
+      document.getElementById("hello").textContent=L({en:"Progress",id:"Progress"});
+      if(!days.length){ c.innerHTML='<div class="card"><div class="empty">'+L({en:"Start tracking your water, sleep & meals — your weekly progress will appear here.",id:"Mulai catat air, tidur & makananmu — progres mingguanmu akan muncul di sini."})+'</div></div>'; return; }
+
+      // ---- summary ----
+      const tracked=days.filter(d=>d.log&&(d.log.water_glasses>0||d.log.sleep_hours>0||d.cal>0)).length;
+      const sleepVals=days.filter(d=>d.log&&d.log.sleep_hours>0).map(d=>+d.log.sleep_hours);
+      const avgSleep=sleepVals.length?(sleepVals.reduce((a,b)=>a+b,0)/sleepVals.length):0;
+      const waterVals=days.filter(d=>d.log&&d.log.water_glasses>0).map(d=>+d.log.water_glasses);
+      const avgWater=waterVals.length?(waterVals.reduce((a,b)=>a+b,0)/waterVals.length):0;
+      // streak (dari hari ini mundur)
+      let streak=0; for(let i=days.length-1;i>=0;i--){const d=days[i];if(d.log&&(d.log.water_glasses>0||d.log.sleep_hours>0||d.cal>0))streak++;else break;}
+      const consist=Math.round(tracked/days.length*100);
+
+      const summary='<div class="grid3">'+
+        '<div class="card stat"><div class="k">'+L({en:"Days tracked",id:"Hari tercatat"})+'</div><div class="v">'+tracked+'<small>/7</small></div></div>'+
+        '<div class="card stat"><div class="k">'+L({en:"Avg sleep",id:"Rata2 tidur"})+'</div><div class="v">'+(avgSleep?avgSleep.toFixed(1):'–')+'<small>'+(avgSleep?'h':'')+'</small></div></div>'+
+        '<div class="card stat"><div class="k">'+L({en:"Avg water",id:"Rata2 air"})+'</div><div class="v">'+(avgWater?avgWater.toFixed(1):'–')+'<small>'+(avgWater?L({en:"gl",id:"gls"}):'')+'</small></div></div>'+
+        '</div>';
+
+      const streakCard='<div class="sec">'+L({en:"Consistency",id:"Konsistensi"})+'</div>'+
+        '<div class="card streak"><div class="fire">🔥</div><div style="flex:1"><div class="big">'+streak+' <span style="font-size:15px;font-weight:700;font-family:inherit;color:var(--muted)">'+L({en:streak===1?"day streak":"day streak",id:"hari beruntun"})+'</span></div>'+
+        '<div class="muted" style="font-size:12px;margin-top:2px">'+L({en:"Weekly consistency",id:"Konsistensi mingguan"})+': '+consist+'%</div><div class="cbar"><i style="width:'+consist+'%"></i></div></div></div>';
+
+      // ---- charts ----
+      const goal=calGoal(profile);
+      const waterChart=barChart(L({en:"💧 Water this week",id:"💧 Air minggu ini"}),
+        days.map(d=>({l:wdLabel(d.date),v:d.log?+d.log.water_glasses||0:0,disp:(d.log?+d.log.water_glasses||0:0)+''})),8,"gl","#3b82f6",L({en:"Target 8 glasses/day",id:"Target 8 gelas/hari"}));
+      const sleepChart=barChart(L({en:"😴 Sleep this week",id:"😴 Tidur minggu ini"}),
+        days.map(d=>({l:wdLabel(d.date),v:d.log?+d.log.sleep_hours||0:0,disp:(d.log&&d.log.sleep_hours?(+d.log.sleep_hours).toFixed(1)+'h':'0')})),8,"h","#7c5cff",L({en:"Target 7–8 hours/night",id:"Target 7–8 jam/malam"}));
+      const calChart=barChart(L({en:"🔥 Calories this week",id:"🔥 Kalori minggu ini"}),
+        days.map(d=>({l:wdLabel(d.date),v:d.cal||0,disp:(d.cal||0)+''})),goal,"kcal","#C41101",L({en:"Daily target ≈ "+goal+" kcal",id:"Target harian ≈ "+goal+" kkal"})+' · '+L({en:"(this device)",id:"(device ini)"}));
+
+      const charts='<div class="sec">'+L({en:"This Week",id:"Minggu Ini"})+'</div><div class="main2"><div>'+waterChart+'<div style="height:14px"></div>'+sleepChart+'</div><div>'+calChart+'</div></div>';
+
+      // ---- weight ----
+      let wRows='';
+      if(weights.length){
+        const sorted=[...weights].sort((a,b)=>a.d<b.d?1:-1).slice(0,6);
+        wRows=sorted.map((w,i)=>{const prev=sorted[i+1];let dl='';
+          if(prev){const diff=+(w.kg-prev.kg).toFixed(1);const down=diff<0;dl='<span class="delta" style="background:'+(down?"rgba(42,122,79,.15);color:#2A7A4F":diff>0?"rgba(196,17,1,.12);color:#C41101":"rgba(154,144,127,.15);color:#9a907f")+'">'+(diff>0?'+':'')+diff+' kg</span>';}
+          return '<div class="wrow"><span class="muted">'+w.d+'</span><span><span class="kg">'+w.kg+'</span> kg '+dl+'</span></div>';}).join("");
+      } else { wRows='<div class="muted" style="padding:6px 0">'+L({en:"No entries yet. Log your weight to see your trend.",id:"Belum ada catatan. Catat beratmu untuk lihat tren."})+'</div>'; }
+      const firstW=weights.length?[...weights].sort((a,b)=>a.d<b.d?-1:1)[0]:null;
+      const lastW=weights.length?[...weights].sort((a,b)=>a.d<b.d?1:-1)[0]:null;
+      let totalDelta='';
+      if(firstW&&lastW&&firstW.d!==lastW.d){const dt=+(lastW.kg-firstW.kg).toFixed(1);totalDelta='<div class="muted" style="margin-top:6px;font-size:12px">'+L({en:"Since you started: ",id:"Sejak mulai: "})+'<b style="color:'+(dt<0?"#2A7A4F":dt>0?"#C41101":"#9a907f")+'">'+(dt>0?'+':'')+dt+' kg</b></div>';}
+      const weightCard='<div class="sec">'+L({en:"Weight",id:"Berat Badan"})+'</div>'+
+        '<div class="card"><div style="font-weight:800">'+L({en:"Track your weight",id:"Catat berat badanmu"})+'</div>'+
+        '<div class="muted" style="font-size:12px">'+L({en:"Add today\'s weight to build your trend.",id:"Tambahkan berat hari ini untuk bikin tren."})+'</div>'+
+        '<div class="wlog"><input id="wIn" type="number" inputmode="decimal" step="0.1" placeholder="'+(profile.weight_kg||"kg")+'" /><button onclick="logWeight()">'+L({en:"Save",id:"Simpan"})+'</button></div>'+
+        totalDelta+'<div style="margin-top:12px">'+wRows+'</div></div>';
+
+      // ---- achievements ----
+      const hasMcu=!!profile._hasMcu;
+      const anyWater8=days.some(d=>d.log&&+d.log.water_glasses>=8);
+      const anySleep7=days.some(d=>d.log&&+d.log.sleep_hours>=7);
+      const hasFasting=!!(window.Fasting&&Fasting.get&&Fasting.get());
+      const ach=[
+        {on:tracked>=1,em:"🌱",t:L({en:"First check-in",id:"Check-in pertama"}),s:L({en:"Tracked a day",id:"Catat 1 hari"})},
+        {on:streak>=3,em:"🔥",t:L({en:"3-day streak",id:"Beruntun 3 hari"}),s:L({en:"Keep it up!",id:"Pertahankan!"})},
+        {on:streak>=7,em:"🏆",t:L({en:"Full week",id:"Satu minggu penuh"}),s:L({en:"7 days in a row",id:"7 hari berturut"})},
+        {on:anyWater8,em:"💧",t:L({en:"Hydrated",id:"Terhidrasi"}),s:L({en:"8 glasses in a day",id:"8 gelas dalam sehari"})},
+        {on:anySleep7,em:"😴",t:L({en:"Well rested",id:"Istirahat cukup"}),s:L({en:"7h+ sleep",id:"Tidur 7 jam+"})},
+        {on:hasFasting,em:"⏳",t:L({en:"Fasting on",id:"Puasa aktif"}),s:L({en:"Adopted a style",id:"Adopsi gaya puasa"})},
+        {on:hasMcu,em:"🩺",t:L({en:"Health checked",id:"Cek kesehatan"}),s:L({en:"MCU analysed",id:"MCU dianalisa"})}
+      ];
+      const achCard='<div class="sec">'+L({en:"Achievements",id:"Pencapaian"})+'</div><div class="card"><div class="achg">'+
+        ach.map(a=>'<div class="ach '+(a.on?"on":"off")+'"><div class="em">'+(a.on?a.em:"🔒")+'</div><div><div class="t">'+a.t+'</div><div class="s">'+a.s+'</div></div></div>').join("")+'</div></div>';
+
+      // ---- medical summary ----
+      let medCard='';
+      if(profile._mcu){const res=profile._mcu;const att=(res.abnormal_findings||[]).length;
+        medCard='<div class="sec">'+L({en:"Health Check-up",id:"Medical Check-up"})+'</div>'+
+          '<a class="card" href="medical.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)"><div class="em" style="width:40px;height:40px;border-radius:11px;background:'+(att?"rgba(196,17,1,.1)":"rgba(42,122,79,.12)")+';display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:20px">'+(att?"⚠️":"✓")+'</div>'+
+          '<div style="flex:1"><div style="font-weight:800">'+(att?L({en:att+" thing(s) to watch",id:att+" hal perlu diperhatikan"}):L({en:"Latest MCU: all normal",id:"MCU terakhir: semua normal"}))+'</div><div class="muted" style="font-size:12px">'+L({en:"Tap to view full results",id:"Ketuk untuk lihat hasil lengkap"})+'</div></div><span style="color:var(--pagemut);font-weight:800">›</span></a>';
+      }
+
+      c.innerHTML=summary+streakCard+charts+weightCard+achCard+medCard;
+    }
+
+    async function logWeight(){
+      const v=parseFloat(document.getElementById("wIn").value);
+      if(!v||v<20||v>400){toast(L({en:"Enter a valid weight",id:"Masukkan berat yang valid"}));return;}
+      const d=todayStr(); const kg=+v.toFixed(1);
+      weights=weights.filter(w=>w.d!==d); weights.push({d:d,kg:kg});
+      try{localStorage.setItem("my20fit_weight",JSON.stringify(weights));}catch(e){}
+      try{await Auth.saveDaily({weight_kg:kg});}catch(e){}                       // riwayat per hari di DB
+      try{await Auth.supabase.from("my20fit_profile").update({weight_kg:kg,updated_at:new Date().toISOString()}).eq("auth_user_id",user.id);profile.weight_kg=kg;}catch(e){}
+      toast(L({en:"Weight saved 💪",id:"Berat tersimpan 💪"}));
+      render();
+    }
+
+    (async function(){
+      try{ user=await Auth.requireAuth(); }catch(e){ return; }
+      try{ profile=await Auth.getProfile(); }catch(e){ profile={}; }
+      const dates=lastNDates(7);
+      let logMap={};
+      try{ const {data}=await Auth.supabase.from("my20fit_daily_log").select("*").eq("auth_user_id",user.id).gte("log_date",dates[0]).order("log_date"); (data||[]).forEach(r=>logMap[r.log_date]=r); }catch(e){}
+      days=dates.map(d=>({date:d,log:logMap[d]||null,cal:readCal(d)}));
+      // Riwayat berat dari DB (lintas-device), fallback ke localStorage
+      try{ const {data}=await Auth.supabase.from("my20fit_daily_log").select("log_date,weight_kg").eq("auth_user_id",user.id).not("weight_kg","is",null).order("log_date",{ascending:false}).limit(30); weights=(data||[]).map(r=>({d:r.log_date,kg:+r.weight_kg})); }catch(e){ weights=readWeights(); }
+      if(!weights.length && profile.weight_kg){ weights=[{d:todayStr(),kg:+profile.weight_kg}]; }
+      // MCU terakhir untuk achievement + kartu medical
+      try{ const {data}=await Auth.supabase.from("my20fit_mcu_result").select("result").eq("auth_user_id",user.id).order("created_at",{ascending:false}).limit(1); if(data&&data[0]){profile._hasMcu=true;profile._mcu=data[0].result;} }catch(e){}
+      render();
+      if(window.I18N&&I18N.onChange)I18N.onChange(render);
+    })();
+  </script>
 </body>
 </html>
