@@ -387,7 +387,7 @@
       try{
         const dates=achDates(7); let map={};
         try{ const {data}=await Auth.supabase.from("my20fit_daily_log").select("*").eq("auth_user_id",profile.auth_user_id).gte("log_date",dates[0]); (data||[]).forEach(r=>map[r.log_date]=r); }catch(e){}
-        const days=dates.map(d=>({date:d,log:map[d]||null,cal:achCal(d)}));
+        const days=dates.map(d=>{const r=map[d]||null;const cal=(r&&Array.isArray(r.cal_items))?r.cal_items.reduce((s,i)=>s+(+i.kcal||0),0):achCal(d);return {date:d,log:r,cal:cal};});
         let hasMcu=false; try{ const {data:m}=await Auth.supabase.from("my20fit_mcu_result").select("id").eq("auth_user_id",profile.auth_user_id).limit(1); hasMcu=!!(m&&m.length); }catch(e){}
         Ach.check({days:days,hasFasting:!!localStorage.getItem("my20fit_if"),hasMcu:hasMcu});
       }catch(e){}
@@ -410,11 +410,11 @@
           '<div class="muted" style="font-size:12px">'+L({en:"Add weight, height, gender & goal to unlock your stats & recommendations.",id:"Isi berat, tinggi, gender & tujuan untuk membuka statistik & rekomendasimu."})+'</div></div>'+
           '<a class="bookbtn" style="width:auto;margin-top:0;padding:11px 16px;flex:0 0 auto" href="onboarding.html">'+L({en:"Complete",id:"Lengkapi"})+'</a></div>';
       }
-      // 1) kalori hari ini (dari tracker)
+      // 1) kalori hari ini (dari akun -> cross-device, fallback cache device)
       try{
-        const key="my20fit_cal_"+new Date().toISOString().slice(0,10);
-        const items=JSON.parse(localStorage.getItem(key)||"[]");
-        const eaten=items.reduce((s,i)=>s+(+i.kcal||0),0);
+        const tdy=new Date().toISOString().slice(0,10);
+        const arr=(daily&&Array.isArray(daily.cal_items))?daily.cal_items:(function(){try{return JSON.parse(localStorage.getItem("my20fit_cal_"+tdy)||"[]");}catch(e){return [];}})();
+        const eaten=arr.reduce((s,i)=>s+(+i.kcal||0),0);
         const tgt=calCalGoal(profile); const leftK=Math.max(0,tgt-eaten);
         const pct=Math.max(0,Math.min(100,tgt?Math.round(eaten/tgt*100):0));
         html+='<div class="sec">'+L({en:"Today",id:"Hari Ini"})+'</div>'+

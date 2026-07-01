@@ -104,7 +104,7 @@
       }
       const tday=todayStr();
       const todayLog=(days.find(d=>d.date===tday)||{}).log;
-      let items=[]; try{items=JSON.parse(localStorage.getItem("my20fit_cal_"+tday)||"[]");}catch(e){}
+      let items=[]; if(todayLog&&Array.isArray(todayLog.cal_items))items=todayLog.cal_items; else { try{items=JSON.parse(localStorage.getItem("my20fit_cal_"+tday)||"[]");}catch(e){} }
       const eaten=items.reduce((s,i)=>s+(+i.kcal||0),0);
       const pE=items.reduce((s,i)=>s+(+i.p||0),0), cE=items.reduce((s,i)=>s+(+i.c||0),0), fE=items.reduce((s,i)=>s+(+i.f||0),0);
       const water=todayLog?+todayLog.water_glasses||0:0, sleep=todayLog?+todayLog.sleep_hours||0:0;
@@ -218,7 +218,7 @@
       const dates=lastNDates(7);
       let logMap={};
       try{ const {data}=await Auth.supabase.from("my20fit_daily_log").select("*").eq("auth_user_id",user.id).gte("log_date",dates[0]).order("log_date"); (data||[]).forEach(r=>logMap[r.log_date]=r); }catch(e){}
-      days=dates.map(d=>({date:d,log:logMap[d]||null,cal:readCal(d)}));
+      days=dates.map(d=>{const r=logMap[d]||null;const cal=(r&&Array.isArray(r.cal_items))?r.cal_items.reduce((s,i)=>s+(+i.kcal||0),0):readCal(d);return {date:d,log:r,cal:cal};});
       // Riwayat berat dari DB (lintas-device), fallback ke localStorage
       try{ const {data}=await Auth.supabase.from("my20fit_daily_log").select("log_date,weight_kg").eq("auth_user_id",user.id).not("weight_kg","is",null).order("log_date",{ascending:false}).limit(30); weights=(data||[]).map(r=>({d:r.log_date,kg:+r.weight_kg})); }catch(e){ weights=readWeights(); }
       if(!weights.length && profile.weight_kg){ weights=[{d:todayStr(),kg:+profile.weight_kg}]; }

@@ -190,7 +190,16 @@
       return {p:proteinG,c:carbsG,f:fatG};
     }
     function load(){try{items=JSON.parse(localStorage.getItem(todayKey())||"[]")}catch(e){items=[]}}
-    function save(){localStorage.setItem(todayKey(),JSON.stringify(items))}
+    let calSaveT=null;
+    function save(){
+      localStorage.setItem(todayKey(),JSON.stringify(items));               // cache cepat di device
+      if(calSaveT)clearTimeout(calSaveT);
+      calSaveT=setTimeout(function(){ try{ if(window.Auth&&Auth.saveDaily)Auth.saveDaily({cal_items:items}); }catch(e){} },500); // simpan ke AKUN (cross-device)
+    }
+    // Ambil catatan kalori hari ini dari akun (biar muncul di device manapun)
+    async function loadCalFromCloud(){
+      try{ const d=await Auth.getDailyLog(); if(d && Array.isArray(d.cal_items)){ items=d.cal_items; localStorage.setItem(todayKey(),JSON.stringify(items)); render();renderMeals(); } }catch(e){}
+    }
     function kc(){return L({en:"kcal",id:"kkal"})}
     function setMacro(id,val,tot,bar){
       document.getElementById(id).textContent=Math.round(val)+" / "+tot+"g";
@@ -403,6 +412,7 @@
       const c=Fasting.get();
       const row={auth_user_id:profileRef.auth_user_id,email:profileRef.email||null,updated_at:new Date().toISOString(),notify_email:!!notify};
       if(c){const s=Fasting.styleById(c.id);row.style=c.id;row.start_time=c.start||"12:00";row.eat_hours=s?s.eat:8;}
+      else{row.style=null;row.start_time=null;} // gaya puasa dihapus -> kosongin juga di akun
       try{await Auth.supabase.from("my20fit_fasting").upsert(row,{onConflict:"auth_user_id"});}catch(e){}
     }
     async function toggleReminders(){
@@ -410,15 +420,21 @@
       const r=await Fasting.enableReminders(); await saveFastingPrefs(true); renderIF();
       if(!r.web){ alert(L({en:"Email reminders are ON. (Browser notifications are blocked — allow them in settings for on-device alerts too.)",id:"Pengingat EMAIL aktif. (Notifikasi browser diblokir — izinkan di pengaturan kalau mau notif di HP juga.)"})); }
     }
-    function chooseIF(id){Fasting.set({id:id,start:"12:00"});recompute();render();renderIF();if(Fasting.notifEnabled())saveFastingPrefs(true);}
+    function chooseIF(id){Fasting.set({id:id,start:"12:00"});recompute();render();renderIF();saveFastingPrefs(Fasting.notifEnabled());}
     function changeIF(){Fasting.clear();recompute();render();renderIF();saveFastingPrefs(false);}
-    function setIFStart(v){const c=Fasting.get()||{};c.start=v;Fasting.set(c);renderIF();if(Fasting.notifEnabled())saveFastingPrefs(true);}
+    function setIFStart(v){const c=Fasting.get()||{};c.start=v;Fasting.set(c);renderIF();saveFastingPrefs(Fasting.notifEnabled());}
+    // Ambil pilihan puasa dari akun kalau device ini belum punya (cross-device)
+    async function loadIFFromCloud(){
+      try{ if(Fasting.get())return; const {data}=await Auth.supabase.from("my20fit_fasting").select("style,start_time").eq("auth_user_id",profileRef.auth_user_id).limit(1); const r=data&&data[0]; if(r&&r.style){ Fasting.set({id:r.style,start:String(r.start_time||"12:00").slice(0,5)}); recompute(); renderIF(); } }catch(e){}
+    }
 
     (async function(){
       const p=await Auth.getProfile();
       profileRef=p; baseGoal=calcGoal(p); curGoal=p.main_goal||"health";
       recompute();
       load();render();renderMeals();renderIF();
+      loadCalFromCloud();   // sinkron kalori dari akun
+      loadIFFromCloud();    // sinkron gaya puasa dari akun
       if(location.hash==="#scan"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});}
       if(location.hash==="#fasting"){document.getElementById("ifSection").scrollIntoView({behavior:"smooth"});}
     })();
