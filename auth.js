@@ -106,8 +106,37 @@
     return data;
   }
 
+  // ---------- ISOLASI DATA PER-AKUN DI SATU DEVICE ----------
+  // Cache lokal (kalori, berat, puasa, medical, achievement) tidak boleh
+  // kebawa ke akun lain saat ganti akun di browser yang sama.
+  function purgeUserCache() {
+    try {
+      const kill = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        if (/^my20fit_cal_/.test(k) || k === "my20fit_weight" || k === "my20fit_if" ||
+            k === "my20fit_mcu_last" || /^my20fit_ach/.test(k) || /^if_/.test(k) || /^mcu_/.test(k)) {
+          kill.push(k);
+        }
+      }
+      kill.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+    } catch (e) {}
+  }
+  let isoDone = false;
+  function isolateDevice(user) {
+    if (isoDone || !user) return;
+    isoDone = true;
+    try {
+      const prev = localStorage.getItem("my20fit_uid");
+      if (prev && prev !== user.id) purgeUserCache(); // akun berganti -> buang cache akun lama
+      localStorage.setItem("my20fit_uid", user.id);
+    } catch (e) {}
+  }
+
   async function signOut() {
     await ready;
+    try { purgeUserCache(); localStorage.removeItem("my20fit_uid"); } catch (e) {}
     await supabase.auth.signOut();
     go("login.html");
   }
@@ -117,7 +146,9 @@
     // Pakai sesi LOKAL (localStorage) — tidak bergantung panggilan jaringan,
     // jadi langsung kebaca tepat setelah daftar/login (gak balik ke login).
     const { data } = await supabase.auth.getSession();
-    return (data.session && data.session.user) || null;
+    const user = (data.session && data.session.user) || null;
+    isolateDevice(user);
+    return user;
   }
 
   async function requireAuth() {
