@@ -77,7 +77,8 @@
     function wdLabel(ds){const d=new Date(ds+"T00:00:00");return (I18N.lang==="id"?WD_ID:WD_EN)[d.getDay()];}
     function readCal(d){try{const it=JSON.parse(localStorage.getItem("my20fit_cal_"+d)||"[]");return it.reduce((s,i)=>s+(+i.kcal||0),0);}catch(e){return 0;}}
     function readWeights(){try{return JSON.parse(localStorage.getItem("my20fit_weight")||"[]");}catch(e){return [];}}
-    function calGoal(p){const w=+p.weight_kg,h=+p.height_cm,age=+p.age||25;if(!w||!h)return 2000;const bmr=10*w+6.25*h-5*age+((p.gender==="female")?-161:5);let t=bmr*1.375;const g=p.main_goal;t+=(g==="lose"?-400:g==="muscle"?300:g==="fit"?100:0);return Math.max(1200,Math.round(t/10)*10);}
+    function calGoal(p){const w=+p.weight_kg,h=+p.height_cm,age=+p.age||25;if(!w||!h)return 2000;const bmr=10*w+6.25*h-5*age+((p.gender==="female")?-161:5);const af={sedentary:1.2,light:1.375,moderate:1.55,active:1.725}[p.activity_level]||1.375;let t=bmr*af;const g=p.main_goal;t+=(g==="lose"?-400:g==="muscle"?300:g==="fit"?100:0);return Math.max(1200,Math.round(t/10)*10);}
+    function calcMacros(p,goal){const w=+p.weight_kg||0,g=p.main_goal;const proteinG=w?Math.round(w*(g==="muscle"?1.8:g==="lose"?1.6:1.4)):Math.round(goal*0.25/4);const fatG=Math.round(goal*0.25/9);let carbsG=Math.round((goal-proteinG*4-fatG*9)/4);if(carbsG<0)carbsG=Math.round(goal*0.45/4);return {p:proteinG,c:carbsG,f:fatG};}
     function toast(t){const el=document.getElementById("toast");el.textContent=t;el.style.opacity=1;el.style.transform="translateX(-50%) translateY(0)";setTimeout(()=>{el.style.opacity=0;el.style.transform="translateX(-50%) translateY(20px)";},2600);}
 
     function barChart(title,rows,goal,unit,color,goalTxt){
@@ -87,11 +88,50 @@
       return '<div class="card"><div style="font-weight:800;margin-bottom:4px">'+title+'</div>'+(goalTxt?'<div class="chgoal">'+goalTxt+'</div>':'')+bars+'</div>';
     }
 
+    // ---- Overall: apakah kebutuhan harian user (dari data mereka) sudah terpenuhi ----
+    function metricRow(label,cur,tgt,unit,met,curDisp){
+      const pct=tgt?Math.min(100,Math.round(cur/tgt*100)):0;
+      return '<div style="margin:12px 0 0"><div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700">'+
+        '<span>'+(met?'✅':'⬜')+' '+label+'</span>'+
+        '<span style="font-family:JetBrains Mono,monospace;color:'+(met?'#2A7A4F':'var(--muted)')+'">'+(curDisp!=null?curDisp:cur)+' / '+tgt+' '+unit+'</span></div>'+
+        '<div class="chtrack" style="height:9px;margin-top:5px"><i style="width:'+pct+'%;background:'+(met?'#2A7A4F':'#C87000')+'"></i></div></div>';
+    }
+    function overallCard(){
+      const head='<div class="sec">'+L({en:"Overall · Today",id:"Overall · Hari Ini"})+'</div>';
+      if(!profile||!profile.weight_kg||!profile.height_cm){
+        return head+'<a class="card" href="onboarding.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt);border-color:rgba(196,17,1,.35);background:rgba(196,17,1,.06)"><div style="flex:1"><div style="font-weight:800">'+L({en:"Complete your profile first",id:"Lengkapi profil dulu"})+'</div><div class="muted" style="font-size:12px">'+L({en:"Add weight, height & goal so we can calculate what your body needs.",id:"Isi berat, tinggi & tujuan biar kami bisa hitung kebutuhan tubuhmu."})+'</div></div><span style="color:var(--pagemut);font-weight:800">›</span></a>';
+      }
+      const tday=todayStr();
+      const todayLog=(days.find(d=>d.date===tday)||{}).log;
+      let items=[]; try{items=JSON.parse(localStorage.getItem("my20fit_cal_"+tday)||"[]");}catch(e){}
+      const eaten=items.reduce((s,i)=>s+(+i.kcal||0),0);
+      const pE=items.reduce((s,i)=>s+(+i.p||0),0), cE=items.reduce((s,i)=>s+(+i.c||0),0), fE=items.reduce((s,i)=>s+(+i.f||0),0);
+      const water=todayLog?+todayLog.water_glasses||0:0, sleep=todayLog?+todayLog.sleep_hours||0:0;
+      const goal=calGoal(profile), mac=calcMacros(profile,goal);
+      const M=[
+        {l:L({en:"Calories",id:"Kalori"}),      cur:eaten, tgt:goal,  u:L({en:"kcal",id:"kkal"}), met:eaten>=goal*0.85},
+        {l:L({en:"Protein",id:"Protein"}),      cur:Math.round(pE), tgt:mac.p, u:"g", met:pE>=mac.p*0.9},
+        {l:L({en:"Carbs",id:"Karbo"}),          cur:Math.round(cE), tgt:mac.c, u:"g", met:cE>=mac.c*0.9},
+        {l:L({en:"Fat",id:"Lemak"}),            cur:Math.round(fE), tgt:mac.f, u:"g", met:fE>=mac.f*0.9},
+        {l:L({en:"Water",id:"Air"}),            cur:water, tgt:8, u:L({en:"gl",id:"gls"}), met:water>=8},
+        {l:L({en:"Sleep",id:"Tidur"}),          cur:sleep, tgt:8, u:L({en:"h",id:"jam"}), met:sleep>=7, disp:(sleep?sleep.toFixed(1):0)}
+      ];
+      const metN=M.filter(m=>m.met).length, score=Math.round(metN/M.length*100);
+      const col=score>=70?"#2A7A4F":score>=40?"#C87000":"#C41101";
+      const rows=M.map(m=>metricRow(m.l,m.cur,m.tgt,m.u,m.met,m.disp)).join("");
+      return head+'<div class="card"><div style="display:flex;align-items:center;gap:16px">'+
+        '<div style="font-size:36px;font-weight:900;font-family:JetBrains Mono,monospace;color:'+col+';line-height:1">'+score+'%</div>'+
+        '<div style="flex:1"><div style="font-weight:800">'+metN+' / '+M.length+' '+L({en:"needs met today",id:"kebutuhan terpenuhi hari ini"})+'</div>'+
+        '<div class="cbar" style="margin-top:6px"><i style="width:'+score+'%;background:'+col+'"></i></div></div></div>'+
+        rows+
+        '<div class="muted" style="font-size:11px;margin-top:12px">'+L({en:"Targets from your BMI, weight & goal. Log meals, water & sleep to complete them.",id:"Target dari BMI, berat & tujuanmu. Catat makan, air & tidur untuk memenuhinya."})+'</div></div>';
+    }
+
     function render(){
       const c=document.getElementById("content");
       document.getElementById("hk").textContent=L({en:"Your journey",id:"Perjalananmu"});
       document.getElementById("hello").textContent=L({en:"Progress",id:"Progress"});
-      if(!days.length){ c.innerHTML='<div class="card"><div class="empty">'+L({en:"Start tracking your water, sleep & meals — your weekly progress will appear here.",id:"Mulai catat air, tidur & makananmu — progres mingguanmu akan muncul di sini."})+'</div></div>'; return; }
+      if(!days.length){ c.innerHTML=overallCard()+'<div class="card" style="margin-top:14px"><div class="empty">'+L({en:"Start tracking your water, sleep & meals — your weekly progress will appear here.",id:"Mulai catat air, tidur & makananmu — progres mingguanmu akan muncul di sini."})+'</div></div>'; return; }
 
       // ---- summary ----
       const tracked=days.filter(d=>d.log&&(d.log.water_glasses>0||d.log.sleep_hours>0||d.cal>0)).length;
@@ -167,7 +207,7 @@
           '<div style="flex:1"><div style="font-weight:800">'+(att?L({en:att+" thing(s) to watch",id:att+" hal perlu diperhatikan"}):L({en:"Latest MCU: all normal",id:"MCU terakhir: semua normal"}))+'</div><div class="muted" style="font-size:12px">'+L({en:"Tap to view full results",id:"Ketuk untuk lihat hasil lengkap"})+'</div></div><span style="color:var(--pagemut);font-weight:800">›</span></a>';
       }
 
-      c.innerHTML=summary+streakCard+charts+weightCard+achCard+medCard;
+      c.innerHTML=overallCard()+summary+streakCard+charts+weightCard+achCard+medCard;
     }
 
     async function logWeight(){
