@@ -191,7 +191,16 @@
         j.result._lang=I18N.lang;
         showResult(j.result);
         try{localStorage.setItem(sig,JSON.stringify(j.result));}catch(e1){}
-        try{await Auth.supabase.from("my20fit_mcu_result").insert({auth_user_id:user.id,result:j.result,analyzed_at:new Date().toISOString()});loadList();}catch(err){}
+        // Simpan ke akun (Supabase). Kalau GAGAL, kasih tahu user — jangan diam-diam hilang saat refresh.
+        let saveErr=null;
+        try{ const {error}=await Auth.supabase.from("my20fit_mcu_result").insert({auth_user_id:user.id,result:j.result,analyzed_at:new Date().toISOString()}); saveErr=error; }catch(err){ saveErr=err; }
+        if(!saveErr){ loadList(); }
+        else {
+          const w=document.createElement("div"); w.className="card rfull";
+          w.style.cssText="border-color:#e7c98a;background:#fbf3df;color:#8a6d1a;font-size:13px;font-weight:600";
+          w.innerHTML='⚠️ '+L({en:"Result is shown but couldn't be saved to your account (network issue). Please re-upload when your connection is stable so it persists after refresh.",id:"Hasil tampil tapi belum tersimpan ke akunmu (masalah jaringan). Coba upload ulang saat koneksi stabil biar tetap ada setelah refresh."});
+          const box2=document.getElementById("result"); if(box2) box2.prepend(w);
+        }
       }catch(err){
         const msg=(err&&err.name==="AbortError")?L({en:"Took too long — please try again.",id:"Terlalu lama — coba lagi ya."}):
           /fetch/i.test(err.message||"")?L({en:"Connection failed. Check internet & try again.",id:"Koneksi gagal. Cek internet & coba lagi."}):err.message;
