@@ -329,6 +329,7 @@
   <script src="auth.js"></script>
   <script src="i18n.js"></script>
   <script src="fasting.js"></script>
+  <script src="achievements.js"></script>
   <script src="nav.js"></script>
   <script src="tour.js"></script>
   <script>
@@ -375,7 +376,22 @@
       loadWeather();
       loadHealthReminder();
       renderIFWidget();
+      checkAchievements();
     })();
+
+    // ---- Achievement: rayakan lencana baru dengan popup "Congratulations" ----
+    function achDates(n){const out=[];const base=new Date();for(let i=n-1;i>=0;i--){const d=new Date(base);d.setDate(base.getDate()-i);out.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));}return out;}
+    function achCal(d){try{return JSON.parse(localStorage.getItem("my20fit_cal_"+d)||"[]").reduce((s,i)=>s+(+i.kcal||0),0);}catch(e){return 0;}}
+    async function checkAchievements(){
+      if(!window.Ach||!profile||!profile.auth_user_id)return;
+      try{
+        const dates=achDates(7); let map={};
+        try{ const {data}=await Auth.supabase.from("my20fit_daily_log").select("*").eq("auth_user_id",profile.auth_user_id).gte("log_date",dates[0]); (data||[]).forEach(r=>map[r.log_date]=r); }catch(e){}
+        const days=dates.map(d=>({date:d,log:map[d]||null,cal:achCal(d)}));
+        let hasMcu=false; try{ const {data:m}=await Auth.supabase.from("my20fit_mcu_result").select("id").eq("auth_user_id",profile.auth_user_id).limit(1); hasMcu=!!(m&&m.length); }catch(e){}
+        Ach.check({days:days,hasFasting:!!localStorage.getItem("my20fit_if"),hasMcu:hasMcu});
+      }catch(e){}
+    }
 
     // Ringkasan penting dari halaman lain -> tampil di Dashboard
     function calCalGoal(p){
@@ -696,7 +712,7 @@
     async function saveSleep(){
       if(!sleepBed||!sleepWake){toast(L({en:"Set bedtime & wake time first",id:"Isi jam tidur & bangun dulu"}));return}
       try{await Auth.saveDaily({sleep_bed:sleepBed,sleep_wake:sleepWake,sleep_hours:sleepH});
-        toast(sleepH>=7?L({en:"Good sleep! 🌙",id:"Tidur cukup! 🌙"}):L({en:"Sleep saved ✓",id:"Tidur tersimpan ✓"}))}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
+        toast(sleepH>=7?L({en:"Good sleep! 🌙",id:"Tidur cukup! 🌙"}):L({en:"Sleep saved ✓",id:"Tidur tersimpan ✓"}));checkAchievements();}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
 
     function renderWater(){
@@ -705,7 +721,7 @@
     }
     async function setWater(n){
       water=Math.max(0,Math.min(8,n));renderWater();
-      try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached! 💧",id:"Target air tercapai! 💧"}))}catch(e){}
+      try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached! 💧",id:"Target air tercapai! 💧"}));checkAchievements();}catch(e){}
     }
 
     // ---- Checklist harian (beda tiap hari & tiap minggu) ----
@@ -782,6 +798,7 @@
       renderChecklist();
       const done=currentTasks.filter(t=>checkState[t.id]).length;
       try{await Auth.saveDaily({checklist:checkState});}catch(e){}
+      checkAchievements();
       if(done===currentTasks.length&&currentTasks.length)toast(L({en:"All checklist done! 🔥",id:"Semua checklist selesai! 🔥"}));
     }
 

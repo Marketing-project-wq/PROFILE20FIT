@@ -68,6 +68,7 @@
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
   <script src="i18n.js"></script>
+  <script src="achievements.js"></script>
   <script src="nav.js"></script>
   <script>
     let user=null, profile=null, days=[], weights=[];
@@ -183,21 +184,10 @@
         totalDelta+'<div style="margin-top:12px">'+wRows+'</div></div>';
 
       // ---- achievements ----
-      const hasMcu=!!profile._hasMcu;
-      const anyWater8=days.some(d=>d.log&&+d.log.water_glasses>=8);
-      const anySleep7=days.some(d=>d.log&&+d.log.sleep_hours>=7);
-      const hasFasting=!!(window.Fasting&&Fasting.get&&Fasting.get());
-      const ach=[
-        {on:tracked>=1,em:"🌱",t:L({en:"First check-in",id:"Check-in pertama"}),s:L({en:"Tracked a day",id:"Catat 1 hari"})},
-        {on:streak>=3,em:"🔥",t:L({en:"3-day streak",id:"Beruntun 3 hari"}),s:L({en:"Keep it up!",id:"Pertahankan!"})},
-        {on:streak>=7,em:"🏆",t:L({en:"Full week",id:"Satu minggu penuh"}),s:L({en:"7 days in a row",id:"7 hari berturut"})},
-        {on:anyWater8,em:"💧",t:L({en:"Hydrated",id:"Terhidrasi"}),s:L({en:"8 glasses in a day",id:"8 gelas dalam sehari"})},
-        {on:anySleep7,em:"😴",t:L({en:"Well rested",id:"Istirahat cukup"}),s:L({en:"7h+ sleep",id:"Tidur 7 jam+"})},
-        {on:hasFasting,em:"⏳",t:L({en:"Fasting on",id:"Puasa aktif"}),s:L({en:"Adopted a style",id:"Adopsi gaya puasa"})},
-        {on:hasMcu,em:"🩺",t:L({en:"Health checked",id:"Cek kesehatan"}),s:L({en:"MCU analysed",id:"MCU dianalisa"})}
-      ];
+      const stats=Ach.buildStats(days,{hasFasting:!!localStorage.getItem("my20fit_if"),hasMcu:!!profile._hasMcu});
+      const earnedIds=Ach.earned(stats);
       const achCard='<div class="sec">'+L({en:"Achievements",id:"Pencapaian"})+'</div><div class="card"><div class="achg">'+
-        ach.map(a=>'<div class="ach '+(a.on?"on":"off")+'"><div class="em">'+(a.on?a.em:"🔒")+'</div><div><div class="t">'+a.t+'</div><div class="s">'+a.s+'</div></div></div>').join("")+'</div></div>';
+        Ach.DEFS.map(a=>{const on=earnedIds.indexOf(a.id)>-1;return '<div class="ach '+(on?"on":"off")+'"><div class="em">'+(on?a.em:"🔒")+'</div><div><div class="t">'+L(a.t)+'</div><div class="s">'+L(a.s)+'</div></div></div>';}).join("")+'</div></div>';
 
       // ---- medical summary ----
       let medCard='';
@@ -235,6 +225,7 @@
       // MCU terakhir untuk achievement + kartu medical
       try{ const {data}=await Auth.supabase.from("my20fit_mcu_result").select("result").eq("auth_user_id",user.id).order("created_at",{ascending:false}).limit(1); if(data&&data[0]){profile._hasMcu=true;profile._mcu=data[0].result;} }catch(e){}
       render();
+      if(window.Ach)Ach.check({days:days,hasFasting:!!localStorage.getItem("my20fit_if"),hasMcu:!!profile._hasMcu});
       if(window.I18N&&I18N.onChange)I18N.onChange(render);
     })();
   </script>
