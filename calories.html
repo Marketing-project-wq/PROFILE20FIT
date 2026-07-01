@@ -198,7 +198,11 @@
     }
     // Ambil catatan kalori hari ini dari akun (biar muncul di device manapun)
     async function loadCalFromCloud(){
-      try{ const d=await Auth.getDailyLog(); if(d && Array.isArray(d.cal_items)){ items=d.cal_items; localStorage.setItem(todayKey(),JSON.stringify(items)); render();renderMeals(); } }catch(e){}
+      try{
+        const d=await Auth.getDailyLog();
+        if(d && Array.isArray(d.cal_items)){ items=d.cal_items; localStorage.setItem(todayKey(),JSON.stringify(items)); render();renderMeals(); }
+        else if(items && items.length){ if(window.Auth&&Auth.saveDaily)Auth.saveDaily({cal_items:items}); } // ada di device, belum di akun -> dorong ke akun
+      }catch(e){}
     }
     function kc(){return L({en:"kcal",id:"kkal"})}
     function setMacro(id,val,tot,bar){
