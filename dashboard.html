@@ -180,6 +180,20 @@
   }
   /* HP sempit banget: kartu kembar turun jadi 1 kolom biar gak kepencet */
   @media(max-width:380px){ .grid2{grid-template-columns:1fr} }
+  /* --- Redesign v2: label grup + latihan di rumah --- */
+  #greetDate{color:var(--pagemut)}
+  .ahrow{border-bottom:1px solid var(--line);padding:12px 2px;cursor:pointer}
+  .ahrow:last-of-type{border-bottom:0}
+  .ahhead{display:flex;align-items:center;gap:12px}
+  .ahhead .ri{width:40px;height:40px;border-radius:12px;background:var(--inp);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:18px}
+  .ahhead .a{font-size:15px;font-weight:700}
+  .ahhead .b{font-size:12px;color:var(--muted);font-weight:600}
+  .ahhead .cv{color:#C9C2B8;font-weight:800;font-size:13px;flex:0 0 auto}
+  .ahtut{max-height:0;overflow:hidden;transition:max-height .35s ease}
+  .ahrow.open .ahtut{max-height:300px}
+  .ahtut .in{padding:10px 2px 2px}
+  .ahtut .st{font-size:13px;color:var(--muted);padding:4px 0;display:flex;gap:8px;line-height:1.45}
+  .ahtut .st b{color:var(--txt)}
 </style>
 </head>
 <body>
@@ -189,23 +203,26 @@
     </div>
     <div class="hk" id="greet">Selamat datang</div>
     <div class="hello" id="hello">—</div>
+    <div class="muted" id="greetDate" style="margin:-14px 2px 4px;font-weight:600"></div>
 
-    <!-- Stats (full width) -->
+    <!-- Penting hari ini (kalori + what to watch) -> paling atas -->
+    <div id="healthReminder"></div>
+
+    <!-- YOUR HEALTH -->
+    <div class="sec gsec" data-en="Your health" data-id="Kesehatanmu">Your health</div>
     <div class="grid3">
       <div class="card stat"><div class="k" data-i18n="stat_bmi">BMI</div><div class="v" id="bmi">–</div></div>
       <div class="card stat"><div class="k" data-i18n="stat_weight">Weight</div><div class="v" id="berat">–</div></div>
       <div class="card stat"><div class="k" data-i18n="stat_height">Height</div><div class="v" id="tinggi">–</div></div>
     </div>
 
-    <!-- Pengingat dari medical check-up terakhir -->
-    <div id="healthReminder"></div>
-
     <!-- 2 kolom di desktop -->
     <div class="main">
-      <!-- Kolom kiri -->
+      <!-- Kolom kiri: TRAIN TODAY -->
       <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin:20px 2px 8px">
-          <div class="sec" data-i18n="sec_weather" style="margin:0">Weather & Air Quality</div>
+        <div class="sec gsec" data-en="Train today" data-id="Latihan Hari Ini">Train today</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:0 2px 8px">
+          <div class="muted" data-i18n="sec_weather" style="font-weight:700">Weather & Air Quality</div>
           <button onclick="loadWeather(true)" title="refresh location" style="background:none;border:0;color:var(--pagemut);cursor:pointer;font-size:17px;line-height:1;padding:2px 6px">↻</button>
         </div>
         <div class="grid2">
@@ -244,12 +261,30 @@
           <span data-i18n="book_recworkout">Ready to train? Book your class at 20fit.</span>
         </a>
 
-        <div id="ifWidget"></div>
+        <!-- Latihan di rumah (baru) -->
+        <div class="card" style="margin-top:12px">
+          <div style="font-weight:800;font-size:15px" data-en="Or train at home · no equipment" data-id="Atau latihan di rumah · tanpa alat">Or train at home · no equipment</div>
+          <div class="muted" style="font-size:12px;margin:2px 0 4px" data-en="General starting point — not a personalised program." data-id="Panduan umum — bukan program personal.">General starting point — not a personalised program.</div>
+          <div class="ahrow" onclick="this.classList.toggle('open')">
+            <div class="ahhead"><div class="ri">🦵</div><div style="flex:1"><div class="a">Squat</div><div class="b">3 × 10–12</div></div><span class="cv" data-en="Tutorial ›" data-id="Tutorial ›">Tutorial ›</span></div>
+            <div class="ahtut"><div class="in"><div class="st"><b>1.</b> <span data-en="Feet shoulder-width, toes slightly out." data-id="Kaki selebar bahu, ujung kaki sedikit keluar.">Feet shoulder-width, toes slightly out.</span></div><div class="st"><b>2.</b> <span data-en="Push hips back & down, knees over toes." data-id="Dorong pinggul ke belakang & turun, lutut searah kaki.">Push hips back &amp; down, knees over toes.</span></div><div class="st"><b>3.</b> <span data-en="Chest up, drive through heels to stand." data-id="Dada tegak, dorong lewat tumit untuk berdiri.">Chest up, drive through heels to stand.</span></div></div></div>
+          </div>
+          <div class="ahrow" onclick="this.classList.toggle('open')">
+            <div class="ahhead"><div class="ri">💪</div><div style="flex:1"><div class="a">Push-up</div><div class="b">3 × 8–12</div></div><span class="cv">Tutorial ›</span></div>
+            <div class="ahtut"><div class="in"><div class="st"><b>1.</b> <span data-en="Hands slightly wider than shoulders." data-id="Tangan sedikit lebih lebar dari bahu.">Hands slightly wider than shoulders.</span></div><div class="st"><b>2.</b> <span data-en="Keep body straight — hips don't sag." data-id="Badan lurus — pinggul jangan turun.">Keep body straight — hips don't sag.</span></div><div class="st"><b>3.</b> <span data-en="Lower chest to floor, press back up." data-id="Turunkan dada ke lantai, dorong naik.">Lower chest to floor, press back up.</span></div></div></div>
+          </div>
+          <div class="ahrow" onclick="this.classList.toggle('open')">
+            <div class="ahhead"><div class="ri">🧱</div><div style="flex:1"><div class="a">Plank</div><div class="b">3 × 30–45s</div></div><span class="cv">Tutorial ›</span></div>
+            <div class="ahtut"><div class="in"><div class="st"><b>1.</b> <span data-en="Forearms under shoulders." data-id="Lengan bawah tepat di bawah bahu.">Forearms under shoulders.</span></div><div class="st"><b>2.</b> <span data-en="Straight line head to heels, squeeze core." data-id="Garis lurus kepala–tumit, kencangkan perut.">Straight line head to heels, squeeze core.</span></div><div class="st"><b>3.</b> <span data-en="Breathe steadily; don't drop hips." data-id="Napas teratur; pinggul jangan turun.">Breathe steadily; don't drop hips.</span></div></div></div>
+          </div>
+          <div class="muted" style="font-size:11px;margin-top:10px" data-en="⚠️ Warm up first. Stop if you feel dizzy or short of breath." data-id="⚠️ Pemanasan dulu. Berhenti kalau pusing atau sesak.">⚠️ Warm up first. Stop if you feel dizzy or short of breath.</div>
+        </div>
       </div>
 
-      <!-- Kolom kanan -->
+      <!-- Kolom kanan: WELLNESS ROUTINES -->
       <div>
-        <div class="sec" data-i18n="sec_breath">Breathing Exercise</div>
+        <div class="sec gsec" data-en="Wellness routines · optional" data-id="Rutinitas Wellness · opsional">Wellness routines</div>
+        <div class="sec" data-i18n="sec_breath" style="margin-top:8px">Breathing Exercise</div>
         <div class="card">
           <div class="seg">
             <button data-p="478" class="active" onclick="pickPattern('478')" data-i18n="breath_anxiety">Anxiety</button>
@@ -261,6 +296,8 @@
           <div class="dots" id="bdots"></div>
           <button class="btn" id="bbtn" onclick="toggleBreath()" data-i18n="start">Start</button>
         </div>
+
+        <div id="ifWidget"></div>
 
         <div class="sec" data-i18n="sec_sleepwater">Sleep & Water</div>
         <div class="grid2">
@@ -835,6 +872,18 @@
           DeviceOrientationEvent.requestPermission().then(function(s){ if(s==="granted") window.addEventListener("deviceorientation", onOrient, true); }).catch(function(){});
         } }catch(e){}
       });
+    })();
+  </script>
+  <script>
+    // Isi label grup (data-en/data-id) + tanggal sapaan — ikut ganti bahasa
+    (function(){
+      function fillG(){
+        var id=(window.I18N&&I18N.lang==="id");
+        document.querySelectorAll("[data-en]").forEach(function(e){var t=id?e.getAttribute("data-id"):e.getAttribute("data-en");if(t!=null)e.textContent=t;});
+        var gd=document.getElementById("greetDate");
+        if(gd){try{gd.textContent=new Date().toLocaleDateString(id?"id-ID":"en-US",{weekday:"long",day:"numeric",month:"long"});}catch(e){}}
+      }
+      fillG(); if(window.I18N&&I18N.onChange)I18N.onChange(fillG);
     })();
   </script>
 </body>
