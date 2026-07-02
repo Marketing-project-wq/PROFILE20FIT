@@ -124,14 +124,14 @@
         <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600"></a></div>
 
         <div class="orsep"><span data-k="orsep">or</span></div>
-        <button class="sbtn fbtn" onclick="fitco()">
+        <!-- Login pakai akun 20fit: satu-klik lewat Google (cara daftar app paling umum) -->
+        <button class="sbtn fbtn" onclick="googleLogin()">
           <img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" />
           <span data-k="fitco">Sign in with your 20fit account</span>
         </button>
-        <button class="sbtn gbtn" onclick="googleLogin()">
-          <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9.1h12.4c-.5 2.9-2.1 5.3-4.6 7l7.1 5.5c4.2-3.9 6.6-9.6 6.6-16z"/><path fill="#FBBC05" d="M10.4 28.3c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-7.8-6.1C1 16.1 0 19.9 0 24s1 7.9 2.6 11.1l7.8-6.8z"/><path fill="#34A853" d="M24 48c6.1 0 11.3-2 15.1-5.5l-7.1-5.5c-2 1.3-4.5 2.1-8 2.1-6.4 0-11.7-3.7-13.6-9.8l-7.8 6.8C6.5 42.6 14.6 48 24 48z"/></svg>
-          <span data-k="google">Continue with Google</span>
-        </button>
+        <div style="text-align:center;margin-top:9px">
+          <a onclick="fitco()" style="color:var(--muted);font-size:12.5px;text-decoration:underline;cursor:pointer" data-k="fitcopw">20fit account uses email &amp; password? Sign in</a>
+        </div>
         <button class="sbtn mbtn" onclick="magicStart()">
           <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg>
           <span data-k="magiclink">Email me a login code</span>
@@ -166,7 +166,8 @@
         errPw:"Password must be at least 8 characters.", errFill:"Please fill in email & password.",
         errName:"Please enter your name.", processing:"Processing...",
         orsep:"or", google:"Continue with Google", magiclink:"Email me a login code",
-        fitco:"Sign in with your 20fit app account",
+        fitco:"Sign in with your 20fit account",
+        fitcopw:"20fit account uses email & password? Sign in",
         codeLabel:"Code from email", verifyBtn:"Verify & Sign In",
         emailNeed:"Enter your email first.", codeNeed:"Enter the code from your email.",
         magicSent:"Login code sent! Check your email.", sending:"Sending code..."
@@ -187,7 +188,8 @@
         errPw:"Password minimal 8 karakter.", errFill:"Isi email & password dulu ya.",
         errName:"Isi nama kamu dulu.", processing:"Memproses...",
         orsep:"atau", google:"Lanjut dengan Google", magiclink:"Kirim kode login ke email",
-        fitco:"Masuk pakai akun app 20fit",
+        fitco:"Masuk pakai akun 20fit",
+        fitcopw:"Akun 20fit pakai email & password? Masuk",
         codeLabel:"Kode dari email", verifyBtn:"Verifikasi & Masuk",
         emailNeed:"Isi email kamu dulu.", codeNeed:"Masukkan kode dari email.",
         magicSent:"Kode login terkirim! Cek email kamu.", sending:"Mengirim kode..."
