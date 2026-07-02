@@ -79,6 +79,17 @@
     return data;
   }
 
+  // Apakah akun ini SUDAH punya password web? (Google/OTP/FITCO-Google = belum)
+  function hasWebPassword(user) { return !!(user && user.user_metadata && user.user_metadata.has_pw); }
+  // Set password web (dipakai di onboarding kalau user belum punya password)
+  async function setWebPassword(pw) {
+    await ready;
+    if (!pw || pw.length < 8) throw new Error("Password minimal 8 karakter.");
+    const { error } = await supabase.auth.updateUser({ password: pw, data: { has_pw: true } });
+    if (error) throw error;
+    return true;
+  }
+
   function go(page) {
     window.location.href = page;
   }
@@ -115,6 +126,8 @@
         throw e2;
       }
     }
+    // Tandai akun ini sudah punya password (buat gate password di onboarding)
+    try { await supabase.auth.updateUser({ data: { has_pw: true } }); } catch (e) {}
     return data;
   }
 
@@ -320,7 +333,8 @@
   async function routeAfterAuth() {
     const user = await requireAuth();
     const profile = await ensureProfile(user);
-    // Verifikasi email (OTP) opsional untuk sekarang -> langsung masuk.
+    // Belum punya password web (login via Google/OTP/FITCO-Google) -> wajib bikin dulu di onboarding.
+    if (!hasWebPassword(user)) return go("onboarding.html");
     // User lama yang sudah onboarding -> dashboard; user baru -> onboarding.
     if (profile.onboarding_completed) return go("dashboard.html");
     return go("onboarding.html");
@@ -334,6 +348,8 @@
     loginSend,
     verifyLoginCode,
     fitcoLogin,
+    hasWebPassword,
+    setWebPassword,
     signOut,
     getUser,
     requireAuth,
