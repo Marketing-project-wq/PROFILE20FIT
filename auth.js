@@ -135,6 +135,8 @@
     await ready;
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
+    // Login pakai password = jelas sudah punya password -> tandai (gak diminta bikin lagi)
+    try { await supabase.auth.updateUser({ data: { has_pw: true } }); } catch (e) {}
     return data;
   }
 

@@ -319,12 +319,16 @@
       }catch(e){}
     }
 
-    // Auto-enter if already logged in (also catches Google OAuth redirect back)
+    // Auto-enter hanya kalau user sudah SIAP PENUH. Selain itu -> tampilkan pilihan login/sign up dulu.
     (async function(){
       try{
         await Auth.ready;
-        Auth.supabase.auth.onAuthStateChange((evt,sess)=>{ if(sess&&sess.user){ Auth.routeAfterAuth(); } });
-        const u=await Auth.getUser(); if(u){ await Auth.routeAfterAuth(); return; }
+        // Route HANYA saat user AKTIF login / balik dari Google (evt SIGNED_IN), bukan saat sesi lama kebaca.
+        Auth.supabase.auth.onAuthStateChange((evt,sess)=>{ if(evt==="SIGNED_IN" && sess && sess.user){ Auth.routeAfterAuth(); } });
+        const u=await Auth.getUser();
+        if(u && Auth.hasWebPassword(u)){
+          try{ const p=await Auth.getProfile(); if(p && p.onboarding_completed){ Auth.go("dashboard.html"); return; } }catch(e){}
+        }
         tryAutofill();
       }catch(e){}
     })();
