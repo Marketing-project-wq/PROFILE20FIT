@@ -4,96 +4,146 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Medical Record · 20fit</title>
+<script>try{if((localStorage.getItem("theme")||"light")!=="dark")document.documentElement.classList.add("theme-light")}catch(e){document.documentElement.classList.add("theme-light")}</script>
 <style>
-  :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000000;--pagetx:#EDE8DF}
+  /* ===== 20fit Medical Record — new visual design (re-skin only) =====
+     Every JS-emitted class hook (.card/.ch/.param/.find/.ohstat/.prow/.achrow/.rfull …)
+     and all wired ids (#mcufile/#result/#list) & the whole <script> are unchanged.
+     Cards stay light in both themes so AI-generated result text remains readable. */
+  :root{
+    --red:#C41101;--red-ink:#B01C2E;--red-soft:#FCEBED;
+    --amber:#C87000;--amber-soft:#FDF1E2;--amber-ink:#9A5D12;
+    --blue:#2563eb;--blue-soft:#EAF1FF;--green:#2A7A4F;--green-soft:#E6F6EE;--green-ink:#1B7A4D;
+    --card:#FFFFFF;--txt:#15171C;--ink:#15171C;--muted:#8A8D94;--faint:#B7B9BF;--line:#EBEBEF;--inp:#F2F2F5;
+    --bg:#F3F2F0;--pagetx:#15171C;--dark:#141414;
+    --radius-lg:22px;--radius:14px;
+    --shadow:0 1px 2px rgba(16,18,22,.04),0 8px 26px rgba(16,18,22,.05);
+  }
+  /* Dark = app toggle removes .theme-light. Keep cards light for readable AI content. */
+  html:not(.theme-light){ --bg:#0C0D10;--pagetx:#F4F5F7;--dark:#000 }
   *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 70px}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:20px 16px 96px;
+    -webkit-font-smoothing:antialiased;transition:background .3s ease}
   .wrap{max-width:640px;margin:0 auto}
-  .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:14px;display:flex;align-items:center}
-  .logobar img{height:36px}
-  h1{font-size:24px;font-weight:900;margin:0 0 4px;text-transform:uppercase}
+  @media(min-width:900px){ .wrap{max-width:1000px} }
+  a{text-decoration:none}
+
+  /* ---- Hero header ---- */
+  .hero{position:relative;padding:8px 4px 6px;margin:2px 0 8px}
+  .hero .kick{color:var(--red);font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700}
+  h1{font-size:31px;font-weight:800;margin:2px 2px 4px;letter-spacing:-.03em;line-height:1.04;text-transform:none}
   .muted{color:var(--muted);font-size:13px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px;box-shadow:0 2px 10px rgba(0,0,0,.3);color:var(--txt)}
-  .up{border:1px dashed var(--red);background:rgba(225,29,42,.06);text-align:center;cursor:pointer}
-  .up .ic svg{width:38px;height:38px;fill:none;stroke:var(--red);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-  .btn{margin-top:12px;padding:12px 16px;border:0;border-radius:10px;background:var(--red);color:#fff;font-weight:800;cursor:pointer}
-  .rec{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
-  .rec:last-child{border-bottom:0}
-  .grade{width:38px;height:38px;border-radius:10px;background:rgba(225,29,42,.15);color:var(--red);display:flex;align-items:center;justify-content:center;font-weight:900}
-  .empty{text-align:center;color:var(--muted);padding:30px 10px}
-  .soon{display:inline-block;font-size:11px;background:var(--inp);color:#aaa;padding:3px 9px;border-radius:20px;margin-top:6px}
-  .param{padding:11px 0;border-bottom:1px solid var(--line)}
-  .param:last-child{border-bottom:0}
-  .param .ph{display:flex;justify-content:space-between;align-items:center;gap:8px}
-  .param .pv{font-weight:800;display:flex;align-items:center;gap:6px}
-  .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
-  .find{border-left:3px solid;border-radius:10px;padding:12px 14px;margin-top:10px;background:var(--inp)}
-  .find .ft{font-weight:800;display:flex;justify-content:space-between;align-items:center;gap:8px}
-  .sevtag{font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px}
-  .plan{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;line-height:1.5}
-  .plan:last-child{border-bottom:0}
-  .plan .pi{width:26px;height:26px;border-radius:8px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:14px}
-  .ch{font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:9px}
-  .ch svg{width:19px;height:19px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .rec{cursor:pointer}
-  .seemore{flex:0 0 auto;color:var(--red);font-weight:800;font-size:12px;white-space:nowrap}
-  .bookbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:13px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;text-decoration:none}
-  .bookbtn.alt{background:var(--inp);color:var(--txt);border:1px solid var(--line)}
-  .bookbtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  /* hasil scan: grid biar side-by-side di desktop */
+
+  /* ---- Card ---- */
+  .card{background:var(--card);color:var(--txt);border:0;border-radius:var(--radius-lg);padding:20px;margin-top:14px;box-shadow:var(--shadow)}
+
+  /* ---- Upload ---- */
+  .up{border:1.5px dashed color-mix(in srgb,var(--red) 40%,var(--line));background:color-mix(in srgb,var(--red-soft) 55%,var(--card));text-align:center;cursor:pointer;transition:.15s}
+  .up:active{transform:scale(.99)}
+  .up .ic{width:50px;height:50px;border-radius:15px;background:var(--card);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;box-shadow:var(--shadow)}
+  .up .ic svg{width:24px;height:24px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .btn{margin-top:12px;padding:13px 20px;border:0;border-radius:var(--radius);background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;
+    box-shadow:0 8px 20px color-mix(in srgb,var(--red) 26%,transparent)}
+
+  /* ---- Consult banner (static, data-i18n) ---- */
+  .consultbn{display:flex;align-items:center;gap:14px;margin-top:14px;padding:18px;border-radius:var(--radius-lg);
+    background:var(--card);color:var(--txt);box-shadow:var(--shadow)}
+  .consultbn .cbic{width:46px;height:46px;border-radius:13px;background:var(--red-soft);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .consultbn .cbic svg{width:24px;height:24px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .consultbn .cbt{font-weight:800;font-size:16px}
+  .consultbn .cbs{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+  .cbbtn{flex:0 0 auto;background:var(--red);color:#fff;border-radius:12px;padding:12px 16px;font-weight:750;font-size:13px;text-decoration:none;white-space:nowrap;
+    box-shadow:0 8px 20px color-mix(in srgb,var(--red) 26%,transparent)}
+  @media(max-width:560px){ .consultbn{flex-wrap:wrap} .cbbtn{width:100%;text-align:center} }
+
+  /* ---- Dynamic result grid ---- */
   #result{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
   #result .card{margin-top:0}
   .rfull{grid-column:1/-1}
-  @media(min-width:900px){ .wrap{max-width:1000px} #result{grid-template-columns:1fr 1fr} }
-  /* overall summary stats */
-  .ohrow{display:flex;gap:10px;margin-top:10px}
-  .ohstat{flex:1;background:var(--inp);border-radius:12px;padding:10px 12px;text-align:center}
-  .ohstat .l{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700}
-  .ohstat .v{font-weight:900;font-size:20px;margin-top:2px}
-  /* program rows (bookable) */
-  .prow{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+  @media(min-width:900px){ #result{grid-template-columns:1fr 1fr} }
+
+  /* section header inside result cards */
+  .ch{font-weight:800;font-size:15px;margin-bottom:10px;display:flex;align-items:center;gap:9px;letter-spacing:-.01em}
+  .ch svg{width:19px;height:19px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* overall summary tiles */
+  .ohrow{display:flex;gap:0;margin-top:12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .ohstat{flex:1;padding:14px 8px;text-align:center;position:relative}
+  .ohstat + .ohstat::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:1px;background:var(--line)}
+  .ohstat .l{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .ohstat .v{font-weight:800;font-size:22px;margin-top:6px;letter-spacing:-.02em}
+
+  /* parameter rows */
+  .param{padding:13px 0;border-bottom:1px solid var(--line)}
+  .param:last-child{border-bottom:0}
+  .param .ph{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .param .ph b{font-weight:700;font-size:14.5px;letter-spacing:-.01em}
+  .param .pv{font-weight:800;display:flex;align-items:center;gap:6px;font-size:15px}
+  .dot{width:9px;height:9px;border-radius:999px;flex:0 0 auto}
+
+  /* findings */
+  .find{border-left:3px solid;border-radius:12px;padding:13px 15px;margin-top:10px;background:var(--inp)}
+  .find .ft{font-weight:800;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .sevtag{font-size:9px;font-weight:800;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
+
+  /* plan bullet rows */
+  .plan{display:flex;gap:11px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px;line-height:1.5}
+  .plan:last-child{border-bottom:0}
+  .plan .pi{width:28px;height:28px;border-radius:10px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:14px}
+
+  /* bookable program rows */
+  .prow{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
   .prow:last-child{border-bottom:0}
-  .prow .pn{font-weight:800;font-size:14px}.prow .pd{font-size:12px;color:var(--muted)}
-  .bookchip{flex:0 0 auto;background:var(--red);color:#fff;border:0;border-radius:9px;padding:8px 12px;font-weight:800;font-size:12px;text-decoration:none;cursor:pointer}
-  .bookchip.clinic{background:#2563eb}
+  .prow .pn{font-weight:700;font-size:14.5px;letter-spacing:-.01em}.prow .pd{font-size:12px;color:var(--muted);margin-top:1px}
+  .bookchip{flex:0 0 auto;background:var(--red);color:#fff;border:0;border-radius:11px;padding:9px 15px;font-weight:750;font-size:12px;text-decoration:none;cursor:pointer}
+  .bookchip.clinic{background:var(--blue)}
+
   /* achievement board */
-  .achbar{height:8px;background:var(--inp);border-radius:6px;overflow:hidden;margin:4px 0 8px}
-  .achbar>i{display:block;height:100%;background:linear-gradient(90deg,#C87000,#f0a93a);width:0;transition:width .4s}
-  .achrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;font-size:13.5px}
+  .achbar{height:6px;background:var(--inp);border-radius:999px;overflow:hidden;margin:4px 0 10px}
+  .achbar>i{display:block;height:100%;background:linear-gradient(90deg,#C87000,#f0a93a);width:0;transition:width .4s;border-radius:999px}
+  .achrow{display:flex;align-items:center;gap:13px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;font-size:13.5px;font-weight:600}
   .achrow:last-child{border-bottom:0}
-  .achbox{width:24px;height:24px;border-radius:7px;border:2px solid var(--line);flex:0 0 auto;display:flex;align-items:center;justify-content:center}
-  .achbox svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0}
-  .achrow.done .achbox{background:#C87000;border-color:#C87000}
-  .achrow.done .achbox svg{opacity:1}
+  .achbox{width:23px;height:23px;border-radius:999px;border:2px solid var(--line);flex:0 0 auto;display:flex;align-items:center;justify-content:center;transition:.18s}
+  .achbox svg{width:13px;height:13px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.5);transition:.18s}
+  .achrow.done .achbox{background:var(--green);border-color:var(--green)}
+  .achrow.done .achbox svg{opacity:1;transform:scale(1)}
   .achrow.done{color:var(--muted);text-decoration:line-through}
-  /* banner konsultasi dokter */
-  .consultbn{display:flex;align-items:center;gap:14px;margin-top:14px;padding:16px 18px;border-radius:16px;
-    background:linear-gradient(135deg,#C41101,#7a0d00);color:#fff;box-shadow:0 6px 20px rgba(196,17,1,.3)}
-  .consultbn .cbic{width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
-  .consultbn .cbic svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .consultbn .cbt{font-weight:900;font-size:16px}
-  .consultbn .cbs{font-size:12.5px;opacity:.92;margin-top:2px;line-height:1.4}
-  .cbbtn{flex:0 0 auto;background:#fff;color:#C41101;border-radius:11px;padding:11px 16px;font-weight:800;font-size:13px;text-decoration:none;white-space:nowrap}
-  @media(max-width:560px){ .consultbn{flex-wrap:wrap} .cbbtn{width:100%;text-align:center} }
-  /* banner belanja bahan makanan (affiliate) */
-  .shopbn{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;color:#fff;
-    background:linear-gradient(135deg,#2A7A4F,#15512f);box-shadow:0 6px 20px rgba(42,122,79,.3)}
-  .shopbn .cbic{width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
-  .shopbn .cbic svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .shopbn .cbt{font-weight:900;font-size:16px}.shopbn .cbs{font-size:12.5px;opacity:.92;margin-top:2px;line-height:1.4}
+
+  /* shop banner (affiliate) */
+  .shopbn{display:flex;align-items:center;gap:14px;padding:18px;border-radius:var(--radius-lg);color:var(--txt);
+    background:linear-gradient(150deg,var(--green-soft),var(--card));box-shadow:var(--shadow)}
+  .shopbn .cbic{width:46px;height:46px;border-radius:13px;background:var(--card);display:flex;align-items:center;justify-content:center;flex:0 0 auto;box-shadow:var(--shadow)}
+  .shopbn .cbic svg{width:24px;height:24px;fill:none;stroke:var(--green);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .shopbn .cbt{font-weight:800;font-size:16px}.shopbn .cbs{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.4}
   @media(max-width:560px){ .shopbn{flex-wrap:wrap} .shopbn .cbbtn{width:100%;text-align:center} }
+
+  /* book buttons + history rows */
+  .bookbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;padding:14px;border:0;border-radius:var(--radius);background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;text-decoration:none;
+    box-shadow:0 8px 20px color-mix(in srgb,var(--red) 24%,transparent)}
+  .bookbtn.alt{background:var(--inp);color:var(--txt);box-shadow:none}
+  .bookbtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .rec{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .rec:last-child{border-bottom:0}
+  .grade{width:40px;height:40px;border-radius:12px;background:var(--red-soft);color:var(--red);display:flex;align-items:center;justify-content:center;font-weight:900;flex:0 0 auto}
+  .seemore{flex:0 0 auto;color:var(--red);font-weight:800;font-size:12px;white-space:nowrap}
+  .empty{text-align:center;color:var(--muted);padding:30px 10px}
+  .soon{display:inline-block;font-size:12px;background:var(--inp);color:var(--muted);padding:6px 14px;border-radius:999px;margin-top:6px;font-weight:700}
+
 </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" /></div>
-    <h1 data-i18n="med_title">Medical Record</h1>
-    <div class="muted" data-i18n="med_sub">Your medical check-up results & recommendations.</div>
+    <header class="hero">
+      <div class="kick">Medical record</div>
+      <h1 data-i18n="med_title">Medical Record</h1>
+      <div class="muted" data-i18n="med_sub">Your medical check-up results & recommendations.</div>
+    </header>
 
     <div class="card up" onclick="document.getElementById('mcufile').click()">
       <div class="ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></div>
-      <div style="font-weight:800;margin-top:6px" data-i18n="med_upload">Upload Medical Check-Up</div>
-      <div class="muted" data-i18n="med_uploadsub">PDF / JPG / PNG from any facility — analysed automatically with AI</div>
+      <div style="font-weight:800;font-size:16px;margin-top:2px" data-i18n="med_upload">Upload Medical Check-Up</div>
+      <div class="muted" style="margin:4px 12px 0;line-height:1.45" data-i18n="med_uploadsub">PDF / JPG / PNG from any facility — analysed automatically with AI</div>
     </div>
     <input id="mcufile" type="file" accept="image/*,application/pdf" style="display:none" onchange="analyzeMCU(event)" />
 
@@ -109,10 +159,11 @@
     <div id="result"></div>
 
     <div class="card">
-      <div style="font-weight:800;margin-bottom:6px" data-i18n="med_history">History</div>
+      <div style="font-weight:800;font-size:15px;margin-bottom:6px" data-i18n="med_history">History</div>
       <div id="list"></div>
     </div>
   </div>
+
 
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>

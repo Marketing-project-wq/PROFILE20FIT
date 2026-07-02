@@ -4,58 +4,89 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Dashboard · 20fit</title>
+<script>try{if((localStorage.getItem("theme")||"light")!=="dark")document.documentElement.classList.add("theme-light")}catch(e){document.documentElement.classList.add("theme-light")}</script>
 <style>
-  :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#ECE8E1;--txt:#1A1714;--muted:#8C8578;--inp:#F3F2F0;--dark:#141414;--pagetx:#EDE8DF;--pagemut:#9a907f;
-        --green:#2A7A4F;--orange:#C87000;--blue:#3b82f6;
-        --shadow:0 1px 2px rgba(20,16,12,.05),0 10px 26px rgba(20,16,12,.05)}
+  /* ===== 20fit Dashboard — new visual design (light-first, dark via app toggle) =====
+     Re-skin only: every wired id/handler & the whole <script> are unchanged. */
+  :root{
+    --red:#C41101;--red-ink:#B01C2E;--red-soft:#FCEBED;
+    --amber:#C87000;--amber-soft:#FDF1E2;--blue:#2F6BFF;--blue-soft:#EAF1FF;--green:#2A7A4F;--green-soft:#E6F6EE;
+    --bg:#F3F2F0;--card:#FFFFFF;--ink:#15171C;--txt:#1A1714;--muted:#8A8D94;--faint:#B7B9BF;--line:#EBEBEF;--inp:#F2F2F5;
+    --pagetx:#15171C;--pagemut:#8A8D94;
+    --radius-lg:22px;--radius:16px;
+    --shadow:0 1px 2px rgba(16,18,22,.04),0 10px 30px rgba(16,18,22,.05);
+  }
+  /* Dark = app toggle removes .theme-light */
+  html:not(.theme-light){
+    --red:#FF5062;--red-ink:#FF7181;--red-soft:#33191D;
+    --amber:#F0A945;--amber-soft:#2E2213;--blue:#5C8CFF;--blue-soft:#182238;--green:#3AD98C;--green-soft:#12271C;
+    --bg:#0C0D10;--card:#17191F;--ink:#F4F5F7;--txt:#F4F5F7;--muted:#8E9198;--faint:#5C5F66;--line:#25272E;--inp:#23262E;
+    --pagetx:#F4F5F7;--pagemut:#8E9198;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 34px rgba(0,0,0,.35);
+  }
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 20px 70px}
-  .card{color:var(--txt)}
-  .sec{color:var(--pagemut)}
-  .bookbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:12px;padding:15px;
-    border:0;border-radius:14px;background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer;text-decoration:none}
-  .bookbtn svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .bookbtn.ghost{background:var(--inp);color:var(--txt);border:1px solid var(--line)}
-  .hrrow{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)}
-  .hrrow:last-of-type{border-bottom:0}
-  .hrdot{width:9px;height:9px;border-radius:50%;background:var(--red);flex:0 0 auto;margin-top:5px}
-  .ifbadge{font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:4px 10px;border-radius:20px}
-  .ifbadge.eat{background:rgba(42,122,79,.18);color:#2A7A4F}
-  .ifbadge.fast{background:rgba(200,112,0,.18);color:#C87000}
-  .ift{font-size:24px;font-weight:900;font-family:'JetBrains Mono',monospace}
-  .wrap{max-width:1100px;margin:0 auto}
-  .top{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 22px;
-    background:var(--dark);border-radius:18px;padding:14px 18px}
-  .logo{display:flex;align-items:center}
-  .logo img{height:40px;width:auto}
-  .logout{border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:9px;padding:9px 15px;font-size:14px;cursor:pointer}
-  .hk{color:var(--red);font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px}
-  .hello{font-size:31px;font-weight:800;margin:2px 2px 18px;letter-spacing:-.6px}
-  .sec{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--pagemut);font-weight:800;margin:24px 4px 10px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:var(--shadow)}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-  /* Desktop: 2 kolom besar */
-  .main{display:grid;grid-template-columns:1fr;gap:0 24px;align-items:start}
-  @media(min-width:900px){ .main{grid-template-columns:1fr 1fr} }
-  .stat .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px}
-  .stat .v{font-size:27px;font-weight:800;margin-top:6px;letter-spacing:-.5px}
-  .stat .v small{font-size:13px;color:var(--muted);font-weight:600}
-  .big{font-size:32px;font-weight:900;line-height:1}
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:20px 16px 96px;
+    -webkit-font-smoothing:antialiased;transition:background .3s ease}
+  .wrap{max-width:1120px;margin:0 auto}
   .muted{color:var(--muted);font-size:13px}
-  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
-  /* Termometer kalori di dashboard */
-  .dthermo{position:relative;height:16px;background:var(--inp);border:1px solid var(--line);border-radius:9px;margin:11px 0 7px;overflow:hidden}
-  .dthermo i{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,#ff7a45,#C41101);transition:width .6s cubic-bezier(.2,.8,.2,1)}
-  .dtogo{font-size:13px;font-weight:700}
-  .dtogo b{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:16px;margin-right:3px}
-  .hrok{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)}
-  /* ---- Weather animated scene ---- */
+  .big{font-size:30px;font-weight:800;line-height:1;letter-spacing:-.02em}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
+
+  /* ---- Hero greeting with sky-bleed glow ---- */
+  .hero{position:relative;overflow:hidden;padding:8px 6px 4px;margin:2px 0 6px}
+  .hero .glow{position:absolute;top:-70px;right:-30px;width:230px;height:230px;border-radius:999px;
+    background:radial-gradient(circle,rgba(255,190,90,.45),rgba(255,190,90,0) 66%);
+    animation:heroBreathe 5.5s ease-in-out infinite;pointer-events:none;z-index:0}
+  html:not(.theme-light) .hero .glow{background:radial-gradient(circle,rgba(255,190,90,.24),rgba(255,190,90,0) 66%)}
+  @keyframes heroBreathe{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
+  .hero-inner{position:relative;z-index:1}
+  .hk{color:var(--red);font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px 2px}
+  .hello{font-size:33px;font-weight:800;margin:0 2px;letter-spacing:-.03em;line-height:1.04}
+  .greetdate{font-size:13px;color:var(--faint);font-weight:600;margin:5px 2px 0}
+
+  /* ---- Section labels ---- */
+  .sec{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--pagemut);font-weight:800;margin:24px 4px 11px}
+  .sec.gsec{color:var(--pagetx);font-size:16px;letter-spacing:-.01em;text-transform:none;font-weight:800;margin:26px 2px 12px}
+  #greetDate{color:var(--faint)}
+
+  /* ---- Card ---- */
+  .card{background:var(--card);color:var(--txt);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);border:0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  .main{display:grid;grid-template-columns:1fr;gap:0 22px;align-items:start}
+  @media(min-width:900px){ .main{grid-template-columns:1.15fr 1fr} }
+  .sechead-row{display:flex;justify-content:space-between;align-items:center;margin:0 2px 9px}
+  .refreshbtn{background:var(--card);border:0;box-shadow:var(--shadow);color:var(--muted);cursor:pointer;
+    font-size:16px;line-height:1;width:34px;height:34px;border-radius:999px;transition:.15s}
+  .refreshbtn:active{transform:scale(.92)}
+
+  /* ---- Vitals (BMI / Weight / Height) ---- */
+  .vitals{display:grid;grid-template-columns:repeat(3,1fr);padding:4px 0}
+  .vital{padding:14px 16px;position:relative}
+  .vital + .vital::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:1px;background:var(--line)}
+  .vital .lbl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+  .vital .val{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-top:8px;line-height:1;color:var(--ink)}
+  .vital .val small{font-size:13px;font-weight:600;color:var(--muted);margin-left:2px}
+
+  /* ---- Book / CTA buttons ---- */
+  .bookbtn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;margin-top:12px;padding:15px;
+    border:0;border-radius:var(--radius);background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer;text-decoration:none;
+    box-shadow:0 10px 24px color-mix(in srgb,var(--red) 28%,transparent);transition:.16s}
+  .bookbtn:active{transform:scale(.99)}
+  .bookbtn svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .bookbtn.ghost{background:var(--inp);color:var(--txt);box-shadow:none}
+  .bookbtn.ghost svg{stroke:var(--txt)}
+  .btn{padding:14px;border:0;border-radius:var(--radius);background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer;width:100%;
+    box-shadow:0 8px 20px color-mix(in srgb,var(--red) 26%,transparent);transition:.16s}
+  .btn:active{transform:scale(.99)}
+  .btn.dark{background:var(--inp);color:var(--txt);box-shadow:none}
+
+  /* ---- Weather animated scene (kept) ---- */
   .wcard{position:relative;overflow:hidden;padding:0}
   .wscene{position:absolute;inset:0;transition:background 1s}
   .wover{position:relative;z-index:2;padding:18px}
-  .wover .muted{color:rgba(255,255,255,.85)}
+  .wover .muted{color:rgba(255,255,255,.88)}
   .wover .big{color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.35)}
   .sun{position:absolute;width:46px;height:46px;border-radius:50%;background:radial-gradient(circle,#fff3b0,#ffd23f);top:14px;right:18px;
     box-shadow:0 0 26px 6px rgba(255,210,63,.65);animation:sunPulse 4s infinite ease-in-out}
@@ -76,7 +107,8 @@
   .bolt{position:absolute;top:30px;left:46%;font-size:0;width:0;height:0;animation:flash 3.5s infinite}
   @keyframes flash{0%,92%,100%{opacity:0}94%,98%{opacity:1}}
   @keyframes sunPulse{0%,100%{transform:scale(1);box-shadow:0 0 26px 6px rgba(255,210,63,.6)}50%{transform:scale(1.08);box-shadow:0 0 34px 10px rgba(255,210,63,.8)}}
-  /* ---- AQI gauge ---- */
+
+  /* ---- AQI gauge (kept) ---- */
   .aqiwrap{position:relative;width:120px;height:120px;margin:12px auto 6px}
   .aqigauge{width:120px;height:120px;display:block}
   .aqicenter{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
@@ -85,145 +117,157 @@
   .aqiparts{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:50%}
   .pm{position:absolute;border-radius:50%;background:rgba(255,255,255,.45);animation:rise2 linear infinite}
   @keyframes rise2{0%{transform:translateY(60px) scale(.6);opacity:0}20%{opacity:.8}100%{transform:translateY(-10px) scale(1);opacity:0}}
-  .scene{display:none}
-  .wrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
-  a.wrow{text-decoration:none;color:inherit;transition:opacity .15s}
+
+  /* ---- Recommended workouts list rows ---- */
+  .wrow{display:flex;align-items:center;gap:13px;padding:14px 4px;border-bottom:1px solid var(--line);transition:opacity .15s}
+  a.wrow{text-decoration:none;color:inherit}
   a.wrow:active{opacity:.6}
   .wrow:last-child{border-bottom:0}
-  .wrow .em{width:38px;height:38px;border-radius:10px;background:rgba(225,29,42,.12);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .wrow .em{width:40px;height:40px;border-radius:12px;background:var(--red-soft);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
   .wrow .em svg{width:21px;height:21px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .cloud-s{position:absolute;width:34px;height:14px;background:rgba(255,255,255,.85);border-radius:10px;top:14px;
-    box-shadow:14px 4px 0 -2px rgba(255,255,255,.85),-10px 4px 0 -3px rgba(255,255,255,.7)}
   .wrow .nm{font-weight:700;font-size:15px}
-  .wrow .rs{font-size:13px;color:var(--muted);font-style:italic}
-  .tag{font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px}
-  .ring{width:120px;height:120px;border-radius:50%;margin:16px auto;display:flex;align-items:center;justify-content:center;
-    background:radial-gradient(circle,rgba(225,29,42,.25),rgba(225,29,42,.05));border:2px solid var(--red);
-    transition:transform 4s ease-in-out;transform:scale(1)}
-  .ring .ph{font-weight:900;font-size:18px}
-  .ring .cd{font-size:13px;color:var(--muted)}
-  .dots{display:flex;gap:6px;justify-content:center;margin:8px 0}
-  .dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}
-  .dots i.on{background:var(--red)}
-  .seg{display:flex;gap:8px;margin-bottom:6px}
-  .seg button{flex:1;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--inp);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer}
-  .seg button{color:var(--txt)}
-  .seg button.active{border-color:var(--red);background:rgba(196,17,1,.12);color:var(--red)}
-  .btn{padding:15px 14px;border:0;border-radius:14px;background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer;width:100%}
-  .btn.dark{background:var(--inp);border:1px solid var(--line);color:var(--txt)}
-  .step{display:flex;align-items:center;gap:16px;justify-content:center;margin:10px 0}
-  .step button{width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--inp);color:#fff;font-size:22px;cursor:pointer}
-  .bar{height:8px;background:var(--inp);border-radius:6px;overflow:hidden;margin-top:8px}
-  .bar > i{display:block;height:100%;background:var(--red);width:0;transition:width .3s}
-  .glasses{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
-  .glass{position:relative;width:28px;height:34px;border:2px solid var(--line);border-radius:3px 3px 7px 7px;cursor:pointer;overflow:hidden;background:#fff;transition:border-color .3s}
-  .glass.full{border-color:var(--blue)}
-  .glass .fill{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,#5aa3ff,#2f6fe0);transition:height .55s cubic-bezier(.2,.8,.2,1)}
-  .glass.full .fill{height:100%}
-  /* permukaan air bergelombang */
-  .glass .fill::before,.glass .fill::after{content:"";position:absolute;left:-30%;width:160%;height:14px;top:-7px;border-radius:42%}
-  .glass .fill::before{background:#7fb4ff;animation:wave 2.1s linear infinite}
-  .glass .fill::after{background:#5aa3ff;opacity:.7;animation:wave 2.9s linear infinite reverse}
-  @keyframes wave{0%{transform:translateX(0) rotate(0)}100%{transform:translateX(-33%) rotate(360deg)}}
-  #waterBar{background:var(--blue)}
-  /* Gelas besar yang keisi */
-  .bigglass{position:relative;width:104px;height:138px;margin:14px auto 4px;border:3px solid var(--blue);border-top-width:2px;
-    border-radius:10px 10px 18px 18px;overflow:hidden;background:rgba(59,130,246,.06);cursor:pointer}
-  .bgfill{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,#5aa3ff,#2f6fe0);transition:height .55s cubic-bezier(.2,.8,.2,1);overflow:visible}
-  /* permukaan air: miring sesuai --wtilt (kemiringan device/kursor) + goyang halus, TANPA muter */
-  .bgwave{position:absolute;left:-40%;width:180%;height:26px;top:-13px;border-radius:50%;background:#7fb4ff;
-    transform:rotate(var(--wtilt,0deg));transition:transform .15s ease-out;animation:wbob 3.6s ease-in-out infinite}
-  .bgwave::after{content:"";position:absolute;left:0;right:0;top:6px;height:26px;border-radius:50%;background:#5aa3ff;opacity:.6}
-  @keyframes wbob{0%,100%{margin-top:0}50%{margin-top:-3px}}
-  .bgcount{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:26px;color:#0A0908;text-shadow:0 1px 3px rgba(255,255,255,.7)}
-  .wctrl{display:flex;gap:10px;justify-content:center;margin-top:6px}
-  .wctrl button{width:48px;height:42px;border-radius:11px;border:1px solid var(--line);background:var(--inp);color:var(--txt);font-size:22px;font-weight:800;cursor:pointer}
-  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(80px);background:#0A0908;color:#fff;
-    padding:12px 18px;border-radius:12px;font-weight:700;font-size:14px;opacity:0;transition:all .4s;z-index:9;box-shadow:0 8px 24px rgba(0,0,0,.2)}
-  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
-  /* Sleep time inputs */
-  .sleeprow{display:flex;flex-direction:column;gap:12px;margin:10px 0 2px}
-  .sleepfld{display:block;min-width:0}
-  .sleepfld label{display:block;font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
-  .tpick{display:flex;align-items:center;gap:4px}
-  .tpick input{min-width:0;padding:10px 2px;background:var(--inp);border:1px solid var(--line);border-radius:9px;color:var(--txt);font-size:14px;font-family:inherit;text-align:center}
-  .tpick input.tn{flex:1 1 0;width:auto}
-  .tpick input.ta{flex:1 1 0;width:auto;text-transform:uppercase}
-  .tpick input:focus{outline:none;border-color:var(--red)}
-  .tpick span{color:var(--muted);font-weight:700}
-  /* Checklist harian */
-  .chk{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
-  .chk:last-child{border-bottom:0}
-  .chk .box{width:24px;height:24px;border-radius:7px;border:2px solid var(--line);flex:0 0 auto;display:flex;align-items:center;justify-content:center;transition:all .2s}
-  .chk .box svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.5);transition:all .2s}
-  .chk.done .box{background:var(--red);border-color:var(--red)}
-  .chk.done .box svg{opacity:1;transform:scale(1)}
-  .chk .lbl{font-size:14px;font-weight:600;transition:all .2s}
-  .chk.done .lbl{color:var(--muted);text-decoration:line-through}
-  .chk .ico{width:34px;height:34px;border-radius:9px;background:rgba(225,29,42,.12);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
-  .chk .ico svg{width:18px;height:18px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .chkhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
-  .chkprog{font-size:12px;font-weight:800;color:var(--red)}
-  .chkbar{height:7px;background:var(--inp);border-radius:6px;overflow:hidden;margin:10px 0 2px}
-  .chkbar>i{display:block;height:100%;background:linear-gradient(90deg,#C41101,#ff5a4d);width:0;transition:width .4s}
-  /* Mobile: semua nge-stack 1 kolom */
-  /* Mobile: tetap side-by-side biar compact & scroll lebih pendek */
-  @media(max-width:560px){
-    body{padding:18px 12px 70px}
-    .hello{font-size:24px}
-    .card{padding:14px}
-    .grid2{gap:10px}
-    .grid3{gap:8px}
-    .stat .v{font-size:23px}
-    .big{font-size:26px}
-    .sec{margin:16px 2px 7px}
-  }
-  /* HP sempit banget: kartu kembar turun jadi 1 kolom biar gak kepencet */
-  @media(max-width:380px){ .grid2{grid-template-columns:1fr} }
-  /* --- Redesign v2: label grup + latihan di rumah --- */
-  #greetDate{color:var(--pagemut)}
+  .wrow .rs{font-size:12.5px;color:var(--muted)}
+  .tag{font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
+
+  /* ---- Train at home accordion ---- */
   .ahrow{border-bottom:1px solid var(--line);padding:12px 2px;cursor:pointer}
   .ahrow:last-of-type{border-bottom:0}
   .ahhead{display:flex;align-items:center;gap:12px}
   .ahhead .ri{width:40px;height:40px;border-radius:12px;background:var(--inp);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:18px}
   .ahhead .a{font-size:15px;font-weight:700}
   .ahhead .b{font-size:12px;color:var(--muted);font-weight:600}
-  .ahhead .cv{color:#C9C2B8;font-weight:800;font-size:13px;flex:0 0 auto}
+  .ahhead .cv{color:var(--faint);font-weight:800;font-size:13px;flex:0 0 auto}
   .ahtut{max-height:0;overflow:hidden;transition:max-height .35s ease}
   .ahrow.open .ahtut{max-height:300px}
   .ahtut .in{padding:10px 2px 2px}
   .ahtut .st{font-size:13px;color:var(--muted);padding:4px 0;display:flex;gap:8px;line-height:1.45}
   .ahtut .st b{color:var(--txt)}
+
+  /* ---- Breathing ---- */
+  .seg{display:flex;gap:7px;background:var(--inp);padding:4px;border-radius:13px;margin-bottom:6px}
+  .seg button{flex:1;padding:9px;border:0;border-radius:10px;background:transparent;color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;transition:.16s}
+  .seg button.active{background:var(--card);color:var(--ink);box-shadow:0 2px 6px rgba(0,0,0,.07)}
+  .ring{width:120px;height:120px;border-radius:50%;margin:16px auto;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--red) 20%,var(--card)),var(--card));
+    border:1px solid var(--line);box-shadow:0 12px 34px color-mix(in srgb,var(--red) 15%,transparent);
+    transition:transform 4s ease-in-out;transform:scale(1)}
+  .ring .ph{font-weight:800;font-size:17px}
+  .ring .cd{font-size:12px;color:var(--muted)}
+  .dots{display:flex;gap:6px;justify-content:center;margin:8px 0 12px}
+  .dots i{width:6px;height:6px;border-radius:999px;background:var(--line)}
+  .dots i.on{background:var(--red);width:16px;transition:.2s}
+
+  /* ---- Intermittent Fasting widget ---- */
+  .ift{font-size:24px;font-weight:900;font-family:'JetBrains Mono',monospace}
+  .ifbadge{font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:1px;padding:4px 10px;border-radius:999px}
+  .ifbadge.eat{background:var(--green-soft);color:var(--green)}
+  .ifbadge.fast{background:var(--amber-soft);color:var(--amber)}
+  .bar{height:6px;background:var(--inp);border-radius:999px;overflow:hidden;margin-top:8px}
+  .bar > i{display:block;height:100%;background:var(--red);width:0;transition:width .3s;border-radius:999px}
+
+  /* ---- Today calorie thermometer (in healthReminder) ---- */
+  .dthermo{position:relative;height:14px;background:var(--inp);border-radius:999px;margin:11px 0 7px;overflow:hidden}
+  .dthermo i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#ff7a45,var(--red));transition:width .6s cubic-bezier(.2,.8,.2,1)}
+  .dtogo{font-size:13px;font-weight:700}
+  .dtogo b{color:var(--red);font-family:'JetBrains Mono',monospace;font-size:16px;margin-right:3px}
+  .hrrow{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)}
+  .hrrow:last-of-type{border-bottom:0}
+  .hrdot{width:9px;height:9px;border-radius:50%;background:var(--red);flex:0 0 auto;margin-top:5px}
+  .hrok{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)}
+
+  /* ---- Sleep inputs ---- */
+  .sleeprow{display:flex;flex-direction:column;gap:12px;margin:10px 0 2px}
+  .sleepfld{display:block;min-width:0}
+  .sleepfld label{display:block;font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
+  .tpick{display:flex;align-items:center;gap:4px}
+  .tpick input{min-width:0;padding:11px 2px;background:var(--inp);border:1px solid var(--line);border-radius:11px;color:var(--txt);font-size:15px;font-family:inherit;text-align:center}
+  .tpick input.tn{flex:1 1 0;width:auto}
+  .tpick input.ta{flex:1 1 0;width:auto;text-transform:uppercase}
+  .tpick input:focus{outline:none;border-color:var(--red)}
+  .tpick span{color:var(--muted);font-weight:700}
+
+  /* ---- Water big glass ---- */
+  .bigglass{position:relative;width:100px;height:120px;margin:12px auto 4px;border:2px solid var(--blue);border-top-width:2px;
+    border-radius:14px;overflow:hidden;background:var(--blue-soft);cursor:pointer}
+  .bgfill{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,#5aa3ff,#2f6fe0);transition:height .55s cubic-bezier(.2,.8,.2,1);overflow:visible}
+  .bgwave{position:absolute;left:-40%;width:180%;height:26px;top:-13px;border-radius:50%;background:#7fb4ff;
+    transform:rotate(var(--wtilt,0deg));transition:transform .15s ease-out;animation:wbob 3.6s ease-in-out infinite}
+  .bgwave::after{content:"";position:absolute;left:0;right:0;top:6px;height:26px;border-radius:50%;background:#5aa3ff;opacity:.6}
+  @keyframes wbob{0%,100%{margin-top:0}50%{margin-top:-3px}}
+  .bgcount{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:24px;color:var(--ink);text-shadow:0 1px 3px rgba(255,255,255,.5)}
+  .wctrl{display:flex;gap:10px;justify-content:center;margin-top:10px}
+  .wctrl button{flex:1;max-width:64px;height:42px;border-radius:12px;border:0;background:var(--inp);color:var(--txt);font-size:20px;font-weight:800;cursor:pointer;transition:.14s}
+  .wctrl button:active{transform:scale(.94)}
+
+  /* ---- Checklist ---- */
+  .chkhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  .chkprog{font-size:13px;font-weight:800;color:var(--red)}
+  .chkbar{height:6px;background:var(--inp);border-radius:999px;overflow:hidden;margin:10px 0 2px}
+  .chkbar>i{display:block;height:100%;background:linear-gradient(90deg,var(--red),#ff5a4d);width:0;transition:width .4s;border-radius:999px}
+  .chk{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
+  .chk:last-child{border-bottom:0}
+  .chk .ico{width:34px;height:34px;border-radius:10px;background:var(--red-soft);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .chk .ico svg{width:18px;height:18px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .chk .lbl{font-size:14.5px;font-weight:650;transition:all .2s}
+  .chk.done .lbl{color:var(--muted);text-decoration:line-through}
+  .chk .box{width:24px;height:24px;border-radius:999px;border:2px solid var(--line);flex:0 0 auto;display:flex;align-items:center;justify-content:center;transition:all .2s}
+  .chk .box svg{width:14px;height:14px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.5);transition:all .2s}
+  .chk.done .box{background:var(--green);border-color:var(--green)}
+  .chk.done .box svg{opacity:1;transform:scale(1)}
+
+  /* ---- Toast ---- */
+  .toast{position:fixed;left:50%;bottom:104px;transform:translateX(-50%) translateY(80px);background:var(--ink);color:var(--bg);
+    padding:12px 18px;border-radius:12px;font-weight:700;font-size:14px;opacity:0;transition:all .4s;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+  /* ---- Responsive ---- */
+  @media(max-width:560px){
+    body{padding:16px 12px 96px}
+    .hello{font-size:28px}
+    .card{padding:16px}
+    .grid2{gap:10px}
+    .grid3{gap:10px}
+    .big{font-size:26px}
+  }
+  @media(max-width:380px){ .grid2{grid-template-columns:1fr} }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important}
+    .ring,.sun,.hero .glow,.pm,.rain,.cl,.star,.bgwave{animation:none !important}
+  }
+
 </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="top">
-      <div class="logo"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" /></div>
-    </div>
-    <div class="hk" id="greet">Selamat datang</div>
-    <div class="hello" id="hello">—</div>
-    <div class="muted" id="greetDate" style="margin:-14px 2px 4px;font-weight:600"></div>
+    <!-- Greeting hero with sky-bleed glow -->
+    <header class="hero">
+      <div class="glow"></div>
+      <div class="hero-inner">
+        <div class="hk" id="greet">Selamat datang</div>
+        <div class="hello" id="hello">—</div>
+        <div class="greetdate muted" id="greetDate"></div>
+      </div>
+    </header>
 
-    <!-- Penting hari ini (kalori + what to watch) -> paling atas -->
+    <!-- Penting hari ini (kalori + what to watch) -->
     <div id="healthReminder"></div>
 
     <!-- YOUR HEALTH -->
     <div class="sec gsec" data-en="Your health" data-id="Kesehatanmu">Your health</div>
-    <div class="grid3">
-      <div class="card stat"><div class="k" data-i18n="stat_bmi">BMI</div><div class="v" id="bmi">–</div></div>
-      <div class="card stat"><div class="k" data-i18n="stat_weight">Weight</div><div class="v" id="berat">–</div></div>
-      <div class="card stat"><div class="k" data-i18n="stat_height">Height</div><div class="v" id="tinggi">–</div></div>
+    <div class="card vitals">
+      <div class="vital"><div class="lbl" data-i18n="stat_bmi">BMI</div><div class="val" id="bmi">–</div></div>
+      <div class="vital"><div class="lbl" data-i18n="stat_weight">Weight</div><div class="val" id="berat">–</div></div>
+      <div class="vital"><div class="lbl" data-i18n="stat_height">Height</div><div class="val" id="tinggi">–</div></div>
     </div>
 
-    <!-- 2 kolom di desktop -->
+    <!-- 2 kolom di desktop (bento) -->
     <div class="main">
       <!-- Kolom kiri: TRAIN TODAY -->
-      <div>
+      <div class="col">
         <div class="sec gsec" data-en="Train today" data-id="Latihan Hari Ini">Train today</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin:0 2px 8px">
+        <div class="sechead-row">
           <div class="muted" data-i18n="sec_weather" style="font-weight:700">Weather & Air Quality</div>
-          <button onclick="loadWeather(true)" title="refresh location" style="background:none;border:0;color:var(--pagemut);cursor:pointer;font-size:17px;line-height:1;padding:2px 6px">↻</button>
+          <button class="refreshbtn" onclick="loadWeather(true)" title="refresh location">↻</button>
         </div>
         <div class="grid2">
           <div class="card wcard">
@@ -261,10 +305,10 @@
           <span data-i18n="book_recworkout">Ready to train? Book your class at 20fit.</span>
         </a>
 
-        <!-- Latihan di rumah (baru) -->
+        <!-- Latihan di rumah -->
         <div class="card" style="margin-top:12px">
           <div style="font-weight:800;font-size:15px" data-en="Or train at home · no equipment" data-id="Atau latihan di rumah · tanpa alat">Or train at home · no equipment</div>
-          <div class="muted" style="font-size:12px;margin:2px 0 4px" data-en="General starting point — not a personalised program." data-id="Panduan umum — bukan program personal.">General starting point — not a personalised program.</div>
+          <div class="muted" style="font-size:12px;margin:2px 0 8px" data-en="General starting point — not a personalised program." data-id="Panduan umum — bukan program personal.">General starting point — not a personalised program.</div>
           <div class="ahrow" onclick="this.classList.toggle('open')">
             <div class="ahhead"><div class="ri">🦵</div><div style="flex:1"><div class="a">Squat</div><div class="b">3 × 10–12</div></div><span class="cv" data-en="Tutorial ›" data-id="Tutorial ›">Tutorial ›</span></div>
             <div class="ahtut"><div class="in"><div class="st"><b>1.</b> <span data-en="Feet shoulder-width, toes slightly out." data-id="Kaki selebar bahu, ujung kaki sedikit keluar.">Feet shoulder-width, toes slightly out.</span></div><div class="st"><b>2.</b> <span data-en="Push hips back & down, knees over toes." data-id="Dorong pinggul ke belakang & turun, lutut searah kaki.">Push hips back &amp; down, knees over toes.</span></div><div class="st"><b>3.</b> <span data-en="Chest up, drive through heels to stand." data-id="Dada tegak, dorong lewat tumit untuk berdiri.">Chest up, drive through heels to stand.</span></div></div></div>
@@ -282,7 +326,7 @@
       </div>
 
       <!-- Kolom kanan: WELLNESS ROUTINES -->
-      <div>
+      <div class="col">
         <div class="sec gsec" data-en="Wellness routines · optional" data-id="Rutinitas Wellness · opsional">Wellness routines</div>
         <div class="sec" data-i18n="sec_breath" style="margin-top:8px">Breathing Exercise</div>
         <div class="card">
@@ -291,8 +335,8 @@
             <button data-p="box" onclick="pickPattern('box')" data-i18n="breath_workout">Workout</button>
             <button data-p="relax" onclick="pickPattern('relax')" data-i18n="breath_relax">Relax</button>
           </div>
-          <div class="muted" id="bcap" style="font-size:12px;text-align:center;margin:2px 0 4px"></div>
-          <div class="ring" id="ring"><div><div class="ph" id="bphase" data-i18n="ready">Ready</div><div class="cd" id="bcd" data-i18n="press_start">Tap start</div></div></div>
+          <div class="muted" id="bcap" style="font-size:12px;text-align:center;margin:8px 0 4px"></div>
+          <div class="ring" id="ring"><div style="text-align:center"><div class="ph" id="bphase" data-i18n="ready">Ready</div><div class="cd" id="bcd" data-i18n="press_start">Tap start</div></div></div>
           <div class="dots" id="bdots"></div>
           <button class="btn" id="bbtn" onclick="toggleBreath()" data-i18n="start">Start</button>
         </div>
@@ -326,7 +370,7 @@
             <datalist id="hList"></datalist>
             <datalist id="mList"></datalist>
             <datalist id="apList"></datalist>
-            <div class="big" id="sleepVal" style="text-align:center;margin:6px 0 2px">0</div>
+            <div class="big" id="sleepVal" style="text-align:center;margin:8px 0 2px">0</div>
             <div class="bar"><i id="sleepBar"></i></div>
             <button class="btn dark" style="margin-top:10px" onclick="saveSleep()" data-i18n="save_sleep">Save Sleep</button>
           </div>
@@ -360,6 +404,7 @@
       <div class="card" id="cycleCard"></div>
     </div>
   </div>
+
 
   <div class="toast" id="toast"></div>
 
@@ -762,54 +807,30 @@
       try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached! 💧",id:"Target air tercapai! 💧"}));renderChecklist();checkAchievements();}catch(e){}
     }
 
-    // ---- Checklist harian (beda tiap hari & tiap minggu) ----
+    // ---- Checklist harian (aktivitas yang bisa dilacak lewat widget) ----
     const CHK_ICON={
       food:'<path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/>',
       water:'<path d="M12 2.5S5 10 5 14a7 7 0 0 0 14 0c0-4-7-11.5-7-11.5z"/>',
       ex:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
-      walk:'<circle cx="13" cy="4" r="2"/><path d="m9 20 2-5 2 2 1 4"/><path d="M11 12 9 9l-3 1"/><path d="m15 11 1-3 3 1"/>',
       sleep:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>',
-      mind:'<path d="M12 2a7 7 0 0 0-7 7c0 3 2 4 2 7h10c0-3 2-4 2-7a7 7 0 0 0-7-7z"/><path d="M9 21h6"/>',
-      sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/>',
-      stretch:'<circle cx="12" cy="5" r="2"/><path d="M12 7v6m0 0-3 7m3-7 3 7M7 11h10"/>',
-      nosugar:'<path d="M3 3l18 18"/><path d="M7 7c-1 2-1 4 0 6 1.5 3 5 3 7 1"/><path d="M14 5c2 0 4 1 4 4 0 1-.3 2-1 3"/>',
-      protein:'<path d="M6 3h12l-1 7a5 5 0 0 1-10 0z"/><path d="M9 21h6M12 17v4"/>',
-      veg:'<path d="M12 22c4-2 7-6 7-11 0-1-2-3-4-3-1 0-2 .5-3 1.5C11 8 10 7 8 7 6 7 5 9 5 11c0 5 3 9 7 11z"/><path d="M12 9V4"/>',
-      posture:'<circle cx="12" cy="4" r="2"/><path d="M12 6v7m-4 8 4-8 4 8M8 10h8"/>'
+      mind:'<path d="M12 2a7 7 0 0 0-7 7c0 3 2 4 2 7h10c0-3 2-4 2-7a7 7 0 0 0-7-7z"/><path d="M9 21h6"/>'
     };
+    // Task harian HANYA dari aktivitas yang bisa kita lacak lewat widget dashboard,
+    // jadi centangnya bisa otomatis / nyambung ke fitur yang ada.
+    //  water8   -> widget Air minum        (auto)
+    //  sleep7   -> widget Tidur            (auto)
+    //  food_log -> Calorie Tracker         (auto)
+    //  breathe  -> widget Pernapasan       (auto)
+    //  workout  -> widget Latihan (Train today / latihan di rumah) — centang manual
     const CHK_POOL=[
       {id:"water8",ic:"water",lbl:{en:"Drink 8 glasses of water",id:"Minum 8 gelas air"}},
-      {id:"food_log",ic:"food",lbl:{en:"Log all your food today",id:"Catat semua makanan hari ini"}},
-      {id:"workout",ic:"ex",lbl:{en:"Exercise / train 30 minutes",id:"Olahraga / latihan 30 menit"}},
-      {id:"steps",ic:"walk",lbl:{en:"Walk 7,000 steps",id:"Jalan kaki 7.000 langkah"}},
       {id:"sleep7",ic:"sleep",lbl:{en:"Sleep at least 7 hours",id:"Tidur minimal 7 jam"}},
+      {id:"food_log",ic:"food",lbl:{en:"Log all your food today",id:"Catat semua makanan hari ini"}},
       {id:"breathe",ic:"mind",lbl:{en:"Breathing / meditation",id:"Latihan pernapasan / meditasi"}},
-      {id:"protein",ic:"protein",lbl:{en:"Hit your protein intake",id:"Cukupi asupan protein"}},
-      {id:"veg",ic:"veg",lbl:{en:"Eat vegetables & fruit",id:"Makan sayur & buah"}},
-      {id:"nosugar",ic:"nosugar",lbl:{en:"Avoid sugary drinks",id:"Hindari minuman manis"}},
-      {id:"stretch",ic:"stretch",lbl:{en:"Stretching",id:"Stretching / peregangan"}},
-      {id:"sun",ic:"sun",lbl:{en:"Get morning sunlight",id:"Kena sinar matahari pagi"}},
-      {id:"posture",ic:"posture",lbl:{en:"Fix your sitting posture",id:"Perbaiki postur saat duduk"}},
-      {id:"noscreen",ic:"sleep",lbl:{en:"No screens 30 min before bed",id:"No gadget 30 menit sebelum tidur"}},
-      {id:"warmup",ic:"stretch",lbl:{en:"Warm up before training",id:"Pemanasan sebelum latihan"}},
-      {id:"earlyeat",ic:"food",lbl:{en:"Dinner before 8 pm",id:"Makan malam sebelum jam 8"}},
-      {id:"mindful",ic:"mind",lbl:{en:"Take time for yourself",id:"Luangkan waktu untuk diri sendiri"}},
-      {id:"activebreak",ic:"walk",lbl:{en:"Stand & move every hour",id:"Berdiri & gerak tiap 1 jam"}},
-      {id:"hydrate_wake",ic:"water",lbl:{en:"A glass of water on waking",id:"Minum air segelas saat bangun"}}
+      {id:"workout",ic:"ex",lbl:{en:"Exercise or stretch today",id:"Olahraga atau stretching hari ini"}}
     ];
-    function weekNumber(d){const o=new Date(Date.UTC(d.getFullYear(),0,1));const day=Math.floor((d-o)/864e5);return Math.floor((day+o.getUTCDay())/7);}
-    function todaysTasks(){
-      const d=new Date();
-      const seed=weekNumber(d)*7+d.getDay(); // beda tiap hari & tiap minggu
-      const n=CHK_POOL.length, count=5, picks=[], used={};
-      // ambil 5 task berbeda, bergeser tiap hari berdasarkan seed
-      for(let i=0;i<count;i++){
-        let idx=(seed*3+i*7+ (seed%5))%n;
-        let guard=0; while(used[idx]&&guard++<n){idx=(idx+1)%n;}
-        used[idx]=1; picks.push(CHK_POOL[idx]);
-      }
-      return picks;
-    }
+    // Selalu tampilkan set aktivitas yang bisa dilacak ini (bukan acak).
+    function todaysTasks(){ return CHK_POOL.slice(); }
     let currentTasks=[];
     // Auto-centang task kalau metriknya SUDAH terpenuhi (dari data asli)
     function autoCompleteTasks(){
