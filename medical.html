@@ -219,6 +219,15 @@
       return '<div class="card"><div class="ch" style="color:'+iconColor+'"><svg viewBox="0 0 24 24" stroke="'+iconColor+'">'+icon+'</svg>'+title+'</div>'+
         items.map(it=>'<div class="plan"><div class="pi" style="background:'+iconColor+'22;color:'+iconColor+'">•</div><div>'+it+'</div></div>').join("")+'</div>';
     }
+    // Rekomendasi makanan: kalimat pendek + "Explore more" -> Calorie Tracker
+    function eatingShortCard(res){
+      const items=(res.eating_plan||[]);
+      const fork='<path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/>';
+      const short = items.length ? items[0] : L({en:"Focus on balanced meals — enough protein, vegetables & fiber, and cut back on sugar & fried food.",id:"Fokus makan seimbang — cukup protein, sayur & serat, kurangi gula & gorengan."});
+      return '<div class="card"><div class="ch" style="color:#2A7A4F"><svg viewBox="0 0 24 24" stroke="#2A7A4F">'+fork+'</svg>'+I18N.t("med_eating")+'</div>'+
+        '<div style="margin-top:6px;line-height:1.55">'+short+'</div>'+
+        '<a href="calories.html#mealideas" style="display:block;text-align:center;text-decoration:none;margin-top:12px;padding:12px;border-radius:12px;border:1px solid var(--line);color:#2A7A4F;font-weight:800">'+L({en:"Explore more food recommendations ›",id:"Lihat rekomendasi makanan lainnya ›"})+'</a></div>';
+    }
     const BOOK_BOOK="https://booking.20fit.id/book";
     const BOOK_GYM="https://booking.20fit.id/gym";
     const BOOK_CLINIC="https://booking.20fit.id/clinic";
@@ -317,7 +326,7 @@
         overall+
         (findings?'<div class="card rfull"><div class="ch" style="color:var(--red)">'+warn+I18N.t("med_attention")+'</div>'+findings+'</div>':"")+
         (params?'<div class="card"><div style="font-weight:800;margin-bottom:6px">'+I18N.t("med_params")+'</div>'+params+'</div>':"")+
-        planCard(I18N.t("med_eating"),ICO.fork,"#2A7A4F",res.eating_plan)+
+        eatingShortCard(res)+
         programsCard(att.length>0)+
         planCard(I18N.t("med_exercise"),ICO.ex,"#2563eb",res.exercise_plan)+
         achCard()+

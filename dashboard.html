@@ -707,7 +707,7 @@
       document.getElementById("ring").style.transform="scale(1)";
       document.getElementById("bphase").textContent=done?L({en:"Done 🎉",id:"Selesai 🎉"}):I18N.t("ready");
       document.getElementById("bcd").textContent=done?L({en:"Session complete",id:"Sesi lengkap"}):I18N.t("press_start");
-      if(done){ try{ await Auth.saveDaily({breathing_done:true}); toast(L({en:"Breathing session done! 🎉",id:"Sesi napas selesai! 🎉"})); }catch(e){} }
+      if(done){ try{ await Auth.saveDaily({breathing_done:true}); if(daily)daily.breathing_done=true; renderChecklist(); toast(L({en:"Breathing session done! 🎉",id:"Sesi napas selesai! 🎉"})); }catch(e){} }
     }
 
     // Hitung durasi tidur dari jam tidur -> jam bangun (lewat tengah malam diperhitungkan)
@@ -750,7 +750,7 @@
     async function saveSleep(){
       if(!sleepBed||!sleepWake){toast(L({en:"Set bedtime & wake time first",id:"Isi jam tidur & bangun dulu"}));return}
       try{await Auth.saveDaily({sleep_bed:sleepBed,sleep_wake:sleepWake,sleep_hours:sleepH});
-        toast(sleepH>=7?L({en:"Good sleep! 🌙",id:"Tidur cukup! 🌙"}):L({en:"Sleep saved ✓",id:"Tidur tersimpan ✓"}));checkAchievements();}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
+        toast(sleepH>=7?L({en:"Good sleep! 🌙",id:"Tidur cukup! 🌙"}):L({en:"Sleep saved ✓",id:"Tidur tersimpan ✓"}));renderChecklist();checkAchievements();}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
 
     function renderWater(){
@@ -759,7 +759,7 @@
     }
     async function setWater(n){
       water=Math.max(0,Math.min(8,n));renderWater();
-      try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached! 💧",id:"Target air tercapai! 💧"}));checkAchievements();}catch(e){}
+      try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached! 💧",id:"Target air tercapai! 💧"}));renderChecklist();checkAchievements();}catch(e){}
     }
 
     // ---- Checklist harian (beda tiap hari & tiap minggu) ----
@@ -811,9 +811,21 @@
       return picks;
     }
     let currentTasks=[];
+    // Auto-centang task kalau metriknya SUDAH terpenuhi (dari data asli)
+    function autoCompleteTasks(){
+      let changed=false;
+      const has=id=>currentTasks.some(t=>t.id===id);
+      const set=id=>{ if(has(id)&&!checkState[id]){ checkState[id]=true; changed=true; } };
+      if(water>=8) set("water8");
+      if(sleepH>=7) set("sleep7");
+      if(daily&&daily.breathing_done) set("breathe");
+      try{ const tdy=new Date().toISOString().slice(0,10); const arr=(daily&&Array.isArray(daily.cal_items))?daily.cal_items:JSON.parse(localStorage.getItem("my20fit_cal_"+tdy)||"[]"); if(arr&&arr.length) set("food_log"); }catch(e){}
+      if(changed){ try{ Auth.saveDaily({checklist:checkState}); }catch(e){} }
+    }
     function renderChecklist(){
       const d=new Date();
       currentTasks=todaysTasks();
+      autoCompleteTasks();
       document.getElementById("chkDay").textContent=d.toLocaleDateString(I18N.lang==="id"?"id-ID":"en-US",{weekday:"long",day:"numeric",month:"short"});
       const cl=document.getElementById("checklist");
       cl.innerHTML=currentTasks.map(t=>{
