@@ -128,10 +128,18 @@
         <div class="macro"><div class="mtop"><span data-i18n="cal_fat">Fat</span><span class="mv" id="fVal">0 / 0g</span></div><div class="mbar"><i id="fBar"></i></div></div>
       </div>
 
-      <button class="scanbtn" id="scanbox" style="margin-top:14px" onclick="document.getElementById('foodfile').click()">
-        <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
-        <span data-i18n="cal_scanbtn">Scan food to count calories</span>
-      </button>
+      <div id="scanbox" style="margin-top:14px;display:flex;gap:10px">
+        <button class="scanbtn" style="flex:1" onclick="document.getElementById('foodcam').click()">
+          <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+          <span>📷 <span data-i18n="cal_takephoto">Take photo</span></span>
+        </button>
+        <button class="scanbtn" style="flex:1;background:var(--inp);color:var(--txt);border:1px solid var(--line)" onclick="document.getElementById('foodfile').click()">
+          <span>🖼️ <span data-i18n="cal_album">Album</span></span>
+        </button>
+      </div>
+      <!-- kamera langsung (Android & iOS bisa foto) -->
+      <input id="foodcam" type="file" accept="image/*" capture="environment" style="display:none" onchange="scanFood(event)" />
+      <!-- pilih dari galeri/album -->
       <input id="foodfile" type="file" accept="image/*" style="display:none" onchange="scanFood(event)" />
       <div id="scanresult" style="margin-top:12px"></div>
 
@@ -278,10 +286,15 @@
     }
     async function scanFood(e){
       const f=e.target.files[0];if(!f)return;
+      e.target.value="";
+      try{ const url=await fileURL(f); scanImage(url); }
+      catch(err){ document.getElementById("scanresult").innerHTML='<div style="color:var(--red)">'+(err.message||"Error")+'</div>'; }
+    }
+    // Analisa 1 foto makanan (dipakai tombol Foto/Album & tombol Scan global)
+    async function scanImage(url){
       const box=document.getElementById("scanresult");
       box.innerHTML='<div class="muted">'+I18N.t("cal_analysing")+'</div>';
       try{
-        const url=await fileURL(f);
         const r=await fetch(AI_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"food",image:url,lang:I18N.lang})});
         const j=await r.json();
         if(!r.ok||!j.result)throw new Error(j.error||L({en:"Analysis failed",id:"Gagal menganalisa"}));
@@ -292,7 +305,6 @@
           '<button class="scanbtn" style="margin-top:10px" onclick="addScanned()">'+I18N.t("cal_addlog")+'</button>'+
           (res.note?'<div class="muted" style="margin-top:8px">'+res.note+'</div>':'');
       }catch(err){box.innerHTML='<div style="color:var(--red)">'+err.message+'</div>'}
-      e.target.value="";
     }
     function addScanned(){lastScan.forEach(i=>addToLog(i.name,i.kcal,i.protein_g,i.carbs_g,i.fat_g));document.getElementById("scanresult").innerHTML='<div style="color:#2A7A4F">'+I18N.t("cal_added")+'</div>'}
 
@@ -440,6 +452,8 @@
       loadCalFromCloud();   // sinkron kalori dari akun
       loadIFFromCloud();    // sinkron gaya puasa dari akun
       if(location.hash==="#scan"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});}
+      // Foto dari tombol "Scan" global (halaman lain) -> langsung analisa di sini
+      try{ const pend=sessionStorage.getItem("my20fit_pending_scan"); if(pend){ sessionStorage.removeItem("my20fit_pending_scan"); document.getElementById("scanbox").scrollIntoView({behavior:"smooth"}); scanImage(pend); } }catch(e){}
       if(location.hash==="#fasting"){document.getElementById("ifSection").scrollIntoView({behavior:"smooth"});}
     })();
     setInterval(renderIF,60000); // update countdown tiap menit

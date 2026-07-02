@@ -56,7 +56,22 @@
   fab.className = "scanfab";
   function renderFab(){ fab.innerHTML = svg("scan") + tr("nav_scan", "Scan"); }
   renderFab();
-  fab.onclick = () => { location.href = "calories.html#scan"; };
+  // Klik Scan (di halaman mana pun) -> langsung buka kamera/album, lalu proses di Calorie Tracker
+  fab.onclick = () => {
+    try {
+      const inp = document.createElement("input");
+      inp.type = "file"; inp.accept = "image/*"; inp.style.display = "none";
+      inp.onchange = function () {
+        const f = inp.files && inp.files[0];
+        if (!f) { location.href = "calories.html#scan"; return; }
+        const rd = new FileReader();
+        rd.onload = function () { try { sessionStorage.setItem("my20fit_pending_scan", rd.result); } catch (e) {} location.href = "calories.html#scan"; };
+        rd.readAsDataURL(f);
+      };
+      document.body.appendChild(inp);
+      inp.click();
+    } catch (e) { location.href = "calories.html#scan"; }
+  };
   document.body.appendChild(fab);
 
   if (window.I18N) I18N.onChange(() => { renderNav(); renderFab(); });

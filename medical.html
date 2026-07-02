@@ -171,6 +171,9 @@
     async function analyzeMCU(e){
       const f=e.target.files[0];if(!f)return;
       const box=document.getElementById("result");
+      // Hanya izinkan file medical check-up: foto (image) atau PDF — tolak selain itu
+      const okType=String(f.type||"").startsWith("image/")||String(f.type||"").includes("pdf");
+      if(!okType){ box.innerHTML='<div class="card" style="color:var(--red)">'+L({en:"Only a medical check-up file is allowed — a photo (JPG/PNG) or PDF.",id:"Hanya file medical check-up yang boleh — foto (JPG/PNG) atau PDF."})+'</div>'; e.target.value=""; return; }
       const sig="mcu_"+(f.name||"")+"_"+f.size+"_"+(f.lastModified||0);
       // Kalau file yang sama pernah dianalisa -> tampilkan instan tanpa panggil AI lagi
       try{const cached=localStorage.getItem(sig);if(cached){renderResult(JSON.parse(cached));e.target.value="";return;}}catch(e0){}
@@ -315,7 +318,6 @@
         (findings?'<div class="card rfull"><div class="ch" style="color:var(--red)">'+warn+I18N.t("med_attention")+'</div>'+findings+'</div>':"")+
         (params?'<div class="card"><div style="font-weight:800;margin-bottom:6px">'+I18N.t("med_params")+'</div>'+params+'</div>':"")+
         planCard(I18N.t("med_eating"),ICO.fork,"#2A7A4F",res.eating_plan)+
-        shopBanner()+
         programsCard(att.length>0)+
         planCard(I18N.t("med_exercise"),ICO.ex,"#2563eb",res.exercise_plan)+
         achCard()+
