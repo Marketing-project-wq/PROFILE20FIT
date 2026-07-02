@@ -41,15 +41,6 @@
     <h2>Lengkapi Profil 🙌</h2>
     <div class="sub">Data ini bikin rekomendasi kamu makin pas.</div>
 
-    <div id="pwSection" style="display:none">
-      <div class="sec">Buat Password</div>
-      <div class="sub" style="margin:6px 0 0">Akun 20fit-mu belum punya password web. Buat password untuk login berikutnya.</div>
-      <label>Password Baru</label>
-      <input id="newpw" type="password" placeholder="min. 8 karakter" autocomplete="new-password" />
-      <label>Ulangi Password</label>
-      <input id="newpw2" type="password" placeholder="ketik ulang password" autocomplete="new-password" />
-    </div>
-
     <label>Jenis Kelamin</label>
     <div class="grid2">
       <div class="opt" data-g="male" onclick="pickGender('male')">Pria</div>
@@ -100,11 +91,9 @@
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
   <script>
-    let gender=null, goal=null, needPw=false;
+    let gender=null, goal=null;
     (async function(){
-      const user=await Auth.requireAuth();
-      needPw = !Auth.hasWebPassword(user);
-      if(needPw) document.getElementById("pwSection").style.display="block";
+      await Auth.requireAuth();
       try{ const p=await Auth.getProfile(); if(p) prefill(p); }catch(e){}
     })();
     function prefill(p){
@@ -152,15 +141,8 @@
       const conds=[...document.querySelectorAll('#conditions input:checked')].map(i=>i.value);
       const other=document.getElementById("condOther").value.trim();
       if(other)conds.push(other);
-      // Wajib bikin password kalau belum punya (login via Google/OTP/FITCO)
-      if(needPw){
-        const pw=document.getElementById("newpw").value, pw2=document.getElementById("newpw2").value;
-        if(!pw||pw.length<8)return msg.textContent="Password minimal 8 karakter.";
-        if(pw!==pw2)return msg.textContent="Password tidak sama, ulangi.";
-      }
       const btn=document.getElementById("save");btn.disabled=true;
       try{
-        if(needPw){ await Auth.setWebPassword(document.getElementById("newpw").value); needPw=false; }
         await Auth.saveOnboarding({gender,birthdate,weight_kg:weight,height_cm:height,main_goal:goal,health_conditions:conds});
         Auth.go("dashboard.html");
       }catch(e){msg.textContent=e.message;btn.disabled=false}
