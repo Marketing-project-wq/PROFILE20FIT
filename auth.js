@@ -60,6 +60,25 @@
     return data;
   }
 
+  // ---------- LOGIN PAKAI AKUN 20FIT (FITCO) ----------
+  // Server memverifikasi email+password ke API FITCO, lalu (kalau benar)
+  // menyiapkan akun Supabase yang sama + mengembalikan kode OTP untuk
+  // membuat sesi. Data user tersimpan di database kita (Supabase) selamanya.
+  async function fitcoLogin(email, password) {
+    await ready;
+    const r = await fetch("/api/fitco-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, password: password }),
+    });
+    const j = await r.json();
+    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan akun 20fit.");
+    // Buat sesi Supabase dari OTP yang di-generate server (pola sama dgn magic link)
+    const { data, error } = await supabase.auth.verifyOtp({ email: j.email, token: j.email_otp, type: "email" });
+    if (error) throw error;
+    return data;
+  }
+
   function go(page) {
     window.location.href = page;
   }
@@ -314,6 +333,7 @@
     signInWithGoogle,
     loginSend,
     verifyLoginCode,
+    fitcoLogin,
     signOut,
     getUser,
     requireAuth,

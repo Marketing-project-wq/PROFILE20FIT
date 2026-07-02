@@ -248,6 +248,74 @@ app.get("/api/aqi", (req, res) => {
   res.json({ city: req.query.city || "Jakarta", aqi, label, advice });
 });
 
+// ---------- Login pakai akun 20fit (FITCO) -> jembatan ke akun Supabase ----------
+// Verifikasi email+password ke API FITCO. Kalau benar: siapkan akun Supabase
+// yang sama (by email) + balikin OTP untuk membuat sesi. Data user tersimpan
+// permanen di database kita (Supabase) & nempel tiap login ulang.
+const FITCO_API = process.env.FITCO_API_URL || "https://api.20fit.id";
+app.post("/api/fitco-login", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
+    const email = String((req.body && req.body.email) || "").trim().toLowerCase();
+    const password = String((req.body && req.body.password) || "");
+    if (!email || !password) return res.status(400).json({ error: "Email & password wajib diisi." });
+
+    // 1) Verifikasi ke API FITCO
+    let fj = {};
+    try {
+      const fr = await fetch(FITCO_API + "/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, login_source: "app" }),
+      });
+      fj = await fr.json().catch(() => ({}));
+      if (!fr.ok) return res.status(401).json({ error: "Email atau password akun 20fit salah." });
+    } catch (e) {
+      return res.status(502).json({ error: "Tidak bisa menghubungi server 20fit. Coba lagi." });
+    }
+    const fitcoToken = fj.access_token || (fj.data && fj.data.access_token) || null;
+    if (!fitcoToken) return res.status(401).json({ error: "Login 20fit gagal (token tidak diterima)." });
+
+    // 2) Ambil profil FITCO (prefill nama/gender) — best effort
+    let fullName = null, gender = null, phone = null;
+    try {
+      const pr = await fetch(FITCO_API + "/api/v1/app/user/profile", { headers: { Authorization: "Bearer " + fitcoToken } });
+      const pj = await pr.json().catch(() => ({}));
+      const u = (pj && (pj.data || pj)) || {};
+      fullName = u.name || u.full_name || u.fullname || null;
+      gender = u.gender ? String(u.gender).toLowerCase() : null;
+      phone = u.phone || u.phone_number || null;
+    } catch (e) { /* non-fatal */ }
+
+    // 3) Pastikan akun Supabase ADA (buat kalau belum), lalu siapkan OTP sesi
+    try {
+      await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: { full_name: fullName || null } });
+    } catch (e) { /* sudah ada -> abaikan */ }
+    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: "magiclink", email });
+    if (linkErr) throw linkErr;
+    const props = (linkData && linkData.properties) || {};
+    const otp = props.email_otp || null;
+    if (!otp) return res.status(500).json({ error: "Gagal menyiapkan sesi. Coba lagi." });
+
+    // 4) Simpan/prefill profil di database kita (Supabase) supaya data nempel ke akun
+    try {
+      const uid = linkData && linkData.user && linkData.user.id;
+      if (uid) {
+        const row = { auth_user_id: uid, email, updated_at: new Date().toISOString() };
+        if (fullName) row.full_name = fullName;
+        if (gender === "male" || gender === "female") row.gender = gender;
+        if (phone) row.phone = phone;
+        await admin.from("my20fit_profile").upsert(row, { onConflict: "auth_user_id" });
+      }
+    } catch (e) { /* non-fatal */ }
+
+    return res.json({ ok: true, email, email_otp: otp });
+  } catch (e) {
+    console.error("fitco-login:", e.message);
+    return res.status(500).json({ error: "Gagal login. Coba lagi." });
+  }
+});
+
 // ---------- Static + fallback ----------
 app.use(express.static(path.join(__dirname)));
 app.get("*", (req, res) => {
