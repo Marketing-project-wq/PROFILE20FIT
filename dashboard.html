@@ -234,6 +234,25 @@
     .ring,.sun,.hero .glow,.pm,.rain,.cl,.star,.bgwave{animation:none !important}
   }
 
+  /* ---- Sky-bleed weather + AQI bar in hero (glass reference) ---- */
+  .hero{position:relative}
+  .hero .hero-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+  .wxrefresh{position:absolute;top:6px;right:2px;z-index:2}
+  .wx-free{display:flex;align-items:flex-start;gap:10px;padding-top:6px;flex:0 0 auto;position:relative;z-index:1}
+  .wx-sun{color:#E8A93A;flex:0 0 auto}
+  .wx-sun .ray{transform-origin:12px 12px;animation:sunpulse 2.6s ease-in-out infinite}
+  @keyframes sunpulse{0%,100%{opacity:.5}50%{opacity:1}}
+  .wx-temp{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:34px;line-height:1;letter-spacing:-.01em;text-align:right;color:var(--ink)}
+  .wx-cond{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px;text-align:right;white-space:nowrap}
+  .aqi-line{position:relative;z-index:1;margin-top:18px;max-width:560px}
+  .aqi-line .arow{display:flex;align-items:center;gap:6px;margin-bottom:9px}
+  .aqi-line .alab{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;text-transform:uppercase;letter-spacing:.03em;font-weight:800;font-size:12px;color:var(--muted)}
+  .aqi-line .anum{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:13px;color:var(--amber)}
+  .aqi-line .alvl{margin-left:auto;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;text-transform:uppercase;letter-spacing:.03em;font-weight:800;font-size:11.5px}
+  .aqi-line .atrack{height:5px;border-radius:999px;background:linear-gradient(90deg,#2BB673,#E8C23A,#E8912A,#D4283A);position:relative}
+  .aqi-line .atrack i{position:absolute;top:-4px;left:2%;width:13px;height:13px;border-radius:999px;background:var(--card,#fff);border:3px solid var(--amber);transform:translateX(-50%);transition:left 1s cubic-bezier(.22,1,.36,1);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+  .aqi-line .asrc{margin-top:9px;font-size:11px}
+  @media(max-width:560px){ .wx-temp{font-size:28px} .aqi-line .alvl{display:none} }
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="20fit-design-system.css">
@@ -243,12 +262,27 @@
 <!-- 20FIT-BUILD: reskin-new-design 2026-07-02 -->
   <div class="wrap">
     <!-- Greeting hero with sky-bleed glow -->
-    <header class="hero">
+    <header class="hero" id="wx">
       <div class="glow"></div>
-      <div class="hero-inner">
-        <div class="hk" id="greet">Selamat datang</div>
-        <div class="hello" id="hello">—</div>
-        <div class="greetdate muted" id="greetDate"></div>
+      <button class="refreshbtn wxrefresh" onclick="event.stopPropagation();loadWeather(true)" title="refresh location">↻</button>
+      <div class="hero-row">
+        <div class="hero-inner">
+          <div class="hk" id="greet">Selamat datang</div>
+          <div class="hello" id="hello">—</div>
+          <div class="greetdate muted" id="greetDate"></div>
+        </div>
+        <div class="wx-free">
+          <svg class="wx-sun" id="wxIcon" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><g class="ray"><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></svg>
+          <div style="min-width:0">
+            <div class="wx-temp" id="wtemp">–</div>
+            <div class="wx-cond"><span id="wdesc"></span> · <span id="wcity">Jakarta</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="aqi-line">
+        <div class="arow"><span class="alab" data-i18n="aqi_title">Air Quality · AQI</span> <b class="anum" id="aqinum">–</b><span class="alvl" id="aqiadvice"></span></div>
+        <div class="atrack"><i id="aqiMarker"></i></div>
+        <div class="asrc" id="wbadge"></div>
       </div>
     </header>
 
@@ -268,39 +302,6 @@
       <!-- Kolom kiri: TRAIN TODAY -->
       <div class="col">
         <div class="sec gsec" data-en="Train today" data-id="Latihan Hari Ini">Train today</div>
-        <div class="sechead-row">
-          <div class="muted" data-i18n="sec_weather" style="font-weight:700">Weather & Air Quality</div>
-          <button class="refreshbtn" onclick="loadWeather(true)" title="refresh location">↻</button>
-        </div>
-        <div class="grid2">
-          <div class="card wcard">
-            <div class="wscene" id="wscene"></div>
-            <div class="wover">
-              <div class="muted" id="wcity">Cuaca · Jakarta</div>
-              <div class="big" id="wtemp" style="margin-top:2px">–</div>
-              <div class="muted" id="wdesc"></div>
-              <div id="wbadge" style="margin-top:8px"></div>
-            </div>
-          </div>
-          <div class="card">
-            <div class="muted" data-i18n="aqi_title">Air Quality · AQI</div>
-            <div class="aqiwrap">
-              <svg class="aqigauge" viewBox="0 0 120 120">
-                <circle cx="60" cy="60" r="52" fill="none" stroke="#E8E2DB" stroke-width="10"/>
-                <circle id="aqiArc" cx="60" cy="60" r="52" fill="none" stroke="#3b82f6" stroke-width="10"
-                  stroke-linecap="round" stroke-dasharray="327" stroke-dashoffset="327"
-                  transform="rotate(-90 60 60)" style="transition:stroke-dashoffset 1.2s ease,stroke .6s"/>
-              </svg>
-              <div class="aqicenter">
-                <div class="aqinum" id="aqinum">–</div>
-                <div class="aqilbl" id="aqilabel">AQI</div>
-              </div>
-              <div class="aqiparts" id="aqiparts"></div>
-            </div>
-            <div class="muted" id="aqiadvice" style="text-align:center"></div>
-          </div>
-        </div>
-
         <div class="sec" data-i18n="sec_recs">Recommended Workouts</div>
         <div class="card" id="recs"></div>
         <a class="bookbtn" href="https://booking.20fit.id/gym" target="_blank" rel="noopener">
@@ -423,11 +424,11 @@
     let lastTemp=null, lastCode=null, lastCity="";
     function refreshWeatherText(){
       if(lastTemp===null)return;
-      document.getElementById("wcity").textContent=L({en:"Weather",id:"Cuaca"})+" · "+lastCity;
-      document.getElementById("wtemp").textContent=lastTemp+"°C";
+      document.getElementById("wtemp").textContent=lastTemp+"°";
       document.getElementById("wdesc").textContent=wmo(lastCode);
+      document.getElementById("wcity").textContent=lastCity;
       const outdoorOk=lastTemp<=33 && lastCode<60;
-      document.getElementById("wbadge").innerHTML='<span class="pill" style="background:'+(outdoorOk?"rgba(42,122,79,.35);color:#1d6b41":"rgba(200,112,0,.35);color:#8a5200")+'">'+(outdoorOk?L({en:"Good for outdoor",id:"Bagus buat outdoor"}):L({en:"Better indoor",id:"Mending indoor"}))+'</span>';
+      document.getElementById("wbadge").innerHTML='<span class="pill" style="background:'+(outdoorOk?"var(--fit-green-soft);color:var(--fit-green)":"var(--fit-amber-soft);color:var(--fit-amber)")+'">'+(outdoorOk?L({en:"Good for outdoor",id:"Bagus buat outdoor"}):L({en:"Better train indoors",id:"Lebih baik latihan indoor"}))+'</span>';
     }
 
     function toast(t){const el=document.getElementById("toast");el.textContent=t;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),3000)}
@@ -666,37 +667,31 @@
       loadRecs();
     }
     // Scene cuaca beranimasi sesuai kode WMO Open-Meteo + siang/malam
+    // Ikon cuaca di hero (sky-bleed) — ganti sesuai kode WMO + siang/malam
     function drawWeatherScene(code, day){
-      const s=document.getElementById("wscene");
-      let bg, html="";
-      const sky=day?["#4a90d9","#7db8e8"]:["#1a2740","#2d3e5f"];
-      bg="linear-gradient(160deg,"+sky[0]+","+sky[1]+")";
-      if(!day){ for(let i=0;i<12;i++)html+='<div class="star" style="top:'+(8+Math.random()*60)+'%;left:'+(Math.random()*100)+'%;animation-delay:'+(Math.random()*2.5)+'s"></div>'; }
-      if(code===0||code===1){ html+= day?'<div class="sun"></div>':'<div class="moon"></div>'; }
-      else if(code<=3){ html+= day?'<div class="sun"></div>':'<div class="moon"></div>'; html+='<div class="cl c1"></div><div class="cl c2"></div>'; }
-      else if(code<=48){ bg="linear-gradient(160deg,#9aa5b1,#c3ccd6)"; html+='<div class="cl c1"></div><div class="cl c2"></div>'; }
-      else if(code<=67||(code>=80&&code<=82)){ bg="linear-gradient(160deg,#5b6470,#7a828c)"; html+='<div class="cl c1"></div><div class="cl c2"></div>'; for(let i=0;i<14;i++)html+='<div class="rain" style="left:'+(Math.random()*100)+'%;animation-delay:'+(Math.random()*0.8)+'s"></div>'; }
-      else if(code<=77){ bg="linear-gradient(160deg,#8893a3,#b9c2cf)"; html+='<div class="cl c1"></div>'; for(let i=0;i<12;i++)html+='<div class="rain" style="left:'+(Math.random()*100)+'%;background:#fff;height:4px;width:4px;border-radius:50%;animation-delay:'+(Math.random()*1.2)+'s"></div>'; }
-      else{ bg="linear-gradient(160deg,#2b3340,#444b57)"; html+='<div class="cl c1"></div><div class="bolt">⚡</div>'; for(let i=0;i<16;i++)html+='<div class="rain" style="left:'+(Math.random()*100)+'%;animation-delay:'+(Math.random()*0.7)+'s"></div>'; }
-      s.style.background=bg; s.innerHTML=html;
+      const el=document.getElementById("wxIcon"); if(!el)return;
+      const sun='<circle cx="12" cy="12" r="4"/><g class="ray"><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g>';
+      const moon='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+      const cloud='<path d="M17.5 19a4.5 4.5 0 0 0 .5-8.98 6 6 0 0 0-11.64 1.5A3.5 3.5 0 0 0 6.5 19z"/>';
+      const rain='<path d="M17.5 15a4.5 4.5 0 0 0 .5-8.98 6 6 0 0 0-11.64 1.5A3.5 3.5 0 0 0 6.5 15"/><path d="M8 18v2M12 18v2M16 18v2"/>';
+      let ic, col;
+      if(code<=1){ ic=day?sun:moon; col=day?"#E8A93A":"var(--fit-ink-soft,#6E6E73)"; }
+      else if(code<=48){ ic=cloud; col="var(--fit-ink-soft,#6E6E73)"; }
+      else if(code<=99){ ic=rain; col="var(--fit-blue,#0068C9)"; }
+      else { ic=cloud; col="var(--fit-ink-soft,#6E6E73)"; }
+      el.innerHTML=ic; el.style.color=col;
+      el.classList.toggle("wx-sun", code<=1 && day);
     }
-    // Gauge AQI beranimasi + partikel polusi (makin banyak makin buruk)
+    // AQI sebagai garis gradasi horizontal + penanda (ala referensi glass)
     function drawAqi(aqi){
-      const label=aqi<=50?L({en:"Good",id:"Baik"}):aqi<=100?L({en:"Moderate",id:"Sedang"}):aqi<=150?L({en:"Poor",id:"Kurang"}):L({en:"Bad",id:"Buruk"});
-      const advice=aqi<=50?L({en:"Air is good, safe outdoors.",id:"Udara bagus, aman outdoor."}):aqi<=100?L({en:"Okay — sensitive groups limit outdoor.",id:"Cukup oke, yang sensitif kurangi outdoor."}):aqi<=150?L({en:"Sensitive groups train indoors.",id:"Kelompok sensitif olahraga di dalam."}):L({en:"Better to exercise indoors.",id:"Sebaiknya olahraga di dalam ruangan."});
-      const col=aqi<=50?"#34c759":aqi<=100?"#ffcc00":aqi<=150?"#ff9500":"#ff3b30";
-      document.getElementById("aqinum").textContent=aqi;
-      document.getElementById("aqinum").style.color=col;
-      document.getElementById("aqilabel").textContent=label;
-      document.getElementById("aqiadvice").textContent=advice;
-      const arc=document.getElementById("aqiArc");
-      const C=327, frac=Math.min(aqi/200,1);
-      arc.setAttribute("stroke",col);
-      arc.style.filter="drop-shadow(0 0 5px "+col+"88)";
-      requestAnimationFrame(()=>{arc.style.strokeDashoffset=String(C*(1-frac));});
-      const cnt=aqi<=50?3:aqi<=100?7:aqi<=150?12:18;
-      let p="";for(let i=0;i<cnt;i++){const sz=2+Math.random()*3;p+='<div class="pm" style="width:'+sz+'px;height:'+sz+'px;left:'+(15+Math.random()*70)+'%;background:'+col+'55;animation-duration:'+(2+Math.random()*2.5)+'s;animation-delay:'+(Math.random()*2)+'s"></div>';}
-      document.getElementById("aqiparts").innerHTML=p;
+      const info = aqi<=50 ? {t:L({en:"Good · outdoor OK",id:"Baik · aman outdoor"}),c:"#2BB673"}
+        : aqi<=100 ? {t:L({en:"Moderate",id:"Sedang"}),c:"#C77A00"}
+        : aqi<=150 ? {t:L({en:"Poor · limit outdoor",id:"Kurang · batasi outdoor"}),c:"#E8912A"}
+        : {t:L({en:"Unhealthy · train indoors",id:"Tidak sehat · latihan indoor"}),c:"#D4283A"};
+      const num=document.getElementById("aqinum"); if(num){ num.textContent=aqi; num.style.color=info.c; }
+      const adv=document.getElementById("aqiadvice"); if(adv){ adv.textContent=info.t; adv.style.color=info.c; }
+      const m=document.getElementById("aqiMarker");
+      if(m){ const pct=Math.max(2,Math.min(98,(aqi/300)*100)); requestAnimationFrame(()=>{ m.style.left=pct+"%"; }); m.style.borderColor=info.c; }
     }
 
     // Hanya produk yang BENAR-BENAR tersedia di booking.20fit.id + deep-link per lokasi
