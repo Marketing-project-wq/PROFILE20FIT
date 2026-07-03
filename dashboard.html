@@ -234,59 +234,23 @@
   .m-sub{font-family:var(--fit-font-mono,'JetBrains Mono'),monospace;font-size:12px;color:var(--muted);margin-top:2px}
   .m-close{border:0;background:var(--inp);width:34px;height:34px;border-radius:999px;cursor:pointer;color:var(--ink);flex:0 0 auto;display:grid;place-items:center}
   .m-close svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-  .demo{margin:16px 0;height:212px;border-radius:18px;background:var(--inp);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;position:relative;overflow:hidden;padding:34px 14px 14px}
+  .demo{margin:16px 0;height:190px;border-radius:18px;background:var(--inp);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;position:relative;overflow:hidden;padding:34px 14px 16px}
   .tempo-tag{position:absolute;top:12px;left:14px;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
   .voicebtn{position:absolute;top:9px;right:9px;width:32px;height:32px;border-radius:999px;border:0;background:var(--card);color:var(--ink);box-shadow:var(--shadow);cursor:pointer;display:grid;place-items:center;z-index:3;padding:0}
   .voicebtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .voicebtn .voff{display:none}
   .voicebtn.muted{color:var(--muted)}
   .voicebtn.muted .von{display:none}.voicebtn.muted .voff{display:block}
-  /* Exercise figure — articulated "person" isolated to its own layer (no text jitter) */
-  .figwrap{height:130px;width:100%;display:grid;place-items:center;contain:layout paint;overflow:hidden}
-  .exfig{height:126px;width:auto;overflow:visible;will-change:transform;transform:translateZ(0)}
-  .exfig line{stroke-width:13;stroke-linecap:round;stroke-linejoin:round;stroke:#F6B93B}
-  .exfig .skin{stroke:#F6B93B}
-  .exfig .shorts{stroke:#33507E;stroke-width:17}
-  .exfig .shirt,.exfig .torso{stroke:#E4002B;stroke-width:23}
-  .exfig .shoe{stroke:#232B45;stroke-width:14}
-  .exfig .head{fill:#F6B93B;stroke:none}
-  .exfig .hairline{stroke:#E39A22;stroke-width:11;fill:none;stroke-linecap:round}
-  .exfig .ground{stroke:#BCC0CB;stroke-width:7}
-  .exfig g{transform-box:view-box}
-  /* SQUAT: stand <-> deep squat (side; foot planted, hips back, arms forward) */
-  .exfig.squat .j-shin{animation:sqShin 3.4s ease-in-out infinite}
-  .exfig.squat .j-thigh{animation:sqThigh 3.4s ease-in-out infinite}
-  .exfig.squat .j-torso{animation:sqTorso 3.4s ease-in-out infinite}
-  .exfig.squat .j-uarm{animation:sqArm 3.4s ease-in-out infinite}
-  @keyframes sqShin{0%,100%{transform:rotate(0)}50%{transform:rotate(18deg)}}
-  @keyframes sqThigh{0%,100%{transform:rotate(0)}50%{transform:rotate(-82deg)}}
-  @keyframes sqTorso{0%,100%{transform:rotate(0)}50%{transform:rotate(44deg)}}
-  @keyframes sqArm{0%,100%{transform:rotate(0)}50%{transform:rotate(90deg)}}
-  /* PUSH-UP: up <-> chest to floor (side; body dips, elbow bends) */
-  .exfig.pushup .j-body{animation:puBody 3s ease-in-out infinite}
-  .exfig.pushup .j-uarm{animation:puArm 3s ease-in-out infinite}
-  @keyframes puBody{0%,100%{transform:translateY(0)}50%{transform:translateY(18px)}}
-  @keyframes puArm{0%,100%{transform:rotate(0)}50%{transform:rotate(38deg)}}
-  /* PLANK: correct hold, subtle hover */
-  .exfig.plank .j-body{animation:hold 3.6s ease-in-out infinite}
-  /* GLUTE BRIDGE: hips on floor <-> hips lifted (side; big pump) */
-  .exfig.bridge .j-hip{animation:brHip 3.2s ease-in-out infinite}
-  @keyframes brHip{0%,100%{transform:translateY(12px)}50%{transform:translateY(-14px)}}
-  /* WALL SIT: correct 90° hold, subtle hover */
-  .exfig.wallsit .j-body{animation:hold 3.6s ease-in-out infinite}
-  @keyframes hold{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-  /* STANDING MARCH: drive knees up alternately (side; thigh + knee) */
-  .exfig.march .j-legL,.exfig.march .j-armR{animation:mchA 1.4s ease-in-out infinite}
-  .exfig.march .j-legR,.exfig.march .j-armL{animation:mchB 1.4s ease-in-out infinite}
-  .exfig.march .j-kneeL{animation:mchKA 1.4s ease-in-out infinite}
-  .exfig.march .j-kneeR{animation:mchKB 1.4s ease-in-out infinite}
-  @keyframes mchA{0%,100%{transform:rotate(4deg)}50%{transform:rotate(-46deg)}}
-  @keyframes mchB{0%,100%{transform:rotate(-46deg)}50%{transform:rotate(4deg)}}
-  @keyframes mchKA{0%,100%{transform:rotate(0)}50%{transform:rotate(62deg)}}
-  @keyframes mchKB{0%,100%{transform:rotate(62deg)}50%{transform:rotate(0)}}
-  /* REST / cool-down: calm breathing */
-  .exfig.rest .j-body{animation:restBreath 3.4s ease-in-out infinite;transform-origin:50% 100%}
-  @keyframes restBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+  /* Tempo pacer — a simple round dot that pulses with the rhythm (isolated layer) */
+  .figwrap{height:118px;width:100%;display:grid;place-items:center;contain:layout paint;overflow:hidden}
+  .pacer-dot{width:96px;height:96px;border-radius:50%;background:var(--red);will-change:transform;
+    box-shadow:0 12px 30px color-mix(in srgb,var(--red) 34%,transparent);transition:transform .85s ease-in-out}
+  .pacer-dot.sm{transform:scale(.56)}                          /* rep: down */
+  .pacer-dot.hold{animation:dotHold 3s ease-in-out infinite}   /* hold / march */
+  @keyframes dotHold{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+  .pacer-dot.rest{background:var(--muted);transform:scale(.82);box-shadow:none} /* rest / cool-down */
+  .pacer-lbl{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--red);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;line-height:1.1}
+  @media (prefers-reduced-motion: reduce){ .pacer-dot{transition:none !important;animation:none !important} }
   .pacer-lbl{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--red);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;line-height:1.1}
   @media (prefers-reduced-motion: reduce){ .exfig *{animation:none !important} }
   .m-target{display:flex;gap:10px;margin:4px 0 16px}
@@ -462,7 +426,7 @@
           <svg class="von" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
           <svg class="voff" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
         </button>
-        <div class="figwrap" id="mFigWrap"></div>
+        <div class="figwrap"><div class="pacer-dot" id="mDot"></div></div>
         <div class="pacer-lbl" id="pacerLbl">Follow the pace</div>
       </div>
       <div class="m-target"><div class="chipm"><div class="cv" id="mSets">3</div><div class="cl" id="mSetsL">sets</div></div><div class="chipm"><div class="cv" id="mReps">10–12</div><div class="cl" id="mRepsL">reps</div></div><div class="chipm"><div class="cv" id="mRest">45s</div><div class="cl" id="mRestL">rest</div></div></div>
@@ -1000,66 +964,6 @@
       wall:'<path d="M5 4v16M5 12h9v8"/>',
       march:'<circle cx="12" cy="4.5" r="1.6"/><path d="M12 7v6l-3 5M12 10l4 3"/>'
     };
-    // Colored "person" figures (skin/shirt/shorts/shoes) — jointed so each coaches its real form.
-    var FIGS={
-      squat:'<svg class="exfig squat" viewBox="0 0 172 154" fill="none">'+
-        '<line class="shoe" x1="58" y1="144" x2="94" y2="144"/>'+
-        '<g class="j-shin" style="transform-origin:74px 144px"><line class="skin" x1="74" y1="144" x2="74" y2="104"/>'+
-          '<g class="j-thigh" style="transform-origin:74px 104px"><line class="shorts" x1="74" y1="104" x2="74" y2="66"/>'+
-            '<g class="j-torso" style="transform-origin:74px 66px"><line class="shirt" x1="74" y1="66" x2="74" y2="30"/>'+
-              '<circle class="head" cx="74" cy="16" r="14"/><path class="hairline" d="M63 10 A13 13 0 0 1 85 10"/>'+
-              '<g class="j-uarm" style="transform-origin:74px 38px"><line class="skin" x1="74" y1="38" x2="74" y2="66"/></g>'+
-            '</g></g></g></svg>',
-      push:'<svg class="exfig pushup" viewBox="0 0 204 144" fill="none">'+
-        '<line class="ground" x1="24" y1="126" x2="188" y2="126"/>'+
-        '<g class="j-body" style="transform-origin:172px 122px">'+
-          '<circle class="head" cx="50" cy="58" r="14"/><path class="hairline" d="M39 52 A13 13 0 0 1 61 52"/>'+
-          '<line class="shirt" x1="62" y1="64" x2="132" y2="86"/>'+
-          '<line class="shorts" x1="132" y1="86" x2="170" y2="98"/>'+
-          '<line class="skin" x1="170" y1="98" x2="182" y2="122"/><line class="shoe" x1="178" y1="120" x2="192" y2="126"/>'+
-          '<g class="j-uarm" style="transform-origin:76px 72px"><line class="skin" x1="76" y1="72" x2="82" y2="124"/></g>'+
-        '</g></svg>',
-      plank:'<svg class="exfig plank" viewBox="0 0 204 144" fill="none">'+
-        '<line class="ground" x1="22" y1="126" x2="190" y2="126"/>'+
-        '<g class="j-body" style="transform-origin:112px 98px">'+
-          '<circle class="head" cx="46" cy="62" r="14"/><path class="hairline" d="M35 56 A13 13 0 0 1 57 56"/>'+
-          '<line class="shirt" x1="58" y1="68" x2="128" y2="90"/>'+
-          '<line class="shorts" x1="128" y1="90" x2="166" y2="100"/>'+
-          '<line class="skin" x1="166" y1="100" x2="180" y2="126"/><line class="shoe" x1="176" y1="123" x2="190" y2="128"/>'+
-          '<line class="skin" x1="66" y1="74" x2="60" y2="106"/><line class="skin" x1="60" y1="106" x2="86" y2="106"/>'+
-        '</g></svg>',
-      bridge:'<svg class="exfig bridge" viewBox="0 0 200 144" fill="none">'+
-        '<line class="ground" x1="18" y1="128" x2="180" y2="128"/>'+
-        '<circle class="head" cx="40" cy="114" r="14"/><path class="hairline" d="M29 120 A13 13 0 0 0 51 120"/>'+
-        '<g class="j-hip"><line class="shirt" x1="52" y1="118" x2="116" y2="88"/>'+
-          '<line class="shorts" x1="116" y1="88" x2="128" y2="126"/></g>'+
-        '<line class="skin" x1="128" y1="126" x2="128" y2="128"/><line class="shoe" x1="126" y1="128" x2="150" y2="128"/></svg>',
-      wall:'<svg class="exfig wallsit" viewBox="0 0 178 144" fill="none">'+
-        '<line class="ground" x1="32" y1="10" x2="32" y2="130"/><line class="ground" x1="32" y1="130" x2="162" y2="130"/>'+
-        '<g class="j-body" style="transform-origin:50px 88px"><circle class="head" cx="52" cy="40" r="14"/>'+
-          '<path class="hairline" d="M41 34 A13 13 0 0 1 63 34"/>'+
-          '<line class="shirt" x1="52" y1="52" x2="52" y2="90"/>'+
-          '<line class="shorts" x1="50" y1="90" x2="114" y2="90"/>'+
-          '<line class="skin" x1="114" y1="90" x2="114" y2="128"/><line class="shoe" x1="110" y1="128" x2="132" y2="128"/>'+
-          '<line class="skin" x1="52" y1="68" x2="98" y2="84"/></g></svg>',
-      march:'<svg class="exfig march" viewBox="0 0 154 156" fill="none">'+
-        '<circle class="head" cx="74" cy="22" r="14"/><path class="hairline" d="M63 16 A13 13 0 0 1 85 16"/>'+
-        '<line class="shirt" x1="74" y1="34" x2="74" y2="80"/>'+
-        '<g class="j-armL" style="transform-origin:74px 46px"><line class="skin" x1="74" y1="46" x2="74" y2="78"/></g>'+
-        '<g class="j-armR" style="transform-origin:74px 46px"><line class="skin" x1="74" y1="46" x2="74" y2="78"/></g>'+
-        '<g class="j-legL" style="transform-origin:74px 82px"><line class="shorts" x1="74" y1="82" x2="74" y2="112"/>'+
-          '<g class="j-kneeL" style="transform-origin:74px 112px"><line class="skin" x1="74" y1="112" x2="74" y2="144"/><line class="shoe" x1="72" y1="144" x2="90" y2="146"/></g></g>'+
-        '<g class="j-legR" style="transform-origin:74px 82px"><line class="shorts" x1="74" y1="82" x2="74" y2="112"/>'+
-          '<g class="j-kneeR" style="transform-origin:74px 112px"><line class="skin" x1="74" y1="112" x2="74" y2="144"/><line class="shoe" x1="72" y1="144" x2="90" y2="146"/></g></g></svg>',
-      rest:'<svg class="exfig rest" viewBox="0 0 120 156" fill="none">'+
-        '<g class="j-body" style="transform-origin:60px 144px"><circle class="head" cx="60" cy="24" r="14"/>'+
-          '<path class="hairline" d="M49 18 A13 13 0 0 1 71 18"/>'+
-          '<line class="shirt" x1="60" y1="36" x2="60" y2="82"/>'+
-          '<line class="skin" x1="60" y1="48" x2="40" y2="82"/><line class="skin" x1="60" y1="48" x2="80" y2="82"/>'+
-          '<line class="shorts" x1="60" y1="82" x2="48" y2="108"/><line class="shorts" x1="60" y1="82" x2="72" y2="108"/>'+
-          '<line class="skin" x1="48" y1="108" x2="46" y2="140"/><line class="skin" x1="72" y1="108" x2="74" y2="140"/>'+
-          '<line class="shoe" x1="42" y1="140" x2="56" y2="142"/><line class="shoe" x1="70" y1="140" x2="84" y2="142"/></g></svg>'
-    };
     var EX=[
       {icon:'squat',n:{en:'Bodyweight Squat',id:'Squat Tanpa Beban'},s:{en:'Legs',id:'Kaki'},sets:3,reps:'10–12',repl:{en:'reps',id:'repetisi'},rest:'45s',type:'rep',
         steps:{en:['Feet shoulder-width, toes slightly out.','Push hips back and bend knees, chest up.','Lower until thighs near parallel.','Drive through heels to stand; exhale up.'],
@@ -1093,7 +997,7 @@
     var mTitle=document.getElementById("mTitle"),mSub=document.getElementById("mSub"),mSteps=document.getElementById("mSteps"),
         mSets=document.getElementById("mSets"),mReps=document.getElementById("mReps"),mRepsL=document.getElementById("mRepsL"),mRest=document.getElementById("mRest"),
         mSetsL=document.getElementById("mSetsL"),mRestL=document.getElementById("mRestL"),mTempo=document.getElementById("mTempoTag"),
-        pacerLbl=document.getElementById("pacerLbl"),figWrap=document.getElementById("mFigWrap"),vbtn=document.getElementById("mVoice"),
+        pacerLbl=document.getElementById("pacerLbl"),mDot=document.getElementById("mDot"),vbtn=document.getElementById("mVoice"),
         mTime=document.getElementById("mTime"),mTimerBtn=document.getElementById("mTimerBtn"),mSafety=document.getElementById("mSafety");
     var pTimer=null,pDown=true,phInt=null,phase='',phSecs=0,setNo=0,workSecs=0,restSecs=0,running=false,guided=false,curEx=null,curType='rep';
     // ---- Voice guidance (browser speech; user can mute) ----
@@ -1103,13 +1007,13 @@
     function stopSpeak(){ try{ if(synth)synth.cancel(); }catch(e){} }
     function fmt(x){var m=Math.floor(x/60),r=x%60;return (m<10?'0':'')+m+':'+(r<10?'0':'')+r;}
     function setTag(t){ if(mTempo) mTempo.textContent=t; }
-    function showFig(icon){ if(figWrap) figWrap.innerHTML=FIGS[icon]||''; }
+    function setDot(mode){ if(!mDot)return; mDot.classList.remove('sm','hold','rest'); if(mode==='hold')mDot.classList.add('hold'); else if(mode==='rest')mDot.classList.add('rest'); }
     // ---- rep/hold cue (figure animates via CSS; speaks only during a guided run) ----
-    function pace(){ pDown=!pDown; pacerLbl.textContent=pDown?L({en:'DOWN',id:'TURUN'}):L({en:'UP',id:'NAIK'}); if(guided)speak(pDown?L({en:'Down',id:'Turun'}):L({en:'Up',id:'Naik'})); }
+    function pace(){ pDown=!pDown; if(mDot)mDot.classList.toggle('sm',pDown); pacerLbl.textContent=pDown?L({en:'DOWN',id:'TURUN'}):L({en:'UP',id:'NAIK'}); if(guided)speak(pDown?L({en:'Down',id:'Turun'}):L({en:'Up',id:'Naik'})); }
     function startCue(t){ stopCue();
-      if(t==='rep'){ pDown=false; pacerLbl.textContent=L({en:'DOWN',id:'TURUN'}); if(guided)speak(L({en:'Down',id:'Turun'})); pTimer=setInterval(pace,2000); }
-      else if(curEx&&curEx.icon==='march'){ pacerLbl.textContent=L({en:'MARCH',id:'JALAN'}); if(guided)speak(L({en:'March in place',id:'Jalan di tempat'})); }
-      else { pacerLbl.textContent=L({en:'HOLD',id:'TAHAN'}); if(guided)speak(L({en:'Hold, keep steady',id:'Tahan, jaga stabil'})); }
+      if(t==='rep'){ setDot('rep'); pDown=false; if(mDot)mDot.classList.remove('sm'); pacerLbl.textContent=L({en:'UP',id:'NAIK'}); pTimer=setInterval(pace,2000); }
+      else if(curEx&&curEx.icon==='march'){ setDot('hold'); pacerLbl.textContent=L({en:'MARCH',id:'JALAN'}); if(guided)speak(L({en:'March in place',id:'Jalan di tempat'})); }
+      else { setDot('hold'); pacerLbl.textContent=L({en:'HOLD',id:'TAHAN'}); if(guided)speak(L({en:'Hold, keep steady',id:'Tahan, jaga stabil'})); }
     }
     function stopCue(){ if(pTimer){clearInterval(pTimer);pTimer=null;} }
     // ---- Guided sets: WORK -> REST -> ... -> cool down (with spoken cues) ----
@@ -1118,13 +1022,13 @@
       var m=String(ex.reps).match(/\d+/g); var reps=m?parseInt(m[m.length-1],10):10; return Math.min(60,Math.max(20,Math.round(reps*3.2))); }
     function enterWork(){ phase='work'; phSecs=workSecs; guided=true;
       setTag(L({en:'Set',id:'Set'})+' '+setNo+'/'+curEx.sets+' · '+L({en:'WORK',id:'KERJA'}));
-      showFig(curEx.icon); startCue(curType); mTime.textContent=fmt(phSecs); }
+      startCue(curType); mTime.textContent=fmt(phSecs); }
     function enterRest(){ phase='rest'; phSecs=restSecs; stopCue();
       setTag(L({en:'Set',id:'Set'})+' '+setNo+'/'+curEx.sets+' · '+L({en:'REST',id:'ISTIRAHAT'}));
-      pacerLbl.textContent=L({en:'REST',id:'ISTIRAHAT'}); showFig('rest');
+      pacerLbl.textContent=L({en:'REST',id:'ISTIRAHAT'}); setDot('rest');
       speak(L({en:'Now rest your body',id:'Sekarang istirahatkan tubuhmu'})); mTime.textContent=fmt(phSecs); }
     function finishAll(){ stopGuided(true); setTag(L({en:'Done',id:'Selesai'}));
-      pacerLbl.textContent=L({en:'DONE',id:'SELESAI'}); showFig('rest');
+      pacerLbl.textContent=L({en:'DONE',id:'SELESAI'}); setDot('rest');
       speak(L({en:'Great job. Cool down your body.',id:'Kerja bagus. Dinginkan tubuhmu.'})); mTime.textContent='00:00'; }
     function tick(){ phSecs--; mTime.textContent=fmt(Math.max(0,phSecs)); if(phSecs>0)return;
       if(phase==='work'){ if(setNo>=curEx.sets){ finishAll(); return; } enterRest(); }
@@ -1134,7 +1038,7 @@
       enterWork(); if(phInt)clearInterval(phInt); phInt=setInterval(tick,1000); }
     function stopGuided(done){ running=false; guided=false; if(phInt){clearInterval(phInt);phInt=null;}
       mTimerBtn.textContent=L({en:'Start guided sets',id:'Mulai set terpandu'}); mTimerBtn.classList.remove('run');
-      if(!done){ stopSpeak(); mTime.textContent='00:00'; setTag(L({en:'Tempo guide',id:'Panduan tempo'})); if(curEx){ showFig(curEx.icon); startCue(curType); } } }
+      if(!done){ stopSpeak(); mTime.textContent='00:00'; setTag(L({en:'Tempo guide',id:'Panduan tempo'})); if(curEx){ startCue(curType); } } }
     mTimerBtn.addEventListener("click",function(){ if(running){ stopGuided(false); } else { startGuided(); } });
     function openModal(i){ var ex=EX[i]; curEx=ex; curType=ex.type;
       mTitle.textContent=L(ex.n); mSub.textContent=L(ex.s)+' · '+L({en:'at home, no equipment',id:'di rumah, tanpa alat'});
@@ -1144,10 +1048,10 @@
       mSteps.innerHTML=''; L(ex.steps).forEach(function(st){ var li=document.createElement('li'); li.textContent=st; mSteps.appendChild(li); });
       running=false; guided=false; if(phInt){clearInterval(phInt);phInt=null;} stopCue(); stopSpeak();
       mTimerBtn.classList.remove('run'); mTimerBtn.textContent=L({en:'Start guided sets',id:'Mulai set terpandu'}); mTime.textContent='00:00';
-      showFig(ex.icon); startCue(ex.type);
+      setDot('rep'); startCue(ex.type);
       bg.classList.add('open'); document.body.style.overflow='hidden';
     }
-    function closeModal(){ bg.classList.remove('open'); document.body.style.overflow=''; stopCue(); if(phInt){clearInterval(phInt);phInt=null;} stopSpeak(); running=false; guided=false; if(figWrap)figWrap.innerHTML=''; }
+    function closeModal(){ bg.classList.remove('open'); document.body.style.overflow=''; stopCue(); if(phInt){clearInterval(phInt);phInt=null;} stopSpeak(); running=false; guided=false; if(mDot)mDot.classList.remove('sm','hold','rest'); }
     document.getElementById("mClose").addEventListener("click",closeModal);
     bg.addEventListener('click',function(e){ if(e.target===bg)closeModal(); });
     document.addEventListener('keydown',function(e){ if(e.key==='Escape')closeModal(); });
