@@ -443,6 +443,7 @@
   <script src="i18n.js"></script>
   <script src="fasting.js"></script>
   <script src="achievements.js"></script>
+  <script src="nutrition.js"></script>
   <script src="nav.js"></script>
   <script src="tour.js"></script>
   <script>
@@ -539,6 +540,17 @@
           '<div class="dthermo"><i style="width:'+pct+'%"></i></div>'+
           '<div class="dtogo">'+(leftK>0?('<b>'+leftK+'</b>'+L({en:" kcal more to go 🔥",id:" kkal lagi yang kamu butuh 🔥"})):L({en:"Daily target reached 🎉",id:"Target harian tercapai 🎉"}))+'</div>'+
           '</a>';
+        // Rekomendasi makanan untuk menutup sisa kalori
+        if(leftK>0 && window.Nutrition){
+          var rec=Nutrition.mealFor(leftK,3);
+          if(rec.length){
+            html+='<a class="card" href="calories.html" style="display:block;text-decoration:none;color:var(--txt);margin-top:10px">'+
+              '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:18px">🥗</span>'+
+              '<div style="font-weight:800;font-size:14px">'+L({en:"To fill your remaining "+leftK+" kcal, try:",id:"Untuk penuhi sisa "+leftK+" kkal, coba:"})+'</div></div>'+
+              rec.map(function(f){return '<div class="hrrow" style="border:0;padding:5px 0"><span class="hrdot" style="background:var(--green);margin-top:6px"></span><div style="flex:1"><b style="font-weight:650">'+Nutrition.name(f)+'</b></div><span class="muted" style="font-size:12px">'+f.kcal+' '+L({en:"kcal",id:"kkal"})+'</span></div>';}).join("")+
+              '<div class="muted" style="font-size:11px;margin-top:8px">'+L({en:"Healthy picks recommended for you · tap to log",id:"Rekomendasi makanan sehat buat kamu · ketuk untuk catat"})+'</div></a>';
+          }
+        }
       }catch(e){}
       // 2) pengingat dari medical check-up terakhir
       try{
