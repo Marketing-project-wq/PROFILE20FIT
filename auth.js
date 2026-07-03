@@ -335,10 +335,12 @@
   async function routeAfterAuth() {
     const user = await requireAuth();
     const profile = await ensureProfile(user);
-    // Belum punya password web (login via Google/OTP/FITCO-Google) -> WAJIB bikin dulu di layar khusus.
-    if (!hasWebPassword(user)) return go("setpassword.html");
-    // User lama yang sudah onboarding -> dashboard; user baru -> onboarding.
+    // SUDAH pernah daftar & selesai onboarding -> langsung masuk dashboard (auto sign-in),
+    // tanpa diminta bikin password lagi. Berlaku untuk semua metode (akun app/Google/OTP/password).
     if (profile.onboarding_completed) return go("dashboard.html");
+    // Akun BARU (belum onboarding) & belum punya password web -> bikin password dulu di layar khusus.
+    if (!hasWebPassword(user)) return go("setpassword.html");
+    // Sudah punya password tapi belum lengkapi data -> onboarding.
     return go("onboarding.html");
   }
 

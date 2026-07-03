@@ -325,8 +325,9 @@
         await Auth.ready;
         // Route HANYA saat user AKTIF login / balik dari Google (evt SIGNED_IN), bukan saat sesi lama kebaca.
         Auth.supabase.auth.onAuthStateChange((evt,sess)=>{ if(evt==="SIGNED_IN" && sess && sess.user){ Auth.routeAfterAuth(); } });
+        // Sudah pernah daftar (onboarding selesai) -> auto masuk dashboard, apa pun metode loginnya.
         const u=await Auth.getUser();
-        if(u && Auth.hasWebPassword(u)){
+        if(u){
           try{ const p=await Auth.getProfile(); if(p && p.onboarding_completed){ Auth.go("dashboard.html"); return; } }catch(e){}
         }
         tryAutofill();
