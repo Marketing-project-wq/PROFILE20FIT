@@ -1,157 +1,178 @@
 /* ============================================================
-   glass-app.css — applies the 20FIT "Glass Minimalist" design
-   system to the existing app, purely via CSS. Loaded AFTER each
-   page's own <style> so it re-skins without touching any markup,
-   id, handler, or logic. Pairs with 20fit-design-system.css
-   (which defines the --fit-* tokens + .fit-* classes).
+   glass-app.css — 20FIT "Flat Minimalist" (v4) app-wide skin.
 
-   Dark mode keys off [data-theme="dark"] on <html> (set by i18n.js),
-   matching the design system.
+   Loaded LAST on every page (after the page's own <style> and
+   20fit-design-system.css), so it re-skins the whole app purely
+   via CSS — no markup, id, handler or logic is touched.
+
+   This REPLACES the earlier glass look with the clean flat v4
+   design: light-grey page, solid white cards, system fonts, red
+   accent. It remaps BOTH the app's legacy tokens (--red/--card/…)
+   AND the design-system's --fit-* tokens to flat values, so any
+   element (including the shared nav.js) that reads either token
+   set renders flat automatically.
+
+   Dark mode keys off `html:not(.theme-light)` (the app toggle) and
+   `[data-theme="dark"]` (design-system), covering both mechanisms.
    ============================================================ */
 
-/* ---- 1. Remap the app's legacy tokens -> design-system tokens ----
-   Loaded after each page's :root, so these win. Every existing rule
-   that uses var(--card)/var(--red)/... instantly picks up the new look. */
+/* ---- 1. Tokens · LIGHT (v4 flat palette) ---------------------------------
+   :root loads after the page's own :root, so these win in light mode. */
 :root{
-  --red:#E4002B;--red-ink:#B0001F;--red-soft:#FBE1E7;
-  --amber:#C77A00;--amber-soft:#F7EBD8;--amber-ink:#8A5A00;
-  --green:#1C8A4B;--green-soft:#DEF0E6;--green-ink:#12633A;
-  --blue:#0068C9;--blue-soft:#E1EDFA;
-  --ink:#1D1D1F;--txt:#1D1D1F;--muted:#6E6E73;--faint:#9A9A9E;
-  --line:rgba(29,29,31,.08);
-  --card:var(--fit-glass);--inp:var(--fit-glass-strong);--dark:#1D1D1F;
-  --pagetx:#1D1D1F;--pagemut:#6E6E73;
-  --radius-lg:22px;--radius:14px;
-  --shadow:0 8px 30px rgba(29,29,31,.07);
-}
-[data-theme="dark"]{
-  --red:#FF3B57;--red-ink:#FF6076;--red-soft:rgba(255,59,87,.16);
-  --amber:#FFB454;--amber-soft:rgba(255,180,84,.16);--amber-ink:#FFB454;
-  --green:#34C77B;--green-soft:rgba(52,199,123,.16);--green-ink:#34C77B;
-  --blue:#4DA8FF;--blue-soft:rgba(77,168,255,.16);
-  --ink:#F5F5F5;--txt:#F5F5F5;--muted:#A1A1A6;--faint:#6B6B70;
-  --line:rgba(255,255,255,.09);
-  --card:var(--fit-glass);--inp:var(--fit-glass-strong);--dark:#0B0B0D;
-  --pagetx:#F5F5F5;--pagemut:#A1A1A6;
-  --shadow:0 10px 34px rgba(0,0,0,.4);
+  /* legacy app tokens */
+  --red:#D4283A;--red-ink:#B01C2E;--red-soft:#FCEBED;
+  --amber:#E8912A;--amber-soft:#FDF1E2;--amber-ink:#8A5A00;
+  --green:#2BB673;--green-soft:#E6F6EE;--green-ink:#12633A;
+  --blue:#2F6BFF;--blue-soft:#EAF1FF;
+  --bg:#F1F1F4;--card:#FFFFFF;--inp:#F2F2F5;--dark:#15171C;
+  --ink:#15171C;--txt:#15171C;--muted:#8A8D94;--faint:#B7B9BF;
+  --line:#EBEBEF;
+  --pagetx:#15171C;--pagemut:#8A8D94;
+  --radius-lg:22px;--radius:16px;--radius-sm:14px;
+  --shadow:0 1px 2px rgba(16,18,22,.04),0 10px 30px rgba(16,18,22,.045);
+  --font-sys:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Inter",system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+
+  /* remap design-system --fit-* tokens to flat equivalents
+     (so nav.js and any leftover var(--fit-*) references go flat) */
+  --fit-red:#D4283A;--fit-blue:#2F6BFF;--fit-amber:#E8912A;--fit-green:#2BB673;
+  --fit-red-soft:#FCEBED;--fit-blue-soft:#EAF1FF;--fit-amber-soft:#FDF1E2;--fit-green-soft:#E6F6EE;
+  --fit-ink:#15171C;--fit-ink-soft:#8A8D94;--fit-ink-faint:#B7B9BF;--fit-line:#EBEBEF;
+  --fit-bg1:#F1F1F4;--fit-bg2:#F1F1F4;
+  --fit-glass:#FFFFFF;--fit-glass-strong:#FFFFFF;--fit-glass-border:#EBEBEF;--fit-blur:0px;
+  --fit-radius:22px;--fit-radius-sm:14px;--fit-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 30px rgba(16,18,22,.045);
+  --fit-font-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",system-ui,sans-serif;
+  --fit-font-mono:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
+  --fit-font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
 }
 
-/* ---- 2. Page background: warm->cool gradient + soft glass orbs ---- */
-html,body{background:transparent}
+/* ---- 2. Tokens · DARK ----------------------------------------------------
+   Two selectors so we override BOTH the app's dark rule (html:not(.theme-light),
+   which outranks :root) and the design-system's [data-theme="dark"]. */
+html:not(.theme-light),
+html[data-theme="dark"]{
+  --red:#FF5062;--red-ink:#FF7181;--red-soft:#33191D;
+  --amber:#F0A945;--amber-soft:#2E2213;--amber-ink:#F0A945;
+  --green:#3AD98C;--green-soft:#12271C;--green-ink:#3AD98C;
+  --blue:#5C8CFF;--blue-soft:#182238;
+  --bg:#0B0C0F;--card:#16181E;--inp:#23262E;--dark:#0B0C0F;
+  --ink:#F4F5F7;--txt:#F4F5F7;--muted:#8E9198;--faint:#5C5F66;
+  --line:#24262D;
+  --pagetx:#F4F5F7;--pagemut:#8E9198;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 34px rgba(0,0,0,.35);
+
+  --fit-red:#FF5062;--fit-blue:#5C8CFF;--fit-amber:#F0A945;--fit-green:#3AD98C;
+  --fit-red-soft:#33191D;--fit-blue-soft:#182238;--fit-amber-soft:#2E2213;--fit-green-soft:#12271C;
+  --fit-ink:#F4F5F7;--fit-ink-soft:#8E9198;--fit-ink-faint:#5C5F66;--fit-line:#24262D;
+  --fit-bg1:#0B0C0F;--fit-bg2:#0B0C0F;
+  --fit-glass:#16181E;--fit-glass-strong:#16181E;--fit-glass-border:#24262D;
+  --fit-shadow:0 1px 2px rgba(0,0,0,.3),0 12px 34px rgba(0,0,0,.35);
+}
+
+/* ---- 3. Page background: flat, no gradient, no orbs ---------------------- */
+html,body{background:var(--bg)}
 body{
-  background:linear-gradient(140deg,var(--fit-bg1),var(--fit-bg2)) !important;
-  background-attachment:fixed !important;
-  color:var(--fit-ink);
-  font-family:var(--fit-font-body);
-  position:relative;
+  background:var(--bg) !important;background-attachment:scroll !important;
+  color:var(--pagetx);
+  font-family:var(--font-sys) !important;
 }
-body::before,body::after{
-  content:"";position:fixed;border-radius:999px;filter:blur(90px);opacity:.5;z-index:0;pointer-events:none;
-}
-body::before{width:420px;height:420px;top:-120px;left:-80px;background:radial-gradient(circle,rgba(228,0,43,.25),transparent 70%)}
-body::after{width:480px;height:480px;bottom:-160px;right:-120px;background:radial-gradient(circle,rgba(0,104,201,.20),transparent 70%)}
-[data-theme="dark"] body::before{opacity:.4}
-[data-theme="dark"] body::after{opacity:.35}
-/* keep real content above the orbs */
-.wrap,.app,.shell,.card,nav,header,main,section,.langfab,.themefab,.toast{position:relative;z-index:1}
+/* remove the old glass orbs entirely */
+body::before,body::after{content:none !important;display:none !important}
 
-/* ---- 3. Glass surfaces: every .card / panel becomes frosted glass ---- */
+/* ---- 4. Solid flat cards (undo glass blur/tint) ------------------------- */
 .card,.panel,.wcard{
-  background:var(--fit-glass) !important;
-  -webkit-backdrop-filter:blur(var(--fit-blur)) saturate(150%);
-  backdrop-filter:blur(var(--fit-blur)) saturate(150%);
-  border:1px solid var(--fit-glass-border) !important;
-  border-radius:var(--fit-radius) !important;
-  box-shadow:var(--fit-shadow) !important;
-  color:var(--fit-ink);
+  background:var(--card) !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+  box-shadow:var(--shadow) !important;
+  color:var(--txt);
 }
-/* nested / strong tiles (glance stats, vitals dividers keep var(--line)) */
-.stat,.vital,.tile,.ohstat,.glance-stats,.gstat{color:var(--fit-ink)}
+/* keep the medical upload card's dashed red border (v4) */
+.card.up{background:color-mix(in srgb,var(--red-soft) 55%,var(--card)) !important}
 
-/* ---- 4. Typography roles (Barlow display / Mono data / Manrope body) ---- */
-h1,.hello,.headline,.sec,.hk,.sec-title,.title,.name,.m-title,.check-head .d,
-.sec.gsec,.gsec{font-family:var(--fit-font-display) !important;letter-spacing:.01em}
-h1,.hello,.headline,.sec,.hk,.gsec,.sec.gsec{text-transform:uppercase}
-.big,.stat .v,.vital .val,.tile .tv,.gstat .gv,.aqinum,.bgcount,.chkprog,.ift,
-.dur,.m-time,.tile .tv,.ohstat .v,.pval .vv{font-family:var(--fit-font-display) !important;font-weight:900}
-/* mono only for true data chips */
-.pill,.badge,.meta{font-family:var(--fit-font-mono) !important;text-transform:none;letter-spacing:0}
+/* ---- 5. Typography: system fonts everywhere (no Barlow / Mono / Manrope)
+   Override the hard-coded display/data fonts a few widgets still request. */
+.big,.hello,.headline,.sec,.hk,.m-title,.aqinum,.ift,.dtogo b,.m-time,.m-sub,
+.wx-temp,.chipm .cv,.chipm .cl,.pacer,.pacer-lbl,.tempo-tag,.m-steps li::before,
+.m-timerbtn,.aqi-line .alab,.aqi-line .anum,.aqi-line .alvl{
+  font-family:var(--font-sys) !important;
+}
+.ift,.dtogo b,.m-time{font-variant-numeric:tabular-nums}
 
-/* ---- 5. BUTTONS — design-system button spec on EVERY button ----
-   Shape + type + interaction apply to all buttons; color follows each
-   button's role (primary red / dark ink / glass ghost). Focus ring +
-   disabled preserved for accessibility. Uses !important so old inline
-   colors/fonts/radius are overridden (not just layered under). */
+/* ---- 5b. v4 is all sentence-case: soften the leftover UPPERCASE labels ---- */
+.hk{color:var(--muted) !important;text-transform:none !important;letter-spacing:0 !important;font-weight:600 !important;font-size:13px !important}
+.sec:not(.gsec){text-transform:none !important;letter-spacing:0 !important;color:var(--muted) !important;font-weight:700 !important;font-size:12.5px !important}
+.aqi-line .alab,.aqi-line .alvl{text-transform:none !important;letter-spacing:0 !important}
+/* keep .vital .lbl (BMI/WEIGHT/HEIGHT) uppercase — matches v4 */
+
+/* ---- 6. BUTTONS — flat v4 (system font, sentence case, no glow spread) --- */
 .btn,.bookbtn,.cta,.book,.bookchip,.startbtn,.mini-btn,.btn2,.hbtn,.cbbtn,.sbtn,.fbtn,.mbtn,.gbtn,.scanbtn,
-button[type="submit"],input[type="submit"],input[type="button"]{
-  font-family:var(--fit-font-display) !important;font-weight:800 !important;
-  text-transform:uppercase;letter-spacing:.03em;
-  border-radius:var(--fit-radius-sm) !important;transition:.16s;
+.m-timerbtn,.wbtn,button[type="submit"],input[type="submit"],input[type="button"]{
+  font-family:var(--font-sys) !important;font-weight:750 !important;
+  text-transform:none !important;letter-spacing:0 !important;
+  border-radius:var(--radius) !important;transition:.16s;
 }
-.btn:active,.bookbtn:active,.cta:active,.book:active,.bookchip:active,.startbtn:active,.btn2:active,
-.hbtn:active,.cbbtn:active,.sbtn:active,.mbtn:active,.gbtn:active,.scanbtn:active,
+.btn:active,.bookbtn:active,.cta:active,.book:active,.startbtn:active,.btn2:active,
+.hbtn:active,.cbbtn:active,.mbtn:active,.gbtn:active,.scanbtn:active,.m-timerbtn:active,
 button[type="submit"]:active,input[type="submit"]:active{transform:scale(.98)}
 
-/* PRIMARY / CTA / submit / Book -> red with red glow */
+/* PRIMARY / CTA / submit -> solid red, soft v4 shadow */
 .btn:not(.dark):not(.ghost),.bookbtn:not(.ghost):not(.alt),.cta,.book,.bookchip,.cbbtn,.fbtn,
-.hbtn.solid,.startbtn:not(.running),button[type="submit"]:not(.dark):not(.ghost){
-  background:var(--fit-red) !important;color:#fff !important;border:0 !important;
-  box-shadow:0 8px 22px color-mix(in srgb,var(--fit-red) 30%,transparent) !important;
+.hbtn.solid,.startbtn:not(.running),.m-timerbtn:not(.run),button[type="submit"]:not(.dark):not(.ghost){
+  background:var(--red) !important;color:#fff !important;border:0 !important;
+  box-shadow:0 8px 20px color-mix(in srgb,var(--red) 26%,transparent) !important;
 }
-/* SECONDARY / cancel / ghost -> glass */
-.btn.dark,.btn.ghost,.bookbtn.ghost,.bookbtn.alt,.hbtn.ghost,.mini-btn,.startbtn.running,.gbtn{
-  background:var(--fit-glass-strong) !important;border:1px solid var(--fit-glass-border) !important;color:var(--fit-ink) !important;
-  box-shadow:none !important;-webkit-backdrop-filter:blur(var(--fit-blur));backdrop-filter:blur(var(--fit-blur));
+/* SECONDARY / ghost / running -> flat grey chip */
+.btn.dark,.btn.ghost,.bookbtn.ghost,.bookbtn.alt,.hbtn.ghost,.mini-btn,.startbtn.running,.m-timerbtn.run,.gbtn{
+  background:var(--inp) !important;border:0 !important;color:var(--txt) !important;
+  box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;
 }
-/* Dark "ink" buttons (upload, email-code, scan) keep dark surface */
-.btn2,.mbtn,.scanbtn{background:var(--fit-ink) !important;color:var(--fit-bg2) !important;border:0 !important;box-shadow:none !important}
-[data-theme="dark"] .btn2,[data-theme="dark"] .mbtn,[data-theme="dark"] .scanbtn{color:#0B0B0D !important}
-/* small buttons */
-.book,.bookchip,.hbtn,.btn2{padding:9px 15px;border-radius:11px !important}
+/* Dark "ink" buttons (upload, email-code, scan) */
+.btn2,.mbtn,.scanbtn{background:var(--dark) !important;color:var(--bg) !important;border:0 !important;box-shadow:none !important}
 
-/* Focus ring (a11y — never removed) + disabled */
-.btn:focus-visible,.bookbtn:focus-visible,.cta:focus-visible,.book:focus-visible,.bookchip:focus-visible,
+/* Focus ring (a11y) + disabled */
+.btn:focus-visible,.bookbtn:focus-visible,.cta:focus-visible,.book:focus-visible,
 .startbtn:focus-visible,.btn2:focus-visible,.hbtn:focus-visible,.cbbtn:focus-visible,.sbtn:focus-visible,
-.mbtn:focus-visible,.gbtn:focus-visible,.wbtn:focus-visible,.seg button:focus-visible,.chip:focus-visible,
-button:focus-visible,input[type="submit"]:focus-visible{outline:2px solid var(--fit-red);outline-offset:2px}
+.mbtn:focus-visible,.gbtn:focus-visible,.m-timerbtn:focus-visible,.seg button:focus-visible,.chip:focus-visible,
+button:focus-visible,input[type="submit"]:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 .btn:disabled,.bookbtn:disabled,.cta:disabled,.startbtn:disabled,.btn2:disabled,.hbtn:disabled,
 .sbtn:disabled,.gbtn:disabled,button:disabled,input:disabled{opacity:.55;cursor:not-allowed}
 
-/* ---- 6. Inputs / segmented / chips as glass ---- */
+/* ---- 7. Inputs / segmented / chips as flat ------------------------------ */
 input,select,textarea,.tpick input,.search{
-  background:var(--fit-glass) !important;border:1px solid var(--fit-glass-border) !important;
-  color:var(--fit-ink);
+  background:var(--inp) !important;border:1px solid var(--line) !important;
+  color:var(--txt);
 }
-input::placeholder,textarea::placeholder{color:var(--fit-ink-faint)}
+input::placeholder,textarea::placeholder{color:var(--faint)}
 .seg,.filters .chip,.chip{
-  background:var(--fit-glass) !important;border:1px solid var(--fit-glass-border) !important;
-  -webkit-backdrop-filter:blur(var(--fit-blur));backdrop-filter:blur(var(--fit-blur));
+  background:var(--inp) !important;border:0 !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
 }
-.seg button.active,.chip.on{background:var(--fit-ink) !important;color:var(--fit-bg2) !important}
-[data-theme="dark"] .seg button.active,[data-theme="dark"] .chip.on{color:#0B0B0D !important}
+.seg button.active,.chip.on{background:var(--card) !important;color:var(--ink) !important;box-shadow:0 2px 6px rgba(0,0,0,.07)}
+[data-theme="dark"] .seg button.active,[data-theme="dark"] .chip.on{background:var(--inp) !important;color:var(--ink) !important}
 
-/* ---- 7. Shared bottom-nav (nav.js) + floating toggles (i18n.js) -> glass ---- */
+/* ---- 8. Shared nav (nav.js) + floating toggles (i18n.js) -> flat --------- */
+.navside{
+  background:var(--card) !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
+  border-right:1px solid var(--line) !important;
+}
 .bnav{
-  background:var(--fit-glass-strong) !important;
-  -webkit-backdrop-filter:blur(var(--fit-blur)) saturate(160%);backdrop-filter:blur(var(--fit-blur)) saturate(160%);
-  border:1px solid var(--fit-glass-border) !important;box-shadow:var(--fit-shadow) !important;
+  background:color-mix(in srgb,var(--bg) 82%,transparent) !important;
+  -webkit-backdrop-filter:saturate(180%) blur(18px) !important;backdrop-filter:saturate(180%) blur(18px) !important;
+  border:0 !important;border-top:1px solid var(--line) !important;box-shadow:none !important;
 }
-.bnav a{color:var(--fit-ink-soft) !important;font-family:var(--fit-font-display);text-transform:uppercase;letter-spacing:.02em;font-weight:700}
-.bnav a.on{color:var(--fit-ink) !important}
-.bnav a.on svg{stroke:var(--fit-red) !important}
-.scanfab{background:var(--fit-red) !important;box-shadow:0 8px 22px color-mix(in srgb,var(--fit-red) 40%,transparent) !important;font-family:var(--fit-font-display)}
+.bnav a{color:var(--faint) !important;font-family:var(--font-sys) !important;text-transform:none !important;letter-spacing:0 !important;font-weight:650 !important}
+.bnav a.on{color:var(--red) !important}
+.bnav a.on svg{stroke:var(--red) !important}
+.scanfab{background:var(--red) !important;box-shadow:0 10px 22px color-mix(in srgb,var(--red) 40%,transparent) !important;font-family:var(--font-sys) !important}
 .langfab,.themefab{
-  background:var(--fit-glass-strong) !important;border:1px solid var(--fit-glass-border) !important;
-  -webkit-backdrop-filter:blur(var(--fit-blur));backdrop-filter:blur(var(--fit-blur));color:var(--fit-ink-soft) !important;
+  background:var(--card) !important;border:1px solid var(--line) !important;
+  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;color:var(--muted) !important;
+  box-shadow:var(--shadow) !important;
 }
-.langfab button{color:var(--fit-ink-soft) !important;font-family:var(--fit-font-display)}
-.langfab button.on{background:var(--fit-red) !important;color:#fff !important}
+.langfab button{color:var(--muted) !important;font-family:var(--font-sys) !important}
+.langfab button.on{background:var(--red) !important;color:#fff !important}
 
-/* ---- 8. Toast ---- */
-.toast{background:var(--fit-ink) !important;color:var(--fit-bg2) !important;border-radius:var(--fit-radius-sm) !important}
-[data-theme="dark"] .toast{color:#0B0B0D !important}
-
-/* ---- 9. Weather overlay keeps white text on its colored scene (unchanged) ---- */
-.wover .big,.wover .muted{color:#fff !important}
+/* ---- 9. Toast ----------------------------------------------------------- */
+.toast{background:var(--ink) !important;color:var(--bg) !important;border-radius:var(--radius) !important}
 
 @media (prefers-reduced-motion:reduce){ body::before,body::after{animation:none !important} }

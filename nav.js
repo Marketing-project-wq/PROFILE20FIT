@@ -22,48 +22,49 @@
   const cur = (location.pathname.split("/").pop() || "dashboard.html").toLowerCase();
   const tr = (key, fb) => (window.I18N ? I18N.t(key) : fb);
 
+  const SYS = "-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Inter',system-ui,'Segoe UI',Roboto,Arial,sans-serif";
   const css = `
     body{padding-bottom:96px}
-    /* ---------- SIDEBAR (desktop >=900px) ---------- */
+    /* ---------- SIDEBAR (desktop >=900px) — flat v4 ---------- */
     .navside{display:none}
     @media(min-width:900px){
       body{padding-bottom:0 !important;padding-left:238px}
       .bnav,.scanfab{display:none !important}
-      .navside{position:fixed;left:0;top:0;bottom:0;width:238px;z-index:45;padding:24px 16px;display:flex;flex-direction:column;gap:5px;
-        background:var(--fit-glass-strong,rgba(255,255,255,.72));-webkit-backdrop-filter:blur(28px) saturate(140%);backdrop-filter:blur(28px) saturate(140%);
-        border-right:1px solid var(--fit-glass-border,rgba(255,255,255,.9))}
+      .navside{position:fixed;left:0;top:0;bottom:0;width:238px;z-index:45;padding:26px 18px;display:flex;flex-direction:column;gap:6px;
+        background:var(--card,#fff);border-right:1px solid var(--line,#EBEBEF)}
     }
-    .navside .sbrand{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:26px;letter-spacing:.01em;padding:2px 10px 16px;text-transform:uppercase;color:var(--fit-ink,#1D1D1F)}
-    .navside .sbrand b{color:var(--fit-red,#E4002B)}
-    .navside .navi{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;color:var(--fit-ink-soft,#6E6E73);text-decoration:none;
-      font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:700;font-size:14.5px;text-transform:uppercase;letter-spacing:.03em;transition:.15s}
-    .navside .navi:hover{background:var(--fit-glass,rgba(255,255,255,.55));color:var(--fit-ink,#1D1D1F)}
-    .navside .navi.on{background:var(--fit-red,#E4002B);color:#fff;box-shadow:0 8px 20px rgba(228,0,43,.28)}
-    .navside .navi svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+    .navside .sbrand{font-family:${SYS};font-weight:800;font-size:22px;letter-spacing:-.02em;padding:0 10px 20px;color:var(--ink,#15171C)}
+    .navside .sbrand b{color:var(--red,#D4283A)}
+    .navside .navi{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;color:var(--muted,#8A8D94);text-decoration:none;
+      font-family:${SYS};font-weight:650;font-size:14.5px;transition:.15s}
+    .navside .navi:hover{background:var(--inp,#F2F2F5);color:var(--ink,#15171C)}
+    .navside .navi.on{background:var(--red,#D4283A);color:#fff;box-shadow:0 8px 20px color-mix(in srgb,var(--red,#D4283A) 26%,transparent)}
+    .navside .navi svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;color:var(--faint,#B7B9BF)}
+    .navside .navi.on svg,.navside .navi:hover svg{color:currentColor}
     .navside .sscan{margin-top:14px;display:flex;align-items:center;justify-content:center;gap:9px;border:0;cursor:pointer;
-      background:var(--fit-ink,#1D1D1F);color:var(--fit-bg2,#E9EEF3);font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:800;text-transform:uppercase;letter-spacing:.03em;font-size:14px;padding:13px;border-radius:14px;transition:.15s}
+      background:var(--dark,#15171C);color:var(--bg,#F1F1F4);font-family:${SYS};font-weight:750;font-size:14px;padding:13px;border-radius:14px;transition:.15s}
     .navside .sscan:active{transform:scale(.98)}
     .navside .sscan svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-    .navside .sfoot{margin-top:auto;display:flex;align-items:center;gap:11px;padding:12px 8px;border-top:1px solid var(--fit-glass-border,rgba(255,255,255,.9));min-width:0}
-    .navside .sfoot .av{width:38px;height:38px;border-radius:999px;background:var(--fit-red,#E4002B);color:#fff;display:grid;place-items:center;font-weight:800;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;flex:0 0 auto}
+    .navside .sfoot{margin-top:auto;display:flex;align-items:center;gap:11px;padding:12px 10px;border-top:1px solid var(--line,#EBEBEF);min-width:0}
+    .navside .sfoot .av{width:38px;height:38px;border-radius:999px;background:var(--red,#D4283A);color:#fff;display:grid;place-items:center;font-weight:800;font-family:${SYS};flex:0 0 auto}
     .navside .sfoot .tx{min-width:0}
-    .navside .sfoot .nm{font-family:var(--fit-font-body,'Manrope'),sans-serif;font-size:14px;font-weight:750;color:var(--fit-ink,#1D1D1F);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .navside .sfoot .em{font-family:var(--fit-font-mono,'JetBrains Mono'),monospace;font-size:11px;color:var(--fit-ink-soft,#6E6E73);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .navside .sfoot .nm{font-family:${SYS};font-size:14px;font-weight:750;color:var(--ink,#15171C);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .navside .sfoot .em{font-family:${SYS};font-size:11.5px;color:var(--muted,#8A8D94);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-    /* ---------- BOTTOM NAV + FAB (mobile <900px) — glass ---------- */
-    .bnav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:center;gap:4px;
-      padding:8px 8px calc(8px + env(safe-area-inset-bottom));
-      background:var(--fit-glass-strong,rgba(255,255,255,.72));-webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
-      border-top:1px solid var(--fit-glass-border,rgba(255,255,255,.9))}
-    .bnav a{flex:1;max-width:90px;text-align:center;text-decoration:none;color:var(--fit-ink-soft,#6E6E73);
-      font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;
+    /* ---------- BOTTOM NAV + FAB (mobile <900px) — flat v4 ---------- */
+    .bnav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:space-around;gap:4px;
+      padding:9px 8px calc(9px + env(safe-area-inset-bottom));
+      background:color-mix(in srgb,var(--bg,#F1F1F4) 82%,transparent);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);
+      border-top:1px solid var(--line,#EBEBEF)}
+    .bnav a{flex:1;max-width:90px;text-align:center;text-decoration:none;color:var(--faint,#B7B9BF);
+      font-family:${SYS};font-size:10.5px;font-weight:650;
       padding:6px 2px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:3px}
-    .bnav a.on{color:var(--fit-ink,#1D1D1F)}
-    .bnav svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-    .bnav a.on svg{stroke:var(--fit-red,#E4002B)}
-    .scanfab{position:fixed;right:18px;bottom:96px;z-index:41;background:var(--fit-red,#E4002B);color:#fff;border:0;border-radius:50%;
-      width:60px;height:60px;font-size:10px;font-weight:800;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;text-transform:uppercase;cursor:pointer;
-      box-shadow:0 8px 22px rgba(228,0,43,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+    .bnav a.on{color:var(--red,#D4283A)}
+    .bnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .bnav a.on svg{stroke:var(--red,#D4283A)}
+    .scanfab{position:fixed;right:18px;bottom:96px;z-index:41;background:var(--red,#D4283A);color:#fff;border:0;border-radius:50%;
+      width:58px;height:58px;font-size:10px;font-weight:750;font-family:${SYS};cursor:pointer;
+      box-shadow:0 10px 22px color-mix(in srgb,var(--red,#D4283A) 40%,transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
     .scanfab svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   `;
   const style = document.createElement("style");

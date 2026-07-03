@@ -148,15 +148,11 @@
   // toggle melayang (kalau halaman belum punya .lang sendiri spt login)
   function injectToggle(){
     if(document.querySelector(".lang")) return; // login/reset sudah punya
-    // Font brand 20fit (Inter body + Anton heading)
-    const fl=document.createElement("link");fl.rel="stylesheet";
-    fl.href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700;900&family=JetBrains+Mono:wght@400;700&family=Manrope:wght@400;500;600;700;800&display=swap";
-    document.head.appendChild(fl);
     const fcss=document.createElement("style");
-    // Fonts follow the Glass design system: Manrope body, Barlow Condensed display.
-    // (Big stat numbers + data chips are set to Barlow/Mono by glass-app.css.)
-    fcss.textContent="body{font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif !important}"+
-      "h1,.hello,.headline,.sec,.hk{font-family:'Barlow Condensed',sans-serif !important;font-weight:800;letter-spacing:.02em}"+
+    // Flat minimalist (v4): system fonts everywhere — no Barlow / Manrope / Mono.
+    var SYS="-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Inter',system-ui,'Segoe UI',Roboto,Arial,sans-serif";
+    fcss.textContent="body{font-family:"+SYS+" !important}"+
+      "h1,.hello,.headline,.sec,.hk{font-family:"+SYS+" !important}"+
       // ---- Hardening anti-overflow (semua widget rapi di desktop & mobile) ----
       "input[type=time],input[type=date]{min-width:150px;max-width:100%}"+
       "img,svg,canvas{max-width:100%}"+
