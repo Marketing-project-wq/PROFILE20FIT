@@ -56,9 +56,6 @@
   .main{display:grid;grid-template-columns:1fr;gap:0 22px;align-items:start}
   @media(min-width:900px){ .main{grid-template-columns:1.15fr 1fr} }
   .sechead-row{display:flex;justify-content:space-between;align-items:center;margin:0 2px 9px}
-  .refreshbtn{background:var(--card);border:0;box-shadow:var(--shadow);color:var(--muted);cursor:pointer;
-    font-size:16px;line-height:1;width:34px;height:34px;border-radius:999px;transition:.15s}
-  .refreshbtn:active{transform:scale(.92)}
 
   /* ---- Vitals (BMI / Weight / Height) ---- */
   .vitals{display:grid;grid-template-columns:repeat(3,1fr);padding:4px 0}
@@ -237,7 +234,6 @@
   /* ---- Sky-bleed weather + AQI bar in hero (glass reference) ---- */
   .hero{position:relative}
   .hero .hero-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
-  .wxrefresh{position:absolute;top:6px;right:2px;z-index:2}
   .wx-free{display:flex;align-items:flex-start;gap:10px;padding-top:6px;flex:0 0 auto;position:relative;z-index:1}
   .wx-sun{color:#E8A93A;flex:0 0 auto}
   .wx-sun .ray{transform-origin:12px 12px;animation:sunpulse 2.6s ease-in-out infinite}
@@ -303,7 +299,6 @@
     <!-- Greeting hero with sky-bleed glow -->
     <header class="hero" id="wx">
       <div class="glow"></div>
-      <button class="refreshbtn wxrefresh" onclick="event.stopPropagation();loadWeather(true)" title="refresh location">↻</button>
       <div class="hero-row">
         <div class="hero-inner">
           <div class="hk" id="greet">Selamat datang</div>
