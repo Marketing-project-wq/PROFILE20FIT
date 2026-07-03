@@ -160,18 +160,23 @@
       ".grid2>*,.grid3>*,.main>*,.calgrid>*,#result>*{min-width:0}";
     document.head.appendChild(fcss);
     const css=document.createElement("style");
-    css.textContent=".langfab{position:fixed;top:14px;right:14px;z-index:80;display:flex;gap:3px;background:#fff;border:1px solid #E8E2DB;border-radius:10px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,.20)}"+
+    // Single top-right row so the toggles never overlap page content, plus a
+    // top gap on content-bearing pages that reserves space for the row.
+    css.textContent=".topfab{position:fixed;top:12px;right:14px;z-index:80;display:flex;align-items:center;gap:8px}"+
+      "body{padding-top:60px !important}"+
+      ".langfab{display:flex;gap:3px;background:#fff;border:1px solid #E8E2DB;border-radius:10px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,.20)}"+
       ".langfab button{border:0;background:transparent;color:#8A7C68;font-weight:800;font-size:12px;padding:6px 11px;border-radius:7px;cursor:pointer;font-family:inherit}"+
       ".langfab button.on{background:#C41101;color:#fff}"+
-      ".themefab{position:fixed;top:52px;right:14px;z-index:80;display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #E8E2DB;border-radius:10px;padding:7px 11px;box-shadow:0 4px 16px rgba(0,0,0,.20);cursor:pointer;color:#8A7C68;font-weight:800;font-size:12px;font-family:inherit}"+
+      ".themefab{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #E8E2DB;border-radius:10px;padding:7px 11px;box-shadow:0 4px 16px rgba(0,0,0,.20);cursor:pointer;color:#8A7C68;font-weight:800;font-size:12px;font-family:inherit}"+
       ".themefab svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}"+
       "html.theme-light{--bg:#F3F2F0;--pagetx:#1A1714;--pagemut:#8C8578}";
     document.head.appendChild(css);
+    const wrap=document.createElement("div");wrap.className="topfab";
     const box=document.createElement("div");box.className="langfab";
     box.innerHTML='<button data-lang-btn="en" onclick="I18N.setLang(\'en\')">EN</button><button data-lang-btn="id" onclick="I18N.setLang(\'id\')">ID</button>';
-    document.body.appendChild(box);
     const tb=document.createElement("button");tb.className="themefab";tb.id="themeFab";tb.setAttribute("aria-label","theme");tb.onclick=toggleTheme;
-    document.body.appendChild(tb);
+    wrap.appendChild(box);wrap.appendChild(tb);
+    document.body.appendChild(wrap);
     renderThemeBtn();
   }
 
