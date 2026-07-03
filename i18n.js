@@ -163,7 +163,8 @@
     // Single top-right row so the toggles never overlap page content, plus a
     // top gap on content-bearing pages that reserves space for the row.
     css.textContent=".topfab{position:fixed;top:12px;right:14px;z-index:80;display:flex;align-items:center;gap:8px}"+
-      "body{padding-top:60px !important}"+
+      "body{padding-top:72px !important}"+
+      "@media(min-width:900px){.hero{margin-top:18px !important}}"+
       ".langfab{display:flex;gap:3px;background:#fff;border:1px solid #E8E2DB;border-radius:10px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,.20)}"+
       ".langfab button{border:0;background:transparent;color:#8A7C68;font-weight:800;font-size:12px;padding:6px 11px;border-radius:7px;cursor:pointer;font-family:inherit}"+
       ".langfab button.on{background:#C41101;color:#fff}"+
