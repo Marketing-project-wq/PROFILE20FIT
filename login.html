@@ -127,14 +127,6 @@
         <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600"></a></div>
 
         <div class="orsep"><span data-k="orsep">or</span></div>
-        <!-- Login pakai akun 20fit: satu-klik lewat Google (cara daftar app paling umum) -->
-        <button class="sbtn fbtn" onclick="googleLogin()">
-          <img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" />
-          <span data-k="fitco">Sign in with your 20fit account</span>
-        </button>
-        <div style="text-align:center;margin-top:9px">
-          <a onclick="fitco()" style="color:var(--muted);font-size:12.5px;text-decoration:underline;cursor:pointer" data-k="fitcopw">20fit account uses email &amp; password? Sign in</a>
-        </div>
         <button class="sbtn mbtn" onclick="magicStart()">
           <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg>
           <span data-k="magiclink">Email me a login code</span>
@@ -268,25 +260,6 @@
       return "Error: "+(m||"unknown");
     }
 
-    // ---- Login pakai akun 20fit (FITCO) -> jembatan ke akun Supabase ----
-    async function fitco(){
-      const d=T[lang];
-      const email=document.getElementById("email").value.trim();
-      const password=document.getElementById("password").value;
-      if(!email||!password)return msg(d.errFill,"err");
-      const b=document.getElementById("submit");
-      msg(d.processing,"");
-      try{
-        await Auth.fitcoLogin(email,password);
-        saveCredential(email,password);
-        await Auth.routeAfterAuth();
-      }catch(e){ msg(e.message||terjemah(e.message),"err"); }
-    }
-    // ---- Google login ----
-    async function googleLogin(){
-      msg(T[lang].processing,"");
-      try{ await Auth.signInWithGoogle(); }catch(e){ msg(terjemah(e.message),"err"); }
-    }
     // ---- Magic link / login pakai kode email (isolated Mailtrap) ----
     let magicEmail="";
     async function magicStart(){
