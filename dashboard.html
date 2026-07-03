@@ -270,20 +270,48 @@
   .m-sub{font-family:var(--fit-font-mono,'JetBrains Mono'),monospace;font-size:12px;color:var(--muted);margin-top:2px}
   .m-close{border:0;background:var(--inp);width:34px;height:34px;border-radius:999px;cursor:pointer;color:var(--ink);flex:0 0 auto;display:grid;place-items:center}
   .m-close svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-  .demo{margin:16px 0;min-height:182px;border-radius:18px;background:var(--inp);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden;padding:34px 14px 16px}
+  .demo{margin:16px 0;height:196px;border-radius:18px;background:var(--inp);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;position:relative;overflow:hidden;padding:32px 14px 14px}
   .tempo-tag{position:absolute;top:12px;left:14px;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
   .voicebtn{position:absolute;top:9px;right:9px;width:32px;height:32px;border-radius:999px;border:0;background:var(--card);color:var(--ink);box-shadow:var(--shadow);cursor:pointer;display:grid;place-items:center;z-index:3;padding:0}
   .voicebtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .voicebtn .voff{display:none}
   .voicebtn.muted{color:var(--muted)}
   .voicebtn.muted .von{display:none}.voicebtn.muted .voff{display:block}
-  .figwrap{height:100px;display:grid;place-items:center}
-  .fig{height:98px;width:auto;color:var(--red);transform-origin:50% 96%;transition:transform 1.85s ease-in-out}
-  .fig.down{transform:scaleY(.68) translateY(6px)}
-  .fig.hold{animation:figpulse 3s ease-in-out infinite}
-  @keyframes figpulse{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  /* Exercise figure: isolated to its own layer so surrounding text never jitters */
+  .figwrap{height:120px;width:100%;display:grid;place-items:center;contain:layout paint;overflow:hidden}
+  .exfig{height:116px;width:auto;color:var(--red);overflow:visible;will-change:transform;transform:translateZ(0)}
+  .exfig line{stroke:currentColor;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+  .exfig g{transform-box:fill-box}
+  /* squat: crouch down & up (side view, foot planted) */
+  .exfig.squat .sh{animation:sqSh 3.6s ease-in-out infinite}
+  .exfig.squat .th{animation:sqTh 3.6s ease-in-out infinite}
+  .exfig.squat .to{animation:sqTo 3.6s ease-in-out infinite}
+  @keyframes sqSh{0%,100%{transform:rotate(0)}50%{transform:rotate(12deg)}}
+  @keyframes sqTh{0%,100%{transform:rotate(0)}50%{transform:rotate(-58deg)}}
+  @keyframes sqTo{0%,100%{transform:rotate(0)}50%{transform:rotate(42deg)}}
+  /* push-up: body lowers, elbow bends (side view) */
+  .exfig.pushup .pb{animation:puDrop 3.4s ease-in-out infinite}
+  .exfig.pushup .pa{animation:puArm 3.4s ease-in-out infinite}
+  @keyframes puDrop{0%,100%{transform:translateY(0)}50%{transform:translateY(11px)}}
+  @keyframes puArm{0%,100%{transform:rotate(0)}50%{transform:rotate(24deg)}}
+  /* plank: steady hold, faint hover */
+  .exfig.plank .pb{animation:hold 3.4s ease-in-out infinite}
+  /* glute bridge: hips lift up & down (lying, side view) */
+  .exfig.bridge .hip{animation:brHip 3.6s ease-in-out infinite}
+  @keyframes brHip{0%,100%{transform:translateY(7px)}50%{transform:translateY(-9px)}}
+  /* wall sit: seated hold, faint hover */
+  .exfig.wallsit .ws{animation:hold 3.4s ease-in-out infinite}
+  @keyframes hold{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  /* standing march: legs & arms swing alternately (side view) */
+  .exfig.march .lgL,.exfig.march .arR{animation:swA 1.5s ease-in-out infinite}
+  .exfig.march .lgR,.exfig.march .arL{animation:swB 1.5s ease-in-out infinite}
+  @keyframes swA{0%,100%{transform:rotate(22deg)}50%{transform:rotate(-22deg)}}
+  @keyframes swB{0%,100%{transform:rotate(-22deg)}50%{transform:rotate(22deg)}}
+  /* rest / cool-down: calm breathing */
+  .exfig.rest .rb{animation:restBreath 3.4s ease-in-out infinite;transform-origin:50% 100%}
+  @keyframes restBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
   .pacer-lbl{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--red);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;line-height:1.1}
-  @media (prefers-reduced-motion: reduce){ .fig{transition:none !important} .fig.hold{animation:none !important} }
+  @media (prefers-reduced-motion: reduce){ .exfig *{animation:none !important} }
   .m-target{display:flex;gap:10px;margin:4px 0 16px}
   .chipm{flex:1;background:var(--inp);border-radius:14px;padding:11px;text-align:center}
   .chipm .cv{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:18px;font-weight:900}
@@ -457,15 +485,7 @@
           <svg class="von" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
           <svg class="voff" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
         </button>
-        <div class="figwrap">
-          <svg class="fig" id="mFig" viewBox="0 0 90 106" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="45" cy="16" r="9" fill="currentColor" stroke="none"/>
-            <line x1="45" y1="25" x2="45" y2="57"/>
-            <line x1="45" y1="33" x2="69" y2="45"/>
-            <polyline points="45,57 33,79 33,99"/>
-            <polyline points="45,57 57,79 57,99"/>
-          </svg>
-        </div>
+        <div class="figwrap" id="mFigWrap"></div>
         <div class="pacer-lbl" id="pacerLbl">Follow the pace</div>
       </div>
       <div class="m-target"><div class="chipm"><div class="cv" id="mSets">3</div><div class="cl" id="mSetsL">sets</div></div><div class="chipm"><div class="cv" id="mReps">10–12</div><div class="cl" id="mRepsL">reps</div></div><div class="chipm"><div class="cv" id="mRest">45s</div><div class="cl" id="mRestL">rest</div></div></div>
@@ -1003,6 +1023,45 @@
       wall:'<path d="M5 4v16M5 12h9v8"/>',
       march:'<circle cx="12" cy="4.5" r="1.6"/><path d="M12 7v6l-3 5M12 10l4 3"/>'
     };
+    // Animated stick figures — each moves like its own exercise (CSS keyframes above).
+    var FIGS={
+      squat:'<svg class="exfig squat" viewBox="0 0 130 122" fill="none">'+
+        '<line x1="42" y1="112" x2="72" y2="112"/>'+
+        '<g class="sh" style="transform-origin:56px 112px"><line x1="56" y1="112" x2="56" y2="84"/>'+
+          '<g class="th" style="transform-origin:56px 84px"><line x1="56" y1="84" x2="56" y2="56"/>'+
+            '<g class="to" style="transform-origin:56px 56px"><line x1="56" y1="56" x2="56" y2="31"/>'+
+              '<circle cx="56" cy="20" r="9" fill="currentColor"/><line x1="56" y1="37" x2="80" y2="47"/></g></g></g></svg>',
+      push:'<svg class="exfig pushup" viewBox="0 0 150 122" fill="none">'+
+        '<line x1="30" y1="110" x2="132" y2="110"/>'+
+        '<g class="pb" style="transform-origin:118px 104px"><line x1="42" y1="66" x2="118" y2="86"/>'+
+          '<circle cx="33" cy="62" r="9" fill="currentColor"/><line x1="118" y1="86" x2="128" y2="110"/>'+
+          '<g class="pa" style="transform-origin:44px 66px"><line x1="44" y1="66" x2="50" y2="110"/></g></g></svg>',
+      plank:'<svg class="exfig plank" viewBox="0 0 156 122" fill="none">'+
+        '<line x1="28" y1="112" x2="140" y2="112"/>'+
+        '<g class="pb" style="transform-origin:80px 92px"><line x1="46" y1="74" x2="122" y2="94"/>'+
+          '<circle cx="37" cy="70" r="9" fill="currentColor"/><line x1="52" y1="77" x2="46" y2="100"/>'+
+          '<line x1="46" y1="100" x2="66" y2="100"/><line x1="122" y1="94" x2="130" y2="112"/></g></svg>',
+      bridge:'<svg class="exfig bridge" viewBox="0 0 156 122" fill="none">'+
+        '<line x1="22" y1="112" x2="140" y2="112"/>'+
+        '<circle cx="36" cy="99" r="9" fill="currentColor"/>'+
+        '<g class="hip"><line x1="48" y1="104" x2="90" y2="82"/><line x1="90" y1="82" x2="110" y2="108"/></g>'+
+        '<line x1="110" y1="108" x2="110" y2="112"/></svg>',
+      wall:'<svg class="exfig wallsit" viewBox="0 0 146 122" fill="none">'+
+        '<line x1="30" y1="14" x2="30" y2="112"/><line x1="30" y1="112" x2="128" y2="112"/>'+
+        '<g class="ws" style="transform-origin:42px 74px"><circle cx="42" cy="40" r="9" fill="currentColor"/>'+
+          '<line x1="42" y1="49" x2="42" y2="78"/><line x1="42" y1="78" x2="90" y2="78"/>'+
+          '<line x1="90" y1="78" x2="90" y2="112"/><line x1="42" y1="60" x2="74" y2="72"/></g></svg>',
+      march:'<svg class="exfig march" viewBox="0 0 120 122" fill="none">'+
+        '<circle cx="60" cy="24" r="9" fill="currentColor"/><line x1="60" y1="33" x2="60" y2="72"/>'+
+        '<g class="arL" style="transform-origin:60px 42px"><line x1="60" y1="42" x2="60" y2="68"/></g>'+
+        '<g class="arR" style="transform-origin:60px 42px"><line x1="60" y1="42" x2="60" y2="68"/></g>'+
+        '<g class="lgR" style="transform-origin:60px 72px"><line x1="60" y1="72" x2="60" y2="106"/></g>'+
+        '<g class="lgL" style="transform-origin:60px 72px"><line x1="60" y1="72" x2="60" y2="106"/></g></svg>',
+      rest:'<svg class="exfig rest" viewBox="0 0 100 122" fill="none">'+
+        '<g class="rb" style="transform-origin:50px 110px"><circle cx="50" cy="22" r="9" fill="currentColor"/>'+
+          '<line x1="50" y1="31" x2="50" y2="74"/><line x1="50" y1="41" x2="34" y2="62"/><line x1="50" y1="41" x2="66" y2="62"/>'+
+          '<line x1="50" y1="74" x2="40" y2="108"/><line x1="50" y1="74" x2="60" y2="108"/></g></svg>'
+    };
     var EX=[
       {icon:'squat',n:{en:'Bodyweight Squat',id:'Squat Tanpa Beban'},s:{en:'Legs',id:'Kaki'},sets:3,reps:'10–12',repl:{en:'reps',id:'repetisi'},rest:'45s',type:'rep',
         steps:{en:['Feet shoulder-width, toes slightly out.','Push hips back and bend knees, chest up.','Lower until thighs near parallel.','Drive through heels to stand; exhale up.'],
@@ -1036,39 +1095,61 @@
     var mTitle=document.getElementById("mTitle"),mSub=document.getElementById("mSub"),mSteps=document.getElementById("mSteps"),
         mSets=document.getElementById("mSets"),mReps=document.getElementById("mReps"),mRepsL=document.getElementById("mRepsL"),mRest=document.getElementById("mRest"),
         mSetsL=document.getElementById("mSetsL"),mRestL=document.getElementById("mRestL"),mTempo=document.getElementById("mTempoTag"),
-        pacerLbl=document.getElementById("pacerLbl"),fig=document.getElementById("mFig"),vbtn=document.getElementById("mVoice"),
+        pacerLbl=document.getElementById("pacerLbl"),figWrap=document.getElementById("mFigWrap"),vbtn=document.getElementById("mVoice"),
         mTime=document.getElementById("mTime"),mTimerBtn=document.getElementById("mTimerBtn"),mSafety=document.getElementById("mSafety");
-    var pTimer=null,pDown=true,secInt=null,secs=0,running=false,curType='rep';
+    var pTimer=null,pDown=true,phInt=null,phase='',phSecs=0,setNo=0,workSecs=0,restSecs=0,running=false,guided=false,curEx=null,curType='rep';
     // ---- Voice guidance (browser speech; user can mute) ----
     var synth=window.speechSynthesis||null, voiceOn=!!synth;
     if(vbtn){ vbtn.classList.toggle('muted',!voiceOn); vbtn.addEventListener('click',function(){ voiceOn=!voiceOn; vbtn.classList.toggle('muted',!voiceOn); if(!voiceOn)stopSpeak(); }); }
     function speak(txt){ if(!voiceOn||!synth||!txt)return; try{ synth.cancel(); var u=new SpeechSynthesisUtterance(txt); u.lang=(window.I18N&&I18N.lang==='id')?'id-ID':'en-US'; u.rate=1; u.pitch=1; synth.speak(u);}catch(e){} }
     function stopSpeak(){ try{ if(synth)synth.cancel(); }catch(e){} }
-    // ---- Tempo pacer: animated figure + spoken cue ----
-    function pace(){ pDown=!pDown;
-      if(fig) fig.classList.toggle('down',pDown);
-      pacerLbl.textContent=pDown?L({en:'DOWN',id:'TURUN'}):L({en:'UP',id:'NAIK'});
-      speak(pDown?L({en:'Down',id:'Turun'}):L({en:'Up',id:'Naik'}));
-    }
-    function startPacer(t){ stopPacer();
-      if(fig){ fig.classList.remove('down'); fig.classList.remove('hold'); }
-      if(t==='rep'){ pDown=false; pace(); pTimer=setInterval(pace,2000); }
-      else { if(fig)fig.classList.add('hold'); pacerLbl.textContent=L({en:'HOLD',id:'TAHAN'}); speak(L({en:'Hold, and keep steady',id:'Tahan, jaga tetap stabil'})); }
-    }
-    function stopPacer(){ if(pTimer){clearInterval(pTimer);pTimer=null;} stopSpeak(); }
     function fmt(x){var m=Math.floor(x/60),r=x%60;return (m<10?'0':'')+m+':'+(r<10?'0':'')+r;}
-    function resetTimer(){ running=false; if(secInt){clearInterval(secInt);secInt=null;} mTimerBtn.textContent=curType==='time'?L({en:'Start hold',id:'Mulai tahan'}):L({en:'Start set timer',id:'Mulai timer set'}); mTimerBtn.classList.remove('run'); }
-    mTimerBtn.addEventListener("click",function(){ if(running){ resetTimer(); mTime.textContent='00:00'; secs=0; return;} running=true; mTimerBtn.classList.add('run'); mTimerBtn.textContent=L({en:'Stop',id:'Stop'}); secInt=setInterval(function(){ secs++; mTime.textContent=fmt(secs);},1000); });
-    function openModal(i){ var ex=EX[i]; curType=ex.type;
+    function setTag(t){ if(mTempo) mTempo.textContent=t; }
+    function showFig(icon){ if(figWrap) figWrap.innerHTML=FIGS[icon]||''; }
+    // ---- rep/hold cue (figure animates via CSS; speaks only during a guided run) ----
+    function pace(){ pDown=!pDown; pacerLbl.textContent=pDown?L({en:'DOWN',id:'TURUN'}):L({en:'UP',id:'NAIK'}); if(guided)speak(pDown?L({en:'Down',id:'Turun'}):L({en:'Up',id:'Naik'})); }
+    function startCue(t){ stopCue();
+      if(t==='rep'){ pDown=false; pacerLbl.textContent=L({en:'DOWN',id:'TURUN'}); if(guided)speak(L({en:'Down',id:'Turun'})); pTimer=setInterval(pace,2000); }
+      else if(curEx&&curEx.icon==='march'){ pacerLbl.textContent=L({en:'MARCH',id:'JALAN'}); if(guided)speak(L({en:'March in place',id:'Jalan di tempat'})); }
+      else { pacerLbl.textContent=L({en:'HOLD',id:'TAHAN'}); if(guided)speak(L({en:'Hold, keep steady',id:'Tahan, jaga stabil'})); }
+    }
+    function stopCue(){ if(pTimer){clearInterval(pTimer);pTimer=null;} }
+    // ---- Guided sets: WORK -> REST -> ... -> cool down (with spoken cues) ----
+    function parseSecs(str){ var m=String(str).match(/\d+/g); return m?parseInt(m[m.length-1],10):30; }
+    function computeWork(ex){ if(ex.type==='time') return Math.max(15,parseSecs(ex.reps));
+      var m=String(ex.reps).match(/\d+/g); var reps=m?parseInt(m[m.length-1],10):10; return Math.min(60,Math.max(20,Math.round(reps*3.2))); }
+    function enterWork(){ phase='work'; phSecs=workSecs; guided=true;
+      setTag(L({en:'Set',id:'Set'})+' '+setNo+'/'+curEx.sets+' · '+L({en:'WORK',id:'KERJA'}));
+      showFig(curEx.icon); startCue(curType); mTime.textContent=fmt(phSecs); }
+    function enterRest(){ phase='rest'; phSecs=restSecs; stopCue();
+      setTag(L({en:'Set',id:'Set'})+' '+setNo+'/'+curEx.sets+' · '+L({en:'REST',id:'ISTIRAHAT'}));
+      pacerLbl.textContent=L({en:'REST',id:'ISTIRAHAT'}); showFig('rest');
+      speak(L({en:'Now rest your body',id:'Sekarang istirahatkan tubuhmu'})); mTime.textContent=fmt(phSecs); }
+    function finishAll(){ stopGuided(true); setTag(L({en:'Done',id:'Selesai'}));
+      pacerLbl.textContent=L({en:'DONE',id:'SELESAI'}); showFig('rest');
+      speak(L({en:'Great job. Cool down your body.',id:'Kerja bagus. Dinginkan tubuhmu.'})); mTime.textContent='00:00'; }
+    function tick(){ phSecs--; mTime.textContent=fmt(Math.max(0,phSecs)); if(phSecs>0)return;
+      if(phase==='work'){ if(setNo>=curEx.sets){ finishAll(); return; } enterRest(); }
+      else { setNo++; enterWork(); } }
+    function startGuided(){ running=true; guided=true; setNo=1; workSecs=computeWork(curEx); restSecs=parseSecs(curEx.rest);
+      mTimerBtn.textContent=L({en:'Stop',id:'Stop'}); mTimerBtn.classList.add('run');
+      enterWork(); if(phInt)clearInterval(phInt); phInt=setInterval(tick,1000); }
+    function stopGuided(done){ running=false; guided=false; if(phInt){clearInterval(phInt);phInt=null;}
+      mTimerBtn.textContent=L({en:'Start guided sets',id:'Mulai set terpandu'}); mTimerBtn.classList.remove('run');
+      if(!done){ stopSpeak(); mTime.textContent='00:00'; setTag(L({en:'Tempo guide',id:'Panduan tempo'})); if(curEx){ showFig(curEx.icon); startCue(curType); } } }
+    mTimerBtn.addEventListener("click",function(){ if(running){ stopGuided(false); } else { startGuided(); } });
+    function openModal(i){ var ex=EX[i]; curEx=ex; curType=ex.type;
       mTitle.textContent=L(ex.n); mSub.textContent=L(ex.s)+' · '+L({en:'at home, no equipment',id:'di rumah, tanpa alat'});
       mSets.textContent=ex.sets; mReps.textContent=ex.reps; mRepsL.textContent=L(ex.repl); mRest.textContent=ex.rest;
-      mSetsL.textContent=L({en:'sets',id:'set'}); mRestL.textContent=L({en:'rest',id:'istirahat'}); mTempo.textContent=L({en:'Tempo guide',id:'Panduan tempo'});
+      mSetsL.textContent=L({en:'sets',id:'set'}); mRestL.textContent=L({en:'rest',id:'istirahat'}); setTag(L({en:'Tempo guide',id:'Panduan tempo'}));
       mSafety.textContent=L({en:'Rep counts are a general starting point - adjust to your level. Move slowly and stop if anything hurts.',id:'Jumlah repetisi hanya patokan umum - sesuaikan levelmu. Gerak perlahan dan berhenti kalau ada yang sakit.'});
       mSteps.innerHTML=''; L(ex.steps).forEach(function(st){ var li=document.createElement('li'); li.textContent=st; mSteps.appendChild(li); });
-      secs=0; mTime.textContent='00:00'; resetTimer(); startPacer(ex.type);
+      running=false; guided=false; if(phInt){clearInterval(phInt);phInt=null;} stopCue(); stopSpeak();
+      mTimerBtn.classList.remove('run'); mTimerBtn.textContent=L({en:'Start guided sets',id:'Mulai set terpandu'}); mTime.textContent='00:00';
+      showFig(ex.icon); startCue(ex.type);
       bg.classList.add('open'); document.body.style.overflow='hidden';
     }
-    function closeModal(){ bg.classList.remove('open'); document.body.style.overflow=''; stopPacer(); resetTimer(); if(fig){fig.classList.remove('down');fig.classList.remove('hold');} }
+    function closeModal(){ bg.classList.remove('open'); document.body.style.overflow=''; stopCue(); if(phInt){clearInterval(phInt);phInt=null;} stopSpeak(); running=false; guided=false; if(figWrap)figWrap.innerHTML=''; }
     document.getElementById("mClose").addEventListener("click",closeModal);
     bg.addEventListener('click',function(e){ if(e.target===bg)closeModal(); });
     document.addEventListener('keydown',function(e){ if(e.key==='Escape')closeModal(); });
