@@ -270,10 +270,20 @@
   .m-sub{font-family:var(--fit-font-mono,'JetBrains Mono'),monospace;font-size:12px;color:var(--muted);margin-top:2px}
   .m-close{border:0;background:var(--inp);width:34px;height:34px;border-radius:999px;cursor:pointer;color:var(--ink);flex:0 0 auto;display:grid;place-items:center}
   .m-close svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-  .demo{margin:16px 0;height:150px;border-radius:18px;background:var(--inp);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;position:relative;overflow:hidden}
+  .demo{margin:16px 0;min-height:182px;border-radius:18px;background:var(--inp);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden;padding:34px 14px 16px}
   .tempo-tag{position:absolute;top:12px;left:14px;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
-  .pacer{width:66px;height:66px;border-radius:18px;background:var(--red);display:grid;place-items:center;color:#fff;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:800;font-size:13px;text-transform:uppercase;transition:transform 2s ease-in-out;box-shadow:0 10px 24px color-mix(in srgb,var(--red) 32%,transparent)}
-  .pacer-lbl{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.02em;color:var(--muted)}
+  .voicebtn{position:absolute;top:9px;right:9px;width:32px;height:32px;border-radius:999px;border:0;background:var(--card);color:var(--ink);box-shadow:var(--shadow);cursor:pointer;display:grid;place-items:center;z-index:3;padding:0}
+  .voicebtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .voicebtn .voff{display:none}
+  .voicebtn.muted{color:var(--muted)}
+  .voicebtn.muted .von{display:none}.voicebtn.muted .voff{display:block}
+  .figwrap{height:100px;display:grid;place-items:center}
+  .fig{height:98px;width:auto;color:var(--red);transform-origin:50% 96%;transition:transform 1.85s ease-in-out}
+  .fig.down{transform:scaleY(.68) translateY(6px)}
+  .fig.hold{animation:figpulse 3s ease-in-out infinite}
+  @keyframes figpulse{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  .pacer-lbl{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--red);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;line-height:1.1}
+  @media (prefers-reduced-motion: reduce){ .fig{transition:none !important} .fig.hold{animation:none !important} }
   .m-target{display:flex;gap:10px;margin:4px 0 16px}
   .chipm{flex:1;background:var(--inp);border-radius:14px;padding:11px;text-align:center}
   .chipm .cv{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:18px;font-weight:900}
@@ -441,7 +451,23 @@
         <div><div class="m-title" id="mTitle">—</div><div class="m-sub" id="mSub">—</div></div>
         <button class="m-close" id="mClose" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
-      <div class="demo"><div class="tempo-tag" id="mTempoTag">Tempo guide</div><div class="pacer" id="pacer">GO</div><div class="pacer-lbl" id="pacerLbl">Follow the pace</div></div>
+      <div class="demo">
+        <div class="tempo-tag" id="mTempoTag">Tempo guide</div>
+        <button class="voicebtn" id="mVoice" type="button" aria-label="Voice guide" title="Suara panduan">
+          <svg class="von" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+          <svg class="voff" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+        </button>
+        <div class="figwrap">
+          <svg class="fig" id="mFig" viewBox="0 0 90 106" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="45" cy="16" r="9" fill="currentColor" stroke="none"/>
+            <line x1="45" y1="25" x2="45" y2="57"/>
+            <line x1="45" y1="33" x2="69" y2="45"/>
+            <polyline points="45,57 33,79 33,99"/>
+            <polyline points="45,57 57,79 57,99"/>
+          </svg>
+        </div>
+        <div class="pacer-lbl" id="pacerLbl">Follow the pace</div>
+      </div>
       <div class="m-target"><div class="chipm"><div class="cv" id="mSets">3</div><div class="cl" id="mSetsL">sets</div></div><div class="chipm"><div class="cv" id="mReps">10–12</div><div class="cl" id="mRepsL">reps</div></div><div class="chipm"><div class="cv" id="mRest">45s</div><div class="cl" id="mRestL">rest</div></div></div>
       <ol class="m-steps" id="mSteps"></ol>
       <div class="m-timer"><div class="m-time" id="mTime">00:00</div><button class="m-timerbtn" id="mTimerBtn" type="button">Start set timer</button></div>
@@ -1010,12 +1036,26 @@
     var mTitle=document.getElementById("mTitle"),mSub=document.getElementById("mSub"),mSteps=document.getElementById("mSteps"),
         mSets=document.getElementById("mSets"),mReps=document.getElementById("mReps"),mRepsL=document.getElementById("mRepsL"),mRest=document.getElementById("mRest"),
         mSetsL=document.getElementById("mSetsL"),mRestL=document.getElementById("mRestL"),mTempo=document.getElementById("mTempoTag"),
-        pacer=document.getElementById("pacer"),pacerLbl=document.getElementById("pacerLbl"),
+        pacerLbl=document.getElementById("pacerLbl"),fig=document.getElementById("mFig"),vbtn=document.getElementById("mVoice"),
         mTime=document.getElementById("mTime"),mTimerBtn=document.getElementById("mTimerBtn"),mSafety=document.getElementById("mSafety");
     var pTimer=null,pDown=true,secInt=null,secs=0,running=false,curType='rep';
-    function pace(){ pDown=!pDown; pacer.style.transform=pDown?'scale(.72)':'scale(1)'; pacer.textContent=pDown?L({en:'DOWN',id:'TURUN'}):L({en:'UP',id:'NAIK'}); pacerLbl.textContent=pDown?L({en:'Lower - 2s',id:'Turun - 2s'}):L({en:'Rise - 2s',id:'Naik - 2s'}); }
-    function startPacer(t){ stopPacer(); if(t==='rep'){ pDown=false; pace(); pTimer=setInterval(pace,2000);} else { pacer.textContent=L({en:'HOLD',id:'TAHAN'}); pacer.style.transform='scale(1)'; pacerLbl.textContent=L({en:'Keep steady',id:'Jaga stabil'}); } }
-    function stopPacer(){ if(pTimer){clearInterval(pTimer);pTimer=null;} }
+    // ---- Voice guidance (browser speech; user can mute) ----
+    var synth=window.speechSynthesis||null, voiceOn=!!synth;
+    if(vbtn){ vbtn.classList.toggle('muted',!voiceOn); vbtn.addEventListener('click',function(){ voiceOn=!voiceOn; vbtn.classList.toggle('muted',!voiceOn); if(!voiceOn)stopSpeak(); }); }
+    function speak(txt){ if(!voiceOn||!synth||!txt)return; try{ synth.cancel(); var u=new SpeechSynthesisUtterance(txt); u.lang=(window.I18N&&I18N.lang==='id')?'id-ID':'en-US'; u.rate=1; u.pitch=1; synth.speak(u);}catch(e){} }
+    function stopSpeak(){ try{ if(synth)synth.cancel(); }catch(e){} }
+    // ---- Tempo pacer: animated figure + spoken cue ----
+    function pace(){ pDown=!pDown;
+      if(fig) fig.classList.toggle('down',pDown);
+      pacerLbl.textContent=pDown?L({en:'DOWN',id:'TURUN'}):L({en:'UP',id:'NAIK'});
+      speak(pDown?L({en:'Down',id:'Turun'}):L({en:'Up',id:'Naik'}));
+    }
+    function startPacer(t){ stopPacer();
+      if(fig){ fig.classList.remove('down'); fig.classList.remove('hold'); }
+      if(t==='rep'){ pDown=false; pace(); pTimer=setInterval(pace,2000); }
+      else { if(fig)fig.classList.add('hold'); pacerLbl.textContent=L({en:'HOLD',id:'TAHAN'}); speak(L({en:'Hold, and keep steady',id:'Tahan, jaga tetap stabil'})); }
+    }
+    function stopPacer(){ if(pTimer){clearInterval(pTimer);pTimer=null;} stopSpeak(); }
     function fmt(x){var m=Math.floor(x/60),r=x%60;return (m<10?'0':'')+m+':'+(r<10?'0':'')+r;}
     function resetTimer(){ running=false; if(secInt){clearInterval(secInt);secInt=null;} mTimerBtn.textContent=curType==='time'?L({en:'Start hold',id:'Mulai tahan'}):L({en:'Start set timer',id:'Mulai timer set'}); mTimerBtn.classList.remove('run'); }
     mTimerBtn.addEventListener("click",function(){ if(running){ resetTimer(); mTime.textContent='00:00'; secs=0; return;} running=true; mTimerBtn.classList.add('run'); mTimerBtn.textContent=L({en:'Stop',id:'Stop'}); secInt=setInterval(function(){ secs++; mTime.textContent=fmt(secs);},1000); });
@@ -1028,7 +1068,7 @@
       secs=0; mTime.textContent='00:00'; resetTimer(); startPacer(ex.type);
       bg.classList.add('open'); document.body.style.overflow='hidden';
     }
-    function closeModal(){ bg.classList.remove('open'); document.body.style.overflow=''; stopPacer(); resetTimer(); }
+    function closeModal(){ bg.classList.remove('open'); document.body.style.overflow=''; stopPacer(); resetTimer(); if(fig){fig.classList.remove('down');fig.classList.remove('hold');} }
     document.getElementById("mClose").addEventListener("click",closeModal);
     bg.addEventListener('click',function(e){ if(e.target===bg)closeModal(); });
     document.addEventListener('keydown',function(e){ if(e.key==='Escape')closeModal(); });
