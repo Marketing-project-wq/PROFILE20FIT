@@ -331,16 +331,23 @@
     return data;
   }
 
+  // Profil dianggap LENGKAP hanya jika data inti sudah terisi: gender, umur
+  // (dari tanggal lahir), berat, tinggi, dan tujuan. Riwayat kesehatan boleh kosong.
+  // Dipakai agar akun lama (mis. dari ekosistem 20fit) yang datanya belum lengkap
+  // tetap diminta melengkapi lewat onboarding.
+  function profileComplete(p) {
+    return !!(p && p.gender && p.age && p.weight_kg && p.height_cm && p.main_goal);
+  }
+
   // ---------- ROUTING ----------
   async function routeAfterAuth() {
     const user = await requireAuth();
     const profile = await ensureProfile(user);
-    // SUDAH pernah daftar & selesai onboarding -> langsung masuk dashboard (auto sign-in),
-    // tanpa diminta bikin password lagi. Berlaku untuk semua metode (akun app/Google/OTP/password).
-    if (profile.onboarding_completed) return go("dashboard.html");
-    // Akun BARU (belum onboarding) & belum punya password web -> bikin password dulu di layar khusus.
+    // Data inti sudah lengkap -> langsung masuk dashboard (auto sign-in), apa pun metode/asal akunnya.
+    if (profileComplete(profile)) return go("dashboard.html");
+    // Belum lengkap & belum punya password web -> bikin password dulu di layar khusus.
     if (!hasWebPassword(user)) return go("setpassword.html");
-    // Sudah punya password tapi belum lengkapi data -> onboarding.
+    // Belum lengkap (gender/tgl lahir/berat/tinggi/goal) -> lengkapi lewat onboarding.
     return go("onboarding.html");
   }
 
@@ -362,6 +369,7 @@
     sendOtp,
     verifyOtp,
     saveOnboarding,
+    profileComplete,
     bmiInfo,
     getDailyLog,
     saveDaily,

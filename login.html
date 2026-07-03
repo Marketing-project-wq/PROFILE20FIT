@@ -301,10 +301,13 @@
         await Auth.ready;
         // Route HANYA saat user AKTIF login / balik dari Google (evt SIGNED_IN), bukan saat sesi lama kebaca.
         Auth.supabase.auth.onAuthStateChange((evt,sess)=>{ if(evt==="SIGNED_IN" && sess && sess.user){ Auth.routeAfterAuth(); } });
-        // Sudah pernah daftar (onboarding selesai) -> auto masuk dashboard, apa pun metode loginnya.
+        // Data inti lengkap -> auto masuk dashboard. Ada sesi tapi belum lengkap -> lanjut onboarding.
         const u=await Auth.getUser();
         if(u){
-          try{ const p=await Auth.getProfile(); if(p && p.onboarding_completed){ Auth.go("dashboard.html"); return; } }catch(e){}
+          try{ const p=await Auth.getProfile();
+            if(Auth.profileComplete && Auth.profileComplete(p)){ Auth.go("dashboard.html"); return; }
+            if(p){ await Auth.routeAfterAuth(); return; }
+          }catch(e){}
         }
         tryAutofill();
       }catch(e){}
