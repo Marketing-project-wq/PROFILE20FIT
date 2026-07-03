@@ -77,15 +77,45 @@ h1,.hello,.headline,.sec,.hk,.gsec,.sec.gsec{text-transform:uppercase}
 /* mono only for true data chips */
 .pill,.badge,.meta{font-family:var(--fit-font-mono) !important;text-transform:none;letter-spacing:0}
 
-/* ---- 5. Buttons: primary red glass CTA, ghost glass ---- */
-.btn,.bookbtn,.cta,.book,.bookchip,.startbtn,.mini-btn,.btn2,.hbtn,.cbbtn,.sbtn,.book2{
-  font-family:var(--fit-font-display);text-transform:uppercase;letter-spacing:.03em;font-weight:800;
-  border-radius:var(--fit-radius-sm) !important;
+/* ---- 5. BUTTONS — design-system button spec on EVERY button ----
+   Shape + type + interaction apply to all buttons; color follows each
+   button's role (primary red / dark ink / glass ghost). Focus ring +
+   disabled preserved for accessibility. Uses !important so old inline
+   colors/fonts/radius are overridden (not just layered under). */
+.btn,.bookbtn,.cta,.book,.bookchip,.startbtn,.mini-btn,.btn2,.hbtn,.cbbtn,.sbtn,.fbtn,.mbtn,.gbtn,.scanbtn,
+button[type="submit"],input[type="submit"],input[type="button"]{
+  font-family:var(--fit-font-display) !important;font-weight:800 !important;
+  text-transform:uppercase;letter-spacing:.03em;
+  border-radius:var(--fit-radius-sm) !important;transition:.16s;
 }
-.btn.dark,.bookbtn.ghost,.bookbtn.alt,.btn.ghost,.hbtn.ghost,.mini-btn{
+.btn:active,.bookbtn:active,.cta:active,.book:active,.bookchip:active,.startbtn:active,.btn2:active,
+.hbtn:active,.cbbtn:active,.sbtn:active,.mbtn:active,.gbtn:active,.scanbtn:active,
+button[type="submit"]:active,input[type="submit"]:active{transform:scale(.98)}
+
+/* PRIMARY / CTA / submit / Book -> red with red glow */
+.btn:not(.dark):not(.ghost),.bookbtn:not(.ghost):not(.alt),.cta,.book,.bookchip,.cbbtn,.fbtn,
+.hbtn.solid,.startbtn:not(.running),button[type="submit"]:not(.dark):not(.ghost){
+  background:var(--fit-red) !important;color:#fff !important;border:0 !important;
+  box-shadow:0 8px 22px color-mix(in srgb,var(--fit-red) 30%,transparent) !important;
+}
+/* SECONDARY / cancel / ghost -> glass */
+.btn.dark,.btn.ghost,.bookbtn.ghost,.bookbtn.alt,.hbtn.ghost,.mini-btn,.startbtn.running,.gbtn{
   background:var(--fit-glass-strong) !important;border:1px solid var(--fit-glass-border) !important;color:var(--fit-ink) !important;
-  -webkit-backdrop-filter:blur(var(--fit-blur));backdrop-filter:blur(var(--fit-blur));
+  box-shadow:none !important;-webkit-backdrop-filter:blur(var(--fit-blur));backdrop-filter:blur(var(--fit-blur));
 }
+/* Dark "ink" buttons (upload, email-code, scan) keep dark surface */
+.btn2,.mbtn,.scanbtn{background:var(--fit-ink) !important;color:var(--fit-bg2) !important;border:0 !important;box-shadow:none !important}
+[data-theme="dark"] .btn2,[data-theme="dark"] .mbtn,[data-theme="dark"] .scanbtn{color:#0B0B0D !important}
+/* small buttons */
+.book,.bookchip,.hbtn,.btn2{padding:9px 15px;border-radius:11px !important}
+
+/* Focus ring (a11y — never removed) + disabled */
+.btn:focus-visible,.bookbtn:focus-visible,.cta:focus-visible,.book:focus-visible,.bookchip:focus-visible,
+.startbtn:focus-visible,.btn2:focus-visible,.hbtn:focus-visible,.cbbtn:focus-visible,.sbtn:focus-visible,
+.mbtn:focus-visible,.gbtn:focus-visible,.wbtn:focus-visible,.seg button:focus-visible,.chip:focus-visible,
+button:focus-visible,input[type="submit"]:focus-visible{outline:2px solid var(--fit-red);outline-offset:2px}
+.btn:disabled,.bookbtn:disabled,.cta:disabled,.startbtn:disabled,.btn2:disabled,.hbtn:disabled,
+.sbtn:disabled,.gbtn:disabled,button:disabled,input:disabled{opacity:.55;cursor:not-allowed}
 
 /* ---- 6. Inputs / segmented / chips as glass ---- */
 input,select,textarea,.tpick input,.search{
