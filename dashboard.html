@@ -4,7 +4,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Dashboard · 20fit</title>
-<script>try{if((localStorage.getItem("theme")||"light")!=="dark")document.documentElement.classList.add("theme-light")}catch(e){document.documentElement.classList.add("theme-light")}</script>
 <style>
   /* ===== 20fit Dashboard — new visual design (light-first, dark via app toggle) =====
      Re-skin only: every wired id/handler & the whole <script> are unchanged. */
@@ -236,6 +235,9 @@
   }
 
 </style>
+<script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+<link rel="stylesheet" href="20fit-design-system.css">
+<link rel="stylesheet" href="glass-app.css">
 </head>
 <body>
 <!-- 20FIT-BUILD: reskin-new-design 2026-07-02 -->

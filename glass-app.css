@@ -1,0 +1,127 @@
+/* ============================================================
+   glass-app.css — applies the 20FIT "Glass Minimalist" design
+   system to the existing app, purely via CSS. Loaded AFTER each
+   page's own <style> so it re-skins without touching any markup,
+   id, handler, or logic. Pairs with 20fit-design-system.css
+   (which defines the --fit-* tokens + .fit-* classes).
+
+   Dark mode keys off [data-theme="dark"] on <html> (set by i18n.js),
+   matching the design system.
+   ============================================================ */
+
+/* ---- 1. Remap the app's legacy tokens -> design-system tokens ----
+   Loaded after each page's :root, so these win. Every existing rule
+   that uses var(--card)/var(--red)/... instantly picks up the new look. */
+:root{
+  --red:#E4002B;--red-ink:#B0001F;--red-soft:#FBE1E7;
+  --amber:#C77A00;--amber-soft:#F7EBD8;--amber-ink:#8A5A00;
+  --green:#1C8A4B;--green-soft:#DEF0E6;--green-ink:#12633A;
+  --blue:#0068C9;--blue-soft:#E1EDFA;
+  --ink:#1D1D1F;--txt:#1D1D1F;--muted:#6E6E73;--faint:#9A9A9E;
+  --line:rgba(29,29,31,.08);
+  --card:var(--fit-glass);--inp:var(--fit-glass-strong);--dark:#1D1D1F;
+  --pagetx:#1D1D1F;--pagemut:#6E6E73;
+  --radius-lg:22px;--radius:14px;
+  --shadow:0 8px 30px rgba(29,29,31,.07);
+}
+[data-theme="dark"]{
+  --red:#FF3B57;--red-ink:#FF6076;--red-soft:rgba(255,59,87,.16);
+  --amber:#FFB454;--amber-soft:rgba(255,180,84,.16);--amber-ink:#FFB454;
+  --green:#34C77B;--green-soft:rgba(52,199,123,.16);--green-ink:#34C77B;
+  --blue:#4DA8FF;--blue-soft:rgba(77,168,255,.16);
+  --ink:#F5F5F5;--txt:#F5F5F5;--muted:#A1A1A6;--faint:#6B6B70;
+  --line:rgba(255,255,255,.09);
+  --card:var(--fit-glass);--inp:var(--fit-glass-strong);--dark:#0B0B0D;
+  --pagetx:#F5F5F5;--pagemut:#A1A1A6;
+  --shadow:0 10px 34px rgba(0,0,0,.4);
+}
+
+/* ---- 2. Page background: warm->cool gradient + soft glass orbs ---- */
+html,body{background:transparent}
+body{
+  background:linear-gradient(140deg,var(--fit-bg1),var(--fit-bg2)) !important;
+  background-attachment:fixed !important;
+  color:var(--fit-ink);
+  font-family:var(--fit-font-body);
+  position:relative;
+}
+body::before,body::after{
+  content:"";position:fixed;border-radius:999px;filter:blur(90px);opacity:.5;z-index:0;pointer-events:none;
+}
+body::before{width:420px;height:420px;top:-120px;left:-80px;background:radial-gradient(circle,rgba(228,0,43,.25),transparent 70%)}
+body::after{width:480px;height:480px;bottom:-160px;right:-120px;background:radial-gradient(circle,rgba(0,104,201,.20),transparent 70%)}
+[data-theme="dark"] body::before{opacity:.4}
+[data-theme="dark"] body::after{opacity:.35}
+/* keep real content above the orbs */
+.wrap,.app,.shell,.card,nav,header,main,section,.langfab,.themefab,.toast{position:relative;z-index:1}
+
+/* ---- 3. Glass surfaces: every .card / panel becomes frosted glass ---- */
+.card,.panel,.wcard{
+  background:var(--fit-glass) !important;
+  -webkit-backdrop-filter:blur(var(--fit-blur)) saturate(150%);
+  backdrop-filter:blur(var(--fit-blur)) saturate(150%);
+  border:1px solid var(--fit-glass-border) !important;
+  border-radius:var(--fit-radius) !important;
+  box-shadow:var(--fit-shadow) !important;
+  color:var(--fit-ink);
+}
+/* nested / strong tiles (glance stats, vitals dividers keep var(--line)) */
+.stat,.vital,.tile,.ohstat,.glance-stats,.gstat{color:var(--fit-ink)}
+
+/* ---- 4. Typography roles (Barlow display / Mono data / Manrope body) ---- */
+h1,.hello,.headline,.sec,.hk,.sec-title,.title,.name,.m-title,.check-head .d,
+.sec.gsec,.gsec{font-family:var(--fit-font-display) !important;letter-spacing:.01em}
+h1,.hello,.headline,.sec,.hk,.gsec,.sec.gsec{text-transform:uppercase}
+.big,.stat .v,.vital .val,.tile .tv,.gstat .gv,.aqinum,.bgcount,.chkprog,.ift,
+.dur,.m-time,.tile .tv,.ohstat .v,.pval .vv{font-family:var(--fit-font-display) !important;font-weight:900}
+/* mono only for true data chips */
+.pill,.badge,.meta{font-family:var(--fit-font-mono) !important;text-transform:none;letter-spacing:0}
+
+/* ---- 5. Buttons: primary red glass CTA, ghost glass ---- */
+.btn,.bookbtn,.cta,.book,.bookchip,.startbtn,.mini-btn,.btn2,.hbtn,.cbbtn,.sbtn,.book2{
+  font-family:var(--fit-font-display);text-transform:uppercase;letter-spacing:.03em;font-weight:800;
+  border-radius:var(--fit-radius-sm) !important;
+}
+.btn.dark,.bookbtn.ghost,.bookbtn.alt,.btn.ghost,.hbtn.ghost,.mini-btn{
+  background:var(--fit-glass-strong) !important;border:1px solid var(--fit-glass-border) !important;color:var(--fit-ink) !important;
+  -webkit-backdrop-filter:blur(var(--fit-blur));backdrop-filter:blur(var(--fit-blur));
+}
+
+/* ---- 6. Inputs / segmented / chips as glass ---- */
+input,select,textarea,.tpick input,.search{
+  background:var(--fit-glass) !important;border:1px solid var(--fit-glass-border) !important;
+  color:var(--fit-ink);
+}
+input::placeholder,textarea::placeholder{color:var(--fit-ink-faint)}
+.seg,.filters .chip,.chip{
+  background:var(--fit-glass) !important;border:1px solid var(--fit-glass-border) !important;
+  -webkit-backdrop-filter:blur(var(--fit-blur));backdrop-filter:blur(var(--fit-blur));
+}
+.seg button.active,.chip.on{background:var(--fit-ink) !important;color:var(--fit-bg2) !important}
+[data-theme="dark"] .seg button.active,[data-theme="dark"] .chip.on{color:#0B0B0D !important}
+
+/* ---- 7. Shared bottom-nav (nav.js) + floating toggles (i18n.js) -> glass ---- */
+.bnav{
+  background:var(--fit-glass-strong) !important;
+  -webkit-backdrop-filter:blur(var(--fit-blur)) saturate(160%);backdrop-filter:blur(var(--fit-blur)) saturate(160%);
+  border:1px solid var(--fit-glass-border) !important;box-shadow:var(--fit-shadow) !important;
+}
+.bnav a{color:var(--fit-ink-soft) !important;font-family:var(--fit-font-display);text-transform:uppercase;letter-spacing:.02em;font-weight:700}
+.bnav a.on{color:var(--fit-ink) !important}
+.bnav a.on svg{stroke:var(--fit-red) !important}
+.scanfab{background:var(--fit-red) !important;box-shadow:0 8px 22px color-mix(in srgb,var(--fit-red) 40%,transparent) !important;font-family:var(--fit-font-display)}
+.langfab,.themefab{
+  background:var(--fit-glass-strong) !important;border:1px solid var(--fit-glass-border) !important;
+  -webkit-backdrop-filter:blur(var(--fit-blur));backdrop-filter:blur(var(--fit-blur));color:var(--fit-ink-soft) !important;
+}
+.langfab button{color:var(--fit-ink-soft) !important;font-family:var(--fit-font-display)}
+.langfab button.on{background:var(--fit-red) !important;color:#fff !important}
+
+/* ---- 8. Toast ---- */
+.toast{background:var(--fit-ink) !important;color:var(--fit-bg2) !important;border-radius:var(--fit-radius-sm) !important}
+[data-theme="dark"] .toast{color:#0B0B0D !important}
+
+/* ---- 9. Weather overlay keeps white text on its colored scene (unchanged) ---- */
+.wover .big,.wover .muted{color:#fff !important}
+
+@media (prefers-reduced-motion:reduce){ body::before,body::after{animation:none !important} }

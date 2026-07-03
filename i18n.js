@@ -139,6 +139,8 @@
   }
   function applyTheme(){
     document.documentElement.classList.toggle("theme-light", theme==="light");
+    // Design system ("Glass Minimalist") keys dark mode off data-theme.
+    document.documentElement.setAttribute("data-theme", theme==="light" ? "light" : "dark");
     renderThemeBtn();
   }
   function toggleTheme(){ theme=(theme==="light")?"dark":"light"; localStorage.setItem("theme",theme); applyTheme(); }
@@ -151,10 +153,10 @@
     fl.href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700;900&family=JetBrains+Mono:wght@400;700&family=Manrope:wght@400;500;600;700;800&display=swap";
     document.head.appendChild(fl);
     const fcss=document.createElement("style");
+    // Fonts follow the Glass design system: Manrope body, Barlow Condensed display.
+    // (Big stat numbers + data chips are set to Barlow/Mono by glass-app.css.)
     fcss.textContent="body{font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif !important}"+
-      "h1,.hello,.headline{font-family:'Anton',sans-serif !important;font-weight:400 !important;letter-spacing:.5px}"+
-      ".sec,.hk{font-family:'Barlow Condensed',sans-serif !important;font-weight:700}"+
-      ".stat .v,.ring .num,.bgcount,.chkprog{font-family:'JetBrains Mono',monospace !important}"+
+      "h1,.hello,.headline,.sec,.hk{font-family:'Barlow Condensed',sans-serif !important;font-weight:800;letter-spacing:.02em}"+
       // ---- Hardening anti-overflow (semua widget rapi di desktop & mobile) ----
       "input[type=time],input[type=date]{min-width:150px;max-width:100%}"+
       "img,svg,canvas{max-width:100%}"+

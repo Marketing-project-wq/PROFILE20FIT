@@ -1,0 +1,235 @@
+/* ============================================================
+   20FIT · DESIGN SYSTEM v1.0 — "Glass Minimalist"
+   Reusable tokens + components. Framework-agnostic (plain HTML,
+   React, Vue, etc.). Everything is namespaced with --fit-* and
+   .fit-* so it will NOT collide with your existing app classes.
+
+   HOW TO USE (see CLAUDE_CODE_HANDOFF.md for full rules):
+   1. Load the 3 fonts (import below, or <link> in <head>, or self-host).
+   2. Import this file once, globally.
+   3. Restyle by applying .fit-* classes / --fit-* tokens to EXISTING
+      elements. Do NOT change any JS, handlers, IDs, or logic.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@200;400;500;700;800&display=swap');
+
+/* ---------- 1. TOKENS · LIGHT (default) ---------- */
+:root{
+  /* brand + status (the ONLY accent colors — do not add more) */
+  --fit-red:#E4002B;      /* CTA, nav active, urgent, brand accent */
+  --fit-blue:#0068C9;     /* status: in progress */
+  --fit-amber:#C77A00;    /* status: review / watch */
+  --fit-green:#1C8A4B;    /* status: done / ok */
+
+  /* soft tints for pills / backgrounds */
+  --fit-red-soft:#FBE1E7;
+  --fit-blue-soft:#E1EDFA;
+  --fit-amber-soft:#F7EBD8;
+  --fit-green-soft:#DEF0E6;
+
+  /* neutral ink scale */
+  --fit-ink:#1D1D1F;      /* primary text, headings */
+  --fit-ink-soft:#6E6E73; /* secondary text, descriptions */
+  --fit-ink-faint:#9A9A9E;/* placeholder, caption, empty state */
+  --fit-line:rgba(29,29,31,.08);
+
+  /* page background gradient (warm -> cool) */
+  --fit-bg1:#F2E9E6;
+  --fit-bg2:#E9EEF3;
+
+  /* glass surfaces */
+  --fit-glass:rgba(255,255,255,.55);        /* cards, panels */
+  --fit-glass-strong:rgba(255,255,255,.72); /* sidebar, nested tiles */
+  --fit-glass-border:rgba(255,255,255,.9);
+  --fit-blur:28px;
+
+  /* radius + elevation */
+  --fit-radius:22px;
+  --fit-radius-sm:14px;
+  --fit-shadow:0 8px 30px rgba(29,29,31,.07);
+
+  /* fonts (3 roles — never swap their jobs) */
+  --fit-font-display:'Barlow Condensed',system-ui,sans-serif; /* headings, nav, buttons, tags, stat numbers — UPPERCASE */
+  --fit-font-mono:'JetBrains Mono',ui-monospace,monospace;    /* dates, time, money, email, search, IDs */
+  --fit-font-body:'Manrope',-apple-system,system-ui,sans-serif;/* names, descriptions, paragraphs */
+}
+
+/* ---------- 2. TOKENS · DARK ----------
+   Use the dedicated dark tokens (lighter accents + WHITE-transparent
+   glass, never black). Toggle by setting [data-theme="dark"] on <html>. */
+[data-theme="dark"]{
+  --fit-red:#FF3B57;
+  --fit-blue:#4DA8FF;
+  --fit-amber:#FFB454;
+  --fit-green:#34C77B;
+
+  --fit-red-soft:rgba(255,59,87,.16);
+  --fit-blue-soft:rgba(77,168,255,.16);
+  --fit-amber-soft:rgba(255,180,84,.16);
+  --fit-green-soft:rgba(52,199,123,.16);
+
+  --fit-ink:#F5F5F5;
+  --fit-ink-soft:#A1A1A6;
+  --fit-ink-faint:#6B6B70;
+  --fit-line:rgba(255,255,255,.09);
+
+  --fit-bg1:#1C1C1E;
+  --fit-bg2:#0B0B0D;
+
+  --fit-glass:rgba(255,255,255,.07);        /* white transparent, NOT black */
+  --fit-glass-strong:rgba(255,255,255,.11);
+  --fit-glass-border:rgba(255,255,255,.12);
+
+  --fit-shadow:0 10px 34px rgba(0,0,0,.4);
+}
+
+/* ---------- 3. PAGE BACKGROUND ----------
+   Apply .fit-bg to <body> (or your app root). The blurred orbs give
+   the glass surfaces something to refract; remove .fit-bg::before/after
+   if you want a flat gradient. */
+.fit-bg{
+  background:linear-gradient(140deg,var(--fit-bg1),var(--fit-bg2));
+  background-attachment:fixed;
+  color:var(--fit-ink);
+  font-family:var(--fit-font-body);
+  position:relative;
+}
+.fit-bg::before,.fit-bg::after{
+  content:"";position:fixed;border-radius:999px;filter:blur(90px);opacity:.5;z-index:0;pointer-events:none;
+}
+.fit-bg::before{width:420px;height:420px;top:-120px;left:-80px;background:radial-gradient(circle,rgba(228,0,43,.28),transparent 70%)}
+.fit-bg::after{width:480px;height:480px;bottom:-160px;right:-120px;background:radial-gradient(circle,rgba(0,104,201,.22),transparent 70%)}
+[data-theme="dark"] .fit-bg::before{opacity:.4}
+[data-theme="dark"] .fit-bg::after{opacity:.35}
+
+/* ---------- 4. TYPOGRAPHY HELPERS ----------
+   Rules: Barlow Condensed = display/label (UPPERCASE). JetBrains Mono =
+   data (numbers/dates/time/email/id). Manrope = body/names/paragraphs. */
+.fit-display{font-family:var(--fit-font-display);text-transform:uppercase;letter-spacing:.02em;line-height:1}
+.fit-mono{font-family:var(--fit-font-mono);font-variant-numeric:tabular-nums}
+.fit-body{font-family:var(--fit-font-body)}
+.fit-num{font-family:var(--fit-font-display);font-weight:900;letter-spacing:.005em;line-height:.95} /* big statistic numbers */
+
+.fit-h1{font-family:var(--fit-font-display);font-weight:900;font-size:32px;text-transform:uppercase;letter-spacing:.01em;line-height:1;color:var(--fit-ink)}
+.fit-h2,.fit-section-title{font-family:var(--fit-font-display);font-weight:800;font-size:22px;text-transform:uppercase;letter-spacing:.02em;color:var(--fit-ink)}
+.fit-label{font-family:var(--fit-font-display);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--fit-ink-soft)}
+.fit-name{font-family:var(--fit-font-body);font-weight:700;font-size:14px;color:var(--fit-ink)}      /* task title / person name */
+.fit-desc{font-family:var(--fit-font-body);font-weight:400;font-size:13px;color:var(--fit-ink-soft);line-height:1.5} /* paragraph */
+
+/* ---------- 5. SURFACES ---------- */
+.fit-card{
+  background:var(--fit-glass);
+  backdrop-filter:blur(var(--fit-blur)) saturate(150%);
+  -webkit-backdrop-filter:blur(var(--fit-blur)) saturate(150%);
+  border:1px solid var(--fit-glass-border);
+  border-radius:var(--fit-radius);
+  box-shadow:var(--fit-shadow);
+}
+.fit-card--strong{background:var(--fit-glass-strong)}
+
+.fit-sidebar{
+  background:var(--fit-glass-strong);
+  backdrop-filter:blur(var(--fit-blur)) saturate(140%);
+  -webkit-backdrop-filter:blur(var(--fit-blur)) saturate(140%);
+  border-right:1px solid var(--fit-glass-border);
+}
+
+/* stat card: card with a red accent bar on the left (see PDF §04) */
+.fit-stat{position:relative;overflow:hidden;padding-left:16px}
+.fit-stat::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:4px;border-radius:999px;background:var(--fit-red)}
+
+/* ---------- 6. BUTTONS ---------- */
+.fit-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:0;cursor:pointer;border-radius:var(--fit-radius-sm);padding:13px 18px;transition:.16s;
+  font-family:var(--fit-font-display);font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:.03em;
+}
+.fit-btn:active{transform:scale(.98)}
+.fit-btn--primary{background:var(--fit-red);color:#fff;box-shadow:0 8px 22px color-mix(in srgb,var(--fit-red) 30%,transparent)}
+.fit-btn--ghost{background:var(--fit-glass-strong);border:1px solid var(--fit-glass-border);color:var(--fit-ink)}
+.fit-btn--ink{background:var(--fit-ink);color:var(--fit-bg2)}
+[data-theme="dark"] .fit-btn--ink{color:#0B0B0D}
+.fit-btn--sm{padding:9px 15px;font-size:12px;border-radius:11px}
+
+/* text link, e.g. "OPEN →" */
+.fit-link{font-family:var(--fit-font-display);font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--fit-red);display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+
+/* ---------- 7. TAGS / PILLS ---------- */
+.fit-tag{
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--fit-font-display);font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;
+  padding:4px 9px;border-radius:999px;
+}
+.fit-tag--red{background:var(--fit-red-soft);color:var(--fit-red)}      /* URGENT */
+.fit-tag--blue{background:var(--fit-blue-soft);color:var(--fit-blue)}   /* PROGRESS */
+.fit-tag--amber{background:var(--fit-amber-soft);color:var(--fit-amber)}/* REVIEW / WATCH */
+.fit-tag--green{background:var(--fit-green-soft);color:var(--fit-green)}/* DONE / OK */
+
+/* meta pill (mono data): dates, money, counts */
+.fit-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--fit-font-mono);font-size:12px;color:var(--fit-ink-soft);
+  background:var(--fit-glass-strong);border:1px solid var(--fit-glass-border);
+  padding:5px 11px;border-radius:999px;
+}
+
+/* ---------- 8. NAV ITEMS ---------- */
+.fit-nav-item{
+  display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;cursor:pointer;transition:.15s;
+  color:var(--fit-ink-soft);
+  font-family:var(--fit-font-display);font-weight:700;font-size:14.5px;text-transform:uppercase;letter-spacing:.03em;
+}
+.fit-nav-item:hover{background:var(--fit-glass);color:var(--fit-ink)}
+.fit-nav-item.is-active{background:var(--fit-red);color:#fff;box-shadow:0 8px 20px color-mix(in srgb,var(--fit-red) 30%,transparent)}
+
+/* ---------- 9. INPUTS / SEARCH ---------- */
+.fit-input{
+  display:flex;align-items:center;gap:9px;
+  background:var(--fit-glass);border:1px solid var(--fit-glass-border);border-radius:var(--fit-radius-sm);
+  padding:11px 14px;color:var(--fit-ink-soft);
+  backdrop-filter:blur(var(--fit-blur));-webkit-backdrop-filter:blur(var(--fit-blur));
+}
+.fit-input input,.fit-input textarea{
+  border:0;background:transparent;outline:0;width:100%;color:var(--fit-ink);
+  font-family:var(--fit-font-mono);font-size:13px;
+}
+.fit-input input::placeholder{color:var(--fit-ink-faint)}
+
+/* segmented control (e.g. EN / ID, tabs) */
+.fit-seg{display:inline-flex;background:var(--fit-glass);border:1px solid var(--fit-glass-border);border-radius:999px;padding:3px;backdrop-filter:blur(var(--fit-blur));-webkit-backdrop-filter:blur(var(--fit-blur))}
+.fit-seg button{border:0;background:transparent;color:var(--fit-ink-soft);cursor:pointer;padding:7px 14px;border-radius:999px;transition:.16s;font-family:var(--fit-font-display);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.03em}
+.fit-seg button.is-active{background:var(--fit-ink);color:var(--fit-bg2)}
+[data-theme="dark"] .fit-seg button.is-active{color:#0B0B0D}
+
+/* ---------- 10. LIST ROWS ---------- */
+.fit-list{overflow:hidden}
+.fit-row{display:flex;align-items:center;gap:13px;padding:14px 16px;transition:.15s}
+.fit-row:hover{background:var(--fit-glass-strong)}
+.fit-row + .fit-row{border-top:1px solid var(--fit-line)}
+.fit-row-icon{flex:0 0 38px;width:38px;height:38px;border-radius:11px;background:var(--fit-red-soft);display:grid;place-items:center;color:var(--fit-red)}
+.fit-row-icon--green{background:var(--fit-green-soft);color:var(--fit-green)}
+.fit-row-body{flex:1;min-width:0}
+.fit-row-body .t{font-family:var(--fit-font-body);font-size:14.5px;font-weight:700}
+.fit-row-body .s{font-family:var(--fit-font-body);font-size:12px;color:var(--fit-ink-soft);margin-top:1px}
+
+/* checkbox (round, fills green when done) */
+.fit-check{flex:0 0 23px;width:23px;height:23px;border-radius:999px;border:2px solid var(--fit-line);display:grid;place-items:center;transition:.18s}
+.fit-check.is-done{background:var(--fit-green);border-color:var(--fit-green)}
+
+/* ---------- 11. MISC ---------- */
+.fit-hairline{height:1px;background:var(--fit-line);border:0}
+*:where(.fit-card,.fit-btn,.fit-tag,.fit-pill,.fit-nav-item,.fit-input){box-sizing:border-box}
+
+@media (prefers-reduced-motion:reduce){
+  .fit-bg::before,.fit-bg::after{animation:none!important}
+  .fit-btn,.fit-nav-item,.fit-row,.fit-seg button{transition:none!important}
+}
+
+/* ============================================================
+   TOKEN QUICK-REFERENCE (for mapping to existing code)
+   red #E4002B/#FF3B57 · blue #0068C9/#4DA8FF · amber #C77A00/#FFB454
+   green #1C8A4B/#34C77B · ink #1D1D1F/#F5F5F5 · soft #6E6E73/#A1A1A6
+   faint #9A9A9E · bg #F2E9E6→#E9EEF3 (dark #1C1C1E→#0B0B0D)
+   radius 22 / sm 14 · blur 28 · glass 55% (dark: white 7%)
+   fonts: Barlow Condensed (display) / JetBrains Mono (data) / Manrope (body)
+   ============================================================ */
