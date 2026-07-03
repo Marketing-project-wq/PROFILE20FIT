@@ -270,45 +270,52 @@
   .m-sub{font-family:var(--fit-font-mono,'JetBrains Mono'),monospace;font-size:12px;color:var(--muted);margin-top:2px}
   .m-close{border:0;background:var(--inp);width:34px;height:34px;border-radius:999px;cursor:pointer;color:var(--ink);flex:0 0 auto;display:grid;place-items:center}
   .m-close svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-  .demo{margin:16px 0;height:196px;border-radius:18px;background:var(--inp);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;position:relative;overflow:hidden;padding:32px 14px 14px}
+  .demo{margin:16px 0;height:212px;border-radius:18px;background:var(--inp);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;position:relative;overflow:hidden;padding:34px 14px 14px}
   .tempo-tag{position:absolute;top:12px;left:14px;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
   .voicebtn{position:absolute;top:9px;right:9px;width:32px;height:32px;border-radius:999px;border:0;background:var(--card);color:var(--ink);box-shadow:var(--shadow);cursor:pointer;display:grid;place-items:center;z-index:3;padding:0}
   .voicebtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   .voicebtn .voff{display:none}
   .voicebtn.muted{color:var(--muted)}
   .voicebtn.muted .von{display:none}.voicebtn.muted .voff{display:block}
-  /* Exercise figure: isolated to its own layer so surrounding text never jitters */
-  .figwrap{height:120px;width:100%;display:grid;place-items:center;contain:layout paint;overflow:hidden}
-  .exfig{height:116px;width:auto;color:var(--red);overflow:visible;will-change:transform;transform:translateZ(0)}
-  .exfig line{stroke:currentColor;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
-  .exfig g{transform-box:fill-box}
-  /* squat: crouch down & up (side view, foot planted) */
-  .exfig.squat .sh{animation:sqSh 3.6s ease-in-out infinite}
-  .exfig.squat .th{animation:sqTh 3.6s ease-in-out infinite}
-  .exfig.squat .to{animation:sqTo 3.6s ease-in-out infinite}
-  @keyframes sqSh{0%,100%{transform:rotate(0)}50%{transform:rotate(12deg)}}
-  @keyframes sqTh{0%,100%{transform:rotate(0)}50%{transform:rotate(-58deg)}}
-  @keyframes sqTo{0%,100%{transform:rotate(0)}50%{transform:rotate(42deg)}}
-  /* push-up: body lowers, elbow bends (side view) */
-  .exfig.pushup .pb{animation:puDrop 3.4s ease-in-out infinite}
-  .exfig.pushup .pa{animation:puArm 3.4s ease-in-out infinite}
-  @keyframes puDrop{0%,100%{transform:translateY(0)}50%{transform:translateY(11px)}}
-  @keyframes puArm{0%,100%{transform:rotate(0)}50%{transform:rotate(24deg)}}
-  /* plank: steady hold, faint hover */
-  .exfig.plank .pb{animation:hold 3.4s ease-in-out infinite}
-  /* glute bridge: hips lift up & down (lying, side view) */
-  .exfig.bridge .hip{animation:brHip 3.6s ease-in-out infinite}
-  @keyframes brHip{0%,100%{transform:translateY(7px)}50%{transform:translateY(-9px)}}
-  /* wall sit: seated hold, faint hover */
-  .exfig.wallsit .ws{animation:hold 3.4s ease-in-out infinite}
-  @keyframes hold{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-  /* standing march: legs & arms swing alternately (side view) */
-  .exfig.march .lgL,.exfig.march .arR{animation:swA 1.5s ease-in-out infinite}
-  .exfig.march .lgR,.exfig.march .arL{animation:swB 1.5s ease-in-out infinite}
-  @keyframes swA{0%,100%{transform:rotate(22deg)}50%{transform:rotate(-22deg)}}
-  @keyframes swB{0%,100%{transform:rotate(-22deg)}50%{transform:rotate(22deg)}}
-  /* rest / cool-down: calm breathing */
-  .exfig.rest .rb{animation:restBreath 3.4s ease-in-out infinite;transform-origin:50% 100%}
+  /* Exercise figure — articulated "person" isolated to its own layer (no text jitter) */
+  .figwrap{height:130px;width:100%;display:grid;place-items:center;contain:layout paint;overflow:hidden}
+  .exfig{height:126px;width:auto;color:var(--red);overflow:visible;will-change:transform;transform:translateZ(0)}
+  .exfig line{stroke:currentColor;stroke-width:8;stroke-linecap:round;stroke-linejoin:round}
+  .exfig .torso{stroke-width:12}
+  .exfig g{transform-box:view-box}
+  /* SQUAT: stand <-> deep squat (side; foot planted, hips back, arms forward) */
+  .exfig.squat .j-shin{animation:sqShin 3.4s ease-in-out infinite}
+  .exfig.squat .j-thigh{animation:sqThigh 3.4s ease-in-out infinite}
+  .exfig.squat .j-torso{animation:sqTorso 3.4s ease-in-out infinite}
+  .exfig.squat .j-uarm{animation:sqArm 3.4s ease-in-out infinite}
+  @keyframes sqShin{0%,100%{transform:rotate(0)}50%{transform:rotate(18deg)}}
+  @keyframes sqThigh{0%,100%{transform:rotate(0)}50%{transform:rotate(-82deg)}}
+  @keyframes sqTorso{0%,100%{transform:rotate(0)}50%{transform:rotate(44deg)}}
+  @keyframes sqArm{0%,100%{transform:rotate(0)}50%{transform:rotate(90deg)}}
+  /* PUSH-UP: up <-> chest to floor (side; body dips, elbow bends) */
+  .exfig.pushup .j-body{animation:puBody 3s ease-in-out infinite}
+  .exfig.pushup .j-uarm{animation:puArm 3s ease-in-out infinite}
+  @keyframes puBody{0%,100%{transform:translateY(0)}50%{transform:translateY(18px)}}
+  @keyframes puArm{0%,100%{transform:rotate(0)}50%{transform:rotate(38deg)}}
+  /* PLANK: correct hold, subtle hover */
+  .exfig.plank .j-body{animation:hold 3.6s ease-in-out infinite}
+  /* GLUTE BRIDGE: hips on floor <-> hips lifted (side; big pump) */
+  .exfig.bridge .j-hip{animation:brHip 3.2s ease-in-out infinite}
+  @keyframes brHip{0%,100%{transform:translateY(12px)}50%{transform:translateY(-14px)}}
+  /* WALL SIT: correct 90° hold, subtle hover */
+  .exfig.wallsit .j-body{animation:hold 3.6s ease-in-out infinite}
+  @keyframes hold{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  /* STANDING MARCH: drive knees up alternately (side; thigh + knee) */
+  .exfig.march .j-legL,.exfig.march .j-armR{animation:mchA 1.4s ease-in-out infinite}
+  .exfig.march .j-legR,.exfig.march .j-armL{animation:mchB 1.4s ease-in-out infinite}
+  .exfig.march .j-kneeL{animation:mchKA 1.4s ease-in-out infinite}
+  .exfig.march .j-kneeR{animation:mchKB 1.4s ease-in-out infinite}
+  @keyframes mchA{0%,100%{transform:rotate(4deg)}50%{transform:rotate(-46deg)}}
+  @keyframes mchB{0%,100%{transform:rotate(-46deg)}50%{transform:rotate(4deg)}}
+  @keyframes mchKA{0%,100%{transform:rotate(0)}50%{transform:rotate(62deg)}}
+  @keyframes mchKB{0%,100%{transform:rotate(62deg)}50%{transform:rotate(0)}}
+  /* REST / cool-down: calm breathing */
+  .exfig.rest .j-body{animation:restBreath 3.4s ease-in-out infinite;transform-origin:50% 100%}
   @keyframes restBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
   .pacer-lbl{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--red);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;line-height:1.1}
   @media (prefers-reduced-motion: reduce){ .exfig *{animation:none !important} }
@@ -1023,44 +1030,58 @@
       wall:'<path d="M5 4v16M5 12h9v8"/>',
       march:'<circle cx="12" cy="4.5" r="1.6"/><path d="M12 7v6l-3 5M12 10l4 3"/>'
     };
-    // Animated stick figures — each moves like its own exercise (CSS keyframes above).
+    // Articulated "person" figures — jointed limbs so each coaches its real form.
     var FIGS={
-      squat:'<svg class="exfig squat" viewBox="0 0 130 122" fill="none">'+
-        '<line x1="42" y1="112" x2="72" y2="112"/>'+
-        '<g class="sh" style="transform-origin:56px 112px"><line x1="56" y1="112" x2="56" y2="84"/>'+
-          '<g class="th" style="transform-origin:56px 84px"><line x1="56" y1="84" x2="56" y2="56"/>'+
-            '<g class="to" style="transform-origin:56px 56px"><line x1="56" y1="56" x2="56" y2="31"/>'+
-              '<circle cx="56" cy="20" r="9" fill="currentColor"/><line x1="56" y1="37" x2="80" y2="47"/></g></g></g></svg>',
-      push:'<svg class="exfig pushup" viewBox="0 0 150 122" fill="none">'+
-        '<line x1="30" y1="110" x2="132" y2="110"/>'+
-        '<g class="pb" style="transform-origin:118px 104px"><line x1="42" y1="66" x2="118" y2="86"/>'+
-          '<circle cx="33" cy="62" r="9" fill="currentColor"/><line x1="118" y1="86" x2="128" y2="110"/>'+
-          '<g class="pa" style="transform-origin:44px 66px"><line x1="44" y1="66" x2="50" y2="110"/></g></g></svg>',
-      plank:'<svg class="exfig plank" viewBox="0 0 156 122" fill="none">'+
-        '<line x1="28" y1="112" x2="140" y2="112"/>'+
-        '<g class="pb" style="transform-origin:80px 92px"><line x1="46" y1="74" x2="122" y2="94"/>'+
-          '<circle cx="37" cy="70" r="9" fill="currentColor"/><line x1="52" y1="77" x2="46" y2="100"/>'+
-          '<line x1="46" y1="100" x2="66" y2="100"/><line x1="122" y1="94" x2="130" y2="112"/></g></svg>',
-      bridge:'<svg class="exfig bridge" viewBox="0 0 156 122" fill="none">'+
-        '<line x1="22" y1="112" x2="140" y2="112"/>'+
-        '<circle cx="36" cy="99" r="9" fill="currentColor"/>'+
-        '<g class="hip"><line x1="48" y1="104" x2="90" y2="82"/><line x1="90" y1="82" x2="110" y2="108"/></g>'+
-        '<line x1="110" y1="108" x2="110" y2="112"/></svg>',
-      wall:'<svg class="exfig wallsit" viewBox="0 0 146 122" fill="none">'+
-        '<line x1="30" y1="14" x2="30" y2="112"/><line x1="30" y1="112" x2="128" y2="112"/>'+
-        '<g class="ws" style="transform-origin:42px 74px"><circle cx="42" cy="40" r="9" fill="currentColor"/>'+
-          '<line x1="42" y1="49" x2="42" y2="78"/><line x1="42" y1="78" x2="90" y2="78"/>'+
-          '<line x1="90" y1="78" x2="90" y2="112"/><line x1="42" y1="60" x2="74" y2="72"/></g></svg>',
-      march:'<svg class="exfig march" viewBox="0 0 120 122" fill="none">'+
-        '<circle cx="60" cy="24" r="9" fill="currentColor"/><line x1="60" y1="33" x2="60" y2="72"/>'+
-        '<g class="arL" style="transform-origin:60px 42px"><line x1="60" y1="42" x2="60" y2="68"/></g>'+
-        '<g class="arR" style="transform-origin:60px 42px"><line x1="60" y1="42" x2="60" y2="68"/></g>'+
-        '<g class="lgR" style="transform-origin:60px 72px"><line x1="60" y1="72" x2="60" y2="106"/></g>'+
-        '<g class="lgL" style="transform-origin:60px 72px"><line x1="60" y1="72" x2="60" y2="106"/></g></svg>',
-      rest:'<svg class="exfig rest" viewBox="0 0 100 122" fill="none">'+
-        '<g class="rb" style="transform-origin:50px 110px"><circle cx="50" cy="22" r="9" fill="currentColor"/>'+
-          '<line x1="50" y1="31" x2="50" y2="74"/><line x1="50" y1="41" x2="34" y2="62"/><line x1="50" y1="41" x2="66" y2="62"/>'+
-          '<line x1="50" y1="74" x2="40" y2="108"/><line x1="50" y1="74" x2="60" y2="108"/></g></svg>'
+      squat:'<svg class="exfig squat" viewBox="0 0 172 152" fill="none">'+
+        '<line x1="60" y1="142" x2="92" y2="142"/>'+                                  /* foot */
+        '<g class="j-shin" style="transform-origin:74px 142px"><line x1="74" y1="142" x2="74" y2="104"/>'+
+          '<g class="j-thigh" style="transform-origin:74px 104px"><line x1="74" y1="104" x2="74" y2="66"/>'+
+            '<g class="j-torso" style="transform-origin:74px 66px"><line class="torso" x1="74" y1="66" x2="74" y2="28"/>'+
+              '<circle cx="74" cy="15" r="12" fill="currentColor"/>'+
+              '<g class="j-uarm" style="transform-origin:74px 36px"><line x1="74" y1="36" x2="74" y2="66"/></g>'+
+            '</g></g></g></svg>',
+      push:'<svg class="exfig pushup" viewBox="0 0 200 142" fill="none">'+
+        '<line x1="26" y1="124" x2="184" y2="124"/>'+                                 /* ground */
+        '<g class="j-body" style="transform-origin:170px 120px">'+
+          '<circle cx="50" cy="58" r="12" fill="currentColor"/>'+
+          '<line class="torso" x1="60" y1="64" x2="168" y2="98"/>'+                    /* head->hip->toes */
+          '<line x1="168" y1="98" x2="180" y2="122"/>'+                               /* lower leg to toe */
+          '<g class="j-uarm" style="transform-origin:74px 70px"><line x1="74" y1="70" x2="80" y2="122"/></g>'+
+        '</g></svg>',
+      plank:'<svg class="exfig plank" viewBox="0 0 200 142" fill="none">'+
+        '<line x1="24" y1="124" x2="186" y2="124"/>'+
+        '<g class="j-body" style="transform-origin:110px 96px">'+
+          '<circle cx="46" cy="64" r="12" fill="currentColor"/>'+
+          '<line class="torso" x1="56" y1="70" x2="166" y2="100"/>'+
+          '<line x1="66" y1="74" x2="60" y2="104"/><line x1="60" y1="104" x2="86" y2="104"/>'+ /* forearm on ground */
+          '<line x1="166" y1="100" x2="180" y2="124"/>'+
+        '</g></svg>',
+      bridge:'<svg class="exfig bridge" viewBox="0 0 196 142" fill="none">'+
+        '<line x1="20" y1="126" x2="176" y2="126"/>'+
+        '<circle cx="40" cy="114" r="12" fill="currentColor"/>'+                       /* head on floor */
+        '<g class="j-hip"><line class="torso" x1="52" y1="118" x2="116" y2="90"/>'+     /* shoulder->hip */
+          '<line x1="116" y1="90" x2="128" y2="126"/></g>'+                            /* hip->knee/feet */
+        '<line x1="128" y1="126" x2="150" y2="126"/></svg>',                           /* foot */
+      wall:'<svg class="exfig wallsit" viewBox="0 0 176 142" fill="none">'+
+        '<line x1="34" y1="12" x2="34" y2="128"/><line x1="34" y1="128" x2="158" y2="128"/>'+
+        '<g class="j-body" style="transform-origin:50px 86px"><circle cx="50" cy="40" r="12" fill="currentColor"/>'+
+          '<line class="torso" x1="50" y1="52" x2="50" y2="88"/>'+                     /* back on wall */
+          '<line x1="50" y1="88" x2="112" y2="88"/>'+                                  /* thigh horizontal */
+          '<line x1="112" y1="88" x2="112" y2="128"/>'+                                /* shin vertical */
+          '<line x1="50" y1="66" x2="96" y2="82"/></g></svg>',                         /* arm on thigh */
+      march:'<svg class="exfig march" viewBox="0 0 150 152" fill="none">'+
+        '<circle cx="74" cy="22" r="12" fill="currentColor"/><line class="torso" x1="74" y1="34" x2="74" y2="82"/>'+
+        '<g class="j-armL" style="transform-origin:74px 46px"><line x1="74" y1="46" x2="74" y2="78"/></g>'+
+        '<g class="j-armR" style="transform-origin:74px 46px"><line x1="74" y1="46" x2="74" y2="78"/></g>'+
+        '<g class="j-legL" style="transform-origin:74px 82px"><line x1="74" y1="82" x2="74" y2="112"/>'+
+          '<g class="j-kneeL" style="transform-origin:74px 112px"><line x1="74" y1="112" x2="74" y2="142"/></g></g>'+
+        '<g class="j-legR" style="transform-origin:74px 82px"><line x1="74" y1="82" x2="74" y2="112"/>'+
+          '<g class="j-kneeR" style="transform-origin:74px 112px"><line x1="74" y1="112" x2="74" y2="142"/></g></g></svg>',
+      rest:'<svg class="exfig rest" viewBox="0 0 120 152" fill="none">'+
+        '<g class="j-body" style="transform-origin:60px 140px"><circle cx="60" cy="24" r="12" fill="currentColor"/>'+
+          '<line class="torso" x1="60" y1="36" x2="60" y2="86"/>'+
+          '<line x1="60" y1="48" x2="40" y2="82"/><line x1="60" y1="48" x2="80" y2="82"/>'+
+          '<line x1="60" y1="86" x2="46" y2="138"/><line x1="60" y1="86" x2="74" y2="138"/></g></svg>'
     };
     var EX=[
       {icon:'squat',n:{en:'Bodyweight Squat',id:'Squat Tanpa Beban'},s:{en:'Legs',id:'Kaki'},sets:3,reps:'10–12',repl:{en:'reps',id:'repetisi'},rest:'45s',type:'rep',
