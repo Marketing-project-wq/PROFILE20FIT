@@ -147,7 +147,7 @@
       const btn=document.getElementById("save");btn.disabled=true;
       try{
         await Auth.saveOnboarding({gender,birthdate,weight_kg:weight,height_cm:height,main_goal:goal,health_conditions:conds});
-        Auth.go("dashboard.html");
+        await Auth.routeAfterAuth();   // data lengkap -> buat password kalau belum ada, lalu dashboard
       }catch(e){msg.textContent=e.message;btn.disabled=false}
     }
   </script>

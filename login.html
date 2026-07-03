@@ -127,6 +127,10 @@
         <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600"></a></div>
 
         <div class="orsep"><span data-k="orsep">or</span></div>
+        <div style="text-align:center;margin-bottom:10px">
+          <div style="font-weight:800;font-size:13.5px" data-k="existTitle">Already have a 20fit account?</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45" data-k="existDesc">Sign in with an email code — you'll be guided to complete your data &amp; create a password.</div>
+        </div>
         <button class="sbtn mbtn" onclick="magicStart()">
           <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg>
           <span data-k="magiclink">Email me a login code</span>
@@ -164,6 +168,8 @@
         fitco:"Sign in with your 20fit account",
         fitcopw:"20fit account uses email & password? Sign in",
         codeLabel:"Code from email", verifyBtn:"Verify & Sign In",
+        existTitle:"Already have a 20fit account?",
+        existDesc:"Sign in with an email code — you'll then be guided to complete your data & create a password.",
         emailNeed:"Enter your email first.", codeNeed:"Enter the code from your email.",
         magicSent:"Login code sent! Check your email.", sending:"Sending code..."
       },
@@ -186,6 +192,8 @@
         fitco:"Masuk pakai akun 20fit",
         fitcopw:"Akun 20fit pakai email & password? Masuk",
         codeLabel:"Kode dari email", verifyBtn:"Verifikasi & Masuk",
+        existTitle:"Sudah punya akun 20fit?",
+        existDesc:"Masuk pakai kode email — nanti kamu diarahkan untuk lengkapi data & buat password.",
         emailNeed:"Isi email kamu dulu.", codeNeed:"Masukkan kode dari email.",
         magicSent:"Kode login terkirim! Cek email kamu.", sending:"Mengirim kode..."
       }
@@ -301,14 +309,9 @@
         await Auth.ready;
         // Route HANYA saat user AKTIF login / balik dari Google (evt SIGNED_IN), bukan saat sesi lama kebaca.
         Auth.supabase.auth.onAuthStateChange((evt,sess)=>{ if(evt==="SIGNED_IN" && sess && sess.user){ Auth.routeAfterAuth(); } });
-        // Data inti lengkap -> auto masuk dashboard. Ada sesi tapi belum lengkap -> lanjut onboarding.
+        // Ada sesi -> arahkan sesuai flow (data dulu -> password -> dashboard).
         const u=await Auth.getUser();
-        if(u){
-          try{ const p=await Auth.getProfile();
-            if(Auth.profileComplete && Auth.profileComplete(p)){ Auth.go("dashboard.html"); return; }
-            if(p){ await Auth.routeAfterAuth(); return; }
-          }catch(e){}
-        }
+        if(u){ try{ await Auth.routeAfterAuth(); return; }catch(e){} }
         tryAutofill();
       }catch(e){}
     })();

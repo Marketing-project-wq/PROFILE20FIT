@@ -340,15 +340,16 @@
   }
 
   // ---------- ROUTING ----------
+  // Flow jelas untuk semua (akun baru & akun existing dari ekosistem 20fit):
+  //   1) belum lengkap  -> isi DATA dulu (onboarding)
+  //   2) data lengkap tapi belum punya password web -> BUAT PASSWORD
+  //   3) lengkap & punya password -> dashboard
   async function routeAfterAuth() {
     const user = await requireAuth();
     const profile = await ensureProfile(user);
-    // Data inti sudah lengkap -> langsung masuk dashboard (auto sign-in), apa pun metode/asal akunnya.
-    if (profileComplete(profile)) return go("dashboard.html");
-    // Belum lengkap & belum punya password web -> bikin password dulu di layar khusus.
+    if (!profileComplete(profile)) return go("onboarding.html");
     if (!hasWebPassword(user)) return go("setpassword.html");
-    // Belum lengkap (gender/tgl lahir/berat/tinggi/goal) -> lengkapi lewat onboarding.
-    return go("onboarding.html");
+    return go("dashboard.html");
   }
 
   window.Auth = {
