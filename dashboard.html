@@ -339,7 +339,7 @@
             <button data-p="relax" onclick="pickPattern('relax')" data-i18n="breath_relax">Relax</button>
           </div>
           <div class="muted" id="bcap" style="font-size:12px;text-align:center;margin:8px 0 4px"></div>
-          <div class="ring" id="ring"><div style="text-align:center"><div class="ph" id="bphase" data-i18n="ready">Ready</div><div class="cd" id="bcd" data-i18n="press_start">Tap start</div></div></div>
+          <div class="ring" id="ring" onclick="toggleBreath()" style="cursor:pointer" title="Tap to start/stop"><div style="text-align:center"><div class="ph" id="bphase" data-i18n="ready">Ready</div><div class="cd" id="bcd" data-i18n="press_start">Tap start</div></div></div>
           <div class="dots" id="bdots"></div>
           <button class="btn" id="bbtn" onclick="toggleBreath()" data-i18n="start">Start</button>
         </div>
