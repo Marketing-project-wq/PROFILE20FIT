@@ -259,38 +259,38 @@
       try{
         if(mode==="up"){await Auth.signUp(email,password,name,phone);}
         else{
-          // Coba login akun web (Supabase) dulu. Kalau gagal karena kredensial,
-          // pakai akun 20fit (API developer) -> otomatis sync & buat sesi.
-          try{ await Auth.signIn(email,password); }
-          catch(e1){
-            const m1=String(e1&&e1.message||"").toLowerCase();
-            if(m1.includes("invalid login")||m1.includes("invalid")||m1.includes("credential")){
-              msg(lang==="en"?"Checking your 20fit account…":"Mengecek akun 20fit kamu…","");
-              try{
-                await Auth.fitcoLogin(email,password);   // akun ekosistem 20fit
-              }catch(e2){
-                const m2=String(e2&&e2.message||"").toLowerCase();
-                // Gagal di web & 20fit -> cek: emailnya PUNYA akun atau BELUM?
-                const exists=await Auth.emailExists(email);
-                if(exists===false){
-                  // BELUM punya akun di mana pun -> dorong ke Buat Akun (prefill).
-                  btn.disabled=false;
-                  setMode("up");
-                  document.getElementById("name").focus();
-                  msg(lang==="en"
-                    ? "You don't have an account yet — create one below to get started."
-                    : "Kamu belum punya akun — buat akun baru di bawah ya untuk mulai.","err");
-                  return;
-                }
-                // Jembatan 20fit belum siap (service key blm dipasang / API down):
-                if(m2.includes("dikonfigurasi")||m2.includes("service key")||m2.includes("menghubungi")||m2.includes("502")||m2.includes("500")){
-                  btn.disabled=false;
-                  msg(lang==="en"?"Use “Email me a login code” below to sign in.":"Pakai “Kirim kode login ke email” di bawah untuk masuk.","err");
-                  return;
-                }
-                throw e2; // akun ADA -> kemungkinan password salah
+          // LOGIN: utamakan akun 20fit (API developer) -> token 20fit kebentuk tiap
+          // login & lebih seamless. Kalau bukan akun 20fit, baru pakai akun buatan
+          // sendiri (Supabase, dari Create Account).
+          try{
+            await Auth.fitcoLogin(email,password);   // akun ekosistem 20fit
+          }catch(e20){
+            const m20=String(e20&&e20.message||"").toLowerCase();
+            // 20fit tak bisa dihubungi / server belum siap (bukan "kredensial salah")
+            const twentyDown = m20.includes("dikonfigurasi")||m20.includes("service key")||m20.includes("menghubungi")||m20.includes("502")||m20.includes("500");
+            try{
+              await Auth.signIn(email,password);       // akun buatan sendiri (Supabase)
+            }catch(eSb){
+              // Dua-duanya gagal. Kalau 20fit lagi down -> jangan salah arah, minta coba lagi.
+              if(twentyDown){
+                btn.disabled=false;
+                msg(lang==="en"?"Sign-in service is busy. Please try again in a moment.":"Layanan masuk lagi sibuk. Coba lagi sebentar ya.","err");
+                return;
               }
-            } else { throw e1; }
+              // 20fit bisa dihubungi tapi nolak + Supabase gagal -> cek akun ada/tidak.
+              const exists=await Auth.emailExists(email);
+              if(exists===false){
+                // BELUM punya akun di mana pun -> dorong ke Buat Akun (prefill).
+                btn.disabled=false;
+                setMode("up");
+                document.getElementById("name").focus();
+                msg(lang==="en"
+                  ? "You don't have an account yet — create one below to get started."
+                  : "Kamu belum punya akun — buat akun baru di bawah ya untuk mulai.","err");
+                return;
+              }
+              throw eSb; // akun ADA -> kemungkinan password salah
+            }
           }
         }
         saveCredential(email,password);

@@ -318,12 +318,22 @@ app.post("/api/fitco-login", async (req, res) => {
       birthdate = u.date_of_birth || u.birthdate || u.dob || null;
     } catch (e) { /* non-fatal */ }
 
-    // 3) Pastikan akun Supabase ADA (buat kalau belum), lalu siapkan OTP sesi
+    // 3) Pastikan akun Supabase ADA (buat kalau belum), lalu siapkan OTP sesi.
+    //    has_pw:true -> user 20fit TIDAK diminta bikin password Supabase (login
+    //    mereka lewat 20fit), biar seamless.
     try {
-      await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: { full_name: fullName || null } });
+      await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: { full_name: fullName || null, has_pw: true, via_20fit: true } });
     } catch (e) { /* sudah ada -> abaikan */ }
     const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: "magiclink", email });
     if (linkErr) throw linkErr;
+    // Untuk akun yang SUDAH ada tapi belum bertanda has_pw -> tandai juga.
+    try {
+      const uid0 = linkData && linkData.user && linkData.user.id;
+      const md0 = (linkData && linkData.user && linkData.user.user_metadata) || {};
+      if (uid0 && !md0.has_pw) {
+        await admin.auth.admin.updateUserById(uid0, { user_metadata: Object.assign({}, md0, { has_pw: true, via_20fit: true }) });
+      }
+    } catch (e) { /* non-fatal */ }
     const props = (linkData && linkData.properties) || {};
     const otp = props.email_otp || null;
     if (!otp) return res.status(500).json({ error: "Gagal menyiapkan sesi. Coba lagi." });
