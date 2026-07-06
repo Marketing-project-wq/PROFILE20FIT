@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sign in with a code · 20fit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--red:#C41101;--bg:#EDE8DF;--card:#FFFFFF;--dark:#0A0908;--txt:#0A0908;--muted:#9E8E7A;--border:#E8E2DB;--inp:#F0EDE5}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);font-family:Manrope,system-ui,sans-serif;
+    display:flex;align-items:center;justify-content:center;padding:24px 18px}
+  .card{width:100%;max-width:400px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:30px 26px;box-shadow:0 10px 40px rgba(0,0,0,.08)}
+  .logo{display:flex;justify-content:center;margin-bottom:6px}
+  .logo .chip{background:var(--dark);border-radius:12px;padding:9px 14px;display:inline-flex}
+  .logo img{height:30px;display:block}
+  h1{font-family:Anton;font-size:24px;letter-spacing:.5px;margin:16px 0 4px;text-align:center}
+  .sub{color:var(--muted);font-size:13.5px;line-height:1.5;text-align:center;margin-bottom:20px}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
+  input{width:100%;padding:13px 14px;background:var(--inp);border:1px solid var(--border);border-radius:11px;font-size:15px;color:var(--txt);font-family:Manrope}
+  input:focus{outline:none;border-color:var(--red);background:#fff}
+  input.otp{text-align:center;letter-spacing:10px;font-size:22px;font-weight:700}
+  .btn{width:100%;margin-top:20px;padding:14px;border:0;border-radius:12px;background:var(--red);color:#fff;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 14px rgba(196,17,1,.25)}
+  .btn:disabled{opacity:.6}
+  .msg{margin-top:14px;font-size:13px;text-align:center;min-height:18px;line-height:1.5}
+  .msg.err{color:var(--red)}.msg.ok{color:#2A7A4F}
+  .back{display:block;text-align:center;margin-top:18px;font-size:13px;color:var(--muted);text-decoration:none;font-weight:600}
+  .back:hover{color:var(--txt)}
+  .step2{display:none}
+  .emailtag{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--inp);border:1px solid var(--border);border-radius:11px;padding:11px 14px;font-size:14px;font-weight:600}
+  .emailtag button{border:0;background:none;color:var(--red);font-weight:700;font-size:12.5px;cursor:pointer;font-family:Manrope}
+  .lang{display:flex;gap:4px;justify-content:center;margin-bottom:14px}
+  .lang button{border:1px solid var(--border);background:#fff;color:var(--muted);font-weight:700;font-size:12px;padding:5px 12px;border-radius:8px;cursor:pointer}
+  .lang button.on{background:var(--red);color:#fff;border-color:var(--red)}
+</style>
+<script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+</head>
+<body>
+  <div class="card">
+    <div class="logo"><span class="chip"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" /></span></div>
+    <div class="lang">
+      <button id="lang-en" onclick="setLang('en')">EN</button>
+      <button id="lang-id" onclick="setLang('id')">ID</button>
+    </div>
+
+    <!-- STEP 1: email -->
+    <div id="step1">
+      <h1 id="t1">Sign in with a code</h1>
+      <div class="sub" id="s1">Enter the email of your existing 20fit account. We'll send you a one-time login code.</div>
+      <label id="lbEmail">Email</label>
+      <input id="email" type="email" placeholder="name@email.com" autocomplete="email" inputmode="email" />
+      <button class="btn" id="sendBtn" onclick="sendCode()">Send login code</button>
+      <!-- Muncul kalau email belum terdaftar di mana pun -> dorong buat akun -->
+      <div id="notregBox" style="display:none;margin-top:16px;background:var(--inp);border:1px solid var(--border);border-radius:12px;padding:14px">
+        <div id="notregMsg" style="font-size:13px;line-height:1.5;color:var(--txt);font-weight:600;margin-bottom:10px"></div>
+        <button class="btn" id="createBtn" style="margin-top:0" onclick="goCreate()">Create a new account</button>
+        <button onclick="goPassword()" id="pwBtn" style="width:100%;margin-top:9px;padding:12px;border:1px solid var(--border);border-radius:11px;background:#fff;color:var(--txt);font-weight:700;font-size:13.5px;cursor:pointer;font-family:Manrope"></button>
+      </div>
+    </div>
+
+    <!-- STEP 2: code -->
+    <div id="step2" class="step2">
+      <h1 id="t2">Enter your code</h1>
+      <div class="sub" id="s2">We emailed a 6-digit code to:</div>
+      <div class="emailtag"><span id="emailShown">—</span><button onclick="backToEmail()" id="changeBtn">Change</button></div>
+      <label id="lbCode" style="margin-top:16px">Code from email</label>
+      <input id="code" class="otp" inputmode="numeric" maxlength="6" placeholder="------" autocomplete="one-time-code" />
+      <button class="btn" id="verifyBtn" onclick="verifyCode()">Verify &amp; Sign In</button>
+      <div style="text-align:center;margin-top:12px"><button onclick="sendCode(true)" id="resendBtn" style="border:0;background:none;color:var(--red);font-weight:700;font-size:13px;cursor:pointer;font-family:Manrope">Resend code</button></div>
+    </div>
+
+    <div class="msg" id="msg"></div>
+    <a class="back" href="login.html" id="backLink">← Back to sign in</a>
+  </div>
+
+  <script src="vendor-supabase.js"></script>
+  <script src="auth.js"></script>
+  <script>
+    const T={
+      en:{
+        t1:"Sign in with a code", s1:"Enter the email of your existing 20fit account. We'll send you a one-time login code.",
+        lbEmail:"Email", sendBtn:"Send login code",
+        t2:"Enter your code", s2:"We emailed a 6-digit code to:", change:"Change",
+        lbCode:"Code from email", verifyBtn:"Verify & Sign In", resend:"Resend code",
+        back:"← Back to sign in",
+        needEmail:"Please enter your email.", sending:"Sending code…", sent:"Login code sent! Check your email.",
+        needCode:"Enter the 6-digit code.", verifying:"Verifying…",
+        notReg:"This email has no account yet. Create a new account to get started.",
+        createBtn:"Create a new account", pwBtn:"I have a 20fit account → sign in with password",
+        badCode:"Wrong or expired code. Try again or resend.", tooOften:"Too many requests. Please wait a bit.",
+        netErr:"Connection failed. Try again."
+      },
+      id:{
+        t1:"Masuk pakai kode", s1:"Masukkan email akun 20fit kamu yang sudah ada. Kami akan kirim kode login sekali pakai.",
+        lbEmail:"Email", sendBtn:"Kirim kode login",
+        t2:"Masukkan kode", s2:"Kami kirim kode 6 digit ke:", change:"Ganti",
+        lbCode:"Kode dari email", verifyBtn:"Verifikasi & Masuk", resend:"Kirim ulang kode",
+        back:"← Kembali ke halaman masuk",
+        needEmail:"Isi email kamu dulu.", sending:"Mengirim kode…", sent:"Kode login terkirim! Cek email kamu.",
+        needCode:"Masukkan kode 6 digit.", verifying:"Memverifikasi…",
+        notReg:"Email ini belum punya akun. Yuk buat akun baru dulu untuk mulai.",
+        createBtn:"Buat akun baru", pwBtn:"Sudah punya akun 20fit → masuk pakai password",
+        badCode:"Kode salah atau kedaluwarsa. Coba lagi atau kirim ulang.", tooOften:"Terlalu sering. Tunggu sebentar ya.",
+        netErr:"Koneksi gagal. Coba lagi."
+      }
+    };
+    let lang=localStorage.getItem("lang")||"en";
+    let curEmail="";
+    function setLang(l){lang=l;localStorage.setItem("lang",l);applyLang();}
+    function applyLang(){
+      const d=T[lang];document.documentElement.lang=lang;
+      document.getElementById("lang-en").classList.toggle("on",lang==="en");
+      document.getElementById("lang-id").classList.toggle("on",lang==="id");
+      document.getElementById("t1").textContent=d.t1;
+      document.getElementById("s1").textContent=d.s1;
+      document.getElementById("lbEmail").textContent=d.lbEmail;
+      document.getElementById("sendBtn").textContent=d.sendBtn;
+      document.getElementById("t2").textContent=d.t2;
+      document.getElementById("s2").textContent=d.s2;
+      document.getElementById("changeBtn").textContent=d.change;
+      document.getElementById("lbCode").textContent=d.lbCode;
+      document.getElementById("verifyBtn").textContent=d.verifyBtn;
+      document.getElementById("resendBtn").textContent=d.resend;
+      document.getElementById("backLink").textContent=d.back;
+    }
+    function msg(t,c){const e=document.getElementById("msg");e.textContent=t||"";e.className="msg"+(c?" "+c:"");}
+    function show2(){document.getElementById("step1").style.display="none";document.getElementById("step2").style.display="block";document.getElementById("code").focus();}
+    function backToEmail(){document.getElementById("step2").style.display="none";document.getElementById("step1").style.display="block";msg("");}
+
+    async function sendCode(isResend){
+      const d=T[lang];
+      const email=(document.getElementById("email").value||"").trim();
+      if(!email)return msg(d.needEmail,"err");
+      document.getElementById("notregBox").style.display="none";
+      const btn=document.getElementById(isResend?"resendBtn":"sendBtn");btn.disabled=true;msg(d.sending,"");
+      try{
+        const r=await Auth.loginSend(email);
+        curEmail=email;
+        document.getElementById("emailShown").textContent=email;
+        show2();
+        msg(d.sent,"ok");
+        if(r&&r.devCode)msg("DEV — code: "+r.devCode,"ok");
+      }catch(e){
+        if(e&&e.code==="not_registered"){ showNotRegistered(); }
+        else{ const m=String(e&&e.message||"").toLowerCase();
+          if(m.includes("sering")||m.includes("often")||m.includes("429"))msg(d.tooOften,"err");
+          else if(m.includes("fetch")||m.includes("network"))msg(d.netErr,"err");
+          else msg(e.message||d.netErr,"err"); }
+      }
+      btn.disabled=false;
+    }
+    function showNotRegistered(){
+      const d=T[lang];
+      msg("");
+      document.getElementById("notregMsg").textContent=d.notReg;
+      document.getElementById("createBtn").textContent=d.createBtn;
+      document.getElementById("pwBtn").textContent=d.pwBtn;
+      document.getElementById("notregBox").style.display="block";
+    }
+    function currentEmail(){ return (document.getElementById("email").value||"").trim(); }
+    function goCreate(){ const e=currentEmail(); location.href="login.html?mode=up"+(e?("&email="+encodeURIComponent(e)):""); }
+    function goPassword(){ const e=currentEmail(); location.href="login.html"+(e?("?email="+encodeURIComponent(e)):""); }
+    async function verifyCode(){
+      const d=T[lang];
+      const code=(document.getElementById("code").value||"").trim();
+      if(!code||code.length<6)return msg(d.needCode,"err");
+      const btn=document.getElementById("verifyBtn");btn.disabled=true;msg(d.verifying,"");
+      try{
+        await Auth.verifyLoginCode(curEmail,code);
+        await Auth.routeAfterAuth();   // lengkapi data -> buat password -> dashboard
+      }catch(e){ msg(d.badCode,"err");btn.disabled=false; }
+    }
+
+    // Prefill email kalau dikirim dari halaman login (?email=...)
+    (function(){
+      try{
+        const q=new URLSearchParams(location.search);
+        const pre=q.get("email");
+        if(pre)document.getElementById("email").value=pre;
+      }catch(e){}
+      applyLang();
+      // Kalau sudah login, arahkan sesuai flow
+      (async function(){ try{ await Auth.ready; const u=await Auth.getUser(); if(u){ await Auth.routeAfterAuth(); } }catch(e){} })();
+    })();
+  </script>
+</body>
+</html>

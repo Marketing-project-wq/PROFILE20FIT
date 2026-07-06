@@ -44,25 +44,21 @@
   // ---------- MAGIC LINK / LOGIN PAKAI KODE EMAIL (isolated via my20fit-otp) ----------
   async function loginSend(email) {
     await ready;
-    // Batasi: kode login HANYA dikirim ke email yang sudah terdaftar.
-    // (Kalau server tak bisa memastikan -> unknown -> tetap lanjut, jangan blokir.)
-    try {
-      const cr = await fetch("/api/email-exists", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email }),
-      });
-      const cj = await cr.json().catch(() => ({}));
-      if (cr.ok && cj && cj.exists === false && !cj.unknown) {
-        const err = new Error("Email belum terdaftar."); err.code = "not_registered"; throw err;
-      }
-    } catch (e) { if (e && e.code === "not_registered") throw e; /* error jaringan -> lanjut */ }
+    // Kode login HANYA untuk email yang sudah punya akun. Gerbang ini ditegakkan
+    // di edge function (my20fit-otp) yang punya akses DB sendiri -> tidak
+    // tergantung env server. Email tanpa akun -> 404 not_registered.
     const r = await fetch(cfgUrl + "/functions/v1/my20fit-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfgKey, "apikey": cfgKey },
       body: JSON.stringify({ action: "login_send", email: email }),
     });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "Gagal mengirim kode login.");
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      if (r.status === 404 || (j && j.error === "not_registered")) {
+        const err = new Error("Email belum terdaftar."); err.code = "not_registered"; throw err;
+      }
+      throw new Error(j.error || "Gagal mengirim kode login.");
+    }
     return j; // { ok, sent, devCode? }
   }
   async function verifyLoginCode(email, token) {
