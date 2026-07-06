@@ -102,7 +102,8 @@
       const p=await Auth.getProfile();
       const nm=p.full_name||(p.email?p.email.split("@")[0]:"");
       document.getElementById("avaInit").textContent=(nm[0]||"?").toUpperCase();
-      loadAvatar();
+      if(p.avatar_url){ setAva(p.avatar_url); try{ localStorage.setItem(avaKey(),p.avatar_url); }catch(e){} }
+      else loadAvatar();
       document.getElementById("pname").textContent=nm;
       document.getElementById("pemail").textContent=p.email||"";
       document.getElementById("full_name").value=p.full_name||"";
@@ -120,7 +121,17 @@
     function loadAvatar(){ try{ var d=localStorage.getItem(avaKey()); if(d) setAva(d); }catch(e){} }
     function resizeImg(src,max,cb){ var img=new Image(); img.onload=function(){ var w=img.width,h=img.height,s=Math.min(max/w,max/h,1),cw=Math.round(w*s),ch=Math.round(h*s); var c=document.createElement("canvas"); c.width=cw; c.height=ch; c.getContext("2d").drawImage(img,0,0,cw,ch); try{ cb(c.toDataURL("image/jpeg",0.82)); }catch(e){ cb(src); } }; img.onerror=function(){ cb(src); }; img.src=src; }
     function onAvaPick(e){ var f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f)return;
-      var rd=new FileReader(); rd.onload=function(){ resizeImg(rd.result,256,function(out){ setAva(out); try{ localStorage.setItem(avaKey(),out); }catch(err){ msg(L({en:"Photo too large to save on this device.",id:"Foto terlalu besar untuk disimpan di perangkat ini."}),"err"); } }); }; rd.readAsDataURL(f); }
+      msg(L({en:"Uploading photo…",id:"Mengunggah foto…"}),"");
+      var rd=new FileReader(); rd.onload=function(){ resizeImg(rd.result,240,function(out){
+        setAva(out); try{ localStorage.setItem(avaKey(),out); }catch(err){}
+        // Simpan ke akun (Supabase) supaya sinkron lintas device
+        if(window.Auth&&Auth.supabase&&user){
+          Auth.supabase.from("my20fit_profile").update({avatar_url:out,updated_at:new Date().toISOString()}).eq("auth_user_id",user.id).then(function(r){
+            if(r&&r.error){ msg(L({en:"Saved on this device, but sync failed. Try again.",id:"Tersimpan di device, tapi gagal sinkron. Coba lagi."}),"err"); }
+            else { msg(L({en:"Profile photo saved & synced ✅",id:"Foto profil tersimpan & sinkron ✅"}),"ok"); }
+          });
+        } else { msg(L({en:"Photo saved ✅",id:"Foto tersimpan ✅"}),"ok"); }
+      }); }; rd.readAsDataURL(f); }
     async function save(){
       const fields={
         full_name:document.getElementById("full_name").value.trim()||null,

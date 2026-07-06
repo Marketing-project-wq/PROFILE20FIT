@@ -142,10 +142,10 @@
         const a = document.getElementById("navAv"), n = document.getElementById("navNm"), e = document.getElementById("navEm");
         if (a) {
           a.textContent = (nm[0] || "·").toUpperCase();
-          try {
-            const av = localStorage.getItem("my20fit_avatar_" + (u.id || "me"));
-            if (av) { a.style.backgroundImage = "url('" + av + "')"; a.style.backgroundSize = "cover"; a.style.backgroundPosition = "center"; a.textContent = ""; }
-          } catch (er) {}
+          const applyAva = function (src) { if (src) { a.style.backgroundImage = "url('" + src + "')"; a.style.backgroundSize = "cover"; a.style.backgroundPosition = "center"; a.textContent = ""; } };
+          try { const av = localStorage.getItem("my20fit_avatar_" + (u.id || "me")); if (av) applyAva(av); } catch (er) {}
+          // Ambil foto tersinkron dari akun (lintas device)
+          if (Auth.getProfile) Auth.getProfile().then(function (p) { if (p && p.avatar_url) { applyAva(p.avatar_url); try { localStorage.setItem("my20fit_avatar_" + (u.id || "me"), p.avatar_url); } catch (e2) {} } }).catch(function () {});
         }
         if (n) n.textContent = nm;
         if (e) e.textContent = em || "member";
