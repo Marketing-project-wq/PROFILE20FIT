@@ -87,6 +87,22 @@
     return data;
   }
 
+  // ---------- SSO SEAMLESS: login pakai access_token 20fit (tanpa password) ----------
+  // Dipakai kalau app utama 20fit mengoper token-nya ke profile.20fit.id.
+  async function tokenLogin(fitcoToken) {
+    await ready;
+    const r = await fetch("/api/fitco-token-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: fitcoToken }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan token 20fit.");
+    const { data, error } = await supabase.auth.verifyOtp({ email: j.email, token: j.email_otp, type: "email" });
+    if (error) throw error;
+    return data;
+  }
+
   // Apakah akun ini SUDAH punya password web? (Google/OTP/FITCO-Google = belum)
   function hasWebPassword(user) { return !!(user && user.user_metadata && user.user_metadata.has_pw); }
   // Set password web (dipakai di onboarding kalau user belum punya password)
@@ -437,6 +453,7 @@
     verifyLoginCode,
     emailExists,
     fitcoLogin,
+    tokenLogin,
     hasWebPassword,
     setWebPassword,
     signOut,

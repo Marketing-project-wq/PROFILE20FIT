@@ -271,6 +271,71 @@ app.get("/api/aqi", (req, res) => {
 // yang sama (by email) + balikin OTP untuk membuat sesi. Data user tersimpan
 // permanen di database kita (Supabase) & nempel tiap login ulang.
 const FITCO_API = process.env.FITCO_API_URL || "https://api.20fit.id";
+// Ambil profil user dari 20fit pakai access_token (Bearer). Return field yg kita pakai.
+async function fetch20fitProfile(fitcoToken) {
+  const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null };
+  const pr = await fetch(FITCO_API + "/api/v1/app/user/profile", { headers: { Authorization: "Bearer " + fitcoToken } });
+  if (!pr.ok) { const err = new Error("Token 20fit tidak valid."); err.status = 401; throw err; }
+  const pj = await pr.json().catch(() => ({}));
+  const u = (pj && (pj.data || pj)) || {};
+  out.email = u.email ? String(u.email).trim().toLowerCase() : null;
+  out.fullName = u.name || u.full_name || u.fullname || null;
+  out.gender = u.gender ? String(u.gender).toLowerCase() : null;
+  out.phone = u.phone || u.phone_number || null;
+  out.avatar = u.profile_photo || u.avatar || u.photo || u.avatar_url || null;
+  out.birthdate = u.date_of_birth || u.birthdate || u.dob || null;
+  return out;
+}
+
+// Pastikan akun Supabase ADA untuk email 20fit, tandai via_20fit (skip set-password),
+// prefill profil (hanya kolom kosong), lalu balikan OTP untuk membuat sesi.
+async function mirrorAndMintOtp(info) {
+  const email = String(info.email || "").trim().toLowerCase();
+  if (!email) { const e = new Error("Email tidak ditemukan."); e.status = 401; throw e; }
+  try {
+    await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: { full_name: info.fullName || null, has_pw: true, via_20fit: true } });
+  } catch (e) { /* sudah ada -> abaikan */ }
+  const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: "magiclink", email });
+  if (linkErr) throw linkErr;
+  try {
+    const uid0 = linkData && linkData.user && linkData.user.id;
+    const md0 = (linkData && linkData.user && linkData.user.user_metadata) || {};
+    if (uid0 && !md0.has_pw) {
+      await admin.auth.admin.updateUserById(uid0, { user_metadata: Object.assign({}, md0, { has_pw: true, via_20fit: true }) });
+    }
+  } catch (e) { /* non-fatal */ }
+  const props = (linkData && linkData.properties) || {};
+  const otp = props.email_otp || null;
+  if (!otp) { const e = new Error("Gagal menyiapkan sesi. Coba lagi."); e.status = 500; throw e; }
+  // Prefill profil (hanya kolom yg masih kosong)
+  try {
+    const uid = linkData && linkData.user && linkData.user.id;
+    if (uid) {
+      let existing = {};
+      try {
+        const { data: exRows } = await admin.from("my20fit_profile")
+          .select("full_name,gender,phone,avatar_url,age").eq("auth_user_id", uid).limit(1);
+        existing = (exRows && exRows[0]) || {};
+      } catch (e) {}
+      const row = { auth_user_id: uid, email, updated_at: new Date().toISOString() };
+      if (info.fullName && !existing.full_name) row.full_name = info.fullName;
+      if ((info.gender === "male" || info.gender === "female") && !existing.gender) row.gender = info.gender;
+      if (info.phone && !existing.phone) row.phone = info.phone;
+      if (info.avatar && !existing.avatar_url) row.avatar_url = info.avatar;
+      if (info.birthdate && !existing.age) {
+        const b = new Date(info.birthdate), t = new Date();
+        let age = t.getFullYear() - b.getFullYear();
+        const m = t.getMonth() - b.getMonth();
+        if (m < 0 || (m === 0 && t.getDate() < b.getDate())) age--;
+        if (age > 0 && age < 120) row.age = age;
+      }
+      await admin.from("my20fit_profile").upsert(row, { onConflict: "auth_user_id" });
+    }
+  } catch (e) { /* non-fatal */ }
+  return { email, email_otp: otp };
+}
+
+// Login pakai email+password akun 20fit (verifikasi ke API 20fit).
 app.post("/api/fitco-login", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
@@ -278,7 +343,7 @@ app.post("/api/fitco-login", async (req, res) => {
     const password = String((req.body && req.body.password) || "");
     if (!email || !password) return res.status(400).json({ error: "Email & password wajib diisi." });
 
-    // 1) Verifikasi ke API FITCO
+    // 1) Verifikasi ke API 20fit
     let fj = {};
     try {
       const fr = await fetch(FITCO_API + "/api/v1/auth/login", {
@@ -291,84 +356,47 @@ app.post("/api/fitco-login", async (req, res) => {
     } catch (e) {
       return res.status(502).json({ error: "Tidak bisa menghubungi server 20fit. Coba lagi." });
     }
-    // Token bisa berada di beberapa lokasi tergantung versi API 20fit.
-    // Struktur produksi: data.token.access_token (Bearer).
     const fd = (fj && fj.data) || fj || {};
     const fitcoToken =
-      fj.access_token ||
-      fd.access_token ||
-      (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) ||
-      null;
+      fj.access_token || fd.access_token ||
+      (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
     if (!fitcoToken) return res.status(401).json({ error: "Login 20fit gagal (token tidak diterima)." });
 
-    // 2) Ambil profil FITCO (prefill nama/gender/foto/lahir) — best effort.
-    //    Data login (fd) sudah punya name/email/phone; profil menambah gender & foto.
-    let fullName = fd.name || fd.full_name || null;
-    let gender = fd.gender ? String(fd.gender).toLowerCase() : null;
-    let phone = fd.phone || fd.phone_number || null;
-    let avatar = null, birthdate = null;
+    // 2) Ambil profil (best effort), lengkapi dari data login
+    let info = { email, fullName: fd.name || fd.full_name || null, gender: fd.gender ? String(fd.gender).toLowerCase() : null, phone: fd.phone || fd.phone_number || null, avatar: null, birthdate: null };
     try {
-      const pr = await fetch(FITCO_API + "/api/v1/app/user/profile", { headers: { Authorization: "Bearer " + fitcoToken } });
-      const pj = await pr.json().catch(() => ({}));
-      const u = (pj && (pj.data || pj)) || {};
-      fullName = u.name || u.full_name || u.fullname || fullName;
-      gender = (u.gender ? String(u.gender).toLowerCase() : gender);
-      phone = u.phone || u.phone_number || phone;
-      avatar = u.profile_photo || u.avatar || u.photo || u.avatar_url || null;
-      birthdate = u.date_of_birth || u.birthdate || u.dob || null;
-    } catch (e) { /* non-fatal */ }
+      const p = await fetch20fitProfile(fitcoToken);
+      info = { email: p.email || email, fullName: p.fullName || info.fullName, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar, birthdate: p.birthdate };
+    } catch (e) { /* non-fatal, pakai data login */ }
 
-    // 3) Pastikan akun Supabase ADA (buat kalau belum), lalu siapkan OTP sesi.
-    //    has_pw:true -> user 20fit TIDAK diminta bikin password Supabase (login
-    //    mereka lewat 20fit), biar seamless.
-    try {
-      await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: { full_name: fullName || null, has_pw: true, via_20fit: true } });
-    } catch (e) { /* sudah ada -> abaikan */ }
-    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: "magiclink", email });
-    if (linkErr) throw linkErr;
-    // Untuk akun yang SUDAH ada tapi belum bertanda has_pw -> tandai juga.
-    try {
-      const uid0 = linkData && linkData.user && linkData.user.id;
-      const md0 = (linkData && linkData.user && linkData.user.user_metadata) || {};
-      if (uid0 && !md0.has_pw) {
-        await admin.auth.admin.updateUserById(uid0, { user_metadata: Object.assign({}, md0, { has_pw: true, via_20fit: true }) });
-      }
-    } catch (e) { /* non-fatal */ }
-    const props = (linkData && linkData.properties) || {};
-    const otp = props.email_otp || null;
-    if (!otp) return res.status(500).json({ error: "Gagal menyiapkan sesi. Coba lagi." });
-
-    // 4) Simpan/prefill profil di database kita (Supabase) supaya data nempel ke akun.
-    //    Hanya ISI kolom yang MASIH KOSONG -> tidak menimpa data yg sudah diedit user.
-    try {
-      const uid = linkData && linkData.user && linkData.user.id;
-      if (uid) {
-        let existing = {};
-        try {
-          const { data: exRows } = await admin.from("my20fit_profile")
-            .select("full_name,gender,phone,avatar_url,age").eq("auth_user_id", uid).limit(1);
-          existing = (exRows && exRows[0]) || {};
-        } catch (e) {}
-        const row = { auth_user_id: uid, email, updated_at: new Date().toISOString() };
-        if (fullName && !existing.full_name) row.full_name = fullName;
-        if ((gender === "male" || gender === "female") && !existing.gender) row.gender = gender;
-        if (phone && !existing.phone) row.phone = phone;
-        if (avatar && !existing.avatar_url) row.avatar_url = avatar;
-        if (birthdate && !existing.age) {
-          const b = new Date(birthdate), t = new Date();
-          let age = t.getFullYear() - b.getFullYear();
-          const m = t.getMonth() - b.getMonth();
-          if (m < 0 || (m === 0 && t.getDate() < b.getDate())) age--;
-          if (age > 0 && age < 120) row.age = age;
-        }
-        await admin.from("my20fit_profile").upsert(row, { onConflict: "auth_user_id" });
-      }
-    } catch (e) { /* non-fatal */ }
-
-    return res.json({ ok: true, email, email_otp: otp });
+    const out = await mirrorAndMintOtp(info);
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp });
   } catch (e) {
     console.error("fitco-login:", e.message);
-    return res.status(500).json({ error: "Gagal login. Coba lagi." });
+    return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
+  }
+});
+
+// SSO SEAMLESS: login pakai access_token 20fit yang SUDAH ADA (dioper dari app utama).
+// Token divalidasi ke 20fit (ambil profil), lalu dibuatkan sesi — TANPA password.
+app.post("/api/fitco-token-login", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
+    const fitcoToken = String((req.body && (req.body.token || req.body.access_token)) || "").trim();
+    if (!fitcoToken) return res.status(400).json({ error: "Token 20fit wajib." });
+    let info;
+    try {
+      info = await fetch20fitProfile(fitcoToken);
+    } catch (e) {
+      if (e && e.status === 401) return res.status(401).json({ error: "Token 20fit tidak valid / kedaluwarsa." });
+      return res.status(502).json({ error: "Tidak bisa menghubungi server 20fit. Coba lagi." });
+    }
+    if (!info.email) return res.status(401).json({ error: "Token 20fit tidak berisi email." });
+    const out = await mirrorAndMintOtp(info);
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp });
+  } catch (e) {
+    console.error("fitco-token-login:", e.message);
+    return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
   }
 });
 

@@ -330,10 +330,33 @@
       }catch(e){}
     }
 
+    // SSO SEAMLESS: kalau app utama 20fit mengoper access_token lewat URL
+    //   profile.20fit.id/login.html?token=XXX  (atau ?access_token=  / #token= )
+    // -> langsung buat sesi TANPA user ketik apa pun.
+    async function tryTokenSSO(){
+      try{
+        const q=new URLSearchParams(location.search);
+        let tok=q.get("token")||q.get("access_token")||q.get("fittoken")||q.get("fitco_token");
+        if(!tok && location.hash){ const h=new URLSearchParams(location.hash.replace(/^#/,"")); tok=h.get("token")||h.get("access_token"); }
+        if(!tok) return false;
+        // Bersihkan token dari URL supaya tidak ke-share / ke-log.
+        try{ history.replaceState(null,"",location.pathname); }catch(e){}
+        msg(lang==="en"?"Signing you in…":"Menyiapkan sesi kamu…","ok");
+        await Auth.tokenLogin(tok);
+        await Auth.routeAfterAuth();
+        return true;
+      }catch(e){
+        msg(lang==="en"?"Auto sign-in failed — please sign in below.":"Masuk otomatis gagal — silakan masuk di bawah.","err");
+        return false;
+      }
+    }
+
     // Auto-enter hanya kalau user sudah SIAP PENUH. Selain itu -> tampilkan pilihan login/sign up dulu.
     (async function(){
       try{
         await Auth.ready;
+        // 0) Token SSO dari app utama -> langsung masuk.
+        if(await tryTokenSSO()) return;
         // Route HANYA saat user AKTIF login / balik dari Google (evt SIGNED_IN), bukan saat sesi lama kebaca.
         Auth.supabase.auth.onAuthStateChange((evt,sess)=>{ if(evt==="SIGNED_IN" && sess && sess.user){ Auth.routeAfterAuth(); } });
         // Ada sesi -> arahkan sesuai flow (data dulu -> password -> dashboard).
