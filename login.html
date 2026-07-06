@@ -58,6 +58,9 @@
   .fbtn{background:var(--red);border:0;color:#fff;box-shadow:0 4px 14px rgba(196,17,1,.25)}
   .fbtn img{height:16px;width:auto;filter:brightness(0) invert(1)}
   .otp{text-align:center;letter-spacing:8px;font-size:20px}
+  .gender2{display:flex;gap:10px}
+  .gender2 button{flex:1;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--card);color:var(--muted);font-weight:700;cursor:pointer;font-family:Manrope;font-size:14px}
+  .gender2 button.active{border-color:var(--red);background:rgba(196,17,1,.08);color:var(--red)}
   .hide{display:none}
   @media(max-width:860px){
     .split{flex-direction:column}
@@ -120,6 +123,18 @@
           <input id="phone" name="phone" type="tel" autocomplete="tel" />
         </div>
 
+        <div id="gender-wrap" class="hide">
+          <label data-k="gender">Gender</label>
+          <div class="gender2">
+            <button type="button" id="g-male" onclick="pickGender('male')" data-k="male">Male</button>
+            <button type="button" id="g-female" onclick="pickGender('female')" data-k="female">Female</button>
+          </div>
+        </div>
+        <div id="dob-wrap" class="hide">
+          <label data-k="dob">Date of Birth</label>
+          <input id="birthdate" type="date" />
+        </div>
+
         <label data-k="password">Password</label>
         <input id="password" name="password" type="password" placeholder="••••••••" autocomplete="current-password" />
 
@@ -154,7 +169,8 @@
         sub:"Sign in or create an account to get started.",
         tabIn:"Sign In", tabUp:"Create Account",
         name:"Full Name", email:"Email", phone:"Phone", password:"Password", confirm:"Confirm Password",
-        errMatch:"Passwords don't match.",
+        gender:"Gender", male:"Male", female:"Female", dob:"Date of Birth",
+        errMatch:"Passwords don't match.", errGender:"Please choose your gender.", errDob:"Please enter your date of birth.",
         titleIn:"Welcome", titleUp:"Create Account",
         btnIn:"Sign In", btnUp:"Create Account",
         forgot:"Forgot password?",
@@ -179,7 +195,8 @@
         sub:"Masuk atau buat akun untuk mulai.",
         tabIn:"Masuk", tabUp:"Buat Akun",
         name:"Nama Lengkap", email:"Email", phone:"Nomor HP", password:"Password", confirm:"Konfirmasi Password",
-        errMatch:"Password tidak sama, ulangi.",
+        gender:"Jenis Kelamin", male:"Pria", female:"Wanita", dob:"Tanggal Lahir",
+        errMatch:"Password tidak sama, ulangi.", errGender:"Pilih jenis kelamin dulu.", errDob:"Isi tanggal lahir dulu.",
         titleIn:"Selamat Datang", titleUp:"Buat Akun Baru",
         btnIn:"Masuk", btnUp:"Buat Akun",
         forgot:"Lupa password?",
@@ -199,6 +216,8 @@
     };
     let lang = localStorage.getItem("lang") || "en";
     let mode = "in";
+    let gender = null;
+    function pickGender(g){ gender=g; document.getElementById("g-male").classList.toggle("active",g==="male"); document.getElementById("g-female").classList.toggle("active",g==="female"); }
 
     function setLang(l){ lang=l; localStorage.setItem("lang",l); applyLang(); }
     function applyLang(){
@@ -225,6 +244,8 @@
       document.getElementById("tab-up").classList.toggle("active",m==="up");
       document.getElementById("name-wrap").classList.toggle("hide",m!=="up");
       document.getElementById("phone-wrap").classList.toggle("hide",m!=="up");
+      document.getElementById("gender-wrap").classList.toggle("hide",m!=="up");
+      document.getElementById("dob-wrap").classList.toggle("hide",m!=="up");
       document.getElementById("confirm-wrap").classList.toggle("hide",m!=="up");
       document.getElementById("password").autocomplete=m==="in"?"current-password":"new-password";
       msg("");
@@ -247,13 +268,19 @@
       const password=document.getElementById("password").value;
       const name=document.getElementById("name").value.trim();
       const phone=document.getElementById("phone").value.trim();
+      const birthdate=document.getElementById("birthdate").value;
       if(!email||!password)return msg(d.errFill,"err");
       if(mode==="up"&&!name)return msg(d.errName,"err");
+      if(mode==="up"&&!gender)return msg(d.errGender,"err");
+      if(mode==="up"&&!birthdate)return msg(d.errDob,"err");
       if(mode==="up"&&password.length<8)return msg(d.errPw,"err");
       if(mode==="up"&&password!==document.getElementById("confirm").value)return msg(d.errMatch,"err");
       const btn=document.getElementById("submit");btn.disabled=true;msg(d.processing,"");
       try{
-        if(mode==="up"){await Auth.signUp(email,password,name,phone);}
+        if(mode==="up"){
+          // REGISTER lewat API 20fit (developer). Data gender + tgl lahir ikut terkirim.
+          await Auth.fitcoRegister({name:name,email:email,password:password,phone:phone,gender:gender,date_of_birth:birthdate});
+        }
         else{
           // LOGIN: utamakan akun 20fit (API developer) -> token 20fit kebentuk tiap
           // login & lebih seamless. Kalau bukan akun 20fit, baru pakai akun buatan

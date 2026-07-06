@@ -87,6 +87,25 @@
     return data;
   }
 
+  // ---------- REGISTER pakai API 20fit (lewat server /api/fitco-register) ----------
+  async function fitcoRegister(fields) {
+    await ready;
+    const r = await fetch("/api/fitco-register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields || {}),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.email_otp) {
+      const e = new Error(j.error || "Gagal daftar.");
+      if (r.status === 409) e.code = "email_exists";
+      throw e;
+    }
+    const { data, error } = await supabase.auth.verifyOtp({ email: j.email, token: j.email_otp, type: "email" });
+    if (error) throw error;
+    return data;
+  }
+
   // ---------- SSO SEAMLESS: login pakai access_token 20fit (tanpa password) ----------
   // Dipakai kalau app utama 20fit mengoper token-nya ke profile.20fit.id.
   async function tokenLogin(fitcoToken) {
@@ -453,6 +472,7 @@
     verifyLoginCode,
     emailExists,
     fitcoLogin,
+    fitcoRegister,
     tokenLogin,
     hasWebPassword,
     setWebPassword,

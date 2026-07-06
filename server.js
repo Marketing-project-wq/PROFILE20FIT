@@ -404,6 +404,76 @@ app.post("/api/fitco-token-login", async (req, res) => {
   }
 });
 
+// ---------- Register pakai API 20fit (/api/v1/auth/register) ----------
+// Buat akun langsung di ekosistem 20fit, lalu mirror ke Supabase + buat sesi.
+app.post("/api/fitco-register", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
+    const b = req.body || {};
+    const email = String(b.email || "").trim().toLowerCase();
+    const password = String(b.password || "");
+    const name = String(b.name || "").trim();
+    const gender = String(b.gender || "").trim().toLowerCase();
+    const dob = String(b.date_of_birth || b.birthdate || "").trim();
+    const phone = String(b.phone || "").trim();
+    const phoneCode = String(b.phone_code || "+62").trim();
+    if (!email || !password) return res.status(400).json({ error: "Email & password wajib diisi." });
+    if (!name) return res.status(400).json({ error: "Nama wajib diisi." });
+    if (password.length < 8) return res.status(400).json({ error: "Password minimal 8 karakter." });
+    if (gender !== "male" && gender !== "female") return res.status(400).json({ error: "Jenis kelamin wajib dipilih." });
+    if (!dob) return res.status(400).json({ error: "Tanggal lahir wajib diisi." });
+
+    // 1) Daftar ke 20fit
+    const body = {
+      name, email, password, password_confirmation: password,
+      gender, date_of_birth: dob,
+      phone_code: phoneCode, phone: phone || undefined,
+      login_source: "app",
+    };
+    if (b.referral) body.referral = String(b.referral);
+    let rj = {};
+    try {
+      const rr = await fetch(FITCO_API + "/api/v1/auth/register", {
+        method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify(body),
+      });
+      rj = await rr.json().catch(() => ({}));
+      if (!rr.ok) {
+        const msg = String((rj && (rj.message || rj.error)) || "").toLowerCase();
+        if (msg.includes("already") || msg.includes("terdaftar") || msg.includes("exist") || msg.includes("taken")) {
+          return res.status(409).json({ error: "Email sudah terdaftar di 20fit. Silakan Sign In." });
+        }
+        return res.status(400).json({ error: (rj && (rj.message || rj.error)) || "Gagal daftar ke 20fit." });
+      }
+    } catch (e) {
+      return res.status(502).json({ error: "Tidak bisa menghubungi server 20fit. Coba lagi." });
+    }
+
+    // 2) Login ke 20fit utk ambil token + profil (best effort). Kalau butuh verifikasi
+    //    OTP, langkah ini bisa gagal — tidak apa, kita tetap buat sesi dari data daftar.
+    let info = { email, fullName: name, gender: (gender === "male" || gender === "female") ? gender : null, phone: phone || null, avatar: null, birthdate: dob || null };
+    try {
+      const lr = await fetch(FITCO_API + "/api/v1/auth/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, login_source: "app" }),
+      });
+      const lj = await lr.json().catch(() => ({}));
+      const fd = (lj && lj.data) || lj || {};
+      const token = fd.access_token || (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
+      if (token) {
+        try { const p = await fetch20fitProfile(token); info = { email: p.email || email, fullName: p.fullName || name, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar, birthdate: p.birthdate || dob }; } catch (e) {}
+      }
+    } catch (e) { /* non-fatal */ }
+
+    // 3) Mirror ke Supabase + buat sesi
+    const out = await mirrorAndMintOtp(info);
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp });
+  } catch (e) {
+    console.error("fitco-register:", e.message);
+    return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal daftar. Coba lagi." });
+  }
+});
+
 // ---------- Static + fallback ----------
 app.use(express.static(path.join(__dirname)));
 app.get("*", (req, res) => {
