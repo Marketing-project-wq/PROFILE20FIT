@@ -191,19 +191,26 @@
     .hopt-row .nm{flex:1;font-size:14.5px;font-weight:650}
     .hopt-row .kc{font-size:13px;color:var(--muted);font-weight:700}
     .hopt-sum{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:12px;border-top:1px dashed var(--line);font-weight:800;font-size:14px}
+    .hopt-scanned{background:var(--red-soft);border-radius:12px;padding:11px 14px;margin:0 0 14px}
+    .hopt-scanned .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--red-ink);font-weight:800;margin-bottom:5px}
+    .hopt-scanned .row{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;font-weight:650;padding:2px 0}
+    .hopt-scanned .tot{margin-top:5px;padding-top:6px;border-top:1px solid color-mix(in srgb,var(--red) 25%,transparent);display:flex;justify-content:space-between;font-weight:800;font-size:13.5px}
     .hopt-close{width:100%;margin-top:16px;border:0;border-radius:12px;background:var(--red);color:#fff;font-weight:800;font-size:15px;padding:14px;cursor:pointer}
+    .hopt-ghost{width:100%;margin-top:9px;border:0;border-radius:12px;background:var(--inp);color:var(--txt);font-weight:750;font-size:14px;padding:12px;cursor:pointer}
     @media(min-width:620px){ .hopt-bg{align-items:center;padding:24px} .hopt{border-radius:22px} .hopt .grab{display:none} }
   </style>
   <div class="hopt-bg" id="hoptBg">
     <div class="hopt">
       <div class="grab"></div>
       <div class="hopt-ic">🥗</div>
-      <h3 id="hoptTitle">Healthier swap</h3>
+      <h3 id="hoptTitle">After your scan</h3>
+      <div id="hoptScanned"></div>
       <div class="sub" id="hoptSub">—</div>
-      <div class="need" id="hoptNeed" style="display:none"></div>
       <div id="hoptList"></div>
       <div class="hopt-sum"><span id="hoptSumL">Total</span><span id="hoptSum">0</span></div>
-      <button class="hopt-close" id="hoptClose">Got it</button>
+      <div class="need" id="hoptNeed" style="display:none"></div>
+      <button class="hopt-close" id="hoptAdd">Add scanned to my log</button>
+      <button class="hopt-ghost" id="hoptClose">Not now</button>
     </div>
   </div>
 
@@ -354,22 +361,31 @@
       var sugg=Nutrition.mealFor(scanKcal,4); if(!sugg.length)return;
       var eaten=items.reduce((s,i)=>s+(+i.kcal||0),0);
       var afterLeft=Math.max(0,goal-eaten-scanKcal);
-      document.getElementById("hoptTitle").textContent=L({en:"Healthier swap 💚",id:"Pilihan lebih sehat 💚"});
-      document.getElementById("hoptSub").textContent=L({en:"You can get the same calories (~"+scanKcal+" "+kc()+") from these healthy options instead:",id:"Kamu bisa mendapatkan kebutuhan kalori yang sama (~"+scanKcal+" "+kc()+") dari pilihan healthy options ini:"});
+      document.getElementById("hoptTitle").textContent=L({en:"After your scan 🍽️",id:"Setelah kamu scan 🍽️"});
+      // Tampilkan makanan yang barusan di-scan biar jelas kebaca
+      var sc=(lastScan&&lastScan.length)?lastScan:[];
+      document.getElementById("hoptScanned").innerHTML=
+        '<div class="hopt-scanned"><div class="lbl">'+L({en:"You scanned",id:"Yang kamu scan"})+'</div>'+
+        sc.map(function(i){return '<div class="row"><span>'+i.name+'</span><span>'+i.kcal+' '+kc()+'</span></div>';}).join('')+
+        '<div class="tot"><span>'+L({en:"Total",id:"Total"})+'</span><span>~'+scanKcal+' '+kc()+'</span></div></div>';
+      document.getElementById("hoptSub").textContent=L({en:"Or get the same calories from these healthier options instead:",id:"Atau dapatkan kalori yang sama dari pilihan lebih sehat ini:"});
       var need=document.getElementById("hoptNeed"); need.style.display="";
       need.textContent=afterLeft>0
         ? L({en:"After this you'd still need ~"+afterLeft+" "+kc()+" to reach today's goal.",id:"Setelah ini kamu masih butuh ~"+afterLeft+" "+kc()+" lagi untuk capai target hari ini."})
         : L({en:"This already covers your daily goal 🎉",id:"Ini sudah menutup target harianmu 🎉"});
       var leaf='<svg viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.85-5.4 5.08-6"/></svg>';
       document.getElementById("hoptList").innerHTML=sugg.map(f=>'<div class="hopt-row"><div class="d">'+leaf+'</div><div class="nm">'+Nutrition.name(f)+'</div><div class="kc">'+f.kcal+' '+kc()+'</div></div>').join("");
-      document.getElementById("hoptSumL").textContent=L({en:"Total",id:"Total"});
+      document.getElementById("hoptSumL").textContent=L({en:"Healthy total",id:"Total sehat"});
       document.getElementById("hoptSum").textContent="~"+Nutrition.totalKcal(sugg)+" "+kc();
-      document.getElementById("hoptClose").textContent=L({en:"Got it",id:"Oke, paham"});
+      document.getElementById("hoptAdd").textContent=L({en:"Add scanned to my log",id:"Catat makanan yang di-scan"});
+      document.getElementById("hoptClose").textContent=L({en:"Not now",id:"Nanti aja"});
       document.getElementById("hoptBg").classList.add("open");
     }
     function closeHealthyModal(){ document.getElementById("hoptBg").classList.remove("open"); }
     (function(){ var bg=document.getElementById("hoptBg"); if(!bg)return;
       document.getElementById("hoptClose").addEventListener("click",closeHealthyModal);
+      var add=document.getElementById("hoptAdd");
+      if(add) add.addEventListener("click",function(){ try{ addScanned(); }catch(e){} closeHealthyModal(); });
       bg.addEventListener("click",function(e){ if(e.target===bg)closeHealthyModal(); });
       document.addEventListener("keydown",function(e){ if(e.key==="Escape")closeHealthyModal(); });
     })();
