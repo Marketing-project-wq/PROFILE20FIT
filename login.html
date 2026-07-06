@@ -123,6 +123,11 @@
         <label data-k="password">Password</label>
         <input id="password" name="password" type="password" placeholder="••••••••" autocomplete="current-password" />
 
+        <div id="confirm-wrap" class="hide">
+          <label data-k="confirm">Confirm Password</label>
+          <input id="confirm" name="confirm" type="password" placeholder="••••••••" autocomplete="new-password" />
+        </div>
+
         <button class="btn" id="submit" type="submit"></button>
         </form>
         <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600"></a></div>
@@ -152,7 +157,8 @@
         feat2:"Personalised program: Gym, PT, EMS & Physiotherapy",
         sub:"Sign in or create an account to get started.",
         tabIn:"Sign In", tabUp:"Create Account",
-        name:"Full Name", email:"Email", phone:"Phone", password:"Password",
+        name:"Full Name", email:"Email", phone:"Phone", password:"Password", confirm:"Confirm Password",
+        errMatch:"Passwords don't match.",
         titleIn:"Welcome", titleUp:"Create Account",
         btnIn:"Sign In", btnUp:"Create Account",
         forgot:"Forgot password?",
@@ -176,7 +182,8 @@
         feat2:"Program personal: Gym, PT, EMS & Physiotherapy",
         sub:"Masuk atau buat akun untuk mulai.",
         tabIn:"Masuk", tabUp:"Buat Akun",
-        name:"Nama Lengkap", email:"Email", phone:"Nomor HP", password:"Password",
+        name:"Nama Lengkap", email:"Email", phone:"Nomor HP", password:"Password", confirm:"Konfirmasi Password",
+        errMatch:"Password tidak sama, ulangi.",
         titleIn:"Selamat Datang", titleUp:"Buat Akun Baru",
         btnIn:"Masuk", btnUp:"Buat Akun",
         forgot:"Lupa password?",
@@ -222,6 +229,7 @@
       document.getElementById("tab-up").classList.toggle("active",m==="up");
       document.getElementById("name-wrap").classList.toggle("hide",m!=="up");
       document.getElementById("phone-wrap").classList.toggle("hide",m!=="up");
+      document.getElementById("confirm-wrap").classList.toggle("hide",m!=="up");
       document.getElementById("password").autocomplete=m==="in"?"current-password":"new-password";
       msg("");
       refreshMode();
@@ -246,6 +254,7 @@
       if(!email||!password)return msg(d.errFill,"err");
       if(mode==="up"&&!name)return msg(d.errName,"err");
       if(mode==="up"&&password.length<8)return msg(d.errPw,"err");
+      if(mode==="up"&&password!==document.getElementById("confirm").value)return msg(d.errMatch,"err");
       const btn=document.getElementById("submit");btn.disabled=true;msg(d.processing,"");
       try{
         if(mode==="up"){await Auth.signUp(email,password,name,phone);}
