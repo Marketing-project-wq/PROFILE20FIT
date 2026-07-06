@@ -33,14 +33,11 @@
       .navside{position:fixed;left:0;top:0;bottom:0;width:238px;z-index:45;padding:26px 18px;display:flex;flex-direction:column;gap:6px;
         background:var(--card,#fff);border-right:1px solid var(--line,#EBEBEF)}
     }
-    .navside .sbrand{padding:0 8px 20px}
-    .navside .sbrand img{height:30px;width:auto;display:block}
-    /* mobile: logo pojok kiri atas, tanpa background */
-    .applogo{position:fixed;top:14px;left:16px;z-index:60;height:26px;width:auto;cursor:pointer}
+    /* Logo file-nya PUTIH -> ditaruh di chip gelap kecil biar warnanya utuh & besar (bukan kotak besar) */
+    .navside .sbrand{display:inline-flex;align-items:center;background:var(--dark,#15171C);padding:11px 15px;border-radius:13px;margin:0 4px 16px}
+    .navside .sbrand img{height:34px;width:auto;display:block}
+    .applogo{position:fixed;top:12px;left:14px;z-index:60;height:32px;box-sizing:content-box;padding:9px 14px;background:var(--dark,#15171C);border-radius:13px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.18)}
     @media(min-width:900px){ .applogo{display:none} }
-    /* logo file berwarna putih -> jadikan gelap di tema terang biar kelihatan (tanpa kotak) */
-    .navside .sbrand img,.applogo{filter:brightness(0)}
-    html:not(.theme-light) .navside .sbrand img,html:not(.theme-light) .applogo{filter:none}
     .navside .navi{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;color:var(--muted,#8A8D94);text-decoration:none;
       font-family:${SYS};font-weight:650;font-size:14.5px;transition:.15s}
     .navside .navi:hover{background:var(--inp,#F2F2F5);color:var(--ink,#15171C)}
