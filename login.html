@@ -262,7 +262,20 @@
             const m1=String(e1&&e1.message||"").toLowerCase();
             if(m1.includes("invalid login")||m1.includes("invalid")||m1.includes("credential")){
               msg(lang==="en"?"Checking your 20fit account…":"Mengecek akun 20fit kamu…","");
-              await Auth.fitcoLogin(email,password);   // akun ekosistem 20fit
+              try{
+                await Auth.fitcoLogin(email,password);   // akun ekosistem 20fit
+              }catch(e2){
+                // Jembatan 20fit belum siap (service key blm dipasang / API down):
+                // arahkan user ke login pakai KODE EMAIL yang tetap jalan.
+                const m2=String(e2&&e2.message||"").toLowerCase();
+                if(m2.includes("dikonfigurasi")||m2.includes("service key")||m2.includes("menghubungi")||m2.includes("502")||m2.includes("500")){
+                  btn.disabled=false;
+                  msg(lang==="en"?"Use “Email me a login code” below to sign in.":"Pakai “Kirim kode login ke email” di bawah untuk masuk.","err");
+                  document.getElementById("email").scrollIntoView({behavior:"smooth"});
+                  return;
+                }
+                throw e2;
+              }
             } else { throw e1; }
           }
         }
@@ -278,6 +291,7 @@
       if(m.includes("menghubungi server 20fit")||m.includes("contact"))return lang==="en"?"Couldn't reach 20fit. Try again.":"Tidak bisa menghubungi 20fit. Coba lagi.";
       if(m.includes("password minimal")||(m.includes("password")&&m.includes("8")))return d.errPw;
       if(m.includes("password"))return d.errCred;
+      if(m.includes("dikonfigurasi")||m.includes("service key"))return lang==="en"?"Use “Email me a login code” below to sign in.":"Pakai “Kirim kode login ke email” di bawah untuk masuk.";
       if(m.includes("supabaseurl")||m.includes("not configured")||m.includes("anon"))return lang==="en"?"Server not ready. Refresh in a moment.":"Server belum siap. Coba refresh.";
       if(m.includes("fetch")||m.includes("network"))return lang==="en"?"Connection failed. Try again.":"Koneksi gagal. Coba lagi.";
       return "Error: "+(m||"unknown");
