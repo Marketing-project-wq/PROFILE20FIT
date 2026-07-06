@@ -284,6 +284,56 @@
     if (error) throw error;
   }
 
+  // ---------- KUOTA SCAN KALORI (10x / bulan + kredit top-up) ----------
+  // Disimpan di my20fit_profile supaya SINKRON lintas device.
+  const SCAN_FREE = 10;
+  function periodNow() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); // YYYY-MM
+  }
+  function shapeQuota(p) {
+    const per = periodNow();
+    let used = (p && p.scan_period === per) ? (p.scan_count || 0) : 0; // reset tiap bulan
+    const credits = (p && p.scan_credits) || 0;
+    const freeLeft = Math.max(0, SCAN_FREE - used);
+    return { used: used, freeLimit: SCAN_FREE, freeLeft: freeLeft, credits: credits, remaining: freeLeft + credits, period: per };
+  }
+  // Baca kuota terkini
+  async function getScanQuota() {
+    const p = await getProfile();
+    return shapeQuota(p);
+  }
+  // Pakai 1 scan (dipanggil SETELAH scan berhasil). Return kuota terbaru.
+  // Kalau habis -> throw {code:"scan_limit"}.
+  async function consumeScan() {
+    await ready;
+    const user = await requireAuth();
+    const p = await ensureProfile(user);
+    const per = periodNow();
+    let used = (p.scan_period === per) ? (p.scan_count || 0) : 0;
+    let credits = p.scan_credits || 0;
+    if (used >= SCAN_FREE && credits <= 0) {
+      const err = new Error("Scan quota habis."); err.code = "scan_limit"; throw err;
+    }
+    const upd = { scan_period: per, updated_at: new Date().toISOString() };
+    if (used < SCAN_FREE) { upd.scan_count = used + 1; upd.scan_credits = credits; }
+    else { upd.scan_count = used; upd.scan_credits = credits - 1; }
+    const { error } = await supabase.from("my20fit_profile").update(upd).eq("auth_user_id", user.id);
+    if (error) throw error;
+    return shapeQuota(Object.assign({}, p, upd));
+  }
+  // Tambah kredit hasil pembelian paket top-up.
+  async function addScanCredits(n) {
+    await ready;
+    const user = await requireAuth();
+    const p = await ensureProfile(user);
+    const credits = (p.scan_credits || 0) + (parseInt(n, 10) || 0);
+    const { error } = await supabase.from("my20fit_profile")
+      .update({ scan_credits: credits, updated_at: new Date().toISOString() }).eq("auth_user_id", user.id);
+    if (error) throw error;
+    return shapeQuota(Object.assign({}, p, { scan_credits: credits }));
+  }
+
   // Hitung kategori BMI (dipakai live preview di form)
   function bmiInfo(weightKg, heightCm) {
     if (!weightKg || !heightCm) return null;
@@ -370,6 +420,9 @@
     sendOtp,
     verifyOtp,
     saveOnboarding,
+    getScanQuota,
+    consumeScan,
+    addScanCredits,
     profileComplete,
     bmiInfo,
     getDailyLog,

@@ -273,18 +273,31 @@ app.post("/api/fitco-login", async (req, res) => {
     } catch (e) {
       return res.status(502).json({ error: "Tidak bisa menghubungi server 20fit. Coba lagi." });
     }
-    const fitcoToken = fj.access_token || (fj.data && fj.data.access_token) || null;
+    // Token bisa berada di beberapa lokasi tergantung versi API 20fit.
+    // Struktur produksi: data.token.access_token (Bearer).
+    const fd = (fj && fj.data) || fj || {};
+    const fitcoToken =
+      fj.access_token ||
+      fd.access_token ||
+      (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) ||
+      null;
     if (!fitcoToken) return res.status(401).json({ error: "Login 20fit gagal (token tidak diterima)." });
 
-    // 2) Ambil profil FITCO (prefill nama/gender) — best effort
-    let fullName = null, gender = null, phone = null;
+    // 2) Ambil profil FITCO (prefill nama/gender/foto/lahir) — best effort.
+    //    Data login (fd) sudah punya name/email/phone; profil menambah gender & foto.
+    let fullName = fd.name || fd.full_name || null;
+    let gender = fd.gender ? String(fd.gender).toLowerCase() : null;
+    let phone = fd.phone || fd.phone_number || null;
+    let avatar = null, birthdate = null;
     try {
       const pr = await fetch(FITCO_API + "/api/v1/app/user/profile", { headers: { Authorization: "Bearer " + fitcoToken } });
       const pj = await pr.json().catch(() => ({}));
       const u = (pj && (pj.data || pj)) || {};
-      fullName = u.name || u.full_name || u.fullname || null;
-      gender = u.gender ? String(u.gender).toLowerCase() : null;
-      phone = u.phone || u.phone_number || null;
+      fullName = u.name || u.full_name || u.fullname || fullName;
+      gender = (u.gender ? String(u.gender).toLowerCase() : gender);
+      phone = u.phone || u.phone_number || phone;
+      avatar = u.profile_photo || u.avatar || u.photo || u.avatar_url || null;
+      birthdate = u.date_of_birth || u.birthdate || u.dob || null;
     } catch (e) { /* non-fatal */ }
 
     // 3) Pastikan akun Supabase ADA (buat kalau belum), lalu siapkan OTP sesi
@@ -297,14 +310,29 @@ app.post("/api/fitco-login", async (req, res) => {
     const otp = props.email_otp || null;
     if (!otp) return res.status(500).json({ error: "Gagal menyiapkan sesi. Coba lagi." });
 
-    // 4) Simpan/prefill profil di database kita (Supabase) supaya data nempel ke akun
+    // 4) Simpan/prefill profil di database kita (Supabase) supaya data nempel ke akun.
+    //    Hanya ISI kolom yang MASIH KOSONG -> tidak menimpa data yg sudah diedit user.
     try {
       const uid = linkData && linkData.user && linkData.user.id;
       if (uid) {
+        let existing = {};
+        try {
+          const { data: exRows } = await admin.from("my20fit_profile")
+            .select("full_name,gender,phone,avatar_url,age").eq("auth_user_id", uid).limit(1);
+          existing = (exRows && exRows[0]) || {};
+        } catch (e) {}
         const row = { auth_user_id: uid, email, updated_at: new Date().toISOString() };
-        if (fullName) row.full_name = fullName;
-        if (gender === "male" || gender === "female") row.gender = gender;
-        if (phone) row.phone = phone;
+        if (fullName && !existing.full_name) row.full_name = fullName;
+        if ((gender === "male" || gender === "female") && !existing.gender) row.gender = gender;
+        if (phone && !existing.phone) row.phone = phone;
+        if (avatar && !existing.avatar_url) row.avatar_url = avatar;
+        if (birthdate && !existing.age) {
+          const b = new Date(birthdate), t = new Date();
+          let age = t.getFullYear() - b.getFullYear();
+          const m = t.getMonth() - b.getMonth();
+          if (m < 0 || (m === 0 && t.getDate() < b.getDate())) age--;
+          if (age > 0 && age < 120) row.age = age;
+        }
         await admin.from("my20fit_profile").upsert(row, { onConflict: "auth_user_id" });
       }
     } catch (e) { /* non-fatal */ }

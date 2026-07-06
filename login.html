@@ -254,7 +254,18 @@
       const btn=document.getElementById("submit");btn.disabled=true;msg(d.processing,"");
       try{
         if(mode==="up"){await Auth.signUp(email,password,name,phone);}
-        else{await Auth.signIn(email,password);}
+        else{
+          // Coba login akun web (Supabase) dulu. Kalau gagal karena kredensial,
+          // pakai akun 20fit (API developer) -> otomatis sync & buat sesi.
+          try{ await Auth.signIn(email,password); }
+          catch(e1){
+            const m1=String(e1&&e1.message||"").toLowerCase();
+            if(m1.includes("invalid login")||m1.includes("invalid")||m1.includes("credential")){
+              msg(lang==="en"?"Checking your 20fit account…":"Mengecek akun 20fit kamu…","");
+              await Auth.fitcoLogin(email,password);   // akun ekosistem 20fit
+            } else { throw e1; }
+          }
+        }
         saveCredential(email,password);
         await Auth.routeAfterAuth();
       }catch(e){msg(terjemah(e.message),"err");btn.disabled=false}
@@ -263,7 +274,10 @@
       const d=T[lang]; m=(m||"").toLowerCase();
       if(m.includes("invalid login"))return d.errCred;
       if(m.includes("already registered")||m.includes("already been")||m.includes("sudah terdaftar"))return d.errExists;
-      if(m.includes("password"))return d.errPw;
+      if(m.includes("20fit")&&(m.includes("salah")||m.includes("wrong")))return d.errCred;
+      if(m.includes("menghubungi server 20fit")||m.includes("contact"))return lang==="en"?"Couldn't reach 20fit. Try again.":"Tidak bisa menghubungi 20fit. Coba lagi.";
+      if(m.includes("password minimal")||(m.includes("password")&&m.includes("8")))return d.errPw;
+      if(m.includes("password"))return d.errCred;
       if(m.includes("supabaseurl")||m.includes("not configured")||m.includes("anon"))return lang==="en"?"Server not ready. Refresh in a moment.":"Server belum siap. Coba refresh.";
       if(m.includes("fetch")||m.includes("network"))return lang==="en"?"Connection failed. Try again.":"Koneksi gagal. Coba lagi.";
       return "Error: "+(m||"unknown");
