@@ -81,6 +81,12 @@
   // Scan (di halaman mana pun) -> buka kamera/album, lalu proses di Calorie Tracker
   function doScan() {
     try {
+      // DESKTOP + ada webcam -> buka kamera langsung (bukan file picker).
+      const isDesktop = window.matchMedia && window.matchMedia("(min-width:900px)").matches;
+      if (isDesktop && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        if (typeof window.openCamera === "function") { window.openCamera(); return; } // sudah di halaman Calorie
+        location.href = "calories.html#camera"; return; // halaman lain -> buka kamera di Calorie
+      }
       const inp = document.createElement("input");
       inp.type = "file"; inp.accept = "image/*"; inp.style.display = "none";
       inp.onchange = function () {

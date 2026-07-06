@@ -749,6 +749,7 @@
       loadCalFromCloud();   // sinkron kalori dari akun
       loadIFFromCloud();    // sinkron gaya puasa dari akun
       if(location.hash==="#scan"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});}
+      if(location.hash==="#camera"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});setTimeout(function(){try{openCamera();}catch(e){}},400);}
       // Foto dari tombol "Scan" global (halaman lain) -> langsung analisa di sini
       try{ const pend=sessionStorage.getItem("my20fit_pending_scan"); if(pend){ sessionStorage.removeItem("my20fit_pending_scan"); document.getElementById("scanbox").scrollIntoView({behavior:"smooth"}); scanImage(pend); } }catch(e){}
       if(location.hash==="#fasting"){document.getElementById("ifSection").scrollIntoView({behavior:"smooth"});}
