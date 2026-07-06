@@ -33,10 +33,14 @@
       .navside{position:fixed;left:0;top:0;bottom:0;width:238px;z-index:45;padding:26px 18px;display:flex;flex-direction:column;gap:6px;
         background:var(--card,#fff);border-right:1px solid var(--line,#EBEBEF)}
     }
-    /* Logo file-nya PUTIH -> ditaruh di chip gelap kecil biar warnanya utuh & besar (bukan kotak besar) */
-    .navside .sbrand{display:inline-flex;align-items:center;background:var(--dark,#15171C);padding:11px 15px;border-radius:13px;margin:0 4px 16px}
-    .navside .sbrand img{height:34px;width:auto;display:block}
-    .applogo{position:fixed;top:12px;left:14px;z-index:60;height:32px;box-sizing:content-box;padding:9px 14px;background:var(--dark,#15171C);border-radius:13px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.18)}
+    /* Logo TANPA background: light mode pakai logo gelap, dark mode pakai logo putih.
+       Chip gelap (.box) hanya fallback kalau logo gelap belum tersedia di light mode. */
+    .navside .sbrand{display:inline-flex;align-items:center;margin:2px 4px 20px;border-radius:13px}
+    .navside .sbrand.box{background:var(--dark,#15171C);padding:11px 16px;margin:0 4px 18px}
+    .navside .sbrand img{height:46px;width:auto;display:block}
+    .navside .sbrand.box img{height:38px}
+    .applogo{position:fixed;top:12px;left:14px;z-index:60;height:42px;cursor:pointer;border-radius:13px}
+    .applogo.box{box-sizing:content-box;padding:9px 14px;height:34px;background:var(--dark,#15171C);box-shadow:0 3px 12px rgba(0,0,0,.18)}
     @media(min-width:900px){ .applogo{display:none} }
     .navside .navi{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;color:var(--muted,#8A8D94);text-decoration:none;
       font-family:${SYS};font-weight:650;font-size:14.5px;transition:.15s}
@@ -91,13 +95,31 @@
     } catch (e) { location.href = "calories.html#scan"; }
   }
 
+  // ---- LOGO: dua versi sesuai tema ----
+  // Dark mode  -> logo PUTIH (tampil di sidebar gelap, tanpa background).
+  // Light mode -> logo GELAP + dot merah (tampil di sidebar putih, tanpa background).
+  const LOGO_WHITE = "https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png";
+  const LOGO_DARK = ""; // TODO: URL logo gelap (20FIT hitam + dot merah) utk light mode — dari user.
+  function themeIsLight() { return document.documentElement.classList.contains("theme-light"); }
+  // Pilih logo + apakah perlu chip gelap (box). Box HANYA fallback saat light mode & logo gelap belum ada.
+  function pickLogo() {
+    if (themeIsLight()) return LOGO_DARK ? { src: LOGO_DARK, box: false } : { src: LOGO_WHITE, box: true };
+    return { src: LOGO_WHITE, box: false };
+  }
+  function applyLogo() {
+    const p = pickLogo();
+    const s = side.querySelector(".sbrand"), si = side.querySelector(".sbrand img");
+    if (s && si) { si.src = p.src; s.classList.toggle("box", p.box); }
+    if (applogo) { applogo.src = p.src; applogo.classList.toggle("box", p.box); }
+  }
+
   // ---- Sidebar (desktop) ----
   const side = document.createElement("aside");
   side.className = "navside";
-  const LOGO = "https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png";
   function renderSide() {
+    const p = pickLogo();
     side.innerHTML =
-      '<div class="sbrand"><img src="' + LOGO + '" alt="20fit"></div>' +
+      '<div class="sbrand' + (p.box ? " box" : "") + '"><img src="' + p.src + '" alt="20fit"></div>' +
       items.map(it => `<a href="${it.href}" class="navi ${cur === it.href ? "on" : ""}">${svg(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
       `<button class="sscan" type="button">${svg("scan")}<span>${tr("nav_scan", "Scan")}</span></button>` +
       '<div class="sfoot"><div class="av" id="navAv">·</div><div class="tx"><div class="nm" id="navNm">20FIT</div><div class="em" id="navEm">member</div></div></div>';
@@ -106,13 +128,18 @@
   renderSide();
   document.body.appendChild(side);
 
-  // ---- Logo pojok kiri atas (mobile) — tanpa background ----
+  // ---- Logo pojok kiri atas (mobile) ----
   const applogo = document.createElement("img");
   applogo.className = "applogo";
-  applogo.src = LOGO;
   applogo.alt = "20fit";
   applogo.onclick = function () { location.href = "dashboard.html"; };
   document.body.appendChild(applogo);
+
+  applyLogo(); // set logo sesuai tema saat ini
+  // Ganti logo otomatis saat tema light/dark berubah (toggle Dark).
+  try {
+    new MutationObserver(applyLogo).observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme"] });
+  } catch (e) {}
 
   // ---- Bottom nav (mobile) ----
   const nav = document.createElement("nav");
