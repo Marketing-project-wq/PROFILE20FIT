@@ -151,8 +151,8 @@
           <video id="camVideo" autoplay playsinline muted></video>
           <div id="camErr" class="muted" style="text-align:center;margin-top:8px"></div>
           <div class="cam-actions">
-            <button class="scanbtn" style="flex:1" onclick="camCapture()">📸 <span data-i18n="cal_capture">Capture</span></button>
-            <button class="cam-cancel" onclick="camClose()" data-i18n="cal_cancel">Cancel</button>
+            <button class="scanbtn" style="flex:1" onclick="camCapture()">📸 <span>Capture</span></button>
+            <button class="cam-cancel" onclick="camClose()">Cancel</button>
           </div>
         </div>
       </div>
@@ -299,9 +299,9 @@
     <div class="hopt">
       <div class="grab"></div>
       <div class="hopt-ic">🍽️</div>
-      <h3 style="margin-bottom:12px" data-i18n="cal_analysis_title">Food analysis</h3>
+      <h3 style="margin-bottom:12px" id="scanModalTitle">Food analysis</h3>
       <div id="scanModalBody"></div>
-      <button class="hopt-ghost" onclick="closeScanModal()" data-i18n="cal_done" style="margin-top:14px">Done</button>
+      <button class="hopt-ghost" onclick="closeScanModal()" id="scanModalDone" style="margin-top:14px">Done</button>
     </div>
   </div>
 
@@ -490,6 +490,8 @@
     function openScanResult(res){
       var html=renderScanDetail(res)+healthyOptionsHTML(res.total_kcal||0);
       document.getElementById("scanModalBody").innerHTML=html;
+      document.getElementById("scanModalTitle").textContent=L({en:"Food analysis",id:"Analisa makanan"});
+      document.getElementById("scanModalDone").textContent=L({en:"Done",id:"Selesai"});
       document.getElementById("scanBg").classList.add("open");
     }
     function closeScanModal(){ var m=document.getElementById("scanBg"); if(m) m.classList.remove("open"); }
