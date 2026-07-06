@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Dashboard · 20fit</title>
@@ -1011,7 +1012,7 @@
         mSetsL=document.getElementById("mSetsL"),mRestL=document.getElementById("mRestL"),mTempo=document.getElementById("mTempoTag"),
         pacerLbl=document.getElementById("pacerLbl"),mDot=document.getElementById("mDot"),vbtn=document.getElementById("mVoice"),
         mTime=document.getElementById("mTime"),mTimerBtn=document.getElementById("mTimerBtn"),mSafety=document.getElementById("mSafety");
-    var pTimer=null,pDown=true,phInt=null,phase='',phSecs=0,setNo=0,workSecs=0,restSecs=0,running=false,guided=false,curEx=null,curType='rep';
+    var pTimer=null,pDown=true,phInt=null,preInt=null,phase='',phSecs=0,setNo=0,workSecs=0,restSecs=0,running=false,guided=false,curEx=null,curType='rep';
     // ---- Voice guidance (browser speech; user can mute) ----
     var synth=window.speechSynthesis||null, voiceOn=!!synth;
     if(vbtn){ vbtn.classList.toggle('muted',!voiceOn); vbtn.addEventListener('click',function(){ voiceOn=!voiceOn; vbtn.classList.toggle('muted',!voiceOn); if(!voiceOn)stopSpeak(); }); }
@@ -1042,13 +1043,25 @@
     function finishAll(){ stopGuided(true); setTag(L({en:'Done',id:'Selesai'}));
       pacerLbl.textContent=L({en:'DONE',id:'SELESAI'}); setDot('rest');
       speak(L({en:'Great job. Cool down your body.',id:'Kerja bagus. Dinginkan tubuhmu.'})); mTime.textContent='00:00'; }
-    function tick(){ phSecs--; mTime.textContent=fmt(Math.max(0,phSecs)); if(phSecs>0)return;
+    function tick(){ phSecs--; mTime.textContent=fmt(Math.max(0,phSecs));
+      if(phSecs>0){ if(phSecs<=3) speak(String(phSecs)); return; }   // hitung mundur suara 3-2-1 tiap fase
       if(phase==='work'){ if(setNo>=curEx.sets){ finishAll(); return; } enterRest(); }
       else { setNo++; enterWork(); } }
+    // Aba-aba 3-2-1 + suara sebelum workout benar-benar mulai
+    function preCountdown(done){
+      stopCue(); if(phInt){clearInterval(phInt);phInt=null;} if(preInt){clearInterval(preInt);preInt=null;}
+      setDot('rest'); setTag(L({en:'Get ready',id:'Bersiap'})); speak(L({en:'Get ready',id:'Bersiap'}));
+      var n=3;
+      function show(){
+        if(n>0){ pacerLbl.textContent=String(n); mTime.textContent='00:0'+n; speak(String(n)); n--; }
+        else { clearInterval(preInt); preInt=null; pacerLbl.textContent=L({en:'GO!',id:'MULAI!'}); speak(L({en:'Go!',id:'Mulai!'})); setTimeout(function(){ if(running)done(); },450); }
+      }
+      show(); preInt=setInterval(show,1000);
+    }
     function startGuided(){ running=true; guided=true; setNo=1; workSecs=computeWork(curEx); restSecs=parseSecs(curEx.rest);
       mTimerBtn.textContent=L({en:'Stop',id:'Stop'}); mTimerBtn.classList.add('run');
-      enterWork(); if(phInt)clearInterval(phInt); phInt=setInterval(tick,1000); }
-    function stopGuided(done){ running=false; guided=false; if(phInt){clearInterval(phInt);phInt=null;}
+      preCountdown(function(){ enterWork(); if(phInt)clearInterval(phInt); phInt=setInterval(tick,1000); }); }
+    function stopGuided(done){ running=false; guided=false; if(phInt){clearInterval(phInt);phInt=null;} if(preInt){clearInterval(preInt);preInt=null;}
       mTimerBtn.textContent=L({en:'Start guided sets',id:'Mulai set terpandu'}); mTimerBtn.classList.remove('run');
       if(!done){ stopSpeak(); mTime.textContent='00:00'; setTag(L({en:'Tempo guide',id:'Panduan tempo'})); if(curEx){ startCue(curType); } } }
     mTimerBtn.addEventListener("click",function(){ if(running){ stopGuided(false); } else { startGuided(); } });
@@ -1063,7 +1076,7 @@
       setDot('rep'); startCue(ex.type);
       bg.classList.add('open'); document.body.style.overflow='hidden';
     }
-    function closeModal(){ bg.classList.remove('open'); document.body.style.overflow=''; stopCue(); if(phInt){clearInterval(phInt);phInt=null;} stopSpeak(); running=false; guided=false; if(mDot)mDot.classList.remove('sm','hold','rest'); }
+    function closeModal(){ bg.classList.remove('open'); document.body.style.overflow=''; stopCue(); if(phInt){clearInterval(phInt);phInt=null;} if(preInt){clearInterval(preInt);preInt=null;} stopSpeak(); running=false; guided=false; if(mDot)mDot.classList.remove('sm','hold','rest'); }
     document.getElementById("mClose").addEventListener("click",closeModal);
     bg.addEventListener('click',function(e){ if(e.target===bg)closeModal(); });
     document.addEventListener('keydown',function(e){ if(e.key==='Escape')closeModal(); });
