@@ -234,6 +234,12 @@
     .scd-ins{margin:0;padding-left:18px}
     .scd-ins li{font-size:13px;line-height:1.5;margin-bottom:5px}
     .scd-desc{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:12px}
+    .scd-tags{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 12px}
+    .tagchip{font-size:11.5px;font-weight:800;padding:5px 10px;border-radius:999px}
+    .tagchip.good{color:var(--green);background:var(--green-soft)}
+    .tagchip.warn{color:#C87000;background:rgba(200,112,0,.13)}
+    .scd-overall .scd-rectext{font-size:13px;line-height:1.55}
+    .scd-overall{background:var(--inp);border-radius:14px;padding:12px 14px;border-top:0}
     .scd-rec .scd-rectext{font-size:13px;line-height:1.55}
     .scd-rec{background:var(--green-soft);border:1px solid color-mix(in srgb,var(--green) 22%,transparent);border-radius:14px;padding:12px 14px;border-top:0}
     .scd-rec .scd-lbl{color:var(--green)}
@@ -285,6 +291,17 @@
       <div id="dealsList"></div>
       <div class="deal-note" id="dealsNote"></div>
       <button class="hopt-ghost" id="dealsClose" style="margin-top:16px">Maybe later</button>
+    </div>
+  </div>
+
+  <!-- Pop-up hasil scan (analisa lengkap) -->
+  <div class="hopt-bg" id="scanBg">
+    <div class="hopt">
+      <div class="grab"></div>
+      <div class="hopt-ic">🍽️</div>
+      <h3 style="margin-bottom:12px" data-i18n="cal_analysis_title">Food analysis</h3>
+      <div id="scanModalBody"></div>
+      <button class="hopt-ghost" onclick="closeScanModal()" data-i18n="cal_done" style="margin-top:14px">Done</button>
     </div>
   </div>
 
@@ -462,9 +479,33 @@
         // Scan berhasil -> pakai 1 kuota, lalu refresh tampilan sisa kuota.
         try{ await Auth.consumeScan(); }catch(e){}
         refreshQuota();
-        box.innerHTML=renderScanDetail(res);
-        try{ openHealthyModal(res.total_kcal||0); }catch(e){}
+        lastRes=res;
+        box.innerHTML='<div class="muted" style="cursor:pointer" onclick="reopenScan()">✅ '+I18N.t("cal_detected")+' · ~'+(res.total_kcal||0)+' '+kc()+' — '+L({en:"tap to view analysis",id:"ketuk untuk lihat analisa"})+'</div>';
+        openScanResult(res);   // POP-UP berisi analisa lengkap
       }catch(err){box.innerHTML='<div style="color:var(--red)">'+err.message+'</div>'}
+    }
+    // ---- Pop-up hasil scan: analisa lengkap + pilihan lebih sehat ----
+    let lastRes=null;
+    function reopenScan(){ if(lastRes) openScanResult(lastRes); }
+    function openScanResult(res){
+      var html=renderScanDetail(res)+healthyOptionsHTML(res.total_kcal||0);
+      document.getElementById("scanModalBody").innerHTML=html;
+      document.getElementById("scanBg").classList.add("open");
+    }
+    function closeScanModal(){ var m=document.getElementById("scanBg"); if(m) m.classList.remove("open"); }
+    function healthyOptionsHTML(scanKcal){
+      scanKcal=Math.round(+scanKcal||0);
+      if(!window.Nutrition||scanKcal<60) return "";
+      var sugg=Nutrition.mealFor(scanKcal,4); if(!sugg.length) return "";
+      var eaten=items.reduce((s,i)=>s+(+i.kcal||0),0);
+      var afterLeft=Math.max(0,goal-eaten-scanKcal);
+      var leaf='<svg viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.85-5.4 5.08-6"/></svg>';
+      var h='<div class="scd-sec"><div class="scd-lbl">🥗 '+L({en:"Healthier options — same calories",id:"Pilihan lebih sehat — kalori sama"})+'</div>';
+      h+=sugg.map(function(f){return '<div class="hopt-row"><div class="d">'+leaf+'</div><div class="nm">'+Nutrition.name(f)+'</div><div class="kc">'+f.kcal+' '+kc()+'</div></div>';}).join('');
+      h+='<div class="hopt-sum"><span>'+L({en:"Healthy total",id:"Total sehat"})+'</span><span>~'+Nutrition.totalKcal(sugg)+' '+kc()+'</span></div>';
+      if(afterLeft>0) h+='<div class="need" style="margin-top:8px">'+L({en:"After this you'd still need ~"+afterLeft+" "+kc()+" to reach today's goal.",id:"Setelah ini kamu masih butuh ~"+afterLeft+" "+kc()+" lagi untuk capai target."})+'</div>';
+      h+='</div>';
+      return h;
     }
 
     // ---- Kartu hasil scan DETAIL (makro, satiety, health, porsi, insights) ----
@@ -488,14 +529,20 @@
          macroBox(L({en:"Carbs",id:"Karbo"}),c)+
          macroBox(L({en:"Fat",id:"Lemak"}),f)+
          macroBox(L({en:"Fiber",id:"Serat"}),fib)+'</div>';
+      if(res.tags && res.tags.length){
+        h+='<div class="scd-tags">'+res.tags.map(function(t){var pos=!(t&&t.positive===false);var lab=(t&&t.label)?t.label:String(t);return '<span class="tagchip '+(pos?"good":"warn")+'">'+lab+'</span>';}).join('')+'</div>';
+      }
       if(sat>0){
-        h+='<div class="scd-score"><div class="scd-slabel">🍴 '+L({en:"Satiety Score",id:"Skor Kenyang"})+' <b>'+sat+'/10</b></div>'+
+        h+='<div class="scd-score"><div class="scd-slabel">🍴 '+L({en:"Filling Rate",id:"Filling Rate"})+' <b>'+sat+'/10</b></div>'+
            '<div class="scd-dias">'+scoreDiamonds(sat)+'</div>'+
            (res.satiety_note?'<div class="scd-note">'+res.satiety_note+'</div>':'')+'</div>';
       }
       if(health>0){
         h+='<div class="scd-score"><div class="scd-slabel">💯 '+L({en:"Health Score",id:"Skor Sehat"})+' <b>'+health+'/10</b></div>'+
            '<div class="scd-bar"><i style="width:'+(health*10)+'%"></i></div></div>';
+      }
+      if(res.overall){
+        h+='<div class="scd-sec scd-overall"><div class="scd-lbl">📊 '+L({en:"Overall analysis",id:"Analisa keseluruhan"})+'</div><div class="scd-rectext">'+res.overall+'</div></div>';
       }
       if(res.recommendation){
         var nm=(res.needs_more&&res.needs_more.length)?'<div class="scd-needs">'+res.needs_more.map(x=>'<span class="need-chip">+ '+x+'</span>').join('')+'</div>':'';
@@ -565,8 +612,9 @@
       // (Nanti) buka checkout pakai p.product_id. Setelah sukses -> Auth.addScanCredits(p.credits).
     }
     (function(){ var b=document.getElementById("dealsClose"); if(b)b.addEventListener("click",closeDeals);
-      var bg=document.getElementById("dealsBg"); if(bg)bg.addEventListener("click",function(e){ if(e.target===bg)closeDeals(); }); })();
-    function addScanned(){lastScan.forEach(i=>addToLog(i.name,i.kcal,i.protein_g,i.carbs_g,i.fat_g));document.getElementById("scanresult").innerHTML='<div style="color:#2A7A4F">'+I18N.t("cal_added")+'</div>'}
+      var bg=document.getElementById("dealsBg"); if(bg)bg.addEventListener("click",function(e){ if(e.target===bg)closeDeals(); });
+      var sbg=document.getElementById("scanBg"); if(sbg)sbg.addEventListener("click",function(e){ if(e.target===sbg)closeScanModal(); }); })();
+    function addScanned(){lastScan.forEach(i=>addToLog(i.name,i.kcal,i.protein_g,i.carbs_g,i.fat_g));closeScanModal();document.getElementById("scanresult").innerHTML='<div style="color:#2A7A4F">'+I18N.t("cal_added")+'</div>'}
 
     // ---- Healthy-swap pop-up: same calories from healthier options + how much is still needed ----
     function openHealthyModal(scanKcal){
