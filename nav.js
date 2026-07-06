@@ -33,8 +33,14 @@
       .navside{position:fixed;left:0;top:0;bottom:0;width:238px;z-index:45;padding:26px 18px;display:flex;flex-direction:column;gap:6px;
         background:var(--card,#fff);border-right:1px solid var(--line,#EBEBEF)}
     }
-    .navside .sbrand{font-family:${SYS};font-weight:800;font-size:22px;letter-spacing:-.02em;padding:0 10px 20px;color:var(--ink,#15171C)}
-    .navside .sbrand b{color:var(--red,#D4283A)}
+    .navside .sbrand{padding:0 8px 20px}
+    .navside .sbrand img{height:30px;width:auto;display:block}
+    /* mobile: logo pojok kiri atas, tanpa background */
+    .applogo{position:fixed;top:14px;left:16px;z-index:60;height:26px;width:auto;cursor:pointer}
+    @media(min-width:900px){ .applogo{display:none} }
+    /* logo file berwarna putih -> jadikan gelap di tema terang biar kelihatan (tanpa kotak) */
+    .navside .sbrand img,.applogo{filter:brightness(0)}
+    html:not(.theme-light) .navside .sbrand img,html:not(.theme-light) .applogo{filter:none}
     .navside .navi{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;color:var(--muted,#8A8D94);text-decoration:none;
       font-family:${SYS};font-weight:650;font-size:14.5px;transition:.15s}
     .navside .navi:hover{background:var(--inp,#F2F2F5);color:var(--ink,#15171C)}
@@ -91,9 +97,10 @@
   // ---- Sidebar (desktop) ----
   const side = document.createElement("aside");
   side.className = "navside";
+  const LOGO = "https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png";
   function renderSide() {
     side.innerHTML =
-      '<div class="sbrand">20<b>FIT</b></div>' +
+      '<div class="sbrand"><img src="' + LOGO + '" alt="20fit"></div>' +
       items.map(it => `<a href="${it.href}" class="navi ${cur === it.href ? "on" : ""}">${svg(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
       `<button class="sscan" type="button">${svg("scan")}<span>${tr("nav_scan", "Scan")}</span></button>` +
       '<div class="sfoot"><div class="av" id="navAv">·</div><div class="tx"><div class="nm" id="navNm">20FIT</div><div class="em" id="navEm">member</div></div></div>';
@@ -101,6 +108,14 @@
   }
   renderSide();
   document.body.appendChild(side);
+
+  // ---- Logo pojok kiri atas (mobile) — tanpa background ----
+  const applogo = document.createElement("img");
+  applogo.className = "applogo";
+  applogo.src = LOGO;
+  applogo.alt = "20fit";
+  applogo.onclick = function () { location.href = "dashboard.html"; };
+  document.body.appendChild(applogo);
 
   // ---- Bottom nav (mobile) ----
   const nav = document.createElement("nav");
@@ -128,7 +143,13 @@
         const em = u.email || "";
         const nm = (u.user_metadata && u.user_metadata.full_name) || (em ? em.split("@")[0] : "Member");
         const a = document.getElementById("navAv"), n = document.getElementById("navNm"), e = document.getElementById("navEm");
-        if (a) a.textContent = (nm[0] || "·").toUpperCase();
+        if (a) {
+          a.textContent = (nm[0] || "·").toUpperCase();
+          try {
+            const av = localStorage.getItem("my20fit_avatar_" + (u.id || "me"));
+            if (av) { a.style.backgroundImage = "url('" + av + "')"; a.style.backgroundSize = "cover"; a.style.backgroundPosition = "center"; a.textContent = ""; }
+          } catch (er) {}
+        }
         if (n) n.textContent = nm;
         if (e) e.textContent = em || "member";
       }).catch(function () {});

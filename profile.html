@@ -15,7 +15,10 @@
   .logobar img{height:36px}
   h1{font-size:24px;font-weight:900;margin:0 0 16px;text-transform:uppercase}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,0,0,.3);color:var(--txt)}
-  .ava{width:72px;height:72px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff}
+  .ava{position:relative;width:72px;height:72px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#fff;cursor:pointer;background-size:cover;background-position:center;flex:0 0 auto}
+  .ava.has #avaInit{display:none}
+  .avacam{position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;border-radius:50%;background:var(--card);display:grid;place-items:center;box-shadow:0 1px 5px rgba(0,0,0,.3)}
+  .avacam svg{width:14px;height:14px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
   label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.5px}
   input,select{width:100%;padding:13px 14px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:15px}
   input:focus,select:focus{outline:none;border-color:var(--red)}
@@ -36,11 +39,11 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20fit" /></div>
     <h1 data-i18n="prof_title">My Profile</h1>
 
     <div class="card" style="display:flex;align-items:center;gap:16px">
-      <div class="ava" id="ava">?</div>
+      <div class="ava" id="ava" onclick="document.getElementById('avafile').click()" title="Ganti foto profil"><span id="avaInit">?</span><span class="avacam"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span></div>
+      <input id="avafile" type="file" accept="image/*" style="display:none" onchange="onAvaPick(event)" />
       <div>
         <div style="font-size:18px;font-weight:800" id="pname">—</div>
         <div class="muted" id="pemail">—</div>
@@ -98,7 +101,8 @@
       user=await Auth.requireAuth();
       const p=await Auth.getProfile();
       const nm=p.full_name||(p.email?p.email.split("@")[0]:"");
-      document.getElementById("ava").textContent=(nm[0]||"?").toUpperCase();
+      document.getElementById("avaInit").textContent=(nm[0]||"?").toUpperCase();
+      loadAvatar();
       document.getElementById("pname").textContent=nm;
       document.getElementById("pemail").textContent=p.email||"";
       document.getElementById("full_name").value=p.full_name||"";
@@ -109,6 +113,14 @@
       document.getElementById("goal").value=p.main_goal||"";
       if(p.gender)pickGender(p.gender);
     })();
+
+    // ---- Foto profil (di-resize kecil, disimpan per-akun di device) ----
+    function avaKey(){ return "my20fit_avatar_"+((user&&user.id)||"me"); }
+    function setAva(dataUrl){ var a=document.getElementById("ava"); a.style.backgroundImage="url('"+dataUrl+"')"; a.classList.add("has"); }
+    function loadAvatar(){ try{ var d=localStorage.getItem(avaKey()); if(d) setAva(d); }catch(e){} }
+    function resizeImg(src,max,cb){ var img=new Image(); img.onload=function(){ var w=img.width,h=img.height,s=Math.min(max/w,max/h,1),cw=Math.round(w*s),ch=Math.round(h*s); var c=document.createElement("canvas"); c.width=cw; c.height=ch; c.getContext("2d").drawImage(img,0,0,cw,ch); try{ cb(c.toDataURL("image/jpeg",0.82)); }catch(e){ cb(src); } }; img.onerror=function(){ cb(src); }; img.src=src; }
+    function onAvaPick(e){ var f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f)return;
+      var rd=new FileReader(); rd.onload=function(){ resizeImg(rd.result,256,function(out){ setAva(out); try{ localStorage.setItem(avaKey(),out); }catch(err){ msg(L({en:"Photo too large to save on this device.",id:"Foto terlalu besar untuk disimpan di perangkat ini."}),"err"); } }); }; rd.readAsDataURL(f); }
     async function save(){
       const fields={
         full_name:document.getElementById("full_name").value.trim()||null,
