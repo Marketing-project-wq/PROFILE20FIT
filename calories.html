@@ -24,11 +24,11 @@
   .bar i{display:block;height:100%;background:var(--red);width:0;transition:width .35s}
   .scanbtn{width:100%;padding:14px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
   .ormanual{font-size:11px;color:var(--muted);margin:14px 0 6px;text-align:center;text-transform:uppercase;letter-spacing:1px}
-  .add{display:flex;gap:8px}
-  .add input{flex:1;padding:11px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt)}
-  .add input.k{flex:0 0 90px}
+  .add{display:flex;gap:8px;align-items:stretch}
+  .add input{flex:1 1 0;min-width:0;padding:11px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt)}
+  .add input.k{flex:0 0 78px}
   .add input:focus{outline:none;border-color:var(--red)}
-  .add button{padding:11px 14px;border:0;border-radius:10px;background:var(--red);color:#fff;font-weight:800;cursor:pointer}
+  .add button{flex:0 0 auto;width:48px;padding:0;border:0;border-radius:10px;background:var(--red);color:#fff;font-weight:800;font-size:18px;cursor:pointer;display:grid;place-items:center}
   .item{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
   .item:last-child{border-bottom:0}
   .item .kc{color:var(--muted)}
@@ -94,7 +94,8 @@
   .iflvl{font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;font-size:12px;color:var(--red);margin:16px 0 0}
   .ifquick{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--inp);margin-top:4px}
   .calgrid{display:grid;grid-template-columns:1fr;gap:14px}
-  .calcol{display:flex;flex-direction:column;gap:0}
+  .calcol{display:flex;flex-direction:column;gap:0;min-width:0}
+  .card{max-width:100%}
   @media(min-width:900px){ .wrap{max-width:920px} .calgrid{grid-template-columns:1fr 1fr;align-items:start} }
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
