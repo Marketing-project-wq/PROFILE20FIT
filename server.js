@@ -538,6 +538,76 @@ app.get("/api/partner/profile", async (req, res) => {
   }
 });
 
+// ================= ADMIN MONITORING (dashboard internal) =================
+const ADMIN_KEY = process.env.ADMIN_KEY || "adm_91bb6891ad4af074612194e04d9fdaf3";
+function adminAuth(req, res) {
+  const hdr = String(req.headers["authorization"] || "");
+  const key = (hdr.replace(/^Bearer\s+/i, "").trim()) || String(req.headers["x-admin-key"] || "").trim() || String(req.query.key || "").trim();
+  if (!key || key !== ADMIN_KEY) { res.status(401).json({ error: "Unauthorized" }); return false; }
+  return true;
+}
+app.get("/api/admin/stats", async (req, res) => {
+  if (!adminAuth(req, res)) return;
+  if (!admin) return res.status(500).json({ error: "Server not configured (service key)." });
+  try {
+    // 1) Semua akun auth (created_at + last_sign_in_at)
+    let users = [];
+    for (let page = 1; page <= 30; page++) {
+      const { data } = await admin.auth.admin.listUsers({ page: page, perPage: 1000 });
+      const u = (data && data.users) || [];
+      users = users.concat(u);
+      if (u.length < 1000) break;
+    }
+    // 2) Profil (status add-on / plus / onboarding / scan)
+    const { data: profiles } = await admin.from("my20fit_profile")
+      .select("email,full_name,is_plus_member,scan_credits,scan_count,onboarding_completed,gender,updated_at");
+    const byEmail = {};
+    (profiles || []).forEach(p => { if (p.email) byEmail[String(p.email).toLowerCase()] = p; });
+
+    const now = new Date();
+    const mk = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+    const signupsByMonth = {};
+    let active7 = 0, active30 = 0, plus = 0, addon = 0, onboarded = 0;
+    users.forEach(u => {
+      const created = new Date(u.created_at);
+      signupsByMonth[mk(created)] = (signupsByMonth[mk(created)] || 0) + 1;
+      if (u.last_sign_in_at) {
+        const days = (now - new Date(u.last_sign_in_at)) / 86400000;
+        if (days <= 7) active7++;
+        if (days <= 30) active30++;
+      }
+      const p = byEmail[String(u.email || "").toLowerCase()];
+      if (p) {
+        if (p.is_plus_member) plus++;
+        if ((p.scan_credits || 0) > 0) addon++;
+        if (p.onboarding_completed) onboarded++;
+      }
+    });
+    const months = [];
+    for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push({ month: mk(d), count: signupsByMonth[mk(d)] || 0 }); }
+    const recentLogins = users.filter(u => u.last_sign_in_at)
+      .sort((a, b) => new Date(b.last_sign_in_at) - new Date(a.last_sign_in_at))
+      .slice(0, 40)
+      .map(u => { const p = byEmail[String(u.email || "").toLowerCase()] || {}; return {
+        email: u.email, name: p.full_name || null, last_sign_in: u.last_sign_in_at, created_at: u.created_at,
+        plus: !!p.is_plus_member, addon: (p.scan_credits || 0) > 0, scans_used: p.scan_count || 0, onboarded: !!p.onboarding_completed }; });
+    const totalScans = (profiles || []).reduce((s, p) => s + (+p.scan_count || 0), 0);
+    return res.json({
+      ok: true,
+      totalUsers: users.length,
+      thisMonthSignups: signupsByMonth[mk(now)] || 0,
+      signupsByMonth: months,
+      active7: active7, active30: active30,
+      plusMembers: plus, addonBuyers: addon, onboarded: onboarded,
+      totalScansUsed: totalScans,
+      recentLogins: recentLogins,
+    });
+  } catch (e) {
+    console.error("admin/stats:", e.message);
+    return res.status(500).json({ error: "Internal error." });
+  }
+});
+
 // ---------- Static + fallback ----------
 app.use(express.static(path.join(__dirname)));
 app.get("*", (req, res) => {
