@@ -133,7 +133,7 @@
       </div>
 
       <div id="scanbox" style="margin-top:14px;display:flex;gap:10px">
-        <button class="scanbtn" style="flex:1" onclick="document.getElementById('foodcam').click()">
+        <button class="scanbtn" style="flex:1" onclick="openCamera()">
           <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
           <span>📷 <span data-i18n="cal_takephoto">Take photo</span></span>
         </button>
@@ -145,6 +145,17 @@
       <input id="foodcam" type="file" accept="image/*" capture="environment" style="display:none" onchange="scanFood(event)" />
       <!-- pilih dari galeri/album -->
       <input id="foodfile" type="file" accept="image/*" style="display:none" onchange="scanFood(event)" />
+      <!-- Kamera webcam (desktop) -->
+      <div class="cam-bg" id="camModal">
+        <div class="cam-box">
+          <video id="camVideo" autoplay playsinline muted></video>
+          <div id="camErr" class="muted" style="text-align:center;margin-top:8px"></div>
+          <div class="cam-actions">
+            <button class="scanbtn" style="flex:1" onclick="camCapture()">📸 <span data-i18n="cal_capture">Capture</span></button>
+            <button class="cam-cancel" onclick="camClose()" data-i18n="cal_cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
       <div id="scanquota" style="margin-top:10px;font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5"></div>
       <div id="scanresult" style="margin-top:12px"></div>
 
@@ -228,6 +239,13 @@
     .scd-rec .scd-lbl{color:var(--green)}
     .scd-needs{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
     .need-chip{font-size:11.5px;font-weight:800;color:var(--green);background:#fff;border:1px solid color-mix(in srgb,var(--green) 30%,transparent);padding:4px 9px;border-radius:999px}
+    /* ---- Kamera webcam (desktop) ---- */
+    .cam-bg{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.86);display:none;align-items:center;justify-content:center;padding:20px}
+    .cam-bg.open{display:flex}
+    .cam-box{width:100%;max-width:540px;background:var(--card);border-radius:18px;padding:14px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+    .cam-box video{width:100%;border-radius:12px;background:#000;display:block;max-height:68vh;object-fit:cover}
+    .cam-actions{display:flex;gap:10px;margin-top:12px}
+    .cam-cancel{flex:0 0 auto;padding:14px 18px;border:1px solid var(--line);border-radius:11px;background:var(--inp);color:var(--txt);font-weight:800;cursor:pointer}
   </style>
   <div class="hopt-bg" id="hoptBg">
     <div class="hopt">
@@ -391,6 +409,41 @@
       try{ const url=await fileURL(f); scanImage(url); }
       catch(err){ document.getElementById("scanresult").innerHTML='<div style="color:var(--red)">'+(err.message||"Error")+'</div>'; }
     }
+    // ---- Kamera langsung: webcam di DESKTOP, kamera HP di mobile ----
+    let camStream=null;
+    async function openCamera(){
+      const isDesktop = window.matchMedia && window.matchMedia("(min-width:900px)").matches;
+      // Mobile / tanpa webcam -> pakai input kamera bawaan HP (yang sudah jalan).
+      if(!isDesktop || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        document.getElementById("foodcam").click(); return;
+      }
+      const modal=document.getElementById("camModal"), err=document.getElementById("camErr");
+      err.textContent=""; modal.classList.add("open");
+      try{
+        camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});
+        const v=document.getElementById("camVideo"); v.srcObject=camStream; try{ await v.play(); }catch(e){}
+      }catch(e){
+        // Ditolak / tak ada kamera -> tutup modal, fallback ke pilih file.
+        camClose();
+        document.getElementById("foodcam").click();
+      }
+    }
+    function camClose(){
+      const modal=document.getElementById("camModal");
+      if(modal) modal.classList.remove("open");
+      if(camStream){ try{ camStream.getTracks().forEach(t=>t.stop()); }catch(e){} camStream=null; }
+      const v=document.getElementById("camVideo"); if(v) v.srcObject=null;
+    }
+    function camCapture(){
+      const v=document.getElementById("camVideo");
+      if(!v||!v.videoWidth){ return; }
+      const c=document.createElement("canvas"); c.width=v.videoWidth; c.height=v.videoHeight;
+      c.getContext("2d").drawImage(v,0,0,c.width,c.height);
+      let url; try{ url=c.toDataURL("image/jpeg",0.85); }catch(e){ camClose(); return; }
+      camClose();
+      scanImage(url);
+    }
+
     // Analisa 1 foto makanan (dipakai tombol Foto/Album & tombol Scan global)
     async function scanImage(url){
       const box=document.getElementById("scanresult");
