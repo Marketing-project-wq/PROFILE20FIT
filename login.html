@@ -260,16 +260,26 @@
               try{
                 await Auth.fitcoLogin(email,password);   // akun ekosistem 20fit
               }catch(e2){
-                // Jembatan 20fit belum siap (service key blm dipasang / API down):
-                // arahkan user ke login pakai KODE EMAIL yang tetap jalan.
                 const m2=String(e2&&e2.message||"").toLowerCase();
+                // Gagal di web & 20fit -> cek: emailnya PUNYA akun atau BELUM?
+                const exists=await Auth.emailExists(email);
+                if(exists===false){
+                  // BELUM punya akun di mana pun -> dorong ke Buat Akun (prefill).
+                  btn.disabled=false;
+                  setMode("up");
+                  document.getElementById("name").focus();
+                  msg(lang==="en"
+                    ? "You don't have an account yet — create one below to get started."
+                    : "Kamu belum punya akun — buat akun baru di bawah ya untuk mulai.","err");
+                  return;
+                }
+                // Jembatan 20fit belum siap (service key blm dipasang / API down):
                 if(m2.includes("dikonfigurasi")||m2.includes("service key")||m2.includes("menghubungi")||m2.includes("502")||m2.includes("500")){
                   btn.disabled=false;
                   msg(lang==="en"?"Use “Email me a login code” below to sign in.":"Pakai “Kirim kode login ke email” di bawah untuk masuk.","err");
-                  document.getElementById("email").scrollIntoView({behavior:"smooth"});
                   return;
                 }
-                throw e2;
+                throw e2; // akun ADA -> kemungkinan password salah
               }
             } else { throw e1; }
           }

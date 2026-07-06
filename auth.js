@@ -98,6 +98,22 @@
     return true;
   }
 
+  // Apakah email SUDAH punya akun di app? true / false / null(tak diketahui).
+  // Dicek di edge function (akses DB sendiri) -> tidak tergantung env server.
+  async function emailExists(email) {
+    await ready;
+    try {
+      const r = await fetch(cfgUrl + "/functions/v1/my20fit-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfgKey, "apikey": cfgKey },
+        body: JSON.stringify({ action: "exists", email: email }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j && typeof j.exists === "boolean") return j.exists;
+    } catch (e) {}
+    return null;
+  }
+
   function go(page) {
     window.location.href = page;
   }
@@ -417,6 +433,7 @@
     signInWithGoogle,
     loginSend,
     verifyLoginCode,
+    emailExists,
     fitcoLogin,
     hasWebPassword,
     setWebPassword,
