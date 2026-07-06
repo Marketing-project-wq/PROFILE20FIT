@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin Monitoring · 20fit Health Profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--red:#C41101;--bg:#EDE8DF;--card:#FFFFFF;--dark:#0A0908;--txt:#0A0908;--soft:#555;--muted:#9E8E7A;--border:#E8E2DB;--inp:#F0EDE5;--green:#2A7A4F}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);font-family:Manrope,system-ui,sans-serif}
+  a{color:inherit}
+
+  /* ---------- Gate (passcode) ---------- */
+  .gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .gatebox{width:100%;max-width:380px;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:34px 30px;box-shadow:0 18px 50px rgba(10,9,8,.10);text-align:center}
+  .gatebox img{height:52px;margin-bottom:18px}
+  .gatebox h1{font-family:Anton;font-size:24px;margin:0 0 4px;letter-spacing:.5px}
+  .gatebox p{color:var(--muted);font-size:13.5px;margin:0 0 22px;line-height:1.5}
+  .gatebox input{width:100%;padding:14px;background:var(--inp);border:1px solid var(--border);border-radius:12px;font-size:15px;color:var(--txt);font-family:Manrope;text-align:center;letter-spacing:1px}
+  .gatebox input:focus{outline:none;border-color:var(--red)}
+  .btn{width:100%;margin-top:16px;padding:14px;border:0;border-radius:12px;background:var(--red);color:#fff;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 14px rgba(196,17,1,.25)}
+  .btn:disabled{opacity:.6;cursor:default}
+  .gmsg{margin-top:14px;font-size:13px;min-height:18px;color:var(--red)}
+
+  /* ---------- Dashboard ---------- */
+  .wrap{max-width:1080px;margin:0 auto;padding:26px 20px 60px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:22px}
+  .top .l{display:flex;align-items:center;gap:14px}
+  .top img{height:40px}
+  .top h1{font-family:Anton;font-size:22px;margin:0;letter-spacing:.5px}
+  .top .sub{font-family:"Barlow Condensed";font-weight:600;letter-spacing:2.5px;font-size:11px;color:var(--muted);text-transform:uppercase}
+  .top .r{display:flex;align-items:center;gap:10px}
+  .ghost{background:var(--card);border:1px solid var(--border);color:var(--txt);padding:9px 16px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:Manrope}
+  .ghost:hover{background:#faf8f4}
+
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  @media(max-width:820px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:460px){.grid{grid-template-columns:1fr}}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 18px}
+  .stat .k{font-family:"Barlow Condensed";font-weight:600;letter-spacing:1.5px;font-size:11px;color:var(--muted);text-transform:uppercase}
+  .stat .v{font-family:Anton;font-size:34px;line-height:1.05;margin-top:6px;letter-spacing:.5px}
+  .stat .d{font-size:12px;color:var(--soft);margin-top:4px}
+  .stat.red .v{color:var(--red)}
+  .stat.green .v{color:var(--green)}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-top:20px}
+  .card h2{font-family:Anton;font-size:17px;margin:0 0 2px;letter-spacing:.4px}
+  .card .csub{font-size:12.5px;color:var(--muted);margin:0 0 16px}
+
+  /* bar chart */
+  .bars{display:flex;align-items:flex-end;gap:14px;height:170px;padding-top:8px}
+  .barcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end}
+  .barcol .bar{width:100%;max-width:56px;background:linear-gradient(180deg,var(--red),#9c0d01);border-radius:8px 8px 4px 4px;min-height:4px;transition:height .5s ease;position:relative}
+  .barcol .bn{font-family:Anton;font-size:14px}
+  .barcol .bm{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+
+  /* table */
+  .tblwrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
+  th{text-align:left;font-family:"Barlow Condensed";font-weight:700;letter-spacing:1px;font-size:11px;color:var(--muted);text-transform:uppercase;padding:8px 10px;border-bottom:2px solid var(--border)}
+  td{padding:11px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  .em{font-weight:700}
+  .nm{color:var(--soft);font-size:12.5px}
+  .tag{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
+  .tag.yes{background:rgba(42,122,79,.12);color:var(--green)}
+  .tag.no{background:rgba(158,142,122,.15);color:var(--muted)}
+  .ago{color:var(--soft);font-size:12.5px;white-space:nowrap}
+  .empty{color:var(--muted);text-align:center;padding:30px;font-size:14px}
+  .err{color:var(--red);text-align:center;padding:24px;font-size:14px;line-height:1.5}
+  .loading{color:var(--muted);text-align:center;padding:40px;font-size:14px}
+  .hide{display:none!important}
+
+  @media(prefers-color-scheme:dark){
+    :root{--bg:#0A0908;--card:#151312;--dark:#000;--txt:#F0EDE6;--soft:#c9c0b4;--muted:#8a7f70;--border:#2a2723;--inp:#1d1a17}
+    .stat .v,.card h2{color:var(--txt)}
+    .stat.red .v{color:#ff5a49}.stat.green .v{color:#4fd08a}
+    .ghost:hover{background:#1d1a17}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ PASSCODE GATE ============ -->
+<div id="gate" class="gate">
+  <div class="gatebox">
+    <img src="https://media.20fit.id/wp-content/uploads/2026/07/logo-20fit-2.png" alt="20fit" onerror="this.style.display='none'"/>
+    <h1>Admin Monitoring</h1>
+    <p>Masukkan passcode admin untuk melihat data.</p>
+    <input id="pass" type="password" placeholder="Passcode" autocomplete="off" />
+    <button id="enter" class="btn">Masuk</button>
+    <div id="gmsg" class="gmsg"></div>
+  </div>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div id="app" class="wrap hide">
+  <div class="top">
+    <div class="l">
+      <img src="https://media.20fit.id/wp-content/uploads/2026/07/logo-20fit-2.png" alt="20fit" onerror="this.style.display='none'"/>
+      <div>
+        <h1>Monitoring Dashboard</h1>
+        <div class="sub">20fit Health Profile</div>
+      </div>
+    </div>
+    <div class="r">
+      <button id="refresh" class="ghost">↻ Refresh</button>
+      <button id="logout" class="ghost">Keluar</button>
+    </div>
+  </div>
+
+  <div id="body">
+    <div class="loading">Memuat data…</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var KEY_STORE = "adm_key";
+  var gate = document.getElementById("gate");
+  var app  = document.getElementById("app");
+  var bodyEl = document.getElementById("body");
+
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+  function timeAgo(iso){
+    if(!iso) return "—";
+    var d = new Date(iso); if(isNaN(d)) return "—";
+    var s = Math.floor((Date.now()-d.getTime())/1000);
+    if(s<60) return "baru saja";
+    var m = Math.floor(s/60); if(m<60) return m+" mnt lalu";
+    var h = Math.floor(m/60); if(h<24) return h+" jam lalu";
+    var dd = Math.floor(h/24); if(dd<30) return dd+" hari lalu";
+    var mo = Math.floor(dd/30); if(mo<12) return mo+" bln lalu";
+    return Math.floor(mo/12)+" thn lalu";
+  }
+  function fmtDate(iso){
+    if(!iso) return "—";
+    var d = new Date(iso); if(isNaN(d)) return "—";
+    return d.toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"}) + " " +
+           d.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"});
+  }
+  var MONTHNAMES = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+  function monthLabel(ym){ // "2026-07" -> "Jul"
+    var p = String(ym).split("-"); var mi = parseInt(p[1],10)-1;
+    return (MONTHNAMES[mi]||ym) ;
+  }
+
+  function stat(k,v,d,cls){
+    return '<div class="stat '+(cls||"")+'"><div class="k">'+esc(k)+'</div><div class="v">'+esc(v)+'</div>'+
+           (d?'<div class="d">'+esc(d)+'</div>':'')+'</div>';
+  }
+
+  function render(s){
+    var months = s.signupsByMonth || [];
+    var maxc = Math.max(1, months.reduce(function(m,x){ return Math.max(m, x.count||0); }, 0));
+    var bars = months.map(function(x){
+      var h = Math.round(((x.count||0)/maxc)*130) + (x.count>0?10:0);
+      return '<div class="barcol"><div class="bn">'+(x.count||0)+'</div>'+
+             '<div class="bar" style="height:'+h+'px"></div>'+
+             '<div class="bm">'+esc(monthLabel(x.month))+'</div></div>';
+    }).join("");
+
+    var rows = (s.recentLogins||[]).map(function(u){
+      return '<tr>'+
+        '<td><div class="em">'+esc(u.email||"—")+'</div>'+(u.name?'<div class="nm">'+esc(u.name)+'</div>':'')+'</td>'+
+        '<td class="ago">'+esc(fmtDate(u.last_sign_in))+'<div class="nm">'+esc(timeAgo(u.last_sign_in))+'</div></td>'+
+        '<td>'+(u.plus?'<span class="tag yes">Plus</span>':'<span class="tag no">Free</span>')+'</td>'+
+        '<td>'+(u.addon?'<span class="tag yes">Ya</span>':'<span class="tag no">Belum</span>')+'</td>'+
+        '<td>'+esc(u.scans_used||0)+'</td>'+
+        '<td>'+(u.onboarded?'<span class="tag yes">Selesai</span>':'<span class="tag no">Belum</span>')+'</td>'+
+      '</tr>';
+    }).join("");
+    if(!rows) rows = '<tr><td colspan="6" class="empty">Belum ada aktivitas login.</td></tr>';
+
+    bodyEl.innerHTML =
+      '<div class="grid">'+
+        stat("Total Pengguna", s.totalUsers||0, "Semua akun terdaftar", "red")+
+        stat("Sign Up Bulan Ini", s.thisMonthSignups||0, "Pendaftaran baru", "green")+
+        stat("Aktif 7 Hari", s.active7||0, "Login dalam 7 hari")+
+        stat("Aktif 30 Hari", s.active30||0, "Login dalam 30 hari")+
+      '</div>'+
+      '<div class="grid" style="margin-top:14px">'+
+        stat("Member Plus", s.plusMembers||0, "Langganan Plus aktif","green")+
+        stat("Pembeli Add-on", s.addonBuyers||0, "Punya kredit scan","green")+
+        stat("Onboarding Selesai", s.onboarded||0, "Sudah lengkapi profil")+
+        stat("Total Scan Kalori", s.totalScansUsed||0, "Akumulasi semua user")+
+      '</div>'+
+
+      '<div class="card">'+
+        '<h2>Pendaftaran 6 Bulan Terakhir</h2>'+
+        '<p class="csub">Jumlah akun baru per bulan.</p>'+
+        '<div class="bars">'+bars+'</div>'+
+      '</div>'+
+
+      '<div class="card">'+
+        '<h2>Aktivitas Login Terbaru</h2>'+
+        '<p class="csub">40 login terakhir — status add-on, membership & pemakaian scan.</p>'+
+        '<div class="tblwrap"><table>'+
+          '<thead><tr><th>Pengguna</th><th>Login Terakhir</th><th>Membership</th><th>Add-on</th><th>Scan</th><th>Onboarding</th></tr></thead>'+
+          '<tbody>'+rows+'</tbody>'+
+        '</table></div>'+
+      '</div>';
+  }
+
+  function load(){
+    var k = sessionStorage.getItem(KEY_STORE);
+    if(!k){ showGate(); return; }
+    bodyEl.innerHTML = '<div class="loading">Memuat data…</div>';
+    fetch("/api/admin/stats", { headers: { "x-admin-key": k } })
+      .then(function(r){
+        if(r.status===401){ sessionStorage.removeItem(KEY_STORE); showGate("Passcode salah / kedaluwarsa."); throw new Error("unauth"); }
+        return r.json().then(function(j){ if(!r.ok) throw new Error(j.error||"Gagal memuat."); return j; });
+      })
+      .then(render)
+      .catch(function(e){
+        if(e.message==="unauth") return;
+        bodyEl.innerHTML = '<div class="err">'+esc(e.message||"Gagal memuat data.")+
+          '<br><span style="color:var(--muted);font-size:12.5px">Jika muncul "service key", set <b>SUPABASE_SERVICE_KEY</b> di server produksi.</span></div>';
+      });
+  }
+
+  function showApp(){ gate.classList.add("hide"); app.classList.remove("hide"); load(); }
+  function showGate(msg){
+    app.classList.add("hide"); gate.classList.remove("hide");
+    document.getElementById("gmsg").textContent = msg||"";
+    document.getElementById("pass").value = "";
+    setTimeout(function(){ document.getElementById("pass").focus(); }, 50);
+  }
+
+  function tryEnter(){
+    var v = document.getElementById("pass").value.trim();
+    if(!v){ showGate("Masukkan passcode."); return; }
+    var btn = document.getElementById("enter"); btn.disabled = true;
+    document.getElementById("gmsg").textContent = "Memeriksa…";
+    fetch("/api/admin/stats", { headers: { "x-admin-key": v } })
+      .then(function(r){
+        btn.disabled = false;
+        if(r.status===401){ document.getElementById("gmsg").textContent = "Passcode salah."; return; }
+        // 200 atau 500(service key) tetap dianggap passcode benar → simpan & masuk
+        sessionStorage.setItem(KEY_STORE, v);
+        showApp();
+      })
+      .catch(function(){ btn.disabled=false; document.getElementById("gmsg").textContent = "Gagal terhubung ke server."; });
+  }
+
+  document.getElementById("enter").addEventListener("click", tryEnter);
+  document.getElementById("pass").addEventListener("keydown", function(e){ if(e.key==="Enter") tryEnter(); });
+  document.getElementById("refresh").addEventListener("click", load);
+  document.getElementById("logout").addEventListener("click", function(){ sessionStorage.removeItem(KEY_STORE); showGate(); });
+
+  // auto-enter kalau sudah pernah login di sesi ini
+  if(sessionStorage.getItem(KEY_STORE)) showApp(); else showGate();
+})();
+</script>
+</body>
+</html>
