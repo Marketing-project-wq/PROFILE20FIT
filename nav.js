@@ -95,31 +95,25 @@
     } catch (e) { location.href = "calories.html#scan"; }
   }
 
-  // ---- LOGO: dua versi sesuai tema ----
-  // Dark mode  -> logo PUTIH (tampil di sidebar gelap, tanpa background).
-  // Light mode -> logo GELAP + dot merah (tampil di sidebar putih, tanpa background).
-  const LOGO_WHITE = "https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png";
-  const LOGO_DARK = ""; // TODO: URL logo gelap (20FIT hitam + dot merah) utk light mode — dari user.
+  // ---- LOGO: versi sesuai tema (logo sudah punya background sendiri, jadi TANPA chip) ----
+  // Dark mode  -> logo background hitam.
+  // Light mode -> logo background putih (nunggu URL; sementara fallback ke yg dark).
+  const LOGO_DARKMODE = "https://media.20fit.id/wp-content/uploads/2026/07/logo-20fit-2.png";
+  const LOGO_LIGHTMODE = ""; // TODO: URL logo background PUTIH utk light mode — dari user.
   function themeIsLight() { return document.documentElement.classList.contains("theme-light"); }
-  // Pilih logo + apakah perlu chip gelap (box). Box HANYA fallback saat light mode & logo gelap belum ada.
-  function pickLogo() {
-    if (themeIsLight()) return LOGO_DARK ? { src: LOGO_DARK, box: false } : { src: LOGO_WHITE, box: true };
-    return { src: LOGO_WHITE, box: false };
-  }
+  function currentLogo() { return themeIsLight() ? (LOGO_LIGHTMODE || LOGO_DARKMODE) : LOGO_DARKMODE; }
   function applyLogo() {
-    const p = pickLogo();
-    const s = side.querySelector(".sbrand"), si = side.querySelector(".sbrand img");
-    if (s && si) { si.src = p.src; s.classList.toggle("box", p.box); }
-    if (applogo) { applogo.src = p.src; applogo.classList.toggle("box", p.box); }
+    const src = currentLogo();
+    const si = side.querySelector(".sbrand img"); if (si) si.src = src;
+    if (applogo) applogo.src = src;
   }
 
   // ---- Sidebar (desktop) ----
   const side = document.createElement("aside");
   side.className = "navside";
   function renderSide() {
-    const p = pickLogo();
     side.innerHTML =
-      '<div class="sbrand' + (p.box ? " box" : "") + '"><img src="' + p.src + '" alt="20fit"></div>' +
+      '<div class="sbrand"><img src="' + currentLogo() + '" alt="20fit"></div>' +
       items.map(it => `<a href="${it.href}" class="navi ${cur === it.href ? "on" : ""}">${svg(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
       `<button class="sscan" type="button">${svg("scan")}<span>${tr("nav_scan", "Scan")}</span></button>` +
       '<div class="sfoot"><div class="av" id="navAv">·</div><div class="tx"><div class="nm" id="navNm">20FIT</div><div class="em" id="navEm">member</div></div></div>';
