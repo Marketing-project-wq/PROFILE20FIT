@@ -222,6 +222,12 @@
     .scd-por .mut{color:var(--muted);font-weight:600}
     .scd-ins{margin:0;padding-left:18px}
     .scd-ins li{font-size:13px;line-height:1.5;margin-bottom:5px}
+    .scd-desc{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:12px}
+    .scd-rec .scd-rectext{font-size:13px;line-height:1.55}
+    .scd-rec{background:var(--green-soft);border:1px solid color-mix(in srgb,var(--green) 22%,transparent);border-radius:14px;padding:12px 14px;border-top:0}
+    .scd-rec .scd-lbl{color:var(--green)}
+    .scd-needs{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+    .need-chip{font-size:11.5px;font-weight:800;color:var(--green);background:#fff;border:1px solid color-mix(in srgb,var(--green) 30%,transparent);padding:4px 9px;border-radius:999px}
   </style>
   <div class="hopt-bg" id="hoptBg">
     <div class="hopt">
@@ -423,6 +429,7 @@
       var title=(lastScan||[]).map(i=>i.name).join(", ");
       var h='<div class="scd">';
       h+='<div class="scd-top"><div class="scd-name">🍽️ '+title+'</div><div class="scd-kcal">~'+kcal+' '+kc()+'</div></div>';
+      if(res.description) h+='<div class="scd-desc">'+res.description+'</div>';
       h+='<div class="scd-macros">'+
          macroBox(L({en:"Protein",id:"Protein"}),p)+
          macroBox(L({en:"Carbs",id:"Karbo"}),c)+
@@ -436,6 +443,10 @@
       if(health>0){
         h+='<div class="scd-score"><div class="scd-slabel">💯 '+L({en:"Health Score",id:"Skor Sehat"})+' <b>'+health+'/10</b></div>'+
            '<div class="scd-bar"><i style="width:'+(health*10)+'%"></i></div></div>';
+      }
+      if(res.recommendation){
+        var nm=(res.needs_more&&res.needs_more.length)?'<div class="scd-needs">'+res.needs_more.map(x=>'<span class="need-chip">+ '+x+'</span>').join('')+'</div>':'';
+        h+='<div class="scd-sec scd-rec"><div class="scd-lbl">💡 '+L({en:"Better intake — what to add",id:"Asupan lebih baik — perlu ditambah"})+'</div><div class="scd-rectext">'+res.recommendation+'</div>'+nm+'</div>';
       }
       h+='<div class="scd-sec"><div class="scd-lbl">🍚 '+L({en:"Portions",id:"Porsi"})+'</div>'+
          (lastScan||[]).map(i=>'<div class="scd-por"><span>'+i.name+(i.portion?' <span class="mut">('+i.portion+')</span>':'')+'</span><span class="mut">'+nRound(i.kcal)+' '+kc()+'</span></div>').join('')+'</div>';

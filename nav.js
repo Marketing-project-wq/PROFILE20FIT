@@ -95,17 +95,20 @@
     } catch (e) { location.href = "calories.html#scan"; }
   }
 
-  // ---- LOGO: versi sesuai tema (logo sudah punya background sendiri, jadi TANPA chip) ----
-  // Dark mode  -> logo background hitam.
-  // Light mode -> logo background putih (nunggu URL; sementara fallback ke yg dark).
-  const LOGO_DARKMODE = "https://media.20fit.id/wp-content/uploads/2026/07/logo-20fit-2.png";
-  const LOGO_LIGHTMODE = ""; // TODO: URL logo background PUTIH utk light mode — dari user.
+  // ---- LOGO sesuai tema (tanpa background/chip) ----
+  // Pakai logo transparan font PUTIH. Dark mode -> putih apa adanya.
+  // Light mode -> difilter jadi HITAM (biar kebaca di sidebar putih).
+  // Kalau nanti ada URL logo font-hitam+dot-merah, isi LOGO_LIGHT_URL -> dipakai tanpa filter.
+  const LOGO = "https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png";
+  const LOGO_LIGHT_URL = "";
   function themeIsLight() { return document.documentElement.classList.contains("theme-light"); }
-  function currentLogo() { return themeIsLight() ? (LOGO_LIGHTMODE || LOGO_DARKMODE) : LOGO_DARKMODE; }
   function applyLogo() {
-    const src = currentLogo();
-    const si = side.querySelector(".sbrand img"); if (si) si.src = src;
-    if (applogo) applogo.src = src;
+    const light = themeIsLight();
+    const src = (light && LOGO_LIGHT_URL) ? LOGO_LIGHT_URL : LOGO;
+    const filt = (light && !LOGO_LIGHT_URL) ? "brightness(0)" : "none";
+    const si = side.querySelector(".sbrand img");
+    if (si) { si.src = src; si.style.filter = filt; }
+    if (applogo) { applogo.src = src; applogo.style.filter = filt; }
   }
 
   // ---- Sidebar (desktop) ----
@@ -113,7 +116,7 @@
   side.className = "navside";
   function renderSide() {
     side.innerHTML =
-      '<div class="sbrand"><img src="' + currentLogo() + '" alt="20fit"></div>' +
+      '<div class="sbrand"><img src="' + LOGO + '" alt="20fit"></div>' +
       items.map(it => `<a href="${it.href}" class="navi ${cur === it.href ? "on" : ""}">${svg(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
       `<button class="sscan" type="button">${svg("scan")}<span>${tr("nav_scan", "Scan")}</span></button>` +
       '<div class="sfoot"><div class="av" id="navAv">·</div><div class="tx"><div class="nm" id="navNm">20FIT</div><div class="em" id="navEm">member</div></div></div>';
