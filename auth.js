@@ -132,7 +132,9 @@
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName || null, phone: phone || null } },
+      // has_pw di-set SAAT PEMBUATAN akun -> user daftar pakai password langsung
+      // dianggap "sudah punya password", jadi TIDAK diminta bikin password lagi.
+      options: { data: { full_name: fullName || null, phone: phone || null, has_pw: true } },
     });
     if (error) throw error;
     // Kalau signUp belum memberi sesi (mis. konfirmasi email), langsung login
