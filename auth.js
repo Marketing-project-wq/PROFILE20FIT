@@ -44,6 +44,18 @@
   // ---------- MAGIC LINK / LOGIN PAKAI KODE EMAIL (isolated via my20fit-otp) ----------
   async function loginSend(email) {
     await ready;
+    // Batasi: kode login HANYA dikirim ke email yang sudah terdaftar.
+    // (Kalau server tak bisa memastikan -> unknown -> tetap lanjut, jangan blokir.)
+    try {
+      const cr = await fetch("/api/email-exists", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email }),
+      });
+      const cj = await cr.json().catch(() => ({}));
+      if (cr.ok && cj && cj.exists === false && !cj.unknown) {
+        const err = new Error("Email belum terdaftar."); err.code = "not_registered"; throw err;
+      }
+    } catch (e) { if (e && e.code === "not_registered") throw e; /* error jaringan -> lanjut */ }
     const r = await fetch(cfgUrl + "/functions/v1/my20fit-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfgKey, "apikey": cfgKey },

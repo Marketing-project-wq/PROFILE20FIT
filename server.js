@@ -134,6 +134,24 @@ app.get("/api/config", (req, res) => {
   });
 });
 
+// Cek apakah email SUDAH terdaftar (punya profil di app kita).
+// Dipakai untuk membatasi "kirim kode login" hanya ke akun yang benar-benar ada,
+// supaya kode tidak terkirim ke email sembarangan yang belum daftar.
+app.post("/api/email-exists", async (req, res) => {
+  try {
+    if (!admin) return res.json({ exists: false, unknown: true });
+    const email = String((req.body && req.body.email) || "").trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: "Email wajib diisi." });
+    const { data, error } = await admin.from("my20fit_profile")
+      .select("auth_user_id").eq("email", email).limit(1);
+    if (error) return res.json({ exists: false, unknown: true });
+    return res.json({ exists: !!(data && data.length) });
+  } catch (e) {
+    console.error("email-exists:", e.message);
+    return res.json({ exists: false, unknown: true });
+  }
+});
+
 // Kirim OTP ke email user yang sedang login
 app.post("/api/send-otp", otpLimiter, async (req, res) => {
   try {

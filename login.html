@@ -309,7 +309,15 @@
         document.getElementById("magicCode").focus();
         msg(T[lang].magicSent,"ok");
         if(r.devCode){ msg("DEV — code: "+r.devCode,"ok"); }
-      }catch(e){ msg(terjemah(e.message),"err"); }
+      }catch(e){
+        if(e&&e.code==="not_registered"){
+          msg(lang==="en"
+            ? "This email isn't registered yet. Tap “Create Account”, or sign in with your 20fit email & password above."
+            : "Email ini belum terdaftar. Klik “Buat Akun”, atau masuk pakai email & password 20fit kamu di atas.","err");
+          return;
+        }
+        msg(terjemah(e.message),"err");
+      }
     }
     async function magicVerify(){
       const code=document.getElementById("magicCode").value.trim();
