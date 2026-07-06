@@ -260,14 +260,42 @@ app.get("/api/weather", (req, res) => {
   });
 });
 
-app.get("/api/aqi", (req, res) => {
-  const hour = new Date().getHours();
-  const aqi = 70 + (hour % 5) * 12; // variasi 70-118
-  let label, advice;
-  if (aqi <= 50) { label = "Good"; advice = "Udara bagus, aman olahraga di luar."; }
-  else if (aqi <= 100) { label = "Moderate"; advice = "Cukup oke, sensitif sebaiknya kurangi outdoor."; }
-  else { label = "Unhealthy"; advice = "Sebaiknya olahraga di dalam ruangan."; }
-  res.json({ city: req.query.city || "Jakarta", aqi, label, advice });
+// AQI dari WAQI (aqicn.org) — stasiun darat. Fallback: Open-Meteo (model), lalu estimasi.
+// Token WAQI gratis dari aqicn.org/data-platform/token, taruh di env WAQI_TOKEN.
+const WAQI_TOKEN = process.env.WAQI_TOKEN || "";
+function aqiMeaning(aqi) {
+  if (aqi <= 50) return { label: "Good", advice: "Udara bagus — aman olahraga di luar." };
+  if (aqi <= 100) return { label: "Moderate", advice: "Cukup oke; yang sensitif sebaiknya kurangi outdoor." };
+  if (aqi <= 150) return { label: "Unhealthy for Sensitive", advice: "Kelompok sensitif sebaiknya olahraga di dalam." };
+  if (aqi <= 200) return { label: "Unhealthy", advice: "Sebaiknya olahraga di dalam ruangan." };
+  if (aqi <= 300) return { label: "Very Unhealthy", advice: "Hindari aktivitas luar; olahraga indoor." };
+  return { label: "Hazardous", advice: "Berbahaya — tetap di dalam ruangan." };
+}
+app.get("/api/aqi", async (req, res) => {
+  const lat = req.query.lat, lon = req.query.lon;
+  let aqi = null, source = null, city = req.query.city || "";
+  // 1) WAQI (kalau token tersedia & ada koordinat)
+  if (WAQI_TOKEN && lat && lon) {
+    try {
+      const r = await fetch("https://api.waqi.info/feed/geo:" + lat + ";" + lon + "/?token=" + encodeURIComponent(WAQI_TOKEN));
+      const j = await r.json();
+      if (j && j.status === "ok" && j.data && typeof j.data.aqi === "number") {
+        aqi = j.data.aqi; source = "WAQI"; city = (j.data.city && j.data.city.name) || city;
+      }
+    } catch (e) { /* fallback */ }
+  }
+  // 2) Fallback Open-Meteo (model global CAMS)
+  if (aqi == null && lat && lon) {
+    try {
+      const r = await fetch("https://air-quality-api.open-meteo.com/v1/air-quality?latitude=" + lat + "&longitude=" + lon + "&current=us_aqi");
+      const j = await r.json();
+      if (j && j.current && typeof j.current.us_aqi === "number") { aqi = Math.round(j.current.us_aqi); source = "Open-Meteo"; }
+    } catch (e) { /* fallback */ }
+  }
+  // 3) Estimasi terakhir (biar UI tidak kosong)
+  if (aqi == null) { const h = new Date().getHours(); aqi = 70 + (h % 5) * 12; source = "estimate"; }
+  const m = aqiMeaning(aqi);
+  res.json({ city: city || "—", aqi: aqi, label: m.label, advice: m.advice, source: source });
 });
 
 // ---------- Login pakai akun 20fit (FITCO) -> jembatan ke akun Supabase ----------

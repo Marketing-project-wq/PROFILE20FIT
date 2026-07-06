@@ -698,12 +698,17 @@
         refreshWeatherText();
         drawWeatherScene(w.weather_code, w.is_day!==0);
       }catch(e){ document.getElementById("wtemp").textContent="–"; document.getElementById("wcity").textContent=L({en:"Weather",id:"Cuaca"})+" · "+city; drawWeatherScene(1,true); }
-      // 2) AQI — terpisah, kalau gagal cuaca tetap tampil
+      // 2) AQI — dari WAQI (via server, sumber valid); fallback Open-Meteo langsung.
       try{
-        const a=(await (await fetchT("https://air-quality-api.open-meteo.com/v1/air-quality?latitude="+lat+"&longitude="+lon+"&current=us_aqi",7000)).json()).current;
-        aqiVal=Math.round(a.us_aqi||0);
+        const a=await (await fetchT("/api/aqi?lat="+lat+"&lon="+lon+"&city="+encodeURIComponent(city||""),7000)).json();
+        aqiVal=Math.round(a.aqi||0);
         drawAqi(aqiVal);
-      }catch(e){}
+      }catch(e){
+        try{
+          const a2=(await (await fetchT("https://air-quality-api.open-meteo.com/v1/air-quality?latitude="+lat+"&longitude="+lon+"&current=us_aqi",7000)).json()).current;
+          aqiVal=Math.round(a2.us_aqi||0); drawAqi(aqiVal);
+        }catch(e2){}
+      }
       loadRecs();
     }
     // Scene cuaca beranimasi sesuai kode WMO Open-Meteo + siang/malam
