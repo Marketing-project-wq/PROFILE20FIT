@@ -131,6 +131,10 @@ app.get("/api/config", (req, res) => {
     supabaseAnonKey: SUPABASE_ANON_KEY || "",
     version: "auth-fix-3",
     serviceKeySet: !!SUPABASE_SERVICE_KEY,
+    // URL halaman login/authorize 20fit. Setelah user login di sana, 20fit harus
+    // redirect balik ke profile.20fit.id/login.html?token=<access_token>.
+    // Diisi lewat env FITCO_SSO_URL dari tim developer.
+    fitcoSsoUrl: process.env.FITCO_SSO_URL || "",
   });
 });
 
