@@ -502,6 +502,42 @@ app.post("/api/fitco-register", async (req, res) => {
   }
 });
 
+// ================= PARTNER API (untuk tim/produk lain di ekosistem 20fit) =================
+// Dilindungi API key. Ganti/rotasi key lewat env PARTNER_API_KEY di server.
+const PARTNER_API_KEY = process.env.PARTNER_API_KEY || "p20f_842d531d14ec668851500f2a0f13e9f974ed4e5d04d379a2";
+function partnerAuth(req, res) {
+  const hdr = String(req.headers["authorization"] || "");
+  const key = (hdr.replace(/^Bearer\s+/i, "").trim()) || String(req.headers["x-api-key"] || "").trim();
+  if (!key || key !== PARTNER_API_KEY) { res.status(401).json({ error: "Unauthorized: invalid or missing API key." }); return false; }
+  return true;
+}
+// Cek key valid.
+app.get("/api/partner/ping", (req, res) => {
+  if (!partnerAuth(req, res)) return;
+  res.json({ ok: true, service: "profile.20fit.id", time: new Date().toISOString() });
+});
+// Ambil profil kesehatan user berdasarkan email ATAU user_id (auth_user_id).
+app.get("/api/partner/profile", async (req, res) => {
+  if (!partnerAuth(req, res)) return;
+  if (!admin) return res.status(500).json({ error: "Server not configured (service key)." });
+  const email = String(req.query.email || "").trim().toLowerCase();
+  const uid = String(req.query.user_id || req.query.auth_user_id || "").trim();
+  if (!email && !uid) return res.status(400).json({ error: "Provide ?email= or ?user_id=." });
+  try {
+    let q = admin.from("my20fit_profile")
+      .select("auth_user_id,email,full_name,phone,gender,age,height_cm,weight_kg,main_goal,health_conditions,avatar_url,is_plus_member,onboarding_completed,cycle_last_period,cycle_length,updated_at")
+      .limit(1);
+    q = email ? q.eq("email", email) : q.eq("auth_user_id", uid);
+    const { data, error } = await q;
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data || !data.length) return res.status(404).json({ error: "Profile not found." });
+    return res.json({ ok: true, profile: data[0] });
+  } catch (e) {
+    console.error("partner/profile:", e.message);
+    return res.status(500).json({ error: "Internal error." });
+  }
+});
+
 // ---------- Static + fallback ----------
 app.use(express.static(path.join(__dirname)));
 app.get("*", (req, res) => {
