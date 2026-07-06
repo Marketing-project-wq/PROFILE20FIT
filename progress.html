@@ -39,6 +39,18 @@
   .wlog{display:flex;gap:8px;margin-top:12px}
   .wlog input{flex:1;min-width:0;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--inp);color:var(--txt);font-size:15px;font-family:inherit;text-align:center}
   .wlog button{flex:0 0 auto;background:var(--red);color:#fff;border:0;border-radius:10px;padding:0 18px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit}
+  .cycrec{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  @media(max-width:480px){ .cycrec{grid-template-columns:1fr} }
+  .cyccol{background:var(--inp);border-radius:12px;padding:10px 12px}
+  .cyclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px}
+  .cyccol ul{margin:0;padding-left:16px}
+  .cyccol li{font-size:12.5px;line-height:1.5;margin-bottom:4px}
+  .bkrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+  .bkrow:first-of-type{border-top:0}
+  .bkdate{flex:0 0 auto;width:46px;text-align:center;background:var(--red);color:#fff;border-radius:10px;padding:6px 0}
+  .bkdate .bkd{font-size:18px;font-weight:900;line-height:1}
+  .bkdate .bkm{font-size:10px;font-weight:700;text-transform:uppercase}
+  .bkinfo{min-width:0}.bkinfo .bkt{font-weight:800;font-size:14px}
   .wrow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
   .wrow:last-child{border-bottom:0}
   .wrow .kg{font-weight:800;font-family:'JetBrains Mono',monospace}
@@ -72,6 +84,7 @@
   <script src="auth.js"></script>
   <script src="i18n.js"></script>
   <script src="achievements.js"></script>
+  <script src="cycle.js"></script>
   <script src="nav.js"></script>
   <script>
     let user=null, profile=null, days=[], weights=[];
@@ -131,11 +144,59 @@
         '<div class="muted" style="font-size:11px;margin-top:12px">'+L({en:"Targets from your BMI, weight & goal. Log meals, water & sleep to complete them.",id:"Target dari BMI, berat & tujuanmu. Catat makan, air & tidur untuk memenuhinya."})+'</div></div>';
     }
 
+    // ---- Siklus menstruasi (khusus female) ----
+    function cycleCard(){
+      if(!profile || String(profile.gender||"").toLowerCase()!=="female") return "";
+      const head='<div class="sec">'+L({en:"Menstrual Cycle",id:"Siklus Menstruasi"})+'</div>';
+      const last=profile.cycle_last_period;
+      const dateInput='<div class="wlog"><input id="periodIn" type="date" value="'+(last||"")+'" max="'+todayStr()+'" /><button onclick="savePeriod()">'+L({en:"Save",id:"Simpan"})+'</button></div>';
+      if(!last){
+        return head+'<div class="card"><div style="font-weight:800">'+L({en:"Track your cycle 🌸",id:"Lacak siklusmu 🌸"})+'</div>'+
+          '<div class="muted" style="font-size:12px;margin:4px 0 2px">'+L({en:"When did your last period start? We’ll show your phase & tips.",id:"Kapan menstruasi terakhir kamu mulai? Kami tampilkan fase & sarannya."})+'</div>'+dateInput+'</div>';
+      }
+      const ci=window.Cycle?Cycle.info(last,profile.cycle_length,profile.period_length):null;
+      if(!ci) return head+'<div class="card">'+dateInput+'</div>';
+      const m=ci.meta;
+      const doList=m.doTips.map(t=>'<li>'+L(t)+'</li>').join('');
+      const eatList=m.eatTips.map(t=>'<li>'+L(t)+'</li>').join('');
+      return head+'<div class="card">'+
+        '<div style="display:flex;align-items:center;gap:14px">'+
+          '<div style="font-size:34px">'+m.emoji+'</div>'+
+          '<div style="flex:1"><div style="font-weight:800;font-size:16px;color:'+m.color+'">'+L(m.name)+'</div>'+
+          '<div class="muted" style="font-size:12.5px">'+L({en:"Day",id:"Hari ke-"})+' '+ci.day+' · '+L({en:"next period ~"+ci.daysToNext+" days",id:"menstruasi berikutnya ~"+ci.daysToNext+" hari"})+'</div></div>'+
+        '</div>'+
+        '<div style="margin-top:10px;font-size:13px;line-height:1.5">'+L(m.summary)+'</div>'+
+        '<div class="cycrec"><div class="cyccol"><div class="cyclbl">🏃 '+L({en:"Do",id:"Lakukan"})+'</div><ul>'+doList+'</ul></div>'+
+        '<div class="cyccol"><div class="cyclbl">🥗 '+L({en:"Eat",id:"Makan"})+'</div><ul>'+eatList+'</ul></div></div>'+
+        '<div class="muted" style="font-size:11.5px;margin-top:12px">'+L({en:"Started your period? Update the date:",id:"Menstruasi mulai? Perbarui tanggalnya:"})+'</div>'+dateInput+'</div>';
+    }
+    async function savePeriod(){
+      const v=document.getElementById("periodIn").value;
+      if(!v){toast(L({en:"Pick a date",id:"Pilih tanggal"}));return;}
+      try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:v,updated_at:new Date().toISOString()}).eq("auth_user_id",user.id);profile.cycle_last_period=v;}catch(e){}
+      toast(L({en:"Cycle updated 🌸",id:"Siklus diperbarui 🌸"}));
+      render();
+    }
+
+    // ---- Kalender booking 20fit (hanya muncul kalau ada booking) ----
+    // bookings diisi dari ekosistem 20fit (butuh token/API 20fit). Kosong -> kartu tidak muncul.
+    let bookings=[];
+    function calendarCard(){
+      if(!bookings || !bookings.length) return "";
+      const head='<div class="sec">'+L({en:"Your 20fit Bookings",id:"Booking 20fit Kamu"})+'</div>';
+      const rows=bookings.slice().sort((a,b)=>String(a.date+a.time)<String(b.date+b.time)?-1:1).map(function(b){
+        return '<div class="bkrow"><div class="bkdate"><div class="bkd">'+(b.day||"")+'</div><div class="bkm">'+(b.mon||"")+'</div></div>'+
+          '<div class="bkinfo"><div class="bkt">'+(b.title||L({en:"Booking",id:"Booking"}))+'</div>'+
+          '<div class="muted" style="font-size:12px">'+[b.time,b.location,b.coach].filter(Boolean).join(" · ")+'</div></div></div>';
+      }).join("");
+      return head+'<div class="card"><div style="font-weight:800;margin-bottom:8px">'+L({en:"Upcoming",id:"Akan Datang"})+'</div>'+rows+'</div>';
+    }
+
     function render(){
       const c=document.getElementById("content");
       document.getElementById("hk").textContent=L({en:"Your journey",id:"Perjalananmu"});
       document.getElementById("hello").textContent=L({en:"Progress",id:"Progress"});
-      if(!days.length){ c.innerHTML=overallCard()+'<div class="card" style="margin-top:14px"><div class="empty">'+L({en:"Start tracking your water, sleep & meals — your weekly progress will appear here.",id:"Mulai catat air, tidur & makananmu — progres mingguanmu akan muncul di sini."})+'</div></div>'; return; }
+      if(!days.length){ c.innerHTML=overallCard()+cycleCard()+calendarCard()+'<div class="card" style="margin-top:14px"><div class="empty">'+L({en:"Start tracking your water, sleep & meals — your weekly progress will appear here.",id:"Mulai catat air, tidur & makananmu — progres mingguanmu akan muncul di sini."})+'</div></div>'; return; }
 
       // ---- summary ----
       const tracked=days.filter(d=>d.log&&(d.log.water_glasses>0||d.log.sleep_hours>0||d.cal>0)).length;
@@ -200,7 +261,7 @@
           '<div style="flex:1"><div style="font-weight:800">'+(att?L({en:att+" thing(s) to watch",id:att+" hal perlu diperhatikan"}):L({en:"Latest MCU: all normal",id:"MCU terakhir: semua normal"}))+'</div><div class="muted" style="font-size:12px">'+L({en:"Tap to view full results",id:"Ketuk untuk lihat hasil lengkap"})+'</div></div><span style="color:var(--pagemut);font-weight:800">›</span></a>';
       }
 
-      c.innerHTML=overallCard()+summary+streakCard+charts+weightCard+achCard+medCard;
+      c.innerHTML=overallCard()+cycleCard()+calendarCard()+summary+streakCard+charts+weightCard+achCard+medCard;
     }
 
     async function logWeight(){
