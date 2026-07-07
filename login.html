@@ -45,6 +45,20 @@
   "sameAs": ["https://my.20fit.id","https://booking.20fit.id"]
 }
 </script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type":"Question","name":"Apakah 20FIT Profile gratis?","acceptedAnswer":{"@type":"Answer","text":"Ya. Membuat profil kesehatan 20FIT, upload hasil medical check-up (MCU) & lab, tracking kesehatan harian, dan mendapatkan analisa berbasis AI semuanya gratis. Kamu hanya membayar untuk add-on opsional seperti scan kalori makanan AI tambahan di luar jatah gratis bulanan, tanpa perlu langganan."}},
+    {"@type":"Question","name":"Aku sudah punya akun 20FIT — bisa dipakai di sini?","acceptedAnswer":{"@type":"Answer","text":"Bisa. Masuk pakai email dan password 20FIT kamu, atau klik Masuk dengan 20FIT. Membership dan data kesehatanmu otomatis terhubung, jadi profil, booking kelas, dan riwayat latihan tersimpan dalam satu tempat di ekosistem 20FIT."}},
+    {"@type":"Question","name":"Apa yang bisa dibaca AI dari medical check-up?","acceptedAnswer":{"@type":"Answer","text":"Upload hasil lab atau laporan medical check-up (MCU) dari rumah sakit atau klinik mana pun (PDF, JPG, atau PNG). AI 20FIT membaca setiap parameter, menandai nilai di luar batas normal, menjelaskannya dengan bahasa sederhana, lalu memberi saran diet, olahraga, dan tindak lanjut. Ini panduan edukasi, bukan diagnosa medis."}},
+    {"@type":"Question","name":"Bagaimana cara kerja scan kalori makanan pakai AI?","acceptedAnswer":{"@type":"Answer","text":"Foto makananmu atau upload gambar, dan AI 20FIT memperkirakan total kalori dan makro lengkap (protein, karbohidrat, lemak, serat), memberi health score, serta tips agar lebih seimbang. Cocok untuk masakan Indonesia dan masakan rumahan. Ada jatah scan gratis tiap bulan dengan opsi top-up."}},
+    {"@type":"Question","name":"Apakah data kesehatanku aman dan privat?","acceptedAnswer":{"@type":"Answer","text":"Ya. Data kesehatanmu seperti hasil medical check-up, catatan kalori, berat badan, tidur, dan siklus disimpan dengan aman dan hanya dipakai untuk profil serta rekomendasimu sendiri. Data tidak dijual ke pihak ketiga."}},
+    {"@type":"Question","name":"Perlu jadi member gym dulu untuk mulai?","acceptedAnswer":{"@type":"Answer","text":"Tidak. Siapa pun bisa mulai dengan 20FIT Profile tanpa membership — tracking kesehatan, analisa check-up, dan scan makanan bisa langsung dipakai, lalu terhubung ke layanan gym, personal training, EMS, dan physiotherapy 20FIT kapan pun kamu siap."}}
+  ]
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700;900&family=JetBrains+Mono:wght@400;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -52,7 +66,9 @@
   :root{--red:#C41101;--bg:#EDE8DF;--card:#FFFFFF;--dark:#0A0908;--txt:#0A0908;--soft:#555;--muted:#9E8E7A;--border:#E8E2DB;--inp:#F0EDE5}
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);font-family:Manrope,system-ui,sans-serif}
-  .split{display:flex;min-height:100vh}
+  /* min-height <100vh di desktop: sisakan sedikit halaman berikutnya "ngintip" di bawah
+     supaya user sadar masih bisa scroll ke bawah. */
+  .split{display:flex;min-height:88vh}
   .hero{flex:0 0 45%;background:var(--dark);color:#F0EDE6;padding:40px 44px;display:flex;flex-direction:column;justify-content:space-between;position:relative;
     background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:46px 46px}
   .herotop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
@@ -255,7 +271,7 @@
         <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600"></a></div>
 
         <div class="orsep"><span data-k="orsep">or</span></div>
-        <button class="sbtn mbtn" type="button" onclick="loginWith20fit()">
+        <button class="sbtn mbtn" id="btn20fit" type="button" onclick="loginWith20fit()">
           <img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" style="height:16px;width:auto" />
           <span data-k="with20fit">Continue with 20FIT</span>
         </button>
@@ -426,18 +442,18 @@
                 id:{t:"Satu ekosistem 20FIT",        d:"Booking Gym, Personal Training, EMS, Physiotherapy & klinik — terhubung ke data kesehatanmu."}},
     ];
     const FAQS = [
-      {en:{q:"Is 20FIT Profile free to use?",           a:"Yes. Creating your health profile, tracking, and AI check-up analysis are free. Some add-ons (like extra calorie scans) are optional top-ups."},
-       id:{q:"Apakah 20FIT Profile gratis?",            a:"Ya. Membuat profil kesehatan, tracking, dan analisa check-up AI gratis. Beberapa add-on (misal scan kalori tambahan) opsional lewat top-up."}},
-      {en:{q:"I already have a 20FIT account — can I use it here?", a:"Absolutely. Sign in with your existing 20FIT email & password, or tap “Continue with 20FIT”. Your data connects automatically."},
-       id:{q:"Aku sudah punya akun 20FIT — bisa dipakai di sini?",  a:"Tentu. Masuk pakai email & password 20FIT kamu, atau klik “Masuk dengan 20FIT”. Datamu otomatis terhubung."}},
-      {en:{q:"What can the AI read from my check-up?",   a:"Upload lab results or an MCU report and the AI highlights what needs attention, explains each parameter, and suggests diet, exercise & follow-ups. It’s guidance, not a diagnosis."},
-       id:{q:"Apa yang bisa dibaca AI dari check-up?",  a:"Upload hasil lab atau MCU, AI menandai yang perlu diperhatikan, menjelaskan tiap parameter, & memberi saran diet, olahraga & tindak lanjut. Ini panduan, bukan diagnosa."}},
-      {en:{q:"How does the calorie food scan work?",     a:"Just snap or upload a photo of your meal. Our AI estimates the calories and full macros (protein, carbs, fat & fiber), gives a health score, and suggests how to make it more balanced. You get free scans every month, with optional top-ups for more."},
-       id:{q:"Bagaimana cara kerja scan kalori makanan?", a:"Cukup foto atau upload gambar makananmu. AI kami memperkirakan kalori & makro lengkap (protein, karbo, lemak & serat), memberi health score, dan saran biar lebih seimbang. Ada jatah scan gratis tiap bulan, dan bisa top-up kalau mau lebih."}},
-      {en:{q:"Is my health data private?",              a:"Yes. Your data is stored securely and only used to power your own profile and recommendations."},
-       id:{q:"Apakah data kesehatanku aman?",          a:"Ya. Datamu disimpan dengan aman dan hanya dipakai untuk profil & rekomendasimu sendiri."}},
-      {en:{q:"Do I need a gym membership to start?",     a:"No. Anyone can start — whether you’re new to a healthy lifestyle or a long-time member. 20FIT’s services are there when you’re ready."},
-       id:{q:"Perlu jadi member gym dulu untuk mulai?", a:"Tidak. Siapa pun bisa mulai — baru memulai hidup sehat atau sudah lama. Layanan 20FIT siap saat kamu butuh."}},
+      {en:{q:"Is 20FIT Profile free to use?",           a:"Yes. Creating your 20FIT health profile, uploading medical check-up (MCU) and lab results, tracking your daily health, and getting AI-powered analysis are all completely free. You only pay for optional add-ons — such as extra AI calorie food scans beyond your free monthly quota — and there is no subscription required to start understanding your health."},
+       id:{q:"Apakah 20FIT Profile gratis?",            a:"Ya. Membuat profil kesehatan 20FIT, upload hasil medical check-up (MCU) & lab, tracking kesehatan harian, dan mendapatkan analisa berbasis AI semuanya sepenuhnya gratis. Kamu hanya membayar untuk add-on opsional — seperti scan kalori makanan AI tambahan di luar jatah gratis bulanan — dan tidak perlu langganan untuk mulai memahami kondisi kesehatanmu."}},
+      {en:{q:"I already have a 20FIT account — can I use it here?", a:"Absolutely. If you already train at a 20FIT gym or use 20FIT services, sign in with your existing 20FIT email and password, or tap “Continue with 20FIT”. Your membership and health data connect automatically, so your profile, class bookings, and workout history stay in one place across the entire 20FIT ecosystem."},
+       id:{q:"Aku sudah punya akun 20FIT — bisa dipakai di sini?",  a:"Tentu. Kalau kamu sudah latihan di gym 20FIT atau memakai layanan 20FIT, masuk pakai email dan password 20FIT kamu, atau klik “Masuk dengan 20FIT”. Membership dan data kesehatanmu otomatis terhubung, jadi profil, booking kelas, dan riwayat latihanmu tersimpan dalam satu tempat di seluruh ekosistem 20FIT."}},
+      {en:{q:"What can the AI read from my medical check-up?",   a:"Upload your lab results or a full medical check-up (MCU) report from any hospital or clinic — as a PDF, JPG, or PNG — and the 20FIT AI reads every parameter, highlights values outside the normal range, and explains what each one means in plain, easy-to-understand language. It then suggests diet, exercise, and follow-up steps tailored to your results. This is educational guidance to help you understand your health, not a medical diagnosis or a replacement for your doctor."},
+       id:{q:"Apa yang bisa dibaca AI dari medical check-up?",  a:"Upload hasil lab atau laporan medical check-up (MCU) lengkap dari rumah sakit atau klinik mana pun — dalam format PDF, JPG, atau PNG — dan AI 20FIT membaca setiap parameter, menandai nilai yang di luar batas normal, serta menjelaskan artinya dengan bahasa yang mudah dipahami. AI juga memberi saran diet, olahraga, dan langkah tindak lanjut sesuai hasilmu. Ini panduan edukasi untuk membantumu memahami kesehatan, bukan diagnosa medis atau pengganti dokter."}},
+      {en:{q:"How does the AI calorie food scan work?",     a:"Just snap a photo of your meal or upload an existing one, and the 20FIT AI estimates the total calories and full macros — protein, carbohydrates, fat, and fiber — then gives the meal a health score and practical tips to make it more balanced. It works for Indonesian dishes and home cooking, not only packaged food. You get a set of free scans every month, with affordable top-ups if you want to track your nutrition more often."},
+       id:{q:"Bagaimana cara kerja scan kalori makanan pakai AI?", a:"Cukup foto makananmu atau upload gambar yang sudah ada, dan AI 20FIT memperkirakan total kalori dan makro lengkap — protein, karbohidrat, lemak, dan serat — lalu memberi health score serta tips praktis agar makananmu lebih seimbang. Bisa untuk masakan Indonesia dan masakan rumahan, bukan cuma makanan kemasan. Ada jatah scan gratis tiap bulan, dan top-up terjangkau kalau ingin tracking nutrisi lebih sering."}},
+      {en:{q:"Is my health data private and secure?",              a:"Yes. Your health data — medical check-up results, calorie logs, weight, sleep, and cycle information — is stored securely and used only to power your own profile, insights, and recommendations. It is never sold to third parties, and you stay in full control of the information you choose to upload."},
+       id:{q:"Apakah data kesehatanku aman dan privat?",          a:"Ya. Data kesehatanmu — hasil medical check-up, catatan kalori, berat badan, tidur, dan informasi siklus — disimpan dengan aman dan hanya dipakai untuk profil, insight, dan rekomendasimu sendiri. Datamu tidak pernah dijual ke pihak ketiga, dan kamu tetap memegang kendali penuh atas informasi yang kamu upload."}},
+      {en:{q:"Do I need a gym membership to start?",     a:"No. Anyone can start with 20FIT Profile — whether you are just beginning a healthier lifestyle or you have been training for years. You can track your health, analyse your check-ups, and scan your meals without any membership, and connect to 20FIT gym, personal training, EMS, and physiotherapy services whenever you are ready."},
+       id:{q:"Perlu jadi member gym dulu untuk mulai?", a:"Tidak. Siapa pun bisa mulai dengan 20FIT Profile — baik kamu baru memulai hidup sehat maupun sudah bertahun-tahun latihan. Kamu bisa tracking kesehatan, analisa check-up, dan scan makanan tanpa membership apa pun, lalu terhubung ke layanan gym, personal training, EMS, dan physiotherapy 20FIT kapan pun kamu siap."}},
     ];
     let caroIdx=0, caroTimer=null;
     function renderMarketing(){
@@ -445,12 +461,13 @@
       const caro=document.getElementById("caro");
       if(caro) caro.innerHTML=FEATURES.map((f,i)=>'<div class="caro-slide'+(i===0?' on':'')+'" data-i="'+i+'"><div class="cic">'+f.ic+'</div><div><div class="ct">'+pick(f).t+'</div><div class="cd">'+pick(f).d+'</div></div></div>').join("");
       const dots=document.getElementById("caroDots");
-      if(dots) dots.innerHTML=FEATURES.map((f,i)=>'<b'+(i===0?' class="on"':'')+' data-i="'+i+'" onclick="caroGo('+i+')"></b>').join("");
+      if(dots) dots.innerHTML=FEATURES.map((f,i)=>'<b'+(i===0?' class="on"':'')+' data-i="'+i+'" onclick="caroUser('+i+')"></b>').join("");
       caroIdx=0;
       const g=document.getElementById("fgrid");
       if(g) g.innerHTML=FEATURES.map(f=>'<div class="fcard"><div class="fic">'+f.ic+'</div><h3>'+pick(f).t+'</h3><p>'+pick(f).d+'</p></div>').join("");
       const fq=document.getElementById("faq");
       if(fq) fq.innerHTML=FAQS.map((f,i)=>'<div class="faq-item" id="faqi'+i+'"><div class="faq-q" onclick="toggleFaq('+i+')">'+pick(f).q+'<span class="pl">+</span></div><div class="faq-a"><div class="inner">'+pick(f).a+'</div></div></div>').join("");
+      bindCaro();
     }
     function caroGo(i){
       if(!FEATURES.length) return;
@@ -459,6 +476,20 @@
       document.querySelectorAll(".caro-dots b").forEach(b=>b.classList.toggle("on",+b.dataset.i===caroIdx));
     }
     function startCaro(){ if(caroTimer)clearInterval(caroTimer); caroTimer=setInterval(()=>caroGo(caroIdx+1),3800); }
+    // Navigasi manual oleh user (klik dot / klik slide / swipe) -> pindah + reset timer auto.
+    function caroUser(i){ caroGo(i); startCaro(); }
+    function bindCaro(){
+      const c=document.getElementById("caro"); if(!c||c.dataset.bound)return; c.dataset.bound="1";
+      c.style.cursor="pointer"; c.style.touchAction="pan-y";
+      let x0=null;
+      c.addEventListener("pointerdown",e=>{ x0=e.clientX; });
+      c.addEventListener("pointerup",e=>{
+        if(x0==null)return; const dx=e.clientX-x0; x0=null;
+        if(Math.abs(dx)>40){ caroUser(caroIdx+(dx<0?1:-1)); }  // swipe kiri/kanan
+        else { caroUser(caroIdx+1); }                          // klik biasa -> berikutnya
+      });
+      c.addEventListener("pointercancel",()=>{ x0=null; });
+    }
     function toggleFaq(i){
       const el=document.getElementById("faqi"+i); if(!el) return;
       const open=el.classList.contains("open");
@@ -531,39 +562,9 @@
           await Auth.fitcoRegister({name:name,email:email,password:password,phone:phone,gender:gender,date_of_birth:birthdate});
         }
         else{
-          // LOGIN: utamakan akun 20FIT (API developer) -> token 20FIT kebentuk tiap
-          // login & lebih seamless. Kalau bukan akun 20FIT, baru pakai akun buatan
-          // sendiri (Supabase, dari Create Account).
-          try{
-            await Auth.fitcoLogin(email,password);   // akun ekosistem 20FIT
-          }catch(e20){
-            const m20=String(e20&&e20.message||"").toLowerCase();
-            // 20FIT tak bisa dihubungi / server belum siap (bukan "kredensial salah")
-            const twentyDown = m20.includes("dikonfigurasi")||m20.includes("service key")||m20.includes("menghubungi")||m20.includes("502")||m20.includes("500");
-            try{
-              await Auth.signIn(email,password);       // akun buatan sendiri (Supabase)
-            }catch(eSb){
-              // Dua-duanya gagal. Kalau 20FIT lagi down -> jangan salah arah, minta coba lagi.
-              if(twentyDown){
-                btn.disabled=false;
-                msg(lang==="en"?"Sign-in service is busy. Please try again in a moment.":"Layanan masuk lagi sibuk. Coba lagi sebentar ya.","err");
-                return;
-              }
-              // 20FIT bisa dihubungi tapi nolak + Supabase gagal -> cek akun ada/tidak.
-              const exists=await Auth.emailExists(email);
-              if(exists===false){
-                // BELUM punya akun di mana pun -> dorong ke Buat Akun (prefill).
-                btn.disabled=false;
-                setMode("up");
-                document.getElementById("name").focus();
-                msg(lang==="en"
-                  ? "You don't have an account yet — create one below to get started."
-                  : "Kamu belum punya akun — buat akun baru di bawah ya untuk mulai.","err");
-                return;
-              }
-              throw eSb; // akun ADA -> kemungkinan password salah
-            }
-          }
+          // SIGN IN biasa (tombol MERAH): pakai akun web/Supabase.
+          // Login pakai akun 20FIT ada di tombol HITAM (loginWith20fit).
+          await Auth.signIn(email,password);
         }
         saveCredential(email,password);
         await Auth.routeAfterAuth();
@@ -583,23 +584,21 @@
       return "Error: "+(m||"unknown");
     }
 
-    // ---- Tombol "Masuk dengan 20FIT" (SSO 1-klik) ----
-    // Arahkan ke halaman login/authorize 20FIT (FITCO_SSO_URL). Setelah user login
-    // di sana, 20FIT redirect balik ke sini dgn ?token=<access_token> -> auto masuk.
+    // ---- Tombol HITAM "Masuk dengan 20FIT" ----
+    // Login LANGSUNG pakai akun 20FIT: email+password dari form -> API FITCO
+    // (Auth.fitcoLogin). Bukan SSO redirect.
     async function loginWith20fit(){
-      msg(lang==="en"?"Opening 20FIT sign-in…":"Membuka masuk 20FIT…","");
+      const d=T[lang];
+      const email=document.getElementById("email").value.trim();
+      const password=document.getElementById("password").value;
+      if(!email||!password)return msg(d.errFill,"err");
+      const b=document.getElementById("btn20fit"); if(b)b.disabled=true;
+      msg(lang==="en"?"Signing in with 20FIT…":"Masuk dengan akun 20FIT…","");
       try{
-        const cfg=await (await fetch("/api/config")).json();
-        const sso=cfg&&cfg.fitcoSsoUrl;
-        if(sso){
-          const back=encodeURIComponent(location.origin+"/login.html");
-          location.href=sso+(sso.indexOf("?")>=0?"&":"?")+"redirect_uri="+back;
-        }else{
-          msg(lang==="en"
-            ? "One-tap 20FIT sign-in is being set up with the developer team. For now, sign in with your 20FIT email & password above."
-            : "Masuk 1-klik dengan 20FIT sedang disiapkan bersama tim developer. Sementara, pakai email & password 20FIT kamu di atas ya.","err");
-        }
-      }catch(e){ msg(lang==="en"?"Couldn't start 20FIT sign-in. Try again.":"Gagal memulai masuk 20FIT. Coba lagi.","err"); }
+        await Auth.fitcoLogin(email,password);
+        saveCredential(email,password);
+        await Auth.routeAfterAuth();
+      }catch(e){ msg(terjemah(e.message),"err"); if(b)b.disabled=false; }
     }
 
     // Prefill email & password dari password manager browser (kalau ada)
