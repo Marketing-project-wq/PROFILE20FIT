@@ -127,6 +127,11 @@ button[type="submit"]:active,input[type="submit"]:active{transform:scale(.98)}
 }
 /* Dark "ink" buttons (upload, email-code, scan) */
 .btn2,.mbtn,.scanbtn{background:var(--dark) !important;color:var(--bg) !important;border:0 !important;box-shadow:none !important}
+/* DARK MODE: --dark & --bg are both near-black, so the ink buttons above would be
+   black-on-black (invisible). Give them a visible elevated surface + light text. */
+html:not(.theme-light) .btn2,html:not(.theme-light) .mbtn,html:not(.theme-light) .scanbtn,
+html[data-theme="dark"] .btn2,html[data-theme="dark"] .mbtn,html[data-theme="dark"] .scanbtn{
+  background:var(--inp) !important;color:var(--txt) !important;border:1px solid var(--line) !important}
 
 /* Focus ring (a11y) + disabled */
 .btn:focus-visible,.bookbtn:focus-visible,.cta:focus-visible,.book:focus-visible,

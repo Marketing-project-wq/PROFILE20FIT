@@ -76,7 +76,7 @@
   .ifhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
   .ifchange{background:none;border:0;color:var(--red);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit}
   .ifstate{display:inline-block;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:4px 10px;border-radius:20px}
-  .ifstate.eat{background:rgba(42,122,79,.15);color:#2A7A4F}
+  .ifstate.eat{background:rgba(42,122,79,.15);color:var(--green)}
   .ifstate.fast{background:rgba(200,112,0,.15);color:#C87000}
   .iftime{font-size:24px;font-weight:900;margin-top:8px;font-family:'JetBrains Mono',monospace}
   .iftl{position:relative;height:14px;background:var(--inp);border-radius:7px;margin:12px 0 4px}
@@ -251,7 +251,7 @@
     .scd-rec{background:var(--green-soft);border:1px solid color-mix(in srgb,var(--green) 22%,transparent);border-radius:14px;padding:12px 14px;border-top:0}
     .scd-rec .scd-lbl{color:var(--green)}
     .scd-needs{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-    .need-chip{font-size:11.5px;font-weight:800;color:var(--green);background:#fff;border:1px solid color-mix(in srgb,var(--green) 30%,transparent);padding:4px 9px;border-radius:999px}
+    .need-chip{font-size:11.5px;font-weight:800;color:var(--green);background:var(--card);border:1px solid color-mix(in srgb,var(--green) 30%,transparent);padding:4px 9px;border-radius:999px}
     /* ---- Kamera webcam (desktop) ---- */
     .cam-bg{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.86);display:none;align-items:center;justify-content:center;padding:20px}
     .cam-bg.open{display:flex}
@@ -407,7 +407,7 @@
         const kcal=Math.round(j.result.total_kcal||it.kcal||0);
         if(!kcal)throw new Error(j.result.note||L({en:"Couldn't estimate that.",id:"Tidak bisa menghitung itu."}));
         addToLog(name+" ("+gram+"g)",kcal,it.protein_g,it.carbs_g,it.fat_g);
-        out.style.color="#2A7A4F";out.textContent="+"+kcal+" "+kc()+" · "+name+" ("+gram+"g)";
+        out.style.color="var(--green)";out.textContent="+"+kcal+" "+kc()+" · "+name+" ("+gram+"g)";
         document.getElementById("fname").value="";document.getElementById("fgram").value="";
       }catch(e){out.style.color="var(--red)";out.textContent=e.message;}
       btn.disabled=false;
@@ -660,7 +660,7 @@
     (function(){ var b=document.getElementById("dealsClose"); if(b)b.addEventListener("click",closeDeals);
       var bg=document.getElementById("dealsBg"); if(bg)bg.addEventListener("click",function(e){ if(e.target===bg)closeDeals(); });
       var sbg=document.getElementById("scanBg"); if(sbg)sbg.addEventListener("click",function(e){ if(e.target===sbg)closeScanModal(); }); })();
-    function addScanned(){lastScan.forEach(i=>addToLog(i.name,i.kcal,i.protein_g,i.carbs_g,i.fat_g));closeScanModal();document.getElementById("scanresult").innerHTML='<div style="color:#2A7A4F">'+I18N.t("cal_added")+'</div>'}
+    function addScanned(){lastScan.forEach(i=>addToLog(i.name,i.kcal,i.protein_g,i.carbs_g,i.fat_g));closeScanModal();document.getElementById("scanresult").innerHTML='<div style="color:var(--green)">'+I18N.t("cal_added")+'</div>'}
 
     // ---- Healthy-swap pop-up: same calories from healthier options + how much is still needed ----
     function openHealthyModal(scanKcal){

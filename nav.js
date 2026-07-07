@@ -15,8 +15,8 @@
   const items = [
     { href: "dashboard.html", key: "nav_home", k: "home" },
     { href: "medical.html", key: "nav_medical", k: "medical" },
-    { href: "progress.html", key: "nav_progress", k: "progress" },
     { href: "calories.html", key: "nav_calories", k: "calories" },
+    { href: "progress.html", key: "nav_progress", k: "progress" },
     { href: "profile.html", key: "nav_profile", k: "profile" },
   ];
   const cur = (location.pathname.split("/").pop() || "dashboard.html").toLowerCase();
@@ -106,7 +106,9 @@
   // Light mode -> difilter jadi HITAM (biar kebaca di sidebar putih).
   // Kalau nanti ada URL logo font-hitam+dot-merah, isi LOGO_LIGHT_URL -> dipakai tanpa filter.
   const LOGO = "https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png";
-  const LOGO_LIGHT_URL = "https://media.20fit.id/wp-content/uploads/2026/05/Logo-20fit.png";
+  // Pakai SATU file logo (font putih) untuk semua mode & bahasa -> ukuran identik di
+  // light/dark & EN/ID. Di light mode difilter jadi hitam (brightness 0) via applyLogo.
+  const LOGO_LIGHT_URL = "";
   function themeIsLight() { return document.documentElement.classList.contains("theme-light"); }
   function applyLogo() {
     const light = themeIsLight();
