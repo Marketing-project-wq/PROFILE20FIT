@@ -83,6 +83,14 @@
   /* ---- See features button ---- */
   .seebtn{width:100%;margin-top:16px;padding:12px;border-radius:12px;background:transparent;border:1px dashed var(--border);color:var(--soft);font-weight:700;font-size:13.5px;cursor:pointer;font-family:Manrope}
   .seebtn:hover{border-color:var(--red);color:var(--red)}
+  /* ---- Scroll cue (petunjuk masih ada info di bawah) ---- */
+  .scrollcue{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:70;display:flex;flex-direction:column;align-items:center;gap:4px;
+    color:var(--soft);font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;cursor:pointer;
+    background:rgba(255,255,255,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:22px;padding:8px 16px 6px;
+    box-shadow:0 6px 20px rgba(10,9,8,.12);transition:opacity .4s,transform .4s}
+  .scrollcue svg{width:16px;height:16px;stroke:var(--red);stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round;animation:cuebob 1.4s ease-in-out infinite}
+  @keyframes cuebob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+  .scrollcue.gone{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(12px)}
   /* ---- Marketing scroll sections ---- */
   .mkt{max-width:1080px;margin:0 auto;padding:6px 24px 0}
   .mission{background:var(--dark);color:#F0EDE6;border-radius:22px;padding:42px 38px;margin:30px auto;
@@ -212,6 +220,12 @@
     </div>
   </div>
 
+  <!-- Petunjuk scroll -->
+  <div class="scrollcue" id="scrollcue" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">
+    <span data-k="scrollcue">Scroll for more</span>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+
   <!-- ============ MISI / UNTUK SEMUA ORANG ============ -->
   <section class="mkt">
     <div class="mission">
@@ -295,7 +309,7 @@
         existDesc:"Sign in with an email code — you'll then be guided to complete your data & create a password.",
         emailNeed:"Enter your email first.", codeNeed:"Enter the code from your email.",
         magicSent:"Login code sent! Check your email.", sending:"Sending code...",
-        seeFeatures:"✨ See what's inside 20FIT Profile",
+        seeFeatures:"✨ See what's inside 20FIT Profile", scrollcue:"Scroll for more",
         missLabel:"For everyone",
         missTitle:"Whether you're just starting out — or you've lived healthy for years.",
         missBody:"20FIT Profile is built for every stage of your health journey. Our role is to answer your real health needs and bring everything into one ecosystem — so tracking your body, your food, your check-ups and your training finally feels effortless.",
@@ -332,7 +346,7 @@
         existDesc:"Masuk pakai kode email — nanti kamu diarahkan untuk lengkapi data & buat password.",
         emailNeed:"Isi email kamu dulu.", codeNeed:"Masukkan kode dari email.",
         magicSent:"Kode login terkirim! Cek email kamu.", sending:"Mengirim kode...",
-        seeFeatures:"✨ Lihat apa aja isi 20FIT Profile",
+        seeFeatures:"✨ Lihat apa aja isi 20FIT Profile", scrollcue:"Geser ke bawah",
         missLabel:"Untuk semua orang",
         missTitle:"Baru mulai — atau sudah lama menjalani hidup sehat.",
         missBody:"20FIT Profile dibuat untuk setiap tahap perjalanan sehatmu. Peran kami adalah menjawab kebutuhan kesehatanmu yang sebenarnya dan menyatukan semuanya dalam satu ekosistem — supaya melacak tubuh, makanan, hasil check-up, dan latihanmu jadi jauh lebih mudah.",
@@ -372,6 +386,8 @@
        id:{q:"Aku sudah punya akun 20FIT — bisa dipakai di sini?",  a:"Tentu. Masuk pakai email & password 20FIT kamu, atau klik “Masuk dengan 20FIT”. Datamu otomatis terhubung."}},
       {en:{q:"What can the AI read from my check-up?",   a:"Upload lab results or an MCU report and the AI highlights what needs attention, explains each parameter, and suggests diet, exercise & follow-ups. It’s guidance, not a diagnosis."},
        id:{q:"Apa yang bisa dibaca AI dari check-up?",  a:"Upload hasil lab atau MCU, AI menandai yang perlu diperhatikan, menjelaskan tiap parameter, & memberi saran diet, olahraga & tindak lanjut. Ini panduan, bukan diagnosa."}},
+      {en:{q:"How does the calorie food scan work?",     a:"Just snap or upload a photo of your meal. Our AI estimates the calories and full macros (protein, carbs, fat & fiber), gives a health score, and suggests how to make it more balanced. You get free scans every month, with optional top-ups for more."},
+       id:{q:"Bagaimana cara kerja scan kalori makanan?", a:"Cukup foto atau upload gambar makananmu. AI kami memperkirakan kalori & makro lengkap (protein, karbo, lemak & serat), memberi health score, dan saran biar lebih seimbang. Ada jatah scan gratis tiap bulan, dan bisa top-up kalau mau lebih."}},
       {en:{q:"Is my health data private?",              a:"Yes. Your data is stored securely and only used to power your own profile and recommendations."},
        id:{q:"Apakah data kesehatanku aman?",          a:"Ya. Datamu disimpan dengan aman dan hanya dipakai untuk profil & rekomendasimu sendiri."}},
       {en:{q:"Do I need a gym membership to start?",     a:"No. Anyone can start — whether you’re new to a healthy lifestyle or a long-time member. 20FIT’s services are there when you’re ready."},
@@ -590,6 +606,10 @@
     })();
     applyLang();
     startCaro();   // jalankan carousel fitur yang bergerak
+    // Sembunyikan tanda scroll setelah user mulai scroll
+    window.addEventListener("scroll",function(){
+      var c=document.getElementById("scrollcue"); if(c) c.classList.toggle("gone", window.scrollY>60);
+    },{passive:true});
     // Prefill dari URL (mis. dari halaman kode saat email belum terdaftar -> dorong Buat Akun)
     (function(){
       try{
