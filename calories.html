@@ -211,6 +211,13 @@
     .hopt-close{width:100%;margin-top:16px;border:0;border-radius:12px;background:var(--red);color:#fff;font-weight:800;font-size:15px;padding:14px;cursor:pointer}
     .hopt-ghost{width:100%;margin-top:9px;border:0;border-radius:12px;background:var(--inp);color:var(--txt);font-weight:750;font-size:14px;padding:12px;cursor:pointer}
     @media(min-width:620px){ .hopt-bg{align-items:center;padding:24px} .hopt{border-radius:22px} .hopt .grab{display:none} }
+    /* Loading pop-up (foto sedang dianalisa) */
+    .scanload-ring{width:52px;height:52px;margin:8px auto 2px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--red);animation:scanspin .8s linear infinite}
+    @keyframes scanspin{to{transform:rotate(360deg)}}
+    #scanLoadTitle{font-size:19px;font-weight:800}
+    .scanload-fact{background:var(--green-soft,var(--inp));border-radius:14px;padding:14px 16px;margin-top:6px;text-align:left}
+    .scanload-fact #scanLoadFactLbl{display:inline-block;font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;font-weight:800;color:var(--green,#2A7A4F);margin-bottom:6px}
+    .scanload-fact #scanLoadFact{font-size:13.5px;line-height:1.55;color:var(--txt)}
     /* ---- Kartu hasil scan DETAIL ---- */
     .scd{margin-top:2px}
     .scd-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:12px}
@@ -291,6 +298,16 @@
       <div id="dealsList"></div>
       <div class="deal-note" id="dealsNote"></div>
       <button class="hopt-ghost" id="dealsClose" style="margin-top:16px">Maybe later</button>
+    </div>
+  </div>
+
+  <!-- Pop-up loading saat foto sedang dianalisa -->
+  <div class="hopt-bg" id="scanLoadBg">
+    <div class="hopt" style="text-align:center">
+      <div class="grab"></div>
+      <div class="scanload-ring"></div>
+      <h3 id="scanLoadTitle" style="margin:16px 0 8px">Your food is being scanned…</h3>
+      <div class="scanload-fact"><span id="scanLoadFactLbl">Fun fact</span><div id="scanLoadFact"></div></div>
     </div>
   </div>
 
@@ -462,6 +479,30 @@
     }
 
     // Analisa 1 foto makanan (dipakai tombol Foto/Album & tombol Scan global)
+    // ---- Fun facts makanan (tampil saat loading scan) ----
+    const FOOD_FACTS=[
+      {en:"Broccoli contains more vitamin C than an orange, gram for gram.",id:"Brokoli punya vitamin C lebih banyak dari jeruk, per gramnya."},
+      {en:"Eating protein helps you feel full longer and supports muscle.",id:"Makan protein bikin kenyang lebih lama & bantu jaga otot."},
+      {en:"Chili peppers can give your metabolism a small, temporary boost.",id:"Cabai bisa sedikit meningkatkan metabolisme untuk sementara."},
+      {en:"Chewing slowly helps your brain notice you're full — and eat less.",id:"Mengunyah pelan bantu otak sadar kamu kenyang — jadi makan lebih sedikit."},
+      {en:"Colorful plates usually mean more vitamins — eat the rainbow!",id:"Piring warna-warni biasanya lebih kaya vitamin — makan aneka warna!"},
+      {en:"Avocados are a fruit and packed with heart-healthy fats.",id:"Alpukat itu buah, dan kaya lemak sehat untuk jantung."},
+      {en:"A glass of water before a meal can help with portion control.",id:"Segelas air sebelum makan bantu kontrol porsi."},
+      {en:"Dark chocolate (70%+) is rich in antioxidants — in moderation.",id:"Dark chocolate (70%+) kaya antioksidan — secukupnya ya."},
+      {en:"Fiber from veggies & whole grains keeps your gut happy.",id:"Serat dari sayur & biji utuh bikin pencernaan sehat."},
+      {en:"Eggs are one of the most complete protein sources you can eat.",id:"Telur salah satu sumber protein paling lengkap yang bisa kamu makan."},
+      {en:"Bananas give quick energy — great before a workout.",id:"Pisang kasih energi cepat — bagus sebelum olahraga."},
+      {en:"Green tea has antioxidants that support your metabolism.",id:"Teh hijau punya antioksidan yang bantu metabolisme."},
+    ];
+    function openScanLoading(){
+      var t=document.getElementById("scanLoadTitle");
+      if(t) t.textContent=L({en:"Your food is being scanned…",id:"Makananmu sedang dipindai…"});
+      var lbl=document.getElementById("scanLoadFactLbl"); if(lbl) lbl.textContent=L({en:"Fun fact",id:"Tahukah kamu"});
+      var f=FOOD_FACTS[Math.floor(Math.random()*FOOD_FACTS.length)];
+      var fe=document.getElementById("scanLoadFact"); if(fe) fe.textContent=L(f);
+      document.getElementById("scanLoadBg").classList.add("open");
+    }
+    function closeScanLoading(){ var m=document.getElementById("scanLoadBg"); if(m) m.classList.remove("open"); }
     async function scanImage(url){
       const box=document.getElementById("scanresult");
       // Cek kuota dulu — kalau habis, tawarkan paket top-up (jangan panggil AI).
@@ -470,19 +511,21 @@
         if(q && q.remaining<=0){ box.innerHTML=""; openDeals(q); return; }
       }catch(e){ /* kalau gagal cek, tetap lanjut biar user gak keblokir */ }
       box.innerHTML='<div class="muted">'+I18N.t("cal_analysing")+'</div>';
+      openScanLoading();
       try{
         const r=await fetch(AI_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"food",image:url,lang:I18N.lang})});
         const j=await r.json();
         if(!r.ok||!j.result)throw new Error(j.error||L({en:"Analysis failed",id:"Gagal menganalisa"}));
         const res=j.result;lastScan=res.items||[];
-        if(!lastScan.length){box.innerHTML='<div class="muted">'+(res.note||L({en:"No food detected in the photo.",id:"Gak kedeteksi makanan di foto."}))+'</div>';return}
+        if(!lastScan.length){closeScanLoading();box.innerHTML='<div class="muted">'+(res.note||L({en:"No food detected in the photo.",id:"Gak kedeteksi makanan di foto."}))+'</div>';return}
         // Scan berhasil -> pakai 1 kuota, lalu refresh tampilan sisa kuota.
         try{ await Auth.consumeScan(); }catch(e){}
         refreshQuota();
         lastRes=res;
         box.innerHTML='<div class="muted" style="cursor:pointer" onclick="reopenScan()">✅ '+I18N.t("cal_detected")+' · ~'+(res.total_kcal||0)+' '+kc()+' — '+L({en:"tap to view analysis",id:"ketuk untuk lihat analisa"})+'</div>';
+        closeScanLoading();
         openScanResult(res);   // POP-UP berisi analisa lengkap
-      }catch(err){box.innerHTML='<div style="color:var(--red)">'+err.message+'</div>'}
+      }catch(err){closeScanLoading();box.innerHTML='<div style="color:var(--red)">'+err.message+'</div>'}
     }
     // ---- Pop-up hasil scan: analisa lengkap + pilihan lebih sehat ----
     let lastRes=null;
