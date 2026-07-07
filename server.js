@@ -303,9 +303,10 @@ app.get("/api/aqi", async (req, res) => {
 // yang sama (by email) + balikin OTP untuk membuat sesi. Data user tersimpan
 // permanen di database kita (Supabase) & nempel tiap login ulang.
 const FITCO_API = process.env.FITCO_API_URL || "https://api.20fit.id";
-// Endpoint login 20FIT — responsnya berisi access_token (dikonfirmasi tim dev 20FIT).
-// Bisa dioverride via env kalau path-nya berubah, tanpa ubah kode.
-const FITCO_LOGIN_PATH = process.env.FITCO_LOGIN_PATH || "/login";
+// Endpoint login 20FIT (dari dokumentasi resmi "Login by Email"):
+//   POST {api_url}/api/v1/auth/login  body {email,password,login_source:"app"}
+//   -> response: data.token.access_token. Bisa dioverride via env bila berubah.
+const FITCO_LOGIN_PATH = process.env.FITCO_LOGIN_PATH || "/api/v1/auth/login";
 // Ambil profil user dari 20FIT pakai access_token (Bearer). Return field yg kita pakai.
 async function fetch20fitProfile(fitcoToken) {
   const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null };
@@ -597,6 +598,17 @@ app.get("/api/admin/stats", async (req, res) => {
         email: u.email, name: p.full_name || null, last_sign_in: u.last_sign_in_at, created_at: u.created_at,
         plus: !!p.is_plus_member, addon: (p.scan_credits || 0) > 0, scans_used: p.scan_count || 0, onboarded: !!p.onboarding_completed }; });
     const totalScans = (profiles || []).reduce((s, p) => s + (+p.scan_count || 0), 0);
+
+    // 3) Demografi gender + pembeli (buyer) per gender. Buyer = Plus ATAU punya kredit scan.
+    let men = 0, women = 0, genderUnknown = 0, menBuyers = 0, womenBuyers = 0;
+    (profiles || []).forEach(p => {
+      const g = String(p.gender || "").toLowerCase();
+      const buyer = !!p.is_plus_member || (+p.scan_credits || 0) > 0;
+      if (g === "male") { men++; if (buyer) menBuyers++; }
+      else if (g === "female") { women++; if (buyer) womenBuyers++; }
+      else genderUnknown++;
+    });
+
     return res.json({
       ok: true,
       totalUsers: users.length,
@@ -605,6 +617,8 @@ app.get("/api/admin/stats", async (req, res) => {
       active7: active7, active30: active30,
       plusMembers: plus, addonBuyers: addon, onboarded: onboarded,
       totalScansUsed: totalScans,
+      men: men, women: women, genderUnknown: genderUnknown,
+      menBuyers: menBuyers, womenBuyers: womenBuyers,
       recentLogins: recentLogins,
     });
   } catch (e) {
@@ -613,8 +627,14 @@ app.get("/api/admin/stats", async (req, res) => {
   }
 });
 
-// ---------- Static + fallback ----------
-app.use(express.static(path.join(__dirname)));
+// ---------- Static (URL bersih tanpa .html) + fallback ----------
+// Redirect /halaman.html -> /halaman (querystring dipertahankan), lalu sajikan
+// /halaman dari halaman.html lewat opsi extensions. Jadi URL nggak ada ".html" lagi.
+app.get(/\.html$/, (req, res) => {
+  const clean = req.path.replace(/\.html$/, "");
+  res.redirect(302, clean + req.url.slice(req.path.length));
+});
+app.use(express.static(path.join(__dirname), { extensions: ["html"] }));
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });

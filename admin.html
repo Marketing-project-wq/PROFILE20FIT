@@ -75,6 +75,20 @@
   .loading{color:var(--muted);text-align:center;padding:40px;font-size:14px}
   .hide{display:none!important}
 
+  /* gender demographics */
+  .gbar{height:18px;border-radius:9px;overflow:hidden;display:flex;background:var(--inp)}
+  .gbar .m{background:#2F6BFF}
+  .gbar .w{background:#E23D6F}
+  .glegend{display:flex;gap:22px;flex-wrap:wrap;margin-top:14px;font-size:14px}
+  .glegend .it{display:flex;align-items:center;gap:8px}
+  .glegend .dot{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
+  .glegend b{font-weight:800}
+  .gsub{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
+  @media(max-width:460px){.gsub{grid-template-columns:1fr}}
+  .gsub .b{background:var(--inp);border-radius:12px;padding:14px 16px}
+  .gsub .b .k{font-family:"Barlow Condensed";font-weight:600;letter-spacing:1px;font-size:11px;color:var(--muted);text-transform:uppercase}
+  .gsub .b .v{font-family:Anton;font-size:28px;line-height:1.05;margin-top:5px;letter-spacing:.5px}
+
   @media(prefers-color-scheme:dark){
     :root{--bg:#0A0908;--card:#151312;--dark:#000;--txt:#F0EDE6;--soft:#c9c0b4;--muted:#8a7f70;--border:#2a2723;--inp:#1d1a17}
     .stat .v,.card h2{color:var(--txt)}
@@ -155,6 +169,23 @@
            (d?'<div class="d">'+esc(d)+'</div>':'')+'</div>';
   }
 
+  function pct(a,b){ var t=(a||0)+(b||0); return t?Math.round((a||0)/t*100):0; }
+  function genderBlock(s){
+    var men=s.men||0, women=s.women||0, unk=s.genderUnknown||0, tot=men+women;
+    var mw=tot?(men/tot*100):50, ww=tot?(women/tot*100):50;
+    return ''+
+      '<div class="gbar"><div class="m" style="width:'+mw+'%"></div><div class="w" style="width:'+ww+'%"></div></div>'+
+      '<div class="glegend">'+
+        '<div class="it"><span class="dot" style="background:#2F6BFF"></span><b>'+men+'</b>&nbsp;Pria ('+pct(men,women)+'%)</div>'+
+        '<div class="it"><span class="dot" style="background:#E23D6F"></span><b>'+women+'</b>&nbsp;Wanita ('+pct(women,men)+'%)</div>'+
+        (unk?'<div class="it"><span class="dot" style="background:#B7B9BF"></span><b>'+unk+'</b>&nbsp;Belum diisi</div>':'')+
+      '</div>'+
+      '<div class="gsub">'+
+        '<div class="b"><div class="k">Pembeli Pria</div><div class="v" style="color:#2F6BFF">'+(s.menBuyers||0)+'</div></div>'+
+        '<div class="b"><div class="k">Pembeli Wanita</div><div class="v" style="color:#E23D6F">'+(s.womenBuyers||0)+'</div></div>'+
+      '</div>';
+  }
+
   function render(s){
     var months = s.signupsByMonth || [];
     var maxc = Math.max(1, months.reduce(function(m,x){ return Math.max(m, x.count||0); }, 0));
@@ -189,6 +220,12 @@
         stat("Pembeli Add-on", s.addonBuyers||0, "Punya kredit scan","green")+
         stat("Onboarding Selesai", s.onboarded||0, "Sudah lengkapi profil")+
         stat("Total Scan Kalori", s.totalScansUsed||0, "Akumulasi semua user")+
+      '</div>'+
+
+      '<div class="card">'+
+        '<h2>Demografi Gender</h2>'+
+        '<p class="csub">Perbandingan pengguna & pembeli — pria vs wanita.</p>'+
+        genderBlock(s)+
       '</div>'+
 
       '<div class="card">'+
