@@ -80,14 +80,14 @@
       body: JSON.stringify({ email: email, password: password }),
     });
     const j = await r.json();
-    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan akun 20fit.");
+    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan akun 20FIT.");
     // Buat sesi Supabase dari OTP yang di-generate server (pola sama dgn magic link)
     const { data, error } = await supabase.auth.verifyOtp({ email: j.email, token: j.email_otp, type: "email" });
     if (error) throw error;
     return data;
   }
 
-  // ---------- REGISTER pakai API 20fit (lewat server /api/fitco-register) ----------
+  // ---------- REGISTER pakai API 20FIT (lewat server /api/fitco-register) ----------
   async function fitcoRegister(fields) {
     await ready;
     const r = await fetch("/api/fitco-register", {
@@ -106,8 +106,8 @@
     return data;
   }
 
-  // ---------- SSO SEAMLESS: login pakai access_token 20fit (tanpa password) ----------
-  // Dipakai kalau app utama 20fit mengoper token-nya ke profile.20fit.id.
+  // ---------- SSO SEAMLESS: login pakai access_token 20FIT (tanpa password) ----------
+  // Dipakai kalau app utama 20FIT mengoper token-nya ke profile.20fit.id.
   async function tokenLogin(fitcoToken) {
     await ready;
     const r = await fetch("/api/fitco-token-login", {
@@ -116,7 +116,7 @@
       body: JSON.stringify({ token: fitcoToken }),
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan token 20fit.");
+    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan token 20FIT.");
     const { data, error } = await supabase.auth.verifyOtp({ email: j.email, token: j.email_otp, type: "email" });
     if (error) throw error;
     return data;
@@ -444,14 +444,14 @@
 
   // Profil dianggap LENGKAP hanya jika data inti sudah terisi: gender, umur
   // (dari tanggal lahir), berat, tinggi, dan tujuan. Riwayat kesehatan boleh kosong.
-  // Dipakai agar akun lama (mis. dari ekosistem 20fit) yang datanya belum lengkap
+  // Dipakai agar akun lama (mis. dari ekosistem 20FIT) yang datanya belum lengkap
   // tetap diminta melengkapi lewat onboarding.
   function profileComplete(p) {
     return !!(p && p.gender && p.age && p.weight_kg && p.height_cm && p.main_goal);
   }
 
   // ---------- ROUTING ----------
-  // Flow jelas untuk semua (akun baru & akun existing dari ekosistem 20fit):
+  // Flow jelas untuk semua (akun baru & akun existing dari ekosistem 20FIT):
   //   1) belum lengkap  -> isi DATA dulu (onboarding)
   //   2) data lengkap tapi belum punya password web -> BUAT PASSWORD
   //   3) lengkap & punya password -> dashboard

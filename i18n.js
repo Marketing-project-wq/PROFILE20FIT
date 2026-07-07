@@ -11,8 +11,8 @@
       // nav
       nav_home:"Home", nav_medical:"Medical", nav_progress:"Progress", nav_calories:"Calories", nav_profile:"Profile", nav_scan:"Scan",
       logout:"Log Out",
-      book_title:"Book at 20fit", book_class:"Book a class", book_consult:"Book a doctor consultation",
-      book_recworkout:"Ready to train? Book your class at 20fit.", book_recmed:"Based on your results, book a session at the 20fit clinic.",
+      book_title:"Book at 20FIT", book_class:"Book a class", book_consult:"Book a doctor consultation",
+      book_recworkout:"Ready to train? Book your class at 20FIT.", book_recmed:"Based on your results, book a session at the 20FIT clinic.",
       // dashboard
       welcome:"Welcome",
       sec_weather:"Weather & Air Quality", sec_recs:"Recommended Workouts", sec_breath:"Breathing Exercise",
@@ -38,7 +38,7 @@
       med_attention:"Needs Attention", med_params:"Parameter Details", med_normal:"Normal",
       med_eating:"Eating Plan", med_exercise:"Exercise Recommendations", med_lifestyle:"Lifestyle & Follow-up",
       med_why:"Why it matters:", med_do:"What you can do:", med_unread:"Unreadable parts:",
-      med_consult_t:"Talk to a 20fit doctor", med_consult_s:"Have questions about your results? Book a consultation with our Sport Clinic doctor.", med_consult_cta:"Consult a Doctor",
+      med_consult_t:"Talk to a 20FIT doctor", med_consult_s:"Have questions about your results? Book a consultation with our Sport Clinic doctor.", med_consult_cta:"Consult a Doctor",
       // calories
       cal_title:"Calorie Tracker", cal_of:"of", cal_today:"kcal today",
       cal_goalnote:"Calculated from your profile (weight, height, age, gender, goal).",
@@ -65,8 +65,8 @@
     id: {
       nav_home:"Beranda", nav_medical:"Medis", nav_progress:"Progress", nav_calories:"Kalori", nav_profile:"Profil", nav_scan:"Scan",
       logout:"Keluar",
-      book_title:"Booking di 20fit", book_class:"Booking kelas", book_consult:"Booking konsultasi dokter",
-      book_recworkout:"Siap latihan? Booking kelasmu di 20fit.", book_recmed:"Berdasarkan hasilmu, booking sesi di klinik 20fit.",
+      book_title:"Booking di 20FIT", book_class:"Booking kelas", book_consult:"Booking konsultasi dokter",
+      book_recworkout:"Siap latihan? Booking kelasmu di 20FIT.", book_recmed:"Berdasarkan hasilmu, booking sesi di klinik 20FIT.",
       welcome:"Selamat datang",
       sec_weather:"Cuaca & Kualitas Udara", sec_recs:"Rekomendasi Latihan", sec_breath:"Latihan Pernapasan",
       sec_sleepwater:"Tidur & Air Minum", sec_checklist:"Checklist Hari Ini", sec_cycle:"Siklus Menstruasi",
@@ -88,7 +88,7 @@
       med_attention:"Yang Perlu Diperhatikan", med_params:"Detail Parameter", med_normal:"Normal",
       med_eating:"Rencana Makan", med_exercise:"Rekomendasi Olahraga", med_lifestyle:"Gaya Hidup & Tindak Lanjut",
       med_why:"Kenapa perlu diperhatikan:", med_do:"Yang bisa dilakukan:", med_unread:"Bagian yang tidak terbaca:",
-      med_consult_t:"Konsultasi dengan dokter 20fit", med_consult_s:"Punya pertanyaan soal hasilmu? Booking konsultasi dengan dokter Sport Clinic kami.", med_consult_cta:"Konsultasi Dokter",
+      med_consult_t:"Konsultasi dengan dokter 20FIT", med_consult_s:"Punya pertanyaan soal hasilmu? Booking konsultasi dengan dokter Sport Clinic kami.", med_consult_cta:"Konsultasi Dokter",
       cal_title:"Pelacak Kalori", cal_of:"dari", cal_today:"kkal hari ini",
       cal_goalnote:"Dihitung dari profil kamu (BB, TB, umur, gender, tujuan).",
       cal_targetlbl:"Target kalori harian kamu", cal_perday:"kkal / hari — dari BMI & profil kamu",

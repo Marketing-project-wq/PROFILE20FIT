@@ -4,9 +4,9 @@
 <link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Dashboard · 20fit</title>
+<title>Dashboard · 20FIT</title>
 <style>
-  /* ===== 20fit Dashboard — new visual design (light-first, dark via app toggle) =====
+  /* ===== 20FIT Dashboard — new visual design (light-first, dark via app toggle) =====
      Re-skin only: every wired id/handler & the whole <script> are unchanged. */
   :root{
     --red:#C41101;--red-ink:#B01C2E;--red-soft:#FCEBED;
@@ -320,7 +320,7 @@
         <div class="card" id="recs"></div>
         <a class="bookbtn" href="https://booking.20fit.id/gym" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          <span data-i18n="book_recworkout">Ready to train? Book your class at 20fit.</span>
+          <span data-i18n="book_recworkout">Ready to train? Book your class at 20FIT.</span>
         </a>
 
         <!-- Latihan di rumah -->
@@ -519,7 +519,7 @@
     async function loadHealthReminder(){
       const el=document.getElementById("healthReminder"); if(!el||!profile)return;
       let html="";
-      // 0) nudge lengkapi data (user dari app 20fit yang belum onboarding)
+      // 0) nudge lengkapi data (user dari app 20FIT yang belum onboarding)
       if(!profile.onboarding_completed || !profile.weight_kg || !profile.gender){
         html+='<div class="card" style="margin-top:14px;border-color:rgba(196,17,1,.35);background:rgba(196,17,1,.06);display:flex;align-items:center;gap:12px">'+
           '<div style="flex:1"><div style="font-weight:800">'+L({en:"Complete your health profile",id:"Lengkapi profil kesehatanmu"})+'</div>'+
@@ -564,7 +564,7 @@
             '<div class="muted" style="margin-bottom:8px">'+L({en:"From your latest check-up — keep an eye on:",id:"Dari medical check-up terakhirmu — perhatikan:"})+'</div>'+
             att.slice(0,4).map(f=>'<div class="hrrow"><span class="hrdot"></span><div><b>'+(f.label||"")+'</b>'+(f.what_to_do?'<div class="muted" style="font-size:12px">'+f.what_to_do+'</div>':"")+'</div></div>').join("")+
             '<a class="bookbtn ghost" href="medical.html" style="margin-top:12px">'+L({en:"View full results",id:"Lihat hasil lengkap"})+' ›</a>'+
-            '<a class="bookbtn" href="https://booking.20fit.id/clinic" target="_blank" rel="noopener">'+L({en:"Consult a 20fit doctor",id:"Konsultasi dokter 20fit"})+'</a></div>';
+            '<a class="bookbtn" href="https://booking.20fit.id/clinic" target="_blank" rel="noopener">'+L({en:"Consult a 20FIT doctor",id:"Konsultasi dokter 20FIT"})+'</a></div>';
         } else if(res){
           html+='<div class="sec">'+L({en:"What to watch",id:"Yang Perlu Diperhatikan"})+'</div>'+
             '<a class="card hrok" href="medical.html" style="border-color:rgba(42,122,79,.3)">'+

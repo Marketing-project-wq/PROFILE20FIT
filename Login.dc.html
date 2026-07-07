@@ -472,11 +472,11 @@ class Component extends DCLogic {
     const en = {
       eyebrow: 'Digital Health Platform',
       headline: 'ALL YOUR HEALTH NEEDS, ONE PLACE.',
-      subheadline: 'Upload medical check-up results from any hospital or clinic, track your health in real time, and get personalised recommendations from 20fit\'s doctors & trainers.',
+      subheadline: 'Upload medical check-up results from any hospital or clinic, track your health in real time, and get personalised recommendations from 20FIT\'s doctors & trainers.',
       statMembers: 'Members', statSatisfied: 'Satisfied', statServices: 'Services',
       f1: 'Upload lab results — PDF, JPG or PNG from any facility',
       f2: 'Personalised plan: Gym, PT, EMS & Physiotherapy',
-      f3: 'Secure & private — only you and your 20fit doctor',
+      f3: 'Secure & private — only you and your 20FIT doctor',
       formSub: 'Manage your health profile and get personalised recommendations.',
       tabRegister: 'Create Account', tabLogin: 'Sign In',
       genderLabel: 'Gender', male: 'Male', female: 'Female',
@@ -488,7 +488,7 @@ class Component extends DCLogic {
       noAccount: "Don't have an account?", createAccount: 'Create one',
       or: 'or', google: 'Continue with Google', magicLink: 'Send Magic Link via Email',
       successTag: 'Account Created', successTitle: "YOU'RE ALL SET.",
-      successBody: 'Welcome to 20fit Health Profile. Start tracking your health journey today.',
+      successBody: 'Welcome to 20FIT Health Profile. Start tracking your health journey today.',
       successBtn: 'Go to Health Profile',
       errGender: 'Please select your gender.',
       errName: 'Full name is required.',
@@ -500,12 +500,12 @@ class Component extends DCLogic {
     const id = {
       eyebrow: 'Platform Kesehatan Digital',
       headline: 'SEMUA KEBUTUHAN KESEHATANMU, SATU TEMPAT.',
-      subheadline: 'Upload hasil medical check-up dari RS atau klinik mana pun, pantau kondisi tubuh secara real-time, dan dapatkan rekomendasi program dari dokter & trainer 20fit.',
+      subheadline: 'Upload hasil medical check-up dari RS atau klinik mana pun, pantau kondisi tubuh secara real-time, dan dapatkan rekomendasi program dari dokter & trainer 20FIT.',
       statMembers: 'Member', statSatisfied: 'Puas', statServices: 'Layanan',
       f1: 'Upload hasil lab — PDF, JPG atau PNG dari mana pun',
       f2: 'Rekomendasi personal: Gym, PT, EMS & Physiotherapy',
-      f3: 'Aman & privat — hanya kamu dan dokter 20fit',
-      formSub: 'Kelola profil kesehatan dan dapatkan rekomendasi personal dari 20fit.',
+      f3: 'Aman & privat — hanya kamu dan dokter 20FIT',
+      formSub: 'Kelola profil kesehatan dan dapatkan rekomendasi personal dari 20FIT.',
       tabRegister: 'Buat Akun', tabLogin: 'Masuk',
       genderLabel: 'Jenis Kelamin', male: 'Pria', female: 'Wanita',
       nameLabel: 'Nama Lengkap', namePh: 'Masukkan nama lengkap',
@@ -516,7 +516,7 @@ class Component extends DCLogic {
       noAccount: 'Belum punya akun?', createAccount: 'Daftar sekarang',
       or: 'atau', google: 'Lanjutkan dengan Google', magicLink: 'Kirim Magic Link via Email',
       successTag: 'Akun Berhasil Dibuat', successTitle: 'AKUN KAMU SIAP!',
-      successBody: 'Selamat bergabung di 20fit Health Profile. Mulai track kesehatanmu sekarang.',
+      successBody: 'Selamat bergabung di 20FIT Health Profile. Mulai track kesehatanmu sekarang.',
       successBtn: 'Masuk ke Health Profile',
       errGender: 'Pilih jenis kelamin kamu dulu.',
       errName: 'Nama lengkap tidak boleh kosong.',
@@ -653,9 +653,9 @@ class Component extends DCLogic {
         const e = this.validate();
         if (e) { this.setState({ errMsg: e }); return; }
         this.setState({ loading: true, errMsg: '' });
-        setTimeout(() => { window.location.href = '20fit Health Profile.dc.html'; }, 1600);
+        setTimeout(() => { window.location.href = '20FIT Health Profile.dc.html'; }, 1600);
       },
-      goDash: () => { window.location.href = '20fit Health Profile.dc.html'; },
+      goDash: () => { window.location.href = '20FIT Health Profile.dc.html'; },
       preventSubmit: (e) => { if (e && e.preventDefault) e.preventDefault(); },
     };
   }

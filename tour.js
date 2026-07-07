@@ -26,7 +26,7 @@
   };
 
   const STEPS = [
-    {ic:"wave", nav:0, title:{en:"Welcome to 20fit Health Profile!",id:"Selamat datang di 20fit Health Profile!"},
+    {ic:"wave", nav:0, title:{en:"Welcome to 20FIT Health Profile!",id:"Selamat datang di 20FIT Health Profile!"},
       body:{en:"A quick tour to show you around. It only takes 30 seconds.",id:"Tur singkat buat kenalin fitur-fiturnya. Cuma 30 detik kok."}},
     {ic:"chart", nav:0, title:{en:"Your Stats",id:"Statistik Kamu"},
       body:{en:"BMI, weight and height are filled automatically from your profile.",id:"BMI, berat, dan tinggi terisi otomatis dari profil kamu."}},

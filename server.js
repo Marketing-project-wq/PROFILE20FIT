@@ -1,5 +1,5 @@
 // =============================================================
-//  20fit Health Profile — Production Server
+//  20FIT Health Profile — Production Server
 //  - Serve frontend statis
 //  - API verifikasi OTP sendiri (BUKAN Supabase Auth email)
 //  - OTP di-generate, di-hash, disimpan & divalidasi di SERVER
@@ -30,10 +30,10 @@ const DEV_MASTER_OTP = process.env.DEV_MASTER_OTP || ""; // kosong = nonaktif
 const IS_PROD = process.env.NODE_ENV === "production";
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn("[20fit] WARNING: SUPABASE_URL / SUPABASE_ANON_KEY belum di-set.");
+  console.warn("[20FIT] WARNING: SUPABASE_URL / SUPABASE_ANON_KEY belum di-set.");
 }
 if (!SUPABASE_SERVICE_KEY) {
-  console.warn("[20fit] WARNING: SUPABASE_SERVICE_KEY belum di-set (OTP butuh ini).");
+  console.warn("[20FIT] WARNING: SUPABASE_SERVICE_KEY belum di-set (OTP butuh ini).");
 }
 
 // Service client (bypass RLS, hanya di server) untuk operasi OTP
@@ -62,12 +62,12 @@ if (process.env.SMTP_HOST) {
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
   });
 }
-const MAIL_FROM = process.env.MAIL_FROM || "20fit <no-reply@20fit.id>";
+const MAIL_FROM = process.env.MAIL_FROM || "20FIT <no-reply@20fit.id>";
 
 async function sendOtpEmail(to, code) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto">
-      <h2 style="color:#1db954">Kode Verifikasi 20fit</h2>
+      <h2 style="color:#1db954">Kode Verifikasi 20FIT</h2>
       <p>Halo! Gunakan kode di bawah ini untuk verifikasi email kamu:</p>
       <div style="font-size:32px;font-weight:bold;letter-spacing:8px;
                   background:#eafaf0;padding:16px;text-align:center;border-radius:12px">
@@ -78,10 +78,10 @@ async function sendOtpEmail(to, code) {
     </div>`;
   if (!mailer) {
     // Mode dev: belum ada SMTP -> log ke console server
-    console.log(`[20fit][DEV] OTP untuk ${to}: ${code}`);
+    console.log(`[20FIT][DEV] OTP untuk ${to}: ${code}`);
     return { sent: false };
   }
-  await mailer.sendMail({ from: MAIL_FROM, to, subject: "Kode Verifikasi 20fit", html });
+  await mailer.sendMail({ from: MAIL_FROM, to, subject: "Kode Verifikasi 20FIT", html });
   return { sent: true };
 }
 
@@ -131,7 +131,7 @@ app.get("/api/config", (req, res) => {
     supabaseAnonKey: SUPABASE_ANON_KEY || "",
     version: "auth-fix-3",
     serviceKeySet: !!SUPABASE_SERVICE_KEY,
-    // URL halaman login/authorize 20fit. Setelah user login di sana, 20fit harus
+    // URL halaman login/authorize 20FIT. Setelah user login di sana, 20FIT harus
     // redirect balik ke profile.20fit.id/login.html?token=<access_token>.
     // Diisi lewat env FITCO_SSO_URL dari tim developer.
     fitcoSsoUrl: process.env.FITCO_SSO_URL || "",
@@ -298,16 +298,16 @@ app.get("/api/aqi", async (req, res) => {
   res.json({ city: city || "—", aqi: aqi, label: m.label, advice: m.advice, source: source });
 });
 
-// ---------- Login pakai akun 20fit (FITCO) -> jembatan ke akun Supabase ----------
+// ---------- Login pakai akun 20FIT (FITCO) -> jembatan ke akun Supabase ----------
 // Verifikasi email+password ke API FITCO. Kalau benar: siapkan akun Supabase
 // yang sama (by email) + balikin OTP untuk membuat sesi. Data user tersimpan
 // permanen di database kita (Supabase) & nempel tiap login ulang.
 const FITCO_API = process.env.FITCO_API_URL || "https://api.20fit.id";
-// Ambil profil user dari 20fit pakai access_token (Bearer). Return field yg kita pakai.
+// Ambil profil user dari 20FIT pakai access_token (Bearer). Return field yg kita pakai.
 async function fetch20fitProfile(fitcoToken) {
   const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null };
   const pr = await fetch(FITCO_API + "/api/v1/app/user/profile", { headers: { Authorization: "Bearer " + fitcoToken } });
-  if (!pr.ok) { const err = new Error("Token 20fit tidak valid."); err.status = 401; throw err; }
+  if (!pr.ok) { const err = new Error("Token 20FIT tidak valid."); err.status = 401; throw err; }
   const pj = await pr.json().catch(() => ({}));
   const u = (pj && (pj.data || pj)) || {};
   out.email = u.email ? String(u.email).trim().toLowerCase() : null;
@@ -319,7 +319,7 @@ async function fetch20fitProfile(fitcoToken) {
   return out;
 }
 
-// Pastikan akun Supabase ADA untuk email 20fit, tandai via_20fit (skip set-password),
+// Pastikan akun Supabase ADA untuk email 20FIT, tandai via_20fit (skip set-password),
 // prefill profil (hanya kolom kosong), lalu balikan OTP untuk membuat sesi.
 async function mirrorAndMintOtp(info) {
   const email = String(info.email || "").trim().toLowerCase();
@@ -367,7 +367,7 @@ async function mirrorAndMintOtp(info) {
   return { email, email_otp: otp };
 }
 
-// Login pakai email+password akun 20fit (verifikasi ke API 20fit).
+// Login pakai email+password akun 20FIT (verifikasi ke API 20FIT).
 app.post("/api/fitco-login", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
@@ -375,7 +375,7 @@ app.post("/api/fitco-login", async (req, res) => {
     const password = String((req.body && req.body.password) || "");
     if (!email || !password) return res.status(400).json({ error: "Email & password wajib diisi." });
 
-    // 1) Verifikasi ke API 20fit
+    // 1) Verifikasi ke API 20FIT
     let fj = {};
     try {
       const fr = await fetch(FITCO_API + "/api/v1/auth/login", {
@@ -384,15 +384,15 @@ app.post("/api/fitco-login", async (req, res) => {
         body: JSON.stringify({ email, password, login_source: "app" }),
       });
       fj = await fr.json().catch(() => ({}));
-      if (!fr.ok) return res.status(401).json({ error: "Email atau password akun 20fit salah." });
+      if (!fr.ok) return res.status(401).json({ error: "Email atau password akun 20FIT salah." });
     } catch (e) {
-      return res.status(502).json({ error: "Tidak bisa menghubungi server 20fit. Coba lagi." });
+      return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
     }
     const fd = (fj && fj.data) || fj || {};
     const fitcoToken =
       fj.access_token || fd.access_token ||
       (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
-    if (!fitcoToken) return res.status(401).json({ error: "Login 20fit gagal (token tidak diterima)." });
+    if (!fitcoToken) return res.status(401).json({ error: "Login 20FIT gagal (token tidak diterima)." });
 
     // 2) Ambil profil (best effort), lengkapi dari data login
     let info = { email, fullName: fd.name || fd.full_name || null, gender: fd.gender ? String(fd.gender).toLowerCase() : null, phone: fd.phone || fd.phone_number || null, avatar: null, birthdate: null };
@@ -409,21 +409,21 @@ app.post("/api/fitco-login", async (req, res) => {
   }
 });
 
-// SSO SEAMLESS: login pakai access_token 20fit yang SUDAH ADA (dioper dari app utama).
-// Token divalidasi ke 20fit (ambil profil), lalu dibuatkan sesi — TANPA password.
+// SSO SEAMLESS: login pakai access_token 20FIT yang SUDAH ADA (dioper dari app utama).
+// Token divalidasi ke 20FIT (ambil profil), lalu dibuatkan sesi — TANPA password.
 app.post("/api/fitco-token-login", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
     const fitcoToken = String((req.body && (req.body.token || req.body.access_token)) || "").trim();
-    if (!fitcoToken) return res.status(400).json({ error: "Token 20fit wajib." });
+    if (!fitcoToken) return res.status(400).json({ error: "Token 20FIT wajib." });
     let info;
     try {
       info = await fetch20fitProfile(fitcoToken);
     } catch (e) {
-      if (e && e.status === 401) return res.status(401).json({ error: "Token 20fit tidak valid / kedaluwarsa." });
-      return res.status(502).json({ error: "Tidak bisa menghubungi server 20fit. Coba lagi." });
+      if (e && e.status === 401) return res.status(401).json({ error: "Token 20FIT tidak valid / kedaluwarsa." });
+      return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
     }
-    if (!info.email) return res.status(401).json({ error: "Token 20fit tidak berisi email." });
+    if (!info.email) return res.status(401).json({ error: "Token 20FIT tidak berisi email." });
     const out = await mirrorAndMintOtp(info);
     return res.json({ ok: true, email: out.email, email_otp: out.email_otp });
   } catch (e) {
@@ -432,8 +432,8 @@ app.post("/api/fitco-token-login", async (req, res) => {
   }
 });
 
-// ---------- Register pakai API 20fit (/api/v1/auth/register) ----------
-// Buat akun langsung di ekosistem 20fit, lalu mirror ke Supabase + buat sesi.
+// ---------- Register pakai API 20FIT (/api/v1/auth/register) ----------
+// Buat akun langsung di ekosistem 20FIT, lalu mirror ke Supabase + buat sesi.
 app.post("/api/fitco-register", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
@@ -451,7 +451,7 @@ app.post("/api/fitco-register", async (req, res) => {
     if (gender !== "male" && gender !== "female") return res.status(400).json({ error: "Jenis kelamin wajib dipilih." });
     if (!dob) return res.status(400).json({ error: "Tanggal lahir wajib diisi." });
 
-    // 1) Daftar ke 20fit
+    // 1) Daftar ke 20FIT
     const body = {
       name, email, password, password_confirmation: password,
       gender, date_of_birth: dob,
@@ -469,15 +469,15 @@ app.post("/api/fitco-register", async (req, res) => {
       if (!rr.ok) {
         const msg = String((rj && (rj.message || rj.error)) || "").toLowerCase();
         if (msg.includes("already") || msg.includes("terdaftar") || msg.includes("exist") || msg.includes("taken")) {
-          return res.status(409).json({ error: "Email sudah terdaftar di 20fit. Silakan Sign In." });
+          return res.status(409).json({ error: "Email sudah terdaftar di 20FIT. Silakan Sign In." });
         }
-        return res.status(400).json({ error: (rj && (rj.message || rj.error)) || "Gagal daftar ke 20fit." });
+        return res.status(400).json({ error: (rj && (rj.message || rj.error)) || "Gagal daftar ke 20FIT." });
       }
     } catch (e) {
-      return res.status(502).json({ error: "Tidak bisa menghubungi server 20fit. Coba lagi." });
+      return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
     }
 
-    // 2) Login ke 20fit utk ambil token + profil (best effort). Kalau butuh verifikasi
+    // 2) Login ke 20FIT utk ambil token + profil (best effort). Kalau butuh verifikasi
     //    OTP, langkah ini bisa gagal — tidak apa, kita tetap buat sesi dari data daftar.
     let info = { email, fullName: name, gender: (gender === "male" || gender === "female") ? gender : null, phone: phone || null, avatar: null, birthdate: dob || null };
     try {
@@ -502,7 +502,7 @@ app.post("/api/fitco-register", async (req, res) => {
   }
 });
 
-// ================= PARTNER API (untuk tim/produk lain di ekosistem 20fit) =================
+// ================= PARTNER API (untuk tim/produk lain di ekosistem 20FIT) =================
 // Dilindungi API key. Ganti/rotasi key lewat env PARTNER_API_KEY di server.
 const PARTNER_API_KEY = process.env.PARTNER_API_KEY || "p20f_842d531d14ec668851500f2a0f13e9f974ed4e5d04d379a2";
 function partnerAuth(req, res) {
@@ -615,5 +615,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`20fit Health Profile running on port ${PORT} (prod=${IS_PROD})`);
+  console.log(`20FIT Health Profile running on port ${PORT} (prod=${IS_PROD})`);
 });

@@ -122,7 +122,7 @@
   side.className = "navside";
   function renderSide() {
     side.innerHTML =
-      '<div class="sbrand"><img src="' + LOGO + '" alt="20fit"></div>' +
+      '<div class="sbrand"><img src="' + LOGO + '" alt="20FIT"></div>' +
       items.map(it => `<a href="${it.href}" class="navi ${cur === it.href ? "on" : ""}">${svg(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
       `<button class="sscan" type="button">${svg("scan")}<span>${tr("nav_scan", "Scan")}</span></button>` +
       '<div class="sfoot"><div class="av" id="navAv">·</div><div class="tx"><div class="nm" id="navNm">20FIT</div><div class="em" id="navEm">member</div></div></div>';
@@ -134,7 +134,7 @@
   // ---- Logo pojok kiri atas (mobile) ----
   const applogo = document.createElement("img");
   applogo.className = "applogo";
-  applogo.alt = "20fit";
+  applogo.alt = "20FIT";
   applogo.onclick = function () { location.href = "dashboard.html"; };
   document.body.appendChild(applogo);
 

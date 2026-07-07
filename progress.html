@@ -4,7 +4,7 @@
 <link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Progress · 20fit</title>
+<title>Progress · 20FIT</title>
 <style>
   :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#9a907f;--inp:#F4F1EC;--dark:#000000;--pagetx:#EDE8DF;--pagemut:#9a907f}
   *{box-sizing:border-box}
@@ -178,12 +178,12 @@
       render();
     }
 
-    // ---- Kalender booking 20fit (hanya muncul kalau ada booking) ----
-    // bookings diisi dari ekosistem 20fit (butuh token/API 20fit). Kosong -> kartu tidak muncul.
+    // ---- Kalender booking 20FIT (hanya muncul kalau ada booking) ----
+    // bookings diisi dari ekosistem 20FIT (butuh token/API 20FIT). Kosong -> kartu tidak muncul.
     let bookings=[];
     function calendarCard(){
       if(!bookings || !bookings.length) return "";
-      const head='<div class="sec">'+L({en:"Your 20fit Bookings",id:"Booking 20fit Kamu"})+'</div>';
+      const head='<div class="sec">'+L({en:"Your 20FIT Bookings",id:"Booking 20FIT Kamu"})+'</div>';
       const rows=bookings.slice().sort((a,b)=>String(a.date+a.time)<String(b.date+b.time)?-1:1).map(function(b){
         return '<div class="bkrow"><div class="bkdate"><div class="bkd">'+(b.day||"")+'</div><div class="bkm">'+(b.mon||"")+'</div></div>'+
           '<div class="bkinfo"><div class="bkt">'+(b.title||L({en:"Booking",id:"Booking"}))+'</div>'+
