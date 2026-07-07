@@ -627,6 +627,42 @@ app.get("/api/admin/stats", async (req, res) => {
   }
 });
 
+// ---------- Lupa password via API 20FIT (kirim OTP + reset) ----------
+// Reset di sini = reset password akun 20FIT yang sama (dipakai app 20FIT juga).
+app.post("/api/fitco-forgot", async (req, res) => {
+  try {
+    const email = String((req.body && req.body.email) || "").trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: "Email wajib diisi." });
+    const r = await fetch(FITCO_API + "/api/v1/auth/password/forgot", {
+      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status === 422 ? 400 : r.status).json({ error: (j && (j.message || j.error)) || "Gagal mengirim kode reset." });
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+  }
+});
+app.post("/api/fitco-reset", async (req, res) => {
+  try {
+    const email = String((req.body && req.body.email) || "").trim().toLowerCase();
+    const otp = String((req.body && req.body.otp) || "").trim();
+    const password = String((req.body && req.body.password) || "");
+    if (!email || !otp || !password) return res.status(400).json({ error: "Email, kode & password wajib diisi." });
+    if (password.length < 8) return res.status(400).json({ error: "Password minimal 8 karakter." });
+    const r = await fetch(FITCO_API + "/api/v1/auth/password/reset", {
+      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ email, otp, password, password_confirmation: password }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status === 422 ? 400 : r.status).json({ error: (j && (j.message || j.error)) || "Kode salah atau kedaluwarsa." });
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+  }
+});
+
 // ---------- 20FIT Arena Open API: riwayat member (read-only proxy) ----------
 // API key WAJIB server-side (kata dokumentasi). Simpan di env ARENA_API_KEY,
 // JANGAN hardcode. Endpoint kita men-scope riwayat ke phone milik user login.
