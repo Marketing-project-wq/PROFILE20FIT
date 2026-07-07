@@ -270,11 +270,6 @@
         </form>
         <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600"></a></div>
 
-        <div class="orsep"><span data-k="orsep">or</span></div>
-        <button class="sbtn mbtn" id="btn20fit" type="button" onclick="loginWith20fit()">
-          <img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" style="height:16px;width:auto" />
-          <span data-k="with20fit">Continue with 20FIT</span>
-        </button>
         <div class="msg" id="msg"></div>
         <button type="button" class="seebtn" data-k="seeFeatures" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})"></button>
       </div>
@@ -562,9 +557,9 @@
           await Auth.fitcoRegister({name:name,email:email,password:password,phone:phone,gender:gender,date_of_birth:birthdate});
         }
         else{
-          // SIGN IN biasa (tombol MERAH): pakai akun web/Supabase.
-          // Login pakai akun 20FIT ada di tombol HITAM (loginWith20fit).
-          await Auth.signIn(email,password);
+          // LOGIN lewat API 20FIT (satu-satunya jalur). Kalau user sudah punya akun
+          // di 20FIT app -> langsung masuk. Kalau belum -> login gagal, arahkan Buat Akun.
+          await Auth.fitcoLogin(email,password);
         }
         saveCredential(email,password);
         await Auth.routeAfterAuth();
@@ -578,32 +573,10 @@
       if(m.includes("menghubungi server 20FIT")||m.includes("contact"))return lang==="en"?"Couldn't reach 20FIT. Try again.":"Tidak bisa menghubungi 20FIT. Coba lagi.";
       if(m.includes("password minimal")||(m.includes("password")&&m.includes("8")))return d.errPw;
       if(m.includes("password"))return d.errCred;
-      if(m.includes("dikonfigurasi")||m.includes("service key"))return lang==="en"?"Use “Email me a login code” below to sign in.":"Pakai “Kirim kode login ke email” di bawah untuk masuk.";
+      if(m.includes("dikonfigurasi")||m.includes("service key"))return lang==="en"?"20FIT sign-in isn’t ready on the server yet. Try again later.":"Login 20FIT belum aktif di server. Coba lagi nanti.";
       if(m.includes("supabaseurl")||m.includes("not configured")||m.includes("anon"))return lang==="en"?"Server not ready. Refresh in a moment.":"Server belum siap. Coba refresh.";
       if(m.includes("fetch")||m.includes("network"))return lang==="en"?"Connection failed. Try again.":"Koneksi gagal. Coba lagi.";
       return "Error: "+(m||"unknown");
-    }
-
-    // ---- Tombol HITAM "Masuk dengan 20FIT" ----
-    // Login LANGSUNG pakai akun 20FIT: email+password dari form -> API FITCO
-    // (Auth.fitcoLogin). Bukan SSO redirect.
-    async function loginWith20fit(){
-      const d=T[lang];
-      const email=document.getElementById("email").value.trim();
-      const password=document.getElementById("password").value;
-      if(!email||!password)return msg(d.errFill,"err");
-      const b=document.getElementById("btn20fit"); if(b)b.disabled=true;
-      msg(lang==="en"?"Signing in with 20FIT…":"Masuk dengan akun 20FIT…","");
-      try{
-        await Auth.fitcoLogin(email,password);
-        saveCredential(email,password);
-        await Auth.routeAfterAuth();
-      }catch(e){
-        // Tampilkan pesan ASLI dari server biar sebab error kelihatan jelas saat debug.
-        const raw=(e&&e.message)?String(e.message):"";
-        msg(raw?("20FIT: "+raw):terjemah(raw),"err");
-        if(b)b.disabled=false;
-      }
     }
 
     // Prefill email & password dari password manager browser (kalau ada)
