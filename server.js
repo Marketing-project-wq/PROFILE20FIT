@@ -548,19 +548,21 @@ function adminAuth(req, res) {
 }
 app.get("/api/admin/stats", async (req, res) => {
   if (!adminAuth(req, res)) return;
-  if (!admin) return res.status(500).json({ error: "Server not configured (service key)." });
+  if (!admin) return res.status(500).json({ error: "SUPABASE_SERVICE_KEY belum kebaca di process (admin=null). Set variabel-nya di Railway lalu REDEPLOY service supaya kebaca." });
   try {
     // 1) Semua akun auth (created_at + last_sign_in_at)
     let users = [];
     for (let page = 1; page <= 30; page++) {
-      const { data } = await admin.auth.admin.listUsers({ page: page, perPage: 1000 });
+      const { data, error } = await admin.auth.admin.listUsers({ page: page, perPage: 1000 });
+      if (error) return res.status(500).json({ error: "Gagal ambil daftar user (auth): " + error.message });
       const u = (data && data.users) || [];
       users = users.concat(u);
       if (u.length < 1000) break;
     }
     // 2) Profil (status add-on / plus / onboarding / scan)
-    const { data: profiles } = await admin.from("my20fit_profile")
+    const { data: profiles, error: profErr } = await admin.from("my20fit_profile")
       .select("email,full_name,is_plus_member,scan_credits,scan_count,onboarding_completed,gender,updated_at");
+    if (profErr) return res.status(500).json({ error: "Gagal query tabel my20fit_profile: " + profErr.message });
     const byEmail = {};
     (profiles || []).forEach(p => { if (p.email) byEmail[String(p.email).toLowerCase()] = p; });
 
@@ -604,7 +606,7 @@ app.get("/api/admin/stats", async (req, res) => {
     });
   } catch (e) {
     console.error("admin/stats:", e.message);
-    return res.status(500).json({ error: "Internal error." });
+    return res.status(500).json({ error: "Internal error: " + (e.message || String(e)) });
   }
 });
 
