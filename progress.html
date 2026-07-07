@@ -161,7 +161,7 @@
       const eatList=m.eatTips.map(t=>'<li>'+L(t)+'</li>').join('');
       return head+'<div class="card">'+
         '<div style="display:flex;align-items:center;gap:14px">'+
-          '<div style="font-size:34px">'+m.emoji+'</div>'+
+          '<div style="width:34px;height:34px;border-radius:50%;flex:0 0 auto;background:'+m.color+';box-shadow:0 0 0 5px color-mix(in srgb,'+m.color+' 20%,transparent)"></div>'+
           '<div style="flex:1"><div style="font-weight:800;font-size:16px;color:'+m.color+'">'+L(m.name)+'</div>'+
           '<div class="muted" style="font-size:12.5px">'+L({en:"Day",id:"Hari ke-"})+' '+ci.day+' · '+L({en:"next period ~"+ci.daysToNext+" days",id:"menstruasi berikutnya ~"+ci.daysToNext+" hari"})+'</div></div>'+
         '</div>'+
