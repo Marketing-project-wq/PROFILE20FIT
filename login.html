@@ -598,7 +598,12 @@
         await Auth.fitcoLogin(email,password);
         saveCredential(email,password);
         await Auth.routeAfterAuth();
-      }catch(e){ msg(terjemah(e.message),"err"); if(b)b.disabled=false; }
+      }catch(e){
+        // Tampilkan pesan ASLI dari server biar sebab error kelihatan jelas saat debug.
+        const raw=(e&&e.message)?String(e.message):"";
+        msg(raw?("20FIT: "+raw):terjemah(raw),"err");
+        if(b)b.disabled=false;
+      }
     }
 
     // Prefill email & password dari password manager browser (kalau ada)
