@@ -67,8 +67,62 @@
     .hero{flex:none;padding:26px 24px}
     .brand-logo{height:50px}
     .headline{font-size:32px}
-    .tagline,.feat{display:none}
+    .tagline,.feat,.caro,.caro-dots{display:none}
     .panel{padding:26px 22px 40px}
+  }
+  /* ---- Hero moving carousel ---- */
+  .caro{position:relative;height:84px;margin-top:8px}
+  .caro-slide{position:absolute;inset:0;opacity:0;transform:translateY(8px);transition:opacity .55s,transform .55s;pointer-events:none;display:flex;gap:12px;align-items:flex-start}
+  .caro-slide.on{opacity:1;transform:none;pointer-events:auto}
+  .caro-slide .cic{width:42px;height:42px;border-radius:11px;background:rgba(196,17,1,.16);display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto}
+  .caro-slide .ct{font-weight:800;font-size:15px;color:#fff;margin-bottom:3px}
+  .caro-slide .cd{color:#bdb4a6;font-size:13px;line-height:1.5;max-width:330px}
+  .caro-dots{display:flex;gap:6px;margin-top:14px}
+  .caro-dots b{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.25);cursor:pointer;transition:.3s}
+  .caro-dots b.on{background:var(--red);width:20px;border-radius:4px}
+  /* ---- See features button ---- */
+  .seebtn{width:100%;margin-top:16px;padding:12px;border-radius:12px;background:transparent;border:1px dashed var(--border);color:var(--soft);font-weight:700;font-size:13.5px;cursor:pointer;font-family:Manrope}
+  .seebtn:hover{border-color:var(--red);color:var(--red)}
+  /* ---- Marketing scroll sections ---- */
+  .mkt{max-width:1080px;margin:0 auto;padding:6px 24px 0}
+  .mission{background:var(--dark);color:#F0EDE6;border-radius:22px;padding:42px 38px;margin:30px auto;
+    background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:44px 44px}
+  .mission .label{margin-bottom:14px}
+  .mission h2{font-family:Anton;font-size:33px;line-height:1.08;margin:0 0 14px;letter-spacing:.4px}
+  .mission p{color:#bdb4a6;font-size:15.5px;line-height:1.7;max-width:700px;margin:0}
+  .mission .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+  .mission .chips span{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#e8e0d4;font-size:13px;font-weight:600;padding:8px 14px;border-radius:20px}
+  .mkt-h{text-align:center;margin:46px 0 6px}
+  .mkt-h .label{justify-content:center}
+  .mkt-h h2{font-family:Anton;font-size:30px;margin:12px 0 6px;letter-spacing:.4px}
+  .mkt-h p{color:var(--muted);font-size:15px;max-width:580px;margin:0 auto;line-height:1.6}
+  .fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:26px 0}
+  .fcard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px}
+  .fcard .fic{width:46px;height:46px;border-radius:12px;background:rgba(196,17,1,.10);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:14px}
+  .fcard h3{font-size:16px;font-weight:800;margin:0 0 6px}
+  .fcard p{color:var(--soft);font-size:13.5px;line-height:1.6;margin:0}
+  /* FAQ */
+  .faq{max-width:760px;margin:22px auto 0}
+  .faq-item{background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden}
+  .faq-q{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:16px 18px;cursor:pointer;font-weight:700;font-size:14.5px}
+  .faq-q .pl{color:var(--red);font-size:22px;line-height:1;flex:0 0 auto;transition:transform .3s}
+  .faq-item.open .faq-q .pl{transform:rotate(45deg)}
+  .faq-a{max-height:0;overflow:hidden;transition:max-height .35s ease}
+  .faq-a .inner{padding:0 18px 16px;color:var(--soft);font-size:13.5px;line-height:1.65}
+  /* Footer */
+  .foot{background:var(--dark);color:#cfc7ba;margin-top:54px;padding:46px 24px 30px}
+  .foot-in{max-width:1080px;margin:0 auto;display:flex;flex-wrap:wrap;gap:30px 50px;justify-content:space-between}
+  .foot .flogo{height:40px;margin-bottom:14px}
+  .foot .fabout{max-width:330px;font-size:13.5px;line-height:1.7;color:#a99f90}
+  .foot .fcol h4{color:#fff;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 12px;font-family:"Barlow Condensed";font-weight:700}
+  .foot .fcol a{display:block;color:#bdb4a6;text-decoration:none;font-size:13.5px;margin-bottom:9px}
+  .foot .fcol a:hover{color:#fff}
+  .foot-bot{max-width:1080px;margin:28px auto 0;padding-top:20px;border-top:1px solid rgba(255,255,255,.09);font-size:12.5px;color:#8a8073;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  @media(max-width:860px){
+    .fgrid{grid-template-columns:1fr}
+    .mission{padding:30px 22px}.mission h2{font-size:26px}
+    .mkt-h h2{font-size:25px}
+    .foot-in{gap:26px}
   }
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
@@ -94,8 +148,8 @@
         <div class="tagline" data-k="tag"></div>
       </div>
       <div>
-        <div class="feat"><span class="ic">🩺</span> <span data-k="feat1"></span></div>
-        <div class="feat"><span class="ic">⚡</span> <span data-k="feat2"></span></div>
+        <div class="caro" id="caro"></div>
+        <div class="caro-dots" id="caroDots"></div>
       </div>
     </div>
 
@@ -153,9 +207,64 @@
           <span data-k="with20fit">Continue with 20FIT</span>
         </button>
         <div class="msg" id="msg"></div>
+        <button type="button" class="seebtn" data-k="seeFeatures" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})"></button>
       </div>
     </div>
   </div>
+
+  <!-- ============ MISI / UNTUK SEMUA ORANG ============ -->
+  <section class="mkt">
+    <div class="mission">
+      <div class="label" data-k="missLabel">For everyone</div>
+      <h2 data-k="missTitle"></h2>
+      <p data-k="missBody"></p>
+      <div class="chips"><span data-k="missChip1"></span><span data-k="missChip2"></span><span data-k="missChip3"></span></div>
+    </div>
+
+    <!-- FITUR -->
+    <div class="mkt-h" id="features">
+      <div class="label" data-k="featsLabel">Features</div>
+      <h2 data-k="featsTitle"></h2>
+      <p data-k="featsSub"></p>
+    </div>
+    <div class="fgrid" id="fgrid"></div>
+
+    <!-- FAQ -->
+    <div class="mkt-h" id="faq-top">
+      <div class="label" data-k="faqLabel">FAQ</div>
+      <h2 data-k="faqTitle"></h2>
+      <p data-k="faqSub"></p>
+    </div>
+    <div class="faq" id="faq"></div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="foot">
+    <div class="foot-in">
+      <div>
+        <img class="flogo" src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" />
+        <div class="fabout" data-k="footAbout"></div>
+      </div>
+      <div class="fcol">
+        <h4 data-k="footEco">Ecosystem</h4>
+        <a href="https://booking.20fit.id/gym" target="_blank" rel="noopener">Gym</a>
+        <a href="https://booking.20fit.id/clinic" target="_blank" rel="noopener" data-k="footClinic">Sport Clinic</a>
+        <a href="https://booking.20fit.id/book" target="_blank" rel="noopener" data-k="footClass">Classes</a>
+      </div>
+      <div class="fcol">
+        <h4 data-k="footProduct">Product</h4>
+        <a href="#features" data-k="footFeatures">Features</a>
+        <a href="#faq-top" data-k="footFaq">FAQ</a>
+        <a href="reset-password.html" data-k="footReset">Reset password</a>
+      </div>
+      <div class="fcol">
+        <h4 data-k="footContact">Contact</h4>
+        <a href="mailto:Marketing@20fit.id">Marketing@20fit.id</a>
+        <a href="https://20fit.id" target="_blank" rel="noopener">20fit.id</a>
+      </div>
+    </div>
+    <div class="foot-bot"><span data-k="footRights"></span><span>profile.20fit.id</span></div>
+  </footer>
 
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
@@ -185,7 +294,18 @@
         existTitle:"Already have a 20FIT account?",
         existDesc:"Sign in with an email code — you'll then be guided to complete your data & create a password.",
         emailNeed:"Enter your email first.", codeNeed:"Enter the code from your email.",
-        magicSent:"Login code sent! Check your email.", sending:"Sending code..."
+        magicSent:"Login code sent! Check your email.", sending:"Sending code...",
+        seeFeatures:"✨ See what's inside 20FIT Profile",
+        missLabel:"For everyone",
+        missTitle:"Whether you're just starting out — or you've lived healthy for years.",
+        missBody:"20FIT Profile is built for every stage of your health journey. Our role is to answer your real health needs and bring everything into one ecosystem — so tracking your body, your food, your check-ups and your training finally feels effortless.",
+        missChip1:"Just starting out", missChip2:"Long-time healthy", missChip3:"One connected ecosystem",
+        featsLabel:"Features", featsTitle:"Everything your health needs, in one place", featsSub:"From AI check-up analysis to food scanning and your whole 20FIT ecosystem.",
+        faqLabel:"FAQ", faqTitle:"Frequently asked questions", faqSub:"Everything you might want to know before you start.",
+        footAbout:"20FIT Profile — your digital health platform. Track your body, understand your check-ups, and connect to the whole 20FIT ecosystem.",
+        footEco:"Ecosystem", footClinic:"Sport Clinic", footClass:"Classes",
+        footProduct:"Product", footFeatures:"Features", footFaq:"FAQ", footReset:"Reset password",
+        footContact:"Contact", footRights:"© 2026 20FIT. All rights reserved."
       },
       id: {
         dhp:"Platform Kesehatan Digital",
@@ -211,13 +331,79 @@
         existTitle:"Sudah punya akun 20FIT?",
         existDesc:"Masuk pakai kode email — nanti kamu diarahkan untuk lengkapi data & buat password.",
         emailNeed:"Isi email kamu dulu.", codeNeed:"Masukkan kode dari email.",
-        magicSent:"Kode login terkirim! Cek email kamu.", sending:"Mengirim kode..."
+        magicSent:"Kode login terkirim! Cek email kamu.", sending:"Mengirim kode...",
+        seeFeatures:"✨ Lihat apa aja isi 20FIT Profile",
+        missLabel:"Untuk semua orang",
+        missTitle:"Baru mulai — atau sudah lama menjalani hidup sehat.",
+        missBody:"20FIT Profile dibuat untuk setiap tahap perjalanan sehatmu. Peran kami adalah menjawab kebutuhan kesehatanmu yang sebenarnya dan menyatukan semuanya dalam satu ekosistem — supaya melacak tubuh, makanan, hasil check-up, dan latihanmu jadi jauh lebih mudah.",
+        missChip1:"Baru memulai", missChip2:"Sudah lama sehat", missChip3:"Satu ekosistem terhubung",
+        featsLabel:"Fitur", featsTitle:"Semua kebutuhan kesehatanmu, dalam satu tempat", featsSub:"Dari analisa check-up AI, scan makanan, hingga seluruh ekosistem 20FIT.",
+        faqLabel:"FAQ", faqTitle:"Pertanyaan yang sering ditanya", faqSub:"Semua yang mungkin ingin kamu tahu sebelum mulai.",
+        footAbout:"20FIT Profile — platform kesehatan digitalmu. Pantau tubuhmu, pahami hasil check-up, dan terhubung ke seluruh ekosistem 20FIT.",
+        footEco:"Ekosistem", footClinic:"Sport Clinic", footClass:"Kelas",
+        footProduct:"Produk", footFeatures:"Fitur", footFaq:"FAQ", footReset:"Reset password",
+        footContact:"Kontak", footRights:"© 2026 20FIT. Semua hak dilindungi."
       }
     };
     let lang = localStorage.getItem("lang") || "en";
     let mode = "in";
     let gender = null;
     function pickGender(g){ gender=g; document.getElementById("g-male").classList.toggle("active",g==="male"); document.getElementById("g-female").classList.toggle("active",g==="female"); }
+
+    // ---- Konten marketing (carousel + grid fitur + FAQ), bilingual ----
+    const FEATURES = [
+      {ic:"🩺", en:{t:"Medical records, decoded",   d:"Upload lab & MCU results (PDF/JPG/PNG) from any hospital — our AI explains them in plain language."},
+                id:{t:"Rekam medis jadi jelas",       d:"Upload hasil lab & MCU (PDF/JPG/PNG) dari RS mana pun — AI kami jelaskan dengan bahasa sederhana."}},
+      {ic:"🔥", en:{t:"Snap your food",              d:"Scan a meal and instantly get calories, full macros, a health score & smarter-eating tips."},
+                id:{t:"Scan makananmu",              d:"Foto makanan, langsung dapat kalori, makro lengkap, health score & saran makan lebih sehat."}},
+      {ic:"📈", en:{t:"Track your progress",         d:"Weight, streaks, sleep, water & weekly stats — all in one simple dashboard."},
+                id:{t:"Pantau progresmu",            d:"Berat, streak, tidur, air & statistik mingguan — semua dalam satu dashboard."}},
+      {ic:"🌸", en:{t:"Cycle-aware wellness",        d:"For women: know your menstrual phase and get workout & nutrition tips that fit your body."},
+                id:{t:"Selaras dengan siklus",       d:"Untuk wanita: tahu fase menstruasimu & dapat saran olahraga & nutrisi yang pas."}},
+      {ic:"🌤️", en:{t:"Daily wellness",              d:"Weather, air quality, breathing exercises plus sleep & water reminders to guide your day."},
+                id:{t:"Wellness harian",             d:"Cuaca, kualitas udara, latihan napas, plus pengingat tidur & air untuk menemani harimu."}},
+      {ic:"🏋️", en:{t:"One 20FIT ecosystem",         d:"Book Gym, Personal Training, EMS, Physiotherapy & clinic — connected to your health data."},
+                id:{t:"Satu ekosistem 20FIT",        d:"Booking Gym, Personal Training, EMS, Physiotherapy & klinik — terhubung ke data kesehatanmu."}},
+    ];
+    const FAQS = [
+      {en:{q:"Is 20FIT Profile free to use?",           a:"Yes. Creating your health profile, tracking, and AI check-up analysis are free. Some add-ons (like extra calorie scans) are optional top-ups."},
+       id:{q:"Apakah 20FIT Profile gratis?",            a:"Ya. Membuat profil kesehatan, tracking, dan analisa check-up AI gratis. Beberapa add-on (misal scan kalori tambahan) opsional lewat top-up."}},
+      {en:{q:"I already have a 20FIT account — can I use it here?", a:"Absolutely. Sign in with your existing 20FIT email & password, or tap “Continue with 20FIT”. Your data connects automatically."},
+       id:{q:"Aku sudah punya akun 20FIT — bisa dipakai di sini?",  a:"Tentu. Masuk pakai email & password 20FIT kamu, atau klik “Masuk dengan 20FIT”. Datamu otomatis terhubung."}},
+      {en:{q:"What can the AI read from my check-up?",   a:"Upload lab results or an MCU report and the AI highlights what needs attention, explains each parameter, and suggests diet, exercise & follow-ups. It’s guidance, not a diagnosis."},
+       id:{q:"Apa yang bisa dibaca AI dari check-up?",  a:"Upload hasil lab atau MCU, AI menandai yang perlu diperhatikan, menjelaskan tiap parameter, & memberi saran diet, olahraga & tindak lanjut. Ini panduan, bukan diagnosa."}},
+      {en:{q:"Is my health data private?",              a:"Yes. Your data is stored securely and only used to power your own profile and recommendations."},
+       id:{q:"Apakah data kesehatanku aman?",          a:"Ya. Datamu disimpan dengan aman dan hanya dipakai untuk profil & rekomendasimu sendiri."}},
+      {en:{q:"Do I need a gym membership to start?",     a:"No. Anyone can start — whether you’re new to a healthy lifestyle or a long-time member. 20FIT’s services are there when you’re ready."},
+       id:{q:"Perlu jadi member gym dulu untuk mulai?", a:"Tidak. Siapa pun bisa mulai — baru memulai hidup sehat atau sudah lama. Layanan 20FIT siap saat kamu butuh."}},
+    ];
+    let caroIdx=0, caroTimer=null;
+    function renderMarketing(){
+      const pick=o=>o[lang]||o.en;
+      const caro=document.getElementById("caro");
+      if(caro) caro.innerHTML=FEATURES.map((f,i)=>'<div class="caro-slide'+(i===0?' on':'')+'" data-i="'+i+'"><div class="cic">'+f.ic+'</div><div><div class="ct">'+pick(f).t+'</div><div class="cd">'+pick(f).d+'</div></div></div>').join("");
+      const dots=document.getElementById("caroDots");
+      if(dots) dots.innerHTML=FEATURES.map((f,i)=>'<b'+(i===0?' class="on"':'')+' data-i="'+i+'" onclick="caroGo('+i+')"></b>').join("");
+      caroIdx=0;
+      const g=document.getElementById("fgrid");
+      if(g) g.innerHTML=FEATURES.map(f=>'<div class="fcard"><div class="fic">'+f.ic+'</div><h3>'+pick(f).t+'</h3><p>'+pick(f).d+'</p></div>').join("");
+      const fq=document.getElementById("faq");
+      if(fq) fq.innerHTML=FAQS.map((f,i)=>'<div class="faq-item" id="faqi'+i+'"><div class="faq-q" onclick="toggleFaq('+i+')">'+pick(f).q+'<span class="pl">+</span></div><div class="faq-a"><div class="inner">'+pick(f).a+'</div></div></div>').join("");
+    }
+    function caroGo(i){
+      if(!FEATURES.length) return;
+      caroIdx=(i+FEATURES.length)%FEATURES.length;
+      document.querySelectorAll(".caro-slide").forEach(s=>s.classList.toggle("on",+s.dataset.i===caroIdx));
+      document.querySelectorAll(".caro-dots b").forEach(b=>b.classList.toggle("on",+b.dataset.i===caroIdx));
+    }
+    function startCaro(){ if(caroTimer)clearInterval(caroTimer); caroTimer=setInterval(()=>caroGo(caroIdx+1),3800); }
+    function toggleFaq(i){
+      const el=document.getElementById("faqi"+i); if(!el) return;
+      const open=el.classList.contains("open");
+      el.classList.toggle("open",!open);
+      const a=el.querySelector(".faq-a");
+      a.style.maxHeight=open?"0":(a.querySelector(".inner").scrollHeight+20)+"px";
+    }
 
     function setLang(l){ lang=l; localStorage.setItem("lang",l); applyLang(); }
     function applyLang(){
@@ -229,6 +415,7 @@
       document.getElementById("name").placeholder=d.namePh;
       document.getElementById("phone").placeholder=d.phonePh;
       document.getElementById("forgot").textContent=d.forgot;
+      renderMarketing();
       refreshMode();
     }
     function refreshMode(){
@@ -402,6 +589,7 @@
       }catch(e){}
     })();
     applyLang();
+    startCaro();   // jalankan carousel fitur yang bergerak
     // Prefill dari URL (mis. dari halaman kode saat email belum terdaftar -> dorong Buat Akun)
     (function(){
       try{
