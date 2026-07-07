@@ -329,7 +329,9 @@
   <script src="nutrition.js"></script>
   <script src="nav.js"></script>
   <script>
-    function todayKey(){const d=new Date();return "my20fit_cal_"+d.toISOString().slice(0,10)}
+    // Tanggal LOKAL (bukan UTC) — biar konsisten dgn Supabase (daily_log.log_date) & halaman Progress,
+    // sehingga catatan makanan selalu masuk ke hari yang benar (mis. subuh di WIB tidak nyasar ke kemarin).
+    function todayKey(){const d=new Date();return "my20fit_cal_"+d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
     let goal=2000, baseGoal=2000, profileRef=null, items=[], curGoal="health", macroT={p:120,c:230,f:60};
     function recompute(){ goal=Fasting.adjustGoal(baseGoal); if(profileRef)macroT=calcMacros(profileRef); }
     function calcGoal(p){

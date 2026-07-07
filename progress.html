@@ -234,7 +234,7 @@
       const sleepChart=barChart(L({en:"😴 Sleep this week",id:"😴 Tidur minggu ini"}),
         days.map(d=>({l:wdLabel(d.date),v:d.log?+d.log.sleep_hours||0:0,disp:(d.log&&d.log.sleep_hours?(+d.log.sleep_hours).toFixed(1)+'h':'0')})),8,"h","#7c5cff",L({en:"Target 7–8 hours/night",id:"Target 7–8 jam/malam"}));
       const calChart=barChart(L({en:"🔥 Calories this week",id:"🔥 Kalori minggu ini"}),
-        days.map(d=>({l:wdLabel(d.date),v:d.cal||0,disp:(d.cal||0)+''})),goal,"kcal","#C41101",L({en:"Daily target ≈ "+goal+" kcal",id:"Target harian ≈ "+goal+" kkal"})+' · '+L({en:"(this device)",id:"(device ini)"}));
+        days.map(d=>({l:wdLabel(d.date),v:d.cal||0,disp:(d.cal||0)+''})),goal,"kcal","#C41101",L({en:"Daily target ≈ "+goal+" kcal",id:"Target harian ≈ "+goal+" kkal"})+' · '+L({en:"synced to your account",id:"tersinkron ke akunmu"}));
 
       const charts='<div class="sec">'+L({en:"This Week",id:"Minggu Ini"})+'</div><div class="main2"><div>'+waterChart+'<div style="height:14px"></div>'+sleepChart+'</div><div>'+calChart+'</div></div>';
 

@@ -502,6 +502,8 @@
 
     // ---- Achievement: rayakan lencana baru dengan popup "Congratulations" ----
     function achDates(n){const out=[];const base=new Date();for(let i=n-1;i>=0;i--){const d=new Date(base);d.setDate(base.getDate()-i);out.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));}return out;}
+    // Tanggal LOKAL (bukan UTC) — konsisten dgn Supabase & Calorie Tracker
+    function dayStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
     function achCal(d){try{return JSON.parse(localStorage.getItem("my20fit_cal_"+d)||"[]").reduce((s,i)=>s+(+i.kcal||0),0);}catch(e){return 0;}}
     async function checkAchievements(){
       if(!window.Ach||!profile||!profile.auth_user_id)return;
@@ -533,7 +535,7 @@
       }
       // 1) kalori hari ini (dari akun -> cross-device, fallback cache device)
       try{
-        const tdy=new Date().toISOString().slice(0,10);
+        const tdy=dayStr();
         const arr=(daily&&Array.isArray(daily.cal_items))?daily.cal_items:(function(){try{return JSON.parse(localStorage.getItem("my20fit_cal_"+tdy)||"[]");}catch(e){return [];}})();
         const eaten=arr.reduce((s,i)=>s+(+i.kcal||0),0);
         const tgt=calCalGoal(profile); const leftK=Math.max(0,tgt-eaten);
@@ -653,7 +655,7 @@
     // Tandai haid mulai hari ini -> mulai siklus baru (Hari 1)
     async function startPeriodToday(){
       if(!confirm(L({en:"Mark your period as started today? This starts a new cycle (Day 1).",id:"Tandai haid mulai hari ini? Ini memulai siklus baru (Hari 1)."})))return;
-      const today=new Date().toISOString().slice(0,10);
+      const today=dayStr();
       const u=await Auth.requireAuth();
       try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:today,cycle_length:profile.cycle_length||28}).eq("auth_user_id",u.id);
         profile.cycle_last_period=today;if(!profile.cycle_length)profile.cycle_length=28;renderCycle();
@@ -898,7 +900,7 @@
       if(water>=8) set("water8");
       if(sleepH>=7) set("sleep7");
       if(daily&&daily.breathing_done) set("breathe");
-      try{ const tdy=new Date().toISOString().slice(0,10); const arr=(daily&&Array.isArray(daily.cal_items))?daily.cal_items:JSON.parse(localStorage.getItem("my20fit_cal_"+tdy)||"[]"); if(arr&&arr.length) set("food_log"); }catch(e){}
+      try{ const tdy=dayStr(); const arr=(daily&&Array.isArray(daily.cal_items))?daily.cal_items:JSON.parse(localStorage.getItem("my20fit_cal_"+tdy)||"[]"); if(arr&&arr.length) set("food_log"); }catch(e){}
       if(changed){ try{ Auth.saveDaily({checklist:checkState}); }catch(e){} }
     }
     function renderChecklist(){
