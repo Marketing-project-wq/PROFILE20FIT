@@ -627,6 +627,48 @@ app.get("/api/admin/stats", async (req, res) => {
   }
 });
 
+// ---------- 20FIT Arena Open API: riwayat member (read-only proxy) ----------
+// API key WAJIB server-side (kata dokumentasi). Simpan di env ARENA_API_KEY,
+// JANGAN hardcode. Endpoint kita men-scope riwayat ke phone milik user login.
+const ARENA_API_URL = process.env.ARENA_API_URL ||
+  "https://cpvzwqptzcxnwzfzgrmt.supabase.co/functions/v1/arena-api";
+const ARENA_API_KEY = process.env.ARENA_API_KEY || "";
+
+async function arenaGet(path, phone, extra) {
+  const qs = new URLSearchParams(Object.assign({ phone: phone }, extra || {})).toString();
+  const r = await fetch(ARENA_API_URL + path + "?" + qs, { headers: { "x-api-key": ARENA_API_KEY } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.error || ("Arena API " + r.status)); e.status = r.status; throw e; }
+  return j;
+}
+
+// Riwayat kelas + paket + venue milik member yang sedang login (by phone dari profil).
+app.get("/api/arena/history", async (req, res) => {
+  try {
+    if (!ARENA_API_KEY) return res.status(500).json({ error: "ARENA_API_KEY belum di-set di server." });
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    // Ambil nomor HP dari profil user — JANGAN percaya phone dari client.
+    const { data: rows } = await admin.from("my20fit_profile")
+      .select("phone").eq("auth_user_id", user.id).limit(1);
+    const phone = rows && rows[0] && rows[0].phone;
+    if (!phone) return res.status(400).json({ error: "no_phone", message: "Nomor HP belum ada di profil kamu." });
+    const [bk, pk, vn] = await Promise.all([
+      arenaGet("/member/bookings", phone, { limit: 100 }).catch(e => ({ error: e.message, data: [] })),
+      arenaGet("/member/packages", phone).catch(e => ({ error: e.message, data: [] })),
+      arenaGet("/member/venue", phone, { limit: 100 }).catch(e => ({ error: e.message, data: [] })),
+    ]);
+    return res.json({
+      ok: true, phone: phone,
+      bookings: bk.data || [], packages: pk.data || [], venue: vn.data || [],
+    });
+  } catch (e) {
+    console.error("arena/history:", e.message);
+    return res.status(e.status || 500).json({ error: e.message || "Gagal ambil riwayat." });
+  }
+});
+
 // ---------- Static (URL bersih tanpa .html) + fallback ----------
 // Redirect /halaman.html -> /halaman (querystring dipertahankan), lalu sajikan
 // /halaman dari halaman.html lewat opsi extensions. Jadi URL nggak ada ".html" lagi.
