@@ -107,7 +107,7 @@
   }
 
   // ---------- SSO SEAMLESS: login pakai access_token 20FIT (tanpa password) ----------
-  // Dipakai kalau app utama 20FIT mengoper token-nya ke profile.20fit.id.
+  // Dipakai kalau app utama 20FIT mengoper token-nya ke my.20fit.id.
   async function tokenLogin(fitcoToken) {
     await ready;
     const r = await fetch("/api/fitco-token-login", {

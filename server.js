@@ -132,7 +132,7 @@ app.get("/api/config", (req, res) => {
     version: "auth-fix-3",
     serviceKeySet: !!SUPABASE_SERVICE_KEY,
     // URL halaman login/authorize 20FIT. Setelah user login di sana, 20FIT harus
-    // redirect balik ke profile.20fit.id/login.html?token=<access_token>.
+    // redirect balik ke my.20fit.id/login.html?token=<access_token>.
     // Diisi lewat env FITCO_SSO_URL dari tim developer.
     fitcoSsoUrl: process.env.FITCO_SSO_URL || "",
   });
@@ -514,7 +514,7 @@ function partnerAuth(req, res) {
 // Cek key valid.
 app.get("/api/partner/ping", (req, res) => {
   if (!partnerAuth(req, res)) return;
-  res.json({ ok: true, service: "profile.20fit.id", time: new Date().toISOString() });
+  res.json({ ok: true, service: "my.20fit.id", time: new Date().toISOString() });
 });
 // Ambil profil kesehatan user berdasarkan email ATAU user_id (auth_user_id).
 app.get("/api/partner/profile", async (req, res) => {
