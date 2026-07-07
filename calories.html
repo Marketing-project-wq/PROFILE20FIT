@@ -607,11 +607,11 @@
     }
 
     // ---- Kuota scan (10x/bulan + kredit top-up), sinkron lintas device ----
-    // Paket top-up. product_id diisi nanti dari tim developer 20FIT.
+    // Paket top-up. product_id dari 20FIT (Third party > Retail > shop/order).
     const SCAN_PACKS=[
-      {credits:10, price:25000,  product_id:"", best:false},
-      {credits:50, price:100000, product_id:"", best:true },
-      {credits:125,price:200000, product_id:"", best:false},
+      {credits:10, price:25000,  product_id:8477, best:false},
+      {credits:50, price:75000,  product_id:8478, best:true },
+      {credits:150,price:150000, product_id:8479, best:false},
     ];
     function rupiah(n){ return "Rp "+(n||0).toLocaleString("id-ID"); }
     async function refreshQuota(){
@@ -637,25 +637,34 @@
       document.getElementById("dealsList").innerHTML=SCAN_PACKS.map(function(p,idx){
         return '<button class="deal'+(p.best?' best':'')+'" onclick="buyPack('+idx+')">'+
           '<div class="qty">'+p.credits+'<small>SCAN</small></div>'+
-          '<div class="info"><div class="p">'+rupiah(p.price)+'<span style="font-weight:600;color:var(--muted);font-size:13px">/'+L({en:"month",id:"bulan"})+'</span></div>'+
-          '<div class="d">'+p.credits+'x '+L({en:"scan per month",id:"scan per bulan"})+'</div></div>'+
+          '<div class="info"><div class="p">'+rupiah(p.price)+'</div>'+
+          '<div class="d">'+p.credits+'x '+L({en:"calorie scans",id:"scan kalori"})+'</div></div>'+
           (p.best?'<span class="tag">'+L({en:"BEST VALUE",id:"PALING HEMAT"})+'</span>':'')+
         '</button>';
       }).join("");
-      document.getElementById("dealsNote").textContent=L({en:"Secure payment coming soon. Your extra scans never expire.",id:"Pembayaran aman segera hadir. Scan tambahan kamu tidak akan hangus."});
+      document.getElementById("dealsNote").textContent=L({en:"Secure payment via Xendit. Your extra scans never expire.",id:"Pembayaran aman via Xendit. Scan tambahan kamu tidak akan hangus."});
       document.getElementById("dealsClose").textContent=L({en:"Maybe later",id:"Nanti aja"});
       document.getElementById("dealsBg").classList.add("open");
     }
     function closeDeals(){ document.getElementById("dealsBg").classList.remove("open"); }
     async function buyPack(idx){
-      const p=SCAN_PACKS[idx]; if(!p)return;
-      if(!p.product_id){
-        // Product ID dari developer belum dipasang -> beri tahu user dgn sopan.
-        alert(L({en:"Payment for this pack is being set up. Please try again soon — your scans will be added automatically after purchase.",
-                 id:"Pembayaran paket ini sedang disiapkan. Coba lagi sebentar lagi ya — scan kamu otomatis bertambah setelah pembelian."}));
-        return;
+      const p=SCAN_PACKS[idx]; if(!p||!p.product_id)return;
+      const note=document.getElementById("dealsNote");
+      const btns=document.querySelectorAll('#dealsList .deal'); btns.forEach(b=>b.disabled=true);
+      note.textContent=L({en:"Preparing secure payment…",id:"Menyiapkan pembayaran aman…"});
+      try{
+        const tk=await Auth.token();
+        const r=await fetch("/api/scan/buy",{method:"POST",
+          headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
+          body:JSON.stringify({ items:[{product_id:p.product_id,quantity:1}],
+            fitco_token:localStorage.getItem("fitco_token")||"", user_id:localStorage.getItem("fitco_uid")||null })});
+        const j=await r.json().catch(()=>({}));
+        if(!r.ok||!j.link) throw new Error(j.error||L({en:"Couldn't start payment.",id:"Gagal memulai pembayaran."}));
+        location.href=j.link;   // -> halaman pembayaran Xendit (checkout.xendit.co)
+      }catch(e){
+        btns.forEach(b=>b.disabled=false);
+        note.textContent=(e.message||L({en:"Purchase failed. Try again.",id:"Pembelian gagal. Coba lagi."}));
       }
-      // (Nanti) buka checkout pakai p.product_id. Setelah sukses -> Auth.addScanCredits(p.credits).
     }
     (function(){ var b=document.getElementById("dealsClose"); if(b)b.addEventListener("click",closeDeals);
       var bg=document.getElementById("dealsBg"); if(bg)bg.addEventListener("click",function(e){ if(e.target===bg)closeDeals(); });

@@ -406,7 +406,8 @@ app.post("/api/fitco-login", async (req, res) => {
     } catch (e) { /* non-fatal, pakai data login */ }
 
     const out = await mirrorAndMintOtp(info);
-    return res.json({ ok: true, email: out.email, email_otp: out.email_otp });
+    // Kirim user_id + token 20FIT ke client (dipakai untuk order/pembayaran shop 20FIT).
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fd.user_id || fd.id || null, fitco_token: fitcoToken });
   } catch (e) {
     console.error("fitco-login:", e.message);
     return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
@@ -702,6 +703,69 @@ app.get("/api/arena/history", async (req, res) => {
   } catch (e) {
     console.error("arena/history:", e.message);
     return res.status(e.status || 500).json({ error: e.message || "Gagal ambil riwayat." });
+  }
+});
+
+// ---------- Beli paket scan kalori via 20FIT shop order (Xendit) ----------
+// POST /api/v1/third-party/shop/order (Bearer). Balikannya berisi link Xendit (field "link").
+// Auth token: FITCO_PARTNER_TOKEN (env, kalau endpoint pakai token partner) ATAU token
+// login user (dikirim client). Set env kalau dev bilang butuh token partner.
+const FITCO_PARTNER_TOKEN = process.env.FITCO_PARTNER_TOKEN || "";
+function findXenditLink(obj) {
+  let out = null;
+  (function walk(v) {
+    if (out || !v || typeof v !== "object") return;
+    for (const k of Object.keys(v)) {
+      const val = v[k];
+      if (typeof val === "string" && /^https?:\/\//i.test(val) &&
+          (k === "link" || k === "payment_url" || k === "invoice_url" || k === "url" || val.indexOf("xendit") >= 0)) { out = val; return; }
+      if (val && typeof val === "object") walk(val);
+    }
+  })(obj);
+  return out;
+}
+app.post("/api/scan/buy", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    const items = (Array.isArray(b.items) ? b.items : [])
+      .filter(it => it && it.product_id)
+      .map(it => ({ product_id: +it.product_id, quantity: +it.quantity || 1 }));
+    if (!items.length) return res.status(400).json({ error: "Item pembelian kosong." });
+    // Token 20FIT: token partner (env) ATAU token login user (dari client).
+    const bearer = FITCO_PARTNER_TOKEN || String(b.fitco_token || "");
+    if (!bearer) return res.status(400).json({ error: "Sesi 20FIT tidak ditemukan. Silakan login ulang." });
+    // Data user dari profil (jangan percaya sepenuhnya input client).
+    const { data: rows } = await admin.from("my20fit_profile")
+      .select("full_name,phone,email").eq("auth_user_id", user.id).limit(1);
+    const p = (rows && rows[0]) || {};
+    const email = (p.email || user.email || "").toLowerCase();
+    const phone = String(p.phone || "").replace(/^\+?62/, "").replace(/^0/, "");
+    const body = {
+      user_id: b.user_id || null,
+      name: p.full_name || (email ? email.split("@")[0] : "Member"),
+      phone_code: "+62",
+      phone: phone,
+      email: email,
+      promo_code: null,
+      payment: { payment_type: "xendit-invoices", user_point_booster_id: null, use_fit_points: false },
+      items: items,
+    };
+    const r = await fetch(FITCO_API + "/api/v1/third-party/shop/order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": "Bearer " + bearer },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status === 401 ? 401 : 400).json({ error: (j && (j.message || j.error)) || "Gagal membuat order 20FIT." });
+    const link = findXenditLink(j);
+    if (!link) return res.status(502).json({ error: "Order dibuat, tapi link pembayaran tidak ditemukan." });
+    return res.json({ ok: true, link: link });
+  } catch (e) {
+    console.error("scan/buy:", e.message);
+    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
   }
 });
 
