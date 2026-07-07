@@ -588,13 +588,12 @@
       document.getElementById("dealsTitle").textContent=(q&&q.remaining>0)
         ? L({en:"Top up your calorie scans",id:"Top up scan kalori kamu"})
         : L({en:"You've used all 10 scans this month",id:"Kuota 10x scan bulan ini sudah habis"});
-      document.getElementById("dealsSub").textContent=L({en:"Get more calorie scans with a top-up pack — pick what suits you.",id:"Dapatkan lebih banyak scan kalori dengan paket top-up — pilih yang paling pas."});
+      document.getElementById("dealsSub").textContent=L({en:"Topping up lets you scan more often — so you understand your food intake better and keep up your healthy lifestyle.",id:"Dengan top up, kamu bisa scan lebih sering — jadi lebih paham asupan makananmu dan tetap jaga gaya hidup sehat."});
       document.getElementById("dealsList").innerHTML=SCAN_PACKS.map(function(p,idx){
-        const per=Math.round(p.price/p.credits);
         return '<button class="deal'+(p.best?' best':'')+'" onclick="buyPack('+idx+')">'+
           '<div class="qty">'+p.credits+'<small>SCAN</small></div>'+
-          '<div class="info"><div class="p">'+rupiah(p.price)+'</div>'+
-          '<div class="d">'+p.credits+' '+L({en:"scans",id:"scan"})+' · '+rupiah(per)+'/'+L({en:"scan",id:"scan"})+'</div></div>'+
+          '<div class="info"><div class="p">'+rupiah(p.price)+'<span style="font-weight:600;color:var(--muted);font-size:13px">/'+L({en:"month",id:"bulan"})+'</span></div>'+
+          '<div class="d">'+p.credits+'x '+L({en:"scan per month",id:"scan per bulan"})+'</div></div>'+
           (p.best?'<span class="tag">'+L({en:"BEST VALUE",id:"PALING HEMAT"})+'</span>':'')+
         '</button>';
       }).join("");
