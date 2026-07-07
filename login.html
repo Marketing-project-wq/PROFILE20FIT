@@ -557,9 +557,17 @@
           await Auth.fitcoRegister({name:name,email:email,password:password,phone:phone,gender:gender,date_of_birth:birthdate});
         }
         else{
-          // LOGIN lewat API 20FIT (satu-satunya jalur). Kalau user sudah punya akun
-          // di 20FIT app -> langsung masuk. Kalau belum -> login gagal, arahkan Buat Akun.
-          await Auth.fitcoLogin(email,password);
+          // Prioritas akun 20FIT (API developer). Kalau ditolak (bukan akun 20FIT),
+          // fallback ke akun profile20fit (Supabase) supaya akun lama tetap bisa masuk.
+          try{
+            await Auth.fitcoLogin(email,password);
+          }catch(e20){
+            const m=String((e20&&e20.message)||"").toLowerCase();
+            // Kalau 20FIT down / server belum dikonfigurasi (bukan sekadar salah kredensial),
+            // jangan disembunyikan -> lempar lagi biar pesannya jelas.
+            if(m.includes("dikonfigurasi")||m.includes("service key")||m.includes("menghubungi")){ throw e20; }
+            await Auth.signIn(email,password);   // akun profile20fit (Supabase)
+          }
         }
         saveCredential(email,password);
         await Auth.routeAfterAuth();
