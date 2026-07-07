@@ -33,14 +33,11 @@
       .navside{position:fixed;left:0;top:0;bottom:0;width:238px;z-index:45;padding:26px 18px;display:flex;flex-direction:column;gap:6px;
         background:var(--card,#fff);border-right:1px solid var(--line,#EBEBEF)}
     }
-    /* Logo TANPA background: light mode pakai logo gelap, dark mode pakai logo putih.
-       Chip gelap (.box) hanya fallback kalau logo gelap belum tersedia di light mode. */
+    /* Logo TANPA background. Satu file logo untuk semua mode & bahasa -> ukuran IDENTIK
+       di ID/EN & light/dark. Light mode difilter jadi hitam via applyLogo(). */
     .navside .sbrand{display:inline-flex;align-items:center;margin:2px 4px 20px;border-radius:13px}
-    .navside .sbrand.box{background:var(--dark,#15171C);padding:11px 16px;margin:0 4px 18px}
     .navside .sbrand img{height:46px;width:auto;display:block}
-    .navside .sbrand.box img{height:38px}
-    .applogo{position:fixed;top:14px;left:16px;z-index:65;height:36px;cursor:pointer;border-radius:10px}
-    .applogo.box{box-sizing:content-box;padding:9px 14px;height:34px;background:var(--dark,#15171C);box-shadow:0 3px 12px rgba(0,0,0,.18)}
+    .applogo{position:fixed;top:14px;left:16px;z-index:65;height:36px;width:auto;cursor:pointer;border-radius:10px}
     @media(min-width:900px){ .applogo{display:none} }
     .navside .navi{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;color:var(--muted,#8A8D94);text-decoration:none;
       font-family:${SYS};font-weight:650;font-size:14.5px;transition:.15s}
@@ -48,10 +45,15 @@
     .navside .navi.on{background:var(--red,#D4283A);color:#fff;box-shadow:0 8px 20px color-mix(in srgb,var(--red,#D4283A) 26%,transparent)}
     .navside .navi svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;color:var(--faint,#B7B9BF)}
     .navside .navi.on svg,.navside .navi:hover svg{color:currentColor}
-    .navside .sscan{margin-top:14px;display:flex;align-items:center;justify-content:center;gap:9px;border:0;cursor:pointer;
+    .navside .sscan{margin-top:14px;display:flex;align-items:center;justify-content:center;gap:9px;border:1px solid transparent;cursor:pointer;
       background:var(--dark,#15171C);color:var(--bg,#F1F1F4);font-family:${SYS};font-weight:750;font-size:14px;padding:13px;border-radius:14px;transition:.15s}
     .navside .sscan:active{transform:scale(.98)}
     .navside .sscan svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    /* Dark mode: --dark & --bg keduanya nyaris hitam -> tombol jadi hitam-di-hitam (tak terlihat).
+       Beri permukaan terang + teks terang biar tombol Scan & tulisannya tetap kebaca. */
+    html:not(.theme-light) .navside .sscan,
+    html[data-theme="dark"] .navside .sscan{
+      background:var(--inp,#23262E);color:var(--txt,#F4F5F7);border-color:var(--line,#2A2E37)}
     .navside .sfoot{margin-top:auto;display:flex;align-items:center;gap:11px;padding:12px 10px;border-top:1px solid var(--line,#EBEBEF);min-width:0}
     .navside .sfoot .av{width:38px;height:38px;border-radius:999px;background:var(--red,#D4283A);color:#fff;display:grid;place-items:center;font-weight:800;font-family:${SYS};flex:0 0 auto}
     .navside .sfoot .tx{min-width:0}
@@ -185,5 +187,5 @@
     }
   } catch (e) {}
 
-  if (window.I18N) I18N.onChange(() => { renderSide(); renderNav(); renderFab(); });
+  if (window.I18N) I18N.onChange(() => { renderSide(); applyLogo(); renderNav(); renderFab(); });
 })();
