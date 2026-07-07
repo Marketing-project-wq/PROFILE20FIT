@@ -162,9 +162,11 @@
     const css=document.createElement("style");
     // Single top-right row so the toggles never overlap page content, plus a
     // top gap on content-bearing pages that reserves space for the row.
-    css.textContent=".topfab{position:fixed;top:12px;right:14px;z-index:80;display:flex;align-items:center;gap:8px}"+
-      "body{padding-top:72px !important}"+
-      "@media(min-width:900px){.hero{margin-top:18px !important}}"+
+    css.textContent=".topfab{position:fixed;top:0;left:0;right:0;z-index:60;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:11px 14px;"+
+        "background:color-mix(in srgb,var(--bg,#F3F2F0) 86%,transparent);-webkit-backdrop-filter:saturate(180%) blur(16px);backdrop-filter:saturate(180%) blur(16px);border-bottom:1px solid rgba(0,0,0,.07)}"+
+      "html:not(.theme-light) .topfab{border-bottom-color:rgba(255,255,255,.08)}"+
+      "body{padding-top:64px !important}"+
+      "@media(min-width:900px){.topfab{top:12px;left:auto;right:14px;padding:0;background:none;border:0;-webkit-backdrop-filter:none;backdrop-filter:none}.hero{margin-top:18px !important}}"+
       ".langfab{display:flex;gap:3px;background:#fff;border:1px solid #E8E2DB;border-radius:10px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,.20)}"+
       ".langfab button{border:0;background:transparent;color:#8A7C68;font-weight:800;font-size:12px;padding:6px 11px;border-radius:7px;cursor:pointer;font-family:inherit}"+
       ".langfab button.on{background:#C41101;color:#fff}"+

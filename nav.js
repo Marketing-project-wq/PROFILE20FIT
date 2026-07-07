@@ -39,7 +39,7 @@
     .navside .sbrand.box{background:var(--dark,#15171C);padding:11px 16px;margin:0 4px 18px}
     .navside .sbrand img{height:46px;width:auto;display:block}
     .navside .sbrand.box img{height:38px}
-    .applogo{position:fixed;top:12px;left:14px;z-index:60;height:42px;cursor:pointer;border-radius:13px}
+    .applogo{position:fixed;top:14px;left:16px;z-index:65;height:36px;cursor:pointer;border-radius:10px}
     .applogo.box{box-sizing:content-box;padding:9px 14px;height:34px;background:var(--dark,#15171C);box-shadow:0 3px 12px rgba(0,0,0,.18)}
     @media(min-width:900px){ .applogo{display:none} }
     .navside .navi{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:13px;color:var(--muted,#8A8D94);text-decoration:none;
@@ -106,7 +106,7 @@
   // Light mode -> difilter jadi HITAM (biar kebaca di sidebar putih).
   // Kalau nanti ada URL logo font-hitam+dot-merah, isi LOGO_LIGHT_URL -> dipakai tanpa filter.
   const LOGO = "https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png";
-  const LOGO_LIGHT_URL = "";
+  const LOGO_LIGHT_URL = "https://media.20fit.id/wp-content/uploads/2026/05/Logo-20fit.png";
   function themeIsLight() { return document.documentElement.classList.contains("theme-light"); }
   function applyLogo() {
     const light = themeIsLight();
