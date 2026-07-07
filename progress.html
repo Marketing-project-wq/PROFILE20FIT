@@ -91,6 +91,15 @@
     const WD_EN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], WD_ID=["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
     function todayStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
     function lastNDates(n){const out=[];const base=new Date();for(let i=n-1;i>=0;i--){const d=new Date(base);d.setDate(base.getDate()-i);out.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));}return out;}
+    // Minggu berjalan MULAI SENIN (Mon..Sun)
+    function currentWeekDates(){
+      const base=new Date();base.setHours(0,0,0,0);
+      const dow=base.getDay();               // 0=Min..6=Sab
+      const offset=(dow===0?6:dow-1);        // jarak hari ke Senin
+      const mon=new Date(base);mon.setDate(base.getDate()-offset);
+      const out=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);out.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));}
+      return out;
+    }
     function wdLabel(ds){const d=new Date(ds+"T00:00:00");return (I18N.lang==="id"?WD_ID:WD_EN)[d.getDay()];}
     function readCal(d){try{const it=JSON.parse(localStorage.getItem("my20fit_cal_"+d)||"[]");return it.reduce((s,i)=>s+(+i.kcal||0),0);}catch(e){return 0;}}
     function readWeights(){try{return JSON.parse(localStorage.getItem("my20fit_weight")||"[]");}catch(e){return [];}}
@@ -279,7 +288,7 @@
     (async function(){
       try{ user=await Auth.requireAuth(); }catch(e){ return; }
       try{ profile=await Auth.getProfile(); }catch(e){ profile={}; }
-      const dates=lastNDates(7);
+      const dates=currentWeekDates();
       let logMap={};
       try{ const {data}=await Auth.supabase.from("my20fit_daily_log").select("*").eq("auth_user_id",user.id).gte("log_date",dates[0]).order("log_date"); (data||[]).forEach(r=>logMap[r.log_date]=r); }catch(e){}
       days=dates.map(d=>{const r=logMap[d]||null;const cal=(r&&Array.isArray(r.cal_items))?r.cal_items.reduce((s,i)=>s+(+i.kcal||0),0):readCal(d);return {date:d,log:r,cal:cal};});
