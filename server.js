@@ -303,6 +303,9 @@ app.get("/api/aqi", async (req, res) => {
 // yang sama (by email) + balikin OTP untuk membuat sesi. Data user tersimpan
 // permanen di database kita (Supabase) & nempel tiap login ulang.
 const FITCO_API = process.env.FITCO_API_URL || "https://api.20fit.id";
+// Endpoint login 20FIT — responsnya berisi access_token (dikonfirmasi tim dev 20FIT).
+// Bisa dioverride via env kalau path-nya berubah, tanpa ubah kode.
+const FITCO_LOGIN_PATH = process.env.FITCO_LOGIN_PATH || "/login";
 // Ambil profil user dari 20FIT pakai access_token (Bearer). Return field yg kita pakai.
 async function fetch20fitProfile(fitcoToken) {
   const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null };
@@ -378,7 +381,7 @@ app.post("/api/fitco-login", async (req, res) => {
     // 1) Verifikasi ke API 20FIT
     let fj = {};
     try {
-      const fr = await fetch(FITCO_API + "/api/v1/auth/login", {
+      const fr = await fetch(FITCO_API + FITCO_LOGIN_PATH, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, login_source: "app" }),
