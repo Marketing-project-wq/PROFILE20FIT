@@ -328,19 +328,21 @@
       if (m < 0 || (m === 0 && t.getDate() < b.getDate())) age--;
     }
 
+    const upd = {
+      gender: gender || null,
+      gender_selected_at: gender ? new Date().toISOString() : null,
+      height_cm: height_cm || null,
+      weight_kg: weight_kg || null,
+      main_goal: main_goal || null,
+      health_conditions: health_conditions || [],
+      onboarding_completed: true,
+      updated_at: new Date().toISOString(),
+    };
+    // Hanya set umur kalau tgl lahir diisi; jangan hapus umur yg sudah ada (mis. dari akun 20FIT).
+    if (age !== null) upd.age = age;
     const { error } = await supabase
       .from("my20fit_profile")
-      .update({
-        gender: gender || null,
-        gender_selected_at: gender ? new Date().toISOString() : null,
-        age: age,
-        height_cm: height_cm || null,
-        weight_kg: weight_kg || null,
-        main_goal: main_goal || null,
-        health_conditions: health_conditions || [],
-        onboarding_completed: true,
-        updated_at: new Date().toISOString(),
-      })
+      .update(upd)
       .eq("auth_user_id", user.id);
     if (error) throw error;
   }

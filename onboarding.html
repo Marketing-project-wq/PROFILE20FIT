@@ -45,14 +45,18 @@
     <h2>Lengkapi Profil 🙌</h2>
     <div class="sub">Data ini bikin rekomendasi kamu makin pas.</div>
 
+    <div id="genderBlock">
     <label>Jenis Kelamin</label>
     <div class="grid2">
       <div class="opt" data-g="male" onclick="pickGender('male')">Pria</div>
       <div class="opt" data-g="female" onclick="pickGender('female')">Wanita</div>
     </div>
+    </div>
 
+    <div id="dobBlock">
     <label>Tanggal Lahir</label>
     <input id="birthdate" type="date" max="2026-06-27" />
+    </div>
 
     <div class="row">
       <div><label>Berat (kg)</label><input id="weight" type="number" inputmode="decimal" placeholder="65" min="30" max="200" oninput="updateBmi()" /></div>
@@ -95,7 +99,7 @@
   <script src="vendor-supabase.js"></script>
   <script src="auth.js"></script>
   <script>
-    let gender=null, goal=null;
+    let gender=null, goal=null, knownIdentity=false;
     (async function(){
       await Auth.requireAuth();
       try{ const p=await Auth.getProfile(); if(p) prefill(p); }catch(e){}
@@ -105,6 +109,12 @@
       if(p.main_goal) pickGoal(p.main_goal);
       if(p.weight_kg) document.getElementById("weight").value=p.weight_kg;
       if(p.height_cm) document.getElementById("height").value=p.height_cm;
+      // Kalau gender & umur SUDAH ada (mis. akun 20FIT) -> nggak usah tanya jenis kelamin & tgl lahir lagi.
+      if(p.gender && p.age){
+        knownIdentity=true;
+        const gb=document.getElementById("genderBlock"); if(gb) gb.style.display="none";
+        const db=document.getElementById("dobBlock"); if(db) db.style.display="none";
+      }
       updateBmi();
     }
 
@@ -136,8 +146,8 @@
       const weight=parseFloat(document.getElementById("weight").value);
       const height=parseFloat(document.getElementById("height").value);
       const msg=document.getElementById("msg");
-      if(!gender)return msg.textContent="Pilih jenis kelamin dulu.";
-      if(!birthdate)return msg.textContent="Isi tanggal lahir.";
+      if(!knownIdentity && !gender)return msg.textContent="Pilih jenis kelamin dulu.";
+      if(!knownIdentity && !birthdate)return msg.textContent="Isi tanggal lahir.";
       if(!weight)return msg.textContent="Isi berat badan.";
       if(!height)return msg.textContent="Isi tinggi badan.";
       if(!goal)return msg.textContent="Pilih tujuan utama kamu.";
