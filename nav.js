@@ -109,14 +109,18 @@
   // Dua file berbeda, dipakai tanpa filter.
   const LOGO = "https://media.20fit.id/wp-content/uploads/2026/05/Untitled-design-1.png";
   const LOGO_LIGHT_URL = "https://media.20fit.id/wp-content/uploads/2026/05/Logo-20fit.png";
+  // Dua file punya padding internal beda -> di tinggi sama jadi keliatan beda ukuran.
+  // Tinggi per-tema biar ukuran VISUAL logonya seimbang (gampang di-tune kalau perlu).
+  const H_SIDE = { dark: 34, light: 58 };  // logo sidebar (desktop)
+  const H_APP  = { dark: 28, light: 46 };  // logo pojok kiri atas (mobile)
   function themeIsLight() { return document.documentElement.classList.contains("theme-light"); }
   function applyLogo() {
     const light = themeIsLight();
     const src = (light && LOGO_LIGHT_URL) ? LOGO_LIGHT_URL : LOGO;
     const filt = (light && !LOGO_LIGHT_URL) ? "brightness(0)" : "none";
     const si = side.querySelector(".sbrand img");
-    if (si) { si.src = src; si.style.filter = filt; }
-    if (applogo) { applogo.src = src; applogo.style.filter = filt; }
+    if (si) { si.src = src; si.style.filter = filt; si.style.height = (light ? H_SIDE.light : H_SIDE.dark) + "px"; }
+    if (applogo) { applogo.src = src; applogo.style.filter = filt; applogo.style.height = (light ? H_APP.light : H_APP.dark) + "px"; }
   }
 
   // ---- Sidebar (desktop) ----
