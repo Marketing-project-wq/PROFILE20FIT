@@ -309,7 +309,7 @@ const FITCO_API = process.env.FITCO_API_URL || "https://api.20fit.id";
 const FITCO_LOGIN_PATH = process.env.FITCO_LOGIN_PATH || "/api/v1/auth/login";
 // Ambil profil user dari 20FIT pakai access_token (Bearer). Return field yg kita pakai.
 async function fetch20fitProfile(fitcoToken) {
-  const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null };
+  const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null, fitcoUserId: null };
   const pr = await fetch(FITCO_API + "/api/v1/app/user/profile", { headers: { Authorization: "Bearer " + fitcoToken } });
   if (!pr.ok) { const err = new Error("Token 20FIT tidak valid."); err.status = 401; throw err; }
   const pj = await pr.json().catch(() => ({}));
@@ -320,6 +320,7 @@ async function fetch20fitProfile(fitcoToken) {
   out.phone = u.phone || u.phone_number || null;
   out.avatar = u.profile_photo || u.avatar || u.photo || u.avatar_url || null;
   out.birthdate = u.date_of_birth || u.birthdate || u.dob || null;
+  out.fitcoUserId = u.user_id || u.id || null;
   return out;
 }
 
@@ -365,6 +366,13 @@ async function mirrorAndMintOtp(info) {
         if (m < 0 || (m === 0 && t.getDate() < b.getDate())) age--;
         if (age > 0 && age < 120) row.age = age;
       }
+      // Ikat akun 20FIT (FITCO) ke profil ini — hanya kalau info memang membawa
+      // fitco_user_id (dari login/register/token-login 20FIT). Jangan overwrite
+      // jadi null kalau flow pemanggil tidak punya data ini.
+      if (info.fitcoUserId) {
+        row.fitco_user_id = String(info.fitcoUserId);
+        row.fitco_linked_at = new Date().toISOString();
+      }
       await admin.from("my20fit_profile").upsert(row, { onConflict: "auth_user_id" });
     }
   } catch (e) { /* non-fatal */ }
@@ -397,17 +405,20 @@ app.post("/api/fitco-login", async (req, res) => {
       fj.access_token || fd.access_token ||
       (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
     if (!fitcoToken) return res.status(401).json({ error: "Login 20FIT gagal (token tidak diterima)." });
+    let fitcoUserId = fd.user_id || fd.id || null;
 
     // 2) Ambil profil (best effort), lengkapi dari data login
     let info = { email, fullName: fd.name || fd.full_name || null, gender: fd.gender ? String(fd.gender).toLowerCase() : null, phone: fd.phone || fd.phone_number || null, avatar: null, birthdate: fd.date_of_birth || fd.birthdate || fd.dob || null };
     try {
       const p = await fetch20fitProfile(fitcoToken);
       info = { email: p.email || email, fullName: p.fullName || info.fullName, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar, birthdate: p.birthdate };
+      fitcoUserId = p.fitcoUserId || fitcoUserId;
     } catch (e) { /* non-fatal, pakai data login */ }
 
+    info.fitcoUserId = fitcoUserId;
     const out = await mirrorAndMintOtp(info);
     // Kirim user_id + token 20FIT ke client (dipakai untuk order/pembayaran shop 20FIT).
-    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fd.user_id || fd.id || null, fitco_token: fitcoToken });
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken });
   } catch (e) {
     console.error("fitco-login:", e.message);
     return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
@@ -496,11 +507,12 @@ app.post("/api/fitco-register", async (req, res) => {
       fitcoToken = fd.access_token || (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
       fitcoUserId = fd.user_id || fd.id || null;
       if (fitcoToken) {
-        try { const p = await fetch20fitProfile(fitcoToken); info = { email: p.email || email, fullName: p.fullName || name, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar, birthdate: p.birthdate || dob }; } catch (e) {}
+        try { const p = await fetch20fitProfile(fitcoToken); info = { email: p.email || email, fullName: p.fullName || name, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar, birthdate: p.birthdate || dob }; fitcoUserId = p.fitcoUserId || fitcoUserId; } catch (e) {}
       }
     } catch (e) { /* non-fatal */ }
 
     // 3) Mirror ke Supabase + buat sesi
+    info.fitcoUserId = fitcoUserId;
     const out = await mirrorAndMintOtp(info);
     // Kirim user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
     return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken });
