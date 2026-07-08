@@ -504,6 +504,7 @@
     getDailyLog,
     saveDaily,
     routeAfterAuth,
+    token,
     go,
   };
   Object.defineProperty(window.Auth, "supabase", { get: function () { return supabase; } });
