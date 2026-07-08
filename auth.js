@@ -121,6 +121,30 @@
     return data;
   }
 
+  // ---------- VERIFIKASI OTP AKUN 20FIT (wajib pasca-registrasi baru) ----------
+  // OTP ini BEDA dari OTP Supabase kita (sendOtp/verifyOtp di bawah) — ini kode
+  // yang dikirim 20FIT sendiri untuk memverifikasi akun di ekosistem mereka.
+  async function fitcoVerifyEmail(email, otp) {
+    const r = await fetch("/api/fitco-verify-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, otp: otp }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || "Verifikasi gagal.");
+    return j;
+  }
+  async function fitcoResendVerifyEmail(email) {
+    const r = await fetch("/api/fitco-resend-verify-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || "Gagal mengirim ulang kode.");
+    return j;
+  }
+
   // Apakah akun ini SUDAH punya password web? (Google/OTP/FITCO-Google = belum)
   function hasWebPassword(user) { return !!(user && user.user_metadata && user.user_metadata.has_pw); }
   // Set password web (dipakai di onboarding kalau user belum punya password)
@@ -130,22 +154,6 @@
     const { error } = await supabase.auth.updateUser({ password: pw, data: { has_pw: true } });
     if (error) throw error;
     return true;
-  }
-
-  // Apakah email SUDAH punya akun di app? true / false / null(tak diketahui).
-  // Dicek di edge function (akses DB sendiri) -> tidak tergantung env server.
-  async function emailExists(email) {
-    await ready;
-    try {
-      const r = await fetch(cfgUrl + "/functions/v1/my20fit-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfgKey, "apikey": cfgKey },
-        body: JSON.stringify({ action: "exists", email: email }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (r.ok && j && typeof j.exists === "boolean") return j.exists;
-    } catch (e) {}
-    return null;
   }
 
   function go(page) {
@@ -421,12 +429,21 @@
 
   // ---------- ROUTING ----------
   // Flow jelas untuk semua (akun baru & akun existing dari ekosistem 20FIT):
+  //   0) akun 20FIT ada tapi belum verified -> VERIFIKASI OTP 20FIT dulu
   //   1) belum lengkap  -> isi DATA dulu (onboarding)
   //   2) data lengkap tapi belum punya password web -> BUAT PASSWORD
   //   3) lengkap & punya password -> dashboard
   async function routeAfterAuth() {
     const user = await requireAuth();
     const profile = await ensureProfile(user);
+    // Sengaja HANYA cek fitco_email_verified, TIDAK ikut syaratkan fitco_user_id.
+    // fitco_user_id kadang masih null tepat setelah registrasi baru (dia baru
+    // ke-isi dari langkah login best-effort di /api/fitco-register, yang justru
+    // hampir pasti GAGAL untuk akun yang belum verified — akar masalah yang lagi
+    // kita perbaiki). fitco_email_verified sendiri sudah cukup & selalu di-set
+    // eksplisit (true/false) oleh server begitu ada sinyal dari 20FIT, jadi jangan
+    // tambahkan lagi dependency ke fitco_user_id di sini tanpa paham konteks ini.
+    if (profile.fitco_email_verified === false) return go("verify.html");
     if (!profileComplete(profile)) return go("onboarding.html");
     if (!hasWebPassword(user)) return go("setpassword.html");
     return go("dashboard.html");
@@ -437,10 +454,11 @@
     signIn,
     loginSend,
     verifyLoginCode,
-    emailExists,
     fitcoLogin,
     fitcoRegister,
     tokenLogin,
+    fitcoVerifyEmail,
+    fitcoResendVerifyEmail,
     hasWebPassword,
     setWebPassword,
     signOut,
