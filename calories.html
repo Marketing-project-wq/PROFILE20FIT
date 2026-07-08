@@ -651,12 +651,9 @@
       const p=SCAN_PACKS[idx]; if(!p||!p.product_id)return;
       const note=document.getElementById("dealsNote");
       const setNote=function(t,err){ if(note){ note.textContent=t||""; note.style.color=err?"var(--red)":""; note.style.fontWeight=err?"800":""; } };
-      // Beli paket = order ke 20FIT -> butuh login pakai AKUN 20FIT (token tersimpan saat login).
+      // Order dibuat server pakai token PARTNER 20FIT (kalau di-set) atau token login 20FIT.
+      // Data user (email/phone) diambil server dari profil, jadi user tak harus punya akun 20FIT app.
       const ftk=localStorage.getItem("fitco_token")||"";
-      if(!ftk){
-        setNote(L({en:"Please sign in with your 20FIT account first to buy a pack.",id:"Login pakai akun 20FIT dulu ya untuk beli paket."}),true);
-        return;
-      }
       const btns=document.querySelectorAll('#dealsList .deal'); btns.forEach(b=>b.disabled=true);
       setNote(L({en:"Preparing secure payment…",id:"Menyiapkan pembayaran aman…"}),false);
       try{

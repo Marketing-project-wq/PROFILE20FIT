@@ -734,9 +734,9 @@ app.post("/api/scan/buy", async (req, res) => {
       .filter(it => it && it.product_id)
       .map(it => ({ product_id: +it.product_id, quantity: +it.quantity || 1 }));
     if (!items.length) return res.status(400).json({ error: "Item pembelian kosong." });
-    // Token 20FIT: token partner (env) ATAU token login user (dari client).
+    // Token 20FIT: token partner (env, dipakai untuk SEMUA user) ATAU token login user.
     const bearer = FITCO_PARTNER_TOKEN || String(b.fitco_token || "");
-    if (!bearer) return res.status(400).json({ error: "Sesi 20FIT tidak ditemukan. Silakan login ulang." });
+    if (!bearer) return res.status(503).json({ error: "Pembayaran paket belum aktif: token 20FIT partner belum di-set di server (FITCO_PARTNER_TOKEN)." });
     // Data user dari profil (jangan percaya sepenuhnya input client).
     const { data: rows } = await admin.from("my20fit_profile")
       .select("full_name,phone,email").eq("auth_user_id", user.id).limit(1);
