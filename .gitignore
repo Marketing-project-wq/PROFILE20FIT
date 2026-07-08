@@ -3,3 +3,6 @@ node_modules/
 .env.local
 npm-debug.log*
 .DS_Store
+
+# Berisi token API 20FIT (Production & Staging) yang bocor — jangan pernah di-commit lagi.
+20fit-api-docs.html
