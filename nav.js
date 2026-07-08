@@ -104,13 +104,11 @@
   }
 
   // ---- LOGO sesuai tema (tanpa background/chip) ----
-  // Pakai logo transparan font PUTIH. Dark mode -> putih apa adanya.
-  // Light mode -> difilter jadi HITAM (biar kebaca di sidebar putih).
-  // Kalau nanti ada URL logo font-hitam+dot-merah, isi LOGO_LIGHT_URL -> dipakai tanpa filter.
+  // Dark mode  -> logo FULL PUTIH (putih-3).
+  // Light mode -> logo font gelap + titik merah (logo-20fit-2) biar kebaca di bg terang.
+  // Dua file berbeda, dipakai tanpa filter (titik merah tetap utuh).
   const LOGO = "https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png";
-  // Pakai SATU file logo (font putih) untuk semua mode & bahasa -> ukuran identik di
-  // light/dark & EN/ID. Di light mode difilter jadi hitam (brightness 0) via applyLogo.
-  const LOGO_LIGHT_URL = "";
+  const LOGO_LIGHT_URL = "https://media.20fit.id/wp-content/uploads/2026/07/logo-20fit-2.png";
   function themeIsLight() { return document.documentElement.classList.contains("theme-light"); }
   function applyLogo() {
     const light = themeIsLight();
