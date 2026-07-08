@@ -34,8 +34,8 @@
   .ok{color:#2A7A4F}.err{color:var(--red)}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
-<link rel="stylesheet" href="20fit-design-system.css">
-<link rel="stylesheet" href="glass-app.css">
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/glass-app.css">
 </head>
 <body>
   <div class="wrap">
@@ -86,11 +86,11 @@
     <button class="btn out" onclick="Auth.signOut()" data-i18n="prof_logout">Log Out</button>
   </div>
 
-  <script src="vendor-supabase.js"></script>
-  <script src="auth.js"></script>
-  <script src="i18n.js"></script>
-  <script src="nav.js"></script>
-  <script src="tour.js"></script>
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/tour.js"></script>
   <script>
     let gender=null, user=null;
     function pickGender(g){gender=g;document.querySelectorAll('.gender button').forEach(b=>b.classList.toggle("active",b.dataset.g===g))}
