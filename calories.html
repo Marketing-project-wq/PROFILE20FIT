@@ -650,20 +650,28 @@
     async function buyPack(idx){
       const p=SCAN_PACKS[idx]; if(!p||!p.product_id)return;
       const note=document.getElementById("dealsNote");
+      const setNote=function(t,err){ if(note){ note.textContent=t||""; note.style.color=err?"var(--red)":""; note.style.fontWeight=err?"800":""; } };
+      // Beli paket = order ke 20FIT -> butuh login pakai AKUN 20FIT (token tersimpan saat login).
+      const ftk=localStorage.getItem("fitco_token")||"";
+      if(!ftk){
+        setNote(L({en:"Please sign in with your 20FIT account first to buy a pack.",id:"Login pakai akun 20FIT dulu ya untuk beli paket."}),true);
+        return;
+      }
       const btns=document.querySelectorAll('#dealsList .deal'); btns.forEach(b=>b.disabled=true);
-      note.textContent=L({en:"Preparing secure payment…",id:"Menyiapkan pembayaran aman…"});
+      setNote(L({en:"Preparing secure payment…",id:"Menyiapkan pembayaran aman…"}),false);
       try{
         const tk=await Auth.token();
         const r=await fetch("/api/scan/buy",{method:"POST",
           headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
           body:JSON.stringify({ items:[{product_id:p.product_id,quantity:1}],
-            fitco_token:localStorage.getItem("fitco_token")||"", user_id:localStorage.getItem("fitco_uid")||null })});
+            fitco_token:ftk, user_id:localStorage.getItem("fitco_uid")||null })});
         const j=await r.json().catch(()=>({}));
         if(!r.ok||!j.link) throw new Error(j.error||L({en:"Couldn't start payment.",id:"Gagal memulai pembayaran."}));
         location.href=j.link;   // -> halaman pembayaran Xendit (checkout.xendit.co)
       }catch(e){
+        console.error("buyPack:",e);
         btns.forEach(b=>b.disabled=false);
-        note.textContent=(e.message||L({en:"Purchase failed. Try again.",id:"Pembelian gagal. Coba lagi."}));
+        setNote((e&&e.message)||L({en:"Purchase failed. Try again.",id:"Pembelian gagal. Coba lagi."}),true);
       }
     }
     (function(){ var b=document.getElementById("dealsClose"); if(b)b.addEventListener("click",closeDeals);
