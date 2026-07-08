@@ -111,19 +111,20 @@
   const LOGO_LIGHT_URL = "https://media.20fit.id/wp-content/uploads/2026/05/Logo-20fit.png";
   // Dua file punya padding internal beda -> di tinggi sama jadi keliatan beda ukuran.
   // Tinggi per-tema biar ukuran VISUAL logonya seimbang (gampang di-tune kalau perlu).
-  const H_SIDE = { dark: 34, light: 136 };  // logo sidebar (desktop) — light 4x lebih besar
-  const H_APP  = { dark: 28, light: 112 };  // logo pojok kiri atas (mobile) — light 4x
-  // Geser vertikal logo light (px) biar sejajar dengan dark. Negatif = naik.
-  const Y_SIDE = { dark: 0, light: -38 };
-  const Y_APP  = { dark: 0, light: -30 };
+  const H_SIDE = { dark: 34, light: 110 };  // logo sidebar (desktop)
+  const H_APP  = { dark: 28, light: 74 };   // logo pojok kiri atas (mobile)
+  // Margin vertikal negatif utk logo light: "kolaps" padding gambar -> tinggi EFEKTIF
+  // (yang dipakai layout) ~ sama dark, jadi ukuran & posisinya sejajar. Rumus ~ -(H-Hdark)/2.
+  const MY_SIDE = { dark: 0, light: -38 };
+  const MY_APP  = { dark: 0, light: -23 };
   function themeIsLight() { return document.documentElement.classList.contains("theme-light"); }
   function applyLogo() {
     const light = themeIsLight();
     const src = (light && LOGO_LIGHT_URL) ? LOGO_LIGHT_URL : LOGO;
     const filt = (light && !LOGO_LIGHT_URL) ? "brightness(0)" : "none";
     const si = side.querySelector(".sbrand img");
-    if (si) { si.src = src; si.style.filter = filt; si.style.height = (light ? H_SIDE.light : H_SIDE.dark) + "px"; si.style.transform = "translateY(" + (light ? Y_SIDE.light : Y_SIDE.dark) + "px)"; }
-    if (applogo) { applogo.src = src; applogo.style.filter = filt; applogo.style.height = (light ? H_APP.light : H_APP.dark) + "px"; applogo.style.transform = "translateY(" + (light ? Y_APP.light : Y_APP.dark) + "px)"; }
+    if (si) { si.src = src; si.style.filter = filt; si.style.height = (light ? H_SIDE.light : H_SIDE.dark) + "px"; si.style.margin = (light ? MY_SIDE.light : MY_SIDE.dark) + "px 0"; }
+    if (applogo) { applogo.src = src; applogo.style.filter = filt; applogo.style.height = (light ? H_APP.light : H_APP.dark) + "px"; applogo.style.margin = (light ? MY_APP.light : MY_APP.dark) + "px 0"; }
   }
 
   // ---- Sidebar (desktop) ----
