@@ -111,8 +111,8 @@
   const LOGO_LIGHT_URL = "https://media.20fit.id/wp-content/uploads/2026/05/Logo-20fit.png";
   // Dua file punya padding internal beda -> di tinggi sama jadi keliatan beda ukuran.
   // Tinggi per-tema biar ukuran VISUAL logonya seimbang (gampang di-tune kalau perlu).
-  const H_SIDE = { dark: 34, light: 68 };  // logo sidebar (desktop)
-  const H_APP  = { dark: 28, light: 56 };  // logo pojok kiri atas (mobile)
+  const H_SIDE = { dark: 34, light: 34 };  // logo sidebar (desktop) — px sama dark & light
+  const H_APP  = { dark: 28, light: 28 };  // logo pojok kiri atas (mobile) — px sama
   function themeIsLight() { return document.documentElement.classList.contains("theme-light"); }
   function applyLogo() {
     const light = themeIsLight();
