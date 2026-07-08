@@ -30,17 +30,6 @@
     return supabase;
   })();
 
-  // ---------- LOGIN GOOGLE (OAuth) ----------
-  async function signInWithGoogle() {
-    await ready;
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + "/login.html" },
-    });
-    if (error) throw error;
-    return data;
-  }
-
   // ---------- MAGIC LINK / LOGIN PAKAI KODE EMAIL (isolated via my20fit-otp) ----------
   async function loginSend(email) {
     await ready;
@@ -170,38 +159,6 @@
   }
 
   // ---------- AUTH ----------
-  async function signUp(email, password, fullName, phone) {
-    await ready;
-    if (fullName) sessionStorage.setItem("pending_name", fullName);
-    if (phone) sessionStorage.setItem("pending_phone", phone);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      // has_pw di-set SAAT PEMBUATAN akun -> user daftar pakai password langsung
-      // dianggap "sudah punya password", jadi TIDAK diminta bikin password lagi.
-      options: { data: { full_name: fullName || null, phone: phone || null, has_pw: true } },
-    });
-    if (error) throw error;
-    // Kalau signUp belum memberi sesi (mis. konfirmasi email), langsung login
-    // supaya user GAK perlu sign in lagi. User sudah auto-confirmed di DB.
-    if (!data.session) {
-      const { error: e2 } = await supabase.auth.signInWithPassword({ email, password });
-      if (e2) {
-        // signUp tanpa sesi + signin gagal "invalid" = email sudah terdaftar
-        // (dgn password berbeda). Kasih pesan jelas.
-        if (String(e2.message || "").toLowerCase().includes("invalid login")) {
-          const err = new Error("Email sudah terdaftar. Klik Sign In (pakai password lama) atau daftar pakai email lain.");
-          err.code = "email_exists";
-          throw err;
-        }
-        throw e2;
-      }
-    }
-    // Tandai akun ini sudah punya password (buat gate password di onboarding)
-    try { await supabase.auth.updateUser({ data: { has_pw: true } }); } catch (e) {}
-    return data;
-  }
-
   async function signIn(email, password) {
     await ready;
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -477,9 +434,7 @@
 
   window.Auth = {
     ready,
-    signUp,
     signIn,
-    signInWithGoogle,
     loginSend,
     verifyLoginCode,
     emailExists,
