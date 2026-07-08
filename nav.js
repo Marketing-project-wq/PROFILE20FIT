@@ -104,11 +104,11 @@
   }
 
   // ---- LOGO sesuai tema (tanpa background/chip) ----
-  // Dark mode  -> logo FULL PUTIH (putih-3).
-  // Light mode -> logo font gelap + titik merah (logo-20fit-2) biar kebaca di bg terang.
+  // Dark mode  -> logo FULL PUTIH (logo-20fit-2).
+  // Light mode -> logo dengan titik merah / font gelap (Logo-20fit) biar kebaca di bg terang.
   // Dua file berbeda, dipakai tanpa filter (titik merah tetap utuh).
-  const LOGO = "https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png";
-  const LOGO_LIGHT_URL = "https://media.20fit.id/wp-content/uploads/2026/07/logo-20fit-2.png";
+  const LOGO = "https://media.20fit.id/wp-content/uploads/2026/07/logo-20fit-2.png";
+  const LOGO_LIGHT_URL = "https://media.20fit.id/wp-content/uploads/2026/05/Logo-20fit.png";
   function themeIsLight() { return document.documentElement.classList.contains("theme-light"); }
   function applyLogo() {
     const light = themeIsLight();
