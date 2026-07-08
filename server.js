@@ -485,22 +485,25 @@ app.post("/api/fitco-register", async (req, res) => {
     // 2) Login ke 20FIT utk ambil token + profil (best effort). Kalau butuh verifikasi
     //    OTP, langkah ini bisa gagal — tidak apa, kita tetap buat sesi dari data daftar.
     let info = { email, fullName: name, gender: (gender === "male" || gender === "female") ? gender : null, phone: phone || null, avatar: null, birthdate: dob || null };
+    let fitcoToken = null, fitcoUserId = null;
     try {
-      const lr = await fetch(FITCO_API + "/api/v1/auth/login", {
+      const lr = await fetch(FITCO_API + FITCO_LOGIN_PATH, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, login_source: "app" }),
       });
       const lj = await lr.json().catch(() => ({}));
       const fd = (lj && lj.data) || lj || {};
-      const token = fd.access_token || (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
-      if (token) {
-        try { const p = await fetch20fitProfile(token); info = { email: p.email || email, fullName: p.fullName || name, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar, birthdate: p.birthdate || dob }; } catch (e) {}
+      fitcoToken = fd.access_token || (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
+      fitcoUserId = fd.user_id || fd.id || null;
+      if (fitcoToken) {
+        try { const p = await fetch20fitProfile(fitcoToken); info = { email: p.email || email, fullName: p.fullName || name, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar, birthdate: p.birthdate || dob }; } catch (e) {}
       }
     } catch (e) { /* non-fatal */ }
 
     // 3) Mirror ke Supabase + buat sesi
     const out = await mirrorAndMintOtp(info);
-    return res.json({ ok: true, email: out.email, email_otp: out.email_otp });
+    // Kirim user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken });
   } catch (e) {
     console.error("fitco-register:", e.message);
     return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal daftar. Coba lagi." });

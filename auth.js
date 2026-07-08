@@ -106,6 +106,11 @@
       if (r.status === 409) e.code = "email_exists";
       throw e;
     }
+    // Simpan user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
+    try {
+      if (j.fitco_user_id) localStorage.setItem("fitco_uid", String(j.fitco_user_id));
+      if (j.fitco_token) localStorage.setItem("fitco_token", j.fitco_token);
+    } catch (e) {}
     const { data, error } = await supabase.auth.verifyOtp({ email: j.email, token: j.email_otp, type: "email" });
     if (error) throw error;
     return data;
