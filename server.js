@@ -958,16 +958,40 @@ function findScalar(obj, keys) {
   })(obj);
   return out;
 }
-// Kumpulkan semua objek "payment" (punya payment_status / status_description) dari respons order.
-function collectPayments(obj) {
-  const out = [];
+// Telusuri SELURUH respons order untuk sinyal LUNAS / EXPIRED, apa pun bentuk field-nya.
+// Sinyal LUNAS: teks status (paid/settled/success/complete/berhasil/lunas), flag boolean
+// (is_paid/paid=true), timestamp bayar (paid_at/payment_date/settlement*), atau kode
+// payment_status yang cocok dgn FITCO_PAID_STATUS. EXPIRED: payment_status=4 atau teks gagal.
+function scanPaidMarkers(obj) {
+  const PAID_RE = /\b(paid|lunas|settled?|success(ful)?|completed?|berhasil)\b/i;
+  const FAIL_RE = /\b(expired|failed|cancell?ed|dibatalkan|batal|kadaluarsa|kedaluwarsa|void|rejected)\b/i;
+  const PAID_KEY = /(paid_at|paid_date|payment_date|payment_at|settlement|settled_at)/i;
+  const STATUS_KEY = /(status_description|status_name|order_status|payment_status_description|_status$|^status$)/i;
+  let paid = false, expired = false; const debug = [];
   (function walk(v) {
     if (!v || typeof v !== "object") return;
     if (Array.isArray(v)) { v.forEach(walk); return; }
-    if ("payment_status" in v || "status_description" in v) out.push(v);
-    for (const k of Object.keys(v)) if (v[k] && typeof v[k] === "object") walk(v[k]);
+    for (const k of Object.keys(v)) {
+      const val = v[k];
+      if (/^(is_paid|paid|has_paid)$/i.test(k) && val === true) { paid = true; debug.push(k + "=true"); }
+      if (PAID_KEY.test(k) && val && typeof val !== "object") { paid = true; debug.push(k + "=" + val); }
+      if (/^payment_status$/i.test(k) && val != null && typeof val !== "object") {
+        const s = String(val);
+        if (FITCO_PAID_STATUS.indexOf(s) >= 0) paid = true;
+        if (s === "4") expired = true;
+        debug.push("payment_status=" + s);
+      }
+      if (STATUS_KEY.test(k) && val != null && typeof val !== "object") {
+        const s = String(val);
+        if (PAID_RE.test(s)) paid = true;
+        if (FAIL_RE.test(s)) expired = true;
+        if (!/^payment_status$/i.test(k)) debug.push(k + "=" + s);
+      }
+      if (val && typeof val === "object") walk(val);
+    }
   })(obj);
-  return out;
+  if (paid) expired = false; // ada 1 sinyal lunas -> anggap LUNAS
+  return { paid: paid, expired: expired, debug: debug };
 }
 // Kode payment_status yang berarti LUNAS. Terdokumentasi hanya 5=Pending & 4=Expired,
 // kode "paid" belum terdokumentasi -> bisa di-set via env FITCO_PAID_STATUS (mis. "1,3").
@@ -1046,20 +1070,10 @@ app.post("/api/scan/order-status", async (req, res) => {
       return res.json({ ok: true, paid: false, expired: false, pending: true, note: "fetch_error" });
     }
     if (!r.ok) return res.json({ ok: true, paid: false, expired: false, pending: true, note: "status_unavailable" });
-    const pays = collectPayments(j);
-    const PAID_RE = /paid|lunas|settle|success|complete|berhasil/i;
-    const FAIL_RE = /expired|failed|cancel|batal|kadaluarsa/i;
-    let paid = false, expired = false;
-    for (const p of pays) {
-      const st = String(p.payment_status);
-      const desc = String(p.status_description || p.status || "");
-      if (FITCO_PAID_STATUS.indexOf(st) >= 0 || PAID_RE.test(desc)) paid = true;
-      if (st === "4" || FAIL_RE.test(desc)) expired = true;
-    }
-    if (paid) expired = false; // ada 1 pembayaran sukses -> anggap lunas
-    // Log status mentah (tanpa data sensitif) supaya kode "paid" bisa dikonfirmasi saat testing.
-    try { console.log("order-status", id, "->", pays.map(p => p.payment_status + "/" + (p.status_description || "")).join("|") || "(none)"); } catch (e) {}
-    return res.json({ ok: true, paid: paid, expired: expired, pending: !paid && !expired });
+    const sig = scanPaidMarkers(j);
+    // Log semua field status yang ketemu (tanpa data sensitif) -> untuk konfirmasi kode "paid" saat test.
+    try { console.log("order-status", id, "paid=" + sig.paid, "expired=" + sig.expired, "signals:", sig.debug.join(" | ") || "(none)"); } catch (e) {}
+    return res.json({ ok: true, paid: sig.paid, expired: sig.expired, pending: !sig.paid && !sig.expired });
   } catch (e) {
     console.error("order-status:", e.message);
     return res.json({ ok: true, paid: false, expired: false, pending: true, note: "error" });
