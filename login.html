@@ -195,8 +195,8 @@
   }
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
-<link rel="stylesheet" href="20fit-design-system.css">
-<link rel="stylesheet" href="glass-app.css">
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/glass-app.css">
 </head>
 <body>
   <div class="split">
@@ -270,6 +270,11 @@
         </form>
         <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600"></a></div>
 
+        <!-- Login Google (API 20FIT /auth/login/google). Tampil hanya kalau
+             GOOGLE_CLIENT_ID sudah diisi di server (lihat /api/config). -->
+        <div class="orsep" id="orsep" style="display:none"><span data-k="orsep">or</span></div>
+        <div id="gsiBtn" style="display:none;justify-content:center"></div>
+
         <div class="msg" id="msg"></div>
         <button type="button" class="seebtn" data-k="seeFeatures" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})"></button>
       </div>
@@ -337,8 +342,8 @@
     <div class="foot-bot"><span data-k="footRights"></span><span>my.20fit.id</span></div>
   </footer>
 
-  <script src="vendor-supabase.js"></script>
-  <script src="auth.js"></script>
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
   <script>
     const T = {
       en: {
@@ -649,6 +654,31 @@
         if(q.get("mode")==="up"){ setMode("up"); if(em) msg(lang==="en"?"This email has no account yet — create one below.":"Email ini belum punya akun — buat akunnya di bawah ya.","err"); }
       }catch(e){}
     })();
+
+    // ---- Login Google: GIS -> Auth.fitcoGoogleLogin (API 20FIT dari dokumentasi developer) ----
+    async function onGoogleCredential(resp){
+      if(!resp||!resp.credential)return;
+      msg(T[lang].processing,"");
+      try{
+        await Auth.fitcoGoogleLogin(resp.credential);
+        await Auth.routeAfterAuth();
+      }catch(e){ msg(terjemah(e.message),"err"); }
+    }
+    async function initGoogleLogin(){
+      try{
+        await Auth.ready;
+        const cid=Auth.googleClientId&&Auth.googleClientId();
+        // Tanpa client ID (env GOOGLE_CLIENT_ID) tombol tetap tersembunyi.
+        if(!cid||!window.google||!google.accounts||!google.accounts.id)return;
+        google.accounts.id.initialize({client_id:cid,callback:onGoogleCredential});
+        const host=document.getElementById("gsiBtn");
+        google.accounts.id.renderButton(host,{theme:"outline",size:"large",shape:"pill",width:280,text:"continue_with",locale:lang==="id"?"id":"en"});
+        document.getElementById("orsep").style.display="";
+        host.style.display="flex";
+      }catch(e){}
+    }
   </script>
+  <!-- Google Identity Services — dimuat setelah script utama supaya initGoogleLogin sudah terdefinisi -->
+  <script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleLogin()"></script>
 </body>
 </html>

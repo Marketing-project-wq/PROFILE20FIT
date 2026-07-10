@@ -8,6 +8,7 @@
 (function () {
   let supabase = null;
   let cfgUrl = null, cfgKey = null;
+  let cfgGoogleClientId = ""; // Client ID GIS dari /api/config (publik; kosong = tombol Google disembunyikan)
 
   // URL + anon key PUBLIK — ditanam sebagai fallback supaya web SELALU konek
   // walau /api/config kosong / server belum di-update.
@@ -22,6 +23,7 @@
       const r = await fetch("/api/config");
       const c = await r.json();
       if (c && c.supabaseUrl && c.supabaseAnonKey) { url = c.supabaseUrl; key = c.supabaseAnonKey; }
+      if (c && typeof c.googleClientId === "string") cfgGoogleClientId = c.googleClientId;
     } catch (e) { /* pakai fallback */ }
     cfgUrl = url; cfgKey = key;
     supabase = window.supabase.createClient(url, key, {
@@ -29,17 +31,6 @@
     });
     return supabase;
   })();
-
-  // ---------- LOGIN GOOGLE (OAuth) ----------
-  async function signInWithGoogle() {
-    await ready;
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + "/login.html" },
-    });
-    if (error) throw error;
-    return data;
-  }
 
   // ---------- MAGIC LINK / LOGIN PAKAI KODE EMAIL (isolated via my20fit-otp) ----------
   async function loginSend(email) {
@@ -116,6 +107,28 @@
     return data;
   }
 
+  // ---------- LOGIN PAKAI GOOGLE (via API 20FIT /auth/login/google) ----------
+  // credential = ID token dari Google Identity Services. Server yang meneruskan
+  // ke API 20FIT (dokumentasi developer) lalu mengembalikan OTP untuk sesi.
+  async function fitcoGoogleLogin(credential) {
+    await ready;
+    const r = await fetch("/api/fitco-google-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: credential }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan Google.");
+    // Simpan user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
+    try {
+      if (j.fitco_user_id) localStorage.setItem("fitco_uid", String(j.fitco_user_id));
+      if (j.fitco_token) localStorage.setItem("fitco_token", j.fitco_token);
+    } catch (e) {}
+    const { data, error } = await supabase.auth.verifyOtp({ email: j.email, token: j.email_otp, type: "email" });
+    if (error) throw error;
+    return data;
+  }
+
   // ---------- SSO SEAMLESS: login pakai access_token 20FIT (tanpa password) ----------
   // Dipakai kalau app utama 20FIT mengoper token-nya ke my.20fit.id.
   async function tokenLogin(fitcoToken) {
@@ -132,6 +145,30 @@
     return data;
   }
 
+  // ---------- VERIFIKASI OTP AKUN 20FIT (wajib pasca-registrasi baru) ----------
+  // OTP ini BEDA dari OTP Supabase kita (sendOtp/verifyOtp di bawah) — ini kode
+  // yang dikirim 20FIT sendiri untuk memverifikasi akun di ekosistem mereka.
+  async function fitcoVerifyEmail(email, otp) {
+    const r = await fetch("/api/fitco-verify-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, otp: otp }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || "Verifikasi gagal.");
+    return j;
+  }
+  async function fitcoResendVerifyEmail(email) {
+    const r = await fetch("/api/fitco-resend-verify-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || "Gagal mengirim ulang kode.");
+    return j;
+  }
+
   // Apakah akun ini SUDAH punya password web? (Google/OTP/FITCO-Google = belum)
   function hasWebPassword(user) { return !!(user && user.user_metadata && user.user_metadata.has_pw); }
   // Set password web (dipakai di onboarding kalau user belum punya password)
@@ -141,22 +178,6 @@
     const { error } = await supabase.auth.updateUser({ password: pw, data: { has_pw: true } });
     if (error) throw error;
     return true;
-  }
-
-  // Apakah email SUDAH punya akun di app? true / false / null(tak diketahui).
-  // Dicek di edge function (akses DB sendiri) -> tidak tergantung env server.
-  async function emailExists(email) {
-    await ready;
-    try {
-      const r = await fetch(cfgUrl + "/functions/v1/my20fit-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfgKey, "apikey": cfgKey },
-        body: JSON.stringify({ action: "exists", email: email }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (r.ok && j && typeof j.exists === "boolean") return j.exists;
-    } catch (e) {}
-    return null;
   }
 
   function go(page) {
@@ -170,38 +191,6 @@
   }
 
   // ---------- AUTH ----------
-  async function signUp(email, password, fullName, phone) {
-    await ready;
-    if (fullName) sessionStorage.setItem("pending_name", fullName);
-    if (phone) sessionStorage.setItem("pending_phone", phone);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      // has_pw di-set SAAT PEMBUATAN akun -> user daftar pakai password langsung
-      // dianggap "sudah punya password", jadi TIDAK diminta bikin password lagi.
-      options: { data: { full_name: fullName || null, phone: phone || null, has_pw: true } },
-    });
-    if (error) throw error;
-    // Kalau signUp belum memberi sesi (mis. konfirmasi email), langsung login
-    // supaya user GAK perlu sign in lagi. User sudah auto-confirmed di DB.
-    if (!data.session) {
-      const { error: e2 } = await supabase.auth.signInWithPassword({ email, password });
-      if (e2) {
-        // signUp tanpa sesi + signin gagal "invalid" = email sudah terdaftar
-        // (dgn password berbeda). Kasih pesan jelas.
-        if (String(e2.message || "").toLowerCase().includes("invalid login")) {
-          const err = new Error("Email sudah terdaftar. Klik Sign In (pakai password lama) atau daftar pakai email lain.");
-          err.code = "email_exists";
-          throw err;
-        }
-        throw e2;
-      }
-    }
-    // Tandai akun ini sudah punya password (buat gate password di onboarding)
-    try { await supabase.auth.updateUser({ data: { has_pw: true } }); } catch (e) {}
-    return data;
-  }
-
   async function signIn(email, password) {
     await ready;
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -464,12 +453,21 @@
 
   // ---------- ROUTING ----------
   // Flow jelas untuk semua (akun baru & akun existing dari ekosistem 20FIT):
+  //   0) akun 20FIT ada tapi belum verified -> VERIFIKASI OTP 20FIT dulu
   //   1) belum lengkap  -> isi DATA dulu (onboarding)
   //   2) data lengkap tapi belum punya password web -> BUAT PASSWORD
   //   3) lengkap & punya password -> dashboard
   async function routeAfterAuth() {
     const user = await requireAuth();
     const profile = await ensureProfile(user);
+    // Sengaja HANYA cek fitco_email_verified, TIDAK ikut syaratkan fitco_user_id.
+    // fitco_user_id kadang masih null tepat setelah registrasi baru (dia baru
+    // ke-isi dari langkah login best-effort di /api/fitco-register, yang justru
+    // hampir pasti GAGAL untuk akun yang belum verified — akar masalah yang lagi
+    // kita perbaiki). fitco_email_verified sendiri sudah cukup & selalu di-set
+    // eksplisit (true/false) oleh server begitu ada sinyal dari 20FIT, jadi jangan
+    // tambahkan lagi dependency ke fitco_user_id di sini tanpa paham konteks ini.
+    if (profile.fitco_email_verified === false) return go("verify.html");
     if (!profileComplete(profile)) return go("onboarding.html");
     if (!hasWebPassword(user)) return go("setpassword.html");
     return go("dashboard.html");
@@ -477,15 +475,16 @@
 
   window.Auth = {
     ready,
-    signUp,
     signIn,
-    signInWithGoogle,
     loginSend,
     verifyLoginCode,
-    emailExists,
     fitcoLogin,
+    fitcoGoogleLogin,
+    googleClientId: function () { return cfgGoogleClientId; },
     fitcoRegister,
     tokenLogin,
+    fitcoVerifyEmail,
+    fitcoResendVerifyEmail,
     hasWebPassword,
     setWebPassword,
     signOut,

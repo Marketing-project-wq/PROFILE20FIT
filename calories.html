@@ -100,8 +100,8 @@
   @media(min-width:900px){ .wrap{max-width:920px} .calgrid{grid-template-columns:1fr 1fr;align-items:start} }
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
-<link rel="stylesheet" href="20fit-design-system.css">
-<link rel="stylesheet" href="glass-app.css">
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/glass-app.css">
 </head>
 <body>
   <div class="wrap">
@@ -322,12 +322,12 @@
     </div>
   </div>
 
-  <script src="vendor-supabase.js"></script>
-  <script src="auth.js"></script>
-  <script src="i18n.js"></script>
-  <script src="fasting.js"></script>
-  <script src="nutrition.js"></script>
-  <script src="nav.js"></script>
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/fasting.js"></script>
+  <script src="js/nutrition.js"></script>
+  <script src="js/nav.js"></script>
   <script>
     // Tanggal LOKAL (bukan UTC) — biar konsisten dgn Supabase (daily_log.log_date) & halaman Progress,
     // sehingga catatan makanan selalu masuk ke hari yang benar (mis. subuh di WIB tidak nyasar ke kemarin).
@@ -617,7 +617,7 @@
     async function refreshQuota(){
       const el=document.getElementById("scanquota"); if(!el)return;
       let q; try{ q=await Auth.getScanQuota(); }catch(e){ el.innerHTML=""; return; }
-      const dealsLink='<a href="#" onclick="openDeals();return false" style="color:var(--red);font-weight:800;text-decoration:none">'+
+      const dealsLink='<a href="#" onclick="openDeals();return false" style="color:var(--green,#2A7A4F);font-weight:800;text-decoration:none">'+
         L({en:"explore our deals",id:"lihat paket kami"})+'</a>';
       if(q.remaining<=0){
         el.innerHTML='<span style="color:var(--red);font-weight:700">'+

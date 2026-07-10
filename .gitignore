@@ -3,3 +3,15 @@ node_modules/
 .env.local
 npm-debug.log*
 .DS_Store
+
+# Berisi token API 20FIT (Production & Staging) yang bocor — jangan pernah di-commit lagi.
+20fit-api-docs.html
+
+# Semua export dokumentasi API (Bruno/Postman/OpenCollection) berisi token live.
+# Token/API key HARUS disimpan sebagai GitHub Secrets / Railway Variables, bukan di repo.
+20FITdocumentation*.html
+*api-docs*.html
+*.postman_collection.json
+*.bruno_collection*
+opencollection*.yaml
+opencollection*.yml

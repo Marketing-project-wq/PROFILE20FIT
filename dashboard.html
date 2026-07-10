@@ -39,6 +39,13 @@
     background:radial-gradient(circle,rgba(255,190,90,.45),rgba(255,190,90,0) 66%);
     animation:heroBreathe 5.5s ease-in-out infinite;pointer-events:none;z-index:0}
   html:not(.theme-light) .hero .glow{background:radial-gradient(circle,rgba(255,190,90,.24),rgba(255,190,90,0) 66%)}
+  /* Bagian cuaca mengikuti waktu: PAGI/SIANG kuning-oren, MALAM biru gelap */
+  .hero.wx-day .glow{background:radial-gradient(circle,rgba(255,176,64,.5),rgba(232,145,42,0) 66%)}
+  html:not(.theme-light) .hero.wx-day .glow{background:radial-gradient(circle,rgba(255,176,64,.26),rgba(232,145,42,0) 66%)}
+  .hero.wx-night .glow{background:radial-gradient(circle,rgba(28,52,138,.55),rgba(15,28,74,0) 66%)}
+  html:not(.theme-light) .hero.wx-night .glow{background:radial-gradient(circle,rgba(64,96,210,.4),rgba(15,28,74,0) 66%)}
+  .hero.wx-night .wx-temp{color:#31427E}
+  html:not(.theme-light) .hero.wx-night .wx-temp{color:#C9D4F5}
   @keyframes heroBreathe{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
   .hero-inner{position:relative;z-index:1}
   .hk{color:var(--red);font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px 2px}
@@ -278,8 +285,8 @@
   @media(min-width:620px){ .modal-bg{align-items:center;padding:24px} .modal{border-radius:24px} .grab{display:none} }
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
-<link rel="stylesheet" href="20fit-design-system.css">
-<link rel="stylesheet" href="glass-app.css">
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/glass-app.css">
 </head>
 <body>
 <!-- 20FIT-BUILD: reskin-new-design 2026-07-02 -->
@@ -447,15 +454,15 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="vendor-supabase.js"></script>
-  <script src="auth.js"></script>
-  <script src="i18n.js"></script>
-  <script src="fasting.js"></script>
-  <script src="achievements.js"></script>
-  <script src="nutrition.js"></script>
-  <script src="cycle.js"></script>
-  <script src="nav.js"></script>
-  <script src="tour.js"></script>
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/fasting.js"></script>
+  <script src="js/achievements.js"></script>
+  <script src="js/nutrition.js"></script>
+  <script src="js/cycle.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/tour.js"></script>
   <script>
     let profile=null, daily=null, aqiVal=80, sleepH=0, sleepBed="", sleepWake="", water=0, checkState={};
     let lastTemp=null, lastCode=null, lastCity="";
@@ -739,9 +746,9 @@
       el.innerHTML=ic; el.style.color=col;
       el.classList.toggle("wx-sun", code<=1 && day);
       el.classList.toggle("wx-moon", code<=1 && !day);   // animasi bulan saat malam
-      // Background "sky-bleed": kuning saat siang, BIRU TUA saat malam.
-      const glow=document.querySelector(".hero .glow");
-      if(glow) glow.style.background = day ? "" : "radial-gradient(circle,rgba(28,52,138,.6),rgba(28,52,138,0) 66%)";
+      // Tema bagian cuaca: pagi/siang kuning-oren, malam biru gelap (CSS .wx-day/.wx-night)
+      const hero=document.getElementById("wx");
+      if(hero){ hero.classList.toggle("wx-day", !!day); hero.classList.toggle("wx-night", !day); }
     }
     // AQI sebagai garis gradasi horizontal + penanda (ala referensi glass)
     function drawAqi(aqi){
