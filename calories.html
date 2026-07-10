@@ -136,11 +136,11 @@
       </div>
 
       <div id="scanbox" style="margin-top:14px;display:flex;gap:10px">
-        <button class="scanbtn" style="flex:1" onclick="openCamera()">
+        <button class="scanbtn" style="flex:1" onclick="trackScanCalories();openCamera()">
           <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
           <span><span data-i18n="cal_takephoto">Take photo</span></span>
         </button>
-        <button class="scanbtn" style="flex:1;background:var(--inp);color:var(--txt);border:1px solid var(--line)" onclick="document.getElementById('foodfile').click()">
+        <button class="scanbtn" style="flex:1;background:var(--inp);color:var(--txt);border:1px solid var(--line)" onclick="trackScanCalories();document.getElementById('foodfile').click()">
           <span><svg class="emi" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> <span data-i18n="cal_album">Album</span></span>
         </button>
       </div>
@@ -635,7 +635,13 @@
     }
     // Klik "explore our deals" -> buka modal paket. Event Purchase dipicu NANTI
     // saat pembayaran Xendit dikonfirmasi berhasil (lihat confirmPurchase).
-    function exploreDeals(){ openDeals(); return false; }
+    function exploreDeals(){
+      // Meta Pixel: klik "explore our deals" = Purchase (sesuai spesifikasi)
+      try{ Meta.track("Purchase", {content_name:"scan package", content_category:"calorie_scan", currency:"IDR", value:0}); }catch(e){}
+      openDeals(); return false;
+    }
+    // Meta Pixel: klik Take Photo / Album = Scan Calories
+    function trackScanCalories(){ try{ Meta.track("Scan Calories", {content_name:"food scan"}); }catch(e){} }
     function openDeals(q){
       document.getElementById("dealsTitle").textContent=(q&&q.remaining>0)
         ? L({en:"Top up your calorie scans",id:"Top up scan kalori kamu"})
@@ -721,8 +727,8 @@
       try{
         await Auth.addScanCredits(pend.credits||0);
         try{ localStorage.removeItem("my20fit_pending_purchase"); }catch(e){}
-        // Meta Pixel: Purchase dipicu di sini (pembayaran dikonfirmasi), dengan nilai paket.
-        try{ Meta.track("Purchase", {content_name:"scan package", content_category:"calorie_scan", currency:"IDR", value:pend.price||0, num_items:1}); }catch(e){}
+        // Meta Pixel: pembayaran dikonfirmasi berhasil = Success Payment (dengan nilai paket).
+        try{ Meta.track("Success Payment", {content_name:"scan package", content_category:"calorie_scan", currency:"IDR", value:pend.price||0, num_items:1}); }catch(e){}
         showPurchaseSuccess(pend);
         refreshQuota();
       }catch(e){
@@ -928,8 +934,8 @@
       // Foto dari tombol "Scan" global (halaman lain) -> langsung analisa di sini
       try{ const pend=sessionStorage.getItem("my20fit_pending_scan"); if(pend){ sessionStorage.removeItem("my20fit_pending_scan"); document.getElementById("scanbox").scrollIntoView({behavior:"smooth"}); scanImage(pend); } }catch(e){}
       if(location.hash==="#fasting"){document.getElementById("ifSection").scrollIntoView({behavior:"smooth"});}
-      // Meta Pixel: halaman Calorie Tracker = ViewContent
-      try{ Meta.track("ViewContent", {content_name:"Calorie Tracker", content_category:"calories"}); }catch(e){}
+      // Meta Pixel: kunjungan halaman calories = View Calories
+      try{ Meta.track("View Calories", {content_name:"Calorie Tracker"}); }catch(e){}
       // Kalau user kembali ke calories dengan pembayaran tertunda -> tampilkan konfirmasi.
       try{ var pp=JSON.parse(localStorage.getItem("my20fit_pending_purchase")||"null"); if(pp&&pp.credits){ showPendingPayment(pp); } }catch(e){}
     })();

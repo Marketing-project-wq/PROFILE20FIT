@@ -46,12 +46,17 @@
     }
   })();
 
+  // Event standar Meta memakai 'track'; nama lain (mis. "View Dashboard") = custom -> 'trackCustom'.
+  var STD = { PageView:1, ViewContent:1, Lead:1, Purchase:1, Search:1, AddToCart:1,
+    AddToWishlist:1, InitiateCheckout:1, AddPaymentInfo:1, CompleteRegistration:1,
+    Contact:1, CustomizeProduct:1, Donate:1, FindLocation:1, Schedule:1,
+    StartTrial:1, SubmitApplication:1, Subscribe:1 };
   function track(name, custom, opts) {
     if (!ready) { queue.push([name, custom, opts]); return; }
     custom = custom || {}; opts = opts || {};
     var eid = uuid();
     // 1) Pixel browser
-    try { fbq('track', name, custom, { eventID: eid }); } catch (e) {}
+    try { fbq(STD[name] ? 'track' : 'trackCustom', name, custom, { eventID: eid }); } catch (e) {}
     // 2) Conversions API (server) — event_id sama untuk dedup. keepalive supaya
     //    tetap terkirim walau halaman langsung pindah (mis. setelah login).
     try {
