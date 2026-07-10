@@ -681,10 +681,22 @@
         if(payWin){ payWin.location.href=j.link; } else if(!window.open(j.link,"_blank")){ location.href=j.link; }
         showPendingPayment({credits:p.credits, price:p.price, link:j.link}); // state "menunggu pembayaran"
       }catch(e){
-        console.error("buyPack:",e);
-        if(payWin){ try{ payWin.close(); }catch(_){} }
+        console.error("buyPack error:",e);
+        const emsg=(e&&e.message)||L({en:"Purchase failed. Try again.",id:"Pembelian gagal. Coba lagi."});
+        // Tampilkan alasan di tab yang tadi dibuka (jangan biarkan tab kosong menutup begitu saja).
+        if(payWin && !payWin.closed){
+          try{
+            payWin.document.open();
+            payWin.document.write("<meta charset='utf-8'><title>Pembayaran</title>"+
+              "<div style=\"font-family:system-ui,sans-serif;max-width:440px;margin:56px auto;padding:24px;text-align:center\">"+
+              "<h2 style='color:#C41101;margin:0 0 8px'>"+L({en:"Payment couldn't start",id:"Pembayaran belum bisa dimulai"})+"</h2>"+
+              "<p style='color:#333'>"+String(emsg).replace(/</g,'&lt;')+"</p>"+
+              "<p style='color:#777;font-size:13px'>"+L({en:"Close this tab and try again.",id:"Tutup tab ini lalu coba lagi."})+"</p></div>");
+            payWin.document.close();
+          }catch(_){ try{ payWin.close(); }catch(__){} }
+        }
         btns.forEach(b=>b.disabled=false);
-        setNote((e&&e.message)||L({en:"Purchase failed. Try again.",id:"Pembelian gagal. Coba lagi."}),true);
+        setNote(emsg,true);
       }
     }
     // --- Pembayaran di tab baru: state menunggu -> konfirmasi -> sukses ---
