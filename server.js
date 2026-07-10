@@ -302,11 +302,14 @@ const FITCO_GOOGLE_LOGIN_PATH = process.env.FITCO_GOOGLE_LOGIN_PATH || "/api/v1/
 // /api/v1/auth/login/google). Yang perlu di server hanyalah GOOGLE_CLIENT_ID
 // (nilai PUBLIK — memang tampil di web). Tidak perlu Client Secret / Redirect URI.
 //
-// Nilai HANYA dari environment variable GOOGLE_CLIENT_ID (beda per environment:
-// local / staging / production) — TIDAK ada default di kode. Kalau kosong,
-// frontend menyembunyikan tombol Google (fail-closed). Frontend mengambil nilai
-// ini lewat GET /api/config (satu sumber, tidak di-hardcode di banyak tempat).
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+// Nilai diambil dari env GOOGLE_CLIENT_ID (bisa beda per environment: local /
+// staging / production). Ada DEFAULT publik (Client ID web app 20FIT) supaya
+// tombol Google SELALU tampil walau env belum diisi — pola yang sama dengan
+// Supabase URL/anon key yang juga punya default publik di kode. Client ID
+// bersifat PUBLIK (bukan secret). Frontend mengambilnya lewat GET /api/config
+// (satu sumber). Untuk override, set env GOOGLE_CLIENT_ID di Railway.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ||
+  "26509397037-8d1s0c39hb31738fcl816b8jrv7fdt6i.apps.googleusercontent.com";
 // Ambil profil user dari 20FIT pakai access_token (Bearer). Return field yg kita pakai.
 async function fetch20fitProfile(fitcoToken) {
   const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null, fitcoUserId: null };
