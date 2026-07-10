@@ -135,7 +135,11 @@
   .caro{position:relative;height:140px;margin-top:12px}
   .caro-slide{position:absolute;inset:0;opacity:0;transform:translateY(10px);transition:opacity .5s,transform .5s;pointer-events:none;display:flex;gap:16px;align-items:flex-start}
   .caro-slide.on{opacity:1;transform:none;pointer-events:auto}
-  .caro-slide .cic{width:60px;height:60px;border-radius:16px;background:rgba(196,17,1,.16);display:flex;align-items:center;justify-content:center;font-size:29px;flex:0 0 auto}
+  .caro-slide .cic{width:60px;height:60px;border-radius:16px;background:rgba(196,17,1,.16);display:flex;align-items:center;justify-content:center;font-size:29px;flex:0 0 auto;color:var(--red)}
+  .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
+  .feat .ic .emi{width:16px;height:16px}
+  .caro-slide .cic .emi{width:28px;height:28px}
+  .fcard .fic .emi{width:22px;height:22px;color:var(--red)}
   .caro-slide .ct{font-weight:800;font-size:21px;color:#fff;margin-bottom:7px;line-height:1.15}
   .caro-slide .cd{color:#bdb4a6;font-size:15.5px;line-height:1.6;max-width:400px}
   .caro-dots{display:flex;gap:7px;margin-top:20px}
@@ -371,7 +375,7 @@
         existDesc:"Sign in with an email code — you'll then be guided to complete your data & create a password.",
         emailNeed:"Enter your email first.", codeNeed:"Enter the code from your email.",
         magicSent:"Login code sent! Check your email.", sending:"Sending code...",
-        seeFeatures:"✨ See what's inside 20FIT Profile", scrollcue:"Scroll for more",
+        seeFeatures:"See what's inside 20FIT Profile", scrollcue:"Scroll for more",
         missLabel:"For everyone",
         missTitle:"Whether you're just starting out — or you've lived healthy for years.",
         missBody:"20FIT Profile is built for every stage of your health journey. Our role is to answer your real health needs and bring everything into one ecosystem — so tracking your body, your food, your check-ups and your training finally feels effortless.",
@@ -408,7 +412,7 @@
         existDesc:"Masuk pakai kode email — nanti kamu diarahkan untuk lengkapi data & buat password.",
         emailNeed:"Isi email kamu dulu.", codeNeed:"Masukkan kode dari email.",
         magicSent:"Kode login terkirim! Cek email kamu.", sending:"Mengirim kode...",
-        seeFeatures:"✨ Lihat apa aja isi 20FIT Profile", scrollcue:"Geser ke bawah",
+        seeFeatures:"Lihat apa aja isi 20FIT Profile", scrollcue:"Geser ke bawah",
         missLabel:"Untuk semua orang",
         missTitle:"Baru mulai — atau sudah lama menjalani hidup sehat.",
         missBody:"20FIT Profile dibuat untuk setiap tahap perjalanan sehatmu. Peran kami adalah menjawab kebutuhan kesehatanmu yang sebenarnya dan menyatukan semuanya dalam satu ekosistem — supaya melacak tubuh, makanan, hasil check-up, dan latihanmu jadi jauh lebih mudah.",
@@ -428,17 +432,17 @@
 
     // ---- Konten marketing (carousel + grid fitur + FAQ), bilingual ----
     const FEATURES = [
-      {ic:"📋", en:{t:"Medical records, decoded",   d:"Upload lab & MCU results (PDF/JPG/PNG) from any hospital — our AI explains them in plain language."},
+      {ic:'<svg class="emi" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>', en:{t:"Medical records, decoded",   d:"Upload lab & MCU results (PDF/JPG/PNG) from any hospital — our AI explains them in plain language."},
                 id:{t:"Rekam medis jadi jelas",       d:"Upload hasil lab & MCU (PDF/JPG/PNG) dari RS mana pun — AI kami jelaskan dengan bahasa sederhana."}},
-      {ic:"🔥", en:{t:"Snap your food",              d:"Scan a meal and instantly get calories, full macros, a health score & smarter-eating tips."},
+      {ic:'<svg class="emi" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>', en:{t:"Snap your food",              d:"Scan a meal and instantly get calories, full macros, a health score & smarter-eating tips."},
                 id:{t:"Scan makananmu",              d:"Foto makanan, langsung dapat kalori, makro lengkap, health score & saran makan lebih sehat."}},
-      {ic:"📈", en:{t:"Track your progress",         d:"Weight, streaks, sleep, water & weekly stats — all in one simple dashboard."},
+      {ic:'<svg class="emi" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>', en:{t:"Track your progress",         d:"Weight, streaks, sleep, water & weekly stats — all in one simple dashboard."},
                 id:{t:"Pantau progresmu",            d:"Berat, streak, tidur, air & statistik mingguan — semua dalam satu dashboard."}},
-      {ic:"🌸", en:{t:"Cycle-aware wellness",        d:"For women: know your menstrual phase and get workout & nutrition tips that fit your body."},
+      {ic:'<svg class="emi" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 4 13C4 6 9 3 20 3c0 8-4 14-9 14z"/><path d="M4 20c3-4 6-6 9-7"/></svg>', en:{t:"Cycle-aware wellness",        d:"For women: know your menstrual phase and get workout & nutrition tips that fit your body."},
                 id:{t:"Selaras dengan siklus",       d:"Untuk wanita: tahu fase menstruasimu & dapat saran olahraga & nutrisi yang pas."}},
-      {ic:"🌤️", en:{t:"Daily wellness",              d:"Weather, air quality, breathing exercises plus sleep & water reminders to guide your day."},
+      {ic:'<svg class="emi" viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>', en:{t:"Daily wellness",              d:"Weather, air quality, breathing exercises plus sleep & water reminders to guide your day."},
                 id:{t:"Wellness harian",             d:"Cuaca, kualitas udara, latihan napas, plus pengingat tidur & air untuk menemani harimu."}},
-      {ic:"🏋️", en:{t:"One 20FIT ecosystem",         d:"Book Gym, Personal Training, EMS, Physiotherapy & clinic — connected to your health data."},
+      {ic:'<svg class="emi" viewBox="0 0 24 24"><path d="M6 6v12M18 6v12M3 9v6M21 9v6M6 12h12"/></svg>', en:{t:"One 20FIT ecosystem",         d:"Book Gym, Personal Training, EMS, Physiotherapy & clinic — connected to your health data."},
                 id:{t:"Satu ekosistem 20FIT",        d:"Booking Gym, Personal Training, EMS, Physiotherapy & klinik — terhubung ke data kesehatanmu."}},
     ];
     const FAQS = [

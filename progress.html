@@ -64,6 +64,9 @@
   .ach .t{font-size:12px;font-weight:800;line-height:1.25}
   .ach .s{font-size:10px;color:var(--muted)}
   .empty{color:var(--muted);text-align:center;padding:22px 8px;font-size:14px}
+  .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
+  .ach .em .emi{width:22px;height:22px}
+  .fire .emi{width:28px;height:28px}
   @media(min-width:900px){ .main2{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:start} }
   @media(max-width:560px){ .wrap{padding:16px 12px} .card{padding:14px} .achg{grid-template-columns:1fr} .hello{font-size:24px} }
 </style>
@@ -118,7 +121,7 @@
     function metricRow(label,cur,tgt,unit,met,curDisp){
       const pct=tgt?Math.min(100,Math.round(cur/tgt*100)):0;
       return '<div style="margin:12px 0 0"><div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700">'+
-        '<span>'+(met?'✅':'⬜')+' '+label+'</span>'+
+        '<span>'+(met?'✓':'○')+' '+label+'</span>'+
         '<span style="font-family:JetBrains Mono,monospace;color:'+(met?'#2A7A4F':'var(--muted)')+'">'+(curDisp!=null?curDisp:cur)+' / '+tgt+' '+unit+'</span></div>'+
         '<div class="chtrack" style="height:9px;margin-top:5px"><i style="width:'+pct+'%;background:'+(met?'#2A7A4F':'#C87000')+'"></i></div></div>';
     }
@@ -160,7 +163,7 @@
       const last=profile.cycle_last_period;
       const dateInput='<div class="wlog"><input id="periodIn" type="date" value="'+(last||"")+'" max="'+todayStr()+'" /><button onclick="savePeriod()">'+L({en:"Save",id:"Simpan"})+'</button></div>';
       if(!last){
-        return head+'<div class="card"><div style="font-weight:800">'+L({en:"Track your cycle 🌸",id:"Lacak siklusmu 🌸"})+'</div>'+
+        return head+'<div class="card"><div style="font-weight:800">'+L({en:"Track your cycle",id:"Lacak siklusmu"})+'</div>'+
           '<div class="muted" style="font-size:12px;margin:4px 0 2px">'+L({en:"When did your last period start? We’ll show your phase & tips.",id:"Kapan menstruasi terakhir kamu mulai? Kami tampilkan fase & sarannya."})+'</div>'+dateInput+'</div>';
       }
       const ci=window.Cycle?Cycle.info(last,profile.cycle_length,profile.period_length):null;
@@ -175,15 +178,15 @@
           '<div class="muted" style="font-size:12.5px">'+L({en:"Day",id:"Hari ke-"})+' '+ci.day+' · '+L({en:"next period ~"+ci.daysToNext+" days",id:"menstruasi berikutnya ~"+ci.daysToNext+" hari"})+'</div></div>'+
         '</div>'+
         '<div style="margin-top:10px;font-size:13px;line-height:1.5">'+L(m.summary)+'</div>'+
-        '<div class="cycrec"><div class="cyccol"><div class="cyclbl">🏃 '+L({en:"Do",id:"Lakukan"})+'</div><ul>'+doList+'</ul></div>'+
-        '<div class="cyccol"><div class="cyclbl">🥗 '+L({en:"Eat",id:"Makan"})+'</div><ul>'+eatList+'</ul></div></div>'+
+        '<div class="cycrec"><div class="cyccol"><div class="cyclbl"><svg class="emi" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> '+L({en:"Do",id:"Lakukan"})+'</div><ul>'+doList+'</ul></div>'+
+        '<div class="cyccol"><div class="cyclbl"><svg class="emi" viewBox="0 0 24 24"><path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M12 4v7"/></svg> '+L({en:"Eat",id:"Makan"})+'</div><ul>'+eatList+'</ul></div></div>'+
         '<div class="muted" style="font-size:11.5px;margin-top:12px">'+L({en:"Started your period? Update the date:",id:"Menstruasi mulai? Perbarui tanggalnya:"})+'</div>'+dateInput+'</div>';
     }
     async function savePeriod(){
       const v=document.getElementById("periodIn").value;
       if(!v){toast(L({en:"Pick a date",id:"Pilih tanggal"}));return;}
       try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:v,updated_at:new Date().toISOString()}).eq("auth_user_id",user.id);profile.cycle_last_period=v;}catch(e){}
-      toast(L({en:"Cycle updated 🌸",id:"Siklus diperbarui 🌸"}));
+      toast(L({en:"Cycle updated",id:"Siklus diperbarui"}));
       render();
     }
 
@@ -224,16 +227,16 @@
         '</div>';
 
       const streakCard='<div class="sec">'+L({en:"Consistency",id:"Konsistensi"})+'</div>'+
-        '<div class="card streak"><div class="fire">🔥</div><div style="flex:1"><div class="big">'+streak+' <span style="font-size:15px;font-weight:700;font-family:inherit;color:var(--muted)">'+L({en:streak===1?"day streak":"day streak",id:"hari beruntun"})+'</span></div>'+
+        '<div class="card streak"><div class="fire"><svg class="emi" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></div><div style="flex:1"><div class="big">'+streak+' <span style="font-size:15px;font-weight:700;font-family:inherit;color:var(--muted)">'+L({en:streak===1?"day streak":"day streak",id:"hari beruntun"})+'</span></div>'+
         '<div class="muted" style="font-size:12px;margin-top:2px">'+L({en:"Weekly consistency",id:"Konsistensi mingguan"})+': '+consist+'%</div><div class="cbar"><i style="width:'+consist+'%"></i></div></div></div>';
 
       // ---- charts ----
       const goal=calGoal(profile);
-      const waterChart=barChart(L({en:"💧 Water this week",id:"💧 Air minggu ini"}),
+      const waterChart=barChart(L({en:"Water this week",id:"Air minggu ini"}),
         days.map(d=>({l:wdLabel(d.date),v:d.log?+d.log.water_glasses||0:0,disp:(d.log?+d.log.water_glasses||0:0)+''})),8,"gl","#3b82f6",L({en:"Target 8 glasses/day",id:"Target 8 gelas/hari"}));
-      const sleepChart=barChart(L({en:"😴 Sleep this week",id:"😴 Tidur minggu ini"}),
+      const sleepChart=barChart(L({en:"Sleep this week",id:"Tidur minggu ini"}),
         days.map(d=>({l:wdLabel(d.date),v:d.log?+d.log.sleep_hours||0:0,disp:(d.log&&d.log.sleep_hours?(+d.log.sleep_hours).toFixed(1)+'h':'0')})),8,"h","#7c5cff",L({en:"Target 7–8 hours/night",id:"Target 7–8 jam/malam"}));
-      const calChart=barChart(L({en:"🔥 Calories this week",id:"🔥 Kalori minggu ini"}),
+      const calChart=barChart(L({en:"Calories this week",id:"Kalori minggu ini"}),
         days.map(d=>({l:wdLabel(d.date),v:d.cal||0,disp:(d.cal||0)+''})),goal,"kcal","#C41101",L({en:"Daily target ≈ "+goal+" kcal",id:"Target harian ≈ "+goal+" kkal"})+' · '+L({en:"synced to your account",id:"tersinkron ke akunmu"}));
 
       const charts='<div class="sec">'+L({en:"This Week",id:"Minggu Ini"})+'</div><div class="main2"><div>'+waterChart+'<div style="height:14px"></div>'+sleepChart+'</div><div>'+calChart+'</div></div>';
@@ -260,13 +263,13 @@
       const stats=Ach.buildStats(days,{hasFasting:!!localStorage.getItem("my20fit_if"),hasMcu:!!profile._hasMcu});
       const earnedIds=Ach.earned(stats);
       const achCard='<div class="sec">'+L({en:"Achievements",id:"Pencapaian"})+'</div><div class="card"><div class="achg">'+
-        Ach.DEFS.map(a=>{const on=earnedIds.indexOf(a.id)>-1;return '<div class="ach '+(on?"on":"off")+'"><div class="em">'+(on?a.em:"🔒")+'</div><div><div class="t">'+L(a.t)+'</div><div class="s">'+L(a.s)+'</div></div></div>';}).join("")+'</div></div>';
+        Ach.DEFS.map(a=>{const on=earnedIds.indexOf(a.id)>-1;return '<div class="ach '+(on?"on":"off")+'"><div class="em">'+(on?a.em:'<svg class="emi" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>')+'</div><div><div class="t">'+L(a.t)+'</div><div class="s">'+L(a.s)+'</div></div></div>';}).join("")+'</div></div>';
 
       // ---- medical summary ----
       let medCard='';
       if(profile._mcu){const res=profile._mcu;const att=(res.abnormal_findings||[]).length;
         medCard='<div class="sec">'+L({en:"Health Check-up",id:"Medical Check-up"})+'</div>'+
-          '<a class="card" href="medical.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)"><div class="em" style="width:40px;height:40px;border-radius:11px;background:'+(att?"rgba(196,17,1,.1)":"rgba(42,122,79,.12)")+';display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:20px">'+(att?"⚠️":"✓")+'</div>'+
+          '<a class="card" href="medical.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)"><div class="em" style="width:40px;height:40px;border-radius:11px;background:'+(att?"rgba(196,17,1,.1)":"rgba(42,122,79,.12)")+';display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:20px">'+(att?'<svg class="emi" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>':"✓")+'</div>'+
           '<div style="flex:1"><div style="font-weight:800">'+(att?L({en:att+" thing(s) to watch",id:att+" hal perlu diperhatikan"}):L({en:"Latest MCU: all normal",id:"MCU terakhir: semua normal"}))+'</div><div class="muted" style="font-size:12px">'+L({en:"Tap to view full results",id:"Ketuk untuk lihat hasil lengkap"})+'</div></div><span style="color:var(--pagemut);font-weight:800">›</span></a>';
       }
 
@@ -349,7 +352,7 @@
       try{localStorage.setItem("my20fit_weight",JSON.stringify(weights));}catch(e){}
       try{await Auth.saveDaily({weight_kg:kg});}catch(e){}                       // riwayat per hari di DB
       try{await Auth.supabase.from("my20fit_profile").update({weight_kg:kg,updated_at:new Date().toISOString()}).eq("auth_user_id",user.id);profile.weight_kg=kg;}catch(e){}
-      toast(L({en:"Weight saved 💪",id:"Berat tersimpan 💪"}));
+      toast(L({en:"Weight saved",id:"Berat tersimpan"}));
       render();
     }
 

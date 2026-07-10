@@ -98,6 +98,9 @@
   .calcol{display:flex;flex-direction:column;gap:0;min-width:0}
   .card{max-width:100%}
   @media(min-width:900px){ .wrap{max-width:920px} .calgrid{grid-template-columns:1fr 1fr;align-items:start} }
+  .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
+  .hopt-ic .emi{width:26px;height:26px}
+  .deal-hd .emi{width:22px;height:22px}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
@@ -135,10 +138,10 @@
       <div id="scanbox" style="margin-top:14px;display:flex;gap:10px">
         <button class="scanbtn" style="flex:1" onclick="openCamera()">
           <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
-          <span>📷 <span data-i18n="cal_takephoto">Take photo</span></span>
+          <span><span data-i18n="cal_takephoto">Take photo</span></span>
         </button>
         <button class="scanbtn" style="flex:1;background:var(--inp);color:var(--txt);border:1px solid var(--line)" onclick="document.getElementById('foodfile').click()">
-          <span>🖼️ <span data-i18n="cal_album">Album</span></span>
+          <span><svg class="emi" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> <span data-i18n="cal_album">Album</span></span>
         </button>
       </div>
       <!-- kamera langsung (Android & iOS bisa foto) -->
@@ -151,7 +154,7 @@
           <video id="camVideo" autoplay playsinline muted></video>
           <div id="camErr" class="muted" style="text-align:center;margin-top:8px"></div>
           <div class="cam-actions">
-            <button class="scanbtn" style="flex:1" onclick="camCapture()">📸 <span>Capture</span></button>
+            <button class="scanbtn" style="flex:1" onclick="camCapture()"><svg class="emi" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> <span>Capture</span></button>
             <button class="cam-cancel" onclick="camClose()">Cancel</button>
           </div>
         </div>
@@ -163,7 +166,7 @@
       <div class="add">
         <input id="fname" data-i18n-ph="cal_foodname" placeholder="Food name" />
         <input id="fgram" class="k" type="number" data-i18n-ph="cal_grams" placeholder="grams" />
-        <button id="estBtn" onclick="estimateFood()" title="auto kcal">⚡</button>
+        <button id="estBtn" onclick="estimateFood()" title="auto kcal"><svg class="emi" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></button>
       </div>
       <div id="estresult" class="muted" style="margin-top:8px"></div>
     </div>
@@ -263,7 +266,7 @@
   <div class="hopt-bg" id="hoptBg">
     <div class="hopt">
       <div class="grab"></div>
-      <div class="hopt-ic">🥗</div>
+      <div class="hopt-ic"><svg class="emi" viewBox="0 0 24 24"><path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M12 4v7"/></svg></div>
       <h3 id="hoptTitle">After your scan</h3>
       <div id="hoptScanned"></div>
       <div class="sub" id="hoptSub">—</div>
@@ -292,7 +295,7 @@
   <div class="hopt-bg" id="dealsBg">
     <div class="hopt">
       <div class="grab"></div>
-      <div class="deal-hd">⚡</div>
+      <div class="deal-hd"><svg class="emi" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
       <h3 id="dealsTitle">You've used all 10 scans this month</h3>
       <div class="sub" id="dealsSub">Get more calorie scans with a top-up pack — pick what suits you.</div>
       <div id="dealsList"></div>
@@ -315,7 +318,7 @@
   <div class="hopt-bg" id="scanBg">
     <div class="hopt">
       <div class="grab"></div>
-      <div class="hopt-ic">🍽️</div>
+      <div class="hopt-ic"><svg class="emi" viewBox="0 0 24 24"><path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M12 4v7"/></svg></div>
       <h3 style="margin-bottom:12px" id="scanModalTitle">Food analysis</h3>
       <div id="scanModalBody"></div>
       <button class="hopt-ghost" onclick="closeScanModal()" id="scanModalDone" style="margin-top:14px">Done</button>
@@ -524,7 +527,7 @@
         try{ await Auth.consumeScan(); }catch(e){}
         refreshQuota();
         lastRes=res;
-        box.innerHTML='<div class="muted" style="cursor:pointer" onclick="reopenScan()">✅ '+I18N.t("cal_detected")+' · ~'+(res.total_kcal||0)+' '+kc()+' — '+L({en:"tap to view analysis",id:"ketuk untuk lihat analisa"})+'</div>';
+        box.innerHTML='<div class="muted" style="cursor:pointer" onclick="reopenScan()">✓ '+I18N.t("cal_detected")+' · ~'+(res.total_kcal||0)+' '+kc()+' — '+L({en:"tap to view analysis",id:"ketuk untuk lihat analisa"})+'</div>';
         closeScanLoading();
         openScanResult(res);   // POP-UP berisi analisa lengkap
       }catch(err){closeScanLoading();box.innerHTML='<div style="color:var(--red)">'+err.message+'</div>'}
@@ -547,7 +550,7 @@
       var eaten=items.reduce((s,i)=>s+(+i.kcal||0),0);
       var afterLeft=Math.max(0,goal-eaten-scanKcal);
       var leaf='<svg viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.85-5.4 5.08-6"/></svg>';
-      var h='<div class="scd-sec"><div class="scd-lbl">🥗 '+L({en:"Healthier options — same calories",id:"Pilihan lebih sehat — kalori sama"})+'</div>';
+      var h='<div class="scd-sec"><div class="scd-lbl">'+L({en:"Healthier options — same calories",id:"Pilihan lebih sehat — kalori sama"})+'</div>';
       h+=sugg.map(function(f){return '<div class="hopt-row"><div class="d">'+leaf+'</div><div class="nm">'+Nutrition.name(f)+'</div><div class="kc">'+f.kcal+' '+kc()+'</div></div>';}).join('');
       h+='<div class="hopt-sum"><span>'+L({en:"Healthy total",id:"Total sehat"})+'</span><span>~'+Nutrition.totalKcal(sugg)+' '+kc()+'</span></div>';
       if(afterLeft>0) h+='<div class="need" style="margin-top:8px">'+L({en:"After this you'd still need ~"+afterLeft+" "+kc()+" to reach today's goal.",id:"Setelah ini kamu masih butuh ~"+afterLeft+" "+kc()+" lagi untuk capai target."})+'</div>';
@@ -558,7 +561,7 @@
     // ---- Kartu hasil scan DETAIL (makro, satiety, health, porsi, insights) ----
     function nRound(x){ return Math.round(+x||0); }
     function sumItems(k){ return (lastScan||[]).reduce((s,i)=>s+(+i[k]||0),0); }
-    function scoreDiamonds(score){ score=Math.max(0,Math.min(10,Math.round(+score||0))); return "🔶".repeat(score)+"⬜".repeat(10-score); }
+    function scoreDiamonds(score){ score=Math.max(0,Math.min(10,Math.round(+score||0))); return "◆".repeat(score)+"◇".repeat(10-score); }
     function macroBox(label,val){ return '<div class="mcx"><div class="mcv">'+nRound(val)+'g</div><div class="mcl">'+label+'</div></div>'; }
     function renderScanDetail(res){
       var kcal=nRound(res.total_kcal);
@@ -569,7 +572,7 @@
       var sat=Math.round(+res.satiety_score||0), health=Math.round(+res.health_score||0);
       var title=(lastScan||[]).map(i=>i.name).join(", ");
       var h='<div class="scd">';
-      h+='<div class="scd-top"><div class="scd-name">🍽️ '+title+'</div><div class="scd-kcal">~'+kcal+' '+kc()+'</div></div>';
+      h+='<div class="scd-top"><div class="scd-name">'+title+'</div><div class="scd-kcal">~'+kcal+' '+kc()+'</div></div>';
       if(res.description) h+='<div class="scd-desc">'+res.description+'</div>';
       h+='<div class="scd-macros">'+
          macroBox(L({en:"Protein",id:"Protein"}),p)+
@@ -580,25 +583,25 @@
         h+='<div class="scd-tags">'+res.tags.map(function(t){var pos=!(t&&t.positive===false);var lab=(t&&t.label)?t.label:String(t);return '<span class="tagchip '+(pos?"good":"warn")+'">'+lab+'</span>';}).join('')+'</div>';
       }
       if(sat>0){
-        h+='<div class="scd-score"><div class="scd-slabel">🍴 '+L({en:"Filling Rate",id:"Filling Rate"})+' <b>'+sat+'/10</b></div>'+
+        h+='<div class="scd-score"><div class="scd-slabel">'+L({en:"Filling Rate",id:"Filling Rate"})+' <b>'+sat+'/10</b></div>'+
            '<div class="scd-dias">'+scoreDiamonds(sat)+'</div>'+
            (res.satiety_note?'<div class="scd-note">'+res.satiety_note+'</div>':'')+'</div>';
       }
       if(health>0){
-        h+='<div class="scd-score"><div class="scd-slabel">💯 '+L({en:"Health Score",id:"Skor Sehat"})+' <b>'+health+'/10</b></div>'+
+        h+='<div class="scd-score"><div class="scd-slabel">'+L({en:"Health Score",id:"Skor Sehat"})+' <b>'+health+'/10</b></div>'+
            '<div class="scd-bar"><i style="width:'+(health*10)+'%"></i></div></div>';
       }
       if(res.overall){
-        h+='<div class="scd-sec scd-overall"><div class="scd-lbl">📊 '+L({en:"Overall analysis",id:"Analisa keseluruhan"})+'</div><div class="scd-rectext">'+res.overall+'</div></div>';
+        h+='<div class="scd-sec scd-overall"><div class="scd-lbl">'+L({en:"Overall analysis",id:"Analisa keseluruhan"})+'</div><div class="scd-rectext">'+res.overall+'</div></div>';
       }
       if(res.recommendation){
         var nm=(res.needs_more&&res.needs_more.length)?'<div class="scd-needs">'+res.needs_more.map(x=>'<span class="need-chip">+ '+x+'</span>').join('')+'</div>':'';
-        h+='<div class="scd-sec scd-rec"><div class="scd-lbl">💡 '+L({en:"Better intake — what to add",id:"Asupan lebih baik — perlu ditambah"})+'</div><div class="scd-rectext">'+res.recommendation+'</div>'+nm+'</div>';
+        h+='<div class="scd-sec scd-rec"><div class="scd-lbl">'+L({en:"Better intake — what to add",id:"Asupan lebih baik — perlu ditambah"})+'</div><div class="scd-rectext">'+res.recommendation+'</div>'+nm+'</div>';
       }
-      h+='<div class="scd-sec"><div class="scd-lbl">🍚 '+L({en:"Portions",id:"Porsi"})+'</div>'+
+      h+='<div class="scd-sec"><div class="scd-lbl">'+L({en:"Portions",id:"Porsi"})+'</div>'+
          (lastScan||[]).map(i=>'<div class="scd-por"><span>'+i.name+(i.portion?' <span class="mut">('+i.portion+')</span>':'')+'</span><span class="mut">'+nRound(i.kcal)+' '+kc()+'</span></div>').join('')+'</div>';
       if(res.insights && res.insights.length){
-        h+='<div class="scd-sec"><div class="scd-lbl">📋 '+L({en:"Key Insights",id:"Insight Penting"})+'</div><ul class="scd-ins">'+
+        h+='<div class="scd-sec"><div class="scd-lbl">'+L({en:"Key Insights",id:"Insight Penting"})+'</div><ul class="scd-ins">'+
            res.insights.map(x=>'<li>'+x+'</li>').join('')+'</ul></div>';
       }
       if(res.note) h+='<div class="scd-note" style="margin-top:10px">'+res.note+'</div>';
@@ -683,7 +686,7 @@
       var sugg=Nutrition.mealFor(scanKcal,4); if(!sugg.length)return;
       var eaten=items.reduce((s,i)=>s+(+i.kcal||0),0);
       var afterLeft=Math.max(0,goal-eaten-scanKcal);
-      document.getElementById("hoptTitle").textContent=L({en:"After your scan 🍽️",id:"Setelah kamu scan 🍽️"});
+      document.getElementById("hoptTitle").textContent=L({en:"After your scan",id:"Setelah kamu scan"});
       // Tampilkan makanan yang barusan di-scan biar jelas kebaca
       var sc=(lastScan&&lastScan.length)?lastScan:[];
       document.getElementById("hoptScanned").innerHTML=
@@ -694,7 +697,7 @@
       var need=document.getElementById("hoptNeed"); need.style.display="";
       need.textContent=afterLeft>0
         ? L({en:"After this you'd still need ~"+afterLeft+" "+kc()+" to reach today's goal.",id:"Setelah ini kamu masih butuh ~"+afterLeft+" "+kc()+" lagi untuk capai target hari ini."})
-        : L({en:"This already covers your daily goal 🎉",id:"Ini sudah menutup target harianmu 🎉"});
+        : L({en:"This already covers your daily goal",id:"Ini sudah menutup target harianmu"});
       var leaf='<svg viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.85-5.4 5.08-6"/></svg>';
       document.getElementById("hoptList").innerHTML=sugg.map(f=>'<div class="hopt-row"><div class="d">'+leaf+'</div><div class="nm">'+Nutrition.name(f)+'</div><div class="kc">'+f.kcal+' '+kc()+'</div></div>').join("");
       document.getElementById("hoptSumL").textContent=L({en:"Healthy total",id:"Total sehat"});
@@ -786,7 +789,7 @@
           '<div class="card">'+
             '<div class="ifname" style="font-size:16px">'+L({en:"Adopt a fasting style",id:"Adopsi gaya puasa"})+'</div>'+
             '<div class="muted" style="font-size:13px;margin:4px 0 12px">'+L({en:"Fasting can sharpen your calorie deficit. Start with the most popular, or explore by level.",id:"Puasa bisa mempertajam defisit kalorimu. Mulai dari yang paling populer, atau jelajahi per level."})+'</div>'+
-            '<div class="ifquick"><div class="ifopt" style="border:0;padding:0" onclick="chooseIF(\'16:8\')"><div style="flex:1"><div class="ifname">⭐ 16:8 · '+L({en:"Most popular",id:"Paling populer"})+'</div><div class="ifdesc">'+(pop?L(pop.desc):"")+'</div></div><span class="ifpick">'+L({en:"Choose",id:"Pilih"})+'</span></div></div>'+
+            '<div class="ifquick"><div class="ifopt" style="border:0;padding:0" onclick="chooseIF(\'16:8\')"><div style="flex:1"><div class="ifname"><svg class="emi" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> 16:8 · '+L({en:"Most popular",id:"Paling populer"})+'</div><div class="ifdesc">'+(pop?L(pop.desc):"")+'</div></div><span class="ifpick">'+L({en:"Choose",id:"Pilih"})+'</span></div></div>'+
             '<button class="ifexplore" onclick="toggleIFExplore()">'+(ifExploreOpen?L({en:"Hide styles",id:"Sembunyikan gaya"}):L({en:"Explore all styles",id:"Jelajahi semua gaya"}))+' <span id="ifChev">'+(ifExploreOpen?'▲':'▼')+'</span></button>'+
             (ifExploreOpen?ifGroupsHTML():'')+
           '</div>';
@@ -815,7 +818,7 @@
           :'<div class="seg" style="left:'+(a/14.4)+'%;width:'+((1440-a)/14.4)+'%"></div><div class="seg" style="left:0;width:'+((bb-1440)/14.4)+'%"></div>';
         const tl='<div class="iftl">'+segs+'<div class="now" style="left:'+(curM/14.4)+'%"></div></div><div class="iftlx"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>';
         const on=Fasting.notifEnabled();
-        const remind='<div class="ifremind"><div><div style="font-weight:800;font-size:13px">🔔 '+L({en:"Meal reminders",id:"Pengingat makan"})+'</div><div class="muted" style="font-size:11px">'+L({en:"Notify me when the window opens / closes",id:"Ingatkan saat jendela buka / tutup"})+'</div></div>'+(on?'<button class="rbtn-off" onclick="toggleReminders()">'+L({en:"On ✓",id:"Aktif ✓"})+'</button>':'<button class="rbtn-on" onclick="toggleReminders()">'+L({en:"Enable",id:"Aktifkan"})+'</button>')+'</div>';
+        const remind='<div class="ifremind"><div><div style="font-weight:800;font-size:13px"><svg class="emi" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> '+L({en:"Meal reminders",id:"Pengingat makan"})+'</div><div class="muted" style="font-size:11px">'+L({en:"Notify me when the window opens / closes",id:"Ingatkan saat jendela buka / tutup"})+'</div></div>'+(on?'<button class="rbtn-off" onclick="toggleReminders()">'+L({en:"On ✓",id:"Aktif ✓"})+'</button>':'<button class="rbtn-on" onclick="toggleReminders()">'+L({en:"Enable",id:"Aktifkan"})+'</button>')+'</div>';
         body='<span class="ifstate '+(st.eating?"eat":"fast")+'">'+(st.eating?L({en:"Eating window",id:"Jendela makan"}):L({en:"Fasting",id:"Sedang puasa"}))+'</span>'+
           '<div class="iftime">'+hrs+'h '+mn+'m</div>'+
           '<div class="muted" style="font-size:13px">'+(st.eating?L({en:"left in your eating window",id:"sisa di jendela makanmu"}):L({en:"until your eating window",id:"sampai jendela makanmu"}))+'</div>'+

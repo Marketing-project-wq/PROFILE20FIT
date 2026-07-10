@@ -3,7 +3,7 @@
 (function () {
   const PHASES = {
     menstrual: {
-      key: "menstrual", emoji: "🩸", color: "#C41101",
+      key: "menstrual", emoji: "", color: "#C41101",
       name: { en: "Menstrual phase", id: "Fase Menstruasi" },
       summary: { en: "Energy is at its lowest — be kind to your body and rest more.",
                  id: "Energi paling rendah — istirahat lebih & jangan paksakan diri." },
@@ -19,7 +19,7 @@
       ],
     },
     follicular: {
-      key: "follicular", emoji: "🌱", color: "#2A7A4F",
+      key: "follicular", emoji: "", color: "#2A7A4F",
       name: { en: "Follicular phase", id: "Fase Folikular" },
       summary: { en: "Energy is rising — a great time to build strength & try new things.",
                  id: "Energi naik — waktu bagus buat latihan berat & coba hal baru." },
@@ -34,7 +34,7 @@
       ],
     },
     ovulation: {
-      key: "ovulation", emoji: "⭐", color: "#C87000",
+      key: "ovulation", emoji: "", color: "#C87000",
       name: { en: "Ovulation phase", id: "Fase Ovulasi" },
       summary: { en: "Peak energy & mood — push a bit harder today.",
                  id: "Energi & mood puncak — bisa dorong lebih hari ini." },
@@ -48,7 +48,7 @@
       ],
     },
     luteal: {
-      key: "luteal", emoji: "🌙", color: "#7c5cff",
+      key: "luteal", emoji: "", color: "#7c5cff",
       name: { en: "Luteal phase", id: "Fase Luteal" },
       summary: { en: "Energy winds down & PMS may appear — go moderate and rest well.",
                  id: "Energi menurun & bisa muncul PMS — sedang-sedang saja & istirahat." },
