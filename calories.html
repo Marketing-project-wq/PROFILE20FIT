@@ -1012,9 +1012,36 @@
       if(location.hash==="#fasting"){document.getElementById("ifSection").scrollIntoView({behavior:"smooth"});}
       // Meta Pixel: kunjungan halaman calories = View Calories
       try{ Meta.track("View Calories", {content_name:"Calorie Tracker"}); }catch(e){}
-      // Lanjutkan polling kalau ada pembayaran yang belum tuntas (mis. user refresh / balik ke tab ini).
+      // Kalau 20FIT/Xendit redirect balik ke sini dengan tanda sukses
+      // (mis. ?status=paid&order_no=WEBxxxx) DAN device ini memang barusan mulai beli
+      // -> langsung anggap lunas: thank-you + isi quota + Meta "Success Payment".
+      handleReturnFromPayment();
+      // Lanjutkan polling kalau masih ada pembayaran yang belum tuntas (mis. user refresh / balik ke tab ini).
       try{ var _po=JSON.parse(localStorage.getItem("my20fit_pending_order")||"null"); if(_po&&_po.id){ showPayWait(_po.order_no||_po.id); startPolling(); } }catch(e){}
     })();
+    // Deteksi kepulangan dari Xendit lewat query URL (dipakai kalau dev 20FIT menambahkan
+    // success_redirect_url ke https://my.20fit.id/calories?status=paid&order_no=...).
+    function handleReturnFromPayment(){
+      try{
+        var sp=new URLSearchParams(location.search);
+        var st=(sp.get("status")||sp.get("payment")||"").toLowerCase();
+        var paidFlag = sp.get("paid")==="1" || /paid|success|settled|complete|berhasil/.test(st);
+        if(!paidFlag) return;
+        var po=null; try{ po=JSON.parse(localStorage.getItem("my20fit_pending_order")||"null"); }catch(e){}
+        var qOrder=sp.get("order_no")||sp.get("order")||"";
+        // Hanya kreditkan kalau device ini memang punya pending order (dan cocok kalau order_no dikirim).
+        if(po && po.id && (!qOrder || String(po.order_no||"")===String(qOrder) || String(po.id)===String(qOrder))){
+          localStorage.removeItem("my20fit_pending_order"); stopPolling(); hidePayWait();
+          try{ Auth.addScanCredits(po.credits||0); }catch(e){}
+          refreshQuota();
+          try{ Meta.track("Success Payment", {content_name:"scan package", content_category:"calorie_scan",
+            currency:"IDR", value:po.price||0, contents:[{id:po.product_id,quantity:1}], num_items:1}); }catch(e){}
+          showThanks(po.credits||0);
+        }
+        // Bersihin query supaya refresh tidak memicu ulang.
+        try{ history.replaceState(null,"",location.pathname+location.hash); }catch(e){}
+      }catch(e){}
+    }
     setInterval(renderIF,60000); // update countdown tiap menit
     I18N.onChange(()=>{render();renderMeals();renderIF();refreshQuota();});
   </script>
