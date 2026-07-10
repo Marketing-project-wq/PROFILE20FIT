@@ -135,9 +135,13 @@ app.get("/api/config", (req, res) => {
     // redirect balik ke my.20fit.id/login.html?token=<access_token>.
     // Diisi lewat env FITCO_SSO_URL dari tim developer.
     fitcoSsoUrl: process.env.FITCO_SSO_URL || "",
-    // Client ID Google Identity Services (PUBLIK — memang tampil di web).
-    // Kosong = tombol "Continue with Google" disembunyikan di halaman login.
+    // Client ID Google (PUBLIK — memang tampil di web).
     googleClientId: process.env.GOOGLE_CLIENT_ID || "",
+    // True kalau OAuth 2.0 Google (Authorization Code) sudah dikonfigurasi penuh
+    // di server (client id + secret + redirect uri). Frontend memakai ini untuk
+    // menampilkan/menyembunyikan tombol "Login dengan Google". Client Secret
+    // TIDAK pernah dikirim ke frontend — hanya status boolean.
+    googleOAuthEnabled: GOOGLE_OAUTH_ENABLED,
   });
 });
 
@@ -295,6 +299,16 @@ const FITCO_LOGIN_PATH = process.env.FITCO_LOGIN_PATH || "/api/v1/auth/login";
 // Endpoint login Google (dari dokumentasi resmi "Login by Google"):
 //   POST {api_url}/api/v1/auth/login/google  body {name,email,access_token,google_auth_id}
 const FITCO_GOOGLE_LOGIN_PATH = process.env.FITCO_GOOGLE_LOGIN_PATH || "/api/v1/auth/login/google";
+
+// ---------- Google OAuth 2.0 (Authorization Code flow) ----------
+// Semua nilai HANYA dari environment variable — TIDAK ADA nilai asli di kode.
+// Client Secret bersifat RAHASIA (server-only). Redirect URI harus terdaftar
+// di Google Cloud Console → Credentials → OAuth client (Authorized redirect URIs).
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
+const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || "";
+// Fitur aktif hanya kalau ketiga env sudah diisi (fail-closed kalau belum).
+const GOOGLE_OAUTH_ENABLED = !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && GOOGLE_REDIRECT_URI);
 // Ambil profil user dari 20FIT pakai access_token (Bearer). Return field yg kita pakai.
 async function fetch20fitProfile(fitcoToken) {
   const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null, fitcoUserId: null };
@@ -429,59 +443,162 @@ app.post("/api/fitco-login", async (req, res) => {
 // Frontend mengirim ID token dari Google Identity Services. Identitas (email/nama/
 // google_auth_id) diambil server dari payload token itu — bukan dari input bebas
 // client — lalu API 20FIT yang memverifikasi keaslian token ke Google.
+// Decode payload JWT (base64url) tanpa verifikasi tanda tangan.
+function decodeJwtPayload(jwt) {
+  try {
+    const part = String(jwt).split(".")[1] || "";
+    return JSON.parse(Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
+  } catch (e) { return {}; }
+}
+
+// Jembatan bersama: klaim Google (email/nama/sub) + ID token → verifikasi ke API
+// 20FIT, mirror akun Supabase, mint OTP sesi. Dipakai oleh flow GIS (POST) & OAuth.
+async function bridgeGoogleToSession(claims, idToken) {
+  const email = String((claims && claims.email) || "").trim().toLowerCase();
+  const gname = (claims && (claims.name || [claims.given_name, claims.family_name].filter(Boolean).join(" "))) || null;
+  const gsub = claims && claims.sub ? String(claims.sub) : null;
+  if (!email || !gsub) { const e = new Error("Google credential tidak valid."); e.status = 400; throw e; }
+
+  let fj = {};
+  try {
+    const fr = await fetch(FITCO_API + FITCO_GOOGLE_LOGIN_PATH, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: gname, email, access_token: idToken, google_auth_id: gsub }),
+    });
+    fj = await fr.json().catch(() => ({}));
+    if (!fr.ok) { const e = new Error("Login Google ditolak 20FIT. Pastikan email Google ini terdaftar sebagai akun 20FIT."); e.status = 401; throw e; }
+  } catch (e) {
+    if (e && e.status) throw e;
+    const err = new Error("Tidak bisa menghubungi server 20FIT. Coba lagi."); err.status = 502; throw err;
+  }
+  const fd = (fj && fj.data) || fj || {};
+  const fitcoToken =
+    fj.access_token || fd.access_token ||
+    (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
+  if (!fitcoToken) { const e = new Error("Login Google 20FIT gagal (token tidak diterima)."); e.status = 401; throw e; }
+  let fitcoUserId = fd.user_id || fd.id || null;
+
+  let info = { email, fullName: fd.name || fd.full_name || gname, gender: fd.gender ? String(fd.gender).toLowerCase() : null, phone: fd.phone || fd.phone_number || null, avatar: (claims && claims.picture) || null, birthdate: fd.date_of_birth || fd.birthdate || fd.dob || null };
+  try {
+    const p = await fetch20fitProfile(fitcoToken);
+    info = { email: p.email || email, fullName: p.fullName || info.fullName, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar || info.avatar, birthdate: p.birthdate || info.birthdate };
+    fitcoUserId = p.fitcoUserId || fitcoUserId;
+  } catch (e) { /* non-fatal, pakai data login */ }
+
+  info.fitcoUserId = fitcoUserId;
+  info.fitcoEmailVerified = true; // login Google diterima 20FIT + email diverifikasi Google
+  const out = await mirrorAndMintOtp(info);
+  return { email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken };
+}
+
+// (A) Flow Google Identity Services: frontend kirim ID token (credential) via POST.
 app.post("/api/fitco-google-login", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
     const credential = String((req.body && req.body.credential) || "").trim();
     if (!credential) return res.status(400).json({ error: "Google credential wajib." });
-    let claims = {};
-    try {
-      const part = credential.split(".")[1] || "";
-      claims = JSON.parse(Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
-    } catch (e) { claims = {}; }
-    const email = String(claims.email || "").trim().toLowerCase();
-    const gname = claims.name || [claims.given_name, claims.family_name].filter(Boolean).join(" ") || null;
-    const gsub = claims.sub ? String(claims.sub) : null;
-    if (!email || !gsub) return res.status(400).json({ error: "Google credential tidak valid." });
-
-    // 1) Verifikasi ke API 20FIT (body persis sesuai dokumentasi developer)
-    let fj = {};
-    try {
-      const fr = await fetch(FITCO_API + FITCO_GOOGLE_LOGIN_PATH, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: gname, email, access_token: credential, google_auth_id: gsub }),
-      });
-      fj = await fr.json().catch(() => ({}));
-      if (!fr.ok) {
-        return res.status(401).json({ error: "Login Google ditolak 20FIT. Pastikan email Google ini terdaftar sebagai akun 20FIT." });
-      }
-    } catch (e) {
-      return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
-    }
-    const fd = (fj && fj.data) || fj || {};
-    const fitcoToken =
-      fj.access_token || fd.access_token ||
-      (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
-    if (!fitcoToken) return res.status(401).json({ error: "Login Google 20FIT gagal (token tidak diterima)." });
-    let fitcoUserId = fd.user_id || fd.id || null;
-
-    // 2) Ambil profil (best effort), lengkapi dari data login + klaim Google
-    let info = { email, fullName: fd.name || fd.full_name || gname, gender: fd.gender ? String(fd.gender).toLowerCase() : null, phone: fd.phone || fd.phone_number || null, avatar: claims.picture || null, birthdate: fd.date_of_birth || fd.birthdate || fd.dob || null };
-    try {
-      const p = await fetch20fitProfile(fitcoToken);
-      info = { email: p.email || email, fullName: p.fullName || info.fullName, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar || info.avatar, birthdate: p.birthdate || info.birthdate };
-      fitcoUserId = p.fitcoUserId || fitcoUserId;
-    } catch (e) { /* non-fatal, pakai data login */ }
-
-    info.fitcoUserId = fitcoUserId;
-    // Login Google diterima 20FIT = akun valid; email Google juga sudah terverifikasi Google.
-    info.fitcoEmailVerified = true;
-    const out = await mirrorAndMintOtp(info);
-    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken });
+    const out = await bridgeGoogleToSession(decodeJwtPayload(credential), credential);
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: out.fitco_user_id, fitco_token: out.fitco_token });
   } catch (e) {
     console.error("fitco-google-login:", e.message);
     return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
+  }
+});
+
+// (B) Flow OAuth 2.0 Authorization Code (server-side, pakai Client Secret + Redirect URI).
+// State CSRF: nonce acak yang di-HMAC dengan client secret (server-only), plus
+// double-submit cookie SameSite=Lax. Client Secret TIDAK pernah keluar dari server.
+function makeOAuthState() {
+  const nonce = crypto.randomBytes(16).toString("hex");
+  const sig = crypto.createHmac("sha256", GOOGLE_CLIENT_SECRET).update(nonce).digest("hex").slice(0, 32);
+  return nonce + "." + sig;
+}
+function validOAuthState(state) {
+  if (!state || typeof state !== "string" || state.indexOf(".") < 0) return false;
+  const [nonce, sig] = state.split(".");
+  if (!nonce || !sig) return false;
+  const expect = crypto.createHmac("sha256", GOOGLE_CLIENT_SECRET).update(nonce).digest("hex").slice(0, 32);
+  try { return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expect)); } catch (e) { return false; }
+}
+function readCookie(req, name) {
+  const raw = String(req.headers.cookie || "");
+  const hit = raw.split(";").map(s => s.trim()).find(s => s.slice(0, name.length + 1) === name + "=");
+  return hit ? decodeURIComponent(hit.slice(name.length + 1)) : "";
+}
+
+// Mulai login: arahkan browser ke consent screen Google.
+app.get("/api/auth/google", (req, res) => {
+  if (!GOOGLE_OAUTH_ENABLED) return res.status(503).send("Google login belum dikonfigurasi.");
+  const state = makeOAuthState();
+  res.setHeader("Set-Cookie", "g_oauth_state=" + encodeURIComponent(state) + "; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax; Max-Age=600");
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: GOOGLE_REDIRECT_URI,
+    response_type: "code",
+    scope: "openid email profile",
+    state: state,
+    access_type: "online",
+    include_granted_scopes: "true",
+    prompt: "select_account",
+  });
+  res.redirect("https://accounts.google.com/o/oauth2/v2/auth?" + params.toString());
+});
+
+// Callback dari Google: tukar code→token (client secret dipakai DI SINI), verifikasi
+// ke 20FIT, buat sesi, lalu render halaman kecil yang menuntaskan login di browser
+// TANPA menaruh OTP/token di URL.
+app.get("/api/auth/google/callback", async (req, res) => {
+  const fail = (m) => res.redirect("/login.html?err=google" + (m ? "&m=" + encodeURIComponent(m) : ""));
+  try {
+    if (!GOOGLE_OAUTH_ENABLED) return res.status(503).send("Google login belum dikonfigurasi.");
+    if (!admin) return fail("server");
+    if (req.query.error) return fail(String(req.query.error).slice(0, 40));
+    const code = String(req.query.code || "");
+    const state = String(req.query.state || "");
+    const cookieState = readCookie(req, "g_oauth_state");
+    res.setHeader("Set-Cookie", "g_oauth_state=; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax; Max-Age=0"); // cookie sekali pakai
+    if (!code || !state || !validOAuthState(state) || state !== cookieState) return fail("state");
+
+    // Tukar authorization code → token di Google.
+    let tj = {};
+    try {
+      const tr = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code: code,
+          client_id: GOOGLE_CLIENT_ID,
+          client_secret: GOOGLE_CLIENT_SECRET,
+          redirect_uri: GOOGLE_REDIRECT_URI,
+          grant_type: "authorization_code",
+        }).toString(),
+      });
+      tj = await tr.json().catch(() => ({}));
+      if (!tr.ok || !tj.id_token) return fail("token");
+    } catch (e) { return fail("token"); }
+
+    // ID token diterima langsung dari Google via TLS (ditukar dengan client secret),
+    // jadi tepercaya; tetap cek audience & kedaluwarsa sebagai lapis tambahan.
+    const claims = decodeJwtPayload(tj.id_token);
+    if (!claims || claims.aud !== GOOGLE_CLIENT_ID) return fail("token");
+    if (claims.exp && (Date.now() / 1000) > (claims.exp + 60)) return fail("expired");
+    if (claims.email_verified === false) return fail("unverified");
+
+    const out = await bridgeGoogleToSession(claims, tj.id_token);
+
+    const data = JSON.stringify({ email: out.email, otp: out.email_otp, ft: out.fitco_token || "" })
+      .replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Signing you in…</title>' +
+      '<body style="font-family:Manrope,system-ui,sans-serif;background:#EDE8DF;color:#0A0908;display:grid;place-items:center;height:100vh;margin:0">' +
+      '<div>Signing you in…</div>' +
+      '<script src="/js/vendor-supabase.js"></script><script src="/js/auth.js"></script>' +
+      '<script>(async function(){var D=' + data + ';try{await Auth.ready;try{if(D.ft)localStorage.setItem("fitco_token",D.ft);}catch(e){}await Auth.verifyLoginCode(D.email,D.otp);location.replace("/dashboard.html");}catch(e){location.replace("/login.html?err=google");}})();</script></body>');
+  } catch (e) {
+    console.error("google-oauth-callback:", e.message);
+    return fail("server");
   }
 });
 
@@ -652,9 +769,11 @@ app.post("/api/fitco-resend-verify-email", async (req, res) => {
 });
 
 // ================= PARTNER API (untuk tim/produk lain di ekosistem 20FIT) =================
-// Dilindungi API key. Ganti/rotasi key lewat env PARTNER_API_KEY di server.
-const PARTNER_API_KEY = process.env.PARTNER_API_KEY || "p20f_842d531d14ec668851500f2a0f13e9f974ed4e5d04d379a2";
+// Dilindungi API key — nilai HANYA dari env PARTNER_API_KEY (RAHASIA, server-only).
+// Tidak ada default di kode: kalau env belum diisi, endpoint terkunci (fail-closed).
+const PARTNER_API_KEY = process.env.PARTNER_API_KEY || "";
 function partnerAuth(req, res) {
+  if (!PARTNER_API_KEY) { res.status(503).json({ error: "Partner API not configured." }); return false; }
   const hdr = String(req.headers["authorization"] || "");
   const key = (hdr.replace(/^Bearer\s+/i, "").trim()) || String(req.headers["x-api-key"] || "").trim();
   if (!key || key !== PARTNER_API_KEY) { res.status(401).json({ error: "Unauthorized: invalid or missing API key." }); return false; }
@@ -688,8 +807,10 @@ app.get("/api/partner/profile", async (req, res) => {
 });
 
 // ================= ADMIN MONITORING (dashboard internal) =================
-const ADMIN_KEY = process.env.ADMIN_KEY || "adm_91bb6891ad4af074612194e04d9fdaf3";
+// Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
+const ADMIN_KEY = process.env.ADMIN_KEY || "";
 function adminAuth(req, res) {
+  if (!ADMIN_KEY) { res.status(503).json({ error: "Admin API not configured." }); return false; }
   const hdr = String(req.headers["authorization"] || "");
   const key = (hdr.replace(/^Bearer\s+/i, "").trim()) || String(req.headers["x-admin-key"] || "").trim() || String(req.query.key || "").trim();
   if (!key || key !== ADMIN_KEY) { res.status(401).json({ error: "Unauthorized" }); return false; }

@@ -15,6 +15,16 @@ File itu memuat token Bearer yang masih berlaku untuk:
 - **20FIT Production** (`https://api.20fit.id`)
 - **20FIT Local** (token dev)
 
+Selain itu, **dua kunci pelindung endpoint milik app ini** sempat ter-hardcode
+sebagai nilai default di `server.js` (repo public) dan sekarang sudah dihapus
+dari kode (jadi env-only, fail-closed):
+
+- `PARTNER_API_KEY` — dulu `p20f_842d…` (pelindung `/api/partner/*`)
+- `ADMIN_KEY` — dulu `adm_91bb…` (pelindung `/api/admin/stats`)
+
+Keduanya sempat terlihat publik → **wajib dirotasi** (ganti nilai baru) lalu isi
+di Railway Variables. Sampai diisi, kedua endpoint terkunci (balas `503`).
+
 Tindakan wajib:
 
 1. **Rotasi/revoke semua token di atas** lewat tim dev Fitco/20FIT — anggap
