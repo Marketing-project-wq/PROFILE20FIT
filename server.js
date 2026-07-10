@@ -945,6 +945,59 @@ function findXenditLink(obj) {
   })(obj);
   return out;
 }
+// Ambil nilai skalar pertama untuk salah satu nama field (mis. sales_order_id / order_no)
+// dari respons order 20FIT yang bentuknya bisa bertingkat.
+function findScalar(obj, keys) {
+  let out = null;
+  (function walk(v) {
+    if (out != null || !v || typeof v !== "object") return;
+    for (const k of Object.keys(v)) {
+      if (keys.indexOf(k) >= 0 && v[k] != null && typeof v[k] !== "object") { out = v[k]; return; }
+      if (v[k] && typeof v[k] === "object") walk(v[k]);
+    }
+  })(obj);
+  return out;
+}
+// Telusuri SELURUH respons order untuk sinyal LUNAS / EXPIRED, apa pun bentuk field-nya.
+// Sinyal LUNAS: teks status (paid/settled/success/complete/berhasil/lunas), flag boolean
+// (is_paid/paid=true), timestamp bayar (paid_at/payment_date/settlement*), atau kode
+// payment_status yang cocok dgn FITCO_PAID_STATUS. EXPIRED: payment_status=4 atau teks gagal.
+function scanPaidMarkers(obj) {
+  const PAID_RE = /\b(paid|lunas|settled?|success(ful)?|completed?|berhasil)\b/i;
+  const FAIL_RE = /\b(expired|failed|cancell?ed|dibatalkan|batal|kadaluarsa|kedaluwarsa|void|rejected)\b/i;
+  const PAID_KEY = /(paid_at|paid_date|payment_date|payment_at|settlement|settled_at)/i;
+  const STATUS_KEY = /(status_description|status_name|order_status|payment_status_description|_status$|^status$)/i;
+  let paid = false, expired = false; const debug = [];
+  (function walk(v) {
+    if (!v || typeof v !== "object") return;
+    if (Array.isArray(v)) { v.forEach(walk); return; }
+    for (const k of Object.keys(v)) {
+      const val = v[k];
+      if (/^(is_paid|paid|has_paid)$/i.test(k) && val === true) { paid = true; debug.push(k + "=true"); }
+      if (PAID_KEY.test(k) && val && typeof val !== "object") { paid = true; debug.push(k + "=" + val); }
+      if (/^payment_status$/i.test(k) && val != null && typeof val !== "object") {
+        const s = String(val);
+        if (FITCO_PAID_STATUS.indexOf(s) >= 0) paid = true;
+        if (s === "4") expired = true;
+        debug.push("payment_status=" + s);
+      }
+      if (STATUS_KEY.test(k) && val != null && typeof val !== "object") {
+        const s = String(val);
+        if (PAID_RE.test(s)) paid = true;
+        if (FAIL_RE.test(s)) expired = true;
+        if (!/^payment_status$/i.test(k)) debug.push(k + "=" + s);
+      }
+      if (val && typeof val === "object") walk(val);
+    }
+  })(obj);
+  if (paid) expired = false; // ada 1 sinyal lunas -> anggap LUNAS
+  return { paid: paid, expired: expired, debug: debug };
+}
+// Kode payment_status yang berarti LUNAS. Terdokumentasi hanya 5=Pending & 4=Expired,
+// kode "paid" belum terdokumentasi -> bisa di-set via env FITCO_PAID_STATUS (mis. "1,3").
+// Deteksi utama tetap pakai teks status_description (paid/settled/success/berhasil).
+const FITCO_PAID_STATUS = String(process.env.FITCO_PAID_STATUS || "")
+  .split(",").map(s => s.trim()).filter(Boolean);
 app.post("/api/scan/buy", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
@@ -983,10 +1036,47 @@ app.post("/api/scan/buy", async (req, res) => {
     if (!r.ok) return res.status(r.status === 401 ? 401 : 400).json({ error: (j && (j.message || j.error)) || "Gagal membuat order 20FIT." });
     const link = findXenditLink(j);
     if (!link) return res.status(502).json({ error: "Order dibuat, tapi link pembayaran tidak ditemukan." });
-    return res.json({ ok: true, link: link });
+    // Kembalikan juga id order supaya frontend bisa polling status pembayaran (auto thank-you + kredit).
+    const salesOrderId = findScalar(j, ["sales_order_id", "salesOrderId", "order_id"]);
+    const orderNo = findScalar(j, ["order_no", "orderNo", "order_number"]);
+    return res.json({ ok: true, link: link, sales_order_id: salesOrderId, order_no: orderNo });
   } catch (e) {
     console.error("scan/buy:", e.message);
     return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+  }
+});
+
+// ---------- Cek status pembayaran order scan (untuk auto thank-you + isi kredit) ----------
+// POST /api/scan/order-status  { sales_order_id, fitco_token }
+// GET 20FIT /api/v1/app/order/:id pakai token login user (atau FITCO_PARTNER_TOKEN sbg fallback),
+// lalu tentukan paid/expired/pending. Dibuat toleran: kalau gagal ambil status, balikan pending
+// supaya frontend terus mencoba tanpa error.
+app.post("/api/scan/order-status", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    const id = String(b.sales_order_id || "").trim();
+    if (!id) return res.status(400).json({ error: "sales_order_id kosong." });
+    const bearer = String(b.fitco_token || "") || FITCO_PARTNER_TOKEN;
+    if (!bearer) return res.json({ ok: true, paid: false, expired: false, pending: true, note: "no_token" });
+    let r, j = {};
+    try {
+      r = await fetch(FITCO_API + "/api/v1/app/order/" + encodeURIComponent(id), {
+        headers: { "Accept": "application/json", "Authorization": "Bearer " + bearer },
+      });
+      j = await r.json().catch(() => ({}));
+    } catch (e) {
+      return res.json({ ok: true, paid: false, expired: false, pending: true, note: "fetch_error" });
+    }
+    if (!r.ok) return res.json({ ok: true, paid: false, expired: false, pending: true, note: "status_unavailable" });
+    const sig = scanPaidMarkers(j);
+    // Log semua field status yang ketemu (tanpa data sensitif) -> untuk konfirmasi kode "paid" saat test.
+    try { console.log("order-status", id, "paid=" + sig.paid, "expired=" + sig.expired, "signals:", sig.debug.join(" | ") || "(none)"); } catch (e) {}
+    return res.json({ ok: true, paid: sig.paid, expired: sig.expired, pending: !sig.paid && !sig.expired });
+  } catch (e) {
+    console.error("order-status:", e.message);
+    return res.json({ ok: true, paid: false, expired: false, pending: true, note: "error" });
   }
 });
 
