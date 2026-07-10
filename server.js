@@ -652,9 +652,11 @@ app.post("/api/fitco-resend-verify-email", async (req, res) => {
 });
 
 // ================= PARTNER API (untuk tim/produk lain di ekosistem 20FIT) =================
-// Dilindungi API key. Ganti/rotasi key lewat env PARTNER_API_KEY di server.
-const PARTNER_API_KEY = process.env.PARTNER_API_KEY || "p20f_842d531d14ec668851500f2a0f13e9f974ed4e5d04d379a2";
+// Dilindungi API key — nilai HANYA dari env PARTNER_API_KEY (RAHASIA, server-only).
+// Tidak ada default di kode: kalau env belum diisi, endpoint terkunci (fail-closed).
+const PARTNER_API_KEY = process.env.PARTNER_API_KEY || "";
 function partnerAuth(req, res) {
+  if (!PARTNER_API_KEY) { res.status(503).json({ error: "Partner API not configured." }); return false; }
   const hdr = String(req.headers["authorization"] || "");
   const key = (hdr.replace(/^Bearer\s+/i, "").trim()) || String(req.headers["x-api-key"] || "").trim();
   if (!key || key !== PARTNER_API_KEY) { res.status(401).json({ error: "Unauthorized: invalid or missing API key." }); return false; }
@@ -688,8 +690,10 @@ app.get("/api/partner/profile", async (req, res) => {
 });
 
 // ================= ADMIN MONITORING (dashboard internal) =================
-const ADMIN_KEY = process.env.ADMIN_KEY || "adm_91bb6891ad4af074612194e04d9fdaf3";
+// Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
+const ADMIN_KEY = process.env.ADMIN_KEY || "";
 function adminAuth(req, res) {
+  if (!ADMIN_KEY) { res.status(503).json({ error: "Admin API not configured." }); return false; }
   const hdr = String(req.headers["authorization"] || "");
   const key = (hdr.replace(/^Bearer\s+/i, "").trim()) || String(req.headers["x-admin-key"] || "").trim() || String(req.query.key || "").trim();
   if (!key || key !== ADMIN_KEY) { res.status(401).json({ error: "Unauthorized" }); return false; }
