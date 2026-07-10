@@ -26,6 +26,14 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const OTP_TTL_MINUTES = parseInt(process.env.OTP_TTL_MINUTES || "10", 10);
+
+// ---- Meta (Facebook) Pixel + Conversions API ----
+// Pixel ID = PUBLIK (memang tampil di web) -> ada default, boleh override via env.
+const META_PIXEL_ID = process.env.META_PIXEL_ID || "882946526927316";
+// Access token Conversions API = RAHASIA! Server-only, HANYA dari env (tidak ada
+// default di kode). Isi di Railway > Variables (jangan pernah commit nilainya).
+const META_CAPI_TOKEN = process.env.META_CAPI_ACCESS_TOKEN || "";
+const META_CAPI_VERSION = process.env.META_CAPI_VERSION || "v19.0";
 const DEV_MASTER_OTP = process.env.DEV_MASTER_OTP || ""; // kosong = nonaktif
 const IS_PROD = process.env.NODE_ENV === "production";
 
@@ -138,7 +146,49 @@ app.get("/api/config", (req, res) => {
     // Client ID Google (PUBLIK — memang tampil di web). Frontend memakainya
     // untuk inisialisasi tombol GIS. Nilainya dari env GOOGLE_CLIENT_ID (satu sumber).
     googleClientId: GOOGLE_CLIENT_ID,
+    // Meta Pixel ID (PUBLIK). Access token CAPI TIDAK pernah dikirim ke frontend.
+    metaPixelId: META_PIXEL_ID,
   });
+});
+
+// Meta Conversions API (server-side). Frontend mengirim event (dengan event_id
+// yang sama dgn Pixel browser) -> server meneruskan ke Graph API pakai access
+// token RAHASIA. Email di-hash SHA-256 sebelum dikirim (persyaratan Meta).
+app.post("/api/meta/event", async (req, res) => {
+  try {
+    if (!META_CAPI_TOKEN) return res.json({ ok: false, skipped: "capi_not_configured" });
+    const b = req.body || {};
+    const name = String(b.event_name || "").trim();
+    if (!name) return res.status(400).json({ error: "event_name wajib." });
+    const sha256 = (v) => crypto.createHash("sha256").update(String(v).trim().toLowerCase()).digest("hex");
+    const ua = String(req.headers["user-agent"] || "");
+    const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || (req.socket && req.socket.remoteAddress) || "";
+    const user_data = { client_user_agent: ua };
+    if (ip) user_data.client_ip_address = ip;
+    if (b.email) user_data.em = [sha256(b.email)];
+    if (b.fbp) user_data.fbp = b.fbp;
+    if (b.fbc) user_data.fbc = b.fbc;
+    const payload = {
+      data: [{
+        event_name: name,
+        event_time: Math.floor(Date.now() / 1000),
+        event_id: b.event_id || undefined,
+        action_source: "website",
+        event_source_url: b.event_source_url || undefined,
+        user_data: user_data,
+        custom_data: b.custom_data || {},
+      }],
+    };
+    const url = "https://graph.facebook.com/" + META_CAPI_VERSION + "/" + META_PIXEL_ID +
+      "/events?access_token=" + encodeURIComponent(META_CAPI_TOKEN);
+    const fr = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const fj = await fr.json().catch(() => ({}));
+    if (!fr.ok) { console.error("meta-capi:", JSON.stringify(fj).slice(0, 300)); return res.status(502).json({ ok: false }); }
+    return res.json({ ok: true, events_received: fj.events_received });
+  } catch (e) {
+    console.error("meta-capi:", e.message);
+    return res.status(500).json({ ok: false });
+  }
 });
 
 // Kirim OTP ke email user yang sedang login
