@@ -617,7 +617,7 @@
     async function refreshQuota(){
       const el=document.getElementById("scanquota"); if(!el)return;
       let q; try{ q=await Auth.getScanQuota(); }catch(e){ el.innerHTML=""; return; }
-      const dealsLink='<a href="#" onclick="openDeals();return false" style="color:var(--red);font-weight:800;text-decoration:none">'+
+      const dealsLink='<a href="#" onclick="openDeals();return false" style="color:var(--green,#2A7A4F);font-weight:800;text-decoration:none">'+
         L({en:"explore our deals",id:"lihat paket kami"})+'</a>';
       if(q.remaining<=0){
         el.innerHTML='<span style="color:var(--red);font-weight:700">'+
