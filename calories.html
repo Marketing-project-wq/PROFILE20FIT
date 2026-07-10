@@ -633,12 +633,9 @@
                         id:"Sisa <b>"+q.remaining+"</b> scan bulan ini"+extra+". Untuk dapat 10 scan lagi, "})+dealsLink+".";
       }
     }
-    // Klik link "explore our deals" -> event Purchase (sesuai spesifikasi), lalu buka modal paket.
-    function exploreDeals(){
-      try{ Meta.track("Purchase", {content_name:"scan package", content_category:"calorie_scan", currency:"IDR", value:0}); }catch(e){}
-      openDeals();
-      return false;
-    }
+    // Klik "explore our deals" -> buka modal paket. Event Purchase dipicu NANTI
+    // saat pembayaran Xendit dikonfirmasi berhasil (lihat confirmPurchase).
+    function exploreDeals(){ openDeals(); return false; }
     function openDeals(q){
       document.getElementById("dealsTitle").textContent=(q&&q.remaining>0)
         ? L({en:"Top up your calorie scans",id:"Top up scan kalori kamu"})
@@ -665,6 +662,10 @@
       // Data user (email/phone) diambil server dari profil, jadi user tak harus punya akun 20FIT app.
       const ftk=localStorage.getItem("fitco_token")||"";
       const btns=document.querySelectorAll('#dealsList .deal'); btns.forEach(b=>b.disabled=true);
+      // Buka tab pembayaran SEKARANG (dalam gesture klik) supaya tidak diblokir popup blocker.
+      // App my.20fit.id tetap terbuka di tab ini; Xendit jalan di tab baru.
+      const payWin=window.open("","_blank");
+      if(payWin){ try{ payWin.document.write("<p style='font-family:sans-serif;padding:24px'>Menyiapkan pembayaran…</p>"); }catch(e){} }
       setNote(L({en:"Preparing secure payment…",id:"Menyiapkan pembayaran aman…"}),false);
       try{
         const tk=await Auth.token();
@@ -674,12 +675,56 @@
             fitco_token:ftk, user_id:localStorage.getItem("fitco_uid")||null })});
         const j=await r.json().catch(()=>({}));
         if(!r.ok||!j.link) throw new Error(j.error||L({en:"Couldn't start payment.",id:"Gagal memulai pembayaran."}));
-        location.href=j.link;   // -> halaman pembayaran Xendit (checkout.xendit.co)
+        // Simpan pembelian tertunda supaya bisa dikonfirmasi saat user kembali ke tab ini.
+        try{ localStorage.setItem("my20fit_pending_purchase", JSON.stringify({credits:p.credits, price:p.price, product_id:p.product_id, link:j.link, at:Date.now()})); }catch(e){}
+        // Arahkan tab baru ke Xendit; fallback same-tab kalau popup diblokir.
+        if(payWin){ payWin.location.href=j.link; } else if(!window.open(j.link,"_blank")){ location.href=j.link; }
+        showPendingPayment({credits:p.credits, price:p.price, link:j.link}); // state "menunggu pembayaran"
       }catch(e){
         console.error("buyPack:",e);
+        if(payWin){ try{ payWin.close(); }catch(_){} }
         btns.forEach(b=>b.disabled=false);
         setNote((e&&e.message)||L({en:"Purchase failed. Try again.",id:"Pembelian gagal. Coba lagi."}),true);
       }
+    }
+    // --- Pembayaran di tab baru: state menunggu -> konfirmasi -> sukses ---
+    function reopenPayment(){ try{ var pp=JSON.parse(localStorage.getItem("my20fit_pending_purchase")||"null"); if(pp&&pp.link) window.open(pp.link,"_blank"); }catch(e){} }
+    function showPendingPayment(info){
+      document.getElementById("dealsTitle").textContent=L({en:"Complete your payment",id:"Selesaikan pembayaranmu"});
+      document.getElementById("dealsSub").textContent=L({en:"Payment opened in a new tab. Finish paying there, then come back to this tab and confirm.",id:"Pembayaran dibuka di tab baru. Selesaikan di sana, lalu kembali ke tab ini dan konfirmasi."});
+      document.getElementById("dealsList").innerHTML=
+        '<div class="deal best" style="cursor:default"><div class="qty">'+info.credits+'<small>SCAN</small></div>'+
+        '<div class="info"><div class="p">'+rupiah(info.price)+'</div><div class="d">'+info.credits+'x '+L({en:"calorie scans",id:"scan kalori"})+'</div></div></div>'+
+        '<button class="scanbtn" style="margin-top:12px" onclick="confirmPurchase()">'+L({en:"I've completed payment",id:"Saya sudah bayar"})+'</button>'+
+        '<button class="scanbtn" style="margin-top:8px;background:var(--inp);color:var(--txt);border:1px solid var(--line)" onclick="reopenPayment()">'+L({en:"Reopen payment tab",id:"Buka lagi tab pembayaran"})+'</button>';
+      document.getElementById("dealsNote").textContent=L({en:"Your scans are added after your payment is confirmed.",id:"Scan ditambahkan setelah pembayaran dikonfirmasi."});
+      document.getElementById("dealsClose").textContent=L({en:"Cancel",id:"Batal"});
+      document.getElementById("dealsBg").classList.add("open");
+    }
+    async function confirmPurchase(){
+      var pend; try{ pend=JSON.parse(localStorage.getItem("my20fit_pending_purchase")||"null"); }catch(e){}
+      if(!pend){ closeDeals(); return; }
+      var note=document.getElementById("dealsNote");
+      if(note){ note.style.color=""; note.style.fontWeight=""; note.textContent=L({en:"Confirming…",id:"Mengonfirmasi…"}); }
+      try{
+        await Auth.addScanCredits(pend.credits||0);
+        try{ localStorage.removeItem("my20fit_pending_purchase"); }catch(e){}
+        // Meta Pixel: Purchase dipicu di sini (pembayaran dikonfirmasi), dengan nilai paket.
+        try{ Meta.track("Purchase", {content_name:"scan package", content_category:"calorie_scan", currency:"IDR", value:pend.price||0, num_items:1}); }catch(e){}
+        showPurchaseSuccess(pend);
+        refreshQuota();
+      }catch(e){
+        if(note){ note.style.color="var(--red)"; note.style.fontWeight="800"; note.textContent=L({en:"Couldn't confirm. Please try again.",id:"Gagal mengonfirmasi. Coba lagi."}); }
+      }
+    }
+    function showPurchaseSuccess(pend){
+      document.getElementById("dealsTitle").textContent=L({en:"Your purchase has succeeded",id:"Pembelianmu berhasil"});
+      document.getElementById("dealsSub").textContent=L({en:"Thank you! Your extra scans are now active on your account.",id:"Terima kasih! Scan tambahanmu sudah aktif di akunmu."});
+      document.getElementById("dealsList").innerHTML=
+        '<div class="deal" style="cursor:default;justify-content:center;text-align:center"><div class="info"><div class="p" style="color:var(--green,#2A7A4F)">+'+((pend&&pend.credits)||0)+' '+L({en:"calorie scans added",id:"scan kalori ditambahkan"})+'</div></div></div>';
+      document.getElementById("dealsNote").textContent="";
+      document.getElementById("dealsClose").textContent=L({en:"Back to Calorie Tracker",id:"Kembali ke Calorie Tracker"});
+      document.getElementById("dealsBg").classList.add("open");
     }
     (function(){ var b=document.getElementById("dealsClose"); if(b)b.addEventListener("click",closeDeals);
       var bg=document.getElementById("dealsBg"); if(bg)bg.addEventListener("click",function(e){ if(e.target===bg)closeDeals(); });
@@ -873,6 +918,8 @@
       if(location.hash==="#fasting"){document.getElementById("ifSection").scrollIntoView({behavior:"smooth"});}
       // Meta Pixel: halaman Calorie Tracker = ViewContent
       try{ Meta.track("ViewContent", {content_name:"Calorie Tracker", content_category:"calories"}); }catch(e){}
+      // Kalau user kembali ke calories dengan pembayaran tertunda -> tampilkan konfirmasi.
+      try{ var pp=JSON.parse(localStorage.getItem("my20fit_pending_purchase")||"null"); if(pp&&pp.credits){ showPendingPayment(pp); } }catch(e){}
     })();
     setInterval(renderIF,60000); // update countdown tiap menit
     I18N.onChange(()=>{render();renderMeals();renderIF();refreshQuota();});
