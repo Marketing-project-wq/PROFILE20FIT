@@ -304,6 +304,17 @@
     </div>
   </div>
 
+  <!-- Thank-you pop-up: muncul OTOMATIS saat pembayaran Xendit terdeteksi sukses -->
+  <div class="hopt-bg" id="thanksBg">
+    <div class="hopt" style="text-align:center">
+      <div class="grab"></div>
+      <div class="deal-hd" style="background:var(--green-soft)"><svg class="emi" viewBox="0 0 24 24" style="stroke:var(--green,#2A7A4F)"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <h3 id="thanksTitle">Your purchase has succeeded 🎉</h3>
+      <div class="sub" id="thanksSub">Your extra scans have been added to your account.</div>
+      <button class="hopt-close" id="thanksClose" style="background:var(--green,#2A7A4F)">Start scanning</button>
+    </div>
+  </div>
+
   <!-- Pop-up loading saat foto sedang dianalisa -->
   <div class="hopt-bg" id="scanLoadBg">
     <div class="hopt" style="text-align:center">
@@ -659,6 +670,56 @@
       document.getElementById("dealsBg").classList.add("open");
     }
     function closeDeals(){ document.getElementById("dealsBg").classList.remove("open"); }
+
+    // ---- Auto-deteksi pembayaran sukses -> thank-you + isi kredit + Meta "Success Payment" ----
+    let _pollTimer=null;
+    function showThanks(credits){
+      var t=document.getElementById("thanksTitle"), s=document.getElementById("thanksSub");
+      if(t) t.textContent=L({en:"Your purchase has succeeded 🎉",id:"Pembayaranmu berhasil 🎉"});
+      if(s) s.textContent=L({en:credits+" extra calorie scans have been added to your account — happy scanning!",
+                             id:credits+" scan kalori tambahan sudah masuk ke akunmu — selamat scan!"});
+      var b=document.getElementById("thanksClose"); if(b) b.textContent=L({en:"Start scanning",id:"Mulai scan"});
+      document.getElementById("thanksBg").classList.add("open");
+    }
+    function closeThanks(){ var m=document.getElementById("thanksBg"); if(m) m.classList.remove("open"); }
+    function stopPolling(){ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
+    async function pollOrderStatus(){
+      let pend; try{ pend=JSON.parse(localStorage.getItem("my20fit_pending_order")||"null"); }catch(e){ pend=null; }
+      if(!pend||!pend.id){ stopPolling(); return; }
+      // Berhenti otomatis setelah 15 menit (invoice Xendit biasanya sudah kadaluarsa).
+      if(pend.ts && (Date.now()-pend.ts) > 15*60*1000){ localStorage.removeItem("my20fit_pending_order"); stopPolling(); return; }
+      const ftk=localStorage.getItem("fitco_token")||"";
+      let j={};
+      try{
+        const tk=await Auth.token();
+        const r=await fetch("/api/scan/order-status",{method:"POST",
+          headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
+          body:JSON.stringify({ sales_order_id:pend.id, fitco_token:ftk })});
+        j=await r.json().catch(()=>({}));
+      }catch(e){ return; } // gagal jaringan -> coba lagi di interval berikutnya
+      if(j && j.paid){
+        localStorage.removeItem("my20fit_pending_order"); stopPolling();
+        try{ Auth.addScanCredits(pend.credits||0); }catch(e){}
+        refreshQuota();
+        try{ Meta.track("Success Payment", {content_name:"scan package", content_category:"calorie_scan",
+          currency:"IDR", value:pend.price||0, contents:[{id:pend.product_id,quantity:1}], num_items:1}); }catch(e){}
+        closeDeals();
+        showThanks(pend.credits||0);
+      } else if(j && j.expired){
+        localStorage.removeItem("my20fit_pending_order"); stopPolling();
+      }
+    }
+    function startPolling(){ stopPolling(); pollOrderStatus(); _pollTimer=setInterval(pollOrderStatus,5000); }
+    (function(){
+      var tb=document.getElementById("thanksClose"); if(tb) tb.addEventListener("click",closeThanks);
+      var tbg=document.getElementById("thanksBg"); if(tbg) tbg.addEventListener("click",function(e){ if(e.target===tbg)closeThanks(); });
+      // Saat user balik ke tab ini dari Xendit -> langsung cek status (deteksi lebih cepat).
+      document.addEventListener("visibilitychange",function(){
+        if(document.hidden)return;
+        try{ if(localStorage.getItem("my20fit_pending_order")){ if(_pollTimer)pollOrderStatus(); else startPolling(); } }catch(e){}
+      });
+    })();
+
     async function buyPack(idx){
       const p=SCAN_PACKS[idx]; if(!p||!p.product_id)return;
       const note=document.getElementById("dealsNote");
@@ -682,6 +743,15 @@
         if(!r.ok||!j.link) throw new Error(j.error||L({en:"Couldn't start payment.",id:"Gagal memulai pembayaran."}));
         // Arahkan tab baru ke Xendit; fallback same-tab kalau popup diblokir.
         if(payWin){ payWin.location.href=j.link; } else if(!window.open(j.link,"_blank")){ location.href=j.link; }
+        // Simpan order yang menunggu bayar, lalu mulai polling status.
+        // Saat 20FIT/Xendit konfirmasi LUNAS -> otomatis: thank-you + kredit + Meta "Success Payment".
+        if(j.sales_order_id){
+          try{ localStorage.setItem("my20fit_pending_order", JSON.stringify({
+            id:j.sales_order_id, order_no:j.order_no||null,
+            credits:p.credits, price:p.price, product_id:p.product_id, ts:Date.now()
+          })); }catch(e){}
+          startPolling();
+        }
         // Pembayaran diselesaikan langsung di tab Xendit — cukup tutup modal di sini.
         btns.forEach(b=>b.disabled=false);
         closeDeals();
@@ -896,6 +966,8 @@
       if(location.hash==="#fasting"){document.getElementById("ifSection").scrollIntoView({behavior:"smooth"});}
       // Meta Pixel: kunjungan halaman calories = View Calories
       try{ Meta.track("View Calories", {content_name:"Calorie Tracker"}); }catch(e){}
+      // Lanjutkan polling kalau ada pembayaran yang belum tuntas (mis. user refresh / balik ke tab ini).
+      try{ if(localStorage.getItem("my20fit_pending_order")) startPolling(); }catch(e){}
     })();
     setInterval(renderIF,60000); // update countdown tiap menit
     I18N.onChange(()=>{render();renderMeals();renderIF();refreshQuota();});

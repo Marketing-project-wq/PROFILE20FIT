@@ -60,6 +60,7 @@ Tindakan wajib:
 | `ARENA_API_KEY` | API key 20FIT Arena Open API | **RAHASIA — server-only** |
 | `ARENA_API_URL` | Base URL Arena API | Publik |
 | `FITCO_PARTNER_TOKEN` | Token partner Fitco (shop order/Xendit) | **RAHASIA — server-only** |
+| `FITCO_PAID_STATUS` | Kode `payment_status` yang berarti LUNAS (auto thank-you scan). Opsional, isi mis. `1,3` kalau dev 20FIT sudah konfirmasi kodenya | Publik (bukan rahasia) |
 | `FITCO_API_URL` / `FITCO_SSO_URL` / `FITCO_LOGIN_PATH` | Endpoint Fitco per environment | Publik |
 | `PARTNER_API_KEY` | API key partner profile | **RAHASIA — server-only** |
 | `GOOGLE_CLIENT_ID` | Client ID Google Identity Services (tombol login Google) | Publik (tampil di web) |
