@@ -136,7 +136,7 @@ app.get("/api/config", (req, res) => {
     // Diisi lewat env FITCO_SSO_URL dari tim developer.
     fitcoSsoUrl: process.env.FITCO_SSO_URL || "",
     // Client ID Google (PUBLIK — memang tampil di web). Frontend memakainya
-    // untuk inisialisasi tombol GIS. Ada default publik di kode (lihat GOOGLE_CLIENT_ID).
+    // untuk inisialisasi tombol GIS. Nilainya dari env GOOGLE_CLIENT_ID (satu sumber).
     googleClientId: GOOGLE_CLIENT_ID,
   });
 });
@@ -302,11 +302,11 @@ const FITCO_GOOGLE_LOGIN_PATH = process.env.FITCO_GOOGLE_LOGIN_PATH || "/api/v1/
 // /api/v1/auth/login/google). Yang perlu di server hanyalah GOOGLE_CLIENT_ID
 // (nilai PUBLIK — memang tampil di web). Tidak perlu Client Secret / Redirect URI.
 //
-// Default = Client ID web (azp) milik app 20FIT dari dokumentasi developer.
-// Ini PUBLIK (sama sifatnya dengan Supabase anon key yang juga ada default di kode),
-// bukan secret — jadi aman ada di sini. Boleh dioverride lewat env GOOGLE_CLIENT_ID.
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ||
-  "26509397037-8d1s0c39hb31738fcl816b8jrv7fdt6i.apps.googleusercontent.com";
+// Nilai HANYA dari environment variable GOOGLE_CLIENT_ID (beda per environment:
+// local / staging / production) — TIDAK ada default di kode. Kalau kosong,
+// frontend menyembunyikan tombol Google (fail-closed). Frontend mengambil nilai
+// ini lewat GET /api/config (satu sumber, tidak di-hardcode di banyak tempat).
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 // Ambil profil user dari 20FIT pakai access_token (Bearer). Return field yg kita pakai.
 async function fetch20fitProfile(fitcoToken) {
   const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null, fitcoUserId: null };
