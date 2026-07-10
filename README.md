@@ -5,6 +5,17 @@ A complete member health dashboard for 20FIT Sport Clinic Indonesia. Members can
 
 This is the **design spec and reference prototype** for implementing these screens inside the existing `my20fit` React + Vite + Supabase codebase at `artifacts/my20fit/`.
 
+## ⚠️ Workflow & Secrets (WAJIB dibaca sebelum commit)
+
+- **Alur git staging-first** — semua perubahan lewat branch kerja → `staging`;
+  merge ke `main` (production) hanya atas perintah eksplisit pemilik produk.
+  Lihat [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md).
+- **Token & API key tidak boleh di-commit** — simpan di GitHub Actions Secrets /
+  Railway Variables / `.env` lokal. Daftar nama secret dan status rotasi ada di
+  [`docs/GITHUB_SECRETS.md`](docs/GITHUB_SECRETS.md).
+- CI menjalankan secret scan (gitleaks) di setiap push/PR
+  (`.github/workflows/secret-scan.yml`).
+
 ## About the Design Files
 The files in this bundle (`20fit-login.html` and `20fit-dashboard.html`) are **high-fidelity HTML prototypes** — they show exact intended look, layout, interactions, and copy. They are **not production code**. The task is to **recreate these designs as React components** inside the existing codebase (`artifacts/my20fit/src/`), using the established patterns (Radix UI, Tailwind CSS v4, TanStack Query, wouter, Framer Motion, Recharts) and wiring to real Supabase data.
 

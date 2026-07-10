@@ -8,6 +8,7 @@
 (function () {
   let supabase = null;
   let cfgUrl = null, cfgKey = null;
+  let cfgGoogleClientId = ""; // Client ID GIS dari /api/config (publik; kosong = tombol Google disembunyikan)
 
   // URL + anon key PUBLIK — ditanam sebagai fallback supaya web SELALU konek
   // walau /api/config kosong / server belum di-update.
@@ -22,6 +23,7 @@
       const r = await fetch("/api/config");
       const c = await r.json();
       if (c && c.supabaseUrl && c.supabaseAnonKey) { url = c.supabaseUrl; key = c.supabaseAnonKey; }
+      if (c && typeof c.googleClientId === "string") cfgGoogleClientId = c.googleClientId;
     } catch (e) { /* pakai fallback */ }
     cfgUrl = url; cfgKey = key;
     supabase = window.supabase.createClient(url, key, {
@@ -95,6 +97,28 @@
       if (r.status === 409) e.code = "email_exists";
       throw e;
     }
+    // Simpan user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
+    try {
+      if (j.fitco_user_id) localStorage.setItem("fitco_uid", String(j.fitco_user_id));
+      if (j.fitco_token) localStorage.setItem("fitco_token", j.fitco_token);
+    } catch (e) {}
+    const { data, error } = await supabase.auth.verifyOtp({ email: j.email, token: j.email_otp, type: "email" });
+    if (error) throw error;
+    return data;
+  }
+
+  // ---------- LOGIN PAKAI GOOGLE (via API 20FIT /auth/login/google) ----------
+  // credential = ID token dari Google Identity Services. Server yang meneruskan
+  // ke API 20FIT (dokumentasi developer) lalu mengembalikan OTP untuk sesi.
+  async function fitcoGoogleLogin(credential) {
+    await ready;
+    const r = await fetch("/api/fitco-google-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: credential }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan Google.");
     // Simpan user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
     try {
       if (j.fitco_user_id) localStorage.setItem("fitco_uid", String(j.fitco_user_id));
@@ -455,6 +479,8 @@
     loginSend,
     verifyLoginCode,
     fitcoLogin,
+    fitcoGoogleLogin,
+    googleClientId: function () { return cfgGoogleClientId; },
     fitcoRegister,
     tokenLogin,
     fitcoVerifyEmail,

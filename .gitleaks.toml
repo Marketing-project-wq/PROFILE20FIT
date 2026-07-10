@@ -1,0 +1,23 @@
+# Konfigurasi gitleaks untuk repo 20FIT Health Profile.
+# Dipakai oleh CI (.github/workflows/secret-scan.yml) di setiap push/PR.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Pengecualian yang memang aman untuk repo ini"
+
+# Supabase ANON key project ini memang publik (dilindungi Row Level Security).
+# Regex ini HANYA meloloskan JWT dengan payload role=anon milik project
+# cpvzwqptzcxnwzfzgrmt — service_role key dan token lain tetap terdeteksi.
+regexes = [
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24i[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+''',
+  # Google OAuth Client ID app 20FIT — nilai PUBLIK (client id, bukan secret).
+  '''26509397037-[a-z0-9]+\.apps\.googleusercontent\.com''',
+]
+
+paths = [
+  '''node_modules''',
+  '''js/vendor-supabase\.js''',
+  '''package-lock\.json''',
+]

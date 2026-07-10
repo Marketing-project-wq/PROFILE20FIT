@@ -26,6 +26,14 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const OTP_TTL_MINUTES = parseInt(process.env.OTP_TTL_MINUTES || "10", 10);
+
+// ---- Meta (Facebook) Pixel + Conversions API ----
+// Pixel ID = PUBLIK (memang tampil di web) -> ada default, boleh override via env.
+const META_PIXEL_ID = process.env.META_PIXEL_ID || "882946526927316";
+// Access token Conversions API = RAHASIA! Server-only, HANYA dari env (tidak ada
+// default di kode). Isi di Railway > Variables (jangan pernah commit nilainya).
+const META_CAPI_TOKEN = process.env.META_CAPI_ACCESS_TOKEN || "";
+const META_CAPI_VERSION = process.env.META_CAPI_VERSION || "v19.0";
 const DEV_MASTER_OTP = process.env.DEV_MASTER_OTP || ""; // kosong = nonaktif
 const IS_PROD = process.env.NODE_ENV === "production";
 
@@ -135,7 +143,52 @@ app.get("/api/config", (req, res) => {
     // redirect balik ke my.20fit.id/login.html?token=<access_token>.
     // Diisi lewat env FITCO_SSO_URL dari tim developer.
     fitcoSsoUrl: process.env.FITCO_SSO_URL || "",
+    // Client ID Google (PUBLIK — memang tampil di web). Frontend memakainya
+    // untuk inisialisasi tombol GIS. Nilainya dari env GOOGLE_CLIENT_ID (satu sumber).
+    googleClientId: GOOGLE_CLIENT_ID,
+    // Meta Pixel ID (PUBLIK). Access token CAPI TIDAK pernah dikirim ke frontend.
+    metaPixelId: META_PIXEL_ID,
   });
+});
+
+// Meta Conversions API (server-side). Frontend mengirim event (dengan event_id
+// yang sama dgn Pixel browser) -> server meneruskan ke Graph API pakai access
+// token RAHASIA. Email di-hash SHA-256 sebelum dikirim (persyaratan Meta).
+app.post("/api/meta/event", async (req, res) => {
+  try {
+    if (!META_CAPI_TOKEN) return res.json({ ok: false, skipped: "capi_not_configured" });
+    const b = req.body || {};
+    const name = String(b.event_name || "").trim();
+    if (!name) return res.status(400).json({ error: "event_name wajib." });
+    const sha256 = (v) => crypto.createHash("sha256").update(String(v).trim().toLowerCase()).digest("hex");
+    const ua = String(req.headers["user-agent"] || "");
+    const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || (req.socket && req.socket.remoteAddress) || "";
+    const user_data = { client_user_agent: ua };
+    if (ip) user_data.client_ip_address = ip;
+    if (b.email) user_data.em = [sha256(b.email)];
+    if (b.fbp) user_data.fbp = b.fbp;
+    if (b.fbc) user_data.fbc = b.fbc;
+    const payload = {
+      data: [{
+        event_name: name,
+        event_time: Math.floor(Date.now() / 1000),
+        event_id: b.event_id || undefined,
+        action_source: "website",
+        event_source_url: b.event_source_url || undefined,
+        user_data: user_data,
+        custom_data: b.custom_data || {},
+      }],
+    };
+    const url = "https://graph.facebook.com/" + META_CAPI_VERSION + "/" + META_PIXEL_ID +
+      "/events?access_token=" + encodeURIComponent(META_CAPI_TOKEN);
+    const fr = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const fj = await fr.json().catch(() => ({}));
+    if (!fr.ok) { console.error("meta-capi:", JSON.stringify(fj).slice(0, 300)); return res.status(502).json({ ok: false }); }
+    return res.json({ ok: true, events_received: fj.events_received });
+  } catch (e) {
+    console.error("meta-capi:", e.message);
+    return res.status(500).json({ ok: false });
+  }
 });
 
 // Kirim OTP ke email user yang sedang login
@@ -289,6 +342,24 @@ const FITCO_API = process.env.FITCO_API_URL || "https://api.20fit.id";
 //   POST {api_url}/api/v1/auth/login  body {email,password,login_source:"app"}
 //   -> response: data.token.access_token. Bisa dioverride via env bila berubah.
 const FITCO_LOGIN_PATH = process.env.FITCO_LOGIN_PATH || "/api/v1/auth/login";
+// Endpoint login Google (dari dokumentasi resmi "Login by Google"):
+//   POST {api_url}/api/v1/auth/login/google  body {name,email,access_token,google_auth_id}
+const FITCO_GOOGLE_LOGIN_PATH = process.env.FITCO_GOOGLE_LOGIN_PATH || "/api/v1/auth/login/google";
+
+// ---------- Login Google via Google Identity Services (GIS) ----------
+// Frontend memakai tombol Google resmi (SDK GIS) untuk mendapatkan ID token,
+// lalu mengirimnya ke POST /api/fitco-google-login (diteruskan ke API 20FIT
+// /api/v1/auth/login/google). Yang perlu di server hanyalah GOOGLE_CLIENT_ID
+// (nilai PUBLIK — memang tampil di web). Tidak perlu Client Secret / Redirect URI.
+//
+// Nilai diambil dari env GOOGLE_CLIENT_ID (bisa beda per environment: local /
+// staging / production). Ada DEFAULT publik (Client ID web app 20FIT) supaya
+// tombol Google SELALU tampil walau env belum diisi — pola yang sama dengan
+// Supabase URL/anon key yang juga punya default publik di kode. Client ID
+// bersifat PUBLIK (bukan secret). Frontend mengambilnya lewat GET /api/config
+// (satu sumber). Untuk override, set env GOOGLE_CLIENT_ID di Railway.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ||
+  "26509397037-8d1s0c39hb31738fcl816b8jrv7fdt6i.apps.googleusercontent.com";
 // Ambil profil user dari 20FIT pakai access_token (Bearer). Return field yg kita pakai.
 async function fetch20fitProfile(fitcoToken) {
   const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null, fitcoUserId: null };
@@ -415,6 +486,74 @@ app.post("/api/fitco-login", async (req, res) => {
     return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken });
   } catch (e) {
     console.error("fitco-login:", e.message);
+    return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
+  }
+});
+
+// Login pakai akun GOOGLE via API 20FIT (dokumentasi developer "Login by Google").
+// Frontend mengirim ID token dari Google Identity Services. Identitas (email/nama/
+// google_auth_id) diambil server dari payload token itu — bukan dari input bebas
+// client — lalu API 20FIT yang memverifikasi keaslian token ke Google.
+// Decode payload JWT (base64url) tanpa verifikasi tanda tangan.
+function decodeJwtPayload(jwt) {
+  try {
+    const part = String(jwt).split(".")[1] || "";
+    return JSON.parse(Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
+  } catch (e) { return {}; }
+}
+
+// Jembatan bersama: klaim Google (email/nama/sub) + ID token → verifikasi ke API
+// 20FIT, mirror akun Supabase, mint OTP sesi. Dipakai oleh flow GIS (POST) & OAuth.
+async function bridgeGoogleToSession(claims, idToken) {
+  const email = String((claims && claims.email) || "").trim().toLowerCase();
+  const gname = (claims && (claims.name || [claims.given_name, claims.family_name].filter(Boolean).join(" "))) || null;
+  const gsub = claims && claims.sub ? String(claims.sub) : null;
+  if (!email || !gsub) { const e = new Error("Google credential tidak valid."); e.status = 400; throw e; }
+
+  let fj = {};
+  try {
+    const fr = await fetch(FITCO_API + FITCO_GOOGLE_LOGIN_PATH, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: gname, email, access_token: idToken, google_auth_id: gsub }),
+    });
+    fj = await fr.json().catch(() => ({}));
+    if (!fr.ok) { const e = new Error("Login Google ditolak 20FIT. Pastikan email Google ini terdaftar sebagai akun 20FIT."); e.status = 401; throw e; }
+  } catch (e) {
+    if (e && e.status) throw e;
+    const err = new Error("Tidak bisa menghubungi server 20FIT. Coba lagi."); err.status = 502; throw err;
+  }
+  const fd = (fj && fj.data) || fj || {};
+  const fitcoToken =
+    fj.access_token || fd.access_token ||
+    (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
+  if (!fitcoToken) { const e = new Error("Login Google 20FIT gagal (token tidak diterima)."); e.status = 401; throw e; }
+  let fitcoUserId = fd.user_id || fd.id || null;
+
+  let info = { email, fullName: fd.name || fd.full_name || gname, gender: fd.gender ? String(fd.gender).toLowerCase() : null, phone: fd.phone || fd.phone_number || null, avatar: (claims && claims.picture) || null, birthdate: fd.date_of_birth || fd.birthdate || fd.dob || null };
+  try {
+    const p = await fetch20fitProfile(fitcoToken);
+    info = { email: p.email || email, fullName: p.fullName || info.fullName, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar || info.avatar, birthdate: p.birthdate || info.birthdate };
+    fitcoUserId = p.fitcoUserId || fitcoUserId;
+  } catch (e) { /* non-fatal, pakai data login */ }
+
+  info.fitcoUserId = fitcoUserId;
+  info.fitcoEmailVerified = true; // login Google diterima 20FIT + email diverifikasi Google
+  const out = await mirrorAndMintOtp(info);
+  return { email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken };
+}
+
+// Login Google (GIS): frontend kirim ID token (credential) via POST, server
+// meneruskan ke API 20FIT /api/v1/auth/login/google lalu membuat sesi.
+app.post("/api/fitco-google-login", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
+    const credential = String((req.body && req.body.credential) || "").trim();
+    if (!credential) return res.status(400).json({ error: "Google credential wajib." });
+    const out = await bridgeGoogleToSession(decodeJwtPayload(credential), credential);
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: out.fitco_user_id, fitco_token: out.fitco_token });
+  } catch (e) {
+    console.error("fitco-google-login:", e.message);
     return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
   }
 });
@@ -586,9 +725,11 @@ app.post("/api/fitco-resend-verify-email", async (req, res) => {
 });
 
 // ================= PARTNER API (untuk tim/produk lain di ekosistem 20FIT) =================
-// Dilindungi API key. Ganti/rotasi key lewat env PARTNER_API_KEY di server.
-const PARTNER_API_KEY = process.env.PARTNER_API_KEY || "p20f_842d531d14ec668851500f2a0f13e9f974ed4e5d04d379a2";
+// Dilindungi API key — nilai HANYA dari env PARTNER_API_KEY (RAHASIA, server-only).
+// Tidak ada default di kode: kalau env belum diisi, endpoint terkunci (fail-closed).
+const PARTNER_API_KEY = process.env.PARTNER_API_KEY || "";
 function partnerAuth(req, res) {
+  if (!PARTNER_API_KEY) { res.status(503).json({ error: "Partner API not configured." }); return false; }
   const hdr = String(req.headers["authorization"] || "");
   const key = (hdr.replace(/^Bearer\s+/i, "").trim()) || String(req.headers["x-api-key"] || "").trim();
   if (!key || key !== PARTNER_API_KEY) { res.status(401).json({ error: "Unauthorized: invalid or missing API key." }); return false; }
@@ -622,8 +763,10 @@ app.get("/api/partner/profile", async (req, res) => {
 });
 
 // ================= ADMIN MONITORING (dashboard internal) =================
-const ADMIN_KEY = process.env.ADMIN_KEY || "adm_91bb6891ad4af074612194e04d9fdaf3";
+// Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
+const ADMIN_KEY = process.env.ADMIN_KEY || "";
 function adminAuth(req, res) {
+  if (!ADMIN_KEY) { res.status(503).json({ error: "Admin API not configured." }); return false; }
   const hdr = String(req.headers["authorization"] || "");
   const key = (hdr.replace(/^Bearer\s+/i, "").trim()) || String(req.headers["x-admin-key"] || "").trim() || String(req.query.key || "").trim();
   if (!key || key !== ADMIN_KEY) { res.status(401).json({ error: "Unauthorized" }); return false; }

@@ -39,6 +39,13 @@
     background:radial-gradient(circle,rgba(255,190,90,.45),rgba(255,190,90,0) 66%);
     animation:heroBreathe 5.5s ease-in-out infinite;pointer-events:none;z-index:0}
   html:not(.theme-light) .hero .glow{background:radial-gradient(circle,rgba(255,190,90,.24),rgba(255,190,90,0) 66%)}
+  /* Bagian cuaca mengikuti waktu: PAGI/SIANG kuning-oren, MALAM biru gelap */
+  .hero.wx-day .glow{background:radial-gradient(circle,rgba(255,176,64,.5),rgba(232,145,42,0) 66%)}
+  html:not(.theme-light) .hero.wx-day .glow{background:radial-gradient(circle,rgba(255,176,64,.26),rgba(232,145,42,0) 66%)}
+  .hero.wx-night .glow{background:radial-gradient(circle,rgba(28,52,138,.55),rgba(15,28,74,0) 66%)}
+  html:not(.theme-light) .hero.wx-night .glow{background:radial-gradient(circle,rgba(64,96,210,.4),rgba(15,28,74,0) 66%)}
+  .hero.wx-night .wx-temp{color:#31427E}
+  html:not(.theme-light) .hero.wx-night .wx-temp{color:#C9D4F5}
   @keyframes heroBreathe{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
   .hero-inner{position:relative;z-index:1}
   .hk{color:var(--red);font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px 2px}
@@ -203,6 +210,9 @@
   .wx-sun{color:#E8A93A;flex:0 0 auto}
   .wx-sun .ray{transform-origin:12px 12px;animation:sunpulse 2.6s ease-in-out infinite}
   @keyframes sunpulse{0%,100%{opacity:.5}50%{opacity:1}}
+  /* Bulan malam: mengambang halus + cahaya lembut */
+  .wx-moon{flex:0 0 auto;animation:moonfloat 3.6s ease-in-out infinite;filter:drop-shadow(0 0 5px rgba(150,180,255,.6))}
+  @keyframes moonfloat{0%,100%{transform:translateY(0) rotate(0);opacity:.9}50%{transform:translateY(-2px) rotate(-6deg);opacity:1}}
   .wx-temp{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:34px;line-height:1;letter-spacing:-.01em;text-align:right;color:var(--ink)}
   .wx-cond{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px;text-align:right;white-space:nowrap}
   .wxrefresh{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:2px;margin-left:2px;border-radius:6px;display:inline-flex;align-items:center;vertical-align:middle;line-height:0}
@@ -273,6 +283,7 @@
   .m-safety{font-size:11px;color:var(--muted);line-height:1.5;margin-top:16px;background:var(--amber-soft);border-radius:12px;padding:11px 13px;display:flex;gap:8px}
   .m-safety svg{flex:0 0 14px;margin-top:1px;color:var(--amber);fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   @media(min-width:620px){ .modal-bg{align-items:center;padding:24px} .modal{border-radius:24px} .grab{display:none} }
+  .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
@@ -333,7 +344,7 @@
           <div style="font-weight:800;font-size:15px" data-en="Or train at home · no equipment" data-id="Atau latihan di rumah · tanpa alat">Or train at home · no equipment</div>
           <div class="muted" style="font-size:12px;margin:2px 0 8px" data-en="General starting point — not a personalised program." data-id="Panduan umum — bukan program personal.">General starting point — not a personalised program.</div>
           <div class="ahlist" id="homeList"></div>
-          <div class="muted" style="font-size:11px;margin-top:10px" data-en="⚠️ Warm up first. Stop if you feel dizzy or short of breath." data-id="⚠️ Pemanasan dulu. Berhenti kalau pusing atau sesak.">⚠️ Warm up first. Stop if you feel dizzy or short of breath.</div>
+          <div class="muted" style="font-size:11px;margin-top:10px" data-en="Warm up first. Stop if you feel dizzy or short of breath." data-id="Pemanasan dulu. Berhenti kalau pusing atau sesak.">Warm up first. Stop if you feel dizzy or short of breath.</div>
         </div>
       </div>
 
@@ -547,14 +558,14 @@
           '<div style="flex:1"><div style="font-weight:800;font-size:15px">'+eaten+' / '+tgt+' '+L({en:"kcal",id:"kkal"})+'</div><div class="muted" style="font-size:12px">'+L({en:"Calories fulfilled today",id:"Kalori terpenuhi hari ini"})+' · '+pct+'%</div></div>'+
           '<span style="color:var(--pagemut);font-weight:800">›</span></div>'+
           '<div class="dthermo"><i style="width:'+pct+'%"></i></div>'+
-          '<div class="dtogo">'+(leftK>0?('<b>'+leftK+'</b>'+L({en:" kcal more to go 🔥",id:" kkal lagi yang kamu butuh 🔥"})):L({en:"Daily target reached 🎉",id:"Target harian tercapai 🎉"}))+'</div>'+
+          '<div class="dtogo">'+(leftK>0?('<b>'+leftK+'</b>'+L({en:" kcal more to go",id:" kkal lagi yang kamu butuh"})):L({en:"Daily target reached",id:"Target harian tercapai"}))+'</div>'+
           '</a>';
         // Rekomendasi makanan untuk menutup sisa kalori
         if(leftK>0 && window.Nutrition){
           var rec=Nutrition.mealFor(leftK,3);
           if(rec.length){
             html+='<a class="card" href="calories.html" style="display:block;text-decoration:none;color:var(--txt);margin-top:10px">'+
-              '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:18px">🥗</span>'+
+              '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:18px"><svg class="emi" viewBox="0 0 24 24"><path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M12 4v7"/></svg></span>'+
               '<div style="font-weight:800;font-size:14px">'+L({en:"To fill your remaining "+leftK+" kcal, try:",id:"Untuk penuhi sisa "+leftK+" kkal, coba:"})+'</div></div>'+
               rec.map(function(f){return '<div class="hrrow" style="border:0;padding:5px 0"><span class="hrdot" style="background:var(--green);margin-top:6px"></span><div style="flex:1"><b style="font-weight:650">'+Nutrition.name(f)+'</b></div><span class="muted" style="font-size:12px">'+f.kcal+' '+L({en:"kcal",id:"kkal"})+'</span></div>';}).join("")+
               '<div class="muted" style="font-size:11px;margin-top:8px">'+L({en:"Healthy picks recommended for you · tap to log",id:"Rekomendasi makanan sehat buat kamu · ketuk untuk catat"})+'</div></a>';
@@ -650,7 +661,7 @@
       if(!d){toast(L({en:"Pick your last period date",id:"Isi tanggal haid terakhir dulu"}));return}
       const u=await Auth.requireAuth();
       try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:d,cycle_length:profile.cycle_length||28}).eq("auth_user_id",u.id);
-        profile.cycle_last_period=d;if(!profile.cycle_length)profile.cycle_length=28;renderCycle();toast(L({en:"Cycle saved ✅",id:"Siklus tersimpan ✅"}));}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
+        profile.cycle_last_period=d;if(!profile.cycle_length)profile.cycle_length=28;renderCycle();toast(L({en:"Cycle saved",id:"Siklus tersimpan"}));}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
     // Tandai haid mulai hari ini -> mulai siklus baru (Hari 1)
     async function startPeriodToday(){
@@ -659,7 +670,7 @@
       const u=await Auth.requireAuth();
       try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:today,cycle_length:profile.cycle_length||28}).eq("auth_user_id",u.id);
         profile.cycle_last_period=today;if(!profile.cycle_length)profile.cycle_length=28;renderCycle();
-        toast(L({en:"New cycle started 🩸 — Day 1, Menstruation",id:"Siklus baru dimulai 🩸 — Hari 1, Menstruasi"}));}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
+        toast(L({en:"New cycle started — Day 1, Menstruation",id:"Siklus baru dimulai — Hari 1, Menstruasi"}));}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
     function editCycle(){profile.cycle_last_period=null;renderCycle();}
 
@@ -729,12 +740,16 @@
       const cloud='<path d="M17.5 19a4.5 4.5 0 0 0 .5-8.98 6 6 0 0 0-11.64 1.5A3.5 3.5 0 0 0 6.5 19z"/>';
       const rain='<path d="M17.5 15a4.5 4.5 0 0 0 .5-8.98 6 6 0 0 0-11.64 1.5A3.5 3.5 0 0 0 6.5 15"/><path d="M8 18v2M12 18v2M16 18v2"/>';
       let ic, col;
-      if(code<=1){ ic=day?sun:moon; col=day?"#E8A93A":"var(--fit-ink-soft,#6E6E73)"; }
-      else if(code<=48){ ic=cloud; col="var(--fit-ink-soft,#6E6E73)"; }
+      if(code<=1){ ic=day?sun:moon; col=day?"#E8A93A":"#C9D4F5"; }
+      else if(code<=48){ ic=cloud; col=day?"var(--fit-ink-soft,#6E6E73)":"#AEB9E8"; }
       else if(code<=99){ ic=rain; col="var(--fit-blue,#0068C9)"; }
       else { ic=cloud; col="var(--fit-ink-soft,#6E6E73)"; }
       el.innerHTML=ic; el.style.color=col;
       el.classList.toggle("wx-sun", code<=1 && day);
+      el.classList.toggle("wx-moon", code<=1 && !day);   // animasi bulan saat malam
+      // Tema bagian cuaca: pagi/siang kuning-oren, malam biru gelap (CSS .wx-day/.wx-night)
+      const hero=document.getElementById("wx");
+      if(hero){ hero.classList.toggle("wx-day", !!day); hero.classList.toggle("wx-night", !day); }
     }
     // AQI sebagai garis gradasi horizontal + penanda (ala referensi glass)
     function drawAqi(aqi){
@@ -810,9 +825,9 @@
       running=false;clearInterval(timer);
       document.getElementById("bbtn").textContent=I18N.t("start");
       document.getElementById("ring").style.transform="scale(1)";
-      document.getElementById("bphase").textContent=done?L({en:"Done 🎉",id:"Selesai 🎉"}):I18N.t("ready");
+      document.getElementById("bphase").textContent=done?L({en:"Done",id:"Selesai"}):I18N.t("ready");
       document.getElementById("bcd").textContent=done?L({en:"Session complete",id:"Sesi lengkap"}):I18N.t("press_start");
-      if(done){ try{ await Auth.saveDaily({breathing_done:true}); if(daily)daily.breathing_done=true; renderChecklist(); toast(L({en:"Breathing session done! 🎉",id:"Sesi napas selesai! 🎉"})); }catch(e){} }
+      if(done){ try{ await Auth.saveDaily({breathing_done:true}); if(daily)daily.breathing_done=true; renderChecklist(); toast(L({en:"Breathing session done!",id:"Sesi napas selesai!"})); }catch(e){} }
     }
 
     // Hitung durasi tidur dari jam tidur -> jam bangun (lewat tengah malam diperhitungkan)
@@ -855,7 +870,7 @@
     async function saveSleep(){
       if(!sleepBed||!sleepWake){toast(L({en:"Set bedtime & wake time first",id:"Isi jam tidur & bangun dulu"}));return}
       try{await Auth.saveDaily({sleep_bed:sleepBed,sleep_wake:sleepWake,sleep_hours:sleepH});
-        toast(sleepH>=7?L({en:"Good sleep! 🌙",id:"Tidur cukup! 🌙"}):L({en:"Sleep saved ✓",id:"Tidur tersimpan ✓"}));renderChecklist();checkAchievements();}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
+        toast(sleepH>=7?L({en:"Good sleep!",id:"Tidur cukup!"}):L({en:"Sleep saved ✓",id:"Tidur tersimpan ✓"}));renderChecklist();checkAchievements();}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
 
     function renderWater(){
@@ -864,7 +879,7 @@
     }
     async function setWater(n){
       water=Math.max(0,Math.min(8,n));renderWater();
-      try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached! 💧",id:"Target air tercapai! 💧"}));renderChecklist();checkAchievements();}catch(e){}
+      try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached!",id:"Target air tercapai!"}));renderChecklist();checkAchievements();}catch(e){}
     }
 
     // ---- Checklist harian (aktivitas yang bisa dilacak lewat widget) ----
@@ -930,7 +945,7 @@
       const done=currentTasks.filter(t=>checkState[t.id]).length;
       try{await Auth.saveDaily({checklist:checkState});}catch(e){}
       checkAchievements();
-      if(done===currentTasks.length&&currentTasks.length)toast(L({en:"All checklist done! 🔥",id:"Semua checklist selesai! 🔥"}));
+      if(done===currentTasks.length&&currentTasks.length)toast(L({en:"All checklist done!",id:"Semua checklist selesai!"}));
     }
 
     renderDots(0);

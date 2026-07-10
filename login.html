@@ -135,7 +135,11 @@
   .caro{position:relative;height:140px;margin-top:12px}
   .caro-slide{position:absolute;inset:0;opacity:0;transform:translateY(10px);transition:opacity .5s,transform .5s;pointer-events:none;display:flex;gap:16px;align-items:flex-start}
   .caro-slide.on{opacity:1;transform:none;pointer-events:auto}
-  .caro-slide .cic{width:60px;height:60px;border-radius:16px;background:rgba(196,17,1,.16);display:flex;align-items:center;justify-content:center;font-size:29px;flex:0 0 auto}
+  .caro-slide .cic{width:60px;height:60px;border-radius:16px;background:rgba(196,17,1,.16);display:flex;align-items:center;justify-content:center;font-size:29px;flex:0 0 auto;color:var(--red)}
+  .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
+  .feat .ic .emi{width:16px;height:16px}
+  .caro-slide .cic .emi{width:28px;height:28px}
+  .fcard .fic .emi{width:22px;height:22px;color:var(--red)}
   .caro-slide .ct{font-weight:800;font-size:21px;color:#fff;margin-bottom:7px;line-height:1.15}
   .caro-slide .cd{color:#bdb4a6;font-size:15.5px;line-height:1.6;max-width:400px}
   .caro-dots{display:flex;gap:7px;margin-top:20px}
@@ -270,6 +274,13 @@
         </form>
         <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600"></a></div>
 
+        <!-- Login Google (Google Identity Services). Tombol resmi Google dirender
+             oleh SDK GIS ke #gsiBtn; ID token dikirim ke POST /api/fitco-google-login
+             (diteruskan ke API 20FIT). Tampil hanya kalau GOOGLE_CLIENT_ID sudah
+             diisi di server (via /api/config). Client ID bersifat PUBLIK. -->
+        <div class="orsep" id="orsep" style="display:none"><span data-k="orsep">or</span></div>
+        <div id="gsiBtn" style="display:none;justify-content:center"></div>
+
         <div class="msg" id="msg"></div>
         <button type="button" class="seebtn" data-k="seeFeatures" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})"></button>
       </div>
@@ -339,6 +350,7 @@
 
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/meta-pixel.js"></script>
   <script>
     const T = {
       en: {
@@ -366,7 +378,7 @@
         existDesc:"Sign in with an email code — you'll then be guided to complete your data & create a password.",
         emailNeed:"Enter your email first.", codeNeed:"Enter the code from your email.",
         magicSent:"Login code sent! Check your email.", sending:"Sending code...",
-        seeFeatures:"✨ See what's inside 20FIT Profile", scrollcue:"Scroll for more",
+        seeFeatures:"See what's inside 20FIT Profile", scrollcue:"Scroll for more",
         missLabel:"For everyone",
         missTitle:"Whether you're just starting out — or you've lived healthy for years.",
         missBody:"20FIT Profile is built for every stage of your health journey. Our role is to answer your real health needs and bring everything into one ecosystem — so tracking your body, your food, your check-ups and your training finally feels effortless.",
@@ -403,7 +415,7 @@
         existDesc:"Masuk pakai kode email — nanti kamu diarahkan untuk lengkapi data & buat password.",
         emailNeed:"Isi email kamu dulu.", codeNeed:"Masukkan kode dari email.",
         magicSent:"Kode login terkirim! Cek email kamu.", sending:"Mengirim kode...",
-        seeFeatures:"✨ Lihat apa aja isi 20FIT Profile", scrollcue:"Geser ke bawah",
+        seeFeatures:"Lihat apa aja isi 20FIT Profile", scrollcue:"Geser ke bawah",
         missLabel:"Untuk semua orang",
         missTitle:"Baru mulai — atau sudah lama menjalani hidup sehat.",
         missBody:"20FIT Profile dibuat untuk setiap tahap perjalanan sehatmu. Peran kami adalah menjawab kebutuhan kesehatanmu yang sebenarnya dan menyatukan semuanya dalam satu ekosistem — supaya melacak tubuh, makanan, hasil check-up, dan latihanmu jadi jauh lebih mudah.",
@@ -423,17 +435,17 @@
 
     // ---- Konten marketing (carousel + grid fitur + FAQ), bilingual ----
     const FEATURES = [
-      {ic:"📋", en:{t:"Medical records, decoded",   d:"Upload lab & MCU results (PDF/JPG/PNG) from any hospital — our AI explains them in plain language."},
+      {ic:'<svg class="emi" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>', en:{t:"Medical records, decoded",   d:"Upload lab & MCU results (PDF/JPG/PNG) from any hospital — our AI explains them in plain language."},
                 id:{t:"Rekam medis jadi jelas",       d:"Upload hasil lab & MCU (PDF/JPG/PNG) dari RS mana pun — AI kami jelaskan dengan bahasa sederhana."}},
-      {ic:"🔥", en:{t:"Snap your food",              d:"Scan a meal and instantly get calories, full macros, a health score & smarter-eating tips."},
+      {ic:'<svg class="emi" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>', en:{t:"Snap your food",              d:"Scan a meal and instantly get calories, full macros, a health score & smarter-eating tips."},
                 id:{t:"Scan makananmu",              d:"Foto makanan, langsung dapat kalori, makro lengkap, health score & saran makan lebih sehat."}},
-      {ic:"📈", en:{t:"Track your progress",         d:"Weight, streaks, sleep, water & weekly stats — all in one simple dashboard."},
+      {ic:'<svg class="emi" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>', en:{t:"Track your progress",         d:"Weight, streaks, sleep, water & weekly stats — all in one simple dashboard."},
                 id:{t:"Pantau progresmu",            d:"Berat, streak, tidur, air & statistik mingguan — semua dalam satu dashboard."}},
-      {ic:"🌸", en:{t:"Cycle-aware wellness",        d:"For women: know your menstrual phase and get workout & nutrition tips that fit your body."},
+      {ic:'<svg class="emi" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 4 13C4 6 9 3 20 3c0 8-4 14-9 14z"/><path d="M4 20c3-4 6-6 9-7"/></svg>', en:{t:"Cycle-aware wellness",        d:"For women: know your menstrual phase and get workout & nutrition tips that fit your body."},
                 id:{t:"Selaras dengan siklus",       d:"Untuk wanita: tahu fase menstruasimu & dapat saran olahraga & nutrisi yang pas."}},
-      {ic:"🌤️", en:{t:"Daily wellness",              d:"Weather, air quality, breathing exercises plus sleep & water reminders to guide your day."},
+      {ic:'<svg class="emi" viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>', en:{t:"Daily wellness",              d:"Weather, air quality, breathing exercises plus sleep & water reminders to guide your day."},
                 id:{t:"Wellness harian",             d:"Cuaca, kualitas udara, latihan napas, plus pengingat tidur & air untuk menemani harimu."}},
-      {ic:"🏋️", en:{t:"One 20FIT ecosystem",         d:"Book Gym, Personal Training, EMS, Physiotherapy & clinic — connected to your health data."},
+      {ic:'<svg class="emi" viewBox="0 0 24 24"><path d="M6 6v12M18 6v12M3 9v6M21 9v6M6 12h12"/></svg>', en:{t:"One 20FIT ecosystem",         d:"Book Gym, Personal Training, EMS, Physiotherapy & clinic — connected to your health data."},
                 id:{t:"Satu ekosistem 20FIT",        d:"Booking Gym, Personal Training, EMS, Physiotherapy & klinik — terhubung ke data kesehatanmu."}},
     ];
     const FAQS = [
@@ -570,6 +582,8 @@
           }
         }
         saveCredential(email,password);
+        // Meta Pixel: login berhasil = Lead
+        try{ Meta.track("Lead", {content_name:"login"}, {email:email}); }catch(e){}
         await Auth.routeAfterAuth();
       }catch(e){msg(terjemah(e.message),"err");btn.disabled=false}
     }
@@ -649,6 +663,49 @@
         if(q.get("mode")==="up"){ setMode("up"); if(em) msg(lang==="en"?"This email has no account yet — create one below.":"Email ini belum punya akun — buat akunnya di bawah ya.","err"); }
       }catch(e){}
     })();
+
+    // ---- Login Google (Google Identity Services) ----
+    // SDK GIS mengambil ID token → dikirim ke server (/api/fitco-google-login),
+    // server meneruskan ke API 20FIT /api/v1/auth/login/google. Cuma butuh Client ID.
+    async function onGoogleCredential(resp){
+      if(!resp||!resp.credential)return;
+      msg(T[lang].processing,"");
+      try{
+        await Auth.fitcoGoogleLogin(resp.credential);
+        // Meta Pixel: login Google berhasil = Lead
+        try{ Meta.track("Lead", {content_name:"login_google"}); }catch(e){}
+        await Auth.routeAfterAuth();
+      }catch(e){ msg(terjemah(e.message),"err"); }
+    }
+    async function initGoogleLogin(){
+      try{
+        await Auth.ready;
+        const cid=Auth.googleClientId&&Auth.googleClientId();
+        // Diagnostik ringan (kelihatan di DevTools Console) supaya mudah cari penyebab.
+        if(!cid){ console.warn("[google] GOOGLE_CLIENT_ID belum diisi di server (Railway). Tombol disembunyikan."); return; }
+        if(!window.google||!google.accounts||!google.accounts.id){ console.warn("[google] SDK Google Identity gagal dimuat (mungkin diblokir extension/jaringan)."); return; }
+        const host=document.getElementById("gsiBtn");
+        // PENTING: tampilkan container DULU, baru render — kalau masih display:none saat
+        // renderButton, GIS bisa menghasilkan tombol berukuran 0px (kelihatan "tidak muncul").
+        document.getElementById("orsep").style.display="";
+        host.style.display="flex";
+        google.accounts.id.initialize({client_id:cid,callback:onGoogleCredential});
+        google.accounts.id.renderButton(host,{theme:"outline",size:"large",shape:"pill",text:"continue_with",width:280,locale:lang==="id"?"id":"en"});
+        // Kalau tombol resmi gagal render (mis. origin belum terdaftar di Google Console),
+        // sediakan tombol cadangan yang memicu One Tap.
+        setTimeout(function(){
+          if(host && host.childElementCount===0){
+            console.warn("[google] Tombol GIS tidak ter-render. Cek 'Authorized JavaScript origins' di Google Cloud Console untuk origin ini:", location.origin);
+            host.innerHTML='<button type="button" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--txt);font-weight:700;font-size:14px;cursor:pointer">'
+              +'<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.71-1.57 2.68-3.89 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.47.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>'
+              +'<span>'+(T[lang].google||"Continue with Google")+'</span></button>';
+            host.firstChild.onclick=function(){ try{ google.accounts.id.prompt(); }catch(e){ msg(terjemah("google"),"err"); } };
+          }
+        }, 1200);
+      }catch(e){ console.warn("[google] init error:", e); }
+    }
   </script>
+  <!-- SDK Google Identity Services — dimuat setelah script utama supaya initGoogleLogin sudah ada -->
+  <script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleLogin()"></script>
 </body>
 </html>

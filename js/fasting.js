@@ -66,8 +66,8 @@
     const eatingNow=st.eating;
     const ms=Math.max(1000, st.untilMin*60*1000 + 2000);
     const t=setTimeout(function(){
-      if(eatingNow) fire("⏰ "+tt({en:"Eating window closed",id:"Jendela makan ditutup"}), tt({en:"Time to start fasting — see you next window!",id:"Waktunya mulai puasa — sampai jendela berikutnya!"}));
-      else fire("🍽️ "+tt({en:"Eating window is open!",id:"Jendela makan dibuka!"}), tt({en:"You can eat now. Eat mindfully 💪",id:"Kamu boleh makan sekarang. Makan dengan sadar ya 💪"}));
+      if(eatingNow) fire(tt({en:"Eating window closed",id:"Jendela makan ditutup"}), tt({en:"Time to start fasting — see you next window!",id:"Waktunya mulai puasa — sampai jendela berikutnya!"}));
+      else fire(tt({en:"Eating window is open!",id:"Jendela makan dibuka!"}), tt({en:"You can eat now. Eat mindfully",id:"Kamu boleh makan sekarang. Makan dengan sadar ya"}));
       arm();
     }, ms);
     timers.push(t);
