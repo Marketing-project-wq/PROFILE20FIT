@@ -1021,25 +1021,21 @@
     })();
     // Deteksi kepulangan dari Xendit lewat query URL (dipakai kalau dev 20FIT menambahkan
     // success_redirect_url ke https://my.20fit.id/calories?status=paid&order_no=...).
+    // PENTING: query URL TIDAK dipercaya untuk mengisi kredit — ia cuma memicu pengecekan
+    // ke server. Kredit HANYA diberikan kalau 20FIT mengonfirmasi is_paid=true (anti-curang).
     function handleReturnFromPayment(){
       try{
         var sp=new URLSearchParams(location.search);
-        var st=(sp.get("status")||sp.get("payment")||"").toLowerCase();
-        var paidFlag = sp.get("paid")==="1" || /paid|success|settled|complete|berhasil/.test(st);
-        if(!paidFlag) return;
-        var po=null; try{ po=JSON.parse(localStorage.getItem("my20fit_pending_order")||"null"); }catch(e){}
-        var qOrder=sp.get("order_no")||sp.get("order")||"";
-        // Hanya kreditkan kalau device ini memang punya pending order (dan cocok kalau order_no dikirim).
-        if(po && po.id && (!qOrder || String(po.order_no||"")===String(qOrder) || String(po.id)===String(qOrder))){
-          localStorage.removeItem("my20fit_pending_order"); stopPolling(); hidePayWait();
-          try{ Auth.addScanCredits(po.credits||0); }catch(e){}
-          refreshQuota();
-          try{ Meta.track("Success Payment", {content_name:"scan package", content_category:"calorie_scan",
-            currency:"IDR", value:po.price||0, contents:[{id:po.product_id,quantity:1}], num_items:1}); }catch(e){}
-          showThanks(po.credits||0);
-        }
+        var hadParam = sp.has("status")||sp.has("payment")||sp.has("paid")||sp.has("order_no")||sp.has("order");
         // Bersihin query supaya refresh tidak memicu ulang.
-        try{ history.replaceState(null,"",location.pathname+location.hash); }catch(e){}
+        if(hadParam){ try{ history.replaceState(null,"",location.pathname+location.hash); }catch(e){} }
+        var st=(sp.get("status")||sp.get("payment")||"").toLowerCase();
+        var flag = sp.get("paid")==="1" || /paid|success|settled|complete|berhasil/.test(st);
+        if(!flag) return;
+        var po=null; try{ po=JSON.parse(localStorage.getItem("my20fit_pending_order")||"null"); }catch(e){}
+        // Ada tanda "paid" + memang ada order tertunda -> VERIFIKASI ke server (is_paid) sekarang.
+        // pollOrderStatus() yang akan mengisi kredit HANYA jika 20FIT bilang lunas.
+        if(po && po.id){ showPayWait(po.order_no||po.id); pollOrderStatus(true); }
       }catch(e){}
     }
     setInterval(renderIF,60000); // update countdown tiap menit
