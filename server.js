@@ -135,6 +135,9 @@ app.get("/api/config", (req, res) => {
     // redirect balik ke my.20fit.id/login.html?token=<access_token>.
     // Diisi lewat env FITCO_SSO_URL dari tim developer.
     fitcoSsoUrl: process.env.FITCO_SSO_URL || "",
+    // Client ID Google Identity Services (PUBLIK — memang tampil di web).
+    // Kosong = tombol "Continue with Google" disembunyikan di halaman login.
+    googleClientId: process.env.GOOGLE_CLIENT_ID || "",
   });
 });
 
@@ -289,6 +292,9 @@ const FITCO_API = process.env.FITCO_API_URL || "https://api.20fit.id";
 //   POST {api_url}/api/v1/auth/login  body {email,password,login_source:"app"}
 //   -> response: data.token.access_token. Bisa dioverride via env bila berubah.
 const FITCO_LOGIN_PATH = process.env.FITCO_LOGIN_PATH || "/api/v1/auth/login";
+// Endpoint login Google (dari dokumentasi resmi "Login by Google"):
+//   POST {api_url}/api/v1/auth/login/google  body {name,email,access_token,google_auth_id}
+const FITCO_GOOGLE_LOGIN_PATH = process.env.FITCO_GOOGLE_LOGIN_PATH || "/api/v1/auth/login/google";
 // Ambil profil user dari 20FIT pakai access_token (Bearer). Return field yg kita pakai.
 async function fetch20fitProfile(fitcoToken) {
   const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null, fitcoUserId: null };
@@ -415,6 +421,66 @@ app.post("/api/fitco-login", async (req, res) => {
     return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken });
   } catch (e) {
     console.error("fitco-login:", e.message);
+    return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
+  }
+});
+
+// Login pakai akun GOOGLE via API 20FIT (dokumentasi developer "Login by Google").
+// Frontend mengirim ID token dari Google Identity Services. Identitas (email/nama/
+// google_auth_id) diambil server dari payload token itu — bukan dari input bebas
+// client — lalu API 20FIT yang memverifikasi keaslian token ke Google.
+app.post("/api/fitco-google-login", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
+    const credential = String((req.body && req.body.credential) || "").trim();
+    if (!credential) return res.status(400).json({ error: "Google credential wajib." });
+    let claims = {};
+    try {
+      const part = credential.split(".")[1] || "";
+      claims = JSON.parse(Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
+    } catch (e) { claims = {}; }
+    const email = String(claims.email || "").trim().toLowerCase();
+    const gname = claims.name || [claims.given_name, claims.family_name].filter(Boolean).join(" ") || null;
+    const gsub = claims.sub ? String(claims.sub) : null;
+    if (!email || !gsub) return res.status(400).json({ error: "Google credential tidak valid." });
+
+    // 1) Verifikasi ke API 20FIT (body persis sesuai dokumentasi developer)
+    let fj = {};
+    try {
+      const fr = await fetch(FITCO_API + FITCO_GOOGLE_LOGIN_PATH, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: gname, email, access_token: credential, google_auth_id: gsub }),
+      });
+      fj = await fr.json().catch(() => ({}));
+      if (!fr.ok) {
+        return res.status(401).json({ error: "Login Google ditolak 20FIT. Pastikan email Google ini terdaftar sebagai akun 20FIT." });
+      }
+    } catch (e) {
+      return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+    }
+    const fd = (fj && fj.data) || fj || {};
+    const fitcoToken =
+      fj.access_token || fd.access_token ||
+      (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
+    if (!fitcoToken) return res.status(401).json({ error: "Login Google 20FIT gagal (token tidak diterima)." });
+    let fitcoUserId = fd.user_id || fd.id || null;
+
+    // 2) Ambil profil (best effort), lengkapi dari data login + klaim Google
+    let info = { email, fullName: fd.name || fd.full_name || gname, gender: fd.gender ? String(fd.gender).toLowerCase() : null, phone: fd.phone || fd.phone_number || null, avatar: claims.picture || null, birthdate: fd.date_of_birth || fd.birthdate || fd.dob || null };
+    try {
+      const p = await fetch20fitProfile(fitcoToken);
+      info = { email: p.email || email, fullName: p.fullName || info.fullName, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar || info.avatar, birthdate: p.birthdate || info.birthdate };
+      fitcoUserId = p.fitcoUserId || fitcoUserId;
+    } catch (e) { /* non-fatal, pakai data login */ }
+
+    info.fitcoUserId = fitcoUserId;
+    // Login Google diterima 20FIT = akun valid; email Google juga sudah terverifikasi Google.
+    info.fitcoEmailVerified = true;
+    const out = await mirrorAndMintOtp(info);
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken });
+  } catch (e) {
+    console.error("fitco-google-login:", e.message);
     return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
   }
 });

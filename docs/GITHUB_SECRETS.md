@@ -52,6 +52,8 @@ Tindakan wajib:
 | `FITCO_PARTNER_TOKEN` | Token partner Fitco (shop order/Xendit) | **RAHASIA — server-only** |
 | `FITCO_API_URL` / `FITCO_SSO_URL` / `FITCO_LOGIN_PATH` | Endpoint Fitco per environment | Publik |
 | `PARTNER_API_KEY` | API key partner profile | **RAHASIA — server-only** |
+| `GOOGLE_CLIENT_ID` | Client ID Google Identity Services (tombol login Google) | Publik (tampil di web) |
+| `FITCO_GOOGLE_LOGIN_PATH` | Path endpoint login Google 20FIT (default sudah benar) | Publik |
 | `WAQI_TOKEN` | Token API AQI (WAQI/AQICN) | **RAHASIA — server-only** |
 | `ADMIN_KEY` | Key akses `/api/admin/stats` | **RAHASIA** |
 
