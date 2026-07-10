@@ -304,6 +304,26 @@
     </div>
   </div>
 
+  <!-- Toast "menunggu pembayaran" — tampil selama order belum lunas (auto-update) -->
+  <style>
+    #payWait{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(140%);z-index:130;
+      width:calc(100% - 28px);max-width:420px;background:var(--card);color:var(--txt);border:1px solid var(--line);
+      border-radius:14px;box-shadow:0 10px 34px rgba(0,0,0,.28);padding:13px 15px;display:flex;align-items:center;gap:12px;
+      transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+    #payWait.show{transform:translateX(-50%) translateY(0)}
+    #payWait .spin{width:20px;height:20px;flex:0 0 auto;border-radius:50%;border:3px solid var(--line);border-top-color:var(--red);animation:scanspin .8s linear infinite}
+    #payWait .txt{flex:1;min-width:0}
+    #payWait .txt .m{font-size:13px;font-weight:650;line-height:1.35}
+    #payWait .txt .o{font-size:11px;color:var(--muted);margin-top:2px}
+    #payWaitBtn{flex:0 0 auto;border:0;border-radius:9px;background:var(--red);color:#fff;font-weight:800;font-size:12px;padding:9px 12px;cursor:pointer;font-family:inherit}
+    #payWaitBtn:disabled{opacity:.6;cursor:default}
+  </style>
+  <div id="payWait">
+    <div class="spin"></div>
+    <div class="txt"><div class="m" id="payWaitMsg">Waiting for your payment confirmation…</div><div class="o" id="payWaitOrder"></div></div>
+    <button id="payWaitBtn">Check now</button>
+  </div>
+
   <!-- Thank-you pop-up: muncul OTOMATIS saat pembayaran Xendit terdeteksi sukses -->
   <div class="hopt-bg" id="thanksBg">
     <div class="hopt" style="text-align:center">
@@ -672,7 +692,7 @@
     function closeDeals(){ document.getElementById("dealsBg").classList.remove("open"); }
 
     // ---- Auto-deteksi pembayaran sukses -> thank-you + isi kredit + Meta "Success Payment" ----
-    let _pollTimer=null;
+    let _pollTimer=null, _payChecking=false;
     function showThanks(credits){
       var t=document.getElementById("thanksTitle"), s=document.getElementById("thanksSub");
       if(t) t.textContent=L({en:"Your purchase has succeeded 🎉",id:"Pembayaranmu berhasil 🎉"});
@@ -682,23 +702,39 @@
       document.getElementById("thanksBg").classList.add("open");
     }
     function closeThanks(){ var m=document.getElementById("thanksBg"); if(m) m.classList.remove("open"); }
+    // Toast "menunggu pembayaran" — tetap tampil selama order belum lunas, dengan tombol cek manual.
+    function showPayWait(orderNo){
+      var el=document.getElementById("payWait"); if(!el)return;
+      document.getElementById("payWaitMsg").textContent=L({
+        en:"Waiting for your payment confirmation… this updates automatically.",
+        id:"Menunggu konfirmasi pembayaranmu… akan ter-update otomatis."});
+      document.getElementById("payWaitOrder").textContent=orderNo?("Order "+orderNo):"";
+      document.getElementById("payWaitBtn").textContent=L({en:"Check now",id:"Cek sekarang"});
+      el.classList.add("show");
+    }
+    function hidePayWait(){ var el=document.getElementById("payWait"); if(el)el.classList.remove("show"); }
     function stopPolling(){ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
-    async function pollOrderStatus(){
+    async function pollOrderStatus(manual){
       let pend; try{ pend=JSON.parse(localStorage.getItem("my20fit_pending_order")||"null"); }catch(e){ pend=null; }
-      if(!pend||!pend.id){ stopPolling(); return; }
-      // Berhenti otomatis setelah 15 menit (invoice Xendit biasanya sudah kadaluarsa).
-      if(pend.ts && (Date.now()-pend.ts) > 15*60*1000){ localStorage.removeItem("my20fit_pending_order"); stopPolling(); return; }
+      if(!pend||!pend.id){ stopPolling(); hidePayWait(); return; }
+      // Berhenti otomatis setelah 20 menit (invoice Xendit biasanya sudah kadaluarsa).
+      if(pend.ts && (Date.now()-pend.ts) > 20*60*1000){ localStorage.removeItem("my20fit_pending_order"); stopPolling(); hidePayWait(); return; }
+      if(_payChecking) return; _payChecking=true;
+      var btn=document.getElementById("payWaitBtn");
+      if(manual&&btn){ btn.textContent=L({en:"Checking…",id:"Mengecek…"}); btn.disabled=true; }
       const ftk=localStorage.getItem("fitco_token")||"";
       let j={};
       try{
         const tk=await Auth.token();
         const r=await fetch("/api/scan/order-status",{method:"POST",
           headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
-          body:JSON.stringify({ sales_order_id:pend.id, fitco_token:ftk })});
+          body:JSON.stringify({ sales_order_id:pend.sales_order_id||pend.id, order_no:pend.order_no||null, fitco_token:ftk })});
         j=await r.json().catch(()=>({}));
-      }catch(e){ return; } // gagal jaringan -> coba lagi di interval berikutnya
+      }catch(e){ _payChecking=false; if(btn){btn.disabled=false;} return; } // gagal jaringan -> coba lagi nanti
+      _payChecking=false;
+      if(btn){ btn.disabled=false; btn.textContent=L({en:"Check now",id:"Cek sekarang"}); }
       if(j && j.paid){
-        localStorage.removeItem("my20fit_pending_order"); stopPolling();
+        localStorage.removeItem("my20fit_pending_order"); stopPolling(); hidePayWait();
         try{ Auth.addScanCredits(pend.credits||0); }catch(e){}
         refreshQuota();
         try{ Meta.track("Success Payment", {content_name:"scan package", content_category:"calorie_scan",
@@ -706,13 +742,19 @@
         closeDeals();
         showThanks(pend.credits||0);
       } else if(j && j.expired){
-        localStorage.removeItem("my20fit_pending_order"); stopPolling();
+        localStorage.removeItem("my20fit_pending_order"); stopPolling(); hidePayWait();
+      } else if(manual){
+        // Klik manual tapi belum lunas -> beri tahu user, jangan diam.
+        var m=document.getElementById("payWaitMsg");
+        if(m) m.textContent=L({en:"Not confirmed yet. If you've paid, wait a moment and check again.",
+                               id:"Belum terkonfirmasi. Kalau sudah bayar, tunggu sebentar lalu cek lagi."});
       }
     }
     function startPolling(){ stopPolling(); pollOrderStatus(); _pollTimer=setInterval(pollOrderStatus,5000); }
     (function(){
       var tb=document.getElementById("thanksClose"); if(tb) tb.addEventListener("click",closeThanks);
       var tbg=document.getElementById("thanksBg"); if(tbg) tbg.addEventListener("click",function(e){ if(e.target===tbg)closeThanks(); });
+      var pb=document.getElementById("payWaitBtn"); if(pb) pb.addEventListener("click",function(){ pollOrderStatus(true); });
       // Saat user balik ke tab ini dari Xendit -> langsung cek status (deteksi lebih cepat).
       document.addEventListener("visibilitychange",function(){
         if(document.hidden)return;
@@ -745,11 +787,15 @@
         if(payWin){ payWin.location.href=j.link; } else if(!window.open(j.link,"_blank")){ location.href=j.link; }
         // Simpan order yang menunggu bayar, lalu mulai polling status.
         // Saat 20FIT/Xendit konfirmasi LUNAS -> otomatis: thank-you + kredit + Meta "Success Payment".
-        if(j.sales_order_id){
+        // Catatan: 20FIT me-redirect ke halaman thank-you MEREKA (event.20fit.id), bukan balik ke sini,
+        // jadi tab calories ini yang memantau status di background + saat kamu balik ke tab ini.
+        const oid=j.sales_order_id||j.order_no;
+        if(oid){
           try{ localStorage.setItem("my20fit_pending_order", JSON.stringify({
-            id:j.sales_order_id, order_no:j.order_no||null,
+            id:oid, order_no:j.order_no||null, sales_order_id:j.sales_order_id||null,
             credits:p.credits, price:p.price, product_id:p.product_id, ts:Date.now()
           })); }catch(e){}
+          showPayWait(j.order_no||oid);
           startPolling();
         }
         // Pembayaran diselesaikan langsung di tab Xendit — cukup tutup modal di sini.
@@ -967,7 +1013,7 @@
       // Meta Pixel: kunjungan halaman calories = View Calories
       try{ Meta.track("View Calories", {content_name:"Calorie Tracker"}); }catch(e){}
       // Lanjutkan polling kalau ada pembayaran yang belum tuntas (mis. user refresh / balik ke tab ini).
-      try{ if(localStorage.getItem("my20fit_pending_order")) startPolling(); }catch(e){}
+      try{ var _po=JSON.parse(localStorage.getItem("my20fit_pending_order")||"null"); if(_po&&_po.id){ showPayWait(_po.order_no||_po.id); startPolling(); } }catch(e){}
     })();
     setInterval(renderIF,60000); // update countdown tiap menit
     I18N.onChange(()=>{render();renderMeals();renderIF();refreshQuota();});
