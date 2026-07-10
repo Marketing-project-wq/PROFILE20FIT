@@ -5,13 +5,13 @@
 // =============================================================
 (function () {
   const DEFS = [
-    { id:"firstcheckin", em:"🌱", t:{en:"First check-in",id:"Check-in pertama"}, s:{en:"Tracked a day",id:"Catat 1 hari"},        d:{en:"You logged your first day. The journey begins!",id:"Kamu mencatat hari pertamamu. Perjalanan dimulai!"}, cond:s=>s.tracked>=1 },
-    { id:"streak3",      em:"🔥", t:{en:"3-day streak",id:"Beruntun 3 hari"},   s:{en:"Keep it up!",id:"Pertahankan!"},           d:{en:"3 days in a row — you're building a habit!",id:"3 hari berturut — kamu lagi bangun kebiasaan!"}, cond:s=>s.streak>=3 },
-    { id:"streak7",      em:"🏆", t:{en:"Full week",id:"Satu minggu penuh"},    s:{en:"7 days in a row",id:"7 hari berturut"},    d:{en:"A full week of tracking. Incredible consistency!",id:"Satu minggu penuh mencatat. Konsistensi luar biasa!"}, cond:s=>s.streak>=7 },
-    { id:"hydrated",     em:"💧", t:{en:"Hydrated",id:"Terhidrasi"},            s:{en:"8 glasses in a day",id:"8 gelas sehari"}, d:{en:"You hit 8 glasses of water. Well hydrated!",id:"Kamu capai 8 gelas air. Terhidrasi dengan baik!"}, cond:s=>s.anyWater8 },
-    { id:"rested",       em:"😴", t:{en:"Well rested",id:"Istirahat cukup"},    s:{en:"7h+ sleep",id:"Tidur 7 jam+"},             d:{en:"7+ hours of sleep. Your body thanks you!",id:"Tidur 7 jam lebih. Tubuhmu berterima kasih!"}, cond:s=>s.anySleep7 },
-    { id:"fasting",      em:"⏳", t:{en:"Fasting on",id:"Puasa aktif"},         s:{en:"Adopted a style",id:"Adopsi gaya puasa"}, d:{en:"You adopted an intermittent fasting style!",id:"Kamu mengadopsi gaya intermittent fasting!"}, cond:s=>s.hasFasting },
-    { id:"mcu",          em:"🩺", t:{en:"Health checked",id:"Cek kesehatan"},   s:{en:"MCU analysed",id:"MCU dianalisa"},         d:{en:"Your medical check-up has been analysed!",id:"Medical check-up-mu sudah dianalisa!"}, cond:s=>s.hasMcu }
+    { id:"firstcheckin", em:'<svg class="emi" viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 4 13C4 6 9 3 20 3c0 8-4 14-9 14z"/><path d="M4 20c3-4 6-6 9-7"/></svg>', t:{en:"First check-in",id:"Check-in pertama"}, s:{en:"Tracked a day",id:"Catat 1 hari"},        d:{en:"You logged your first day. The journey begins!",id:"Kamu mencatat hari pertamamu. Perjalanan dimulai!"}, cond:s=>s.tracked>=1 },
+    { id:"streak3",      em:'<svg class="emi" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>', t:{en:"3-day streak",id:"Beruntun 3 hari"},   s:{en:"Keep it up!",id:"Pertahankan!"},           d:{en:"3 days in a row — you're building a habit!",id:"3 hari berturut — kamu lagi bangun kebiasaan!"}, cond:s=>s.streak>=3 },
+    { id:"streak7",      em:'<svg class="emi" viewBox="0 0 24 24"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>', t:{en:"Full week",id:"Satu minggu penuh"},    s:{en:"7 days in a row",id:"7 hari berturut"},    d:{en:"A full week of tracking. Incredible consistency!",id:"Satu minggu penuh mencatat. Konsistensi luar biasa!"}, cond:s=>s.streak>=7 },
+    { id:"hydrated",     em:'<svg class="emi" viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>', t:{en:"Hydrated",id:"Terhidrasi"},            s:{en:"8 glasses in a day",id:"8 gelas sehari"}, d:{en:"You hit 8 glasses of water. Well hydrated!",id:"Kamu capai 8 gelas air. Terhidrasi dengan baik!"}, cond:s=>s.anyWater8 },
+    { id:"rested",       em:'<svg class="emi" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>', t:{en:"Well rested",id:"Istirahat cukup"},    s:{en:"7h+ sleep",id:"Tidur 7 jam+"},             d:{en:"7+ hours of sleep. Your body thanks you!",id:"Tidur 7 jam lebih. Tubuhmu berterima kasih!"}, cond:s=>s.anySleep7 },
+    { id:"fasting",      em:'<svg class="emi" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', t:{en:"Fasting on",id:"Puasa aktif"},         s:{en:"Adopted a style",id:"Adopsi gaya puasa"}, d:{en:"You adopted an intermittent fasting style!",id:"Kamu mengadopsi gaya intermittent fasting!"}, cond:s=>s.hasFasting },
+    { id:"mcu",          em:'<svg class="emi" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>', t:{en:"Health checked",id:"Cek kesehatan"},   s:{en:"MCU analysed",id:"MCU dianalisa"},         d:{en:"Your medical check-up has been analysed!",id:"Medical check-up-mu sudah dianalisa!"}, cond:s=>s.hasMcu }
   ];
 
   function L(o){ return window.L ? window.L(o) : (o && o.en) || ""; }
@@ -69,10 +69,10 @@
     const card=document.createElement("div"); card.className="achpop";
     card.innerHTML=
       "<div class='achpop-badge'>"+def.em+"</div>"+
-      "<div class='achpop-h'>"+L({en:"Congratulations!",id:"Selamat! 🎉"})+"</div>"+
+      "<div class='achpop-h'>"+L({en:"Congratulations!",id:"Selamat!"})+"</div>"+
       "<div class='achpop-t'>"+L(def.t)+"</div>"+
       "<div class='achpop-d'>"+L(def.d)+"</div>"+
-      "<button class='achpop-btn'>"+L({en:"Awesome! 🎉",id:"Mantap! 🎉"})+"</button>";
+      "<button class='achpop-btn'>"+L({en:"Awesome!",id:"Mantap!"})+"</button>";
     ov.appendChild(card); document.body.appendChild(ov);
     confetti(card);
     requestAnimationFrame(()=>ov.classList.add("on"));

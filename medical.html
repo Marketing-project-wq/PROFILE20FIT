@@ -119,7 +119,7 @@
   .seemore{flex:0 0 auto;color:var(--red);font-weight:800;font-size:12px;white-space:nowrap}
   .empty{text-align:center;color:var(--muted);padding:30px 10px}
   .soon{display:inline-block;font-size:12px;background:var(--inp);color:var(--muted);padding:6px 14px;border-radius:999px;margin-top:6px;font-weight:700}
-
+  .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
@@ -246,7 +246,7 @@
         else {
           const w=document.createElement("div"); w.className="card rfull";
           w.style.cssText="border-color:#e7c98a;background:#fbf3df;color:#8a6d1a;font-size:13px;font-weight:600";
-          w.innerHTML='⚠️ '+L({en:"Result is shown but couldn't be saved to your account (network issue). Please re-upload when your connection is stable so it persists after refresh.",id:"Hasil tampil tapi belum tersimpan ke akunmu (masalah jaringan). Coba upload ulang saat koneksi stabil biar tetap ada setelah refresh."});
+          w.innerHTML='<svg class="emi" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> '+L({en:"Result is shown but couldn't be saved to your account (network issue). Please re-upload when your connection is stable so it persists after refresh.",id:"Hasil tampil tapi belum tersimpan ke akunmu (masalah jaringan). Coba upload ulang saat koneksi stabil biar tetap ada setelah refresh."});
           const box2=document.getElementById("result"); if(box2) box2.prepend(w);
         }
       }catch(err){
@@ -342,7 +342,7 @@
       if(profile&&profile.age) stats+='<div class="ohstat"><div class="l">'+L({en:"Age",id:"Usia"})+'</div><div class="v">'+profile.age+'</div></div>';
       const attLine = att.length
         ? L({en:att.length+" thing(s) to watch: ",id:att.length+" hal perlu diperhatikan: "})+att.map(f=>f.label).join(", ")
-        : L({en:"All readable values look within the normal range. 🎉",id:"Semua nilai yang terbaca tampak dalam batas normal. 🎉"});
+        : L({en:"All readable values look within the normal range.",id:"Semua nilai yang terbaca tampak dalam batas normal."});
       const overall='<div class="card rfull"><div class="ch" style="color:var(--red)">'+heart+L({en:"Overall Summary",id:"Ringkasan Keseluruhan"})+'</div>'+
         '<div class="muted">'+[res.document_type,res.patient_name,res.date].filter(Boolean).join(" · ")+'</div>'+
         (stats?'<div class="ohrow">'+stats+'</div>':'')+
@@ -358,7 +358,7 @@
         programsCard(att.length>0)+
         planCard(I18N.t("med_exercise"),ICO.ex,"#2563eb",res.exercise_plan)+
         unread+
-        '<div class="card rfull" style="border-color:rgba(196,17,1,.3);background:rgba(196,17,1,.07);color:#8a1f15;font-size:13px">⚠️ '+(res.disclaimer||L({en:"This interpretation is not a substitute for a doctor. Consult the 20FIT doctor for proper advice.",id:"Interpretasi ini bukan pengganti konsultasi dokter. Konsultasikan ke dokter 20FIT untuk saran yang tepat."}))+'</div>';
+        '<div class="card rfull" style="border-color:rgba(196,17,1,.3);background:rgba(196,17,1,.07);color:#8a1f15;font-size:13px"><svg class="emi" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> '+(res.disclaimer||L({en:"This interpretation is not a substitute for a doctor. Consult the 20FIT doctor for proper advice.",id:"Interpretasi ini bukan pengganti konsultasi dokter. Konsultasikan ke dokter 20FIT untuk saran yang tepat."}))+'</div>';
       if(!noScroll)document.getElementById("result").scrollIntoView({behavior:"smooth"});
     }
     async function loadList(){

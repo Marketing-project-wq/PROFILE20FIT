@@ -283,6 +283,7 @@
   .m-safety{font-size:11px;color:var(--muted);line-height:1.5;margin-top:16px;background:var(--amber-soft);border-radius:12px;padding:11px 13px;display:flex;gap:8px}
   .m-safety svg{flex:0 0 14px;margin-top:1px;color:var(--amber);fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   @media(min-width:620px){ .modal-bg{align-items:center;padding:24px} .modal{border-radius:24px} .grab{display:none} }
+  .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
@@ -343,7 +344,7 @@
           <div style="font-weight:800;font-size:15px" data-en="Or train at home · no equipment" data-id="Atau latihan di rumah · tanpa alat">Or train at home · no equipment</div>
           <div class="muted" style="font-size:12px;margin:2px 0 8px" data-en="General starting point — not a personalised program." data-id="Panduan umum — bukan program personal.">General starting point — not a personalised program.</div>
           <div class="ahlist" id="homeList"></div>
-          <div class="muted" style="font-size:11px;margin-top:10px" data-en="⚠️ Warm up first. Stop if you feel dizzy or short of breath." data-id="⚠️ Pemanasan dulu. Berhenti kalau pusing atau sesak.">⚠️ Warm up first. Stop if you feel dizzy or short of breath.</div>
+          <div class="muted" style="font-size:11px;margin-top:10px" data-en="Warm up first. Stop if you feel dizzy or short of breath." data-id="Pemanasan dulu. Berhenti kalau pusing atau sesak.">Warm up first. Stop if you feel dizzy or short of breath.</div>
         </div>
       </div>
 
@@ -557,14 +558,14 @@
           '<div style="flex:1"><div style="font-weight:800;font-size:15px">'+eaten+' / '+tgt+' '+L({en:"kcal",id:"kkal"})+'</div><div class="muted" style="font-size:12px">'+L({en:"Calories fulfilled today",id:"Kalori terpenuhi hari ini"})+' · '+pct+'%</div></div>'+
           '<span style="color:var(--pagemut);font-weight:800">›</span></div>'+
           '<div class="dthermo"><i style="width:'+pct+'%"></i></div>'+
-          '<div class="dtogo">'+(leftK>0?('<b>'+leftK+'</b>'+L({en:" kcal more to go 🔥",id:" kkal lagi yang kamu butuh 🔥"})):L({en:"Daily target reached 🎉",id:"Target harian tercapai 🎉"}))+'</div>'+
+          '<div class="dtogo">'+(leftK>0?('<b>'+leftK+'</b>'+L({en:" kcal more to go",id:" kkal lagi yang kamu butuh"})):L({en:"Daily target reached",id:"Target harian tercapai"}))+'</div>'+
           '</a>';
         // Rekomendasi makanan untuk menutup sisa kalori
         if(leftK>0 && window.Nutrition){
           var rec=Nutrition.mealFor(leftK,3);
           if(rec.length){
             html+='<a class="card" href="calories.html" style="display:block;text-decoration:none;color:var(--txt);margin-top:10px">'+
-              '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:18px">🥗</span>'+
+              '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:18px"><svg class="emi" viewBox="0 0 24 24"><path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M12 4v7"/></svg></span>'+
               '<div style="font-weight:800;font-size:14px">'+L({en:"To fill your remaining "+leftK+" kcal, try:",id:"Untuk penuhi sisa "+leftK+" kkal, coba:"})+'</div></div>'+
               rec.map(function(f){return '<div class="hrrow" style="border:0;padding:5px 0"><span class="hrdot" style="background:var(--green);margin-top:6px"></span><div style="flex:1"><b style="font-weight:650">'+Nutrition.name(f)+'</b></div><span class="muted" style="font-size:12px">'+f.kcal+' '+L({en:"kcal",id:"kkal"})+'</span></div>';}).join("")+
               '<div class="muted" style="font-size:11px;margin-top:8px">'+L({en:"Healthy picks recommended for you · tap to log",id:"Rekomendasi makanan sehat buat kamu · ketuk untuk catat"})+'</div></a>';
@@ -660,7 +661,7 @@
       if(!d){toast(L({en:"Pick your last period date",id:"Isi tanggal haid terakhir dulu"}));return}
       const u=await Auth.requireAuth();
       try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:d,cycle_length:profile.cycle_length||28}).eq("auth_user_id",u.id);
-        profile.cycle_last_period=d;if(!profile.cycle_length)profile.cycle_length=28;renderCycle();toast(L({en:"Cycle saved ✅",id:"Siklus tersimpan ✅"}));}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
+        profile.cycle_last_period=d;if(!profile.cycle_length)profile.cycle_length=28;renderCycle();toast(L({en:"Cycle saved",id:"Siklus tersimpan"}));}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
     // Tandai haid mulai hari ini -> mulai siklus baru (Hari 1)
     async function startPeriodToday(){
@@ -669,7 +670,7 @@
       const u=await Auth.requireAuth();
       try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:today,cycle_length:profile.cycle_length||28}).eq("auth_user_id",u.id);
         profile.cycle_last_period=today;if(!profile.cycle_length)profile.cycle_length=28;renderCycle();
-        toast(L({en:"New cycle started 🩸 — Day 1, Menstruation",id:"Siklus baru dimulai 🩸 — Hari 1, Menstruasi"}));}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
+        toast(L({en:"New cycle started — Day 1, Menstruation",id:"Siklus baru dimulai — Hari 1, Menstruasi"}));}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
     function editCycle(){profile.cycle_last_period=null;renderCycle();}
 
@@ -824,9 +825,9 @@
       running=false;clearInterval(timer);
       document.getElementById("bbtn").textContent=I18N.t("start");
       document.getElementById("ring").style.transform="scale(1)";
-      document.getElementById("bphase").textContent=done?L({en:"Done 🎉",id:"Selesai 🎉"}):I18N.t("ready");
+      document.getElementById("bphase").textContent=done?L({en:"Done",id:"Selesai"}):I18N.t("ready");
       document.getElementById("bcd").textContent=done?L({en:"Session complete",id:"Sesi lengkap"}):I18N.t("press_start");
-      if(done){ try{ await Auth.saveDaily({breathing_done:true}); if(daily)daily.breathing_done=true; renderChecklist(); toast(L({en:"Breathing session done! 🎉",id:"Sesi napas selesai! 🎉"})); }catch(e){} }
+      if(done){ try{ await Auth.saveDaily({breathing_done:true}); if(daily)daily.breathing_done=true; renderChecklist(); toast(L({en:"Breathing session done!",id:"Sesi napas selesai!"})); }catch(e){} }
     }
 
     // Hitung durasi tidur dari jam tidur -> jam bangun (lewat tengah malam diperhitungkan)
@@ -869,7 +870,7 @@
     async function saveSleep(){
       if(!sleepBed||!sleepWake){toast(L({en:"Set bedtime & wake time first",id:"Isi jam tidur & bangun dulu"}));return}
       try{await Auth.saveDaily({sleep_bed:sleepBed,sleep_wake:sleepWake,sleep_hours:sleepH});
-        toast(sleepH>=7?L({en:"Good sleep! 🌙",id:"Tidur cukup! 🌙"}):L({en:"Sleep saved ✓",id:"Tidur tersimpan ✓"}));renderChecklist();checkAchievements();}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
+        toast(sleepH>=7?L({en:"Good sleep!",id:"Tidur cukup!"}):L({en:"Sleep saved ✓",id:"Tidur tersimpan ✓"}));renderChecklist();checkAchievements();}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
 
     function renderWater(){
@@ -878,7 +879,7 @@
     }
     async function setWater(n){
       water=Math.max(0,Math.min(8,n));renderWater();
-      try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached! 💧",id:"Target air tercapai! 💧"}));renderChecklist();checkAchievements();}catch(e){}
+      try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached!",id:"Target air tercapai!"}));renderChecklist();checkAchievements();}catch(e){}
     }
 
     // ---- Checklist harian (aktivitas yang bisa dilacak lewat widget) ----
@@ -944,7 +945,7 @@
       const done=currentTasks.filter(t=>checkState[t.id]).length;
       try{await Auth.saveDaily({checklist:checkState});}catch(e){}
       checkAchievements();
-      if(done===currentTasks.length&&currentTasks.length)toast(L({en:"All checklist done! 🔥",id:"Semua checklist selesai! 🔥"}));
+      if(done===currentTasks.length&&currentTasks.length)toast(L({en:"All checklist done!",id:"Semua checklist selesai!"}));
     }
 
     renderDots(0);

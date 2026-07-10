@@ -128,9 +128,9 @@
         if(window.Auth&&Auth.supabase&&user){
           Auth.supabase.from("my20fit_profile").update({avatar_url:out,updated_at:new Date().toISOString()}).eq("auth_user_id",user.id).then(function(r){
             if(r&&r.error){ msg(L({en:"Saved on this device, but sync failed. Try again.",id:"Tersimpan di device, tapi gagal sinkron. Coba lagi."}),"err"); }
-            else { msg(L({en:"Profile photo saved & synced ✅",id:"Foto profil tersimpan & sinkron ✅"}),"ok"); }
+            else { msg(L({en:"Profile photo saved & synced ✓",id:"Foto profil tersimpan & sinkron ✓"}),"ok"); }
           });
-        } else { msg(L({en:"Photo saved ✅",id:"Foto tersimpan ✅"}),"ok"); }
+        } else { msg(L({en:"Photo saved ✓",id:"Foto tersimpan ✓"}),"ok"); }
       }); }; rd.readAsDataURL(f); }
     async function save(){
       const fields={
@@ -146,7 +146,7 @@
       try{
         const {error}=await Auth.supabase.from("my20fit_profile").update(fields).eq("auth_user_id",user.id);
         if(error)throw error;
-        msg(L({en:"Saved! ✅",id:"Tersimpan! ✅"}),"ok");document.getElementById("pname").textContent=fields.full_name||"";
+        msg(L({en:"Saved! ✓",id:"Tersimpan! ✓"}),"ok");document.getElementById("pname").textContent=fields.full_name||"";
       }catch(e){msg(e.message,"err")}
       btn.disabled=false;
     }
