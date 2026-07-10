@@ -331,6 +331,7 @@
   <script src="js/fasting.js"></script>
   <script src="js/nutrition.js"></script>
   <script src="js/nav.js"></script>
+  <script src="js/meta-pixel.js"></script>
   <script>
     // Tanggal LOKAL (bukan UTC) — biar konsisten dgn Supabase (daily_log.log_date) & halaman Progress,
     // sehingga catatan makanan selalu masuk ke hari yang benar (mis. subuh di WIB tidak nyasar ke kemarin).
@@ -620,7 +621,7 @@
     async function refreshQuota(){
       const el=document.getElementById("scanquota"); if(!el)return;
       let q; try{ q=await Auth.getScanQuota(); }catch(e){ el.innerHTML=""; return; }
-      const dealsLink='<a href="#" onclick="openDeals();return false" style="color:var(--green,#2A7A4F);font-weight:800;text-decoration:none">'+
+      const dealsLink='<a href="#" onclick="exploreDeals();return false" style="color:var(--green,#2A7A4F);font-weight:800;text-decoration:none">'+
         L({en:"explore our deals",id:"lihat paket kami"})+'</a>';
       if(q.remaining<=0){
         el.innerHTML='<span style="color:var(--red);font-weight:700">'+
@@ -631,6 +632,12 @@
         el.innerHTML=L({en:"<b>"+q.remaining+"</b> scans left this month"+extra+". To receive 10 more scans, ",
                         id:"Sisa <b>"+q.remaining+"</b> scan bulan ini"+extra+". Untuk dapat 10 scan lagi, "})+dealsLink+".";
       }
+    }
+    // Klik link "explore our deals" -> event Purchase (sesuai spesifikasi), lalu buka modal paket.
+    function exploreDeals(){
+      try{ Meta.track("Purchase", {content_name:"scan package", content_category:"calorie_scan", currency:"IDR", value:0}); }catch(e){}
+      openDeals();
+      return false;
     }
     function openDeals(q){
       document.getElementById("dealsTitle").textContent=(q&&q.remaining>0)
@@ -864,6 +871,8 @@
       // Foto dari tombol "Scan" global (halaman lain) -> langsung analisa di sini
       try{ const pend=sessionStorage.getItem("my20fit_pending_scan"); if(pend){ sessionStorage.removeItem("my20fit_pending_scan"); document.getElementById("scanbox").scrollIntoView({behavior:"smooth"}); scanImage(pend); } }catch(e){}
       if(location.hash==="#fasting"){document.getElementById("ifSection").scrollIntoView({behavior:"smooth"});}
+      // Meta Pixel: halaman Calorie Tracker = ViewContent
+      try{ Meta.track("ViewContent", {content_name:"Calorie Tracker", content_category:"calories"}); }catch(e){}
     })();
     setInterval(renderIF,60000); // update countdown tiap menit
     I18N.onChange(()=>{render();renderMeals();renderIF();refreshQuota();});

@@ -350,6 +350,7 @@
 
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/meta-pixel.js"></script>
   <script>
     const T = {
       en: {
@@ -581,6 +582,8 @@
           }
         }
         saveCredential(email,password);
+        // Meta Pixel: login berhasil = Lead
+        try{ Meta.track("Lead", {content_name:"login"}, {email:email}); }catch(e){}
         await Auth.routeAfterAuth();
       }catch(e){msg(terjemah(e.message),"err");btn.disabled=false}
     }
@@ -669,6 +672,8 @@
       msg(T[lang].processing,"");
       try{
         await Auth.fitcoGoogleLogin(resp.credential);
+        // Meta Pixel: login Google berhasil = Lead
+        try{ Meta.track("Lead", {content_name:"login_google"}); }catch(e){}
         await Auth.routeAfterAuth();
       }catch(e){ msg(terjemah(e.message),"err"); }
     }
