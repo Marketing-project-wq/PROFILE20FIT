@@ -14,6 +14,9 @@ regexes = [
   '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24i[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+''',
   # Google OAuth Client ID app 20FIT — nilai PUBLIK (client id, bukan secret).
   '''26509397037-[a-z0-9]+\.apps\.googleusercontent\.com''',
+  # Nama key localStorage/aplikasi (mis. "my20fit_pending_orders") — bukan secret,
+  # kadang ke-flag generic-api-key karena entropinya. Hanya nama key, bukan nilai rahasia.
+  '''my20fit_[a-z0-9_]+''',
 ]
 
 paths = [

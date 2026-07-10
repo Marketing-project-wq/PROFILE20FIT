@@ -1045,9 +1045,9 @@ app.post("/api/scan/buy", async (req, res) => {
 
 // ---------- Cek status pembayaran order scan (untuk auto thank-you + isi kredit) ----------
 // POST /api/scan/order-status  { sales_order_id, fitco_token }
-// GET 20FIT /api/v1/app/order/:id pakai token login user (atau FITCO_PARTNER_TOKEN sbg fallback),
-// lalu tentukan paid/expired/pending. Dibuat toleran: kalau gagal ambil status, balikan pending
-// supaya frontend terus mencoba tanpa error.
+// GET 20FIT /api/v1/app/order/:id. Coba token login user DULU, lalu FITCO_PARTNER_TOKEN.
+// Balikan juga http/via/debug utk diagnosa. Toleran: kalau gagal baca -> pending (frontend
+// terus mencoba tanpa error), plus note berisi kode HTTP supaya kelihatan kalau tokennya ditolak.
 app.post("/api/scan/order-status", async (req, res) => {
   try {
     const user = await getUserFromReq(req);
@@ -1055,22 +1055,28 @@ app.post("/api/scan/order-status", async (req, res) => {
     const b = req.body || {};
     const id = String(b.sales_order_id || "").trim();
     if (!id) return res.status(400).json({ error: "sales_order_id kosong." });
-    const bearer = String(b.fitco_token || "") || FITCO_PARTNER_TOKEN;
-    if (!bearer) return res.json({ ok: true, paid: false, expired: false, pending: true, note: "no_token" });
-    let r, j = {};
-    try {
-      r = await fetch(FITCO_API + "/api/v1/app/order/" + encodeURIComponent(id), {
-        headers: { "Accept": "application/json", "Authorization": "Bearer " + bearer },
-      });
-      j = await r.json().catch(() => ({}));
-    } catch (e) {
-      return res.json({ ok: true, paid: false, expired: false, pending: true, note: "fetch_error" });
+    const tokens = [];
+    if (b.fitco_token) tokens.push({ tk: String(b.fitco_token), via: "user" });
+    if (FITCO_PARTNER_TOKEN) tokens.push({ tk: FITCO_PARTNER_TOKEN, via: "partner" });
+    if (!tokens.length) return res.json({ ok: true, paid: false, expired: false, pending: true, note: "no_token" });
+    let lastHttp = 0, sig = null, via = "";
+    for (const t of tokens) {
+      try {
+        const r = await fetch(FITCO_API + "/api/v1/app/order/" + encodeURIComponent(id), {
+          headers: { "Accept": "application/json", "Authorization": "Bearer " + t.tk },
+        });
+        lastHttp = r.status;
+        if (!r.ok) continue;                 // token ini ditolak / order tak terlihat -> coba token berikut
+        const j = await r.json().catch(() => ({}));
+        sig = scanPaidMarkers(j); via = t.via; break;
+      } catch (e) { lastHttp = -1; }
     }
-    if (!r.ok) return res.json({ ok: true, paid: false, expired: false, pending: true, note: "status_unavailable" });
-    const sig = scanPaidMarkers(j);
-    // Log semua field status yang ketemu (tanpa data sensitif) -> untuk konfirmasi kode "paid" saat test.
-    try { console.log("order-status", id, "paid=" + sig.paid, "expired=" + sig.expired, "signals:", sig.debug.join(" | ") || "(none)"); } catch (e) {}
-    return res.json({ ok: true, paid: sig.paid, expired: sig.expired, pending: !sig.paid && !sig.expired });
+    if (!sig) {
+      try { console.log("order-status", id, "http=" + lastHttp, "-> tak bisa baca status"); } catch (e) {}
+      return res.json({ ok: true, paid: false, expired: false, pending: true, note: "http_" + lastHttp, http: lastHttp });
+    }
+    try { console.log("order-status", id, "via", via, "paid=" + sig.paid, "exp=" + sig.expired, "signals:", sig.debug.join(" | ") || "(none)"); } catch (e) {}
+    return res.json({ ok: true, paid: sig.paid, expired: sig.expired, pending: !sig.paid && !sig.expired, http: lastHttp, via: via, debug: sig.debug });
   } catch (e) {
     console.error("order-status:", e.message);
     return res.json({ ok: true, paid: false, expired: false, pending: true, note: "error" });

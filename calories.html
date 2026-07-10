@@ -317,11 +317,13 @@
     #payWait .txt .o{font-size:11px;color:var(--muted);margin-top:2px}
     #payWaitBtn{flex:0 0 auto;border:0;border-radius:9px;background:var(--red);color:#fff;font-weight:800;font-size:12px;padding:9px 12px;cursor:pointer;font-family:inherit}
     #payWaitBtn:disabled{opacity:.6;cursor:default}
+    #payWaitClose{flex:0 0 auto;border:0;background:none;color:var(--muted);font-size:22px;line-height:1;padding:0 2px;cursor:pointer;font-family:inherit}
   </style>
   <div id="payWait">
     <div class="spin"></div>
     <div class="txt"><div class="m" id="payWaitMsg">Waiting for your payment confirmation…</div><div class="o" id="payWaitOrder"></div></div>
     <button id="payWaitBtn">Check now</button>
+    <button id="payWaitClose" aria-label="Close" title="Close">×</button>
   </div>
 
   <!-- Thank-you pop-up: muncul OTOMATIS saat pembayaran Xendit terdeteksi sukses -->
@@ -692,7 +694,23 @@
     function closeDeals(){ document.getElementById("dealsBg").classList.remove("open"); }
 
     // ---- Auto-deteksi pembayaran sukses -> thank-you + isi kredit + Meta "Success Payment" ----
-    let _pollTimer=null, _payChecking=false;
+    // Simpan SEMUA order tertunda sebagai LIST (bukan 1), supaya bayar order mana pun terdeteksi
+    // walau user klik beli beberapa kali / beli beberapa paket sekaligus.
+    let _pollTimer=null, _payChecking=false, _payDismissed=false;
+    const PEND_KEY="my20fit_pending_orders";
+    function getPendings(){
+      let a=[]; try{ a=JSON.parse(localStorage.getItem(PEND_KEY)||"[]"); }catch(e){ a=[]; }
+      if(!Array.isArray(a)) a=[];
+      // Migrasi dari format lama (1 order) kalau ada.
+      try{ var old=JSON.parse(localStorage.getItem("my20fit_pending_order")||"null");
+        if(old&&old.id&&!a.some(function(o){return String(o.id)===String(old.id);})){ a.push(old); }
+        localStorage.removeItem("my20fit_pending_order"); }catch(e){}
+      // Buang yang lebih tua dari 30 menit (invoice Xendit sudah kadaluarsa).
+      var now=Date.now(); a=a.filter(function(o){ return o&&o.id&&(!o.ts||(now-o.ts)<30*60*1000); });
+      return a;
+    }
+    function savePendings(a){ try{ localStorage.setItem(PEND_KEY, JSON.stringify(a||[])); }catch(e){} }
+    function addPending(o){ var a=getPendings(); if(!a.some(function(x){return String(x.id)===String(o.id);})){ a.push(o); } savePendings(a); }
     function showThanks(credits){
       var t=document.getElementById("thanksTitle"), s=document.getElementById("thanksSub");
       if(t) t.textContent=L({en:"Your purchase has succeeded 🎉",id:"Pembayaranmu berhasil 🎉"});
@@ -702,63 +720,73 @@
       document.getElementById("thanksBg").classList.add("open");
     }
     function closeThanks(){ var m=document.getElementById("thanksBg"); if(m) m.classList.remove("open"); }
-    // Toast "menunggu pembayaran" — tetap tampil selama order belum lunas, dengan tombol cek manual.
-    function showPayWait(orderNo){
+    // Toast "menunggu pembayaran" — tampil selama masih ada order tertunda. Bisa ditutup (×).
+    function showPayWait(){
+      if(_payDismissed) return;
       var el=document.getElementById("payWait"); if(!el)return;
+      var a=getPendings();
       document.getElementById("payWaitMsg").textContent=L({
         en:"Waiting for your payment confirmation… this updates automatically.",
         id:"Menunggu konfirmasi pembayaranmu… akan ter-update otomatis."});
-      document.getElementById("payWaitOrder").textContent=orderNo?("Order "+orderNo):"";
+      var last=a[a.length-1];
+      document.getElementById("payWaitOrder").textContent=last?("Order "+(last.order_no||last.id)+(a.length>1?(" +"+(a.length-1)):"")):"";
       document.getElementById("payWaitBtn").textContent=L({en:"Check now",id:"Cek sekarang"});
       el.classList.add("show");
     }
     function hidePayWait(){ var el=document.getElementById("payWait"); if(el)el.classList.remove("show"); }
+    function dismissPayWait(){ _payDismissed=true; hidePayWait(); } // ditutup manual; polling tetap jalan diam2 utk kreditkan kalau lunas
     function stopPolling(){ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
+    function creditPaid(o){
+      try{ Auth.addScanCredits(o.credits||0); }catch(e){}
+      refreshQuota();
+      try{ Meta.track("Success Payment", {content_name:"scan package", content_category:"calorie_scan",
+        currency:"IDR", value:o.price||0, contents:[{id:o.product_id,quantity:1}], num_items:1}); }catch(e){}
+    }
+    async function checkOne(o){
+      const ftk=localStorage.getItem("fitco_token")||"";
+      const tk=await Auth.token();
+      const r=await fetch("/api/scan/order-status",{method:"POST",
+        headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
+        body:JSON.stringify({ sales_order_id:o.sales_order_id||o.id, order_no:o.order_no||null, fitco_token:ftk })});
+      return await r.json().catch(()=>({}));
+    }
     async function pollOrderStatus(manual){
-      let pend; try{ pend=JSON.parse(localStorage.getItem("my20fit_pending_order")||"null"); }catch(e){ pend=null; }
-      if(!pend||!pend.id){ stopPolling(); hidePayWait(); return; }
-      // Berhenti otomatis setelah 20 menit (invoice Xendit biasanya sudah kadaluarsa).
-      if(pend.ts && (Date.now()-pend.ts) > 20*60*1000){ localStorage.removeItem("my20fit_pending_order"); stopPolling(); hidePayWait(); return; }
+      var a=getPendings(); savePendings(a);
+      if(!a.length){ stopPolling(); hidePayWait(); return; }
+      if(!_payDismissed) showPayWait();
       if(_payChecking) return; _payChecking=true;
       var btn=document.getElementById("payWaitBtn");
       if(manual&&btn){ btn.textContent=L({en:"Checking…",id:"Mengecek…"}); btn.disabled=true; }
-      const ftk=localStorage.getItem("fitco_token")||"";
-      let j={};
-      try{
-        const tk=await Auth.token();
-        const r=await fetch("/api/scan/order-status",{method:"POST",
-          headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
-          body:JSON.stringify({ sales_order_id:pend.sales_order_id||pend.id, order_no:pend.order_no||null, fitco_token:ftk })});
-        j=await r.json().catch(()=>({}));
-      }catch(e){ _payChecking=false; if(btn){btn.disabled=false;} return; } // gagal jaringan -> coba lagi nanti
+      var paidOne=null, lastDiag="";
+      for(var i=0;i<a.length;i++){
+        var o=a[i], j={};
+        try{ j=await checkOne(o); }catch(e){ lastDiag="net"; continue; }
+        if(j&&j.paid){ paidOne=o; a=a.filter(function(x){return String(x.id)!==String(o.id);}); creditPaid(o); }
+        else if(j&&j.expired){ a=a.filter(function(x){return String(x.id)!==String(o.id);}); }
+        else { lastDiag=(j&&(j.note||("http_"+(j.http||"?"))))||"pending"; }
+      }
+      savePendings(a);
       _payChecking=false;
       if(btn){ btn.disabled=false; btn.textContent=L({en:"Check now",id:"Cek sekarang"}); }
-      if(j && j.paid){
-        localStorage.removeItem("my20fit_pending_order"); stopPolling(); hidePayWait();
-        try{ Auth.addScanCredits(pend.credits||0); }catch(e){}
-        refreshQuota();
-        try{ Meta.track("Success Payment", {content_name:"scan package", content_category:"calorie_scan",
-          currency:"IDR", value:pend.price||0, contents:[{id:pend.product_id,quantity:1}], num_items:1}); }catch(e){}
-        closeDeals();
-        showThanks(pend.credits||0);
-      } else if(j && j.expired){
-        localStorage.removeItem("my20fit_pending_order"); stopPolling(); hidePayWait();
-      } else if(manual){
-        // Klik manual tapi belum lunas -> beri tahu user, jangan diam.
+      if(paidOne){ closeDeals(); if(!a.length){ stopPolling(); hidePayWait(); } showThanks(paidOne.credits||0); return; }
+      if(!a.length){ stopPolling(); hidePayWait(); return; }
+      if(manual){
+        // Klik manual tapi belum lunas -> beri tahu user + tampilkan diagnosa (biar bisa di-screenshot).
         var m=document.getElementById("payWaitMsg");
         if(m) m.textContent=L({en:"Not confirmed yet. If you've paid, wait a moment and check again.",
-                               id:"Belum terkonfirmasi. Kalau sudah bayar, tunggu sebentar lalu cek lagi."});
+                               id:"Belum terkonfirmasi. Kalau sudah bayar, tunggu sebentar lalu cek lagi."})+(lastDiag?(" ["+lastDiag+"]"):"");
       }
     }
-    function startPolling(){ stopPolling(); pollOrderStatus(); _pollTimer=setInterval(pollOrderStatus,5000); }
+    function startPolling(){ stopPolling(); _payDismissed=false; pollOrderStatus(); _pollTimer=setInterval(pollOrderStatus,5000); }
     (function(){
       var tb=document.getElementById("thanksClose"); if(tb) tb.addEventListener("click",closeThanks);
       var tbg=document.getElementById("thanksBg"); if(tbg) tbg.addEventListener("click",function(e){ if(e.target===tbg)closeThanks(); });
       var pb=document.getElementById("payWaitBtn"); if(pb) pb.addEventListener("click",function(){ pollOrderStatus(true); });
+      var px=document.getElementById("payWaitClose"); if(px) px.addEventListener("click",dismissPayWait);
       // Saat user balik ke tab ini dari Xendit -> langsung cek status (deteksi lebih cepat).
       document.addEventListener("visibilitychange",function(){
         if(document.hidden)return;
-        try{ if(localStorage.getItem("my20fit_pending_order")){ if(_pollTimer)pollOrderStatus(); else startPolling(); } }catch(e){}
+        try{ if(getPendings().length){ if(_pollTimer)pollOrderStatus(); else startPolling(); } }catch(e){}
       });
     })();
 
@@ -791,11 +819,10 @@
         // jadi tab calories ini yang memantau status di background + saat kamu balik ke tab ini.
         const oid=j.sales_order_id||j.order_no;
         if(oid){
-          try{ localStorage.setItem("my20fit_pending_order", JSON.stringify({
-            id:oid, order_no:j.order_no||null, sales_order_id:j.sales_order_id||null,
-            credits:p.credits, price:p.price, product_id:p.product_id, ts:Date.now()
-          })); }catch(e){}
-          showPayWait(j.order_no||oid);
+          addPending({ id:oid, order_no:j.order_no||null, sales_order_id:j.sales_order_id||null,
+            credits:p.credits, price:p.price, product_id:p.product_id, ts:Date.now() });
+          _payDismissed=false;
+          showPayWait();
           startPolling();
         }
         // Pembayaran diselesaikan langsung di tab Xendit — cukup tutup modal di sini.
@@ -1017,7 +1044,7 @@
       // -> langsung anggap lunas: thank-you + isi quota + Meta "Success Payment".
       handleReturnFromPayment();
       // Lanjutkan polling kalau masih ada pembayaran yang belum tuntas (mis. user refresh / balik ke tab ini).
-      try{ var _po=JSON.parse(localStorage.getItem("my20fit_pending_order")||"null"); if(_po&&_po.id){ showPayWait(_po.order_no||_po.id); startPolling(); } }catch(e){}
+      try{ if(getPendings().length){ showPayWait(); startPolling(); } }catch(e){}
     })();
     // Deteksi kepulangan dari Xendit lewat query URL (dipakai kalau dev 20FIT menambahkan
     // success_redirect_url ke https://my.20fit.id/calories?status=paid&order_no=...).
@@ -1032,10 +1059,9 @@
         var st=(sp.get("status")||sp.get("payment")||"").toLowerCase();
         var flag = sp.get("paid")==="1" || /paid|success|settled|complete|berhasil/.test(st);
         if(!flag) return;
-        var po=null; try{ po=JSON.parse(localStorage.getItem("my20fit_pending_order")||"null"); }catch(e){}
         // Ada tanda "paid" + memang ada order tertunda -> VERIFIKASI ke server (is_paid) sekarang.
         // pollOrderStatus() yang akan mengisi kredit HANYA jika 20FIT bilang lunas.
-        if(po && po.id){ showPayWait(po.order_no||po.id); pollOrderStatus(true); }
+        if(getPendings().length){ _payDismissed=false; showPayWait(); startPolling(); }
       }catch(e){}
     }
     setInterval(renderIF,60000); // update countdown tiap menit
