@@ -958,34 +958,31 @@ function findScalar(obj, keys) {
   })(obj);
   return out;
 }
-// Telusuri SELURUH respons order untuk sinyal LUNAS / EXPIRED, apa pun bentuk field-nya.
-// Sinyal LUNAS: teks status (paid/settled/success/complete/berhasil/lunas), flag boolean
-// (is_paid/paid=true), timestamp bayar (paid_at/payment_date/settlement*), atau kode
-// payment_status yang cocok dgn FITCO_PAID_STATUS. EXPIRED: payment_status=4 atau teks gagal.
+// Tentukan LUNAS / EXPIRED HANYA dari field OTORITATIF milik order 20FIT.
+// PENTING: JANGAN pakai key generik "status" atau kata "success"/"successfully" —
+// itu amplop response API ({"status":"success","message":"...purchased successfully"}),
+// artinya request-nya berhasil, BUKAN pembayarannya lunas. Dulu itu bikin order
+// PENDING salah ke-deteksi paid. Sumber kebenaran: is_paid (boolean) +
+// payment_status_description ("Paid"/"Settled") + payment_status (angka).
 function scanPaidMarkers(obj) {
-  const PAID_RE = /\b(paid|lunas|settled?|success(ful)?|completed?|berhasil)\b/i;
-  const FAIL_RE = /\b(expired|failed|cancell?ed|dibatalkan|batal|kadaluarsa|kedaluwarsa|void|rejected)\b/i;
-  const PAID_KEY = /(paid_at|paid_date|payment_date|payment_at|settlement|settled_at)/i;
-  const STATUS_KEY = /(status_description|status_name|order_status|payment_status_description|_status$|^status$)/i;
+  const PAID_TEXT = /\b(paid|lunas|settled?)\b/i;        // nilai payment_status_description saat lunas
+  const FAIL_TEXT = /\b(expired|failed|cancell?ed|dibatalkan|batal|kadaluarsa|kedaluwarsa|void|rejected)\b/i;
   let paid = false, expired = false; const debug = [];
   (function walk(v) {
     if (!v || typeof v !== "object") return;
     if (Array.isArray(v)) { v.forEach(walk); return; }
     for (const k of Object.keys(v)) {
       const val = v[k];
-      if (/^(is_paid|paid|has_paid)$/i.test(k) && val === true) { paid = true; debug.push(k + "=true"); }
-      if (PAID_KEY.test(k) && val && typeof val !== "object") { paid = true; debug.push(k + "=" + val); }
-      if (/^payment_status$/i.test(k) && val != null && typeof val !== "object") {
-        const s = String(val);
-        if (FITCO_PAID_STATUS.indexOf(s) >= 0) paid = true;
-        if (s === "4") expired = true;
-        debug.push("payment_status=" + s);
+      const scalar = val != null && typeof val !== "object";
+      if (k === "is_paid") { if (val === true) paid = true; debug.push("is_paid=" + val); }
+      else if (k === "payment_status_description" || k === "order_status_description") {
+        if (scalar) { const s = String(val); if (PAID_TEXT.test(s)) paid = true; if (FAIL_TEXT.test(s)) expired = true; debug.push(k + "=" + s); }
       }
-      if (STATUS_KEY.test(k) && val != null && typeof val !== "object") {
-        const s = String(val);
-        if (PAID_RE.test(s)) paid = true;
-        if (FAIL_RE.test(s)) expired = true;
-        if (!/^payment_status$/i.test(k)) debug.push(k + "=" + s);
+      else if (k === "payment_status") {
+        if (scalar) { const s = String(val); if (FITCO_PAID_STATUS.indexOf(s) >= 0) paid = true; if (s === "4") expired = true; debug.push("payment_status=" + s); }
+      }
+      else if (k === "paid_at" || k === "paid_date" || k === "payment_date" || k === "settlement_at" || k === "settled_at") {
+        if (scalar) { paid = true; debug.push(k + "=" + val); }
       }
       if (val && typeof val === "object") walk(val);
     }
