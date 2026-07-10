@@ -33,17 +33,18 @@
     return m ? m.pop() : '';
   }
 
-  var init = (async function () {
-    try {
-      var c = await (await fetch('/api/config')).json();
-      pixelId = (c && c.metaPixelId) || '';
-    } catch (e) { pixelId = ''; }
-    if (pixelId) {
-      loadFbq(pixelId);
-      ready = true;
-      var q = queue; queue = [];
-      q.forEach(function (a) { track(a[0], a[1], a[2]); });
-    }
+  // Pixel ID PUBLIK. Diinisialisasi LANGSUNG (tanpa menunggu /api/config) supaya
+  // tracking andal di setiap page-load — tidak ada race yang bikin event ketelan
+  // saat navigasi (dulu event cuma jalan setelah refresh). Bisa dioverride via
+  // window.META_PIXEL_ID sebelum script ini dimuat.
+  var FALLBACK_PIXEL_ID = '882946526927316';
+  var init = (function () {
+    pixelId = (window.META_PIXEL_ID && String(window.META_PIXEL_ID)) || FALLBACK_PIXEL_ID;
+    loadFbq(pixelId);
+    ready = true;
+    var q = queue; queue = [];
+    q.forEach(function (a) { track(a[0], a[1], a[2]); });
+    return Promise.resolve();
   })();
 
   // Event standar Meta memakai 'track'; nama lain (mis. "View Dashboard") = custom -> 'trackCustom'.
