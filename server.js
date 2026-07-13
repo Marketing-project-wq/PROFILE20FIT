@@ -368,6 +368,7 @@ const SINGAPAY_REDIRECT_BASE = process.env.SINGAPAY_REDIRECT_BASE || "https://my
 // Endpoint token (bisa dioverride kalau berubah). v1.0 = Basic auth.
 const SINGAPAY_TOKEN_PATH = process.env.SINGAPAY_TOKEN_PATH || "/api/v1.0/access-token/b2b";
 const SINGAPAY_CREATE_PATH = process.env.SINGAPAY_CREATE_PATH || "/api/v1.0/payment-link-manage";
+const SINGAPAY_ACCOUNTS_PATH = process.env.SINGAPAY_ACCOUNTS_PATH || "/api/v1.0/accounts";
 
 // ---------- Login Google via Google Identity Services (GIS) ----------
 // Frontend memakai tombol Google resmi (SDK GIS) untuk mendapatkan ID token,
@@ -1027,7 +1028,6 @@ app.post("/api/scan/buy", async (req, res) => {
 
     // ===== Jalur SingaPay (kalau diaktifkan) =====
     if (SINGAPAY_ENABLED) {
-      if (!SINGAPAY_ACCOUNT_ID) return res.status(503).json({ error: "SingaPay belum siap: SINGAPAY_ACCOUNT_ID belum di-set di server." });
       const credits = parseInt(b.credits, 10) || 0;
       const amount = parseInt(b.price, 10) || 0;
       if (credits <= 0 || amount <= 0) return res.status(400).json({ error: "Paket tidak valid." });
@@ -1197,9 +1197,32 @@ async function singapayToken() {
   _spToken = { token: tok, exp: exp };
   return tok;
 }
+// Account ULID: pakai env kalau di-set; kalau tidak, auto-deteksi dari List Accounts.
+let _spAccount = "";
+async function singapayAccountId() {
+  if (SINGAPAY_ACCOUNT_ID) return SINGAPAY_ACCOUNT_ID;
+  if (_spAccount) return _spAccount;
+  const token = await singapayToken();
+  const r = await fetch(SINGAPAY_BASE_URL + SINGAPAY_ACCOUNTS_PATH, {
+    headers: { "Authorization": "Bearer " + token, "X-PARTNER-ID": SINGAPAY_API_KEY, "Accept": "application/json" },
+  });
+  const j = await r.json().catch(() => ({}));
+  let list = null;
+  (function walk(v) {
+    if (list || !v || typeof v !== "object") return;
+    if (Array.isArray(v) && v.length && v[0] && typeof v[0] === "object" && ("id" in v[0])) { list = v; return; }
+    for (const k of Object.keys(v)) if (v[k] && typeof v[k] === "object") walk(v[k]);
+  })(j);
+  if (list) {
+    const act = list.find(a => String(a.status || "").toLowerCase() === "active") || list[0];
+    if (act && act.id) { _spAccount = String(act.id); return _spAccount; }
+  }
+  console.error("singapay-accounts", r.status, JSON.stringify(j).slice(0, 300));
+  throw new Error("singapay_account_not_found_" + r.status);
+}
 // Buat payment link. Balikan { url, payment_link_id }.
 async function singapayCreateLink(o) {
-  if (!SINGAPAY_ACCOUNT_ID) throw new Error("singapay_account_id_missing");
+  const accountId = await singapayAccountId();
   const token = await singapayToken();
   const body = {
     reff_no: o.reffNo,
@@ -1209,7 +1232,7 @@ async function singapayCreateLink(o) {
     items: o.items,
     redirect_url: SINGAPAY_REDIRECT_BASE + "/calories?status=paid&reff=" + encodeURIComponent(o.reffNo),
   };
-  const r = await fetch(SINGAPAY_BASE_URL + SINGAPAY_CREATE_PATH + "/" + encodeURIComponent(SINGAPAY_ACCOUNT_ID), {
+  const r = await fetch(SINGAPAY_BASE_URL + SINGAPAY_CREATE_PATH + "/" + encodeURIComponent(accountId), {
     method: "POST",
     headers: { "Authorization": "Bearer " + token, "X-PARTNER-ID": SINGAPAY_API_KEY, "Content-Type": "application/json", "Accept": "application/json" },
     body: JSON.stringify(body),
@@ -1340,6 +1363,20 @@ async function egressIp() {
 app.get("/api/whoami", async (req, res) => {
   const ip = await egressIp();
   return res.json({ ok: true, egress_ip: ip, note: ip ? "Daftarkan IP ini di SingaPay (Static IP)." : "Gagal ambil IP; coba lagi." });
+});
+
+// Self-test konfigurasi SingaPay (non-sensitif): cek token + account bisa didapat.
+app.get("/api/singapay/selftest", async (req, res) => {
+  const out = {
+    enabled: SINGAPAY_ENABLED, baseUrl: SINGAPAY_BASE_URL,
+    clientIdSet: !!SINGAPAY_CLIENT_ID, secretSet: !!SINGAPAY_CLIENT_SECRET,
+    apiKeySet: !!SINGAPAY_API_KEY, hmacKeySet: !!SINGAPAY_HMAC_KEY,
+    accountIdEnv: SINGAPAY_ACCOUNT_ID ? "set" : "auto",
+  };
+  try { const t = await singapayToken(); out.tokenOk = !!t; } catch (e) { out.tokenOk = false; out.tokenError = String(e.message); }
+  if (out.tokenOk) { try { out.accountId = await singapayAccountId(); } catch (e) { out.accountError = String(e.message); } }
+  out.ready = !!(out.tokenOk && out.accountId);
+  return res.json(out);
 });
 
 // Halaman gampang lihat egress IP server (buat didaftarkan di Static IP SingaPay).
