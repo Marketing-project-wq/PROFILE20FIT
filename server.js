@@ -1026,70 +1026,35 @@ app.post("/api/scan/buy", async (req, res) => {
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     const b = req.body || {};
 
-    // ===== Jalur SingaPay (kalau diaktifkan) =====
-    if (SINGAPAY_ENABLED) {
-      const credits = parseInt(b.credits, 10) || 0;
-      const amount = parseInt(b.price, 10) || 0;
-      if (credits <= 0 || amount <= 0) return res.status(400).json({ error: "Paket tidak valid." });
-      const reffNo = newReffNo();
-      const title = credits + " calorie scans";
-      // Catat order (pending) DULU supaya webhook bisa mencocokkan.
-      try {
-        await admin.from("my20fit_scan_orders").insert({
-          reff_no: reffNo, auth_user_id: user.id, credits: credits, amount: amount,
-          provider: "singapay", status: "pending", created_at: new Date().toISOString(),
-        });
-      } catch (e) { console.error("scan_orders insert:", e.message); return res.status(500).json({ error: "Gagal menyiapkan order." }); }
-      try {
-        const r = await singapayCreateLink({ reffNo: reffNo, title: title, amount: amount,
-          items: [{ name: title, quantity: 1, unit_price: amount }] });
-        if (r.payment_link_id) { try { await admin.from("my20fit_scan_orders").update({ payment_link_id: String(r.payment_link_id) }).eq("reff_no", reffNo); } catch (e) {} }
-        return res.json({ ok: true, link: r.url, sales_order_id: reffNo, order_no: reffNo, provider: "singapay" });
-      } catch (e) {
-        try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
-        return res.status(502).json({ error: "Gagal membuat pembayaran SingaPay. Coba lagi." });
-      }
+    // ===== Pembayaran paket scan = SingaPay (satu-satunya jalur; Xendit sudah dihapus) =====
+    const credits = parseInt(b.credits, 10) || 0;
+    const amount = parseInt(b.price, 10) || 0;
+    if (credits <= 0 || amount <= 0) return res.status(400).json({ error: "Paket tidak valid." });
+    if (!SINGAPAY_CLIENT_ID || !SINGAPAY_CLIENT_SECRET || !SINGAPAY_API_KEY) {
+      return res.status(503).json({ error: "Pembayaran belum aktif: kredensial SingaPay belum di-set di server." });
     }
-    // ===== Jalur lama (20FIT/Xendit) =====
-    const items = (Array.isArray(b.items) ? b.items : [])
-      .filter(it => it && it.product_id)
-      .map(it => ({ product_id: +it.product_id, quantity: +it.quantity || 1 }));
-    if (!items.length) return res.status(400).json({ error: "Item pembelian kosong." });
-    // Token 20FIT: token partner (env, dipakai untuk SEMUA user) ATAU token login user.
-    const bearer = FITCO_PARTNER_TOKEN || String(b.fitco_token || "");
-    if (!bearer) return res.status(503).json({ error: "Pembayaran paket belum aktif: token 20FIT partner belum di-set di server (FITCO_PARTNER_TOKEN)." });
-    // Data user dari profil (jangan percaya sepenuhnya input client).
-    const { data: rows } = await admin.from("my20fit_profile")
-      .select("full_name,phone,email").eq("auth_user_id", user.id).limit(1);
-    const p = (rows && rows[0]) || {};
-    const email = (p.email || user.email || "").toLowerCase();
-    const phone = String(p.phone || "").replace(/^\+?62/, "").replace(/^0/, "");
-    const body = {
-      user_id: b.user_id || null,
-      name: p.full_name || (email ? email.split("@")[0] : "Member"),
-      phone_code: "+62",
-      phone: phone,
-      email: email,
-      promo_code: null,
-      payment: { payment_type: "xendit-invoices", user_point_booster_id: null, use_fit_points: false },
-      items: items,
-    };
-    const r = await fetch(FITCO_API + "/api/v1/third-party/shop/order", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": "Bearer " + bearer },
-      body: JSON.stringify(body),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(r.status === 401 ? 401 : 400).json({ error: (j && (j.message || j.error)) || "Gagal membuat order 20FIT." });
-    const link = findXenditLink(j);
-    if (!link) return res.status(502).json({ error: "Order dibuat, tapi link pembayaran tidak ditemukan." });
-    // Kembalikan juga id order supaya frontend bisa polling status pembayaran (auto thank-you + kredit).
-    const salesOrderId = findScalar(j, ["sales_order_id", "salesOrderId", "order_id"]);
-    const orderNo = findScalar(j, ["order_no", "orderNo", "order_number"]);
-    return res.json({ ok: true, link: link, sales_order_id: salesOrderId, order_no: orderNo });
+    const reffNo = newReffNo();
+    const title = credits + " calorie scans";
+    // Catat order (pending) DULU supaya webhook bisa mencocokkan.
+    try {
+      await admin.from("my20fit_scan_orders").insert({
+        reff_no: reffNo, auth_user_id: user.id, credits: credits, amount: amount,
+        provider: "singapay", status: "pending", created_at: new Date().toISOString(),
+      });
+    } catch (e) { console.error("scan_orders insert:", e.message); return res.status(500).json({ error: "Gagal menyiapkan order." }); }
+    try {
+      const r = await singapayCreateLink({ reffNo: reffNo, title: title, amount: amount,
+        items: [{ name: title, quantity: 1, unit_price: amount }] });
+      if (r.payment_link_id) { try { await admin.from("my20fit_scan_orders").update({ payment_link_id: String(r.payment_link_id) }).eq("reff_no", reffNo); } catch (e) {} }
+      return res.json({ ok: true, link: r.url, sales_order_id: reffNo, order_no: reffNo, provider: "singapay" });
+    } catch (e) {
+      try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
+      console.error("scan/buy singapay:", e.message);
+      return res.status(502).json({ error: "Gagal membuat pembayaran SingaPay. Coba lagi." });
+    }
   } catch (e) {
     console.error("scan/buy:", e.message);
-    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+    return res.status(502).json({ error: "Gagal memproses pembayaran. Coba lagi." });
   }
 });
 
