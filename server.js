@@ -1150,25 +1150,36 @@ app.post("/api/singapay/notify/settlement", singapayNotify("settlement"));
 // Sebagian gateway pakai GET utk uji koneksi -> balas 200 juga.
 app.get("/api/singapay/notify/:kind", function (req, res) { return res.status(200).json({ ok: true, kind: req.params.kind }); });
 
+// Ambil IP keluar (egress) server — coba beberapa penyedia sbg cadangan.
+async function egressIp() {
+  const jsonSrc = [
+    { u: "https://api.ipify.org?format=json", k: "ip" },
+    { u: "https://ipinfo.io/json", k: "ip" },
+    { u: "https://ifconfig.me/all.json", k: "ip_addr" },
+  ];
+  for (const s of jsonSrc) {
+    try {
+      const r = await fetch(s.u, { headers: { "Accept": "application/json" } });
+      if (!r.ok) continue;
+      const j = await r.json().catch(() => ({}));
+      if (j && j[s.k]) return String(j[s.k]).trim();
+    } catch (e) {}
+  }
+  for (const u of ["https://icanhazip.com", "https://api.ipify.org", "https://ifconfig.me/ip"]) {
+    try { const r = await fetch(u); if (r.ok) { const t = (await r.text()).trim(); if (t && t.length < 60) return t; } } catch (e) {}
+  }
+  return "";
+}
+
 // Cek IP keluar (egress) server ini — untuk didaftarkan di "Static IP" SingaPay.
 app.get("/api/whoami", async (req, res) => {
-  let ip = "";
-  try {
-    const r = await fetch("https://api.ipify.org?format=json", { headers: { "Accept": "application/json" } });
-    const j = await r.json().catch(() => ({}));
-    ip = j && j.ip ? j.ip : "";
-  } catch (e) { ip = ""; }
+  const ip = await egressIp();
   return res.json({ ok: true, egress_ip: ip, note: ip ? "Daftarkan IP ini di SingaPay (Static IP)." : "Gagal ambil IP; coba lagi." });
 });
 
 // Halaman gampang lihat egress IP server (buat didaftarkan di Static IP SingaPay).
 app.get("/ip", async (req, res) => {
-  let ip = "";
-  try {
-    const r = await fetch("https://api.ipify.org?format=json", { headers: { "Accept": "application/json" } });
-    const j = await r.json().catch(() => ({}));
-    ip = (j && j.ip) ? j.ip : "";
-  } catch (e) { ip = ""; }
+  const ip = await egressIp();
   res.set("Content-Type", "text/html; charset=utf-8");
   res.send('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<body style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:48px auto;padding:22px;text-align:center;color:#111">' +
