@@ -1150,6 +1150,25 @@ app.get("/api/whoami", async (req, res) => {
   return res.json({ ok: true, egress_ip: ip, note: ip ? "Daftarkan IP ini di SingaPay (Static IP)." : "Gagal ambil IP; coba lagi." });
 });
 
+// Halaman gampang lihat egress IP server (buat didaftarkan di Static IP SingaPay).
+app.get("/ip", async (req, res) => {
+  let ip = "";
+  try {
+    const r = await fetch("https://api.ipify.org?format=json", { headers: { "Accept": "application/json" } });
+    const j = await r.json().catch(() => ({}));
+    ip = (j && j.ip) ? j.ip : "";
+  } catch (e) { ip = ""; }
+  res.set("Content-Type", "text/html; charset=utf-8");
+  res.send('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<body style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:48px auto;padding:22px;text-align:center;color:#111">' +
+    '<h2 style="margin:0 0 6px">Server egress IP</h2>' +
+    '<p style="color:#666;margin:0 0 18px;font-size:14px">IP keluar server 20FIT — daftarkan di kolom <b>Static IP</b> SingaPay.</p>' +
+    '<p style="font-size:30px;font-weight:800;letter-spacing:1px;margin:10px 0" id="ip">' + (ip || "—") + '</p>' +
+    (ip ? '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById(\'ip\').textContent);this.textContent=\'Copied ✓\'" style="padding:11px 18px;border:0;border-radius:9px;background:#C41101;color:#fff;font-weight:800;font-size:14px;cursor:pointer">Copy IP</button>' : '') +
+    '<p style="color:#999;font-size:12.5px;margin-top:22px;line-height:1.6">Refresh halaman ini 3–4×. Kalau angkanya tetap = IP stabil (aman didaftarkan). Kalau berubah-ubah = IP Railway dinamis, hubungi aku dulu.</p>' +
+    '</body>');
+});
+
 // ---------- Static (URL bersih tanpa .html) + fallback ----------
 // Redirect /halaman.html -> /halaman (querystring dipertahankan), lalu sajikan
 // /halaman dari halaman.html lewat opsi extensions. Jadi URL nggak ada ".html" lagi.
