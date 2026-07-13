@@ -896,6 +896,7 @@ function adminRange(q) {
   let to = now, from;
   const r = String((q && q.range) || "7d");
   if (r === "today") from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  else if (r === "all") from = new Date(2020, 0, 1);
   else if (r === "30d") from = new Date(now.getTime() - 30 * 86400000);
   else if (r === "custom") {
     from = q.from ? new Date(q.from) : new Date(now.getTime() - 7 * 86400000);
@@ -1031,6 +1032,45 @@ app.post("/api/admin/vouchers/:id/deactivate", async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   await adminAudit(ctx, "voucher.deactivate", (cur && cur[0] && cur[0].code) || req.params.id, null);
   return res.json({ ok: true });
+});
+
+// ---------- Transaksi (my20fit_scan_orders) ----------
+app.get("/api/admin/transactions", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const { from, to } = adminRange(req.query);
+  try {
+    let q = admin.from("my20fit_scan_orders")
+      .select("reff_no,auth_user_id,credits,amount,net_amount,status,payment_method,gateway_reference_id,voucher_id,created_at,paid_at")
+      .gte("created_at", from).lte("created_at", to);
+    const status = String(req.query.status || ""); if (["paid", "pending", "failed", "expired"].indexOf(status) >= 0) q = q.eq("status", status);
+    const method = String(req.query.method || ""); if (method) q = q.eq("payment_method", method);
+    q = q.order("created_at", { ascending: false }).limit(1000);
+    const { data, error } = await q;
+    if (error) return res.status(500).json({ error: error.message });
+    let rows = data || [];
+    const hv = String(req.query.voucher || "");
+    if (hv === "yes") rows = rows.filter(r => r.voucher_id); else if (hv === "no") rows = rows.filter(r => !r.voucher_id);
+    const vids = rows.filter(r => r.voucher_id).map(r => r.voucher_id).filter((v, i, a) => a.indexOf(v) === i);
+    const vmap = {};
+    if (vids.length) { const { data: vs } = await admin.from("my20fit_vouchers").select("id,code").in("id", vids); (vs || []).forEach(v => vmap[v.id] = v.code); }
+    rows.forEach(r => { r.voucher_code = r.voucher_id ? (vmap[r.voucher_id] || "?") : null; });
+    return res.json({ ok: true, transactions: rows });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.get("/api/admin/transactions/:reff", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const { data: o } = await admin.from("my20fit_scan_orders").select("*").eq("reff_no", req.params.reff).limit(1);
+  if (!o || !o[0]) return res.status(404).json({ error: "Transaksi tak ditemukan." });
+  const t = o[0];
+  let voucher = null, usage = null;
+  if (t.voucher_id) {
+    const { data: v } = await admin.from("my20fit_vouchers").select("code,discount_type,discount_value").eq("id", t.voucher_id).limit(1);
+    voucher = (v && v[0]) || null;
+    const { data: u } = await admin.from("my20fit_voucher_usages").select("discount_applied,used_at").eq("reff_no", t.reff_no).limit(1);
+    usage = (u && u[0]) || null;
+  }
+  const { data: p } = await admin.from("my20fit_profile").select("email,full_name").eq("auth_user_id", t.auth_user_id).limit(1);
+  return res.json({ ok: true, tx: t, buyer: (p && p[0]) || null, voucher: voucher, usage: usage });
 });
 
 app.get("/api/admin/stats", async (req, res) => {
@@ -1471,14 +1511,29 @@ function newReffNo() { return "SCAN" + Date.now().toString(36) + Math.floor(Math
 // Kreditkan order scan yang lunas — ATOMIC & IDEMPOTEN lewat RPC my20fit_credit_scan:
 // claim order (pending->paid) + tambah scan_credits dalam satu transaksi berkunci baris,
 // jadi aman terhadap retry webhook SingaPay (3x) & order paralel utk user yang sama.
-async function creditScanOrder(reff) {
+async function creditScanOrder(reff, meta) {
   if (!admin || !reff) return false;
   const { data, error } = await admin.rpc("my20fit_credit_scan", { p_reff: reff });
   if (error) { try { console.error("credit rpc", error.message); } catch (e) {} return false; }
   if (data === true) { try { console.log("singapay credited", reff); } catch (e) {} }
+  // Simpan metadata pembayaran (metode/ref gateway/nominal net) bila tersedia dari webhook.
+  if (data === true && meta) {
+    const patch = {};
+    if (meta.payment_method) patch.payment_method = String(meta.payment_method).slice(0, 60);
+    if (meta.gateway_reference_id) patch.gateway_reference_id = String(meta.gateway_reference_id).slice(0, 120);
+    if (meta.net_amount != null && !isNaN(+meta.net_amount)) patch.net_amount = +meta.net_amount;
+    if (Object.keys(patch).length) { try { await admin.from("my20fit_scan_orders").update(patch).eq("reff_no", reff); } catch (e) { try { console.error("scan_orders meta", e.message); } catch (_) {} } }
+  }
   return data === true;
 }
 function webhookReff(obj) { return findScalar(obj, ["reff_no", "reffNo", "reference", "reference_number", "ref_no"]); }
+function webhookMeta(obj) {
+  return {
+    payment_method: findScalar(obj, ["payment_method", "paymentMethod", "payment_channel", "paymentChannel", "channel", "payment_type", "paymentType", "method"]),
+    gateway_reference_id: findScalar(obj, ["gateway_reference_id", "gatewayReferenceId", "transaction_id", "transactionId", "payment_id", "paymentId", "trx_id", "trxId"]),
+    net_amount: findScalar(obj, ["net_amount", "netAmount", "settlement_amount", "settlementAmount", "amount_received", "amountReceived"])
+  };
+}
 function webhookLooksPaid(obj) {
   const PAID = /\b(paid|success(ful)?|settled?|completed?|berhasil|lunas)\b/i;
   let ok = false;
@@ -1546,7 +1601,7 @@ function singapayNotify(tag) {
     }
     // Kreditkan HANYA kalau signature valid (anti-palsu) ATAU enforce dimatikan saat bring-up.
     if (reff && paid && (v.valid || !SINGAPAY_WEBHOOK_ENFORCE)) {
-      creditScanOrder(reff).catch(function (e) { try { console.error("creditScanOrder", e.message); } catch (_) {} });
+      creditScanOrder(reff, webhookMeta(req.body)).catch(function (e) { try { console.error("creditScanOrder", e.message); } catch (_) {} });
     }
     return res.status(200).json({ status: "success" });
   };
