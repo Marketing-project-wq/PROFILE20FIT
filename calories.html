@@ -364,6 +364,7 @@
   <script src="js/fasting.js"></script>
   <script src="js/nutrition.js"></script>
   <script src="js/nav.js"></script>
+  <script src="js/orders.js"></script>
   <script src="js/meta-pixel.js"></script>
   <script>
     // Tanggal LOKAL (bukan UTC) — biar konsisten dgn Supabase (daily_log.log_date) & halaman Progress,
@@ -694,23 +695,10 @@
     function closeDeals(){ document.getElementById("dealsBg").classList.remove("open"); }
 
     // ---- Auto-deteksi pembayaran sukses -> thank-you + isi kredit + Meta "Success Payment" ----
-    // Simpan SEMUA order tertunda sebagai LIST (bukan 1), supaya bayar order mana pun terdeteksi
-    // walau user klik beli beberapa kali / beli beberapa paket sekaligus.
+    // Order tertunda dikelola lewat Orders (js/orders.js) sebagai LIST, supaya bayar order mana
+    // pun terdeteksi walau user klik beli beberapa kali / beli beberapa paket sekaligus.
     let _pollTimer=null, _payChecking=false, _payDismissed=false;
-    const PEND_KEY="my20fit_pending_orders";
-    function getPendings(){
-      let a=[]; try{ a=JSON.parse(localStorage.getItem(PEND_KEY)||"[]"); }catch(e){ a=[]; }
-      if(!Array.isArray(a)) a=[];
-      // Migrasi dari format lama (1 order) kalau ada.
-      try{ var old=JSON.parse(localStorage.getItem("my20fit_pending_order")||"null");
-        if(old&&old.id&&!a.some(function(o){return String(o.id)===String(old.id);})){ a.push(old); }
-        localStorage.removeItem("my20fit_pending_order"); }catch(e){}
-      // Buang yang lebih tua dari 30 menit (invoice Xendit sudah kadaluarsa).
-      var now=Date.now(); a=a.filter(function(o){ return o&&o.id&&(!o.ts||(now-o.ts)<30*60*1000); });
-      return a;
-    }
-    function savePendings(a){ try{ localStorage.setItem(PEND_KEY, JSON.stringify(a||[])); }catch(e){} }
-    function addPending(o){ var a=getPendings(); if(!a.some(function(x){return String(x.id)===String(o.id);})){ a.push(o); } savePendings(a); }
+    function getPendings(){ try{ return (window.Orders?Orders.pending():[]); }catch(e){ return []; } }
     function showThanks(credits){
       var t=document.getElementById("thanksTitle"), s=document.getElementById("thanksSub");
       if(t) t.textContent=L({en:"Your purchase has succeeded 🎉",id:"Pembayaranmu berhasil 🎉"});
@@ -728,7 +716,7 @@
       document.getElementById("payWaitMsg").textContent=L({
         en:"Waiting for your payment confirmation… this updates automatically.",
         id:"Menunggu konfirmasi pembayaranmu… akan ter-update otomatis."});
-      var last=a[a.length-1];
+      var last=a[0]; // Orders.pending() sudah terurut terbaru dulu
       document.getElementById("payWaitOrder").textContent=last?("Order "+(last.order_no||last.id)+(a.length>1?(" +"+(a.length-1)):"")):"";
       document.getElementById("payWaitBtn").textContent=L({en:"Check now",id:"Cek sekarang"});
       el.classList.add("show");
@@ -751,7 +739,7 @@
       return await r.json().catch(()=>({}));
     }
     async function pollOrderStatus(manual){
-      var a=getPendings(); savePendings(a);
+      var a=getPendings();
       if(!a.length){ stopPolling(); hidePayWait(); return; }
       if(!_payDismissed) showPayWait();
       if(_payChecking) return; _payChecking=true;
@@ -761,15 +749,15 @@
       for(var i=0;i<a.length;i++){
         var o=a[i], j={};
         try{ j=await checkOne(o); }catch(e){ lastDiag="net"; continue; }
-        if(j&&j.paid){ paidOne=o; a=a.filter(function(x){return String(x.id)!==String(o.id);}); creditPaid(o); }
-        else if(j&&j.expired){ a=a.filter(function(x){return String(x.id)!==String(o.id);}); }
+        if(j&&j.paid){ paidOne=o; try{ Orders.markPaid(o.id); }catch(e){} creditPaid(o); }
+        else if(j&&j.expired){ try{ Orders.markExpired(o.id); }catch(e){} }
         else { lastDiag=(j&&(j.note||("http_"+(j.http||"?"))))||"pending"; }
       }
-      savePendings(a);
       _payChecking=false;
       if(btn){ btn.disabled=false; btn.textContent=L({en:"Check now",id:"Cek sekarang"}); }
-      if(paidOne){ closeDeals(); if(!a.length){ stopPolling(); hidePayWait(); } showThanks(paidOne.credits||0); return; }
-      if(!a.length){ stopPolling(); hidePayWait(); return; }
+      var rem=getPendings();
+      if(paidOne){ closeDeals(); if(!rem.length){ stopPolling(); hidePayWait(); } showThanks(paidOne.credits||0); return; }
+      if(!rem.length){ stopPolling(); hidePayWait(); return; }
       if(manual){
         // Klik manual tapi belum lunas -> beri tahu user + tampilkan diagnosa (biar bisa di-screenshot).
         var m=document.getElementById("payWaitMsg");
@@ -819,8 +807,8 @@
         // jadi tab calories ini yang memantau status di background + saat kamu balik ke tab ini.
         const oid=j.sales_order_id||j.order_no;
         if(oid){
-          addPending({ id:oid, order_no:j.order_no||null, sales_order_id:j.sales_order_id||null,
-            credits:p.credits, price:p.price, product_id:p.product_id, ts:Date.now() });
+          try{ Orders.add({ id:oid, order_no:j.order_no||null, sales_order_id:j.sales_order_id||null,
+            credits:p.credits, price:p.price, product_id:p.product_id, link:j.link||null, ts:Date.now() }); }catch(e){}
           _payDismissed=false;
           showPayWait();
           startPolling();
