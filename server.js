@@ -950,6 +950,89 @@ app.get("/api/admin/metrics", async (req, res) => {
   } catch (e) { console.error("admin/metrics:", e.message); return res.status(500).json({ error: e.message }); }
 });
 
+// ---------- Voucher management ----------
+function genVoucherCode() { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; for (let i = 0; i < 8; i++) s += c[Math.floor(Math.random() * c.length)]; return s; }
+app.get("/api/admin/vouchers", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    let q = admin.from("my20fit_vouchers").select("*");
+    const status = String(req.query.status || "");
+    if (["active", "inactive", "expired"].indexOf(status) >= 0) q = q.eq("status", status);
+    const search = String(req.query.search || "").trim();
+    if (search) q = q.ilike("code", "%" + search + "%");
+    const sort = ["created_at", "valid_until", "used_count", "code"].indexOf(String(req.query.sort)) >= 0 ? String(req.query.sort) : "created_at";
+    q = q.order(sort, { ascending: String(req.query.dir) === "asc" });
+    const { data, error } = await q.limit(500);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true, vouchers: data || [], role: ctx.role });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.get("/api/admin/vouchers/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const { data: v } = await admin.from("my20fit_vouchers").select("*").eq("id", req.params.id).limit(1);
+  if (!v || !v[0]) return res.status(404).json({ error: "Voucher tak ditemukan." });
+  const { data: uses } = await admin.from("my20fit_voucher_usages")
+    .select("auth_user_id,reff_no,discount_applied,used_at").eq("voucher_id", req.params.id).order("used_at", { ascending: false }).limit(500);
+  return res.json({ ok: true, voucher: v[0], usages: uses || [] });
+});
+app.post("/api/admin/vouchers", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  let code = String(b.code || "").trim().toUpperCase();
+  if (!code) code = genVoucherCode();
+  if (!/^[A-Z0-9_-]{3,40}$/.test(code)) return res.status(400).json({ error: "Kode voucher tidak valid (3–40 huruf/angka/-/_)." });
+  const dt = String(b.discount_type || "");
+  if (["percentage", "fixed"].indexOf(dt) < 0) return res.status(400).json({ error: "discount_type harus percentage/fixed." });
+  const dv = parseInt(b.discount_value, 10) || 0;
+  if (dv <= 0) return res.status(400).json({ error: "discount_value harus > 0." });
+  if (dt === "percentage" && dv > 100) return res.status(400).json({ error: "Persentase maksimal 100." });
+  const row = {
+    code: code, description: b.description || null, discount_type: dt, discount_value: dv,
+    min_transaction: parseInt(b.min_transaction, 10) || 0,
+    usage_limit_total: (b.usage_limit_total === "" || b.usage_limit_total == null) ? null : parseInt(b.usage_limit_total, 10),
+    usage_limit_per_user: (b.usage_limit_per_user === "" || b.usage_limit_per_user == null) ? null : parseInt(b.usage_limit_per_user, 10),
+    valid_from: b.valid_from || null, valid_until: b.valid_until || null,
+    status: "active", created_by: ctx.user_id || null,
+  };
+  const { data, error } = await admin.from("my20fit_vouchers").insert(row).select().limit(1);
+  if (error) { if (error.code === "23505") return res.status(409).json({ error: "Kode voucher sudah dipakai." }); return res.status(500).json({ error: error.message }); }
+  await adminAudit(ctx, "voucher.create", code, { discount_type: dt, discount_value: dv });
+  return res.json({ ok: true, voucher: data && data[0] });
+});
+app.patch("/api/admin/vouchers/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const { data: cur } = await admin.from("my20fit_vouchers").select("*").eq("id", req.params.id).limit(1);
+  if (!cur || !cur[0]) return res.status(404).json({ error: "Voucher tak ditemukan." });
+  const used = (cur[0].used_count || 0) > 0;
+  const upd = { updated_at: new Date().toISOString() };
+  if (b.description !== undefined) upd.description = b.description || null;
+  if (b.valid_from !== undefined) upd.valid_from = b.valid_from || null;
+  if (b.valid_until !== undefined) upd.valid_until = b.valid_until || null;
+  if (b.usage_limit_total !== undefined) upd.usage_limit_total = (b.usage_limit_total === "" || b.usage_limit_total == null) ? null : parseInt(b.usage_limit_total, 10);
+  if (b.usage_limit_per_user !== undefined) upd.usage_limit_per_user = (b.usage_limit_per_user === "" || b.usage_limit_per_user == null) ? null : parseInt(b.usage_limit_per_user, 10);
+  if (b.status && ["active", "inactive", "expired"].indexOf(b.status) >= 0) upd.status = b.status;
+  const wantsLocked = (b.discount_type !== undefined) || (b.discount_value !== undefined) || (b.min_transaction !== undefined);
+  if (used && wantsLocked) return res.status(400).json({ error: "Voucher sudah pernah dipakai — discount_type/value/min_transaction tidak bisa diubah." });
+  if (!used) {
+    if (b.discount_type && ["percentage", "fixed"].indexOf(b.discount_type) >= 0) upd.discount_type = b.discount_type;
+    if (b.discount_value !== undefined) upd.discount_value = parseInt(b.discount_value, 10) || 0;
+    if (b.min_transaction !== undefined) upd.min_transaction = parseInt(b.min_transaction, 10) || 0;
+  }
+  const { error } = await admin.from("my20fit_vouchers").update(upd).eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "voucher.update", cur[0].code, upd);
+  return res.json({ ok: true });
+});
+app.post("/api/admin/vouchers/:id/deactivate", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const { data: cur } = await admin.from("my20fit_vouchers").select("code").eq("id", req.params.id).limit(1);
+  const { error } = await admin.from("my20fit_vouchers").update({ status: "inactive", updated_at: new Date().toISOString() }).eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "voucher.deactivate", (cur && cur[0] && cur[0].code) || req.params.id, null);
+  return res.json({ ok: true });
+});
+
 app.get("/api/admin/stats", async (req, res) => {
   if (!adminAuth(req, res)) return;
   if (!admin) return res.status(500).json({ error: "SUPABASE_SERVICE_KEY belum kebaca di process (admin=null). Set variabel-nya di Railway lalu REDEPLOY service supaya kebaca." });
