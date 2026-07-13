@@ -347,6 +347,17 @@ const FITCO_LOGIN_PATH = process.env.FITCO_LOGIN_PATH || "/api/v1/auth/login";
 //   POST {api_url}/api/v1/auth/login/google  body {name,email,access_token,google_auth_id}
 const FITCO_GOOGLE_LOGIN_PATH = process.env.FITCO_GOOGLE_LOGIN_PATH || "/api/v1/auth/login/google";
 
+// ---------- SingaPay Payment Gateway (SEMUA nilai RAHASIA -> hanya dari env) ----------
+// Base URL boleh publik; default SANDBOX demi keamanan (jangan live sebelum teruji).
+//   Sandbox    : https://sandbox-payment-b2b.singapay.id
+//   Production : https://payment-b2b.singapay.id
+// Client Secret / API Key / HMAC key TIDAK boleh ditulis di kode — set di Railway env.
+const SINGAPAY_BASE_URL = process.env.SINGAPAY_BASE_URL || "https://sandbox-payment-b2b.singapay.id";
+const SINGAPAY_CLIENT_ID = process.env.SINGAPAY_CLIENT_ID || "";
+const SINGAPAY_CLIENT_SECRET = process.env.SINGAPAY_CLIENT_SECRET || "";
+const SINGAPAY_API_KEY = process.env.SINGAPAY_API_KEY || "";
+const SINGAPAY_HMAC_KEY = process.env.SINGAPAY_HMAC_KEY || "";
+
 // ---------- Login Google via Google Identity Services (GIS) ----------
 // Frontend memakai tombol Google resmi (SDK GIS) untuk mendapatkan ID token,
 // lalu mengirimnya ke POST /api/fitco-google-login (diteruskan ke API 20FIT

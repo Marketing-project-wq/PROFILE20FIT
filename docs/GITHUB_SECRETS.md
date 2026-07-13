@@ -59,6 +59,11 @@ Tindakan wajib:
 | `DEV_MASTER_OTP` | OTP master untuk testing | **RAHASIA — kosongkan di produksi** |
 | `ARENA_API_KEY` | API key 20FIT Arena Open API | **RAHASIA — server-only** |
 | `ARENA_API_URL` | Base URL Arena API | Publik |
+| `SINGAPAY_CLIENT_ID` | Client ID SingaPay | **RAHASIA — server-only** |
+| `SINGAPAY_CLIENT_SECRET` | Client Secret SingaPay | **RAHASIA — server-only.** Pernah ditempel di chat → **rotasi** di dashboard SingaPay lalu isi di Railway |
+| `SINGAPAY_API_KEY` | API Key SingaPay | **RAHASIA — server-only.** Idem, rotasi |
+| `SINGAPAY_HMAC_KEY` | HMAC Validation Key SingaPay (verifikasi webhook) | **RAHASIA — server-only.** Idem, rotasi |
+| `SINGAPAY_BASE_URL` | Base URL SingaPay (sandbox/production) | Publik. Default sandbox |
 | `FITCO_PARTNER_TOKEN` | Token partner Fitco (shop order/Xendit) | **RAHASIA — server-only** |
 | `FITCO_PAID_STATUS` | Kode `payment_status` yang berarti LUNAS (auto thank-you scan). Opsional, isi mis. `1,3` kalau dev 20FIT sudah konfirmasi kodenya | Publik (bukan rahasia) |
 | `FITCO_API_URL` / `FITCO_SSO_URL` / `FITCO_LOGIN_PATH` | Endpoint Fitco per environment | Publik |
