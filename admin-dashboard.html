@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin Dashboard · 20FIT</title>
+<style>
+  :root{--red:#C41101;--bg:#0b0b0c;--card:#fff;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--inp:#F0EDE5;--green:#2A7A4F;--orange:#C87000}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  a{color:var(--red)}
+  .hidden{display:none!important}
+  /* Login */
+  .loginwrap{min-height:100vh;display:grid;place-items:center;padding:24px}
+  .logincard{width:100%;max-width:380px;background:var(--card);border-radius:16px;padding:26px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+  .logincard h1{font-size:20px;margin:0 0 4px}
+  .logincard .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.5px}
+  input,select{width:100%;padding:12px 13px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:15px}
+  input:focus,select:focus{outline:none;border-color:var(--red)}
+  .btn{width:100%;margin-top:16px;padding:13px;border:0;border-radius:10px;background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer}
+  .btn.sm{width:auto;margin:0;padding:8px 12px;font-size:13px;border-radius:8px}
+  .btn.ghost{background:var(--inp);color:var(--txt);border:1px solid var(--line)}
+  .divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:11px;margin:18px 0 6px;text-transform:uppercase;letter-spacing:1px}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+  .msg{margin-top:12px;font-size:13px;text-align:center;min-height:18px}
+  .err{color:var(--red)}.ok{color:var(--green)}
+  /* Shell */
+  .shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+  .side{background:#000;color:#EDE8DF;padding:20px 14px;display:flex;flex-direction:column;gap:6px}
+  .side .logo{font-weight:900;font-size:18px;letter-spacing:1px;margin:4px 8px 18px}
+  .side .logo b{color:var(--red)}
+  .navbtn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:#cfc8bd;font-weight:700;font-size:14px;padding:11px 12px;border-radius:9px;cursor:pointer;font-family:inherit}
+  .navbtn:hover{background:rgba(255,255,255,.06);color:#fff}
+  .navbtn.on{background:var(--red);color:#fff}
+  .side .spacer{flex:1}
+  .side .who{font-size:12px;color:#9a907f;padding:8px;border-top:1px solid #222;margin-top:8px}
+  .rolechip{display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;border-radius:999px;background:var(--red);color:#fff;margin-top:4px}
+  .main{background:var(--bg);padding:26px 30px;overflow:auto}
+  .main h2{color:#EDE8DF;margin:0 0 4px;font-size:22px}
+  .main .crumb{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .card{background:var(--card);border-radius:14px;padding:20px;margin-bottom:16px}
+  .card h3{margin:0 0 12px;font-size:16px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .placeholder{background:var(--card);border-radius:14px;padding:36px;text-align:center;color:var(--muted)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+  .row>div{flex:1;min-width:140px}
+  .tagrole{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;text-transform:uppercase}
+  .tagrole.superadmin{background:rgba(196,17,1,.12);color:var(--red)}
+  .tagrole.staff{background:rgba(42,122,79,.14);color:var(--green)}
+  .tagrole.viewer{background:var(--inp);color:var(--muted)}
+  @media(max-width:820px){ .shell{grid-template-columns:1fr} .side{flex-direction:row;flex-wrap:wrap;position:sticky;top:0;z-index:5} .side .logo{width:100%} .side .spacer,.side .who{display:none} .main{padding:18px} }
+</style>
+</head>
+<body>
+  <!-- ===== LOGIN ===== -->
+  <div class="loginwrap" id="loginView">
+    <div class="logincard">
+      <h1>20<b style="color:var(--red)">●</b>FIT Admin</h1>
+      <div class="sub">Masuk dengan akun 20FIT yang punya akses admin.</div>
+      <label>Email</label>
+      <input id="loginEmail" type="email" placeholder="admin@20fit.id" autocomplete="username" />
+      <label>Password</label>
+      <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password" />
+      <button class="btn" id="btnLogin">Masuk</button>
+      <div class="divider">atau master key</div>
+      <input id="loginKey" type="password" placeholder="Admin master key (ADMIN_KEY)" />
+      <button class="btn ghost" id="btnKey" style="margin-top:10px">Masuk pakai key</button>
+      <div class="msg" id="loginMsg"></div>
+    </div>
+  </div>
+
+  <!-- ===== DASHBOARD SHELL ===== -->
+  <div class="shell hidden" id="appView">
+    <nav class="side">
+      <div class="logo">20<span style="color:var(--red)">●</span>FIT <span style="font-weight:400;font-size:12px;color:#9a907f">admin</span></div>
+      <button class="navbtn on" data-tab="overview">📊 Overview</button>
+      <button class="navbtn" data-tab="vouchers">🎟️ Voucher</button>
+      <button class="navbtn" data-tab="transactions">💳 Transaksi</button>
+      <button class="navbtn" data-tab="settings" id="navSettings">⚙️ Settings</button>
+      <div class="spacer"></div>
+      <div class="who">
+        <div id="whoEmail">—</div>
+        <span class="rolechip" id="whoRole">—</span>
+      </div>
+      <button class="navbtn" id="btnLogout" style="color:#e88">⎋ Keluar</button>
+    </nav>
+    <main class="main">
+      <div id="tab-overview">
+        <h2>Overview</h2><div class="crumb">Metrics bisnis (revenue, transaksi, user, voucher)</div>
+        <div class="placeholder">📊 Halaman metrics dibangun di <b>Step 3</b>.</div>
+      </div>
+      <div id="tab-vouchers" class="hidden">
+        <h2>Voucher</h2><div class="crumb">Kelola voucher diskon</div>
+        <div class="placeholder">🎟️ Manajemen voucher dibangun di <b>Step 4</b>.</div>
+      </div>
+      <div id="tab-transactions" class="hidden">
+        <h2>Transaksi</h2><div class="crumb">Riwayat pembayaran (SingaPay)</div>
+        <div class="placeholder">💳 Halaman transaksi dibangun di <b>Step 5</b>.</div>
+      </div>
+      <div id="tab-settings" class="hidden">
+        <h2>Settings</h2><div class="crumb">Kelola akses admin (superadmin only)</div>
+        <div class="card">
+          <h3>Admin & Role</h3>
+          <div class="row" style="margin-bottom:14px">
+            <div><label>Email user 20FIT</label><input id="rEmail" type="email" placeholder="orang@20fit.id" /></div>
+            <div style="flex:0 0 160px"><label>Role</label>
+              <select id="rRole"><option value="viewer">viewer</option><option value="staff">staff</option><option value="superadmin">superadmin</option></select>
+            </div>
+            <div style="flex:0 0 auto"><button class="btn sm" id="btnAddRole" style="margin-top:0">+ Set role</button></div>
+          </div>
+          <div class="msg err" id="roleMsg" style="text-align:left"></div>
+          <table><thead><tr><th>Email</th><th>Role</th><th>Sejak</th><th></th></tr></thead><tbody id="roleRows"></tbody></table>
+          <div class="crumb" style="margin-top:10px">Log aktivitas admin dibangun lengkap di <b>Step 6</b>.</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    let MASTER_KEY = sessionStorage.getItem("admin_master_key") || "";
+    let ME = null;
+    function $(id){ return document.getElementById(id); }
+    function lmsg(t,ok){ var e=$("loginMsg"); e.textContent=t||""; e.className="msg"+(ok?" ok":" err"); }
+
+    async function adminFetch(path, opts){
+      opts = opts || {}; opts.headers = Object.assign({ "Content-Type":"application/json" }, opts.headers||{});
+      if(MASTER_KEY){ opts.headers["x-admin-key"] = MASTER_KEY; }
+      else { try{ var t = await Auth.token(); if(t) opts.headers["Authorization"] = "Bearer " + t; }catch(e){} }
+      return fetch(path, opts);
+    }
+    async function fetchMe(){
+      try{ var r = await adminFetch("/api/admin/me"); if(r.ok) return await r.json(); }catch(e){}
+      return null;
+    }
+    function showLogin(){ $("appView").classList.add("hidden"); $("loginView").classList.remove("hidden"); }
+    function showApp(me){
+      ME = me;
+      $("loginView").classList.add("hidden"); $("appView").classList.remove("hidden");
+      $("whoEmail").textContent = me.email || (me.via==="key"?"(master key)":"admin");
+      var rc=$("whoRole"); rc.textContent = me.role;
+      // Settings (kelola role) hanya untuk superadmin.
+      $("navSettings").style.display = (me.role==="superadmin") ? "" : "none";
+      if(me.role==="superadmin") loadRoles();
+    }
+
+    // ---- Login handlers ----
+    $("btnLogin").addEventListener("click", async function(){
+      var email=$("loginEmail").value.trim(), pass=$("loginPass").value;
+      if(!email||!pass){ lmsg("Isi email & password."); return; }
+      this.disabled=true; lmsg("Masuk…", true);
+      try{
+        await Auth.ready();
+        var res = await Auth.supabase.auth.signInWithPassword({ email:email, password:pass });
+        if(res.error){ lmsg(res.error.message); this.disabled=false; return; }
+        MASTER_KEY=""; sessionStorage.removeItem("admin_master_key");
+        var me = await fetchMe();
+        if(me) showApp(me); else lmsg("Login berhasil, tapi akun ini belum punya akses admin.");
+      }catch(e){ lmsg(e.message||"Gagal masuk."); }
+      this.disabled=false;
+    });
+    $("btnKey").addEventListener("click", async function(){
+      var k=$("loginKey").value.trim(); if(!k){ lmsg("Isi master key."); return; }
+      MASTER_KEY=k; this.disabled=true; lmsg("Cek key…", true);
+      var me = await fetchMe();
+      if(me){ sessionStorage.setItem("admin_master_key", k); showApp(me); }
+      else { MASTER_KEY=""; lmsg("Master key salah / tidak dikonfigurasi."); }
+      this.disabled=false;
+    });
+    $("btnLogout").addEventListener("click", async function(){
+      MASTER_KEY=""; sessionStorage.removeItem("admin_master_key");
+      try{ await Auth.signOut(); }catch(e){}
+      ME=null; showLogin();
+    });
+
+    // ---- Tabs ----
+    document.querySelectorAll(".navbtn[data-tab]").forEach(function(b){
+      b.addEventListener("click", function(){
+        var tab=b.dataset.tab;
+        document.querySelectorAll(".navbtn[data-tab]").forEach(function(x){ x.classList.toggle("on", x===b); });
+        ["overview","vouchers","transactions","settings"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
+      });
+    });
+
+    // ---- Roles (Settings) ----
+    async function loadRoles(){
+      var tb=$("roleRows"); tb.innerHTML="";
+      try{
+        var r = await adminFetch("/api/admin/roles"); var j = await r.json().catch(function(){return{};});
+        if(!r.ok){ $("roleMsg").textContent = j.error||"Gagal ambil role."; return; }
+        (j.roles||[]).forEach(function(row){
+          var tr=document.createElement("tr");
+          tr.innerHTML = "<td>"+(row.email||row.auth_user_id)+"</td>"+
+            "<td><span class='tagrole "+row.role+"'>"+row.role+"</span></td>"+
+            "<td style='color:var(--muted)'>"+new Date(row.created_at).toLocaleDateString("id-ID")+"</td>"+
+            "<td><button class='btn sm ghost' data-uid='"+row.auth_user_id+"'>Hapus</button></td>";
+          tr.querySelector("button").addEventListener("click", function(){ removeRole(row.auth_user_id, row.email); });
+          tb.appendChild(tr);
+        });
+      }catch(e){ $("roleMsg").textContent = "Error: "+e.message; }
+    }
+    $("btnAddRole").addEventListener("click", async function(){
+      var email=$("rEmail").value.trim(), role=$("rRole").value;
+      $("roleMsg").textContent="";
+      if(!email){ $("roleMsg").textContent="Isi email."; return; }
+      this.disabled=true;
+      try{
+        var r = await adminFetch("/api/admin/roles", { method:"POST", body: JSON.stringify({ email:email, role:role }) });
+        var j = await r.json().catch(function(){return{};});
+        if(!r.ok){ $("roleMsg").textContent = j.error||"Gagal set role."; }
+        else { $("rEmail").value=""; $("roleMsg").className="msg ok"; $("roleMsg").textContent="Role di-set ✓"; loadRoles(); }
+      }catch(e){ $("roleMsg").textContent = e.message; }
+      this.disabled=false; setTimeout(function(){ $("roleMsg").className="msg err"; },2000);
+    });
+    async function removeRole(uid, email){
+      if(!confirm("Hapus akses admin untuk "+(email||uid)+"?")) return;
+      try{
+        var r = await adminFetch("/api/admin/roles/"+encodeURIComponent(uid), { method:"DELETE" });
+        if(r.ok) loadRoles(); else { var j=await r.json().catch(function(){return{};}); $("roleMsg").textContent=j.error||"Gagal hapus."; }
+      }catch(e){ $("roleMsg").textContent=e.message; }
+    }
+
+    // ---- Boot: kalau sudah ada sesi/ key valid, langsung masuk ----
+    (async function(){
+      try{ await Auth.ready(); }catch(e){}
+      var me = await fetchMe();
+      if(me) showApp(me); else showLogin();
+    })();
+  </script>
+</body>
+</html>
