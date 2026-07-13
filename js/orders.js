@@ -21,7 +21,7 @@
     return {
       id: o.id, order_no: o.order_no || null, sales_order_id: o.sales_order_id || o.id || null,
       product_id: o.product_id || null, credits: +o.credits || 0, price: +o.price || 0,
-      link: o.link || null, status: o.status || "pending", ts: o.ts || now(), paid_ts: o.paid_ts || null
+      link: o.link || null, provider: o.provider || null, status: o.status || "pending", ts: o.ts || now(), paid_ts: o.paid_ts || null
     };
   }
   // Pindahkan data dari format lama (list/single pending order) ke store terpadu.
