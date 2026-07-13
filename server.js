@@ -808,6 +808,88 @@ function adminAuth(req, res) {
   if (!key || key !== ADMIN_KEY) { res.status(401).json({ error: "Unauthorized" }); return false; }
   return true;
 }
+// ---------- RBAC admin per-user (superadmin/staff/viewer) ----------
+// Master ADMIN_KEY (x-admin-key / ?key=) = superadmin (bootstrap & admin.html lama).
+// Selain itu: user login 20FIT (Authorization: Bearer <jwt>) yang punya baris di
+// my20fit_admin_roles. Role di-cek di SERVER (bukan cuma UI).
+const ADMIN_RANK = { viewer: 1, staff: 2, superadmin: 3 };
+async function getAdminContext(req) {
+  const masterKey = String(req.headers["x-admin-key"] || "").trim() || String(req.query.key || "").trim();
+  if (ADMIN_KEY && masterKey && masterKey === ADMIN_KEY) return { via: "key", role: "superadmin", email: null, user_id: null };
+  if (!admin) return null;
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return null;
+    const { data } = await admin.from("my20fit_admin_roles").select("role,email").eq("auth_user_id", user.id).limit(1);
+    if (data && data[0]) return { via: "user", role: data[0].role, email: data[0].email || user.email, user_id: user.id };
+  } catch (e) {}
+  return null;
+}
+function adminHasRole(ctx, minRole) { return !!(ctx && ADMIN_RANK[ctx.role] >= ADMIN_RANK[minRole || "viewer"]); }
+async function requireAdmin(req, res, minRole) {
+  const ctx = await getAdminContext(req);
+  if (!ctx) { res.status(401).json({ error: "Unauthorized" }); return null; }
+  if (!adminHasRole(ctx, minRole)) { res.status(403).json({ error: "Akses ditolak: butuh role " + (minRole || "viewer") + " (role kamu: " + ctx.role + ")" }); return null; }
+  return ctx;
+}
+async function adminAudit(ctx, action, target, detail) {
+  if (!admin) return;
+  try {
+    await admin.from("my20fit_admin_audit_log").insert({
+      actor_user_id: (ctx && ctx.user_id) || null,
+      actor_email: (ctx && ctx.email) || (ctx && ctx.via === "key" ? "master-key" : null),
+      action: action, target: target || null, detail: detail || null,
+    });
+  } catch (e) {}
+}
+// Siapa saya (role) — frontend admin memakai ini untuk gating UI.
+app.get("/api/admin/me", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer");
+  if (!ctx) return;
+  return res.json({ ok: true, role: ctx.role, email: ctx.email, via: ctx.via });
+});
+// List role admin (superadmin only).
+app.get("/api/admin/roles", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  const { data, error } = await admin.from("my20fit_admin_roles")
+    .select("auth_user_id,email,role,created_at").order("created_at", { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ ok: true, roles: data || [] });
+});
+// Assign/ubah role by email (superadmin only).
+app.post("/api/admin/roles", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  const b = req.body || {};
+  const email = String(b.email || "").trim().toLowerCase();
+  const role = String(b.role || "").trim();
+  if (!email || ["superadmin", "staff", "viewer"].indexOf(role) < 0) return res.status(400).json({ error: "email & role (superadmin/staff/viewer) wajib." });
+  let uid = null;
+  try {
+    for (let page = 1; page <= 30; page++) {
+      const { data } = await admin.auth.admin.listUsers({ page: page, perPage: 1000 });
+      const u = (data && data.users) || [];
+      const hit = u.find(x => String(x.email || "").toLowerCase() === email);
+      if (hit) { uid = hit.id; break; }
+      if (u.length < 1000) break;
+    }
+  } catch (e) {}
+  if (!uid) return res.status(404).json({ error: "Email itu belum punya akun 20FIT. User harus daftar/login dulu." });
+  const { error } = await admin.from("my20fit_admin_roles")
+    .upsert({ auth_user_id: uid, email: email, role: role, created_by: ctx.user_id || null }, { onConflict: "auth_user_id" });
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "role.set", email, { role: role });
+  return res.json({ ok: true });
+});
+// Hapus role (superadmin only).
+app.delete("/api/admin/roles/:userId", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  const uid = String(req.params.userId || "");
+  const { error } = await admin.from("my20fit_admin_roles").delete().eq("auth_user_id", uid);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "role.remove", uid, null);
+  return res.json({ ok: true });
+});
+
 app.get("/api/admin/stats", async (req, res) => {
   if (!adminAuth(req, res)) return;
   if (!admin) return res.status(500).json({ error: "SUPABASE_SERVICE_KEY belum kebaca di process (admin=null). Set variabel-nya di Railway lalu REDEPLOY service supaya kebaca." });
