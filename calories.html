@@ -725,7 +725,8 @@
     function dismissPayWait(){ _payDismissed=true; hidePayWait(); } // ditutup manual; polling tetap jalan diam2 utk kreditkan kalau lunas
     function stopPolling(){ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
     function creditPaid(o){
-      try{ Auth.addScanCredits(o.credits||0); }catch(e){}
+      // SingaPay: kredit sudah ditambah SERVER lewat webhook -> jangan dobel di client.
+      if(o.provider!=="singapay"){ try{ Auth.addScanCredits(o.credits||0); }catch(e){} }
       refreshQuota();
       try{ Meta.track("Success Payment", {content_name:"scan package", content_category:"calorie_scan",
         currency:"IDR", value:o.price||0, contents:[{id:o.product_id,quantity:1}], num_items:1}); }catch(e){}
@@ -796,6 +797,7 @@
         const r=await fetch("/api/scan/buy",{method:"POST",
           headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
           body:JSON.stringify({ items:[{product_id:p.product_id,quantity:1}],
+            credits:p.credits, price:p.price,
             fitco_token:ftk, user_id:localStorage.getItem("fitco_uid")||null })});
         const j=await r.json().catch(()=>({}));
         if(!r.ok||!j.link) throw new Error(j.error||L({en:"Couldn't start payment.",id:"Gagal memulai pembayaran."}));
@@ -808,7 +810,8 @@
         const oid=j.sales_order_id||j.order_no;
         if(oid){
           try{ Orders.add({ id:oid, order_no:j.order_no||null, sales_order_id:j.sales_order_id||null,
-            credits:p.credits, price:p.price, product_id:p.product_id, link:j.link||null, ts:Date.now() }); }catch(e){}
+            credits:p.credits, price:p.price, product_id:p.product_id, link:j.link||null,
+            provider:j.provider||null, ts:Date.now() }); }catch(e){}
           _payDismissed=false;
           showPayWait();
           startPolling();
