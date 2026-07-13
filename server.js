@@ -149,6 +149,8 @@ app.get("/api/config", (req, res) => {
     googleClientId: GOOGLE_CLIENT_ID,
     // Meta Pixel ID (PUBLIK). Access token CAPI TIDAK pernah dikirim ke frontend.
     metaPixelId: META_PIXEL_ID,
+    // Pembelian paket scan lewat SingaPay (server yang isi kredit via webhook).
+    singapayEnabled: SINGAPAY_ENABLED,
   });
 });
 
@@ -357,6 +359,15 @@ const SINGAPAY_CLIENT_ID = process.env.SINGAPAY_CLIENT_ID || "";
 const SINGAPAY_CLIENT_SECRET = process.env.SINGAPAY_CLIENT_SECRET || "";
 const SINGAPAY_API_KEY = process.env.SINGAPAY_API_KEY || "";
 const SINGAPAY_HMAC_KEY = process.env.SINGAPAY_HMAC_KEY || "";
+// account ULID milik merchant (dari dashboard SingaPay) — WAJIB untuk create payment link.
+const SINGAPAY_ACCOUNT_ID = process.env.SINGAPAY_ACCOUNT_ID || "";
+// "1" = alihkan pembelian paket scan ke SingaPay (default: masih Xendit sampai teruji).
+const SINGAPAY_ENABLED = process.env.SINGAPAY_ENABLED === "1";
+// Base publik untuk redirect balik setelah bayar.
+const SINGAPAY_REDIRECT_BASE = process.env.SINGAPAY_REDIRECT_BASE || "https://my.20fit.id";
+// Endpoint token (bisa dioverride kalau berubah). v1.0 = Basic auth.
+const SINGAPAY_TOKEN_PATH = process.env.SINGAPAY_TOKEN_PATH || "/api/v1.0/access-token/b2b";
+const SINGAPAY_CREATE_PATH = process.env.SINGAPAY_CREATE_PATH || "/api/v1.0/payment-link-manage";
 
 // ---------- Login Google via Google Identity Services (GIS) ----------
 // Frontend memakai tombol Google resmi (SDK GIS) untuk mendapatkan ID token,
@@ -1013,6 +1024,33 @@ app.post("/api/scan/buy", async (req, res) => {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     const b = req.body || {};
+
+    // ===== Jalur SingaPay (kalau diaktifkan) =====
+    if (SINGAPAY_ENABLED) {
+      if (!SINGAPAY_ACCOUNT_ID) return res.status(503).json({ error: "SingaPay belum siap: SINGAPAY_ACCOUNT_ID belum di-set di server." });
+      const credits = parseInt(b.credits, 10) || 0;
+      const amount = parseInt(b.price, 10) || 0;
+      if (credits <= 0 || amount <= 0) return res.status(400).json({ error: "Paket tidak valid." });
+      const reffNo = newReffNo();
+      const title = credits + " calorie scans";
+      // Catat order (pending) DULU supaya webhook bisa mencocokkan.
+      try {
+        await admin.from("my20fit_scan_orders").insert({
+          reff_no: reffNo, auth_user_id: user.id, credits: credits, amount: amount,
+          provider: "singapay", status: "pending", created_at: new Date().toISOString(),
+        });
+      } catch (e) { console.error("scan_orders insert:", e.message); return res.status(500).json({ error: "Gagal menyiapkan order." }); }
+      try {
+        const r = await singapayCreateLink({ reffNo: reffNo, title: title, amount: amount,
+          items: [{ name: title, quantity: 1, unit_price: amount }] });
+        if (r.payment_link_id) { try { await admin.from("my20fit_scan_orders").update({ payment_link_id: String(r.payment_link_id) }).eq("reff_no", reffNo); } catch (e) {} }
+        return res.json({ ok: true, link: r.url, sales_order_id: reffNo, order_no: reffNo, provider: "singapay" });
+      } catch (e) {
+        try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
+        return res.status(502).json({ error: "Gagal membuat pembayaran SingaPay. Coba lagi." });
+      }
+    }
+    // ===== Jalur lama (20FIT/Xendit) =====
     const items = (Array.isArray(b.items) ? b.items : [])
       .filter(it => it && it.product_id)
       .map(it => ({ product_id: +it.product_id, quantity: +it.quantity || 1 }));
@@ -1067,6 +1105,16 @@ app.post("/api/scan/order-status", async (req, res) => {
     const b = req.body || {};
     const id = String(b.sales_order_id || "").trim();
     if (!id) return res.status(400).json({ error: "sales_order_id kosong." });
+    // Order SingaPay: statusnya ada di tabel kita (dikredit server via webhook).
+    if (admin) {
+      try {
+        const { data: srows } = await admin.from("my20fit_scan_orders").select("status").eq("reff_no", id).limit(1);
+        if (srows && srows[0]) {
+          const st = srows[0].status;
+          return res.json({ ok: true, paid: st === "paid", expired: st === "failed" || st === "expired", pending: st === "pending", provider: "singapay" });
+        }
+      } catch (e) {}
+    }
     const tokens = [];
     if (b.fitco_token) tokens.push({ tk: String(b.fitco_token), via: "user" });
     if (FITCO_PARTNER_TOKEN) tokens.push({ tk: FITCO_PARTNER_TOKEN, via: "partner" });
@@ -1127,6 +1175,81 @@ app.post("/api/scan/order-cancel", async (req, res) => {
   }
 });
 
+// ---------- SingaPay: OAuth token + Create Payment Link + kredit ----------
+// Token B2B: POST {BASE}/api/v1.0/access-token/b2b, Basic auth base64(client_id:client_secret).
+// Di-cache sampai mendekati exp (dibaca dari JWT).
+let _spToken = { token: "", exp: 0 };
+async function singapayToken() {
+  const now = Math.floor(Date.now() / 1000);
+  if (_spToken.token && _spToken.exp - 60 > now) return _spToken.token;
+  if (!SINGAPAY_CLIENT_ID || !SINGAPAY_CLIENT_SECRET) throw new Error("singapay_creds_missing");
+  const basic = Buffer.from(SINGAPAY_CLIENT_ID + ":" + SINGAPAY_CLIENT_SECRET).toString("base64");
+  const r = await fetch(SINGAPAY_BASE_URL + SINGAPAY_TOKEN_PATH, {
+    method: "POST",
+    headers: { "Authorization": "Basic " + basic, "Content-Type": "application/json", "Accept": "application/json", "X-PARTNER-ID": SINGAPAY_API_KEY },
+    body: JSON.stringify({ grant_type: "client_credentials" }),
+  });
+  const j = await r.json().catch(() => ({}));
+  const tok = findScalar(j, ["access_token", "accessToken", "token"]);
+  if (!r.ok || !tok) { console.error("singapay-token", r.status, JSON.stringify(j).slice(0, 300)); throw new Error("singapay_token_" + r.status); }
+  let exp = now + 3000;
+  try { const p = JSON.parse(Buffer.from(String(tok).split(".")[1], "base64").toString("utf8")); if (p && p.exp) exp = p.exp; } catch (e) {}
+  _spToken = { token: tok, exp: exp };
+  return tok;
+}
+// Buat payment link. Balikan { url, payment_link_id }.
+async function singapayCreateLink(o) {
+  if (!SINGAPAY_ACCOUNT_ID) throw new Error("singapay_account_id_missing");
+  const token = await singapayToken();
+  const body = {
+    reff_no: o.reffNo,
+    title: o.title || "Calorie scan package",
+    max_usage: 1,
+    total_amount: o.amount,
+    items: o.items,
+    redirect_url: SINGAPAY_REDIRECT_BASE + "/calories?status=paid&reff=" + encodeURIComponent(o.reffNo),
+  };
+  const r = await fetch(SINGAPAY_BASE_URL + SINGAPAY_CREATE_PATH + "/" + encodeURIComponent(SINGAPAY_ACCOUNT_ID), {
+    method: "POST",
+    headers: { "Authorization": "Bearer " + token, "X-PARTNER-ID": SINGAPAY_API_KEY, "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { console.error("singapay-create", r.status, JSON.stringify(j).slice(0, 400)); throw new Error((j && j.error && j.error.message) || ("singapay_create_" + r.status)); }
+  const url = findScalar(j, ["payment_url"]);
+  if (!url) { console.error("singapay-create no url", JSON.stringify(j).slice(0, 400)); throw new Error("singapay_no_payment_url"); }
+  return { url: url, payment_link_id: findScalar(j, ["id", "payment_link_id"]) };
+}
+// Reff_no unik & aman (<=40, tanpa spasi/slash).
+function newReffNo() { return "SCAN" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
+// Kreditkan order scan yang lunas (idempotent) — dipanggil dari webhook.
+async function creditScanOrder(reff) {
+  if (!admin || !reff) return false;
+  const { data: rows } = await admin.from("my20fit_scan_orders").select("reff_no,auth_user_id,credits,status").eq("reff_no", reff).limit(1);
+  const o = rows && rows[0];
+  if (!o || o.status === "paid") return false; // sudah dikredit / tidak ada
+  const { data: prof } = await admin.from("my20fit_profile").select("scan_credits").eq("auth_user_id", o.auth_user_id).limit(1);
+  const cur = (prof && prof[0] && prof[0].scan_credits) || 0;
+  await admin.from("my20fit_profile").update({ scan_credits: cur + (o.credits || 0), updated_at: new Date().toISOString() }).eq("auth_user_id", o.auth_user_id);
+  await admin.from("my20fit_scan_orders").update({ status: "paid", paid_at: new Date().toISOString() }).eq("reff_no", reff);
+  try { console.log("singapay credited", reff, "+" + o.credits + " scans"); } catch (e) {}
+  return true;
+}
+function webhookReff(obj) { return findScalar(obj, ["reff_no", "reffNo", "reference", "reference_number", "ref_no"]); }
+function webhookLooksPaid(obj) {
+  const PAID = /\b(paid|success(ful)?|settled?|completed?|berhasil|lunas)\b/i;
+  let ok = false;
+  (function walk(v) {
+    if (ok || !v || typeof v !== "object") return;
+    for (const k of Object.keys(v)) {
+      const val = v[k];
+      if (/status|state|payment/i.test(k) && val != null && typeof val !== "object" && PAID.test(String(val))) { ok = true; return; }
+      if (val && typeof val === "object") walk(val);
+    }
+  })(obj);
+  return ok;
+}
+
 // ---------- SingaPay: penerima webhook/notifikasi (verifikasi HMAC-SHA512) ----------
 // Verifikasi signature sesuai dok SingaPay:
 //   1) parse body JSON, urutkan key rekursif & alfabet, encode compact (unescaped unicode/slash)
@@ -1169,12 +1292,18 @@ function singapayNotify(tag) {
   return function (req, res) {
     let v = { valid: false, reason: "n/a" };
     try { v = singapayVerify(req); } catch (e) { v = { valid: false, reason: "err" }; }
+    const reff = webhookReff(req.body);
+    const paid = webhookLooksPaid(req.body);
     try {
       console.log("singapay-notify[" + tag + "] sig=" + v.valid + "/" + v.reason + " tskew=" + v.tskew +
-        " ep=" + (req.originalUrl || "") + " body=" + JSON.stringify(req.body || {}));
+        " reff=" + (reff || "-") + " paid=" + paid + " body=" + JSON.stringify(req.body || {}).slice(0, 600));
     } catch (e) {}
     if (SINGAPAY_WEBHOOK_ENFORCE && !v.valid) {
       return res.status(401).json({ status: "error", message: "Invalid signature" });
+    }
+    // Kreditkan HANYA kalau signature valid (anti-palsu) ATAU enforce dimatikan saat bring-up.
+    if (reff && paid && (v.valid || !SINGAPAY_WEBHOOK_ENFORCE)) {
+      creditScanOrder(reff).catch(function (e) { try { console.error("creditScanOrder", e.message); } catch (_) {} });
     }
     return res.status(200).json({ status: "success" });
   };
