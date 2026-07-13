@@ -889,6 +889,42 @@ app.delete("/api/admin/roles/:userId", async (req, res) => {
   await adminAudit(ctx, "role.remove", uid, null);
   return res.json({ ok: true });
 });
+// Log aktivitas admin (superadmin only) — filter by action + limit.
+app.get("/api/admin/audit", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    let q = admin.from("my20fit_admin_audit_log")
+      .select("id,actor_email,action,target,detail,created_at")
+      .order("created_at", { ascending: false });
+    const action = String(req.query.action || "");
+    if (action) q = q.ilike("action", action + "%");
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    q = q.limit(limit);
+    const { data, error } = await q;
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true, logs: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Info konfigurasi runtime (superadmin only) — status env, TANPA membocorkan nilai rahasia.
+app.get("/api/admin/config", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  const isLive = /payment-b2b\.singapay\.id/i.test(SINGAPAY_BASE_URL || "") && !/sandbox/i.test(SINGAPAY_BASE_URL || "");
+  return res.json({
+    ok: true,
+    config: {
+      supabase_service_key: !!admin,
+      singapay_client_id: !!SINGAPAY_CLIENT_ID,
+      singapay_client_secret: !!SINGAPAY_CLIENT_SECRET,
+      singapay_api_key: !!SINGAPAY_API_KEY,
+      singapay_base_url: SINGAPAY_BASE_URL || "(default sandbox)",
+      singapay_mode: isLive ? "production" : "sandbox",
+      singapay_webhook_enforce: SINGAPAY_WEBHOOK_ENFORCE,
+      singapay_account_id: SINGAPAY_ACCOUNT_ID ? "(set)" : "(auto-discover)",
+      meta_capi: !!process.env.META_CAPI_ACCESS_TOKEN,
+      admin_master_key: !!process.env.ADMIN_KEY,
+    }
+  });
+});
 
 // Rentang tanggal dari query (today/7d/30d/custom).
 function adminRange(q) {

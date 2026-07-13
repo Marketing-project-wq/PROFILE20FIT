@@ -161,7 +161,20 @@
           </div>
           <div class="msg err" id="roleMsg" style="text-align:left"></div>
           <table><thead><tr><th>Email</th><th>Role</th><th>Sejak</th><th></th></tr></thead><tbody id="roleRows"></tbody></table>
-          <div class="crumb" style="margin-top:10px">Log aktivitas admin dibangun lengkap di <b>Step 6</b>.</div>
+        </div>
+        <div class="card">
+          <h3>Status Konfigurasi</h3>
+          <div class="crumb" style="margin-bottom:10px">Status environment di server (nilai rahasia tidak ditampilkan).</div>
+          <div id="cfgBody"><div class="placeholder">Memuat…</div></div>
+        </div>
+        <div class="card">
+          <h3>Log Aktivitas Admin</h3>
+          <div class="rangebar" style="margin-bottom:10px">
+            <select id="alAction" style="max-width:200px"><option value="">Semua aksi</option><option value="role">Role</option><option value="voucher">Voucher</option></select>
+            <span class="grow"></span>
+            <button class="btn sm ghost" id="alRefresh" style="margin-top:0">↻ Refresh</button>
+          </div>
+          <div id="alBody"><div class="placeholder">Memuat…</div></div>
         </div>
       </div>
     </main>
@@ -193,7 +206,7 @@
       var rc=$("whoRole"); rc.textContent = me.role;
       // Settings (kelola role) hanya untuk superadmin.
       $("navSettings").style.display = (me.role==="superadmin") ? "" : "none";
-      if(me.role==="superadmin") loadRoles();
+      if(me.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
       var vn=$("vNew"); if(vn) vn.style.display = canEdit() ? "" : "none";
       renderOverview();
     }
@@ -236,6 +249,7 @@
         if(tab==="overview") renderOverview();
         if(tab==="vouchers") loadVouchers();
         if(tab==="transactions") loadTransactions();
+        if(tab==="settings" && ME && ME.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
       });
     });
 
@@ -276,6 +290,54 @@
         if(r.ok) loadRoles(); else { var j=await r.json().catch(function(){return{};}); $("roleMsg").textContent=j.error||"Gagal hapus."; }
       }catch(e){ $("roleMsg").textContent=e.message; }
     }
+
+    // ---- Status Konfigurasi (Step 6) ----
+    function cfgBadge(ok){ var c=ok?"var(--green,#1a7f37)":"var(--red)"; return "<span class='tagrole' style='background:"+c+"1a;color:"+c+"'>"+(ok?"✓ set":"✗ kosong")+"</span>"; }
+    async function loadConfig(){
+      var body=$("cfgBody"); if(!body) return; body.innerHTML="<div class='placeholder'>Memuat…</div>";
+      var r=await adminFetch("/api/admin/config"); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ body.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
+      var c=j.config||{};
+      var modeOk = c.singapay_mode==="production";
+      var h="<table>";
+      h+="<tr><td>Supabase service key</td><td style='text-align:right'>"+cfgBadge(c.supabase_service_key)+"</td></tr>";
+      h+="<tr><td>SingaPay Client ID</td><td style='text-align:right'>"+cfgBadge(c.singapay_client_id)+"</td></tr>";
+      h+="<tr><td>SingaPay Client Secret</td><td style='text-align:right'>"+cfgBadge(c.singapay_client_secret)+"</td></tr>";
+      h+="<tr><td>SingaPay API Key</td><td style='text-align:right'>"+cfgBadge(c.singapay_api_key)+"</td></tr>";
+      h+="<tr><td>Mode SingaPay</td><td style='text-align:right'><span class='tagrole' style='background:"+(modeOk?"var(--green,#1a7f37)":"#8A7C68")+"1a;color:"+(modeOk?"var(--green,#1a7f37)":"#8A7C68")+"'>"+esc(c.singapay_mode)+"</span></td></tr>";
+      h+="<tr><td>Base URL</td><td style='text-align:right;font-family:monospace;font-size:12px'>"+esc(c.singapay_base_url)+"</td></tr>";
+      h+="<tr><td>Webhook enforce (tolak palsu)</td><td style='text-align:right'>"+cfgBadge(c.singapay_webhook_enforce)+"</td></tr>";
+      h+="<tr><td>Account ID</td><td style='text-align:right'>"+esc(c.singapay_account_id)+"</td></tr>";
+      h+="<tr><td>Meta CAPI (event pembelian)</td><td style='text-align:right'>"+cfgBadge(c.meta_capi)+"</td></tr>";
+      h+="<tr><td>Master key admin</td><td style='text-align:right'>"+cfgBadge(c.admin_master_key)+"</td></tr>";
+      h+="</table>";
+      if(!c.supabase_service_key) h+="<div class='alert' style='margin-top:10px'>⚠️ SUPABASE_SERVICE_KEY belum di-set — dashboard tidak bisa baca data.</div>";
+      if(!modeOk) h+="<div class='alert' style='margin-top:10px'>⚠️ SingaPay masih mode sandbox. Set SINGAPAY_BASE_URL=https://payment-b2b.singapay.id untuk produksi.</div>";
+      body.innerHTML=h;
+    }
+
+    // ---- Log Aktivitas Admin (Step 6) ----
+    async function loadAuditLog(){
+      var body=$("alBody"); if(!body) return; body.innerHTML="<div class='placeholder'>Memuat…</div>";
+      var r=await adminFetch("/api/admin/audit?limit=100&action="+encodeURIComponent($("alAction").value)); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ body.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
+      var logs=j.logs||[];
+      if(!logs.length){ body.innerHTML="<div class='placeholder'>Belum ada aktivitas.</div>"; return; }
+      var h="<table><thead><tr><th>Waktu</th><th>Admin</th><th>Aksi</th><th>Target</th><th>Detail</th></tr></thead><tbody>";
+      logs.forEach(function(l){
+        var det=l.detail?esc(JSON.stringify(l.detail)):"—";
+        h+="<tr><td style='color:var(--muted);white-space:nowrap'>"+new Date(l.created_at).toLocaleString("id-ID",{dateStyle:"short",timeStyle:"short"})+"</td>"+
+          "<td>"+esc(l.actor_email||"—")+"</td>"+
+          "<td><span class='tagrole viewer'>"+esc(l.action||"—")+"</span></td>"+
+          "<td>"+esc(l.target||"—")+"</td>"+
+          "<td style='font-family:monospace;font-size:11px;color:var(--muted);max-width:280px;overflow:hidden;text-overflow:ellipsis'>"+det+"</td></tr>";
+      });
+      body.innerHTML=h+"</tbody></table>";
+    }
+    (function(){
+      var aa=$("alAction"); if(aa) aa.addEventListener("change", loadAuditLog);
+      var ar=$("alRefresh"); if(ar) ar.addEventListener("click", loadAuditLog);
+    })();
 
     // ---- Overview / Metrics ----
     var CUR_RANGE = "7d";
