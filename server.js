@@ -370,12 +370,15 @@ const SINGAPAY_API_KEY = envAny("SINGAPAY_API_KEY", "SINGAPAY_APIKEY", "API Key"
 const SINGAPAY_HMAC_KEY = envAny("SINGAPAY_HMAC_KEY", "SINGAPAY_HMAC", "HMAC Validation Key", "HMAC_VALIDATION_KEY");
 // account ULID milik merchant (dari dashboard SingaPay) — WAJIB untuk create payment link.
 const SINGAPAY_ACCOUNT_ID = process.env.SINGAPAY_ACCOUNT_ID || "";
-// "1" = alihkan pembelian paket scan ke SingaPay (default: masih Xendit sampai teruji).
+// "1" = tandai SingaPay aktif di /api/config (info untuk frontend). Pembayaran paket scan
+// selalu lewat SingaPay; Xendit sudah dihapus.
 const SINGAPAY_ENABLED = process.env.SINGAPAY_ENABLED === "1";
 // Base publik untuk redirect balik setelah bayar.
 const SINGAPAY_REDIRECT_BASE = process.env.SINGAPAY_REDIRECT_BASE || "https://my.20fit.id";
-// Endpoint token (bisa dioverride kalau berubah). v1.0 = Basic auth.
-const SINGAPAY_TOKEN_PATH = process.env.SINGAPAY_TOKEN_PATH || "/api/v1.0/access-token/b2b";
+// Endpoint token: v1.1 pakai X-Signature HMAC-SHA512 (dok resmi SingaPay); token dari
+// endpoint ini yang dipakai untuk operasi payment-link. (v1.0 = Basic auth, produk biller
+// terpisah — jangan dipakai untuk payment-link.) Bisa dioverride via env kalau berubah.
+const SINGAPAY_TOKEN_PATH = process.env.SINGAPAY_TOKEN_PATH || "/api/v1.1/access-token/b2b";
 const SINGAPAY_CREATE_PATH = process.env.SINGAPAY_CREATE_PATH || "/api/v1.0/payment-link-manage";
 const SINGAPAY_ACCOUNTS_PATH = process.env.SINGAPAY_ACCOUNTS_PATH || "/api/v1.0/accounts";
 
@@ -960,24 +963,11 @@ app.get("/api/arena/history", async (req, res) => {
   }
 });
 
-// ---------- Beli paket scan kalori via 20FIT shop order (Xendit) ----------
-// POST /api/v1/third-party/shop/order (Bearer). Balikannya berisi link Xendit (field "link").
-// Auth token: FITCO_PARTNER_TOKEN (env, kalau endpoint pakai token partner) ATAU token
-// login user (dikirim client). Set env kalau dev bilang butuh token partner.
+// ---------- Beli paket scan kalori (pembayaran via SingaPay Payment Link) ----------
+// Pembayaran paket scan sepenuhnya lewat SingaPay (lihat singapayCreateLink di bawah).
+// FITCO_PARTNER_TOKEN masih dipakai HANYA untuk baca/cancel status order di API 20FIT
+// (bukan gateway pembayaran). Jalur lama Xendit sudah dihapus.
 const FITCO_PARTNER_TOKEN = process.env.FITCO_PARTNER_TOKEN || "";
-function findXenditLink(obj) {
-  let out = null;
-  (function walk(v) {
-    if (out || !v || typeof v !== "object") return;
-    for (const k of Object.keys(v)) {
-      const val = v[k];
-      if (typeof val === "string" && /^https?:\/\//i.test(val) &&
-          (k === "link" || k === "payment_url" || k === "invoice_url" || k === "url" || val.indexOf("xendit") >= 0)) { out = val; return; }
-      if (val && typeof val === "object") walk(val);
-    }
-  })(obj);
-  return out;
-}
 // Ambil nilai skalar pertama untuk salah satu nama field (mis. sales_order_id / order_no)
 // dari respons order 20FIT yang bentuknya bisa bertingkat.
 function findScalar(obj, keys) {
@@ -1150,26 +1140,58 @@ app.post("/api/scan/order-cancel", async (req, res) => {
 });
 
 // ---------- SingaPay: OAuth token + Create Payment Link + kredit ----------
-// Token B2B: POST {BASE}/api/v1.0/access-token/b2b, Basic auth base64(client_id:client_secret).
-// Di-cache sampai mendekati exp (dibaca dari JWT).
+// Token B2B (v1.1): POST {BASE}/api/v1.1/access-token/b2b dengan header signature:
+//   X-Signature = HMAC-SHA512( "{client_id}_{client_secret}_{YYYYMMDD}", key=client_secret ) hex lowercase
+//   X-CLIENT-ID = client_id ; X-PARTNER-ID = api_key ; body {"grant_type":"client_credentials"}
+// (Dok resmi: docs.singapay.id/api-reference/security/access-token-v11. Token dari sini yang
+//  dipakai untuk Create Payment Link.) Di-cache sampai mendekati exp (dibaca dari JWT).
+// Tanggal signature pakai zona Asia/Jakarta (WIB) — server SingaPay di Indonesia.
+function singapayYmd() {
+  try {
+    const p = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+    const o = {}; for (const x of p) o[x.type] = x.value;
+    return "" + o.year + o.month + o.day;
+  } catch (e) {
+    return new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  }
+}
+// UTC YYYYMMDD (fallback kalau signature WIB ditolak di batas tengah malam).
+function singapayYmdUtc() { return new Date().toISOString().slice(0, 10).replace(/-/g, ""); }
+async function singapayTokenTry(ymd) {
+  const payload = SINGAPAY_CLIENT_ID + "_" + SINGAPAY_CLIENT_SECRET + "_" + ymd;
+  const signature = crypto.createHmac("sha512", SINGAPAY_CLIENT_SECRET).update(payload, "utf8").digest("hex");
+  const r = await fetch(SINGAPAY_BASE_URL + SINGAPAY_TOKEN_PATH, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json", "Accept": "application/json",
+      "X-PARTNER-ID": SINGAPAY_API_KEY, "X-CLIENT-ID": SINGAPAY_CLIENT_ID, "X-Signature": signature,
+    },
+    body: JSON.stringify({ grant_type: "client_credentials" }),
+  });
+  const j = await r.json().catch(() => ({}));
+  return { status: r.status, ok: r.ok, tok: findScalar(j, ["access_token", "accessToken", "token"]), j: j };
+}
 let _spToken = { token: "", exp: 0 };
 async function singapayToken() {
   const now = Math.floor(Date.now() / 1000);
   if (_spToken.token && _spToken.exp - 60 > now) return _spToken.token;
-  if (!SINGAPAY_CLIENT_ID || !SINGAPAY_CLIENT_SECRET) throw new Error("singapay_creds_missing");
-  const basic = Buffer.from(SINGAPAY_CLIENT_ID + ":" + SINGAPAY_CLIENT_SECRET).toString("base64");
-  const r = await fetch(SINGAPAY_BASE_URL + SINGAPAY_TOKEN_PATH, {
-    method: "POST",
-    headers: { "Authorization": "Basic " + basic, "Content-Type": "application/json", "Accept": "application/json", "X-PARTNER-ID": SINGAPAY_API_KEY },
-    body: JSON.stringify({ grant_type: "client_credentials" }),
-  });
-  const j = await r.json().catch(() => ({}));
-  const tok = findScalar(j, ["access_token", "accessToken", "token"]);
-  if (!r.ok || !tok) { console.error("singapay-token", r.status, JSON.stringify(j).slice(0, 300)); throw new Error("singapay_token_" + r.status); }
-  let exp = now + 3000;
-  try { const p = JSON.parse(Buffer.from(String(tok).split(".")[1], "base64").toString("utf8")); if (p && p.exp) exp = p.exp; } catch (e) {}
-  _spToken = { token: tok, exp: exp };
-  return tok;
+  if (!SINGAPAY_CLIENT_ID || !SINGAPAY_CLIENT_SECRET || !SINGAPAY_API_KEY) throw new Error("singapay_creds_missing");
+  // Coba tanggal WIB dulu; kalau ditolak (mis. skew tengah malam) & bukan blokir IP, coba UTC.
+  const dates = Array.from(new Set([singapayYmd(), singapayYmdUtc()]));
+  let last = null;
+  for (const d of dates) {
+    const res = await singapayTokenTry(d);
+    last = res;
+    if (res.ok && res.tok) {
+      let exp = now + 3000;
+      try { const p = JSON.parse(Buffer.from(String(res.tok).split(".")[1], "base64").toString("utf8")); if (p && p.exp) exp = p.exp; } catch (e) {}
+      _spToken = { token: res.tok, exp: exp };
+      return res.tok;
+    }
+    if (res.status === 403) break; // blokir IP: ganti tanggal tidak akan menolong
+  }
+  console.error("singapay-token", last && last.status, JSON.stringify(last && last.j).slice(0, 300));
+  throw new Error("singapay_token_" + (last && last.status));
 }
 // Account ULID: pakai env kalau di-set; kalau tidak, auto-deteksi dari List Accounts.
 let _spAccount = "";
@@ -1204,6 +1226,8 @@ async function singapayCreateLink(o) {
     max_usage: 1,
     total_amount: o.amount,
     items: o.items,
+    // expired_at = Unix ms (13 digit) per dok payment-link; link kadaluarsa 24 jam.
+    expired_at: String(Date.now() + 24 * 60 * 60 * 1000),
     redirect_url: SINGAPAY_REDIRECT_BASE + "/calories?status=paid&reff=" + encodeURIComponent(o.reffNo),
   };
   const r = await fetch(SINGAPAY_BASE_URL + SINGAPAY_CREATE_PATH + "/" + encodeURIComponent(accountId), {
@@ -1219,18 +1243,15 @@ async function singapayCreateLink(o) {
 }
 // Reff_no unik & aman (<=40, tanpa spasi/slash).
 function newReffNo() { return "SCAN" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
-// Kreditkan order scan yang lunas (idempotent) — dipanggil dari webhook.
+// Kreditkan order scan yang lunas — ATOMIC & IDEMPOTEN lewat RPC my20fit_credit_scan:
+// claim order (pending->paid) + tambah scan_credits dalam satu transaksi berkunci baris,
+// jadi aman terhadap retry webhook SingaPay (3x) & order paralel utk user yang sama.
 async function creditScanOrder(reff) {
   if (!admin || !reff) return false;
-  const { data: rows } = await admin.from("my20fit_scan_orders").select("reff_no,auth_user_id,credits,status").eq("reff_no", reff).limit(1);
-  const o = rows && rows[0];
-  if (!o || o.status === "paid") return false; // sudah dikredit / tidak ada
-  const { data: prof } = await admin.from("my20fit_profile").select("scan_credits").eq("auth_user_id", o.auth_user_id).limit(1);
-  const cur = (prof && prof[0] && prof[0].scan_credits) || 0;
-  await admin.from("my20fit_profile").update({ scan_credits: cur + (o.credits || 0), updated_at: new Date().toISOString() }).eq("auth_user_id", o.auth_user_id);
-  await admin.from("my20fit_scan_orders").update({ status: "paid", paid_at: new Date().toISOString() }).eq("reff_no", reff);
-  try { console.log("singapay credited", reff, "+" + o.credits + " scans"); } catch (e) {}
-  return true;
+  const { data, error } = await admin.rpc("my20fit_credit_scan", { p_reff: reff });
+  if (error) { try { console.error("credit rpc", error.message); } catch (e) {} return false; }
+  if (data === true) { try { console.log("singapay credited", reff); } catch (e) {} }
+  return data === true;
 }
 function webhookReff(obj) { return findScalar(obj, ["reff_no", "reffNo", "reference", "reference_number", "ref_no"]); }
 function webhookLooksPaid(obj) {
