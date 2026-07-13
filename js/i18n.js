@@ -60,7 +60,8 @@
       prof_gender:"Gender", prof_male:"Male", prof_female:"Female", prof_weight:"Weight (kg)", prof_height:"Height (cm)",
       prof_goal:"Main Goal", prof_pick:"— choose —", prof_lose:"Lose Weight", prof_muscle:"Build Muscle",
       prof_healthier:"Get Healthier", prof_fit:"Improve Fitness", prof_save:"Save Changes", prof_logout:"Log Out",
-      prof_tour:"Replay app tutorial"
+      prof_tour:"Replay app tutorial",
+      prof_hist_sec:"Purchase History", prof_hist_empty:"No purchases yet."
     },
     id: {
       nav_home:"Beranda", nav_medical:"Medis", nav_progress:"Progress", nav_calories:"Kalori", nav_profile:"Profil", nav_scan:"Scan",
@@ -107,7 +108,8 @@
       prof_gender:"Jenis Kelamin", prof_male:"Pria", prof_female:"Wanita", prof_weight:"Berat (kg)", prof_height:"Tinggi (cm)",
       prof_goal:"Tujuan Utama", prof_pick:"— pilih —", prof_lose:"Turunkan Berat", prof_muscle:"Bangun Otot",
       prof_healthier:"Lebih Sehat", prof_fit:"Tingkatkan Kebugaran", prof_save:"Simpan Perubahan", prof_logout:"Keluar / Log Out",
-      prof_tour:"Putar ulang tutorial"
+      prof_tour:"Putar ulang tutorial",
+      prof_hist_sec:"Riwayat Pembelian", prof_hist_empty:"Belum ada pembelian."
     }
   };
 
