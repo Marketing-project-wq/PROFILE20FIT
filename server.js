@@ -95,7 +95,7 @@ async function sendOtpEmail(to, code) {
 
 // ---------- Middleware ----------
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.json());
+app.use(express.json({ verify: function (req, res, buf) { try { req.rawBody = buf && buf.length ? buf.toString("utf8") : ""; } catch (e) { req.rawBody = ""; } } }));
 app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webhook form-encoded
 
 const apiLimiter = rateLimit({
@@ -1127,20 +1127,56 @@ app.post("/api/scan/order-cancel", async (req, res) => {
   }
 });
 
-// ---------- SingaPay: penerima webhook/notifikasi ----------
-// STUB AMAN: mencatat (log) payload + header penting lalu membalas 200. BELUM mengubah
-// data/kredit apa pun — verifikasi signature & pemberian kredit menyusul setelah format
-// callback SingaPay dikonfirmasi. Gunanya sekarang: (1) tombol "Test" di dashboard SingaPay
-// dapat balasan 200, (2) menangkap format payload asli dari log Railway.
+// ---------- SingaPay: penerima webhook/notifikasi (verifikasi HMAC-SHA512) ----------
+// Verifikasi signature sesuai dok SingaPay:
+//   1) parse body JSON, urutkan key rekursif & alfabet, encode compact (unescaped unicode/slash)
+//   2) hashedBody = SHA-256(normalizedJson)
+//   3) stringToSign = "POST:{ENDPOINT}:{ACCESS_TOKEN}:{hashedBody}:{X-Timestamp}"
+//      ENDPOINT = path (+query) URL webhook yang didaftarkan; ACCESS_TOKEN = Authorization tanpa "Bearer "
+//   4) signature = HMAC-SHA512(stringToSign, CLIENT_SECRET) -> bandingkan konstan-waktu dgn X-Signature
+// HMAC key = SINGAPAY_CLIENT_SECRET (BUKAN API key).
+function sortRecursive(o) {
+  if (o === null || typeof o !== "object") return o;
+  if (Array.isArray(o)) return o.map(sortRecursive);
+  return Object.keys(o).sort().reduce(function (acc, k) { acc[k] = sortRecursive(o[k]); return acc; }, {});
+}
+function singapayVerify(req) {
+  const h = req.headers || {};
+  const recv = String(h["x-signature"] || "");
+  const ts = String(h["x-timestamp"] || "");
+  const token = String(h["authorization"] || "").replace(/^Bearer\s+/i, "");
+  const endpoint = req.originalUrl || req.url || "";
+  const raw = (typeof req.rawBody === "string" && req.rawBody.length) ? req.rawBody : JSON.stringify(req.body || {});
+  let obj;
+  try { obj = JSON.parse(raw); } catch (e) { return { valid: false, reason: "bad_json", ts: ts }; }
+  const norm = JSON.stringify(sortRecursive(obj));
+  const hashedBody = crypto.createHash("sha256").update(norm, "utf8").digest("hex");
+  const stringToSign = "POST:" + endpoint + ":" + token + ":" + hashedBody + ":" + ts;
+  const calc = crypto.createHmac("sha512", SINGAPAY_CLIENT_SECRET || "").update(stringToSign, "utf8").digest("hex");
+  let ok = false;
+  try { ok = recv.length === calc.length && crypto.timingSafeEqual(Buffer.from(calc), Buffer.from(recv)); } catch (e) { ok = false; }
+  // Cek replay: timestamp dalam 5 menit (info saja saat bring-up; tidak menolak).
+  let tskew = null;
+  const tnum = parseInt(ts, 10);
+  if (tnum) tskew = Math.abs(Math.floor(Date.now() / 1000) - tnum);
+  return { valid: ok, reason: ok ? "ok" : "mismatch", ts: ts, tskew: tskew };
+}
+// Saat bring-up (SINGAPAY_WEBHOOK_ENFORCE != "1"): tetap 200 + LOG hasil verifikasi & payload,
+// supaya tombol Test lolos & kita bisa lihat payload asli + apakah signature cocok. Belum ada
+// pemberian kredit (menunggu skema payload transaksi + endpoint create-payment).
+const SINGAPAY_WEBHOOK_ENFORCE = process.env.SINGAPAY_WEBHOOK_ENFORCE === "1";
 function singapayNotify(tag) {
   return function (req, res) {
+    let v = { valid: false, reason: "n/a" };
+    try { v = singapayVerify(req); } catch (e) { v = { valid: false, reason: "err" }; }
     try {
-      const pick = ["x-signature", "x-timestamp", "signature", "x-callback-token", "content-type", "user-agent"];
-      const hdr = {};
-      pick.forEach(function (h) { if (req.headers[h] != null) hdr[h] = req.headers[h]; });
-      console.log("singapay-notify[" + tag + "] hdr=" + JSON.stringify(hdr) + " body=" + JSON.stringify(req.body || {}));
+      console.log("singapay-notify[" + tag + "] sig=" + v.valid + "/" + v.reason + " tskew=" + v.tskew +
+        " ep=" + (req.originalUrl || "") + " body=" + JSON.stringify(req.body || {}));
     } catch (e) {}
-    return res.status(200).json({ ok: true, received: true, tag: tag });
+    if (SINGAPAY_WEBHOOK_ENFORCE && !v.valid) {
+      return res.status(401).json({ status: "error", message: "Invalid signature" });
+    }
+    return res.status(200).json({ status: "success" });
   };
 }
 app.post("/api/singapay/notify/transaction", singapayNotify("transaction"));
@@ -1148,7 +1184,7 @@ app.post("/api/singapay/notify/payment-link", singapayNotify("payment-link"));
 app.post("/api/singapay/notify/expiration", singapayNotify("expiration"));
 app.post("/api/singapay/notify/settlement", singapayNotify("settlement"));
 // Sebagian gateway pakai GET utk uji koneksi -> balas 200 juga.
-app.get("/api/singapay/notify/:kind", function (req, res) { return res.status(200).json({ ok: true, kind: req.params.kind }); });
+app.get("/api/singapay/notify/:kind", function (req, res) { return res.status(200).json({ status: "success", kind: req.params.kind }); });
 
 // Ambil IP keluar (egress) server — coba beberapa penyedia sbg cadangan.
 async function egressIp() {
