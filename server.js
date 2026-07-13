@@ -354,11 +354,20 @@ const FITCO_GOOGLE_LOGIN_PATH = process.env.FITCO_GOOGLE_LOGIN_PATH || "/api/v1/
 //   Sandbox    : https://sandbox-payment-b2b.singapay.id
 //   Production : https://payment-b2b.singapay.id
 // Client Secret / API Key / HMAC key TIDAK boleh ditulis di kode — set di Railway env.
-const SINGAPAY_BASE_URL = process.env.SINGAPAY_BASE_URL || "https://sandbox-payment-b2b.singapay.id";
-const SINGAPAY_CLIENT_ID = process.env.SINGAPAY_CLIENT_ID || "";
-const SINGAPAY_CLIENT_SECRET = process.env.SINGAPAY_CLIENT_SECRET || "";
-const SINGAPAY_API_KEY = process.env.SINGAPAY_API_KEY || "";
-const SINGAPAY_HMAC_KEY = process.env.SINGAPAY_HMAC_KEY || "";
+// Baca env dari beberapa kemungkinan nama (biar cocok walau di Railway dinamai
+// pakai label dashboard SingaPay seperti "Client ID" / "API Key").
+function envAny() {
+  for (let i = 0; i < arguments.length; i++) {
+    const v = process.env[arguments[i]];
+    if (v != null && String(v).trim() !== "") return String(v).trim();
+  }
+  return "";
+}
+const SINGAPAY_BASE_URL = envAny("SINGAPAY_BASE_URL") || "https://sandbox-payment-b2b.singapay.id";
+const SINGAPAY_CLIENT_ID = envAny("SINGAPAY_CLIENT_ID", "SINGAPAY_CLIENTID", "Client ID", "CLIENT_ID");
+const SINGAPAY_CLIENT_SECRET = envAny("SINGAPAY_CLIENT_SECRET", "SINGAPAY_CLIENTSECRET", "Client Secret", "CLIENT_SECRET");
+const SINGAPAY_API_KEY = envAny("SINGAPAY_API_KEY", "SINGAPAY_APIKEY", "API Key", "API_KEY");
+const SINGAPAY_HMAC_KEY = envAny("SINGAPAY_HMAC_KEY", "SINGAPAY_HMAC", "HMAC Validation Key", "HMAC_VALIDATION_KEY");
 // account ULID milik merchant (dari dashboard SingaPay) — WAJIB untuk create payment link.
 const SINGAPAY_ACCOUNT_ID = process.env.SINGAPAY_ACCOUNT_ID || "";
 // "1" = alihkan pembelian paket scan ke SingaPay (default: masih Xendit sampai teruji).
