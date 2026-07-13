@@ -1083,6 +1083,38 @@ app.post("/api/scan/order-status", async (req, res) => {
   }
 });
 
+// ---------- Batalkan order scan (best-effort ke 20FIT) ----------
+// POST /api/scan/order-cancel  { sales_order_id, fitco_token }
+// Pembatalan di sisi app (riwayat) tetap otoritatif; ini upaya terbaik meneruskan
+// ke 20FIT (POST /api/v1/app/order/:id/cancel). Balikan cancelled true/false + http.
+app.post("/api/scan/order-cancel", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    const id = String(b.sales_order_id || "").trim();
+    if (!id) return res.status(400).json({ error: "sales_order_id kosong." });
+    const tokens = [];
+    if (b.fitco_token) tokens.push(String(b.fitco_token));
+    if (FITCO_PARTNER_TOKEN) tokens.push(FITCO_PARTNER_TOKEN);
+    let done = false, lastHttp = 0;
+    for (const tk of tokens) {
+      try {
+        const r = await fetch(FITCO_API + "/api/v1/app/order/" + encodeURIComponent(id) + "/cancel", {
+          method: "POST",
+          headers: { "Accept": "application/json", "Content-Type": "application/json", "Authorization": "Bearer " + tk },
+        });
+        lastHttp = r.status;
+        if (r.ok) { done = true; break; }
+      } catch (e) { lastHttp = -1; }
+    }
+    return res.json({ ok: true, cancelled: done, http: lastHttp });
+  } catch (e) {
+    console.error("order-cancel:", e.message);
+    return res.json({ ok: true, cancelled: false });
+  }
+});
+
 // ---------- Static (URL bersih tanpa .html) + fallback ----------
 // Redirect /halaman.html -> /halaman (querystring dipertahankan), lalu sajikan
 // /halaman dari halaman.html lewat opsi extensions. Jadi URL nggak ada ".html" lagi.
