@@ -51,7 +51,23 @@
   .tagrole.superadmin{background:rgba(196,17,1,.12);color:var(--red)}
   .tagrole.staff{background:rgba(42,122,79,.14);color:var(--green)}
   .tagrole.viewer{background:var(--inp);color:var(--muted)}
-  @media(max-width:820px){ .shell{grid-template-columns:1fr} .side{flex-direction:row;flex-wrap:wrap;position:sticky;top:0;z-index:5} .side .logo{width:100%} .side .spacer,.side .who{display:none} .main{padding:18px} }
+  /* Metrics */
+  .rangebar{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+  .rbtn{background:var(--card);border:1px solid var(--line);color:var(--txt);font-weight:700;font-size:13px;padding:8px 12px;border-radius:9px;cursor:pointer}
+  .rbtn.on{background:var(--red);color:#fff;border-color:var(--red)}
+  .rangebar input[type=date]{width:auto;padding:8px}
+  .rangebar .grow{flex:1}
+  .statgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+  .stat{background:var(--card);border-radius:12px;padding:14px 16px}
+  .stat .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+  .stat .val{font-size:24px;font-weight:900;margin-top:4px}
+  .stat .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .chartwrap{width:100%;overflow-x:auto}
+  .bar{height:8px;background:var(--inp);border-radius:5px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:var(--red)}
+  .alert{background:rgba(200,112,0,.12);color:var(--orange);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:16px}
+  @media(max-width:820px){ .shell{grid-template-columns:1fr} .side{flex-direction:row;flex-wrap:wrap;position:sticky;top:0;z-index:5} .side .logo{width:100%} .side .spacer,.side .who{display:none} .main{padding:18px} .grid2{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -89,8 +105,17 @@
     </nav>
     <main class="main">
       <div id="tab-overview">
-        <h2>Overview</h2><div class="crumb">Metrics bisnis (revenue, transaksi, user, voucher)</div>
-        <div class="placeholder">📊 Halaman metrics dibangun di <b>Step 3</b>.</div>
+        <h2>Overview</h2><div class="crumb">Metrics bisnis — real-time dari database</div>
+        <div class="rangebar">
+          <button class="rbtn" data-range="today">Hari ini</button>
+          <button class="rbtn on" data-range="7d">7 hari</button>
+          <button class="rbtn" data-range="30d">30 hari</button>
+          <button class="rbtn" data-range="custom">Custom</button>
+          <span id="customRange" class="hidden"><input type="date" id="cFrom" /> <input type="date" id="cTo" /> <button class="btn sm" id="cApply" style="margin-top:0">Terapkan</button></span>
+          <span class="grow"></span>
+          <button class="btn sm ghost" id="mRefresh" style="margin-top:0" title="Muat ulang">↻</button>
+        </div>
+        <div id="ovBody"><div class="placeholder">Memuat…</div></div>
       </div>
       <div id="tab-vouchers" class="hidden">
         <h2>Voucher</h2><div class="crumb">Kelola voucher diskon</div>
@@ -146,6 +171,7 @@
       // Settings (kelola role) hanya untuk superadmin.
       $("navSettings").style.display = (me.role==="superadmin") ? "" : "none";
       if(me.role==="superadmin") loadRoles();
+      renderOverview();
     }
 
     // ---- Login handlers ----
@@ -183,6 +209,7 @@
         var tab=b.dataset.tab;
         document.querySelectorAll(".navbtn[data-tab]").forEach(function(x){ x.classList.toggle("on", x===b); });
         ["overview","vouchers","transactions","settings"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
+        if(tab==="overview") renderOverview();
       });
     });
 
@@ -223,6 +250,76 @@
         if(r.ok) loadRoles(); else { var j=await r.json().catch(function(){return{};}); $("roleMsg").textContent=j.error||"Gagal hapus."; }
       }catch(e){ $("roleMsg").textContent=e.message; }
     }
+
+    // ---- Overview / Metrics ----
+    var CUR_RANGE = "7d";
+    function rupiah(n){ return "Rp " + (Math.round(+n||0)).toLocaleString("id-ID"); }
+    function statCard(lbl,val,sub){ return "<div class='stat'><div class='lbl'>"+lbl+"</div><div class='val'>"+val+"</div>"+(sub?"<div class='sub'>"+sub+"</div>":"")+"</div>"; }
+    function lineChart(points){
+      if(!points||!points.length) return "<div class='placeholder'>Belum ada revenue di rentang ini.</div>";
+      var W=620,H=170,pad=34, n=points.length;
+      var max=Math.max.apply(null, points.map(function(p){return p.revenue;}))||1;
+      var xs=function(i){ return pad + (n<=1?(W-2*pad)/2:(i/(n-1))*(W-2*pad)); };
+      var ys=function(v){ return H-pad - (v/max)*(H-2*pad); };
+      var pts=points.map(function(p,i){ return xs(i)+","+ys(p.revenue); }).join(" ");
+      var dots=points.map(function(p,i){ return "<circle cx='"+xs(i).toFixed(1)+"' cy='"+ys(p.revenue).toFixed(1)+"' r='3' fill='#C41101'><title>"+p.date+": "+rupiah(p.revenue)+"</title></circle>"; }).join("");
+      return "<div class='chartwrap'><svg viewBox='0 0 "+W+" "+H+"' width='100%' style='max-width:640px'>"+
+        "<line x1='"+pad+"' y1='"+(H-pad)+"' x2='"+(W-pad)+"' y2='"+(H-pad)+"' stroke='#E8E2DB'/>"+
+        "<polyline fill='none' stroke='#C41101' stroke-width='2' points='"+pts+"'/>"+dots+
+        "<text x='"+pad+"' y='16' font-size='11' fill='#8A7C68'>"+rupiah(max)+"</text></svg>"+
+        "<div style='font-size:11px;color:var(--muted)'>"+points[0].date+" → "+points[n-1].date+"</div></div>";
+    }
+    function statusBars(bs,total){
+      var order=["paid","pending","failed","expired"];
+      Object.keys(bs||{}).forEach(function(k){ if(order.indexOf(k)<0) order.push(k); });
+      var h="<table>";
+      order.forEach(function(k){ if(bs[k]==null) return; var pct=total?Math.round(bs[k]/total*100):0;
+        h+="<tr><td style='text-transform:capitalize'>"+k+"</td><td style='width:55%'><div class='bar'><i style='width:"+pct+"%'></i></div></td><td style='text-align:right;font-weight:700'>"+bs[k]+"</td></tr>"; });
+      return h+"</table>";
+    }
+    function kvTable(obj,fmt){ var keys=Object.keys(obj||{}); if(!keys.length) return "<div class='placeholder'>Belum ada data.</div>";
+      keys.sort(function(a,b){ return obj[b]-obj[a]; }); var h="<table>";
+      keys.forEach(function(k){ h+="<tr><td>"+k+"</td><td style='text-align:right;font-weight:700'>"+(fmt?fmt(obj[k]):obj[k])+"</td></tr>"; }); return h+"</table>"; }
+    function topVoucherTable(top){ if(!top||!top.length) return "<div class='placeholder'>Belum ada pemakaian voucher.</div>";
+      var h="<table>"; top.forEach(function(t){ h+="<tr><td>"+(t.code||t.voucher_id)+"</td><td style='text-align:right;font-weight:700'>"+t.count+"×</td></tr>"; }); return h+"</table>"; }
+    async function renderOverview(){
+      var body=$("ovBody"); body.innerHTML="<div class='placeholder'>Memuat…</div>";
+      var qs="range="+CUR_RANGE;
+      if(CUR_RANGE==="custom"){ var f=$("cFrom").value,t=$("cTo").value; if(f)qs+="&from="+f; if(t)qs+="&to="+t; }
+      var r=await adminFetch("/api/admin/metrics?"+qs); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ body.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal ambil metrics")+"</div>"; return; }
+      var h="";
+      if(j.voucher.expiring && j.voucher.expiring.length){
+        h+="<div class='alert'>⚠️ "+j.voucher.expiring.length+" voucher expired ≤7 hari: "+j.voucher.expiring.map(function(v){ return v.code+" ("+new Date(v.valid_until).toLocaleDateString("id-ID")+")"; }).join(", ")+"</div>";
+      }
+      h+="<div class='statgrid'>";
+      h+=statCard("Revenue (gross)", rupiah(j.revenue.gross), "net "+rupiah(j.revenue.net));
+      h+=statCard("Diskon voucher", rupiah(j.revenue.discount));
+      h+=statCard("AOV", rupiah(j.revenue.aov), "rata-rata/transaksi");
+      h+=statCard("Transaksi lunas", j.tx.paid+" / "+j.tx.total, "success rate "+j.tx.successRate+"%");
+      h+=statCard("User total", j.users.total, "+"+j.users.new+" baru");
+      h+=statCard("Repeat buyer", j.users.repeatRate+"%", j.users.buyers+" pembeli");
+      h+=statCard("Voucher aktif", j.voucher.active, j.voucher.uses+" pakai · "+rupiah(j.voucher.discount));
+      h+="</div>";
+      h+="<div class='grid2'>";
+      h+="<div class='card'><h3>Tren revenue harian</h3>"+lineChart(j.trend)+"</div>";
+      h+="<div class='card'><h3>Transaksi by status</h3>"+statusBars(j.tx.byStatus, j.tx.total)+"</div>";
+      h+="</div><div class='grid2'>";
+      h+="<div class='card'><h3>Metode pembayaran</h3>"+kvTable(j.byMethod)+"</div>";
+      h+="<div class='card'><h3>Top 5 voucher</h3>"+topVoucherTable(j.voucher.top)+"</div>";
+      h+="</div>";
+      body.innerHTML=h;
+    }
+    (function(){
+      document.querySelectorAll(".rbtn").forEach(function(b){ b.addEventListener("click", function(){
+        CUR_RANGE=b.dataset.range;
+        document.querySelectorAll(".rbtn").forEach(function(x){ x.classList.toggle("on", x===b); });
+        $("customRange").classList.toggle("hidden", CUR_RANGE!=="custom");
+        if(CUR_RANGE!=="custom") renderOverview();
+      }); });
+      var ca=$("cApply"); if(ca) ca.addEventListener("click", renderOverview);
+      var mr=$("mRefresh"); if(mr) mr.addEventListener("click", renderOverview);
+    })();
 
     // ---- Boot: kalau sudah ada sesi/ key valid, langsung masuk ----
     (async function(){
