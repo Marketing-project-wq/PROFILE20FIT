@@ -96,6 +96,7 @@ async function sendOtpEmail(to, code) {
 // ---------- Middleware ----------
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webhook form-encoded
 
 const apiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 menit
@@ -1113,6 +1114,40 @@ app.post("/api/scan/order-cancel", async (req, res) => {
     console.error("order-cancel:", e.message);
     return res.json({ ok: true, cancelled: false });
   }
+});
+
+// ---------- SingaPay: penerima webhook/notifikasi ----------
+// STUB AMAN: mencatat (log) payload + header penting lalu membalas 200. BELUM mengubah
+// data/kredit apa pun — verifikasi signature & pemberian kredit menyusul setelah format
+// callback SingaPay dikonfirmasi. Gunanya sekarang: (1) tombol "Test" di dashboard SingaPay
+// dapat balasan 200, (2) menangkap format payload asli dari log Railway.
+function singapayNotify(tag) {
+  return function (req, res) {
+    try {
+      const pick = ["x-signature", "x-timestamp", "signature", "x-callback-token", "content-type", "user-agent"];
+      const hdr = {};
+      pick.forEach(function (h) { if (req.headers[h] != null) hdr[h] = req.headers[h]; });
+      console.log("singapay-notify[" + tag + "] hdr=" + JSON.stringify(hdr) + " body=" + JSON.stringify(req.body || {}));
+    } catch (e) {}
+    return res.status(200).json({ ok: true, received: true, tag: tag });
+  };
+}
+app.post("/api/singapay/notify/transaction", singapayNotify("transaction"));
+app.post("/api/singapay/notify/payment-link", singapayNotify("payment-link"));
+app.post("/api/singapay/notify/expiration", singapayNotify("expiration"));
+app.post("/api/singapay/notify/settlement", singapayNotify("settlement"));
+// Sebagian gateway pakai GET utk uji koneksi -> balas 200 juga.
+app.get("/api/singapay/notify/:kind", function (req, res) { return res.status(200).json({ ok: true, kind: req.params.kind }); });
+
+// Cek IP keluar (egress) server ini — untuk didaftarkan di "Static IP" SingaPay.
+app.get("/api/whoami", async (req, res) => {
+  let ip = "";
+  try {
+    const r = await fetch("https://api.ipify.org?format=json", { headers: { "Accept": "application/json" } });
+    const j = await r.json().catch(() => ({}));
+    ip = j && j.ip ? j.ip : "";
+  } catch (e) { ip = ""; }
+  return res.json({ ok: true, egress_ip: ip, note: ip ? "Daftarkan IP ini di SingaPay (Static IP)." : "Gagal ambil IP; coba lagi." });
 });
 
 // ---------- Static (URL bersih tanpa .html) + fallback ----------
