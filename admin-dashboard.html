@@ -131,8 +131,22 @@
         <div class="card"><div id="vList"><div class="placeholder">Memuat…</div></div></div>
       </div>
       <div id="tab-transactions" class="hidden">
-        <h2>Transaksi</h2><div class="crumb">Riwayat pembayaran (SingaPay)</div>
-        <div class="placeholder">💳 Halaman transaksi dibangun di <b>Step 5</b>.</div>
+        <h2>Transaksi</h2><div class="crumb">Riwayat pembayaran paket scan (SingaPay)</div>
+        <div class="rangebar">
+          <button class="rbtn tbtn" data-trange="today">Hari ini</button>
+          <button class="rbtn tbtn on" data-trange="7d">7 hari</button>
+          <button class="rbtn tbtn" data-trange="30d">30 hari</button>
+          <button class="rbtn tbtn" data-trange="all">Semua</button>
+          <span style="width:10px"></span>
+          <select id="tStatus" style="max-width:150px"><option value="">Semua status</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="failed">Failed</option><option value="expired">Expired</option></select>
+          <select id="tMethod" style="max-width:160px"><option value="">Semua metode</option></select>
+          <select id="tVoucher" style="max-width:160px"><option value="">Voucher: semua</option><option value="yes">Pakai voucher</option><option value="no">Tanpa voucher</option></select>
+          <span class="grow"></span>
+          <button class="btn sm ghost" id="tRefresh" style="margin-top:0">↻ Refresh</button>
+        </div>
+        <div id="tSummary" class="statgrid" style="margin-bottom:14px"></div>
+        <div id="tDetailPanel" class="card hidden"></div>
+        <div class="card"><div id="tList"><div class="placeholder">Memuat…</div></div></div>
       </div>
       <div id="tab-settings" class="hidden">
         <h2>Settings</h2><div class="crumb">Kelola akses admin (superadmin only)</div>
@@ -221,6 +235,7 @@
         ["overview","vouchers","transactions","settings"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
         if(tab==="overview") renderOverview();
         if(tab==="vouchers") loadVouchers();
+        if(tab==="transactions") loadTransactions();
       });
     });
 
@@ -432,6 +447,65 @@
     (function(){
       ["vSearch","vStatus","vSort"].forEach(function(idn){ var el=$(idn); if(el) el.addEventListener(idn==="vSearch"?"input":"change", loadVouchers); });
       var vn=$("vNew"); if(vn) vn.addEventListener("click", function(){ showVoucherForm(null); });
+    })();
+
+    // ---- Transaksi (Step 5) ----
+    var T_RANGE = "7d";
+    function txStatusTag(s){ var cls = s==="paid"?"staff":(s==="pending"?"viewer":"viewer"); var color = s==="paid"?"var(--green,#1a7f37)":(s==="pending"?"#8A7C68":"var(--red)"); return "<span class='tagrole' style='background:"+color+"1a;color:"+color+"'>"+esc(s||"—")+"</span>"; }
+    async function loadTransactions(){
+      var list=$("tList"); list.innerHTML="<div class='placeholder'>Memuat…</div>";
+      $("tDetailPanel").classList.add("hidden");
+      var qs="range="+T_RANGE+"&status="+$("tStatus").value+"&method="+encodeURIComponent($("tMethod").value)+"&voucher="+$("tVoucher").value;
+      var r=await adminFetch("/api/admin/transactions?"+qs); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ list.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal ambil transaksi")+"</div>"; return; }
+      var rows=j.transactions||[];
+      // ringkasan
+      var paid=rows.filter(function(x){return x.status==="paid";});
+      var gross=paid.reduce(function(a,x){return a+(+x.amount||0);},0);
+      var net=paid.reduce(function(a,x){return a+(+(x.net_amount!=null?x.net_amount:x.amount)||0);},0);
+      $("tSummary").innerHTML = statCard("Transaksi",rows.length,paid.length+" lunas")+statCard("Revenue (gross)",rupiah(gross))+statCard("Revenue (net)",rupiah(net))+statCard("Kredit terjual",paid.reduce(function(a,x){return a+(+x.credits||0);},0)+" scan");
+      // isi dropdown metode dari data (sekali)
+      var mSel=$("tMethod"); if(mSel.options.length<=1){ var methods={}; rows.forEach(function(x){ if(x.payment_method) methods[x.payment_method]=1; }); Object.keys(methods).forEach(function(m){ var o=document.createElement("option"); o.value=m; o.textContent=m; mSel.appendChild(o); }); }
+      if(!rows.length){ list.innerHTML="<div class='placeholder'>Belum ada transaksi di rentang ini.</div>"; return; }
+      var h="<table><thead><tr><th>Reff No</th><th>Kredit</th><th>Nominal</th><th>Metode</th><th>Voucher</th><th>Status</th><th>Waktu</th><th></th></tr></thead><tbody>";
+      rows.forEach(function(x){
+        h+="<tr><td style='font-family:monospace;font-size:12px'>"+esc(x.reff_no)+"</td>"+
+          "<td>"+(x.credits||0)+"</td>"+
+          "<td><b>"+rupiah(x.amount)+"</b>"+(x.net_amount!=null&&x.net_amount!==x.amount?"<div style='font-size:11px;color:var(--muted)'>net "+rupiah(x.net_amount)+"</div>":"")+"</td>"+
+          "<td>"+esc(x.payment_method||"—")+"</td>"+
+          "<td>"+(x.voucher_code?"<span class='tagrole staff'>"+esc(x.voucher_code)+"</span>":"<span style='color:var(--muted)'>—</span>")+"</td>"+
+          "<td>"+txStatusTag(x.status)+"</td>"+
+          "<td style='color:var(--muted);white-space:nowrap'>"+new Date(x.created_at).toLocaleString("id-ID",{dateStyle:"short",timeStyle:"short"})+"</td>"+
+          "<td><button class='btn sm ghost' data-reff='"+esc(x.reff_no)+"'>Detail</button></td></tr>";
+      });
+      list.innerHTML=h+"</tbody></table>";
+      list.querySelectorAll("button[data-reff]").forEach(function(b){ b.addEventListener("click", function(){ showTxDetail(b.dataset.reff); }); });
+    }
+    async function showTxDetail(reff){
+      var p=$("tDetailPanel"); p.classList.remove("hidden"); p.innerHTML="<div class='placeholder'>Memuat…</div>";
+      var r=await adminFetch("/api/admin/transactions/"+encodeURIComponent(reff)); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ p.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
+      var t=j.tx, b=j.buyer, v=j.voucher, u=j.usage;
+      var h="<h3>Transaksi "+esc(t.reff_no)+" <button class='btn sm ghost' id='tdClose' style='float:right;margin-top:0'>Tutup</button></h3>";
+      h+="<div class='statgrid'>"+statCard("Status",t.status)+statCard("Nominal",rupiah(t.amount),t.net_amount!=null&&t.net_amount!==t.amount?"net "+rupiah(t.net_amount):"")+
+        statCard("Kredit",(t.credits||0)+" scan")+statCard("Metode",t.payment_method||"—")+"</div>";
+      h+="<table style='margin-top:8px'>";
+      h+="<tr><td style='color:var(--muted);width:180px'>Pembeli</td><td><b>"+esc(b&&(b.full_name||b.email)||"—")+"</b>"+(b&&b.email?" · "+esc(b.email):"")+"</td></tr>";
+      h+="<tr><td style='color:var(--muted)'>Gateway ref</td><td style='font-family:monospace;font-size:12px'>"+esc(t.gateway_reference_id||"—")+"</td></tr>";
+      h+="<tr><td style='color:var(--muted)'>Dibuat</td><td>"+new Date(t.created_at).toLocaleString("id-ID")+"</td></tr>";
+      h+="<tr><td style='color:var(--muted)'>Dibayar</td><td>"+(t.paid_at?new Date(t.paid_at).toLocaleString("id-ID"):"—")+"</td></tr>";
+      if(v){ h+="<tr><td style='color:var(--muted)'>Voucher</td><td><span class='tagrole staff'>"+esc(v.code)+"</span> "+(v.discount_type==="percentage"?(v.discount_value+"%"):rupiah(v.discount_value))+(u?" · diskon "+rupiah(u.discount_applied):"")+"</td></tr>"; }
+      h+="</table>";
+      p.innerHTML=h;
+      $("tdClose").addEventListener("click", function(){ p.classList.add("hidden"); });
+      p.scrollIntoView({behavior:"smooth",block:"nearest"});
+    }
+    (function(){
+      document.querySelectorAll(".tbtn[data-trange]").forEach(function(b){ b.addEventListener("click", function(){
+        T_RANGE=b.dataset.trange; document.querySelectorAll(".tbtn").forEach(function(x){ x.classList.toggle("on", x===b); }); loadTransactions();
+      }); });
+      ["tStatus","tMethod","tVoucher"].forEach(function(idn){ var el=$(idn); if(el) el.addEventListener("change", loadTransactions); });
+      var tr=$("tRefresh"); if(tr) tr.addEventListener("click", loadTransactions);
     })();
 
     // ---- Boot: kalau sudah ada sesi/ key valid, langsung masuk ----
