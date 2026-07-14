@@ -1199,6 +1199,52 @@ app.get("/api/admin/top-products", async (req, res) => {
     return res.json({ ok: true, products: products, top_by_revenue: products[0] || null, top_by_count: products.slice().sort((a, b) => b.count - a.count)[0] || null });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
+// ---------- Analitik lanjutan: MoM, funnel, retensi (viewer+) ----------
+app.get("/api/admin/analytics", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const now = new Date();
+    const { data: profiles } = await admin.from("my20fit_profile")
+      .select("auth_user_id,created_at,onboarding_completed,scan_count").limit(8000);
+    const { data: paid } = await admin.from("my20fit_scan_orders")
+      .select("auth_user_id,amount,net_amount,created_at,paid_at,status").eq("status", "paid").limit(30000);
+    const { data: acts } = await admin.from("my20fit_user_activity")
+      .select("auth_user_id,last_active_at").limit(8000);
+    const prof = profiles || [], pd = paid || [], ac = acts || [];
+    const mk = d => { const x = new Date(d); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0"); };
+
+    // --- Month-over-month (12 bulan terakhir) ---
+    const months = []; for (let i = 11; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push(mk(d)); }
+    const mIdx = {}; months.forEach((m, i) => mIdx[m] = i);
+    const mom = months.map(m => ({ month: m, revenue: 0, tx: 0, newUsers: 0 }));
+    pd.forEach(o => { const m = mk(o.paid_at || o.created_at); if (m in mIdx) { const e = mom[mIdx[m]]; e.revenue += (o.net_amount != null ? +o.net_amount : +o.amount) || 0; e.tx++; } });
+    prof.forEach(p => { if (!p.created_at) return; const m = mk(p.created_at); if (m in mIdx) mom[mIdx[m]].newUsers++; });
+
+    // --- Funnel ---
+    const buyerSet = {}, buyCnt = {};
+    pd.forEach(o => { if (o.auth_user_id) { buyerSet[o.auth_user_id] = true; buyCnt[o.auth_user_id] = (buyCnt[o.auth_user_id] || 0) + 1; } });
+    const funnel = [
+      { stage: "Terdaftar", count: prof.length },
+      { stage: "Onboarding selesai", count: prof.filter(p => p.onboarding_completed).length },
+      { stage: "Pernah scan", count: prof.filter(p => (+p.scan_count || 0) > 0).length },
+      { stage: "Beli kredit", count: Object.keys(buyerSet).length },
+      { stage: "Repeat buyer", count: Object.keys(buyCnt).filter(k => buyCnt[k] > 1).length },
+    ];
+
+    // --- Retensi cohort (per bulan daftar, 6 bulan terakhir) ---
+    const actMap = {}; ac.forEach(a => { if (a.last_active_at) actMap[a.auth_user_id] = a.last_active_at; });
+    const cohMonths = []; for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); cohMonths.push(mk(d)); }
+    const coh = {}; cohMonths.forEach(m => coh[m] = { month: m, size: 0, active: 0, buyers: 0 });
+    const cutoff = Date.now() - 30 * 86400000;
+    prof.forEach(p => { if (!p.created_at) return; const m = mk(p.created_at); const c = coh[m]; if (!c) return; c.size++;
+      const la = actMap[p.auth_user_id]; if (la && new Date(la).getTime() >= cutoff) c.active++;
+      if (buyerSet[p.auth_user_id]) c.buyers++; });
+    const retention = cohMonths.map(m => { const c = coh[m]; return { month: m, size: c.size, active: c.active, buyers: c.buyers,
+      activeRate: c.size ? Math.round(c.active / c.size * 100) : 0, buyerRate: c.size ? Math.round(c.buyers / c.size * 100) : 0 }; });
+
+    return res.json({ ok: true, mom: mom, funnel: funnel, retention: retention });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
 
 // Catatan: endpoint lama /api/admin/stats (era admin.html) sudah dihapus —
 // digantikan /api/admin/metrics (RBAC requireAdmin) di admin dashboard baru.
