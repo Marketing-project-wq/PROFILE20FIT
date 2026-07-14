@@ -240,7 +240,7 @@
     // Coba beberapa cara auth: (1) password Supabase, kalau gagal (2) login 20FIT/FITCO.
     // Admin jadi bisa pakai password 20FIT asli ATAU password khusus admin.
     async function tryAuth(email, pass){
-      await Auth.ready();
+      await Auth.ready;
       var res = await Auth.supabase.auth.signInWithPassword({ email:email, password:pass });
       if(!res.error) return { ok:true };
       // Fallback: akun 20FIT (API FITCO) — bikin sesi Supabase juga.
@@ -609,7 +609,7 @@
 
     // ---- Boot: kalau sudah ada sesi/ key valid, langsung masuk ----
     (async function(){
-      try{ await Auth.ready(); }catch(e){}
+      try{ await Auth.ready; }catch(e){}
       var res = await fetchMe();
       if(res.ok) showApp(res.me); else { showLogin(); showLoginDiag(); }
     })();
