@@ -32,6 +32,21 @@
     return supabase;
   })();
 
+  // Heartbeat aktivitas (best-effort) — untuk dashboard admin "siapa aktif/tidak".
+  // Dipanggil sekali saat halaman dimuat kalau user sudah login. Tidak memblokir apa pun.
+  ready.then(async function () {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data && data.session) {
+        fetch("/api/activity/ping", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + data.session.access_token },
+          body: JSON.stringify({ page: location.pathname }),
+        }).catch(function () {});
+      }
+    } catch (e) {}
+  });
+
   // ---------- MAGIC LINK / LOGIN PAKAI KODE EMAIL (isolated via my20fit-otp) ----------
   async function loginSend(email) {
     await ready;
