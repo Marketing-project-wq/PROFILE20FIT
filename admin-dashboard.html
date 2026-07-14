@@ -115,6 +115,7 @@
       <button class="navbtn" data-tab="vouchers">🎟️ Voucher</button>
       <button class="navbtn" data-tab="transactions">💳 Transaksi</button>
       <button class="navbtn" data-tab="users">👥 Pengguna</button>
+      <button class="navbtn" data-tab="analytics">📈 Analitik</button>
       <button class="navbtn" data-tab="settings" id="navSettings">⚙️ Settings</button>
       <div class="spacer"></div>
       <div class="who">
@@ -185,6 +186,14 @@
           <div class="card"><h3>Produk terlaris (jumlah transaksi)</h3><div id="uTopProductsCount"><div class="placeholder">Memuat…</div></div></div>
         </div>
         <div class="card"><div id="uList"><div class="placeholder">Memuat…</div></div></div>
+      </div>
+      <div id="tab-analytics" class="hidden">
+        <h2>Analitik</h2><div class="crumb">Perbandingan bulan-ke-bulan, funnel konversi, & retensi</div>
+        <div class="card"><h3>📊 Perbandingan bulan-ke-bulan (revenue)</h3><div id="anMom"><div class="placeholder">Memuat…</div></div></div>
+        <div class="grid2">
+          <div class="card"><h3>🫧 Funnel konversi</h3><div id="anFunnel"><div class="placeholder">Memuat…</div></div></div>
+          <div class="card"><h3>🔁 Retensi & pembeli per cohort</h3><div id="anRetention"><div class="placeholder">Memuat…</div></div></div>
+        </div>
       </div>
       <div id="tab-settings" class="hidden">
         <h2>Settings</h2><div class="crumb">Kelola akses admin (superadmin only)</div>
@@ -335,11 +344,12 @@
       b.addEventListener("click", function(){
         var tab=b.dataset.tab;
         document.querySelectorAll(".navbtn[data-tab]").forEach(function(x){ x.classList.toggle("on", x===b); });
-        ["overview","vouchers","transactions","users","settings"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
+        ["overview","vouchers","transactions","users","analytics","settings"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
         if(tab==="overview") renderOverview();
         if(tab==="vouchers") loadVouchers();
         if(tab==="transactions") loadTransactions();
         if(tab==="users") loadUsers();
+        if(tab==="analytics") loadAnalytics();
         if(tab==="settings" && ME && ME.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
       });
     });
@@ -800,6 +810,62 @@
       var us=$("uSearch"); if(us) us.addEventListener("input", renderUserList);
       var uf=$("uFilter"); if(uf) uf.addEventListener("change", renderUserList);
     })();
+
+    // ---- Analitik (MoM / funnel / retensi) ----
+    function pctChange(cur,prev){ if(!prev) return cur>0?"+∞":"0%"; var d=Math.round((cur-prev)/prev*100); return (d>=0?"+":"")+d+"%"; }
+    function momChart(mom){
+      if(!mom||!mom.length) return "<div class='placeholder'>Belum ada data.</div>";
+      var W=680,H=240,padL=54,padR=14,padT=16,padB=44,n=mom.length;
+      var max=Math.max.apply(null, mom.map(function(m){return m.revenue;}))||1;
+      var bw=(W-padL-padR)/n, innerw=Math.min(bw*0.62,42);
+      var bars="",labels="";
+      mom.forEach(function(m,i){ var x=padL+i*bw+(bw-innerw)/2, hh=(m.revenue/max)*(H-padT-padB), y=H-padB-hh;
+        bars+="<rect x='"+x.toFixed(1)+"' y='"+y.toFixed(1)+"' width='"+innerw.toFixed(1)+"' height='"+Math.max(0,hh).toFixed(1)+"' rx='3' fill='var(--red)' opacity='.9'><title>"+m.month+": "+rupiah(m.revenue)+" · "+m.tx+" tx · +"+m.newUsers+" user</title></rect>";
+        var mlabel=m.month.slice(5); labels+="<text x='"+(x+innerw/2).toFixed(1)+"' y='"+(H-padB+14)+"' font-size='9.5' fill='var(--muted)' text-anchor='middle'>"+mlabel+"</text>";
+        if(i>0){ var chg=pctChange(m.revenue,mom[i-1].revenue); labels+="<text x='"+(x+innerw/2).toFixed(1)+"' y='"+(H-padB+26)+"' font-size='9' fill='"+(m.revenue>=mom[i-1].revenue?"#2A7A4F":"var(--red)")+"' text-anchor='middle'>"+chg+"</text>"; }
+      });
+      var grid=""; for(var g=1;g<=3;g++){ var yy=(padT+(H-padT-padB)*g/4).toFixed(1); grid+="<line x1='"+padL+"' y1='"+yy+"' x2='"+(W-padR)+"' y2='"+yy+"' stroke='var(--line)' stroke-dasharray='3 4'/>"; }
+      var h="<div class='chartwrap'><svg viewBox='0 0 "+W+" "+H+"' width='100%'>"+grid+
+        "<line x1='"+padL+"' y1='"+(H-padB)+"' x2='"+(W-padR)+"' y2='"+(H-padB)+"' stroke='var(--line)'/>"+
+        "<text x='6' y='"+(padT+2)+"' font-size='11' fill='var(--muted)'>"+rupiah(max)+"</text>"+bars+labels+"</svg></div>";
+      // tabel ringkas
+      h+="<table style='margin-top:8px'><thead><tr><th>Bulan</th><th style='text-align:right'>Revenue</th><th style='text-align:right'>Tx</th><th style='text-align:right'>User baru</th><th style='text-align:right'>Δ revenue</th></tr></thead><tbody>";
+      mom.forEach(function(m,i){ var chg=i>0?pctChange(m.revenue,mom[i-1].revenue):"—"; var up=i>0&&m.revenue>=mom[i-1].revenue;
+        h+="<tr><td>"+m.month+"</td><td style='text-align:right;font-weight:700'>"+rupiah(m.revenue)+"</td><td style='text-align:right'>"+m.tx+"</td><td style='text-align:right'>+"+m.newUsers+"</td><td style='text-align:right;font-weight:700;color:"+(i===0?"var(--muted)":(up?"#2A7A4F":"var(--red)"))+"'>"+chg+"</td></tr>"; });
+      return h+"</tbody></table>";
+    }
+    function funnelChart(funnel){
+      if(!funnel||!funnel.length) return "<div class='placeholder'>Belum ada data.</div>";
+      var top=funnel[0].count||1;
+      var COL=["#2563eb","#0891b2","#2A7A4F","#C87000","#C41101"];
+      var h="";
+      funnel.forEach(function(s,i){
+        var pctTop=Math.round((s.count/top)*100);
+        var stepConv=i>0?(funnel[i-1].count?Math.round(s.count/funnel[i-1].count*100):0):100;
+        h+="<div style='margin-bottom:10px'>"+
+          "<div style='display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px'><span style='font-weight:700'>"+esc(s.stage)+"</span><span style='color:var(--muted)'>"+s.count+" · "+pctTop+"%"+(i>0?" (→"+stepConv+"% dari atas)":"")+"</span></div>"+
+          "<div style='height:22px;background:var(--inp);border-radius:7px;overflow:hidden'><div style='height:100%;width:"+Math.max(2,pctTop)+"%;background:"+COL[i%COL.length]+";border-radius:7px'></div></div>"+
+          "</div>";
+      });
+      return h;
+    }
+    function retentionCards(ret){
+      if(!ret||!ret.length) return "<div class='placeholder'>Belum ada data.</div>";
+      var h="<table><thead><tr><th>Cohort (bln daftar)</th><th style='text-align:right'>User</th><th style='text-align:right'>Masih aktif</th><th style='text-align:right'>Jadi pembeli</th></tr></thead><tbody>";
+      ret.forEach(function(c){
+        function cell(rate,val){ var col=rate>=50?"#2A7A4F":(rate>=20?"#C87000":"var(--red)"); return "<td style='text-align:right'><b style='color:"+col+"'>"+rate+"%</b> <span style='color:var(--muted);font-size:11px'>("+val+")</span></td>"; }
+        h+="<tr><td>"+c.month+"</td><td style='text-align:right;font-weight:700'>"+c.size+"</td>"+cell(c.activeRate,c.active)+cell(c.buyerRate,c.buyers)+"</tr>";
+      });
+      h+="</tbody></table><div class='crumb' style='margin-top:8px'>Aktif = ada aktivitas ≤30 hari terakhir. Data aktivitas mulai terkumpul sejak fitur pelacakan aktif.</div>";
+      return h;
+    }
+    async function loadAnalytics(){
+      var mo=$("anMom"), fn=$("anFunnel"), rt=$("anRetention");
+      mo.innerHTML=fn.innerHTML=rt.innerHTML="<div class='placeholder'>Memuat…</div>";
+      var r=await adminFetch("/api/admin/analytics"); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ mo.innerHTML=fn.innerHTML=rt.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
+      mo.innerHTML=momChart(j.mom); fn.innerHTML=funnelChart(j.funnel); rt.innerHTML=retentionCards(j.retention);
+    }
 
     // ---- Boot: kalau sudah ada sesi/ key valid, langsung masuk ----
     (async function(){
