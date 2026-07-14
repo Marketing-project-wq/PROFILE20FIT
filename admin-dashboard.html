@@ -167,17 +167,23 @@
         <div class="card"><div id="tList"><div class="placeholder">Memuat…</div></div></div>
       </div>
       <div id="tab-users" class="hidden">
-        <h2>Pengguna</h2><div class="crumb">Siapa yang sedang aktif / tidak aktif</div>
+        <h2>Pengguna</h2><div class="crumb">Semua user, status aktif, & riwayat belanja</div>
         <div class="rangebar">
-          <label style="margin:0">Aktif = ping ≤
+          <input id="uSearch" placeholder="Cari nama / email…" style="max-width:220px" />
+          <label style="margin:0;font-size:13px;color:var(--muted)">Aktif = ping ≤
             <select id="uWindow" style="width:auto;display:inline-block;margin:0 6px">
-              <option value="15">15 menit</option><option value="60">1 jam</option><option value="1440">24 jam</option>
+              <option value="15">15 menit</option><option value="60">1 jam</option><option value="1440">24 jam</option><option value="10080">7 hari</option>
             </select>
           </label>
+          <select id="uFilter" style="max-width:160px"><option value="">Semua user</option><option value="active">Aktif saja</option><option value="inactive">Tidak aktif</option><option value="buyers">Pernah beli</option></select>
           <span class="grow"></span>
           <button class="btn sm ghost" id="uRefresh" style="margin-top:0">↻ Refresh</button>
         </div>
         <div id="uSummary" class="statgrid" style="margin-bottom:14px"></div>
+        <div class="grid2" style="margin-bottom:14px">
+          <div class="card"><h3>Produk terlaris (revenue)</h3><div id="uTopProducts"><div class="placeholder">Memuat…</div></div></div>
+          <div class="card"><h3>Produk terlaris (jumlah transaksi)</h3><div id="uTopProductsCount"><div class="placeholder">Memuat…</div></div></div>
+        </div>
         <div class="card"><div id="uList"><div class="placeholder">Memuat…</div></div></div>
       </div>
       <div id="tab-settings" class="hidden">
@@ -333,7 +339,7 @@
         if(tab==="overview") renderOverview();
         if(tab==="vouchers") loadVouchers();
         if(tab==="transactions") loadTransactions();
-        if(tab==="users") loadUsersActivity();
+        if(tab==="users") loadUsers();
         if(tab==="settings" && ME && ME.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
       });
     });
@@ -662,31 +668,84 @@
       var tr=$("tRefresh"); if(tr) tr.addEventListener("click", loadTransactions);
     })();
 
-    // ---- Pengguna aktif / tidak aktif ----
-    async function loadUsersActivity(){
+    // ---- Pengguna: daftar semua + aktif/tidak + belanja ----
+    var ALL_USERS=[];
+    function agoLabel(m){ if(m==null) return "—"; if(m<1) return "baru saja"; if(m<60) return m+" mnt lalu"; if(m<1440) return Math.floor(m/60)+" jam lalu"; return Math.floor(m/1440)+" hari lalu"; }
+    function genderLabel(g){ g=String(g||"").toLowerCase(); return g==="male"?"L":(g==="female"?"P":"—"); }
+    async function loadUsers(){
       var list=$("uList"); list.innerHTML="<div class='placeholder'>Memuat…</div>";
       var win=$("uWindow").value||"15";
-      var r=await adminFetch("/api/admin/users-activity?window="+win); var j=await r.json().catch(function(){return{};});
+      var r=await adminFetch("/api/admin/users?window="+win); var j=await r.json().catch(function(){return{};});
       if(!r.ok){ list.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
-      var us=j.users||[];
-      $("uSummary").innerHTML = statCard("Aktif sekarang", j.active||0, "≤ "+j.window+" menit")+statCard("Tidak aktif", j.inactive||0)+statCard("Total terlacak", j.total||0);
-      if(!us.length){ list.innerHTML="<div class='placeholder'>Belum ada data aktivitas. Data mulai terkumpul setelah user membuka app (versi terbaru).</div>"; return; }
-      function ago(m){ if(m==null) return "—"; if(m<1) return "baru saja"; if(m<60) return m+" mnt lalu"; if(m<1440) return Math.floor(m/60)+" jam lalu"; return Math.floor(m/1440)+" hari lalu"; }
-      var h="<table><thead><tr><th>Status</th><th>Nama</th><th>Email</th><th>Terakhir aktif</th><th>Halaman</th><th>Ping</th></tr></thead><tbody>";
+      ALL_USERS=j.users||[];
+      $("uSummary").innerHTML = statCard("Aktif", j.active||0, "≤ "+(win>=1440?(win/1440+" hari"):(win+" menit")))+statCard("Tidak aktif", j.inactive||0)+statCard("Total user", j.total||0)+statCard("Pernah beli", j.buyers||0);
+      renderUserList();
+      loadTopProducts();
+    }
+    function renderUserList(){
+      var list=$("uList");
+      var q=($("uSearch").value||"").trim().toLowerCase(), f=$("uFilter").value;
+      var us=ALL_USERS.filter(function(u){
+        if(f==="active"&&!u.active) return false;
+        if(f==="inactive"&&u.active) return false;
+        if(f==="buyers"&&!(u.purchases>0)) return false;
+        if(q){ return (String(u.full_name||"").toLowerCase().indexOf(q)>=0)||(String(u.email||"").toLowerCase().indexOf(q)>=0); }
+        return true;
+      });
+      if(!us.length){ list.innerHTML="<div class='placeholder'>Tidak ada user cocok.</div>"; return; }
+      var h="<table><thead><tr><th>Status</th><th>Nama</th><th>Email</th><th>Terakhir aktif</th><th>Beli</th><th>Total belanja</th><th>Tertinggi</th><th></th></tr></thead><tbody>";
       us.forEach(function(u){
         var dotc=u.active?"var(--green,#1a7f37)":"#8A7C68";
-        h+="<tr><td><span style='color:"+dotc+"'>●</span> "+(u.active?"Aktif":"Tidak aktif")+"</td>"+
+        h+="<tr><td style='white-space:nowrap'><span style='color:"+dotc+"'>●</span> "+(u.active?"Aktif":"Nonaktif")+"</td>"+
           "<td>"+esc(u.full_name||"—")+"</td>"+
           "<td style='color:var(--muted)'>"+esc(u.email||"—")+"</td>"+
-          "<td>"+ago(u.minutes_ago)+"</td>"+
-          "<td style='color:var(--muted);font-size:12px'>"+esc(u.last_page||"—")+"</td>"+
-          "<td>"+(u.ping_count||0)+"</td></tr>";
+          "<td style='white-space:nowrap'>"+agoLabel(u.minutes_ago)+"</td>"+
+          "<td>"+(u.purchases||0)+"×</td>"+
+          "<td>"+rupiah(u.total_spent||0)+"</td>"+
+          "<td>"+(u.highest_purchase?rupiah(u.highest_purchase):"—")+"</td>"+
+          "<td><button class='btn sm ghost' data-uid='"+esc(u.auth_user_id)+"'>Detail</button></td></tr>";
       });
       list.innerHTML=h+"</tbody></table>";
+      list.querySelectorAll("button[data-uid]").forEach(function(b){ b.addEventListener("click", function(){ showUserDetail(b.dataset.uid); }); });
+    }
+    async function loadTopProducts(){
+      var r=await adminFetch("/api/admin/top-products?range=all"); var j=await r.json().catch(function(){return{};});
+      var byRev=$("uTopProducts"), byCnt=$("uTopProductsCount");
+      if(!r.ok){ byRev.innerHTML=byCnt.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
+      var ps=j.products||[];
+      if(!ps.length){ byRev.innerHTML=byCnt.innerHTML="<div class='placeholder'>Belum ada pembelian.</div>"; return; }
+      function tbl(rows, valfn, sub){ var h="<table>"; rows.forEach(function(p,i){ h+="<tr><td>"+(i===0?"🏆 ":"")+esc(p.product)+"</td><td style='text-align:right;font-weight:700'>"+valfn(p)+"</td></tr>"; }); return h+"</table>"; }
+      byRev.innerHTML=tbl(ps.slice().sort(function(a,b){return b.revenue-a.revenue;}), function(p){return rupiah(p.revenue)+"<div style='font-size:11px;color:var(--muted);font-weight:400'>"+p.count+" transaksi</div>";});
+      byCnt.innerHTML=tbl(ps.slice().sort(function(a,b){return b.count-a.count;}), function(p){return p.count+"×<div style='font-size:11px;color:var(--muted);font-weight:400'>"+rupiah(p.revenue)+"</div>";});
+    }
+    async function showUserDetail(uid){
+      openModal("<div class='placeholder'>Memuat…</div>");
+      var r=await adminFetch("/api/admin/user-detail?uid="+encodeURIComponent(uid)); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ openModal("<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"); return; }
+      var p=j.profile||{}, s=j.stats||{}, o=j.orders||[], a=j.activity||{};
+      var h="<button class='btn sm ghost mclose' onclick='closeModal()'>✕ Tutup</button><h3>"+esc(p.full_name||p.email||"User")+"</h3><div class='crumb'>"+esc(p.email||"")+(p.phone?" · "+esc(p.phone):"")+"</div>";
+      h+="<div class='statgrid' style='margin-top:12px'>"+statCard("Total belanja",rupiah(s.total_spent||0),(s.purchases||0)+" transaksi")+statCard("Pembelian tertinggi",rupiah(s.highest_purchase||0))+statCard("Kredit dibeli",(s.credits_bought||0)+" scan")+statCard("Sisa kredit",(p.scan_credits||0)+" scan")+"</div>";
+      h+="<h3 style='margin-top:8px'>Data profil</h3><table class='kvt'>";
+      h+="<tr><td>Gender</td><td>"+(p.gender?esc(p.gender):"—")+"</td></tr>";
+      h+="<tr><td>Umur</td><td>"+(p.age||"—")+"</td></tr>";
+      h+="<tr><td>Berat / Tinggi</td><td>"+(p.weight_kg||"—")+" kg / "+(p.height_cm||"—")+" cm</td></tr>";
+      h+="<tr><td>Tujuan</td><td>"+esc(p.main_goal||"—")+"</td></tr>";
+      h+="<tr><td>Onboarding</td><td>"+(p.onboarding_completed?"selesai":"belum")+"</td></tr>";
+      h+="<tr><td>Terakhir aktif</td><td>"+(a&&a.last_active_at?new Date(a.last_active_at).toLocaleString("id-ID")+" ("+esc(a.last_page||"")+")":"—")+"</td></tr>";
+      h+="<tr><td>Terdaftar</td><td>"+(p.created_at?new Date(p.created_at).toLocaleDateString("id-ID"):"—")+"</td></tr>";
+      h+="</table>";
+      h+="<h3 style='margin-top:8px'>Riwayat order ("+o.length+")</h3>";
+      if(!o.length) h+="<div class='placeholder'>Belum ada order.</div>";
+      else { h+="<table><thead><tr><th>Reff</th><th>Kredit</th><th>Nominal</th><th>Status</th><th>Waktu</th></tr></thead><tbody>";
+        o.forEach(function(x){ h+="<tr><td style='font-family:monospace;font-size:11px'>"+esc(x.reff_no)+"</td><td>"+(x.credits||0)+"</td><td>"+rupiah(x.net_amount!=null?x.net_amount:x.amount)+"</td><td>"+txStatusTag(x.status)+"</td><td style='color:var(--muted);font-size:12px'>"+new Date(x.created_at).toLocaleDateString("id-ID")+"</td></tr>"; });
+        h+="</tbody></table>"; }
+      openModal(h);
     }
     (function(){
-      var uw=$("uWindow"); if(uw) uw.addEventListener("change", loadUsersActivity);
-      var ur=$("uRefresh"); if(ur) ur.addEventListener("click", loadUsersActivity);
+      var uw=$("uWindow"); if(uw) uw.addEventListener("change", loadUsers);
+      var ur=$("uRefresh"); if(ur) ur.addEventListener("click", loadUsers);
+      var us=$("uSearch"); if(us) us.addEventListener("input", renderUserList);
+      var uf=$("uFilter"); if(uf) uf.addEventListener("change", renderUserList);
     })();
 
     // ---- Boot: kalau sudah ada sesi/ key valid, langsung masuk ----
