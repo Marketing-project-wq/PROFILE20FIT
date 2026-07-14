@@ -1103,23 +1103,85 @@ app.get("/api/admin/transactions/:reff", async (req, res) => {
   return res.json({ ok: true, tx: t, buyer: (p && p[0]) || null, voucher: voucher, usage: usage });
 });
 
-// ---------- Pengguna aktif / tidak aktif (viewer+) ----------
-// Aktif = ping terakhir dalam ACTIVE_MINUTES menit. Data dari my20fit_user_activity.
-app.get("/api/admin/users-activity", async (req, res) => {
+// ---------- Pengguna: daftar semua + aktif/tidak + statistik pembelian (viewer+) ----------
+// Aktif = ping terakhir dalam `window` menit (my20fit_user_activity). Detail user dari
+// my20fit_profile; statistik beli dari my20fit_scan_orders (status=paid).
+app.get("/api/admin/users", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
-  const activeMin = Math.min(Math.max(parseInt(req.query.window, 10) || 15, 1), 1440);
+  const activeMin = Math.min(Math.max(parseInt(req.query.window, 10) || 15, 1), 10080);
   try {
-    const { data, error } = await admin.from("my20fit_user_activity")
-      .select("auth_user_id,email,full_name,last_active_at,first_seen_at,last_page,ping_count")
-      .order("last_active_at", { ascending: false }).limit(1000);
-    if (error) return res.status(500).json({ error: error.message });
-    const now = Date.now();
-    const rows = (data || []).map(r => {
-      const mins = r.last_active_at ? Math.floor((now - new Date(r.last_active_at).getTime()) / 60000) : null;
-      return Object.assign({}, r, { minutes_ago: mins, active: mins != null && mins <= activeMin });
+    const { data: profiles } = await admin.from("my20fit_profile")
+      .select("auth_user_id,email,full_name,phone,gender,age,height_cm,weight_kg,main_goal,scan_credits,scan_count,onboarding_completed,is_plus_member,created_at")
+      .limit(5000);
+    const { data: acts } = await admin.from("my20fit_user_activity")
+      .select("auth_user_id,last_active_at,last_page,ping_count").limit(5000);
+    const { data: orders } = await admin.from("my20fit_scan_orders")
+      .select("auth_user_id,amount,net_amount,credits,status").eq("status", "paid").limit(20000);
+    const actMap = {}; (acts || []).forEach(a => actMap[a.auth_user_id] = a);
+    const buyMap = {};
+    (orders || []).forEach(o => {
+      const paidAmt = (o.net_amount != null ? +o.net_amount : +o.amount) || 0;
+      const b = buyMap[o.auth_user_id] || (buyMap[o.auth_user_id] = { purchases: 0, totalSpent: 0, credits: 0, highest: 0 });
+      b.purchases++; b.totalSpent += paidAmt; b.credits += (+o.credits || 0); if (paidAmt > b.highest) b.highest = paidAmt;
     });
-    const activeCount = rows.filter(r => r.active).length;
-    return res.json({ ok: true, window: activeMin, total: rows.length, active: activeCount, inactive: rows.length - activeCount, users: rows });
+    const now = Date.now();
+    const users = (profiles || []).map(p => {
+      const a = actMap[p.auth_user_id];
+      const mins = a && a.last_active_at ? Math.floor((now - new Date(a.last_active_at).getTime()) / 60000) : null;
+      const b = buyMap[p.auth_user_id] || { purchases: 0, totalSpent: 0, credits: 0, highest: 0 };
+      return {
+        auth_user_id: p.auth_user_id, email: p.email, full_name: p.full_name, phone: p.phone,
+        gender: p.gender, age: p.age, height_cm: p.height_cm, weight_kg: p.weight_kg, main_goal: p.main_goal,
+        scan_credits: p.scan_credits, onboarding_completed: p.onboarding_completed, is_plus_member: p.is_plus_member,
+        created_at: p.created_at, last_active_at: a ? a.last_active_at : null, last_page: a ? a.last_page : null,
+        minutes_ago: mins, active: mins != null && mins <= activeMin,
+        purchases: b.purchases, total_spent: b.totalSpent, credits_bought: b.credits, highest_purchase: b.highest,
+      };
+    });
+    users.sort((x, y) => (y.last_active_at ? new Date(y.last_active_at).getTime() : 0) - (x.last_active_at ? new Date(x.last_active_at).getTime() : 0));
+    const activeCount = users.filter(u => u.active).length;
+    const buyers = users.filter(u => u.purchases > 0).length;
+    return res.json({ ok: true, window: activeMin, total: users.length, active: activeCount, inactive: users.length - activeCount, buyers: buyers, users: users });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Detail satu user: profil lengkap + riwayat order.
+app.get("/api/admin/user-detail", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const uid = String(req.query.uid || "");
+  if (!uid) return res.status(400).json({ error: "uid wajib." });
+  try {
+    const { data: p } = await admin.from("my20fit_profile").select("*").eq("auth_user_id", uid).limit(1);
+    const { data: orders } = await admin.from("my20fit_scan_orders")
+      .select("reff_no,order_type,credits,amount,net_amount,status,payment_method,voucher_id,created_at,paid_at")
+      .eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(200);
+    const { data: act } = await admin.from("my20fit_user_activity").select("last_active_at,last_page,ping_count,first_seen_at").eq("auth_user_id", uid).limit(1);
+    const paid = (orders || []).filter(o => o.status === "paid");
+    const stats = {
+      purchases: paid.length,
+      total_spent: paid.reduce((s, o) => s + ((o.net_amount != null ? +o.net_amount : +o.amount) || 0), 0),
+      credits_bought: paid.reduce((s, o) => s + (+o.credits || 0), 0),
+      highest_purchase: paid.reduce((m, o) => Math.max(m, (o.net_amount != null ? +o.net_amount : +o.amount) || 0), 0),
+    };
+    return res.json({ ok: true, profile: (p && p[0]) || null, activity: (act && act[0]) || null, orders: orders || [], stats: stats });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Analisa produk paling laris (paket kredit) — count + revenue per ukuran paket.
+app.get("/api/admin/top-products", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const { from, to } = adminRange(req.query);
+  try {
+    const { data: orders } = await admin.from("my20fit_scan_orders")
+      .select("credits,amount,net_amount,order_type,status,created_at").eq("status", "paid")
+      .gte("created_at", from).lte("created_at", to).limit(20000);
+    const map = {};
+    (orders || []).forEach(o => {
+      const key = (o.credits || 0) + " scan";
+      const rev = (o.net_amount != null ? +o.net_amount : +o.amount) || 0;
+      const m = map[key] || (map[key] = { product: key, credits: +o.credits || 0, count: 0, revenue: 0 });
+      m.count++; m.revenue += rev;
+    });
+    const products = Object.values(map).sort((a, b) => b.revenue - a.revenue);
+    return res.json({ ok: true, products: products, top_by_revenue: products[0] || null, top_by_count: products.slice().sort((a, b) => b.count - a.count)[0] || null });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
