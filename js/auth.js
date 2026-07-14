@@ -381,34 +381,27 @@
     return shapeQuota(p);
   }
   // Pakai 1 scan (dipanggil SETELAH scan berhasil). Return kuota terbaru.
-  // Kalau habis -> throw {code:"scan_limit"}.
+  // SERVER-AUTHORITATIVE: konsumsi lewat /api/scan/consume (RPC atomik my20fit_consume_scan).
+  // Client TIDAK lagi menulis saldo langsung ke Supabase. Kalau habis -> throw {code:"scan_limit"}.
   async function consumeScan() {
     await ready;
-    const user = await requireAuth();
-    const p = await ensureProfile(user);
-    const per = periodNow();
-    let used = (p.scan_period === per) ? (p.scan_count || 0) : 0;
-    let credits = p.scan_credits || 0;
-    if (used >= SCAN_FREE && credits <= 0) {
+    await requireAuth();
+    const t = await token();
+    const r = await fetch("/api/scan/consume", { method: "POST", headers: { Authorization: "Bearer " + (t || "") } });
+    const j = await r.json().catch(function () { return {}; });
+    if (r.status === 402 || (j && j.code === "scan_limit")) {
       const err = new Error("Scan quota habis."); err.code = "scan_limit"; throw err;
     }
-    const upd = { scan_period: per, updated_at: new Date().toISOString() };
-    if (used < SCAN_FREE) { upd.scan_count = used + 1; upd.scan_credits = credits; }
-    else { upd.scan_count = used; upd.scan_credits = credits - 1; }
-    const { error } = await supabase.from("my20fit_profile").update(upd).eq("auth_user_id", user.id);
-    if (error) throw error;
-    return shapeQuota(Object.assign({}, p, upd));
+    if (!r.ok || !j.ok) throw new Error((j && j.error) || "Gagal memproses scan.");
+    return j.quota;
   }
-  // Tambah kredit hasil pembelian paket top-up.
-  async function addScanCredits(n) {
+  // Kredit top-up ditambahkan SERVER-AUTHORITATIVE (webhook SingaPay untuk pembayaran,
+  // atau creditScanOrder saat voucher bikin gratis). Client TIDAK menulis saldo —
+  // cukup ambil kuota terbaru dari profil. (Argumen lama diabaikan; dipertahankan
+  // agar pemanggil lama tetap kompatibel.)
+  async function addScanCredits() {
     await ready;
-    const user = await requireAuth();
-    const p = await ensureProfile(user);
-    const credits = (p.scan_credits || 0) + (parseInt(n, 10) || 0);
-    const { error } = await supabase.from("my20fit_profile")
-      .update({ scan_credits: credits, updated_at: new Date().toISOString() }).eq("auth_user_id", user.id);
-    if (error) throw error;
-    return shapeQuota(Object.assign({}, p, { scan_credits: credits }));
+    return await getScanQuota();
   }
 
   // Hitung kategori BMI (dipakai live preview di form)

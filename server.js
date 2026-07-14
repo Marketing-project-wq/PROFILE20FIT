@@ -1461,6 +1461,34 @@ app.post("/api/scan/buy", async (req, res) => {
   }
 });
 
+// ---------- Konsumsi 1 scan (server-authoritative) ----------
+// Bentuk kuota seperti Auth.shapeQuota di js/auth.js (satu sumber bentuk).
+function shapeQuotaServer(q) {
+  const freeLimit = (q && q.free_limit != null) ? (+q.free_limit) : 10;
+  const used = (q && +q.used) || 0;
+  const credits = (q && +q.credits) || 0;
+  const freeLeft = Math.max(0, freeLimit - used);
+  return { used: used, freeLimit: freeLimit, freeLeft: freeLeft, credits: credits, remaining: freeLeft + credits, period: (q && q.period) || null };
+}
+// POST /api/scan/consume — kurangi 1 scan (gratis dulu 10/bln, lalu kredit berbayar)
+// lewat RPC atomik my20fit_consume_scan. Saldo TIDAK lagi ditulis dari client.
+// 402 + code=scan_limit kalau kuota habis. Balikan { ok, quota }.
+app.post("/api/scan/consume", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const { data, error } = await admin.rpc("my20fit_consume_scan", { p_uid: user.id });
+    if (error) { console.error("scan/consume rpc:", error.message); return res.status(500).json({ error: "Gagal memproses scan." }); }
+    const q = data || {};
+    if (!q.ok) {
+      if (q.code === "scan_limit") return res.status(402).json({ ok: false, code: "scan_limit", quota: shapeQuotaServer(q) });
+      return res.status(400).json({ ok: false, code: q.code || "error" });
+    }
+    return res.json({ ok: true, quota: shapeQuotaServer(q) });
+  } catch (e) { console.error("scan/consume:", e.message); return res.status(500).json({ error: e.message }); }
+});
+
 // ---------- Preview voucher sebelum bayar (untuk halaman checkout) ----------
 // POST /api/scan/voucher-check { code, price } -> { ok, valid, discount, final } atau { ok:false, error }
 app.post("/api/scan/voucher-check", async (req, res) => {
@@ -1811,7 +1839,12 @@ function singapayVerify(req) {
 // Saat bring-up (SINGAPAY_WEBHOOK_ENFORCE != "1"): tetap 200 + LOG hasil verifikasi & payload,
 // supaya tombol Test lolos & kita bisa lihat payload asli + apakah signature cocok. Belum ada
 // pemberian kredit (menunggu skema payload transaksi + endpoint create-payment).
-const SINGAPAY_WEBHOOK_ENFORCE = process.env.SINGAPAY_WEBHOOK_ENFORCE === "1";
+// F0-5 — Fail-closed di PRODUCTION: default MENOLAK webhook dgn signature invalid,
+// walau env tidak di-set. Escape hatch darurat: SINGAPAY_WEBHOOK_ENFORCE="0" untuk
+// mematikan enforce (mis. kalau ada masalah verifikasi signature webhook asli).
+// Non-production: hanya enforce kalau di-set "1" (mudah saat bring-up).
+const SINGAPAY_WEBHOOK_ENFORCE = (process.env.SINGAPAY_WEBHOOK_ENFORCE === "1") ||
+  (IS_PROD && process.env.SINGAPAY_WEBHOOK_ENFORCE !== "0");
 function singapayNotify(tag) {
   return function (req, res) {
     let v = { valid: false, reason: "n/a" };
