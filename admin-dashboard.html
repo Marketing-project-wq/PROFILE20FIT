@@ -71,6 +71,14 @@
   .bar{height:8px;background:var(--inp);border-radius:5px;overflow:hidden}
   .bar>i{display:block;height:100%;background:var(--red)}
   .alert{background:rgba(200,112,0,.12);color:var(--orange);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:16px}
+  .modal-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;place-items:center;z-index:50;padding:20px}
+  .modal-back.show{display:grid}
+  .modal{background:var(--card);border-radius:16px;max-width:640px;width:100%;max-height:88vh;overflow:auto;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .modal h3{margin:0 0 4px;font-size:18px}
+  .modal .mclose{position:sticky;top:0;float:right;margin:-6px -6px 0 0}
+  .kvt{width:100%;border-collapse:collapse}
+  .kvt td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+  .kvt td:first-child{color:var(--muted);width:150px;font-size:13px}
   @media(max-width:820px){ .shell{grid-template-columns:1fr} .side{flex-direction:row;flex-wrap:wrap;position:sticky;top:0;z-index:5} .side .logo{width:100%} .side .spacer,.side .who{display:none} .main{padding:18px} .grid2{grid-template-columns:1fr} }
 </style>
 </head>
@@ -106,6 +114,7 @@
       <button class="navbtn on" data-tab="overview">📊 Overview</button>
       <button class="navbtn" data-tab="vouchers">🎟️ Voucher</button>
       <button class="navbtn" data-tab="transactions">💳 Transaksi</button>
+      <button class="navbtn" data-tab="users">👥 Pengguna</button>
       <button class="navbtn" data-tab="settings" id="navSettings">⚙️ Settings</button>
       <div class="spacer"></div>
       <div class="who">
@@ -138,7 +147,6 @@
           <button class="btn sm" id="vNew" style="margin-top:0">+ Buat Voucher</button>
         </div>
         <div id="vFormPanel" class="card hidden"></div>
-        <div id="vDetailPanel" class="card hidden"></div>
         <div class="card"><div id="vList"><div class="placeholder">Memuat…</div></div></div>
       </div>
       <div id="tab-transactions" class="hidden">
@@ -156,8 +164,21 @@
           <button class="btn sm ghost" id="tRefresh" style="margin-top:0">↻ Refresh</button>
         </div>
         <div id="tSummary" class="statgrid" style="margin-bottom:14px"></div>
-        <div id="tDetailPanel" class="card hidden"></div>
         <div class="card"><div id="tList"><div class="placeholder">Memuat…</div></div></div>
+      </div>
+      <div id="tab-users" class="hidden">
+        <h2>Pengguna</h2><div class="crumb">Siapa yang sedang aktif / tidak aktif</div>
+        <div class="rangebar">
+          <label style="margin:0">Aktif = ping ≤
+            <select id="uWindow" style="width:auto;display:inline-block;margin:0 6px">
+              <option value="15">15 menit</option><option value="60">1 jam</option><option value="1440">24 jam</option>
+            </select>
+          </label>
+          <span class="grow"></span>
+          <button class="btn sm ghost" id="uRefresh" style="margin-top:0">↻ Refresh</button>
+        </div>
+        <div id="uSummary" class="statgrid" style="margin-bottom:14px"></div>
+        <div class="card"><div id="uList"><div class="placeholder">Memuat…</div></div></div>
       </div>
       <div id="tab-settings" class="hidden">
         <h2>Settings</h2><div class="crumb">Kelola akses admin (superadmin only)</div>
@@ -189,6 +210,11 @@
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- ===== MODAL (detail voucher / transaksi) ===== -->
+  <div class="modal-back" id="modalBack">
+    <div class="modal" id="modalBox"><div class="placeholder">Memuat…</div></div>
   </div>
 
   <script src="js/vendor-supabase.js"></script>
@@ -303,13 +329,23 @@
       b.addEventListener("click", function(){
         var tab=b.dataset.tab;
         document.querySelectorAll(".navbtn[data-tab]").forEach(function(x){ x.classList.toggle("on", x===b); });
-        ["overview","vouchers","transactions","settings"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
+        ["overview","vouchers","transactions","users","settings"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
         if(tab==="overview") renderOverview();
         if(tab==="vouchers") loadVouchers();
         if(tab==="transactions") loadTransactions();
+        if(tab==="users") loadUsersActivity();
         if(tab==="settings" && ME && ME.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
       });
     });
+
+    // ---- Modal pop-up ----
+    function openModal(html){ $("modalBox").innerHTML = html; $("modalBack").classList.add("show"); }
+    function closeModal(){ $("modalBack").classList.remove("show"); $("modalBox").innerHTML=""; }
+    (function(){
+      var back=$("modalBack");
+      if(back) back.addEventListener("click", function(e){ if(e.target===back) closeModal(); });
+      document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeModal(); });
+    })();
 
     // ---- Roles (Settings) ----
     async function loadRoles(){
@@ -499,7 +535,6 @@
       });
     }
     function showVoucherForm(v){
-      $("vDetailPanel").classList.add("hidden");
       var p=$("vFormPanel"); p.classList.remove("hidden");
       var isEdit=!!v, used=v&&(v.used_count||0)>0;
       var lock = used ? "disabled" : "";
@@ -546,13 +581,12 @@
       if(r.ok) loadVouchers();
     }
     async function showVoucherDetail(id){
-      $("vFormPanel").classList.add("hidden");
-      var p=$("vDetailPanel"); p.classList.remove("hidden"); p.innerHTML="<div class='placeholder'>Memuat…</div>";
+      openModal("<div class='placeholder'>Memuat…</div>");
       var r=await adminFetch("/api/admin/vouchers/"+id); var j=await r.json().catch(function(){return{};});
-      if(!r.ok){ p.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
+      if(!r.ok){ openModal("<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"); return; }
       var v=j.voucher, u=j.usages||[];
-      var h="<h3>Voucher "+esc(v.code)+" <button class='btn sm ghost' id='dClose' style='float:right;margin-top:0'>Tutup</button></h3>";
-      h+="<div class='statgrid'>"+statCard("Diskon",discLabel(v))+statCard("Min transaksi",rupiah(v.min_transaction))+
+      var h="<button class='btn sm ghost mclose' onclick='closeModal()'>✕ Tutup</button><h3>Voucher "+esc(v.code)+"</h3><div class='crumb'>"+esc(v.description||"")+"</div>";
+      h+="<div class='statgrid' style='margin-top:12px'>"+statCard("Diskon",discLabel(v))+statCard("Min transaksi",rupiah(v.min_transaction))+
         statCard("Dipakai",(v.used_count||0)+" / "+(v.usage_limit_total!=null?v.usage_limit_total:"∞"))+
         statCard("Status",v.status)+statCard("Berlaku",dOnly(v.valid_from)+" – "+dOnly(v.valid_until))+"</div>";
       h+="<h3 style='margin-top:8px'>Riwayat pemakaian ("+u.length+")</h3>";
@@ -560,38 +594,39 @@
       else { h+="<table><thead><tr><th>User</th><th>Transaksi</th><th>Diskon</th><th>Waktu</th></tr></thead><tbody>";
         u.forEach(function(x){ h+="<tr><td style='font-family:monospace;font-size:12px'>"+esc(String(x.auth_user_id).slice(0,8))+"…</td><td>"+esc(x.reff_no||"—")+"</td><td>"+rupiah(x.discount_applied)+"</td><td style='color:var(--muted)'>"+new Date(x.used_at).toLocaleString("id-ID")+"</td></tr>"; });
         h+="</tbody></table>"; }
-      p.innerHTML=h;
-      $("dClose").addEventListener("click", function(){ p.classList.add("hidden"); });
-      p.scrollIntoView({behavior:"smooth",block:"nearest"});
+      openModal(h);
     }
     (function(){
       ["vSearch","vStatus","vSort"].forEach(function(idn){ var el=$(idn); if(el) el.addEventListener(idn==="vSearch"?"input":"change", loadVouchers); });
       var vn=$("vNew"); if(vn) vn.addEventListener("click", function(){ showVoucherForm(null); });
     })();
 
-    // ---- Transaksi (Step 5) ----
+    // ---- Transaksi ----
     var T_RANGE = "7d";
-    function txStatusTag(s){ var cls = s==="paid"?"staff":(s==="pending"?"viewer":"viewer"); var color = s==="paid"?"var(--green,#1a7f37)":(s==="pending"?"#8A7C68":"var(--red)"); return "<span class='tagrole' style='background:"+color+"1a;color:"+color+"'>"+esc(s||"—")+"</span>"; }
+    function txStatusTag(s){ var color = s==="paid"?"var(--green,#1a7f37)":(s==="pending"?"#8A7C68":"var(--red)"); return "<span class='tagrole' style='background:"+color+"1a;color:"+color+"'>"+esc(s||"—")+"</span>"; }
+    // Label jenis transaksi (order_type). Sekarang scan food; siap untuk jenis lain nanti.
+    function orderTypeLabel(t){
+      var map={ scan_credit:"🍽️ Kredit scan makanan", plus:"⭐ Membership Plus", other:"Lainnya" };
+      return map[t] || (t ? esc(t) : "🍽️ Kredit scan makanan");
+    }
     async function loadTransactions(){
       var list=$("tList"); list.innerHTML="<div class='placeholder'>Memuat…</div>";
-      $("tDetailPanel").classList.add("hidden");
       var qs="range="+T_RANGE+"&status="+$("tStatus").value+"&method="+encodeURIComponent($("tMethod").value)+"&voucher="+$("tVoucher").value;
       var r=await adminFetch("/api/admin/transactions?"+qs); var j=await r.json().catch(function(){return{};});
       if(!r.ok){ list.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal ambil transaksi")+"</div>"; return; }
       var rows=j.transactions||[];
-      // ringkasan
       var paid=rows.filter(function(x){return x.status==="paid";});
       var gross=paid.reduce(function(a,x){return a+(+x.amount||0);},0);
       var net=paid.reduce(function(a,x){return a+(+(x.net_amount!=null?x.net_amount:x.amount)||0);},0);
       $("tSummary").innerHTML = statCard("Transaksi",rows.length,paid.length+" lunas")+statCard("Revenue (gross)",rupiah(gross))+statCard("Revenue (net)",rupiah(net))+statCard("Kredit terjual",paid.reduce(function(a,x){return a+(+x.credits||0);},0)+" scan");
-      // isi dropdown metode dari data (sekali)
       var mSel=$("tMethod"); if(mSel.options.length<=1){ var methods={}; rows.forEach(function(x){ if(x.payment_method) methods[x.payment_method]=1; }); Object.keys(methods).forEach(function(m){ var o=document.createElement("option"); o.value=m; o.textContent=m; mSel.appendChild(o); }); }
       if(!rows.length){ list.innerHTML="<div class='placeholder'>Belum ada transaksi di rentang ini.</div>"; return; }
-      var h="<table><thead><tr><th>Reff No</th><th>Kredit</th><th>Nominal</th><th>Metode</th><th>Voucher</th><th>Status</th><th>Waktu</th><th></th></tr></thead><tbody>";
+      var h="<table><thead><tr><th>Reff No</th><th>Jenis</th><th>Kredit</th><th>Nominal</th><th>Metode</th><th>Voucher</th><th>Status</th><th>Waktu</th><th></th></tr></thead><tbody>";
       rows.forEach(function(x){
         h+="<tr><td style='font-family:monospace;font-size:12px'>"+esc(x.reff_no)+"</td>"+
+          "<td style='font-size:12px'>"+orderTypeLabel(x.order_type)+"</td>"+
           "<td>"+(x.credits||0)+"</td>"+
-          "<td><b>"+rupiah(x.amount)+"</b>"+(x.net_amount!=null&&x.net_amount!==x.amount?"<div style='font-size:11px;color:var(--muted)'>net "+rupiah(x.net_amount)+"</div>":"")+"</td>"+
+          "<td><b>"+rupiah(x.amount)+"</b>"+(x.net_amount!=null&&x.net_amount!==x.amount?"<div style='font-size:11px;color:var(--muted)'>bayar "+rupiah(x.net_amount)+"</div>":"")+"</td>"+
           "<td>"+esc(x.payment_method||"—")+"</td>"+
           "<td>"+(x.voucher_code?"<span class='tagrole staff'>"+esc(x.voucher_code)+"</span>":"<span style='color:var(--muted)'>—</span>")+"</td>"+
           "<td>"+txStatusTag(x.status)+"</td>"+
@@ -602,23 +637,22 @@
       list.querySelectorAll("button[data-reff]").forEach(function(b){ b.addEventListener("click", function(){ showTxDetail(b.dataset.reff); }); });
     }
     async function showTxDetail(reff){
-      var p=$("tDetailPanel"); p.classList.remove("hidden"); p.innerHTML="<div class='placeholder'>Memuat…</div>";
+      openModal("<div class='placeholder'>Memuat…</div>");
       var r=await adminFetch("/api/admin/transactions/"+encodeURIComponent(reff)); var j=await r.json().catch(function(){return{};});
-      if(!r.ok){ p.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
+      if(!r.ok){ openModal("<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"); return; }
       var t=j.tx, b=j.buyer, v=j.voucher, u=j.usage;
-      var h="<h3>Transaksi "+esc(t.reff_no)+" <button class='btn sm ghost' id='tdClose' style='float:right;margin-top:0'>Tutup</button></h3>";
-      h+="<div class='statgrid'>"+statCard("Status",t.status)+statCard("Nominal",rupiah(t.amount),t.net_amount!=null&&t.net_amount!==t.amount?"net "+rupiah(t.net_amount):"")+
+      var h="<button class='btn sm ghost mclose' onclick='closeModal()'>✕ Tutup</button><h3>Transaksi "+esc(t.reff_no)+"</h3><div class='crumb'>"+orderTypeLabel(t.order_type)+"</div>";
+      h+="<div class='statgrid' style='margin-top:12px'>"+statCard("Status",t.status)+statCard("Nominal",rupiah(t.amount),t.net_amount!=null&&t.net_amount!==t.amount?"bayar "+rupiah(t.net_amount):"")+
         statCard("Kredit",(t.credits||0)+" scan")+statCard("Metode",t.payment_method||"—")+"</div>";
-      h+="<table style='margin-top:8px'>";
-      h+="<tr><td style='color:var(--muted);width:180px'>Pembeli</td><td><b>"+esc(b&&(b.full_name||b.email)||"—")+"</b>"+(b&&b.email?" · "+esc(b.email):"")+"</td></tr>";
-      h+="<tr><td style='color:var(--muted)'>Gateway ref</td><td style='font-family:monospace;font-size:12px'>"+esc(t.gateway_reference_id||"—")+"</td></tr>";
-      h+="<tr><td style='color:var(--muted)'>Dibuat</td><td>"+new Date(t.created_at).toLocaleString("id-ID")+"</td></tr>";
-      h+="<tr><td style='color:var(--muted)'>Dibayar</td><td>"+(t.paid_at?new Date(t.paid_at).toLocaleString("id-ID"):"—")+"</td></tr>";
-      if(v){ h+="<tr><td style='color:var(--muted)'>Voucher</td><td><span class='tagrole staff'>"+esc(v.code)+"</span> "+(v.discount_type==="percentage"?(v.discount_value+"%"):rupiah(v.discount_value))+(u?" · diskon "+rupiah(u.discount_applied):"")+"</td></tr>"; }
+      h+="<table class='kvt' style='margin-top:8px'>";
+      h+="<tr><td>Jenis transaksi</td><td>"+orderTypeLabel(t.order_type)+"</td></tr>";
+      h+="<tr><td>Pembeli</td><td><b>"+esc(b&&(b.full_name||b.email)||"—")+"</b>"+(b&&b.email?" · "+esc(b.email):"")+"</td></tr>";
+      h+="<tr><td>Gateway ref</td><td style='font-family:monospace;font-size:12px'>"+esc(t.gateway_reference_id||"—")+"</td></tr>";
+      h+="<tr><td>Dibuat</td><td>"+new Date(t.created_at).toLocaleString("id-ID")+"</td></tr>";
+      h+="<tr><td>Dibayar</td><td>"+(t.paid_at?new Date(t.paid_at).toLocaleString("id-ID"):"—")+"</td></tr>";
+      if(v){ h+="<tr><td>Voucher</td><td><span class='tagrole staff'>"+esc(v.code)+"</span> "+(v.discount_type==="percentage"?(v.discount_value+"%"):rupiah(v.discount_value))+(u?" · diskon "+rupiah(u.discount_applied):"")+"</td></tr>"; }
       h+="</table>";
-      p.innerHTML=h;
-      $("tdClose").addEventListener("click", function(){ p.classList.add("hidden"); });
-      p.scrollIntoView({behavior:"smooth",block:"nearest"});
+      openModal(h);
     }
     (function(){
       document.querySelectorAll(".tbtn[data-trange]").forEach(function(b){ b.addEventListener("click", function(){
@@ -626,6 +660,33 @@
       }); });
       ["tStatus","tMethod","tVoucher"].forEach(function(idn){ var el=$(idn); if(el) el.addEventListener("change", loadTransactions); });
       var tr=$("tRefresh"); if(tr) tr.addEventListener("click", loadTransactions);
+    })();
+
+    // ---- Pengguna aktif / tidak aktif ----
+    async function loadUsersActivity(){
+      var list=$("uList"); list.innerHTML="<div class='placeholder'>Memuat…</div>";
+      var win=$("uWindow").value||"15";
+      var r=await adminFetch("/api/admin/users-activity?window="+win); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ list.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
+      var us=j.users||[];
+      $("uSummary").innerHTML = statCard("Aktif sekarang", j.active||0, "≤ "+j.window+" menit")+statCard("Tidak aktif", j.inactive||0)+statCard("Total terlacak", j.total||0);
+      if(!us.length){ list.innerHTML="<div class='placeholder'>Belum ada data aktivitas. Data mulai terkumpul setelah user membuka app (versi terbaru).</div>"; return; }
+      function ago(m){ if(m==null) return "—"; if(m<1) return "baru saja"; if(m<60) return m+" mnt lalu"; if(m<1440) return Math.floor(m/60)+" jam lalu"; return Math.floor(m/1440)+" hari lalu"; }
+      var h="<table><thead><tr><th>Status</th><th>Nama</th><th>Email</th><th>Terakhir aktif</th><th>Halaman</th><th>Ping</th></tr></thead><tbody>";
+      us.forEach(function(u){
+        var dotc=u.active?"var(--green,#1a7f37)":"#8A7C68";
+        h+="<tr><td><span style='color:"+dotc+"'>●</span> "+(u.active?"Aktif":"Tidak aktif")+"</td>"+
+          "<td>"+esc(u.full_name||"—")+"</td>"+
+          "<td style='color:var(--muted)'>"+esc(u.email||"—")+"</td>"+
+          "<td>"+ago(u.minutes_ago)+"</td>"+
+          "<td style='color:var(--muted);font-size:12px'>"+esc(u.last_page||"—")+"</td>"+
+          "<td>"+(u.ping_count||0)+"</td></tr>";
+      });
+      list.innerHTML=h+"</tbody></table>";
+    }
+    (function(){
+      var uw=$("uWindow"); if(uw) uw.addEventListener("change", loadUsersActivity);
+      var ur=$("uRefresh"); if(ur) ur.addEventListener("click", loadUsersActivity);
     })();
 
     // ---- Boot: kalau sudah ada sesi/ key valid, langsung masuk ----
