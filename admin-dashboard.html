@@ -85,6 +85,7 @@
       <input id="loginKey" type="password" placeholder="Admin master key (ADMIN_KEY)" />
       <button class="btn ghost" id="btnKey" style="margin-top:10px">Masuk pakai key</button>
       <div class="msg" id="loginMsg"></div>
+      <div id="loginDiag" style="margin-top:14px;font-size:11px;color:#9a907f;text-align:center;line-height:1.6"></div>
     </div>
   </div>
 
@@ -194,9 +195,33 @@
       else { try{ var t = await Auth.token(); if(t) opts.headers["Authorization"] = "Bearer " + t; }catch(e){} }
       return fetch(path, opts);
     }
+    // Return {ok, me?, status, error?} supaya pesan login bisa spesifik.
     async function fetchMe(){
-      try{ var r = await adminFetch("/api/admin/me"); if(r.ok) return await r.json(); }catch(e){}
-      return null;
+      try{
+        var r = await adminFetch("/api/admin/me");
+        var j = await r.json().catch(function(){return{};});
+        if(r.ok) return { ok:true, me:j, status:r.status };
+        return { ok:false, status:r.status, error:(j&&j.error)||("HTTP "+r.status) };
+      }catch(e){ return { ok:false, status:0, error:(e&&e.message)||"network" }; }
+    }
+    // Terjemahkan kegagalan /api/admin/me jadi pesan yang jelas.
+    function meErrMsg(res){
+      if(res.status===503) return "Server belum baca SUPABASE_SERVICE_KEY — Railway perlu redeploy setelah env di-set.";
+      if(res.status===403) return "Login berhasil, tapi role akun ini belum cukup untuk masuk. (role: "+(res.error||"?")+")";
+      if(res.status===401) return "Login berhasil, tapi akun ini belum terdaftar sebagai admin.";
+      if(res.status===0)  return "Tidak bisa menghubungi server. Cek koneksi / status deploy.";
+      return res.error||"Gagal verifikasi akses admin.";
+    }
+    // Tampilkan status konfigurasi server langsung di halaman login (self-diagnosa).
+    async function showLoginDiag(){
+      var el=$("loginDiag"); if(!el) return;
+      try{
+        var r=await fetch("/api/config"); var c=await r.json();
+        function dot(ok){ return ok?"<span style='color:#39c07a'>●</span>":"<span style='color:#e05a5a'>●</span>"; }
+        el.innerHTML = "build <b>"+(c.version||"?")+"</b> · "+
+          dot(!!c.serviceKeySet)+" service key "+(c.serviceKeySet?"aktif":"BELUM")+" · "+
+          dot(!!c.adminKeySet)+" master key "+(c.adminKeySet?"aktif":"BELUM di-set");
+      }catch(e){ el.textContent="(tidak bisa baca /api/config)"; }
     }
     function showLogin(){ $("appView").classList.add("hidden"); $("loginView").classList.remove("hidden"); }
     function showApp(me){
@@ -212,26 +237,38 @@
     }
 
     // ---- Login handlers ----
+    // Coba beberapa cara auth: (1) password Supabase, kalau gagal (2) login 20FIT/FITCO.
+    // Admin jadi bisa pakai password 20FIT asli ATAU password khusus admin.
+    async function tryAuth(email, pass){
+      await Auth.ready();
+      var res = await Auth.supabase.auth.signInWithPassword({ email:email, password:pass });
+      if(!res.error) return { ok:true };
+      // Fallback: akun 20FIT (API FITCO) — bikin sesi Supabase juga.
+      try{ await Auth.fitcoLogin(email, pass); return { ok:true }; }
+      catch(e2){ return { ok:false, error:res.error.message }; }
+    }
     $("btnLogin").addEventListener("click", async function(){
       var email=$("loginEmail").value.trim(), pass=$("loginPass").value;
       if(!email||!pass){ lmsg("Isi email & password."); return; }
       this.disabled=true; lmsg("Masuk…", true);
       try{
-        await Auth.ready();
-        var res = await Auth.supabase.auth.signInWithPassword({ email:email, password:pass });
-        if(res.error){ lmsg(res.error.message); this.disabled=false; return; }
+        var auth = await tryAuth(email, pass);
+        if(!auth.ok){ lmsg(auth.error==="Invalid login credentials"?"Email atau password salah.":(auth.error||"Login gagal.")); this.disabled=false; return; }
         MASTER_KEY=""; sessionStorage.removeItem("admin_master_key");
-        var me = await fetchMe();
-        if(me) showApp(me); else lmsg("Login berhasil, tapi akun ini belum punya akses admin.");
+        var res = await fetchMe();
+        if(res.ok) showApp(res.me); else lmsg(meErrMsg(res));
       }catch(e){ lmsg(e.message||"Gagal masuk."); }
       this.disabled=false;
     });
     $("btnKey").addEventListener("click", async function(){
       var k=$("loginKey").value.trim(); if(!k){ lmsg("Isi master key."); return; }
       MASTER_KEY=k; this.disabled=true; lmsg("Cek key…", true);
-      var me = await fetchMe();
-      if(me){ sessionStorage.setItem("admin_master_key", k); showApp(me); }
-      else { MASTER_KEY=""; lmsg("Master key salah / tidak dikonfigurasi."); }
+      var res = await fetchMe();
+      if(res.ok){ sessionStorage.setItem("admin_master_key", k); showApp(res.me); }
+      else { MASTER_KEY="";
+        if(res.status===503) lmsg("Server belum baca ADMIN_KEY — pastikan ADMIN_KEY di Railway lalu redeploy.");
+        else lmsg("Master key salah / belum di-set di server.");
+      }
       this.disabled=false;
     });
     $("btnLogout").addEventListener("click", async function(){
@@ -573,8 +610,8 @@
     // ---- Boot: kalau sudah ada sesi/ key valid, langsung masuk ----
     (async function(){
       try{ await Auth.ready(); }catch(e){}
-      var me = await fetchMe();
-      if(me) showApp(me); else showLogin();
+      var res = await fetchMe();
+      if(res.ok) showApp(res.me); else { showLogin(); showLoginDiag(); }
     })();
   </script>
 </body>
