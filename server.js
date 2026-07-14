@@ -383,6 +383,17 @@ const SINGAPAY_TOKEN_PATH = process.env.SINGAPAY_TOKEN_PATH || "/api/v1.1/access
 const SINGAPAY_CREATE_PATH = process.env.SINGAPAY_CREATE_PATH || "/api/v1.0/payment-link-manage";
 const SINGAPAY_ACCOUNTS_PATH = process.env.SINGAPAY_ACCOUNTS_PATH || "/api/v1.0/accounts";
 
+// ---------- Katalog paket scan (server-authoritative) ----------
+// Sumber kebenaran harga & jumlah kredit ada di SERVER, bukan client. /api/scan/buy
+// hanya menerima package_id; server yang menentukan credits & price dari sini.
+// package_id = product_id dari sistem retail 20FIT (FITCO). HARUS sama persis dengan
+// SCAN_PACKS di js/deals.js (yang kini dipakai hanya untuk tampilan UI).
+const SCAN_PACKAGES = {
+  8477: { credits: 10,  price: 25000  },
+  8478: { credits: 50,  price: 75000  },
+  8479: { credits: 150, price: 150000 },
+};
+
 // ---------- Login Google via Google Identity Services (GIS) ----------
 // Frontend memakai tombol Google resmi (SDK GIS) untuk mendapatkan ID token,
 // lalu mengirimnya ke POST /api/fitco-google-login (diteruskan ke API 20FIT
@@ -1390,9 +1401,13 @@ app.post("/api/scan/buy", async (req, res) => {
     const b = req.body || {};
 
     // ===== Pembayaran paket scan = SingaPay (satu-satunya jalur; Xendit sudah dihapus) =====
-    const credits = parseInt(b.credits, 10) || 0;
-    const gross = parseInt(b.price, 10) || 0;
-    if (credits <= 0 || gross <= 0) return res.status(400).json({ error: "Paket tidak valid." });
+    // Katalog server-authoritative: client HANYA kirim package_id. credits & harga
+    // ditentukan server dari SCAN_PACKAGES — nilai credits/price di body diabaikan total.
+    const packageId = parseInt(b.package_id, 10) || 0;
+    const pack = SCAN_PACKAGES[packageId];
+    if (!pack) return res.status(400).json({ error: "Paket tidak ditemukan." });
+    const credits = pack.credits;
+    const gross = pack.price;
 
     // Voucher (opsional): validasi & hitung harga akhir.
     let voucherId = null, discount = 0, amount = gross;
