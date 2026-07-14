@@ -120,6 +120,15 @@
   .empty{text-align:center;color:var(--muted);padding:30px 10px}
   .soon{display:inline-block;font-size:12px;background:var(--inp);color:var(--muted);padding:6px 14px;border-radius:999px;margin-top:6px;font-weight:700}
   .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
+  /* Modal detail hasil MCU dari history */
+  .mcu-bg{position:fixed;inset:0;z-index:200;background:rgba(10,12,16,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 14px}
+  .mcu-bg.open{display:flex}
+  .mcu-modal{width:100%;max-width:720px;background:var(--card,#fff);color:var(--txt);border-radius:20px;padding:0;box-shadow:0 20px 60px rgba(0,0,0,.4);animation:mcuUp .28s cubic-bezier(.2,.85,.25,1);margin:auto}
+  @keyframes mcuUp{from{transform:translateY(16px);opacity:.6}to{transform:translateY(0);opacity:1}}
+  .mcu-hd{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:var(--card,#fff);border-bottom:1px solid var(--line);border-radius:20px 20px 0 0}
+  .mcu-hd h3{margin:0;font-size:16px;font-weight:800}
+  .mcu-x{border:0;background:var(--inp);color:var(--txt);width:34px;height:34px;border-radius:10px;font-size:17px;cursor:pointer;flex:0 0 auto}
+  .mcu-body{padding:16px 20px 22px}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
@@ -158,6 +167,13 @@
     </div>
   </div>
 
+  <!-- Pop-up detail hasil MCU dari history -->
+  <div class="mcu-bg" id="mcuModalBg">
+    <div class="mcu-modal">
+      <div class="mcu-hd"><h3 id="mcuModalTitle">—</h3><button class="mcu-x" onclick="closeMcuModal()" aria-label="Tutup">✕</button></div>
+      <div class="mcu-body" id="mcuModalBody"></div>
+    </div>
+  </div>
 
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
@@ -316,6 +332,10 @@
 
     function renderResult(res,noScroll){
       currentRes=res;
+      document.getElementById("result").innerHTML=buildResultHTML(res);
+      if(!noScroll)document.getElementById("result").scrollIntoView({behavior:"smooth"});
+    }
+    function buildResultHTML(res){
       const att=res.abnormal_findings||[];
       const params=(res.parameters||[]).map(p=>{
         const col=statusColor(p.status);
@@ -352,8 +372,7 @@
         '<div style="margin-top:8px;font-weight:700;color:'+(att.length?"#b3402f":"#2A7A4F")+'">'+attLine+'</div>'+
         (bi?'<div class="muted" style="margin-top:6px">'+L({en:"Overall, based on your BMI & profile: ",id:"Secara umum dari BMI & profilmu: "})+bi.desc+'</div>':'')+'</div>';
 
-      document.getElementById("result").innerHTML=
-        overall+
+      return overall+
         (findings?'<div class="card rfull"><div class="ch" style="color:var(--red)">'+warn+I18N.t("med_attention")+'</div>'+findings+'</div>':"")+
         (params?'<div class="card"><div style="font-weight:800;margin-bottom:6px">'+I18N.t("med_params")+'</div>'+params+'</div>':"")+
         eatingShortCard(res)+
@@ -361,7 +380,6 @@
         planCard(I18N.t("med_exercise"),ICO.ex,"#2563eb",res.exercise_plan)+
         unread+
         '<div class="card rfull" style="border-color:rgba(196,17,1,.3);background:rgba(196,17,1,.07);color:#8a1f15;font-size:13px"><svg class="emi" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> '+(res.disclaimer||L({en:"This interpretation is not a substitute for a doctor. Consult the 20FIT doctor for proper advice.",id:"Interpretasi ini bukan pengganti konsultasi dokter. Konsultasikan ke dokter 20FIT untuk saran yang tepat."}))+'</div>';
-      if(!noScroll)document.getElementById("result").scrollIntoView({behavior:"smooth"});
     }
     async function loadList(){
       try{const {data}=await Auth.supabase.from("my20fit_mcu_result").select("*").eq("auth_user_id",user.id).order("created_at",{ascending:false});history=data||[]}catch(e){history=[]}
@@ -371,7 +389,19 @@
         return '<div class="rec" onclick="openHistory('+i+')"><div class="grade"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:var(--red);stroke-width:2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="flex:1"><div style="font-weight:700">'+(res.document_type||L({en:"MCU Result",id:"Hasil MCU"}))+'</div><div class="muted">'+date+(flag?' · '+flag+' '+L({en:"need attention",id:"perlu perhatian"}):'')+'</div></div><span class="seemore">'+L({en:"See more",id:"Lihat detail"})+' ›</span></div>';
       }).join("");
     }
-    function openHistory(i){const r=history[i];if(r&&r.result)showResult(r.result);}
+    // "See details" -> pop-up berisi hasil MCU yang dipilih dari history.
+    function openHistory(i){
+      const r=history[i]; if(!r||!r.result) return;
+      const res=r.result; const date=(r.analyzed_at||r.created_at||"").slice(0,10);
+      const title=(res.document_type||L({en:"MCU Result",id:"Hasil MCU"}))+(date?" · "+date:"");
+      document.getElementById("mcuModalTitle").textContent=title;
+      document.getElementById("mcuModalBody").innerHTML=buildResultHTML(res);
+      const bg=document.getElementById("mcuModalBg"); bg.classList.add("open");
+      bg.scrollTop=0; document.body.style.overflow="hidden";
+    }
+    function closeMcuModal(){ document.getElementById("mcuModalBg").classList.remove("open"); document.body.style.overflow=""; }
+    (function(){ var bg=document.getElementById("mcuModalBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeMcuModal(); });
+      document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeMcuModal(); }); })();
     // Terjemahkan hasil yang sedang tampil ke bahasa aktif (lewat AI), dengan cache + timeout
     async function translateCurrent(){
       const base=baseRes; if(!base){return;}
