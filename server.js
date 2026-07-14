@@ -940,15 +940,30 @@ app.get("/api/admin/metrics", async (req, res) => {
   const { from, to } = adminRange(req.query);
   try {
     const { data: orders } = await admin.from("my20fit_scan_orders")
-      .select("reff_no,auth_user_id,amount,net_amount,status,payment_method,voucher_id,created_at,paid_at")
+      .select("reff_no,auth_user_id,amount,net_amount,credits,status,payment_method,voucher_id,created_at,paid_at")
       .gte("created_at", from).lte("created_at", to);
     const ord = orders || [];
     const paid = ord.filter(o => o.status === "paid");
     const gross = paid.reduce((s, o) => s + (+o.amount || 0), 0);
     const net = paid.reduce((s, o) => s + (o.net_amount != null ? +o.net_amount : (+o.amount || 0)), 0);
     const byStatus = {}; ord.forEach(o => { byStatus[o.status || "?"] = (byStatus[o.status || "?"] || 0) + 1; });
-    const daily = {}; paid.forEach(o => { const d = String(o.paid_at || o.created_at).slice(0, 10); daily[d] = (daily[d] || 0) + (+o.amount || 0); });
-    const trend = Object.keys(daily).sort().map(d => ({ date: d, revenue: daily[d] }));
+    // Tren harian: revenue + jumlah transaksi + kumulatif, hari kosong diisi 0 (maks ~366 hari).
+    const dayRev = {}, dayCnt = {};
+    paid.forEach(o => { const d = String(o.paid_at || o.created_at).slice(0, 10); dayRev[d] = (dayRev[d] || 0) + (+o.amount || 0); dayCnt[d] = (dayCnt[d] || 0) + 1; });
+    const trend = [];
+    (function () {
+      const start = new Date(String(from).slice(0, 10) + "T00:00:00");
+      const end = new Date(String(to).slice(0, 10) + "T00:00:00");
+      let cum = 0, guard = 0;
+      for (let dt = new Date(start); dt <= end && guard < 366; dt.setDate(dt.getDate() + 1), guard++) {
+        const key = dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+        const rev = dayRev[key] || 0; cum += rev;
+        trend.push({ date: key, revenue: rev, count: dayCnt[key] || 0, cumulative: cum });
+      }
+    })();
+    // Produk (paket kredit) terlaris di rentang ini.
+    const prodMap = {}; paid.forEach(o => { const k = (+o.credits || 0); const m = prodMap[k] || (prodMap[k] = { credits: k, label: k + " scan", count: 0, revenue: 0 }); m.count++; m.revenue += (o.net_amount != null ? +o.net_amount : +o.amount) || 0; });
+    const byProduct = Object.values(prodMap).sort((a, b) => b.revenue - a.revenue);
     const byMethod = {}; paid.forEach(o => { const m = o.payment_method || "(tidak diketahui)"; byMethod[m] = (byMethod[m] || 0) + 1; });
     const paidByUser = {}; paid.forEach(o => { if (o.auth_user_id) paidByUser[o.auth_user_id] = (paidByUser[o.auth_user_id] || 0) + 1; });
     const buyers = Object.keys(paidByUser).length;
@@ -974,7 +989,7 @@ app.get("/api/admin/metrics", async (req, res) => {
       ok: true, range: { from, to }, role: ctx.role,
       revenue: { gross: gross, net: net, discount: Math.max(0, gross - net), aov: paid.length ? Math.round(gross / paid.length) : 0 },
       tx: { total: ord.length, paid: paid.length, byStatus: byStatus, successRate: ord.length ? Math.round(paid.length / ord.length * 100) : 0 },
-      trend: trend, byMethod: byMethod,
+      trend: trend, byMethod: byMethod, byProduct: byProduct,
       users: { total: totalUsers || 0, new: newUsers || 0, buyers: buyers, repeatRate: buyers ? Math.round(repeat / buyers * 100) : 0 },
       voucher: { active: activeVouchers || 0, uses: us.length, discount: us.reduce((s, u) => s + (+u.discount_applied || 0), 0), top: top, expiring: expiring || [] },
     });

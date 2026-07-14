@@ -443,19 +443,66 @@
     var CUR_RANGE = "7d";
     function rupiah(n){ return "Rp " + (Math.round(+n||0)).toLocaleString("id-ID"); }
     function statCard(lbl,val,sub){ return "<div class='stat'><div class='lbl'>"+lbl+"</div><div class='val'>"+val+"</div>"+(sub?"<div class='sub'>"+sub+"</div>":"")+"</div>"; }
-    function lineChart(points){
-      if(!points||!points.length) return "<div class='placeholder'>Belum ada revenue di rentang ini.</div>";
-      var W=620,H=170,pad=34, n=points.length;
-      var max=Math.max.apply(null, points.map(function(p){return p.revenue;}))||1;
-      var xs=function(i){ return pad + (n<=1?(W-2*pad)/2:(i/(n-1))*(W-2*pad)); };
-      var ys=function(v){ return H-pad - (v/max)*(H-2*pad); };
-      var pts=points.map(function(p,i){ return xs(i)+","+ys(p.revenue); }).join(" ");
-      var dots=points.map(function(p,i){ return "<circle cx='"+xs(i).toFixed(1)+"' cy='"+ys(p.revenue).toFixed(1)+"' r='3' fill='#C41101'><title>"+p.date+": "+rupiah(p.revenue)+"</title></circle>"; }).join("");
-      return "<div class='chartwrap'><svg viewBox='0 0 "+W+" "+H+"' width='100%' style='max-width:640px'>"+
-        "<line x1='"+pad+"' y1='"+(H-pad)+"' x2='"+(W-pad)+"' y2='"+(H-pad)+"' stroke='#E8E2DB'/>"+
-        "<polyline fill='none' stroke='#C41101' stroke-width='2' points='"+pts+"'/>"+dots+
-        "<text x='"+pad+"' y='16' font-size='11' fill='#8A7C68'>"+rupiah(max)+"</text></svg>"+
-        "<div style='font-size:11px;color:var(--muted)'>"+points[0].date+" → "+points[n-1].date+"</div></div>";
+    // Area chart revenue harian + garis kumulatif (progress penjualan).
+    function salesChart(trend){
+      if(!trend||!trend.length) return "<div class='placeholder'>Belum ada revenue di rentang ini.</div>";
+      var W=680,H=230,padL=52,padR=14,padT=18,padB=28,n=trend.length;
+      var maxRev=Math.max.apply(null, trend.map(function(p){return p.revenue;}))||1;
+      var maxCum=Math.max.apply(null, trend.map(function(p){return p.cumulative;}))||1;
+      var xs=function(i){ return padL + (n<=1?(W-padL-padR)/2:(i/(n-1))*(W-padL-padR)); };
+      var yR=function(v){ return H-padB - (v/maxRev)*(H-padT-padB); };
+      var yC=function(v){ return H-padB - (v/maxCum)*(H-padT-padB); };
+      var pts=trend.map(function(p,i){ return xs(i).toFixed(1)+","+yR(p.revenue).toFixed(1); });
+      var areaPath="M"+xs(0).toFixed(1)+","+(H-padB)+" L"+pts.join(" L")+" L"+xs(n-1).toFixed(1)+","+(H-padB)+" Z";
+      var cumLine=trend.map(function(p,i){ return xs(i).toFixed(1)+","+yC(p.cumulative).toFixed(1); }).join(" ");
+      var dots=trend.map(function(p,i){ return "<circle cx='"+xs(i).toFixed(1)+"' cy='"+yR(p.revenue).toFixed(1)+"' r='2.6' fill='var(--red)'><title>"+p.date+": "+rupiah(p.revenue)+" · "+p.count+" tx</title></circle>"; }).join("");
+      var grid=""; for(var g=1;g<=3;g++){ var yy=(padT+(H-padT-padB)*g/4).toFixed(1); grid+="<line x1='"+padL+"' y1='"+yy+"' x2='"+(W-padR)+"' y2='"+yy+"' stroke='var(--line)' stroke-dasharray='3 4'/>"; }
+      return "<div class='chartwrap'><svg viewBox='0 0 "+W+" "+H+"' width='100%'>"+
+        "<defs><linearGradient id='revg' x1='0' x2='0' y1='0' y2='1'><stop offset='0' stop-color='var(--red)' stop-opacity='.30'/><stop offset='1' stop-color='var(--red)' stop-opacity='0'/></linearGradient></defs>"+
+        grid+"<path d='"+areaPath+"' fill='url(#revg)'/>"+
+        "<polyline fill='none' stroke='var(--red)' stroke-width='2.5' points='"+pts.join(" ")+"'/>"+
+        "<polyline fill='none' stroke='#2A7A4F' stroke-width='2' stroke-dasharray='5 4' points='"+cumLine+"'/>"+dots+
+        "<text x='6' y='"+(padT+2)+"' font-size='11' fill='var(--muted)'>"+rupiah(maxRev)+"</text>"+
+        "<text x='6' y='"+(H-padB)+"' font-size='11' fill='var(--muted)'>0</text></svg>"+
+        "<div style='display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:4px'>"+
+          "<span><b style='color:var(--red)'>■</b> revenue harian</span>"+
+          "<span><b style='color:#2A7A4F'>▬</b> kumulatif → "+rupiah(maxCum)+"</span>"+
+          "<span style='margin-left:auto'>"+trend[0].date+" → "+trend[n-1].date+"</span></div></div>";
+    }
+    // Bar chart harian (mis. jumlah transaksi).
+    function barChart(trend){
+      if(!trend||!trend.length) return "<div class='placeholder'>Belum ada data.</div>";
+      var W=680,H=180,padL=30,padR=10,padT=14,padB=24,n=trend.length;
+      var max=Math.max.apply(null, trend.map(function(p){return p.count;}))||1;
+      var bw=(W-padL-padR)/n, innerw=Math.max(2,Math.min(bw*0.7,26));
+      var bars=trend.map(function(p,i){ var x=padL+i*bw+(bw-innerw)/2, hh=(p.count/max)*(H-padT-padB), y=H-padB-hh;
+        return "<rect x='"+x.toFixed(1)+"' y='"+y.toFixed(1)+"' width='"+innerw.toFixed(1)+"' height='"+Math.max(0,hh).toFixed(1)+"' rx='2' fill='var(--red)' opacity='.85'><title>"+p.date+": "+p.count+" transaksi</title></rect>"; }).join("");
+      return "<div class='chartwrap'><svg viewBox='0 0 "+W+" "+H+"' width='100%'>"+
+        "<line x1='"+padL+"' y1='"+(H-padB)+"' x2='"+(W-padR)+"' y2='"+(H-padB)+"' stroke='var(--line)'/>"+
+        "<text x='4' y='14' font-size='11' fill='var(--muted)'>"+max+"</text>"+bars+"</svg></div>";
+    }
+    var PIE=["#C41101","#2A7A4F","#C87000","#2563eb","#7c3aed","#0891b2","#8A7C68"];
+    function donut(obj){
+      var keys=Object.keys(obj||{}); var total=keys.reduce(function(s,k){return s+obj[k];},0);
+      if(!total) return "<div class='placeholder'>Belum ada data.</div>";
+      keys.sort(function(a,b){return obj[b]-obj[a];});
+      var cx=70,cy=70,r=56,ang=-Math.PI/2,i=0,segs="";
+      keys.forEach(function(k){ var frac=obj[k]/total; var a2=ang+frac*2*Math.PI;
+        if(frac>=0.9999){ segs+="<circle cx='"+cx+"' cy='"+cy+"' r='"+r+"' fill='"+PIE[i%PIE.length]+"'><title>"+esc(k)+": "+obj[k]+"</title></circle>"; }
+        else { var x1=cx+r*Math.cos(ang),y1=cy+r*Math.sin(ang),x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2),large=frac>0.5?1:0;
+          segs+="<path d='M"+cx+" "+cy+" L"+x1.toFixed(1)+" "+y1.toFixed(1)+" A"+r+" "+r+" 0 "+large+" 1 "+x2.toFixed(1)+" "+y2.toFixed(1)+" Z' fill='"+PIE[i%PIE.length]+"'><title>"+esc(k)+": "+obj[k]+" ("+Math.round(frac*100)+"%)</title></path>"; }
+        ang=a2; i++; });
+      var legend=keys.map(function(k,idx){ return "<div style='display:flex;align-items:center;gap:7px;font-size:12.5px'><span style='width:11px;height:11px;border-radius:3px;background:"+PIE[idx%PIE.length]+"'></span>"+esc(k)+" <span style='color:var(--muted)'>"+obj[k]+" ("+Math.round(obj[k]/total*100)+"%)</span></div>"; }).join("");
+      return "<div style='display:flex;gap:18px;align-items:center;flex-wrap:wrap'><svg viewBox='0 0 140 140' width='132' height='132'>"+segs+"<circle cx='"+cx+"' cy='"+cy+"' r='34' fill='var(--card)'/><text x='"+cx+"' y='"+cy+"' text-anchor='middle' dominant-baseline='central' font-size='17' font-weight='800' fill='var(--txt)'>"+total+"</text></svg><div style='display:flex;flex-direction:column;gap:7px'>"+legend+"</div></div>";
+    }
+    function productBars(items){
+      if(!items||!items.length) return "<div class='placeholder'>Belum ada penjualan.</div>";
+      var max=Math.max.apply(null, items.map(function(p){return p.revenue;}))||1;
+      var h="<table>"; items.forEach(function(p,i){ var pct=Math.round(p.revenue/max*100);
+        h+="<tr><td style='white-space:nowrap'>"+(i===0?"🏆 ":"")+esc(p.label||(p.credits+" scan"))+"</td>"+
+          "<td style='width:52%'><div class='bar'><i style='width:"+pct+"%'></i></div></td>"+
+          "<td style='text-align:right;font-weight:700'>"+rupiah(p.revenue)+"<div style='font-size:11px;color:var(--muted);font-weight:400'>"+p.count+"×</div></td></tr>"; });
+      return h+"</table>";
     }
     function statusBars(bs,total){
       var order=["paid","pending","failed","expired"];
@@ -465,9 +512,6 @@
         h+="<tr><td style='text-transform:capitalize'>"+k+"</td><td style='width:55%'><div class='bar'><i style='width:"+pct+"%'></i></div></td><td style='text-align:right;font-weight:700'>"+bs[k]+"</td></tr>"; });
       return h+"</table>";
     }
-    function kvTable(obj,fmt){ var keys=Object.keys(obj||{}); if(!keys.length) return "<div class='placeholder'>Belum ada data.</div>";
-      keys.sort(function(a,b){ return obj[b]-obj[a]; }); var h="<table>";
-      keys.forEach(function(k){ h+="<tr><td>"+k+"</td><td style='text-align:right;font-weight:700'>"+(fmt?fmt(obj[k]):obj[k])+"</td></tr>"; }); return h+"</table>"; }
     function topVoucherTable(top){ if(!top||!top.length) return "<div class='placeholder'>Belum ada pemakaian voucher.</div>";
       var h="<table>"; top.forEach(function(t){ h+="<tr><td>"+(t.code||t.voucher_id)+"</td><td style='text-align:right;font-weight:700'>"+t.count+"×</td></tr>"; }); return h+"</table>"; }
     async function renderOverview(){
@@ -489,12 +533,21 @@
       h+=statCard("Repeat buyer", j.users.repeatRate+"%", j.users.buyers+" pembeli");
       h+=statCard("Voucher aktif", j.voucher.active, j.voucher.uses+" pakai · "+rupiah(j.voucher.discount));
       h+="</div>";
+      h+="<div class='card'><h3>📈 Progress penjualan</h3>"+salesChart(j.trend)+"</div>";
       h+="<div class='grid2'>";
-      h+="<div class='card'><h3>Tren revenue harian</h3>"+lineChart(j.trend)+"</div>";
+      h+="<div class='card'><h3>Transaksi harian</h3>"+barChart(j.trend)+"</div>";
+      h+="<div class='card'><h3>Metode pembayaran</h3>"+donut(j.byMethod)+"</div>";
+      h+="</div><div class='grid2'>";
+      h+="<div class='card'><h3>Produk terlaris</h3>"+productBars(j.byProduct)+"</div>";
       h+="<div class='card'><h3>Transaksi by status</h3>"+statusBars(j.tx.byStatus, j.tx.total)+"</div>";
       h+="</div><div class='grid2'>";
-      h+="<div class='card'><h3>Metode pembayaran</h3>"+kvTable(j.byMethod)+"</div>";
       h+="<div class='card'><h3>Top 5 voucher</h3>"+topVoucherTable(j.voucher.top)+"</div>";
+      h+="<div class='card'><h3>Ringkasan</h3><table>"+
+         "<tr><td>Revenue net</td><td style='text-align:right;font-weight:700'>"+rupiah(j.revenue.net)+"</td></tr>"+
+         "<tr><td>Transaksi lunas</td><td style='text-align:right;font-weight:700'>"+j.tx.paid+" / "+j.tx.total+"</td></tr>"+
+         "<tr><td>Pembeli unik</td><td style='text-align:right;font-weight:700'>"+j.users.buyers+"</td></tr>"+
+         "<tr><td>Repeat buyer</td><td style='text-align:right;font-weight:700'>"+j.users.repeatRate+"%</td></tr>"+
+         "</table></div>";
       h+="</div>";
       body.innerHTML=h;
     }
