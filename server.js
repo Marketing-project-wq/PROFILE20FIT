@@ -138,8 +138,9 @@ app.get("/api/config", (req, res) => {
   res.json({
     supabaseUrl: SUPABASE_URL || "",
     supabaseAnonKey: SUPABASE_ANON_KEY || "",
-    version: "singapay-live-1",
+    version: "singapay-live-2",
     serviceKeySet: !!SUPABASE_SERVICE_KEY,
+    adminKeySet: !!ADMIN_KEY,
     // URL halaman login/authorize 20FIT. Setelah user login di sana, 20FIT harus
     // redirect balik ke my.20fit.id/login.html?token=<access_token>.
     // Diisi lewat env FITCO_SSO_URL dari tim developer.
