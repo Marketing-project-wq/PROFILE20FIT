@@ -299,6 +299,12 @@
       <h3 id="dealsTitle">You've used all 10 scans this month</h3>
       <div class="sub" id="dealsSub">Get more calorie scans with a top-up pack — pick what suits you.</div>
       <div id="dealsList"></div>
+      <div id="voucherRow" style="display:flex;gap:8px;align-items:center;margin:10px 0 2px">
+        <input id="voucherInput" placeholder="Kode voucher (opsional)" autocomplete="off"
+          style="flex:1;text-transform:uppercase;padding:11px 12px;border:1px solid rgba(0,0,0,.15);border-radius:10px;font-size:14px" />
+        <button id="voucherApply" class="hopt-ghost" style="margin:0;width:auto;padding:11px 16px">Terapkan</button>
+      </div>
+      <div id="voucherMsg" style="font-size:12px;min-height:16px;margin-bottom:4px"></div>
       <div class="deal-note" id="dealsNote"></div>
       <button class="hopt-ghost" id="dealsClose" style="margin-top:16px">Maybe later</button>
     </div>
@@ -690,7 +696,32 @@
       }).join("");
       document.getElementById("dealsNote").textContent=L({en:"Secure payment via SingaPay. Your extra scans never expire.",id:"Pembayaran aman via SingaPay. Scan tambahan kamu tidak akan hangus."});
       document.getElementById("dealsClose").textContent=L({en:"Maybe later",id:"Nanti aja"});
+      // reset voucher tiap buka modal
+      CURRENT_VOUCHER=null;
+      var vi=document.getElementById("voucherInput"), vm=document.getElementById("voucherMsg");
+      if(vi){ vi.value=""; vi.placeholder=L({en:"Voucher code (optional)",id:"Kode voucher (opsional)"}); }
+      if(vm){ vm.textContent=""; }
+      var va=document.getElementById("voucherApply"); if(va){ va.textContent=L({en:"Apply",id:"Terapkan"}); if(!va._wired){ va._wired=true; va.addEventListener("click", applyVoucher); } }
       document.getElementById("dealsBg").classList.add("open");
+    }
+    // ---- Voucher di checkout ----
+    var CURRENT_VOUCHER=null;
+    async function applyVoucher(){
+      var inp=document.getElementById("voucherInput"), msg=document.getElementById("voucherMsg");
+      var code=((inp&&inp.value)||"").trim().toUpperCase(); if(inp) inp.value=code;
+      if(!code){ CURRENT_VOUCHER=null; if(msg) msg.textContent=""; return; }
+      if(msg){ msg.style.color=""; msg.textContent=L({en:"Checking…",id:"Mengecek…"}); }
+      try{
+        var tk=await Auth.token();
+        var maxPrice=Math.max.apply(null, SCAN_PACKS.map(function(p){return p.price;}));
+        var r=await fetch("/api/scan/voucher-check",{method:"POST",
+          headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
+          body:JSON.stringify({ code:code, price:maxPrice })});
+        var j=await r.json().catch(function(){return{};});
+        if(!j.ok){ CURRENT_VOUCHER=null; if(msg){ msg.style.color="var(--red)"; msg.textContent=j.error||L({en:"Invalid voucher.",id:"Voucher tidak valid."}); } return; }
+        CURRENT_VOUCHER=code;
+        if(msg){ msg.style.color="#2A7A4F"; msg.textContent=L({en:"Voucher applied ✓ discount calculated at payment.",id:"Voucher aktif ✓ diskon dihitung saat memilih paket."}); }
+      }catch(e){ CURRENT_VOUCHER=null; if(msg){ msg.style.color="var(--red)"; msg.textContent=L({en:"Couldn't check voucher.",id:"Gagal cek voucher."}); } }
     }
     function closeDeals(){ document.getElementById("dealsBg").classList.remove("open"); }
 
@@ -797,9 +828,19 @@
         const r=await fetch("/api/scan/buy",{method:"POST",
           headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
           body:JSON.stringify({ items:[{product_id:p.product_id,quantity:1}],
-            credits:p.credits, price:p.price,
+            credits:p.credits, price:p.price, voucher_code:CURRENT_VOUCHER||null,
             fitco_token:ftk, user_id:localStorage.getItem("fitco_uid")||null })});
         const j=await r.json().catch(()=>({}));
+        // Voucher bikin gratis (Rp 0): kredit sudah ditambah server, tak perlu SingaPay.
+        if(j.ok && j.free){
+          if(payWin){ try{ payWin.close(); }catch(e){} }
+          btns.forEach(b=>b.disabled=false);
+          closeDeals();
+          try{ if(window.Meta) Meta.track("Success Payment",{content_name:"scan pack (voucher)",currency:"IDR",value:0,contents:[{id:p.product_id,quantity:1}],num_items:1}); }catch(e){}
+          try{ await refreshQuota(); }catch(e){}
+          showThanks(p.credits);
+          return;
+        }
         if(!r.ok||!j.link) throw new Error(j.error||L({en:"Couldn't start payment.",id:"Gagal memulai pembayaran."}));
         // Arahkan tab baru ke SingaPay; fallback same-tab kalau popup diblokir.
         if(payWin){ payWin.location.href=j.link; } else if(!window.open(j.link,"_blank")){ location.href=j.link; }

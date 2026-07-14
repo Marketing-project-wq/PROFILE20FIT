@@ -1011,7 +1011,7 @@ app.post("/api/admin/vouchers", async (req, res) => {
   const b = req.body || {};
   let code = String(b.code || "").trim().toUpperCase();
   if (!code) code = genVoucherCode();
-  if (!/^[A-Z0-9_-]{3,40}$/.test(code)) return res.status(400).json({ error: "Kode voucher tidak valid (3–40 huruf/angka/-/_)." });
+  if (!/^[A-Z0-9._%-]{3,40}$/.test(code)) return res.status(400).json({ error: "Kode voucher tidak valid (3–40 karakter: huruf/angka/. _ - %)." });
   const dt = String(b.discount_type || "");
   if (["percentage", "fixed"].indexOf(dt) < 0) return res.status(400).json({ error: "discount_type harus percentage/fixed." });
   const dv = parseInt(b.discount_value, 10) || 0;
@@ -1070,7 +1070,7 @@ app.get("/api/admin/transactions", async (req, res) => {
   const { from, to } = adminRange(req.query);
   try {
     let q = admin.from("my20fit_scan_orders")
-      .select("reff_no,auth_user_id,credits,amount,net_amount,status,payment_method,gateway_reference_id,voucher_id,created_at,paid_at")
+      .select("reff_no,auth_user_id,credits,amount,net_amount,status,payment_method,gateway_reference_id,voucher_id,order_type,created_at,paid_at")
       .gte("created_at", from).lte("created_at", to);
     const status = String(req.query.status || ""); if (["paid", "pending", "failed", "expired"].indexOf(status) >= 0) q = q.eq("status", status);
     const method = String(req.query.method || ""); if (method) q = q.eq("payment_method", method);
@@ -1101,6 +1101,26 @@ app.get("/api/admin/transactions/:reff", async (req, res) => {
   }
   const { data: p } = await admin.from("my20fit_profile").select("email,full_name").eq("auth_user_id", t.auth_user_id).limit(1);
   return res.json({ ok: true, tx: t, buyer: (p && p[0]) || null, voucher: voucher, usage: usage });
+});
+
+// ---------- Pengguna aktif / tidak aktif (viewer+) ----------
+// Aktif = ping terakhir dalam ACTIVE_MINUTES menit. Data dari my20fit_user_activity.
+app.get("/api/admin/users-activity", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const activeMin = Math.min(Math.max(parseInt(req.query.window, 10) || 15, 1), 1440);
+  try {
+    const { data, error } = await admin.from("my20fit_user_activity")
+      .select("auth_user_id,email,full_name,last_active_at,first_seen_at,last_page,ping_count")
+      .order("last_active_at", { ascending: false }).limit(1000);
+    if (error) return res.status(500).json({ error: error.message });
+    const now = Date.now();
+    const rows = (data || []).map(r => {
+      const mins = r.last_active_at ? Math.floor((now - new Date(r.last_active_at).getTime()) / 60000) : null;
+      return Object.assign({}, r, { minutes_ago: mins, active: mins != null && mins <= activeMin });
+    });
+    const activeCount = rows.filter(r => r.active).length;
+    return res.json({ ok: true, window: activeMin, total: rows.length, active: activeCount, inactive: rows.length - activeCount, users: rows });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
 // Catatan: endpoint lama /api/admin/stats (era admin.html) sudah dihapus —
@@ -1248,25 +1268,50 @@ app.post("/api/scan/buy", async (req, res) => {
 
     // ===== Pembayaran paket scan = SingaPay (satu-satunya jalur; Xendit sudah dihapus) =====
     const credits = parseInt(b.credits, 10) || 0;
-    const amount = parseInt(b.price, 10) || 0;
-    if (credits <= 0 || amount <= 0) return res.status(400).json({ error: "Paket tidak valid." });
+    const gross = parseInt(b.price, 10) || 0;
+    if (credits <= 0 || gross <= 0) return res.status(400).json({ error: "Paket tidak valid." });
+
+    // Voucher (opsional): validasi & hitung harga akhir.
+    let voucherId = null, discount = 0, amount = gross;
+    if (b.voucher_code) {
+      const vr = await validateVoucherForBuy(b.voucher_code, gross, user.id);
+      if (vr.error) return res.status(400).json({ error: vr.error });
+      if (vr.voucher) { voucherId = vr.voucher.id; discount = vr.discount; amount = vr.final; }
+    }
+
+    const reffNo = newReffNo();
+    const title = credits + " calorie scans";
+
+    // ---- Voucher bikin gratis (total Rp 0): kredit langsung, tanpa SingaPay ----
+    if (amount <= 0) {
+      try {
+        await admin.from("my20fit_scan_orders").insert({
+          reff_no: reffNo, auth_user_id: user.id, credits: credits, amount: gross, net_amount: 0,
+          provider: "voucher", order_type: "scan_credit", voucher_id: voucherId,
+          payment_method: "voucher", status: "pending", created_at: new Date().toISOString(),
+        });
+      } catch (e) { console.error("scan_orders insert(free):", e.message); return res.status(500).json({ error: "Gagal menyiapkan order." }); }
+      const okFree = await creditScanOrder(reffNo); // set paid + tambah kredit + catat voucher
+      if (!okFree) return res.status(500).json({ error: "Gagal menambahkan kredit. Coba lagi." });
+      return res.json({ ok: true, free: true, credited: true, sales_order_id: reffNo, order_no: reffNo, provider: "voucher", discount: discount });
+    }
+
     if (!SINGAPAY_CLIENT_ID || !SINGAPAY_CLIENT_SECRET || !SINGAPAY_API_KEY) {
       return res.status(503).json({ error: "Pembayaran belum aktif: kredensial SingaPay belum di-set di server." });
     }
-    const reffNo = newReffNo();
-    const title = credits + " calorie scans";
-    // Catat order (pending) DULU supaya webhook bisa mencocokkan.
+    // Catat order (pending) DULU supaya webhook bisa mencocokkan. amount=gross, net_amount=setelah diskon.
     try {
       await admin.from("my20fit_scan_orders").insert({
-        reff_no: reffNo, auth_user_id: user.id, credits: credits, amount: amount,
-        provider: "singapay", status: "pending", created_at: new Date().toISOString(),
+        reff_no: reffNo, auth_user_id: user.id, credits: credits, amount: gross, net_amount: amount,
+        provider: "singapay", order_type: "scan_credit", voucher_id: voucherId,
+        status: "pending", created_at: new Date().toISOString(),
       });
     } catch (e) { console.error("scan_orders insert:", e.message); return res.status(500).json({ error: "Gagal menyiapkan order." }); }
     try {
       const r = await singapayCreateLink({ reffNo: reffNo, title: title, amount: amount,
         items: [{ name: title, quantity: 1, unit_price: amount }] });
       if (r.payment_link_id) { try { await admin.from("my20fit_scan_orders").update({ payment_link_id: String(r.payment_link_id) }).eq("reff_no", reffNo); } catch (e) {} }
-      return res.json({ ok: true, link: r.url, sales_order_id: reffNo, order_no: reffNo, provider: "singapay" });
+      return res.json({ ok: true, link: r.url, sales_order_id: reffNo, order_no: reffNo, provider: "singapay", discount: discount, amount: amount });
     } catch (e) {
       try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
       console.error("scan/buy singapay:", e.message);
@@ -1276,6 +1321,46 @@ app.post("/api/scan/buy", async (req, res) => {
     console.error("scan/buy:", e.message);
     return res.status(502).json({ error: "Gagal memproses pembayaran. Coba lagi." });
   }
+});
+
+// ---------- Preview voucher sebelum bayar (untuk halaman checkout) ----------
+// POST /api/scan/voucher-check { code, price } -> { ok, valid, discount, final } atau { ok:false, error }
+app.post("/api/scan/voucher-check", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    const gross = parseInt(b.price, 10) || 0;
+    if (gross <= 0) return res.status(400).json({ error: "Harga paket tidak valid." });
+    const vr = await validateVoucherForBuy(b.code, gross, user.id);
+    if (vr.error) return res.json({ ok: false, error: vr.error });
+    return res.json({ ok: true, valid: !!vr.voucher, code: vr.voucher ? vr.voucher.code : null, discount: vr.discount, final: vr.final });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ---------- Heartbeat aktivitas user (untuk lacak aktif/tidak aktif) ----------
+// POST /api/activity/ping { page } — dipanggil app saat halaman dibuka. Upsert my20fit_user_activity.
+app.post("/api/activity/ping", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: false });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const page = String((req.body && req.body.page) || "").slice(0, 120);
+    const nowIso = new Date().toISOString();
+    // Ambil ping_count lama (upsert tak bisa increment atomik tanpa rpc).
+    const { data: cur } = await admin.from("my20fit_user_activity").select("ping_count,first_seen_at").eq("auth_user_id", user.id).limit(1);
+    const prev = cur && cur[0];
+    let name = null;
+    try { const { data: p } = await admin.from("my20fit_profile").select("full_name").eq("auth_user_id", user.id).limit(1); name = p && p[0] && p[0].full_name; } catch (e) {}
+    await admin.from("my20fit_user_activity").upsert({
+      auth_user_id: user.id, email: user.email || null, full_name: name,
+      last_active_at: nowIso, last_page: page || null,
+      first_seen_at: (prev && prev.first_seen_at) || nowIso,
+      ping_count: ((prev && prev.ping_count) || 0) + 1,
+    }, { onConflict: "auth_user_id" });
+    return res.json({ ok: true });
+  } catch (e) { return res.json({ ok: false }); }
 });
 
 // ---------- Cek status pembayaran order scan (untuk auto thank-you + isi kredit) ----------
@@ -1472,15 +1557,62 @@ async function creditScanOrder(reff, meta) {
   const { data, error } = await admin.rpc("my20fit_credit_scan", { p_reff: reff });
   if (error) { try { console.error("credit rpc", error.message); } catch (e) {} return false; }
   if (data === true) { try { console.log("singapay credited", reff); } catch (e) {} }
-  // Simpan metadata pembayaran (metode/ref gateway/nominal net) bila tersedia dari webhook.
-  if (data === true && meta) {
-    const patch = {};
-    if (meta.payment_method) patch.payment_method = String(meta.payment_method).slice(0, 60);
-    if (meta.gateway_reference_id) patch.gateway_reference_id = String(meta.gateway_reference_id).slice(0, 120);
-    if (meta.net_amount != null && !isNaN(+meta.net_amount)) patch.net_amount = +meta.net_amount;
-    if (Object.keys(patch).length) { try { await admin.from("my20fit_scan_orders").update(patch).eq("reff_no", reff); } catch (e) { try { console.error("scan_orders meta", e.message); } catch (_) {} } }
+  if (data === true) {
+    // Ambil order utk catat pemakaian voucher + tahu apakah net_amount sudah di-set voucher.
+    let hasVoucher = false;
+    try {
+      const { data: o } = await admin.from("my20fit_scan_orders")
+        .select("voucher_id,auth_user_id,amount,net_amount").eq("reff_no", reff).limit(1);
+      if (o && o[0] && o[0].voucher_id) {
+        hasVoucher = true;
+        const disc = Math.max(0, (+o[0].amount || 0) - (+o[0].net_amount || 0));
+        await recordVoucherUsage(o[0].voucher_id, o[0].auth_user_id, reff, disc);
+      }
+    } catch (e) { try { console.error("credit voucher-usage", e.message); } catch (_) {} }
+    // Simpan metadata pembayaran (metode/ref gateway/nominal net) bila tersedia dari webhook.
+    if (meta) {
+      const patch = {};
+      if (meta.payment_method) patch.payment_method = String(meta.payment_method).slice(0, 60);
+      if (meta.gateway_reference_id) patch.gateway_reference_id = String(meta.gateway_reference_id).slice(0, 120);
+      // Jangan timpa net_amount kalau order pakai voucher (net_amount = harga setelah diskon).
+      if (!hasVoucher && meta.net_amount != null && !isNaN(+meta.net_amount)) patch.net_amount = +meta.net_amount;
+      if (Object.keys(patch).length) { try { await admin.from("my20fit_scan_orders").update(patch).eq("reff_no", reff); } catch (e) { try { console.error("scan_orders meta", e.message); } catch (_) {} } }
+    }
   }
   return data === true;
+}
+// Validasi voucher utk pembelian. gross = harga paket (Rp). Return {voucher, discount, final} atau {error}.
+async function validateVoucherForBuy(rawCode, gross, uid) {
+  const code = String(rawCode || "").trim().toUpperCase();
+  if (!code) return { voucher: null, discount: 0, final: gross };
+  const { data: vs } = await admin.from("my20fit_vouchers").select("*").eq("code", code).limit(1);
+  const v = vs && vs[0];
+  if (!v) return { error: "Kode voucher tidak ditemukan." };
+  if (v.status !== "active") return { error: "Voucher tidak aktif." };
+  const now = new Date();
+  if (v.valid_from && new Date(v.valid_from) > now) return { error: "Voucher belum berlaku." };
+  if (v.valid_until && new Date(v.valid_until) < now) return { error: "Voucher sudah kedaluwarsa." };
+  if (v.min_transaction && gross < v.min_transaction) return { error: "Voucher butuh minimal transaksi Rp " + Number(v.min_transaction).toLocaleString("id-ID") + "." };
+  if (v.usage_limit_total != null && (v.used_count || 0) >= v.usage_limit_total) return { error: "Kuota voucher sudah habis." };
+  if (v.usage_limit_per_user != null && uid) {
+    const { count } = await admin.from("my20fit_voucher_usages").select("id", { count: "exact", head: true }).eq("voucher_id", v.id).eq("auth_user_id", uid);
+    if ((count || 0) >= v.usage_limit_per_user) return { error: "Kamu sudah mencapai batas pemakaian voucher ini." };
+  }
+  let discount = v.discount_type === "percentage" ? Math.round(gross * (+v.discount_value) / 100) : (+v.discount_value);
+  discount = Math.max(0, Math.min(discount, gross));
+  return { voucher: v, discount: discount, final: Math.max(0, gross - discount) };
+}
+// Catat pemakaian voucher + naikkan used_count. Idempoten per reff_no.
+async function recordVoucherUsage(voucherId, uid, reff, discount) {
+  if (!voucherId || !admin) return;
+  try {
+    const { data: ex } = await admin.from("my20fit_voucher_usages").select("id").eq("reff_no", reff).limit(1);
+    if (ex && ex[0]) return; // sudah tercatat
+    await admin.from("my20fit_voucher_usages").insert({ voucher_id: voucherId, auth_user_id: uid, reff_no: reff, discount_applied: discount || 0 });
+    const { data: v } = await admin.from("my20fit_vouchers").select("used_count").eq("id", voucherId).limit(1);
+    const c = (v && v[0] && v[0].used_count) || 0;
+    await admin.from("my20fit_vouchers").update({ used_count: c + 1 }).eq("id", voucherId);
+  } catch (e) { try { console.error("recordVoucherUsage", e.message); } catch (_) {} }
 }
 function webhookReff(obj) { return findScalar(obj, ["reff_no", "reffNo", "reference", "reference_number", "ref_no"]); }
 function webhookMeta(obj) {
