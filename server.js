@@ -140,7 +140,7 @@ app.get("/api/config", (req, res) => {
     supabaseAnonKey: SUPABASE_ANON_KEY || "",
     version: "xendit-shop-order-1",
     serviceKeySet: !!SUPABASE_SERVICE_KEY,
-    adminKeySet: !!ADMIN_KEY,
+    adminKeySet: ADMIN_KEYS.length > 0,
     // URL halaman login/authorize 20FIT. Setelah user login di sana, 20FIT harus
     // redirect balik ke my.20fit.id/login.html?token=<access_token>.
     // Diisi lewat env FITCO_SSO_URL dari tim developer.
@@ -790,22 +790,42 @@ app.get("/api/partner/profile", async (req, res) => {
 });
 
 // ================= ADMIN MONITORING (dashboard internal) =================
-// Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
-const ADMIN_KEY = process.env.ADMIN_KEY || "";
+// Master key admin — RAHASIA, HANYA dari env (fail-closed: env kosong = terkunci).
+// ROTASI TANPA DOWNTIME: dukung dua key sekaligus — ADMIN_KEY (utama) + ADMIN_KEY_2
+// (cadangan). Cara rotasi: isi ADMIN_KEY_2 dgn key baru → pakai key baru di semua
+// klien → pindahkan key baru ke ADMIN_KEY & kosongkan ADMIN_KEY_2. Selalu ada minimal
+// satu key valid sepanjang proses, jadi tidak ada downtime.
+const ADMIN_KEYS = [process.env.ADMIN_KEY, process.env.ADMIN_KEY_2]
+  .map(s => String(s || "").trim()).filter(Boolean);
+// IP klien asli (di belakang proxy Railway) — untuk audit pemakaian master key.
+function clientIp(req) {
+  const xf = String((req.headers && req.headers["x-forwarded-for"]) || "").split(",")[0].trim();
+  return xf || (req.ip || (req.connection && req.connection.remoteAddress) || "") || "";
+}
+// Cocokkan master key secara konstan-waktu (anti timing attack) ke salah satu key valid.
+function masterKeyMatches(provided) {
+  if (!provided) return false;
+  for (const k of ADMIN_KEYS) {
+    if (k.length === provided.length) {
+      try { if (crypto.timingSafeEqual(Buffer.from(k), Buffer.from(provided))) return true; } catch (e) {}
+    }
+  }
+  return false;
+}
 // ---------- RBAC admin per-user (superadmin/staff/viewer) ----------
-// Master ADMIN_KEY (x-admin-key / ?key=) = superadmin (bootstrap & admin.html lama).
+// Master key (x-admin-key / ?key=) = superadmin (bootstrap & admin.html lama).
 // Selain itu: user login 20FIT (Authorization: Bearer <jwt>) yang punya baris di
 // my20fit_admin_roles. Role di-cek di SERVER (bukan cuma UI).
 const ADMIN_RANK = { viewer: 1, staff: 2, superadmin: 3 };
 async function getAdminContext(req) {
   const masterKey = String(req.headers["x-admin-key"] || "").trim() || String(req.query.key || "").trim();
-  if (ADMIN_KEY && masterKey && masterKey === ADMIN_KEY) return { via: "key", role: "superadmin", email: null, user_id: null };
+  if (masterKey && masterKeyMatches(masterKey)) return { via: "key", role: "superadmin", email: null, user_id: null, ip: clientIp(req) };
   if (!admin) return null;
   try {
     const user = await getUserFromReq(req);
     if (!user) return null;
     const { data } = await admin.from("my20fit_admin_roles").select("role,email").eq("auth_user_id", user.id).limit(1);
-    if (data && data[0]) return { via: "user", role: data[0].role, email: data[0].email || user.email, user_id: user.id };
+    if (data && data[0]) return { via: "user", role: data[0].role, email: data[0].email || user.email, user_id: user.id, ip: clientIp(req) };
   } catch (e) {}
   return null;
 }
@@ -819,10 +839,15 @@ async function requireAdmin(req, res, minRole) {
 async function adminAudit(ctx, action, target, detail) {
   if (!admin) return;
   try {
+    // Sertakan IP + metode auth (key/user) supaya pemakaian master key bisa diaudit.
+    const det = (detail && typeof detail === "object") ? Object.assign({}, detail) : (detail != null ? { value: detail } : {});
+    if (ctx && ctx.ip) det.ip = ctx.ip;
+    if (ctx && ctx.via) det.via = ctx.via;
     await admin.from("my20fit_admin_audit_log").insert({
       actor_user_id: (ctx && ctx.user_id) || null,
       actor_email: (ctx && ctx.email) || (ctx && ctx.via === "key" ? "master-key" : null),
-      action: action, target: target || null, detail: detail || null,
+      action: action, target: target || null,
+      detail: Object.keys(det).length ? det : null,
     });
   } catch (e) {}
 }
@@ -830,6 +855,8 @@ async function adminAudit(ctx, action, target, detail) {
 app.get("/api/admin/me", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer");
   if (!ctx) return;
+  // Audit setiap akses via master key (siapa=master-key, kapan, dari IP mana).
+  if (ctx.via === "key") { try { await adminAudit(ctx, "admin.access.masterkey", null, null); } catch (e) {} }
   return res.json({ ok: true, role: ctx.role, email: ctx.email, via: ctx.via });
 });
 // List role admin (superadmin only).
@@ -902,7 +929,7 @@ app.get("/api/admin/config", async (req, res) => {
       singapay_client_secret: !!SINGAPAY_CLIENT_SECRET,
       singapay_webhook_enforce: SINGAPAY_WEBHOOK_ENFORCE,
       meta_capi: !!process.env.META_CAPI_ACCESS_TOKEN,
-      admin_master_key: !!process.env.ADMIN_KEY,
+      admin_master_key: ADMIN_KEYS.length > 0,
     }
   });
 });
