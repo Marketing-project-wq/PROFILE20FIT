@@ -176,7 +176,14 @@
             </select>
           </label>
           <select id="uFilter" style="max-width:160px"><option value="">Semua user</option><option value="active">Aktif saja</option><option value="inactive">Tidak aktif</option><option value="buyers">Pernah beli</option></select>
+          <select id="uProduct" style="max-width:170px"><option value="">Semua produk</option></select>
+          <label style="margin:0;font-size:13px;color:var(--muted)">Terakhir aktif
+            <input id="uFrom" type="date" style="width:auto;display:inline-block;margin:0 4px" title="Dari tanggal" /><span style="color:var(--muted)">–</span>
+            <input id="uTo" type="date" style="width:auto;display:inline-block;margin:0 4px" title="Sampai tanggal" />
+          </label>
           <span class="grow"></span>
+          <button class="btn sm ghost" id="uExportCsv" style="margin-top:0" title="Export hasil filter ke CSV">⬇ CSV</button>
+          <button class="btn sm ghost" id="uExportPdf" style="margin-top:0" title="Export hasil filter ke PDF">⬇ PDF</button>
           <button class="btn sm ghost" id="uRefresh" style="margin-top:0">↻ Refresh</button>
         </div>
         <div id="uSummary" class="statgrid" style="margin-bottom:14px"></div>
@@ -233,6 +240,10 @@
 
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
+  <!-- Export Pengguna: library PDF di-bundle lokal (no CDN), modul CSV & PDF terpisah. -->
+  <script src="js/vendor-jspdf.js"></script>
+  <script src="js/export-csv.js"></script>
+  <script src="js/export-pdf.js"></script>
   <script>
     let MASTER_KEY = sessionStorage.getItem("admin_master_key") || "";
     let ME = null;
@@ -571,15 +582,22 @@
     function canEdit(){ return ME && ME.role !== "viewer"; }
     function discLabel(v){ return v.discount_type==="percentage" ? (v.discount_value+"%") : rupiah(v.discount_value); }
     function dOnly(s){ return s ? new Date(s).toLocaleDateString("id-ID") : "—"; }
+    // Pagination client-side (pola sama dgn tab Pengguna): tampilkan 30 dulu, "Muat lebih banyak" +30.
+    var ALL_VOUCHERS=[], V_PAGE=30, V_SHOWN=30;
     async function loadVouchers(){
       var list=$("vList"); list.innerHTML="<div class='placeholder'>Memuat…</div>";
       var qs="search="+encodeURIComponent($("vSearch").value.trim())+"&status="+$("vStatus").value+"&sort="+$("vSort").value+"&dir="+($("vSort").value==="code"?"asc":"desc");
       var r=await adminFetch("/api/admin/vouchers?"+qs); var j=await r.json().catch(function(){return{};});
       if(!r.ok){ list.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
-      var vs=j.vouchers||[];
-      if(!vs.length){ list.innerHTML="<div class='placeholder'>Belum ada voucher.</div>"; return; }
+      ALL_VOUCHERS=j.vouchers||[]; V_SHOWN=V_PAGE;
+      renderVouchers();
+    }
+    function renderVouchers(){
+      var list=$("vList");
+      if(!ALL_VOUCHERS.length){ list.innerHTML="<div class='placeholder'>Belum ada voucher.</div>"; return; }
+      var shown=ALL_VOUCHERS.slice(0, V_SHOWN);
       var h="<table><thead><tr><th>Kode</th><th>Diskon</th><th>Min</th><th>Pemakaian</th><th>Berlaku</th><th>Status</th><th></th></tr></thead><tbody>";
-      vs.forEach(function(v){
+      shown.forEach(function(v){
         var lim=v.usage_limit_total!=null?v.usage_limit_total:"∞";
         h+="<tr><td><b>"+esc(v.code)+"</b></td><td>"+discLabel(v)+"</td><td>"+rupiah(v.min_transaction)+"</td>"+
           "<td>"+(v.used_count||0)+" / "+lim+"</td><td style='color:var(--muted)'>"+dOnly(v.valid_from)+" – "+dOnly(v.valid_until)+"</td>"+
@@ -587,16 +605,20 @@
           "<td style='white-space:nowrap'><button class='btn sm ghost' data-act='detail' data-id='"+v.id+"'>Detail</button>"+
           (canEdit()?" <button class='btn sm ghost' data-act='edit' data-id='"+v.id+"'>Edit</button>"+(v.status==="inactive"?" <button class='btn sm ghost' data-act='on' data-id='"+v.id+"'>Aktifkan</button>":" <button class='btn sm ghost' data-act='off' data-id='"+v.id+"'>Nonaktif</button>"):"")+"</td></tr>";
       });
-      list.innerHTML=h+"</tbody></table>";
+      h+="</tbody></table>";
+      if(ALL_VOUCHERS.length>V_SHOWN) h+="<div style='text-align:center;margin-top:12px'><button class='btn sm ghost' id='vMore' style='margin-top:0'>Muat lebih banyak ("+(ALL_VOUCHERS.length-V_SHOWN)+" lagi)</button></div>";
+      list.innerHTML=h;
       list.querySelectorAll("button[data-act]").forEach(function(b){
         b.addEventListener("click", function(){
-          var id=b.dataset.id, v=vs.filter(function(x){return x.id===id;})[0];
+          var id=b.dataset.id, v=ALL_VOUCHERS.filter(function(x){return x.id===id;})[0];
+          if(!v) return;
           if(b.dataset.act==="detail") showVoucherDetail(id);
           else if(b.dataset.act==="edit") showVoucherForm(v);
           else if(b.dataset.act==="off") deactivateVoucher(id, v.code);
           else if(b.dataset.act==="on") activateVoucher(id, v.code);
         });
       });
+      var more=$("vMore"); if(more) more.addEventListener("click", function(){ V_SHOWN+=V_PAGE; renderVouchers(); });
     }
     function showVoucherForm(v){
       var isEdit=!!v, used=v&&(v.used_count||0)>0;
@@ -732,8 +754,15 @@
     })();
 
     // ---- Pengguna: daftar semua + aktif/tidak + belanja ----
-    var ALL_USERS=[];
+    var ALL_USERS=[], ALL_CATALOG=[], FILTERED_USERS=[];
     function agoLabel(m){ if(m==null) return "—"; if(m<1) return "baru saja"; if(m<60) return m+" mnt lalu"; if(m<1440) return Math.floor(m/60)+" jam lalu"; return Math.floor(m/1440)+" hari lalu"; }
+    // Dropdown produk dibangun DINAMIS dari katalog server (bukan hardcode) — paket baru otomatis muncul.
+    function buildProductFilter(){
+      var sel=$("uProduct"); if(!sel) return; var cur=sel.value;
+      var opts="<option value=''>Semua produk</option>";
+      ALL_CATALOG.forEach(function(p){ opts+="<option value='"+esc(String(p.package_id))+"'>"+esc(p.name)+"</option>"; });
+      sel.innerHTML=opts; sel.value=cur;
+    }
     function genderLabel(g){ g=String(g||"").toLowerCase(); return g==="male"?"L":(g==="female"?"P":"—"); }
     async function loadUsers(){
       var list=$("uList"); list.innerHTML="<div class='placeholder'>Memuat…</div>";
@@ -741,6 +770,8 @@
       var r=await adminFetch("/api/admin/users?window="+win); var j=await r.json().catch(function(){return{};});
       if(!r.ok){ list.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
       ALL_USERS=j.users||[];
+      ALL_CATALOG=j.catalog||[];
+      buildProductFilter();
       $("uSummary").innerHTML = statCard("Aktif", j.active||0, "≤ "+(win>=1440?(win/1440+" hari"):(win+" menit")))+statCard("Tidak aktif", j.inactive||0)+statCard("Total user", j.total||0)+statCard("Pernah beli", j.buyers||0);
       renderUserList();
       loadTopProducts();
@@ -748,21 +779,34 @@
     function renderUserList(){
       var list=$("uList");
       var q=($("uSearch").value||"").trim().toLowerCase(), f=$("uFilter").value;
-      var us=ALL_USERS.filter(function(u){
+      var prod=$("uProduct")?$("uProduct").value:"";
+      var fromD=$("uFrom")&&$("uFrom").value?new Date($("uFrom").value+"T00:00:00").getTime():null;
+      var toD=$("uTo")&&$("uTo").value?new Date($("uTo").value+"T23:59:59").getTime():null;
+      FILTERED_USERS=ALL_USERS.filter(function(u){
         if(f==="active"&&!u.active) return false;
         if(f==="inactive"&&u.active) return false;
         if(f==="buyers"&&!(u.purchases>0)) return false;
-        if(q){ return (String(u.full_name||"").toLowerCase().indexOf(q)>=0)||(String(u.email||"").toLowerCase().indexOf(q)>=0); }
+        if(prod){ if(!u.top_product||String(u.top_product.package_id)!==prod) return false; }
+        if(fromD||toD){
+          var t=u.last_active_at?new Date(u.last_active_at).getTime():null;
+          if(t==null) return false;
+          if(fromD&&t<fromD) return false;
+          if(toD&&t>toD) return false;
+        }
+        if(q&&!((String(u.full_name||"").toLowerCase().indexOf(q)>=0)||(String(u.email||"").toLowerCase().indexOf(q)>=0))) return false;
         return true;
       });
+      var us=FILTERED_USERS;
       if(!us.length){ list.innerHTML="<div class='placeholder'>Tidak ada user cocok.</div>"; return; }
-      var h="<table><thead><tr><th>Status</th><th>Nama</th><th>Email</th><th>Terakhir aktif</th><th>Beli</th><th>Total belanja</th><th>Tertinggi</th><th></th></tr></thead><tbody>";
+      var h="<table><thead><tr><th>Status</th><th>Nama</th><th>Email</th><th>Terakhir aktif</th><th>Produk terlaris</th><th>Beli</th><th>Total belanja</th><th>Tertinggi</th><th></th></tr></thead><tbody>";
       us.forEach(function(u){
         var dotc=u.active?"var(--green,#1a7f37)":"#8A7C68";
+        var tp=u.top_product?esc(u.top_product.name)+" <span style='color:var(--muted)'>("+u.top_product.count+"×)</span>":"—";
         h+="<tr><td style='white-space:nowrap'><span style='color:"+dotc+"'>●</span> "+(u.active?"Aktif":"Nonaktif")+"</td>"+
           "<td>"+esc(u.full_name||"—")+"</td>"+
           "<td style='color:var(--muted)'>"+esc(u.email||"—")+"</td>"+
           "<td style='white-space:nowrap'>"+agoLabel(u.minutes_ago)+"</td>"+
+          "<td style='white-space:nowrap'>"+tp+"</td>"+
           "<td>"+(u.purchases||0)+"×</td>"+
           "<td>"+rupiah(u.total_spent||0)+"</td>"+
           "<td>"+(u.highest_purchase?rupiah(u.highest_purchase):"—")+"</td>"+
@@ -771,6 +815,32 @@
       list.innerHTML=h+"</tbody></table>";
       list.querySelectorAll("button[data-uid]").forEach(function(b){ b.addEventListener("click", function(){ showUserDetail(b.dataset.uid); }); });
     }
+    // ---- Export Pengguna (mengikuti filter aktif) — CSV & PDF (modul terpisah) ----
+    function userExportColumns(){
+      return [
+        { key:"full_name", label:"Nama" },
+        { key:"email", label:"Email" },
+        { key:"phone", label:"Telepon" },
+        { label:"Status", value:function(u){ return u.active?"Aktif":"Nonaktif"; } },
+        { label:"Terakhir aktif", value:function(u){ return u.last_active_at?new Date(u.last_active_at).toLocaleString("id-ID"):"—"; } },
+        { label:"Produk terlaris", value:function(u){ return u.top_product?(u.top_product.name+" ("+u.top_product.count+"x)"):"—"; } },
+        { label:"Jumlah beli", value:function(u){ return (u.purchases||0); } },
+        { label:"Total belanja (Rp)", value:function(u){ return (u.total_spent||0); } },
+        { label:"Pembelian tertinggi (Rp)", value:function(u){ return (u.highest_purchase||0); } },
+        { label:"Kredit dibeli", value:function(u){ return (u.credits_bought||0); } },
+      ];
+    }
+    function exportFilename(ext){ var d=new Date(), p=function(n){return n<10?"0"+n:n;}; return "pengguna-20fit_"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"."+ext; }
+    function exportSubtitle(){
+      var parts=[], f=$("uFilter").value, prod=$("uProduct").value;
+      if(f) parts.push("status: "+f);
+      if(prod){ var pc=ALL_CATALOG.filter(function(x){return String(x.package_id)===prod;})[0]; parts.push("produk: "+(pc?pc.name:prod)); }
+      if($("uFrom").value||$("uTo").value) parts.push("aktif: "+($("uFrom").value||"…")+" s/d "+($("uTo").value||"…"));
+      if($("uSearch").value) parts.push("cari: "+$("uSearch").value);
+      return FILTERED_USERS.length+" user"+(parts.length?" · "+parts.join(" · "):"")+" · "+new Date().toLocaleString("id-ID");
+    }
+    function doExportCsv(){ if(!FILTERED_USERS.length){ alert("Tidak ada data untuk diexport."); return; } AdminExport.csv(userExportColumns(), FILTERED_USERS, { filename: exportFilename("csv") }); }
+    function doExportPdf(){ if(!FILTERED_USERS.length){ alert("Tidak ada data untuk diexport."); return; } AdminExport.pdf(userExportColumns(), FILTERED_USERS, { filename: exportFilename("pdf"), title:"Pengguna 20FIT", subtitle: exportSubtitle() }); }
     async function loadTopProducts(){
       var r=await adminFetch("/api/admin/top-products?range=all"); var j=await r.json().catch(function(){return{};});
       var byRev=$("uTopProducts"), byCnt=$("uTopProductsCount");
@@ -809,6 +879,11 @@
       var ur=$("uRefresh"); if(ur) ur.addEventListener("click", loadUsers);
       var us=$("uSearch"); if(us) us.addEventListener("input", renderUserList);
       var uf=$("uFilter"); if(uf) uf.addEventListener("change", renderUserList);
+      var up=$("uProduct"); if(up) up.addEventListener("change", renderUserList);
+      var ufr=$("uFrom"); if(ufr) ufr.addEventListener("change", renderUserList);
+      var uto=$("uTo"); if(uto) uto.addEventListener("change", renderUserList);
+      var ec=$("uExportCsv"); if(ec) ec.addEventListener("click", doExportCsv);
+      var ep=$("uExportPdf"); if(ep) ep.addEventListener("click", doExportPdf);
     })();
 
     // ---- Analitik (MoM / funnel / retensi) ----
