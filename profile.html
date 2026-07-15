@@ -348,7 +348,7 @@
     }
     function closeOrderDetail(){ document.getElementById("odBg").classList.remove("open"); }
     (function(){ var bg=document.getElementById("odBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeOrderDetail(); }); })();
-    // Bayar / ganti metode: buka kembali invoice SingaPay (di sana bisa pilih VA/e-wallet/kartu).
+    // Bayar / ganti metode: buka kembali invoice Xendit (di sana bisa pilih VA/e-wallet/kartu).
     function payOrder(id){ var o=Orders.get(id); if(o&&o.link){ window.open(o.link,"_blank"); } }
     // Batalkan: tandai lokal + best-effort batalkan di 20FIT.
     async function cancelOrder(id){

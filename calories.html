@@ -805,14 +805,14 @@
       if(location.hash==="#fasting"){document.getElementById("ifSection").scrollIntoView({behavior:"smooth"});}
       // Meta Pixel: kunjungan halaman calories = View Calories
       try{ Meta.track("View Calories", {content_name:"Calorie Tracker"}); }catch(e){}
-      // Kalau 20FIT/SingaPay redirect balik ke sini dengan tanda sukses
+      // Kalau 20FIT/Xendit redirect balik ke sini dengan tanda sukses
       // (mis. ?status=paid&order_no=WEBxxxx) DAN device ini memang barusan mulai beli
       // -> langsung anggap lunas: thank-you + isi quota + Meta "Success Payment".
       handleReturnFromPayment();
       // Lanjutkan pantau pembayaran kalau masih ada order tertunda (deals.js).
       try{ if(window.Deals) Deals.resume(); }catch(e){}
     })();
-    // Deteksi kepulangan dari SingaPay lewat query URL (dipakai kalau dev 20FIT menambahkan
+    // Deteksi kepulangan dari Xendit lewat query URL (dipakai kalau dev 20FIT menambahkan
     // success_redirect_url ke https://my.20fit.id/calories?status=paid&order_no=...).
     // PENTING: query URL TIDAK dipercaya untuk mengisi kredit — ia cuma memicu pengecekan
     // ke server. Kredit HANYA diberikan kalau 20FIT mengonfirmasi is_paid=true (anti-curang).
