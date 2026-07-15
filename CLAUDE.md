@@ -46,6 +46,40 @@ pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 - `node --check server.js` untuk backend.
 - Cek sintaks inline JS untuk file HTML yang diubah.
 
+## Code & Git Hygiene Rules
+- Setiap kali mengerjakan perintah yang menggantikan fungsi/komponen/logic lama
+  dengan yang baru: kode lama WAJIB dihapus, bukan dibiarkan nganggur di file
+  (baik dikomentari, di-disable, atau ditinggal tanpa dipanggil). Tidak boleh
+  ada dead code, unused import, unused variable/function, atau file yang sudah
+  tidak dipakai tersisa di repo setelah sebuah task selesai.
+- Sebelum menandai sebuah task selesai, jalankan pengecekan unused code
+  (linter/type-checker yang tersedia di project ini, misalnya eslint/tsc/ts-prune
+  atau tool setara sesuai stack project) dan pastikan tidak ada warning terkait
+  unused code yang berasal dari perubahan yang baru dibuat.
+- Kalau ada kode lama yang digantikan tapi masih dipakai di tempat lain (shared
+  function, dsb), jangan hapus asal-asalan — cek seluruh referensi/usage dulu
+  (grep/search across repo), pastikan tidak ada pemanggil lain yang akan rusak,
+  baru hapus atau refactor referensinya.
+- Kalau ragu apakah suatu kode masih dipakai atau tidak (misalnya dipanggil
+  dinamis, dipakai di test, atau dipakai eksternal), jangan langsung hapus —
+  laporkan ke saya dulu sebelum menghapus.
+- Jangan tinggalkan file/folder sisa hasil eksperimen (contoh: file_backup.js,
+  component_old.tsx, .bak, temporary test file) di dalam repo. Kalau perlu
+  menyimpan versi lama untuk referensi, itu tugas git history, bukan tugas
+  menumpuk file di working tree.
+- Commit yang dihasilkan harus fokus dan rapi: satu perubahan logis per commit
+  sebisa mungkin, commit message jelas menjelaskan apa yang diganti dan kenapa
+  (contoh: "Replace Singpay payment flow with Xendit product-id based flow,
+  remove unused Singpay integration files"). Hindari commit besar bercampur
+  banyak perubahan tidak berhubungan.
+- Jangan commit file yang seharusnya di-ignore (build artifact, .env,
+  node_modules, dsb) — cek .gitignore relevan sudah mencakup itu.
+- Sebelum membuat branch/commit baru, jalankan `git status` untuk pastikan tidak
+  ada file nyasar/untracked yang tidak sengaja ikut ter-commit.
+- Setiap selesai satu task, berikan ringkasan singkat ke saya: file apa saja
+  yang dihapus, file apa saja yang baru dibuat, dan file apa saja yang
+  dimodifikasi — supaya saya bisa review dengan cepat sebelum merge.
+
 ## Konteks penting
 - Login app 20FIT lewat API FITCO (`Auth.fitcoLogin`), fallback ke password
   Supabase (`Auth.signIn`). Admin dashboard pakai password Supabase; login juga
