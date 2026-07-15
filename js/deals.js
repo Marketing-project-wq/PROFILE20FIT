@@ -1,8 +1,9 @@
 // =============================================================
-//  deals.js — Modul bersama "Top up scan" (paket kredit + checkout SingaPay).
+//  deals.js — Modul bersama "Top up scan" (paket kredit + checkout Xendit).
 //  Alur: pilih paket (sekali klik) -> "Purchase now" -> pop-up RESI (ringkasan +
-//  voucher + total) -> bayar. Dipakai calories.html & profile.html (satu sumber).
-//  Server otoritatif: kredit ditambah lewat webhook; harga akhir = harga - diskon voucher.
+//  voucher + total) -> bayar (invoice Xendit via FITCO shop-order). Dipakai
+//  calories.html & profile.html (satu sumber).
+//  Server otoritatif: kredit ditambah saat FITCO konfirmasi lunas (order-status).
 //  API: window.Deals.open({ onCredited })  |  Deals.close()  |  Deals.resume()
 // =============================================================
 (function () {
@@ -136,7 +137,7 @@
       : L({ en: "Get more calorie scans", id: "Tambah kuota scan kalori" });
     document.getElementById("dlSub").textContent = L({ en: "Pick a pack, then tap Purchase now.", id: "Pilih paket, lalu tekan Beli sekarang." });
     renderPacks();
-    document.getElementById("dlNote").textContent = L({ en: "Secure payment via SingaPay. Your extra scans never expire.", id: "Pembayaran aman via SingaPay. Scan tambahan tidak akan hangus." });
+    document.getElementById("dlNote").textContent = L({ en: "Secure payment via Xendit. Your extra scans never expire.", id: "Pembayaran aman via Xendit. Scan tambahan tidak akan hangus." });
     document.getElementById("dlBuy").textContent = L({ en: "Purchase now", id: "Beli sekarang" });
     document.getElementById("dlBg").classList.add("open");
     closeReceipt();
@@ -175,7 +176,7 @@
     document.getElementById("dlRcSubL").textContent = L({ en: "Subtotal", id: "Subtotal" });
     document.getElementById("dlRcDiscL").textContent = L({ en: "Voucher discount", id: "Diskon voucher" });
     document.getElementById("dlRcTotalL").textContent = L({ en: "Total to pay", id: "Total bayar" });
-    document.getElementById("dlRcNote").textContent = L({ en: "Secure payment via SingaPay.", id: "Pembayaran aman via SingaPay." });
+    document.getElementById("dlRcNote").textContent = L({ en: "Secure payment via Xendit.", id: "Pembayaran aman via Xendit." });
     renderTotals();
     document.getElementById("dlBg").classList.remove("open");
     document.getElementById("dlRcBg").classList.add("open");
@@ -276,7 +277,8 @@
   function hideToast() { var el = document.getElementById("dlToast"); if (el) el.classList.remove("show"); }
   function stopPolling() { if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; } }
   function creditPaid(o) {
-    if (o.provider !== "singapay") { try { Auth.addScanCredits(o.credits || 0); } catch (e) {} }
+    // Kredit ditambah SERVER-AUTHORITATIVE (order-status memicu creditScanOrder saat FITCO
+    // konfirmasi lunas). Client cukup me-refresh tampilan saldo lewat callback halaman.
     if (_onCredited) { try { _onCredited(); } catch (e) {} }
     metaTrack("Success Payment", { content_name: "scan package", content_category: "calorie_scan", currency: "IDR", value: o.total || o.price || 0, contents: [{ id: o.product_id, quantity: 1 }], num_items: 1 });
   }

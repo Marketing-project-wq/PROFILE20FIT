@@ -395,15 +395,6 @@
     if (!r.ok || !j.ok) throw new Error((j && j.error) || "Gagal memproses scan.");
     return j.quota;
   }
-  // Kredit top-up ditambahkan SERVER-AUTHORITATIVE (webhook SingaPay untuk pembayaran,
-  // atau creditScanOrder saat voucher bikin gratis). Client TIDAK menulis saldo —
-  // cukup ambil kuota terbaru dari profil. (Argumen lama diabaikan; dipertahankan
-  // agar pemanggil lama tetap kompatibel.)
-  async function addScanCredits() {
-    await ready;
-    return await getScanQuota();
-  }
-
   // Hitung kategori BMI (dipakai live preview di form)
   function bmiInfo(weightKg, heightCm) {
     if (!weightKg || !heightCm) return null;
@@ -505,7 +496,6 @@
     saveOnboarding,
     getScanQuota,
     consumeScan,
-    addScanCredits,
     profileComplete,
     bmiInfo,
     getDailyLog,
