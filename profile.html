@@ -76,6 +76,45 @@
   .pm .grab{width:42px;height:5px;border-radius:999px;background:var(--line);margin:8px auto 12px}
   .pm h2{margin:0 0 6px;font-size:19px;font-weight:800}
   @media(min-width:620px){ .pm-bg{align-items:center;padding:24px} .pm{border-radius:22px} .pm .grab{display:none} }
+
+  /* ===== Struk / bon detail pembayaran ===== */
+  .pm-rcpt{max-width:430px;background:transparent;box-shadow:none;padding:6px 14px calc(env(safe-area-inset-bottom) + 22px)}
+  .rc-x{position:absolute;top:16px;right:16px;z-index:3;width:34px;height:34px;border:0;border-radius:10px;background:var(--inp);color:var(--txt);font-size:15px;line-height:1;cursor:pointer}
+  .rcpt{position:relative;background:var(--card);color:var(--txt);border-radius:16px;padding:26px 24px 24px;
+        box-shadow:0 10px 40px rgba(16,18,22,.16);
+        -webkit-mask:radial-gradient(7px at 12px 0,#0000 98%,#000) 0 0/24px 51% repeat-x,
+                     radial-gradient(7px at 12px 100%,#0000 98%,#000) 0 100%/24px 51% repeat-x;
+                mask:radial-gradient(7px at 12px 0,#0000 98%,#000) 0 0/24px 51% repeat-x,
+                     radial-gradient(7px at 12px 100%,#0000 98%,#000) 0 100%/24px 51% repeat-x}
+  .rc-head{text-align:center;margin-bottom:14px}
+  .rc-brand{font-size:24px;font-weight:900;letter-spacing:1px;line-height:1}
+  .rc-brand span{color:var(--red,#C41101)}
+  .rc-sub{margin-top:5px;font-size:10.5px;font-weight:800;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase}
+  .rc-stamp{position:absolute;top:20px;left:18px;transform:rotate(-9deg);font-size:12px;font-weight:900;letter-spacing:1px;padding:4px 10px;border-radius:6px;border:2px solid currentColor;text-transform:uppercase;opacity:.92}
+  .rc-stamp.paid{color:var(--green-ink,#1B7A4D)}
+  .rc-stamp.pending{color:var(--amber-ink,#9A5D12)}
+  .rc-stamp.cancelled,.rc-stamp.expired{color:var(--muted)}
+  .rc-rule{border-top:1px dashed var(--faint,#CBC2B4);margin:14px 0}
+  .rc-rule.solid{border-top-style:solid;border-color:var(--line)}
+  .rc-item{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+  .rc-item-name{font-size:15px;font-weight:800}
+  .rc-item-desc{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .rc-item-amt{font-size:15px;font-weight:800;white-space:nowrap}
+  .rc-line{display:flex;align-items:baseline;gap:6px;font-size:14px;margin:9px 0}
+  .rc-line .k{color:var(--muted)}
+  .rc-line .lead{flex:1;border-bottom:1.5px dotted var(--faint,#CBC2B4);transform:translateY(-4px)}
+  .rc-line .v{font-weight:700;white-space:nowrap}
+  .rc-line.disc .k,.rc-line.disc .v{color:var(--green-ink,#1B7A4D)}
+  .rc-total{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+  .rc-total .k{font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+  .rc-total .v{font-size:24px;font-weight:900;line-height:1}
+  .rc-meta{display:flex;flex-direction:column;gap:8px}
+  .rc-meta .r{display:flex;justify-content:space-between;gap:12px;font-size:12.5px}
+  .rc-meta .mk{color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-size:11px;font-weight:700}
+  .rc-meta .mv{font-weight:700;text-align:right}
+  .rc-meta .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;letter-spacing:.3px}
+  .rc-foot{text-align:center;margin-top:16px;font-size:12px;color:var(--muted);line-height:1.7}
+  .rc-foot b{color:var(--txt);font-weight:800}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
@@ -158,11 +197,11 @@
     </div>
   </div>
 
-  <!-- Pop-up detail pembayaran -->
+  <!-- Pop-up detail pembayaran (bentuk struk/bon) -->
   <div class="pm-bg" id="odBg">
-    <div class="pm">
+    <div class="pm pm-rcpt">
       <div class="grab"></div>
-      <div class="card-hd"><h2 data-i18n="prof_pay_detail">Payment details</h2><button class="edit-btn" onclick="closeOrderDetail()">✕</button></div>
+      <button class="rc-x" onclick="closeOrderDetail()" aria-label="Close">✕</button>
       <div id="odBody"></div>
     </div>
   </div>
@@ -270,19 +309,40 @@
       box.innerHTML=html;
     }
     function loadMoreHist(){ HIST_SHOWN+=5; renderHistory(); }
+    function methodLabel(o){
+      var p=(o.provider||"").toLowerCase();
+      if(p==="voucher") return L({en:"Voucher (free)",id:"Voucher (gratis)"});
+      if(p==="singapay") return "SingaPay";
+      return p ? (p.charAt(0).toUpperCase()+p.slice(1)) : "—";
+    }
     function showOrderDetail(id){
       var o=Orders.get(id); if(!o) return;
-      var disc=+o.discount||0, total=orderTotal(o);
-      function row(k,v,strong){ return '<div class="kv"><span class="k">'+k+'</span><span class="v"'+(strong?' style="font-size:16px"':'')+'>'+v+'</span></div>'; }
-      var h="";
-      h+=row(L({en:"Payment for",id:"Pembayaran untuk"}), (o.credits||0)+"x "+L({en:"calorie scans",id:"scan kalori"}));
-      h+=row(L({en:"You get",id:"Kamu dapat"}), (o.credits||0)+" "+L({en:"extra scan credits",id:"kredit scan tambahan"}));
-      h+=row(L({en:"Package price",id:"Harga paket"}), rupiah(o.price));
-      if(disc>0) h+='<div class="kv"><span class="k" style="color:#2A7A4F">'+L({en:"Voucher discount",id:"Potongan voucher"})+'</span><span class="v" style="color:#2A7A4F">− '+rupiah(disc)+'</span></div>';
-      h+=row(L({en:"Total paid",id:"Total bayar"}), '<b>'+rupiah(total)+'</b>', true);
-      h+=row(L({en:"Status",id:"Status"}), '<span class="badge '+o.status+'">'+statusLabel(o.status)+'</span>');
-      h+=row(L({en:"Date",id:"Tanggal"}), fmtDate(o.paid_ts||o.ts));
-      if(o.order_no) h+=row(L({en:"Order no",id:"No. order"}), '<span style="font-family:monospace;font-size:12px">'+o.order_no+'</span>');
+      var disc=+o.discount||0, price=+o.price||0, total=orderTotal(o), st=o.status||"paid";
+      var h='<div class="rcpt">';
+      h+='<div class="rc-stamp '+st+'">'+statusLabel(st)+'</div>';
+      h+='<div class="rc-head"><div class="rc-brand">20<span>FIT</span></div>'
+        +'<div class="rc-sub">'+L({en:"Payment Receipt",id:"Struk Pembayaran"})+'</div></div>';
+      h+='<div class="rc-rule"></div>';
+      // Item yang dibeli
+      h+='<div class="rc-item"><div><div class="rc-item-name">'+(o.credits||0)+'× '+L({en:"calorie scans",id:"scan kalori"})+'</div>'
+        +'<div class="rc-item-desc">'+L({en:(o.credits||0)+" extra scan credits added",id:(o.credits||0)+" kredit scan tambahan masuk ke akun"})+'</div></div>'
+        +'<div class="rc-item-amt">'+rupiah(price)+'</div></div>';
+      h+='<div class="rc-rule dash"></div>';
+      // Rincian harga
+      h+='<div class="rc-line"><span class="k">'+L({en:"Subtotal",id:"Subtotal"})+'</span><span class="lead"></span><span class="v">'+rupiah(price)+'</span></div>';
+      if(disc>0) h+='<div class="rc-line disc"><span class="k">'+L({en:"Voucher discount",id:"Potongan voucher"})+'</span><span class="lead"></span><span class="v">− '+rupiah(disc)+'</span></div>';
+      h+='<div class="rc-rule"></div>';
+      h+='<div class="rc-total"><span class="k">'+L({en:"Total paid",id:"Total bayar"})+'</span><span class="v">'+rupiah(total)+'</span></div>';
+      h+='<div class="rc-rule dash"></div>';
+      // Meta
+      h+='<div class="rc-meta">';
+      if(o.order_no) h+='<div class="r"><span class="mk">'+L({en:"Order no",id:"No. order"})+'</span><span class="mv mono">'+o.order_no+'</span></div>';
+      h+='<div class="r"><span class="mk">'+L({en:"Date",id:"Tanggal"})+'</span><span class="mv">'+fmtDate(o.paid_ts||o.ts)+'</span></div>';
+      h+='<div class="r"><span class="mk">'+L({en:"Method",id:"Metode"})+'</span><span class="mv">'+methodLabel(o)+'</span></div>';
+      h+='</div>';
+      h+='<div class="rc-rule dash"></div>';
+      h+='<div class="rc-foot">'+L({en:"Thank you for your purchase 💚",id:"Terima kasih atas pembelianmu 💚"})+'<br><b>my.20fit.id</b></div>';
+      h+='</div>';
       document.getElementById("odBody").innerHTML=h;
       document.getElementById("odBg").classList.add("open");
     }
