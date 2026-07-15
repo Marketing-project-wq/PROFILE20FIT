@@ -220,7 +220,9 @@
     if (payWin) { try { payWin.document.write("<p style='font-family:sans-serif;padding:24px'>Menyiapkan pembayaran…</p>"); } catch (e) {} }
     try {
       var tk = await Auth.token();
-      var r = await fetch("/api/scan/buy", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (tk || "") }, body: JSON.stringify({ items: [{ product_id: p.product_id, quantity: 1 }], credits: p.credits, price: p.price, voucher_code: CUR_VOUCHER || null, fitco_token: ftk, user_id: localStorage.getItem("fitco_uid") || null }) });
+      // Server-authoritative: kirim package_id (= product_id 20FIT). Server menentukan
+      // credits & harga dari katalog; voucher juga diverifikasi & dihitung server.
+      var r = await fetch("/api/scan/buy", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (tk || "") }, body: JSON.stringify({ package_id: p.product_id, credits: p.credits, price: p.price, voucher_code: CUR_VOUCHER || null, fitco_token: ftk, user_id: localStorage.getItem("fitco_uid") || null }) });
       var j = await r.json().catch(function () { return {}; });
       var disc = (j.discount != null) ? +j.discount : CUR_DISCOUNT;
       var total = (j.amount != null) ? +j.amount : Math.max(0, p.price - disc);

@@ -383,6 +383,17 @@ const SINGAPAY_TOKEN_PATH = process.env.SINGAPAY_TOKEN_PATH || "/api/v1.1/access
 const SINGAPAY_CREATE_PATH = process.env.SINGAPAY_CREATE_PATH || "/api/v1.0/payment-link-manage";
 const SINGAPAY_ACCOUNTS_PATH = process.env.SINGAPAY_ACCOUNTS_PATH || "/api/v1.0/accounts";
 
+// ---------- Katalog paket scan (server-authoritative) ----------
+// Sumber kebenaran harga & jumlah kredit ada di SERVER, bukan client. /api/scan/buy
+// hanya menerima package_id; server yang menentukan credits & price dari sini.
+// package_id = product_id dari sistem retail 20FIT (FITCO). HARUS sama persis dengan
+// SCAN_PACKS di js/deals.js (yang kini dipakai hanya untuk tampilan UI).
+const SCAN_PACKAGES = {
+  8477: { credits: 10,  price: 25000  },
+  8478: { credits: 50,  price: 75000  },
+  8479: { credits: 150, price: 150000 },
+};
+
 // ---------- Login Google via Google Identity Services (GIS) ----------
 // Frontend memakai tombol Google resmi (SDK GIS) untuk mendapatkan ID token,
 // lalu mengirimnya ke POST /api/fitco-google-login (diteruskan ke API 20FIT
@@ -1390,9 +1401,13 @@ app.post("/api/scan/buy", async (req, res) => {
     const b = req.body || {};
 
     // ===== Pembayaran paket scan = SingaPay (satu-satunya jalur; Xendit sudah dihapus) =====
-    const credits = parseInt(b.credits, 10) || 0;
-    const gross = parseInt(b.price, 10) || 0;
-    if (credits <= 0 || gross <= 0) return res.status(400).json({ error: "Paket tidak valid." });
+    // Katalog server-authoritative: client HANYA kirim package_id. credits & harga
+    // ditentukan server dari SCAN_PACKAGES — nilai credits/price di body diabaikan total.
+    const packageId = parseInt(b.package_id, 10) || 0;
+    const pack = SCAN_PACKAGES[packageId];
+    if (!pack) return res.status(400).json({ error: "Paket tidak ditemukan." });
+    const credits = pack.credits;
+    const gross = pack.price;
 
     // Voucher (opsional): validasi & hitung harga akhir.
     let voucherId = null, discount = 0, amount = gross;
@@ -1444,6 +1459,34 @@ app.post("/api/scan/buy", async (req, res) => {
     console.error("scan/buy:", e.message);
     return res.status(502).json({ error: "Gagal memproses pembayaran. Coba lagi." });
   }
+});
+
+// ---------- Konsumsi 1 scan (server-authoritative) ----------
+// Bentuk kuota seperti Auth.shapeQuota di js/auth.js (satu sumber bentuk).
+function shapeQuotaServer(q) {
+  const freeLimit = (q && q.free_limit != null) ? (+q.free_limit) : 10;
+  const used = (q && +q.used) || 0;
+  const credits = (q && +q.credits) || 0;
+  const freeLeft = Math.max(0, freeLimit - used);
+  return { used: used, freeLimit: freeLimit, freeLeft: freeLeft, credits: credits, remaining: freeLeft + credits, period: (q && q.period) || null };
+}
+// POST /api/scan/consume — kurangi 1 scan (gratis dulu 10/bln, lalu kredit berbayar)
+// lewat RPC atomik my20fit_consume_scan. Saldo TIDAK lagi ditulis dari client.
+// 402 + code=scan_limit kalau kuota habis. Balikan { ok, quota }.
+app.post("/api/scan/consume", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const { data, error } = await admin.rpc("my20fit_consume_scan", { p_uid: user.id });
+    if (error) { console.error("scan/consume rpc:", error.message); return res.status(500).json({ error: "Gagal memproses scan." }); }
+    const q = data || {};
+    if (!q.ok) {
+      if (q.code === "scan_limit") return res.status(402).json({ ok: false, code: "scan_limit", quota: shapeQuotaServer(q) });
+      return res.status(400).json({ ok: false, code: q.code || "error" });
+    }
+    return res.json({ ok: true, quota: shapeQuotaServer(q) });
+  } catch (e) { console.error("scan/consume:", e.message); return res.status(500).json({ error: e.message }); }
 });
 
 // ---------- Preview voucher sebelum bayar (untuk halaman checkout) ----------
@@ -1796,7 +1839,12 @@ function singapayVerify(req) {
 // Saat bring-up (SINGAPAY_WEBHOOK_ENFORCE != "1"): tetap 200 + LOG hasil verifikasi & payload,
 // supaya tombol Test lolos & kita bisa lihat payload asli + apakah signature cocok. Belum ada
 // pemberian kredit (menunggu skema payload transaksi + endpoint create-payment).
-const SINGAPAY_WEBHOOK_ENFORCE = process.env.SINGAPAY_WEBHOOK_ENFORCE === "1";
+// F0-5 — Fail-closed di PRODUCTION: default MENOLAK webhook dgn signature invalid,
+// walau env tidak di-set. Escape hatch darurat: SINGAPAY_WEBHOOK_ENFORCE="0" untuk
+// mematikan enforce (mis. kalau ada masalah verifikasi signature webhook asli).
+// Non-production: hanya enforce kalau di-set "1" (mudah saat bring-up).
+const SINGAPAY_WEBHOOK_ENFORCE = (process.env.SINGAPAY_WEBHOOK_ENFORCE === "1") ||
+  (IS_PROD && process.env.SINGAPAY_WEBHOOK_ENFORCE !== "0");
 function singapayNotify(tag) {
   return function (req, res) {
     let v = { valid: false, reason: "n/a" };
