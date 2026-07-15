@@ -3,10 +3,20 @@
 <head>
 <link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
 <meta charset="utf-8">
-<meta http-equiv="refresh" content="0; url=./login.html">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>20FIT Health Profile</title>
+<!-- Tanpa JS: tetap redirect (fallback) -->
+<noscript><meta http-equiv="refresh" content="0; url=./login.html"></noscript>
 </head>
 <body>
 <p>Redirecting to <a href="./login.html">20FIT Health Profile</a>...</p>
+<!-- Meta Pixel + CAPI: root (my.20fit.id) dihitung sbg kunjungan konten (ViewContent).
+     PageView otomatis dari meta-pixel.js. Redirect ke /login setelah event terkirim
+     (fetch CAPI pakai keepalive, jadi tetap terkirim walau langsung pindah halaman). -->
+<script src="/js/meta-pixel.js"></script>
+<script>
+  try { Meta.track("ViewContent", { content_name: "landing" }); } catch (e) {}
+  setTimeout(function () { location.replace("./login.html"); }, 400);
+</script>
 </body>
 </html>
