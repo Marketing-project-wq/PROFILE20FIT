@@ -18,9 +18,13 @@
   function now() { return Date.now(); }
 
   function normalize(o) {
+    var price = +o.price || 0;
+    var discount = +o.discount || 0;
+    var total = (o.total != null) ? (+o.total || 0) : Math.max(0, price - discount);
     return {
       id: o.id, order_no: o.order_no || null, sales_order_id: o.sales_order_id || o.id || null,
-      product_id: o.product_id || null, credits: +o.credits || 0, price: +o.price || 0,
+      product_id: o.product_id || null, credits: +o.credits || 0, price: price,
+      discount: discount, total: total,
       link: o.link || null, provider: o.provider || null, status: o.status || "pending", ts: o.ts || now(), paid_ts: o.paid_ts || null
     };
   }
