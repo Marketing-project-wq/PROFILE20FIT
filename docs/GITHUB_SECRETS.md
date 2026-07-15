@@ -59,11 +59,8 @@ Tindakan wajib:
 | `DEV_MASTER_OTP` | OTP master untuk testing | **RAHASIA — kosongkan di produksi** |
 | `ARENA_API_KEY` | API key 20FIT Arena Open API | **RAHASIA — server-only** |
 | `ARENA_API_URL` | Base URL Arena API | Publik |
-| `XENDIT_SECRET_KEY` | Secret Key Xendit (Basic auth; `xnd_development_*`=test / `xnd_production_*`=live) | **RAHASIA — server-only** |
-| `XENDIT_WEBHOOK_TOKEN` | Webhook Verification Token Xendit (header `x-callback-token`) | **RAHASIA — server-only** |
-| `XENDIT_WEBHOOK_ENFORCE` | "1" = tolak callback token invalid (produksi WAJIB "1") | Publik (bukan rahasia) |
-| `XENDIT_ENABLED` | "1" = tandai Xendit aktif di `/api/config` | Publik (bukan rahasia) |
-| `FITCO_PARTNER_TOKEN` | Token partner Fitco (shop order/Xendit) | **RAHASIA — server-only** |
+| `XENDIT_ENABLED` | "1" = tandai Xendit aktif di `/api/config` (pembayaran via shop order FITCO) | Publik (bukan rahasia) |
+| `FITCO_PARTNER_TOKEN` | Token partner 20FIT/FITCO — Bearer untuk shop order (`payment_type` xendit-invoices) + baca/cancel status order | **RAHASIA — server-only** |
 | `FITCO_PAID_STATUS` | Kode `payment_status` yang berarti LUNAS (auto thank-you scan). Opsional, isi mis. `1,3` kalau dev 20FIT sudah konfirmasi kodenya | Publik (bukan rahasia) |
 | `FITCO_API_URL` / `FITCO_SSO_URL` / `FITCO_LOGIN_PATH` | Endpoint Fitco per environment | Publik |
 | `PARTNER_API_KEY` | API key partner profile | **RAHASIA — server-only** |
