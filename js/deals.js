@@ -15,7 +15,7 @@
   function rupiah(n) { return "Rp " + (Number(n) || 0).toLocaleString("id-ID"); }
   function metaTrack(ev, p) { try { if (window.Meta) Meta.track(ev, p); } catch (e) {} }
 
-  var SELECTED = 1;          // index paket terpilih (default: best value)
+  var SELECTED = -1;         // index paket terpilih (-1 = belum ada yang dipilih)
   var CUR_VOUCHER = null, CUR_DISCOUNT = 0, CUR_FINAL = 0;
   var _onCredited = null;
   var _pollTimer = null, _payChecking = false, _payDismissed = false;
@@ -56,6 +56,7 @@
       ".dl-rc-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:14px}",
       ".dl-rc-row .k{color:var(--muted,#8a8378)}",
       ".dl-rc-total{display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px;margin-top:6px;border-top:1px dashed var(--line,#e6e3dd);font-weight:900;font-size:17px}",
+      ".dl-detail{margin-top:6px}",
       // toast + thanks
       ".dl-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 16px);z-index:9100;background:var(--card,#fff);color:var(--txt,#16181d);border:1px solid var(--line,#e6e3dd);border-radius:14px;box-shadow:0 10px 34px rgba(0,0,0,.22);padding:13px 15px;max-width:380px;width:calc(100% - 32px);display:none;gap:10px;align-items:center}",
       ".dl-toast.show{display:flex}",
@@ -72,28 +73,22 @@
     var root = document.createElement("div");
     root.id = "dealsRoot";
     root.innerHTML =
-      // ----- Deals (pilih paket) -----
+      // ----- Deals (pilih paket + detail harga & voucher INLINE) -----
       '<div class="dl-bg" id="dlBg"><div class="dl-card">' +
       '<button class="dl-x" id="dlX" aria-label="Tutup">✕</button>' +
       '<div class="dl-grab"></div>' +
       '<div class="dl-ic"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>' +
       '<h3 id="dlTitle"></h3><div class="dl-sub" id="dlSub"></div>' +
       '<div id="dlList"></div>' +
-      '<div class="dl-note" id="dlNote"></div>' +
-      '<button class="dl-primary" id="dlBuy"></button>' +
-      '</div></div>' +
-      // ----- Receipt (ringkasan bayar) -----
-      '<div class="dl-bg" id="dlRcBg"><div class="dl-card">' +
-      '<button class="dl-x" id="dlRcX" aria-label="Tutup">✕</button>' +
-      '<div class="dl-grab"></div>' +
-      '<h3 id="dlRcTitle"></h3>' +
-      '<div class="dl-rc-item" id="dlRcItem"></div>' +
+      // detail muncul setelah paket dipilih (voucher + rincian harga), tanpa popup terpisah
+      '<div id="dlDetail" class="dl-detail" style="display:none">' +
       '<div class="dl-vrow"><input id="dlVoucher" autocomplete="off" /><button class="dl-vapply" id="dlVApply"></button></div>' +
       '<div class="dl-vmsg" id="dlVMsg"></div>' +
       '<div class="dl-rc-row"><span class="k" id="dlRcSubL"></span><span id="dlRcSub"></span></div>' +
       '<div class="dl-rc-row" id="dlRcDiscRow" style="display:none"><span class="k" style="color:var(--green,#2A7A4F)" id="dlRcDiscL"></span><span style="color:var(--green,#2A7A4F);font-weight:700" id="dlRcDisc"></span></div>' +
       '<div class="dl-rc-total"><span id="dlRcTotalL"></span><span id="dlRcTotal"></span></div>' +
-      '<div class="dl-note" id="dlRcNote"></div>' +
+      '</div>' +
+      '<div class="dl-note" id="dlNote"></div>' +
       '<button class="dl-primary" id="dlPay"></button>' +
       '</div></div>' +
       // ----- Toast + thanks -----
@@ -108,9 +103,6 @@
 
     document.getElementById("dlX").addEventListener("click", closeDeals);
     document.getElementById("dlBg").addEventListener("click", function (e) { if (e.target.id === "dlBg") closeDeals(); });
-    document.getElementById("dlBuy").addEventListener("click", function () { openReceipt(SELECTED); });
-    document.getElementById("dlRcX").addEventListener("click", closeReceipt);
-    document.getElementById("dlRcBg").addEventListener("click", function (e) { if (e.target.id === "dlRcBg") closeReceipt(); });
     document.getElementById("dlVApply").addEventListener("click", applyVoucher);
     document.getElementById("dlPay").addEventListener("click", function () { buyPack(SELECTED); });
     document.getElementById("dlThxClose").addEventListener("click", closeThanks);
@@ -118,28 +110,33 @@
     document.getElementById("dlThxBg").addEventListener("click", function (e) { if (e.target.id === "dlThxBg") closeThanks(); });
     document.getElementById("dlToastBtn").addEventListener("click", function () { pollOrderStatus(true); });
     document.getElementById("dlToastClose").addEventListener("click", function () { _payDismissed = true; hideToast(); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeReceipt(); closeDeals(); } });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeDeals(); });
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) return;
       try { if (getPendings().length) { if (_pollTimer) pollOrderStatus(); else startPolling(); } } catch (e) {}
     });
   }
 
-  // ---------- Deals: pilih paket ----------
+  // ---------- Deals: pilih paket + detail inline ----------
   function open(opts) {
     injectOnce();
     _onCredited = (opts && opts.onCredited) || null;
     var q = opts && opts.quota;
-    SELECTED = SCAN_PACKS.reduce(function (a, p, i) { return p.best ? i : a; }, 0);
+    SELECTED = -1;                       // tak ada paket ter-highlight saat dibuka
+    CUR_VOUCHER = null; CUR_DISCOUNT = 0; CUR_FINAL = 0;
     document.getElementById("dlTitle").textContent = (q && q.remaining > 0)
       ? L({ en: "Top up your calorie scans", id: "Top up scan kalori kamu" })
       : L({ en: "Get more calorie scans", id: "Tambah kuota scan kalori" });
-    document.getElementById("dlSub").textContent = L({ en: "Pick a pack, then tap Purchase now.", id: "Pilih paket, lalu tekan Beli sekarang." });
+    document.getElementById("dlSub").textContent = L({ en: "Pick a pack to see the price & add a voucher.", id: "Pilih paket untuk lihat harga & pakai voucher." });
     renderPacks();
+    document.getElementById("dlVApply").textContent = L({ en: "Apply", id: "Pakai" });
+    document.getElementById("dlRcSubL").textContent = L({ en: "Subtotal", id: "Subtotal" });
+    document.getElementById("dlRcDiscL").textContent = L({ en: "Voucher discount", id: "Diskon voucher" });
+    document.getElementById("dlRcTotalL").textContent = L({ en: "Total to pay", id: "Total bayar" });
+    document.getElementById("dlDetail").style.display = "none";   // detail baru muncul setelah pilih paket
     document.getElementById("dlNote").textContent = L({ en: "Secure payment via Xendit. Your extra scans never expire.", id: "Pembayaran aman via Xendit. Scan tambahan tidak akan hangus." });
-    document.getElementById("dlBuy").textContent = L({ en: "Purchase now", id: "Beli sekarang" });
+    renderTotals();
     document.getElementById("dlBg").classList.add("open");
-    closeReceipt();
     metaTrack("Purchase", { content_name: "scan package", content_category: "calorie_scan", currency: "IDR", value: 0 });
   }
   function renderPacks() {
@@ -152,43 +149,38 @@
         '<span class="dl-radio"></span></button>';
     }).join("");
     document.getElementById("dlList").querySelectorAll(".dl-deal").forEach(function (b) {
-      b.addEventListener("click", function () { SELECTED = +b.dataset.idx; renderPacks(); });
+      b.addEventListener("click", function () { selectPack(+b.dataset.idx); });
     });
+  }
+  // Pilih paket -> highlight hijau + tampilkan detail harga & voucher INLINE (bukan popup terpisah).
+  function selectPack(idx) {
+    SELECTED = idx;
+    CUR_VOUCHER = null; CUR_DISCOUNT = 0; CUR_FINAL = SCAN_PACKS[idx].price;
+    renderPacks();
+    var vi = document.getElementById("dlVoucher"), vm = document.getElementById("dlVMsg");
+    if (vi) { vi.value = ""; vi.placeholder = L({ en: "Voucher code (optional)", id: "Kode voucher (opsional)" }); }
+    if (vm) { vm.style.color = ""; vm.textContent = ""; }
+    document.getElementById("dlDetail").style.display = "";
+    renderTotals();
   }
   function closeDeals() { var el = document.getElementById("dlBg"); if (el) el.classList.remove("open"); }
 
-  // ---------- Receipt: ringkasan + voucher + total ----------
-  function openReceipt(idx) {
-    injectOnce();
-    SELECTED = idx;
-    CUR_VOUCHER = null; CUR_DISCOUNT = 0; CUR_FINAL = SCAN_PACKS[idx].price;
-    var p = SCAN_PACKS[idx];
-    document.getElementById("dlRcTitle").textContent = L({ en: "Payment summary", id: "Ringkasan pembayaran" });
-    document.getElementById("dlRcItem").innerHTML =
-      '<div class="dl-qty">' + p.credits + '<small>SCAN</small></div>' +
-      '<div class="dl-info"><div class="p">' + p.credits + 'x ' + L({ en: "calorie scans", id: "scan kalori" }) + '</div>' +
-      '<div class="d">' + L({ en: "Extra scans, never expire", id: "Scan tambahan, tidak hangus" }) + '</div></div>' +
-      '<div style="font-weight:900">' + rupiah(p.price) + '</div>';
-    var vi = document.getElementById("dlVoucher"), vm = document.getElementById("dlVMsg");
-    vi.value = ""; vi.placeholder = L({ en: "Voucher code (optional)", id: "Kode voucher (opsional)" }); vm.textContent = "";
-    document.getElementById("dlVApply").textContent = L({ en: "Apply", id: "Pakai" });
-    document.getElementById("dlRcSubL").textContent = L({ en: "Subtotal", id: "Subtotal" });
-    document.getElementById("dlRcDiscL").textContent = L({ en: "Voucher discount", id: "Diskon voucher" });
-    document.getElementById("dlRcTotalL").textContent = L({ en: "Total to pay", id: "Total bayar" });
-    document.getElementById("dlRcNote").textContent = L({ en: "Secure payment via Xendit.", id: "Pembayaran aman via Xendit." });
-    renderTotals();
-    document.getElementById("dlBg").classList.remove("open");
-    document.getElementById("dlRcBg").classList.add("open");
-  }
-  function closeReceipt() { var el = document.getElementById("dlRcBg"); if (el) el.classList.remove("open"); }
+  // ---------- Rincian harga + voucher (inline) ----------
   function renderTotals() {
+    var payBtn = document.getElementById("dlPay");
+    if (SELECTED < 0) {                  // belum ada paket dipilih -> tombol nonaktif
+      payBtn.disabled = true;
+      payBtn.textContent = L({ en: "Select a pack", id: "Pilih paket dulu" });
+      return;
+    }
     var p = SCAN_PACKS[SELECTED];
     document.getElementById("dlRcSub").textContent = rupiah(p.price);
     var dr = document.getElementById("dlRcDiscRow");
     if (CUR_DISCOUNT > 0) { dr.style.display = ""; document.getElementById("dlRcDisc").textContent = "− " + rupiah(CUR_DISCOUNT); }
     else dr.style.display = "none";
     document.getElementById("dlRcTotal").textContent = rupiah(CUR_FINAL);
-    document.getElementById("dlPay").textContent = (CUR_FINAL <= 0)
+    payBtn.disabled = false;
+    payBtn.textContent = (CUR_FINAL <= 0)
       ? L({ en: "Claim for free", id: "Klaim gratis" })
       : L({ en: "Pay ", id: "Bayar " }) + rupiah(CUR_FINAL);
   }
@@ -230,7 +222,7 @@
       if (j.ok && j.free) {
         if (payWin) { try { payWin.close(); } catch (e) {} }
         try { Orders.add({ id: j.sales_order_id || j.order_no, order_no: j.order_no || null, sales_order_id: j.sales_order_id || null, credits: p.credits, price: p.price, discount: disc, total: 0, product_id: p.product_id, provider: j.provider || "voucher", status: "paid", ts: Date.now(), paid_ts: Date.now() }); } catch (e) {}
-        closeReceipt(); closeDeals();
+        closeDeals();
         metaTrack("Success Payment", { content_name: "scan pack (voucher)", currency: "IDR", value: 0, contents: [{ id: p.product_id, quantity: 1 }], num_items: 1 });
         if (_onCredited) { try { await _onCredited(); } catch (e) {} }
         showThanks(p.credits);
@@ -243,7 +235,7 @@
         try { Orders.add({ id: oid, order_no: j.order_no || null, sales_order_id: j.sales_order_id || null, credits: p.credits, price: p.price, discount: disc, total: total, product_id: p.product_id, link: j.link || null, provider: j.provider || null, ts: Date.now() }); } catch (e) {}
         _payDismissed = false; showToast(); startPolling();
       }
-      closeReceipt(); closeDeals();
+      closeDeals();
     } catch (e) {
       var emsg = (e && e.message) || L({ en: "Purchase failed. Try again.", id: "Pembelian gagal. Coba lagi." });
       if (payWin && !payWin.closed) { try { payWin.document.body.innerHTML = "<p style='font-family:sans-serif;padding:24px;color:#c0392b'>" + emsg + "</p>"; } catch (e2) {} }
@@ -303,7 +295,7 @@
     _payChecking = false;
     if (btn) { btn.disabled = false; btn.textContent = L({ en: "Check now", id: "Cek sekarang" }); }
     var rem = getPendings();
-    if (paidOne) { closeReceipt(); closeDeals(); if (!rem.length) { stopPolling(); hideToast(); } showThanks(paidOne.credits || 0); return; }
+    if (paidOne) { closeDeals(); if (!rem.length) { stopPolling(); hideToast(); } showThanks(paidOne.credits || 0); return; }
     if (!rem.length) { stopPolling(); hideToast(); return; }
     if (manual) { var m = document.getElementById("dlToastMsg"); if (m) m.textContent = L({ en: "Not confirmed yet. If you've paid, wait a moment and check again.", id: "Belum terkonfirmasi. Kalau sudah bayar, tunggu sebentar lalu cek lagi." }); }
   }
