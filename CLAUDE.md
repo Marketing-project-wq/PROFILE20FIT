@@ -15,12 +15,12 @@ pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 - JANGAN rewrite history yang sudah ke-merge.
 
 ## 2. Ganti kode lama dengan yang baru — jangan sisakan dead code
-- Saat mengganti sistem/fitur (contoh nyata: Xendit → SingaPay), HAPUS kode
+- Saat mengganti sistem/fitur (contoh nyata: SingaPay → Xendit), HAPUS kode
   lama sepenuhnya, jangan biarkan cabang/handler lama menganggur.
 - Satu sumber kebenaran; hindari duplikasi logika.
 
 ## 3. Rahasia = env only, JANGAN pernah di-commit
-- Semua kredensial (SingaPay, Supabase service key, ADMIN_KEY, SMTP, Meta CAPI,
+- Semua kredensial (Xendit, Supabase service key, ADMIN_KEY, SMTP, Meta CAPI,
   dst.) hanya lewat **Railway Variables** / env. Tidak ada nilai rahasia di
   kode, commit, PR, atau komentar.
 - CI menegakkan ini: `.gitleaks.toml` + `.github/workflows/secret-scan.yml`
@@ -51,8 +51,8 @@ pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
   Supabase (`Auth.signIn`). Admin dashboard pakai password Supabase; login juga
   fallback ke FITCO. `Auth.ready` adalah **Promise** (pakai `await Auth.ready`,
   bukan `Auth.ready()`).
-- Pembayaran: SingaPay (server-authoritative, kredit via webhook HMAC-verified
-  → `my20fit_scan_orders` → `my20fit_profile.scan_credits`).
+- Pembayaran: Xendit (Invoice API, server-authoritative; kredit via webhook
+  ter-verifikasi `x-callback-token` → `my20fit_scan_orders` → `my20fit_profile.scan_credits`).
 - Admin dashboard: `/admin-dashboard` (RBAC superadmin/staff/viewer di
   `my20fit_admin_roles`); `/admin` redirect ke sana. `ADMIN_KEY` = master key
   superadmin opsional.
