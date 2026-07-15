@@ -421,9 +421,7 @@
       var c=j.config||{};
       var h="<table>";
       h+="<tr><td>Supabase service key</td><td style='text-align:right'>"+cfgBadge(c.supabase_service_key)+"</td></tr>";
-      h+="<tr><td>Xendit Secret Key</td><td style='text-align:right'>"+cfgBadge(c.xendit_secret_key)+"</td></tr>";
-      h+="<tr><td>Xendit Webhook Token</td><td style='text-align:right'>"+cfgBadge(c.xendit_webhook_token)+"</td></tr>";
-      h+="<tr><td>Mode Xendit</td><td style='text-align:right'><span class='tagrole' style='background:"+(c.xendit_mode==='production'?'var(--green,#1a7f37)':'#8A7C68')+"1a;color:"+(c.xendit_mode==='production'?'var(--green,#1a7f37)':'#8A7C68')+"'>"+esc(c.xendit_mode||'—')+"</span></td></tr>";
+      h+="<tr><td>FITCO partner token (gateway Xendit)</td><td style='text-align:right'>"+cfgBadge(c.fitco_partner_token)+"</td></tr>";
       h+="<tr><td>Meta CAPI (event pembelian)</td><td style='text-align:right'>"+cfgBadge(c.meta_capi)+"</td></tr>";
       h+="<tr><td>Master key admin</td><td style='text-align:right'>"+cfgBadge(c.admin_master_key)+"</td></tr>";
       h+="<tr><td colspan='2' style='color:var(--muted);font-size:12px;padding-top:10px'>SingaPay — grace period (settle order pending)</td></tr>";
@@ -431,8 +429,7 @@
       h+="<tr><td>Webhook enforce (tolak palsu)</td><td style='text-align:right'>"+cfgBadge(c.singapay_webhook_enforce)+"</td></tr>";
       h+="</table>";
       if(!c.supabase_service_key) h+="<div class='alert' style='margin-top:10px'>⚠️ SUPABASE_SERVICE_KEY belum di-set — dashboard tidak bisa baca data.</div>";
-      if(!c.xendit_secret_key) h+="<div class='alert' style='margin-top:10px'>⚠️ XENDIT_SECRET_KEY belum di-set — pembayaran Xendit tidak bisa jalan.</div>";
-      if(c.xendit_secret_key&&!c.xendit_webhook_token) h+="<div class='alert' style='margin-top:10px'>⚠️ XENDIT_WEBHOOK_TOKEN belum di-set — webhook pembayaran akan ditolak (kredit tak masuk otomatis).</div>";
+      if(!c.fitco_partner_token) h+="<div class='alert' style='margin-top:10px'>⚠️ FITCO_PARTNER_TOKEN belum di-set — pembayaran Xendit tidak bisa jalan.</div>";
       body.innerHTML=h;
     }
 
