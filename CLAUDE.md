@@ -56,3 +56,31 @@ pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 - Admin dashboard: `/admin-dashboard` (RBAC superadmin/staff/viewer di
   `my20fit_admin_roles`); `/admin` redirect ke sana. `ADMIN_KEY` = master key
   superadmin opsional.
+
+## Code & Git Hygiene Rules
+
+- Setiap kali mengerjakan perintah yang menggantikan fungsi/komponen/logic lama
+  dengan yang baru: kode lama WAJIB dihapus, bukan dibiarkan nganggur di file
+  (baik dikomentari, di-disable, atau ditinggal tanpa dipanggil). Tidak boleh ada
+  dead code, unused import, unused variable/function, atau file yang sudah tidak
+  dipakai tersisa di repo setelah sebuah task selesai.
+- Sebelum menandai sebuah task selesai, jalankan pengecekan unused code
+  (linter/type-checker yang tersedia di project ini, misalnya eslint/tsc/ts-prune
+  atau tool setara sesuai stack project) dan pastikan tidak ada warning terkait
+  unused code yang berasal dari perubahan yang baru dibuat.
+- Kalau ada kode lama yang digantikan tapi masih dipakai di tempat lain (shared
+  function, dsb), jangan hapus asal-asalan — cek seluruh referensi/usage dulu
+  (grep/search across repo), pastikan tidak ada pemanggil lain yang akan rusak,
+  baru hapus atau refactor referensinya.
+- Kalau ragu apakah suatu kode masih dipakai atau tidak, jangan langsung hapus —
+  laporkan ke saya dulu sebelum menghapus.
+- Jangan tinggalkan file/folder sisa hasil eksperimen (contoh: file_backup.js,
+  component_old.tsx, .bak) di dalam repo.
+- Commit yang dihasilkan harus fokus dan rapi: satu perubahan logis per commit,
+  commit message jelas menjelaskan apa yang diganti dan kenapa.
+- Jangan commit file yang seharusnya di-ignore (build artifact, .env,
+  node_modules, dsb).
+- Sebelum membuat branch/commit baru, jalankan `git status` untuk pastikan tidak
+  ada file nyasar.
+- Setiap selesai satu task, berikan ringkasan singkat ke saya: file apa saja yang
+  dihapus, dibuat baru, dan dimodifikasi.
