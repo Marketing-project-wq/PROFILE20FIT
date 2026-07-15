@@ -151,7 +151,7 @@
         <div class="card"><div id="vList"><div class="placeholder">Memuat…</div></div></div>
       </div>
       <div id="tab-transactions" class="hidden">
-        <h2>Transaksi</h2><div class="crumb">Riwayat pembayaran paket scan (SingaPay)</div>
+        <h2>Transaksi</h2><div class="crumb">Riwayat pembayaran paket scan (Xendit)</div>
         <div class="rangebar">
           <button class="rbtn tbtn" data-trange="today">Hari ini</button>
           <button class="rbtn tbtn on" data-trange="7d">7 hari</button>
@@ -408,21 +408,20 @@
       var r=await adminFetch("/api/admin/config"); var j=await r.json().catch(function(){return{};});
       if(!r.ok){ body.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
       var c=j.config||{};
-      var modeOk = c.singapay_mode==="production";
+      var modeOk = c.xendit_mode==="production";
       var h="<table>";
       h+="<tr><td>Supabase service key</td><td style='text-align:right'>"+cfgBadge(c.supabase_service_key)+"</td></tr>";
-      h+="<tr><td>SingaPay Client ID</td><td style='text-align:right'>"+cfgBadge(c.singapay_client_id)+"</td></tr>";
-      h+="<tr><td>SingaPay Client Secret</td><td style='text-align:right'>"+cfgBadge(c.singapay_client_secret)+"</td></tr>";
-      h+="<tr><td>SingaPay API Key</td><td style='text-align:right'>"+cfgBadge(c.singapay_api_key)+"</td></tr>";
-      h+="<tr><td>Mode SingaPay</td><td style='text-align:right'><span class='tagrole' style='background:"+(modeOk?"var(--green,#1a7f37)":"#8A7C68")+"1a;color:"+(modeOk?"var(--green,#1a7f37)":"#8A7C68")+"'>"+esc(c.singapay_mode)+"</span></td></tr>";
-      h+="<tr><td>Base URL</td><td style='text-align:right;font-family:monospace;font-size:12px'>"+esc(c.singapay_base_url)+"</td></tr>";
-      h+="<tr><td>Webhook enforce (tolak palsu)</td><td style='text-align:right'>"+cfgBadge(c.singapay_webhook_enforce)+"</td></tr>";
-      h+="<tr><td>Account ID</td><td style='text-align:right'>"+esc(c.singapay_account_id)+"</td></tr>";
+      h+="<tr><td>Xendit Secret Key</td><td style='text-align:right'>"+cfgBadge(c.xendit_secret_key)+"</td></tr>";
+      h+="<tr><td>Xendit Webhook Token</td><td style='text-align:right'>"+cfgBadge(c.xendit_webhook_token)+"</td></tr>";
+      h+="<tr><td>Xendit aktif</td><td style='text-align:right'>"+cfgBadge(c.xendit_enabled)+"</td></tr>";
+      h+="<tr><td>Mode Xendit</td><td style='text-align:right'><span class='tagrole' style='background:"+(modeOk?"var(--green,#1a7f37)":"#8A7C68")+"1a;color:"+(modeOk?"var(--green,#1a7f37)":"#8A7C68")+"'>"+esc(c.xendit_mode)+"</span></td></tr>";
+      h+="<tr><td>Base URL</td><td style='text-align:right;font-family:monospace;font-size:12px'>"+esc(c.xendit_base_url)+"</td></tr>";
+      h+="<tr><td>Webhook enforce (tolak palsu)</td><td style='text-align:right'>"+cfgBadge(c.xendit_webhook_enforce)+"</td></tr>";
       h+="<tr><td>Meta CAPI (event pembelian)</td><td style='text-align:right'>"+cfgBadge(c.meta_capi)+"</td></tr>";
       h+="<tr><td>Master key admin</td><td style='text-align:right'>"+cfgBadge(c.admin_master_key)+"</td></tr>";
       h+="</table>";
       if(!c.supabase_service_key) h+="<div class='alert' style='margin-top:10px'>⚠️ SUPABASE_SERVICE_KEY belum di-set — dashboard tidak bisa baca data.</div>";
-      if(!modeOk) h+="<div class='alert' style='margin-top:10px'>⚠️ SingaPay masih mode sandbox. Set SINGAPAY_BASE_URL=https://payment-b2b.singapay.id untuk produksi.</div>";
+      if(!modeOk) h+="<div class='alert' style='margin-top:10px'>⚠️ Xendit masih mode test. Pakai Secret Key production (xnd_production_...) untuk produksi.</div>";
       body.innerHTML=h;
     }
 

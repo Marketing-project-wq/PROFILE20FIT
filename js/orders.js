@@ -1,10 +1,10 @@
 // =============================================================
 //  orders.js — Riwayat pembelian paket scan (commerce) di device.
 //  Menyimpan setiap order paket scan beserta statusnya:
-//    pending   = belum dibayar (menunggu pembayaran SingaPay)
+//    pending   = belum dibayar (menunggu pembayaran Xendit)
 //    paid      = lunas
 //    cancelled = dibatalkan user
-//    expired   = kadaluarsa (invoice SingaPay lewat waktu)
+//    expired   = kadaluarsa (invoice Xendit lewat waktu)
 //  Dipakai calories.html (buat/poll order) & profile.html (riwayat).
 //  Catatan: penyimpanan per-device (localStorage). Kredit scan sendiri
 //  tetap ikut akun (my20fit_profile.scan_credits).
