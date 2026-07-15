@@ -120,6 +120,12 @@
   .empty{text-align:center;color:var(--muted);padding:30px 10px}
   .soon{display:inline-block;font-size:12px;background:var(--inp);color:var(--muted);padding:6px 14px;border-radius:999px;margin-top:6px;font-weight:700}
   .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
+  /* Toggle "Semua MCU" + catatan setelah scan */
+  .mcu-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;background:transparent;color:var(--txt);font-weight:800;font-size:15px;cursor:pointer;padding:2px 0;text-align:left}
+  .mcu-toggle .mcu-chev{width:20px;height:20px;flex:0 0 auto;transition:transform .2s}
+  .mcu-toggle.open .mcu-chev{transform:rotate(180deg)}
+  .mcu-list{margin-top:10px}
+  .mcu-note{display:flex;align-items:center;gap:10px;margin-top:14px;padding:13px 15px;border-radius:14px;border:1px solid #bfe3cd;background:#eef8f1;color:#1d6b41;font-weight:700;font-size:13.5px;cursor:pointer}
   /* Modal detail hasil MCU dari history */
   .mcu-bg{position:fixed;inset:0;z-index:200;background:rgba(10,12,16,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 14px}
   .mcu-bg.open{display:flex}
@@ -161,9 +167,16 @@
 
     <div id="result"></div>
 
-    <div class="card">
-      <div style="font-weight:800;font-size:15px;margin-bottom:6px" data-i18n="med_history">History</div>
-      <div id="list"></div>
+    <!-- Catatan setelah scan: arahkan ke toggle "Semua MCU" -->
+    <div id="mcuScanNote" class="mcu-note" style="display:none" onclick="openAllMcu()"></div>
+
+    <!-- Toggle tunggal: semua MCU (collapsible). Hasil baru langsung masuk di atas, tanpa refresh. -->
+    <div class="card" id="mcuHistoryCard">
+      <button type="button" id="mcuToggle" class="mcu-toggle" onclick="toggleAllMcu()" aria-expanded="false">
+        <span id="mcuToggleLabel"></span>
+        <svg class="mcu-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div id="list" class="mcu-list" style="display:none"></div>
     </div>
   </div>
 
@@ -259,8 +272,13 @@
         try{localStorage.setItem(sig,JSON.stringify(j.result));}catch(e1){}
         // Simpan ke akun (Supabase). Kalau GAGAL, kasih tahu user — jangan diam-diam hilang saat refresh.
         let saveErr=null;
-        try{ const {error}=await Auth.supabase.from("my20fit_mcu_result").insert({auth_user_id:user.id,result:j.result,analyzed_at:new Date().toISOString()}); saveErr=error; }catch(err){ saveErr=err; }
-        if(!saveErr){ loadList(); }
+        const nowISO=new Date().toISOString();
+        try{ const {error}=await Auth.supabase.from("my20fit_mcu_result").insert({auth_user_id:user.id,result:j.result,analyzed_at:nowISO}); saveErr=error; }catch(err){ saveErr=err; }
+        if(!saveErr){
+          // Update INSTAN tanpa re-fetch (hindari read-after-write lag): prepend ke history + render.
+          history.unshift({result:j.result,analyzed_at:nowISO,created_at:nowISO});
+          renderList(); showScanNote();
+        }
         else {
           const w=document.createElement("div"); w.className="card rfull";
           w.style.cssText="border-color:#e7c98a;background:#fbf3df;color:#8a6d1a;font-size:13px;font-weight:600";
@@ -381,13 +399,45 @@
         unread+
         '<div class="card rfull" style="border-color:rgba(196,17,1,.3);background:rgba(196,17,1,.07);color:#8a1f15;font-size:13px"><svg class="emi" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> '+(res.disclaimer||L({en:"This interpretation is not a substitute for a doctor. Consult the 20FIT doctor for proper advice.",id:"Interpretasi ini bukan pengganti konsultasi dokter. Konsultasikan ke dokter 20FIT untuk saran yang tepat."}))+'</div>';
     }
-    async function loadList(){
+    // Ambil semua MCU dari akun (Supabase) -> array history (terbaru dulu).
+    async function loadHistory(){
       try{const {data}=await Auth.supabase.from("my20fit_mcu_result").select("*").eq("auth_user_id",user.id).order("created_at",{ascending:false});history=data||[]}catch(e){history=[]}
+    }
+    // Render toggle "Semua MCU" dari array history di memori (tanpa re-fetch -> update instan).
+    function renderList(){
+      var lbl=document.getElementById("mcuToggleLabel");
+      if(lbl) lbl.textContent=L({en:"All medical check-ups",id:"Semua hasil MCU"})+" ("+history.length+")";
       const el=document.getElementById("list");
+      if(!el) return;
       if(!history.length){el.innerHTML='<div class="empty">'+I18N.t("med_empty")+'</div>';return}
       el.innerHTML=history.map((r,i)=>{const res=r.result||{};const date=(r.analyzed_at||r.created_at||"").slice(0,10);const flag=(res.abnormal_findings||[]).length;
         return '<div class="rec" onclick="openHistory('+i+')"><div class="grade"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:var(--red);stroke-width:2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div style="flex:1"><div style="font-weight:700">'+(res.document_type||L({en:"MCU Result",id:"Hasil MCU"}))+'</div><div class="muted">'+date+(flag?' · '+flag+' '+L({en:"need attention",id:"perlu perhatian"}):'')+'</div></div><span class="seemore">'+L({en:"See more",id:"Lihat detail"})+' ›</span></div>';
       }).join("");
+    }
+    // Buka/tutup toggle "Semua MCU".
+    function toggleAllMcu(){
+      var list=document.getElementById("list"), tg=document.getElementById("mcuToggle");
+      if(!list||!tg) return;
+      var willOpen=list.style.display==="none";
+      list.style.display=willOpen?"":"none";
+      tg.classList.toggle("open",willOpen);
+      tg.setAttribute("aria-expanded",willOpen?"true":"false");
+    }
+    // Paksa buka toggle + scroll ke sana (dipakai catatan "see more").
+    function openAllMcu(){
+      var list=document.getElementById("list"), tg=document.getElementById("mcuToggle");
+      if(list) list.style.display="";
+      if(tg){ tg.classList.add("open"); tg.setAttribute("aria-expanded","true"); }
+      var card=document.getElementById("mcuHistoryCard"); if(card) card.scrollIntoView({behavior:"smooth"});
+    }
+    // Catatan setelah scan: "MCU sudah discan -> lihat hasil lengkap di toggle".
+    function showScanNote(){
+      var n=document.getElementById("mcuScanNote");
+      if(!n) return;
+      n.innerHTML='<svg class="emi" viewBox="0 0 24 24" style="stroke:#1d6b41"><path d="M20 6L9 17l-5-5"/></svg>'
+        +'<span style="flex:1">'+L({en:"Your medical check-up has been scanned — see more of your results",id:"Medical check-up kamu sudah discan — lihat hasil lengkapmu"})+'</span>'
+        +'<span style="font-weight:800">›</span>';
+      n.style.display="";
     }
     // "See details" -> pop-up berisi hasil MCU yang dipilih dari history.
     function openHistory(i){
@@ -421,11 +471,11 @@
     (async function(){
       user=await Auth.requireAuth();
       try{ profile=await Auth.getProfile(); }catch(e){ profile=null; }
-      await loadList();
+      await loadHistory(); renderList();
       // Setelah refresh: tampilkan otomatis hasil terakhir (tanpa upload ulang)
       if(history[0]&&history[0].result){ showResult(history[0].result,true); }
     })();
-    I18N.onChange(()=>{ loadList(); if(currentRes)translateCurrent(); });
+    I18N.onChange(()=>{ renderList(); if(currentRes)translateCurrent(); });
   </script>
 </body>
 </html>
