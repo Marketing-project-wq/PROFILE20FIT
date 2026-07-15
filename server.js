@@ -368,10 +368,32 @@ const SINGAPAY_CLIENT_SECRET = envAny("SINGAPAY_CLIENT_SECRET", "SINGAPAY_CLIENT
 // package_id = product_id dari sistem retail 20FIT (FITCO). HARUS sama persis dengan
 // SCAN_PACKS di js/deals.js (yang kini dipakai hanya untuk tampilan UI).
 const SCAN_PACKAGES = {
-  8477: { credits: 10,  price: 25000  },
-  8478: { credits: 50,  price: 75000  },
-  8479: { credits: 150, price: 150000 },
+  8477: { credits: 10,  price: 25000,  name: "10x scan"  },
+  8478: { credits: 50,  price: 75000,  name: "50x scan"  },
+  8479: { credits: 150, price: 150000, name: "150x scan" },
 };
+// Katalog paket sebagai LIST — sumber DINAMIS untuk filter "produk terlaris" di dashboard
+// admin. Frontend TIDAK hardcode daftar produk: tambah paket baru di SCAN_PACKAGES => otomatis
+// ikut muncul di filter & analisis, tanpa ubah kode filter.
+function scanPackageCatalog() {
+  return Object.keys(SCAN_PACKAGES).map(function (id) {
+    const p = SCAN_PACKAGES[id];
+    return { package_id: +id, name: p.name || (p.credits + "x scan"), credits: p.credits, price: p.price };
+  });
+}
+// Nama produk dari package_id; fallback ke "<credits>x scan" kalau id tak dikenal katalog.
+function scanPackageName(packageId, credits) {
+  const p = packageId != null ? SCAN_PACKAGES[packageId] : null;
+  if (p) return p.name || (p.credits + "x scan");
+  if (credits != null) return credits + "x scan";
+  return "—";
+}
+// Reverse credits -> package_id (fallback untuk order lama yang belum punya package_id).
+function packageIdFromCredits(credits) {
+  const c = +credits;
+  for (const id of Object.keys(SCAN_PACKAGES)) if (SCAN_PACKAGES[id].credits === c) return +id;
+  return null;
+}
 
 // ---------- Login Google via Google Identity Services (GIS) ----------
 // Frontend memakai tombol Google resmi (SDK GIS) untuk mendapatkan ID token,
@@ -1155,14 +1177,30 @@ app.get("/api/admin/users", async (req, res) => {
     const { data: acts } = await admin.from("my20fit_user_activity")
       .select("auth_user_id,last_active_at,last_page,ping_count").limit(5000);
     const { data: orders } = await admin.from("my20fit_scan_orders")
-      .select("auth_user_id,amount,net_amount,credits,status").eq("status", "paid").limit(20000);
+      .select("auth_user_id,amount,net_amount,credits,status,package_id").eq("status", "paid").limit(20000);
     const actMap = {}; (acts || []).forEach(a => actMap[a.auth_user_id] = a);
     const buyMap = {};
+    const prodMap = {}; // auth_user_id -> { "<key>": count } untuk cari produk paling banyak dibeli per user
     (orders || []).forEach(o => {
       const paidAmt = (o.net_amount != null ? +o.net_amount : +o.amount) || 0;
       const b = buyMap[o.auth_user_id] || (buyMap[o.auth_user_id] = { purchases: 0, totalSpent: 0, credits: 0, highest: 0 });
       b.purchases++; b.totalSpent += paidAmt; b.credits += (+o.credits || 0); if (paidAmt > b.highest) b.highest = paidAmt;
+      // Produk: pakai package_id (durable); fallback ke credits utk order lama tanpa package_id.
+      const pid = o.package_id != null ? +o.package_id : packageIdFromCredits(o.credits);
+      const key = pid != null ? String(pid) : ("c" + (+o.credits || 0));
+      const pm = prodMap[o.auth_user_id] || (prodMap[o.auth_user_id] = {});
+      pm[key] = (pm[key] || 0) + 1;
     });
+    // Produk paling banyak dibeli per user (key dgn count tertinggi).
+    function topProductFor(uid) {
+      const pm = prodMap[uid]; if (!pm) return null;
+      let bestKey = null, bestN = 0;
+      for (const k of Object.keys(pm)) if (pm[k] > bestN) { bestN = pm[k]; bestKey = k; }
+      if (bestKey == null) return null;
+      const pid = bestKey[0] === "c" ? null : +bestKey;
+      const credits = bestKey[0] === "c" ? +bestKey.slice(1) : null;
+      return { package_id: pid, name: scanPackageName(pid, credits), count: bestN };
+    }
     const now = Date.now();
     const users = (profiles || []).map(p => {
       const a = actMap[p.auth_user_id];
@@ -1175,12 +1213,13 @@ app.get("/api/admin/users", async (req, res) => {
         created_at: p.created_at, last_active_at: a ? a.last_active_at : null, last_page: a ? a.last_page : null,
         minutes_ago: mins, active: mins != null && mins <= activeMin,
         purchases: b.purchases, total_spent: b.totalSpent, credits_bought: b.credits, highest_purchase: b.highest,
+        top_product: topProductFor(p.auth_user_id),
       };
     });
     users.sort((x, y) => (y.last_active_at ? new Date(y.last_active_at).getTime() : 0) - (x.last_active_at ? new Date(x.last_active_at).getTime() : 0));
     const activeCount = users.filter(u => u.active).length;
     const buyers = users.filter(u => u.purchases > 0).length;
-    return res.json({ ok: true, window: activeMin, total: users.length, active: activeCount, inactive: users.length - activeCount, buyers: buyers, users: users });
+    return res.json({ ok: true, window: activeMin, total: users.length, active: activeCount, inactive: users.length - activeCount, buyers: buyers, users: users, catalog: scanPackageCatalog() });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Detail satu user: profil lengkap + riwayat order.
@@ -1452,7 +1491,7 @@ app.post("/api/scan/buy", async (req, res) => {
       try {
         await admin.from("my20fit_scan_orders").insert({
           reff_no: reffNo, auth_user_id: user.id, credits: credits, amount: gross, net_amount: 0,
-          provider: "voucher", order_type: "scan_credit", voucher_id: voucherId,
+          provider: "voucher", order_type: "scan_credit", voucher_id: voucherId, package_id: packageId,
           payment_method: "voucher", status: "pending", created_at: new Date().toISOString(),
         });
       } catch (e) { console.error("scan_orders insert(free):", e.message); return res.status(500).json({ error: "Gagal menyiapkan order." }); }
@@ -1501,7 +1540,7 @@ app.post("/api/scan/buy", async (req, res) => {
     try {
       await admin.from("my20fit_scan_orders").insert({
         reff_no: String(salesOrderId), auth_user_id: user.id, credits: credits, amount: gross, net_amount: gross,
-        provider: "xendit", order_type: "scan_credit", status: "pending", created_at: new Date().toISOString(),
+        provider: "xendit", order_type: "scan_credit", status: "pending", package_id: packageId, created_at: new Date().toISOString(),
       });
     } catch (e) {
       // Tanpa baris order ini, kredit server-authoritative tak bisa jalan (RPC cari by reff_no).
