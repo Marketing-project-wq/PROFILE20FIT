@@ -1058,6 +1058,15 @@ app.post("/api/admin/vouchers/:id/deactivate", async (req, res) => {
   await adminAudit(ctx, "voucher.deactivate", (cur && cur[0] && cur[0].code) || req.params.id, null);
   return res.json({ ok: true });
 });
+// Aktifkan kembali voucher yang di-nonaktifkan (mirror deactivate) + audit.
+app.post("/api/admin/vouchers/:id/activate", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const { data: cur } = await admin.from("my20fit_vouchers").select("code").eq("id", req.params.id).limit(1);
+  const { error } = await admin.from("my20fit_vouchers").update({ status: "active", updated_at: new Date().toISOString() }).eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "voucher.activate", (cur && cur[0] && cur[0].code) || req.params.id, null);
+  return res.json({ ok: true });
+});
 
 // ---------- Transaksi (my20fit_scan_orders) ----------
 app.get("/api/admin/transactions", async (req, res) => {

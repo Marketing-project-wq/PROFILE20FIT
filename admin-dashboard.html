@@ -147,7 +147,6 @@
           <span class="grow"></span>
           <button class="btn sm" id="vNew" style="margin-top:0">+ Buat Voucher</button>
         </div>
-        <div id="vFormPanel" class="card hidden"></div>
         <div class="card"><div id="vList"><div class="placeholder">Memuat…</div></div></div>
       </div>
       <div id="tab-transactions" class="hidden">
@@ -586,7 +585,7 @@
           "<td>"+(v.used_count||0)+" / "+lim+"</td><td style='color:var(--muted)'>"+dOnly(v.valid_from)+" – "+dOnly(v.valid_until)+"</td>"+
           "<td><span class='tagrole "+(v.status==="active"?"staff":"viewer")+"'>"+v.status+"</span></td>"+
           "<td style='white-space:nowrap'><button class='btn sm ghost' data-act='detail' data-id='"+v.id+"'>Detail</button>"+
-          (canEdit()?" <button class='btn sm ghost' data-act='edit' data-id='"+v.id+"'>Edit</button>"+(v.status!=="inactive"?" <button class='btn sm ghost' data-act='off' data-id='"+v.id+"'>Nonaktif</button>":""):"")+"</td></tr>";
+          (canEdit()?" <button class='btn sm ghost' data-act='edit' data-id='"+v.id+"'>Edit</button>"+(v.status==="inactive"?" <button class='btn sm ghost' data-act='on' data-id='"+v.id+"'>Aktifkan</button>":" <button class='btn sm ghost' data-act='off' data-id='"+v.id+"'>Nonaktif</button>"):"")+"</td></tr>";
       });
       list.innerHTML=h+"</tbody></table>";
       list.querySelectorAll("button[data-act]").forEach(function(b){
@@ -595,14 +594,15 @@
           if(b.dataset.act==="detail") showVoucherDetail(id);
           else if(b.dataset.act==="edit") showVoucherForm(v);
           else if(b.dataset.act==="off") deactivateVoucher(id, v.code);
+          else if(b.dataset.act==="on") activateVoucher(id, v.code);
         });
       });
     }
     function showVoucherForm(v){
-      var p=$("vFormPanel"); p.classList.remove("hidden");
       var isEdit=!!v, used=v&&(v.used_count||0)>0;
       var lock = used ? "disabled" : "";
-      p.innerHTML =
+      var h =
+        "<button class='btn sm ghost mclose' onclick='closeModal()'>✕ Tutup</button>"+
         "<h3>"+(isEdit?"Edit voucher "+esc(v.code):"Buat voucher baru")+"</h3>"+
         (used?"<div class='alert'>Voucher sudah pernah dipakai — tipe/nilai diskon & min transaksi terkunci.</div>":"")+
         "<div class='row'>"+
@@ -624,10 +624,10 @@
         "<div class='msg err' id='fMsg' style='text-align:left'></div>"+
         "<div style='display:flex;gap:10px'><button class='btn sm' id='fSave' style='margin-top:0'>"+(isEdit?"Simpan":"Buat")+"</button>"+
         "<button class='btn sm ghost' id='fCancel' style='margin-top:0'>Batal</button></div>";
+      openModal(h);
       var g=$("fGen"); if(g) g.addEventListener("click", function(){ var c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",s=""; for(var i=0;i<8;i++)s+=c[Math.floor(Math.random()*c.length)]; $("fCode").value=s; });
-      $("fCancel").addEventListener("click", function(){ p.classList.add("hidden"); });
+      $("fCancel").addEventListener("click", closeModal);
       $("fSave").addEventListener("click", function(){ saveVoucher(isEdit?v.id:null); });
-      p.scrollIntoView({behavior:"smooth",block:"nearest"});
     }
     async function saveVoucher(id){
       var body={ code:$("fCode").value.trim(), discount_type:$("fType").value, discount_value:$("fVal").value,
@@ -637,11 +637,16 @@
       var r=await adminFetch("/api/admin/vouchers"+(id?("/"+id):""), { method:id?"PATCH":"POST", body:JSON.stringify(body) });
       var j=await r.json().catch(function(){return{};});
       if(!r.ok){ $("fMsg").textContent=j.error||"Gagal simpan."; return; }
-      $("vFormPanel").classList.add("hidden"); loadVouchers();
+      closeModal(); loadVouchers();
     }
     async function deactivateVoucher(id, code){
       if(!confirm("Nonaktifkan voucher "+code+"? (soft-delete, riwayat tetap ada)")) return;
       var r=await adminFetch("/api/admin/vouchers/"+id+"/deactivate", { method:"POST" });
+      if(r.ok) loadVouchers();
+    }
+    async function activateVoucher(id, code){
+      if(!confirm("Aktifkan kembali voucher "+code+"?")) return;
+      var r=await adminFetch("/api/admin/vouchers/"+id+"/activate", { method:"POST" });
       if(r.ok) loadVouchers();
     }
     async function showVoucherDetail(id){
