@@ -59,13 +59,11 @@ Tindakan wajib:
 | `DEV_MASTER_OTP` | OTP master untuk testing | **RAHASIA — kosongkan di produksi** |
 | `ARENA_API_KEY` | API key 20FIT Arena Open API | **RAHASIA — server-only** |
 | `ARENA_API_URL` | Base URL Arena API | Publik |
-| `SINGAPAY_CLIENT_ID` | Client ID SingaPay | **RAHASIA — server-only** |
-| `SINGAPAY_CLIENT_SECRET` | Client Secret SingaPay | **RAHASIA — server-only.** Pernah ditempel di chat → **rotasi** di dashboard SingaPay lalu isi di Railway |
-| `SINGAPAY_API_KEY` | API Key SingaPay | **RAHASIA — server-only.** Idem, rotasi |
-| `SINGAPAY_HMAC_KEY` | HMAC Validation Key SingaPay (verifikasi webhook) | **RAHASIA — server-only.** Idem, rotasi |
-| `SINGAPAY_BASE_URL` | Base URL SingaPay (sandbox/production) | Publik. Default sandbox |
-| `FITCO_PARTNER_TOKEN` | Token partner Fitco (shop order/Xendit) | **RAHASIA — server-only** |
-| `FITCO_PAID_STATUS` | Kode `payment_status` yang berarti LUNAS (auto thank-you scan). Opsional, isi mis. `1,3` kalau dev 20FIT sudah konfirmasi kodenya | Publik (bukan rahasia) |
+| `XENDIT_SECRET_KEY` | Secret key Xendit — **gateway pembayaran aktif**. `xnd_production_...` = live, `xnd_development_...` = test | **RAHASIA — server-only** |
+| `XENDIT_WEBHOOK_TOKEN` | Verification token webhook Xendit (verifikasi header `X-CALLBACK-TOKEN`) | **RAHASIA — server-only** |
+| `XENDIT_CALLBACK_URL` | URL webhook yang didaftarkan di Xendit (`https://my.20fit.id/api/xendit/callback`) | Publik |
+| `SINGAPAY_CLIENT_SECRET` | Client Secret SingaPay — **hanya sisa grace period** (verifikasi webhook order pending lama) | **RAHASIA — server-only.** Pernah ditempel di chat → **rotasi**; hapus setelah pending SingaPay bersih |
+| `SINGAPAY_WEBHOOK_ENFORCE` | "1" = tolak webhook SingaPay signature invalid (grace period) | Publik |
 | `FITCO_API_URL` / `FITCO_SSO_URL` / `FITCO_LOGIN_PATH` | Endpoint Fitco per environment | Publik |
 | `PARTNER_API_KEY` | API key partner profile | **RAHASIA — server-only** |
 | `GOOGLE_CLIENT_ID` | Client ID Google Identity Services (tombol login Google) | Publik (tampil di web) |
@@ -73,7 +71,8 @@ Tindakan wajib:
 | `META_CAPI_ACCESS_TOKEN` | Access token Meta Conversions API | **RAHASIA — server-only.** Sempat ditempel di chat → sebaiknya **rotasi** di Meta Events Manager, lalu isi di Railway |
 | `FITCO_GOOGLE_LOGIN_PATH` | Path endpoint login Google 20FIT (default sudah benar) | Publik |
 | `WAQI_TOKEN` | Token API AQI (WAQI/AQICN) | **RAHASIA — server-only** |
-| `ADMIN_KEY` | Key akses `/api/admin/stats` | **RAHASIA** |
+| `ADMIN_KEY` | Master key admin dashboard (login superadmin). Generate `openssl rand -hex 32` | **RAHASIA — server-only** |
+| `ADMIN_KEY_2` | Master key cadangan untuk rotasi tanpa downtime (opsional) | **RAHASIA — server-only** |
 
 ### Token dari dokumentasi API (per environment)
 
@@ -87,8 +86,9 @@ dipetakan ke secret berikut (isi dengan token **baru** hasil rotasi):
 | `TWENTYFIT_API_TOKEN_STAGING` | token `staging-api.20fit.id` | Staging |
 | `TWENTYFIT_API_TOKEN_PRODUCTION` | token `api.20fit.id` | Production |
 
-> Catatan: server saat ini membaca token Fitco lewat `FITCO_PARTNER_TOKEN`.
-> Isi variabel itu di Railway dengan token sesuai environment service-nya
+> Catatan: token Fitco/20FIT di atas hanya dipakai untuk LOGIN/register/Arena
+> (bukan pembayaran). Pembayaran paket scan kini lewat **Xendit**
+> (`XENDIT_SECRET_KEY` + `XENDIT_WEBHOOK_TOKEN`).
 > (staging service → token staging, production service → token production).
 > Secret `*_STAGING` / `*_PRODUCTION` di GitHub Actions dipakai bila CI/CD
 > perlu memanggil API (mis. smoke test) — jangan pernah menuliskannya ke file.

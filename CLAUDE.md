@@ -85,8 +85,12 @@ pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
   Supabase (`Auth.signIn`). Admin dashboard pakai password Supabase; login juga
   fallback ke FITCO. `Auth.ready` adalah **Promise** (pakai `await Auth.ready`,
   bukan `Auth.ready()`).
-- Pembayaran: SingaPay (server-authoritative, kredit via webhook HMAC-verified
-  → `my20fit_scan_orders` → `my20fit_profile.scan_credits`).
+- Pembayaran: **Xendit Invoice API (direct)** — server bikin invoice via
+  `XENDIT_SECRET_KEY`, kredit server-authoritative via webhook Xendit
+  (`/api/xendit/callback`, verifikasi `XENDIT_WEBHOOK_TOKEN`) →
+  `creditScanOrder` → `my20fit_scan_orders` → `my20fit_profile.scan_credits`;
+  `/api/scan/order-status` poll invoice sbg fallback. Sisa webhook SingaPay
+  masih ada sementara (grace period) hanya untuk settle order pending lama.
 - Admin dashboard: `/admin-dashboard` (RBAC superadmin/staff/viewer di
-  `my20fit_admin_roles`); `/admin` redirect ke sana. `ADMIN_KEY` = master key
-  superadmin opsional.
+  `my20fit_admin_roles`); `/admin` redirect ke sana. Master key = env
+  `ADMIN_KEY` (+ `ADMIN_KEY_2` cadangan utk rotasi tanpa downtime).
