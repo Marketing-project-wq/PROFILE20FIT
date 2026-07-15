@@ -571,15 +571,20 @@
     function canEdit(){ return ME && ME.role !== "viewer"; }
     function discLabel(v){ return v.discount_type==="percentage" ? (v.discount_value+"%") : rupiah(v.discount_value); }
     function dOnly(s){ return s ? new Date(s).toLocaleDateString("id-ID") : "—"; }
+    var _vouchers=[], _vShown=30;                 // tampil maks 30 per load; sisanya "Muat lebih"
     async function loadVouchers(){
       var list=$("vList"); list.innerHTML="<div class='placeholder'>Memuat…</div>";
       var qs="search="+encodeURIComponent($("vSearch").value.trim())+"&status="+$("vStatus").value+"&sort="+$("vSort").value+"&dir="+($("vSort").value==="code"?"asc":"desc");
       var r=await adminFetch("/api/admin/vouchers?"+qs); var j=await r.json().catch(function(){return{};});
-      if(!r.ok){ list.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
-      var vs=j.vouchers||[];
+      if(!r.ok){ $("vList").innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
+      _vouchers=j.vouchers||[]; _vShown=30;        // reset ke 30 tiap fetch baru (filter/refresh)
+      renderVouchers();
+    }
+    function renderVouchers(){
+      var list=$("vList"), vs=_vouchers;
       if(!vs.length){ list.innerHTML="<div class='placeholder'>Belum ada voucher.</div>"; return; }
       var h="<table><thead><tr><th>Kode</th><th>Diskon</th><th>Min</th><th>Pemakaian</th><th>Berlaku</th><th>Status</th><th></th></tr></thead><tbody>";
-      vs.forEach(function(v){
+      vs.slice(0,_vShown).forEach(function(v){
         var lim=v.usage_limit_total!=null?v.usage_limit_total:"∞";
         h+="<tr><td><b>"+esc(v.code)+"</b></td><td>"+discLabel(v)+"</td><td>"+rupiah(v.min_transaction)+"</td>"+
           "<td>"+(v.used_count||0)+" / "+lim+"</td><td style='color:var(--muted)'>"+dOnly(v.valid_from)+" – "+dOnly(v.valid_until)+"</td>"+
@@ -587,7 +592,9 @@
           "<td style='white-space:nowrap'><button class='btn sm ghost' data-act='detail' data-id='"+v.id+"'>Detail</button>"+
           (canEdit()?" <button class='btn sm ghost' data-act='edit' data-id='"+v.id+"'>Edit</button>"+(v.status==="inactive"?" <button class='btn sm ghost' data-act='on' data-id='"+v.id+"'>Aktifkan</button>":" <button class='btn sm ghost' data-act='off' data-id='"+v.id+"'>Nonaktif</button>"):"")+"</td></tr>";
       });
-      list.innerHTML=h+"</tbody></table>";
+      h+="</tbody></table>";
+      if(vs.length>_vShown) h+="<div style='text-align:center;margin-top:12px'><button class='btn sm ghost' id='vMore'>Muat lebih ("+(vs.length-_vShown)+" lagi)</button></div>";
+      list.innerHTML=h;
       list.querySelectorAll("button[data-act]").forEach(function(b){
         b.addEventListener("click", function(){
           var id=b.dataset.id, v=vs.filter(function(x){return x.id===id;})[0];
@@ -597,6 +604,7 @@
           else if(b.dataset.act==="on") activateVoucher(id, v.code);
         });
       });
+      var mb=$("vMore"); if(mb) mb.addEventListener("click", function(){ _vShown+=30; renderVouchers(); });
     }
     function showVoucherForm(v){
       var isEdit=!!v, used=v&&(v.used_count||0)>0;
