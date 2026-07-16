@@ -1620,7 +1620,7 @@ app.post("/api/scan/buy", async (req, res) => {
       // server dari SCAN_PACKAGES + voucher yang divalidasi server.
       const r = await createFitcoXenditOrder({
         bearer: bearer, userId: fitcoUid, name: prof.full_name || (email ? email.split("@")[0] : "Member"),
-        phone: phone, email: email,
+        phone: phone, email: email, reffNo: reffNo,
         items: [{ product_id: packageId, quantity: 1, price: amount }],
       });
       // Simpan id order FITCO di payment_link_id — INI SATU-SATUNYA pegangan untuk memantau
@@ -1809,6 +1809,48 @@ app.post("/api/scan/order-status", async (req, res) => {
   }
 });
 
+// ---------- Status pembayaran utk halaman /payment/pending + tombol "Cek Status" ----------
+// GET /api/payment/status?external_id=<reff_no order scan kita>. Server-authoritative & aman:
+// hanya membaca status + memakai jalur kredit yang SUDAH ada (creditScanOrder, idempoten) —
+// TIDAK menambah logic kredit baru. Wajib login; user hanya boleh cek order miliknya.
+app.get("/api/payment/status", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const ext = String(req.query.external_id || "").trim();
+    if (!ext) return res.status(400).json({ error: "external_id kosong." });
+    const { data: rows } = await admin.from("my20fit_scan_orders")
+      .select("reff_no,status,provider,credits,auth_user_id,payment_link_id,paid_at").eq("reff_no", ext).limit(1);
+    const order = rows && rows[0];
+    if (!order) return res.status(404).json({ status: "NOT_FOUND", error: "Order tidak ditemukan." });
+    if (order.auth_user_id && order.auth_user_id !== user.id) return res.status(403).json({ error: "Bukan order kamu." });
+    let status = order.status;
+    if (status === "pending" && order.payment_link_id) {
+      try {
+        const sig = await fitcoOrderStatus(String(order.payment_link_id), req.query.fitco_token || null);
+        if (sig && sig.paid) { await creditScanOrder(order.reff_no); status = "paid"; }
+        else if (sig && sig.expired) { try { await admin.from("my20fit_scan_orders").update({ status: "expired" }).eq("reff_no", order.reff_no); } catch (e) {} status = "expired"; }
+      } catch (e) {}
+    }
+    let total = null;
+    try { const { data: pr } = await admin.from("my20fit_profile").select("scan_credits").eq("auth_user_id", user.id).limit(1); total = pr && pr[0] ? pr[0].scan_credits : null; } catch (e) {}
+    const isPaid = (status === "paid");
+    const isFail = (status === "failed" || status === "expired");
+    return res.json({
+      status: isPaid ? "PAID" : (isFail ? "FAILED" : "PENDING"),
+      credits_added: isPaid ? (order.credits || 0) : 0,
+      total_credits: total,
+      paid_at: order.paid_at || null,
+      provider: order.provider || null,
+      message: isPaid ? "Pembayaran berhasil." : (isFail ? "Pembayaran gagal atau kadaluarsa." : "Pembayaran belum dikonfirmasi."),
+    });
+  } catch (e) {
+    console.error("payment/status:", e.message);
+    return res.status(500).json({ error: "Gagal cek status pembayaran." });
+  }
+});
+
 // ---------- Sapu order tertunda milik user (pemulihan lintas-device) ----------
 // POST /api/scan/reconcile  { fitco_token }
 // Kenapa perlu: daftar order yang dipantau frontend hanya ada di localStorage. Invoice Xendit
@@ -1934,7 +1976,9 @@ async function createFitcoXenditOrder(o) {
   // menandainya "a dev confirmation". Diteruskan = redirect benar; diabaikan = tidak ada yang
   // rusak. Kredit TIDAK bergantung pada ini: /api/scan/reconcile + polling tetap sumbernya.
   // JANGAN membangun logika kredit di atas asumsi field ini dihormati.
-  const finishUrl = APP_BASE_URL + "/calories?status=paid";
+  // Redirect balik dari Xendit -> halaman status khusus /payment/pending (tombol "Cek Status"
+  // + auto-cek). external_id = reff_no order kita; halaman juga punya fallback dari localStorage.
+  const finishUrl = APP_BASE_URL + "/payment/pending" + (o.reffNo ? ("?external_id=" + encodeURIComponent(o.reffNo)) : "");
   const body = {
     user_id: o.userId || null,
     name: o.name || "Member",
@@ -1947,7 +1991,7 @@ async function createFitcoXenditOrder(o) {
     // bentuk yang terdokumentasi (photo.20fit.id juga mengirim promo_code: null).
     promo_code: null,
     success_redirect_url: finishUrl,
-    failure_redirect_url: APP_BASE_URL + "/calories?status=failed",
+    failure_redirect_url: APP_BASE_URL + "/payment/failed",
     payment: { payment_type: "xendit-invoices", user_point_booster_id: null, use_fit_points: false },
     items: o.items,
   };
@@ -2135,6 +2179,16 @@ app.get("/ip", async (req, res) => {
     (ip ? '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById(\'ip\').textContent);this.textContent=\'Copied ✓\'" style="padding:11px 18px;border:0;border-radius:9px;background:#C41101;color:#fff;font-weight:800;font-size:14px;cursor:pointer">Copy IP</button>' : '') +
     '<p style="color:#999;font-size:12.5px;margin-top:22px;line-height:1.6">Refresh halaman ini 3–4×. Kalau angkanya tetap = IP stabil (aman didaftarkan). Kalau berubah-ubah = IP Railway dinamis, hubungi aku dulu.</p>' +
     '</body>');
+});
+
+// ---------- Halaman balik-dari-pembayaran (landing redirect dari Xendit) ----------
+// /payment/pending (+ alias /payment/success) & /payment/failed. Dilayani eksplisit supaya
+// path bertingkat tetap ketemu file-nya (di atas static + catch-all).
+app.get(["/payment/pending", "/payment/success"], (req, res) => {
+  res.sendFile(path.join(__dirname, "payment-pending.html"));
+});
+app.get("/payment/failed", (req, res) => {
+  res.sendFile(path.join(__dirname, "payment-failed.html"));
 });
 
 // ---------- Static (URL bersih tanpa .html) + fallback ----------
