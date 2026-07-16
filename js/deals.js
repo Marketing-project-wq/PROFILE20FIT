@@ -215,7 +215,10 @@
       // Server-authoritative: kirim package_id (= product_id 20FIT). Server menentukan
       // credits & harga dari katalog; voucher juga diverifikasi & dihitung server.
       var r = await fetch("/api/scan/buy", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (tk || "") }, body: JSON.stringify({ package_id: p.product_id, credits: p.credits, price: p.price, voucher_code: CUR_VOUCHER || null, fitco_token: ftk, user_id: localStorage.getItem("fitco_uid") || null }) });
-      var j = await r.json().catch(function () { return {}; });
+      // Baca sbg TEXT dulu lalu parse: kalau server/platform balas non-JSON (mis. 5xx/timeout
+      // HTML), kita masih tahu status HTTP-nya dan bisa tampilkan sebab yg actionable.
+      var raw = await r.text().catch(function () { return ""; });
+      var j = {}; try { j = raw ? JSON.parse(raw) : {}; } catch (e) { j = {}; }
       var disc = (j.discount != null) ? +j.discount : CUR_DISCOUNT;
       var total = (j.amount != null) ? +j.amount : Math.max(0, p.price - disc);
       // Voucher bikin gratis (Rp 0): kredit sudah ditambah server.
@@ -228,7 +231,10 @@
         showThanks(p.credits);
         return;
       }
-      if (!r.ok || !j.link) throw new Error(j.error || L({ en: "Couldn't start payment.", id: "Gagal memulai pembayaran." }));
+      if (!r.ok || !j.link) {
+        if (!j.error) { try { console.error("scan/buy non-JSON resp", r.status, (raw || "").slice(0, 300)); } catch (e) {} }
+        throw new Error(j.error || (L({ en: "Couldn't start payment.", id: "Gagal memulai pembayaran." }) + " (HTTP " + r.status + ")"));
+      }
       if (payWin) { payWin.location.href = j.link; } else if (!window.open(j.link, "_blank")) { location.href = j.link; }
       var oid = j.sales_order_id || j.order_no;
       if (oid) {
