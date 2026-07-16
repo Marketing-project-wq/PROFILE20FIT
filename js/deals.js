@@ -283,15 +283,23 @@
       if (oid) {
         try { Orders.add({ id: oid, order_no: j.order_no || null, sales_order_id: j.sales_order_id || null, credits: p.credits, price: p.price, discount: disc, total: total, product_id: p.product_id, link: j.link || null, provider: j.provider || null, ts: Date.now() }); } catch (e) {}
       }
-      // Arahkan tab checkout. JANGAN pernah menavigasi tab ini ke Xendit: invoice-nya
-      // ber-success_redirect_url ke platform event 20FIT (di luar kendali kita), jadi tab yang
-      // dipakai bayar TIDAK akan kembali ke sini. Tab ini harus tetap hidup untuk polling —
-      // ia yang memberi kredit & menampilkan thank-you. Kalau popup diblokir, sediakan tombol
-      // (klik = gesture user, lolos blocker) alih-alih membuang halaman ini.
-      if (payWin) { try { payWin.location.href = j.link; } catch (e) {} }
-      else { _payWin = window.open(j.link, "_blank"); if (!_payWin) showPayFallback(j.link); }
+      // Arahkan tab checkout. Urutan sengaja: tab terpisah DULU supaya halaman ini tetap hidup
+      // dan bisa polling + menampilkan thank-you (invoice ber-success_redirect_url ke platform
+      // event 20FIT, di luar kendali kita, jadi tab pembayaran TIDAK kembali ke sini).
+      //
+      // TAPI jangan sampai memaksa: di WebView in-app (Instagram/Facebook/TikTok) window.open
+      // SELALU balik null — gesture klik pun tak menolong (Android setSupportMultipleWindows
+      // (false) / WKWebView tanpa createWebViewWith). Buat mereka, menavigasi tab ini adalah
+      // SATU-SATUNYA cara bisa bayar. Menghapusnya = pembayaran mustahil, lebih parah dari
+      // masalah yang mau diperbaiki. Aman dilakukan sekarang karena kredit tak lagi bergantung
+      // pada tab ini: /api/scan/reconcile menyapu order dari DB saat app dibuka lagi.
       if (oid) { _payDismissed = false; showToast(); startPolling(); }
       closeDeals();
+      if (payWin) { try { payWin.location.href = j.link; } catch (e) { location.href = j.link; } }
+      else {
+        _payWin = window.open(j.link, "_blank");
+        if (!_payWin) { location.href = j.link; }   // WebView/popup-blocked: bayar > tetap di sini
+      }
     } catch (e) {
       var emsg = (e && e.message) || L({ en: "Purchase failed. Try again.", id: "Pembelian gagal. Coba lagi." });
       if (payWin && !payWin.closed) { try { payWin.document.body.innerHTML = "<p style='font-family:sans-serif;padding:24px;color:#c0392b'>" + emsg + "</p>"; } catch (e2) {} }
@@ -322,18 +330,6 @@
     el.classList.add("show");
   }
   function hideToast() { var el = document.getElementById("dlToast"); if (el) el.classList.remove("show"); }
-  // Popup diblokir browser: JANGAN buang halaman ini (dulu `location.href = link`, yang bikin
-  // user hilang ke platform event 20FIT setelah bayar dan tak pernah balik). Pakai toast yang
-  // sudah ada — tombolnya membuka halaman pembayaran di dalam gesture klik, jadi lolos blocker.
-  function showPayFallback(link) {
-    injectOnce(); _payDismissed = false;
-    var el = document.getElementById("dlToast"); if (!el) { try { window.open(link, "_blank"); } catch (e) {} return; }
-    el.classList.add("show");
-    var m = document.getElementById("dlToastMsg");
-    if (m) m.textContent = L({ en: "Popup blocked — tap “Open payment” to continue.", id: "Popup diblokir — ketuk “Buka pembayaran” untuk lanjut." });
-    var b = document.getElementById("dlToastBtn");
-    if (b) b.textContent = L({ en: "Open payment", id: "Buka pembayaran" });
-  }
   function stopPolling() { if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; } }
   function creditPaid(o) {
     if (o.provider !== "xendit") { try { Auth.addScanCredits(o.credits || 0); } catch (e) {} }
@@ -355,7 +351,12 @@
       try { payWin.close(); } catch (e) {}
     }
     var a = getPendings();
-    if (!a.length) { stopPolling(); hideToast(); if (payWin) { try { payWin.close(); } catch (e) {} } closePayWin(); return; }
+    // Daftar pending kosong TIDAK berarti lunas: Orders.prune() menandai pending >30 menit
+    // (MAX_AGE) sebagai expired secara LOKAL, padahal invoice Xendit-nya masih bisa dibayar
+    // (transfer bank sering lebih lama). Jadi berhenti polling saja — JANGAN tutup _payWin di
+    // sini; itu akan menutup tab yang sedang dipakai user membayar. Tab hanya ditutup kalau
+    // pembayaran benar-benar terkonfirmasi lunas (lihat cabang paidOne di bawah).
+    if (!a.length) { stopPolling(); hideToast(); return; }
     if (!_payDismissed) showToast();
     if (_payChecking) { routePayWin(); return; }
     _payChecking = true;
@@ -375,7 +376,9 @@
     // (success_redirect_url di-set backend 20FIT, bukan kita) — kalau dibiarkan, user berakhir
     // menatap situs asing dan mengira pembayarannya gagal. Tab ini yang menampilkan thank-you.
     if (paidOne) { if (payWin) { try { payWin.close(); } catch (e) {} } closePayWin(); closeDeals(); if (!rem.length) { stopPolling(); hideToast(); } showThanks(paidOne.credits || 0); return; }
-    if (!rem.length) { stopPolling(); hideToast(); if (payWin) { try { payWin.close(); } catch (e) {} } closePayWin(); return; }
+    // Sisa pending habis TANPA ada yang lunas (mis. semua kadaluarsa/dibatalkan): stop polling,
+    // tapi lagi-lagi JANGAN tutup _payWin — belum tentu user selesai di sana.
+    if (!rem.length) { stopPolling(); hideToast(); return; }
     // Masih pending -> arahkan ke halaman pembayaran (kalau dipicu tombol & ada link).
     routePayWin();
     if (manual) {

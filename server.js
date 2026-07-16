@@ -1509,8 +1509,24 @@ app.post("/api/scan/buy", async (req, res) => {
         phone: phone, email: email, promoCode: promoCode,
         items: [{ product_id: packageId, quantity: 1 }],
       });
-      // Simpan id order FITCO di kolom payment_link_id utk polling status.
-      if (r.orderId) { try { await admin.from("my20fit_scan_orders").update({ payment_link_id: String(r.orderId) }).eq("reff_no", reffNo); } catch (e) {} }
+      // Simpan id order FITCO di payment_link_id — INI SATU-SATUNYA pegangan untuk memantau
+      // status. Tanpa itu order jadi TAK TERLACAK: polling tak bisa, /api/scan/reconcile
+      // melewatinya, dan user yang tetap membayar TIDAK AKAN PERNAH dapat kreditnya.
+      // Jadi gagal keras SEBELUM user melihat link: lebih baik menolak transaksi daripada
+      // menerima uang yang kreditnya mustahil kita berikan. (Dulu: id hilang / update DB gagal
+      // ditelan diam-diam, user tetap dikasih link.)
+      if (!r.orderId) {
+        try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
+        console.error("scan/buy NO-ORDER-ID", reffNo, "link ada tapi id order FITCO tidak ditemukan di respons");
+        return res.status(502).json({ error: "Gagal menyiapkan pembayaran (id order tidak diterima dari 20FIT). Coba lagi / hubungi admin." });
+      }
+      const { error: linkErr } = await admin.from("my20fit_scan_orders")
+        .update({ payment_link_id: String(r.orderId) }).eq("reff_no", reffNo);
+      if (linkErr) {
+        try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
+        console.error("scan/buy payment_link_id gagal disimpan:", linkErr.message, reffNo);
+        return res.status(502).json({ error: "Gagal menyiapkan pembayaran. Coba lagi." });
+      }
       return res.json({ ok: true, link: r.link, sales_order_id: reffNo, order_no: reffNo, provider: "xendit", discount: discount, amount: amount });
     } catch (e) {
       try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
@@ -1604,16 +1620,23 @@ async function fitcoOrderStatus(fitcoId, userToken) {
   if (!tokens.length) return null;
   let lastHttp = 0;
   for (const t of tokens) {
+    // Timeout keras per panggilan. /api/scan/reconcile memanggil fungsi ini sampai 20x
+    // BERURUTAN; tanpa batas, satu FITCO yang lambat/menggantung menahan request sampai
+    // platform yang memutus. Pola AbortController-nya sama dengan createFitcoXenditOrder.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
     try {
       const r = await fetch(FITCO_API + "/api/v1/app/order/" + encodeURIComponent(fitcoId), {
         headers: { "Accept": "application/json", "Authorization": "Bearer " + t.tk },
+        signal: ctrl.signal,
       });
+      clearTimeout(timer);
       lastHttp = r.status;
       if (!r.ok) continue;
       const j = await r.json().catch(() => ({}));
       const sig = scanPaidMarkers(j); sig.via = t.via; sig.http = lastHttp;
       return sig;
-    } catch (e) { lastHttp = -1; }
+    } catch (e) { clearTimeout(timer); lastHttp = -1; }
   }
   return { paid: false, expired: false, debug: [], via: "", http: lastHttp, unreadable: true };
 }
@@ -1679,15 +1702,20 @@ app.post("/api/scan/reconcile", async (req, res) => {
     if (!admin) return res.json({ ok: true, checked: 0, credited: 0 });
     const b = req.body || {};
     const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    let rows = [];
-    try {
-      const { data } = await admin.from("my20fit_scan_orders")
-        .select("reff_no,payment_link_id,credits,provider")
-        .eq("auth_user_id", user.id).eq("status", "pending")
-        .gte("created_at", cutoff)
-        .order("created_at", { ascending: false }).limit(20);
-      rows = data || [];
-    } catch (e) { return res.json({ ok: true, checked: 0, credited: 0 }); }
+    // supabase-js TIDAK throw: dia balik { data, error }. Kalau error diabaikan, query rusak
+    // (schema drift / RLS / service key salah) menghasilkan rows=[] yang TIDAK BISA DIBEDAKAN
+    // dari "tidak ada order pending" — jaring pengaman ini mati diam-diam. Jadi error dibaca
+    // eksplisit, dicatat, dan dibalikkan sebagai error (bukan sukses palsu).
+    const { data, error } = await admin.from("my20fit_scan_orders")
+      .select("reff_no,payment_link_id,credits,provider")
+      .eq("auth_user_id", user.id).eq("status", "pending")
+      .gte("created_at", cutoff)
+      .order("created_at", { ascending: false }).limit(20);
+    if (error) {
+      console.error("scan/reconcile query:", error.message);
+      return res.status(500).json({ ok: false, error: "Gagal memeriksa pembayaran tertunda." });
+    }
+    const rows = data || [];
     let checked = 0, credits = 0;
     const creditedOrders = [];
     for (const o of rows) {
@@ -1703,7 +1731,11 @@ app.post("/api/scan/reconcile", async (req, res) => {
           try { console.log("reconcile credited", o.reff_no); } catch (e) {}
         }
       } else if (sig && sig.expired) {
-        try { await admin.from("my20fit_scan_orders").update({ status: "expired" }).eq("reff_no", o.reff_no); } catch (e) {}
+        // Kunci transisi HANYA pending->expired. Tanpa .eq("status","pending") ada balapan:
+        // polling lain (order-status) bisa sudah mengkredit order ini jadi 'paid' sejak SELECT
+        // di atas, dan update ini akan menimpanya jadi 'expired' — kredit terlanjur diberi,
+        // pembukuan jadi salah.
+        try { await admin.from("my20fit_scan_orders").update({ status: "expired" }).eq("reff_no", o.reff_no).eq("status", "pending"); } catch (e) {}
       }
     }
     return res.json({ ok: true, checked: checked, credited: creditedOrders.length, credits: credits, orders: creditedOrders });
