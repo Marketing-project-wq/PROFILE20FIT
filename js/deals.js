@@ -108,7 +108,17 @@
     document.getElementById("dlThxClose").addEventListener("click", closeThanks);
     document.getElementById("dlThxX").addEventListener("click", closeThanks);
     document.getElementById("dlThxBg").addEventListener("click", function (e) { if (e.target.id === "dlThxBg") closeThanks(); });
-    document.getElementById("dlToastBtn").addEventListener("click", function () { pollOrderStatus(true); });
+    document.getElementById("dlToastBtn").addEventListener("click", function () {
+      // "Cek sekarang" -> cek status; kalau BELUM lunas, arahkan ke HALAMAN PEMBAYARAN (link Xendit).
+      // Window dibuka SINKRON di dalam gesture klik supaya tidak diblok popup-blocker; nanti
+      // pollOrderStatus mengarahkannya ke link (masih pending) atau menutup (sudah lunas).
+      var a = getPendings();
+      var target = (a[0] && a[0].link) ? a[0] : null;
+      if (!target) { for (var i = 0; i < a.length; i++) { if (a[i] && a[i].link) { target = a[i]; break; } } }
+      var win = target ? window.open("", "_blank") : null;
+      if (win) { try { win.document.write("<p style='font-family:sans-serif;padding:24px'>" + L({ en: "Opening payment page…", id: "Membuka halaman pembayaran…" }) + "</p>"); } catch (e) {} }
+      pollOrderStatus(true, win, target);
+    });
     document.getElementById("dlToastClose").addEventListener("click", function () { _payDismissed = true; hideToast(); });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeDeals(); });
     document.addEventListener("visibilitychange", function () {
@@ -284,11 +294,19 @@
     var r = await fetch("/api/scan/order-status", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (tk || "") }, body: JSON.stringify({ sales_order_id: o.sales_order_id || o.id, order_no: o.order_no || null, fitco_token: ftk }) });
     return await r.json().catch(function () { return {}; });
   }
-  async function pollOrderStatus(manual) {
+  async function pollOrderStatus(manual, payWin, payTarget) {
+    // payWin/payTarget hanya diisi saat user klik "Cek sekarang" (window sudah dibuka sinkron).
+    // Masih pending -> window diarahkan ke halaman pembayaran; sudah lunas -> window ditutup.
+    function routePayWin() {
+      if (!payWin) return;
+      if (payTarget && payTarget.link) { try { payWin.location.href = payTarget.link; return; } catch (e) {} }
+      try { payWin.close(); } catch (e) {}
+    }
     var a = getPendings();
-    if (!a.length) { stopPolling(); hideToast(); return; }
+    if (!a.length) { stopPolling(); hideToast(); if (payWin) { try { payWin.close(); } catch (e) {} } return; }
     if (!_payDismissed) showToast();
-    if (_payChecking) return; _payChecking = true;
+    if (_payChecking) { routePayWin(); return; }
+    _payChecking = true;
     var btn = document.getElementById("dlToastBtn");
     if (manual && btn) { btn.textContent = L({ en: "Checking…", id: "Mengecek…" }); btn.disabled = true; }
     var paidOne = null;
@@ -301,9 +319,16 @@
     _payChecking = false;
     if (btn) { btn.disabled = false; btn.textContent = L({ en: "Check now", id: "Cek sekarang" }); }
     var rem = getPendings();
-    if (paidOne) { closeDeals(); if (!rem.length) { stopPolling(); hideToast(); } showThanks(paidOne.credits || 0); return; }
-    if (!rem.length) { stopPolling(); hideToast(); return; }
-    if (manual) { var m = document.getElementById("dlToastMsg"); if (m) m.textContent = L({ en: "Not confirmed yet. If you've paid, wait a moment and check again.", id: "Belum terkonfirmasi. Kalau sudah bayar, tunggu sebentar lalu cek lagi." }); }
+    if (paidOne) { if (payWin) { try { payWin.close(); } catch (e) {} } closeDeals(); if (!rem.length) { stopPolling(); hideToast(); } showThanks(paidOne.credits || 0); return; }
+    if (!rem.length) { stopPolling(); hideToast(); if (payWin) { try { payWin.close(); } catch (e) {} } return; }
+    // Masih pending -> arahkan ke halaman pembayaran (kalau dipicu tombol & ada link).
+    routePayWin();
+    if (manual) {
+      var m = document.getElementById("dlToastMsg");
+      if (m) m.textContent = payWin
+        ? L({ en: "Payment page opened — complete it there. If you've already paid, this updates automatically.", id: "Halaman pembayaran dibuka — selesaikan di sana. Kalau sudah bayar, ini ter-update otomatis." })
+        : L({ en: "Not confirmed yet. If you've paid, wait a moment and check again.", id: "Belum terkonfirmasi. Kalau sudah bayar, tunggu sebentar lalu cek lagi." });
+    }
   }
   function startPolling() { stopPolling(); _payDismissed = false; pollOrderStatus(); _pollTimer = setInterval(pollOrderStatus, 5000); }
 
