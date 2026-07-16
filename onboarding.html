@@ -44,6 +44,7 @@
     <div class="logo"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" /></div>
     <h2>Lengkapi Profil</h2>
     <div class="sub">Data ini bikin rekomendasi kamu makin pas.</div>
+    <div id="obStatus" style="display:none;align-items:center;gap:9px;padding:11px 13px;border-radius:12px;margin:2px 0 14px;font-size:13.5px;font-weight:700"></div>
 
     <div id="genderBlock">
     <label>Jenis Kelamin</label>
@@ -102,8 +103,18 @@
     let gender=null, goal=null, knownIdentity=false;
     (async function(){
       await Auth.requireAuth();
-      try{ const p=await Auth.getProfile(); if(p) prefill(p); }catch(e){}
+      try{ const p=await Auth.getProfile(); if(p){ prefill(p); showObStatus(p); } }catch(e){}
     })();
+    // Keterangan status onboarding user (sudah / belum) di halaman ini juga.
+    function showObStatus(p){
+      var el=document.getElementById("obStatus"); if(!el) return;
+      var done=!!(p && p.onboarding_completed && p.weight_kg && p.gender);
+      el.style.display="flex";
+      el.style.background=done?"rgba(42,122,79,.10)":"rgba(196,17,1,.08)";
+      el.style.color=done?"#2A7A4F":"#C41101";
+      el.style.border="1px solid "+(done?"rgba(42,122,79,.35)":"rgba(196,17,1,.30)");
+      el.textContent=done?"✅ Kamu sudah onboarding — data di bawah bisa kamu perbarui.":"⚠️ Kamu belum onboarding — lengkapi data di bawah lalu simpan.";
+    }
     function prefill(p){
       if(p.gender) pickGender(p.gender);
       if(p.main_goal) pickGoal(p.main_goal);

@@ -1,5 +1,5 @@
 // =============================================================
-//  deals.js — Modul bersama "Top up scan" (paket kredit + checkout SingaPay).
+//  deals.js — Modul bersama "Top up scan" (paket kredit + checkout Xendit).
 //  Alur: pilih paket (sekali klik) -> "Purchase now" -> pop-up RESI (ringkasan +
 //  voucher + total) -> bayar. Dipakai calories.html & profile.html (satu sumber).
 //  Server otoritatif: kredit ditambah lewat webhook; harga akhir = harga - diskon voucher.
@@ -15,10 +15,16 @@
   function rupiah(n) { return "Rp " + (Number(n) || 0).toLocaleString("id-ID"); }
   function metaTrack(ev, p) { try { if (window.Meta) Meta.track(ev, p); } catch (e) {} }
 
-  var SELECTED = 1;          // index paket terpilih (default: best value)
+  var SELECTED = -1;         // index paket terpilih (-1 = belum ada yang dipilih)
   var CUR_VOUCHER = null, CUR_DISCOUNT = 0, CUR_FINAL = 0;
   var _onCredited = null;
   var _pollTimer = null, _payChecking = false, _payDismissed = false;
+  // Tab checkout Xendit yang KITA buka. Disimpan di level modul supaya polling otomatis
+  // (bukan cuma tombol "Cek sekarang") bisa menutupnya begitu pembayaran terkonfirmasi.
+  // Perlu karena success_redirect_url invoice ditentukan backend 20FIT dan mengarah ke
+  // platform event mereka — tanpa ini user ditinggal menatap situs asing setelah bayar.
+  var _payWin = null;
+  function closePayWin() { try { if (_payWin && !_payWin.closed) _payWin.close(); } catch (e) {} _payWin = null; }
 
   function injectOnce() {
     if (document.getElementById("dealsRoot")) return;
@@ -56,6 +62,7 @@
       ".dl-rc-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:14px}",
       ".dl-rc-row .k{color:var(--muted,#8a8378)}",
       ".dl-rc-total{display:flex;justify-content:space-between;align-items:center;padding:12px 0 4px;margin-top:6px;border-top:1px dashed var(--line,#e6e3dd);font-weight:900;font-size:17px}",
+      ".dl-detail{margin-top:6px}",
       // toast + thanks
       ".dl-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 16px);z-index:9100;background:var(--card,#fff);color:var(--txt,#16181d);border:1px solid var(--line,#e6e3dd);border-radius:14px;box-shadow:0 10px 34px rgba(0,0,0,.22);padding:13px 15px;max-width:380px;width:calc(100% - 32px);display:none;gap:10px;align-items:center}",
       ".dl-toast.show{display:flex}",
@@ -72,28 +79,26 @@
     var root = document.createElement("div");
     root.id = "dealsRoot";
     root.innerHTML =
-      // ----- Deals (pilih paket) -----
+      // ----- Deals (pilih paket + detail harga & voucher INLINE) -----
       '<div class="dl-bg" id="dlBg"><div class="dl-card">' +
       '<button class="dl-x" id="dlX" aria-label="Tutup">✕</button>' +
       '<div class="dl-grab"></div>' +
       '<div class="dl-ic"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>' +
       '<h3 id="dlTitle"></h3><div class="dl-sub" id="dlSub"></div>' +
       '<div id="dlList"></div>' +
-      '<div class="dl-note" id="dlNote"></div>' +
-      '<button class="dl-primary" id="dlBuy"></button>' +
-      '</div></div>' +
-      // ----- Receipt (ringkasan bayar) -----
-      '<div class="dl-bg" id="dlRcBg"><div class="dl-card">' +
-      '<button class="dl-x" id="dlRcX" aria-label="Tutup">✕</button>' +
-      '<div class="dl-grab"></div>' +
-      '<h3 id="dlRcTitle"></h3>' +
-      '<div class="dl-rc-item" id="dlRcItem"></div>' +
+      // detail muncul setelah paket dipilih (voucher + rincian harga), tanpa popup terpisah
+      '<div id="dlDetail" class="dl-detail" style="display:none">' +
       '<div class="dl-vrow"><input id="dlVoucher" autocomplete="off" /><button class="dl-vapply" id="dlVApply"></button></div>' +
       '<div class="dl-vmsg" id="dlVMsg"></div>' +
+      '<div id="dlPhoneRow" style="display:none;margin:10px 0 2px">' +
+      '<label for="dlPhone" id="dlPhoneLbl" style="display:block;font-size:13px;font-weight:600;margin-bottom:5px"></label>' +
+      '<input id="dlPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+62 812xxxxxxxx" style="width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line,#e5e2dd);background:var(--card,#fff);color:var(--txt,#16181d);font-size:15px;box-sizing:border-box" />' +
+      '<div id="dlPhoneMsg" style="font-size:12.5px;color:var(--red,#C41101);margin-top:5px"></div></div>' +
       '<div class="dl-rc-row"><span class="k" id="dlRcSubL"></span><span id="dlRcSub"></span></div>' +
       '<div class="dl-rc-row" id="dlRcDiscRow" style="display:none"><span class="k" style="color:var(--green,#2A7A4F)" id="dlRcDiscL"></span><span style="color:var(--green,#2A7A4F);font-weight:700" id="dlRcDisc"></span></div>' +
       '<div class="dl-rc-total"><span id="dlRcTotalL"></span><span id="dlRcTotal"></span></div>' +
-      '<div class="dl-note" id="dlRcNote"></div>' +
+      '</div>' +
+      '<div class="dl-note" id="dlNote"></div>' +
       '<button class="dl-primary" id="dlPay"></button>' +
       '</div></div>' +
       // ----- Toast + thanks -----
@@ -108,38 +113,58 @@
 
     document.getElementById("dlX").addEventListener("click", closeDeals);
     document.getElementById("dlBg").addEventListener("click", function (e) { if (e.target.id === "dlBg") closeDeals(); });
-    document.getElementById("dlBuy").addEventListener("click", function () { openReceipt(SELECTED); });
-    document.getElementById("dlRcX").addEventListener("click", closeReceipt);
-    document.getElementById("dlRcBg").addEventListener("click", function (e) { if (e.target.id === "dlRcBg") closeReceipt(); });
     document.getElementById("dlVApply").addEventListener("click", applyVoucher);
     document.getElementById("dlPay").addEventListener("click", function () { buyPack(SELECTED); });
     document.getElementById("dlThxClose").addEventListener("click", closeThanks);
     document.getElementById("dlThxX").addEventListener("click", closeThanks);
     document.getElementById("dlThxBg").addEventListener("click", function (e) { if (e.target.id === "dlThxBg") closeThanks(); });
-    document.getElementById("dlToastBtn").addEventListener("click", function () { pollOrderStatus(true); });
+    document.getElementById("dlToastBtn").addEventListener("click", function () {
+      // "Cek sekarang" -> cek status; kalau BELUM lunas, arahkan ke HALAMAN PEMBAYARAN (link Xendit).
+      // Window dibuka SINKRON di dalam gesture klik supaya tidak diblok popup-blocker; nanti
+      // pollOrderStatus mengarahkannya ke link (masih pending) atau menutup (sudah lunas).
+      var a = getPendings();
+      var target = (a[0] && a[0].link) ? a[0] : null;
+      if (!target) { for (var i = 0; i < a.length; i++) { if (a[i] && a[i].link) { target = a[i]; break; } } }
+      var win = target ? window.open("", "_blank") : null;
+      if (win) { closePayWin(); _payWin = win; try { win.document.write("<p style='font-family:sans-serif;padding:24px'>" + L({ en: "Opening payment page…", id: "Membuka halaman pembayaran…" }) + "</p>"); } catch (e) {} }
+      pollOrderStatus(true, win, target);
+    });
     document.getElementById("dlToastClose").addEventListener("click", function () { _payDismissed = true; hideToast(); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeReceipt(); closeDeals(); } });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeDeals(); });
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) return;
       try { if (getPendings().length) { if (_pollTimer) pollOrderStatus(); else startPolling(); } } catch (e) {}
+      // Titik coba-ulang sapuan: kalau sapuan saat load gagal (429/offline/cold start), user
+      // yang kembali ke tab ini memicunya lagi. Tanpa ini kegagalan sekali = kredit lintas-device
+      // tertahan sampai halaman di-reload. No-op kalau sudah sukses (_swept).
+      try { sweep(); } catch (e) {}
     });
   }
 
-  // ---------- Deals: pilih paket ----------
+  // ---------- Deals: pilih paket + detail inline ----------
   function open(opts) {
     injectOnce();
     _onCredited = (opts && opts.onCredited) || null;
     var q = opts && opts.quota;
-    SELECTED = SCAN_PACKS.reduce(function (a, p, i) { return p.best ? i : a; }, 0);
+    SELECTED = -1;                       // tak ada paket ter-highlight saat dibuka
+    CUR_VOUCHER = null; CUR_DISCOUNT = 0; CUR_FINAL = 0;
     document.getElementById("dlTitle").textContent = (q && q.remaining > 0)
       ? L({ en: "Top up your calorie scans", id: "Top up scan kalori kamu" })
       : L({ en: "Get more calorie scans", id: "Tambah kuota scan kalori" });
-    document.getElementById("dlSub").textContent = L({ en: "Pick a pack, then tap Purchase now.", id: "Pilih paket, lalu tekan Beli sekarang." });
+    document.getElementById("dlSub").textContent = L({ en: "Pick a pack to see the price & add a voucher.", id: "Pilih paket untuk lihat harga & pakai voucher." });
     renderPacks();
-    document.getElementById("dlNote").textContent = L({ en: "Secure payment via SingaPay. Your extra scans never expire.", id: "Pembayaran aman via SingaPay. Scan tambahan tidak akan hangus." });
-    document.getElementById("dlBuy").textContent = L({ en: "Purchase now", id: "Beli sekarang" });
+    document.getElementById("dlVApply").textContent = L({ en: "Apply", id: "Pakai" });
+    document.getElementById("dlRcSubL").textContent = L({ en: "Subtotal", id: "Subtotal" });
+    document.getElementById("dlRcDiscL").textContent = L({ en: "Voucher discount", id: "Diskon voucher" });
+    document.getElementById("dlRcTotalL").textContent = L({ en: "Total to pay", id: "Total bayar" });
+    document.getElementById("dlDetail").style.display = "none";   // detail baru muncul setelah pilih paket
+    // Reset input HP (hanya muncul kalau server minta / profil tanpa no HP).
+    var _pr = document.getElementById("dlPhoneRow"); if (_pr) _pr.style.display = "none";
+    var _pi = document.getElementById("dlPhone"); if (_pi) _pi.value = "";
+    var _pm = document.getElementById("dlPhoneMsg"); if (_pm) _pm.textContent = "";
+    document.getElementById("dlNote").textContent = L({ en: "Secure payment via Xendit. Your extra scans never expire.", id: "Pembayaran aman via Xendit. Scan tambahan tidak akan hangus." });
+    renderTotals();
     document.getElementById("dlBg").classList.add("open");
-    closeReceipt();
     metaTrack("Purchase", { content_name: "scan package", content_category: "calorie_scan", currency: "IDR", value: 0 });
   }
   function renderPacks() {
@@ -152,43 +177,38 @@
         '<span class="dl-radio"></span></button>';
     }).join("");
     document.getElementById("dlList").querySelectorAll(".dl-deal").forEach(function (b) {
-      b.addEventListener("click", function () { SELECTED = +b.dataset.idx; renderPacks(); });
+      b.addEventListener("click", function () { selectPack(+b.dataset.idx); });
     });
+  }
+  // Pilih paket -> highlight hijau + tampilkan detail harga & voucher INLINE (bukan popup terpisah).
+  function selectPack(idx) {
+    SELECTED = idx;
+    CUR_VOUCHER = null; CUR_DISCOUNT = 0; CUR_FINAL = SCAN_PACKS[idx].price;
+    renderPacks();
+    var vi = document.getElementById("dlVoucher"), vm = document.getElementById("dlVMsg");
+    if (vi) { vi.value = ""; vi.placeholder = L({ en: "Voucher code (optional)", id: "Kode voucher (opsional)" }); }
+    if (vm) { vm.style.color = ""; vm.textContent = ""; }
+    document.getElementById("dlDetail").style.display = "";
+    renderTotals();
   }
   function closeDeals() { var el = document.getElementById("dlBg"); if (el) el.classList.remove("open"); }
 
-  // ---------- Receipt: ringkasan + voucher + total ----------
-  function openReceipt(idx) {
-    injectOnce();
-    SELECTED = idx;
-    CUR_VOUCHER = null; CUR_DISCOUNT = 0; CUR_FINAL = SCAN_PACKS[idx].price;
-    var p = SCAN_PACKS[idx];
-    document.getElementById("dlRcTitle").textContent = L({ en: "Payment summary", id: "Ringkasan pembayaran" });
-    document.getElementById("dlRcItem").innerHTML =
-      '<div class="dl-qty">' + p.credits + '<small>SCAN</small></div>' +
-      '<div class="dl-info"><div class="p">' + p.credits + 'x ' + L({ en: "calorie scans", id: "scan kalori" }) + '</div>' +
-      '<div class="d">' + L({ en: "Extra scans, never expire", id: "Scan tambahan, tidak hangus" }) + '</div></div>' +
-      '<div style="font-weight:900">' + rupiah(p.price) + '</div>';
-    var vi = document.getElementById("dlVoucher"), vm = document.getElementById("dlVMsg");
-    vi.value = ""; vi.placeholder = L({ en: "Voucher code (optional)", id: "Kode voucher (opsional)" }); vm.textContent = "";
-    document.getElementById("dlVApply").textContent = L({ en: "Apply", id: "Pakai" });
-    document.getElementById("dlRcSubL").textContent = L({ en: "Subtotal", id: "Subtotal" });
-    document.getElementById("dlRcDiscL").textContent = L({ en: "Voucher discount", id: "Diskon voucher" });
-    document.getElementById("dlRcTotalL").textContent = L({ en: "Total to pay", id: "Total bayar" });
-    document.getElementById("dlRcNote").textContent = L({ en: "Secure payment via SingaPay.", id: "Pembayaran aman via SingaPay." });
-    renderTotals();
-    document.getElementById("dlBg").classList.remove("open");
-    document.getElementById("dlRcBg").classList.add("open");
-  }
-  function closeReceipt() { var el = document.getElementById("dlRcBg"); if (el) el.classList.remove("open"); }
+  // ---------- Rincian harga + voucher (inline) ----------
   function renderTotals() {
+    var payBtn = document.getElementById("dlPay");
+    if (SELECTED < 0) {                  // belum ada paket dipilih -> tombol nonaktif
+      payBtn.disabled = true;
+      payBtn.textContent = L({ en: "Select a pack", id: "Pilih paket dulu" });
+      return;
+    }
     var p = SCAN_PACKS[SELECTED];
     document.getElementById("dlRcSub").textContent = rupiah(p.price);
     var dr = document.getElementById("dlRcDiscRow");
     if (CUR_DISCOUNT > 0) { dr.style.display = ""; document.getElementById("dlRcDisc").textContent = "− " + rupiah(CUR_DISCOUNT); }
     else dr.style.display = "none";
     document.getElementById("dlRcTotal").textContent = rupiah(CUR_FINAL);
-    document.getElementById("dlPay").textContent = (CUR_FINAL <= 0)
+    payBtn.disabled = false;
+    payBtn.textContent = (CUR_FINAL <= 0)
       ? L({ en: "Claim for free", id: "Klaim gratis" })
       : L({ en: "Pay ", id: "Bayar " }) + rupiah(CUR_FINAL);
   }
@@ -209,6 +229,26 @@
     } catch (e) { CUR_VOUCHER = null; CUR_DISCOUNT = 0; CUR_FINAL = p.price; renderTotals(); if (msg) { msg.style.color = "var(--red,#C41101)"; msg.textContent = L({ en: "Couldn't check voucher.", id: "Gagal cek voucher." }); } }
   }
 
+  // Sesi habis: tampilkan pesan manusiawi + jalan keluarnya, bukan kata "Unauthorized".
+  // Sesi bisa mati wajar (token kedaluwarsa; beberapa tab my.20fit.id saling merotasi refresh
+  // token Supabase). Yang penting user tahu ini bukan pembayaran gagal & tak perlu bayar ulang.
+  function showSessionExpired(payWin) {
+    if (payWin) { try { payWin.close(); } catch (e) {} }
+    _payWin = null;
+    var msg = L({
+      en: "Your session has expired. Please log in again to continue — nothing was charged.",
+      id: "Sesi kamu sudah habis. Login lagi untuk melanjutkan — tidak ada yang terpotong.",
+    });
+    var vm = document.getElementById("dlVMsg");
+    if (vm) { vm.style.color = "var(--red,#C41101)"; vm.textContent = msg; }
+    var btn = document.getElementById("dlPay");
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = L({ en: "Log in again", id: "Login lagi" });
+      btn.onclick = function () { location.href = "/login?next=" + encodeURIComponent(location.pathname + location.hash); };
+    }
+  }
+
   // ---------- Bayar ----------
   async function buyPack(idx) {
     var p = SCAN_PACKS[idx]; if (!p || !p.product_id) return;
@@ -216,34 +256,80 @@
     var free = CUR_FINAL <= 0;
     payBtn.disabled = true; payBtn.textContent = L({ en: "Processing…", id: "Memproses…" });
     var ftk = localStorage.getItem("fitco_token") || "";
+    // Dibuka SINKRON di dalam gesture klik supaya tidak kena popup blocker.
     var payWin = free ? null : window.open("", "_blank");
+    _payWin = payWin;
     if (payWin) { try { payWin.document.write("<p style='font-family:sans-serif;padding:24px'>Menyiapkan pembayaran…</p>"); } catch (e) {} }
     try {
       var tk = await Auth.token();
+      // Sesi sudah hilang sebelum kita menembak server (mis. token kedaluwarsa, atau beberapa
+      // tab saling merotasi refresh token). Jangan kirim "Bearer " kosong lalu memantulkan
+      // "Unauthorized" ke wajah user — beri tahu apa yang terjadi & jalan keluarnya.
+      if (!tk) { showSessionExpired(payWin); payBtn.disabled = false; renderTotals(); return; }
       // Server-authoritative: kirim package_id (= product_id 20FIT). Server menentukan
       // credits & harga dari katalog; voucher juga diverifikasi & dihitung server.
-      var r = await fetch("/api/scan/buy", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (tk || "") }, body: JSON.stringify({ package_id: p.product_id, credits: p.credits, price: p.price, voucher_code: CUR_VOUCHER || null, fitco_token: ftk, user_id: localStorage.getItem("fitco_uid") || null }) });
-      var j = await r.json().catch(function () { return {}; });
+      var phoneVal = ((document.getElementById("dlPhone") || {}).value || "").trim();
+      var r = await fetch("/api/scan/buy", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (tk || "") }, body: JSON.stringify({ package_id: p.product_id, credits: p.credits, price: p.price, voucher_code: CUR_VOUCHER || null, fitco_token: ftk, user_id: localStorage.getItem("fitco_uid") || null, phone: phoneVal || null }) });
+      // Baca sbg TEXT dulu lalu parse: kalau server/platform balas non-JSON (mis. 5xx/timeout
+      // HTML), kita masih tahu status HTTP-nya dan bisa tampilkan sebab yg actionable.
+      var raw = await r.text().catch(function () { return ""; });
+      var j = {}; try { j = raw ? JSON.parse(raw) : {}; } catch (e) { j = {}; }
       var disc = (j.discount != null) ? +j.discount : CUR_DISCOUNT;
       var total = (j.amount != null) ? +j.amount : Math.max(0, p.price - disc);
       // Voucher bikin gratis (Rp 0): kredit sudah ditambah server.
       if (j.ok && j.free) {
         if (payWin) { try { payWin.close(); } catch (e) {} }
         try { Orders.add({ id: j.sales_order_id || j.order_no, order_no: j.order_no || null, sales_order_id: j.sales_order_id || null, credits: p.credits, price: p.price, discount: disc, total: 0, product_id: p.product_id, provider: j.provider || "voucher", status: "paid", ts: Date.now(), paid_ts: Date.now() }); } catch (e) {}
-        closeReceipt(); closeDeals();
+        closeDeals();
         metaTrack("Success Payment", { content_name: "scan pack (voucher)", currency: "IDR", value: 0, contents: [{ id: p.product_id, quantity: 1 }], num_items: 1 });
         if (_onCredited) { try { await _onCredited(); } catch (e) {} }
         showThanks(p.credits);
         return;
       }
-      if (!r.ok || !j.link) throw new Error(j.error || L({ en: "Couldn't start payment.", id: "Gagal memulai pembayaran." }));
-      if (payWin) { payWin.location.href = j.link; } else if (!window.open(j.link, "_blank")) { location.href = j.link; }
+      // Server bilang sesi habis (401): tawarkan login ulang, jangan pantulkan pesan mentah.
+      if (!r.ok && j.session_expired) { showSessionExpired(payWin); return; }
+      // Server minta nomor HP (profil kosong) -> munculkan input HP di sheet & minta ulang; bukan error fatal.
+      if (!r.ok && j.need_phone) {
+        if (payWin) { try { payWin.close(); } catch (e) {} }
+        var prow = document.getElementById("dlPhoneRow");
+        var plbl = document.getElementById("dlPhoneLbl");
+        var pmsg = document.getElementById("dlPhoneMsg");
+        var pinp = document.getElementById("dlPhone");
+        if (plbl) plbl.textContent = L({ en: "Phone number (for payment)", id: "Nomor HP (untuk pembayaran)" });
+        if (prow) prow.style.display = "block";
+        if (pmsg) pmsg.textContent = j.error || L({ en: "Enter your phone number to continue.", id: "Masukkan nomor HP untuk lanjut." });
+        if (pinp) { try { pinp.focus(); } catch (e) {} }
+        payBtn.disabled = false; renderTotals();
+        return;
+      }
+      if (!r.ok || !j.link) {
+        if (!j.error) { try { console.error("scan/buy non-JSON resp", r.status, (raw || "").slice(0, 300)); } catch (e) {} }
+        throw new Error(j.error || (L({ en: "Couldn't start payment.", id: "Gagal memulai pembayaran." }) + " (HTTP " + r.status + ")"));
+      }
+      // Catat order DULU, baru buka checkout: kalau pencatatan gagal/terlewat, order hilang
+      // dari sisi klien dan polling tak pernah jalan. Server tetap sumber kebenarannya, tapi
+      // ini yang bikin tab ini tahu harus memantau apa.
       var oid = j.sales_order_id || j.order_no;
       if (oid) {
         try { Orders.add({ id: oid, order_no: j.order_no || null, sales_order_id: j.sales_order_id || null, credits: p.credits, price: p.price, discount: disc, total: total, product_id: p.product_id, link: j.link || null, provider: j.provider || null, ts: Date.now() }); } catch (e) {}
-        _payDismissed = false; showToast(); startPolling();
       }
-      closeReceipt(); closeDeals();
+      // Arahkan tab checkout. Urutan sengaja: tab terpisah DULU supaya halaman ini tetap hidup
+      // dan bisa polling + menampilkan thank-you (invoice ber-success_redirect_url ke platform
+      // event 20FIT, di luar kendali kita, jadi tab pembayaran TIDAK kembali ke sini).
+      //
+      // TAPI jangan sampai memaksa: di WebView in-app (Instagram/Facebook/TikTok) window.open
+      // SELALU balik null — gesture klik pun tak menolong (Android setSupportMultipleWindows
+      // (false) / WKWebView tanpa createWebViewWith). Buat mereka, menavigasi tab ini adalah
+      // SATU-SATUNYA cara bisa bayar. Menghapusnya = pembayaran mustahil, lebih parah dari
+      // masalah yang mau diperbaiki. Aman dilakukan sekarang karena kredit tak lagi bergantung
+      // pada tab ini: /api/scan/reconcile menyapu order dari DB saat app dibuka lagi.
+      if (oid) { _payDismissed = false; showToast(); startPolling(); }
+      closeDeals();
+      if (payWin) { try { payWin.location.href = j.link; } catch (e) { location.href = j.link; } }
+      else {
+        _payWin = window.open(j.link, "_blank");
+        if (!_payWin) { location.href = j.link; }   // WebView/popup-blocked: bayar > tetap di sini
+      }
     } catch (e) {
       var emsg = (e && e.message) || L({ en: "Purchase failed. Try again.", id: "Pembelian gagal. Coba lagi." });
       if (payWin && !payWin.closed) { try { payWin.document.body.innerHTML = "<p style='font-family:sans-serif;padding:24px;color:#c0392b'>" + emsg + "</p>"; } catch (e2) {} }
@@ -276,7 +362,7 @@
   function hideToast() { var el = document.getElementById("dlToast"); if (el) el.classList.remove("show"); }
   function stopPolling() { if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; } }
   function creditPaid(o) {
-    if (o.provider !== "singapay") { try { Auth.addScanCredits(o.credits || 0); } catch (e) {} }
+    if (o.provider !== "xendit") { try { Auth.addScanCredits(o.credits || 0); } catch (e) {} }
     if (_onCredited) { try { _onCredited(); } catch (e) {} }
     metaTrack("Success Payment", { content_name: "scan package", content_category: "calorie_scan", currency: "IDR", value: o.total || o.price || 0, contents: [{ id: o.product_id, quantity: 1 }], num_items: 1 });
   }
@@ -286,11 +372,24 @@
     var r = await fetch("/api/scan/order-status", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (tk || "") }, body: JSON.stringify({ sales_order_id: o.sales_order_id || o.id, order_no: o.order_no || null, fitco_token: ftk }) });
     return await r.json().catch(function () { return {}; });
   }
-  async function pollOrderStatus(manual) {
+  async function pollOrderStatus(manual, payWin, payTarget) {
+    // payWin/payTarget hanya diisi saat user klik "Cek sekarang" (window sudah dibuka sinkron).
+    // Masih pending -> window diarahkan ke halaman pembayaran; sudah lunas -> window ditutup.
+    function routePayWin() {
+      if (!payWin) return;
+      if (payTarget && payTarget.link) { try { payWin.location.href = payTarget.link; return; } catch (e) {} }
+      try { payWin.close(); } catch (e) {}
+    }
     var a = getPendings();
+    // Daftar pending kosong TIDAK berarti lunas: Orders.prune() menandai pending >30 menit
+    // (MAX_AGE) sebagai expired secara LOKAL, padahal invoice Xendit-nya masih bisa dibayar
+    // (transfer bank sering lebih lama). Jadi berhenti polling saja — JANGAN tutup _payWin di
+    // sini; itu akan menutup tab yang sedang dipakai user membayar. Tab hanya ditutup kalau
+    // pembayaran benar-benar terkonfirmasi lunas (lihat cabang paidOne di bawah).
     if (!a.length) { stopPolling(); hideToast(); return; }
     if (!_payDismissed) showToast();
-    if (_payChecking) return; _payChecking = true;
+    if (_payChecking) { routePayWin(); return; }
+    _payChecking = true;
     var btn = document.getElementById("dlToastBtn");
     if (manual && btn) { btn.textContent = L({ en: "Checking…", id: "Mengecek…" }); btn.disabled = true; }
     var paidOne = null;
@@ -303,14 +402,63 @@
     _payChecking = false;
     if (btn) { btn.disabled = false; btn.textContent = L({ en: "Check now", id: "Cek sekarang" }); }
     var rem = getPendings();
-    if (paidOne) { closeReceipt(); closeDeals(); if (!rem.length) { stopPolling(); hideToast(); } showThanks(paidOne.credits || 0); return; }
+    // Lunas: tutup tab checkout. Setelah bayar, Xendit melempar tab itu ke platform event 20FIT
+    // (success_redirect_url di-set backend 20FIT, bukan kita) — kalau dibiarkan, user berakhir
+    // menatap situs asing dan mengira pembayarannya gagal. Tab ini yang menampilkan thank-you.
+    if (paidOne) { if (payWin) { try { payWin.close(); } catch (e) {} } closePayWin(); closeDeals(); if (!rem.length) { stopPolling(); hideToast(); } showThanks(paidOne.credits || 0); return; }
+    // Sisa pending habis TANPA ada yang lunas (mis. semua kadaluarsa/dibatalkan): stop polling,
+    // tapi lagi-lagi JANGAN tutup _payWin — belum tentu user selesai di sana.
     if (!rem.length) { stopPolling(); hideToast(); return; }
-    if (manual) { var m = document.getElementById("dlToastMsg"); if (m) m.textContent = L({ en: "Not confirmed yet. If you've paid, wait a moment and check again.", id: "Belum terkonfirmasi. Kalau sudah bayar, tunggu sebentar lalu cek lagi." }); }
+    // Masih pending -> arahkan ke halaman pembayaran (kalau dipicu tombol & ada link).
+    routePayWin();
+    if (manual) {
+      var m = document.getElementById("dlToastMsg");
+      if (m) m.textContent = payWin
+        ? L({ en: "Payment page opened — complete it there. If you've already paid, this updates automatically.", id: "Halaman pembayaran dibuka — selesaikan di sana. Kalau sudah bayar, ini ter-update otomatis." })
+        : L({ en: "Not confirmed yet. If you've paid, wait a moment and check again.", id: "Belum terkonfirmasi. Kalau sudah bayar, tunggu sebentar lalu cek lagi." });
+    }
   }
   function startPolling() { stopPolling(); _payDismissed = false; pollOrderStatus(); _pollTimer = setInterval(pollOrderStatus, 5000); }
 
   function resume() { try { if (getPendings().length) { injectOnce(); _payDismissed = false; startPolling(); } } catch (e) {} }
+
+  // Sapu order tertunda milik user dari SERVER (bukan localStorage). Sengaja jalan TANPA syarat
+  // getPendings(): justru kasus yang mau ditolong adalah localStorage kosong — user bayar di
+  // device lain, atau storage-nya hilang. Server yang menyimpan order-nya, jadi server yang tahu.
+  // onCredited dilewatkan eksplisit: _onCredited hanya terisi lewat Deals.open(), dan pada
+  // kasus lintas-device user belum pernah membuka sheet paket — tanpa ini kredit masuk di
+  // server tapi angka kuota di layar tidak ikut ter-update.
+  // _swept dikunci HANYA setelah sapuan benar-benar BERHASIL. Kalau dikunci di awal, satu
+  // kegagalan sementara (429, offline, 502 cold-start) mematikan satu-satunya jalur kredit
+  // lintas-device untuk seluruh page load — diam-diam, tanpa error. User yang sudah bayar
+  // lihat kuota lama, mengira gagal, lalu BELI LAGI: dobel bayar beneran.
+  var _swept = false, _sweeping = false, _sweepCb = null;
+  async function sweep(onCredited) {
+    if (onCredited) _sweepCb = onCredited;   // diingat: percobaan ulang tak membawa argumen
+    if (_swept || _sweeping) return;
+    _sweeping = true;
+    var cb = _sweepCb || _onCredited;
+    try {
+      var tk = await Auth.token(); if (!tk) return;   // Auth belum siap: biarkan bisa dicoba lagi
+      var ftk = localStorage.getItem("fitco_token") || "";
+      var r = await fetch("/api/scan/reconcile", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ fitco_token: ftk }) });
+      if (!r.ok) { try { console.warn("scan/reconcile HTTP " + r.status); } catch (e) {} return; }
+      var j = await r.json().catch(function () { return null; });
+      if (!j || j.ok !== true) { try { console.warn("scan/reconcile balasan tak terbaca"); } catch (e) {} return; }
+      _swept = true;   // sukses -> jangan ulangi di page load ini
+      if (j.credited > 0) {
+        // Selaraskan riwayat lokal kalau order-nya memang ada di device ini (lintas-device: tidak ada).
+        try { (j.orders || []).forEach(function (o) { if (Orders.get(o.reff_no)) Orders.markPaid(o.reff_no); }); } catch (e) {}
+        stopPolling(); hideToast(); closePayWin();
+        if (cb) { try { await cb(); } catch (e) {} }
+        injectOnce(); showThanks(j.credits || 0);
+      }
+    } catch (e) {
+      try { console.warn("scan/reconcile gagal:", (e && e.message) || e); } catch (_) {}
+    } finally { _sweeping = false; }
+  }
+
   try { if (getPendings().length) { injectOnce(); startPolling(); } } catch (e) {}
 
-  window.Deals = { open: open, close: closeDeals, resume: resume, packs: SCAN_PACKS };
+  window.Deals = { open: open, close: closeDeals, resume: resume, sweep: sweep, packs: SCAN_PACKS };
 })();

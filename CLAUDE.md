@@ -15,12 +15,12 @@ pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 - JANGAN rewrite history yang sudah ke-merge.
 
 ## 2. Ganti kode lama dengan yang baru — jangan sisakan dead code
-- Saat mengganti sistem/fitur (contoh nyata: Xendit → SingaPay), HAPUS kode
+- Saat mengganti sistem/fitur (contoh nyata: SingaPay → Xendit), HAPUS kode
   lama sepenuhnya, jangan biarkan cabang/handler lama menganggur.
 - Satu sumber kebenaran; hindari duplikasi logika.
 
 ## 3. Rahasia = env only, JANGAN pernah di-commit
-- Semua kredensial (SingaPay, Supabase service key, ADMIN_KEY, SMTP, Meta CAPI,
+- Semua kredensial (Xendit, Supabase service key, ADMIN_KEY, SMTP, Meta CAPI,
   dst.) hanya lewat **Railway Variables** / env. Tidak ada nilai rahasia di
   kode, commit, PR, atau komentar.
 - CI menegakkan ini: `.gitleaks.toml` + `.github/workflows/secret-scan.yml`
@@ -81,8 +81,22 @@ pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
   Supabase (`Auth.signIn`). Admin dashboard pakai password Supabase; login juga
   fallback ke FITCO. `Auth.ready` adalah **Promise** (pakai `await Auth.ready`,
   bukan `Auth.ready()`).
-- Pembayaran: SingaPay (server-authoritative, kredit via webhook HMAC-verified
-  → `my20fit_scan_orders` → `my20fit_profile.scan_credits`).
+- Pembayaran: **Xendit via API 20FIT, bukan Xendit langsung.** Kita POST
+  `/api/v1/third-party/shop/order` (`payment_type:"xendit-invoices"`); **20FIT** yang
+  menerbitkan invoice & balik `checkout.xendit.co`. Jangan panggil Xendit langsung: akun
+  Xendit dipakai bersama photo.20fit.id + app utama, dan webhook invoice **ACCOUNT-GLOBAL**
+  → callback "paid" SELALU ke backend 20FIT, **tidak pernah ke my.20fit.id**.
+- **TIDAK ADA webhook di sisi kita.** (Baris lama di sini menyebut webhook
+  `x-callback-token` — itu KELIRU dan sudah menyesatkan perbaikan sebelumnya.) Kredit
+  masuk lewat: (a) polling `/api/scan/order-status` dari browser, dan (b) sapuan server
+  `/api/scan/reconcile` (order pending user diambil dari DB by `auth_user_id`, bukan
+  localStorage) — (b) yang menyelamatkan pembayaran lintas-device. Keduanya idempoten
+  lewat RPC `my20fit_credit_scan` (`my20fit_scan_orders` → `my20fit_profile.scan_credits`).
+- **`success_redirect_url` invoice DI LUAR kendali kita** — di-set backend 20FIT ke platform
+  EVENT mereka; `shop/order` tidak menerima parameter redirect. Jadi setelah bayar user
+  TIDAK kembali ke my.20fit.id. JANGAN bangun logika kredit di atas asumsi user kembali,
+  dan JANGAN navigasi tab app ke link Xendit (tab itu harus hidup untuk polling).
+  Mengubah ini butuh perubahan di backend 20FIT, bukan di repo ini.
 - Admin dashboard: `/admin-dashboard` (RBAC superadmin/staff/viewer di
   `my20fit_admin_roles`); `/admin` redirect ke sana. `ADMIN_KEY` = master key
   superadmin opsional.

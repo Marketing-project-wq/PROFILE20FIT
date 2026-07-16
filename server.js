@@ -44,11 +44,31 @@ if (!SUPABASE_SERVICE_KEY) {
   console.warn("[20FIT] WARNING: SUPABASE_SERVICE_KEY belum di-set (OTP butuh ini).");
 }
 
+// Fetch ber-timeout untuk SEMUA panggilan Supabase.
+//
+// Kenapa: supabase-js memakai fetch TANPA batas waktu. Setiap request kita menyentuh Supabase
+// (verifikasi token di getUserFromReq, baca profil, insert order, RPC kredit). Kalau Supabase
+// melambat/menggantung, request kita ikut menggantung TANPA BATAS — kita tak pernah menjawab,
+// lalu proxy Railway yang menyerah dan membalas 502 HTML. Klien mencoba res.json() atas HTML
+// itu, gagal, dan menampilkan "Couldn't start payment. (HTTP 502)" tanpa sebab — kegagalan
+// tanpa jejak yang mustahil didiagnosis.
+//
+// Prinsipnya: KITA yang harus menjawab duluan, dengan JSON. 12 detik cukup longgar untuk
+// Supabase sehat (biasanya <300ms) tapi jauh di bawah batas sabar proxy.
+const SUPA_TIMEOUT_MS = parseInt(process.env.SUPABASE_TIMEOUT_MS || "12000", 10);
+const supaFetch = (url, opts = {}) => {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), SUPA_TIMEOUT_MS);
+  return fetch(url, { ...opts, signal: opts.signal || ctrl.signal })
+    .finally(() => clearTimeout(timer));
+};
+
 // Service client (bypass RLS, hanya di server) untuk operasi OTP
 const admin =
   SUPABASE_URL && SUPABASE_SERVICE_KEY
     ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
         auth: { autoRefreshToken: false, persistSession: false },
+        global: { fetch: supaFetch },
       })
     : null;
 
@@ -57,6 +77,7 @@ const anon =
   SUPABASE_URL && SUPABASE_ANON_KEY
     ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: { autoRefreshToken: false, persistSession: false },
+        global: { fetch: supaFetch },
       })
     : null;
 
@@ -95,16 +116,55 @@ async function sendOtpEmail(to, code) {
 
 // ---------- Middleware ----------
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.json({ verify: function (req, res, buf) { try { req.rawBody = buf && buf.length ? buf.toString("utf8") : ""; } catch (e) { req.rawBody = ""; } } }));
+app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webhook form-encoded
+
+// Railway = reverse proxy 1 hop. TANPA ini req.ip = IP proxy, bukan IP klien -> SEMUA user
+// berbagi SATU ember rate limit (50/10 menit untuk seluruh app). Dengan "trust proxy", 1
+// Express memakai entri terakhir X-Forwarded-For (yang ditulis proxy tepercaya), jadi tak
+// bisa dipalsukan klien.
+app.set("trust proxy", 1);
+
+// Polling status pembayaran itu MEMANG sering: js/deals.js poll tiap 5 detik selama menunggu
+// (12 req/menit). Dengan limit umum 50/10 menit, user kena limit sendiri setelah ~4 menit
+// menunggu — padahal invoice Xendit hidup berjam-jam & transfer bank sering >5 menit. Setelah
+// itu 429 dijawab, klien menelannya dan order dianggap BELUM LUNAS selamanya: user sudah bayar
+// tapi kredit tak pernah muncul. Jadi endpoint status (terautentikasi, read-only, idempoten)
+// punya limiter sendiri yang longgar; sisanya tetap ketat.
+const PAYMENT_POLL_PATHS = new Set(["/api/scan/order-status", "/api/scan/reconcile"]);
+const isPollPath = (req) => PAYMENT_POLL_PATHS.has((req.originalUrl || "").split("?")[0]);
+
+// message berupa OBJEK -> express-rate-limit membalas JSON. Kalau string (default), body-nya
+// text/html dan res.json() di klien meledak -> error ditelan diam-diam (persis bug di atas).
+const limitMsg = { error: "Terlalu banyak permintaan. Coba lagi sebentar lagi.", rate_limited: true };
 
 const apiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 menit
   max: 50,
   standardHeaders: true,
   legacyHeaders: false,
+  message: limitMsg,
+  skip: isPollPath, // ditangani pollLimiter di bawah
+});
+const pollLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 400, // 5 detik/poll = 120/10 menit per order; longgar utk beberapa order + sapuan
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limitMsg,
 });
 app.use("/api/", apiLimiter);
+app.use("/api/scan/order-status", pollLimiter);
+app.use("/api/scan/reconcile", pollLimiter);
+
+// Jaring pengaman proses: JANGAN biarkan promise-rejection / exception tak tertangani meng-crash
+// server (dulu bisa bikin request in-flight kena 502 platform tanpa jejak). Log saja, proses hidup.
+process.on("unhandledRejection", (reason) => {
+  try { console.error("unhandledRejection:", (reason && reason.stack) || reason); } catch (e) {}
+});
+process.on("uncaughtException", (err) => {
+  try { console.error("uncaughtException:", (err && err.stack) || err); } catch (e) {}
+});
 
 const otpLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -122,12 +182,40 @@ function gen6() {
 }
 
 // Ambil user dari Authorization: Bearer <jwt>
+// null = token memang TIDAK SAH (pemanggil balas 401).
+// throw (status 503) = kita TIDAK BISA memverifikasi (Supabase lambat/mati/timeout).
+//
+// Kenapa dibedakan: dulu `if (error) return null` menyamaratakan SEMUA kegagalan, jadi
+// Supabase tersendat dilaporkan ke user sebagai "Unauthorized". User (dan yang men-debug)
+// dikirim ke arah salah — mengira sesinya habis, disuruh logout-login, padahal loginnya
+// baik-baik saja dan yang bermasalah infrastruktur. Kegagalan infrastruktur TIDAK BOLEH
+// menyamar jadi kegagalan autentikasi.
 async function getUserFromReq(req) {
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!token || !anon) return null;
-  const { data, error } = await anon.auth.getUser(token);
-  if (error) return null;
+  let data, error;
+  try {
+    ({ data, error } = await anon.auth.getUser(token));
+  } catch (e) {
+    // Timeout/jaringan (mis. AbortError dari supaFetch) -> bukan urusan token.
+    const err = new Error("auth_unavailable");
+    err.status = 503;
+    err.userMessage = "Tidak bisa memverifikasi sesi kamu saat ini. Coba lagi sebentar lagi.";
+    try { console.error("getUserFromReq infra:", (e && e.message) || e); } catch (_) {}
+    throw err;
+  }
+  if (error) {
+    // Token benar-benar ditolak (401/403) -> null. Selain itu (5xx / status kosong =
+    // gagal jaringan menurut supabase-js) -> masalah infrastruktur.
+    const st = +(error.status || 0);
+    if (st === 401 || st === 403 || st === 400) return null;
+    const err = new Error("auth_unavailable");
+    err.status = 503;
+    err.userMessage = "Tidak bisa memverifikasi sesi kamu saat ini. Coba lagi sebentar lagi.";
+    try { console.error("getUserFromReq infra:", st, error.message); } catch (_) {}
+    throw err;
+  }
   return data.user || null;
 }
 
@@ -138,7 +226,7 @@ app.get("/api/config", (req, res) => {
   res.json({
     supabaseUrl: SUPABASE_URL || "",
     supabaseAnonKey: SUPABASE_ANON_KEY || "",
-    version: "singapay-live-2",
+    version: "xendit-live-1",
     serviceKeySet: !!SUPABASE_SERVICE_KEY,
     adminKeySet: !!ADMIN_KEY,
     // URL halaman login/authorize 20FIT. Setelah user login di sana, 20FIT harus
@@ -150,8 +238,8 @@ app.get("/api/config", (req, res) => {
     googleClientId: GOOGLE_CLIENT_ID,
     // Meta Pixel ID (PUBLIK). Access token CAPI TIDAK pernah dikirim ke frontend.
     metaPixelId: META_PIXEL_ID,
-    // Pembelian paket scan lewat SingaPay (server yang isi kredit via webhook).
-    singapayEnabled: SINGAPAY_ENABLED,
+    // Pembelian paket scan lewat Xendit (server yang isi kredit via webhook).
+    xenditEnabled: XENDIT_ENABLED,
   });
 });
 
@@ -350,38 +438,17 @@ const FITCO_LOGIN_PATH = process.env.FITCO_LOGIN_PATH || "/api/v1/auth/login";
 //   POST {api_url}/api/v1/auth/login/google  body {name,email,access_token,google_auth_id}
 const FITCO_GOOGLE_LOGIN_PATH = process.env.FITCO_GOOGLE_LOGIN_PATH || "/api/v1/auth/login/google";
 
-// ---------- SingaPay Payment Gateway (SEMUA nilai RAHASIA -> hanya dari env) ----------
-// Base URL boleh publik; default SANDBOX demi keamanan (jangan live sebelum teruji).
-//   Sandbox    : https://sandbox-payment-b2b.singapay.id
-//   Production : https://payment-b2b.singapay.id
-// Client Secret / API Key / HMAC key TIDAK boleh ditulis di kode — set di Railway env.
-// Baca env dari beberapa kemungkinan nama (biar cocok walau di Railway dinamai
-// pakai label dashboard SingaPay seperti "Client ID" / "API Key").
-function envAny() {
-  for (let i = 0; i < arguments.length; i++) {
-    const v = process.env[arguments[i]];
-    if (v != null && String(v).trim() !== "") return String(v).trim();
-  }
-  return "";
-}
-const SINGAPAY_BASE_URL = envAny("SINGAPAY_BASE_URL") || "https://sandbox-payment-b2b.singapay.id";
-const SINGAPAY_CLIENT_ID = envAny("SINGAPAY_CLIENT_ID", "SINGAPAY_CLIENTID", "Client ID", "CLIENT_ID");
-const SINGAPAY_CLIENT_SECRET = envAny("SINGAPAY_CLIENT_SECRET", "SINGAPAY_CLIENTSECRET", "Client Secret", "CLIENT_SECRET");
-const SINGAPAY_API_KEY = envAny("SINGAPAY_API_KEY", "SINGAPAY_APIKEY", "API Key", "API_KEY");
-const SINGAPAY_HMAC_KEY = envAny("SINGAPAY_HMAC_KEY", "SINGAPAY_HMAC", "HMAC Validation Key", "HMAC_VALIDATION_KEY");
-// account ULID milik merchant (dari dashboard SingaPay) — WAJIB untuk create payment link.
-const SINGAPAY_ACCOUNT_ID = process.env.SINGAPAY_ACCOUNT_ID || "";
-// "1" = tandai SingaPay aktif di /api/config (info untuk frontend). Pembayaran paket scan
-// selalu lewat SingaPay; Xendit sudah dihapus.
-const SINGAPAY_ENABLED = process.env.SINGAPAY_ENABLED === "1";
-// Base publik untuk redirect balik setelah bayar.
-const SINGAPAY_REDIRECT_BASE = process.env.SINGAPAY_REDIRECT_BASE || "https://my.20fit.id";
-// Endpoint token: v1.1 pakai X-Signature HMAC-SHA512 (dok resmi SingaPay); token dari
-// endpoint ini yang dipakai untuk operasi payment-link. (v1.0 = Basic auth, produk biller
-// terpisah — jangan dipakai untuk payment-link.) Bisa dioverride via env kalau berubah.
-const SINGAPAY_TOKEN_PATH = process.env.SINGAPAY_TOKEN_PATH || "/api/v1.1/access-token/b2b";
-const SINGAPAY_CREATE_PATH = process.env.SINGAPAY_CREATE_PATH || "/api/v1.0/payment-link-manage";
-const SINGAPAY_ACCOUNTS_PATH = process.env.SINGAPAY_ACCOUNTS_PATH || "/api/v1.0/accounts";
+// ---------- Pembayaran paket scan: Xendit via API shop order FITCO/20FIT ----------
+// POST /api/v1/third-party/shop/order (payment_type "xendit-invoices"). FITCO yang membuat
+// invoice Xendit; server kita hanya inisiasi order + poll status. Auth pakai FITCO_PARTNER_TOKEN
+// (didefinisikan bareng blok order 20FIT di bawah).
+// "1" = tandai Xendit aktif di /api/config (info untuk frontend).
+const XENDIT_ENABLED = process.env.XENDIT_ENABLED === "1";
+
+// Asal URL publik app ini, dipakai sbg tujuan kepulangan invoice Xendit (lihat
+// createFitcoXenditOrder). Bukan rahasia — pola default publik sama dgn FITCO_API /
+// GOOGLE_CLIENT_ID. Set APP_BASE_URL di Railway staging supaya staging balik ke staging.
+const APP_BASE_URL = (process.env.APP_BASE_URL || "https://my.20fit.id").replace(/\/+$/, "");
 
 // ---------- Katalog paket scan (server-authoritative) ----------
 // Sumber kebenaran harga & jumlah kredit ada di SERVER, bukan client. /api/scan/buy
@@ -913,22 +980,58 @@ app.get("/api/admin/audit", async (req, res) => {
 // Info konfigurasi runtime (superadmin only) — status env, TANPA membocorkan nilai rahasia.
 app.get("/api/admin/config", async (req, res) => {
   const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
-  const isLive = /payment-b2b\.singapay\.id/i.test(SINGAPAY_BASE_URL || "") && !/sandbox/i.test(SINGAPAY_BASE_URL || "");
   return res.json({
     ok: true,
     config: {
       supabase_service_key: !!admin,
-      singapay_client_id: !!SINGAPAY_CLIENT_ID,
-      singapay_client_secret: !!SINGAPAY_CLIENT_SECRET,
-      singapay_api_key: !!SINGAPAY_API_KEY,
-      singapay_base_url: SINGAPAY_BASE_URL || "(default sandbox)",
-      singapay_mode: isLive ? "production" : "sandbox",
-      singapay_webhook_enforce: SINGAPAY_WEBHOOK_ENFORCE,
-      singapay_account_id: SINGAPAY_ACCOUNT_ID ? "(set)" : "(auto-discover)",
+      xendit_enabled: XENDIT_ENABLED,
+      fitco_api_url: FITCO_API,
+      fitco_partner_token: !!FITCO_PARTNER_TOKEN,
       meta_capi: !!process.env.META_CAPI_ACCESS_TOKEN,
       admin_master_key: !!process.env.ADMIN_KEY,
     }
   });
+});
+
+// Diagnostik pembayaran (superadmin): cek config + REACHABILITY ke FITCO dari server production,
+// TANPA membuat order/invoice. GET pada endpoint shop-order (yang POST) -> 404/405 = normal & bukti
+// endpoint terjangkau; timeout/refused = jaringan Railway->FITCO bermasalah (sebab paling mungkin
+// checkout gagal). Buka: /api/admin/payment-probe?key=<master key>.
+app.get("/api/admin/payment-probe", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  const out = {
+    ok: true,
+    config: {
+      fitco_api_url: FITCO_API,
+      fitco_partner_token_set: !!FITCO_PARTNER_TOKEN,
+      xendit_enabled: XENDIT_ENABLED,
+      scan_products: Object.keys(SCAN_PACKAGES).map(Number),
+    },
+  };
+  const target = FITCO_API + "/api/v1/third-party/shop/order";
+  const ctrl = new AbortController();
+  const t0 = Date.now();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch(target, { method: "GET", headers: { "Accept": "application/json" }, signal: ctrl.signal });
+    clearTimeout(timer);
+    const sample = (await r.text().catch(() => "")).slice(0, 160);
+    out.reach = {
+      reachable: true, status: r.status, ms: Date.now() - t0,
+      note: "GET pada endpoint POST — 404/405 itu normal, artinya FITCO TERJANGKAU dari server.",
+      sample: sample,
+    };
+  } catch (e) {
+    clearTimeout(timer);
+    const aborted = e && (e.name === "AbortError" || e.code === "ABORT_ERR");
+    out.reach = {
+      reachable: false, ms: Date.now() - t0,
+      error: aborted ? "timeout_8s" : ((e && e.message) || "fetch_failed"),
+      note: "FITCO TIDAK terjangkau dari server (jaringan/URL) — ini yang bikin checkout gagal.",
+    };
+  }
+  try { await adminAudit(ctx, "payment_probe", "fitco", JSON.stringify(out.reach).slice(0, 300)); } catch (e) {}
+  return res.json(out);
 });
 
 // Rentang tanggal dari query (today/7d/30d/custom).
@@ -1087,6 +1190,15 @@ app.post("/api/admin/vouchers/:id/deactivate", async (req, res) => {
   const { error } = await admin.from("my20fit_vouchers").update({ status: "inactive", updated_at: new Date().toISOString() }).eq("id", req.params.id);
   if (error) return res.status(500).json({ error: error.message });
   await adminAudit(ctx, "voucher.deactivate", (cur && cur[0] && cur[0].code) || req.params.id, null);
+  return res.json({ ok: true });
+});
+// Aktifkan kembali voucher yang di-nonaktifkan (mirror deactivate) + audit.
+app.post("/api/admin/vouchers/:id/activate", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const { data: cur } = await admin.from("my20fit_vouchers").select("code").eq("id", req.params.id).limit(1);
+  const { error } = await admin.from("my20fit_vouchers").update({ status: "active", updated_at: new Date().toISOString() }).eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "voucher.activate", (cur && cur[0] && cur[0].code) || req.params.id, null);
   return res.json({ ok: true });
 });
 
@@ -1338,10 +1450,10 @@ app.get("/api/arena/history", async (req, res) => {
   }
 });
 
-// ---------- Beli paket scan kalori (pembayaran via SingaPay Payment Link) ----------
-// Pembayaran paket scan sepenuhnya lewat SingaPay (lihat singapayCreateLink di bawah).
-// FITCO_PARTNER_TOKEN masih dipakai HANYA untuk baca/cancel status order di API 20FIT
-// (bukan gateway pembayaran). Jalur lama Xendit sudah dihapus.
+// ---------- Beli paket scan kalori (pembayaran via Xendit lewat FITCO shop order) ----------
+// FITCO shop order (payment_type "xendit-invoices") -> FITCO bikin invoice Xendit &
+// balikkan link. FITCO_PARTNER_TOKEN dipakai sbg Bearer utk order + baca/cancel status
+// di API 20FIT (fallback: token login user dari client).
 const FITCO_PARTNER_TOKEN = process.env.FITCO_PARTNER_TOKEN || "";
 // Ambil nilai skalar pertama untuk salah satu nama field (mis. sales_order_id / order_no)
 // dari respons order 20FIT yang bentuknya bisa bertingkat.
@@ -1397,10 +1509,14 @@ app.post("/api/scan/buy", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
     const user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    // "Unauthorized" itu bahasa programmer — user cuma lihat kata asing di bawah tombol bayar
+    // dan tak tahu harus apa. Sesi memang bisa mati wajar (token kedaluwarsa, atau beberapa tab
+    // saling merotasi refresh token). Beri tahu apa yang terjadi + `session_expired` supaya
+    // frontend bisa menawarkan login ulang.
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi untuk melanjutkan pembayaran.", session_expired: true });
     const b = req.body || {};
 
-    // ===== Pembayaran paket scan = SingaPay (satu-satunya jalur; Xendit sudah dihapus) =====
+    // ===== Pembayaran paket scan = Xendit via FITCO shop order (satu-satunya jalur) =====
     // Katalog server-authoritative: client HANYA kirim package_id. credits & harga
     // ditentukan server dari SCAN_PACKAGES — nilai credits/price di body diabaikan total.
     const packageId = parseInt(b.package_id, 10) || 0;
@@ -1420,7 +1536,7 @@ app.post("/api/scan/buy", async (req, res) => {
     const reffNo = newReffNo();
     const title = credits + " calorie scans";
 
-    // ---- Voucher bikin gratis (total Rp 0): kredit langsung, tanpa SingaPay ----
+    // ---- Voucher bikin gratis (total Rp 0): kredit langsung server-side, tanpa order FITCO ----
     if (amount <= 0) {
       try {
         await admin.from("my20fit_scan_orders").insert({
@@ -1434,30 +1550,109 @@ app.post("/api/scan/buy", async (req, res) => {
       return res.json({ ok: true, free: true, credited: true, sales_order_id: reffNo, order_no: reffNo, provider: "voucher", discount: discount });
     }
 
-    if (!SINGAPAY_CLIENT_ID || !SINGAPAY_CLIENT_SECRET || !SINGAPAY_API_KEY) {
-      return res.status(503).json({ error: "Pembayaran belum aktif: kredensial SingaPay belum di-set di server." });
+    const bearer = FITCO_PARTNER_TOKEN || String(b.fitco_token || "");
+    if (!bearer) {
+      return res.status(503).json({ error: "Pembayaran belum aktif: token 20FIT partner (FITCO_PARTNER_TOKEN) belum di-set di server." });
     }
-    // Catat order (pending) DULU supaya webhook bisa mencocokkan. amount=gross, net_amount=setelah diskon.
+    // Data user dari profil (jangan percaya penuh input client) untuk order 20FIT.
+    let prof = {};
+    try {
+      const { data: rows } = await admin.from("my20fit_profile").select("full_name,phone,email").eq("auth_user_id", user.id).limit(1);
+      prof = (rows && rows[0]) || {};
+    } catch (e) {}
+    const email = String(prof.email || user.email || "").toLowerCase();
+    // Nomor HP WAJIB utk invoice Xendit — FITCO menolak/ gagal bikin invoice tanpa phone valid,
+    // jadi order gagal & user tanpa no HP dapat 502 tak jelas. Sumber: profil dulu, lalu fallback
+    // ke input checkout (b.phone). Kalau tetap kosong -> balik error jelas + need_phone (frontend
+    // memunculkan input HP), TANPA memanggil FITCO dgn phone kosong.
+    const normPhone = (v) => String(v || "").replace(/[^\d+]/g, "").replace(/^\+?62/, "").replace(/^0/, "");
+    let phone = normPhone(prof.phone);
+    let savePhone = null;
+    if (phone.length < 8) {
+      const p2 = normPhone(b.phone);
+      if (p2.length >= 8) { phone = p2; savePhone = String(b.phone).trim().slice(0, 20); }
+    }
+    if (phone.length < 8) {
+      return res.status(400).json({ error: "Nomor HP kamu masih kosong. Masukkan nomor HP untuk melanjutkan pembayaran.", need_phone: true });
+    }
+    // Simpan nomor HP baru ke profil (best-effort) supaya pembelian berikutnya tak perlu isi lagi.
+    if (savePhone) { try { await admin.from("my20fit_profile").update({ phone: savePhone }).eq("auth_user_id", user.id); } catch (e) {} }
+    // JANGAN teruskan kode voucher kita ke FITCO sebagai promo_code.
+    //
+    // Voucher kita hidup di my20fit_vouchers (Supabase kita); FITCO tak tahu & tak perlu tahu.
+    // Mengirimnya bikin FITCO MENOLAK SELURUH ORDER — terbukti di log production:
+    //   fitco-shop-order ERR 422 {"message":"Promotion does not exists, invalid promo_code: ..."}
+    //   scan/buy fitco-xendit: fitco_order_422
+    // Jadi SEMUA voucher diskon sebagian selalu gagal: user tak bisa bayar sama sekali.
+    // (Voucher 100% seolah "jalan" hanya karena amount<=0 memotong jalur FITCO sepenuhnya —
+    // itu sebabnya cuma voucher 100% yang pernah berfungsi.)
+    //
+    // Diskonnya disampaikan lewat `price` final di items (lihat createFitcoXenditOrder) —
+    // pola yang sama dipakai photo.20fit.id. promo_code milik sistem promosi FITCO sendiri;
+    // app ini tidak memakainya (tak ada integrasi /api/v1/app/order/verify-promo di sini).
+    // Catat order (pending) DULU (server-authoritative). amount=gross; net_amount = estimasi lokal.
     try {
       await admin.from("my20fit_scan_orders").insert({
         reff_no: reffNo, auth_user_id: user.id, credits: credits, amount: gross, net_amount: amount,
-        provider: "singapay", order_type: "scan_credit", voucher_id: voucherId,
+        provider: "xendit", order_type: "scan_credit", voucher_id: voucherId,
         status: "pending", created_at: new Date().toISOString(),
       });
     } catch (e) { console.error("scan_orders insert:", e.message); return res.status(500).json({ error: "Gagal menyiapkan order." }); }
     try {
-      const r = await singapayCreateLink({ reffNo: reffNo, title: title, amount: amount,
-        items: [{ name: title, quantity: 1, unit_price: amount }] });
-      if (r.payment_link_id) { try { await admin.from("my20fit_scan_orders").update({ payment_link_id: String(r.payment_link_id) }).eq("reff_no", reffNo); } catch (e) {} }
-      return res.json({ ok: true, link: r.url, sales_order_id: reffNo, order_no: reffNo, provider: "singapay", discount: discount, amount: amount });
+      // FITCO shop order (payment_type xendit-invoices) -> FITCO bikin invoice Xendit + balik link.
+      // user_id = FITCO uid member (dari client localStorage 'fitco_uid'). Diteruskan spt
+      // implementasi lama yg terbukti jalan; kalau kosong (user non-FITCO) kirim null (order tamu).
+      const fitcoUid = b.user_id ? String(b.user_id).trim() : null;
+      // price = harga FINAL (setelah voucher) dalam SATU baris item. WAJIB dikirim.
+      //
+      // Tanpa price, FITCO memakai harga KATALOG-nya sendiri. Voucher kita hidup di Supabase
+      // (my20fit_vouchers) dan FITCO TIDAK TAHU voucher itu ada — promo_code yang kita teruskan
+      // tak berarti apa-apa bagi mereka. Akibatnya user dengan voucher diskon SEBAGIAN ditagih
+      // Xendit HARGA PENUH, sementara my20fit_scan_orders.net_amount mencatat seolah didiskon.
+      // (Voucher 100% kebetulan aman: amount<=0 memotong jalur FITCO dan dikredit langsung.)
+      //
+      // Pola price-satu-baris ini yang dipakai photo.20fit.id justru UNTUK diskon
+      // (artifacts/api-server/src/lib/mainapi.ts: price: Math.round(tx.grossAmount)).
+      // Bonus: harga jadi eksplisit, jadi katalog FITCO yang bergeser tak diam-diam mengubah
+      // tagihan user (product_id di dokumentasi 20FIT pernah salah beberapa kali).
+      //
+      // Aman dari manipulasi: client HANYA mengirim package_id + voucher_code; `amount` dihitung
+      // server dari SCAN_PACKAGES + voucher yang divalidasi server.
+      const r = await createFitcoXenditOrder({
+        bearer: bearer, userId: fitcoUid, name: prof.full_name || (email ? email.split("@")[0] : "Member"),
+        phone: phone, email: email, reffNo: reffNo,
+        items: [{ product_id: packageId, quantity: 1, price: amount }],
+      });
+      // Simpan id order FITCO di payment_link_id — INI SATU-SATUNYA pegangan untuk memantau
+      // status. Tanpa itu order jadi TAK TERLACAK: polling tak bisa, /api/scan/reconcile
+      // melewatinya, dan user yang tetap membayar TIDAK AKAN PERNAH dapat kreditnya.
+      // Jadi gagal keras SEBELUM user melihat link: lebih baik menolak transaksi daripada
+      // menerima uang yang kreditnya mustahil kita berikan. (Dulu: id hilang / update DB gagal
+      // ditelan diam-diam, user tetap dikasih link.)
+      if (!r.orderId) {
+        try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
+        console.error("scan/buy NO-ORDER-ID", reffNo, "link ada tapi id order FITCO tidak ditemukan di respons");
+        return res.status(502).json({ error: "Gagal menyiapkan pembayaran (id order tidak diterima dari 20FIT). Coba lagi / hubungi admin." });
+      }
+      const { error: linkErr } = await admin.from("my20fit_scan_orders")
+        .update({ payment_link_id: String(r.orderId), fitco_order_no: r.orderNo ? String(r.orderNo) : null }).eq("reff_no", reffNo);
+      if (linkErr) {
+        try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
+        console.error("scan/buy payment_link_id gagal disimpan:", linkErr.message, reffNo);
+        return res.status(502).json({ error: "Gagal menyiapkan pembayaran. Coba lagi." });
+      }
+      return res.json({ ok: true, link: r.link, sales_order_id: reffNo, order_no: reffNo, provider: "xendit", discount: discount, amount: amount });
     } catch (e) {
       try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
-      console.error("scan/buy singapay:", e.message);
-      return res.status(502).json({ error: "Gagal membuat pembayaran SingaPay. Coba lagi." });
+      console.error("scan/buy fitco-xendit:", e.message);
+      return res.status(502).json({ error: (e && e.userMessage) || "Gagal membuat pembayaran. Coba lagi." });
     }
   } catch (e) {
     console.error("scan/buy:", e.message);
-    return res.status(502).json({ error: "Gagal memproses pembayaran. Coba lagi." });
+    // Hormati status/pesan yg sudah spesifik (mis. 503 auth_unavailable dari getUserFromReq)
+    // supaya user tahu sebabnya, bukan dapat 502 generik yang menyesatkan.
+    return res.status(e && e.status ? e.status : 502)
+      .json({ error: (e && e.userMessage) || "Gagal memproses pembayaran. Coba lagi." });
   }
 });
 
@@ -1477,7 +1672,8 @@ app.post("/api/scan/consume", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
     const user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    // Sama seperti /api/scan/buy: jangan semprot user dgn "Unauthorized" saat dia lagi scan.
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
     const { data, error } = await admin.rpc("my20fit_consume_scan", { p_uid: user.id });
     if (error) { console.error("scan/consume rpc:", error.message); return res.status(500).json({ error: "Gagal memproses scan." }); }
     const q = data || {};
@@ -1495,14 +1691,19 @@ app.post("/api/scan/voucher-check", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
     const user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (!user) return res.status(401).json({ ok: false, error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
     const b = req.body || {};
     const gross = parseInt(b.price, 10) || 0;
     if (gross <= 0) return res.status(400).json({ error: "Harga paket tidak valid." });
     const vr = await validateVoucherForBuy(b.code, gross, user.id);
     if (vr.error) return res.json({ ok: false, error: vr.error });
     return res.json({ ok: true, valid: !!vr.voucher, code: vr.voucher ? vr.voucher.code : null, discount: vr.discount, final: vr.final });
-  } catch (e) { return res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    // JANGAN bocorkan e.message mentah ke user (dulu: "auth_unavailable" muncul di layar).
+    try { console.error("voucher-check:", (e && e.message) || e); } catch (_) {}
+    return res.status(e && e.status ? e.status : 500)
+      .json({ ok: false, error: (e && e.userMessage) || "Gagal cek voucher. Coba lagi." });
+  }
 });
 
 // ---------- Heartbeat aktivitas user (untuk lacak aktif/tidak aktif) ----------
@@ -1530,10 +1731,50 @@ app.post("/api/activity/ping", async (req, res) => {
 });
 
 // ---------- Cek status pembayaran order scan (untuk auto thank-you + isi kredit) ----------
-// POST /api/scan/order-status  { sales_order_id, fitco_token }
-// GET 20FIT /api/v1/app/order/:id. Coba token login user DULU, lalu FITCO_PARTNER_TOKEN.
-// Balikan juga http/via/debug utk diagnosa. Toleran: kalau gagal baca -> pending (frontend
-// terus mencoba tanpa error), plus note berisi kode HTTP supaya kelihatan kalau tokennya ditolak.
+// POST /api/scan/order-status  { sales_order_id (=reff_no kita), fitco_token }
+// Order kita (my20fit_scan_orders) = sumber. Kalau masih pending & ada id order FITCO,
+// server poll status ke FITCO lalu KREDIT server-authoritative begitu FITCO konfirmasi lunas
+// (idempoten lewat RPC my20fit_credit_scan; retry poll tak akan double-credit).
+// Poll status order ke FITCO (/api/v1/app/order/:id). Coba token user dulu, lalu partner.
+async function fitcoOrderStatus(fitcoId, userToken, orderNo) {
+  const tokens = [];
+  if (userToken) tokens.push({ tk: String(userToken), via: "user" });
+  if (FITCO_PARTNER_TOKEN) tokens.push({ tk: FITCO_PARTNER_TOKEN, via: "partner" });
+  if (!tokens.length) return null;
+  // Endpoint status, urut prioritas:
+  //  1) BARU: /api/v1/callback/order/{order_no}/payment-status  (order_no "WEB..." bila tersimpan)
+  //  2) LAMA: /api/v1/app/order/{id}  (jalur yang selama ini jalan — fallback aman)
+  // Sinyal DEFINITIF (paid/expired) dari endpoint mana pun langsung dipakai; kalau semua cuma
+  // "pending" baru balik pending. Jadi endpoint baru TIDAK menutupi deteksi lunas endpoint lama
+  // (anti-regresi terhadap crediting yang sudah jalan).
+  const eps = [];
+  if (orderNo) eps.push({ url: "/api/v1/callback/order/" + encodeURIComponent(orderNo) + "/payment-status", tag: "callback" });
+  if (fitcoId) eps.push({ url: "/api/v1/app/order/" + encodeURIComponent(fitcoId), tag: "app" });
+  let lastHttp = 0, lastSig = null;
+  for (const ep of eps) {
+    for (const t of tokens) {
+      // Timeout keras per panggilan (reconcile memanggil ini banyak kali berurutan).
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        const r = await fetch(FITCO_API + ep.url, {
+          headers: { "Accept": "application/json", "Authorization": "Bearer " + t.tk },
+          signal: ctrl.signal,
+        });
+        clearTimeout(timer);
+        lastHttp = r.status;
+        if (!r.ok) { try { console.log("fitco-status", ep.tag, t.via, r.status); } catch (e) {} continue; }
+        const j = await r.json().catch(() => ({}));
+        const sig = scanPaidMarkers(j); sig.via = t.via + "/" + ep.tag; sig.http = r.status;
+        try { console.log("fitco-status OK", ep.tag, t.via, r.status, "paid=" + sig.paid + " expired=" + sig.expired); } catch (e) {}
+        if (sig.paid || sig.expired) return sig;   // definitif -> langsung pakai
+        lastSig = sig;                              // readable tapi pending -> catat, coba kandidat lain
+      } catch (e) { clearTimeout(timer); lastHttp = -1; }
+    }
+  }
+  if (lastSig) return lastSig;
+  return { paid: false, expired: false, debug: [], via: "", http: lastHttp, unreadable: true };
+}
 app.post("/api/scan/order-status", async (req, res) => {
   try {
     const user = await getUserFromReq(req);
@@ -1541,41 +1782,146 @@ app.post("/api/scan/order-status", async (req, res) => {
     const b = req.body || {};
     const id = String(b.sales_order_id || "").trim();
     if (!id) return res.status(400).json({ error: "sales_order_id kosong." });
-    // Order SingaPay: statusnya ada di tabel kita (dikredit server via webhook).
+    // Order kita (server-authoritative): cari by reff_no milik user ini.
+    let order = null;
     if (admin) {
       try {
-        const { data: srows } = await admin.from("my20fit_scan_orders").select("status").eq("reff_no", id).limit(1);
-        if (srows && srows[0]) {
-          const st = srows[0].status;
-          return res.json({ ok: true, paid: st === "paid", expired: st === "failed" || st === "expired", pending: st === "pending", provider: "singapay" });
-        }
+        const { data: srows } = await admin.from("my20fit_scan_orders")
+          .select("reff_no,status,provider,payment_link_id,fitco_order_no,auth_user_id").eq("reff_no", id).limit(1);
+        order = srows && srows[0];
       } catch (e) {}
     }
-    const tokens = [];
-    if (b.fitco_token) tokens.push({ tk: String(b.fitco_token), via: "user" });
-    if (FITCO_PARTNER_TOKEN) tokens.push({ tk: FITCO_PARTNER_TOKEN, via: "partner" });
-    if (!tokens.length) return res.json({ ok: true, paid: false, expired: false, pending: true, note: "no_token" });
-    let lastHttp = 0, sig = null, via = "";
-    for (const t of tokens) {
-      try {
-        const r = await fetch(FITCO_API + "/api/v1/app/order/" + encodeURIComponent(id), {
-          headers: { "Accept": "application/json", "Authorization": "Bearer " + t.tk },
-        });
-        lastHttp = r.status;
-        if (!r.ok) continue;                 // token ini ditolak / order tak terlihat -> coba token berikut
-        const j = await r.json().catch(() => ({}));
-        sig = scanPaidMarkers(j); via = t.via; break;
-      } catch (e) { lastHttp = -1; }
+    if (order) {
+      if (order.auth_user_id && order.auth_user_id !== user.id) return res.status(403).json({ error: "Bukan order kamu." });
+      if (order.status === "paid") return res.json({ ok: true, paid: true, expired: false, pending: false, provider: order.provider });
+      if (order.status === "failed" || order.status === "expired") return res.json({ ok: true, paid: false, expired: true, pending: false, provider: order.provider });
+      // Pending: cek ke FITCO pakai id order FITCO tersimpan (payment_link_id).
+      const fitcoId = order.payment_link_id ? String(order.payment_link_id) : "";
+      if (fitcoId) {
+        const sig = await fitcoOrderStatus(fitcoId, b.fitco_token, order.fitco_order_no);
+        if (sig && sig.paid) {
+          await creditScanOrder(order.reff_no);  // klaim pending->paid + tambah kredit (idempoten)
+          try { console.log("order-status paid+credited", order.reff_no, "fitco=" + fitcoId); } catch (e) {}
+          return res.json({ ok: true, paid: true, expired: false, pending: false, provider: order.provider });
+        }
+        if (sig && sig.expired) {
+          try { await admin.from("my20fit_scan_orders").update({ status: "expired" }).eq("reff_no", order.reff_no); } catch (e) {}
+          return res.json({ ok: true, paid: false, expired: true, pending: false, provider: order.provider });
+        }
+      }
+      return res.json({ ok: true, paid: false, expired: false, pending: true, provider: order.provider });
     }
-    if (!sig) {
-      try { console.log("order-status", id, "http=" + lastHttp, "-> tak bisa baca status"); } catch (e) {}
-      return res.json({ ok: true, paid: false, expired: false, pending: true, note: "http_" + lastHttp, http: lastHttp });
-    }
-    try { console.log("order-status", id, "via", via, "paid=" + sig.paid, "exp=" + sig.expired, "signals:", sig.debug.join(" | ") || "(none)"); } catch (e) {}
-    return res.json({ ok: true, paid: sig.paid, expired: sig.expired, pending: !sig.paid && !sig.expired, http: lastHttp, via: via, debug: sig.debug });
+    // Fallback (order tak ada di DB kita, mis. legacy): poll FITCO langsung by id.
+    const sig = await fitcoOrderStatus(id, b.fitco_token);
+    if (!sig || sig.unreadable) return res.json({ ok: true, paid: false, expired: false, pending: true, note: "unreadable" });
+    return res.json({ ok: true, paid: sig.paid, expired: sig.expired, pending: !sig.paid && !sig.expired, via: sig.via, debug: sig.debug });
   } catch (e) {
     console.error("order-status:", e.message);
     return res.json({ ok: true, paid: false, expired: false, pending: true, note: "error" });
+  }
+});
+
+// ---------- Status pembayaran utk halaman /payment/pending + tombol "Cek Status" ----------
+// GET /api/payment/status?external_id=<reff_no order scan kita>. Server-authoritative & aman:
+// hanya membaca status + memakai jalur kredit yang SUDAH ada (creditScanOrder, idempoten) —
+// TIDAK menambah logic kredit baru. Wajib login; user hanya boleh cek order miliknya.
+app.get("/api/payment/status", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const ext = String(req.query.external_id || "").trim();
+    if (!ext) return res.status(400).json({ error: "external_id kosong." });
+    const { data: rows } = await admin.from("my20fit_scan_orders")
+      .select("reff_no,status,provider,credits,auth_user_id,payment_link_id,fitco_order_no,paid_at").eq("reff_no", ext).limit(1);
+    const order = rows && rows[0];
+    if (!order) return res.status(404).json({ status: "NOT_FOUND", error: "Order tidak ditemukan." });
+    if (order.auth_user_id && order.auth_user_id !== user.id) return res.status(403).json({ error: "Bukan order kamu." });
+    let status = order.status;
+    if (status === "pending" && order.payment_link_id) {
+      try {
+        const sig = await fitcoOrderStatus(String(order.payment_link_id), req.query.fitco_token || null, order.fitco_order_no);
+        if (sig && sig.paid) { await creditScanOrder(order.reff_no); status = "paid"; }
+        else if (sig && sig.expired) { try { await admin.from("my20fit_scan_orders").update({ status: "expired" }).eq("reff_no", order.reff_no); } catch (e) {} status = "expired"; }
+      } catch (e) {}
+    }
+    let total = null;
+    try { const { data: pr } = await admin.from("my20fit_profile").select("scan_credits").eq("auth_user_id", user.id).limit(1); total = pr && pr[0] ? pr[0].scan_credits : null; } catch (e) {}
+    const isPaid = (status === "paid");
+    const isFail = (status === "failed" || status === "expired");
+    return res.json({
+      status: isPaid ? "PAID" : (isFail ? "FAILED" : "PENDING"),
+      credits_added: isPaid ? (order.credits || 0) : 0,
+      total_credits: total,
+      paid_at: order.paid_at || null,
+      provider: order.provider || null,
+      message: isPaid ? "Pembayaran berhasil." : (isFail ? "Pembayaran gagal atau kadaluarsa." : "Pembayaran belum dikonfirmasi."),
+    });
+  } catch (e) {
+    console.error("payment/status:", e.message);
+    return res.status(500).json({ error: "Gagal cek status pembayaran." });
+  }
+});
+
+// ---------- Sapu order tertunda milik user (pemulihan lintas-device) ----------
+// POST /api/scan/reconcile  { fitco_token }
+// Kenapa perlu: daftar order yang dipantau frontend hanya ada di localStorage. Invoice Xendit
+// diterbitkan API 20FIT dan webhook "paid"-nya ACCOUNT-GLOBAL -> callback selalu ke backend
+// 20FIT, TIDAK PERNAH ke sini. Jadi tanpa sapuan ini, user yang bayar lalu membuka app dari
+// device/browser lain (atau yang localStorage-nya hilang) TIDAK PERNAH dapat kreditnya —
+// uang masuk, kredit tidak. Order ada di DB kita (my20fit_scan_orders), jadi sumbernya
+// diambil dari sana by auth_user_id, bukan dari klien.
+// Dibatasi 20 order & 7 hari terakhir supaya tidak membanjiri API 20FIT tiap app dibuka.
+app.post("/api/scan/reconcile", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (!admin) return res.json({ ok: true, checked: 0, credited: 0 });
+    const b = req.body || {};
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    // supabase-js TIDAK throw: dia balik { data, error }. Kalau error diabaikan, query rusak
+    // (schema drift / RLS / service key salah) menghasilkan rows=[] yang TIDAK BISA DIBEDAKAN
+    // dari "tidak ada order pending" — jaring pengaman ini mati diam-diam. Jadi error dibaca
+    // eksplisit, dicatat, dan dibalikkan sebagai error (bukan sukses palsu).
+    const { data, error } = await admin.from("my20fit_scan_orders")
+      .select("reff_no,payment_link_id,fitco_order_no,credits,provider")
+      .eq("auth_user_id", user.id).eq("status", "pending")
+      .gte("created_at", cutoff)
+      .order("created_at", { ascending: false }).limit(20);
+    if (error) {
+      console.error("scan/reconcile query:", error.message);
+      return res.status(500).json({ ok: false, error: "Gagal memeriksa pembayaran tertunda." });
+    }
+    const rows = data || [];
+    let checked = 0, credits = 0;
+    const creditedOrders = [];
+    for (const o of rows) {
+      if (!o.payment_link_id) continue;  // order gagal sebelum FITCO bikin invoice
+      checked++;
+      let sig = null;
+      try { sig = await fitcoOrderStatus(String(o.payment_link_id), b.fitco_token, o.fitco_order_no); } catch (e) { continue; }
+      if (sig && sig.paid) {
+        // Idempoten (RPC my20fit_credit_scan klaim pending->paid sekali saja).
+        if (await creditScanOrder(o.reff_no)) {
+          creditedOrders.push({ reff_no: o.reff_no, credits: +o.credits || 0 });
+          credits += (+o.credits || 0);
+          try { console.log("reconcile credited", o.reff_no); } catch (e) {}
+        }
+      } else if (sig && sig.expired) {
+        // Kunci transisi HANYA pending->expired. Tanpa .eq("status","pending") ada balapan:
+        // polling lain (order-status) bisa sudah mengkredit order ini jadi 'paid' sejak SELECT
+        // di atas, dan update ini akan menimpanya jadi 'expired' — kredit terlanjur diberi,
+        // pembukuan jadi salah.
+        try { await admin.from("my20fit_scan_orders").update({ status: "expired" }).eq("reff_no", o.reff_no).eq("status", "pending"); } catch (e) {}
+      }
+    }
+    return res.json({ ok: true, checked: checked, credited: creditedOrders.length, credits: credits, orders: creditedOrders });
+  } catch (e) {
+    // JANGAN balas ok:true di sini — klien menandai _swept dan berhenti mencoba, jadi
+    // kegagalan infrastruktur akan diam-diam mematikan jalur kredit lintas-device.
+    console.error("scan/reconcile:", (e && e.message) || e);
+    return res.status(e && e.status ? e.status : 500)
+      .json({ ok: false, error: (e && e.userMessage) || "Gagal memeriksa pembayaran tertunda." });
   }
 });
 
@@ -1611,118 +1957,131 @@ app.post("/api/scan/order-cancel", async (req, res) => {
   }
 });
 
-// ---------- SingaPay: OAuth token + Create Payment Link + kredit ----------
-// Token B2B (v1.1): POST {BASE}/api/v1.1/access-token/b2b dengan header signature:
-//   X-Signature = HMAC-SHA512( "{client_id}_{client_secret}_{YYYYMMDD}", key=client_secret ) hex lowercase
-//   X-CLIENT-ID = client_id ; X-PARTNER-ID = api_key ; body {"grant_type":"client_credentials"}
-// (Dok resmi: docs.singapay.id/api-reference/security/access-token-v11. Token dari sini yang
-//  dipakai untuk Create Payment Link.) Di-cache sampai mendekati exp (dibaca dari JWT).
-// Tanggal signature pakai zona Asia/Jakarta (WIB) — server SingaPay di Indonesia.
-function singapayYmd() {
-  try {
-    const p = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-    const o = {}; for (const x of p) o[x.type] = x.value;
-    return "" + o.year + o.month + o.day;
-  } catch (e) {
-    return new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  }
-}
-// UTC YYYYMMDD (fallback kalau signature WIB ditolak di batas tengah malam).
-function singapayYmdUtc() { return new Date().toISOString().slice(0, 10).replace(/-/g, ""); }
-async function singapayTokenTry(ymd) {
-  const payload = SINGAPAY_CLIENT_ID + "_" + SINGAPAY_CLIENT_SECRET + "_" + ymd;
-  const signature = crypto.createHmac("sha512", SINGAPAY_CLIENT_SECRET).update(payload, "utf8").digest("hex");
-  const r = await fetch(SINGAPAY_BASE_URL + SINGAPAY_TOKEN_PATH, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json", "Accept": "application/json",
-      "X-PARTNER-ID": SINGAPAY_API_KEY, "X-CLIENT-ID": SINGAPAY_CLIENT_ID, "X-Signature": signature,
-    },
-    body: JSON.stringify({ grant_type: "client_credentials" }),
-  });
-  const j = await r.json().catch(() => ({}));
-  return { status: r.status, ok: r.ok, tok: findScalar(j, ["access_token", "accessToken", "token"]), j: j };
-}
-let _spToken = { token: "", exp: 0 };
-async function singapayToken() {
-  const now = Math.floor(Date.now() / 1000);
-  if (_spToken.token && _spToken.exp - 60 > now) return _spToken.token;
-  if (!SINGAPAY_CLIENT_ID || !SINGAPAY_CLIENT_SECRET || !SINGAPAY_API_KEY) throw new Error("singapay_creds_missing");
-  // Coba tanggal WIB dulu; kalau ditolak (mis. skew tengah malam) & bukan blokir IP, coba UTC.
-  const dates = Array.from(new Set([singapayYmd(), singapayYmdUtc()]));
-  let last = null;
-  for (const d of dates) {
-    const res = await singapayTokenTry(d);
-    last = res;
-    if (res.ok && res.tok) {
-      let exp = now + 3000;
-      try { const p = JSON.parse(Buffer.from(String(res.tok).split(".")[1], "base64").toString("utf8")); if (p && p.exp) exp = p.exp; } catch (e) {}
-      _spToken = { token: res.tok, exp: exp };
-      return res.tok;
-    }
-    if (res.status === 403) break; // blokir IP: ganti tanggal tidak akan menolong
-  }
-  console.error("singapay-token", last && last.status, JSON.stringify(last && last.j).slice(0, 300));
-  throw new Error("singapay_token_" + (last && last.status));
-}
-// Account ULID: pakai env kalau di-set; kalau tidak, auto-deteksi dari List Accounts.
-let _spAccount = "";
-async function singapayAccountId() {
-  if (SINGAPAY_ACCOUNT_ID) return SINGAPAY_ACCOUNT_ID;
-  if (_spAccount) return _spAccount;
-  const token = await singapayToken();
-  const r = await fetch(SINGAPAY_BASE_URL + SINGAPAY_ACCOUNTS_PATH, {
-    headers: { "Authorization": "Bearer " + token, "X-PARTNER-ID": SINGAPAY_API_KEY, "Accept": "application/json" },
-  });
-  const j = await r.json().catch(() => ({}));
-  let list = null;
+// ---------- Xendit via FITCO shop order + kredit ----------
+// POST {FITCO_API}/api/v1/third-party/shop/order (Bearer) dengan payment_type "xendit-invoices".
+// FITCO membuat invoice Xendit & mengembalikan link pembayaran. Balikan { link, orderId }.
+// Kredit TIDAK diberikan di sini — server memberi kredit saat order-status mendeteksi FITCO lunas.
+function findXenditLink(obj) {
+  let out = null;
   (function walk(v) {
-    if (list || !v || typeof v !== "object") return;
-    if (Array.isArray(v) && v.length && v[0] && typeof v[0] === "object" && ("id" in v[0])) { list = v; return; }
-    for (const k of Object.keys(v)) if (v[k] && typeof v[k] === "object") walk(v[k]);
-  })(j);
-  if (list) {
-    const act = list.find(a => String(a.status || "").toLowerCase() === "active") || list[0];
-    if (act && act.id) { _spAccount = String(act.id); return _spAccount; }
-  }
-  console.error("singapay-accounts", r.status, JSON.stringify(j).slice(0, 300));
-  throw new Error("singapay_account_not_found_" + r.status);
+    if (out || !v || typeof v !== "object") return;
+    for (const k of Object.keys(v)) {
+      const val = v[k];
+      if (typeof val === "string" && /^https?:\/\//i.test(val) &&
+          (k === "link" || k === "payment_url" || k === "invoice_url" || k === "url" || val.indexOf("xendit") >= 0)) { out = val; return; }
+      if (val && typeof val === "object") walk(val);
+    }
+  })(obj);
+  return out;
 }
-// Buat payment link. Balikan { url, payment_link_id }.
-async function singapayCreateLink(o) {
-  const accountId = await singapayAccountId();
-  const token = await singapayToken();
+async function createFitcoXenditOrder(o) {
+  // Upaya terbaik supaya Xendit memulangkan user ke SINI, bukan ke platform event 20FIT.
+  //
+  // Konteks: shop/order TIDAK mendokumentasikan field redirect, dan invoice-nya diterbitkan
+  // 20FIT — success_redirect_url bawaannya mengarah ke platform EVENT mereka (endpoint ini
+  // aslinya untuk jualan tiket event; kita numpang). Tapi API-nya MENOLERANSI field ekstra,
+  // dan app saudara photo.20fit.id sudah mengirim dua field ini pada endpoint sekerabat
+  // (/api/v1/third-party/photo/order, lih. artifacts/api-server/src/lib/mainapi.ts) dengan
+  // alasan sama.
+  //
+  // Status: BELUM DIKONFIRMASI apakah 20FIT meneruskannya ke invoice Xendit — tim photo pun
+  // menandainya "a dev confirmation". Diteruskan = redirect benar; diabaikan = tidak ada yang
+  // rusak. Kredit TIDAK bergantung pada ini: /api/scan/reconcile + polling tetap sumbernya.
+  // JANGAN membangun logika kredit di atas asumsi field ini dihormati.
+  // Redirect balik dari Xendit -> halaman status khusus /payment/pending (tombol "Cek Status"
+  // + auto-cek). external_id = reff_no order kita; halaman juga punya fallback dari localStorage.
+  const finishUrl = APP_BASE_URL + "/payment/pending" + (o.reffNo ? ("?external_id=" + encodeURIComponent(o.reffNo)) : "");
   const body = {
-    reff_no: o.reffNo,
-    title: o.title || "Calorie scan package",
-    max_usage: 1,
-    total_amount: o.amount,
+    user_id: o.userId || null,
+    name: o.name || "Member",
+    phone_code: "+62",
+    phone: o.phone || "",
+    email: o.email || "",
+    // SELALU null. promo_code = sistem promosi FITCO sendiri; voucher kita (my20fit_vouchers)
+    // bukan promosi mereka — mengirimnya bikin order ditolak 422 "Promotion does not exists".
+    // Diskon disampaikan lewat `price` final di items. Field tetap dikirim null karena itu
+    // bentuk yang terdokumentasi (photo.20fit.id juga mengirim promo_code: null).
+    promo_code: null,
+    success_redirect_url: finishUrl,
+    failure_redirect_url: APP_BASE_URL + "/payment/failed",
+    payment: { payment_type: "xendit-invoices", user_point_booster_id: null, use_fit_points: false },
     items: o.items,
-    // expired_at = Unix ms (13 digit) per dok payment-link; link kadaluarsa 24 jam.
-    expired_at: String(Date.now() + 24 * 60 * 60 * 1000),
-    redirect_url: SINGAPAY_REDIRECT_BASE + "/calories?status=paid&reff=" + encodeURIComponent(o.reffNo),
   };
-  const r = await fetch(SINGAPAY_BASE_URL + SINGAPAY_CREATE_PATH + "/" + encodeURIComponent(accountId), {
-    method: "POST",
-    headers: { "Authorization": "Bearer " + token, "X-PARTNER-ID": SINGAPAY_API_KEY, "Content-Type": "application/json", "Accept": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) { console.error("singapay-create", r.status, JSON.stringify(j).slice(0, 400)); throw new Error((j && j.error && j.error.message) || ("singapay_create_" + r.status)); }
-  const url = findScalar(j, ["payment_url"]);
-  if (!url) { console.error("singapay-create no url", JSON.stringify(j).slice(0, 400)); throw new Error("singapay_no_payment_url"); }
-  return { url: url, payment_link_id: findScalar(j, ["id", "payment_link_id"]) };
+  const url = FITCO_API + "/api/v1/third-party/shop/order";
+  // Timeout keras (AbortController): kalau FITCO lambat/menggantung, JANGAN biarkan request
+  // menggantung sampai platform (Railway) balas 5xx HTML. Kalau itu terjadi, frontend cuma
+  // dapat body non-JSON -> pesan generik "Couldn't start payment." tanpa sebab jelas.
+  // Lebih baik gagal cepat dengan pesan JSON yang actionable + tercatat di log.
+  const ctrl = new AbortController();
+  const t0 = Date.now();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  let r;
+  try {
+    r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": "Bearer " + o.bearer },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    const aborted = err && (err.name === "AbortError" || err.code === "ABORT_ERR");
+    console.error("fitco-shop-order fetch-fail", aborted ? "timeout" : (err && err.message), (Date.now() - t0) + "ms");
+    const e = new Error(aborted ? "fitco_timeout" : "fitco_unreachable");
+    e.userMessage = aborted
+      ? "Pembayaran timeout saat menghubungi 20FIT. Coba lagi sebentar lagi."
+      : "Tidak bisa menghubungi server pembayaran 20FIT. Coba lagi.";
+    throw e;
+  }
+  clearTimeout(timer);
+  // Baca sbg TEXT dulu lalu parse — supaya body non-JSON (mis. halaman error HTML)
+  // tetap ke-log & tidak bikin exception yang tak terbaca.
+  const raw = await r.text().catch(() => "");
+  let j = {};
+  try { j = raw ? JSON.parse(raw) : {}; } catch (e) { j = {}; }
+  console.log("fitco-shop-order", r.status, (Date.now() - t0) + "ms", raw ? ("len=" + raw.length) : "empty");
+  // Apakah 20FIT MENGHORMATI success_redirect_url yang kita kirim? Ini satu-satunya cara tahu
+  // tanpa menunggu konfirmasi dev: kalau responsnya menyebut ulang redirect, cocokkan dengan
+  // milik kita. Terbaca di log Railway sbg redirect=ours|theirs|absent.
+  //   ours   -> diteruskan; user pulang ke my.20fit.id. Masalah "nyasar ke event" SELESAI.
+  //   theirs -> diabaikan & ditimpa (kemungkinan besar ke platform event) -> perlu perubahan
+  //             di backend 20FIT; jaring pengaman kita yang menanggung.
+  //   absent -> respons tak menyebutkan; cek langsung invoice-nya di dashboard Xendit.
+  try {
+    const echoed = findScalar(j, ["success_redirect_url", "successRedirectUrl"]);
+    console.log("fitco-shop-order redirect=" +
+      (!echoed ? "absent" : (String(echoed).indexOf(APP_BASE_URL) === 0 ? "ours" : "theirs")) +
+      (echoed ? (" -> " + String(echoed).slice(0, 120)) : ""));
+  } catch (e) {}
+  if (!r.ok) {
+    console.error("fitco-shop-order ERR", r.status, raw.slice(0, 500));
+    const e = new Error("fitco_order_" + r.status);
+    e.userMessage = (j && (j.message || j.error)) || ("Gagal membuat order pembayaran (HTTP " + r.status + ").");
+    throw e;
+  }
+  const link = findXenditLink(j);
+  if (!link) {
+    console.error("fitco-shop-order NO-LINK", r.status, raw.slice(0, 500));
+    const e = new Error("fitco_no_payment_link");
+    e.userMessage = "Order 20FIT dibuat tapi link pembayaran Xendit tidak ditemukan. Coba lagi / hubungi admin.";
+    throw e;
+  }
+  const orderId = findScalar(j, ["sales_order_id", "salesOrderId", "order_id", "order_no", "orderNo"]);
+  // order_no khusus (mis. "WEB...") — dipakai endpoint status baru:
+  // GET /api/v1/callback/order/{order_no}/payment-status. Bisa null kalau respons tak memuatnya.
+  const orderNo = findScalar(j, ["order_no", "orderNo", "order_number", "orderNumber"]);
+  return { link: link, orderId: orderId, orderNo: orderNo };
 }
 // Reff_no unik & aman (<=40, tanpa spasi/slash).
 function newReffNo() { return "SCAN" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
 // Kreditkan order scan yang lunas — ATOMIC & IDEMPOTEN lewat RPC my20fit_credit_scan:
 // claim order (pending->paid) + tambah scan_credits dalam satu transaksi berkunci baris,
-// jadi aman terhadap retry webhook SingaPay (3x) & order paralel utk user yang sama.
+// jadi aman terhadap retry webhook Xendit & order paralel utk user yang sama.
 async function creditScanOrder(reff, meta) {
   if (!admin || !reff) return false;
   const { data, error } = await admin.rpc("my20fit_credit_scan", { p_reff: reff });
   if (error) { try { console.error("credit rpc", error.message); } catch (e) {} return false; }
-  if (data === true) { try { console.log("singapay credited", reff); } catch (e) {} }
+  if (data === true) { try { console.log("xendit credited", reff); } catch (e) {} }
   if (data === true) {
     // Ambil order utk catat pemakaian voucher + tahu apakah net_amount sudah di-set voucher.
     let hasVoucher = false;
@@ -1780,97 +2139,9 @@ async function recordVoucherUsage(voucherId, uid, reff, discount) {
     await admin.from("my20fit_vouchers").update({ used_count: c + 1 }).eq("id", voucherId);
   } catch (e) { try { console.error("recordVoucherUsage", e.message); } catch (_) {} }
 }
-function webhookReff(obj) { return findScalar(obj, ["reff_no", "reffNo", "reference", "reference_number", "ref_no"]); }
-function webhookMeta(obj) {
-  return {
-    payment_method: findScalar(obj, ["payment_method", "paymentMethod", "payment_channel", "paymentChannel", "channel", "payment_type", "paymentType", "method"]),
-    gateway_reference_id: findScalar(obj, ["gateway_reference_id", "gatewayReferenceId", "transaction_id", "transactionId", "payment_id", "paymentId", "trx_id", "trxId"]),
-    net_amount: findScalar(obj, ["net_amount", "netAmount", "settlement_amount", "settlementAmount", "amount_received", "amountReceived"])
-  };
-}
-function webhookLooksPaid(obj) {
-  const PAID = /\b(paid|success(ful)?|settled?|completed?|berhasil|lunas)\b/i;
-  let ok = false;
-  (function walk(v) {
-    if (ok || !v || typeof v !== "object") return;
-    for (const k of Object.keys(v)) {
-      const val = v[k];
-      if (/status|state|payment/i.test(k) && val != null && typeof val !== "object" && PAID.test(String(val))) { ok = true; return; }
-      if (val && typeof val === "object") walk(val);
-    }
-  })(obj);
-  return ok;
-}
-
-// ---------- SingaPay: penerima webhook/notifikasi (verifikasi HMAC-SHA512) ----------
-// Verifikasi signature sesuai dok SingaPay:
-//   1) parse body JSON, urutkan key rekursif & alfabet, encode compact (unescaped unicode/slash)
-//   2) hashedBody = SHA-256(normalizedJson)
-//   3) stringToSign = "POST:{ENDPOINT}:{ACCESS_TOKEN}:{hashedBody}:{X-Timestamp}"
-//      ENDPOINT = path (+query) URL webhook yang didaftarkan; ACCESS_TOKEN = Authorization tanpa "Bearer "
-//   4) signature = HMAC-SHA512(stringToSign, CLIENT_SECRET) -> bandingkan konstan-waktu dgn X-Signature
-// HMAC key = SINGAPAY_CLIENT_SECRET (BUKAN API key).
-function sortRecursive(o) {
-  if (o === null || typeof o !== "object") return o;
-  if (Array.isArray(o)) return o.map(sortRecursive);
-  return Object.keys(o).sort().reduce(function (acc, k) { acc[k] = sortRecursive(o[k]); return acc; }, {});
-}
-function singapayVerify(req) {
-  const h = req.headers || {};
-  const recv = String(h["x-signature"] || "");
-  const ts = String(h["x-timestamp"] || "");
-  const token = String(h["authorization"] || "").replace(/^Bearer\s+/i, "");
-  const endpoint = req.originalUrl || req.url || "";
-  const raw = (typeof req.rawBody === "string" && req.rawBody.length) ? req.rawBody : JSON.stringify(req.body || {});
-  let obj;
-  try { obj = JSON.parse(raw); } catch (e) { return { valid: false, reason: "bad_json", ts: ts }; }
-  const norm = JSON.stringify(sortRecursive(obj));
-  const hashedBody = crypto.createHash("sha256").update(norm, "utf8").digest("hex");
-  const stringToSign = "POST:" + endpoint + ":" + token + ":" + hashedBody + ":" + ts;
-  const calc = crypto.createHmac("sha512", SINGAPAY_CLIENT_SECRET || "").update(stringToSign, "utf8").digest("hex");
-  let ok = false;
-  try { ok = recv.length === calc.length && crypto.timingSafeEqual(Buffer.from(calc), Buffer.from(recv)); } catch (e) { ok = false; }
-  // Cek replay: timestamp dalam 5 menit (info saja saat bring-up; tidak menolak).
-  let tskew = null;
-  const tnum = parseInt(ts, 10);
-  if (tnum) tskew = Math.abs(Math.floor(Date.now() / 1000) - tnum);
-  return { valid: ok, reason: ok ? "ok" : "mismatch", ts: ts, tskew: tskew };
-}
-// Saat bring-up (SINGAPAY_WEBHOOK_ENFORCE != "1"): tetap 200 + LOG hasil verifikasi & payload,
-// supaya tombol Test lolos & kita bisa lihat payload asli + apakah signature cocok. Belum ada
-// pemberian kredit (menunggu skema payload transaksi + endpoint create-payment).
-// F0-5 — Fail-closed di PRODUCTION: default MENOLAK webhook dgn signature invalid,
-// walau env tidak di-set. Escape hatch darurat: SINGAPAY_WEBHOOK_ENFORCE="0" untuk
-// mematikan enforce (mis. kalau ada masalah verifikasi signature webhook asli).
-// Non-production: hanya enforce kalau di-set "1" (mudah saat bring-up).
-const SINGAPAY_WEBHOOK_ENFORCE = (process.env.SINGAPAY_WEBHOOK_ENFORCE === "1") ||
-  (IS_PROD && process.env.SINGAPAY_WEBHOOK_ENFORCE !== "0");
-function singapayNotify(tag) {
-  return function (req, res) {
-    let v = { valid: false, reason: "n/a" };
-    try { v = singapayVerify(req); } catch (e) { v = { valid: false, reason: "err" }; }
-    const reff = webhookReff(req.body);
-    const paid = webhookLooksPaid(req.body);
-    try {
-      console.log("singapay-notify[" + tag + "] sig=" + v.valid + "/" + v.reason + " tskew=" + v.tskew +
-        " reff=" + (reff || "-") + " paid=" + paid + " body=" + JSON.stringify(req.body || {}).slice(0, 600));
-    } catch (e) {}
-    if (SINGAPAY_WEBHOOK_ENFORCE && !v.valid) {
-      return res.status(401).json({ status: "error", message: "Invalid signature" });
-    }
-    // Kreditkan HANYA kalau signature valid (anti-palsu) ATAU enforce dimatikan saat bring-up.
-    if (reff && paid && (v.valid || !SINGAPAY_WEBHOOK_ENFORCE)) {
-      creditScanOrder(reff, webhookMeta(req.body)).catch(function (e) { try { console.error("creditScanOrder", e.message); } catch (_) {} });
-    }
-    return res.status(200).json({ status: "success" });
-  };
-}
-app.post("/api/singapay/notify/transaction", singapayNotify("transaction"));
-app.post("/api/singapay/notify/payment-link", singapayNotify("payment-link"));
-app.post("/api/singapay/notify/expiration", singapayNotify("expiration"));
-app.post("/api/singapay/notify/settlement", singapayNotify("settlement"));
-// Sebagian gateway pakai GET utk uji koneksi -> balas 200 juga.
-app.get("/api/singapay/notify/:kind", function (req, res) { return res.status(200).json({ status: "success", kind: req.params.kind }); });
+// Catatan: TIDAK ada webhook langsung dari Xendit ke server ini. FITCO yang menerima callback
+// Xendit dan menandai order lunas. Server kita memberi kredit (server-authoritative, idempoten)
+// saat /api/scan/order-status mendeteksi order FITCO sudah lunas (is_paid).
 
 // Ambil IP keluar (egress) server — coba beberapa penyedia sbg cadangan.
 async function egressIp() {
@@ -1893,38 +2164,46 @@ async function egressIp() {
   return "";
 }
 
-// Cek IP keluar (egress) server ini — untuk didaftarkan di "Static IP" SingaPay.
+// Cek IP keluar (egress) server ini — berguna untuk didaftarkan di allowlist/Static IP
+// integrasi mana pun yang membutuhkannya.
 app.get("/api/whoami", async (req, res) => {
   const ip = await egressIp();
-  return res.json({ ok: true, egress_ip: ip, note: ip ? "Daftarkan IP ini di SingaPay (Static IP)." : "Gagal ambil IP; coba lagi." });
+  return res.json({ ok: true, egress_ip: ip, note: ip ? "IP keluar server (egress)." : "Gagal ambil IP; coba lagi." });
 });
 
-// Self-test konfigurasi SingaPay (non-sensitif): cek token + account bisa didapat.
-app.get("/api/singapay/selftest", async (req, res) => {
-  const out = {
-    enabled: SINGAPAY_ENABLED, baseUrl: SINGAPAY_BASE_URL,
-    clientIdSet: !!SINGAPAY_CLIENT_ID, secretSet: !!SINGAPAY_CLIENT_SECRET,
-    apiKeySet: !!SINGAPAY_API_KEY, hmacKeySet: !!SINGAPAY_HMAC_KEY,
-    accountIdEnv: SINGAPAY_ACCOUNT_ID ? "set" : "auto",
-  };
-  try { const t = await singapayToken(); out.tokenOk = !!t; } catch (e) { out.tokenOk = false; out.tokenError = String(e.message); }
-  if (out.tokenOk) { try { out.accountId = await singapayAccountId(); } catch (e) { out.accountError = String(e.message); } }
-  out.ready = !!(out.tokenOk && out.accountId);
-  return res.json(out);
+// Self-test konfigurasi pembayaran (non-sensitif): status env, tanpa bocorkan nilai.
+app.get("/api/xendit/selftest", (req, res) => {
+  return res.json({
+    enabled: XENDIT_ENABLED,
+    via: "fitco-shop-order",
+    fitcoApiUrl: FITCO_API,
+    fitcoPartnerTokenSet: !!FITCO_PARTNER_TOKEN,
+    ready: !!FITCO_PARTNER_TOKEN,
+  });
 });
 
-// Halaman gampang lihat egress IP server (buat didaftarkan di Static IP SingaPay).
+// Halaman gampang lihat egress IP server (buat didaftarkan di allowlist/Static IP bila perlu).
 app.get("/ip", async (req, res) => {
   const ip = await egressIp();
   res.set("Content-Type", "text/html; charset=utf-8");
   res.send('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<body style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:48px auto;padding:22px;text-align:center;color:#111">' +
     '<h2 style="margin:0 0 6px">Server egress IP</h2>' +
-    '<p style="color:#666;margin:0 0 18px;font-size:14px">IP keluar server 20FIT — daftarkan di kolom <b>Static IP</b> SingaPay.</p>' +
+    '<p style="color:#666;margin:0 0 18px;font-size:14px">IP keluar server 20FIT — daftarkan di kolom <b>Static IP</b>/allowlist bila integrasi memerlukannya.</p>' +
     '<p style="font-size:30px;font-weight:800;letter-spacing:1px;margin:10px 0" id="ip">' + (ip || "—") + '</p>' +
     (ip ? '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById(\'ip\').textContent);this.textContent=\'Copied ✓\'" style="padding:11px 18px;border:0;border-radius:9px;background:#C41101;color:#fff;font-weight:800;font-size:14px;cursor:pointer">Copy IP</button>' : '') +
     '<p style="color:#999;font-size:12.5px;margin-top:22px;line-height:1.6">Refresh halaman ini 3–4×. Kalau angkanya tetap = IP stabil (aman didaftarkan). Kalau berubah-ubah = IP Railway dinamis, hubungi aku dulu.</p>' +
     '</body>');
+});
+
+// ---------- Halaman balik-dari-pembayaran (landing redirect dari Xendit) ----------
+// /payment/pending (+ alias /payment/success) & /payment/failed. Dilayani eksplisit supaya
+// path bertingkat tetap ketemu file-nya (di atas static + catch-all).
+app.get(["/payment/pending", "/payment/success"], (req, res) => {
+  res.sendFile(path.join(__dirname, "payment-pending.html"));
+});
+app.get("/payment/failed", (req, res) => {
+  res.sendFile(path.join(__dirname, "payment-failed.html"));
 });
 
 // ---------- Static (URL bersih tanpa .html) + fallback ----------
@@ -1937,6 +2216,23 @@ app.get(/\.html$/, (req, res) => {
 app.use(express.static(path.join(__dirname), { extensions: ["html"] }));
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
+});
+
+// Penangkap error terakhir. TANPA ini, error tak tertangani di middleware/route dijawab
+// handler bawaan Express sebagai HTML — klien memanggil res.json() atasnya, gagal, lalu
+// menampilkan pesan generik ("Couldn't start payment.") tanpa sebab. Untuk /api/ jawabannya
+// HARUS selalu JSON supaya kegagalan bisa dibaca & didiagnosis, bukan menyamar.
+// Tanda tangan 4-argumen WAJIB — begitu Express mengenali ini sebagai error handler.
+app.use((err, req, res, next) => {
+  const aborted = err && (err.name === "AbortError" || err.code === "ABORT_ERR");
+  try { console.error("unhandled", req.method, req.originalUrl, "-", (err && err.stack) || err); } catch (e) {}
+  if (res.headersSent) return next(err);
+  if (!req.path.startsWith("/api/")) return res.status(500).send("Internal Server Error");
+  return res.status(aborted ? 504 : 500).json({
+    error: aborted
+      ? "Server terlalu lama merespons. Coba lagi sebentar lagi."
+      : "Terjadi kesalahan di server. Coba lagi.",
+  });
 });
 
 app.listen(PORT, () => {
