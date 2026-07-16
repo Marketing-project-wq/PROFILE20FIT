@@ -44,11 +44,31 @@ if (!SUPABASE_SERVICE_KEY) {
   console.warn("[20FIT] WARNING: SUPABASE_SERVICE_KEY belum di-set (OTP butuh ini).");
 }
 
+// Fetch ber-timeout untuk SEMUA panggilan Supabase.
+//
+// Kenapa: supabase-js memakai fetch TANPA batas waktu. Setiap request kita menyentuh Supabase
+// (verifikasi token di getUserFromReq, baca profil, insert order, RPC kredit). Kalau Supabase
+// melambat/menggantung, request kita ikut menggantung TANPA BATAS — kita tak pernah menjawab,
+// lalu proxy Railway yang menyerah dan membalas 502 HTML. Klien mencoba res.json() atas HTML
+// itu, gagal, dan menampilkan "Couldn't start payment. (HTTP 502)" tanpa sebab — kegagalan
+// tanpa jejak yang mustahil didiagnosis.
+//
+// Prinsipnya: KITA yang harus menjawab duluan, dengan JSON. 12 detik cukup longgar untuk
+// Supabase sehat (biasanya <300ms) tapi jauh di bawah batas sabar proxy.
+const SUPA_TIMEOUT_MS = parseInt(process.env.SUPABASE_TIMEOUT_MS || "12000", 10);
+const supaFetch = (url, opts = {}) => {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), SUPA_TIMEOUT_MS);
+  return fetch(url, { ...opts, signal: opts.signal || ctrl.signal })
+    .finally(() => clearTimeout(timer));
+};
+
 // Service client (bypass RLS, hanya di server) untuk operasi OTP
 const admin =
   SUPABASE_URL && SUPABASE_SERVICE_KEY
     ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
         auth: { autoRefreshToken: false, persistSession: false },
+        global: { fetch: supaFetch },
       })
     : null;
 
@@ -57,6 +77,7 @@ const anon =
   SUPABASE_URL && SUPABASE_ANON_KEY
     ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: { autoRefreshToken: false, persistSession: false },
+        global: { fetch: supaFetch },
       })
     : null;
 
@@ -161,12 +182,40 @@ function gen6() {
 }
 
 // Ambil user dari Authorization: Bearer <jwt>
+// null = token memang TIDAK SAH (pemanggil balas 401).
+// throw (status 503) = kita TIDAK BISA memverifikasi (Supabase lambat/mati/timeout).
+//
+// Kenapa dibedakan: dulu `if (error) return null` menyamaratakan SEMUA kegagalan, jadi
+// Supabase tersendat dilaporkan ke user sebagai "Unauthorized". User (dan yang men-debug)
+// dikirim ke arah salah — mengira sesinya habis, disuruh logout-login, padahal loginnya
+// baik-baik saja dan yang bermasalah infrastruktur. Kegagalan infrastruktur TIDAK BOLEH
+// menyamar jadi kegagalan autentikasi.
 async function getUserFromReq(req) {
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!token || !anon) return null;
-  const { data, error } = await anon.auth.getUser(token);
-  if (error) return null;
+  let data, error;
+  try {
+    ({ data, error } = await anon.auth.getUser(token));
+  } catch (e) {
+    // Timeout/jaringan (mis. AbortError dari supaFetch) -> bukan urusan token.
+    const err = new Error("auth_unavailable");
+    err.status = 503;
+    err.userMessage = "Tidak bisa memverifikasi sesi kamu saat ini. Coba lagi sebentar lagi.";
+    try { console.error("getUserFromReq infra:", (e && e.message) || e); } catch (_) {}
+    throw err;
+  }
+  if (error) {
+    // Token benar-benar ditolak (401/403) -> null. Selain itu (5xx / status kosong =
+    // gagal jaringan menurut supabase-js) -> masalah infrastruktur.
+    const st = +(error.status || 0);
+    if (st === 401 || st === 403 || st === 400) return null;
+    const err = new Error("auth_unavailable");
+    err.status = 503;
+    err.userMessage = "Tidak bisa memverifikasi sesi kamu saat ini. Coba lagi sebentar lagi.";
+    try { console.error("getUserFromReq infra:", st, error.message); } catch (_) {}
+    throw err;
+  }
   return data.user || null;
 }
 
@@ -1596,7 +1645,10 @@ app.post("/api/scan/buy", async (req, res) => {
     }
   } catch (e) {
     console.error("scan/buy:", e.message);
-    return res.status(502).json({ error: "Gagal memproses pembayaran. Coba lagi." });
+    // Hormati status/pesan yg sudah spesifik (mis. 503 auth_unavailable dari getUserFromReq)
+    // supaya user tahu sebabnya, bukan dapat 502 generik yang menyesatkan.
+    return res.status(e && e.status ? e.status : 502)
+      .json({ error: (e && e.userMessage) || "Gagal memproses pembayaran. Coba lagi." });
   }
 });
 
@@ -1641,7 +1693,12 @@ app.post("/api/scan/voucher-check", async (req, res) => {
     const vr = await validateVoucherForBuy(b.code, gross, user.id);
     if (vr.error) return res.json({ ok: false, error: vr.error });
     return res.json({ ok: true, valid: !!vr.voucher, code: vr.voucher ? vr.voucher.code : null, discount: vr.discount, final: vr.final });
-  } catch (e) { return res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    // JANGAN bocorkan e.message mentah ke user (dulu: "auth_unavailable" muncul di layar).
+    try { console.error("voucher-check:", (e && e.message) || e); } catch (_) {}
+    return res.status(e && e.status ? e.status : 500)
+      .json({ ok: false, error: (e && e.userMessage) || "Gagal cek voucher. Coba lagi." });
+  }
 });
 
 // ---------- Heartbeat aktivitas user (untuk lacak aktif/tidak aktif) ----------
@@ -1801,8 +1858,11 @@ app.post("/api/scan/reconcile", async (req, res) => {
     }
     return res.json({ ok: true, checked: checked, credited: creditedOrders.length, credits: credits, orders: creditedOrders });
   } catch (e) {
-    console.error("scan/reconcile:", e.message);
-    return res.json({ ok: true, checked: 0, credited: 0 });
+    // JANGAN balas ok:true di sini — klien menandai _swept dan berhenti mencoba, jadi
+    // kegagalan infrastruktur akan diam-diam mematikan jalur kredit lintas-device.
+    console.error("scan/reconcile:", (e && e.message) || e);
+    return res.status(e && e.status ? e.status : 500)
+      .json({ ok: false, error: (e && e.userMessage) || "Gagal memeriksa pembayaran tertunda." });
   }
 });
 
@@ -2082,6 +2142,23 @@ app.get(/\.html$/, (req, res) => {
 app.use(express.static(path.join(__dirname), { extensions: ["html"] }));
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
+});
+
+// Penangkap error terakhir. TANPA ini, error tak tertangani di middleware/route dijawab
+// handler bawaan Express sebagai HTML — klien memanggil res.json() atasnya, gagal, lalu
+// menampilkan pesan generik ("Couldn't start payment.") tanpa sebab. Untuk /api/ jawabannya
+// HARUS selalu JSON supaya kegagalan bisa dibaca & didiagnosis, bukan menyamar.
+// Tanda tangan 4-argumen WAJIB — begitu Express mengenali ini sebagai error handler.
+app.use((err, req, res, next) => {
+  const aborted = err && (err.name === "AbortError" || err.code === "ABORT_ERR");
+  try { console.error("unhandled", req.method, req.originalUrl, "-", (err && err.stack) || err); } catch (e) {}
+  if (res.headersSent) return next(err);
+  if (!req.path.startsWith("/api/")) return res.status(500).send("Internal Server Error");
+  return res.status(aborted ? 504 : 500).json({
+    error: aborted
+      ? "Server terlalu lama merespons. Coba lagi sebentar lagi."
+      : "Terjadi kesalahan di server. Coba lagi.",
+  });
 });
 
 app.listen(PORT, () => {
