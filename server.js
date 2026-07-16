@@ -1539,10 +1539,25 @@ app.post("/api/scan/buy", async (req, res) => {
       // user_id = FITCO uid member (dari client localStorage 'fitco_uid'). Diteruskan spt
       // implementasi lama yg terbukti jalan; kalau kosong (user non-FITCO) kirim null (order tamu).
       const fitcoUid = b.user_id ? String(b.user_id).trim() : null;
+      // price = harga FINAL (setelah voucher) dalam SATU baris item. WAJIB dikirim.
+      //
+      // Tanpa price, FITCO memakai harga KATALOG-nya sendiri. Voucher kita hidup di Supabase
+      // (my20fit_vouchers) dan FITCO TIDAK TAHU voucher itu ada — promo_code yang kita teruskan
+      // tak berarti apa-apa bagi mereka. Akibatnya user dengan voucher diskon SEBAGIAN ditagih
+      // Xendit HARGA PENUH, sementara my20fit_scan_orders.net_amount mencatat seolah didiskon.
+      // (Voucher 100% kebetulan aman: amount<=0 memotong jalur FITCO dan dikredit langsung.)
+      //
+      // Pola price-satu-baris ini yang dipakai photo.20fit.id justru UNTUK diskon
+      // (artifacts/api-server/src/lib/mainapi.ts: price: Math.round(tx.grossAmount)).
+      // Bonus: harga jadi eksplisit, jadi katalog FITCO yang bergeser tak diam-diam mengubah
+      // tagihan user (product_id di dokumentasi 20FIT pernah salah beberapa kali).
+      //
+      // Aman dari manipulasi: client HANYA mengirim package_id + voucher_code; `amount` dihitung
+      // server dari SCAN_PACKAGES + voucher yang divalidasi server.
       const r = await createFitcoXenditOrder({
         bearer: bearer, userId: fitcoUid, name: prof.full_name || (email ? email.split("@")[0] : "Member"),
         phone: phone, email: email, promoCode: promoCode,
-        items: [{ product_id: packageId, quantity: 1 }],
+        items: [{ product_id: packageId, quantity: 1, price: amount }],
       });
       // Simpan id order FITCO di payment_link_id — INI SATU-SATUNYA pegangan untuk memantau
       // status. Tanpa itu order jadi TAK TERLACAK: polling tak bisa, /api/scan/reconcile
