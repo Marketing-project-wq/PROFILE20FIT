@@ -84,6 +84,10 @@
       '<div id="dlDetail" class="dl-detail" style="display:none">' +
       '<div class="dl-vrow"><input id="dlVoucher" autocomplete="off" /><button class="dl-vapply" id="dlVApply"></button></div>' +
       '<div class="dl-vmsg" id="dlVMsg"></div>' +
+      '<div id="dlPhoneRow" style="display:none;margin:10px 0 2px">' +
+      '<label for="dlPhone" id="dlPhoneLbl" style="display:block;font-size:13px;font-weight:600;margin-bottom:5px"></label>' +
+      '<input id="dlPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+62 812xxxxxxxx" style="width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line,#e5e2dd);background:var(--card,#fff);color:var(--txt,#16181d);font-size:15px;box-sizing:border-box" />' +
+      '<div id="dlPhoneMsg" style="font-size:12.5px;color:var(--red,#C41101);margin-top:5px"></div></div>' +
       '<div class="dl-rc-row"><span class="k" id="dlRcSubL"></span><span id="dlRcSub"></span></div>' +
       '<div class="dl-rc-row" id="dlRcDiscRow" style="display:none"><span class="k" style="color:var(--green,#2A7A4F)" id="dlRcDiscL"></span><span style="color:var(--green,#2A7A4F);font-weight:700" id="dlRcDisc"></span></div>' +
       '<div class="dl-rc-total"><span id="dlRcTotalL"></span><span id="dlRcTotal"></span></div>' +
@@ -144,6 +148,10 @@
     document.getElementById("dlRcDiscL").textContent = L({ en: "Voucher discount", id: "Diskon voucher" });
     document.getElementById("dlRcTotalL").textContent = L({ en: "Total to pay", id: "Total bayar" });
     document.getElementById("dlDetail").style.display = "none";   // detail baru muncul setelah pilih paket
+    // Reset input HP (hanya muncul kalau server minta / profil tanpa no HP).
+    var _pr = document.getElementById("dlPhoneRow"); if (_pr) _pr.style.display = "none";
+    var _pi = document.getElementById("dlPhone"); if (_pi) _pi.value = "";
+    var _pm = document.getElementById("dlPhoneMsg"); if (_pm) _pm.textContent = "";
     document.getElementById("dlNote").textContent = L({ en: "Secure payment via Xendit. Your extra scans never expire.", id: "Pembayaran aman via Xendit. Scan tambahan tidak akan hangus." });
     renderTotals();
     document.getElementById("dlBg").classList.add("open");
@@ -224,7 +232,8 @@
       var tk = await Auth.token();
       // Server-authoritative: kirim package_id (= product_id 20FIT). Server menentukan
       // credits & harga dari katalog; voucher juga diverifikasi & dihitung server.
-      var r = await fetch("/api/scan/buy", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (tk || "") }, body: JSON.stringify({ package_id: p.product_id, credits: p.credits, price: p.price, voucher_code: CUR_VOUCHER || null, fitco_token: ftk, user_id: localStorage.getItem("fitco_uid") || null }) });
+      var phoneVal = ((document.getElementById("dlPhone") || {}).value || "").trim();
+      var r = await fetch("/api/scan/buy", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (tk || "") }, body: JSON.stringify({ package_id: p.product_id, credits: p.credits, price: p.price, voucher_code: CUR_VOUCHER || null, fitco_token: ftk, user_id: localStorage.getItem("fitco_uid") || null, phone: phoneVal || null }) });
       // Baca sbg TEXT dulu lalu parse: kalau server/platform balas non-JSON (mis. 5xx/timeout
       // HTML), kita masih tahu status HTTP-nya dan bisa tampilkan sebab yg actionable.
       var raw = await r.text().catch(function () { return ""; });
@@ -239,6 +248,20 @@
         metaTrack("Success Payment", { content_name: "scan pack (voucher)", currency: "IDR", value: 0, contents: [{ id: p.product_id, quantity: 1 }], num_items: 1 });
         if (_onCredited) { try { await _onCredited(); } catch (e) {} }
         showThanks(p.credits);
+        return;
+      }
+      // Server minta nomor HP (profil kosong) -> munculkan input HP di sheet & minta ulang; bukan error fatal.
+      if (!r.ok && j.need_phone) {
+        if (payWin) { try { payWin.close(); } catch (e) {} }
+        var prow = document.getElementById("dlPhoneRow");
+        var plbl = document.getElementById("dlPhoneLbl");
+        var pmsg = document.getElementById("dlPhoneMsg");
+        var pinp = document.getElementById("dlPhone");
+        if (plbl) plbl.textContent = L({ en: "Phone number (for payment)", id: "Nomor HP (untuk pembayaran)" });
+        if (prow) prow.style.display = "block";
+        if (pmsg) pmsg.textContent = j.error || L({ en: "Enter your phone number to continue.", id: "Masukkan nomor HP untuk lanjut." });
+        if (pinp) { try { pinp.focus(); } catch (e) {} }
+        payBtn.disabled = false; renderTotals();
         return;
       }
       if (!r.ok || !j.link) {
