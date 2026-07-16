@@ -48,6 +48,13 @@
   html:not(.theme-light) .hero.wx-night .wx-temp{color:#C9D4F5}
   @keyframes heroBreathe{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
   .hero-inner{position:relative;z-index:1}
+  /* PLATAROX x 20FIT — banner hasil & leaderboard race (home, di atas kartu onboarding) */
+  .race-banner{display:block;margin:2px 0 14px;border-radius:16px;overflow:hidden;line-height:0;
+    box-shadow:0 4px 18px rgba(16,18,22,.12);transition:transform .16s ease,box-shadow .16s ease}
+  .race-banner:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(16,18,22,.20)}
+  .race-banner:active{transform:translateY(0)}
+  .race-banner:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+  .race-banner img{width:100%;height:auto;display:block}
   .hk{color:var(--red);font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px 2px}
   .hello{font-size:33px;font-weight:800;margin:0 2px;letter-spacing:-.03em;line-height:1.04}
   .greetdate{font-size:13px;color:var(--faint);font-weight:600;margin:5px 2px 0}
@@ -315,6 +322,14 @@
         <div class="asrc" id="wbadge"></div>
       </div>
     </header>
+
+    <!-- PLATAROX x 20FIT — klik banner -> hasil & leaderboard race di racelabtiming -->
+    <a class="race-banner" href="https://racelabtiming.20fit.id/results/platarox"
+       target="_blank" rel="noopener"
+       aria-label="Lihat hasil & leaderboard Platarox kamu">
+      <img src="https://media.20fit.id/wp-content/uploads/2026/07/platarox-20fit-banner.jpg"
+           alt="PLATAROX x 20FIT — Your race. Your time. Proven. Check my results">
+    </a>
 
     <!-- Penting hari ini (kalori + what to watch) -->
     <div id="healthReminder"></div>
