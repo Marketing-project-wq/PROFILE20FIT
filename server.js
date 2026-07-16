@@ -366,6 +366,11 @@ const FITCO_GOOGLE_LOGIN_PATH = process.env.FITCO_GOOGLE_LOGIN_PATH || "/api/v1/
 // "1" = tandai Xendit aktif di /api/config (info untuk frontend).
 const XENDIT_ENABLED = process.env.XENDIT_ENABLED === "1";
 
+// Asal URL publik app ini, dipakai sbg tujuan kepulangan invoice Xendit (lihat
+// createFitcoXenditOrder). Bukan rahasia — pola default publik sama dgn FITCO_API /
+// GOOGLE_CLIENT_ID. Set APP_BASE_URL di Railway staging supaya staging balik ke staging.
+const APP_BASE_URL = (process.env.APP_BASE_URL || "https://my.20fit.id").replace(/\/+$/, "");
+
 // ---------- Katalog paket scan (server-authoritative) ----------
 // Sumber kebenaran harga & jumlah kredit ada di SERVER, bukan client. /api/scan/buy
 // hanya menerima package_id; server yang menentukan credits & price dari sini.
@@ -1795,6 +1800,20 @@ function findXenditLink(obj) {
   return out;
 }
 async function createFitcoXenditOrder(o) {
+  // Upaya terbaik supaya Xendit memulangkan user ke SINI, bukan ke platform event 20FIT.
+  //
+  // Konteks: shop/order TIDAK mendokumentasikan field redirect, dan invoice-nya diterbitkan
+  // 20FIT — success_redirect_url bawaannya mengarah ke platform EVENT mereka (endpoint ini
+  // aslinya untuk jualan tiket event; kita numpang). Tapi API-nya MENOLERANSI field ekstra,
+  // dan app saudara photo.20fit.id sudah mengirim dua field ini pada endpoint sekerabat
+  // (/api/v1/third-party/photo/order, lih. artifacts/api-server/src/lib/mainapi.ts) dengan
+  // alasan sama.
+  //
+  // Status: BELUM DIKONFIRMASI apakah 20FIT meneruskannya ke invoice Xendit — tim photo pun
+  // menandainya "a dev confirmation". Diteruskan = redirect benar; diabaikan = tidak ada yang
+  // rusak. Kredit TIDAK bergantung pada ini: /api/scan/reconcile + polling tetap sumbernya.
+  // JANGAN membangun logika kredit di atas asumsi field ini dihormati.
+  const finishUrl = APP_BASE_URL + "/calories?status=paid";
   const body = {
     user_id: o.userId || null,
     name: o.name || "Member",
@@ -1802,6 +1821,8 @@ async function createFitcoXenditOrder(o) {
     phone: o.phone || "",
     email: o.email || "",
     promo_code: o.promoCode || null,
+    success_redirect_url: finishUrl,
+    failure_redirect_url: APP_BASE_URL + "/calories?status=failed",
     payment: { payment_type: "xendit-invoices", user_point_booster_id: null, use_fit_points: false },
     items: o.items,
   };
@@ -1838,6 +1859,19 @@ async function createFitcoXenditOrder(o) {
   let j = {};
   try { j = raw ? JSON.parse(raw) : {}; } catch (e) { j = {}; }
   console.log("fitco-shop-order", r.status, (Date.now() - t0) + "ms", raw ? ("len=" + raw.length) : "empty");
+  // Apakah 20FIT MENGHORMATI success_redirect_url yang kita kirim? Ini satu-satunya cara tahu
+  // tanpa menunggu konfirmasi dev: kalau responsnya menyebut ulang redirect, cocokkan dengan
+  // milik kita. Terbaca di log Railway sbg redirect=ours|theirs|absent.
+  //   ours   -> diteruskan; user pulang ke my.20fit.id. Masalah "nyasar ke event" SELESAI.
+  //   theirs -> diabaikan & ditimpa (kemungkinan besar ke platform event) -> perlu perubahan
+  //             di backend 20FIT; jaring pengaman kita yang menanggung.
+  //   absent -> respons tak menyebutkan; cek langsung invoice-nya di dashboard Xendit.
+  try {
+    const echoed = findScalar(j, ["success_redirect_url", "successRedirectUrl"]);
+    console.log("fitco-shop-order redirect=" +
+      (!echoed ? "absent" : (String(echoed).indexOf(APP_BASE_URL) === 0 ? "ours" : "theirs")) +
+      (echoed ? (" -> " + String(echoed).slice(0, 120)) : ""));
+  } catch (e) {}
   if (!r.ok) {
     console.error("fitco-shop-order ERR", r.status, raw.slice(0, 500));
     const e = new Error("fitco_order_" + r.status);
