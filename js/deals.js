@@ -19,6 +19,12 @@
   var CUR_VOUCHER = null, CUR_DISCOUNT = 0, CUR_FINAL = 0;
   var _onCredited = null;
   var _pollTimer = null, _payChecking = false, _payDismissed = false;
+  // Tab checkout Xendit yang KITA buka. Disimpan di level modul supaya polling otomatis
+  // (bukan cuma tombol "Cek sekarang") bisa menutupnya begitu pembayaran terkonfirmasi.
+  // Perlu karena success_redirect_url invoice ditentukan backend 20FIT dan mengarah ke
+  // platform event mereka — tanpa ini user ditinggal menatap situs asing setelah bayar.
+  var _payWin = null;
+  function closePayWin() { try { if (_payWin && !_payWin.closed) _payWin.close(); } catch (e) {} _payWin = null; }
 
   function injectOnce() {
     if (document.getElementById("dealsRoot")) return;
@@ -120,7 +126,7 @@
       var target = (a[0] && a[0].link) ? a[0] : null;
       if (!target) { for (var i = 0; i < a.length; i++) { if (a[i] && a[i].link) { target = a[i]; break; } } }
       var win = target ? window.open("", "_blank") : null;
-      if (win) { try { win.document.write("<p style='font-family:sans-serif;padding:24px'>" + L({ en: "Opening payment page…", id: "Membuka halaman pembayaran…" }) + "</p>"); } catch (e) {} }
+      if (win) { closePayWin(); _payWin = win; try { win.document.write("<p style='font-family:sans-serif;padding:24px'>" + L({ en: "Opening payment page…", id: "Membuka halaman pembayaran…" }) + "</p>"); } catch (e) {} }
       pollOrderStatus(true, win, target);
     });
     document.getElementById("dlToastClose").addEventListener("click", function () { _payDismissed = true; hideToast(); });
@@ -226,7 +232,9 @@
     var free = CUR_FINAL <= 0;
     payBtn.disabled = true; payBtn.textContent = L({ en: "Processing…", id: "Memproses…" });
     var ftk = localStorage.getItem("fitco_token") || "";
+    // Dibuka SINKRON di dalam gesture klik supaya tidak kena popup blocker.
     var payWin = free ? null : window.open("", "_blank");
+    _payWin = payWin;
     if (payWin) { try { payWin.document.write("<p style='font-family:sans-serif;padding:24px'>Menyiapkan pembayaran…</p>"); } catch (e) {} }
     try {
       var tk = await Auth.token();
@@ -268,12 +276,21 @@
         if (!j.error) { try { console.error("scan/buy non-JSON resp", r.status, (raw || "").slice(0, 300)); } catch (e) {} }
         throw new Error(j.error || (L({ en: "Couldn't start payment.", id: "Gagal memulai pembayaran." }) + " (HTTP " + r.status + ")"));
       }
-      if (payWin) { payWin.location.href = j.link; } else if (!window.open(j.link, "_blank")) { location.href = j.link; }
+      // Catat order DULU, baru buka checkout: kalau pencatatan gagal/terlewat, order hilang
+      // dari sisi klien dan polling tak pernah jalan. Server tetap sumber kebenarannya, tapi
+      // ini yang bikin tab ini tahu harus memantau apa.
       var oid = j.sales_order_id || j.order_no;
       if (oid) {
         try { Orders.add({ id: oid, order_no: j.order_no || null, sales_order_id: j.sales_order_id || null, credits: p.credits, price: p.price, discount: disc, total: total, product_id: p.product_id, link: j.link || null, provider: j.provider || null, ts: Date.now() }); } catch (e) {}
-        _payDismissed = false; showToast(); startPolling();
       }
+      // Arahkan tab checkout. JANGAN pernah menavigasi tab ini ke Xendit: invoice-nya
+      // ber-success_redirect_url ke platform event 20FIT (di luar kendali kita), jadi tab yang
+      // dipakai bayar TIDAK akan kembali ke sini. Tab ini harus tetap hidup untuk polling —
+      // ia yang memberi kredit & menampilkan thank-you. Kalau popup diblokir, sediakan tombol
+      // (klik = gesture user, lolos blocker) alih-alih membuang halaman ini.
+      if (payWin) { try { payWin.location.href = j.link; } catch (e) {} }
+      else { _payWin = window.open(j.link, "_blank"); if (!_payWin) showPayFallback(j.link); }
+      if (oid) { _payDismissed = false; showToast(); startPolling(); }
       closeDeals();
     } catch (e) {
       var emsg = (e && e.message) || L({ en: "Purchase failed. Try again.", id: "Pembelian gagal. Coba lagi." });
@@ -305,6 +322,18 @@
     el.classList.add("show");
   }
   function hideToast() { var el = document.getElementById("dlToast"); if (el) el.classList.remove("show"); }
+  // Popup diblokir browser: JANGAN buang halaman ini (dulu `location.href = link`, yang bikin
+  // user hilang ke platform event 20FIT setelah bayar dan tak pernah balik). Pakai toast yang
+  // sudah ada — tombolnya membuka halaman pembayaran di dalam gesture klik, jadi lolos blocker.
+  function showPayFallback(link) {
+    injectOnce(); _payDismissed = false;
+    var el = document.getElementById("dlToast"); if (!el) { try { window.open(link, "_blank"); } catch (e) {} return; }
+    el.classList.add("show");
+    var m = document.getElementById("dlToastMsg");
+    if (m) m.textContent = L({ en: "Popup blocked — tap “Open payment” to continue.", id: "Popup diblokir — ketuk “Buka pembayaran” untuk lanjut." });
+    var b = document.getElementById("dlToastBtn");
+    if (b) b.textContent = L({ en: "Open payment", id: "Buka pembayaran" });
+  }
   function stopPolling() { if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; } }
   function creditPaid(o) {
     if (o.provider !== "xendit") { try { Auth.addScanCredits(o.credits || 0); } catch (e) {} }
@@ -326,7 +355,7 @@
       try { payWin.close(); } catch (e) {}
     }
     var a = getPendings();
-    if (!a.length) { stopPolling(); hideToast(); if (payWin) { try { payWin.close(); } catch (e) {} } return; }
+    if (!a.length) { stopPolling(); hideToast(); if (payWin) { try { payWin.close(); } catch (e) {} } closePayWin(); return; }
     if (!_payDismissed) showToast();
     if (_payChecking) { routePayWin(); return; }
     _payChecking = true;
@@ -342,8 +371,11 @@
     _payChecking = false;
     if (btn) { btn.disabled = false; btn.textContent = L({ en: "Check now", id: "Cek sekarang" }); }
     var rem = getPendings();
-    if (paidOne) { if (payWin) { try { payWin.close(); } catch (e) {} } closeDeals(); if (!rem.length) { stopPolling(); hideToast(); } showThanks(paidOne.credits || 0); return; }
-    if (!rem.length) { stopPolling(); hideToast(); if (payWin) { try { payWin.close(); } catch (e) {} } return; }
+    // Lunas: tutup tab checkout. Setelah bayar, Xendit melempar tab itu ke platform event 20FIT
+    // (success_redirect_url di-set backend 20FIT, bukan kita) — kalau dibiarkan, user berakhir
+    // menatap situs asing dan mengira pembayarannya gagal. Tab ini yang menampilkan thank-you.
+    if (paidOne) { if (payWin) { try { payWin.close(); } catch (e) {} } closePayWin(); closeDeals(); if (!rem.length) { stopPolling(); hideToast(); } showThanks(paidOne.credits || 0); return; }
+    if (!rem.length) { stopPolling(); hideToast(); if (payWin) { try { payWin.close(); } catch (e) {} } closePayWin(); return; }
     // Masih pending -> arahkan ke halaman pembayaran (kalau dipicu tombol & ada link).
     routePayWin();
     if (manual) {
@@ -356,7 +388,33 @@
   function startPolling() { stopPolling(); _payDismissed = false; pollOrderStatus(); _pollTimer = setInterval(pollOrderStatus, 5000); }
 
   function resume() { try { if (getPendings().length) { injectOnce(); _payDismissed = false; startPolling(); } } catch (e) {} }
+
+  // Sapu order tertunda milik user dari SERVER (bukan localStorage). Sengaja jalan TANPA syarat
+  // getPendings(): justru kasus yang mau ditolong adalah localStorage kosong — user bayar di
+  // device lain, atau storage-nya hilang. Server yang menyimpan order-nya, jadi server yang tahu.
+  // onCredited dilewatkan eksplisit: _onCredited hanya terisi lewat Deals.open(), dan pada
+  // kasus lintas-device user belum pernah membuka sheet paket — tanpa ini kredit masuk di
+  // server tapi angka kuota di layar tidak ikut ter-update.
+  var _swept = false;
+  async function sweep(onCredited) {
+    if (_swept) return; _swept = true;
+    var cb = onCredited || _onCredited;
+    try {
+      var tk = await Auth.token(); if (!tk) return;
+      var ftk = localStorage.getItem("fitco_token") || "";
+      var r = await fetch("/api/scan/reconcile", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ fitco_token: ftk }) });
+      var j = await r.json().catch(function () { return {}; });
+      if (j && j.credited > 0) {
+        // Selaraskan riwayat lokal kalau order-nya memang ada di device ini (lintas-device: tidak ada).
+        try { (j.orders || []).forEach(function (o) { if (Orders.get(o.reff_no)) Orders.markPaid(o.reff_no); }); } catch (e) {}
+        stopPolling(); hideToast(); closePayWin();
+        if (cb) { try { await cb(); } catch (e) {} }
+        injectOnce(); showThanks(j.credits || 0);
+      }
+    } catch (e) {}
+  }
+
   try { if (getPendings().length) { injectOnce(); startPolling(); } } catch (e) {}
 
-  window.Deals = { open: open, close: closeDeals, resume: resume, packs: SCAN_PACKS };
+  window.Deals = { open: open, close: closeDeals, resume: resume, sweep: sweep, packs: SCAN_PACKS };
 })();

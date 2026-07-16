@@ -1663,6 +1663,56 @@ app.post("/api/scan/order-status", async (req, res) => {
   }
 });
 
+// ---------- Sapu order tertunda milik user (pemulihan lintas-device) ----------
+// POST /api/scan/reconcile  { fitco_token }
+// Kenapa perlu: daftar order yang dipantau frontend hanya ada di localStorage. Invoice Xendit
+// diterbitkan API 20FIT dan webhook "paid"-nya ACCOUNT-GLOBAL -> callback selalu ke backend
+// 20FIT, TIDAK PERNAH ke sini. Jadi tanpa sapuan ini, user yang bayar lalu membuka app dari
+// device/browser lain (atau yang localStorage-nya hilang) TIDAK PERNAH dapat kreditnya —
+// uang masuk, kredit tidak. Order ada di DB kita (my20fit_scan_orders), jadi sumbernya
+// diambil dari sana by auth_user_id, bukan dari klien.
+// Dibatasi 20 order & 7 hari terakhir supaya tidak membanjiri API 20FIT tiap app dibuka.
+app.post("/api/scan/reconcile", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (!admin) return res.json({ ok: true, checked: 0, credited: 0 });
+    const b = req.body || {};
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    let rows = [];
+    try {
+      const { data } = await admin.from("my20fit_scan_orders")
+        .select("reff_no,payment_link_id,credits,provider")
+        .eq("auth_user_id", user.id).eq("status", "pending")
+        .gte("created_at", cutoff)
+        .order("created_at", { ascending: false }).limit(20);
+      rows = data || [];
+    } catch (e) { return res.json({ ok: true, checked: 0, credited: 0 }); }
+    let checked = 0, credits = 0;
+    const creditedOrders = [];
+    for (const o of rows) {
+      if (!o.payment_link_id) continue;  // order gagal sebelum FITCO bikin invoice
+      checked++;
+      let sig = null;
+      try { sig = await fitcoOrderStatus(String(o.payment_link_id), b.fitco_token); } catch (e) { continue; }
+      if (sig && sig.paid) {
+        // Idempoten (RPC my20fit_credit_scan klaim pending->paid sekali saja).
+        if (await creditScanOrder(o.reff_no)) {
+          creditedOrders.push({ reff_no: o.reff_no, credits: +o.credits || 0 });
+          credits += (+o.credits || 0);
+          try { console.log("reconcile credited", o.reff_no); } catch (e) {}
+        }
+      } else if (sig && sig.expired) {
+        try { await admin.from("my20fit_scan_orders").update({ status: "expired" }).eq("reff_no", o.reff_no); } catch (e) {}
+      }
+    }
+    return res.json({ ok: true, checked: checked, credited: creditedOrders.length, credits: credits, orders: creditedOrders });
+  } catch (e) {
+    console.error("scan/reconcile:", e.message);
+    return res.json({ ok: true, checked: 0, credited: 0 });
+  }
+});
+
 // ---------- Batalkan order scan (best-effort ke 20FIT) ----------
 // POST /api/scan/order-cancel  { sales_order_id, fitco_token }
 // Pembatalan di sisi app (riwayat) tetap otoritatif; ini upaya terbaik meneruskan
