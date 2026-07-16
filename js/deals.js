@@ -134,6 +134,10 @@
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) return;
       try { if (getPendings().length) { if (_pollTimer) pollOrderStatus(); else startPolling(); } } catch (e) {}
+      // Titik coba-ulang sapuan: kalau sapuan saat load gagal (429/offline/cold start), user
+      // yang kembali ke tab ini memicunya lagi. Tanpa ini kegagalan sekali = kredit lintas-device
+      // tertahan sampai halaman di-reload. No-op kalau sudah sukses (_swept).
+      try { sweep(); } catch (e) {}
     });
   }
 
@@ -398,23 +402,34 @@
   // onCredited dilewatkan eksplisit: _onCredited hanya terisi lewat Deals.open(), dan pada
   // kasus lintas-device user belum pernah membuka sheet paket — tanpa ini kredit masuk di
   // server tapi angka kuota di layar tidak ikut ter-update.
-  var _swept = false;
+  // _swept dikunci HANYA setelah sapuan benar-benar BERHASIL. Kalau dikunci di awal, satu
+  // kegagalan sementara (429, offline, 502 cold-start) mematikan satu-satunya jalur kredit
+  // lintas-device untuk seluruh page load — diam-diam, tanpa error. User yang sudah bayar
+  // lihat kuota lama, mengira gagal, lalu BELI LAGI: dobel bayar beneran.
+  var _swept = false, _sweeping = false, _sweepCb = null;
   async function sweep(onCredited) {
-    if (_swept) return; _swept = true;
-    var cb = onCredited || _onCredited;
+    if (onCredited) _sweepCb = onCredited;   // diingat: percobaan ulang tak membawa argumen
+    if (_swept || _sweeping) return;
+    _sweeping = true;
+    var cb = _sweepCb || _onCredited;
     try {
-      var tk = await Auth.token(); if (!tk) return;
+      var tk = await Auth.token(); if (!tk) return;   // Auth belum siap: biarkan bisa dicoba lagi
       var ftk = localStorage.getItem("fitco_token") || "";
       var r = await fetch("/api/scan/reconcile", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ fitco_token: ftk }) });
-      var j = await r.json().catch(function () { return {}; });
-      if (j && j.credited > 0) {
+      if (!r.ok) { try { console.warn("scan/reconcile HTTP " + r.status); } catch (e) {} return; }
+      var j = await r.json().catch(function () { return null; });
+      if (!j || j.ok !== true) { try { console.warn("scan/reconcile balasan tak terbaca"); } catch (e) {} return; }
+      _swept = true;   // sukses -> jangan ulangi di page load ini
+      if (j.credited > 0) {
         // Selaraskan riwayat lokal kalau order-nya memang ada di device ini (lintas-device: tidak ada).
         try { (j.orders || []).forEach(function (o) { if (Orders.get(o.reff_no)) Orders.markPaid(o.reff_no); }); } catch (e) {}
         stopPolling(); hideToast(); closePayWin();
         if (cb) { try { await cb(); } catch (e) {} }
         injectOnce(); showThanks(j.credits || 0);
       }
-    } catch (e) {}
+    } catch (e) {
+      try { console.warn("scan/reconcile gagal:", (e && e.message) || e); } catch (_) {}
+    } finally { _sweeping = false; }
   }
 
   try { if (getPendings().length) { injectOnce(); startPolling(); } } catch (e) {}

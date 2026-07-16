@@ -98,13 +98,43 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webhook form-encoded
 
+// Railway = reverse proxy 1 hop. TANPA ini req.ip = IP proxy, bukan IP klien -> SEMUA user
+// berbagi SATU ember rate limit (50/10 menit untuk seluruh app). Dengan "trust proxy", 1
+// Express memakai entri terakhir X-Forwarded-For (yang ditulis proxy tepercaya), jadi tak
+// bisa dipalsukan klien.
+app.set("trust proxy", 1);
+
+// Polling status pembayaran itu MEMANG sering: js/deals.js poll tiap 5 detik selama menunggu
+// (12 req/menit). Dengan limit umum 50/10 menit, user kena limit sendiri setelah ~4 menit
+// menunggu — padahal invoice Xendit hidup berjam-jam & transfer bank sering >5 menit. Setelah
+// itu 429 dijawab, klien menelannya dan order dianggap BELUM LUNAS selamanya: user sudah bayar
+// tapi kredit tak pernah muncul. Jadi endpoint status (terautentikasi, read-only, idempoten)
+// punya limiter sendiri yang longgar; sisanya tetap ketat.
+const PAYMENT_POLL_PATHS = new Set(["/api/scan/order-status", "/api/scan/reconcile"]);
+const isPollPath = (req) => PAYMENT_POLL_PATHS.has((req.originalUrl || "").split("?")[0]);
+
+// message berupa OBJEK -> express-rate-limit membalas JSON. Kalau string (default), body-nya
+// text/html dan res.json() di klien meledak -> error ditelan diam-diam (persis bug di atas).
+const limitMsg = { error: "Terlalu banyak permintaan. Coba lagi sebentar lagi.", rate_limited: true };
+
 const apiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 menit
   max: 50,
   standardHeaders: true,
   legacyHeaders: false,
+  message: limitMsg,
+  skip: isPollPath, // ditangani pollLimiter di bawah
+});
+const pollLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 400, // 5 detik/poll = 120/10 menit per order; longgar utk beberapa order + sapuan
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limitMsg,
 });
 app.use("/api/", apiLimiter);
+app.use("/api/scan/order-status", pollLimiter);
+app.use("/api/scan/reconcile", pollLimiter);
 
 // Jaring pengaman proses: JANGAN biarkan promise-rejection / exception tak tertangani meng-crash
 // server (dulu bisa bikin request in-flight kena 502 platform tanpa jejak). Log saja, proses hidup.
