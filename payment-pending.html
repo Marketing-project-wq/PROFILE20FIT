@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Status Pembayaran · 20FIT</title>
+<style>
+  :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--green:#1E9E5A;--pagetx:#EDE8DF}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:26px 18px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .wrap{max-width:440px;width:100%;margin:auto}
+  .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:center}
+  .logobar img{height:34px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:32px 24px;box-shadow:0 8px 34px rgba(0,0,0,.34);color:var(--txt);text-align:center}
+  .spin{width:46px;height:46px;border-radius:50%;border:4px solid var(--inp);border-top-color:var(--red);margin:6px auto 18px;animation:sp .9s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .emoji{font-size:52px;line-height:1;margin:2px 0 10px}
+  h1{font-size:22px;font-weight:900;margin:0 0 8px;text-transform:uppercase;letter-spacing:.4px}
+  .sub{color:var(--muted);font-size:14px;line-height:1.55;margin:0 0 18px}
+  .credits{background:rgba(30,158,90,.10);border:1px solid rgba(30,158,90,.30);border-radius:14px;padding:15px;margin:0 0 18px}
+  .credits .big{font-size:25px;font-weight:900;color:var(--green)}
+  .credits .tot{font-size:13px;color:var(--muted);margin-top:4px}
+  button.pri{width:100%;padding:15px;border:0;border-radius:13px;background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer}
+  button.pri:disabled{opacity:.6;cursor:default}
+  button.ghost{width:100%;padding:14px;border:1px solid var(--line);border-radius:13px;background:transparent;color:var(--txt);font-weight:700;font-size:14px;cursor:pointer;margin-top:10px}
+  .msg{font-size:13px;margin-top:12px;min-height:18px;color:var(--muted)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" /></div>
+    <div class="card">
+      <div id="stLoading">
+        <div class="spin"></div>
+        <h1>Memverifikasi Pembayaran</h1>
+        <div class="sub">Mengecek status pembayaran kamu…</div>
+      </div>
+      <div id="stSuccess" class="hidden">
+        <div class="emoji">✅</div>
+        <h1>Pembayaran Berhasil!</h1>
+        <div class="sub">Terima kasih — pembayaranmu sudah dikonfirmasi.</div>
+        <div class="credits"><div class="big" id="okCredits">+0 Scan Credits</div><div class="tot" id="okTotal"></div></div>
+        <button class="pri" id="okHome">Kembali ke Dashboard</button>
+      </div>
+      <div id="stPending" class="hidden">
+        <div class="emoji">⏳</div>
+        <h1>Menunggu Konfirmasi</h1>
+        <div class="sub">Kalau kamu sudah membayar di Xendit, klik tombol di bawah untuk cek statusnya. Konfirmasi kadang butuh beberapa detik.</div>
+        <button class="pri" id="checkBtn">Cek Status Pembayaran</button>
+        <button class="ghost" id="pendHome">Kembali ke Dashboard</button>
+        <div class="msg" id="pendMsg"></div>
+      </div>
+      <div id="stFailed" class="hidden">
+        <div class="emoji">❌</div>
+        <h1>Pembayaran Gagal</h1>
+        <div class="sub">Pembayaran gagal atau kadaluarsa. Kamu bisa coba lagi.</div>
+        <button class="pri" id="retryBtn">Coba Lagi</button>
+        <button class="ghost" id="failHome">Kembali ke Dashboard</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/orders.js"></script>
+  <script>
+    (function(){
+      function $(id){ return document.getElementById(id); }
+      function show(which){ ["stLoading","stSuccess","stPending","stFailed"].forEach(function(s){ $(s).classList.toggle("hidden", s!==which); }); }
+      function goHome(){ location.href = "/dashboard"; }
+      function goTopup(){ location.href = "/calories"; }
+      var EXT = "";
+
+      function getExternalId(){
+        try{
+          var sp = new URLSearchParams(location.search);
+          var ext = (sp.get("external_id")||sp.get("reff")||sp.get("order_no")||sp.get("order")||"").trim();
+          if(ext) return ext;
+        }catch(e){}
+        // Fallback: order pending terbaru dari localStorage (dibuat saat checkout, origin sama).
+        try{ if(window.Orders){ var a=Orders.pending(); if(a&&a.length){ var last=a[a.length-1]; return String(last.id||last.sales_order_id||last.order_no||""); } } }catch(e){}
+        return "";
+      }
+
+      async function checkStatus(manual){
+        var btn = $("checkBtn");
+        if(manual && btn){ btn.disabled=true; btn.textContent="Mengecek…"; }
+        if(!EXT){ show("stPending"); $("pendMsg").textContent="Tidak ada order untuk dicek. Buka lagi dari halaman top-up."; if(btn){ btn.disabled=false; btn.textContent="Cek Status Pembayaran"; } return; }
+        var token=""; try{ token = await Auth.token(); }catch(e){}
+        var j = {};
+        try{
+          var r = await fetch("/api/payment/status?external_id="+encodeURIComponent(EXT), { headers:{ "Authorization":"Bearer "+(token||"") } });
+          if(r.status===401){ location.href="/login"; return; }
+          j = await r.json().catch(function(){ return {}; });
+        }catch(e){ j = { status:"PENDING" }; }
+        if(btn){ btn.disabled=false; btn.textContent="Cek Status Pembayaran"; }
+
+        if(j.status==="PAID"){
+          $("okCredits").textContent = "+"+(j.credits_added||0)+" Scan Credits";
+          $("okTotal").textContent = (j.total_credits!=null) ? ("Total kredit kamu sekarang: "+j.total_credits) : "";
+          show("stSuccess"); return;
+        }
+        if(j.status==="FAILED"){ show("stFailed"); return; }
+        show("stPending");
+        $("pendMsg").textContent = manual ? "Belum terkonfirmasi. Tunggu sebentar lalu coba lagi." : "";
+      }
+
+      $("okHome").addEventListener("click", goHome);
+      $("pendHome").addEventListener("click", goHome);
+      $("failHome").addEventListener("click", goHome);
+      $("retryBtn").addEventListener("click", goTopup);
+      $("checkBtn").addEventListener("click", function(){ checkStatus(true); });
+
+      (async function init(){
+        try{ await Auth.ready; }catch(e){}
+        EXT = getExternalId();
+        await checkStatus(false); // auto-cek sekali saat halaman dibuka
+      })();
+    })();
+  </script>
+</body>
+</html>
