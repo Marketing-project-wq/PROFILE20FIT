@@ -98,13 +98,43 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webhook form-encoded
 
+// Railway = reverse proxy 1 hop. TANPA ini req.ip = IP proxy, bukan IP klien -> SEMUA user
+// berbagi SATU ember rate limit (50/10 menit untuk seluruh app). Dengan "trust proxy", 1
+// Express memakai entri terakhir X-Forwarded-For (yang ditulis proxy tepercaya), jadi tak
+// bisa dipalsukan klien.
+app.set("trust proxy", 1);
+
+// Polling status pembayaran itu MEMANG sering: js/deals.js poll tiap 5 detik selama menunggu
+// (12 req/menit). Dengan limit umum 50/10 menit, user kena limit sendiri setelah ~4 menit
+// menunggu — padahal invoice Xendit hidup berjam-jam & transfer bank sering >5 menit. Setelah
+// itu 429 dijawab, klien menelannya dan order dianggap BELUM LUNAS selamanya: user sudah bayar
+// tapi kredit tak pernah muncul. Jadi endpoint status (terautentikasi, read-only, idempoten)
+// punya limiter sendiri yang longgar; sisanya tetap ketat.
+const PAYMENT_POLL_PATHS = new Set(["/api/scan/order-status", "/api/scan/reconcile"]);
+const isPollPath = (req) => PAYMENT_POLL_PATHS.has((req.originalUrl || "").split("?")[0]);
+
+// message berupa OBJEK -> express-rate-limit membalas JSON. Kalau string (default), body-nya
+// text/html dan res.json() di klien meledak -> error ditelan diam-diam (persis bug di atas).
+const limitMsg = { error: "Terlalu banyak permintaan. Coba lagi sebentar lagi.", rate_limited: true };
+
 const apiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 menit
   max: 50,
   standardHeaders: true,
   legacyHeaders: false,
+  message: limitMsg,
+  skip: isPollPath, // ditangani pollLimiter di bawah
+});
+const pollLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 400, // 5 detik/poll = 120/10 menit per order; longgar utk beberapa order + sapuan
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limitMsg,
 });
 app.use("/api/", apiLimiter);
+app.use("/api/scan/order-status", pollLimiter);
+app.use("/api/scan/reconcile", pollLimiter);
 
 // Jaring pengaman proses: JANGAN biarkan promise-rejection / exception tak tertangani meng-crash
 // server (dulu bisa bikin request in-flight kena 502 platform tanpa jejak). Log saja, proses hidup.
@@ -365,6 +395,11 @@ const FITCO_GOOGLE_LOGIN_PATH = process.env.FITCO_GOOGLE_LOGIN_PATH || "/api/v1/
 // (didefinisikan bareng blok order 20FIT di bawah).
 // "1" = tandai Xendit aktif di /api/config (info untuk frontend).
 const XENDIT_ENABLED = process.env.XENDIT_ENABLED === "1";
+
+// Asal URL publik app ini, dipakai sbg tujuan kepulangan invoice Xendit (lihat
+// createFitcoXenditOrder). Bukan rahasia — pola default publik sama dgn FITCO_API /
+// GOOGLE_CLIENT_ID. Set APP_BASE_URL di Railway staging supaya staging balik ke staging.
+const APP_BASE_URL = (process.env.APP_BASE_URL || "https://my.20fit.id").replace(/\/+$/, "");
 
 // ---------- Katalog paket scan (server-authoritative) ----------
 // Sumber kebenaran harga & jumlah kredit ada di SERVER, bukan client. /api/scan/buy
@@ -1489,8 +1524,19 @@ app.post("/api/scan/buy", async (req, res) => {
     }
     // Simpan nomor HP baru ke profil (best-effort) supaya pembelian berikutnya tak perlu isi lagi.
     if (savePhone) { try { await admin.from("my20fit_profile").update({ phone: savePhone }).eq("auth_user_id", user.id); } catch (e) {} }
-    // Voucher parsial diteruskan ke FITCO sbg promo_code (voucher gratis sudah ditangani di atas).
-    const promoCode = b.voucher_code ? String(b.voucher_code).trim().toUpperCase() : null;
+    // JANGAN teruskan kode voucher kita ke FITCO sebagai promo_code.
+    //
+    // Voucher kita hidup di my20fit_vouchers (Supabase kita); FITCO tak tahu & tak perlu tahu.
+    // Mengirimnya bikin FITCO MENOLAK SELURUH ORDER — terbukti di log production:
+    //   fitco-shop-order ERR 422 {"message":"Promotion does not exists, invalid promo_code: ..."}
+    //   scan/buy fitco-xendit: fitco_order_422
+    // Jadi SEMUA voucher diskon sebagian selalu gagal: user tak bisa bayar sama sekali.
+    // (Voucher 100% seolah "jalan" hanya karena amount<=0 memotong jalur FITCO sepenuhnya —
+    // itu sebabnya cuma voucher 100% yang pernah berfungsi.)
+    //
+    // Diskonnya disampaikan lewat `price` final di items (lihat createFitcoXenditOrder) —
+    // pola yang sama dipakai photo.20fit.id. promo_code milik sistem promosi FITCO sendiri;
+    // app ini tidak memakainya (tak ada integrasi /api/v1/app/order/verify-promo di sini).
     // Catat order (pending) DULU (server-authoritative). amount=gross; net_amount = estimasi lokal.
     try {
       await admin.from("my20fit_scan_orders").insert({
@@ -1504,13 +1550,44 @@ app.post("/api/scan/buy", async (req, res) => {
       // user_id = FITCO uid member (dari client localStorage 'fitco_uid'). Diteruskan spt
       // implementasi lama yg terbukti jalan; kalau kosong (user non-FITCO) kirim null (order tamu).
       const fitcoUid = b.user_id ? String(b.user_id).trim() : null;
+      // price = harga FINAL (setelah voucher) dalam SATU baris item. WAJIB dikirim.
+      //
+      // Tanpa price, FITCO memakai harga KATALOG-nya sendiri. Voucher kita hidup di Supabase
+      // (my20fit_vouchers) dan FITCO TIDAK TAHU voucher itu ada — promo_code yang kita teruskan
+      // tak berarti apa-apa bagi mereka. Akibatnya user dengan voucher diskon SEBAGIAN ditagih
+      // Xendit HARGA PENUH, sementara my20fit_scan_orders.net_amount mencatat seolah didiskon.
+      // (Voucher 100% kebetulan aman: amount<=0 memotong jalur FITCO dan dikredit langsung.)
+      //
+      // Pola price-satu-baris ini yang dipakai photo.20fit.id justru UNTUK diskon
+      // (artifacts/api-server/src/lib/mainapi.ts: price: Math.round(tx.grossAmount)).
+      // Bonus: harga jadi eksplisit, jadi katalog FITCO yang bergeser tak diam-diam mengubah
+      // tagihan user (product_id di dokumentasi 20FIT pernah salah beberapa kali).
+      //
+      // Aman dari manipulasi: client HANYA mengirim package_id + voucher_code; `amount` dihitung
+      // server dari SCAN_PACKAGES + voucher yang divalidasi server.
       const r = await createFitcoXenditOrder({
         bearer: bearer, userId: fitcoUid, name: prof.full_name || (email ? email.split("@")[0] : "Member"),
-        phone: phone, email: email, promoCode: promoCode,
-        items: [{ product_id: packageId, quantity: 1 }],
+        phone: phone, email: email,
+        items: [{ product_id: packageId, quantity: 1, price: amount }],
       });
-      // Simpan id order FITCO di kolom payment_link_id utk polling status.
-      if (r.orderId) { try { await admin.from("my20fit_scan_orders").update({ payment_link_id: String(r.orderId) }).eq("reff_no", reffNo); } catch (e) {} }
+      // Simpan id order FITCO di payment_link_id — INI SATU-SATUNYA pegangan untuk memantau
+      // status. Tanpa itu order jadi TAK TERLACAK: polling tak bisa, /api/scan/reconcile
+      // melewatinya, dan user yang tetap membayar TIDAK AKAN PERNAH dapat kreditnya.
+      // Jadi gagal keras SEBELUM user melihat link: lebih baik menolak transaksi daripada
+      // menerima uang yang kreditnya mustahil kita berikan. (Dulu: id hilang / update DB gagal
+      // ditelan diam-diam, user tetap dikasih link.)
+      if (!r.orderId) {
+        try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
+        console.error("scan/buy NO-ORDER-ID", reffNo, "link ada tapi id order FITCO tidak ditemukan di respons");
+        return res.status(502).json({ error: "Gagal menyiapkan pembayaran (id order tidak diterima dari 20FIT). Coba lagi / hubungi admin." });
+      }
+      const { error: linkErr } = await admin.from("my20fit_scan_orders")
+        .update({ payment_link_id: String(r.orderId) }).eq("reff_no", reffNo);
+      if (linkErr) {
+        try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
+        console.error("scan/buy payment_link_id gagal disimpan:", linkErr.message, reffNo);
+        return res.status(502).json({ error: "Gagal menyiapkan pembayaran. Coba lagi." });
+      }
       return res.json({ ok: true, link: r.link, sales_order_id: reffNo, order_no: reffNo, provider: "xendit", discount: discount, amount: amount });
     } catch (e) {
       try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
@@ -1604,16 +1681,23 @@ async function fitcoOrderStatus(fitcoId, userToken) {
   if (!tokens.length) return null;
   let lastHttp = 0;
   for (const t of tokens) {
+    // Timeout keras per panggilan. /api/scan/reconcile memanggil fungsi ini sampai 20x
+    // BERURUTAN; tanpa batas, satu FITCO yang lambat/menggantung menahan request sampai
+    // platform yang memutus. Pola AbortController-nya sama dengan createFitcoXenditOrder.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
     try {
       const r = await fetch(FITCO_API + "/api/v1/app/order/" + encodeURIComponent(fitcoId), {
         headers: { "Accept": "application/json", "Authorization": "Bearer " + t.tk },
+        signal: ctrl.signal,
       });
+      clearTimeout(timer);
       lastHttp = r.status;
       if (!r.ok) continue;
       const j = await r.json().catch(() => ({}));
       const sig = scanPaidMarkers(j); sig.via = t.via; sig.http = lastHttp;
       return sig;
-    } catch (e) { lastHttp = -1; }
+    } catch (e) { clearTimeout(timer); lastHttp = -1; }
   }
   return { paid: false, expired: false, debug: [], via: "", http: lastHttp, unreadable: true };
 }
@@ -1660,6 +1744,65 @@ app.post("/api/scan/order-status", async (req, res) => {
   } catch (e) {
     console.error("order-status:", e.message);
     return res.json({ ok: true, paid: false, expired: false, pending: true, note: "error" });
+  }
+});
+
+// ---------- Sapu order tertunda milik user (pemulihan lintas-device) ----------
+// POST /api/scan/reconcile  { fitco_token }
+// Kenapa perlu: daftar order yang dipantau frontend hanya ada di localStorage. Invoice Xendit
+// diterbitkan API 20FIT dan webhook "paid"-nya ACCOUNT-GLOBAL -> callback selalu ke backend
+// 20FIT, TIDAK PERNAH ke sini. Jadi tanpa sapuan ini, user yang bayar lalu membuka app dari
+// device/browser lain (atau yang localStorage-nya hilang) TIDAK PERNAH dapat kreditnya —
+// uang masuk, kredit tidak. Order ada di DB kita (my20fit_scan_orders), jadi sumbernya
+// diambil dari sana by auth_user_id, bukan dari klien.
+// Dibatasi 20 order & 7 hari terakhir supaya tidak membanjiri API 20FIT tiap app dibuka.
+app.post("/api/scan/reconcile", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (!admin) return res.json({ ok: true, checked: 0, credited: 0 });
+    const b = req.body || {};
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    // supabase-js TIDAK throw: dia balik { data, error }. Kalau error diabaikan, query rusak
+    // (schema drift / RLS / service key salah) menghasilkan rows=[] yang TIDAK BISA DIBEDAKAN
+    // dari "tidak ada order pending" — jaring pengaman ini mati diam-diam. Jadi error dibaca
+    // eksplisit, dicatat, dan dibalikkan sebagai error (bukan sukses palsu).
+    const { data, error } = await admin.from("my20fit_scan_orders")
+      .select("reff_no,payment_link_id,credits,provider")
+      .eq("auth_user_id", user.id).eq("status", "pending")
+      .gte("created_at", cutoff)
+      .order("created_at", { ascending: false }).limit(20);
+    if (error) {
+      console.error("scan/reconcile query:", error.message);
+      return res.status(500).json({ ok: false, error: "Gagal memeriksa pembayaran tertunda." });
+    }
+    const rows = data || [];
+    let checked = 0, credits = 0;
+    const creditedOrders = [];
+    for (const o of rows) {
+      if (!o.payment_link_id) continue;  // order gagal sebelum FITCO bikin invoice
+      checked++;
+      let sig = null;
+      try { sig = await fitcoOrderStatus(String(o.payment_link_id), b.fitco_token); } catch (e) { continue; }
+      if (sig && sig.paid) {
+        // Idempoten (RPC my20fit_credit_scan klaim pending->paid sekali saja).
+        if (await creditScanOrder(o.reff_no)) {
+          creditedOrders.push({ reff_no: o.reff_no, credits: +o.credits || 0 });
+          credits += (+o.credits || 0);
+          try { console.log("reconcile credited", o.reff_no); } catch (e) {}
+        }
+      } else if (sig && sig.expired) {
+        // Kunci transisi HANYA pending->expired. Tanpa .eq("status","pending") ada balapan:
+        // polling lain (order-status) bisa sudah mengkredit order ini jadi 'paid' sejak SELECT
+        // di atas, dan update ini akan menimpanya jadi 'expired' — kredit terlanjur diberi,
+        // pembukuan jadi salah.
+        try { await admin.from("my20fit_scan_orders").update({ status: "expired" }).eq("reff_no", o.reff_no).eq("status", "pending"); } catch (e) {}
+      }
+    }
+    return res.json({ ok: true, checked: checked, credited: creditedOrders.length, credits: credits, orders: creditedOrders });
+  } catch (e) {
+    console.error("scan/reconcile:", e.message);
+    return res.json({ ok: true, checked: 0, credited: 0 });
   }
 });
 
@@ -1713,13 +1856,33 @@ function findXenditLink(obj) {
   return out;
 }
 async function createFitcoXenditOrder(o) {
+  // Upaya terbaik supaya Xendit memulangkan user ke SINI, bukan ke platform event 20FIT.
+  //
+  // Konteks: shop/order TIDAK mendokumentasikan field redirect, dan invoice-nya diterbitkan
+  // 20FIT — success_redirect_url bawaannya mengarah ke platform EVENT mereka (endpoint ini
+  // aslinya untuk jualan tiket event; kita numpang). Tapi API-nya MENOLERANSI field ekstra,
+  // dan app saudara photo.20fit.id sudah mengirim dua field ini pada endpoint sekerabat
+  // (/api/v1/third-party/photo/order, lih. artifacts/api-server/src/lib/mainapi.ts) dengan
+  // alasan sama.
+  //
+  // Status: BELUM DIKONFIRMASI apakah 20FIT meneruskannya ke invoice Xendit — tim photo pun
+  // menandainya "a dev confirmation". Diteruskan = redirect benar; diabaikan = tidak ada yang
+  // rusak. Kredit TIDAK bergantung pada ini: /api/scan/reconcile + polling tetap sumbernya.
+  // JANGAN membangun logika kredit di atas asumsi field ini dihormati.
+  const finishUrl = APP_BASE_URL + "/calories?status=paid";
   const body = {
     user_id: o.userId || null,
     name: o.name || "Member",
     phone_code: "+62",
     phone: o.phone || "",
     email: o.email || "",
-    promo_code: o.promoCode || null,
+    // SELALU null. promo_code = sistem promosi FITCO sendiri; voucher kita (my20fit_vouchers)
+    // bukan promosi mereka — mengirimnya bikin order ditolak 422 "Promotion does not exists".
+    // Diskon disampaikan lewat `price` final di items. Field tetap dikirim null karena itu
+    // bentuk yang terdokumentasi (photo.20fit.id juga mengirim promo_code: null).
+    promo_code: null,
+    success_redirect_url: finishUrl,
+    failure_redirect_url: APP_BASE_URL + "/calories?status=failed",
     payment: { payment_type: "xendit-invoices", user_point_booster_id: null, use_fit_points: false },
     items: o.items,
   };
@@ -1756,6 +1919,19 @@ async function createFitcoXenditOrder(o) {
   let j = {};
   try { j = raw ? JSON.parse(raw) : {}; } catch (e) { j = {}; }
   console.log("fitco-shop-order", r.status, (Date.now() - t0) + "ms", raw ? ("len=" + raw.length) : "empty");
+  // Apakah 20FIT MENGHORMATI success_redirect_url yang kita kirim? Ini satu-satunya cara tahu
+  // tanpa menunggu konfirmasi dev: kalau responsnya menyebut ulang redirect, cocokkan dengan
+  // milik kita. Terbaca di log Railway sbg redirect=ours|theirs|absent.
+  //   ours   -> diteruskan; user pulang ke my.20fit.id. Masalah "nyasar ke event" SELESAI.
+  //   theirs -> diabaikan & ditimpa (kemungkinan besar ke platform event) -> perlu perubahan
+  //             di backend 20FIT; jaring pengaman kita yang menanggung.
+  //   absent -> respons tak menyebutkan; cek langsung invoice-nya di dashboard Xendit.
+  try {
+    const echoed = findScalar(j, ["success_redirect_url", "successRedirectUrl"]);
+    console.log("fitco-shop-order redirect=" +
+      (!echoed ? "absent" : (String(echoed).indexOf(APP_BASE_URL) === 0 ? "ours" : "theirs")) +
+      (echoed ? (" -> " + String(echoed).slice(0, 120)) : ""));
+  } catch (e) {}
   if (!r.ok) {
     console.error("fitco-shop-order ERR", r.status, raw.slice(0, 500));
     const e = new Error("fitco_order_" + r.status);

@@ -19,6 +19,12 @@
   var CUR_VOUCHER = null, CUR_DISCOUNT = 0, CUR_FINAL = 0;
   var _onCredited = null;
   var _pollTimer = null, _payChecking = false, _payDismissed = false;
+  // Tab checkout Xendit yang KITA buka. Disimpan di level modul supaya polling otomatis
+  // (bukan cuma tombol "Cek sekarang") bisa menutupnya begitu pembayaran terkonfirmasi.
+  // Perlu karena success_redirect_url invoice ditentukan backend 20FIT dan mengarah ke
+  // platform event mereka — tanpa ini user ditinggal menatap situs asing setelah bayar.
+  var _payWin = null;
+  function closePayWin() { try { if (_payWin && !_payWin.closed) _payWin.close(); } catch (e) {} _payWin = null; }
 
   function injectOnce() {
     if (document.getElementById("dealsRoot")) return;
@@ -120,7 +126,7 @@
       var target = (a[0] && a[0].link) ? a[0] : null;
       if (!target) { for (var i = 0; i < a.length; i++) { if (a[i] && a[i].link) { target = a[i]; break; } } }
       var win = target ? window.open("", "_blank") : null;
-      if (win) { try { win.document.write("<p style='font-family:sans-serif;padding:24px'>" + L({ en: "Opening payment page…", id: "Membuka halaman pembayaran…" }) + "</p>"); } catch (e) {} }
+      if (win) { closePayWin(); _payWin = win; try { win.document.write("<p style='font-family:sans-serif;padding:24px'>" + L({ en: "Opening payment page…", id: "Membuka halaman pembayaran…" }) + "</p>"); } catch (e) {} }
       pollOrderStatus(true, win, target);
     });
     document.getElementById("dlToastClose").addEventListener("click", function () { _payDismissed = true; hideToast(); });
@@ -128,6 +134,10 @@
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) return;
       try { if (getPendings().length) { if (_pollTimer) pollOrderStatus(); else startPolling(); } } catch (e) {}
+      // Titik coba-ulang sapuan: kalau sapuan saat load gagal (429/offline/cold start), user
+      // yang kembali ke tab ini memicunya lagi. Tanpa ini kegagalan sekali = kredit lintas-device
+      // tertahan sampai halaman di-reload. No-op kalau sudah sukses (_swept).
+      try { sweep(); } catch (e) {}
     });
   }
 
@@ -226,7 +236,9 @@
     var free = CUR_FINAL <= 0;
     payBtn.disabled = true; payBtn.textContent = L({ en: "Processing…", id: "Memproses…" });
     var ftk = localStorage.getItem("fitco_token") || "";
+    // Dibuka SINKRON di dalam gesture klik supaya tidak kena popup blocker.
     var payWin = free ? null : window.open("", "_blank");
+    _payWin = payWin;
     if (payWin) { try { payWin.document.write("<p style='font-family:sans-serif;padding:24px'>Menyiapkan pembayaran…</p>"); } catch (e) {} }
     try {
       var tk = await Auth.token();
@@ -268,13 +280,30 @@
         if (!j.error) { try { console.error("scan/buy non-JSON resp", r.status, (raw || "").slice(0, 300)); } catch (e) {} }
         throw new Error(j.error || (L({ en: "Couldn't start payment.", id: "Gagal memulai pembayaran." }) + " (HTTP " + r.status + ")"));
       }
-      if (payWin) { payWin.location.href = j.link; } else if (!window.open(j.link, "_blank")) { location.href = j.link; }
+      // Catat order DULU, baru buka checkout: kalau pencatatan gagal/terlewat, order hilang
+      // dari sisi klien dan polling tak pernah jalan. Server tetap sumber kebenarannya, tapi
+      // ini yang bikin tab ini tahu harus memantau apa.
       var oid = j.sales_order_id || j.order_no;
       if (oid) {
         try { Orders.add({ id: oid, order_no: j.order_no || null, sales_order_id: j.sales_order_id || null, credits: p.credits, price: p.price, discount: disc, total: total, product_id: p.product_id, link: j.link || null, provider: j.provider || null, ts: Date.now() }); } catch (e) {}
-        _payDismissed = false; showToast(); startPolling();
       }
+      // Arahkan tab checkout. Urutan sengaja: tab terpisah DULU supaya halaman ini tetap hidup
+      // dan bisa polling + menampilkan thank-you (invoice ber-success_redirect_url ke platform
+      // event 20FIT, di luar kendali kita, jadi tab pembayaran TIDAK kembali ke sini).
+      //
+      // TAPI jangan sampai memaksa: di WebView in-app (Instagram/Facebook/TikTok) window.open
+      // SELALU balik null — gesture klik pun tak menolong (Android setSupportMultipleWindows
+      // (false) / WKWebView tanpa createWebViewWith). Buat mereka, menavigasi tab ini adalah
+      // SATU-SATUNYA cara bisa bayar. Menghapusnya = pembayaran mustahil, lebih parah dari
+      // masalah yang mau diperbaiki. Aman dilakukan sekarang karena kredit tak lagi bergantung
+      // pada tab ini: /api/scan/reconcile menyapu order dari DB saat app dibuka lagi.
+      if (oid) { _payDismissed = false; showToast(); startPolling(); }
       closeDeals();
+      if (payWin) { try { payWin.location.href = j.link; } catch (e) { location.href = j.link; } }
+      else {
+        _payWin = window.open(j.link, "_blank");
+        if (!_payWin) { location.href = j.link; }   // WebView/popup-blocked: bayar > tetap di sini
+      }
     } catch (e) {
       var emsg = (e && e.message) || L({ en: "Purchase failed. Try again.", id: "Pembelian gagal. Coba lagi." });
       if (payWin && !payWin.closed) { try { payWin.document.body.innerHTML = "<p style='font-family:sans-serif;padding:24px;color:#c0392b'>" + emsg + "</p>"; } catch (e2) {} }
@@ -326,7 +355,12 @@
       try { payWin.close(); } catch (e) {}
     }
     var a = getPendings();
-    if (!a.length) { stopPolling(); hideToast(); if (payWin) { try { payWin.close(); } catch (e) {} } return; }
+    // Daftar pending kosong TIDAK berarti lunas: Orders.prune() menandai pending >30 menit
+    // (MAX_AGE) sebagai expired secara LOKAL, padahal invoice Xendit-nya masih bisa dibayar
+    // (transfer bank sering lebih lama). Jadi berhenti polling saja — JANGAN tutup _payWin di
+    // sini; itu akan menutup tab yang sedang dipakai user membayar. Tab hanya ditutup kalau
+    // pembayaran benar-benar terkonfirmasi lunas (lihat cabang paidOne di bawah).
+    if (!a.length) { stopPolling(); hideToast(); return; }
     if (!_payDismissed) showToast();
     if (_payChecking) { routePayWin(); return; }
     _payChecking = true;
@@ -342,8 +376,13 @@
     _payChecking = false;
     if (btn) { btn.disabled = false; btn.textContent = L({ en: "Check now", id: "Cek sekarang" }); }
     var rem = getPendings();
-    if (paidOne) { if (payWin) { try { payWin.close(); } catch (e) {} } closeDeals(); if (!rem.length) { stopPolling(); hideToast(); } showThanks(paidOne.credits || 0); return; }
-    if (!rem.length) { stopPolling(); hideToast(); if (payWin) { try { payWin.close(); } catch (e) {} } return; }
+    // Lunas: tutup tab checkout. Setelah bayar, Xendit melempar tab itu ke platform event 20FIT
+    // (success_redirect_url di-set backend 20FIT, bukan kita) — kalau dibiarkan, user berakhir
+    // menatap situs asing dan mengira pembayarannya gagal. Tab ini yang menampilkan thank-you.
+    if (paidOne) { if (payWin) { try { payWin.close(); } catch (e) {} } closePayWin(); closeDeals(); if (!rem.length) { stopPolling(); hideToast(); } showThanks(paidOne.credits || 0); return; }
+    // Sisa pending habis TANPA ada yang lunas (mis. semua kadaluarsa/dibatalkan): stop polling,
+    // tapi lagi-lagi JANGAN tutup _payWin — belum tentu user selesai di sana.
+    if (!rem.length) { stopPolling(); hideToast(); return; }
     // Masih pending -> arahkan ke halaman pembayaran (kalau dipicu tombol & ada link).
     routePayWin();
     if (manual) {
@@ -356,7 +395,44 @@
   function startPolling() { stopPolling(); _payDismissed = false; pollOrderStatus(); _pollTimer = setInterval(pollOrderStatus, 5000); }
 
   function resume() { try { if (getPendings().length) { injectOnce(); _payDismissed = false; startPolling(); } } catch (e) {} }
+
+  // Sapu order tertunda milik user dari SERVER (bukan localStorage). Sengaja jalan TANPA syarat
+  // getPendings(): justru kasus yang mau ditolong adalah localStorage kosong — user bayar di
+  // device lain, atau storage-nya hilang. Server yang menyimpan order-nya, jadi server yang tahu.
+  // onCredited dilewatkan eksplisit: _onCredited hanya terisi lewat Deals.open(), dan pada
+  // kasus lintas-device user belum pernah membuka sheet paket — tanpa ini kredit masuk di
+  // server tapi angka kuota di layar tidak ikut ter-update.
+  // _swept dikunci HANYA setelah sapuan benar-benar BERHASIL. Kalau dikunci di awal, satu
+  // kegagalan sementara (429, offline, 502 cold-start) mematikan satu-satunya jalur kredit
+  // lintas-device untuk seluruh page load — diam-diam, tanpa error. User yang sudah bayar
+  // lihat kuota lama, mengira gagal, lalu BELI LAGI: dobel bayar beneran.
+  var _swept = false, _sweeping = false, _sweepCb = null;
+  async function sweep(onCredited) {
+    if (onCredited) _sweepCb = onCredited;   // diingat: percobaan ulang tak membawa argumen
+    if (_swept || _sweeping) return;
+    _sweeping = true;
+    var cb = _sweepCb || _onCredited;
+    try {
+      var tk = await Auth.token(); if (!tk) return;   // Auth belum siap: biarkan bisa dicoba lagi
+      var ftk = localStorage.getItem("fitco_token") || "";
+      var r = await fetch("/api/scan/reconcile", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + tk }, body: JSON.stringify({ fitco_token: ftk }) });
+      if (!r.ok) { try { console.warn("scan/reconcile HTTP " + r.status); } catch (e) {} return; }
+      var j = await r.json().catch(function () { return null; });
+      if (!j || j.ok !== true) { try { console.warn("scan/reconcile balasan tak terbaca"); } catch (e) {} return; }
+      _swept = true;   // sukses -> jangan ulangi di page load ini
+      if (j.credited > 0) {
+        // Selaraskan riwayat lokal kalau order-nya memang ada di device ini (lintas-device: tidak ada).
+        try { (j.orders || []).forEach(function (o) { if (Orders.get(o.reff_no)) Orders.markPaid(o.reff_no); }); } catch (e) {}
+        stopPolling(); hideToast(); closePayWin();
+        if (cb) { try { await cb(); } catch (e) {} }
+        injectOnce(); showThanks(j.credits || 0);
+      }
+    } catch (e) {
+      try { console.warn("scan/reconcile gagal:", (e && e.message) || e); } catch (_) {}
+    } finally { _sweeping = false; }
+  }
+
   try { if (getPendings().length) { injectOnce(); startPolling(); } } catch (e) {}
 
-  window.Deals = { open: open, close: closeDeals, resume: resume, packs: SCAN_PACKS };
+  window.Deals = { open: open, close: closeDeals, resume: resume, sweep: sweep, packs: SCAN_PACKS };
 })();
