@@ -900,6 +900,47 @@ app.get("/api/admin/config", async (req, res) => {
   });
 });
 
+// Diagnostik pembayaran (superadmin): cek config + REACHABILITY ke FITCO dari server production,
+// TANPA membuat order/invoice. GET pada endpoint shop-order (yang POST) -> 404/405 = normal & bukti
+// endpoint terjangkau; timeout/refused = jaringan Railway->FITCO bermasalah (sebab paling mungkin
+// checkout gagal). Buka: /api/admin/payment-probe?key=<master key>.
+app.get("/api/admin/payment-probe", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  const out = {
+    ok: true,
+    config: {
+      fitco_api_url: FITCO_API,
+      fitco_partner_token_set: !!FITCO_PARTNER_TOKEN,
+      xendit_enabled: XENDIT_ENABLED,
+      scan_products: Object.keys(SCAN_PACKAGES).map(Number),
+    },
+  };
+  const target = FITCO_API + "/api/v1/third-party/shop/order";
+  const ctrl = new AbortController();
+  const t0 = Date.now();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch(target, { method: "GET", headers: { "Accept": "application/json" }, signal: ctrl.signal });
+    clearTimeout(timer);
+    const sample = (await r.text().catch(() => "")).slice(0, 160);
+    out.reach = {
+      reachable: true, status: r.status, ms: Date.now() - t0,
+      note: "GET pada endpoint POST — 404/405 itu normal, artinya FITCO TERJANGKAU dari server.",
+      sample: sample,
+    };
+  } catch (e) {
+    clearTimeout(timer);
+    const aborted = e && (e.name === "AbortError" || e.code === "ABORT_ERR");
+    out.reach = {
+      reachable: false, ms: Date.now() - t0,
+      error: aborted ? "timeout_8s" : ((e && e.message) || "fetch_failed"),
+      note: "FITCO TIDAK terjangkau dari server (jaringan/URL) — ini yang bikin checkout gagal.",
+    };
+  }
+  try { await adminAudit(ctx, "payment_probe", "fitco", JSON.stringify(out.reach).slice(0, 300)); } catch (e) {}
+  return res.json(out);
+});
+
 // Rentang tanggal dari query (today/7d/30d/custom).
 function adminRange(q) {
   const now = new Date();
