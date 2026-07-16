@@ -1524,8 +1524,19 @@ app.post("/api/scan/buy", async (req, res) => {
     }
     // Simpan nomor HP baru ke profil (best-effort) supaya pembelian berikutnya tak perlu isi lagi.
     if (savePhone) { try { await admin.from("my20fit_profile").update({ phone: savePhone }).eq("auth_user_id", user.id); } catch (e) {} }
-    // Voucher parsial diteruskan ke FITCO sbg promo_code (voucher gratis sudah ditangani di atas).
-    const promoCode = b.voucher_code ? String(b.voucher_code).trim().toUpperCase() : null;
+    // JANGAN teruskan kode voucher kita ke FITCO sebagai promo_code.
+    //
+    // Voucher kita hidup di my20fit_vouchers (Supabase kita); FITCO tak tahu & tak perlu tahu.
+    // Mengirimnya bikin FITCO MENOLAK SELURUH ORDER — terbukti di log production:
+    //   fitco-shop-order ERR 422 {"message":"Promotion does not exists, invalid promo_code: ..."}
+    //   scan/buy fitco-xendit: fitco_order_422
+    // Jadi SEMUA voucher diskon sebagian selalu gagal: user tak bisa bayar sama sekali.
+    // (Voucher 100% seolah "jalan" hanya karena amount<=0 memotong jalur FITCO sepenuhnya —
+    // itu sebabnya cuma voucher 100% yang pernah berfungsi.)
+    //
+    // Diskonnya disampaikan lewat `price` final di items (lihat createFitcoXenditOrder) —
+    // pola yang sama dipakai photo.20fit.id. promo_code milik sistem promosi FITCO sendiri;
+    // app ini tidak memakainya (tak ada integrasi /api/v1/app/order/verify-promo di sini).
     // Catat order (pending) DULU (server-authoritative). amount=gross; net_amount = estimasi lokal.
     try {
       await admin.from("my20fit_scan_orders").insert({
@@ -1556,7 +1567,7 @@ app.post("/api/scan/buy", async (req, res) => {
       // server dari SCAN_PACKAGES + voucher yang divalidasi server.
       const r = await createFitcoXenditOrder({
         bearer: bearer, userId: fitcoUid, name: prof.full_name || (email ? email.split("@")[0] : "Member"),
-        phone: phone, email: email, promoCode: promoCode,
+        phone: phone, email: email,
         items: [{ product_id: packageId, quantity: 1, price: amount }],
       });
       // Simpan id order FITCO di payment_link_id — INI SATU-SATUNYA pegangan untuk memantau
@@ -1865,7 +1876,11 @@ async function createFitcoXenditOrder(o) {
     phone_code: "+62",
     phone: o.phone || "",
     email: o.email || "",
-    promo_code: o.promoCode || null,
+    // SELALU null. promo_code = sistem promosi FITCO sendiri; voucher kita (my20fit_vouchers)
+    // bukan promosi mereka — mengirimnya bikin order ditolak 422 "Promotion does not exists".
+    // Diskon disampaikan lewat `price` final di items. Field tetap dikirim null karena itu
+    // bentuk yang terdokumentasi (photo.20fit.id juga mengirim promo_code: null).
+    promo_code: null,
     success_redirect_url: finishUrl,
     failure_redirect_url: APP_BASE_URL + "/calories?status=failed",
     payment: { payment_type: "xendit-invoices", user_point_booster_id: null, use_fit_points: false },
