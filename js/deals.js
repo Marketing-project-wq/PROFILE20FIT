@@ -269,7 +269,12 @@
       // Server-authoritative: kirim package_id (= product_id 20FIT). Server menentukan
       // credits & harga dari katalog; voucher juga diverifikasi & dihitung server.
       var phoneVal = ((document.getElementById("dlPhone") || {}).value || "").trim();
-      var r = await fetch("/api/scan/buy", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (tk || "") }, body: JSON.stringify({ package_id: p.product_id, credits: p.credits, price: p.price, voucher_code: CUR_VOUCHER || null, fitco_token: ftk, user_id: localStorage.getItem("fitco_uid") || null, phone: phoneVal || null }) });
+      // Halaman asal user -> server pakai sbg success_redirect_url invoice Xendit (direct):
+      // "...&return=<halaman ini>", jadi setelah bayar user dipulangkan ke sini, bukan ke
+      // platform event 20FIT. Cukup pathname (+hash); query sengaja tidak diikutkan.
+      var returnPath = "/dashboard";
+      try { returnPath = location.pathname + (location.hash || ""); } catch (e) {}
+      var r = await fetch("/api/scan/buy", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (tk || "") }, body: JSON.stringify({ package_id: p.product_id, credits: p.credits, price: p.price, voucher_code: CUR_VOUCHER || null, fitco_token: ftk, user_id: localStorage.getItem("fitco_uid") || null, phone: phoneVal || null, return_path: returnPath }) });
       // Baca sbg TEXT dulu lalu parse: kalau server/platform balas non-JSON (mis. 5xx/timeout
       // HTML), kita masih tahu status HTTP-nya dan bisa tampilkan sebab yg actionable.
       var raw = await r.text().catch(function () { return ""; });

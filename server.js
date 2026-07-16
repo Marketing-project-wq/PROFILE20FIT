@@ -450,6 +450,21 @@ const XENDIT_ENABLED = process.env.XENDIT_ENABLED === "1";
 // GOOGLE_CLIENT_ID. Set APP_BASE_URL di Railway staging supaya staging balik ke staging.
 const APP_BASE_URL = (process.env.APP_BASE_URL || "https://my.20fit.id").replace(/\/+$/, "");
 
+// ---------- Xendit LANGSUNG (opsional, direkomendasikan) ----------
+// Kalau XENDIT_SECRET_KEY di-set, server INI yang menerbitkan invoice Xendit sendiri
+// (POST api.xendit.co/v2/invoices) — sehingga KITA yang menentukan success_redirect_url:
+// user balik ke my.20fit.id + ke halaman asalnya setelah bayar. Lewat shop/order 20FIT,
+// redirect ditimpa backend 20FIT ke platform event mereka (di luar kendali repo ini).
+// Kalau XENDIT_SECRET_KEY KOSONG -> otomatis fallback ke jalur FITCO shop/order lama,
+// jadi salah set env tak pernah mematikan pembayaran. Kredit tetap server-authoritative &
+// idempoten (creditScanOrder) via polling GET invoice + sapuan /api/scan/reconcile —
+// TIDAK mengandalkan webhook (webhook invoice Xendit account-global, tetap ke 20FIT).
+const XENDIT_SECRET_KEY = process.env.XENDIT_SECRET_KEY || "";
+const XENDIT_DIRECT = !!XENDIT_SECRET_KEY;
+const XENDIT_API = (process.env.XENDIT_API_URL || "https://api.xendit.co").replace(/\/+$/, "");
+// Umur invoice (detik). Default 24 jam supaya transfer bank/VA sempat diselesaikan.
+const XENDIT_INVOICE_DURATION = parseInt(process.env.XENDIT_INVOICE_DURATION || "86400", 10) || 86400;
+
 // ---------- Katalog paket scan (server-authoritative) ----------
 // Sumber kebenaran harga & jumlah kredit ada di SERVER, bukan client. /api/scan/buy
 // hanya menerima package_id; server yang menentukan credits & price dari sini.
@@ -1550,21 +1565,16 @@ app.post("/api/scan/buy", async (req, res) => {
       return res.json({ ok: true, free: true, credited: true, sales_order_id: reffNo, order_no: reffNo, provider: "voucher", discount: discount });
     }
 
-    const bearer = FITCO_PARTNER_TOKEN || String(b.fitco_token || "");
-    if (!bearer) {
-      return res.status(503).json({ error: "Pembayaran belum aktif: token 20FIT partner (FITCO_PARTNER_TOKEN) belum di-set di server." });
-    }
-    // Data user dari profil (jangan percaya penuh input client) untuk order 20FIT.
+    // Data user dari profil (dipakai kedua jalur pembayaran) — jangan percaya penuh input client.
     let prof = {};
     try {
       const { data: rows } = await admin.from("my20fit_profile").select("full_name,phone,email").eq("auth_user_id", user.id).limit(1);
       prof = (rows && rows[0]) || {};
     } catch (e) {}
     const email = String(prof.email || user.email || "").toLowerCase();
-    // Nomor HP WAJIB utk invoice Xendit — FITCO menolak/ gagal bikin invoice tanpa phone valid,
-    // jadi order gagal & user tanpa no HP dapat 502 tak jelas. Sumber: profil dulu, lalu fallback
-    // ke input checkout (b.phone). Kalau tetap kosong -> balik error jelas + need_phone (frontend
-    // memunculkan input HP), TANPA memanggil FITCO dgn phone kosong.
+    const fullName = prof.full_name || (email ? email.split("@")[0] : "Member");
+    // Nomor HP: profil dulu, lalu input checkout (b.phone). WAJIB utk FITCO shop/order (invoice
+    // ditolak tanpa phone valid); utk Direct Xendit HP OPSIONAL (Xendit tak mewajibkannya).
     const normPhone = (v) => String(v || "").replace(/[^\d+]/g, "").replace(/^\+?62/, "").replace(/^0/, "");
     let phone = normPhone(prof.phone);
     let savePhone = null;
@@ -1572,6 +1582,53 @@ app.post("/api/scan/buy", async (req, res) => {
       const p2 = normPhone(b.phone);
       if (p2.length >= 8) { phone = p2; savePhone = String(b.phone).trim().slice(0, 20); }
     }
+    // Halaman asal user (buat balik ke sana sesudah bayar). Divalidasi anti open-redirect.
+    const returnPath = safeReturnPath(b.return_path, "/dashboard");
+
+    // ================= JALUR 1: DIRECT XENDIT (kalau XENDIT_SECRET_KEY di-set) =================
+    // Server INI menerbitkan invoice Xendit -> KITA kontrol success_redirect_url: user balik ke
+    // my.20fit.id + halaman asalnya. Kredit tetap server-authoritative & idempoten, dikonfirmasi
+    // via polling GET invoice (/api/scan/order-status) + sapuan /api/scan/reconcile.
+    if (XENDIT_DIRECT) {
+      if (savePhone) { try { await admin.from("my20fit_profile").update({ phone: savePhone }).eq("auth_user_id", user.id); } catch (e) {} }
+      try {
+        await admin.from("my20fit_scan_orders").insert({
+          reff_no: reffNo, auth_user_id: user.id, credits: credits, amount: gross, net_amount: amount,
+          provider: "xendit-direct", order_type: "scan_credit", voucher_id: voucherId,
+          status: "pending", created_at: new Date().toISOString(),
+        });
+      } catch (e) { console.error("scan_orders insert(xendit-direct):", e.message); return res.status(500).json({ error: "Gagal menyiapkan order." }); }
+      try {
+        const r = await createXenditInvoiceDirect({
+          name: fullName, phone: phone, email: email, reffNo: reffNo,
+          amount: amount, title: title, returnPath: returnPath,
+        });
+        // payment_link_id = invoice.id -> satu-satunya pegangan buat polling status. Wajib tersimpan;
+        // kalau gagal, order jadi tak terlacak (sama seperti jalur FITCO) -> tolak transaksi.
+        const { error: linkErr } = await admin.from("my20fit_scan_orders")
+          .update({ payment_link_id: String(r.orderId) }).eq("reff_no", reffNo);
+        if (linkErr) {
+          try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
+          console.error("scan/buy xendit-direct link save gagal:", linkErr.message, reffNo);
+          return res.status(502).json({ error: "Gagal menyiapkan pembayaran. Coba lagi." });
+        }
+        // provider dinormalkan ke "xendit" utk client (deals.js memperlakukan "xendit" sbg
+        // server-authoritative: tak menambah kredit lokal, mengandalkan polling/reconcile).
+        return res.json({ ok: true, link: r.link, sales_order_id: reffNo, order_no: reffNo, provider: "xendit", discount: discount, amount: amount });
+      } catch (e) {
+        try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
+        console.error("scan/buy xendit-direct:", e.message);
+        return res.status(502).json({ error: (e && e.userMessage) || "Gagal membuat pembayaran. Coba lagi." });
+      }
+    }
+
+    // ============ JALUR 2: FITCO shop/order (fallback kalau XENDIT_SECRET_KEY kosong) ============
+    const bearer = FITCO_PARTNER_TOKEN || String(b.fitco_token || "");
+    if (!bearer) {
+      return res.status(503).json({ error: "Pembayaran belum aktif: token 20FIT partner (FITCO_PARTNER_TOKEN) belum di-set di server." });
+    }
+    // Nomor HP WAJIB utk invoice Xendit lewat FITCO — kalau kosong, minta user isi (need_phone),
+    // TANPA memanggil FITCO dgn phone kosong (order gagal & user dapat 502 tak jelas).
     if (phone.length < 8) {
       return res.status(400).json({ error: "Nomor HP kamu masih kosong. Masukkan nomor HP untuk melanjutkan pembayaran.", need_phone: true });
     }
@@ -1798,7 +1855,7 @@ app.post("/api/scan/order-status", async (req, res) => {
       // Pending: cek ke FITCO pakai id order FITCO tersimpan (payment_link_id).
       const fitcoId = order.payment_link_id ? String(order.payment_link_id) : "";
       if (fitcoId) {
-        const sig = await fitcoOrderStatus(fitcoId, b.fitco_token, order.fitco_order_no);
+        const sig = await checkOrderStatus(order, b.fitco_token);
         if (sig && sig.paid) {
           await creditScanOrder(order.reff_no);  // klaim pending->paid + tambah kredit (idempoten)
           try { console.log("order-status paid+credited", order.reff_no, "fitco=" + fitcoId); } catch (e) {}
@@ -1840,7 +1897,7 @@ app.get("/api/payment/status", async (req, res) => {
     let status = order.status;
     if (status === "pending" && order.payment_link_id) {
       try {
-        const sig = await fitcoOrderStatus(String(order.payment_link_id), req.query.fitco_token || null, order.fitco_order_no);
+        const sig = await checkOrderStatus(order, req.query.fitco_token || null);
         if (sig && sig.paid) { await creditScanOrder(order.reff_no); status = "paid"; }
         else if (sig && sig.expired) { try { await admin.from("my20fit_scan_orders").update({ status: "expired" }).eq("reff_no", order.reff_no); } catch (e) {} status = "expired"; }
       } catch (e) {}
@@ -1899,7 +1956,7 @@ app.post("/api/scan/reconcile", async (req, res) => {
       if (!o.payment_link_id) continue;  // order gagal sebelum FITCO bikin invoice
       checked++;
       let sig = null;
-      try { sig = await fitcoOrderStatus(String(o.payment_link_id), b.fitco_token, o.fitco_order_no); } catch (e) { continue; }
+      try { sig = await checkOrderStatus(o, b.fitco_token); } catch (e) { continue; }
       if (sig && sig.paid) {
         // Idempoten (RPC my20fit_credit_scan klaim pending->paid sekali saja).
         if (await creditScanOrder(o.reff_no)) {
@@ -2072,6 +2129,133 @@ async function createFitcoXenditOrder(o) {
   const orderNo = findScalar(j, ["order_no", "orderNo", "order_number", "orderNumber"]);
   return { link: link, orderId: orderId, orderNo: orderNo };
 }
+
+// Validasi path kepulangan dari client -> HARUS path internal (anti open-redirect):
+// hanya "/sesuatu", bukan "//host", "/\host", atau URL absolut. Kalau tak valid -> fallback.
+function safeReturnPath(raw, fallback) {
+  const fb = fallback || "/dashboard";
+  const s = String(raw || "").trim();
+  if (!s) return fb;
+  if (s[0] !== "/") return fb;                     // wajib path absolut lokal
+  if (s[1] === "/" || s[1] === "\\") return fb;    // tolak //host & /\host (protocol-relative)
+  if (/[\x00-\x1f]/.test(s)) return fb;            // tolak kontrol char (CRLF dll)
+  return s.slice(0, 300);
+}
+
+// ---------- Direct Xendit: terbitkan invoice sendiri + cek statusnya ----------
+// Dipakai kalau XENDIT_SECRET_KEY di-set (lihat XENDIT_DIRECT). KITA kontrol PENUH
+// success_redirect_url -> user balik ke my.20fit.id + halaman asalnya. Auth = Basic
+// base64(secret_key + ":"). Balikan { link, orderId } (orderId = invoice.id Xendit).
+async function createXenditInvoiceDirect(o) {
+  const ret = o.returnPath ? ("&return=" + encodeURIComponent(o.returnPath)) : "";
+  const successUrl = APP_BASE_URL + "/payment/pending?external_id=" + encodeURIComponent(o.reffNo) + ret;
+  const failureUrl = APP_BASE_URL + "/payment/failed?external_id=" + encodeURIComponent(o.reffNo) + ret;
+  // payer_email SELALU diisi: sebagian akun Xendit mewajibkannya. Kalau user tak punya email
+  // (mis. login FITCO tanpa email tersimpan), pakai placeholder domain kita — should_send_email
+  // false jadi tak ada email nyasar; kredit tetap dari polling/reconcile, bukan dari email ini.
+  const payerEmail = o.email || ("noreply+" + String(o.reffNo).toLowerCase() + "@my.20fit.id");
+  const body = {
+    external_id: o.reffNo,
+    amount: o.amount,
+    currency: "IDR",
+    description: o.title,
+    payer_email: payerEmail,
+    success_redirect_url: successUrl,
+    failure_redirect_url: failureUrl,
+    invoice_duration: XENDIT_INVOICE_DURATION,
+    should_send_email: false,
+    items: [{ name: o.title, quantity: 1, price: o.amount, category: "Scan Credit" }],
+  };
+  // customer (opsional) — bantu Xendit prefill; HP tak wajib utk invoice.
+  const customer = {};
+  if (o.name) customer.given_names = String(o.name).slice(0, 100);
+  if (o.email) customer.email = o.email;
+  if (o.phone && String(o.phone).length >= 8) customer.mobile_number = "+62" + String(o.phone);
+  if (Object.keys(customer).length) body.customer = customer;
+
+  const auth = "Basic " + Buffer.from(XENDIT_SECRET_KEY + ":").toString("base64");
+  const ctrl = new AbortController();
+  const t0 = Date.now();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  let r;
+  try {
+    r = await fetch(XENDIT_API + "/v2/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": auth },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    const aborted = err && (err.name === "AbortError" || err.code === "ABORT_ERR");
+    console.error("xendit-invoice fetch-fail", aborted ? "timeout" : (err && err.message), (Date.now() - t0) + "ms");
+    const e = new Error(aborted ? "xendit_timeout" : "xendit_unreachable");
+    e.userMessage = aborted
+      ? "Pembayaran timeout saat menghubungi Xendit. Coba lagi sebentar lagi."
+      : "Tidak bisa menghubungi Xendit. Coba lagi.";
+    throw e;
+  }
+  clearTimeout(timer);
+  const raw = await r.text().catch(() => "");
+  let j = {};
+  try { j = raw ? JSON.parse(raw) : {}; } catch (e) { j = {}; }
+  console.log("xendit-invoice", r.status, (Date.now() - t0) + "ms", raw ? ("len=" + raw.length) : "empty");
+  if (!r.ok) {
+    console.error("xendit-invoice ERR", r.status, raw.slice(0, 500));
+    const e = new Error("xendit_invoice_" + r.status);
+    e.userMessage = (j && (j.message || j.error_code)) || ("Gagal membuat invoice Xendit (HTTP " + r.status + ").");
+    throw e;
+  }
+  const link = j.invoice_url || null;
+  const orderId = j.id || null;
+  if (!link || !orderId) {
+    console.error("xendit-invoice NO-LINK/ID", r.status, raw.slice(0, 300));
+    const e = new Error("xendit_invoice_incomplete");
+    e.userMessage = "Invoice Xendit dibuat tapi datanya tak lengkap. Coba lagi / hubungi admin.";
+    throw e;
+  }
+  return { link: link, orderId: orderId };
+}
+// Cek status invoice Xendit langsung (GET /v2/invoices/{id}). Balikan bentuk sama dgn
+// fitcoOrderStatus: { paid, expired, ... }. status Xendit: PENDING | PAID | SETTLED | EXPIRED.
+async function xenditInvoiceStatus(invoiceId) {
+  if (!invoiceId) return { paid: false, expired: false, unreadable: true, http: 0 };
+  const auth = "Basic " + Buffer.from(XENDIT_SECRET_KEY + ":").toString("base64");
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch(XENDIT_API + "/v2/invoices/" + encodeURIComponent(invoiceId), {
+      headers: { "Accept": "application/json", "Authorization": auth },
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    if (!r.ok) { try { console.log("xendit-status", r.status); } catch (e) {} return { paid: false, expired: false, unreadable: true, http: r.status }; }
+    const j = await r.json().catch(() => ({}));
+    const st = String(j.status || "").toUpperCase();
+    const paid = (st === "PAID" || st === "SETTLED");
+    const expired = (st === "EXPIRED");
+    try { console.log("xendit-status OK", r.status, "status=" + st); } catch (e) {}
+    return {
+      paid: paid, expired: expired, via: "xendit/invoice", http: r.status,
+      payment_method: j.payment_method || j.payment_channel || null,
+      gateway_reference_id: j.payment_id || j.id || null,
+      net_amount: (j.paid_amount != null ? j.paid_amount : null),
+    };
+  } catch (e) {
+    clearTimeout(timer);
+    return { paid: false, expired: false, unreadable: true, http: -1 };
+  }
+}
+// Cek status SATU order — pilih sumber sesuai provider: invoice Xendit langsung (kita yang
+// terbitkan) ATAU order FITCO shop/order. Balikan bentuk sama {paid, expired, ...} supaya
+// order-status / payment-status / reconcile tak perlu tahu bedanya.
+async function checkOrderStatus(order, fitcoToken) {
+  if (!order || !order.payment_link_id) return { paid: false, expired: false, unreadable: true };
+  if (String(order.provider || "") === "xendit-direct") {
+    return await xenditInvoiceStatus(String(order.payment_link_id));
+  }
+  return await fitcoOrderStatus(String(order.payment_link_id), fitcoToken, order.fitco_order_no);
+}
 // Reff_no unik & aman (<=40, tanpa spasi/slash).
 function newReffNo() { return "SCAN" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
 // Kreditkan order scan yang lunas — ATOMIC & IDEMPOTEN lewat RPC my20fit_credit_scan:
@@ -2175,10 +2359,14 @@ app.get("/api/whoami", async (req, res) => {
 app.get("/api/xendit/selftest", (req, res) => {
   return res.json({
     enabled: XENDIT_ENABLED,
-    via: "fitco-shop-order",
+    mode: XENDIT_DIRECT ? "xendit-direct" : "fitco-shop-order",
+    directSecretSet: XENDIT_DIRECT,
+    xenditApiUrl: XENDIT_API,
+    invoiceDurationSec: XENDIT_INVOICE_DURATION,
     fitcoApiUrl: FITCO_API,
     fitcoPartnerTokenSet: !!FITCO_PARTNER_TOKEN,
-    ready: !!FITCO_PARTNER_TOKEN,
+    appBaseUrl: APP_BASE_URL,
+    ready: XENDIT_DIRECT || !!FITCO_PARTNER_TOKEN,
   });
 });
 

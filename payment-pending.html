@@ -40,16 +40,16 @@
       <div id="stSuccess" class="hidden">
         <div class="emoji">✅</div>
         <h1>Pembayaran Berhasil!</h1>
-        <div class="sub">Terima kasih — pembayaranmu sudah dikonfirmasi.</div>
+        <div class="sub">Terima kasih — pembayaranmu sudah dikonfirmasi. Kamu akan diarahkan kembali sebentar lagi…</div>
         <div class="credits"><div class="big" id="okCredits">+0 Scan Credits</div><div class="tot" id="okTotal"></div></div>
-        <button class="pri" id="okHome">Kembali ke Dashboard</button>
+        <button class="pri" id="okHome">Kembali</button>
       </div>
       <div id="stPending" class="hidden">
         <div class="emoji">⏳</div>
         <h1>Menunggu Konfirmasi</h1>
         <div class="sub">Kalau kamu sudah membayar di Xendit, klik tombol di bawah untuk cek statusnya. Konfirmasi kadang butuh beberapa detik.</div>
         <button class="pri" id="checkBtn">Cek Status Pembayaran</button>
-        <button class="ghost" id="pendHome">Kembali ke Dashboard</button>
+        <button class="ghost" id="pendHome">Kembali</button>
         <div class="msg" id="pendMsg"></div>
       </div>
       <div id="stFailed" class="hidden">
@@ -57,7 +57,7 @@
         <h1>Pembayaran Gagal</h1>
         <div class="sub">Pembayaran gagal atau kadaluarsa. Kamu bisa coba lagi.</div>
         <button class="pri" id="retryBtn">Coba Lagi</button>
-        <button class="ghost" id="failHome">Kembali ke Dashboard</button>
+        <button class="ghost" id="failHome">Kembali</button>
       </div>
     </div>
   </div>
@@ -69,9 +69,18 @@
     (function(){
       function $(id){ return document.getElementById(id); }
       function show(which){ ["stLoading","stSuccess","stPending","stFailed"].forEach(function(s){ $(s).classList.toggle("hidden", s!==which); }); }
-      function goHome(){ location.href = "/dashboard"; }
+      // Path kepulangan (?return=) -> HARUS path internal, anti open-redirect: hanya "/sesuatu",
+      // bukan "//host", "/\\host", atau URL absolut.
+      function safeRet(raw){
+        var s = (raw||"").trim();
+        if(!s || s.charAt(0)!=="/" || s.charAt(1)==="/" || s.charAt(1)==="\\") return "/dashboard";
+        return s.slice(0,300);
+      }
+      var RET = "/dashboard";
+      try{ RET = safeRet(new URLSearchParams(location.search).get("return")); }catch(e){}
+      function goHome(){ location.href = RET; }              // balik ke halaman asal user
       function goTopup(){ location.href = "/calories"; }
-      var EXT = "";
+      var EXT = "", _retTimer = null;
 
       function getExternalId(){
         try{
@@ -100,7 +109,10 @@
         if(j.status==="PAID"){
           $("okCredits").textContent = "+"+(j.credits_added||0)+" Scan Credits";
           $("okTotal").textContent = (j.total_credits!=null) ? ("Total kredit kamu sekarang: "+j.total_credits) : "";
-          show("stSuccess"); return;
+          show("stSuccess");
+          // Balik OTOMATIS ke halaman asal user setelah beberapa detik (tetap ada tombol manual).
+          if(!_retTimer){ _retTimer = setTimeout(goHome, 2800); }
+          return;
         }
         if(j.status==="FAILED"){ show("stFailed"); return; }
         show("stPending");
