@@ -226,7 +226,7 @@ app.get("/api/config", (req, res) => {
   res.json({
     supabaseUrl: SUPABASE_URL || "",
     supabaseAnonKey: SUPABASE_ANON_KEY || "",
-    version: "xendit-live-1",
+    version: "xendit-live-2",
     serviceKeySet: !!SUPABASE_SERVICE_KEY,
     adminKeySet: !!ADMIN_KEY,
     // URL halaman login/authorize 20FIT. Setelah user login di sana, 20FIT harus
