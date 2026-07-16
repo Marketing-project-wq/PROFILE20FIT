@@ -1635,7 +1635,7 @@ app.post("/api/scan/buy", async (req, res) => {
         return res.status(502).json({ error: "Gagal menyiapkan pembayaran (id order tidak diterima dari 20FIT). Coba lagi / hubungi admin." });
       }
       const { error: linkErr } = await admin.from("my20fit_scan_orders")
-        .update({ payment_link_id: String(r.orderId) }).eq("reff_no", reffNo);
+        .update({ payment_link_id: String(r.orderId), fitco_order_no: r.orderNo ? String(r.orderNo) : null }).eq("reff_no", reffNo);
       if (linkErr) {
         try { await admin.from("my20fit_scan_orders").update({ status: "failed" }).eq("reff_no", reffNo); } catch (_) {}
         console.error("scan/buy payment_link_id gagal disimpan:", linkErr.message, reffNo);
@@ -1736,31 +1736,43 @@ app.post("/api/activity/ping", async (req, res) => {
 // server poll status ke FITCO lalu KREDIT server-authoritative begitu FITCO konfirmasi lunas
 // (idempoten lewat RPC my20fit_credit_scan; retry poll tak akan double-credit).
 // Poll status order ke FITCO (/api/v1/app/order/:id). Coba token user dulu, lalu partner.
-async function fitcoOrderStatus(fitcoId, userToken) {
+async function fitcoOrderStatus(fitcoId, userToken, orderNo) {
   const tokens = [];
   if (userToken) tokens.push({ tk: String(userToken), via: "user" });
   if (FITCO_PARTNER_TOKEN) tokens.push({ tk: FITCO_PARTNER_TOKEN, via: "partner" });
   if (!tokens.length) return null;
-  let lastHttp = 0;
-  for (const t of tokens) {
-    // Timeout keras per panggilan. /api/scan/reconcile memanggil fungsi ini sampai 20x
-    // BERURUTAN; tanpa batas, satu FITCO yang lambat/menggantung menahan request sampai
-    // platform yang memutus. Pola AbortController-nya sama dengan createFitcoXenditOrder.
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 8000);
-    try {
-      const r = await fetch(FITCO_API + "/api/v1/app/order/" + encodeURIComponent(fitcoId), {
-        headers: { "Accept": "application/json", "Authorization": "Bearer " + t.tk },
-        signal: ctrl.signal,
-      });
-      clearTimeout(timer);
-      lastHttp = r.status;
-      if (!r.ok) continue;
-      const j = await r.json().catch(() => ({}));
-      const sig = scanPaidMarkers(j); sig.via = t.via; sig.http = lastHttp;
-      return sig;
-    } catch (e) { clearTimeout(timer); lastHttp = -1; }
+  // Endpoint status, urut prioritas:
+  //  1) BARU: /api/v1/callback/order/{order_no}/payment-status  (order_no "WEB..." bila tersimpan)
+  //  2) LAMA: /api/v1/app/order/{id}  (jalur yang selama ini jalan — fallback aman)
+  // Sinyal DEFINITIF (paid/expired) dari endpoint mana pun langsung dipakai; kalau semua cuma
+  // "pending" baru balik pending. Jadi endpoint baru TIDAK menutupi deteksi lunas endpoint lama
+  // (anti-regresi terhadap crediting yang sudah jalan).
+  const eps = [];
+  if (orderNo) eps.push({ url: "/api/v1/callback/order/" + encodeURIComponent(orderNo) + "/payment-status", tag: "callback" });
+  if (fitcoId) eps.push({ url: "/api/v1/app/order/" + encodeURIComponent(fitcoId), tag: "app" });
+  let lastHttp = 0, lastSig = null;
+  for (const ep of eps) {
+    for (const t of tokens) {
+      // Timeout keras per panggilan (reconcile memanggil ini banyak kali berurutan).
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        const r = await fetch(FITCO_API + ep.url, {
+          headers: { "Accept": "application/json", "Authorization": "Bearer " + t.tk },
+          signal: ctrl.signal,
+        });
+        clearTimeout(timer);
+        lastHttp = r.status;
+        if (!r.ok) { try { console.log("fitco-status", ep.tag, t.via, r.status); } catch (e) {} continue; }
+        const j = await r.json().catch(() => ({}));
+        const sig = scanPaidMarkers(j); sig.via = t.via + "/" + ep.tag; sig.http = r.status;
+        try { console.log("fitco-status OK", ep.tag, t.via, r.status, "paid=" + sig.paid + " expired=" + sig.expired); } catch (e) {}
+        if (sig.paid || sig.expired) return sig;   // definitif -> langsung pakai
+        lastSig = sig;                              // readable tapi pending -> catat, coba kandidat lain
+      } catch (e) { clearTimeout(timer); lastHttp = -1; }
+    }
   }
+  if (lastSig) return lastSig;
   return { paid: false, expired: false, debug: [], via: "", http: lastHttp, unreadable: true };
 }
 app.post("/api/scan/order-status", async (req, res) => {
@@ -1775,7 +1787,7 @@ app.post("/api/scan/order-status", async (req, res) => {
     if (admin) {
       try {
         const { data: srows } = await admin.from("my20fit_scan_orders")
-          .select("reff_no,status,provider,payment_link_id,auth_user_id").eq("reff_no", id).limit(1);
+          .select("reff_no,status,provider,payment_link_id,fitco_order_no,auth_user_id").eq("reff_no", id).limit(1);
         order = srows && srows[0];
       } catch (e) {}
     }
@@ -1786,7 +1798,7 @@ app.post("/api/scan/order-status", async (req, res) => {
       // Pending: cek ke FITCO pakai id order FITCO tersimpan (payment_link_id).
       const fitcoId = order.payment_link_id ? String(order.payment_link_id) : "";
       if (fitcoId) {
-        const sig = await fitcoOrderStatus(fitcoId, b.fitco_token);
+        const sig = await fitcoOrderStatus(fitcoId, b.fitco_token, order.fitco_order_no);
         if (sig && sig.paid) {
           await creditScanOrder(order.reff_no);  // klaim pending->paid + tambah kredit (idempoten)
           try { console.log("order-status paid+credited", order.reff_no, "fitco=" + fitcoId); } catch (e) {}
@@ -1821,14 +1833,14 @@ app.get("/api/payment/status", async (req, res) => {
     const ext = String(req.query.external_id || "").trim();
     if (!ext) return res.status(400).json({ error: "external_id kosong." });
     const { data: rows } = await admin.from("my20fit_scan_orders")
-      .select("reff_no,status,provider,credits,auth_user_id,payment_link_id,paid_at").eq("reff_no", ext).limit(1);
+      .select("reff_no,status,provider,credits,auth_user_id,payment_link_id,fitco_order_no,paid_at").eq("reff_no", ext).limit(1);
     const order = rows && rows[0];
     if (!order) return res.status(404).json({ status: "NOT_FOUND", error: "Order tidak ditemukan." });
     if (order.auth_user_id && order.auth_user_id !== user.id) return res.status(403).json({ error: "Bukan order kamu." });
     let status = order.status;
     if (status === "pending" && order.payment_link_id) {
       try {
-        const sig = await fitcoOrderStatus(String(order.payment_link_id), req.query.fitco_token || null);
+        const sig = await fitcoOrderStatus(String(order.payment_link_id), req.query.fitco_token || null, order.fitco_order_no);
         if (sig && sig.paid) { await creditScanOrder(order.reff_no); status = "paid"; }
         else if (sig && sig.expired) { try { await admin.from("my20fit_scan_orders").update({ status: "expired" }).eq("reff_no", order.reff_no); } catch (e) {} status = "expired"; }
       } catch (e) {}
@@ -1872,7 +1884,7 @@ app.post("/api/scan/reconcile", async (req, res) => {
     // dari "tidak ada order pending" — jaring pengaman ini mati diam-diam. Jadi error dibaca
     // eksplisit, dicatat, dan dibalikkan sebagai error (bukan sukses palsu).
     const { data, error } = await admin.from("my20fit_scan_orders")
-      .select("reff_no,payment_link_id,credits,provider")
+      .select("reff_no,payment_link_id,fitco_order_no,credits,provider")
       .eq("auth_user_id", user.id).eq("status", "pending")
       .gte("created_at", cutoff)
       .order("created_at", { ascending: false }).limit(20);
@@ -1887,7 +1899,7 @@ app.post("/api/scan/reconcile", async (req, res) => {
       if (!o.payment_link_id) continue;  // order gagal sebelum FITCO bikin invoice
       checked++;
       let sig = null;
-      try { sig = await fitcoOrderStatus(String(o.payment_link_id), b.fitco_token); } catch (e) { continue; }
+      try { sig = await fitcoOrderStatus(String(o.payment_link_id), b.fitco_token, o.fitco_order_no); } catch (e) { continue; }
       if (sig && sig.paid) {
         // Idempoten (RPC my20fit_credit_scan klaim pending->paid sekali saja).
         if (await creditScanOrder(o.reff_no)) {
@@ -2055,7 +2067,10 @@ async function createFitcoXenditOrder(o) {
     throw e;
   }
   const orderId = findScalar(j, ["sales_order_id", "salesOrderId", "order_id", "order_no", "orderNo"]);
-  return { link: link, orderId: orderId };
+  // order_no khusus (mis. "WEB...") — dipakai endpoint status baru:
+  // GET /api/v1/callback/order/{order_no}/payment-status. Bisa null kalau respons tak memuatnya.
+  const orderNo = findScalar(j, ["order_no", "orderNo", "order_number", "orderNumber"]);
+  return { link: link, orderId: orderId, orderNo: orderNo };
 }
 // Reff_no unik & aman (<=40, tanpa spasi/slash).
 function newReffNo() { return "SCAN" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
