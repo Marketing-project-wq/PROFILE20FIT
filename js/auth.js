@@ -395,7 +395,7 @@
     if (!r.ok || !j.ok) throw new Error((j && j.error) || "Gagal memproses scan.");
     return j.quota;
   }
-  // Kredit top-up ditambahkan SERVER-AUTHORITATIVE (webhook SingaPay untuk pembayaran,
+  // Kredit top-up ditambahkan SERVER-AUTHORITATIVE (webhook Xendit untuk pembayaran,
   // atau creditScanOrder saat voucher bikin gratis). Client TIDAK menulis saldo —
   // cukup ambil kuota terbaru dari profil. (Argumen lama diabaikan; dipertahankan
   // agar pemanggil lama tetap kompatibel.)
