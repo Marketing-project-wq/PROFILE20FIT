@@ -1655,20 +1655,52 @@ async function createFitcoXenditOrder(o) {
     payment: { payment_type: "xendit-invoices", user_point_booster_id: null, use_fit_points: false },
     items: o.items,
   };
-  const r = await fetch(FITCO_API + "/api/v1/third-party/shop/order", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": "Bearer " + o.bearer },
-    body: JSON.stringify(body),
-  });
-  const j = await r.json().catch(() => ({}));
+  const url = FITCO_API + "/api/v1/third-party/shop/order";
+  // Timeout keras (AbortController): kalau FITCO lambat/menggantung, JANGAN biarkan request
+  // menggantung sampai platform (Railway) balas 5xx HTML. Kalau itu terjadi, frontend cuma
+  // dapat body non-JSON -> pesan generik "Couldn't start payment." tanpa sebab jelas.
+  // Lebih baik gagal cepat dengan pesan JSON yang actionable + tercatat di log.
+  const ctrl = new AbortController();
+  const t0 = Date.now();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  let r;
+  try {
+    r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "Authorization": "Bearer " + o.bearer },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    const aborted = err && (err.name === "AbortError" || err.code === "ABORT_ERR");
+    console.error("fitco-shop-order fetch-fail", aborted ? "timeout" : (err && err.message), (Date.now() - t0) + "ms");
+    const e = new Error(aborted ? "fitco_timeout" : "fitco_unreachable");
+    e.userMessage = aborted
+      ? "Pembayaran timeout saat menghubungi 20FIT. Coba lagi sebentar lagi."
+      : "Tidak bisa menghubungi server pembayaran 20FIT. Coba lagi.";
+    throw e;
+  }
+  clearTimeout(timer);
+  // Baca sbg TEXT dulu lalu parse — supaya body non-JSON (mis. halaman error HTML)
+  // tetap ke-log & tidak bikin exception yang tak terbaca.
+  const raw = await r.text().catch(() => "");
+  let j = {};
+  try { j = raw ? JSON.parse(raw) : {}; } catch (e) { j = {}; }
+  console.log("fitco-shop-order", r.status, (Date.now() - t0) + "ms", raw ? ("len=" + raw.length) : "empty");
   if (!r.ok) {
-    console.error("fitco-shop-order", r.status, JSON.stringify(j).slice(0, 400));
+    console.error("fitco-shop-order ERR", r.status, raw.slice(0, 500));
     const e = new Error("fitco_order_" + r.status);
-    e.userMessage = (j && (j.message || j.error)) || "Gagal membuat order pembayaran.";
+    e.userMessage = (j && (j.message || j.error)) || ("Gagal membuat order pembayaran (HTTP " + r.status + ").");
     throw e;
   }
   const link = findXenditLink(j);
-  if (!link) { console.error("fitco-shop-order no link", JSON.stringify(j).slice(0, 400)); throw new Error("fitco_no_payment_link"); }
+  if (!link) {
+    console.error("fitco-shop-order NO-LINK", r.status, raw.slice(0, 500));
+    const e = new Error("fitco_no_payment_link");
+    e.userMessage = "Order 20FIT dibuat tapi link pembayaran Xendit tidak ditemukan. Coba lagi / hubungi admin.";
+    throw e;
+  }
   const orderId = findScalar(j, ["sales_order_id", "salesOrderId", "order_id", "order_no", "orderNo"]);
   return { link: link, orderId: orderId };
 }
