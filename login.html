@@ -565,16 +565,22 @@
           await Auth.fitcoRegister({name:name,email:email,password:password,phone:phone,gender:gender,date_of_birth:birthdate});
         }
         else{
-          // Prioritas akun 20FIT (API developer). Kalau ditolak (bukan akun 20FIT),
-          // fallback ke akun profile20fit (Supabase) supaya akun lama tetap bisa masuk.
+          // Prioritas akun 20FIT (API developer). Kalau login 20FIT GAGAL — apa pun
+          // sebabnya: kredensial salah ATAU 20FIT down/belum dikonfigurasi — selalu
+          // coba fallback ke akun profile20fit (Supabase) supaya user lama yang punya
+          // password Supabase tetap bisa masuk walau FITCO sedang bermasalah.
           try{
             await Auth.fitcoLogin(email,password);
           }catch(e20){
-            const m=String((e20&&e20.message)||"").toLowerCase();
-            // Kalau 20FIT down / server belum dikonfigurasi (bukan sekadar salah kredensial),
-            // jangan disembunyikan -> lempar lagi biar pesannya jelas.
-            if(m.includes("dikonfigurasi")||m.includes("service key")||m.includes("menghubungi")){ throw e20; }
-            await Auth.signIn(email,password);   // akun profile20fit (Supabase)
+            try{
+              await Auth.signIn(email,password);   // fallback: akun profile20fit (Supabase)
+            }catch(eSb){
+              // Dua-duanya gagal. Kalau kegagalan 20FIT karena server down/misconfig,
+              // pesan itu lebih informatif; selain itu tampilkan error Supabase (kredensial).
+              const m20=String((e20&&e20.message)||"").toLowerCase();
+              if(m20.includes("dikonfigurasi")||m20.includes("service key")||m20.includes("menghubungi")) throw e20;
+              throw eSb;
+            }
           }
         }
         saveCredential(email,password);

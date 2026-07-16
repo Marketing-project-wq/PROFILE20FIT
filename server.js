@@ -228,7 +228,7 @@ app.get("/api/config", (req, res) => {
     supabaseAnonKey: SUPABASE_ANON_KEY || "",
     version: "xendit-live-1",
     serviceKeySet: !!SUPABASE_SERVICE_KEY,
-    adminKeySet: !!ADMIN_KEY,
+    adminKeySet: ADMIN_KEYS.length > 0,
     // URL halaman login/authorize 20FIT. Setelah user login di sana, 20FIT harus
     // redirect balik ke my.20fit.id/login.html?token=<access_token>.
     // Diisi lewat env FITCO_SSO_URL dari tim developer.
@@ -456,10 +456,32 @@ const APP_BASE_URL = (process.env.APP_BASE_URL || "https://my.20fit.id").replace
 // package_id = product_id dari sistem retail 20FIT (FITCO). HARUS sama persis dengan
 // SCAN_PACKS di js/deals.js (yang kini dipakai hanya untuk tampilan UI).
 const SCAN_PACKAGES = {
-  8477: { credits: 10,  price: 25000  },
-  8478: { credits: 50,  price: 75000  },
-  8479: { credits: 150, price: 150000 },
+  8477: { credits: 10,  price: 25000,  name: "10x scan"  },
+  8478: { credits: 50,  price: 75000,  name: "50x scan"  },
+  8479: { credits: 150, price: 150000, name: "150x scan" },
 };
+// Katalog paket sebagai LIST — sumber DINAMIS untuk filter "produk terlaris" di dashboard
+// admin. Frontend TIDAK hardcode daftar produk: tambah paket baru di SCAN_PACKAGES => otomatis
+// ikut muncul di filter & analisis, tanpa ubah kode filter.
+function scanPackageCatalog() {
+  return Object.keys(SCAN_PACKAGES).map(function (id) {
+    const p = SCAN_PACKAGES[id];
+    return { package_id: +id, name: p.name || (p.credits + "x scan"), credits: p.credits, price: p.price };
+  });
+}
+// Nama produk dari package_id; fallback ke "<credits>x scan" kalau id tak dikenal katalog.
+function scanPackageName(packageId, credits) {
+  const p = packageId != null ? SCAN_PACKAGES[packageId] : null;
+  if (p) return p.name || (p.credits + "x scan");
+  if (credits != null) return credits + "x scan";
+  return "—";
+}
+// Reverse credits -> package_id (fallback untuk order lama yang belum punya package_id).
+function packageIdFromCredits(credits) {
+  const c = +credits;
+  for (const id of Object.keys(SCAN_PACKAGES)) if (SCAN_PACKAGES[id].credits === c) return +id;
+  return null;
+}
 
 // ---------- Login Google via Google Identity Services (GIS) ----------
 // Frontend memakai tombol Google resmi (SDK GIS) untuk mendapatkan ID token,
@@ -878,22 +900,42 @@ app.get("/api/partner/profile", async (req, res) => {
 });
 
 // ================= ADMIN MONITORING (dashboard internal) =================
-// Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
-const ADMIN_KEY = process.env.ADMIN_KEY || "";
+// Master key admin — RAHASIA, HANYA dari env (fail-closed: env kosong = terkunci).
+// ROTASI TANPA DOWNTIME: dukung dua key sekaligus — ADMIN_KEY (utama) + ADMIN_KEY_2
+// (cadangan). Cara rotasi: isi ADMIN_KEY_2 dgn key baru → pakai key baru di semua
+// klien → pindahkan key baru ke ADMIN_KEY & kosongkan ADMIN_KEY_2. Selalu ada minimal
+// satu key valid sepanjang proses, jadi tidak ada downtime.
+const ADMIN_KEYS = [process.env.ADMIN_KEY, process.env.ADMIN_KEY_2]
+  .map(s => String(s || "").trim()).filter(Boolean);
+// IP klien asli (di belakang proxy Railway) — untuk audit pemakaian master key.
+function clientIp(req) {
+  const xf = String((req.headers && req.headers["x-forwarded-for"]) || "").split(",")[0].trim();
+  return xf || (req.ip || (req.connection && req.connection.remoteAddress) || "") || "";
+}
+// Cocokkan master key secara konstan-waktu (anti timing attack) ke salah satu key valid.
+function masterKeyMatches(provided) {
+  if (!provided) return false;
+  for (const k of ADMIN_KEYS) {
+    if (k.length === provided.length) {
+      try { if (crypto.timingSafeEqual(Buffer.from(k), Buffer.from(provided))) return true; } catch (e) {}
+    }
+  }
+  return false;
+}
 // ---------- RBAC admin per-user (superadmin/staff/viewer) ----------
-// Master ADMIN_KEY (x-admin-key / ?key=) = superadmin (bootstrap & admin.html lama).
+// Master key (x-admin-key / ?key=) = superadmin (bootstrap & admin.html lama).
 // Selain itu: user login 20FIT (Authorization: Bearer <jwt>) yang punya baris di
 // my20fit_admin_roles. Role di-cek di SERVER (bukan cuma UI).
 const ADMIN_RANK = { viewer: 1, staff: 2, superadmin: 3 };
 async function getAdminContext(req) {
   const masterKey = String(req.headers["x-admin-key"] || "").trim() || String(req.query.key || "").trim();
-  if (ADMIN_KEY && masterKey && masterKey === ADMIN_KEY) return { via: "key", role: "superadmin", email: null, user_id: null };
+  if (masterKey && masterKeyMatches(masterKey)) return { via: "key", role: "superadmin", email: null, user_id: null, ip: clientIp(req) };
   if (!admin) return null;
   try {
     const user = await getUserFromReq(req);
     if (!user) return null;
     const { data } = await admin.from("my20fit_admin_roles").select("role,email").eq("auth_user_id", user.id).limit(1);
-    if (data && data[0]) return { via: "user", role: data[0].role, email: data[0].email || user.email, user_id: user.id };
+    if (data && data[0]) return { via: "user", role: data[0].role, email: data[0].email || user.email, user_id: user.id, ip: clientIp(req) };
   } catch (e) {}
   return null;
 }
@@ -907,10 +949,15 @@ async function requireAdmin(req, res, minRole) {
 async function adminAudit(ctx, action, target, detail) {
   if (!admin) return;
   try {
+    // Sertakan IP + metode auth (key/user) supaya pemakaian master key bisa diaudit.
+    const det = (detail && typeof detail === "object") ? Object.assign({}, detail) : (detail != null ? { value: detail } : {});
+    if (ctx && ctx.ip) det.ip = ctx.ip;
+    if (ctx && ctx.via) det.via = ctx.via;
     await admin.from("my20fit_admin_audit_log").insert({
       actor_user_id: (ctx && ctx.user_id) || null,
       actor_email: (ctx && ctx.email) || (ctx && ctx.via === "key" ? "master-key" : null),
-      action: action, target: target || null, detail: detail || null,
+      action: action, target: target || null,
+      detail: Object.keys(det).length ? det : null,
     });
   } catch (e) {}
 }
@@ -918,6 +965,8 @@ async function adminAudit(ctx, action, target, detail) {
 app.get("/api/admin/me", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer");
   if (!ctx) return;
+  // Audit setiap akses via master key (siapa=master-key, kapan, dari IP mana).
+  if (ctx.via === "key") { try { await adminAudit(ctx, "admin.access.masterkey", null, null); } catch (e) {} }
   return res.json({ ok: true, role: ctx.role, email: ctx.email, via: ctx.via });
 });
 // List role admin (superadmin only).
@@ -988,7 +1037,7 @@ app.get("/api/admin/config", async (req, res) => {
       fitco_api_url: FITCO_API,
       fitco_partner_token: !!FITCO_PARTNER_TOKEN,
       meta_capi: !!process.env.META_CAPI_ACCESS_TOKEN,
-      admin_master_key: !!process.env.ADMIN_KEY,
+      admin_master_key: ADMIN_KEYS.length > 0,
     }
   });
 });
@@ -1254,14 +1303,30 @@ app.get("/api/admin/users", async (req, res) => {
     const { data: acts } = await admin.from("my20fit_user_activity")
       .select("auth_user_id,last_active_at,last_page,ping_count").limit(5000);
     const { data: orders } = await admin.from("my20fit_scan_orders")
-      .select("auth_user_id,amount,net_amount,credits,status").eq("status", "paid").limit(20000);
+      .select("auth_user_id,amount,net_amount,credits,status,package_id").eq("status", "paid").limit(20000);
     const actMap = {}; (acts || []).forEach(a => actMap[a.auth_user_id] = a);
     const buyMap = {};
+    const prodMap = {}; // auth_user_id -> { "<key>": count } untuk cari produk paling banyak dibeli per user
     (orders || []).forEach(o => {
       const paidAmt = (o.net_amount != null ? +o.net_amount : +o.amount) || 0;
       const b = buyMap[o.auth_user_id] || (buyMap[o.auth_user_id] = { purchases: 0, totalSpent: 0, credits: 0, highest: 0 });
       b.purchases++; b.totalSpent += paidAmt; b.credits += (+o.credits || 0); if (paidAmt > b.highest) b.highest = paidAmt;
+      // Produk: pakai package_id (durable); fallback ke credits utk order lama tanpa package_id.
+      const pid = o.package_id != null ? +o.package_id : packageIdFromCredits(o.credits);
+      const key = pid != null ? String(pid) : ("c" + (+o.credits || 0));
+      const pm = prodMap[o.auth_user_id] || (prodMap[o.auth_user_id] = {});
+      pm[key] = (pm[key] || 0) + 1;
     });
+    // Produk paling banyak dibeli per user (key dgn count tertinggi).
+    function topProductFor(uid) {
+      const pm = prodMap[uid]; if (!pm) return null;
+      let bestKey = null, bestN = 0;
+      for (const k of Object.keys(pm)) if (pm[k] > bestN) { bestN = pm[k]; bestKey = k; }
+      if (bestKey == null) return null;
+      const pid = bestKey[0] === "c" ? null : +bestKey;
+      const credits = bestKey[0] === "c" ? +bestKey.slice(1) : null;
+      return { package_id: pid, name: scanPackageName(pid, credits), count: bestN };
+    }
     const now = Date.now();
     const users = (profiles || []).map(p => {
       const a = actMap[p.auth_user_id];
@@ -1274,12 +1339,13 @@ app.get("/api/admin/users", async (req, res) => {
         created_at: p.created_at, last_active_at: a ? a.last_active_at : null, last_page: a ? a.last_page : null,
         minutes_ago: mins, active: mins != null && mins <= activeMin,
         purchases: b.purchases, total_spent: b.totalSpent, credits_bought: b.credits, highest_purchase: b.highest,
+        top_product: topProductFor(p.auth_user_id),
       };
     });
     users.sort((x, y) => (y.last_active_at ? new Date(y.last_active_at).getTime() : 0) - (x.last_active_at ? new Date(x.last_active_at).getTime() : 0));
     const activeCount = users.filter(u => u.active).length;
     const buyers = users.filter(u => u.purchases > 0).length;
-    return res.json({ ok: true, window: activeMin, total: users.length, active: activeCount, inactive: users.length - activeCount, buyers: buyers, users: users });
+    return res.json({ ok: true, window: activeMin, total: users.length, active: activeCount, inactive: users.length - activeCount, buyers: buyers, users: users, catalog: scanPackageCatalog() });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Detail satu user: profil lengkap + riwayat order.
@@ -1541,7 +1607,7 @@ app.post("/api/scan/buy", async (req, res) => {
       try {
         await admin.from("my20fit_scan_orders").insert({
           reff_no: reffNo, auth_user_id: user.id, credits: credits, amount: gross, net_amount: 0,
-          provider: "voucher", order_type: "scan_credit", voucher_id: voucherId,
+          provider: "voucher", order_type: "scan_credit", voucher_id: voucherId, package_id: packageId,
           payment_method: "voucher", status: "pending", created_at: new Date().toISOString(),
         });
       } catch (e) { console.error("scan_orders insert(free):", e.message); return res.status(500).json({ error: "Gagal menyiapkan order." }); }
@@ -1594,7 +1660,7 @@ app.post("/api/scan/buy", async (req, res) => {
     try {
       await admin.from("my20fit_scan_orders").insert({
         reff_no: reffNo, auth_user_id: user.id, credits: credits, amount: gross, net_amount: amount,
-        provider: "xendit", order_type: "scan_credit", voucher_id: voucherId,
+        provider: "xendit", order_type: "scan_credit", voucher_id: voucherId, package_id: packageId,
         status: "pending", created_at: new Date().toISOString(),
       });
     } catch (e) { console.error("scan_orders insert:", e.message); return res.status(500).json({ error: "Gagal menyiapkan order." }); }
