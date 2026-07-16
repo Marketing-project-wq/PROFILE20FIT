@@ -1509,7 +1509,11 @@ app.post("/api/scan/buy", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
     const user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    // "Unauthorized" itu bahasa programmer — user cuma lihat kata asing di bawah tombol bayar
+    // dan tak tahu harus apa. Sesi memang bisa mati wajar (token kedaluwarsa, atau beberapa tab
+    // saling merotasi refresh token). Beri tahu apa yang terjadi + `session_expired` supaya
+    // frontend bisa menawarkan login ulang.
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi untuk melanjutkan pembayaran.", session_expired: true });
     const b = req.body || {};
 
     // ===== Pembayaran paket scan = Xendit via FITCO shop order (satu-satunya jalur) =====
@@ -1668,7 +1672,8 @@ app.post("/api/scan/consume", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
     const user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    // Sama seperti /api/scan/buy: jangan semprot user dgn "Unauthorized" saat dia lagi scan.
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
     const { data, error } = await admin.rpc("my20fit_consume_scan", { p_uid: user.id });
     if (error) { console.error("scan/consume rpc:", error.message); return res.status(500).json({ error: "Gagal memproses scan." }); }
     const q = data || {};
@@ -1686,7 +1691,7 @@ app.post("/api/scan/voucher-check", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
     const user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (!user) return res.status(401).json({ ok: false, error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
     const b = req.body || {};
     const gross = parseInt(b.price, 10) || 0;
     if (gross <= 0) return res.status(400).json({ error: "Harga paket tidak valid." });

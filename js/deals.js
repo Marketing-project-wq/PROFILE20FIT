@@ -229,6 +229,26 @@
     } catch (e) { CUR_VOUCHER = null; CUR_DISCOUNT = 0; CUR_FINAL = p.price; renderTotals(); if (msg) { msg.style.color = "var(--red,#C41101)"; msg.textContent = L({ en: "Couldn't check voucher.", id: "Gagal cek voucher." }); } }
   }
 
+  // Sesi habis: tampilkan pesan manusiawi + jalan keluarnya, bukan kata "Unauthorized".
+  // Sesi bisa mati wajar (token kedaluwarsa; beberapa tab my.20fit.id saling merotasi refresh
+  // token Supabase). Yang penting user tahu ini bukan pembayaran gagal & tak perlu bayar ulang.
+  function showSessionExpired(payWin) {
+    if (payWin) { try { payWin.close(); } catch (e) {} }
+    _payWin = null;
+    var msg = L({
+      en: "Your session has expired. Please log in again to continue — nothing was charged.",
+      id: "Sesi kamu sudah habis. Login lagi untuk melanjutkan — tidak ada yang terpotong.",
+    });
+    var vm = document.getElementById("dlVMsg");
+    if (vm) { vm.style.color = "var(--red,#C41101)"; vm.textContent = msg; }
+    var btn = document.getElementById("dlPay");
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = L({ en: "Log in again", id: "Login lagi" });
+      btn.onclick = function () { location.href = "/login?next=" + encodeURIComponent(location.pathname + location.hash); };
+    }
+  }
+
   // ---------- Bayar ----------
   async function buyPack(idx) {
     var p = SCAN_PACKS[idx]; if (!p || !p.product_id) return;
@@ -242,6 +262,10 @@
     if (payWin) { try { payWin.document.write("<p style='font-family:sans-serif;padding:24px'>Menyiapkan pembayaran…</p>"); } catch (e) {} }
     try {
       var tk = await Auth.token();
+      // Sesi sudah hilang sebelum kita menembak server (mis. token kedaluwarsa, atau beberapa
+      // tab saling merotasi refresh token). Jangan kirim "Bearer " kosong lalu memantulkan
+      // "Unauthorized" ke wajah user — beri tahu apa yang terjadi & jalan keluarnya.
+      if (!tk) { showSessionExpired(payWin); payBtn.disabled = false; renderTotals(); return; }
       // Server-authoritative: kirim package_id (= product_id 20FIT). Server menentukan
       // credits & harga dari katalog; voucher juga diverifikasi & dihitung server.
       var phoneVal = ((document.getElementById("dlPhone") || {}).value || "").trim();
@@ -262,6 +286,8 @@
         showThanks(p.credits);
         return;
       }
+      // Server bilang sesi habis (401): tawarkan login ulang, jangan pantulkan pesan mentah.
+      if (!r.ok && j.session_expired) { showSessionExpired(payWin); return; }
       // Server minta nomor HP (profil kosong) -> munculkan input HP di sheet & minta ulang; bukan error fatal.
       if (!r.ok && j.need_phone) {
         if (payWin) { try { payWin.close(); } catch (e) {} }
