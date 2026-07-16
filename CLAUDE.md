@@ -46,6 +46,36 @@ pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 - `node --check server.js` untuk backend.
 - Cek sintaks inline JS untuk file HTML yang diubah.
 
+## 8. Code & Git Hygiene Rules
+(Perluasan dari §2. Berlaku permanen untuk SEMUA pekerjaan ke depan.)
+- Setiap kali mengerjakan perintah yang menggantikan fungsi/komponen/logic lama
+  dengan yang baru: kode lama WAJIB dihapus, bukan dibiarkan nganggur di file
+  (dikomentari, di-disable, atau ditinggal tanpa dipanggil). Tidak boleh ada
+  dead code, unused import, unused variable/function, atau file yang sudah tidak
+  dipakai tersisa di repo setelah sebuah task selesai.
+- Sebelum menandai task selesai, jalankan pengecekan yang tersedia di stack ini:
+  `node --check server.js` + cek sintaks inline JS tiap HTML yang diubah, dan
+  grep referensi simbol/fungsi yang dihapus untuk memastikan tak ada unused
+  code sisa perubahan. (Stack vanilla JS — tak ada bundler/linter. Kalau nanti
+  perlu, boleh setup checker ringan mis. `eslint` rule `no-unused-vars`.)
+- Kalau kode lama yang digantikan masih dipakai di tempat lain (shared function
+  dsb), JANGAN hapus asal — cek seluruh referensi/usage lintas repo (grep) dulu,
+  pastikan tak ada pemanggil lain yang rusak, baru hapus/refactor referensinya.
+- Kalau ragu suatu kode masih dipakai (dipanggil dinamis, dipakai di test, atau
+  eksternal), JANGAN langsung hapus — laporkan ke pemilik dulu sebelum menghapus.
+- Jangan tinggalkan file/folder sisa eksperimen (`*_backup.js`, `*_old.html`,
+  `.bak`, file test sementara). Versi lama itu tugas git history, bukan menumpuk
+  file di working tree.
+- Commit fokus & rapi: satu perubahan logis per commit sebisa mungkin; pesan
+  commit jelas menerangkan apa yang diganti dan kenapa. Hindari commit besar
+  bercampur banyak perubahan tak berhubungan.
+- Jangan commit file yang seharusnya di-ignore (build artifact, `.env`,
+  `node_modules`, dst.) — pastikan `.gitignore` mencakupnya.
+- Sebelum bikin branch/commit baru, jalankan `git status` untuk pastikan tak ada
+  file nyasar/untracked yang ikut ter-commit.
+- Setiap selesai satu task, beri ringkasan singkat ke pemilik: file apa saja
+  yang DIHAPUS, DIBUAT, dan DIMODIFIKASI — supaya cepat di-review sebelum merge.
+
 ## Konteks penting
 - Login app 20FIT lewat API FITCO (`Auth.fitcoLogin`), fallback ke password
   Supabase (`Auth.signIn`). Admin dashboard pakai password Supabase; login juga
