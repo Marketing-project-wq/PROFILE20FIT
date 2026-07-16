@@ -106,6 +106,15 @@ const apiLimiter = rateLimit({
 });
 app.use("/api/", apiLimiter);
 
+// Jaring pengaman proses: JANGAN biarkan promise-rejection / exception tak tertangani meng-crash
+// server (dulu bisa bikin request in-flight kena 502 platform tanpa jejak). Log saja, proses hidup.
+process.on("unhandledRejection", (reason) => {
+  try { console.error("unhandledRejection:", (reason && reason.stack) || reason); } catch (e) {}
+});
+process.on("uncaughtException", (err) => {
+  try { console.error("uncaughtException:", (err && err.stack) || err); } catch (e) {}
+});
+
 const otpLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 5, // maksimal 5 kirim OTP / 10 menit / IP
@@ -1464,7 +1473,22 @@ app.post("/api/scan/buy", async (req, res) => {
       prof = (rows && rows[0]) || {};
     } catch (e) {}
     const email = String(prof.email || user.email || "").toLowerCase();
-    const phone = String(prof.phone || "").replace(/^\+?62/, "").replace(/^0/, "");
+    // Nomor HP WAJIB utk invoice Xendit — FITCO menolak/ gagal bikin invoice tanpa phone valid,
+    // jadi order gagal & user tanpa no HP dapat 502 tak jelas. Sumber: profil dulu, lalu fallback
+    // ke input checkout (b.phone). Kalau tetap kosong -> balik error jelas + need_phone (frontend
+    // memunculkan input HP), TANPA memanggil FITCO dgn phone kosong.
+    const normPhone = (v) => String(v || "").replace(/[^\d+]/g, "").replace(/^\+?62/, "").replace(/^0/, "");
+    let phone = normPhone(prof.phone);
+    let savePhone = null;
+    if (phone.length < 8) {
+      const p2 = normPhone(b.phone);
+      if (p2.length >= 8) { phone = p2; savePhone = String(b.phone).trim().slice(0, 20); }
+    }
+    if (phone.length < 8) {
+      return res.status(400).json({ error: "Nomor HP kamu masih kosong. Masukkan nomor HP untuk melanjutkan pembayaran.", need_phone: true });
+    }
+    // Simpan nomor HP baru ke profil (best-effort) supaya pembelian berikutnya tak perlu isi lagi.
+    if (savePhone) { try { await admin.from("my20fit_profile").update({ phone: savePhone }).eq("auth_user_id", user.id); } catch (e) {} }
     // Voucher parsial diteruskan ke FITCO sbg promo_code (voucher gratis sudah ditangani di atas).
     const promoCode = b.voucher_code ? String(b.voucher_code).trim().toUpperCase() : null;
     // Catat order (pending) DULU (server-authoritative). amount=gross; net_amount = estimasi lokal.
