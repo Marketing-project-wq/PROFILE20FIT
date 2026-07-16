@@ -1436,8 +1436,11 @@ app.post("/api/scan/buy", async (req, res) => {
     } catch (e) { console.error("scan_orders insert:", e.message); return res.status(500).json({ error: "Gagal menyiapkan order." }); }
     try {
       // FITCO shop order (payment_type xendit-invoices) -> FITCO bikin invoice Xendit + balik link.
+      // user_id = FITCO uid member (dari client localStorage 'fitco_uid'). Diteruskan spt
+      // implementasi lama yg terbukti jalan; kalau kosong (user non-FITCO) kirim null (order tamu).
+      const fitcoUid = b.user_id ? String(b.user_id).trim() : null;
       const r = await createFitcoXenditOrder({
-        bearer: bearer, name: prof.full_name || (email ? email.split("@")[0] : "Member"),
+        bearer: bearer, userId: fitcoUid, name: prof.full_name || (email ? email.split("@")[0] : "Member"),
         phone: phone, email: email, promoCode: promoCode,
         items: [{ product_id: packageId, quantity: 1 }],
       });
@@ -1646,7 +1649,7 @@ function findXenditLink(obj) {
 }
 async function createFitcoXenditOrder(o) {
   const body = {
-    user_id: null,
+    user_id: o.userId || null,
     name: o.name || "Member",
     phone_code: "+62",
     phone: o.phone || "",
