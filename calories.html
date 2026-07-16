@@ -805,15 +805,22 @@
       if(location.hash==="#fasting"){document.getElementById("ifSection").scrollIntoView({behavior:"smooth"});}
       // Meta Pixel: kunjungan halaman calories = View Calories
       try{ Meta.track("View Calories", {content_name:"Calorie Tracker"}); }catch(e){}
-      // Kalau 20FIT/Xendit redirect balik ke sini dengan tanda sukses
-      // (mis. ?status=paid&order_no=WEBxxxx) DAN device ini memang barusan mulai beli
-      // -> langsung anggap lunas: thank-you + isi quota + Meta "Success Payment".
+      // Kalau ADA yang redirect balik ke sini dengan tanda sukses (mis. ?status=paid&order_no=…)
+      // -> picu verifikasi ke server. Jangan diandalkan (lihat catatan di bawah).
       handleReturnFromPayment();
-      // Lanjutkan pantau pembayaran kalau masih ada order tertunda (deals.js).
+      // Lanjutkan pantau pembayaran kalau masih ada order tertunda di device ini (deals.js).
       try{ if(window.Deals) Deals.resume(); }catch(e){}
+      // Sapu order tertunda milik user dari SERVER — jalan tanpa syarat, lintas device.
+      // Ini jaring pengaman utamanya: satu-satunya jalur yang tetap bekerja walau user
+      // tak pernah kembali ke tab ini, ganti device, atau localStorage-nya hilang.
+      try{ if(window.Deals && Deals.sweep) Deals.sweep(refreshQuota); }catch(e){}
     })();
-    // Deteksi kepulangan dari Xendit lewat query URL (success_redirect_url invoice Xendit
-    // mengarah ke https://my.20fit.id/calories?status=paid&reff=...).
+    // Deteksi kepulangan dari Xendit lewat query URL.
+    // CATATAN (diperbaiki 2026-07-16): jalur ini pada praktiknya TIDAK PERNAH terpicu.
+    // Invoice Xendit diterbitkan oleh API 20FIT, dan success_redirect_url-nya di-set backend
+    // mereka ke platform EVENT 20FIT — bukan ke sini. Jadi user TIDAK kembali ke halaman ini
+    // setelah bayar. Kode ini dipertahankan hanya kalau 20FIT nanti mengarahkan balik ke sini;
+    // yang benar-benar memberi kredit adalah polling (Deals.resume) + sapuan server (Deals.sweep).
     // PENTING: query URL TIDAK dipercaya untuk mengisi kredit — ia cuma memicu pengecekan
     // ke server. Kredit HANYA diberikan kalau 20FIT mengonfirmasi is_paid=true (anti-curang).
     function handleReturnFromPayment(){
