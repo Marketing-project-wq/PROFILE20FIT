@@ -1255,6 +1255,17 @@ app.get("/api/admin/users", async (req, res) => {
       .select("auth_user_id,last_active_at,last_page,ping_count").limit(5000);
     const { data: orders } = await admin.from("my20fit_scan_orders")
       .select("auth_user_id,amount,net_amount,credits,status").eq("status", "paid").limit(20000);
+    // Status onboarding (definisi: email terkonfirmasi + pernah login) — dibaca live dari
+    // auth.users pakai service key, jadi tak perlu kolom is_onboarded yang bisa basi.
+    const authMap = {};
+    try {
+      for (let page = 1; page <= 30; page++) {
+        const { data: au } = await admin.auth.admin.listUsers({ page: page, perPage: 1000 });
+        const list = (au && au.users) || [];
+        list.forEach(u => { authMap[u.id] = { email_confirmed_at: u.email_confirmed_at || null, last_sign_in_at: u.last_sign_in_at || null }; });
+        if (list.length < 1000) break;
+      }
+    } catch (e) {}
     const actMap = {}; (acts || []).forEach(a => actMap[a.auth_user_id] = a);
     const buyMap = {};
     (orders || []).forEach(o => {
@@ -1267,10 +1278,14 @@ app.get("/api/admin/users", async (req, res) => {
       const a = actMap[p.auth_user_id];
       const mins = a && a.last_active_at ? Math.floor((now - new Date(a.last_active_at).getTime()) / 60000) : null;
       const b = buyMap[p.auth_user_id] || { purchases: 0, totalSpent: 0, credits: 0, highest: 0 };
+      const au = authMap[p.auth_user_id] || {};
+      const onboarded = !!(au.email_confirmed_at && au.last_sign_in_at);
       return {
         auth_user_id: p.auth_user_id, email: p.email, full_name: p.full_name, phone: p.phone,
         gender: p.gender, age: p.age, height_cm: p.height_cm, weight_kg: p.weight_kg, main_goal: p.main_goal,
         scan_credits: p.scan_credits, onboarding_completed: p.onboarding_completed, is_plus_member: p.is_plus_member,
+        email_confirmed_at: au.email_confirmed_at || null, last_sign_in_at: au.last_sign_in_at || null,
+        is_onboarded: onboarded, onboarded_at: onboarded ? au.email_confirmed_at : null,
         created_at: p.created_at, last_active_at: a ? a.last_active_at : null, last_page: a ? a.last_page : null,
         minutes_ago: mins, active: mins != null && mins <= activeMin,
         purchases: b.purchases, total_spent: b.totalSpent, credits_bought: b.credits, highest_purchase: b.highest,
@@ -1279,7 +1294,8 @@ app.get("/api/admin/users", async (req, res) => {
     users.sort((x, y) => (y.last_active_at ? new Date(y.last_active_at).getTime() : 0) - (x.last_active_at ? new Date(x.last_active_at).getTime() : 0));
     const activeCount = users.filter(u => u.active).length;
     const buyers = users.filter(u => u.purchases > 0).length;
-    return res.json({ ok: true, window: activeMin, total: users.length, active: activeCount, inactive: users.length - activeCount, buyers: buyers, users: users });
+    const onboardedCount = users.filter(u => u.is_onboarded).length;
+    return res.json({ ok: true, window: activeMin, total: users.length, active: activeCount, inactive: users.length - activeCount, buyers: buyers, onboarded: onboardedCount, pending: users.length - onboardedCount, users: users });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Detail satu user: profil lengkap + riwayat order.
