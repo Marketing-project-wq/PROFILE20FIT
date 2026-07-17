@@ -1249,23 +1249,12 @@ app.get("/api/admin/users", async (req, res) => {
   const activeMin = Math.min(Math.max(parseInt(req.query.window, 10) || 15, 1), 10080);
   try {
     const { data: profiles } = await admin.from("my20fit_profile")
-      .select("auth_user_id,email,full_name,phone,gender,age,height_cm,weight_kg,main_goal,scan_credits,scan_count,onboarding_completed,is_plus_member,created_at")
+      .select("auth_user_id,email,full_name,phone,gender,age,height_cm,weight_kg,main_goal,scan_credits,scan_count,onboarding_completed,gender_selected_at,is_plus_member,created_at")
       .limit(5000);
     const { data: acts } = await admin.from("my20fit_user_activity")
       .select("auth_user_id,last_active_at,last_page,ping_count").limit(5000);
     const { data: orders } = await admin.from("my20fit_scan_orders")
       .select("auth_user_id,amount,net_amount,credits,status").eq("status", "paid").limit(20000);
-    // Status onboarding (definisi: email terkonfirmasi + pernah login) — dibaca live dari
-    // auth.users pakai service key, jadi tak perlu kolom is_onboarded yang bisa basi.
-    const authMap = {};
-    try {
-      for (let page = 1; page <= 30; page++) {
-        const { data: au } = await admin.auth.admin.listUsers({ page: page, perPage: 1000 });
-        const list = (au && au.users) || [];
-        list.forEach(u => { authMap[u.id] = { email_confirmed_at: u.email_confirmed_at || null, last_sign_in_at: u.last_sign_in_at || null }; });
-        if (list.length < 1000) break;
-      }
-    } catch (e) {}
     const actMap = {}; (acts || []).forEach(a => actMap[a.auth_user_id] = a);
     const buyMap = {};
     (orders || []).forEach(o => {
@@ -1278,14 +1267,15 @@ app.get("/api/admin/users", async (req, res) => {
       const a = actMap[p.auth_user_id];
       const mins = a && a.last_active_at ? Math.floor((now - new Date(a.last_active_at).getTime()) / 60000) : null;
       const b = buyMap[p.auth_user_id] || { purchases: 0, totalSpent: 0, credits: 0, highest: 0 };
-      const au = authMap[p.auth_user_id] || {};
-      const onboarded = !!(au.email_confirmed_at && au.last_sign_in_at);
+      // Onboarded = sudah masukan data lewat onboarding my.20fit.id: Auth.saveOnboarding()
+      // set onboarding_completed=true + gender/weight (js/auth.js). Menyelesaikan onboarding
+      // sudah pasti berarti masuk app + isi data — bukan sekadar konfirmasi email / login.
+      const onboarded = !!(p.onboarding_completed && p.weight_kg && p.gender);
       return {
         auth_user_id: p.auth_user_id, email: p.email, full_name: p.full_name, phone: p.phone,
         gender: p.gender, age: p.age, height_cm: p.height_cm, weight_kg: p.weight_kg, main_goal: p.main_goal,
         scan_credits: p.scan_credits, onboarding_completed: p.onboarding_completed, is_plus_member: p.is_plus_member,
-        email_confirmed_at: au.email_confirmed_at || null, last_sign_in_at: au.last_sign_in_at || null,
-        is_onboarded: onboarded, onboarded_at: onboarded ? au.email_confirmed_at : null,
+        is_onboarded: onboarded, onboarded_at: onboarded ? (p.gender_selected_at || null) : null,
         created_at: p.created_at, last_active_at: a ? a.last_active_at : null, last_page: a ? a.last_page : null,
         minutes_ago: mins, active: mins != null && mins <= activeMin,
         purchases: b.purchases, total_spent: b.totalSpent, credits_bought: b.credits, highest_purchase: b.highest,
