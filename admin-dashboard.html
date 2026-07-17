@@ -758,7 +758,7 @@
         var t=u.onboarded_at?" title='Onboarded: "+esc(new Date(u.onboarded_at).toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"}))+"'":"";
         return "<span class='tagrole' style='background:rgba(42,122,79,.14);color:var(--green)'"+t+">✅ Onboarded</span>";
       }
-      return "<span class='tagrole' style='background:rgba(138,124,104,.16);color:var(--muted)' title='Belum konfirmasi email atau belum pernah login'>⬜ Belum</span>";
+      return "<span class='tagrole' style='background:rgba(138,124,104,.16);color:var(--muted)' title='Belum masukan data / belum selesai onboarding di my.20fit.id'>⬜ Belum</span>";
     }
     function renderUserList(){
       var list=$("uList");
