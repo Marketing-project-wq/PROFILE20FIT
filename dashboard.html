@@ -49,37 +49,13 @@
   @keyframes heroBreathe{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
   .hero-inner{position:relative;z-index:1}
   /* PLATAROX x 20FIT — banner hasil & leaderboard race (home, di atas kartu onboarding).
-     Rekonstruksi HTML/CSS mandiri (tanpa aset gambar eksternal). Ganti .rb-inner
-     background jadi url(<foto>) kalau nanti ada banner foto final dari owner. */
+     Banner = 1 gambar (teks & logo sudah menyatu di aset) yang bisa diklik -> racelabtiming. */
   .race-banner{display:block;margin:2px 0 14px;border-radius:16px;overflow:hidden;text-decoration:none;
     box-shadow:0 4px 18px rgba(16,18,22,.12);transition:transform .16s ease,box-shadow .16s ease}
   .race-banner:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(16,18,22,.22)}
   .race-banner:active{transform:translateY(0)}
   .race-banner:focus-visible{outline:3px solid var(--red);outline-offset:2px}
-  .rb-inner{position:relative;isolation:isolate;overflow:hidden;text-align:center;color:#fff;
-    padding:34px 24px 30px;
-    background:
-      radial-gradient(120% 150% at 14% 8%, rgba(96,104,120,.55), rgba(0,0,0,0) 55%),
-      radial-gradient(120% 160% at 88% 92%, rgba(38,42,50,.65), rgba(0,0,0,0) 60%),
-      linear-gradient(135deg,#3b4048 0%,#262a31 55%,#181b20 100%)}
-  .rb-inner::before{content:"";position:absolute;inset:0;z-index:-1;opacity:.55;
-    background:repeating-linear-gradient(115deg,rgba(255,255,255,.035) 0 2px,transparent 2px 27px)}
-  .rb-logos{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin-bottom:14px}
-  .rb-plata{font-weight:900;font-style:italic;letter-spacing:1px;font-size:20px;line-height:1}
-  .rb-plata i{color:var(--red);font-style:normal}
-  .rb-platawrap{display:flex;flex-direction:column;align-items:flex-start;line-height:1}
-  .rb-platasub{font-size:9px;letter-spacing:3px;text-transform:uppercase;opacity:.75;margin-top:3px}
-  .rb-vdiv{width:1px;height:28px;background:rgba(255,255,255,.32)}
-  .rb-20fit{font-weight:900;font-size:22px;letter-spacing:1px}
-  .rb-20fit i{color:var(--red);font-style:normal}
-  .rb-head{font-weight:900;font-size:clamp(24px,4.2vw,42px);line-height:1.03;letter-spacing:.4px;margin:4px 0 14px}
-  .rb-sub{font-size:clamp(13.5px,1.6vw,19px);line-height:1.42;max-width:620px;margin:0 auto 20px;opacity:.96}
-  .rb-sub mark{background:var(--red);color:#fff;padding:1px 8px;border-radius:4px;font-weight:800}
-  .rb-btn{display:inline-block;padding:12px 26px;border:1.5px solid rgba(255,255,255,.6);border-radius:999px;
-    font-weight:700;letter-spacing:1px;font-size:13.5px;text-transform:uppercase;background:rgba(255,255,255,.06);
-    transition:background .16s ease,border-color .16s ease}
-  .race-banner:hover .rb-btn{background:rgba(255,255,255,.16);border-color:#fff}
-  @media(max-width:520px){.rb-inner{padding:26px 16px}.rb-logos{gap:10px}}
+  .race-banner img{display:block;width:100%;height:auto}
   .hk{color:var(--red);font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px 2px}
   .hello{font-size:33px;font-weight:800;margin:0 2px;letter-spacing:-.03em;line-height:1.04}
   .greetdate{font-size:13px;color:var(--faint);font-weight:600;margin:5px 2px 0}
@@ -352,19 +328,9 @@
     <a class="race-banner" href="https://racelabtiming.20fit.id/results/platarox"
        target="_blank" rel="noopener"
        aria-label="Lihat hasil & leaderboard Platarox kamu">
-      <div class="rb-inner">
-        <div class="rb-logos">
-          <div class="rb-platawrap">
-            <span class="rb-plata">PLATA<i>&#10148;</i>ROX</span>
-            <span class="rb-platasub">Jakarta Hybrid Race</span>
-          </div>
-          <span class="rb-vdiv"></span>
-          <span class="rb-20fit">2<i>0</i>FIT</span>
-        </div>
-        <div class="rb-head">YOUR RACE.<br>YOUR TIME. PROVEN.</div>
-        <div class="rb-sub">Every split. Every station. All your Platarox <mark>results &amp; leaderboard</mark> live inside your my20FIT account.</div>
-        <span class="rb-btn">CHECK MY RESULTS &rarr;</span>
-      </div>
+      <img src="https://media.20fit.id/wp-content/uploads/2026/07/IMG_2055.png"
+           alt="PLATAROX x 20FIT — Your race, your time, proven. Cek hasil &amp; leaderboard Platarox kamu di my20FIT."
+           loading="lazy" decoding="async">
     </a>
 
     <!-- Penting hari ini (kalori + what to watch) -->
