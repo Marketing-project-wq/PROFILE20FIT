@@ -175,7 +175,7 @@
               <option value="15">15 menit</option><option value="60">1 jam</option><option value="1440">24 jam</option><option value="10080">7 hari</option>
             </select>
           </label>
-          <select id="uFilter" style="max-width:160px"><option value="">Semua user</option><option value="active">Aktif saja</option><option value="inactive">Tidak aktif</option><option value="buyers">Pernah beli</option></select>
+          <select id="uFilter" style="max-width:160px"><option value="">Semua user</option><option value="onboarded">Sudah onboarding</option><option value="pending">Belum onboarding</option><option value="active">Aktif saja</option><option value="inactive">Tidak aktif</option><option value="buyers">Pernah beli</option></select>
           <span class="grow"></span>
           <button class="btn sm ghost" id="uRefresh" style="margin-top:0">↻ Refresh</button>
         </div>
@@ -749,14 +749,23 @@
       var r=await adminFetch("/api/admin/users?window="+win); var j=await r.json().catch(function(){return{};});
       if(!r.ok){ list.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
       ALL_USERS=j.users||[];
-      $("uSummary").innerHTML = statCard("Aktif", j.active||0, "≤ "+(win>=1440?(win/1440+" hari"):(win+" menit")))+statCard("Tidak aktif", j.inactive||0)+statCard("Total user", j.total||0)+statCard("Pernah beli", j.buyers||0);
+      $("uSummary").innerHTML = statCard("Total user", j.total||0)+statCard("Sudah onboarding", j.onboarded||0, (j.total?Math.round((j.onboarded||0)/j.total*100):0)+"%")+statCard("Belum onboarding", j.pending||0)+statCard("Aktif", j.active||0, "≤ "+(win>=1440?(win/1440+" hari"):(win+" menit")))+statCard("Tidak aktif", j.inactive||0)+statCard("Pernah beli", j.buyers||0);
       renderUserList();
       loadTopProducts();
+    }
+    function onbBadge(u){
+      if(u.is_onboarded){
+        var t=u.onboarded_at?" title='Onboarded: "+esc(new Date(u.onboarded_at).toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"}))+"'":"";
+        return "<span class='tagrole' style='background:rgba(42,122,79,.14);color:var(--green)'"+t+">✅ Onboarded</span>";
+      }
+      return "<span class='tagrole' style='background:rgba(138,124,104,.16);color:var(--muted)' title='Belum konfirmasi email atau belum pernah login'>⬜ Belum</span>";
     }
     function renderUserList(){
       var list=$("uList");
       var q=($("uSearch").value||"").trim().toLowerCase(), f=$("uFilter").value;
       var us=ALL_USERS.filter(function(u){
+        if(f==="onboarded"&&!u.is_onboarded) return false;
+        if(f==="pending"&&u.is_onboarded) return false;
         if(f==="active"&&!u.active) return false;
         if(f==="inactive"&&u.active) return false;
         if(f==="buyers"&&!(u.purchases>0)) return false;
@@ -764,10 +773,11 @@
         return true;
       });
       if(!us.length){ list.innerHTML="<div class='placeholder'>Tidak ada user cocok.</div>"; return; }
-      var h="<table><thead><tr><th>Status</th><th>Nama</th><th>Email</th><th>Terakhir aktif</th><th>Beli</th><th>Total belanja</th><th>Tertinggi</th><th></th></tr></thead><tbody>";
+      var h="<table><thead><tr><th>Status</th><th>Onboarding</th><th>Nama</th><th>Email</th><th>Terakhir aktif</th><th>Beli</th><th>Total belanja</th><th>Tertinggi</th><th></th></tr></thead><tbody>";
       us.forEach(function(u){
         var dotc=u.active?"var(--green,#1a7f37)":"#8A7C68";
         h+="<tr><td style='white-space:nowrap'><span style='color:"+dotc+"'>●</span> "+(u.active?"Aktif":"Nonaktif")+"</td>"+
+          "<td style='white-space:nowrap'>"+onbBadge(u)+"</td>"+
           "<td>"+esc(u.full_name||"—")+"</td>"+
           "<td style='color:var(--muted)'>"+esc(u.email||"—")+"</td>"+
           "<td style='white-space:nowrap'>"+agoLabel(u.minutes_ago)+"</td>"+
