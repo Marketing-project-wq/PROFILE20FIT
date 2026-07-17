@@ -1259,14 +1259,21 @@ app.get("/api/admin/users", async (req, res) => {
     const buyMap = {};
     (orders || []).forEach(o => {
       const paidAmt = (o.net_amount != null ? +o.net_amount : +o.amount) || 0;
-      const b = buyMap[o.auth_user_id] || (buyMap[o.auth_user_id] = { purchases: 0, totalSpent: 0, credits: 0, highest: 0 });
+      const b = buyMap[o.auth_user_id] || (buyMap[o.auth_user_id] = { purchases: 0, totalSpent: 0, credits: 0, highest: 0, prod: {} });
       b.purchases++; b.totalSpent += paidAmt; b.credits += (+o.credits || 0); if (paidAmt > b.highest) b.highest = paidAmt;
+      const c = +o.credits || 0; if (c) b.prod[c] = (b.prod[c] || 0) + 1; // hitung per-paket utk "produk terlaris" per user
     });
+    // Katalog produk (paket kredit) — sumber DINAMIS utk dropdown filter produk (bukan hardcode di frontend).
+    const catalog = Object.keys(SCAN_PACKAGES).map(id => ({ credits: SCAN_PACKAGES[id].credits, name: SCAN_PACKAGES[id].credits + " scan" }))
+      .sort((a, b) => a.credits - b.credits);
     const now = Date.now();
     const users = (profiles || []).map(p => {
       const a = actMap[p.auth_user_id];
       const mins = a && a.last_active_at ? Math.floor((now - new Date(a.last_active_at).getTime()) / 60000) : null;
-      const b = buyMap[p.auth_user_id] || { purchases: 0, totalSpent: 0, credits: 0, highest: 0 };
+      const b = buyMap[p.auth_user_id] || { purchases: 0, totalSpent: 0, credits: 0, highest: 0, prod: {} };
+      // Produk terlaris user = paket kredit yang paling sering dibeli (dari credits order).
+      let topProduct = null, bestN = 0;
+      for (const c in (b.prod || {})) { if (b.prod[c] > bestN) { bestN = b.prod[c]; topProduct = { credits: +c, name: c + " scan", count: b.prod[c] }; } }
       // Onboarded = sudah masukan data lewat onboarding my.20fit.id: Auth.saveOnboarding()
       // set onboarding_completed=true + gender/weight (js/auth.js). Menyelesaikan onboarding
       // sudah pasti berarti masuk app + isi data — bukan sekadar konfirmasi email / login.
@@ -1279,13 +1286,14 @@ app.get("/api/admin/users", async (req, res) => {
         created_at: p.created_at, last_active_at: a ? a.last_active_at : null, last_page: a ? a.last_page : null,
         minutes_ago: mins, active: mins != null && mins <= activeMin,
         purchases: b.purchases, total_spent: b.totalSpent, credits_bought: b.credits, highest_purchase: b.highest,
+        top_product: topProduct,
       };
     });
     users.sort((x, y) => (y.last_active_at ? new Date(y.last_active_at).getTime() : 0) - (x.last_active_at ? new Date(x.last_active_at).getTime() : 0));
     const activeCount = users.filter(u => u.active).length;
     const buyers = users.filter(u => u.purchases > 0).length;
     const onboardedCount = users.filter(u => u.is_onboarded).length;
-    return res.json({ ok: true, window: activeMin, total: users.length, active: activeCount, inactive: users.length - activeCount, buyers: buyers, onboarded: onboardedCount, pending: users.length - onboardedCount, users: users });
+    return res.json({ ok: true, window: activeMin, total: users.length, active: activeCount, inactive: users.length - activeCount, buyers: buyers, onboarded: onboardedCount, pending: users.length - onboardedCount, catalog: catalog, users: users });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Detail satu user: profil lengkap + riwayat order.
