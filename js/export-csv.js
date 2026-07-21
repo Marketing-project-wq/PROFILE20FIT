@@ -5,15 +5,24 @@
 //    columns = [{ key, label, value?(row) }]   (value opsional utk kolom turunan)
 //    rows    = array objek
 //    opts    = { filename }
+//
+//  DELIMITER = titik-koma (;). Alasan: Excel dengan locale Indonesia/Eropa
+//  memakai ";" sebagai "list separator"-nya, jadi file berdelimiter koma malah
+//  numpuk jadi satu kolom. Dengan ";" + BOM UTF-8, double-click di Excel-ID
+//  langsung terpisah per kolom. (Trade-off: Excel locale English perlu buka
+//  lewat Data > From Text, tapi mayoritas user kita locale ID. Untuk yang butuh
+//  100% anti-error lintas-locale, tersedia export .xlsx di export-xlsx.js.)
 // =============================================================
 (function () {
   window.AdminExport = window.AdminExport || {};
 
+  var DELIM = ";";
+
   function esc(v) {
     if (v == null) return "";
     var s = String(v);
-    // Kutip kalau ada koma/kutip/newline; kutip ganda di-escape jadi dobel.
-    if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    // Kutip kalau ada delimiter/kutip/newline; kutip ganda di-escape jadi dobel.
+    if (/[";\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
     return s;
   }
   function cell(col, row) {
@@ -31,9 +40,9 @@
 
   AdminExport.csv = function (columns, rows, opts) {
     opts = opts || {};
-    var header = columns.map(function (c) { return esc(c.label); }).join(",");
+    var header = columns.map(function (c) { return esc(c.label); }).join(DELIM);
     var lines = (rows || []).map(function (r) {
-      return columns.map(function (c) { return esc(cell(c, r)); }).join(",");
+      return columns.map(function (c) { return esc(cell(c, r)); }).join(DELIM);
     });
     download(opts.filename || "export.csv", [header].concat(lines).join("\r\n"));
   };

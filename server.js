@@ -1284,6 +1284,7 @@ app.get("/api/admin/users", async (req, res) => {
         scan_credits: p.scan_credits, onboarding_completed: p.onboarding_completed, is_plus_member: p.is_plus_member,
         is_onboarded: onboarded, onboarded_at: onboarded ? (p.gender_selected_at || null) : null,
         created_at: p.created_at, last_active_at: a ? a.last_active_at : null, last_page: a ? a.last_page : null,
+        ping_count: a ? (+a.ping_count || 0) : 0,
         minutes_ago: mins, active: mins != null && mins <= activeMin,
         purchases: b.purchases, total_spent: b.totalSpent, credits_bought: b.credits, highest_purchase: b.highest,
         top_product: topProduct,
@@ -1344,9 +1345,9 @@ app.get("/api/admin/analytics", async (req, res) => {
     const { data: profiles } = await admin.from("my20fit_profile")
       .select("auth_user_id,created_at,onboarding_completed,scan_count").limit(8000);
     const { data: paid } = await admin.from("my20fit_scan_orders")
-      .select("auth_user_id,amount,net_amount,created_at,paid_at,status").eq("status", "paid").limit(30000);
+      .select("auth_user_id,amount,net_amount,credits,created_at,paid_at,status").eq("status", "paid").limit(30000);
     const { data: acts } = await admin.from("my20fit_user_activity")
-      .select("auth_user_id,last_active_at").limit(8000);
+      .select("auth_user_id,last_active_at,ping_count,full_name,email").limit(8000);
     const prof = profiles || [], pd = paid || [], ac = acts || [];
     const mk = d => { const x = new Date(d); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0"); };
 
@@ -1379,7 +1380,28 @@ app.get("/api/admin/analytics", async (req, res) => {
     const retention = cohMonths.map(m => { const c = coh[m]; return { month: m, size: c.size, active: c.active, buyers: c.buyers,
       activeRate: c.size ? Math.round(c.active / c.size * 100) : 0, buyerRate: c.size ? Math.round(c.buyers / c.size * 100) : 0 }; });
 
-    return res.json({ ok: true, mom: mom, funnel: funnel, retention: retention });
+    // --- Top Users: user paling aktif (volume buka-halaman) & masih aktif. ---
+    // Sinyal = ping_count (my20fit_user_activity) + kebaruan last_active_at (≤14 hari).
+    // Catatan: tracking aktivitas masih muda & tak menyimpan log hari-login terpisah,
+    // jadi "paling aktif" = volume buka-halaman, bukan jumlah hari login berbeda.
+    const recentCut = Date.now() - 14 * 86400000;
+    const topUsers = ac
+      .filter(a => a.last_active_at && new Date(a.last_active_at).getTime() >= recentCut)
+      .map(a => ({ auth_user_id: a.auth_user_id, full_name: a.full_name || null, email: a.email || null, ping_count: +a.ping_count || 0, last_active_at: a.last_active_at }))
+      .sort((x, y) => y.ping_count - x.ping_count)
+      .slice(0, 10);
+
+    // --- Top Products: paket kredit paling laris (jumlah transaksi + revenue). ---
+    const prodMap = {};
+    pd.forEach(o => {
+      const key = (o.credits || 0) + " scan";
+      const rev = (o.net_amount != null ? +o.net_amount : +o.amount) || 0;
+      const m = prodMap[key] || (prodMap[key] = { product: key, credits: +o.credits || 0, count: 0, revenue: 0 });
+      m.count++; m.revenue += rev;
+    });
+    const topProducts = Object.values(prodMap).sort((a, b) => b.count - a.count).slice(0, 10);
+
+    return res.json({ ok: true, mom: mom, funnel: funnel, retention: retention, topUsers: topUsers, topProducts: topProducts });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
