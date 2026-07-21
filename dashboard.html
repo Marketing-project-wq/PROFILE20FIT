@@ -556,16 +556,6 @@
     async function loadHealthReminder(){
       const el=document.getElementById("healthReminder"); if(!el||!profile)return;
       let html="";
-      // 0) keterangan status onboarding (SUDAH / BELUM). Selalu tampil; kalau belum -> ada tombol "Lengkapi".
-      var obDone=!!(profile.onboarding_completed && profile.weight_kg && profile.gender);
-      html+='<div class="card" style="margin-top:14px;display:flex;align-items:center;gap:12px;border-color:'+(obDone?'rgba(42,122,79,.35)':'rgba(196,17,1,.35)')+';background:'+(obDone?'rgba(42,122,79,.07)':'rgba(196,17,1,.06)')+'">'+
-        '<span style="font-size:20px;flex:0 0 auto">'+(obDone?'✅':'⚠️')+'</span>'+
-        '<div style="flex:1">'+
-        '<div style="font-weight:800">'+(obDone?L({en:"Onboarding complete",id:"Onboarding selesai"}):L({en:"Onboarding not complete",id:"Onboarding belum selesai"}))+'</div>'+
-        '<div class="muted" style="font-size:12px">'+(obDone?L({en:"Your health profile is all set.",id:"Profil kesehatanmu sudah lengkap."}):L({en:"Add weight, height, gender & goal to unlock your stats & recommendations.",id:"Isi berat, tinggi, gender & tujuan untuk membuka statistik & rekomendasimu."}))+'</div>'+
-        '</div>'+
-        (obDone?'':'<a class="bookbtn" style="width:auto;margin-top:0;padding:11px 16px;flex:0 0 auto" href="onboarding.html">'+L({en:"Complete",id:"Lengkapi"})+'</a>')+
-        '</div>';
       // 1) kalori hari ini (dari akun -> cross-device, fallback cache device)
       try{
         const tdy=dayStr();
