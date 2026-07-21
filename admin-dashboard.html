@@ -80,27 +80,10 @@
   .kvt td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}
   .kvt td:first-child{color:var(--muted);width:150px;font-size:13px}
   @media(max-width:820px){ .shell{grid-template-columns:1fr} .side{flex-direction:row;flex-wrap:wrap;position:sticky;top:0;z-index:5} .side .logo{width:100%} .side .spacer,.side .who{display:none} .main{padding:18px} .grid2{grid-template-columns:1fr} }
-  /* ===== Onboarding & Scan page ===== */
+  /* ===== Onboarding & Scan (digabung ke tab Pengguna) ===== */
   :root{--os-orange:#DE5A2A;--os-blue:#3B82F6;--os-blue-bg:#EFF6FF}
-  .os-title{font-size:26px;font-weight:800;letter-spacing:-.3px;margin:0 0 6px}
-  .os-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px}
-  .os-kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
-  .os-kpi .num{font-size:30px;font-weight:800;color:var(--os-orange);line-height:1.1}
-  .os-kpi .lbl{font-size:12px;color:var(--muted);margin-top:6px}
-  .os-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px}
-  .os-search{flex:1 1 260px;min-width:200px;margin:0}
-  .os-check{display:flex;align-items:center;gap:7px;margin:0;font-size:13px;font-weight:600;color:var(--txt);text-transform:none;letter-spacing:0;cursor:pointer;white-space:nowrap}
-  .os-check input{width:auto;margin:0}
-  .os-export{width:auto;background:var(--os-orange);color:#fff}
-  #osTable table{margin:0}
-  #osTable th,#osTable td{padding:11px 16px}
-  #osTable tbody tr:nth-child(odd){background:#faf8f5}
-  #osTable tbody tr:hover{background:#f3efe9}
-  #osTable th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
-  #osTable th.sortable:hover{color:var(--txt)}
   .os-badge{display:inline-block;background:var(--os-blue-bg);color:var(--os-blue);font-weight:800;font-size:12px;padding:2px 10px;border-radius:999px}
   .os-bar-lbl{font-size:10px;fill:var(--muted)}
-  @media(max-width:820px){ .os-kpis{grid-template-columns:repeat(2,1fr)} .os-title{font-size:21px} .os-search{flex:1 1 100%} }
 </style>
 </head>
 <body>
@@ -136,7 +119,6 @@
       <button class="navbtn" data-tab="vouchers">🎟️ Voucher</button>
       <button class="navbtn" data-tab="transactions">💳 Transaksi</button>
       <button class="navbtn" data-tab="users">👥 Pengguna</button>
-      <button class="navbtn" data-tab="onbscan">📋 Onboarding &amp; Scan</button>
       <button class="navbtn" data-tab="analytics">📈 Analitik</button>
       <button class="navbtn" data-tab="settings" id="navSettings">⚙️ Settings</button>
       <div class="spacer"></div>
@@ -203,6 +185,7 @@
             <input id="uFrom" type="date" style="width:auto;display:inline-block;margin:0 4px" title="Terakhir aktif dari" /><span style="color:var(--muted)">–</span>
             <input id="uTo" type="date" style="width:auto;display:inline-block;margin:0 4px" title="Terakhir aktif sampai" />
           </label>
+          <label style="margin:0;font-size:13px;color:var(--muted);white-space:nowrap"><input type="checkbox" id="uOnlyScan" style="vertical-align:-2px;width:auto" /> Hanya pernah scan</label>
           <span class="grow"></span>
           <button class="btn sm ghost" id="uExportXlsx" style="margin-top:0" title="Export hasil filter ke Excel (.xlsx) — paling aman, kolom selalu terpisah">⬇ Excel</button>
           <button class="btn sm ghost" id="uExportCsv" style="margin-top:0" title="Export hasil filter ke CSV (pemisah titik-koma, Excel Indonesia)">⬇ CSV</button>
@@ -214,22 +197,11 @@
           <div class="card"><h3>Produk terlaris (revenue)</h3><div id="uTopProducts"><div class="placeholder">Memuat…</div></div></div>
           <div class="card"><h3>Produk terlaris (jumlah transaksi)</h3><div id="uTopProductsCount"><div class="placeholder">Memuat…</div></div></div>
         </div>
-        <div class="card"><div id="uList"><div class="placeholder">Memuat…</div></div></div>
-      </div>
-      <div id="tab-onbscan" class="hidden">
-        <h1 class="os-title">User Onboarding + Jumlah Scan — my.20fit.id</h1>
-        <div class="crumb" id="osSubtitle">Memuat…</div>
-        <div class="os-kpis" id="osKpis"></div>
-        <div class="grid2" style="margin:16px 0">
+        <div class="grid2" style="margin-bottom:14px">
           <div class="card"><h3>Onboarding selesai per hari</h3><div id="osChartDaily"><div class="placeholder">Memuat…</div></div></div>
           <div class="card"><h3>Top 15 user berdasar jumlah scan dipakai</h3><div id="osChartTop"><div class="placeholder">Memuat…</div></div></div>
         </div>
-        <div class="os-toolbar">
-          <input id="osSearch" class="os-search" placeholder="Cari nama, email, atau no WA…" />
-          <label class="os-check"><input type="checkbox" id="osOnlyScan" /> Hanya yang pernah scan</label>
-          <button class="btn sm os-export" id="osExport" style="margin-top:0">Export CSV</button>
-        </div>
-        <div class="card" style="padding:0;overflow:hidden"><div id="osTable"><div class="placeholder">Memuat…</div></div></div>
+        <div class="card"><div id="uList"><div class="placeholder">Memuat…</div></div></div>
         <div class="crumb" id="osNote" style="margin-top:10px"></div>
       </div>
       <div id="tab-analytics" class="hidden">
@@ -397,12 +369,11 @@
       b.addEventListener("click", function(){
         var tab=b.dataset.tab;
         document.querySelectorAll(".navbtn[data-tab]").forEach(function(x){ x.classList.toggle("on", x===b); });
-        ["overview","vouchers","transactions","users","onbscan","analytics","settings"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
+        ["overview","vouchers","transactions","users","analytics","settings"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
         if(tab==="overview") renderOverview();
         if(tab==="vouchers") loadVouchers();
         if(tab==="transactions") loadTransactions();
         if(tab==="users") loadUsers();
-        if(tab==="onbscan") loadOnbScan();
         if(tab==="analytics") loadAnalytics();
         if(tab==="settings" && ME && ME.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
       });
@@ -827,7 +798,29 @@
       if(!r.ok){ list.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
       ALL_USERS=j.users||[];
       ALL_CATALOG=j.catalog||[]; buildProductFilter();
-      $("uSummary").innerHTML = statCard("Total user", j.total||0)+statCard("Sudah onboarding", j.onboarded||0, (j.total?Math.round((j.onboarded||0)/j.total*100):0)+"%")+statCard("Belum onboarding", j.pending||0)+statCard("Aktif", j.active||0, "≤ "+(win>=1440?(win/1440+" hari"):(win+" menit")))+statCard("Tidak aktif", j.inactive||0)+statCard("Pernah beli", j.buyers||0);
+      // Gabungkan data onboarding+scan (endpoint terpisah) ke tiap user by auth_user_id.
+      // Digabung di client — TANPA mengubah logika perhitungan di server.
+      OS_DATA=null;
+      try{
+        var r2=await adminFetch("/api/admin/onboarding-scan"); var j2=await r2.json().catch(function(){return{};});
+        if(r2.ok && j2 && j2.users){
+          OS_DATA=j2;
+          var sm={}; j2.users.forEach(function(o){ sm[o.auth_user_id]=o; });
+          ALL_USERS.forEach(function(u){ var o=sm[u.auth_user_id];
+            u.scans_used=o?(o.scans_used||0):0;
+            u.scan_remaining=o?o.remaining:(u.scan_credits!=null?u.scan_credits:null);
+            if(o&&o.onboarded_at&&!u.onboarded_at) u.onboarded_at=o.onboarded_at;
+          });
+        }
+      }catch(e){}
+      var kpi=statCard("Total user", j.total||0)+statCard("Sudah onboarding", j.onboarded||0, (j.total?Math.round((j.onboarded||0)/j.total*100):0)+"%")+statCard("Belum onboarding", j.pending||0)+statCard("Aktif", j.active||0, "≤ "+(win>=1440?(win/1440+" hari"):(win+" menit")))+statCard("Tidak aktif", j.inactive||0)+statCard("Pernah beli", j.buyers||0);
+      if(OS_DATA) kpi+=statCard("Sudah pernah scan", OS_DATA.ever_scanned||0)+statCard("Total scan dipakai", OS_DATA.total_scans_used||0, "all-time");
+      $("uSummary").innerHTML=kpi;
+      if(OS_DATA){
+        $("osChartDaily").innerHTML=svgVBars(osDaily(OS_DATA.users), "#DE5A2A", {maxBar:30});
+        $("osChartTop").innerHTML=svgVBars(osTop(OS_DATA.users), "#3B82F6", {rotate:true, maxBar:30, minW:360, step:44, padB:62});
+        $("osNote").innerHTML="<b>Tgl Onboarding Selesai</b> = <code>gender_selected_at</code> (proxy, coverage 100%). <b>Scan dipakai</b> = record pemakaian di <code>my20fit_scan_ledger</code> (delta&lt;0). <b>Sisa scan</b> = saldo <code>my20fit_profile.scan_credits</code>.";
+      } else { $("osChartDaily").innerHTML=$("osChartTop").innerHTML="<div class='placeholder'>Data onboarding & scan tak termuat.</div>"; $("osNote").innerHTML=""; }
       renderUserList();
       loadTopProducts();
     }
@@ -842,6 +835,7 @@
       var list=$("uList");
       var q=($("uSearch").value||"").trim().toLowerCase(), f=$("uFilter").value;
       var prod=$("uProduct")?$("uProduct").value:"";
+      var onlyScan=$("uOnlyScan")&&$("uOnlyScan").checked;
       var fromD=$("uFrom")&&$("uFrom").value?new Date($("uFrom").value+"T00:00:00").getTime():null;
       var toD=$("uTo")&&$("uTo").value?new Date($("uTo").value+"T23:59:59").getTime():null;
       FILTERED_USERS=ALL_USERS.filter(function(u){
@@ -852,6 +846,7 @@
         if(f==="active"&&!u.active) return false;
         if(f==="inactive"&&u.active) return false;
         if(f==="buyers"&&!(u.purchases>0)) return false;
+        if(onlyScan&&!(u.scans_used>0)) return false;
         if(prod){ if(!u.top_product||String(u.top_product.credits)!==prod) return false; }
         if(fromD||toD){
           var t=u.last_active_at?new Date(u.last_active_at).getTime():null;
@@ -859,12 +854,12 @@
           if(fromD&&t<fromD) return false;
           if(toD&&t>toD) return false;
         }
-        if(q&&!((String(u.full_name||"").toLowerCase().indexOf(q)>=0)||(String(u.email||"").toLowerCase().indexOf(q)>=0))) return false;
+        if(q&&!((String(u.full_name||"").toLowerCase().indexOf(q)>=0)||(String(u.email||"").toLowerCase().indexOf(q)>=0)||(String(u.phone||"").toLowerCase().indexOf(q)>=0))) return false;
         return true;
       });
       var us=FILTERED_USERS;
       if(!us.length){ list.innerHTML="<div class='placeholder'>Tidak ada user cocok.</div>"; return; }
-      var h="<table><thead><tr><th>Status</th><th>Onboarding</th><th>Nama</th><th>Email</th><th>Terakhir aktif</th><th>Produk terlaris</th><th>Beli</th><th>Total belanja</th><th>Tertinggi</th><th></th></tr></thead><tbody>";
+      var h="<div style='overflow-x:auto'><table><thead><tr><th>Status</th><th>Onboarding</th><th>Nama</th><th>Email</th><th>No. WA</th><th>Tgl Onboarding</th><th>Scan dipakai</th><th>Sisa Scan</th><th>Terakhir aktif</th><th>Produk terlaris</th><th>Beli</th><th>Total belanja</th><th>Tertinggi</th><th></th></tr></thead><tbody>";
       us.forEach(function(u){
         var dotc=u.active?"var(--green,#1a7f37)":"#8A7C68";
         var tp=u.top_product?esc(u.top_product.name)+" <span style='color:var(--muted)'>("+u.top_product.count+"×)</span>":"—";
@@ -872,6 +867,10 @@
           "<td style='white-space:nowrap'>"+onbBadge(u)+"</td>"+
           "<td>"+esc(u.full_name||"—")+segBadges(u)+"</td>"+
           "<td style='color:var(--muted)'>"+esc(u.email||"—")+"</td>"+
+          "<td style='color:var(--muted);white-space:nowrap'>"+esc(u.phone||"—")+"</td>"+
+          "<td style='white-space:nowrap'>"+(u.onboarded_at?osDateUTC(u.onboarded_at):"—")+"</td>"+
+          "<td><span class='os-badge'>"+(u.scans_used||0)+"x</span></td>"+
+          "<td>"+(u.scan_remaining==null?"<span style='color:var(--muted)'>—</span>":u.scan_remaining)+"</td>"+
           "<td style='white-space:nowrap'>"+agoLabel(u.minutes_ago)+"</td>"+
           "<td style='white-space:nowrap'>"+tp+"</td>"+
           "<td>"+(u.purchases||0)+"×</td>"+
@@ -879,7 +878,7 @@
           "<td>"+(u.highest_purchase?rupiah(u.highest_purchase):"—")+"</td>"+
           "<td><button class='btn sm ghost' data-uid='"+esc(u.auth_user_id)+"'>Detail</button></td></tr>";
       });
-      list.innerHTML=h+"</tbody></table>";
+      list.innerHTML=h+"</tbody></table></div>";
       list.querySelectorAll("button[data-uid]").forEach(function(b){ b.addEventListener("click", function(){ showUserDetail(b.dataset.uid); }); });
     }
     // ---- Export Pengguna (mengikuti filter aktif) — CSV & PDF (modul terpisah) ----
@@ -890,6 +889,9 @@
         { key:"phone", label:"No HP" },
         { label:"Status", value:function(u){ return u.active?"Aktif":"Nonaktif"; } },
         { label:"Onboarding", value:function(u){ return u.is_onboarded?"Sudah":"Belum"; } },
+        { label:"Tgl Onboarding Selesai", value:function(u){ return u.onboarded_at?osDateUTC(u.onboarded_at):""; } },
+        { label:"Scan dipakai", value:function(u){ return (u.scans_used||0); } },
+        { label:"Sisa scan", value:function(u){ return u.scan_remaining==null?"":u.scan_remaining; } },
         { label:"Segmen", value:function(u){ var t=[]; if(isTopUser(u))t.push("Top User"); if(isLoyalUser(u))t.push("Loyal"); return t.join(" & ")||"—"; } },
         { label:"Terakhir aktif", value:function(u){ return u.last_active_at?new Date(u.last_active_at).toLocaleString("id-ID"):"—"; } },
         { label:"Aktivitas (buka halaman)", value:function(u){ return (u.ping_count||0); } },
@@ -954,6 +956,7 @@
       var up=$("uProduct"); if(up) up.addEventListener("change", renderUserList);
       var ufr=$("uFrom"); if(ufr) ufr.addEventListener("change", renderUserList);
       var uto=$("uTo"); if(uto) uto.addEventListener("change", renderUserList);
+      var uosc=$("uOnlyScan"); if(uosc) uosc.addEventListener("change", renderUserList);
       var uex=$("uExportXlsx"); if(uex) uex.addEventListener("click", doExportXlsx);
       var uec=$("uExportCsv"); if(uec) uec.addEventListener("click", doExportCsv);
       var uep=$("uExportPdf"); if(uep) uep.addEventListener("click", doExportPdf);
@@ -1007,10 +1010,9 @@
       h+="</tbody></table><div class='crumb' style='margin-top:8px'>Aktif = ada aktivitas ≤30 hari terakhir. Data aktivitas mulai terkumpul sejak fitur pelacakan aktif.</div>";
       return h;
     }
-    // ===== Onboarding & Scan (tab onbscan) =====
-    var OS_DATA=null, OS_SORT_DIR="desc";
+    // ===== Onboarding & Scan (data + chart, digabung ke tab Pengguna) =====
+    var OS_DATA=null;
     function osp2(n){ return n<10?("0"+n):(""+n); }
-    function osTodayKey(){ var d=new Date(); return d.getFullYear()+"-"+osp2(d.getMonth()+1)+"-"+osp2(d.getDate()); }
     function osDateUTC(ts){
       if(!ts) return "—"; var d=new Date(ts); if(isNaN(d.getTime())) return "—";
       var mon=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
@@ -1048,73 +1050,6 @@
         .slice().sort(function(a,b){return b.scans_used-a.scans_used;}).slice(0,15)
         .map(function(u){ var nm=String(u.full_name||"—").trim().split(/\s+/)[0]; if(nm.length>9) nm=nm.slice(0,9)+"…"; return {label:nm, value:u.scans_used}; });
     }
-    function osKpi(num,lbl){ return "<div class='os-kpi'><div class='num'>"+num+"</div><div class='lbl'>"+lbl+"</div></div>"; }
-    function renderOsKpis(shown){
-      if(!OS_DATA) return;
-      $("osKpis").innerHTML=
-        osKpi(OS_DATA.total_onboarded, "Total selesai onboarding")+
-        osKpi(shown==null?OS_DATA.total_onboarded:shown, "Ditampilkan (setelah filter)")+
-        osKpi(OS_DATA.ever_scanned, "Sudah pernah scan")+
-        osKpi(OS_DATA.total_scans_used, "Total scan dipakai (all-time)");
-    }
-    function osFiltered(){
-      if(!OS_DATA) return [];
-      var q=($("osSearch").value||"").trim().toLowerCase(), onlyScan=$("osOnlyScan").checked;
-      var arr=OS_DATA.users.filter(function(u){
-        if(onlyScan && !(u.scans_used>0)) return false;
-        if(q){ var hay=((u.full_name||"")+" "+(u.email||"")+" "+(u.phone||"")).toLowerCase(); if(hay.indexOf(q)<0) return false; }
-        return true;
-      });
-      arr.sort(function(a,b){ return OS_SORT_DIR==="desc" ? (b.scans_used-a.scans_used) : (a.scans_used-b.scans_used); });
-      return arr;
-    }
-    function renderOsTable(){
-      var el=$("osTable"), rows=osFiltered();
-      renderOsKpis(rows.length);
-      if(!rows.length){ el.innerHTML="<div class='placeholder'>Tidak ada user yang cocok dengan filter.</div>"; return; }
-      var arrow=OS_SORT_DIR==="desc"?"▼":"▲";
-      var h="<table><thead><tr><th>#</th><th>Nama</th><th>Email</th><th>No. WA</th><th>Tanggal Onboarding Selesai</th><th class='sortable' id='osSortScan'>Jumlah Scan (dipakai) "+arrow+"</th><th>Sisa Scan</th></tr></thead><tbody>";
-      rows.forEach(function(u,i){
-        h+="<tr><td style='color:var(--muted)'>"+(i+1)+"</td>"+
-          "<td style='font-weight:700'>"+esc(u.full_name||"—")+"</td>"+
-          "<td style='color:var(--muted)'>"+esc(u.email||"—")+"</td>"+
-          "<td style='color:var(--muted);white-space:nowrap'>"+esc(u.phone||"—")+"</td>"+
-          "<td style='white-space:nowrap'>"+osDateUTC(u.onboarded_at)+"</td>"+
-          "<td><span class='os-badge'>"+(u.scans_used||0)+"x</span></td>"+
-          "<td>"+(u.remaining==null?"<span style='color:var(--muted)'>—</span>":u.remaining)+"</td></tr>";
-      });
-      el.innerHTML=h+"</tbody></table>";
-      var sh=$("osSortScan"); if(sh) sh.addEventListener("click", function(){ OS_SORT_DIR=OS_SORT_DIR==="desc"?"asc":"desc"; renderOsTable(); });
-    }
-    function doOsExport(){
-      var rows=osFiltered(); if(!rows.length){ alert("Tidak ada data untuk diexport."); return; }
-      if(!window.AdminExport){ alert("Modul export belum termuat."); return; }
-      var cols=[
-        {label:"Nama", key:"full_name"},{label:"Email", key:"email"},{label:"No. WA", key:"phone"},
-        {label:"Tanggal Onboarding Selesai", value:function(u){return osDateUTC(u.onboarded_at);}},
-        {label:"Jumlah Scan (dipakai)", value:function(u){return u.scans_used||0;}},
-        {label:"Sisa Scan", value:function(u){return u.remaining==null?"":u.remaining;}},
-      ];
-      AdminExport.csv(cols, rows, { filename:"onboarding-scan-"+osTodayKey()+".csv" });
-    }
-    async function loadOnbScan(){
-      $("osKpis").innerHTML=""; $("osSubtitle").textContent="Memuat…";
-      $("osChartDaily").innerHTML=$("osChartTop").innerHTML="<div class='placeholder'>Memuat…</div>";
-      $("osTable").innerHTML="<div class='placeholder'>Memuat…</div>"; $("osNote").innerHTML="";
-      var r=await adminFetch("/api/admin/onboarding-scan"); var j=await r.json().catch(function(){return{};});
-      if(!r.ok){ $("osTable").innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal memuat")+"</div>"; $("osSubtitle").textContent=""; return; }
-      OS_DATA=j;
-      $("osSubtitle").innerHTML=OS_DATA.total_onboarded+" user selesai onboarding · "+OS_DATA.ever_scanned+" di antaranya sudah pernah scan · data per "+osTodayKey();
-      $("osChartDaily").innerHTML=svgVBars(osDaily(OS_DATA.users), "#DE5A2A", {maxBar:30});
-      $("osChartTop").innerHTML=svgVBars(osTop(OS_DATA.users), "#3B82F6", {rotate:true, maxBar:30, minW:360, step:44, padB:62});
-      renderOsTable();
-      $("osNote").innerHTML="Sumber: <b>Tanggal Onboarding Selesai</b> = <code>gender_selected_at</code> (proxy — belum ada kolom <code>onboarding_completed_at</code> khusus; coverage 100%). <b>Jumlah scan dipakai</b> = jumlah record pemakaian di <code>my20fit_scan_ledger</code> (delta&lt;0). <b>Sisa scan</b> = saldo <code>my20fit_profile.scan_credits</code> (kredit dibeli − dipakai).";
-    }
-    (function(){
-      var s=$("osSearch"); if(s) s.addEventListener("input", renderOsTable);
-      var c=$("osOnlyScan"); if(c) c.addEventListener("change", renderOsTable);
-      var e=$("osExport"); if(e) e.addEventListener("click", doOsExport);
-    })();
     function topUsersTable(users){
       if(!users||!users.length) return "<div class='placeholder'>Belum ada data aktivitas.</div>";
       var h="<table><thead><tr><th style='width:34px'>#</th><th>Nama</th><th>Email</th><th style='text-align:right'>Aktivitas</th><th>Terakhir aktif</th></tr></thead><tbody>";
