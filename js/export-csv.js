@@ -21,6 +21,10 @@
   function esc(v) {
     if (v == null) return "";
     var s = String(v);
+    // Cegah CSV/formula-injection: sel yang diawali = + - @ (atau tab/CR) bisa
+    // dieksekusi sebagai RUMUS saat file dibuka di Excel/Sheets (mis. nama user
+    // "=HYPERLINK(...)"). Beri prefix apostrof sebagai penetral (standar OWASP).
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     // Kutip kalau ada delimiter/kutip/newline; kutip ganda di-escape jadi dobel.
     if (/[";\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
     return s;
