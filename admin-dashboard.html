@@ -80,6 +80,27 @@
   .kvt td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}
   .kvt td:first-child{color:var(--muted);width:150px;font-size:13px}
   @media(max-width:820px){ .shell{grid-template-columns:1fr} .side{flex-direction:row;flex-wrap:wrap;position:sticky;top:0;z-index:5} .side .logo{width:100%} .side .spacer,.side .who{display:none} .main{padding:18px} .grid2{grid-template-columns:1fr} }
+  /* ===== Onboarding & Scan page ===== */
+  :root{--os-orange:#DE5A2A;--os-blue:#3B82F6;--os-blue-bg:#EFF6FF}
+  .os-title{font-size:26px;font-weight:800;letter-spacing:-.3px;margin:0 0 6px}
+  .os-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px}
+  .os-kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
+  .os-kpi .num{font-size:30px;font-weight:800;color:var(--os-orange);line-height:1.1}
+  .os-kpi .lbl{font-size:12px;color:var(--muted);margin-top:6px}
+  .os-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px}
+  .os-search{flex:1 1 260px;min-width:200px;margin:0}
+  .os-check{display:flex;align-items:center;gap:7px;margin:0;font-size:13px;font-weight:600;color:var(--txt);text-transform:none;letter-spacing:0;cursor:pointer;white-space:nowrap}
+  .os-check input{width:auto;margin:0}
+  .os-export{width:auto;background:var(--os-orange);color:#fff}
+  #osTable table{margin:0}
+  #osTable th,#osTable td{padding:11px 16px}
+  #osTable tbody tr:nth-child(odd){background:#faf8f5}
+  #osTable tbody tr:hover{background:#f3efe9}
+  #osTable th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+  #osTable th.sortable:hover{color:var(--txt)}
+  .os-badge{display:inline-block;background:var(--os-blue-bg);color:var(--os-blue);font-weight:800;font-size:12px;padding:2px 10px;border-radius:999px}
+  .os-bar-lbl{font-size:10px;fill:var(--muted)}
+  @media(max-width:820px){ .os-kpis{grid-template-columns:repeat(2,1fr)} .os-title{font-size:21px} .os-search{flex:1 1 100%} }
 </style>
 </head>
 <body>
@@ -115,6 +136,7 @@
       <button class="navbtn" data-tab="vouchers">🎟️ Voucher</button>
       <button class="navbtn" data-tab="transactions">💳 Transaksi</button>
       <button class="navbtn" data-tab="users">👥 Pengguna</button>
+      <button class="navbtn" data-tab="onbscan">📋 Onboarding &amp; Scan</button>
       <button class="navbtn" data-tab="analytics">📈 Analitik</button>
       <button class="navbtn" data-tab="settings" id="navSettings">⚙️ Settings</button>
       <div class="spacer"></div>
@@ -193,6 +215,22 @@
           <div class="card"><h3>Produk terlaris (jumlah transaksi)</h3><div id="uTopProductsCount"><div class="placeholder">Memuat…</div></div></div>
         </div>
         <div class="card"><div id="uList"><div class="placeholder">Memuat…</div></div></div>
+      </div>
+      <div id="tab-onbscan" class="hidden">
+        <h1 class="os-title">User Onboarding + Jumlah Scan — my.20fit.id</h1>
+        <div class="crumb" id="osSubtitle">Memuat…</div>
+        <div class="os-kpis" id="osKpis"></div>
+        <div class="grid2" style="margin:16px 0">
+          <div class="card"><h3>Onboarding selesai per hari</h3><div id="osChartDaily"><div class="placeholder">Memuat…</div></div></div>
+          <div class="card"><h3>Top 15 user berdasar jumlah scan dipakai</h3><div id="osChartTop"><div class="placeholder">Memuat…</div></div></div>
+        </div>
+        <div class="os-toolbar">
+          <input id="osSearch" class="os-search" placeholder="Cari nama, email, atau no WA…" />
+          <label class="os-check"><input type="checkbox" id="osOnlyScan" /> Hanya yang pernah scan</label>
+          <button class="btn sm os-export" id="osExport" style="margin-top:0">Export CSV</button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden"><div id="osTable"><div class="placeholder">Memuat…</div></div></div>
+        <div class="crumb" id="osNote" style="margin-top:10px"></div>
       </div>
       <div id="tab-analytics" class="hidden">
         <h2>Analitik</h2><div class="crumb">Perbandingan bulan-ke-bulan, funnel konversi, & retensi</div>
@@ -359,11 +397,12 @@
       b.addEventListener("click", function(){
         var tab=b.dataset.tab;
         document.querySelectorAll(".navbtn[data-tab]").forEach(function(x){ x.classList.toggle("on", x===b); });
-        ["overview","vouchers","transactions","users","analytics","settings"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
+        ["overview","vouchers","transactions","users","onbscan","analytics","settings"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
         if(tab==="overview") renderOverview();
         if(tab==="vouchers") loadVouchers();
         if(tab==="transactions") loadTransactions();
         if(tab==="users") loadUsers();
+        if(tab==="onbscan") loadOnbScan();
         if(tab==="analytics") loadAnalytics();
         if(tab==="settings" && ME && ME.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
       });
@@ -968,6 +1007,114 @@
       h+="</tbody></table><div class='crumb' style='margin-top:8px'>Aktif = ada aktivitas ≤30 hari terakhir. Data aktivitas mulai terkumpul sejak fitur pelacakan aktif.</div>";
       return h;
     }
+    // ===== Onboarding & Scan (tab onbscan) =====
+    var OS_DATA=null, OS_SORT_DIR="desc";
+    function osp2(n){ return n<10?("0"+n):(""+n); }
+    function osTodayKey(){ var d=new Date(); return d.getFullYear()+"-"+osp2(d.getMonth()+1)+"-"+osp2(d.getDate()); }
+    function osDateUTC(ts){
+      if(!ts) return "—"; var d=new Date(ts); if(isNaN(d.getTime())) return "—";
+      var mon=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+      return d.getUTCDate()+" "+mon[d.getUTCMonth()]+" "+d.getUTCFullYear()+", "+osp2(d.getUTCHours())+"."+osp2(d.getUTCMinutes())+" UTC";
+    }
+    // Bar chart vertikal (inline SVG, sesuai CLAUDE.md — tanpa lib chart).
+    function svgVBars(items, color, o){
+      o=o||{}; var n=items.length;
+      if(!n) return "<div class='placeholder'>Belum ada data.</div>";
+      var H=o.h||240, padT=26, padB=o.padB||46, padX=12, step=o.step||40;
+      var W=Math.max(o.minW||320, n*step + padX*2);
+      var plotH=H-padT-padB, base=padT+plotH;
+      var max=items.reduce(function(m,d){return Math.max(m,d.value);},0)||1;
+      var st=(W-padX*2)/n, bw=Math.min(o.maxBar||34, st*0.62);
+      var s='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" font-family="inherit">';
+      items.forEach(function(d,i){
+        var x=padX + i*st + st/2, bh=Math.round(d.value/max*plotH), y=base-bh;
+        s+='<rect x="'+(x-bw/2).toFixed(1)+'" y="'+y+'" width="'+bw.toFixed(1)+'" height="'+Math.max(bh,0)+'" rx="3" fill="'+color+'"/>';
+        if(d.value>0) s+='<text x="'+x.toFixed(1)+'" y="'+(y-5)+'" text-anchor="middle" font-size="10" font-weight="700" fill="#0A0908">'+d.value+'</text>';
+        if(o.rotate) s+='<text x="'+x.toFixed(1)+'" y="'+(base+12)+'" transform="rotate(-32 '+x.toFixed(1)+' '+(base+12)+')" text-anchor="end" class="os-bar-lbl">'+esc(d.label)+'</text>';
+        else s+='<text x="'+x.toFixed(1)+'" y="'+(base+16)+'" text-anchor="middle" class="os-bar-lbl">'+esc(d.label)+'</text>';
+      });
+      return '<div style="overflow-x:auto">'+s+'</svg></div>';
+    }
+    function osDaily(users){
+      var map={}, any=false;
+      users.forEach(function(u){ if(!u.onboarded_at) return; var d=new Date(u.onboarded_at); if(isNaN(d.getTime())) return; var k=d.getFullYear()+"-"+osp2(d.getMonth()+1)+"-"+osp2(d.getDate()); map[k]=(map[k]||0)+1; any=true; });
+      if(!any) return [];
+      var keys=Object.keys(map).sort(); var cur=new Date(keys[0]+"T00:00:00"), end=new Date(), out=[];
+      while(cur<=end && out.length<400){ var k=cur.getFullYear()+"-"+osp2(cur.getMonth()+1)+"-"+osp2(cur.getDate()); out.push({label:osp2(cur.getMonth()+1)+"/"+osp2(cur.getDate()), value:map[k]||0}); cur.setDate(cur.getDate()+1); }
+      return out;
+    }
+    function osTop(users){
+      return users.filter(function(u){return u.scans_used>0;})
+        .slice().sort(function(a,b){return b.scans_used-a.scans_used;}).slice(0,15)
+        .map(function(u){ var nm=String(u.full_name||"—").trim().split(/\s+/)[0]; if(nm.length>9) nm=nm.slice(0,9)+"…"; return {label:nm, value:u.scans_used}; });
+    }
+    function osKpi(num,lbl){ return "<div class='os-kpi'><div class='num'>"+num+"</div><div class='lbl'>"+lbl+"</div></div>"; }
+    function renderOsKpis(shown){
+      if(!OS_DATA) return;
+      $("osKpis").innerHTML=
+        osKpi(OS_DATA.total_onboarded, "Total selesai onboarding")+
+        osKpi(shown==null?OS_DATA.total_onboarded:shown, "Ditampilkan (setelah filter)")+
+        osKpi(OS_DATA.ever_scanned, "Sudah pernah scan")+
+        osKpi(OS_DATA.total_scans_used, "Total scan dipakai (all-time)");
+    }
+    function osFiltered(){
+      if(!OS_DATA) return [];
+      var q=($("osSearch").value||"").trim().toLowerCase(), onlyScan=$("osOnlyScan").checked;
+      var arr=OS_DATA.users.filter(function(u){
+        if(onlyScan && !(u.scans_used>0)) return false;
+        if(q){ var hay=((u.full_name||"")+" "+(u.email||"")+" "+(u.phone||"")).toLowerCase(); if(hay.indexOf(q)<0) return false; }
+        return true;
+      });
+      arr.sort(function(a,b){ return OS_SORT_DIR==="desc" ? (b.scans_used-a.scans_used) : (a.scans_used-b.scans_used); });
+      return arr;
+    }
+    function renderOsTable(){
+      var el=$("osTable"), rows=osFiltered();
+      renderOsKpis(rows.length);
+      if(!rows.length){ el.innerHTML="<div class='placeholder'>Tidak ada user yang cocok dengan filter.</div>"; return; }
+      var arrow=OS_SORT_DIR==="desc"?"▼":"▲";
+      var h="<table><thead><tr><th>#</th><th>Nama</th><th>Email</th><th>No. WA</th><th>Tanggal Onboarding Selesai</th><th class='sortable' id='osSortScan'>Jumlah Scan (dipakai) "+arrow+"</th><th>Sisa Scan</th></tr></thead><tbody>";
+      rows.forEach(function(u,i){
+        h+="<tr><td style='color:var(--muted)'>"+(i+1)+"</td>"+
+          "<td style='font-weight:700'>"+esc(u.full_name||"—")+"</td>"+
+          "<td style='color:var(--muted)'>"+esc(u.email||"—")+"</td>"+
+          "<td style='color:var(--muted);white-space:nowrap'>"+esc(u.phone||"—")+"</td>"+
+          "<td style='white-space:nowrap'>"+osDateUTC(u.onboarded_at)+"</td>"+
+          "<td><span class='os-badge'>"+(u.scans_used||0)+"x</span></td>"+
+          "<td>"+(u.remaining==null?"<span style='color:var(--muted)'>—</span>":u.remaining)+"</td></tr>";
+      });
+      el.innerHTML=h+"</tbody></table>";
+      var sh=$("osSortScan"); if(sh) sh.addEventListener("click", function(){ OS_SORT_DIR=OS_SORT_DIR==="desc"?"asc":"desc"; renderOsTable(); });
+    }
+    function doOsExport(){
+      var rows=osFiltered(); if(!rows.length){ alert("Tidak ada data untuk diexport."); return; }
+      if(!window.AdminExport){ alert("Modul export belum termuat."); return; }
+      var cols=[
+        {label:"Nama", key:"full_name"},{label:"Email", key:"email"},{label:"No. WA", key:"phone"},
+        {label:"Tanggal Onboarding Selesai", value:function(u){return osDateUTC(u.onboarded_at);}},
+        {label:"Jumlah Scan (dipakai)", value:function(u){return u.scans_used||0;}},
+        {label:"Sisa Scan", value:function(u){return u.remaining==null?"":u.remaining;}},
+      ];
+      AdminExport.csv(cols, rows, { filename:"onboarding-scan-"+osTodayKey()+".csv" });
+    }
+    async function loadOnbScan(){
+      $("osKpis").innerHTML=""; $("osSubtitle").textContent="Memuat…";
+      $("osChartDaily").innerHTML=$("osChartTop").innerHTML="<div class='placeholder'>Memuat…</div>";
+      $("osTable").innerHTML="<div class='placeholder'>Memuat…</div>"; $("osNote").innerHTML="";
+      var r=await adminFetch("/api/admin/onboarding-scan"); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ $("osTable").innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal memuat")+"</div>"; $("osSubtitle").textContent=""; return; }
+      OS_DATA=j;
+      $("osSubtitle").innerHTML=OS_DATA.total_onboarded+" user selesai onboarding · "+OS_DATA.ever_scanned+" di antaranya sudah pernah scan · data per "+osTodayKey();
+      $("osChartDaily").innerHTML=svgVBars(osDaily(OS_DATA.users), "#DE5A2A", {maxBar:30});
+      $("osChartTop").innerHTML=svgVBars(osTop(OS_DATA.users), "#3B82F6", {rotate:true, maxBar:30, minW:360, step:44, padB:62});
+      renderOsTable();
+      $("osNote").innerHTML="Sumber: <b>Tanggal Onboarding Selesai</b> = <code>gender_selected_at</code> (proxy — belum ada kolom <code>onboarding_completed_at</code> khusus; coverage 100%). <b>Jumlah scan dipakai</b> = jumlah record pemakaian di <code>my20fit_scan_ledger</code> (delta&lt;0). <b>Sisa scan</b> = saldo <code>my20fit_profile.scan_credits</code> (kredit dibeli − dipakai).";
+    }
+    (function(){
+      var s=$("osSearch"); if(s) s.addEventListener("input", renderOsTable);
+      var c=$("osOnlyScan"); if(c) c.addEventListener("change", renderOsTable);
+      var e=$("osExport"); if(e) e.addEventListener("click", doOsExport);
+    })();
     function topUsersTable(users){
       if(!users||!users.length) return "<div class='placeholder'>Belum ada data aktivitas.</div>";
       var h="<table><thead><tr><th style='width:34px'>#</th><th>Nama</th><th>Email</th><th style='text-align:right'>Aktivitas</th><th>Terakhir aktif</th></tr></thead><tbody>";
