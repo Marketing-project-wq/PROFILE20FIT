@@ -1405,6 +1405,46 @@ app.get("/api/admin/analytics", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// ---------- Onboarding + jumlah scan dipakai per user (viewer+) ----------
+// SUMBER DATA (dikonfirmasi lewat inspeksi skema live, bukan asumsi):
+//  - my20fit_profile: user onboarding_completed=true → nama/email/phone + saldo scan.
+//      onboarded_at = gender_selected_at (langkah onboarding; TIDAK ada kolom
+//      onboarding_completed_at khusus — ini proxy terbaik, coverage 100% utk yg selesai).
+//      "Sisa scan" = scan_credits (saldo live = kredit dibeli − dipakai).
+//  - my20fit_scan_ledger: 1 baris delta=-1 tiap scan dipakai (reason consume_free/paid),
+//      delta>0 utk pembelian (reason purchase). "Jumlah scan dipakai" per user =
+//      COUNT baris delta<0. Total all-time = sum baris delta<0 seluruh user.
+app.get("/api/admin/onboarding-scan", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data: profiles } = await admin.from("my20fit_profile")
+      .select("auth_user_id,full_name,email,phone,gender_selected_at,scan_credits")
+      .eq("onboarding_completed", true).limit(20000);
+    const { data: ledger } = await admin.from("my20fit_scan_ledger")
+      .select("auth_user_id,delta").lt("delta", 0).limit(200000);
+    const usedMap = {};
+    (ledger || []).forEach(l => { usedMap[l.auth_user_id] = (usedMap[l.auth_user_id] || 0) + 1; });
+    const users = (profiles || []).map(p => {
+      const used = usedMap[p.auth_user_id] || 0;
+      return {
+        auth_user_id: p.auth_user_id, full_name: p.full_name, email: p.email, phone: p.phone,
+        onboarded_at: p.gender_selected_at || null,
+        scans_used: used, remaining: (p.scan_credits == null ? null : +p.scan_credits),
+      };
+    });
+    const totalUsed = (ledger || []).length;             // total scan dipakai all-time
+    const everScanned = users.filter(u => u.scans_used > 0).length;
+    users.sort((a, b) => b.scans_used - a.scans_used);
+    return res.json({
+      ok: true,
+      total_onboarded: users.length,
+      ever_scanned: everScanned,
+      total_scans_used: totalUsed,
+      users: users,
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // Catatan: endpoint lama /api/admin/stats (era admin.html) sudah dihapus —
 // digantikan /api/admin/metrics (RBAC requireAdmin) di admin dashboard baru.
 
