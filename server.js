@@ -699,6 +699,34 @@ app.post("/api/fitco-token-login", async (req, res) => {
   }
 });
 
+// ---------- SSO KELUAR: buka 20FIT Photo (photo.20fit.id) tanpa login ulang ----------
+// Kebalikan dari fitco-token-login: user yang SUDAH punya sesi Supabase di sini
+// minta OTP satu-kali untuk membuat sesi di photo.20fit.id (project Supabase yang
+// sama). Bearer token diverifikasi ke Supabase — email diambil dari token, bukan
+// dari input client — lalu OTP di-mint dengan pola generateLink yang sama dengan
+// mirrorAndMintOtp. OTP dioper lewat URL fragment (#...) sehingga tidak pernah
+// masuk log server photo.
+const PHOTO_SSO_URL = process.env.PHOTO_SSO_URL || "https://photo.20fit.id/sso";
+app.post("/api/photo-sso", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
+    const authz = String(req.headers.authorization || "");
+    const accessToken = authz.startsWith("Bearer ") ? authz.slice(7) : "";
+    if (!accessToken) return res.status(401).json({ error: "Butuh sesi login." });
+    const { data: ud, error: uerr } = await admin.auth.getUser(accessToken);
+    const email = ud && ud.user && ud.user.email ? String(ud.user.email).trim().toLowerCase() : "";
+    if (uerr || !email) return res.status(401).json({ error: "Sesi tidak valid. Silakan login ulang." });
+    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: "magiclink", email });
+    if (linkErr) throw linkErr;
+    const otp = (linkData && linkData.properties && linkData.properties.email_otp) || null;
+    if (!otp) return res.status(500).json({ error: "Gagal menyiapkan SSO. Coba lagi." });
+    return res.json({ ok: true, email, email_otp: otp, sso_url: PHOTO_SSO_URL });
+  } catch (e) {
+    console.error("photo-sso:", e.message);
+    return res.status(500).json({ error: "Gagal membuka 20FIT Photo. Coba lagi." });
+  }
+});
+
 // ---------- Register pakai API 20FIT (/api/v1/auth/register) ----------
 // Buat akun langsung di ekosistem 20FIT, lalu mirror ke Supabase + buat sesi.
 app.post("/api/fitco-register", async (req, res) => {
