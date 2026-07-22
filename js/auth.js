@@ -160,6 +160,20 @@
     return data;
   }
 
+  // ---------- SSO KELUAR: buka 20FIT Photo (photo.20fit.id) tanpa login ulang ----------
+  // Server mint OTP satu-kali untuk email sesi yang sedang aktif, lalu kita
+  // pindah ke photo.20fit.id dengan OTP di URL fragment (#) — fragment tidak
+  // pernah dikirim ke server photo, hanya dibaca halaman /sso di browser.
+  async function photoSso() {
+    await ready;
+    const at = await token();
+    if (!at) throw new Error("Sesi habis. Silakan login ulang.");
+    const r = await fetch("/api/photo-sso", { method: "POST", headers: { Authorization: "Bearer " + at } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.email_otp || !j.sso_url) throw new Error(j.error || "Gagal membuka 20FIT Photo.");
+    location.href = j.sso_url + "#email=" + encodeURIComponent(j.email) + "&code=" + encodeURIComponent(j.email_otp);
+  }
+
   // ---------- VERIFIKASI OTP AKUN 20FIT (wajib pasca-registrasi baru) ----------
   // OTP ini BEDA dari OTP Supabase kita (sendOtp/verifyOtp di bawah) — ini kode
   // yang dikirim 20FIT sendiri untuk memverifikasi akun di ekosistem mereka.
@@ -478,7 +492,7 @@
     if (profile.fitco_email_verified === false) return go("verify.html");
     if (!profileComplete(profile)) return go("onboarding.html");
     if (!hasWebPassword(user)) return go("setpassword.html");
-    return go("dashboard.html");
+    return go("home.html");
   }
 
   window.Auth = {
@@ -491,6 +505,7 @@
     googleClientId: function () { return cfgGoogleClientId; },
     fitcoRegister,
     tokenLogin,
+    photoSso,
     fitcoVerifyEmail,
     fitcoResendVerifyEmail,
     hasWebPassword,

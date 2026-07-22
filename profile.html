@@ -160,6 +160,7 @@
       <div id="histList"></div>
     </div>
 
+    <button class="btn" id="photoSsoBtn" onclick="openPhotoSso()" data-i18n="prof_photo">Open 20FIT Photo</button>
     <button class="btn out" onclick="Auth.signOut()" data-i18n="prof_logout">Log Out</button>
   </div>
 
@@ -364,6 +365,15 @@
       }catch(e){}
     }
     function buyAgain(){ if(window.Deals) Deals.open({ onCredited: function(){ refreshQuota(); renderHistory(); } }); else location.href="calories"; }
+    // SSO ke photo.20fit.id — server mint OTP satu-kali, browser pindah ke /sso di sana.
+    async function openPhotoSso(){
+      var b=document.getElementById("photoSsoBtn"); if(b){ b.disabled=true; b.textContent=L({en:"Opening 20FIT Photo…",id:"Membuka 20FIT Photo…"}); }
+      try{ await Auth.photoSso(); }
+      catch(e){
+        alert((e&&e.message)||L({en:"Failed to open 20FIT Photo.",id:"Gagal membuka 20FIT Photo."}));
+        if(b){ b.disabled=false; b.textContent=L({en:"Open 20FIT Photo",id:"Buka 20FIT Photo"}); }
+      }
+    }
     try{ if(window.I18N&&I18N.onChange) I18N.onChange(renderHistory); }catch(e){}
 
     // ---- Foto profil (di-resize kecil, disimpan per-akun di device) ----
