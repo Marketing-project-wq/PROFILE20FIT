@@ -85,6 +85,7 @@
       '<div class="dl-grab"></div>' +
       '<div class="dl-ic"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>' +
       '<h3 id="dlTitle"></h3><div class="dl-sub" id="dlSub"></div>' +
+      '<div id="dlCap" style="font-size:12.5px;color:var(--muted,#8A7C68);text-align:center;line-height:1.45;margin:0 0 10px"></div>' +
       '<div id="dlList"></div>' +
       // detail muncul setelah paket dipilih (voucher + rincian harga), tanpa popup terpisah
       '<div id="dlDetail" class="dl-detail" style="display:none">' +
@@ -152,6 +153,7 @@
       ? L({ en: "Top up your calorie scans", id: "Top up scan kalori kamu" })
       : L({ en: "Get more calorie scans", id: "Tambah kuota scan kalori" });
     document.getElementById("dlSub").textContent = L({ en: "Pick a pack to see the price & add a voucher.", id: "Pilih paket untuk lihat harga & pakai voucher." });
+    document.getElementById("dlCap").textContent = L({ en: "If you want to continue your health journey, explore our deals.", id: "Kalau mau lanjutkan perjalanan sehatmu, cek paket kami di bawah." });
     renderPacks();
     document.getElementById("dlVApply").textContent = L({ en: "Apply", id: "Pakai" });
     document.getElementById("dlRcSubL").textContent = L({ en: "Subtotal", id: "Subtotal" });
