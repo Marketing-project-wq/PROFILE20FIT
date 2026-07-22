@@ -62,7 +62,8 @@
       prof_healthier:"Get Healthier", prof_fit:"Improve Fitness", prof_save:"Save Changes", prof_logout:"Log Out",
       prof_tour:"Replay app tutorial",
       prof_topup:"Add scans", prof_detail:"Profile details", prof_edit:"Edit", prof_edit_title:"Edit profile", prof_cancel:"Cancel", prof_pay_detail:"Payment details",
-      prof_hist_sec:"Purchase History", prof_hist_empty:"No purchases yet."
+      prof_hist_sec:"Purchase History", prof_hist_empty:"No purchases yet.",
+      prof_photo:"Open 20FIT Photo"
     },
     id: {
       nav_home:"Beranda", nav_medical:"Medis", nav_progress:"Progress", nav_calories:"Kalori", nav_profile:"Profil", nav_scan:"Scan",
@@ -111,7 +112,8 @@
       prof_healthier:"Lebih Sehat", prof_fit:"Tingkatkan Kebugaran", prof_save:"Simpan Perubahan", prof_logout:"Keluar / Log Out",
       prof_tour:"Putar ulang tutorial",
       prof_topup:"Tambah scan", prof_detail:"Detail profil", prof_edit:"Edit", prof_edit_title:"Edit profil", prof_cancel:"Batal", prof_pay_detail:"Detail pembayaran",
-      prof_hist_sec:"Riwayat Pembelian", prof_hist_empty:"Belum ada pembelian."
+      prof_hist_sec:"Riwayat Pembelian", prof_hist_empty:"Belum ada pembelian.",
+      prof_photo:"Buka 20FIT Photo"
     }
   };
 
