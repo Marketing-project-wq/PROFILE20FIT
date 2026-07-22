@@ -710,19 +710,19 @@ const PHOTO_SSO_URL = process.env.PHOTO_SSO_URL || "https://photo.20fit.id/sso";
 app.post("/api/photo-sso", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
-    const authz = String(req.headers.authorization || "");
-    const accessToken = authz.startsWith("Bearer ") ? authz.slice(7) : "";
-    if (!accessToken) return res.status(401).json({ error: "Butuh sesi login." });
-    const { data: ud, error: uerr } = await admin.auth.getUser(accessToken);
-    const email = ud && ud.user && ud.user.email ? String(ud.user.email).trim().toLowerCase() : "";
-    if (uerr || !email) return res.status(401).json({ error: "Sesi tidak valid. Silakan login ulang." });
+    // getUserFromReq membedakan token-ditolak (null -> 401) vs Supabase-bermasalah
+    // (throw 503) — jangan suruh user login ulang kalau yang error infrastruktur.
+    const user = await getUserFromReq(req);
+    const email = user && user.email ? String(user.email).trim().toLowerCase() : "";
+    if (!email) return res.status(401).json({ error: "Butuh sesi login. Silakan login ulang." });
     const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: "magiclink", email });
     if (linkErr) throw linkErr;
     const otp = (linkData && linkData.properties && linkData.properties.email_otp) || null;
     if (!otp) return res.status(500).json({ error: "Gagal menyiapkan SSO. Coba lagi." });
     return res.json({ ok: true, email, email_otp: otp, sso_url: PHOTO_SSO_URL });
   } catch (e) {
-    console.error("photo-sso:", e.message);
+    if (e && e.status === 503) return res.status(503).json({ error: e.userMessage || "Coba lagi sebentar lagi." });
+    console.error("photo-sso:", e && e.message);
     return res.status(500).json({ error: "Gagal membuka 20FIT Photo. Coba lagi." });
   }
 });
