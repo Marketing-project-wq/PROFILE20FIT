@@ -116,7 +116,7 @@ async function sendOtpEmail(to, code) {
 
 // ---------- Middleware ----------
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.json());
+app.use(express.json({ limit: "8mb" })); // 8mb: foto scan (base64) kini lewat /api/scan/ai
 app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webhook form-encoded
 
 // Railway = reverse proxy 1 hop. TANPA ini req.ip = IP proxy, bukan IP klien -> SEMUA user
@@ -1759,6 +1759,65 @@ app.post("/api/scan/consume", async (req, res) => {
     }
     return res.json({ ok: true, quota: shapeQuotaServer(q) });
   } catch (e) { console.error("scan/consume:", e.message); return res.status(500).json({ error: e.message }); }
+});
+
+// POST /api/scan/ai — GERBANG server untuk food scan (FOTO). Enforcement jatah pindah
+// ke server: verifikasi login + cek jatah SEBELUM panggil AI (hemat biaya kalau habis),
+// lalu potong 1 jatah SETELAH AI sukses & makanan terdeteksi (konsisten dgn perilaku lama:
+// foto tanpa makanan = tak dipotong). Client tak lagi memanggil mesin AI langsung utk foto.
+// (Ketik-nama-makanan & MCU TETAP gratis & tak lewat sini.)
+const AI_FN_URL = SUPABASE_URL + "/functions/v1/my20fit-ai";
+function scanPeriodJakarta() {
+  // Sama persis dgn RPC my20fit_consume_scan: to_char(now() AT TIME ZONE 'Asia/Jakarta','YYYY-MM').
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).formatToParts(new Date());
+  const y = (parts.find(p => p.type === "year") || {}).value;
+  const m = (parts.find(p => p.type === "month") || {}).value;
+  return y + "-" + m;
+}
+app.post("/api/scan/ai", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const body = req.body || {};
+    if (body.action !== "food") return res.status(400).json({ error: "action tidak didukung di endpoint ini." });
+    // 1) Peek jatah (TANPA memotong). period Asia/Jakarta identik dgn RPC consume.
+    const period = scanPeriodJakarta();
+    const { data: prof } = await admin.from("my20fit_profile")
+      .select("scan_count,scan_credits,scan_period").eq("auth_user_id", user.id).limit(1);
+    const p0 = (prof && prof[0]) || {};
+    const used = (p0.scan_period === period) ? (+p0.scan_count || 0) : 0;
+    const credits = +p0.scan_credits || 0;
+    if (Math.max(0, 10 - used) + credits <= 0) {
+      return res.status(402).json({ ok: false, code: "scan_limit",
+        quota: shapeQuotaServer({ used: used, free_limit: 10, credits: credits, period: period }) });
+    }
+    // 2) Panggil mesin AI server-side.
+    let aiJson = null;
+    try {
+      const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 90000);
+      const r = await fetch(AI_FN_URL, {
+        method: "POST", signal: ctrl.signal,
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
+        body: JSON.stringify({ action: "food", image: body.image, text: body.text, lang: body.lang }),
+      });
+      clearTimeout(to);
+      aiJson = await r.json().catch(() => ({}));
+      if (!r.ok || !aiJson || !aiJson.result) throw new Error((aiJson && aiJson.error) || "Gagal menganalisa.");
+    } catch (e) {
+      return res.status(502).json({ error: (e && e.message) || "Gagal menghubungi mesin AI. Coba lagi." });
+    }
+    // 3) Potong 1 jatah HANYA kalau makanan terdeteksi (items>0) — sama seperti perilaku lama.
+    let quota = null;
+    const detected = aiJson.result && Array.isArray(aiJson.result.items) && aiJson.result.items.length > 0;
+    if (detected) {
+      try {
+        const { data: cq } = await admin.rpc("my20fit_consume_scan", { p_uid: user.id });
+        if (cq) quota = shapeQuotaServer(cq);
+      } catch (e) { console.error("scan/ai consume:", e && e.message); }
+    }
+    return res.json({ ok: true, result: aiJson.result, consumed: detected, quota: quota });
+  } catch (e) { console.error("scan/ai:", e && e.message); return res.status(500).json({ error: "Gagal memproses scan." }); }
 });
 
 // ---------- Preview voucher sebelum bayar (untuk halaman checkout) ----------

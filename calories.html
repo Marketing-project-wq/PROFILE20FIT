@@ -490,21 +490,20 @@
     function closeScanLoading(){ var m=document.getElementById("scanLoadBg"); if(m) m.classList.remove("open"); }
     async function scanImage(url){
       const box=document.getElementById("scanresult");
-      // Cek kuota dulu — kalau habis, tawarkan paket top-up (jangan panggil AI).
-      try{
-        const q=await Auth.getScanQuota();
-        if(q && q.remaining<=0){ box.innerHTML=""; openDeals(q); return; }
-      }catch(e){ /* kalau gagal cek, tetap lanjut biar user gak keblokir */ }
       box.innerHTML='<div class="muted">'+I18N.t("cal_analysing")+'</div>';
       openScanLoading();
       try{
-        const r=await fetch(AI_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"food",image:url,lang:I18N.lang})});
-        const j=await r.json();
+        // Lewat GERBANG server: server cek jatah + panggil AI + potong jatah (server-authoritative,
+        // tak bisa diakali). Jatah habis -> 402 -> popup deals. Sesi habis -> 401.
+        const tk=await Auth.token();
+        const r=await fetch("/api/scan/ai",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},body:JSON.stringify({action:"food",image:url,lang:I18N.lang})});
+        const j=await r.json().catch(function(){return{};});
+        if(r.status===402 && j.code==="scan_limit"){ closeScanLoading(); box.innerHTML=""; openDeals(j.quota||null); return; }
+        if(r.status===401 && j.session_expired){ closeScanLoading(); box.innerHTML='<div style="color:var(--red)">'+L({en:"Your session expired — please log in again.",id:"Sesi kamu habis — silakan login lagi."})+'</div>'; return; }
         if(!r.ok||!j.result)throw new Error(j.error||L({en:"Analysis failed",id:"Gagal menganalisa"}));
         const res=j.result;lastScan=res.items||[];
         if(!lastScan.length){closeScanLoading();box.innerHTML='<div class="muted">'+(res.note||L({en:"No food detected in the photo.",id:"Gak kedeteksi makanan di foto."}))+'</div>';return}
-        // Scan berhasil -> pakai 1 kuota, lalu refresh tampilan sisa kuota.
-        try{ await Auth.consumeScan(); }catch(e){}
+        // Jatah sudah dipotong SERVER (kalau makanan terdeteksi). Refresh tampilan sisa kuota.
         refreshQuota();
         lastRes=res;
         box.innerHTML='<div class="muted" style="cursor:pointer" onclick="reopenScan()">✓ '+I18N.t("cal_detected")+' · ~'+(res.total_kcal||0)+' '+kc()+' — '+L({en:"tap to view analysis",id:"ketuk untuk lihat analisa"})+'</div>';
