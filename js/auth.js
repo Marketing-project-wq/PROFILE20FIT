@@ -492,7 +492,7 @@
     if (profile.fitco_email_verified === false) return go("verify.html");
     if (!profileComplete(profile)) return go("onboarding.html");
     if (!hasWebPassword(user)) return go("setpassword.html");
-    return go("dashboard.html");
+    return go("home.html");
   }
 
   window.Auth = {
