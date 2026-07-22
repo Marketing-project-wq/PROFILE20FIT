@@ -18,9 +18,6 @@
   label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.5px}
   input,select{width:100%;padding:12px 13px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:15px}
   .pwwrap{position:relative}
-  .pwwrap input{padding-right:60px}
-  .pwtoggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:auto;margin:0;padding:6px 10px;background:transparent;border:none;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.3px}
-  .pwtoggle:hover{color:var(--txt)}
   input:focus,select:focus{outline:none;border-color:var(--red)}
   .btn{width:100%;margin-top:16px;padding:13px;border:0;border-radius:10px;background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer}
   .btn.sm{width:auto;margin:0;padding:8px 12px;font-size:13px;border-radius:8px}
@@ -97,13 +94,11 @@
       <label>Password</label>
       <div class="pwwrap">
         <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password" />
-        <button type="button" class="pwtoggle" data-target="loginPass">Lihat</button>
       </div>
       <button class="btn" id="btnLogin">Masuk</button>
       <div class="divider">atau master key</div>
       <div class="pwwrap">
         <input id="loginKey" type="password" placeholder="Admin master key (ADMIN_KEY)" />
-        <button type="button" class="pwtoggle" data-target="loginKey">Lihat</button>
       </div>
       <button class="btn ghost" id="btnKey" style="margin-top:10px">Masuk pakai key</button>
       <div class="msg" id="loginMsg"></div>
@@ -259,6 +254,7 @@
   <script src="js/export-csv.js"></script>
   <script src="js/export-xlsx.js"></script>
   <script src="js/export-pdf.js"></script>
+  <script src="js/pw-toggle.js"></script>
   <script>
     let MASTER_KEY = sessionStorage.getItem("admin_master_key") || "";
     let ME = null;
@@ -311,17 +307,6 @@
       var vn=$("vNew"); if(vn) vn.style.display = canEdit() ? "" : "none";
       renderOverview();
     }
-
-    // ---- Toggle lihat/sembunyikan password ----
-    document.querySelectorAll(".pwtoggle").forEach(function(b){
-      b.addEventListener("click", function(){
-        var inp=$(b.dataset.target); if(!inp) return;
-        var show = inp.type==="password";
-        inp.type = show ? "text" : "password";
-        b.textContent = show ? "Sembunyikan" : "Lihat";
-        inp.focus();
-      });
-    });
 
     // ---- Login handlers ----
     // Coba beberapa cara auth: (1) password Supabase, kalau gagal (2) login 20FIT/FITCO.
