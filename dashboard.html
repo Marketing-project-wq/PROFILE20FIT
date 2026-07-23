@@ -438,6 +438,10 @@
       .cbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
       .cbtn:disabled{opacity:.32;cursor:not-allowed}
       .cbtn.pinned{color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,transparent)}
+      .czgrip{cursor:grab;touch-action:none;color:var(--muted)}
+      .czgrip:active{cursor:grabbing}
+      .czr.dragging{opacity:.85;background:var(--inp);border-radius:12px;border-top-color:transparent;box-shadow:0 8px 22px rgba(0,0,0,.14);position:relative;z-index:2}
+      .czr.dragging + .czr{border-top-color:transparent}
       .cadd{border:0;background:var(--inp);color:var(--red);font-weight:800;font-size:13px;border-radius:9px;padding:9px 14px;cursor:pointer;white-space:nowrap}
       /* Tracker stack cards */
       #trackerStack{display:flex;flex-direction:column;gap:12px}
@@ -607,7 +611,7 @@
       <div class="grab"></div>
       <div class="m-head">
         <div><div class="m-title" data-en="Customize your trackers" data-id="Sesuaikan tracker kamu">Customize your trackers</div>
-        <div class="m-sub" data-en="Pin the cards you want · reorder with the arrows" data-id="Pin kartu yang kamu mau · atur urutan dengan panah">Pin the cards you want · reorder with the arrows</div></div>
+        <div class="m-sub" data-en="Pin the cards you want · drag ☰ to reorder" data-id="Pin kartu yang kamu mau · seret ☰ untuk atur urutan">Pin the cards you want · drag ☰ to reorder</div></div>
         <button class="m-close" type="button" onclick="closeCustomize()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="cz-body">
@@ -786,13 +790,12 @@
         if (pl) pl.textContent = Lx({ en: "On your home · " + pins.length + " · order matters", id: "Di home-mu · " + pins.length + " · urutan berpengaruh" });
         if (al) al.textContent = Lx({ en: "Available cards · " + avail.length, id: "Kartu tersedia · " + avail.length });
         function ico(t) { return '<div class="czic">' + TICON[t.ic] + '</div>'; }
-        var UP = '<svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg>', DN = '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>', PIN = '<svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.8V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6.8a2 2 0 0 0 .6 1.4L18 15H6l2.4-2.8A2 2 0 0 0 9 10.8z"/></svg>';
-        if (pw) pw.innerHTML = pins.map(function (id, i) { var t = TRK[id];
-          return '<div class="czr">' + ico(t) + '<div class="cztx"><div class="cznm">' + Lx(t.nm) + '</div><div class="czds">' + Lx(t.d) + '</div></div><div class="czact">' +
-            '<button class="cbtn" onclick="pinMove(\'' + id + '\',-1)" ' + (i === 0 ? 'disabled' : '') + ' aria-label="up">' + UP + '</button>' +
-            '<button class="cbtn" onclick="pinMove(\'' + id + '\',1)" ' + (i === pins.length - 1 ? 'disabled' : '') + ' aria-label="down">' + DN + '</button>' +
-            '<button class="cbtn pinned" onclick="pinRemove(\'' + id + '\')" ' + (t.fixed ? 'disabled' : '') + ' aria-label="unpin">' + PIN + '</button></div></div>';
-        }).join("");
+        var GRIP = '<svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>', PIN = '<svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.8V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6.8a2 2 0 0 0 .6 1.4L18 15H6l2.4-2.8A2 2 0 0 0 9 10.8z"/></svg>';
+        if (pw) { pw.innerHTML = pins.map(function (id) { var t = TRK[id];
+          return '<div class="czr" data-id="' + id + '">' + ico(t) + '<div class="cztx"><div class="cznm">' + Lx(t.nm) + '</div><div class="czds">' + Lx(t.d) + '</div></div><div class="czact">' +
+            '<button class="cbtn czgrip" type="button" aria-label="' + Lx({ en: "drag to reorder", id: "seret untuk atur urutan" }) + '">' + GRIP + '</button>' +
+            '<button class="cbtn pinned" type="button" onclick="pinRemove(\'' + id + '\')" ' + (t.fixed ? 'disabled' : '') + ' aria-label="unpin">' + PIN + '</button></div></div>';
+        }).join(""); window.czBindDrag(); }
         if (aw) aw.innerHTML = avail.length ? avail.map(function (id) { var t = TRK[id];
           return '<div class="czr">' + ico(t) + '<div class="cztx"><div class="cznm">' + Lx(t.nm) + '</div><div class="czds">' + Lx(t.d) + '</div></div>' +
             '<button class="cadd" onclick="pinAdd(\'' + id + '\')">+ ' + Lx({ en: "Add", id: "Tambah" }) + '</button></div>';
@@ -800,7 +803,45 @@
       };
       window.pinAdd = function (id) { var p = getPins(); if (p.indexOf(id) < 0) { p.push(id); setPins(p); window.renderStack(); window.renderCzSheet(); } };
       window.pinRemove = function (id) { if (TRK[id] && TRK[id].fixed) return; setPins(getPins().filter(function (x) { return x !== id; })); window.renderStack(); window.renderCzSheet(); };
-      window.pinMove = function (id, dir) { var p = getPins(), i = p.indexOf(id), j = i + dir; if (i < 0 || j < 0 || j >= p.length) return; var t = p[i]; p[i] = p[j]; p[j] = t; setPins(p); window.renderStack(); window.renderCzSheet(); };
+      window.czBindDrag = function () {
+        var wrap = document.getElementById("czPinned"); if (!wrap) return;
+        Array.prototype.forEach.call(wrap.querySelectorAll(".czgrip"), function (h) {
+          var row = h.closest(".czr"); if (!row) return;
+          h.addEventListener("pointerdown", function (e) {
+            if (e.button != null && e.button > 0) return;
+            e.preventDefault();
+            var startY = e.clientY, moved = false;
+            row.classList.add("dragging");
+            try { h.setPointerCapture(e.pointerId); } catch (_) {}
+            function onMove(ev) {
+              var y = ev.clientY;
+              if (!moved && Math.abs(y - startY) < 4) return;
+              moved = true;
+              var sibs = Array.prototype.filter.call(wrap.children, function (c) { return c !== row && c.classList && c.classList.contains("czr"); });
+              for (var i = 0; i < sibs.length; i++) {
+                var r = sibs[i].getBoundingClientRect();
+                if (y < r.top + r.height / 2) { wrap.insertBefore(row, sibs[i]); return; }
+              }
+              wrap.appendChild(row);
+            }
+            function onUp() {
+              row.classList.remove("dragging");
+              try { h.releasePointerCapture(e.pointerId); } catch (_) {}
+              h.removeEventListener("pointermove", onMove);
+              h.removeEventListener("pointerup", onUp);
+              h.removeEventListener("pointercancel", onUp);
+              if (moved) {
+                var ids = [];
+                Array.prototype.forEach.call(wrap.children, function (c) { var d = c.getAttribute && c.getAttribute("data-id"); if (d) ids.push(d); });
+                setPins(ids); window.renderStack();
+              }
+            }
+            h.addEventListener("pointermove", onMove);
+            h.addEventListener("pointerup", onUp);
+            h.addEventListener("pointercancel", onUp);
+          });
+        });
+      };
       window.openCustomize = function () { window.renderCzSheet(); var b = document.getElementById("czBg"); if (b) b.style.display = "flex"; window.applyExtra(); };
       window.closeCustomize = function () { var b = document.getElementById("czBg"); if (b) b.style.display = "none"; };
 
