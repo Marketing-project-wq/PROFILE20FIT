@@ -335,8 +335,8 @@
 
     <!-- ===== HOME REDESIGN (SS) — Today's trackers + service grid ===== -->
     <style>
-      /* Desktop: stretch penuh (bukan max-width tengah) sesuai permintaan */
-      @media(min-width:900px){ .wrap{max-width:none} }
+      /* Desktop: lebar nyaman + jarak dari tepi (biar nggak terlalu stretch / nempel border) */
+      @media(min-width:900px){ .wrap{max-width:1200px;padding-left:32px;padding-right:32px} }
       .trk-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:22px 2px 12px}
       .trk-cust{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--red);color:var(--red);
         background:transparent;border-radius:999px;padding:7px 14px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
@@ -703,7 +703,7 @@
       function tcPhoto() {
         var COLS = ["#8a6d5a", "#4a5a72", "#5a6b4a", "#6a5a86", "#7a7150"], labs = ["12 Jul", "5 Jul", "28 Jun", "21 Jun", "14 Jun"];
         var th = COLS.map(function (c, i) { return '<div class="tph" style="background:linear-gradient(160deg,' + c + ',rgba(0,0,0,.35))">' + labs[i] + '</div>'; }).join("");
-        return '<a class="card tkcard" href="https://photo.20fit.id" target="_blank" rel="noopener"><div class="tkhd"><div class="tkic photo">' + TICON.photo + '</div><div style="flex:1"><div class="tktitle">Your Photo.20fit.id</div></div><span class="tkchev">›</span></div>' +
+        return '<a class="card tkcard" href="https://photo.20fit.id" onclick="return openPhotoSso(event)"><div class="tkhd"><div class="tkic photo">' + TICON.photo + '</div><div style="flex:1"><div class="tktitle">Your Photo.20fit.id</div></div><span class="tkchev">›</span></div>' +
           '<div class="tphotos">' + th + '</div><div class="tksub" style="margin-top:8px">' + Lx({ en: "Auto-synced from photo.20fit.id · read only", id: "Tersinkron dari photo.20fit.id · hanya-baca" }) + '</div></a>';
       }
       function tcFasting() {
@@ -728,6 +728,13 @@
         return '<a class="card tkcard" href="progress.html"><div class="tkhd"><div class="tkic pulse">' + TICON.pulse + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Health snapshot", id: "Ringkasan Kesehatan" }) + '</div><div class="tksub tkmono">' + (b ? ('BMI ' + b.toFixed(1) + (w ? ' · ' + w + ' kg' : '')) : Lx({ en: "Add weight & height", id: "Isi berat & tinggi" })) + '</div></div><span class="tkchev">›</span></div></a>';
       }
       window.hydPlus = function (e) { if (e) { e.preventDefault(); e.stopPropagation(); } try { if (typeof setWater === "function" && typeof water !== "undefined") { setWater(water + 1); if (typeof daily !== "undefined" && daily) daily.water_glasses = water; } } catch (err) {} window.renderStack(); };
+      // SSO ke photo.20fit.id (server mint OTP satu-kali -> photo.20fit.id/sso), dipindah dari profil.
+      window.openPhotoSso = function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        try { if (window.Auth && Auth.photoSso) { Auth.photoSso().catch(function (err) { alert((err && err.message) || Lx({ en: "Failed to open 20FIT Photo.", id: "Gagal membuka 20FIT Photo." })); }); return false; } } catch (err) {}
+        location.href = "https://photo.20fit.id"; // fallback tanpa SSO
+        return false;
+      };
 
       window.renderStack = function () {
         var el = document.getElementById("trackerStack"); if (!el) return;
