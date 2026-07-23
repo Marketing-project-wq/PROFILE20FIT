@@ -157,6 +157,20 @@ app.use("/api/", apiLimiter);
 app.use("/api/scan/order-status", pollLimiter);
 app.use("/api/scan/reconcile", pollLimiter);
 
+// Limiter KETAT untuk endpoint kredensial — 50/10mnt global terlalu longgar buat
+// tebak-password / OTP. 12 percobaan / 15 menit / IP masih longgar utk user sah.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limitMsg,
+});
+app.use([
+  "/api/fitco-login", "/api/fitco-register", "/api/fitco-forgot", "/api/fitco-reset",
+  "/api/fitco-verify-email", "/api/fitco-resend-verify-email",
+], authLimiter);
+
 // Jaring pengaman proses: JANGAN biarkan promise-rejection / exception tak tertangani meng-crash
 // server (dulu bisa bikin request in-flight kena 502 platform tanpa jejak). Log saja, proses hidup.
 process.on("unhandledRejection", (reason) => {
@@ -399,10 +413,12 @@ function aqiMeaning(aqi) {
   return { label: "Hazardous", advice: "Berbahaya — tetap di dalam ruangan." };
 }
 app.get("/api/aqi", async (req, res) => {
-  const lat = req.query.lat, lon = req.query.lon;
+  // Koordinat = ANGKA tervalidasi (cegah injeksi parameter ke URL pihak ketiga).
+  const lat = parseFloat(req.query.lat), lon = parseFloat(req.query.lon);
+  const hasCoord = isFinite(lat) && isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
   let aqi = null, source = null, city = req.query.city || "";
   // 1) WAQI (kalau token tersedia & ada koordinat)
-  if (WAQI_TOKEN && lat && lon) {
+  if (WAQI_TOKEN && hasCoord) {
     try {
       const r = await fetch("https://api.waqi.info/feed/geo:" + lat + ";" + lon + "/?token=" + encodeURIComponent(WAQI_TOKEN));
       const j = await r.json();
@@ -412,7 +428,7 @@ app.get("/api/aqi", async (req, res) => {
     } catch (e) { /* fallback */ }
   }
   // 2) Fallback Open-Meteo (model global CAMS)
-  if (aqi == null && lat && lon) {
+  if (aqi == null && hasCoord) {
     try {
       const r = await fetch("https://air-quality-api.open-meteo.com/v1/air-quality?latitude=" + lat + "&longitude=" + lon + "&current=us_aqi");
       const j = await r.json();
@@ -2099,6 +2115,21 @@ app.post("/api/scan/order-cancel", async (req, res) => {
     const b = req.body || {};
     const id = String(b.sales_order_id || "").trim();
     if (!id) return res.status(400).json({ error: "sales_order_id kosong." });
+    // Cegah IDOR: user hanya boleh membatalkan order MILIKNYA. Sebelumnya id dari body
+    // dioper langsung ke FITCO (pakai fallback partner token) tanpa cek pemilik, sehingga
+    // user login mana pun bisa mencoba cancel order user lain. Cek by identifier apa pun
+    // pada my20fit_scan_orders yang auth_user_id-nya = user ini (query hanya baris user ini
+    // -> tak ada risiko injeksi filter).
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    let owned = false;
+    try {
+      const { data: srows } = await admin.from("my20fit_scan_orders")
+        .select("reff_no,payment_link_id,fitco_order_no").eq("auth_user_id", user.id);
+      owned = (srows || []).some(function (o) {
+        return String(o.reff_no) === id || String(o.payment_link_id) === id || String(o.fitco_order_no) === id;
+      });
+    } catch (e) {}
+    if (!owned) return res.status(403).json({ error: "Bukan order kamu." });
     const tokens = [];
     if (b.fitco_token) tokens.push(String(b.fitco_token));
     if (FITCO_PARTNER_TOKEN) tokens.push(FITCO_PARTNER_TOKEN);
@@ -2240,32 +2271,21 @@ function newReffNo() { return "SCAN" + Date.now().toString(36) + Math.floor(Math
 // Kreditkan order scan yang lunas — ATOMIC & IDEMPOTEN lewat RPC my20fit_credit_scan:
 // claim order (pending->paid) + tambah scan_credits dalam satu transaksi berkunci baris,
 // jadi aman terhadap retry webhook Xendit & order paralel utk user yang sama.
-async function creditScanOrder(reff, meta) {
+async function creditScanOrder(reff) {
   if (!admin || !reff) return false;
   const { data, error } = await admin.rpc("my20fit_credit_scan", { p_reff: reff });
   if (error) { try { console.error("credit rpc", error.message); } catch (e) {} return false; }
   if (data === true) { try { console.log("xendit credited", reff); } catch (e) {} }
   if (data === true) {
-    // Ambil order utk catat pemakaian voucher + tahu apakah net_amount sudah di-set voucher.
-    let hasVoucher = false;
+    // Catat pemakaian voucher bila order ini pakai voucher.
     try {
       const { data: o } = await admin.from("my20fit_scan_orders")
         .select("voucher_id,auth_user_id,amount,net_amount").eq("reff_no", reff).limit(1);
       if (o && o[0] && o[0].voucher_id) {
-        hasVoucher = true;
         const disc = Math.max(0, (+o[0].amount || 0) - (+o[0].net_amount || 0));
         await recordVoucherUsage(o[0].voucher_id, o[0].auth_user_id, reff, disc);
       }
     } catch (e) { try { console.error("credit voucher-usage", e.message); } catch (_) {} }
-    // Simpan metadata pembayaran (metode/ref gateway/nominal net) bila tersedia dari webhook.
-    if (meta) {
-      const patch = {};
-      if (meta.payment_method) patch.payment_method = String(meta.payment_method).slice(0, 60);
-      if (meta.gateway_reference_id) patch.gateway_reference_id = String(meta.gateway_reference_id).slice(0, 120);
-      // Jangan timpa net_amount kalau order pakai voucher (net_amount = harga setelah diskon).
-      if (!hasVoucher && meta.net_amount != null && !isNaN(+meta.net_amount)) patch.net_amount = +meta.net_amount;
-      if (Object.keys(patch).length) { try { await admin.from("my20fit_scan_orders").update(patch).eq("reff_no", reff); } catch (e) { try { console.error("scan_orders meta", e.message); } catch (_) {} } }
-    }
   }
   return data === true;
 }
@@ -2376,7 +2396,17 @@ app.get(/\.html$/, (req, res) => {
   const clean = req.path.replace(/\.html$/, "");
   res.redirect(302, clean + req.url.slice(req.path.length));
 });
-app.use(express.static(path.join(__dirname), { extensions: ["html"] }));
+// express.static menyajikan SEMUA berkas di root — termasuk source & config internal.
+// Blokir berkas/direktori non-publik supaya kode backend & skema DB tidak bisa di-fetch.
+app.use((req, res, next) => {
+  const p = req.path;
+  if (/^\/(server\.js|package\.json|package-lock\.json|railway\.toml|README\.md|CLAUDE\.md)$/i.test(p) ||
+      /^\/(db|supabase|docs|archive|node_modules|\.git)(\/|$)/i.test(p)) {
+    return res.status(404).sendFile(path.join(__dirname, "index.html"));
+  }
+  next();
+});
+app.use(express.static(path.join(__dirname), { extensions: ["html"], dotfiles: "ignore" }));
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
