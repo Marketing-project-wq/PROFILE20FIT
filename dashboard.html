@@ -385,6 +385,44 @@
       .cz-sw.on{background:var(--red)}
       .cz-sw.on::after{transform:translateX(19px)}
       .cz-sw:disabled{opacity:.5;cursor:not-allowed}
+      /* Book session — lokasi & personal */
+      .psub2{font-size:13px;color:var(--muted);font-weight:600;margin:-6px 2px 12px}
+      .hscroll{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 8px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+      .hscroll::-webkit-scrollbar{height:0}
+      .hscroll{scrollbar-width:none}
+      .loccard{flex:0 0 80%;max-width:340px;scroll-snap-align:start;border-radius:18px;overflow:hidden;
+        border:1px solid var(--line);box-shadow:var(--shadow);background:var(--card);display:flex;flex-direction:column}
+      @media(min-width:900px){ .loccard{flex-basis:360px} }
+      .lochd{padding:16px 16px 18px;color:#fff}
+      .lochd.arena{background:linear-gradient(135deg,#1c1e24,#0c0d10)}
+      .lochd.clinic{background:linear-gradient(135deg,#5a1420,#33101a)}
+      .locnm{font-weight:900;font-size:17px}
+      .locloc{font-size:12px;color:rgba(255,255,255,.72);margin-top:4px;display:flex;align-items:center;gap:5px}
+      .locbody{padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px;flex:1}
+      .locchips{display:flex;flex-wrap:wrap;gap:7px}
+      .locchip{font-size:11.5px;font-weight:700;color:var(--txt);background:var(--inp);border-radius:8px;padding:6px 10px;white-space:nowrap}
+      .locbtn{margin-top:auto;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--red);color:#fff;
+        text-decoration:none;border-radius:12px;padding:12px;font-weight:800;font-size:14px}
+      .locbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+      /* chips filter */
+      .chips2{display:flex;gap:8px;flex-wrap:wrap;margin:0 2px 12px}
+      .chip2{border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:99px;padding:8px 14px;
+        font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+      .chip2.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+      .chip2 .c2dot{width:7px;height:7px;border-radius:50%}
+      /* kartu dokter/coach */
+      .doccard{flex:0 0 47%;max-width:180px;scroll-snap-align:start;border-radius:16px;overflow:hidden;position:relative;
+        aspect-ratio:3/4;background:var(--inp);box-shadow:var(--shadow);text-decoration:none;color:#fff;display:block}
+      @media(min-width:900px){ .doccard{flex-basis:190px} }
+      .docph{position:absolute;inset:0;display:grid;place-items:center}
+      .docph svg{width:56px;height:56px;color:#fff;opacity:.55;fill:none;stroke:currentColor;stroke-width:1.5}
+      .doccard.doctor .docph{background:linear-gradient(160deg,#2f4a7a,#16233d)}
+      .doccard.coach .docph{background:linear-gradient(160deg,#7a2330,#3a1017)}
+      .docov{position:absolute;left:0;right:0;bottom:0;padding:34px 12px 12px;background:linear-gradient(transparent,rgba(0,0,0,.82))}
+      .docbadge{position:absolute;top:10px;left:10px;font-size:9px;font-weight:800;letter-spacing:.5px;color:#fff;background:rgba(0,0,0,.45);
+        border:1px solid rgba(255,255,255,.25);padding:3px 8px;border-radius:99px}
+      .docnm{font-weight:800;font-size:13px;line-height:1.2}
+      .docsp{font-size:11px;color:rgba(255,255,255,.8);margin-top:2px;line-height:1.2}
     </style>
 
     <div class="trk-head">
@@ -397,14 +435,22 @@
 
     <div class="svcgrid2" id="svcGrid2"></div>
 
-    <div class="trk-head" style="margin-top:8px">
-      <div class="sec gsec" data-en="By location" data-id="Berdasarkan lokasi" style="margin:0">By location</div>
+    <!-- Book your session (lokasi) -->
+    <div class="trk-head" style="margin-top:10px">
+      <div class="sec gsec" data-en="Book your session" data-id="Book Sesi Kamu" style="margin:0">Book your session</div>
       <a class="trk-all" href="https://booking.20fit.id" target="_blank" rel="noopener" data-en="All" data-id="Semua">All</a>
     </div>
-    <div class="card" id="byLoc">
-      <div class="muted" style="font-size:13px" data-en="Pick a 20FIT place to start — connecting soon."
-           data-id="Pilih lokasi 20FIT untuk mulai — segera tersambung.">Pilih lokasi 20FIT untuk mulai — segera tersambung.</div>
+    <div class="psub2" data-en="By location · pick a place to start" data-id="Berdasarkan lokasi · pilih tempat mulai">By location · pick a place to start</div>
+    <div class="hscroll" id="locRow"></div>
+
+    <!-- Book a personal session (dokter/coach) -->
+    <div class="trk-head" style="margin-top:16px">
+      <div class="sec gsec" data-en="Book a personal session" data-id="Book Sesi Personal" style="margin:0">Book a personal session</div>
+      <a class="trk-all" href="https://booking.20fit.id" target="_blank" rel="noopener" data-en="See all" data-id="Lihat semua">See all</a>
     </div>
+    <div class="psub2" id="pplCount"></div>
+    <div class="chips2" id="pplChips"></div>
+    <div class="hscroll" id="pplRow"></div>
 
     <div id="extraTrackers" style="display:none">
     <!-- Penting hari ini (kalori + what to watch) -->
@@ -661,12 +707,61 @@
       window.openCustomize = function () { var b = document.getElementById("czBg"); if (b) b.style.display = "flex"; syncCz(); };
       window.closeCustomize = function () { var b = document.getElementById("czBg"); if (b) b.style.display = "none"; };
 
-      // Boot (tidak butuh profile) — grid + visibilitas tracker + tutup sheet klik-luar.
+      // ---- Book your session: lokasi + Book personal: dokter/coach ----
+      // Data CONTOH — daftar & foto asli dokter/coach + link booking nanti disambung API.
+      var LOCS = [
+        { cls: "arena", nm: "20FIT Arena", loc: { en: "Menteng, Jakarta Pusat", id: "Menteng, Jakarta Pusat" }, chips: ["HYROX Complete", "HYROX Foundation", "Venue Rental"], btn: { en: "Book Arena & Class", id: "Book Arena & Kelas" }, href: "https://booking.20fit.id" },
+        { cls: "clinic", nm: "20FIT Sport Clinic", loc: { en: "Kebayoran Baru, Jaksel", id: "Kebayoran Baru, Jaksel" }, chips: ["Physiotherapy", "Sport Massage", "Doctor Consultation", "Treatment"], btn: { en: "Book Clinic", id: "Book Klinik" }, href: "https://booking.20fit.id/clinic" }
+      ];
+      var PEOPLE = [
+        { type: "doctor", nm: "dr. Adrian Purwadihardja, Sp.KO", sp: { en: "Sports Medicine", id: "Kedokteran Olahraga" } },
+        { type: "doctor", nm: "dr. Yusuf Ady B., Sp.KO", sp: { en: "Body Composition · Longevity", id: "Komposisi Tubuh · Longevity" } },
+        { type: "doctor", nm: "dr. Andeansyah, Sp.KO", sp: { en: "Recovery · Rehabilitation", id: "Pemulihan · Rehabilitasi" } },
+        { type: "coach", nm: "Coach Sinta", sp: { en: "HYROX · Strength", id: "HYROX · Strength" } },
+        { type: "coach", nm: "Coach Rian", sp: { en: "Personal Trainer", id: "Personal Trainer" } },
+        { type: "coach", nm: "Coach Dimas", sp: { en: "Conditioning", id: "Conditioning" } },
+        { type: "coach", nm: "Coach Nadia", sp: { en: "Mobility · Yoga", id: "Mobility · Yoga" } },
+        { type: "coach", nm: "Coach Bagas", sp: { en: "HYROX · Endurance", id: "HYROX · Endurance" } }
+      ];
+      var PERSON_IC = '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>';
+      var pplFilter = "all";
+      function buildLoc() {
+        var el = document.getElementById("locRow"); if (!el) return;
+        el.innerHTML = LOCS.map(function (o) {
+          var chips = o.chips.map(function (c) { return '<span class="locchip">' + c + '</span>'; }).join("");
+          return '<div class="loccard"><div class="lochd ' + o.cls + '"><div class="locnm">' + o.nm + '</div>' +
+            '<div class="locloc"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + Lx(o.loc) + '</div></div>' +
+            '<div class="locbody"><div class="locchips">' + chips + '</div>' +
+            '<a class="locbtn" href="' + o.href + '" target="_blank" rel="noopener">' + Lx(o.btn) + ' <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a></div></div>';
+        }).join("");
+      }
+      function buildPeople() {
+        var row = document.getElementById("pplRow"), cnt = document.getElementById("pplCount"), chp = document.getElementById("pplChips");
+        if (!row) return;
+        var nD = PEOPLE.filter(function (p) { return p.type === "doctor"; }).length, nC = PEOPLE.length - nD;
+        if (cnt) cnt.textContent = PEOPLE.length + " " + Lx({ en: "doctors & coaches available", id: "dokter & coach tersedia" });
+        if (chp) chp.innerHTML =
+          '<span class="chip2' + (pplFilter === "all" ? " on" : "") + '" data-f="all">' + Lx({ en: "All", id: "Semua" }) + ' · ' + PEOPLE.length + '</span>' +
+          '<span class="chip2' + (pplFilter === "coach" ? " on" : "") + '" data-f="coach"><span class="c2dot" style="background:#C41101"></span>Coach · ' + nC + '</span>' +
+          '<span class="chip2' + (pplFilter === "doctor" ? " on" : "") + '" data-f="doctor"><span class="c2dot" style="background:#2F6BFF"></span>' + Lx({ en: "Doctor", id: "Dokter" }) + ' · ' + nD + '</span>';
+        var list = PEOPLE.filter(function (p) { return pplFilter === "all" || p.type === pplFilter; });
+        row.innerHTML = list.map(function (p) {
+          var badge = p.type === "doctor" ? Lx({ en: "DOCTOR", id: "DOKTER" }) : "COACH";
+          return '<a class="doccard ' + p.type + '" href="https://booking.20fit.id" target="_blank" rel="noopener">' +
+            '<div class="docph">' + PERSON_IC + '</div><span class="docbadge">' + badge + '</span>' +
+            '<div class="docov"><div class="docnm">' + p.nm + '</div><div class="docsp">' + Lx(p.sp) + '</div></div></a>';
+        }).join("");
+        if (chp) chp.querySelectorAll(".chip2").forEach(function (c) { c.addEventListener("click", function () { pplFilter = c.getAttribute("data-f"); buildPeople(); }); });
+      }
+      window.buildBooking = function () { buildLoc(); buildPeople(); };
+
+      // Boot (tidak butuh profile) — grid + booking + visibilitas tracker + tutup sheet klik-luar.
       buildSvcGrid();
+      window.buildBooking();
       window.applyExtra();
       var czb = document.getElementById("czBg");
       if (czb) czb.addEventListener("click", function (e) { if (e.target === czb) window.closeCustomize(); });
-      if (window.I18N && I18N.onChange) I18N.onChange(function () { buildSvcGrid(); if (window.renderHomeCal) window.renderHomeCal(); });
+      if (window.I18N && I18N.onChange) I18N.onChange(function () { buildSvcGrid(); window.buildBooking(); if (window.renderHomeCal) window.renderHomeCal(); });
     })();
   </script>
   <script>try{ Meta.track("View Dashboard"); }catch(e){}</script>
