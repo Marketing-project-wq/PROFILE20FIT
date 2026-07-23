@@ -424,7 +424,7 @@
       .docnm{font-weight:800;font-size:13px;line-height:1.2}
       .docsp{font-size:11px;color:rgba(255,255,255,.8);margin-top:2px;line-height:1.2}
       /* Customize sheet: pin & reorder */
-      .cz-body{padding:2px 2px 14px;overflow-y:auto;max-height:64vh}
+      .cz-body{padding:2px 2px 14px;overflow-y:auto;max-height:64vh;-webkit-user-select:none;user-select:none}
       .cz-lbl{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:6px 2px 8px}
       .czr{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
       .czr:first-child{border-top:0}
@@ -811,12 +811,8 @@
             if (e.button != null && e.button > 0) return;
             e.preventDefault();
             var startY = e.clientY, moved = false;
-            row.classList.add("dragging");
-            try { h.setPointerCapture(e.pointerId); } catch (_) {}
-            function onMove(ev) {
-              var y = ev.clientY;
-              if (!moved && Math.abs(y - startY) < 4) return;
-              moved = true;
+            // Sisipkan `row` ke posisi sesuai koordinat y saat ini.
+            function place(y) {
               var sibs = Array.prototype.filter.call(wrap.children, function (c) { return c !== row && c.classList && c.classList.contains("czr"); });
               for (var i = 0; i < sibs.length; i++) {
                 var r = sibs[i].getBoundingClientRect();
@@ -824,21 +820,29 @@
               }
               wrap.appendChild(row);
             }
+            // Listener di DOCUMENT (bukan di handle): saat baris dipindah, pointer
+            // capture di handle lepas — kalau listener nempel di handle, move/up
+            // jadi nyasar. Di document, move/up selalu ketangkap sampai jari/mouse dilepas.
+            function onMove(ev) {
+              var y = ev.clientY;
+              if (!moved) { if (Math.abs(y - startY) < 4) return; moved = true; row.classList.add("dragging"); }
+              if (ev.cancelable) ev.preventDefault();
+              place(y);
+            }
             function onUp() {
-              row.classList.remove("dragging");
-              try { h.releasePointerCapture(e.pointerId); } catch (_) {}
-              h.removeEventListener("pointermove", onMove);
-              h.removeEventListener("pointerup", onUp);
-              h.removeEventListener("pointercancel", onUp);
+              document.removeEventListener("pointermove", onMove, true);
+              document.removeEventListener("pointerup", onUp, true);
+              document.removeEventListener("pointercancel", onUp, true);
               if (moved) {
+                row.classList.remove("dragging");
                 var ids = [];
                 Array.prototype.forEach.call(wrap.children, function (c) { var d = c.getAttribute && c.getAttribute("data-id"); if (d) ids.push(d); });
                 setPins(ids); window.renderStack();
               }
             }
-            h.addEventListener("pointermove", onMove);
-            h.addEventListener("pointerup", onUp);
-            h.addEventListener("pointercancel", onUp);
+            document.addEventListener("pointermove", onMove, { capture: true, passive: false });
+            document.addEventListener("pointerup", onUp, true);
+            document.addEventListener("pointercancel", onUp, true);
           });
         });
       };
