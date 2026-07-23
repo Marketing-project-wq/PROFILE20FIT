@@ -324,56 +324,6 @@
       </div>
     </header>
 
-    <!-- Layanan 20FIT (grid super-app) — tampil BERDAMPINGAN dgn UX dashboard.
-         Statis + i18n via data-en/data-id. Coming-soon pakai toast() yang sudah ada.
-         Go-live nanti: ganti .svctile.soon (div) jadi <a class="svctile" href target=_blank
-         rel=noopener> dan buang .svcbadge-nya. -->
-    <style>
-      .svcgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:2px 0 4px}
-      @media(max-width:360px){ .svcgrid{gap:7px} }
-      .svctile{position:relative;min-width:0;display:flex;flex-direction:column;align-items:center;gap:9px;
-        text-decoration:none;color:var(--pagetx);padding:14px 5px 12px;border-radius:16px;
-        background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);
-        transition:transform .12s ease;-webkit-tap-highlight-color:transparent;cursor:pointer}
-      .svctile:active{transform:scale(.96)}
-      .svcic{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;flex:0 0 auto}
-      .svcic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-      .svclbl{font-size:11.5px;font-weight:750;text-align:center;line-height:1.15;letter-spacing:-.01em;max-width:100%;overflow-wrap:anywhere}
-      .svcic.workout{background:var(--red-soft);color:var(--red)}
-      .svcic.photo{background:var(--blue-soft);color:var(--blue)}
-      .svcic.event{background:var(--amber-soft);color:var(--amber)}
-      .svcic.booking{background:var(--green-soft);color:var(--green)}
-      .svctile.soon{cursor:default}
-      .svctile.soon .svcic{background:var(--inp);color:var(--faint)}
-      .svctile.soon .svclbl{color:var(--muted)}
-      .svcbadge{position:absolute;top:6px;right:6px;font-size:8.5px;font-weight:800;letter-spacing:.02em;
-        text-transform:uppercase;color:#fff;background:var(--muted);padding:2px 6px;border-radius:999px;line-height:1.3}
-      .svctile.cur .svcbadge{background:var(--red)}
-    </style>
-    <div class="sec gsec" data-en="20FIT Services" data-id="Layanan 20FIT">20FIT Services</div>
-    <div class="svcgrid">
-      <div class="svctile cur" role="button" tabindex="0" onclick="window.scrollTo({top:0,behavior:'smooth'})">
-        <span class="svcbadge" data-en="Now" data-id="Aktif">Now</span>
-        <div class="svcic workout"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
-        <div class="svclbl">Workout</div>
-      </div>
-      <div class="svctile soon" role="button" aria-disabled="true" tabindex="0" onclick="toast((window.I18N&&I18N.lang==='id')?'Segera hadir':'Coming soon')">
-        <span class="svcbadge" data-en="Soon" data-id="Segera">Soon</span>
-        <div class="svcic photo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/></svg></div>
-        <div class="svclbl">Photo</div>
-      </div>
-      <div class="svctile soon" role="button" aria-disabled="true" tabindex="0" onclick="toast((window.I18N&&I18N.lang==='id')?'Segera hadir':'Coming soon')">
-        <span class="svcbadge" data-en="Soon" data-id="Segera">Soon</span>
-        <div class="svcic event"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg></div>
-        <div class="svclbl">Event</div>
-      </div>
-      <div class="svctile soon" role="button" aria-disabled="true" tabindex="0" onclick="toast((window.I18N&&I18N.lang==='id')?'Segera hadir':'Coming soon')">
-        <span class="svcbadge" data-en="Soon" data-id="Segera">Soon</span>
-        <div class="svcic booking"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9.5a2.5 2.5 0 0 1 0 5V17a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2.5a2.5 2.5 0 0 1 0-5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><line x1="14" x2="14" y1="5" y2="19"/></svg></div>
-        <div class="svclbl">Booking</div>
-      </div>
-    </div>
-
     <!-- PLATAROX x 20FIT — klik banner -> hasil & leaderboard race di racelabtiming -->
     <a class="race-banner" href="https://racelabtiming.20fit.id/results/platarox"
        target="_blank" rel="noopener"
