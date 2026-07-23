@@ -423,15 +423,50 @@
         border:1px solid rgba(255,255,255,.25);padding:3px 8px;border-radius:99px}
       .docnm{font-weight:800;font-size:13px;line-height:1.2}
       .docsp{font-size:11px;color:rgba(255,255,255,.8);margin-top:2px;line-height:1.2}
+      /* Customize sheet: pin & reorder */
+      .cz-body{padding:2px 2px 14px;overflow-y:auto;max-height:64vh}
+      .cz-lbl{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:6px 2px 8px}
+      .czr{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+      .czr:first-child{border-top:0}
+      .czic{width:38px;height:38px;border-radius:11px;background:var(--inp);display:grid;place-items:center;flex:0 0 auto;color:var(--red)}
+      .czic svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+      .cztx{flex:1;min-width:0}
+      .cznm{font-weight:750;font-size:14px;line-height:1.2}
+      .czds{font-size:11.5px;color:var(--muted);line-height:1.2;margin-top:1px}
+      .czact{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+      .cbtn{width:32px;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+      .cbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+      .cbtn:disabled{opacity:.32;cursor:not-allowed}
+      .cbtn.pinned{color:var(--red);border-color:color-mix(in srgb,var(--red) 45%,transparent)}
+      .cadd{border:0;background:var(--inp);color:var(--red);font-weight:800;font-size:13px;border-radius:9px;padding:9px 14px;cursor:pointer;white-space:nowrap}
+      /* Tracker stack cards */
+      #trackerStack{display:flex;flex-direction:column;gap:12px}
+      .tkhd{display:flex;align-items:center;gap:13px}
+      .tkic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex:0 0 auto}
+      .tkic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+      .tkic.cal{background:var(--red-soft);color:var(--red)}
+      .tkic.photo{background:var(--blue-soft);color:var(--blue)}
+      .tkic.fast{background:var(--amber-soft);color:var(--amber)}
+      .tkic.drop{background:var(--blue-soft);color:var(--blue)}
+      .tkic.sleep{background:#efeafc;color:#7c5cff}
+      .tkic.pulse{background:var(--green-soft);color:var(--green)}
+      html:not(.theme-light) .tkic.sleep{background:#221c3a}
+      .tktitle{font-weight:800;font-size:15px}
+      .tksub{font-size:13px;color:var(--muted);margin-top:1px}
+      .tkchev{margin-left:auto;color:var(--pagemut);font-weight:800;font-size:20px;align-self:flex-start}
+      .tkplus{margin-left:auto;width:40px;height:40px;border-radius:50%;background:var(--red);color:#fff;border:0;font-size:22px;line-height:1;cursor:pointer;display:grid;place-items:center;flex:0 0 auto;box-shadow:0 6px 14px color-mix(in srgb,var(--red) 32%,transparent)}
+      .tphotos{display:flex;gap:8px;margin-top:12px}
+      .tph{flex:1;border-radius:10px;aspect-ratio:1;display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;font-size:9px;font-weight:800;color:rgba(255,255,255,.92)}
+      .tkmono{font-family:'JetBrains Mono',ui-monospace,monospace}
     </style>
 
     <div class="trk-head">
       <div class="sec gsec" data-en="Today's trackers" data-id="Tracker Hari Ini" style="margin:0">Today's trackers</div>
       <button class="trk-cust" type="button" onclick="openCustomize()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span data-en="Customize" data-id="Sesuaikan">Customize</span></button>
     </div>
-    <a class="card trkcal" id="trkCal" href="calories.html"></a>
-    <div class="trk-hint" id="trkHint" data-en="↑ Tap Customize above to add more trackers — Hydration, Sleep, Fasting, Photo & more."
-         data-id="↑ Tap Customize di atas untuk menambah tracker lain — Hydration, Sleep, Fasting, Photo &amp; lainnya.">↑ Tap Customize di atas untuk menambah tracker lain — Hydration, Sleep, Fasting, Photo &amp; lainnya.</div>
+    <div id="trackerStack"></div>
+    <div class="trk-hint" id="trkHint" data-en="↑ Tap Customize above to add & reorder trackers — Hydration, Sleep, Fasting, Photo &amp; more."
+         data-id="↑ Tap Customize di atas untuk menambah & atur urutan tracker — Hydration, Sleep, Fasting, Photo &amp; lainnya.">↑ Tap Customize di atas untuk menambah &amp; atur urutan tracker — Hydration, Sleep, Fasting, Photo &amp; lainnya.</div>
 
     <div class="svcgrid2" id="svcGrid2"></div>
 
@@ -571,22 +606,18 @@
     <div class="modal">
       <div class="grab"></div>
       <div class="m-head">
-        <div><div class="m-title" data-en="Customize trackers" data-id="Sesuaikan tracker">Customize trackers</div>
-        <div class="m-sub" data-en="Show more on your Home" data-id="Tampilkan lebih di Home-mu">Show more on your Home</div></div>
+        <div><div class="m-title" data-en="Customize your trackers" data-id="Sesuaikan tracker kamu">Customize your trackers</div>
+        <div class="m-sub" data-en="Pin the cards you want · reorder with the arrows" data-id="Pin kartu yang kamu mau · atur urutan dengan panah">Pin the cards you want · reorder with the arrows</div></div>
         <button class="m-close" type="button" onclick="closeCustomize()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
-      <div style="padding:4px 2px 8px">
-        <div class="cz-row">
-          <div class="cz-tx"><div class="cz-t" data-en="Calories" data-id="Kalori">Calories</div><div class="cz-d" data-en="Always on" data-id="Selalu aktif">Always on</div></div>
-          <button class="cz-sw on" disabled aria-label="Calories"></button>
-        </div>
-        <div class="cz-row">
-          <div class="cz-tx"><div class="cz-t" data-en="Detailed trackers" data-id="Tracker detail">Detailed trackers</div><div class="cz-d" data-en="Health, Sleep, Hydration, Fasting, Checklist" data-id="Kesehatan, Tidur, Hidrasi, Puasa, Checklist">Health, Sleep, Hydration, Fasting, Checklist</div></div>
-          <button class="cz-sw" id="czExtra" type="button" onclick="toggleExtra()" aria-label="Detailed trackers"></button>
-        </div>
-        <div class="cz-row">
-          <div class="cz-tx"><div class="cz-t" data-en="Photo" data-id="Photo">Photo</div><div class="cz-d" data-en="Coming soon" data-id="Segera hadir">Coming soon</div></div>
-          <button class="cz-sw" disabled aria-label="Photo (soon)"></button>
+      <div class="cz-body">
+        <div class="cz-lbl" id="czPinLbl"></div>
+        <div id="czPinned"></div>
+        <div class="cz-lbl" id="czAvailLbl" style="margin-top:16px"></div>
+        <div id="czAvail"></div>
+        <div class="cz-row" style="border-top:1px solid var(--line);margin-top:10px">
+          <div class="cz-tx"><div class="cz-t" data-en="More detail" data-id="Detail lain">More detail</div><div class="cz-d" data-en="Checklist, Cycle, Breathing, Workouts" data-id="Checklist, Siklus, Napas, Latihan">Checklist, Cycle, Breathing, Workouts</div></div>
+          <button class="cz-sw" id="czExtra" type="button" onclick="toggleExtra()" aria-label="More detail"></button>
         </div>
       </div>
     </div>
@@ -637,31 +668,70 @@
 
       function dayStr2() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 
-      window.renderHomeCal = function () {
-        var el = document.getElementById("trkCal");
-        if (!el || typeof profile === "undefined" || !profile) return;
-        var tgt = (typeof calCalGoal === "function") ? calCalGoal(profile) : 2000;
-        var arr = [];
-        try { arr = (typeof daily !== "undefined" && daily && Array.isArray(daily.cal_items)) ? daily.cal_items : JSON.parse(localStorage.getItem("my20fit_cal_" + dayStr2()) || "[]"); } catch (e) {}
+      // ===== Tracker registry + stack (Customize v10: add/hapus/urutkan) =====
+      var TICON = {
+        cal: '<svg viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
+        photo: '<svg viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/></svg>',
+        fast: '<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M9 2h6"/></svg>',
+        drop: '<svg viewBox="0 0 24 24"><path d="M12 2s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg>',
+        sleep: '<svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+        pulse: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>'
+      };
+      var TRK = {
+        calories:  { ic: "cal",   cls: "cal",   nm: { en: "Calories", id: "Kalori" },                     d: { en: "Track daily kcal & macros", id: "Catat kalori & makro harian" }, fixed: true, render: tcCalories },
+        photo:     { ic: "photo", cls: "photo", nm: { en: "Your Photo.20fit.id", id: "Your Photo.20fit.id" }, d: { en: "Auto-synced from photo.20fit.id", id: "Tersinkron dari photo.20fit.id" }, render: tcPhoto },
+        fasting:   { ic: "fast",  cls: "fast",  nm: { en: "Intermittent Fasting", id: "Intermittent Fasting" }, d: { en: "16:8 fasting window timer", id: "Timer jendela puasa 16:8" }, render: tcFasting },
+        hydration: { ic: "drop",  cls: "drop",  nm: { en: "Hydration", id: "Hidrasi" },                    d: { en: "Daily water intake", id: "Asupan air harian" }, render: tcHydration },
+        sleep:     { ic: "sleep", cls: "sleep", nm: { en: "Sleep", id: "Tidur" },                          d: { en: "Duration & quality trend", id: "Durasi & tren kualitas" }, render: tcSleep },
+        health:    { ic: "pulse", cls: "pulse", nm: { en: "Health snapshot", id: "Ringkasan Kesehatan" }, d: { en: "RHR, weight & BMI", id: "RHR, berat & BMI" }, render: tcHealth }
+      };
+      var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health"];
+      function getPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p) || !p.length) p = ["calories"]; if (p.indexOf("calories") < 0) p.unshift("calories"); return p.filter(function (x) { return TRK[x]; }); }
+      function setPins(p) { try { localStorage.setItem("my20fit_home_pins", JSON.stringify(p)); } catch (e) {} }
+
+      function tcCalories() {
+        var tgt = (typeof calCalGoal === "function" && typeof profile !== "undefined" && profile) ? calCalGoal(profile) : 2000;
+        var arr = []; try { arr = (typeof daily !== "undefined" && daily && Array.isArray(daily.cal_items)) ? daily.cal_items : JSON.parse(localStorage.getItem("my20fit_cal_" + dayStr2()) || "[]"); } catch (e) {}
         var eaten = arr.reduce(function (s, i) { return s + (+i.kcal || 0); }, 0);
         var pct = tgt ? Math.max(0, Math.min(100, Math.round(eaten / tgt * 100))) : 0;
-        // Target makro diturunkan dari kalori (P20% / C44% / F26%). Konsumsi makro belum di-track -> 0.
         var mt = { p: Math.round(tgt * 0.20 / 4), c: Math.round(tgt * 0.44 / 4), f: Math.round(tgt * 0.26 / 9) };
-        var flame = '<svg viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>';
-        function macro(name, val, tot, col) {
-          var p = tot ? Math.max(0, Math.min(100, Math.round(val / tot * 100))) : 0;
-          return '<div class="tc-m"><div class="tc-ml"><span class="tc-mn">' + name + '</span><span class="tc-mv">' + val + '/' + tot + 'g</span></div><div class="tc-bar"><i style="width:' + p + '%;background:' + col + '"></i></div></div>';
-        }
-        el.innerHTML =
-          '<div class="tc-top"><div class="tc-ic">' + flame + '</div>' +
-          '<div style="flex:1"><div class="tc-title">' + Lx({ en: "Calories", id: "Kalori" }) + '</div>' +
-          '<div class="tc-kcal">' + eaten + ' / ' + tgt.toLocaleString() + ' kcal <small>· ' + pct + '%</small></div></div>' +
-          '<span class="tc-chev">›</span></div>' +
-          '<div class="tc-macros">' +
-          macro(Lx({ en: "Protein", id: "Protein" }), 0, mt.p, "#C41101") +
-          macro(Lx({ en: "Carbs", id: "Karbo" }), 0, mt.c, "#C87000") +
-          macro(Lx({ en: "Fat", id: "Lemak" }), 0, mt.f, "#2F6BFF") +
-          '</div>';
+        function macro(n, val, tot, col) { var p = tot ? Math.max(0, Math.min(100, Math.round(val / tot * 100))) : 0; return '<div class="tc-m"><div class="tc-ml"><span class="tc-mn">' + n + '</span><span class="tc-mv">' + val + '/' + tot + 'g</span></div><div class="tc-bar"><i style="width:' + p + '%;background:' + col + '"></i></div></div>'; }
+        return '<a class="card trkcal" href="calories.html"><div class="tkhd"><div class="tkic cal">' + TICON.cal + '</div>' +
+          '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Calories", id: "Kalori" }) + '</div><div class="tc-kcal tkmono">' + eaten + ' / ' + tgt.toLocaleString() + ' kcal <small>· ' + pct + '%</small></div></div><span class="tkchev">›</span></div>' +
+          '<div class="tc-macros">' + macro(Lx({ en: "Protein", id: "Protein" }), 0, mt.p, "#C41101") + macro(Lx({ en: "Carbs", id: "Karbo" }), 0, mt.c, "#C87000") + macro(Lx({ en: "Fat", id: "Lemak" }), 0, mt.f, "#2F6BFF") + '</div></a>';
+      }
+      function tcPhoto() {
+        var COLS = ["#8a6d5a", "#4a5a72", "#5a6b4a", "#6a5a86", "#7a7150"], labs = ["12 Jul", "5 Jul", "28 Jun", "21 Jun", "14 Jun"];
+        var th = COLS.map(function (c, i) { return '<div class="tph" style="background:linear-gradient(160deg,' + c + ',rgba(0,0,0,.35))">' + labs[i] + '</div>'; }).join("");
+        return '<a class="card tkcard" href="https://photo.20fit.id" target="_blank" rel="noopener"><div class="tkhd"><div class="tkic photo">' + TICON.photo + '</div><div style="flex:1"><div class="tktitle">Your Photo.20fit.id</div></div><span class="tkchev">›</span></div>' +
+          '<div class="tphotos">' + th + '</div><div class="tksub" style="margin-top:8px">' + Lx({ en: "Auto-synced from photo.20fit.id · read only", id: "Tersinkron dari photo.20fit.id · hanya-baca" }) + '</div></a>';
+      }
+      function tcFasting() {
+        var st = (window.Fasting && Fasting.state) ? Fasting.state() : null;
+        if (!st) return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd"><div class="tkic fast">' + TICON.fast + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub">' + Lx({ en: "Choose a 16:8, 18:6 or OMAD plan", id: "Pilih rencana 16:8, 18:6 atau OMAD" }) + '</div></div><span class="tkchev">›</span></div></a>';
+        var s = st.style, sub;
+        if (st.weekly) sub = (window.L ? L(s.name) : s.name.en);
+        else { var hrs = Math.floor(st.untilMin / 60), mn = st.untilMin % 60; sub = (window.L ? L(s.name) : s.name.en) + ' · ' + hrs + 'h ' + mn + 'm ' + (st.eating ? Lx({ en: "left in window", id: "sisa jendela" }) : Lx({ en: "until eating", id: "sampai makan" })); }
+        return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd"><div class="tkic fast">' + TICON.fast + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub tkmono">' + sub + '</div></div><span class="tkchev">›</span></div></a>';
+      }
+      function tcHydration() {
+        var g = 0; try { g = (typeof daily !== "undefined" && daily) ? +daily.water_glasses || 0 : 0; } catch (e) {}
+        return '<div class="card tkcard"><div class="tkhd"><div class="tkic drop">' + TICON.drop + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Hydration", id: "Hidrasi" }) + '</div><div class="tksub tkmono">' + (g * 0.25).toFixed(1) + ' / 2.0 L · ' + g + ' ' + Lx({ en: "of 8 glasses", id: "dari 8 gelas" }) + '</div></div>' +
+          '<button class="tkplus" type="button" onclick="hydPlus(event)" aria-label="Add water">+</button></div></div>';
+      }
+      function tcSleep() {
+        var h = 0; try { h = (typeof daily !== "undefined" && daily) ? +daily.sleep_hours || 0 : 0; } catch (e) {}
+        return '<a class="card tkcard" href="dashboard.html#sleep"><div class="tkhd"><div class="tkic sleep">' + TICON.sleep + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Sleep", id: "Tidur" }) + '</div><div class="tksub tkmono">' + (h ? h.toFixed(1) + 'h ' + Lx({ en: "last night", id: "semalam" }) : Lx({ en: "Log your sleep", id: "Catat tidurmu" })) + '</div></div><span class="tkchev">›</span></div></a>';
+      }
+      function tcHealth() {
+        var b = null, w = null; try { if (typeof profile !== "undefined" && profile) { w = profile.weight_kg; if (profile.weight_kg && profile.height_cm) b = Math.round(profile.weight_kg / Math.pow(profile.height_cm / 100, 2) * 10) / 10; } } catch (e) {}
+        return '<a class="card tkcard" href="progress.html"><div class="tkhd"><div class="tkic pulse">' + TICON.pulse + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Health snapshot", id: "Ringkasan Kesehatan" }) + '</div><div class="tksub tkmono">' + (b ? ('BMI ' + b.toFixed(1) + (w ? ' · ' + w + ' kg' : '')) : Lx({ en: "Add weight & height", id: "Isi berat & tinggi" })) + '</div></div><span class="tkchev">›</span></div></a>';
+      }
+      window.hydPlus = function (e) { if (e) { e.preventDefault(); e.stopPropagation(); } try { if (typeof setWater === "function" && typeof water !== "undefined") { setWater(water + 1); if (typeof daily !== "undefined" && daily) daily.water_glasses = water; } } catch (err) {} window.renderStack(); };
+
+      window.renderStack = function () {
+        var el = document.getElementById("trackerStack"); if (!el) return;
+        el.innerHTML = getPins().map(function (id) { try { return TRK[id].render(); } catch (e) { return ""; } }).join("");
       };
 
       var IC = {
@@ -699,12 +769,32 @@
         });
       };
 
-      // ---- Customize sheet ----
+      // ---- Customize sheet: pin & reorder ----
       function extraOn() { try { return localStorage.getItem("my20fit_home_extra") === "1"; } catch (e) { return false; } }
-      function syncCz() { var s = document.getElementById("czExtra"); if (s) s.classList.toggle("on", extraOn()); }
-      window.applyExtra = function () { var e = document.getElementById("extraTrackers"); if (e) e.style.display = extraOn() ? "" : "none"; syncCz(); };
+      window.applyExtra = function () { var e = document.getElementById("extraTrackers"); if (e) e.style.display = extraOn() ? "" : "none"; var s = document.getElementById("czExtra"); if (s) s.classList.toggle("on", extraOn()); };
       window.toggleExtra = function () { try { localStorage.setItem("my20fit_home_extra", extraOn() ? "0" : "1"); } catch (e) {} window.applyExtra(); };
-      window.openCustomize = function () { var b = document.getElementById("czBg"); if (b) b.style.display = "flex"; syncCz(); };
+      window.renderCzSheet = function () {
+        var pins = getPins(), avail = TRK_ALL.filter(function (x) { return pins.indexOf(x) < 0; });
+        var pl = document.getElementById("czPinLbl"), al = document.getElementById("czAvailLbl"), pw = document.getElementById("czPinned"), aw = document.getElementById("czAvail");
+        if (pl) pl.textContent = Lx({ en: "On your home · " + pins.length + " · order matters", id: "Di home-mu · " + pins.length + " · urutan berpengaruh" });
+        if (al) al.textContent = Lx({ en: "Available cards · " + avail.length, id: "Kartu tersedia · " + avail.length });
+        function ico(t) { return '<div class="czic">' + TICON[t.ic] + '</div>'; }
+        var UP = '<svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg>', DN = '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>', PIN = '<svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.8V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6.8a2 2 0 0 0 .6 1.4L18 15H6l2.4-2.8A2 2 0 0 0 9 10.8z"/></svg>';
+        if (pw) pw.innerHTML = pins.map(function (id, i) { var t = TRK[id];
+          return '<div class="czr">' + ico(t) + '<div class="cztx"><div class="cznm">' + Lx(t.nm) + '</div><div class="czds">' + Lx(t.d) + '</div></div><div class="czact">' +
+            '<button class="cbtn" onclick="pinMove(\'' + id + '\',-1)" ' + (i === 0 ? 'disabled' : '') + ' aria-label="up">' + UP + '</button>' +
+            '<button class="cbtn" onclick="pinMove(\'' + id + '\',1)" ' + (i === pins.length - 1 ? 'disabled' : '') + ' aria-label="down">' + DN + '</button>' +
+            '<button class="cbtn pinned" onclick="pinRemove(\'' + id + '\')" ' + (t.fixed ? 'disabled' : '') + ' aria-label="unpin">' + PIN + '</button></div></div>';
+        }).join("");
+        if (aw) aw.innerHTML = avail.length ? avail.map(function (id) { var t = TRK[id];
+          return '<div class="czr">' + ico(t) + '<div class="cztx"><div class="cznm">' + Lx(t.nm) + '</div><div class="czds">' + Lx(t.d) + '</div></div>' +
+            '<button class="cadd" onclick="pinAdd(\'' + id + '\')">+ ' + Lx({ en: "Add", id: "Tambah" }) + '</button></div>';
+        }).join("") : '<div class="czds" style="padding:8px 2px">' + Lx({ en: "All cards are on your home.", id: "Semua kartu sudah di home-mu." }) + '</div>';
+      };
+      window.pinAdd = function (id) { var p = getPins(); if (p.indexOf(id) < 0) { p.push(id); setPins(p); window.renderStack(); window.renderCzSheet(); } };
+      window.pinRemove = function (id) { if (TRK[id] && TRK[id].fixed) return; setPins(getPins().filter(function (x) { return x !== id; })); window.renderStack(); window.renderCzSheet(); };
+      window.pinMove = function (id, dir) { var p = getPins(), i = p.indexOf(id), j = i + dir; if (i < 0 || j < 0 || j >= p.length) return; var t = p[i]; p[i] = p[j]; p[j] = t; setPins(p); window.renderStack(); window.renderCzSheet(); };
+      window.openCustomize = function () { window.renderCzSheet(); var b = document.getElementById("czBg"); if (b) b.style.display = "flex"; window.applyExtra(); };
       window.closeCustomize = function () { var b = document.getElementById("czBg"); if (b) b.style.display = "none"; };
 
       // ---- Book your session: lokasi + Book personal: dokter/coach ----
@@ -755,13 +845,15 @@
       }
       window.buildBooking = function () { buildLoc(); buildPeople(); };
 
-      // Boot (tidak butuh profile) — grid + booking + visibilitas tracker + tutup sheet klik-luar.
+      // Boot — grid + booking + tracker stack + sheet + tutup klik-luar.
       buildSvcGrid();
       window.buildBooking();
+      window.renderStack();
+      window.renderCzSheet();
       window.applyExtra();
       var czb = document.getElementById("czBg");
       if (czb) czb.addEventListener("click", function (e) { if (e.target === czb) window.closeCustomize(); });
-      if (window.I18N && I18N.onChange) I18N.onChange(function () { buildSvcGrid(); window.buildBooking(); if (window.renderHomeCal) window.renderHomeCal(); });
+      if (window.I18N && I18N.onChange) I18N.onChange(function () { buildSvcGrid(); window.buildBooking(); window.renderStack(); window.renderCzSheet(); });
     })();
   </script>
   <script>try{ Meta.track("View Dashboard"); }catch(e){}</script>
@@ -808,7 +900,7 @@
       renderWater(); renderChecklist();
       loadWeather();
       loadHealthReminder();
-      try{ if(window.renderHomeCal) window.renderHomeCal(); }catch(e){}
+      try{ if(window.renderStack) window.renderStack(); }catch(e){}
       renderIFWidget();
       checkAchievements();
     })();
