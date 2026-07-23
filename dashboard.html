@@ -756,8 +756,8 @@
         more: '<circle cx="5" cy="5" r="1.3"/><circle cx="12" cy="5" r="1.3"/><circle cx="19" cy="5" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="5" cy="19" r="1.3"/><circle cx="12" cy="19" r="1.3"/><circle cx="19" cy="19" r="1.3"/>'
       };
       var SVCS = [
-        { ic: "dumbbell", lbl: { en: "Book Class Activity", id: "Book Kelas" }, sub: { en: "Hyrox · Strength", id: "Hyrox · Strength" }, badge: "2" },
-        { ic: "heart", lbl: { en: "Book Recovery", id: "Book Recovery" }, sub: { en: "Physio · Doctor", id: "Fisio · Dokter" } },
+        { ic: "dumbbell", lbl: { en: "Book Class Activity", id: "Book Kelas" }, sub: { en: "Hyrox · Strength", id: "Hyrox · Strength" }, badge: "2", href: "https://booking.20fit.id/book", ext: true },
+        { ic: "heart", lbl: { en: "Book Recovery", id: "Book Recovery" }, sub: { en: "Physio · Doctor", id: "Fisio · Dokter" }, href: "https://booking.20fit.id/clinic", ext: true },
         { ic: "card", lbl: { en: "Membership", id: "Membership" }, sub: { en: "Gym · Package", id: "Gym · Paket" } },
         { ic: "flame", lbl: { en: "Calories", id: "Kalori" }, sub: { en: "Scan & Track", id: "Scan & Catat" }, href: "calories.html" },
         { ic: "activity", lbl: { en: "Workout", id: "Workout" } },
@@ -772,7 +772,7 @@
           var badge = s.badge ? '<span class="s2-badge">' + s.badge + '</span>' : '';
           var sub = s.sub ? '<div class="s2-sub">' + Lx(s.sub) + '</div>' : '';
           var inner = badge + '<div class="s2-ic' + (s.dark ? ' dark' : '') + '">' + svg + '</div><div class="s2-lbl">' + Lx(s.lbl) + '</div>' + sub;
-          if (s.href) return '<a class="svc2" href="' + s.href + '">' + inner + '</a>';
+          if (s.href) return '<a class="svc2" href="' + s.href + '"' + (s.ext ? ' target="_blank" rel="noopener"' : '') + '>' + inner + '</a>';
           return '<div class="svc2" role="button" tabindex="0" data-soon="1">' + inner + '</div>';
         }).join("");
         el.querySelectorAll('[data-soon]').forEach(function (t) {
