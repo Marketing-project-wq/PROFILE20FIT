@@ -473,6 +473,7 @@
          data-id="↑ Tap Customize di atas untuk menambah & atur urutan tracker — Hydration, Sleep, Fasting, Photo &amp; lainnya.">↑ Tap Customize di atas untuk menambah &amp; atur urutan tracker — Hydration, Sleep, Fasting, Photo &amp; lainnya.</div>
 
     <div class="svcgrid2" id="svcGrid2"></div>
+    <div class="trk-hint" data-en="Row 1 fixed · Row 2 pin/reorder via Menu" data-id="Baris 1 tetap · Baris 2 pin/atur via Menu" style="margin-top:8px">Row 1 fixed · Row 2 pin/reorder via Menu</div>
 
     <!-- Book your session (lokasi) -->
     <div class="trk-head" style="margin-top:10px">
@@ -627,6 +628,24 @@
     </div>
   </div>
 
+  <!-- Customize your home (shortcut grid Baris 2) -->
+  <div class="modal-bg" id="hmBg" onclick="if(event.target===this)closeHomeMenu()">
+    <div class="modal">
+      <div class="grab"></div>
+      <div class="m-head">
+        <div><div class="m-title" data-en="Customize your home" data-id="Sesuaikan home kamu">Customize your home</div>
+        <div class="m-sub" data-en="Row 1 stays fixed · pin up to 3 · drag ☰ to reorder" data-id="Baris 1 tetap · pin maks 3 · seret ☰ untuk atur urutan">Row 1 stays fixed · pin up to 3 · drag ☰ to reorder</div></div>
+        <button class="m-close" type="button" onclick="closeHomeMenu()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="cz-body">
+        <div class="cz-lbl" id="hmPinLbl"></div>
+        <div id="hmPinned"></div>
+        <div class="cz-lbl" id="hmAvailLbl" style="margin-top:16px"></div>
+        <div id="hmAvail"></div>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Tutorial modal (latihan di rumah) -->
   <div class="modal-bg" id="exModalBg">
@@ -753,31 +772,90 @@
         activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
         diet: '<path d="M3 2v7a2 2 0 0 0 2 2 2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M17 2a3 3 0 0 0-3 3v5a2 2 0 0 0 2 2h1v10"/>',
         catering: '<path d="M3 17h18"/><path d="M5 17a7 7 0 0 1 14 0"/><path d="M12 7V5"/><path d="M9 5h6"/><path d="M2 21h20"/>',
-        more: '<circle cx="5" cy="5" r="1.3"/><circle cx="12" cy="5" r="1.3"/><circle cx="19" cy="5" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="5" cy="19" r="1.3"/><circle cx="12" cy="19" r="1.3"/><circle cx="19" cy="19" r="1.3"/>'
+        more: '<circle cx="5" cy="5" r="1.3"/><circle cx="12" cy="5" r="1.3"/><circle cx="19" cy="5" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/><circle cx="5" cy="19" r="1.3"/><circle cx="12" cy="19" r="1.3"/><circle cx="19" cy="19" r="1.3"/>',
+        clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+        wind: '<path d="M3 8h9a3 3 0 1 0-3-3"/><path d="M3 12h13a3 3 0 1 1-3 3"/><path d="M3 16h6"/>',
+        hand: '<path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2a8 8 0 0 1-7-4l-2.6-4.2a2 2 0 0 1 3.4-2.1L8 14"/>',
+        cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.5 2.5h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+        pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+        camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/>'
       };
+      // Baris 1 grid = FIXED (tidak bisa diubah user).
       var SVCS = [
         { ic: "dumbbell", lbl: { en: "Book Class Activity", id: "Book Kelas" }, sub: { en: "Hyrox · Strength", id: "Hyrox · Strength" }, badge: "2", href: "https://booking.20fit.id/book", ext: true },
         { ic: "heart", lbl: { en: "Book Recovery", id: "Book Recovery" }, sub: { en: "Physio · Doctor", id: "Fisio · Dokter" }, href: "https://booking.20fit.id/clinic", ext: true },
         { ic: "card", lbl: { en: "Membership", id: "Membership" }, sub: { en: "Gym · Package", id: "Gym · Paket" } },
-        { ic: "flame", lbl: { en: "Calories", id: "Kalori" }, sub: { en: "Scan & Track", id: "Scan & Catat" }, href: "calories.html" },
-        { ic: "activity", lbl: { en: "Workout", id: "Workout" } },
-        { ic: "diet", lbl: { en: "Diet", id: "Diet" } },
-        { ic: "catering", lbl: { en: "Catering", id: "Catering" } },
-        { ic: "more", lbl: { en: "More", id: "Lainnya" }, dark: true }
+        { ic: "flame", lbl: { en: "Calories", id: "Kalori" }, sub: { en: "Scan & Track", id: "Scan & Catat" }, href: "calories.html" }
       ];
+      // Pool shortcut Baris 2 — user pin maks 3 lewat tile "Menu". Hanya "photo" yang
+      // punya tujuan nyata (SSO); sisanya "coming soon" sampai API-nya ada (jangan bikin link palsu).
+      var SHORTCUTS = {
+        workout:   { ic: "activity", s: { en: "Workout", id: "Workout" }, lbl: { en: "Workout", id: "Workout" }, sub: { en: "Training & moves", id: "Latihan & gerakan" } },
+        diet:      { ic: "diet", s: { en: "Diet", id: "Diet" }, lbl: { en: "Diet Menu", id: "Menu Diet" }, sub: { en: "Personalized meal plans", id: "Rencana makan personal" } },
+        catering:  { ic: "catering", s: { en: "Catering", id: "Katering" }, lbl: { en: "Healthy Catering", id: "Katering Sehat" }, sub: { en: "Healthy meal delivery", id: "Antar makanan sehat" } },
+        racelab:   { ic: "clock", s: { en: "RaceLab", id: "RaceLab" }, lbl: { en: "RaceLab", id: "RaceLab" }, sub: { en: "Race plans & VO2 testing", id: "Rencana lomba & tes VO2" } },
+        events:    { ic: "calendar", s: { en: "Events", id: "Events" }, lbl: { en: "Events", id: "Events" }, sub: { en: "Upcoming 20FIT events near you", id: "Event 20FIT terdekat" } },
+        breathing: { ic: "wind", s: { en: "Breathing", id: "Napas" }, lbl: { en: "Breathing Exercise", id: "Latihan Napas" }, sub: { en: "4-7-8 & guided calm breathing", id: "Napas 4-7-8 terpandu" } },
+        talent:    { ic: "hand", s: { en: "Talent", id: "Talent" }, lbl: { en: "Talent", id: "Talent" }, sub: { en: "Volunteer at 20FIT events", id: "Relawan di event 20FIT" } },
+        shop:      { ic: "cart", s: { en: "Shop", id: "Shop" }, lbl: { en: "Shop Equipments", id: "Beli Alat" }, sub: { en: "Authorized distributor · Hyrox Centr & Precor", id: "Distributor resmi · Hyrox Centr & Precor" }, ext: true },
+        medical:   { ic: "pin", s: { en: "Medical", id: "Medis" }, lbl: { en: "Medical Checkup Places", id: "Tempat MCU" }, sub: { en: "Find 20FIT partner labs near you", id: "Lab partner 20FIT terdekat" } },
+        photo:     { ic: "camera", s: { en: "Photo", id: "Photo" }, lbl: { en: "Photo", id: "Photo" }, sub: { en: "Foto event & sesi kamu dari photo.20fit.id", id: "Foto event & sesi dari photo.20fit.id" }, sso: true }
+      };
+      var SHORTCUT_ALL = ["workout", "diet", "catering", "racelab", "events", "breathing", "talent", "shop", "medical", "photo"];
+      function getShortcutPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_shortcuts") || "null"); } catch (e) {} if (!Array.isArray(p)) p = ["workout", "diet", "catering"]; p = p.filter(function (x) { return SHORTCUTS[x]; }); return p.slice(0, 3); }
+      function setShortcutPins(p) { try { localStorage.setItem("my20fit_home_shortcuts", JSON.stringify(p.slice(0, 3))); } catch (e) {} }
+
+      function svcTile(o) {
+        var svg = '<svg viewBox="0 0 24 24" aria-hidden="true">' + (IC[o.ic] || "") + '</svg>';
+        var badge = o.badge ? '<span class="s2-badge">' + o.badge + '</span>' : '';
+        var sub = o.sub ? '<div class="s2-sub">' + Lx(o.sub) + '</div>' : '';
+        var inner = badge + '<div class="s2-ic' + (o.dark ? ' dark' : '') + '">' + svg + '</div><div class="s2-lbl">' + Lx(o.lbl) + '</div>' + sub;
+        if (o.menu) return '<div class="svc2" role="button" tabindex="0" data-menu="1">' + inner + '</div>';
+        if (o.sso) return '<a class="svc2" href="https://photo.20fit.id" onclick="return openPhotoSso(event)">' + inner + '</a>';
+        if (o.href) return '<a class="svc2" href="' + o.href + '"' + (o.ext ? ' target="_blank" rel="noopener"' : '') + '>' + inner + '</a>';
+        return '<div class="svc2" role="button" tabindex="0" data-soon="1">' + inner + '</div>';
+      }
       window.buildSvcGrid = function () {
         var el = document.getElementById("svcGrid2"); if (!el) return;
-        el.innerHTML = SVCS.map(function (s) {
-          var svg = '<svg viewBox="0 0 24 24" aria-hidden="true">' + (IC[s.ic] || "") + '</svg>';
-          var badge = s.badge ? '<span class="s2-badge">' + s.badge + '</span>' : '';
-          var sub = s.sub ? '<div class="s2-sub">' + Lx(s.sub) + '</div>' : '';
-          var inner = badge + '<div class="s2-ic' + (s.dark ? ' dark' : '') + '">' + svg + '</div><div class="s2-lbl">' + Lx(s.lbl) + '</div>' + sub;
-          if (s.href) return '<a class="svc2" href="' + s.href + '"' + (s.ext ? ' target="_blank" rel="noopener"' : '') + '>' + inner + '</a>';
-          return '<div class="svc2" role="button" tabindex="0" data-soon="1">' + inner + '</div>';
-        }).join("");
-        el.querySelectorAll('[data-soon]').forEach(function (t) {
-          t.addEventListener("click", function () { if (window.toast) toast(Lx({ en: "Not connected yet — coming soon", id: "Belum tersambung — segera hadir" })); });
-        });
+        var html = SVCS.map(svcTile).join("");                                                    // Baris 1 fixed
+        html += getShortcutPins().map(function (id) { var s = SHORTCUTS[id]; return svcTile({ ic: s.ic, lbl: s.s, sso: s.sso, ext: s.ext, href: s.href }); }).join(""); // Baris 2 shortcut
+        html += svcTile({ ic: "more", lbl: { en: "Menu", id: "Menu" }, dark: true, menu: true });  // tile Menu
+        el.innerHTML = html;
+        el.querySelectorAll('[data-soon]').forEach(function (t) { t.addEventListener("click", function () { if (window.toast) toast(Lx({ en: "Not connected yet — coming soon", id: "Belum tersambung — segera hadir" })); }); });
+        el.querySelectorAll('[data-menu]').forEach(function (t) { t.addEventListener("click", function () { window.openHomeMenu(); }); });
+      };
+
+      // ---- Customize your home: pin shortcut Baris 2 (maks 3) ----
+      window.openHomeMenu = function () { window.renderHomeMenuSheet(); var b = document.getElementById("hmBg"); if (b) b.style.display = "flex"; };
+      window.closeHomeMenu = function () { var b = document.getElementById("hmBg"); if (b) b.style.display = "none"; };
+      window.renderHomeMenuSheet = function () {
+        var pins = getShortcutPins(), avail = SHORTCUT_ALL.filter(function (x) { return pins.indexOf(x) < 0; });
+        var pl = document.getElementById("hmPinLbl"), al = document.getElementById("hmAvailLbl"), pw = document.getElementById("hmPinned"), aw = document.getElementById("hmAvail");
+        if (pl) pl.textContent = Lx({ en: "On row 2 · " + pins.length + "/3 · drag ☰ to reorder", id: "Di baris 2 · " + pins.length + "/3 · seret ☰ untuk atur urutan" });
+        if (al) al.textContent = Lx({ en: "Available shortcuts · " + avail.length, id: "Shortcut tersedia · " + avail.length });
+        var GRIP = '<svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>';
+        var PIN = '<svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.8V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6.8a2 2 0 0 0 .6 1.4L18 15H6l2.4-2.8A2 2 0 0 0 9 10.8z"/></svg>';
+        var EXT = '<svg viewBox="0 0 24 24" style="width:12px;height:12px;display:inline;vertical-align:-1px;margin-left:3px;fill:none;stroke:currentColor;stroke-width:2.4"><path d="M7 17 17 7M9 7h8v8"/></svg>';
+        function ico(s) { return '<div class="czic"><svg viewBox="0 0 24 24">' + (IC[s.ic] || "") + '</svg></div>'; }
+        if (pw) { pw.innerHTML = pins.map(function (id) { var s = SHORTCUTS[id];
+          return '<div class="czr" data-id="' + id + '">' + ico(s) + '<div class="cztx"><div class="cznm">' + Lx(s.lbl) + (s.ext ? EXT : '') + '</div><div class="czds">' + Lx(s.sub) + '</div></div><div class="czact">' +
+            '<button class="cbtn czgrip" type="button" aria-label="' + Lx({ en: "drag to reorder", id: "seret untuk atur urutan" }) + '">' + GRIP + '</button>' +
+            '<button class="cbtn pinned" type="button" onclick="shortcutRemove(\'' + id + '\')" aria-label="unpin">' + PIN + '</button></div></div>';
+        }).join(""); hmBindDrag(); }
+        if (aw) aw.innerHTML = avail.length ? avail.map(function (id) { var s = SHORTCUTS[id];
+          return '<div class="czr">' + ico(s) + '<div class="cztx"><div class="cznm">' + Lx(s.lbl) + (s.ext ? EXT : '') + '</div><div class="czds">' + Lx(s.sub) + '</div></div>' +
+            '<button class="cadd" type="button" onclick="shortcutAdd(\'' + id + '\')">+ ' + Lx({ en: "Add", id: "Tambah" }) + '</button></div>';
+        }).join("") : '<div class="czds" style="padding:8px 2px">' + Lx({ en: "All shortcuts are on your home.", id: "Semua shortcut sudah di home-mu." }) + '</div>';
+      };
+      window.shortcutAdd = function (id) {
+        if (!SHORTCUTS[id]) return;
+        var p = getShortcutPins(); if (p.indexOf(id) >= 0) return;
+        if (p.length >= 3) { if (window.toast) toast(Lx({ en: "Max 3 shortcuts — remove one first", id: "Maks 3 shortcut — lepas satu dulu" })); return; }
+        p.push(id); setShortcutPins(p); window.buildSvcGrid(); window.renderHomeMenuSheet();
+      };
+      window.shortcutRemove = function (id) {
+        setShortcutPins(getShortcutPins().filter(function (x) { return x !== id; })); window.buildSvcGrid(); window.renderHomeMenuSheet();
       };
 
       // ---- Customize sheet: pin & reorder ----
@@ -803,8 +881,9 @@
       };
       window.pinAdd = function (id) { var p = getPins(); if (p.indexOf(id) < 0) { p.push(id); setPins(p); window.renderStack(); window.renderCzSheet(); } };
       window.pinRemove = function (id) { if (TRK[id] && TRK[id].fixed) return; setPins(getPins().filter(function (x) { return x !== id; })); window.renderStack(); window.renderCzSheet(); };
-      window.czBindDrag = function () {
-        var wrap = document.getElementById("czPinned"); if (!wrap) return;
+      // Drag-reorder generik lewat handle .czgrip (dipakai tracker & shortcut).
+      function bindGripDrag(wrap, commit) {
+        if (!wrap) return;
         Array.prototype.forEach.call(wrap.querySelectorAll(".czgrip"), function (h) {
           var row = h.closest(".czr"); if (!row) return;
           h.addEventListener("pointerdown", function (e) {
@@ -837,7 +916,7 @@
                 row.classList.remove("dragging");
                 var ids = [];
                 Array.prototype.forEach.call(wrap.children, function (c) { var d = c.getAttribute && c.getAttribute("data-id"); if (d) ids.push(d); });
-                setPins(ids); window.renderStack();
+                commit(ids);
               }
             }
             document.addEventListener("pointermove", onMove, { capture: true, passive: false });
@@ -845,7 +924,9 @@
             document.addEventListener("pointercancel", onUp, true);
           });
         });
-      };
+      }
+      window.czBindDrag = function () { bindGripDrag(document.getElementById("czPinned"), function (ids) { setPins(ids); window.renderStack(); }); };
+      function hmBindDrag() { bindGripDrag(document.getElementById("hmPinned"), function (ids) { setShortcutPins(ids); window.buildSvcGrid(); }); }
       window.openCustomize = function () { window.renderCzSheet(); var b = document.getElementById("czBg"); if (b) b.style.display = "flex"; window.applyExtra(); };
       window.closeCustomize = function () { var b = document.getElementById("czBg"); if (b) b.style.display = "none"; };
 
