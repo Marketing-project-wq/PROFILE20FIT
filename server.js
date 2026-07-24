@@ -1021,6 +1021,220 @@ app.get("/api/admin/audit", async (req, res) => {
     return res.json({ ok: true, logs: data || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
+
+// ================= CORPORATE HEALTH PROGRAM — FASE 1 (fondasi) =================
+// Level: superadmin (20FIT) mengelola akun corporate; admin corporate mengelola
+// karyawannya sendiri. ISOLASI: data karyawan HANYA diakses lewat server
+// (service_role) yang SELALU memfilter corporate_id milik si admin — client tidak
+// pernah menentukan corporate_id-nya. Tabel corporate/admin/access_log = RLS
+// deny-all; corporate_member = own-row (lapisan kedua). Setiap akses data karyawan
+// oleh admin corporate DICATAT di my20fit_corporate_access_log.
+
+var CORP_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // tanpa I/O/0/1 (ambigu)
+function genCorpCode(name) {
+  var base = String(name || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4) || "CORP";
+  var r = "";
+  for (var i = 0; i < 4; i++) r += CORP_CODE_ALPHABET[Math.floor(Math.random() * CORP_CODE_ALPHABET.length)];
+  return base + "-" + r;
+}
+function normCorpCode(c) { return String(c || "").trim().toUpperCase().replace(/\s+/g, ""); }
+async function corpCodeTaken(code, exceptId) {
+  var { data } = await admin.from("my20fit_corporate").select("id,code");
+  if (!data) return false;
+  var target = normCorpCode(code);
+  return data.some(function (r) { return normCorpCode(r.code) === target && r.id !== exceptId; });
+}
+async function genUniqueCorpCode(name) {
+  for (var i = 0; i < 25; i++) { var c = genCorpCode(name); if (!(await corpCodeTaken(c, null))) return c; }
+  return genCorpCode(name) + Math.floor(10 + Math.random() * 89);
+}
+async function findUserIdByEmail(email) {
+  email = String(email || "").toLowerCase();
+  if (!email) return null;
+  try {
+    for (var page = 1; page <= 30; page++) {
+      var { data } = await admin.auth.admin.listUsers({ page: page, perPage: 1000 });
+      var u = (data && data.users) || [];
+      var hit = u.find(function (x) { return String(x.email || "").toLowerCase() === email; });
+      if (hit) return hit.id;
+      if (u.length < 1000) break;
+    }
+  } catch (e) {}
+  return null;
+}
+// Resolusi konteks admin corporate dari JWT user (bukan dari input client).
+async function getCorpAdminContext(req) {
+  if (!admin) return null;
+  var user = await getUserFromReq(req);
+  if (!user) return null;
+  var { data } = await admin.from("my20fit_corporate_admin")
+    .select("corporate_id,email").eq("auth_user_id", user.id).limit(1);
+  if (data && data[0]) return { user_id: user.id, email: data[0].email || user.email, corporate_id: data[0].corporate_id };
+  return null;
+}
+async function requireCorpAdmin(req, res) {
+  var ctx = await getCorpAdminContext(req);
+  if (!ctx) { res.status(403).json({ error: "Bukan admin corporate." }); return null; }
+  var { data } = await admin.from("my20fit_corporate").select("id,name,status").eq("id", ctx.corporate_id).limit(1);
+  if (!data || !data[0]) { res.status(404).json({ error: "Corporate tidak ditemukan." }); return null; }
+  if (data[0].status !== "active") { res.status(403).json({ error: "Akun corporate non-aktif." }); return null; }
+  ctx.corporate_name = data[0].name;
+  return ctx;
+}
+async function corpAudit(ctx, targetUserId, action, detail) {
+  if (!admin) return;
+  try {
+    await admin.from("my20fit_corporate_access_log").insert({
+      corporate_id: (ctx && ctx.corporate_id) || null,
+      actor_user_id: (ctx && ctx.user_id) || null,
+      actor_email: (ctx && ctx.email) || null,
+      target_user_id: targetUserId || null,
+      action: action, detail: detail || null,
+    });
+  } catch (e) {}
+}
+
+// ---- SUPERADMIN: kelola akun corporate ----
+// List semua corporate + jumlah admin & anggota aktif.
+app.get("/api/admin/corporate", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var { data: corps, error } = await admin.from("my20fit_corporate")
+      .select("id,name,code,status,contact_email,created_at,updated_at").order("created_at", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    var { data: admins } = await admin.from("my20fit_corporate_admin").select("corporate_id,email");
+    var { data: members } = await admin.from("my20fit_corporate_member").select("corporate_id,status");
+    var out = (corps || []).map(function (c) {
+      var adminList = (admins || []).filter(function (a) { return a.corporate_id === c.id; }).map(function (a) { return a.email; });
+      var memberCount = (members || []).filter(function (m) { return m.corporate_id === c.id && m.status === "active"; }).length;
+      return { id: c.id, name: c.name, code: c.code, status: c.status, contact_email: c.contact_email, created_at: c.created_at, admins: adminList, member_count: memberCount };
+    });
+    return res.json({ ok: true, corporates: out });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Buat corporate baru { name, code?, contact_email?, admin_email? }.
+app.post("/api/admin/corporate", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  var b = req.body || {};
+  var name = String(b.name || "").trim();
+  if (!name) return res.status(400).json({ error: "Nama perusahaan wajib." });
+  var code = b.code ? normCorpCode(b.code) : await genUniqueCorpCode(name);
+  if (!/^[A-Z0-9][A-Z0-9-]{2,23}$/.test(code)) return res.status(400).json({ error: "Kode harus 3-24 karakter (huruf/angka/strip)." });
+  if (await corpCodeTaken(code, null)) return res.status(409).json({ error: "Kode '" + code + "' sudah dipakai perusahaan lain." });
+  var contact_email = b.contact_email ? String(b.contact_email).trim().toLowerCase() : null;
+  var { data: corp, error } = await admin.from("my20fit_corporate")
+    .insert({ name: name, code: code, contact_email: contact_email, created_by: ctx.user_id || null })
+    .select("id,name,code,status,contact_email,created_at").limit(1).single();
+  if (error) return res.status(500).json({ error: error.message });
+  var adminResult = null;
+  var admin_email = b.admin_email ? String(b.admin_email).trim().toLowerCase() : null;
+  if (admin_email) adminResult = await addCorpAdmin(corp.id, admin_email, ctx.user_id);
+  await adminAudit(ctx, "corporate.create", corp.code, { corporate_id: corp.id, name: name, admin_email: admin_email });
+  return res.json({ ok: true, corporate: corp, admin: adminResult });
+});
+// Helper: tambah admin corporate by email (buat akun login kalau belum ada).
+async function addCorpAdmin(corporateId, email, createdBy) {
+  email = String(email || "").trim().toLowerCase();
+  if (!email) return { ok: false, error: "email kosong" };
+  var uid = await findUserIdByEmail(email);
+  var created = false;
+  if (!uid) {
+    try {
+      var { data: cu } = await admin.auth.admin.createUser({ email: email, email_confirm: true, user_metadata: { via_20fit: true, corp_admin: true } });
+      uid = cu && cu.user && cu.user.id;
+      created = true;
+    } catch (e) { return { ok: false, error: "Gagal membuat akun login: " + e.message }; }
+  }
+  if (!uid) return { ok: false, error: "Tidak bisa resolve user." };
+  var { error } = await admin.from("my20fit_corporate_admin")
+    .upsert({ corporate_id: corporateId, auth_user_id: uid, email: email, created_by: createdBy || null }, { onConflict: "corporate_id,auth_user_id" });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, email: email, account_created: created };
+}
+// Detail satu corporate + daftar admin-nya.
+app.get("/api/admin/corporate/:id", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  var id = String(req.params.id || "");
+  try {
+    var { data: corp } = await admin.from("my20fit_corporate").select("*").eq("id", id).limit(1).single();
+    if (!corp) return res.status(404).json({ error: "Corporate tidak ditemukan." });
+    var { data: admins } = await admin.from("my20fit_corporate_admin").select("auth_user_id,email,created_at").eq("corporate_id", id);
+    var { data: members } = await admin.from("my20fit_corporate_member").select("status").eq("corporate_id", id);
+    var active = (members || []).filter(function (m) { return m.status === "active"; }).length;
+    return res.json({ ok: true, corporate: corp, admins: admins || [], member_count: active });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Edit corporate { name?, code?, status? } — kode divalidasi unik (kecuali dirinya).
+app.patch("/api/admin/corporate/:id", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  var id = String(req.params.id || "");
+  var b = req.body || {}; var patch = {};
+  if (b.name != null) { var nm = String(b.name).trim(); if (!nm) return res.status(400).json({ error: "Nama tidak boleh kosong." }); patch.name = nm; }
+  if (b.contact_email != null) patch.contact_email = String(b.contact_email).trim().toLowerCase() || null;
+  if (b.status != null) { var st = String(b.status).trim(); if (["active", "suspended"].indexOf(st) < 0) return res.status(400).json({ error: "status harus active/suspended." }); patch.status = st; }
+  if (b.code != null) {
+    var code = normCorpCode(b.code);
+    if (!/^[A-Z0-9][A-Z0-9-]{2,23}$/.test(code)) return res.status(400).json({ error: "Kode harus 3-24 karakter (huruf/angka/strip)." });
+    if (await corpCodeTaken(code, id)) return res.status(409).json({ error: "Kode '" + code + "' sudah dipakai perusahaan lain." });
+    patch.code = code;
+  }
+  if (!Object.keys(patch).length) return res.status(400).json({ error: "Tidak ada perubahan." });
+  patch.updated_at = new Date().toISOString();
+  var { error } = await admin.from("my20fit_corporate").update(patch).eq("id", id);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "corporate.update", id, patch);
+  return res.json({ ok: true });
+});
+// Tambah admin corporate ke sebuah corporate.
+app.post("/api/admin/corporate/:id/admins", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  var id = String(req.params.id || "");
+  var email = String((req.body || {}).email || "").trim().toLowerCase();
+  if (!email) return res.status(400).json({ error: "email wajib." });
+  var { data: corp } = await admin.from("my20fit_corporate").select("id").eq("id", id).limit(1).single();
+  if (!corp) return res.status(404).json({ error: "Corporate tidak ditemukan." });
+  var r = await addCorpAdmin(id, email, ctx.user_id);
+  if (!r.ok) return res.status(500).json({ error: r.error });
+  await adminAudit(ctx, "corporate.admin.add", id, { email: email });
+  return res.json({ ok: true, admin: r });
+});
+// Hapus admin corporate.
+app.delete("/api/admin/corporate/:id/admins/:userId", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  var id = String(req.params.id || ""), uid = String(req.params.userId || "");
+  var { error } = await admin.from("my20fit_corporate_admin").delete().eq("corporate_id", id).eq("auth_user_id", uid);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "corporate.admin.remove", id, { auth_user_id: uid });
+  return res.json({ ok: true });
+});
+
+// ---- ADMIN CORPORATE: hanya lihat perusahaannya sendiri ----
+app.get("/api/corp/me", async (req, res) => {
+  var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  return res.json({ ok: true, corporate_id: ctx.corporate_id, corporate_name: ctx.corporate_name, email: ctx.email });
+});
+// Daftar karyawan corporate ini SAJA (identitas dasar; kesehatan/frekuensi = FASE 3).
+app.get("/api/corp/members", async (req, res) => {
+  var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  try {
+    var { data: mem, error } = await admin.from("my20fit_corporate_member")
+      .select("auth_user_id,status,linked_at,consent_at").eq("corporate_id", ctx.corporate_id).eq("status", "active")
+      .order("linked_at", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    var ids = (mem || []).map(function (m) { return m.auth_user_id; });
+    var profiles = {};
+    if (ids.length) {
+      var { data: profs } = await admin.from("my20fit_profile").select("auth_user_id,full_name,email").in("auth_user_id", ids);
+      (profs || []).forEach(function (p) { profiles[p.auth_user_id] = p; });
+    }
+    var out = (mem || []).map(function (m) {
+      var p = profiles[m.auth_user_id] || {};
+      return { auth_user_id: m.auth_user_id, full_name: p.full_name || null, email: p.email || null, linked_at: m.linked_at, consent_at: m.consent_at };
+    });
+    await corpAudit(ctx, null, "members.list", { count: out.length });
+    return res.json({ ok: true, corporate_name: ctx.corporate_name, members: out });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
 // Info konfigurasi runtime (superadmin only) — status env, TANPA membocorkan nilai rahasia.
 app.get("/api/admin/config", async (req, res) => {
   const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
