@@ -353,22 +353,24 @@
       document.getElementById("result").innerHTML=buildResultHTML(res);
       if(!noScroll)document.getElementById("result").scrollIntoView({behavior:"smooth"});
     }
+    // Escape teks yang berasal dari hasil AI/OCR sebelum masuk innerHTML (defense-in-depth).
+    function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
     function buildResultHTML(res){
       const att=res.abnormal_findings||[];
       const params=(res.parameters||[]).map(p=>{
         const col=statusColor(p.status);
         const arrow=p.direction==="high"?" ↑":p.direction==="low"?" ↓":"";
-        return '<div class="param"><div class="ph"><b>'+(p.label||"")+'</b><span class="pv" style="color:'+col+'"><span class="dot" style="background:'+col+'"></span>'+(p.value||"")+arrow+'</span></div>'+
-          '<div class="muted">Normal: '+(p.normal_range||"-")+'</div>'+
-          (p.explanation?'<div style="font-size:13px;margin-top:4px;color:#555">'+p.explanation+'</div>':"")+'</div>';
+        return '<div class="param"><div class="ph"><b>'+esc(p.label||"")+'</b><span class="pv" style="color:'+col+'"><span class="dot" style="background:'+col+'"></span>'+esc(p.value||"")+arrow+'</span></div>'+
+          '<div class="muted">Normal: '+esc(p.normal_range||"-")+'</div>'+
+          (p.explanation?'<div style="font-size:13px;margin-top:4px;color:#555">'+esc(p.explanation)+'</div>':"")+'</div>';
       }).join("");
       const findings=att.map(fd=>{
         const sv=SEV[(fd.severity||"sedang").toLowerCase()]||SEV.sedang;
-        return '<div class="find" style="border-color:'+sv.c+'"><div class="ft"><span>'+(fd.label||"")+(fd.value?' · '+fd.value:'')+'</span><span class="sevtag" style="background:'+sv.c+'22;color:'+sv.c+'">'+sv.t+'</span></div>'+
-          (fd.why_it_matters?'<div style="font-size:13px;margin-top:6px;color:#9a2a22"><b>'+I18N.t("med_why")+'</b> '+fd.why_it_matters+'</div>':"")+
-          (fd.what_to_do?'<div style="font-size:13px;margin-top:5px;color:#2A7A4F"><b>'+I18N.t("med_do")+'</b> '+fd.what_to_do+'</div>':"")+'</div>';
+        return '<div class="find" style="border-color:'+sv.c+'"><div class="ft"><span>'+esc(fd.label||"")+(fd.value?' · '+esc(fd.value):'')+'</span><span class="sevtag" style="background:'+sv.c+'22;color:'+sv.c+'">'+sv.t+'</span></div>'+
+          (fd.why_it_matters?'<div style="font-size:13px;margin-top:6px;color:#9a2a22"><b>'+I18N.t("med_why")+'</b> '+esc(fd.why_it_matters)+'</div>':"")+
+          (fd.what_to_do?'<div style="font-size:13px;margin-top:5px;color:#2A7A4F"><b>'+I18N.t("med_do")+'</b> '+esc(fd.what_to_do)+'</div>':"")+'</div>';
       }).join("");
-      const unread=(res.unreadable&&res.unreadable.length)?'<div class="card rfull" style="border-color:#e7c98a;background:#fbf3df;color:#8a6d1a"><b>'+I18N.t("med_unread")+'</b><ul style="margin:6px 0 0 18px">'+res.unreadable.map(u=>'<li>'+u+'</li>').join("")+'</ul></div>':"";
+      const unread=(res.unreadable&&res.unreadable.length)?'<div class="card rfull" style="border-color:#e7c98a;background:#fbf3df;color:#8a6d1a"><b>'+I18N.t("med_unread")+'</b><ul style="margin:6px 0 0 18px">'+res.unreadable.map(u=>'<li>'+esc(u)+'</li>').join("")+'</ul></div>':"";
       const ICO={fork:'<path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/>',
         ex:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>'};
       const heart='<svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M19 14c1.5-1.5 3-3.3 3-5.5A4.5 4.5 0 0 0 12 5 4.5 4.5 0 0 0 2 8.5c0 4.5 7 9.5 10 11.5 1.5-1 4-2.8 6-5"/></svg>';
@@ -381,12 +383,12 @@
       if(profile&&profile.gender) stats+='<div class="ohstat"><div class="l">'+L({en:"Gender",id:"Gender"})+'</div><div class="v" style="font-size:15px;margin-top:6px">'+(profile.gender==="female"?L({en:"Female",id:"Perempuan"}):L({en:"Male",id:"Laki-laki"}))+'</div></div>';
       if(profile&&profile.age) stats+='<div class="ohstat"><div class="l">'+L({en:"Age",id:"Usia"})+'</div><div class="v">'+profile.age+'</div></div>';
       const attLine = att.length
-        ? L({en:att.length+" thing(s) to watch: ",id:att.length+" hal perlu diperhatikan: "})+att.map(f=>f.label).join(", ")
+        ? L({en:att.length+" thing(s) to watch: ",id:att.length+" hal perlu diperhatikan: "})+att.map(f=>esc(f.label)).join(", ")
         : L({en:"All readable values look within the normal range.",id:"Semua nilai yang terbaca tampak dalam batas normal."});
       const overall='<div class="card rfull"><div class="ch" style="color:var(--red)">'+heart+L({en:"Overall Summary",id:"Ringkasan Keseluruhan"})+'</div>'+
-        '<div class="muted">'+[res.document_type,res.patient_name,res.date].filter(Boolean).join(" · ")+'</div>'+
+        '<div class="muted">'+[res.document_type,res.patient_name,res.date].filter(Boolean).map(esc).join(" · ")+'</div>'+
         (stats?'<div class="ohrow">'+stats+'</div>':'')+
-        (res.summary?'<div style="margin-top:10px;line-height:1.55"><b>'+L({en:"What it means: ",id:"Artinya: "})+'</b>'+res.summary+'</div>':'')+
+        (res.summary?'<div style="margin-top:10px;line-height:1.55"><b>'+L({en:"What it means: ",id:"Artinya: "})+'</b>'+esc(res.summary)+'</div>':'')+
         '<div style="margin-top:8px;font-weight:700;color:'+(att.length?"#b3402f":"#2A7A4F")+'">'+attLine+'</div>'+
         (bi?'<div class="muted" style="margin-top:6px">'+L({en:"Overall, based on your BMI & profile: ",id:"Secara umum dari BMI & profilmu: "})+bi.desc+'</div>':'')+'</div>';
 
@@ -401,7 +403,7 @@
     }
     // Ambil semua MCU dari akun (Supabase) -> array history (terbaru dulu).
     async function loadHistory(){
-      try{const {data}=await Auth.supabase.from("my20fit_mcu_result").select("*").eq("auth_user_id",user.id).order("created_at",{ascending:false});history=data||[]}catch(e){history=[]}
+      try{const {data,error}=await Auth.supabase.from("my20fit_mcu_result").select("*").eq("auth_user_id",user.id).order("created_at",{ascending:false}).limit(100);if(error)throw error;history=data||[]}catch(e){history=[]}
     }
     // Render toggle "Semua MCU" dari array history di memori (tanpa re-fetch -> update instan).
     function renderList(){

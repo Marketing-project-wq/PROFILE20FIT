@@ -716,12 +716,13 @@
         var tgt = (typeof calCalGoal === "function" && typeof profile !== "undefined" && profile) ? calCalGoal(profile) : 2000;
         var arr = []; try { arr = (typeof daily !== "undefined" && daily && Array.isArray(daily.cal_items)) ? daily.cal_items : JSON.parse(localStorage.getItem("my20fit_cal_" + dayStr2()) || "[]"); } catch (e) {}
         var eaten = arr.reduce(function (s, i) { return s + (+i.kcal || 0); }, 0);
+        var em = arr.reduce(function (s, i) { s.p += (+i.p || 0); s.c += (+i.c || 0); s.f += (+i.f || 0); return s; }, { p: 0, c: 0, f: 0 });
         var pct = tgt ? Math.max(0, Math.min(100, Math.round(eaten / tgt * 100))) : 0;
-        var mt = { p: Math.round(tgt * 0.20 / 4), c: Math.round(tgt * 0.44 / 4), f: Math.round(tgt * 0.26 / 9) };
+        var mt = (window.Nutrition && Nutrition.macrosFor) ? Nutrition.macrosFor(profile, tgt) : { p: Math.round(tgt * 0.25 / 4), c: Math.round(tgt * 0.45 / 4), f: Math.round(tgt * 0.25 / 9) };
         function macro(n, val, tot, col) { var p = tot ? Math.max(0, Math.min(100, Math.round(val / tot * 100))) : 0; return '<div class="tc-m"><div class="tc-ml"><span class="tc-mn">' + n + '</span><span class="tc-mv">' + val + '/' + tot + 'g</span></div><div class="tc-bar"><i style="width:' + p + '%;background:' + col + '"></i></div></div>'; }
         return '<a class="card trkcal" href="calories.html"><div class="tkhd"><div class="tkic cal">' + TICON.cal + '</div>' +
           '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Calories", id: "Kalori" }) + '</div><div class="tc-kcal tkmono">' + eaten + ' / ' + tgt.toLocaleString() + ' kcal <small>· ' + pct + '%</small></div></div><span class="tkchev">›</span></div>' +
-          '<div class="tc-macros">' + macro(Lx({ en: "Protein", id: "Protein" }), 0, mt.p, "#C41101") + macro(Lx({ en: "Carbs", id: "Karbo" }), 0, mt.c, "#C87000") + macro(Lx({ en: "Fat", id: "Lemak" }), 0, mt.f, "#2F6BFF") + '</div></a>';
+          '<div class="tc-macros">' + macro(Lx({ en: "Protein", id: "Protein" }), Math.round(em.p), mt.p, "#C41101") + macro(Lx({ en: "Carbs", id: "Karbo" }), Math.round(em.c), mt.c, "#C87000") + macro(Lx({ en: "Fat", id: "Lemak" }), Math.round(em.f), mt.f, "#2F6BFF") + '</div></a>';
       }
       function tcPhoto() {
         var COLS = ["#8a6d5a", "#4a5a72", "#5a6b4a", "#6a5a86", "#7a7150"], labs = ["12 Jul", "5 Jul", "28 Jun", "21 Jun", "14 Jun"];
@@ -1055,11 +1056,11 @@
     }
 
     // Ringkasan penting dari halaman lain -> tampil di Dashboard
+    // Goal kalori = SATU sumber (Nutrition.goalFor) + penyesuaian puasa, sama dgn
+    // halaman Calories & Progress (sinkron di semua layar).
     function calCalGoal(p){
-      const w=+p.weight_kg,h=+p.height_cm,age=+p.age||25; if(!w||!h)return 2000;
-      const bmr=10*w+6.25*h-5*age+((p.gender==="female")?-161:5);
-      let tdee=bmr*1.375; const g=p.main_goal; tdee+=(g==="lose"?-400:g==="muscle"?300:g==="fit"?100:0);
-      return Math.max(1200,Math.round(tdee/10)*10);
+      var base=(window.Nutrition&&Nutrition.goalFor)?Nutrition.goalFor(p):2000;
+      return (window.Fasting&&Fasting.adjustGoal)?Fasting.adjustGoal(base):base;
     }
     async function loadHealthReminder(){
       const el=document.getElementById("healthReminder"); if(!el||!profile)return;

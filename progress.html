@@ -138,6 +138,8 @@
   <script src="js/achievements.js"></script>
   <script src="js/cycle.js"></script>
   <script src="js/nav.js"></script>
+  <script src="js/fasting.js"></script>
+  <script src="js/nutrition.js"></script>
   <script>
     let user=null, profile=null, days=[], weights=[], arenaData=null;
     const WD_EN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], WD_ID=["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
@@ -155,8 +157,9 @@
     function wdLabel(ds){const d=new Date(ds+"T00:00:00");return (I18N.lang==="id"?WD_ID:WD_EN)[d.getDay()];}
     function readCal(d){try{const it=JSON.parse(localStorage.getItem("my20fit_cal_"+d)||"[]");return it.reduce((s,i)=>s+(+i.kcal||0),0);}catch(e){return 0;}}
     function readWeights(){try{return JSON.parse(localStorage.getItem("my20fit_weight")||"[]");}catch(e){return [];}}
-    function calGoal(p){const w=+p.weight_kg,h=+p.height_cm,age=+p.age||25;if(!w||!h)return 2000;const bmr=10*w+6.25*h-5*age+((p.gender==="female")?-161:5);const af={sedentary:1.2,light:1.375,moderate:1.55,active:1.725}[p.activity_level]||1.375;let t=bmr*af;const g=p.main_goal;t+=(g==="lose"?-400:g==="muscle"?300:g==="fit"?100:0);return Math.max(1200,Math.round(t/10)*10);}
-    function calcMacros(p,goal){const w=+p.weight_kg||0,g=p.main_goal;const proteinG=w?Math.round(w*(g==="muscle"?1.8:g==="lose"?1.6:1.4)):Math.round(goal*0.25/4);const fatG=Math.round(goal*0.25/9);let carbsG=Math.round((goal-proteinG*4-fatG*9)/4);if(carbsG<0)carbsG=Math.round(goal*0.45/4);return {p:proteinG,c:carbsG,f:fatG};}
+    // Goal & makro dari SATU sumber (js/nutrition.js) + penyesuaian puasa — sinkron dgn Home & Calories.
+    function calGoal(p){var base=(window.Nutrition&&Nutrition.goalFor)?Nutrition.goalFor(p):2000;return (window.Fasting&&Fasting.adjustGoal)?Fasting.adjustGoal(base):base;}
+    function calcMacros(p,goal){return (window.Nutrition&&Nutrition.macrosFor)?Nutrition.macrosFor(p,goal):{p:Math.round(goal*0.25/4),c:Math.round(goal*0.45/4),f:Math.round(goal*0.25/9)};}
     function toast(t){const el=document.getElementById("toast");el.textContent=t;el.style.opacity=1;el.style.transform="translateX(-50%) translateY(0)";setTimeout(()=>{el.style.opacity=0;el.style.transform="translateX(-50%) translateY(20px)";},2600);}
 
     function barChart(title,rows,goal,unit,color,goalTxt){
@@ -272,13 +275,14 @@
       if(/med|sedang|warning/.test(s)) return {t:L({en:"MODERATE",id:"SEDANG"}),c:"#C87000",bg:"rgba(200,112,0,.12)"};
       if(/good|ok|normal|baik/.test(s)) return {t:L({en:"GOOD",id:"BAIK"}),c:"#2A7A4F",bg:"rgba(42,122,79,.12)"};
       return {t:L({en:"CHECK",id:"CEK"}),c:"#2F6BFF",bg:"rgba(47,107,255,.12)"}; }
+    function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
     function whatToWatchCard(){
       var res=profile&&profile._mcu, att=(res&&res.abnormal_findings)||[];
       var head='<div class="psec">'+L({en:"What to watch",id:"Yang Perlu Diperhatikan"})+'</div><div class="psub">'+(att.length?(att.length+' '+L({en:"things from your health data",id:"hal dari data kesehatanmu"})):L({en:"From your latest MCU",id:"Dari MCU terakhirmu"}))+'</div>';
       if(!res) return head+'<div class="card"><div class="soonbox"><div class="soonpill">'+L({en:"No MCU yet",id:"Belum ada MCU"})+'</div>'+L({en:"Do a Medical Check-up to see what to keep an eye on.",id:"Lakukan Medical Check-up untuk tahu apa yang perlu dijaga."})+'</div></div>';
       if(!att.length) return head+'<a class="card" href="medical.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)"><span class="w2dot" style="background:#2A7A4F"></span><div class="w2tx">'+L({en:"Latest check-up: all normal",id:"Check-up terakhir: semua normal"})+'</div><span class="pbadge" style="color:#2A7A4F;background:rgba(42,122,79,.12)">'+L({en:"GOOD",id:"BAIK"})+'</span></a>';
       var rows=att.slice(0,6).map(function(f){ var b=w2Badge(f);
-        return '<div class="w2row"><span class="w2dot" style="background:'+b.c+'"></span><div class="w2tx">'+(f.label||"")+(f.value?' — '+f.value:'')+'</div><span class="pbadge" style="color:'+b.c+';background:'+b.bg+'">'+b.t+'</span></div>'; }).join("");
+        return '<div class="w2row"><span class="w2dot" style="background:'+b.c+'"></span><div class="w2tx">'+esc(f.label||"")+(f.value?' — '+esc(f.value):'')+'</div><span class="pbadge" style="color:'+b.c+';background:'+b.bg+'">'+b.t+'</span></div>'; }).join("");
       return head+'<div class="card">'+rows+'</div>';
     }
     function monName(m){ return (I18N.lang==="id"?["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"]:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"])[m]; }
@@ -410,8 +414,8 @@
           bk.map(b=>{ const sc=b.arena_class_schedules||{}, ct=sc.arena_class_types||{}, color=ct.color||"#C41101";
             return '<div style="display:flex;gap:11px;padding:10px 0;border-top:1px solid var(--line,#eee)">'+
               '<span style="width:10px;height:10px;border-radius:3px;margin-top:5px;flex:0 0 auto;background:'+color+'"></span>'+
-              '<div style="flex:1;min-width:0"><div style="font-weight:800;font-size:14px">'+(ct.name||L({en:"Class",id:"Kelas"}))+'</div>'+
-                '<div class="muted" style="font-size:12px">'+arDate(sc.schedule_date)+(sc.start_time?' · '+arTime(sc.start_time)+(sc.end_time?'–'+arTime(sc.end_time):''):'')+(sc.instructor?' · '+sc.instructor:'')+'</div></div>'+
+              '<div style="flex:1;min-width:0"><div style="font-weight:800;font-size:14px">'+esc(ct.name||L({en:"Class",id:"Kelas"}))+'</div>'+
+                '<div class="muted" style="font-size:12px">'+arDate(sc.schedule_date)+(sc.start_time?' · '+arTime(sc.start_time)+(sc.end_time?'–'+arTime(sc.end_time):''):'')+(sc.instructor?' · '+esc(sc.instructor):'')+'</div></div>'+
               '<div style="text-align:right;flex:0 0 auto">'+arBadge(b.status)+'<div class="muted" style="font-size:12px;margin-top:3px">'+arRupiah(b.price)+'</div></div>'+
             '</div>';
           }).join("")+'</div>';
@@ -420,7 +424,7 @@
         html+='<div class="card"><div style="font-weight:800;margin-bottom:6px">'+L({en:"Session packages",id:"Paket Sesi"})+'</div>'+
           pk.map(p=>{ const v=(p.arena_package_vouchers||[])[0]||null, used=v?v.used_sessions:0, tot=v?v.total_sessions:p.sessions;
             return '<div style="padding:10px 0;border-top:1px solid var(--line,#eee)">'+
-              '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div style="font-weight:800;font-size:14px">'+(p.package_name||L({en:"Package",id:"Paket"}))+'</div>'+arBadge(p.status)+'</div>'+
+              '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div style="font-weight:800;font-size:14px">'+esc(p.package_name||L({en:"Package",id:"Paket"}))+'</div>'+arBadge(p.status)+'</div>'+
               '<div class="muted" style="font-size:12px;margin-top:2px">'+arRupiah(p.price)+(v?' · '+L({en:"used",id:"terpakai"})+' '+used+'/'+tot+(v.is_active?'':' · '+L({en:"inactive",id:"nonaktif"})):'')+'</div>'+
             '</div>';
           }).join("")+'</div>';

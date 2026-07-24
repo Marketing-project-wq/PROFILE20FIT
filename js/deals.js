@@ -366,7 +366,7 @@
   function creditPaid(o) {
     if (o.provider !== "xendit") { try { Auth.addScanCredits(o.credits || 0); } catch (e) {} }
     if (_onCredited) { try { _onCredited(); } catch (e) {} }
-    metaTrack("Success Payment", { content_name: "scan package", content_category: "calorie_scan", currency: "IDR", value: o.total || o.price || 0, contents: [{ id: o.product_id, quantity: 1 }], num_items: 1 });
+    metaTrack("Success Payment", { content_name: "scan package", content_category: "calorie_scan", currency: "IDR", value: Number(o.total != null ? o.total : (o.price != null ? o.price : 0)) || 0, contents: [{ id: o.product_id, quantity: 1 }], num_items: 1 });
   }
   async function checkOne(o) {
     var ftk = localStorage.getItem("fitco_token") || "";

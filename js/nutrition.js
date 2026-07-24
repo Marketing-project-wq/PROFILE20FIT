@@ -64,5 +64,30 @@
     return f.en;
   }
 
-  window.Nutrition = { foods: FOODS, mealFor: mealFor, totalKcal: totalKcal, name: name };
+  // ---- SATU SUMBER rumus kalori & makro (dipakai Home, Calorie Scan, Progress) ----
+  // Goal kalori dasar: Mifflin-St Jeor BMR × faktor aktivitas + penyesuaian tujuan.
+  // (Penyesuaian puasa TERPISAH: pakai Fasting.adjustGoal(goalFor(p)) untuk nilai tampil.)
+  function goalFor(p) {
+    if (!p) return 2000;
+    var w = +p.weight_kg, h = +p.height_cm, age = +p.age || 25;
+    if (!w || !h) return 2000;
+    var bmr = 10 * w + 6.25 * h - 5 * age + (p.gender === "female" ? -161 : 5);
+    var af = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725 }[p.activity_level] || 1.375;
+    var tdee = bmr * af;
+    var g = p.main_goal;
+    tdee += (g === "lose" ? -400 : g === "muscle" ? 300 : g === "fit" ? 100 : 0);
+    return Math.max(1200, Math.round(tdee / 10) * 10);
+  }
+  // Target makro dari goal (kalori final, boleh sudah disesuaikan puasa) + berat + tujuan.
+  function macrosFor(p, goal) {
+    goal = Math.round(+goal || 0);
+    var w = +(p && p.weight_kg) || 0, g = p && p.main_goal;
+    var proteinG = w ? Math.round(w * (g === "muscle" ? 1.8 : g === "lose" ? 1.6 : 1.4)) : Math.round(goal * 0.25 / 4);
+    var fatG = Math.round(goal * 0.25 / 9);
+    var carbsG = Math.round((goal - proteinG * 4 - fatG * 9) / 4);
+    if (carbsG < 0) carbsG = Math.round(goal * 0.45 / 4);
+    return { p: proteinG, c: carbsG, f: fatG };
+  }
+
+  window.Nutrition = { foods: FOODS, mealFor: mealFor, totalKcal: totalKcal, name: name, goalFor: goalFor, macrosFor: macrosFor };
 })();

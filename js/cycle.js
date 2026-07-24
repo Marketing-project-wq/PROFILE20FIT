@@ -87,5 +87,5 @@
     return { day: day, cycleLen: cycleLen, phase: key, daysToNext: daysToNext, nextDate: nextStr, meta: PHASES[key] };
   }
 
-  window.Cycle = { info: info, PHASES: PHASES };
+  window.Cycle = { info: info };
 })();
