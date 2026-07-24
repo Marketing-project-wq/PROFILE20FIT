@@ -153,6 +153,12 @@
       <div class="msg" id="msg"></div>
     </div>
 
+    <!-- Corporate Health Program (opt-in, dengan persetujuan) -->
+    <div class="card" id="corpCard">
+      <div class="card-hd"><h2>🏢 <span data-i18n="corp_title">Corporate Program</span></h2></div>
+      <div id="corpBody"><div class="muted">…</div></div>
+    </div>
+
     <!-- Riwayat Pembelian (paket scan) -->
     <div class="sec" id="histSec" data-i18n="prof_hist_sec">Purchase History</div>
     <div class="card" id="histCard">
@@ -197,6 +203,39 @@
     </div>
   </div>
 
+  <!-- Modal Corporate Program: STEP 1 kode -> STEP 2 persetujuan -->
+  <div class="pm-bg" id="corpBg">
+    <div class="pm">
+      <div class="grab"></div>
+      <div id="corpStep1">
+        <h2 id="corpS1Title">Gabung Corporate Program</h2>
+        <p class="muted" id="corpS1Sub">Masukkan kode unik dari perusahaan/HR kamu untuk ikut program kesehatan karyawan.</p>
+        <label id="corpCodeLbl">Kode perusahaan</label>
+        <input id="corpCode" type="text" placeholder="mis. ACME-7K2P" autocomplete="off" spellcheck="false" style="text-transform:uppercase" />
+        <button class="btn" id="corpNextBtn" onclick="corpValidateCode()">Lanjut</button>
+        <button class="btn out" onclick="closeCorp()">Batal</button>
+        <div class="msg" id="corpMsg1"></div>
+      </div>
+      <div id="corpStep2" style="display:none">
+        <h2 id="corpS2Title">Persetujuan</h2>
+        <div class="muted" style="margin-bottom:10px"><span id="corpJoinLbl">Kamu akan gabung ke:</span> <b id="corpName" style="color:var(--txt)"></b></div>
+        <div style="background:var(--inp);border-radius:12px;padding:14px;font-size:13.5px;line-height:1.55;color:var(--txt)">
+          <div style="font-weight:800;margin-bottom:8px" id="corpSeeTitle">Yang akan bisa dilihat perusahaan (admin HR):</div>
+          <ul style="margin:0 0 10px;padding-left:18px" id="corpSeeList">
+            <li>Status BMI</li>
+            <li>Hasil Medical Check-Up (MCU)</li>
+            <li>Jenis kelamin &amp; umur</li>
+            <li>Frekuensi pemakaian produk 20FIT</li>
+          </ul>
+          <div id="corpConsentText" style="color:var(--muted)"></div>
+        </div>
+        <button class="btn" id="corpAgreeBtn" onclick="corpConfirmJoin()">Setuju &amp; Gabung</button>
+        <button class="btn out" onclick="closeCorp()">Batal</button>
+        <div class="msg" id="corpMsg2"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Pop-up detail pembayaran (bentuk struk/bon) -->
   <div class="pm-bg" id="odBg">
     <div class="pm pm-rcpt">
@@ -225,8 +264,83 @@
       else loadAvatar();
       document.getElementById("pname").textContent=nm;
       document.getElementById("pemail").textContent=p.email||"";
-      fillForm(p); renderSummary(p); renderHistory(); refreshQuota();
+      fillForm(p); renderSummary(p); renderHistory(); refreshQuota(); loadCorpMembership();
     })();
+
+    // ---- Corporate Health Program (opt-in) ----
+    var CORP_JOIN = { code:"", name:"", version:"" };
+    async function corpFetch(path, opts){
+      opts = opts||{}; opts.headers = opts.headers||{}; opts.headers["Content-Type"]="application/json";
+      var tk = await Auth.token(); if(tk) opts.headers["Authorization"]="Bearer "+tk;
+      return fetch(path, opts);
+    }
+    async function loadCorpMembership(){
+      var box=document.getElementById("corpBody");
+      try{
+        var r=await corpFetch("/api/corp/membership"); var j=await r.json().catch(function(){return{};});
+        if(!r.ok){ box.innerHTML='<div class="muted">'+L({en:"Couldn't load.",id:"Gagal memuat."})+'</div>'; return; }
+        renderCorpCard(j.member);
+      }catch(e){ box.innerHTML='<div class="muted">'+L({en:"Couldn't load.",id:"Gagal memuat."})+'</div>'; }
+    }
+    function renderCorpCard(m){
+      var box=document.getElementById("corpBody");
+      if(!m){
+        box.innerHTML=
+          '<div class="muted" style="margin-bottom:12px">'+L({en:"Join your company's health program with a unique code from HR. Your health data stays private until you explicitly consent.",id:"Ikut program kesehatan dari perusahaanmu pakai kode unik dari HR. Data kesehatanmu tetap privat sampai kamu menyetujui secara eksplisit."})+'</div>'+
+          '<button class="btn" style="margin-top:0" onclick="openCorpJoin()">'+L({en:"Join Corporate Program",id:"Gabung Corporate Program"})+'</button>';
+        return;
+      }
+      var since = m.linked_at ? fmtDate(m.linked_at) : "";
+      box.innerHTML=
+        '<div class="kv"><span class="k">'+L({en:"Company",id:"Perusahaan"})+'</span><span class="v">'+escapeHtml(m.corporate_name||"—")+'</span></div>'+
+        '<div class="kv"><span class="k">'+L({en:"Joined",id:"Bergabung"})+'</span><span class="v">'+escapeHtml(since)+'</span></div>'+
+        '<div class="muted" style="margin:12px 0">'+L({en:"Your HR admin can see your BMI status, MCU results, gender, age, and 20FIT usage frequency. You can leave anytime.",id:"Admin HR-mu bisa melihat status BMI, hasil MCU, jenis kelamin, umur, dan frekuensi pemakaian 20FIT. Kamu bisa keluar kapan saja."})+'</div>'+
+        '<button class="btn out" style="margin-top:0" onclick="corpLeave()">'+L({en:"Leave program",id:"Keluar dari program"})+'</button>';
+    }
+    function openCorpJoin(){
+      document.getElementById("corpStep1").style.display="";
+      document.getElementById("corpStep2").style.display="none";
+      document.getElementById("corpCode").value="";
+      document.getElementById("corpMsg1").textContent="";
+      document.getElementById("corpMsg2").textContent="";
+      document.getElementById("corpBg").classList.add("open");
+    }
+    function closeCorp(){ document.getElementById("corpBg").classList.remove("open"); }
+    async function corpValidateCode(){
+      var code=(document.getElementById("corpCode").value||"").trim().toUpperCase();
+      var m=document.getElementById("corpMsg1"); m.className="msg err"; m.textContent="";
+      if(!code){ m.textContent=L({en:"Enter the company code.",id:"Isi kode perusahaan."}); return; }
+      var btn=document.getElementById("corpNextBtn"); btn.disabled=true;
+      try{
+        var r=await corpFetch("/api/corp/validate-code",{method:"POST",body:JSON.stringify({code:code})});
+        var j=await r.json().catch(function(){return{};});
+        btn.disabled=false;
+        if(!r.ok){ m.textContent=j.error||L({en:"Invalid code.",id:"Kode tidak valid."}); return; }
+        CORP_JOIN={ code:code, name:j.corporate_name, version:j.consent_version };
+        document.getElementById("corpName").textContent=j.corporate_name;
+        var ct=j.consent_text||{}; document.getElementById("corpConsentText").textContent=(I18N&&I18N.lang==="id")?(ct.id||""):(ct.en||ct.id||"");
+        document.getElementById("corpStep1").style.display="none";
+        document.getElementById("corpStep2").style.display="";
+      }catch(e){ btn.disabled=false; m.textContent=L({en:"Network error.",id:"Gagal jaringan."}); }
+    }
+    async function corpConfirmJoin(){
+      var m=document.getElementById("corpMsg2"); m.className="msg err"; m.textContent="";
+      var btn=document.getElementById("corpAgreeBtn"); btn.disabled=true;
+      try{
+        var r=await corpFetch("/api/corp/join",{method:"POST",body:JSON.stringify({code:CORP_JOIN.code, consent_version:CORP_JOIN.version})});
+        var j=await r.json().catch(function(){return{};});
+        btn.disabled=false;
+        if(!r.ok){ m.textContent=j.error||L({en:"Failed to join.",id:"Gagal gabung."}); return; }
+        closeCorp(); loadCorpMembership();
+      }catch(e){ btn.disabled=false; m.textContent=L({en:"Network error.",id:"Gagal jaringan."}); }
+    }
+    async function corpLeave(){
+      if(!confirm(L({en:"Leave the corporate program? Your company will no longer see your data.",id:"Keluar dari corporate program? Perusahaan tidak lagi bisa melihat datamu."}))) return;
+      try{
+        var r=await corpFetch("/api/corp/leave",{method:"POST"});
+        if(r.ok) loadCorpMembership();
+      }catch(e){}
+    }
     function fillForm(p){
       document.getElementById("full_name").value=p.full_name||"";
       document.getElementById("email").value=p.email||"";

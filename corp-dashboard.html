@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Corporate Dashboard · 20FIT</title>
+<style>
+  :root{--red:#C41101;--bg:#0b0b0c;--card:#fff;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--inp:#F0EDE5;--green:#2A7A4F;--orange:#C87000;--grey:#8A8D94}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  .hidden{display:none!important}
+  a{color:var(--red)}
+  /* Login */
+  .loginwrap{min-height:100vh;display:grid;place-items:center;padding:24px}
+  .logincard{width:100%;max-width:380px;background:var(--card);border-radius:16px;padding:26px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+  .logincard h1{font-size:20px;margin:0 0 4px}
+  .logincard .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.5px}
+  input,select{width:100%;padding:12px 13px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:15px}
+  input:focus,select:focus{outline:none;border-color:var(--red)}
+  .btn{width:100%;margin-top:16px;padding:13px;border:0;border-radius:10px;background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer}
+  .btn.sm{width:auto;margin:0;padding:8px 12px;font-size:13px;border-radius:8px}
+  .btn.ghost{background:var(--inp);color:var(--txt);border:1px solid var(--line)}
+  .msg{margin-top:12px;font-size:13px;text-align:center;min-height:18px}
+  .err{color:var(--red)}.ok{color:var(--green)}
+  /* Shell */
+  .top{background:#000;color:#EDE8DF;padding:16px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .top .logo{font-weight:900;font-size:17px;letter-spacing:1px}
+  .top .logo b{color:var(--red)}
+  .top .co{font-weight:700;font-size:14px;color:#cfc8bd}
+  .top .spacer{flex:1}
+  .main{padding:22px 26px;max-width:1200px;margin:0 auto}
+  .disc{background:#FDF1E2;border:1px solid #f0d9b3;color:#8a6d1a;border-radius:12px;padding:12px 14px;font-size:12.5px;margin-bottom:16px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:var(--card);border-radius:14px;padding:16px}
+  .kpi .n{font-size:26px;font-weight:900;line-height:1}
+  .kpi .l{font-size:12px;color:var(--muted);margin-top:6px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+  .kpi.att .n{color:var(--orange)}.kpi.ok .n{color:var(--green)}.kpi.hn .n{color:var(--red)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  @media(max-width:760px){ .grid2{grid-template-columns:1fr} }
+  .card{background:var(--card);border-radius:14px;padding:18px;margin-bottom:16px}
+  .card h3{margin:0 0 12px;font-size:15px}
+  .chartrow{display:flex;align-items:center;gap:16px}
+  .legend{font-size:13px}
+  .legend div{display:flex;align-items:center;gap:8px;margin:5px 0}
+  .dot{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
+  .filters{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+  .filters>div{display:flex;flex-direction:column}
+  .filters label{margin:0 0 4px}
+  .filters input,.filters select{padding:9px 11px;font-size:14px;min-width:120px}
+  .agecombo{display:flex;gap:6px}.agecombo input{width:64px;min-width:0}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap}
+  th .ar{opacity:.5;font-size:10px}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:#faf7f1}
+  .pill{display:inline-block;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+  .pill.healthy{background:rgba(42,122,79,.14);color:var(--green)}
+  .pill.attention{background:rgba(200,112,0,.16);color:var(--orange)}
+  .pill.unknown{background:var(--inp);color:var(--grey)}
+  .pill.frequent{background:rgba(42,122,79,.14);color:var(--green)}
+  .pill.rare{background:var(--inp);color:var(--grey)}
+  .hn{color:var(--red);font-weight:900;font-size:15px}
+  .tblwrap{overflow-x:auto}
+  .placeholder{padding:30px;text-align:center;color:var(--muted)}
+  /* Modal */
+  .modal-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+  .modal-back.show{display:flex}
+  .modal{background:var(--card);border-radius:16px;max-width:520px;width:100%;max-height:88vh;overflow:auto;padding:22px;position:relative}
+  .modal .x{position:absolute;right:14px;top:12px;border:0;background:none;font-size:20px;cursor:pointer;color:var(--muted)}
+  .kv{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .kv .k{color:var(--muted)}.kv .v{font-weight:700;text-align:right}
+  .paramrow{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .paramrow .pv{font-weight:700;color:var(--orange)}
+</style>
+</head>
+<body>
+  <!-- ===== LOGIN ===== -->
+  <div class="loginwrap" id="loginView">
+    <div class="logincard">
+      <h1>20<span style="color:var(--red)">●</span>FIT Corporate</h1>
+      <div class="sub">Dashboard kesehatan karyawan — khusus admin corporate.</div>
+      <label>Email</label>
+      <input id="loginEmail" type="email" placeholder="admin.hr@perusahaan.com" />
+      <label>Password</label>
+      <input id="loginPass" type="password" placeholder="••••••••" />
+      <button class="btn" id="btnLogin">Masuk</button>
+      <div class="msg err" id="loginMsg"></div>
+      <div class="sub" style="margin-top:14px;text-align:center">Belum set password? <a href="reset-password.html">Set / reset password</a></div>
+    </div>
+  </div>
+
+  <!-- ===== DASHBOARD ===== -->
+  <div class="hidden" id="appView">
+    <div class="top">
+      <div class="logo">20<span style="color:var(--red)">●</span>FIT <span style="font-weight:400;font-size:12px;color:#9a907f">corporate</span></div>
+      <div class="co" id="coName">—</div>
+      <button class="btn sm" id="navDash" onclick="showView('dash')">📊 Dashboard</button>
+      <button class="btn sm ghost" id="navMsg" onclick="showView('msg')">✉️ Kirim Pesan</button>
+      <div class="spacer"></div>
+      <button class="btn sm ghost" id="btnRefresh">↻ Refresh</button>
+      <button class="btn sm" style="background:#333" id="btnLogout">⎋ Keluar</button>
+    </div>
+    <div class="main" id="viewDash">
+      <div class="disc">🔒 <b>Indikasi awal, bukan diagnosis.</b> Status "perlu perhatian" adalah sinyal skrining dari BMI + hasil MCU (sebagian dianalisa otomatis), untuk mendorong konsultasi — <b>bukan</b> keputusan medis atau dasar keputusan kepegawaian. Data ini sensitif; akses kamu tercatat.</div>
+
+      <div class="kpis" id="kpis"></div>
+
+      <div class="grid2">
+        <div class="card"><h3>Status kesehatan</h3><div class="chartrow"><div id="healthDonut"></div><div class="legend" id="healthLegend"></div></div></div>
+        <div class="card"><h3>Frekuensi pakai produk 20FIT</h3><div class="chartrow"><div id="usageDonut"></div><div class="legend" id="usageLegend"></div></div></div>
+      </div>
+
+      <div class="card">
+        <h3>Daftar karyawan</h3>
+        <div class="filters">
+          <div><label>Cari nama</label><input id="fSearch" type="text" placeholder="nama…" oninput="applyFilters()" /></div>
+          <div><label>Status kesehatan</label><select id="fHealth" onchange="applyFilters()"><option value="">Semua</option><option value="healthy">Sehat</option><option value="attention">Perlu perhatian</option><option value="unknown">Data belum lengkap</option></select></div>
+          <div><label>Gender</label><select id="fGender" onchange="applyFilters()"><option value="">Semua</option><option value="male">Pria</option><option value="female">Wanita</option></select></div>
+          <div><label>Frekuensi</label><select id="fUsage" onchange="applyFilters()"><option value="">Semua</option><option value="frequent">Sering</option><option value="rare">Jarang</option></select></div>
+          <div><label>Umur</label><div class="agecombo"><input id="fAgeMin" type="number" placeholder="min" oninput="applyFilters()" /><input id="fAgeMax" type="number" placeholder="max" oninput="applyFilters()" /></div></div>
+          <div><label>High need</label><select id="fHighNeed" onchange="applyFilters()"><option value="">Semua</option><option value="1">Hanya high-need</option></select></div>
+          <div><label>&nbsp;</label><button class="btn sm ghost" onclick="exportCsv()">⬇ Export CSV</button></div>
+        </div>
+        <div class="tblwrap">
+          <table>
+            <thead><tr>
+              <th onclick="sortBy('full_name')">Nama <span class="ar" id="ar-full_name"></span></th>
+              <th onclick="sortBy('gender')">Gender <span class="ar" id="ar-gender"></span></th>
+              <th onclick="sortBy('age')">Umur <span class="ar" id="ar-age"></span></th>
+              <th onclick="sortBy('bmi')">BMI <span class="ar" id="ar-bmi"></span></th>
+              <th onclick="sortBy('health_status')">Kesehatan <span class="ar" id="ar-health_status"></span></th>
+              <th onclick="sortBy('usage_level')">Frekuensi <span class="ar" id="ar-usage_level"></span></th>
+              <th onclick="sortBy('high_need')">Perhatian <span class="ar" id="ar-high_need"></span></th>
+            </tr></thead>
+            <tbody id="rows"><tr><td colspan="7"><div class="placeholder">Memuat…</div></td></tr></tbody>
+          </table>
+        </div>
+        <div class="msg" id="listMsg" style="text-align:left"></div>
+      </div>
+    </div>
+
+    <!-- ===== VIEW: KIRIM PESAN (FASE 4) ===== -->
+    <div class="main hidden" id="viewMsg">
+      <div class="disc">✉️ Kirim reminder/rekomendasi ke karyawan. Pilih penerima lewat filter, cek daftarnya, lalu kirim. Pesan hanya dikirim ke anggota <b>aktif</b> program (yang sudah keluar tidak dikirimi). Gunakan dengan bertanggung jawab — jangan untuk keputusan kepegawaian.</div>
+      <div class="card">
+        <h3>1. Pilih penerima</h3>
+        <div class="filters">
+          <div><label>Status kesehatan</label><select id="mHealth" onchange="previewRecipients()"><option value="">Semua</option><option value="healthy">Sehat</option><option value="attention">Perlu perhatian</option><option value="unknown">Data belum lengkap</option></select></div>
+          <div><label>Frekuensi</label><select id="mUsage" onchange="previewRecipients()"><option value="">Semua</option><option value="frequent">Sering</option><option value="rare">Jarang</option></select></div>
+          <div><label>High need</label><select id="mHighNeed" onchange="previewRecipients()"><option value="">Semua</option><option value="1">Hanya high-need</option></select></div>
+        </div>
+        <div id="recipInfo" class="muted" style="font-size:13px;font-weight:700"></div>
+        <div id="recipList" style="margin-top:8px;font-size:13px;max-height:150px;overflow:auto;color:var(--muted)"></div>
+      </div>
+      <div class="card">
+        <h3>2. Tulis pesan</h3>
+        <label>Template</label>
+        <select id="mTemplate" onchange="applyTemplate()">
+          <option value="">— pilih template (opsional) —</option>
+          <option value="mcu">Ajakan konsultasi (perlu perhatian)</option>
+          <option value="active">Ajakan lebih aktif (jarang pakai)</option>
+          <option value="reminder">Reminder Medical Check-Up</option>
+        </select>
+        <label style="margin-top:12px">Subjek</label>
+        <input id="mSubject" type="text" placeholder="Subjek email" />
+        <label style="margin-top:12px">Isi pesan <span style="text-transform:none;font-weight:400;color:var(--muted)">(pakai {nama} untuk nama karyawan)</span></label>
+        <textarea id="mBody" rows="7" style="width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--inp);font-size:14px;font-family:inherit;color:var(--txt)"></textarea>
+        <button class="btn" style="margin-top:14px" id="btnSend" onclick="confirmSend()">Kirim ke penerima terpilih</button>
+        <div class="msg" id="sendMsg" style="text-align:left"></div>
+      </div>
+      <div class="card">
+        <h3>Riwayat pesan</h3>
+        <div id="msgHistory"><div class="placeholder">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal detail karyawan -->
+  <div class="modal-back" id="modalBack">
+    <div class="modal" id="modalBox"><div class="placeholder">Memuat…</div></div>
+  </div>
+
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    function $(id){ return document.getElementById(id); }
+    var ME=null, ROSTER=[], VIEW=[], SORT={key:"health_status",dir:1};
+    function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+    function lmsg(t,ok){ var e=$("loginMsg"); e.textContent=t||""; e.className="msg"+(ok?" ok":" err"); }
+
+    async function corpFetch(path, opts){
+      opts=opts||{}; opts.headers=opts.headers||{}; opts.headers["Content-Type"]="application/json";
+      var tk=await Auth.token(); if(tk) opts.headers["Authorization"]="Bearer "+tk;
+      return fetch(path, opts);
+    }
+    // ---- Login ----
+    async function tryAuth(email, pass){
+      await Auth.ready;
+      var res=await Auth.supabase.auth.signInWithPassword({ email:email, password:pass });
+      if(!res.error) return { ok:true };
+      try{ await Auth.fitcoLogin(email, pass); return { ok:true }; }
+      catch(e){ return { ok:false, error:res.error.message }; }
+    }
+    async function fetchCorpMe(){
+      var r=await corpFetch("/api/corp/me"); var j=await r.json().catch(function(){return{};});
+      return { ok:r.ok, status:r.status, me:j };
+    }
+    $("btnLogin").addEventListener("click", async function(){
+      var email=$("loginEmail").value.trim(), pass=$("loginPass").value;
+      if(!email||!pass){ lmsg("Isi email & password."); return; }
+      this.disabled=true; lmsg("Masuk…", true);
+      try{
+        var auth=await tryAuth(email, pass);
+        if(!auth.ok){ lmsg(auth.error==="Invalid login credentials"?"Email atau password salah.":(auth.error||"Login gagal.")); this.disabled=false; return; }
+        var res=await fetchCorpMe();
+        if(res.ok && res.me && res.me.ok){ showApp(res.me); }
+        else if(res.status===403){ lmsg("Akun ini bukan admin corporate. Hubungi 20FIT."); }
+        else{ lmsg((res.me&&res.me.error)||"Gagal memuat."); }
+      }catch(e){ lmsg(e.message||"Gagal masuk."); }
+      this.disabled=false;
+    });
+    $("btnLogout").addEventListener("click", async function(){ try{ await Auth.signOut(); }catch(e){} ME=null; $("appView").classList.add("hidden"); $("loginView").classList.remove("hidden"); });
+    $("btnRefresh").addEventListener("click", loadSummary);
+
+    function showApp(me){
+      ME=me; $("loginView").classList.add("hidden"); $("appView").classList.remove("hidden");
+      $("coName").textContent=me.corporate_name||"";
+      loadSummary();
+    }
+    // ---- Data ----
+    async function loadSummary(){
+      $("rows").innerHTML='<tr><td colspan="7"><div class="placeholder">Memuat…</div></td></tr>';
+      var r=await corpFetch("/api/corp/summary"); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ $("listMsg").textContent=(j.error||"Gagal memuat."); $("listMsg").className="msg err"; return; }
+      $("coName").textContent=j.corporate_name||$("coName").textContent;
+      ROSTER=j.members||[];
+      renderKpis(j.kpis||{});
+      renderCharts(j.kpis||{});
+      applyFilters();
+    }
+    function renderKpis(k){
+      var items=[
+        {n:k.total||0,l:"Total karyawan",c:""},
+        {n:k.healthy||0,l:"Sehat",c:"ok"},
+        {n:k.attention||0,l:"Perlu perhatian",c:"att"},
+        {n:k.unknown||0,l:"Data belum lengkap",c:""},
+        {n:k.frequent||0,l:"Sering pakai",c:"ok"},
+        {n:k.rare||0,l:"Jarang pakai",c:""},
+        {n:k.high_need||0,l:"High need of care",c:"hn"}
+      ];
+      $("kpis").innerHTML=items.map(function(i){ return '<div class="kpi '+i.c+'"><div class="n">'+i.n+'</div><div class="l">'+i.l+'</div></div>'; }).join("");
+    }
+    function donut(segs){
+      var total=segs.reduce(function(a,s){return a+s.v;},0);
+      var r=54, C=2*Math.PI*r, off=0, arcs="";
+      if(total<=0){ arcs='<circle cx="70" cy="70" r="'+r+'" fill="none" stroke="#eee" stroke-width="22"/>'; }
+      else{ segs.forEach(function(s){ if(s.v<=0)return; var len=s.v/total*C; arcs+='<circle cx="70" cy="70" r="'+r+'" fill="none" stroke="'+s.c+'" stroke-width="22" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 70 70)"/>'; off+=len; }); }
+      return '<svg width="140" height="140" viewBox="0 0 140 140" aria-hidden="true">'+arcs+'<text x="70" y="76" text-anchor="middle" font-size="24" font-weight="800" fill="#0A0908">'+total+'</text></svg>';
+    }
+    function legend(segs){ return segs.map(function(s){ return '<div><span class="dot" style="background:'+s.c+'"></span>'+s.l+' · <b>'+s.v+'</b></div>'; }).join(""); }
+    function renderCharts(k){
+      var hs=[{l:"Sehat",v:k.healthy||0,c:"#2A7A4F"},{l:"Perlu perhatian",v:k.attention||0,c:"#C87000"},{l:"Data belum lengkap",v:k.unknown||0,c:"#C9C4BB"}];
+      $("healthDonut").innerHTML=donut(hs); $("healthLegend").innerHTML=legend(hs);
+      var us=[{l:"Sering",v:k.frequent||0,c:"#2A7A4F"},{l:"Jarang",v:k.rare||0,c:"#C9C4BB"}];
+      $("usageDonut").innerHTML=donut(us); $("usageLegend").innerHTML=legend(us);
+    }
+    // ---- Filter + sort + render tabel ----
+    function applyFilters(){
+      var q=($("fSearch").value||"").toLowerCase().trim();
+      var fh=$("fHealth").value, fg=$("fGender").value, fu=$("fUsage").value, fhn=$("fHighNeed").value;
+      var amin=parseInt($("fAgeMin").value,10), amax=parseInt($("fAgeMax").value,10);
+      VIEW=ROSTER.filter(function(m){
+        if(q && !String(m.full_name||"").toLowerCase().includes(q)) return false;
+        if(fh && m.health_status!==fh) return false;
+        if(fg && m.gender!==fg) return false;
+        if(fu && m.usage_level!==fu) return false;
+        if(fhn==="1" && !m.high_need) return false;
+        if(!isNaN(amin) && (m.age==null || m.age<amin)) return false;
+        if(!isNaN(amax) && (m.age==null || m.age>amax)) return false;
+        return true;
+      });
+      sortView(); renderRows();
+    }
+    function sortBy(key){ if(SORT.key===key) SORT.dir*=-1; else { SORT.key=key; SORT.dir=1; } sortView(); renderRows(); updateArrows(); }
+    function sortView(){
+      var k=SORT.key, d=SORT.dir;
+      VIEW.sort(function(a,b){
+        var va=a[k], vb=b[k];
+        if(va==null&&vb==null)return 0; if(va==null)return 1; if(vb==null)return -1;
+        if(typeof va==="number"&&typeof vb==="number") return (va-vb)*d;
+        return String(va).localeCompare(String(vb))*d;
+      });
+      updateArrows();
+    }
+    function updateArrows(){
+      ["full_name","gender","age","bmi","health_status","usage_level","high_need"].forEach(function(k){ var e=$("ar-"+k); if(e) e.textContent = SORT.key===k?(SORT.dir>0?"▲":"▼"):""; });
+    }
+    function healthPill(s){ var lbl=s==="healthy"?"Sehat":s==="attention"?"Perlu perhatian":"Data belum lengkap"; return '<span class="pill '+s+'">'+lbl+'</span>'; }
+    function usagePill(s){ return '<span class="pill '+s+'">'+(s==="frequent"?"Sering":"Jarang")+'</span>'; }
+    function genderLbl(g){ return g==="male"?"Pria":g==="female"?"Wanita":"—"; }
+    function renderRows(){
+      var b=$("rows");
+      if(!VIEW.length){ b.innerHTML='<tr><td colspan="7"><div class="placeholder">Tidak ada karyawan yang cocok.</div></td></tr>'; $("listMsg").textContent=""; return; }
+      b.innerHTML=VIEW.map(function(m){
+        return '<tr onclick="openMember(\''+m.auth_user_id+'\')">'+
+          '<td>'+esc(m.full_name||"—")+'</td>'+
+          '<td>'+genderLbl(m.gender)+'</td>'+
+          '<td>'+(m.age!=null?m.age:"—")+'</td>'+
+          '<td>'+(m.bmi!=null?m.bmi:"—")+'</td>'+
+          '<td>'+healthPill(m.health_status)+'</td>'+
+          '<td>'+usagePill(m.usage_level)+'</td>'+
+          '<td>'+(m.high_need?'<span class="hn" title="High need of care">⚠</span>':'')+'</td>'+
+        '</tr>';
+      }).join("");
+      $("listMsg").className="msg"; $("listMsg").textContent=VIEW.length+" dari "+ROSTER.length+" karyawan";
+    }
+    // ---- Detail (audited) ----
+    async function openMember(uid){
+      $("modalBox").innerHTML='<div class="placeholder">Memuat…</div>'; $("modalBack").classList.add("show");
+      var r=await corpFetch("/api/corp/member/"+encodeURIComponent(uid)); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ $("modalBox").innerHTML='<button class="x" onclick="closeModal()">✕</button><div class="err">'+esc(j.error||"Gagal")+'</div>'; return; }
+      var m=j.member;
+      var params=(m.attention_params||[]).map(function(p){
+        var dir=p.direction==="high"?"↑":p.direction==="low"?"↓":"";
+        return '<div class="paramrow"><div>'+esc(p.label||"—")+' <span style="color:var(--muted)">'+(p.normal_range?("("+esc(p.normal_range)+")"):"")+'</span></div><div class="pv">'+esc(p.value!=null?p.value:"")+' '+dir+'</div></div>';
+      }).join("")||'<div class="muted" style="color:var(--muted);font-size:13px">Tidak ada parameter bertanda perhatian.</div>';
+      var abn=(m.abnormal_findings||[]).map(function(a){ return '<li>'+esc(typeof a==="string"?a:(a&&a.finding)||JSON.stringify(a))+'</li>'; }).join("");
+      $("modalBox").innerHTML=
+        '<button class="x" onclick="closeModal()">✕</button>'+
+        '<h3 style="margin:0 0 12px">'+esc(m.full_name||"—")+' '+(m.high_need?'<span class="hn">⚠ high need</span>':'')+'</h3>'+
+        '<div class="kv"><span class="k">Status</span><span class="v">'+healthPill(m.health_status)+'</span></div>'+
+        '<div class="kv"><span class="k">Gender · Umur</span><span class="v">'+genderLbl(m.gender)+' · '+(m.age!=null?m.age:"—")+'</span></div>'+
+        '<div class="kv"><span class="k">BMI</span><span class="v">'+(m.bmi!=null?m.bmi:"—")+'</span></div>'+
+        '<div class="kv"><span class="k">Frekuensi (30 hari)</span><span class="v">'+usagePill(m.usage_level)+' · '+m.active_days+' hari aktif · '+m.scans+' scan · '+m.workouts+' workout</span></div>'+
+        '<div class="kv"><span class="k">MCU terakhir</span><span class="v">'+(m.mcu_date?esc(String(m.mcu_date).slice(0,10)):"—")+'</span></div>'+
+        '<h3 style="margin:16px 0 6px">Parameter MCU perlu perhatian</h3>'+params+
+        (abn?('<h3 style="margin:16px 0 6px">Temuan tidak normal</h3><ul style="margin:0;padding-left:18px;font-size:13px">'+abn+'</ul>'):'')+
+        '<div class="disc" style="margin:16px 0 0">Indikasi awal (sebagian analisa otomatis), bukan diagnosis. Sarankan konsultasi ke 20FIT Sports Clinic untuk penilaian medis.</div>';
+    }
+    function closeModal(){ $("modalBack").classList.remove("show"); }
+    $("modalBack").addEventListener("click", function(e){ if(e.target===this) closeModal(); });
+    // ---- Export CSV ----
+    function exportCsv(){
+      if(!VIEW.length){ return; }
+      if(!confirm("File CSV ini berisi DATA KESEHATAN karyawan (sensitif). Kamu bertanggung jawab menyimpannya dengan aman & menghapusnya bila tak diperlukan. Lanjut export?")) return;
+      var head=["Nama","Gender","Umur","BMI","Status kesehatan","Frekuensi","High need","Hari aktif (30h)","Scan (30h)","Workout (30h)"];
+      var lines=[head.join(",")];
+      VIEW.forEach(function(m){
+        var row=[m.full_name||"", genderLbl(m.gender), (m.age!=null?m.age:""), (m.bmi!=null?m.bmi:""),
+          (m.health_status==="healthy"?"Sehat":m.health_status==="attention"?"Perlu perhatian":"Data belum lengkap"),
+          (m.usage_level==="frequent"?"Sering":"Jarang"), (m.high_need?"Ya":""), m.active_days, m.scans, m.workouts];
+        lines.push(row.map(function(v){ v=String(v==null?"":v); return /[",\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v; }).join(","));
+      });
+      var blob=new Blob(["﻿"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+      var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+      a.download="corporate-health-"+new Date().toISOString().slice(0,10)+".csv"; a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); },1000);
+    }
+    // ---- FASE 4: kirim pesan ----
+    function showView(v){
+      var dash=v==="dash";
+      $("viewDash").classList.toggle("hidden",!dash);
+      $("viewMsg").classList.toggle("hidden",dash);
+      $("navDash").className="btn sm"+(dash?"":" ghost");
+      $("navMsg").className="btn sm"+(dash?" ghost":"");
+      if(!dash){ previewRecipients(); loadMsgHistory(); }
+    }
+    function msgFilter(){ return { health:$("mHealth").value, usage:$("mUsage").value, high_need:$("mHighNeed").value }; }
+    function msgRecipients(){
+      var f=msgFilter();
+      return ROSTER.filter(function(m){
+        if(f.health && m.health_status!==f.health) return false;
+        if(f.usage && m.usage_level!==f.usage) return false;
+        if(f.high_need==="1" && !m.high_need) return false;
+        return !!m.email;
+      });
+    }
+    function previewRecipients(){
+      var r=msgRecipients();
+      $("recipInfo").textContent=r.length+" penerima (yang punya email)";
+      $("recipList").innerHTML=r.length?r.map(function(m){return esc(m.full_name||m.email);}).join(", "):"—";
+    }
+    var CORP_TEMPLATES={
+      mcu:{s:"Yuk konsultasi kesehatanmu",b:"Halo {nama},\n\nDari skrining program kesehatan perusahaan, ada beberapa hal yang sebaiknya kamu diskusikan dengan tenaga medis. Yuk jadwalkan konsultasi di 20FIT Sports Clinic. Ini indikasi awal, bukan diagnosis — konsultasi membantu memastikan kondisimu.\n\nSalam sehat,\nTim 20FIT"},
+      active:{s:"Ayo lebih aktif bareng 20FIT",b:"Halo {nama},\n\nKami perhatikan kamu jarang memakai fasilitas 20FIT belakangan ini. Yuk mulai lagi — booking kelas atau sesi recovery lewat aplikasi 20FIT. Konsistensi kecil membawa perubahan besar.\n\nSalam sehat,\nTim 20FIT"},
+      reminder:{s:"Reminder: Medical Check-Up",b:"Halo {nama},\n\nSudah waktunya cek kesehatan berkala. Upload hasil MCU terbarumu di aplikasi 20FIT, atau jadwalkan MCU di 20FIT Sports Clinic.\n\nSalam sehat,\nTim 20FIT"}
+    };
+    function applyTemplate(){ var t=CORP_TEMPLATES[$("mTemplate").value]; if(!t)return; $("mSubject").value=t.s; $("mBody").value=t.b; }
+    function confirmSend(){
+      var r=msgRecipients(), subject=$("mSubject").value.trim(), body=$("mBody").value.trim(), sm=$("sendMsg");
+      sm.className="msg err";
+      if(!r.length){ sm.textContent="Tidak ada penerima cocok filter."; return; }
+      if(!subject||!body){ sm.textContent="Isi subjek & pesan dulu."; return; }
+      if(!confirm("Kirim pesan ini ke "+r.length+" karyawan? Aksi ini tidak bisa dibatalkan.")) return;
+      sendMsg();
+    }
+    async function sendMsg(){
+      var sm=$("sendMsg"); sm.className="msg"; sm.textContent="Mengirim…";
+      var btn=$("btnSend"); btn.disabled=true;
+      try{
+        var r=await corpFetch("/api/corp/message",{method:"POST",body:JSON.stringify({ filter:msgFilter(), subject:$("mSubject").value.trim(), body:$("mBody").value.trim() })});
+        var j=await r.json().catch(function(){return{};});
+        btn.disabled=false;
+        if(!r.ok){ sm.className="msg err"; sm.textContent=j.error||"Gagal kirim."; return; }
+        sm.className="msg ok";
+        sm.textContent = j.dev ? ("Mode dev: SMTP belum aktif — "+j.recipient_count+" penerima dicatat, email tidak benar-benar terkirim.") : ("Terkirim ke "+j.sent+" dari "+j.recipient_count+" penerima.");
+        loadMsgHistory();
+      }catch(e){ btn.disabled=false; sm.className="msg err"; sm.textContent="Gagal jaringan."; }
+    }
+    async function loadMsgHistory(){
+      var box=$("msgHistory");
+      var r=await corpFetch("/api/corp/messages"); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ box.innerHTML='<div class="placeholder">'+esc(j.error||"Gagal")+'</div>'; return; }
+      var list=j.messages||[];
+      if(!list.length){ box.innerHTML='<div class="placeholder">Belum ada pesan terkirim.</div>'; return; }
+      box.innerHTML='<div class="tblwrap"><table><thead><tr><th>Tanggal</th><th>Subjek</th><th>Terkirim</th><th>Oleh</th></tr></thead><tbody>'+
+        list.map(function(x){ return '<tr style="cursor:default"><td>'+esc(String(x.created_at||"").slice(0,16).replace("T"," "))+'</td><td>'+esc(x.subject||"")+'</td><td>'+(x.sent_count||0)+"/"+(x.recipient_count||0)+'</td><td>'+esc(x.actor_email||"")+'</td></tr>'; }).join("")+
+        '</tbody></table></div>';
+    }
+  </script>
+</body>
+</html>
