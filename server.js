@@ -1097,9 +1097,10 @@ app.get("/api/admin/metrics", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
   const { from, to } = adminRange(req.query);
   try {
-    const { data: orders } = await admin.from("my20fit_scan_orders")
+    const { data: orders, error: eOrd } = await admin.from("my20fit_scan_orders")
       .select("reff_no,auth_user_id,amount,net_amount,credits,status,payment_method,voucher_id,created_at,paid_at")
       .gte("created_at", from).lte("created_at", to);
+    if (eOrd) throw eOrd;
     const ord = orders || [];
     const paid = ord.filter(o => o.status === "paid");
     const gross = paid.reduce((s, o) => s + (+o.amount || 0), 0);
@@ -1292,13 +1293,16 @@ app.get("/api/admin/users", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
   const activeMin = Math.min(Math.max(parseInt(req.query.window, 10) || 15, 1), 10080);
   try {
-    const { data: profiles } = await admin.from("my20fit_profile")
+    const { data: profiles, error: eProf } = await admin.from("my20fit_profile")
       .select("auth_user_id,email,full_name,phone,gender,age,height_cm,weight_kg,main_goal,scan_credits,scan_count,onboarding_completed,gender_selected_at,is_plus_member,created_at")
       .limit(5000);
-    const { data: acts } = await admin.from("my20fit_user_activity")
+    if (eProf) throw eProf;
+    const { data: acts, error: eAct } = await admin.from("my20fit_user_activity")
       .select("auth_user_id,last_active_at,last_page,ping_count").limit(5000);
-    const { data: orders } = await admin.from("my20fit_scan_orders")
+    if (eAct) throw eAct;
+    const { data: orders, error: eOrd } = await admin.from("my20fit_scan_orders")
       .select("auth_user_id,amount,net_amount,credits,status").eq("status", "paid").limit(20000);
+    if (eOrd) throw eOrd;
     const actMap = {}; (acts || []).forEach(a => actMap[a.auth_user_id] = a);
     const buyMap = {};
     (orders || []).forEach(o => {
@@ -1367,9 +1371,10 @@ app.get("/api/admin/top-products", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
   const { from, to } = adminRange(req.query);
   try {
-    const { data: orders } = await admin.from("my20fit_scan_orders")
+    const { data: orders, error: eOrd } = await admin.from("my20fit_scan_orders")
       .select("credits,amount,net_amount,order_type,status,created_at").eq("status", "paid")
       .gte("created_at", from).lte("created_at", to).limit(20000);
+    if (eOrd) throw eOrd;
     const map = {};
     (orders || []).forEach(o => {
       const key = (o.credits || 0) + " scan";
@@ -1386,12 +1391,16 @@ app.get("/api/admin/analytics", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
   try {
     const now = new Date();
-    const { data: profiles } = await admin.from("my20fit_profile")
+    // Surface error query -> jangan diam-diam kembalikan [] (angka jadi salah tanpa jejak).
+    const { data: profiles, error: eProf } = await admin.from("my20fit_profile")
       .select("auth_user_id,created_at,onboarding_completed,scan_count").limit(8000);
-    const { data: paid } = await admin.from("my20fit_scan_orders")
+    if (eProf) throw eProf;
+    const { data: paid, error: ePaid } = await admin.from("my20fit_scan_orders")
       .select("auth_user_id,amount,net_amount,credits,created_at,paid_at,status").eq("status", "paid").limit(30000);
-    const { data: acts } = await admin.from("my20fit_user_activity")
+    if (ePaid) throw ePaid;
+    const { data: acts, error: eAct } = await admin.from("my20fit_user_activity")
       .select("auth_user_id,last_active_at,ping_count,full_name,email").limit(8000);
+    if (eAct) throw eAct;
     const prof = profiles || [], pd = paid || [], ac = acts || [];
     const mk = d => { const x = new Date(d); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0"); };
 
@@ -1461,9 +1470,10 @@ app.get("/api/admin/analytics", async (req, res) => {
 app.get("/api/admin/onboarding-scan", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
   try {
-    const { data: profiles } = await admin.from("my20fit_profile")
+    const { data: profiles, error: eProf } = await admin.from("my20fit_profile")
       .select("auth_user_id,full_name,email,phone,gender_selected_at,scan_credits")
       .eq("onboarding_completed", true).limit(20000);
+    if (eProf) throw eProf;
     const { data: ledger } = await admin.from("my20fit_scan_ledger")
       .select("auth_user_id,delta").lt("delta", 0).limit(200000);
     const usedMap = {};

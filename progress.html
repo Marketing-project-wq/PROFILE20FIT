@@ -138,6 +138,8 @@
   <script src="js/achievements.js"></script>
   <script src="js/cycle.js"></script>
   <script src="js/nav.js"></script>
+  <script src="js/fasting.js"></script>
+  <script src="js/nutrition.js"></script>
   <script>
     let user=null, profile=null, days=[], weights=[], arenaData=null;
     const WD_EN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], WD_ID=["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
@@ -155,8 +157,9 @@
     function wdLabel(ds){const d=new Date(ds+"T00:00:00");return (I18N.lang==="id"?WD_ID:WD_EN)[d.getDay()];}
     function readCal(d){try{const it=JSON.parse(localStorage.getItem("my20fit_cal_"+d)||"[]");return it.reduce((s,i)=>s+(+i.kcal||0),0);}catch(e){return 0;}}
     function readWeights(){try{return JSON.parse(localStorage.getItem("my20fit_weight")||"[]");}catch(e){return [];}}
-    function calGoal(p){const w=+p.weight_kg,h=+p.height_cm,age=+p.age||25;if(!w||!h)return 2000;const bmr=10*w+6.25*h-5*age+((p.gender==="female")?-161:5);const af={sedentary:1.2,light:1.375,moderate:1.55,active:1.725}[p.activity_level]||1.375;let t=bmr*af;const g=p.main_goal;t+=(g==="lose"?-400:g==="muscle"?300:g==="fit"?100:0);return Math.max(1200,Math.round(t/10)*10);}
-    function calcMacros(p,goal){const w=+p.weight_kg||0,g=p.main_goal;const proteinG=w?Math.round(w*(g==="muscle"?1.8:g==="lose"?1.6:1.4)):Math.round(goal*0.25/4);const fatG=Math.round(goal*0.25/9);let carbsG=Math.round((goal-proteinG*4-fatG*9)/4);if(carbsG<0)carbsG=Math.round(goal*0.45/4);return {p:proteinG,c:carbsG,f:fatG};}
+    // Goal & makro dari SATU sumber (js/nutrition.js) + penyesuaian puasa — sinkron dgn Home & Calories.
+    function calGoal(p){var base=(window.Nutrition&&Nutrition.goalFor)?Nutrition.goalFor(p):2000;return (window.Fasting&&Fasting.adjustGoal)?Fasting.adjustGoal(base):base;}
+    function calcMacros(p,goal){return (window.Nutrition&&Nutrition.macrosFor)?Nutrition.macrosFor(p,goal):{p:Math.round(goal*0.25/4),c:Math.round(goal*0.45/4),f:Math.round(goal*0.25/9)};}
     function toast(t){const el=document.getElementById("toast");el.textContent=t;el.style.opacity=1;el.style.transform="translateX(-50%) translateY(0)";setTimeout(()=>{el.style.opacity=0;el.style.transform="translateX(-50%) translateY(20px)";},2600);}
 
     function barChart(title,rows,goal,unit,color,goalTxt){

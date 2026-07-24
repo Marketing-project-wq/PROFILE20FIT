@@ -316,25 +316,8 @@
     // sehingga catatan makanan selalu masuk ke hari yang benar (mis. subuh di WIB tidak nyasar ke kemarin).
     function todayKey(){const d=new Date();return "my20fit_cal_"+d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
     let goal=2000, baseGoal=2000, profileRef=null, items=[], curGoal="health", macroT={p:120,c:230,f:60};
-    function recompute(){ goal=Fasting.adjustGoal(baseGoal); if(profileRef)macroT=calcMacros(profileRef); }
-    function calcGoal(p){
-      const w=+p.weight_kg,h=+p.height_cm,age=+p.age||25;
-      if(!w||!h)return 2000;
-      const bmr=10*w+6.25*h-5*age+(p.gender==="female"?-161:5);
-      const af={sedentary:1.2,light:1.375,moderate:1.55,active:1.725}[p.activity_level]||1.375;
-      let tdee=bmr*af;
-      const g=p.main_goal;tdee+=(g==="lose"?-400:g==="muscle"?300:g==="fit"?100:0);
-      return Math.max(1200,Math.round(tdee/10)*10);
-    }
-    // Target makro dari kalori + berat + tujuan (protein per kg badan)
-    function calcMacros(p){
-      const w=+p.weight_kg||0, g=p.main_goal;
-      const proteinG = w ? Math.round(w*(g==="muscle"?1.8:g==="lose"?1.6:1.4)) : Math.round(goal*0.25/4);
-      const fatG = Math.round(goal*0.25/9);
-      let carbsG = Math.round((goal - proteinG*4 - fatG*9)/4);
-      if(carbsG<0) carbsG = Math.round(goal*0.45/4);
-      return {p:proteinG,c:carbsG,f:fatG};
-    }
+    // Goal & makro dari SATU sumber (js/nutrition.js) — sinkron dgn Home & Progress.
+    function recompute(){ goal=Fasting.adjustGoal(baseGoal); if(profileRef)macroT=Nutrition.macrosFor(profileRef, goal); }
     function load(){try{items=JSON.parse(localStorage.getItem(todayKey())||"[]")}catch(e){items=[]}}
     let calSaveT=null;
     function save(){
@@ -791,7 +774,7 @@
 
     (async function(){
       const p=await Auth.getProfile();
-      profileRef=p; baseGoal=calcGoal(p); curGoal=p.main_goal||"health";
+      profileRef=p; baseGoal=Nutrition.goalFor(p); curGoal=p.main_goal||"health";
       recompute();
       load();render();renderMeals();renderIF();
       refreshQuota();       // tampilkan sisa kuota scan + link paket
