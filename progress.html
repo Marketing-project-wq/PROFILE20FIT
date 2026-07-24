@@ -287,7 +287,7 @@
     }
     function monName(m){ return (I18N.lang==="id"?["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"]:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"])[m]; }
     function upcomingCalCard(){
-      var head='<div class="psec-row"><div class="psec">'+L({en:"Upcoming bookings",id:"Booking Terdekat"})+'</div><a class="plink" href="https://booking.20fit.id" target="_blank" rel="noopener">'+L({en:"All",id:"Semua"})+' ›</a></div><div class="psub">'+L({en:"Your nearest schedule",id:"Jadwal aktivitas terdekat"})+'</div>';
+      var head='<div class="psec-row"><div class="psec">'+L({en:"Upcoming bookings",id:"Booking Terdekat"})+'</div><a class="plink" href="https://booking.20fit.id">'+L({en:"All",id:"Semua"})+' ›</a></div><div class="psub">'+L({en:"Your nearest schedule",id:"Jadwal aktivitas terdekat"})+'</div>';
       var bk=(arenaData&&!arenaData.error&&arenaData.bookings)||[]; var dm={}, up=[]; var t0=new Date(); t0.setHours(0,0,0,0);
       bk.forEach(function(b){ var sc=b.arena_class_schedules||{}, ds=sc.schedule_date; if(!ds)return; dm[ds]=1; var dd=new Date(ds+"T00:00:00"); if(dd>=t0) up.push({date:ds,time:arTime(sc.start_time),title:(sc.arena_class_types&&sc.arena_class_types.name)||L({en:"Class",id:"Kelas"}),coach:sc.instructor||"",status:b.status}); });
       up.sort(function(a,b){return (a.date+a.time)<(b.date+b.time)?-1:1;});
@@ -304,7 +304,7 @@
       return head+html+'</div>';
     }
     function raceLabCard(){
-      var head='<div class="psec-row"><div class="psec">RaceLab</div><a class="plink" href="https://racelabtiming.20fit.id/results/platarox" target="_blank" rel="noopener">'+L({en:"History",id:"Riwayat"})+' ›</a></div><div class="psub">'+L({en:"Your race results & ranking",id:"Hasil & ranking race kamu"})+'</div>';
+      var head='<div class="psec-row"><div class="psec">RaceLab</div><a class="plink" href="https://racelabtiming.20fit.id/results/platarox">'+L({en:"History",id:"Riwayat"})+' ›</a></div><div class="psub">'+L({en:"Your race results & ranking",id:"Hasil & ranking race kamu"})+'</div>';
       return head+'<div class="racecard"><div class="racehead"><svg class="emi" viewBox="0 0 24 24" style="stroke:#FF5062"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg> RaceLab</div><div class="racesub">'+L({en:"20FIT Hybrid Race & more",id:"20FIT Hybrid Race & lainnya"})+'</div>'+
         '<div class="raceempty">'+L({en:"Join a race and your rank, time & leaderboard show up here.",id:"Ikuti race — rank, waktu & leaderboard kamu muncul di sini."})+'</div></div>';
     }

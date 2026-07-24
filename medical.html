@@ -162,7 +162,7 @@
         <div class="cbt" data-i18n="med_consult_t">Talk to a 20FIT doctor</div>
         <div class="cbs" data-i18n="med_consult_s">Have questions about your results? Book a consultation with our Sport Clinic doctor.</div>
       </div>
-      <a class="cbbtn" href="https://booking.20fit.id/clinic" target="_blank" rel="noopener" data-i18n="med_consult_cta">Consult a Doctor</a>
+      <a class="cbbtn" href="https://booking.20fit.id/clinic" data-i18n="med_consult_cta">Consult a Doctor</a>
     </div>
 
     <div id="result"></div>
@@ -317,7 +317,7 @@
     function shopBanner(){
       const cart='<svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>';
       const btn = SHOP_URL
-        ? '<a class="cbbtn" style="color:#1d6b41" href="'+SHOP_URL+'" target="_blank" rel="noopener">'+L({en:"Shop Food",id:"Belanja"})+'</a>'
+        ? '<a class="cbbtn" style="color:#1d6b41" href="'+SHOP_URL+'">'+L({en:"Shop Food",id:"Belanja"})+'</a>'
         : '<span class="cbbtn" style="color:#1d6b41;opacity:.7;cursor:default">'+L({en:"Coming soon",id:"Segera hadir"})+'</span>';
       return '<div class="shopbn rfull"><div class="cbic">'+cart+'</div><div style="flex:1">'+
         '<div class="cbt">'+L({en:"Shop your ingredients",id:"Belanja bahan makanannya"})+'</div>'+
@@ -341,7 +341,7 @@
       const exIcon='<svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:#2563eb;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>';
       return '<div class="card"><div class="ch" style="color:#2563eb">'+exIcon+L({en:"Recommended Programs",id:"Program yang Disarankan"})+'</div>'+
         list.map(p=>'<div class="prow"><div style="flex:1"><div class="pn">'+p.n+'</div><div class="pd">'+L(p.d)+'</div></div>'+
-          '<a class="bookchip'+(p.clinic?" clinic":"")+'" href="'+p.u+'" target="_blank" rel="noopener">'+L({en:"Book",id:"Booking"})+'</a></div>').join("")+'</div>';
+          '<a class="bookchip'+(p.clinic?" clinic":"")+'" href="'+p.u+'">'+L({en:"Book",id:"Booking"})+'</a></div>').join("")+'</div>';
     }
 
     let currentRes=null, baseRes=null, transCache={};
