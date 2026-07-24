@@ -526,6 +526,7 @@
     function scoreDiamonds(score){ score=Math.max(0,Math.min(10,Math.round(+score||0))); return "◆".repeat(score)+"◇".repeat(10-score); }
     function macroBox(label,val){ return '<div class="mcx"><div class="mcv">'+nRound(val)+'g</div><div class="mcl">'+label+'</div></div>'; }
     function renderScanDetail(res){
+      function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
       var kcal=nRound(res.total_kcal);
       var p=res.protein_g!=null?res.protein_g:sumItems("protein_g");
       var c=res.carbs_g!=null?res.carbs_g:sumItems("carbs_g");
@@ -534,39 +535,39 @@
       var sat=Math.round(+res.satiety_score||0), health=Math.round(+res.health_score||0);
       var title=(lastScan||[]).map(i=>i.name).join(", ");
       var h='<div class="scd">';
-      h+='<div class="scd-top"><div class="scd-name">'+title+'</div><div class="scd-kcal">~'+kcal+' '+kc()+'</div></div>';
-      if(res.description) h+='<div class="scd-desc">'+res.description+'</div>';
+      h+='<div class="scd-top"><div class="scd-name">'+esc(title)+'</div><div class="scd-kcal">~'+kcal+' '+kc()+'</div></div>';
+      if(res.description) h+='<div class="scd-desc">'+esc(res.description)+'</div>';
       h+='<div class="scd-macros">'+
          macroBox(L({en:"Protein",id:"Protein"}),p)+
          macroBox(L({en:"Carbs",id:"Karbo"}),c)+
          macroBox(L({en:"Fat",id:"Lemak"}),f)+
          macroBox(L({en:"Fiber",id:"Serat"}),fib)+'</div>';
       if(res.tags && res.tags.length){
-        h+='<div class="scd-tags">'+res.tags.map(function(t){var pos=!(t&&t.positive===false);var lab=(t&&t.label)?t.label:String(t);return '<span class="tagchip '+(pos?"good":"warn")+'">'+lab+'</span>';}).join('')+'</div>';
+        h+='<div class="scd-tags">'+res.tags.map(function(t){var pos=!(t&&t.positive===false);var lab=(t&&t.label)?t.label:String(t);return '<span class="tagchip '+(pos?"good":"warn")+'">'+esc(lab)+'</span>';}).join('')+'</div>';
       }
       if(sat>0){
         h+='<div class="scd-score"><div class="scd-slabel">'+L({en:"Filling Rate",id:"Filling Rate"})+' <b>'+sat+'/10</b></div>'+
            '<div class="scd-dias">'+scoreDiamonds(sat)+'</div>'+
-           (res.satiety_note?'<div class="scd-note">'+res.satiety_note+'</div>':'')+'</div>';
+           (res.satiety_note?'<div class="scd-note">'+esc(res.satiety_note)+'</div>':'')+'</div>';
       }
       if(health>0){
         h+='<div class="scd-score"><div class="scd-slabel">'+L({en:"Health Score",id:"Skor Sehat"})+' <b>'+health+'/10</b></div>'+
            '<div class="scd-bar"><i style="width:'+(health*10)+'%"></i></div></div>';
       }
       if(res.overall){
-        h+='<div class="scd-sec scd-overall"><div class="scd-lbl">'+L({en:"Overall analysis",id:"Analisa keseluruhan"})+'</div><div class="scd-rectext">'+res.overall+'</div></div>';
+        h+='<div class="scd-sec scd-overall"><div class="scd-lbl">'+L({en:"Overall analysis",id:"Analisa keseluruhan"})+'</div><div class="scd-rectext">'+esc(res.overall)+'</div></div>';
       }
       if(res.recommendation){
-        var nm=(res.needs_more&&res.needs_more.length)?'<div class="scd-needs">'+res.needs_more.map(x=>'<span class="need-chip">+ '+x+'</span>').join('')+'</div>':'';
-        h+='<div class="scd-sec scd-rec"><div class="scd-lbl">'+L({en:"Better intake — what to add",id:"Asupan lebih baik — perlu ditambah"})+'</div><div class="scd-rectext">'+res.recommendation+'</div>'+nm+'</div>';
+        var nm=(res.needs_more&&res.needs_more.length)?'<div class="scd-needs">'+res.needs_more.map(x=>'<span class="need-chip">+ '+esc(x)+'</span>').join('')+'</div>':'';
+        h+='<div class="scd-sec scd-rec"><div class="scd-lbl">'+L({en:"Better intake — what to add",id:"Asupan lebih baik — perlu ditambah"})+'</div><div class="scd-rectext">'+esc(res.recommendation)+'</div>'+nm+'</div>';
       }
       h+='<div class="scd-sec"><div class="scd-lbl">'+L({en:"Portions",id:"Porsi"})+'</div>'+
-         (lastScan||[]).map(i=>'<div class="scd-por"><span>'+i.name+(i.portion?' <span class="mut">('+i.portion+')</span>':'')+'</span><span class="mut">'+nRound(i.kcal)+' '+kc()+'</span></div>').join('')+'</div>';
+         (lastScan||[]).map(i=>'<div class="scd-por"><span>'+esc(i.name)+(i.portion?' <span class="mut">('+esc(i.portion)+')</span>':'')+'</span><span class="mut">'+nRound(i.kcal)+' '+kc()+'</span></div>').join('')+'</div>';
       if(res.insights && res.insights.length){
         h+='<div class="scd-sec"><div class="scd-lbl">'+L({en:"Key Insights",id:"Insight Penting"})+'</div><ul class="scd-ins">'+
-           res.insights.map(x=>'<li>'+x+'</li>').join('')+'</ul></div>';
+           res.insights.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>';
       }
-      if(res.note) h+='<div class="scd-note" style="margin-top:10px">'+res.note+'</div>';
+      if(res.note) h+='<div class="scd-note" style="margin-top:10px">'+esc(res.note)+'</div>';
       h+='<button class="scanbtn" style="margin-top:12px" onclick="addScanned()">'+I18N.t("cal_addlog")+'</button></div>';
       return h;
     }
