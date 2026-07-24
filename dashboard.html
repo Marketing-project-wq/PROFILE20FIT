@@ -326,8 +326,7 @@
 
     <!-- PLATAROX x 20FIT — klik banner -> hasil & leaderboard race di racelabtiming -->
     <a class="race-banner" href="https://racelabtiming.20fit.id/results/platarox"
-       target="_blank" rel="noopener"
-       aria-label="Lihat hasil & leaderboard Platarox kamu">
+             aria-label="Lihat hasil & leaderboard Platarox kamu">
       <img src="https://media.20fit.id/wp-content/uploads/2026/07/IMG_2055.png"
            alt="PLATAROX x 20FIT — Your race, your time, proven. Cek hasil &amp; leaderboard Platarox kamu di my20FIT."
            loading="lazy" decoding="async">
@@ -478,7 +477,7 @@
     <!-- Book your session (lokasi) -->
     <div class="trk-head" style="margin-top:10px">
       <div class="sec gsec" data-en="Book your session" data-id="Book Sesi Kamu" style="margin:0">Book your session</div>
-      <a class="trk-all" href="https://booking.20fit.id" target="_blank" rel="noopener" data-en="All" data-id="Semua">All</a>
+      <a class="trk-all" href="https://booking.20fit.id"  data-en="All" data-id="Semua">All</a>
     </div>
     <div class="psub2" data-en="By location · pick a place to start" data-id="Berdasarkan lokasi · pilih tempat mulai">By location · pick a place to start</div>
     <div class="hscroll" id="locRow"></div>
@@ -486,7 +485,7 @@
     <!-- Book a personal session (dokter/coach) -->
     <div class="trk-head" style="margin-top:16px">
       <div class="sec gsec" data-en="Book a personal session" data-id="Book Sesi Personal" style="margin:0">Book a personal session</div>
-      <a class="trk-all" href="https://booking.20fit.id" target="_blank" rel="noopener" data-en="See all" data-id="Lihat semua">See all</a>
+      <a class="trk-all" href="https://booking.20fit.id"  data-en="See all" data-id="Lihat semua">See all</a>
     </div>
     <div class="psub2" id="pplCount"></div>
     <div class="chips2" id="pplChips"></div>
@@ -511,7 +510,7 @@
         <div class="sec gsec" data-en="Train today" data-id="Latihan Hari Ini">Train today</div>
         <div class="sec" data-i18n="sec_recs">Recommended Workouts</div>
         <div class="card" id="recs"></div>
-        <a class="bookbtn" href="https://booking.20fit.id/gym" target="_blank" rel="noopener">
+        <a class="bookbtn" href="https://booking.20fit.id/gym" >
           <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <span data-i18n="book_recworkout">Ready to train? Book your class at 20FIT.</span>
         </a>
@@ -814,7 +813,7 @@
         var inner = badge + '<div class="s2-ic' + (o.dark ? ' dark' : '') + '">' + svg + '</div><div class="s2-lbl">' + Lx(o.lbl) + '</div>' + sub;
         if (o.menu) return '<div class="svc2" role="button" tabindex="0" data-menu="1">' + inner + '</div>';
         if (o.sso) return '<a class="svc2" href="https://photo.20fit.id" onclick="return openPhotoSso(event)">' + inner + '</a>';
-        if (o.href) return '<a class="svc2" href="' + o.href + '"' + (o.ext ? ' target="_blank" rel="noopener"' : '') + '>' + inner + '</a>';
+        if (o.href) return '<a class="svc2" href="' + o.href + '">' + inner + '</a>';
         return '<div class="svc2" role="button" tabindex="0" data-soon="1">' + inner + '</div>';
       }
       window.buildSvcGrid = function () {
@@ -956,7 +955,7 @@
           return '<div class="loccard"><div class="lochd ' + o.cls + '"><div class="locnm">' + o.nm + '</div>' +
             '<div class="locloc"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + Lx(o.loc) + '</div></div>' +
             '<div class="locbody"><div class="locchips">' + chips + '</div>' +
-            '<a class="locbtn" href="' + o.href + '" target="_blank" rel="noopener">' + Lx(o.btn) + ' <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a></div></div>';
+            '<a class="locbtn" href="' + o.href + '" >' + Lx(o.btn) + ' <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a></div></div>';
         }).join("");
       }
       function buildPeople() {
@@ -971,7 +970,7 @@
         var list = PEOPLE.filter(function (p) { return pplFilter === "all" || p.type === pplFilter; });
         row.innerHTML = list.map(function (p) {
           var badge = p.type === "doctor" ? Lx({ en: "DOCTOR", id: "DOKTER" }) : "COACH";
-          return '<a class="doccard ' + p.type + '" href="https://booking.20fit.id" target="_blank" rel="noopener">' +
+          return '<a class="doccard ' + p.type + '" href="https://booking.20fit.id" >' +
             '<div class="docph">' + PERSON_IC + '</div><span class="docbadge">' + badge + '</span>' +
             '<div class="docov"><div class="docnm">' + p.nm + '</div><div class="docsp">' + Lx(p.sp) + '</div></div></a>';
         }).join("");
@@ -1103,7 +1102,7 @@
             '<div class="muted" style="margin-bottom:8px">'+L({en:"From your latest check-up — keep an eye on:",id:"Dari medical check-up terakhirmu — perhatikan:"})+'</div>'+
             att.slice(0,4).map(f=>'<div class="hrrow"><span class="hrdot"></span><div><b>'+(f.label||"")+'</b>'+(f.what_to_do?'<div class="muted" style="font-size:12px">'+f.what_to_do+'</div>':"")+'</div></div>').join("")+
             '<a class="bookbtn ghost" href="medical.html" style="margin-top:12px">'+L({en:"View full results",id:"Lihat hasil lengkap"})+' ›</a>'+
-            '<a class="bookbtn" href="https://booking.20fit.id/clinic" target="_blank" rel="noopener">'+L({en:"Consult a 20FIT doctor",id:"Konsultasi dokter 20FIT"})+'</a></div>';
+            '<a class="bookbtn" href="https://booking.20fit.id/clinic" >'+L({en:"Consult a 20FIT doctor",id:"Konsultasi dokter 20FIT"})+'</a></div>';
         } else if(res){
           html+='<div class="sec">'+L({en:"What to watch",id:"Yang Perlu Diperhatikan"})+'</div>'+
             '<a class="card hrok" href="medical.html" style="border-color:rgba(42,122,79,.3)">'+
@@ -1308,7 +1307,7 @@
       const goIcon='<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:var(--pagemut);stroke-width:2;flex:0 0 auto"><polyline points="9 18 15 12 9 6"/></svg>';
       document.getElementById("recs").innerHTML=keys.map(k=>{
         const p=PRODUCTS[k];
-        return '<a class="wrow" href="'+BOOK_LOC[p[2]]+'" target="_blank" rel="noopener"><div class="em">'+exIcon+'</div><div style="flex:1"><div class="nm">'+p[0]+'</div><div class="rs">'+L(p[1])+'</div></div><span class="tag" style="'+tagCol[tag]+'">'+tagTxt+'</span>'+goIcon+'</a>';
+        return '<a class="wrow" href="'+BOOK_LOC[p[2]]+'" ><div class="em">'+exIcon+'</div><div style="flex:1"><div class="nm">'+p[0]+'</div><div class="rs">'+L(p[1])+'</div></div><span class="tag" style="'+tagCol[tag]+'">'+tagTxt+'</span>'+goIcon+'</a>';
       }).join("");
     }
 
