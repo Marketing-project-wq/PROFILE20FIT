@@ -758,8 +758,11 @@
       // Photo: TIDAK ada data asli (integrasi photo.20fit.id belum dibangun) -> empty-state
       // dengan ajakan hubungkan (klik = SSO ke photo.20fit.id). JANGAN pakai thumbnail dummy.
       function tcPhoto() {
-        return '<a class="card tkcard" href="https://photo.20fit.id" onclick="return openPhotoSso(event)"><div class="tkhd"><div class="tkic photo">' + TICON.photo + '</div><div style="flex:1"><div class="tktitle">Your Photo.20fit.id</div><div class="tksub">' + Lx({ en: "Progress photos from photo.20fit.id", id: "Foto progres dari photo.20fit.id" }) + '</div></div><span class="tkchev">›</span></div>' +
-          '<div class="tkempty">' + Lx({ en: "Connect your photo.20fit.id account to see your photos here.", id: "Hubungkan akun photo.20fit.id untuk lihat fotomu di sini." }) + '</div></a>';
+        return '<div class="card tkcard">' +
+          '<a href="https://photo.20fit.id" onclick="return openPhotoSso(event)" style="text-decoration:none;color:inherit"><div class="tkhd"><div class="tkic photo">' + TICON.photo + '</div><div style="flex:1"><div class="tktitle">Your Photo.20fit.id</div><div class="tksub">' + Lx({ en: "Face-search your 20FIT event photos", id: "Cari foto event 20FIT pakai wajahmu" }) + '</div></div><span class="tkchev">›</span></div></a>' +
+          '<div class="tkempty">' + Lx({ en: "Scan your face on photo.20fit.id to find your photos — same 20FIT account, no re-register needed.", id: "Scan wajahmu di photo.20fit.id untuk cari fotomu — pakai akun 20FIT yang sama, tanpa daftar ulang." }) + '</div>' +
+          '<button class="btn dark" type="button" onclick="return openPhotoSso(event)" style="margin-top:10px;width:100%">' + Lx({ en: "Scan face to find my photos", id: "Scan wajah cari fotoku" }) + '</button>' +
+        '</div>';
       }
       function tcFasting() {
         var st = (window.Fasting && Fasting.state) ? Fasting.state() : null;
