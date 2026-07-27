@@ -458,9 +458,27 @@
       .tksub{font-size:13px;color:var(--muted);margin-top:1px}
       .tkchev{margin-left:auto;color:var(--pagemut);font-weight:800;font-size:20px;align-self:flex-start}
       .tkplus{margin-left:auto;width:40px;height:40px;border-radius:50%;background:var(--red);color:#fff;border:0;font-size:22px;line-height:1;cursor:pointer;display:grid;place-items:center;flex:0 0 auto;box-shadow:0 6px 14px color-mix(in srgb,var(--red) 32%,transparent)}
-      .tphotos{display:flex;gap:8px;margin-top:12px}
-      .tph{flex:1;border-radius:10px;aspect-ratio:1;display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;font-size:9px;font-weight:800;color:rgba(255,255,255,.92)}
       .tkmono{font-family:'JetBrains Mono',ui-monospace,monospace}
+      /* ---- Rich pinned tracker cards ---- */
+      .tkval{font-size:21px;font-weight:900;line-height:1.1;margin-top:3px}
+      .tkval small{font-size:12.5px;font-weight:700;color:var(--muted)}
+      .tkring{flex:0 0 auto;margin-left:auto}
+      .tkring svg{width:68px;height:68px}
+      .tkring .rbg{fill:none;stroke:var(--inp);stroke-width:7}
+      .tkring .rfg{fill:none;stroke:var(--amber);stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset .4s}
+      .tkring .rtx{font-size:12px;font-weight:800;fill:var(--txt)}
+      .tkprog{height:8px;border-radius:99px;background:var(--inp);overflow:hidden;margin-top:12px}
+      .tkprog i{display:block;height:100%;background:var(--blue);border-radius:99px;transition:width .4s}
+      .tkbars{display:flex;align-items:flex-end;gap:5px;height:46px;margin-left:auto;flex:0 0 92px}
+      .tkbars i{flex:1;background:#7c5cff;border-radius:3px 3px 0 0;min-height:3px;opacity:.9}
+      .tkbars i.empty{background:var(--inp);opacity:1}
+      .tkstats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:14px}
+      .tkstat{background:var(--inp);border-radius:12px;padding:12px 10px;text-align:center}
+      .tkstat b{display:block;font-size:20px;font-weight:900;line-height:1}
+      .tkstat span{display:block;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:5px}
+      .tkempty{margin-top:12px;padding:14px;border:1px dashed var(--line);border-radius:12px;text-align:center;font-size:12.5px;color:var(--muted)}
+      .tkskel{background:linear-gradient(90deg,var(--inp),color-mix(in srgb,var(--inp) 55%,#fff),var(--inp));background-size:200% 100%;animation:tksh 1.2s infinite}
+      @keyframes tksh{0%{background-position:200% 0}100%{background-position:-200% 0}}
     </style>
 
     <div class="trk-head">
@@ -710,6 +728,20 @@
       var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health"];
       function getPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p) || !p.length) p = ["calories"]; if (p.indexOf("calories") < 0) p.unshift("calories"); return p.filter(function (x) { return TRK[x]; }); }
       function setPins(p) { try { localStorage.setItem("my20fit_home_pins", JSON.stringify(p)); } catch (e) {} }
+      // Data 7 malam terakhir utk mini bar chart Sleep (null = masih loading). Data REAL dari daily_log.
+      var SLEEP7 = null;
+      window.loadSleep7 = async function loadSleep7() {
+        try {
+          if (!window.Auth || !Auth.supabase || typeof profile === "undefined" || !profile || !profile.auth_user_id) { SLEEP7 = []; }
+          else {
+            var r = await Auth.supabase.from("my20fit_daily_log").select("log_date,sleep_hours")
+              .eq("auth_user_id", profile.auth_user_id).not("sleep_hours", "is", null)
+              .order("log_date", { ascending: false }).limit(7);
+            SLEEP7 = (((r && r.data) || []).map(function (x) { return +x.sleep_hours || 0; })).reverse(); // kronologis
+          }
+        } catch (e) { SLEEP7 = []; }
+        try { if (window.renderStack) window.renderStack(); } catch (e) {}
+      }
 
       function tcCalories() {
         var tgt = (typeof calCalGoal === "function" && typeof profile !== "undefined" && profile) ? calCalGoal(profile) : 2000;
@@ -723,32 +755,54 @@
           '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Calories", id: "Kalori" }) + '</div><div class="tc-kcal tkmono">' + eaten + ' / ' + tgt.toLocaleString() + ' kcal <small>· ' + pct + '%</small></div></div><span class="tkchev">›</span></div>' +
           '<div class="tc-macros">' + macro(Lx({ en: "Protein", id: "Protein" }), Math.round(em.p), mt.p, "#C41101") + macro(Lx({ en: "Carbs", id: "Karbo" }), Math.round(em.c), mt.c, "#C87000") + macro(Lx({ en: "Fat", id: "Lemak" }), Math.round(em.f), mt.f, "#2F6BFF") + '</div></a>';
       }
+      // Photo: TIDAK ada data asli (integrasi photo.20fit.id belum dibangun) -> empty-state
+      // dengan ajakan hubungkan (klik = SSO ke photo.20fit.id). JANGAN pakai thumbnail dummy.
       function tcPhoto() {
-        var COLS = ["#8a6d5a", "#4a5a72", "#5a6b4a", "#6a5a86", "#7a7150"], labs = ["12 Jul", "5 Jul", "28 Jun", "21 Jun", "14 Jun"];
-        var th = COLS.map(function (c, i) { return '<div class="tph" style="background:linear-gradient(160deg,' + c + ',rgba(0,0,0,.35))">' + labs[i] + '</div>'; }).join("");
-        return '<a class="card tkcard" href="https://photo.20fit.id" onclick="return openPhotoSso(event)"><div class="tkhd"><div class="tkic photo">' + TICON.photo + '</div><div style="flex:1"><div class="tktitle">Your Photo.20fit.id</div></div><span class="tkchev">›</span></div>' +
-          '<div class="tphotos">' + th + '</div><div class="tksub" style="margin-top:8px">' + Lx({ en: "Auto-synced from photo.20fit.id · read only", id: "Tersinkron dari photo.20fit.id · hanya-baca" }) + '</div></a>';
+        return '<a class="card tkcard" href="https://photo.20fit.id" onclick="return openPhotoSso(event)"><div class="tkhd"><div class="tkic photo">' + TICON.photo + '</div><div style="flex:1"><div class="tktitle">Your Photo.20fit.id</div><div class="tksub">' + Lx({ en: "Progress photos from photo.20fit.id", id: "Foto progres dari photo.20fit.id" }) + '</div></div><span class="tkchev">›</span></div>' +
+          '<div class="tkempty">' + Lx({ en: "Connect your photo.20fit.id account to see your photos here.", id: "Hubungkan akun photo.20fit.id untuk lihat fotomu di sini." }) + '</div></a>';
       }
       function tcFasting() {
         var st = (window.Fasting && Fasting.state) ? Fasting.state() : null;
-        if (!st) return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd"><div class="tkic fast">' + TICON.fast + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub">' + Lx({ en: "Choose a 16:8, 18:6 or OMAD plan", id: "Pilih rencana 16:8, 18:6 atau OMAD" }) + '</div></div><span class="tkchev">›</span></div></a>';
-        var s = st.style, sub;
-        if (st.weekly) sub = (window.L ? L(s.name) : s.name.en);
-        else { var hrs = Math.floor(st.untilMin / 60), mn = st.untilMin % 60; sub = (window.L ? L(s.name) : s.name.en) + ' · ' + hrs + 'h ' + mn + 'm ' + (st.eating ? Lx({ en: "left in window", id: "sisa jendela" }) : Lx({ en: "until eating", id: "sampai makan" })); }
-        return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd"><div class="tkic fast">' + TICON.fast + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub tkmono">' + sub + '</div></div><span class="tkchev">›</span></div></a>';
+        var ic = '<div class="tkic fast">' + TICON.fast + '</div>';
+        if (!st) return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd">' + ic + '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub">' + Lx({ en: "Choose a 16:8, 18:6 or OMAD plan", id: "Pilih rencana 16:8, 18:6 atau OMAD" }) + '</div></div><span class="tkchev">›</span></div></a>';
+        var name = window.L ? L(st.style.name) : st.style.name.en;
+        if (st.weekly) return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd">' + ic + '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub tkmono">' + name + '</div></div><span class="tkchev">›</span></div></a>';
+        var phaseTotal = (st.eating ? st.style.eat : st.style.fast) * 60;
+        var frac = phaseTotal ? Math.max(0, Math.min(1, (phaseTotal - st.untilMin) / phaseTotal)) : 0;
+        var hrs = Math.floor(st.untilMin / 60), mn = st.untilMin % 60;
+        var C = 2 * Math.PI * 30, off = C * (1 - frac);
+        var ring = '<div class="tkring"><svg viewBox="0 0 68 68"><circle class="rbg" cx="34" cy="34" r="30"/><circle class="rfg" cx="34" cy="34" r="30" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 34 34)"/><text class="rtx" x="34" y="38" text-anchor="middle">' + hrs + 'h' + mn + 'm</text></svg></div>';
+        var lab = st.eating ? Lx({ en: "left in eating window", id: "sisa jendela makan" }) : Lx({ en: "until eating window", id: "sampai jendela makan" });
+        return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd">' + ic + '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub tkmono">' + name + ' · ' + lab + '</div></div>' + ring + '</div></a>';
       }
       function tcHydration() {
         var g = 0; try { g = (typeof daily !== "undefined" && daily) ? +daily.water_glasses || 0 : 0; } catch (e) {}
-        return '<div class="card tkcard"><div class="tkhd"><div class="tkic drop">' + TICON.drop + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Hydration", id: "Hidrasi" }) + '</div><div class="tksub tkmono">' + (g * 0.25).toFixed(1) + ' / 2.0 L · ' + g + ' ' + Lx({ en: "of 8 glasses", id: "dari 8 gelas" }) + '</div></div>' +
-          '<button class="tkplus" type="button" onclick="hydPlus(event)" aria-label="Add water">+</button></div></div>';
+        var pct = Math.max(0, Math.min(100, Math.round(g / 8 * 100)));
+        return '<div class="card tkcard"><div class="tkhd"><div class="tkic drop">' + TICON.drop + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Hydration", id: "Hidrasi" }) + '</div>' +
+          '<div class="tkval tkmono">' + (g * 0.25).toFixed(1) + '<small> / 2.0 L · ' + g + ' ' + Lx({ en: "of 8 glasses", id: "dari 8 gelas" }) + '</small></div></div>' +
+          '<button class="tkplus" type="button" onclick="hydPlus(event)" aria-label="Add water">+</button></div>' +
+          '<div class="tkprog"><i style="width:' + pct + '%"></i></div></div>';
       }
+      function sleepQuality(h) { if (!h) return null; if (h >= 7) return { en: "Good", id: "Baik" }; if (h >= 6) return { en: "Fair", id: "Cukup" }; return { en: "Poor", id: "Kurang" }; }
       function tcSleep() {
         var h = 0; try { h = (typeof daily !== "undefined" && daily) ? +daily.sleep_hours || 0 : 0; } catch (e) {}
-        return '<a class="card tkcard" href="dashboard.html#sleep"><div class="tkhd"><div class="tkic sleep">' + TICON.sleep + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Sleep", id: "Tidur" }) + '</div><div class="tksub tkmono">' + (h ? h.toFixed(1) + 'h ' + Lx({ en: "last night", id: "semalam" }) : Lx({ en: "Log your sleep", id: "Catat tidurmu" })) + '</div></div><span class="tkchev">›</span></div></a>';
+        var q = sleepQuality(h);
+        var bars;
+        if (SLEEP7 === null) { bars = '<div class="tkbars">' + "1234567".split("").map(function () { return '<i class="tkskel" style="height:55%"></i>'; }).join("") + '</div>'; }
+        else {
+          var arr = SLEEP7.slice(); while (arr.length < 7) arr.unshift(0);
+          arr = arr.slice(-7);
+          var mx = Math.max(8, arr.reduce(function (m, v) { return Math.max(m, v || 0); }, 0));
+          bars = '<div class="tkbars">' + arr.map(function (v) { return v ? '<i style="height:' + Math.max(10, Math.round(v / mx * 100)) + '%"></i>' : '<i class="empty" style="height:8%"></i>'; }).join("") + '</div>';
+        }
+        var sub = h ? (h.toFixed(1) + 'h' + (q ? ' · ' + Lx(q) : '') + ' · ' + Lx({ en: "goal 8h", id: "target 8h" })) : Lx({ en: "Log your sleep", id: "Catat tidurmu" });
+        return '<a class="card tkcard" href="dashboard.html#sleep"><div class="tkhd"><div class="tkic sleep">' + TICON.sleep + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Sleep", id: "Tidur" }) + '</div><div class="tksub tkmono">' + sub + '</div></div>' + bars + '</div></a>';
       }
       function tcHealth() {
         var b = null, w = null; try { if (typeof profile !== "undefined" && profile) { w = profile.weight_kg; if (profile.weight_kg && profile.height_cm) b = Math.round(profile.weight_kg / Math.pow(profile.height_cm / 100, 2) * 10) / 10; } } catch (e) {}
-        return '<a class="card tkcard" href="progress.html"><div class="tkhd"><div class="tkic pulse">' + TICON.pulse + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Health snapshot", id: "Ringkasan Kesehatan" }) + '</div><div class="tksub tkmono">' + (b ? ('BMI ' + b.toFixed(1) + (w ? ' · ' + w + ' kg' : '')) : Lx({ en: "Add weight & height", id: "Isi berat & tinggi" })) + '</div></div><span class="tkchev">›</span></div></a>';
+        var head = '<a class="card tkcard" href="progress.html"><div class="tkhd"><div class="tkic pulse">' + TICON.pulse + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Health snapshot", id: "Ringkasan Kesehatan" }) + '</div><div class="tksub">' + (b ? Lx({ en: "Weight & BMI", id: "Berat & BMI" }) : Lx({ en: "Add weight & height", id: "Isi berat & tinggi" })) + '</div></div><span class="tkchev">›</span></div>';
+        if (b == null && w == null) return head + '</a>';
+        return head + '<div class="tkstats"><div class="tkstat"><b>' + (w != null ? w : '—') + '</b><span>' + Lx({ en: "Weight kg", id: "Berat kg" }) + '</span></div><div class="tkstat"><b>' + (b != null ? b.toFixed(1) : '—') + '</b><span>BMI</span></div></div></a>';
       }
       window.hydPlus = function (e) { if (e) { e.preventDefault(); e.stopPropagation(); } try { if (typeof setWater === "function" && typeof water !== "undefined") { setWater(water + 1); if (typeof daily !== "undefined" && daily) daily.water_glasses = water; } } catch (err) {} window.renderStack(); };
       // SSO ke photo.20fit.id (server mint OTP satu-kali -> photo.20fit.id/sso), dipindah dari profil.
@@ -1033,6 +1087,7 @@
       loadWeather();
       loadHealthReminder();
       try{ if(window.renderStack) window.renderStack(); }catch(e){}
+      try{ if(window.loadSleep7) window.loadSleep7(); }catch(e){}
       renderIFWidget();
       checkAchievements();
     })();
