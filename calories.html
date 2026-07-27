@@ -176,6 +176,17 @@
     <div class="sec" data-i18n="cal_today_sec" style="margin-top:0">Today's Food</div>
     <div class="card"><div id="log"></div></div>
 
+    <!-- Rekomendasi menu berdasar SISA makro hari ini (Bagian 3) -->
+    <div class="card" id="menuRecCard">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div><div style="font-weight:800;font-size:15px">🍽️ Rekomendasi menu</div><div class="muted" style="font-size:12px">Berdasarkan sisa makro kamu hari ini</div></div>
+        <button id="menuRecToggle" onclick="toggleMenuRec()" style="border:1px solid var(--line);background:var(--inp);border-radius:99px;padding:6px 12px;font-weight:700;font-size:12px;cursor:pointer;flex:0 0 auto">Sembunyikan</button>
+      </div>
+      <div id="menuRecBody" style="margin-top:12px"></div>
+      <a href="diet.html" style="display:block;text-align:center;margin-top:6px;color:var(--red);font-weight:800;text-decoration:none;font-size:13px">Lihat menu lainnya →</a>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px">Perkiraan panduan — bukan pengganti saran ahli gizi.</div>
+    </div>
+
     <div class="sec" id="mealideas" data-i18n="cal_recs">Meal Ideas & Recipes</div>
     <div class="card">
       <div class="mtabs">
@@ -307,6 +318,7 @@
   <script src="js/i18n.js"></script>
   <script src="js/fasting.js"></script>
   <script src="js/nutrition.js"></script>
+  <script src="js/recipes.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/orders.js"></script>
   <script src="js/meta-pixel.js"></script>
@@ -355,8 +367,29 @@
       setMacro("pVal",tp,macroT.p,"pBar");
       setMacro("cVal",tc,macroT.c,"cBar");
       setMacro("fVal",tf,macroT.f,"fBar");
+      try{ renderMenuRec(tp,tc,tf); }catch(e){}
       const log=document.getElementById("log");
       log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}${i.t?`<span class="mtime">${i.t}</span>`:""}</span><span class="kc">${i.kcal} ${kc()} <a onclick="del(${idx})" style="color:var(--red);cursor:pointer;margin-left:8px">✕</a></span></div>`).join(""):'<div class="muted">'+I18N.t("cal_empty")+'</div>';
+    }
+    // ---- Rekomendasi menu berdasar SISA makro hari ini (Bagian 3) ----
+    var menuRecOn=true;
+    function toggleMenuRec(){ menuRecOn=!menuRecOn; var b=document.getElementById("menuRecBody"); if(b)b.style.display=menuRecOn?"":"none"; var t=document.getElementById("menuRecToggle"); if(t)t.textContent=menuRecOn?"Sembunyikan":"Tampilkan"; }
+    function renderMenuRec(tp,tc,tf){
+      var body=document.getElementById("menuRecBody"); if(!body||!window.Recipes||!menuRecOn) return;
+      var rem={ p:Math.round((macroT.p||0)-tp), c:Math.round((macroT.c||0)-tc), f:Math.round((macroT.f||0)-tf) };
+      var recs=Recipes.recommendForMacros(rem,3);
+      var lbl={p:"protein",c:"karbo",f:"lemak"}, parts=[];
+      ["p","c","f"].forEach(function(k){ if(rem[k]>0) parts.push(lbl[k]+" "+rem[k]+"g"); });
+      var lead=parts.length?("Sisa hari ini: "+parts.join(" · ")):"Target makro harianmu hampir terpenuhi 🎉";
+      var nm=function(o){ return window.L?L(o):(o.id||o.en); };
+      body.innerHTML='<div class="muted" style="font-size:12.5px;margin-bottom:6px">'+lead+'</div>'+
+        recs.map(function(r){
+          return '<a href="diet.html" style="display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line);text-decoration:none;color:inherit">'+
+            '<div style="width:44px;height:44px;border-radius:11px;display:grid;place-items:center;font-size:22px;flex:0 0 auto;background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+r.emoji+'</div>'+
+            '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">'+nm(r.nm)+'</div>'+
+            '<div class="muted" style="font-size:11.5px">~'+r.kcal+' kcal · P'+r.p+' C'+r.c+' F'+r.f+'</div></div>'+
+            '<span style="color:var(--red);font-weight:800">›</span></a>';
+        }).join("");
     }
     async function estimateFood(){
       const name=document.getElementById("fname").value.trim();

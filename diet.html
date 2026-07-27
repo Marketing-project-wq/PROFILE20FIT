@@ -47,6 +47,22 @@
   .badge.rejected{background:rgba(196,17,1,.12);color:var(--red)}
   .rr{font-size:12.5px;color:var(--red);margin-top:5px}
   .empty{padding:20px;text-align:center;color:var(--muted);font-size:14px}
+  /* Resep */
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;-webkit-overflow-scrolling:touch}
+  .chips::-webkit-scrollbar{height:0}
+  .chip{border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:99px;padding:8px 14px;font-weight:700;font-size:13px;white-space:nowrap;cursor:pointer;flex:0 0 auto}
+  .chip.on{background:var(--red);color:#fff;border-color:var(--red)}
+  .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(min-width:700px){ .rgrid{grid-template-columns:1fr 1fr 1fr} }
+  .rcard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);text-align:left;padding:0;font-family:inherit}
+  .rthumb{height:96px;display:grid;place-items:center;font-size:40px;background-size:cover;background-position:center}
+  .rbody{padding:10px 12px}
+  .rname{font-weight:800;font-size:14px;line-height:1.2;color:var(--txt)}
+  .rmeta{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .rmac{display:flex;gap:6px;margin-top:8px;font-size:10.5px;font-weight:700;flex-wrap:wrap}
+  .rmac span{background:var(--inp);border-radius:6px;padding:3px 6px;color:var(--txt)}
+  .rc-user{font-size:9px;background:var(--green);color:#fff;padding:2px 6px;border-radius:99px;font-weight:800;vertical-align:middle}
+  .rdisc{font-size:11.5px;color:var(--muted);background:var(--inp);border-radius:10px;padding:10px 12px;margin-top:12px}
 </style>
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/glass-app.css">
@@ -58,6 +74,13 @@
       <a href="dashboard.html">← Home</a>
     </div>
     <h1>Diet</h1>
+
+    <!-- Resep & rekomendasi per tipe diet (Bagian 2) -->
+    <div class="chips" id="dietChips"></div>
+    <div class="rgrid" id="recipeGrid"><div class="empty">Memuat resep…</div></div>
+    <div class="rdisc">Angka kalori & makro adalah <b>perkiraan</b> untuk panduan porsi — bukan pengganti saran ahli gizi. Foto masih placeholder; foto asli menyusul.</div>
+
+    <div class="sec" style="height:8px"></div>
 
     <!-- Reward progress -->
     <div class="card">
@@ -121,10 +144,20 @@
     </div>
   </div>
 
+  <!-- Modal detail resep -->
+  <div class="pm-bg" id="recBg">
+    <div class="pm">
+      <div class="grab"></div>
+      <div id="recBody"></div>
+      <button class="btn out" onclick="closeRecipe()">Tutup</button>
+    </div>
+  </div>
+
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/i18n.js"></script>
   <script src="js/nav.js"></script>
+  <script src="js/recipes.js"></script>
   <script>
     var user=null, MINE=[], revId=null;
     function $(id){ return document.getElementById(id); }
@@ -137,7 +170,61 @@
     (async function(){
       user=await Auth.requireAuth();
       loadMine();
+      loadRecipes();
     })();
+    // ---- Resep (Bagian 2): resep resmi 20FIT + menu user yang sudah approved+published ----
+    var ITEMS=[], curType="all";
+    function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+    async function loadRecipes(){
+      var userMenus=[];
+      try{
+        var res=await Auth.supabase.from("my20fit_menu_contribution")
+          .select("id,name,diet_type,ingredients,steps,photo_url,est_kcal")
+          .eq("status","approved").eq("published",true).order("reviewed_at",{ascending:false}).limit(100);
+        userMenus=(res&&res.data)||[];
+      }catch(e){}
+      ITEMS=(window.Recipes?Recipes.LIST:[]).map(function(r){
+        return { key:"r_"+r.id, title:LL(r.nm), kcal:r.kcal, p:r.p, c:r.c, f:r.f, types:r.types||[], ing:LL(r.ing), steps:LL(r.steps), emoji:r.emoji, tint:r.tint, source:"20fit" };
+      });
+      userMenus.forEach(function(m){
+        ITEMS.push({ key:"u_"+m.id, title:m.name, kcal:m.est_kcal||null, types:[m.diet_type||"normal"], ing:m.ingredients||"", steps:m.steps||"", photo:m.photo_url||null, source:"user" });
+      });
+      renderChips(); renderRecipes();
+    }
+    function renderChips(){
+      var types=["all"].concat(window.Recipes?Recipes.DIET_TYPES:[]);
+      var lbl={all:"Semua","high-protein":"High-protein","low-carb":"Low-carb"};
+      document.getElementById("dietChips").innerHTML=types.map(function(t){
+        var name=lbl[t]||(t.charAt(0).toUpperCase()+t.slice(1));
+        return '<button class="chip'+(t===curType?" on":"")+'" onclick="setDietType(\''+t+'\')">'+name+'</button>';
+      }).join("");
+    }
+    function setDietType(t){ curType=t; renderChips(); renderRecipes(); }
+    function renderRecipes(){
+      var grid=document.getElementById("recipeGrid");
+      var list=ITEMS.filter(function(it){ return curType==="all"||it.types.indexOf(curType)>=0; });
+      if(!list.length){ grid.innerHTML='<div class="empty">Belum ada resep untuk tipe ini.</div>'; return; }
+      grid.innerHTML=list.map(function(it){
+        var thumb=it.photo ? ('<div class="rthumb" style="background-image:url('+JSON.stringify(it.photo)+')"></div>')
+                           : ('<div class="rthumb" style="background:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>');
+        var mac=(it.p!=null)?('<div class="rmac"><span>P '+it.p+'g</span><span>C '+it.c+'g</span><span>F '+it.f+'g</span></div>'):'';
+        var meta='~'+(it.kcal!=null?it.kcal+' kcal':'—')+(it.source==="user"?' · <span class="rc-user">USER</span>':'');
+        return '<button class="rcard" onclick="openRecipe(\''+it.key+'\')">'+thumb+
+          '<div class="rbody"><div class="rname">'+esc(it.title)+'</div><div class="rmeta">'+meta+'</div>'+mac+'</div></button>';
+      }).join("");
+    }
+    function openRecipe(key){
+      var it=ITEMS.filter(function(x){return x.key===key;})[0]; if(!it) return;
+      var mac=(it.p!=null)?('<div class="rmac" style="margin:8px 0"><span>Protein '+it.p+'g</span><span>Karbo '+it.c+'g</span><span>Lemak '+it.f+'g</span></div>'):'';
+      document.getElementById("recBody").innerHTML=
+        '<h2 style="margin-top:0">'+esc(it.title)+'</h2>'+
+        '<div class="muted">~'+(it.kcal!=null?it.kcal+' kcal':'—')+(it.source==="user"?' · kontribusi user':'')+'</div>'+mac+
+        '<label>Bahan</label><div style="white-space:pre-wrap;font-size:14px">'+esc(it.ing)+'</div>'+
+        '<label>Cara buat</label><div style="white-space:pre-wrap;font-size:14px">'+esc(it.steps)+'</div>'+
+        (it.source==="20fit"?'<div class="rdisc">Angka gizi perkiraan — bukan saran ahli gizi.</div>':'');
+      document.getElementById("recBg").classList.add("open");
+    }
+    function closeRecipe(){ document.getElementById("recBg").classList.remove("open"); }
     function statusLabel(s){ return s==="approved"?"Disetujui":s==="rejected"?"Ditolak":"Menunggu"; }
     async function loadMine(){
       var box=$("myList");
