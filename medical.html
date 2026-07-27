@@ -473,8 +473,9 @@
     (async function(){
       user=await Auth.requireAuth();
       try{ profile=await Auth.getProfile(); }catch(e){ profile=null; }
+      var _lst=document.getElementById("list"); if(_lst) _lst.innerHTML='<div class="empty">'+L({en:"Loading your history…",id:"Memuat riwayat…"})+'</div>';
       await loadHistory(); renderList();
-      // Setelah refresh: tampilkan otomatis hasil terakhir (tanpa upload ulang)
+      // Setelah refresh: tampilkan otomatis hasil TERBARU dari DB (bukan upload lama)
       if(history[0]&&history[0].result){ showResult(history[0].result,true); }
     })();
     I18N.onChange(()=>{ renderList(); if(currentRes)translateCurrent(); });
