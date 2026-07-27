@@ -1519,6 +1519,119 @@ app.get("/api/corp/messages", async (req, res) => {
     return res.json({ ok: true, messages: data || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
+// ================= DIET Bagian 1: kontribusi menu + reward =================
+var MENU_DAILY_LIMIT = 5;
+var MENU_DIET_TYPES = ["normal", "vegetarian", "vegan", "pescatarian", "keto", "halal", "high-protein", "low-carb"];
+function menuHash(name, ingredients, steps) {
+  var norm = function (s) { return String(s || "").toLowerCase().replace(/\s+/g, " ").trim(); };
+  return sha256(norm(name) + "|" + norm(ingredients) + "|" + norm(steps));
+}
+function startOfTodayISO() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); }
+// User: submit menu baru (batas harian + deteksi duplikat via content_hash).
+app.post("/api/menu/submit", async (req, res) => {
+  var user = await getUserFromReq(req);
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  var b = req.body || {};
+  var name = String(b.name || "").trim(), ingredients = String(b.ingredients || "").trim(), steps = String(b.steps || "").trim();
+  var diet_type = String(b.diet_type || "normal").trim().toLowerCase();
+  if (!name || !ingredients || !steps) return res.status(400).json({ error: "Nama, bahan, dan cara buat wajib diisi." });
+  if (MENU_DIET_TYPES.indexOf(diet_type) < 0) diet_type = "normal";
+  var photo_url = b.photo_url ? String(b.photo_url) : null;
+  if (photo_url && photo_url.length > 3000000) return res.status(413).json({ error: "Foto terlalu besar. Kompres dulu (maks ~2MB)." });
+  var est_kcal = (b.est_kcal != null && b.est_kcal !== "") ? (Math.max(0, Math.round(+b.est_kcal)) || null) : null;
+  var head = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true })
+    .eq("auth_user_id", user.id).gte("created_at", startOfTodayISO());
+  if ((head.count || 0) >= MENU_DAILY_LIMIT) return res.status(429).json({ error: "Batas " + MENU_DAILY_LIMIT + " submit/hari tercapai. Coba lagi besok." });
+  var { data, error } = await admin.from("my20fit_menu_contribution")
+    .insert({ auth_user_id: user.id, name: name, diet_type: diet_type, ingredients: ingredients, steps: steps, photo_url: photo_url, est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps) })
+    .select("id").limit(1).single();
+  if (error) {
+    if (error.code === "23505" || String(error.message || "").toLowerCase().indexOf("duplicate") >= 0)
+      return res.status(409).json({ error: "Menu dengan isi persis sama sudah ada. Buat yang berbeda." });
+    return res.status(500).json({ error: error.message });
+  }
+  return res.json({ ok: true, id: data.id });
+});
+// User: submission-ku + progres reward.
+app.get("/api/menu/mine", async (req, res) => {
+  var user = await getUserFromReq(req);
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  var { data: rows, error } = await admin.from("my20fit_menu_contribution")
+    .select("id,name,diet_type,status,reject_reason,est_kcal,created_at,reviewed_at,published")
+    .eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(200);
+  if (error) return res.status(500).json({ error: error.message });
+  var approved = (rows || []).filter(function (r) { return r.status === "approved"; }).length;
+  var { data: rl } = await admin.from("my20fit_menu_reward_log").select("credits_granted").eq("auth_user_id", user.id).eq("status", "granted");
+  var creditsEarned = (rl || []).reduce(function (s, x) { return s + (+x.credits_granted || 0); }, 0);
+  return res.json({ ok: true, submissions: rows || [], approved: approved, per_cycle: 10, reward_scan: 5, toward_next: approved % 10, credits_earned: creditsEarned });
+});
+// User: revisi menu yang DITOLAK -> pending lagi.
+app.post("/api/menu/:id/revise", async (req, res) => {
+  var user = await getUserFromReq(req);
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  var id = String(req.params.id || ""), b = req.body || {};
+  var { data: cur } = await admin.from("my20fit_menu_contribution").select("id,auth_user_id,status").eq("id", id).limit(1).single();
+  if (!cur || cur.auth_user_id !== user.id) return res.status(404).json({ error: "Menu tidak ditemukan." });
+  if (cur.status !== "rejected") return res.status(400).json({ error: "Hanya menu yang ditolak yang bisa direvisi." });
+  var name = String(b.name || "").trim(), ingredients = String(b.ingredients || "").trim(), steps = String(b.steps || "").trim();
+  if (!name || !ingredients || !steps) return res.status(400).json({ error: "Nama, bahan, dan cara buat wajib." });
+  var diet_type = String(b.diet_type || "normal").trim().toLowerCase(); if (MENU_DIET_TYPES.indexOf(diet_type) < 0) diet_type = "normal";
+  var patch = { name: name, ingredients: ingredients, steps: steps, diet_type: diet_type, content_hash: menuHash(name, ingredients, steps), status: "pending", reject_reason: null, updated_at: new Date().toISOString() };
+  if (b.est_kcal != null) patch.est_kcal = (b.est_kcal === "") ? null : (Math.max(0, Math.round(+b.est_kcal)) || null);
+  if (b.photo_url != null) patch.photo_url = b.photo_url ? String(b.photo_url) : null;
+  var { error } = await admin.from("my20fit_menu_contribution").update(patch).eq("id", id).eq("auth_user_id", user.id);
+  if (error) { if (error.code === "23505") return res.status(409).json({ error: "Isi menu identik dgn yang sudah ada." }); return res.status(500).json({ error: error.message }); }
+  return res.json({ ok: true });
+});
+// Superadmin: antrian review (filter status + cari nama).
+app.get("/api/admin/menu", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var status = String(req.query.status || "").trim(), q = String(req.query.q || "").trim();
+    var query = admin.from("my20fit_menu_contribution")
+      .select("id,auth_user_id,name,diet_type,ingredients,steps,photo_url,est_kcal,status,reject_reason,created_at,reviewed_at,published")
+      .order("created_at", { ascending: false }).limit(200);
+    if (["pending", "approved", "rejected"].indexOf(status) >= 0) query = query.eq("status", status);
+    if (q) query = query.ilike("name", "%" + q + "%");
+    var { data: rows, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    var ids = Array.from(new Set((rows || []).map(function (r) { return r.auth_user_id; })));
+    var pmap = {};
+    if (ids.length) { var { data: profs } = await admin.from("my20fit_profile").select("auth_user_id,full_name,email").in("auth_user_id", ids); (profs || []).forEach(function (p) { pmap[p.auth_user_id] = p; }); }
+    var out = (rows || []).map(function (r) { var p = pmap[r.auth_user_id] || {}; return Object.assign({}, r, { contributor_name: p.full_name || null, contributor_email: p.email || null }); });
+    return res.json({ ok: true, menus: out });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Superadmin: approve -> publish + beri reward (RPC idempoten).
+app.post("/api/admin/menu/:id/approve", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  var id = String(req.params.id || "");
+  var { data: m } = await admin.from("my20fit_menu_contribution").select("id,auth_user_id,status").eq("id", id).limit(1).single();
+  if (!m) return res.status(404).json({ error: "Menu tidak ditemukan." });
+  var { error } = await admin.from("my20fit_menu_contribution")
+    .update({ status: "approved", published: true, reject_reason: null, reviewed_by: ctx.user_id || null, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) return res.status(500).json({ error: error.message });
+  var granted = 0;
+  try { var { data: g } = await admin.rpc("my20fit_grant_menu_reward", { p_uid: m.auth_user_id }); granted = +g || 0; } catch (e) {}
+  await adminAudit(ctx, "menu.approve", id, { user: m.auth_user_id, credits_granted: granted });
+  return res.json({ ok: true, credits_granted: granted });
+});
+// Superadmin: reject (alasan wajib). Kalau menu tadinya APPROVED -> clawback reward.
+app.post("/api/admin/menu/:id/reject", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  var id = String(req.params.id || ""), reason = String((req.body || {}).reason || "").trim();
+  if (!reason) return res.status(400).json({ error: "Alasan penolakan wajib diisi." });
+  var { data: m } = await admin.from("my20fit_menu_contribution").select("id,auth_user_id,status").eq("id", id).limit(1).single();
+  if (!m) return res.status(404).json({ error: "Menu tidak ditemukan." });
+  var wasApproved = m.status === "approved";
+  var { error } = await admin.from("my20fit_menu_contribution")
+    .update({ status: "rejected", published: false, reject_reason: reason, reviewed_by: ctx.user_id || null, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) return res.status(500).json({ error: error.message });
+  var clawed = 0;
+  if (wasApproved) { try { var { data: rv } = await admin.rpc("my20fit_revoke_menu_reward", { p_uid: m.auth_user_id }); clawed = +rv || 0; } catch (e) {} }
+  await adminAudit(ctx, wasApproved ? "menu.revoke" : "menu.reject", id, { user: m.auth_user_id, reason: reason, credits_clawed: clawed });
+  return res.json({ ok: true, credits_clawed: clawed });
+});
 // Info konfigurasi runtime (superadmin only) — status env, TANPA membocorkan nilai rahasia.
 app.get("/api/admin/config", async (req, res) => {
   const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
