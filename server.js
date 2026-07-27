@@ -1108,12 +1108,27 @@ async function getCorpAdminContext(req) {
   if (data && data[0]) return { user_id: user.id, email: data[0].email || user.email, corporate_id: data[0].corporate_id };
   return null;
 }
+// Konteks untuk endpoint dashboard corporate. Dua jalur:
+//  - Admin corporate (punya baris di my20fit_corporate_admin) -> HANYA perusahaannya
+//    (corporate_id dari DB, input client diabaikan -> isolasi antar-perusahaan aman).
+//  - Superadmin 20FIT -> boleh lihat corporate MANA PUN dgn menyebut corporate_id.
+//    Semua akses tetap dicatat di audit (actor = email superadmin).
 async function requireCorpAdmin(req, res) {
-  var ctx = await getCorpAdminContext(req);
+  var cc = await getCorpAdminContext(req);
+  var wantId = String((req.query && req.query.corporate_id) || (req.body && req.body.corporate_id) || "").trim();
+  var ctx = null;
+  if (cc) { ctx = cc; ctx.is_superadmin = false; } // admin corporate: kunci ke perusahaannya
+  else {
+    var ac = await getAdminContext(req);
+    if (ac && ac.role === "superadmin") {
+      if (!wantId) { res.status(400).json({ error: "corporate_id wajib untuk superadmin." }); return null; }
+      ctx = { user_id: ac.user_id || null, email: ac.email || "superadmin", corporate_id: wantId, is_superadmin: true };
+    }
+  }
   if (!ctx) { res.status(403).json({ error: "Bukan admin corporate." }); return null; }
   var { data } = await admin.from("my20fit_corporate").select("id,name,status").eq("id", ctx.corporate_id).limit(1);
   if (!data || !data[0]) { res.status(404).json({ error: "Corporate tidak ditemukan." }); return null; }
-  if (data[0].status !== "active") { res.status(403).json({ error: "Akun corporate non-aktif." }); return null; }
+  if (data[0].status !== "active" && !ctx.is_superadmin) { res.status(403).json({ error: "Akun corporate non-aktif." }); return null; }
   ctx.corporate_name = data[0].name;
   return ctx;
 }
@@ -1164,28 +1179,35 @@ app.post("/api/admin/corporate", async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   var adminResult = null;
   var admin_email = b.admin_email ? String(b.admin_email).trim().toLowerCase() : null;
-  if (admin_email) adminResult = await addCorpAdmin(corp.id, admin_email, ctx.user_id);
-  await adminAudit(ctx, "corporate.create", corp.code, { corporate_id: corp.id, name: name, admin_email: admin_email });
+  if (admin_email) adminResult = await addCorpAdmin(corp.id, admin_email, ctx.user_id, b.admin_password);
+  await adminAudit(ctx, "corporate.create", corp.code, { corporate_id: corp.id, name: name, admin_email: admin_email, password_set: !!(adminResult && adminResult.password_set) });
   return res.json({ ok: true, corporate: corp, admin: adminResult });
 });
 // Helper: tambah admin corporate by email (buat akun login kalau belum ada).
-async function addCorpAdmin(corporateId, email, createdBy) {
+async function addCorpAdmin(corporateId, email, createdBy, password) {
   email = String(email || "").trim().toLowerCase();
   if (!email) return { ok: false, error: "email kosong" };
+  var pw = (password == null) ? "" : String(password);
+  if (pw && pw.length < 8) return { ok: false, error: "Password minimal 8 karakter." };
   var uid = await findUserIdByEmail(email);
-  var created = false;
+  var created = false, pwSet = false;
   if (!uid) {
     try {
-      var { data: cu } = await admin.auth.admin.createUser({ email: email, email_confirm: true, user_metadata: { via_20fit: true, corp_admin: true } });
+      var payload = { email: email, email_confirm: true, user_metadata: { via_20fit: true, corp_admin: true } };
+      if (pw) { payload.password = pw; pwSet = true; }
+      var { data: cu } = await admin.auth.admin.createUser(payload);
       uid = cu && cu.user && cu.user.id;
       created = true;
     } catch (e) { return { ok: false, error: "Gagal membuat akun login: " + e.message }; }
+  } else if (pw) {
+    try { await admin.auth.admin.updateUserById(uid, { password: pw }); pwSet = true; }
+    catch (e) { return { ok: false, error: "Gagal set password: " + e.message }; }
   }
   if (!uid) return { ok: false, error: "Tidak bisa resolve user." };
   var { error } = await admin.from("my20fit_corporate_admin")
     .upsert({ corporate_id: corporateId, auth_user_id: uid, email: email, created_by: createdBy || null }, { onConflict: "corporate_id,auth_user_id" });
   if (error) return { ok: false, error: error.message };
-  return { ok: true, email: email, account_created: created };
+  return { ok: true, email: email, account_created: created, password_set: pwSet };
 }
 // Detail satu corporate + daftar admin-nya.
 app.get("/api/admin/corporate/:id", async (req, res) => {
@@ -1226,12 +1248,14 @@ app.post("/api/admin/corporate/:id/admins", async (req, res) => {
   var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
   var id = String(req.params.id || "");
   var email = String((req.body || {}).email || "").trim().toLowerCase();
+  var password = (req.body || {}).password;
   if (!email) return res.status(400).json({ error: "email wajib." });
   var { data: corp } = await admin.from("my20fit_corporate").select("id").eq("id", id).limit(1).single();
   if (!corp) return res.status(404).json({ error: "Corporate tidak ditemukan." });
-  var r = await addCorpAdmin(id, email, ctx.user_id);
-  if (!r.ok) return res.status(500).json({ error: r.error });
-  await adminAudit(ctx, "corporate.admin.add", id, { email: email });
+  var r = await addCorpAdmin(id, email, ctx.user_id, password);
+  if (!r.ok) return res.status(400).json({ error: r.error });
+  // Jejak TIDAK menyimpan password — hanya flag apakah password di-set.
+  await adminAudit(ctx, "corporate.admin.add", id, { email: email, password_set: !!r.password_set });
   return res.json({ ok: true, admin: r });
 });
 // Hapus admin corporate.
@@ -1247,7 +1271,7 @@ app.delete("/api/admin/corporate/:id/admins/:userId", async (req, res) => {
 // ---- ADMIN CORPORATE: hanya lihat perusahaannya sendiri ----
 app.get("/api/corp/me", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
-  return res.json({ ok: true, corporate_id: ctx.corporate_id, corporate_name: ctx.corporate_name, email: ctx.email });
+  return res.json({ ok: true, corporate_id: ctx.corporate_id, corporate_name: ctx.corporate_name, email: ctx.email, is_superadmin: !!ctx.is_superadmin });
 });
 // ---- FASE 3: klasifikasi kesehatan & frekuensi (CONFIG-DRIVEN, NON-DIAGNOSTIK) ----
 // Ambang di sini bisa diganti oleh dokter/pemilik tanpa ubah logika. BMI pakai band

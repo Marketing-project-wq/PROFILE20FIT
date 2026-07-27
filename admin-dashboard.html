@@ -257,6 +257,7 @@
           <div class="row" style="margin-bottom:12px">
             <div><label>Email kontak <span style="text-transform:none;font-weight:400">(opsional)</span></label><input id="cContact" type="email" placeholder="hr@contoh.com" /></div>
             <div><label>Email admin corporate <span style="text-transform:none;font-weight:400">(opsional)</span></label><input id="cAdmin" type="email" placeholder="admin.hr@contoh.com" /></div>
+            <div><label>Password admin <span style="text-transform:none;font-weight:400">(opsional, min 8)</span></label><input id="cAdminPw" type="password" autocomplete="new-password" placeholder="kosongkan = admin set sendiri" /></div>
             <div style="flex:0 0 auto"><button class="btn sm" id="btnCreateCorp" style="margin-top:0" onclick="createCorporate()">+ Buat corporate</button></div>
           </div>
           <div class="msg err" id="corpMsg" style="text-align:left"></div>
@@ -409,18 +410,22 @@
           '<td>'+admins+'</td>'+
           '<td>'+(c.member_count||0)+'</td>'+
           '<td>'+st+'</td>'+
-          '<td><button class="btn sm ghost" style="margin:0" onclick="openCorp(\''+c.id+'\')">Kelola</button></td>'+
+          '<td style="white-space:nowrap"><button class="btn sm ghost" style="margin:0" onclick="openCorpDash(\''+c.id+'\')">Dashboard</button> <button class="btn sm ghost" style="margin:0" onclick="openCorp(\''+c.id+'\')">Kelola</button></td>'+
         '</tr>';
       }).join("");
     }
     async function createCorporate(){
       var name=$("cName").value.trim(), code=$("cCode").value.trim(), contact=$("cContact").value.trim(), aemail=$("cAdmin").value.trim();
+      var apw=$("cAdminPw")?$("cAdminPw").value:"";
       var msg=$("corpMsg"); msg.className="msg err"; msg.textContent="";
       if(!name){ msg.textContent="Nama perusahaan wajib."; return; }
+      if(apw && apw.length<8){ msg.textContent="Password admin minimal 8 karakter."; return; }
+      if(apw && !aemail){ msg.textContent="Isi email admin dulu kalau mau set password."; return; }
       var body={ name:name };
       if(code) body.code=code;
       if(contact) body.contact_email=contact;
       if(aemail) body.admin_email=aemail;
+      if(apw) body.admin_password=apw;
       var btn=$("btnCreateCorp"); btn.disabled=true;
       var r=await adminFetch("/api/admin/corporate",{method:"POST",body:JSON.stringify(body)});
       var j=await r.json().catch(function(){return{};});
@@ -428,9 +433,9 @@
       if(!r.ok){ msg.textContent=j.error||"Gagal membuat."; return; }
       msg.className="msg ok";
       var note="Perusahaan dibuat. Kode: "+(j.corporate&&j.corporate.code);
-      if(j.admin){ if(j.admin.ok){ note+=" · Admin "+j.admin.email+(j.admin.account_created?" (akun login baru dibuat — minta admin set password via 'Lupa password')":" ditautkan"); } else { note+=" · ⚠️ Admin gagal: "+j.admin.error; } }
+      if(j.admin){ if(j.admin.ok){ note+=" · Admin "+j.admin.email+(j.admin.password_set?" (password di-set — sampaikan lewat jalur aman & minta ganti setelah login)":(j.admin.account_created?" (akun dibuat — admin set password via 'Lupa password')":" ditautkan")); } else { note+=" · ⚠️ Admin gagal: "+j.admin.error; } }
       msg.textContent=note;
-      $("cName").value="";$("cCode").value="";$("cContact").value="";$("cAdmin").value="";
+      $("cName").value="";$("cCode").value="";$("cContact").value="";$("cAdmin").value="";if($("cAdminPw"))$("cAdminPw").value="";
       loadCorporates();
     }
     async function openCorp(id){
@@ -439,10 +444,17 @@
       if(!r.ok){ $("modalBox").innerHTML='<div class="err">'+esc(j.error||"Gagal")+'</div>'; return; }
       var c=j.corporate, admins=j.admins||[];
       var adminHtml=admins.length?admins.map(function(a){
-        return '<div class="row" style="align-items:center;margin-bottom:6px"><div>'+esc(a.email||a.auth_user_id)+'</div><div style="flex:0 0 auto"><button class="btn sm ghost" style="margin:0" onclick="removeCorpAdmin(\''+c.id+'\',\''+a.auth_user_id+'\')">hapus</button></div></div>';
+        var e=esc(a.email||a.auth_user_id);
+        return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px">'+
+          '<div class="row" style="align-items:center"><div style="font-weight:700">'+e+'</div>'+
+          '<div style="flex:0 0 auto"><button class="btn sm ghost" style="margin:0" onclick="removeCorpAdmin(\''+c.id+'\',\''+a.auth_user_id+'\')">hapus</button></div></div>'+
+          '<div class="row" style="margin-top:8px"><div><input type="password" placeholder="set / reset password (min 8)" id="pw_'+a.auth_user_id+'" autocomplete="new-password"/></div>'+
+          '<div style="flex:0 0 auto"><button class="btn sm" style="margin:0" onclick="setCorpAdminPw(\''+c.id+'\',\''+encodeURIComponent(a.email||"")+'\',\''+a.auth_user_id+'\')">Set password</button></div></div>'+
+          '</div>';
       }).join(""):'<div class="muted" style="color:var(--muted);font-size:13px">Belum ada admin.</div>';
       $("modalBox").innerHTML=
         '<h3 style="margin-top:0">Kelola: '+esc(c.name)+'</h3>'+
+        '<button class="btn sm ghost" style="margin:0 0 12px" onclick="openCorpDash(\''+c.id+'\')">🔗 Buka dashboard corporate ini</button>'+
         '<label>Nama</label><input id="edName" value="'+esc(c.name)+'"/>'+
         '<label>Kode unik</label><input id="edCode" value="'+esc(c.code)+'"/>'+
         '<label>Status</label><select id="edStatus"><option value="active"'+(c.status==="active"?" selected":"")+'>active</option><option value="suspended"'+(c.status==="suspended"?" selected":"")+'>suspended</option></select>'+
@@ -450,7 +462,9 @@
         '<button class="btn sm" onclick="saveCorp(\''+c.id+'\')">Simpan perubahan</button>'+
         '<hr style="margin:16px 0;border:none;border-top:1px solid var(--line)"/>'+
         '<h3>Admin corporate</h3>'+adminHtml+
-        '<div class="row" style="margin-top:10px"><div><input id="edAdminEmail" type="email" placeholder="email admin baru"/></div><div style="flex:0 0 auto"><button class="btn sm" style="margin:0" onclick="addCorpAdminUI(\''+c.id+'\')">+ Admin</button></div></div>'+
+        '<div class="row" style="margin-top:10px"><div><input id="edAdminEmail" type="email" placeholder="email admin baru"/></div>'+
+        '<div><input id="edAdminPw" type="password" placeholder="password (opsional, min 8)" autocomplete="new-password"/></div>'+
+        '<div style="flex:0 0 auto"><button class="btn sm" style="margin:0" onclick="addCorpAdminUI(\''+c.id+'\')">+ Admin</button></div></div>'+
         '<div class="crumb" style="margin-top:14px">Anggota aktif: '+(j.member_count||0)+'</div>';
     }
     async function saveCorp(id){
@@ -464,11 +478,26 @@
     async function addCorpAdminUI(id){
       var m=$("edMsg"); m.className="msg err"; m.textContent="";
       var email=$("edAdminEmail").value.trim(); if(!email){ m.textContent="Isi email admin."; return; }
-      var r=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id)+"/admins",{method:"POST",body:JSON.stringify({email:email})});
+      var pw=$("edAdminPw")?$("edAdminPw").value:"";
+      if(pw && pw.length<8){ m.textContent="Password minimal 8 karakter."; return; }
+      var body={email:email}; if(pw) body.password=pw;
+      var r=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id)+"/admins",{method:"POST",body:JSON.stringify(body)});
       var j=await r.json().catch(function(){return{};});
       if(!r.ok){ m.textContent=j.error||"Gagal tambah admin."; return; }
       openCorp(id); loadCorporates();
     }
+    async function setCorpAdminPw(id, emailEnc, uid){
+      var m=$("edMsg"); m.className="msg err"; m.textContent="";
+      var email=decodeURIComponent(emailEnc||""); var inp=$("pw_"+uid); var pw=inp?inp.value:"";
+      if(!email){ m.textContent="Email admin tidak diketahui."; return; }
+      if(!pw||pw.length<8){ m.textContent="Password minimal 8 karakter."; return; }
+      var r=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id)+"/admins",{method:"POST",body:JSON.stringify({email:email,password:pw})});
+      var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ m.textContent=j.error||"Gagal set password."; return; }
+      m.className="msg ok"; m.textContent="Password untuk "+email+" di-set. Sampaikan ke admin lewat jalur aman & minta ganti setelah login.";
+      if(inp) inp.value="";
+    }
+    function openCorpDash(id){ window.open("/corp-dashboard?corporate_id="+encodeURIComponent(id), "_blank"); }
     async function removeCorpAdmin(id, uid){
       var r=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id)+"/admins/"+encodeURIComponent(uid),{method:"DELETE"});
       if(r.ok){ openCorp(id); loadCorporates(); }
