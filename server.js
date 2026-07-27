@@ -743,6 +743,42 @@ app.post("/api/photo-sso", async (req, res) => {
   }
 });
 
+// ---------- DIAGNOSTIK SEMENTARA: temukan kontrak API photo.20fit.id (superadmin only) ----------
+// Server my.20fit BISA akses photo.20fit.id (environment agent tidak). Endpoint ini memakai
+// API_PHOTO (RAHASIA — TIDAK di-log & TIDAK di-return) untuk menembak beberapa kandidat
+// endpoint + gaya auth, lalu melaporkan status & potongan response ASLI. Tujuannya supaya
+// integrasi /api/photo/list dibangun dari data NYATA, bukan tebakan. HAPUS setelah jadi.
+const PHOTO_API_BASE = (process.env.PHOTO_API_URL || "https://photo.20fit.id/api").replace(/\/+$/, "");
+async function photoProbeFetch(url, headers) {
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch(url, { headers: headers, signal: ctrl.signal });
+    const txt = await r.text();
+    return { status: r.status, contentType: r.headers.get("content-type") || "", bodySnippet: txt.slice(0, 500) };
+  } catch (e) { return { error: String((e && e.message) || e).slice(0, 200) }; }
+  finally { clearTimeout(t); }
+}
+app.get("/api/photo/probe", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  const key = process.env.API_PHOTO || "";
+  if (!key) return res.status(500).json({ error: "API_PHOTO belum ada di env server." });
+  const email = String(req.query.email || "").trim();
+  const uid = String(req.query.uid || "").trim();
+  const q = email ? ("?email=" + encodeURIComponent(email)) : (uid ? ("?user_id=" + encodeURIComponent(uid)) : "");
+  const custom = String(req.query.path || "").trim();
+  const paths = custom ? [custom] : ["/photos" + q, "/user/photos" + q, "/me/photos" + q, "/gallery" + q, "/photos/mine" + q, "/search" + q];
+  const auths = [
+    { name: "bearer", h: { Authorization: "Bearer " + key, Accept: "application/json" } },
+    { name: "x-api-key", h: { "x-api-key": key, Accept: "application/json" } },
+  ];
+  const combos = [];
+  paths.forEach(function (p) { auths.forEach(function (a) { combos.push({ p: p, a: a }); }); });
+  const tried = await Promise.all(combos.map(async function (c) {
+    return Object.assign({ path: c.p, auth: c.a.name }, await photoProbeFetch(PHOTO_API_BASE + c.p, c.a.h));
+  }));
+  return res.json({ ok: true, base: PHOTO_API_BASE, note: "Diagnostik sementara. Nilai API_PHOTO TIDAK ditampilkan.", tried: tried });
+});
+
 // ---------- Register pakai API 20FIT (/api/v1/auth/register) ----------
 // Buat akun langsung di ekosistem 20FIT, lalu mirror ke Supabase + buat sesi.
 app.post("/api/fitco-register", async (req, res) => {
