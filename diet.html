@@ -25,7 +25,6 @@
   .row{display:flex;gap:12px}.row>div{flex:1}
   .btn{width:100%;margin-top:16px;padding:13px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer}
   .btn.out{background:transparent;border:1px solid var(--red);color:var(--red);margin-top:8px}
-  .btn.sm{width:auto;margin:0;padding:8px 12px;font-size:13px;border-radius:9px}
   .muted{color:var(--muted);font-size:13px}
   .msg{margin-top:12px;font-size:13px;min-height:18px}
   .ok{color:var(--green)}.err{color:var(--red)}
@@ -35,18 +34,6 @@
   .rwd .big{font-size:20px;font-weight:900}
   .bar{height:10px;border-radius:99px;background:var(--inp);overflow:hidden;margin-top:10px}
   .bar i{display:block;height:100%;background:var(--red);border-radius:99px;transition:width .4s}
-  /* Submissions */
-  .sub{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
-  .sub:first-child{border-top:0}
-  .sub .th{width:52px;height:52px;border-radius:11px;background:var(--inp);flex:0 0 auto;object-fit:cover;display:grid;place-items:center;color:var(--muted);font-size:20px;overflow:hidden}
-  .sub .th img{width:100%;height:100%;object-fit:cover}
-  .sub .si{flex:1;min-width:0}
-  .sub .sn{font-weight:800;font-size:15px}
-  .badge{display:inline-block;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:3px 9px;border-radius:999px;margin-top:4px}
-  .badge.pending{background:rgba(200,112,0,.15);color:var(--amber)}
-  .badge.approved{background:rgba(42,122,79,.15);color:var(--green)}
-  .badge.rejected{background:rgba(196,17,1,.12);color:var(--red)}
-  .rr{font-size:12.5px;color:var(--red);margin-top:5px}
   .empty{padding:20px;text-align:center;color:var(--muted);font-size:14px}
   /* Resep */
   .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;-webkit-overflow-scrolling:touch}
@@ -135,33 +122,8 @@
         </div>
         <button class="btn" id="btnSubmit" onclick="submitMenu()" data-i18n="diet_btn_submit">Submit menu</button>
         <div class="msg" id="subMsg"></div>
+        <div class="muted" style="margin-top:12px;font-size:12px" data-i18n="diet_track_hint">Track your submissions and revise rejected menus in your Profile.</div>
       </div>
-
-      <!-- Submission kamu -->
-      <div class="card">
-        <h2 data-i18n="diet_mine_h">Your submissions</h2>
-        <div id="myList"><div class="empty" data-i18n="diet_loading">Loading…</div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal revisi -->
-  <div class="pm-bg" id="revBg">
-    <div class="pm">
-      <div class="grab"></div>
-      <h2 style="margin-top:0" data-i18n="diet_rev_h">Revise menu</h2>
-      <label data-i18n="diet_l_name">Menu name</label><input id="rName" type="text" maxlength="120" />
-      <label data-i18n="diet_l_type">Diet type</label>
-      <select id="rType">
-        <option value="normal">Normal</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option>
-        <option value="pescatarian">Pescatarian</option><option value="keto">Keto</option><option value="halal">Halal</option>
-        <option value="high-protein">High-protein</option><option value="low-carb">Low-carb</option>
-      </select>
-      <label data-i18n="diet_l_ing">Ingredients</label><textarea id="rIng"></textarea>
-      <label data-i18n="diet_l_steps">How to make</label><textarea id="rSteps"></textarea>
-      <button class="btn" id="btnRev" onclick="submitRevise()" data-i18n="diet_btn_rev">Submit revision</button>
-      <button class="btn out" onclick="closeRev()" data-i18n="diet_cancel">Cancel</button>
-      <div class="msg" id="revMsg"></div>
     </div>
   </div>
 
@@ -180,7 +142,7 @@
   <script src="js/nav.js"></script>
   <script src="js/recipes.js"></script>
   <script>
-    var user=null, MINE=[], revId=null, LASTJ=null, mineLoaded=false;
+    var user=null, LASTJ=null, mineLoaded=false;
     function $(id){ return document.getElementById(id); }
     function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
     function T(k){ return (window.I18N&&I18N.t)?I18N.t(k):k; }
@@ -197,7 +159,6 @@
     if(window.I18N&&I18N.onChange) I18N.onChange(function(){
       renderChips(); renderRecipes();
       if(LASTJ) renderReward(LASTJ);
-      renderMine();
     });
 
     // ---- Toggle "Share Your Menu" (lazy-load submission saat pertama dibuka) ----
@@ -265,16 +226,13 @@
       document.getElementById("recBg").classList.add("open");
     }
     function closeRecipe(){ document.getElementById("recBg").classList.remove("open"); }
-    function statusLabel(s){ return s==="approved"?T("diet_st_approved"):s==="rejected"?T("diet_st_rejected"):T("diet_st_pending"); }
     async function loadMine(){
-      var box=$("myList");
       try{
         var r=await dietFetch("/api/menu/mine"); var j=await r.json().catch(function(){return{};});
-        if(!r.ok){ box.innerHTML='<div class="empty">'+esc(j.error||T("diet_err_load"))+'</div>'; return; }
-        MINE=j.submissions||[]; LASTJ=j;
+        if(!r.ok){ $("rewardBox").innerHTML='<div class="muted">'+esc(j.error||T("diet_err_load"))+'</div>'; return; }
+        LASTJ=j;
         renderReward(j);
-        renderMine();
-      }catch(e){ box.innerHTML='<div class="empty">'+esc(T("diet_err_load"))+'</div>'; }
+      }catch(e){ $("rewardBox").innerHTML='<div class="muted">'+esc(T("diet_err_load"))+'</div>'; }
     }
     function renderReward(j){
       var toward=j.toward_next||0, per=j.per_cycle||10, pct=Math.round(toward/per*100), rs=j.reward_scan||5;
@@ -282,20 +240,6 @@
         '<div class="rwd"><div class="big">'+toward+' / '+per+'</div><div class="muted">'+esc(T("diet_reward_toward").replace("{n}",rs))+'</div></div>'+
         '<div class="bar"><i style="width:'+pct+'%"></i></div>'+
         '<div class="muted" style="margin-top:10px">'+esc(T("diet_reward_total"))+' <b>'+(j.approved||0)+'</b> · '+esc(T("diet_reward_earned"))+' <b>'+(j.credits_earned||0)+'</b></div>';
-    }
-    function renderMine(){
-      var box=$("myList");
-      if(!MINE.length){ box.innerHTML='<div class="empty">'+esc(T("diet_mine_empty"))+'</div>'; return; }
-      var KC=T("diet_kcal");
-      box.innerHTML=MINE.map(function(m){
-        var rr=(m.status==="rejected"&&m.reject_reason)?'<div class="rr">'+esc(T("diet_reason"))+' '+esc(m.reject_reason)+'</div>':'';
-        var rev=(m.status==="rejected")?'<button class="btn sm out" style="margin-top:8px" onclick="openRev(\''+m.id+'\')">'+esc(T("diet_revise"))+'</button>':'';
-        return '<div class="sub"><div class="th">🍽️</div><div class="si">'+
-          '<div class="sn">'+esc(m.name)+'</div>'+
-          '<div class="muted" style="font-size:12px">'+esc(m.diet_type||"")+(m.est_kcal?(' · ~'+m.est_kcal+' '+KC):'')+'</div>'+
-          '<span class="badge '+m.status+'">'+esc(statusLabel(m.status))+'</span>'+rr+rev+
-        '</div></div>';
-      }).join("");
     }
     // Resize + validasi foto -> dataURL (maks sisi 1000px), balikin lewat callback.
     function readPhoto(file, cb){
@@ -330,26 +274,6 @@
           loadMine();
         }catch(e){ btn.disabled=false; m.className="msg err"; m.textContent=T("diet_err_net"); }
       });
-    }
-    function openRev(id){
-      var m=MINE.filter(function(x){return x.id===id;})[0]; if(!m) return;
-      revId=id; $("rName").value=m.name||""; $("rType").value=m.diet_type||"normal";
-      $("rIng").value=""; $("rSteps").value=""; $("revMsg").textContent="";
-      $("revBg").classList.add("open");
-    }
-    function closeRev(){ $("revBg").classList.remove("open"); }
-    async function submitRevise(){
-      var m=$("revMsg"); m.className="msg err"; m.textContent="";
-      var name=$("rName").value.trim(), ing=$("rIng").value.trim(), steps=$("rSteps").value.trim();
-      if(!name||!ing||!steps){ m.textContent=T("diet_err_required"); return; }
-      var btn=$("btnRev"); btn.disabled=true;
-      try{
-        var r=await dietFetch("/api/menu/"+encodeURIComponent(revId)+"/revise",{method:"POST",body:JSON.stringify({name:name,diet_type:$("rType").value,ingredients:ing,steps:steps})});
-        var j=await r.json().catch(function(){return{};});
-        btn.disabled=false;
-        if(!r.ok){ m.textContent=j.error||T("diet_err_send"); return; }
-        closeRev(); loadMine();
-      }catch(e){ btn.disabled=false; m.textContent=T("diet_err_net"); }
     }
   </script>
 </body>
