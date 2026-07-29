@@ -149,8 +149,9 @@
       card.style.background=info.color+"1a";
       const num=document.getElementById("bmiNum");
       num.textContent="BMI "+info.bmi; num.style.color=info.color;
-      const lab=document.getElementById("bmiLab"); lab.textContent=info.label; lab.style.color=info.color;
-      document.getElementById("bmiDesc").textContent=info.desc;
+      var _lg=(localStorage.getItem("lang")||"en"); var _pk=function(o){return (o&&(o[_lg]!=null?o[_lg]:o.en))||"";};
+      const lab=document.getElementById("bmiLab"); lab.textContent=_pk(info.label); lab.style.color=info.color;
+      document.getElementById("bmiDesc").textContent=_pk(info.desc);
     }
 
     async function save(){

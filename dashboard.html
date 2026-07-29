@@ -394,6 +394,7 @@
       @media(min-width:900px){ .loccard{flex-basis:360px} }
       .lochd{padding:16px 16px 18px;color:#fff}
       .lochd.arena{background:linear-gradient(135deg,#1c1e24,#0c0d10)}
+      .lochd.gym{background:linear-gradient(135deg,#C41101,#7a0d01)}
       .lochd.clinic{background:linear-gradient(135deg,#5a1420,#33101a)}
       .locnm{font-weight:900;font-size:17px}
       .locloc{font-size:12px;color:rgba(255,255,255,.72);margin-top:4px;display:flex;align-items:center;gap:5px}
@@ -1014,7 +1015,8 @@
       // ---- Book your session: lokasi + Book personal: dokter/coach ----
       // Data CONTOH — daftar & foto asli dokter/coach + link booking nanti disambung API.
       var LOCS = [
-        { cls: "arena", nm: "20FIT Arena", loc: { en: "Menteng, Jakarta Pusat", id: "Menteng, Jakarta Pusat" }, chips: ["HYROX Complete", "HYROX Foundation", "Venue Rental"], btn: { en: "Book Arena & Class", id: "Book Arena & Kelas" }, href: "https://booking.20fit.id" },
+        { cls: "arena", nm: "20FIT Arena", loc: { en: "Menteng, Jakarta Pusat", id: "Menteng, Jakarta Pusat" }, chips: ["HYROX Complete", "HYROX Foundation", "Venue Rental"], btn: { en: "Book Arena", id: "Book Arena" }, href: "https://booking.20fit.id/book" },
+        { cls: "gym", nm: "20FIT Gym", loc: null, chips: ["Strength", "Functional", "EMS", "Personal Training"], btn: { en: "Book Gym", id: "Book Gym" }, href: "https://booking.20fit.id/gym" },
         { cls: "clinic", nm: "20FIT Sport Clinic", loc: { en: "Kebayoran Baru, Jaksel", id: "Kebayoran Baru, Jaksel" }, chips: ["Physiotherapy", "Sport Massage", "Doctor Consultation", "Treatment"], btn: { en: "Book Clinic", id: "Book Klinik" }, href: "https://booking.20fit.id/clinic" }
       ];
       // Roster asli (foto di-load dari URL media.20fit.id; fallback gradient+ikon kalau gagal).
@@ -1039,7 +1041,7 @@
         el.innerHTML = LOCS.map(function (o) {
           var chips = o.chips.map(function (c) { return '<span class="locchip">' + c + '</span>'; }).join("");
           return '<div class="loccard"><div class="lochd ' + o.cls + '"><div class="locnm">' + o.nm + '</div>' +
-            '<div class="locloc"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + Lx(o.loc) + '</div></div>' +
+            (o.loc ? ('<div class="locloc"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + Lx(o.loc) + '</div>') : '') + '</div>' +
             '<div class="locbody"><div class="locchips">' + chips + '</div>' +
             '<a class="locbtn" href="' + o.href + '" >' + Lx(o.btn) + ' <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a></div></div>';
         }).join("");
