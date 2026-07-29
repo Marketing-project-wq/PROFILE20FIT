@@ -252,7 +252,7 @@
       if(!okType){ box.innerHTML='<div class="card" style="color:var(--red)">'+L({en:"Only a medical check-up file is allowed — a photo (JPG/PNG) or PDF.",id:"Hanya file medical check-up yang boleh — foto (JPG/PNG) atau PDF."})+'</div>'; e.target.value=""; return; }
       const sig="mcu_"+(f.name||"")+"_"+f.size+"_"+(f.lastModified||0);
       // Kalau file yang sama pernah dianalisa -> tampilkan instan tanpa panggil AI lagi
-      try{const cached=localStorage.getItem(sig);if(cached){renderResult(JSON.parse(cached));e.target.value="";return;}}catch(e0){}
+      try{const cached=localStorage.getItem(sig);if(cached){showResult(JSON.parse(cached));e.target.value="";return;}}catch(e0){}
       box.innerHTML='<div class="card"><div class="muted">'+I18N.t("med_analysing")+'</div></div>';
       let url,mime;
       try{
@@ -270,6 +270,14 @@
         j.result._lang=I18N.lang;
         showResult(j.result);
         try{localStorage.setItem(sig,JSON.stringify(j.result));}catch(e1){}
+        // Simpan 2 BAHASA: terjemahkan ke bahasa satunya (teks saja; angka/nilai IDENTIK) lalu ikut
+        // disimpan sebagai result._alt -> toggle EN/ID instan & history langsung benar. Kalau gagal,
+        // biarkan 1 bahasa (fallback terjemah saat toggle tetap jalan).
+        try{
+          var _oth=(I18N.lang==="id")?"en":"id";
+          var _alt=await aiTranslate(_oth, j.result);
+          if(_alt){ _alt._lang=_oth; j.result._alt=_alt; transCache[_oth]=_alt; try{localStorage.setItem(sig,JSON.stringify(j.result));}catch(e8){} }
+        }catch(e9){}
         // Simpan ke akun (Supabase). Kalau GAGAL, kasih tahu user — jangan diam-diam hilang saat refresh.
         let saveErr=null;
         const nowISO=new Date().toISOString();
@@ -345,8 +353,15 @@
     }
 
     let currentRes=null, baseRes=null, transCache={};
-    // Tampilkan hasil baru sebagai sumber (reset cache terjemahan)
-    function showResult(res,noScroll){ baseRes=res; transCache={}; transCache[res._lang||"en"]=res; renderResult(res,noScroll); }
+    // Tampilkan hasil baru sebagai sumber (reset cache terjemahan). Kalau hasil menyimpan 2 bahasa
+    // (res._alt), seed transCache keduanya & render langsung dalam bahasa UI aktif -> tidak ada lagi
+    // "label Inggris, isi Indonesia" saat load.
+    function showResult(res,noScroll){
+      baseRes=res; transCache={};
+      transCache[res._lang||"en"]=res;
+      if(res._alt && res._alt._lang){ transCache[res._alt._lang]=res._alt; }
+      renderResult(transCache[I18N.lang]||res,noScroll);
+    }
 
     function renderResult(res,noScroll){
       currentRes=res;
@@ -444,7 +459,10 @@
     // "See details" -> pop-up berisi hasil MCU yang dipilih dari history.
     function openHistory(i){
       const r=history[i]; if(!r||!r.result) return;
-      const res=r.result; const date=(r.analyzed_at||r.created_at||"").slice(0,10);
+      const raw=r.result;
+      // dual-bahasa tersimpan -> tampilkan sesuai bahasa UI aktif (hasil lama 1 bahasa: apa adanya)
+      const res=(raw._alt && raw._alt._lang===I18N.lang) ? raw._alt : raw;
+      const date=(r.analyzed_at||r.created_at||"").slice(0,10);
       const title=(res.document_type||L({en:"MCU Result",id:"Hasil MCU"}))+(date?" · "+date:"");
       document.getElementById("mcuModalTitle").textContent=title;
       document.getElementById("mcuModalBody").innerHTML=buildResultHTML(res);
@@ -454,21 +472,26 @@
     function closeMcuModal(){ document.getElementById("mcuModalBg").classList.remove("open"); document.body.style.overflow=""; }
     (function(){ var bg=document.getElementById("mcuModalBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeMcuModal(); });
       document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeMcuModal(); }); })();
-    // Terjemahkan hasil yang sedang tampil ke bahasa aktif (lewat AI), dengan cache + timeout
+    // Panggil AI translate: terjemahkan STRUKTUR hasil ke `lang` (hanya TEKS/label — angka & nilai
+    // hasil pemeriksaan tetap, karena ini menerjemahkan output analisa yang sama, bukan analisa ulang).
+    async function aiTranslate(lang, data){
+      const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),45000);
+      try{
+        const r=await fetch(AI_URL,{method:"POST",signal:ctrl.signal,headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"translate",lang:lang,data:data})});
+        clearTimeout(to);
+        const j=await r.json();
+        return (r.ok&&j&&j.result)?j.result:null;
+      }catch(e){ clearTimeout(to); return null; }
+    }
+    // Terjemahkan hasil yang sedang tampil ke bahasa aktif. Kalau sudah tersimpan 2 bahasa
+    // (result._alt) transCache sudah terisi -> ganti INSTAN tanpa panggil AI lagi.
     async function translateCurrent(){
       const base=baseRes; if(!base){return;}
       const want=I18N.lang;
-      // sudah pernah diterjemahkan -> instan
       if(transCache[want]){ renderResult(transCache[want],true); return; }
-      // label langsung ganti bahasa dulu (teks AI nyusul beberapa detik)
-      renderResult(base,true);
-      try{
-        const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),45000);
-        const r=await fetch(AI_URL,{method:"POST",signal:ctrl.signal,headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"translate",lang:want,data:base})});
-        clearTimeout(to);
-        const j=await r.json();
-        if(r.ok&&j.result&&I18N.lang===want){ j.result._lang=want; transCache[want]=j.result; renderResult(j.result,true); }
-      }catch(e){ /* biarkan render terkini — label sudah sesuai bahasa aktif */ }
+      renderResult(base,true); // label langsung ganti bahasa; teks AI nyusul (hasil lama 1 bahasa)
+      const res=await aiTranslate(want, base);
+      if(res && I18N.lang===want){ res._lang=want; transCache[want]=res; renderResult(res,true); }
     }
     (async function(){
       user=await Auth.requireAuth();
