@@ -48,14 +48,6 @@
   html:not(.theme-light) .hero.wx-night .wx-temp{color:#C9D4F5}
   @keyframes heroBreathe{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
   .hero-inner{position:relative;z-index:1}
-  /* PLATAROX x 20FIT — banner hasil & leaderboard race (home, di atas kartu onboarding).
-     Banner = 1 gambar (teks & logo sudah menyatu di aset) yang bisa diklik -> racelabtiming. */
-  .race-banner{display:block;margin:2px 0 14px;border-radius:16px;overflow:hidden;text-decoration:none;
-    box-shadow:0 4px 18px rgba(16,18,22,.12);transition:transform .16s ease,box-shadow .16s ease}
-  .race-banner:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(16,18,22,.22)}
-  .race-banner:active{transform:translateY(0)}
-  .race-banner:focus-visible{outline:3px solid var(--red);outline-offset:2px}
-  .race-banner img{display:block;width:100%;height:auto}
   .hk{color:var(--red);font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px 2px}
   .hello{font-size:33px;font-weight:800;margin:0 2px;letter-spacing:-.03em;line-height:1.04}
   .greetdate{font-size:13px;color:var(--faint);font-weight:600;margin:5px 2px 0}
@@ -323,14 +315,6 @@
         <div class="asrc" id="wbadge"></div>
       </div>
     </header>
-
-    <!-- PLATAROX x 20FIT — klik banner -> hasil & leaderboard race di racelabtiming -->
-    <a class="race-banner" href="https://racelabtiming.20fit.id/results/platarox"
-             aria-label="Lihat hasil & leaderboard Platarox kamu">
-      <img src="https://media.20fit.id/wp-content/uploads/2026/07/IMG_2055.png"
-           alt="PLATAROX x 20FIT — Your race, your time, proven. Cek hasil &amp; leaderboard Platarox kamu di my20FIT."
-           loading="lazy" decoding="async">
-    </a>
 
     <!-- ===== HOME REDESIGN (SS) — Today's trackers + service grid ===== -->
     <style>
@@ -1033,8 +1017,10 @@
         { type: "doctor", nm: "dr. Yusuf", sp: { en: "Body Composition · Longevity", id: "Komposisi Tubuh · Longevity" }, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dr.-Yusuf.jpg" },
         { type: "doctor", nm: "dr. Andre", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dr.-Ande.jpg" },
         { type: "doctor", nm: "dr. Ande", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dr.-Ande-3.jpg" },
-        { type: "coach", nm: "Coach Rheza", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/Coach-Rheza.jpg" },
+        { type: "doctor", nm: "Dr. Merry", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dok.-Merry.png" },
+        { type: "doctor", nm: "Dr. Anna", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dok.-Anna.png" },
         { type: "coach", nm: "Coach Nando", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/Coach-Nando.jpg" },
+        { type: "coach", nm: "Coach Rheza", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/Coach-Rheza.jpg" },
         { type: "coach", nm: "Coach Dhani", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/Coach-Dhani.jpg" },
         { type: "coach", nm: "Coach Calysta", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/Coach-Calysta.jpg" },
         { type: "coach", nm: "Coach Andro", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/Coach-Andro.jpg" }
@@ -1144,6 +1130,7 @@
       try{ if(window.renderStack) window.renderStack(); }catch(e){}
       try{ if(window.loadSleep7) window.loadSleep7(); }catch(e){}
       renderIFWidget();
+      loadIFFromCloud();
       checkAchievements();
     })();
 
@@ -1242,6 +1229,18 @@
         '<div class="bar" style="margin-top:8px"><i style="width:'+pct+'%;background:'+(st.eating?"#2A7A4F":"#C87000")+'"></i></div>'+
         '<div class="muted" style="margin-top:6px;font-size:12px">'+L({en:"Window",id:"Jendela"})+': '+st.window.start+'–'+st.window.end+(function(){var t=profile?calCalGoal(profile):2000;var m=Fasting.mealsFor(s.id);var pm=Math.max(1,Math.round(t/m/10)*10);return ' · ≈'+pm+' '+L({en:"kcal/meal",id:"kkal/makan"})+' ('+m+'×)';})()+'</div>'+
         '<a class="muted" href="calories.html#fasting" style="font-size:12px;text-decoration:none;color:var(--red);font-weight:700;display:inline-block;margin-top:6px">'+L({en:"Manage ›",id:"Atur ›"})+'</a></div>';
+    }
+    // Sinkron gaya puasa dari akun (my20fit_fasting) kalau device ini belum punya —
+    // biar widget puasa di HOME sama persis dgn halaman Calories walau beda device / habis clear browser.
+    // READ-ONLY: cuma SELECT dari DB lalu isi localStorage; tidak mengubah cara/struktur penyimpanan.
+    async function loadIFFromCloud(){
+      try{
+        if(!window.Fasting||Fasting.get())return;                 // device ini sudah punya pilihan lokal
+        if(!profile||!profile.auth_user_id||!Auth.supabase)return;
+        const {data}=await Auth.supabase.from("my20fit_fasting").select("style,start_time").eq("auth_user_id",profile.auth_user_id).limit(1);
+        const r=data&&data[0];
+        if(r&&r.style){ Fasting.set({id:r.style,start:String(r.start_time||"12:00").slice(0,5)}); renderIFWidget(); if(window.renderStack)renderStack(); }
+      }catch(e){}
     }
     setInterval(renderIFWidget,60000);
 
