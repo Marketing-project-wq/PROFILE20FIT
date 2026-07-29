@@ -144,7 +144,7 @@
 <!-- 20FIT-BUILD: reskin-new-design 2026-07-02 -->
   <div class="wrap">
     <header class="hero">
-      <div class="kick">Medical record</div>
+      <div class="kick" data-i18n="med_kick">Medical record</div>
       <h1 data-i18n="med_title">Medical Record</h1>
       <div class="muted" data-i18n="med_sub">Your medical check-up results & recommendations.</div>
     </header>
@@ -293,7 +293,7 @@
       e.target.value="";
     }
 
-    const SEV={tinggi:{c:"#ff3b30",t:"Perlu Perhatian"},sedang:{c:"#ff9500",t:"Sedang"},ringan:{c:"#ffcc00",t:"Ringan"}};
+    const SEV={tinggi:{c:"#ff3b30",t:{en:"Needs Attention",id:"Perlu Perhatian"}},sedang:{c:"#ff9500",t:{en:"Moderate",id:"Sedang"}},ringan:{c:"#ffcc00",t:{en:"Mild",id:"Ringan"}}};
     function statusColor(s){return s==="attention"?"#ff6b6b":s==="unknown"?"#8a8a8a":"#46d369"}
     function planCard(title,icon,iconColor,items){
       if(!items||!items.length)return"";
@@ -361,12 +361,12 @@
         const col=statusColor(p.status);
         const arrow=p.direction==="high"?" ↑":p.direction==="low"?" ↓":"";
         return '<div class="param"><div class="ph"><b>'+esc(p.label||"")+'</b><span class="pv" style="color:'+col+'"><span class="dot" style="background:'+col+'"></span>'+esc(p.value||"")+arrow+'</span></div>'+
-          '<div class="muted">Normal: '+esc(p.normal_range||"-")+'</div>'+
+          '<div class="muted">'+L({en:"Normal: ",id:"Normal: "})+esc(p.normal_range||"-")+'</div>'+
           (p.explanation?'<div style="font-size:13px;margin-top:4px;color:#555">'+esc(p.explanation)+'</div>':"")+'</div>';
       }).join("");
       const findings=att.map(fd=>{
         const sv=SEV[(fd.severity||"sedang").toLowerCase()]||SEV.sedang;
-        return '<div class="find" style="border-color:'+sv.c+'"><div class="ft"><span>'+esc(fd.label||"")+(fd.value?' · '+esc(fd.value):'')+'</span><span class="sevtag" style="background:'+sv.c+'22;color:'+sv.c+'">'+sv.t+'</span></div>'+
+        return '<div class="find" style="border-color:'+sv.c+'"><div class="ft"><span>'+esc(fd.label||"")+(fd.value?' · '+esc(fd.value):'')+'</span><span class="sevtag" style="background:'+sv.c+'22;color:'+sv.c+'">'+esc(L(sv.t))+'</span></div>'+
           (fd.why_it_matters?'<div style="font-size:13px;margin-top:6px;color:#9a2a22"><b>'+I18N.t("med_why")+'</b> '+esc(fd.why_it_matters)+'</div>':"")+
           (fd.what_to_do?'<div style="font-size:13px;margin-top:5px;color:#2A7A4F"><b>'+I18N.t("med_do")+'</b> '+esc(fd.what_to_do)+'</div>':"")+'</div>';
       }).join("");
@@ -379,7 +379,7 @@
       // ---- Overall summary (plain language + BMI/gender/age) ----
       const bi = profile ? Auth.bmiInfo(profile.weight_kg, profile.height_cm) : null;
       let stats="";
-      if(bi) stats+='<div class="ohstat"><div class="l">BMI</div><div class="v" style="color:'+bi.color+'">'+bi.bmi+'</div><div class="muted" style="font-size:11px">'+bi.label+'</div></div>';
+      if(bi) stats+='<div class="ohstat"><div class="l">BMI</div><div class="v" style="color:'+bi.color+'">'+bi.bmi+'</div><div class="muted" style="font-size:11px">'+esc(L(bi.label))+'</div></div>';
       if(profile&&profile.gender) stats+='<div class="ohstat"><div class="l">'+L({en:"Gender",id:"Gender"})+'</div><div class="v" style="font-size:15px;margin-top:6px">'+(profile.gender==="female"?L({en:"Female",id:"Perempuan"}):L({en:"Male",id:"Laki-laki"}))+'</div></div>';
       if(profile&&profile.age) stats+='<div class="ohstat"><div class="l">'+L({en:"Age",id:"Usia"})+'</div><div class="v">'+profile.age+'</div></div>';
       const attLine = att.length
@@ -390,7 +390,7 @@
         (stats?'<div class="ohrow">'+stats+'</div>':'')+
         (res.summary?'<div style="margin-top:10px;line-height:1.55"><b>'+L({en:"What it means: ",id:"Artinya: "})+'</b>'+esc(res.summary)+'</div>':'')+
         '<div style="margin-top:8px;font-weight:700;color:'+(att.length?"#b3402f":"#2A7A4F")+'">'+attLine+'</div>'+
-        (bi?'<div class="muted" style="margin-top:6px">'+L({en:"Overall, based on your BMI & profile: ",id:"Secara umum dari BMI & profilmu: "})+bi.desc+'</div>':'')+'</div>';
+        (bi?'<div class="muted" style="margin-top:6px">'+L({en:"Overall, based on your BMI & profile: ",id:"Secara umum dari BMI & profilmu: "})+esc(L(bi.desc))+'</div>':'')+'</div>';
 
       return overall+
         (findings?'<div class="card rfull"><div class="ch" style="color:var(--red)">'+warn+I18N.t("med_attention")+'</div>'+findings+'</div>':"")+

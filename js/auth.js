@@ -423,11 +423,13 @@
     if (!weightKg || !heightCm) return null;
     const m = heightCm / 100;
     const bmi = weightKg / (m * m);
+    // label & desc bilingual ({en,id}) — pemakai render lewat L() (mis. medical.html) atau
+    // pilih bahasa manual (onboarding.html yang tak punya i18n). Kategori BMI = istilah standar.
     let label, color, desc;
-    if (bmi < 18.5) { label = "Underweight"; color = "#e11d2a"; desc = "Berat di bawah ideal."; }
-    else if (bmi < 25) { label = "Normal"; color = "#2A7A4F"; desc = "Berat ideal, pertahankan!"; }
-    else if (bmi < 30) { label = "Overweight"; color = "#C87000"; desc = "Sedikit di atas ideal."; }
-    else { label = "Obese"; color = "#e11d2a"; desc = "Jauh di atas ideal."; }
+    if (bmi < 18.5) { label = { en: "Underweight", id: "Kurus" }; color = "#e11d2a"; desc = { en: "Below ideal weight.", id: "Berat di bawah ideal." }; }
+    else if (bmi < 25) { label = { en: "Normal", id: "Normal" }; color = "#2A7A4F"; desc = { en: "Ideal weight — keep it up!", id: "Berat ideal, pertahankan!" }; }
+    else if (bmi < 30) { label = { en: "Overweight", id: "Berlebih" }; color = "#C87000"; desc = { en: "Slightly above ideal.", id: "Sedikit di atas ideal." }; }
+    else { label = { en: "Obese", id: "Obesitas" }; color = "#e11d2a"; desc = { en: "Well above ideal.", id: "Jauh di atas ideal." }; }
     return { bmi: bmi.toFixed(1), label, color, desc };
   }
 

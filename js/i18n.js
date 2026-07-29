@@ -31,6 +31,7 @@
       cycle_lastperiod:"First day of your last period", cycle_save:"Save", cycle_edit:"Change Date",
       cycle_starttoday:"My period started today", cycle_dayof:"Day", cycle_of:"of", cycle_next:"next period in", cycle_days:"days",
       // medical
+      med_kick:"Medical record",
       med_title:"Medical Record", med_sub:"Your medical check-up results & recommendations.",
       med_upload:"Upload Medical Check-Up", med_uploadsub:"PDF / JPG / PNG from any facility — analysed automatically with AI",
       med_history:"History", med_empty:"No MCU results yet. Upload your check-up above.",
@@ -136,6 +137,7 @@
       cycle_intro:"Lacak siklusmu untuk rekomendasi latihan yang pas.",
       cycle_lastperiod:"Hari pertama haid terakhir", cycle_save:"Simpan", cycle_edit:"Ubah Tanggal", cycle_starttoday:"Haid mulai hari ini",
       cycle_dayof:"Hari ke-", cycle_of:"dari", cycle_next:"haid berikutnya dalam", cycle_days:"hari",
+      med_kick:"Rekam medis",
       med_title:"Rekam Medis", med_sub:"Hasil medical check-up & rekomendasi kamu.",
       med_upload:"Upload Medical Check-Up", med_uploadsub:"PDF / JPG / PNG dari faskes mana pun — dianalisa otomatis dengan AI",
       med_history:"Riwayat", med_empty:"Belum ada hasil MCU. Upload hasil check-up kamu di atas.",
