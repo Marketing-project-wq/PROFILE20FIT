@@ -1465,6 +1465,60 @@ app.post("/api/corp/leave", async (req, res) => {
   return res.json({ ok: true });
 });
 
+// ============ Account: hak data-subject (export data pribadi) ============
+// Tabel yang menyimpan data milik user (keyed auth_user_id). OTP (keyed email)
+// SENGAJA tidak diekspor: token transien, bukan data pribadi bermakna.
+var USER_DATA_TABLES = [
+  "my20fit_profile", "my20fit_daily_log", "my20fit_health_entry", "my20fit_workout",
+  "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
+  "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
+  "my20fit_scan_orders", "my20fit_scan_ledger", "my20fit_voucher_usages"
+];
+// Unduh SEMUA data pribadi milik user sendiri (JSON). Auth wajib; hanya row miliknya.
+app.get("/api/account/export", async (req, res) => {
+  var user = await getUserFromReq(req);
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  var out = { exported_at: new Date().toISOString(), account: { id: user.id, email: user.email || null }, data: {} };
+  for (var i = 0; i < USER_DATA_TABLES.length; i++) {
+    var t = USER_DATA_TABLES[i];
+    try {
+      var { data, error } = await admin.from(t).select("*").eq("auth_user_id", user.id);
+      out.data[t] = error ? { error: error.message } : (data || []);
+    } catch (e) { out.data[t] = { error: (e && e.message) || "failed" }; }
+  }
+  var fname = "my20fit-data-" + String(user.id).slice(0, 8) + ".json";
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="' + fname + '"');
+  return res.status(200).send(JSON.stringify(out, null, 2));
+});
+
+// Hapus akun + SEMUA data pribadi milik user SENDIRI (irreversible / hak penghapusan).
+// Aman: auth dari JWT pemanggil -> hanya bisa hapus dirinya sendiri (WHERE auth_user_id = user.id).
+// Wajib body {confirm:"DELETE"} biar tak terpanggil tak sengaja.
+// Catatan keputusan: data komersial (order/ledger/voucher) IKUT dihapus penuh (erasure).
+// Audit log (my20fit_*_audit_log, corporate_access_log) SENGAJA dibiarkan (jejak akuntabilitas,
+// hanya berisi UUID tanpa profil -> ter-de-identifikasi setelah profil hilang).
+app.post("/api/account/delete", async (req, res) => {
+  var user = await getUserFromReq(req);
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  var confirm = String((req.body || {}).confirm || "").trim().toUpperCase();
+  if (confirm !== "DELETE") return res.status(400).json({ error: "Konfirmasi tidak valid. Ketik DELETE untuk mengonfirmasi." });
+  var results = {};
+  var byUser = USER_DATA_TABLES.concat(["my20fit_admin_roles", "my20fit_corporate_admin"]);
+  for (var i = 0; i < byUser.length; i++) {
+    var t = byUser[i];
+    try { var { error } = await admin.from(t).delete().eq("auth_user_id", user.id); results[t] = error ? ("ERR: " + error.message) : "ok"; }
+    catch (e) { results[t] = "ERR: " + ((e && e.message) || "failed"); }
+  }
+  try { if (user.email) await admin.from("my20fit_email_otp").delete().eq("email", user.email); } catch (e) {}
+  // Hapus akun auth TERAKHIR: kalau data gagal, akun masih ada untuk diulang.
+  var authErr = null;
+  try { var d = await admin.auth.admin.deleteUser(user.id); if (d && d.error) authErr = d.error.message || String(d.error); }
+  catch (e) { authErr = (e && e.message) || "failed"; }
+  if (authErr) return res.status(500).json({ error: "Data pribadi terhapus, tapi menghapus akun login gagal: " + authErr + ". Hubungi admin.", results: results });
+  return res.json({ ok: true, results: results });
+});
+
 // ---- FASE 4: kirim pesan/email ke karyawan (roster terfilter) ----
 function corpMsgHtml(bodyText) {
   var safe = String(bodyText || "").replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }).replace(/\n/g, "<br>");

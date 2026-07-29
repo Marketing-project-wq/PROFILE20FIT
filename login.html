@@ -270,6 +270,13 @@
           <input id="confirm" name="confirm" type="password" placeholder="••••••••" autocomplete="new-password" />
         </div>
 
+        <div id="consent-wrap" class="hide" style="margin:2px 0 4px">
+          <label style="display:flex;gap:9px;align-items:flex-start;font-size:12.5px;font-weight:500;text-transform:none;letter-spacing:0;cursor:pointer;color:var(--muted)">
+            <input id="consentChk" type="checkbox" style="width:auto;margin-top:2px;flex:0 0 auto" />
+            <span><span data-k="consentText">I agree to the</span> <a href="/privacy" target="_blank" rel="noopener" style="color:var(--red);font-weight:700" data-k="consentLink">Privacy Policy</a>.</span>
+          </label>
+        </div>
+
         <button class="btn" id="submit" type="submit"></button>
         </form>
         <div style="text-align:center;margin-top:14px;font-size:13px"><a id="forgot" href="reset-password.html" style="color:var(--red);text-decoration:none;font-weight:600"></a></div>
@@ -365,6 +372,7 @@
         errCred:"Wrong email or password.", errExists:"Email already registered. Tap Sign In or use another email.",
         errPw:"Password must be at least 8 characters.", errFill:"Please fill in email & password.",
         errName:"Please enter your name.", processing:"Processing...",
+        errConsent:"Please agree to the Privacy Policy first.", consentText:"I agree to the", consentLink:"Privacy Policy",
         orsep:"or", google:"Continue with Google", magiclink:"Email me a login code", with20fit:"Continue with 20FIT",
         fitco:"Sign in with your 20FIT account",
         fitcopw:"20FIT account uses email & password? Sign in",
@@ -402,6 +410,7 @@
         errCred:"Email atau password salah.", errExists:"Email sudah terdaftar. Klik Masuk atau pakai email lain.",
         errPw:"Password minimal 8 karakter.", errFill:"Isi email & password dulu ya.",
         errName:"Isi nama kamu dulu.", processing:"Memproses...",
+        errConsent:"Setujui Kebijakan Privasi dulu ya.", consentText:"Saya setuju dengan", consentLink:"Kebijakan Privasi",
         orsep:"atau", google:"Lanjut dengan Google", magiclink:"Kirim kode login ke email", with20fit:"Masuk dengan 20FIT",
         fitco:"Masuk pakai akun 20FIT",
         fitcopw:"Akun 20FIT pakai email & password? Masuk",
@@ -529,6 +538,7 @@
       document.getElementById("gender-wrap").classList.toggle("hide",m!=="up");
       document.getElementById("dob-wrap").classList.toggle("hide",m!=="up");
       document.getElementById("confirm-wrap").classList.toggle("hide",m!=="up");
+      document.getElementById("consent-wrap").classList.toggle("hide",m!=="up");
       document.getElementById("password").autocomplete=m==="in"?"current-password":"new-password";
       msg("");
       refreshMode();
@@ -559,6 +569,7 @@
       if(mode==="up"&&!birthdate)return msg(d.errDob,"err");
       if(mode==="up"&&password.length<8)return msg(d.errPw,"err");
       if(mode==="up"&&password!==document.getElementById("confirm").value)return msg(d.errMatch,"err");
+      if(mode==="up"&&!document.getElementById("consentChk").checked)return msg(d.errConsent,"err");
       const btn=document.getElementById("submit");btn.disabled=true;msg(d.processing,"");
       try{
         if(mode==="up"){
