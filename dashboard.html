@@ -166,6 +166,19 @@
   .wctrl{display:flex;gap:10px;justify-content:center;margin-top:10px}
   .wctrl button{flex:1;max-width:64px;height:42px;border-radius:12px;border:0;background:var(--inp);color:var(--txt);font-size:20px;font-weight:800;cursor:pointer;transition:.14s}
   .wctrl button:active{transform:scale(.94)}
+  /* Widget SLEEP di home — stepper durasi + keterangan suportif */
+  .slplog{display:flex;align-items:center;gap:8px;margin-top:12px}
+  .slplog>button{width:40px;height:40px;border-radius:12px;border:0;background:var(--inp);color:var(--txt);font-size:22px;font-weight:800;cursor:pointer;flex:0 0 auto;transition:.14s}
+  .slplog>button:active{transform:scale(.94)}
+  .slpval{display:flex;flex-direction:column;align-items:center;min-width:64px}
+  .slpval b{font-size:20px;font-weight:900;line-height:1.05}
+  .slpval span{font-size:11px;color:var(--muted)}
+  .slplog>button.slpsave{margin-left:auto;width:auto;border-radius:12px;background:var(--ink);color:var(--bg);font-weight:800;font-size:13.5px;padding:0 18px;height:40px;white-space:nowrap}
+  .slpsave:disabled{opacity:.6;cursor:default}
+  .slpsave:active{transform:scale(.97)}
+  .slpmsg{margin-top:10px;font-size:12.5px;font-weight:700;color:var(--blue);background:var(--blue-soft);border-radius:10px;padding:9px 12px;line-height:1.4}
+  .slpmsg.hide{display:none}
+  .bigglass.wgtap{cursor:pointer}
 
   /* ---- Checklist ---- */
   .chkhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
@@ -799,16 +812,30 @@
       }
       function tcHydration() {
         var g = 0; try { g = (typeof daily !== "undefined" && daily) ? +daily.water_glasses || 0 : 0; } catch (e) {}
-        var pct = Math.max(0, Math.min(100, Math.round(g / 8 * 100)));
+        g = Math.max(0, Math.min(8, g));
+        var pct = Math.round(g / 8 * 100);
         return '<div class="card tkcard"><div class="tkhd"><div class="tkic drop">' + TICON.drop + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Hydration", id: "Hidrasi" }) + '</div>' +
-          '<div class="tkval tkmono">' + (g * 0.25).toFixed(1) + '<small> / 2.0 L · ' + g + ' ' + Lx({ en: "of 8 glasses", id: "dari 8 gelas" }) + '</small></div></div>' +
-          '<button class="tkplus" type="button" onclick="hydPlus(event)" aria-label="Add water">+</button></div>' +
-          '<div class="tkprog"><i style="width:' + pct + '%"></i></div></div>';
+          '<div class="tkval tkmono" id="wgVal">' + (g * 0.25).toFixed(1) + '<small> / 2.0 L · ' + g + ' ' + Lx({ en: "of 8 glasses", id: "dari 8 gelas" }) + '</small></div></div></div>' +
+          '<div class="bigglass wgtap" id="wgGlass" onclick="hydSet(1,event)" role="button" tabindex="0" title="' + Lx({ en: "tap to add a glass", id: "ketuk untuk tambah gelas" }) + '" aria-label="' + Lx({ en: "Add a glass of water", id: "Tambah satu gelas air" }) + '">' +
+          '<div class="bgfill" id="wgFill" style="height:' + pct + '%"><span class="bgwave"></span></div>' +
+          '<div class="bgcount" id="wgCount">' + g + '/8</div></div>' +
+          '<div class="wctrl"><button type="button" onclick="hydSet(-1,event)" aria-label="' + Lx({ en: "Remove a glass", id: "Kurangi gelas" }) + '">−</button>' +
+          '<button type="button" onclick="hydSet(1,event)" aria-label="' + Lx({ en: "Add a glass", id: "Tambah gelas" }) + '">+</button></div></div>';
       }
-      function sleepQuality(h) { if (!h) return null; if (h >= 7) return { en: "Good", id: "Baik" }; if (h >= 6) return { en: "Fair", id: "Cukup" }; return { en: "Poor", id: "Kurang" }; }
+      // Ambang tidur (dikonfirmasi pemilik): <7 kurang · 7–9 cukup · >9 lebih.
+      // Diekspos ke window supaya bisa dipanggil dari widget SLEEP di blok lain (saveSleepWidget).
+      window.sleepBand = function (h) { if (!h) return null; if (h < 7) return "low"; if (h <= 9) return "ok"; return "high"; };
+      // Keterangan suportif — info umum, BUKAN diagnosis medis. Bilingual via Lx (closure blok ini).
+      window.sleepMsg = function (h) {
+        var b = sleepBand(h); if (!b) return "";
+        return Lx(({
+          low: { en: "You need more sleep — aim for 7–9 hours.", id: "Kamu butuh tidur lebih — usahakan 7–9 jam." },
+          ok: { en: "You slept enough — you'll feel more energized today.", id: "Tidurmu cukup — kamu bakal lebih berenergi hari ini." },
+          high: { en: "That's a long sleep — what matters is feeling rested.", id: "Tidurmu cukup panjang — yang penting kamu merasa segar." }
+        })[b]);
+      }
       function tcSleep() {
         var h = 0; try { h = (typeof daily !== "undefined" && daily) ? +daily.sleep_hours || 0 : 0; } catch (e) {}
-        var q = sleepQuality(h);
         var bars;
         if (SLEEP7 === null) { bars = '<div class="tkbars">' + "1234567".split("").map(function () { return '<i class="tkskel" style="height:55%"></i>'; }).join("") + '</div>'; }
         else {
@@ -817,8 +844,16 @@
           var mx = Math.max(8, arr.reduce(function (m, v) { return Math.max(m, v || 0); }, 0));
           bars = '<div class="tkbars">' + arr.map(function (v) { return v ? '<i style="height:' + Math.max(10, Math.round(v / mx * 100)) + '%"></i>' : '<i class="empty" style="height:8%"></i>'; }).join("") + '</div>';
         }
-        var sub = h ? (h.toFixed(1) + 'h' + (q ? ' · ' + Lx(q) : '') + ' · ' + Lx({ en: "goal 8h", id: "target 8h" })) : Lx({ en: "Log your sleep", id: "Catat tidurmu" });
-        return '<a class="card tkcard" href="dashboard.html#sleep"><div class="tkhd"><div class="tkic sleep">' + TICON.sleep + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Sleep", id: "Tidur" }) + '</div><div class="tksub tkmono">' + sub + '</div></div>' + bars + '</div></a>';
+        var sub = h ? (h.toFixed(1) + 'h · ' + Lx({ en: "goal 8h", id: "target 8h" })) : Lx({ en: "Log your sleep", id: "Catat tidurmu" });
+        var start = (h ? h : 7.5).toFixed(1);
+        var msg = sleepMsg(h);
+        return '<div class="card tkcard"><div class="tkhd"><div class="tkic sleep">' + TICON.sleep + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Sleep", id: "Tidur" }) + '</div><div class="tksub tkmono" id="slpSub">' + sub + '</div></div>' + bars + '</div>' +
+          '<div class="slplog"><button type="button" onclick="slpStep(-0.5)" aria-label="' + Lx({ en: "Less", id: "Kurangi" }) + '">−</button>' +
+          '<div class="slpval"><b id="slpH">' + start + '</b><span>' + Lx({ en: "hours slept", id: "jam tidur" }) + '</span></div>' +
+          '<button type="button" onclick="slpStep(0.5)" aria-label="' + Lx({ en: "More", id: "Tambah" }) + '">+</button>' +
+          '<button class="slpsave" type="button" onclick="saveSleepWidget()">' + Lx({ en: "Save", id: "Simpan" }) + '</button></div>' +
+          '<div class="slpmsg' + (msg ? '' : ' hide') + '" id="slpMsg">' + msg + '</div>' +
+          '<a href="dashboard.html#sleep" style="display:inline-block;margin-top:8px;font-size:11.5px;color:var(--muted);text-decoration:none">' + Lx({ en: "Set bedtime & wake time ›", id: "Atur jam tidur & bangun ›" }) + '</a></div>';
       }
       function tcHealth() {
         var b = null, w = null; try { if (typeof profile !== "undefined" && profile) { w = profile.weight_kg; if (profile.weight_kg && profile.height_cm) b = Math.round(profile.weight_kg / Math.pow(profile.height_cm / 100, 2) * 10) / 10; } } catch (e) {}
@@ -826,7 +861,15 @@
         if (b == null && w == null) return head + '</a>';
         return head + '<div class="tkstats"><div class="tkstat"><b>' + (w != null ? w : '—') + '</b><span>' + Lx({ en: "Weight kg", id: "Berat kg" }) + '</span></div><div class="tkstat"><b>' + (b != null ? b.toFixed(1) : '—') + '</b><span>BMI</span></div></div></a>';
       }
-      window.hydPlus = function (e) { if (e) { e.preventDefault(); e.stopPropagation(); } try { if (typeof setWater === "function" && typeof water !== "undefined") { setWater(water + 1); if (typeof daily !== "undefined" && daily) daily.water_glasses = water; } } catch (err) {} window.renderStack(); };
+      // Log Minerals Drank — ubah jumlah gelas. setWater yang simpan ke DB + sinkron gelas
+      // detail & widget (animasi lewat transition CSS; JANGAN renderStack biar animasi jalan).
+      window.hydSet = function (delta, e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        var cur = 0; try { cur = (typeof daily !== "undefined" && daily) ? +daily.water_glasses || 0 : 0; } catch (err) {}
+        var n = Math.max(0, Math.min(8, cur + delta));
+        if (n === cur) return;
+        try { if (typeof setWater === "function") setWater(n); } catch (err) {}
+      };
       // SSO ke photo.20fit.id (server mint OTP satu-kali -> photo.20fit.id/sso), dipindah dari profil.
       window.openPhotoSso = function (e) {
         if (e && e.preventDefault) e.preventDefault();
@@ -1503,14 +1546,49 @@
       try{await Auth.saveDaily({sleep_bed:sleepBed,sleep_wake:sleepWake,sleep_hours:sleepH});
         toast(sleepH>=7?L({en:"Good sleep!",id:"Tidur cukup!"}):L({en:"Sleep saved ✓",id:"Tidur tersimpan ✓"}));renderChecklist();checkAchievements();}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
+    // Widget SLEEP di home — input durasi langsung (stepper) lalu simpan + keterangan suportif.
+    window.slpStep=function(d){
+      var el=document.getElementById("slpH"); if(!el)return;
+      var v=Math.max(0,Math.min(14,(parseFloat(el.textContent)||7.5)+d));
+      el.textContent=v.toFixed(1);
+    };
+    window.saveSleepWidget=async function(){
+      var el=document.getElementById("slpH"); if(!el)return;
+      var h=Math.max(0,Math.min(14,parseFloat(el.textContent)||0));
+      var btn=document.querySelector(".slpsave"), old=btn?btn.textContent:"";
+      if(btn){btn.disabled=true;btn.textContent=L({en:"Saving…",id:"Menyimpan…"});}
+      try{
+        await Auth.saveDaily({sleep_hours:h});
+        sleepH=h; if(typeof daily!=="undefined"&&daily) daily.sleep_hours=h;
+        var sub=document.getElementById("slpSub"); if(sub) sub.textContent=h.toFixed(1)+'h · '+L({en:"goal 8h",id:"target 8h"});
+        var msg=document.getElementById("slpMsg"); if(msg){ msg.textContent=(window.sleepMsg?sleepMsg(h):""); msg.classList.toggle("hide",!h); }
+        try{ if(typeof renderSleep==="function"&&document.getElementById("sleepVal")) renderSleep(); }catch(e){}  // sinkron panel detail
+        try{ if(window.loadSleep7) window.loadSleep7(); }catch(e){}                                              // refresh grafik 7 malam
+        toast(L({en:"Sleep saved ✓",id:"Tidur tersimpan ✓"}));
+        try{ checkAchievements(); }catch(e){}
+      }catch(e){
+        toast(L({en:"Save failed — try again",id:"Gagal simpan — coba lagi"}));
+      }finally{
+        if(btn){btn.disabled=false;btn.textContent=old||L({en:"Save",id:"Simpan"});}
+      }
+    };
 
     function renderWater(){
-      document.getElementById("bgFill").style.height=Math.min(water/8*100,100)+"%";
-      document.getElementById("bgCount").textContent=water+"/8";
+      var f=document.getElementById("bgFill"); if(f) f.style.height=Math.min(water/8*100,100)+"%";
+      var c=document.getElementById("bgCount"); if(c) c.textContent=water+"/8";
+    }
+    // Gelas air di WIDGET home (update di tempat -> transition CSS beranimasi, tidak re-render).
+    function renderWaterWidget(){
+      var pct=Math.round(Math.max(0,Math.min(8,water))/8*100);
+      var f=document.getElementById("wgFill"); if(f) f.style.height=pct+"%";
+      var c=document.getElementById("wgCount"); if(c) c.textContent=water+"/8";
+      var v=document.getElementById("wgVal"); if(v) v.innerHTML=(water*0.25).toFixed(1)+'<small> / 2.0 L · '+water+' '+L({en:"of 8 glasses",id:"dari 8 gelas"})+'</small>';
     }
     async function setWater(n){
-      water=Math.max(0,Math.min(8,n));renderWater();
-      try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached!",id:"Target air tercapai!"}));renderChecklist();checkAchievements();}catch(e){}
+      water=Math.max(0,Math.min(8,n));
+      if(typeof daily!=="undefined"&&daily) daily.water_glasses=water;   // per-hari (my20fit_daily_log) -> reset harian
+      renderWater();renderWaterWidget();
+      try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached!",id:"Target air tercapai!"}));renderChecklist();checkAchievements();}catch(e){toast(L({en:"Save failed — try again",id:"Gagal simpan — coba lagi"}));}
     }
 
     // ---- Checklist harian (aktivitas yang bisa dilacak lewat widget) ----
