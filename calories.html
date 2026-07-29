@@ -182,10 +182,10 @@
     <!-- Rekomendasi menu berdasar SISA makro hari ini — full-width di bawah 2 kolom.
          Desktop: grid banyak kolom (manfaatin lebar). Mobile: tetap carousel horizontal. -->
     <div class="card" id="menuRecCard">
-      <div><div style="font-weight:800;font-size:15px">🍽️ Rekomendasi menu</div><div class="muted" style="font-size:12px">Berdasarkan sisa makro kamu hari ini · geser untuk lihat lainnya</div></div>
-      <div id="menuRecBody" style="margin-top:12px"><div class="muted" style="font-size:12.5px">Memuat rekomendasi…</div></div>
-      <a href="diet.html" style="display:block;text-align:center;margin-top:12px;color:var(--red);font-weight:800;text-decoration:none;font-size:13px">Lihat menu lainnya →</a>
-      <div style="font-size:11px;color:var(--muted);margin-top:10px">Perkiraan panduan — bukan pengganti saran ahli gizi.</div>
+      <div><div style="font-weight:800;font-size:15px">🍽️ <span data-i18n="cal_mrec_title">Menu recommendations</span></div><div class="muted" style="font-size:12px" data-i18n="cal_mrec_sub">Based on your remaining macros today · swipe for more</div></div>
+      <div id="menuRecBody" style="margin-top:12px"><div class="muted" style="font-size:12.5px" data-i18n="cal_mrec_loading">Loading recommendations…</div></div>
+      <a href="diet.html" style="display:block;text-align:center;margin-top:12px;color:var(--red);font-weight:800;text-decoration:none;font-size:13px" data-i18n="cal_mrec_more">See more menus →</a>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px" data-i18n="cal_mrec_disc">Rough guidance — not a substitute for a nutritionist.</div>
     </div>
   </div>
 
@@ -366,11 +366,11 @@
       var MT=(typeof macroT!=="undefined"&&macroT)?macroT:{};
       var rem={ p:Math.round((MT.p||0)-tp), c:Math.round((MT.c||0)-tc), f:Math.round((MT.f||0)-tf) };
       var recs=Recipes.recommendForMacros(rem,10);
-      var lbl={p:"protein",c:"karbo",f:"lemak"}, parts=[];
+      var lbl={p:L({en:"protein",id:"protein"}),c:L({en:"carbs",id:"karbo"}),f:L({en:"fat",id:"lemak"})}, parts=[];
       ["p","c","f"].forEach(function(k){ if(rem[k]>0) parts.push(lbl[k]+" "+rem[k]+"g"); });
-      var lead=parts.length?("Sisa hari ini: "+parts.join(" · ")):"Target makro harianmu hampir terpenuhi 🎉";
+      var lead=parts.length?(L({en:"Remaining today: ",id:"Sisa hari ini: "})+parts.join(" · ")):L({en:"You've nearly hit your daily macro target 🎉",id:"Target makro harianmu hampir terpenuhi 🎉"});
       var nm=function(o){ return window.L?L(o):(o.id||o.en); };
-      if(!recs.length){ body.innerHTML='<div class="muted" style="font-size:12.5px">Belum ada rekomendasi. Lengkapi profil (berat/tinggi) & catat makananmu dulu.</div>'; return; }
+      if(!recs.length){ body.innerHTML='<div class="muted" style="font-size:12.5px">'+L({en:"No recommendations yet. Complete your profile (weight/height) & log your food first.",id:"Belum ada rekomendasi. Lengkapi profil (berat/tinggi) & catat makananmu dulu."})+'</div>'; return; }
       var cards=recs.map(function(r){
         return '<a class="mrec-card" href="diet.html">'+
           '<div class="mrec-thumb" style="background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+r.emoji+'</div>'+
