@@ -178,7 +178,13 @@
   .slpsave:active{transform:scale(.97)}
   .slpmsg{margin-top:10px;font-size:12.5px;font-weight:700;color:var(--blue);background:var(--blue-soft);border-radius:10px;padding:9px 12px;line-height:1.4}
   .slpmsg.hide{display:none}
-  .bigglass.wgtap{cursor:pointer}
+  /* Widget WATER di home — 8 gelas; ketuk satu gelas -> keisi (air naik beranimasi). */
+  .wgrid{display:flex;gap:7px;margin:14px 2px 6px}
+  .wg{position:relative;flex:1 1 0;min-width:0;max-width:46px;height:48px;border:2px solid var(--blue);border-radius:5px 5px 11px 11px;overflow:hidden;cursor:pointer;background:var(--card);padding:0;transition:transform .12s}
+  .wg:active{transform:scale(.9)}
+  .wg:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+  .wg .wgf{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,#5aa3ff,#2f6fe0);transition:height .45s cubic-bezier(.2,.8,.2,1)}
+  .wg.full .wgf{height:100%}
 
   /* ---- Checklist ---- */
   .chkhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
@@ -813,14 +819,13 @@
       function tcHydration() {
         var g = 0; try { g = (typeof daily !== "undefined" && daily) ? +daily.water_glasses || 0 : 0; } catch (e) {}
         g = Math.max(0, Math.min(8, g));
-        var pct = Math.round(g / 8 * 100);
+        var glasses = '';
+        for (var i = 1; i <= 8; i++) {
+          glasses += '<button type="button" class="wg' + (i <= g ? ' full' : '') + '" onclick="hydTap(' + i + ',event)" aria-label="' + Lx({ en: "Glass", id: "Gelas" }) + ' ' + i + '"><span class="wgf"></span></button>';
+        }
         return '<div class="card tkcard"><div class="tkhd"><div class="tkic drop">' + TICON.drop + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Hydration", id: "Hidrasi" }) + '</div>' +
           '<div class="tkval tkmono" id="wgVal">' + (g * 0.25).toFixed(1) + '<small> / 2.0 L · ' + g + ' ' + Lx({ en: "of 8 glasses", id: "dari 8 gelas" }) + '</small></div></div></div>' +
-          '<div class="bigglass wgtap" id="wgGlass" onclick="hydSet(1,event)" role="button" tabindex="0" title="' + Lx({ en: "tap to add a glass", id: "ketuk untuk tambah gelas" }) + '" aria-label="' + Lx({ en: "Add a glass of water", id: "Tambah satu gelas air" }) + '">' +
-          '<div class="bgfill" id="wgFill" style="height:' + pct + '%"><span class="bgwave"></span></div>' +
-          '<div class="bgcount" id="wgCount">' + g + '/8</div></div>' +
-          '<div class="wctrl"><button type="button" onclick="hydSet(-1,event)" aria-label="' + Lx({ en: "Remove a glass", id: "Kurangi gelas" }) + '">−</button>' +
-          '<button type="button" onclick="hydSet(1,event)" aria-label="' + Lx({ en: "Add a glass", id: "Tambah gelas" }) + '">+</button></div></div>';
+          '<div class="wgrid" id="wgGrid">' + glasses + '</div></div>';
       }
       // Ambang tidur (dikonfirmasi pemilik): <7 kurang · 7–9 cukup · >9 lebih.
       // Diekspos ke window supaya bisa dipanggil dari widget SLEEP di blok lain (saveSleepWidget).
@@ -861,13 +866,13 @@
         if (b == null && w == null) return head + '</a>';
         return head + '<div class="tkstats"><div class="tkstat"><b>' + (w != null ? w : '—') + '</b><span>' + Lx({ en: "Weight kg", id: "Berat kg" }) + '</span></div><div class="tkstat"><b>' + (b != null ? b.toFixed(1) : '—') + '</b><span>BMI</span></div></div></a>';
       }
-      // Log Minerals Drank — ubah jumlah gelas. setWater yang simpan ke DB + sinkron gelas
-      // detail & widget (animasi lewat transition CSS; JANGAN renderStack biar animasi jalan).
-      window.hydSet = function (delta, e) {
+      // Log Minerals Drank — 8 gelas. Ketuk gelas ke-i: isi sampai gelas i; ketuk gelas terakhir
+      // yang terisi -> kosongkan satu. setWater simpan ke DB + animasikan gelas (.full + transition).
+      window.hydTap = function (i, e) {
         if (e) { e.preventDefault(); e.stopPropagation(); }
         var cur = 0; try { cur = (typeof daily !== "undefined" && daily) ? +daily.water_glasses || 0 : 0; } catch (err) {}
-        var n = Math.max(0, Math.min(8, cur + delta));
-        if (n === cur) return;
+        var n = (i === cur) ? i - 1 : i;
+        n = Math.max(0, Math.min(8, n));
         try { if (typeof setWater === "function") setWater(n); } catch (err) {}
       };
       // SSO ke photo.20fit.id (server mint OTP satu-kali -> photo.20fit.id/sso), dipindah dari profil.
@@ -1577,11 +1582,10 @@
       var f=document.getElementById("bgFill"); if(f) f.style.height=Math.min(water/8*100,100)+"%";
       var c=document.getElementById("bgCount"); if(c) c.textContent=water+"/8";
     }
-    // Gelas air di WIDGET home (update di tempat -> transition CSS beranimasi, tidak re-render).
+    // 8 gelas di WIDGET home — toggle .full di tempat -> transition CSS beranimasi (tidak re-render).
     function renderWaterWidget(){
-      var pct=Math.round(Math.max(0,Math.min(8,water))/8*100);
-      var f=document.getElementById("wgFill"); if(f) f.style.height=pct+"%";
-      var c=document.getElementById("wgCount"); if(c) c.textContent=water+"/8";
+      var grid=document.getElementById("wgGrid");
+      if(grid){ var gl=grid.querySelectorAll(".wg"); for(var i=0;i<gl.length;i++){ gl[i].classList.toggle("full", i < water); } }
       var v=document.getElementById("wgVal"); if(v) v.innerHTML=(water*0.25).toFixed(1)+'<small> / 2.0 L · '+water+' '+L({en:"of 8 glasses",id:"dari 8 gelas"})+'</small>';
     }
     async function setWater(n){
