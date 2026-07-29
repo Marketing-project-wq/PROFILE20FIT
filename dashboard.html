@@ -376,12 +376,16 @@
       .loccard{flex:0 0 80%;max-width:340px;scroll-snap-align:start;border-radius:18px;overflow:hidden;
         border:1px solid var(--line);box-shadow:var(--shadow);background:var(--card);display:flex;flex-direction:column}
       @media(min-width:900px){ .loccard{flex-basis:360px} }
-      .lochd{padding:16px 16px 18px;color:#fff}
+      .lochd{position:relative;overflow:hidden;padding:16px 16px 14px;color:#fff;min-height:130px;display:flex;flex-direction:column;justify-content:flex-end}
       .lochd.arena{background:linear-gradient(135deg,#1c1e24,#0c0d10)}
       .lochd.gym{background:linear-gradient(135deg,#C41101,#7a0d01)}
       .lochd.clinic{background:linear-gradient(135deg,#5a1420,#33101a)}
-      .locnm{font-weight:900;font-size:17px}
-      .locloc{font-size:12px;color:rgba(255,255,255,.72);margin-top:4px;display:flex;align-items:center;gap:5px}
+      /* foto lokasi jadi hero; onerror hapus img -> gradient warna di atas jadi fallback. */
+      .locbg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+      .lochd::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+        background:linear-gradient(to top,rgba(8,9,12,.82),rgba(8,9,12,.30) 58%,rgba(8,9,12,.44))}
+      .locnm{position:relative;z-index:2;font-weight:900;font-size:17px}
+      .locloc{position:relative;z-index:2;font-size:12px;color:rgba(255,255,255,.85);margin-top:4px;display:flex;align-items:center;gap:5px}
       .locbody{padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px;flex:1}
       .locchips{display:flex;flex-wrap:wrap;gap:7px}
       .locchip{font-size:11.5px;font-weight:700;color:var(--txt);background:var(--inp);border-radius:8px;padding:6px 10px;white-space:nowrap}
@@ -1004,9 +1008,9 @@
       // ---- Book your session: lokasi + Book personal: dokter/coach ----
       // Data CONTOH — daftar & foto asli dokter/coach + link booking nanti disambung API.
       var LOCS = [
-        { cls: "arena", nm: "20FIT Arena", loc: { en: "Menteng, Jakarta Pusat", id: "Menteng, Jakarta Pusat" }, chips: ["HYROX Complete", "HYROX Foundation", "Venue Rental"], btn: { en: "Book Arena", id: "Book Arena" }, href: "https://booking.20fit.id/book" },
-        { cls: "gym", nm: "20FIT Gym", loc: null, chips: ["Strength", "Functional", "EMS", "Personal Training"], btn: { en: "Book Gym", id: "Book Gym" }, href: "https://booking.20fit.id/gym" },
-        { cls: "clinic", nm: "20FIT Sport Clinic", loc: { en: "Kebayoran Baru, Jaksel", id: "Kebayoran Baru, Jaksel" }, chips: ["Physiotherapy", "Sport Massage", "Doctor Consultation", "Treatment"], btn: { en: "Book Clinic", id: "Book Klinik" }, href: "https://booking.20fit.id/clinic" }
+        { cls: "arena", nm: "20FIT Arena", loc: { en: "Menteng, Jakarta Pusat", id: "Menteng, Jakarta Pusat" }, chips: ["HYROX Complete", "HYROX Foundation", "Venue Rental"], btn: { en: "Book Arena", id: "Book Arena" }, href: "https://booking.20fit.id/book", ph: "https://media.20fit.id/wp-content/uploads/2026/07/Copy-of-SPORTFEST2_IRWIN-3366-scaled.jpg" },
+        { cls: "gym", nm: "20FIT Gym", loc: null, chips: ["Strength", "Functional", "EMS", "Personal Training"], btn: { en: "Book Gym", id: "Book Gym" }, href: "https://booking.20fit.id/gym", ph: "https://media.20fit.id/wp-content/uploads/2026/06/kebugaran-jasmani-definisi-komponen.jpg" },
+        { cls: "clinic", nm: "20FIT Sport Clinic", loc: { en: "Kebayoran Baru, Jaksel", id: "Kebayoran Baru, Jaksel" }, chips: ["Physiotherapy", "Sport Massage", "Doctor Consultation", "Treatment"], btn: { en: "Book Clinic", id: "Book Klinik" }, href: "https://booking.20fit.id/clinic", ph: "https://media.20fit.id/wp-content/uploads/2026/07/WhatsApp-Image-2026-07-01-at-15.25.48.jpeg" }
       ];
       // Roster asli (foto di-load dari URL media.20fit.id; fallback gradient+ikon kalau gagal).
       // Catatan: spesialisasi yang belum diberi pemilik = null (baris spesialisasi
@@ -1029,7 +1033,8 @@
         var el = document.getElementById("locRow"); if (!el) return;
         el.innerHTML = LOCS.map(function (o) {
           var chips = o.chips.map(function (c) { return '<span class="locchip">' + c + '</span>'; }).join("");
-          return '<div class="loccard"><div class="lochd ' + o.cls + '"><div class="locnm">' + o.nm + '</div>' +
+          var bg = o.ph ? '<img class="locbg" src="' + o.ph + '" alt="" loading="lazy" onerror="this.remove()">' : '';
+          return '<div class="loccard"><div class="lochd ' + o.cls + '">' + bg + '<div class="locnm">' + o.nm + '</div>' +
             (o.loc ? ('<div class="locloc"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + Lx(o.loc) + '</div>') : '') + '</div>' +
             '<div class="locbody"><div class="locchips">' + chips + '</div>' +
             '<a class="locbtn" href="' + o.href + '" >' + Lx(o.btn) + ' <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a></div></div>';
