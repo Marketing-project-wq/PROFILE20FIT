@@ -743,42 +743,6 @@ app.post("/api/photo-sso", async (req, res) => {
   }
 });
 
-// ---------- DIAGNOSTIK SEMENTARA: temukan kontrak API photo.20fit.id (superadmin only) ----------
-// Server my.20fit BISA akses photo.20fit.id (environment agent tidak). Endpoint ini memakai
-// API_PHOTO (RAHASIA — TIDAK di-log & TIDAK di-return) untuk menembak beberapa kandidat
-// endpoint + gaya auth, lalu melaporkan status & potongan response ASLI. Tujuannya supaya
-// integrasi /api/photo/list dibangun dari data NYATA, bukan tebakan. HAPUS setelah jadi.
-const PHOTO_API_BASE = (process.env.PHOTO_API_URL || "https://photo.20fit.id/api").replace(/\/+$/, "");
-async function photoProbeFetch(url, headers) {
-  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 8000);
-  try {
-    const r = await fetch(url, { headers: headers, signal: ctrl.signal });
-    const txt = await r.text();
-    return { status: r.status, contentType: r.headers.get("content-type") || "", bodySnippet: txt.slice(0, 500) };
-  } catch (e) { return { error: String((e && e.message) || e).slice(0, 200) }; }
-  finally { clearTimeout(t); }
-}
-app.get("/api/photo/probe", async (req, res) => {
-  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
-  const key = process.env.API_PHOTO || "";
-  if (!key) return res.status(500).json({ error: "API_PHOTO belum ada di env server." });
-  const email = String(req.query.email || "").trim();
-  const uid = String(req.query.uid || "").trim();
-  const q = email ? ("?email=" + encodeURIComponent(email)) : (uid ? ("?user_id=" + encodeURIComponent(uid)) : "");
-  const custom = String(req.query.path || "").trim();
-  const paths = custom ? [custom] : ["/photos" + q, "/user/photos" + q, "/me/photos" + q, "/gallery" + q, "/photos/mine" + q, "/search" + q];
-  const auths = [
-    { name: "bearer", h: { Authorization: "Bearer " + key, Accept: "application/json" } },
-    { name: "x-api-key", h: { "x-api-key": key, Accept: "application/json" } },
-  ];
-  const combos = [];
-  paths.forEach(function (p) { auths.forEach(function (a) { combos.push({ p: p, a: a }); }); });
-  const tried = await Promise.all(combos.map(async function (c) {
-    return Object.assign({ path: c.p, auth: c.a.name }, await photoProbeFetch(PHOTO_API_BASE + c.p, c.a.h));
-  }));
-  return res.json({ ok: true, base: PHOTO_API_BASE, note: "Diagnostik sementara. Nilai API_PHOTO TIDAK ditampilkan.", tried: tried });
-});
-
 // ---------- Register pakai API 20FIT (/api/v1/auth/register) ----------
 // Buat akun langsung di ekosistem 20FIT, lalu mirror ke Supabase + buat sesi.
 app.post("/api/fitco-register", async (req, res) => {
@@ -3081,7 +3045,16 @@ app.use((req, res, next) => {
   }
   next();
 });
-app.use(express.static(path.join(__dirname), { extensions: ["html"], dotfiles: "ignore" }));
+app.use(express.static(path.join(__dirname), {
+  extensions: ["html"], dotfiles: "ignore",
+  setHeaders: function (res, filePath) {
+    // Cache-busting tanpa hash filename: HTML/JS/CSS SELALU divalidasi ke server sebelum
+    // dipakai (ETag/Last-Modified tetap jalan -> balas 304 kalau tak berubah, 200 versi baru
+    // kalau berubah). Efeknya: setelah deploy, user OTOMATIS dapat versi terbaru tanpa
+    // hard-refresh. Tidak menyentuh localStorage/sesi login -> tidak ada risiko user ke-logout.
+    if (/\.(html|js|css)$/i.test(filePath)) res.setHeader("Cache-Control", "no-cache");
+  }
+}));
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
@@ -3103,6 +3076,21 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Cek kesiapan env saat start (production). HANYA cetak NAMA var yang belum diset —
+// nilai/secret TIDAK pernah ditampilkan. Membantu memverifikasi konfigurasi Railway.
+function logEnvReadiness() {
+  var core = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_KEY"];
+  var important = ["FITCO_API_URL", "FITCO_PARTNER_TOKEN", "SMTP_HOST", "SMTP_USER", "SMTP_PASS", "MAIL_FROM"];
+  var optional = ["ADMIN_KEY", "XENDIT_ENABLED", "API_PHOTO", "PHOTO_SSO_URL", "ARENA_API_URL", "ARENA_API_KEY", "GOOGLE_CLIENT_ID", "META_PIXEL_ID", "WAQI_TOKEN", "APP_BASE_URL"];
+  var miss = function (list) { return list.filter(function (k) { return !String(process.env[k] || "").trim(); }); };
+  var mc = miss(core), mi = miss(important), mo = miss(optional);
+  if (mc.length) console.warn("[20FIT][ENV] ❌ INTI belum diset (app tidak akan jalan benar):", mc.join(", "));
+  else console.log("[20FIT][ENV] ✓ Env inti (Supabase) lengkap.");
+  if (mi.length) console.warn("[20FIT][ENV] ⚠ PENTING belum diset (login/pembayaran/email bisa gagal):", mi.join(", "));
+  if (mo.length) console.log("[20FIT][ENV] ℹ Opsional belum diset:", mo.join(", "));
+}
+
 app.listen(PORT, () => {
   console.log(`20FIT Health Profile running on port ${PORT} (prod=${IS_PROD})`);
+  try { logEnvReadiness(); } catch (e) {}
 });
