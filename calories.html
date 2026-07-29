@@ -43,6 +43,12 @@
   .mrec-nm{font-weight:700;font-size:13px;line-height:1.25}
   .mrec-meta{font-size:11px;color:var(--muted);margin-top:4px}
   .mrec-macros{font-size:10.5px;color:var(--muted);margin-top:2px;font-weight:700}
+  /* Desktop/tablet: manfaatin lebar layar — kartu menu jadi grid yang wrap & isi penuh (mobile tetap carousel horizontal). */
+  @media(min-width:760px){
+    .mrec-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));overflow:visible}
+    .mrec-card{width:auto}
+    .mrec-thumb{height:96px;font-size:44px}
+  }
   .macros{margin-top:14px;text-align:left;display:flex;flex-direction:column;gap:9px}
   .macro .mtop{display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:3px}
   .macro .mv{color:var(--muted);font-weight:600}
@@ -170,14 +176,16 @@
     <div class="sec" data-i18n="cal_today_sec" style="margin-top:0">Today's Food</div>
     <div class="card"><div id="log"></div></div>
 
-    <!-- Rekomendasi menu berdasar SISA makro hari ini — carousel scroll horizontal -->
+     </div>
+    </div>
+
+    <!-- Rekomendasi menu berdasar SISA makro hari ini — full-width di bawah 2 kolom.
+         Desktop: grid banyak kolom (manfaatin lebar). Mobile: tetap carousel horizontal. -->
     <div class="card" id="menuRecCard">
       <div><div style="font-weight:800;font-size:15px">🍽️ Rekomendasi menu</div><div class="muted" style="font-size:12px">Berdasarkan sisa makro kamu hari ini · geser untuk lihat lainnya</div></div>
       <div id="menuRecBody" style="margin-top:12px"><div class="muted" style="font-size:12.5px">Memuat rekomendasi…</div></div>
       <a href="diet.html" style="display:block;text-align:center;margin-top:12px;color:var(--red);font-weight:800;text-decoration:none;font-size:13px">Lihat menu lainnya →</a>
       <div style="font-size:11px;color:var(--muted);margin-top:10px">Perkiraan panduan — bukan pengganti saran ahli gizi.</div>
-    </div>
-     </div>
     </div>
   </div>
 
