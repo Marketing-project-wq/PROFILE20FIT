@@ -64,6 +64,9 @@
       prof_topup:"Add scans", prof_detail:"Profile details", prof_edit:"Edit", prof_edit_title:"Edit profile", prof_cancel:"Cancel", prof_pay_detail:"Payment details",
       prof_hist_sec:"Purchase History", prof_hist_empty:"No purchases yet.",
       prof_menu_sec:"My Menu Contributions", prof_menu_empty:"You haven't shared any menus yet. Share one from the Diet page.",
+      prof_privacy_sec:"Privacy & Data", prof_export:"Download my data (JSON)", prof_export_hint:"Download a copy of all the personal data 20FIT holds about you.",
+      prof_danger:"Danger zone", prof_del_hint:"Permanently delete your account and all your data. This cannot be undone.", prof_del_btn:"Delete my account",
+      prof_del_title:"Delete account", prof_del_warn:"This permanently deletes your profile, health data (MCU), daily logs, menu contributions, and purchase history. It cannot be undone.", prof_del_type:"Type DELETE to confirm", prof_del_confirm:"Delete permanently",
       // diet
       diet_title:"Diet",
       diet_intro:"20FIT meal recommendations — pick a diet type, then tap a dish for the full recipe.",
@@ -163,6 +166,9 @@
       prof_topup:"Tambah scan", prof_detail:"Detail profil", prof_edit:"Edit", prof_edit_title:"Edit profil", prof_cancel:"Batal", prof_pay_detail:"Detail pembayaran",
       prof_hist_sec:"Riwayat Pembelian", prof_hist_empty:"Belum ada pembelian.",
       prof_menu_sec:"Kontribusi Menu Saya", prof_menu_empty:"Belum ada menu yang kamu bagikan. Bagikan dari halaman Diet.",
+      prof_privacy_sec:"Privasi & Data", prof_export:"Unduh data saya (JSON)", prof_export_hint:"Unduh salinan semua data pribadi yang disimpan 20FIT tentang kamu.",
+      prof_danger:"Zona berbahaya", prof_del_hint:"Hapus permanen akun dan semua datamu. Tidak bisa dibatalkan.", prof_del_btn:"Hapus akun saya",
+      prof_del_title:"Hapus akun", prof_del_warn:"Ini menghapus permanen profil, data kesehatan (MCU), log harian, kontribusi menu, dan riwayat pembelianmu. Tidak bisa dibatalkan.", prof_del_type:"Ketik DELETE untuk konfirmasi", prof_del_confirm:"Hapus permanen",
       // diet
       diet_title:"Diet",
       diet_intro:"Rekomendasi menu dari 20FIT — pilih tipe diet, lalu ketuk menu untuk resep lengkapnya.",

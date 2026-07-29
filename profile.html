@@ -186,6 +186,18 @@
       <div id="histList"></div>
     </div>
 
+    <!-- Privasi & Data (hak data-subject: export) -->
+    <div class="sec" data-i18n="prof_privacy_sec">Privacy &amp; Data</div>
+    <div class="card">
+      <div class="muted" style="margin-bottom:4px" data-i18n="prof_export_hint">Download a copy of all the personal data 20FIT holds about you.</div>
+      <button class="btn out" style="margin-top:12px" onclick="exportMyData()" data-i18n="prof_export">Download my data (JSON)</button>
+      <div class="msg" id="exportMsg" style="text-align:left"></div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:18px 0 14px">
+      <div style="color:var(--red);font-weight:800;font-size:13px" data-i18n="prof_danger">Danger zone</div>
+      <div class="muted" style="margin:6px 0 0" data-i18n="prof_del_hint">Permanently delete your account and all your data. This cannot be undone.</div>
+      <button class="btn" style="margin-top:12px;background:#8a1710" onclick="openDelete()" data-i18n="prof_del_btn">Delete my account</button>
+    </div>
+
     <button class="btn out" onclick="Auth.signOut()" data-i18n="prof_logout">Log Out</button>
   </div>
 
@@ -262,6 +274,20 @@
       <div class="grab"></div>
       <button class="rc-x" onclick="closeOrderDetail()" aria-label="Close">✕</button>
       <div id="odBody"></div>
+    </div>
+  </div>
+
+  <!-- Modal hapus akun (konfirmasi ketik) -->
+  <div class="pm-bg" id="delBg">
+    <div class="pm">
+      <div class="grab"></div>
+      <h2 style="margin:0 0 6px;color:var(--red)" data-i18n="prof_del_title">Delete account</h2>
+      <div class="muted" data-i18n="prof_del_warn">This permanently deletes your profile, health data (MCU), daily logs, menu contributions, and purchase history. It cannot be undone.</div>
+      <label data-i18n="prof_del_type">Type DELETE to confirm</label>
+      <input id="delConfirm" type="text" autocomplete="off" spellcheck="false" placeholder="DELETE" />
+      <button class="btn" id="delBtn" style="background:#8a1710" onclick="confirmDelete()" data-i18n="prof_del_confirm">Delete permanently</button>
+      <button class="btn out" onclick="closeDelete()" data-i18n="prof_cancel">Cancel</button>
+      <div class="msg" id="delMsg"></div>
     </div>
   </div>
 
@@ -603,6 +629,41 @@
     try{ if(window.I18N&&I18N.onChange) I18N.onChange(renderMenus); }catch(e){}
     (function(){ var bg=document.getElementById("mrevBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeMenuRev(); });
       document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeMenuRev(); }); })();
+
+    // ---- Hak data-subject: export data pribadi (unduh JSON) ----
+    async function exportMyData(){
+      var m=document.getElementById("exportMsg"); m.className="msg"; m.textContent=L({en:"Preparing your data…",id:"Menyiapkan data kamu…"});
+      try{
+        var tk=await Auth.token();
+        var r=await fetch("/api/account/export",{headers:{"Authorization":"Bearer "+(tk||"")}});
+        if(!r.ok){ m.className="msg err"; m.textContent=L({en:"Failed to export. Try again.",id:"Gagal ekspor. Coba lagi."}); return; }
+        var blob=await r.blob();
+        var url=URL.createObjectURL(blob);
+        var a=document.createElement("a"); a.href=url; a.download="my20fit-data.json"; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+        m.className="msg ok"; m.textContent=L({en:"Downloaded ✓",id:"Terunduh ✓"});
+      }catch(e){ m.className="msg err"; m.textContent=L({en:"Network error.",id:"Gagal jaringan."}); }
+    }
+
+    // ---- Hak penghapusan: hapus akun + semua data (irreversible, konfirmasi ketik) ----
+    function openDelete(){ document.getElementById("delConfirm").value=""; document.getElementById("delMsg").textContent=""; document.getElementById("delBtn").disabled=false; document.getElementById("delBg").classList.add("open"); }
+    function closeDelete(){ document.getElementById("delBg").classList.remove("open"); }
+    async function confirmDelete(){
+      var m=document.getElementById("delMsg"); m.className="msg err"; m.textContent="";
+      var v=(document.getElementById("delConfirm").value||"").trim().toUpperCase();
+      if(v!=="DELETE"){ m.textContent=L({en:'Type DELETE to confirm.',id:'Ketik DELETE untuk konfirmasi.'}); return; }
+      var btn=document.getElementById("delBtn"); btn.disabled=true; m.className="msg"; m.textContent=L({en:"Deleting your account…",id:"Menghapus akun kamu…"});
+      try{
+        var tk=await Auth.token();
+        var r=await fetch("/api/account/delete",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},body:JSON.stringify({confirm:"DELETE"})});
+        var j=await r.json().catch(function(){return{};});
+        if(!r.ok){ btn.disabled=false; m.className="msg err"; m.textContent=j.error||L({en:"Failed to delete. Try again.",id:"Gagal menghapus. Coba lagi."}); return; }
+        m.className="msg ok"; m.textContent=L({en:"Account deleted. Signing out…",id:"Akun terhapus. Keluar…"});
+        try{ await Auth.signOut(); }catch(e){}
+        setTimeout(function(){ location.href="login"; }, 1300);
+      }catch(e){ btn.disabled=false; m.className="msg err"; m.textContent=L({en:"Network error.",id:"Gagal jaringan."}); }
+    }
+    (function(){ var bg=document.getElementById("delBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeDelete(); }); })();
 
     // ---- Foto profil (di-resize kecil, disimpan per-akun di device) ----
     function avaKey(){ return "my20fit_avatar_"+((user&&user.id)||"me"); }
