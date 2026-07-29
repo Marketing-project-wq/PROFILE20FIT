@@ -53,6 +53,24 @@
       cal_scan:"Scan Food (AI)", cal_photo:"Photo / Upload Food",
       cal_analysing:"Analysing food…", cal_detected:"Detected", cal_addlog:"+ Add to Today's Log", cal_added:"Added to log ✓",
       recipe_ing:"Ingredients", recipe_steps:"How to make",
+      // menu recommendation (calories)
+      cal_mrec_title:"Menu recommendations", cal_mrec_sub:"Based on your remaining macros today · swipe for more",
+      cal_mrec_loading:"Loading recommendations…", cal_mrec_more:"See more menus →", cal_mrec_disc:"Rough guidance — not a substitute for a nutritionist.",
+      // medical extra
+      med_close:"Close",
+      // corporate program (profile)
+      corp_join_t:"Join Corporate Program", corp_join_d:"Enter the unique code from your company/HR to join the employee wellness program.",
+      corp_code:"Company code", corp_code_ph:"e.g. ACME-7K2P", corp_continue:"Continue", corp_cancel:"Cancel",
+      corp_consent_t:"Consent", corp_join_to:"You are about to join:", corp_visible:"What the company (HR admin) will be able to see:",
+      corp_v_bmi:"BMI status", corp_v_mcu:"Medical Check-Up (MCU) results", corp_v_demo:"Gender & age", corp_v_freq:"20FIT product usage frequency", corp_agree:"Agree & Join",
+      // onboarding
+      ob_head:"Complete Profile", ob_sub:"This helps us tailor your recommendations.",
+      ob_gender:"Gender", ob_male:"Male", ob_female:"Female", ob_dob:"Date of Birth", ob_weight:"Weight (kg)", ob_height:"Height (cm)",
+      ob_goal:"Your Main Goal", ob_goal_sub:"What do you want to achieve?",
+      ob_goal_lose:"Lose Weight", ob_goal_muscle:"Build Muscle", ob_goal_health:"Be Healthier", ob_goal_fit:"Improve Fitness",
+      ob_health:"Health Conditions", ob_health_sub:"Anything we should know? (choose any / leave empty)",
+      ob_c_hyper:"Hypertension", ob_c_diab:"Diabetes", ob_c_chol:"Cholesterol", ob_c_heart:"Heart", ob_c_asthma:"Asthma", ob_c_injury:"Injury",
+      ob_other:"Other (optional)", ob_other_ph:"e.g. certain allergies", ob_save:"Save & Continue",
       // progress
       prog_title:"Progress", prog_text:"Weekly stats, achievements, and your training calendar are coming soon.", prog_soon:"Coming Soon",
       // profile
@@ -157,6 +175,20 @@
       cal_scan:"Scan Makanan (AI)", cal_photo:"Foto / Upload Makanan",
       cal_analysing:"Menganalisa makanan…", cal_detected:"Terdeteksi", cal_addlog:"+ Tambah ke Log Hari Ini", cal_added:"Ditambahkan ke log ✓",
       recipe_ing:"Bahan", recipe_steps:"Cara membuat",
+      cal_mrec_title:"Rekomendasi menu", cal_mrec_sub:"Berdasarkan sisa makro kamu hari ini · geser untuk lihat lainnya",
+      cal_mrec_loading:"Memuat rekomendasi…", cal_mrec_more:"Lihat menu lainnya →", cal_mrec_disc:"Perkiraan panduan — bukan pengganti saran ahli gizi.",
+      med_close:"Tutup",
+      corp_join_t:"Gabung Corporate Program", corp_join_d:"Masukkan kode unik dari perusahaan/HR kamu untuk ikut program kesehatan karyawan.",
+      corp_code:"Kode perusahaan", corp_code_ph:"mis. ACME-7K2P", corp_continue:"Lanjut", corp_cancel:"Batal",
+      corp_consent_t:"Persetujuan", corp_join_to:"Kamu akan gabung ke:", corp_visible:"Yang akan bisa dilihat perusahaan (admin HR):",
+      corp_v_bmi:"Status BMI", corp_v_mcu:"Hasil Medical Check-Up (MCU)", corp_v_demo:"Jenis kelamin & umur", corp_v_freq:"Frekuensi pemakaian produk 20FIT", corp_agree:"Setuju & Gabung",
+      ob_head:"Lengkapi Profil", ob_sub:"Data ini bikin rekomendasi kamu makin pas.",
+      ob_gender:"Jenis Kelamin", ob_male:"Pria", ob_female:"Wanita", ob_dob:"Tanggal Lahir", ob_weight:"Berat (kg)", ob_height:"Tinggi (cm)",
+      ob_goal:"Tujuan Utama Kamu", ob_goal_sub:"Mau capai apa?",
+      ob_goal_lose:"Turunkan Berat", ob_goal_muscle:"Bangun Otot", ob_goal_health:"Lebih Sehat", ob_goal_fit:"Tingkatkan Kebugaran",
+      ob_health:"Kondisi Kesehatan", ob_health_sub:"Ada yang perlu kami tahu? (boleh lebih dari satu / kosong)",
+      ob_c_hyper:"Hipertensi", ob_c_diab:"Diabetes", ob_c_chol:"Kolesterol", ob_c_heart:"Jantung", ob_c_asthma:"Asma", ob_c_injury:"Cedera",
+      ob_other:"Lainnya (opsional)", ob_other_ph:"cth: alergi tertentu", ob_save:"Simpan & Lanjut",
       prog_title:"Progress", prog_text:"Statistik mingguan, achievement, dan kalender latihan kamu lagi disiapin di sini.", prog_soon:"Segera Hadir",
       prof_title:"Profil Saya", prof_name:"Nama Lengkap", prof_email:"Email", prof_phone:"Nomor HP",
       prof_gender:"Jenis Kelamin", prof_male:"Pria", prof_female:"Wanita", prof_weight:"Berat (kg)", prof_height:"Tinggi (cm)",
@@ -229,6 +261,7 @@
     document.documentElement.lang = lang;
     document.querySelectorAll("[data-i18n]").forEach(el=>{ const k=el.getAttribute("data-i18n"); const v=t(k); if(v!=null) el.textContent=v; });
     document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ const k=el.getAttribute("data-i18n-ph"); const v=t(k); if(v!=null) el.placeholder=v; });
+    document.querySelectorAll("[data-i18n-aria]").forEach(el=>{ const k=el.getAttribute("data-i18n-aria"); const v=t(k); if(v!=null) el.setAttribute("aria-label",v); });
     document.querySelectorAll("[data-lang-btn]").forEach(b=>b.classList.toggle("on", b.getAttribute("data-lang-btn")===lang));
     if(typeof renderThemeBtn==="function") renderThemeBtn();
   }

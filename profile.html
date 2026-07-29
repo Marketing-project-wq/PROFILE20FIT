@@ -240,29 +240,29 @@
     <div class="pm">
       <div class="grab"></div>
       <div id="corpStep1">
-        <h2 id="corpS1Title">Gabung Corporate Program</h2>
-        <p class="muted" id="corpS1Sub">Masukkan kode unik dari perusahaan/HR kamu untuk ikut program kesehatan karyawan.</p>
-        <label id="corpCodeLbl">Kode perusahaan</label>
-        <input id="corpCode" type="text" placeholder="mis. ACME-7K2P" autocomplete="off" spellcheck="false" style="text-transform:uppercase" />
-        <button class="btn" id="corpNextBtn" onclick="corpValidateCode()">Lanjut</button>
-        <button class="btn out" onclick="closeCorp()">Batal</button>
+        <h2 id="corpS1Title" data-i18n="corp_join_t">Join Corporate Program</h2>
+        <p class="muted" id="corpS1Sub" data-i18n="corp_join_d">Enter the unique code from your company/HR to join the employee wellness program.</p>
+        <label id="corpCodeLbl" data-i18n="corp_code">Company code</label>
+        <input id="corpCode" type="text" placeholder="e.g. ACME-7K2P" data-i18n-ph="corp_code_ph" autocomplete="off" spellcheck="false" style="text-transform:uppercase" />
+        <button class="btn" id="corpNextBtn" onclick="corpValidateCode()" data-i18n="corp_continue">Continue</button>
+        <button class="btn out" onclick="closeCorp()" data-i18n="corp_cancel">Cancel</button>
         <div class="msg" id="corpMsg1"></div>
       </div>
       <div id="corpStep2" style="display:none">
-        <h2 id="corpS2Title">Persetujuan</h2>
-        <div class="muted" style="margin-bottom:10px"><span id="corpJoinLbl">Kamu akan gabung ke:</span> <b id="corpName" style="color:var(--txt)"></b></div>
+        <h2 id="corpS2Title" data-i18n="corp_consent_t">Consent</h2>
+        <div class="muted" style="margin-bottom:10px"><span id="corpJoinLbl" data-i18n="corp_join_to">You are about to join:</span> <b id="corpName" style="color:var(--txt)"></b></div>
         <div style="background:var(--inp);border-radius:12px;padding:14px;font-size:13.5px;line-height:1.55;color:var(--txt)">
-          <div style="font-weight:800;margin-bottom:8px" id="corpSeeTitle">Yang akan bisa dilihat perusahaan (admin HR):</div>
+          <div style="font-weight:800;margin-bottom:8px" id="corpSeeTitle" data-i18n="corp_visible">What the company (HR admin) will be able to see:</div>
           <ul style="margin:0 0 10px;padding-left:18px" id="corpSeeList">
-            <li>Status BMI</li>
-            <li>Hasil Medical Check-Up (MCU)</li>
-            <li>Jenis kelamin &amp; umur</li>
-            <li>Frekuensi pemakaian produk 20FIT</li>
+            <li data-i18n="corp_v_bmi">BMI status</li>
+            <li data-i18n="corp_v_mcu">Medical Check-Up (MCU) results</li>
+            <li data-i18n="corp_v_demo">Gender &amp; age</li>
+            <li data-i18n="corp_v_freq">20FIT product usage frequency</li>
           </ul>
           <div id="corpConsentText" style="color:var(--muted)"></div>
         </div>
-        <button class="btn" id="corpAgreeBtn" onclick="corpConfirmJoin()">Setuju &amp; Gabung</button>
-        <button class="btn out" onclick="closeCorp()">Batal</button>
+        <button class="btn" id="corpAgreeBtn" onclick="corpConfirmJoin()" data-i18n="corp_agree">Agree &amp; Join</button>
+        <button class="btn out" onclick="closeCorp()" data-i18n="corp_cancel">Cancel</button>
         <div class="msg" id="corpMsg2"></div>
       </div>
     </div>

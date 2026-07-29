@@ -42,26 +42,26 @@
 <body>
   <div class="card">
     <div class="logo"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" /></div>
-    <h2>Lengkapi Profil</h2>
-    <div class="sub">Data ini bikin rekomendasi kamu makin pas.</div>
+    <h2 data-i18n="ob_head">Complete Profile</h2>
+    <div class="sub" data-i18n="ob_sub">This helps us tailor your recommendations.</div>
     <div id="obStatus" style="display:none;align-items:center;gap:9px;padding:11px 13px;border-radius:12px;margin:2px 0 14px;font-size:13.5px;font-weight:700"></div>
 
     <div id="genderBlock">
-    <label>Jenis Kelamin</label>
+    <label data-i18n="ob_gender">Gender</label>
     <div class="grid2">
-      <div class="opt" data-g="male" onclick="pickGender('male')">Pria</div>
-      <div class="opt" data-g="female" onclick="pickGender('female')">Wanita</div>
+      <div class="opt" data-g="male" onclick="pickGender('male')" data-i18n="ob_male">Male</div>
+      <div class="opt" data-g="female" onclick="pickGender('female')" data-i18n="ob_female">Female</div>
     </div>
     </div>
 
     <div id="dobBlock">
-    <label>Tanggal Lahir</label>
+    <label data-i18n="ob_dob">Date of Birth</label>
     <input id="birthdate" type="date" max="2026-06-27" />
     </div>
 
     <div class="row">
-      <div><label>Berat (kg)</label><input id="weight" type="number" inputmode="decimal" placeholder="65" min="30" max="200" oninput="updateBmi()" /></div>
-      <div><label>Tinggi (cm)</label><input id="height" type="number" inputmode="decimal" placeholder="170" min="100" max="250" oninput="updateBmi()" /></div>
+      <div><label data-i18n="ob_weight">Weight (kg)</label><input id="weight" type="number" inputmode="decimal" placeholder="65" min="30" max="200" oninput="updateBmi()" /></div>
+      <div><label data-i18n="ob_height">Height (cm)</label><input id="height" type="number" inputmode="decimal" placeholder="170" min="100" max="250" oninput="updateBmi()" /></div>
     </div>
 
     <!-- Preview BMI live -->
@@ -71,34 +71,35 @@
       <div class="d" id="bmiDesc"></div>
     </div>
 
-    <div class="sec">Tujuan Utama Kamu</div>
-    <label style="margin-top:8px">Mau capai apa?</label>
+    <div class="sec" data-i18n="ob_goal">Your Main Goal</div>
+    <label style="margin-top:8px" data-i18n="ob_goal_sub">What do you want to achieve?</label>
     <div class="grid2">
-      <div class="opt" data-goal="lose" onclick="pickGoal('lose')">Turunkan Berat</div>
-      <div class="opt" data-goal="muscle" onclick="pickGoal('muscle')">Bangun Otot</div>
-      <div class="opt" data-goal="health" onclick="pickGoal('health')">Lebih Sehat</div>
-      <div class="opt" data-goal="fit" onclick="pickGoal('fit')">Tingkatkan Kebugaran</div>
+      <div class="opt" data-goal="lose" onclick="pickGoal('lose')" data-i18n="ob_goal_lose">Lose Weight</div>
+      <div class="opt" data-goal="muscle" onclick="pickGoal('muscle')" data-i18n="ob_goal_muscle">Build Muscle</div>
+      <div class="opt" data-goal="health" onclick="pickGoal('health')" data-i18n="ob_goal_health">Be Healthier</div>
+      <div class="opt" data-goal="fit" onclick="pickGoal('fit')" data-i18n="ob_goal_fit">Improve Fitness</div>
     </div>
 
-    <div class="sec">Kondisi Kesehatan</div>
-    <label style="margin-top:8px">Ada yang perlu kami tahu? (boleh lebih dari satu / kosong)</label>
+    <div class="sec" data-i18n="ob_health">Health Conditions</div>
+    <label style="margin-top:8px" data-i18n="ob_health_sub">Anything we should know? (choose any / leave empty)</label>
     <div class="grid2" id="conditions">
-      <label class="chk"><input type="checkbox" value="Hipertensi"> Hipertensi</label>
-      <label class="chk"><input type="checkbox" value="Diabetes"> Diabetes</label>
-      <label class="chk"><input type="checkbox" value="Kolesterol"> Kolesterol</label>
-      <label class="chk"><input type="checkbox" value="Jantung"> Jantung</label>
-      <label class="chk"><input type="checkbox" value="Asma"> Asma</label>
-      <label class="chk"><input type="checkbox" value="Cedera"> Cedera</label>
+      <label class="chk"><input type="checkbox" value="Hipertensi"> <span data-i18n="ob_c_hyper">Hypertension</span></label>
+      <label class="chk"><input type="checkbox" value="Diabetes"> <span data-i18n="ob_c_diab">Diabetes</span></label>
+      <label class="chk"><input type="checkbox" value="Kolesterol"> <span data-i18n="ob_c_chol">Cholesterol</span></label>
+      <label class="chk"><input type="checkbox" value="Jantung"> <span data-i18n="ob_c_heart">Heart</span></label>
+      <label class="chk"><input type="checkbox" value="Asma"> <span data-i18n="ob_c_asthma">Asthma</span></label>
+      <label class="chk"><input type="checkbox" value="Cedera"> <span data-i18n="ob_c_injury">Injury</span></label>
     </div>
-    <label>Lainnya (opsional)</label>
-    <input id="condOther" type="text" placeholder="cth: alergi tertentu" />
+    <label data-i18n="ob_other">Other (optional)</label>
+    <input id="condOther" type="text" placeholder="e.g. certain allergies" data-i18n-ph="ob_other_ph" />
 
-    <button class="btn" id="save" onclick="save()">Simpan & Lanjut</button>
+    <button class="btn" id="save" onclick="save()" data-i18n="ob_save">Save & Continue</button>
     <div class="msg" id="msg"></div>
   </div>
 
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
   <script>
     let gender=null, goal=null, knownIdentity=false;
     (async function(){
@@ -114,7 +115,7 @@
       el.style.background=done?"rgba(42,122,79,.10)":"rgba(196,17,1,.08)";
       el.style.color=done?"#2A7A4F":"#C41101";
       el.style.border="1px solid "+(done?"rgba(42,122,79,.35)":"rgba(196,17,1,.30)");
-      el.textContent=done?"✅ Kamu sudah onboarding — data di bawah bisa kamu perbarui.":"⚠️ Kamu belum onboarding — lengkapi data di bawah lalu simpan.";
+      el.textContent=done?L({en:"✅ You're onboarded — you can update your data below.",id:"✅ Kamu sudah onboarding — data di bawah bisa kamu perbarui."}):L({en:"⚠️ You're not onboarded yet — complete your data below and save.",id:"⚠️ Kamu belum onboarding — lengkapi data di bawah lalu simpan."});
     }
     function prefill(p){
       if(p.gender) pickGender(p.gender);
@@ -159,11 +160,11 @@
       const weight=parseFloat(document.getElementById("weight").value);
       const height=parseFloat(document.getElementById("height").value);
       const msg=document.getElementById("msg");
-      if(!knownIdentity && !gender)return msg.textContent="Pilih jenis kelamin dulu.";
-      if(!knownIdentity && !birthdate)return msg.textContent="Isi tanggal lahir.";
-      if(!weight)return msg.textContent="Isi berat badan.";
-      if(!height)return msg.textContent="Isi tinggi badan.";
-      if(!goal)return msg.textContent="Pilih tujuan utama kamu.";
+      if(!knownIdentity && !gender)return msg.textContent=L({en:"Choose your gender first.",id:"Pilih jenis kelamin dulu."});
+      if(!knownIdentity && !birthdate)return msg.textContent=L({en:"Enter your date of birth.",id:"Isi tanggal lahir."});
+      if(!weight)return msg.textContent=L({en:"Enter your weight.",id:"Isi berat badan."});
+      if(!height)return msg.textContent=L({en:"Enter your height.",id:"Isi tinggi badan."});
+      if(!goal)return msg.textContent=L({en:"Choose your main goal.",id:"Pilih tujuan utama kamu."});
       // kumpulkan kondisi kesehatan
       const conds=[...document.querySelectorAll('#conditions input:checked')].map(i=>i.value);
       const other=document.getElementById("condOther").value.trim();
