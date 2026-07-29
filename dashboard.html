@@ -1009,14 +1009,12 @@
         { cls: "clinic", nm: "20FIT Sport Clinic", loc: { en: "Kebayoran Baru, Jaksel", id: "Kebayoran Baru, Jaksel" }, chips: ["Physiotherapy", "Sport Massage", "Doctor Consultation", "Treatment"], btn: { en: "Book Clinic", id: "Book Klinik" }, href: "https://booking.20fit.id/clinic" }
       ];
       // Roster asli (foto di-load dari URL media.20fit.id; fallback gradient+ikon kalau gagal).
-      // Catatan: dr. Andre & dr. Ande ditampilkan terpisah PERSIS seperti input pemilik
-      // (2 label + 2 file: dr.-Ande.jpg vs dr.-Ande-3.jpg) — bukan diasumsikan. Spesialisasi
-      // yang belum diberi pemilik = null (baris spesialisasi disembunyikan, tidak dikarang).
+      // Catatan: spesialisasi yang belum diberi pemilik = null (baris spesialisasi
+      // disembunyikan, tidak dikarang).
       var PEOPLE = [
         { type: "doctor", nm: "dr. Adrian", sp: { en: "Sports Medicine", id: "Kedokteran Olahraga" }, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dr.-Adrian.jpg" },
         { type: "doctor", nm: "dr. Yusuf", sp: { en: "Body Composition · Longevity", id: "Komposisi Tubuh · Longevity" }, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dr.-Yusuf.jpg" },
         { type: "doctor", nm: "dr. Andre", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dr.-Ande.jpg" },
-        { type: "doctor", nm: "dr. Ande", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dr.-Ande-3.jpg" },
         { type: "doctor", nm: "Dr. Merry", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dok.-Merry.png" },
         { type: "doctor", nm: "Dr. Anna", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dok.-Anna.png" },
         { type: "coach", nm: "Coach Nando", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/Coach-Nando.jpg" },
