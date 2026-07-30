@@ -471,6 +471,28 @@
     return data;
   }
 
+  // ---------- PREFERENSI HOME (sinkron antar-device, per akun) ----------
+  // Disimpan di my20fit_profile.home_prefs (jsonb) + home_prefs_updated_at (LWW).
+  // Isi: { pins:[...], shortcuts:[...], extra:bool, ... } — layout home yang di-pin user.
+  async function getPrefs() {
+    const p = await getProfile();
+    return {
+      prefs: (p && p.home_prefs) || null,
+      updated_at: (p && p.home_prefs_updated_at) || null,
+    };
+  }
+  // Simpan seluruh objek prefs (last-write-wins pakai timestamp server-side). Balikin timestamp.
+  async function savePrefs(prefs) {
+    const user = await requireAuth();
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("my20fit_profile")
+      .update({ home_prefs: prefs, home_prefs_updated_at: now })
+      .eq("auth_user_id", user.id);
+    if (error) throw error;
+    return now;
+  }
+
   // Profil dianggap LENGKAP hanya jika data inti sudah terisi: gender, umur
   // (dari tanggal lahir), berat, tinggi, dan tujuan. Riwayat kesehatan boleh kosong.
   // Dipakai agar akun lama (mis. dari ekosistem 20FIT) yang datanya belum lengkap
@@ -531,6 +553,8 @@
     bmiInfo,
     getDailyLog,
     saveDaily,
+    getPrefs,
+    savePrefs,
     routeAfterAuth,
     token,
     go,

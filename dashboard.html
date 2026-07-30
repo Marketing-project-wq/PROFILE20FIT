@@ -769,7 +769,7 @@
       };
       var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health"];
       function getPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p) || !p.length) p = ["calories"]; if (p.indexOf("calories") < 0) p.unshift("calories"); return p.filter(function (x) { return TRK[x] && TRK[x].enabled !== false; }); }
-      function setPins(p) { try { localStorage.setItem("my20fit_home_pins", JSON.stringify(p)); } catch (e) {} }
+      function setPins(p) { try { localStorage.setItem("my20fit_home_pins", JSON.stringify(p)); } catch (e) {} setLocalTs(new Date().toISOString()); pushPrefs(); }
       // Data 7 malam terakhir utk mini bar chart Sleep (null = masih loading). Data REAL dari daily_log.
       var SLEEP7 = null;
       window.loadSleep7 = async function loadSleep7() {
@@ -932,7 +932,7 @@
       };
       var SHORTCUT_ALL = ["workout", "diet", "catering", "racelab", "events", "breathing", "talent", "shop", "medical", "photo"];
       function getShortcutPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_shortcuts") || "null"); } catch (e) {} if (!Array.isArray(p)) p = ["workout", "diet", "catering"]; p = p.filter(function (x) { return SHORTCUTS[x]; }); return p; }
-      function setShortcutPins(p) { try { localStorage.setItem("my20fit_home_shortcuts", JSON.stringify(p)); } catch (e) {} }
+      function setShortcutPins(p) { try { localStorage.setItem("my20fit_home_shortcuts", JSON.stringify(p)); } catch (e) {} setLocalTs(new Date().toISOString()); pushPrefs(); }
 
       function svcTile(o) {
         var svg = '<svg viewBox="0 0 24 24" aria-hidden="true">' + (IC[o.ic] || "") + '</svg>';
@@ -988,7 +988,7 @@
       // ---- Customize sheet: pin & reorder ----
       function extraOn() { try { return localStorage.getItem("my20fit_home_extra") === "1"; } catch (e) { return false; } }
       window.applyExtra = function () { var e = document.getElementById("extraTrackers"); if (e) e.style.display = extraOn() ? "" : "none"; var s = document.getElementById("czExtra"); if (s) s.classList.toggle("on", extraOn()); };
-      window.toggleExtra = function () { try { localStorage.setItem("my20fit_home_extra", extraOn() ? "0" : "1"); } catch (e) {} window.applyExtra(); };
+      window.toggleExtra = function () { try { localStorage.setItem("my20fit_home_extra", extraOn() ? "0" : "1"); } catch (e) {} window.applyExtra(); setLocalTs(new Date().toISOString()); pushPrefs(); };
       window.renderCzSheet = function () {
         var pins = getPins(), avail = TRK_ALL.filter(function (x) { return pins.indexOf(x) < 0 && TRK[x] && TRK[x].enabled !== false; });
         var pl = document.getElementById("czPinLbl"), al = document.getElementById("czAvailLbl"), pw = document.getElementById("czPinned"), aw = document.getElementById("czAvail");
@@ -1124,6 +1124,58 @@
       window.closePeopleAll = function () { var bg = document.getElementById("pplAllBg"); if (bg) bg.classList.remove("open"); };
       window.buildBooking = function () { buildLoc(); buildPeople(); };
 
+      // ---- Sync layer: state pin/toggle home tersinkron lintas-device per akun ----
+      // localStorage tetap sumber cepat (render awal); server (my20fit_profile.home_prefs)
+      // dipakai untuk rekonsiliasi LWW. Aman saat logged-out/offline (tak pernah throw).
+      var HOME_TS_KEY = "my20fit_home_prefs_ts";
+      function localTs() { try { return localStorage.getItem(HOME_TS_KEY) || ""; } catch (e) { return ""; } }
+      function setLocalTs(ts) { try { if (ts) localStorage.setItem(HOME_TS_KEY, ts); } catch (e) {} }
+      function collectPrefs() { return { pins: getPins(), shortcuts: getShortcutPins(), extra: extraOn() ? 1 : 0 }; }
+      function localHasPrefs() { try { return !!(localStorage.getItem("my20fit_home_pins") || localStorage.getItem("my20fit_home_shortcuts") || localStorage.getItem("my20fit_home_extra")); } catch (e) { return false; } }
+      function applyPrefs(p) {
+        if (!p) return;
+        try {
+          if (Array.isArray(p.pins)) localStorage.setItem("my20fit_home_pins", JSON.stringify(p.pins));
+          if (Array.isArray(p.shortcuts)) localStorage.setItem("my20fit_home_shortcuts", JSON.stringify(p.shortcuts));
+          if (typeof p.extra !== "undefined") localStorage.setItem("my20fit_home_extra", p.extra ? "1" : "0");
+        } catch (e) {}
+        try { window.renderStack && window.renderStack(); } catch (e) {}
+        try { window.renderCzSheet && window.renderCzSheet(); } catch (e) {}
+        try { window.applyExtra && window.applyExtra(); } catch (e) {}
+      }
+      var _dirty = false, _pushT = null;
+      function pushPrefs() {
+        if (!window.Auth) return;
+        if (_pushT) clearTimeout(_pushT);
+        _pushT = setTimeout(function () {
+          _pushT = null;
+          (async function () {
+            try {
+              if (!window.Auth) return;
+              var u = await Auth.getUser();
+              if (!u) return; // logged-out → localStorage only
+              var ts = await Auth.savePrefs(collectPrefs());
+              setLocalTs(ts); _dirty = false;
+            } catch (e) { _dirty = true; } // offline/error → tandai, flush saat "online"
+          })();
+        }, 600);
+      }
+      async function syncPrefsOnLoad() {
+        try {
+          if (!window.Auth) return;
+          var u = await Auth.getUser();
+          if (!u) return; // logged-out → localStorage only, jangan sentuh server
+          var acc = await Auth.getPrefs();
+          if (acc && acc.prefs && (!localTs() || acc.updated_at > localTs())) {
+            applyPrefs(acc.prefs); setLocalTs(acc.updated_at); // server lebih baru → pakai server
+          } else if (localHasPrefs() && (!acc || !acc.updated_at || localTs() > acc.updated_at)) {
+            await pushPrefs(); // lokal lebih baru → dorong ke server
+          }
+        } catch (e) {} // jangan pernah bikin dashboard rusak kalau offline/not-logged-in
+      }
+      window.syncPrefsOnLoad = syncPrefsOnLoad;
+      window.addEventListener("online", function () { if (_dirty) pushPrefs(); });
+
       // Boot — grid + booking + tracker stack + sheet + tutup klik-luar.
       buildSvcGrid();
       window.buildBooking();
@@ -1187,6 +1239,7 @@
       renderIFWidget();
       loadIFFromCloud();
       checkAchievements();
+      try{ if(window.syncPrefsOnLoad) window.syncPrefsOnLoad(); }catch(e){}
     })();
 
     // ---- Achievement: rayakan lencana baru dengan popup "Congratulations" ----
