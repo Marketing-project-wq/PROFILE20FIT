@@ -75,6 +75,9 @@
       width:58px;height:58px;font-size:10px;font-weight:750;font-family:${SYS};cursor:pointer;
       box-shadow:0 10px 22px color-mix(in srgb,var(--red,#D4283A) 40%,transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
     .scanfab svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    /* Mobile: beri ruang bawah cukup supaya bottom-nav + Scan FAB (floating) tidak
+       menutupi konten/kontrol terakhir (mis. tombol +/- Air, kartu latihan). */
+    @media(max-width:899px){ body{ padding-bottom: calc(150px + env(safe-area-inset-bottom)) !important } }
   `;
   const style = document.createElement("style");
   style.textContent = css;
