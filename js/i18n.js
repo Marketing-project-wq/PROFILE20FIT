@@ -85,7 +85,7 @@
       cycle_lastperiod:"Hari pertama haid terakhir", cycle_save:"Simpan", cycle_edit:"Ubah Tanggal", cycle_starttoday:"Haid mulai hari ini",
       cycle_dayof:"Hari ke-", cycle_of:"dari", cycle_next:"haid berikutnya dalam", cycle_days:"hari",
       med_title:"Rekam Medis", med_sub:"Hasil medical check-up & rekomendasi kamu.",
-      med_upload:"Upload Medical Check-Up", med_uploadsub:"PDF / JPG / PNG dari faskes mana pun — dianalisa otomatis dengan AI",
+      med_upload:"Unggah Medical Check-Up", med_uploadsub:"PDF / JPG / PNG dari faskes mana pun — dianalisa otomatis dengan AI",
       med_history:"Riwayat", med_empty:"Belum ada hasil MCU. Upload hasil check-up kamu di atas.",
       med_analysing:"Mengompres & menganalisa dokumen…",
       med_attention:"Yang Perlu Diperhatikan", med_params:"Detail Parameter", med_normal:"Normal",

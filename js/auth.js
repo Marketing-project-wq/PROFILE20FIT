@@ -16,6 +16,10 @@
   const FALLBACK_ANON =
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI";
 
+  // Pesan error dwibahasa: ikut bahasa aktif (I18N) saat error dilempar.
+  // Dipakai supaya error auth tidak bocor 1-bahasa ke halaman EN/ID.
+  function tr(en, id) { try { return (window.I18N && window.I18N.lang === "id") ? id : en; } catch (e) { return en; } }
+
   // Bootstrap async: pakai config server kalau ada, kalau tidak pakai fallback
   const ready = (async function init() {
     let url = FALLBACK_URL, key = FALLBACK_ANON;
@@ -61,9 +65,9 @@
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
       if (r.status === 404 || (j && j.error === "not_registered")) {
-        const err = new Error("Email belum terdaftar."); err.code = "not_registered"; throw err;
+        const err = new Error(tr("Email is not registered.","Email belum terdaftar.")); err.code = "not_registered"; throw err;
       }
-      throw new Error(j.error || "Gagal mengirim kode login.");
+      throw new Error(j.error || tr("Failed to send login code.","Gagal mengirim kode login."));
     }
     return j; // { ok, sent, devCode? }
   }
@@ -86,7 +90,7 @@
       body: JSON.stringify({ email: email, password: password }),
     });
     const j = await r.json();
-    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan akun 20FIT.");
+    if (!r.ok || !j.email_otp) throw new Error(j.error || tr("Sign-in with your 20FIT account failed.","Gagal login dengan akun 20FIT."));
     // Simpan user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
     try {
       if (j.fitco_user_id) localStorage.setItem("fitco_uid", String(j.fitco_user_id));
@@ -108,7 +112,7 @@
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.email_otp) {
-      const e = new Error(j.error || "Gagal daftar.");
+      const e = new Error(j.error || tr("Sign-up failed.","Gagal daftar."));
       if (r.status === 409) e.code = "email_exists";
       throw e;
     }
@@ -133,7 +137,7 @@
       body: JSON.stringify({ credential: credential }),
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan Google.");
+    if (!r.ok || !j.email_otp) throw new Error(j.error || tr("Google sign-in failed.","Gagal login dengan Google."));
     // Simpan user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
     try {
       if (j.fitco_user_id) localStorage.setItem("fitco_uid", String(j.fitco_user_id));
@@ -154,7 +158,7 @@
       body: JSON.stringify({ token: fitcoToken }),
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan token 20FIT.");
+    if (!r.ok || !j.email_otp) throw new Error(j.error || tr("Sign-in with 20FIT token failed.","Gagal login dengan token 20FIT."));
     const { data, error } = await supabase.auth.verifyOtp({ email: j.email, token: j.email_otp, type: "email" });
     if (error) throw error;
     return data;
@@ -184,7 +188,7 @@
       body: JSON.stringify({ email: email, otp: otp }),
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || "Verifikasi gagal.");
+    if (!r.ok) throw new Error(j.error || tr("Verification failed.","Verifikasi gagal."));
     return j;
   }
   async function fitcoResendVerifyEmail(email) {
@@ -194,7 +198,7 @@
       body: JSON.stringify({ email: email }),
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || "Gagal mengirim ulang kode.");
+    if (!r.ok) throw new Error(j.error || tr("Failed to resend the code.","Gagal mengirim ulang kode."));
     return j;
   }
 
@@ -203,7 +207,7 @@
   // Set password web (dipakai di onboarding kalau user belum punya password)
   async function setWebPassword(pw) {
     await ready;
-    if (!pw || pw.length < 8) throw new Error("Password minimal 8 karakter.");
+    if (!pw || pw.length < 8) throw new Error(tr("Password must be at least 8 characters.","Password minimal 8 karakter."));
     const { error } = await supabase.auth.updateUser({ password: pw, data: { has_pw: true } });
     if (error) throw error;
     return true;
@@ -319,26 +323,26 @@
   // ---------- OTP (diproses di SERVER) ----------
   async function sendOtp() {
     const t = await token();
-    if (!t) throw new Error("Belum login.");
+    if (!t) throw new Error(tr("You are not signed in.","Belum login."));
     const r = await fetch("/api/send-otp", {
       method: "POST",
       headers: { Authorization: "Bearer " + t },
     });
     const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "Gagal mengirim kode.");
+    if (!r.ok) throw new Error(j.error || tr("Failed to send the code.","Gagal mengirim kode."));
     return j; // { ok, sent, devCode? }
   }
 
   async function verifyOtp(code) {
     const t = await token();
-    if (!t) throw new Error("Belum login.");
+    if (!t) throw new Error(tr("You are not signed in.","Belum login."));
     const r = await fetch("/api/verify-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
       body: JSON.stringify({ code: code }),
     });
     const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "Kode salah.");
+    if (!r.ok) throw new Error(j.error || tr("Wrong code.","Kode salah."));
     return j;
   }
 
@@ -404,9 +408,9 @@
     const r = await fetch("/api/scan/consume", { method: "POST", headers: { Authorization: "Bearer " + (t || "") } });
     const j = await r.json().catch(function () { return {}; });
     if (r.status === 402 || (j && j.code === "scan_limit")) {
-      const err = new Error("Scan quota habis."); err.code = "scan_limit"; throw err;
+      const err = new Error(tr("Scan quota is used up.","Scan quota habis.")); err.code = "scan_limit"; throw err;
     }
-    if (!r.ok || !j.ok) throw new Error((j && j.error) || "Gagal memproses scan.");
+    if (!r.ok || !j.ok) throw new Error((j && j.error) || tr("Failed to process the scan.","Gagal memproses scan."));
     return j.quota;
   }
   // Kredit top-up ditambahkan SERVER-AUTHORITATIVE (webhook Xendit untuk pembayaran,

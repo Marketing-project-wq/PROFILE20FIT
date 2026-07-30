@@ -4,7 +4,7 @@
 <link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Verifikasi · 20FIT</title>
+<title>Verify Email · 20FIT</title>
 <style>
   :root{--red:#e11d2a;--bg:#0a0a0a;--card:#141414;--line:#262626;--txt:#f5f5f5;--muted:#8a8a8a;--inp:#1c1c1c}
   *{box-sizing:border-box}
@@ -33,18 +33,30 @@
 <body>
   <div class="card">
     <div class="logo"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" /></div>
-    <h2>Verifikasi Email</h2>
-    <div class="sub">Kode 6 digit dikirim ke <b id="mail">email kamu</b>.</div>
+    <h2 id="title"></h2>
+    <div class="sub"><span id="subPre"></span><b id="mail">email kamu</b><span id="subPost"></span></div>
     <input id="otp" inputmode="numeric" maxlength="6" placeholder="------" />
-    <button class="btn" id="btn" onclick="verify()">Verifikasi</button>
-    <div class="link">Belum dapat kode? <a onclick="resend()">Kirim ulang</a></div>
+    <button class="btn" id="btn" onclick="verify()"></button>
+    <div class="link"><span id="linkPre"></span> <a id="resendLink" onclick="resend()"></a></div>
     <div class="msg" id="msg"></div>
     <div class="dev" id="dev"></div>
   </div>
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
   <script>
     function msg(t,type){const el=document.getElementById("msg");el.textContent=t||"";el.className="msg"+(type?" "+type:"")}
+    function applyLang(){
+      document.title = L({en:"Verify Email · 20FIT",id:"Verifikasi · 20FIT"});
+      document.getElementById("title").textContent = L({en:"Verify Email",id:"Verifikasi Email"});
+      document.getElementById("subPre").textContent = L({en:"A 6-digit code was sent to ",id:"Kode 6 digit dikirim ke "});
+      document.getElementById("subPost").textContent = ".";
+      document.getElementById("btn").textContent = L({en:"Verify",id:"Verifikasi"});
+      document.getElementById("linkPre").textContent = L({en:"Didn't get the code?",id:"Belum dapat kode?"});
+      document.getElementById("resendLink").textContent = L({en:"Resend",id:"Kirim ulang"});
+    }
+    applyLang();
+    I18N.onChange(applyLang);
     let userEmail=null;
     (async function init(){
       const user=await Auth.requireAuth();
@@ -53,13 +65,13 @@
       // JANGAN auto-resend di sini — 20FIT sudah kirim OTP pertama otomatis saat
       // registrasi. Resend cuma boleh terjadi kalau user KLIK tombolnya sendiri
       // (lihat resend()), supaya kode yang sudah diterima user tidak jadi invalid.
-      msg("Kode verifikasi sudah dikirim ke email kamu saat mendaftar. Masukkan kode tersebut di bawah.","");
+      msg(L({en:"A verification code was already sent to your email when you signed up. Enter it here.",id:"Kode verifikasi sudah dikirim ke email kamu saat mendaftar. Masukkan kode tersebut di bawah."}),"");
     })();
     async function resend(){
-      msg("Mengirim kode...","");
+      msg(L({en:"Sending code…",id:"Mengirim kode..."}),"");
       try{
         await Auth.fitcoResendVerifyEmail(userEmail);
-        msg("Kode terkirim ke email kamu.","ok");
+        msg(L({en:"Code sent to your email.",id:"Kode terkirim ke email kamu."}),"ok");
       }catch(e){msg(e.message,"err")}
     }
     async function verify(){

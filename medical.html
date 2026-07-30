@@ -135,6 +135,10 @@
   .mcu-hd h3{margin:0;font-size:16px;font-weight:800}
   .mcu-x{border:0;background:var(--inp);color:var(--txt);width:34px;height:34px;border-radius:10px;font-size:17px;cursor:pointer;flex:0 0 auto}
   .mcu-body{padding:16px 20px 22px}
+  /* Banner terjemahan AI (disclaimer + tombol lihat versi asli) */
+  .tbanner{font-size:12px;line-height:1.5;color:var(--muted,#8A7C68);background:var(--inp,#F0EDE5);border:1px solid var(--line,#E8E2DB);border-radius:10px;padding:9px 12px;margin:0 0 12px}
+  .tbanner.warn{color:#8a6d1a;background:#fbf3df;border-color:#e7c98a}
+  .tlink{border:0;background:none;color:var(--red,#C41101);font-weight:800;font-size:12px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
@@ -252,7 +256,7 @@
       if(!okType){ box.innerHTML='<div class="card" style="color:var(--red)">'+L({en:"Only a medical check-up file is allowed — a photo (JPG/PNG) or PDF.",id:"Hanya file medical check-up yang boleh — foto (JPG/PNG) atau PDF."})+'</div>'; e.target.value=""; return; }
       const sig="mcu_"+(f.name||"")+"_"+f.size+"_"+(f.lastModified||0);
       // Kalau file yang sama pernah dianalisa -> tampilkan instan tanpa panggil AI lagi
-      try{const cached=localStorage.getItem(sig);if(cached){renderResult(JSON.parse(cached));e.target.value="";return;}}catch(e0){}
+      try{const cached=localStorage.getItem(sig);if(cached){showResult(JSON.parse(cached));e.target.value="";return;}}catch(e0){}
       box.innerHTML='<div class="card"><div class="muted">'+I18N.t("med_analysing")+'</div></div>';
       let url,mime;
       try{
@@ -293,7 +297,7 @@
       e.target.value="";
     }
 
-    const SEV={tinggi:{c:"#ff3b30",t:"Perlu Perhatian"},sedang:{c:"#ff9500",t:"Sedang"},ringan:{c:"#ffcc00",t:"Ringan"}};
+    const SEV={tinggi:{c:"#ff3b30",t:{en:"Needs Attention",id:"Perlu Perhatian"}},sedang:{c:"#ff9500",t:{en:"Moderate",id:"Sedang"}},ringan:{c:"#ffcc00",t:{en:"Mild",id:"Ringan"}}};
     function statusColor(s){return s==="attention"?"#ff6b6b":s==="unknown"?"#8a8a8a":"#46d369"}
     function planCard(title,icon,iconColor,items){
       if(!items||!items.length)return"";
@@ -344,14 +348,51 @@
           '<a class="bookchip'+(p.clinic?" clinic":"")+'" href="'+p.u+'" target="_blank" rel="noopener">'+L({en:"Book",id:"Booking"})+'</a></div>').join("")+'</div>';
     }
 
-    let currentRes=null, baseRes=null, transCache={};
-    // Tampilkan hasil baru sebagai sumber (reset cache terjemahan)
-    function showResult(res,noScroll){ baseRes=res; transCache={}; transCache[res._lang||"en"]=res; renderResult(res,noScroll); }
-
-    function renderResult(res,noScroll){
+    let currentRes=null, baseRes=null, transCache={}, showOriginal=false, curId=null, transFailed=false;
+    // Disclaimer + banner terjemahan AI (dipakai main pane & modal history)
+    function transDisclaimer(){ return L({en:"Translation assisted by AI. Numbers & lab values are unchanged.",id:"Terjemahan dibantu AI. Angka & hasil lab tidak diubah."}); }
+    function transBanner(srcLang,failed,original,toggleFn){
+      var up=String(srcLang||"en").toUpperCase();
+      if(failed) return '<div class="tbanner warn">'+L({en:"Translation unavailable — showing the original ("+up+").",id:"Terjemahan belum tersedia — menampilkan versi asli ("+up+")."})+'</div>';
+      if(original) return '<div class="tbanner">'+L({en:"Showing the original ("+up+"). ",id:"Menampilkan versi asli ("+up+"). "})+(toggleFn?'<button class="tlink" onclick="'+toggleFn+'(false)">'+L({en:"View translation",id:"Lihat terjemahan"})+'</button>':'')+'</div>';
+      if(I18N.lang!==srcLang) return '<div class="tbanner">'+transDisclaimer()+(toggleFn?' <button class="tlink" onclick="'+toggleFn+'(true)">'+L({en:"View original",id:"Lihat versi asli"})+'</button>':'')+'</div>';
+      return "";
+    }
+    // Terjemah 1 objek hasil ke bahasa `want` via AI (edge fn my20fit-ai action:translate). null kalau gagal/timeout.
+    async function aiTranslate(base,want){
+      try{
+        var ctrl=new AbortController();var to=setTimeout(function(){ctrl.abort();},45000);
+        var r=await fetch(AI_URL,{method:"POST",signal:ctrl.signal,headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"translate",lang:want,data:base})});
+        clearTimeout(to);var j=await r.json();
+        if(r.ok&&j.result){ j.result._lang=want; return j.result; }
+      }catch(e){}
+      return null;
+    }
+    // Simpan terjemahan ke record DB (cache lintas-sesi & perangkat) di result.i18n
+    async function persistTrans(want,translated){
+      if(!curId) return;
+      try{
+        var rec=history.find(function(h){return h.id===curId;}); var base=rec?rec.result:baseRes; if(!base) return;
+        base.i18n=base.i18n||{}; base.i18n[want]=translated;
+        await Auth.supabase.from("my20fit_mcu_result").update({result:base}).eq("id",curId);
+      }catch(e){}
+    }
+    // Render hasil utama + banner terjemahan
+    function renderMain(){
+      var src=baseRes?(baseRes._lang||"en"):"en";
+      var res=(!showOriginal&&transCache[I18N.lang])?transCache[I18N.lang]:baseRes;
       currentRes=res;
-      document.getElementById("result").innerHTML=buildResultHTML(res);
+      document.getElementById("result").innerHTML=transBanner(src,transFailed,showOriginal,"setOriginal")+buildResultHTML(res);
+    }
+    function setOriginal(v){ showOriginal=v; transFailed=false; renderMain(); if(!v) translateCurrent(); }
+    // Tampilkan hasil baru sebagai sumber (reset cache + preload terjemahan tersimpan)
+    function showResult(res,noScroll,recordId){
+      baseRes=res; curId=recordId||null; showOriginal=false; transFailed=false;
+      transCache={}; transCache[res._lang||"en"]=res;
+      if(res.i18n) for(var k in res.i18n){ if(res.i18n[k]) transCache[k]=res.i18n[k]; }
+      renderMain();
       if(!noScroll)document.getElementById("result").scrollIntoView({behavior:"smooth"});
+      translateCurrent();
     }
     function buildResultHTML(res){
       const att=res.abnormal_findings||[];
@@ -364,7 +405,7 @@
       }).join("");
       const findings=att.map(fd=>{
         const sv=SEV[(fd.severity||"sedang").toLowerCase()]||SEV.sedang;
-        return '<div class="find" style="border-color:'+sv.c+'"><div class="ft"><span>'+(fd.label||"")+(fd.value?' · '+fd.value:'')+'</span><span class="sevtag" style="background:'+sv.c+'22;color:'+sv.c+'">'+sv.t+'</span></div>'+
+        return '<div class="find" style="border-color:'+sv.c+'"><div class="ft"><span>'+(fd.label||"")+(fd.value?' · '+fd.value:'')+'</span><span class="sevtag" style="background:'+sv.c+'22;color:'+sv.c+'">'+L(sv.t)+'</span></div>'+
           (fd.why_it_matters?'<div style="font-size:13px;margin-top:6px;color:#9a2a22"><b>'+I18N.t("med_why")+'</b> '+fd.why_it_matters+'</div>':"")+
           (fd.what_to_do?'<div style="font-size:13px;margin-top:5px;color:#2A7A4F"><b>'+I18N.t("med_do")+'</b> '+fd.what_to_do+'</div>':"")+'</div>';
       }).join("");
@@ -440,42 +481,60 @@
       n.style.display="";
     }
     // "See details" -> pop-up berisi hasil MCU yang dipilih dari history.
+    // ---- Modal history: state terjemahan terpisah dari main pane ----
+    var mBase=null, mCache={}, mOriginal=false, mFailed=false, mId=null;
+    function renderModalBody(){
+      var src=mBase?(mBase._lang||"en"):"en";
+      var res=(!mOriginal&&mCache[I18N.lang])?mCache[I18N.lang]:mBase;
+      document.getElementById("mcuModalBody").innerHTML=transBanner(src,mFailed,mOriginal,"mSetOriginal")+buildResultHTML(res);
+    }
+    function mSetOriginal(v){ mOriginal=v; mFailed=false; renderModalBody(); if(!v) mTranslate(); }
+    async function mTranslate(){
+      if(!mBase||mOriginal) return;
+      var want=I18N.lang, src=mBase._lang||"en";
+      if(want===src||mCache[want]){ mFailed=false; renderModalBody(); return; }
+      mFailed=false; renderModalBody();
+      var translated=await aiTranslate(mBase,want);
+      var open=document.getElementById("mcuModalBg").classList.contains("open");
+      if(!open||I18N.lang!==want) return;
+      if(translated){ mCache[want]=translated; mFailed=false; renderModalBody();
+        try{ if(mId){ mBase.i18n=mBase.i18n||{}; mBase.i18n[want]=translated; await Auth.supabase.from("my20fit_mcu_result").update({result:mBase}).eq("id",mId); } }catch(e){}
+      } else { mFailed=true; renderModalBody(); }
+    }
     function openHistory(i){
       const r=history[i]; if(!r||!r.result) return;
       const res=r.result; const date=(r.analyzed_at||r.created_at||"").slice(0,10);
       const title=(res.document_type||L({en:"MCU Result",id:"Hasil MCU"}))+(date?" · "+date:"");
       document.getElementById("mcuModalTitle").textContent=title;
-      document.getElementById("mcuModalBody").innerHTML=buildResultHTML(res);
+      mBase=res; mId=r.id||null; mOriginal=false; mFailed=false;
+      mCache={}; mCache[res._lang||"en"]=res;
+      if(res.i18n) for(var k in res.i18n){ if(res.i18n[k]) mCache[k]=res.i18n[k]; }
+      renderModalBody(); mTranslate();
       const bg=document.getElementById("mcuModalBg"); bg.classList.add("open");
       bg.scrollTop=0; document.body.style.overflow="hidden";
     }
     function closeMcuModal(){ document.getElementById("mcuModalBg").classList.remove("open"); document.body.style.overflow=""; }
     (function(){ var bg=document.getElementById("mcuModalBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeMcuModal(); });
       document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeMcuModal(); }); })();
-    // Terjemahkan hasil yang sedang tampil ke bahasa aktif (lewat AI), dengan cache + timeout
+    // Terjemahkan hasil main pane ke bahasa aktif (lewat AI), dengan cache DB + fallback ke asli
     async function translateCurrent(){
-      const base=baseRes; if(!base){return;}
-      const want=I18N.lang;
-      // sudah pernah diterjemahkan -> instan
-      if(transCache[want]){ renderResult(transCache[want],true); return; }
-      // label langsung ganti bahasa dulu (teks AI nyusul beberapa detik)
-      renderResult(base,true);
-      try{
-        const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),45000);
-        const r=await fetch(AI_URL,{method:"POST",signal:ctrl.signal,headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"translate",lang:want,data:base})});
-        clearTimeout(to);
-        const j=await r.json();
-        if(r.ok&&j.result&&I18N.lang===want){ j.result._lang=want; transCache[want]=j.result; renderResult(j.result,true); }
-      }catch(e){ /* biarkan render terkini — label sudah sesuai bahasa aktif */ }
+      if(!baseRes||showOriginal) return;
+      var want=I18N.lang, src=baseRes._lang||"en";
+      if(want===src||transCache[want]){ transFailed=false; renderMain(); return; }
+      transFailed=false; renderMain(); // label ganti dulu, teks AI nyusul
+      var translated=await aiTranslate(baseRes,want);
+      if(I18N.lang!==want) return;
+      if(translated){ transCache[want]=translated; transFailed=false; renderMain(); persistTrans(want,translated); }
+      else { transFailed=true; renderMain(); }
     }
     (async function(){
       user=await Auth.requireAuth();
       try{ profile=await Auth.getProfile(); }catch(e){ profile=null; }
       await loadHistory(); renderList();
       // Setelah refresh: tampilkan otomatis hasil terakhir (tanpa upload ulang)
-      if(history[0]&&history[0].result){ showResult(history[0].result,true); }
+      if(history[0]&&history[0].result){ showResult(history[0].result,true,history[0].id); }
     })();
-    I18N.onChange(()=>{ renderList(); if(currentRes)translateCurrent(); });
+    I18N.onChange(()=>{ renderList(); if(baseRes)translateCurrent(); if(document.getElementById("mcuModalBg").classList.contains("open")&&mBase)mTranslate(); });
   </script>
 </body>
 </html>

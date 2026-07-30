@@ -42,26 +42,26 @@
 <body>
   <div class="card">
     <div class="logo"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" /></div>
-    <h2>Lengkapi Profil</h2>
-    <div class="sub">Data ini bikin rekomendasi kamu makin pas.</div>
+    <h2 id="h2Title">Lengkapi Profil</h2>
+    <div class="sub" id="subLine">Data ini bikin rekomendasi kamu makin pas.</div>
     <div id="obStatus" style="display:none;align-items:center;gap:9px;padding:11px 13px;border-radius:12px;margin:2px 0 14px;font-size:13.5px;font-weight:700"></div>
 
     <div id="genderBlock">
-    <label>Jenis Kelamin</label>
+    <label id="lblGender">Jenis Kelamin</label>
     <div class="grid2">
-      <div class="opt" data-g="male" onclick="pickGender('male')">Pria</div>
-      <div class="opt" data-g="female" onclick="pickGender('female')">Wanita</div>
+      <div class="opt" data-g="male" onclick="pickGender('male')" id="optMale">Pria</div>
+      <div class="opt" data-g="female" onclick="pickGender('female')" id="optFemale">Wanita</div>
     </div>
     </div>
 
     <div id="dobBlock">
-    <label>Tanggal Lahir</label>
+    <label id="lblDob">Tanggal Lahir</label>
     <input id="birthdate" type="date" max="2026-06-27" />
     </div>
 
     <div class="row">
-      <div><label>Berat (kg)</label><input id="weight" type="number" inputmode="decimal" placeholder="65" min="30" max="200" oninput="updateBmi()" /></div>
-      <div><label>Tinggi (cm)</label><input id="height" type="number" inputmode="decimal" placeholder="170" min="100" max="250" oninput="updateBmi()" /></div>
+      <div><label id="lblWeight">Berat (kg)</label><input id="weight" type="number" inputmode="decimal" placeholder="65" min="30" max="200" oninput="updateBmi()" /></div>
+      <div><label id="lblHeight">Tinggi (cm)</label><input id="height" type="number" inputmode="decimal" placeholder="170" min="100" max="250" oninput="updateBmi()" /></div>
     </div>
 
     <!-- Preview BMI live -->
@@ -71,26 +71,26 @@
       <div class="d" id="bmiDesc"></div>
     </div>
 
-    <div class="sec">Tujuan Utama Kamu</div>
-    <label style="margin-top:8px">Mau capai apa?</label>
+    <div class="sec" id="secGoal">Tujuan Utama Kamu</div>
+    <label style="margin-top:8px" id="lblGoal">Mau capai apa?</label>
     <div class="grid2">
-      <div class="opt" data-goal="lose" onclick="pickGoal('lose')">Turunkan Berat</div>
-      <div class="opt" data-goal="muscle" onclick="pickGoal('muscle')">Bangun Otot</div>
-      <div class="opt" data-goal="health" onclick="pickGoal('health')">Lebih Sehat</div>
-      <div class="opt" data-goal="fit" onclick="pickGoal('fit')">Tingkatkan Kebugaran</div>
+      <div class="opt" data-goal="lose" onclick="pickGoal('lose')" id="goalLose">Turunkan Berat</div>
+      <div class="opt" data-goal="muscle" onclick="pickGoal('muscle')" id="goalMuscle">Bangun Otot</div>
+      <div class="opt" data-goal="health" onclick="pickGoal('health')" id="goalHealth">Lebih Sehat</div>
+      <div class="opt" data-goal="fit" onclick="pickGoal('fit')" id="goalFit">Tingkatkan Kebugaran</div>
     </div>
 
-    <div class="sec">Kondisi Kesehatan</div>
-    <label style="margin-top:8px">Ada yang perlu kami tahu? (boleh lebih dari satu / kosong)</label>
+    <div class="sec" id="secHealth">Kondisi Kesehatan</div>
+    <label style="margin-top:8px" id="lblConditions">Ada yang perlu kami tahu? (boleh lebih dari satu / kosong)</label>
     <div class="grid2" id="conditions">
-      <label class="chk"><input type="checkbox" value="Hipertensi"> Hipertensi</label>
-      <label class="chk"><input type="checkbox" value="Diabetes"> Diabetes</label>
-      <label class="chk"><input type="checkbox" value="Kolesterol"> Kolesterol</label>
-      <label class="chk"><input type="checkbox" value="Jantung"> Jantung</label>
-      <label class="chk"><input type="checkbox" value="Asma"> Asma</label>
-      <label class="chk"><input type="checkbox" value="Cedera"> Cedera</label>
+      <label class="chk"><input type="checkbox" value="Hipertensi"> <span id="condHipertensi">Hipertensi</span></label>
+      <label class="chk"><input type="checkbox" value="Diabetes"> <span id="condDiabetes">Diabetes</span></label>
+      <label class="chk"><input type="checkbox" value="Kolesterol"> <span id="condKolesterol">Kolesterol</span></label>
+      <label class="chk"><input type="checkbox" value="Jantung"> <span id="condJantung">Jantung</span></label>
+      <label class="chk"><input type="checkbox" value="Asma"> <span id="condAsma">Asma</span></label>
+      <label class="chk"><input type="checkbox" value="Cedera"> <span id="condCedera">Cedera</span></label>
     </div>
-    <label>Lainnya (opsional)</label>
+    <label id="lblOther">Lainnya (opsional)</label>
     <input id="condOther" type="text" placeholder="cth: alergi tertentu" />
 
     <button class="btn" id="save" onclick="save()">Simpan & Lanjut</button>
@@ -99,8 +99,51 @@
 
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
   <script>
-    let gender=null, goal=null, knownIdentity=false;
+    let gender=null, goal=null, knownIdentity=false, obDone=null;
+
+    // Terjemahkan seluruh teks statis halaman sesuai bahasa aktif (EN/ID).
+    function applyLang(){
+      document.title = L({en:"Complete Your Profile · 20FIT", id:"Lengkapi Profil · 20FIT"});
+      document.getElementById("h2Title").textContent   = L({en:"Complete Your Profile", id:"Lengkapi Profil"});
+      document.getElementById("subLine").textContent   = L({en:"This helps us tailor your recommendations.", id:"Data ini bikin rekomendasi kamu makin pas."});
+      document.getElementById("lblGender").textContent = L({en:"Gender", id:"Jenis Kelamin"});
+      document.getElementById("optMale").textContent   = L({en:"Male", id:"Pria"});
+      document.getElementById("optFemale").textContent = L({en:"Female", id:"Wanita"});
+      document.getElementById("lblDob").textContent    = L({en:"Date of Birth", id:"Tanggal Lahir"});
+      document.getElementById("lblWeight").textContent = L({en:"Weight (kg)", id:"Berat (kg)"});
+      document.getElementById("lblHeight").textContent = L({en:"Height (cm)", id:"Tinggi (cm)"});
+      document.getElementById("secGoal").textContent   = L({en:"Your Main Goal", id:"Tujuan Utama Kamu"});
+      document.getElementById("lblGoal").textContent   = L({en:"What do you want to achieve?", id:"Mau capai apa?"});
+      document.getElementById("goalLose").textContent  = L({en:"Lose Weight", id:"Turunkan Berat"});
+      document.getElementById("goalMuscle").textContent= L({en:"Build Muscle", id:"Bangun Otot"});
+      document.getElementById("goalHealth").textContent= L({en:"Get Healthier", id:"Lebih Sehat"});
+      document.getElementById("goalFit").textContent   = L({en:"Improve Fitness", id:"Tingkatkan Kebugaran"});
+      document.getElementById("secHealth").textContent = L({en:"Health Conditions", id:"Kondisi Kesehatan"});
+      document.getElementById("lblConditions").textContent = L({en:"Anything we should know? (optional)", id:"Ada yang perlu kami tahu? (boleh lebih dari satu / kosong)"});
+      document.getElementById("condHipertensi").textContent = L({en:"Hypertension", id:"Hipertensi"});
+      document.getElementById("condDiabetes").textContent   = L({en:"Diabetes", id:"Diabetes"});
+      document.getElementById("condKolesterol").textContent = L({en:"Cholesterol", id:"Kolesterol"});
+      document.getElementById("condJantung").textContent    = L({en:"Heart", id:"Jantung"});
+      document.getElementById("condAsma").textContent       = L({en:"Asthma", id:"Asma"});
+      document.getElementById("condCedera").textContent     = L({en:"Injury", id:"Cedera"});
+      document.getElementById("lblOther").textContent  = L({en:"Other (optional)", id:"Lainnya (opsional)"});
+      document.getElementById("condOther").placeholder = L({en:"e.g. a specific allergy", id:"cth: alergi tertentu"});
+      document.getElementById("save").textContent      = L({en:"Save & Continue", id:"Simpan & Lanjut"});
+      renderObStatus();
+    }
+    // Isi teks status onboarding sesuai bahasa aktif (dipanggil ulang saat toggle).
+    function renderObStatus(){
+      if(obDone===null) return;
+      var el=document.getElementById("obStatus"); if(!el) return;
+      el.textContent = obDone
+        ? L({en:"✅ You're onboarded — you can update your details below.", id:"✅ Kamu sudah onboarding — data di bawah bisa kamu perbarui."})
+        : L({en:"⚠️ You're not onboarded yet — fill in the details below and save.", id:"⚠️ Kamu belum onboarding — lengkapi data di bawah lalu simpan."});
+    }
+    applyLang();
+    if(window.I18N) I18N.onChange(applyLang);
+
     (async function(){
       await Auth.requireAuth();
       try{ const p=await Auth.getProfile(); if(p){ prefill(p); showObStatus(p); } }catch(e){}
@@ -113,7 +156,8 @@
       el.style.background=done?"rgba(42,122,79,.10)":"rgba(196,17,1,.08)";
       el.style.color=done?"#2A7A4F":"#C41101";
       el.style.border="1px solid "+(done?"rgba(42,122,79,.35)":"rgba(196,17,1,.30)");
-      el.textContent=done?"✅ Kamu sudah onboarding — data di bawah bisa kamu perbarui.":"⚠️ Kamu belum onboarding — lengkapi data di bawah lalu simpan.";
+      obDone=done;
+      renderObStatus();
     }
     function prefill(p){
       if(p.gender) pickGender(p.gender);
@@ -157,11 +201,11 @@
       const weight=parseFloat(document.getElementById("weight").value);
       const height=parseFloat(document.getElementById("height").value);
       const msg=document.getElementById("msg");
-      if(!knownIdentity && !gender)return msg.textContent="Pilih jenis kelamin dulu.";
-      if(!knownIdentity && !birthdate)return msg.textContent="Isi tanggal lahir.";
-      if(!weight)return msg.textContent="Isi berat badan.";
-      if(!height)return msg.textContent="Isi tinggi badan.";
-      if(!goal)return msg.textContent="Pilih tujuan utama kamu.";
+      if(!knownIdentity && !gender)return msg.textContent=L({en:"Please select your gender first.", id:"Pilih jenis kelamin dulu."});
+      if(!knownIdentity && !birthdate)return msg.textContent=L({en:"Please enter your date of birth.", id:"Isi tanggal lahir."});
+      if(!weight)return msg.textContent=L({en:"Please enter your weight.", id:"Isi berat badan."});
+      if(!height)return msg.textContent=L({en:"Please enter your height.", id:"Isi tinggi badan."});
+      if(!goal)return msg.textContent=L({en:"Please select your main goal.", id:"Pilih tujuan utama kamu."});
       // kumpulkan kondisi kesehatan
       const conds=[...document.querySelectorAll('#conditions input:checked')].map(i=>i.value);
       const other=document.getElementById("condOther").value.trim();
@@ -170,7 +214,7 @@
       try{
         await Auth.saveOnboarding({gender,birthdate,weight_kg:weight,height_cm:height,main_goal:goal,health_conditions:conds});
         await Auth.routeAfterAuth();   // data lengkap -> buat password kalau belum ada, lalu dashboard
-      }catch(e){msg.textContent=e.message;btn.disabled=false}
+      }catch(e){msg.textContent=(e&&e.message)||L({en:"Failed to save. Please try again.", id:"Gagal menyimpan. Coba lagi."});btn.disabled=false}
     }
   </script>
 </body>
