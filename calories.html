@@ -154,8 +154,8 @@
           <video id="camVideo" autoplay playsinline muted></video>
           <div id="camErr" class="muted" style="text-align:center;margin-top:8px"></div>
           <div class="cam-actions">
-            <button class="scanbtn" style="flex:1" onclick="camCapture()"><svg class="emi" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> <span>Capture</span></button>
-            <button class="cam-cancel" onclick="camClose()">Cancel</button>
+            <button class="scanbtn" style="flex:1" onclick="camCapture()"><svg class="emi" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> <span data-i18n="cal_capture">Capture</span></button>
+            <button class="cam-cancel" onclick="camClose()" data-i18n="cal_cancel">Cancel</button>
           </div>
         </div>
       </div>
@@ -426,7 +426,7 @@
       const f=e.target.files[0];if(!f)return;
       e.target.value="";
       try{ const url=await fileURL(f); scanImage(url); }
-      catch(err){ document.getElementById("scanresult").innerHTML='<div style="color:var(--red)">'+(err.message||"Error")+'</div>'; }
+      catch(err){ document.getElementById("scanresult").innerHTML='<div style="color:var(--red)">'+(err.message||L({en:"Something went wrong.",id:"Terjadi kesalahan."}))+'</div>'; }
     }
     // ---- Kamera langsung: webcam di DESKTOP, kamera HP di mobile ----
     let camStream=null;
@@ -562,7 +562,7 @@
         h+='<div class="scd-tags">'+res.tags.map(function(t){var pos=!(t&&t.positive===false);var lab=(t&&t.label)?t.label:String(t);return '<span class="tagchip '+(pos?"good":"warn")+'">'+lab+'</span>';}).join('')+'</div>';
       }
       if(sat>0){
-        h+='<div class="scd-score"><div class="scd-slabel">'+L({en:"Filling Rate",id:"Filling Rate"})+' <b>'+sat+'/10</b></div>'+
+        h+='<div class="scd-score"><div class="scd-slabel">'+L({en:"Filling Rate",id:"Tingkat Kekenyangan"})+' <b>'+sat+'/10</b></div>'+
            '<div class="scd-dias">'+scoreDiamonds(sat)+'</div>'+
            (res.satiety_note?'<div class="scd-note">'+res.satiety_note+'</div>':'')+'</div>';
       }

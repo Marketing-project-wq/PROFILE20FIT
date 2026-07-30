@@ -50,7 +50,7 @@
       cal_ortype:"or type food + grams (auto kcal)", cal_grams:"grams", cal_estimating:"Estimating calories…", cal_needboth:"Type a food name & grams.",
       cal_foodname:"Food name", cal_today_sec:"Today's Food", cal_empty:"No entries yet. Add food above.",
       cal_recs:"Meal Ideas & Recipes", cal_scan:"Scan Food (AI)", cal_photo:"Photo / Upload Food",
-      cal_analysing:"Analysing food…", cal_detected:"Detected", cal_addlog:"+ Add to Today's Log", cal_added:"Added to log ✓",
+      cal_analysing:"Analysing food…", cal_detected:"Detected", cal_addlog:"+ Add to Today's Log", cal_added:"Added to log ✓", cal_capture:"Capture", cal_cancel:"Cancel",
       meal_breakfast:"Breakfast", meal_lunch:"Lunch", meal_dinner:"Dinner",
       recipe_view:"View recipe", recipe_hide:"Hide recipe", recipe_ing:"Ingredients", recipe_steps:"How to make", recipe_add:"+ Add to log",
       // progress
@@ -102,7 +102,7 @@
       cal_ortype:"atau ketik makanan + gram (kkal otomatis)", cal_grams:"gram", cal_estimating:"Menghitung kalori…", cal_needboth:"Isi nama makanan & gram.",
       cal_foodname:"Nama makanan", cal_today_sec:"Makanan Hari Ini", cal_empty:"Belum ada catatan. Tambah makanan di atas.",
       cal_recs:"Ide Menu & Resep", cal_scan:"Scan Makanan (AI)", cal_photo:"Foto / Upload Makanan",
-      cal_analysing:"Menganalisa makanan…", cal_detected:"Terdeteksi", cal_addlog:"+ Tambah ke Log Hari Ini", cal_added:"Ditambahkan ke log ✓",
+      cal_analysing:"Menganalisa makanan…", cal_detected:"Terdeteksi", cal_addlog:"+ Tambah ke Log Hari Ini", cal_added:"Ditambahkan ke log ✓", cal_capture:"Ambil Foto", cal_cancel:"Batal",
       meal_breakfast:"Sarapan", meal_lunch:"Makan Siang", meal_dinner:"Makan Malam",
       recipe_view:"Lihat resep", recipe_hide:"Tutup resep", recipe_ing:"Bahan", recipe_steps:"Cara membuat", recipe_add:"+ Tambah ke log",
       prog_title:"Progress", prog_text:"Statistik mingguan, achievement, dan kalender latihan kamu lagi disiapin di sini.", prog_soon:"Segera Hadir",

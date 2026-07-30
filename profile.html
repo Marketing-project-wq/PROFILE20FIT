@@ -374,7 +374,7 @@
         if(b){ b.disabled=false; b.textContent=L({en:"Open 20FIT Photo",id:"Buka 20FIT Photo"}); }
       }
     }
-    try{ if(window.I18N&&I18N.onChange) I18N.onChange(renderHistory); }catch(e){}
+    try{ if(window.I18N&&I18N.onChange) I18N.onChange(function(){ renderHistory(); if(PROFILE) renderSummary(PROFILE); refreshQuota(); }); }catch(e){}
 
     // ---- Foto profil (di-resize kecil, disimpan per-akun di device) ----
     function avaKey(){ return "my20fit_avatar_"+((user&&user.id)||"me"); }
