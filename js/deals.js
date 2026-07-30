@@ -36,7 +36,6 @@
       ".dl-card{position:relative;width:100%;max-width:460px;background:var(--card,#fff);color:var(--txt,#16181d);border-radius:24px 24px 0 0;max-height:92vh;overflow-y:auto;padding:8px 22px calc(env(safe-area-inset-bottom) + 24px);box-shadow:0 -12px 44px rgba(0,0,0,.28);animation:dlUp .3s cubic-bezier(.2,.85,.25,1)}",
       "@keyframes dlUp{from{transform:translateY(100%)}to{transform:translateY(0)}}",
       ".dl-grab{width:42px;height:5px;border-radius:999px;background:var(--line,#e6e3dd);margin:9px auto 8px}",
-      ".dl-x{position:absolute;top:12px;right:14px;z-index:3;width:34px;height:34px;border:0;border-radius:50%;background:var(--inp,#efece6);color:var(--txt,#16181d);font-size:17px;line-height:1;cursor:pointer;display:grid;place-items:center}",
       ".dl-ic{width:54px;height:54px;border-radius:16px;background:var(--red-soft,#fdecec);display:grid;place-items:center;margin:6px auto 12px}",
       ".dl-ic svg{width:26px;height:26px;fill:none;stroke:var(--red,#C41101);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}",
       ".dl-card h3{margin:0 0 4px;text-align:center;font-size:20px;font-weight:800}",
@@ -70,8 +69,7 @@
       ".dl-toast .sp{width:18px;height:18px;flex:0 0 auto;border:2.5px solid var(--line,#e6e3dd);border-top-color:var(--red,#C41101);border-radius:50%;animation:dlSpin 1s linear infinite}",
       "@keyframes dlSpin{to{transform:rotate(360deg)}}",
       ".dl-toast .tmsg{flex:1;font-size:12.5px;line-height:1.4}.dl-toast .tord{font-size:11px;color:var(--muted,#8a8378)}",
-      ".dl-toast button{border:0;background:var(--red,#C41101);color:#fff;font-weight:700;font-size:12px;border-radius:9px;padding:8px 11px;cursor:pointer}",
-      ".dl-toast .tx{background:transparent;color:var(--muted,#8a8378);padding:6px}",
+      ".dl-toast button:not(.x-close){border:0;background:var(--red,#C41101);color:#fff;font-weight:700;font-size:12px;border-radius:9px;padding:8px 11px;cursor:pointer}",
       ".dl-thx{text-align:center}.dl-thx .em{font-size:44px;margin:10px 0 4px}",
       "@media(min-width:620px){ .dl-bg{align-items:center;padding:24px} .dl-card{border-radius:24px} .dl-grab{display:none} }",
     ].join("");
@@ -82,7 +80,7 @@
     root.innerHTML =
       // ----- Deals (pilih paket + detail harga & voucher INLINE) -----
       '<div class="dl-bg" id="dlBg"><div class="dl-card">' +
-      '<button class="dl-x" id="dlX" aria-label="Tutup">✕</button>' +
+      '<button class="x-close x-abs" id="dlX" aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>' +
       '<div class="dl-grab"></div>' +
       '<div class="dl-ic"><svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>' +
       '<h3 id="dlTitle"></h3><div class="dl-sub" id="dlSub"></div>' +
@@ -105,9 +103,9 @@
       '</div></div>' +
       // ----- Toast + thanks -----
       '<div class="dl-toast" id="dlToast"><div class="sp"></div><div class="tmsg"><div id="dlToastMsg"></div><div class="tord" id="dlToastOrd"></div></div>' +
-      '<button id="dlToastBtn"></button><button class="tx" id="dlToastClose">✕</button></div>' +
+      '<button id="dlToastBtn"></button><button class="x-close x-ghost x-sm" id="dlToastClose" aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>' +
       '<div class="dl-bg" id="dlThxBg"><div class="dl-card dl-thx">' +
-      '<button class="dl-x" id="dlThxX" aria-label="Tutup">✕</button>' +
+      '<button class="x-close x-abs" id="dlThxX" aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>' +
       '<div class="dl-grab"></div><div class="em">🎉</div><h3 id="dlThxTitle"></h3><div class="dl-sub" id="dlThxSub"></div>' +
       '<button class="dl-primary" id="dlThxClose"></button>' +
       '</div></div>';

@@ -94,7 +94,6 @@
 
   /* ===== Struk / bon detail pembayaran ===== */
   .pm-rcpt{max-width:430px;background:transparent;box-shadow:none;padding:6px 14px calc(env(safe-area-inset-bottom) + 22px)}
-  .rc-x{position:absolute;top:16px;right:16px;z-index:3;width:34px;height:34px;border:0;border-radius:10px;background:var(--inp);color:var(--txt);font-size:15px;line-height:1;cursor:pointer}
   .rcpt{position:relative;background:var(--card);color:var(--txt);border-radius:16px;padding:26px 24px 24px;
         box-shadow:0 10px 40px rgba(16,18,22,.16);
         -webkit-mask:radial-gradient(7px at 12px 0,#0000 98%,#000) 0 0/24px 51% repeat-x,
@@ -268,7 +267,7 @@
   <div class="pm-bg" id="odBg">
     <div class="pm pm-rcpt">
       <div class="grab"></div>
-      <button class="rc-x" onclick="closeOrderDetail()" aria-label="Close">✕</button>
+      <button class="x-close x-abs" onclick="closeOrderDetail()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       <div id="odBody"></div>
     </div>
   </div>

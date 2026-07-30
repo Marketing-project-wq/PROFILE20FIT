@@ -67,7 +67,6 @@
   @keyframes pmUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
   .pm .grab{width:42px;height:5px;border-radius:999px;background:var(--line);margin:8px auto 12px}
   .pm h2{margin:0 0 6px;font-size:19px;font-weight:800}
-  .pm-x{position:absolute;top:12px;right:14px;width:34px;height:34px;border-radius:50%;border:0;background:var(--inp);color:var(--txt);font-size:17px;cursor:pointer;display:grid;place-items:center;z-index:2}
   .pm-hero{height:150px;border-radius:14px;display:grid;place-items:center;font-size:64px;background-size:cover;background-position:center;margin-bottom:12px}
   .pm-types{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
   .pm-types span{font-size:11px;font-weight:800;background:var(--inp);color:var(--txt);border-radius:99px;padding:4px 10px;text-transform:capitalize}
@@ -149,7 +148,7 @@
   <!-- Modal detail resep (X / klik luar / swipe down utk tutup) -->
   <div class="pm-bg" id="recBg">
     <div class="pm" id="recPm">
-      <button class="pm-x" onclick="closeRecipe()" aria-label="Close" data-i18n-aria="diet_close">✕</button>
+      <button class="x-close x-abs" onclick="closeRecipe()" aria-label="Close" data-i18n-aria="diet_close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       <div class="grab"></div>
       <div id="recBody"></div>
     </div>
