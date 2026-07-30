@@ -191,7 +191,9 @@
     var c=_imgCache();
     if(Object.prototype.hasOwnProperty.call(c, rec.id)) return Promise.resolve(c[rec.id]);
     var base="https://www.themealdb.com/api/json/v1/1/";
-    function done(url){ c=_imgCache(); c[rec.id]=url||null; _saveImg(c); return c[rec.id]; }
+    // TheMealDB serves resized variants by appending /small (~250px) — cukup untuk thumb 96px & hero 150px,
+    // jauh lebih ringan dari full-res (~600-800px). Hemat bandwidth & mempercepat load.
+    function done(url){ c=_imgCache(); c[rec.id]=url?(url+"/small"):null; _saveImg(c); return c[rec.id]; }
     return fetch(base+"search.php?s="+encodeURIComponent(rec.q||(rec.nm&&rec.nm.en)||""))
       .then(function(r){return r.json();})
       .then(function(j){
@@ -213,5 +215,24 @@
     }).catch(function(){});
   }
 
-  window.Recipes = { LIST: LIST, byType: byType, recommendForMacros: recommendForMacros, resolveImg: resolveImg, applyThumb: applyThumb, DIET_TYPES: ["normal", "vegetarian", "vegan", "pescatarian", "keto", "high-protein", "low-carb", "halal"] };
+  // Lazy variant: hanya resolve+fetch foto saat kartunya masuk viewport (IntersectionObserver).
+  // Mencegah 16 fetch TheMealDB serentak di render pertama. Fallback: langsung apply kalau IO tak didukung.
+  var _io = null, _ioMap = (typeof WeakMap !== "undefined") ? new WeakMap() : null;
+  function _ensureIO(){
+    if(_io || typeof IntersectionObserver === "undefined") return _io;
+    _io = new IntersectionObserver(function(ents){
+      ents.forEach(function(en){
+        if(en.isIntersecting){ var el=en.target; _io.unobserve(el); var rec=_ioMap && _ioMap.get(el); if(rec) applyThumb(el, rec); }
+      });
+    }, { rootMargin: "200px" });
+    return _io;
+  }
+  function applyThumbLazy(el, rec){
+    if(!el || !rec) return;
+    var io = _ensureIO();
+    if(!io || !_ioMap){ applyThumb(el, rec); return; } // tanpa IO -> langsung
+    _ioMap.set(el, rec); io.observe(el);
+  }
+
+  window.Recipes = { LIST: LIST, byType: byType, recommendForMacros: recommendForMacros, resolveImg: resolveImg, applyThumb: applyThumb, applyThumbLazy: applyThumbLazy, DIET_TYPES: ["normal", "vegetarian", "vegan", "pescatarian", "keto", "high-protein", "low-carb", "halal"] };
 })();

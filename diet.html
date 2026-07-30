@@ -8,6 +8,7 @@
 <style>
   :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#EDE8DF;--green:#2A7A4F;--amber:#C87000}
   *{box-sizing:border-box}
+  a{text-decoration:none}
   body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 90px}
   .wrap{max-width:560px;margin:0 auto}
   @media(min-width:900px){ .wrap{max-width:720px} }
@@ -233,9 +234,11 @@
           '<div class="rbody"><div class="rname">'+esc(titleOf(it))+'</div><div class="rmeta">'+meta+'</div>'+mac+'</div></button>';
       }).join("");
       // Resolve real food photos for 20fit items (emoji stays as fallback on failure).
-      if(window.Recipes && Recipes.applyThumb){
+      // Lazy: hanya fetch saat kartunya masuk viewport (hindari belasan fetch serentak).
+      if(window.Recipes && (Recipes.applyThumbLazy || Recipes.applyThumb)){
+        var _apply = Recipes.applyThumbLazy || Recipes.applyThumb;
         list.forEach(function(it){
-          if(it.rec && !it.photo){ Recipes.applyThumb(document.getElementById("th_"+it.key), it.rec); }
+          if(it.rec && !it.photo){ _apply(document.getElementById("th_"+it.key), it.rec); }
         });
       }
     }

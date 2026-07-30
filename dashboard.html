@@ -266,7 +266,7 @@
   .aqi-line .atrack{height:5px;border-radius:999px;background:linear-gradient(90deg,#2BB673,#E8C23A,#E8912A,#D4283A);position:relative}
   .aqi-line .atrack i{position:absolute;top:-4px;left:2%;width:13px;height:13px;border-radius:999px;background:var(--card,#fff);border:3px solid var(--amber);transform:translateX(-50%);transition:left 1s cubic-bezier(.22,1,.36,1);box-shadow:0 1px 3px rgba(0,0,0,.15)}
   .aqi-line .asrc{margin-top:9px;font-size:11px}
-  @media(max-width:560px){ .wx-temp{font-size:28px} .aqi-line .alvl{display:none} }
+  @media(max-width:560px){ .wx-temp{font-size:28px} .aqi-line .arow{flex-wrap:wrap} .aqi-line .alvl{font-size:11px} }
   /* ---- At-home exercise list + tutorial modal ---- */
   .ahlist{overflow:hidden;margin-top:4px}
   .ahitem{display:flex;align-items:center;gap:13px;padding:13px 2px;cursor:pointer;border-top:1px solid var(--line)}
@@ -956,10 +956,10 @@
         talent:    { ic: "hand", s: { en: "Talent", id: "Talent" }, lbl: { en: "Talent", id: "Talent" }, sub: { en: "Volunteer at 20FIT events", id: "Relawan di event 20FIT" } },
         shop:      { ic: "cart", s: { en: "Shop", id: "Shop" }, lbl: { en: "Shop Equipments", id: "Beli Alat" }, sub: { en: "Authorized distributor · Hyrox Centr & Precor", id: "Distributor resmi · Hyrox Centr & Precor" }, ext: true },
         medical:   { ic: "pin", s: { en: "Medical", id: "Medis" }, lbl: { en: "Medical Checkup Places", id: "Tempat MCU" }, sub: { en: "Find 20FIT partner labs near you", id: "Lab partner 20FIT terdekat" } },
-        photo:     { ic: "camera", s: { en: "Photo", id: "Photo" }, lbl: { en: "Photo", id: "Photo" }, sub: { en: "Foto event & sesi kamu dari photo.20fit.id", id: "Foto event & sesi dari photo.20fit.id" }, sso: true }
+        photo:     { ic: "camera", s: { en: "Photo", id: "Photo" }, lbl: { en: "Photo", id: "Photo" }, sub: { en: "Foto event & sesi kamu dari photo.20fit.id", id: "Foto event & sesi dari photo.20fit.id" }, sso: true, enabled: false }
       };
       var SHORTCUT_ALL = ["workout", "diet", "catering", "racelab", "events", "breathing", "talent", "shop", "medical", "photo"];
-      function getShortcutPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_shortcuts") || "null"); } catch (e) {} if (!Array.isArray(p)) p = ["workout", "diet", "catering"]; p = p.filter(function (x) { return SHORTCUTS[x]; }); return p; }
+      function getShortcutPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_shortcuts") || "null"); } catch (e) {} if (!Array.isArray(p)) p = ["workout", "diet", "catering"]; p = p.filter(function (x) { return SHORTCUTS[x] && SHORTCUTS[x].enabled !== false; }); return p; }
       function setShortcutPins(p) { try { localStorage.setItem("my20fit_home_shortcuts", JSON.stringify(p)); } catch (e) {} setLocalTs(new Date().toISOString()); pushPrefs(); }
 
       function svcTile(o) {
@@ -986,7 +986,7 @@
       window.openHomeMenu = function () { window.renderHomeMenuSheet(); var b = document.getElementById("hmBg"); if (b) b.style.display = "flex"; };
       window.closeHomeMenu = function () { var b = document.getElementById("hmBg"); if (b) b.style.display = "none"; };
       window.renderHomeMenuSheet = function () {
-        var pins = getShortcutPins(), avail = SHORTCUT_ALL.filter(function (x) { return pins.indexOf(x) < 0; });
+        var pins = getShortcutPins(), avail = SHORTCUT_ALL.filter(function (x) { return pins.indexOf(x) < 0 && SHORTCUTS[x] && SHORTCUTS[x].enabled !== false; });
         var pl = document.getElementById("hmPinLbl"), al = document.getElementById("hmAvailLbl"), pw = document.getElementById("hmPinned"), aw = document.getElementById("hmAvail");
         if (pl) pl.textContent = Lx({ en: "On row 2 · " + pins.length + " pinned · drag ☰ to reorder", id: "Di baris 2 · " + pins.length + " tersemat · seret ☰ untuk atur urutan" });
         if (al) al.textContent = Lx({ en: "Available shortcuts · " + avail.length, id: "Shortcut tersedia · " + avail.length });
@@ -1005,7 +1005,7 @@
         }).join("") : '<div class="czds" style="padding:8px 2px">' + Lx({ en: "All shortcuts are on your home.", id: "Semua shortcut sudah di home-mu." }) + '</div>';
       };
       window.shortcutAdd = function (id) {
-        if (!SHORTCUTS[id]) return;
+        if (!SHORTCUTS[id] || SHORTCUTS[id].enabled === false) return;
         var p = getShortcutPins(); if (p.indexOf(id) >= 0) return;
         p.push(id); setShortcutPins(p); window.buildSvcGrid(); window.renderHomeMenuSheet();
       };
@@ -1171,7 +1171,7 @@
         try { window.renderCzSheet && window.renderCzSheet(); } catch (e) {}
         try { window.applyExtra && window.applyExtra(); } catch (e) {}
       }
-      var _dirty = false, _pushT = null;
+      var _dirty = false, _pushT = null, _waterDirty = false;
       function pushPrefs() {
         if (!window.Auth) return;
         if (_pushT) clearTimeout(_pushT);
@@ -1202,7 +1202,11 @@
         } catch (e) {} // jangan pernah bikin dashboard rusak kalau offline/not-logged-in
       }
       window.syncPrefsOnLoad = syncPrefsOnLoad;
-      window.addEventListener("online", function () { if (_dirty) pushPrefs(); });
+      window.addEventListener("online", function () {
+        if (_dirty) pushPrefs();
+        // Air (my20fit_daily_log) juga di-flush ulang saat koneksi balik — LWW pakai nilai terakhir.
+        if (_waterDirty && typeof water !== "undefined" && window.Auth && typeof setWater === "function") setWater(water);
+      });
 
       // Boot — grid + booking + tracker stack + sheet + tutup klik-luar.
       buildSvcGrid();
@@ -1705,7 +1709,8 @@
       water=Math.max(0,Math.min(8,n));
       if(typeof daily!=="undefined"&&daily) daily.water_glasses=water;   // per-hari (my20fit_daily_log) -> reset harian
       renderWater();renderWaterWidget();
-      try{await Auth.saveDaily({water_glasses:water});if(water>=8)toast(L({en:"Water goal reached!",id:"Target air tercapai!"}));renderChecklist();checkAchievements();}catch(e){toast(L({en:"Save failed — try again",id:"Gagal simpan — coba lagi"}));}
+      try{await Auth.saveDaily({water_glasses:water});_waterDirty=false;if(water>=8)toast(L({en:"Water goal reached!",id:"Target air tercapai!"}));renderChecklist();checkAchievements();}
+      catch(e){_waterDirty=true;toast(L({en:"Saved offline — will sync",id:"Disimpan offline — akan sinkron"}));renderChecklist();checkAchievements();} // offline → tandai, flush saat "online"
     }
 
     // ---- Checklist harian (aktivitas yang bisa dilacak lewat widget) ----
