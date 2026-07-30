@@ -154,8 +154,8 @@
           <video id="camVideo" autoplay playsinline muted></video>
           <div id="camErr" class="muted" style="text-align:center;margin-top:8px"></div>
           <div class="cam-actions">
-            <button class="scanbtn" style="flex:1" onclick="camCapture()"><svg class="emi" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> <span>Capture</span></button>
-            <button class="cam-cancel" onclick="camClose()">Cancel</button>
+            <button class="scanbtn" style="flex:1" onclick="camCapture()"><svg class="emi" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> <span id="camCaptureLbl">Capture</span></button>
+            <button id="camCancelBtn" class="cam-cancel" onclick="camClose()">Cancel</button>
           </div>
         </div>
       </div>
@@ -431,7 +431,7 @@
       const f=e.target.files[0];if(!f)return;
       e.target.value="";
       try{ const url=await fileURL(f); scanImage(url); }
-      catch(err){ document.getElementById("scanresult").innerHTML='<div style="color:var(--red)">'+(err.message||"Error")+'</div>'; }
+      catch(err){ document.getElementById("scanresult").innerHTML='<div style="color:var(--red)">'+(err.message||L({en:"Something went wrong.",id:"Terjadi kesalahan."}))+'</div>'; }
     }
     // ---- Kamera langsung: webcam di DESKTOP, kamera HP di mobile ----
     let camStream=null;
@@ -451,6 +451,10 @@
         camClose();
         document.getElementById("foodcam").click();
       }
+    }
+    function syncCamLabels(){
+      const cap=document.getElementById("camCaptureLbl"); if(cap) cap.textContent=L({en:"Capture",id:"Ambil Foto"});
+      const can=document.getElementById("camCancelBtn"); if(can) can.textContent=L({en:"Cancel",id:"Batal"});
     }
     function camClose(){
       const modal=document.getElementById("camModal");
@@ -568,7 +572,7 @@
         h+='<div class="scd-tags">'+res.tags.map(function(t){var pos=!(t&&t.positive===false);var lab=(t&&t.label)?t.label:String(t);return '<span class="tagchip '+(pos?"good":"warn")+'">'+esc(lab)+'</span>';}).join('')+'</div>';
       }
       if(sat>0){
-        h+='<div class="scd-score"><div class="scd-slabel">'+L({en:"Filling Rate",id:"Filling Rate"})+' <b>'+sat+'/10</b></div>'+
+        h+='<div class="scd-score"><div class="scd-slabel">'+L({en:"Filling Rate",id:"Tingkat Kekenyangan"})+' <b>'+sat+'/10</b></div>'+
            '<div class="scd-dias">'+scoreDiamonds(sat)+'</div>'+
            (res.satiety_note?'<div class="scd-note">'+esc(res.satiety_note)+'</div>':'')+'</div>';
       }
@@ -753,7 +757,7 @@
       const p=await Auth.getProfile();
       profileRef=p; baseGoal=Nutrition.goalFor(p); curGoal=p.main_goal||"health";
       recompute();
-      load();render();renderIF();
+      load();render();renderIF();syncCamLabels();
       refreshQuota();       // tampilkan sisa kuota scan + link paket
       loadCalFromCloud();   // sinkron kalori dari akun
       loadIFFromCloud();    // sinkron gaya puasa dari akun
@@ -797,7 +801,7 @@
       }catch(e){}
     }
     setInterval(renderIF,60000); // update countdown tiap menit
-    I18N.onChange(()=>{render();renderIF();refreshQuota();});
+    I18N.onChange(()=>{render();renderIF();refreshQuota();syncCamLabels();});
   </script>
 </body>
 </html>
