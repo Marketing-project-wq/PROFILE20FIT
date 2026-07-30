@@ -204,15 +204,42 @@
       })
       .catch(function(){ return done(null); });
   }
-  // Resolve + apply to a thumb/hero element that currently shows the emoji. On success: set background-image, clear emoji, mark .has-photo. On fail: leave emoji.
+  // ---- Foto hasil GENERATE AI (OpenRouter gemini-2.5-flash-image) via edge function ----
+  // Diutamakan di atas TheMealDB supaya tiap menu punya foto khusus dirinya (bukan foto stok generik).
+  // Key OpenRouter TIDAK pernah ada di klien — dipanggil lewat edge function my20fit-foodimg
+  // (key = Supabase secret). Butuh user login (verify_jwt). Cache: server (tabel my20fit_foodimg,
+  // generate sekali per menu) + in-memory sesi ini. TIDAK di localStorage (data-URL besar → bisa
+  // jebol kuota & merusak penyimpanan lain). Gagal/hasil kosong → jatuh ke TheMealDB → emoji.
+  var SB_URL = "https://cpvzwqptzcxnwzfzgrmt.supabase.co";
+  var SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI"; // anon (publik, RLS-protected)
+  var FOODIMG_URL = SB_URL + "/functions/v1/my20fit-foodimg";
+  var _gen = {}; // cache in-memory: id -> url | null (null = sudah dicoba & gagal, jangan ulang sesi ini)
+  function genImg(rec){
+    if(!rec || !rec.id) return Promise.resolve(null);
+    if(Object.prototype.hasOwnProperty.call(_gen, rec.id)) return Promise.resolve(_gen[rec.id]);
+    if(typeof fetch !== "function") return Promise.resolve(null);
+    var tokP = (window.Auth && Auth.token) ? Promise.resolve(Auth.token()).catch(function(){return null;}) : Promise.resolve(null);
+    return tokP.then(function(tok){
+      if(!tok) { _gen[rec.id] = null; return null; } // butuh login → skip, biar TheMealDB yang jalan
+      return fetch(FOODIMG_URL, { method:"POST", headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+tok, "apikey":SB_ANON },
+        body: JSON.stringify({ id: rec.id, name: (rec.nm && rec.nm.en) || rec.id, desc: (rec.q||"") }) })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(j){ var u = (j && j.ok && j.url) || null; _gen[rec.id] = u; return u; })
+        .catch(function(){ _gen[rec.id] = null; return null; });
+    }).catch(function(){ return null; });
+  }
+  function _setBg(el, url){ if(!el||!url) return; el.style.backgroundImage = "url('" + url + "')"; el.classList.add("has-photo"); el.textContent = ""; }
+
+  // Resolve + apply ke elemen thumb/hero yang awalnya emoji.
+  // Urutan: foto GENERATE (khusus menu) → TheMealDB (stok) → biarkan emoji.
   function applyThumb(el, rec){
     if(!el || !rec) return;
-    resolveImg(rec).then(function(url){
-      if(!url || !el) return;
-      el.style.backgroundImage = "url('" + url + "')";
-      el.classList.add("has-photo");
-      el.textContent = "";
-    }).catch(function(){});
+    genImg(rec).then(function(gu){
+      if(gu){ _setBg(el, gu); return; }
+      resolveImg(rec).then(function(u2){ _setBg(el, u2); }).catch(function(){});
+    }).catch(function(){
+      resolveImg(rec).then(function(u2){ _setBg(el, u2); }).catch(function(){});
+    });
   }
 
   // Lazy variant: hanya resolve+fetch foto saat kartunya masuk viewport (IntersectionObserver).
