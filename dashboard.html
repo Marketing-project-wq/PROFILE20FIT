@@ -507,6 +507,13 @@
       <button class="trk-cust" type="button" onclick="openCustomize()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span data-en="Customize" data-id="Sesuaikan">Customize</span></button>
     </div>
     <div id="trackerStack"></div>
+
+    <!-- Menstrual Cycle — widget menonjol KHUSUS user female (di-unhide oleh gate gender di init). -->
+    <div id="cycleSection" style="display:none">
+      <div class="sec" data-i18n="sec_cycle">Menstrual Cycle</div>
+      <div class="card" id="cycleCard"></div>
+    </div>
+
     <!-- ⛔ Grid tile layanan (Book Class/Recovery/Membership/Calories + Row 2) DISEMBUNYIKAN
          sementara atas permintaan pemilik. Untuk MUNCULIN lagi: hapus style="display:none"
          pada div#svcSection di bawah (grid & isinya tetap utuh, tinggal di-unhide). -->
@@ -654,10 +661,6 @@
       <div id="checklist" style="margin-top:6px"></div>
     </div>
 
-    <div id="cycleSection" style="display:none">
-      <div class="sec" data-i18n="sec_cycle">Menstrual Cycle</div>
-      <div class="card" id="cycleCard"></div>
-    </div>
     </div><!-- /extraTrackers -->
   </div>
 
@@ -1304,15 +1307,17 @@
     ];
     function cycleInfo(){
       const len=profile.cycle_length||28;
+      const plen=Math.max(1,Math.min(len, parseInt(profile.period_length,10)||5)); // panjang haid (default 5)
       const last=profile.cycle_last_period?new Date(profile.cycle_last_period):null;
       if(!last)return null;
       let diff=Math.floor((new Date()-last)/864e5);if(diff<0)diff=0;
       const day=(diff%len)+1;
-      const ph=PHASES.find(p=>day<=p.max)||PHASES[PHASES.length-1];
+      const onPeriod=day<=plen;
+      const ph=onPeriod?PHASES[0]:(PHASES.find(p=>day<=p.max)||PHASES[PHASES.length-1]);
       const cycles=Math.floor(diff/len)+1;
       const nextStart=new Date(last.getTime()+cycles*len*864e5);
       const toNext=Math.max(0,Math.ceil((nextStart-new Date())/864e5));
-      return {len,day,phase:L(ph.name),tip:L(ph.tip),color:ph.color,nextStart,toNext};
+      return {len,plen,day,onPeriod,phase:L(ph.name),tip:L(ph.tip),color:ph.color,nextStart,toNext};
     }
     function fmtDate(d){return d.toLocaleDateString(I18N.lang==="id"?"id-ID":"en-US",{day:"numeric",month:"long"});}
     function renderCycle(){
@@ -1321,35 +1326,61 @@
         el.innerHTML='<div class="muted">'+I18N.t("cycle_intro")+'</div>'+
           '<div style="font-size:12px;color:var(--muted);margin:12px 0 6px">'+I18N.t("cycle_lastperiod")+'</div>'+
           '<input id="cyDate" type="date" max="'+new Date().toISOString().slice(0,10)+'" style="width:100%;padding:12px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt)">'+
-          '<button class="btn" style="margin-top:12px" onclick="saveCycle()">'+I18N.t("cycle_save")+'</button>';
+          '<button class="btn" style="margin-top:12px" onclick="saveCycle(this)">'+I18N.t("cycle_save")+'</button>'+
+          '<div class="muted" style="font-size:11px;margin-top:10px;line-height:1.5">'+I18N.t("cycle_disc")+'</div>';
         return;
       }
+      var status=c.onPeriod
+        ? '<div style="margin-top:12px;background:'+c.color+'14;color:'+c.color+';border-radius:10px;padding:9px 12px;font-weight:800;font-size:13px">'+(c.day>=c.plen?I18N.t("cycle_endstoday"):I18N.t("cycle_onperiod"))+'</div>'
+        : '';
+      var endedBtn=c.onPeriod
+        ? '<button class="btn dark" style="margin-top:8px" onclick="periodEndedToday(this)">'+I18N.t("cycle_endtoday")+'</button>'
+        : '';
       el.innerHTML='<div style="display:flex;align-items:center;gap:14px">'+
         '<div style="width:64px;height:64px;border-radius:50%;border:3px solid '+c.color+';display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;color:'+c.color+'">'+c.day+'</div>'+
         '<div><div style="font-size:20px;font-weight:900;color:'+c.color+'">'+c.phase+'</div><div class="muted">'+L({en:"Day "+c.day+" of "+c.len,id:"Hari ke-"+c.day+" dari "+c.len})+'</div></div></div>'+
+        status+
         '<div style="margin-top:12px;font-size:13px">'+c.tip+'</div>'+
         '<div style="margin-top:12px;display:flex;gap:10px">'+
           '<div style="flex:1;background:var(--inp);border-radius:10px;padding:10px 12px"><div class="muted" style="font-size:11px">'+L({en:"Next period",id:"Haid berikutnya"})+'</div><div style="font-weight:800">'+fmtDate(c.nextStart)+'</div></div>'+
           '<div style="flex:1;background:var(--inp);border-radius:10px;padding:10px 12px"><div class="muted" style="font-size:11px">'+L({en:"In",id:"Dalam"})+'</div><div style="font-weight:800">'+c.toNext+' '+I18N.t("cycle_days")+'</div></div>'+
         '</div>'+
-        '<button class="btn" style="margin-top:12px" onclick="startPeriodToday()">'+I18N.t("cycle_starttoday")+'</button>'+
-        '<button class="btn dark" style="margin-top:8px" onclick="editCycle()">'+I18N.t("cycle_edit")+'</button>';
+        '<button class="btn" style="margin-top:12px" onclick="startPeriodToday(this)">'+I18N.t("cycle_starttoday")+'</button>'+
+        endedBtn+
+        '<button class="btn dark" style="margin-top:8px" onclick="editCycle()">'+I18N.t("cycle_edit")+'</button>'+
+        '<div class="muted" style="font-size:11px;margin-top:10px;line-height:1.5">'+I18N.t("cycle_disc")+'</div>';
     }
-    async function saveCycle(){
+    async function saveCycle(btn){
       const d=document.getElementById("cyDate").value;
       if(!d){toast(L({en:"Pick your last period date",id:"Isi tanggal haid terakhir dulu"}));return}
+      if(btn){btn.disabled=true;btn.textContent=L({en:"Saving…",id:"Menyimpan…"});}
       const u=await Auth.requireAuth();
       try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:d,cycle_length:profile.cycle_length||28}).eq("auth_user_id",u.id);
-        profile.cycle_last_period=d;if(!profile.cycle_length)profile.cycle_length=28;renderCycle();toast(L({en:"Cycle saved",id:"Siklus tersimpan"}));}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
+        profile.cycle_last_period=d;if(!profile.cycle_length)profile.cycle_length=28;renderCycle();toast(L({en:"Cycle saved",id:"Siklus tersimpan"}));}
+      catch(e){if(btn){btn.disabled=false;btn.textContent=I18N.t("cycle_save");}toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
     // Tandai haid mulai hari ini -> mulai siklus baru (Hari 1)
-    async function startPeriodToday(){
+    async function startPeriodToday(btn){
       if(!confirm(L({en:"Mark your period as started today? This starts a new cycle (Day 1).",id:"Tandai haid mulai hari ini? Ini memulai siklus baru (Hari 1)."})))return;
       const today=dayStr();
+      if(btn){btn.disabled=true;btn.textContent=L({en:"Saving…",id:"Menyimpan…"});}
       const u=await Auth.requireAuth();
       try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:today,cycle_length:profile.cycle_length||28}).eq("auth_user_id",u.id);
         profile.cycle_last_period=today;if(!profile.cycle_length)profile.cycle_length=28;renderCycle();
-        toast(L({en:"New cycle started — Day 1, Menstruation",id:"Siklus baru dimulai — Hari 1, Menstruasi"}));}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
+        toast(L({en:"New cycle started — Day 1, Menstruation",id:"Siklus baru dimulai — Hari 1, Menstruasi"}));}
+      catch(e){if(btn){btn.disabled=false;btn.textContent=I18N.t("cycle_starttoday");}toast(L({en:"Save failed",id:"Gagal simpan"}))}
+    }
+    // Tandai haid SELESAI hari ini -> simpan panjang haid (period_length) siklus ini ke akun.
+    async function periodEndedToday(btn){
+      if(!profile.cycle_last_period)return;
+      var last=new Date(String(profile.cycle_last_period).slice(0,10)+"T00:00:00");
+      var today=new Date(); today.setHours(0,0,0,0);
+      var lenDays=Math.floor((today-last)/864e5)+1; if(lenDays<1)lenDays=1; if(lenDays>15)lenDays=15;
+      if(btn){btn.disabled=true;btn.textContent=L({en:"Saving…",id:"Menyimpan…"});}
+      const u=await Auth.requireAuth();
+      try{await Auth.supabase.from("my20fit_profile").update({period_length:lenDays}).eq("auth_user_id",u.id);
+        profile.period_length=lenDays;renderCycle();toast(L({en:"Period marked as ended ✓",id:"Haid ditandai selesai ✓"}));}
+      catch(e){if(btn){btn.disabled=false;btn.textContent=I18N.t("cycle_endtoday");}toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
     function editCycle(){profile.cycle_last_period=null;renderCycle();}
 
