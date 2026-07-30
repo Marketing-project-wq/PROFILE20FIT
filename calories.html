@@ -101,6 +101,42 @@
   .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
   .hopt-ic .emi{width:26px;height:26px}
   .deal-hd .emi{width:22px;height:22px}
+  /* Links use color + weight for affordance — never underlines. */
+  .wrap a{text-decoration:none}
+  /* ---- Today's Food Summary card ---- */
+  .fsum-ovr{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+  .fsum-items{font-size:12px;color:var(--muted);margin-top:8px;font-weight:600}
+  .fsum-hm{margin-top:14px}
+  .fsum-hm-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+  .fsum-hm-lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .fsum-hm-badge{font-size:11.5px;font-weight:800;padding:4px 11px;border-radius:999px;white-space:nowrap}
+  .fsum-hm-badge.hh{color:var(--green-ink);background:var(--green-soft)}
+  .fsum-hm-badge.hm{color:var(--amber-ink);background:var(--amber-soft)}
+  .fsum-hm-badge.hu{color:var(--red-ink);background:var(--red-soft)}
+  .fsum-hm-bar{height:10px;background:var(--inp);border-radius:6px;overflow:hidden}
+  .fsum-hm-bar>i{display:block;height:100%;width:0;border-radius:6px;transition:width .45s}
+  .fsum-hm-note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:7px}
+  .fsum-sec{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  .fsum-lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px}
+  .fsum-swap{display:flex;align-items:flex-start;gap:11px;padding:9px 0;border-top:1px solid var(--line)}
+  .fsum-swap:first-of-type{border-top:0}
+  .fsum-swap .ic{width:32px;height:32px;border-radius:10px;background:var(--green-soft);color:var(--green);display:grid;place-items:center;flex:0 0 auto}
+  .fsum-swap .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .fsum-swap .tx{flex:1;min-width:0}
+  .fsum-swap .tx .sw{font-size:13.5px;font-weight:700;line-height:1.35}
+  .fsum-swap .tx .sw b{color:var(--green-ink)}
+  .fsum-swap .tx .rs{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .fsum-good{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:650;color:var(--green-ink);background:var(--green-soft);border-radius:12px;padding:11px 13px;line-height:1.4}
+  .fsum-good svg{width:19px;height:19px;fill:none;stroke:var(--green);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+  .fsum-gap.flash{animation:fsumFlash 1.2s ease}
+  @keyframes fsumFlash{0%{background:var(--amber-soft)}100%{background:transparent}}
+  .fsum-gap-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .fsum-gap-chip{font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--inp);color:var(--txt)}
+  .fsum-gap-chip.big{background:var(--red-soft);color:var(--red-ink)}
+  .fsum-food{display:flex;align-items:center;gap:10px;padding:7px 0}
+  .fsum-food .em{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:17px;flex:0 0 auto}
+  .fsum-food .fn{flex:1;min-width:0;font-size:13px;font-weight:650}
+  .fsum-food .fk{font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
@@ -173,7 +209,9 @@
     <div id="ifSection"></div>
      </div>
      <div class="calcol">
-    <div class="sec" data-i18n="cal_today_sec" style="margin-top:0">Today's Food</div>
+    <div class="sec" id="foodSummarySec" style="margin-top:0">Today's Food Summary</div>
+    <div class="card" id="foodSummary"></div>
+    <div class="sec" data-i18n="cal_today_sec">Today's Food</div>
     <div class="card"><div id="log"></div></div>
 
      </div>
@@ -309,6 +347,7 @@
   <script src="js/nutrition.js"></script>
   <script src="js/recipes.js"></script>
   <script src="js/nav.js"></script>
+  <script src="js/tour.js"></script>
   <script src="js/orders.js"></script>
   <script src="js/meta-pixel.js"></script>
   <script src="js/deals.js"></script>
@@ -357,6 +396,7 @@
       setMacro("cVal",tc,macroT.c,"cBar");
       setMacro("fVal",tf,macroT.f,"fBar");
       try{ renderMenuRec(tp,tc,tf); }catch(e){}
+      try{ renderFoodSummary(); }catch(e){}
       const log=document.getElementById("log");
       log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}${i.t?`<span class="mtime">${i.t}</span>`:""}</span><span class="kc">${i.kcal} ${kc()} <a onclick="del(${idx})" style="color:var(--red);cursor:pointer;margin-left:8px">✕</a></span></div>`).join(""):'<div class="muted">'+I18N.t("cal_empty")+'</div>';
     }
@@ -387,6 +427,154 @@
         });
       }
     }
+    // ================= Today's Food Summary (Bagian: OVERVIEW + HEALTH METER + SWAP + NUTRIENT GAP) =================
+    // Semua LOKAL & deterministik — TIDAK memanggil API eksternal. Aman-guard di setiap langkah.
+    let _fsumGapFlash=false;
+    function fsumEsc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+    // Total makanan yang tercatat hari ini (sumber: array `items`, key localStorage my20fit_cal_<tgl>).
+    function fsumTotals(){
+      return {
+        kcal: items.reduce((s,i)=>s+(+i.kcal||0),0),
+        p:    items.reduce((s,i)=>s+(+i.p||0),0),
+        c:    items.reduce((s,i)=>s+(+i.c||0),0),
+        f:    items.reduce((s,i)=>s+(+i.f||0),0),
+        n:    items.length
+      };
+    }
+    // --- HEALTH METER: skor sehat 0..100 dari log HARI INI (transparan, 4 komponen dijumlah) ---
+    //   1) Kecocokan kalori (0..30): penuh selama total <= 110% target; turun cepat kalau lewat
+    //      (kelewat target = sinyal "tidak sehat" utama).  calS = ratio<=1.1 ? 30 : 30-(ratio-1.1)*100
+    //   2) Kecukupan protein (0..30): protein dimakan / target protein, dibatasi 1, x30.
+    //   3) Keseimbangan makro (0..25): kedekatan porsi ENERGI P/C/F hari ini vs porsi target
+    //      => 25*(1 - selisih_rata2_porsi).  (selisih total 0..2)
+    //   4) Kualitas makanan (0..15): mulai 12; +2 tiap item "baik" (salad/panggang/sayur/ayam/…),
+    //      -4 tiap item "buruk" (goreng/manis/instan/…) berdasar NAMA (heuristik kasar).
+    // Band: >=70 Healthy(hijau), 45..69 Moderate(amber), <45 Unhealthy(merah).
+    function fsumHealth(t){
+      var g=goal||2000, MT=macroT||{p:0,c:0,f:0};
+      var ratio=g>0?t.kcal/g:0;
+      var calS=ratio<=1.1?30:Math.max(0,30-(ratio-1.1)*100);
+      var pS=MT.p>0?Math.min(t.p/MT.p,1)*30:15;
+      var aE=t.p*4+t.c*4+t.f*9, tE=MT.p*4+MT.c*4+MT.f*9, balS=12.5;
+      if(aE>0&&tE>0){
+        var d=Math.abs(t.p*4/aE-MT.p*4/tE)+Math.abs(t.c*4/aE-MT.c*4/tE)+Math.abs(t.f*9/aE-MT.f*9/tE);
+        balS=Math.max(0,25*(1-d/2));
+      }
+      var q=12;
+      var good=/salad|sayur|vegetable|veg\b|grill|panggang|bakar|steam|kukus|rebus|boil|oat|fruit|buah|ayam|chicken|fish|ikan|telur|egg|tofu|tahu|tempe|yogurt|greek|edamame|beans|kacang/;
+      var bad=/goreng|fried|crispy|krispi|nugget|fries|donut|donat|cake|\bkue\b|soda|cola|boba|ice cream|es krim|candy|permen|syrup|sirup|choco|coklat|cookie|biskuit|instan|instant|burger|pizza|chips|keripik/;
+      items.forEach(function(i){ var nm=String(i.name||"").toLowerCase(); if(bad.test(nm))q-=4; else if(good.test(nm))q+=2; });
+      q=Math.max(0,Math.min(15,q));
+      var score=Math.max(0,Math.min(100,Math.round(calS+pS+balS+q)));
+      return { score:score, band: score>=70?"h":(score>=45?"m":"u") };
+    }
+    // --- HEALTHIER SWAP: pindai item log, sarankan max 3 tukaran (aturan/nama, lokal) ---
+    function fsumSwaps(){
+      var out=[], seen={};
+      var RULES=[
+        {re:/(fried chicken|ayam goreng)/, to:{en:"grilled chicken",id:"ayam panggang"}, rs:{en:"less oil, same protein",id:"lebih sedikit minyak, protein sama"}},
+        {re:/(french fries|kentang goreng|\bfries\b)/, to:{en:"baked potato or sweet potato",id:"kentang/ubi panggang"}, rs:{en:"less oil, more fiber",id:"lebih sedikit minyak, lebih banyak serat"}},
+        {re:/(soda|cola|soft drink|bersoda)/, to:{en:"sparkling or infused water",id:"air soda tawar / infused water"}, rs:{en:"cuts added sugar",id:"tanpa gula tambahan"}},
+        {re:/(boba|bubble tea|milk tea)/, to:{en:"unsweetened tea",id:"teh tawar"}, rs:{en:"much lower sugar",id:"jauh lebih rendah gula"}},
+        {re:/(donut|donat|cake|\bkue\b|cookie|biskuit|pastry)/, to:{en:"Greek yogurt with fruit",id:"greek yogurt + buah"}, rs:{en:"more protein, less sugar",id:"lebih banyak protein, kurang gula"}},
+        {re:/(ice cream|es krim)/, to:{en:"frozen yogurt or fruit",id:"frozen yogurt / buah beku"}, rs:{en:"lower sugar & fat",id:"lebih rendah gula & lemak"}},
+        {re:/(white rice|nasi putih)/, to:{en:"brown rice",id:"nasi merah"}, rs:{en:"more fiber, steadier energy",id:"lebih banyak serat, energi stabil"}},
+        {re:/(instant noodle|mie instan|indomie)/, to:{en:"whole-grain noodles + veg & egg",id:"mie gandum + sayur & telur"}, rs:{en:"more protein & fiber",id:"lebih banyak protein & serat"}},
+        {re:/(chips|keripik|nugget)/, to:{en:"nuts or edamame",id:"kacang / edamame"}, rs:{en:"more protein, less refined",id:"lebih banyak protein, tak olahan"}}
+      ];
+      items.forEach(function(it){
+        if(out.length>=3) return;
+        var nm=String(it.name||""), low=nm.toLowerCase(), matched=false;
+        for(var k=0;k<RULES.length;k++){
+          if(RULES[k].re.test(low)){ var key=RULES[k].re.source; if(!seen[key]){ seen[key]=1; out.push({from:nm,to:RULES[k].to,rs:RULES[k].rs}); } matched=true; break; }
+        }
+        if(!matched && out.length<3){
+          var kcal=+it.kcal||0, pr=+it.p||0;                 // item kalori tinggi tapi protein rendah
+          if(kcal>=250 && pr<kcal/45){
+            var key2="lowprot"; if(!seen[key2]){ seen[key2]=1; out.push({from:nm, to:{en:"add a lean protein (egg, chicken, tofu)",id:"tambah protein rendah lemak (telur, ayam, tahu)"}, rs:{en:"more protein per calorie",id:"lebih banyak protein per kalori"}}); }
+          }
+        }
+      });
+      return out.slice(0,3);
+    }
+    // --- NUTRIENT GAP: sisa makro vs target harian + saran makanan untuk gap TERBESAR ---
+    function fsumGapHTML(t){
+      var MT=macroT||{p:0,c:0,f:0};
+      var rem={ p:Math.max(0,Math.round((MT.p||0)-t.p)), c:Math.max(0,Math.round((MT.c||0)-t.c)), f:Math.max(0,Math.round((MT.f||0)-t.f)) };
+      var lbl={p:L({en:"Protein",id:"Protein"}),c:L({en:"Carbs",id:"Karbo"}),f:L({en:"Fat",id:"Lemak"})};
+      var frac=function(k){ return MT[k]>0?rem[k]/MT[k]:0; };
+      var big=["p","c","f"].sort(function(a,b){return frac(b)-frac(a);})[0];
+      var h='<div class="fsum-sec fsum-gap" id="fsumGap"><div class="fsum-lbl">'+L({en:"Nutrient gap today",id:"Kekurangan nutrisi hari ini"})+'</div>';
+      if(rem.p+rem.c+rem.f<=0){
+        h+='<div class="fsum-good"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>'+L({en:"You've met your macro targets for today. Nice!",id:"Target makro harianmu sudah terpenuhi. Mantap!"})+'</div></div>';
+        return h;
+      }
+      var chips=["p","c","f"].map(function(k){ if(rem[k]<=0) return ""; return '<span class="fsum-gap-chip'+(k===big?" big":"")+'">'+lbl[k]+' '+rem[k]+'g</span>'; }).join("");
+      h+='<div class="fsum-gap-chips">'+chips+'</div>';
+      h+='<div class="fsum-lbl" style="margin-top:2px">'+L({en:"Fill the biggest gap ("+lbl[big]+") with",id:"Tutup kekurangan terbesar ("+lbl[big]+") dengan"})+'</div>';
+      var recs=[];
+      try{ if(window.Recipes&&Recipes.recommendForMacros) recs=Recipes.recommendForMacros(rem,3)||[]; }catch(e){}
+      if(recs.length){
+        h+=recs.map(function(r){
+          var nm=window.L?L(r.nm):(r.nm&&(r.nm.id||r.nm.en));
+          return '<div class="fsum-food"><div class="em" style="background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+r.emoji+'</div><div class="fn">'+fsumEsc(nm)+'</div><div class="fk">~'+r.kcal+' '+kc()+' · P'+r.p+' C'+r.c+' F'+r.f+'</div></div>';
+        }).join("");
+      } else {
+        var STAT={
+          p:[{e:"🥚",en:"Boiled eggs",id:"Telur rebus"},{e:"🍗",en:"Grilled chicken breast",id:"Dada ayam panggang"},{e:"🧀",en:"Greek yogurt / cottage cheese",id:"Greek yogurt / keju cottage"}],
+          c:[{e:"🍚",en:"Brown rice",id:"Nasi merah"},{e:"🍠",en:"Sweet potato",id:"Ubi"},{e:"🌾",en:"Oats",id:"Oat"}],
+          f:[{e:"🥑",en:"Avocado",id:"Alpukat"},{e:"🥜",en:"Nuts / peanut butter",id:"Kacang / selai kacang"},{e:"🫒",en:"Olive oil drizzle",id:"Siraman minyak zaitun"}]
+        };
+        h+=(STAT[big]||[]).map(function(s){ return '<div class="fsum-food"><div class="em" style="background:var(--inp)">'+s.e+'</div><div class="fn">'+L({en:s.en,id:s.id})+'</div></div>'; }).join("");
+      }
+      h+='</div>';
+      return h;
+    }
+    // Render kartu ringkasan. Dipanggil dari render() (tiap log berubah) & I18N.onChange (via render()).
+    function renderFoodSummary(){
+      var card=document.getElementById("foodSummary"); if(!card) return;
+      var sec=document.getElementById("foodSummarySec"); if(sec) sec.textContent=L({en:"Today's Food Summary",id:"Ringkasan Makan Hari Ini"});
+      var t=fsumTotals();
+      // OVERVIEW — total kalori + P/C/F + jumlah item (reuse gaya .mcx/.mcv/.mcl dari kartu scan).
+      var h='<div class="fsum-ovr">'+
+        '<div class="mcx"><div class="mcv" style="color:var(--red)">'+Math.round(t.kcal)+'</div><div class="mcl">'+kc()+'</div></div>'+
+        '<div class="mcx"><div class="mcv">'+Math.round(t.p)+'g</div><div class="mcl">'+L({en:"Protein",id:"Protein"})+'</div></div>'+
+        '<div class="mcx"><div class="mcv">'+Math.round(t.c)+'g</div><div class="mcl">'+L({en:"Carbs",id:"Karbo"})+'</div></div>'+
+        '<div class="mcx"><div class="mcv">'+Math.round(t.f)+'g</div><div class="mcl">'+L({en:"Fat",id:"Lemak"})+'</div></div>'+
+        '</div>'+
+        '<div class="fsum-items">'+L({en:t.n+(t.n===1?" item":" items")+" logged today",id:t.n+" makanan tercatat hari ini"})+'</div>';
+      if(t.n===0){
+        h+='<div class="fsum-hm-note" style="margin-top:12px">'+L({en:"Log or scan a meal to see your health meter and healthier swaps.",id:"Catat atau scan makanan untuk melihat meter sehat & saran tukaran."})+'</div>';
+      } else {
+        // HEALTH METER
+        var hh=fsumHealth(t);
+        var bandCls=hh.band==="h"?"hh":(hh.band==="m"?"hm":"hu");
+        var bandTxt=hh.band==="h"?L({en:"Healthy",id:"Sehat"}):(hh.band==="m"?L({en:"Moderate",id:"Cukup"}):L({en:"Unhealthy",id:"Kurang Sehat"}));
+        var barCol=hh.band==="h"?"var(--green)":(hh.band==="m"?"var(--amber)":"var(--red)");
+        var note=hh.band==="h"?L({en:"Balanced macros and good food choices today.",id:"Makro seimbang & pilihan makanan baik hari ini."})
+              :hh.band==="m"?L({en:"Decent — watch calories over target and add more protein/veggies.",id:"Lumayan — jaga kalori agar tak lewat target & tambah protein/sayur."})
+              :L({en:"Try leaner, higher-protein choices and less fried/sugary food.",id:"Coba pilihan lebih rendah lemak, tinggi protein & kurangi gorengan/manis."});
+        h+='<div class="fsum-hm"><div class="fsum-hm-top"><span class="fsum-hm-lbl">'+L({en:"Health meter",id:"Meter sehat"})+'</span><span class="fsum-hm-badge '+bandCls+'">'+bandTxt+' · '+hh.score+'/100</span></div>'+
+           '<div class="fsum-hm-bar"><i style="width:'+hh.score+'%;background:'+barCol+'"></i></div>'+
+           '<div class="fsum-hm-note">'+note+'</div></div>';
+        // HEALTHIER SWAP
+        var sw=fsumSwaps();
+        h+='<div class="fsum-sec"><div class="fsum-lbl">'+L({en:"Healthier swaps",id:"Tukar lebih sehat"})+'</div>';
+        if(sw.length){
+          var swico='<svg viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.85-5.4 5.08-6"/></svg>';
+          h+=sw.map(function(s){ return '<div class="fsum-swap"><div class="ic">'+swico+'</div><div class="tx"><div class="sw">'+fsumEsc(s.from)+' → <b>'+L(s.to)+'</b></div><div class="rs">'+L(s.rs)+'</div></div></div>'; }).join("");
+        } else {
+          h+='<div class="fsum-good"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>'+L({en:"Great choices — nothing to improve right now.",id:"Pilihan bagus — tak ada yang perlu diperbaiki."})+'</div>';
+        }
+        h+='</div>';
+      }
+      // NUTRIENT GAP (selalu ditampilkan; saat log kosong = seluruh target masih tersisa)
+      h+=fsumGapHTML(t);
+      if(!profileRef) h+='<div class="fsum-hm-note" style="margin-top:10px">'+L({en:"Targets are estimated — complete your profile for personalized goals.",id:"Target diperkirakan — lengkapi profil untuk target personal."})+'</div>';
+      card.innerHTML=h;
+      if(_fsumGapFlash){ _fsumGapFlash=false; var g=document.getElementById("fsumGap"); if(g) g.classList.add("flash"); }
+    }
+
     async function estimateFood(){
       const name=document.getElementById("fname").value.trim();
       const gram=parseInt(document.getElementById("fgram").value,10);
@@ -408,7 +596,7 @@
       btn.disabled=false;
     }
     function nowHM(){const d=new Date();return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
-    function addToLog(name,kcal,p,c,f){items.push({name:name,kcal:Math.round(kcal)||0,p:Math.round(+p||0),c:Math.round(+c||0),f:Math.round(+f||0),t:nowHM()});save();render();}
+    function addToLog(name,kcal,p,c,f){items.push({name:name,kcal:Math.round(kcal)||0,p:Math.round(+p||0),c:Math.round(+c||0),f:Math.round(+f||0),t:nowHM()});save();_fsumGapFlash=true;render();/* flash nutrient-gap on new log/scan */}
     function del(i){items.splice(i,1);save();render()}
 
     // ---- Scan makanan (AI vision via OpenRouter/Gemini) ----

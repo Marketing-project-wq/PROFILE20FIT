@@ -185,6 +185,10 @@
   .wg:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
   .wg .wgf{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,#5aa3ff,#2f6fe0);transition:height .45s cubic-bezier(.2,.8,.2,1)}
   .wg.full .wgf{height:100%}
+  /* +/- kontrol hidrasi (kartu tracker) — senada dgn widget lain */
+  .wgctl{display:flex;gap:8px;margin:10px 2px 2px}
+  .wgctl button{flex:1;height:38px;border-radius:11px;border:0;background:var(--inp);color:var(--txt);font-size:19px;font-weight:800;cursor:pointer;transition:transform .14s}
+  .wgctl button:active{transform:scale(.94)}
 
   /* ---- Checklist ---- */
   .chkhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
@@ -216,7 +220,19 @@
     .grid3{gap:10px}
     .big{font-size:26px}
   }
-  @media(max-width:380px){ .grid2{grid-template-columns:1fr} }
+  @media(max-width:380px){
+    .grid2{grid-template-columns:1fr}
+    /* Hero: nama panjang tak terpotong, mengecil halus alih-alih meluber */
+    .hero-inner{min-width:0}
+    .hello{font-size:clamp(22px,7.6vw,28px);overflow-wrap:anywhere}
+    .sec.gsec{font-size:15px}
+    /* Judul section tetap satu baris di samping link aksinya (All / See all / Customize) */
+    .trk-head{gap:8px}
+    .trk-head .sec{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .trk-head .trk-cust,.trk-head .trk-all{flex:0 0 auto;white-space:nowrap}
+    /* Label tile layanan sedikit lebih ringkas biar rapi di layar sempit */
+    .svc2 .s2-lbl{font-size:12px}
+  }
   @media (prefers-reduced-motion: reduce){
     *{transition:none !important}
     .ring,.hero .glow,.bgwave{animation:none !important}
@@ -809,7 +825,7 @@
       function tcFasting() {
         var st = (window.Fasting && Fasting.state) ? Fasting.state() : null;
         var ic = '<div class="tkic fast">' + TICON.fast + '</div>';
-        if (!st) return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd">' + ic + '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub">' + Lx({ en: "Choose a 16:8, 18:6 or OMAD plan", id: "Pilih rencana 16:8, 18:6 atau OMAD" }) + '</div></div><span class="tkchev">›</span></div></a>';
+        if (!st) return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd">' + ic + '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub">' + Lx({ en: "Choose your intermittent style", id: "Pilih gaya intermittent-mu" }) + '</div></div><span class="tkchev">›</span></div></a>';
         var name = window.L ? L(st.style.name) : st.style.name.en;
         if (st.weekly) return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd">' + ic + '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub tkmono">' + name + '</div></div><span class="tkchev">›</span></div></a>';
         var phaseTotal = (st.eating ? st.style.eat : st.style.fast) * 60;
@@ -829,7 +845,8 @@
         }
         return '<div class="card tkcard"><div class="tkhd"><div class="tkic drop">' + TICON.drop + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Hydration", id: "Hidrasi" }) + '</div>' +
           '<div class="tkval tkmono" id="wgVal">' + (g * 0.25).toFixed(1) + '<small> / 2.0 L · ' + g + ' ' + Lx({ en: "of 8 glasses", id: "dari 8 gelas" }) + '</small></div></div></div>' +
-          '<div class="wgrid" id="wgGrid">' + glasses + '</div></div>';
+          '<div class="wgrid" id="wgGrid">' + glasses + '</div>' +
+          '<div class="wgctl"><button type="button" onclick="hydDelta(-1,event)" aria-label="' + Lx({ en: "Remove a glass", id: "Kurangi gelas" }) + '">−</button><button type="button" onclick="hydDelta(1,event)" aria-label="' + Lx({ en: "Add a glass", id: "Tambah gelas" }) + '">+</button></div></div>';
       }
       // Ambang tidur (dikonfirmasi pemilik): <7 kurang · 7–9 cukup · >9 lebih.
       // Diekspos ke window supaya bisa dipanggil dari widget SLEEP di blok lain (saveSleepWidget).
@@ -877,6 +894,14 @@
         var cur = 0; try { cur = (typeof daily !== "undefined" && daily) ? +daily.water_glasses || 0 : 0; } catch (err) {}
         var n = (i === cur) ? i - 1 : i;
         n = Math.max(0, Math.min(8, n));
+        try { if (typeof setWater === "function") setWater(n); } catch (err) {}
+      };
+      // +/- kontrol hidrasi — SATU sumber kebenaran (daily.water_glasses via setWater).
+      // setWater sudah clamp 0..8, jadi nilai tak pernah di bawah 0 & sinkron dgn preset gelas.
+      window.hydDelta = function (d, e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        var cur = 0; try { cur = (typeof daily !== "undefined" && daily) ? +daily.water_glasses || 0 : 0; } catch (err) {}
+        var n = Math.max(0, cur + d);
         try { if (typeof setWater === "function") setWater(n); } catch (err) {}
       };
       // SSO ke photo.20fit.id (server mint OTP satu-kali -> photo.20fit.id/sso), dipindah dari profil.
@@ -1324,7 +1349,7 @@
       const st=Fasting.state();
       const sec='<div class="sec">'+L({en:"Intermittent Fasting",id:"Intermittent Fasting"})+'</div>';
       if(!st){
-        el.innerHTML=sec+'<a class="card" href="calories.html#fasting" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)"><div style="flex:1"><div style="font-weight:800">'+L({en:"Choose a fasting style",id:"Pilih gaya puasa"})+'</div><div class="muted" style="font-size:12px">'+L({en:"16:8, 18:6, OMAD & more — tap to adopt.",id:"16:8, 18:6, OMAD, dll — ketuk untuk adopsi."})+'</div></div><span style="color:var(--pagemut);font-weight:800">›</span></a>';
+        el.innerHTML=sec+'<a class="card" href="calories.html#fasting" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)"><div style="flex:1"><div style="font-weight:800">'+L({en:"Choose your intermittent style",id:"Pilih gaya intermittent-mu"})+'</div><div class="muted" style="font-size:12px">'+L({en:"16:8, 18:6, OMAD & more — tap to adopt.",id:"16:8, 18:6, OMAD, dll — ketuk untuk adopsi."})+'</div></div><span style="color:var(--pagemut);font-weight:800">›</span></a>';
         return;
       }
       const s=st.style;

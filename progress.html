@@ -142,6 +142,8 @@
   <script src="js/nutrition.js"></script>
   <script>
     let user=null, profile=null, days=[], weights=[], arenaData=null;
+    // Pre-launch feature flags — set true to re-enable. Underlying code retained below.
+    var SHOW_UPCOMING_BOOKINGS=false, SHOW_ACTIVITY_NOTES=false;
     const WD_EN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], WD_ID=["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
     function todayStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
     function lastNDates(n){const out=[];const base=new Date();for(let i=n-1;i>=0;i--){const d=new Date(base);d.setDate(base.getDate()-i);out.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));}return out;}
@@ -313,8 +315,8 @@
         '<div class="chips"><span class="chip on">'+L({en:"All",id:"Semua"})+'</span><span class="chip"><span class="cdot" style="background:#2F6BFF"></span>'+L({en:"Doctor & Medic",id:"Dokter & Medis"})+'</span><span class="chip"><span class="cdot" style="background:#C41101"></span>Coach</span></div>'+
         '<div class="card"><div class="soonbox"><div class="soonpill">'+L({en:"Coming soon",id:"Segera hadir"})+'</div>'+L({en:"Coach & doctor notes will appear here after your classes — connecting to the coach & doctor portal soon.",id:"Catatan coach & dokter muncul di sini setelah kelasmu — segera tersambung ke portal coach & dokter."})+'</div></div>';
     }
-    function newTop(){ return bodyStatusCard()+whatToWatchCard()+'<div id="newArena"></div>'+activityNotesCard()+'<hr class="pdivide"><div class="sec" style="margin-top:12px">'+L({en:"More detail",id:"Detail Lainnya"})+'</div>'; }
-    function renderNewArena(){ var el=document.getElementById("newArena"); if(el) el.innerHTML=upcomingCalCard()+raceLabCard(); }
+    function newTop(){ return bodyStatusCard()+whatToWatchCard()+'<div id="newArena"></div>'+(SHOW_ACTIVITY_NOTES?activityNotesCard():'')+'<hr class="pdivide"><div class="sec" style="margin-top:12px">'+L({en:"More detail",id:"Detail Lainnya"})+'</div>'; }
+    function renderNewArena(){ var el=document.getElementById("newArena"); if(el) el.innerHTML=(SHOW_UPCOMING_BOOKINGS?upcomingCalCard():'')+raceLabCard(); }
 
     function render(){
       const c=document.getElementById("content");
