@@ -627,6 +627,7 @@
       });
     }
     try{ if(window.I18N&&I18N.onChange) I18N.onChange(renderMenus); }catch(e){}
+    try{ if(window.I18N&&I18N.onChange) I18N.onChange(function(){ if(typeof PROFILE!=='undefined'&&PROFILE) renderSummary(PROFILE); if(typeof refreshQuota==='function') refreshQuota(); }); }catch(e){}
     (function(){ var bg=document.getElementById("mrevBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeMenuRev(); });
       document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeMenuRev(); }); })();
 

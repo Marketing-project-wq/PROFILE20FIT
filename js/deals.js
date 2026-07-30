@@ -18,6 +18,7 @@
   var SELECTED = -1;         // index paket terpilih (-1 = belum ada yang dipilih)
   var CUR_VOUCHER = null, CUR_DISCOUNT = 0, CUR_FINAL = 0;
   var _onCredited = null;
+  var _lastQuota = null;     // kuota terakhir yang dipakai open() -> dipakai applyDealsLang() saat toggle bahasa
   var _pollTimer = null, _payChecking = false, _payDismissed = false;
   // Tab checkout Xendit yang KITA buka. Disimpan di level modul supaya polling otomatis
   // (bukan cuma tombol "Cek sekarang") bisa menutupnya begitu pembayaran terkonfirmasi.
@@ -143,12 +144,10 @@
   }
 
   // ---------- Deals: pilih paket + detail inline ----------
-  function open(opts) {
-    injectOnce();
-    _onCredited = (opts && opts.onCredited) || null;
-    var q = opts && opts.quota;
-    SELECTED = -1;                       // tak ada paket ter-highlight saat dibuka
-    CUR_VOUCHER = null; CUR_DISCOUNT = 0; CUR_FINAL = 0;
+  // Set semua label statis sheet/resi lewat L() berdasar state saat ini (_lastQuota).
+  // Dipisah dari open() supaya bisa dipanggil ulang saat user toggle bahasa dengan sheet terbuka.
+  function applyDealsLang() {
+    var q = _lastQuota;
     document.getElementById("dlTitle").textContent = (q && q.remaining > 0)
       ? L({ en: "Top up your calorie scans", id: "Top up scan kalori kamu" })
       : L({ en: "Get more calorie scans", id: "Tambah kuota scan kalori" });
@@ -159,13 +158,23 @@
     document.getElementById("dlRcSubL").textContent = L({ en: "Subtotal", id: "Subtotal" });
     document.getElementById("dlRcDiscL").textContent = L({ en: "Voucher discount", id: "Diskon voucher" });
     document.getElementById("dlRcTotalL").textContent = L({ en: "Total to pay", id: "Total bayar" });
+    var _vi = document.getElementById("dlVoucher");
+    if (_vi) _vi.placeholder = L({ en: "Voucher code (optional)", id: "Kode voucher (opsional)" });
+    document.getElementById("dlNote").textContent = L({ en: "Secure payment via Xendit. Your extra scans never expire.", id: "Pembayaran aman via Xendit. Scan tambahan tidak akan hangus." });
+    renderTotals();
+  }
+  function open(opts) {
+    injectOnce();
+    _onCredited = (opts && opts.onCredited) || null;
+    _lastQuota = (opts && opts.quota) || null;
+    SELECTED = -1;                       // tak ada paket ter-highlight saat dibuka
+    CUR_VOUCHER = null; CUR_DISCOUNT = 0; CUR_FINAL = 0;
+    applyDealsLang();
     document.getElementById("dlDetail").style.display = "none";   // detail baru muncul setelah pilih paket
     // Reset input HP (hanya muncul kalau server minta / profil tanpa no HP).
     var _pr = document.getElementById("dlPhoneRow"); if (_pr) _pr.style.display = "none";
     var _pi = document.getElementById("dlPhone"); if (_pi) _pi.value = "";
     var _pm = document.getElementById("dlPhoneMsg"); if (_pm) _pm.textContent = "";
-    document.getElementById("dlNote").textContent = L({ en: "Secure payment via Xendit. Your extra scans never expire.", id: "Pembayaran aman via Xendit. Scan tambahan tidak akan hangus." });
-    renderTotals();
     document.getElementById("dlBg").classList.add("open");
     metaTrack("Purchase", { content_name: "scan package", content_category: "calorie_scan", currency: "IDR", value: 0 });
   }
@@ -261,7 +270,7 @@
     // Dibuka SINKRON di dalam gesture klik supaya tidak kena popup blocker.
     var payWin = free ? null : window.open("", "_blank");
     _payWin = payWin;
-    if (payWin) { try { payWin.document.write("<p style='font-family:sans-serif;padding:24px'>Menyiapkan pembayaran…</p>"); } catch (e) {} }
+    if (payWin) { try { payWin.document.write("<p style='font-family:sans-serif;padding:24px'>" + L({ en: "Preparing payment…", id: "Menyiapkan pembayaran…" }) + "</p>"); } catch (e) {} }
     try {
       var tk = await Auth.token();
       // Sesi sudah hilang sebelum kita menembak server (mis. token kedaluwarsa, atau beberapa
@@ -357,7 +366,7 @@
     var el = document.getElementById("dlToast"); if (!el) return;
     var a = getPendings(), last = a[0];
     document.getElementById("dlToastMsg").textContent = L({ en: "Waiting for payment confirmation… updates automatically.", id: "Menunggu konfirmasi pembayaran… ter-update otomatis." });
-    document.getElementById("dlToastOrd").textContent = last ? ("Order " + (last.order_no || last.id) + (a.length > 1 ? (" +" + (a.length - 1)) : "")) : "";
+    document.getElementById("dlToastOrd").textContent = last ? (L({ en: "Order ", id: "Order " }) + (last.order_no || last.id) + (a.length > 1 ? (" +" + (a.length - 1)) : "")) : "";
     document.getElementById("dlToastBtn").textContent = L({ en: "Check now", id: "Cek sekarang" });
     el.classList.add("show");
   }
@@ -461,6 +470,19 @@
   }
 
   try { if (getPendings().length) { injectOnce(); startPolling(); } } catch (e) {}
+
+  // Toggle bahasa (EN/ID) saat sheet/resi/toast terbuka: bangun ulang label yang sedang tampil
+  // supaya tidak ada teks yang tertinggal di bahasa lama.
+  try {
+    if (window.I18N && I18N.onChange) {
+      I18N.onChange(function () {
+        var bg = document.getElementById("dlBg");
+        if (bg && bg.classList.contains("open")) applyDealsLang();
+        var toast = document.getElementById("dlToast");
+        if (toast && toast.classList.contains("show")) showToast();
+      });
+    }
+  } catch (e) {}
 
   window.Deals = { open: open, close: closeDeals, resume: resume, sweep: sweep, packs: SCAN_PACKS };
 })();
