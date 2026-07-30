@@ -200,7 +200,7 @@
         userMenus=(res&&res.data)||[];
       }catch(e){}
       ITEMS=(window.Recipes?Recipes.LIST:[]).map(function(r){
-        return { key:"r_"+r.id, nm:r.nm, kcal:r.kcal, p:r.p, c:r.c, f:r.f, types:r.types||[], ingO:r.ing, stepsO:r.steps, emoji:r.emoji, tint:r.tint, source:"20fit" };
+        return { key:"r_"+r.id, nm:r.nm, kcal:r.kcal, p:r.p, c:r.c, f:r.f, types:r.types||[], ingO:r.ing, stepsO:r.steps, emoji:r.emoji, tint:r.tint, source:"20fit", rec:r };
       });
       userMenus.forEach(function(m){
         ITEMS.push({ key:"u_"+m.id, title:m.name, kcal:m.est_kcal||null, types:[m.diet_type||"normal"], ing:m.ingredients||"", steps:m.steps||"", photo:m.photo_url||null, source:"user" });
@@ -226,12 +226,18 @@
       var KC=T("diet_kcal");
       grid.innerHTML=list.map(function(it){
         var thumb=it.photo ? ('<div class="rthumb" style="background-image:url('+JSON.stringify(it.photo)+')"></div>')
-                           : ('<div class="rthumb" style="background:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>');
+                           : ('<div class="rthumb" id="th_'+it.key+'" style="background:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>');
         var mac=(it.p!=null)?('<div class="rmac"><span>P '+it.p+'g</span><span>C '+it.c+'g</span><span>F '+it.f+'g</span></div>'):'';
         var meta='~'+(it.kcal!=null?it.kcal+' '+KC:'—')+(it.source==="user"?' · <span class="rc-user">USER</span>':'');
         return '<button class="rcard" onclick="openRecipe(\''+it.key+'\')">'+thumb+
           '<div class="rbody"><div class="rname">'+esc(titleOf(it))+'</div><div class="rmeta">'+meta+'</div>'+mac+'</div></button>';
       }).join("");
+      // Resolve real food photos for 20fit items (emoji stays as fallback on failure).
+      if(window.Recipes && Recipes.applyThumb){
+        list.forEach(function(it){
+          if(it.rec && !it.photo){ Recipes.applyThumb(document.getElementById("th_"+it.key), it.rec); }
+        });
+      }
     }
     var curLogItem=null, lastLog=null, toastT=null;
     function openRecipe(key){
@@ -253,6 +259,10 @@
         '<label>'+esc(T("recipe_steps"))+'</label><div style="white-space:pre-wrap;font-size:14px">'+esc(stepsOf(it))+'</div>'+
         (it.source==="20fit"?'<div class="rdisc">'+esc(T("diet_nutri_est"))+'</div>':'')+
         logBtn;
+      // Resolve real food photo for 20fit hero (emoji stays as fallback on failure).
+      if(window.Recipes && Recipes.applyThumb && it.rec && !it.photo){
+        Recipes.applyThumb(document.querySelector("#recBody .pm-hero"), it.rec);
+      }
       var pm=document.getElementById("recPm"); if(pm) pm.scrollTop=0;
       document.getElementById("recBg").classList.add("open");
       document.body.style.overflow="hidden";

@@ -373,12 +373,19 @@
       if(!recs.length){ body.innerHTML='<div class="muted" style="font-size:12.5px">'+L({en:"No recommendations yet. Complete your profile (weight/height) & log your food first.",id:"Belum ada rekomendasi. Lengkapi profil (berat/tinggi) & catat makananmu dulu."})+'</div>'; return; }
       var cards=recs.map(function(r){
         return '<a class="mrec-card" href="diet.html">'+
-          '<div class="mrec-thumb" style="background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+r.emoji+'</div>'+
+          '<div class="mrec-thumb" id="mrecthumb-'+r.id+'" style="background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+r.emoji+'</div>'+
           '<div class="mrec-b"><div class="mrec-nm">'+nm(r.nm)+'</div>'+
           '<div class="mrec-meta">~'+r.kcal+' kcal</div>'+
           '<div class="mrec-macros">P'+r.p+' · C'+r.c+' · F'+r.f+'</div></div></a>';
       }).join("");
       body.innerHTML='<div class="muted" style="font-size:12.5px;margin-bottom:8px">'+lead+'</div><div class="mrec-row">'+cards+'</div>';
+      // Ganti thumbnail emoji dengan foto makanan asli (TheMealDB, di-cache). No-op & emoji tetap kalau gagal / helper belum ada.
+      if(window.Recipes && Recipes.applyThumb){
+        recs.forEach(function(r){
+          var t=document.getElementById("mrecthumb-"+r.id);
+          if(t) Recipes.applyThumb(t,r);
+        });
+      }
     }
     async function estimateFood(){
       const name=document.getElementById("fname").value.trim();

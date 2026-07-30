@@ -760,14 +760,15 @@
       };
       var TRK = {
         calories:  { ic: "cal",   cls: "cal",   nm: { en: "Calories", id: "Kalori" },                     d: { en: "Track daily kcal & macros", id: "Catat kalori & makro harian" }, fixed: true, render: tcCalories },
-        photo:     { ic: "photo", cls: "photo", nm: { en: "Your Photo.20fit.id", id: "Your Photo.20fit.id" }, d: { en: "Auto-synced from photo.20fit.id", id: "Tersinkron dari photo.20fit.id" }, render: tcPhoto },
+        // hidden pre-launch — set enabled:true to re-enable this tracker card (photo.20fit.id integration not ready)
+        photo:     { ic: "photo", cls: "photo", enabled: false, nm: { en: "Your Photo.20fit.id", id: "Your Photo.20fit.id" }, d: { en: "Auto-synced from photo.20fit.id", id: "Tersinkron dari photo.20fit.id" }, render: tcPhoto },
         fasting:   { ic: "fast",  cls: "fast",  nm: { en: "Intermittent Fasting", id: "Intermittent Fasting" }, d: { en: "16:8 fasting window timer", id: "Timer jendela puasa 16:8" }, render: tcFasting },
         hydration: { ic: "drop",  cls: "drop",  nm: { en: "Hydration", id: "Hidrasi" },                    d: { en: "Daily water intake", id: "Asupan air harian" }, render: tcHydration },
         sleep:     { ic: "sleep", cls: "sleep", nm: { en: "Sleep", id: "Tidur" },                          d: { en: "Duration & quality trend", id: "Durasi & tren kualitas" }, render: tcSleep },
         health:    { ic: "pulse", cls: "pulse", nm: { en: "Health snapshot", id: "Ringkasan Kesehatan" }, d: { en: "RHR, weight & BMI", id: "RHR, berat & BMI" }, render: tcHealth }
       };
       var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health"];
-      function getPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p) || !p.length) p = ["calories"]; if (p.indexOf("calories") < 0) p.unshift("calories"); return p.filter(function (x) { return TRK[x]; }); }
+      function getPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p) || !p.length) p = ["calories"]; if (p.indexOf("calories") < 0) p.unshift("calories"); return p.filter(function (x) { return TRK[x] && TRK[x].enabled !== false; }); }
       function setPins(p) { try { localStorage.setItem("my20fit_home_pins", JSON.stringify(p)); } catch (e) {} }
       // Data 7 malam terakhir utk mini bar chart Sleep (null = masih loading). Data REAL dari daily_log.
       var SLEEP7 = null;
@@ -989,7 +990,7 @@
       window.applyExtra = function () { var e = document.getElementById("extraTrackers"); if (e) e.style.display = extraOn() ? "" : "none"; var s = document.getElementById("czExtra"); if (s) s.classList.toggle("on", extraOn()); };
       window.toggleExtra = function () { try { localStorage.setItem("my20fit_home_extra", extraOn() ? "0" : "1"); } catch (e) {} window.applyExtra(); };
       window.renderCzSheet = function () {
-        var pins = getPins(), avail = TRK_ALL.filter(function (x) { return pins.indexOf(x) < 0; });
+        var pins = getPins(), avail = TRK_ALL.filter(function (x) { return pins.indexOf(x) < 0 && TRK[x] && TRK[x].enabled !== false; });
         var pl = document.getElementById("czPinLbl"), al = document.getElementById("czAvailLbl"), pw = document.getElementById("czPinned"), aw = document.getElementById("czAvail");
         if (pl) pl.textContent = Lx({ en: "On your home · " + pins.length + " · order matters", id: "Di home-mu · " + pins.length + " · urutan berpengaruh" });
         if (al) al.textContent = Lx({ en: "Available cards · " + avail.length, id: "Kartu tersedia · " + avail.length });
@@ -1005,7 +1006,7 @@
             '<button class="cadd" onclick="pinAdd(\'' + id + '\')">+ ' + Lx({ en: "Add", id: "Tambah" }) + '</button></div>';
         }).join("") : '<div class="czds" style="padding:8px 2px">' + Lx({ en: "All cards are on your home.", id: "Semua kartu sudah di home-mu." }) + '</div>';
       };
-      window.pinAdd = function (id) { var p = getPins(); if (p.indexOf(id) < 0) { p.push(id); setPins(p); window.renderStack(); window.renderCzSheet(); } };
+      window.pinAdd = function (id) { if (!TRK[id] || TRK[id].enabled === false) return; var p = getPins(); if (p.indexOf(id) < 0) { p.push(id); setPins(p); window.renderStack(); window.renderCzSheet(); } };
       window.pinRemove = function (id) { if (TRK[id] && TRK[id].fixed) return; setPins(getPins().filter(function (x) { return x !== id; })); window.renderStack(); window.renderCzSheet(); };
       // Drag-reorder generik lewat handle .czgrip (dipakai tracker & shortcut).
       function bindGripDrag(wrap, commit) {
