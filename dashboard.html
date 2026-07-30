@@ -90,6 +90,9 @@
   .wrow{display:flex;align-items:center;gap:13px;padding:14px 4px;border-bottom:1px solid var(--line);transition:opacity .15s}
   a.wrow{text-decoration:none;color:inherit}
   a.wrow:active{opacity:.6}
+  /* Hapus underline default pada semua link (T5) — kartu tracker (.tkcard dll) pakai warna/hover sbg affordance */
+  a{text-decoration:none}
+  a.card,.tkcard{color:inherit}
   .wrow:last-child{border-bottom:0}
   .wrow .em{width:40px;height:40px;border-radius:12px;background:var(--red-soft);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
   .wrow .em svg{width:21px;height:21px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -370,8 +373,8 @@
       .trkcal .tc-kcal small{color:var(--muted);font-weight:700}
       .trkcal .tc-chev{color:var(--pagemut);font-weight:800;font-size:20px}
       .tc-macros{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px}
-      .tc-m .tc-ml{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}
-      .tc-m .tc-mn{font-weight:750}
+      .tc-m .tc-ml{display:flex;flex-direction:column;font-size:12px;margin-bottom:5px;min-width:0}
+      .tc-m .tc-mn{font-weight:750;white-space:nowrap}
       .tc-m .tc-mv{color:var(--muted);font-weight:700}
       .tc-m .tc-bar{height:6px;border-radius:99px;background:var(--inp);overflow:hidden}
       .tc-m .tc-bar i{display:block;height:100%;border-radius:99px}
