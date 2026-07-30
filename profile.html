@@ -186,13 +186,8 @@
       <div id="histList"></div>
     </div>
 
-    <!-- Privasi & Data (hak data-subject: export) -->
-    <div class="sec" data-i18n="prof_privacy_sec">Privacy &amp; Data</div>
+    <!-- Danger zone (hak penghapusan akun) -->
     <div class="card">
-      <div class="muted" style="margin-bottom:4px" data-i18n="prof_export_hint">Download a copy of all the personal data 20FIT holds about you.</div>
-      <button class="btn out" style="margin-top:12px" onclick="exportMyData()" data-i18n="prof_export">Download my data (JSON)</button>
-      <div class="msg" id="exportMsg" style="text-align:left"></div>
-      <hr style="border:0;border-top:1px solid var(--line);margin:18px 0 14px">
       <div style="color:var(--red);font-weight:800;font-size:13px" data-i18n="prof_danger">Danger zone</div>
       <div class="muted" style="margin:6px 0 0" data-i18n="prof_del_hint">Permanently delete your account and all your data. This cannot be undone.</div>
       <button class="btn" style="margin-top:12px;background:#8a1710" onclick="openDelete()" data-i18n="prof_del_btn">Delete my account</button>
@@ -630,21 +625,6 @@
     try{ if(window.I18N&&I18N.onChange) I18N.onChange(function(){ if(typeof PROFILE!=='undefined'&&PROFILE) renderSummary(PROFILE); if(typeof refreshQuota==='function') refreshQuota(); }); }catch(e){}
     (function(){ var bg=document.getElementById("mrevBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeMenuRev(); });
       document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeMenuRev(); }); })();
-
-    // ---- Hak data-subject: export data pribadi (unduh JSON) ----
-    async function exportMyData(){
-      var m=document.getElementById("exportMsg"); m.className="msg"; m.textContent=L({en:"Preparing your data…",id:"Menyiapkan data kamu…"});
-      try{
-        var tk=await Auth.token();
-        var r=await fetch("/api/account/export",{headers:{"Authorization":"Bearer "+(tk||"")}});
-        if(!r.ok){ m.className="msg err"; m.textContent=L({en:"Failed to export. Try again.",id:"Gagal ekspor. Coba lagi."}); return; }
-        var blob=await r.blob();
-        var url=URL.createObjectURL(blob);
-        var a=document.createElement("a"); a.href=url; a.download="my20fit-data.json"; document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-        m.className="msg ok"; m.textContent=L({en:"Downloaded ✓",id:"Terunduh ✓"});
-      }catch(e){ m.className="msg err"; m.textContent=L({en:"Network error.",id:"Gagal jaringan."}); }
-    }
 
     // ---- Hak penghapusan: hapus akun + semua data (irreversible, konfirmasi ketik) ----
     function openDelete(){ document.getElementById("delConfirm").value=""; document.getElementById("delMsg").textContent=""; document.getElementById("delBtn").disabled=false; document.getElementById("delBg").classList.add("open"); }
