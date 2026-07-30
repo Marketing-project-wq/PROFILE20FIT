@@ -4,7 +4,7 @@
 <link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Pembayaran Gagal · 20FIT</title>
+<title>Payment Failed · 20FIT</title>
 <style>
   :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--dark:#000;--pagetx:#EDE8DF}
   *{box-sizing:border-box}
@@ -25,15 +25,25 @@
     <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" /></div>
     <div class="card">
       <div class="emoji">❌</div>
-      <h1>Pembayaran Gagal atau Dibatalkan</h1>
-      <div class="sub">Pembayaranmu tidak selesai. Kredit scan tidak berubah. Kamu bisa mencoba lagi kapan saja.</div>
-      <button class="pri" id="retry">Coba Lagi</button>
-      <button class="ghost" id="home">Kembali ke Dashboard</button>
+      <h1 id="title"></h1>
+      <div class="sub" id="sub"></div>
+      <button class="pri" id="retry"></button>
+      <button class="ghost" id="home"></button>
     </div>
   </div>
+  <script src="js/i18n.js"></script>
   <script>
     document.getElementById("retry").addEventListener("click", function(){ location.href = "/calories"; });
     document.getElementById("home").addEventListener("click", function(){ location.href = "/dashboard"; });
+
+    function applyLang(){
+      document.getElementById("title").textContent = L({ en:"Payment Failed or Cancelled", id:"Pembayaran Gagal atau Dibatalkan" });
+      document.getElementById("sub").textContent = L({ en:"Your payment didn't complete. Your scan credits are unchanged. You can try again anytime.", id:"Pembayaranmu tidak selesai. Kredit scan tidak berubah. Kamu bisa mencoba lagi kapan saja." });
+      document.getElementById("retry").textContent = L({ en:"Try Again", id:"Coba Lagi" });
+      document.getElementById("home").textContent = L({ en:"Back to Dashboard", id:"Kembali ke Dashboard" });
+    }
+    applyLang();
+    I18N.onChange(applyLang);
   </script>
 </body>
 </html>
