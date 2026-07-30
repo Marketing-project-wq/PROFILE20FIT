@@ -420,10 +420,12 @@
       }).join("");
       body.innerHTML='<div class="muted" style="font-size:12.5px;margin-bottom:8px">'+lead+'</div><div class="mrec-row">'+cards+'</div>';
       // Ganti thumbnail emoji dengan foto makanan asli (TheMealDB, di-cache). No-op & emoji tetap kalau gagal / helper belum ada.
-      if(window.Recipes && Recipes.applyThumb){
+      // Lazy: hanya fetch saat kartunya masuk viewport.
+      if(window.Recipes && (Recipes.applyThumbLazy || Recipes.applyThumb)){
+        var _apply = Recipes.applyThumbLazy || Recipes.applyThumb;
         recs.forEach(function(r){
           var t=document.getElementById("mrecthumb-"+r.id);
-          if(t) Recipes.applyThumb(t,r);
+          if(t) _apply(t,r);
         });
       }
     }
@@ -570,7 +572,8 @@
       }
       // NUTRIENT GAP (selalu ditampilkan; saat log kosong = seluruh target masih tersisa)
       h+=fsumGapHTML(t);
-      if(!profileRef) h+='<div class="fsum-hm-note" style="margin-top:10px">'+L({en:"Targets are estimated — complete your profile for personalized goals.",id:"Target diperkirakan — lengkapi profil untuk target personal."})+'</div>';
+      // Estimasi bila profil tak ada ATAU data inti (berat/tinggi) belum lengkap — supaya angka fallback (2000 kkal dsb) tak terlihat seolah personal.
+      if(!profileRef || !profileRef.weight_kg || !profileRef.height_cm) h+='<div class="fsum-hm-note" style="margin-top:10px">'+L({en:"Targets are estimated — complete your profile for personalized goals.",id:"Target diperkirakan — lengkapi profil untuk target personal."})+'</div>';
       card.innerHTML=h;
       if(_fsumGapFlash){ _fsumGapFlash=false; var g=document.getElementById("fsumGap"); if(g) g.classList.add("flash"); }
     }

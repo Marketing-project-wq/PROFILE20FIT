@@ -9,8 +9,9 @@
 //  - Bilingual via window.L / I18N (helper t()).
 //  - Sorot elemen target per langkah (aman kalau elemen tak ada -> skip sorot,
 //    tooltip tetap muncul). Selesai/skip -> set flag halaman itu.
-//  - window.startTour() memutar ulang tur halaman SAAT INI (dipakai dari Profil;
-//    kalau halaman tak punya tur, fallback ke tur "home").
+//  - window.startTour() = API publik untuk memutar ulang tur halaman SAAT INI
+//    (kalau halaman tak punya tur, fallback ke tur "home"). Hanya dipanggil di
+//    halaman yang me-load tour.js (Home/Medical/Calories).
 // =============================================================
 (function () {
   const t = (o) => (window.L ? window.L(o) : (o.en || ""));
