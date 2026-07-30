@@ -220,6 +220,30 @@
 .fit-hairline{height:1px;background:var(--fit-line);border:0}
 *:where(.fit-card,.fit-btn,.fit-tag,.fit-pill,.fit-nav-item,.fit-input){box-sizing:border-box}
 
+/* ---------- 12. CLOSE / DISMISS BUTTON — komponen tunggal, dipakai app-wide ----------
+   SATU tombol-X untuk semua modal/sheet/banner/inline-dismiss. Menggantikan varian
+   lama (.m-close, .mcu-x, .rc-x, .pm-x, .pplx, .dl-x, toast .tx). Glyph = inline SVG X
+   (bukan teks ✕) supaya konsisten lintas platform. Warna pakai var per-halaman (--inp/--txt)
+   dengan fallback aman. Markup wajib:
+   <button class="x-close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button> */
+.x-close{-webkit-appearance:none;appearance:none;box-sizing:border-box;display:inline-grid;place-items:center;vertical-align:middle;width:36px;height:36px;padding:0;margin:0;border:0;border-radius:50%;background:var(--inp,#F0EDE5);color:var(--txt,#16181d);cursor:pointer;flex:0 0 auto;position:relative;line-height:0;transition:background .15s ease,transform .1s ease}
+.x-close>svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+/* Perluas area sentuh ke ~44px tanpa memperbesar visual (aksesibilitas mobile). */
+.x-close::after{content:"";position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+.x-close:hover{background:var(--line,#E8E2DB)}
+.x-close:active{transform:scale(.93)}
+.x-close:focus-visible{outline:2px solid var(--red,#C41101);outline-offset:2px}
+/* Varian posisi: nempel pojok kanan-atas kontainer (modal/sheet/kartu). */
+.x-close.x-abs{position:absolute;top:12px;right:12px;z-index:5}
+/* Varian ghost: tanpa latar (toast, dismiss inline). */
+.x-close.x-ghost{background:transparent}
+.x-close.x-ghost:hover{background:var(--inp,#F0EDE5)}
+/* Varian kecil untuk baris list padat (mis. hapus item kalori). */
+.x-close.x-sm{width:30px;height:30px}
+.x-close.x-sm>svg{width:15px;height:15px}
+/* Warna aksi hapus/danger. */
+.x-close.x-danger{color:var(--red,#C41101)}
+
 @media (prefers-reduced-motion:reduce){
   .fit-bg::before,.fit-bg::after{animation:none!important}
   .fit-btn,.fit-nav-item,.fit-row,.fit-seg button{transition:none!important}

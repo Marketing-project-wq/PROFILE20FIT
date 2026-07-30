@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Diet · 20FIT</title>
+<style>
+  :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#EDE8DF;--green:#2A7A4F;--amber:#C87000}
+  *{box-sizing:border-box}
+  a{text-decoration:none}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 90px}
+  .wrap{max-width:560px;margin:0 auto}
+  @media(min-width:900px){ .wrap{max-width:720px} }
+  .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+  .logobar img{height:34px}
+  .logobar a{color:#cfc8bd;text-decoration:none;font-size:13px;font-weight:700}
+  h1{font-size:24px;font-weight:900;margin:0 0 6px;text-transform:uppercase}
+  .lead{color:var(--pagetx);opacity:.85;font-size:14px;margin:0 0 16px;line-height:1.5}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px;color:var(--txt);box-shadow:0 2px 10px rgba(0,0,0,.3)}
+  .card h2{font-size:16px;font-weight:800;margin:0 0 4px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.5px}
+  input,select,textarea{width:100%;padding:12px 13px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:15px;font-family:inherit}
+  textarea{min-height:80px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red)}
+  .row{display:flex;gap:12px}.row>div{flex:1}
+  .btn{width:100%;margin-top:16px;padding:13px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer}
+  .btn.out{background:transparent;border:1px solid var(--red);color:var(--red);margin-top:8px}
+  .muted{color:var(--muted);font-size:13px}
+  .msg{margin-top:12px;font-size:13px;min-height:18px}
+  .ok{color:var(--green)}.err{color:var(--red)}
+  /* Progress reward */
+  .rwd{display:flex;align-items:center;gap:14px}
+  .rwd .ring{width:60px;height:60px;flex:0 0 auto}
+  .rwd .big{font-size:20px;font-weight:900}
+  .bar{height:10px;border-radius:99px;background:var(--inp);overflow:hidden;margin-top:10px}
+  .bar i{display:block;height:100%;background:var(--red);border-radius:99px;transition:width .4s}
+  .empty{padding:20px;text-align:center;color:var(--muted);font-size:14px}
+  /* Resep */
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;-webkit-overflow-scrolling:touch}
+  .chips::-webkit-scrollbar{height:0}
+  .chip{border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:99px;padding:8px 14px;font-weight:700;font-size:13px;white-space:nowrap;cursor:pointer;flex:0 0 auto}
+  .chip.on{background:var(--red);color:#fff;border-color:var(--red)}
+  .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(min-width:700px){ .rgrid{grid-template-columns:1fr 1fr 1fr} }
+  .rcard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);text-align:left;padding:0;font-family:inherit}
+  .rthumb{height:96px;display:grid;place-items:center;font-size:40px;background-size:cover;background-position:center}
+  .rbody{padding:10px 12px}
+  .rname{font-weight:800;font-size:14px;line-height:1.2;color:var(--txt)}
+  .rmeta{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .rmac{display:flex;gap:6px;margin-top:8px;font-size:10.5px;font-weight:700;flex-wrap:wrap}
+  .rmac span{background:var(--inp);border-radius:6px;padding:3px 6px;color:var(--txt)}
+  .rc-user{font-size:9px;background:var(--green);color:#fff;padding:2px 6px;border-radius:99px;font-weight:800;vertical-align:middle}
+  .rdisc{font-size:11.5px;color:var(--muted);background:var(--inp);border-radius:10px;padding:10px 12px;margin-top:12px}
+  /* Share Your Menu toggle */
+  .share-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;margin-top:18px}
+  .share-toggle .st-main{display:flex;flex-direction:column;gap:2px}
+  .share-toggle .st-cta{font-weight:800;font-size:15px}
+  .share-toggle .st-hint{font-weight:600;font-size:11.5px;opacity:.75}
+  .share-toggle .chev{transition:transform .25s;font-size:13px;flex:0 0 auto}
+  .share-toggle.open .chev{transform:rotate(180deg)}
+  .tc{font-size:11.5px;color:var(--muted);background:var(--inp);border-radius:10px;padding:11px 13px;margin-bottom:14px;line-height:1.5}
+  /* Modal detail resep (bottom-sheet; pola sama dgn profil) */
+  .pm-bg{position:fixed;inset:0;z-index:200;background:rgba(10,12,16,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:none;align-items:flex-end;justify-content:center;padding:0}
+  .pm-bg.open{display:flex}
+  .pm{position:relative;width:100%;max-width:560px;background:var(--card);color:var(--txt);border-radius:22px 22px 0 0;max-height:92vh;overflow-y:auto;padding:10px 20px calc(env(safe-area-inset-bottom) + 24px);box-shadow:0 -12px 44px rgba(0,0,0,.3);animation:pmUp .28s cubic-bezier(.2,.85,.25,1)}
+  @keyframes pmUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .pm .grab{width:42px;height:5px;border-radius:999px;background:var(--line);margin:8px auto 12px}
+  .pm h2{margin:0 0 6px;font-size:19px;font-weight:800}
+  .pm-hero{height:150px;border-radius:14px;display:grid;place-items:center;font-size:64px;background-size:cover;background-position:center;margin-bottom:12px}
+  .pm-types{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+  .pm-types span{font-size:11px;font-weight:800;background:var(--inp);color:var(--txt);border-radius:99px;padding:4px 10px;text-transform:capitalize}
+  .pm-log{width:100%;margin-top:18px;padding:14px;border:0;border-radius:12px;background:var(--green);color:#fff;font-weight:800;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+  .pm-log:disabled{opacity:.6;cursor:default}
+  @media(min-width:620px){ .pm-bg{align-items:center;padding:24px} .pm{border-radius:22px} .pm .grab{display:none} }
+  /* Toast (feedback Log Food) */
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--dark);color:#fff;padding:12px 16px;border-radius:12px;font-size:13.5px;font-weight:700;box-shadow:0 8px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:.25s;z-index:300;display:flex;align-items:center;gap:14px;max-width:92vw}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+  .toast button{background:transparent;border:0;color:#7fd4ff;font-weight:800;cursor:pointer;font-size:13.5px;white-space:nowrap}
+</style>
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/glass-app.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="logobar">
+      <img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" />
+      <a href="dashboard.html">← <span data-i18n="nav_home">Home</span></a>
+    </div>
+    <h1 data-i18n="diet_title">Diet</h1>
+    <p class="lead" data-i18n="diet_intro">20FIT meal recommendations — pick a diet type, then tap a dish for the full recipe.</p>
+
+    <!-- BAGIAN UTAMA: rekomendasi menu 20FIT per tipe diet -->
+    <div class="chips" id="dietChips"></div>
+    <div class="rgrid" id="recipeGrid"><div class="empty" data-i18n="diet_recipes_loading">Loading recipes…</div></div>
+    <div class="rdisc" data-i18n="diet_disc">Calorie &amp; macro figures are estimates for portion guidance — not a substitute for professional nutrition advice. Photos are placeholders; real photos coming soon.</div>
+
+    <!-- Pintu masuk kontribusi (tersembunyi di balik toggle) -->
+    <button class="btn out share-toggle" id="shareToggle" onclick="toggleShare()">
+      <span class="st-main">
+        <span class="st-cta">🍽️ <span data-i18n="diet_share_cta">Share Your Menu</span></span>
+        <span class="st-hint" data-i18n="diet_share_hint">Contribute a recipe &amp; earn free scans</span>
+      </span>
+      <span class="chev">▾</span>
+    </button>
+
+    <div id="shareSec" hidden style="margin-top:14px">
+      <!-- T&C kecil di atas -->
+      <div class="tc" data-i18n="diet_tc">Share your healthy menu. For every 10 menus approved by our admin you earn 5 free calorie scans — repeatable. Duplicate or low-effort submissions may be rejected.</div>
+
+      <!-- Progress reward -->
+      <div class="card">
+        <h2>🍽️ <span data-i18n="diet_reward_h">Menu Contribution → Free Scan</span></h2>
+        <div id="rewardBox"><div class="muted" data-i18n="diet_loading">Loading…</div></div>
+      </div>
+
+      <!-- Form kirim menu (foto + resep) -->
+      <div class="card">
+        <h2 data-i18n="diet_submit_h">Submit a healthy menu</h2>
+        <label data-i18n="diet_l_name">Menu name</label>
+        <input id="mName" type="text" data-i18n-ph="diet_ph_name" placeholder="e.g. Teriyaki chicken rice bowl" maxlength="120" />
+        <label data-i18n="diet_l_type">Diet type</label>
+        <select id="mType">
+          <option value="normal">Normal</option>
+          <option value="vegetarian">Vegetarian</option>
+          <option value="vegan">Vegan</option>
+          <option value="pescatarian">Pescatarian</option>
+          <option value="keto">Keto</option>
+          <option value="halal">Halal</option>
+          <option value="high-protein">High-protein</option>
+          <option value="low-carb">Low-carb</option>
+        </select>
+        <label data-i18n="diet_l_ing">Ingredients</label>
+        <textarea id="mIng" data-i18n-ph="diet_ph_ing" placeholder="List the ingredients…"></textarea>
+        <label data-i18n="diet_l_steps">How to make</label>
+        <textarea id="mSteps" data-i18n-ph="diet_ph_steps" placeholder="Steps to make it…"></textarea>
+        <div class="row">
+          <div><label><span data-i18n="diet_l_kcal">Estimated calories</span> <span style="text-transform:none;font-weight:400" data-i18n="diet_optional">(optional)</span></label><input id="mKcal" type="number" inputmode="numeric" data-i18n-ph="diet_ph_kcal" placeholder="e.g. 550" /></div>
+          <div><label><span data-i18n="diet_l_photo">Photo</span> <span style="text-transform:none;font-weight:400" data-i18n="diet_optional">(optional)</span></label><input id="mPhoto" type="file" accept="image/*" /></div>
+        </div>
+        <button class="btn" id="btnSubmit" onclick="submitMenu()" data-i18n="diet_btn_submit">Submit menu</button>
+        <div class="msg" id="subMsg"></div>
+        <div class="muted" style="margin-top:12px;font-size:12px" data-i18n="diet_track_hint">Track your submissions and revise rejected menus in your Profile.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal detail resep (X / klik luar / swipe down utk tutup) -->
+  <div class="pm-bg" id="recBg">
+    <div class="pm" id="recPm">
+      <button class="x-close x-abs" onclick="closeRecipe()" aria-label="Close" data-i18n-aria="diet_close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      <div class="grab"></div>
+      <div id="recBody"></div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/recipes.js"></script>
+  <script>
+    var user=null, LASTJ=null, mineLoaded=false;
+    function $(id){ return document.getElementById(id); }
+    function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+    function T(k){ return (window.I18N&&I18N.t)?I18N.t(k):k; }
+    async function dietFetch(path, opts){
+      opts=opts||{}; opts.headers=opts.headers||{}; opts.headers["Content-Type"]="application/json";
+      var tk=await Auth.token(); if(tk) opts.headers["Authorization"]="Bearer "+tk;
+      return fetch(path, opts);
+    }
+    (async function(){
+      user=await Auth.requireAuth();
+      loadRecipes();
+    })();
+    // Re-render teks dinamis saat bahasa diganti (static di-handle i18n.apply()).
+    if(window.I18N&&I18N.onChange) I18N.onChange(function(){
+      renderChips(); renderRecipes();
+      if(LASTJ) renderReward(LASTJ);
+    });
+
+    // ---- Toggle "Share Your Menu" (lazy-load submission saat pertama dibuka) ----
+    function toggleShare(){
+      var sec=$("shareSec"), btn=$("shareToggle");
+      var open=sec.hasAttribute("hidden");
+      if(open){ sec.removeAttribute("hidden"); btn.classList.add("open"); if(!mineLoaded){ mineLoaded=true; loadMine(); } }
+      else { sec.setAttribute("hidden",""); btn.classList.remove("open"); }
+    }
+
+    // ---- Rekomendasi resep: resep resmi 20FIT + menu user approved+published ----
+    var ITEMS=[], curType="all";
+    function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+    async function loadRecipes(){
+      var userMenus=[];
+      try{
+        var res=await Auth.supabase.from("my20fit_menu_contribution")
+          .select("id,name,diet_type,ingredients,steps,photo_url,est_kcal")
+          .eq("status","approved").eq("published",true).order("reviewed_at",{ascending:false}).limit(100);
+        userMenus=(res&&res.data)||[];
+      }catch(e){}
+      ITEMS=(window.Recipes?Recipes.LIST:[]).map(function(r){
+        return { key:"r_"+r.id, nm:r.nm, kcal:r.kcal, p:r.p, c:r.c, f:r.f, types:r.types||[], ingO:r.ing, stepsO:r.steps, emoji:r.emoji, tint:r.tint, source:"20fit", rec:r };
+      });
+      userMenus.forEach(function(m){
+        ITEMS.push({ key:"u_"+m.id, title:m.name, kcal:m.est_kcal||null, types:[m.diet_type||"normal"], ing:m.ingredients||"", steps:m.steps||"", photo:m.photo_url||null, source:"user" });
+      });
+      renderChips(); renderRecipes();
+    }
+    function titleOf(it){ return it.source==="20fit" ? LL(it.nm) : (it.title||""); }
+    function ingOf(it){ return it.source==="20fit" ? LL(it.ingO) : (it.ing||""); }
+    function stepsOf(it){ return it.source==="20fit" ? LL(it.stepsO) : (it.steps||""); }
+    function renderChips(){
+      var types=["all"].concat(window.Recipes?Recipes.DIET_TYPES:[]);
+      var lbl={all:T("diet_all"),"high-protein":"High-protein","low-carb":"Low-carb"};
+      document.getElementById("dietChips").innerHTML=types.map(function(t){
+        var name=lbl[t]||(t.charAt(0).toUpperCase()+t.slice(1));
+        return '<button class="chip'+(t===curType?" on":"")+'" onclick="setDietType(\''+t+'\')">'+esc(name)+'</button>';
+      }).join("");
+    }
+    function setDietType(t){ curType=t; renderChips(); renderRecipes(); }
+    function renderRecipes(){
+      var grid=document.getElementById("recipeGrid");
+      var list=ITEMS.filter(function(it){ return curType==="all"||it.types.indexOf(curType)>=0; });
+      if(!list.length){ grid.innerHTML='<div class="empty">'+esc(T("diet_none"))+'</div>'; return; }
+      var KC=T("diet_kcal");
+      grid.innerHTML=list.map(function(it){
+        var thumb=it.photo ? ('<div class="rthumb" style="background-image:url('+JSON.stringify(it.photo)+')"></div>')
+                           : ('<div class="rthumb" id="th_'+it.key+'" style="background:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>');
+        var mac=(it.p!=null)?('<div class="rmac"><span>P '+it.p+'g</span><span>C '+it.c+'g</span><span>F '+it.f+'g</span></div>'):'';
+        var meta='~'+(it.kcal!=null?it.kcal+' '+KC:'—')+(it.source==="user"?' · <span class="rc-user">USER</span>':'');
+        return '<button class="rcard" onclick="openRecipe(\''+it.key+'\')">'+thumb+
+          '<div class="rbody"><div class="rname">'+esc(titleOf(it))+'</div><div class="rmeta">'+meta+'</div>'+mac+'</div></button>';
+      }).join("");
+      // Resolve real food photos for 20fit items (emoji stays as fallback on failure).
+      // Lazy: hanya fetch saat kartunya masuk viewport (hindari belasan fetch serentak).
+      if(window.Recipes && (Recipes.applyThumbLazy || Recipes.applyThumb)){
+        var _apply = Recipes.applyThumbLazy || Recipes.applyThumb;
+        list.forEach(function(it){
+          if(it.rec && !it.photo){ _apply(document.getElementById("th_"+it.key), it.rec); }
+        });
+      }
+    }
+    var curLogItem=null, lastLog=null, toastT=null;
+    function openRecipe(key){
+      var it=ITEMS.filter(function(x){return x.key===key;})[0]; if(!it) return;
+      curLogItem=it;
+      var mac=(it.p!=null)?('<div class="rmac" style="margin:8px 0"><span>'+esc(T("cal_protein"))+' '+it.p+'g</span><span>'+esc(T("cal_carbs"))+' '+it.c+'g</span><span>'+esc(T("cal_fat"))+' '+it.f+'g</span></div>'):'';
+      var hero=it.photo ? '<div class="pm-hero" style="background-image:url('+JSON.stringify(it.photo)+')"></div>'
+                        : '<div class="pm-hero" style="background:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>';
+      var tps=(it.types||[]).filter(Boolean);
+      var badges=tps.length?('<div class="pm-types">'+tps.map(function(t){return '<span>'+esc(String(t).replace(/-/g," "))+'</span>';}).join("")+'</div>'):'';
+      var logBtn=(it.kcal!=null)
+        ? '<button class="pm-log" onclick="logFood()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> '+esc(T("diet_logfood"))+'</button>'
+        : '<div class="rdisc" style="margin-top:16px">'+esc(T("diet_log_nokcal"))+'</div>';
+      document.getElementById("recBody").innerHTML=
+        hero+
+        '<h2 style="margin-top:0">'+esc(titleOf(it))+'</h2>'+badges+
+        '<div class="muted">~'+(it.kcal!=null?it.kcal+' '+esc(T("diet_kcal")):'—')+(it.source==="user"?' · '+esc(T("diet_user_contrib")):'')+'</div>'+mac+
+        '<label>'+esc(T("recipe_ing"))+'</label><div style="white-space:pre-wrap;font-size:14px">'+esc(ingOf(it))+'</div>'+
+        '<label>'+esc(T("recipe_steps"))+'</label><div style="white-space:pre-wrap;font-size:14px">'+esc(stepsOf(it))+'</div>'+
+        (it.source==="20fit"?'<div class="rdisc">'+esc(T("diet_nutri_est"))+'</div>':'')+
+        logBtn;
+      // Resolve real food photo for 20fit hero (emoji stays as fallback on failure).
+      if(window.Recipes && Recipes.applyThumb && it.rec && !it.photo){
+        Recipes.applyThumb(document.querySelector("#recBody .pm-hero"), it.rec);
+      }
+      var pm=document.getElementById("recPm"); if(pm) pm.scrollTop=0;
+      document.getElementById("recBg").classList.add("open");
+      document.body.style.overflow="hidden";
+    }
+    function closeRecipe(){ document.getElementById("recBg").classList.remove("open"); document.body.style.overflow=""; }
+    // Tutup pop-up: klik luar + Escape + swipe-down (HP)
+    (function(){
+      var bg=document.getElementById("recBg"); if(!bg) return;
+      bg.addEventListener("click",function(e){ if(e.target===bg) closeRecipe(); });
+      document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeRecipe(); });
+      var pm=document.getElementById("recPm"), sy=0, dy=0, drag=false;
+      if(pm){
+        pm.addEventListener("touchstart",function(e){ if(pm.scrollTop>2){drag=false;return;} drag=true; sy=e.touches[0].clientY; dy=0; },{passive:true});
+        pm.addEventListener("touchmove",function(e){ if(!drag)return; dy=e.touches[0].clientY-sy; if(dy>0) pm.style.transform="translateY("+dy+"px)"; },{passive:true});
+        pm.addEventListener("touchend",function(){ if(!drag)return; drag=false; pm.style.transform=""; if(dy>90) closeRecipe(); });
+      }
+    })();
+    // ---- Log Food: catat menu -> masuk cal_items harian (nyambung sistem Calories yang SUDAH ADA) ----
+    function calKeyToday(){ var d=new Date(); return "my20fit_cal_"+d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+    function nowHM(){ var d=new Date(); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+    function showToast(html, withUndo){
+      var el=$("toast"); if(!el) return;
+      el.innerHTML=html+(withUndo?' <button onclick="undoLog()">'+esc(T("diet_undo"))+'</button>':'');
+      el.classList.add("show");
+      if(toastT)clearTimeout(toastT); toastT=setTimeout(function(){ el.classList.remove("show"); },4500);
+    }
+    async function logFood(){
+      var it=curLogItem; if(!it||it.kcal==null) return;
+      var btn=document.querySelector(".pm-log"); if(btn) btn.disabled=true;
+      var item={ name:titleOf(it), kcal:Math.round(it.kcal)||0, p:Math.round(+it.p||0), c:Math.round(+it.c||0), f:Math.round(+it.f||0), t:nowHM() };
+      var key=calKeyToday();
+      // Ambil cal_items TERKINI dari akun dulu (hindari nimpa log dari device lain); fallback cache device.
+      var items=null;
+      try{ if(window.Auth&&Auth.getDailyLog){ var d=await Auth.getDailyLog(); if(d&&Array.isArray(d.cal_items)) items=d.cal_items.slice(); } }catch(e){}
+      if(!items){ try{ items=JSON.parse(localStorage.getItem(key)||"[]"); if(!Array.isArray(items)) items=[]; }catch(e){ items=[]; } }
+      items.push(item);
+      try{ localStorage.setItem(key, JSON.stringify(items)); }catch(e){}
+      lastLog={ key:key, items:items, item:item };
+      var okSave=true;
+      try{ if(window.Auth&&Auth.saveDaily) await Auth.saveDaily({cal_items:items}); }catch(e){ okSave=false; }
+      if(btn) btn.disabled=false;
+      closeRecipe();
+      if(okSave) showToast(esc(T("diet_logged"))+' <b>'+item.kcal+' '+esc(T("diet_kcal"))+'</b>', true);
+      else showToast(esc(T("diet_err_net")), false);
+    }
+    function undoLog(){
+      if(!lastLog) return;
+      var items=lastLog.items, idx=items.lastIndexOf(lastLog.item); if(idx<0) idx=items.length-1;
+      if(idx>=0) items.splice(idx,1);
+      try{ localStorage.setItem(lastLog.key, JSON.stringify(items)); }catch(e){}
+      try{ if(window.Auth&&Auth.saveDaily) Auth.saveDaily({cal_items:items}); }catch(e){}
+      lastLog=null;
+      showToast(esc(T("diet_log_undone")), false);
+    }
+    async function loadMine(){
+      try{
+        var r=await dietFetch("/api/menu/mine"); var j=await r.json().catch(function(){return{};});
+        if(!r.ok){ $("rewardBox").innerHTML='<div class="muted">'+esc(j.error||T("diet_err_load"))+'</div>'; return; }
+        LASTJ=j;
+        renderReward(j);
+      }catch(e){ $("rewardBox").innerHTML='<div class="muted">'+esc(T("diet_err_load"))+'</div>'; }
+    }
+    function renderReward(j){
+      var toward=j.toward_next||0, per=j.per_cycle||10, pct=Math.round(toward/per*100), rs=j.reward_scan||5;
+      $("rewardBox").innerHTML=
+        '<div class="rwd"><div class="big">'+toward+' / '+per+'</div><div class="muted">'+esc(T("diet_reward_toward").replace("{n}",rs))+'</div></div>'+
+        '<div class="bar"><i style="width:'+pct+'%"></i></div>'+
+        '<div class="muted" style="margin-top:10px">'+esc(T("diet_reward_total"))+' <b>'+(j.approved||0)+'</b> · '+esc(T("diet_reward_earned"))+' <b>'+(j.credits_earned||0)+'</b></div>';
+    }
+    // Resize + validasi foto -> dataURL (maks sisi 1000px), balikin lewat callback.
+    function readPhoto(file, cb){
+      if(!file){ cb(null); return; }
+      if(!String(file.type||"").startsWith("image/")){ cb(null, T("diet_err_img")); return; }
+      if(file.size>8*1024*1024){ cb(null, T("diet_err_big")); return; }
+      var img=new Image(); var url=URL.createObjectURL(file);
+      img.onload=function(){ var mx=1000, w=img.width, h=img.height, s=Math.min(mx/w, mx/h, 1);
+        var c=document.createElement("canvas"); c.width=Math.round(w*s); c.height=Math.round(h*s);
+        c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url);
+        try{ cb(c.toDataURL("image/jpeg",0.82)); }catch(e){ cb(null,T("diet_err_photo")); } };
+      img.onerror=function(){ URL.revokeObjectURL(url); cb(null,T("diet_err_photoread")); };
+      img.src=url;
+    }
+    async function submitMenu(){
+      var m=$("subMsg"); m.className="msg err"; m.textContent="";
+      var name=$("mName").value.trim(), ing=$("mIng").value.trim(), steps=$("mSteps").value.trim();
+      if(!name||!ing||!steps){ m.textContent=T("diet_err_required"); return; }
+      var btn=$("btnSubmit"); btn.disabled=true; m.className="msg"; m.textContent=T("diet_sending");
+      readPhoto($("mPhoto").files[0], async function(photo, perr){
+        if(perr){ m.className="msg err"; m.textContent=perr; btn.disabled=false; return; }
+        var body={ name:name, diet_type:$("mType").value, ingredients:ing, steps:steps };
+        var kc=$("mKcal").value.trim(); if(kc) body.est_kcal=kc;
+        if(photo) body.photo_url=photo;
+        try{
+          var r=await dietFetch("/api/menu/submit",{method:"POST",body:JSON.stringify(body)});
+          var j=await r.json().catch(function(){return{};});
+          btn.disabled=false;
+          if(!r.ok){ m.className="msg err"; m.textContent=j.error||T("diet_err_send"); return; }
+          m.className="msg ok"; m.textContent=T("diet_sent");
+          $("mName").value="";$("mIng").value="";$("mSteps").value="";$("mKcal").value="";$("mPhoto").value="";
+          loadMine();
+        }catch(e){ btn.disabled=false; m.className="msg err"; m.textContent=T("diet_err_net"); }
+      });
+    }
+  </script>
+</body>
+</html>

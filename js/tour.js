@@ -1,64 +1,100 @@
 // =============================================================
-//  tour.js — Walkthrough perkenalan (muncul sekali pertama kali)
-//  - Bilingual via window.L / I18N
-//  - Sorot tombol bottom-nav per langkah
-//  - Selesai/skip -> localStorage "tour_done_v1"
-//  - window.startTour() untuk putar ulang (dipakai dari Profil)
+//  tour.js — Walkthrough per-halaman (muncul sekali per user)
+//  - TIGA tur terpisah, di-scope KETAT per halaman:
+//      dashboard.html -> "home"     (flag: tour_home_v1)
+//      medical.html   -> "medical"  (flag: tour_medical_v1)
+//      calories.html  -> "calories" (flag: tour_calories_v1)
+//  - Deteksi halaman dari basename location.pathname. Kalau tak cocok,
+//    TIDAK melakukan apa-apa (Medical tak akan pernah jalan dari Home, dst).
+//  - Bilingual via window.L / I18N (helper t()).
+//  - Sorot elemen target per langkah (aman kalau elemen tak ada -> skip sorot,
+//    tooltip tetap muncul). Selesai/skip -> set flag halaman itu.
+//  - window.startTour() = API publik untuk memutar ulang tur halaman SAAT INI
+//    (kalau halaman tak punya tur, fallback ke tur "home"). Hanya dipanggil di
+//    halaman yang me-load tour.js (Home/Medical/Calories).
 // =============================================================
 (function () {
-  const KEY = "tour_done_v1";
-  let uid = "";
-  const keyFor = () => KEY + (uid ? "_" + uid : "");
   const t = (o) => (window.L ? window.L(o) : (o.en || ""));
 
   const ICON = {
-    wave:'<path d="M12 21a9 9 0 1 0-9-9"/><path d="M12 7v5l3 2"/>',
     chart:'<path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="8"/><rect x="12" y="6" width="3" height="12"/><rect x="17" y="13" width="3" height="5"/>',
-    weather:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19"/>',
-    lungs:'<path d="M12 4v8"/><path d="M8 12c0 4-1 6-4 6-1 0-1-3-1-6 0-2 1-4 3-4 1 0 2 1 2 4z"/><path d="M16 12c0 4 1 6 4 6 1 0 1-3 1-6 0-2-1-4-3-4-1 0-2 1-2 4z"/>',
-    moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>',
-    check:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+    calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
     medical:'<path d="M11 2a2 2 0 0 0-2 2v1a2 2 0 0 0-2 2v3a6 6 0 0 0 12 0V7a2 2 0 0 0-2-2V4a2 2 0 0 0-2-2"/><circle cx="20" cy="10" r="2"/>',
-    flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
     cam:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/>',
-    trend:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
-    user:'<circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/>'
+    globe:'<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+    flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+    trend:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>'
   };
 
-  const STEPS = [
-    {ic:"wave", nav:0, title:{en:"Welcome to 20FIT Health Profile!",id:"Selamat datang di 20FIT Health Profile!"},
-      body:{en:"A quick tour to show you around. It only takes 30 seconds.",id:"Tur singkat buat kenalin fitur-fiturnya. Cuma 30 detik kok."}},
-    {ic:"chart", nav:0, title:{en:"Your Stats",id:"Statistik Kamu"},
-      body:{en:"BMI, weight and height are filled automatically from your profile.",id:"BMI, berat, dan tinggi terisi otomatis dari profil kamu."}},
-    {ic:"weather", nav:0, title:{en:"Live Weather & Air Quality",id:"Cuaca & Kualitas Udara Live"},
-      body:{en:"Real-time weather and AQI for your location — we tell you if it's good to train outdoors.",id:"Cuaca & AQI real-time sesuai lokasimu — kami kasih tau enaknya latihan di luar atau dalam."}},
-    {ic:"lungs", nav:0, title:{en:"Breathing Exercise",id:"Latihan Pernapasan"},
-      body:{en:"Guided breathing (4-7-8, Box, Relax) to calm down or recover.",id:"Pernapasan berpandu (4-7-8, Box, Rileks) buat tenang atau pemulihan."}},
-    {ic:"moon", nav:0, title:{en:"Sleep & Water",id:"Tidur & Air Minum"},
-      body:{en:"Log your bedtime & wake time, and tap glasses to track water.",id:"Catat jam tidur & bangun, dan ketuk gelas untuk lacak minum air."}},
-    {ic:"check", nav:0, title:{en:"Daily Checklist",id:"Checklist Harian"},
-      body:{en:"Healthy habits to tick off — the list changes every day & week.",id:"Kebiasaan sehat buat dicentang — daftarnya beda tiap hari & minggu."}},
-    {ic:"medical", nav:1, title:{en:"Medical Record",id:"Rekam Medis"},
-      body:{en:"Upload your check-up (PDF/photo). AI explains it, flags what needs attention, and gives eating + exercise plans.",id:"Upload hasil check-up (PDF/foto). AI menjelaskan, menandai yang perlu perhatian, plus kasih rencana makan & olahraga."}},
-    {ic:"flame", nav:3, title:{en:"Calorie Tracker",id:"Pelacak Kalori"},
-      body:{en:"Your daily calorie target is auto-calculated. Add food manually or scan it with your camera.",id:"Target kalori harianmu dihitung otomatis. Tambah makanan manual atau scan pakai kamera."}},
-    {ic:"cam", nav:-1, title:{en:"Scan Food",id:"Scan Makanan"},
-      body:{en:"Tap the red Scan button anytime to snap your meal and get instant calories.",id:"Ketuk tombol Scan merah kapan saja buat foto makananmu dan dapat estimasi kalori."}},
-    {ic:"trend", nav:2, title:{en:"Progress",id:"Progress"},
-      body:{en:"Weekly stats & achievements — coming soon!",id:"Statistik mingguan & achievement — segera hadir!"}},
-    {ic:"user", nav:4, title:{en:"Profile & Language",id:"Profil & Bahasa"},
-      body:{en:"Edit your details and log out here. Switch EN/ID anytime with the button on the top-right.",id:"Ubah data & logout di sini. Ganti EN/ID kapan saja lewat tombol di kanan atas."}}
-  ];
+  // ---- Definisi tiga tur ----
+  const TOURS = {
+    home: {
+      flag: "tour_home_v1",
+      steps: [
+        {ic:"chart", sel:".trk-cust",
+          title:{en:"Your Home is customizable now",id:"Home kamu sekarang bisa disesuaikan"},
+          body:{en:"Tap Customize to add, remove and reorder your widgets — Hydration, Sleep, Fasting, Photo and more.",id:"Tap Customize untuk menambah, menghapus, dan mengatur urutan widget — Hydration, Sleep, Fasting, Photo, dan lainnya."}},
+        {ic:"calendar", sel:"#locRow",
+          title:{en:"Book directly from Home",id:"Book langsung dari Home"},
+          body:{en:"You can now book your session right here on my.20fit.id — pick a location or a personal coach/doctor without leaving the app.",id:"Sekarang kamu bisa book sesi langsung di my.20fit.id — pilih lokasi atau coach/dokter personal tanpa keluar aplikasi."}}
+      ]
+    },
+    medical: {
+      flag: "tour_medical_v1",
+      steps: [
+        {ic:"cam", sel:".card.up",
+          title:{en:"Upload your check-up",id:"Upload hasil check-up"},
+          body:{en:"Snap or upload your MCU (PDF/JPG/PNG) from any facility — it's analysed automatically.",id:"Foto atau upload MCU kamu (PDF/JPG/PNG) dari fasilitas mana pun — langsung dianalisis otomatis."}},
+        {ic:"medical", sel:"#result",
+          title:{en:"AI analysis",id:"Analisis AI"},
+          body:{en:"AI explains your results, flags what needs attention, and gives you eating & exercise plans.",id:"AI menjelaskan hasilmu, menandai yang perlu perhatian, plus kasih rencana makan & olahraga."}},
+        {ic:"chart", sel:"#mcuHistoryCard",
+          title:{en:"Your history",id:"Riwayat kamu"},
+          body:{en:"Every check-up is saved here so you can compare your results over time.",id:"Setiap check-up tersimpan di sini biar kamu bisa membandingkan hasil dari waktu ke waktu."}},
+        {ic:"globe", sel:null,
+          title:{en:"Instant translation",id:"Terjemahan instan"},
+          body:{en:"Read your results in English or Indonesian — switch anytime. Lab numbers stay unchanged.",id:"Baca hasilmu dalam Bahasa Inggris atau Indonesia — ganti kapan saja. Angka lab tidak diubah."}}
+      ]
+    },
+    calories: {
+      flag: "tour_calories_v1",
+      steps: [
+        {ic:"flame", sel:"#menuRecCard",
+          title:{en:"New diet menus with real photos",id:"Menu diet baru dengan foto asli"},
+          body:{en:"Browse diet menus with real food photos, recommended from your remaining macros today.",id:"Jelajahi menu diet dengan foto makanan asli, direkomendasikan dari sisa makro kamu hari ini."}},
+        {ic:"trend", sel:"#foodSummary",
+          title:{en:"Today's Food Summary",id:"Ringkasan Makan Hari Ini"},
+          body:{en:"A new Health Meter scores your day and gives nutrient-gap suggestions on what to add.",id:"Health Meter baru menilai harimu dan memberi saran nutrisi yang masih kurang untuk ditambah."}}
+      ]
+    }
+  };
 
-  let i = 0, navEl = null;
+  // ---- Pemetaan basename halaman -> kunci tur (SCOPE KETAT) ----
+  const PAGE_MAP = {
+    "": "home",
+    "dashboard.html": "home",
+    "medical.html": "medical",
+    "calories.html": "calories"
+  };
+  function currentTourKey(){
+    const page = (location.pathname.split("/").pop() || "").toLowerCase();
+    return PAGE_MAP[page] || null;
+  }
+
+  let uid = "";
+  const keyFor = (flag) => flag + (uid ? "_" + uid : "");
+
+  let STEPS = [], i = 0, activeFlag = "";
 
   function injectCSS(){
     if(document.getElementById("tourcss"))return;
     const s=document.createElement("style");s.id="tourcss";
     s.textContent=`
-      .tour-ov{position:fixed;inset:0;background:rgba(10,9,8,.62);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)}
-      .tour-card{background:#fff;border-radius:20px;max-width:340px;width:100%;padding:24px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);animation:tpop .25s ease}
-      @keyframes tpop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+      .tour-ov{position:fixed;inset:0;background:rgba(10,9,8,.62);z-index:9000;backdrop-filter:blur(2px)}
+      .tour-hi{position:relative;z-index:9001;outline:3px solid #C41101;outline-offset:3px;border-radius:12px;animation:tpulse 1.2s infinite}
+      @keyframes tpulse{0%,100%{box-shadow:0 0 0 0 rgba(196,17,1,.35)}50%{box-shadow:0 0 0 8px rgba(196,17,1,.18)}}
+      .tour-card{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#fff;border-radius:20px;max-width:340px;width:calc(100% - 32px);padding:24px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4);z-index:9002;animation:tpop .25s ease}
+      @keyframes tpop{from{transform:translateX(-50%) translateY(12px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
       .tour-ic{width:74px;height:74px;border-radius:20px;background:rgba(196,17,1,.10);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
       .tour-ic svg{width:36px;height:36px;fill:none;stroke:#C41101;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
       .tour-step{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9E8E7A;font-weight:700}
@@ -71,20 +107,20 @@
       .tour-btns button{flex:1;padding:12px;border-radius:11px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit}
       .tour-skip{background:#F0EDE5;border:0;color:#8A7C68}
       .tour-next{background:#C41101;border:0;color:#fff}
-      .bnav a.tour-hi{background:rgba(196,17,1,.12);outline:2px solid #C41101;outline-offset:-2px;border-radius:10px}
-      .scanfab.tour-hi{animation:tpulse 1s infinite}
-      @keyframes tpulse{0%,100%{box-shadow:0 6px 20px rgba(196,17,1,.45)}50%{box-shadow:0 0 0 10px rgba(196,17,1,.25)}}
     `;
     document.head.appendChild(s);
   }
 
   function clearHi(){
-    document.querySelectorAll(".bnav a.tour-hi,.scanfab.tour-hi").forEach(e=>e.classList.remove("tour-hi"));
+    document.querySelectorAll(".tour-hi").forEach(e=>e.classList.remove("tour-hi"));
   }
   function highlight(step){
     clearHi();
-    if(step.nav===-1){ const fab=document.querySelector(".scanfab"); if(fab)fab.classList.add("tour-hi"); return; }
-    if(step.nav>=0){ const a=document.querySelectorAll(".bnav a")[step.nav]; if(a)a.classList.add("tour-hi"); }
+    if(!step.sel) return;                 // langkah tanpa target -> tooltip saja
+    const el=document.querySelector(step.sel);
+    if(!el) return;                       // target tak ada -> jangan patahkan halaman
+    el.classList.add("tour-hi");
+    try{ el.scrollIntoView({block:"center",behavior:"smooth"}); }catch(e){}
   }
 
   function render(){
@@ -100,40 +136,49 @@
   }
   function close(){
     clearHi();
-    if(navEl)navEl.style.zIndex="";
     const ov=document.getElementById("tourOv"); if(ov)ov.remove();
-    try{ localStorage.setItem(keyFor(),"1"); }catch(e){}
+    const card=document.getElementById("tourCard"); if(card)card.remove();
+    try{ if(activeFlag) localStorage.setItem(keyFor(activeFlag),"1"); }catch(e){}
   }
   function next(){ if(i>=STEPS.length-1){close();return;} i++; render(); }
 
-  function open(){
+  function open(key){
+    const tour = TOURS[key];
+    if(!tour) return;                     // tak ada tur untuk kunci ini
     injectCSS();
+    STEPS = tour.steps;
+    activeFlag = tour.flag;
     i=0;
-    navEl=document.querySelector(".bnav"); if(navEl)navEl.style.zIndex="101"; // angkat nav di atas overlay
+    // Backdrop gelap (spotlight) — elemen ter-highlight diangkat di atasnya via z-index.
     const ov=document.createElement("div");ov.className="tour-ov";ov.id="tourOv";
-    ov.innerHTML='<div class="tour-card">'+
+    document.body.appendChild(ov);
+    // Kartu tooltip terpisah, selalu di atas backdrop & elemen ter-highlight.
+    const card=document.createElement("div");card.className="tour-card";card.id="tourCard";
+    card.innerHTML=
       '<div class="tour-ic" id="tIc"></div>'+
       '<div class="tour-step" id="tStep"></div>'+
       '<h3 id="tTitle"></h3><p id="tBody"></p>'+
       '<div class="tour-dots" id="tDots"></div>'+
       '<div class="tour-btns"><button class="tour-skip" id="tSkip" onclick="__tourClose()"></button>'+
-      '<button class="tour-next" id="tNext" onclick="__tourNext()"></button></div></div>';
-    document.body.appendChild(ov);
+      '<button class="tour-next" id="tNext" onclick="__tourNext()"></button></div>';
+    document.body.appendChild(card);
     render();
   }
 
   window.__tourNext = next;
   window.__tourClose = close;
-  window.startTour = open; // putar ulang manual
+  // Putar ulang manual: tur halaman saat ini; kalau halaman tak punya tur, fallback "home".
+  window.startTour = function(){ open(currentTourKey() || "home"); };
 
-  // Auto-show sekali per USER per device (device baru / user baru -> tampil lagi)
+  // Auto-show sekali per USER per device, HANYA di halaman yang cocok.
   async function maybeAuto(){
-    const page=(location.pathname.split("/").pop()||"dashboard.html").toLowerCase();
-    if(page!=="dashboard.html" && page!=="" ) return;
+    const key = currentTourKey();
+    if(!key) return;                      // halaman tak punya tur -> diam
+    const tour = TOURS[key];
     try{ if(window.Auth&&Auth.getUser){ const u=await Auth.getUser(); if(u&&u.id) uid=u.id; } }catch(e){}
-    let done=false; try{ done=localStorage.getItem(keyFor())==="1"; }catch(e){}
+    let done=false; try{ done=localStorage.getItem(keyFor(tour.flag))==="1"; }catch(e){}
     if(done) return;
-    setTimeout(open, 700); // kasih waktu nav & data ke-load
+    setTimeout(()=>open(key), 700);       // kasih waktu nav & data ke-load
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",maybeAuto); else maybeAuto();
 })();

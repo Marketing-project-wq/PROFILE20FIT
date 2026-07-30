@@ -8,6 +8,7 @@
 <style>
   :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000000;--pagetx:#EDE8DF}
   *{box-sizing:border-box}
+  a{text-decoration:none}
   body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 70px}
   .wrap{max-width:560px;margin:0 auto}
   @media(min-width:900px){ .wrap{max-width:720px} }
@@ -23,12 +24,15 @@
   input,select{width:100%;padding:13px 14px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:15px}
   input:focus,select:focus{outline:none;border-color:var(--red)}
   input:disabled{opacity:.6}
+  textarea{width:100%;padding:13px 14px;background:var(--inp);border:1px solid var(--line);border-radius:10px;color:var(--txt);font-size:15px;font-family:inherit;min-height:80px;resize:vertical}
+  textarea:focus{outline:none;border-color:var(--red)}
   .row{display:flex;gap:12px}.row>div{flex:1}
   .gender{display:flex;gap:10px}
   .gender button{flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--inp);color:var(--muted);font-weight:700;cursor:pointer}
   .gender button.active{border-color:var(--red);background:rgba(196,17,1,.10);color:var(--red)}
   .btn{width:100%;margin-top:18px;padding:14px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer}
   .btn.out{background:transparent;border:1px solid var(--red);color:var(--red);margin-top:10px}
+  .btn.sm{width:auto;margin:0;padding:8px 12px;font-size:13px;border-radius:9px}
   .muted{color:var(--muted);font-size:13px}
   .msg{margin-top:12px;font-size:13px;text-align:center;min-height:18px}
   .ok{color:#2A7A4F}.err{color:var(--red)}
@@ -46,6 +50,17 @@
   .badge.pending{background:rgba(200,112,0,.15);color:#C87000}
   .badge.paid{background:rgba(42,122,79,.15);color:#2A7A4F}
   .badge.cancelled,.badge.expired{background:var(--inp);color:var(--muted)}
+  .badge.approved{background:rgba(42,122,79,.15);color:#2A7A4F}
+  .badge.rejected{background:rgba(196,17,1,.12);color:#C41101}
+  /* Kontribusi menu */
+  .msub{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+  .msub:first-child{border-top:0}
+  .msub .mth{width:48px;height:48px;border-radius:11px;background:var(--inp);flex:0 0 auto;display:grid;place-items:center;font-size:20px;overflow:hidden}
+  .msub .mth img{width:100%;height:100%;object-fit:cover}
+  .msub .mi{flex:1;min-width:0}
+  .msub .mn{font-weight:800;font-size:15px}
+  .msub .mrr{font-size:12.5px;color:var(--red);margin-top:5px}
+  .msub-empty{color:var(--muted);font-size:14px}
   .ord-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
   .ord-acts button{border:0;border-radius:9px;font-weight:800;font-size:12px;padding:8px 12px;cursor:pointer;font-family:inherit}
   .oa-pay{background:var(--red);color:#fff}
@@ -79,7 +94,6 @@
 
   /* ===== Struk / bon detail pembayaran ===== */
   .pm-rcpt{max-width:430px;background:transparent;box-shadow:none;padding:6px 14px calc(env(safe-area-inset-bottom) + 22px)}
-  .rc-x{position:absolute;top:16px;right:16px;z-index:3;width:34px;height:34px;border:0;border-radius:10px;background:var(--inp);color:var(--txt);font-size:15px;line-height:1;cursor:pointer}
   .rcpt{position:relative;background:var(--card);color:var(--txt);border-radius:16px;padding:26px 24px 24px;
         box-shadow:0 10px 40px rgba(16,18,22,.16);
         -webkit-mask:radial-gradient(7px at 12px 0,#0000 98%,#000) 0 0/24px 51% repeat-x,
@@ -153,6 +167,18 @@
       <div class="msg" id="msg"></div>
     </div>
 
+    <!-- Corporate Health Program (opt-in, dengan persetujuan) -->
+    <div class="card" id="corpCard">
+      <div class="card-hd"><h2>🏢 <span data-i18n="corp_title">Corporate Program</span></h2></div>
+      <div id="corpBody"><div class="muted">…</div></div>
+    </div>
+
+    <!-- Kontribusi Menu (submission user + revisi menu yang ditolak) -->
+    <div class="sec" data-i18n="prof_menu_sec">My Menu Contributions</div>
+    <div class="card" id="menuCard">
+      <div id="menuList"><div class="muted">…</div></div>
+    </div>
+
     <!-- Riwayat Pembelian (paket scan) -->
     <div class="sec" id="histSec" data-i18n="prof_hist_sec">Purchase History</div>
     <div class="card" id="histCard">
@@ -160,7 +186,13 @@
       <div id="histList"></div>
     </div>
 
-    <button class="btn" id="photoSsoBtn" onclick="openPhotoSso()" data-i18n="prof_photo">Open 20FIT Photo</button>
+    <!-- Danger zone (hak penghapusan akun) -->
+    <div class="card">
+      <div style="color:var(--red);font-weight:800;font-size:13px" data-i18n="prof_danger">Danger zone</div>
+      <div class="muted" style="margin:6px 0 0" data-i18n="prof_del_hint">Permanently delete your account and all your data. This cannot be undone.</div>
+      <button class="btn" style="margin-top:12px;background:#8a1710" onclick="openDelete()" data-i18n="prof_del_btn">Delete my account</button>
+    </div>
+
     <button class="btn out" onclick="Auth.signOut()" data-i18n="prof_logout">Log Out</button>
   </div>
 
@@ -198,12 +230,83 @@
     </div>
   </div>
 
+  <!-- Modal Corporate Program: STEP 1 kode -> STEP 2 persetujuan -->
+  <div class="pm-bg" id="corpBg">
+    <div class="pm">
+      <div class="grab"></div>
+      <div id="corpStep1">
+        <h2 id="corpS1Title" data-i18n="corp_join_t">Join Corporate Program</h2>
+        <p class="muted" id="corpS1Sub" data-i18n="corp_join_d">Enter the unique code from your company/HR to join the employee wellness program.</p>
+        <label id="corpCodeLbl" data-i18n="corp_code">Company code</label>
+        <input id="corpCode" type="text" placeholder="e.g. ACME-7K2P" data-i18n-ph="corp_code_ph" autocomplete="off" spellcheck="false" style="text-transform:uppercase" />
+        <button class="btn" id="corpNextBtn" onclick="corpValidateCode()" data-i18n="corp_continue">Continue</button>
+        <button class="btn out" onclick="closeCorp()" data-i18n="corp_cancel">Cancel</button>
+        <div class="msg" id="corpMsg1"></div>
+      </div>
+      <div id="corpStep2" style="display:none">
+        <h2 id="corpS2Title" data-i18n="corp_consent_t">Consent</h2>
+        <div class="muted" style="margin-bottom:10px"><span id="corpJoinLbl" data-i18n="corp_join_to">You are about to join:</span> <b id="corpName" style="color:var(--txt)"></b></div>
+        <div style="background:var(--inp);border-radius:12px;padding:14px;font-size:13.5px;line-height:1.55;color:var(--txt)">
+          <div style="font-weight:800;margin-bottom:8px" id="corpSeeTitle" data-i18n="corp_visible">What the company (HR admin) will be able to see:</div>
+          <ul style="margin:0 0 10px;padding-left:18px" id="corpSeeList">
+            <li data-i18n="corp_v_bmi">BMI status</li>
+            <li data-i18n="corp_v_mcu">Medical Check-Up (MCU) results</li>
+            <li data-i18n="corp_v_demo">Gender &amp; age</li>
+            <li data-i18n="corp_v_freq">20FIT product usage frequency</li>
+          </ul>
+          <div id="corpConsentText" style="color:var(--muted)"></div>
+        </div>
+        <button class="btn" id="corpAgreeBtn" onclick="corpConfirmJoin()" data-i18n="corp_agree">Agree &amp; Join</button>
+        <button class="btn out" onclick="closeCorp()" data-i18n="corp_cancel">Cancel</button>
+        <div class="msg" id="corpMsg2"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Pop-up detail pembayaran (bentuk struk/bon) -->
   <div class="pm-bg" id="odBg">
     <div class="pm pm-rcpt">
       <div class="grab"></div>
-      <button class="rc-x" onclick="closeOrderDetail()" aria-label="Close">✕</button>
+      <button class="x-close x-abs" onclick="closeOrderDetail()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       <div id="odBody"></div>
+    </div>
+  </div>
+
+  <!-- Modal hapus akun (konfirmasi ketik) -->
+  <div class="pm-bg" id="delBg">
+    <div class="pm">
+      <div class="grab"></div>
+      <h2 style="margin:0 0 6px;color:var(--red)" data-i18n="prof_del_title">Delete account</h2>
+      <div class="muted" data-i18n="prof_del_warn">This permanently deletes your profile, health data (MCU), daily logs, menu contributions, and purchase history. It cannot be undone.</div>
+      <label data-i18n="prof_del_type">Type DELETE to confirm</label>
+      <input id="delConfirm" type="text" autocomplete="off" spellcheck="false" placeholder="DELETE" />
+      <button class="btn" id="delBtn" style="background:#8a1710" onclick="confirmDelete()" data-i18n="prof_del_confirm">Delete permanently</button>
+      <button class="btn out" onclick="closeDelete()" data-i18n="prof_cancel">Cancel</button>
+      <div class="msg" id="delMsg"></div>
+    </div>
+  </div>
+
+  <!-- Modal revisi menu yang ditolak -->
+  <div class="pm-bg" id="mrevBg">
+    <div class="pm">
+      <div class="grab"></div>
+      <h2 data-i18n="diet_rev_h">Revise menu</h2>
+      <label data-i18n="diet_l_name">Menu name</label><input id="mrName" type="text" maxlength="120" />
+      <label data-i18n="diet_l_type">Diet type</label>
+      <select id="mrType">
+        <option value="normal">Normal</option><option value="vegetarian">Vegetarian</option><option value="vegan">Vegan</option>
+        <option value="pescatarian">Pescatarian</option><option value="keto">Keto</option><option value="halal">Halal</option>
+        <option value="high-protein">High-protein</option><option value="low-carb">Low-carb</option>
+      </select>
+      <label data-i18n="diet_l_ing">Ingredients</label><textarea id="mrIng"></textarea>
+      <label data-i18n="diet_l_steps">How to make</label><textarea id="mrSteps"></textarea>
+      <div class="row">
+        <div><label><span data-i18n="diet_l_kcal">Estimated calories</span> <span style="text-transform:none;font-weight:400" data-i18n="diet_optional">(optional)</span></label><input id="mrKcal" type="number" inputmode="numeric" /></div>
+        <div><label><span data-i18n="diet_l_photo">Photo</span> <span style="text-transform:none;font-weight:400" data-i18n="diet_optional">(optional)</span></label><input id="mrPhoto" type="file" accept="image/*" /></div>
+      </div>
+      <button class="btn" id="mrBtn" onclick="submitMenuRevise()" data-i18n="diet_btn_rev">Submit revision</button>
+      <button class="btn out" onclick="closeMenuRev()" data-i18n="diet_cancel">Cancel</button>
+      <div class="msg" id="mrMsg"></div>
     </div>
   </div>
 
@@ -226,8 +329,83 @@
       else loadAvatar();
       document.getElementById("pname").textContent=nm;
       document.getElementById("pemail").textContent=p.email||"";
-      fillForm(p); renderSummary(p); renderHistory(); refreshQuota();
+      fillForm(p); renderSummary(p); renderHistory(); refreshQuota(); loadCorpMembership(); loadMenus();
     })();
+
+    // ---- Corporate Health Program (opt-in) ----
+    var CORP_JOIN = { code:"", name:"", version:"" };
+    async function corpFetch(path, opts){
+      opts = opts||{}; opts.headers = opts.headers||{}; opts.headers["Content-Type"]="application/json";
+      var tk = await Auth.token(); if(tk) opts.headers["Authorization"]="Bearer "+tk;
+      return fetch(path, opts);
+    }
+    async function loadCorpMembership(){
+      var box=document.getElementById("corpBody");
+      try{
+        var r=await corpFetch("/api/corp/membership"); var j=await r.json().catch(function(){return{};});
+        if(!r.ok){ box.innerHTML='<div class="muted">'+L({en:"Couldn't load.",id:"Gagal memuat."})+'</div>'; return; }
+        renderCorpCard(j.member);
+      }catch(e){ box.innerHTML='<div class="muted">'+L({en:"Couldn't load.",id:"Gagal memuat."})+'</div>'; }
+    }
+    function renderCorpCard(m){
+      var box=document.getElementById("corpBody");
+      if(!m){
+        box.innerHTML=
+          '<div class="muted" style="margin-bottom:12px">'+L({en:"Join your company's health program with a unique code from HR. Your health data stays private until you explicitly consent.",id:"Ikut program kesehatan dari perusahaanmu pakai kode unik dari HR. Data kesehatanmu tetap privat sampai kamu menyetujui secara eksplisit."})+'</div>'+
+          '<button class="btn" style="margin-top:0" onclick="openCorpJoin()">'+L({en:"Join Corporate Program",id:"Gabung Corporate Program"})+'</button>';
+        return;
+      }
+      var since = m.linked_at ? fmtDate(m.linked_at) : "";
+      box.innerHTML=
+        '<div class="kv"><span class="k">'+L({en:"Company",id:"Perusahaan"})+'</span><span class="v">'+escapeHtml(m.corporate_name||"—")+'</span></div>'+
+        '<div class="kv"><span class="k">'+L({en:"Joined",id:"Bergabung"})+'</span><span class="v">'+escapeHtml(since)+'</span></div>'+
+        '<div class="muted" style="margin:12px 0">'+L({en:"Your HR admin can see your BMI status, MCU results, gender, age, and 20FIT usage frequency. You can leave anytime.",id:"Admin HR-mu bisa melihat status BMI, hasil MCU, jenis kelamin, umur, dan frekuensi pemakaian 20FIT. Kamu bisa keluar kapan saja."})+'</div>'+
+        '<button class="btn out" style="margin-top:0" onclick="corpLeave()">'+L({en:"Leave program",id:"Keluar dari program"})+'</button>';
+    }
+    function openCorpJoin(){
+      document.getElementById("corpStep1").style.display="";
+      document.getElementById("corpStep2").style.display="none";
+      document.getElementById("corpCode").value="";
+      document.getElementById("corpMsg1").textContent="";
+      document.getElementById("corpMsg2").textContent="";
+      document.getElementById("corpBg").classList.add("open");
+    }
+    function closeCorp(){ document.getElementById("corpBg").classList.remove("open"); }
+    async function corpValidateCode(){
+      var code=(document.getElementById("corpCode").value||"").trim().toUpperCase();
+      var m=document.getElementById("corpMsg1"); m.className="msg err"; m.textContent="";
+      if(!code){ m.textContent=L({en:"Enter the company code.",id:"Isi kode perusahaan."}); return; }
+      var btn=document.getElementById("corpNextBtn"); btn.disabled=true;
+      try{
+        var r=await corpFetch("/api/corp/validate-code",{method:"POST",body:JSON.stringify({code:code})});
+        var j=await r.json().catch(function(){return{};});
+        btn.disabled=false;
+        if(!r.ok){ m.textContent=j.error||L({en:"Invalid code.",id:"Kode tidak valid."}); return; }
+        CORP_JOIN={ code:code, name:j.corporate_name, version:j.consent_version };
+        document.getElementById("corpName").textContent=j.corporate_name;
+        var ct=j.consent_text||{}; document.getElementById("corpConsentText").textContent=(I18N&&I18N.lang==="id")?(ct.id||""):(ct.en||ct.id||"");
+        document.getElementById("corpStep1").style.display="none";
+        document.getElementById("corpStep2").style.display="";
+      }catch(e){ btn.disabled=false; m.textContent=L({en:"Network error.",id:"Gagal jaringan."}); }
+    }
+    async function corpConfirmJoin(){
+      var m=document.getElementById("corpMsg2"); m.className="msg err"; m.textContent="";
+      var btn=document.getElementById("corpAgreeBtn"); btn.disabled=true;
+      try{
+        var r=await corpFetch("/api/corp/join",{method:"POST",body:JSON.stringify({code:CORP_JOIN.code, consent_version:CORP_JOIN.version})});
+        var j=await r.json().catch(function(){return{};});
+        btn.disabled=false;
+        if(!r.ok){ m.textContent=j.error||L({en:"Failed to join.",id:"Gagal gabung."}); return; }
+        closeCorp(); loadCorpMembership();
+      }catch(e){ btn.disabled=false; m.textContent=L({en:"Network error.",id:"Gagal jaringan."}); }
+    }
+    async function corpLeave(){
+      if(!confirm(L({en:"Leave the corporate program? Your company will no longer see your data.",id:"Keluar dari corporate program? Perusahaan tidak lagi bisa melihat datamu."}))) return;
+      try{
+        var r=await corpFetch("/api/corp/leave",{method:"POST"});
+        if(r.ok) loadCorpMembership();
+      }catch(e){}
+    }
     function fillForm(p){
       document.getElementById("full_name").value=p.full_name||"";
       document.getElementById("email").value=p.email||"";
@@ -365,16 +543,108 @@
       }catch(e){}
     }
     function buyAgain(){ if(window.Deals) Deals.open({ onCredited: function(){ refreshQuota(); renderHistory(); } }); else location.href="calories"; }
-    // SSO ke photo.20fit.id — server mint OTP satu-kali, browser pindah ke /sso di sana.
-    async function openPhotoSso(){
-      var b=document.getElementById("photoSsoBtn"); if(b){ b.disabled=true; b.textContent=L({en:"Opening 20FIT Photo…",id:"Membuka 20FIT Photo…"}); }
-      try{ await Auth.photoSso(); }
-      catch(e){
-        alert((e&&e.message)||L({en:"Failed to open 20FIT Photo.",id:"Gagal membuka 20FIT Photo."}));
-        if(b){ b.disabled=false; b.textContent=L({en:"Open 20FIT Photo",id:"Buka 20FIT Photo"}); }
-      }
-    }
     try{ if(window.I18N&&I18N.onChange) I18N.onChange(renderHistory); }catch(e){}
+
+    // ---- Kontribusi menu: daftar submission + revisi menu yang ditolak ----
+    var MYMENUS=[], menuRevId=null;
+    function T(k){ return (window.I18N&&I18N.t)?I18N.t(k):k; }
+    async function loadMenus(){
+      var box=document.getElementById("menuList");
+      try{
+        var r=await corpFetch("/api/menu/mine"); var j=await r.json().catch(function(){return{};});
+        if(!r.ok){ box.innerHTML='<div class="msub-empty">'+escapeHtml(j.error||T("diet_err_load"))+'</div>'; return; }
+        MYMENUS=j.submissions||[]; renderMenus();
+      }catch(e){ box.innerHTML='<div class="msub-empty">'+escapeHtml(T("diet_err_load"))+'</div>'; }
+    }
+    function menuStatusLabel(s){ return s==="approved"?T("diet_st_approved"):s==="rejected"?T("diet_st_rejected"):T("diet_st_pending"); }
+    function renderMenus(){
+      var box=document.getElementById("menuList"); if(!box) return;
+      if(!MYMENUS.length){ box.innerHTML='<div class="msub-empty">'+escapeHtml(T("prof_menu_empty"))+'</div>'; return; }
+      var KC=T("diet_kcal");
+      box.innerHTML=MYMENUS.map(function(m){
+        var rr=(m.status==="rejected"&&m.reject_reason)?'<div class="mrr">'+escapeHtml(T("diet_reason"))+' '+escapeHtml(m.reject_reason)+'</div>':'';
+        var rev=(m.status==="rejected")?'<button class="btn out sm" style="margin-top:8px" onclick="openMenuRev(\''+m.id+'\')">'+escapeHtml(T("diet_revise"))+'</button>':'';
+        return '<div class="msub"><div class="mth">🍽️</div><div class="mi">'+
+          '<div class="mn">'+escapeHtml(m.name||"")+'</div>'+
+          '<div class="muted" style="font-size:12px">'+escapeHtml(m.diet_type||"")+(m.est_kcal?(' · ~'+m.est_kcal+' '+escapeHtml(KC)):'')+'</div>'+
+          '<span class="badge '+m.status+'">'+escapeHtml(menuStatusLabel(m.status))+'</span>'+rr+rev+
+        '</div></div>';
+      }).join("");
+    }
+    async function openMenuRev(id){
+      var m=MYMENUS.filter(function(x){return x.id===id;})[0]; if(!m) return;
+      menuRevId=id;
+      document.getElementById("mrName").value=m.name||"";
+      document.getElementById("mrType").value=m.diet_type||"normal";
+      document.getElementById("mrIng").value=""; document.getElementById("mrSteps").value="";
+      document.getElementById("mrKcal").value=m.est_kcal||""; document.getElementById("mrPhoto").value="";
+      document.getElementById("mrMsg").textContent="";
+      // Prefill bahan & cara dari baris milik user sendiri (RLS own-row) bila tersedia.
+      try{
+        if(window.Auth&&Auth.supabase){
+          var res=await Auth.supabase.from("my20fit_menu_contribution").select("ingredients,steps").eq("id",id).limit(1).single();
+          if(res&&res.data){ document.getElementById("mrIng").value=res.data.ingredients||""; document.getElementById("mrSteps").value=res.data.steps||""; }
+        }
+      }catch(e){}
+      document.getElementById("mrevBg").classList.add("open");
+    }
+    function closeMenuRev(){ document.getElementById("mrevBg").classList.remove("open"); }
+    // Resize + validasi foto -> dataURL (maks sisi 1000px).
+    function readMenuPhoto(file, cb){
+      if(!file){ cb(null); return; }
+      if(!String(file.type||"").startsWith("image/")){ cb(null, T("diet_err_img")); return; }
+      if(file.size>8*1024*1024){ cb(null, T("diet_err_big")); return; }
+      var img=new Image(); var url=URL.createObjectURL(file);
+      img.onload=function(){ var mx=1000,w=img.width,h=img.height,s=Math.min(mx/w,mx/h,1);
+        var c=document.createElement("canvas"); c.width=Math.round(w*s); c.height=Math.round(h*s);
+        c.getContext("2d").drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url);
+        try{ cb(c.toDataURL("image/jpeg",0.82)); }catch(e){ cb(null,T("diet_err_photo")); } };
+      img.onerror=function(){ URL.revokeObjectURL(url); cb(null,T("diet_err_photoread")); };
+      img.src=url;
+    }
+    async function submitMenuRevise(){
+      var m=document.getElementById("mrMsg"); m.className="msg err"; m.textContent="";
+      var name=document.getElementById("mrName").value.trim(), ing=document.getElementById("mrIng").value.trim(), steps=document.getElementById("mrSteps").value.trim();
+      if(!name||!ing||!steps){ m.textContent=T("diet_err_required"); return; }
+      var btn=document.getElementById("mrBtn"); btn.disabled=true; m.className="msg"; m.textContent=T("diet_sending");
+      readMenuPhoto(document.getElementById("mrPhoto").files[0], async function(photo, perr){
+        if(perr){ m.className="msg err"; m.textContent=perr; btn.disabled=false; return; }
+        var body={ name:name, diet_type:document.getElementById("mrType").value, ingredients:ing, steps:steps };
+        var kc=document.getElementById("mrKcal").value.trim(); if(kc) body.est_kcal=kc;
+        if(photo) body.photo_url=photo;
+        try{
+          var r=await corpFetch("/api/menu/"+encodeURIComponent(menuRevId)+"/revise",{method:"POST",body:JSON.stringify(body)});
+          var j=await r.json().catch(function(){return{};});
+          btn.disabled=false;
+          if(!r.ok){ m.className="msg err"; m.textContent=j.error||T("diet_err_send"); return; }
+          closeMenuRev(); loadMenus();
+        }catch(e){ btn.disabled=false; m.className="msg err"; m.textContent=T("diet_err_net"); }
+      });
+    }
+    try{ if(window.I18N&&I18N.onChange) I18N.onChange(renderMenus); }catch(e){}
+    try{ if(window.I18N&&I18N.onChange) I18N.onChange(function(){ if(typeof PROFILE!=='undefined'&&PROFILE) renderSummary(PROFILE); if(typeof refreshQuota==='function') refreshQuota(); }); }catch(e){}
+    (function(){ var bg=document.getElementById("mrevBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeMenuRev(); });
+      document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeMenuRev(); }); })();
+
+    // ---- Hak penghapusan: hapus akun + semua data (irreversible, konfirmasi ketik) ----
+    function openDelete(){ document.getElementById("delConfirm").value=""; document.getElementById("delMsg").textContent=""; document.getElementById("delBtn").disabled=false; document.getElementById("delBg").classList.add("open"); }
+    function closeDelete(){ document.getElementById("delBg").classList.remove("open"); }
+    async function confirmDelete(){
+      var m=document.getElementById("delMsg"); m.className="msg err"; m.textContent="";
+      var v=(document.getElementById("delConfirm").value||"").trim().toUpperCase();
+      if(v!=="DELETE"){ m.textContent=L({en:'Type DELETE to confirm.',id:'Ketik DELETE untuk konfirmasi.'}); return; }
+      var btn=document.getElementById("delBtn"); btn.disabled=true; m.className="msg"; m.textContent=L({en:"Deleting your account…",id:"Menghapus akun kamu…"});
+      try{
+        var tk=await Auth.token();
+        var r=await fetch("/api/account/delete",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},body:JSON.stringify({confirm:"DELETE"})});
+        var j=await r.json().catch(function(){return{};});
+        if(!r.ok){ btn.disabled=false; m.className="msg err"; m.textContent=j.error||L({en:"Failed to delete. Try again.",id:"Gagal menghapus. Coba lagi."}); return; }
+        m.className="msg ok"; m.textContent=L({en:"Account deleted. Signing out…",id:"Akun terhapus. Keluar…"});
+        try{ await Auth.signOut(); }catch(e){}
+        setTimeout(function(){ location.href="login"; }, 1300);
+      }catch(e){ btn.disabled=false; m.className="msg err"; m.textContent=L({en:"Network error.",id:"Gagal jaringan."}); }
+    }
+    (function(){ var bg=document.getElementById("delBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeDelete(); }); })();
 
     // ---- Foto profil (di-resize kecil, disimpan per-akun di device) ----
     function avaKey(){ return "my20fit_avatar_"+((user&&user.id)||"me"); }

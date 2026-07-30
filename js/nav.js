@@ -61,20 +61,23 @@
     .navside .sfoot .em{font-family:${SYS};font-size:11.5px;color:var(--muted,#8A8D94);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
     /* ---------- BOTTOM NAV + FAB (mobile <900px) — flat v4 ---------- */
-    .bnav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:space-around;gap:4px;
-      padding:9px 8px calc(9px + env(safe-area-inset-bottom));
+    .bnav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:space-around;gap:8px;
+      padding:9px 12px calc(9px + env(safe-area-inset-bottom));
       background:color-mix(in srgb,var(--bg,#F1F1F4) 82%,transparent);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);
       border-top:1px solid var(--line,#EBEBEF)}
-    .bnav a{flex:1;max-width:90px;text-align:center;text-decoration:none;color:var(--faint,#B7B9BF);
+    .bnav a{flex:1;max-width:76px;min-height:44px;text-align:center;text-decoration:none;color:var(--faint,#B7B9BF);
       font-family:${SYS};font-size:10.5px;font-weight:650;
-      padding:6px 2px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:3px}
-    .bnav a.on{color:var(--red,#D4283A)}
+      padding:6px 4px;border-radius:999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:.15s}
+    .bnav a.on{color:var(--red,#D4283A);background:color-mix(in srgb,var(--red,#D4283A) 12%,transparent)}
     .bnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
     .bnav a.on svg{stroke:var(--red,#D4283A)}
     .scanfab{position:fixed;right:18px;bottom:96px;z-index:41;background:var(--red,#D4283A);color:#fff;border:0;border-radius:50%;
       width:58px;height:58px;font-size:10px;font-weight:750;font-family:${SYS};cursor:pointer;
       box-shadow:0 10px 22px color-mix(in srgb,var(--red,#D4283A) 40%,transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
     .scanfab svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    /* Mobile: beri ruang bawah cukup supaya bottom-nav + Scan FAB (floating) tidak
+       menutupi konten/kontrol terakhir (mis. tombol +/- Air, kartu latihan). */
+    @media(max-width:899px){ body{ padding-bottom: calc(150px + env(safe-area-inset-bottom)) !important } }
   `;
   const style = document.createElement("style");
   style.textContent = css;

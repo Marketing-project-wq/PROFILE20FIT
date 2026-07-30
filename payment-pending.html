@@ -4,7 +4,7 @@
 <link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Status Pembayaran · 20FIT</title>
+<title>Payment Status · 20FIT</title>
 <style>
   :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--green:#1E9E5A;--pagetx:#EDE8DF}
   *{box-sizing:border-box}
@@ -34,34 +34,35 @@
     <div class="card">
       <div id="stLoading">
         <div class="spin"></div>
-        <h1>Memverifikasi Pembayaran</h1>
-        <div class="sub">Mengecek status pembayaran kamu…</div>
+        <h1 id="txtLoadTitle">Verifying Payment</h1>
+        <div class="sub" id="txtLoadSub">Checking your payment status…</div>
       </div>
       <div id="stSuccess" class="hidden">
         <div class="emoji">✅</div>
-        <h1>Pembayaran Berhasil!</h1>
-        <div class="sub">Terima kasih — pembayaranmu sudah dikonfirmasi.</div>
+        <h1 id="txtOkTitle">Payment Successful!</h1>
+        <div class="sub" id="txtOkSub">Thank you — your payment is confirmed.</div>
         <div class="credits"><div class="big" id="okCredits">+0 Scan Credits</div><div class="tot" id="okTotal"></div></div>
-        <button class="pri" id="okHome">Kembali ke Dashboard</button>
+        <button class="pri" id="okHome">Back to Dashboard</button>
       </div>
       <div id="stPending" class="hidden">
         <div class="emoji">⏳</div>
-        <h1>Menunggu Konfirmasi</h1>
-        <div class="sub">Kalau kamu sudah membayar di Xendit, klik tombol di bawah untuk cek statusnya. Konfirmasi kadang butuh beberapa detik.</div>
-        <button class="pri" id="checkBtn">Cek Status Pembayaran</button>
-        <button class="ghost" id="pendHome">Kembali ke Dashboard</button>
+        <h1 id="txtPendTitle">Awaiting Confirmation</h1>
+        <div class="sub" id="txtPendSub">If you've already paid on Xendit, this updates automatically. You can also check now.</div>
+        <button class="pri" id="checkBtn">Check Payment Status</button>
+        <button class="ghost" id="pendHome">Back to Dashboard</button>
         <div class="msg" id="pendMsg"></div>
       </div>
       <div id="stFailed" class="hidden">
         <div class="emoji">❌</div>
-        <h1>Pembayaran Gagal</h1>
-        <div class="sub">Pembayaran gagal atau kadaluarsa. Kamu bisa coba lagi.</div>
-        <button class="pri" id="retryBtn">Coba Lagi</button>
-        <button class="ghost" id="failHome">Kembali ke Dashboard</button>
+        <h1 id="txtFailTitle">Payment Failed</h1>
+        <div class="sub" id="txtFailSub">Payment failed or expired. You can try again.</div>
+        <button class="pri" id="retryBtn">Try Again</button>
+        <button class="ghost" id="failHome">Back to Dashboard</button>
       </div>
     </div>
   </div>
 
+  <script src="js/i18n.js"></script>
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/orders.js"></script>
@@ -72,6 +73,38 @@
       function goHome(){ location.href = "/dashboard"; }
       function goTopup(){ location.href = "/calories"; }
       var EXT = "";
+
+      // State untuk teks dinamis, supaya bisa dirender ulang saat bahasa diganti.
+      var okState = { credits:null, total:null };
+      var pendMsgObj = null; // {en,id} atau null
+
+      function renderCredits(){
+        if(okState.credits==null) return;
+        $("okCredits").textContent = "+"+okState.credits+" "+L({en:"Scan Credits",id:"Kredit Scan"});
+        $("okTotal").textContent = (okState.total!=null) ? (L({en:"Your credit balance now: ",id:"Total kredit kamu sekarang: "})+okState.total) : "";
+      }
+      function renderPendMsg(){
+        $("pendMsg").textContent = pendMsgObj ? L(pendMsgObj) : "";
+      }
+
+      function applyLang(){
+        document.title = L({en:"Payment Status · 20FIT", id:"Status Pembayaran · 20FIT"});
+        $("txtLoadTitle").textContent = L({en:"Verifying Payment", id:"Memverifikasi Pembayaran"});
+        $("txtLoadSub").textContent  = L({en:"Checking your payment status…", id:"Mengecek status pembayaran kamu…"});
+        $("txtOkTitle").textContent  = L({en:"Payment Successful!", id:"Pembayaran Berhasil!"});
+        $("txtOkSub").textContent    = L({en:"Thank you — your payment is confirmed.", id:"Terima kasih — pembayaranmu sudah dikonfirmasi."});
+        $("okHome").textContent      = L({en:"Back to Dashboard", id:"Kembali ke Dashboard"});
+        $("txtPendTitle").textContent= L({en:"Awaiting Confirmation", id:"Menunggu Konfirmasi"});
+        $("txtPendSub").textContent  = L({en:"If you've already paid on Xendit, this updates automatically. You can also check now.", id:"Kalau kamu sudah membayar di Xendit, klik tombol di bawah untuk cek statusnya. Konfirmasi kadang butuh beberapa detik."});
+        $("checkBtn").textContent    = L({en:"Check Payment Status", id:"Cek Status Pembayaran"});
+        $("pendHome").textContent    = L({en:"Back to Dashboard", id:"Kembali ke Dashboard"});
+        $("txtFailTitle").textContent= L({en:"Payment Failed", id:"Pembayaran Gagal"});
+        $("txtFailSub").textContent  = L({en:"Payment failed or expired. You can try again.", id:"Pembayaran gagal atau kadaluarsa. Kamu bisa coba lagi."});
+        $("retryBtn").textContent    = L({en:"Try Again", id:"Coba Lagi"});
+        $("failHome").textContent    = L({en:"Back to Dashboard", id:"Kembali ke Dashboard"});
+        renderCredits();
+        renderPendMsg();
+      }
 
       function getExternalId(){
         try{
@@ -86,8 +119,8 @@
 
       async function checkStatus(manual){
         var btn = $("checkBtn");
-        if(manual && btn){ btn.disabled=true; btn.textContent="Mengecek…"; }
-        if(!EXT){ show("stPending"); $("pendMsg").textContent="Tidak ada order untuk dicek. Buka lagi dari halaman top-up."; if(btn){ btn.disabled=false; btn.textContent="Cek Status Pembayaran"; } return; }
+        if(manual && btn){ btn.disabled=true; btn.textContent=L({en:"Checking…",id:"Mengecek…"}); }
+        if(!EXT){ show("stPending"); pendMsgObj={en:"No order to check. Reopen from the top-up page.",id:"Tidak ada order untuk dicek. Buka lagi dari halaman top-up."}; renderPendMsg(); if(btn){ btn.disabled=false; btn.textContent=L({en:"Check Payment Status",id:"Cek Status Pembayaran"}); } return; }
         var token=""; try{ token = await Auth.token(); }catch(e){}
         var j = {};
         try{
@@ -95,16 +128,18 @@
           if(r.status===401){ location.href="/login"; return; }
           j = await r.json().catch(function(){ return {}; });
         }catch(e){ j = { status:"PENDING" }; }
-        if(btn){ btn.disabled=false; btn.textContent="Cek Status Pembayaran"; }
+        if(btn){ btn.disabled=false; btn.textContent=L({en:"Check Payment Status",id:"Cek Status Pembayaran"}); }
 
         if(j.status==="PAID"){
-          $("okCredits").textContent = "+"+(j.credits_added||0)+" Scan Credits";
-          $("okTotal").textContent = (j.total_credits!=null) ? ("Total kredit kamu sekarang: "+j.total_credits) : "";
+          okState.credits = j.credits_added||0;
+          okState.total = (j.total_credits!=null) ? j.total_credits : null;
+          renderCredits();
           show("stSuccess"); return;
         }
         if(j.status==="FAILED"){ show("stFailed"); return; }
         show("stPending");
-        $("pendMsg").textContent = manual ? "Belum terkonfirmasi. Tunggu sebentar lalu coba lagi." : "";
+        pendMsgObj = manual ? {en:"Not confirmed yet. Wait a moment and try again.",id:"Belum terkonfirmasi. Tunggu sebentar lalu coba lagi."} : null;
+        renderPendMsg();
       }
 
       $("okHome").addEventListener("click", goHome);
@@ -112,6 +147,9 @@
       $("failHome").addEventListener("click", goHome);
       $("retryBtn").addEventListener("click", goTopup);
       $("checkBtn").addEventListener("click", function(){ checkStatus(true); });
+
+      applyLang();
+      if(window.I18N && I18N.onChange) I18N.onChange(applyLang);
 
       (async function init(){
         try{ await Auth.ready; }catch(e){}

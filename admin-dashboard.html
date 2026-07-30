@@ -65,6 +65,8 @@
   .stat .sub{font-size:12px;color:var(--muted);margin-top:2px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   .chartwrap{width:100%;overflow-x:auto}
+  /* Semua tabel admin bisa di-scroll horizontal di HP (tidak melebihi layar). */
+  @media(max-width:720px){ .main table{ display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; white-space:nowrap } }
   .bar{height:8px;background:var(--inp);border-radius:5px;overflow:hidden}
   .bar>i{display:block;height:100%;background:var(--red)}
   .alert{background:rgba(200,112,0,.12);color:var(--orange);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:16px}
@@ -115,6 +117,8 @@
       <button class="navbtn" data-tab="transactions">💳 Transaksi</button>
       <button class="navbtn" data-tab="users">👥 Pengguna</button>
       <button class="navbtn" data-tab="analytics">📈 Analitik</button>
+      <button class="navbtn" data-tab="corporate" id="navCorporate">🏢 Corporate</button>
+      <button class="navbtn" data-tab="menureview" id="navMenu">🍽️ Menu</button>
       <button class="navbtn" data-tab="settings" id="navSettings">⚙️ Settings</button>
       <div class="spacer"></div>
       <div class="who">
@@ -240,6 +244,42 @@
           <div id="alBody"><div class="placeholder">Memuat…</div></div>
         </div>
       </div>
+      <div id="tab-corporate" class="hidden">
+        <h2>Corporate Health Program</h2><div class="crumb">Kelola akun perusahaan & kode unik (superadmin only) · FASE 1</div>
+        <div class="card" style="border-left:3px solid var(--orange)">
+          <div style="font-size:13px;color:var(--muted)">🔒 Data kesehatan karyawan bersifat sensitif. Admin corporate hanya bisa melihat karyawan yang menautkan kode perusahaannya (setelah karyawan menyetujui) — perusahaan lain tidak terlihat. Setiap akses data karyawan dicatat di audit log.</div>
+        </div>
+        <div class="card">
+          <h3>Buat perusahaan baru</h3>
+          <div class="row" style="margin-bottom:12px">
+            <div><label>Nama perusahaan</label><input id="cName" placeholder="PT Contoh Sehat" /></div>
+            <div><label>Kode unik <span style="text-transform:none;font-weight:400">(kosongkan = auto)</span></label><input id="cCode" placeholder="AUTO" /></div>
+          </div>
+          <div class="row" style="margin-bottom:12px">
+            <div><label>Email kontak <span style="text-transform:none;font-weight:400">(opsional)</span></label><input id="cContact" type="email" placeholder="hr@contoh.com" /></div>
+            <div><label>Email admin corporate <span style="text-transform:none;font-weight:400">(opsional)</span></label><input id="cAdmin" type="email" placeholder="admin.hr@contoh.com" /></div>
+            <div><label>Password admin <span style="text-transform:none;font-weight:400">(opsional, min 8)</span></label><input id="cAdminPw" type="password" autocomplete="new-password" placeholder="kosongkan = admin set sendiri" /></div>
+            <div style="flex:0 0 auto"><button class="btn sm" id="btnCreateCorp" style="margin-top:0" onclick="createCorporate()">+ Buat corporate</button></div>
+          </div>
+          <div class="msg err" id="corpMsg" style="text-align:left"></div>
+        </div>
+        <div class="card">
+          <h3>Daftar perusahaan</h3>
+          <table><thead><tr><th>Nama</th><th>Kode</th><th>Admin</th><th>Anggota</th><th>Status</th><th></th></tr></thead><tbody id="corpRows"><tr><td colspan="6"><div class="placeholder">Memuat…</div></td></tr></tbody></table>
+        </div>
+      </div>
+      <div id="tab-menureview" class="hidden">
+        <h2>Menu Review</h2><div class="crumb">Review kontribusi menu user · approve/tolak · reward otomatis (10 approved = +5 free scan)</div>
+        <div class="card">
+          <div class="rangebar" style="margin-bottom:12px">
+            <select id="mrStatus" onchange="loadMenuReview()" style="max-width:180px"><option value="pending">Menunggu</option><option value="approved">Disetujui</option><option value="rejected">Ditolak</option><option value="">Semua</option></select>
+            <input id="mrSearch" placeholder="cari nama menu…" oninput="mrDebounce()" style="max-width:220px" />
+            <span class="grow"></span>
+            <button class="btn sm ghost" onclick="loadMenuReview()" style="margin-top:0">↻ Refresh</button>
+          </div>
+          <div id="mrList"><div class="placeholder">Memuat…</div></div>
+        </div>
+      </div>
     </main>
   </div>
 
@@ -301,8 +341,10 @@
       $("loginView").classList.add("hidden"); $("appView").classList.remove("hidden");
       $("whoEmail").textContent = me.email || (me.via==="key"?"(master key)":"admin");
       var rc=$("whoRole"); rc.textContent = me.role;
-      // Settings (kelola role) hanya untuk superadmin.
+      // Settings (kelola role) & Corporate hanya untuk superadmin.
       $("navSettings").style.display = (me.role==="superadmin") ? "" : "none";
+      $("navCorporate").style.display = (me.role==="superadmin") ? "" : "none";
+      $("navMenu").style.display = (me.role==="superadmin") ? "" : "none";
       if(me.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
       var vn=$("vNew"); if(vn) vn.style.display = canEdit() ? "" : "none";
       renderOverview();
@@ -354,15 +396,172 @@
       b.addEventListener("click", function(){
         var tab=b.dataset.tab;
         document.querySelectorAll(".navbtn[data-tab]").forEach(function(x){ x.classList.toggle("on", x===b); });
-        ["overview","vouchers","transactions","users","analytics","settings"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
+        ["overview","vouchers","transactions","users","analytics","settings","corporate","menureview"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
         if(tab==="overview") renderOverview();
         if(tab==="vouchers") loadVouchers();
         if(tab==="transactions") loadTransactions();
         if(tab==="users") loadUsers();
         if(tab==="analytics") loadAnalytics();
         if(tab==="settings" && ME && ME.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
+        if(tab==="corporate" && ME && ME.role==="superadmin"){ loadCorporates(); }
+        if(tab==="menureview" && ME && ME.role==="superadmin"){ loadMenuReview(); }
       });
     });
+
+    // ---- Corporate (superadmin) ----
+    function copyCode(code){ try{ navigator.clipboard.writeText(code); }catch(e){} }
+    async function loadCorporates(){
+      var box=$("corpRows"); box.innerHTML='<tr><td colspan="6"><div class="placeholder">Memuat…</div></td></tr>';
+      var r=await adminFetch("/api/admin/corporate"); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ box.innerHTML='<tr><td colspan="6" class="err">'+esc(j.error||"Gagal memuat")+'</td></tr>'; return; }
+      var list=j.corporates||[];
+      if(!list.length){ box.innerHTML='<tr><td colspan="6"><div class="placeholder">Belum ada perusahaan. Buat di atas.</div></td></tr>'; return; }
+      box.innerHTML=list.map(function(c){
+        var admins=(c.admins||[]).filter(Boolean).map(esc).join(", ")||"—";
+        var st=c.status==="active"?'<span class="tagrole staff">active</span>':'<span class="tagrole viewer">suspended</span>';
+        return '<tr>'+
+          '<td>'+esc(c.name)+'</td>'+
+          '<td><code>'+esc(c.code)+'</code> <button class="btn sm ghost" style="margin:0;padding:3px 7px" onclick="copyCode(\''+esc(c.code)+'\')">salin</button></td>'+
+          '<td>'+admins+'</td>'+
+          '<td>'+(c.member_count||0)+'</td>'+
+          '<td>'+st+'</td>'+
+          '<td style="white-space:nowrap"><button class="btn sm ghost" style="margin:0" onclick="openCorpDash(\''+c.id+'\')">Dashboard</button> <button class="btn sm ghost" style="margin:0" onclick="openCorp(\''+c.id+'\')">Kelola</button></td>'+
+        '</tr>';
+      }).join("");
+    }
+    async function createCorporate(){
+      var name=$("cName").value.trim(), code=$("cCode").value.trim(), contact=$("cContact").value.trim(), aemail=$("cAdmin").value.trim();
+      var apw=$("cAdminPw")?$("cAdminPw").value:"";
+      var msg=$("corpMsg"); msg.className="msg err"; msg.textContent="";
+      if(!name){ msg.textContent="Nama perusahaan wajib."; return; }
+      if(apw && apw.length<8){ msg.textContent="Password admin minimal 8 karakter."; return; }
+      if(apw && !aemail){ msg.textContent="Isi email admin dulu kalau mau set password."; return; }
+      var body={ name:name };
+      if(code) body.code=code;
+      if(contact) body.contact_email=contact;
+      if(aemail) body.admin_email=aemail;
+      if(apw) body.admin_password=apw;
+      var btn=$("btnCreateCorp"); btn.disabled=true;
+      var r=await adminFetch("/api/admin/corporate",{method:"POST",body:JSON.stringify(body)});
+      var j=await r.json().catch(function(){return{};});
+      btn.disabled=false;
+      if(!r.ok){ msg.textContent=j.error||"Gagal membuat."; return; }
+      msg.className="msg ok";
+      var note="Perusahaan dibuat. Kode: "+(j.corporate&&j.corporate.code);
+      if(j.admin){ if(j.admin.ok){ note+=" · Admin "+j.admin.email+(j.admin.password_set?" (password di-set — sampaikan lewat jalur aman & minta ganti setelah login)":(j.admin.account_created?" (akun dibuat — admin set password via 'Lupa password')":" ditautkan")); } else { note+=" · ⚠️ Admin gagal: "+j.admin.error; } }
+      msg.textContent=note;
+      $("cName").value="";$("cCode").value="";$("cContact").value="";$("cAdmin").value="";if($("cAdminPw"))$("cAdminPw").value="";
+      loadCorporates();
+    }
+    async function openCorp(id){
+      openModal('<div class="placeholder">Memuat…</div>');
+      var r=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id)); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ $("modalBox").innerHTML='<div class="err">'+esc(j.error||"Gagal")+'</div>'; return; }
+      var c=j.corporate, admins=j.admins||[];
+      var adminHtml=admins.length?admins.map(function(a){
+        var e=esc(a.email||a.auth_user_id);
+        return '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px">'+
+          '<div class="row" style="align-items:center"><div style="font-weight:700">'+e+'</div>'+
+          '<div style="flex:0 0 auto"><button class="btn sm ghost" style="margin:0" onclick="removeCorpAdmin(\''+c.id+'\',\''+a.auth_user_id+'\')">hapus</button></div></div>'+
+          '<div class="row" style="margin-top:8px"><div><input type="password" placeholder="set / reset password (min 8)" id="pw_'+a.auth_user_id+'" autocomplete="new-password"/></div>'+
+          '<div style="flex:0 0 auto"><button class="btn sm" style="margin:0" onclick="setCorpAdminPw(\''+c.id+'\',\''+encodeURIComponent(a.email||"")+'\',\''+a.auth_user_id+'\')">Set password</button></div></div>'+
+          '</div>';
+      }).join(""):'<div class="muted" style="color:var(--muted);font-size:13px">Belum ada admin.</div>';
+      $("modalBox").innerHTML=
+        '<h3 style="margin-top:0">Kelola: '+esc(c.name)+'</h3>'+
+        '<button class="btn sm ghost" style="margin:0 0 12px" onclick="openCorpDash(\''+c.id+'\')">🔗 Buka dashboard corporate ini</button>'+
+        '<label>Nama</label><input id="edName" value="'+esc(c.name)+'"/>'+
+        '<label>Kode unik</label><input id="edCode" value="'+esc(c.code)+'"/>'+
+        '<label>Status</label><select id="edStatus"><option value="active"'+(c.status==="active"?" selected":"")+'>active</option><option value="suspended"'+(c.status==="suspended"?" selected":"")+'>suspended</option></select>'+
+        '<div class="msg err" id="edMsg" style="text-align:left"></div>'+
+        '<button class="btn sm" onclick="saveCorp(\''+c.id+'\')">Simpan perubahan</button>'+
+        '<hr style="margin:16px 0;border:none;border-top:1px solid var(--line)"/>'+
+        '<h3>Admin corporate</h3>'+adminHtml+
+        '<div class="row" style="margin-top:10px"><div><input id="edAdminEmail" type="email" placeholder="email admin baru"/></div>'+
+        '<div><input id="edAdminPw" type="password" placeholder="password (opsional, min 8)" autocomplete="new-password"/></div>'+
+        '<div style="flex:0 0 auto"><button class="btn sm" style="margin:0" onclick="addCorpAdminUI(\''+c.id+'\')">+ Admin</button></div></div>'+
+        '<div class="crumb" style="margin-top:14px">Anggota aktif: '+(j.member_count||0)+'</div>';
+    }
+    async function saveCorp(id){
+      var m=$("edMsg"); m.className="msg err"; m.textContent="";
+      var body={ name:$("edName").value.trim(), code:$("edCode").value.trim(), status:$("edStatus").value };
+      var r=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(body)});
+      var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ m.textContent=j.error||"Gagal simpan."; return; }
+      m.className="msg ok"; m.textContent="Tersimpan."; loadCorporates();
+    }
+    async function addCorpAdminUI(id){
+      var m=$("edMsg"); m.className="msg err"; m.textContent="";
+      var email=$("edAdminEmail").value.trim(); if(!email){ m.textContent="Isi email admin."; return; }
+      var pw=$("edAdminPw")?$("edAdminPw").value:"";
+      if(pw && pw.length<8){ m.textContent="Password minimal 8 karakter."; return; }
+      var body={email:email}; if(pw) body.password=pw;
+      var r=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id)+"/admins",{method:"POST",body:JSON.stringify(body)});
+      var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ m.textContent=j.error||"Gagal tambah admin."; return; }
+      openCorp(id); loadCorporates();
+    }
+    async function setCorpAdminPw(id, emailEnc, uid){
+      var m=$("edMsg"); m.className="msg err"; m.textContent="";
+      var email=decodeURIComponent(emailEnc||""); var inp=$("pw_"+uid); var pw=inp?inp.value:"";
+      if(!email){ m.textContent="Email admin tidak diketahui."; return; }
+      if(!pw||pw.length<8){ m.textContent="Password minimal 8 karakter."; return; }
+      var r=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id)+"/admins",{method:"POST",body:JSON.stringify({email:email,password:pw})});
+      var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ m.textContent=j.error||"Gagal set password."; return; }
+      m.className="msg ok"; m.textContent="Password untuk "+email+" di-set. Sampaikan ke admin lewat jalur aman & minta ganti setelah login.";
+      if(inp) inp.value="";
+    }
+    function openCorpDash(id){ window.open("/corp-dashboard?corporate_id="+encodeURIComponent(id), "_blank"); }
+    async function removeCorpAdmin(id, uid){
+      var r=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id)+"/admins/"+encodeURIComponent(uid),{method:"DELETE"});
+      if(r.ok){ openCorp(id); loadCorporates(); }
+    }
+
+    // ---- Menu Review (superadmin) ----
+    var _mrTimer=null;
+    function mrDebounce(){ clearTimeout(_mrTimer); _mrTimer=setTimeout(loadMenuReview, 350); }
+    async function loadMenuReview(){
+      var box=$("mrList"); box.innerHTML='<div class="placeholder">Memuat…</div>';
+      var st=$("mrStatus").value, q=$("mrSearch").value.trim();
+      var r=await adminFetch("/api/admin/menu?status="+encodeURIComponent(st)+"&q="+encodeURIComponent(q));
+      var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ box.innerHTML='<div class="placeholder err">'+esc(j.error||"Gagal")+'</div>'; return; }
+      var list=j.menus||[];
+      if(!list.length){ box.innerHTML='<div class="placeholder">Tidak ada menu.</div>'; return; }
+      box.innerHTML=list.map(function(m){
+        var badge='<span class="tagrole '+(m.status==="approved"?"staff":m.status==="rejected"?"superadmin":"viewer")+'">'+m.status+'</span>';
+        var ph=m.photo_url?('<img src="'+esc(m.photo_url)+'" style="width:70px;height:70px;border-radius:10px;object-fit:cover;flex:0 0 auto" onerror="this.style.display=\'none\'"/>'):'';
+        var acts='';
+        if(m.status==="pending"){ acts='<button class="btn sm" style="margin:0" onclick="approveMenu(\''+m.id+'\')">Approve</button> <button class="btn sm ghost" style="margin:0" onclick="rejectMenu(\''+m.id+'\',false)">Tolak</button>'; }
+        else if(m.status==="approved"){ acts='<button class="btn sm ghost" style="margin:0" onclick="rejectMenu(\''+m.id+'\',true)">Batalkan (clawback)</button>'; }
+        else { acts='<button class="btn sm" style="margin:0" onclick="approveMenu(\''+m.id+'\')">Approve</button>'; }
+        var rr=m.reject_reason?('<div style="color:var(--red);font-size:12px;margin-top:4px">Alasan: '+esc(m.reject_reason)+'</div>'):'';
+        return '<div style="display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--line)">'+ph+
+          '<div style="flex:1;min-width:0"><div style="font-weight:800">'+esc(m.name)+'</div>'+
+          '<div class="crumb" style="margin:2px 0">'+esc(m.diet_type||"")+(m.est_kcal?(' · ~'+m.est_kcal+' kcal'):'')+' · '+esc(m.contributor_name||m.contributor_email||m.auth_user_id)+' · '+esc(String(m.created_at||"").slice(0,10))+'</div>'+
+          badge+
+          '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12px;color:var(--muted)">Lihat bahan &amp; cara</summary><div style="font-size:13px;white-space:pre-wrap;margin-top:6px"><b>Bahan:</b> '+esc(m.ingredients||"")+'\n\n<b>Cara:</b> '+esc(m.steps||"")+'</div></details>'+
+          rr+'<div style="margin-top:8px">'+acts+'</div></div></div>';
+      }).join("");
+    }
+    async function approveMenu(id){
+      var r=await adminFetch("/api/admin/menu/"+encodeURIComponent(id)+"/approve",{method:"POST"});
+      var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ alert(j.error||"Gagal approve."); return; }
+      if(j.credits_granted>0) alert("Approved. User dapat "+j.credits_granted+" free scan (reward tercapai).");
+      loadMenuReview();
+    }
+    async function rejectMenu(id, wasApproved){
+      var msg=wasApproved?"Batalkan approval menu ini? Reward yang terlanjur diberi akan ditarik (clawback). Isi alasan:":"Alasan penolakan:";
+      var reason=prompt(msg,""); if(reason===null) return; reason=reason.trim();
+      if(!reason){ alert("Alasan wajib diisi."); return; }
+      var r=await adminFetch("/api/admin/menu/"+encodeURIComponent(id)+"/reject",{method:"POST",body:JSON.stringify({reason:reason})});
+      var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ alert(j.error||"Gagal."); return; }
+      if(j.credits_clawed>0) alert("Approval dibatalkan. "+j.credits_clawed+" free scan ditarik dari user.");
+      loadMenuReview();
+    }
 
     // ---- Modal pop-up ----
     function openModal(html){ $("modalBox").innerHTML = html; $("modalBack").classList.add("show"); }

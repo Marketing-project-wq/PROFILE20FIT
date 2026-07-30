@@ -10,6 +10,10 @@
   let cfgUrl = null, cfgKey = null;
   let cfgGoogleClientId = ""; // Client ID GIS dari /api/config (publik; kosong = tombol Google disembunyikan)
 
+  // Fallback pesan error bilingual (server j.error tetap diutamakan; teks ini muncul saat
+  // jaringan/parse gagal). Ikuti bahasa tersimpan ("lang"), default EN.
+  function _t(en, id){ try{ return (localStorage.getItem("lang") === "id") ? id : en; }catch(e){ return en; } }
+
   // URL + anon key PUBLIK — ditanam sebagai fallback supaya web SELALU konek
   // walau /api/config kosong / server belum di-update.
   const FALLBACK_URL = "https://cpvzwqptzcxnwzfzgrmt.supabase.co";
@@ -63,7 +67,7 @@
       if (r.status === 404 || (j && j.error === "not_registered")) {
         const err = new Error("Email belum terdaftar."); err.code = "not_registered"; throw err;
       }
-      throw new Error(j.error || "Gagal mengirim kode login.");
+      throw new Error(j.error || _t("Failed to send login code.","Gagal mengirim kode login."));
     }
     return j; // { ok, sent, devCode? }
   }
@@ -86,7 +90,7 @@
       body: JSON.stringify({ email: email, password: password }),
     });
     const j = await r.json();
-    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan akun 20FIT.");
+    if (!r.ok || !j.email_otp) throw new Error(j.error || _t("Failed to sign in with your 20FIT account.","Gagal login dengan akun 20FIT."));
     // Simpan user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
     try {
       if (j.fitco_user_id) localStorage.setItem("fitco_uid", String(j.fitco_user_id));
@@ -108,7 +112,7 @@
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.email_otp) {
-      const e = new Error(j.error || "Gagal daftar.");
+      const e = new Error(j.error || _t("Sign-up failed.","Gagal daftar."));
       if (r.status === 409) e.code = "email_exists";
       throw e;
     }
@@ -133,7 +137,7 @@
       body: JSON.stringify({ credential: credential }),
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan Google.");
+    if (!r.ok || !j.email_otp) throw new Error(j.error || _t("Google sign-in failed.","Gagal login dengan Google."));
     // Simpan user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
     try {
       if (j.fitco_user_id) localStorage.setItem("fitco_uid", String(j.fitco_user_id));
@@ -154,7 +158,7 @@
       body: JSON.stringify({ token: fitcoToken }),
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.email_otp) throw new Error(j.error || "Gagal login dengan token 20FIT.");
+    if (!r.ok || !j.email_otp) throw new Error(j.error || _t("Failed to sign in with the 20FIT token.","Gagal login dengan token 20FIT."));
     const { data, error } = await supabase.auth.verifyOtp({ email: j.email, token: j.email_otp, type: "email" });
     if (error) throw error;
     return data;
@@ -167,10 +171,10 @@
   async function photoSso() {
     await ready;
     const at = await token();
-    if (!at) throw new Error("Sesi habis. Silakan login ulang.");
+    if (!at) throw new Error(_t("Session expired. Please sign in again.","Sesi habis. Silakan login ulang."));
     const r = await fetch("/api/photo-sso", { method: "POST", headers: { Authorization: "Bearer " + at } });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.email_otp || !j.sso_url) throw new Error(j.error || "Gagal membuka 20FIT Photo.");
+    if (!r.ok || !j.email_otp || !j.sso_url) throw new Error(j.error || _t("Failed to open 20FIT Photo.","Gagal membuka 20FIT Photo."));
     location.href = j.sso_url + "#email=" + encodeURIComponent(j.email) + "&code=" + encodeURIComponent(j.email_otp);
   }
 
@@ -184,7 +188,7 @@
       body: JSON.stringify({ email: email, otp: otp }),
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || "Verifikasi gagal.");
+    if (!r.ok) throw new Error(j.error || _t("Verification failed.","Verifikasi gagal."));
     return j;
   }
   async function fitcoResendVerifyEmail(email) {
@@ -194,7 +198,7 @@
       body: JSON.stringify({ email: email }),
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.error || "Gagal mengirim ulang kode.");
+    if (!r.ok) throw new Error(j.error || _t("Failed to resend the code.","Gagal mengirim ulang kode."));
     return j;
   }
 
@@ -203,7 +207,7 @@
   // Set password web (dipakai di onboarding kalau user belum punya password)
   async function setWebPassword(pw) {
     await ready;
-    if (!pw || pw.length < 8) throw new Error("Password minimal 8 karakter.");
+    if (!pw || pw.length < 8) throw new Error(_t("Password must be at least 8 characters.","Password minimal 8 karakter."));
     const { error } = await supabase.auth.updateUser({ password: pw, data: { has_pw: true } });
     if (error) throw error;
     return true;
@@ -319,26 +323,26 @@
   // ---------- OTP (diproses di SERVER) ----------
   async function sendOtp() {
     const t = await token();
-    if (!t) throw new Error("Belum login.");
+    if (!t) throw new Error(_t("Not signed in.","Belum login."));
     const r = await fetch("/api/send-otp", {
       method: "POST",
       headers: { Authorization: "Bearer " + t },
     });
     const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "Gagal mengirim kode.");
+    if (!r.ok) throw new Error(j.error || _t("Failed to send the code.","Gagal mengirim kode."));
     return j; // { ok, sent, devCode? }
   }
 
   async function verifyOtp(code) {
     const t = await token();
-    if (!t) throw new Error("Belum login.");
+    if (!t) throw new Error(_t("Not signed in.","Belum login."));
     const r = await fetch("/api/verify-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
       body: JSON.stringify({ code: code }),
     });
     const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "Kode salah.");
+    if (!r.ok) throw new Error(j.error || _t("Incorrect code.","Kode salah."));
     return j;
   }
 
@@ -406,7 +410,7 @@
     if (r.status === 402 || (j && j.code === "scan_limit")) {
       const err = new Error("Scan quota habis."); err.code = "scan_limit"; throw err;
     }
-    if (!r.ok || !j.ok) throw new Error((j && j.error) || "Gagal memproses scan.");
+    if (!r.ok || !j.ok) throw new Error((j && j.error) || _t("Failed to process the scan.","Gagal memproses scan."));
     return j.quota;
   }
   // Kredit top-up ditambahkan SERVER-AUTHORITATIVE (webhook Xendit untuk pembayaran,
@@ -423,11 +427,13 @@
     if (!weightKg || !heightCm) return null;
     const m = heightCm / 100;
     const bmi = weightKg / (m * m);
+    // label & desc bilingual ({en,id}) — pemakai render lewat L() (mis. medical.html) atau
+    // pilih bahasa manual (onboarding.html yang tak punya i18n). Kategori BMI = istilah standar.
     let label, color, desc;
-    if (bmi < 18.5) { label = "Underweight"; color = "#e11d2a"; desc = "Berat di bawah ideal."; }
-    else if (bmi < 25) { label = "Normal"; color = "#2A7A4F"; desc = "Berat ideal, pertahankan!"; }
-    else if (bmi < 30) { label = "Overweight"; color = "#C87000"; desc = "Sedikit di atas ideal."; }
-    else { label = "Obese"; color = "#e11d2a"; desc = "Jauh di atas ideal."; }
+    if (bmi < 18.5) { label = { en: "Underweight", id: "Kurus" }; color = "#e11d2a"; desc = { en: "Below ideal weight.", id: "Berat di bawah ideal." }; }
+    else if (bmi < 25) { label = { en: "Normal", id: "Normal" }; color = "#2A7A4F"; desc = { en: "Ideal weight — keep it up!", id: "Berat ideal, pertahankan!" }; }
+    else if (bmi < 30) { label = { en: "Overweight", id: "Berlebih" }; color = "#C87000"; desc = { en: "Slightly above ideal.", id: "Sedikit di atas ideal." }; }
+    else { label = { en: "Obese", id: "Obesitas" }; color = "#e11d2a"; desc = { en: "Well above ideal.", id: "Jauh di atas ideal." }; }
     return { bmi: bmi.toFixed(1), label, color, desc };
   }
 
@@ -463,6 +469,28 @@
       .single();
     if (error) throw error;
     return data;
+  }
+
+  // ---------- PREFERENSI HOME (sinkron antar-device, per akun) ----------
+  // Disimpan di my20fit_profile.home_prefs (jsonb) + home_prefs_updated_at (LWW).
+  // Isi: { pins:[...], shortcuts:[...], extra:bool, ... } — layout home yang di-pin user.
+  async function getPrefs() {
+    const p = await getProfile();
+    return {
+      prefs: (p && p.home_prefs) || null,
+      updated_at: (p && p.home_prefs_updated_at) || null,
+    };
+  }
+  // Simpan seluruh objek prefs (last-write-wins pakai timestamp server-side). Balikin timestamp.
+  async function savePrefs(prefs) {
+    const user = await requireAuth();
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("my20fit_profile")
+      .update({ home_prefs: prefs, home_prefs_updated_at: now })
+      .eq("auth_user_id", user.id);
+    if (error) throw error;
+    return now;
   }
 
   // Profil dianggap LENGKAP hanya jika data inti sudah terisi: gender, umur
@@ -525,6 +553,8 @@
     bmiInfo,
     getDailyLog,
     saveDaily,
+    getPrefs,
+    savePrefs,
     routeAfterAuth,
     token,
     go,
