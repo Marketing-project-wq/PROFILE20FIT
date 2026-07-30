@@ -161,7 +161,7 @@
       cycle_disc:"Perkiraan dari inputmu — bukan saran medis atau alat kontrasepsi.",
       med_kick:"Rekam medis",
       med_title:"Rekam Medis", med_sub:"Hasil medical check-up & rekomendasi kamu.",
-      med_upload:"Upload Medical Check-Up", med_uploadsub:"PDF / JPG / PNG dari faskes mana pun — dianalisa otomatis dengan AI",
+      med_upload:"Unggah Medical Check-Up", med_uploadsub:"PDF / JPG / PNG dari faskes mana pun — dianalisa otomatis dengan AI",
       med_history:"Riwayat", med_empty:"Belum ada hasil MCU. Upload hasil check-up kamu di atas.",
       med_analysing:"Mengompres & menganalisa dokumen…",
       med_attention:"Yang Perlu Diperhatikan", med_params:"Detail Parameter", med_normal:"Normal",
