@@ -398,7 +398,7 @@
       try{ renderMenuRec(tp,tc,tf); }catch(e){}
       try{ renderFoodSummary(); }catch(e){}
       const log=document.getElementById("log");
-      log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}${i.t?`<span class="mtime">${i.t}</span>`:""}</span><span class="kc">${i.kcal} ${kc()} <a onclick="del(${idx})" style="color:var(--red);cursor:pointer;margin-left:8px">✕</a></span></div>`).join(""):'<div class="muted">'+I18N.t("cal_empty")+'</div>';
+      log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}${i.t?`<span class="mtime">${i.t}</span>`:""}</span><span class="kc">${i.kcal} ${kc()} <button class="x-close x-ghost x-sm x-danger" onclick="del(${idx})" aria-label="Remove"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span></div>`).join(""):'<div class="muted">'+I18N.t("cal_empty")+'</div>';
     }
     // ---- Rekomendasi menu berdasar SISA makro hari ini (Bagian 3) ----
     function renderMenuRec(tp,tc,tf){

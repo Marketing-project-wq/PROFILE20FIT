@@ -68,7 +68,12 @@
   .modal-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
   .modal-back.show{display:flex}
   .modal{background:var(--card);border-radius:16px;max-width:520px;width:100%;max-height:88vh;overflow:auto;padding:22px;position:relative}
-  .modal .x{position:absolute;right:14px;top:12px;border:0;background:none;font-size:20px;cursor:pointer;color:var(--muted)}
+  /* Tombol-X standar (samakan dgn komponen .x-close app; halaman ini tak load shared CSS). */
+  .x-close{-webkit-appearance:none;appearance:none;box-sizing:border-box;display:inline-grid;place-items:center;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:var(--inp,#F0EDE5);color:var(--txt,#16181d);cursor:pointer;position:relative;line-height:0;transition:background .15s}
+  .x-close>svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+  .x-close::after{content:"";position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+  .x-close:hover{background:var(--line)}
+  .x-close.x-abs{position:absolute;top:12px;right:12px;z-index:5}
   .kv{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
   .kv .k{color:var(--muted)}.kv .v{font-weight:700;text-align:right}
   .paramrow{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px}
@@ -330,7 +335,7 @@
     async function openMember(uid){
       $("modalBox").innerHTML='<div class="placeholder">Memuat…</div>'; $("modalBack").classList.add("show");
       var r=await corpFetch("/api/corp/member/"+encodeURIComponent(uid)); var j=await r.json().catch(function(){return{};});
-      if(!r.ok){ $("modalBox").innerHTML='<button class="x" onclick="closeModal()">✕</button><div class="err">'+esc(j.error||"Gagal")+'</div>'; return; }
+      if(!r.ok){ $("modalBox").innerHTML='<button class="x-close x-abs" onclick="closeModal()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button><div class="err">'+esc(j.error||"Gagal")+'</div>'; return; }
       var m=j.member;
       var params=(m.attention_params||[]).map(function(p){
         var dir=p.direction==="high"?"↑":p.direction==="low"?"↓":"";
@@ -338,7 +343,7 @@
       }).join("")||'<div class="muted" style="color:var(--muted);font-size:13px">Tidak ada parameter bertanda perhatian.</div>';
       var abn=(m.abnormal_findings||[]).map(function(a){ return '<li>'+esc(typeof a==="string"?a:(a&&a.finding)||JSON.stringify(a))+'</li>'; }).join("");
       $("modalBox").innerHTML=
-        '<button class="x" onclick="closeModal()">✕</button>'+
+        '<button class="x-close x-abs" onclick="closeModal()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>'+
         '<h3 style="margin:0 0 12px">'+esc(m.full_name||"—")+' '+(m.high_need?'<span class="hn">⚠ high need</span>':'')+'</h3>'+
         '<div class="kv"><span class="k">Status</span><span class="v">'+healthPill(m.health_status)+'</span></div>'+
         '<div class="kv"><span class="k">Gender · Umur</span><span class="v">'+genderLbl(m.gender)+' · '+(m.age!=null?m.age:"—")+'</span></div>'+

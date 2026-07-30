@@ -133,7 +133,6 @@
   @keyframes mcuUp{from{transform:translateY(16px);opacity:.6}to{transform:translateY(0);opacity:1}}
   .mcu-hd{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:var(--card,#fff);border-bottom:1px solid var(--line);border-radius:20px 20px 0 0}
   .mcu-hd h3{margin:0;font-size:16px;font-weight:800}
-  .mcu-x{border:0;background:var(--inp);color:var(--txt);width:34px;height:34px;border-radius:10px;font-size:17px;cursor:pointer;flex:0 0 auto}
   .mcu-body{padding:16px 20px 22px}
   /* Banner terjemahan AI: disclaimer + tombol lihat asli/terjemahan (atau peringatan fallback) */
   .tbanner{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
@@ -191,7 +190,7 @@
   <!-- Pop-up detail hasil MCU dari history -->
   <div class="mcu-bg" id="mcuModalBg">
     <div class="mcu-modal">
-      <div class="mcu-hd"><h3 id="mcuModalTitle">—</h3><button class="mcu-x" onclick="closeMcuModal()" aria-label="Close" data-i18n-aria="med_close">✕</button></div>
+      <div class="mcu-hd"><h3 id="mcuModalTitle">—</h3><button class="x-close" onclick="closeMcuModal()" aria-label="Close" data-i18n-aria="med_close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
       <div class="mcu-body" id="mcuModalBody"></div>
     </div>
   </div>

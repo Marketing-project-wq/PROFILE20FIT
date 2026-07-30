@@ -151,8 +151,25 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
   background:var(--inp) !important;border:0 !important;
   -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
 }
-.seg button.active,.chip.on{background:var(--card) !important;color:var(--ink) !important;box-shadow:0 2px 6px rgba(0,0,0,.07)}
-[data-theme="dark"] .seg button.active,[data-theme="dark"] .chip.on{background:var(--inp) !important;color:var(--ink) !important}
+.seg button.active,.chip.on,.chip2.on{background:var(--card) !important;color:var(--ink) !important;box-shadow:0 2px 6px rgba(0,0,0,.07)}
+[data-theme="dark"] .seg button.active,[data-theme="dark"] .chip.on,[data-theme="dark"] .chip2.on{background:var(--inp) !important;color:var(--ink) !important}
+
+/* ---- 7b. PILL MENU BUTTONS — bentuk oval memanjang yang KONSISTEN app-wide -----
+   Semua chip/segment/menu-button (dashboard, diet, progress, calories, profile,
+   shared design-system) pakai spesifikasi pil yang sama: ujung membulat penuh
+   (999px), tinggi seragam 40px (lebih lebar dari tinggi = oval memanjang),
+   padding horizontal sama, dan label 1 baris (nowrap) dengan ellipsis kalau
+   kepanjangan — jadi label panjang TIDAK merusak bentuk pil / meluber. */
+.chip,.chip2,.seg button,.fit-seg button,.trk-cust{
+  border-radius:999px !important;
+  min-height:40px !important;
+  padding:0 16px !important;
+  display:inline-flex !important;align-items:center;justify-content:center;gap:6px;
+  white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+  line-height:1.1;
+}
+/* Jarak antar-pill & dari tepi konsisten (baris chip yang wrap / scroll). */
+.chips,.chips2,.filters{gap:8px !important}
 
 /* ---- 8. Shared nav (nav.js) + floating toggles (i18n.js) -> flat --------- */
 .navside{
