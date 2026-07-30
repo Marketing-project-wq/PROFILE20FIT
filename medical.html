@@ -135,6 +135,13 @@
   .mcu-hd h3{margin:0;font-size:16px;font-weight:800}
   .mcu-x{border:0;background:var(--inp);color:var(--txt);width:34px;height:34px;border-radius:10px;font-size:17px;cursor:pointer;flex:0 0 auto}
   .mcu-body{padding:16px 20px 22px}
+  /* Banner terjemahan AI: disclaimer + tombol lihat asli/terjemahan (atau peringatan fallback) */
+  .tbanner{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    padding:11px 15px;border-radius:14px;background:var(--blue-soft);color:#1d3a8a;font-size:12.5px;font-weight:600;line-height:1.4;box-shadow:var(--shadow)}
+  .tbanner.warn{background:#fbf3df;color:#8a6d1a}
+  .tbanner span{flex:1;min-width:180px}
+  .tlink{flex:0 0 auto;border:0;background:transparent;color:var(--red);font-weight:800;font-size:12.5px;cursor:pointer;text-decoration:underline;padding:4px 2px}
+  .mcu-body .tbanner{margin-bottom:14px}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
@@ -352,21 +359,66 @@
           '<a class="bookchip'+(p.clinic?" clinic":"")+'" href="'+p.u+'">'+L({en:"Book",id:"Booking"})+'</a></div>').join("")+'</div>';
     }
 
-    let currentRes=null, baseRes=null, transCache={};
-    // Tampilkan hasil baru sebagai sumber (reset cache terjemahan). Kalau hasil menyimpan 2 bahasa
-    // (res._alt), seed transCache keduanya & render langsung dalam bahasa UI aktif -> tidak ada lagi
-    // "label Inggris, isi Indonesia" saat load.
-    function showResult(res,noScroll){
-      baseRes=res; transCache={};
-      transCache[res._lang||"en"]=res;
-      if(res._alt && res._alt._lang){ transCache[res._alt._lang]=res._alt; }
-      renderResult(transCache[I18N.lang]||res,noScroll);
+    let currentRes=null, baseRes=null, transCache={}, curId=null, showOriginal=false, mainFailed=false;
+    const T_DISCLAIMER={en:"Translation assisted by AI. Numbers & lab values are unchanged.",id:"Terjemahan dibantu AI. Angka & hasil lab tidak diubah."};
+    const T_UNAVAIL={en:"Translation unavailable — showing the original.",id:"Terjemahan belum tersedia — menampilkan versi asli."};
+    const T_VIEWORIG={en:"View original",id:"Lihat versi asli"};
+    const T_VIEWTRANS={en:"View translation",id:"Lihat terjemahan"};
+    function srcLang(res){return (res&&res._lang)||"en";}
+    // Banner di atas hasil: disclaimer AI + tombol lihat asli/terjemahan (atau peringatan fallback).
+    function tbannerHTML(warn,text,onclick,linkLabel){
+      return '<div class="tbanner'+(warn?" warn":"")+'"><span>'+esc(text)+'</span>'+
+        (onclick?'<button type="button" class="tlink" onclick="'+onclick+'">'+esc(linkLabel)+'</button>':'')+'</div>';
     }
-
-    function renderResult(res,noScroll){
+    // Seed cache terjemahan dari sumber: _lang, _alt (hasil lama 2-bahasa), dan result.i18n (persistent).
+    function seedCache(cache,res){
+      cache[srcLang(res)]=res;
+      if(res._alt && res._alt._lang){ cache[res._alt._lang]=res._alt; }
+      if(res.i18n){ for(var k in res.i18n){ if(res.i18n[k]) cache[k]=res.i18n[k]; } }
+      return cache;
+    }
+    // Simpan terjemahan ke result.i18n[lang] di Supabase (idempoten; abaikan error jaringan).
+    async function persistTrans(id,base,lang,res){
+      if(id==null||!base) return;
+      try{ base.i18n=base.i18n||{}; base.i18n[lang]=res; await Auth.supabase.from("my20fit_mcu_result").update({result:base}).eq("id",id); }catch(e){}
+    }
+    // Tampilkan hasil sebagai sumber; preload cache (termasuk result.i18n persistent) lalu terjemahkan
+    // ke bahasa UI aktif bila perlu. `id` = id record Supabase untuk write-back cache persistent.
+    function showResult(res,noScroll,id){
+      baseRes=res; transCache={}; showOriginal=false; mainFailed=false;
+      curId=(id!=null)?id:null;
+      seedCache(transCache,res);
+      translateMain(noScroll);
+    }
+    // Render pane utama sesuai state: banner (bila terjemahan) + hasil. Angka/nilai/parameter TIDAK
+    // diubah — hanya menukar objek result yang sudah diterjemahkan server-side.
+    function renderMain(noScroll){
+      const base=baseRes; const box=document.getElementById("result"); if(!base||!box) return;
+      const src=srcLang(base), want=I18N.lang;
+      let res, banner="";
+      if(want===src){ res=base; }
+      else if(mainFailed){ res=base; banner=tbannerHTML(true,L(T_UNAVAIL)); }
+      else if(showOriginal){ res=base; banner=tbannerHTML(false,L(T_DISCLAIMER),"viewMainTrans()",L(T_VIEWTRANS)); }
+      else if(transCache[want]){ res=transCache[want]; banner=tbannerHTML(false,L(T_DISCLAIMER),"viewMainOriginal()",L(T_VIEWORIG)); }
+      else { res=base; }
       currentRes=res;
-      document.getElementById("result").innerHTML=buildResultHTML(res);
-      if(!noScroll)document.getElementById("result").scrollIntoView({behavior:"smooth"});
+      box.innerHTML=banner+buildResultHTML(res);
+      if(!noScroll)box.scrollIntoView({behavior:"smooth"});
+    }
+    function viewMainOriginal(){ showOriginal=true; renderMain(true); }
+    function viewMainTrans(){ showOriginal=false; renderMain(true); }
+    // Terjemahkan pane utama ke bahasa aktif. Pakai cache bila ada; kalau perlu panggil AI lalu simpan
+    // ke transCache + persist ke result.i18n. Gagal/timeout -> tampilkan ASLI + banner peringatan.
+    async function translateMain(noScroll){
+      const base=baseRes; if(!base) return;
+      const src=srcLang(base), want=I18N.lang;
+      mainFailed=false;
+      if(want===src||transCache[want]){ renderMain(noScroll); return; }
+      renderMain(noScroll); // sementara tampil sumber (label ikut ganti bahasa; teks AI menyusul)
+      const res=await aiTranslate(want,base);
+      if(I18N.lang!==want||baseRes!==base) return;
+      if(res){ res._lang=want; transCache[want]=res; persistTrans(curId,base,want,res); renderMain(true); }
+      else { mainFailed=true; renderMain(true); }
     }
     // Escape teks yang berasal dari hasil AI/OCR sebelum masuk innerHTML (defense-in-depth).
     function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
@@ -456,18 +508,50 @@
         +'<span style="font-weight:800">›</span>';
       n.style.display="";
     }
-    // "See details" -> pop-up berisi hasil MCU yang dipilih dari history.
+    // ---- State pop-up history (mirror pane utama, cache & persist sendiri) ----
+    let mBase=null, mCache={}, mOriginal=false, mFailed=false, mId=null, mDate="";
+    function isModalOpen(){ var bg=document.getElementById("mcuModalBg"); return !!(bg&&bg.classList.contains("open")); }
+    function modalTitle(res){
+      var t=document.getElementById("mcuModalTitle");
+      if(t) t.textContent=((res&&res.document_type)||L({en:"MCU Result",id:"Hasil MCU"}))+(mDate?" · "+mDate:"");
+    }
+    // "See details" -> pop-up hasil MCU dari history, ikut diterjemahkan ke bahasa aktif (cache + persist).
     function openHistory(i){
       const r=history[i]; if(!r||!r.result) return;
-      const raw=r.result;
-      // dual-bahasa tersimpan -> tampilkan sesuai bahasa UI aktif (hasil lama 1 bahasa: apa adanya)
-      const res=(raw._alt && raw._alt._lang===I18N.lang) ? raw._alt : raw;
-      const date=(r.analyzed_at||r.created_at||"").slice(0,10);
-      const title=(res.document_type||L({en:"MCU Result",id:"Hasil MCU"}))+(date?" · "+date:"");
-      document.getElementById("mcuModalTitle").textContent=title;
-      document.getElementById("mcuModalBody").innerHTML=buildResultHTML(res);
+      mBase=r.result; mCache={}; mOriginal=false; mFailed=false; mId=(r.id!=null)?r.id:null;
+      mDate=(r.analyzed_at||r.created_at||"").slice(0,10);
+      seedCache(mCache,mBase);
+      modalTitle(mBase);
       const bg=document.getElementById("mcuModalBg"); bg.classList.add("open");
       bg.scrollTop=0; document.body.style.overflow="hidden";
+      translateModal();
+    }
+    // Render isi pop-up sesuai state: banner (bila terjemahan) + hasil. Angka/nilai tetap.
+    function renderModalBody(){
+      const base=mBase; const body=document.getElementById("mcuModalBody"); if(!base||!body) return;
+      const src=srcLang(base), want=I18N.lang;
+      let res, banner="";
+      if(want===src){ res=base; }
+      else if(mFailed){ res=base; banner=tbannerHTML(true,L(T_UNAVAIL)); }
+      else if(mOriginal){ res=base; banner=tbannerHTML(false,L(T_DISCLAIMER),"viewModalTrans()",L(T_VIEWTRANS)); }
+      else if(mCache[want]){ res=mCache[want]; banner=tbannerHTML(false,L(T_DISCLAIMER),"viewModalOriginal()",L(T_VIEWORIG)); }
+      else { res=base; }
+      modalTitle(res);
+      body.innerHTML=banner+buildResultHTML(res);
+    }
+    function viewModalOriginal(){ mOriginal=true; renderModalBody(); }
+    function viewModalTrans(){ mOriginal=false; renderModalBody(); }
+    // Terjemahkan pop-up ke bahasa aktif (cache + persist ke result.i18n record ini). Gagal -> tampil asli.
+    async function translateModal(){
+      const base=mBase; if(!base) return;
+      const src=srcLang(base), want=I18N.lang;
+      mFailed=false;
+      if(want===src||mCache[want]){ renderModalBody(); return; }
+      renderModalBody(); // sementara tampil sumber
+      const res=await aiTranslate(want,base);
+      if(!isModalOpen()||mBase!==base||I18N.lang!==want) return;
+      if(res){ res._lang=want; mCache[want]=res; persistTrans(mId,base,want,res); renderModalBody(); }
+      else { mFailed=true; renderModalBody(); }
     }
     function closeMcuModal(){ document.getElementById("mcuModalBg").classList.remove("open"); document.body.style.overflow=""; }
     (function(){ var bg=document.getElementById("mcuModalBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeMcuModal(); });
@@ -483,25 +567,15 @@
         return (r.ok&&j&&j.result)?j.result:null;
       }catch(e){ clearTimeout(to); return null; }
     }
-    // Terjemahkan hasil yang sedang tampil ke bahasa aktif. Kalau sudah tersimpan 2 bahasa
-    // (result._alt) transCache sudah terisi -> ganti INSTAN tanpa panggil AI lagi.
-    async function translateCurrent(){
-      const base=baseRes; if(!base){return;}
-      const want=I18N.lang;
-      if(transCache[want]){ renderResult(transCache[want],true); return; }
-      renderResult(base,true); // label langsung ganti bahasa; teks AI nyusul (hasil lama 1 bahasa)
-      const res=await aiTranslate(want, base);
-      if(res && I18N.lang===want){ res._lang=want; transCache[want]=res; renderResult(res,true); }
-    }
     (async function(){
       user=await Auth.requireAuth();
       try{ profile=await Auth.getProfile(); }catch(e){ profile=null; }
       var _lst=document.getElementById("list"); if(_lst) _lst.innerHTML='<div class="empty">'+L({en:"Loading your history…",id:"Memuat riwayat…"})+'</div>';
       await loadHistory(); renderList();
       // Setelah refresh: tampilkan otomatis hasil TERBARU dari DB (bukan upload lama)
-      if(history[0]&&history[0].result){ showResult(history[0].result,true); }
+      if(history[0]&&history[0].result){ showResult(history[0].result,true,history[0].id); }
     })();
-    I18N.onChange(()=>{ renderList(); if(currentRes)translateCurrent(); });
+    I18N.onChange(()=>{ renderList(); if(baseRes)translateMain(true); if(isModalOpen())translateModal(); });
   </script>
 </body>
 </html>
