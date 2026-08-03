@@ -925,7 +925,8 @@
       }
 
       // ---- Case B: scan wajah in-app (kamera/selfie -> /api/photo/scan -> photo.20fit /selfie/process) ----
-      window._photoScanPick = function () { var el = document.getElementById("pscanFile"); if (el) el.click(); };
+      window._photoScanPick = function () { var el = document.getElementById("pscanFile"); if (el) el.click(); };     // selfie (kamera depan)
+      window._photoScanUpload = function () { var el = document.getElementById("pscanFileUp"); if (el) el.click(); }; // upload foto dari galeri/file
       window.openPhotoScan = function (e) { if (e && e.preventDefault) e.preventDefault(); _ensureScanModal(); _scanSet("idle"); var b = document.getElementById("pscanBg"); if (b) b.style.display = "flex"; return false; };
       window.closePhotoScan = function () { var b = document.getElementById("pscanBg"); if (b) b.style.display = "none"; };
       function _ensureScanModal() {
@@ -935,24 +936,33 @@
           '<div class="pscanhd"><div class="pscanttl">' + Lx({ en: "Find my photos", id: "Cari fotoku" }) + '</div>' +
           '<button type="button" class="pscanx" onclick="closePhotoScan()" aria-label="Close">✕</button></div>' +
           '<div id="pscanBody"></div>' +
+          // dua input: selfie (capture=user -> kamera depan di HP) & upload (tanpa capture -> galeri/file)
           '<input id="pscanFile" type="file" accept="image/*" capture="user" style="display:none">' +
+          '<input id="pscanFileUp" type="file" accept="image/*" style="display:none">' +
           '</div>';
         document.body.appendChild(d);
         d.addEventListener("click", function (ev) { if (ev.target === d) closePhotoScan(); });
         document.getElementById("pscanFile").addEventListener("change", _onScanFile);
+        document.getElementById("pscanFileUp").addEventListener("change", _onScanFile);
       }
       // `data` bisa berasal dari pesan error backend photo -> HARUS di-escape sebelum masuk innerHTML.
       function _esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
       function _scanSet(state, data) {
         var b = document.getElementById("pscanBody"); if (!b) return;
         if (state === "idle") {
-          b.innerHTML = '<div class="pscanhint">' + Lx({ en: "Take a clear selfie in good lighting. We'll match your face to your 20FIT event photos — same 20FIT account.", id: "Ambil selfie yang jelas & terang. Kami cocokkan wajahmu ke foto event 20FIT-mu — pakai akun 20FIT yang sama." }) + '</div>' +
-            '<button class="btn dark" type="button" onclick="_photoScanPick()" style="width:100%;margin-top:14px">' + Lx({ en: "Open camera", id: "Buka kamera" }) + '</button>';
+          b.innerHTML = '<div class="pscanhint">' + Lx({ en: "Take a selfie or upload a clear, well-lit photo of your face. We'll match it to your 20FIT event photos — same 20FIT account.", id: "Ambil selfie atau upload foto wajahmu yang jelas & terang. Kami cocokkan ke foto event 20FIT-mu — pakai akun 20FIT yang sama." }) + '</div>' +
+            '<div style="display:flex;gap:8px;margin-top:14px">' +
+              '<button class="btn" type="button" onclick="_photoScanPick()" style="flex:1">' + Lx({ en: "Take selfie", id: "Ambil selfie" }) + '</button>' +
+              '<button class="btn dark" type="button" onclick="_photoScanUpload()" style="flex:1">' + Lx({ en: "Upload photo", id: "Upload foto" }) + '</button>' +
+            '</div>';
         } else if (state === "working") {
           b.innerHTML = '<div class="pscanspin"></div><div class="pscanhint" style="text-align:center">' + _esc(data || Lx({ en: "Analyzing your face…", id: "Menganalisis wajahmu…" })) + '</div>';
         } else if (state === "error") {
           b.innerHTML = '<div class="pscanhint" style="color:var(--red)">' + _esc(data) + '</div>' +
-            '<button class="btn dark" type="button" onclick="_photoScanPick()" style="width:100%;margin-top:14px">' + Lx({ en: "Try again", id: "Coba lagi" }) + '</button>';
+            '<div style="display:flex;gap:8px;margin-top:14px">' +
+              '<button class="btn" type="button" onclick="_photoScanPick()" style="flex:1">' + Lx({ en: "Take selfie", id: "Ambil selfie" }) + '</button>' +
+              '<button class="btn dark" type="button" onclick="_photoScanUpload()" style="flex:1">' + Lx({ en: "Upload photo", id: "Upload foto" }) + '</button>' +
+            '</div>';
         } else if (state === "done") {
           b.innerHTML = '<div class="pscanhint" style="text-align:center">' + _esc(data) + '</div>';
         }
