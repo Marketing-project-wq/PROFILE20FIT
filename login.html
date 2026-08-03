@@ -55,6 +55,10 @@
   .hdr-in{max-width:1180px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}
   .brand{font-family:"Barlow Condensed";font-weight:900;font-size:26px;letter-spacing:.01em;color:var(--dark);text-decoration:none;line-height:1}
   .brand b{color:var(--red);font-weight:900}
+  /* Logo header pakai gambar (Logo-20fit.png). File punya padding internal -> tinggi besar
+     + margin negatif biar ukuran visual wajar (~34px) & rata vertikal. */
+  .brand-img{display:inline-flex;align-items:center}
+  .brand-img img{height:74px;width:auto;display:block;margin:-20px 0}
   .lang{display:flex;gap:3px;background:rgba(21,23,28,.06);border-radius:999px;padding:3px}
   .lang button{border:0;background:transparent;color:var(--soft);font-weight:700;font-size:12px;padding:6px 13px;border-radius:999px;cursor:pointer;font-family:Manrope}
   .lang button.on{background:var(--red);color:#fff}
@@ -82,10 +86,6 @@
   input{width:100%;padding:13px 14px;background:var(--inp);border:1px solid var(--border);border-radius:11px;font-size:15px;color:var(--txt);font-family:Manrope}
   input::placeholder{color:#aab0b8}
   input:focus{outline:none;border-color:var(--red);background:var(--card)}
-  .pw-row{position:relative}
-  .pw-row input{padding-right:62px}
-  .pw-show{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--muted);font-weight:700;font-size:12.5px;cursor:pointer;font-family:Manrope;padding:6px 8px}
-  .pw-show:hover{color:var(--red)}
   .btn{width:100%;margin-top:20px;padding:14px;border:0;border-radius:12px;background:var(--red);color:#fff;font-family:"Barlow Condensed";font-weight:700;font-size:17px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;box-shadow:0 8px 20px rgba(196,17,1,.24)}
   .btn:disabled{opacity:.6}
   .msg{margin-top:12px;font-size:13px;text-align:center;min-height:16px}
@@ -154,7 +154,7 @@
 
   @media(max-width:860px){
     .hero-in{grid-template-columns:1fr;gap:26px;padding:30px 20px 26px}
-    .auth-card{order:-1}
+    /* Mobile: hero copy dulu ("Your whole health story…"), lalu kartu Sign In/Create Account di bawahnya. */
     .hero h1{font-size:40px}
     .sec-h h2{font-size:30px}
     .fgrid{grid-template-columns:1fr}
@@ -173,7 +173,7 @@
   <!-- ============ HEADER ============ -->
   <header class="site-header">
     <div class="hdr-in">
-      <a class="brand" href="#top">20<b>FIT</b></a>
+      <a class="brand brand-img" href="#top"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Logo-20fit.png" alt="20FIT" /></a>
       <div class="lang">
         <button id="lang-en" onclick="setLang('en')">EN</button>
         <button id="lang-id" onclick="setLang('id')">ID</button>
@@ -232,10 +232,7 @@
         </div>
 
         <label data-k="password">Password</label>
-        <div class="pw-row">
-          <input id="password" name="password" type="password" placeholder="••••••••" autocomplete="current-password" />
-          <button type="button" class="pw-show" id="pwShow" onclick="togglePw()"></button>
-        </div>
+        <input id="password" name="password" type="password" placeholder="••••••••" autocomplete="current-password" />
 
         <div id="confirm-wrap" class="hide">
           <label data-k="confirm">Confirm Password</label>
@@ -343,7 +340,6 @@
         btnIn:"Sign In", btnUp:"Create Account",
         forgot:"Forgot password?",
         namePh:"Your name", phonePh:"+62 812 3456 7890",
-        pwShow:"Show", pwHide:"Hide",
         cardNote:"Already have a 20FIT account? Your same login works here.",
         errCred:"Wrong email or password.", errExists:"Email already registered. Tap Sign In or use another email.",
         errPw:"Password must be at least 8 characters.", errFill:"Please fill in email & password.",
@@ -375,7 +371,6 @@
         btnIn:"Masuk", btnUp:"Buat Akun",
         forgot:"Lupa password?",
         namePh:"Nama kamu", phonePh:"+62 812 3456 7890",
-        pwShow:"Lihat", pwHide:"Sembunyi",
         cardNote:"Sudah punya akun 20FIT? Login yang sama berlaku di sini.",
         errCred:"Email atau password salah.", errExists:"Email sudah terdaftar. Klik Masuk atau pakai email lain.",
         errPw:"Password minimal 8 karakter.", errFill:"Isi email & password dulu ya.",
@@ -402,7 +397,6 @@
     function goCreate(){ setMode("up"); const c=document.getElementById("authcard"); if(c) c.scrollIntoView({behavior:"smooth",block:"center"}); const e=document.getElementById("email"); if(e) setTimeout(()=>e.focus(),350); }
     function seeInside(){ const p=document.getElementById("preview"); if(p) p.scrollIntoView({behavior:"smooth"}); }
     function closeSticky(){ const s=document.getElementById("sticky"); if(s) s.classList.add("gone"); try{sessionStorage.setItem("stickyClosed","1");}catch(e){} }
-    function togglePw(){ const i=document.getElementById("password"); const b=document.getElementById("pwShow"); if(!i)return; const show=i.type==="password"; i.type=show?"text":"password"; b.textContent=show?T[lang].pwHide:T[lang].pwShow; }
 
     // ---- Konten preview (3 foto + 3 ikon) + FAQ, bilingual ----
     // FOTO PREVIEW: isi 3 URL foto (media.20fit.id) di sini. Kosong -> tampil placeholder gradient.
@@ -475,8 +469,6 @@
       document.getElementById("name").placeholder=d.namePh;
       document.getElementById("phone").placeholder=d.phonePh;
       document.getElementById("forgot").textContent=d.forgot;
-      const pw=document.getElementById("password");
-      document.getElementById("pwShow").textContent=(pw&&pw.type==="text")?d.pwHide:d.pwShow;
       renderMarketing();
       refreshMode();
     }
