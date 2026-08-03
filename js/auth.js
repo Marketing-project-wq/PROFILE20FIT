@@ -165,17 +165,38 @@
   }
 
   // ---------- SSO KELUAR: buka 20FIT Photo (photo.20fit.id) tanpa login ulang ----------
-  // Server mint OTP satu-kali untuk email sesi yang sedang aktif, lalu kita
-  // pindah ke photo.20fit.id dengan OTP di URL fragment (#) — fragment tidak
-  // pernah dikirim ke server photo, hanya dibaca halaman /sso di browser.
+  // photo.20fit.id memakai PROJECT SUPABASE YANG SAMA. Jalur UTAMA (nol server, nol config):
+  // oper access_token+refresh_token sesi yang SUDAH ada di browser ini lewat URL fragment ke
+  // /auth/callback photo — client Supabase-nya (detectSessionInUrl, implicit flow) men-seat sesi,
+  // lalu sync-supabase-user menautkan baris user.
+  // CATATAN keamanan: fragment (#) tidak dikirim ke server, TAPI bisa tersimpan di history browser.
+  // Ini SAMA dengan login native photo.20fit sendiri (magic-link/Google OAuth implicit juga
+  // mendaratkan #access_token&refresh_token di /auth/callback), jadi paritas — bukan paparan baru.
+  // FALLBACK (browser tak punya sesi): /api/photo-sso mint magic link ber-redirect (action_link,
+  // yang juga berujung refresh_token di fragment via GoTrue /verify).
+  const PHOTO_ORIGIN = "https://photo.20fit.id";
   async function photoSso() {
     await ready;
+    let s = null;
+    try { const { data } = await supabase.auth.getSession(); s = data && data.session; } catch (e) {}
+    if (s && s.access_token && s.refresh_token) {
+      const exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
+      const frag = "#access_token=" + encodeURIComponent(s.access_token) +
+        "&refresh_token=" + encodeURIComponent(s.refresh_token) +
+        "&expires_in=" + exp + "&token_type=bearer&type=magiclink";
+      location.href = PHOTO_ORIGIN + "/auth/callback" + frag;
+      return;
+    }
+    // Fallback: minta server mint action_link (butuh sesi terverifikasi di server).
     const at = await token();
-    if (!at) throw new Error(_t("Session expired. Please sign in again.","Sesi habis. Silakan login ulang."));
-    const r = await fetch("/api/photo-sso", { method: "POST", headers: { Authorization: "Bearer " + at } });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.email_otp || !j.sso_url) throw new Error(j.error || _t("Failed to open 20FIT Photo.","Gagal membuka 20FIT Photo."));
-    location.href = j.sso_url + "#email=" + encodeURIComponent(j.email) + "&code=" + encodeURIComponent(j.email_otp);
+    if (at) {
+      try {
+        const r = await fetch("/api/photo-sso", { method: "POST", headers: { Authorization: "Bearer " + at } });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok && j.sso_url) { location.href = j.sso_url; return; }
+      } catch (e) {}
+    }
+    location.href = PHOTO_ORIGIN + "/login"; // fallback terakhir: login manual di photo
   }
 
   // ---------- VERIFIKASI OTP AKUN 20FIT (wajib pasca-registrasi baru) ----------
