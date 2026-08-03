@@ -284,7 +284,7 @@
         try{
           var _oth=(I18N.lang==="id")?"en":"id";
           var _alt=await aiTranslate(_oth, j.result);
-          if(_alt){ _alt._lang=_oth; j.result._alt=_alt; transCache[_oth]=_alt; try{localStorage.setItem(sig,JSON.stringify(j.result));}catch(e8){} }
+          if(_alt){ var _altm=mergeTrans(j.result,_alt); _altm._lang=_oth; j.result._alt=_altm; transCache[_oth]=_altm; try{localStorage.setItem(sig,JSON.stringify(j.result));}catch(e8){} }
         }catch(e9){}
         // Simpan ke akun (Supabase). Kalau GAGAL, kasih tahu user — jangan diam-diam hilang saat refresh.
         let saveErr=null;
@@ -366,6 +366,26 @@
     const T_VIEWORIG={en:"View original",id:"Lihat versi asli"};
     const T_VIEWTRANS={en:"View translation",id:"Lihat terjemahan"};
     function srcLang(res){return (res&&res._lang)||"en";}
+    // PENGAMAN AKURASI MEDIS: gabung hasil terjemahan AI dgn data ASLI. ANGKA / NILAI / SATUAN /
+    // RENTANG NORMAL / NAMA PARAMETER / severity / tanggal SELALU dari data asli — hanya teks NARASI
+    // (summary, penjelasan, why/what-to-do, rencana makan/olahraga, unreadable, disclaimer) yang
+    // diambil dari terjemahan. Jadi walau AI keliru mengubah angka, tampilan tetap pakai angka asli.
+    function mergeTrans(base, tr){
+      if(!tr || typeof tr!=="object") return base;
+      var out; try{ out=JSON.parse(JSON.stringify(base||{})); }catch(e){ return base; }
+      if(typeof tr.summary==="string") out.summary=tr.summary;
+      if(typeof tr.disclaimer==="string") out.disclaimer=tr.disclaimer;
+      if(Array.isArray(tr.eating_plan)) out.eating_plan=tr.eating_plan;
+      if(Array.isArray(tr.exercise_plan)) out.exercise_plan=tr.exercise_plan;
+      if(Array.isArray(tr.unreadable)) out.unreadable=tr.unreadable;
+      if(Array.isArray(out.parameters)&&Array.isArray(tr.parameters)){
+        out.parameters.forEach(function(p,i){ var tp=tr.parameters[i]; if(tp&&typeof tp.explanation==="string") p.explanation=tp.explanation; });
+      }
+      if(Array.isArray(out.abnormal_findings)&&Array.isArray(tr.abnormal_findings)){
+        out.abnormal_findings.forEach(function(f,i){ var tf=tr.abnormal_findings[i]; if(tf){ if(typeof tf.why_it_matters==="string") f.why_it_matters=tf.why_it_matters; if(typeof tf.what_to_do==="string") f.what_to_do=tf.what_to_do; } });
+      }
+      return out;
+    }
     // Banner di atas hasil: disclaimer AI + tombol lihat asli/terjemahan (atau peringatan fallback).
     function tbannerHTML(warn,text,onclick,linkLabel){
       return '<div class="tbanner'+(warn?" warn":"")+'"><span>'+esc(text)+'</span>'+
@@ -374,8 +394,10 @@
     // Seed cache terjemahan dari sumber: _lang, _alt (hasil lama 2-bahasa), dan result.i18n (persistent).
     function seedCache(cache,res){
       cache[srcLang(res)]=res;
-      if(res._alt && res._alt._lang){ cache[res._alt._lang]=res._alt; }
-      if(res.i18n){ for(var k in res.i18n){ if(res.i18n[k]) cache[k]=res.i18n[k]; } }
+      // Terjemahan lama (dari _alt / result.i18n) juga di-merge ulang thd data asli, supaya angka
+      // yang mungkin ke-cache sebelum pengaman ini ada, tetap ditampilkan pakai nilai asli.
+      if(res._alt && res._alt._lang){ var ma=mergeTrans(res,res._alt); ma._lang=res._alt._lang; cache[res._alt._lang]=ma; }
+      if(res.i18n){ for(var k in res.i18n){ if(res.i18n[k]){ var mk=mergeTrans(res,res.i18n[k]); mk._lang=k; cache[k]=mk; } } }
       return cache;
     }
     // Simpan terjemahan ke result.i18n[lang] di Supabase (idempoten; abaikan error jaringan).
@@ -392,7 +414,7 @@
       translateMain(noScroll);
     }
     // Render pane utama sesuai state: banner (bila terjemahan) + hasil. Angka/nilai/parameter TIDAK
-    // diubah — hanya menukar objek result yang sudah diterjemahkan server-side.
+    // diubah — objek terjemahan sudah di-merge (angka & nama parameter dari data asli).
     function renderMain(noScroll){
       const base=baseRes; const box=document.getElementById("result"); if(!base||!box) return;
       const src=srcLang(base), want=I18N.lang;
@@ -418,7 +440,7 @@
       renderMain(noScroll); // sementara tampil sumber (label ikut ganti bahasa; teks AI menyusul)
       const res=await aiTranslate(want,base);
       if(I18N.lang!==want||baseRes!==base) return;
-      if(res){ res._lang=want; transCache[want]=res; persistTrans(curId,base,want,res); renderMain(true); }
+      if(res){ const m=mergeTrans(base,res); m._lang=want; transCache[want]=m; persistTrans(curId,base,want,m); renderMain(true); }
       else { mainFailed=true; renderMain(true); }
     }
     // Escape teks yang berasal dari hasil AI/OCR sebelum masuk innerHTML (defense-in-depth).
@@ -551,7 +573,7 @@
       renderModalBody(); // sementara tampil sumber
       const res=await aiTranslate(want,base);
       if(!isModalOpen()||mBase!==base||I18N.lang!==want) return;
-      if(res){ res._lang=want; mCache[want]=res; persistTrans(mId,base,want,res); renderModalBody(); }
+      if(res){ const m=mergeTrans(base,res); m._lang=want; mCache[want]=m; persistTrans(mId,base,want,m); renderModalBody(); }
       else { mFailed=true; renderModalBody(); }
     }
     function closeMcuModal(){ document.getElementById("mcuModalBg").classList.remove("open"); document.body.style.overflow=""; }
