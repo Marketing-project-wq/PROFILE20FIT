@@ -131,8 +131,12 @@ app.set("trust proxy", 1);
 // itu 429 dijawab, klien menelannya dan order dianggap BELUM LUNAS selamanya: user sudah bayar
 // tapi kredit tak pernah muncul. Jadi endpoint status (terautentikasi, read-only, idempoten)
 // punya limiter sendiri yang longgar; sisanya tetap ketat.
-const PAYMENT_POLL_PATHS = new Set(["/api/scan/order-status", "/api/scan/reconcile"]);
+const PAYMENT_POLL_PATHS = new Set(["/api/scan/order-status", "/api/scan/reconcile", "/api/photo/scan-status"]);
 const isPollPath = (req) => PAYMENT_POLL_PATHS.has((req.originalUrl || "").split("?")[0]);
+// Proxy gambar preview foto (/api/photo/thumb/:id) = satu request per thumbnail. Satu carousel
+// bisa memuat belasan gambar sekaligus -> jangan dihitung ke ember 50/10mnt (nanti user kehabisan
+// limit hanya karena membuka dashboard). Punya limiter sendiri yang longgar + cache browser.
+const isImgPath = (req) => (req.originalUrl || "").split("?")[0].startsWith("/api/photo/thumb/");
 
 // message berupa OBJEK -> express-rate-limit membalas JSON. Kalau string (default), body-nya
 // text/html dan res.json() di klien meledak -> error ditelan diam-diam (persis bug di atas).
@@ -144,7 +148,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: limitMsg,
-  skip: isPollPath, // ditangani pollLimiter di bawah
+  skip: (req) => isPollPath(req) || isImgPath(req), // ditangani pollLimiter/imgLimiter di bawah
 });
 const pollLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -153,9 +157,20 @@ const pollLimiter = rateLimit({
   legacyHeaders: false,
   message: limitMsg,
 });
+// Limiter khusus proxy gambar preview foto — longgar (satu carousel = belasan gambar), tetap
+// membatasi penyalahgunaan. Digabung cache browser (Cache-Control) supaya load ulang tak menembak lagi.
+const imgLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limitMsg,
+});
 app.use("/api/", apiLimiter);
 app.use("/api/scan/order-status", pollLimiter);
 app.use("/api/scan/reconcile", pollLimiter);
+app.use("/api/photo/scan-status", pollLimiter);
+app.use("/api/photo/thumb/", imgLimiter);
 
 // Limiter KETAT untuk endpoint kredensial — 50/10mnt global terlalu longgar buat
 // tebak-password / OTP. 12 percobaan / 15 menit / IP masih longgar utk user sah.
@@ -715,27 +730,65 @@ app.post("/api/fitco-token-login", async (req, res) => {
   }
 });
 
+// =============================================================
+//  INTEGRASI photo.20fit.id (marketplace foto event 20FIT)
+//  ------------------------------------------------------------
+//  my.20fit.id & photo.20fit.id memakai PROJECT SUPABASE YANG SAMA
+//  (cpvzwqptzcxnwzfzgrmt). Karena itu access_token Supabase user di sini
+//  SAH juga di photo.20fit.id (requireAuth-nya verifikasi via JWKS project
+//  yang sama). Jadi server ini memanggil API photo ATAS NAMA user dengan
+//  MENERUSKAN token Supabase-nya apa adanya — tanpa API key rahasia,
+//  tanpa perubahan kode di sisi photo.20fit.id.
+//
+//  requireAuth photo TIDAK auto-create baris users; POST /auth/sync-supabase-user
+//  yang membuat/menautkannya (by supabase_auth_id -> email -> insert). Jadi
+//  setiap alur memanggil sync dulu, baru endpoint datanya.
+// =============================================================
+const PHOTO_APP_ORIGIN = (process.env.PHOTO_APP_URL || "https://photo.20fit.id").replace(/\/+$/, "");
+const PHOTO_API_BASE = (process.env.PHOTO_API_URL || (PHOTO_APP_ORIGIN + "/api")).replace(/\/+$/, "");
+// Halaman yang MEN-SEAT sesi Supabase di photo.20fit.id. Tidak ada route "/sso" di sana;
+// yang ada /auth/callback (detectSessionInUrl men-seat #access_token, lalu sync-supabase-user).
+const PHOTO_SSO_REDIRECT = process.env.PHOTO_SSO_REDIRECT || (PHOTO_APP_ORIGIN + "/auth/callback");
+const PHOTO_OP_TIMEOUT_MS = parseInt(process.env.PHOTO_OP_TIMEOUT_MS || "12000", 10);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Panggil API photo.20fit.id (fetch ke luar TIDAK ikut supaFetch -> WAJIB ber-timeout sendiri).
+async function photoApi(pathOrUrl, opts = {}) {
+  const url = /^https?:/i.test(pathOrUrl) ? pathOrUrl : (PHOTO_API_BASE + pathOrUrl);
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs || PHOTO_OP_TIMEOUT_MS);
+  try {
+    const headers = Object.assign({ Accept: "application/json" }, opts.headers || {});
+    if (opts.token) headers.Authorization = "Bearer " + opts.token;
+    return await fetch(url, { method: opts.method || "GET", headers, body: opts.body, signal: ctrl.signal });
+  } finally { clearTimeout(t); }
+}
+async function photoApiJson(pathOrUrl, opts = {}) {
+  const r = await photoApi(pathOrUrl, opts);
+  let json = null; try { json = await r.json(); } catch (e) {}
+  return { status: r.status, ok: r.ok, json };
+}
+
 // ---------- SSO KELUAR: buka 20FIT Photo (photo.20fit.id) tanpa login ulang ----------
-// Kebalikan dari fitco-token-login: user yang SUDAH punya sesi Supabase di sini
-// minta OTP satu-kali untuk membuat sesi di photo.20fit.id (project Supabase yang
-// sama). Bearer token diverifikasi ke Supabase — email diambil dari token, bukan
-// dari input client — lalu OTP di-mint dengan pola generateLink yang sama dengan
-// mirrorAndMintOtp. OTP dioper lewat URL fragment (#...) sehingga tidak pernah
-// masuk log server photo.
-const PHOTO_SSO_URL = process.env.PHOTO_SSO_URL || "https://photo.20fit.id/sso";
+// Jalur UTAMA (di frontend, Auth.photoSso): oper access_token+refresh_token sesi Supabase yang
+// SUDAH ada di browser ini lewat URL fragment ke photo.20fit.id/auth/callback (nol konfigurasi).
+// Endpoint ini = FALLBACK saat browser tak punya sesi: mint magic link Supabase ber-redirect ke
+// /auth/callback. action_link -> GoTrue /verify -> 302 ke callback#access_token=... (di-seat oleh
+// detectSessionInUrl photo). ⚠️ redirect_to WAJIB masuk allow-list "Redirect URLs" project Supabase,
+// kalau tidak GoTrue jatuh ke Site URL (bukan photo). Fragment tak pernah masuk log server.
 app.post("/api/photo-sso", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
-    // getUserFromReq membedakan token-ditolak (null -> 401) vs Supabase-bermasalah
-    // (throw 503) — jangan suruh user login ulang kalau yang error infrastruktur.
     const user = await getUserFromReq(req);
     const email = user && user.email ? String(user.email).trim().toLowerCase() : "";
-    if (!email) return res.status(401).json({ error: "Butuh sesi login. Silakan login ulang." });
-    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({ type: "magiclink", email });
+    if (!email) return res.status(401).json({ error: "Butuh sesi login. Silakan login ulang.", session_expired: true });
+    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+      type: "magiclink", email, options: { redirectTo: PHOTO_SSO_REDIRECT },
+    });
     if (linkErr) throw linkErr;
-    const otp = (linkData && linkData.properties && linkData.properties.email_otp) || null;
-    if (!otp) return res.status(500).json({ error: "Gagal menyiapkan SSO. Coba lagi." });
-    return res.json({ ok: true, email, email_otp: otp, sso_url: PHOTO_SSO_URL });
+    const actionLink = (linkData && linkData.properties && linkData.properties.action_link) || null;
+    if (!actionLink) return res.status(500).json({ error: "Gagal menyiapkan SSO. Coba lagi." });
+    return res.json({ ok: true, email, sso_url: actionLink });
   } catch (e) {
     if (e && e.status === 503) return res.status(503).json({ error: e.userMessage || "Coba lagi sebentar lagi." });
     console.error("photo-sso:", e && e.message);
@@ -743,46 +796,186 @@ app.post("/api/photo-sso", async (req, res) => {
   }
 });
 
-// ---------- DIAGNOSTIK SEMENTARA: temukan kontrak API photo.20fit.id (superadmin only) ----------
-// Server my.20fit BISA jangkau photo.20fit.id (environment dev agent tidak). Endpoint ini
-// menembak beberapa KANDIDAT endpoint + gaya auth pakai API_PHOTO (RAHASIA — TIDAK di-log &
-// TIDAK di-return) dan mengembalikan status + potongan response ASLI, supaya integrasi
-// /api/photo/list (preview foto user) dibangun dari data NYATA (endpoint, cara auth, bentuk
-// field: url thumbnail, penanda sudah/belum dibeli). Semua kandidat DIscope ke email — tak
-// pernah "list semua foto". HAPUS setelah /api/photo/list jadi.
-const PHOTO_API_BASE = (process.env.PHOTO_API_URL || "https://photo.20fit.id/api").replace(/\/+$/, "");
-async function photoProbeFetch(url, headers) {
-  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 9000);
+// ---------- /api/photo/list : katalog foto user (sudah dibeli vs belum) ----------
+// Meneruskan token Supabase user ke photo.20fit.id. hasFace menentukan Case A (sudah pernah
+// scan wajah -> tampil katalog) vs Case B (belum -> tampil ajakan scan di frontend).
+app.get("/api/photo/list", async (req, res) => {
   try {
-    const r = await fetch(url, { headers: headers, signal: ctrl.signal });
-    const txt = await r.text();
-    return { status: r.status, contentType: r.headers.get("content-type") || "", bodySnippet: txt.slice(0, 900) };
-  } catch (e) { return { error: String((e && e.message) || e).slice(0, 200) }; }
-  finally { clearTimeout(t); }
-}
-app.get("/api/photo/probe", async (req, res) => {
-  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
-  const key = process.env.API_PHOTO || "";
-  if (!key) return res.status(500).json({ error: "API_PHOTO belum terbaca di env server. Cek nama var-nya persis 'API_PHOTO' (tanpa VITE_) & sudah redeploy staging setelah menambah var." });
-  const email = String(req.query.email || (ctx.email || "")).trim().toLowerCase();
-  const eq = encodeURIComponent(email);
-  const custom = String(req.query.path || "").trim();
-  const paths = custom ? [custom] : [
-    "/photos?email=" + eq, "/user/photos?email=" + eq, "/me/photos?email=" + eq,
-    "/photos/mine?email=" + eq, "/gallery?email=" + eq, "/photos/unpurchased?email=" + eq,
-    "/purchases?email=" + eq, "/orders?email=" + eq, "/users/" + eq + "/photos"
-  ];
-  const auths = [
-    { name: "bearer", h: { Authorization: "Bearer " + key, Accept: "application/json" } },
-    { name: "x-api-key", h: { "x-api-key": key, Accept: "application/json" } },
-    { name: "apikey", h: { apikey: key, Accept: "application/json" } }
-  ];
-  const combos = [];
-  paths.forEach(function (p) { auths.forEach(function (a) { combos.push({ p: p, a: a }); }); });
-  const tried = await Promise.all(combos.map(async function (c) {
-    return Object.assign({ path: c.p, auth: c.a.name }, await photoProbeFetch(PHOTO_API_BASE + c.p, c.a.h));
-  }));
-  return res.json({ ok: true, base: PHOTO_API_BASE, email_probed: email || "(kosong)", note: "Nilai API_PHOTO TIDAK ditampilkan. Cari baris status 200 dgn bodySnippet berisi foto milik email ini.", tried: tried });
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const user = await getUserFromReq(req);
+    if (!user || !token) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+
+    // 1) Pastikan baris user ADA/tertaut di photo.20fit (requireAuth tak auto-create).
+    try { await photoApiJson("/auth/sync-supabase-user", { method: "POST", token, timeoutMs: PHOTO_OP_TIMEOUT_MS }); } catch (e) {}
+
+    // 2) Ambil status wajah + foto match + pembelian + kuota scan — paralel, tahan-gagal.
+    const [meR, photosR, purchR, scanR] = await Promise.all([
+      photoApiJson("/auth/me", { token }).catch(() => ({ ok: false })),
+      photoApiJson("/photos?limit=200&page=1", { token }).catch(() => ({ ok: false })),
+      photoApiJson("/purchases/my-photos", { token }).catch(() => ({ ok: false })),
+      photoApiJson("/face/scan-status", { token }).catch(() => ({ ok: false })),
+    ]);
+
+    // Semua gagal -> photo.20fit tak terjangkau. Degradasi lembut (UI tampil "coba lagi").
+    if (!meR.ok && !photosR.ok && !purchR.ok && !scanR.ok) {
+      return res.json({ ok: true, unavailable: true, hasFace: null, bought: [], notBought: [] });
+    }
+
+    const me = meR.json || {};
+    const scan = scanR.json || {};
+    const hasFace = !!(me.isVerified || scan.hasLockedFace);
+
+    // Prefer presigned R2 (lintas-origin aman); kalau tak ada -> proxy lokal (referer-safe).
+    const thumbOf = (id, signed) => (signed && /^https?:/i.test(signed)) ? signed : ("/api/photo/thumb/" + encodeURIComponent(id));
+    const notBought = [], boughtMap = {};
+
+    const matched = (photosR.json && Array.isArray(photosR.json.photos)) ? photosR.json.photos : [];
+    for (const m of matched) {
+      const p = m && m.photo; if (!p || !p.id) continue;
+      // "Dimiliki" = sudah dibayar ATAU gratis-berhak (grant 100% EO / event free / free_access).
+      // photos.ts mengekspos flag ini justru supaya foto gratis TIDAK ditampilkan "Beli"+watermark.
+      const freeOwned = !!(p.eventFullAccess || p.eventAccessMode === "free" || p.eventAccessMode === "free_access");
+      const owned = !!p.isPurchased || freeOwned;
+      const item = {
+        id: p.id,
+        eventName: p.eventName || "",
+        price: owned ? null : ((typeof p.price === "number") ? p.price : null),
+        discountPercent: owned ? 0 : (p.eventDiscountPercent || 0),
+        purchased: owned,
+        thumb: thumbOf(p.id, p.thumbnailSignedUrl),
+      };
+      if (owned) boughtMap[p.id] = item; else notBought.push(item);
+    }
+    // Pembelian yang wajahnya TAK ke-match (mis. beli All-Access) tak muncul di /photos -> gabungkan.
+    const purchased = (purchR.json && Array.isArray(purchR.json.photos)) ? purchR.json.photos : [];
+    for (const q of purchased) {
+      const id = q && (q.photoId || q.id); if (!id || boughtMap[id]) continue;
+      boughtMap[id] = { id, eventName: q.eventName || "", price: null, discountPercent: 0, purchased: true, thumb: thumbOf(id, null) };
+    }
+    const bought = Object.keys(boughtMap).map((k) => boughtMap[k]);
+    // "Dimiliki" menang: cache /photos (5 mnt, per-proses, multi-instance) bisa stale isPurchased=false
+    // padahal /purchases sudah lunas -> buang id yang sudah di bought supaya tak dobel di 2 carousel.
+    const notBoughtFinal = notBought.filter((it) => !boughtMap[it.id]);
+
+    return res.json({
+      ok: true,
+      hasFace,
+      // photosOk membedakan "foto memang kosong" vs "panggilan /photos gagal" — frontend pakai
+      // ini untuk memilih empty-state (belum ada foto) vs "coba lagi" (jangan suruh rescan sia-sia).
+      photosOk: !!photosR.ok,
+      scan: {
+        remaining: (typeof scan.scansRemaining === "number") ? scan.scansRemaining : null,
+        allowed: scan.allowed !== false,
+        cooldownUntil: scan.cooldownUntil || null,
+      },
+      counts: { matched: matched.length, bought: bought.length, notBought: notBoughtFinal.length },
+      bought, notBought: notBoughtFinal,
+    });
+  } catch (e) {
+    if (e && e.status === 503) return res.status(503).json({ error: e.userMessage || "Coba lagi sebentar lagi." });
+    console.error("photo/list:", e && e.message);
+    return res.status(500).json({ error: "Gagal memuat fotomu. Coba lagi." });
+  }
+});
+
+// ---------- /api/photo/thumb/:id : proxy gambar preview (publik, referer-safe) ----------
+// <img> tak bisa kirim Authorization, jadi endpoint ini TANPA auth — hanya menyalurkan
+// preview watermark (aset publik, low-value). Proxy thumbnail/watermarked photo.20fit.id yang
+// hotlink-protected: server set Referer photo.20fit.id supaya lolos. Divalidasi UUID (anti-SSRF).
+app.get("/api/photo/thumb/:id", async (req, res) => {
+  const id = String(req.params.id || "");
+  if (!UUID_RE.test(id)) return res.status(400).end();
+  // JANGAN jadi open-relay untuk hotlink pihak ketiga: kita spoof Referer photo.20fit
+  // (biar lolos hotlink-protection mereka), jadi tolak request cross-site. Browser meng-set
+  // Sec-Fetch-Site untuk <img> pihak ketiga & itu tak bisa dipalsukan dari halaman attacker;
+  // <img> di dashboard my.20fit sendiri = same-origin (lolos). Header absen (browser lama/tak ada) -> izinkan.
+  const sfs = String(req.headers["sec-fetch-site"] || "");
+  if (sfs && sfs !== "same-origin" && sfs !== "same-site" && sfs !== "none") return res.status(403).end();
+  const wm = String(req.query.wm || "") === "1";
+  const path = (wm ? "/photos/watermarked/" : "/photos/thumbnail/") + id;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), PHOTO_OP_TIMEOUT_MS);
+  try {
+    const r = await fetch(PHOTO_API_BASE + path, {
+      headers: { Referer: PHOTO_APP_ORIGIN + "/", Accept: "image/*" },
+      signal: ctrl.signal,
+    });
+    if (!r.ok) { res.status(502).end(); return; }
+    // Preview kecil (~20KB thumbnail / ratusan KB watermark). Batasi biar tak jadi jalur memori besar.
+    const len = +(r.headers.get("content-length") || 0);
+    if (len && len > 6 * 1024 * 1024) { res.status(502).end(); return; }
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length > 6 * 1024 * 1024) { res.status(502).end(); return; }
+    res.setHeader("Content-Type", r.headers.get("content-type") || "image/jpeg");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.end(buf);
+  } catch (e) {
+    res.status(504).end();
+  } finally { clearTimeout(t); }
+});
+
+// ---------- /api/photo/scan : Case B — daftarkan wajah user (proxy ke /selfie/process) ----------
+// Frontend kirim selfie (base64 terkompres). Server ubah ke multipart 'image' (WAF photo memblok
+// base64-in-JSON) lalu teruskan ke POST /selfie/process ATAS NAMA user. Itu register wajah +
+// retro-match semua event. Sekali sukses, user jadi Case A.
+app.post("/api/photo/scan", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const user = await getUserFromReq(req);
+    if (!user || !token) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+
+    let img = (req.body && req.body.image) || "";
+    if (typeof img !== "string" || !img) return res.status(400).json({ error: "Foto selfie diperlukan." });
+    const comma = img.indexOf(",");
+    if (img.startsWith("data:") && comma > -1) img = img.slice(comma + 1); // buang prefix data URL
+    let buf; try { buf = Buffer.from(img, "base64"); } catch (e) { buf = null; }
+    if (!buf || buf.length < 500) return res.status(400).json({ error: "Gambar tidak valid." });
+    if (buf.length > 9 * 1024 * 1024) return res.status(413).json({ error: "Foto terlalu besar. Coba foto lain." });
+
+    // Pastikan baris user ada di photo.20fit dulu (kalau belum, /selfie/process bisa 401).
+    try { await photoApiJson("/auth/sync-supabase-user", { method: "POST", token, timeoutMs: PHOTO_OP_TIMEOUT_MS }); } catch (e) {}
+
+    const fd = new FormData();
+    fd.append("image", new Blob([buf], { type: "image/jpeg" }), "selfie.jpg");
+    const r = await photoApi("/selfie/process", { method: "POST", token, body: fd, timeoutMs: 90000 });
+    let j = null; try { j = await r.json(); } catch (e) {}
+    j = j || {};
+
+    if (r.ok) {
+      return res.json({ ok: true, step: j.step || "done", count: (typeof j.count === "number") ? j.count : null, attemptId: j.attemptId || null });
+    }
+    // scan sedang diproses -> minta frontend polling.
+    if (r.status === 409) return res.json({ ok: true, step: "processing", attemptId: j.attemptId || null });
+    const code = j.error || j.code || "scan_failed";
+    const status = (r.status === 429) ? 429 : (r.status === 403) ? 403 : (r.status === 422) ? 422 : (r.status >= 500 ? 502 : 400);
+    return res.status(status).json({ ok: false, code, error: (j.message || "Gagal memproses scan. Coba lagi.") });
+  } catch (e) {
+    if (e && e.status === 503) return res.status(503).json({ error: e.userMessage || "Coba lagi sebentar lagi." });
+    console.error("photo/scan:", e && e.message);
+    return res.status(502).json({ error: "Gagal memproses scan. Coba lagi." });
+  }
+});
+
+// ---------- /api/photo/scan-status : polling progres /selfie/process ----------
+app.get("/api/photo/scan-status", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const user = await getUserFromReq(req);
+    if (!user || !token) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const { ok, json } = await photoApiJson("/selfie/status", { token });
+    if (!ok) return res.json({ ok: true, status: "unknown" });
+    const j = json || {};
+    // photo /selfie/status: error = kode mesin (no_face_detected...), errorMessage = teks manusia.
+    // Utamakan teks manusia supaya modal tak menampilkan kode mentah ke user.
+    return res.json({ ok: true, status: j.status || "idle", step: j.step || null, count: (typeof j.count === "number") ? j.count : null, code: j.error || null, error: j.errorMessage || j.error || null });
+  } catch (e) {
+    if (e && e.status === 503) return res.status(503).json({ error: e.userMessage || "Coba lagi sebentar lagi." });
+    console.error("photo/scan-status:", e && e.message);
+    return res.status(500).json({ error: "Gagal cek status scan." });
+  }
 });
 
 // ---------- Register pakai API 20FIT (/api/v1/auth/register) ----------
@@ -2499,6 +2692,57 @@ function scanPeriodJakarta() {
   const m = (parts.find(p => p.type === "month") || {}).value;
   return y + "-" + m;
 }
+
+// ---------- Cara A: kamus makanan internal (my20fit_food_ref) ----------
+// Sistem "makin pinter" dari koreksi user — BUKAN AI yang belajar. Data agregat & anonim.
+// Override hasil AI hanya kalau makanan sudah dikoreksi cukup sering (hindari 1 koreksi
+// salah menimpa AI) DAN gram diketahui (porsi bisa "1 mangkuk" yg tak punya gram eksplisit).
+const FOOD_REF_MIN_SAMPLES = 3;
+function normFoodKey(name) {
+  return String(name || "").toLowerCase().normalize("NFKD")
+    .replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+}
+function parseGrams(portion) {
+  const m = String(portion || "").match(/(\d+(?:\.\d+)?)\s*(gram|gr|g)\b/i);
+  return m ? Math.round(parseFloat(m[1])) : null;
+}
+function clampPerG(v, max) { v = +v; if (!isFinite(v) || v < 0) return 0; return Math.min(v, max); }
+async function refineWithFoodRef(result) {
+  try {
+    if (!result || !Array.isArray(result.items) || !result.items.length) return false;
+    const keys = [...new Set(result.items.map(it => normFoodKey(it && it.name)).filter(Boolean))];
+    if (!keys.length) return false;
+    const { data: rows } = await admin.from("my20fit_food_ref")
+      .select("food_key,kcal_per_g,protein_per_g,carbs_per_g,fat_per_g,fiber_per_g,sample_count")
+      .in("food_key", keys).gte("sample_count", FOOD_REF_MIN_SAMPLES);
+    if (!rows || !rows.length) return false;
+    const map = {}; rows.forEach(r => { map[r.food_key] = r; });
+    let any = false;
+    result.items.forEach(it => {
+      const ref = map[normFoodKey(it && it.name)];
+      const g = parseGrams(it && it.portion);
+      if (ref && g != null && g > 0) {
+        it.kcal = Math.round(ref.kcal_per_g * g);
+        it.protein_g = +(ref.protein_per_g * g).toFixed(1);
+        it.carbs_g = +(ref.carbs_per_g * g).toFixed(1);
+        it.fat_g = +(ref.fat_per_g * g).toFixed(1);
+        it.fiber_g = +(ref.fiber_per_g * g).toFixed(1);
+        it._source = "20fit_ref";
+        any = true;
+      }
+    });
+    if (any) {
+      const sum = (k) => result.items.reduce((s, i) => s + (+i[k] || 0), 0);
+      result.total_kcal = Math.round(sum("kcal"));
+      result.protein_g = +sum("protein_g").toFixed(1);
+      result.carbs_g = +sum("carbs_g").toFixed(1);
+      result.fat_g = +sum("fat_g").toFixed(1);
+      result.fiber_g = +sum("fiber_g").toFixed(1);
+    }
+    return any;
+  } catch (e) { console.error("refineWithFoodRef:", e && e.message); return false; }
+}
+
 app.post("/api/scan/ai", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
@@ -2532,6 +2776,8 @@ app.post("/api/scan/ai", async (req, res) => {
     } catch (e) {
       return res.status(502).json({ error: (e && e.message) || "Gagal menghubungi mesin AI. Coba lagi." });
     }
+    // 2b) Cara A: sempurnakan dgn kamus internal — override kalau makanan sudah dikoreksi cukup sering.
+    try { await refineWithFoodRef(aiJson.result); } catch (e) {}
     // 3) Potong 1 jatah HANYA kalau makanan terdeteksi (items>0) — sama seperti perilaku lama.
     let quota = null;
     const detected = aiJson.result && Array.isArray(aiJson.result.items) && aiJson.result.items.length > 0;
@@ -2543,6 +2789,86 @@ app.post("/api/scan/ai", async (req, res) => {
     }
     return res.json({ ok: true, result: aiJson.result, consumed: detected, quota: quota });
   } catch (e) { console.error("scan/ai:", e && e.message); return res.status(500).json({ error: "Gagal memproses scan." }); }
+});
+
+// POST /api/scan/food-correction — user membetulkan hasil scan (nama + gram + kalori/makro).
+// Kontribusi DIANONIMKAN ke kamus makanan (my20fit_food_ref): TIDAK menyimpan identitas user,
+// foto, atau tanggal — cuma "nama makanan -> nutrisi per gram". Butuh login (anti-spam minimal).
+app.post("/api/scan/food-correction", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const b = req.body || {};
+    const name = String(b.name || "").trim();
+    const grams = Math.round(+b.grams || 0);
+    const kcal = +b.kcal;
+    if (!name || grams <= 0 || !isFinite(kcal) || kcal <= 0) return res.status(400).json({ error: "Nama, gram, dan kalori wajib & valid." });
+    const key = normFoodKey(name);
+    if (!key) return res.status(400).json({ error: "Nama makanan tidak valid." });
+    // per-gram + clamp fisik (kkal/g maksimum ~9.5 = mendekati lemak murni; makro <= 1 g/g).
+    const kcalPerG = clampPerG(kcal / grams, 9.5);
+    if (kcalPerG <= 0) return res.status(400).json({ error: "Nilai kalori tidak masuk akal." });
+    await admin.rpc("my20fit_food_ref_learn", {
+      p_key: key, p_name: name.slice(0, 80),
+      p_kcal_per_g: kcalPerG,
+      p_protein_per_g: clampPerG((+b.protein_g || 0) / grams, 1),
+      p_carbs_per_g: clampPerG((+b.carbs_g || 0) / grams, 1),
+      p_fat_per_g: clampPerG((+b.fat_g || 0) / grams, 1),
+      p_fiber_per_g: clampPerG((+b.fiber_g || 0) / grams, 1),
+      p_region: (String(b.lang || "").toLowerCase() === "en") ? "intl" : "id",
+    });
+    return res.json({ ok: true });
+  } catch (e) { console.error("food-correction:", e && e.message); return res.status(500).json({ error: "Gagal menyimpan koreksi." }); }
+});
+
+// POST /api/scan/food-text — estimasi makanan dari NAMA + GRAM (ketik manual). GRATIS (tak potong
+// jatah, sama seperti perilaku lama). Cara A+B: cek kamus internal DULU — kalau makanan sudah
+// dikoreksi cukup sering, hitung langsung tanpa AI (akurat & instan). Kalau belum, panggil AI.
+app.post("/api/scan/food-text", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const b = req.body || {};
+    const name = String(b.name || "").trim();
+    const grams = Math.round(+b.grams || 0);
+    if (!name || grams <= 0) return res.status(400).json({ error: "Nama & gram wajib diisi." });
+    const lang = (String(b.lang || "").toLowerCase() === "en") ? "en" : "id";
+    // 1) Dict-first: kamus internal (>=3 koreksi) -> hitung langsung tanpa AI.
+    const key = normFoodKey(name);
+    if (key) {
+      const { data: rows } = await admin.from("my20fit_food_ref")
+        .select("kcal_per_g,protein_per_g,carbs_per_g,fat_per_g,fiber_per_g,sample_count")
+        .eq("food_key", key).gte("sample_count", FOOD_REF_MIN_SAMPLES).limit(1);
+      const ref = rows && rows[0];
+      if (ref) {
+        const kcal = Math.round(ref.kcal_per_g * grams);
+        const item = { name: name, portion: grams + "g", kcal: kcal,
+          protein_g: +(ref.protein_per_g * grams).toFixed(1), carbs_g: +(ref.carbs_per_g * grams).toFixed(1),
+          fat_g: +(ref.fat_per_g * grams).toFixed(1), fiber_g: +(ref.fiber_per_g * grams).toFixed(1), _source: "20fit_ref" };
+        return res.json({ ok: true, source: "ref", result: {
+          items: [item], total_kcal: kcal, protein_g: item.protein_g, carbs_g: item.carbs_g,
+          fat_g: item.fat_g, fiber_g: item.fiber_g,
+          note: (lang === "en") ? "Calculated from 20FIT corrected data." : "Dihitung dari data koreksi 20FIT." } });
+      }
+    }
+    // 2) Belum di kamus -> panggil AI (edge fn). Tetap gratis (tak potong jatah).
+    try {
+      const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 60000);
+      const r = await fetch(AI_FN_URL, {
+        method: "POST", signal: ctrl.signal,
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
+        body: JSON.stringify({ action: "food", text: name + ", " + grams + " gram", lang: lang }),
+      });
+      clearTimeout(to);
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j || !j.result) throw new Error((j && j.error) || "Gagal menganalisa.");
+      return res.json({ ok: true, source: "ai", result: j.result });
+    } catch (e) {
+      return res.status(502).json({ error: (e && e.message) || "Gagal menghubungi mesin AI. Coba lagi." });
+    }
+  } catch (e) { console.error("food-text:", e && e.message); return res.status(500).json({ error: "Gagal memproses." }); }
 });
 
 // ---------- Preview voucher sebelum bayar (untuk halaman checkout) ----------

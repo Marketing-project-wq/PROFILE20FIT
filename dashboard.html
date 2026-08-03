@@ -516,6 +516,25 @@
       .tkempty{margin-top:12px;padding:14px;border:1px dashed var(--line);border-radius:12px;text-align:center;font-size:12.5px;color:var(--muted)}
       .tkskel{background:linear-gradient(90deg,var(--inp),color-mix(in srgb,var(--inp) 55%,#fff),var(--inp));background-size:200% 100%;animation:tksh 1.2s infinite}
       @keyframes tksh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+      /* ---- Photo.20fit.id card (katalog foto event) ---- */
+      .psec{font-size:11.5px;font-weight:800;color:var(--muted);margin:14px 2px 8px;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px}
+      .psec small{color:var(--pagemut);font-weight:700;font-size:11px}
+      .ptile{position:relative;flex:0 0 42%;max-width:150px;aspect-ratio:3/4;border-radius:14px;overflow:hidden;scroll-snap-align:start;background:var(--inp);display:block;text-decoration:none}
+      @media(min-width:900px){ .ptile{flex-basis:150px} }
+      .ptile .pimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+      .pwm{position:absolute;inset:0;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='118' height='82'%3E%3Ctext x='4' y='48' fill='rgba(255,255,255,0.32)' font-family='Arial,sans-serif' font-size='13' font-weight='700' transform='rotate(-22 59 41)'%3E20FIT%3C/text%3E%3C/svg%3E")}
+      .pbadge{position:absolute;left:7px;bottom:7px;font-size:11px;font-weight:800;color:#fff;padding:4px 8px;border-radius:8px;background:rgba(0,0,0,.68);letter-spacing:.2px}
+      .pbadge.owned{background:var(--red)}
+      .pscanbg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:250}
+      @media(min-width:900px){ .pscanbg{align-items:center} }
+      .pscanmodal{background:var(--card);color:var(--txt);width:100%;max-width:460px;border-radius:20px 20px 0 0;padding:16px 18px 24px}
+      @media(min-width:900px){ .pscanmodal{border-radius:20px} }
+      .pscanhd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+      .pscanttl{font-weight:800;font-size:17px}
+      .pscanx{border:0;background:var(--inp);color:var(--txt);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1}
+      .pscanhint{font-size:13px;color:var(--muted);line-height:1.55}
+      .pscanspin{width:34px;height:34px;border:4px solid var(--inp);border-top-color:var(--red);border-radius:50%;animation:pspin 1s linear infinite;margin:18px auto 12px}
+      @keyframes pspin{to{transform:rotate(360deg)}}
     </style>
 
     <div class="trk-head">
@@ -776,15 +795,15 @@
       };
       var TRK = {
         calories:  { ic: "cal",   cls: "cal",   nm: { en: "Calories", id: "Kalori" },                     d: { en: "Track daily kcal & macros", id: "Catat kalori & makro harian" }, fixed: true, render: tcCalories },
-        // hidden pre-launch — set enabled:true to re-enable this tracker card (photo.20fit.id integration not ready)
-        photo:     { ic: "photo", cls: "photo", enabled: false, nm: { en: "Your Photo.20fit.id", id: "Your Photo.20fit.id" }, d: { en: "Auto-synced from photo.20fit.id", id: "Tersinkron dari photo.20fit.id" }, render: tcPhoto },
+        photo:     { ic: "photo", cls: "photo", fixed: true, nm: { en: "Your Photo.20fit.id", id: "Foto 20FIT-mu" }, d: { en: "Face-search your 20FIT event photos", id: "Cari foto event 20FIT pakai wajahmu" }, render: tcPhoto },
         fasting:   { ic: "fast",  cls: "fast",  nm: { en: "Intermittent Fasting", id: "Intermittent Fasting" }, d: { en: "16:8 fasting window timer", id: "Timer jendela puasa 16:8" }, render: tcFasting },
         hydration: { ic: "drop",  cls: "drop",  nm: { en: "Hydration", id: "Hidrasi" },                    d: { en: "Daily water intake", id: "Asupan air harian" }, render: tcHydration },
         sleep:     { ic: "sleep", cls: "sleep", nm: { en: "Sleep", id: "Tidur" },                          d: { en: "Duration & quality trend", id: "Durasi & tren kualitas" }, render: tcSleep },
         health:    { ic: "pulse", cls: "pulse", nm: { en: "Health snapshot", id: "Ringkasan Kesehatan" }, d: { en: "RHR, weight & BMI", id: "RHR, berat & BMI" }, render: tcHealth }
       };
       var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health"];
-      function getPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p) || !p.length) p = ["calories"]; if (p.indexOf("calories") < 0) p.unshift("calories"); return p.filter(function (x) { return TRK[x] && TRK[x].enabled !== false; }); }
+      // calories & photo SELALU tampil (fitur unggulan) — dipaksa hadir walau user tak pin.
+      function getPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p) || !p.length) p = ["calories", "photo"]; if (p.indexOf("calories") < 0) p.unshift("calories"); if (p.indexOf("photo") < 0) p.splice(Math.min(1, p.length), 0, "photo"); return p.filter(function (x) { return TRK[x] && TRK[x].enabled !== false; }); }
       function setPins(p) { try { localStorage.setItem("my20fit_home_pins", JSON.stringify(p)); } catch (e) {} setLocalTs(new Date().toISOString()); pushPrefs(); }
       // Data 7 malam terakhir utk mini bar chart Sleep (null = masih loading). Data REAL dari daily_log.
       var SLEEP7 = null;
@@ -813,14 +832,208 @@
           '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Calories", id: "Kalori" }) + '</div><div class="tc-kcal tkmono">' + eaten + ' / ' + tgt.toLocaleString() + ' kcal <small>· ' + pct + '%</small></div></div><span class="tkchev">›</span></div>' +
           '<div class="tc-macros">' + macro(Lx({ en: "Protein", id: "Protein" }), Math.round(em.p), mt.p, "#C41101") + macro(Lx({ en: "Carbs", id: "Karbo" }), Math.round(em.c), mt.c, "#C87000") + macro(Lx({ en: "Fat", id: "Lemak" }), Math.round(em.f), mt.f, "#2F6BFF") + '</div></a>';
       }
-      // Photo: TIDAK ada data asli (integrasi photo.20fit.id belum dibangun) -> empty-state
-      // dengan ajakan hubungkan (klik = SSO ke photo.20fit.id). JANGAN pakai thumbnail dummy.
+      // ===== Photo.20fit.id — katalog foto event (data NYATA via /api/photo/list) =====
+      // Server my.20fit meneruskan token Supabase user ke photo.20fit.id (project Supabase sama).
+      // hasFace menentukan Case A (sudah scan -> tampil katalog) vs Case B (belum -> ajakan scan).
+      var PHOTO_ORIGIN = "https://photo.20fit.id";
+      var PHOTOS = null;            // null = loading; obj = {hasFace, bought, notBought, unavailable, scan}
+      var _photosLoading = false;
+      window.loadPhotos = async function loadPhotos(force) {
+        if (_photosLoading) return;
+        if (PHOTOS && !PHOTOS.unavailable && !force) return;
+        _photosLoading = true;
+        if (force) { PHOTOS = null; try { if (window.renderStack) window.renderStack(); } catch (e) {} }
+        var result;
+        try {
+          var t = (window.Auth && Auth.token) ? await Auth.token() : null;
+          if (!t) { result = { unavailable: true }; }
+          else {
+            var r = await fetch("/api/photo/list", { headers: { Authorization: "Bearer " + t } });
+            var j = await r.json().catch(function () { return null; });
+            result = (r.ok && j && j.ok) ? j : { unavailable: true };
+          }
+        } catch (e) { result = { unavailable: true }; }
+        PHOTOS = result; _photosLoading = false;
+        try { if (window.renderStack) window.renderStack(); } catch (e) {}
+      };
+
+      // Rotasi harian: shuffle deterministik per (tanggal + user) -> 20 foto "belum dibeli"
+      // yang tampil berganti tiap hari, stabil sepanjang hari itu.
+      function _phSeed(str) { var h = 1779033703 ^ str.length; for (var i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = h << 13 | h >>> 19; } return function () { h = Math.imul(h ^ h >>> 16, 2246822507); h = Math.imul(h ^ h >>> 13, 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; }; }
+      function photoDailyPick(arr, n) {
+        if (!arr || arr.length <= n) return (arr || []).slice();
+        var uid = ""; try { uid = localStorage.getItem("my20fit_uid") || ""; } catch (e) {}
+        var rnd = _phSeed(dayStr2() + "|" + uid), a = arr.slice();
+        for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+        return a.slice(0, n);
+      }
+      function _rp(n) { if (n == null) return null; try { return "Rp" + Number(n).toLocaleString("id-ID"); } catch (e) { return "Rp" + n; } }
+      function photoTile(p, owned) {
+        var label = owned ? Lx({ en: "Yours", id: "Milik" }) : (_rp(p.discountPercent ? Math.round(p.price * (1 - p.discountPercent / 100)) : p.price) || Lx({ en: "Buy", id: "Beli" }));
+        var badge = '<span class="pbadge' + (owned ? ' owned' : '') + '">' + label + '</span>';
+        var wm = owned ? "" : '<span class="pwm"></span>';
+        var img = '<img class="pimg" src="' + p.thumb + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">';
+        return '<a class="ptile" href="' + PHOTO_ORIGIN + '" onclick="return openPhotoSso(event)">' + img + wm + badge + '</a>';
+      }
+      function _phHead(clickable) {
+        var inner = '<div class="tkic photo">' + TICON.photo + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Your Photo.20fit.id", id: "Foto 20FIT-mu" }) + '</div><div class="tksub">' + Lx({ en: "Face-search your 20FIT event photos", id: "Cari foto event 20FIT pakai wajahmu" }) + '</div></div>' + (clickable ? '<span class="tkchev">›</span>' : '');
+        if (clickable) return '<div class="tkhd" role="button" tabindex="0" style="cursor:pointer" onclick="openPhotoSso(event)">' + inner + '</div>';
+        return '<div class="tkhd">' + inner + '</div>';
+      }
       function tcPhoto() {
-        return '<div class="card tkcard">' +
-          '<a href="https://photo.20fit.id" onclick="return openPhotoSso(event)" style="text-decoration:none;color:inherit"><div class="tkhd"><div class="tkic photo">' + TICON.photo + '</div><div style="flex:1"><div class="tktitle">Your Photo.20fit.id</div><div class="tksub">' + Lx({ en: "Face-search your 20FIT event photos", id: "Cari foto event 20FIT pakai wajahmu" }) + '</div></div><span class="tkchev">›</span></div></a>' +
-          '<div class="tkempty">' + Lx({ en: "Scan your face on photo.20fit.id to find your photos — same 20FIT account, no re-register needed.", id: "Scan wajahmu di photo.20fit.id untuk cari fotomu — pakai akun 20FIT yang sama, tanpa daftar ulang." }) + '</div>' +
-          '<button class="btn dark" type="button" onclick="return openPhotoSso(event)" style="margin-top:10px;width:100%">' + Lx({ en: "Scan face to find my photos", id: "Scan wajah cari fotoku" }) + '</button>' +
-        '</div>';
+        var wrap = function (inner, clickable) { return '<div class="card tkcard">' + _phHead(clickable) + inner + '</div>'; };
+        if (PHOTOS === null) {
+          return wrap('<div class="hscroll" style="margin-top:12px">' + "12345".split("").map(function () { return '<div class="ptile tkskel"></div>'; }).join("") + '</div>', false);
+        }
+        if (PHOTOS.unavailable) {
+          return wrap('<div class="tkempty">' + Lx({ en: "Couldn't load your photos right now.", id: "Belum bisa memuat fotomu sekarang." }) + '</div>' +
+            '<button class="btn dark" type="button" onclick="window.loadPhotos&&window.loadPhotos(true)" style="margin-top:10px;width:100%">' + Lx({ en: "Try again", id: "Coba lagi" }) + '</button>', false);
+        }
+        // Case B: belum pernah scan wajah -> ajakan scan (pakai API photo, di my.20fit).
+        if (!PHOTOS.hasFace) {
+          return wrap('<div class="tkempty">' + Lx({ en: "One selfie. Our AI finds you in every 20FIT event photo — no scrolling needed.", id: "Cukup satu selfie. AI kami mencarimu di semua foto event 20FIT — tanpa perlu scroll." }) + '</div>' +
+            '<button class="btn dark" type="button" onclick="openPhotoScan(event)" style="margin-top:10px;width:100%">' + Lx({ en: "Scan face to find my photos", id: "Scan wajah cari fotoku" }) + '</button>', false);
+        }
+        // Case A: sudah scan.
+        var nb = PHOTOS.notBought || [], bo = PHOTOS.bought || [];
+        if (!nb.length && !bo.length) {
+          // Kosong TAPI panggilan /photos gagal (bukan benar-benar kosong) -> "coba lagi",
+          // JANGAN suruh rescan sia-sia (bisa membuang kuota scan yang langka).
+          if (PHOTOS.photosOk === false) {
+            return wrap('<div class="tkempty">' + Lx({ en: "Couldn't load your photos right now.", id: "Belum bisa memuat fotomu sekarang." }) + '</div>' +
+              '<button class="btn dark" type="button" onclick="window.loadPhotos&&window.loadPhotos(true)" style="margin-top:10px;width:100%">' + Lx({ en: "Try again", id: "Coba lagi" }) + '</button>', false);
+          }
+          // Sudah scan tapi belum ada foto -> empty-state ala photo.20fit.id (belum diupload/terdeteksi).
+          return wrap('<div class="tkempty">' + Lx({ en: "No photos found yet. Photographers may not have uploaded, or your face wasn't detected — new matches appear here automatically.", id: "Belum ada foto. Fotografer mungkin belum upload, atau wajahmu belum terdeteksi — foto yang cocok muncul di sini otomatis." }) + '</div>' +
+            '<div style="display:flex;gap:8px;margin-top:10px">' +
+              '<button class="btn dark" type="button" onclick="openPhotoScan(event)" style="flex:1">' + Lx({ en: "Rescan face", id: "Scan ulang" }) + '</button>' +
+              '<button class="btn dark" type="button" onclick="openPhotoSso(event)" style="flex:1">' + Lx({ en: "Open 20FIT Photo", id: "Buka 20FIT Photo" }) + '</button>' +
+            '</div>', false);
+        }
+        var out = "";
+        if (nb.length) {
+          var daily = photoDailyPick(nb, 20);
+          out += '<div class="psec">' + Lx({ en: "Not yet purchased", id: "Belum dibeli" }) + ' <small>' + nb.length + '</small></div>' +
+            '<div class="hscroll">' + daily.map(function (p) { return photoTile(p, false); }).join("") + '</div>';
+        }
+        if (bo.length) {
+          out += '<div class="psec"' + (nb.length ? ' style="margin-top:8px"' : '') + '>' + Lx({ en: "Purchased", id: "Sudah dibeli" }) + ' <small>' + bo.length + '</small></div>' +
+            '<div class="hscroll">' + bo.slice(0, 20).map(function (p) { return photoTile(p, true); }).join("") + '</div>';
+        }
+        out += '<button class="btn dark" type="button" onclick="openPhotoSso(event)" style="margin-top:12px;width:100%">' + Lx({ en: "See all my photos", id: "Lihat semua fotoku" }) + '</button>';
+        return wrap(out, true);
+      }
+
+      // ---- Case B: scan wajah in-app (kamera/selfie -> /api/photo/scan -> photo.20fit /selfie/process) ----
+      window._photoScanPick = function () { var el = document.getElementById("pscanFile"); if (el) el.click(); };
+      window.openPhotoScan = function (e) { if (e && e.preventDefault) e.preventDefault(); _ensureScanModal(); _scanSet("idle"); var b = document.getElementById("pscanBg"); if (b) b.style.display = "flex"; return false; };
+      window.closePhotoScan = function () { var b = document.getElementById("pscanBg"); if (b) b.style.display = "none"; };
+      function _ensureScanModal() {
+        if (document.getElementById("pscanBg")) return;
+        var d = document.createElement("div"); d.id = "pscanBg"; d.className = "pscanbg";
+        d.innerHTML = '<div class="pscanmodal">' +
+          '<div class="pscanhd"><div class="pscanttl">' + Lx({ en: "Find my photos", id: "Cari fotoku" }) + '</div>' +
+          '<button type="button" class="pscanx" onclick="closePhotoScan()" aria-label="Close">✕</button></div>' +
+          '<div id="pscanBody"></div>' +
+          '<input id="pscanFile" type="file" accept="image/*" capture="user" style="display:none">' +
+          '</div>';
+        document.body.appendChild(d);
+        d.addEventListener("click", function (ev) { if (ev.target === d) closePhotoScan(); });
+        document.getElementById("pscanFile").addEventListener("change", _onScanFile);
+      }
+      // `data` bisa berasal dari pesan error backend photo -> HARUS di-escape sebelum masuk innerHTML.
+      function _esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
+      function _scanSet(state, data) {
+        var b = document.getElementById("pscanBody"); if (!b) return;
+        if (state === "idle") {
+          b.innerHTML = '<div class="pscanhint">' + Lx({ en: "Take a clear selfie in good lighting. We'll match your face to your 20FIT event photos — same 20FIT account.", id: "Ambil selfie yang jelas & terang. Kami cocokkan wajahmu ke foto event 20FIT-mu — pakai akun 20FIT yang sama." }) + '</div>' +
+            '<button class="btn dark" type="button" onclick="_photoScanPick()" style="width:100%;margin-top:14px">' + Lx({ en: "Open camera", id: "Buka kamera" }) + '</button>';
+        } else if (state === "working") {
+          b.innerHTML = '<div class="pscanspin"></div><div class="pscanhint" style="text-align:center">' + _esc(data || Lx({ en: "Analyzing your face…", id: "Menganalisis wajahmu…" })) + '</div>';
+        } else if (state === "error") {
+          b.innerHTML = '<div class="pscanhint" style="color:var(--red)">' + _esc(data) + '</div>' +
+            '<button class="btn dark" type="button" onclick="_photoScanPick()" style="width:100%;margin-top:14px">' + Lx({ en: "Try again", id: "Coba lagi" }) + '</button>';
+        } else if (state === "done") {
+          b.innerHTML = '<div class="pscanhint" style="text-align:center">' + _esc(data) + '</div>';
+        }
+      }
+      async function _onScanFile(ev) {
+        var f = ev.target.files && ev.target.files[0]; ev.target.value = "";
+        if (!f) return;
+        _scanSet("working", Lx({ en: "Preparing photo…", id: "Menyiapkan foto…" }));
+        var b64;
+        try { b64 = await _compressImage(f, 1080, 0.85); }
+        catch (e) { _scanSet("error", Lx({ en: "Couldn't read the photo. Try another.", id: "Gagal membaca foto. Coba yang lain." })); return; }
+        await _submitScan(b64);
+      }
+      function _compressImage(file, maxDim, quality) {
+        return new Promise(function (resolve, reject) {
+          var img = new Image(), url = URL.createObjectURL(file);
+          img.onload = function () {
+            try {
+              var w = img.width, h = img.height, scale = Math.min(1, maxDim / Math.max(w, h));
+              var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+              var c = document.createElement("canvas"); c.width = cw; c.height = ch;
+              c.getContext("2d").drawImage(img, 0, 0, cw, ch);
+              var dataUrl = c.toDataURL("image/jpeg", quality);
+              URL.revokeObjectURL(url); resolve(dataUrl);
+            } catch (e) { URL.revokeObjectURL(url); reject(e); }
+          };
+          img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("img")); };
+          img.src = url;
+        });
+      }
+      async function _submitScan(dataUrl) {
+        _scanSet("working", Lx({ en: "Analyzing your face…", id: "Menganalisis wajahmu…" }));
+        var t = (window.Auth && Auth.token) ? await Auth.token() : null;
+        if (!t) { _scanSet("error", Lx({ en: "Session expired. Please sign in again.", id: "Sesi habis. Silakan login ulang." })); return; }
+        var r, j;
+        try {
+          r = await fetch("/api/photo/scan", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + t }, body: JSON.stringify({ image: dataUrl }) });
+          j = await r.json().catch(function () { return {}; });
+        } catch (e) { _scanSet("error", Lx({ en: "Network error. Try again.", id: "Gangguan jaringan. Coba lagi." })); return; }
+        if (!r.ok || j.ok === false) { _scanSet("error", _scanErrMsg(j)); return; }
+        if (j.step === "processing") { _pollScan(0); return; }
+        _scanDone(j.count);
+      }
+      function _scanErrMsg(j) {
+        var m = ({
+          no_face: { en: "No face detected. Use a clearer, well-lit photo.", id: "Wajah tidak terdeteksi. Pakai foto lebih jelas & terang." },
+          no_face_detected: { en: "No face detected. Use a clearer, well-lit photo.", id: "Wajah tidak terdeteksi. Pakai foto lebih jelas & terang." },
+          multiple_faces: { en: "More than one face detected. Only your face should be in the photo.", id: "Terdeteksi lebih dari satu wajah. Hanya wajahmu di foto." },
+          low_quality: { en: "Photo quality too low. Try a clearer one.", id: "Kualitas foto kurang. Coba yang lebih jelas." },
+          low_confidence: { en: "Face wasn't clear enough. Try again with better lighting.", id: "Wajah kurang jelas. Coba lagi dengan cahaya lebih baik." },
+          face_mismatch: { en: "This face doesn't match your registered face.", id: "Wajah ini tidak cocok dengan wajah terdaftarmu." },
+          rate_limited: { en: "Scan limit reached. Please try again later.", id: "Batas scan tercapai. Coba lagi nanti." }
+        })[j && j.code];
+        return m ? Lx(m) : ((j && j.error) || Lx({ en: "Scan failed. Try again.", id: "Scan gagal. Coba lagi." }));
+      }
+      async function _pollScan(n) {
+        // Timeout polling: JANGAN klaim "wajah terdaftar" (kita tak tahu hasilnya) — pesan netral + reload.
+        if (n > 20) {
+          _scanSet("done", Lx({ en: "Still processing. Your photos will appear here shortly.", id: "Masih diproses. Fotomu akan muncul di sini sebentar lagi." }));
+          setTimeout(function () { closePhotoScan(); if (window.loadPhotos) window.loadPhotos(true); }, 1500);
+          return;
+        }
+        _scanSet("working", Lx({ en: "Matching your photos…", id: "Mencocokkan fotomu…" }));
+        await new Promise(function (r) { setTimeout(r, 2000); });
+        var t = (window.Auth && Auth.token) ? await Auth.token() : null;
+        if (!t) { _scanSet("error", Lx({ en: "Session expired. Please sign in again.", id: "Sesi habis. Silakan login ulang." })); return; }
+        try {
+          var r = await fetch("/api/photo/scan-status", { headers: { Authorization: "Bearer " + t } });
+          var j = await r.json().catch(function () { return {}; });
+          if (j && j.status === "done") { _scanDone(j.count); return; }
+          if (j && j.status === "error") { _scanSet("error", _scanErrMsg(j)); return; } // _scanErrMsg pakai j.code -> pesan lokal
+        } catch (e) {}
+        _pollScan(n + 1);
+      }
+      function _scanDone(count) {
+        var msg = (count != null && count > 0)
+          ? Lx({ en: "Done! We found " + count + " photo" + (count > 1 ? "s" : "") + " of you.", id: "Selesai! Kami menemukan " + count + " fotomu." })
+          : Lx({ en: "Face registered! New matches will appear here automatically.", id: "Wajah terdaftar! Foto yang cocok akan muncul di sini otomatis." });
+        _scanSet("done", msg);
+        try { if (window.toast) toast(msg); } catch (e) {}
+        setTimeout(function () { closePhotoScan(); if (window.loadPhotos) window.loadPhotos(true); }, 1500);
       }
       function tcFasting() {
         var st = (window.Fasting && Fasting.state) ? Fasting.state() : null;
@@ -1265,6 +1478,7 @@
       loadHealthReminder();
       try{ if(window.renderStack) window.renderStack(); }catch(e){}
       try{ if(window.loadSleep7) window.loadSleep7(); }catch(e){}
+      try{ if(window.loadPhotos) window.loadPhotos(); }catch(e){}
       renderIFWidget();
       loadIFFromCloud();
       checkAchievements();
