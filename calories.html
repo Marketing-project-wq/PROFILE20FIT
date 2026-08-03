@@ -277,8 +277,12 @@
     .scd-note{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:6px}
     .scd-sec{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
     .scd-lbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px}
-    .scd-por{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:3px 0}
+    .scd-por{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13.5px;padding:4px 0}
     .scd-por .mut{color:var(--muted);font-weight:600}
+    .scd-por-nm{flex:1;min-width:0}
+    .scd-por-r{display:flex;align-items:center;gap:12px;flex:0 0 auto;white-space:nowrap}
+    .scd-edit{border:0;background:transparent;color:var(--red);font-weight:700;font-size:12px;cursor:pointer;padding:2px;font-family:inherit}
+    .scd-edit:hover{text-decoration:underline}
     .scd-ins{margin:0;padding-left:18px}
     .scd-ins li{font-size:13px;line-height:1.5;margin-bottom:5px}
     .scd-desc{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:12px}
@@ -788,7 +792,7 @@
         h+='<div class="scd-sec scd-rec"><div class="scd-lbl">'+L({en:"Better intake — what to add",id:"Asupan lebih baik — perlu ditambah"})+'</div><div class="scd-rectext">'+esc(res.recommendation)+'</div>'+nm+'</div>';
       }
       h+='<div class="scd-sec"><div class="scd-lbl">'+L({en:"Portions",id:"Porsi"})+'</div>'+
-         (lastScan||[]).map(function(i,idx){var src=(i._source==="user"||i._source==="20fit_ref")?' <span class="mut" title="'+L({en:"from 20FIT corrected data",id:"dari data koreksi 20FIT"})+'">✓</span>':'';return '<div class="scd-por" id="por-'+idx+'"><span>'+esc(i.name)+(i.portion?' <span class="mut">('+esc(i.portion)+')</span>':'')+src+'</span><span class="mut">'+nRound(i.kcal)+' '+kc()+' <a onclick="editItem('+idx+')" style="cursor:pointer;color:var(--red);font-weight:700;font-size:12px;margin-left:8px">'+L({en:"Fix",id:"Betulkan"})+'</a></span></div>';}).join('')+'</div>';
+         (lastScan||[]).map(function(i,idx){var src=(i._source==="user"||i._source==="20fit_ref")?' <span class="mut" title="'+L({en:"from 20FIT corrected data",id:"dari data koreksi 20FIT"})+'">✓</span>':'';return '<div class="scd-por" id="por-'+idx+'"><span class="scd-por-nm">'+esc(i.name)+(i.portion?' <span class="mut">('+esc(i.portion)+')</span>':'')+src+'</span><span class="scd-por-r"><span class="mut">'+nRound(i.kcal)+' '+kc()+'</span><button type="button" class="scd-edit" onclick="editItem('+idx+')">'+L({en:"Edit",id:"Edit"})+'</button></span></div>';}).join('')+'</div>';
       if(res.insights && res.insights.length){
         h+='<div class="scd-sec"><div class="scd-lbl">'+L({en:"Key Insights",id:"Insight Penting"})+'</div><ul class="scd-ins">'+
            res.insights.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>';
@@ -811,7 +815,7 @@
         '<input id="ec-name-'+i+'" value="'+escA(it.name||"")+'" placeholder="'+L({en:"Food name",id:"Nama makanan"})+'" style="'+inp+'">'+
         '<div style="display:flex;gap:7px"><input id="ec-gram-'+i+'" type="number" inputmode="numeric" value="'+(parseGramsC(it.portion)||"")+'" placeholder="'+L({en:"grams",id:"gram"})+'" style="'+half+'"><input id="ec-kcal-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.kcal)+'" placeholder="'+kc()+'" style="'+half+'"></div>'+
         '<div style="display:flex;gap:7px"><input id="ec-p-'+i+'" type="number" value="'+nRound(it.protein_g)+'" placeholder="'+L({en:"Protein g",id:"Protein g"})+'" style="'+half+'"><input id="ec-c-'+i+'" type="number" value="'+nRound(it.carbs_g)+'" placeholder="'+L({en:"Carbs g",id:"Karbo g"})+'" style="'+half+'"><input id="ec-f-'+i+'" type="number" value="'+nRound(it.fat_g)+'" placeholder="'+L({en:"Fat g",id:"Lemak g"})+'" style="'+half+'"><input id="ec-fb-'+i+'" type="number" value="'+nRound(it.fiber_g)+'" placeholder="'+L({en:"Fiber g",id:"Serat g"})+'" style="'+half+'"></div>'+
-        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" onclick="saveItemCorrection('+i+')" style="border:0;border-radius:9px;background:var(--red);color:#fff;font-weight:800;font-size:13px;padding:9px 16px;cursor:pointer">'+L({en:"Save correction",id:"Simpan koreksi"})+'</button><button type="button" onclick="reopenScan()" style="border:1px solid var(--line,#e5e0d8);border-radius:9px;background:transparent;color:inherit;font-weight:700;font-size:13px;padding:9px 14px;cursor:pointer">'+L({en:"Cancel",id:"Batal"})+'</button><span id="ec-msg-'+i+'" style="font-size:12px;color:var(--red)"></span></div>'+
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" onclick="saveItemCorrection('+i+')" style="border:0;border-radius:9px;background:var(--red);color:#fff;font-weight:800;font-size:13px;padding:9px 16px;cursor:pointer">'+L({en:"Save correction",id:"Simpan koreksi"})+'</button><button type="button" onclick="reopenScan()" style="border:1px solid var(--line,#e5e0d8);border-radius:9px;background:transparent;color:inherit;font-weight:700;font-size:13px;padding:9px 14px;cursor:pointer">'+L({en:"Cancel",id:"Batal"})+'</button><span id="ec-msg-'+i+'" style="font-size:12px;color:var(--red)"></span><button type="button" onclick="deleteItem('+i+')" style="margin-left:auto;border:1px solid #e6b3ad;border-radius:9px;background:transparent;color:var(--red);font-weight:700;font-size:13px;padding:9px 14px;cursor:pointer">'+L({en:"Delete food",id:"Hapus makanan"})+'</button></div>'+
         '<div style="font-size:11.5px;color:var(--muted,#999)">'+L({en:"Your correction helps 20FIT get more accurate over time (grams & calories).",id:"Koreksimu bikin 20FIT makin akurat seiring waktu (gram & kalori)."})+'</div>'+
       '</div>';
       var nn=document.getElementById("ec-name-"+i); if(nn) nn.focus();
@@ -834,6 +838,20 @@
       reopenScan();
       if(okSync) scanToast(L({en:"Correction saved — thanks! This helps 20FIT get more accurate.",id:"Koreksi tersimpan — makasih! Ini bikin 20FIT makin akurat."}));
       else scanToast(L({en:"Updated here, but couldn't sync to 20FIT data — it still shows corrected for you.",id:"Terupdate di sini, tapi gagal sinkron ke data 20FIT — tetap tampil terkoreksi buatmu."}),true);
+    }
+    // Task 3: hapus item saat edit — konfirmasi dulu, recompute total, re-render (atau tutup kalau habis).
+    function deleteItem(i){
+      if(!(lastScan||[])[i]) return;
+      if(!window.confirm(L({en:"Delete this food?",id:"Hapus makanan ini?"}))) return;
+      lastScan.splice(i,1);
+      if(lastRes){ var s=function(k){return (lastScan||[]).reduce(function(a,x){return a+(+x[k]||0);},0);}; lastRes.total_kcal=Math.round(s("kcal")); lastRes.protein_g=s("protein_g"); lastRes.carbs_g=s("carbs_g"); lastRes.fat_g=s("fat_g"); lastRes.fiber_g=s("fiber_g"); }
+      if(!(lastScan||[]).length){
+        closeScanModal(); lastRes=null;
+        var sr=document.getElementById("scanresult"); if(sr) sr.innerHTML='<div class="muted">'+L({en:"All items removed.",id:"Semua item dihapus."})+'</div>';
+        return;
+      }
+      reopenScan();
+      scanToast(L({en:"Food removed.",id:"Makanan dihapus."}));
     }
 
     // ---- Kuota scan (10x/bulan + kredit top-up), sinkron lintas device ----
