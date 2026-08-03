@@ -2499,6 +2499,57 @@ function scanPeriodJakarta() {
   const m = (parts.find(p => p.type === "month") || {}).value;
   return y + "-" + m;
 }
+
+// ---------- Cara A: kamus makanan internal (my20fit_food_ref) ----------
+// Sistem "makin pinter" dari koreksi user — BUKAN AI yang belajar. Data agregat & anonim.
+// Override hasil AI hanya kalau makanan sudah dikoreksi cukup sering (hindari 1 koreksi
+// salah menimpa AI) DAN gram diketahui (porsi bisa "1 mangkuk" yg tak punya gram eksplisit).
+const FOOD_REF_MIN_SAMPLES = 3;
+function normFoodKey(name) {
+  return String(name || "").toLowerCase().normalize("NFKD")
+    .replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+}
+function parseGrams(portion) {
+  const m = String(portion || "").match(/(\d+(?:\.\d+)?)\s*(gram|gr|g)\b/i);
+  return m ? Math.round(parseFloat(m[1])) : null;
+}
+function clampPerG(v, max) { v = +v; if (!isFinite(v) || v < 0) return 0; return Math.min(v, max); }
+async function refineWithFoodRef(result) {
+  try {
+    if (!result || !Array.isArray(result.items) || !result.items.length) return false;
+    const keys = [...new Set(result.items.map(it => normFoodKey(it && it.name)).filter(Boolean))];
+    if (!keys.length) return false;
+    const { data: rows } = await admin.from("my20fit_food_ref")
+      .select("food_key,kcal_per_g,protein_per_g,carbs_per_g,fat_per_g,fiber_per_g,sample_count")
+      .in("food_key", keys).gte("sample_count", FOOD_REF_MIN_SAMPLES);
+    if (!rows || !rows.length) return false;
+    const map = {}; rows.forEach(r => { map[r.food_key] = r; });
+    let any = false;
+    result.items.forEach(it => {
+      const ref = map[normFoodKey(it && it.name)];
+      const g = parseGrams(it && it.portion);
+      if (ref && g != null && g > 0) {
+        it.kcal = Math.round(ref.kcal_per_g * g);
+        it.protein_g = +(ref.protein_per_g * g).toFixed(1);
+        it.carbs_g = +(ref.carbs_per_g * g).toFixed(1);
+        it.fat_g = +(ref.fat_per_g * g).toFixed(1);
+        it.fiber_g = +(ref.fiber_per_g * g).toFixed(1);
+        it._source = "20fit_ref";
+        any = true;
+      }
+    });
+    if (any) {
+      const sum = (k) => result.items.reduce((s, i) => s + (+i[k] || 0), 0);
+      result.total_kcal = Math.round(sum("kcal"));
+      result.protein_g = +sum("protein_g").toFixed(1);
+      result.carbs_g = +sum("carbs_g").toFixed(1);
+      result.fat_g = +sum("fat_g").toFixed(1);
+      result.fiber_g = +sum("fiber_g").toFixed(1);
+    }
+    return any;
+  } catch (e) { console.error("refineWithFoodRef:", e && e.message); return false; }
+}
+
 app.post("/api/scan/ai", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
@@ -2532,6 +2583,8 @@ app.post("/api/scan/ai", async (req, res) => {
     } catch (e) {
       return res.status(502).json({ error: (e && e.message) || "Gagal menghubungi mesin AI. Coba lagi." });
     }
+    // 2b) Cara A: sempurnakan dgn kamus internal — override kalau makanan sudah dikoreksi cukup sering.
+    try { await refineWithFoodRef(aiJson.result); } catch (e) {}
     // 3) Potong 1 jatah HANYA kalau makanan terdeteksi (items>0) — sama seperti perilaku lama.
     let quota = null;
     const detected = aiJson.result && Array.isArray(aiJson.result.items) && aiJson.result.items.length > 0;
@@ -2543,6 +2596,37 @@ app.post("/api/scan/ai", async (req, res) => {
     }
     return res.json({ ok: true, result: aiJson.result, consumed: detected, quota: quota });
   } catch (e) { console.error("scan/ai:", e && e.message); return res.status(500).json({ error: "Gagal memproses scan." }); }
+});
+
+// POST /api/scan/food-correction — user membetulkan hasil scan (nama + gram + kalori/makro).
+// Kontribusi DIANONIMKAN ke kamus makanan (my20fit_food_ref): TIDAK menyimpan identitas user,
+// foto, atau tanggal — cuma "nama makanan -> nutrisi per gram". Butuh login (anti-spam minimal).
+app.post("/api/scan/food-correction", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const b = req.body || {};
+    const name = String(b.name || "").trim();
+    const grams = Math.round(+b.grams || 0);
+    const kcal = +b.kcal;
+    if (!name || grams <= 0 || !isFinite(kcal) || kcal <= 0) return res.status(400).json({ error: "Nama, gram, dan kalori wajib & valid." });
+    const key = normFoodKey(name);
+    if (!key) return res.status(400).json({ error: "Nama makanan tidak valid." });
+    // per-gram + clamp fisik (kkal/g maksimum ~9.5 = mendekati lemak murni; makro <= 1 g/g).
+    const kcalPerG = clampPerG(kcal / grams, 9.5);
+    if (kcalPerG <= 0) return res.status(400).json({ error: "Nilai kalori tidak masuk akal." });
+    await admin.rpc("my20fit_food_ref_learn", {
+      p_key: key, p_name: name.slice(0, 80),
+      p_kcal_per_g: kcalPerG,
+      p_protein_per_g: clampPerG((+b.protein_g || 0) / grams, 1),
+      p_carbs_per_g: clampPerG((+b.carbs_g || 0) / grams, 1),
+      p_fat_per_g: clampPerG((+b.fat_g || 0) / grams, 1),
+      p_fiber_per_g: clampPerG((+b.fiber_g || 0) / grams, 1),
+      p_region: (String(b.lang || "").toLowerCase() === "en") ? "intl" : "id",
+    });
+    return res.json({ ok: true });
+  } catch (e) { console.error("food-correction:", e && e.message); return res.status(500).json({ error: "Gagal menyimpan koreksi." }); }
 });
 
 // ---------- Preview voucher sebelum bayar (untuk halaman checkout) ----------
