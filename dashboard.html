@@ -535,6 +535,14 @@
       .pscanhint{font-size:13px;color:var(--muted);line-height:1.55}
       .pscanspin{width:34px;height:34px;border:4px solid var(--inp);border-top-color:var(--red);border-radius:50%;animation:pspin 1s linear infinite;margin:18px auto 12px}
       @keyframes pspin{to{transform:rotate(360deg)}}
+      /* Modal preview foto (klik tile) */
+      .pviewmodal{max-width:420px}
+      .pviewimgwrap{position:relative;width:100%;aspect-ratio:3/4;max-height:56vh;border-radius:14px;overflow:hidden;background:var(--inp);margin-top:4px}
+      .pviewimg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+      .pviewinfo{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+      .pviewname{font-weight:800;font-size:14px;color:var(--txt);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .pviewprice{font-weight:800;font-size:14px;color:var(--txt);flex:0 0 auto}
+      .pviewprice.owned{color:var(--red)}
     </style>
 
     <div class="trk-head">
@@ -838,6 +846,7 @@
       var PHOTO_ORIGIN = "https://photo.20fit.id";
       var PHOTOS = null;            // null = loading; obj = {hasFace, bought, notBought, unavailable, scan}
       var _photosLoading = false;
+      var _photoById = {};          // id -> item, buat modal preview saat tile diklik
       window.loadPhotos = async function loadPhotos(force) {
         if (_photosLoading) return;
         if (PHOTOS && !PHOTOS.unavailable && !force) return;
@@ -854,8 +863,65 @@
           }
         } catch (e) { result = { unavailable: true }; }
         PHOTOS = result; _photosLoading = false;
+        _photoById = {};
+        try { (result.bought || []).concat(result.notBought || []).forEach(function (p) { if (p && p.id) _photoById[p.id] = p; }); } catch (e) {}
         try { if (window.renderStack) window.renderStack(); } catch (e) {}
       };
+      // Handoff SSO ke photo.20fit — SELF-CONTAINED di dashboard (fresh), pakai sesi Supabase yang
+      // sudah ada. TIDAK bergantung Auth.photoSso (yang bisa ke-cache versi lama -> "Failed to open").
+      // nextPath opsional: dilewatkan sbg ?next= supaya /auth/callback bisa mendarat di sana.
+      window.openPhotoGo = async function (e, nextPath) {
+        if (e && e.preventDefault) e.preventDefault();
+        try {
+          var sb = window.Auth && Auth.supabase;
+          var s = null;
+          if (sb) { try { var d = await sb.auth.getSession(); s = d && d.data && d.data.session; } catch (err) {} }
+          var q = (nextPath && nextPath.charAt(0) === "/") ? ("?next=" + encodeURIComponent(nextPath)) : "";
+          if (s && s.access_token && s.refresh_token) {
+            var exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
+            var frag = "#access_token=" + encodeURIComponent(s.access_token) +
+              "&refresh_token=" + encodeURIComponent(s.refresh_token) +
+              "&expires_in=" + exp + "&token_type=bearer&type=magiclink";
+            location.href = PHOTO_ORIGIN + "/auth/callback" + q + frag;
+            return false;
+          }
+        } catch (err) {}
+        location.href = PHOTO_ORIGIN + "/login"; // fallback: login manual di photo
+        return false;
+      };
+      // Modal PREVIEW foto di dalam my.20fit — andal, nggak pernah "blank"/gagal. Klik tile -> ini.
+      window.openPhotoView = function (id, e) {
+        if (e && e.preventDefault) e.preventDefault();
+        var p = _photoById[id]; if (!p) return false;
+        _ensurePhotoViewModal(); _renderPhotoView(p);
+        var b = document.getElementById("pviewBg"); if (b) b.style.display = "flex";
+        return false;
+      };
+      window.closePhotoView = function () { var b = document.getElementById("pviewBg"); if (b) b.style.display = "none"; };
+      function _ensurePhotoViewModal() {
+        if (document.getElementById("pviewBg")) return;
+        var d = document.createElement("div"); d.id = "pviewBg"; d.className = "pscanbg";
+        d.innerHTML = '<div class="pscanmodal pviewmodal">' +
+          '<div class="pscanhd"><div class="pscanttl" id="pviewTtl">' + Lx({ en: "Your photo", id: "Fotomu" }) + '</div>' +
+          '<button type="button" class="pscanx" onclick="closePhotoView()" aria-label="Close">✕</button></div>' +
+          '<div id="pviewBody"></div></div>';
+        document.body.appendChild(d);
+        d.addEventListener("click", function (ev) { if (ev.target === d) closePhotoView(); });
+      }
+      function _renderPhotoView(p) {
+        var body = document.getElementById("pviewBody"); if (!body) return;
+        var owned = !!p.purchased;
+        var big = "/api/photo/thumb/" + encodeURIComponent(p.id) + "?wm=1"; // watermark preview (aman lintas-origin via proxy)
+        var priceLine = owned ? Lx({ en: "You own this photo", id: "Kamu punya foto ini" })
+          : (_rp(p.discountPercent ? Math.round(p.price * (1 - p.discountPercent / 100)) : p.price) || Lx({ en: "Buy on 20FIT Photo", id: "Beli di 20FIT Photo" }));
+        var next = owned ? "/my-photos" : ("/?photo=" + encodeURIComponent(p.id));
+        var openLabel = owned ? Lx({ en: "Open & download in 20FIT Photo", id: "Buka & unduh di 20FIT Photo" }) : Lx({ en: "Open in 20FIT Photo to buy", id: "Buka di 20FIT Photo untuk beli" });
+        body.innerHTML =
+          '<div class="pviewimgwrap"><img class="pviewimg" src="' + big + '" alt="" onerror="this.src=\'' + _esc(p.thumb) + '\'">' + (owned ? '' : '<span class="pwm"></span>') + '</div>' +
+          '<div class="pviewinfo"><div class="pviewname">' + _esc(p.eventName || Lx({ en: "20FIT event photo", id: "Foto event 20FIT" })) + '</div>' +
+          '<div class="pviewprice' + (owned ? ' owned' : '') + '">' + _esc(priceLine) + '</div></div>' +
+          '<button class="btn" type="button" onclick="openPhotoGo(event,\'' + next.replace(/[^\/?=a-zA-Z0-9_-]/g, "") + '\')" style="width:100%;margin-top:14px">' + openLabel + ' ›</button>';
+      }
 
       // Rotasi harian: shuffle deterministik per (tanggal + user) -> 20 foto "belum dibeli"
       // yang tampil berganti tiap hari, stabil sepanjang hari itu.
@@ -873,7 +939,8 @@
         var badge = '<span class="pbadge' + (owned ? ' owned' : '') + '">' + label + '</span>';
         var wm = owned ? "" : '<span class="pwm"></span>';
         var img = '<img class="pimg" src="' + p.thumb + '" alt="" loading="lazy" onerror="this.style.visibility=\'hidden\'">';
-        return '<a class="ptile" href="' + PHOTO_ORIGIN + '" onclick="return openPhotoSso(event)">' + img + wm + badge + '</a>';
+        // Klik tile -> modal preview di my.20fit (andal, nggak pernah blank). Bukan langsung SSO.
+        return '<a class="ptile" href="' + PHOTO_ORIGIN + '" onclick="return openPhotoView(\'' + p.id + '\',event)">' + img + wm + badge + '</a>';
       }
       function _phHead(clickable) {
         var inner = '<div class="tkic photo">' + TICON.photo + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Your Photo.20fit.id", id: "Foto 20FIT-mu" }) + '</div><div class="tksub">' + Lx({ en: "Face-search your 20FIT event photos", id: "Cari foto event 20FIT pakai wajahmu" }) + '</div></div>' + (clickable ? '<span class="tkchev">›</span>' : '');
@@ -1127,13 +1194,9 @@
         var n = Math.max(0, cur + d);
         try { if (typeof setWater === "function") setWater(n); } catch (err) {}
       };
-      // SSO ke photo.20fit.id (server mint OTP satu-kali -> photo.20fit.id/sso), dipindah dari profil.
-      window.openPhotoSso = function (e) {
-        if (e && e.preventDefault) e.preventDefault();
-        try { if (window.Auth && Auth.photoSso) { Auth.photoSso().catch(function (err) { alert((err && err.message) || Lx({ en: "Failed to open 20FIT Photo.", id: "Gagal membuka 20FIT Photo." })); }); return false; } } catch (err) {}
-        location.href = "https://photo.20fit.id"; // fallback tanpa SSO
-        return false;
-      };
+      // SSO ke photo.20fit.id. Delegasi ke openPhotoGo (self-contained, pakai Auth.supabase) supaya
+      // TIDAK bergantung Auth.photoSso yang bisa ke-cache versi lama -> "Failed to open 20FIT Photo.".
+      window.openPhotoSso = function (e, nextPath) { return window.openPhotoGo(e, nextPath); };
 
       window.renderStack = function () {
         var el = document.getElementById("trackerStack"); if (!el) return;
