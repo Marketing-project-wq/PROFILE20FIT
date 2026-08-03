@@ -586,8 +586,12 @@
       const btn=document.getElementById("estBtn");btn.disabled=true;
       out.style.color="";out.textContent=I18N.t("cal_estimating");
       try{
-        const r=await fetch(AI_URL,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"food",text:name+", "+gram+" gram",lang:I18N.lang})});
-        const j=await r.json();
+        // Lewat server: cek kamus internal DULU (Cara A) — kalau makanan sudah dikoreksi cukup
+        // sering, hitung langsung (tanpa AI). Kalau belum, server yg panggil AI. Tetap GRATIS.
+        const tk=await Auth.token();
+        const r=await fetch("/api/scan/food-text",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},body:JSON.stringify({name:name,grams:gram,lang:I18N.lang})});
+        const j=await r.json().catch(function(){return{};});
+        if(r.status===401&&j.session_expired)throw new Error(L({en:"Your session expired — please log in again.",id:"Sesi kamu habis — silakan login lagi."}));
         if(!r.ok||!j.result)throw new Error(j.error||L({en:"Estimate failed",id:"Gagal menghitung"}));
         const it=(j.result.items&&j.result.items[0])||{};
         const kcal=Math.round(j.result.total_kcal||it.kcal||0);
@@ -602,9 +606,7 @@
     function addToLog(name,kcal,p,c,f){items.push({name:name,kcal:Math.round(kcal)||0,p:Math.round(+p||0),c:Math.round(+c||0),f:Math.round(+f||0),t:nowHM()});save();_fsumGapFlash=true;render();/* flash nutrient-gap on new log/scan */}
     function del(i){items.splice(i,1);save();render()}
 
-    // ---- Scan makanan (AI vision via OpenRouter/Gemini) ----
-    const AI_URL="https://cpvzwqptzcxnwzfzgrmt.supabase.co/functions/v1/my20fit-ai";
-    const ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI";
+    // ---- Scan makanan: foto -> /api/scan/ai (server), ketik manual -> /api/scan/food-text (server) ----
     let lastScan=[];
     // perkecil gambar dulu biar cepat
     function fileURL(f){

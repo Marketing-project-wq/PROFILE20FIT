@@ -2629,6 +2629,55 @@ app.post("/api/scan/food-correction", async (req, res) => {
   } catch (e) { console.error("food-correction:", e && e.message); return res.status(500).json({ error: "Gagal menyimpan koreksi." }); }
 });
 
+// POST /api/scan/food-text — estimasi makanan dari NAMA + GRAM (ketik manual). GRATIS (tak potong
+// jatah, sama seperti perilaku lama). Cara A+B: cek kamus internal DULU — kalau makanan sudah
+// dikoreksi cukup sering, hitung langsung tanpa AI (akurat & instan). Kalau belum, panggil AI.
+app.post("/api/scan/food-text", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const b = req.body || {};
+    const name = String(b.name || "").trim();
+    const grams = Math.round(+b.grams || 0);
+    if (!name || grams <= 0) return res.status(400).json({ error: "Nama & gram wajib diisi." });
+    const lang = (String(b.lang || "").toLowerCase() === "en") ? "en" : "id";
+    // 1) Dict-first: kamus internal (>=3 koreksi) -> hitung langsung tanpa AI.
+    const key = normFoodKey(name);
+    if (key) {
+      const { data: rows } = await admin.from("my20fit_food_ref")
+        .select("kcal_per_g,protein_per_g,carbs_per_g,fat_per_g,fiber_per_g,sample_count")
+        .eq("food_key", key).gte("sample_count", FOOD_REF_MIN_SAMPLES).limit(1);
+      const ref = rows && rows[0];
+      if (ref) {
+        const kcal = Math.round(ref.kcal_per_g * grams);
+        const item = { name: name, portion: grams + "g", kcal: kcal,
+          protein_g: +(ref.protein_per_g * grams).toFixed(1), carbs_g: +(ref.carbs_per_g * grams).toFixed(1),
+          fat_g: +(ref.fat_per_g * grams).toFixed(1), fiber_g: +(ref.fiber_per_g * grams).toFixed(1), _source: "20fit_ref" };
+        return res.json({ ok: true, source: "ref", result: {
+          items: [item], total_kcal: kcal, protein_g: item.protein_g, carbs_g: item.carbs_g,
+          fat_g: item.fat_g, fiber_g: item.fiber_g,
+          note: (lang === "en") ? "Calculated from 20FIT corrected data." : "Dihitung dari data koreksi 20FIT." } });
+      }
+    }
+    // 2) Belum di kamus -> panggil AI (edge fn). Tetap gratis (tak potong jatah).
+    try {
+      const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 60000);
+      const r = await fetch(AI_FN_URL, {
+        method: "POST", signal: ctrl.signal,
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
+        body: JSON.stringify({ action: "food", text: name + ", " + grams + " gram", lang: lang }),
+      });
+      clearTimeout(to);
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j || !j.result) throw new Error((j && j.error) || "Gagal menganalisa.");
+      return res.json({ ok: true, source: "ai", result: j.result });
+    } catch (e) {
+      return res.status(502).json({ error: (e && e.message) || "Gagal menghubungi mesin AI. Coba lagi." });
+    }
+  } catch (e) { console.error("food-text:", e && e.message); return res.status(500).json({ error: "Gagal memproses." }); }
+});
+
 // ---------- Preview voucher sebelum bayar (untuk halaman checkout) ----------
 // POST /api/scan/voucher-check { code, price } -> { ok, valid, discount, final } atau { ok:false, error }
 app.post("/api/scan/voucher-check", async (req, res) => {
