@@ -869,20 +869,21 @@
       };
       // Handoff SSO ke photo.20fit — SELF-CONTAINED di dashboard (fresh), pakai sesi Supabase yang
       // sudah ada. TIDAK bergantung Auth.photoSso (yang bisa ke-cache versi lama -> "Failed to open").
-      // nextPath opsional: dilewatkan sbg ?next= supaya /auth/callback bisa mendarat di sana.
-      window.openPhotoGo = async function (e, nextPath) {
+      // Mendarat di /auth/callback (seat sesi) -> HOME photo.20fit (https://photo.20fit.id). TANPA
+      // deep-link route yang belum tentu ada di photo.20fit (mis. /?photo=, /my-photos) supaya user
+      // tak pernah mendarat di halaman "tidak ditemukan".
+      window.openPhotoGo = async function (e) {
         if (e && e.preventDefault) e.preventDefault();
         try {
           var sb = window.Auth && Auth.supabase;
           var s = null;
           if (sb) { try { var d = await sb.auth.getSession(); s = d && d.data && d.data.session; } catch (err) {} }
-          var q = (nextPath && nextPath.charAt(0) === "/") ? ("?next=" + encodeURIComponent(nextPath)) : "";
           if (s && s.access_token && s.refresh_token) {
             var exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
             var frag = "#access_token=" + encodeURIComponent(s.access_token) +
               "&refresh_token=" + encodeURIComponent(s.refresh_token) +
               "&expires_in=" + exp + "&token_type=bearer&type=magiclink";
-            location.href = PHOTO_ORIGIN + "/auth/callback" + q + frag;
+            location.href = PHOTO_ORIGIN + "/auth/callback" + frag;
             return false;
           }
         } catch (err) {}
@@ -914,13 +915,12 @@
         var big = "/api/photo/thumb/" + encodeURIComponent(p.id) + "?wm=1"; // watermark preview (aman lintas-origin via proxy)
         var priceLine = owned ? Lx({ en: "You own this photo", id: "Kamu punya foto ini" })
           : (_rp(p.discountPercent ? Math.round(p.price * (1 - p.discountPercent / 100)) : p.price) || Lx({ en: "Buy on 20FIT Photo", id: "Beli di 20FIT Photo" }));
-        var next = owned ? "/my-photos" : ("/?photo=" + encodeURIComponent(p.id));
         var openLabel = owned ? Lx({ en: "Open & download in 20FIT Photo", id: "Buka & unduh di 20FIT Photo" }) : Lx({ en: "Open in 20FIT Photo to buy", id: "Buka di 20FIT Photo untuk beli" });
         body.innerHTML =
           '<div class="pviewimgwrap"><img class="pviewimg" src="' + big + '" alt="" onerror="this.src=\'' + _esc(p.thumb) + '\'">' + (owned ? '' : '<span class="pwm"></span>') + '</div>' +
           '<div class="pviewinfo"><div class="pviewname">' + _esc(p.eventName || Lx({ en: "20FIT event photo", id: "Foto event 20FIT" })) + '</div>' +
           '<div class="pviewprice' + (owned ? ' owned' : '') + '">' + _esc(priceLine) + '</div></div>' +
-          '<button class="btn" type="button" onclick="openPhotoGo(event,\'' + next.replace(/[^\/?=a-zA-Z0-9_-]/g, "") + '\')" style="width:100%;margin-top:14px">' + openLabel + ' ›</button>';
+          '<button class="btn" type="button" onclick="openPhotoGo(event)" style="width:100%;margin-top:14px">' + openLabel + ' ›</button>';
       }
 
       // Rotasi harian: shuffle deterministik per (tanggal + user) -> 20 foto "belum dibeli"
@@ -1196,7 +1196,7 @@
       };
       // SSO ke photo.20fit.id. Delegasi ke openPhotoGo (self-contained, pakai Auth.supabase) supaya
       // TIDAK bergantung Auth.photoSso yang bisa ke-cache versi lama -> "Failed to open 20FIT Photo.".
-      window.openPhotoSso = function (e, nextPath) { return window.openPhotoGo(e, nextPath); };
+      window.openPhotoSso = function (e) { return window.openPhotoGo(e); };
 
       window.renderStack = function () {
         var el = document.getElementById("trackerStack"); if (!el) return;
