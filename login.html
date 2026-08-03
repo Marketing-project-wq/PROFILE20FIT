@@ -108,7 +108,8 @@
   .fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:26px 0 0}
   .pcard{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
   .pcard .pbody{padding:18px 20px}
-  .pcard.photo .pimg{height:170px;background:linear-gradient(135deg,#d9d5d6,#efeceb);background-size:cover;background-position:center}
+  .pcard.photo .pimg{height:170px;background:linear-gradient(135deg,#d9d5d6,#efeceb);overflow:hidden}
+  .pcard.photo .pimg img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
   .pcard .fic{width:46px;height:46px;border-radius:12px;background:rgba(196,17,1,.10);display:flex;align-items:center;justify-content:center;color:var(--red);margin:20px 20px 0}
   .pcard .fic .emi{width:22px;height:22px}
   .pcard h3{font-family:"Barlow Condensed";font-weight:800;font-size:18px;letter-spacing:.03em;text-transform:uppercase;margin:0 0 6px;color:var(--dark)}
@@ -405,7 +406,11 @@
 
     // ---- Konten preview (3 foto + 3 ikon) + FAQ, bilingual ----
     // FOTO PREVIEW: isi 3 URL foto (media.20fit.id) di sini. Kosong -> tampil placeholder gradient.
-    const PREVIEW_IMG = ["", "", ""];
+    const PREVIEW_IMG = [
+      "https://media.20fit.id/wp-content/uploads/2026/08/2441260d-37ce-4764-8ea5-5c66fae5e538.jpeg", // Snap Food -> Meal scan results
+      "https://media.20fit.id/wp-content/uploads/2026/08/65c5bdee-a3ec-485e-ad3c-89396bdd586a.jpeg", // Track Progress -> Health dashboard
+      "https://media.20fit.id/wp-content/uploads/2026/08/IMG_4848.jpeg"                              // MCU -> Medical report decoded
+    ];
     const FEATURES = [
       {img:PREVIEW_IMG[0], en:{t:"Meal scan results",     d:"Calories, macros & a health score in seconds."},
                            id:{t:"Hasil scan makanan",    d:"Kalori, makro & health score dalam hitungan detik."}},
@@ -442,8 +447,10 @@
       const g=document.getElementById("fgrid");
       if(g) g.innerHTML=FEATURES.map(f=>{
         if(f.img!=null){
-          const st=f.img?' style="background-image:url('+f.img+')"':'';
-          return '<div class="pcard photo"><div class="pimg"'+st+'></div><div class="pbody"><h3>'+pick(f).t+'</h3><p>'+pick(f).d+'</p></div></div>';
+          // Foto via <img> object-fit:cover (seragam, tak gepeng). Gagal load -> img dihapus,
+          // placeholder gradient di .pimg yang tampil (fallback, layout tak rusak).
+          const im=f.img?'<img src="'+f.img+'" alt="" loading="lazy" onerror="this.remove()">':'';
+          return '<div class="pcard photo"><div class="pimg">'+im+'</div><div class="pbody"><h3>'+pick(f).t+'</h3><p>'+pick(f).d+'</p></div></div>';
         }
         return '<div class="pcard"><div class="fic">'+f.ic+'</div><div class="pbody"><h3>'+pick(f).t+'</h3><p>'+pick(f).d+'</p></div></div>';
       }).join("");
