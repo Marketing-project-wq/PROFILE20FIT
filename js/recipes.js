@@ -165,6 +165,46 @@
       steps: {
         en: "1. In a jar, stir the oats, milk, chia seeds and cinnamon together.\n2. Swirl in the peanut butter.\n3. Cover and refrigerate overnight (at least 6 hours).\n4. In the morning, stir and loosen with a splash of milk if needed.\n5. Top with sliced banana and a drizzle of honey.\n6. Serve cold or warm briefly if preferred.",
         id: "1. Dalam toples, aduk oat, susu, biji chia & kayu manis.\n2. Campurkan selai kacang.\n3. Tutup & simpan di kulkas semalaman (minimal 6 jam).\n4. Pagi harinya aduk, encerkan dengan sedikit susu bila perlu.\n5. Beri irisan pisang & siraman madu.\n6. Sajikan dingin atau hangatkan sebentar sesuai selera."
+      } },
+    { id: "gado-gado", emoji: "🥗", tint: "#2A7A4F", kcal: 450, p: 18, c: 42, f: 22, types: ["vegetarian", "halal"], q: "salad", cat: "Vegetarian",
+      nm: { en: "Gado-Gado (Indonesian Salad)", id: "Gado-Gado" },
+      ing: {
+        en: "100 g blanched long beans & spinach\n50 g bean sprouts\n1 boiled egg\n60 g fried tofu\n50 g tempeh\n1/2 boiled potato\n3 tbsp peanut sauce (ground peanut, palm sugar, lime, chili)\nA few prawn crackers",
+        id: "100 g kacang panjang & bayam rebus\n50 g tauge\n1 telur rebus\n60 g tahu goreng\n50 g tempe\n1/2 kentang rebus\n3 sdm saus kacang (kacang halus, gula merah, jeruk limau, cabai)\nBeberapa kerupuk"
+      },
+      steps: {
+        en: "1. Blanch the long beans, spinach and bean sprouts briefly, then drain.\n2. Boil the egg and potato, cut into wedges.\n3. Pan-fry the tofu and tempeh until golden, then slice.\n4. Blend the peanut sauce until smooth, loosen with a little warm water.\n5. Arrange the vegetables, egg, tofu and tempeh on a plate.\n6. Pour peanut sauce over the top and add crackers.",
+        id: "1. Blansir kacang panjang, bayam & tauge sebentar, tiriskan.\n2. Rebus telur & kentang, potong.\n3. Goreng tahu & tempe sampai keemasan, iris.\n4. Haluskan saus kacang, encerkan sedikit dengan air hangat.\n5. Tata sayur, telur, tahu & tempe di piring.\n6. Siram saus kacang, tambahkan kerupuk."
+      } },
+    { id: "nasi-pecel", emoji: "🍚", tint: "#2A7A4F", kcal: 480, p: 16, c: 62, f: 16, types: ["vegetarian", "vegan"], q: "vegetarian", cat: "Vegetarian",
+      nm: { en: "Nasi Pecel (Rice with Peanut-Sauce Veggies)", id: "Nasi Pecel" },
+      ing: {
+        en: "150 g steamed rice\n100 g blanched vegetables (spinach, long beans, bean sprouts, cassava leaf)\n1 slice fried tempeh\n3 tbsp spicy peanut sauce (peanut, kaffir lime leaf, palm sugar, chili)\nBasil leaves\nRempeyek cracker (optional)",
+        id: "150 g nasi putih\n100 g sayur rebus (bayam, kacang panjang, tauge, daun singkong)\n1 iris tempe goreng\n3 sdm sambal pecel (kacang, daun jeruk, gula merah, cabai)\nDaun kemangi\nRempeyek (opsional)"
+      },
+      steps: {
+        en: "1. Blanch all the vegetables until just tender, then drain well.\n2. Dissolve the peanut-sauce paste with warm water to a pourable consistency.\n3. Plate the warm rice with the vegetables on top.\n4. Pour the spicy peanut sauce over the vegetables.\n5. Add fried tempeh and basil.\n6. Top with rempeyek if you like.",
+        id: "1. Rebus semua sayur sampai empuk, tiriskan.\n2. Larutkan sambal pecel dengan air hangat sampai bisa disiram.\n3. Tata nasi hangat, beri sayur di atasnya.\n4. Siram sambal pecel ke sayur.\n5. Tambah tempe goreng & kemangi.\n6. Beri rempeyek bila suka."
+      } },
+    { id: "soto-ayam", emoji: "🍜", tint: "#C87000", kcal: 380, p: 30, c: 34, f: 12, types: ["normal", "high-protein", "halal"], q: "chicken soup", cat: "Chicken",
+      nm: { en: "Soto Ayam (Indonesian Chicken Soup)", id: "Soto Ayam" },
+      ing: {
+        en: "120 g shredded boiled chicken\nClear turmeric-yellow chicken broth\n50 g rice vermicelli\n50 g bean sprouts\n1/2 boiled egg\nSliced cabbage\nCelery & fried shallots\nLime wedge",
+        id: "120 g ayam rebus suwir\nKuah kaldu ayam kuning (kunyit)\n50 g soun\n50 g tauge\n1/2 telur rebus\nKol iris\nSeledri & bawang goreng\nJeruk nipis"
+      },
+      steps: {
+        en: "1. Simmer chicken with turmeric, ginger, lemongrass and garlic to a clear yellow broth.\n2. Shred the cooked chicken.\n3. Soak the vermicelli and blanch the bean sprouts.\n4. Arrange vermicelli, sprouts, cabbage, egg and chicken in a bowl.\n5. Pour the hot broth over.\n6. Finish with celery, fried shallots and a squeeze of lime.",
+        id: "1. Rebus ayam dengan kunyit, jahe, serai & bawang putih jadi kuah kuning bening.\n2. Suwir ayam yang sudah matang.\n3. Seduh soun, blansir tauge.\n4. Tata soun, tauge, kol, telur & ayam di mangkuk.\n5. Siram kuah panas.\n6. Taburi seledri, bawang goreng, peras jeruk nipis."
+      } },
+    { id: "bakwan-sayur", emoji: "🥬", tint: "#C87000", kcal: 250, p: 8, c: 30, f: 10, types: ["vegetarian", "vegan"], q: "vegetable fritter", cat: "Vegetarian",
+      nm: { en: "Baked Vegetable Bakwan (Fritters)", id: "Bakwan Sayur (Panggang)" },
+      ing: {
+        en: "80 g shredded cabbage\n60 g grated carrot\n40 g bean sprouts\n2 tbsp sliced spring onion\n40 g flour batter\n1 clove garlic\nPinch of salt & pepper\n1 tsp oil (brushed, then baked)",
+        id: "80 g kol iris\n60 g wortel parut\n40 g tauge\n2 sdm daun bawang\n40 g adonan tepung\n1 siung bawang putih\nSejumput garam & merica\n1 sdt minyak (oles, lalu panggang)"
+      },
+      steps: {
+        en: "1. Mix the vegetables with flour, garlic, salt, pepper and a little water into a thick batter.\n2. Shape into small patties on a lined tray.\n3. Lightly brush with oil.\n4. Bake (or air-fry) at 200°C for 15–18 min, flipping once, until golden and crisp.\n5. Serve warm with chili sauce on the side.",
+        id: "1. Campur sayur dengan tepung, bawang putih, garam, merica & sedikit air jadi adonan kental.\n2. Bentuk bulat pipih di loyang beralas.\n3. Oles tipis minyak.\n4. Panggang (atau air-fryer) 200°C 15–18 menit, balik sekali, sampai keemasan & renyah.\n5. Sajikan hangat dengan saus sambal."
       } }
   ];
   function byType(t) { if (!t || t === "all") return LIST.slice(); return LIST.filter(function (r) { return (r.types || []).indexOf(t) >= 0; }); }
@@ -221,8 +261,12 @@
     var tokP = (window.Auth && Auth.token) ? Promise.resolve(Auth.token()).catch(function(){return null;}) : Promise.resolve(null);
     return tokP.then(function(tok){
       if(!tok) { _gen[rec.id] = null; return null; } // butuh login → skip, biar TheMealDB yang jalan
+      // Kirim nama + DESKRIPSI KAYA (daftar bahan) supaya AI tahu persis dish-nya (bukan cuma 1 kata).
+      // id + "-v2" = cache-bust: paksa regenerate dgn prompt & deskripsi baru (foto lama tergantikan).
+      var _nm = (rec.nm && rec.nm.en) || rec.id;
+      var _desc = (rec.ing && rec.ing.en) ? String(rec.ing.en).replace(/\n/g, ", ") : (rec.q || "");
       return fetch(FOODIMG_URL, { method:"POST", headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+tok, "apikey":SB_ANON },
-        body: JSON.stringify({ id: rec.id, name: (rec.nm && rec.nm.en) || rec.id, desc: (rec.q||"") }) })
+        body: JSON.stringify({ id: rec.id + "-v2", name: _nm, desc: _desc }) })
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(j){ var u = (j && j.ok && j.url) || null; _gen[rec.id] = u; return u; })
         .catch(function(){ _gen[rec.id] = null; return null; });
