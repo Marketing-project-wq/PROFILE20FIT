@@ -810,14 +810,19 @@
       var it=(lastScan||[])[i]; if(!it) return;
       var row=document.getElementById("por-"+i); if(!row) return;
       var inp="width:100%;padding:9px 10px;border:1px solid var(--line,#e5e0d8);border-radius:9px;font-size:14px;font-family:inherit;background:var(--card,#fff);color:inherit";
-      var half="flex:1;min-width:0;"+inp;
+      var lbl="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:800;color:var(--muted,#8A8D94)";
       row.innerHTML='<div style="width:100%;display:flex;flex-direction:column;gap:7px;padding:8px 0">'+
         '<input id="ec-name-'+i+'" value="'+escA(it.name||"")+'" placeholder="'+L({en:"Food name",id:"Nama makanan"})+'" style="'+inp+'">'+
         '<div style="display:flex;gap:7px">'+
-          '<label style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--muted,#999)">'+L({en:"Grams",id:"Gram"})+'<input id="ec-gram-'+i+'" type="number" inputmode="numeric" value="'+(parseGramsC(it.portion)||"")+'" placeholder="'+L({en:"grams",id:"gram"})+'" style="'+inp+'"></label>'+
-          '<label style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:var(--muted,#999)">'+L({en:"Calories (kcal)",id:"Kalori (kkal)"})+'<input id="ec-kcal-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.kcal)+'" placeholder="'+kc()+'" style="'+inp+'"></label>'+
+          '<label style="'+lbl+'">'+L({en:"Grams",id:"Gram"})+'<input id="ec-gram-'+i+'" type="number" inputmode="numeric" value="'+(parseGramsC(it.portion)||"")+'" placeholder="'+L({en:"grams",id:"gram"})+'" style="'+inp+'"></label>'+
+          '<label style="'+lbl+'">'+L({en:"Calories (kcal)",id:"Kalori (kkal)"})+'<input id="ec-kcal-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.kcal)+'" placeholder="'+kc()+'" style="'+inp+'"></label>'+
         '</div>'+
-        '<div style="display:flex;gap:7px"><input id="ec-p-'+i+'" type="number" value="'+nRound(it.protein_g)+'" placeholder="'+L({en:"Protein g",id:"Protein g"})+'" style="'+half+'"><input id="ec-c-'+i+'" type="number" value="'+nRound(it.carbs_g)+'" placeholder="'+L({en:"Carbs g",id:"Karbo g"})+'" style="'+half+'"><input id="ec-f-'+i+'" type="number" value="'+nRound(it.fat_g)+'" placeholder="'+L({en:"Fat g",id:"Lemak g"})+'" style="'+half+'"><input id="ec-fb-'+i+'" type="number" value="'+nRound(it.fiber_g)+'" placeholder="'+L({en:"Fiber g",id:"Serat g"})+'" style="'+half+'"></div>'+
+        '<div style="display:flex;gap:7px">'+
+          '<label style="'+lbl+'">'+L({en:"Protein (g)",id:"Protein (g)"})+'<input id="ec-p-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.protein_g)+'" style="'+inp+'"></label>'+
+          '<label style="'+lbl+'">'+L({en:"Carbs (g)",id:"Karbo (g)"})+'<input id="ec-c-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.carbs_g)+'" style="'+inp+'"></label>'+
+          '<label style="'+lbl+'">'+L({en:"Fat (g)",id:"Lemak (g)"})+'<input id="ec-f-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.fat_g)+'" style="'+inp+'"></label>'+
+          '<label style="'+lbl+'">'+L({en:"Fiber (g)",id:"Serat (g)"})+'<input id="ec-fb-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.fiber_g)+'" style="'+inp+'"></label>'+
+        '</div>'+
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" onclick="saveItemCorrection('+i+')" style="border:0;border-radius:9px;background:var(--red);color:#fff;font-weight:800;font-size:13px;padding:9px 16px;cursor:pointer">'+L({en:"Save correction",id:"Simpan koreksi"})+'</button><button type="button" onclick="reopenScan()" style="border:1px solid var(--line,#e5e0d8);border-radius:9px;background:transparent;color:inherit;font-weight:700;font-size:13px;padding:9px 14px;cursor:pointer">'+L({en:"Cancel",id:"Batal"})+'</button><span id="ec-msg-'+i+'" style="font-size:12px;color:var(--red)"></span><button type="button" onclick="deleteItem('+i+')" style="margin-left:auto;border:1px solid #e6b3ad;border-radius:9px;background:transparent;color:var(--red);font-weight:700;font-size:13px;padding:9px 14px;cursor:pointer">'+L({en:"Delete food",id:"Hapus makanan"})+'</button></div>'+
         '<div style="font-size:11.5px;color:var(--muted,#999)">'+L({en:"Your correction helps 20FIT get more accurate over time (grams & calories).",id:"Koreksimu bikin 20FIT makin akurat seiring waktu (gram & kalori)."})+'</div>'+
       '</div>';
