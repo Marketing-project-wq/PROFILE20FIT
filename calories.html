@@ -835,12 +835,6 @@
           '</div></label>'+
           '<label style="'+lbl+'">'+L({en:"Calories (kcal)",id:"Kalori (kkal)"})+'<input id="ec-kcal-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.kcal)+'" placeholder="'+kc()+'" style="'+inp+'"></label>'+
         '</div>'+
-        '<div style="display:flex;gap:7px">'+
-          '<label style="'+lbl+'">'+L({en:"Protein (g)",id:"Protein (g)"})+'<input id="ec-p-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.protein_g)+'" style="'+inp+'"></label>'+
-          '<label style="'+lbl+'">'+L({en:"Carbs (g)",id:"Karbo (g)"})+'<input id="ec-c-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.carbs_g)+'" style="'+inp+'"></label>'+
-          '<label style="'+lbl+'">'+L({en:"Fat (g)",id:"Lemak (g)"})+'<input id="ec-f-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.fat_g)+'" style="'+inp+'"></label>'+
-          '<label style="'+lbl+'">'+L({en:"Fiber (g)",id:"Serat (g)"})+'<input id="ec-fb-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.fiber_g)+'" style="'+inp+'"></label>'+
-        '</div>'+
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" onclick="saveItemCorrection('+i+')" style="border:0;border-radius:9px;background:var(--red);color:#fff;font-weight:800;font-size:13px;padding:9px 16px;cursor:pointer">'+L({en:"Save correction",id:"Simpan koreksi"})+'</button><button type="button" onclick="reopenScan()" style="border:1px solid var(--line,#e5e0d8);border-radius:9px;background:transparent;color:inherit;font-weight:700;font-size:13px;padding:9px 14px;cursor:pointer">'+L({en:"Cancel",id:"Batal"})+'</button><span id="ec-msg-'+i+'" style="font-size:12px;color:var(--red)"></span><button type="button" onclick="deleteItem('+i+')" style="margin-left:auto;border:1px solid #e6b3ad;border-radius:9px;background:transparent;color:var(--red);font-weight:700;font-size:13px;padding:9px 14px;cursor:pointer">'+L({en:"Delete food",id:"Hapus makanan"})+'</button></div>'+
         '<div style="font-size:11.5px;color:var(--muted,#999)">'+L({en:"Your correction helps 20FIT get more accurate over time (grams & calories).",id:"Koreksimu bikin 20FIT makin akurat seiring waktu (gram & kalori)."})+'</div>'+
       '</div>';
@@ -855,16 +849,16 @@
       var kcal=parseInt(gv("ec-kcal-"+i),10);
       var msg=document.getElementById("ec-msg-"+i);
       if(!name||!(amt>0)||!(kcal>0)){ if(msg)msg.textContent=L({en:"Fill name, amount & kcal.",id:"Isi nama, jumlah & kkal dulu."}); return; }
-      var prot=+gv("ec-p-"+i)||0, carb=+gv("ec-c-"+i)||0, fat=+gv("ec-f-"+i)||0, fib=+gv("ec-fb-"+i)||0;
-      // 1) Update tampilan/log lokal langsung. Porsi ikut satuan terpilih (g -> "150g"; pcs/ml/L -> "4 pcs").
-      it.name=name; it.portion=(unit==="g")?(amt+"g"):(amt+" "+unit); it.kcal=kcal; it.protein_g=prot; it.carbs_g=carb; it.fat_g=fat; it.fiber_g=fib; it._source="user";
+      // 1) Update tampilan/log lokal langsung. Makro TIDAK diedit di form (dibiarkan dari hasil scan);
+      //    hanya nama, jumlah (+satuan), & kalori yang dikoreksi. Porsi ikut satuan (g -> "150g"; lainnya -> "4 pcs").
+      it.name=name; it.portion=(unit==="g")?(amt+"g"):(amt+" "+unit); it.kcal=kcal; it._source="user";
       if(lastRes){ var s=function(k){return (lastScan||[]).reduce(function(a,x){return a+(+x[k]||0);},0);}; lastRes.total_kcal=Math.round(s("kcal")); lastRes.protein_g=s("protein_g"); lastRes.carbs_g=s("carbs_g"); lastRes.fat_g=s("fat_g"); lastRes.fiber_g=s("fiber_g"); }
       // 2) Kontribusi ANONIM ke kamus makanan internal HANYA saat satuan = gram (kamus itu per-gram;
       //    kirim pcs/ml/L sebagai "grams" akan merusak data agregat -> jangan dikirim).
       var okSync=false, sent=false;
       if(unit==="g"){
         sent=true;
-        try{ var tk=await Auth.token(); var r=await fetch("/api/scan/food-correction",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},body:JSON.stringify({name:name,grams:Math.round(amt),kcal:kcal,protein_g:prot,carbs_g:carb,fat_g:fat,fiber_g:fib,lang:I18N.lang})}); var j=await r.json().catch(function(){return{};}); okSync=!!(r.ok&&j.ok); }catch(e){ okSync=false; }
+        try{ var tk=await Auth.token(); var r=await fetch("/api/scan/food-correction",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},body:JSON.stringify({name:name,grams:Math.round(amt),kcal:kcal,protein_g:(+it.protein_g||0),carbs_g:(+it.carbs_g||0),fat_g:(+it.fat_g||0),fiber_g:(+it.fiber_g||0),lang:I18N.lang})}); var j=await r.json().catch(function(){return{};}); okSync=!!(r.ok&&j.ok); }catch(e){ okSync=false; }
       }
       reopenScan();
       if(!sent) scanToast(L({en:"Saved. Your correction is applied here.",id:"Tersimpan. Koreksimu berlaku di sini."}));
