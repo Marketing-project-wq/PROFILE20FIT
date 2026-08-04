@@ -428,37 +428,6 @@
       .locbtn{margin-top:auto;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--red);color:#fff;
         text-decoration:none;border-radius:12px;padding:12px;font-weight:800;font-size:14px}
       .locbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-      /* chips filter */
-      .chips2{display:flex;gap:8px;flex-wrap:wrap;margin:0 2px 12px}
-      .chip2{border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:99px;padding:8px 14px;
-        font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
-      .chip2.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-      .chip2 .c2dot{width:7px;height:7px;border-radius:50%}
-      /* kartu dokter/coach */
-      .doccard{flex:0 0 47%;max-width:180px;scroll-snap-align:start;border-radius:16px;overflow:hidden;position:relative;
-        aspect-ratio:3/4;background:var(--inp);box-shadow:var(--shadow);text-decoration:none;color:#fff;display:block}
-      @media(min-width:900px){ .doccard{flex-basis:190px} }
-      .docph{position:absolute;inset:0;display:grid;place-items:center}
-      .docph svg{width:56px;height:56px;color:#fff;opacity:.55;fill:none;stroke:currentColor;stroke-width:1.5}
-      .doccard.doctor .docph{background:linear-gradient(160deg,#2f4a7a,#16233d)}
-      .doccard.coach .docph{background:linear-gradient(160deg,#7a2330,#3a1017)}
-      .docov{position:absolute;left:0;right:0;bottom:0;padding:34px 12px 12px;background:linear-gradient(transparent,rgba(0,0,0,.82))}
-      .docbadge{position:absolute;top:10px;left:10px;font-size:9px;font-weight:800;letter-spacing:.5px;color:#fff;background:rgba(0,0,0,.45);
-        border:1px solid rgba(255,255,255,.25);padding:3px 8px;border-radius:99px}
-      .docnm{font-weight:800;font-size:13px;line-height:1.2}
-      .docsp{font-size:11px;color:rgba(255,255,255,.8);margin-top:2px;line-height:1.2}
-      /* Foto dokter/coach (di atas gradient+ikon fallback) */
-      .docimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center}
-      /* See All: modal carousel dokter & coach */
-      .pplbg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:200}
-      .pplbg.open{display:flex}
-      .pplmodal{background:var(--card);color:var(--txt);width:100%;max-width:640px;border-radius:20px 20px 0 0;padding:16px 16px 20px;max-height:84vh;display:flex;flex-direction:column}
-      @media(min-width:900px){ .pplbg{align-items:center} .pplmodal{border-radius:20px} }
-      .pplhd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-      .pplttl{font-weight:800;font-size:17px}
-      .pplall .doccard{flex-basis:62%;max-width:210px}
-      @media(min-width:900px){ .pplall .doccard{flex-basis:200px} }
-      .pplnote{font-size:12px;color:var(--muted);text-align:center;margin-top:12px}
       /* Customize sheet: pin & reorder */
       .cz-body{padding:2px 2px 14px;overflow-y:auto;max-height:64vh;-webkit-user-select:none;user-select:none}
       .cz-lbl{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:6px 2px 8px}
@@ -575,27 +544,6 @@
     </div>
     <div class="psub2" data-en="By location · pick a place to start" data-id="Berdasarkan lokasi · pilih tempat mulai">By location · pick a place to start</div>
     <div class="hscroll" id="locRow"></div>
-
-    <!-- Book a personal session (dokter/coach) -->
-    <div class="trk-head" style="margin-top:16px">
-      <div class="sec gsec" data-en="Book a personal session" data-id="Book Sesi Personal" style="margin:0">Book a personal session</div>
-      <button class="trk-all" type="button" onclick="openPeopleAll()" style="border:0;background:none;cursor:pointer;font-family:inherit" data-en="See all" data-id="Lihat semua">See all</button>
-    </div>
-    <div class="psub2" id="pplCount"></div>
-    <div class="chips2" id="pplChips"></div>
-    <div class="hscroll" id="pplRow"></div>
-
-    <!-- See All: modal carousel dokter & coach (TIDAK redirect ke booking) -->
-    <div class="pplbg" id="pplAllBg">
-      <div class="pplmodal">
-        <div class="pplhd">
-          <div class="pplttl" data-en="Doctors &amp; Coaches" data-id="Dokter &amp; Coach">Doctors &amp; Coaches</div>
-          <button class="x-close" type="button" onclick="closePeopleAll()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-        </div>
-        <div class="hscroll pplall" id="pplAllRow"></div>
-        <div class="pplnote" data-en="Tap someone to book their session." data-id="Ketuk salah satu untuk booking sesinya.">Tap someone to book their session.</div>
-      </div>
-    </div>
 
     <div id="extraTrackers" style="display:none">
     <!-- Penting hari ini (kalori + what to watch) -->
@@ -1368,30 +1316,13 @@
       window.openCustomize = function () { window.renderCzSheet(); var b = document.getElementById("czBg"); if (b) b.style.display = "flex"; window.applyExtra(); };
       window.closeCustomize = function () { var b = document.getElementById("czBg"); if (b) b.style.display = "none"; };
 
-      // ---- Book your session: lokasi + Book personal: dokter/coach ----
-      // Data CONTOH — daftar & foto asli dokter/coach + link booking nanti disambung API.
+      // ---- Book your session: lokasi ----
+      // Data CONTOH — link booking nanti disambung API.
       var LOCS = [
         { cls: "arena", nm: "20FIT Arena", loc: { en: "Menteng, Jakarta Pusat", id: "Menteng, Jakarta Pusat" }, chips: ["HYROX Complete", "HYROX Foundation", "Venue Rental"], btn: { en: "Book Arena", id: "Book Arena" }, href: "https://booking.20fit.id/book", ph: "https://media.20fit.id/wp-content/uploads/2026/07/Copy-of-SPORTFEST2_IRWIN-3366-scaled.jpg" },
         { cls: "gym", nm: "20FIT Gym", loc: null, chips: ["Strength", "Functional", "EMS", "Personal Training"], btn: { en: "Book Gym", id: "Book Gym" }, href: "https://booking.20fit.id/gym", ph: "https://media.20fit.id/wp-content/uploads/2026/06/kebugaran-jasmani-definisi-komponen.jpg" },
         { cls: "clinic", nm: "20FIT Sport Clinic", loc: { en: "Kebayoran Baru, Jaksel", id: "Kebayoran Baru, Jaksel" }, chips: ["Physiotherapy", "Sport Massage", "Doctor Consultation", "Treatment"], btn: { en: "Book Clinic", id: "Book Klinik" }, href: "https://booking.20fit.id/clinic", ph: "https://media.20fit.id/wp-content/uploads/2026/07/WhatsApp-Image-2026-07-01-at-15.25.48.jpeg" }
       ];
-      // Roster asli (foto di-load dari URL media.20fit.id; fallback gradient+ikon kalau gagal).
-      // Catatan: spesialisasi yang belum diberi pemilik = null (baris spesialisasi
-      // disembunyikan, tidak dikarang).
-      var PEOPLE = [
-        { type: "doctor", nm: "dr. Adrian", sp: { en: "Sports Medicine", id: "Kedokteran Olahraga" }, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dr.-Adrian.jpg" },
-        { type: "doctor", nm: "dr. Yusuf", sp: { en: "Body Composition · Longevity", id: "Komposisi Tubuh · Longevity" }, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dr.-Yusuf.jpg" },
-        { type: "doctor", nm: "dr. Andre", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dr.-Ande.jpg" },
-        { type: "doctor", nm: "Dr. Merry", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dok.-Merry.png" },
-        { type: "doctor", nm: "Dr. Anna", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/dok.-Anna.png" },
-        { type: "coach", nm: "Coach Nando", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/Coach-Nando.jpg" },
-        { type: "coach", nm: "Coach Rheza", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/Coach-Rheza.jpg" },
-        { type: "coach", nm: "Coach Dhani", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/Coach-Dhani.jpg" },
-        { type: "coach", nm: "Coach Calysta", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/Coach-Calysta.jpg" },
-        { type: "coach", nm: "Coach Andro", sp: null, ph: "https://media.20fit.id/wp-content/uploads/2026/07/Coach-Andro.jpg" }
-      ];
-      var PERSON_IC = '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>';
-      var pplFilter = "all";
       function buildLoc() {
         var el = document.getElementById("locRow"); if (!el) return;
         el.innerHTML = LOCS.map(function (o) {
@@ -1403,37 +1334,7 @@
             '<a class="locbtn" href="' + o.href + '" >' + Lx(o.btn) + ' <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a></div></div>';
         }).join("");
       }
-      function buildPeople() {
-        var row = document.getElementById("pplRow"), cnt = document.getElementById("pplCount"), chp = document.getElementById("pplChips");
-        if (!row) return;
-        var nD = PEOPLE.filter(function (p) { return p.type === "doctor"; }).length, nC = PEOPLE.length - nD;
-        if (cnt) cnt.textContent = PEOPLE.length + " " + Lx({ en: "doctors & coaches available", id: "dokter & coach tersedia" });
-        if (chp) chp.innerHTML =
-          '<span class="chip2' + (pplFilter === "all" ? " on" : "") + '" data-f="all">' + Lx({ en: "All", id: "Semua" }) + ' · ' + PEOPLE.length + '</span>' +
-          '<span class="chip2' + (pplFilter === "coach" ? " on" : "") + '" data-f="coach"><span class="c2dot" style="background:#C41101"></span>Coach · ' + nC + '</span>' +
-          '<span class="chip2' + (pplFilter === "doctor" ? " on" : "") + '" data-f="doctor"><span class="c2dot" style="background:#2F6BFF"></span>' + Lx({ en: "Doctor", id: "Dokter" }) + ' · ' + nD + '</span>';
-        var list = PEOPLE.filter(function (p) { return pplFilter === "all" || p.type === pplFilter; });
-        row.innerHTML = list.map(personCard).join("");
-        if (chp) chp.querySelectorAll(".chip2").forEach(function (c) { c.addEventListener("click", function () { pplFilter = c.getAttribute("data-f"); buildPeople(); }); });
-      }
-      // Kartu satu orang: foto (kalau ada) di atas gradient+ikon fallback; klik -> booking.
-      function personCard(p) {
-        var badge = p.type === "doctor" ? Lx({ en: "DOCTOR", id: "DOKTER" }) : "COACH";
-        var img = p.ph ? '<img class="docimg" src="' + p.ph + '" alt="" loading="lazy" onerror="this.style.display=\'none\'">' : '';
-        var sp = p.sp ? '<div class="docsp">' + Lx(p.sp) + '</div>' : '';
-        return '<a class="doccard ' + p.type + '" href="https://booking.20fit.id">' +
-          '<div class="docph">' + PERSON_IC + img + '</div><span class="docbadge">' + badge + '</span>' +
-          '<div class="docov"><div class="docnm">' + p.nm + '</div>' + sp + '</div></a>';
-      }
-      // "See all" -> buka modal carousel SEMUA orang (TIDAK redirect). Redirect ke booking
-      // hanya saat user klik salah satu kartu.
-      window.openPeopleAll = function () {
-        var row = document.getElementById("pplAllRow");
-        if (row) row.innerHTML = PEOPLE.map(personCard).join("");
-        var bg = document.getElementById("pplAllBg"); if (bg) bg.classList.add("open");
-      };
-      window.closePeopleAll = function () { var bg = document.getElementById("pplAllBg"); if (bg) bg.classList.remove("open"); };
-      window.buildBooking = function () { buildLoc(); buildPeople(); };
+      window.buildBooking = function () { buildLoc(); };
 
       // ---- Sync layer: state pin/toggle home tersinkron lintas-device per akun ----
       // localStorage tetap sumber cepat (render awal); server (my20fit_profile.home_prefs)
@@ -1499,9 +1400,6 @@
       window.applyExtra();
       var czb = document.getElementById("czBg");
       if (czb) czb.addEventListener("click", function (e) { if (e.target === czb) window.closeCustomize(); });
-      var pab = document.getElementById("pplAllBg");
-      if (pab) pab.addEventListener("click", function (e) { if (e.target === pab) window.closePeopleAll(); });
-      document.addEventListener("keydown", function (e) { if (e.key === "Escape") window.closePeopleAll(); });
       if (window.I18N && I18N.onChange) I18N.onChange(function () { buildSvcGrid(); window.buildBooking(); window.renderStack(); window.renderCzSheet(); });
     })();
   </script>
