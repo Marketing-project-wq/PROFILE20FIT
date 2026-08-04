@@ -805,16 +805,34 @@
     // ---- Koreksi item hasil scan: update log lokal + kontribusi ANONIM ke kamus makanan (Cara A) ----
     function escA(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
     function parseGramsC(portion){ var m=String(portion||"").match(/(\d+(?:\.\d+)?)\s*(gram|gr|g)\b/i); return m?Math.round(parseFloat(m[1])):""; }
+    // Deteksi jumlah + satuan dari string porsi (default gram, biar konsisten dgn perilaku lama).
+    function parseAmtUnitC(portion){
+      var g=parseGramsC(portion); if(g!=="") return {amt:g, unit:"g"};
+      var s=String(portion||""), m;
+      if(m=s.match(/(\d+(?:\.\d+)?)\s*ml\b/i)) return {amt:Math.round(parseFloat(m[1])), unit:"ml"};
+      if(m=s.match(/(\d+(?:\.\d+)?)\s*(?:liter|litre|l)\b/i)) return {amt:parseFloat(m[1]), unit:"L"};
+      if(m=s.match(/(\d+(?:\.\d+)?)\s*(?:pcs|pieces?|butir|buah|potong)/i)) return {amt:Math.round(parseFloat(m[1])), unit:"pcs"};
+      return {amt:"", unit:"g"};
+    }
     function scanToast(text,warn){ var body=document.getElementById("scanModalBody"); if(!body)return; var d=document.createElement("div"); d.style.cssText="margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:13px;font-weight:600;"+(warn?"background:#fbeee0;color:#8a5a1a":"background:#e6f4ea;color:#1d6b41"); d.textContent=text; body.insertBefore(d,body.firstChild); }
     function editItem(i){
       var it=(lastScan||[])[i]; if(!it) return;
       var row=document.getElementById("por-"+i); if(!row) return;
       var inp="width:100%;padding:9px 10px;border:1px solid var(--line,#e5e0d8);border-radius:9px;font-size:14px;font-family:inherit;background:var(--card,#fff);color:inherit";
       var lbl="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:800;color:var(--muted,#8A8D94)";
+      var au=parseAmtUnitC(it.portion);
       row.innerHTML='<div style="width:100%;display:flex;flex-direction:column;gap:7px;padding:8px 0">'+
         '<input id="ec-name-'+i+'" value="'+escA(it.name||"")+'" placeholder="'+L({en:"Food name",id:"Nama makanan"})+'" style="'+inp+'">'+
         '<div style="display:flex;gap:7px">'+
-          '<label style="'+lbl+'">'+L({en:"Grams",id:"Gram"})+'<input id="ec-gram-'+i+'" type="number" inputmode="numeric" value="'+(parseGramsC(it.portion)||"")+'" placeholder="'+L({en:"grams",id:"gram"})+'" style="'+inp+'"></label>'+
+          '<label style="'+lbl+'">'+L({en:"Amount",id:"Jumlah"})+'<div style="display:flex;gap:5px">'+
+            '<input id="ec-gram-'+i+'" type="number" inputmode="decimal" step="any" value="'+(au.amt!==""?au.amt:"")+'" placeholder="'+L({en:"amount",id:"jumlah"})+'" style="'+inp+';flex:1;min-width:0">'+
+            '<select id="ec-unit-'+i+'" style="'+inp+';flex:0 0 auto;width:auto;padding-right:6px">'+
+              '<option value="g"'+(au.unit==="g"?" selected":"")+'>g</option>'+
+              '<option value="pcs"'+(au.unit==="pcs"?" selected":"")+'>pcs</option>'+
+              '<option value="ml"'+(au.unit==="ml"?" selected":"")+'>ml</option>'+
+              '<option value="L"'+(au.unit==="L"?" selected":"")+'>L</option>'+
+            '</select>'+
+          '</div></label>'+
           '<label style="'+lbl+'">'+L({en:"Calories (kcal)",id:"Kalori (kkal)"})+'<input id="ec-kcal-'+i+'" type="number" inputmode="numeric" value="'+nRound(it.kcal)+'" placeholder="'+kc()+'" style="'+inp+'"></label>'+
         '</div>'+
         '<div style="display:flex;gap:7px">'+
@@ -832,19 +850,25 @@
       var it=(lastScan||[])[i]; if(!it) return;
       var gv=function(id){var e=document.getElementById(id);return e?e.value:"";};
       var name=(gv("ec-name-"+i)||"").trim();
-      var gram=parseInt(gv("ec-gram-"+i),10);
+      var amt=parseFloat(gv("ec-gram-"+i));
+      var unit=gv("ec-unit-"+i)||"g";
       var kcal=parseInt(gv("ec-kcal-"+i),10);
       var msg=document.getElementById("ec-msg-"+i);
-      if(!name||!(gram>0)||!(kcal>0)){ if(msg)msg.textContent=L({en:"Fill name, grams & kcal.",id:"Isi nama, gram & kkal dulu."}); return; }
+      if(!name||!(amt>0)||!(kcal>0)){ if(msg)msg.textContent=L({en:"Fill name, amount & kcal.",id:"Isi nama, jumlah & kkal dulu."}); return; }
       var prot=+gv("ec-p-"+i)||0, carb=+gv("ec-c-"+i)||0, fat=+gv("ec-f-"+i)||0, fib=+gv("ec-fb-"+i)||0;
-      // 1) Update tampilan/log lokal user langsung (koreksi berlaku buat dia apa pun hasil sinkron).
-      it.name=name; it.portion=gram+"g"; it.kcal=kcal; it.protein_g=prot; it.carbs_g=carb; it.fat_g=fat; it.fiber_g=fib; it._source="user";
+      // 1) Update tampilan/log lokal langsung. Porsi ikut satuan terpilih (g -> "150g"; pcs/ml/L -> "4 pcs").
+      it.name=name; it.portion=(unit==="g")?(amt+"g"):(amt+" "+unit); it.kcal=kcal; it.protein_g=prot; it.carbs_g=carb; it.fat_g=fat; it.fiber_g=fib; it._source="user";
       if(lastRes){ var s=function(k){return (lastScan||[]).reduce(function(a,x){return a+(+x[k]||0);},0);}; lastRes.total_kcal=Math.round(s("kcal")); lastRes.protein_g=s("protein_g"); lastRes.carbs_g=s("carbs_g"); lastRes.fat_g=s("fat_g"); lastRes.fiber_g=s("fiber_g"); }
-      // 2) Kontribusi ANONIM ke kamus makanan internal (server yg simpan; tanpa identitas user).
-      var okSync=false;
-      try{ var tk=await Auth.token(); var r=await fetch("/api/scan/food-correction",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},body:JSON.stringify({name:name,grams:gram,kcal:kcal,protein_g:prot,carbs_g:carb,fat_g:fat,fiber_g:fib,lang:I18N.lang})}); var j=await r.json().catch(function(){return{};}); okSync=!!(r.ok&&j.ok); }catch(e){ okSync=false; }
+      // 2) Kontribusi ANONIM ke kamus makanan internal HANYA saat satuan = gram (kamus itu per-gram;
+      //    kirim pcs/ml/L sebagai "grams" akan merusak data agregat -> jangan dikirim).
+      var okSync=false, sent=false;
+      if(unit==="g"){
+        sent=true;
+        try{ var tk=await Auth.token(); var r=await fetch("/api/scan/food-correction",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},body:JSON.stringify({name:name,grams:Math.round(amt),kcal:kcal,protein_g:prot,carbs_g:carb,fat_g:fat,fiber_g:fib,lang:I18N.lang})}); var j=await r.json().catch(function(){return{};}); okSync=!!(r.ok&&j.ok); }catch(e){ okSync=false; }
+      }
       reopenScan();
-      if(okSync) scanToast(L({en:"Correction saved — thanks! This helps 20FIT get more accurate.",id:"Koreksi tersimpan — makasih! Ini bikin 20FIT makin akurat."}));
+      if(!sent) scanToast(L({en:"Saved. Your correction is applied here.",id:"Tersimpan. Koreksimu berlaku di sini."}));
+      else if(okSync) scanToast(L({en:"Correction saved — thanks! This helps 20FIT get more accurate.",id:"Koreksi tersimpan — makasih! Ini bikin 20FIT makin akurat."}));
       else scanToast(L({en:"Updated here, but couldn't sync to 20FIT data — it still shows corrected for you.",id:"Terupdate di sini, tapi gagal sinkron ke data 20FIT — tetap tampil terkoreksi buatmu."}),true);
     }
     // hapus item saat edit — LANGSUNG tanpa konfirmasi, recompute total, re-render (atau tutup kalau habis).
