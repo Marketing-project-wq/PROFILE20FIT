@@ -93,17 +93,15 @@ Deno.serve(async (req) => {
     const hit = await cacheGet(id);
     if (hit) return json({ ok: true, url: hit, cached: true });
 
+    // Prompt SEDERHANA yang terbukti hasilkan foto bagus (jangan over-spesifik "pale background" dsb —
+    // itu bikin gambar pucat/abstrak). Deskripsi bahan (desc) yang bikin AI tahu persis dish-nya.
     const desc = String(b.desc || '').slice(0, 400);
     const prompt =
-      `Ultra-realistic, appetizing food photograph of "${name}"` +
-      (desc ? `, made with: ${desc}` : '') +
-      `. Show the FINISHED dish exactly as it is authentically served and true to how it really looks ` +
-      `(if it is an Indonesian dish, plate it the authentic Indonesian way). Freshly served, ` +
-      `nicely plated on a clean white plate or bowl, centered in frame. ` +
-      `Professional food photography: soft natural daylight, 45-degree angle, shallow depth of field, ` +
-      `plain pale neutral background (light grey or off-white surface, same clean style every time), ` +
-      `high detail, crisp sharp focus, high resolution, no blur. ` +
-      `No text, no numbers, no logos, no watermark, no hands, no people, no packaging, no menu card.`;
+      `A professional, appetizing, realistic food photograph of "${name}"` +
+      (desc ? ` — ${desc}` : '') +
+      `. A real restaurant-quality dish, freshly plated on a clean plate or bowl, natural soft lighting, ` +
+      `top-down or 45-degree angle, shallow depth of field, neutral background. Make it look like a real ` +
+      `photo of this exact dish. No text, no watermark, no hands, no packaging.`;
 
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
