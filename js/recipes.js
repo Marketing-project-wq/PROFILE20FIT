@@ -1255,7 +1255,7 @@
   var SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI"; // anon (publik, RLS-protected)
   var FOODIMG_URL = SB_URL + "/functions/v1/my20fit-foodimg";
   // Cache PERMANEN url foto (URL pendek, bukan data-URL) -> foto STAY pas reload, tanpa network/login.
-  var GEN_KEY = "my20fit_genimg_v3";
+  var GEN_KEY = "my20fit_genimg_v4";
   function _genLoad(){ try { return JSON.parse(localStorage.getItem(GEN_KEY) || "{}"); } catch(e){ return {}; } }
   function _genSave(id, url){ try { var c=_genLoad(); c[id]=url; localStorage.setItem(GEN_KEY, JSON.stringify(c)); } catch(e){} }
   var _gen = {}; // cache in-memory sesi ini: id -> url | null (null = sudah dicoba & gagal)
@@ -1274,7 +1274,7 @@
       var _nm = (rec.nm && rec.nm.en) || rec.id;
       var _desc = (rec.ing && rec.ing.en) ? String(rec.ing.en).replace(/\n/g, ", ") : (rec.q || "");
       return fetch(FOODIMG_URL, { method:"POST", headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+tok, "apikey":SB_ANON },
-        body: JSON.stringify({ id: rec.id + "-v3", name: _nm, desc: _desc }) })
+        body: JSON.stringify({ id: rec.id + "-v4", name: _nm, desc: _desc }) })
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(j){ var u = (j && j.ok && j.url) || null; _gen[rec.id] = u;
           if(u && /^https?:/.test(u)) _genSave(rec.id, u); // simpan URL Storage permanen -> stay pas reload
