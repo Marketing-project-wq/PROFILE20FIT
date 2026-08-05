@@ -1159,11 +1159,14 @@ app.get("/api/partner/profile", async (req, res) => {
 // ================= ADMIN MONITORING (dashboard internal) =================
 // Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
-// ---------- RBAC admin per-user (superadmin/staff/viewer) ----------
+// ---------- RBAC admin per-user (superadmin/staff/viewer/marketing) ----------
 // Master ADMIN_KEY (x-admin-key / ?key=) = superadmin (bootstrap & admin.html lama).
 // Selain itu: user login 20FIT (Authorization: Bearer <jwt>) yang punya baris di
 // my20fit_admin_roles. Role di-cek di SERVER (bukan cuma UI).
-const ADMIN_RANK = { viewer: 1, staff: 2, superadmin: 3 };
+// "marketing" = rank baca setara viewer (nama/email/telepon/pembelian) TAPI DILARANG
+// data kesehatan. Larangan ditegakkan di level API (field dipangkas di respons), bukan
+// cuma disembunyikan di UI — lihat adminCanSeeHealth().
+const ADMIN_RANK = { marketing: 1, viewer: 1, staff: 2, superadmin: 3 };
 async function getAdminContext(req) {
   const masterKey = String(req.headers["x-admin-key"] || "").trim() || String(req.query.key || "").trim();
   if (ADMIN_KEY && masterKey && masterKey === ADMIN_KEY) return { via: "key", role: "superadmin", email: null, user_id: null };
@@ -1177,6 +1180,10 @@ async function getAdminContext(req) {
   return null;
 }
 function adminHasRole(ctx, minRole) { return !!(ctx && ADMIN_RANK[ctx.role] >= ADMIN_RANK[minRole || "viewer"]); }
+// Role "marketing" DILARANG mengakses data kesehatan (berat/tinggi/umur/gender/tujuan/
+// kondisi/siklus/MCU). Endpoint yang memuat data profil kesehatan WAJIB memanggil ini
+// dan memangkas field sebelum mengirim respons — diblokir di level API, bukan cuma UI.
+function adminCanSeeHealth(ctx) { return !!(ctx && ctx.role !== "marketing"); }
 async function requireAdmin(req, res, minRole) {
   const ctx = await getAdminContext(req);
   if (!ctx) { res.status(401).json({ error: "Unauthorized" }); return null; }
@@ -1213,7 +1220,7 @@ app.post("/api/admin/roles", async (req, res) => {
   const b = req.body || {};
   const email = String(b.email || "").trim().toLowerCase();
   const role = String(b.role || "").trim();
-  if (!email || ["superadmin", "staff", "viewer"].indexOf(role) < 0) return res.status(400).json({ error: "email & role (superadmin/staff/viewer) wajib." });
+  if (!email || ["superadmin", "staff", "viewer", "marketing"].indexOf(role) < 0) return res.status(400).json({ error: "email & role (superadmin/staff/viewer/marketing) wajib." });
   let uid = null;
   try {
     for (let page = 1; page <= 30; page++) {
@@ -1950,7 +1957,12 @@ function adminRange(q) {
   if (r === "today") from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   else if (r === "all") from = new Date(2020, 0, 1);
   else if (r === "30d") from = new Date(now.getTime() - 30 * 86400000);
-  else if (r === "custom") {
+  else if (r === "week") { // minggu ini: Senin 00:00 (lokal) s/d sekarang
+    const dow = (now.getDay() + 6) % 7; // 0 = Senin
+    from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow);
+  } else if (r === "month") { // bulan ini: tgl 1 00:00 (lokal) s/d sekarang
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (r === "custom") {
     from = q.from ? new Date(q.from) : new Date(now.getTime() - 7 * 86400000);
     to = q.to ? new Date(String(q.to) + "T23:59:59") : now;
   } else from = new Date(now.getTime() - 7 * 86400000);
@@ -2155,6 +2167,7 @@ app.get("/api/admin/transactions/:reff", async (req, res) => {
 // my20fit_profile; statistik beli dari my20fit_scan_orders (status=paid).
 app.get("/api/admin/users", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const seeHealth = adminCanSeeHealth(ctx); // marketing: JANGAN kirim gender/umur/berat/tinggi/tujuan
   const activeMin = Math.min(Math.max(parseInt(req.query.window, 10) || 15, 1), 10080);
   try {
     const { data: profiles, error: eProf } = await admin.from("my20fit_profile")
@@ -2190,9 +2203,8 @@ app.get("/api/admin/users", async (req, res) => {
       // set onboarding_completed=true + gender/weight (js/auth.js). Menyelesaikan onboarding
       // sudah pasti berarti masuk app + isi data — bukan sekadar konfirmasi email / login.
       const onboarded = !!(p.onboarding_completed && p.weight_kg && p.gender);
-      return {
+      const u = {
         auth_user_id: p.auth_user_id, email: p.email, full_name: p.full_name, phone: p.phone,
-        gender: p.gender, age: p.age, height_cm: p.height_cm, weight_kg: p.weight_kg, main_goal: p.main_goal,
         scan_credits: p.scan_credits, onboarding_completed: p.onboarding_completed, is_plus_member: p.is_plus_member,
         is_onboarded: onboarded, onboarded_at: onboarded ? (p.gender_selected_at || null) : null,
         created_at: p.created_at, last_active_at: a ? a.last_active_at : null, last_page: a ? a.last_page : null,
@@ -2201,6 +2213,9 @@ app.get("/api/admin/users", async (req, res) => {
         purchases: b.purchases, total_spent: b.totalSpent, credits_bought: b.credits, highest_purchase: b.highest,
         top_product: topProduct,
       };
+      // Data kesehatan HANYA untuk role non-marketing (diblokir di level API, bukan UI).
+      if (seeHealth) { u.gender = p.gender; u.age = p.age; u.height_cm = p.height_cm; u.weight_kg = p.weight_kg; u.main_goal = p.main_goal; }
+      return u;
     });
     users.sort((x, y) => (y.last_active_at ? new Date(y.last_active_at).getTime() : 0) - (x.last_active_at ? new Date(x.last_active_at).getTime() : 0));
     const activeCount = users.filter(u => u.active).length;
@@ -2215,7 +2230,12 @@ app.get("/api/admin/user-detail", async (req, res) => {
   const uid = String(req.query.uid || "");
   if (!uid) return res.status(400).json({ error: "uid wajib." });
   try {
-    const { data: p } = await admin.from("my20fit_profile").select("*").eq("auth_user_id", uid).limit(1);
+    // Marketing: JANGAN select("*") — hindari bocornya health_conditions, siklus haid, dll.
+    // Hanya kolom kontak + komersial. Non-marketing tetap profil penuh.
+    const profileCols = adminCanSeeHealth(ctx)
+      ? "*"
+      : "auth_user_id,full_name,email,phone,scan_credits,onboarding_completed,is_plus_member,created_at";
+    const { data: p } = await admin.from("my20fit_profile").select(profileCols).eq("auth_user_id", uid).limit(1);
     const { data: orders } = await admin.from("my20fit_scan_orders")
       .select("reff_no,order_type,credits,amount,net_amount,status,payment_method,voucher_id,created_at,paid_at")
       .eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(200);
@@ -2361,6 +2381,204 @@ app.get("/api/admin/onboarding-scan", async (req, res) => {
       users: users,
     });
   } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ---------- Recap onboarding/scan/beli per periode + segmen (viewer+ termasuk marketing; NON-kesehatan) ----------
+// Untuk marketing: "dalam N hari terakhir, berapa user onboarding, berapa scan, berapa beli",
+// lengkap tren harian + daftar user per segmen (nama/email/telepon) supaya bisa ditindaklanjuti.
+// SUMBER (skema live, konsisten dgn endpoint lain — TIDAK mengubah perhitungan yang sudah ada):
+//  - Onboarding (waktu) = my20fit_profile.gender_selected_at (proxy tgl selesai onboarding).
+//  - Scan (waktu)       = my20fit_scan_ledger baris delta<0 (created_at) — 1 baris per scan dipakai.
+//  - Beli (waktu)       = my20fit_scan_orders status=paid (paid_at, fallback created_at).
+// Segmen "baru onboarding" = onboarding di periode & BELUM PERNAH scan/beli (all-time) → target follow-up.
+// TIDAK memuat data kesehatan (aman utk role marketing). "View" (lihat di dashboard) boleh
+// viewer+; UNDUH daftar PII wajib staff+superadmin & diaudit lewat /api/admin/export-csv.
+app.get("/api/admin/onboarding-recap", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const { from, to } = adminRange(req.query);
+  const fromMs = new Date(from).getTime(), toMs = new Date(to).getTime();
+  const p2 = (n) => (n < 10 ? "0" + n : "" + n);
+  const inWin = (ts) => { if (!ts) return false; const t = new Date(ts).getTime(); return !isNaN(t) && t >= fromMs && t <= toMs; };
+  const dayKey = (ts) => { const d = new Date(ts); return d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate()); };
+  try {
+    // Profil (nama/email/telepon + tgl onboarding). Tidak difilter onboarding supaya nama
+    // pembeli/pen-scan yang belum ber-flag onboarding tetap bisa di-resolve.
+    const { data: profiles, error: eProf } = await admin.from("my20fit_profile")
+      .select("auth_user_id,full_name,email,phone,gender_selected_at,onboarding_completed").limit(20000);
+    if (eProf) throw eProf;
+    // Ledger scan dipakai (all-time) — utk set "pernah scan" + hitung periode & tren.
+    const { data: ledger, error: eLed } = await admin.from("my20fit_scan_ledger")
+      .select("auth_user_id,created_at").lt("delta", 0).limit(200000);
+    if (eLed) throw eLed;
+    // Order paid (all-time) — utk set "pernah beli" + hitung periode & tren.
+    const { data: orders, error: eOrd } = await admin.from("my20fit_scan_orders")
+      .select("auth_user_id,net_amount,amount,paid_at,created_at").eq("status", "paid").limit(30000);
+    if (eOrd) throw eOrd;
+
+    const profMap = {};
+    (profiles || []).forEach(p => { profMap[p.auth_user_id] = p; });
+
+    // Scan: set pernah scan (all-time), akumulasi periode per user, tren harian (distinct user).
+    const everScanned = new Set(), scanWinCount = {}, scanWinLast = {}, scanDaily = {};
+    (ledger || []).forEach(l => {
+      if (!l.auth_user_id) return;
+      everScanned.add(l.auth_user_id);
+      if (inWin(l.created_at)) {
+        scanWinCount[l.auth_user_id] = (scanWinCount[l.auth_user_id] || 0) + 1;
+        if (!scanWinLast[l.auth_user_id] || new Date(l.created_at) > new Date(scanWinLast[l.auth_user_id])) scanWinLast[l.auth_user_id] = l.created_at;
+        const k = dayKey(l.created_at); (scanDaily[k] || (scanDaily[k] = new Set())).add(l.auth_user_id);
+      }
+    });
+    // Beli: set pernah beli (all-time), akumulasi periode per user (count + nominal), tren harian.
+    const everBought = new Set(), buyWinCount = {}, buyWinAmt = {}, buyWinLast = {}, buyDaily = {};
+    (orders || []).forEach(o => {
+      if (!o.auth_user_id) return;
+      everBought.add(o.auth_user_id);
+      const ts = o.paid_at || o.created_at;
+      if (inWin(ts)) {
+        const amt = (o.net_amount != null ? +o.net_amount : +o.amount) || 0;
+        buyWinCount[o.auth_user_id] = (buyWinCount[o.auth_user_id] || 0) + 1;
+        buyWinAmt[o.auth_user_id] = (buyWinAmt[o.auth_user_id] || 0) + amt;
+        if (!buyWinLast[o.auth_user_id] || new Date(ts) > new Date(buyWinLast[o.auth_user_id])) buyWinLast[o.auth_user_id] = ts;
+        const k = dayKey(ts); (buyDaily[k] || (buyDaily[k] = new Set())).add(o.auth_user_id);
+      }
+    });
+
+    // Segmen onboarding (dari profil onboarding_completed dgn gender_selected_at di periode).
+    const onbDaily = {}, segOnboarded = [], segOnboardedNew = [];
+    (profiles || []).forEach(p => {
+      if (!(p.onboarding_completed && inWin(p.gender_selected_at))) return;
+      const row = { auth_user_id: p.auth_user_id, full_name: p.full_name, email: p.email, phone: p.phone, onboarded_at: p.gender_selected_at };
+      segOnboarded.push(row);
+      const k = dayKey(p.gender_selected_at); onbDaily[k] = (onbDaily[k] || 0) + 1;
+      if (!everScanned.has(p.auth_user_id) && !everBought.has(p.auth_user_id)) segOnboardedNew.push(row);
+    });
+    // Segmen scan/beli di periode (resolve kontak dari profMap).
+    const contact = (uid) => { const p = profMap[uid] || {}; return { auth_user_id: uid, full_name: p.full_name || null, email: p.email || null, phone: p.phone || null }; };
+    const segScanned = Object.keys(scanWinCount).map(uid => Object.assign(contact(uid), { scans_in_window: scanWinCount[uid], last_scan_at: scanWinLast[uid] || null }));
+    const segBought = Object.keys(buyWinCount).map(uid => Object.assign(contact(uid), { orders_in_window: buyWinCount[uid], amount_in_window: buyWinAmt[uid] || 0, last_paid_at: buyWinLast[uid] || null }));
+
+    // Segmen "repeat buyer" = beli >= 2x di periode (target loyalitas/upsell).
+    const segRepeat = Object.keys(buyWinCount).filter(uid => buyWinCount[uid] >= 2)
+      .map(uid => Object.assign(contact(uid), { orders_in_window: buyWinCount[uid], amount_in_window: buyWinAmt[uid] || 0, last_paid_at: buyWinLast[uid] || null }));
+
+    segOnboarded.sort((a, b) => new Date(b.onboarded_at || 0) - new Date(a.onboarded_at || 0));
+    segOnboardedNew.sort((a, b) => new Date(b.onboarded_at || 0) - new Date(a.onboarded_at || 0));
+    segScanned.sort((a, b) => b.scans_in_window - a.scans_in_window);
+    segBought.sort((a, b) => b.amount_in_window - a.amount_in_window);
+    segRepeat.sort((a, b) => b.orders_in_window - a.orders_in_window || b.amount_in_window - a.amount_in_window);
+
+    // Perbandingan periode SEBELUMNYA (sama panjang) — utk delta founder. Semua dari data yg sudah di-fetch.
+    const winLen = Math.max(1, toMs - fromMs);
+    const prevFromMs = fromMs - winLen, prevToMs = fromMs;
+    const inPrev = (ts) => { if (!ts) return false; const t = new Date(ts).getTime(); return !isNaN(t) && t >= prevFromMs && t < prevToMs; };
+    let prevOnb = 0; const prevScanSet = new Set(), prevBuyCount = {};
+    (profiles || []).forEach(p => { if (p.onboarding_completed && inPrev(p.gender_selected_at)) prevOnb++; });
+    (ledger || []).forEach(l => { if (l.auth_user_id && inPrev(l.created_at)) prevScanSet.add(l.auth_user_id); });
+    (orders || []).forEach(o => { if (!o.auth_user_id) return; const ts = o.paid_at || o.created_at; if (inPrev(ts)) prevBuyCount[o.auth_user_id] = (prevBuyCount[o.auth_user_id] || 0) + 1; });
+    const prev = {
+      onboarded: prevOnb,
+      scanned: prevScanSet.size,
+      bought: Object.keys(prevBuyCount).length,
+      repeat: Object.keys(prevBuyCount).filter(u => prevBuyCount[u] >= 2).length,
+    };
+
+    // Tren harian: dari `from` sampai `to` (per hari UTC), isi 0 utk hari kosong.
+    const daily = [];
+    let d = new Date(Date.UTC(new Date(from).getUTCFullYear(), new Date(from).getUTCMonth(), new Date(from).getUTCDate()));
+    const end = new Date(to);
+    while (d <= end && daily.length < 400) {
+      const k = d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate());
+      daily.push({ date: k, label: p2(d.getUTCMonth() + 1) + "/" + p2(d.getUTCDate()), onboarded: onbDaily[k] || 0, scanned: scanDaily[k] ? scanDaily[k].size : 0, bought: buyDaily[k] ? buyDaily[k].size : 0 });
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+
+    return res.json({
+      ok: true, range: String(req.query.range || "7d"), from, to,
+      totals: { onboarded: segOnboarded.length, onboarded_new: segOnboardedNew.length, scanned: segScanned.length, bought: segBought.length, repeat: segRepeat.length },
+      prev: prev,
+      daily: daily,
+      segments: { onboarded: segOnboarded, onboarded_new: segOnboardedNew, scanned: segScanned, bought: segBought, repeat: segRepeat },
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ---------- Export CSV data pribadi (nama/email/telepon) — HANYA staff+superadmin ----------
+// PENGAMAN (wajib): file berisi PII, jadi role dicek DI SERVER (min "staff" — role marketing &
+// viewer DILARANG unduh) dan tiap unduhan DICATAT di audit log. File dibangun di server (bukan
+// client) supaya gate & jejak tak bisa dilewati. CSV: pemisah titik-koma + BOM UTF-8 (Excel-ID).
+function csvCell(v) {
+  v = (v == null) ? "" : String(v);
+  return /[";\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+}
+app.post("/api/admin/export-csv", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return; // marketing/viewer ditolak di sini
+  const b = req.body || {};
+  const kind = String(b.kind || "data").slice(0, 40);
+  const headers = Array.isArray(b.headers) ? b.headers.map(h => String(h)).slice(0, 60) : [];
+  let rows = Array.isArray(b.rows) ? b.rows : [];
+  if (!headers.length || !rows.length) return res.status(400).json({ error: "headers & rows wajib." });
+  if (rows.length > 50000) rows = rows.slice(0, 50000); // batas aman
+  const sep = ";";
+  const lines = [headers.map(csvCell).join(sep)];
+  for (const r of rows) lines.push((Array.isArray(r) ? r : []).map(csvCell).join(sep));
+  const body = "\uFEFF" + lines.join("\r\n");
+  let fname = String(b.filename || (kind + ".csv")).replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 80);
+  if (!/\.csv$/i.test(fname)) fname += ".csv";
+  await adminAudit(ctx, "export.csv", kind, { filename: fname, rows: rows.length, range: String(b.range || "").slice(0, 20) });
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="' + fname + '"');
+  return res.send(body);
+});
+
+// ---------- Sumber trafik / attribution (viewer+ termasuk marketing; NON-kesehatan) ----------
+// Agregasi first-touch attribution per sumber/medium/campaign/referrer, disandingkan dgn
+// konversi (pembeli & revenue) supaya marketing tahu channel mana yg menghasilkan penjualan.
+// TIDAK mengarang angka: user tanpa baris attribution dihitung terpisah sebagai "tanpa data".
+app.get("/api/admin/attribution", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data: rows, error: eRows } = await admin.from("my20fit_signup_attribution")
+      .select("auth_user_id,utm_source,utm_medium,utm_campaign,referrer_host,captured").limit(100000);
+    if (eRows) throw eRows;
+    const attr = rows || [];
+    const tracked = attr.filter(r => r.captured !== false); // sumber ASLI (bukan placeholder user lama)
+    const preTracking = attr.length - tracked.length;        // user lama (backfill, sebelum tracking)
+    const { data: paid, error: ePaid } = await admin.from("my20fit_scan_orders")
+      .select("auth_user_id,amount,net_amount,status").eq("status", "paid").limit(50000);
+    if (ePaid) throw ePaid;
+    const rev = {}, isBuyer = {};
+    (paid || []).forEach(o => {
+      if (!o.auth_user_id) return;
+      isBuyer[o.auth_user_id] = true;
+      rev[o.auth_user_id] = (rev[o.auth_user_id] || 0) + ((o.net_amount != null ? +o.net_amount : +o.amount) || 0);
+    });
+    const { count: totalUsers } = await admin.from("my20fit_profile").select("id", { count: "exact", head: true });
+    // Breakdown sumber hanya dari data ASLI (tracked). User lama tak dipaksa punya sumber.
+    function groupBy(keyFn, dflt) {
+      const m = {};
+      tracked.forEach(r => {
+        const k = keyFn(r) || dflt;
+        const g = m[k] || (m[k] = { key: k, signups: 0, buyers: 0, revenue: 0 });
+        g.signups++;
+        if (isBuyer[r.auth_user_id]) { g.buyers++; g.revenue += rev[r.auth_user_id] || 0; }
+      });
+      return Object.values(m)
+        .map(g => Object.assign(g, { conv: g.signups ? Math.round(g.buyers / g.signups * 100) : 0 }))
+        .sort((a, b) => b.signups - a.signups);
+    }
+    return res.json({
+      ok: true,
+      total_users: totalUsers || 0,
+      tracked: tracked.length,                                        // user dgn sumber asli
+      pre_tracking: preTracking,                                      // user lama (tersimpan, sebelum tracking)
+      direct_new: Math.max(0, (totalUsers || 0) - attr.length),       // user baru yang datang langsung
+      by_source: groupBy(r => r.utm_source, "(tanpa UTM)"),
+      by_medium: groupBy(r => r.utm_medium, "(tidak diset)"),
+      by_campaign: groupBy(r => r.utm_campaign, "(tidak diset)"),
+      by_referrer: groupBy(r => r.referrer_host, "(tanpa referrer)"),
+    });
+  } catch (e) { console.error("admin/attribution:", e.message); return res.status(500).json({ error: e.message }); }
 });
 
 // Catatan: endpoint lama /api/admin/stats (era admin.html) sudah dihapus —
@@ -2914,6 +3132,105 @@ app.post("/api/activity/ping", async (req, res) => {
     }, { onConflict: "auth_user_id" });
     return res.json({ ok: true });
   } catch (e) { return res.json({ ok: false }); }
+});
+
+// POST /api/attribution — simpan sumber trafik (UTM + referrer) user SEKALI (first-touch).
+// Dipanggil js/auth.js saat user sudah login. Idempoten by auth_user_id: kunjungan berikutnya
+// TIDAK menimpa sumber pertama. Data NON-kesehatan → boleh dilihat role marketing di dashboard.
+app.post("/api/attribution", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: false });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    const s = (v, n) => { const x = (v == null ? "" : String(v)).trim(); return x ? x.slice(0, n) : null; };
+    const referrer = s(b.referrer, 300);
+    let referrer_host = null;
+    if (referrer) { try { referrer_host = (new URL(referrer).hostname || "").replace(/^www\./, "") || null; } catch (e) {} }
+    const fsa = new Date(b.first_seen_at);
+    const row = {
+      auth_user_id: user.id, captured: true,
+      utm_source: s(b.utm_source, 120), utm_medium: s(b.utm_medium, 120),
+      utm_campaign: s(b.utm_campaign, 160), utm_content: s(b.utm_content, 160), utm_term: s(b.utm_term, 160),
+      referrer: referrer, referrer_host: referrer_host, landing_page: s(b.landing_page, 300),
+      first_seen_at: isNaN(fsa.getTime()) ? new Date().toISOString() : fsa.toISOString(),
+    };
+    // Aturan simpan (data user lama & baru sama-sama aman):
+    //  - belum ada baris        -> INSERT sumber asli (user baru).
+    //  - ada placeholder lama    -> UPGRADE jadi sumber asli (user lama datang via link UTM).
+    //  - sudah ada sumber asli   -> JANGAN ditimpa (first-touch menang).
+    const { data: ex } = await admin.from("my20fit_signup_attribution")
+      .select("captured").eq("auth_user_id", user.id).limit(1);
+    if (ex && ex[0]) {
+      if (ex[0].captured === false) await admin.from("my20fit_signup_attribution").update(row).eq("auth_user_id", user.id);
+    } else {
+      await admin.from("my20fit_signup_attribution").insert(row);
+    }
+    return res.json({ ok: true });
+  } catch (e) { return res.json({ ok: false }); }
+});
+
+// POST /api/menu/open — catat user membuka detail sebuah menu di /diet (sinyal minat).
+// Snapshot metadata dikirim client supaya dashboard bisa agregasi tanpa duplikasi katalog.
+app.post("/api/menu/open", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: false });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    const menu_id = String(b.menu_id || "").slice(0, 80);
+    if (!menu_id) return res.status(400).json({ error: "menu_id wajib" });
+    const types = Array.isArray(b.types)
+      ? b.types.filter(t => t != null).map(t => String(t).slice(0, 40)).slice(0, 8) : [];
+    const kcal = (b.kcal == null || isNaN(+b.kcal)) ? null : Math.round(+b.kcal);
+    await admin.from("my20fit_menu_event").insert({
+      auth_user_id: user.id, menu_id: menu_id,
+      menu_name: b.name != null ? String(b.name).slice(0, 160) : null,
+      menu_types: types.length ? types : null,
+      menu_cat: b.cat != null ? String(b.cat).slice(0, 60) : null,
+      kcal: kcal,
+    });
+    return res.json({ ok: true });
+  } catch (e) { return res.json({ ok: false }); }
+});
+
+// GET /api/admin/menu-analytics (viewer+ termasuk marketing; NON-kesehatan) — agregasi minat
+// menu: berapa kali tiap menu dibuka + user unik, dan minat per TIPE menu (biar tahu user lebih
+// suka tipe apa). Angka apa adanya dari event; menu yang tak pernah dibuka tak muncul (0 minat).
+app.get("/api/admin/menu-analytics", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const { from, to } = adminRange(req.query);
+  try {
+    const { data: ev, error } = await admin.from("my20fit_menu_event")
+      .select("auth_user_id,menu_id,menu_name,menu_types,menu_cat,kcal,created_at")
+      .gte("created_at", from).lte("created_at", to).limit(100000);
+    if (error) throw error;
+    const events = ev || [];
+    const perMenu = {}, perType = {}, allUsers = {};
+    events.forEach(e => {
+      if (e.auth_user_id) allUsers[e.auth_user_id] = true;
+      const m = perMenu[e.menu_id] || (perMenu[e.menu_id] = { menu_id: e.menu_id, name: e.menu_name || e.menu_id, cat: e.menu_cat || null, kcal: e.kcal != null ? e.kcal : null, types: e.menu_types || [], clicks: 0, users: {} });
+      m.clicks++; if (e.auth_user_id) m.users[e.auth_user_id] = true;
+      if (e.menu_name) m.name = e.menu_name;
+      if (e.menu_types && e.menu_types.length) m.types = e.menu_types;
+      if (e.kcal != null) m.kcal = e.kcal;
+      (e.menu_types || []).forEach(t => {
+        const g = perType[t] || (perType[t] = { type: t, clicks: 0, users: {}, menus: {} });
+        g.clicks++; if (e.auth_user_id) g.users[e.auth_user_id] = true; g.menus[e.menu_id] = true;
+      });
+    });
+    const menus = Object.values(perMenu)
+      .map(m => ({ menu_id: m.menu_id, name: m.name, cat: m.cat, kcal: m.kcal, types: m.types, clicks: m.clicks, users: Object.keys(m.users).length }))
+      .sort((a, b) => b.clicks - a.clicks);
+    const by_type = Object.values(perType)
+      .map(g => ({ type: g.type, clicks: g.clicks, users: Object.keys(g.users).length, menus: Object.keys(g.menus).length }))
+      .sort((a, b) => b.clicks - a.clicks);
+    return res.json({
+      ok: true, range: { from, to },
+      total_clicks: events.length, unique_menus: menus.length, unique_users: Object.keys(allUsers).length,
+      by_type: by_type, menus: menus,
+    });
+  } catch (e) { console.error("admin/menu-analytics:", e.message); return res.status(500).json({ error: e.message }); }
 });
 
 // ---------- Cek status pembayaran order scan (untuk auto thank-you + isi kredit) ----------

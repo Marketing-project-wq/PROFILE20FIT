@@ -242,9 +242,27 @@
       }
     }
     var curLogItem=null, lastLog=null, toastT=null;
+    // Catat "buka menu" (sinyal minat) ke server — fire-and-forget, tak memblokir UI.
+    function trackMenuOpen(it){
+      try{
+        if(!it) return;
+        var mid=it.source==="20fit" ? (it.rec&&it.rec.id) : it.key;
+        if(!mid) return;
+        var body=JSON.stringify({
+          menu_id:String(mid), name:titleOf(it), types:(it.types||[]).filter(Boolean),
+          cat:it.source==="20fit" ? ((it.rec&&it.rec.cat)||null) : null,
+          kcal:(it.kcal!=null)?it.kcal:null,
+        });
+        Promise.resolve(window.Auth&&Auth.token?Auth.token():null).then(function(tok){
+          if(!tok) return;
+          fetch("/api/menu/open",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok},body:body}).catch(function(){});
+        }).catch(function(){});
+      }catch(e){}
+    }
     function openRecipe(key){
       var it=ITEMS.filter(function(x){return x.key===key;})[0]; if(!it) return;
       curLogItem=it;
+      trackMenuOpen(it);
       var mac=(it.p!=null)?('<div class="rmac" style="margin:8px 0"><span>'+esc(T("cal_protein"))+' '+it.p+'g</span><span>'+esc(T("cal_carbs"))+' '+it.c+'g</span><span>'+esc(T("cal_fat"))+' '+it.f+'g</span></div>'):'';
       var hero=it.photo ? '<div class="pm-hero" style="background-image:url('+JSON.stringify(it.photo)+')"></div>'
                         : '<div class="pm-hero" style="background:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>';
