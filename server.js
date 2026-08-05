@@ -3194,6 +3194,59 @@ app.post("/api/menu/open", async (req, res) => {
   } catch (e) { return res.json({ ok: false }); }
 });
 
+// GET /api/foodphoto?id=<menu>&q=<english name> — foto ASLI menu diet (BUKAN generate AI).
+// Sumber utama: Pexels (foto profesional, lisensi bebas komersial) bila PEXELS_API_KEY di-set;
+// kalau belum di-set → fallback TheMealDB (nama cocok). URL Pexels di-cache per menu di
+// my20fit_foodimg (id = "<menu>-px") → STABIL & Pexels dipanggil sekali per menu (hemat kuota).
+// Foto AI DIHENTIKAN: hasil selalu blur/tak akurat (keterbatasan text-to-image). Butuh login.
+app.get("/api/foodphoto", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.json({ ok: false });
+    const id = String(req.query.id || "").slice(0, 80);
+    const q = String(req.query.q || "").slice(0, 120);
+    if (!id) return res.json({ ok: false });
+    const cacheId = id + "-px";
+    // 1) cache stabil (Pexels yang sudah pernah resolve) → URL tak berubah tiap load.
+    if (admin) {
+      try {
+        const { data } = await admin.from("my20fit_foodimg").select("url").eq("id", cacheId).limit(1);
+        if (data && data[0] && data[0].url) return res.json({ ok: true, url: data[0].url, cached: true });
+      } catch (_e) {}
+    }
+    // 2) Pexels — foto asli & jelas. Hanya kalau key di-set (owner isi di Railway env).
+    const key = process.env.PEXELS_API_KEY;
+    if (key && q) {
+      try {
+        const pr = await fetch("https://api.pexels.com/v1/search?orientation=landscape&per_page=1&query=" + encodeURIComponent(q),
+          { headers: { Authorization: key } });
+        if (pr.ok) {
+          const pj = await pr.json();
+          const p = pj && pj.photos && pj.photos[0];
+          const url = p && p.src && (p.src.medium || p.src.large || p.src.original);
+          if (url) {
+            if (admin) { try { await admin.from("my20fit_foodimg").upsert({ id: cacheId, url: url }); } catch (_e) {} }
+            return res.json({ ok: true, url: url, source: "pexels" });
+          }
+        }
+      } catch (_e) {}
+    }
+    // 3) fallback TheMealDB (nama cocok) — foto asli juga, walau katalog terbatas. Tidak di-cache
+    //    (biar otomatis upgrade ke Pexels begitu key di-set).
+    if (q) {
+      try {
+        const mr = await fetch("https://www.themealdb.com/api/json/v1/1/search.php?s=" + encodeURIComponent(q));
+        if (mr.ok) {
+          const mj = await mr.json();
+          const m = mj && mj.meals;
+          if (m && m[0] && m[0].strMealThumb) return res.json({ ok: true, url: m[0].strMealThumb + "/small", source: "themealdb" });
+        }
+      } catch (_e) {}
+    }
+    return res.json({ ok: false }); // tak ada foto asli yang cocok → klien pakai placeholder rapi
+  } catch (e) { return res.json({ ok: false }); }
+});
+
 // GET /api/admin/menu-analytics (viewer+ termasuk marketing; NON-kesehatan) — agregasi minat
 // menu: berapa kali tiap menu dibuka + user unik, dan minat per TIPE menu (biar tahu user lebih
 // suka tipe apa). Angka apa adanya dari event; menu yang tak pernah dibuka tak muncul (0 minat).
