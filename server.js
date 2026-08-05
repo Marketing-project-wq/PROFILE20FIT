@@ -2378,6 +2378,52 @@ app.get("/api/admin/onboarding-scan", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// ---------- Sumber trafik / attribution (viewer+ termasuk marketing; NON-kesehatan) ----------
+// Agregasi first-touch attribution per sumber/medium/campaign/referrer, disandingkan dgn
+// konversi (pembeli & revenue) supaya marketing tahu channel mana yg menghasilkan penjualan.
+// TIDAK mengarang angka: user tanpa baris attribution dihitung terpisah sebagai "tanpa data".
+app.get("/api/admin/attribution", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data: rows, error: eRows } = await admin.from("my20fit_signup_attribution")
+      .select("auth_user_id,utm_source,utm_medium,utm_campaign,referrer_host").limit(50000);
+    if (eRows) throw eRows;
+    const attr = rows || [];
+    const { data: paid, error: ePaid } = await admin.from("my20fit_scan_orders")
+      .select("auth_user_id,amount,net_amount,status").eq("status", "paid").limit(50000);
+    if (ePaid) throw ePaid;
+    const rev = {}, isBuyer = {};
+    (paid || []).forEach(o => {
+      if (!o.auth_user_id) return;
+      isBuyer[o.auth_user_id] = true;
+      rev[o.auth_user_id] = (rev[o.auth_user_id] || 0) + ((o.net_amount != null ? +o.net_amount : +o.amount) || 0);
+    });
+    const { count: totalUsers } = await admin.from("my20fit_profile").select("id", { count: "exact", head: true });
+    function groupBy(keyFn, dflt) {
+      const m = {};
+      attr.forEach(r => {
+        const k = keyFn(r) || dflt;
+        const g = m[k] || (m[k] = { key: k, signups: 0, buyers: 0, revenue: 0 });
+        g.signups++;
+        if (isBuyer[r.auth_user_id]) { g.buyers++; g.revenue += rev[r.auth_user_id] || 0; }
+      });
+      return Object.values(m)
+        .map(g => Object.assign(g, { conv: g.signups ? Math.round(g.buyers / g.signups * 100) : 0 }))
+        .sort((a, b) => b.signups - a.signups);
+    }
+    return res.json({
+      ok: true,
+      total_users: totalUsers || 0,
+      attributed: attr.length,
+      unattributed: Math.max(0, (totalUsers || 0) - attr.length),
+      by_source: groupBy(r => r.utm_source, "(tanpa UTM)"),
+      by_medium: groupBy(r => r.utm_medium, "(tidak diset)"),
+      by_campaign: groupBy(r => r.utm_campaign, "(tidak diset)"),
+      by_referrer: groupBy(r => r.referrer_host, "(tanpa referrer)"),
+    });
+  } catch (e) { console.error("admin/attribution:", e.message); return res.status(500).json({ error: e.message }); }
+});
+
 // Catatan: endpoint lama /api/admin/stats (era admin.html) sudah dihapus —
 // digantikan /api/admin/metrics (RBAC requireAdmin) di admin dashboard baru.
 
@@ -2927,6 +2973,33 @@ app.post("/api/activity/ping", async (req, res) => {
       first_seen_at: (prev && prev.first_seen_at) || nowIso,
       ping_count: ((prev && prev.ping_count) || 0) + 1,
     }, { onConflict: "auth_user_id" });
+    return res.json({ ok: true });
+  } catch (e) { return res.json({ ok: false }); }
+});
+
+// POST /api/attribution — simpan sumber trafik (UTM + referrer) user SEKALI (first-touch).
+// Dipanggil js/auth.js saat user sudah login. Idempoten by auth_user_id: kunjungan berikutnya
+// TIDAK menimpa sumber pertama. Data NON-kesehatan → boleh dilihat role marketing di dashboard.
+app.post("/api/attribution", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: false });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    const s = (v, n) => { const x = (v == null ? "" : String(v)).trim(); return x ? x.slice(0, n) : null; };
+    const referrer = s(b.referrer, 300);
+    let referrer_host = null;
+    if (referrer) { try { referrer_host = (new URL(referrer).hostname || "").replace(/^www\./, "") || null; } catch (e) {} }
+    const fsa = new Date(b.first_seen_at);
+    const row = {
+      auth_user_id: user.id,
+      utm_source: s(b.utm_source, 120), utm_medium: s(b.utm_medium, 120),
+      utm_campaign: s(b.utm_campaign, 160), utm_content: s(b.utm_content, 160), utm_term: s(b.utm_term, 160),
+      referrer: referrer, referrer_host: referrer_host, landing_page: s(b.landing_page, 300),
+      first_seen_at: isNaN(fsa.getTime()) ? new Date().toISOString() : fsa.toISOString(),
+    };
+    // first-touch menang: kalau baris user ini sudah ada, JANGAN ditimpa (ignoreDuplicates).
+    await admin.from("my20fit_signup_attribution").upsert(row, { onConflict: "auth_user_id", ignoreDuplicates: true });
     return res.json({ ok: true });
   } catch (e) { return res.json({ ok: false }); }
 });

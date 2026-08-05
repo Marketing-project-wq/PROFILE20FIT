@@ -36,8 +36,32 @@
     return supabase;
   })();
 
+  // Attribution first-touch: simpan sumber kedatangan (UTM + referrer eksternal) SEKALI di
+  // localStorage saat user pertama mendarat — first-touch menang, tak ditimpa kunjungan berikut.
+  // Kalau tak ada sinyal (langsung ketik URL, tanpa UTM/referrer eksternal) TIDAK disimpan,
+  // supaya server tak dapat baris kosong (user "langsung" dihitung dari total − ada-data).
+  (function captureAttribution() {
+    try {
+      var KEY = "my20fit_attr";
+      if (localStorage.getItem(KEY)) return;
+      var q = new URLSearchParams(location.search);
+      var ref = (document.referrer || "").slice(0, 300);
+      var extRef = ref && ref.indexOf("//" + location.host) < 0 && ref.indexOf("://" + location.host) < 0;
+      var us = q.get("utm_source"), um = q.get("utm_medium"), uc = q.get("utm_campaign");
+      if (!us && !um && !uc && !extRef) return;
+      localStorage.setItem(KEY, JSON.stringify({
+        utm_source: us || null, utm_medium: um || null, utm_campaign: uc || null,
+        utm_content: q.get("utm_content") || null, utm_term: q.get("utm_term") || null,
+        referrer: extRef ? ref : null,
+        landing_page: (location.pathname + location.search).slice(0, 300),
+        first_seen_at: new Date().toISOString(),
+      }));
+    } catch (e) {}
+  })();
+
   // Heartbeat aktivitas (best-effort) — untuk dashboard admin "siapa aktif/tidak".
   // Dipanggil sekali saat halaman dimuat kalau user sudah login. Tidak memblokir apa pun.
+  // Sekalian: flush attribution SEKALI ke server saat user sudah login (idempoten by user).
   ready.then(async function () {
     try {
       const { data } = await supabase.auth.getSession();
@@ -47,6 +71,16 @@
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + data.session.access_token },
           body: JSON.stringify({ page: location.pathname }),
         }).catch(function () {});
+        try {
+          var attr = localStorage.getItem("my20fit_attr");
+          if (attr && localStorage.getItem("my20fit_attr_synced") !== "1") {
+            fetch("/api/attribution", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": "Bearer " + data.session.access_token },
+              body: attr,
+            }).then(function (r) { if (r.ok) localStorage.setItem("my20fit_attr_synced", "1"); }).catch(function () {});
+          }
+        } catch (e) {}
       }
     } catch (e) {}
   });
