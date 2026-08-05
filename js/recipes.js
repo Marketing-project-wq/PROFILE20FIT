@@ -1221,7 +1221,7 @@
     return scored.slice(0, n).map(function (x) { return x.r; });
   }
 
-  var IMG_CACHE_KEY = "my20fit_foodimg_v3"; // v3: fallback TheMealDB pakai kata kunci pendek (mdb) — re-fetch
+  var IMG_CACHE_KEY = "my20fit_foodimg_v4"; // v4: AI (gemini-2.5-flash-image) jadi primary lagi — re-fetch
   function _imgCache(){ try { return JSON.parse(localStorage.getItem(IMG_CACHE_KEY) || "{}"); } catch(e){ return {}; } }
   function _saveImg(c){ try { localStorage.setItem(IMG_CACHE_KEY, JSON.stringify(c)); } catch(e){} }
   // Returns Promise<url|null>. Foto ASLI dari server /api/foodphoto: Pexels (kalau PEXELS_API_KEY
@@ -1233,12 +1233,13 @@
     var c=_imgCache();
     if(Object.prototype.hasOwnProperty.call(c, rec.id)) return Promise.resolve(c[rec.id]);
     function done(url){ c=_imgCache(); c[rec.id]=url||null; _saveImg(c); return c[rec.id]; }
-    var q = rec.pq || (rec.nm && rec.nm.en) || rec.q || ""; // rec.pq = query kurasi opsional (override, buat Pexels)
+    var q = rec.pq || (rec.nm && rec.nm.en) || rec.q || ""; // nama deskriptif (buat AI & Pexels)
     var mdb = rec.q || "";                                   // kata kunci pendek buat fallback TheMealDB (mis. "chicken")
+    var desc = (rec.ing && rec.ing.en) ? String(rec.ing.en).replace(/\n/g, ", ") : ""; // bahan (biar AI tahu dish-nya)
     var tokP = (window.Auth && Auth.token) ? Promise.resolve(Auth.token()).catch(function(){return null;}) : Promise.resolve(null);
     return tokP.then(function(tok){
       var h = {}; if(tok) h["Authorization"] = "Bearer " + tok;
-      return fetch("/api/foodphoto?id="+encodeURIComponent(rec.id)+"&q="+encodeURIComponent(q)+"&mdb="+encodeURIComponent(mdb), { headers: h })
+      return fetch("/api/foodphoto?id="+encodeURIComponent(rec.id)+"&q="+encodeURIComponent(q)+"&mdb="+encodeURIComponent(mdb)+"&desc="+encodeURIComponent(desc), { headers: h })
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(j){ return done(j && j.ok && j.url ? j.url : null); })
         .catch(function(){ return done(null); });
