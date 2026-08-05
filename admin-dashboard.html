@@ -237,10 +237,7 @@
           <div class="card"><h3>Produk terlaris (revenue)</h3><div id="uTopProducts"><div class="placeholder">Memuat…</div></div></div>
           <div class="card"><h3>Produk terlaris (jumlah transaksi)</h3><div id="uTopProductsCount"><div class="placeholder">Memuat…</div></div></div>
         </div>
-        <div class="grid2" style="margin-bottom:14px">
-          <div class="card"><h3>Onboarding selesai per hari</h3><div id="osChartDaily"><div class="placeholder">Memuat…</div></div></div>
-          <div class="card"><h3>Top 15 user berdasar jumlah scan dipakai</h3><div id="osChartTop"><div class="placeholder">Memuat…</div></div></div>
-        </div>
+        <div class="card" style="margin-bottom:14px"><h3>Top 15 user berdasar jumlah scan dipakai (all-time)</h3><div id="osChartTop"><div class="placeholder">Memuat…</div></div></div>
         <div class="card"><div id="uList"><div class="placeholder">Memuat…</div></div></div>
         <div class="crumb" id="osNote" style="margin-top:10px"></div>
       </div>
@@ -1065,10 +1062,9 @@
       if(OS_DATA) kpi+=statCard("Sudah pernah scan", OS_DATA.ever_scanned||0)+statCard("Total scan dipakai", OS_DATA.total_scans_used||0, "all-time");
       $("uSummary").innerHTML=kpi;
       if(OS_DATA){
-        $("osChartDaily").innerHTML=svgVBars(osDaily(OS_DATA.users), "#DE5A2A", {maxBar:30});
         $("osChartTop").innerHTML=svgVBars(osTop(OS_DATA.users), "#3B82F6", {rotate:true, maxBar:30, minW:360, step:44, padB:62});
         $("osNote").innerHTML="<b>Tgl Onboarding Selesai</b> = <code>gender_selected_at</code> (proxy, coverage 100%). <b>Scan dipakai</b> = record pemakaian di <code>my20fit_scan_ledger</code> (delta&lt;0). <b>Sisa scan</b> = saldo <code>my20fit_profile.scan_credits</code>.";
-      } else { $("osChartDaily").innerHTML=$("osChartTop").innerHTML="<div class='placeholder'>Data onboarding & scan tak termuat.</div>"; $("osNote").innerHTML=""; }
+      } else { $("osChartTop").innerHTML="<div class='placeholder'>Data onboarding & scan tak termuat.</div>"; $("osNote").innerHTML=""; }
       renderUserList();
       loadTopProducts();
     }
@@ -1391,14 +1387,6 @@
         else s+='<text x="'+x.toFixed(1)+'" y="'+(base+16)+'" text-anchor="middle" class="os-bar-lbl">'+esc(d.label)+'</text>';
       });
       return '<div style="overflow-x:auto">'+s+'</svg></div>';
-    }
-    function osDaily(users){
-      var map={}, any=false;
-      users.forEach(function(u){ if(!u.onboarded_at) return; var d=new Date(u.onboarded_at); if(isNaN(d.getTime())) return; var k=d.getFullYear()+"-"+osp2(d.getMonth()+1)+"-"+osp2(d.getDate()); map[k]=(map[k]||0)+1; any=true; });
-      if(!any) return [];
-      var keys=Object.keys(map).sort(); var cur=new Date(keys[0]+"T00:00:00"), end=new Date(), out=[];
-      while(cur<=end && out.length<400){ var k=cur.getFullYear()+"-"+osp2(cur.getMonth()+1)+"-"+osp2(cur.getDate()); out.push({label:osp2(cur.getMonth()+1)+"/"+osp2(cur.getDate()), value:map[k]||0}); cur.setDate(cur.getDate()+1); }
-      return out;
     }
     function osTop(users){
       return users.filter(function(u){return u.scans_used>0;})
