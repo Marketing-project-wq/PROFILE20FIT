@@ -1221,25 +1221,27 @@
     return scored.slice(0, n).map(function (x) { return x.r; });
   }
 
-  var IMG_CACHE_KEY = "my20fit_foodimg_v1";
+  var IMG_CACHE_KEY = "my20fit_foodimg_v2"; // v2: sumber foto pindah ke /api/foodphoto (Pexels/TheMealDB)
   function _imgCache(){ try { return JSON.parse(localStorage.getItem(IMG_CACHE_KEY) || "{}"); } catch(e){ return {}; } }
   function _saveImg(c){ try { localStorage.setItem(IMG_CACHE_KEY, JSON.stringify(c)); } catch(e){} }
-  // Returns Promise<url|null>. HANYA TheMealDB name-search (foto ASLI & jelas). Kalau nama tak ketemu
-  // -> null (biarkan placeholder rapi), JANGAN pakai foto kategori acak (bisa salah/tak sesuai).
-  // Foto AI (OpenRouter/Gemini) SUDAH DIHAPUS: hasilnya selalu blur/pucat & tak akurat untuk katalog
-  // menu tetap (apalagi masakan Indonesia) — keterbatasan text-to-image, bukan bug. Rencana: ganti
-  // ke stock foto kurasi (Pexels) yang di-approve manual. Sementara: foto asli TheMealDB + placeholder.
+  // Returns Promise<url|null>. Foto ASLI dari server /api/foodphoto: Pexels (kalau PEXELS_API_KEY
+  // di-set) → TheMealDB (nama cocok) → null. Foto AI (OpenRouter/Gemini) SUDAH DIHAPUS: hasilnya
+  // selalu blur/tak akurat (keterbatasan text-to-image, bukan bug). Kalau tak ada foto cocok → null
+  // → biarkan placeholder rapi (BUKAN foto blur/salah). URL Pexels stabil (di-cache di server).
   function resolveImg(rec){
     if(!rec || !rec.id) return Promise.resolve(null);
     var c=_imgCache();
     if(Object.prototype.hasOwnProperty.call(c, rec.id)) return Promise.resolve(c[rec.id]);
-    var base="https://www.themealdb.com/api/json/v1/1/";
-    // TheMealDB serves resized variants by appending /small (~250px) — cukup untuk thumb 96px & hero 150px.
-    function done(url){ c=_imgCache(); c[rec.id]=url?(url+"/small"):null; _saveImg(c); return c[rec.id]; }
-    return fetch(base+"search.php?s="+encodeURIComponent(rec.q||(rec.nm&&rec.nm.en)||""))
-      .then(function(r){return r.json();})
-      .then(function(j){ var m=j&&j.meals; return done(m&&m[0]&&m[0].strMealThumb ? m[0].strMealThumb : null); })
-      .catch(function(){ return done(null); });
+    function done(url){ c=_imgCache(); c[rec.id]=url||null; _saveImg(c); return c[rec.id]; }
+    var q = rec.pq || (rec.nm && rec.nm.en) || rec.q || ""; // rec.pq = query kurasi opsional (override)
+    var tokP = (window.Auth && Auth.token) ? Promise.resolve(Auth.token()).catch(function(){return null;}) : Promise.resolve(null);
+    return tokP.then(function(tok){
+      var h = {}; if(tok) h["Authorization"] = "Bearer " + tok;
+      return fetch("/api/foodphoto?id="+encodeURIComponent(rec.id)+"&q="+encodeURIComponent(q), { headers: h })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(j){ return done(j && j.ok && j.url ? j.url : null); })
+        .catch(function(){ return done(null); });
+    }).catch(function(){ return done(null); });
   }
   function _setBg(el, url){ if(!el||!url) return; el.style.backgroundImage = "url('" + url + "')"; el.classList.add("has-photo"); el.textContent = ""; }
 
