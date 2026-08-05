@@ -1957,7 +1957,12 @@ function adminRange(q) {
   if (r === "today") from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   else if (r === "all") from = new Date(2020, 0, 1);
   else if (r === "30d") from = new Date(now.getTime() - 30 * 86400000);
-  else if (r === "custom") {
+  else if (r === "week") { // minggu ini: Senin 00:00 (lokal) s/d sekarang
+    const dow = (now.getDay() + 6) % 7; // 0 = Senin
+    from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow);
+  } else if (r === "month") { // bulan ini: tgl 1 00:00 (lokal) s/d sekarang
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (r === "custom") {
     from = q.from ? new Date(q.from) : new Date(now.getTime() - 7 * 86400000);
     to = q.to ? new Date(String(q.to) + "T23:59:59") : now;
   } else from = new Date(now.getTime() - 7 * 86400000);
@@ -2386,8 +2391,8 @@ app.get("/api/admin/onboarding-scan", async (req, res) => {
 //  - Scan (waktu)       = my20fit_scan_ledger baris delta<0 (created_at) — 1 baris per scan dipakai.
 //  - Beli (waktu)       = my20fit_scan_orders status=paid (paid_at, fallback created_at).
 // Segmen "baru onboarding" = onboarding di periode & BELUM PERNAH scan/beli (all-time) → target follow-up.
-// TIDAK memuat data kesehatan (aman utk role marketing). "View" tidak diaudit (bising); yang
-// diaudit adalah UNDUH daftar PII lewat /api/admin/audit-export.
+// TIDAK memuat data kesehatan (aman utk role marketing). "View" (lihat di dashboard) boleh
+// viewer+; UNDUH daftar PII wajib staff+superadmin & diaudit lewat /api/admin/export-csv.
 app.get("/api/admin/onboarding-recap", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
   const { from, to } = adminRange(req.query);
@@ -2453,10 +2458,30 @@ app.get("/api/admin/onboarding-recap", async (req, res) => {
     const segScanned = Object.keys(scanWinCount).map(uid => Object.assign(contact(uid), { scans_in_window: scanWinCount[uid], last_scan_at: scanWinLast[uid] || null }));
     const segBought = Object.keys(buyWinCount).map(uid => Object.assign(contact(uid), { orders_in_window: buyWinCount[uid], amount_in_window: buyWinAmt[uid] || 0, last_paid_at: buyWinLast[uid] || null }));
 
+    // Segmen "repeat buyer" = beli >= 2x di periode (target loyalitas/upsell).
+    const segRepeat = Object.keys(buyWinCount).filter(uid => buyWinCount[uid] >= 2)
+      .map(uid => Object.assign(contact(uid), { orders_in_window: buyWinCount[uid], amount_in_window: buyWinAmt[uid] || 0, last_paid_at: buyWinLast[uid] || null }));
+
     segOnboarded.sort((a, b) => new Date(b.onboarded_at || 0) - new Date(a.onboarded_at || 0));
     segOnboardedNew.sort((a, b) => new Date(b.onboarded_at || 0) - new Date(a.onboarded_at || 0));
     segScanned.sort((a, b) => b.scans_in_window - a.scans_in_window);
     segBought.sort((a, b) => b.amount_in_window - a.amount_in_window);
+    segRepeat.sort((a, b) => b.orders_in_window - a.orders_in_window || b.amount_in_window - a.amount_in_window);
+
+    // Perbandingan periode SEBELUMNYA (sama panjang) — utk delta founder. Semua dari data yg sudah di-fetch.
+    const winLen = Math.max(1, toMs - fromMs);
+    const prevFromMs = fromMs - winLen, prevToMs = fromMs;
+    const inPrev = (ts) => { if (!ts) return false; const t = new Date(ts).getTime(); return !isNaN(t) && t >= prevFromMs && t < prevToMs; };
+    let prevOnb = 0; const prevScanSet = new Set(), prevBuyCount = {};
+    (profiles || []).forEach(p => { if (p.onboarding_completed && inPrev(p.gender_selected_at)) prevOnb++; });
+    (ledger || []).forEach(l => { if (l.auth_user_id && inPrev(l.created_at)) prevScanSet.add(l.auth_user_id); });
+    (orders || []).forEach(o => { if (!o.auth_user_id) return; const ts = o.paid_at || o.created_at; if (inPrev(ts)) prevBuyCount[o.auth_user_id] = (prevBuyCount[o.auth_user_id] || 0) + 1; });
+    const prev = {
+      onboarded: prevOnb,
+      scanned: prevScanSet.size,
+      bought: Object.keys(prevBuyCount).length,
+      repeat: Object.keys(prevBuyCount).filter(u => prevBuyCount[u] >= 2).length,
+    };
 
     // Tren harian: dari `from` sampai `to` (per hari UTC), isi 0 utk hari kosong.
     const daily = [];
@@ -2470,25 +2495,40 @@ app.get("/api/admin/onboarding-recap", async (req, res) => {
 
     return res.json({
       ok: true, range: String(req.query.range || "7d"), from, to,
-      totals: { onboarded: segOnboarded.length, onboarded_new: segOnboardedNew.length, scanned: segScanned.length, bought: segBought.length },
+      totals: { onboarded: segOnboarded.length, onboarded_new: segOnboardedNew.length, scanned: segScanned.length, bought: segBought.length, repeat: segRepeat.length },
+      prev: prev,
       daily: daily,
-      segments: { onboarded: segOnboarded, onboarded_new: segOnboardedNew, scanned: segScanned, bought: segBought },
+      segments: { onboarded: segOnboarded, onboarded_new: segOnboardedNew, scanned: segScanned, bought: segBought, repeat: segRepeat },
     });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
-// Catat UNDUH daftar PII segmen ke audit log (viewer+). Ekspor file dibuat di client (modul
-// AdminExport) dari data yang sudah di-fetch lewat endpoint ber-RBAC di atas; endpoint ini
-// merekam SIAPA meng-unduh, segmen apa, periode, format, & jumlah baris — jejak akuntabilitas.
-app.post("/api/admin/audit-export", async (req, res) => {
-  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+// ---------- Export CSV data pribadi (nama/email/telepon) — HANYA staff+superadmin ----------
+// PENGAMAN (wajib): file berisi PII, jadi role dicek DI SERVER (min "staff" — role marketing &
+// viewer DILARANG unduh) dan tiap unduhan DICATAT di audit log. File dibangun di server (bukan
+// client) supaya gate & jejak tak bisa dilewati. CSV: pemisah titik-koma + BOM UTF-8 (Excel-ID).
+function csvCell(v) {
+  v = (v == null) ? "" : String(v);
+  return /[";\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+}
+app.post("/api/admin/export-csv", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return; // marketing/viewer ditolak di sini
   const b = req.body || {};
-  const segment = String(b.segment || "").slice(0, 40);
-  const range = String(b.range || "").slice(0, 20);
-  const format = String(b.format || "").slice(0, 10);
-  const count = Math.max(0, parseInt(b.count, 10) || 0);
-  await adminAudit(ctx, "segment.export", segment, { range: range, format: format, count: count });
-  return res.json({ ok: true });
+  const kind = String(b.kind || "data").slice(0, 40);
+  const headers = Array.isArray(b.headers) ? b.headers.map(h => String(h)).slice(0, 60) : [];
+  let rows = Array.isArray(b.rows) ? b.rows : [];
+  if (!headers.length || !rows.length) return res.status(400).json({ error: "headers & rows wajib." });
+  if (rows.length > 50000) rows = rows.slice(0, 50000); // batas aman
+  const sep = ";";
+  const lines = [headers.map(csvCell).join(sep)];
+  for (const r of rows) lines.push((Array.isArray(r) ? r : []).map(csvCell).join(sep));
+  const body = "\uFEFF" + lines.join("\r\n");
+  let fname = String(b.filename || (kind + ".csv")).replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 80);
+  if (!/\.csv$/i.test(fname)) fname += ".csv";
+  await adminAudit(ctx, "export.csv", kind, { filename: fname, rows: rows.length, range: String(b.range || "").slice(0, 20) });
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="' + fname + '"');
+  return res.send(body);
 });
 
 // ---------- Sumber trafik / attribution (viewer+ termasuk marketing; NON-kesehatan) ----------
