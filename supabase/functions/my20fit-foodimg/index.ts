@@ -93,15 +93,18 @@ Deno.serve(async (req) => {
     const hit = await cacheGet(id);
     if (hit) return json({ ok: true, url: hit, cached: true });
 
-    // Prompt SEDERHANA yang terbukti hasilkan foto bagus (jangan over-spesifik "pale background" dsb —
-    // itu bikin gambar pucat/abstrak). Deskripsi bahan (desc) yang bikin AI tahu persis dish-nya.
+    // Prompt: makanan HARUS MEMENUHI FRAME, top-down, TAJAM, warna hidup. JANGAN "shallow depth of
+    // field"/"neutral background" — itu bikin makanan kecil/blur & background netral mendominasi,
+    // sehingga di thumbnail 96px kelihatan pucat/abstrak. desc (bahan) bikin AI tahu persis dish-nya.
     const desc = String(b.desc || '').slice(0, 400);
     const prompt =
-      `A professional, appetizing, realistic food photograph of "${name}"` +
-      (desc ? ` — ${desc}` : '') +
-      `. A real restaurant-quality dish, freshly plated on a clean plate or bowl, natural soft lighting, ` +
-      `top-down or 45-degree angle, shallow depth of field, neutral background. Make it look like a real ` +
-      `photo of this exact dish. No text, no watermark, no hands, no packaging.`;
+      `Photorealistic, high-resolution food photograph of the dish "${name}"` +
+      (desc ? `, made of ${desc}` : '') +
+      `. The freshly plated dish FILLS THE ENTIRE FRAME edge to edge. Shot straight from directly ` +
+      `overhead (flat lay, top-down), bright even lighting, sharp focus across the whole dish, ` +
+      `vivid appetizing natural colors, crisp fine detail, professional food-magazine style. ` +
+      `Show this exact dish clearly and fully. No blur, no shallow depth of field, no empty or plain ` +
+      `background, no text, no watermark, no hands, no packaging.`;
 
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
