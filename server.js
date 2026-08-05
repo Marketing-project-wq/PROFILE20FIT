@@ -1159,11 +1159,14 @@ app.get("/api/partner/profile", async (req, res) => {
 // ================= ADMIN MONITORING (dashboard internal) =================
 // Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
-// ---------- RBAC admin per-user (superadmin/staff/viewer) ----------
+// ---------- RBAC admin per-user (superadmin/staff/viewer/marketing) ----------
 // Master ADMIN_KEY (x-admin-key / ?key=) = superadmin (bootstrap & admin.html lama).
 // Selain itu: user login 20FIT (Authorization: Bearer <jwt>) yang punya baris di
 // my20fit_admin_roles. Role di-cek di SERVER (bukan cuma UI).
-const ADMIN_RANK = { viewer: 1, staff: 2, superadmin: 3 };
+// "marketing" = rank baca setara viewer (nama/email/telepon/pembelian) TAPI DILARANG
+// data kesehatan. Larangan ditegakkan di level API (field dipangkas di respons), bukan
+// cuma disembunyikan di UI — lihat adminCanSeeHealth().
+const ADMIN_RANK = { marketing: 1, viewer: 1, staff: 2, superadmin: 3 };
 async function getAdminContext(req) {
   const masterKey = String(req.headers["x-admin-key"] || "").trim() || String(req.query.key || "").trim();
   if (ADMIN_KEY && masterKey && masterKey === ADMIN_KEY) return { via: "key", role: "superadmin", email: null, user_id: null };
@@ -1177,6 +1180,10 @@ async function getAdminContext(req) {
   return null;
 }
 function adminHasRole(ctx, minRole) { return !!(ctx && ADMIN_RANK[ctx.role] >= ADMIN_RANK[minRole || "viewer"]); }
+// Role "marketing" DILARANG mengakses data kesehatan (berat/tinggi/umur/gender/tujuan/
+// kondisi/siklus/MCU). Endpoint yang memuat data profil kesehatan WAJIB memanggil ini
+// dan memangkas field sebelum mengirim respons — diblokir di level API, bukan cuma UI.
+function adminCanSeeHealth(ctx) { return !!(ctx && ctx.role !== "marketing"); }
 async function requireAdmin(req, res, minRole) {
   const ctx = await getAdminContext(req);
   if (!ctx) { res.status(401).json({ error: "Unauthorized" }); return null; }
@@ -1213,7 +1220,7 @@ app.post("/api/admin/roles", async (req, res) => {
   const b = req.body || {};
   const email = String(b.email || "").trim().toLowerCase();
   const role = String(b.role || "").trim();
-  if (!email || ["superadmin", "staff", "viewer"].indexOf(role) < 0) return res.status(400).json({ error: "email & role (superadmin/staff/viewer) wajib." });
+  if (!email || ["superadmin", "staff", "viewer", "marketing"].indexOf(role) < 0) return res.status(400).json({ error: "email & role (superadmin/staff/viewer/marketing) wajib." });
   let uid = null;
   try {
     for (let page = 1; page <= 30; page++) {
@@ -2155,6 +2162,7 @@ app.get("/api/admin/transactions/:reff", async (req, res) => {
 // my20fit_profile; statistik beli dari my20fit_scan_orders (status=paid).
 app.get("/api/admin/users", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const seeHealth = adminCanSeeHealth(ctx); // marketing: JANGAN kirim gender/umur/berat/tinggi/tujuan
   const activeMin = Math.min(Math.max(parseInt(req.query.window, 10) || 15, 1), 10080);
   try {
     const { data: profiles, error: eProf } = await admin.from("my20fit_profile")
@@ -2190,9 +2198,8 @@ app.get("/api/admin/users", async (req, res) => {
       // set onboarding_completed=true + gender/weight (js/auth.js). Menyelesaikan onboarding
       // sudah pasti berarti masuk app + isi data — bukan sekadar konfirmasi email / login.
       const onboarded = !!(p.onboarding_completed && p.weight_kg && p.gender);
-      return {
+      const u = {
         auth_user_id: p.auth_user_id, email: p.email, full_name: p.full_name, phone: p.phone,
-        gender: p.gender, age: p.age, height_cm: p.height_cm, weight_kg: p.weight_kg, main_goal: p.main_goal,
         scan_credits: p.scan_credits, onboarding_completed: p.onboarding_completed, is_plus_member: p.is_plus_member,
         is_onboarded: onboarded, onboarded_at: onboarded ? (p.gender_selected_at || null) : null,
         created_at: p.created_at, last_active_at: a ? a.last_active_at : null, last_page: a ? a.last_page : null,
@@ -2201,6 +2208,9 @@ app.get("/api/admin/users", async (req, res) => {
         purchases: b.purchases, total_spent: b.totalSpent, credits_bought: b.credits, highest_purchase: b.highest,
         top_product: topProduct,
       };
+      // Data kesehatan HANYA untuk role non-marketing (diblokir di level API, bukan UI).
+      if (seeHealth) { u.gender = p.gender; u.age = p.age; u.height_cm = p.height_cm; u.weight_kg = p.weight_kg; u.main_goal = p.main_goal; }
+      return u;
     });
     users.sort((x, y) => (y.last_active_at ? new Date(y.last_active_at).getTime() : 0) - (x.last_active_at ? new Date(x.last_active_at).getTime() : 0));
     const activeCount = users.filter(u => u.active).length;
@@ -2215,7 +2225,12 @@ app.get("/api/admin/user-detail", async (req, res) => {
   const uid = String(req.query.uid || "");
   if (!uid) return res.status(400).json({ error: "uid wajib." });
   try {
-    const { data: p } = await admin.from("my20fit_profile").select("*").eq("auth_user_id", uid).limit(1);
+    // Marketing: JANGAN select("*") — hindari bocornya health_conditions, siklus haid, dll.
+    // Hanya kolom kontak + komersial. Non-marketing tetap profil penuh.
+    const profileCols = adminCanSeeHealth(ctx)
+      ? "*"
+      : "auth_user_id,full_name,email,phone,scan_credits,onboarding_completed,is_plus_member,created_at";
+    const { data: p } = await admin.from("my20fit_profile").select(profileCols).eq("auth_user_id", uid).limit(1);
     const { data: orders } = await admin.from("my20fit_scan_orders")
       .select("reff_no,order_type,credits,amount,net_amount,status,payment_method,voucher_id,created_at,paid_at")
       .eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(200);
