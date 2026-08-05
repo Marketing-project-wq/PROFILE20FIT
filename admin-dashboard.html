@@ -118,6 +118,7 @@
       <button class="navbtn" data-tab="users">👥 Pengguna</button>
       <button class="navbtn" data-tab="analytics">📈 Analitik</button>
       <button class="navbtn" data-tab="traffic">🧭 Sumber Trafik</button>
+      <button class="navbtn" data-tab="menustats">🥗 Minat Menu</button>
       <button class="navbtn" data-tab="corporate" id="navCorporate">🏢 Corporate</button>
       <button class="navbtn" data-tab="menureview" id="navMenu">🍽️ Menu</button>
       <button class="navbtn" data-tab="settings" id="navSettings">⚙️ Settings</button>
@@ -225,6 +226,19 @@
           <div class="card"><h3>Per campaign</h3><div id="trCampaign"><div class="placeholder">Memuat…</div></div></div>
         </div>
         <div class="card"><h3>Per situs perujuk (referrer)</h3><div id="trReferrer"><div class="placeholder">Memuat…</div></div></div>
+      </div>
+      <div id="tab-menustats" class="hidden">
+        <h2>Minat Menu</h2><div class="crumb">Menu mana yang paling sering dibuka + tipe menu yang paling diminati user</div>
+        <div class="rangebar">
+          <button class="rbtn msbtn" data-msrange="7d">7 hari</button>
+          <button class="rbtn msbtn on" data-msrange="30d">30 hari</button>
+          <button class="rbtn msbtn" data-msrange="all">Semua</button>
+          <span class="grow"></span>
+          <button class="btn sm ghost" id="msRefresh" style="margin-top:0">↻ Refresh</button>
+        </div>
+        <div id="msSummary" class="statgrid" style="margin-bottom:14px"></div>
+        <div class="card" style="margin-bottom:14px"><h3>Minat per tipe menu</h3><div id="msTypes"><div class="placeholder">Memuat…</div></div></div>
+        <div class="card"><h3>Setiap menu (paling banyak dibuka)</h3><div id="msMenus"><div class="placeholder">Memuat…</div></div></div>
       </div>
       <div id="tab-settings" class="hidden">
         <h2>Settings</h2><div class="crumb">Kelola akses admin (superadmin only)</div>
@@ -407,13 +421,14 @@
       b.addEventListener("click", function(){
         var tab=b.dataset.tab;
         document.querySelectorAll(".navbtn[data-tab]").forEach(function(x){ x.classList.toggle("on", x===b); });
-        ["overview","vouchers","transactions","users","analytics","traffic","settings","corporate","menureview"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
+        ["overview","vouchers","transactions","users","analytics","traffic","menustats","settings","corporate","menureview"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
         if(tab==="overview") renderOverview();
         if(tab==="vouchers") loadVouchers();
         if(tab==="transactions") loadTransactions();
         if(tab==="users") loadUsers();
         if(tab==="analytics") loadAnalytics();
         if(tab==="traffic") loadTraffic();
+        if(tab==="menustats") loadMenuStats();
         if(tab==="settings" && ME && ME.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
         if(tab==="corporate" && ME && ME.role==="superadmin"){ loadCorporates(); }
         if(tab==="menureview" && ME && ME.role==="superadmin"){ loadMenuReview(); }
@@ -1312,6 +1327,39 @@
       $("trCampaign").innerHTML=trafficTable(j.by_campaign);
       $("trReferrer").innerHTML=trafficTable(j.by_referrer);
     }
+
+    // ---- Minat Menu (engagement per menu & per tipe) ----
+    var msRange="30d";
+    async function loadMenuStats(){
+      ["msTypes","msMenus"].forEach(function(id){ $(id).innerHTML="<div class='placeholder'>Memuat…</div>"; });
+      var r=await adminFetch("/api/admin/menu-analytics?range="+encodeURIComponent(msRange));
+      var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ $("msTypes").innerHTML=$("msMenus").innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; $("msSummary").innerHTML=""; return; }
+      $("msSummary").innerHTML=statCard("Total buka menu",(j.total_clicks||0))+statCard("Menu unik dibuka",(j.unique_menus||0))+statCard("User unik",(j.unique_users||0));
+      var ty=j.by_type||[];
+      if(!ty.length){ $("msTypes").innerHTML="<div class='placeholder'>Data belum tersedia.</div>"; }
+      else {
+        var max=ty[0].clicks||1;
+        var h="<div style='overflow-x:auto'><table><thead><tr><th>Tipe</th><th style='text-align:right'>Buka</th><th style='text-align:right'>User</th><th style='text-align:right'>Menu</th><th style='width:36%'>Minat</th></tr></thead><tbody>";
+        ty.forEach(function(g){ var pct=Math.round((g.clicks/max)*100);
+          h+="<tr><td>"+esc(String(g.type).replace(/-/g,' '))+"</td><td style='text-align:right;font-weight:700'>"+g.clicks+"</td><td style='text-align:right'>"+g.users+"</td><td style='text-align:right'>"+g.menus+"</td><td><div style='height:16px;background:var(--inp);border-radius:6px;overflow:hidden'><div style='height:100%;width:"+Math.max(2,pct)+"%;background:var(--red);border-radius:6px'></div></div></td></tr>";
+        });
+        $("msTypes").innerHTML=h+"</tbody></table></div>";
+      }
+      var ms=j.menus||[];
+      if(!ms.length){ $("msMenus").innerHTML="<div class='placeholder'>Data belum tersedia.</div>"; }
+      else {
+        var h2="<div style='overflow-x:auto'><table><thead><tr><th>Menu</th><th>Tipe</th><th style='text-align:right'>Buka</th><th style='text-align:right'>User unik</th><th style='text-align:right'>Kalori</th></tr></thead><tbody>";
+        ms.forEach(function(m){ var tp=(m.types||[]).map(function(t){return esc(String(t).replace(/-/g,' '));}).join(", ")||"—";
+          h2+="<tr><td>"+esc(m.name||m.menu_id)+"</td><td style='color:var(--muted)'>"+tp+"</td><td style='text-align:right;font-weight:700'>"+(m.clicks||0)+"</td><td style='text-align:right'>"+(m.users||0)+"</td><td style='text-align:right'>"+(m.kcal!=null?m.kcal:"—")+"</td></tr>";
+        });
+        $("msMenus").innerHTML=h2+"</tbody></table></div>";
+      }
+    }
+    (function(){
+      document.querySelectorAll(".msbtn").forEach(function(b){ b.addEventListener("click",function(){ document.querySelectorAll(".msbtn").forEach(function(x){ x.classList.toggle("on",x===b); }); msRange=b.dataset.msrange; loadMenuStats(); }); });
+      var mr=$("msRefresh"); if(mr) mr.addEventListener("click",loadMenuStats);
+    })();
 
     // ---- Boot: kalau sudah ada sesi/ key valid, langsung masuk ----
     (async function(){

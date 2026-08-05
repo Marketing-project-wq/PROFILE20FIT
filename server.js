@@ -3017,6 +3017,69 @@ app.post("/api/attribution", async (req, res) => {
   } catch (e) { return res.json({ ok: false }); }
 });
 
+// POST /api/menu/open — catat user membuka detail sebuah menu di /diet (sinyal minat).
+// Snapshot metadata dikirim client supaya dashboard bisa agregasi tanpa duplikasi katalog.
+app.post("/api/menu/open", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: false });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    const menu_id = String(b.menu_id || "").slice(0, 80);
+    if (!menu_id) return res.status(400).json({ error: "menu_id wajib" });
+    const types = Array.isArray(b.types)
+      ? b.types.filter(t => t != null).map(t => String(t).slice(0, 40)).slice(0, 8) : [];
+    const kcal = (b.kcal == null || isNaN(+b.kcal)) ? null : Math.round(+b.kcal);
+    await admin.from("my20fit_menu_event").insert({
+      auth_user_id: user.id, menu_id: menu_id,
+      menu_name: b.name != null ? String(b.name).slice(0, 160) : null,
+      menu_types: types.length ? types : null,
+      menu_cat: b.cat != null ? String(b.cat).slice(0, 60) : null,
+      kcal: kcal,
+    });
+    return res.json({ ok: true });
+  } catch (e) { return res.json({ ok: false }); }
+});
+
+// GET /api/admin/menu-analytics (viewer+ termasuk marketing; NON-kesehatan) — agregasi minat
+// menu: berapa kali tiap menu dibuka + user unik, dan minat per TIPE menu (biar tahu user lebih
+// suka tipe apa). Angka apa adanya dari event; menu yang tak pernah dibuka tak muncul (0 minat).
+app.get("/api/admin/menu-analytics", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const { from, to } = adminRange(req.query);
+  try {
+    const { data: ev, error } = await admin.from("my20fit_menu_event")
+      .select("auth_user_id,menu_id,menu_name,menu_types,menu_cat,kcal,created_at")
+      .gte("created_at", from).lte("created_at", to).limit(100000);
+    if (error) throw error;
+    const events = ev || [];
+    const perMenu = {}, perType = {}, allUsers = {};
+    events.forEach(e => {
+      if (e.auth_user_id) allUsers[e.auth_user_id] = true;
+      const m = perMenu[e.menu_id] || (perMenu[e.menu_id] = { menu_id: e.menu_id, name: e.menu_name || e.menu_id, cat: e.menu_cat || null, kcal: e.kcal != null ? e.kcal : null, types: e.menu_types || [], clicks: 0, users: {} });
+      m.clicks++; if (e.auth_user_id) m.users[e.auth_user_id] = true;
+      if (e.menu_name) m.name = e.menu_name;
+      if (e.menu_types && e.menu_types.length) m.types = e.menu_types;
+      if (e.kcal != null) m.kcal = e.kcal;
+      (e.menu_types || []).forEach(t => {
+        const g = perType[t] || (perType[t] = { type: t, clicks: 0, users: {}, menus: {} });
+        g.clicks++; if (e.auth_user_id) g.users[e.auth_user_id] = true; g.menus[e.menu_id] = true;
+      });
+    });
+    const menus = Object.values(perMenu)
+      .map(m => ({ menu_id: m.menu_id, name: m.name, cat: m.cat, kcal: m.kcal, types: m.types, clicks: m.clicks, users: Object.keys(m.users).length }))
+      .sort((a, b) => b.clicks - a.clicks);
+    const by_type = Object.values(perType)
+      .map(g => ({ type: g.type, clicks: g.clicks, users: Object.keys(g.users).length, menus: Object.keys(g.menus).length }))
+      .sort((a, b) => b.clicks - a.clicks);
+    return res.json({
+      ok: true, range: { from, to },
+      total_clicks: events.length, unique_menus: menus.length, unique_users: Object.keys(allUsers).length,
+      by_type: by_type, menus: menus,
+    });
+  } catch (e) { console.error("admin/menu-analytics:", e.message); return res.status(500).json({ error: e.message }); }
+});
+
 // ---------- Cek status pembayaran order scan (untuk auto thank-you + isi kredit) ----------
 // POST /api/scan/order-status  { sales_order_id (=reff_no kita), fitco_token }
 // Order kita (my20fit_scan_orders) = sumber. Kalau masih pending & ada id order FITCO,
