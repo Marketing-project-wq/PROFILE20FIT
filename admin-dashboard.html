@@ -222,7 +222,7 @@
           <div class="row" style="margin-bottom:14px">
             <div><label>Email user 20FIT</label><input id="rEmail" type="email" placeholder="orang@20fit.id" /></div>
             <div style="flex:0 0 160px"><label>Role</label>
-              <select id="rRole"><option value="viewer">viewer</option><option value="staff">staff</option><option value="superadmin">superadmin</option></select>
+              <select id="rRole"><option value="viewer">viewer</option><option value="marketing">marketing (tanpa data kesehatan)</option><option value="staff">staff</option><option value="superadmin">superadmin</option></select>
             </div>
             <div style="flex:0 0 auto"><button class="btn sm" id="btnAddRole" style="margin-top:0">+ Set role</button></div>
           </div>
@@ -778,7 +778,9 @@
 
     // ---- Voucher management ----
     function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
-    function canEdit(){ return ME && ME.role !== "viewer"; }
+    function canEdit(){ return ME && (ME.role==="staff" || ME.role==="superadmin"); }
+    // Marketing DILARANG lihat data kesehatan (server juga sudah memangkasnya di API).
+    function meCanSeeHealth(){ return !(ME && ME.role==="marketing"); }
     function discLabel(v){ return v.discount_type==="percentage" ? (v.discount_value+"%") : rupiah(v.discount_value); }
     function dOnly(s){ return s ? new Date(s).toLocaleDateString("id-ID") : "—"; }
     var _vouchers=[], _vShown=30;                 // tampil maks 30 per load; sisanya "Muat lebih"
@@ -1117,10 +1119,13 @@
       var h="<button class='btn sm ghost mclose' onclick='closeModal()'>✕ Tutup</button><h3>"+esc(p.full_name||p.email||"User")+"</h3><div class='crumb'>"+esc(p.email||"")+(p.phone?" · "+esc(p.phone):"")+"</div>";
       h+="<div class='statgrid' style='margin-top:12px'>"+statCard("Total belanja",rupiah(s.total_spent||0),(s.purchases||0)+" transaksi")+statCard("Pembelian tertinggi",rupiah(s.highest_purchase||0))+statCard("Kredit dibeli",(s.credits_bought||0)+" scan")+statCard("Sisa kredit",(p.scan_credits||0)+" scan")+"</div>";
       h+="<h3 style='margin-top:8px'>Data profil</h3><table class='kvt'>";
-      h+="<tr><td>Gender</td><td>"+(p.gender?esc(p.gender):"—")+"</td></tr>";
-      h+="<tr><td>Umur</td><td>"+(p.age||"—")+"</td></tr>";
-      h+="<tr><td>Berat / Tinggi</td><td>"+(p.weight_kg||"—")+" kg / "+(p.height_cm||"—")+" cm</td></tr>";
-      h+="<tr><td>Tujuan</td><td>"+esc(p.main_goal||"—")+"</td></tr>";
+      // Data kesehatan disembunyikan untuk role marketing (server juga tak mengirimnya).
+      if(meCanSeeHealth()){
+        h+="<tr><td>Gender</td><td>"+(p.gender?esc(p.gender):"—")+"</td></tr>";
+        h+="<tr><td>Umur</td><td>"+(p.age||"—")+"</td></tr>";
+        h+="<tr><td>Berat / Tinggi</td><td>"+(p.weight_kg||"—")+" kg / "+(p.height_cm||"—")+" cm</td></tr>";
+        h+="<tr><td>Tujuan</td><td>"+esc(p.main_goal||"—")+"</td></tr>";
+      }
       h+="<tr><td>Onboarding</td><td>"+(p.onboarding_completed?"selesai":"belum")+"</td></tr>";
       h+="<tr><td>Terakhir aktif</td><td>"+(a&&a.last_active_at?new Date(a.last_active_at).toLocaleString("id-ID")+" ("+esc(a.last_page||"")+")":"—")+"</td></tr>";
       h+="<tr><td>Terdaftar</td><td>"+(p.created_at?new Date(p.created_at).toLocaleDateString("id-ID"):"—")+"</td></tr>";
