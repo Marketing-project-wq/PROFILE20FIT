@@ -1301,11 +1301,12 @@
       ids.forEach(function(id){ $(id).innerHTML="<div class='placeholder'>Memuat…</div>"; });
       var r=await adminFetch("/api/admin/attribution"); var j=await r.json().catch(function(){return{};});
       if(!r.ok){ ids.forEach(function(id){ $(id).innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; }); $("trSummary").innerHTML=""; return; }
-      var tot=j.total_users||0, att=j.attributed||0;
+      var tot=j.total_users||0, trk=j.tracked||0;
       $("trSummary").innerHTML =
         statCard("Total user", tot) +
-        statCard("Ada data sumber", att, tot?Math.round(att/tot*100)+"% dari total":"") +
-        statCard("Tanpa data sumber", (j.unattributed||0), "langsung / lama / belum sinkron");
+        statCard("Punya sumber asli", trk, tot?Math.round(trk/tot*100)+"% dari total":"") +
+        statCard("User lama", (j.pre_tracking||0), "tersimpan · sebelum tracking") +
+        statCard("Baru & langsung", (j.direct_new||0), "tanpa UTM / referrer");
       $("trSource").innerHTML=trafficTable(j.by_source);
       $("trMedium").innerHTML=trafficTable(j.by_medium);
       $("trCampaign").innerHTML=trafficTable(j.by_campaign);

@@ -2386,9 +2386,11 @@ app.get("/api/admin/attribution", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
   try {
     const { data: rows, error: eRows } = await admin.from("my20fit_signup_attribution")
-      .select("auth_user_id,utm_source,utm_medium,utm_campaign,referrer_host").limit(50000);
+      .select("auth_user_id,utm_source,utm_medium,utm_campaign,referrer_host,captured").limit(100000);
     if (eRows) throw eRows;
     const attr = rows || [];
+    const tracked = attr.filter(r => r.captured !== false); // sumber ASLI (bukan placeholder user lama)
+    const preTracking = attr.length - tracked.length;        // user lama (backfill, sebelum tracking)
     const { data: paid, error: ePaid } = await admin.from("my20fit_scan_orders")
       .select("auth_user_id,amount,net_amount,status").eq("status", "paid").limit(50000);
     if (ePaid) throw ePaid;
@@ -2399,9 +2401,10 @@ app.get("/api/admin/attribution", async (req, res) => {
       rev[o.auth_user_id] = (rev[o.auth_user_id] || 0) + ((o.net_amount != null ? +o.net_amount : +o.amount) || 0);
     });
     const { count: totalUsers } = await admin.from("my20fit_profile").select("id", { count: "exact", head: true });
+    // Breakdown sumber hanya dari data ASLI (tracked). User lama tak dipaksa punya sumber.
     function groupBy(keyFn, dflt) {
       const m = {};
-      attr.forEach(r => {
+      tracked.forEach(r => {
         const k = keyFn(r) || dflt;
         const g = m[k] || (m[k] = { key: k, signups: 0, buyers: 0, revenue: 0 });
         g.signups++;
@@ -2414,8 +2417,9 @@ app.get("/api/admin/attribution", async (req, res) => {
     return res.json({
       ok: true,
       total_users: totalUsers || 0,
-      attributed: attr.length,
-      unattributed: Math.max(0, (totalUsers || 0) - attr.length),
+      tracked: tracked.length,                                        // user dgn sumber asli
+      pre_tracking: preTracking,                                      // user lama (tersimpan, sebelum tracking)
+      direct_new: Math.max(0, (totalUsers || 0) - attr.length),       // user baru yang datang langsung
       by_source: groupBy(r => r.utm_source, "(tanpa UTM)"),
       by_medium: groupBy(r => r.utm_medium, "(tidak diset)"),
       by_campaign: groupBy(r => r.utm_campaign, "(tidak diset)"),
@@ -2992,14 +2996,23 @@ app.post("/api/attribution", async (req, res) => {
     if (referrer) { try { referrer_host = (new URL(referrer).hostname || "").replace(/^www\./, "") || null; } catch (e) {} }
     const fsa = new Date(b.first_seen_at);
     const row = {
-      auth_user_id: user.id,
+      auth_user_id: user.id, captured: true,
       utm_source: s(b.utm_source, 120), utm_medium: s(b.utm_medium, 120),
       utm_campaign: s(b.utm_campaign, 160), utm_content: s(b.utm_content, 160), utm_term: s(b.utm_term, 160),
       referrer: referrer, referrer_host: referrer_host, landing_page: s(b.landing_page, 300),
       first_seen_at: isNaN(fsa.getTime()) ? new Date().toISOString() : fsa.toISOString(),
     };
-    // first-touch menang: kalau baris user ini sudah ada, JANGAN ditimpa (ignoreDuplicates).
-    await admin.from("my20fit_signup_attribution").upsert(row, { onConflict: "auth_user_id", ignoreDuplicates: true });
+    // Aturan simpan (data user lama & baru sama-sama aman):
+    //  - belum ada baris        -> INSERT sumber asli (user baru).
+    //  - ada placeholder lama    -> UPGRADE jadi sumber asli (user lama datang via link UTM).
+    //  - sudah ada sumber asli   -> JANGAN ditimpa (first-touch menang).
+    const { data: ex } = await admin.from("my20fit_signup_attribution")
+      .select("captured").eq("auth_user_id", user.id).limit(1);
+    if (ex && ex[0]) {
+      if (ex[0].captured === false) await admin.from("my20fit_signup_attribution").update(row).eq("auth_user_id", user.id);
+    } else {
+      await admin.from("my20fit_signup_attribution").insert(row);
+    }
     return res.json({ ok: true });
   } catch (e) { return res.json({ ok: false }); }
 });
