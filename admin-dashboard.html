@@ -117,6 +117,7 @@
       <button class="navbtn" data-tab="transactions">💳 Transaksi</button>
       <button class="navbtn" data-tab="users">👥 Pengguna</button>
       <button class="navbtn" data-tab="analytics">📈 Analitik</button>
+      <button class="navbtn" data-tab="traffic">🧭 Sumber Trafik</button>
       <button class="navbtn" data-tab="corporate" id="navCorporate">🏢 Corporate</button>
       <button class="navbtn" data-tab="menureview" id="navMenu">🍽️ Menu</button>
       <button class="navbtn" data-tab="settings" id="navSettings">⚙️ Settings</button>
@@ -214,6 +215,16 @@
           <div class="card"><h3>⭐ Top User (paling aktif)</h3><div id="anTopUsers"><div class="placeholder">Memuat…</div></div></div>
           <div class="card"><h3>🏆 Top Produk (paling laris)</h3><div id="anTopProducts"><div class="placeholder">Memuat…</div></div></div>
         </div>
+      </div>
+      <div id="tab-traffic" class="hidden">
+        <h2>Sumber Trafik</h2><div class="crumb">Dari mana user datang (UTM &amp; referrer) + konversi ke pembeli</div>
+        <div id="trSummary" class="statgrid" style="margin-bottom:14px"></div>
+        <div class="card" style="margin-bottom:14px"><h3>Per sumber (utm_source)</h3><div id="trSource"><div class="placeholder">Memuat…</div></div></div>
+        <div class="grid2" style="margin-bottom:14px">
+          <div class="card"><h3>Per medium</h3><div id="trMedium"><div class="placeholder">Memuat…</div></div></div>
+          <div class="card"><h3>Per campaign</h3><div id="trCampaign"><div class="placeholder">Memuat…</div></div></div>
+        </div>
+        <div class="card"><h3>Per situs perujuk (referrer)</h3><div id="trReferrer"><div class="placeholder">Memuat…</div></div></div>
       </div>
       <div id="tab-settings" class="hidden">
         <h2>Settings</h2><div class="crumb">Kelola akses admin (superadmin only)</div>
@@ -396,12 +407,13 @@
       b.addEventListener("click", function(){
         var tab=b.dataset.tab;
         document.querySelectorAll(".navbtn[data-tab]").forEach(function(x){ x.classList.toggle("on", x===b); });
-        ["overview","vouchers","transactions","users","analytics","settings","corporate","menureview"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
+        ["overview","vouchers","transactions","users","analytics","traffic","settings","corporate","menureview"].forEach(function(t){ $("tab-"+t).classList.toggle("hidden", t!==tab); });
         if(tab==="overview") renderOverview();
         if(tab==="vouchers") loadVouchers();
         if(tab==="transactions") loadTransactions();
         if(tab==="users") loadUsers();
         if(tab==="analytics") loadAnalytics();
+        if(tab==="traffic") loadTraffic();
         if(tab==="settings" && ME && ME.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
         if(tab==="corporate" && ME && ME.role==="superadmin"){ loadCorporates(); }
         if(tab==="menureview" && ME && ME.role==="superadmin"){ loadMenuReview(); }
@@ -1273,6 +1285,31 @@
       if(!r.ok){ mo.innerHTML=fn.innerHTML=rt.innerHTML=tu.innerHTML=tp.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; return; }
       mo.innerHTML=momChart(j.mom); fn.innerHTML=funnelChart(j.funnel); rt.innerHTML=retentionCards(j.retention);
       tu.innerHTML=topUsersTable(j.topUsers); tp.innerHTML=topProductsTable(j.topProducts);
+    }
+
+    // ---- Sumber Trafik (attribution) ----
+    function trafficTable(rows){
+      if(!rows||!rows.length) return "<div class='placeholder'>Data belum tersedia.</div>";
+      var h="<div style='overflow-x:auto'><table><thead><tr><th>Sumber</th><th style='text-align:right'>Signup</th><th style='text-align:right'>Pembeli</th><th style='text-align:right'>Konversi</th><th style='text-align:right'>Revenue</th></tr></thead><tbody>";
+      rows.forEach(function(g){
+        h+="<tr><td>"+esc(g.key)+"</td><td style='text-align:right'>"+(g.signups||0)+"</td><td style='text-align:right'>"+(g.buyers||0)+"</td><td style='text-align:right'>"+(g.conv||0)+"%</td><td style='text-align:right;font-weight:700'>"+rupiah(g.revenue||0)+"</td></tr>";
+      });
+      return h+"</tbody></table></div>";
+    }
+    async function loadTraffic(){
+      var ids=["trSource","trMedium","trCampaign","trReferrer"];
+      ids.forEach(function(id){ $(id).innerHTML="<div class='placeholder'>Memuat…</div>"; });
+      var r=await adminFetch("/api/admin/attribution"); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ ids.forEach(function(id){ $(id).innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal")+"</div>"; }); $("trSummary").innerHTML=""; return; }
+      var tot=j.total_users||0, att=j.attributed||0;
+      $("trSummary").innerHTML =
+        statCard("Total user", tot) +
+        statCard("Ada data sumber", att, tot?Math.round(att/tot*100)+"% dari total":"") +
+        statCard("Tanpa data sumber", (j.unattributed||0), "langsung / lama / belum sinkron");
+      $("trSource").innerHTML=trafficTable(j.by_source);
+      $("trMedium").innerHTML=trafficTable(j.by_medium);
+      $("trCampaign").innerHTML=trafficTable(j.by_campaign);
+      $("trReferrer").innerHTML=trafficTable(j.by_referrer);
     }
 
     // ---- Boot: kalau sudah ada sesi/ key valid, langsung masuk ----
