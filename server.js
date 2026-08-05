@@ -2378,6 +2378,119 @@ app.get("/api/admin/onboarding-scan", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// ---------- Recap onboarding/scan/beli per periode + segmen (viewer+ termasuk marketing; NON-kesehatan) ----------
+// Untuk marketing: "dalam N hari terakhir, berapa user onboarding, berapa scan, berapa beli",
+// lengkap tren harian + daftar user per segmen (nama/email/telepon) supaya bisa ditindaklanjuti.
+// SUMBER (skema live, konsisten dgn endpoint lain — TIDAK mengubah perhitungan yang sudah ada):
+//  - Onboarding (waktu) = my20fit_profile.gender_selected_at (proxy tgl selesai onboarding).
+//  - Scan (waktu)       = my20fit_scan_ledger baris delta<0 (created_at) — 1 baris per scan dipakai.
+//  - Beli (waktu)       = my20fit_scan_orders status=paid (paid_at, fallback created_at).
+// Segmen "baru onboarding" = onboarding di periode & BELUM PERNAH scan/beli (all-time) → target follow-up.
+// TIDAK memuat data kesehatan (aman utk role marketing). "View" tidak diaudit (bising); yang
+// diaudit adalah UNDUH daftar PII lewat /api/admin/audit-export.
+app.get("/api/admin/onboarding-recap", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const { from, to } = adminRange(req.query);
+  const fromMs = new Date(from).getTime(), toMs = new Date(to).getTime();
+  const p2 = (n) => (n < 10 ? "0" + n : "" + n);
+  const inWin = (ts) => { if (!ts) return false; const t = new Date(ts).getTime(); return !isNaN(t) && t >= fromMs && t <= toMs; };
+  const dayKey = (ts) => { const d = new Date(ts); return d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate()); };
+  try {
+    // Profil (nama/email/telepon + tgl onboarding). Tidak difilter onboarding supaya nama
+    // pembeli/pen-scan yang belum ber-flag onboarding tetap bisa di-resolve.
+    const { data: profiles, error: eProf } = await admin.from("my20fit_profile")
+      .select("auth_user_id,full_name,email,phone,gender_selected_at,onboarding_completed").limit(20000);
+    if (eProf) throw eProf;
+    // Ledger scan dipakai (all-time) — utk set "pernah scan" + hitung periode & tren.
+    const { data: ledger, error: eLed } = await admin.from("my20fit_scan_ledger")
+      .select("auth_user_id,created_at").lt("delta", 0).limit(200000);
+    if (eLed) throw eLed;
+    // Order paid (all-time) — utk set "pernah beli" + hitung periode & tren.
+    const { data: orders, error: eOrd } = await admin.from("my20fit_scan_orders")
+      .select("auth_user_id,net_amount,amount,paid_at,created_at").eq("status", "paid").limit(30000);
+    if (eOrd) throw eOrd;
+
+    const profMap = {};
+    (profiles || []).forEach(p => { profMap[p.auth_user_id] = p; });
+
+    // Scan: set pernah scan (all-time), akumulasi periode per user, tren harian (distinct user).
+    const everScanned = new Set(), scanWinCount = {}, scanWinLast = {}, scanDaily = {};
+    (ledger || []).forEach(l => {
+      if (!l.auth_user_id) return;
+      everScanned.add(l.auth_user_id);
+      if (inWin(l.created_at)) {
+        scanWinCount[l.auth_user_id] = (scanWinCount[l.auth_user_id] || 0) + 1;
+        if (!scanWinLast[l.auth_user_id] || new Date(l.created_at) > new Date(scanWinLast[l.auth_user_id])) scanWinLast[l.auth_user_id] = l.created_at;
+        const k = dayKey(l.created_at); (scanDaily[k] || (scanDaily[k] = new Set())).add(l.auth_user_id);
+      }
+    });
+    // Beli: set pernah beli (all-time), akumulasi periode per user (count + nominal), tren harian.
+    const everBought = new Set(), buyWinCount = {}, buyWinAmt = {}, buyWinLast = {}, buyDaily = {};
+    (orders || []).forEach(o => {
+      if (!o.auth_user_id) return;
+      everBought.add(o.auth_user_id);
+      const ts = o.paid_at || o.created_at;
+      if (inWin(ts)) {
+        const amt = (o.net_amount != null ? +o.net_amount : +o.amount) || 0;
+        buyWinCount[o.auth_user_id] = (buyWinCount[o.auth_user_id] || 0) + 1;
+        buyWinAmt[o.auth_user_id] = (buyWinAmt[o.auth_user_id] || 0) + amt;
+        if (!buyWinLast[o.auth_user_id] || new Date(ts) > new Date(buyWinLast[o.auth_user_id])) buyWinLast[o.auth_user_id] = ts;
+        const k = dayKey(ts); (buyDaily[k] || (buyDaily[k] = new Set())).add(o.auth_user_id);
+      }
+    });
+
+    // Segmen onboarding (dari profil onboarding_completed dgn gender_selected_at di periode).
+    const onbDaily = {}, segOnboarded = [], segOnboardedNew = [];
+    (profiles || []).forEach(p => {
+      if (!(p.onboarding_completed && inWin(p.gender_selected_at))) return;
+      const row = { auth_user_id: p.auth_user_id, full_name: p.full_name, email: p.email, phone: p.phone, onboarded_at: p.gender_selected_at };
+      segOnboarded.push(row);
+      const k = dayKey(p.gender_selected_at); onbDaily[k] = (onbDaily[k] || 0) + 1;
+      if (!everScanned.has(p.auth_user_id) && !everBought.has(p.auth_user_id)) segOnboardedNew.push(row);
+    });
+    // Segmen scan/beli di periode (resolve kontak dari profMap).
+    const contact = (uid) => { const p = profMap[uid] || {}; return { auth_user_id: uid, full_name: p.full_name || null, email: p.email || null, phone: p.phone || null }; };
+    const segScanned = Object.keys(scanWinCount).map(uid => Object.assign(contact(uid), { scans_in_window: scanWinCount[uid], last_scan_at: scanWinLast[uid] || null }));
+    const segBought = Object.keys(buyWinCount).map(uid => Object.assign(contact(uid), { orders_in_window: buyWinCount[uid], amount_in_window: buyWinAmt[uid] || 0, last_paid_at: buyWinLast[uid] || null }));
+
+    segOnboarded.sort((a, b) => new Date(b.onboarded_at || 0) - new Date(a.onboarded_at || 0));
+    segOnboardedNew.sort((a, b) => new Date(b.onboarded_at || 0) - new Date(a.onboarded_at || 0));
+    segScanned.sort((a, b) => b.scans_in_window - a.scans_in_window);
+    segBought.sort((a, b) => b.amount_in_window - a.amount_in_window);
+
+    // Tren harian: dari `from` sampai `to` (per hari UTC), isi 0 utk hari kosong.
+    const daily = [];
+    let d = new Date(Date.UTC(new Date(from).getUTCFullYear(), new Date(from).getUTCMonth(), new Date(from).getUTCDate()));
+    const end = new Date(to);
+    while (d <= end && daily.length < 400) {
+      const k = d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate());
+      daily.push({ date: k, label: p2(d.getUTCMonth() + 1) + "/" + p2(d.getUTCDate()), onboarded: onbDaily[k] || 0, scanned: scanDaily[k] ? scanDaily[k].size : 0, bought: buyDaily[k] ? buyDaily[k].size : 0 });
+      d.setUTCDate(d.getUTCDate() + 1);
+    }
+
+    return res.json({
+      ok: true, range: String(req.query.range || "7d"), from, to,
+      totals: { onboarded: segOnboarded.length, onboarded_new: segOnboardedNew.length, scanned: segScanned.length, bought: segBought.length },
+      daily: daily,
+      segments: { onboarded: segOnboarded, onboarded_new: segOnboardedNew, scanned: segScanned, bought: segBought },
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Catat UNDUH daftar PII segmen ke audit log (viewer+). Ekspor file dibuat di client (modul
+// AdminExport) dari data yang sudah di-fetch lewat endpoint ber-RBAC di atas; endpoint ini
+// merekam SIAPA meng-unduh, segmen apa, periode, format, & jumlah baris — jejak akuntabilitas.
+app.post("/api/admin/audit-export", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const b = req.body || {};
+  const segment = String(b.segment || "").slice(0, 40);
+  const range = String(b.range || "").slice(0, 20);
+  const format = String(b.format || "").slice(0, 10);
+  const count = Math.max(0, parseInt(b.count, 10) || 0);
+  await adminAudit(ctx, "segment.export", segment, { range: range, format: format, count: count });
+  return res.json({ ok: true });
+});
+
 // ---------- Sumber trafik / attribution (viewer+ termasuk marketing; NON-kesehatan) ----------
 // Agregasi first-touch attribution per sumber/medium/campaign/referrer, disandingkan dgn
 // konversi (pembeli & revenue) supaya marketing tahu channel mana yg menghasilkan penjualan.
