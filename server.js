@@ -3204,7 +3204,8 @@ app.get("/api/foodphoto", async (req, res) => {
     const user = await getUserFromReq(req);
     if (!user) return res.json({ ok: false });
     const id = String(req.query.id || "").slice(0, 80);
-    const q = String(req.query.q || "").slice(0, 120);
+    const q = String(req.query.q || "").slice(0, 120);       // nama deskriptif (buat Pexels)
+    const mdb = String(req.query.mdb || "").slice(0, 60);    // kata kunci pendek (buat TheMealDB)
     if (!id) return res.json({ ok: false });
     const cacheId = id + "-px";
     // 1) cache stabil (Pexels yang sudah pernah resolve) → URL tak berubah tiap load.
@@ -3231,11 +3232,13 @@ app.get("/api/foodphoto", async (req, res) => {
         }
       } catch (_e) {}
     }
-    // 3) fallback TheMealDB (nama cocok) — foto asli juga, walau katalog terbatas. Tidak di-cache
-    //    (biar otomatis upgrade ke Pexels begitu key di-set).
-    if (q) {
+    // 3) fallback TheMealDB — pakai kata kunci PENDEK (mdb, mis. "chicken") supaya foto ASLI
+    //    muncul walau tanpa key Pexels. Foto jelas tapi GENERIK (bukan dish persis). Tidak di-cache
+    //    (biar otomatis upgrade ke Pexels begitu key di-set). Kalau mdb kosong, coba q.
+    const mdbQ = mdb || q;
+    if (mdbQ) {
       try {
-        const mr = await fetch("https://www.themealdb.com/api/json/v1/1/search.php?s=" + encodeURIComponent(q));
+        const mr = await fetch("https://www.themealdb.com/api/json/v1/1/search.php?s=" + encodeURIComponent(mdbQ));
         if (mr.ok) {
           const mj = await mr.json();
           const m = mj && mj.meals;
