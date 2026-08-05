@@ -1224,76 +1224,30 @@
   var IMG_CACHE_KEY = "my20fit_foodimg_v1";
   function _imgCache(){ try { return JSON.parse(localStorage.getItem(IMG_CACHE_KEY) || "{}"); } catch(e){ return {}; } }
   function _saveImg(c){ try { localStorage.setItem(IMG_CACHE_KEY, JSON.stringify(c)); } catch(e){} }
-  function _hash(s){ var h=0,i; for(i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))|0; } return Math.abs(h); }
-  // Returns Promise<url|null>. Tries TheMealDB name search, then category filter (guaranteed photos), caches by id.
+  // Returns Promise<url|null>. HANYA TheMealDB name-search (foto ASLI & jelas). Kalau nama tak ketemu
+  // -> null (biarkan placeholder rapi), JANGAN pakai foto kategori acak (bisa salah/tak sesuai).
+  // Foto AI (OpenRouter/Gemini) SUDAH DIHAPUS: hasilnya selalu blur/pucat & tak akurat untuk katalog
+  // menu tetap (apalagi masakan Indonesia) — keterbatasan text-to-image, bukan bug. Rencana: ganti
+  // ke stock foto kurasi (Pexels) yang di-approve manual. Sementara: foto asli TheMealDB + placeholder.
   function resolveImg(rec){
     if(!rec || !rec.id) return Promise.resolve(null);
     var c=_imgCache();
     if(Object.prototype.hasOwnProperty.call(c, rec.id)) return Promise.resolve(c[rec.id]);
     var base="https://www.themealdb.com/api/json/v1/1/";
-    // TheMealDB serves resized variants by appending /small (~250px) — cukup untuk thumb 96px & hero 150px,
-    // jauh lebih ringan dari full-res (~600-800px). Hemat bandwidth & mempercepat load.
+    // TheMealDB serves resized variants by appending /small (~250px) — cukup untuk thumb 96px & hero 150px.
     function done(url){ c=_imgCache(); c[rec.id]=url?(url+"/small"):null; _saveImg(c); return c[rec.id]; }
     return fetch(base+"search.php?s="+encodeURIComponent(rec.q||(rec.nm&&rec.nm.en)||""))
       .then(function(r){return r.json();})
-      .then(function(j){
-        var m=j&&j.meals; if(m&&m[0]&&m[0].strMealThumb) return done(m[0].strMealThumb);
-        return fetch(base+"filter.php?c="+encodeURIComponent(rec.cat||"Miscellaneous"))
-          .then(function(r){return r.json();})
-          .then(function(j2){ var a=j2&&j2.meals; if(a&&a.length){ return done(a[_hash(rec.id)%a.length].strMealThumb); } return done(null); });
-      })
+      .then(function(j){ var m=j&&j.meals; return done(m&&m[0]&&m[0].strMealThumb ? m[0].strMealThumb : null); })
       .catch(function(){ return done(null); });
-  }
-  // ---- Foto hasil GENERATE AI (OpenRouter gemini-2.5-flash-image) via edge function ----
-  // Diutamakan di atas TheMealDB supaya tiap menu punya foto khusus dirinya (bukan foto stok generik).
-  // Key OpenRouter TIDAK pernah ada di klien — dipanggil lewat edge function my20fit-foodimg
-  // (key = Supabase secret). Butuh login (verify_jwt) HANYA saat generate pertama. Edge function
-  // meng-UPLOAD foto ke Supabase Storage (bucket my20fit-foodimg) & balikin URL PENDEK (bukan
-  // data-URL 2 MB); URL itu disimpan di localStorage -> foto STAY & instan saat reload (browser
-  // cache gambarnya, tak perlu panggil ulang/login). Gagal/hasil kosong → jatuh ke TheMealDB → emoji.
-  var SB_URL = "https://cpvzwqptzcxnwzfzgrmt.supabase.co";
-  var SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI"; // anon (publik, RLS-protected)
-  var FOODIMG_URL = SB_URL + "/functions/v1/my20fit-foodimg";
-  // Cache PERMANEN url foto (URL pendek, bukan data-URL) -> foto STAY pas reload, tanpa network/login.
-  var GEN_KEY = "my20fit_genimg_v5";
-  function _genLoad(){ try { return JSON.parse(localStorage.getItem(GEN_KEY) || "{}"); } catch(e){ return {}; } }
-  function _genSave(id, url){ try { var c=_genLoad(); c[id]=url; localStorage.setItem(GEN_KEY, JSON.stringify(c)); } catch(e){} }
-  var _gen = {}; // cache in-memory sesi ini: id -> url | null (null = sudah dicoba & gagal)
-  function genImg(rec){
-    if(!rec || !rec.id) return Promise.resolve(null);
-    if(Object.prototype.hasOwnProperty.call(_gen, rec.id)) return Promise.resolve(_gen[rec.id]);
-    // 1) URL http tersimpan (reload) -> pakai LANGSUNG: tanpa network, tanpa login. Foto tetap ada.
-    var saved = _genLoad()[rec.id];
-    if(saved && /^https?:/.test(saved)){ _gen[rec.id] = saved; return Promise.resolve(saved); }
-    if(typeof fetch !== "function") return Promise.resolve(null);
-    var tokP = (window.Auth && Auth.token) ? Promise.resolve(Auth.token()).catch(function(){return null;}) : Promise.resolve(null);
-    return tokP.then(function(tok){
-      if(!tok) { _gen[rec.id] = null; return null; } // butuh login utk generate pertama → skip, TheMealDB jalan
-      // Kirim nama + DESKRIPSI KAYA (daftar bahan) supaya AI tahu persis dish-nya (bukan cuma 1 kata).
-      // id + "-v5" = cache-bust: regenerate ke Storage dgn prompt baru (full-frame, tajam) — foto lama tergantikan.
-      var _nm = (rec.nm && rec.nm.en) || rec.id;
-      var _desc = (rec.ing && rec.ing.en) ? String(rec.ing.en).replace(/\n/g, ", ") : (rec.q || "");
-      return fetch(FOODIMG_URL, { method:"POST", headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+tok, "apikey":SB_ANON },
-        body: JSON.stringify({ id: rec.id + "-v5", name: _nm, desc: _desc }) })
-        .then(function(r){ return r.ok ? r.json() : null; })
-        .then(function(j){ var u = (j && j.ok && j.url) || null; _gen[rec.id] = u;
-          if(u && /^https?:/.test(u)) _genSave(rec.id, u); // simpan URL Storage permanen -> stay pas reload
-          return u; })
-        .catch(function(){ _gen[rec.id] = null; return null; });
-    }).catch(function(){ return null; });
   }
   function _setBg(el, url){ if(!el||!url) return; el.style.backgroundImage = "url('" + url + "')"; el.classList.add("has-photo"); el.textContent = ""; }
 
-  // Resolve + apply ke elemen thumb/hero yang awalnya emoji.
-  // Urutan: foto GENERATE (khusus menu) → TheMealDB (stok) → biarkan emoji.
+  // Apply foto ke thumb/hero yang awalnya placeholder (gradient + emoji). Kalau tak ada foto asli
+  // yang cocok -> biarkan placeholder rapi (BUKAN foto blur/salah).
   function applyThumb(el, rec){
     if(!el || !rec) return;
-    genImg(rec).then(function(gu){
-      if(gu){ _setBg(el, gu); return; }
-      resolveImg(rec).then(function(u2){ _setBg(el, u2); }).catch(function(){});
-    }).catch(function(){
-      resolveImg(rec).then(function(u2){ _setBg(el, u2); }).catch(function(){});
-    });
+    resolveImg(rec).then(function(u){ _setBg(el, u); }).catch(function(){});
   }
 
   // Lazy variant: hanya resolve+fetch foto saat kartunya masuk viewport (IntersectionObserver).
