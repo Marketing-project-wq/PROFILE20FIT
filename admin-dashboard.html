@@ -64,6 +64,12 @@
   .stat .val{font-size:24px;font-weight:900;margin-top:4px}
   .stat .sub{font-size:12px;color:var(--muted);margin-top:2px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  /* Kartu statistik yang bisa diklik jadi segmen (recap onboarding). */
+  .stat.click{cursor:pointer;border:1px solid var(--line);transition:border-color .12s,transform .12s}
+  .stat.click:hover{border-color:var(--red);transform:translateY(-1px)}
+  .stat.click.on{border-color:var(--red);box-shadow:0 0 0 2px rgba(196,17,1,.12)}
+  .notice{background:rgba(200,112,0,.1);color:var(--orange);border:1px solid rgba(200,112,0,.25);border-radius:10px;padding:9px 13px;font-size:12.5px;line-height:1.45;margin:10px 0}
   .chartwrap{width:100%;overflow-x:auto}
   /* Semua tabel admin bisa di-scroll horizontal di HP (tidak melebihi layar). */
   @media(max-width:720px){ .main table{ display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; white-space:nowrap } }
@@ -78,7 +84,7 @@
   .kvt{width:100%;border-collapse:collapse}
   .kvt td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}
   .kvt td:first-child{color:var(--muted);width:150px;font-size:13px}
-  @media(max-width:820px){ .shell{grid-template-columns:1fr} .side{flex-direction:row;flex-wrap:wrap;position:sticky;top:0;z-index:5} .side .logo{width:100%} .side .spacer,.side .who{display:none} .main{padding:18px} .grid2{grid-template-columns:1fr} }
+  @media(max-width:820px){ .shell{grid-template-columns:1fr} .side{flex-direction:row;flex-wrap:wrap;position:sticky;top:0;z-index:5} .side .logo{width:100%} .side .spacer,.side .who{display:none} .main{padding:18px} .grid2{grid-template-columns:1fr} .grid3{grid-template-columns:1fr} }
   /* ===== Onboarding & Scan (digabung ke tab Pengguna) ===== */
   :root{--os-orange:#DE5A2A;--os-blue:#3B82F6;--os-blue-bg:#EFF6FF}
   .os-badge{display:inline-block;background:var(--os-blue-bg);color:var(--os-blue);font-weight:800;font-size:12px;padding:2px 10px;border-radius:999px}
@@ -173,6 +179,33 @@
       </div>
       <div id="tab-users" class="hidden">
         <h2>Pengguna</h2><div class="crumb">Semua user, status aktif, & riwayat belanja</div>
+        <!-- Recap periode: onboarding / scan / beli + segmen yang bisa di-unduh -->
+        <div class="card" id="recapCard" style="margin-bottom:16px">
+          <div class="rangebar" style="margin-bottom:12px">
+            <h3 style="margin:0;font-size:16px">📅 Ringkasan periode</h3>
+            <span class="grow"></span>
+            <button class="rbtn" data-recap="today">Hari ini</button>
+            <button class="rbtn on" data-recap="7d">7 hari</button>
+            <button class="rbtn" data-recap="30d">30 hari</button>
+          </div>
+          <div id="recapCards" class="statgrid" style="margin-bottom:0"><div class="placeholder">Memuat…</div></div>
+          <div class="grid3" style="margin-top:16px">
+            <div><div class="crumb" style="margin:0 0 6px">Onboarding / hari</div><div id="recapTrendOnb"><div class="placeholder">Memuat…</div></div></div>
+            <div><div class="crumb" style="margin:0 0 6px">User scan / hari</div><div id="recapTrendScan"><div class="placeholder">Memuat…</div></div></div>
+            <div><div class="crumb" style="margin:0 0 6px">User beli / hari</div><div id="recapTrendBuy"><div class="placeholder">Memuat…</div></div></div>
+          </div>
+          <div id="segPanel" class="hidden" style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <h3 id="segTitle" style="margin:0;font-size:15px"></h3>
+              <span class="grow"></span>
+              <button class="btn sm ghost" id="segExportXlsx" style="margin-top:0" title="Unduh segmen ini ke Excel">⬇ Excel</button>
+              <button class="btn sm ghost" id="segExportCsv" style="margin-top:0" title="Unduh segmen ini ke CSV">⬇ CSV</button>
+              <button class="btn sm ghost" id="segClose" style="margin-top:0" title="Tutup daftar segmen">✕ Tutup</button>
+            </div>
+            <div class="notice" id="segConsent">⚠️ Daftar ini untuk <b>analitik internal</b>. Sistem belum menyimpan <b>consent email marketing</b> — pastikan ada dasar/izin & sertakan link berhenti-langganan sebelum blast. Setiap unduhan dicatat di audit log.</div>
+            <div id="segList"><div class="placeholder">Pilih kartu di atas untuk melihat daftar user.</div></div>
+          </div>
+        </div>
         <div class="rangebar">
           <input id="uSearch" placeholder="Cari nama / email…" style="max-width:220px" />
           <label style="margin:0;font-size:13px;color:var(--muted)">Aktif = ping ≤
@@ -180,7 +213,7 @@
               <option value="15">15 menit</option><option value="60">1 jam</option><option value="1440">24 jam</option><option value="10080">7 hari</option>
             </select>
           </label>
-          <select id="uFilter" style="max-width:170px"><option value="">Semua user</option><option value="top">⭐ Top User</option><option value="loyal">💎 Loyal User</option><option value="onboarded">Sudah onboarding</option><option value="pending">Belum onboarding</option><option value="active">Aktif saja</option><option value="inactive">Tidak aktif</option><option value="buyers">Pernah beli</option></select>
+          <select id="uFilter" style="max-width:190px"><option value="">Semua user</option><option value="top">⭐ Top User</option><option value="loyal">💎 Loyal User</option><option value="onboarded">Sudah onboarding</option><option value="newonb">🆕 Baru (belum scan/beli)</option><option value="pending">Belum onboarding</option><option value="active">Aktif saja</option><option value="inactive">Tidak aktif</option><option value="buyers">Pernah beli</option></select>
           <select id="uProduct" style="max-width:150px" title="Filter produk terlaris per user"><option value="">Semua produk</option></select>
           <label style="margin:0;font-size:13px;color:var(--muted)">Aktif:
             <input id="uFrom" type="date" style="width:auto;display:inline-block;margin:0 4px" title="Terakhir aktif dari" /><span style="color:var(--muted)">–</span>
@@ -425,7 +458,7 @@
         if(tab==="overview") renderOverview();
         if(tab==="vouchers") loadVouchers();
         if(tab==="transactions") loadTransactions();
-        if(tab==="users") loadUsers();
+        if(tab==="users"){ loadUsers(); loadRecap(); }
         if(tab==="analytics") loadAnalytics();
         if(tab==="traffic") loadTraffic();
         if(tab==="menustats") loadMenuStats();
@@ -1055,6 +1088,7 @@
         if(f==="top"&&!isTopUser(u)) return false;
         if(f==="loyal"&&!isLoyalUser(u)) return false;
         if(f==="onboarded"&&!u.is_onboarded) return false;
+        if(f==="newonb"&&!(u.is_onboarded&&!(u.scans_used>0)&&!(u.purchases>0))) return false;
         if(f==="pending"&&u.is_onboarded) return false;
         if(f==="active"&&!u.active) return false;
         if(f==="inactive"&&u.active) return false;
@@ -1176,6 +1210,93 @@
       var uex=$("uExportXlsx"); if(uex) uex.addEventListener("click", doExportXlsx);
       var uec=$("uExportCsv"); if(uec) uec.addEventListener("click", doExportCsv);
       var uep=$("uExportPdf"); if(uep) uep.addEventListener("click", doExportPdf);
+    })();
+
+    // ---- Recap periode (onboarding/scan/beli) + segmen yang bisa di-unduh ----
+    // Sumber: /api/admin/onboarding-recap (viewer+, NON-kesehatan). Klik kartu → daftar user
+    // segmen tsb (nama/email/telepon) + tombol unduh Excel/CSV. Tiap unduhan diaudit di server.
+    var RECAP_DATA=null, RECAP_RANGE="7d", CUR_SEG=null;
+    // Metadata segmen: label kartu, warna, kolom tabel + kolom export (satu sumber definisi).
+    var SEG_META={
+      onboarded:    { label:"Onboarding", slug:"onboarding", color:"#2A7A4F" },
+      onboarded_new:{ label:"Baru (belum scan/beli)", slug:"baru-onboarding", color:"#C87000" },
+      scanned:      { label:"Sudah scan", slug:"sudah-scan", color:"#3B82F6" },
+      bought:       { label:"Sudah beli", slug:"sudah-beli", color:"#C41101" },
+    };
+    function segColumns(seg){
+      var base=[{key:"full_name",label:"Nama"},{key:"email",label:"Email"},{key:"phone",label:"No HP"}];
+      if(seg==="scanned") return base.concat([
+        {label:"Scan (periode)",value:function(u){return u.scans_in_window||0;}},
+        {label:"Scan terakhir",value:function(u){return u.last_scan_at?osDateUTC(u.last_scan_at):"";}} ]);
+      if(seg==="bought") return base.concat([
+        {label:"Transaksi (periode)",value:function(u){return u.orders_in_window||0;}},
+        {label:"Nominal (periode, Rp)",value:function(u){return u.amount_in_window||0;}},
+        {label:"Beli terakhir",value:function(u){return u.last_paid_at?osDateUTC(u.last_paid_at):"";}} ]);
+      return base.concat([{label:"Tgl onboarding",value:function(u){return u.onboarded_at?osDateUTC(u.onboarded_at):"";}}]);
+    }
+    async function loadRecap(){
+      var cards=$("recapCards");
+      cards.innerHTML="<div class='placeholder'>Memuat…</div>";
+      hideSegPanel();
+      var r=await adminFetch("/api/admin/onboarding-recap?range="+encodeURIComponent(RECAP_RANGE));
+      var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ cards.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal memuat recap")+"</div>"; $("recapTrendOnb").innerHTML=$("recapTrendScan").innerHTML=$("recapTrendBuy").innerHTML=""; return; }
+      RECAP_DATA=j; var t=j.totals||{};
+      function card(seg,val){ var m=SEG_META[seg]; return "<div class='stat click' data-seg='"+seg+"'><div class='lbl'>"+m.label+"</div><div class='val' style='color:"+m.color+"'>"+(val||0)+"</div><div class='sub'>klik untuk lihat & unduh</div></div>"; }
+      cards.innerHTML=card("onboarded",t.onboarded)+card("onboarded_new",t.onboarded_new)+card("scanned",t.scanned)+card("bought",t.bought);
+      cards.querySelectorAll(".stat.click").forEach(function(el){ el.addEventListener("click",function(){ showSegment(el.dataset.seg); }); });
+      var daily=j.daily||[];
+      $("recapTrendOnb").innerHTML=svgVBars(daily.map(function(d){return {label:d.label,value:d.onboarded};}),SEG_META.onboarded.color,{h:180,maxBar:22});
+      $("recapTrendScan").innerHTML=svgVBars(daily.map(function(d){return {label:d.label,value:d.scanned};}),SEG_META.scanned.color,{h:180,maxBar:22});
+      $("recapTrendBuy").innerHTML=svgVBars(daily.map(function(d){return {label:d.label,value:d.bought};}),SEG_META.bought.color,{h:180,maxBar:22});
+      // Jika ada segmen terbuka, refresh isinya dengan data baru.
+      if(CUR_SEG) showSegment(CUR_SEG);
+    }
+    function hideSegPanel(){ CUR_SEG=null; var p=$("segPanel"); if(p) p.classList.add("hidden"); document.querySelectorAll("#recapCards .stat.click").forEach(function(e){e.classList.remove("on");}); }
+    function showSegment(seg){
+      if(!RECAP_DATA||!SEG_META[seg]) return;
+      CUR_SEG=seg;
+      var rows=(RECAP_DATA.segments&&RECAP_DATA.segments[seg])||[], m=SEG_META[seg];
+      document.querySelectorAll("#recapCards .stat.click").forEach(function(e){ e.classList.toggle("on", e.dataset.seg===seg); });
+      $("segPanel").classList.remove("hidden");
+      $("segTitle").innerHTML=esc(m.label)+" — "+rows.length+" user <span style='color:var(--muted);font-weight:400;font-size:13px'>("+recapRangeLabel()+")</span>";
+      var cols=segColumns(seg);
+      if(!rows.length){ $("segList").innerHTML="<div class='placeholder'>Tidak ada user di segmen ini untuk periode terpilih.</div>"; return; }
+      var h="<div style='overflow-x:auto'><table><thead><tr>";
+      cols.forEach(function(c){ h+="<th>"+esc(c.label)+"</th>"; });
+      h+="</tr></thead><tbody>";
+      rows.slice(0,500).forEach(function(u){
+        h+="<tr>";
+        cols.forEach(function(c){ var v=typeof c.value==="function"?c.value(u):u[c.key]; if(c.label==="Nominal (periode, Rp)") v=rupiah(u.amount_in_window||0); h+="<td>"+esc(v==null?"—":v)+"</td>"; });
+        h+="</tr>";
+      });
+      h+="</tbody></table></div>";
+      if(rows.length>500) h+="<div class='crumb' style='margin-top:8px'>Menampilkan 500 dari "+rows.length+" user. Unduh untuk data lengkap.</div>";
+      $("segList").innerHTML=h;
+    }
+    function recapRangeLabel(){ return RECAP_RANGE==="today"?"hari ini":(RECAP_RANGE==="30d"?"30 hari":"7 hari"); }
+    function segExportFilename(ext){ var m=SEG_META[CUR_SEG]||{slug:"segmen"}, d=new Date(), p=function(n){return n<10?"0"+n:n;}; return m.slug+"_"+RECAP_RANGE+"_"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"."+ext; }
+    async function doSegExport(fmt){
+      if(!CUR_SEG||!RECAP_DATA){ alert("Pilih segmen dulu."); return; }
+      var rows=(RECAP_DATA.segments&&RECAP_DATA.segments[CUR_SEG])||[];
+      if(!rows.length){ alert("Tidak ada data untuk diunduh."); return; }
+      if(!window.AdminExport){ alert("Modul export belum termuat."); return; }
+      var cols=segColumns(CUR_SEG);
+      if(fmt==="xlsx"){ if(!AdminExport.xlsx){ alert("Modul Excel belum termuat."); return; } AdminExport.xlsx(cols,rows,{filename:segExportFilename("xlsx"),sheetName:(SEG_META[CUR_SEG].label||"Segmen").slice(0,28)}); }
+      else { AdminExport.csv(cols,rows,{filename:segExportFilename("csv")}); }
+      // Catat unduhan ke audit log (best-effort — jangan blok download kalau gagal).
+      try{ await adminFetch("/api/admin/audit-export",{method:"POST",body:JSON.stringify({segment:CUR_SEG,range:RECAP_RANGE,format:fmt,count:rows.length})}); }catch(e){}
+    }
+    (function(){
+      document.querySelectorAll("#recapCard .rbtn[data-recap]").forEach(function(b){
+        b.addEventListener("click",function(){
+          document.querySelectorAll("#recapCard .rbtn[data-recap]").forEach(function(x){ x.classList.toggle("on", x===b); });
+          RECAP_RANGE=b.dataset.recap; loadRecap();
+        });
+      });
+      var sx=$("segExportXlsx"); if(sx) sx.addEventListener("click",function(){ doSegExport("xlsx"); });
+      var sc=$("segExportCsv"); if(sc) sc.addEventListener("click",function(){ doSegExport("csv"); });
+      var scl=$("segClose"); if(scl) scl.addEventListener("click", hideSegPanel);
     })();
 
     // ---- Analitik (MoM / funnel / retensi) ----
