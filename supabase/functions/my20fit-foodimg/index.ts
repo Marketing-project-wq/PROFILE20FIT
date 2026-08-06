@@ -98,13 +98,13 @@ Deno.serve(async (req) => {
     // beberapa piring (double). desc (bahan) bikin AI tahu persis dish-nya (mis. masakan Indonesia).
     const desc = String(b.desc || '').slice(0, 400);
     const prompt =
-      `Photorealistic, high-resolution food photograph of the dish "${name}"` +
+      `ONE single wide landscape (4:3) photorealistic food photograph of the dish "${name}"` +
       (desc ? `, made of ${desc}` : '') +
-      `. A SINGLE serving of this one dish on ONE plate or bowl, centered and filling most of the ` +
-      `frame. Exactly ONE single photo of one plate — NOT a collage, NOT a grid, NOT multiple plates, ` +
-      `NOT repeated or tiled. Shot from a 45-degree angle, bright even lighting, sharp focus across ` +
-      `the dish, vivid appetizing natural colors, crisp fine detail, professional food-magazine style. ` +
-      `Show this exact dish clearly. No blur, no text, no watermark, no hands, no packaging.`;
+      `. Frame contains exactly ONE plate or bowl of this one dish, centered and filling the frame. ` +
+      `It is a SINGLE photo — absolutely NOT a collage, NOT a grid, NOT a strip, NOT multiple plates ` +
+      `side by side, NOT the dish repeated or tiled. Just one plate. Shot from a 45-degree angle, ` +
+      `bright even lighting, sharp focus, vivid appetizing natural colors, crisp fine detail, ` +
+      `professional food-magazine style. No blur, no text, no watermark, no hands, no packaging.`;
 
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
