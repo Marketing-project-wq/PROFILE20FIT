@@ -1221,7 +1221,7 @@
     return scored.slice(0, n).map(function (x) { return x.r; });
   }
 
-  var IMG_CACHE_KEY = "my20fit_foodimg_v4"; // v4: AI (gemini-2.5-flash-image) jadi primary lagi — re-fetch
+  var IMG_CACHE_KEY = "my20fit_foodimg_v5"; // v5: jangan cache null (retry sampai foto AI siap) — reset cache
   function _imgCache(){ try { return JSON.parse(localStorage.getItem(IMG_CACHE_KEY) || "{}"); } catch(e){ return {}; } }
   function _saveImg(c){ try { localStorage.setItem(IMG_CACHE_KEY, JSON.stringify(c)); } catch(e){} }
   // Returns Promise<url|null>. Foto ASLI dari server /api/foodphoto: Pexels (kalau PEXELS_API_KEY
@@ -1231,8 +1231,10 @@
   function resolveImg(rec){
     if(!rec || !rec.id) return Promise.resolve(null);
     var c=_imgCache();
-    if(Object.prototype.hasOwnProperty.call(c, rec.id)) return Promise.resolve(c[rec.id]);
-    function done(url){ c=_imgCache(); c[rec.id]=url||null; _saveImg(c); return c[rec.id]; }
+    if(c[rec.id]) return Promise.resolve(c[rec.id]); // hanya URL sukses yang di-cache
+    // PENTING: JANGAN simpan null. Foto AI di-generate on-demand (butuh beberapa detik); kalau
+    // percobaan pertama belum siap, biarkan RETRY di load berikutnya (jangan kunci jadi placeholder).
+    function done(url){ if(url){ c=_imgCache(); c[rec.id]=url; _saveImg(c); } return url||null; }
     var q = rec.pq || (rec.nm && rec.nm.en) || rec.q || ""; // nama deskriptif (buat AI & Pexels)
     var mdb = rec.q || "";                                   // kata kunci pendek buat fallback TheMealDB (mis. "chicken")
     var desc = (rec.ing && rec.ing.en) ? String(rec.ing.en).replace(/\n/g, ", ") : ""; // bahan (biar AI tahu dish-nya)
