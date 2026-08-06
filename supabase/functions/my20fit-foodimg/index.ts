@@ -93,18 +93,18 @@ Deno.serve(async (req) => {
     const hit = await cacheGet(id);
     if (hit) return json({ ok: true, url: hit, cached: true });
 
-    // Prompt: makanan HARUS MEMENUHI FRAME, top-down, TAJAM, warna hidup. JANGAN "shallow depth of
-    // field"/"neutral background" — itu bikin makanan kecil/blur & background netral mendominasi,
-    // sehingga di thumbnail 96px kelihatan pucat/abstrak. desc (bahan) bikin AI tahu persis dish-nya.
+    // Prompt: SATU piring/mangkuk, SATU dish, tajam, warna hidup. Tegaskan BUKAN kolase/grid/
+    // gambar berulang — dulu "fills entire frame edge to edge" bikin model malah menge-tile jadi
+    // beberapa piring (double). desc (bahan) bikin AI tahu persis dish-nya (mis. masakan Indonesia).
     const desc = String(b.desc || '').slice(0, 400);
     const prompt =
       `Photorealistic, high-resolution food photograph of the dish "${name}"` +
       (desc ? `, made of ${desc}` : '') +
-      `. The freshly plated dish FILLS THE ENTIRE FRAME edge to edge. Shot straight from directly ` +
-      `overhead (flat lay, top-down), bright even lighting, sharp focus across the whole dish, ` +
-      `vivid appetizing natural colors, crisp fine detail, professional food-magazine style. ` +
-      `Show this exact dish clearly and fully. No blur, no shallow depth of field, no empty or plain ` +
-      `background, no text, no watermark, no hands, no packaging.`;
+      `. A SINGLE serving of this one dish on ONE plate or bowl, centered and filling most of the ` +
+      `frame. Exactly ONE single photo of one plate — NOT a collage, NOT a grid, NOT multiple plates, ` +
+      `NOT repeated or tiled. Shot from a 45-degree angle, bright even lighting, sharp focus across ` +
+      `the dish, vivid appetizing natural colors, crisp fine detail, professional food-magazine style. ` +
+      `Show this exact dish clearly. No blur, no text, no watermark, no hands, no packaging.`;
 
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
