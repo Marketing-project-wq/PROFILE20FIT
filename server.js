@@ -2662,6 +2662,51 @@ app.get("/api/arena/history", async (req, res) => {
   }
 });
 
+// ---------- Jadwal kelas 20FIT Arena — read-only, buat KALENDER di my.20fit.id ----------
+// Data jadwal ada di Supabase yang SAMA (tabel arena_* milik sistem booking/Arena). Kita BACA
+// SAJA (service key) — TIDAK PERNAH menulis. Payment & konfirmasi booking TETAP di booking.20fit.id.
+// TIDAK menampilkan kursi-sisa real-time (rawan basi/double-book) — hanya JADWAL AKURAT
+// (tanggal/jam/jenis kelas/instruktur), buang yang is_cancelled. Butuh login.
+// Catatan: skema arena_* milik app lain — kalau mereka ubah kolom, endpoint ini perlu disesuaikan.
+app.get("/api/classes/schedule", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const days = Math.min(60, Math.max(1, parseInt(req.query.days, 10) || 21));
+    const p2 = (n) => (n < 10 ? "0" + n : "" + n);
+    const now = new Date();
+    const fromD = now.getFullYear() + "-" + p2(now.getMonth() + 1) + "-" + p2(now.getDate());
+    const end = new Date(now.getTime() + days * 86400000);
+    const toD = end.getFullYear() + "-" + p2(end.getMonth() + 1) + "-" + p2(end.getDate());
+    const { data, error } = await admin
+      .from("arena_class_schedules")
+      .select("id,schedule_date,start_time,end_time,instructor,arena_class_types(name,color,duration_min,price_member,is_active)")
+      .gte("schedule_date", fromD).lte("schedule_date", toD)
+      .eq("is_cancelled", false)
+      .order("schedule_date", { ascending: true }).order("start_time", { ascending: true })
+      .limit(600);
+    if (error) throw error;
+    const clean = (nm) => String(nm || "").replace(/^20FIT\s+Arena\s+/i, "").replace(/^20FIT\s+/i, "").trim();
+    const byDate = {};
+    (data || []).forEach(s => {
+      const t = s.arena_class_types || {};
+      if (t.is_active === false) return;
+      (byDate[s.schedule_date] || (byDate[s.schedule_date] = [])).push({
+        start: String(s.start_time || "").slice(0, 5),
+        end: String(s.end_time || "").slice(0, 5),
+        name: clean(t.name) || "Kelas", full_name: t.name || "",
+        color: t.color || "#C41101",
+        instructor: s.instructor || "",
+        duration_min: t.duration_min || null,
+        price_member: (t.price_member != null ? +t.price_member : null),
+      });
+    });
+    const dates = Object.keys(byDate).sort().map(d => ({ date: d, classes: byDate[d] }));
+    return res.json({ ok: true, booking_url: "https://booking.20fit.id/book", dates: dates });
+  } catch (e) { console.error("classes/schedule:", e.message); return res.status(500).json({ error: e.message }); }
+});
+
 // ---------- Beli paket scan kalori (pembayaran via Xendit lewat FITCO shop order) ----------
 // FITCO shop order (payment_type "xendit-invoices") -> FITCO bikin invoice Xendit &
 // balikkan link. FITCO_PARTNER_TOKEN dipakai sbg Bearer utk order + baca/cancel status
