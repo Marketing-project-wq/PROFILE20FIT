@@ -3204,14 +3204,30 @@ app.get("/api/foodphoto", async (req, res) => {
     const user = await getUserFromReq(req);
     if (!user) return res.json({ ok: false });
     const id = String(req.query.id || "").slice(0, 80);
-    const q = String(req.query.q || "").slice(0, 120);       // nama deskriptif (buat Pexels)
+    const q = String(req.query.q || "").slice(0, 120);       // nama deskriptif (buat AI & Pexels)
     const mdb = String(req.query.mdb || "").slice(0, 60);    // kata kunci pendek (buat TheMealDB)
+    const desc = String(req.query.desc || "").slice(0, 400); // bahan (buat AI biar tahu dish-nya)
     if (!id) return res.json({ ok: false });
 
-    // FOTO AI DIHENTIKAN: model (gemini-2.5-flash-image) terus menghasilkan gambar KOLASE (double)
-    // & kadang tak akurat — keterbatasan model, tak bisa diandalkan lewat prompt. Sumber sekarang =
-    // FOTO ASLI: Pexels (single, landscape, pas di kotak) → TheMealDB → placeholder. (Edge function
-    // my20fit-foodimg dibiarkan dormant; bisa dihapus tuntas nanti.)
+    // 0) GENERATE AI (google/gemini-2.5-flash-image) via edge function — PRIMARY (permintaan owner).
+    //    Prompt v7 (edge): tegas SATU foto landscape 4:3, satu piring, BUKAN kolase. id "-v8" =
+    //    regenerate bersih dgn prompt itu. Key OpenRouter hanya di Supabase secret (bukan di kode).
+    //    Gagal/kosong → Pexels/TheMealDB di bawah. Butuh token user (verify_jwt) → forward Authorization.
+    const auth = req.headers.authorization || "";
+    if (auth && q) {
+      try {
+        const fr = await fetch(SUPABASE_URL + "/functions/v1/my20fit-foodimg", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": auth, "apikey": SUPABASE_ANON_KEY },
+          body: JSON.stringify({ id: id + "-v8", name: q, desc: desc }),
+        });
+        if (fr.ok) {
+          const fj = await fr.json();
+          if (fj && fj.ok && fj.url) return res.json({ ok: true, url: fj.url, source: "ai" });
+        }
+      } catch (_e) {}
+    }
+
     const cacheId = id + "-px";
     // 1) cache stabil (Pexels yang sudah pernah resolve) → URL tak berubah tiap load.
     if (admin) {
