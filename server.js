@@ -3219,7 +3219,7 @@ app.get("/api/foodphoto", async (req, res) => {
         const fr = await fetch(SUPABASE_URL + "/functions/v1/my20fit-foodimg", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": auth, "apikey": SUPABASE_ANON_KEY },
-          body: JSON.stringify({ id: id + "-v6", name: q, desc: desc }),
+          body: JSON.stringify({ id: id + "-v7", name: q, desc: desc }),
         });
         if (fr.ok) {
           const fj = await fr.json();

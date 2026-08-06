@@ -1221,7 +1221,7 @@
     return scored.slice(0, n).map(function (x) { return x.r; });
   }
 
-  var IMG_CACHE_KEY = "my20fit_foodimg_v5"; // v5: jangan cache null (retry sampai foto AI siap) — reset cache
+  var IMG_CACHE_KEY = "my20fit_foodimg_v6"; // v6: regen foto AI (prompt anti-kolase, id -v7) — reset cache
   function _imgCache(){ try { return JSON.parse(localStorage.getItem(IMG_CACHE_KEY) || "{}"); } catch(e){ return {}; } }
   function _saveImg(c){ try { localStorage.setItem(IMG_CACHE_KEY, JSON.stringify(c)); } catch(e){} }
   // Returns Promise<url|null>. Foto ASLI dari server /api/foodphoto: Pexels (kalau PEXELS_API_KEY
