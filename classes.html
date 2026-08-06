@@ -105,25 +105,59 @@
     function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
     function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
 
-    // Label bilingual (Indonesia primary; sistem app default id).
+    // Venue dari URL (?venue=arena|gym|clinic), default arena.
+    var VENUE=(function(){
+      var m=location.search.match(/[?&]venue=([^&]+)/);
+      var q=m?decodeURIComponent(m[1]).toLowerCase():"";
+      return ["arena","gym","clinic"].indexOf(q)>=0?q:"arena";
+    })();
+
+    // Label bilingual (Indonesia primary; sistem app default id). Shared antar venue.
     var TXT={
-      title:{id:"Jadwal Kelas",en:"Class Schedule"},
-      lead:{id:"Jadwal kelas 20FIT Arena yang akurat — pilih tanggal untuk lihat kelas. Booking & pembayaran diarahkan ke booking.20fit.id.",
-            en:"Accurate 20FIT Arena class schedule — pick a date to see classes. Booking & payment go to booking.20fit.id."},
       noteT:{id:"Booking di booking.20fit.id",en:"Booking on booking.20fit.id"},
-      noteS:{id:"Tanggal & jam di sini diambil langsung dari sistem 20FIT (akurat). Ketersediaan kursi & pembayaran diproses di booking.20fit.id — tombol Book akan membukanya.",
-             en:"Dates & times here come straight from the 20FIT system (accurate). Seat availability & payment are handled on booking.20fit.id — the Book button opens it."},
-      bookAll:{id:"Booking kelas di booking.20fit.id",en:"Book a class on booking.20fit.id"},
-      disc:{id:"Jadwal disinkronkan dari sistem 20FIT Arena. Kalau jadwal berubah mendekati hari-H, tampilan mengikuti data terbaru saat halaman dibuka.",
-            en:"Schedule is synced from the 20FIT Arena system. If it changes close to the day, this view reflects the latest data at page load."},
       book:{id:"Book",en:"Book"},
       loading:{id:"Memuat jadwal…",en:"Loading schedule…"},
-      empty:{id:"Belum ada jadwal kelas dalam waktu dekat. Cek langsung di booking.20fit.id.",en:"No upcoming classes yet. Check booking.20fit.id directly."},
-      emptyDay:{id:"Tidak ada kelas di tanggal ini.",en:"No classes on this date."},
       err:{id:"Gagal memuat jadwal. Coba lagi nanti atau buka booking.20fit.id.",en:"Failed to load schedule. Try again later or open booking.20fit.id."},
       today:{id:"Hari ini",en:"Today"},
-      min:{id:"mnt",en:"min"}
+      min:{id:"mnt",en:"min"},
+      disc:{id:"Jadwal disinkronkan dari sistem 20FIT. Kalau jadwal berubah mendekati hari-H, tampilan mengikuti data terbaru saat halaman dibuka.",
+            en:"Schedule is synced from the 20FIT system. If it changes close to the day, this view reflects the latest data at page load."}
     };
+    // Label per-venue (judul, intro, catatan, tombol, empty, label kartu).
+    var VTXT={
+      arena:{
+        title:{id:"Jadwal Kelas Arena",en:"Arena Class Schedule"},
+        lead:{id:"Jadwal kelas 20FIT Arena yang akurat — pilih tanggal untuk lihat kelas. Booking & pembayaran diarahkan ke booking.20fit.id.",
+              en:"Accurate 20FIT Arena class schedule — pick a date to see classes. Booking & payment go to booking.20fit.id."},
+        noteS:{id:"Tanggal & jam di sini diambil langsung dari sistem 20FIT (akurat). Ketersediaan kursi & pembayaran diproses di booking.20fit.id — tombol Book akan membukanya.",
+               en:"Dates & times here come straight from the 20FIT system (accurate). Seat availability & payment are handled on booking.20fit.id — the Book button opens it."},
+        bookAll:{id:"Booking kelas di booking.20fit.id",en:"Book a class on booking.20fit.id"},
+        empty:{id:"Belum ada jadwal kelas dalam waktu dekat. Cek langsung di booking.20fit.id.",en:"No upcoming classes yet. Check booking.20fit.id directly."},
+        emptyDay:{id:"Tidak ada kelas di tanggal ini.",en:"No classes on this date."}
+      },
+      gym:{
+        title:{id:"Jadwal Kelas Gym",en:"Gym Class Schedule"},
+        lead:{id:"Jadwal kelas 20FIT Gym yang akurat — pilih tanggal untuk lihat kelas. Booking & pembayaran diarahkan ke booking.20fit.id.",
+              en:"Accurate 20FIT Gym class schedule — pick a date to see classes. Booking & payment go to booking.20fit.id."},
+        noteS:{id:"Tanggal & jam di sini diambil langsung dari sistem 20FIT (akurat). Ketersediaan kursi & pembayaran diproses di booking.20fit.id — tombol Book akan membukanya.",
+               en:"Dates & times here come straight from the 20FIT system (accurate). Seat availability & payment are handled on booking.20fit.id — the Book button opens it."},
+        bookAll:{id:"Booking kelas di booking.20fit.id",en:"Book a class on booking.20fit.id"},
+        empty:{id:"Belum ada jadwal kelas Gym dalam waktu dekat. Cek langsung di booking.20fit.id.",en:"No upcoming Gym classes yet. Check booking.20fit.id directly."},
+        emptyDay:{id:"Tidak ada kelas di tanggal ini.",en:"No classes on this date."}
+      },
+      clinic:{
+        title:{id:"Jadwal Klinik",en:"Clinic Schedule"},
+        lead:{id:"Jam slot appointment 20FIT Sport Clinic — pilih tanggal untuk lihat slot. Pemilihan layanan & pembayaran diarahkan ke booking.20fit.id.",
+              en:"20FIT Sport Clinic appointment slots — pick a date to see slots. Service selection & payment go to booking.20fit.id."},
+        noteS:{id:"Tanggal & jam slot di sini dari sistem 20FIT. Pilih layanan (fisio/dokter/dll), cek ketersediaan & bayar di booking.20fit.id — tombol Book akan membukanya.",
+               en:"Slot dates & times come from the 20FIT system. Choose a service (physio/doctor/etc.), check availability & pay on booking.20fit.id — the Book button opens it."},
+        bookAll:{id:"Booking appointment di booking.20fit.id",en:"Book an appointment on booking.20fit.id"},
+        empty:{id:"Belum ada slot appointment dalam waktu dekat. Cek langsung di booking.20fit.id.",en:"No upcoming appointment slots yet. Check booking.20fit.id directly."},
+        emptyDay:{id:"Tidak ada slot di tanggal ini.",en:"No slots on this date."},
+        slotLabel:{id:"Slot appointment",en:"Appointment slot"}
+      }
+    };
+    var VC=VTXT[VENUE];
     var DOW={ id:["Min","Sen","Sel","Rab","Kam","Jum","Sab"], en:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"] };
     var DOW_FULL={ id:["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"], en:["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"] };
     var MON={ id:["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"], en:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"] };
@@ -148,18 +182,18 @@
     })();
 
     function applyStatic(){
-      $("pgTitle").textContent=LL(TXT.title);
-      $("pgLead").textContent=LL(TXT.lead);
+      $("pgTitle").textContent=LL(VC.title);
+      $("pgLead").textContent=LL(VC.lead);
       $("noteTitle").textContent=LL(TXT.noteT);
-      $("noteSub").textContent=LL(TXT.noteS);
-      $("bookAllTxt").textContent=LL(TXT.bookAll);
+      $("noteSub").textContent=LL(VC.noteS);
+      $("bookAllTxt").textContent=LL(VC.bookAll);
       $("discTxt").textContent=LL(TXT.disc);
-      document.title=LL(TXT.title)+" · 20FIT";
+      document.title=LL(VC.title)+" · 20FIT";
     }
 
     async function load(){
       try{
-        var r=await apiFetch("/api/classes/schedule?days=21");
+        var r=await apiFetch("/api/classes/schedule?venue="+encodeURIComponent(VENUE)+"&days=21");
         if(!r.ok) throw new Error("http "+r.status);
         var j=await r.json();
         DATA=(j&&Array.isArray(j.dates))?j.dates:[];
@@ -181,10 +215,11 @@
       if(!DATA||!DATA.length){
         $("dateStrip").innerHTML="";
         $("dHead").textContent="";
-        $("classList").innerHTML='<div class="empty">'+esc(LL(TXT.empty))+'</div>';
+        $("classList").innerHTML='<div class="empty">'+esc(LL(VC.empty))+'</div>';
         return;
       }
       var t=todayStr();
+      var unit=function(n){ return VENUE==="clinic"?(lg==="id"?" slot":(n===1?" slot":" slots")):(lg==="id"?" kelas":(n===1?" class":" classes")); };
       // Date strip
       $("dateStrip").innerHTML=DATA.map(function(d){
         var dt=parseD(d.date), n=(d.classes||[]).length;
@@ -193,7 +228,7 @@
           '<div class="dow">'+DOW[lg][dt.getDay()]+'</div>'+
           '<div class="day">'+dt.getDate()+'</div>'+
           '<div class="mon">'+MON[lg][dt.getMonth()]+'</div>'+
-          '<span class="cnt">'+n+(lg==="id"?" kelas":(n===1?" class":" classes"))+'</span>'+
+          '<span class="cnt">'+n+unit(n)+'</span>'+
         '</div>';
       }).join("");
       Array.prototype.forEach.call($("dateStrip").querySelectorAll(".dchip"),function(el){
@@ -208,16 +243,17 @@
       $("dHead").textContent=head;
       // Kartu kelas
       var cs=cur.classes||[];
-      if(!cs.length){ $("classList").innerHTML='<div class="empty">'+esc(LL(TXT.emptyDay))+'</div>'; return; }
+      if(!cs.length){ $("classList").innerHTML='<div class="empty">'+esc(LL(VC.emptyDay))+'</div>'; return; }
+      var fallbackName=(VENUE==="clinic"&&VC.slotLabel)?LL(VC.slotLabel):"Kelas";
       $("classList").innerHTML=cs.map(function(c){
         var meta=[];
         if(c.instructor) meta.push('<span class="mi"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'+esc(c.instructor)+'</span>');
         if(c.duration_min) meta.push('<span class="mi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'+c.duration_min+' '+LL(TXT.min)+'</span>');
-        if(c.price_member!=null) meta.push('<span class="cprice">'+rupiah(c.price_member)+'</span>');
+        if(c.price!=null) meta.push('<span class="cprice">'+rupiah(c.price)+'</span>');
         return '<div class="ccard">'+
           '<div class="ctime"><div class="st">'+esc(c.start||"")+'</div>'+(c.end?'<div class="et">'+esc(c.end)+'</div>':'')+'</div>'+
           '<div class="cmain">'+
-            '<div class="cname"><span class="cdot" style="background:'+esc(c.color||"#C41101")+'"></span>'+esc(c.name||"Kelas")+'</div>'+
+            '<div class="cname"><span class="cdot" style="background:'+esc(c.color||"#C41101")+'"></span>'+esc(c.name||fallbackName)+'</div>'+
             (meta.length?'<div class="cmeta">'+meta.join("")+'</div>':'')+
           '</div>'+
           '<a class="cbook" href="'+esc(BOOK_URL)+'" target="_blank" rel="noopener">'+esc(LL(TXT.book))+
