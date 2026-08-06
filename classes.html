@@ -87,7 +87,7 @@
       <div class="empty" id="loadingBox">Memuat jadwal…</div>
     </div>
 
-    <a class="bookall" id="bookAll" href="https://booking.20fit.id/book" target="_blank" rel="noopener">
+    <a class="bookall" id="bookAll" href="https://booking.20fit.id/book">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       <span id="bookAllTxt">Booking kelas di booking.20fit.id</span>
     </a>
@@ -168,6 +168,18 @@
     function todayStr(){ var n=new Date(); var p2=function(x){return x<10?"0"+x:""+x;}; return n.getFullYear()+"-"+p2(n.getMonth()+1)+"-"+p2(n.getDate()); }
     function rupiah(v){ if(v==null||isNaN(v)) return ""; return "Rp "+Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,"."); }
 
+    // Deep-link ke booking.20fit.id supaya kelas LANGSUNG kepilih di sana (user tinggal isi
+    // data + bayar). Kontrak URL sesuai halaman booking:
+    //   arena → /book?type=class&date=YYYY-MM-DD&schedule=<schedule_id>
+    //   gym   → /gym?class=<class_type_id>&date=YYYY-MM-DD&schedule=<schedule_id>
+    //   clinic→ tetap generik (booking klinik tak punya deep-link slot). BOOK_URL sudah per-venue.
+    function bookHref(c, date){
+      var enc=encodeURIComponent;
+      if(VENUE==="arena" && c && c.id) return BOOK_URL+"?type=class&date="+enc(date)+"&schedule="+enc(c.id);
+      if(VENUE==="gym" && c && c.id && c.class_type_id) return BOOK_URL+"?class="+enc(c.class_type_id)+"&date="+enc(date)+"&schedule="+enc(c.id);
+      return BOOK_URL;
+    }
+
     async function apiFetch(path){
       var opts={headers:{"Content-Type":"application/json"}};
       try{ var tk=await Auth.token(); if(tk) opts.headers["Authorization"]="Bearer "+tk; }catch(e){}
@@ -245,6 +257,7 @@
       var cs=cur.classes||[];
       if(!cs.length){ $("classList").innerHTML='<div class="empty">'+esc(LL(VC.emptyDay))+'</div>'; return; }
       var fallbackName=(VENUE==="clinic"&&VC.slotLabel)?LL(VC.slotLabel):"Kelas";
+      var curD=cur.date;
       $("classList").innerHTML=cs.map(function(c){
         var meta=[];
         if(c.instructor) meta.push('<span class="mi"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'+esc(c.instructor)+'</span>');
@@ -256,7 +269,7 @@
             '<div class="cname"><span class="cdot" style="background:'+esc(c.color||"#C41101")+'"></span>'+esc(c.name||fallbackName)+'</div>'+
             (meta.length?'<div class="cmeta">'+meta.join("")+'</div>':'')+
           '</div>'+
-          '<a class="cbook" href="'+esc(BOOK_URL)+'" target="_blank" rel="noopener">'+esc(LL(TXT.book))+
+          '<a class="cbook" href="'+esc(bookHref(c,curD))+'">'+esc(LL(TXT.book))+
             ' <svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>'+
         '</div>';
       }).join("");
