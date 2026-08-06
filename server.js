@@ -2724,7 +2724,7 @@ app.get("/api/classes/schedule", async (req, res) => {
     const cfg = CLASS_VENUES[venue];
     const { data, error } = await admin
       .from(cfg.table)
-      .select(`id,schedule_date,start_time,end_time,instructor,${cfg.types}(name,color,${cfg.dur},${cfg.price},is_active)`)
+      .select(`id,class_type_id,schedule_date,start_time,end_time,instructor,${cfg.types}(name,color,${cfg.dur},${cfg.price},is_active)`)
       .gte("schedule_date", fromD).lte("schedule_date", toD)
       .eq("is_cancelled", false)
       .order("schedule_date", { ascending: true }).order("start_time", { ascending: true })
@@ -2735,7 +2735,10 @@ app.get("/api/classes/schedule", async (req, res) => {
     (data || []).forEach(s => {
       const t = s[cfg.types] || {};
       if (t.is_active === false) return;
+      // id (schedule) + class_type_id dipakai my.20fit.id buat bikin URL deep-link ke
+      // booking.20fit.id (kelas auto-kepilih): arena pakai schedule id, gym pakai keduanya.
       (byDate[s.schedule_date] || (byDate[s.schedule_date] = [])).push({
+        id: s.id, class_type_id: s.class_type_id || null,
         start: String(s.start_time || "").slice(0, 5),
         end: String(s.end_time || "").slice(0, 5),
         name: clean(t.name) || "Kelas", full_name: t.name || "",
