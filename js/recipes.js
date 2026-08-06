@@ -1221,13 +1221,13 @@
     return scored.slice(0, n).map(function (x) { return x.r; });
   }
 
-  var IMG_CACHE_KEY = "my20fit_foodimg_v6"; // v6: regen foto AI (prompt anti-kolase, id -v7) — reset cache
+  var IMG_CACHE_KEY = "my20fit_foodimg_v7"; // v7: foto AI dihentikan (double) -> foto asli Pexels/TheMealDB — reset cache
   function _imgCache(){ try { return JSON.parse(localStorage.getItem(IMG_CACHE_KEY) || "{}"); } catch(e){ return {}; } }
   function _saveImg(c){ try { localStorage.setItem(IMG_CACHE_KEY, JSON.stringify(c)); } catch(e){} }
   // Returns Promise<url|null>. Foto ASLI dari server /api/foodphoto: Pexels (kalau PEXELS_API_KEY
-  // di-set) → TheMealDB (nama cocok) → null. Foto AI (OpenRouter/Gemini) SUDAH DIHAPUS: hasilnya
-  // selalu blur/tak akurat (keterbatasan text-to-image, bukan bug). Kalau tak ada foto cocok → null
-  // → biarkan placeholder rapi (BUKAN foto blur/salah). URL Pexels stabil (di-cache di server).
+  // di-set) → TheMealDB (nama cocok) → null. Foto AI (OpenRouter/Gemini) DIHENTIKAN: model terus
+  // bikin gambar KOLASE (double) & kadang tak akurat — batas model, tak bisa diandalkan. Kalau tak
+  // ada foto cocok → null → biarkan placeholder rapi (BUKAN foto double/salah). URL Pexels stabil.
   function resolveImg(rec){
     if(!rec || !rec.id) return Promise.resolve(null);
     var c=_imgCache();
@@ -1235,13 +1235,12 @@
     // PENTING: JANGAN simpan null. Foto AI di-generate on-demand (butuh beberapa detik); kalau
     // percobaan pertama belum siap, biarkan RETRY di load berikutnya (jangan kunci jadi placeholder).
     function done(url){ if(url){ c=_imgCache(); c[rec.id]=url; _saveImg(c); } return url||null; }
-    var q = rec.pq || (rec.nm && rec.nm.en) || rec.q || ""; // nama deskriptif (buat AI & Pexels)
-    var mdb = rec.q || "";                                   // kata kunci pendek buat fallback TheMealDB (mis. "chicken")
-    var desc = (rec.ing && rec.ing.en) ? String(rec.ing.en).replace(/\n/g, ", ") : ""; // bahan (biar AI tahu dish-nya)
+    var q = rec.pq || (rec.nm && rec.nm.en) || rec.q || ""; // nama deskriptif (buat Pexels)
+    var mdb = rec.q || "";                                   // kata kunci pendek buat TheMealDB (mis. "chicken")
     var tokP = (window.Auth && Auth.token) ? Promise.resolve(Auth.token()).catch(function(){return null;}) : Promise.resolve(null);
     return tokP.then(function(tok){
       var h = {}; if(tok) h["Authorization"] = "Bearer " + tok;
-      return fetch("/api/foodphoto?id="+encodeURIComponent(rec.id)+"&q="+encodeURIComponent(q)+"&mdb="+encodeURIComponent(mdb)+"&desc="+encodeURIComponent(desc), { headers: h })
+      return fetch("/api/foodphoto?id="+encodeURIComponent(rec.id)+"&q="+encodeURIComponent(q)+"&mdb="+encodeURIComponent(mdb), { headers: h })
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(j){ return done(j && j.ok && j.url ? j.url : null); })
         .catch(function(){ return done(null); });
