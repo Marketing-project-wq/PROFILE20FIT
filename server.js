@@ -16,6 +16,7 @@ const email = require("./lib/email"); // SATU-SATUNYA jalur kirim email (Resend)
 const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerbang frekuensi
 const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
 const segments = require("./lib/segments"); // segment engine untuk blast email admin
+const blast = require("./lib/blast"); // send queue blast email (batching, kill switch, auto-abort)
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -453,6 +454,7 @@ app.post("/api/cron/daily", async (req, res) => {
   if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
   try {
     const out = await campaigns.runDaily({ admin, email, comms, baseUrl: APP_BASE_URL });
+    try { out.blast_automations = await blast.runAutomations(blastCtx()); } catch (e) { out.blast_automations = { error: e.message }; }
     return res.json(out);
   } catch (e) {
     console.error("cron/daily:", e && e.message);
@@ -604,6 +606,144 @@ app.post("/api/admin/email/segment/preview", async (req, res) => {
     if (segments.PRESET_IDS.indexOf(presetId) < 0) return res.status(400).json({ error: "preset tidak dikenal" });
     const out = await segments.previewSegment(admin, presetId);
     return res.json(Object.assign({ ok: true }, out));
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ============ Blast: send queue (buat draft → tes → confirm → antrian) ============
+function blastCtx() { return { admin, email, comms, campaigns, segments, baseUrl: APP_BASE_URL }; }
+
+// Daftar template blast yang diizinkan (template-only).
+app.get("/api/admin/email/templates", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  return res.json({ ok: true, templates: blast.TEMPLATE_IDS.map((id) => ({ id, label: blast.TEMPLATES[id].label })) });
+});
+
+// Buat draft blast (bekukan penerima eligible). BELUM mengirim.
+app.post("/api/admin/email/send/create", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const send = await blast.createSend(blastCtx(), {
+      name: b.name, segment_id: b.segment_id, template_id: b.template_id, subject: b.subject,
+      daily_cap: b.daily_cap ? parseInt(b.daily_cap, 10) : null, created_by: ctx.email || "admin",
+    });
+    await adminAudit(ctx, "email.blast.create", send.id, { name: send.name, segment: send.segment_id, matched: send.total_matched, eligible: send.total_eligible });
+    return res.json({ ok: true, send });
+  } catch (e) { return res.status(400).json({ error: e.message }); }
+});
+
+// Kirim tes ke alamat internal (@20fit.id). WAJIB sebelum confirm.
+app.post("/api/admin/email/send/test", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const to = String(ctx.email || b.email || "").trim().toLowerCase();
+    if (!to.endsWith("@20fit.id")) return res.status(400).json({ error: "tes hanya ke alamat @20fit.id" });
+    const r = await blast.sendTest(blastCtx(), b.send_id, to);
+    return res.json({ ok: !!(r.ok && !r.skipped), to, result: r });
+  } catch (e) { return res.status(400).json({ error: e.message }); }
+});
+
+// Konfirmasi (ketik nama campaign) → masuk antrian.
+app.post("/api/admin/email/send/confirm", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    await blast.confirmSend(blastCtx(), b.send_id, b.typed_name, ctx.email || "admin");
+    await adminAudit(ctx, "email.blast.confirm", b.send_id, { typed_name: b.typed_name });
+    return res.json({ ok: true });
+  } catch (e) { return res.status(400).json({ error: e.message }); }
+});
+
+// Pause / Cancel (kill switch di tengah pengiriman).
+app.post("/api/admin/email/send/pause", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try { await blast.setStatus(blastCtx(), (req.body || {}).send_id, "paused"); await adminAudit(ctx, "email.blast.pause", (req.body || {}).send_id, null); return res.json({ ok: true }); }
+  catch (e) { return res.status(400).json({ error: e.message }); }
+});
+app.post("/api/admin/email/send/resume", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try { await blast.setStatus(blastCtx(), (req.body || {}).send_id, "sending"); return res.json({ ok: true }); }
+  catch (e) { return res.status(400).json({ error: e.message }); }
+});
+app.post("/api/admin/email/send/cancel", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try { await blast.setStatus(blastCtx(), (req.body || {}).send_id, "cancelled"); await adminAudit(ctx, "email.blast.cancel", (req.body || {}).send_id, null); return res.json({ ok: true }); }
+  catch (e) { return res.status(400).json({ error: e.message }); }
+});
+
+// Detail 1 send (progress).
+app.get("/api/admin/email/send/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data } = await admin.from("my20fit_email_sends").select("*").eq("id", req.params.id).limit(1);
+    const s = data && data[0];
+    if (!s) return res.status(404).json({ error: "tidak ditemukan" });
+    const { data: rc } = await admin.from("my20fit_email_send_recipients").select("status").eq("send_id", s.id).limit(20000);
+    const by = {};
+    for (const r of rc || []) by[r.status] = (by[r.status] || 0) + 1;
+    return res.json({ ok: true, send: s, recipient_status: by });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Riwayat blast.
+app.get("/api/admin/email/sends", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data } = await admin.from("my20fit_email_sends").select("id,name,segment_id,template_id,status,total_matched,total_eligible,total_sent,total_failed,created_by,created_at,started_at,completed_at,abort_reason").order("created_at", { ascending: false }).limit(100);
+    return res.json({ ok: true, sends: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Cron: proses SATU batch antrian (panggil tiap ~1 menit untuk jeda antar batch).
+app.post("/api/cron/email-queue", async (req, res) => {
+  const secret = req.get("x-cron-secret") || (req.query && req.query.key) || "";
+  if (!CRON_SECRET || secret !== CRON_SECRET) return res.status(401).json({ error: "unauthorized" });
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try { return res.json(await blast.processBatch(blastCtx())); }
+  catch (e) { console.error("email-queue:", e && e.message); return res.status(500).json({ error: e.message }); }
+});
+
+// ============ Blast: automation (trigger otomatis, WAJIB dry-run dulu) ============
+app.get("/api/admin/email/automations", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try { const { data } = await admin.from("my20fit_email_automations").select("*").order("created_at", { ascending: false }); return res.json({ ok: true, automations: data || [] }); }
+  catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/email/automations", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    if (!String(b.name || "").trim() || segments.PRESET_IDS.indexOf(b.segment_id) < 0 || blast.TEMPLATE_IDS.indexOf(b.template_id) < 0 || !String(b.subject || "").trim())
+      return res.status(400).json({ error: "name/segment/template/subject wajib & valid" });
+    // Selalu mulai dry-run + disabled (aman). Admin aktifkan setelah review.
+    const { data } = await admin.from("my20fit_email_automations").insert({
+      name: b.name.trim(), segment_id: b.segment_id, template_id: b.template_id, subject: b.subject.trim(),
+      enabled: false, dry_run: true, daily_cap: b.daily_cap ? parseInt(b.daily_cap, 10) : 100, created_by: ctx.email || "admin",
+    }).select("*").single();
+    await adminAudit(ctx, "email.automation.create", data && data.id, { name: b.name });
+    return res.json({ ok: true, automation: data });
+  } catch (e) { return res.status(400).json({ error: e.message }); }
+});
+app.post("/api/admin/email/automations/:id/toggle", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const patch = { updated_at: new Date().toISOString() };
+    if (typeof b.enabled === "boolean") patch.enabled = b.enabled;
+    if (typeof b.dry_run === "boolean") patch.dry_run = b.dry_run;
+    await admin.from("my20fit_email_automations").update(patch).eq("id", req.params.id);
+    await adminAudit(ctx, "email.automation.toggle", req.params.id, patch);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(400).json({ error: e.message }); }
+});
+// Hasil dry-run (siapa yang AKAN dikirim) — untuk review sebelum diaktifkan live.
+app.get("/api/admin/email/automations/:id/dryrun", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { count } = await admin.from("my20fit_email_automation_log").select("id", { count: "exact", head: true }).eq("automation_id", req.params.id).eq("action", "dry_run");
+    const { data: sample } = await admin.from("my20fit_email_automation_log").select("user_id,created_at").eq("automation_id", req.params.id).eq("action", "dry_run").order("created_at", { ascending: false }).limit(20);
+    return res.json({ ok: true, would_send_total: count || 0, sample: sample || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
