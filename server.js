@@ -444,6 +444,63 @@ app.post("/api/cron/meal-reminders", async (req, res) => {
   }
 });
 
+// ---------- Cron: HARIAN (enroll onboarding + kirim step + decay/dormant) ----------
+// POST /api/cron/daily   header: x-cron-secret: <CRON_SECRET>   — panggil 1x/hari.
+app.post("/api/cron/daily", async (req, res) => {
+  const secret = req.get("x-cron-secret") || (req.query && req.query.key) || "";
+  if (!CRON_SECRET || secret !== CRON_SECRET) return res.status(401).json({ error: "unauthorized" });
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const out = await campaigns.runDaily({ admin, email, comms, baseUrl: APP_BASE_URL });
+    return res.json(out);
+  } catch (e) {
+    console.error("cron/daily:", e && e.message);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+// ---------- Preferensi komunikasi milik user sendiri (in-app settings) ----------
+// Dipakai halaman settings untuk MENANGKAP consent (marketing / meal reminder).
+app.get("/api/comms/prefs", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi habis. Login lagi." });
+    const p = await comms.ensurePrefs(user.id, "settings");
+    if (!p) return res.status(500).json({ error: "gagal" });
+    return res.json({
+      ok: true,
+      prefs: {
+        consent_marketing: !!p.consent_marketing,
+        consent_meal_reminder: !!p.consent_meal_reminder,
+        reminder_breakfast_enabled: !!p.reminder_breakfast_enabled,
+        reminder_lunch_enabled: !!p.reminder_lunch_enabled,
+        reminder_dinner_enabled: !!p.reminder_dinner_enabled,
+        reminder_breakfast_time: p.reminder_breakfast_time,
+        reminder_lunch_time: p.reminder_lunch_time,
+        reminder_dinner_time: p.reminder_dinner_time,
+      },
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/comms/consent", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi habis. Login lagi." });
+    const b = req.body || {};
+    const patch = {};
+    if (typeof b.marketing === "boolean") patch.marketing = b.marketing;
+    if (typeof b.meal_reminder === "boolean") patch.meal_reminder = b.meal_reminder;
+    if (!Object.keys(patch).length) return res.status(400).json({ error: "tak ada perubahan" });
+    const p = await comms.setConsentByUser(user.id, patch, "settings");
+    // Kalau meal reminder dinyalakan lagi, cabut pause.
+    if (patch.meal_reminder === true) {
+      await admin.from("my20fit_user_comm_prefs").update({ reminder_paused_at: null, reminder_consecutive_ignored: 0 }).eq("user_id", user.id);
+    }
+    return res.json({ ok: true, prefs: { consent_marketing: !!p.consent_marketing, consent_meal_reminder: !!p.consent_meal_reminder } });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // ---------- Middleware ----------
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({
