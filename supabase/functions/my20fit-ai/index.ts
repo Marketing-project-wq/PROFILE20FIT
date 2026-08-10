@@ -29,13 +29,16 @@ const FOOD_SYS =
   'The photo can be from ANY cuisine (Indonesian, Western, Japanese, Korean, Chinese, Indian, Middle Eastern, Thai, and more). ' +
   'ACCURACY RULES — follow all of them:\n' +
   '1. PORTION: estimate the portion in GRAMS. Use visible reference objects to scale — a standard plate is ~26 cm, a dinner spoon ~15 ml, a fork, a hand, a takeaway box compartment, a cup. State the portion for every item.\n' +
-  '2. COOKING METHOD & HIDDEN CALORIES: account for how it was cooked. Fried/sauteed food absorbs oil (add fat & calories). Grilled/steamed is leaner. Include hidden calories from oil, butter, dressing, mayo, cheese, and sugar even if not directly visible but implied by the dish.\n' +
-  '3. INDONESIAN & SE-ASIAN DISHES are commonly UNDER-estimated — be careful with santan (coconut milk), kecap manis (sweet soy), palm sugar, peanut sauce, fried shallots, krupuk, and deep-fried items (gorengan, ayam goreng, nasi goreng). Reflect their real calorie density.\n' +
-  '4. If a REFERENCE list of known foods (nutrition per gram) is provided, PREFER those values for any item whose name matches.\n' +
-  '5. CONFIDENCE: give an honest confidence (0-100) for the estimate. Lower it when portion is ambiguous, oil/sauce/hidden ingredients are unclear, or the item is partly hidden. This flags items the user should confirm.\n' +
+  '2. DO NOT OVER-ESTIMATE. Calorie counts from photos are commonly inflated. When the portion is unclear, assume a TYPICAL / MODEST restaurant or home serving, NOT a large one. Only include hidden calories (oil, butter, dressing, mayo, cheese, sugar, sauce) in REALISTIC amounts implied by the dish — do not pile them on. It is better to land near the true value than to guess high.\n' +
+  '3. COOKING METHOD: account for how it was cooked — fried/sauteed absorbs some oil, grilled/steamed is leaner — but keep the added fat realistic, not exaggerated.\n' +
+  '4. INDONESIAN & SE-ASIAN DISHES: reflect real calorie density of santan (coconut milk), kecap manis, palm sugar, peanut sauce, fried shallots, gorengan — without inflating a plain grilled/steamed dish.\n' +
+  '5. If a REFERENCE list of known foods (nutrition per gram) is provided, PREFER those values for any item whose name matches.\n' +
+  '6. RANGE: give a plausible calorie RANGE (kcal_min to kcal_max) and set total_kcal to your best single estimate NEAR THE MIDDLE of that range. Keep the range realistic (not wildly wide).\n' +
+  '7. CONFIDENCE: give an honest confidence (0-100). Lower it when portion is ambiguous, oil/sauce/hidden ingredients are unclear, or the item is partly hidden. This flags items the user should confirm.\n' +
   'Respond ONLY with a valid JSON object (no markdown, no code fences) with these keys: ' +
   'items (array of objects each with: name, portion (short string like "150g" or "1 mangkuk"), grams (numeric grams estimate), kcal, protein_g, carbs_g, fat_g, fiber_g, confidence (integer 0-100 for THIS item)), ' +
-  'total_kcal (number), protein_g (TOTAL grams number), carbs_g (total grams), fat_g (total grams), fiber_g (total grams), ' +
+  'total_kcal (number = best single estimate), kcal_min (number = low end of plausible range), kcal_max (number = high end of plausible range), ' +
+  'protein_g (TOTAL grams number), carbs_g (total grams), fat_g (total grams), fiber_g (total grams), ' +
   'confidence (integer 0-100 = overall confidence of the whole estimate), ' +
   'assumptions (array of 1-4 short strings naming key assumptions that most affect the number, e.g. "assumed ~150g rice", "assumed fried in oil", "sauce calories estimated"), ' +
   'description (2-3 sentences on what the food is, how it looks prepared, and its main ingredients), ' +
@@ -55,7 +58,7 @@ const FOODTEXT_SYS =
   'If the app provides a REFERENCE value for this food (nutrition per gram), PREFER it. ' +
   'Respond ONLY with a valid JSON object (no markdown, no code fences) with these keys: ' +
   'items (array with ONE object: name, portion (the amount, e.g. "100g"), grams (numeric), kcal, protein_g, carbs_g, fat_g, fiber_g, confidence (integer 0-100)), ' +
-  'total_kcal (number), protein_g (total grams), carbs_g (total grams), fat_g (total grams), fiber_g (total grams), ' +
+  'total_kcal (number = best estimate, do NOT over-estimate), kcal_min (number), kcal_max (number), protein_g (total grams), carbs_g (total grams), fat_g (total grams), fiber_g (total grams), ' +
   'confidence (integer 0-100 overall), assumptions (array of 1-3 short strings of key assumptions), ' +
   'description (2-3 sentences about the food and its main nutrients), ' +
   'satiety_score (integer 1-10), satiety_note (one short sentence), health_score (integer 1-10), ' +
@@ -85,7 +88,7 @@ Deno.serve(async (req) => {
       if (b.image) {
         maxTok = 2000;
         const uc: unknown[] = [
-          { type: "text", text: "Analyse the food/drinks in this photo. Estimate grams per item using visible references, account for cooking method & hidden calories, give per-item and overall confidence, macros, description, scores, overall assessment, tags, and a helpful recommendation." },
+          { type: "text", text: "Analyse the food/drinks in this photo. Estimate grams per item using visible references and a MODEST/typical portion (do NOT over-estimate). Give a calorie RANGE (kcal_min-kcal_max) with total_kcal near the middle, per-item and overall confidence, macros, description, scores, overall assessment, tags, and a helpful recommendation." },
           { type: "image_url", image_url: { url: b.image } },
         ];
         if (b.reference) uc.unshift({ type: "text", text: "REFERENCE known foods (nutrition per gram) — PREFER these for matching items:\n" + String(b.reference).slice(0, 1500) });
