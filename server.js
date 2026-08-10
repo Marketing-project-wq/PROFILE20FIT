@@ -12,7 +12,9 @@ const path = require("path");
 const crypto = require("crypto");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
-const nodemailer = require("nodemailer");
+const email = require("./lib/email"); // SATU-SATUNYA jalur kirim email (Resend)
+const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerbang frekuensi
+const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -81,17 +83,27 @@ const anon =
       })
     : null;
 
-// ---------- Email (SMTP) ----------
-let mailer = null;
-if (process.env.SMTP_HOST) {
-  mailer = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || "587", 10),
-    secure: process.env.SMTP_SECURE === "true", // true utk port 465
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
+// ---------- Email (Resend) ----------
+// Satu-satunya jalur kirim email = lib/email.js. Provider & SMTP lama sudah dicabut total.
+// Timezone pengiriman selalu WIB (Asia/Jakarta).
+const CRON_SECRET = process.env.CRON_SECRET || ""; // pengaman endpoint /api/cron/*
+const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET || ""; // verifikasi webhook Resend (Svix)
+email.init({ admin });
+comms.init({ admin });
+{
+  const _miss = email.assertConfig();
+  if (_miss.length) {
+    console.warn(
+      "[20FIT] WARNING: env email belum lengkap: " + _miss.join(", ") +
+        " — email TIDAK akan terkirim sampai di-set di Railway."
+    );
+  }
+  const _ei = email.envInfo();
+  console.log(
+    `[20FIT] Email via Resend — environment=${_ei.environment}, from=${_ei.from}` +
+      (_ei.is_prod ? "" : `, WHITELIST-ONLY (${_ei.whitelist_count} alamat)`)
+  );
 }
-const MAIL_FROM = process.env.MAIL_FROM || "20FIT <no-reply@20fit.id>";
 
 async function sendOtpEmail(to, code) {
   const html = `
@@ -105,18 +117,484 @@ async function sendOtpEmail(to, code) {
       <p style="color:#666;font-size:13px">Kode berlaku ${OTP_TTL_MINUTES} menit.
          Abaikan email ini jika kamu tidak mendaftar.</p>
     </div>`;
-  if (!mailer) {
-    // Mode dev: belum ada SMTP -> log ke console server
-    console.log(`[20FIT][DEV] OTP untuk ${to}: ${code}`);
-    return { sent: false };
-  }
-  await mailer.sendMail({ from: MAIL_FROM, to, subject: "Kode Verifikasi 20FIT", html });
-  return { sent: true };
+  // OTP = transaksional: selalu kirim, tanpa header unsubscribe, tak dihitung frekuensi.
+  const r = await email.send({
+    to,
+    subject: "Kode Verifikasi 20FIT",
+    html,
+    transactional: true,
+    channel: "transactional",
+    templateId: "otp",
+  });
+  // Bantu dev lihat kode saat email diblokir (non-production / env belum di-set).
+  if (!r.ok || r.skipped) console.log(`[20FIT][DEV] OTP untuk ${to}: ${code}`);
+  return { sent: !!(r.ok && !r.skipped) };
 }
+
+// ---------- Cron: notifikasi Intermittent Fasting (buka/tutup eating window) ----------
+// Dulu Supabase Edge Function terpisah. Dipindah ke sini agar SATU jalur email (Resend).
+// Panggil terjadwal (Railway Cron / pg_cron) tiap ~5-10 menit:
+//   POST /api/cron/fasting-notify   header: x-cron-secret: <CRON_SECRET>
+const FASTING_LOGO =
+  "https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png";
+const FASTING_APP = "https://my.20fit.id/calories.html#fasting";
+function fastFmt(m) {
+  m = ((m % 1440) + 1440) % 1440;
+  return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+}
+function fastingHtml(kind, info) {
+  const open = kind === "open";
+  const accent = open ? "#2A7A4F" : "#C87000";
+  const accentBg = open ? "#e7f2ec" : "#fbeede";
+  const emoji = open ? "🍽️" : "⏰";
+  const badge = open ? "EAT NOW" : "WRAP UP";
+  const head = open ? "Your eating window is open" : "Your eating window is closing";
+  const msg = open
+    ? "It's time to break your fast. Enjoy a balanced, mindful meal and hit your calorie &amp; protein targets for today."
+    : "Your eating window is about to close. Finish your last meal and get ready to start fasting until your next window.";
+  const windowBox = info.window
+    ? "<tr><td style='padding:18px 28px 2px'><table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='background:#f6f4f0;border-radius:12px'><tr><td style='padding:15px 18px;text-align:center'>" +
+      "<div style='font-size:11px;color:#9a907f;text-transform:uppercase;letter-spacing:1.5px;font-weight:bold'>Eating window</div>" +
+      "<div style='font-size:22px;font-weight:bold;color:#0A0908;font-family:Courier New,monospace;margin-top:3px'>" + info.window + "</div>" +
+      (info.style ? "<div style='font-size:12px;color:#9a907f;margin-top:3px'>" + info.style + " style</div>" : "") +
+      "</td></tr></table></td></tr>"
+    : "";
+  return "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'></head>" +
+    "<body style='margin:0;padding:0;background:#f4f2ee'>" +
+    "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='background:#f4f2ee;padding:24px 12px'><tr><td align='center'>" +
+    "<table role='presentation' width='480' cellpadding='0' cellspacing='0' style='max-width:480px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif'>" +
+    "<tr><td style='background:#0A0908;padding:22px;text-align:center'><img src='" + FASTING_LOGO + "' alt='20fit' height='26' style='height:26px'></td></tr>" +
+    "<tr><td style='height:5px;line-height:5px;font-size:0;background:" + accent + "'>&nbsp;</td></tr>" +
+    "<tr><td style='padding:30px 28px 4px;text-align:center'>" +
+    "<div style='font-size:46px;line-height:1'>" + emoji + "</div>" +
+    "<div style='display:inline-block;margin:14px 0 8px;padding:6px 16px;border-radius:999px;background:" + accentBg + ";color:" + accent + ";font-size:12px;font-weight:bold;letter-spacing:1.5px'>" + badge + "</div>" +
+    "<h1 style='margin:6px 0 0;font-size:23px;color:#0A0908;line-height:1.25'>" + head + "</h1>" +
+    "</td></tr>" +
+    "<tr><td style='padding:8px 30px 2px;text-align:center'><p style='margin:0;font-size:15px;line-height:1.65;color:#555'>" + msg + "</p></td></tr>" +
+    windowBox +
+    "<tr><td style='padding:24px 28px 6px;text-align:center'><a href='" + FASTING_APP + "' style='display:inline-block;background:#C41101;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:12px;font-weight:bold;font-size:15px'>Open my tracker</a></td></tr>" +
+    "<tr><td style='padding:22px 30px 28px;text-align:center'><p style='margin:0;font-size:12px;color:#b3a89a;line-height:1.55'>You're receiving this because Intermittent Fasting reminders are ON in your 20fit Health Profile. You can turn them off anytime in the app.</p></td></tr>" +
+    "</table>" +
+    "<div style='font-size:11px;color:#c2b9ab;margin-top:14px;font-family:Arial,sans-serif'>© 20FIT Sport Clinic · Indonesia</div>" +
+    "</td></tr></table></body></html>";
+}
+
+app.post("/api/cron/fasting-notify", async (req, res) => {
+  const secret = req.get("x-cron-secret") || (req.query && req.query.key) || "";
+  if (!CRON_SECRET || secret !== CRON_SECRET) return res.status(401).json({ error: "unauthorized" });
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const b = req.body || {};
+    if (b.action === "test") {
+      if (!b.email) return res.status(400).json({ error: "email wajib" });
+      const kind = b.kind === "close" ? "close" : "open";
+      const r = await email.send({
+        to: b.email,
+        subject: kind === "close" ? "⏰ Your eating window is closing" : "🍽️ Your eating window is open",
+        html: fastingHtml(kind, { style: "16:8", window: "12:00 – 20:00" }),
+        transactional: true, channel: "transactional", templateId: "fasting_" + kind,
+      });
+      return res.json({ ok: true, test: r });
+    }
+    const WINDOW = 14; // menit toleransi di sekitar jam buka/tutup
+    const now = new Date();
+    const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const wibMin = (utcMin + 420) % 1440; // WIB = UTC+7
+    const wibDate = new Date(now.getTime() + 420 * 60000).toISOString().slice(0, 10);
+    const { data: rows } = await admin.from("my20fit_fasting").select("*").eq("notify_email", true);
+    let sent = 0;
+    const log = [];
+    for (const row of rows || []) {
+      if (!row.email || !row.start_time) continue;
+      const p = String(row.start_time).split(":");
+      const openMin = +p[0] * 60 + +p[1];
+      const eat = row.eat_hours || 8;
+      if (eat >= 24) continue;
+      const closeMin = (openMin + eat * 60) % 1440;
+      const info = { style: row.style || undefined, window: fastFmt(openMin) + " – " + fastFmt(closeMin) };
+      const dOpen = (((wibMin - openMin) % 1440) + 1440) % 1440;
+      const dClose = (((wibMin - closeMin) % 1440) + 1440) % 1440;
+      if (dOpen < WINDOW && row.last_open_date !== wibDate) {
+        const r = await email.send({
+          to: row.email, subject: "🍽️ Your eating window is open",
+          html: fastingHtml("open", info), transactional: true, channel: "transactional",
+          templateId: "fasting_open", userId: row.auth_user_id || null,
+          idempotencyKey: "fasting_open:" + row.auth_user_id + ":" + wibDate,
+        });
+        if (r.ok && !r.skipped) sent++;
+        await admin.from("my20fit_fasting").update({ last_open_date: wibDate }).eq("auth_user_id", row.auth_user_id);
+        log.push(row.email + ":open");
+      } else if (dClose < WINDOW && row.last_close_date !== wibDate) {
+        const r = await email.send({
+          to: row.email, subject: "⏰ Your eating window is closing",
+          html: fastingHtml("close", info), transactional: true, channel: "transactional",
+          templateId: "fasting_close", userId: row.auth_user_id || null,
+          idempotencyKey: "fasting_close:" + row.auth_user_id + ":" + wibDate,
+        });
+        if (r.ok && !r.skipped) sent++;
+        await admin.from("my20fit_fasting").update({ last_close_date: wibDate }).eq("auth_user_id", row.auth_user_id);
+        log.push(row.email + ":close");
+      }
+    }
+    return res.json({ ok: true, checked: (rows || []).length, sent, wibMin, wibDate, log });
+  } catch (e) {
+    console.error("fasting-notify:", e && e.message);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+// ================= Fase 2: Consent, Unsubscribe & Webhook =================
+
+// ---------- Webhook Resend (delivered/opened/clicked/bounce/complaint) ----------
+// Verifikasi signature Svix (standard-webhooks). TOLAK payload tanpa verifikasi.
+function verifyResendSignature(req) {
+  if (!RESEND_WEBHOOK_SECRET) return false;
+  const svixId = req.get("svix-id") || req.get("webhook-id");
+  const svixTs = req.get("svix-timestamp") || req.get("webhook-timestamp");
+  const svixSig = req.get("svix-signature") || req.get("webhook-signature");
+  if (!svixId || !svixTs || !svixSig || !req.rawBody) return false;
+  // Anti-replay: tolak timestamp > 5 menit dari sekarang.
+  const tsSec = parseInt(svixTs, 10);
+  if (!tsSec || Math.abs(Date.now() / 1000 - tsSec) > 300) return false;
+  const secretB64 = RESEND_WEBHOOK_SECRET.replace(/^whsec_/, "");
+  let key;
+  try { key = Buffer.from(secretB64, "base64"); } catch (e) { return false; }
+  const signedContent = svixId + "." + svixTs + "." + req.rawBody.toString("utf8");
+  const expected = crypto.createHmac("sha256", key).update(signedContent).digest("base64");
+  // Header bisa memuat beberapa signature (dipisah spasi): "v1,<sig> v1,<sig2>".
+  const parts = String(svixSig).split(" ");
+  for (let i = 0; i < parts.length; i++) {
+    const sig = parts[i].indexOf(",") >= 0 ? parts[i].split(",")[1] : parts[i];
+    try {
+      const a = Buffer.from(sig, "base64");
+      const b = Buffer.from(expected, "base64");
+      if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+    } catch (e) { /* lanjut cek signature berikutnya */ }
+  }
+  return false;
+}
+
+app.post("/api/webhooks/resend", async (req, res) => {
+  if (!verifyResendSignature(req)) return res.status(401).json({ error: "invalid signature" });
+  if (!admin) return res.status(500).json({ error: "server belum dikonfigurasi" });
+  try {
+    const ev = req.body || {};
+    const type = ev.type || "";
+    const d = ev.data || {};
+    const emailId = d.email_id || d.id || null;
+    const recips = Array.isArray(d.to) ? d.to : d.to ? [d.to] : [];
+    const nowIso = new Date().toISOString();
+
+    // Update baris message_log berdasarkan provider_message_id (best-effort).
+    async function patchLog(patch) {
+      if (!emailId) return;
+      try { await admin.from("my20fit_message_log").update(patch).eq("provider_message_id", emailId); }
+      catch (e) { /* best-effort */ }
+    }
+    // Cari user_id terkait email ini (untuk suppression).
+    async function userIdForEmail() {
+      if (!emailId) return null;
+      const { data } = await admin.from("my20fit_message_log").select("user_id").eq("provider_message_id", emailId).limit(1);
+      return (data && data[0] && data[0].user_id) || null;
+    }
+
+    if (type === "email.delivered") {
+      await patchLog({ status: "delivered", delivered_at: nowIso });
+    } else if (type === "email.opened") {
+      await patchLog({ status: "opened", opened_at: nowIso });
+    } else if (type === "email.clicked") {
+      await patchLog({ status: "clicked", clicked_at: nowIso });
+    } else if (type === "email.bounced") {
+      await patchLog({ status: "bounced", bounced_at: nowIso, error_message: (d.bounce && (d.bounce.message || d.bounce.type)) || "bounced" });
+      // Hard/permanent bounce → suppression permanen.
+      const btype = (d.bounce && (d.bounce.type || d.bounce.subType || d.bounce.classification)) || "";
+      if (/permanent|hard/i.test(String(btype)) || d.bounce === undefined) {
+        const uid = await userIdForEmail();
+        for (const to of recips) await comms.addSuppression(to, uid, "hard_bounce", true);
+      }
+    } else if (type === "email.complained") {
+      // Spam complaint → suppression permanen, LANGSUNG.
+      await patchLog({ status: "complained", complained_at: nowIso });
+      const uid = await userIdForEmail();
+      for (const to of recips) await comms.addSuppression(to, uid, "spam_complaint", true);
+    }
+    // email.sent / email.delivery_delayed: tak perlu aksi khusus.
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("webhook/resend:", e && e.message);
+    // Balas 200 supaya Resend tak retry badai untuk error internal kita.
+    return res.json({ ok: false });
+  }
+});
+
+// ---------- Unsubscribe (tanpa login; token opaque, tak bocorkan user_id) ----------
+// GET prefs untuk halaman unsubscribe.html — hanya toggle & jam, TANPA data kesehatan.
+app.get("/api/unsub/prefs", async (req, res) => {
+  const token = String((req.query && req.query.token) || "").trim();
+  if (!token) return res.status(400).json({ error: "token wajib" });
+  try {
+    const p = await comms.getPrefsByToken(token);
+    if (!p) return res.status(404).json({ error: "token tidak valid" });
+    return res.json({
+      ok: true,
+      prefs: {
+        consent_marketing: !!p.consent_marketing,
+        consent_meal_reminder: !!p.consent_meal_reminder,
+        reminder_breakfast_enabled: !!p.reminder_breakfast_enabled,
+        reminder_lunch_enabled: !!p.reminder_lunch_enabled,
+        reminder_dinner_enabled: !!p.reminder_dinner_enabled,
+        reminder_breakfast_time: p.reminder_breakfast_time,
+        reminder_lunch_time: p.reminder_lunch_time,
+        reminder_dinner_time: p.reminder_dinner_time,
+      },
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Terapkan perubahan preferensi (berlaku seketika).
+app.post("/api/unsub/apply", async (req, res) => {
+  const b = req.body || {};
+  const token = String(b.token || "").trim();
+  if (!token) return res.status(400).json({ error: "token wajib" });
+  try {
+    const p = await comms.getPrefsByToken(token);
+    if (!p) return res.status(404).json({ error: "token tidak valid" });
+    const uid = p.user_id;
+    const patch = { updated_at: new Date().toISOString() };
+
+    if (b.action === "stop_all") {
+      patch.consent_marketing = false;
+      patch.consent_meal_reminder = false;
+      patch.consent_updated_at = new Date().toISOString();
+      patch.consent_source = "unsubscribe_page";
+      patch.reminder_paused_at = new Date().toISOString();
+      // Suppression by email (reason unsubscribe) — jaga-jaga selain matikan consent.
+      try {
+        const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", uid).limit(1);
+        const em = prof && prof[0] && prof[0].email;
+        if (em) await comms.addSuppression(em, uid, "unsubscribe", true);
+      } catch (e) { /* best-effort */ }
+    } else if (b.action === "update") {
+      if (typeof b.consent_marketing === "boolean") patch.consent_marketing = b.consent_marketing;
+      if (typeof b.consent_meal_reminder === "boolean") patch.consent_meal_reminder = b.consent_meal_reminder;
+      if (typeof b.reminder_breakfast_enabled === "boolean") patch.reminder_breakfast_enabled = b.reminder_breakfast_enabled;
+      if (typeof b.reminder_lunch_enabled === "boolean") patch.reminder_lunch_enabled = b.reminder_lunch_enabled;
+      if (typeof b.reminder_dinner_enabled === "boolean") patch.reminder_dinner_enabled = b.reminder_dinner_enabled;
+      const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
+      if (hhmm.test(b.reminder_breakfast_time || "")) patch.reminder_breakfast_time = b.reminder_breakfast_time;
+      if (hhmm.test(b.reminder_lunch_time || "")) patch.reminder_lunch_time = b.reminder_lunch_time;
+      if (hhmm.test(b.reminder_dinner_time || "")) patch.reminder_dinner_time = b.reminder_dinner_time;
+      patch.consent_updated_at = new Date().toISOString();
+      patch.consent_source = "unsubscribe_page";
+      // Kalau meal reminder dinyalakan lagi, cabut pause.
+      if (patch.consent_meal_reminder === true) patch.reminder_paused_at = null;
+    } else {
+      return res.status(400).json({ error: "action tidak dikenal" });
+    }
+
+    const { data: updated } = await admin
+      .from("my20fit_user_comm_prefs").update(patch).eq("user_id", uid).select("*").single();
+    return res.json({
+      ok: true,
+      prefs: {
+        consent_marketing: !!updated.consent_marketing,
+        consent_meal_reminder: !!updated.consent_meal_reminder,
+        reminder_breakfast_enabled: !!updated.reminder_breakfast_enabled,
+        reminder_lunch_enabled: !!updated.reminder_lunch_enabled,
+        reminder_dinner_enabled: !!updated.reminder_dinner_enabled,
+        reminder_breakfast_time: updated.reminder_breakfast_time,
+        reminder_lunch_time: updated.reminder_lunch_time,
+        reminder_dinner_time: updated.reminder_dinner_time,
+      },
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// One-click unsubscribe (header List-Unsubscribe-Post dari Gmail/Yahoo). Berlaku seketika.
+app.post("/unsubscribe", async (req, res) => {
+  const token = String((req.query && req.query.token) || "").trim();
+  const c = String((req.query && req.query.c) || "").trim();
+  if (!token) return res.status(400).send("token wajib");
+  try {
+    const p = await comms.getPrefsByToken(token);
+    if (!p) return res.status(404).send("token tidak valid");
+    const patch = { updated_at: new Date().toISOString(), consent_updated_at: new Date().toISOString(), consent_source: "unsubscribe_oneclick" };
+    if (c === "meal_reminder") { patch.consent_meal_reminder = false; patch.reminder_paused_at = new Date().toISOString(); }
+    else if (c === "marketing") { patch.consent_marketing = false; }
+    else { patch.consent_marketing = false; patch.consent_meal_reminder = false; patch.reminder_paused_at = new Date().toISOString(); }
+    await admin.from("my20fit_user_comm_prefs").update(patch).eq("user_id", p.user_id);
+    return res.status(200).send("OK: unsubscribed");
+  } catch (e) { return res.status(500).send("error"); }
+});
+
+// ---------- Cron: MEAL REMINDER (panggil tiap 15 menit) ----------
+// POST /api/cron/meal-reminders   header: x-cron-secret: <CRON_SECRET>
+// Idempoten (idempotency key per window/hari); hormati skip-if-logged + gerbang frekuensi.
+// Kalau cron terlewat (server down), JANGAN kirim susulan — window ±15 menit sudah lewat.
+app.post("/api/cron/meal-reminders", async (req, res) => {
+  const secret = req.get("x-cron-secret") || (req.query && req.query.key) || "";
+  if (!CRON_SECRET || secret !== CRON_SECRET) return res.status(401).json({ error: "unauthorized" });
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const out = await campaigns.runMealReminders({ admin, email, comms, baseUrl: APP_BASE_URL });
+    return res.json(out);
+  } catch (e) {
+    console.error("meal-reminders:", e && e.message);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+// ---------- Cron: HARIAN (enroll onboarding + kirim step + decay/dormant) ----------
+// POST /api/cron/daily   header: x-cron-secret: <CRON_SECRET>   — panggil 1x/hari.
+app.post("/api/cron/daily", async (req, res) => {
+  const secret = req.get("x-cron-secret") || (req.query && req.query.key) || "";
+  if (!CRON_SECRET || secret !== CRON_SECRET) return res.status(401).json({ error: "unauthorized" });
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const out = await campaigns.runDaily({ admin, email, comms, baseUrl: APP_BASE_URL });
+    return res.json(out);
+  } catch (e) {
+    console.error("cron/daily:", e && e.message);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+// ---------- Preferensi komunikasi milik user sendiri (in-app settings) ----------
+// Dipakai halaman settings untuk MENANGKAP consent (marketing / meal reminder).
+app.get("/api/comms/prefs", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi habis. Login lagi." });
+    const p = await comms.ensurePrefs(user.id, "settings");
+    if (!p) return res.status(500).json({ error: "gagal" });
+    return res.json({
+      ok: true,
+      prefs: {
+        consent_marketing: !!p.consent_marketing,
+        consent_meal_reminder: !!p.consent_meal_reminder,
+        reminder_breakfast_enabled: !!p.reminder_breakfast_enabled,
+        reminder_lunch_enabled: !!p.reminder_lunch_enabled,
+        reminder_dinner_enabled: !!p.reminder_dinner_enabled,
+        reminder_breakfast_time: p.reminder_breakfast_time,
+        reminder_lunch_time: p.reminder_lunch_time,
+        reminder_dinner_time: p.reminder_dinner_time,
+      },
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/comms/consent", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi habis. Login lagi." });
+    const b = req.body || {};
+    const patch = {};
+    if (typeof b.marketing === "boolean") patch.marketing = b.marketing;
+    if (typeof b.meal_reminder === "boolean") patch.meal_reminder = b.meal_reminder;
+    if (!Object.keys(patch).length) return res.status(400).json({ error: "tak ada perubahan" });
+    const p = await comms.setConsentByUser(user.id, patch, "settings");
+    // Kalau meal reminder dinyalakan lagi, cabut pause.
+    if (patch.meal_reminder === true) {
+      await admin.from("my20fit_user_comm_prefs").update({ reminder_paused_at: null, reminder_consecutive_ignored: 0 }).eq("user_id", user.id);
+    }
+    return res.json({ ok: true, prefs: { consent_marketing: !!p.consent_marketing, consent_meal_reminder: !!p.consent_meal_reminder } });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ================= Admin: konsol Email & Campaign (BEBAS data kesehatan) =================
+// Role 'marketing' (rank viewer) boleh akses — endpoint ini TIDAK memuat data kesehatan.
+
+// Ringkasan: kill switch, enrollment per tahap, metrik, konversi.
+app.get("/api/admin/email/overview", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer");
+  if (!ctx) return;
+  try {
+    const since = new Date(Date.now() - 30 * 86400000).toISOString();
+    const { data: flags } = await admin.from("my20fit_campaign_flags").select("*");
+    // Enrollment onboarding: breakdown status + step (agregasi di JS).
+    const { data: enr } = await admin.from("my20fit_campaign_enrollments")
+      .select("status,current_step,exit_reason").eq("campaign_id", "onboarding_no_scan").limit(20000);
+    const byStatus = {}, byStep = {}, byExit = {};
+    for (const e of enr || []) {
+      byStatus[e.status] = (byStatus[e.status] || 0) + 1;
+      if (e.status === "active") byStep["step" + (e.current_step || 0)] = (byStep["step" + (e.current_step || 0)] || 0) + 1;
+      if (e.exit_reason) byExit[e.exit_reason] = (byExit[e.exit_reason] || 0) + 1;
+    }
+    const total = (enr || []).length;
+    const converted = byExit["converted"] || 0;
+    const mMeal = await campaigns.campaignMetrics(admin, since, { channel: "meal_reminder" });
+    const mOnb = await campaigns.campaignMetrics(admin, since, { channel: "marketing", campaignId: "onboarding_no_scan" });
+    return res.json({
+      ok: true, window_days: 30, role: ctx.role,
+      flags: flags || [],
+      onboarding: {
+        total_enrollments: total, by_status: byStatus, active_by_step: byStep, by_exit_reason: byExit,
+        conversion_rate: total ? +((converted / total) * 100).toFixed(2) : 0, // % scan pertama
+        metrics: mOnb,
+      },
+      meal_reminder: { metrics: mMeal },
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Suppression list (cari). Bebas data kesehatan.
+app.get("/api/admin/email/suppression", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer");
+  if (!ctx) return;
+  try {
+    const q = String((req.query && req.query.q) || "").trim().toLowerCase();
+    let sel = admin.from("my20fit_suppression_list").select("email,reason,is_permanent,created_at,user_id").order("created_at", { ascending: false }).limit(200);
+    if (q) sel = sel.ilike("email", "%" + q + "%");
+    const { data } = await sel;
+    return res.json({ ok: true, rows: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Tambah/hapus suppression manual (staff+).
+app.post("/api/admin/email/suppression", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff");
+  if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const em = String(b.email || "").trim().toLowerCase();
+    if (!em) return res.status(400).json({ error: "email wajib" });
+    if (b.action === "remove") {
+      await admin.from("my20fit_suppression_list").delete().eq("email", em);
+    } else {
+      await comms.addSuppression(em, b.user_id || null, b.reason || "manual", true);
+    }
+    await adminAudit(ctx, "email.suppression." + (b.action === "remove" ? "remove" : "add"), em, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Kill switch per campaign (staff+). Berlaku seketika, tanpa deploy.
+app.post("/api/admin/email/killswitch", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff");
+  if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const id = String(b.campaign_id || "").trim();
+    if (["meal_reminder", "onboarding_no_scan"].indexOf(id) < 0) return res.status(400).json({ error: "campaign_id tidak dikenal" });
+    const enabled = b.enabled !== false;
+    await admin.from("my20fit_campaign_flags").upsert(
+      { campaign_id: id, enabled: enabled, note: enabled ? "manual: on" : "manual: kill switch", updated_by: ctx.email || "admin", updated_at: new Date().toISOString() },
+      { onConflict: "campaign_id" }
+    );
+    await adminAudit(ctx, "email.killswitch", id, { enabled: enabled });
+    return res.json({ ok: true, campaign_id: id, enabled: enabled });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
 
 // ---------- Middleware ----------
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.json({ limit: "8mb" })); // 8mb: foto scan (base64) kini lewat /api/scan/ai
+app.use(express.json({
+  limit: "8mb", // 8mb: foto scan (base64) kini lewat /api/scan/ai
+  // Simpan raw body HANYA untuk webhook (verifikasi signature Svix/Resend butuh byte mentah).
+  verify: function (req, res, buf) {
+    if (req.url && req.url.indexOf("/api/webhooks/") === 0) req.rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webhook form-encoded
 
 // Railway = reverse proxy 1 hop. TANPA ini req.ip = IP proxy, bukan IP klien -> SEMUA user
@@ -1752,10 +2230,16 @@ app.post("/api/corp/message", async (req, res) => {
     var results = [], sent = 0;
     for (var i = 0; i < recips.length; i++) {
       var m = recips[i], personal = body.replace(/\{nama\}/g, m.full_name || ""), st = "skipped";
-      if (mailer) {
-        try { await mailer.sendMail({ from: MAIL_FROM, to: m.email, subject: subject, html: corpMsgHtml(personal) }); st = "sent"; sent++; }
-        catch (e) { st = "failed"; }
-      } else { console.log("[20FIT][DEV] corp msg -> " + m.email + " : " + subject); }
+      try {
+        var rr = await email.send({
+          to: m.email, subject: subject, html: corpMsgHtml(personal),
+          transactional: true, channel: "transactional", templateId: "corp_broadcast",
+          userId: m.auth_user_id || null,
+        });
+        if (rr.ok && !rr.skipped) { st = "sent"; sent++; }
+        else if (rr.skipped) { st = "skipped"; }
+        else { st = "failed"; }
+      } catch (e) { st = "failed"; }
       results.push({ auth_user_id: m.auth_user_id, email: m.email, name: m.full_name || null, status: st });
     }
     try {
@@ -1765,7 +2249,7 @@ app.post("/api/corp/message", async (req, res) => {
       });
     } catch (e) {}
     await corpAudit(ctx, null, "message.send", { recipient_count: recips.length, sent: sent, subject: subject });
-    return res.json({ ok: true, recipient_count: recips.length, sent: sent, dev: !mailer });
+    return res.json({ ok: true, recipient_count: recips.length, sent: sent, dev: !email.envInfo().is_prod });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Riwayat pesan terkirim (corporate ini).
@@ -3893,7 +4377,7 @@ app.get(/\.html$/, (req, res) => {
 app.use((req, res, next) => {
   const p = req.path;
   if (/^\/(server\.js|package\.json|package-lock\.json|railway\.toml|README\.md|CLAUDE\.md)$/i.test(p) ||
-      /^\/(db|supabase|docs|archive|node_modules|\.git)(\/|$)/i.test(p)) {
+      /^\/(db|supabase|docs|archive|node_modules|lib|\.git)(\/|$)/i.test(p)) {
     return res.status(404).sendFile(path.join(__dirname, "index.html"));
   }
   next();
@@ -3933,8 +4417,8 @@ app.use((err, req, res, next) => {
 // nilai/secret TIDAK pernah ditampilkan. Membantu memverifikasi konfigurasi Railway.
 function logEnvReadiness() {
   var core = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_KEY"];
-  var important = ["FITCO_API_URL", "FITCO_PARTNER_TOKEN", "SMTP_HOST", "SMTP_USER", "SMTP_PASS", "MAIL_FROM"];
-  var optional = ["ADMIN_KEY", "XENDIT_ENABLED", "API_PHOTO", "PHOTO_SSO_URL", "ARENA_API_URL", "ARENA_API_KEY", "GOOGLE_CLIENT_ID", "META_PIXEL_ID", "WAQI_TOKEN", "APP_BASE_URL"];
+  var important = ["FITCO_API_URL", "FITCO_PARTNER_TOKEN", "RESEND_API_KEY", "MAIL_FROM", "EMAIL_ENVIRONMENT"];
+  var optional = ["ADMIN_KEY", "CRON_SECRET", "RESEND_WEBHOOK_SECRET", "EMAIL_TEST_WHITELIST", "MAIL_REPLY_TO", "XENDIT_ENABLED", "API_PHOTO", "PHOTO_SSO_URL", "ARENA_API_URL", "ARENA_API_KEY", "GOOGLE_CLIENT_ID", "META_PIXEL_ID", "WAQI_TOKEN", "APP_BASE_URL"];
   var miss = function (list) { return list.filter(function (k) { return !String(process.env[k] || "").trim(); }); };
   var mc = miss(core), mi = miss(important), mo = miss(optional);
   if (mc.length) console.warn("[20FIT][ENV] ❌ INTI belum diset (app tidak akan jalan benar):", mc.join(", "));
