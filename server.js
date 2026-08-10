@@ -501,6 +501,91 @@ app.post("/api/comms/consent", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// ================= Admin: konsol Email & Campaign (BEBAS data kesehatan) =================
+// Role 'marketing' (rank viewer) boleh akses — endpoint ini TIDAK memuat data kesehatan.
+
+// Ringkasan: kill switch, enrollment per tahap, metrik, konversi.
+app.get("/api/admin/email/overview", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer");
+  if (!ctx) return;
+  try {
+    const since = new Date(Date.now() - 30 * 86400000).toISOString();
+    const { data: flags } = await admin.from("my20fit_campaign_flags").select("*");
+    // Enrollment onboarding: breakdown status + step (agregasi di JS).
+    const { data: enr } = await admin.from("my20fit_campaign_enrollments")
+      .select("status,current_step,exit_reason").eq("campaign_id", "onboarding_no_scan").limit(20000);
+    const byStatus = {}, byStep = {}, byExit = {};
+    for (const e of enr || []) {
+      byStatus[e.status] = (byStatus[e.status] || 0) + 1;
+      if (e.status === "active") byStep["step" + (e.current_step || 0)] = (byStep["step" + (e.current_step || 0)] || 0) + 1;
+      if (e.exit_reason) byExit[e.exit_reason] = (byExit[e.exit_reason] || 0) + 1;
+    }
+    const total = (enr || []).length;
+    const converted = byExit["converted"] || 0;
+    const mMeal = await campaigns.campaignMetrics(admin, since, { channel: "meal_reminder" });
+    const mOnb = await campaigns.campaignMetrics(admin, since, { channel: "marketing", campaignId: "onboarding_no_scan" });
+    return res.json({
+      ok: true, window_days: 30, role: ctx.role,
+      flags: flags || [],
+      onboarding: {
+        total_enrollments: total, by_status: byStatus, active_by_step: byStep, by_exit_reason: byExit,
+        conversion_rate: total ? +((converted / total) * 100).toFixed(2) : 0, // % scan pertama
+        metrics: mOnb,
+      },
+      meal_reminder: { metrics: mMeal },
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Suppression list (cari). Bebas data kesehatan.
+app.get("/api/admin/email/suppression", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer");
+  if (!ctx) return;
+  try {
+    const q = String((req.query && req.query.q) || "").trim().toLowerCase();
+    let sel = admin.from("my20fit_suppression_list").select("email,reason,is_permanent,created_at,user_id").order("created_at", { ascending: false }).limit(200);
+    if (q) sel = sel.ilike("email", "%" + q + "%");
+    const { data } = await sel;
+    return res.json({ ok: true, rows: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Tambah/hapus suppression manual (staff+).
+app.post("/api/admin/email/suppression", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff");
+  if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const em = String(b.email || "").trim().toLowerCase();
+    if (!em) return res.status(400).json({ error: "email wajib" });
+    if (b.action === "remove") {
+      await admin.from("my20fit_suppression_list").delete().eq("email", em);
+    } else {
+      await comms.addSuppression(em, b.user_id || null, b.reason || "manual", true);
+    }
+    await adminAudit(ctx, "email.suppression." + (b.action === "remove" ? "remove" : "add"), em, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Kill switch per campaign (staff+). Berlaku seketika, tanpa deploy.
+app.post("/api/admin/email/killswitch", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff");
+  if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const id = String(b.campaign_id || "").trim();
+    if (["meal_reminder", "onboarding_no_scan"].indexOf(id) < 0) return res.status(400).json({ error: "campaign_id tidak dikenal" });
+    const enabled = b.enabled !== false;
+    await admin.from("my20fit_campaign_flags").upsert(
+      { campaign_id: id, enabled: enabled, note: enabled ? "manual: on" : "manual: kill switch", updated_by: ctx.email || "admin", updated_at: new Date().toISOString() },
+      { onConflict: "campaign_id" }
+    );
+    await adminAudit(ctx, "email.killswitch", id, { enabled: enabled });
+    return res.json({ ok: true, campaign_id: id, enabled: enabled });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // ---------- Middleware ----------
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({
