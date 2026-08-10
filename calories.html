@@ -137,6 +137,21 @@
   .fsum-food .em{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:17px;flex:0 0 auto}
   .fsum-food .fn{flex:1;min-width:0;font-size:13px;font-weight:650}
   .fsum-food .fk{font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap}
+  /* Per-item verdict list */
+  .fsum-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+  .fsum-item:first-of-type{border-top:0}
+  .fsum-item .fi-main{flex:1;min-width:0}
+  .fsum-item .fi-nm{font-size:13.5px;font-weight:700;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fsum-item .fi-sub{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:2px;line-height:1.35}
+  .fsum-item .fi-sub b{color:var(--green-ink);font-weight:800}
+  /* What to eat next */
+  .fsum-next{display:flex;align-items:flex-start;gap:11px;padding:2px 0}
+  .fsum-next .ic{width:32px;height:32px;border-radius:10px;background:var(--red-soft);color:var(--red);display:grid;place-items:center;flex:0 0 auto}
+  .fsum-next .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .fsum-next .tx{flex:1;min-width:0}
+  .fsum-next .tx .msg{font-size:13px;font-weight:650;line-height:1.45}
+  .fsum-next-foods{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .fsum-next-foods span{font-size:12px;font-weight:700;padding:5px 11px;border-radius:999px;background:var(--inp);color:var(--txt)}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
@@ -474,34 +489,72 @@
       var score=Math.max(0,Math.min(100,Math.round(calS+pS+balS+q)));
       return { score:score, band: score>=70?"h":(score>=45?"m":"u") };
     }
-    // --- HEALTHIER SWAP: pindai item log, sarankan max 3 tukaran (aturan/nama, lokal) ---
-    function fsumSwaps(){
-      var out=[], seen={};
-      var RULES=[
-        {re:/(fried chicken|ayam goreng)/, to:{en:"grilled chicken",id:"ayam panggang"}, rs:{en:"less oil, same protein",id:"lebih sedikit minyak, protein sama"}},
-        {re:/(french fries|kentang goreng|\bfries\b)/, to:{en:"baked potato or sweet potato",id:"kentang/ubi panggang"}, rs:{en:"less oil, more fiber",id:"lebih sedikit minyak, lebih banyak serat"}},
-        {re:/(soda|cola|soft drink|bersoda)/, to:{en:"sparkling or infused water",id:"air soda tawar / infused water"}, rs:{en:"cuts added sugar",id:"tanpa gula tambahan"}},
-        {re:/(boba|bubble tea|milk tea)/, to:{en:"unsweetened tea",id:"teh tawar"}, rs:{en:"much lower sugar",id:"jauh lebih rendah gula"}},
-        {re:/(donut|donat|cake|\bkue\b|cookie|biskuit|pastry)/, to:{en:"Greek yogurt with fruit",id:"greek yogurt + buah"}, rs:{en:"more protein, less sugar",id:"lebih banyak protein, kurang gula"}},
-        {re:/(ice cream|es krim)/, to:{en:"frozen yogurt or fruit",id:"frozen yogurt / buah beku"}, rs:{en:"lower sugar & fat",id:"lebih rendah gula & lemak"}},
-        {re:/(white rice|nasi putih)/, to:{en:"brown rice",id:"nasi merah"}, rs:{en:"more fiber, steadier energy",id:"lebih banyak serat, energi stabil"}},
-        {re:/(instant noodle|mie instan|indomie)/, to:{en:"whole-grain noodles + veg & egg",id:"mie gandum + sayur & telur"}, rs:{en:"more protein & fiber",id:"lebih banyak protein & serat"}},
-        {re:/(chips|keripik|nugget)/, to:{en:"nuts or edamame",id:"kacang / edamame"}, rs:{en:"more protein, less refined",id:"lebih banyak protein, tak olahan"}}
-      ];
-      items.forEach(function(it){
-        if(out.length>=3) return;
-        var nm=String(it.name||""), low=nm.toLowerCase(), matched=false;
-        for(var k=0;k<RULES.length;k++){
-          if(RULES[k].re.test(low)){ var key=RULES[k].re.source; if(!seen[key]){ seen[key]=1; out.push({from:nm,to:RULES[k].to,rs:RULES[k].rs}); } matched=true; break; }
-        }
-        if(!matched && out.length<3){
-          var kcal=+it.kcal||0, pr=+it.p||0;                 // item kalori tinggi tapi protein rendah
-          if(kcal>=250 && pr<kcal/45){
-            var key2="lowprot"; if(!seen[key2]){ seen[key2]=1; out.push({from:nm, to:{en:"add a lean protein (egg, chicken, tofu)",id:"tambah protein rendah lemak (telur, ayam, tahu)"}, rs:{en:"more protein per calorie",id:"lebih banyak protein per kalori"}}); }
-          }
-        }
-      });
-      return out.slice(0,3);
+    // Aturan tukaran (nama makanan -> alternatif lebih sehat). Dipakai bareng oleh verdict per-item.
+    var FSUM_SWAP_RULES=[
+      {re:/(fried chicken|ayam goreng)/, to:{en:"grilled chicken",id:"ayam panggang"}, rs:{en:"less oil, same protein",id:"lebih sedikit minyak, protein sama"}},
+      {re:/(french fries|kentang goreng|\bfries\b)/, to:{en:"baked potato or sweet potato",id:"kentang/ubi panggang"}, rs:{en:"less oil, more fiber",id:"lebih sedikit minyak, lebih banyak serat"}},
+      {re:/(\bsoda\b|\bcola\b|soft drink|bersoda)/, to:{en:"sparkling or infused water",id:"air soda tawar / infused water"}, rs:{en:"cuts added sugar",id:"tanpa gula tambahan"}},
+      {re:/(boba|bubble tea|milk tea)/, to:{en:"unsweetened tea",id:"teh tawar"}, rs:{en:"much lower sugar",id:"jauh lebih rendah gula"}},
+      {re:/(donut|donat|cake|\bkue\b|cookie|biskuit|pastry|martabak)/, to:{en:"Greek yogurt with fruit",id:"greek yogurt + buah"}, rs:{en:"more protein, less sugar",id:"lebih banyak protein, kurang gula"}},
+      {re:/(ice cream|es krim)/, to:{en:"frozen yogurt or fruit",id:"frozen yogurt / buah beku"}, rs:{en:"lower sugar & fat",id:"lebih rendah gula & lemak"}},
+      {re:/(white rice|nasi putih)/, to:{en:"brown rice",id:"nasi merah"}, rs:{en:"more fiber, steadier energy",id:"lebih banyak serat, energi stabil"}},
+      {re:/(instant noodle|mie instan|indomie)/, to:{en:"whole-grain noodles + veg & egg",id:"mie gandum + sayur & telur"}, rs:{en:"more protein & fiber",id:"lebih banyak protein & serat"}},
+      {re:/(chips|keripik|nugget)/, to:{en:"nuts or edamame",id:"kacang / edamame"}, rs:{en:"more protein, less refined",id:"lebih banyak protein, tak olahan"}}
+    ];
+    var FSUM_GOOD=/salad|sayur|vegetable|veg\b|grill|panggang|bakar|steam|kukus|rebus|boil|oat|fruit|buah|ayam|chicken|fish|ikan|salmon|tuna|telur|egg|tofu|tahu|tempe|yogurt|greek|edamame|beans|kacang|lentil|brokoli|broccoli|bayam|spinach/;
+    var FSUM_BAD=/goreng|fried|crispy|krispi|nugget|fries|donut|donat|cake|\bkue\b|\bsoda\b|\bcola\b|boba|ice cream|es krim|candy|permen|syrup|sirup|choco|coklat|cookie|biskuit|instan|instant|burger|pizza|chips|keripik|martabak|gorengan|santan|rendang|padang/;
+    // --- VERDICT PER-ITEM: nilai tiap makanan (good/ok/bad) dari nama + rasio makro, + tukaran kalau ada ---
+    function fsumItemVerdict(it){
+      var low=String(it.name||"").toLowerCase();
+      var kcal=+it.kcal||0, p=+it.p||0, c=+it.c||0, f=+it.f||0;
+      var energy=p*4+c*4+f*9; if(energy<=0) energy=kcal>0?kcal:1;
+      var pFrac=(p*4)/energy, fFrac=(f*9)/energy;
+      var band;
+      if(FSUM_BAD.test(low) || (fFrac>0.5 && kcal>=180)) band="bad";     // gorengan/manis/olahan atau benar-benar berlemak
+      else if((FSUM_GOOD.test(low) && !FSUM_BAD.test(low)) || pFrac>=0.28) band="good";
+      else band="ok";                                                     // sisanya (mis. karbo olahan) = bisa lebih baik, bukan "buruk"
+      var label=band==="good"?L({en:"Good choice",id:"Pilihan bagus"}):band==="ok"?L({en:"Could be better",id:"Bisa lebih baik"}):L({en:"Not ideal",id:"Kurang ideal"});
+      var reason=band==="good"?(pFrac>=0.28?L({en:"protein-rich",id:"tinggi protein"}):L({en:"whole, minimally processed",id:"utuh, minim olahan"}))
+                :band==="ok"?(pFrac<0.12?L({en:"low protein for its calories",id:"protein rendah utk kalorinya"}):L({en:"refined — pair with protein/veg",id:"olahan — imbangi protein/sayur"}))
+                :(FSUM_BAD.test(low)?L({en:"fried/sugary/processed",id:"gorengan/manis/olahan"}):L({en:"high in fat",id:"tinggi lemak"}));
+      var swap=null;
+      for(var k=0;k<FSUM_SWAP_RULES.length;k++){ if(FSUM_SWAP_RULES[k].re.test(low)){ swap=FSUM_SWAP_RULES[k]; break; } }
+      return { band:band, cls: band==="good"?"hh":(band==="ok"?"hm":"hu"), label:label, reason:reason, swap:swap };
+    }
+    // --- WHAT TO EAT NEXT: saran ke depan dari KUALITAS/KESEIMBANGAN hari ini (beda dari nutrient-gap numerik) ---
+    function fsumNextGuidance(t,hh){
+      if(!items.length) return "";
+      var energy=t.p*4+t.c*4+t.f*9; if(energy<=0) return "";
+      var carbFrac=(t.c*4)/energy, fatFrac=(t.f*9)/energy;
+      // Protein rendah = RELATIF thd kalori yang sudah dimakan (bukan target harian) — supaya
+      // makan siang seimbang tak salah dituduh "kurang protein" cuma karena target harian belum penuh.
+      var lowProtein=(t.kcal>0 && (t.p/t.kcal)<0.05);
+      var carbHeavy=carbFrac>0.55, highFat=fatFrac>0.40;
+      var hasVeg=false, hasSugar=false;
+      var vegre=/salad|sayur|vegetable|veg\b|brokoli|broccoli|fruit|buah|beans|kacang|lentil|edamame|spinach|bayam/;
+      items.forEach(function(i){var n=String(i.name||"").toLowerCase(); if(vegre.test(n))hasVeg=true; if(FSUM_BAD.test(n))hasSugar=true;});
+      var PROT=[{en:"grilled chicken with vegetables",id:"ayam panggang + sayur"},{en:"baked fish or salmon",id:"ikan/salmon panggang"},{en:"tofu or tempeh stir-fry",id:"tumis tahu/tempe"},{en:"Greek yogurt with berries",id:"greek yogurt + buah beri"},{en:"boiled eggs",id:"telur rebus"}];
+      var FIBER=[{en:"a big mixed salad",id:"salad sayur besar"},{en:"lentil or bean soup",id:"sup lentil/kacang"},{en:"steamed vegetables",id:"sayur kukus"},{en:"a piece of fruit",id:"sepotong buah"}];
+      var LIGHT=[{en:"a veggie omelet",id:"omelet sayur"},{en:"vegetable soup",id:"sup sayur"},{en:"Greek yogurt with berries",id:"greek yogurt + buah beri"}];
+      var msg, picks;
+      if(hh && hh.band==="h" && !lowProtein && hasVeg){
+        msg=L({en:"Solid day so far — keep the pattern. If you eat again, a light nutrient-dense option keeps it balanced.",id:"Hari ini sudah bagus — pertahankan. Kalau makan lagi, pilih yang ringan & padat nutrisi biar tetap seimbang."}); picks=LIGHT;
+      } else if(lowProtein && (carbHeavy||hasSugar)){
+        msg=L({en:"Today's been carb-heavy and light on protein. A protein- and fiber-rich option next would balance it out.",id:"Hari ini cenderung tinggi karbo & kurang protein. Berikutnya pilih yang tinggi protein & serat untuk menyeimbangkan."}); picks=PROT.concat(FIBER);
+      } else if(lowProtein){
+        msg=L({en:"A bit low on protein today — a lean-protein option next would help.",id:"Protein hari ini agak kurang — berikutnya pilih sumber protein rendah lemak."}); picks=PROT;
+      } else if(highFat){
+        msg=L({en:"Fat's been on the higher side. Go lighter and add vegetables next.",id:"Lemak hari ini agak tinggi. Berikutnya pilih yang lebih ringan & tambah sayur."}); picks=FIBER;
+      } else if(!hasVeg){
+        msg=L({en:"Not much vegetable or fiber yet today. Add some greens or fruit next.",id:"Sayur/serat hari ini masih sedikit. Tambah sayuran atau buah berikutnya."}); picks=FIBER;
+      } else {
+        msg=L({en:"Decent balance so far. A protein- and veg-forward option next keeps you on track.",id:"Keseimbangan cukup baik. Berikutnya pilih yang kaya protein & sayur biar tetap on-track."}); picks=PROT.concat(FIBER);
+      }
+      var chosen=picks.slice(0,3).map(function(x){return '<span>'+L(x)+'</span>';}).join("");
+      var ic='<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+      return '<div class="fsum-sec"><div class="fsum-lbl">'+L({en:"What to eat next",id:"Enaknya makan apa lagi"})+'</div>'+
+        '<div class="fsum-next"><div class="ic">'+ic+'</div><div class="tx"><div class="msg">'+msg+'</div>'+
+        '<div class="fsum-next-foods">'+chosen+'</div></div></div></div>';
     }
     // --- NUTRIENT GAP: sisa makro vs target harian + saran makanan untuk gap TERBESAR ---
     function fsumGapHTML(t){
@@ -563,19 +616,19 @@
         h+='<div class="fsum-hm"><div class="fsum-hm-top"><span class="fsum-hm-lbl">'+L({en:"Health meter",id:"Meter sehat"})+'</span><span class="fsum-hm-badge '+bandCls+'">'+bandTxt+' · '+hh.score+'/100</span></div>'+
            '<div class="fsum-hm-bar"><i style="width:'+hh.score+'%;background:'+barCol+'"></i></div>'+
            '<div class="fsum-hm-note">'+note+'</div></div>';
-        // HEALTHIER SWAP
-        var sw=fsumSwaps();
-        h+='<div class="fsum-sec"><div class="fsum-lbl">'+L({en:"Healthier swaps",id:"Tukar lebih sehat"})+'</div>';
-        if(sw.length){
-          var swico='<svg viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.85-5.4 5.08-6"/></svg>';
-          h+=sw.map(function(s){ return '<div class="fsum-swap"><div class="ic">'+swico+'</div><div class="tx"><div class="sw">'+fsumEsc(s.from)+' → <b>'+L(s.to)+'</b></div><div class="rs">'+L(s.rs)+'</div></div></div>'; }).join("");
-        } else {
-          h+='<div class="fsum-good"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>'+L({en:"Great choices — nothing to improve right now.",id:"Pilihan bagus — tak ada yang perlu diperbaiki."})+'</div>';
-        }
+        // PER-ITEM VERDICT — nilai tiap makanan (good/ok/bad) + tukaran inline kalau ada.
+        h+='<div class="fsum-sec"><div class="fsum-lbl">'+L({en:"Per-item check",id:"Cek tiap makanan"})+'</div>';
+        h+=items.map(function(it){
+          var v=fsumItemVerdict(it);
+          var sub=v.reason+(v.swap?' · '+L({en:"try",id:"coba"})+' <b>'+L(v.swap.to)+'</b>':'');
+          return '<div class="fsum-item"><div class="fi-main"><div class="fi-nm">'+fsumEsc(it.name)+'</div><div class="fi-sub">'+sub+'</div></div><span class="fsum-hm-badge '+v.cls+'">'+v.label+'</span></div>';
+        }).join("");
         h+='</div>';
       }
       // NUTRIENT GAP (selalu ditampilkan; saat log kosong = seluruh target masih tersisa)
       h+=fsumGapHTML(t);
+      // WHAT TO EAT NEXT — saran ke depan berbasis kualitas/keseimbangan (beda dari nutrient-gap numerik).
+      h+=fsumNextGuidance(t, fsumHealth(t));
       // Estimasi bila profil tak ada ATAU data inti (berat/tinggi) belum lengkap — supaya angka fallback (2000 kkal dsb) tak terlihat seolah personal.
       if(!profileRef || !profileRef.weight_kg || !profileRef.height_cm) h+='<div class="fsum-hm-note" style="margin-top:10px">'+L({en:"Targets are estimated — complete your profile for personalized goals.",id:"Target diperkirakan — lengkapi profil untuk target personal."})+'</div>';
       card.innerHTML=h;
