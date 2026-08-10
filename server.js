@@ -13,6 +13,7 @@ const crypto = require("crypto");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const email = require("./lib/email"); // SATU-SATUNYA jalur kirim email (Resend)
+const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerbang frekuensi
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -85,7 +86,9 @@ const anon =
 // Satu-satunya jalur kirim email = lib/email.js. Provider & SMTP lama sudah dicabut total.
 // Timezone pengiriman selalu WIB (Asia/Jakarta).
 const CRON_SECRET = process.env.CRON_SECRET || ""; // pengaman endpoint /api/cron/*
+const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET || ""; // verifikasi webhook Resend (Svix)
 email.init({ admin });
+comms.init({ admin });
 {
   const _miss = email.assertConfig();
   if (_miss.length) {
@@ -239,9 +242,199 @@ app.post("/api/cron/fasting-notify", async (req, res) => {
   }
 });
 
+// ================= Fase 2: Consent, Unsubscribe & Webhook =================
+
+// ---------- Webhook Resend (delivered/opened/clicked/bounce/complaint) ----------
+// Verifikasi signature Svix (standard-webhooks). TOLAK payload tanpa verifikasi.
+function verifyResendSignature(req) {
+  if (!RESEND_WEBHOOK_SECRET) return false;
+  const svixId = req.get("svix-id") || req.get("webhook-id");
+  const svixTs = req.get("svix-timestamp") || req.get("webhook-timestamp");
+  const svixSig = req.get("svix-signature") || req.get("webhook-signature");
+  if (!svixId || !svixTs || !svixSig || !req.rawBody) return false;
+  // Anti-replay: tolak timestamp > 5 menit dari sekarang.
+  const tsSec = parseInt(svixTs, 10);
+  if (!tsSec || Math.abs(Date.now() / 1000 - tsSec) > 300) return false;
+  const secretB64 = RESEND_WEBHOOK_SECRET.replace(/^whsec_/, "");
+  let key;
+  try { key = Buffer.from(secretB64, "base64"); } catch (e) { return false; }
+  const signedContent = svixId + "." + svixTs + "." + req.rawBody.toString("utf8");
+  const expected = crypto.createHmac("sha256", key).update(signedContent).digest("base64");
+  // Header bisa memuat beberapa signature (dipisah spasi): "v1,<sig> v1,<sig2>".
+  const parts = String(svixSig).split(" ");
+  for (let i = 0; i < parts.length; i++) {
+    const sig = parts[i].indexOf(",") >= 0 ? parts[i].split(",")[1] : parts[i];
+    try {
+      const a = Buffer.from(sig, "base64");
+      const b = Buffer.from(expected, "base64");
+      if (a.length === b.length && crypto.timingSafeEqual(a, b)) return true;
+    } catch (e) { /* lanjut cek signature berikutnya */ }
+  }
+  return false;
+}
+
+app.post("/api/webhooks/resend", async (req, res) => {
+  if (!verifyResendSignature(req)) return res.status(401).json({ error: "invalid signature" });
+  if (!admin) return res.status(500).json({ error: "server belum dikonfigurasi" });
+  try {
+    const ev = req.body || {};
+    const type = ev.type || "";
+    const d = ev.data || {};
+    const emailId = d.email_id || d.id || null;
+    const recips = Array.isArray(d.to) ? d.to : d.to ? [d.to] : [];
+    const nowIso = new Date().toISOString();
+
+    // Update baris message_log berdasarkan provider_message_id (best-effort).
+    async function patchLog(patch) {
+      if (!emailId) return;
+      try { await admin.from("my20fit_message_log").update(patch).eq("provider_message_id", emailId); }
+      catch (e) { /* best-effort */ }
+    }
+    // Cari user_id terkait email ini (untuk suppression).
+    async function userIdForEmail() {
+      if (!emailId) return null;
+      const { data } = await admin.from("my20fit_message_log").select("user_id").eq("provider_message_id", emailId).limit(1);
+      return (data && data[0] && data[0].user_id) || null;
+    }
+
+    if (type === "email.delivered") {
+      await patchLog({ status: "delivered", delivered_at: nowIso });
+    } else if (type === "email.opened") {
+      await patchLog({ status: "opened", opened_at: nowIso });
+    } else if (type === "email.clicked") {
+      await patchLog({ status: "clicked", clicked_at: nowIso });
+    } else if (type === "email.bounced") {
+      await patchLog({ status: "bounced", bounced_at: nowIso, error_message: (d.bounce && (d.bounce.message || d.bounce.type)) || "bounced" });
+      // Hard/permanent bounce → suppression permanen.
+      const btype = (d.bounce && (d.bounce.type || d.bounce.subType || d.bounce.classification)) || "";
+      if (/permanent|hard/i.test(String(btype)) || d.bounce === undefined) {
+        const uid = await userIdForEmail();
+        for (const to of recips) await comms.addSuppression(to, uid, "hard_bounce", true);
+      }
+    } else if (type === "email.complained") {
+      // Spam complaint → suppression permanen, LANGSUNG.
+      await patchLog({ status: "complained", complained_at: nowIso });
+      const uid = await userIdForEmail();
+      for (const to of recips) await comms.addSuppression(to, uid, "spam_complaint", true);
+    }
+    // email.sent / email.delivery_delayed: tak perlu aksi khusus.
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("webhook/resend:", e && e.message);
+    // Balas 200 supaya Resend tak retry badai untuk error internal kita.
+    return res.json({ ok: false });
+  }
+});
+
+// ---------- Unsubscribe (tanpa login; token opaque, tak bocorkan user_id) ----------
+// GET prefs untuk halaman unsubscribe.html — hanya toggle & jam, TANPA data kesehatan.
+app.get("/api/unsub/prefs", async (req, res) => {
+  const token = String((req.query && req.query.token) || "").trim();
+  if (!token) return res.status(400).json({ error: "token wajib" });
+  try {
+    const p = await comms.getPrefsByToken(token);
+    if (!p) return res.status(404).json({ error: "token tidak valid" });
+    return res.json({
+      ok: true,
+      prefs: {
+        consent_marketing: !!p.consent_marketing,
+        consent_meal_reminder: !!p.consent_meal_reminder,
+        reminder_breakfast_enabled: !!p.reminder_breakfast_enabled,
+        reminder_lunch_enabled: !!p.reminder_lunch_enabled,
+        reminder_dinner_enabled: !!p.reminder_dinner_enabled,
+        reminder_breakfast_time: p.reminder_breakfast_time,
+        reminder_lunch_time: p.reminder_lunch_time,
+        reminder_dinner_time: p.reminder_dinner_time,
+      },
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Terapkan perubahan preferensi (berlaku seketika).
+app.post("/api/unsub/apply", async (req, res) => {
+  const b = req.body || {};
+  const token = String(b.token || "").trim();
+  if (!token) return res.status(400).json({ error: "token wajib" });
+  try {
+    const p = await comms.getPrefsByToken(token);
+    if (!p) return res.status(404).json({ error: "token tidak valid" });
+    const uid = p.user_id;
+    const patch = { updated_at: new Date().toISOString() };
+
+    if (b.action === "stop_all") {
+      patch.consent_marketing = false;
+      patch.consent_meal_reminder = false;
+      patch.consent_updated_at = new Date().toISOString();
+      patch.consent_source = "unsubscribe_page";
+      patch.reminder_paused_at = new Date().toISOString();
+      // Suppression by email (reason unsubscribe) — jaga-jaga selain matikan consent.
+      try {
+        const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", uid).limit(1);
+        const em = prof && prof[0] && prof[0].email;
+        if (em) await comms.addSuppression(em, uid, "unsubscribe", true);
+      } catch (e) { /* best-effort */ }
+    } else if (b.action === "update") {
+      if (typeof b.consent_marketing === "boolean") patch.consent_marketing = b.consent_marketing;
+      if (typeof b.consent_meal_reminder === "boolean") patch.consent_meal_reminder = b.consent_meal_reminder;
+      if (typeof b.reminder_breakfast_enabled === "boolean") patch.reminder_breakfast_enabled = b.reminder_breakfast_enabled;
+      if (typeof b.reminder_lunch_enabled === "boolean") patch.reminder_lunch_enabled = b.reminder_lunch_enabled;
+      if (typeof b.reminder_dinner_enabled === "boolean") patch.reminder_dinner_enabled = b.reminder_dinner_enabled;
+      const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
+      if (hhmm.test(b.reminder_breakfast_time || "")) patch.reminder_breakfast_time = b.reminder_breakfast_time;
+      if (hhmm.test(b.reminder_lunch_time || "")) patch.reminder_lunch_time = b.reminder_lunch_time;
+      if (hhmm.test(b.reminder_dinner_time || "")) patch.reminder_dinner_time = b.reminder_dinner_time;
+      patch.consent_updated_at = new Date().toISOString();
+      patch.consent_source = "unsubscribe_page";
+      // Kalau meal reminder dinyalakan lagi, cabut pause.
+      if (patch.consent_meal_reminder === true) patch.reminder_paused_at = null;
+    } else {
+      return res.status(400).json({ error: "action tidak dikenal" });
+    }
+
+    const { data: updated } = await admin
+      .from("my20fit_user_comm_prefs").update(patch).eq("user_id", uid).select("*").single();
+    return res.json({
+      ok: true,
+      prefs: {
+        consent_marketing: !!updated.consent_marketing,
+        consent_meal_reminder: !!updated.consent_meal_reminder,
+        reminder_breakfast_enabled: !!updated.reminder_breakfast_enabled,
+        reminder_lunch_enabled: !!updated.reminder_lunch_enabled,
+        reminder_dinner_enabled: !!updated.reminder_dinner_enabled,
+        reminder_breakfast_time: updated.reminder_breakfast_time,
+        reminder_lunch_time: updated.reminder_lunch_time,
+        reminder_dinner_time: updated.reminder_dinner_time,
+      },
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// One-click unsubscribe (header List-Unsubscribe-Post dari Gmail/Yahoo). Berlaku seketika.
+app.post("/unsubscribe", async (req, res) => {
+  const token = String((req.query && req.query.token) || "").trim();
+  const c = String((req.query && req.query.c) || "").trim();
+  if (!token) return res.status(400).send("token wajib");
+  try {
+    const p = await comms.getPrefsByToken(token);
+    if (!p) return res.status(404).send("token tidak valid");
+    const patch = { updated_at: new Date().toISOString(), consent_updated_at: new Date().toISOString(), consent_source: "unsubscribe_oneclick" };
+    if (c === "meal_reminder") { patch.consent_meal_reminder = false; patch.reminder_paused_at = new Date().toISOString(); }
+    else if (c === "marketing") { patch.consent_marketing = false; }
+    else { patch.consent_marketing = false; patch.consent_meal_reminder = false; patch.reminder_paused_at = new Date().toISOString(); }
+    await admin.from("my20fit_user_comm_prefs").update(patch).eq("user_id", p.user_id);
+    return res.status(200).send("OK: unsubscribed");
+  } catch (e) { return res.status(500).send("error"); }
+});
+
 // ---------- Middleware ----------
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.json({ limit: "8mb" })); // 8mb: foto scan (base64) kini lewat /api/scan/ai
+app.use(express.json({
+  limit: "8mb", // 8mb: foto scan (base64) kini lewat /api/scan/ai
+  // Simpan raw body HANYA untuk webhook (verifikasi signature Svix/Resend butuh byte mentah).
+  verify: function (req, res, buf) {
+    if (req.url && req.url.indexOf("/api/webhooks/") === 0) req.rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webhook form-encoded
 
 // Railway = reverse proxy 1 hop. TANPA ini req.ip = IP proxy, bukan IP klien -> SEMUA user
@@ -4024,7 +4217,7 @@ app.get(/\.html$/, (req, res) => {
 app.use((req, res, next) => {
   const p = req.path;
   if (/^\/(server\.js|package\.json|package-lock\.json|railway\.toml|README\.md|CLAUDE\.md)$/i.test(p) ||
-      /^\/(db|supabase|docs|archive|node_modules|\.git)(\/|$)/i.test(p)) {
+      /^\/(db|supabase|docs|archive|node_modules|lib|\.git)(\/|$)/i.test(p)) {
     return res.status(404).sendFile(path.join(__dirname, "index.html"));
   }
   next();
@@ -4065,7 +4258,7 @@ app.use((err, req, res, next) => {
 function logEnvReadiness() {
   var core = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_KEY"];
   var important = ["FITCO_API_URL", "FITCO_PARTNER_TOKEN", "RESEND_API_KEY", "MAIL_FROM", "EMAIL_ENVIRONMENT"];
-  var optional = ["ADMIN_KEY", "CRON_SECRET", "EMAIL_TEST_WHITELIST", "MAIL_REPLY_TO", "XENDIT_ENABLED", "API_PHOTO", "PHOTO_SSO_URL", "ARENA_API_URL", "ARENA_API_KEY", "GOOGLE_CLIENT_ID", "META_PIXEL_ID", "WAQI_TOKEN", "APP_BASE_URL"];
+  var optional = ["ADMIN_KEY", "CRON_SECRET", "RESEND_WEBHOOK_SECRET", "EMAIL_TEST_WHITELIST", "MAIL_REPLY_TO", "XENDIT_ENABLED", "API_PHOTO", "PHOTO_SSO_URL", "ARENA_API_URL", "ARENA_API_KEY", "GOOGLE_CLIENT_ID", "META_PIXEL_ID", "WAQI_TOKEN", "APP_BASE_URL"];
   var miss = function (list) { return list.filter(function (k) { return !String(process.env[k] || "").trim(); }); };
   var mc = miss(core), mi = miss(important), mo = miss(optional);
   if (mc.length) console.warn("[20FIT][ENV] ❌ INTI belum diset (app tidak akan jalan benar):", mc.join(", "));
