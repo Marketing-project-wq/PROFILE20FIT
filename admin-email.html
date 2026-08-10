@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Email & Campaign · 20FIT Admin</title>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<style>
+  :root{ --red:#D62828; --ink:#141414; --line:#e7e2db; --muted:#6b6257; --bg:#F5F4F2; --card:#fff; --ok:#1f7a44; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:22px 16px 60px}
+  h1{font-size:22px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  .card h2{font-size:15px;margin:0 0 12px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+  .stat{background:#faf8f5;border-radius:10px;padding:12px}
+  .stat .n{font-size:22px;font-weight:800}
+  .stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .stat.warn .n{color:var(--red)}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px}
+  .badge.on{background:#e7f5ec;color:var(--ok)} .badge.off{background:#fdecec;color:var(--red)}
+  button{border:0;border-radius:9px;padding:9px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+  .bkill{background:var(--red);color:#fff} .bon{background:var(--ink);color:#fff}
+  input[type=text]{padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase}
+  .msg{padding:10px;border-radius:9px;margin-bottom:12px;font-size:13px;display:none}
+  .msg.ok{display:block;background:#e7f5ec;color:var(--ok)} .msg.err{display:block;background:#fdecec;color:var(--red)}
+  .muted{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Email &amp; Campaign</h1>
+  <div class="sub">Metrik 30 hari · kill switch · suppression. <span id="who" class="muted"></span></div>
+  <div id="msg" class="msg"></div>
+  <div id="gate" class="card" style="display:none">Akses admin dibutuhkan. Buka dari akun admin, atau tambahkan <code>?key=ADMIN_KEY</code> di URL.</div>
+
+  <div id="app" style="display:none">
+    <div class="card">
+      <h2>Kill switch campaign</h2>
+      <div id="flags"></div>
+      <div class="muted" style="margin-top:8px">Mematikan = pengiriman berhenti seketika (tanpa deploy). Monitoring otomatis juga bisa auto-stop.</div>
+    </div>
+
+    <div class="card">
+      <h2>Onboarding (belum scan) · 30 hari</h2>
+      <div class="grid" id="onbStats"></div>
+      <div class="muted" style="margin-top:10px" id="onbFunnel"></div>
+    </div>
+
+    <div class="card">
+      <h2>Meal reminder · 30 hari</h2>
+      <div class="grid" id="mealStats"></div>
+    </div>
+
+    <div class="card">
+      <h2>Suppression list</h2>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input type="text" id="supQ" placeholder="cari email…" style="flex:1" />
+        <button class="bon" id="supSearch">Cari</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input type="text" id="supAdd" placeholder="tambah email ke suppression…" style="flex:1" />
+        <button class="bkill" id="supAddBtn">Tambah</button>
+      </div>
+      <table><thead><tr><th>Email</th><th>Reason</th><th>Tanggal</th><th></th></tr></thead><tbody id="supRows"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+(function () {
+  var MASTER_KEY = new URLSearchParams(location.search).get("key") || "";
+  function el(id){ return document.getElementById(id); }
+  function msg(t, ok){ var m=el("msg"); m.textContent=t; m.className="msg "+(ok?"ok":"err"); }
+  async function adminFetch(path, opts){
+    opts = opts || {}; opts.headers = opts.headers || {};
+    opts.headers["Content-Type"] = "application/json";
+    if (MASTER_KEY) opts.headers["x-admin-key"] = MASTER_KEY;
+    else { try { var t = await Auth.token(); if (t) opts.headers["Authorization"] = "Bearer " + t; } catch(e){} }
+    return fetch(path, opts);
+  }
+  function stat(n, l, warn){ return '<div class="stat'+(warn?' warn':'')+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
+
+  async function boot(){
+    try { if (!MASTER_KEY && window.Auth) await Auth.ready; } catch(e){}
+    var me = await adminFetch("/api/admin/me").then(function(r){return r.json();}).catch(function(){return{};});
+    if (!me || !me.ok) { el("gate").style.display="block"; return; }
+    el("who").textContent = "· role: " + me.role;
+    el("app").style.display="block";
+    load();
+  }
+
+  async function load(){
+    var j = await adminFetch("/api/admin/email/overview").then(function(r){return r.json();}).catch(function(){return{};});
+    if (!j || !j.ok) { msg("Gagal memuat overview.", false); return; }
+    // flags
+    el("flags").innerHTML = (j.flags||[]).map(function(f){
+      var on = f.enabled !== false;
+      return '<div class="row"><div><b>'+f.campaign_id+'</b> <span class="badge '+(on?'on':'off')+'">'+(on?'AKTIF':'MATI')+'</span>'+
+        (f.note?' <span class="muted">('+f.note+')</span>':'')+'</div>'+
+        '<button class="'+(on?'bkill':'bon')+'" data-c="'+f.campaign_id+'" data-en="'+(on?'0':'1')+'">'+(on?'Matikan':'Nyalakan')+'</button></div>';
+    }).join("") || '<div class="muted">Belum ada flag (default aktif).</div>';
+    Array.prototype.forEach.call(document.querySelectorAll("#flags button"), function(b){
+      b.onclick = async function(){
+        var r = await adminFetch("/api/admin/email/killswitch", { method:"POST", body: JSON.stringify({ campaign_id:b.getAttribute("data-c"), enabled: b.getAttribute("data-en")==="1" }) }).then(function(x){return x.json();});
+        if (r && r.ok) { msg("Kill switch diperbarui.", true); load(); } else msg("Gagal.", false);
+      };
+    });
+    // onboarding
+    var o = j.onboarding || {}, om = o.metrics || {};
+    el("onbStats").innerHTML =
+      stat(o.total_enrollments||0,"Enrollment") + stat((o.conversion_rate||0)+"%","Konversi scan") +
+      stat(om.dispatched||0,"Terkirim") + stat((om.open_rate||0)+"%","Dibuka") +
+      stat((om.click_rate||0)+"%","Diklik") + stat((om.unsub_rate||0)+"%","Unsub", (om.unsub_rate||0)>0.5) +
+      stat((om.bounce_rate||0)+"%","Bounce",(om.bounce_rate||0)>2) + stat((om.complaint_rate||0)+"%","Complaint",(om.complaint_rate||0)>0.1);
+    var step = o.active_by_step||{}, ex=o.by_exit_reason||{};
+    el("onbFunnel").textContent = "Aktif per step: " + JSON.stringify(step) + " · Exit: " + JSON.stringify(ex);
+    // meal
+    var mm = (j.meal_reminder||{}).metrics || {};
+    el("mealStats").innerHTML =
+      stat(mm.dispatched||0,"Terkirim") + stat((mm.open_rate||0)+"%","Dibuka") + stat((mm.click_rate||0)+"%","Diklik") +
+      stat((mm.unsub_rate||0)+"%","Unsub",(mm.unsub_rate||0)>0.5) + stat((mm.bounce_rate||0)+"%","Bounce",(mm.bounce_rate||0)>2) +
+      stat((mm.complaint_rate||0)+"%","Complaint",(mm.complaint_rate||0)>0.1);
+    searchSup("");
+  }
+
+  async function searchSup(q){
+    var j = await adminFetch("/api/admin/email/suppression?q="+encodeURIComponent(q)).then(function(r){return r.json();}).catch(function(){return{};});
+    el("supRows").innerHTML = ((j&&j.rows)||[]).map(function(r){
+      return '<tr><td>'+r.email+'</td><td>'+r.reason+'</td><td>'+(r.created_at||"").slice(0,10)+'</td>'+
+        '<td><button class="bon" data-em="'+r.email+'">Hapus</button></td></tr>';
+    }).join("") || '<tr><td colspan="4" class="muted">Kosong.</td></tr>';
+    Array.prototype.forEach.call(document.querySelectorAll("#supRows button"), function(b){
+      b.onclick = async function(){
+        var r = await adminFetch("/api/admin/email/suppression", { method:"POST", body: JSON.stringify({ email:b.getAttribute("data-em"), action:"remove" }) }).then(function(x){return x.json();});
+        if (r && r.ok) { msg("Dihapus dari suppression.", true); searchSup(el("supQ").value); } else msg("Gagal (butuh role staff+).", false);
+      };
+    });
+  }
+
+  el("supSearch").onclick = function(){ searchSup(el("supQ").value); };
+  el("supAddBtn").onclick = async function(){
+    var em = el("supAdd").value.trim(); if (!em) return;
+    var r = await adminFetch("/api/admin/email/suppression", { method:"POST", body: JSON.stringify({ email:em, action:"add", reason:"manual" }) }).then(function(x){return x.json();});
+    if (r && r.ok) { el("supAdd").value=""; msg("Ditambahkan.", true); searchSup(el("supQ").value); } else msg("Gagal (butuh role staff+).", false);
+  };
+
+  boot();
+})();
+</script>
+</body>
+</html>

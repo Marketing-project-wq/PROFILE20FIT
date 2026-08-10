@@ -93,15 +93,18 @@ Deno.serve(async (req) => {
     const hit = await cacheGet(id);
     if (hit) return json({ ok: true, url: hit, cached: true });
 
-    // Prompt SEDERHANA yang terbukti hasilkan foto bagus (jangan over-spesifik "pale background" dsb —
-    // itu bikin gambar pucat/abstrak). Deskripsi bahan (desc) yang bikin AI tahu persis dish-nya.
+    // Prompt: SATU piring/mangkuk, SATU dish, tajam, warna hidup. Tegaskan BUKAN kolase/grid/
+    // gambar berulang — dulu "fills entire frame edge to edge" bikin model malah menge-tile jadi
+    // beberapa piring (double). desc (bahan) bikin AI tahu persis dish-nya (mis. masakan Indonesia).
     const desc = String(b.desc || '').slice(0, 400);
     const prompt =
-      `A professional, appetizing, realistic food photograph of "${name}"` +
-      (desc ? ` — ${desc}` : '') +
-      `. A real restaurant-quality dish, freshly plated on a clean plate or bowl, natural soft lighting, ` +
-      `top-down or 45-degree angle, shallow depth of field, neutral background. Make it look like a real ` +
-      `photo of this exact dish. No text, no watermark, no hands, no packaging.`;
+      `ONE single wide landscape (4:3) photorealistic food photograph of the dish "${name}"` +
+      (desc ? `, made of ${desc}` : '') +
+      `. Frame contains exactly ONE plate or bowl of this one dish, centered and filling the frame. ` +
+      `It is a SINGLE photo — absolutely NOT a collage, NOT a grid, NOT a strip, NOT multiple plates ` +
+      `side by side, NOT the dish repeated or tiled. Just one plate. Shot from a 45-degree angle, ` +
+      `bright even lighting, sharp focus, vivid appetizing natural colors, crisp fine detail, ` +
+      `professional food-magazine style. No blur, no text, no watermark, no hands, no packaging.`;
 
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
