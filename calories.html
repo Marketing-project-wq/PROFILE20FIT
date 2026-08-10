@@ -719,7 +719,7 @@
         // Jatah sudah dipotong SERVER (kalau makanan terdeteksi). Refresh tampilan sisa kuota.
         refreshQuota();
         lastRes=res;
-        box.innerHTML='<div class="muted" style="cursor:pointer" onclick="reopenScan()">✓ '+I18N.t("cal_detected")+' · ~'+(res.total_kcal||0)+' '+kc()+' — '+L({en:"tap to view analysis",id:"ketuk untuk lihat analisa"})+'</div>';
+        box.innerHTML='<div class="muted" style="cursor:pointer" onclick="reopenScan()">✓ '+I18N.t("cal_detected")+' · ±'+(res.total_kcal||0)+' '+kc()+' '+L({en:"(estimate)",id:"(perkiraan)"})+' — '+L({en:"tap to view analysis",id:"ketuk untuk lihat analisa"})+'</div>';
         closeScanLoading();
         openScanResult(res);   // POP-UP berisi analisa lengkap
       }catch(err){closeScanLoading();box.innerHTML='<div style="color:var(--red)">'+err.message+'</div>'}
@@ -765,7 +765,18 @@
       var sat=Math.round(+res.satiety_score||0), health=Math.round(+res.health_score||0);
       var title=(lastScan||[]).map(i=>i.name).join(", ");
       var h='<div class="scd">';
-      h+='<div class="scd-top"><div class="scd-name">'+esc(title)+'</div><div class="scd-kcal">~'+kcal+' '+kc()+'</div></div>';
+      var conf=Math.round(+res.confidence||0);
+      var confLab=conf>0?(conf>=75?L({en:"high confidence",id:"keyakinan tinggi"}):conf>=55?L({en:"medium confidence",id:"keyakinan sedang"}):L({en:"low confidence",id:"keyakinan rendah"})):"";
+      h+='<div class="scd-top"><div class="scd-name">'+esc(title)+'</div><div class="scd-kcal">±'+kcal+' '+kc()+'</div></div>';
+      h+='<div class="scd-est" style="font-size:11.5px;color:var(--muted,#8A7C68);margin:2px 0 8px">'+L({en:"Estimate from photo",id:"Perkiraan dari foto"})+(confLab?' · '+confLab:'')+'</div>';
+      // Konfirmasi porsi = cara paling ngangkat akurasi. Dorong lebih kuat kalau AI kurang yakin.
+      if(conf>0 && conf<60){
+        h+='<div style="background:#FDECEC;border:1px solid #f3c2bd;border-radius:10px;padding:9px 11px;margin:0 0 10px;font-size:12.5px;color:#8a2b22">'+
+           L({en:"⚠ Portion looks uncertain — check & fix the grams under Portions below for a more accurate number.",id:"⚠ Porsinya belum pasti — cek & benerin gram di bagian Porsi di bawah biar lebih akurat."})+'</div>';
+      }
+      if(res.assumptions && res.assumptions.length){
+        h+='<div style="font-size:11.5px;color:var(--muted,#8A7C68);margin:0 0 8px">'+L({en:"Assumptions",id:"Asumsi"})+': '+res.assumptions.map(function(x){return esc(String(x));}).join(" · ")+'</div>';
+      }
       if(res.description) h+='<div class="scd-desc">'+esc(res.description)+'</div>';
       h+='<div class="scd-macros">'+
          macroBox(L({en:"Protein",id:"Protein"}),p)+

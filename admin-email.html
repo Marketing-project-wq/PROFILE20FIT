@@ -43,6 +43,59 @@
   <div id="gate" class="card" style="display:none">Akses admin dibutuhkan. Buka dari akun admin, atau tambahkan <code>?key=ADMIN_KEY</code> di URL.</div>
 
   <div id="app" style="display:none">
+    <div class="card" id="blastCard">
+      <h2>Kirim Blast Email</h2>
+      <div class="msg" id="bMsg"></div>
+
+      <div id="bStep1">
+        <div class="muted" style="margin-bottom:6px">1. Pilih segmen</div>
+        <div style="display:flex;gap:8px">
+          <select id="bSeg" style="flex:1;padding:9px;border:1px solid var(--line);border-radius:9px;font-family:inherit"></select>
+          <button class="bon" id="bPreviewBtn">Hitung segmen</button>
+        </div>
+      </div>
+
+      <div id="bStep2" style="display:none">
+        <div class="grid" id="bCounts" style="margin:10px 0"></div>
+        <div class="muted" id="bBreakdown" style="font-size:12px;margin-bottom:8px"></div>
+        <div style="overflow:auto"><table><thead><tr><th>Nama</th><th>Email</th><th>Signup</th><th>Sumber</th></tr></thead><tbody id="bSample"></tbody></table></div>
+        <div class="muted" style="font-size:11px;margin-top:6px">Preview 20 pertama — tanpa data kesehatan.</div>
+        <button class="bon" id="bToStep3" style="margin-top:10px">Lanjut: pilih template</button>
+      </div>
+
+      <div id="bStep3" style="display:none">
+        <div class="muted" style="margin:10px 0 6px">3. Template + subject</div>
+        <select id="bTpl" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:9px;font-family:inherit;margin-bottom:8px"></select>
+        <input type="text" id="bSubject" placeholder="Subject email…" style="width:100%;margin-bottom:8px" />
+        <input type="text" id="bName" placeholder="Nama campaign (untuk konfirmasi nanti)…" style="width:100%;margin-bottom:8px" />
+        <input type="text" id="bCap" placeholder="Warm-up: maks kirim/hari (opsional, mis. 100)" style="width:100%;margin-bottom:8px" />
+        <button class="bon" id="bCreateBtn">Buat draft (bekukan penerima)</button>
+      </div>
+
+      <div id="bStep4" style="display:none">
+        <div class="muted" style="margin:10px 0 6px">4. Kirim tes ke diri sendiri — WAJIB</div>
+        <button class="bon" id="bTestBtn">Kirim tes</button>
+        <span id="bTestState" class="muted" style="margin-left:8px"></span>
+      </div>
+
+      <div id="bStep5" style="display:none">
+        <div style="margin:10px 0 6px"><b id="bConfirmSummary"></b></div>
+        <div class="muted" style="font-size:12px;margin-bottom:6px">Ketik "<b id="bConfirmName"></b>" untuk konfirmasi:</div>
+        <input type="text" id="bConfirmInput" placeholder="ketik nama campaign persis…" style="width:100%;margin-bottom:8px" />
+        <button class="bkill" id="bSendBtn" disabled>KIRIM ke penerima</button>
+      </div>
+
+      <div id="bStep6" style="display:none">
+        <div class="grid" id="bProgress" style="margin:10px 0"></div>
+        <div style="display:flex;gap:8px">
+          <button class="bon" id="bPauseBtn">Pause</button>
+          <button class="bon" id="bResumeBtn">Resume</button>
+          <button class="bkill" id="bCancelBtn">Cancel</button>
+        </div>
+        <div class="muted" id="bProgMsg" style="font-size:12px;margin-top:6px"></div>
+      </div>
+    </div>
+
     <div class="card">
       <h2>Kill switch campaign</h2>
       <div id="flags"></div>
@@ -154,7 +207,82 @@
     if (r && r.ok) { el("supAdd").value=""; msg("Ditambahkan.", true); searchSup(el("supQ").value); } else msg("Gagal (butuh role staff+).", false);
   };
 
-  boot();
+  // ===== Blast wizard (6 langkah — tes wajib + ketik nama campaign) =====
+  var blastState = { preview:null, sendId:null, poll:null };
+  function bmsg(t, ok){ var m=el("bMsg"); m.textContent=t; m.className="msg "+(ok?"ok":"err"); }
+  function bshow(step){ [1,2,3,4,5,6].forEach(function(n){ var e=el("bStep"+n); if(e) e.style.display=(n===step?"":"none"); }); }
+
+  async function initBlast(){
+    var segs = await adminFetch("/api/admin/email/segments").then(function(r){return r.json();}).catch(function(){return{};});
+    if (segs && segs.ok) el("bSeg").innerHTML = segs.presets.map(function(p){ return '<option value="'+p.id+'">'+p.name+'</option>'; }).join("");
+    var tpls = await adminFetch("/api/admin/email/templates").then(function(r){return r.json();}).catch(function(){return{};});
+    if (tpls && tpls.ok) el("bTpl").innerHTML = tpls.templates.map(function(t){ return '<option value="'+t.id+'">'+t.label+'</option>'; }).join("");
+    bshow(1);
+  }
+
+  el("bPreviewBtn").onclick = async function(){
+    bmsg("Menghitung…", true);
+    var j = await adminFetch("/api/admin/email/segment/preview", { method:"POST", body: JSON.stringify({ preset_id: el("bSeg").value }) }).then(function(r){return r.json();}).catch(function(){return{};});
+    if (!j || !j.ok) { bmsg("Gagal hitung segmen.", false); return; }
+    blastState.preview = j;
+    el("bCounts").innerHTML = stat(j.total_matched,"Cocok") + stat(j.total_eligible,"Layak kirim") + stat(j.total_excluded,"Dikecualikan", j.total_excluded>0);
+    var bd = j.exclusion_breakdown||{};
+    el("bBreakdown").textContent = "Rincian pengecualian: " + (Object.keys(bd).filter(function(k){return bd[k]>0;}).map(function(k){return k+"="+bd[k];}).join(", ") || "—");
+    el("bSample").innerHTML = (j.sample||[]).map(function(s){ return '<tr><td>'+(s.full_name||"—")+'</td><td>'+s.email+'</td><td>'+(s.signup_at||"").slice(0,10)+'</td><td>'+(s.source||"—")+'</td></tr>'; }).join("") || '<tr><td colspan="4" class="muted">0 layak — kemungkinan belum ada consent.</td></tr>';
+    bmsg("", true); bshow(2);
+  };
+
+  el("bToStep3").onclick = function(){ bshow(3); };
+
+  el("bCreateBtn").onclick = async function(){
+    if (!el("bSubject").value.trim() || !el("bName").value.trim()) { bmsg("Subject & nama campaign wajib.", false); return; }
+    var body = { name: el("bName").value.trim(), segment_id: el("bSeg").value, template_id: el("bTpl").value, subject: el("bSubject").value.trim(), daily_cap: el("bCap").value.trim() || null };
+    var j = await adminFetch("/api/admin/email/send/create", { method:"POST", body: JSON.stringify(body) }).then(function(r){return r.json();}).catch(function(){return{};});
+    if (!j || !j.ok) { bmsg((j&&j.error)||"Gagal buat draft.", false); return; }
+    blastState.sendId = j.send.id;
+    el("bTestState").textContent = "";
+    bmsg("Draft dibuat. "+j.send.total_eligible+" penerima dibekukan.", true); bshow(4);
+  };
+
+  el("bTestBtn").onclick = async function(){
+    el("bTestState").textContent = "mengirim…";
+    var j = await adminFetch("/api/admin/email/send/test", { method:"POST", body: JSON.stringify({ send_id: blastState.sendId }) }).then(function(r){return r.json();}).catch(function(){return{};});
+    if (j && j.ok) {
+      el("bTestState").textContent = "✅ Tes terkirim ke "+j.to+".";
+      var p = blastState.preview||{};
+      el("bConfirmSummary").textContent = "Akan mengirim ke "+ (p.total_eligible||0) +" orang.";
+      el("bConfirmName").textContent = el("bName").value.trim();
+      setTimeout(function(){ bshow(5); }, 700);
+    } else { el("bTestState").textContent = "❌ "+((j&&(j.error||(j.result&&j.result.error)))||"gagal (cek domain Resend / whitelist)"); }
+  };
+
+  el("bConfirmInput").addEventListener("input", function(){
+    el("bSendBtn").disabled = (el("bConfirmInput").value.trim() !== el("bName").value.trim());
+  });
+
+  el("bSendBtn").onclick = async function(){
+    var j = await adminFetch("/api/admin/email/send/confirm", { method:"POST", body: JSON.stringify({ send_id: blastState.sendId, typed_name: el("bConfirmInput").value.trim() }) }).then(function(r){return r.json();}).catch(function(){return{};});
+    if (!j || !j.ok) { bmsg((j&&j.error)||"Gagal konfirmasi.", false); return; }
+    bmsg("Masuk antrian. Pengiriman berjalan bertahap (cron).", true); bshow(6); pollProgress();
+  };
+
+  function renderProg(s, by){
+    el("bProgress").innerHTML = stat(s.total_eligible||0,"Target") + stat(s.total_sent||0,"Terkirim") + stat(s.total_failed||0,"Gagal",(s.total_failed||0)>0) + stat(by.skipped||0,"Dilewati") + stat(s.status,"Status", s.status==="failed");
+    el("bProgMsg").textContent = s.abort_reason ? ("⚠ "+s.abort_reason) : ("Status: "+s.status+" — batch jalan via cron /api/cron/email-queue");
+  }
+  async function pollProgress(){
+    if (blastState.poll) clearInterval(blastState.poll);
+    async function tick(){
+      var j = await adminFetch("/api/admin/email/send/"+blastState.sendId).then(function(r){return r.json();}).catch(function(){return{};});
+      if (j && j.ok) { renderProg(j.send, j.recipient_status||{}); if (["completed","cancelled","failed"].indexOf(j.send.status)>=0 && blastState.poll) { clearInterval(blastState.poll); blastState.poll=null; } }
+    }
+    tick(); blastState.poll = setInterval(tick, 5000);
+  }
+  el("bPauseBtn").onclick = function(){ adminFetch("/api/admin/email/send/pause",{method:"POST",body:JSON.stringify({send_id:blastState.sendId})}).then(function(){bmsg("Di-pause.",true);}); };
+  el("bResumeBtn").onclick = function(){ adminFetch("/api/admin/email/send/resume",{method:"POST",body:JSON.stringify({send_id:blastState.sendId})}).then(function(){bmsg("Dilanjut.",true);}); };
+  el("bCancelBtn").onclick = function(){ if(!confirm("Batalkan? Sisa penerima tidak akan dikirim.")) return; adminFetch("/api/admin/email/send/cancel",{method:"POST",body:JSON.stringify({send_id:blastState.sendId})}).then(function(){bmsg("Dibatalkan.",true);}); };
+
+  boot().then(function(){ initBlast(); });
 })();
 </script>
 </body>
