@@ -454,6 +454,7 @@ app.post("/api/cron/daily", async (req, res) => {
   if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
   try {
     const out = await campaigns.runDaily({ admin, email, comms, baseUrl: APP_BASE_URL });
+    try { out.blast_automations = await blast.runAutomations(blastCtx()); } catch (e) { out.blast_automations = { error: e.message }; }
     return res.json(out);
   } catch (e) {
     console.error("cron/daily:", e && e.message);
@@ -701,6 +702,49 @@ app.post("/api/cron/email-queue", async (req, res) => {
   if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
   try { return res.json(await blast.processBatch(blastCtx())); }
   catch (e) { console.error("email-queue:", e && e.message); return res.status(500).json({ error: e.message }); }
+});
+
+// ============ Blast: automation (trigger otomatis, WAJIB dry-run dulu) ============
+app.get("/api/admin/email/automations", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try { const { data } = await admin.from("my20fit_email_automations").select("*").order("created_at", { ascending: false }); return res.json({ ok: true, automations: data || [] }); }
+  catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/email/automations", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    if (!String(b.name || "").trim() || segments.PRESET_IDS.indexOf(b.segment_id) < 0 || blast.TEMPLATE_IDS.indexOf(b.template_id) < 0 || !String(b.subject || "").trim())
+      return res.status(400).json({ error: "name/segment/template/subject wajib & valid" });
+    // Selalu mulai dry-run + disabled (aman). Admin aktifkan setelah review.
+    const { data } = await admin.from("my20fit_email_automations").insert({
+      name: b.name.trim(), segment_id: b.segment_id, template_id: b.template_id, subject: b.subject.trim(),
+      enabled: false, dry_run: true, daily_cap: b.daily_cap ? parseInt(b.daily_cap, 10) : 100, created_by: ctx.email || "admin",
+    }).select("*").single();
+    await adminAudit(ctx, "email.automation.create", data && data.id, { name: b.name });
+    return res.json({ ok: true, automation: data });
+  } catch (e) { return res.status(400).json({ error: e.message }); }
+});
+app.post("/api/admin/email/automations/:id/toggle", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const patch = { updated_at: new Date().toISOString() };
+    if (typeof b.enabled === "boolean") patch.enabled = b.enabled;
+    if (typeof b.dry_run === "boolean") patch.dry_run = b.dry_run;
+    await admin.from("my20fit_email_automations").update(patch).eq("id", req.params.id);
+    await adminAudit(ctx, "email.automation.toggle", req.params.id, patch);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(400).json({ error: e.message }); }
+});
+// Hasil dry-run (siapa yang AKAN dikirim) — untuk review sebelum diaktifkan live.
+app.get("/api/admin/email/automations/:id/dryrun", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { count } = await admin.from("my20fit_email_automation_log").select("id", { count: "exact", head: true }).eq("automation_id", req.params.id).eq("action", "dry_run");
+    const { data: sample } = await admin.from("my20fit_email_automation_log").select("user_id,created_at").eq("automation_id", req.params.id).eq("action", "dry_run").order("created_at", { ascending: false }).limit(20);
+    return res.json({ ok: true, would_send_total: count || 0, sample: sample || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
 // ---------- Middleware ----------
