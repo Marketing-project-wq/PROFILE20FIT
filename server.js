@@ -15,6 +15,7 @@ const rateLimit = require("express-rate-limit");
 const email = require("./lib/email"); // SATU-SATUNYA jalur kirim email (Resend)
 const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerbang frekuensi
 const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
+const segments = require("./lib/segments"); // segment engine untuk blast email admin
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -583,6 +584,26 @@ app.post("/api/admin/email/killswitch", async (req, res) => {
     );
     await adminAudit(ctx, "email.killswitch", id, { enabled: enabled });
     return res.json({ ok: true, campaign_id: id, enabled: enabled });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ---------- Blast: daftar preset segmen ----------
+app.get("/api/admin/email/segments", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer");
+  if (!ctx) return;
+  return res.json({ ok: true, presets: segments.PRESETS });
+});
+
+// ---------- Blast: preview segmen (cocok vs layak + rincian + sampel 20) ----------
+// BEBAS data kesehatan. Filter kelayakan TAK bisa di-bypass (tak ada parameter override).
+app.post("/api/admin/email/segment/preview", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer");
+  if (!ctx) return;
+  try {
+    const presetId = String((req.body && req.body.preset_id) || "").trim();
+    if (segments.PRESET_IDS.indexOf(presetId) < 0) return res.status(400).json({ error: "preset tidak dikenal" });
+    const out = await segments.previewSegment(admin, presetId);
+    return res.json(Object.assign({ ok: true }, out));
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
