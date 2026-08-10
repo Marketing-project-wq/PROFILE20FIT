@@ -767,8 +767,11 @@
       var h='<div class="scd">';
       var conf=Math.round(+res.confidence||0);
       var confLab=conf>0?(conf>=75?L({en:"high confidence",id:"keyakinan tinggi"}):conf>=55?L({en:"medium confidence",id:"keyakinan sedang"}):L({en:"low confidence",id:"keyakinan rendah"})):"";
-      h+='<div class="scd-top"><div class="scd-name">'+esc(title)+'</div><div class="scd-kcal">±'+kcal+' '+kc()+'</div></div>';
-      h+='<div class="scd-est" style="font-size:11.5px;color:var(--muted,#8A7C68);margin:2px 0 8px">'+L({en:"Estimate from photo",id:"Perkiraan dari foto"})+(confLab?' · '+confLab:'')+'</div>';
+      var kmin=Math.round(+res.kcal_min||0), kmax=Math.round(+res.kcal_max||0);
+      var kcalTop=(kmin>0&&kmax>kmin)?(kmin+'–'+kmax+' '+kc()):('±'+kcal+' '+kc());
+      var estMid=(kmin>0&&kmax>kmin)?(' · ~'+kcal+' '+kc()):'';
+      h+='<div class="scd-top"><div class="scd-name">'+esc(title)+'</div><div class="scd-kcal">'+kcalTop+'</div></div>';
+      h+='<div class="scd-est" style="font-size:11.5px;color:var(--muted,#8A7C68);margin:2px 0 8px">'+L({en:"Estimate from photo",id:"Perkiraan dari foto"})+estMid+(confLab?' · '+confLab:'')+'</div>';
       // Konfirmasi porsi = cara paling ngangkat akurasi. Dorong lebih kuat kalau AI kurang yakin.
       if(conf>0 && conf<60){
         h+='<div style="background:#FDECEC;border:1px solid #f3c2bd;border-radius:10px;padding:9px 11px;margin:0 0 10px;font-size:12.5px;color:#8a2b22">'+
