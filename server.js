@@ -12,7 +12,7 @@ const path = require("path");
 const crypto = require("crypto");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
-const nodemailer = require("nodemailer");
+const email = require("./lib/email"); // SATU-SATUNYA jalur kirim email (Resend)
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -81,17 +81,25 @@ const anon =
       })
     : null;
 
-// ---------- Email (SMTP) ----------
-let mailer = null;
-if (process.env.SMTP_HOST) {
-  mailer = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || "587", 10),
-    secure: process.env.SMTP_SECURE === "true", // true utk port 465
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
+// ---------- Email (Resend) ----------
+// Satu-satunya jalur kirim email = lib/email.js. Provider & SMTP lama sudah dicabut total.
+// Timezone pengiriman selalu WIB (Asia/Jakarta).
+const CRON_SECRET = process.env.CRON_SECRET || ""; // pengaman endpoint /api/cron/*
+email.init({ admin });
+{
+  const _miss = email.assertConfig();
+  if (_miss.length) {
+    console.warn(
+      "[20FIT] WARNING: env email belum lengkap: " + _miss.join(", ") +
+        " — email TIDAK akan terkirim sampai di-set di Railway."
+    );
+  }
+  const _ei = email.envInfo();
+  console.log(
+    `[20FIT] Email via Resend — environment=${_ei.environment}, from=${_ei.from}` +
+      (_ei.is_prod ? "" : `, WHITELIST-ONLY (${_ei.whitelist_count} alamat)`)
+  );
 }
-const MAIL_FROM = process.env.MAIL_FROM || "20FIT <no-reply@20fit.id>";
 
 async function sendOtpEmail(to, code) {
   const html = `
@@ -105,14 +113,131 @@ async function sendOtpEmail(to, code) {
       <p style="color:#666;font-size:13px">Kode berlaku ${OTP_TTL_MINUTES} menit.
          Abaikan email ini jika kamu tidak mendaftar.</p>
     </div>`;
-  if (!mailer) {
-    // Mode dev: belum ada SMTP -> log ke console server
-    console.log(`[20FIT][DEV] OTP untuk ${to}: ${code}`);
-    return { sent: false };
-  }
-  await mailer.sendMail({ from: MAIL_FROM, to, subject: "Kode Verifikasi 20FIT", html });
-  return { sent: true };
+  // OTP = transaksional: selalu kirim, tanpa header unsubscribe, tak dihitung frekuensi.
+  const r = await email.send({
+    to,
+    subject: "Kode Verifikasi 20FIT",
+    html,
+    transactional: true,
+    channel: "transactional",
+    templateId: "otp",
+  });
+  // Bantu dev lihat kode saat email diblokir (non-production / env belum di-set).
+  if (!r.ok || r.skipped) console.log(`[20FIT][DEV] OTP untuk ${to}: ${code}`);
+  return { sent: !!(r.ok && !r.skipped) };
 }
+
+// ---------- Cron: notifikasi Intermittent Fasting (buka/tutup eating window) ----------
+// Dulu Supabase Edge Function terpisah. Dipindah ke sini agar SATU jalur email (Resend).
+// Panggil terjadwal (Railway Cron / pg_cron) tiap ~5-10 menit:
+//   POST /api/cron/fasting-notify   header: x-cron-secret: <CRON_SECRET>
+const FASTING_LOGO =
+  "https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png";
+const FASTING_APP = "https://my.20fit.id/calories.html#fasting";
+function fastFmt(m) {
+  m = ((m % 1440) + 1440) % 1440;
+  return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+}
+function fastingHtml(kind, info) {
+  const open = kind === "open";
+  const accent = open ? "#2A7A4F" : "#C87000";
+  const accentBg = open ? "#e7f2ec" : "#fbeede";
+  const emoji = open ? "🍽️" : "⏰";
+  const badge = open ? "EAT NOW" : "WRAP UP";
+  const head = open ? "Your eating window is open" : "Your eating window is closing";
+  const msg = open
+    ? "It's time to break your fast. Enjoy a balanced, mindful meal and hit your calorie &amp; protein targets for today."
+    : "Your eating window is about to close. Finish your last meal and get ready to start fasting until your next window.";
+  const windowBox = info.window
+    ? "<tr><td style='padding:18px 28px 2px'><table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='background:#f6f4f0;border-radius:12px'><tr><td style='padding:15px 18px;text-align:center'>" +
+      "<div style='font-size:11px;color:#9a907f;text-transform:uppercase;letter-spacing:1.5px;font-weight:bold'>Eating window</div>" +
+      "<div style='font-size:22px;font-weight:bold;color:#0A0908;font-family:Courier New,monospace;margin-top:3px'>" + info.window + "</div>" +
+      (info.style ? "<div style='font-size:12px;color:#9a907f;margin-top:3px'>" + info.style + " style</div>" : "") +
+      "</td></tr></table></td></tr>"
+    : "";
+  return "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'></head>" +
+    "<body style='margin:0;padding:0;background:#f4f2ee'>" +
+    "<table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='background:#f4f2ee;padding:24px 12px'><tr><td align='center'>" +
+    "<table role='presentation' width='480' cellpadding='0' cellspacing='0' style='max-width:480px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif'>" +
+    "<tr><td style='background:#0A0908;padding:22px;text-align:center'><img src='" + FASTING_LOGO + "' alt='20fit' height='26' style='height:26px'></td></tr>" +
+    "<tr><td style='height:5px;line-height:5px;font-size:0;background:" + accent + "'>&nbsp;</td></tr>" +
+    "<tr><td style='padding:30px 28px 4px;text-align:center'>" +
+    "<div style='font-size:46px;line-height:1'>" + emoji + "</div>" +
+    "<div style='display:inline-block;margin:14px 0 8px;padding:6px 16px;border-radius:999px;background:" + accentBg + ";color:" + accent + ";font-size:12px;font-weight:bold;letter-spacing:1.5px'>" + badge + "</div>" +
+    "<h1 style='margin:6px 0 0;font-size:23px;color:#0A0908;line-height:1.25'>" + head + "</h1>" +
+    "</td></tr>" +
+    "<tr><td style='padding:8px 30px 2px;text-align:center'><p style='margin:0;font-size:15px;line-height:1.65;color:#555'>" + msg + "</p></td></tr>" +
+    windowBox +
+    "<tr><td style='padding:24px 28px 6px;text-align:center'><a href='" + FASTING_APP + "' style='display:inline-block;background:#C41101;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:12px;font-weight:bold;font-size:15px'>Open my tracker</a></td></tr>" +
+    "<tr><td style='padding:22px 30px 28px;text-align:center'><p style='margin:0;font-size:12px;color:#b3a89a;line-height:1.55'>You're receiving this because Intermittent Fasting reminders are ON in your 20fit Health Profile. You can turn them off anytime in the app.</p></td></tr>" +
+    "</table>" +
+    "<div style='font-size:11px;color:#c2b9ab;margin-top:14px;font-family:Arial,sans-serif'>© 20FIT Sport Clinic · Indonesia</div>" +
+    "</td></tr></table></body></html>";
+}
+
+app.post("/api/cron/fasting-notify", async (req, res) => {
+  const secret = req.get("x-cron-secret") || (req.query && req.query.key) || "";
+  if (!CRON_SECRET || secret !== CRON_SECRET) return res.status(401).json({ error: "unauthorized" });
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const b = req.body || {};
+    if (b.action === "test") {
+      if (!b.email) return res.status(400).json({ error: "email wajib" });
+      const kind = b.kind === "close" ? "close" : "open";
+      const r = await email.send({
+        to: b.email,
+        subject: kind === "close" ? "⏰ Your eating window is closing" : "🍽️ Your eating window is open",
+        html: fastingHtml(kind, { style: "16:8", window: "12:00 – 20:00" }),
+        transactional: true, channel: "transactional", templateId: "fasting_" + kind,
+      });
+      return res.json({ ok: true, test: r });
+    }
+    const WINDOW = 14; // menit toleransi di sekitar jam buka/tutup
+    const now = new Date();
+    const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const wibMin = (utcMin + 420) % 1440; // WIB = UTC+7
+    const wibDate = new Date(now.getTime() + 420 * 60000).toISOString().slice(0, 10);
+    const { data: rows } = await admin.from("my20fit_fasting").select("*").eq("notify_email", true);
+    let sent = 0;
+    const log = [];
+    for (const row of rows || []) {
+      if (!row.email || !row.start_time) continue;
+      const p = String(row.start_time).split(":");
+      const openMin = +p[0] * 60 + +p[1];
+      const eat = row.eat_hours || 8;
+      if (eat >= 24) continue;
+      const closeMin = (openMin + eat * 60) % 1440;
+      const info = { style: row.style || undefined, window: fastFmt(openMin) + " – " + fastFmt(closeMin) };
+      const dOpen = (((wibMin - openMin) % 1440) + 1440) % 1440;
+      const dClose = (((wibMin - closeMin) % 1440) + 1440) % 1440;
+      if (dOpen < WINDOW && row.last_open_date !== wibDate) {
+        const r = await email.send({
+          to: row.email, subject: "🍽️ Your eating window is open",
+          html: fastingHtml("open", info), transactional: true, channel: "transactional",
+          templateId: "fasting_open", userId: row.auth_user_id || null,
+          idempotencyKey: "fasting_open:" + row.auth_user_id + ":" + wibDate,
+        });
+        if (r.ok && !r.skipped) sent++;
+        await admin.from("my20fit_fasting").update({ last_open_date: wibDate }).eq("auth_user_id", row.auth_user_id);
+        log.push(row.email + ":open");
+      } else if (dClose < WINDOW && row.last_close_date !== wibDate) {
+        const r = await email.send({
+          to: row.email, subject: "⏰ Your eating window is closing",
+          html: fastingHtml("close", info), transactional: true, channel: "transactional",
+          templateId: "fasting_close", userId: row.auth_user_id || null,
+          idempotencyKey: "fasting_close:" + row.auth_user_id + ":" + wibDate,
+        });
+        if (r.ok && !r.skipped) sent++;
+        await admin.from("my20fit_fasting").update({ last_close_date: wibDate }).eq("auth_user_id", row.auth_user_id);
+        log.push(row.email + ":close");
+      }
+    }
+    return res.json({ ok: true, checked: (rows || []).length, sent, wibMin, wibDate, log });
+  } catch (e) {
+    console.error("fasting-notify:", e && e.message);
+    return res.status(500).json({ error: e.message });
+  }
+});
 
 // ---------- Middleware ----------
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -1752,10 +1877,16 @@ app.post("/api/corp/message", async (req, res) => {
     var results = [], sent = 0;
     for (var i = 0; i < recips.length; i++) {
       var m = recips[i], personal = body.replace(/\{nama\}/g, m.full_name || ""), st = "skipped";
-      if (mailer) {
-        try { await mailer.sendMail({ from: MAIL_FROM, to: m.email, subject: subject, html: corpMsgHtml(personal) }); st = "sent"; sent++; }
-        catch (e) { st = "failed"; }
-      } else { console.log("[20FIT][DEV] corp msg -> " + m.email + " : " + subject); }
+      try {
+        var rr = await email.send({
+          to: m.email, subject: subject, html: corpMsgHtml(personal),
+          transactional: true, channel: "transactional", templateId: "corp_broadcast",
+          userId: m.auth_user_id || null,
+        });
+        if (rr.ok && !rr.skipped) { st = "sent"; sent++; }
+        else if (rr.skipped) { st = "skipped"; }
+        else { st = "failed"; }
+      } catch (e) { st = "failed"; }
       results.push({ auth_user_id: m.auth_user_id, email: m.email, name: m.full_name || null, status: st });
     }
     try {
@@ -1765,7 +1896,7 @@ app.post("/api/corp/message", async (req, res) => {
       });
     } catch (e) {}
     await corpAudit(ctx, null, "message.send", { recipient_count: recips.length, sent: sent, subject: subject });
-    return res.json({ ok: true, recipient_count: recips.length, sent: sent, dev: !mailer });
+    return res.json({ ok: true, recipient_count: recips.length, sent: sent, dev: !email.envInfo().is_prod });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Riwayat pesan terkirim (corporate ini).
@@ -3933,8 +4064,8 @@ app.use((err, req, res, next) => {
 // nilai/secret TIDAK pernah ditampilkan. Membantu memverifikasi konfigurasi Railway.
 function logEnvReadiness() {
   var core = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_KEY"];
-  var important = ["FITCO_API_URL", "FITCO_PARTNER_TOKEN", "SMTP_HOST", "SMTP_USER", "SMTP_PASS", "MAIL_FROM"];
-  var optional = ["ADMIN_KEY", "XENDIT_ENABLED", "API_PHOTO", "PHOTO_SSO_URL", "ARENA_API_URL", "ARENA_API_KEY", "GOOGLE_CLIENT_ID", "META_PIXEL_ID", "WAQI_TOKEN", "APP_BASE_URL"];
+  var important = ["FITCO_API_URL", "FITCO_PARTNER_TOKEN", "RESEND_API_KEY", "MAIL_FROM", "EMAIL_ENVIRONMENT"];
+  var optional = ["ADMIN_KEY", "CRON_SECRET", "EMAIL_TEST_WHITELIST", "MAIL_REPLY_TO", "XENDIT_ENABLED", "API_PHOTO", "PHOTO_SSO_URL", "ARENA_API_URL", "ARENA_API_KEY", "GOOGLE_CLIENT_ID", "META_PIXEL_ID", "WAQI_TOKEN", "APP_BASE_URL"];
   var miss = function (list) { return list.filter(function (k) { return !String(process.env[k] || "").trim(); }); };
   var mc = miss(core), mi = miss(important), mo = miss(optional);
   if (mc.length) console.warn("[20FIT][ENV] ❌ INTI belum diset (app tidak akan jalan benar):", mc.join(", "));
