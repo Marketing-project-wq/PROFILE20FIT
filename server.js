@@ -3697,6 +3697,23 @@ async function refineWithFoodRef(result) {
   } catch (e) { console.error("refineWithFoodRef:", e && e.message); return false; }
 }
 
+// Suapkan kamus internal (yg sudah cukup dikoreksi) ke AI sebagai REFERENCE — biar AI
+// memilih angka hasil koreksi user untuk makanan yang cocok, BUKAN cuma override setelahnya.
+async function buildFoodReference(limit) {
+  try {
+    const { data: rows } = await admin.from("my20fit_food_ref")
+      .select("food_key,kcal_per_g,protein_per_g,carbs_per_g,fat_per_g,fiber_per_g,sample_count")
+      .gte("sample_count", FOOD_REF_MIN_SAMPLES)
+      .order("sample_count", { ascending: false }).limit(limit || 40);
+    if (!rows || !rows.length) return null;
+    return rows.map((r) =>
+      r.food_key + ": " + (+r.kcal_per_g).toFixed(2) + " kcal/g, P " + (+r.protein_per_g).toFixed(3) +
+      ", C " + (+r.carbs_per_g).toFixed(3) + ", F " + (+r.fat_per_g).toFixed(3) +
+      ", fiber " + (+r.fiber_per_g).toFixed(3) + " per g"
+    ).join("\n");
+  } catch (e) { return null; }
+}
+
 app.post("/api/scan/ai", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
@@ -3722,7 +3739,7 @@ app.post("/api/scan/ai", async (req, res) => {
       const r = await fetch(AI_FN_URL, {
         method: "POST", signal: ctrl.signal,
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
-        body: JSON.stringify({ action: "food", image: body.image, text: body.text, lang: body.lang }),
+        body: JSON.stringify({ action: "food", image: body.image, text: body.text, lang: body.lang, reference: await buildFoodReference(40) }),
       });
       clearTimeout(to);
       aiJson = await r.json().catch(() => ({}));
