@@ -14,6 +14,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const email = require("./lib/email"); // SATU-SATUNYA jalur kirim email (Resend)
 const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerbang frekuensi
+const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -424,6 +425,23 @@ app.post("/unsubscribe", async (req, res) => {
     await admin.from("my20fit_user_comm_prefs").update(patch).eq("user_id", p.user_id);
     return res.status(200).send("OK: unsubscribed");
   } catch (e) { return res.status(500).send("error"); }
+});
+
+// ---------- Cron: MEAL REMINDER (panggil tiap 15 menit) ----------
+// POST /api/cron/meal-reminders   header: x-cron-secret: <CRON_SECRET>
+// Idempoten (idempotency key per window/hari); hormati skip-if-logged + gerbang frekuensi.
+// Kalau cron terlewat (server down), JANGAN kirim susulan — window ±15 menit sudah lewat.
+app.post("/api/cron/meal-reminders", async (req, res) => {
+  const secret = req.get("x-cron-secret") || (req.query && req.query.key) || "";
+  if (!CRON_SECRET || secret !== CRON_SECRET) return res.status(401).json({ error: "unauthorized" });
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const out = await campaigns.runMealReminders({ admin, email, comms, baseUrl: APP_BASE_URL });
+    return res.json(out);
+  } catch (e) {
+    console.error("meal-reminders:", e && e.message);
+    return res.status(500).json({ error: e.message });
+  }
 });
 
 // ---------- Middleware ----------
