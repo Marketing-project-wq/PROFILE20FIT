@@ -4417,7 +4417,7 @@ app.use((err, req, res, next) => {
 // nilai/secret TIDAK pernah ditampilkan. Membantu memverifikasi konfigurasi Railway.
 function logEnvReadiness() {
   var core = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_KEY"];
-  var important = ["FITCO_API_URL", "FITCO_PARTNER_TOKEN", "RESEND_API_KEY", "MAIL_FROM", "EMAIL_ENVIRONMENT"];
+  var important = ["FITCO_API_URL", "FITCO_PARTNER_TOKEN", "EMAIL_RESEND_API", "MAIL_FROM", "EMAIL_ENVIRONMENT"];
   var optional = ["ADMIN_KEY", "CRON_SECRET", "RESEND_WEBHOOK_SECRET", "EMAIL_TEST_WHITELIST", "MAIL_REPLY_TO", "XENDIT_ENABLED", "API_PHOTO", "PHOTO_SSO_URL", "ARENA_API_URL", "ARENA_API_KEY", "GOOGLE_CLIENT_ID", "META_PIXEL_ID", "WAQI_TOKEN", "APP_BASE_URL"];
   var miss = function (list) { return list.filter(function (k) { return !String(process.env[k] || "").trim(); }); };
   var mc = miss(core), mi = miss(important), mo = miss(optional);

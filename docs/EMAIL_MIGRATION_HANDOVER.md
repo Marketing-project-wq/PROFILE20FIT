@@ -34,7 +34,7 @@ Branch: `claude/my20fit-racelab-banner-riiupl`. Alur deploy tetap: **staging dul
 
 **Tambah / isi:**
 ```
-RESEND_API_KEY=            # WAJIB. Server-side only, JANGAN prefix VITE_/publik.
+EMAIL_RESEND_API=          # WAJIB. Server-side only, JANGAN prefix VITE_/publik.
 MAIL_FROM=20FIT <no-reply@20fit.id>
 MAIL_REPLY_TO=             # opsional (mis. cs@20fit.id)
 EMAIL_ENVIRONMENT=production   # production | staging | development
@@ -42,8 +42,8 @@ EMAIL_TEST_WHITELIST=          # alamat internal (koma) utk non-production
 CRON_SECRET=                   # secret acak, utk POST /api/cron/*
 RESEND_WEBHOOK_SECRET=         # 'whsec_...' dari Resend, utk /api/webhooks/resend
 ```
-> ⚠️ Nama `RESEND_API_KEY` = **asumsi**. Kalau di Railway kamu pakai nama lain,
-> beri tahu — atau ganti env-nya jadi `RESEND_API_KEY`.
+> ✅ Nama env terverifikasi di Railway = **`EMAIL_RESEND_API`** (kode membaca ini;
+> ada fallback ke `RESEND_API_KEY` bila suatu saat dipakai).
 
 **Hapus (sudah tidak dibaca kode):**
 ```
@@ -65,7 +65,7 @@ Tidak menyentuh tabel app lain.
 
 ## 4. Checklist manual kamu (di luar repo)
 - [ ] **Resend:** verifikasi domain `20fit.id` + set **SPF / DKIM / DMARC** di DNS.
-- [ ] Isi `RESEND_API_KEY` (+ `RESEND_WEBHOOK_SECRET`, `CRON_SECRET`, dst.) di Railway.
+- [ ] Isi `EMAIL_RESEND_API` (+ `RESEND_WEBHOOK_SECRET`, `CRON_SECRET`, dst.) di Railway.
 - [ ] **Webhook Resend** → arahkan ke `https://my.20fit.id/api/webhooks/resend`,
       aktifkan event: delivered, opened, clicked, bounced, complained. Salin
       signing secret (`whsec_...`) ke `RESEND_WEBHOOK_SECRET`.
