@@ -2989,6 +2989,161 @@ app.get("/api/admin/user-detail", async (req, res) => {
     return res.json({ ok: true, profile: (p && p[0]) || null, activity: (act && act[0]) || null, orders: orders || [], stats: stats, emails: emails || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
+
+// ================= TASK 3: KELOLA EMAIL / USER (superadmin) =================
+// Semua operasi menyentuh Supabase Auth (shared antara staging & prod — HATI-HATI).
+// Diaudit ke my20fit_admin_audit_log dengan target = uid supaya muncul di timeline user.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const escHtml = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// Muat semua email auth SEKALI (Map email->id) untuk dedupe bulk (hindari scan per-baris).
+async function loadAllAuthEmails() {
+  const map = new Map();
+  try {
+    for (let page = 1; page <= 50; page++) {
+      const { data } = await admin.auth.admin.listUsers({ page: page, perPage: 1000 });
+      const u = (data && data.users) || [];
+      u.forEach((x) => { if (x.email) map.set(String(x.email).toLowerCase(), x.id); });
+      if (u.length < 1000) break;
+    }
+  } catch (e) {}
+  return map;
+}
+
+// Ganti email user — kirim email KONFIRMASI ke alamat baru (user harus klik).
+// Auth email TIDAK berubah sampai dikonfirmasi (flow bawaan GoTrue). Consent
+// (my20fit_user_comm_prefs) terkunci ke user_id → otomatis ikut. Suppression
+// terkunci ke email → kalau email lama disuppress, salin ke email baru (fail-safe).
+app.post("/api/admin/user/change-email", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const uid = String(b.uid || "").trim();
+    const newEmail = String(b.new_email || "").trim().toLowerCase();
+    if (!uid) return res.status(400).json({ error: "uid wajib." });
+    if (!EMAIL_RE.test(newEmail)) return res.status(400).json({ error: "Format email baru tidak valid." });
+    // Ambil user auth saat ini.
+    let cur = null;
+    try { const g = await admin.auth.admin.getUserById(uid); cur = g && g.data && g.data.user; } catch (e) {}
+    if (!cur) return res.status(404).json({ error: "User tidak ditemukan di Auth." });
+    const oldEmail = String(cur.email || "").toLowerCase();
+    if (oldEmail === newEmail) return res.status(400).json({ error: "Email baru sama dengan yang lama." });
+    // Dedupe: email baru tak boleh dipakai user lain.
+    const usedBy = await findUserIdByEmail(newEmail);
+    if (usedBy && usedBy !== uid) return res.status(409).json({ error: "Email itu sudah dipakai akun lain." });
+    // Link konfirmasi email-change (GoTrue). Butuh setting "Secure email change".
+    let link = null;
+    try {
+      const { data: ld, error: le } = await admin.auth.admin.generateLink({
+        type: "email_change_new", email: oldEmail, newEmail: newEmail,
+        options: { redirectTo: APP_BASE_URL + "/calories.html" },
+      });
+      if (le) throw le;
+      link = (ld && ld.properties && ld.properties.action_link) || null;
+    } catch (e) {
+      return res.status(500).json({ error: "Gagal membuat link konfirmasi: " + e.message + " (pastikan 'Secure email change' aktif di Supabase Auth)." });
+    }
+    if (!link) return res.status(500).json({ error: "Link konfirmasi kosong." });
+    // Kirim lewat SATU jalur mailer kita (Resend) → tunduk env whitelist saat non-prod.
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto">
+        <h2 style="color:#1db954">Konfirmasi perubahan email 20FIT</h2>
+        <p>Admin 20FIT mengganti email akunmu menjadi <b>${escHtml(newEmail)}</b>.
+           Klik tombol di bawah untuk mengonfirmasi. Kalau ini bukan kamu, abaikan email ini.</p>
+        <p><a href="${link}" style="display:inline-block;background:#1db954;color:#fff;
+           padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">Konfirmasi email baru</a></p>
+        <p style="color:#666;font-size:12px;word-break:break-all">${link}</p>
+      </div>`;
+    const r = await email.send({ to: newEmail, subject: "Konfirmasi email baru 20FIT", html, transactional: true, channel: "transactional", templateId: "email_change", userId: uid });
+    // Salin suppression email lama → baru (fail-safe compliance).
+    try {
+      const { data: sup } = await admin.from("my20fit_suppression_list").select("reason,is_permanent").eq("email", oldEmail).limit(1);
+      if (sup && sup[0]) await comms.addSuppression(newEmail, uid, sup[0].reason || "carried", true);
+    } catch (e) {}
+    await adminAudit(ctx, "user.change_email", uid, { old: oldEmail, new: newEmail, mail_sent: !!(r && r.ok && !r.skipped), mail_skipped: !!(r && r.skipped) });
+    return res.json({ ok: true, pending: true, sent: !!(r && r.ok && !r.skipped), skipped: !!(r && r.skipped), message: "Email konfirmasi dikirim ke " + newEmail + ". Perubahan berlaku setelah user klik konfirmasi." });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Tambah 1 user manual — TANPA kirim email (email_confirm:true = tak ada invite).
+app.post("/api/admin/user/create", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const em = String(b.email || "").trim().toLowerCase();
+    const fullName = b.full_name != null ? String(b.full_name).trim() : null;
+    const phone = b.phone != null ? String(b.phone).trim() : null;
+    if (!EMAIL_RE.test(em)) return res.status(400).json({ error: "Format email tidak valid." });
+    if (await findUserIdByEmail(em)) return res.status(409).json({ error: "Email sudah terdaftar." });
+    let uid = null;
+    try {
+      const { data: cu, error: ce } = await admin.auth.admin.createUser({ email: em, email_confirm: true, user_metadata: { full_name: fullName, via_20fit: true, admin_created: true } });
+      if (ce) throw ce;
+      uid = cu && cu.user && cu.user.id;
+    } catch (e) { return res.status(500).json({ error: "Gagal membuat akun: " + e.message }); }
+    if (!uid) return res.status(500).json({ error: "Akun dibuat tapi uid kosong." });
+    await admin.from("my20fit_profile").upsert({ auth_user_id: uid, email: em, full_name: fullName, phone: phone }, { onConflict: "auth_user_id" });
+    await adminAudit(ctx, "user.create", uid, { email: em });
+    return res.json({ ok: true, uid: uid, email: em });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Import banyak user via CSV. Dua fase: preview (commit=false) lalu commit=true.
+// TANPA kirim email. Body: { rows:[{email,full_name?,phone?}], commit?:bool }.
+app.post("/api/admin/user/bulk-import", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const rows = Array.isArray(b.rows) ? b.rows : [];
+    if (!rows.length) return res.status(400).json({ error: "Tidak ada baris." });
+    if (rows.length > 2000) return res.status(400).json({ error: "Maksimal 2000 baris per impor." });
+    const existing = await loadAllAuthEmails();
+    const seen = new Set();
+    const report = rows.map((row, i) => {
+      const em = String((row && row.email) || "").trim().toLowerCase();
+      const item = { row: i + 1, email: em, full_name: (row && row.full_name) ? String(row.full_name).trim() : null, phone: (row && row.phone) ? String(row.phone).trim() : null };
+      if (!EMAIL_RE.test(em)) { item.status = "invalid"; item.reason = "format email salah"; return item; }
+      if (seen.has(em)) { item.status = "duplicate_in_file"; item.reason = "email ganda di file"; return item; }
+      seen.add(em);
+      if (existing.has(em)) { item.status = "duplicate_existing"; item.reason = "sudah terdaftar"; return item; }
+      item.status = "new"; return item;
+    });
+    const counts = report.reduce((a, r) => { a[r.status] = (a[r.status] || 0) + 1; return a; }, {});
+    if (!b.commit) {
+      return res.json({ ok: true, mode: "preview", counts: counts, total: report.length, rows: report });
+    }
+    // COMMIT: buat hanya yang 'new'.
+    let created = 0;
+    for (const it of report) {
+      if (it.status !== "new") continue;
+      try {
+        const { data: cu, error: ce } = await admin.auth.admin.createUser({ email: it.email, email_confirm: true, user_metadata: { full_name: it.full_name, via_20fit: true, admin_created: true, bulk_import: true } });
+        if (ce) throw ce;
+        const uid = cu && cu.user && cu.user.id;
+        if (uid) {
+          await admin.from("my20fit_profile").upsert({ auth_user_id: uid, email: it.email, full_name: it.full_name, phone: it.phone }, { onConflict: "auth_user_id" });
+          it.status = "created"; created++;
+        } else { it.status = "failed"; it.reason = "uid kosong"; }
+      } catch (e) { it.status = "failed"; it.reason = e.message; }
+    }
+    const failed = report.filter((r) => r.status === "failed");
+    await adminAudit(ctx, "user.bulk_import", null, { attempted: counts.new || 0, created: created, failed: failed.length });
+    return res.json({ ok: true, mode: "commit", created: created, failed: failed.length, total: report.length, rows: report });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Riwayat audit admin untuk 1 user (aksi user.* yang menargetkan uid ini).
+app.get("/api/admin/user/audit", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    const uid = String(req.query.uid || "").trim();
+    if (!uid) return res.status(400).json({ error: "uid wajib." });
+    const { data } = await admin.from("my20fit_admin_audit_log")
+      .select("actor_email,action,detail,created_at").eq("target", uid)
+      .order("created_at", { ascending: false }).limit(50);
+    return res.json({ ok: true, logs: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // Analisa produk paling laris (paket kredit) — count + revenue per ukuran paket.
 app.get("/api/admin/top-products", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
