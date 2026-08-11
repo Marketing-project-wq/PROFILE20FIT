@@ -1195,6 +1195,18 @@
       else { h+="<table><thead><tr><th>Reff</th><th>Kredit</th><th>Nominal</th><th>Status</th><th>Waktu</th></tr></thead><tbody>";
         o.forEach(function(x){ h+="<tr><td style='font-family:monospace;font-size:11px'>"+esc(x.reff_no)+"</td><td>"+(x.credits||0)+"</td><td>"+rupiah(x.net_amount!=null?x.net_amount:x.amount)+"</td><td>"+txStatusTag(x.status)+"</td><td style='color:var(--muted);font-size:12px'>"+new Date(x.created_at).toLocaleDateString("id-ID")+"</td></tr>"; });
         h+="</tbody></table>"; }
+      // Timeline email (TASK 2): status paling maju yg tercapai (klik > buka > terkirim), bounce/complaint merah.
+      var em=j.emails||[];
+      h+="<h3 style='margin-top:8px'>Email ("+em.length+")</h3>";
+      if(!em.length) h+="<div class='placeholder'>Belum ada email.</div>";
+      else { h+="<table><thead><tr><th>Campaign</th><th>Status</th><th>Waktu</th></tr></thead><tbody>";
+        em.forEach(function(x){
+          var st=x.complained_at?"complaint":x.bounced_at?"bounce":x.clicked_at?"diklik":x.opened_at?"dibuka":x.delivered_at?"terkirim":(x.status||"sent");
+          var col=(st==="diklik")?"#1C8A4B":(st==="dibuka"||st==="terkirim")?"#0068C9":(st==="bounce"||st==="complaint")?"var(--red)":"var(--muted)";
+          var when=x.clicked_at||x.opened_at||x.delivered_at||x.sent_at||x.created_at;
+          h+="<tr><td>"+esc(x.campaign_id||x.channel||"—")+"<div style='color:var(--muted);font-size:11px'>"+esc(x.subject||"")+"</div></td><td style='font-weight:700;color:"+col+"'>"+st+"</td><td style='color:var(--muted);font-size:12px'>"+(when?new Date(when).toLocaleDateString("id-ID"):"—")+"</td></tr>";
+        });
+        h+="</tbody></table>"; }
       openModal(h);
     }
     (function(){

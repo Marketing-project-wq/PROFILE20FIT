@@ -556,6 +556,93 @@ app.get("/api/admin/email/overview", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// Analitik per campaign (TASK 2): agregasi my20fit_message_log jadi 1 baris/campaign.
+// Bebas data kesehatan. Skala kecil → agregasi di JS, dibatasi window + cap.
+app.get("/api/admin/email/campaigns", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer");
+  if (!ctx) return;
+  try {
+    const days = Math.min(365, Math.max(1, parseInt((req.query && req.query.days) || "90", 10) || 90));
+    const sinceIso = new Date(Date.now() - days * 86400000).toISOString();
+    const CAP = 20000;
+    const { data: rows } = await admin.from("my20fit_message_log")
+      .select("campaign_id,channel,status,delivered_at,opened_at,clicked_at,bounced_at,complained_at")
+      .gte("created_at", sinceIso).order("created_at", { ascending: false }).limit(CAP);
+    const list = rows || [];
+    const DISPATCHED = ["sent", "delivered", "opened", "clicked", "bounced", "complained"];
+    const map = {};
+    for (const r of list) {
+      const key = r.campaign_id || r.channel || "(lainnya)";
+      let m = map[key];
+      if (!m) m = map[key] = { key: key, channel: r.channel || null, is_campaign: !!r.campaign_id, dispatched: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, complained: 0 };
+      if (DISPATCHED.indexOf(r.status) === -1) continue;
+      m.dispatched++;
+      if (r.delivered_at) m.delivered++;
+      if (r.opened_at) m.opened++;
+      if (r.clicked_at) m.clicked++;
+      if (r.bounced_at) m.bounced++;
+      if (r.complained_at) m.complained++;
+    }
+    const pct = (n, d) => (d ? +((n / d) * 100).toFixed(2) : 0);
+    const campaigns = Object.keys(map).map((k) => {
+      const m = map[k]; const d = m.dispatched;
+      return Object.assign(m, {
+        open_rate: pct(m.opened, d), click_rate: pct(m.clicked, d),
+        bounce_rate: pct(m.bounced, d), complaint_rate: pct(m.complained, d),
+      });
+    }).sort((a, b) => b.dispatched - a.dispatched);
+    return res.json({ ok: true, window_days: days, truncated: list.length >= CAP, campaigns: campaigns });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Drill-down 1 campaign: siapa terima/buka/klik. Email di-join dari profile
+// (message_log hanya simpan user_id). Filter + cari + export CSV. Bebas data kesehatan.
+app.get("/api/admin/email/campaign", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer");
+  if (!ctx) return;
+  try {
+    const id = String((req.query && req.query.id) || "").trim();
+    if (!id) return res.status(400).json({ error: "id campaign wajib" });
+    if (!/^[a-zA-Z0-9_.:-]+$/.test(id)) return res.status(400).json({ error: "id campaign tidak valid" });
+    const days = Math.min(365, Math.max(1, parseInt((req.query && req.query.days) || "90", 10) || 90));
+    const sinceIso = new Date(Date.now() - days * 86400000).toISOString();
+    const filter = String((req.query && req.query.filter) || "all");
+    const q = String((req.query && req.query.q) || "").trim().toLowerCase();
+    const CAP = 5000;
+    const { data: rows } = await admin.from("my20fit_message_log")
+      .select("user_id,subject,status,sent_at,delivered_at,opened_at,clicked_at,bounced_at,complained_at,created_at")
+      .or("campaign_id.eq." + id + ",and(campaign_id.is.null,channel.eq." + id + ")")
+      .gte("created_at", sinceIso).order("created_at", { ascending: false }).limit(CAP);
+    const list = rows || [];
+    const ids = Array.from(new Set(list.map((r) => r.user_id).filter(Boolean)));
+    const pmap = {};
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data: profs } = await admin.from("my20fit_profile").select("auth_user_id,email,full_name").in("auth_user_id", ids.slice(i, i + 200));
+      (profs || []).forEach((p) => { pmap[p.auth_user_id] = p; });
+    }
+    let out = list.map((r) => {
+      const p = pmap[r.user_id] || {};
+      const st = r.complained_at ? "complaint" : r.bounced_at ? "bounce" : r.clicked_at ? "clicked" : r.opened_at ? "opened" : r.delivered_at ? "delivered" : (r.status || "sent");
+      return { email: p.email || "—", name: p.full_name || "", subject: r.subject || "", status: st, sent_at: r.sent_at, opened_at: r.opened_at, clicked_at: r.clicked_at, created_at: r.created_at };
+    });
+    if (filter === "clicked") out = out.filter((r) => r.clicked_at);
+    else if (filter === "opened_not") out = out.filter((r) => r.opened_at && !r.clicked_at);
+    else if (filter === "delivered_not") out = out.filter((r) => r.status === "delivered" || r.status === "sent");
+    else if (filter === "bounced") out = out.filter((r) => r.status === "bounce" || r.status === "complaint");
+    if (q) out = out.filter((r) => (r.email || "").toLowerCase().indexOf(q) >= 0 || (r.name || "").toLowerCase().indexOf(q) >= 0);
+    if (String((req.query && req.query.format) || "") === "csv") {
+      await adminAudit(ctx, "email.campaign.export", id, { rows: out.length, filter: filter });
+      const cell = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+      const head = "email,name,subject,status,sent_at,opened_at,clicked_at\n";
+      const body = out.map((r) => [r.email, r.name, r.subject, r.status, r.sent_at || "", r.opened_at || "", r.clicked_at || ""].map(cell).join(",")).join("\n");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", 'attachment; filename="campaign-' + id.replace(/[^a-z0-9_-]/gi, "_") + '.csv"');
+      return res.send(head + body);
+    }
+    return res.json({ ok: true, id: id, window_days: days, truncated: list.length >= CAP, total: out.length, rows: out.slice(0, 500) });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // Suppression list (cari). Bebas data kesehatan.
 app.get("/api/admin/email/suppression", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer");
@@ -2888,6 +2975,10 @@ app.get("/api/admin/user-detail", async (req, res) => {
       .select("reff_no,order_type,credits,amount,net_amount,status,payment_method,voucher_id,created_at,paid_at")
       .eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(200);
     const { data: act } = await admin.from("my20fit_user_activity").select("last_active_at,last_page,ping_count,first_seen_at").eq("auth_user_id", uid).limit(1);
+    // Timeline email user (TASK 2): email apa yang dia terima, dibuka, diklik.
+    const { data: emails } = await admin.from("my20fit_message_log")
+      .select("campaign_id,channel,subject,status,sent_at,delivered_at,opened_at,clicked_at,bounced_at,complained_at,created_at")
+      .eq("user_id", uid).order("created_at", { ascending: false }).limit(50);
     const paid = (orders || []).filter(o => o.status === "paid");
     const stats = {
       purchases: paid.length,
@@ -2895,7 +2986,7 @@ app.get("/api/admin/user-detail", async (req, res) => {
       credits_bought: paid.reduce((s, o) => s + (+o.credits || 0), 0),
       highest_purchase: paid.reduce((m, o) => Math.max(m, (o.net_amount != null ? +o.net_amount : +o.amount) || 0), 0),
     };
-    return res.json({ ok: true, profile: (p && p[0]) || null, activity: (act && act[0]) || null, orders: orders || [], stats: stats });
+    return res.json({ ok: true, profile: (p && p[0]) || null, activity: (act && act[0]) || null, orders: orders || [], stats: stats, emails: emails || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Analisa produk paling laris (paket kredit) — count + revenue per ukuran paket.
