@@ -2863,22 +2863,41 @@ app.get("/api/admin/transactions", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
   const { from, to } = adminRange(req.query);
   try {
-    let q = admin.from("my20fit_scan_orders")
-      .select("reff_no,auth_user_id,credits,amount,net_amount,status,payment_method,gateway_reference_id,voucher_id,order_type,created_at,paid_at")
-      .gte("created_at", from).lte("created_at", to);
-    const status = String(req.query.status || ""); if (["paid", "pending", "failed", "expired"].indexOf(status) >= 0) q = q.eq("status", status);
-    const method = String(req.query.method || ""); if (method) q = q.eq("payment_method", method);
-    q = q.order("created_at", { ascending: false }).limit(1000);
+    const status = String(req.query.status || "");
+    const method = String(req.query.method || "");
+    const hv = String(req.query.voucher || "");
+    const applyFilters = (q) => {
+      q = q.gte("created_at", from).lte("created_at", to);
+      if (["paid", "pending", "failed", "expired"].indexOf(status) >= 0) q = q.eq("status", status);
+      if (method) q = q.eq("payment_method", method);
+      return q;
+    };
+    // Baris tampil (tabel): 1000 terbaru.
+    let q = applyFilters(admin.from("my20fit_scan_orders")
+      .select("reff_no,auth_user_id,credits,amount,net_amount,status,payment_method,gateway_reference_id,voucher_id,order_type,created_at,paid_at"))
+      .order("created_at", { ascending: false }).limit(1000);
     const { data, error } = await q;
     if (error) return res.status(500).json({ error: error.message });
     let rows = data || [];
-    const hv = String(req.query.voucher || "");
     if (hv === "yes") rows = rows.filter(r => r.voucher_id); else if (hv === "no") rows = rows.filter(r => !r.voucher_id);
     const vids = rows.filter(r => r.voucher_id).map(r => r.voucher_id).filter((v, i, a) => a.indexOf(v) === i);
     const vmap = {};
     if (vids.length) { const { data: vs } = await admin.from("my20fit_vouchers").select("id,code").in("id", vids); (vs || []).forEach(v => vmap[v.id] = v.code); }
     rows.forEach(r => { r.voucher_code = r.voucher_id ? (vmap[r.voucher_id] || "?") : null; });
-    return res.json({ ok: true, transactions: rows });
+    // TOTAL (T-3): dihitung dari SELURUH baris terfilter (bukan cuma 1000) → cegah revenue under-report.
+    const AGG_CAP = 100000;
+    const { data: aggData } = await applyFilters(admin.from("my20fit_scan_orders").select("credits,amount,net_amount,status,voucher_id"))
+      .order("created_at", { ascending: false }).limit(AGG_CAP);
+    let agg = aggData || [];
+    if (hv === "yes") agg = agg.filter(r => r.voucher_id); else if (hv === "no") agg = agg.filter(r => !r.voucher_id);
+    const paidAgg = agg.filter(r => r.status === "paid");
+    const totals = {
+      count: agg.length, paid_count: paidAgg.length,
+      gross: paidAgg.reduce((s, o) => s + ((+o.amount) || 0), 0),
+      net: paidAgg.reduce((s, o) => s + ((o.net_amount != null ? +o.net_amount : +o.amount) || 0), 0),
+      credits: paidAgg.reduce((s, o) => s + ((+o.credits) || 0), 0),
+    };
+    return res.json({ ok: true, transactions: rows, totals: totals, table_capped: rows.length >= 1000, totals_capped: agg.length >= AGG_CAP });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 app.get("/api/admin/transactions/:reff", async (req, res) => {
