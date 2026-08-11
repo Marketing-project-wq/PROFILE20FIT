@@ -247,9 +247,11 @@ tandai persis mana yang beda (mis. "delay step-2 harusnya 3 hari, kode 5 hari").
 
 **Masih terbuka (perlu keputusan sebelum/selama Fase 3):**
 10. **Automations** — konfirmasi memang belum ada yang aktif (semua masih dry-run).
-11. **Bahasa email** — Fase 3.3 minta "ikuti preferensi bahasa user", tapi
-    template sekarang **satu bahasa tetap** (meal/onboarding = ID, fasting = EN,
-    OTP = ID). Perlu dibuat bilingual per-user? (ini gap nyata, lihat §6).
+11. ~~**Bahasa email**~~ → **SUDAH bilingual ID/EN per user** sejak commit #273
+    (`prefs.lang`). Meal reminder + onboarding + pause check-in kini pilih bahasa
+    dari preferensi user. **CATATAN:** #273 menulis `prefs.lang` tapi belum ada
+    kolomnya di DB → **diperbaiki di Fase 3** (migration 010). Fasting & OTP tetap
+    single-language (di luar scope yang dikonfirmasi). Lihat `docs/EMAIL-INFRA-FASE3.md`.
 
 ---
 

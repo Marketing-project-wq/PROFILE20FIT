@@ -56,12 +56,12 @@ mau migrasi ke SDK resmi (bukan blocker Fase 2).
 | Balas 2xx cepat | Ya (update DB best-effort, selalu balas JSON; error → tetap 200 agar Resend tak retry-badai). | ✅ |
 | `RESEND_WEBHOOK_SECRET` di env | Dibaca `server.js:92`; tanpa ini **semua webhook 401** → tak ada tracking + tak ada auto-suppression. | ⚠️ 🔴 pemilik cek |
 | Event yang di-subscribe | **Harus di-set di dashboard.** Minimal butuh: `sent, delivered, delivery_delayed, bounced, complained, opened, clicked, failed, suppressed`. | ⚠️ pemilik cek |
-| Event yang **ditangani kode** | `delivered, opened, clicked, bounced, complained` (+ auto-suppression). **BELUM ditangani:** `email.sent`, `email.delivery_delayed`, `email.failed`, `email.suppressed`. | ⚠️ (gap Fase 3) |
+| Event yang **ditangani kode** | ~~`delivered, opened, clicked, bounced, complained`~~ → **DIPERBAIKI Fase 3:** kini semua event dicatat ke `my20fit_email_events` + `email.failed`/`email.suppressed` ditangani; `email.sent`/`email.delivery_delayed` tercatat sebagai audit. | ✅ (Fase 3) |
 
-**Catatan penting Fase 3 (dari EMAIL-LOGIC-SPEC §6):** webhook menyimpan
-`occurred_at` = **waktu terima kita** (`new Date()`), bukan `created_at` payload;
-dan **`clicked_url` tidak disimpan**. Prompt Fase 3.1 minta keduanya → perlu
-perubahan schema/handler.
+**~~Catatan Fase 3~~ → SUDAH diperbaiki (lihat `docs/EMAIL-INFRA-FASE3.md`):**
+`occurred_at` kini pakai `created_at` **dari payload**; **`clicked_url` disimpan**
+di `my20fit_email_events`; retry di-dedup via `webhook_id` (svix-id). **Butuh
+migration 010 dijalankan.**
 
 ---
 
