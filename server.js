@@ -181,6 +181,22 @@ function fastingHtml(kind, info) {
     "</td></tr></table></body></html>";
 }
 
+// ---------- Core middleware (WAJIB sebelum semua route: body parsing, security, proxy) ----------
+// Diletakkan di atas route pertama supaya SETIAP route dapat req.body/req.rawBody.
+// (Bug lama: helmet/express.json terdaftar setelah ~40 route -> webhook Resend, consent,
+//  konsol email admin, unsubscribe dapat req.body=undefined.)
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(express.json({
+  limit: "8mb", // 8mb: foto scan (base64) lewat /api/scan/ai
+  // Simpan raw body HANYA untuk webhook (verifikasi signature Svix/Resend butuh byte mentah).
+  verify: function (req, res, buf) {
+    if (req.url && req.url.indexOf("/api/webhooks/") === 0) req.rawBody = buf;
+  },
+}));
+app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webhook form-encoded
+// Railway = reverse proxy 1 hop -> req.ip benar (pakai X-Forwarded-For dari proxy tepercaya).
+app.set("trust proxy", 1);
+
 app.post("/api/cron/fasting-notify", async (req, res) => {
   const secret = req.get("x-cron-secret") || (req.query && req.query.key) || "";
   if (!CRON_SECRET || secret !== CRON_SECRET) return res.status(401).json({ error: "unauthorized" });
@@ -747,22 +763,9 @@ app.get("/api/admin/email/automations/:id/dryrun", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
-// ---------- Middleware ----------
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.json({
-  limit: "8mb", // 8mb: foto scan (base64) kini lewat /api/scan/ai
-  // Simpan raw body HANYA untuk webhook (verifikasi signature Svix/Resend butuh byte mentah).
-  verify: function (req, res, buf) {
-    if (req.url && req.url.indexOf("/api/webhooks/") === 0) req.rawBody = buf;
-  },
-}));
-app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webhook form-encoded
-
-// Railway = reverse proxy 1 hop. TANPA ini req.ip = IP proxy, bukan IP klien -> SEMUA user
-// berbagi SATU ember rate limit (50/10 menit untuk seluruh app). Dengan "trust proxy", 1
-// Express memakai entri terakhir X-Forwarded-For (yang ditulis proxy tepercaya), jadi tak
-// bisa dipalsukan klien.
-app.set("trust proxy", 1);
+// ---------- Middleware: rate limiters ----------
+// CATATAN: helmet + express.json (rawBody webhook) + urlencoded + trust proxy sudah
+// DIPINDAH ke ATAS route pertama (blok "Core middleware") supaya semua route dapat req.body.
 
 // Polling status pembayaran itu MEMANG sering: js/deals.js poll tiap 5 detik selama menunggu
 // (12 req/menit). Dengan limit umum 50/10 menit, user kena limit sendiri setelah ~4 menit
