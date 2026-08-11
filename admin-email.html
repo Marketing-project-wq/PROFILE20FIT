@@ -97,6 +97,31 @@
     </div>
 
     <div class="card">
+      <h2>Template Email — Edit &amp; Review</h2>
+      <div class="muted" style="margin-bottom:10px">Edit subject &amp; isi HTML tiap template blast. Placeholder: <code>{{scan_url}}</code>, <code>{{unsubscribe_url}}</code>. Kosongkan HTML lalu simpan = kembali ke default sistem.</div>
+      <div id="tplList"><div class="muted">Memuat…</div></div>
+      <div id="tplEdit" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <b id="tplTitle"></b>
+          <span id="tplBadge" class="muted" style="font-size:12px"></span>
+        </div>
+        <div class="muted" style="margin-bottom:4px">Subject</div>
+        <input type="text" id="tplSubject" placeholder="Subject email…" style="width:100%;margin-bottom:10px" />
+        <div class="muted" style="margin-bottom:4px">Isi HTML <span style="font-size:11px">(kosong = pakai default sistem)</span></div>
+        <textarea id="tplHtml" style="width:100%;height:180px;font-family:monospace;font-size:12px;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea>
+        <div style="display:flex;gap:8px;margin:10px 0;flex-wrap:wrap">
+          <button class="bon" id="tplPreview">Preview</button>
+          <button class="bon" id="tplLoadDefault" style="background:#ddd;color:#333">Isi dari default</button>
+          <button class="bon" id="tplSave" style="background:var(--ok)">Simpan</button>
+          <button class="bkill" id="tplReset">Reset ke default</button>
+          <button class="bon" id="tplClose" style="background:#ddd;color:#333">Tutup</button>
+        </div>
+        <div class="muted" style="margin-bottom:4px">Preview</div>
+        <iframe id="tplFrame" sandbox="" style="width:100%;height:360px;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>Kill switch campaign</h2>
       <div id="flags"></div>
       <div class="muted" style="margin-top:8px">Mematikan = pengiriman berhenti seketika (tanpa deploy). Monitoring otomatis juga bisa auto-stop.</div>
@@ -225,7 +250,53 @@
       stat((mm.complaint_rate||0)+"%","Complaint",(mm.complaint_rate||0)>0.1);
     searchSup("");
     loadCampaigns();
+    loadTemplates();
   }
+
+  // ===== Template Email — edit & review (simpan override ke DB) =====
+  var tplState = { key:null, defaultHtml:"" };
+  async function loadTemplates(){
+    var j = await adminFetch("/api/admin/email/templates").then(function(r){return r.json();}).catch(function(){return{};});
+    var box = el("tplList");
+    if(!j || !j.ok){ box.innerHTML = '<div class="msg err" style="display:block">Gagal memuat template.</div>'; return; }
+    box.innerHTML = (j.templates||[]).map(function(t){
+      var tag = t.customized ? '<span class="badge on">CUSTOM</span>' : '<span class="badge" style="background:#eee;color:#777">default</span>';
+      return '<div class="row"><div><b>'+t.label+'</b> '+tag+(t.subject?' <span class="muted">· '+t.subject+'</span>':'')+'</div>'+
+        '<button class="bon tpl-edit" data-k="'+t.id+'">Edit / Review</button></div>';
+    }).join("") || '<div class="muted">Tak ada template.</div>';
+    Array.prototype.forEach.call(document.querySelectorAll(".tpl-edit"), function(b){ b.onclick = function(){ openTemplate(b.getAttribute("data-k")); }; });
+  }
+  async function openTemplate(key){
+    var j = await adminFetch("/api/admin/email/template/"+encodeURIComponent(key)).then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j || !j.ok){ msg("Gagal membuka template.", false); return; }
+    tplState.key = key; tplState.defaultHtml = j.default_html || "";
+    el("tplEdit").style.display = "block";
+    el("tplTitle").textContent = j.label;
+    el("tplBadge").textContent = j.is_custom ? ("Custom · diubah "+(j.updated_at?new Date(j.updated_at).toLocaleString("id-ID"):"")+(j.updated_by?(" oleh "+j.updated_by):"")) : "Default sistem";
+    el("tplSubject").value = j.subject || "";
+    el("tplHtml").value = j.html || "";
+    renderTplPreview();
+  }
+  function renderTplPreview(){
+    var html = (el("tplHtml").value.trim() || tplState.defaultHtml);
+    html = html.replace(/\{\{\s*scan_url\s*\}\}/g, "#preview-scan").replace(/\{\{\s*unsubscribe_url\s*\}\}/g, "#preview-unsub");
+    el("tplFrame").srcdoc = html;
+  }
+  el("tplPreview").onclick = renderTplPreview;
+  el("tplLoadDefault").onclick = function(){ el("tplHtml").value = tplState.defaultHtml; renderTplPreview(); };
+  el("tplClose").onclick = function(){ el("tplEdit").style.display = "none"; tplState.key = null; };
+  el("tplSave").onclick = async function(){
+    if(!tplState.key) return;
+    var body = { subject: el("tplSubject").value.trim(), html: el("tplHtml").value };
+    var j = await adminFetch("/api/admin/email/template/"+encodeURIComponent(tplState.key), { method:"PUT", body: JSON.stringify(body) }).then(function(r){return r.json();}).catch(function(){return{};});
+    if(j && j.ok){ msg("Template disimpan.", true); var k=tplState.key; loadTemplates(); openTemplate(k); } else msg((j&&j.error)||"Gagal simpan (butuh role staff+).", false);
+  };
+  el("tplReset").onclick = async function(){
+    if(!tplState.key) return;
+    if(!confirm("Reset template ini ke default sistem? Semua perubahan custom dihapus.")) return;
+    var j = await adminFetch("/api/admin/email/template/"+encodeURIComponent(tplState.key), { method:"PUT", body: JSON.stringify({ subject:"", html:"" }) }).then(function(r){return r.json();}).catch(function(){return{};});
+    if(j && j.ok){ msg("Direset ke default.", true); var k=tplState.key; loadTemplates(); openTemplate(k); } else msg((j&&j.error)||"Gagal (butuh role staff+).", false);
+  };
 
   async function searchSup(q){
     var j = await adminFetch("/api/admin/email/suppression?q="+encodeURIComponent(q)).then(function(r){return r.json();}).catch(function(){return{};});
