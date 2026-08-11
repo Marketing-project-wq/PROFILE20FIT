@@ -130,6 +130,7 @@
       <button class="navbtn" data-tab="users"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Pengguna</button>
       <button class="navbtn" data-tab="analytics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Analitik</button>
       <button class="navbtn" data-tab="traffic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.2 7.8 14.1 14.1 7.8 16.2 9.9 9.9"/></svg>Sumber Trafik</button>
+      <button class="navbtn" id="navEmail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Email &amp; Campaign</button>
       <button class="navbtn" data-tab="menustats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 15.9A10 10 0 1 1 8 2.8"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>Minat Menu</button>
       <button class="navbtn" data-tab="corporate" id="navCorporate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M9.5 7h.01M9.5 11h.01M9.5 15h.01M14 7h.01M14 11h.01M14 15h.01"/></svg>Corporate</button>
       <button class="navbtn" data-tab="menureview" id="navMenu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>Menu</button>
@@ -220,7 +221,7 @@
               <option value="15">15 menit</option><option value="60">1 jam</option><option value="1440">24 jam</option><option value="10080">7 hari</option>
             </select>
           </label>
-          <select id="uFilter" style="max-width:190px"><option value="">Semua user</option><option value="top">Top User</option><option value="loyal">Loyal User</option><option value="onboarded">Sudah onboarding</option><option value="newonb">Baru (belum scan/beli)</option><option value="pending">Belum onboarding</option><option value="active">Aktif saja</option><option value="inactive">Tidak aktif</option><option value="buyers">Pernah beli</option></select>
+          <select id="uFilter" style="max-width:190px"><option value="">Semua user</option><option value="top">Top User</option><option value="loyal">Loyal User</option><option value="onboarded">Sudah onboarding</option><option value="newonb">Baru (belum scan/beli)</option><option value="pending">Belum onboarding</option><option value="active">Aktif saja</option><option value="inactive">Tidak aktif</option><option value="buyers">Pernah beli</option><option value="nonbuyer">Belum pernah beli</option></select>
           <select id="uProduct" style="max-width:150px" title="Filter produk terlaris per user"><option value="">Semua produk</option></select>
           <label style="margin:0;font-size:13px;color:var(--muted)">Aktif:
             <input id="uFrom" type="date" style="width:auto;display:inline-block;margin:0 4px" title="Terakhir aktif dari" /><span style="color:var(--muted)">–</span>
@@ -329,7 +330,7 @@
         </div>
       </div>
       <div id="tab-corporate" class="hidden">
-        <h2>Corporate Health Program</h2><div class="crumb">Kelola akun perusahaan & kode unik (superadmin only) · FASE 1</div>
+        <h2>Corporate Health Program</h2><div class="crumb">Kelola akun perusahaan & kode unik (superadmin only)</div>
         <div class="card" style="border-left:3px solid var(--orange)">
           <div style="font-size:13px;color:var(--muted)">Data kesehatan karyawan bersifat sensitif. Admin corporate hanya bisa melihat karyawan yang menautkan kode perusahaannya (setelah karyawan menyetujui) — perusahaan lain tidak terlihat. Setiap akses data karyawan dicatat di audit log.</div>
         </div>
@@ -473,6 +474,8 @@
     });
 
     // ---- Tabs ----
+    // Email & Campaign = halaman terpisah (/admin-email). Bawa ?key= kalau dipakai master key.
+    (function(){ var ne=$("navEmail"); if(ne) ne.addEventListener("click", function(){ window.location.href="/admin-email"+(location.search.indexOf("key=")>=0?location.search:""); }); })();
     document.querySelectorAll(".navbtn[data-tab]").forEach(function(b){
       b.addEventListener("click", function(){
         var tab=b.dataset.tab;
@@ -597,6 +600,7 @@
     }
     function openCorpDash(id){ window.open("/corp-dashboard?corporate_id="+encodeURIComponent(id), "_blank"); }
     async function removeCorpAdmin(id, uid){
+      if(!confirm("Cabut akses admin corporate ini? Akun login tetap ada, hanya perannya sebagai admin perusahaan yang dicabut.")) return;
       var r=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id)+"/admins/"+encodeURIComponent(uid),{method:"DELETE"});
       if(r.ok){ openCorp(id); loadCorporates(); }
     }
@@ -989,13 +993,14 @@
       var r=await adminFetch("/api/admin/transactions?"+qs); var j=await r.json().catch(function(){return{};});
       if(!r.ok){ list.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal ambil transaksi")+"</div>"; return; }
       var rows=j.transactions||[];
-      var paid=rows.filter(function(x){return x.status==="paid";});
-      var gross=paid.reduce(function(a,x){return a+(+x.amount||0);},0);
-      var net=paid.reduce(function(a,x){return a+(+(x.net_amount!=null?x.net_amount:x.amount)||0);},0);
-      $("tSummary").innerHTML = statCard("Transaksi",rows.length,paid.length+" lunas")+statCard("Revenue (gross)",rupiah(gross))+statCard("Revenue (net)",rupiah(net))+statCard("Kredit terjual",paid.reduce(function(a,x){return a+(+x.credits||0);},0)+" scan");
+      // Total dari server (SELURUH baris terfilter, bukan cuma 1000 yang ditampilkan) — T-3.
+      var t=j.totals||{};
+      $("tSummary").innerHTML = statCard("Transaksi",(t.count!=null?t.count:rows.length),(t.paid_count!=null?t.paid_count:0)+" lunas")+statCard("Revenue (gross)",rupiah(t.gross||0))+statCard("Revenue (net)",rupiah(t.net||0))+statCard("Kredit terjual",(t.credits||0)+" scan");
       var mSel=$("tMethod"); if(mSel.options.length<=1){ var methods={}; rows.forEach(function(x){ if(x.payment_method) methods[x.payment_method]=1; }); Object.keys(methods).forEach(function(m){ var o=document.createElement("option"); o.value=m; o.textContent=m; mSel.appendChild(o); }); }
       if(!rows.length){ list.innerHTML="<div class='placeholder'>Belum ada transaksi di rentang ini.</div>"; return; }
-      var h="<table><thead><tr><th>Reff No</th><th>Jenis</th><th>Kredit</th><th>Nominal</th><th>Metode</th><th>Voucher</th><th>Status</th><th>Waktu</th><th></th></tr></thead><tbody>";
+      var h="";
+      if(j.table_capped){ h+="<div class='crumb' style='margin-bottom:8px;color:var(--orange,#c67)'>Menampilkan 1000 transaksi terbaru — <b>total di atas tetap dihitung dari semua transaksi</b> di rentang ini.</div>"; }
+      h+="<table><thead><tr><th>Reff No</th><th>Jenis</th><th>Kredit</th><th>Nominal</th><th>Metode</th><th>Voucher</th><th>Status</th><th>Waktu</th><th></th></tr></thead><tbody>";
       rows.forEach(function(x){
         h+="<tr><td style='font-family:monospace;font-size:12px'>"+esc(x.reff_no)+"</td>"+
           "<td style='font-size:12px'>"+orderTypeLabel(x.order_type)+"</td>"+
@@ -1121,6 +1126,7 @@
         if(f==="active"&&!u.active) return false;
         if(f==="inactive"&&u.active) return false;
         if(f==="buyers"&&!(u.purchases>0)) return false;
+        if(f==="nonbuyer"&&u.purchases>0) return false;
         if(onlyScan&&!(u.scans_used>0)) return false;
         if(prod){ if(!u.top_product||String(u.top_product.credits)!==prod) return false; }
         if(fromD||toD){

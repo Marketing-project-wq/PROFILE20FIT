@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
 <link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
 <meta charset="utf-8" />
@@ -107,7 +107,7 @@
         netErr:"Koneksi gagal. Coba lagi."
       }
     };
-    let lang=localStorage.getItem("lang")||"en";
+    let lang=localStorage.getItem("lang")||(((navigator.language||"").toLowerCase().indexOf("en")===0)?"en":"id");
     let curEmail="";
     function setLang(l){lang=l;localStorage.setItem("lang",l);applyLang();}
     function applyLang(){

@@ -202,7 +202,9 @@
     }).join("") || '<div class="muted">Belum ada flag (default aktif).</div>';
     Array.prototype.forEach.call(document.querySelectorAll("#flags button"), function(b){
       b.onclick = async function(){
-        var r = await adminFetch("/api/admin/email/killswitch", { method:"POST", body: JSON.stringify({ campaign_id:b.getAttribute("data-c"), enabled: b.getAttribute("data-en")==="1" }) }).then(function(x){return x.json();});
+        var turnOn = b.getAttribute("data-en")==="1";
+        if (!turnOn && !confirm("Matikan campaign \""+b.getAttribute("data-c")+"\"? Pengiriman berhenti seketika.")) return;
+        var r = await adminFetch("/api/admin/email/killswitch", { method:"POST", body: JSON.stringify({ campaign_id:b.getAttribute("data-c"), enabled: turnOn }) }).then(function(x){return x.json();});
         if (r && r.ok) { msg("Kill switch diperbarui.", true); load(); } else msg("Gagal.", false);
       };
     });
@@ -233,6 +235,7 @@
     }).join("") || '<tr><td colspan="4" class="muted">Kosong.</td></tr>';
     Array.prototype.forEach.call(document.querySelectorAll("#supRows button"), function(b){
       b.onclick = async function(){
+        if (!confirm("Hapus "+b.getAttribute("data-em")+" dari suppression? Alamat ini bisa menerima email lagi.")) return;
         var r = await adminFetch("/api/admin/email/suppression", { method:"POST", body: JSON.stringify({ email:b.getAttribute("data-em"), action:"remove" }) }).then(function(x){return x.json();});
         if (r && r.ok) { msg("Dihapus dari suppression.", true); searchSup(el("supQ").value); } else msg("Gagal (butuh role staff+).", false);
       };

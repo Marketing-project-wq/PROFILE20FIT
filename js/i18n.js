@@ -259,7 +259,8 @@
     }
   };
 
-  let lang = localStorage.getItem("lang") || "en";
+  // Market Indonesia: default "id" kecuali (a) user sudah memilih, atau (b) browser jelas berbahasa Inggris.
+  let lang = localStorage.getItem("lang") || (((navigator.language || "").toLowerCase().indexOf("en") === 0) ? "en" : "id");
   const cbs = [];
 
   function t(key){ const d = DICT[lang] || DICT.en; return (d[key] != null) ? d[key] : (DICT.en[key] != null ? DICT.en[key] : key); }
