@@ -825,9 +825,11 @@
       body.innerHTML=h;
     }
     (function(){
-      document.querySelectorAll(".rbtn").forEach(function(b){ b.addEventListener("click", function(){
+      // Scope KE tombol range Overview saja (data-range). Tab lain punya .rbtn sendiri
+      // (data-trange / data-recap) dgn handler terpisah — jangan ikut ke-trigger (T-2).
+      document.querySelectorAll(".rbtn[data-range]").forEach(function(b){ b.addEventListener("click", function(){
         CUR_RANGE=b.dataset.range;
-        document.querySelectorAll(".rbtn").forEach(function(x){ x.classList.toggle("on", x===b); });
+        document.querySelectorAll(".rbtn[data-range]").forEach(function(x){ x.classList.toggle("on", x===b); });
         $("customRange").classList.toggle("hidden", CUR_RANGE!=="custom");
         if(CUR_RANGE!=="custom") renderOverview();
       }); });
