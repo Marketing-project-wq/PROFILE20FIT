@@ -510,6 +510,7 @@ app.post("/api/comms/consent", async (req, res) => {
     const patch = {};
     if (typeof b.marketing === "boolean") patch.marketing = b.marketing;
     if (typeof b.meal_reminder === "boolean") patch.meal_reminder = b.meal_reminder;
+    if (b.lang === "id" || b.lang === "en") patch.lang = b.lang; // bahasa email pilihan user
     if (!Object.keys(patch).length) return res.status(400).json({ error: "tak ada perubahan" });
     const p = await comms.setConsentByUser(user.id, patch, "settings");
     // Kalau meal reminder dinyalakan lagi, cabut pause.

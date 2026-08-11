@@ -193,7 +193,8 @@
           await fetch("/api/comms/consent",{method:"POST",
             headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tok||"")},
             body:JSON.stringify({marketing:document.getElementById("consentMkt").checked,
-              meal_reminder:document.getElementById("consentMeal").checked})});
+              meal_reminder:document.getElementById("consentMeal").checked,
+              lang:(localStorage.getItem("lang")==="en"?"en":"id")})});
         }catch(e){}
         await Auth.routeAfterAuth();   // data lengkap -> buat password kalau belum ada, lalu dashboard
       }catch(e){msg.textContent=e.message;btn.disabled=false}
