@@ -715,10 +715,64 @@ app.post("/api/admin/email/segment/preview", async (req, res) => {
 // ============ Blast: send queue (buat draft → tes → confirm → antrian) ============
 function blastCtx() { return { admin, email, comms, campaigns, segments, baseUrl: APP_BASE_URL }; }
 
-// Daftar template blast yang diizinkan (template-only).
+// Daftar template blast + tanda apakah sudah di-custom (override tersimpan).
 app.get("/api/admin/email/templates", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
-  return res.json({ ok: true, templates: blast.TEMPLATE_IDS.map((id) => ({ id, label: blast.TEMPLATES[id].label })) });
+  let custom = {};
+  try {
+    const { data } = await admin.from("my20fit_email_templates").select("template_key,subject,html,updated_at");
+    (data || []).forEach((r) => { custom[r.template_key] = r; });
+  } catch (e) {}
+  return res.json({ ok: true, templates: blast.TEMPLATE_IDS.map((id) => ({
+    id, label: blast.TEMPLATES[id].label,
+    subject: (custom[id] && custom[id].subject) || null,
+    customized: !!(custom[id] && custom[id].html),
+    updated_at: (custom[id] && custom[id].updated_at) || null,
+  })) });
+});
+
+// Detail 1 template untuk EDIT/REVIEW: subject + html efektif (override atau default builder).
+app.get("/api/admin/email/template/:key", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const key = String(req.params.key || "");
+  if (blast.TEMPLATE_IDS.indexOf(key) < 0) return res.status(404).json({ error: "template tidak dikenal" });
+  try {
+    const { data } = await admin.from("my20fit_email_templates").select("subject,html,updated_by,updated_at").eq("template_key", key).limit(1);
+    const row = (data && data[0]) || {};
+    // HTML default (builder) untuk preview & titik awal edit — placeholder aman.
+    const previewUnsub = APP_BASE_URL + "/unsubscribe?token=PREVIEW&c=marketing";
+    const defaultHtml = await blast.renderTemplate(admin, campaigns, key, APP_BASE_URL, previewUnsub);
+    return res.json({
+      ok: true, key, label: blast.TEMPLATES[key].label,
+      subject: row.subject || "", html: row.html || "",
+      is_custom: !!row.html, default_html: defaultHtml || "",
+      updated_by: row.updated_by || null, updated_at: row.updated_at || null,
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Simpan override subject/html (staff+). html kosong = reset ke builder default.
+app.put("/api/admin/email/template/:key", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const key = String(req.params.key || "");
+  if (blast.TEMPLATE_IDS.indexOf(key) < 0) return res.status(404).json({ error: "template tidak dikenal" });
+  try {
+    const b = req.body || {};
+    const subject = b.subject != null ? String(b.subject).trim() : null;
+    const html = (b.html != null && String(b.html).trim() !== "") ? String(b.html) : null;
+    if (html == null && (subject == null || subject === "")) {
+      // Kosong semua = reset override.
+      await admin.from("my20fit_email_templates").delete().eq("template_key", key);
+      await adminAudit(ctx, "email.template.reset", key, null);
+      return res.json({ ok: true, reset: true });
+    }
+    await admin.from("my20fit_email_templates").upsert({
+      template_key: key, name: blast.TEMPLATES[key].label, subject: subject, html: html,
+      updated_by: ctx.email || "admin", updated_at: new Date().toISOString(),
+    }, { onConflict: "template_key" });
+    await adminAudit(ctx, "email.template.save", key, { has_custom_html: !!html, subject_set: !!subject });
+    return res.json({ ok: true, is_custom: !!html });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
 // Buat draft blast (bekukan penerima eligible). BELUM mengirim.
