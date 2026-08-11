@@ -97,6 +97,31 @@
     </div>
 
     <div class="card">
+      <h2>Template Email — Edit &amp; Review</h2>
+      <div class="muted" style="margin-bottom:10px">Edit subject &amp; isi HTML tiap template blast. Placeholder: <code>{{scan_url}}</code>, <code>{{unsubscribe_url}}</code>. Kosongkan HTML lalu simpan = kembali ke default sistem.</div>
+      <div id="tplList"><div class="muted">Memuat…</div></div>
+      <div id="tplEdit" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <b id="tplTitle"></b>
+          <span id="tplBadge" class="muted" style="font-size:12px"></span>
+        </div>
+        <div class="muted" style="margin-bottom:4px">Subject</div>
+        <input type="text" id="tplSubject" placeholder="Subject email…" style="width:100%;margin-bottom:10px" />
+        <div class="muted" style="margin-bottom:4px">Isi HTML <span style="font-size:11px">(kosong = pakai default sistem)</span></div>
+        <textarea id="tplHtml" style="width:100%;height:180px;font-family:monospace;font-size:12px;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea>
+        <div style="display:flex;gap:8px;margin:10px 0;flex-wrap:wrap">
+          <button class="bon" id="tplPreview">Preview</button>
+          <button class="bon" id="tplLoadDefault" style="background:#ddd;color:#333">Isi dari default</button>
+          <button class="bon" id="tplSave" style="background:var(--ok)">Simpan</button>
+          <button class="bkill" id="tplReset">Reset ke default</button>
+          <button class="bon" id="tplClose" style="background:#ddd;color:#333">Tutup</button>
+        </div>
+        <div class="muted" style="margin-bottom:4px">Preview</div>
+        <iframe id="tplFrame" sandbox="" style="width:100%;height:360px;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>Kill switch campaign</h2>
       <div id="flags"></div>
       <div class="muted" style="margin-top:8px">Mematikan = pengiriman berhenti seketika (tanpa deploy). Monitoring otomatis juga bisa auto-stop.</div>
@@ -111,6 +136,44 @@
     <div class="card">
       <h2>Meal reminder · 30 hari</h2>
       <div class="grid" id="mealStats"></div>
+    </div>
+
+    <div class="card">
+      <h2>Analitik per Campaign</h2>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <select id="camWin" style="padding:8px;border:1px solid var(--line);border-radius:9px;font-family:inherit">
+          <option value="30">30 hari</option>
+          <option value="90" selected>90 hari</option>
+          <option value="365">1 tahun</option>
+        </select>
+        <button class="bon" id="camReload">Muat</button>
+      </div>
+      <div style="overflow:auto">
+        <table><thead><tr><th>Campaign</th><th>Kirim</th><th>Terkirim</th><th>Buka%</th><th>Klik%</th><th>Bounce%</th><th>Complaint%</th><th></th></tr></thead>
+        <tbody id="camRows"><tr><td colspan="8" class="muted">Memuat…</td></tr></tbody></table>
+      </div>
+      <div class="muted" style="font-size:11px;margin-top:8px">⚠ <b>Open-rate tidak akurat</b> — Apple Mail Privacy & proxy gambar bikin sebagian "buka" palsu/tak tercatat. <b>Click-rate</b> jauh lebih andal untuk ukur minat.</div>
+
+      <div id="camDetail" style="display:none;margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <b id="camDetTitle"></b>
+          <button class="bon" id="camClose" style="background:#ddd;color:#333">Tutup</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="camFilters">
+          <button class="camf bon" data-f="all">Semua</button>
+          <button class="camf" data-f="clicked">Klik</button>
+          <button class="camf" data-f="opened_not">Buka, tak klik</button>
+          <button class="camf" data-f="delivered_not">Belum buka</button>
+          <button class="camf" data-f="bounced">Bounce/Complaint</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input type="text" id="camSearch" placeholder="cari email / nama…" style="flex:1" />
+          <button class="bon" id="camSearchBtn">Cari</button>
+          <button class="bon" id="camCsv" style="background:var(--ok)">Export CSV</button>
+        </div>
+        <div class="muted" id="camDetMeta" style="font-size:12px;margin-bottom:8px"></div>
+        <div style="overflow:auto"><table><thead><tr><th>Email</th><th>Nama</th><th>Status</th><th>Terakhir</th></tr></thead><tbody id="camDetRows"></tbody></table></div>
+      </div>
     </div>
 
     <div class="card">
@@ -164,7 +227,9 @@
     }).join("") || '<div class="muted">Belum ada flag (default aktif).</div>';
     Array.prototype.forEach.call(document.querySelectorAll("#flags button"), function(b){
       b.onclick = async function(){
-        var r = await adminFetch("/api/admin/email/killswitch", { method:"POST", body: JSON.stringify({ campaign_id:b.getAttribute("data-c"), enabled: b.getAttribute("data-en")==="1" }) }).then(function(x){return x.json();});
+        var turnOn = b.getAttribute("data-en")==="1";
+        if (!turnOn && !confirm("Matikan campaign \""+b.getAttribute("data-c")+"\"? Pengiriman berhenti seketika.")) return;
+        var r = await adminFetch("/api/admin/email/killswitch", { method:"POST", body: JSON.stringify({ campaign_id:b.getAttribute("data-c"), enabled: turnOn }) }).then(function(x){return x.json();});
         if (r && r.ok) { msg("Kill switch diperbarui.", true); load(); } else msg("Gagal.", false);
       };
     });
@@ -184,7 +249,54 @@
       stat((mm.unsub_rate||0)+"%","Unsub",(mm.unsub_rate||0)>0.5) + stat((mm.bounce_rate||0)+"%","Bounce",(mm.bounce_rate||0)>2) +
       stat((mm.complaint_rate||0)+"%","Complaint",(mm.complaint_rate||0)>0.1);
     searchSup("");
+    loadCampaigns();
+    loadTemplates();
   }
+
+  // ===== Template Email — edit & review (simpan override ke DB) =====
+  var tplState = { key:null, defaultHtml:"" };
+  async function loadTemplates(){
+    var j = await adminFetch("/api/admin/email/templates").then(function(r){return r.json();}).catch(function(){return{};});
+    var box = el("tplList");
+    if(!j || !j.ok){ box.innerHTML = '<div class="msg err" style="display:block">Gagal memuat template.</div>'; return; }
+    box.innerHTML = (j.templates||[]).map(function(t){
+      var tag = t.customized ? '<span class="badge on">CUSTOM</span>' : '<span class="badge" style="background:#eee;color:#777">default</span>';
+      return '<div class="row"><div><b>'+t.label+'</b> '+tag+(t.subject?' <span class="muted">· '+t.subject+'</span>':'')+'</div>'+
+        '<button class="bon tpl-edit" data-k="'+t.id+'">Edit / Review</button></div>';
+    }).join("") || '<div class="muted">Tak ada template.</div>';
+    Array.prototype.forEach.call(document.querySelectorAll(".tpl-edit"), function(b){ b.onclick = function(){ openTemplate(b.getAttribute("data-k")); }; });
+  }
+  async function openTemplate(key){
+    var j = await adminFetch("/api/admin/email/template/"+encodeURIComponent(key)).then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j || !j.ok){ msg("Gagal membuka template.", false); return; }
+    tplState.key = key; tplState.defaultHtml = j.default_html || "";
+    el("tplEdit").style.display = "block";
+    el("tplTitle").textContent = j.label;
+    el("tplBadge").textContent = j.is_custom ? ("Custom · diubah "+(j.updated_at?new Date(j.updated_at).toLocaleString("id-ID"):"")+(j.updated_by?(" oleh "+j.updated_by):"")) : "Default sistem";
+    el("tplSubject").value = j.subject || "";
+    el("tplHtml").value = j.html || "";
+    renderTplPreview();
+  }
+  function renderTplPreview(){
+    var html = (el("tplHtml").value.trim() || tplState.defaultHtml);
+    html = html.replace(/\{\{\s*scan_url\s*\}\}/g, "#preview-scan").replace(/\{\{\s*unsubscribe_url\s*\}\}/g, "#preview-unsub");
+    el("tplFrame").srcdoc = html;
+  }
+  el("tplPreview").onclick = renderTplPreview;
+  el("tplLoadDefault").onclick = function(){ el("tplHtml").value = tplState.defaultHtml; renderTplPreview(); };
+  el("tplClose").onclick = function(){ el("tplEdit").style.display = "none"; tplState.key = null; };
+  el("tplSave").onclick = async function(){
+    if(!tplState.key) return;
+    var body = { subject: el("tplSubject").value.trim(), html: el("tplHtml").value };
+    var j = await adminFetch("/api/admin/email/template/"+encodeURIComponent(tplState.key), { method:"PUT", body: JSON.stringify(body) }).then(function(r){return r.json();}).catch(function(){return{};});
+    if(j && j.ok){ msg("Template disimpan.", true); var k=tplState.key; loadTemplates(); openTemplate(k); } else msg((j&&j.error)||"Gagal simpan (butuh role staff+).", false);
+  };
+  el("tplReset").onclick = async function(){
+    if(!tplState.key) return;
+    if(!confirm("Reset template ini ke default sistem? Semua perubahan custom dihapus.")) return;
+    var j = await adminFetch("/api/admin/email/template/"+encodeURIComponent(tplState.key), { method:"PUT", body: JSON.stringify({ subject:"", html:"" }) }).then(function(r){return r.json();}).catch(function(){return{};});
+    if(j && j.ok){ msg("Direset ke default.", true); var k=tplState.key; loadTemplates(); openTemplate(k); } else msg((j&&j.error)||"Gagal (butuh role staff+).", false);
+  };
 
   async function searchSup(q){
     var j = await adminFetch("/api/admin/email/suppression?q="+encodeURIComponent(q)).then(function(r){return r.json();}).catch(function(){return{};});
@@ -194,6 +306,7 @@
     }).join("") || '<tr><td colspan="4" class="muted">Kosong.</td></tr>';
     Array.prototype.forEach.call(document.querySelectorAll("#supRows button"), function(b){
       b.onclick = async function(){
+        if (!confirm("Hapus "+b.getAttribute("data-em")+" dari suppression? Alamat ini bisa menerima email lagi.")) return;
         var r = await adminFetch("/api/admin/email/suppression", { method:"POST", body: JSON.stringify({ email:b.getAttribute("data-em"), action:"remove" }) }).then(function(x){return x.json();});
         if (r && r.ok) { msg("Dihapus dari suppression.", true); searchSup(el("supQ").value); } else msg("Gagal (butuh role staff+).", false);
       };
@@ -205,6 +318,62 @@
     var em = el("supAdd").value.trim(); if (!em) return;
     var r = await adminFetch("/api/admin/email/suppression", { method:"POST", body: JSON.stringify({ email:em, action:"add", reason:"manual" }) }).then(function(x){return x.json();});
     if (r && r.ok) { el("supAdd").value=""; msg("Ditambahkan.", true); searchSup(el("supQ").value); } else msg("Gagal (butuh role staff+).", false);
+  };
+
+  // ===== Analitik per campaign (TASK 2) =====
+  var camState = { id:null, label:null, filter:"all", q:"" };
+  function pctCell(v, warn){ return '<td'+(warn?' style="color:var(--red);font-weight:700"':'')+'>'+(v||0)+'%</td>'; }
+  async function loadCampaigns(){
+    var days = el("camWin").value;
+    var j = await adminFetch("/api/admin/email/campaigns?days="+days).then(function(r){return r.json();}).catch(function(){return{};});
+    if (!j || !j.ok) { el("camRows").innerHTML = '<tr><td colspan="8" class="err">Gagal memuat.</td></tr>'; return; }
+    var cs = j.campaigns || [];
+    if (!cs.length) { el("camRows").innerHTML = '<tr><td colspan="8" class="muted">Belum ada email terkirim di window ini.</td></tr>'; return; }
+    el("camRows").innerHTML = cs.map(function(c){
+      return '<tr><td><b>'+c.key+'</b>'+(c.is_campaign?'':' <span class="muted" style="font-size:10px">(transaksional)</span>')+'</td>'+
+        '<td>'+c.dispatched+'</td><td>'+c.delivered+'</td>'+
+        pctCell(c.open_rate)+pctCell(c.click_rate)+pctCell(c.bounce_rate, c.bounce_rate>2)+pctCell(c.complaint_rate, c.complaint_rate>0.1)+
+        '<td><button class="bon camDet" data-id="'+encodeURIComponent(c.key)+'" data-label="'+c.key+'">Detail</button></td></tr>';
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll(".camDet"), function(b){
+      b.onclick = function(){ camState.id=decodeURIComponent(b.getAttribute("data-id")); camState.label=b.getAttribute("data-label"); camState.filter="all"; camState.q=""; el("camSearch").value=""; setActiveFilter("all"); openCampaign(); };
+    });
+  }
+  function setActiveFilter(f){ Array.prototype.forEach.call(document.querySelectorAll(".camf"), function(b){ b.className = "camf" + (b.getAttribute("data-f")===f ? " bon" : ""); }); }
+  async function openCampaign(){
+    el("camDetail").style.display="block";
+    el("camDetTitle").textContent = "Detail: " + camState.label;
+    el("camDetRows").innerHTML = '<tr><td colspan="4" class="muted">Memuat…</td></tr>';
+    var days = el("camWin").value;
+    var url = "/api/admin/email/campaign?id="+encodeURIComponent(camState.id)+"&days="+days+"&filter="+camState.filter+"&q="+encodeURIComponent(camState.q);
+    var j = await adminFetch(url).then(function(r){return r.json();}).catch(function(){return{};});
+    if (!j || !j.ok) { el("camDetRows").innerHTML = '<tr><td colspan="4" class="err">Gagal memuat detail.</td></tr>'; return; }
+    var rows = j.rows || [];
+    el("camDetMeta").textContent = j.total + " penerima" + (j.total>rows.length ? (" (tampil "+rows.length+")") : "") + (j.truncated ? " · data dipotong pada cap" : "");
+    if (!rows.length) { el("camDetRows").innerHTML = '<tr><td colspan="4" class="muted">Tidak ada baris untuk filter ini.</td></tr>'; return; }
+    el("camDetRows").innerHTML = rows.map(function(r){
+      var col = (r.status==="clicked")?"var(--ok)":(r.status==="bounce"||r.status==="complaint")?"var(--red)":(r.status==="opened"||r.status==="delivered")?"#0068C9":"var(--muted)";
+      var when = r.clicked_at||r.opened_at||r.sent_at||r.created_at;
+      return '<tr><td>'+r.email+'</td><td>'+(r.name||"—")+'</td><td style="font-weight:700;color:'+col+'">'+r.status+'</td>'+
+        '<td class="muted" style="font-size:12px">'+(when?when.slice(0,10):"—")+'</td></tr>';
+    }).join("");
+  }
+  el("camReload").onclick = loadCampaigns;
+  el("camClose").onclick = function(){ el("camDetail").style.display="none"; camState.id=null; };
+  el("camSearchBtn").onclick = function(){ if(!camState.id) return; camState.q=el("camSearch").value.trim(); openCampaign(); };
+  Array.prototype.forEach.call(document.querySelectorAll(".camf"), function(b){
+    b.onclick = function(){ if(!camState.id) return; camState.filter=b.getAttribute("data-f"); setActiveFilter(camState.filter); openCampaign(); };
+  });
+  el("camCsv").onclick = async function(){
+    if(!camState.id) return;
+    var days = el("camWin").value;
+    var url = "/api/admin/email/campaign?id="+encodeURIComponent(camState.id)+"&days="+days+"&filter="+camState.filter+"&q="+encodeURIComponent(camState.q)+"&format=csv";
+    var resp = await adminFetch(url).catch(function(){return null;});
+    if (!resp || !resp.ok) { msg("Gagal export CSV.", false); return; }
+    var blob = await resp.blob();
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = "campaign-"+camState.label.replace(/[^a-z0-9_-]/gi,"_")+".csv";
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
   };
 
   // ===== Blast wizard (6 langkah — tes wajib + ketik nama campaign) =====

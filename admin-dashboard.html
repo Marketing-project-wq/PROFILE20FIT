@@ -130,6 +130,7 @@
       <button class="navbtn" data-tab="users"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Pengguna</button>
       <button class="navbtn" data-tab="analytics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Analitik</button>
       <button class="navbtn" data-tab="traffic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.2 7.8 14.1 14.1 7.8 16.2 9.9 9.9"/></svg>Sumber Trafik</button>
+      <button class="navbtn" id="navEmail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Email &amp; Campaign</button>
       <button class="navbtn" data-tab="menustats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 15.9A10 10 0 1 1 8 2.8"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>Minat Menu</button>
       <button class="navbtn" data-tab="corporate" id="navCorporate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M9.5 7h.01M9.5 11h.01M9.5 15h.01M14 7h.01M14 11h.01M14 15h.01"/></svg>Corporate</button>
       <button class="navbtn" data-tab="menureview" id="navMenu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>Menu</button>
@@ -220,7 +221,7 @@
               <option value="15">15 menit</option><option value="60">1 jam</option><option value="1440">24 jam</option><option value="10080">7 hari</option>
             </select>
           </label>
-          <select id="uFilter" style="max-width:190px"><option value="">Semua user</option><option value="top">Top User</option><option value="loyal">Loyal User</option><option value="onboarded">Sudah onboarding</option><option value="newonb">Baru (belum scan/beli)</option><option value="pending">Belum onboarding</option><option value="active">Aktif saja</option><option value="inactive">Tidak aktif</option><option value="buyers">Pernah beli</option></select>
+          <select id="uFilter" style="max-width:190px"><option value="">Semua user</option><option value="top">Top User</option><option value="loyal">Loyal User</option><option value="onboarded">Sudah onboarding</option><option value="newonb">Baru (belum scan/beli)</option><option value="pending">Belum onboarding</option><option value="active">Aktif saja</option><option value="inactive">Tidak aktif</option><option value="buyers">Pernah beli</option><option value="nonbuyer">Belum pernah beli</option></select>
           <select id="uProduct" style="max-width:150px" title="Filter produk terlaris per user"><option value="">Semua produk</option></select>
           <label style="margin:0;font-size:13px;color:var(--muted)">Aktif:
             <input id="uFrom" type="date" style="width:auto;display:inline-block;margin:0 4px" title="Terakhir aktif dari" /><span style="color:var(--muted)">–</span>
@@ -233,6 +234,29 @@
           <button class="btn sm ghost" id="uRefresh" style="margin-top:0">Refresh</button>
         </div>
         <div id="uSummary" class="statgrid" style="margin-bottom:14px"></div>
+        <!-- Kelola user (TASK 3): tambah manual + import CSV. Superadmin only, TANPA kirim email. -->
+        <div class="card" id="userMgmtCard" style="display:none;margin-bottom:14px">
+          <h3>Tambah user (superadmin)</h3>
+          <div class="crumb" style="margin-bottom:8px">Dibuat tanpa mengirim email undangan. Set password/aktivasi menyusul.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px">
+            <div style="flex:1;min-width:180px"><div class="crumb">Email</div><input id="nuEmail" type="email" placeholder="email@contoh.com" style="width:100%"></div>
+            <div style="flex:1;min-width:140px"><div class="crumb">Nama (opsional)</div><input id="nuName" placeholder="Nama" style="width:100%"></div>
+            <div style="flex:1;min-width:120px"><div class="crumb">Telepon (opsional)</div><input id="nuPhone" placeholder="08…" style="width:100%"></div>
+            <button class="btn sm" id="nuBtn">Tambah</button>
+          </div>
+          <div class="crumb" id="nuMsg"></div>
+          <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px">
+            <h3 style="margin:0 0 4px">Import CSV</h3>
+            <div class="crumb" style="margin-bottom:6px">Kolom: <b>email, full_name, phone</b> (header opsional). Preview dulu, baru commit. Tanpa kirim email.</div>
+            <textarea id="ciText" placeholder="email,full_name,phone&#10;andi@contoh.com,Andi,0812xxxx" style="width:100%;height:90px;font-family:monospace;font-size:12px;padding:8px;border:1px solid var(--line);border-radius:8px"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+              <input id="ciFile" type="file" accept=".csv,text/csv" style="flex:1;min-width:160px">
+              <button class="btn sm ghost" id="ciPreview">Preview</button>
+              <button class="btn sm" id="ciCommit" style="display:none">Commit impor</button>
+            </div>
+            <div id="ciReport" style="margin-top:10px"></div>
+          </div>
+        </div>
         <div class="grid2" style="margin-bottom:14px">
           <div class="card"><h3>Produk terlaris (revenue)</h3><div id="uTopProducts"><div class="placeholder">Memuat…</div></div></div>
           <div class="card"><h3>Produk terlaris (jumlah transaksi)</h3><div id="uTopProductsCount"><div class="placeholder">Memuat…</div></div></div>
@@ -306,7 +330,7 @@
         </div>
       </div>
       <div id="tab-corporate" class="hidden">
-        <h2>Corporate Health Program</h2><div class="crumb">Kelola akun perusahaan & kode unik (superadmin only) · FASE 1</div>
+        <h2>Corporate Health Program</h2><div class="crumb">Kelola akun perusahaan & kode unik (superadmin only)</div>
         <div class="card" style="border-left:3px solid var(--orange)">
           <div style="font-size:13px;color:var(--muted)">Data kesehatan karyawan bersifat sensitif. Admin corporate hanya bisa melihat karyawan yang menautkan kode perusahaannya (setelah karyawan menyetujui) — perusahaan lain tidak terlihat. Setiap akses data karyawan dicatat di audit log.</div>
         </div>
@@ -402,6 +426,7 @@
       $("navSettings").style.display = (me.role==="superadmin") ? "" : "none";
       $("navCorporate").style.display = (me.role==="superadmin") ? "" : "none";
       $("navMenu").style.display = (me.role==="superadmin") ? "" : "none";
+      var umc=$("userMgmtCard"); if(umc) umc.style.display = (me.role==="superadmin") ? "" : "none";
       if(me.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
       var vn=$("vNew"); if(vn) vn.style.display = canEdit() ? "" : "none";
       renderOverview();
@@ -449,6 +474,8 @@
     });
 
     // ---- Tabs ----
+    // Email & Campaign = halaman terpisah (/admin-email). Bawa ?key= kalau dipakai master key.
+    (function(){ var ne=$("navEmail"); if(ne) ne.addEventListener("click", function(){ window.location.href="/admin-email"+(location.search.indexOf("key=")>=0?location.search:""); }); })();
     document.querySelectorAll(".navbtn[data-tab]").forEach(function(b){
       b.addEventListener("click", function(){
         var tab=b.dataset.tab;
@@ -573,6 +600,7 @@
     }
     function openCorpDash(id){ window.open("/corp-dashboard?corporate_id="+encodeURIComponent(id), "_blank"); }
     async function removeCorpAdmin(id, uid){
+      if(!confirm("Cabut akses admin corporate ini? Akun login tetap ada, hanya perannya sebagai admin perusahaan yang dicabut.")) return;
       var r=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id)+"/admins/"+encodeURIComponent(uid),{method:"DELETE"});
       if(r.ok){ openCorp(id); loadCorporates(); }
     }
@@ -825,9 +853,11 @@
       body.innerHTML=h;
     }
     (function(){
-      document.querySelectorAll(".rbtn").forEach(function(b){ b.addEventListener("click", function(){
+      // Scope KE tombol range Overview saja (data-range). Tab lain punya .rbtn sendiri
+      // (data-trange / data-recap) dgn handler terpisah — jangan ikut ke-trigger (T-2).
+      document.querySelectorAll(".rbtn[data-range]").forEach(function(b){ b.addEventListener("click", function(){
         CUR_RANGE=b.dataset.range;
-        document.querySelectorAll(".rbtn").forEach(function(x){ x.classList.toggle("on", x===b); });
+        document.querySelectorAll(".rbtn[data-range]").forEach(function(x){ x.classList.toggle("on", x===b); });
         $("customRange").classList.toggle("hidden", CUR_RANGE!=="custom");
         if(CUR_RANGE!=="custom") renderOverview();
       }); });
@@ -963,13 +993,14 @@
       var r=await adminFetch("/api/admin/transactions?"+qs); var j=await r.json().catch(function(){return{};});
       if(!r.ok){ list.innerHTML="<div class='placeholder' style='color:var(--red)'>"+(j.error||"Gagal ambil transaksi")+"</div>"; return; }
       var rows=j.transactions||[];
-      var paid=rows.filter(function(x){return x.status==="paid";});
-      var gross=paid.reduce(function(a,x){return a+(+x.amount||0);},0);
-      var net=paid.reduce(function(a,x){return a+(+(x.net_amount!=null?x.net_amount:x.amount)||0);},0);
-      $("tSummary").innerHTML = statCard("Transaksi",rows.length,paid.length+" lunas")+statCard("Revenue (gross)",rupiah(gross))+statCard("Revenue (net)",rupiah(net))+statCard("Kredit terjual",paid.reduce(function(a,x){return a+(+x.credits||0);},0)+" scan");
+      // Total dari server (SELURUH baris terfilter, bukan cuma 1000 yang ditampilkan) — T-3.
+      var t=j.totals||{};
+      $("tSummary").innerHTML = statCard("Transaksi",(t.count!=null?t.count:rows.length),(t.paid_count!=null?t.paid_count:0)+" lunas")+statCard("Revenue (gross)",rupiah(t.gross||0))+statCard("Revenue (net)",rupiah(t.net||0))+statCard("Kredit terjual",(t.credits||0)+" scan");
       var mSel=$("tMethod"); if(mSel.options.length<=1){ var methods={}; rows.forEach(function(x){ if(x.payment_method) methods[x.payment_method]=1; }); Object.keys(methods).forEach(function(m){ var o=document.createElement("option"); o.value=m; o.textContent=m; mSel.appendChild(o); }); }
       if(!rows.length){ list.innerHTML="<div class='placeholder'>Belum ada transaksi di rentang ini.</div>"; return; }
-      var h="<table><thead><tr><th>Reff No</th><th>Jenis</th><th>Kredit</th><th>Nominal</th><th>Metode</th><th>Voucher</th><th>Status</th><th>Waktu</th><th></th></tr></thead><tbody>";
+      var h="";
+      if(j.table_capped){ h+="<div class='crumb' style='margin-bottom:8px;color:var(--orange,#c67)'>Menampilkan 1000 transaksi terbaru — <b>total di atas tetap dihitung dari semua transaksi</b> di rentang ini.</div>"; }
+      h+="<table><thead><tr><th>Reff No</th><th>Jenis</th><th>Kredit</th><th>Nominal</th><th>Metode</th><th>Voucher</th><th>Status</th><th>Waktu</th><th></th></tr></thead><tbody>";
       rows.forEach(function(x){
         h+="<tr><td style='font-family:monospace;font-size:12px'>"+esc(x.reff_no)+"</td>"+
           "<td style='font-size:12px'>"+orderTypeLabel(x.order_type)+"</td>"+
@@ -1095,6 +1126,7 @@
         if(f==="active"&&!u.active) return false;
         if(f==="inactive"&&u.active) return false;
         if(f==="buyers"&&!(u.purchases>0)) return false;
+        if(f==="nonbuyer"&&u.purchases>0) return false;
         if(onlyScan&&!(u.scans_used>0)) return false;
         if(prod){ if(!u.top_product||String(u.top_product.credits)!==prod) return false; }
         if(fromD||toD){
@@ -1193,8 +1225,110 @@
       else { h+="<table><thead><tr><th>Reff</th><th>Kredit</th><th>Nominal</th><th>Status</th><th>Waktu</th></tr></thead><tbody>";
         o.forEach(function(x){ h+="<tr><td style='font-family:monospace;font-size:11px'>"+esc(x.reff_no)+"</td><td>"+(x.credits||0)+"</td><td>"+rupiah(x.net_amount!=null?x.net_amount:x.amount)+"</td><td>"+txStatusTag(x.status)+"</td><td style='color:var(--muted);font-size:12px'>"+new Date(x.created_at).toLocaleDateString("id-ID")+"</td></tr>"; });
         h+="</tbody></table>"; }
+      // Timeline email (TASK 2): status paling maju yg tercapai (klik > buka > terkirim), bounce/complaint merah.
+      var em=j.emails||[];
+      h+="<h3 style='margin-top:8px'>Email ("+em.length+")</h3>";
+      if(!em.length) h+="<div class='placeholder'>Belum ada email.</div>";
+      else { h+="<table><thead><tr><th>Campaign</th><th>Status</th><th>Waktu</th></tr></thead><tbody>";
+        em.forEach(function(x){
+          var st=x.complained_at?"complaint":x.bounced_at?"bounce":x.clicked_at?"diklik":x.opened_at?"dibuka":x.delivered_at?"terkirim":(x.status||"sent");
+          var col=(st==="diklik")?"#1C8A4B":(st==="dibuka"||st==="terkirim")?"#0068C9":(st==="bounce"||st==="complaint")?"var(--red)":"var(--muted)";
+          var when=x.clicked_at||x.opened_at||x.delivered_at||x.sent_at||x.created_at;
+          h+="<tr><td>"+esc(x.campaign_id||x.channel||"—")+"<div style='color:var(--muted);font-size:11px'>"+esc(x.subject||"")+"</div></td><td style='font-weight:700;color:"+col+"'>"+st+"</td><td style='color:var(--muted);font-size:12px'>"+(when?new Date(when).toLocaleDateString("id-ID"):"—")+"</td></tr>";
+        });
+        h+="</tbody></table>"; }
+      // Kelola akun (TASK 3) — hanya superadmin. Ganti email + riwayat admin.
+      if(ME && ME.role==="superadmin"){
+        h+="<h3 style='margin-top:12px'>Kelola akun (superadmin)</h3>";
+        h+="<div style='display:flex;gap:8px;flex-wrap:wrap;align-items:center'>";
+        h+="<input id='ceEmail' type='email' placeholder='email baru…' style='flex:1;min-width:180px'>";
+        h+="<button class='btn sm' id='ceBtn'>Ganti email (kirim konfirmasi)</button></div>";
+        h+="<div class='crumb' id='ceMsg' style='margin-top:6px'></div>";
+        h+="<div id='ceAudit' style='margin-top:8px'></div>";
+      }
       openModal(h);
+      if(ME && ME.role==="superadmin"){
+        var ceb=$("ceBtn"); if(ceb) ceb.addEventListener("click", function(){ changeUserEmail(uid); });
+        loadUserAudit(uid);
+      }
     }
+    async function changeUserEmail(uid){
+      var em=(($("ceEmail")||{}).value||"").trim(); var msg=$("ceMsg");
+      if(!em){ if(msg){msg.style.color="var(--red)";msg.textContent="Isi email baru dulu.";} return; }
+      if(!confirm("Kirim email konfirmasi perubahan ke "+em+"?\nEmail akun baru berlaku SETELAH user klik konfirmasi.")) return;
+      if(msg){ msg.style.color="var(--muted)"; msg.textContent="Mengirim…"; }
+      var r=await adminFetch("/api/admin/user/change-email",{method:"POST",body:JSON.stringify({uid:uid,new_email:em})});
+      var j=await r.json().catch(function(){return{};});
+      if(r.ok&&j.ok){ if(msg){msg.style.color="#1f7a44";msg.textContent=j.message||"Konfirmasi terkirim.";} loadUserAudit(uid); }
+      else { if(msg){msg.style.color="var(--red)";msg.textContent=(j&&j.error)||"Gagal.";} }
+    }
+    async function loadUserAudit(uid){
+      var box=$("ceAudit"); if(!box) return;
+      var r=await adminFetch("/api/admin/user/audit?uid="+encodeURIComponent(uid));
+      var j=await r.json().catch(function(){return{};});
+      var logs=(j&&j.logs)||[];
+      if(!logs.length){ box.innerHTML="<div class='crumb'>Belum ada riwayat admin untuk user ini.</div>"; return; }
+      var t="<h3 style='margin-top:10px'>Riwayat admin</h3><table><thead><tr><th>Aksi</th><th>Oleh</th><th>Waktu</th></tr></thead><tbody>";
+      logs.forEach(function(x){ t+="<tr><td>"+esc(x.action)+"</td><td class='crumb'>"+esc(x.actor_email||"—")+"</td><td class='crumb'>"+(x.created_at?new Date(x.created_at).toLocaleString("id-ID"):"—")+"</td></tr>"; });
+      t+="</tbody></table>"; box.innerHTML=t;
+    }
+
+    // ---- Tambah user + Import CSV (TASK 3, superadmin) ----
+    var CI_ROWS=null;
+    async function doAddUser(){
+      var em=(($("nuEmail")||{}).value||"").trim(); var msg=$("nuMsg");
+      if(!em){ msg.style.color="var(--red)"; msg.textContent="Email wajib."; return; }
+      msg.style.color="var(--muted)"; msg.textContent="Membuat…";
+      var body={email:em, full_name:(($("nuName")||{}).value||"").trim()||null, phone:(($("nuPhone")||{}).value||"").trim()||null};
+      var r=await adminFetch("/api/admin/user/create",{method:"POST",body:JSON.stringify(body)});
+      var j=await r.json().catch(function(){return{};});
+      if(r.ok&&j.ok){ msg.style.color="#1f7a44"; msg.textContent="User dibuat: "+em; $("nuEmail").value=""; $("nuName").value=""; $("nuPhone").value=""; loadUsers(); }
+      else { msg.style.color="var(--red)"; msg.textContent=(j&&j.error)||"Gagal."; }
+    }
+    // Parser CSV kecil: dukung field ber-tanda-kutip. Header (email/full_name/phone) dideteksi.
+    function parseCsvUsers(text){
+      var lines=String(text||"").replace(/\r/g,"").split("\n").filter(function(l){return l.trim()!=="";});
+      if(!lines.length) return [];
+      function splitLine(l){ var out=[],cur="",q=false; for(var i=0;i<l.length;i++){var c=l[i]; if(q){ if(c==='"'){ if(l[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; } else { if(c==='"') q=true; else if(c===",") {out.push(cur);cur="";} else cur+=c; } } out.push(cur); return out.map(function(s){return s.trim();}); }
+      var first=splitLine(lines[0]).map(function(s){return s.toLowerCase();});
+      var hasHeader=first.indexOf("email")>=0;
+      var idxE=0,idxN=1,idxP=2;
+      if(hasHeader){ idxE=first.indexOf("email"); idxN=first.indexOf("full_name"); if(idxN<0)idxN=first.indexOf("name"); idxP=first.indexOf("phone"); }
+      var rows=[];
+      for(var i=hasHeader?1:0;i<lines.length;i++){ var c=splitLine(lines[i]); rows.push({ email:(c[idxE]||""), full_name: idxN>=0?(c[idxN]||""):"", phone: idxP>=0?(c[idxP]||""):"" }); }
+      return rows;
+    }
+    function renderCiReport(j){
+      var box=$("ciReport"); if(!box) return;
+      var rows=(j&&j.rows)||[]; var counts=j.counts||{};
+      var head="";
+      if(j.mode==="preview"){ head="<div class='crumb'>Baru: <b>"+(counts.new||0)+"</b> · Sudah ada: "+(counts.duplicate_existing||0)+" · Ganda di file: "+(counts.duplicate_in_file||0)+" · Invalid: "+(counts.invalid||0)+" (total "+j.total+")</div>"; }
+      else { head="<div class='crumb' style='color:#1f7a44'>Dibuat: <b>"+(j.created||0)+"</b> · Gagal: "+(j.failed||0)+" (total "+j.total+")</div>"; }
+      var col={new:"#1f7a44",created:"#1f7a44",duplicate_existing:"var(--muted)",duplicate_in_file:"var(--orange,#c67)",invalid:"var(--red)",failed:"var(--red)"};
+      var t=head+"<div style='max-height:220px;overflow:auto;margin-top:8px'><table><thead><tr><th>#</th><th>Email</th><th>Status</th><th>Ket.</th></tr></thead><tbody>";
+      rows.forEach(function(x){ t+="<tr><td>"+x.row+"</td><td>"+esc(x.email||"—")+"</td><td style='font-weight:700;color:"+(col[x.status]||"var(--muted)")+"'>"+x.status+"</td><td class='crumb'>"+esc(x.reason||"")+"</td></tr>"; });
+      t+="</tbody></table></div>"; box.innerHTML=t;
+    }
+    async function ciDoPreview(){
+      var rows=parseCsvUsers(($("ciText")||{}).value||"");
+      if(!rows.length){ $("ciReport").innerHTML="<div class='crumb' style='color:var(--red)'>CSV kosong / tak terbaca.</div>"; return; }
+      CI_ROWS=rows; $("ciReport").innerHTML="<div class='crumb'>Memproses…</div>";
+      var r=await adminFetch("/api/admin/user/bulk-import",{method:"POST",body:JSON.stringify({rows:rows,commit:false})});
+      var j=await r.json().catch(function(){return{};});
+      if(!r.ok||!j.ok){ $("ciReport").innerHTML="<div class='crumb' style='color:var(--red)'>"+((j&&j.error)||"Gagal")+"</div>"; return; }
+      renderCiReport(j);
+      $("ciCommit").style.display = (j.counts&&j.counts.new) ? "" : "none";
+    }
+    async function ciDoCommit(){
+      if(!CI_ROWS){ return; }
+      if(!confirm("Buat semua user berstatus 'baru' sekarang? Tindakan ini menyentuh Auth (staging & prod berbagi DB).")) return;
+      $("ciReport").innerHTML="<div class='crumb'>Membuat user…</div>";
+      var r=await adminFetch("/api/admin/user/bulk-import",{method:"POST",body:JSON.stringify({rows:CI_ROWS,commit:true})});
+      var j=await r.json().catch(function(){return{};});
+      if(!r.ok||!j.ok){ $("ciReport").innerHTML="<div class='crumb' style='color:var(--red)'>"+((j&&j.error)||"Gagal")+"</div>"; return; }
+      renderCiReport(j); $("ciCommit").style.display="none"; loadUsers();
+    }
+
     (function(){
       var uw=$("uWindow"); if(uw) uw.addEventListener("change", loadUsers);
       var ur=$("uRefresh"); if(ur) ur.addEventListener("click", loadUsers);
@@ -1205,6 +1339,13 @@
       var uto=$("uTo"); if(uto) uto.addEventListener("change", renderUserList);
       var uosc=$("uOnlyScan"); if(uosc) uosc.addEventListener("change", renderUserList);
       var uec=$("uExportCsv"); if(uec) uec.addEventListener("click", doExportUsers);
+      var nub=$("nuBtn"); if(nub) nub.addEventListener("click", doAddUser);
+      var cip=$("ciPreview"); if(cip) cip.addEventListener("click", ciDoPreview);
+      var cic=$("ciCommit"); if(cic) cic.addEventListener("click", ciDoCommit);
+      var cif=$("ciFile"); if(cif) cif.addEventListener("change", function(){
+        var f=cif.files&&cif.files[0]; if(!f) return;
+        var rd=new FileReader(); rd.onload=function(){ $("ciText").value=rd.result||""; }; rd.readAsText(f);
+      });
     })();
 
     // ---- Recap periode (onboarding/scan/beli/repeat) + segmen yang bisa di-unduh ----

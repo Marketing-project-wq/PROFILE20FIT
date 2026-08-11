@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
 <link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
 <meta charset="utf-8" />
@@ -212,7 +212,7 @@
         </div>
 
         <label data-k="email">Email</label>
-        <input id="email" name="username" type="email" placeholder="name@example.com" autocomplete="username" />
+        <input id="email" name="username" type="email" placeholder="name@example.com" autocomplete="username" autofocus />
 
         <div id="phone-wrap" class="hide">
           <label data-k="phone"></label>
@@ -390,7 +390,7 @@
         stickyText:"Mulai Kelola Kesehatanmu Sekarang"
       }
     };
-    let lang = localStorage.getItem("lang") || "en";
+    let lang = localStorage.getItem("lang") || (((navigator.language || "").toLowerCase().indexOf("en") === 0) ? "en" : "id");
     let mode = "in";
     let gender = null;
     function pickGender(g){ gender=g; document.getElementById("g-male").classList.toggle("active",g==="male"); document.getElementById("g-female").classList.toggle("active",g==="female"); }
