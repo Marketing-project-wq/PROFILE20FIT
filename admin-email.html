@@ -173,6 +173,11 @@
         </div>
         <div class="muted" id="camDetMeta" style="font-size:12px;margin-bottom:8px"></div>
         <div style="overflow:auto"><table><thead><tr><th>Email</th><th>Nama</th><th>Status</th><th>Terakhir</th></tr></thead><tbody id="camDetRows"></tbody></table></div>
+        <div style="margin-top:14px">
+          <div class="muted" style="font-weight:700;margin-bottom:4px">Link paling banyak diklik</div>
+          <div class="muted" style="font-size:11px;margin-bottom:6px">Dari event klik (my20fit_email_events) — metrik paling andal.</div>
+          <div style="overflow:auto"><table><thead><tr><th>URL</th><th>Klik</th><th>User unik</th></tr></thead><tbody id="camLinkRows"><tr><td colspan="3" class="muted">—</td></tr></tbody></table></div>
+        </div>
       </div>
     </div>
 
@@ -356,6 +361,19 @@
       var when = r.clicked_at||r.opened_at||r.sent_at||r.created_at;
       return '<tr><td>'+r.email+'</td><td>'+(r.name||"—")+'</td><td style="font-weight:700;color:'+col+'">'+r.status+'</td>'+
         '<td class="muted" style="font-size:12px">'+(when?when.slice(0,10):"—")+'</td></tr>';
+    }).join("");
+    loadCampaignLinks(days);
+  }
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  async function loadCampaignLinks(days){
+    el("camLinkRows").innerHTML = '<tr><td colspan="3" class="muted">Memuat…</td></tr>';
+    var url = "/api/admin/email/campaign/links?id="+encodeURIComponent(camState.id)+"&days="+days;
+    var j = await adminFetch(url).then(function(r){return r.json();}).catch(function(){return{};});
+    if (!j || !j.ok) { el("camLinkRows").innerHTML = '<tr><td colspan="3" class="err">Gagal memuat.</td></tr>'; return; }
+    var links = j.links || [];
+    if (!links.length) { el("camLinkRows").innerHTML = '<tr><td colspan="3" class="muted">Belum ada klik tercatat.</td></tr>'; return; }
+    el("camLinkRows").innerHTML = links.map(function(l){
+      return '<tr><td style="font-size:12px;word-break:break-all">'+esc(l.url)+'</td><td style="font-weight:700;color:var(--ok)">'+l.clicks+'</td><td class="muted">'+l.unique_users+'</td></tr>';
     }).join("");
   }
   el("camReload").onclick = loadCampaigns;

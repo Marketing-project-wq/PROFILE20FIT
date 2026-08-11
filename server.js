@@ -685,6 +685,41 @@ app.get("/api/admin/email/campaign", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// Top link diklik untuk 1 campaign (dari my20fit_email_events.clicked_url).
+// Metrik paling andal: link mana yang menarik minat. Bebas data kesehatan.
+app.get("/api/admin/email/campaign/links", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer");
+  if (!ctx) return;
+  try {
+    const id = String((req.query && req.query.id) || "").trim();
+    if (!id) return res.status(400).json({ error: "id campaign wajib" });
+    if (!/^[a-zA-Z0-9_.:-]+$/.test(id)) return res.status(400).json({ error: "id campaign tidak valid" });
+    const days = Math.min(365, Math.max(1, parseInt((req.query && req.query.days) || "90", 10) || 90));
+    const sinceIso = new Date(Date.now() - days * 86400000).toISOString();
+    const CAP = 20000;
+    let rows = [];
+    try {
+      const { data } = await admin.from("my20fit_email_events")
+        .select("clicked_url,user_id")
+        .eq("event_type", "clicked")
+        .or("campaign_id.eq." + id + ",and(campaign_id.is.null,channel.eq." + id + ")")
+        .gte("occurred_at", sinceIso).limit(CAP);
+      rows = data || [];
+    } catch (e) { /* tabel belum di-migrate (010) → kembalikan kosong */ }
+    const map = {};
+    for (const r of rows) {
+      const url = r.clicked_url || "(tanpa url)";
+      let m = map[url];
+      if (!m) m = map[url] = { url: url, clicks: 0, _users: new Set() };
+      m.clicks++;
+      if (r.user_id) m._users.add(r.user_id);
+    }
+    const links = Object.keys(map).map((u) => ({ url: u, clicks: map[u].clicks, unique_users: map[u]._users.size }))
+      .sort((a, b) => b.clicks - a.clicks).slice(0, 50);
+    return res.json({ ok: true, id: id, window_days: days, total_click_events: rows.length, links: links });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // Suppression list (cari). Bebas data kesehatan.
 app.get("/api/admin/email/suppression", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer");
