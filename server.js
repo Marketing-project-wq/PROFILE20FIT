@@ -3126,6 +3126,115 @@ app.post("/api/admin/vouchers/bulk", async (req, res) => {
   return res.json({ ok: true, created: created, codes: codes });
 });
 
+// ================= BANNER / PROMOTION (Modul 5) =================
+// Admin kelola; endpoint publik (serve + event) rate-limited. cta_url di-allowlist
+// (cegah open redirect). Impression/click best-effort, kecualikan bot.
+const BANNER_ALLOWED_HOSTS = ["my.20fit.id", "20fit.id", "www.20fit.id", "booking.20fit.id", "photo.20fit.id", "media.20fit.id"];
+function bannerCtaValid(url) {
+  const u = String(url || "").trim();
+  if (!u) return true;                    // boleh kosong
+  if (u.charAt(0) === "/") return true;   // path relatif = internal
+  try { const h = new URL(u).hostname.toLowerCase(); return BANNER_ALLOWED_HOSTS.some(d => h === d || h.endsWith("." + d)); }
+  catch (e) { return false; }
+}
+app.get("/api/admin/banners", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const { data, error } = await admin.from("my20fit_banner").select("*").order("priority", { ascending: false }).order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ ok: true, banners: data || [] });
+});
+app.post("/api/admin/banners", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  if (!bannerCtaValid(b.cta_url)) return res.status(400).json({ error: "cta_url tidak diizinkan (cegah open redirect). Pakai path '/…' atau domain 20fit.id." });
+  const row = {
+    title: b.title || null, image_url_id: b.image_url_id || null, image_url_en: b.image_url_en || null,
+    alt_text_id: b.alt_text_id || null, alt_text_en: b.alt_text_en || null,
+    cta_text_id: b.cta_text_id || null, cta_text_en: b.cta_text_en || null, cta_url: b.cta_url || null,
+    cta_type: ["internal_link", "external_link", "deeplink"].indexOf(b.cta_type) >= 0 ? b.cta_type : "internal_link",
+    placement: b.placement || "below_aqi", priority: parseInt(b.priority, 10) || 0,
+    starts_at: b.starts_at || null, ends_at: b.ends_at || null, is_active: !!b.is_active, created_by: ctx.email || null,
+  };
+  const { data, error } = await admin.from("my20fit_banner").insert(row).select().limit(1);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "banner.create", (data && data[0] && data[0].id) || "", { title: row.title });
+  return res.json({ ok: true, banner: data && data[0] });
+});
+app.put("/api/admin/banners/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  if (b.cta_url !== undefined && !bannerCtaValid(b.cta_url)) return res.status(400).json({ error: "cta_url tidak diizinkan." });
+  const upd = { updated_at: new Date().toISOString() };
+  ["title", "image_url_id", "image_url_en", "alt_text_id", "alt_text_en", "cta_text_id", "cta_text_en", "cta_url", "placement", "starts_at", "ends_at"].forEach(k => { if (b[k] !== undefined) upd[k] = b[k] || null; });
+  if (b.cta_type !== undefined && ["internal_link", "external_link", "deeplink"].indexOf(b.cta_type) >= 0) upd.cta_type = b.cta_type;
+  if (b.priority !== undefined) upd.priority = parseInt(b.priority, 10) || 0;
+  if (b.is_active !== undefined) upd.is_active = !!b.is_active;
+  const { error } = await admin.from("my20fit_banner").update(upd).eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "banner.update", req.params.id, upd);
+  return res.json({ ok: true });
+});
+app.post("/api/admin/banners/:id/toggle", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const on = !!(req.body && req.body.is_active);
+  const { error } = await admin.from("my20fit_banner").update({ is_active: on, updated_at: new Date().toISOString() }).eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "banner.toggle", req.params.id, { is_active: on });
+  return res.json({ ok: true });
+});
+app.post("/api/admin/banners/reorder", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const ids = Array.isArray(req.body && req.body.ids) ? req.body.ids : [];
+  for (let i = 0; i < ids.length; i++) await admin.from("my20fit_banner").update({ priority: ids.length - i, updated_at: new Date().toISOString() }).eq("id", ids[i]);
+  await adminAudit(ctx, "banner.reorder", "", { count: ids.length });
+  return res.json({ ok: true });
+});
+app.delete("/api/admin/banners/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  const { error } = await admin.from("my20fit_banner").delete().eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "banner.delete", req.params.id, null);
+  return res.json({ ok: true });
+});
+app.get("/api/admin/banners/tracking", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data: banners } = await admin.from("my20fit_banner").select("id,title,placement,is_active,priority").limit(2000);
+    const { data: ev } = await admin.from("my20fit_banner_event").select("banner_id,event_type").limit(200000);
+    const imp = {}, clk = {};
+    (ev || []).forEach(e => { if (e.event_type === "impression") imp[e.banner_id] = (imp[e.banner_id] || 0) + 1; else if (e.event_type === "click") clk[e.banner_id] = (clk[e.banner_id] || 0) + 1; });
+    const rows = (banners || []).map(bn => { const i = imp[bn.id] || 0, c = clk[bn.id] || 0; return { id: bn.id, title: bn.title, placement: bn.placement, is_active: bn.is_active, priority: bn.priority, impressions: i, clicks: c, ctr: i ? Math.round(c / i * 1000) / 10 : 0 }; }).sort((a, b) => b.impressions - a.impressions);
+    return res.json({ ok: true, banners: rows });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Publik: banner aktif utk placement (schedule + active + priority). Rate-limited.
+app.get("/api/banners/active", apiLimiter, async (req, res) => {
+  if (!admin) return res.json({ ok: true, banners: [] });
+  try {
+    const place = String(req.query.placement || "below_aqi");
+    const nowIso = new Date().toISOString();
+    const { data } = await admin.from("my20fit_banner")
+      .select("id,image_url_id,image_url_en,alt_text_id,alt_text_en,cta_text_id,cta_text_en,cta_url,cta_type,priority,starts_at,ends_at")
+      .eq("placement", place).eq("is_active", true).order("priority", { ascending: false }).limit(20);
+    const active = (data || []).filter(b => (!b.starts_at || b.starts_at <= nowIso) && (!b.ends_at || b.ends_at >= nowIso));
+    return res.json({ ok: true, banners: active });
+  } catch (e) { return res.json({ ok: true, banners: [] }); }
+});
+// Publik: catat impression/click (balas cepat, proses async, kecualikan bot). Rate-limited.
+app.post("/api/banners/event", apiLimiter, async (req, res) => {
+  res.json({ ok: true });
+  try {
+    if (!admin) return;
+    const b = req.body || {};
+    const et = b.event_type === "click" ? "click" : (b.event_type === "impression" ? "impression" : null);
+    if (!et || !b.banner_id) return;
+    const ua = String(req.get("user-agent") || "").toLowerCase();
+    if (/bot|crawler|spider|preview|facebookexternalhit|slurp/.test(ua)) return;
+    let uid = null; try { const u = await getUserFromReq(req); uid = (u && u.id) || null; } catch (e) {}
+    await admin.from("my20fit_banner_event").insert({ banner_id: b.banner_id, user_id: uid, event_type: et });
+  } catch (e) {}
+});
+
 // ---------- Transaksi (my20fit_scan_orders) ----------
 app.get("/api/admin/transactions", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;

@@ -280,7 +280,62 @@
           <div id="mktDrill" style="margin-top:18px"></div>
         </div>
         <div data-tabpanel="mkt" data-tab="send" hidden></div>
-        <div data-tabpanel="mkt" data-tab="banner" hidden></div>
+        <div data-tabpanel="mkt" data-tab="banner" hidden>
+          <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:24px;margin-top:14px">
+            <div>
+              <div class="adm-sec-title" style="margin-top:0" data-i18n="Active & scheduled banners">Banner aktif & terjadwal</div>
+              <table class="adm-table" id="bnTable">
+                <thead><tr>
+                  <th data-i18n="Title">Judul</th>
+                  <th data-i18n="Placement">Penempatan</th>
+                  <th class="adm-right" data-i18n="Priority">Prioritas</th>
+                  <th data-i18n="Schedule">Jadwal</th>
+                  <th data-i18n="Status">Status</th>
+                  <th></th>
+                </tr></thead>
+                <tbody id="bnRows"></tbody>
+              </table>
+              <div class="adm-note" id="bnEmpty" hidden data-i18n="No banners yet.">Belum ada banner.</div>
+              <div class="adm-sec-title" data-i18n="Performance (impression · click · CTR)">Performa (impresi · klik · CTR)</div>
+              <table class="adm-table" id="bnTrackTable" data-table data-page-size="10">
+                <thead><tr>
+                  <th data-sort="str" data-i18n="Title">Judul</th>
+                  <th class="adm-right" data-sort="num" data-i18n="Impressions">Impresi</th>
+                  <th class="adm-right" data-sort="num" data-i18n="Clicks">Klik</th>
+                  <th class="adm-right" data-sort="num" aria-sort="descending" data-i18n="CTR %">CTR %</th>
+                </tr></thead>
+                <tbody id="bnTrackRows"></tbody>
+              </table>
+              <div class="adm-note" data-table-empty="#bnTrackTable" hidden data-i18n="No impressions yet.">Belum ada impresi.</div>
+            </div>
+            <div>
+              <div class="adm-sec-title" style="margin-top:0"><span id="bnFormTitle" data-i18n="New banner">Banner baru</span></div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <input class="adm-input" id="bnTitle" placeholder="Judul internal (admin)" data-i18n-ph="Internal title (admin)">
+                <input class="adm-input" id="bnImgId" placeholder="Image URL (ID)" data-i18n-ph="Image URL (ID)">
+                <input class="adm-input" id="bnImgEn" placeholder="Image URL (EN, opsional)" data-i18n-ph="Image URL (EN, optional)">
+                <input class="adm-input" id="bnAltId" placeholder="Alt text (ID)" data-i18n-ph="Alt text (ID)">
+                <input class="adm-input" id="bnAltEn" placeholder="Alt text (EN, opsional)" data-i18n-ph="Alt text (EN, optional)">
+                <input class="adm-input" id="bnCtaId" placeholder="Teks tombol (ID)" data-i18n-ph="Button text (ID)">
+                <input class="adm-input" id="bnCtaEn" placeholder="Teks tombol (EN, opsional)" data-i18n-ph="Button text (EN, optional)">
+                <input class="adm-input" id="bnCtaUrl" placeholder="CTA URL (path /… atau domain 20fit.id)" data-i18n-ph="CTA URL (path /… or 20fit.id domain)">
+                <select class="adm-input" id="bnCtaType"><option value="internal_link">internal_link</option><option value="external_link">external_link</option><option value="deeplink">deeplink</option></select>
+                <select class="adm-input" id="bnPlacement"><option value="below_aqi">below_aqi</option></select>
+                <input class="adm-input" id="bnPriority" type="number" placeholder="Prioritas (angka besar = atas)" data-i18n-ph="Priority (higher = top)">
+                <label class="adm-note" data-i18n="Start (optional)">Mulai (opsional)</label>
+                <input class="adm-input" id="bnStart" type="datetime-local">
+                <label class="adm-note" data-i18n="End (optional)">Selesai (opsional)</label>
+                <input class="adm-input" id="bnEnd" type="datetime-local">
+                <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="bnActive"> <span data-i18n="Active now">Aktif sekarang</span></label>
+                <button class="adm-btn adm-btn--primary" id="bnSave" data-i18n="Save banner">Simpan banner</button>
+                <button class="adm-btn adm-btn--sm" id="bnReset" hidden data-i18n="Cancel edit">Batal edit</button>
+                <div class="adm-note" id="bnMsg"></div>
+              </div>
+              <div class="adm-sec-title" data-i18n="Preview (below AQI card)">Preview (di bawah kartu AQI)</div>
+              <div id="bnPreview" style="border:1px solid var(--line);padding:12px"></div>
+            </div>
+          </div>
+        </div>
         <div data-tabpanel="mkt" data-tab="more" hidden></div>
       </section>
       <section data-section="corporate" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Corporate" data-title-en="Corporate" data-question="Status kontrak, seat, dan partisipasi agregat per organisasi." data-question-en="Contract status, seats, and aggregate participation per organization."></section>
@@ -514,8 +569,118 @@
       window.admRenderTable("#mktCampTable");
     }catch(e3){ tb.innerHTML=""; }
     scaffoldPanel("mkt","send","Send-campaign builder (subject ID/EN, segment recipients, preview, type-to-confirm, kill switch). Coming next.","Builder kirim campaign (subject ID/EN, segmen penerima, preview, konfirmasi ketik, kill switch). Menyusul.");
-    scaffoldPanel("mkt","banner","Banner module — no data yet (new table). Coming after Voucher.","Modul banner — belum ada data (tabel baru). Menyusul setelah Voucher.");
     scaffoldPanel("mkt","more","Content · Shortlink · Push · Lead — next increments.","Konten · Shortlink · Push · Lead — increment berikutnya.");
+    loadBanner();
+  }
+
+  // ---- BANNER (Modul 5) ----
+  var BN_EDIT = null;   // id being edited, null = create mode
+  function bnLocalToIso(v){ return v ? new Date(v).toISOString() : null; }
+  function bnIsoToLocal(v){ if(!v) return ""; var d=new Date(v); if(isNaN(d)) return ""; var p=function(n){return String(n).padStart(2,"0");}; return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes()); }
+  function bnSchedText(b){
+    var s=b.starts_at?String(b.starts_at).slice(0,10):null, e=b.ends_at?String(b.ends_at).slice(0,10):null;
+    if(!s&&!e) return L("Always","Selalu");
+    return (s||"…")+" → "+(e||"…");
+  }
+  function bnStatusTag(b){
+    var now=new Date().toISOString();
+    if(!b.is_active) return '<span class="adm-tag adm-tag--mute">'+L("Off","Nonaktif")+'</span>';
+    if(b.starts_at&&b.starts_at>now) return '<span class="adm-tag adm-tag--pending">'+L("Scheduled","Terjadwal")+'</span>';
+    if(b.ends_at&&b.ends_at<now) return '<span class="adm-tag adm-tag--mute">'+L("Expired","Kedaluwarsa")+'</span>';
+    return '<span class="adm-tag">'+L("Live","Tayang")+'</span>';
+  }
+  async function loadBanner(){
+    var tb=document.getElementById("bnRows"); if(!tb) return;
+    try{
+      var j=await adminFetch("/api/admin/banners").then(function(r){return r.json();});
+      var bs=(j&&j.banners)||[];
+      document.getElementById("bnEmpty").hidden = bs.length>0;
+      tb.innerHTML=bs.map(function(b){
+        return '<tr data-bid="'+esc(b.id)+'">'+
+          '<td>'+esc(b.title||"—")+'</td>'+
+          '<td class="adm-mono">'+esc(b.placement||"")+'</td>'+
+          '<td class="adm-right adm-num">'+(b.priority||0)+'</td>'+
+          '<td class="adm-note">'+esc(bnSchedText(b))+'</td>'+
+          '<td>'+bnStatusTag(b)+'</td>'+
+          '<td class="adm-right" style="white-space:nowrap">'+
+            '<button class="adm-btn adm-btn--sm bnToggle" data-on="'+(b.is_active?"0":"1")+'">'+(b.is_active?L("Turn off","Matikan"):L("Turn on","Nyalakan"))+'</button> '+
+            '<button class="adm-btn adm-btn--sm bnEdit" data-i18n="Edit">Edit</button> '+
+            '<button class="adm-btn adm-btn--sm bnDel" data-confirm="'+L("Sure delete?","Yakin hapus?")+'" data-i18n="Delete">Hapus</button>'+
+          '</td></tr>';
+      }).join("") || '';
+    }catch(e){ tb.innerHTML='<tr><td colspan="6" class="adm-note">'+esc(String(e.message||e))+'</td></tr>'; }
+    try{
+      var t=await adminFetch("/api/admin/banners/tracking").then(function(r){return r.json();});
+      var rows=(t&&t.banners)||[];
+      document.getElementById("bnTrackRows").innerHTML=rows.map(function(b){
+        return '<tr>'+
+          '<td>'+esc(b.title||"—")+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+(b.impressions||0)+'">'+(b.impressions||0)+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+(b.clicks||0)+'">'+(b.clicks||0)+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+(b.ctr||0)+'" style="font-weight:800">'+(b.ctr||0)+'%</td></tr>';
+      }).join("");
+      window.admRenderTable("#bnTrackTable");
+    }catch(e2){}
+    bnPreview();
+  }
+  function bnFormRead(){
+    var g=function(id){ var e=document.getElementById(id); return e?e.value:""; };
+    return {
+      title:g("bnTitle").trim()||null, image_url_id:g("bnImgId").trim()||null, image_url_en:g("bnImgEn").trim()||null,
+      alt_text_id:g("bnAltId").trim()||null, alt_text_en:g("bnAltEn").trim()||null,
+      cta_text_id:g("bnCtaId").trim()||null, cta_text_en:g("bnCtaEn").trim()||null,
+      cta_url:g("bnCtaUrl").trim()||null, cta_type:g("bnCtaType"), placement:g("bnPlacement"),
+      priority:parseInt(g("bnPriority"),10)||0, starts_at:bnLocalToIso(g("bnStart")), ends_at:bnLocalToIso(g("bnEnd")),
+      is_active:!!(document.getElementById("bnActive")||{}).checked
+    };
+  }
+  function bnPreview(){
+    var el=document.getElementById("bnPreview"); if(!el) return;
+    var b=bnFormRead(), en=localStorage.getItem("adm.lang")==="en";
+    var img=(en&&b.image_url_en)||b.image_url_id, alt=(en&&b.alt_text_en)||b.alt_text_id||"", cta=(en&&b.cta_text_en)||b.cta_text_id;
+    if(!img){ el.innerHTML='<div class="adm-note" data-i18n="Add an image URL to preview.">Isi Image URL untuk melihat preview.</div>'; return; }
+    el.innerHTML='<img src="'+esc(img)+'" alt="'+esc(alt)+'" style="max-width:100%;display:block;border:1px solid var(--line)" onerror="this.style.display=\'none\'">'+
+      (cta?'<button class="adm-btn adm-btn--primary" style="margin-top:8px" type="button">'+esc(cta)+'</button>':'');
+  }
+  function bnResetForm(){
+    BN_EDIT=null;
+    ["bnTitle","bnImgId","bnImgEn","bnAltId","bnAltEn","bnCtaId","bnCtaEn","bnCtaUrl","bnPriority","bnStart","bnEnd"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=""; });
+    document.getElementById("bnCtaType").value="internal_link";
+    document.getElementById("bnActive").checked=false;
+    var ft=document.getElementById("bnFormTitle"); ft.textContent=L("New banner","Banner baru"); ft.dataset.i18n="New banner"; ft.dataset.i18nId="Banner baru";
+    document.getElementById("bnReset").hidden=true;
+    document.getElementById("bnMsg").textContent="";
+    bnPreview();
+  }
+  function bnEditFill(b){
+    BN_EDIT=b.id;
+    var set=function(id,v){ var e=document.getElementById(id); if(e) e.value=v==null?"":v; };
+    set("bnTitle",b.title); set("bnImgId",b.image_url_id); set("bnImgEn",b.image_url_en);
+    set("bnAltId",b.alt_text_id); set("bnAltEn",b.alt_text_en);
+    set("bnCtaId",b.cta_text_id); set("bnCtaEn",b.cta_text_en); set("bnCtaUrl",b.cta_url);
+    document.getElementById("bnCtaType").value=b.cta_type||"internal_link";
+    document.getElementById("bnPlacement").value=b.placement||"below_aqi";
+    set("bnPriority",b.priority); set("bnStart",bnIsoToLocal(b.starts_at)); set("bnEnd",bnIsoToLocal(b.ends_at));
+    document.getElementById("bnActive").checked=!!b.is_active;
+    var ft=document.getElementById("bnFormTitle"); ft.textContent=L("Edit banner","Edit banner"); ft.dataset.i18n="Edit banner"; ft.dataset.i18nId="Edit banner";
+    document.getElementById("bnReset").hidden=false;
+    document.getElementById("bnMsg").textContent="";
+    bnPreview();
+    document.getElementById("bnTitle").scrollIntoView({block:"center"});
+  }
+  function bnPut(id,body){
+    var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
+    return fetch("/api/admin/banners/"+encodeURIComponent(id)+qs,{ method:"PUT", headers:{"content-type":"application/json"}, credentials:"include", body:JSON.stringify(body||{}) }).then(function(x){return x.json();}).catch(function(){return{};});
+  }
+  async function bnSave(){
+    var msg=document.getElementById("bnMsg"), body=bnFormRead();
+    if(!body.image_url_id){ msg.textContent=L("Image URL (ID) is required.","Image URL (ID) wajib diisi."); return; }
+    msg.textContent=L("Saving…","Menyimpan…");
+    var r = BN_EDIT
+      ? await bnPut(BN_EDIT, body)
+      : await adminPost("/api/admin/banners", body).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ msg.textContent=L("Saved.","Tersimpan."); if(window.admToast)admToast(L("Banner saved","Banner tersimpan")); bnResetForm(); loadBanner(); }
+    else msg.textContent=(r&&r.error)||L("Failed","Gagal");
   }
   async function loadCampaignDrill(cid){
     var box=document.getElementById("mktDrill");
@@ -719,7 +884,31 @@
     if(row){ document.querySelectorAll("#usrRows tr").forEach(function(x){x.style.background="";}); row.style.background="var(--surface)"; loadUserDetail(row.dataset.uid); return; }
     var crow=e.target.closest("#mktCampRows tr[data-cid]");
     if(crow){ loadCampaignDrill(crow.dataset.cid); return; }
+    var btab=e.target.closest('[data-tab="mkt"][data-tab-id="banner"]');
+    if(btab){ setTimeout(loadBanner,0); return; }
+    var bt=e.target.closest(".bnToggle");
+    if(bt){ var tr=bt.closest("tr[data-bid]"); bnToggle(tr.dataset.bid, bt.dataset.on==="1"); return; }
+    var be=e.target.closest(".bnEdit");
+    if(be){ bnEditById(be.closest("tr[data-bid]").dataset.bid); return; }
+    var bd=e.target.closest(".bnDel");
+    if(bd){ if(bd.dataset.armed==="1") return; bnDelete(bd.closest("tr[data-bid]").dataset.bid); return; }
   });
+  async function bnToggle(id,on){
+    var r=await adminPost("/api/admin/banners/"+encodeURIComponent(id)+"/toggle",{is_active:on}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(on?L("Banner on","Banner nyala"):L("Banner off","Banner mati")); loadBanner(); }
+    else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
+  }
+  async function bnEditById(id){
+    var j=await adminFetch("/api/admin/banners").then(function(r){return r.json();}).catch(function(){return{};});
+    var b=((j&&j.banners)||[]).filter(function(x){return x.id===id;})[0];
+    if(b) bnEditFill(b);
+  }
+  async function bnDelete(id){
+    var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
+    var r=await fetch("/api/admin/banners/"+encodeURIComponent(id)+qs,{method:"DELETE",credentials:"include"}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Banner deleted","Banner dihapus")); if(BN_EDIT===id) bnResetForm(); loadBanner(); }
+    else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
+  }
 
   document.addEventListener("DOMContentLoaded", function(){
     document.getElementById("periodSeg").addEventListener("click", function(e){
@@ -732,6 +921,9 @@
     ["vcType","vcValue","vcMin","vcLimit","vcPerUser","vcUntil"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",vcPreview); });
     var _vcb=document.getElementById("vcCreate"); if(_vcb) _vcb.onclick=vcCreate;
     var _vbb=document.getElementById("vbGen"); if(_vbb) _vbb.onclick=vbGen;
+    var _bs=document.getElementById("bnSave"); if(_bs) _bs.onclick=bnSave;
+    var _br=document.getElementById("bnReset"); if(_br) _br.onclick=bnResetForm;
+    ["bnImgId","bnImgEn","bnAltId","bnAltEn","bnCtaId","bnCtaEn"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",bnPreview); });
     fillScaffold("menu","Shared-menu review queue + guidelines. Backend module next.","Antrian review menu shared + pedoman. Modul backend menyusul.");
     fillScaffold("corporate","Contracts, portal access, aggregate client dashboard. Backend module next.","Kontrak, akses portal, dashboard klien agregat. Modul backend menyusul.");
     fillScaffold("reports","Scheduled + custom reports. Next increment.","Report terjadwal + kustom. Increment berikutnya.");
