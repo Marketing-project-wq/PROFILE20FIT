@@ -5022,6 +5022,29 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// ---------- Langkah 7: swap dashboard admin ke shell baru /admin-v2 ----------
+// Di belakang feature flag `admin_v2` (default OFF → TIDAK ada perubahan perilaku).
+// Reversible: matikan flag = balik ke admin lama seketika (cache 30 dtk).
+// Admin lama SELALU bisa diakses via /admin-dashboard?legacy=1 (jangan terjebak saat ON).
+let _adminV2On = false, _adminV2At = 0;
+async function adminV2Enabled() {
+  if (Date.now() - _adminV2At < 30000) return _adminV2On;
+  _adminV2At = Date.now();
+  try {
+    if (admin) {
+      const { data } = await admin.from("my20fit_admin_feature_flags").select("enabled").eq("key", "admin_v2").limit(1);
+      _adminV2On = !!(data && data[0] && data[0].enabled);
+    }
+  } catch (e) { /* pertahankan nilai terakhir */ }
+  return _adminV2On;
+}
+app.get("/admin-dashboard", async (req, res, next) => {
+  if (req.query && req.query.legacy) return next();          // paksa admin lama
+  try { if (await adminV2Enabled()) return res.redirect(302, "/admin-v2"); } catch (e) {}
+  return next();                                              // default: admin lama (static)
+});
+
 app.use(express.static(path.join(__dirname), {
   extensions: ["html"], dotfiles: "ignore",
   setHeaders: function (res, filePath) {
