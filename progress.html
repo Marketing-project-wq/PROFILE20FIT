@@ -4,7 +4,7 @@
 <link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Progress · 20FIT</title>
+<title>Activity · 20FIT</title>
 <style>
   :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#9a907f;--inp:#F4F1EC;--dark:#000000;--pagetx:#EDE8DF;--pagemut:#9a907f}
   *{box-sizing:border-box}
@@ -127,7 +127,7 @@
 <body>
   <div class="wrap">
     <div class="hk" id="hk">Your journey</div>
-    <div class="hello" id="hello">Progress</div>
+    <div class="hello" id="hello">Activity</div>
     <div id="content"><div class="card"><div class="muted" id="loading">Loading…</div></div></div>
   </div>
 
@@ -322,7 +322,7 @@
     function render(){
       const c=document.getElementById("content");
       document.getElementById("hk").textContent=L({en:"Your journey",id:"Perjalananmu"});
-      document.getElementById("hello").textContent=L({en:"Progress",id:"Progress"});
+      document.getElementById("hello").textContent=L({en:"Activity",id:"Aktivitas"});
       if(!days.length){ c.innerHTML=newTop()+overallCard()+cycleCard()+calendarCard()+'<div class="card" style="margin-top:14px"><div class="empty">'+L({en:"Start tracking your water, sleep & meals — your weekly progress will appear here.",id:"Mulai catat air, tidur & makananmu — progres mingguanmu akan muncul di sini."})+'</div></div>'+'<div id="arenaHist"></div>'; renderArena(); renderNewArena(); return; }
 
       // ---- summary ----

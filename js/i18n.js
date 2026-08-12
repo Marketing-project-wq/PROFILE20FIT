@@ -9,7 +9,7 @@
   const DICT = {
     en: {
       // nav
-      nav_home:"Home", nav_medical:"Medical", nav_progress:"Progress", nav_calories:"Calories", nav_profile:"Profile", nav_scan:"Scan",
+      nav_home:"Home", nav_medical:"Medical", nav_progress:"Activity", nav_calories:"Calories", nav_profile:"Profile", nav_scan:"Scan",
       logout:"Log Out",
       book_title:"Book at 20FIT", book_class:"Book a class", book_consult:"Book a doctor consultation",
       book_recworkout:"Ready to train? Book your class at 20FIT.", book_recmed:"Based on your results, book a session at the 20FIT clinic.",
@@ -139,7 +139,7 @@
       diet_err_photoread:"Failed to read photo."
     },
     id: {
-      nav_home:"Beranda", nav_medical:"Medis", nav_progress:"Progress", nav_calories:"Kalori", nav_profile:"Profil", nav_scan:"Scan",
+      nav_home:"Beranda", nav_medical:"Medis", nav_progress:"Aktivitas", nav_calories:"Kalori", nav_profile:"Profil", nav_scan:"Scan",
       logout:"Keluar",
       book_title:"Booking di 20FIT", book_class:"Booking kelas", book_consult:"Booking konsultasi dokter",
       book_recworkout:"Siap latihan? Booking kelasmu di 20FIT.", book_recmed:"Berdasarkan hasilmu, booking sesi di klinik 20FIT.",
