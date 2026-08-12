@@ -3052,6 +3052,80 @@ app.post("/api/admin/vouchers/:id/activate", async (req, res) => {
   return res.json({ ok: true });
 });
 
+// Tracking voucher (analitik): perbandingan per voucher urut revenue bersih + tabel kode gagal.
+// Read-only, bebas data kesehatan. % pembeli baru = redeemer dengan <=1 order paid all-time (proxy).
+app.get("/api/admin/vouchers/tracking", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data: vouchers } = await admin.from("my20fit_vouchers").select("*").order("created_at", { ascending: false }).limit(2000);
+    const { data: usages } = await admin.from("my20fit_voucher_usages").select("voucher_id,auth_user_id,discount_applied").limit(100000);
+    const { data: orders } = await admin.from("my20fit_scan_orders").select("auth_user_id,net_amount,amount,status,voucher_id").limit(100000);
+    let attempts = [];
+    try { const { data: at } = await admin.from("my20fit_voucher_attempts").select("code_tried,result").limit(100000); attempts = at || []; } catch (e) {}
+    const paidByUser = {}; (orders || []).filter(o => o.status === "paid").forEach(o => { if (o.auth_user_id) paidByUser[o.auth_user_id] = (paidByUser[o.auth_user_id] || 0) + 1; });
+    const netByV = {}; (orders || []).filter(o => o.status === "paid" && o.voucher_id).forEach(o => { netByV[o.voucher_id] = (netByV[o.voucher_id] || 0) + ((o.net_amount != null ? +o.net_amount : +o.amount) || 0); });
+    const useByV = {}, redeemers = {}, discByV = {};
+    (usages || []).forEach(u => {
+      useByV[u.voucher_id] = (useByV[u.voucher_id] || 0) + 1;
+      (redeemers[u.voucher_id] = redeemers[u.voucher_id] || new Set()).add(u.auth_user_id);
+      discByV[u.voucher_id] = (discByV[u.voucher_id] || 0) + (+u.discount_applied || 0);
+    });
+    const attByCode = {}, failByCode = {};
+    (attempts).forEach(a => {
+      attByCode[a.code_tried] = (attByCode[a.code_tried] || 0) + 1;
+      if (a.result !== "ok") { const m = failByCode[a.code_tried] = failByCode[a.code_tried] || {}; m[a.result] = (m[a.result] || 0) + 1; }
+    });
+    const now = new Date();
+    const rows = (vouchers || []).map(v => {
+      const used = useByV[v.id] || 0;
+      const rset = redeemers[v.id] || new Set();
+      let newB = 0; rset.forEach(uid => { if ((paidByUser[uid] || 0) <= 1) newB++; });
+      const att = attByCode[v.code] || 0;
+      const expired = v.valid_until && new Date(v.valid_until) < now;
+      const quotaFull = v.usage_limit_total != null && used >= v.usage_limit_total;
+      const status = v.status !== "active" ? "inactive" : (expired ? "expired" : (quotaFull ? "quota_full" : "active"));
+      return {
+        id: v.id, code: v.code, discount_type: v.discount_type, discount_value: v.discount_value,
+        used: used, quota: v.usage_limit_total, discount_given: discByV[v.id] || 0, net_revenue: netByV[v.id] || 0,
+        new_buyer_pct: rset.size ? Math.round(newB / rset.size * 100) : 0,
+        attempts: att, redemption_rate: att ? Math.round(used / att * 100) : 0, status: status,
+      };
+    }).sort((a, b) => b.net_revenue - a.net_revenue);
+    const failed_codes = Object.keys(failByCode).map(code => {
+      const br = failByCode[code]; const total = Object.keys(br).reduce((s, k) => s + br[k], 0);
+      return { code: code, total: total, breakdown: br };
+    }).sort((a, b) => b.total - a.total).slice(0, 50);
+    return res.json({ ok: true, vouchers: rows, failed_codes: failed_codes });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Bulk generate kode voucher unik (staff+). Untuk satu kampanye — tiap kode 1x pakai, 1 per user.
+app.post("/api/admin/vouchers/bulk", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const n = Math.min(Math.max(parseInt(b.count, 10) || 0, 1), 100);
+  const prefix = String(b.prefix || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
+  const dt = String(b.discount_type || ""); if (["percentage", "fixed"].indexOf(dt) < 0) return res.status(400).json({ error: "discount_type harus percentage/fixed." });
+  const dv = parseInt(b.discount_value, 10) || 0; if (dv <= 0) return res.status(400).json({ error: "discount_value harus > 0." });
+  const rand = () => Math.random().toString(36).slice(2, 8).toUpperCase();
+  let created = 0; const codes = [];
+  for (let i = 0; i < n * 3 && created < n; i++) {
+    const code = (prefix || "V") + rand();
+    const row = {
+      code: code, name: b.name || null, description: b.description || null,
+      discount_type: dt, discount_value: dv, min_transaction: b.min_transaction || null,
+      usage_limit_total: 1, usage_limit_per_user: 1,
+      valid_from: b.valid_from || null, valid_until: b.valid_until || null,
+      status: "active", created_by: ctx.email || null,
+    };
+    const { error } = await admin.from("my20fit_vouchers").insert(row);
+    if (!error) { created++; codes.push(code); }
+    else if (error.code !== "23505") return res.status(500).json({ error: error.message });
+  }
+  await adminAudit(ctx, "voucher.bulk_create", (prefix || "V"), { count: created, discount_type: dt, discount_value: dv });
+  return res.json({ ok: true, created: created, codes: codes });
+});
+
 // ---------- Transaksi (my20fit_scan_orders) ----------
 app.get("/api/admin/transactions", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
@@ -4905,8 +4979,29 @@ async function creditScanOrder(reff) {
   }
   return data === true;
 }
-// Validasi voucher utk pembelian. gross = harga paket (Rp). Return {voucher, discount, final} atau {error}.
+// Catat percobaan pakai voucher (analitik "kode gagal" + redemption rate). Best-effort, non-blocking.
+async function logVoucherAttempt(code, uid, result) {
+  try { if (admin && code) await admin.from("my20fit_voucher_attempts").insert({ code_tried: String(code).trim().toUpperCase(), auth_user_id: uid || null, result: result }); } catch (e) {}
+}
+// Wrapper: jalankan validasi lalu CATAT hasilnya sebagai attempt. TIDAK mengubah perilaku validasi.
 async function validateVoucherForBuy(rawCode, gross, uid) {
+  const r = await validateVoucherForBuyInner(rawCode, gross, uid);
+  const code = String(rawCode || "").trim().toUpperCase();
+  if (code) {
+    let res = "ok";
+    if (r && r.error) {
+      if (/ditemukan/.test(r.error)) res = "not_found";
+      else if (/kedaluwarsa|belum berlaku/.test(r.error)) res = "expired";
+      else if (/kuota/.test(r.error)) res = "quota_full";
+      else if (/batas pemakaian/.test(r.error)) res = "per_user_limit";
+      else res = "not_applicable";
+    }
+    logVoucherAttempt(code, uid, res);
+  }
+  return r;
+}
+// Validasi voucher utk pembelian. gross = harga paket (Rp). Return {voucher, discount, final} atau {error}.
+async function validateVoucherForBuyInner(rawCode, gross, uid) {
   const code = String(rawCode || "").trim().toUpperCase();
   if (!code) return { voucher: null, discount: 0, final: gross };
   const { data: vs } = await admin.from("my20fit_vouchers").select("*").eq("code", code).limit(1);
