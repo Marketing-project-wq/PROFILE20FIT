@@ -15,3 +15,8 @@ npm-debug.log*
 *.bruno_collection*
 opencollection*.yaml
 opencollection*.yml
+
+# Agent tooling (npx skills add) — jangan di-commit
+.agents/
+.claude/
+skills-lock.json

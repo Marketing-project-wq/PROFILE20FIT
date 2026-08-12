@@ -17,6 +17,7 @@ const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerb
 const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
 const segments = require("./lib/segments"); // segment engine untuk blast email admin
 const blast = require("./lib/blast"); // send queue blast email (batching, kill switch, auto-abort)
+const emailConfig = require("./lib/email-config"); // angka guardrail anti-spam (cap, kill switch, backlog, circuit breaker)
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -717,6 +718,43 @@ app.get("/api/admin/email/campaign/links", async (req, res) => {
     const links = Object.keys(map).map((u) => ({ url: u, clicks: map[u].clicks, unique_users: map[u]._users.size }))
       .sort((a, b) => b.clicks - a.clicks).slice(0, 50);
     return res.json({ ok: true, id: id, window_days: days, total_click_events: rows.length, links: links });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Panel kesehatan email: env, config guardrail, domain (Resend), scheduler terakhir,
+// job gagal, bounce/complaint rate. Tidak membocorkan nilai secret. Bebas data kesehatan.
+app.get("/api/admin/email/health", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer");
+  if (!ctx) return;
+  try {
+    const env = email.envInfo();
+    const since = new Date(Date.now() - 7 * 86400000).toISOString();
+    const flags = {
+      email_environment: process.env.EMAIL_ENVIRONMENT || null,
+      is_prod: env.is_prod,
+      mail_from: env.from,
+      resend_key_set: env.resend_key_set,
+      webhook_secret_set: !!process.env.RESEND_WEBHOOK_SECRET,
+      cron_secret_set: !!process.env.CRON_SECRET,
+      kill_switch: emailConfig.killSwitch(),
+    };
+    const config = { caps: emailConfig.caps, backlog_expiry_hours: emailConfig.backlogExpiryHours, circuit_breaker: emailConfig.circuitBreaker };
+    // Scheduler terakhir jalan (proxy) = kirim terbaru; webhook aktif (proxy) = event terbaru.
+    const { data: lastSend } = await admin.from("my20fit_message_log").select("created_at,channel,status").order("created_at", { ascending: false }).limit(1);
+    let lastEvent = null;
+    try {
+      const { data } = await admin.from("my20fit_email_events").select("created_at,event_type").order("created_at", { ascending: false }).limit(1);
+      lastEvent = (data && data[0]) || null;
+    } catch (e) { /* tabel mungkin belum di-migrate */ }
+    const { count: failed7d } = await admin.from("my20fit_message_log").select("id", { count: "exact", head: true }).eq("status", "failed").gte("created_at", since);
+    const rates7d = await campaigns.campaignMetrics(admin, since, {});
+    // Status domain live dari Resend (bisa lambat/gagal; best-effort).
+    const domain = await email.checkDomains();
+    return res.json({
+      ok: true, env: flags, config,
+      last_send: (lastSend && lastSend[0]) || null, last_event: lastEvent,
+      failed_7d: failed7d || 0, rates_7d: rates7d, domain,
+    });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
