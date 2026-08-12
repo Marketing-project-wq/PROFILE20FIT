@@ -21,7 +21,8 @@ insert into public.my20fit_admin_feature_flags (key, note) values
   ('banner','modul banner/promotion'),
   ('menu_review','approval menu shared'),
   ('email_campaign_v2','campaign bilingual + jadwal'),
-  ('corporate_portal','portal klien corporate')
+  ('corporate_portal','portal klien corporate'),
+  ('admin_v2','swap dashboard admin ke shell baru /admin-v2 (default OFF)')
 on conflict (key) do nothing;
 
 -- 2) SEGMEN TERSIMPAN (reusable: voucher/campaign/banner/laporan).
