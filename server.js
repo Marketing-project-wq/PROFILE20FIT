@@ -302,6 +302,47 @@ app.post("/api/webhooks/resend", async (req, res) => {
     const emailId = d.email_id || d.id || null;
     const recips = Array.isArray(d.to) ? d.to : d.to ? [d.to] : [];
     const nowIso = new Date().toISOString();
+    // occurred_at = waktu event DARI PAYLOAD (bukan waktu kita terima). Fallback: waktu terima.
+    const occurredAt = ev.created_at || d.created_at || nowIso;
+    // Dedup webhook retry via svix-id (sama saat Resend mengirim ulang event yang sama).
+    const webhookId = req.get("svix-id") || req.get("webhook-id") || null;
+    // clicked_url (khusus email.clicked). Defensif terhadap variasi field Resend.
+    const clickedUrl = (d.click && (d.click.link || d.click.url)) || d.link || d.url || null;
+    const eventType = String(type).replace(/^email\./, "") || "unknown";
+
+    // Ambil metadata kirim SEKALI (enrich event + user_id untuk suppression).
+    let msgRow = null;
+    if (emailId) {
+      try {
+        const { data } = await admin.from("my20fit_message_log")
+          .select("id,user_id,channel,campaign_id,template_id,meal_window,subject,language")
+          .eq("provider_message_id", emailId).limit(1);
+        msgRow = (data && data[0]) || null;
+      } catch (e) { /* best-effort */ }
+    }
+    const uid = msgRow && msgRow.user_id ? msgRow.user_id : null;
+
+    // 1) Log event mentah (APPEND-ONLY, idempoten via webhook_id). Best-effort:
+    //    kalau tabel belum di-migrate (010), jangan crash — event state tetap jalan.
+    try {
+      await admin.from("my20fit_email_events").upsert({
+        webhook_id: webhookId,
+        resend_email_id: emailId,
+        message_log_id: msgRow && msgRow.id ? msgRow.id : null,
+        user_id: uid,
+        recipient_email: recips[0] || null,
+        channel: msgRow ? msgRow.channel : null,
+        campaign_id: msgRow ? msgRow.campaign_id : null,
+        template_id: msgRow ? msgRow.template_id : null,
+        meal_window: msgRow ? msgRow.meal_window : null,
+        subject: msgRow ? msgRow.subject : null,
+        language: msgRow ? msgRow.language : null,
+        event_type: eventType,
+        clicked_url: clickedUrl,
+        occurred_at: occurredAt,
+        raw_payload: ev,
+      }, { onConflict: "webhook_id", ignoreDuplicates: true });
+    } catch (e) { /* best-effort */ }
 
     // Update baris message_log berdasarkan provider_message_id (best-effort).
     async function patchLog(patch) {
@@ -309,34 +350,34 @@ app.post("/api/webhooks/resend", async (req, res) => {
       try { await admin.from("my20fit_message_log").update(patch).eq("provider_message_id", emailId); }
       catch (e) { /* best-effort */ }
     }
-    // Cari user_id terkait email ini (untuk suppression).
-    async function userIdForEmail() {
-      if (!emailId) return null;
-      const { data } = await admin.from("my20fit_message_log").select("user_id").eq("provider_message_id", emailId).limit(1);
-      return (data && data[0] && data[0].user_id) || null;
-    }
 
+    // 2) State per-kirim + auto-suppression. occurred_at dari payload.
     if (type === "email.delivered") {
-      await patchLog({ status: "delivered", delivered_at: nowIso });
+      await patchLog({ status: "delivered", delivered_at: occurredAt });
     } else if (type === "email.opened") {
-      await patchLog({ status: "opened", opened_at: nowIso });
+      await patchLog({ status: "opened", opened_at: occurredAt });
     } else if (type === "email.clicked") {
-      await patchLog({ status: "clicked", clicked_at: nowIso });
+      await patchLog({ status: "clicked", clicked_at: occurredAt });
     } else if (type === "email.bounced") {
-      await patchLog({ status: "bounced", bounced_at: nowIso, error_message: (d.bounce && (d.bounce.message || d.bounce.type)) || "bounced" });
+      await patchLog({ status: "bounced", bounced_at: occurredAt, error_message: (d.bounce && (d.bounce.message || d.bounce.type)) || "bounced" });
       // Hard/permanent bounce → suppression permanen.
       const btype = (d.bounce && (d.bounce.type || d.bounce.subType || d.bounce.classification)) || "";
       if (/permanent|hard/i.test(String(btype)) || d.bounce === undefined) {
-        const uid = await userIdForEmail();
         for (const to of recips) await comms.addSuppression(to, uid, "hard_bounce", true);
       }
     } else if (type === "email.complained") {
       // Spam complaint → suppression permanen, LANGSUNG.
-      await patchLog({ status: "complained", complained_at: nowIso });
-      const uid = await userIdForEmail();
+      await patchLog({ status: "complained", complained_at: occurredAt });
       for (const to of recips) await comms.addSuppression(to, uid, "spam_complaint", true);
+    } else if (type === "email.failed") {
+      // Gagal kirim permanen di sisi Resend.
+      await patchLog({ status: "failed", error_message: (d.failed && (d.failed.reason || d.failed.message)) || d.reason || "failed" });
+    } else if (type === "email.suppressed") {
+      // Resend menolak kirim karena alamat ada di suppression list. Catat & pastikan tetap ter-suppress.
+      await patchLog({ status: "suppressed", error_message: "suppressed by provider" });
+      for (const to of recips) await comms.addSuppression(to, uid, "provider_suppressed", true);
     }
-    // email.sent / email.delivery_delayed: tak perlu aksi khusus.
+    // email.sent / email.delivery_delayed: event sudah tercatat di email_events (state awal sudah 'sent').
     return res.json({ ok: true });
   } catch (e) {
     console.error("webhook/resend:", e && e.message);
@@ -641,6 +682,41 @@ app.get("/api/admin/email/campaign", async (req, res) => {
       return res.send(head + body);
     }
     return res.json({ ok: true, id: id, window_days: days, truncated: list.length >= CAP, total: out.length, rows: out.slice(0, 500) });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Top link diklik untuk 1 campaign (dari my20fit_email_events.clicked_url).
+// Metrik paling andal: link mana yang menarik minat. Bebas data kesehatan.
+app.get("/api/admin/email/campaign/links", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer");
+  if (!ctx) return;
+  try {
+    const id = String((req.query && req.query.id) || "").trim();
+    if (!id) return res.status(400).json({ error: "id campaign wajib" });
+    if (!/^[a-zA-Z0-9_.:-]+$/.test(id)) return res.status(400).json({ error: "id campaign tidak valid" });
+    const days = Math.min(365, Math.max(1, parseInt((req.query && req.query.days) || "90", 10) || 90));
+    const sinceIso = new Date(Date.now() - days * 86400000).toISOString();
+    const CAP = 20000;
+    let rows = [];
+    try {
+      const { data } = await admin.from("my20fit_email_events")
+        .select("clicked_url,user_id")
+        .eq("event_type", "clicked")
+        .or("campaign_id.eq." + id + ",and(campaign_id.is.null,channel.eq." + id + ")")
+        .gte("occurred_at", sinceIso).limit(CAP);
+      rows = data || [];
+    } catch (e) { /* tabel belum di-migrate (010) → kembalikan kosong */ }
+    const map = {};
+    for (const r of rows) {
+      const url = r.clicked_url || "(tanpa url)";
+      let m = map[url];
+      if (!m) m = map[url] = { url: url, clicks: 0, _users: new Set() };
+      m.clicks++;
+      if (r.user_id) m._users.add(r.user_id);
+    }
+    const links = Object.keys(map).map((u) => ({ url: u, clicks: map[u].clicks, unique_users: map[u]._users.size }))
+      .sort((a, b) => b.clicks - a.clicks).slice(0, 50);
+    return res.json({ ok: true, id: id, window_days: days, total_click_events: rows.length, links: links });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
