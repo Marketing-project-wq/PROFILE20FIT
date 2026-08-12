@@ -252,7 +252,37 @@
           </div>
         </div>
       </section>
-      <section data-section="menu" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Menu diet" data-title-en="Diet menu" data-question="Menu shared mana yang menunggu review?" data-question-en="Which shared menus await review?"></section>
+      <section data-section="menu" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Menu diet" data-title-en="Diet menu" data-question="Menu kontribusi mana yang menunggu review sebelum tayang untuk publik?" data-question-en="Which contributed menus await review before going public?">
+        <div class="adm-callout" style="margin:16px 0">
+          <span class="adm-badge" data-i18n="Reviewer guide">Pedoman reviewer</span>
+          <div class="adm-note" style="line-height:1.6" data-i18n="Reject: unsafe very-low calories (below 1,200 kcal for adults without supervision), medical claims (&quot;cures diabetes&quot;), clearly wrong nutrition info (macros don't match the total), and menus pushing extreme diets or excessive fasting. This isn't a formality — a wrong menu spreading can harm its followers.">Tolak: kalori sangat rendah tak aman (di bawah 1.200 kkal untuk dewasa tanpa pengawasan), klaim medis (&quot;menyembuhkan diabetes&quot;), info gizi jelas salah (makro tak cocok totalnya), dan menu yang mendorong pola makan ekstrem/puasa berlebihan. Ini bukan formalitas — menu salah yang tersebar bisa membahayakan pengikutnya.</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:24px">
+          <div>
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+              <button class="adm-chip mnf" data-s="pending" aria-pressed="true" data-i18n="Pending">Menunggu</button>
+              <button class="adm-chip mnf" data-s="approved" data-i18n="Approved">Disetujui</button>
+              <button class="adm-chip mnf" data-s="rejected" data-i18n="Rejected">Ditolak</button>
+              <button class="adm-chip mnf" data-s="all" data-i18n="All">Semua</button>
+              <input class="adm-input" id="mnSearch" style="max-width:200px;margin-left:auto" placeholder="Cari nama menu…" data-i18n-ph="Search menu name…">
+            </div>
+            <table class="adm-table" id="mnTable">
+              <thead><tr>
+                <th data-i18n="Menu">Menu</th>
+                <th data-i18n="Contributor">Pembuat</th>
+                <th class="adm-right" data-i18n="kcal">kkal</th>
+                <th data-i18n="Submitted">Dikirim</th>
+                <th data-i18n="Status">Status</th>
+              </tr></thead>
+              <tbody id="mnRows"></tbody>
+            </table>
+            <div class="adm-note" id="mnEmpty" hidden data-i18n="Queue is empty.">Antrian kosong.</div>
+          </div>
+          <div id="mnDetail" style="border-left:1px solid var(--line);padding-left:24px">
+            <div class="adm-note" data-i18n="Select a menu from the queue to review.">Pilih menu dari antrian untuk direview.</div>
+          </div>
+        </div>
+      </section>
       <section data-section="marketing" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Marketing" data-title-en="Marketing" data-question="Campaign mana yang perform (click rate), dan siapa yang klik?" data-question-en="Which campaign performs (click rate), and who clicked?">
         <div class="adm-tabs" data-tabgroup="mkt" data-default="email">
           <button data-tab="mkt" data-tab-id="email" data-i18n="Email analytics">Analitik email</button>
@@ -865,6 +895,87 @@
     else msg.textContent=(r&&r.error)||L("Failed","Gagal");
   }
 
+  // ---- MENU APPROVAL (Modul 3) ----
+  var MN_FILTER="pending", MN_SEL=null, MN_CACHE=[];
+  var MN_REJECT_REASONS=[
+    {id:"Informasi gizi tidak akurat",en:"Inaccurate nutrition info"},
+    {id:"Kalori tidak masuk akal / tidak aman",en:"Unrealistic / unsafe calories"},
+    {id:"Mengandung klaim medis",en:"Contains medical claims"},
+    {id:"Tidak sesuai pedoman gizi",en:"Against nutrition guidelines"},
+    {id:"Spam / tidak relevan",en:"Spam / irrelevant"}
+  ];
+  function mnStatusTag(s){
+    if(s==="approved") return '<span class="adm-tag adm-tag--paid">'+L("Approved","Disetujui")+'</span>';
+    if(s==="rejected") return '<span class="adm-tag adm-tag--fail">'+L("Rejected","Ditolak")+'</span>';
+    return '<span class="adm-tag adm-tag--pending">'+L("Pending","Menunggu")+'</span>';
+  }
+  async function loadMenu(){
+    var tb=document.getElementById("mnRows"); if(!tb) return;
+    var qs="/api/admin/menu"+(MN_FILTER!=="all"?("?status="+MN_FILTER):"");
+    var q=(document.getElementById("mnSearch")||{}).value||"";
+    if(q) qs+=(qs.indexOf("?")<0?"?":"&")+"q="+encodeURIComponent(q);
+    try{
+      var j=await adminFetch(qs).then(function(r){return r.json();});
+      MN_CACHE=(j&&j.menus)||[];
+      document.getElementById("mnEmpty").hidden=MN_CACHE.length>0;
+      tb.innerHTML=MN_CACHE.map(function(m){
+        return '<tr data-mid="'+esc(m.id)+'" style="cursor:pointer'+(MN_SEL===m.id?';background:var(--surface)':'')+'">'+
+          '<td><b>'+esc(m.name||"—")+'</b>'+(m.diet_type?'<div class="adm-note">'+esc(m.diet_type)+'</div>':'')+'</td>'+
+          '<td class="adm-note">'+esc(m.contributor_name||m.contributor_email||"—")+'</td>'+
+          '<td class="adm-right adm-num">'+(m.est_kcal!=null?m.est_kcal:"—")+'</td>'+
+          '<td class="adm-num adm-note">'+(m.created_at?String(m.created_at).slice(0,10):"—")+'</td>'+
+          '<td>'+mnStatusTag(m.status)+'</td></tr>';
+      }).join("");
+      if(MN_SEL){ var cur=MN_CACHE.filter(function(x){return x.id===MN_SEL;})[0]; if(cur) mnRenderDetail(cur); }
+    }catch(e){ tb.innerHTML='<tr><td colspan="5" class="adm-note">'+esc(String(e.message||e))+'</td></tr>'; }
+  }
+  function mnList(v){ if(v==null) return ""; if(Array.isArray(v)) return v; try{ var p=JSON.parse(v); return Array.isArray(p)?p:String(v); }catch(e){ return String(v); } }
+  function mnItems(v){
+    var d=mnList(v);
+    if(Array.isArray(d)) return d.map(function(x){ return esc(typeof x==="object"?(x.name||x.text||JSON.stringify(x)):x); });
+    return d?[esc(d)]:[];
+  }
+  function mnRenderDetail(m){
+    MN_SEL=m.id;
+    var box=document.getElementById("mnDetail"); if(!box) return;
+    var ing=mnItems(m.ingredients), stp=mnItems(m.steps);
+    var reasons=MN_REJECT_REASONS.map(function(r){return '<option value="'+esc(r.id)+'">'+esc(L(r.en,r.id))+'</option>';}).join("");
+    box.innerHTML=
+      '<div style="display:flex;align-items:baseline;gap:10px;justify-content:space-between">'+
+        '<h2 class="adm-h2">'+esc(m.name||"—")+'</h2>'+mnStatusTag(m.status)+'</div>'+
+      '<div class="adm-note" style="margin-top:4px">'+esc(m.contributor_name||"")+(m.contributor_email?" · "+esc(m.contributor_email):"")+(m.est_kcal!=null?" · "+m.est_kcal+" kkal":"")+(m.diet_type?" · "+esc(m.diet_type):"")+'</div>'+
+      (m.photo_url?'<img src="'+esc(m.photo_url)+'" alt="" style="max-width:100%;margin-top:10px;border:1px solid var(--line)" onerror="this.style.display=\'none\'">':'')+
+      (ing.length?'<div class="adm-sec-title">'+L("Ingredients","Bahan")+'</div><ul style="margin:6px 0 0;padding-left:18px">'+ing.map(function(x){return '<li>'+x+'</li>';}).join("")+'</ul>':'')+
+      (stp.length?'<div class="adm-sec-title">'+L("Steps","Langkah")+'</div><ol style="margin:6px 0 0;padding-left:18px">'+stp.map(function(x){return '<li>'+x+'</li>';}).join("")+'</ol>':'')+
+      (m.status==="rejected"&&m.reject_reason?'<div class="adm-callout adm-callout--danger" style="margin-top:12px"><span class="adm-badge">'+L("Reject reason","Alasan tolak")+'</span><div class="adm-note">'+esc(m.reject_reason)+'</div></div>':'')+
+      '<div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
+          (m.status!=="approved"?'<button class="adm-btn adm-btn--primary" id="mnApprove">'+L("Approve &amp; publish","Setujui &amp; tayangkan")+'</button>':'')+
+          '<select class="adm-input" id="mnReason" style="max-width:220px">'+reasons+'</select>'+
+          '<button class="adm-btn" id="mnReject">'+L("Reject","Tolak")+'</button>'+
+        '</div>'+
+        '<input class="adm-input" id="mnReasonNote" style="margin-top:8px" placeholder="'+L("Extra note (optional)","Catatan tambahan (opsional)")+'">'+
+        '<div class="adm-note" id="mnMsg" style="margin-top:8px"></div>'+
+      '</div>';
+    var ap=document.getElementById("mnApprove"); if(ap) ap.onclick=function(){ mnApprove(m.id); };
+    document.getElementById("mnReject").onclick=function(){ mnReject(m.id); };
+  }
+  async function mnApprove(id){
+    var msg=document.getElementById("mnMsg"); if(msg) msg.textContent=L("Approving…","Menyetujui…");
+    var r=await adminPost("/api/admin/menu/"+encodeURIComponent(id)+"/approve",{}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Approved","Disetujui")+(r.credits_granted?(" · +"+r.credits_granted+" "+L("credits","kredit")):"")); loadMenu(); }
+    else if(msg) msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  async function mnReject(id){
+    var sel=document.getElementById("mnReason"), note=document.getElementById("mnReasonNote"), msg=document.getElementById("mnMsg");
+    var reason=(sel?sel.value:"")+((note&&note.value.trim())?(" — "+note.value.trim()):"");
+    if(!reason.trim()){ if(msg) msg.textContent=L("Reason is required.","Alasan wajib diisi."); return; }
+    if(msg) msg.textContent=L("Rejecting…","Menolak…");
+    var r=await adminPost("/api/admin/menu/"+encodeURIComponent(id)+"/reject",{reason:reason}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Rejected","Ditolak")+(r.credits_clawed?(" · −"+r.credits_clawed+" "+L("credits","kredit")):"")); loadMenu(); }
+    else if(msg) msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+
   // ---- dispatcher ----
   function loadSection(id){
     if(id==="overview") return loadOverview();
@@ -874,6 +985,7 @@
     if(id==="scan") return loadScan();
     if(id==="settings") return loadSettings();
     if(id==="voucher") return loadVoucher();
+    if(id==="menu") return loadMenu();
   }
   document.addEventListener("click", function(e){
     var lang=e.target.closest("[data-lang-btn]");
@@ -886,6 +998,10 @@
     if(crow){ loadCampaignDrill(crow.dataset.cid); return; }
     var btab=e.target.closest('[data-tab="mkt"][data-tab-id="banner"]');
     if(btab){ setTimeout(loadBanner,0); return; }
+    var mnrow=e.target.closest("#mnRows tr[data-mid]");
+    if(mnrow){ var mm=MN_CACHE.filter(function(x){return x.id===mnrow.dataset.mid;})[0]; if(mm){ document.querySelectorAll("#mnRows tr").forEach(function(x){x.style.background="";}); mnrow.style.background="var(--surface)"; mnRenderDetail(mm); } return; }
+    var mnf=e.target.closest(".mnf");
+    if(mnf){ MN_FILTER=mnf.dataset.s; document.querySelectorAll(".mnf").forEach(function(c){c.setAttribute("aria-pressed",String(c===mnf));}); MN_SEL=null; loadMenu(); return; }
     var bt=e.target.closest(".bnToggle");
     if(bt){ var tr=bt.closest("tr[data-bid]"); bnToggle(tr.dataset.bid, bt.dataset.on==="1"); return; }
     var be=e.target.closest(".bnEdit");
@@ -924,7 +1040,7 @@
     var _bs=document.getElementById("bnSave"); if(_bs) _bs.onclick=bnSave;
     var _br=document.getElementById("bnReset"); if(_br) _br.onclick=bnResetForm;
     ["bnImgId","bnImgEn","bnAltId","bnAltEn","bnCtaId","bnCtaEn"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",bnPreview); });
-    fillScaffold("menu","Shared-menu review queue + guidelines. Backend module next.","Antrian review menu shared + pedoman. Modul backend menyusul.");
+    var _mns=document.getElementById("mnSearch"); if(_mns){ var _mnt; _mns.addEventListener("input",function(){ clearTimeout(_mnt); _mnt=setTimeout(function(){ MN_SEL=null; loadMenu(); },300); }); }
     fillScaffold("corporate","Contracts, portal access, aggregate client dashboard. Backend module next.","Kontrak, akses portal, dashboard klien agregat. Modul backend menyusul.");
     fillScaffold("reports","Scheduled + custom reports. Next increment.","Report terjadwal + kustom. Increment berikutnya.");
   });
