@@ -43,6 +43,11 @@
   <div id="gate" class="card" style="display:none">Akses admin dibutuhkan. Buka dari akun admin, atau tambahkan <code>?key=ADMIN_KEY</code> di URL.</div>
 
   <div id="app" style="display:none">
+    <div class="card" id="healthCard">
+      <h2>Panel Kesehatan Email</h2>
+      <div class="muted" style="font-size:12px;margin-bottom:8px">Env, domain, scheduler, guardrail. <button class="bon" id="healthReload" style="padding:4px 10px;font-size:12px">Muat ulang</button></div>
+      <div id="healthBody"><div class="muted">Memuat…</div></div>
+    </div>
     <div class="card" id="blastCard">
       <h2>Kirim Blast Email</h2>
       <div class="msg" id="bMsg"></div>
@@ -256,7 +261,36 @@
     searchSup("");
     loadCampaigns();
     loadTemplates();
+    loadHealth();
   }
+
+  // ===== Panel Kesehatan Email =====
+  function hbadge(ok, label){ var c = ok ? "var(--ok)" : "var(--red)"; return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:'+c+';color:#fff;font-size:11px;font-weight:700">'+label+'</span>'; }
+  async function loadHealth(){
+    el("healthBody").innerHTML = '<div class="muted">Memuat…</div>';
+    var j = await adminFetch("/api/admin/email/health").then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j || !j.ok){ el("healthBody").innerHTML = '<div class="msg err" style="display:block">Gagal memuat kesehatan.</div>'; return; }
+    var e=j.env||{}, c=j.config||{}, r=j.rates_7d||{}, d=j.domain||{};
+    var caps=c.caps||{};
+    var domHtml;
+    if(!d.ok){ domHtml = '<span class="muted">Tidak bisa cek Resend: '+esc(d.error||"?")+'</span>'; }
+    else if(!(d.domains||[]).length){ domHtml = '<span class="muted">Belum ada domain di Resend.</span>'; }
+    else { domHtml = (d.domains||[]).map(function(x){ return '<div style="margin:2px 0">'+esc(x.name)+' '+hbadge(x.status==="verified", x.status||"?")+' <span class="muted" style="font-size:11px">SPF:'+(x.spf||"-")+' DKIM:'+(x.dkim||"-")+' DMARC:'+(x.dmarc||"-")+'</span></div>'; }).join(""); }
+    el("healthBody").innerHTML =
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'+
+        hbadge(e.resend_key_set,"API key "+(e.resend_key_set?"OK":"KOSONG"))+
+        hbadge(e.is_prod,"ENV "+(e.email_environment||"?"))+
+        hbadge(e.webhook_secret_set,"Webhook secret "+(e.webhook_secret_set?"OK":"KOSONG"))+
+        hbadge(e.cron_secret_set,"CRON secret "+(e.cron_secret_set?"OK":"KOSONG"))+
+        (e.kill_switch?hbadge(false,"KILL SWITCH AKTIF"):hbadge(true,"Kill switch OFF"))+
+      '</div>'+
+      '<div style="margin-bottom:6px"><b>Domain (Resend):</b> '+domHtml+'</div>'+
+      '<div class="muted" style="font-size:12px;margin-bottom:4px"><b>From:</b> '+esc(e.mail_from||"-")+'</div>'+
+      '<div class="muted" style="font-size:12px;margin-bottom:4px"><b>Scheduler terakhir kirim:</b> '+((j.last_send&&j.last_send.created_at)?j.last_send.created_at:"— belum pernah")+' · <b>Webhook terakhir:</b> '+((j.last_event&&j.last_event.created_at)?(j.last_event.created_at+" ("+j.last_event.event_type+")"):"—")+'</div>'+
+      '<div class="muted" style="font-size:12px;margin-bottom:4px"><b>Job gagal (7h):</b> '+(j.failed_7d||0)+' · <b>Bounce 7h:</b> '+((r.bounce_rate||0)+"%")+' · <b>Complaint 7h:</b> '+((r.complaint_rate||0)+"%")+'</div>'+
+      '<div class="muted" style="font-size:11px;margin-top:6px"><b>Guardrail:</b> cap marketing '+caps.marketingDaily+'/hari, '+caps.marketingWeekly+'/minggu · meal '+caps.mealDaily+'/hari · cooldown '+caps.cooldownMinutes+'m · backlog expiry '+c.backlog_expiry_hours+'h</div>';
+  }
+  el("healthReload").onclick = loadHealth;
 
   // ===== Template Email — edit & review (simpan override ke DB) =====
   var tplState = { key:null, defaultHtml:"" };
