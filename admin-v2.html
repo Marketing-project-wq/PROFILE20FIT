@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>20FIT Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/admin-theme.css">
+<style>
+  /* halaman-spesifik: NOL hex baru — semua warna dari token admin-theme.css */
+  .adm-body > section { padding-top: 20px; }
+  .adm-scaffold { margin-top: 16px; }
+  .adm-actions { border: 1px solid var(--accent); padding: 14px; margin-top: 16px; }
+  .adm-actions h3 { font-family: var(--font-head); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 8px; }
+  .adm-sec-title { font-family: var(--font-head); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); margin: 24px 0 8px; }
+  .adm-loading { color: var(--ink-3); font-size: 12px; padding: 18px 0; }
+  @media (max-width: 860px){ .adm-side{ display:none } }
+</style>
+</head>
+<body>
+<div class="adm">
+  <!-- ---------------- SIDEBAR ---------------- -->
+  <aside class="adm-side">
+    <div class="adm-brand"><b>20FIT</b> <span class="adm-note" data-i18n="Admin">Admin</span></div>
+    <nav>
+      <div class="adm-navgroup" data-i18n="Monitor">Pantau</div>
+      <button class="adm-navitem" data-nav="overview"><span data-i18n="Overview">Overview</span></button>
+      <button class="adm-navitem" data-nav="scan"><span data-i18n="Scan activity">Aktivitas scan</span></button>
+      <button class="adm-navitem" data-nav="revenue"><span data-i18n="Revenue">Revenue</span><span class="adm-tag adm-tag--pending" id="navRevBadge" hidden></span></button>
+
+      <div class="adm-navgroup" data-i18n="Manage">Kelola</div>
+      <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
+      <button class="adm-navitem" data-nav="voucher"><span data-i18n="Voucher">Voucher</span></button>
+      <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span></button>
+      <button class="adm-navitem" data-nav="marketing"><span data-i18n="Marketing">Marketing</span></button>
+      <button class="adm-navitem" data-nav="corporate"><span data-i18n="Corporate">Corporate</span></button>
+
+      <div class="adm-navgroup" data-i18n="System">Sistem</div>
+      <button class="adm-navitem" data-nav="reports"><span data-i18n="Reports">Laporan</span></button>
+      <button class="adm-navitem" data-nav="settings"><span data-i18n="Settings">Pengaturan</span></button>
+    </nav>
+  </aside>
+
+  <!-- ---------------- MAIN ---------------- -->
+  <div class="adm-main">
+    <header class="adm-head">
+      <div>
+        <div class="adm-kicker" data-head-kicker>PANTAU</div>
+        <h1 class="adm-title" data-head-title>Overview</h1>
+        <div class="adm-question" data-head-question></div>
+        <div class="adm-rolestrip" id="roleStrip" hidden><span class="adm-label" data-i18n="Role limit">Batas role</span> <span id="roleText" class="adm-note"></span></div>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px">
+        <div style="display:flex; gap:8px">
+          <div class="adm-seg" role="group" aria-label="Language">
+            <button data-lang-btn="id" aria-pressed="true">ID</button>
+            <button data-lang-btn="en">EN</button>
+          </div>
+          <div class="adm-seg" role="group" aria-label="Theme">
+            <button data-theme-btn="light" aria-pressed="true" data-i18n="Light">Terang</button>
+            <button data-theme-btn="dark" data-i18n="Dark">Gelap</button>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">
+          <div class="adm-seg" role="group" aria-label="Period" id="periodSeg">
+            <button data-period="today" data-i18n="Today">Hari ini</button>
+            <button data-period="7d" data-i18n="7 days">7 hari</button>
+            <button data-period="30d" aria-pressed="true" data-i18n="30 days">30 hari</button>
+            <button data-period="month" data-i18n="This month">Bulan ini</button>
+            <button data-period="custom" data-i18n="Custom">Kustom</button>
+          </div>
+          <button class="adm-chip" id="compareChip" aria-pressed="false" data-i18n="Compare period">Bandingkan periode</button>
+          <button class="adm-btn" id="exportBtn" data-i18n="Export CSV">Export CSV</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="adm-body">
+      <!-- ===== OVERVIEW (wired) ===== -->
+      <section data-section="overview"
+        data-kicker="PANTAU" data-kicker-en="MONITOR"
+        data-title="Overview" data-title-en="Overview"
+        data-question="Apakah bisnis sehat hari ini — pertumbuhan, penjualan, dan hal yang butuh tindakan?"
+        data-question-en="Is the business healthy today — growth, sales, and what needs action?">
+        <div class="adm-grid adm-grid--3" id="ovKpis">
+          <div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div>
+        </div>
+        <div class="adm-actions" id="ovActions" hidden>
+          <h3 data-i18n="Needs action now">Perlu tindakan sekarang</h3>
+          <div id="ovActionList"></div>
+        </div>
+        <div class="adm-sec-title" data-i18n="Revenue — last 14 days">Revenue — 14 hari terakhir</div>
+        <div class="adm-chart" id="ovChart"></div>
+        <div class="adm-note" style="margin-top:8px" id="ovChartNote"></div>
+        <div class="adm-callout adm-scaffold">
+          <span class="adm-badge" data-i18n="No data yet">BELUM ADA DATA</span>
+          <div class="adm-note" data-i18n="Not yet instrumented: calorie accuracy, admin device, admin page frequency. These stay empty — no invented numbers.">Belum diinstrumentasi: akurasi kalori, device admin, frekuensi halaman admin. Sengaja dikosongkan — tanpa angka karangan.</div>
+        </div>
+      </section>
+
+      <!-- ===== SCAFFOLD SECTIONS (increment berikutnya) ===== -->
+      <section data-section="scan" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Aktivitas scan" data-title-en="Scan activity" data-question="Berapa banyak scan, kapan puncaknya, dan seberapa akurat?" data-question-en="How much scanning, when it peaks, and how accurate?"></section>
+      <section data-section="revenue" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Revenue" data-title-en="Revenue" data-question="Berapa penjualan, apa yang gagal/tertahan, dan dari paket mana?" data-question-en="How much revenue, what failed/stuck, and from which package?"></section>
+      <section data-section="users" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="User & segmen" data-title-en="Users & segments" data-question="Siapa user ini dan apa yang dia lakukan?" data-question-en="Who is this user and what have they done?"></section>
+      <section data-section="voucher" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Voucher" data-title-en="Voucher" data-question="Voucher mana yang menghasilkan revenue bersih, dan berapa % pembeli baru?" data-question-en="Which voucher drives net revenue, and what % are new buyers?"></section>
+      <section data-section="menu" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Menu diet" data-title-en="Diet menu" data-question="Menu shared mana yang menunggu review?" data-question-en="Which shared menus await review?"></section>
+      <section data-section="marketing" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Marketing" data-title-en="Marketing" data-question="Campaign mana yang perform (click rate), dan siapa yang klik?" data-question-en="Which campaign performs (click rate), and who clicked?"></section>
+      <section data-section="corporate" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Corporate" data-title-en="Corporate" data-question="Status kontrak, seat, dan partisipasi agregat per organisasi." data-question-en="Contract status, seats, and aggregate participation per organization."></section>
+      <section data-section="reports" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Laporan" data-title-en="Reports" data-question="Report terjadwal & kustom." data-question-en="Scheduled & custom reports."></section>
+      <section data-section="settings" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Pengaturan" data-title-en="Settings" data-question="Feature flag, harga, role admin, audit log." data-question-en="Feature flags, pricing, admin roles, audit log."></section>
+    </div>
+  </div>
+</div>
+
+<div class="adm-toast" data-toast hidden></div>
+
+<script src="js/admin-shell.js"></script>
+<script>
+(function(){
+  "use strict";
+  var KEY = new URLSearchParams(location.search).get("key") || "";
+  function adminFetch(path){
+    var url = path + (path.indexOf("?")<0?"?":"&") + (KEY?("key="+encodeURIComponent(KEY)):"");
+    return fetch(url, { headers: KEY?{}:{}, credentials:"include" });
+  }
+  var L = function(en,id){ return (localStorage.getItem("adm.lang")==="en")?en:id; };
+  var rp = function(n){ return "Rp " + (Number(n)||0).toLocaleString("id-ID"); };
+
+  function cell(metric, labelId, labelEn, sub){
+    return '<div class="adm-cell"><div class="adm-metric adm-num">'+metric+'</div>'+
+      '<div class="adm-label" data-i18n="'+labelEn+'">'+labelId+'</div>'+
+      (sub?'<div class="adm-sub">'+sub+'</div>':'')+'</div>';
+  }
+
+  // ---- OVERVIEW ----
+  function fillScaffold(sectionId, en, id){
+    var s = document.querySelector('[data-section="'+sectionId+'"]');
+    if(!s || s.dataset.filled) return;
+    s.dataset.filled="1";
+    s.innerHTML = '<div class="adm-callout adm-scaffold"><span class="adm-badge" data-i18n="Next increment">SEKSI BERIKUTNYA</span>'+
+      '<div class="adm-note" data-i18n="'+en+'">'+id+'</div></div>';
+  }
+
+  async function loadOverview(){
+    var kp = document.getElementById("ovKpis");
+    try{
+      var j = await adminFetch("/api/admin/metrics").then(function(r){return r.json();});
+      if(!j || !j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load. Open with ?key=ADMIN_KEY or log in as admin.","Gagal memuat. Buka dengan ?key=ADMIN_KEY atau login admin.")+'</div></div>'; return; }
+      var rev=j.revenue||{}, tx=j.tx||{}, us=j.users||{};
+      kp.innerHTML =
+        cell(rp(rev.net), "Revenue realized", "Revenue realized", L("gross "+rp(rev.gross),"gross "+rp(rev.gross))) +
+        cell(String(tx.paid||0), "Order paid", "Paid orders", (tx.successRate||0)+"% "+L("success","sukses")) +
+        cell((tx.byStatus&&tx.byStatus.pending||0)+" / "+(tx.byStatus&&tx.byStatus.failed||0), "Pending / Failed", "Pending / failed") +
+        cell(String(us.total||0), "Total user", "Total users", "+"+(us.new||0)+" "+L("new","baru")) +
+        cell(String(us.buyers||0), "Pembeli", "Buyers", (us.repeatRate||0)+"% "+L("repeat","repeat")) +
+        cell(rp(rev.aov), "AOV", "AOV");
+      // action panel
+      var pend=(tx.byStatus&&tx.byStatus.pending)||0, fail=(tx.byStatus&&tx.byStatus.failed)||0;
+      var acts=[];
+      if(pend>0) acts.push({s:L(pend+" pending orders — reconcile with Xendit", pend+" order pending — rekonsiliasi Xendit"),nav:"revenue"});
+      if(fail>0) acts.push({s:L(fail+" failed orders — check payment path", fail+" order failed — cek jalur bayar"),nav:"revenue"});
+      var ap=document.getElementById("ovActions"), al=document.getElementById("ovActionList");
+      if(acts.length){ ap.hidden=false; al.innerHTML=acts.map(function(a){ return '<div class="adm-alert"><span class="dot"></span><div>'+a.s+'</div><button class="adm-btn adm-btn--sm" data-nav="'+a.nav+'" data-i18n="Open">Buka</button></div>'; }).join(""); }
+      // nav badge for revenue (pending+failed count)
+      var badge=document.getElementById("navRevBadge"), n=pend+fail;
+      if(n>0){ badge.hidden=false; badge.textContent=String(n); }
+      // 14-day trend chart
+      var trend=(j.trend||[]).slice(-14);
+      var max=Math.max.apply(null,[1].concat(trend.map(function(t){return t.revenue||0;})));
+      document.getElementById("ovChart").innerHTML = trend.map(function(t){
+        var h=Math.round((t.revenue||0)/max*100);
+        return '<div><i style="height:'+h+'%" title="'+t.date+': '+rp(t.revenue)+'"></i></div>';
+      }).join("") || '<div class="adm-note">'+L("No data in range","Tak ada data di rentang")+'</div>';
+      document.getElementById("ovChartNote").textContent = L("Bars = daily revenue (paid). Hover for date.","Batang = revenue harian (paid). Arahkan untuk tanggal.");
+      if(window.applyI18n) {}
+    }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Error: ","Error: ")+String(e.message||e)+'</div></div>'; }
+  }
+
+  // scaffold text per section (next increments)
+  document.addEventListener("DOMContentLoaded", function(){
+    loadOverview();
+    fillScaffold("scan","Scan activity view — histogram, top users, accuracy callout. Coming next increment.","Tampilan aktivitas scan — histogram, user teratas, callout akurasi. Menyusul increment berikutnya.");
+    fillScaffold("revenue","Revenue table (net + failure reason), per-package, Xendit reconciliation. Coming next.","Tabel revenue (net + alasan gagal), per-paket, rekonsiliasi Xendit. Menyusul.");
+    fillScaffold("users","User search/filter + detail panel + saved segments. Coming next.","Cari/filter user + panel detail + segmen tersimpan. Menyusul.");
+    fillScaffold("voucher","Voucher KPIs, comparison table, failed codes, create form. Coming next.","KPI voucher, tabel perbandingan, kode gagal, form buat. Menyusul.");
+    fillScaffold("menu","Shared-menu review queue + guidelines. Coming next.","Antrian review menu shared + pedoman. Menyusul.");
+    fillScaffold("marketing","Email analytics (click rate first) + campaign + banner. Coming next.","Analitik email (click rate utama) + campaign + banner. Menyusul.");
+    fillScaffold("corporate","Contracts, portal access, aggregate client dashboard. Coming next.","Kontrak, akses portal, dashboard klien agregat. Menyusul.");
+    fillScaffold("reports","Scheduled + custom reports. Coming next.","Report terjadwal + kustom. Menyusul.");
+    fillScaffold("settings","Feature flags, pricing, roles, audit log. Coming next.","Feature flag, harga, role, audit log. Menyusul.");
+    // period segmented pressed-state (data only; reload wiring next increment)
+    document.getElementById("periodSeg").addEventListener("click",function(e){
+      var b=e.target.closest("[data-period]"); if(!b) return;
+      this.querySelectorAll("button").forEach(function(x){x.setAttribute("aria-pressed",String(x===b));});
+    });
+  });
+})();
+</script>
+</body>
+</html>
