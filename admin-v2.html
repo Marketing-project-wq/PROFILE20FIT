@@ -175,7 +175,36 @@
       </section>
       <section data-section="voucher" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Voucher" data-title-en="Voucher" data-question="Voucher mana yang menghasilkan revenue bersih, dan berapa % pembeli baru?" data-question-en="Which voucher drives net revenue, and what % are new buyers?"></section>
       <section data-section="menu" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Menu diet" data-title-en="Diet menu" data-question="Menu shared mana yang menunggu review?" data-question-en="Which shared menus await review?"></section>
-      <section data-section="marketing" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Marketing" data-title-en="Marketing" data-question="Campaign mana yang perform (click rate), dan siapa yang klik?" data-question-en="Which campaign performs (click rate), and who clicked?"></section>
+      <section data-section="marketing" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Marketing" data-title-en="Marketing" data-question="Campaign mana yang perform (click rate), dan siapa yang klik?" data-question-en="Which campaign performs (click rate), and who clicked?">
+        <div class="adm-tabs" data-tabgroup="mkt" data-default="email">
+          <button data-tab="mkt" data-tab-id="email" data-i18n="Email analytics">Analitik email</button>
+          <button data-tab="mkt" data-tab-id="send" data-i18n="Send campaign">Kirim campaign</button>
+          <button data-tab="mkt" data-tab-id="banner" data-i18n="Banner">Banner</button>
+          <button data-tab="mkt" data-tab-id="more" data-i18n="Content · Shortlink · Push · Lead">Konten · Shortlink · Push · Lead</button>
+        </div>
+        <div data-tabpanel="mkt" data-tab="email">
+          <div id="mktHealth" class="adm-note" style="margin:14px 0"></div>
+          <div class="adm-sec-title" data-i18n="Per campaign">Per campaign</div>
+          <table class="adm-table" id="mktCampTable" data-table data-page-size="12">
+            <thead><tr>
+              <th data-sort="str" data-i18n="Campaign">Campaign</th>
+              <th class="adm-right" data-sort="num" data-i18n="Sent">Kirim</th>
+              <th class="adm-right" data-sort="num" data-i18n="Delivery %">Delivery %</th>
+              <th class="adm-right" data-sort="num" style="background:var(--ink);color:var(--bg)" data-i18n="Click %">Click %</th>
+              <th class="adm-right" data-sort="num" data-i18n="Open %">Open %</th>
+              <th class="adm-right" data-sort="num" data-i18n="Bounce %">Bounce %</th>
+              <th class="adm-right" data-sort="num" data-i18n="Complaint %">Complaint %</th>
+            </tr></thead>
+            <tbody id="mktCampRows"></tbody>
+          </table>
+          <div class="adm-note" data-table-empty="#mktCampTable" hidden data-i18n="No campaigns yet.">Belum ada campaign.</div>
+          <div class="adm-note" style="margin-top:8px"><span class="adm-tag adm-tag--mute" data-i18n="Open rate: not accurate">Open rate: tidak akurat</span> <span data-i18n="— image blocking + Apple Mail Privacy Protection. Decisions use click rate.">— pemblokiran gambar + Apple Mail Privacy Protection. Keputusan pakai click rate.</span></div>
+          <div id="mktDrill" style="margin-top:18px"></div>
+        </div>
+        <div data-tabpanel="mkt" data-tab="send" hidden></div>
+        <div data-tabpanel="mkt" data-tab="banner" hidden></div>
+        <div data-tabpanel="mkt" data-tab="more" hidden></div>
+      </section>
       <section data-section="corporate" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Corporate" data-title-en="Corporate" data-question="Status kontrak, seat, dan partisipasi agregat per organisasi." data-question-en="Contract status, seats, and aggregate participation per organization."></section>
       <section data-section="reports" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Laporan" data-title-en="Reports" data-question="Report terjadwal & kustom." data-question-en="Scheduled & custom reports."></section>
       <section data-section="settings" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Pengaturan" data-title-en="Settings" data-question="Feature flag, harga, role admin, audit log." data-question-en="Feature flags, pricing, admin roles, audit log."></section>
@@ -198,6 +227,8 @@
   }
   var L = function(en,id){ return (localStorage.getItem("adm.lang")==="en")?en:id; };
   var rp = function(n){ return "Rp " + (Number(n)||0).toLocaleString("id-ID"); };
+  var esc = function(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); };
+  var pctD = function(n,d){ return d?Math.round((n||0)/d*100):0; };
 
   function cell(metric, labelId, labelEn, sub){
     return '<div class="adm-cell"><div class="adm-metric adm-num">'+metric+'</div>'+
@@ -347,11 +378,74 @@
     }catch(e){ box.innerHTML='<div class="adm-note">'+String(e.message||e)+'</div>'; }
   }
 
+  // ---- MARKETING / EMAIL ----
+  function periodDays(){ return ({today:1,"7d":7,"30d":30,month:31,custom:90})[CUR.period]||30; }
+  function scaffoldPanel(group,tab,en,id){
+    var el=document.querySelector('[data-tabpanel="'+group+'"][data-tab="'+tab+'"]');
+    if(el&&!el.dataset.filled){ el.dataset.filled="1"; el.innerHTML='<div class="adm-callout adm-scaffold"><span class="adm-badge" data-i18n="Next increment">SEKSI BERIKUTNYA</span><div class="adm-note" data-i18n="'+en+'">'+id+'</div></div>'; }
+  }
+  async function loadMarketing(){
+    var health=document.getElementById("mktHealth");
+    try{
+      var h=await adminFetch("/api/admin/email/health").then(function(r){return r.json();});
+      if(h&&h.ok){
+        var e=h.env||{}, d=h.domain||{}, r7=h.rates_7d||{};
+        var dom=(d.ok&&(d.domains||[]).length)?(d.domains[0].name+" "+(d.domains[0].status||"?")):L("domain: check Resend","domain: cek Resend");
+        health.innerHTML='<b>'+L("Email health","Kesehatan email")+'</b> · env: '+(e.email_environment||"?")+' · '+esc(dom)+' · '+L("last send","kirim terakhir")+': '+((h.last_send&&h.last_send.created_at)?String(h.last_send.created_at).slice(0,10):"—")+' · bounce '+(r7.bounce_rate||0)+'% · complaint '+(r7.complaint_rate||0)+'% · '+L("failed 7d","gagal 7h")+': '+(h.failed_7d||0);
+      } else health.textContent=L("Email health unavailable (need admin).","Kesehatan email tak tersedia (butuh admin).");
+    }catch(e2){ health.textContent=""; }
+    var tb=document.getElementById("mktCampRows");
+    try{
+      var j=await adminFetch("/api/admin/email/campaigns?days="+periodDays()).then(function(r){return r.json();});
+      var cs=(j&&j.campaigns)||[];
+      tb.innerHTML=cs.map(function(c){
+        return '<tr data-cid="'+esc(c.key||"")+'" style="cursor:pointer">'+
+          '<td>'+esc(c.key||"—")+'</td>'+
+          '<td class="adm-right adm-num">'+(c.dispatched||0)+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+pctD(c.delivered,c.dispatched)+'">'+pctD(c.delivered,c.dispatched)+'%</td>'+
+          '<td class="adm-right adm-num" data-value="'+(c.click_rate||0)+'" style="font-weight:800;font-family:var(--font-head);font-size:15px">'+(c.click_rate||0)+'%</td>'+
+          '<td class="adm-right adm-num" style="color:var(--ink-3)" data-value="'+(c.open_rate||0)+'">'+(c.open_rate||0)+'%</td>'+
+          '<td class="adm-right adm-num" data-value="'+(c.bounce_rate||0)+'">'+(c.bounce_rate||0)+'%</td>'+
+          '<td class="adm-right adm-num" data-value="'+(c.complaint_rate||0)+'">'+(c.complaint_rate||0)+'%</td></tr>';
+      }).join("");
+      window.admRenderTable("#mktCampTable");
+    }catch(e3){ tb.innerHTML=""; }
+    scaffoldPanel("mkt","send","Send-campaign builder (subject ID/EN, segment recipients, preview, type-to-confirm, kill switch). Coming next.","Builder kirim campaign (subject ID/EN, segmen penerima, preview, konfirmasi ketik, kill switch). Menyusul.");
+    scaffoldPanel("mkt","banner","Banner module — no data yet (new table). Coming after Voucher.","Modul banner — belum ada data (tabel baru). Menyusul setelah Voucher.");
+    scaffoldPanel("mkt","more","Content · Shortlink · Push · Lead — next increments.","Konten · Shortlink · Push · Lead — increment berikutnya.");
+  }
+  async function loadCampaignDrill(cid){
+    var box=document.getElementById("mktDrill");
+    box.innerHTML='<div class="adm-loading">'+L("Loading…","Memuat…")+'</div>';
+    var days=periodDays(), filt="clicked";
+    function chip(f,en,idl){ return '<button class="adm-chip mktf" data-f="'+f+'"'+(f===filt?' aria-pressed="true"':'')+'>'+idl+'</button>'; }
+    async function render(){
+      var j=await adminFetch("/api/admin/email/campaign?id="+encodeURIComponent(cid)+"&days="+days+"&filter="+filt).then(function(r){return r.json();});
+      var lk=await adminFetch("/api/admin/email/campaign/links?id="+encodeURIComponent(cid)+"&days="+days).then(function(r){return r.json();}).catch(function(){return{};});
+      var rows=(j&&j.rows)||[];
+      var csvUrl="/api/admin/email/campaign?id="+encodeURIComponent(cid)+"&days="+days+"&filter="+filt+"&format=csv&range="+CUR.period+(KEY?("&key="+encodeURIComponent(KEY)):"");
+      box.innerHTML=
+        '<div class="adm-sec-title">'+L("Drill-down","Drill-down")+': '+esc(cid)+'</div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+
+          chip("clicked",0,L("Clicked","Klik"))+chip("opened_not",0,L("Opened, not clicked","Buka, tak klik"))+chip("delivered_not",0,L("Not opened","Belum buka"))+chip("bounced",0,L("Bounce / spam","Bounce / spam"))+
+          '<a class="adm-btn adm-btn--sm" style="margin-left:auto" href="'+csvUrl+'">Export CSV</a>'+
+        '</div>'+
+        '<table class="adm-table"><thead><tr><th>Email</th><th>'+L("Name","Nama")+'</th><th>Status</th><th>'+L("When","Kapan")+'</th></tr></thead><tbody>'+
+        (rows.length? rows.slice(0,200).map(function(r){ var w=r.clicked_at||r.opened_at||r.sent_at||r.created_at; return '<tr><td class="adm-mono">'+esc(r.email||"—")+'</td><td>'+esc(r.name||"")+'</td><td>'+esc(r.status||"")+'</td><td class="adm-mono">'+fmtDate(w)+'</td></tr>'; }).join("") : '<tr><td colspan="4" class="adm-note">'+L("No rows.","Tak ada baris.")+'</td></tr>')+
+        '</tbody></table>'+
+        '<div class="adm-sec-title">'+L("Top clicked links","Link paling banyak diklik")+'</div>'+
+        ((lk&&lk.links&&lk.links.length)? lk.links.map(function(x){ return '<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;border-bottom:1px solid var(--line)"><span style="word-break:break-all">'+esc(x.url)+'</span><span class="adm-mono">'+x.clicks+' · '+x.unique_users+'u</span></div>'; }).join("") : '<div class="adm-note">'+L("No clicks tracked yet.","Belum ada klik tercatat.")+'</div>');
+    }
+    box.onclick=function(e){ var c=e.target.closest(".mktf"); if(!c) return; filt=c.dataset.f; render(); };
+    render();
+  }
+
   // ---- dispatcher ----
   function loadSection(id){
     if(id==="overview") return loadOverview();
     if(id==="revenue") return loadRevenue();
     if(id==="users") return loadUsers();
+    if(id==="marketing") return loadMarketing();
   }
   document.addEventListener("click", function(e){
     var lang=e.target.closest("[data-lang-btn]");
@@ -360,6 +454,8 @@
     if(nav){ CUR.section=nav.dataset.nav; loadSection(CUR.section); return; }
     var row=e.target.closest("#usrRows tr[data-uid]");
     if(row){ document.querySelectorAll("#usrRows tr").forEach(function(x){x.style.background="";}); row.style.background="var(--surface)"; loadUserDetail(row.dataset.uid); return; }
+    var crow=e.target.closest("#mktCampRows tr[data-cid]");
+    if(crow){ loadCampaignDrill(crow.dataset.cid); return; }
   });
 
   document.addEventListener("DOMContentLoaded", function(){
@@ -373,7 +469,6 @@
     fillScaffold("scan","Scan activity view — histogram, top users, accuracy callout. Coming next increment.","Tampilan aktivitas scan — histogram, user teratas, callout akurasi. Menyusul increment berikutnya.");
     fillScaffold("voucher","Voucher KPIs, comparison table, failed codes, create form. Coming next.","KPI voucher, tabel perbandingan, kode gagal, form buat. Menyusul.");
     fillScaffold("menu","Shared-menu review queue + guidelines. Coming next.","Antrian review menu shared + pedoman. Menyusul.");
-    fillScaffold("marketing","Email analytics (click rate first) + campaign + banner. Coming next.","Analitik email (click rate utama) + campaign + banner. Menyusul.");
     fillScaffold("corporate","Contracts, portal access, aggregate client dashboard. Coming next.","Kontrak, akses portal, dashboard klien agregat. Menyusul.");
     fillScaffold("reports","Scheduled + custom reports. Coming next.","Report terjadwal + kustom. Menyusul.");
     fillScaffold("settings","Feature flags, pricing, roles, audit log. Coming next.","Feature flag, harga, role, audit log. Menyusul.");
