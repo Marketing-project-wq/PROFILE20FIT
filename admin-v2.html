@@ -191,7 +191,67 @@
         <div class="adm-sec-title" data-i18n="Saved segments">Segmen tersimpan</div>
         <div id="usrSegments"></div>
       </section>
-      <section data-section="voucher" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Voucher" data-title-en="Voucher" data-question="Voucher mana yang menghasilkan revenue bersih, dan berapa % pembeli baru?" data-question-en="Which voucher drives net revenue, and what % are new buyers?"></section>
+      <section data-section="voucher" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Voucher" data-title-en="Voucher" data-question="Voucher mana yang menghasilkan revenue bersih, dan berapa % pembeli baru?" data-question-en="Which voucher drives net revenue, and what % are new buyers?">
+        <div class="adm-tabs" data-tabgroup="vch" data-default="perf">
+          <button data-tab="vch" data-tab-id="perf" data-i18n="Performance">Performa</button>
+          <button data-tab="vch" data-tab-id="create" data-i18n="Create voucher">Buat voucher</button>
+        </div>
+        <div data-tabpanel="vch" data-tab="perf">
+          <div class="adm-grid adm-grid--4" id="vchKpis"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+          <div class="adm-sec-title" data-i18n="Voucher comparison (by net revenue)">Perbandingan voucher (by revenue bersih)</div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+            <input class="adm-input" style="max-width:240px" data-table-search="#vchTable" placeholder="Cari kode…" data-i18n-ph="Search code…">
+            <span class="adm-note" data-table-info="#vchTable" style="margin-left:auto"></span>
+          </div>
+          <table class="adm-table" id="vchTable" data-table data-page-size="15">
+            <thead><tr>
+              <th data-sort="str" data-i18n="Code">Kode</th>
+              <th data-sort="str" data-i18n="Rule">Aturan</th>
+              <th class="adm-right" data-sort="num" data-i18n="Used/Quota">Dipakai/Kuota</th>
+              <th class="adm-right" data-sort="num" data-i18n="Discount">Diskon</th>
+              <th class="adm-right" data-sort="num" aria-sort="descending" style="background:var(--ink);color:var(--bg)" data-i18n="Net revenue">Revenue bersih</th>
+              <th class="adm-right" data-sort="num" data-i18n="% new buyers">% pembeli baru</th>
+              <th class="adm-right" data-sort="num" data-i18n="Redemption %">Redemption %</th>
+              <th data-sort="str" data-i18n="Status">Status</th>
+            </tr></thead>
+            <tbody id="vchRows"></tbody>
+          </table>
+          <div class="adm-note" data-table-empty="#vchTable" hidden data-i18n="No vouchers yet.">Belum ada voucher.</div>
+          <div class="adm-sec-title" data-i18n="Failed codes (mistyped / rejected)">Kode gagal (salah ketik / ditolak)</div>
+          <table class="adm-table"><thead><tr><th data-i18n="Code tried">Kode dicoba</th><th class="adm-right" data-i18n="Fails">Gagal</th><th data-i18n="Reasons">Alasan</th></tr></thead><tbody id="vchFailed"></tbody></table>
+        </div>
+        <div data-tabpanel="vch" data-tab="create" hidden>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:820px;margin-top:14px">
+            <div>
+              <div class="adm-sec-title" style="margin-top:0" data-i18n="New voucher">Voucher baru</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <input class="adm-input" id="vcCode" placeholder="KODE (kosongkan = auto)" data-i18n-ph="CODE (blank = auto)">
+                <select class="adm-input" id="vcType"><option value="percentage">percentage (%)</option><option value="fixed">fixed (Rp)</option></select>
+                <input class="adm-input" id="vcValue" type="number" placeholder="Nilai diskon" data-i18n-ph="Discount value">
+                <input class="adm-input" id="vcMin" type="number" placeholder="Min transaksi (opsional)" data-i18n-ph="Min transaction (optional)">
+                <input class="adm-input" id="vcLimit" type="number" placeholder="Kuota total (opsional)" data-i18n-ph="Total quota (optional)">
+                <input class="adm-input" id="vcPerUser" type="number" placeholder="Batas per user (opsional)" data-i18n-ph="Per-user limit (optional)">
+                <input class="adm-input" id="vcUntil" type="date">
+                <div class="adm-note" id="vcPreview"></div>
+                <button class="adm-btn adm-btn--primary" id="vcCreate" data-i18n="Save voucher">Simpan voucher</button>
+                <div class="adm-note" id="vcMsg"></div>
+              </div>
+            </div>
+            <div>
+              <div class="adm-sec-title" style="margin-top:0" data-i18n="Bulk generate (max 100)">Bulk generate (maks 100)</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <input class="adm-input" id="vbPrefix" placeholder="Prefix (mis. CORP)" data-i18n-ph="Prefix (e.g. CORP)">
+                <input class="adm-input" id="vbCount" type="number" placeholder="Jumlah kode (1–100)" data-i18n-ph="Number of codes (1–100)">
+                <select class="adm-input" id="vbType"><option value="percentage">percentage (%)</option><option value="fixed">fixed (Rp)</option></select>
+                <input class="adm-input" id="vbValue" type="number" placeholder="Nilai diskon" data-i18n-ph="Discount value">
+                <button class="adm-btn" id="vbGen" data-i18n="Generate codes">Generate kode</button>
+                <div class="adm-note" id="vbMsg"></div>
+                <textarea class="adm-input" id="vbOut" rows="5" style="font-family:var(--font-mono)" readonly></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       <section data-section="menu" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Menu diet" data-title-en="Diet menu" data-question="Menu shared mana yang menunggu review?" data-question-en="Which shared menus await review?"></section>
       <section data-section="marketing" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Marketing" data-title-en="Marketing" data-question="Campaign mana yang perform (click rate), dan siapa yang klik?" data-question-en="Which campaign performs (click rate), and who clicked?">
         <div class="adm-tabs" data-tabgroup="mkt" data-default="email">
@@ -566,6 +626,80 @@
     }catch(e){}
   }
 
+  // ---- VOUCHER ----
+  function vStatusTag(s){
+    var m={active:["adm-tag--paid","AKTIF"],expired:["adm-tag--mute","KEDALUWARSA"],quota_full:["adm-tag--fail","KUOTA HABIS"],inactive:["adm-tag--outline","NONAKTIF"]};
+    var t=m[s]||["adm-tag--outline",String(s||"?").toUpperCase()]; return '<span class="adm-tag '+t[0]+'">'+t[1]+'</span>';
+  }
+  function vRule(v){ return v.discount_type==="percentage" ? (v.discount_value+"%") : rp(v.discount_value); }
+  async function loadVoucher(){
+    var kp=document.getElementById("vchKpis");
+    try{
+      var j=await adminFetch("/api/admin/vouchers/tracking").then(function(r){return r.json();});
+      if(!j||!j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></div>'; return; }
+      var vs=j.vouchers||[];
+      var active=vs.filter(function(v){return v.status==="active";}).length;
+      var disc=vs.reduce(function(s,v){return s+(v.discount_given||0);},0);
+      var netv=vs.reduce(function(s,v){return s+(v.net_revenue||0);},0);
+      var totUsed=vs.reduce(function(s,v){return s+(v.used||0);},0);
+      var totNew=vs.reduce(function(s,v){return s+Math.round((v.new_buyer_pct||0)/100*(v.used||0));},0);
+      kp.innerHTML =
+        cell(String(active),"Active vouchers","Voucher aktif") +
+        cell(rp(disc),"Discount given","Diskon diberikan") +
+        cell(rp(netv),"Revenue from voucher","Revenue dari voucher") +
+        cell((totUsed?Math.round(totNew/totUsed*100):0)+"%","% new buyers","% pembeli baru");
+      document.getElementById("vchRows").innerHTML = vs.map(function(v){
+        var nb=v.new_buyer_pct||0;
+        return '<tr>'+
+          '<td class="adm-mono">'+esc(v.code)+'</td>'+
+          '<td>'+esc(vRule(v))+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+(v.used||0)+'">'+(v.used||0)+(v.quota!=null?"/"+v.quota:"")+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+(v.discount_given||0)+'">'+rp(v.discount_given)+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+(v.net_revenue||0)+'" style="font-weight:800">'+rp(v.net_revenue)+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+nb+'"'+(nb<40?' style="color:var(--accent-ink);font-weight:800"':'')+'>'+nb+'%</td>'+
+          '<td class="adm-right adm-num" data-value="'+(v.redemption_rate||0)+'">'+(v.redemption_rate||0)+'%</td>'+
+          '<td>'+vStatusTag(v.status)+'</td></tr>';
+      }).join("");
+      window.admRenderTable("#vchTable");
+      document.getElementById("vchFailed").innerHTML = (j.failed_codes||[]).map(function(f){
+        var br=Object.keys(f.breakdown||{}).map(function(k){return k+":"+f.breakdown[k];}).join(", ");
+        return '<tr><td class="adm-mono">'+esc(f.code)+'</td><td class="adm-right adm-num">'+f.total+'</td><td class="adm-note">'+esc(br)+'</td></tr>';
+      }).join("") || '<tr><td colspan="3" class="adm-note">'+L("No failed codes.","Tak ada kode gagal.")+'</td></tr>';
+    }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+String(e.message||e)+'</div></div>'; }
+  }
+  function vcPreview(){
+    var t=(document.getElementById("vcType")||{}).value, val=(document.getElementById("vcValue")||{}).value||"0";
+    var min=(document.getElementById("vcMin")||{}).value, lim=(document.getElementById("vcLimit")||{}).value, pu=(document.getElementById("vcPerUser")||{}).value, until=(document.getElementById("vcUntil")||{}).value;
+    var parts=[L("Discount","Diskon")+" "+(t==="percentage"?(val+"%"):rp(val))];
+    if(min) parts.push(L("min","min")+" "+rp(min));
+    if(lim) parts.push(L("quota","kuota")+" "+lim);
+    if(pu) parts.push(pu+"x/user");
+    if(until) parts.push(L("until","s/d")+" "+until);
+    var el=document.getElementById("vcPreview"); if(el) el.textContent=parts.join(" · ");
+  }
+  async function vcCreate(){
+    var msg=document.getElementById("vcMsg");
+    var body={ code:(document.getElementById("vcCode").value||"").trim(), discount_type:document.getElementById("vcType").value,
+      discount_value:parseInt(document.getElementById("vcValue").value,10)||0,
+      min_transaction:parseInt(document.getElementById("vcMin").value,10)||null,
+      usage_limit_total:parseInt(document.getElementById("vcLimit").value,10)||null,
+      usage_limit_per_user:parseInt(document.getElementById("vcPerUser").value,10)||null,
+      valid_until:document.getElementById("vcUntil").value||null };
+    if(!body.code) body.code="V"+Math.random().toString(36).slice(2,8).toUpperCase();
+    var r=await adminPost("/api/admin/vouchers",body).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ msg.textContent=L("Saved: ","Tersimpan: ")+((r.voucher&&r.voucher.code)||body.code); if(window.admToast)admToast(L("Voucher saved","Voucher tersimpan")); loadVoucher(); }
+    else msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  async function vbGen(){
+    var msg=document.getElementById("vbMsg"), out=document.getElementById("vbOut");
+    var body={ prefix:(document.getElementById("vbPrefix").value||"").trim(), count:parseInt(document.getElementById("vbCount").value,10)||0,
+      discount_type:document.getElementById("vbType").value, discount_value:parseInt(document.getElementById("vbValue").value,10)||0 };
+    msg.textContent=L("Generating…","Membuat…");
+    var r=await adminPost("/api/admin/vouchers/bulk",body).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ msg.textContent=L("Created ","Dibuat ")+r.created+" "+L("codes","kode"); out.value=(r.codes||[]).join("\n"); loadVoucher(); }
+    else msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+
   // ---- dispatcher ----
   function loadSection(id){
     if(id==="overview") return loadOverview();
@@ -574,6 +708,7 @@
     if(id==="marketing") return loadMarketing();
     if(id==="scan") return loadScan();
     if(id==="settings") return loadSettings();
+    if(id==="voucher") return loadVoucher();
   }
   document.addEventListener("click", function(e){
     var lang=e.target.closest("[data-lang-btn]");
@@ -594,7 +729,9 @@
     });
     CUR.section = new URLSearchParams(location.search).get("section") || "overview";
     loadRole().then(function(){ loadSection(CUR.section); });
-    fillScaffold("voucher","Voucher KPIs, comparison table, failed codes, create form. Backend module next.","KPI voucher, tabel perbandingan, kode gagal, form buat. Modul backend menyusul.");
+    ["vcType","vcValue","vcMin","vcLimit","vcPerUser","vcUntil"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",vcPreview); });
+    var _vcb=document.getElementById("vcCreate"); if(_vcb) _vcb.onclick=vcCreate;
+    var _vbb=document.getElementById("vbGen"); if(_vbb) _vbb.onclick=vbGen;
     fillScaffold("menu","Shared-menu review queue + guidelines. Backend module next.","Antrian review menu shared + pedoman. Modul backend menyusul.");
     fillScaffold("corporate","Contracts, portal access, aggregate client dashboard. Backend module next.","Kontrak, akses portal, dashboard klien agregat. Modul backend menyusul.");
     fillScaffold("reports","Scheduled + custom reports. Next increment.","Report terjadwal + kustom. Increment berikutnya.");
