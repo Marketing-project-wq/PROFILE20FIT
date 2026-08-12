@@ -368,7 +368,80 @@
         </div>
         <div data-tabpanel="mkt" data-tab="more" hidden></div>
       </section>
-      <section data-section="corporate" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Corporate" data-title-en="Corporate" data-question="Status kontrak, seat, dan partisipasi agregat per organisasi." data-question-en="Contract status, seats, and aggregate participation per organization."></section>
+      <section data-section="corporate" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Corporate" data-title-en="Corporate" data-question="Organisasi mitra, akun portal, dan akses agregat karyawan." data-question-en="Partner organizations, portal accounts, and aggregate employee access.">
+        <div class="adm-tabs" data-tabgroup="corp" data-default="accounts">
+          <button data-tab="corp" data-tab-id="accounts" data-i18n="Accounts">Akun</button>
+          <button data-tab="corp" data-tab-id="access" data-i18n="Access &amp; passwords">Akses &amp; password</button>
+        </div>
+        <div data-tabpanel="corp" data-tab="accounts">
+          <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:24px;margin-top:14px">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <input class="adm-input" style="max-width:220px" data-table-search="#corpTable" placeholder="Cari organisasi/kode…" data-i18n-ph="Search org/code…">
+                <span class="adm-note" data-table-info="#corpTable" style="margin-left:auto"></span>
+              </div>
+              <table class="adm-table" id="corpTable" data-table data-page-size="15">
+                <thead><tr>
+                  <th data-sort="str" data-i18n="Organization">Organisasi</th>
+                  <th data-sort="str" data-i18n="Code">Kode</th>
+                  <th class="adm-right" data-sort="num" data-i18n="Active members">Anggota aktif</th>
+                  <th data-sort="str" data-i18n="Admins">Admin</th>
+                  <th data-sort="str" data-i18n="Status">Status</th>
+                </tr></thead>
+                <tbody id="corpRows"></tbody>
+              </table>
+              <div class="adm-note" data-table-empty="#corpTable" hidden data-i18n="No organizations yet.">Belum ada organisasi.</div>
+              <div class="adm-note" style="margin-top:10px"><span class="adm-tag adm-tag--mute">BELUM ADA</span> <span data-i18n="Seat quota &amp; contract dates are not in the corporate schema yet — not shown to avoid fabricating.">Kuota seat &amp; tanggal kontrak belum ada di schema corporate — tidak ditampilkan agar tidak mengarang.</span></div>
+            </div>
+            <div>
+              <div class="adm-sec-title" style="margin-top:0" data-i18n="New organization">Organisasi baru</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <input class="adm-input" id="coName" placeholder="Nama perusahaan" data-i18n-ph="Company name">
+                <input class="adm-input" id="coCode" placeholder="Kode (kosong = auto, 3–24)" data-i18n-ph="Code (blank = auto, 3–24)">
+                <input class="adm-input" id="coContact" type="email" placeholder="Email kontak (opsional)" data-i18n-ph="Contact email (optional)">
+                <div class="adm-sec-title" data-i18n="First portal admin (optional)">Admin portal pertama (opsional)</div>
+                <input class="adm-input" id="coAdminEmail" type="email" placeholder="Email admin portal" data-i18n-ph="Portal admin email">
+                <input class="adm-input" id="coAdminPass" type="text" placeholder="Password (min 8, opsional)" data-i18n-ph="Password (min 8, optional)">
+                <button class="adm-btn adm-btn--primary" id="coCreate" data-i18n="Create organization">Buat organisasi</button>
+                <div class="adm-note" id="coMsg"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div data-tabpanel="corp" data-tab="access" hidden>
+          <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:24px;margin-top:14px">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <select class="adm-input" id="caOrg" style="max-width:280px"></select>
+              </div>
+              <div class="adm-sec-title" style="margin-top:0" data-i18n="Portal accounts">Akun portal</div>
+              <table class="adm-table" id="caTable">
+                <thead><tr>
+                  <th data-i18n="Account email">Email akun</th>
+                  <th data-i18n="Added">Ditambahkan</th>
+                  <th></th>
+                </tr></thead>
+                <tbody id="caRows"></tbody>
+              </table>
+              <div class="adm-note" id="caEmpty" hidden data-i18n="No portal accounts for this org.">Belum ada akun portal untuk organisasi ini.</div>
+            </div>
+            <div>
+              <div class="adm-sec-title" style="margin-top:0" data-i18n="Add / reset portal account">Tambah / reset akun portal</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <input class="adm-input" id="caEmail" type="email" placeholder="Email akun" data-i18n-ph="Account email">
+                <input class="adm-input" id="caPass" type="text" placeholder="Password (min 8, kosong = tak diubah)" data-i18n-ph="Password (min 8, blank = unchanged)">
+                <button class="adm-btn adm-btn--primary" id="caAdd" data-i18n="Add / set password">Tambah / set password</button>
+                <div class="adm-note" id="caMsg"></div>
+              </div>
+              <p class="adm-note" style="margin-top:12px" data-i18n="Password is stored hashed (Supabase auth) and never shown again. Every add/remove is written to the audit log. Portal login uses the same auth, scoped to the organization.">Password disimpan sebagai hash (Supabase auth) dan tak pernah ditampilkan lagi. Setiap tambah/hapus tercatat di audit log. Login portal pakai auth yang sama, dibatasi ke organisasinya.</p>
+              <div class="adm-callout" style="margin-top:14px">
+                <span class="adm-badge" data-i18n="Aggregate only">Agregat saja</span>
+                <div class="adm-note" data-i18n="The client portal (my.20fit.id corp login) shows only aggregate figures — registered vs quota, participation, group scans — never individual employee health data. An admin-side aggregate preview endpoint is not built yet (BELUM ADA).">Portal klien (login corp di my.20fit.id) hanya menampilkan angka agregat — terdaftar vs kuota, partisipasi, scan kelompok — tak pernah data kesehatan individual. Endpoint preview agregat sisi-admin belum dibangun (BELUM ADA).</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       <section data-section="reports" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Laporan" data-title-en="Reports" data-question="Report terjadwal & kustom." data-question-en="Scheduled & custom reports."></section>
       <section data-section="settings" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Pengaturan" data-title-en="Settings" data-question="Feature flag, role admin, audit log." data-question-en="Feature flags, admin roles, audit log.">
         <div class="adm-tabs" data-tabgroup="set" data-default="flags">
@@ -976,6 +1049,67 @@
     else if(msg) msg.textContent=(r&&r.error)||L("Failed","Gagal");
   }
 
+  // ---- CORPORATE (Modul 2) ----
+  var CORP_CACHE=[];
+  function cval(id){ var e=document.getElementById(id); return e?String(e.value).trim():""; }
+  function corpStatusTag(s){ return s==="suspended"?'<span class="adm-tag adm-tag--mute">'+L("Suspended","Ditangguhkan")+'</span>':'<span class="adm-tag adm-tag--paid">'+L("Active","Aktif")+'</span>'; }
+  async function loadCorporate(){
+    var tb=document.getElementById("corpRows"); if(!tb) return;
+    try{
+      var j=await adminFetch("/api/admin/corporate").then(function(r){return r.json();});
+      CORP_CACHE=(j&&j.corporates)||[];
+      tb.innerHTML=CORP_CACHE.map(function(c){
+        return '<tr>'+
+          '<td><b>'+esc(c.name||"—")+'</b>'+(c.contact_email?'<div class="adm-note">'+esc(c.contact_email)+'</div>':'')+'</td>'+
+          '<td class="adm-mono">'+esc(c.code||"")+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+(c.member_count||0)+'">'+(c.member_count||0)+'</td>'+
+          '<td class="adm-note">'+(esc((c.admins||[]).join(", "))||"—")+'</td>'+
+          '<td>'+corpStatusTag(c.status)+'</td></tr>';
+      }).join("");
+      window.admRenderTable("#corpTable");
+      var sel=document.getElementById("caOrg");
+      if(sel){ var prev=sel.value; sel.innerHTML=CORP_CACHE.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.name)+" ("+esc(c.code)+")</option>";}).join(""); if(prev&&CORP_CACHE.some(function(c){return c.id===prev;})) sel.value=prev; if(sel.value) caLoadOrg(sel.value); else { var ce=document.getElementById("caEmpty"); if(ce) ce.hidden=false; } }
+    }catch(e){ tb.innerHTML='<tr><td colspan="5" class="adm-note">'+esc(String(e.message||e))+'</td></tr>'; }
+  }
+  async function corpCreate(){
+    var msg=document.getElementById("coMsg");
+    var body={ name:cval("coName"), code:cval("coCode")||undefined, contact_email:cval("coContact")||undefined, admin_email:cval("coAdminEmail")||undefined, admin_password:cval("coAdminPass")||undefined };
+    if(!body.name){ msg.textContent=L("Company name is required.","Nama perusahaan wajib."); return; }
+    msg.textContent=L("Creating…","Membuat…");
+    var r=await adminPost("/api/admin/corporate",body).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ msg.textContent=L("Created: ","Dibuat: ")+((r.corporate&&r.corporate.code)||""); if(window.admToast)admToast(L("Organization created","Organisasi dibuat")); ["coName","coCode","coContact","coAdminEmail","coAdminPass"].forEach(function(id){var e=document.getElementById(id);if(e)e.value="";}); loadCorporate(); }
+    else msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  async function caLoadOrg(id){
+    var tb=document.getElementById("caRows"); if(!tb||!id) return;
+    try{
+      var j=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id)).then(function(r){return r.json();});
+      var admins=(j&&j.admins)||[];
+      var ce=document.getElementById("caEmpty"); if(ce) ce.hidden=admins.length>0;
+      tb.innerHTML=admins.map(function(a){
+        return '<tr><td class="adm-mono">'+esc(a.email)+'</td><td class="adm-num adm-note">'+(a.created_at?String(a.created_at).slice(0,10):"—")+'</td>'+
+          '<td class="adm-right"><button class="adm-btn adm-btn--sm caDel" data-uid="'+esc(a.auth_user_id)+'" data-confirm="'+L("Sure?","Yakin?")+'">'+L("Remove","Hapus")+'</button></td></tr>';
+      }).join("");
+    }catch(e){ tb.innerHTML=""; }
+  }
+  async function caAdd(){
+    var msg=document.getElementById("caMsg"), sel=document.getElementById("caOrg"), org=sel?sel.value:"";
+    if(!org){ msg.textContent=L("Select an organization first.","Pilih organisasi dulu."); return; }
+    var body={ email:cval("caEmail"), password:cval("caPass")||undefined };
+    if(!body.email){ msg.textContent=L("Account email is required.","Email akun wajib."); return; }
+    msg.textContent=L("Saving…","Menyimpan…");
+    var r=await adminPost("/api/admin/corporate/"+encodeURIComponent(org)+"/admins",body).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ msg.textContent=L("Saved","Tersimpan")+((r.admin&&r.admin.password_set)?(" · "+L("password set","password di-set")):""); if(window.admToast)admToast(L("Portal account saved","Akun portal tersimpan")); document.getElementById("caEmail").value=""; document.getElementById("caPass").value=""; caLoadOrg(org); loadCorporate(); }
+    else msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  async function caRemove(uid){
+    var sel=document.getElementById("caOrg"), org=sel?sel.value:""; if(!org||!uid) return;
+    var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
+    var r=await fetch("/api/admin/corporate/"+encodeURIComponent(org)+"/admins/"+encodeURIComponent(uid)+qs,{method:"DELETE",credentials:"include"}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Admin removed","Admin dihapus")); caLoadOrg(org); loadCorporate(); }
+    else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
+  }
+
   // ---- dispatcher ----
   function loadSection(id){
     if(id==="overview") return loadOverview();
@@ -986,6 +1120,7 @@
     if(id==="settings") return loadSettings();
     if(id==="voucher") return loadVoucher();
     if(id==="menu") return loadMenu();
+    if(id==="corporate") return loadCorporate();
   }
   document.addEventListener("click", function(e){
     var lang=e.target.closest("[data-lang-btn]");
@@ -1002,6 +1137,8 @@
     if(mnrow){ var mm=MN_CACHE.filter(function(x){return x.id===mnrow.dataset.mid;})[0]; if(mm){ document.querySelectorAll("#mnRows tr").forEach(function(x){x.style.background="";}); mnrow.style.background="var(--surface)"; mnRenderDetail(mm); } return; }
     var mnf=e.target.closest(".mnf");
     if(mnf){ MN_FILTER=mnf.dataset.s; document.querySelectorAll(".mnf").forEach(function(c){c.setAttribute("aria-pressed",String(c===mnf));}); MN_SEL=null; loadMenu(); return; }
+    var cad=e.target.closest(".caDel");
+    if(cad){ if(cad.dataset.armed==="1") return; caRemove(cad.dataset.uid); return; }
     var bt=e.target.closest(".bnToggle");
     if(bt){ var tr=bt.closest("tr[data-bid]"); bnToggle(tr.dataset.bid, bt.dataset.on==="1"); return; }
     var be=e.target.closest(".bnEdit");
@@ -1041,7 +1178,9 @@
     var _br=document.getElementById("bnReset"); if(_br) _br.onclick=bnResetForm;
     ["bnImgId","bnImgEn","bnAltId","bnAltEn","bnCtaId","bnCtaEn"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",bnPreview); });
     var _mns=document.getElementById("mnSearch"); if(_mns){ var _mnt; _mns.addEventListener("input",function(){ clearTimeout(_mnt); _mnt=setTimeout(function(){ MN_SEL=null; loadMenu(); },300); }); }
-    fillScaffold("corporate","Contracts, portal access, aggregate client dashboard. Backend module next.","Kontrak, akses portal, dashboard klien agregat. Modul backend menyusul.");
+    var _cc=document.getElementById("coCreate"); if(_cc) _cc.onclick=corpCreate;
+    var _ca=document.getElementById("caAdd"); if(_ca) _ca.onclick=caAdd;
+    var _cao=document.getElementById("caOrg"); if(_cao) _cao.addEventListener("change",function(){ caLoadOrg(this.value); });
     fillScaffold("reports","Scheduled + custom reports. Next increment.","Report terjadwal + kustom. Increment berikutnya.");
   });
 })();
