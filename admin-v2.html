@@ -102,8 +102,77 @@
 
       <!-- ===== SCAFFOLD SECTIONS (increment berikutnya) ===== -->
       <section data-section="scan" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Aktivitas scan" data-title-en="Scan activity" data-question="Berapa banyak scan, kapan puncaknya, dan seberapa akurat?" data-question-en="How much scanning, when it peaks, and how accurate?"></section>
-      <section data-section="revenue" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Revenue" data-title-en="Revenue" data-question="Berapa penjualan, apa yang gagal/tertahan, dan dari paket mana?" data-question-en="How much revenue, what failed/stuck, and from which package?"></section>
-      <section data-section="users" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="User & segmen" data-title-en="Users & segments" data-question="Siapa user ini dan apa yang dia lakukan?" data-question-en="Who is this user and what have they done?"></section>
+      <section data-section="revenue" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Revenue" data-title-en="Revenue" data-question="Berapa penjualan, apa yang gagal/tertahan, dan dari paket mana?" data-question-en="How much revenue, what failed/stuck, and from which package?">
+        <div class="adm-grid adm-grid--4" id="revKpis"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+        <div class="adm-sec-title" data-i18n="Orders">Order</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px">
+          <input class="adm-input" style="max-width:280px" id="revSearch" data-table-search="#revTable" placeholder="Cari reff_no…" data-i18n-ph="Search reff_no…">
+          <button class="adm-chip" data-table-filter="#revTable" data-filter-key="status" data-filter-value="all" aria-pressed="true" data-i18n="All">Semua</button>
+          <button class="adm-chip" data-table-filter="#revTable" data-filter-key="status" data-filter-value="paid" data-i18n="Paid">Paid</button>
+          <button class="adm-chip" data-table-filter="#revTable" data-filter-key="status" data-filter-value="pending" data-i18n="Pending">Pending</button>
+          <button class="adm-chip" data-table-filter="#revTable" data-filter-key="status" data-filter-value="failed" data-i18n="Failed">Failed</button>
+          <span class="adm-note" data-table-info="#revTable" style="margin-left:auto"></span>
+        </div>
+        <table class="adm-table" id="revTable" data-table data-page-size="12">
+          <thead><tr>
+            <th data-sort="str" data-i18n="Ref">Reff</th>
+            <th data-sort="str" data-i18n="Status">Status</th>
+            <th class="adm-right" data-sort="num" data-i18n="Credits">Kredit</th>
+            <th class="adm-right" data-sort="num" data-i18n="Gross">Gross</th>
+            <th class="adm-right" data-sort="num" data-i18n="Net">Net</th>
+            <th data-sort="str" data-i18n="Method">Metode</th>
+            <th data-sort="str" data-i18n="Note">Catatan</th>
+            <th data-sort="str" data-i18n="Date">Tanggal</th>
+          </tr></thead>
+          <tbody id="revRows"></tbody>
+        </table>
+        <div class="adm-note" data-table-empty="#revTable" hidden data-i18n="No orders in range.">Tak ada order di rentang ini.</div>
+        <div style="margin-top:8px; display:flex; gap:8px">
+          <button class="adm-btn adm-btn--sm" data-page-step="#revTable" data-step="-1">‹</button>
+          <button class="adm-btn adm-btn--sm" data-page-step="#revTable" data-step="1">›</button>
+        </div>
+        <div class="adm-sec-title" data-i18n="Revenue per package">Revenue per paket</div>
+        <div id="revByProduct"></div>
+        <div class="adm-sec-title" data-i18n="Xendit reconciliation">Rekonsiliasi Xendit</div>
+        <div id="revRecon" class="adm-note"></div>
+      </section>
+      <section data-section="users" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="User & segmen" data-title-en="Users & segments" data-question="Siapa user ini dan apa yang dia lakukan?" data-question-en="Who is this user and what have they done?">
+        <div class="adm-grid adm-grid--4" id="usrKpis"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+        <div style="display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:20px; align-items:start; margin-top:16px">
+          <div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px">
+              <input class="adm-input" style="max-width:260px" id="usrSearch" data-table-search="#usrTable" placeholder="Cari nama / email…" data-i18n-ph="Search name / email…">
+              <button class="adm-chip" data-table-filter="#usrTable" data-filter-key="all" data-filter-value="all" aria-pressed="true" data-i18n="All">Semua</button>
+              <button class="adm-chip" data-table-filter="#usrTable" data-filter-key="onboarded" data-filter-value="yes" data-i18n="Onboarded">Onboarded</button>
+              <button class="adm-chip" data-table-filter="#usrTable" data-filter-key="buyer" data-filter-value="yes" data-i18n="Buyers">Pembeli</button>
+              <button class="adm-chip" data-table-filter="#usrTable" data-filter-key="plus" data-filter-value="yes" data-i18n="Plus">Plus</button>
+              <button class="adm-chip" data-table-filter="#usrTable" data-filter-key="credit" data-filter-value="yes" data-i18n="Has credit">Punya kredit</button>
+              <span class="adm-note" data-table-info="#usrTable" style="margin-left:auto"></span>
+            </div>
+            <table class="adm-table" id="usrTable" data-table data-page-size="10">
+              <thead><tr>
+                <th data-sort="str" data-i18n="Name">Nama</th>
+                <th data-sort="str" data-i18n="Email">Email</th>
+                <th class="adm-right" data-sort="num" data-i18n="Credits">Kredit</th>
+                <th class="adm-right" data-sort="num" data-i18n="Scans">Scan</th>
+                <th class="adm-right" data-sort="num" data-i18n="Spent">Belanja</th>
+                <th data-sort="str" data-i18n="Joined">Daftar</th>
+              </tr></thead>
+              <tbody id="usrRows"></tbody>
+            </table>
+            <div class="adm-note" data-table-empty="#usrTable" hidden data-i18n="No users.">Tak ada user.</div>
+            <div style="margin-top:8px; display:flex; gap:8px">
+              <button class="adm-btn adm-btn--sm" data-page-step="#usrTable" data-step="-1">‹</button>
+              <button class="adm-btn adm-btn--sm" data-page-step="#usrTable" data-step="1">›</button>
+            </div>
+          </div>
+          <aside id="usrDetail" class="adm-callout" style="grid-template-columns:1fr">
+            <div class="adm-note" data-i18n="Select a user to see details.">Pilih user untuk lihat detail.</div>
+          </aside>
+        </div>
+        <div class="adm-sec-title" data-i18n="Saved segments">Segmen tersimpan</div>
+        <div id="usrSegments"></div>
+      </section>
       <section data-section="voucher" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Voucher" data-title-en="Voucher" data-question="Voucher mana yang menghasilkan revenue bersih, dan berapa % pembeli baru?" data-question-en="Which voucher drives net revenue, and what % are new buyers?"></section>
       <section data-section="menu" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Menu diet" data-title-en="Diet menu" data-question="Menu shared mana yang menunggu review?" data-question-en="Which shared menus await review?"></section>
       <section data-section="marketing" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Marketing" data-title-en="Marketing" data-question="Campaign mana yang perform (click rate), dan siapa yang klik?" data-question-en="Which campaign performs (click rate), and who clicked?"></section>
@@ -121,9 +190,11 @@
 (function(){
   "use strict";
   var KEY = new URLSearchParams(location.search).get("key") || "";
+  var CUR = { period: "30d", section: "overview" };
   function adminFetch(path){
-    var url = path + (path.indexOf("?")<0?"?":"&") + (KEY?("key="+encodeURIComponent(KEY)):"");
-    return fetch(url, { headers: KEY?{}:{}, credentials:"include" });
+    var sep = path.indexOf("?")<0?"?":"&";
+    var qs = "range="+encodeURIComponent(CUR.period) + (KEY?("&key="+encodeURIComponent(KEY)):"");
+    return fetch(path + sep + qs, { credentials:"include" });
   }
   var L = function(en,id){ return (localStorage.getItem("adm.lang")==="en")?en:id; };
   var rp = function(n){ return "Rp " + (Number(n)||0).toLocaleString("id-ID"); };
@@ -178,23 +249,134 @@
     }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Error: ","Error: ")+String(e.message||e)+'</div></div>'; }
   }
 
-  // scaffold text per section (next increments)
+  // ---- REVENUE ----
+  function tag(status){
+    var map={paid:["adm-tag--paid","PAID"],pending:["adm-tag--pending","PENDING"],failed:["adm-tag--fail","FAILED"],expired:["adm-tag--mute","EXPIRED"],cancelled:["adm-tag--mute","VOID"]};
+    var m=map[status]||["adm-tag--outline",String(status||"?").toUpperCase()];
+    return '<span class="adm-tag '+m[0]+'">'+m[1]+'</span>';
+  }
+  var fmtDate=function(s){ return s?String(s).slice(0,10):"—"; };
+
+  async function loadRevenue(){
+    var kp=document.getElementById("revKpis");
+    try{
+      var j=await adminFetch("/api/admin/metrics").then(function(r){return r.json();});
+      var t=await adminFetch("/api/admin/transactions").then(function(r){return r.json();});
+      if(!j||!j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load. Open with ?key=ADMIN_KEY or log in.","Gagal memuat. Buka dengan ?key=ADMIN_KEY atau login.")+'</div></div>'; return; }
+      var rev=j.revenue||{}, tx=j.tx||{}, bs=tx.byStatus||{};
+      kp.innerHTML =
+        cell(rp(rev.net),"Revenue realized","Revenue realized") +
+        cell(rp(rev.gross),"Gross (incl voucher)","Gross (incl voucher)") +
+        cell(String(bs.pending||0),"Pending","Pending") +
+        cell(String(bs.failed||0),"Failed","Failed");
+      var rows=(t&&t.transactions)||[];
+      document.getElementById("revRows").innerHTML = rows.map(function(o){
+        var net=(o.net_amount!=null?o.net_amount:o.amount)||0;
+        var note=o.voucher_id?L("voucher","voucher"):(o.status==="paid"&&!o.gateway_reference_id?L("paid, no gateway ref","paid, tanpa ref gateway"):"");
+        return '<tr data-status="'+(o.status||"")+'">'+
+          '<td class="adm-mono">'+(o.reff_no||"—")+'</td>'+
+          '<td>'+tag(o.status)+'</td>'+
+          '<td class="adm-right adm-num">'+(o.credits||0)+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+(o.amount||0)+'">'+rp(o.amount)+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+net+'">'+rp(net)+'</td>'+
+          '<td>'+(o.payment_method||"—")+'</td>'+
+          '<td class="adm-note">'+note+'</td>'+
+          '<td class="adm-mono">'+fmtDate(o.paid_at||o.created_at)+'</td></tr>';
+      }).join("");
+      window.admRenderTable("#revTable");
+      var bp=(j.byProduct||[]);
+      var maxP=Math.max.apply(null,[1].concat(bp.map(function(p){return p.revenue||0;})));
+      document.getElementById("revByProduct").innerHTML = bp.map(function(p){
+        return '<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>'+p.label+'</span><span class="adm-mono">'+rp(p.revenue)+' · '+p.count+'×</span></div><div class="adm-bar"><i style="width:'+Math.round((p.revenue||0)/maxP*100)+'%"></i></div></div>';
+      }).join("") || '<div class="adm-note">'+L("No paid orders in range.","Tak ada order paid di rentang.")+'</div>';
+      var recon=rows.filter(function(o){return o.status==="paid"&&!o.gateway_reference_id;});
+      document.getElementById("revRecon").textContent = recon.length
+        ? L(recon.length+" paid orders have no Xendit gateway reference — check reconciliation.", recon.length+" order paid tanpa referensi gateway Xendit — perlu dicek.")
+        : L("All paid orders have a gateway reference.","Semua order paid punya referensi gateway.");
+    }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+String(e.message||e)+'</div></div>'; }
+  }
+
+  // ---- USERS ----
+  async function loadUsers(){
+    var kp=document.getElementById("usrKpis");
+    try{
+      var j=await adminFetch("/api/admin/users").then(function(r){return r.json();});
+      if(!j||!j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></div>'; return; }
+      kp.innerHTML =
+        cell(String(j.total||0),"Total user","Total users") +
+        cell(String(j.active||0),"Active","Aktif") +
+        cell(String(j.buyers||0),"Buyers","Pembeli") +
+        cell(String(j.onboarded||0),"Onboarded","Onboarded");
+      var us=(j.users||[]);
+      document.getElementById("usrRows").innerHTML = us.map(function(u){
+        return '<tr data-uid="'+u.auth_user_id+'" data-all="all" data-onboarded="'+(u.is_onboarded?"yes":"no")+'" data-buyer="'+(u.purchases>0?"yes":"no")+'" data-plus="'+(u.is_plus_member?"yes":"no")+'" data-credit="'+((u.scan_credits||0)>0?"yes":"no")+'" style="cursor:pointer">'+
+          '<td>'+(u.full_name||"—")+(u.is_plus_member?' <span class="adm-tag adm-tag--outline">PLUS</span>':'')+'</td>'+
+          '<td class="adm-mono">'+(u.email||"—")+'</td>'+
+          '<td class="adm-right adm-num">'+(u.scan_credits||0)+'</td>'+
+          '<td class="adm-right adm-num">'+(u.scan_count||0)+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+(u.total_spent||0)+'">'+rp(u.total_spent)+'</td>'+
+          '<td class="adm-mono">'+fmtDate(u.created_at)+'</td></tr>';
+      }).join("");
+      window.admRenderTable("#usrTable");
+      document.getElementById("usrSegments").innerHTML = '<div class="adm-callout adm-scaffold"><span class="adm-badge" data-i18n="No data yet">BELUM ADA DATA</span><div class="adm-note" data-i18n="Saved segments need the segments endpoint (table my20fit_segments exists; CRUD next increment).">Segmen tersimpan butuh endpoint segmen (tabel my20fit_segments sudah ada; CRUD menyusul).</div></div>';
+    }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+String(e.message||e)+'</div></div>'; }
+  }
+
+  async function loadUserDetail(uid){
+    var box=document.getElementById("usrDetail");
+    box.innerHTML='<div class="adm-loading">'+L("Loading…","Memuat…")+'</div>';
+    try{
+      var j=await adminFetch("/api/admin/user-detail?uid="+encodeURIComponent(uid)).then(function(r){return r.json();});
+      if(!j||!j.ok){ box.innerHTML='<div class="adm-note">'+L("Failed.","Gagal.")+'</div>'; return; }
+      var p=j.profile||{}, s=j.stats||{}, em=(j.emails||[]);
+      var fact=function(k,v){ return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;border-bottom:1px solid var(--line)"><span class="adm-note">'+k+'</span><span class="adm-mono">'+v+'</span></div>'; };
+      box.innerHTML =
+        '<div><div style="font-family:var(--font-head);font-size:16px;text-transform:uppercase">'+(p.full_name||"—")+'</div>'+
+        '<div class="adm-mono adm-note">'+(p.email||"")+'</div>'+
+        '<div style="margin-top:10px">'+
+          fact(L("Credits","Kredit"),(p.scan_credits||0))+
+          fact(L("Scans","Scan"),(p.scan_count||0))+
+          fact(L("Purchases","Pembelian"),(s.purchases||0))+
+          fact(L("Total spent","Total belanja"),rp(s.total_spent))+
+          fact("Plus",p.is_plus_member?"YES":"NO")+
+          fact(L("Joined","Daftar"),fmtDate(p.created_at))+
+        '</div>'+
+        '<div class="adm-sec-title" style="margin:14px 0 6px">'+L("Email timeline","Timeline email")+'</div>'+
+        (em.length? em.slice(0,8).map(function(m){ var st=m.clicked_at?"clicked":m.opened_at?"opened":m.delivered_at?"delivered":(m.status||"sent"); return '<div style="font-size:11px;padding:2px 0"><span class="adm-mono">'+fmtDate(m.created_at)+'</span> · '+(m.campaign_id||m.channel||"")+' · '+st+'</div>'; }).join("") : '<div class="adm-note">'+L("No emails yet.","Belum ada email.")+'</div>')+
+        '</div>';
+    }catch(e){ box.innerHTML='<div class="adm-note">'+String(e.message||e)+'</div>'; }
+  }
+
+  // ---- dispatcher ----
+  function loadSection(id){
+    if(id==="overview") return loadOverview();
+    if(id==="revenue") return loadRevenue();
+    if(id==="users") return loadUsers();
+  }
+  document.addEventListener("click", function(e){
+    var lang=e.target.closest("[data-lang-btn]");
+    if(lang){ setTimeout(function(){ loadSection(CUR.section); },0); return; }
+    var nav=e.target.closest("[data-nav]");
+    if(nav){ CUR.section=nav.dataset.nav; loadSection(CUR.section); return; }
+    var row=e.target.closest("#usrRows tr[data-uid]");
+    if(row){ document.querySelectorAll("#usrRows tr").forEach(function(x){x.style.background="";}); row.style.background="var(--surface)"; loadUserDetail(row.dataset.uid); return; }
+  });
+
   document.addEventListener("DOMContentLoaded", function(){
-    loadOverview();
+    document.getElementById("periodSeg").addEventListener("click", function(e){
+      var b=e.target.closest("[data-period]"); if(!b) return;
+      this.querySelectorAll("button").forEach(function(x){x.setAttribute("aria-pressed",String(x===b));});
+      CUR.period=b.dataset.period; loadSection(CUR.section);
+    });
+    CUR.section = new URLSearchParams(location.search).get("section") || "overview";
+    loadSection(CUR.section);
     fillScaffold("scan","Scan activity view — histogram, top users, accuracy callout. Coming next increment.","Tampilan aktivitas scan — histogram, user teratas, callout akurasi. Menyusul increment berikutnya.");
-    fillScaffold("revenue","Revenue table (net + failure reason), per-package, Xendit reconciliation. Coming next.","Tabel revenue (net + alasan gagal), per-paket, rekonsiliasi Xendit. Menyusul.");
-    fillScaffold("users","User search/filter + detail panel + saved segments. Coming next.","Cari/filter user + panel detail + segmen tersimpan. Menyusul.");
     fillScaffold("voucher","Voucher KPIs, comparison table, failed codes, create form. Coming next.","KPI voucher, tabel perbandingan, kode gagal, form buat. Menyusul.");
     fillScaffold("menu","Shared-menu review queue + guidelines. Coming next.","Antrian review menu shared + pedoman. Menyusul.");
     fillScaffold("marketing","Email analytics (click rate first) + campaign + banner. Coming next.","Analitik email (click rate utama) + campaign + banner. Menyusul.");
     fillScaffold("corporate","Contracts, portal access, aggregate client dashboard. Coming next.","Kontrak, akses portal, dashboard klien agregat. Menyusul.");
     fillScaffold("reports","Scheduled + custom reports. Coming next.","Report terjadwal + kustom. Menyusul.");
     fillScaffold("settings","Feature flags, pricing, roles, audit log. Coming next.","Feature flag, harga, role, audit log. Menyusul.");
-    // period segmented pressed-state (data only; reload wiring next increment)
-    document.getElementById("periodSeg").addEventListener("click",function(e){
-      var b=e.target.closest("[data-period]"); if(!b) return;
-      this.querySelectorAll("button").forEach(function(x){x.setAttribute("aria-pressed",String(x===b));});
-    });
   });
 })();
 </script>

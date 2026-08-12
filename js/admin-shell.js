@@ -142,6 +142,12 @@
     toastTimer = setTimeout(function () { el.hidden = true; }, 2800);
   }
   window.admToast = toast;
+  /* Re-render a table after async data is injected into its tbody. */
+  window.admRenderTable = function (elOrSel) {
+    var t = typeof elOrSel === 'string' ? document.querySelector(elOrSel) : elOrSel;
+    if (t) renderTable(t);
+  };
+  window.admShowSection = showSection;
 
   /* ---------------- delegated events ---------------- */
   document.addEventListener('click', function (e) {
