@@ -357,7 +357,8 @@
       try{
         var r=await corpFetch("/api/comms/consent",{method:"POST",body:JSON.stringify({
           marketing:document.getElementById("epMkt").checked,
-          meal_reminder:document.getElementById("epMeal").checked})});
+          meal_reminder:document.getElementById("epMeal").checked,
+          lang:(localStorage.getItem("lang")==="en"?"en":"id")})});
         var j=await r.json().catch(function(){return{};});
         msg.textContent=(j&&j.ok)?L({en:"Saved.",id:"Tersimpan."}):L({en:"Failed to save.",id:"Gagal menyimpan."});
       }catch(e){ msg.textContent=L({en:"Failed to save.",id:"Gagal menyimpan."}); }
