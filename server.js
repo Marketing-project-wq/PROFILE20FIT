@@ -2162,6 +2162,31 @@ app.get("/api/admin/audit", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// Feature flags modul admin baru (viewer baca; superadmin toggle). Semua fitur baru
+// di-gate flag ini (default OFF). Perubahan diaudit.
+app.get("/api/admin/feature-flags", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data } = await admin.from("my20fit_admin_feature_flags")
+      .select("key,enabled,note,updated_by,updated_at").order("key", { ascending: true });
+    return res.json({ ok: true, flags: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/feature-flags", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  const b = req.body || {};
+  const key = String(b.key || "").trim();
+  if (!key) return res.status(400).json({ error: "key wajib" });
+  try {
+    const { error } = await admin.from("my20fit_admin_feature_flags")
+      .update({ enabled: !!b.enabled, updated_by: ctx.email || "admin", updated_at: new Date().toISOString() })
+      .eq("key", key);
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "feature_flag.set", key, { enabled: !!b.enabled });
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // ================= CORPORATE HEALTH PROGRAM — FASE 1 (fondasi) =================
 // Level: superadmin (20FIT) mengelola akun corporate; admin corporate mengelola
 // karyawannya sendiri. ISOLASI: data karyawan HANYA diakses lewat server

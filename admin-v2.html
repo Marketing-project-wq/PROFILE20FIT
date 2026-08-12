@@ -101,7 +101,23 @@
       </section>
 
       <!-- ===== SCAFFOLD SECTIONS (increment berikutnya) ===== -->
-      <section data-section="scan" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Aktivitas scan" data-title-en="Scan activity" data-question="Berapa banyak scan, kapan puncaknya, dan seberapa akurat?" data-question-en="How much scanning, when it peaks, and how accurate?"></section>
+      <section data-section="scan" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Aktivitas scan" data-title-en="Scan activity" data-question="Berapa banyak scan, kapan puncaknya, dan seberapa akurat?" data-question-en="How much scanning, when it peaks, and how accurate?">
+        <div class="adm-grid adm-grid--3" id="scanKpis"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+        <div class="adm-sec-title" data-i18n="Most active (by scans used)">Paling aktif (by scan dipakai)</div>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px">
+          <input class="adm-input" style="max-width:260px" data-table-search="#scanTable" placeholder="Cari nama / email…" data-i18n-ph="Search name / email…">
+          <span class="adm-note" data-table-info="#scanTable" style="margin-left:auto"></span>
+        </div>
+        <table class="adm-table" id="scanTable" data-table data-page-size="12">
+          <thead><tr><th data-sort="str" data-i18n="Name">Nama</th><th data-sort="str" data-i18n="Email">Email</th><th class="adm-right" data-sort="num" data-i18n="Scans used">Scan dipakai</th><th class="adm-right" data-sort="num" data-i18n="Remaining">Sisa</th></tr></thead>
+          <tbody id="scanRows"></tbody>
+        </table>
+        <div style="margin-top:8px; display:flex; gap:8px">
+          <button class="adm-btn adm-btn--sm" data-page-step="#scanTable" data-step="-1">‹</button>
+          <button class="adm-btn adm-btn--sm" data-page-step="#scanTable" data-step="1">›</button>
+        </div>
+        <div class="adm-callout adm-scaffold"><span class="adm-badge" data-i18n="No data yet">BELUM ADA DATA</span><div class="adm-note" data-i18n="Hourly histogram (peak hours) + calorie accuracy/corrections are not instrumented yet — no invented numbers.">Histogram per jam (jam puncak) + akurasi/koreksi kalori belum diinstrumentasi — tanpa angka karangan.</div></div>
+      </section>
       <section data-section="revenue" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Revenue" data-title-en="Revenue" data-question="Berapa penjualan, apa yang gagal/tertahan, dan dari paket mana?" data-question-en="How much revenue, what failed/stuck, and from which package?">
         <div class="adm-grid adm-grid--4" id="revKpis"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
         <div class="adm-sec-title" data-i18n="Orders">Order</div>
@@ -207,7 +223,26 @@
       </section>
       <section data-section="corporate" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Corporate" data-title-en="Corporate" data-question="Status kontrak, seat, dan partisipasi agregat per organisasi." data-question-en="Contract status, seats, and aggregate participation per organization."></section>
       <section data-section="reports" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Laporan" data-title-en="Reports" data-question="Report terjadwal & kustom." data-question-en="Scheduled & custom reports."></section>
-      <section data-section="settings" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Pengaturan" data-title-en="Settings" data-question="Feature flag, harga, role admin, audit log." data-question-en="Feature flags, pricing, admin roles, audit log."></section>
+      <section data-section="settings" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Pengaturan" data-title-en="Settings" data-question="Feature flag, role admin, audit log." data-question-en="Feature flags, admin roles, audit log.">
+        <div class="adm-tabs" data-tabgroup="set" data-default="flags">
+          <button data-tab="set" data-tab-id="flags" data-i18n="Feature flags">Feature flag</button>
+          <button data-tab="set" data-tab-id="roles" data-i18n="Admin roles">Role admin</button>
+          <button data-tab="set" data-tab-id="audit" data-i18n="Audit log">Audit log</button>
+        </div>
+        <div data-tabpanel="set" data-tab="flags">
+          <div class="adm-note" style="margin:12px 0" data-i18n="Gate for new admin modules. Only superadmin can toggle.">Gate modul admin baru. Hanya superadmin yang bisa toggle.</div>
+          <div id="setFlags"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div>
+        </div>
+        <div data-tabpanel="set" data-tab="roles" hidden>
+          <div id="setRoles" style="margin-top:12px"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div>
+        </div>
+        <div data-tabpanel="set" data-tab="audit" hidden>
+          <table class="adm-table" style="margin-top:12px" id="setAuditTable" data-table data-page-size="20">
+            <thead><tr><th data-sort="str" data-i18n="When">Kapan</th><th data-sort="str" data-i18n="Actor">Aktor</th><th data-sort="str" data-i18n="Action">Aksi</th><th data-sort="str" data-i18n="Target">Target</th></tr></thead>
+            <tbody id="setAudit"></tbody>
+          </table>
+        </div>
+      </section>
     </div>
   </div>
 </div>
@@ -225,6 +260,12 @@
     var qs = "range="+encodeURIComponent(CUR.period) + (KEY?("&key="+encodeURIComponent(KEY)):"");
     return fetch(path + sep + qs, { credentials:"include" });
   }
+  function adminPost(path, body){
+    var sep = path.indexOf("?")<0?"?":"&";
+    var qs = KEY?("key="+encodeURIComponent(KEY)):"";
+    return fetch(path + (qs?(sep+qs):""), { method:"POST", headers:{"content-type":"application/json"}, credentials:"include", body:JSON.stringify(body||{}) });
+  }
+  var IS_SUPER = false;
   var L = function(en,id){ return (localStorage.getItem("adm.lang")==="en")?en:id; };
   var rp = function(n){ return "Rp " + (Number(n)||0).toLocaleString("id-ID"); };
   var esc = function(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); };
@@ -440,12 +481,97 @@
     render();
   }
 
+  // ---- SCAN ----
+  async function loadScan(){
+    var kp=document.getElementById("scanKpis");
+    try{
+      var j=await adminFetch("/api/admin/onboarding-scan").then(function(r){return r.json();});
+      if(!j||!j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></div>'; return; }
+      kp.innerHTML =
+        cell(String(j.total_scans_used||0),"Total scans used","Total scan dipakai") +
+        cell(String(j.ever_scanned||0),"Users who scanned","User pernah scan") +
+        cell(String((j.users||[]).length),"Users listed","User terdaftar");
+      document.getElementById("scanRows").innerHTML = (j.users||[]).map(function(u){
+        return '<tr><td>'+esc(u.full_name||"—")+'</td><td class="adm-mono">'+esc(u.email||"—")+'</td>'+
+          '<td class="adm-right adm-num">'+(u.scans_used||0)+'</td>'+
+          '<td class="adm-right adm-num">'+(u.remaining==null?"—":u.remaining)+'</td></tr>';
+      }).join("");
+      window.admRenderTable("#scanTable");
+    }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+String(e.message||e)+'</div></div>'; }
+  }
+
+  // ---- SETTINGS ----
+  async function loadSettings(){
+    var fb=document.getElementById("setFlags");
+    try{
+      var j=await adminFetch("/api/admin/feature-flags").then(function(r){return r.json();});
+      var fl=(j&&j.flags)||[];
+      fb.innerHTML = fl.map(function(f){
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)">'+
+          '<div><b>'+esc(f.key)+'</b> <span class="adm-note">'+esc(f.note||"")+'</span></div>'+
+          '<button class="adm-btn adm-btn--sm flag-toggle'+(f.enabled?' adm-btn--primary':'')+'" data-flag="'+esc(f.key)+'" data-on="'+(f.enabled?"1":"0")+'"'+(IS_SUPER?"":' disabled')+'>'+(f.enabled?"ON":"OFF")+'</button>'+
+        '</div>';
+      }).join("") || '<div class="adm-note">'+L("No flags.","Tak ada flag.")+'</div>';
+    }catch(e){ fb.textContent=""; }
+    var rb=document.getElementById("setRoles");
+    try{
+      var jr=await adminFetch("/api/admin/roles").then(function(r){return r.json();});
+      if(jr&&jr.ok){
+        rb.innerHTML='<table class="adm-table"><thead><tr><th>Email</th><th>Role</th><th>'+L("Since","Sejak")+'</th></tr></thead><tbody>'+
+          (jr.roles||[]).map(function(r){ return '<tr><td class="adm-mono">'+esc(r.email||"—")+'</td><td><span class="adm-tag adm-tag--outline">'+esc(r.role)+'</span></td><td class="adm-mono">'+fmtDate(r.created_at)+'</td></tr>'; }).join("")+'</tbody></table>';
+      } else rb.innerHTML='<div class="adm-note">'+L("Roles need superadmin.","Role butuh superadmin.")+'</div>';
+    }catch(e){ rb.textContent=""; }
+    try{
+      var ja=await adminFetch("/api/admin/audit?limit=200").then(function(r){return r.json();});
+      var ab=document.getElementById("setAudit");
+      if(ja&&ja.ok){
+        ab.innerHTML=(ja.logs||[]).map(function(a){ return '<tr><td class="adm-mono">'+fmtDate(a.created_at)+'</td><td class="adm-mono">'+esc(a.actor_email||"—")+'</td><td>'+esc(a.action||"")+'</td><td class="adm-mono">'+esc(a.target||"")+'</td></tr>'; }).join("");
+        window.admRenderTable("#setAuditTable");
+      } else if(ab){ ab.innerHTML='<tr><td colspan="4" class="adm-note">'+L("Audit needs superadmin.","Audit butuh superadmin.")+'</td></tr>'; }
+    }catch(e){}
+  }
+  document.addEventListener("click", function(e){
+    var t=e.target.closest(".flag-toggle"); if(!t||t.disabled) return;
+    var next=t.dataset.on!=="1";
+    adminPost("/api/admin/feature-flags",{key:t.dataset.flag,enabled:next}).then(function(r){return r.json();}).then(function(j){
+      if(j&&j.ok){ t.dataset.on=next?"1":"0"; t.textContent=next?"ON":"OFF"; t.classList.toggle("adm-btn--primary",next); if(window.admToast) admToast(L("Flag updated","Flag diperbarui")); }
+      else if(window.admToast) admToast(L("Failed (superadmin only)","Gagal (superadmin saja)"));
+    }).catch(function(){});
+  });
+
+  // ---- ROLE-BASED NAV (Langkah 6) ----
+  var ALLOWED={ superadmin:null, viewer:null,
+    marketing:["overview","users","voucher","marketing","reports","settings"],
+    finance:["revenue","voucher","corporate","reports"],
+    staff:["users","scan","menu"] };
+  function roleDesc(role){
+    var m={ superadmin:["Full access.","Akses penuh."], viewer:["Read only.","Baca saja."],
+      marketing:["Voucher, campaign, segments, reports. No price/credit edits or health data.","Voucher, campaign, segmen, laporan. Tanpa ubah harga/kredit & data kesehatan."],
+      finance:["Revenue, voucher, corporate, reports.","Revenue, voucher, corporate, laporan."],
+      staff:["Users, activity, menu.","User, aktivitas, menu."] };
+    var d=m[role]||["",""]; return L(d[0],d[1]);
+  }
+  async function loadRole(){
+    try{
+      var j=await adminFetch("/api/admin/me").then(function(r){return r.json();});
+      if(!j||!j.ok) return;
+      var role=j.role||"viewer"; IS_SUPER=(role==="superadmin");
+      var allow=ALLOWED[role];
+      document.querySelectorAll("[data-nav]").forEach(function(b){ b.style.display=(!allow||allow.indexOf(b.dataset.nav)>=0)?"":"none"; });
+      var strip=document.getElementById("roleStrip"), rt=document.getElementById("roleText");
+      if(strip&&rt){ strip.hidden=false; rt.textContent=role.toUpperCase()+" · "+roleDesc(role); }
+      if(allow && allow.indexOf(CUR.section)<0){ CUR.section=allow[0]; if(window.admShowSection) window.admShowSection(CUR.section); }
+    }catch(e){}
+  }
+
   // ---- dispatcher ----
   function loadSection(id){
     if(id==="overview") return loadOverview();
     if(id==="revenue") return loadRevenue();
     if(id==="users") return loadUsers();
     if(id==="marketing") return loadMarketing();
+    if(id==="scan") return loadScan();
+    if(id==="settings") return loadSettings();
   }
   document.addEventListener("click", function(e){
     var lang=e.target.closest("[data-lang-btn]");
@@ -465,13 +591,11 @@
       CUR.period=b.dataset.period; loadSection(CUR.section);
     });
     CUR.section = new URLSearchParams(location.search).get("section") || "overview";
-    loadSection(CUR.section);
-    fillScaffold("scan","Scan activity view — histogram, top users, accuracy callout. Coming next increment.","Tampilan aktivitas scan — histogram, user teratas, callout akurasi. Menyusul increment berikutnya.");
-    fillScaffold("voucher","Voucher KPIs, comparison table, failed codes, create form. Coming next.","KPI voucher, tabel perbandingan, kode gagal, form buat. Menyusul.");
-    fillScaffold("menu","Shared-menu review queue + guidelines. Coming next.","Antrian review menu shared + pedoman. Menyusul.");
-    fillScaffold("corporate","Contracts, portal access, aggregate client dashboard. Coming next.","Kontrak, akses portal, dashboard klien agregat. Menyusul.");
-    fillScaffold("reports","Scheduled + custom reports. Coming next.","Report terjadwal + kustom. Menyusul.");
-    fillScaffold("settings","Feature flags, pricing, roles, audit log. Coming next.","Feature flag, harga, role, audit log. Menyusul.");
+    loadRole().then(function(){ loadSection(CUR.section); });
+    fillScaffold("voucher","Voucher KPIs, comparison table, failed codes, create form. Backend module next.","KPI voucher, tabel perbandingan, kode gagal, form buat. Modul backend menyusul.");
+    fillScaffold("menu","Shared-menu review queue + guidelines. Backend module next.","Antrian review menu shared + pedoman. Modul backend menyusul.");
+    fillScaffold("corporate","Contracts, portal access, aggregate client dashboard. Backend module next.","Kontrak, akses portal, dashboard klien agregat. Modul backend menyusul.");
+    fillScaffold("reports","Scheduled + custom reports. Next increment.","Report terjadwal + kustom. Increment berikutnya.");
   });
 })();
 </script>
