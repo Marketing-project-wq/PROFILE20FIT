@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="id" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>20FIT Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<!-- load the existing design system first, then the admin theme -->
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="admin-theme.css">
+</head>
+<body>
+
+<!-- Reference skeleton: the shell + three representative sections.
+     Every text node that must switch language carries data-i18n="<english>".
+     Replace the hardcoded numbers with server-rendered values or fetch()
+     from the existing /api/admin/* endpoints. -->
+
+<div class="adm">
+
+  <aside class="adm-side">
+    <div class="adm-brand">
+      <b>20FIT<span style="color:var(--accent)">·</span>ADMIN</b>
+      <div class="adm-kicker" style="margin-top:6px">my.20fit.id</div>
+    </div>
+
+    <nav style="flex:1 1 auto;overflow-y:auto">
+      <div class="adm-navgroup" data-i18n="Monitor">Pantau</div>
+      <button class="adm-navitem" data-nav="overview"><span>Overview</span></button>
+      <button class="adm-navitem" data-nav="activity"><span data-i18n="Scan activity">Aktivitas scan</span></button>
+      <button class="adm-navitem" data-nav="revenue"><span>Revenue</span><span class="adm-tag adm-tag--fail">41</span></button>
+
+      <div class="adm-navgroup" data-i18n="Manage">Kelola</div>
+      <button class="adm-navitem" data-nav="users"><span data-i18n="Users &amp; segments">User &amp; segmen</span></button>
+      <button class="adm-navitem" data-nav="voucher"><span>Voucher</span></button>
+      <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menus">Menu diet</span><span class="adm-tag adm-tag--fail">5</span></button>
+      <button class="adm-navitem" data-nav="marketing"><span>Marketing</span></button>
+      <button class="adm-navitem" data-nav="corporate"><span>Corporate</span><span class="adm-tag adm-tag--fail">2</span></button>
+
+      <div class="adm-navgroup" data-i18n="System">Sistem</div>
+      <button class="adm-navitem" data-nav="reports"><span data-i18n="Reports">Laporan</span></button>
+      <button class="adm-navitem" data-nav="settings"><span data-i18n="Settings">Pengaturan</span></button>
+    </nav>
+
+    <div style="border-top:1px solid var(--ink);padding:12px 16px">
+      <div class="adm-kicker" data-i18n="Signed in as">Masuk sebagai</div>
+      <div style="margin-top:4px;font-weight:700" class="adm-mono">rizky@20fit.id</div>
+      <div class="adm-badge" style="margin-top:6px;display:inline-block">superadmin</div>
+    </div>
+  </aside>
+
+  <main class="adm-main">
+    <header class="adm-head">
+      <div>
+        <div class="adm-kicker" data-head-kicker></div>
+        <h1 class="adm-title" data-head-title></h1>
+        <div class="adm-question" data-head-question></div>
+        <!-- shown only when the signed-in role is restricted -->
+        <div class="adm-rolestrip" hidden>
+          <span style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-ink)"
+                data-i18n="Role limits">Batas role</span>
+          <span class="adm-note" data-role-note></span>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <div class="adm-seg">
+            <button data-lang-btn="id">ID</button>
+            <button data-lang-btn="en">EN</button>
+          </div>
+          <div class="adm-seg">
+            <button data-theme-btn="light" data-i18n="Light">Terang</button>
+            <button data-theme-btn="dark" data-i18n="Dark">Gelap</button>
+          </div>
+        </div>
+        <div class="adm-seg">
+          <button data-period="today" data-i18n="Today">Hari ini</button>
+          <button data-period="7d" data-i18n="7 days">7 hari</button>
+          <button data-period="30d" aria-pressed="true" data-i18n="30 days">30 hari</button>
+          <button data-period="month" data-i18n="This month">Bulan ini</button>
+          <button data-period="custom" data-i18n="Custom">Kustom</button>
+        </div>
+        <button class="adm-chip" data-compare aria-pressed="true" data-i18n="Compare periods">Bandingkan periode</button>
+        <button class="adm-btn">Export CSV</button>
+      </div>
+    </header>
+
+    <div class="adm-body">
+
+      <!-- ============ OVERVIEW ============ -->
+      <section data-section="overview"
+               data-kicker="Ringkasan &amp; peringatan" data-kicker-en="Summary &amp; alerts"
+               data-title="Overview" data-title-en="Overview"
+               data-question="Apa yang perlu saya tahu dan lakukan hari ini?"
+               data-question-en="What do I need to know and do today?">
+
+        <div class="adm-grid adm-grid--3">
+          <div class="adm-cell">
+            <div class="adm-kicker" data-i18n="Realized revenue">Revenue realized</div>
+            <div style="margin-top:10px;display:flex;align-items:baseline;gap:10px">
+              <span class="adm-metric">Rp 4,15 jt</span>
+              <span class="adm-delta">&#9650; 12%</span>
+            </div>
+            <div class="adm-sub" data-i18n="27 paid orders · voucher (net 0) excluded">27 order paid · voucher (net 0) tidak dihitung</div>
+          </div>
+          <div class="adm-cell">
+            <div class="adm-kicker" data-i18n="Stuck orders">Order tertahan</div>
+            <div style="margin-top:10px;display:flex;align-items:baseline;gap:10px">
+              <span class="adm-metric">41</span>
+              <span class="adm-delta adm-delta--down">&#9660; 34%</span>
+            </div>
+            <div class="adm-sub">26 pending · 15 failed</div>
+          </div>
+          <div class="adm-cell">
+            <div class="adm-kicker" data-i18n="New users">User baru</div>
+            <div style="margin-top:10px;display:flex;align-items:baseline;gap:10px">
+              <span class="adm-metric">58</span>
+              <span class="adm-delta">&#9650; 9%</span>
+            </div>
+            <div class="adm-sub" data-i18n="892 profiles total">892 profil total</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.15fr 1fr;border-bottom:1px solid var(--line)">
+          <div style="padding:20px 20px 20px 0;border-right:1px solid var(--line)">
+            <h2 class="adm-h2" data-i18n="Needs action now">Perlu tindakan sekarang</h2>
+            <div style="margin-top:14px;border-top:1px solid var(--line)">
+              <div class="adm-alert">
+                <span class="dot"></span>
+                <div>
+                  <div style="font-weight:700" data-i18n="26 pending orders piling up">26 order pending menumpuk</div>
+                  <div class="adm-note" data-i18n="Oldest 4 days · Rp 3.9m · all via Xendit VA">Tertua 4 hari · Rp 3,9 jt · semua lewat Xendit VA</div>
+                </div>
+                <button class="adm-btn adm-btn--sm" data-nav="revenue" data-i18n="View orders">Lihat order</button>
+              </div>
+              <div class="adm-alert warn">
+                <span class="dot"></span>
+                <div>
+                  <div style="font-weight:700" data-i18n="3 paid orders without gateway_reference_id">3 order paid tanpa gateway_reference_id</div>
+                  <div class="adm-note" data-i18n="Reconcile manually before closing the month">Rekonsiliasi manual sebelum tutup buku</div>
+                </div>
+                <button class="adm-btn adm-btn--sm" data-nav="revenue" data-i18n="Reconcile">Rekonsiliasi</button>
+              </div>
+            </div>
+          </div>
+          <div style="padding:20px 0 20px 20px">
+            <h2 class="adm-h2" data-i18n="Orders &amp; realized revenue · 14 days">Order &amp; revenue realized · 14 hari</h2>
+            <div class="adm-chart" style="margin-top:16px">
+              <!-- one wrapper per day; heights are percentages of the period max -->
+              <div><i style="height:27%"></i><i class="soft" style="height:14%"></i></div>
+              <div><i style="height:41%"></i><i class="soft" style="height:9%"></i></div>
+              <div><i style="height:18%"></i><i class="soft" style="height:18%"></i></div>
+              <div><i style="height:50%"></i><i class="soft" style="height:5%"></i></div>
+              <div><i style="height:36%"></i><i class="soft" style="height:23%"></i></div>
+              <div><i style="height:64%"></i><i class="soft" style="height:9%"></i></div>
+              <div><i style="height:45%"></i><i class="soft" style="height:14%"></i></div>
+            </div>
+            <div style="margin-top:8px;display:flex;gap:16px" class="adm-note">
+              <span>&#9632; paid</span><span style="color:var(--accent-ink)">&#9632; pending / failed</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ VOUCHER ============ -->
+      <section data-section="voucher" hidden
+               data-kicker="Buat &amp; lacak voucher" data-kicker-en="Create &amp; track vouchers"
+               data-title="Voucher" data-title-en="Voucher"
+               data-question="Voucher mana yang menghasilkan pembeli baru, dan mana yang hanya mendiskon pelanggan lama?"
+               data-question-en="Which vouchers bring new buyers, and which only discount existing ones?">
+
+        <div style="padding:16px 0;display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <h2 class="adm-h2" data-i18n="Voucher comparison · click a header to sort">Perbandingan voucher · klik header untuk urut</h2>
+          <button class="adm-btn adm-btn--primary" data-i18n="New voucher">Buat voucher baru</button>
+        </div>
+
+        <table class="adm-table" id="tbl-voucher" data-table data-page-size="10">
+          <thead>
+            <tr>
+              <th data-i18n="Code">Kode</th>
+              <th data-i18n="Rule">Aturan</th>
+              <th class="adm-right" data-sort="num" data-i18n="Used / quota">Dipakai / kuota</th>
+              <th class="adm-right" data-sort="num" data-i18n="Discount given">Diskon diberikan</th>
+              <th class="adm-right" data-sort="num" aria-sort="descending" data-i18n="Net revenue">Revenue bersih</th>
+              <th class="adm-right" data-sort="num" data-i18n="New buyers">Pembeli baru</th>
+              <th data-i18n="Status">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-status="active">
+              <td><b class="adm-mono">AGUSTUS20</b><div class="adm-note">Promo Agustus 20%</div></td>
+              <td class="adm-note">percentage 20% · maks Rp 30.000</td>
+              <td class="adm-right adm-num" data-value="68">68 / 100</td>
+              <td class="adm-right adm-num" data-value="1320000">Rp 1.320.000</td>
+              <td class="adm-right adm-num" data-value="4800000"><b>Rp 4.800.000</b></td>
+              <td class="adm-right adm-num" data-value="71">71%</td>
+              <td><span class="adm-tag adm-tag--paid" data-i18n="active">aktif</span></td>
+            </tr>
+            <tr data-status="active">
+              <td><b class="adm-mono">CORP20FIT</b><div class="adm-note">Corporate batch 3</div></td>
+              <td class="adm-note">free_scans 10</td>
+              <td class="adm-right adm-num" data-value="84">84 / 120</td>
+              <td class="adm-right adm-num" data-value="2100000">Rp 2.100.000</td>
+              <td class="adm-right adm-num" data-value="0"><b>Rp 0</b></td>
+              <!-- below 40% new buyers → flag it -->
+              <td class="adm-right adm-num" data-value="12" style="color:var(--accent-ink);font-weight:700">12%</td>
+              <td><span class="adm-tag adm-tag--paid" data-i18n="active">aktif</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="adm-note" style="margin-top:10px" data-i18n="The new-buyer column is the question that matters: a voucher redeemed only by existing customers adds no buyers, it only shrinks revenue.">
+          Kolom pembeli baru adalah pertanyaan terpentingnya: voucher yang hanya ditebus pelanggan lama tidak menambah pembeli, hanya mengurangi revenue.
+        </p>
+      </section>
+
+      <!-- ============ CORPORATE ============ -->
+      <section data-section="corporate" hidden
+               data-kicker="Organisasi mitra &amp; portal klien" data-kicker-en="Partner organisations &amp; client portal"
+               data-title="Corporate" data-title-en="Corporate"
+               data-question="Program karyawan mana yang jalan, dan apa yang boleh dilihat HR?"
+               data-question-en="Which employee programmes are working, and what may HR see?">
+
+        <div class="adm-tabs" data-tabgroup="corp" data-default="accounts">
+          <button data-tab="corp" data-tab-id="accounts" aria-selected="true" data-i18n="Accounts &amp; contracts">Akun &amp; kontrak</button>
+          <button data-tab="corp" data-tab-id="access" data-i18n="Access &amp; passwords">Akses &amp; password</button>
+          <button data-tab="corp" data-tab-id="portal" data-i18n="Client dashboard">Dashboard klien</button>
+        </div>
+
+        <div data-tabpanel="corp" data-tab="accounts">
+          <div style="padding:16px 0">
+            <div class="adm-callout adm-callout--danger">
+              <span class="adm-badge" style="color:var(--accent-ink)" data-i18n="Contracts">Kontrak</span>
+              <div style="font-size:12px" data-i18n="2 contracts end within 30 days — renew or switch off seat access before the end date.">
+                2 kontrak berakhir dalam 30 hari — perpanjang atau matikan akses seat sebelum tanggal berakhir.
+              </div>
+            </div>
+            <table class="adm-table" id="tbl-orgs" data-table data-page-size="10" style="margin-top:16px">
+              <thead>
+                <tr>
+                  <th data-i18n="Organisation">Organisasi</th>
+                  <th data-i18n="Contract">Kontrak</th>
+                  <th class="adm-right" data-sort="num" data-i18n="Seats used">Seat terpakai</th>
+                  <th class="adm-right" data-sort="num" data-i18n="Participation 30d">Partisipasi 30h</th>
+                  <th data-i18n="Status">Status</th>
+                  <th data-i18n="Actions">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>Bank Nusantara</b><div class="adm-note">Ratna Kusuma</div></td>
+                  <td class="adm-num">2026-01-15 &rarr; 2026-09-30</td>
+                  <td class="adm-right adm-num" data-value="84">84 / 120</td>
+                  <td class="adm-right adm-num" data-value="62">62%</td>
+                  <td><span class="adm-tag adm-tag--paid" data-i18n="active">aktif</span></td>
+                  <td style="white-space:nowrap">
+                    <button class="adm-btn adm-btn--sm adm-btn--primary" data-action="open-portal" data-org="1" data-i18n="Open dashboard">Buka dashboard</button>
+                    <button class="adm-btn adm-btn--sm" data-tab="corp" data-tab-id="access" data-i18n="Manage access">Kelola akses</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td><b>Klinik Sehat Prima</b><div class="adm-note">dr. Lestari</div></td>
+                  <td class="adm-num">2026-03-01 &rarr; 2026-08-20</td>
+                  <td class="adm-right adm-num" data-value="12">12 / 25</td>
+                  <td class="adm-right adm-num" data-value="42">42%</td>
+                  <td><span class="adm-tag adm-tag--pending" data-i18n="ends in &lt; 30 days">berakhir &lt; 30 hari</span></td>
+                  <td style="white-space:nowrap">
+                    <button class="adm-btn adm-btn--sm adm-btn--primary" data-action="open-portal" data-org="3" data-i18n="Open dashboard">Buka dashboard</button>
+                    <button class="adm-btn adm-btn--sm" data-tab="corp" data-tab-id="access" data-i18n="Manage access">Kelola akses</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div data-tabpanel="corp" data-tab="access" hidden>
+          <div style="display:grid;grid-template-columns:1.35fr 1fr;align-items:start">
+            <div style="border-right:1px solid var(--ink);padding:16px 20px 16px 0">
+              <h2 class="adm-h2" data-i18n="Portal accounts">Akun portal</h2>
+              <table class="adm-table" id="tbl-accounts" data-table style="margin-top:14px">
+                <thead>
+                  <tr>
+                    <th data-i18n="Account email">Email akun</th>
+                    <th data-i18n="Role">Role</th>
+                    <th data-i18n="Last login">Login terakhir</th>
+                    <th data-i18n="Status">Status</th>
+                    <th data-i18n="Actions">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="adm-mono">ratna@banknusantara.co.id</td>
+                    <td class="adm-note">hr_admin</td>
+                    <td class="adm-num">12 Agu 08.14</td>
+                    <td><span class="adm-tag adm-tag--paid" data-i18n="active">aktif</span></td>
+                    <td style="white-space:nowrap">
+                      <button class="adm-btn adm-btn--sm" data-action="reset-password" data-i18n="Reset password">Reset password</button>
+                      <button class="adm-btn adm-btn--sm" data-action="toggle-account" data-i18n="Deactivate">Nonaktifkan</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- shown once, right after create/reset; never retrievable again -->
+              <div class="adm-callout adm-callout--danger" style="margin-top:12px;display:block" data-temp-password hidden>
+                <div class="adm-kicker" style="color:var(--accent-ink)" data-i18n="Temporary password · shown once">Password sementara · tampil sekali</div>
+                <div class="adm-mono" style="margin-top:6px;font-weight:700"></div>
+                <button class="adm-btn adm-btn--sm" style="margin-top:10px" data-i18n="Copied">Sudah disalin</button>
+              </div>
+              <p class="adm-note" style="margin-top:12px" data-i18n="Passwords are stored hashed and can never be read again once this panel closes. Accounts must change the password at first login, and every reset is written to the audit log.">
+                Password disimpan sebagai hash dan tidak bisa dibaca lagi setelah panel ini ditutup. Akun wajib mengganti password saat login pertama, dan setiap reset tercatat di audit log.
+              </p>
+            </div>
+
+            <form style="padding:16px 0 16px 20px;display:grid;gap:12px;max-width:380px" data-action="create-account">
+              <h2 class="adm-h2" data-i18n="Create portal account">Buat akun portal</h2>
+              <label>
+                <span class="adm-label" data-i18n="Account email">Email akun</span>
+                <input class="adm-input" name="email" type="email" required placeholder="hr@perusahaan.co.id" style="margin-top:6px">
+              </label>
+              <div>
+                <span class="adm-label" data-i18n="Portal role">Role di portal</span>
+                <div style="display:flex;gap:6px;margin-top:6px">
+                  <button type="button" class="adm-chip" aria-pressed="true">hr_admin</button>
+                  <button type="button" class="adm-chip">viewer</button>
+                </div>
+              </div>
+              <button class="adm-btn adm-btn--primary" data-i18n="Create account &amp; password">Buat akun &amp; password</button>
+              <div style="border-top:1px solid var(--line);padding-top:14px">
+                <label>
+                  <span class="adm-label" data-i18n="Set password manually">Setel password manual</span>
+                  <input class="adm-input" name="password" minlength="10" data-i18n-ph="At least 10 characters" placeholder="Minimal 10 karakter" style="margin-top:6px">
+                </label>
+                <button type="button" class="adm-btn" style="margin-top:10px" data-i18n="Apply password">Terapkan password</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div data-tabpanel="corp" data-tab="portal" hidden>
+          <div style="padding:16px 0;border-bottom:1px solid var(--ink)">
+            <div class="adm-callout">
+              <span class="adm-badge" data-i18n="Aggregate only">Agregat saja</span>
+              <div style="font-size:12px;color:var(--ink-2);line-height:1.5"
+                   data-i18n="You are viewing this client's dashboard as an admin — exactly what they see. This portal never shows individual employee data: weight, body composition, food logs or scan results. Enforce it in the query and permission layer, not by hiding it in the UI.">
+                Kamu membuka dashboard klien ini sebagai admin — persis yang dilihat klien. Portal ini tidak pernah menampilkan data individual karyawan: berat, komposisi tubuh, catatan makanan, atau hasil scan. Terapkan di level query dan permission, bukan disembunyikan di UI.
+              </div>
+            </div>
+          </div>
+          <div class="adm-grid adm-grid--4">
+            <div class="adm-cell">
+              <div class="adm-kicker" data-i18n="Registered employees">Karyawan terdaftar</div>
+              <div class="adm-metric" style="margin-top:10px;font-size:24px">84 / 120</div>
+              <div class="adm-sub" data-i18n="36 seats left">36 seat tersisa</div>
+            </div>
+            <div class="adm-cell">
+              <div class="adm-kicker" data-i18n="Participation 30d">Partisipasi 30 hari</div>
+              <div class="adm-metric" style="margin-top:10px;font-size:24px">62%</div>
+              <div class="adm-sub" data-i18n="52 of 84 employees active">52 dari 84 karyawan aktif</div>
+            </div>
+            <div class="adm-cell">
+              <div class="adm-kicker" data-i18n="Group scans">Total scan kelompok</div>
+              <div class="adm-metric" style="margin-top:10px;font-size:24px">1.847</div>
+              <div class="adm-sub" data-i18n="avg 35 per active employee">rata-rata 35 per karyawan aktif</div>
+            </div>
+            <div class="adm-cell">
+              <div class="adm-kicker" data-i18n="Contract remaining">Sisa kontrak</div>
+              <div class="adm-metric" style="margin-top:10px;font-size:24px">49</div>
+              <div class="adm-sub" data-i18n="ends 30 Sep 2026">berakhir 30 Sep 2026</div>
+            </div>
+          </div>
+          <table class="adm-table" style="margin-top:20px">
+            <thead>
+              <tr>
+                <th data-i18n="Division">Divisi</th>
+                <th class="adm-right" data-i18n="Active members">Anggota aktif</th>
+                <th class="adm-right" data-i18n="Scans">Scan</th>
+                <th class="adm-right" data-i18n="Participation">Partisipasi</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><b>Operasional</b></td><td class="adm-right adm-num">28</td><td class="adm-right adm-num">912</td><td class="adm-right adm-num">68%</td></tr>
+              <tr><td><b>Treasury</b></td><td class="adm-right adm-num">7</td><td class="adm-right adm-num">331</td><td class="adm-right adm-num">54%</td></tr>
+              <!-- below the 5-active-member threshold: suppress the numbers server-side -->
+              <tr>
+                <td><b style="color:var(--ink-2)">Direksi</b></td>
+                <td class="adm-right adm-num" style="color:var(--accent-ink)">3</td>
+                <td colspan="2" class="adm-right adm-note" style="color:var(--accent-ink)" data-i18n="Hidden · below threshold">Disembunyikan · di bawah ambang</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <div class="adm-toast" data-toast hidden></div>
+</div>
+
+<script src="admin-shell.js"></script>
+</body>
+</html>
