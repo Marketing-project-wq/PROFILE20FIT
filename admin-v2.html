@@ -482,7 +482,10 @@
           </div>
         </div>
       </section>
-      <section data-section="reports" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Laporan" data-title-en="Reports" data-question="Report terjadwal & kustom." data-question-en="Scheduled & custom reports."></section>
+      <section data-section="reports" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Laporan" data-title-en="Reports" data-question="Revenue bulanan, funnel, retensi kohort, dan produk terlaris — bisa diekspor." data-question-en="Monthly revenue, funnel, cohort retention, and top products — exportable.">
+        <div id="rpBody"><div class="adm-loading" style="margin-top:16px" data-i18n="Loading…">Memuat…</div></div>
+        <div class="adm-note" style="margin-top:20px"><span class="adm-tag adm-tag--mute">BELUM ADA</span> <span data-i18n="Scheduled/emailed reports are not built yet — these are on-demand with CSV export (export needs staff+ role).">Report terjadwal/dikirim-email belum dibangun — ini on-demand dengan ekspor CSV (ekspor butuh role staff+).</span></div>
+      </section>
       <section data-section="settings" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Pengaturan" data-title-en="Settings" data-question="Feature flag, role admin, audit log." data-question-en="Feature flags, admin roles, audit log.">
         <div class="adm-tabs" data-tabgroup="set" data-default="flags">
           <button data-tab="set" data-tab-id="flags" data-i18n="Feature flags">Feature flag</button>
@@ -538,13 +541,6 @@
   }
 
   // ---- OVERVIEW ----
-  function fillScaffold(sectionId, en, id){
-    var s = document.querySelector('[data-section="'+sectionId+'"]');
-    if(!s || s.dataset.filled) return;
-    s.dataset.filled="1";
-    s.innerHTML = '<div class="adm-callout adm-scaffold"><span class="adm-badge" data-i18n="Next increment">SEKSI BERIKUTNYA</span>'+
-      '<div class="adm-note" data-i18n="'+en+'">'+id+'</div></div>';
-  }
 
   async function loadOverview(){
     var kp = document.getElementById("ovKpis");
@@ -1261,6 +1257,44 @@
     else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
   }
 
+  // ---- REPORTS ----
+  async function admExport(kind,headers,rows,filename){
+    var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
+    var res=await fetch("/api/admin/export-csv"+qs,{method:"POST",headers:{"content-type":"application/json"},credentials:"include",body:JSON.stringify({kind:kind,headers:headers,rows:rows,filename:filename,range:CUR.period})}).catch(function(){return null;});
+    if(!res||!res.ok){ if(window.admToast)admToast(L("Export failed (needs staff+).","Export gagal (butuh staff+).")); return; }
+    var blob=await res.blob(), url=URL.createObjectURL(blob);
+    var a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(url);},1500);
+  }
+  function rpSec(en,id,expId){ return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px"><div class="adm-sec-title">'+L(en,id)+'</div><button class="adm-btn adm-btn--sm" id="'+expId+'">Export CSV</button></div>'; }
+  function rpBind(id,fn){ var e=document.getElementById(id); if(e) e.onclick=fn; }
+  async function loadReports(){
+    var box=document.getElementById("rpBody"); if(!box) return;
+    box.innerHTML='<div class="adm-loading">'+L("Loading…","Memuat…")+'</div>';
+    var j=await adminFetch("/api/admin/analytics").then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j||!j.ok){ box.innerHTML='<div class="adm-note">'+esc((j&&j.error)||L("Failed","Gagal"))+'</div>'; return; }
+    var mom=j.mom||[], fn=j.funnel||[], ret=j.retention||[], tp=j.topProducts||[], tu=j.topUsers||[];
+    var maxFn=Math.max.apply(null,fn.map(function(s){return s.count||0;}).concat([1]));
+    box.innerHTML=
+      rpSec("Revenue per month (12m)","Revenue per bulan (12 bln)","rpExpMom")+
+      '<table class="adm-table"><thead><tr><th>'+L("Month","Bulan")+'</th><th class="adm-right">Revenue</th><th class="adm-right">Tx</th><th class="adm-right">'+L("New users","User baru")+'</th></tr></thead><tbody>'+
+      mom.map(function(m){return '<tr><td class="adm-mono">'+esc(m.month)+'</td><td class="adm-right adm-num">'+rp(m.revenue)+'</td><td class="adm-right adm-num">'+(m.tx||0)+'</td><td class="adm-right adm-num">'+(m.newUsers||0)+'</td></tr>';}).join("")+'</tbody></table>'+
+      '<div class="adm-sec-title">'+L("Funnel","Funnel")+'</div>'+
+      fn.map(function(s){var w=Math.round((s.count||0)/maxFn*100);return '<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>'+esc(s.stage)+'</span><b class="adm-num">'+(s.count||0)+'</b></div><div class="adm-bar" style="margin-top:4px"><i style="width:'+w+'%"></i></div></div>';}).join("")+
+      rpSec("Cohort retention (6m)","Retensi kohort (6 bln)","rpExpRet")+
+      '<table class="adm-table"><thead><tr><th>'+L("Cohort","Kohort")+'</th><th class="adm-right">'+L("Size","Ukuran")+'</th><th class="adm-right">'+L("Active 30d","Aktif 30h")+'</th><th class="adm-right">'+L("Buyers","Pembeli")+'</th></tr></thead><tbody>'+
+      ret.map(function(c){return '<tr><td class="adm-mono">'+esc(c.month)+'</td><td class="adm-right adm-num">'+c.size+'</td><td class="adm-right adm-num">'+c.active+' ('+c.activeRate+'%)</td><td class="adm-right adm-num">'+c.buyers+' ('+c.buyerRate+'%)</td></tr>';}).join("")+'</tbody></table>'+
+      rpSec("Top products","Produk terlaris","rpExpProd")+
+      '<table class="adm-table"><thead><tr><th>'+L("Product","Produk")+'</th><th class="adm-right">'+L("Orders","Order")+'</th><th class="adm-right">Revenue</th></tr></thead><tbody>'+
+      tp.map(function(p){return '<tr><td>'+esc(p.product)+'</td><td class="adm-right adm-num">'+(p.count||0)+'</td><td class="adm-right adm-num">'+rp(p.revenue)+'</td></tr>';}).join("")+'</tbody></table>'+
+      rpSec("Most active users (14d)","User paling aktif (14h)","rpExpUsers")+
+      '<table class="adm-table"><thead><tr><th>'+L("Name","Nama")+'</th><th>Email</th><th class="adm-right">'+L("Page views","Buka halaman")+'</th><th>'+L("Last active","Aktif terakhir")+'</th></tr></thead><tbody>'+
+      tu.map(function(u){return '<tr><td>'+esc(u.full_name||"—")+'</td><td class="adm-mono">'+esc(u.email||"")+'</td><td class="adm-right adm-num">'+(u.ping_count||0)+'</td><td class="adm-num adm-note">'+(u.last_active_at?String(u.last_active_at).slice(0,10):"—")+'</td></tr>';}).join("")+'</tbody></table>';
+    rpBind("rpExpMom",function(){admExport("revenue_mom",["Month","Revenue","Tx","NewUsers"],mom.map(function(m){return [m.month,m.revenue,m.tx,m.newUsers];}),"revenue_mom.csv");});
+    rpBind("rpExpRet",function(){admExport("retention",["Cohort","Size","Active30d","ActiveRate","Buyers","BuyerRate"],ret.map(function(c){return [c.month,c.size,c.active,c.activeRate,c.buyers,c.buyerRate];}),"retention.csv");});
+    rpBind("rpExpProd",function(){admExport("top_products",["Product","Orders","Revenue"],tp.map(function(p){return [p.product,p.count,p.revenue];}),"top_products.csv");});
+    rpBind("rpExpUsers",function(){admExport("top_users",["Name","Email","PageViews","LastActive"],tu.map(function(u){return [u.full_name,u.email,u.ping_count,u.last_active_at];}),"top_users.csv");});
+  }
+
   // ---- dispatcher ----
   function loadSection(id){
     if(id==="overview") return loadOverview();
@@ -1272,6 +1306,7 @@
     if(id==="voucher") return loadVoucher();
     if(id==="menu") return loadMenu();
     if(id==="corporate") return loadCorporate();
+    if(id==="reports") return loadReports();
   }
   document.addEventListener("click", function(e){
     var lang=e.target.closest("[data-lang-btn]");
@@ -1339,7 +1374,6 @@
     var _sep=document.getElementById("sePreview"); if(_sep) _sep.onclick=sePreview;
     var _sec=document.getElementById("seCreate"); if(_sec) _sec.onclick=seCreate;
     var _ses=document.getElementById("seSegment"); if(_ses) _ses.addEventListener("change",seSegDesc);
-    fillScaffold("reports","Scheduled + custom reports. Next increment.","Report terjadwal + kustom. Increment berikutnya.");
   });
 })();
 </script>
