@@ -5228,8 +5228,11 @@ app.use((req, res, next) => {
 });
 
 // ---------- Langkah 7: swap dashboard admin ke shell baru /admin-v2 ----------
-// Di belakang feature flag `admin_v2` (default OFF → TIDAK ada perubahan perilaku).
-// Reversible: matikan flag = balik ke admin lama seketika (cache 30 dtk).
+// STAGING: /admin-dashboard OTOMATIS pakai shell baru (deteksi host railway staging atau
+//   APP_BASE_URL mengandung "staging") — tanpa menyentuh flag global.
+// PRODUKSI: tetap admin lama sampai feature flag `admin_v2` di-ON (default OFF → tak berubah).
+// Flag dibaca dari Supabase (dipakai bareng staging+prod), makanya staging pakai deteksi host,
+//   bukan flag. Reversible: matikan flag = balik ke admin lama seketika (cache 30 dtk).
 // Admin lama SELALU bisa diakses via /admin-dashboard?legacy=1 (jangan terjebak saat ON).
 let _adminV2On = false, _adminV2At = 0;
 async function adminV2Enabled() {
@@ -5243,9 +5246,16 @@ async function adminV2Enabled() {
   } catch (e) { /* pertahankan nilai terakhir */ }
   return _adminV2On;
 }
+function isStagingReq(req) {
+  try {
+    const host = String((req.headers && req.headers.host) || "").toLowerCase();
+    if (host.indexOf("staging") >= 0) return true;
+  } catch (e) {}
+  return String(APP_BASE_URL || "").toLowerCase().indexOf("staging") >= 0;
+}
 app.get("/admin-dashboard", async (req, res, next) => {
   if (req.query && req.query.legacy) return next();          // paksa admin lama
-  try { if (await adminV2Enabled()) return res.redirect(302, "/admin-v2"); } catch (e) {}
+  try { if (isStagingReq(req) || await adminV2Enabled()) return res.redirect(302, "/admin-v2"); } catch (e) {}
   return next();                                              // default: admin lama (static)
 });
 
