@@ -518,7 +518,14 @@
 <script>
 (function(){
   "use strict";
-  var KEY = new URLSearchParams(location.search).get("key") || "";
+  // Kredensial admin (mirror admin lama): master key dari ?key= URL ATAU dari
+  // sessionStorage (admin lama menyimpannya di "admin_master_key" saat login master
+  // key). ?key= yang dibuka sekali kita simpan agar diingat lintas-section/reload di
+  // tab ini. Kalau tak ada master key, adminFetch jatuh ke Authorization: Bearer
+  // <supabase JWT> (sesi login app/admin lama via password, tersimpan di localStorage).
+  var _qsKey = new URLSearchParams(location.search).get("key") || "";
+  if (_qsKey) { try { sessionStorage.setItem("admin_master_key", _qsKey); } catch(e){} }
+  var KEY = _qsKey || (function(){ try { return sessionStorage.getItem("admin_master_key") || ""; } catch(e){ return ""; } })();
   var CUR = { period: "30d", section: "overview" };
   // Backend mengautentikasi /api/admin/* HANYA lewat header x-admin-key (?key=)
   // atau Authorization: Bearer <supabase JWT> — TIDAK ada auth via cookie. Jadi
@@ -652,7 +659,7 @@
     try{
       var res=await adminFetch("/api/admin/users");
       var j=await res.json().catch(function(){return null;});
-      if(!j||!j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res, j))+']</span></div></div>'; return; }
+      if(!j||!j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load. Open with ?key=ADMIN_KEY or log in as admin.","Gagal memuat. Buka dengan ?key=ADMIN_KEY atau login admin.")+' <span class="adm-mono">['+esc(await admErr(res, j))+']</span></div></div>'; return; }
       kp.innerHTML =
         cell(String(j.total||0),"Total user","Total users") +
         cell(String(j.active||0),"Active","Aktif") +
