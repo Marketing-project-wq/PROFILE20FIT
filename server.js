@@ -388,30 +388,8 @@ app.post("/api/webhooks/resend", async (req, res) => {
 });
 
 // ---------- Unsubscribe (tanpa login; token opaque, tak bocorkan user_id) ----------
-// GET prefs untuk halaman unsubscribe.html — hanya toggle & jam, TANPA data kesehatan.
-app.get("/api/unsub/prefs", async (req, res) => {
-  const token = String((req.query && req.query.token) || "").trim();
-  if (!token) return res.status(400).json({ error: "token wajib" });
-  try {
-    const p = await comms.getPrefsByToken(token);
-    if (!p) return res.status(404).json({ error: "token tidak valid" });
-    return res.json({
-      ok: true,
-      prefs: {
-        consent_marketing: !!p.consent_marketing,
-        consent_meal_reminder: !!p.consent_meal_reminder,
-        reminder_breakfast_enabled: !!p.reminder_breakfast_enabled,
-        reminder_lunch_enabled: !!p.reminder_lunch_enabled,
-        reminder_dinner_enabled: !!p.reminder_dinner_enabled,
-        reminder_breakfast_time: p.reminder_breakfast_time,
-        reminder_lunch_time: p.reminder_lunch_time,
-        reminder_dinner_time: p.reminder_dinner_time,
-      },
-    });
-  } catch (e) { return res.status(500).json({ error: e.message }); }
-});
-
-// Terapkan perubahan preferensi (berlaku seketika).
+// Consent opt-in dihapus. Unsubscribe = berhenti dari SEMUA email non-transaksional
+// via suppression list (all-or-nothing) + pause meal reminder. Berlaku seketika.
 app.post("/api/unsub/apply", async (req, res) => {
   const b = req.body || {};
   const token = String(b.token || "").trim();
@@ -420,69 +398,37 @@ app.post("/api/unsub/apply", async (req, res) => {
     const p = await comms.getPrefsByToken(token);
     if (!p) return res.status(404).json({ error: "token tidak valid" });
     const uid = p.user_id;
-    const patch = { updated_at: new Date().toISOString() };
-
-    if (b.action === "stop_all") {
-      patch.consent_marketing = false;
-      patch.consent_meal_reminder = false;
-      patch.consent_updated_at = new Date().toISOString();
-      patch.consent_source = "unsubscribe_page";
-      patch.reminder_paused_at = new Date().toISOString();
-      // Suppression by email (reason unsubscribe) — jaga-jaga selain matikan consent.
-      try {
-        const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", uid).limit(1);
-        const em = prof && prof[0] && prof[0].email;
-        if (em) await comms.addSuppression(em, uid, "unsubscribe", true);
-      } catch (e) { /* best-effort */ }
-    } else if (b.action === "update") {
-      if (typeof b.consent_marketing === "boolean") patch.consent_marketing = b.consent_marketing;
-      if (typeof b.consent_meal_reminder === "boolean") patch.consent_meal_reminder = b.consent_meal_reminder;
-      if (typeof b.reminder_breakfast_enabled === "boolean") patch.reminder_breakfast_enabled = b.reminder_breakfast_enabled;
-      if (typeof b.reminder_lunch_enabled === "boolean") patch.reminder_lunch_enabled = b.reminder_lunch_enabled;
-      if (typeof b.reminder_dinner_enabled === "boolean") patch.reminder_dinner_enabled = b.reminder_dinner_enabled;
-      const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
-      if (hhmm.test(b.reminder_breakfast_time || "")) patch.reminder_breakfast_time = b.reminder_breakfast_time;
-      if (hhmm.test(b.reminder_lunch_time || "")) patch.reminder_lunch_time = b.reminder_lunch_time;
-      if (hhmm.test(b.reminder_dinner_time || "")) patch.reminder_dinner_time = b.reminder_dinner_time;
-      patch.consent_updated_at = new Date().toISOString();
-      patch.consent_source = "unsubscribe_page";
-      // Kalau meal reminder dinyalakan lagi, cabut pause.
-      if (patch.consent_meal_reminder === true) patch.reminder_paused_at = null;
-    } else {
-      return res.status(400).json({ error: "action tidak dikenal" });
-    }
-
-    const { data: updated } = await admin
-      .from("my20fit_user_comm_prefs").update(patch).eq("user_id", uid).select("*").single();
-    return res.json({
-      ok: true,
-      prefs: {
-        consent_marketing: !!updated.consent_marketing,
-        consent_meal_reminder: !!updated.consent_meal_reminder,
-        reminder_breakfast_enabled: !!updated.reminder_breakfast_enabled,
-        reminder_lunch_enabled: !!updated.reminder_lunch_enabled,
-        reminder_dinner_enabled: !!updated.reminder_dinner_enabled,
-        reminder_breakfast_time: updated.reminder_breakfast_time,
-        reminder_lunch_time: updated.reminder_lunch_time,
-        reminder_dinner_time: updated.reminder_dinner_time,
-      },
-    });
+    // Suppression by email (reason unsubscribe) = gerbang utama; email transaksional tetap jalan.
+    let em = null;
+    try {
+      const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", uid).limit(1);
+      em = prof && prof[0] && prof[0].email;
+      if (em) await comms.addSuppression(em, uid, "unsubscribe", true);
+    } catch (e) { /* best-effort */ }
+    await admin.from("my20fit_user_comm_prefs")
+      .update({ reminder_paused_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("user_id", uid);
+    return res.json({ ok: true, unsubscribed: true });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
 // One-click unsubscribe (header List-Unsubscribe-Post dari Gmail/Yahoo). Berlaku seketika.
+// Consent opt-in dihapus → unsubscribe = suppression (berhenti SEMUA email non-transaksional)
+// + pause meal reminder. Param `c` diabaikan (all-or-nothing).
 app.post("/unsubscribe", async (req, res) => {
   const token = String((req.query && req.query.token) || "").trim();
-  const c = String((req.query && req.query.c) || "").trim();
   if (!token) return res.status(400).send("token wajib");
   try {
     const p = await comms.getPrefsByToken(token);
     if (!p) return res.status(404).send("token tidak valid");
-    const patch = { updated_at: new Date().toISOString(), consent_updated_at: new Date().toISOString(), consent_source: "unsubscribe_oneclick" };
-    if (c === "meal_reminder") { patch.consent_meal_reminder = false; patch.reminder_paused_at = new Date().toISOString(); }
-    else if (c === "marketing") { patch.consent_marketing = false; }
-    else { patch.consent_marketing = false; patch.consent_meal_reminder = false; patch.reminder_paused_at = new Date().toISOString(); }
-    await admin.from("my20fit_user_comm_prefs").update(patch).eq("user_id", p.user_id);
+    try {
+      const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", p.user_id).limit(1);
+      const em = prof && prof[0] && prof[0].email;
+      if (em) await comms.addSuppression(em, p.user_id, "unsubscribe", true);
+    } catch (e) { /* best-effort */ }
+    await admin.from("my20fit_user_comm_prefs")
+      .update({ reminder_paused_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("user_id", p.user_id);
     return res.status(200).send("OK: unsubscribed");
   } catch (e) { return res.status(500).send("error"); }
 });
@@ -520,46 +466,17 @@ app.post("/api/cron/daily", async (req, res) => {
   }
 });
 
-// ---------- Preferensi komunikasi milik user sendiri (in-app settings) ----------
-// Dipakai halaman settings untuk MENANGKAP consent (marketing / meal reminder).
-app.get("/api/comms/prefs", async (req, res) => {
+// ---------- Bahasa email milik user sendiri (in-app) ----------
+// Consent opt-in dihapus — semua email dikirim langsung; opt-out lewat unsubscribe.
+// Yang tersisa hanyalah pilihan BAHASA email (id/en) supaya isi email mengikuti user.
+app.post("/api/comms/lang", async (req, res) => {
   try {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Sesi habis. Login lagi." });
-    const p = await comms.ensurePrefs(user.id, "settings");
-    if (!p) return res.status(500).json({ error: "gagal" });
-    return res.json({
-      ok: true,
-      prefs: {
-        consent_marketing: !!p.consent_marketing,
-        consent_meal_reminder: !!p.consent_meal_reminder,
-        reminder_breakfast_enabled: !!p.reminder_breakfast_enabled,
-        reminder_lunch_enabled: !!p.reminder_lunch_enabled,
-        reminder_dinner_enabled: !!p.reminder_dinner_enabled,
-        reminder_breakfast_time: p.reminder_breakfast_time,
-        reminder_lunch_time: p.reminder_lunch_time,
-        reminder_dinner_time: p.reminder_dinner_time,
-      },
-    });
-  } catch (e) { return res.status(500).json({ error: e.message }); }
-});
-
-app.post("/api/comms/consent", async (req, res) => {
-  try {
-    const user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Sesi habis. Login lagi." });
-    const b = req.body || {};
-    const patch = {};
-    if (typeof b.marketing === "boolean") patch.marketing = b.marketing;
-    if (typeof b.meal_reminder === "boolean") patch.meal_reminder = b.meal_reminder;
-    if (b.lang === "id" || b.lang === "en") patch.lang = b.lang; // bahasa email pilihan user
-    if (!Object.keys(patch).length) return res.status(400).json({ error: "tak ada perubahan" });
-    const p = await comms.setConsentByUser(user.id, patch, "settings");
-    // Kalau meal reminder dinyalakan lagi, cabut pause.
-    if (patch.meal_reminder === true) {
-      await admin.from("my20fit_user_comm_prefs").update({ reminder_paused_at: null, reminder_consecutive_ignored: 0 }).eq("user_id", user.id);
-    }
-    return res.json({ ok: true, prefs: { consent_marketing: !!p.consent_marketing, consent_meal_reminder: !!p.consent_meal_reminder } });
+    const lang = (req.body || {}).lang;
+    if (lang !== "id" && lang !== "en") return res.status(400).json({ error: "lang harus id/en" });
+    const p = await comms.setLangByUser(user.id, lang);
+    return res.json({ ok: true, lang: (p && p.lang) || lang });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 

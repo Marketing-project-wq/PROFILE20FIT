@@ -84,8 +84,7 @@
       prof_hist_sec:"Purchase History", prof_hist_empty:"No purchases yet.",
       prof_menu_sec:"My Menu Contributions", prof_menu_empty:"You haven't shared any menus yet. Share one from the Diet page.",
       prof_danger:"Danger zone", prof_del_hint:"Permanently delete your account and all your data. This cannot be undone.", prof_del_btn:"Delete my account",
-      ob_email_pref:"Email preferences", ob_email_sub:"May we email you? (optional — you can change this anytime)", ob_consent_mkt:"Nutrition tips & news from 20FIT", ob_consent_meal:"Meal-logging reminders",
-      corp_title:"Corporate Program", emailpref_title:"Email preferences", emailpref_mkt:"Nutrition tips & news from 20FIT", emailpref_meal:"Meal-logging reminders (email)",
+      corp_title:"Corporate Program",
       prof_del_title:"Delete account", prof_del_warn:"This permanently deletes your profile, health data (MCU), daily logs, menu contributions, and purchase history. It cannot be undone.", prof_del_type:"Type DELETE to confirm", prof_del_confirm:"Delete permanently",
       // diet
       diet_title:"Diet",
@@ -203,8 +202,7 @@
       prof_hist_sec:"Riwayat Pembelian", prof_hist_empty:"Belum ada pembelian.",
       prof_menu_sec:"Kontribusi Menu Saya", prof_menu_empty:"Belum ada menu yang kamu bagikan. Bagikan dari halaman Diet.",
       prof_danger:"Zona berbahaya", prof_del_hint:"Hapus permanen akun dan semua datamu. Tidak bisa dibatalkan.", prof_del_btn:"Hapus akun saya",
-      ob_email_pref:"Preferensi Email", ob_email_sub:"Boleh kami kirim email? (opsional — bisa diubah kapan saja)", ob_consent_mkt:"Tips nutrisi & kabar dari 20FIT", ob_consent_meal:"Pengingat mencatat makan",
-      corp_title:"Program Korporat", emailpref_title:"Preferensi Email", emailpref_mkt:"Tips nutrisi & kabar dari 20FIT", emailpref_meal:"Pengingat mencatat makan (email)",
+      corp_title:"Program Korporat",
       prof_del_title:"Hapus akun", prof_del_warn:"Ini menghapus permanen profil, data kesehatan (MCU), log harian, kontribusi menu, dan riwayat pembelianmu. Tidak bisa dibatalkan.", prof_del_type:"Ketik DELETE untuk konfirmasi", prof_del_confirm:"Hapus permanen",
       // diet
       diet_title:"Diet",
