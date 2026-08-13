@@ -94,14 +94,6 @@
     <label data-i18n="ob_other">Other (optional)</label>
     <input id="condOther" type="text" placeholder="e.g. certain allergies" data-i18n-ph="ob_other_ph" />
 
-    <!-- Consent email — OPT-IN eksplisit (default OFF, syarat UU PDP). Bisa diubah di Profil. -->
-    <div class="sec" data-i18n="ob_email_pref">Preferensi Email</div>
-    <label style="margin-top:8px" data-i18n="ob_email_sub">Boleh kami kirim email? (opsional — bisa diubah kapan saja)</label>
-    <div style="display:grid;gap:8px">
-      <label class="chk"><input type="checkbox" id="consentMkt"> <span data-i18n="ob_consent_mkt">Tips nutrisi &amp; kabar dari 20FIT</span></label>
-      <label class="chk"><input type="checkbox" id="consentMeal"> <span data-i18n="ob_consent_meal">Pengingat mencatat makan</span></label>
-    </div>
-
     <button class="btn" id="save" onclick="save()" data-i18n="ob_save">Save & Continue</button>
     <div class="msg" id="msg"></div>
   </div>
@@ -147,13 +139,6 @@
     document.querySelectorAll('#conditions .chk').forEach(l=>{
       l.querySelector('input').addEventListener('change',e=>l.classList.toggle('active',e.target.checked));
     });
-    // styling active untuk checkbox consent email
-    ['consentMkt','consentMeal'].forEach(id=>{
-      var inp=document.getElementById(id); if(!inp) return;
-      var lab=inp.closest('.chk');
-      inp.addEventListener('change',e=>{ if(lab) lab.classList.toggle('active',e.target.checked); });
-    });
-
     function updateBmi(){
       const w=parseFloat(document.getElementById("weight").value);
       const h=parseFloat(document.getElementById("height").value);
@@ -187,14 +172,13 @@
       const btn=document.getElementById("save");btn.disabled=true;
       try{
         await Auth.saveOnboarding({gender,birthdate,weight_kg:weight,height_cm:height,main_goal:goal,health_conditions:conds});
-        // Simpan consent email (best-effort — jangan blokir onboarding kalau gagal).
+        // Simpan bahasa email pilihan user (best-effort). Consent dihapus — email dikirim
+        // langsung; user bisa opt-out lewat unsubscribe kapan saja.
         try{
           const tok=await Auth.token();
-          await fetch("/api/comms/consent",{method:"POST",
+          await fetch("/api/comms/lang",{method:"POST",
             headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tok||"")},
-            body:JSON.stringify({marketing:document.getElementById("consentMkt").checked,
-              meal_reminder:document.getElementById("consentMeal").checked,
-              lang:(localStorage.getItem("lang")==="en"?"en":"id")})});
+            body:JSON.stringify({lang:(localStorage.getItem("lang")==="en"?"en":"id")})});
         }catch(e){}
         await Auth.routeAfterAuth();   // data lengkap -> buat password kalau belum ada, lalu dashboard
       }catch(e){msg.textContent=e.message;btn.disabled=false}

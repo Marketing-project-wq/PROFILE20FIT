@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
-<title>Preferensi Email · 20FIT</title>
+<title>Berhenti Email · 20FIT</title>
 <link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
 <style>
   :root{ --red:#D62828; --ink:#141414; --line:#e7e2db; --muted:#6b6257; --bg:#F5F4F2; --card:#fff; }
@@ -15,24 +15,9 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 20px;margin-bottom:14px}
   h1{font-size:21px;margin:0 0 6px}
   p.lead{color:var(--muted);margin:0 0 4px;font-size:14px}
-  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
-  .row:last-child{border-bottom:0}
-  .row .t{font-weight:700;font-size:14px}
-  .row .s{color:var(--muted);font-size:12px}
-  .switch{position:relative;width:46px;height:26px;flex:0 0 auto}
-  .switch input{opacity:0;width:0;height:0}
-  .slider{position:absolute;inset:0;background:#cfc8bf;border-radius:99px;transition:.2s;cursor:pointer}
-  .slider:before{content:"";position:absolute;height:20px;width:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
-  input:checked + .slider{background:var(--red)}
-  input:checked + .slider:before{transform:translateX(20px)}
-  .times{display:none;margin-top:10px;padding-top:6px}
-  .times.show{display:block}
-  .trow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0}
-  .trow label{font-size:13px;font-weight:600}
-  .trow input[type=time]{padding:7px 9px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:13px}
   .btn{display:block;width:100%;padding:13px;border:0;border-radius:11px;background:var(--red);color:#fff;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px}
-  .btn.ghost{background:#fff;color:var(--red);border:1.5px solid var(--red)}
   .btn.dark{background:var(--ink)}
+  .btn:disabled{opacity:.6;cursor:default}
   .msg{text-align:center;font-size:13px;padding:10px;border-radius:10px;margin-bottom:10px;display:none}
   .msg.ok{display:block;background:#e7f5ec;color:#1f7a44}
   .msg.err{display:block;background:#fdecec;color:var(--red)}
@@ -44,44 +29,17 @@
 <div class="wrap">
   <img class="logo" src="https://media.20fit.id/wp-content/uploads/2026/05/Logo-20fit.png" alt="20FIT" />
 
-  <div id="loading" class="card" style="text-align:center;color:var(--muted)">Memuat preferensi…</div>
+  <div id="loading" class="card" style="text-align:center;color:var(--muted)">Memuat…</div>
 
   <div id="app" class="hide">
     <div id="msg" class="msg"></div>
 
     <div class="card">
-      <h1>Preferensi email kamu</h1>
-      <p class="lead">Atur email apa saja yang mau kamu terima dari 20FIT. Perubahan berlaku seketika.</p>
+      <h1>Berhenti terima email?</h1>
+      <p class="lead">Klik tombol di bawah untuk berhenti menerima <b>semua email non-transaksional</b> dari 20FIT — tips nutrisi, pengingat makan, dan kabar produk. Berlaku seketika.</p>
     </div>
 
-    <div class="card">
-      <div class="row">
-        <div>
-          <div class="t">Pengingat makan (meal reminder)</div>
-          <div class="s">Sarapan, makan siang, makan malam — biar nggak lupa scan.</div>
-        </div>
-        <label class="switch"><input type="checkbox" id="cMeal" /><span class="slider"></span></label>
-      </div>
-      <div class="times" id="mealTimes">
-        <div class="trow"><label><input type="checkbox" id="rB" /> Sarapan</label><input type="time" id="tB" /></div>
-        <div class="trow"><label><input type="checkbox" id="rL" /> Makan siang</label><input type="time" id="tL" /></div>
-        <div class="trow"><label><input type="checkbox" id="rD" /> Makan malam</label><input type="time" id="tD" /></div>
-        <div class="s" style="color:var(--muted);font-size:11px">Waktu memakai zona WIB.</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="row">
-        <div>
-          <div class="t">Email marketing &amp; tips</div>
-          <div class="s">Kabar fitur, tips nutrisi, & ajakan mencoba.</div>
-        </div>
-        <label class="switch"><input type="checkbox" id="cMkt" /><span class="slider"></span></label>
-      </div>
-    </div>
-
-    <button class="btn" id="save">Simpan preferensi</button>
-    <button class="btn dark" id="stopAll">Berhenti dari SEMUA email marketing &amp; reminder</button>
+    <button class="btn dark" id="stopAll">Berhenti terima email</button>
 
     <div class="foot">
       Email transaksional (kode masuk, verifikasi, invoice) tetap dikirim karena dibutuhkan akunmu.<br />
@@ -94,75 +52,31 @@
 (function () {
   var qs = new URLSearchParams(location.search);
   var token = qs.get("token") || "";
-  var bucket = qs.get("c") || "";
   var elMsg = document.getElementById("msg");
   function msg(t, ok) { elMsg.textContent = t; elMsg.className = "msg " + (ok ? "ok" : "err"); }
-  function show(id) { document.getElementById(id).classList.remove("hide"); }
-  function hide(id) { document.getElementById(id).classList.add("hide"); }
 
   if (!token) {
     document.getElementById("loading").textContent = "Link tidak valid. Buka link unsubscribe dari email kamu.";
     return;
   }
 
-  var mealTimes = document.getElementById("mealTimes");
-  function syncMealTimes() { mealTimes.classList.toggle("show", document.getElementById("cMeal").checked); }
-  document.getElementById("cMeal").addEventListener("change", syncMealTimes);
+  document.getElementById("loading").classList.add("hide");
+  document.getElementById("app").classList.remove("hide");
 
-  function fill(p) {
-    document.getElementById("cMeal").checked = !!p.consent_meal_reminder;
-    document.getElementById("cMkt").checked = !!p.consent_marketing;
-    document.getElementById("rB").checked = !!p.reminder_breakfast_enabled;
-    document.getElementById("rL").checked = !!p.reminder_lunch_enabled;
-    document.getElementById("rD").checked = !!p.reminder_dinner_enabled;
-    document.getElementById("tB").value = (p.reminder_breakfast_time || "06:00").slice(0, 5);
-    document.getElementById("tL").value = (p.reminder_lunch_time || "12:00").slice(0, 5);
-    document.getElementById("tD").value = (p.reminder_dinner_time || "18:00").slice(0, 5);
-    syncMealTimes();
-  }
-
-  fetch("/api/unsub/prefs?token=" + encodeURIComponent(token))
-    .then(function (r) { return r.json(); })
-    .then(function (j) {
-      if (!j || !j.ok) throw new Error((j && j.error) || "gagal");
-      fill(j.prefs);
-      hide("loading"); show("app");
-      if (bucket === "meal_reminder") msg("Kamu bisa matikan pengingat makan, atau cuma ganti jamnya di bawah.", true);
-      else if (bucket === "marketing") msg("Kamu bisa berhenti dari email marketing di bawah.", true);
-    })
-    .catch(function () {
-      document.getElementById("loading").textContent = "Link kedaluwarsa atau tidak valid.";
-    });
-
-  function apply(body, okText) {
-    return fetch("/api/unsub/apply", {
+  var btn = document.getElementById("stopAll");
+  btn.addEventListener("click", function () {
+    btn.disabled = true;
+    fetch("/api/unsub/apply", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({ token: token }, body)),
+      body: JSON.stringify({ token: token }),
     })
       .then(function (r) { return r.json(); })
       .then(function (j) {
         if (!j || !j.ok) throw new Error((j && j.error) || "gagal");
-        fill(j.prefs); msg(okText, true);
+        msg("Kamu sudah berhenti dari semua email 20FIT (kecuali transaksional).", true);
+        btn.style.display = "none";
       })
-      .catch(function () { msg("Gagal menyimpan. Coba lagi.", false); });
-  }
-
-  document.getElementById("save").addEventListener("click", function () {
-    apply({
-      action: "update",
-      consent_meal_reminder: document.getElementById("cMeal").checked,
-      consent_marketing: document.getElementById("cMkt").checked,
-      reminder_breakfast_enabled: document.getElementById("rB").checked,
-      reminder_lunch_enabled: document.getElementById("rL").checked,
-      reminder_dinner_enabled: document.getElementById("rD").checked,
-      reminder_breakfast_time: document.getElementById("tB").value || "06:00",
-      reminder_lunch_time: document.getElementById("tL").value || "12:00",
-      reminder_dinner_time: document.getElementById("tD").value || "18:00",
-    }, "Preferensi tersimpan.");
-  });
-
-  document.getElementById("stopAll").addEventListener("click", function () {
-    apply({ action: "stop_all" }, "Kamu sudah berhenti dari semua email marketing & reminder.");
+      .catch(function () { msg("Gagal memproses. Coba lagi.", false); btn.disabled = false; });
   });
 })();
 </script>
