@@ -390,7 +390,7 @@
       .trk-hint{border:1px dashed var(--amber);background:var(--amber-soft);color:var(--amber);
         border-radius:13px;padding:12px 15px;font-weight:700;font-size:13px;margin-top:14px;line-height:1.5}
       /* Grid layanan */
-      .svcgrid2{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px}
+      .svcgrid2{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
       @media(max-width:360px){ .svcgrid2{gap:8px} }
       .svc2{position:relative;min-width:0;display:flex;flex-direction:column;align-items:center;gap:9px;
         text-decoration:none;color:var(--txt);cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -404,42 +404,6 @@
       .svc2 .s2-sub{font-size:10.5px;font-weight:700;color:var(--muted);text-align:center;line-height:1.2;margin-top:-4px}
       .svc2 .s2-badge{position:absolute;top:-6px;right:14%;min-width:20px;height:20px;padding:0 5px;border-radius:99px;
         background:var(--red);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;box-shadow:0 3px 8px rgba(196,17,1,.4)}
-      /* ===== Service panels inline (Book Class / Recovery / Membership) — token-based, dark-safe ===== */
-      .svcpanel{margin-top:14px;border:1px solid var(--line);border-radius:18px;background:var(--card);padding:14px}
-      .svcpanel .sp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
-      .svcpanel .sp-title{font-size:14px;font-weight:800;color:var(--ink)}
-      .svcpanel .sp-x{border:0;background:var(--inp);color:var(--ink);width:30px;height:30px;border-radius:9px;cursor:pointer;font-size:15px;line-height:1;flex:0 0 auto}
-      .sp-seg{display:inline-flex;background:var(--inp);border-radius:11px;padding:3px;gap:3px;margin-bottom:12px}
-      .sp-seg button{border:0;background:transparent;color:var(--muted);font-weight:800;font-size:12.5px;padding:7px 15px;border-radius:9px;cursor:pointer}
-      .sp-seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.14)}
-      .sp-dates{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:12px;scroll-snap-type:x proximity}
-      .sp-dates::-webkit-scrollbar{height:0}
-      .sp-dchip{flex:0 0 auto;scroll-snap-align:start;min-width:54px;background:var(--inp);border:1px solid transparent;border-radius:12px;padding:8px 6px;text-align:center;cursor:pointer;color:var(--ink)}
-      .sp-dchip .dow{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase}
-      .sp-dchip .day{font-size:18px;font-weight:900;line-height:1.1}
-      .sp-dchip .cnt{font-size:9px;font-weight:800;color:var(--red)}
-      .sp-dchip.on{background:var(--red);border-color:var(--red)}
-      .sp-dchip.on .dow,.sp-dchip.on .day,.sp-dchip.on .cnt{color:#fff}
-      .sp-list{display:flex;flex-direction:column;gap:10px}
-      .sp-crow{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:11px 12px}
-      .sp-ctime{flex:0 0 auto;width:52px;text-align:center;border-right:1px solid var(--line);padding-right:11px}
-      .sp-ctime .st{font-size:15px;font-weight:900;color:var(--ink)}
-      .sp-ctime .et{font-size:10.5px;font-weight:700;color:var(--muted)}
-      .sp-cmain{flex:1;min-width:0}
-      .sp-cnm{font-size:14px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .sp-cmeta{font-size:11.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .sp-book{flex:0 0 auto;border:0;background:var(--red);color:#fff;font-weight:800;font-size:12px;border-radius:10px;padding:9px 13px;cursor:pointer;text-decoration:none}
-      .sp-state{text-align:center;padding:26px 14px;color:var(--muted);font-size:13px;line-height:1.5}
-      .sp-state .sp-retry{margin-top:12px;display:inline-flex;gap:6px;align-items:center;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:10px;padding:8px 14px;font-weight:800;font-size:12.5px;cursor:pointer}
-      .sp-allbtn{display:block;text-align:center;margin-top:12px;font-weight:800;font-size:13px;color:var(--red);text-decoration:none}
-      .sp-caro{display:flex;gap:12px;overflow-x:auto;padding:2px 2px 8px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
-      .sp-caro::-webkit-scrollbar{height:0}
-      .sp-mcard{flex:0 0 82%;max-width:300px;scroll-snap-align:start;border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--bg)}
-      .sp-mcard .mgrp{font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--red)}
-      .sp-mcard .mnm{font-size:16px;font-weight:900;color:var(--ink);margin:5px 0 3px}
-      .sp-mcard .mpr{font-size:14px;font-weight:800;color:var(--ink)}
-      .sp-mcard .mperk{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
-      .svc2 [data-panel].on .s2-ic,.svc2[data-panel].on .s2-ic{border-color:var(--red)}
       /* Customize sheet: pakai style .modal-bg/.modal yang sudah ada */
       .cz-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 2px;border-top:1px solid var(--line)}
       .cz-row:first-of-type{border-top:0}
@@ -572,18 +536,10 @@
       <div class="card" id="cycleCard"></div>
     </div>
 
-    <!-- Grid tile layanan (Book Class/Recovery/Membership/Calories + Row 2 shortcut yang
-         bisa di-pin via tile "Menu"). Dihidupkan kembali atas permintaan pemilik. Isi
-         spesifik (banner pilihan 6-item) menyusul sesuai referensi mockup. -->
+    <!-- Grid 6 opsi layanan. Tiap tile navigasi ke halaman sendiri (route bersih),
+         SEMUA same-tab. Tak ada panel inline & tak ada pin Baris 2. -->
     <div id="svcSection">
-      <div class="trk-hint" id="trkHint" data-en="↑ Tap Customize above to add & reorder trackers — Hydration, Sleep, Fasting, Photo &amp; more."
-           data-id="↑ Tap Customize di atas untuk menambah & atur urutan tracker — Hydration, Sleep, Fasting, Photo &amp; lainnya.">↑ Tap Customize di atas untuk menambah &amp; atur urutan tracker — Hydration, Sleep, Fasting, Photo &amp; lainnya.</div>
-
       <div class="svcgrid2" id="svcGrid2"></div>
-      <!-- Panel inline yang muncul saat tile Book Class / Book Recovery / Membership di-tap.
-           Dirender oleh window.openSvcPanel (blok script "Service panels" di bawah). -->
-      <div id="svcPanel" class="svcpanel" hidden></div>
-      <div class="trk-hint" data-en="Row 1 fixed · Row 2 pin/reorder via Menu" data-id="Baris 1 tetap · Baris 2 pin/atur via Menu" style="margin-top:8px">Row 1 fixed · Row 2 pin/reorder via Menu</div>
     </div>
 
     <!-- Book your session (lokasi) -->
@@ -722,24 +678,6 @@
           <div class="cz-tx"><div class="cz-t" data-en="More detail" data-id="Detail lain">More detail</div><div class="cz-d" data-en="Checklist, Cycle, Breathing, Workouts" data-id="Checklist, Siklus, Napas, Latihan">Checklist, Cycle, Breathing, Workouts</div></div>
           <button class="cz-sw" id="czExtra" type="button" onclick="toggleExtra()" aria-label="More detail"></button>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Customize your home (shortcut grid Baris 2) -->
-  <div class="modal-bg" id="hmBg" onclick="if(event.target===this)closeHomeMenu()">
-    <div class="modal">
-      <div class="grab"></div>
-      <div class="m-head">
-        <div><div class="m-title" data-en="Customize your home" data-id="Sesuaikan home kamu">Customize your home</div>
-        <div class="m-sub" data-en="Row 1 stays fixed · pin what you use · drag ☰ to reorder" data-id="Baris 1 tetap · pin sesukamu · seret ☰ untuk atur urutan">Row 1 stays fixed · pin what you use · drag ☰ to reorder</div></div>
-        <button class="x-close" type="button" onclick="closeHomeMenu()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-      </div>
-      <div class="cz-body">
-        <div class="cz-lbl" id="hmPinLbl"></div>
-        <div id="hmPinned"></div>
-        <div class="cz-lbl" id="hmAvailLbl" style="margin-top:16px"></div>
-        <div id="hmAvail"></div>
       </div>
     </div>
   </div>
@@ -1219,85 +1157,31 @@
         camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/>'
       };
       // Baris 1 grid = FIXED (tidak bisa diubah user).
+      // Baris 1 = 6 opsi tetap. Tiap tile navigasi ke HALAMAN sendiri (route bersih),
+      // SEMUA same-tab (svcTile pakai <a href> tanpa target=_blank). News = eksternal
+      // media.20fit.id (tetap same-tab). Book Class & Recovery pakai halaman /classes
+      // (schedule) — Recovery = venue klinik.
       var SVCS = [
-        { ic: "dumbbell", lbl: { en: "Book Class Activity", id: "Book Kelas" }, sub: { en: "Hyrox · Strength", id: "Hyrox · Strength" }, panel: "bookclass" },
-        { ic: "heart", lbl: { en: "Book Recovery Session", id: "Book Recovery" }, sub: { en: "Physio · Doctor", id: "Fisio · Dokter" }, panel: "recovery" },
-        { ic: "card", lbl: { en: "Membership", id: "Membership" }, sub: { en: "Gym · Package", id: "Gym · Paket" }, panel: "membership" },
-        { ic: "flame", lbl: { en: "Calories", id: "Kalori" }, sub: { en: "Scan & Track", id: "Scan & Catat" }, href: "calories.html" }
+        { ic: "pin",      lbl: { en: "Medical", id: "Medical" },           sub: { en: "Medical Check Up", id: "Medical Check Up" }, href: "/medical" },
+        { ic: "card",     lbl: { en: "Membership", id: "Membership" },     sub: { en: "Special Offer · Gym", id: "Special Offer · Gym" }, href: "/membership" },
+        { ic: "diet",     lbl: { en: "Diet", id: "Diet" },                 sub: { en: "Meal plans", id: "Rencana makan" }, href: "/diet" },
+        { ic: "dumbbell", lbl: { en: "Book Class", id: "Book Kelas" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/classes" },
+        { ic: "heart",    lbl: { en: "Book Recovery", id: "Book Recovery" }, sub: { en: "Physio · Doctor", id: "Fisio · Dokter" }, href: "/classes?venue=clinic" },
+        { ic: "news",     lbl: { en: "News", id: "Berita" },               sub: { en: "media.20fit.id", id: "media.20fit.id" }, href: "https://media.20fit.id" }
       ];
-      // Pool shortcut Baris 2 — user pin sesukanya lewat tile "Menu". Hanya "photo" yang
-      // punya tujuan nyata (SSO); sisanya "coming soon" sampai API-nya ada (jangan bikin link palsu).
-      var SHORTCUTS = {
-        workout:   { ic: "activity", s: { en: "Workout", id: "Workout" }, lbl: { en: "Workout", id: "Workout" }, sub: { en: "Training & moves", id: "Latihan & gerakan" } },
-        diet:      { ic: "diet", s: { en: "Diet", id: "Diet" }, lbl: { en: "Diet Menu", id: "Menu Diet" }, sub: { en: "Personalized meal plans", id: "Rencana makan personal" }, href: "diet.html" },
-        catering:  { ic: "catering", s: { en: "Catering", id: "Katering" }, lbl: { en: "Healthy Catering", id: "Katering Sehat" }, sub: { en: "Healthy meal delivery", id: "Antar makanan sehat" } },
-        racelab:   { ic: "clock", s: { en: "RaceLab", id: "RaceLab" }, lbl: { en: "RaceLab", id: "RaceLab" }, sub: { en: "Race plans & VO2 testing", id: "Rencana lomba & tes VO2" } },
-        events:    { ic: "calendar", s: { en: "Events", id: "Events" }, lbl: { en: "Events", id: "Events" }, sub: { en: "Upcoming 20FIT events near you", id: "Event 20FIT terdekat" } },
-        breathing: { ic: "wind", s: { en: "Breathing", id: "Napas" }, lbl: { en: "Breathing Exercise", id: "Latihan Napas" }, sub: { en: "4-7-8 & guided calm breathing", id: "Napas 4-7-8 terpandu" } },
-        talent:    { ic: "hand", s: { en: "Talent", id: "Talent" }, lbl: { en: "Talent", id: "Talent" }, sub: { en: "Volunteer at 20FIT events", id: "Relawan di event 20FIT" } },
-        shop:      { ic: "cart", s: { en: "Shop", id: "Shop" }, lbl: { en: "Shop Equipments", id: "Beli Alat" }, sub: { en: "Authorized distributor · Hyrox Centr & Precor", id: "Distributor resmi · Hyrox Centr & Precor" }, ext: true },
-        medical:   { ic: "pin", s: { en: "Medical", id: "Medis" }, lbl: { en: "Medical Checkup Places", id: "Tempat MCU" }, sub: { en: "Find 20FIT partner labs near you", id: "Lab partner 20FIT terdekat" } },
-        photo:     { ic: "camera", s: { en: "Photo", id: "Photo" }, lbl: { en: "Photo", id: "Photo" }, sub: { en: "Foto event & sesi kamu dari photo.20fit.id", id: "Foto event & sesi dari photo.20fit.id" }, sso: true, enabled: false },
-        news:      { ic: "news", s: { en: "News", id: "Berita" }, lbl: { en: "News", id: "Berita" }, sub: { en: "Latest from 20FIT · media.20fit.id", id: "Terbaru dari 20FIT · media.20fit.id" }, href: "https://media.20fit.id", ext: true }
-      };
-      var SHORTCUT_ALL = ["workout", "diet", "catering", "racelab", "events", "breathing", "talent", "shop", "medical", "news", "photo"];
-      function getShortcutPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_shortcuts") || "null"); } catch (e) {} if (!Array.isArray(p)) p = ["workout", "diet", "catering"]; p = p.filter(function (x) { return SHORTCUTS[x] && SHORTCUTS[x].enabled !== false; }); return p; }
-      function setShortcutPins(p) { try { localStorage.setItem("my20fit_home_shortcuts", JSON.stringify(p)); } catch (e) {} setLocalTs(new Date().toISOString()); pushPrefs(); }
 
       function svcTile(o) {
         var svg = '<svg viewBox="0 0 24 24" aria-hidden="true">' + (IC[o.ic] || "") + '</svg>';
-        var badge = o.badge ? '<span class="s2-badge">' + o.badge + '</span>' : '';
         var sub = o.sub ? '<div class="s2-sub">' + Lx(o.sub) + '</div>' : '';
-        var inner = badge + '<div class="s2-ic' + (o.dark ? ' dark' : '') + '">' + svg + '</div><div class="s2-lbl">' + Lx(o.lbl) + '</div>' + sub;
-        if (o.menu) return '<div class="svc2" role="button" tabindex="0" data-menu="1">' + inner + '</div>';
-        if (o.panel) return '<div class="svc2" role="button" tabindex="0" data-panel="' + o.panel + '">' + inner + '</div>';
-        if (o.sso) return '<a class="svc2" href="https://photo.20fit.id" onclick="return openPhotoSso(event)">' + inner + '</a>';
-        if (o.href) return '<a class="svc2" href="' + o.href + '">' + inner + '</a>';
-        return '<div class="svc2" role="button" tabindex="0" data-soon="1">' + inner + '</div>';
+        var inner = '<div class="s2-ic">' + svg + '</div><div class="s2-lbl">' + Lx(o.lbl) + '</div>' + sub;
+        return '<a class="svc2" href="' + o.href + '">' + inner + '</a>';   // selalu same-tab
       }
       window.buildSvcGrid = function () {
         var el = document.getElementById("svcGrid2"); if (!el) return;
-        var html = SVCS.map(svcTile).join("");                                                    // Baris 1 fixed
-        html += getShortcutPins().map(function (id) { var s = SHORTCUTS[id]; return svcTile({ ic: s.ic, lbl: s.s, sso: s.sso, ext: s.ext, href: s.href }); }).join(""); // Baris 2 shortcut
-        html += svcTile({ ic: "more", lbl: { en: "Menu", id: "Menu" }, dark: true, menu: true });  // tile Menu
-        el.innerHTML = html;
-        el.querySelectorAll('[data-soon]').forEach(function (t) { t.addEventListener("click", function () { if (window.toast) toast(Lx({ en: "Not connected yet — coming soon", id: "Belum tersambung — segera hadir" })); }); });
-        el.querySelectorAll('[data-menu]').forEach(function (t) { t.addEventListener("click", function () { window.openHomeMenu(); }); });
-        el.querySelectorAll('[data-panel]').forEach(function (t) { t.addEventListener("click", function () { if (window.openSvcPanel) window.openSvcPanel(t.getAttribute("data-panel")); }); });
+        el.innerHTML = SVCS.map(svcTile).join("");
       };
 
-      // ---- Customize your home: pin shortcut Baris 2 (tanpa batas) ----
-      window.openHomeMenu = function () { window.renderHomeMenuSheet(); var b = document.getElementById("hmBg"); if (b) b.style.display = "flex"; };
-      window.closeHomeMenu = function () { var b = document.getElementById("hmBg"); if (b) b.style.display = "none"; };
-      window.renderHomeMenuSheet = function () {
-        var pins = getShortcutPins(), avail = SHORTCUT_ALL.filter(function (x) { return pins.indexOf(x) < 0 && SHORTCUTS[x] && SHORTCUTS[x].enabled !== false; });
-        var pl = document.getElementById("hmPinLbl"), al = document.getElementById("hmAvailLbl"), pw = document.getElementById("hmPinned"), aw = document.getElementById("hmAvail");
-        if (pl) pl.textContent = Lx({ en: "On row 2 · " + pins.length + " pinned · drag ☰ to reorder", id: "Di baris 2 · " + pins.length + " tersemat · seret ☰ untuk atur urutan" });
-        if (al) al.textContent = Lx({ en: "Available shortcuts · " + avail.length, id: "Shortcut tersedia · " + avail.length });
-        var GRIP = '<svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>';
-        var PIN = '<svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 10.8V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6.8a2 2 0 0 0 .6 1.4L18 15H6l2.4-2.8A2 2 0 0 0 9 10.8z"/></svg>';
-        var EXT = '<svg viewBox="0 0 24 24" style="width:12px;height:12px;display:inline;vertical-align:-1px;margin-left:3px;fill:none;stroke:currentColor;stroke-width:2.4"><path d="M7 17 17 7M9 7h8v8"/></svg>';
-        function ico(s) { return '<div class="czic"><svg viewBox="0 0 24 24">' + (IC[s.ic] || "") + '</svg></div>'; }
-        if (pw) { pw.innerHTML = pins.map(function (id) { var s = SHORTCUTS[id];
-          return '<div class="czr" data-id="' + id + '">' + ico(s) + '<div class="cztx"><div class="cznm">' + Lx(s.lbl) + (s.ext ? EXT : '') + '</div><div class="czds">' + Lx(s.sub) + '</div></div><div class="czact">' +
-            '<button class="cbtn czgrip" type="button" aria-label="' + Lx({ en: "drag to reorder", id: "seret untuk atur urutan" }) + '">' + GRIP + '</button>' +
-            '<button class="cbtn pinned" type="button" onclick="shortcutRemove(\'' + id + '\')" aria-label="unpin">' + PIN + '</button></div></div>';
-        }).join(""); hmBindDrag(); }
-        if (aw) aw.innerHTML = avail.length ? avail.map(function (id) { var s = SHORTCUTS[id];
-          return '<div class="czr">' + ico(s) + '<div class="cztx"><div class="cznm">' + Lx(s.lbl) + (s.ext ? EXT : '') + '</div><div class="czds">' + Lx(s.sub) + '</div></div>' +
-            '<button class="cadd" type="button" onclick="shortcutAdd(\'' + id + '\')">+ ' + Lx({ en: "Add", id: "Tambah" }) + '</button></div>';
-        }).join("") : '<div class="czds" style="padding:8px 2px">' + Lx({ en: "All shortcuts are on your home.", id: "Semua shortcut sudah di home-mu." }) + '</div>';
-      };
-      window.shortcutAdd = function (id) {
-        if (!SHORTCUTS[id] || SHORTCUTS[id].enabled === false) return;
-        var p = getShortcutPins(); if (p.indexOf(id) >= 0) return;
-        p.push(id); setShortcutPins(p); window.buildSvcGrid(); window.renderHomeMenuSheet();
-      };
-      window.shortcutRemove = function (id) {
-        setShortcutPins(getShortcutPins().filter(function (x) { return x !== id; })); window.buildSvcGrid(); window.renderHomeMenuSheet();
-      };
-
-      // ---- Customize sheet: pin & reorder ----
+      // ---- Customize sheet: pin & reorder (TRACKER, bukan shortcut) ----
       function extraOn() { try { return localStorage.getItem("my20fit_home_extra") === "1"; } catch (e) { return false; } }
       window.applyExtra = function () { var e = document.getElementById("extraTrackers"); if (e) e.style.display = extraOn() ? "" : "none"; var s = document.getElementById("czExtra"); if (s) s.classList.toggle("on", extraOn()); };
       window.toggleExtra = function () { try { localStorage.setItem("my20fit_home_extra", extraOn() ? "0" : "1"); } catch (e) {} window.applyExtra(); setLocalTs(new Date().toISOString()); pushPrefs(); };
@@ -1365,7 +1249,6 @@
         });
       }
       window.czBindDrag = function () { bindGripDrag(document.getElementById("czPinned"), function (ids) { setPins(ids); window.renderStack(); }); };
-      function hmBindDrag() { bindGripDrag(document.getElementById("hmPinned"), function (ids) { setShortcutPins(ids); window.buildSvcGrid(); }); }
       window.openCustomize = function () { window.renderCzSheet(); var b = document.getElementById("czBg"); if (b) b.style.display = "flex"; window.applyExtra(); };
       window.closeCustomize = function () { var b = document.getElementById("czBg"); if (b) b.style.display = "none"; };
 
@@ -1398,13 +1281,12 @@
       var HOME_TS_KEY = "my20fit_home_prefs_ts";
       function localTs() { try { return localStorage.getItem(HOME_TS_KEY) || ""; } catch (e) { return ""; } }
       function setLocalTs(ts) { try { if (ts) localStorage.setItem(HOME_TS_KEY, ts); } catch (e) {} }
-      function collectPrefs() { return { pins: getPins(), shortcuts: getShortcutPins(), extra: extraOn() ? 1 : 0 }; }
-      function localHasPrefs() { try { return !!(localStorage.getItem("my20fit_home_pins") || localStorage.getItem("my20fit_home_shortcuts") || localStorage.getItem("my20fit_home_extra")); } catch (e) { return false; } }
+      function collectPrefs() { return { pins: getPins(), extra: extraOn() ? 1 : 0 }; }
+      function localHasPrefs() { try { return !!(localStorage.getItem("my20fit_home_pins") || localStorage.getItem("my20fit_home_extra")); } catch (e) { return false; } }
       function applyPrefs(p) {
         if (!p) return;
         try {
           if (Array.isArray(p.pins)) localStorage.setItem("my20fit_home_pins", JSON.stringify(p.pins));
-          if (Array.isArray(p.shortcuts)) localStorage.setItem("my20fit_home_shortcuts", JSON.stringify(p.shortcuts));
           if (typeof p.extra !== "undefined") localStorage.setItem("my20fit_home_extra", p.extra ? "1" : "0");
         } catch (e) {}
         try { window.renderStack && window.renderStack(); } catch (e) {}
@@ -2219,147 +2101,5 @@
   })();
   </script>
 
-  <!-- ===== Service panels: Book Class (schedule + filter Arena/Gym), Book Recovery
-       (jadwal klinik), Membership (carousel). Schedule dari /api/classes/schedule yang
-       sudah ada; Membership pakai layer data placeholder (endpoint paket belum ada).
-       Semua navigasi same-tab (tanpa target=_blank / window.open). ===== -->
-  <script>
-  (function(){
-    "use strict";
-    var L = window.L || function(o){ return o && (o.en!=null?o.en:(o.id||"")); };
-    function lang(){ return (window.I18N && I18N.lang==="en") ? "en" : "id"; }
-    async function apiFetch(path){
-      var opts={ headers:{ "Content-Type":"application/json" } };
-      try{ var t=(window.Auth&&Auth.token)?await Auth.token():null; if(t) opts.headers["Authorization"]="Bearer "+t; }catch(e){}
-      return fetch(path, opts);
-    }
-    var TXT = {
-      bookclass:{ en:"Book Class Activity", id:"Book Kelas" },
-      recovery: { en:"Book Recovery Session", id:"Book Recovery" },
-      membership:{ en:"Membership", id:"Membership" },
-      arena:{ en:"Arena", id:"Arena" }, gym:{ en:"Gym", id:"Gym" },
-      loading:{ en:"Loading schedule…", id:"Memuat jadwal…" },
-      mLoading:{ en:"Loading packages…", id:"Memuat paket…" },
-      empty:{ en:"No classes in the next 3 weeks.", id:"Belum ada kelas dalam 3 minggu ke depan." },
-      emptyClinic:{ en:"No clinic slots in the next 3 weeks.", id:"Belum ada slot klinik dalam 3 minggu ke depan." },
-      error:{ en:"Failed to load.", id:"Gagal memuat." },
-      retry:{ en:"Try again", id:"Coba lagi" },
-      book:{ en:"Book", id:"Book" },
-      viewAll:{ en:"Open booking.20fit.id", id:"Buka booking.20fit.id" },
-      mSoonT:{ en:"Membership packages coming soon", id:"Paket membership segera hadir" },
-      mSoonS:{ en:"Special Offer & Gym Membership will appear here as a swipeable list once connected.", id:"Special Offer & Gym Membership akan tampil di sini sebagai daftar geser begitu tersambung." },
-      coach:{ en:"Coach", id:"Coach" }
-    };
-    var DOW = { en:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], id:["Min","Sen","Sel","Rab","Kam","Jum","Sab"] };
-    function dparts(s){ var p=String(s).split("-"); var d=new Date(+p[0],+p[1]-1,+p[2]); return { dow:DOW[lang()][d.getDay()], day:+p[2] }; }
-
-    // ---- LAYER DATA: schedule (API nyata /api/classes/schedule) ----
-    var ScheduleData = { _c:{},
-      get:function(venue){
-        var self=this; if(self._c[venue]) return Promise.resolve(self._c[venue]);
-        return apiFetch("/api/classes/schedule?venue="+encodeURIComponent(venue)+"&days=21").then(function(r){
-          if(!r.ok) throw new Error("HTTP "+r.status); return r.json();
-        }).then(function(j){
-          var res={ booking_url:(j&&j.booking_url)||("https://booking.20fit.id/"+(venue==="clinic"?"clinic":venue==="gym"?"gym":"book")), dates:(j&&Array.isArray(j.dates))?j.dates:[] };
-          self._c[venue]=res; return res;
-        });
-      }, clear:function(){ this._c={}; } };
-
-    // ---- LAYER DATA: membership (placeholder; endpoint paket BELUM ADA) ----
-    //   Bentuk target saat API tersedia:
-    //   { status:'ok', groups:[ {key, title:{en,id}, packages:[ {name, price, period, perks:[]} ] } ] }
-    var MembershipData = { get:function(){
-      // TODO(API): ganti ke pemanggilan endpoint paket membership (special offer + gym).
-      return Promise.resolve({ status:"upcoming", groups:[] });
-    } };
-
-    var STATE = { open:null, venue:"arena" };
-    function el(){ return document.getElementById("svcPanel"); }
-    function markActive(kind){
-      document.querySelectorAll('#svcGrid2 [data-panel]').forEach(function(t){ t.classList.toggle("on", t.getAttribute("data-panel")===kind); });
-    }
-    function head(titleObj){
-      return '<div class="sp-head"><div class="sp-title">'+L(titleObj)+'</div><button class="sp-x" aria-label="Close" data-spx>✕</button></div>';
-    }
-    function stateHTML(msg, retry){
-      return '<div class="sp-state">'+msg+(retry?'<br><button class="sp-retry" data-spretry>'+L(TXT.retry)+'</button>':'')+'</div>';
-    }
-    function bindHead(){ var x=el().querySelector('[data-spx]'); if(x) x.onclick=function(){ window.openSvcPanel(STATE.open); }; }
-    function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-
-    function renderSchedule(kind){
-      var venue = (kind==="recovery") ? "clinic" : STATE.venue;
-      var p=el();
-      var seg = (kind==="bookclass") ?
-        '<div class="sp-seg" role="tablist">'+
-          '<button data-venue="arena" class="'+(STATE.venue==="arena"?"on":"")+'">'+L(TXT.arena)+'</button>'+
-          '<button data-venue="gym" class="'+(STATE.venue==="gym"?"on":"")+'">'+L(TXT.gym)+'</button>'+
-        '</div>' : '';
-      p.innerHTML = head(kind==="recovery"?TXT.recovery:TXT.bookclass) + seg + '<div id="spBody">'+stateHTML(L(TXT.loading),false)+'</div>';
-      bindHead();
-      if(kind==="bookclass"){ p.querySelectorAll('[data-venue]').forEach(function(b){ b.onclick=function(){ STATE.venue=b.getAttribute("data-venue"); renderSchedule("bookclass"); }; }); }
-      ScheduleData.get(venue).then(function(res){
-        var body=document.getElementById("spBody"); if(!body) return;
-        var dates=res.dates||[];
-        var allbtn='<a class="sp-allbtn" href="'+esc(res.booking_url)+'">'+L(TXT.viewAll)+'</a>';
-        if(!dates.length){ body.innerHTML=stateHTML(L(kind==="recovery"?TXT.emptyClinic:TXT.empty),false)+allbtn; return; }
-        var di=0;
-        function paint(){
-          var strip=dates.map(function(d,i){ var dp=dparts(d.date); return '<div class="sp-dchip '+(i===di?"on":"")+'" data-di="'+i+'"><div class="dow">'+dp.dow+'</div><div class="day">'+dp.day+'</div><div class="cnt">'+(d.classes?d.classes.length:0)+'</div></div>'; }).join("");
-          var cls=(dates[di].classes||[]).map(function(c){
-            var meta = (kind==="recovery") ? (c.duration_min?c.duration_min+" min":"") :
-              [ (c.instructor?L(TXT.coach)+" "+esc(c.instructor):""), (c.duration_min?c.duration_min+" min":"") ].filter(Boolean).join(" · ");
-            return '<div class="sp-crow"><div class="sp-ctime"><div class="st">'+esc(c.start||"")+'</div>'+(c.end?'<div class="et">'+esc(c.end)+'</div>':'')+'</div>'+
-              '<div class="sp-cmain"><div class="sp-cnm">'+esc(c.name||"Kelas")+'</div>'+(meta?'<div class="sp-cmeta">'+meta+'</div>':'')+'</div>'+
-              '<a class="sp-book" href="'+esc(res.booking_url)+'">'+L(TXT.book)+'</a></div>';
-          }).join("") || '<div class="sp-state">'+L(kind==="recovery"?TXT.emptyClinic:TXT.empty)+'</div>';
-          body.innerHTML='<div class="sp-dates">'+strip+'</div><div class="sp-list">'+cls+'</div>'+allbtn;
-          body.querySelectorAll('[data-di]').forEach(function(ch){ ch.onclick=function(){ di=+ch.getAttribute("data-di"); paint(); }; });
-        }
-        paint();
-      }).catch(function(){
-        var body=document.getElementById("spBody"); if(!body) return;
-        body.innerHTML=stateHTML(L(TXT.error),true);
-        var rb=body.querySelector('[data-spretry]'); if(rb) rb.onclick=function(){ ScheduleData.clear(); renderSchedule(kind); };
-      });
-    }
-
-    function renderMembership(){
-      var p=el();
-      p.innerHTML = head(TXT.membership) + '<div id="spBody">'+stateHTML(L(TXT.mLoading),false)+'</div>';
-      bindHead();
-      MembershipData.get().then(function(res){
-        var body=document.getElementById("spBody"); if(!body) return;
-        if(res && res.status==="ok" && res.groups && res.groups.length){
-          var cards=res.groups.map(function(g){ return (g.packages||[]).map(function(pk){
-            var perks=(pk.perks||[]).length?('<div class="mperk">'+esc(pk.perks.join(" · "))+'</div>'):'';
-            return '<div class="sp-mcard"><div class="mgrp">'+L(g.title||{en:g.key,id:g.key})+'</div><div class="mnm">'+esc(pk.name||"")+'</div><div class="mpr">'+esc(pk.price||"")+(pk.period?(" / "+esc(pk.period)):"")+'</div>'+perks+'</div>';
-          }).join(""); }).join("");
-          body.innerHTML='<div class="sp-caro">'+cards+'</div>';
-        } else {
-          // Placeholder rapi (API paket belum ada), dalam wadah carousel yang siap dipakai.
-          body.innerHTML='<div class="sp-caro"><div class="sp-mcard"><div class="mgrp">'+L(TXT.membership)+'</div><div class="mnm" style="margin-top:8px">'+L(TXT.mSoonT)+'</div><div class="mperk">'+L(TXT.mSoonS)+'</div></div></div>';
-        }
-      }).catch(function(){
-        var body=document.getElementById("spBody"); if(!body) return;
-        body.innerHTML=stateHTML(L(TXT.error),true);
-        var rb=body.querySelector('[data-spretry]'); if(rb) rb.onclick=renderMembership;
-      });
-    }
-
-    function renderOpen(){
-      if(STATE.open==="bookclass"||STATE.open==="recovery") renderSchedule(STATE.open);
-      else if(STATE.open==="membership") renderMembership();
-    }
-    window.openSvcPanel = function(kind){
-      var p=el(); if(!p) return;
-      if(STATE.open===kind){ STATE.open=null; p.hidden=true; p.innerHTML=""; markActive(null); return; }
-      STATE.open=kind; p.hidden=false; markActive(kind); renderOpen();
-      try{ p.scrollIntoView({block:"nearest",behavior:"smooth"}); }catch(e){}
-    };
-    // Re-render saat bahasa diubah (kalau panel terbuka).
-    if(window.I18N && I18N.onChange) I18N.onChange(function(){ if(STATE.open){ markActive(STATE.open); renderOpen(); } });
-  })();
-  </script>
 </body>
 </html>

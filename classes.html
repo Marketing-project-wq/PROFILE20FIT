@@ -60,6 +60,10 @@
   .bookall svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   .empty{padding:26px 16px;text-align:center;color:var(--muted);font-size:14px;background:var(--card);border:1px solid var(--line);border-radius:16px}
   .disc{font-size:11.5px;color:var(--muted);opacity:.85;margin-top:14px;line-height:1.5;text-align:center}
+  /* Filter Arena/Gym (khusus halaman ini; disembunyikan untuk klinik/Recovery) */
+  .vseg{display:inline-flex;background:var(--inp);border-radius:12px;padding:4px;gap:4px;margin:0 0 16px}
+  .vseg button{border:0;background:transparent;color:var(--muted);font-weight:800;font-size:13px;padding:9px 20px;border-radius:9px;cursor:pointer;font-family:inherit}
+  .vseg button.on{background:var(--card);color:var(--txt);box-shadow:0 1px 5px rgba(0,0,0,.25)}
 </style>
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/glass-app.css">
@@ -72,6 +76,11 @@
     </div>
     <h1 id="pgTitle">Jadwal Kelas</h1>
     <p class="lead" id="pgLead">Jadwal kelas 20FIT Arena yang akurat — pilih tanggal untuk lihat kelas. Booking &amp; pembayaran diarahkan ke booking.20fit.id.</p>
+
+    <div class="vseg" id="venueSeg" role="tablist" hidden>
+      <button type="button" data-v="arena">Arena</button>
+      <button type="button" data-v="gym">Gym</button>
+    </div>
 
     <div class="note">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -189,9 +198,31 @@
     (async function(){
       try{ user=await Auth.requireAuth(); }catch(e){}
       applyStatic();
-      if(window.I18N&&I18N.onChange) I18N.onChange(function(){ applyStatic(); render(); });
+      renderVenueSeg();
+      if(window.I18N&&I18N.onChange) I18N.onChange(function(){ applyStatic(); renderVenueSeg(); render(); });
       load();
     })();
+
+    // Filter Arena/Gym in-page (hanya halaman ini). Klinik (Book Recovery) TANPA toggle.
+    function renderVenueSeg(){
+      var seg=$("venueSeg"); if(!seg) return;
+      if(VENUE==="clinic"){ seg.hidden=true; return; }
+      seg.hidden=false;
+      Array.prototype.forEach.call(seg.querySelectorAll("button"), function(b){
+        var v=b.getAttribute("data-v");
+        b.classList.toggle("on", v===VENUE);
+        b.onclick=function(){ if(v!==VENUE) setVenue(v); };
+      });
+    }
+    function setVenue(v){
+      if(["arena","gym"].indexOf(v)<0) return;
+      VENUE=v; VC=VTXT[VENUE]; DATA=null; curDate=null;
+      try{ var u=new URL(location.href); u.searchParams.set("venue", v); history.replaceState(null, "", u.pathname+u.search); }catch(e){}
+      applyStatic(); renderVenueSeg();
+      $("dateStrip").innerHTML=""; $("dHead").textContent="";
+      $("classList").innerHTML='<div class="empty">'+LL(TXT.loading)+'</div>';
+      load();
+    }
 
     function applyStatic(){
       $("pgTitle").textContent=LL(VC.title);
