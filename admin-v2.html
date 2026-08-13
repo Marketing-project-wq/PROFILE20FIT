@@ -80,6 +80,14 @@
     </header>
 
     <div class="adm-body">
+      <!-- Gerbang login: tampil hanya kalau belum ada sesi admin (tanpa ?key= & tanpa
+           sesi Supabase). Backend butuh Bearer JWT / master key; admin-v2 tak punya
+           form login sendiri, jadi arahkan ke login admin lama (email+password) yang
+           sesinya otomatis dipakai admin-v2 lintas-tab. -->
+      <div class="adm-callout" id="admLoginGate" hidden style="border:1px solid var(--accent);padding:16px;margin-bottom:18px">
+        <div class="adm-note" style="margin-bottom:10px" data-i18n="Not signed in as admin — the data below can't load. Sign in first (or open with ?key=ADMIN_KEY).">Belum login sebagai admin — data di bawah tak bisa dimuat. Login dulu (atau buka dengan ?key=ADMIN_KEY).</div>
+        <a class="adm-btn" href="/admin-dashboard" data-i18n="Sign in to admin">Login admin</a>
+      </div>
       <!-- ===== OVERVIEW (wired) ===== -->
       <section data-section="overview"
         data-kicker="PANTAU" data-kicker-en="MONITOR"
@@ -1392,6 +1400,14 @@
       CUR.period=b.dataset.period; loadSection(CUR.section);
     });
     CUR.section = new URLSearchParams(location.search).get("section") || "overview";
+    // Gerbang login: kalau tak ada master key DAN tak ada sesi Supabase (Bearer),
+    // tampilkan ajakan login. Data section tetap dicoba (menampilkan diagnostik status).
+    (async function(){
+      var authed = !!KEY;
+      if(!authed){ try{ authed = !!(window.Auth && Auth.token && await Auth.token()); }catch(e){} }
+      var gate=document.getElementById("admLoginGate");
+      if(gate) gate.hidden = !!authed;
+    })();
     loadRole().then(function(){ loadSection(CUR.section); });
     ["vcType","vcValue","vcMin","vcLimit","vcPerUser","vcUntil"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",vcPreview); });
     var _vcb=document.getElementById("vcCreate"); if(_vcb) _vcb.onclick=vcCreate;
