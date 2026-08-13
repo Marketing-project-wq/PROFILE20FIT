@@ -512,21 +512,41 @@
 
 <div class="adm-toast" data-toast hidden></div>
 
+<script src="js/vendor-supabase.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/admin-shell.js"></script>
 <script>
 (function(){
   "use strict";
   var KEY = new URLSearchParams(location.search).get("key") || "";
   var CUR = { period: "30d", section: "overview" };
-  function adminFetch(path){
+  // Backend mengautentikasi /api/admin/* HANYA lewat header x-admin-key (?key=)
+  // atau Authorization: Bearer <supabase JWT> — TIDAK ada auth via cookie. Jadi
+  // tiap request wajib melampirkan kredensial ini, sama seperti admin lama.
+  async function admAuthHeaders(){
+    var h = {};
+    if (KEY) { h["x-admin-key"] = KEY; return h; }
+    try { var t = (window.Auth && Auth.token) ? await Auth.token() : null; if (t) h["Authorization"] = "Bearer " + t; } catch(e){}
+    return h;
+  }
+  async function adminFetch(path){
     var sep = path.indexOf("?")<0?"?":"&";
     var qs = "range="+encodeURIComponent(CUR.period) + (KEY?("&key="+encodeURIComponent(KEY)):"");
-    return fetch(path + sep + qs, { credentials:"include" });
+    return fetch(path + sep + qs, { credentials:"include", headers: await admAuthHeaders() });
   }
-  function adminPost(path, body){
+  async function adminPost(path, body){
     var sep = path.indexOf("?")<0?"?":"&";
     var qs = KEY?("key="+encodeURIComponent(KEY)):"";
-    return fetch(path + (qs?(sep+qs):""), { method:"POST", headers:{"content-type":"application/json"}, credentials:"include", body:JSON.stringify(body||{}) });
+    var headers = Object.assign({ "content-type":"application/json" }, await admAuthHeaders());
+    return fetch(path + (qs?(sep+qs):""), { method:"POST", headers: headers, credentials:"include", body:JSON.stringify(body||{}) });
+  }
+  // Ringkas pesan error dari respons admin: status code + pesan server (kalau ada).
+  // body = JSON yang sudah di-parse pemanggil (opsional) — dipakai lebih dulu karena
+  // res.json() mengunci stream sehingga res.clone() tak bisa baca ulang.
+  async function admErr(res, body){
+    var msg = (body && (body.error || body.message)) || "";
+    if(!msg){ try { var j = await res.clone().json(); msg = (j && (j.error || j.message)) || ""; } catch(e){} }
+    return (res && res.status ? ("HTTP "+res.status) : "network") + (msg?(" — "+msg):"");
   }
   var IS_SUPER = false;
   var L = function(en,id){ return (localStorage.getItem("adm.lang")==="en")?en:id; };
@@ -545,8 +565,9 @@
   async function loadOverview(){
     var kp = document.getElementById("ovKpis");
     try{
-      var j = await adminFetch("/api/admin/metrics").then(function(r){return r.json();});
-      if(!j || !j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load. Open with ?key=ADMIN_KEY or log in as admin.","Gagal memuat. Buka dengan ?key=ADMIN_KEY atau login admin.")+'</div></div>'; return; }
+      var res = await adminFetch("/api/admin/metrics");
+      var j = await res.json().catch(function(){return null;});
+      if(!j || !j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load. Open with ?key=ADMIN_KEY or log in as admin.","Gagal memuat. Buka dengan ?key=ADMIN_KEY atau login admin.")+' <span class="adm-mono">['+esc(await admErr(res, j))+']</span></div></div>'; return; }
       var rev=j.revenue||{}, tx=j.tx||{}, us=j.users||{};
       kp.innerHTML =
         cell(rp(rev.net), "Revenue realized", "Revenue realized", L("gross "+rp(rev.gross),"gross "+rp(rev.gross))) +
@@ -588,9 +609,10 @@
   async function loadRevenue(){
     var kp=document.getElementById("revKpis");
     try{
-      var j=await adminFetch("/api/admin/metrics").then(function(r){return r.json();});
-      var t=await adminFetch("/api/admin/transactions").then(function(r){return r.json();});
-      if(!j||!j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load. Open with ?key=ADMIN_KEY or log in.","Gagal memuat. Buka dengan ?key=ADMIN_KEY atau login.")+'</div></div>'; return; }
+      var jres=await adminFetch("/api/admin/metrics");
+      var j=await jres.json().catch(function(){return null;});
+      var t=await adminFetch("/api/admin/transactions").then(function(r){return r.json();}).catch(function(){return null;});
+      if(!j||!j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load. Open with ?key=ADMIN_KEY or log in.","Gagal memuat. Buka dengan ?key=ADMIN_KEY atau login.")+' <span class="adm-mono">['+esc(await admErr(jres, j))+']</span></div></div>'; return; }
       var rev=j.revenue||{}, tx=j.tx||{}, bs=tx.byStatus||{};
       kp.innerHTML =
         cell(rp(rev.net),"Revenue realized","Revenue realized") +
@@ -628,8 +650,9 @@
   async function loadUsers(){
     var kp=document.getElementById("usrKpis");
     try{
-      var j=await adminFetch("/api/admin/users").then(function(r){return r.json();});
-      if(!j||!j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></div>'; return; }
+      var res=await adminFetch("/api/admin/users");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res, j))+']</span></div></div>'; return; }
       kp.innerHTML =
         cell(String(j.total||0),"Total user","Total users") +
         cell(String(j.active||0),"Active","Aktif") +
@@ -684,12 +707,13 @@
   async function loadMarketing(){
     var health=document.getElementById("mktHealth");
     try{
-      var h=await adminFetch("/api/admin/email/health").then(function(r){return r.json();});
+      var hres=await adminFetch("/api/admin/email/health");
+      var h=await hres.json().catch(function(){return null;});
       if(h&&h.ok){
         var e=h.env||{}, d=h.domain||{}, r7=h.rates_7d||{};
         var dom=(d.ok&&(d.domains||[]).length)?(d.domains[0].name+" "+(d.domains[0].status||"?")):L("domain: check Resend","domain: cek Resend");
         health.innerHTML='<b>'+L("Email health","Kesehatan email")+'</b> · env: '+(e.email_environment||"?")+' · '+esc(dom)+' · '+L("last send","kirim terakhir")+': '+((h.last_send&&h.last_send.created_at)?String(h.last_send.created_at).slice(0,10):"—")+' · bounce '+(r7.bounce_rate||0)+'% · complaint '+(r7.complaint_rate||0)+'% · '+L("failed 7d","gagal 7h")+': '+(h.failed_7d||0);
-      } else health.textContent=L("Email health unavailable (need admin).","Kesehatan email tak tersedia (butuh admin).");
+      } else health.innerHTML=esc(L("Email health unavailable (need admin).","Kesehatan email tak tersedia (butuh admin)."))+' <span class="adm-mono">['+esc(await admErr(hres, h))+']</span>';
     }catch(e2){ health.textContent=""; }
     var tb=document.getElementById("mktCampRows");
     try{
@@ -807,9 +831,10 @@
     bnPreview();
     document.getElementById("bnTitle").scrollIntoView({block:"center"});
   }
-  function bnPut(id,body){
+  async function bnPut(id,body){
     var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
-    return fetch("/api/admin/banners/"+encodeURIComponent(id)+qs,{ method:"PUT", headers:{"content-type":"application/json"}, credentials:"include", body:JSON.stringify(body||{}) }).then(function(x){return x.json();}).catch(function(){return{};});
+    var headers=Object.assign({"content-type":"application/json"}, await admAuthHeaders());
+    return fetch("/api/admin/banners/"+encodeURIComponent(id)+qs,{ method:"PUT", headers: headers, credentials:"include", body:JSON.stringify(body||{}) }).then(function(x){return x.json();}).catch(function(){return{};});
   }
   async function bnSave(){
     var msg=document.getElementById("bnMsg"), body=bnFormRead();
@@ -1141,7 +1166,7 @@
   async function caRemove(uid){
     var sel=document.getElementById("caOrg"), org=sel?sel.value:""; if(!org||!uid) return;
     var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
-    var r=await fetch("/api/admin/corporate/"+encodeURIComponent(org)+"/admins/"+encodeURIComponent(uid)+qs,{method:"DELETE",credentials:"include"}).then(function(x){return x.json();}).catch(function(){return{};});
+    var r=await fetch("/api/admin/corporate/"+encodeURIComponent(org)+"/admins/"+encodeURIComponent(uid)+qs,{method:"DELETE",credentials:"include",headers:await admAuthHeaders()}).then(function(x){return x.json();}).catch(function(){return{};});
     if(r&&r.ok){ if(window.admToast)admToast(L("Admin removed","Admin dihapus")); caLoadOrg(org); loadCorporate(); }
     else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
   }
@@ -1260,7 +1285,7 @@
   // ---- REPORTS ----
   async function admExport(kind,headers,rows,filename){
     var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
-    var res=await fetch("/api/admin/export-csv"+qs,{method:"POST",headers:{"content-type":"application/json"},credentials:"include",body:JSON.stringify({kind:kind,headers:headers,rows:rows,filename:filename,range:CUR.period})}).catch(function(){return null;});
+    var res=await fetch("/api/admin/export-csv"+qs,{method:"POST",headers:Object.assign({"content-type":"application/json"}, await admAuthHeaders()),credentials:"include",body:JSON.stringify({kind:kind,headers:headers,rows:rows,filename:filename,range:CUR.period})}).catch(function(){return null;});
     if(!res||!res.ok){ if(window.admToast)admToast(L("Export failed (needs staff+).","Export gagal (butuh staff+).")); return; }
     var blob=await res.blob(), url=URL.createObjectURL(blob);
     var a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(url);},1500);
@@ -1348,7 +1373,7 @@
   }
   async function bnDelete(id){
     var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
-    var r=await fetch("/api/admin/banners/"+encodeURIComponent(id)+qs,{method:"DELETE",credentials:"include"}).then(function(x){return x.json();}).catch(function(){return{};});
+    var r=await fetch("/api/admin/banners/"+encodeURIComponent(id)+qs,{method:"DELETE",credentials:"include",headers:await admAuthHeaders()}).then(function(x){return x.json();}).catch(function(){return{};});
     if(r&&r.ok){ if(window.admToast)admToast(L("Banner deleted","Banner dihapus")); if(BN_EDIT===id) bnResetForm(); loadBanner(); }
     else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
   }

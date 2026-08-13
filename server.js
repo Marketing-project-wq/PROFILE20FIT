@@ -2001,8 +2001,14 @@ function adminHasRole(ctx, minRole) { return !!(ctx && ADMIN_RANK[ctx.role] >= A
 function adminCanSeeHealth(ctx) { return !!(ctx && ctx.role !== "marketing"); }
 async function requireAdmin(req, res, minRole) {
   const ctx = await getAdminContext(req);
-  if (!ctx) { res.status(401).json({ error: "Unauthorized" }); return null; }
-  if (!adminHasRole(ctx, minRole)) { res.status(403).json({ error: "Akses ditolak: butuh role " + (minRole || "viewer") + " (role kamu: " + ctx.role + ")" }); return null; }
+  if (!ctx) {
+    console.warn("admin 401:", req.method, req.path, "— no admin context (missing/invalid Bearer token or ?key=)");
+    res.status(401).json({ error: "Unauthorized" }); return null;
+  }
+  if (!adminHasRole(ctx, minRole)) {
+    console.warn("admin 403:", req.method, req.path, "— role=" + ctx.role + " need=" + (minRole || "viewer"));
+    res.status(403).json({ error: "Akses ditolak: butuh role " + (minRole || "viewer") + " (role kamu: " + ctx.role + ")" }); return null;
+  }
   return ctx;
 }
 async function adminAudit(ctx, action, target, detail) {
