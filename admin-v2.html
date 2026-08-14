@@ -414,6 +414,9 @@
           <button data-tab="corp" data-tab-id="access" data-i18n="Access &amp; passwords">Akses &amp; password</button>
         </div>
         <div data-tabpanel="corp" data-tab="accounts">
+          <div class="adm-sec-title" style="margin-top:14px" data-i18n="Operational monitoring (all organizations)">Monitoring operasional (semua organisasi)</div>
+          <div class="adm-grid adm-grid--4" id="corpTotals"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+          <div class="adm-note" style="margin:6px 0 14px" data-i18n="Aggregate only — active member counts &amp; usage. No individual health / BMI / MCU / cycle data.">Agregat saja — jumlah anggota aktif &amp; keaktifan. Tanpa data kesehatan / BMI / MCU / siklus individu.</div>
           <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:24px;margin-top:14px">
             <div>
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
@@ -425,6 +428,9 @@
                   <th data-sort="str" data-i18n="Organization">Organisasi</th>
                   <th data-sort="str" data-i18n="Code">Kode</th>
                   <th class="adm-right" data-sort="num" data-i18n="Active members">Anggota aktif</th>
+                  <th class="adm-right" data-sort="num" data-i18n="Active 7d">Aktif 7h</th>
+                  <th class="adm-right" data-sort="num" data-i18n="Active 30d">Aktif 30h</th>
+                  <th class="adm-right" data-sort="num" data-i18n="Scans 30d">Scan 30h</th>
                   <th data-sort="str" data-i18n="Admins">Admin</th>
                   <th data-sort="str" data-i18n="Status">Status</th>
                 </tr></thead>
@@ -482,7 +488,7 @@
               <p class="adm-note" style="margin-top:12px" data-i18n="Password is stored hashed (Supabase auth) and never shown again. Every add/remove is written to the audit log. Portal login uses the same auth, scoped to the organization.">Password disimpan sebagai hash (Supabase auth) dan tak pernah ditampilkan lagi. Setiap tambah/hapus tercatat di audit log. Login portal pakai auth yang sama, dibatasi ke organisasinya.</p>
               <div class="adm-callout" style="margin-top:14px">
                 <span class="adm-badge" data-i18n="Aggregate only">Agregat saja</span>
-                <div class="adm-note" data-i18n="The client portal (my.20fit.id corp login) shows only aggregate figures — registered vs quota, participation, group scans — never individual employee health data. An admin-side aggregate preview endpoint is not built yet (BELUM ADA).">Portal klien (login corp di my.20fit.id) hanya menampilkan angka agregat — terdaftar vs kuota, partisipasi, scan kelompok — tak pernah data kesehatan individual. Endpoint preview agregat sisi-admin belum dibangun (BELUM ADA).</div>
+                <div class="adm-note" data-i18n="The client portal (my.20fit.id corp login) shows only aggregate figures — never individual employee health data. The admin-side aggregate preview is now in the Accounts tab (active members + 7/30-day activity + scans).">Portal klien (login corp di my.20fit.id) hanya menampilkan angka agregat — tak pernah data kesehatan individual. Preview agregat sisi-admin sekarang ada di tab Akun (anggota aktif + keaktifan 7/30 hari + scan).</div>
               </div>
             </div>
           </div>
@@ -1125,18 +1131,33 @@
     try{
       var j=await adminFetch("/api/admin/corporate").then(function(r){return r.json();});
       CORP_CACHE=(j&&j.corporates)||[];
+      // Agregat operasional (TANPA data kesehatan) — endpoint superadmin.
+      var actMap={}, totals=null;
+      try{
+        var av=await adminFetch("/api/admin/corporate/activity").then(function(r){return r.json();});
+        ((av&&av.corporates)||[]).forEach(function(a){ actMap[a.id]=a; });
+        totals=(av&&av.totals)||null;
+      }catch(e){}
+      var ct=document.getElementById("corpTotals");
+      if(ct) ct.innerHTML = totals
+        ? cell(totals.members||0,"Anggota aktif","Active members")+cell(totals.active_7d||0,"Aktif 7 hari","Active 7d")+cell(totals.active_30d||0,"Aktif 30 hari","Active 30d")+cell(totals.scans_30d||0,"Scan 30 hari","Scans 30d")
+        : '<div class="adm-cell"><div class="adm-note">—</div></div>';
       tb.innerHTML=CORP_CACHE.map(function(c){
+        var a=actMap[c.id]||{};
         return '<tr>'+
           '<td><b>'+esc(c.name||"—")+'</b>'+(c.contact_email?'<div class="adm-note">'+esc(c.contact_email)+'</div>':'')+'</td>'+
           '<td class="adm-mono">'+esc(c.code||"")+'</td>'+
           '<td class="adm-right adm-num" data-value="'+(c.member_count||0)+'">'+(c.member_count||0)+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+(a.active_7d||0)+'">'+(a.active_7d||0)+' <span class="adm-note">('+(a.active_7d_pct||0)+'%)</span></td>'+
+          '<td class="adm-right adm-num" data-value="'+(a.active_30d||0)+'">'+(a.active_30d||0)+' <span class="adm-note">('+(a.active_30d_pct||0)+'%)</span></td>'+
+          '<td class="adm-right adm-num" data-value="'+(a.scans_30d||0)+'">'+(a.scans_30d||0)+'</td>'+
           '<td class="adm-note">'+(esc((c.admins||[]).join(", "))||"—")+'</td>'+
           '<td>'+corpStatusTag(c.status)+'</td></tr>';
       }).join("");
       window.admRenderTable("#corpTable");
       var sel=document.getElementById("caOrg");
       if(sel){ var prev=sel.value; sel.innerHTML=CORP_CACHE.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.name)+" ("+esc(c.code)+")</option>";}).join(""); if(prev&&CORP_CACHE.some(function(c){return c.id===prev;})) sel.value=prev; if(sel.value) caLoadOrg(sel.value); else { var ce=document.getElementById("caEmpty"); if(ce) ce.hidden=false; } }
-    }catch(e){ tb.innerHTML='<tr><td colspan="5" class="adm-note">'+esc(String(e.message||e))+'</td></tr>'; }
+    }catch(e){ tb.innerHTML='<tr><td colspan="8" class="adm-note">'+esc(String(e.message||e))+'</td></tr>'; }
   }
   async function corpCreate(){
     var msg=document.getElementById("coMsg");
