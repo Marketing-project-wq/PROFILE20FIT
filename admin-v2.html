@@ -168,7 +168,8 @@
               <button class="adm-chip" data-table-filter="#usrTable" data-filter-key="buyer" data-filter-value="yes" data-i18n="Buyers">Pembeli</button>
               <button class="adm-chip" data-table-filter="#usrTable" data-filter-key="plus" data-filter-value="yes" data-i18n="Plus">Plus</button>
               <button class="adm-chip" data-table-filter="#usrTable" data-filter-key="credit" data-filter-value="yes" data-i18n="Has credit">Punya kredit</button>
-              <span class="adm-note" data-table-info="#usrTable" style="margin-left:auto"></span>
+              <button class="adm-btn adm-btn--sm" id="usrExport" style="margin-left:auto" data-i18n="Export CSV">Export CSV</button>
+              <span class="adm-note" data-table-info="#usrTable"></span>
             </div>
             <table class="adm-table" id="usrTable" data-table data-page-size="10">
               <thead><tr>
@@ -734,6 +735,14 @@
   }
 
   // ---- USERS ----
+  var USERS_CACHE=[];
+  function usrExportCsv(){
+    if(!window.admExport){ if(window.admToast)admToast(L("Export unavailable","Export tak tersedia")); return; }
+    admExport("users",
+      ["Name","Email","Credits","Scans","Spent","Purchases","Onboarded","Plus","Joined"],
+      USERS_CACHE.map(function(u){ return [u.full_name||"", u.email||"", u.scan_credits||0, u.scan_count||0, u.total_spent||0, u.purchases||0, u.is_onboarded?"yes":"no", u.is_plus_member?"yes":"no", (u.created_at||"").slice(0,10)]; }),
+      "users.csv");
+  }
   async function loadUsers(){
     var kp=document.getElementById("usrKpis");
     try{
@@ -745,7 +754,7 @@
         cell(String(j.active||0),"Active","Aktif") +
         cell(String(j.buyers||0),"Buyers","Pembeli") +
         cell(String(j.onboarded||0),"Onboarded","Onboarded");
-      var us=(j.users||[]);
+      var us=(j.users||[]); USERS_CACHE=us;
       document.getElementById("usrRows").innerHTML = us.map(function(u){
         return '<tr data-uid="'+u.auth_user_id+'" data-all="all" data-onboarded="'+(u.is_onboarded?"yes":"no")+'" data-buyer="'+(u.purchases>0?"yes":"no")+'" data-plus="'+(u.is_plus_member?"yes":"no")+'" data-credit="'+((u.scan_credits||0)>0?"yes":"no")+'" style="cursor:pointer">'+
           '<td>'+(u.full_name||"—")+(u.is_plus_member?' <span class="adm-tag adm-tag--outline">PLUS</span>':'')+'</td>'+
@@ -1717,6 +1726,7 @@
     ["vcType","vcValue","vcMin","vcLimit","vcPerUser","vcUntil"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",vcPreview); });
     var _vcb=document.getElementById("vcCreate"); if(_vcb) _vcb.onclick=vcCreate;
     var _vbb=document.getElementById("vbGen"); if(_vbb) _vbb.onclick=vbGen;
+    var _uex=document.getElementById("usrExport"); if(_uex) _uex.onclick=usrExportCsv;
     var _vmr=document.getElementById("vmRefresh"); if(_vmr) _vmr.onclick=loadVoucherManage;
     var _vms=document.getElementById("vmStatus"); if(_vms) _vms.addEventListener("change",loadVoucherManage);
     var _vmq=document.getElementById("vmSearch"); if(_vmq){ var _vmt; _vmq.addEventListener("input",function(){ clearTimeout(_vmt); _vmt=setTimeout(loadVoucherManage,300); }); }
