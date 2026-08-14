@@ -192,15 +192,12 @@
   <script>
     function $(id){ return document.getElementById(id); }
     var ME=null, ROSTER=[], VIEW=[], SORT={key:"health_status",dir:1};
-    // Kalau dibuka superadmin dari admin dashboard: ?corporate_id=<id> -> semua call diberi param itu.
-    var CID=""; try{ CID=new URLSearchParams(location.search).get("corporate_id")||""; }catch(e){}
     function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
     function lmsg(t,ok){ var e=$("loginMsg"); e.textContent=t||""; e.className="msg"+(ok?" ok":" err"); }
 
     async function corpFetch(path, opts){
       opts=opts||{}; opts.headers=opts.headers||{}; opts.headers["Content-Type"]="application/json";
       var tk=await Auth.token(); if(tk) opts.headers["Authorization"]="Bearer "+tk;
-      if(CID){ path += (path.indexOf("?")>=0?"&":"?") + "corporate_id=" + encodeURIComponent(CID); }
       return fetch(path, opts);
     }
     // ---- Login ----
