@@ -31,11 +31,13 @@
       <button class="adm-navitem" data-nav="overview"><span data-i18n="Overview">Overview</span></button>
       <button class="adm-navitem" data-nav="scan"><span data-i18n="Scan activity">Aktivitas scan</span></button>
       <button class="adm-navitem" data-nav="revenue"><span data-i18n="Revenue">Revenue</span><span class="adm-tag adm-tag--pending" id="navRevBadge" hidden></span></button>
+      <button class="adm-navitem" data-nav="traffic"><span data-i18n="Traffic sources">Sumber trafik</span></button>
 
       <div class="adm-navgroup" data-i18n="Manage">Kelola</div>
       <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
       <button class="adm-navitem" data-nav="voucher"><span data-i18n="Voucher">Voucher</span></button>
       <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span></button>
+      <button class="adm-navitem" data-nav="menustats"><span data-i18n="Menu interest">Minat menu</span></button>
       <button class="adm-navitem" data-nav="marketing"><span data-i18n="Marketing">Marketing</span></button>
       <button class="adm-navitem" data-nav="corporate"><span data-i18n="Corporate">Corporate</span></button>
 
@@ -493,6 +495,29 @@
             </div>
           </div>
         </div>
+      </section>
+      <section data-section="traffic" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Sumber Trafik" data-title-en="Traffic sources" data-question="Dari mana user datang (UTM &amp; referrer) + konversi ke pembeli." data-question-en="Where users come from (UTM &amp; referrer) + conversion to buyers.">
+        <div class="adm-grid adm-grid--4" id="trSummary"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+        <div class="adm-sec-title" data-i18n="By source (utm_source)">Per sumber (utm_source)</div>
+        <div id="trSource"></div>
+        <div class="adm-sec-title" data-i18n="By medium">Per medium</div>
+        <div id="trMedium"></div>
+        <div class="adm-sec-title" data-i18n="By campaign">Per campaign</div>
+        <div id="trCampaign"></div>
+        <div class="adm-sec-title" data-i18n="By referrer site">Per situs perujuk (referrer)</div>
+        <div id="trReferrer"></div>
+      </section>
+      <section data-section="menustats" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Minat Menu" data-title-en="Menu interest" data-question="Menu mana yang paling sering dibuka + tipe menu yang paling diminati." data-question-en="Which menus get opened most + most-wanted menu types.">
+        <div class="adm-seg" role="group" style="margin-bottom:12px">
+          <button class="msbtn" data-msrange="7d" aria-pressed="false" data-i18n="7 days">7 hari</button>
+          <button class="msbtn" data-msrange="30d" aria-pressed="true" data-i18n="30 days">30 hari</button>
+          <button class="msbtn" data-msrange="all" aria-pressed="false" data-i18n="All">Semua</button>
+        </div>
+        <div class="adm-grid adm-grid--3" id="msSummary"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+        <div class="adm-sec-title" data-i18n="Interest by menu type">Minat per tipe menu</div>
+        <div id="msTypes"></div>
+        <div class="adm-sec-title" data-i18n="Each menu (most opened)">Setiap menu (paling banyak dibuka)</div>
+        <div id="msMenus"></div>
       </section>
       <section data-section="reports" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Laporan" data-title-en="Reports" data-question="Revenue bulanan, funnel, retensi kohort, dan produk terlaris — bisa diekspor." data-question-en="Monthly revenue, funnel, cohort retention, and top products — exportable.">
         <div id="rpBody"><div class="adm-loading" style="margin-top:16px" data-i18n="Loading…">Memuat…</div></div>
@@ -1024,9 +1049,9 @@
 
   // ---- ROLE-BASED NAV (Langkah 6) ----
   var ALLOWED={ superadmin:null, viewer:null,
-    marketing:["overview","users","voucher","marketing","reports","settings"],
+    marketing:["overview","users","voucher","marketing","reports","settings","traffic","menustats"],
     finance:["revenue","voucher","corporate","reports"],
-    staff:["users","scan","menu"] };
+    staff:["users","scan","menu","menustats"] };
   function roleDesc(role){
     var m={ superadmin:["Full access.","Akses penuh."], viewer:["Read only.","Baca saja."],
       marketing:["Voucher, campaign, segments, reports. No price/credit edits or health data.","Voucher, campaign, segmen, laporan. Tanpa ubah harga/kredit & data kesehatan."],
@@ -1438,6 +1463,52 @@
     rpBind("rpExpUsers",function(){admExport("top_users",["Name","Email","PageViews","LastActive"],tu.map(function(u){return [u.full_name,u.email,u.ping_count,u.last_active_at];}),"top_users.csv");});
   }
 
+  // ---- TRAFFIC (attribution) ----
+  function trafficTable(rows){
+    if(!rows||!rows.length) return '<div class="adm-note">'+L("No data yet.","Data belum tersedia.")+'</div>';
+    return '<table class="adm-table"><thead><tr><th data-sort="str">'+L("Source","Sumber")+'</th><th class="adm-right" data-sort="num">'+L("Signups","Signup")+'</th><th class="adm-right" data-sort="num">'+L("Buyers","Pembeli")+'</th><th class="adm-right" data-sort="num">'+L("Conv.","Konversi")+'</th><th class="adm-right" data-sort="num">Revenue</th></tr></thead><tbody>'+
+      rows.map(function(g){ return '<tr><td>'+esc(g.key)+'</td><td class="adm-right adm-num">'+(g.signups||0)+'</td><td class="adm-right adm-num">'+(g.buyers||0)+'</td><td class="adm-right adm-num">'+(g.conv||0)+'%</td><td class="adm-right adm-num">'+rp(g.revenue||0)+'</td></tr>'; }).join("")+
+      '</tbody></table>';
+  }
+  async function loadTraffic(){
+    var sum=document.getElementById("trSummary");
+    ["trSource","trMedium","trCampaign","trReferrer"].forEach(function(id){var e=document.getElementById(id);if(e)e.innerHTML='<div class="adm-loading">'+L("Loading…","Memuat…")+'</div>';});
+    var j=await adminFetch("/api/admin/attribution").then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j||!j.ok){ if(sum)sum.innerHTML='<div class="adm-cell"><div class="adm-note">'+esc((j&&j.error)||L("Failed","Gagal"))+'</div></div>'; return; }
+    var tot=j.total_users||0, trk=j.tracked||0;
+    if(sum) sum.innerHTML=
+      cell(tot,"Total user","Total users")+
+      cell(trk,"Punya sumber asli","Has real source", tot?Math.round(trk/tot*100)+"%":"")+
+      cell(j.pre_tracking||0,"User lama","Legacy users")+
+      cell(j.direct_new||0,"Baru & langsung","New & direct");
+    document.getElementById("trSource").innerHTML=trafficTable(j.by_source);
+    document.getElementById("trMedium").innerHTML=trafficTable(j.by_medium);
+    document.getElementById("trCampaign").innerHTML=trafficTable(j.by_campaign);
+    document.getElementById("trReferrer").innerHTML=trafficTable(j.by_referrer);
+  }
+  // ---- MENU INTEREST (menu-analytics) ----
+  var msRange="30d";
+  async function loadMenuStats(){
+    var sum=document.getElementById("msSummary");
+    ["msTypes","msMenus"].forEach(function(id){var e=document.getElementById(id);if(e)e.innerHTML='<div class="adm-loading">'+L("Loading…","Memuat…")+'</div>';});
+    var j=await adminFetch("/api/admin/menu-analytics?range="+encodeURIComponent(msRange)).then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j||!j.ok){ if(sum)sum.innerHTML='<div class="adm-cell"><div class="adm-note">'+esc((j&&j.error)||L("Failed","Gagal"))+'</div></div>'; return; }
+    if(sum) sum.innerHTML=cell(j.total_clicks||0,"Total buka menu","Total menu opens")+cell(j.unique_menus||0,"Menu unik dibuka","Unique menus")+cell(j.unique_users||0,"User unik","Unique users");
+    var ty=j.by_type||[], tEl=document.getElementById("msTypes");
+    if(!ty.length){ tEl.innerHTML='<div class="adm-note">'+L("No data yet.","Data belum tersedia.")+'</div>'; }
+    else {
+      var max=ty[0].clicks||1;
+      tEl.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Type","Tipe")+'</th><th class="adm-right">'+L("Opens","Buka")+'</th><th class="adm-right">'+L("Users","User")+'</th><th class="adm-right">'+L("Menus","Menu")+'</th><th style="width:36%">'+L("Interest","Minat")+'</th></tr></thead><tbody>'+
+        ty.map(function(g){ var pct=Math.max(2,Math.round((g.clicks/max)*100)); return '<tr><td>'+esc(String(g.type).replace(/-/g," "))+'</td><td class="adm-right adm-num">'+g.clicks+'</td><td class="adm-right adm-num">'+g.users+'</td><td class="adm-right adm-num">'+g.menus+'</td><td><div class="adm-bar"><i style="width:'+pct+'%"></i></div></td></tr>'; }).join("")+'</tbody></table>';
+    }
+    var ms=j.menus||[], mEl=document.getElementById("msMenus");
+    if(!ms.length){ mEl.innerHTML='<div class="adm-note">'+L("No data yet.","Data belum tersedia.")+'</div>'; }
+    else {
+      mEl.innerHTML='<table class="adm-table"><thead><tr><th data-sort="str">Menu</th><th data-sort="str">'+L("Type","Tipe")+'</th><th class="adm-right" data-sort="num">'+L("Opens","Buka")+'</th><th class="adm-right" data-sort="num">'+L("Unique users","User unik")+'</th><th class="adm-right" data-sort="num">'+L("Kcal","Kalori")+'</th></tr></thead><tbody>'+
+        ms.map(function(m){ var tp=(m.types||[]).map(function(t){return esc(String(t).replace(/-/g," "));}).join(", ")||"—"; return '<tr><td>'+esc(m.name||m.menu_id)+'</td><td class="adm-note">'+tp+'</td><td class="adm-right adm-num">'+(m.clicks||0)+'</td><td class="adm-right adm-num">'+(m.users||0)+'</td><td class="adm-right adm-num">'+(m.kcal!=null?m.kcal:"—")+'</td></tr>'; }).join("")+'</tbody></table>';
+    }
+  }
+
   // ---- dispatcher ----
   function loadSection(id){
     if(id==="overview") return loadOverview();
@@ -1449,6 +1520,8 @@
     if(id==="voucher") return loadVoucher();
     if(id==="menu") return loadMenu();
     if(id==="corporate") return loadCorporate();
+    if(id==="traffic") return loadTraffic();
+    if(id==="menustats") return loadMenuStats();
     if(id==="reports") return loadReports();
   }
   document.addEventListener("click", function(e){
@@ -1470,6 +1543,8 @@
     if(cad){ if(cad.dataset.armed==="1") return; caRemove(cad.dataset.uid); return; }
     var srd=e.target.closest(".setRoleDel");
     if(srd){ if(srd.dataset.armed==="1") return; setRoleRemove(srd.dataset.uid); return; }
+    var msb=e.target.closest(".msbtn");
+    if(msb){ document.querySelectorAll(".msbtn").forEach(function(x){x.setAttribute("aria-pressed",String(x===msb));}); msRange=msb.dataset.msrange; loadMenuStats(); return; }
     var stab=e.target.closest('[data-tab="mkt"][data-tab-id="send"]');
     if(stab){ setTimeout(loadSend,0); return; }
     var seact=e.target.closest(".seAct");
