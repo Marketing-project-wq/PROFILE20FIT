@@ -151,6 +151,7 @@
           <button class="adm-btn adm-btn--sm" data-page-step="#revTable" data-step="-1">‹</button>
           <button class="adm-btn adm-btn--sm" data-page-step="#revTable" data-step="1">›</button>
         </div>
+        <div id="revDetail" class="adm-callout" style="grid-template-columns:1fr;margin-top:8px" hidden></div>
         <div class="adm-sec-title" data-i18n="Revenue per package">Revenue per paket</div>
         <div id="revByProduct"></div>
         <div class="adm-sec-title" data-i18n="Xendit reconciliation">Rekonsiliasi Xendit</div>
@@ -709,7 +710,7 @@
       document.getElementById("revRows").innerHTML = rows.map(function(o){
         var net=(o.net_amount!=null?o.net_amount:o.amount)||0;
         var note=o.voucher_id?L("voucher","voucher"):(o.status==="paid"&&!o.gateway_reference_id?L("paid, no gateway ref","paid, tanpa ref gateway"):"");
-        return '<tr data-status="'+(o.status||"")+'">'+
+        return '<tr data-reff="'+esc(o.reff_no||"")+'" data-status="'+(o.status||"")+'" style="cursor:pointer">'+
           '<td class="adm-mono">'+(o.reff_no||"—")+'</td>'+
           '<td>'+tag(o.status)+'</td>'+
           '<td class="adm-right adm-num">'+(o.credits||0)+'</td>'+
@@ -1486,6 +1487,31 @@
     rpBind("rpExpUsers",function(){admExport("top_users",["Name","Email","PageViews","LastActive"],tu.map(function(u){return [u.full_name,u.email,u.ping_count,u.last_active_at];}),"top_users.csv");});
   }
 
+  // ---- TRANSACTION DETAIL ----
+  function fmtDT(s){ return s?String(s).slice(0,16).replace("T"," "):"—"; }
+  function orderTypeLabel(t){ var m={scan_credit:L("Food scan credit","Kredit scan makanan"),plus:L("Membership Plus","Membership Plus"),other:L("Other","Lainnya")}; return m[t]||(t?esc(t):L("Food scan credit","Kredit scan makanan")); }
+  async function txRevDetail(reff){
+    var pane=document.getElementById("revDetail"); if(!pane) return;
+    pane.hidden=false; pane.innerHTML='<div class="adm-loading">'+L("Loading…","Memuat…")+'</div>';
+    var j=await adminFetch("/api/admin/transactions/"+encodeURIComponent(reff)).then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j||!j.ok){ pane.innerHTML='<div class="adm-note">'+esc((j&&j.error)||L("Failed","Gagal"))+'</div>'; return; }
+    var t=j.tx, b=j.buyer, v=j.voucher, u=j.usage;
+    pane.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div style="font-weight:800;font-size:16px">'+L("Transaction","Transaksi")+' '+esc(t.reff_no)+'</div><button class="adm-btn adm-btn--sm" id="revDetailClose">✕</button></div>'+
+      '<div class="adm-note">'+orderTypeLabel(t.order_type)+'</div>'+
+      '<div class="adm-grid adm-grid--4" style="margin:10px 0">'+
+        cell(esc(t.status),"Status","Status")+cell(rp(t.amount),"Nominal","Amount",(t.net_amount!=null&&t.net_amount!==t.amount)?(L("pay","bayar")+" "+rp(t.net_amount)):"")+
+        cell((t.credits||0)+" scan","Kredit","Credits")+cell(esc(t.payment_method||"—"),"Metode","Method")+
+      '</div>'+
+      '<table class="adm-table"><tbody>'+
+        '<tr><td>'+L("Buyer","Pembeli")+'</td><td><b>'+esc((b&&(b.full_name||b.email))||"—")+'</b>'+(b&&b.email?' · '+esc(b.email):'')+'</td></tr>'+
+        '<tr><td>Gateway ref</td><td class="adm-mono">'+esc(t.gateway_reference_id||"—")+'</td></tr>'+
+        '<tr><td>'+L("Created","Dibuat")+'</td><td class="adm-mono">'+fmtDT(t.created_at)+'</td></tr>'+
+        '<tr><td>'+L("Paid","Dibayar")+'</td><td class="adm-mono">'+fmtDT(t.paid_at)+'</td></tr>'+
+        (v?'<tr><td>Voucher</td><td><span class="adm-tag adm-tag--paid">'+esc(v.code)+'</span> '+(v.discount_type==="percentage"?(v.discount_value+"%"):rp(v.discount_value))+(u?' · '+L("discount","diskon")+' '+rp(u.discount_applied):'')+'</td></tr>':'')+
+      '</tbody></table>';
+    var cb=document.getElementById("revDetailClose"); if(cb) cb.onclick=function(){ pane.hidden=true; };
+  }
+
   // ---- VOUCHER MANAGE (edit / activate / detail) ----
   function vDisc(v){ return v.discount_type==="percentage" ? (v.discount_value+"%") : rp(v.discount_value); }
   function vDOnly(d){ return d?String(d).slice(0,10):"—"; }
@@ -1632,6 +1658,8 @@
     if(nav){ CUR.section=nav.dataset.nav; loadSection(CUR.section); return; }
     var row=e.target.closest("#usrRows tr[data-uid]");
     if(row){ document.querySelectorAll("#usrRows tr").forEach(function(x){x.style.background="";}); row.style.background="var(--surface)"; loadUserDetail(row.dataset.uid); return; }
+    var trrow=e.target.closest("#revRows tr[data-reff]");
+    if(trrow){ txRevDetail(trrow.dataset.reff); return; }
     var crow=e.target.closest("#mktCampRows tr[data-cid]");
     if(crow){ loadCampaignDrill(crow.dataset.cid); return; }
     var btab=e.target.closest('[data-tab="mkt"][data-tab-id="banner"]');
