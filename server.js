@@ -2001,13 +2001,13 @@ function adminHasRole(ctx, minRole) { return !!(ctx && ADMIN_RANK[ctx.role] >= A
 // kondisi/siklus/MCU). Endpoint yang memuat data profil kesehatan WAJIB memanggil ini
 // dan memangkas field sebelum mengirim respons — diblokir di level API, bukan cuma UI.
 function adminCanSeeHealth(ctx) { return !!(ctx && ctx.role !== "marketing"); }
-// PRIVASI MUTLAK: data siklus menstruasi (cycle_last_period/cycle_length/period_length)
+// PRIVASI MUTLAK: data siklus menstruasi (cycle_last_period/cycle_length/period_length/last_period_date)
 // TIDAK PERNAH keluar ke pihak mana pun selain user sendiri — termasuk admin & SUPERADMIN.
 // adminCanSeeHealth boleh true (admin lihat BMI/MCU), tapi siklus tetap dibuang di sini.
 // Dipakai untuk memangkas field siklus dari objek profil sebelum dikirim ke admin.
 function stripMenstrualCycle(prof) {
   if (prof && typeof prof === "object") {
-    delete prof.cycle_last_period; delete prof.cycle_length; delete prof.period_length;
+    delete prof.cycle_last_period; delete prof.cycle_length; delete prof.period_length; delete prof.last_period_date;
   }
   return prof;
 }
