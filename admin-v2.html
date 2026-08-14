@@ -445,6 +445,12 @@
                 <button class="adm-btn adm-btn--primary" id="coCreate" data-i18n="Create organization">Buat organisasi</button>
                 <div class="adm-note" id="coMsg"></div>
               </div>
+              <div class="adm-sec-title" style="margin-top:20px" data-i18n="HRD portal link">Link portal HRD</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input class="adm-input" id="corpPortalLink" readonly value="https://my.20fit.id/corp-dashboard" style="flex:1" onclick="this.select()">
+                <button class="adm-btn" id="corpCopyLink" data-i18n="Copy">Salin</button>
+              </div>
+              <div class="adm-note" style="margin-top:6px" data-i18n="Send this link + the portal email &amp; password to the HR team. They log in here — access is scoped to their own organization only.">Kirim link ini + email &amp; password akun portal ke tim HRD. Mereka login di sini — aksesnya khusus organisasinya sendiri.</div>
             </div>
           </div>
         </div>
@@ -1171,6 +1177,17 @@
     else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
   }
 
+  function corpCopyPortalLink(){
+    var inp=document.getElementById("corpPortalLink");
+    var link=inp&&inp.value?inp.value:"https://my.20fit.id/corp-dashboard";
+    function done(){ if(window.admToast) admToast(L("Portal link copied","Link portal disalin")); }
+    function fallback(){ try{ if(inp){ inp.focus(); inp.select(); document.execCommand&&document.execCommand("copy"); } done(); }catch(e){} }
+    try{
+      if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done,fallback);
+      else fallback();
+    }catch(e){ fallback(); }
+  }
+
   // ---- SEND CAMPAIGN (Modul 4) ----
   var SEND_DRAFT=null, SE_SEGMAP={};
   function seStatusTag(s){
@@ -1394,6 +1411,7 @@
     ["bnImgId","bnImgEn","bnAltId","bnAltEn","bnCtaId","bnCtaEn"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",bnPreview); });
     var _mns=document.getElementById("mnSearch"); if(_mns){ var _mnt; _mns.addEventListener("input",function(){ clearTimeout(_mnt); _mnt=setTimeout(function(){ MN_SEL=null; loadMenu(); },300); }); }
     var _cc=document.getElementById("coCreate"); if(_cc) _cc.onclick=corpCreate;
+    var _clp=document.getElementById("corpCopyLink"); if(_clp) _clp.onclick=corpCopyPortalLink;
     var _ca=document.getElementById("caAdd"); if(_ca) _ca.onclick=caAdd;
     var _cao=document.getElementById("caOrg"); if(_cao) _cao.addEventListener("change",function(){ caLoadOrg(this.value); });
     var _sep=document.getElementById("sePreview"); if(_sep) _sep.onclick=sePreview;
