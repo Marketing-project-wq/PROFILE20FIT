@@ -330,9 +330,15 @@
         </div>
       </div>
       <div id="tab-corporate" class="hidden">
-        <h2>Corporate Health Program</h2><div class="crumb">Kelola akun perusahaan & kode unik (superadmin only)</div>
+        <h2>Corporate — Monitoring &amp; Kelola</h2><div class="crumb">Superadmin: monitoring OPERASIONAL semua perusahaan + kelola akun/kode</div>
         <div class="card" style="border-left:3px solid var(--orange)">
-          <div style="font-size:13px;color:var(--muted)">Data kesehatan karyawan bersifat sensitif. Admin corporate hanya bisa melihat karyawan yang menautkan kode perusahaannya (setelah karyawan menyetujui) — perusahaan lain tidak terlihat. Setiap akses data karyawan dicatat di audit log.</div>
+          <div style="font-size:13px;color:var(--muted)"><b>Batas akses superadmin:</b> di sini kamu hanya melihat data <b>operasional</b> (jumlah anggota &amp; keaktifan pemakaian). Data kesehatan <b>individu</b> karyawan (BMI, hasil MCU, dan data siklus) <b>tidak</b> dibuka ke superadmin — itu hanya untuk admin HR perusahaan bersangkutan, dan tetap terisolasi antar-perusahaan. Setiap kali kamu membuka daftar/detail korporat, aksesnya dicatat di audit log.</div>
+        </div>
+        <div class="card">
+          <div class="row" style="align-items:center;margin-bottom:8px"><h3 style="margin:0">Monitoring operasional (semua perusahaan)</h3><span class="grow"></span><button class="btn sm ghost" style="margin:0" onclick="loadCorpActivity()">Refresh</button></div>
+          <div id="corpActTotals" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px"></div>
+          <table><thead><tr><th>Perusahaan</th><th>Kode</th><th>Anggota</th><th>Aktif 7h</th><th>Aktif 30h</th><th>Scan 30h</th><th>Status</th></tr></thead><tbody id="corpActRows"><tr><td colspan="7"><div class="placeholder">Memuat…</div></td></tr></tbody></table>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px">Aktif = ada aktivitas di aplikasi (ping) dalam periode itu. Angka agregat per perusahaan — tanpa data kesehatan &amp; tanpa baris per-individu.</div>
         </div>
         <div class="card">
           <h3>Buat perusahaan baru</h3>
@@ -489,7 +495,7 @@
         if(tab==="traffic") loadTraffic();
         if(tab==="menustats") loadMenuStats();
         if(tab==="settings" && ME && ME.role==="superadmin"){ loadRoles(); loadConfig(); loadAuditLog(); }
-        if(tab==="corporate" && ME && ME.role==="superadmin"){ loadCorporates(); }
+        if(tab==="corporate" && ME && ME.role==="superadmin"){ loadCorpActivity(); loadCorporates(); }
         if(tab==="menureview" && ME && ME.role==="superadmin"){ loadMenuReview(); }
       });
     });
@@ -511,7 +517,7 @@
           '<td>'+admins+'</td>'+
           '<td>'+(c.member_count||0)+'</td>'+
           '<td>'+st+'</td>'+
-          '<td style="white-space:nowrap"><button class="btn sm ghost" style="margin:0" onclick="openCorpDash(\''+c.id+'\')">Dashboard</button> <button class="btn sm ghost" style="margin:0" onclick="openCorp(\''+c.id+'\')">Kelola</button></td>'+
+          '<td style="white-space:nowrap"><button class="btn sm ghost" style="margin:0" onclick="openCorp(\''+c.id+'\')">Kelola</button></td>'+
         '</tr>';
       }).join("");
     }
@@ -555,7 +561,6 @@
       }).join(""):'<div class="muted" style="color:var(--muted);font-size:13px">Belum ada admin.</div>';
       $("modalBox").innerHTML=
         '<h3 style="margin-top:0">Kelola: '+esc(c.name)+'</h3>'+
-        '<button class="btn sm ghost" style="margin:0 0 12px" onclick="openCorpDash(\''+c.id+'\')">Buka dashboard corporate ini</button>'+
         '<label>Nama</label><input id="edName" value="'+esc(c.name)+'"/>'+
         '<label>Kode unik</label><input id="edCode" value="'+esc(c.code)+'"/>'+
         '<label>Status</label><select id="edStatus"><option value="active"'+(c.status==="active"?" selected":"")+'>active</option><option value="suspended"'+(c.status==="suspended"?" selected":"")+'>suspended</option></select>'+
@@ -598,7 +603,29 @@
       m.className="msg ok"; m.textContent="Password untuk "+email+" di-set. Sampaikan ke admin lewat jalur aman & minta ganti setelah login.";
       if(inp) inp.value="";
     }
-    function openCorpDash(id){ window.open("/corp-dashboard?corporate_id="+encodeURIComponent(id), "_blank"); }
+    async function loadCorpActivity(){
+      var box=$("corpActRows"), tot=$("corpActTotals");
+      box.innerHTML='<tr><td colspan="7"><div class="placeholder">Memuat…</div></td></tr>';
+      var r=await adminFetch("/api/admin/corporate/activity"); var j=await r.json().catch(function(){return{};});
+      if(!r.ok){ box.innerHTML='<tr><td colspan="7" class="err">'+esc(j.error||"Gagal memuat")+'</td></tr>'; tot.innerHTML=""; return; }
+      var t=j.totals||{};
+      function chip(lbl,val){ return '<div style="background:var(--card2,#111);border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:96px"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">'+lbl+'</div><div style="font-size:20px;font-weight:800">'+val+'</div></div>'; }
+      tot.innerHTML=chip("Perusahaan",t.corporates||0)+chip("Anggota",t.members||0)+chip("Aktif 7h",t.active_7d||0)+chip("Aktif 30h",t.active_30d||0)+chip("Scan 30h",t.scans_30d||0);
+      var list=j.corporates||[];
+      if(!list.length){ box.innerHTML='<tr><td colspan="7"><div class="placeholder">Belum ada perusahaan.</div></td></tr>'; return; }
+      box.innerHTML=list.map(function(c){
+        var st=c.status==="active"?'<span class="tagrole staff">active</span>':'<span class="tagrole viewer">suspended</span>';
+        return '<tr>'+
+          '<td>'+esc(c.name)+'</td>'+
+          '<td><code>'+esc(c.code)+'</code></td>'+
+          '<td>'+(c.member_count||0)+'</td>'+
+          '<td>'+(c.active_7d||0)+' <span style="color:var(--muted);font-size:12px">('+(c.active_7d_pct||0)+'%)</span></td>'+
+          '<td>'+(c.active_30d||0)+' <span style="color:var(--muted);font-size:12px">('+(c.active_30d_pct||0)+'%)</span></td>'+
+          '<td>'+(c.scans_30d||0)+'</td>'+
+          '<td>'+st+'</td>'+
+        '</tr>';
+      }).join("");
+    }
     async function removeCorpAdmin(id, uid){
       if(!confirm("Cabut akses admin corporate ini? Akun login tetap ada, hanya perannya sebagai admin perusahaan yang dicabut.")) return;
       var r=await adminFetch("/api/admin/corporate/"+encodeURIComponent(id)+"/admins/"+encodeURIComponent(uid),{method:"DELETE"});

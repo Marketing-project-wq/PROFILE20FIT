@@ -1957,8 +1957,10 @@ app.get("/api/partner/profile", async (req, res) => {
   const uid = String(req.query.user_id || req.query.auth_user_id || "").trim();
   if (!email && !uid) return res.status(400).json({ error: "Provide ?email= or ?user_id=." });
   try {
+    // PRIVASI: data siklus menstruasi (cycle_last_period/cycle_length) TIDAK PERNAH
+    // dikembalikan ke pihak mana pun selain user sendiri — termasuk partner API.
     let q = admin.from("my20fit_profile")
-      .select("auth_user_id,email,full_name,phone,gender,age,height_cm,weight_kg,main_goal,health_conditions,avatar_url,is_plus_member,onboarding_completed,cycle_last_period,cycle_length,updated_at")
+      .select("auth_user_id,email,full_name,phone,gender,age,height_cm,weight_kg,main_goal,health_conditions,avatar_url,is_plus_member,onboarding_completed,updated_at")
       .limit(1);
     q = email ? q.eq("email", email) : q.eq("auth_user_id", uid);
     const { data, error } = await q;
@@ -2197,6 +2199,20 @@ async function corpAudit(ctx, targetUserId, action, detail) {
   } catch (e) {}
 }
 
+// PRIVASI: superadmin 20FIT HANYA boleh MONITORING OPERASIONAL korporat (jumlah
+// anggota & keaktifan pemakaian). Data kesehatan INDIVIDU karyawan (BMI/MCU) — dan
+// MUTLAK data siklus menstruasi — TIDAK dibuka ke superadmin. Endpoint roster/kesehatan
+// corporate hanya untuk admin corporate perusahaan itu sendiri (jalur non-superadmin).
+// Kalau suatu saat superadmin butuh lihat data individu tertentu, itu keputusan pemilik
+// yang harus diputuskan eksplisit — BUKAN default. Gate ini ditegakkan di SERVER.
+function denyCorpHealthToSuperadmin(ctx, res) {
+  if (ctx && ctx.is_superadmin) {
+    res.status(403).json({ error: "Superadmin hanya boleh monitoring operasional korporat (lihat /api/admin/corporate/activity). Data kesehatan individu karyawan (BMI/MCU/siklus) tidak dibuka ke superadmin." });
+    return true;
+  }
+  return false;
+}
+
 // ---- SUPERADMIN: kelola akun corporate ----
 // List semua corporate + jumlah admin & anggota aktif.
 app.get("/api/admin/corporate", async (req, res) => {
@@ -2212,7 +2228,61 @@ app.get("/api/admin/corporate", async (req, res) => {
       var memberCount = (members || []).filter(function (m) { return m.corporate_id === c.id && m.status === "active"; }).length;
       return { id: c.id, name: c.name, code: c.code, status: c.status, contact_email: c.contact_email, created_at: c.created_at, admins: adminList, member_count: memberCount };
     });
+    // Audit BACA: setiap superadmin melihat daftar korporat dicatat (siapa, kapan, apa).
+    await adminAudit(ctx, "corporate.list.view", null, { count: out.length });
     return res.json({ ok: true, corporates: out });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// MONITORING OPERASIONAL (superadmin) — agregat per korporat TANPA data kesehatan.
+// Hanya: jumlah anggota aktif, keaktifan 7/30 hari (my20fit_user_activity), dan
+// pemakaian scan 30 hari. TIDAK ada BMI/MCU/siklus, TIDAK ada baris per-individu.
+// Didaftarkan SEBELUM route "/:id" supaya "activity" tidak ketangkap sebagai :id.
+app.get("/api/admin/corporate/activity", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var nowMs = Date.now();
+    var d7 = new Date(nowMs - 7 * 864e5).toISOString();
+    var d30 = new Date(nowMs - 30 * 864e5).toISOString();
+    var { data: corps, error } = await admin.from("my20fit_corporate")
+      .select("id,name,code,status,created_at").order("created_at", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    var { data: members } = await admin.from("my20fit_corporate_member").select("corporate_id,auth_user_id,status");
+    var activeMembers = (members || []).filter(function (m) { return m.status === "active"; });
+    var ids = activeMembers.map(function (m) { return m.auth_user_id; });
+    var actMap = {}, scanMap = {};
+    if (ids.length) {
+      var { data: acts } = await admin.from("my20fit_user_activity").select("auth_user_id,last_active_at").in("auth_user_id", ids);
+      (acts || []).forEach(function (a) { actMap[a.auth_user_id] = a.last_active_at; });
+      var { data: sc } = await admin.from("my20fit_scan_orders").select("auth_user_id,paid_at").eq("status", "paid").gte("paid_at", d30).in("auth_user_id", ids);
+      (sc || []).forEach(function (s) { scanMap[s.auth_user_id] = (scanMap[s.auth_user_id] || 0) + 1; });
+    }
+    var byCorp = {};
+    activeMembers.forEach(function (m) {
+      var a = byCorp[m.corporate_id] || (byCorp[m.corporate_id] = { member_count: 0, active_7d: 0, active_30d: 0, scans_30d: 0 });
+      a.member_count++;
+      var la = actMap[m.auth_user_id];
+      if (la && la >= d7) a.active_7d++;
+      if (la && la >= d30) a.active_30d++;
+      a.scans_30d += (scanMap[m.auth_user_id] || 0);
+    });
+    var out = (corps || []).map(function (c) {
+      var a = byCorp[c.id] || { member_count: 0, active_7d: 0, active_30d: 0, scans_30d: 0 };
+      return {
+        id: c.id, name: c.name, code: c.code, status: c.status, created_at: c.created_at,
+        member_count: a.member_count, active_7d: a.active_7d, active_30d: a.active_30d, scans_30d: a.scans_30d,
+        active_7d_pct: a.member_count ? Math.round(a.active_7d / a.member_count * 100) : 0,
+        active_30d_pct: a.member_count ? Math.round(a.active_30d / a.member_count * 100) : 0,
+      };
+    });
+    var totals = out.reduce(function (t, c) {
+      t.corporates++; t.members += c.member_count; t.active_7d += c.active_7d; t.active_30d += c.active_30d; t.scans_30d += c.scans_30d; return t;
+    }, { corporates: 0, members: 0, active_7d: 0, active_30d: 0, scans_30d: 0 });
+    await adminAudit(ctx, "corporate.activity.view", null, { corporates: out.length });
+    return res.json({
+      ok: true, corporates: out, totals: totals, generated_at: new Date().toISOString(),
+      note: "Operasional saja (jumlah anggota & keaktifan). TIDAK memuat data kesehatan/BMI/MCU/siklus individu.",
+    });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Buat corporate baru { name, code?, contact_email?, admin_email? }.
@@ -2271,6 +2341,8 @@ app.get("/api/admin/corporate/:id", async (req, res) => {
     var { data: admins } = await admin.from("my20fit_corporate_admin").select("auth_user_id,email,created_at").eq("corporate_id", id);
     var { data: members } = await admin.from("my20fit_corporate_member").select("status").eq("corporate_id", id);
     var active = (members || []).filter(function (m) { return m.status === "active"; }).length;
+    // Audit BACA: superadmin membuka detail korporat dicatat.
+    await adminAudit(ctx, "corporate.detail.view", id, { name: corp.name });
     return res.json({ ok: true, corporate: corp, admins: admins || [], member_count: active });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
@@ -2403,6 +2475,7 @@ async function corpRoster(corporateId) {
 // Ringkasan + matriks karyawan (admin corporate). Tiap akses dicatat audit.
 app.get("/api/corp/summary", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return;
   try {
     var roster = await corpRoster(ctx.corporate_id);
     var k = { total: roster.length, healthy: 0, attention: 0, unknown: 0, frequent: 0, rare: 0, high_need: 0 };
@@ -2418,6 +2491,7 @@ app.get("/api/corp/summary", async (req, res) => {
 // Detail satu karyawan (WAJIB anggota corporate ini). Akses individual dicatat audit.
 app.get("/api/corp/member/:uid", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return;
   var uid = String(req.params.uid || "");
   try {
     var { data: mem } = await admin.from("my20fit_corporate_member")
@@ -2583,6 +2657,7 @@ function corpMsgHtml(bodyText) {
 // Kirim pesan ke karyawan yang cocok filter. Filter DITERAPKAN ULANG di server (tak percaya client).
 app.post("/api/corp/message", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return; // filter pakai roster kesehatan -> superadmin tak boleh
   var b = req.body || {};
   var subject = String(b.subject || "").trim(), body = String(b.body || "").trim(), filter = b.filter || {};
   if (!subject || !body) return res.status(400).json({ error: "Subjek & isi pesan wajib diisi." });
@@ -2623,6 +2698,7 @@ app.post("/api/corp/message", async (req, res) => {
 // Riwayat pesan terkirim (corporate ini).
 app.get("/api/corp/messages", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return;
   try {
     var { data, error } = await admin.from("my20fit_corporate_message_log")
       .select("subject,recipient_count,sent_count,created_at,actor_email").eq("corporate_id", ctx.corporate_id)
