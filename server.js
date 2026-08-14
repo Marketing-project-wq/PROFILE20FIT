@@ -2001,6 +2001,16 @@ function adminHasRole(ctx, minRole) { return !!(ctx && ADMIN_RANK[ctx.role] >= A
 // kondisi/siklus/MCU). Endpoint yang memuat data profil kesehatan WAJIB memanggil ini
 // dan memangkas field sebelum mengirim respons — diblokir di level API, bukan cuma UI.
 function adminCanSeeHealth(ctx) { return !!(ctx && ctx.role !== "marketing"); }
+// PRIVASI MUTLAK: data siklus menstruasi (cycle_last_period/cycle_length/period_length)
+// TIDAK PERNAH keluar ke pihak mana pun selain user sendiri — termasuk admin & SUPERADMIN.
+// adminCanSeeHealth boleh true (admin lihat BMI/MCU), tapi siklus tetap dibuang di sini.
+// Dipakai untuk memangkas field siklus dari objek profil sebelum dikirim ke admin.
+function stripMenstrualCycle(prof) {
+  if (prof && typeof prof === "object") {
+    delete prof.cycle_last_period; delete prof.cycle_length; delete prof.period_length;
+  }
+  return prof;
+}
 async function requireAdmin(req, res, minRole) {
   const ctx = await getAdminContext(req);
   if (!ctx) {
@@ -3361,11 +3371,13 @@ app.get("/api/admin/user-detail", async (req, res) => {
   if (!uid) return res.status(400).json({ error: "uid wajib." });
   try {
     // Marketing: JANGAN select("*") — hindari bocornya health_conditions, siklus haid, dll.
-    // Hanya kolom kontak + komersial. Non-marketing tetap profil penuh.
+    // Hanya kolom kontak + komersial. Non-marketing tetap profil penuh (BMI/MCU),
+    // TAPI data siklus menstruasi tetap dibuang untuk SEMUA admin (lihat stripMenstrualCycle).
     const profileCols = adminCanSeeHealth(ctx)
       ? "*"
       : "auth_user_id,full_name,email,phone,scan_credits,onboarding_completed,is_plus_member,created_at";
     const { data: p } = await admin.from("my20fit_profile").select(profileCols).eq("auth_user_id", uid).limit(1);
+    var profileOut = stripMenstrualCycle((p && p[0]) || null);
     const { data: orders } = await admin.from("my20fit_scan_orders")
       .select("reff_no,order_type,credits,amount,net_amount,status,payment_method,voucher_id,created_at,paid_at")
       .eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(200);
@@ -3381,7 +3393,7 @@ app.get("/api/admin/user-detail", async (req, res) => {
       credits_bought: paid.reduce((s, o) => s + (+o.credits || 0), 0),
       highest_purchase: paid.reduce((m, o) => Math.max(m, (o.net_amount != null ? +o.net_amount : +o.amount) || 0), 0),
     };
-    return res.json({ ok: true, profile: (p && p[0]) || null, activity: (act && act[0]) || null, orders: orders || [], stats: stats, emails: emails || [] });
+    return res.json({ ok: true, profile: profileOut, activity: (act && act[0]) || null, orders: orders || [], stats: stats, emails: emails || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
