@@ -194,6 +194,30 @@
         </div>
         <div class="adm-sec-title" data-i18n="Saved segments">Segmen tersimpan</div>
         <div id="usrSegments"></div>
+        <div class="adm-sec-title" data-i18n="Add / import users (superadmin)">Tambah / import user (superadmin)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px">
+          <div>
+            <div class="adm-sec-title" style="margin-top:0" data-i18n="Add user manually">Tambah user manual</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <input class="adm-input" id="nuEmail" type="email" placeholder="Email" data-i18n-ph="Email">
+              <input class="adm-input" id="nuName" placeholder="Nama (opsional)" data-i18n-ph="Name (optional)">
+              <input class="adm-input" id="nuPhone" placeholder="Telepon (opsional)" data-i18n-ph="Phone (optional)">
+              <button class="adm-btn adm-btn--primary" id="nuAdd" data-i18n="Add user">Tambah user</button>
+              <div class="adm-note" id="nuMsg"></div>
+            </div>
+          </div>
+          <div>
+            <div class="adm-sec-title" style="margin-top:0" data-i18n="Import CSV (email, full_name, phone)">Import CSV (email, full_name, phone)</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <textarea class="adm-input" id="ciText" rows="5" placeholder="email,full_name,phone" style="font-family:var(--font-mono)"></textarea>
+              <div style="display:flex;gap:8px">
+                <button class="adm-btn adm-btn--sm" id="ciPreview" data-i18n="Preview">Pratinjau</button>
+                <button class="adm-btn adm-btn--primary" id="ciCommit" style="display:none" data-i18n="Create new users">Buat user baru</button>
+              </div>
+              <div class="adm-note" id="ciReport"></div>
+            </div>
+          </div>
+        </div>
       </section>
       <section data-section="voucher" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Voucher" data-title-en="Voucher" data-question="Voucher mana yang menghasilkan revenue bersih, dan berapa % pembeli baru?" data-question-en="Which voucher drives net revenue, and what % are new buyers?">
         <div class="adm-tabs" data-tabgroup="vch" data-default="perf">
@@ -790,8 +814,74 @@
         '</div>'+
         '<div class="adm-sec-title" style="margin:14px 0 6px">'+L("Email timeline","Timeline email")+'</div>'+
         (em.length? em.slice(0,8).map(function(m){ var st=m.clicked_at?"clicked":m.opened_at?"opened":m.delivered_at?"delivered":(m.status||"sent"); return '<div style="font-size:11px;padding:2px 0"><span class="adm-mono">'+fmtDate(m.created_at)+'</span> · '+(m.campaign_id||m.channel||"")+' · '+st+'</div>'; }).join("") : '<div class="adm-note">'+L("No emails yet.","Belum ada email.")+'</div>')+
+        (IS_SUPER? ('<div class="adm-sec-title" style="margin:14px 0 6px">'+L("Account (superadmin)","Akun (superadmin)")+'</div>'+
+          '<div style="display:flex;gap:6px"><input class="adm-input" id="ceEmail" type="email" placeholder="'+L("New email","Email baru")+'" style="flex:1"><button class="adm-btn adm-btn--sm" id="ceBtn">'+L("Change email","Ubah email")+'</button></div>'+
+          '<div class="adm-note" id="ceMsg"></div><div id="ceAudit" style="margin-top:8px"></div>') : '')+
         '</div>';
+      if(IS_SUPER){ var ceb=document.getElementById("ceBtn"); if(ceb) ceb.onclick=function(){ changeUserEmail(uid); }; loadUserAudit(uid); }
     }catch(e){ box.innerHTML='<div class="adm-note">'+String(e.message||e)+'</div>'; }
+  }
+  async function changeUserEmail(uid){
+    var em=((document.getElementById("ceEmail")||{}).value||"").trim(), msg=document.getElementById("ceMsg");
+    if(!em){ if(msg)msg.textContent=L("Enter new email.","Isi email baru."); return; }
+    if(msg)msg.textContent=L("Sending…","Mengirim…");
+    var r=await adminPost("/api/admin/user/change-email",{uid:uid,new_email:em}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(msg)msg.textContent=r.message||L("Confirmation sent (new email active after user confirms).","Konfirmasi terkirim (email baru aktif setelah user konfirmasi)."); if(window.admToast)admToast(L("Email change sent","Perubahan email dikirim")); loadUserAudit(uid); }
+    else if(msg)msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  async function loadUserAudit(uid){
+    var box=document.getElementById("ceAudit"); if(!box) return;
+    var j=await adminFetch("/api/admin/user/audit?uid="+encodeURIComponent(uid)).then(function(r){return r.json();}).catch(function(){return{};});
+    var logs=(j&&j.logs)||[];
+    if(!logs.length){ box.innerHTML='<div class="adm-note">'+L("No admin history for this user.","Belum ada riwayat admin untuk user ini.")+'</div>'; return; }
+    box.innerHTML='<div class="adm-sec-title" style="margin:8px 0 4px">'+L("Admin history","Riwayat admin")+'</div>'+logs.map(function(x){ return '<div style="font-size:11px;padding:2px 0"><span class="adm-mono">'+fmtDT(x.created_at)+'</span> · '+esc(x.action)+' · '+esc(x.actor_email||"—")+'</div>'; }).join("");
+  }
+  // ---- ADD / IMPORT USERS (superadmin) ----
+  var CI_ROWS=null;
+  async function doAddUser(){
+    var em=((document.getElementById("nuEmail")||{}).value||"").trim(), msg=document.getElementById("nuMsg");
+    if(!em){ if(msg)msg.textContent=L("Email required.","Email wajib."); return; }
+    if(msg)msg.textContent=L("Creating…","Membuat…");
+    var body={email:em, full_name:((document.getElementById("nuName")||{}).value||"").trim()||null, phone:((document.getElementById("nuPhone")||{}).value||"").trim()||null};
+    var r=await adminPost("/api/admin/user/create",body).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(msg)msg.textContent=L("User created: ","User dibuat: ")+em; if(window.admToast)admToast(L("User created","User dibuat")); ["nuEmail","nuName","nuPhone"].forEach(function(id){var e=document.getElementById(id);if(e)e.value="";}); loadUsers(); }
+    else if(msg)msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  function parseCsvUsers(text){
+    var lines=String(text||"").replace(/\r/g,"").split("\n").filter(function(l){return l.trim()!=="";});
+    if(!lines.length) return [];
+    function splitLine(l){ var out=[],cur="",q=false; for(var i=0;i<l.length;i++){var c=l[i]; if(q){ if(c==='"'){ if(l[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; } else { if(c==='"') q=true; else if(c===",") {out.push(cur);cur="";} else cur+=c; } } out.push(cur); return out.map(function(s){return s.trim();}); }
+    var first=splitLine(lines[0]).map(function(s){return s.toLowerCase();});
+    var hasHeader=first.indexOf("email")>=0, idxE=0,idxN=1,idxP=2;
+    if(hasHeader){ idxE=first.indexOf("email"); idxN=first.indexOf("full_name"); if(idxN<0)idxN=first.indexOf("name"); idxP=first.indexOf("phone"); }
+    var rows=[];
+    for(var i=hasHeader?1:0;i<lines.length;i++){ var c=splitLine(lines[i]); rows.push({ email:(c[idxE]||""), full_name: idxN>=0?(c[idxN]||""):"", phone: idxP>=0?(c[idxP]||""):"" }); }
+    return rows;
+  }
+  function renderCiReport(j){
+    var box=document.getElementById("ciReport"); if(!box) return;
+    var rows=(j&&j.rows)||[], counts=j.counts||{};
+    var head = j.mode==="preview"
+      ? L("New","Baru")+": <b>"+(counts.new||0)+"</b> · "+L("Existing","Sudah ada")+": "+(counts.duplicate_existing||0)+" · "+L("Dup in file","Ganda di file")+": "+(counts.duplicate_in_file||0)+" · Invalid: "+(counts.invalid||0)+" ("+L("total","total")+" "+j.total+")"
+      : L("Created","Dibuat")+": <b>"+(j.created||0)+"</b> · "+L("Failed","Gagal")+": "+(j.failed||0)+" ("+L("total","total")+" "+j.total+")";
+    box.innerHTML='<div class="adm-note">'+head+'</div><div style="max-height:220px;overflow:auto;margin-top:8px"><table class="adm-table"><thead><tr><th>#</th><th>Email</th><th>Status</th><th>'+L("Note","Ket.")+'</th></tr></thead><tbody>'+
+      rows.map(function(x){ return '<tr><td class="adm-num">'+x.row+'</td><td class="adm-mono">'+esc(x.email||"—")+'</td><td>'+esc(x.status)+'</td><td class="adm-note">'+esc(x.reason||"")+'</td></tr>'; }).join("")+'</tbody></table></div>';
+  }
+  async function ciPreview(){
+    var rows=parseCsvUsers((document.getElementById("ciText")||{}).value||""), box=document.getElementById("ciReport");
+    if(!rows.length){ box.innerHTML='<div class="adm-note">'+L("CSV empty / unreadable.","CSV kosong / tak terbaca.")+'</div>'; return; }
+    CI_ROWS=rows; box.innerHTML='<div class="adm-note">'+L("Processing…","Memproses…")+'</div>';
+    var r=await adminPost("/api/admin/user/bulk-import",{rows:rows,commit:false}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(!r||!r.ok){ box.innerHTML='<div class="adm-note">'+esc((r&&r.error)||L("Failed","Gagal"))+'</div>'; return; }
+    renderCiReport(r);
+    var cb=document.getElementById("ciCommit"); if(cb) cb.style.display=(r.counts&&r.counts.new)?"":"none";
+  }
+  async function ciCommit(){
+    if(!CI_ROWS) return;
+    var box=document.getElementById("ciReport"); box.innerHTML='<div class="adm-note">'+L("Creating users…","Membuat user…")+'</div>';
+    var r=await adminPost("/api/admin/user/bulk-import",{rows:CI_ROWS,commit:true}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(!r||!r.ok){ box.innerHTML='<div class="adm-note">'+esc((r&&r.error)||L("Failed","Gagal"))+'</div>'; return; }
+    renderCiReport(r); var cb=document.getElementById("ciCommit"); if(cb) cb.style.display="none"; loadUsers();
   }
 
   // ---- MARKETING / EMAIL ----
@@ -1727,6 +1817,9 @@
     var _vcb=document.getElementById("vcCreate"); if(_vcb) _vcb.onclick=vcCreate;
     var _vbb=document.getElementById("vbGen"); if(_vbb) _vbb.onclick=vbGen;
     var _uex=document.getElementById("usrExport"); if(_uex) _uex.onclick=usrExportCsv;
+    var _nua=document.getElementById("nuAdd"); if(_nua) _nua.onclick=doAddUser;
+    var _cip=document.getElementById("ciPreview"); if(_cip) _cip.onclick=ciPreview;
+    var _cic=document.getElementById("ciCommit"); if(_cic) _cic.onclick=ciCommit;
     var _vmr=document.getElementById("vmRefresh"); if(_vmr) _vmr.onclick=loadVoucherManage;
     var _vms=document.getElementById("vmStatus"); if(_vms) _vms.addEventListener("change",loadVoucherManage);
     var _vmq=document.getElementById("vmSearch"); if(_vmq){ var _vmt; _vmq.addEventListener("input",function(){ clearTimeout(_vmt); _vmt=setTimeout(loadVoucherManage,300); }); }
