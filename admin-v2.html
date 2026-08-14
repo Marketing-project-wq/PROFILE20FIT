@@ -98,6 +98,12 @@
         <div class="adm-sec-title" data-i18n="Revenue — last 14 days">Revenue — 14 hari terakhir</div>
         <div class="adm-chart" id="ovChart"></div>
         <div class="adm-note" style="margin-top:8px" id="ovChartNote"></div>
+        <div id="ovExpiring"></div>
+        <div class="adm-grid adm-grid--3" style="margin-top:16px">
+          <div><div class="adm-sec-title" style="margin-top:0" data-i18n="Order status">Status order</div><div id="ovStatus"></div></div>
+          <div><div class="adm-sec-title" style="margin-top:0" data-i18n="Payment method">Metode bayar</div><div id="ovMethod"></div></div>
+          <div><div class="adm-sec-title" style="margin-top:0" data-i18n="Top vouchers">Voucher teratas</div><div id="ovVouchers"></div></div>
+        </div>
         <div class="adm-callout adm-scaffold">
           <span class="adm-badge" data-i18n="No data yet">BELUM ADA DATA</span>
           <div class="adm-note" data-i18n="Not yet instrumented: calorie accuracy, admin device, admin page frequency. These stay empty — no invented numbers.">Belum diinstrumentasi: akurasi kalori, device admin, frekuensi halaman admin. Sengaja dikosongkan — tanpa angka karangan.</div>
@@ -674,6 +680,13 @@
 
   // ---- OVERVIEW ----
 
+  function ovBarTable(elId, obj){
+    var e=document.getElementById(elId); if(!e) return;
+    var rows=Object.keys(obj||{}).map(function(k){return {k:k,v:obj[k]||0};}).sort(function(a,b){return b.v-a.v;});
+    if(!rows.length){ e.innerHTML='<div class="adm-note">—</div>'; return; }
+    var max=rows[0].v||1;
+    e.innerHTML='<table class="adm-table"><tbody>'+rows.map(function(r){return '<tr><td>'+esc(r.k)+'</td><td class="adm-right adm-num">'+r.v+'</td><td style="width:45%"><div class="adm-bar"><i style="width:'+Math.max(2,Math.round(r.v/max*100))+'%"></i></div></td></tr>';}).join("")+'</tbody></table>';
+  }
   async function loadOverview(){
     var kp = document.getElementById("ovKpis");
     try{
@@ -706,6 +719,14 @@
         return '<div><i style="height:'+h+'%" title="'+t.date+': '+rp(t.revenue)+'"></i></div>';
       }).join("") || '<div class="adm-note">'+L("No data in range","Tak ada data di rentang")+'</div>';
       document.getElementById("ovChartNote").textContent = L("Bars = daily revenue (paid). Hover for date.","Batang = revenue harian (paid). Arahkan untuk tanggal.");
+      // Fase E: alert voucher kedaluwarsa + breakdown status/metode + top voucher
+      var exp=(j.voucher&&j.voucher.expiring)||[];
+      var ovExp=document.getElementById("ovExpiring");
+      if(ovExp) ovExp.innerHTML = exp.length ? '<div class="adm-alert" style="margin-top:12px"><span class="dot"></span><div>'+L(exp.length+" voucher expiring in ≤7 days: ",exp.length+" voucher kedaluwarsa ≤7 hari: ")+exp.map(function(v){return esc(v.code||"—");}).join(", ")+'</div></div>' : '';
+      ovBarTable("ovStatus", tx.byStatus||{});
+      ovBarTable("ovMethod", j.byMethod||{});
+      var topV=(j.voucher&&j.voucher.top)||[], ovV=document.getElementById("ovVouchers");
+      if(ovV) ovV.innerHTML = topV.length ? '<table class="adm-table"><tbody>'+topV.slice(0,5).map(function(v){return '<tr><td class="adm-mono">'+esc(v.code||v.voucher_id||"—")+'</td><td class="adm-right adm-num">'+(v.count||0)+'</td></tr>';}).join("")+'</tbody></table>' : '<div class="adm-note">—</div>';
       if(window.applyI18n) {}
     }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Error: ","Error: ")+String(e.message||e)+'</div></div>'; }
   }
