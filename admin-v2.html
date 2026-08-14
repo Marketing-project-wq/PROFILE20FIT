@@ -1404,7 +1404,7 @@
       var ce=document.getElementById("caEmpty"); if(ce) ce.hidden=admins.length>0;
       tb.innerHTML=admins.map(function(a){
         return '<tr><td class="adm-mono">'+esc(a.email)+'</td><td class="adm-num adm-note">'+(a.created_at?String(a.created_at).slice(0,10):"—")+'</td>'+
-          '<td class="adm-right"><button class="adm-btn adm-btn--sm caDel" data-uid="'+esc(a.auth_user_id)+'" data-confirm="'+L("Sure?","Yakin?")+'">'+L("Remove","Hapus")+'</button></td></tr>';
+          '<td class="adm-right"><button class="adm-btn adm-btn--sm caInvite" data-email="'+esc(a.email)+'">'+L("Invite email","Undang email")+'</button> <button class="adm-btn adm-btn--sm caDel" data-uid="'+esc(a.auth_user_id)+'" data-confirm="'+L("Sure?","Yakin?")+'">'+L("Remove","Hapus")+'</button></td></tr>';
       }).join("");
     }catch(e){ tb.innerHTML=""; }
   }
@@ -1417,6 +1417,12 @@
     var r=await adminPost("/api/admin/corporate/"+encodeURIComponent(org)+"/admins",body).then(function(x){return x.json();}).catch(function(){return{};});
     if(r&&r.ok){ msg.textContent=L("Saved","Tersimpan")+((r.admin&&r.admin.password_set)?(" · "+L("password set","password di-set")):""); if(window.admToast)admToast(L("Portal account saved","Akun portal tersimpan")); document.getElementById("caEmail").value=""; document.getElementById("caPass").value=""; caLoadOrg(org); loadCorporate(); }
     else msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  async function caInvite(addr){
+    var sel=document.getElementById("caOrg"), org=sel?sel.value:""; if(!org||!addr) return;
+    var r=await adminPost("/api/admin/corporate/"+encodeURIComponent(org)+"/admins/invite",{email:addr}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(r.message||L("Invite sent","Undangan dikirim")); }
+    else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
   }
   async function caRemove(uid){
     var sel=document.getElementById("caOrg"), org=sel?sel.value:""; if(!org||!uid) return;
@@ -1773,6 +1779,8 @@
     if(mnf){ MN_FILTER=mnf.dataset.s; document.querySelectorAll(".mnf").forEach(function(c){c.setAttribute("aria-pressed",String(c===mnf));}); MN_SEL=null; loadMenu(); return; }
     var cad=e.target.closest(".caDel");
     if(cad){ if(cad.dataset.armed==="1") return; caRemove(cad.dataset.uid); return; }
+    var cinv=e.target.closest(".caInvite");
+    if(cinv){ caInvite(cinv.dataset.email); return; }
     var srd=e.target.closest(".setRoleDel");
     if(srd){ if(srd.dataset.armed==="1") return; setRoleRemove(srd.dataset.uid); return; }
     var msb=e.target.closest(".msbtn");
