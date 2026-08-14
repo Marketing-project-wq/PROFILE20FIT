@@ -197,6 +197,7 @@
         <div class="adm-tabs" data-tabgroup="vch" data-default="perf">
           <button data-tab="vch" data-tab-id="perf" data-i18n="Performance">Performa</button>
           <button data-tab="vch" data-tab-id="create" data-i18n="Create voucher">Buat voucher</button>
+          <button data-tab="vch" data-tab-id="manage" data-i18n="Manage">Kelola</button>
         </div>
         <div data-tabpanel="vch" data-tab="perf">
           <div class="adm-grid adm-grid--4" id="vchKpis"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
@@ -251,6 +252,28 @@
                 <textarea class="adm-input" id="vbOut" rows="5" style="font-family:var(--font-mono)" readonly></textarea>
               </div>
             </div>
+          </div>
+        </div>
+        <div data-tabpanel="vch" data-tab="manage" hidden>
+          <div style="display:flex;gap:8px;align-items:center;margin:12px 0;flex-wrap:wrap">
+            <input class="adm-input" id="vmSearch" style="max-width:220px" placeholder="Cari kode…" data-i18n-ph="Search code…">
+            <select class="adm-input" id="vmStatus" style="max-width:160px">
+              <option value="" data-i18n="All status">Semua status</option>
+              <option value="active" data-i18n="Active">Aktif</option>
+              <option value="inactive" data-i18n="Inactive">Nonaktif</option>
+            </select>
+            <button class="adm-btn adm-btn--sm" id="vmRefresh" data-i18n="Refresh">Refresh</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px">
+            <div style="overflow-x:auto">
+              <table class="adm-table" id="vmTable">
+                <thead><tr><th data-i18n="Code">Kode</th><th class="adm-right" data-i18n="Discount">Diskon</th><th class="adm-right" data-i18n="Used">Dipakai</th><th data-i18n="Valid">Berlaku</th><th data-i18n="Status">Status</th><th></th></tr></thead>
+                <tbody id="vmRows"><tr><td colspan="6"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+              </table>
+            </div>
+            <aside id="vmPane" class="adm-callout" style="grid-template-columns:1fr">
+              <div class="adm-note" data-i18n="Select a voucher for details or edit.">Pilih voucher untuk lihat detail atau edit.</div>
+            </aside>
           </div>
         </div>
       </section>
@@ -1463,6 +1486,84 @@
     rpBind("rpExpUsers",function(){admExport("top_users",["Name","Email","PageViews","LastActive"],tu.map(function(u){return [u.full_name,u.email,u.ping_count,u.last_active_at];}),"top_users.csv");});
   }
 
+  // ---- VOUCHER MANAGE (edit / activate / detail) ----
+  function vDisc(v){ return v.discount_type==="percentage" ? (v.discount_value+"%") : rp(v.discount_value); }
+  function vDOnly(d){ return d?String(d).slice(0,10):"—"; }
+  var VM_CACHE=[];
+  async function loadVoucherManage(){
+    var tb=document.getElementById("vmRows"); if(!tb) return;
+    tb.innerHTML='<tr><td colspan="6"><div class="adm-loading">'+L("Loading…","Memuat…")+'</div></td></tr>';
+    var s=(document.getElementById("vmSearch")||{}).value||"", st=(document.getElementById("vmStatus")||{}).value||"";
+    var qs="search="+encodeURIComponent(s)+"&status="+encodeURIComponent(st)+"&sort=created_at&dir=desc";
+    var j=await adminFetch("/api/admin/vouchers?"+qs).then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="6" class="adm-note">'+esc((j&&j.error)||L("Failed","Gagal"))+'</td></tr>'; return; }
+    VM_CACHE=j.vouchers||[];
+    if(!VM_CACHE.length){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("No vouchers yet.","Belum ada voucher.")+'</div></td></tr>'; return; }
+    tb.innerHTML=VM_CACHE.map(function(v){
+      var lim=v.usage_limit_total!=null?v.usage_limit_total:"∞";
+      var stg=v.status==="active"?'<span class="adm-tag adm-tag--paid">'+esc(v.status)+'</span>':'<span class="adm-tag adm-tag--mute">'+esc(v.status)+'</span>';
+      var act='<button class="adm-btn adm-btn--sm vmAct" data-a="detail" data-id="'+esc(v.id)+'">'+L("Detail","Detail")+'</button> '+
+        '<button class="adm-btn adm-btn--sm vmAct" data-a="edit" data-id="'+esc(v.id)+'">'+L("Edit","Edit")+'</button> '+
+        (v.status==="inactive"
+          ? '<button class="adm-btn adm-btn--sm vmAct" data-a="on" data-id="'+esc(v.id)+'">'+L("Activate","Aktifkan")+'</button>'
+          : '<button class="adm-btn adm-btn--sm vmAct" data-a="off" data-id="'+esc(v.id)+'" data-confirm="'+L("Deactivate?","Nonaktifkan?")+'">'+L("Deactivate","Nonaktif")+'</button>');
+      return '<tr><td class="adm-mono"><b>'+esc(v.code)+'</b></td><td class="adm-right">'+vDisc(v)+'</td><td class="adm-right adm-num">'+(v.used_count||0)+' / '+lim+'</td><td class="adm-note">'+vDOnly(v.valid_from)+' – '+vDOnly(v.valid_until)+'</td><td>'+stg+'</td><td style="white-space:nowrap">'+act+'</td></tr>';
+    }).join("");
+  }
+  async function vmDetail(id){
+    var pane=document.getElementById("vmPane"); if(!pane) return;
+    pane.innerHTML='<div class="adm-loading">'+L("Loading…","Memuat…")+'</div>';
+    var j=await adminFetch("/api/admin/vouchers/"+encodeURIComponent(id)).then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j||!j.ok){ pane.innerHTML='<div class="adm-note">'+esc((j&&j.error)||L("Failed","Gagal"))+'</div>'; return; }
+    var v=j.voucher, u=j.usages||[];
+    pane.innerHTML='<div style="font-weight:800;font-size:16px">'+esc(v.code)+'</div>'+
+      (v.description?'<div class="adm-note">'+esc(v.description)+'</div>':'')+
+      '<div class="adm-grid adm-grid--2" style="margin:10px 0">'+cell(vDisc(v),"Diskon","Discount")+cell((v.used_count||0)+" / "+(v.usage_limit_total!=null?v.usage_limit_total:"∞"),"Dipakai","Used")+'</div>'+
+      '<div class="adm-note">'+L("Valid","Berlaku")+': '+vDOnly(v.valid_from)+' – '+vDOnly(v.valid_until)+' · Min '+rp(v.min_transaction)+' · '+esc(v.status)+'</div>'+
+      '<div class="adm-sec-title">'+L("Usage history","Riwayat pemakaian")+' ('+u.length+')</div>'+
+      (u.length? '<div style="overflow-x:auto"><table class="adm-table"><thead><tr><th>User</th><th>'+L("Tx","Transaksi")+'</th><th class="adm-right">'+L("Discount","Diskon")+'</th><th>'+L("When","Waktu")+'</th></tr></thead><tbody>'+
+        u.map(function(x){return '<tr><td class="adm-mono">'+esc(String(x.auth_user_id).slice(0,8))+'…</td><td class="adm-mono">'+esc(x.reff_no||"—")+'</td><td class="adm-right adm-num">'+rp(x.discount_applied)+'</td><td class="adm-note">'+fmtDate(x.used_at)+'</td></tr>';}).join("")+'</tbody></table></div>'
+        : '<div class="adm-note">'+L("No usage yet.","Belum ada pemakaian.")+'</div>');
+  }
+  function vmEditForm(id){
+    var pane=document.getElementById("vmPane"); if(!pane) return;
+    var v=VM_CACHE.filter(function(x){return x.id===id;})[0]; if(!v) return;
+    var used=(v.used_count||0)>0, lock=used?"disabled":"";
+    pane.innerHTML='<div style="font-weight:800;font-size:16px">'+L("Edit voucher","Edit voucher")+' '+esc(v.code)+'</div>'+
+      (used?'<div class="adm-note">'+L("Used already — type/value & min are locked.","Sudah dipakai — tipe/nilai & min terkunci.")+'</div>':'')+
+      '<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">'+
+      '<label class="adm-note">'+L("Discount type","Tipe diskon")+'</label><select class="adm-input" id="vmType" '+lock+'><option value="percentage"'+(v.discount_type==="percentage"?" selected":"")+'>percentage (%)</option><option value="fixed"'+(v.discount_type==="fixed"?" selected":"")+'>fixed (Rp)</option></select>'+
+      '<label class="adm-note">'+L("Value","Nilai")+'</label><input class="adm-input" id="vmValue" type="number" '+lock+' value="'+esc(v.discount_value)+'">'+
+      '<label class="adm-note">'+L("Min transaction","Min transaksi")+'</label><input class="adm-input" id="vmMin" type="number" '+lock+' value="'+esc(v.min_transaction!=null?v.min_transaction:0)+'">'+
+      '<label class="adm-note">'+L("Total quota","Kuota total")+'</label><input class="adm-input" id="vmLimT" type="number" value="'+esc(v.usage_limit_total!=null?v.usage_limit_total:"")+'" placeholder="∞">'+
+      '<label class="adm-note">'+L("Per-user limit","Batas per user")+'</label><input class="adm-input" id="vmLimU" type="number" value="'+esc(v.usage_limit_per_user!=null?v.usage_limit_per_user:"")+'" placeholder="∞">'+
+      '<label class="adm-note">'+L("Valid from","Berlaku dari")+'</label><input class="adm-input" id="vmFrom" type="date" value="'+(v.valid_from?String(v.valid_from).slice(0,10):"")+'">'+
+      '<label class="adm-note">'+L("Valid until","Berlaku sampai")+'</label><input class="adm-input" id="vmUntil" type="date" value="'+(v.valid_until?String(v.valid_until).slice(0,10):"")+'">'+
+      '<label class="adm-note">'+L("Description","Deskripsi")+'</label><input class="adm-input" id="vmDesc" value="'+esc(v.description||"")+'">'+
+      '<div class="adm-note" id="vmMsg"></div>'+
+      '<div style="display:flex;gap:8px"><button class="adm-btn adm-btn--primary" id="vmSave">'+L("Save","Simpan")+'</button><button class="adm-btn adm-btn--sm" id="vmCancel">'+L("Cancel","Batal")+'</button></div>'+
+      '</div>';
+    document.getElementById("vmSave").onclick=function(){ vmSave(v.id); };
+    document.getElementById("vmCancel").onclick=function(){ vmDetail(v.id); };
+  }
+  async function vmSave(id){
+    var msg=document.getElementById("vmMsg");
+    var body={ discount_type:document.getElementById("vmType").value, discount_value:document.getElementById("vmValue").value,
+      min_transaction:document.getElementById("vmMin").value, usage_limit_total:document.getElementById("vmLimT").value,
+      usage_limit_per_user:document.getElementById("vmLimU").value, valid_from:document.getElementById("vmFrom").value||null,
+      valid_until:document.getElementById("vmUntil").value||null, description:document.getElementById("vmDesc").value };
+    if(msg) msg.textContent=L("Saving…","Menyimpan…");
+    var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
+    var r=await fetch("/api/admin/vouchers/"+encodeURIComponent(id)+qs,{method:"PATCH",credentials:"include",headers:Object.assign({"content-type":"application/json"},await admAuthHeaders()),body:JSON.stringify(body)}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Voucher saved","Voucher tersimpan")); loadVoucherManage(); vmDetail(id); }
+    else if(msg) msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  async function vmToggle(id, on){
+    var r=await adminPost("/api/admin/vouchers/"+encodeURIComponent(id)+"/"+(on?"activate":"deactivate"),{}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(on?L("Activated","Diaktifkan"):L("Deactivated","Dinonaktifkan")); loadVoucherManage(); }
+    else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
+  }
+
   // ---- TRAFFIC (attribution) ----
   function trafficTable(rows){
     if(!rows||!rows.length) return '<div class="adm-note">'+L("No data yet.","Data belum tersedia.")+'</div>';
@@ -1535,6 +1636,10 @@
     if(crow){ loadCampaignDrill(crow.dataset.cid); return; }
     var btab=e.target.closest('[data-tab="mkt"][data-tab-id="banner"]');
     if(btab){ setTimeout(loadBanner,0); return; }
+    var vmtab=e.target.closest('[data-tab="vch"][data-tab-id="manage"]');
+    if(vmtab){ setTimeout(loadVoucherManage,0); return; }
+    var vma=e.target.closest(".vmAct");
+    if(vma){ if(vma.dataset.confirm&&vma.dataset.armed==="1") return; var vmaA=vma.dataset.a,vmaId=vma.dataset.id; if(vmaA==="detail")vmDetail(vmaId); else if(vmaA==="edit")vmEditForm(vmaId); else if(vmaA==="on")vmToggle(vmaId,true); else if(vmaA==="off")vmToggle(vmaId,false); return; }
     var mnrow=e.target.closest("#mnRows tr[data-mid]");
     if(mnrow){ var mm=MN_CACHE.filter(function(x){return x.id===mnrow.dataset.mid;})[0]; if(mm){ document.querySelectorAll("#mnRows tr").forEach(function(x){x.style.background="";}); mnrow.style.background="var(--surface)"; mnRenderDetail(mm); } return; }
     var mnf=e.target.closest(".mnf");
@@ -1584,6 +1689,9 @@
     ["vcType","vcValue","vcMin","vcLimit","vcPerUser","vcUntil"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",vcPreview); });
     var _vcb=document.getElementById("vcCreate"); if(_vcb) _vcb.onclick=vcCreate;
     var _vbb=document.getElementById("vbGen"); if(_vbb) _vbb.onclick=vbGen;
+    var _vmr=document.getElementById("vmRefresh"); if(_vmr) _vmr.onclick=loadVoucherManage;
+    var _vms=document.getElementById("vmStatus"); if(_vms) _vms.addEventListener("change",loadVoucherManage);
+    var _vmq=document.getElementById("vmSearch"); if(_vmq){ var _vmt; _vmq.addEventListener("input",function(){ clearTimeout(_vmt); _vmt=setTimeout(loadVoucherManage,300); }); }
     var _bs=document.getElementById("bnSave"); if(_bs) _bs.onclick=bnSave;
     var _br=document.getElementById("bnReset"); if(_br) _br.onclick=bnResetForm;
     ["bnImgId","bnImgEn","bnAltId","bnAltEn","bnCtaId","bnCtaEn"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",bnPreview); });
