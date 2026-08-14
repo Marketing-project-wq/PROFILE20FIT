@@ -173,15 +173,6 @@
       <div id="corpBody"><div class="muted">…</div></div>
     </div>
 
-    <!-- Preferensi Email (consent — opt-in, bisa diubah kapan saja) -->
-    <div class="card" id="emailPrefCard">
-      <div class="card-hd"><h2>✉️ <span data-i18n="emailpref_title">Preferensi Email</span></h2></div>
-      <div>
-        <label style="display:flex;align-items:center;gap:9px;padding:8px 0;cursor:pointer"><input type="checkbox" id="epMkt" onchange="saveEmailPref()" style="width:auto"> <span data-i18n="emailpref_mkt">Tips nutrisi &amp; kabar dari 20FIT</span></label>
-        <label style="display:flex;align-items:center;gap:9px;padding:8px 0;cursor:pointer"><input type="checkbox" id="epMeal" onchange="saveEmailPref()" style="width:auto"> <span data-i18n="emailpref_meal">Pengingat mencatat makan (email)</span></label>
-        <div class="muted" id="epMsg" style="margin-top:6px;font-size:12px"></div>
-      </div>
-    </div>
 
     <!-- Kontribusi Menu (submission user + revisi menu yang ditolak) -->
     <div class="sec" data-i18n="prof_menu_sec">My Menu Contributions</div>
@@ -339,30 +330,8 @@
       else loadAvatar();
       document.getElementById("pname").textContent=nm;
       document.getElementById("pemail").textContent=p.email||"";
-      fillForm(p); renderSummary(p); renderHistory(); refreshQuota(); loadCorpMembership(); loadMenus(); loadEmailPrefs();
+      fillForm(p); renderSummary(p); renderHistory(); refreshQuota(); loadCorpMembership(); loadMenus();
     })();
-
-    // ---- Preferensi Email (consent marketing / meal reminder) ----
-    async function loadEmailPrefs(){
-      try{
-        var r=await corpFetch("/api/comms/prefs"); var j=await r.json().catch(function(){return{};});
-        if(j&&j.ok&&j.prefs){
-          document.getElementById("epMkt").checked=!!j.prefs.consent_marketing;
-          document.getElementById("epMeal").checked=!!j.prefs.consent_meal_reminder;
-        }
-      }catch(e){}
-    }
-    async function saveEmailPref(){
-      var msg=document.getElementById("epMsg"); msg.textContent=L({en:"Saving…",id:"Menyimpan…"});
-      try{
-        var r=await corpFetch("/api/comms/consent",{method:"POST",body:JSON.stringify({
-          marketing:document.getElementById("epMkt").checked,
-          meal_reminder:document.getElementById("epMeal").checked,
-          lang:(localStorage.getItem("lang")==="en"?"en":"id")})});
-        var j=await r.json().catch(function(){return{};});
-        msg.textContent=(j&&j.ok)?L({en:"Saved.",id:"Tersimpan."}):L({en:"Failed to save.",id:"Gagal menyimpan."});
-      }catch(e){ msg.textContent=L({en:"Failed to save.",id:"Gagal menyimpan."}); }
-    }
 
     // ---- Corporate Health Program (opt-in) ----
     var CORP_JOIN = { code:"", name:"", version:"" };
@@ -391,8 +360,44 @@
       box.innerHTML=
         '<div class="kv"><span class="k">'+L({en:"Company",id:"Perusahaan"})+'</span><span class="v">'+escapeHtml(m.corporate_name||"—")+'</span></div>'+
         '<div class="kv"><span class="k">'+L({en:"Joined",id:"Bergabung"})+'</span><span class="v">'+escapeHtml(since)+'</span></div>'+
-        '<div class="muted" style="margin:12px 0">'+L({en:"Your HR admin can see your BMI status, MCU results, gender, age, and 20FIT usage frequency. You can leave anytime.",id:"Admin HR-mu bisa melihat status BMI, hasil MCU, jenis kelamin, umur, dan frekuensi pemakaian 20FIT. Kamu bisa keluar kapan saja."})+'</div>'+
+        '<div style="margin:12px 0">'+
+          '<div class="muted" style="font-size:12px;margin-bottom:4px">'+L({en:"Division (required)",id:"Divisi (wajib)"})+(m.division?"":' <b style="color:#c0392b">•</b>')+'</div>'+
+          '<select id="corpDiv" onchange="onDivChange()" style="width:100%">'+divOptions(m.division)+'</select>'+
+          '<div id="corpDivOtherWrap" style="'+(m.division==="other"?"":"display:none;")+'margin-top:6px"><input id="corpDivOther" placeholder="'+L({en:"Type your division",id:"Ketik divisimu"})+'" value="'+escapeHtml(m.division_other||"")+'" style="width:100%"></div>'+
+          '<div id="corpDivMsg" class="muted" style="font-size:12px;min-height:15px;margin-top:4px"></div>'+
+          '<button class="btn" style="margin-top:6px" onclick="saveDivision()">'+L({en:"Save division",id:"Simpan divisi"})+'</button>'+
+        '</div>'+
+        '<div class="muted" style="margin:12px 0">'+L({en:"Your HR admin can see your BMI status, MCU results, gender, age, division, and 20FIT usage frequency. You can leave anytime.",id:"Admin HR-mu bisa melihat status BMI, hasil MCU, jenis kelamin, umur, divisi, dan frekuensi pemakaian 20FIT. Kamu bisa keluar kapan saja."})+'</div>'+
         '<button class="btn out" style="margin-top:0" onclick="corpLeave()">'+L({en:"Leave program",id:"Keluar dari program"})+'</button>';
+    }
+    var CORP_DIVS=[
+      {c:"hr",en:"HR",id:"HR / SDM"},{c:"finance",en:"Finance / Accounting",id:"Keuangan / Akuntansi"},
+      {c:"it",en:"IT",id:"IT"},{c:"marketing",en:"Marketing",id:"Marketing / Pemasaran"},
+      {c:"sales",en:"Sales / Business Dev",id:"Sales / Pengembangan Bisnis"},{c:"operations",en:"Operations",id:"Operasional"},
+      {c:"cs",en:"Customer Service",id:"Layanan Pelanggan"},{c:"procurement",en:"Procurement",id:"Pengadaan"},
+      {c:"legal",en:"Legal",id:"Legal / Hukum"},{c:"production",en:"Production",id:"Produksi"},
+      {c:"rnd",en:"R&D",id:"R&D / Riset"},{c:"logistics",en:"Logistics / Supply Chain",id:"Logistik / Rantai Pasok"},
+      {c:"ga",en:"General Affairs",id:"Umum / GA"},{c:"engineering",en:"Engineering",id:"Teknik"},
+      {c:"qa",en:"QA / QC",id:"QA / QC"},{c:"management",en:"Management",id:"Manajemen"},
+      {c:"other",en:"Other",id:"Lainnya"}
+    ];
+    function divOptions(cur){
+      var o='<option value="">'+L({en:"— choose —",id:"— pilih —"})+'</option>';
+      CORP_DIVS.forEach(function(d){ o+='<option value="'+d.c+'"'+(d.c===cur?" selected":"")+'>'+escapeHtml(L({en:d.en,id:d.id}))+'</option>'; });
+      return o;
+    }
+    function onDivChange(){ var s=document.getElementById("corpDiv"), w=document.getElementById("corpDivOtherWrap"); if(w) w.style.display=(s&&s.value==="other")?"":"none"; }
+    async function saveDivision(){
+      var s=document.getElementById("corpDiv"), div=s?s.value:"", msg=document.getElementById("corpDivMsg");
+      if(!div){ if(msg){msg.style.color="#c0392b";msg.textContent=L({en:"Choose your division.",id:"Pilih divisimu."});} return; }
+      var body={division:div};
+      if(div==="other"){ var ot=((document.getElementById("corpDivOther")||{}).value||"").trim(); if(!ot){ if(msg){msg.style.color="#c0392b";msg.textContent=L({en:"Type your division.",id:"Ketik divisimu."});} return; } body.division_other=ot; }
+      if(msg){msg.style.color="";msg.textContent=L({en:"Saving…",id:"Menyimpan…"});}
+      try{
+        var r=await corpFetch("/api/corp/set-division",{method:"POST",body:JSON.stringify(body)}); var j=await r.json().catch(function(){return{};});
+        if(r.ok&&j.ok){ if(msg){msg.style.color="#2A7A4F";msg.textContent=L({en:"Saved ✓",id:"Tersimpan ✓"});} }
+        else { if(msg){msg.style.color="#c0392b";msg.textContent=(j&&j.error)||L({en:"Failed.",id:"Gagal."});} }
+      }catch(e){ if(msg){msg.style.color="#c0392b";msg.textContent=L({en:"Failed.",id:"Gagal."});} }
     }
     function openCorpJoin(){
       document.getElementById("corpStep1").style.display="";

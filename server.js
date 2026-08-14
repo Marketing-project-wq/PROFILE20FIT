@@ -388,30 +388,8 @@ app.post("/api/webhooks/resend", async (req, res) => {
 });
 
 // ---------- Unsubscribe (tanpa login; token opaque, tak bocorkan user_id) ----------
-// GET prefs untuk halaman unsubscribe.html — hanya toggle & jam, TANPA data kesehatan.
-app.get("/api/unsub/prefs", async (req, res) => {
-  const token = String((req.query && req.query.token) || "").trim();
-  if (!token) return res.status(400).json({ error: "token wajib" });
-  try {
-    const p = await comms.getPrefsByToken(token);
-    if (!p) return res.status(404).json({ error: "token tidak valid" });
-    return res.json({
-      ok: true,
-      prefs: {
-        consent_marketing: !!p.consent_marketing,
-        consent_meal_reminder: !!p.consent_meal_reminder,
-        reminder_breakfast_enabled: !!p.reminder_breakfast_enabled,
-        reminder_lunch_enabled: !!p.reminder_lunch_enabled,
-        reminder_dinner_enabled: !!p.reminder_dinner_enabled,
-        reminder_breakfast_time: p.reminder_breakfast_time,
-        reminder_lunch_time: p.reminder_lunch_time,
-        reminder_dinner_time: p.reminder_dinner_time,
-      },
-    });
-  } catch (e) { return res.status(500).json({ error: e.message }); }
-});
-
-// Terapkan perubahan preferensi (berlaku seketika).
+// Consent opt-in dihapus. Unsubscribe = berhenti dari SEMUA email non-transaksional
+// via suppression list (all-or-nothing) + pause meal reminder. Berlaku seketika.
 app.post("/api/unsub/apply", async (req, res) => {
   const b = req.body || {};
   const token = String(b.token || "").trim();
@@ -420,69 +398,37 @@ app.post("/api/unsub/apply", async (req, res) => {
     const p = await comms.getPrefsByToken(token);
     if (!p) return res.status(404).json({ error: "token tidak valid" });
     const uid = p.user_id;
-    const patch = { updated_at: new Date().toISOString() };
-
-    if (b.action === "stop_all") {
-      patch.consent_marketing = false;
-      patch.consent_meal_reminder = false;
-      patch.consent_updated_at = new Date().toISOString();
-      patch.consent_source = "unsubscribe_page";
-      patch.reminder_paused_at = new Date().toISOString();
-      // Suppression by email (reason unsubscribe) — jaga-jaga selain matikan consent.
-      try {
-        const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", uid).limit(1);
-        const em = prof && prof[0] && prof[0].email;
-        if (em) await comms.addSuppression(em, uid, "unsubscribe", true);
-      } catch (e) { /* best-effort */ }
-    } else if (b.action === "update") {
-      if (typeof b.consent_marketing === "boolean") patch.consent_marketing = b.consent_marketing;
-      if (typeof b.consent_meal_reminder === "boolean") patch.consent_meal_reminder = b.consent_meal_reminder;
-      if (typeof b.reminder_breakfast_enabled === "boolean") patch.reminder_breakfast_enabled = b.reminder_breakfast_enabled;
-      if (typeof b.reminder_lunch_enabled === "boolean") patch.reminder_lunch_enabled = b.reminder_lunch_enabled;
-      if (typeof b.reminder_dinner_enabled === "boolean") patch.reminder_dinner_enabled = b.reminder_dinner_enabled;
-      const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
-      if (hhmm.test(b.reminder_breakfast_time || "")) patch.reminder_breakfast_time = b.reminder_breakfast_time;
-      if (hhmm.test(b.reminder_lunch_time || "")) patch.reminder_lunch_time = b.reminder_lunch_time;
-      if (hhmm.test(b.reminder_dinner_time || "")) patch.reminder_dinner_time = b.reminder_dinner_time;
-      patch.consent_updated_at = new Date().toISOString();
-      patch.consent_source = "unsubscribe_page";
-      // Kalau meal reminder dinyalakan lagi, cabut pause.
-      if (patch.consent_meal_reminder === true) patch.reminder_paused_at = null;
-    } else {
-      return res.status(400).json({ error: "action tidak dikenal" });
-    }
-
-    const { data: updated } = await admin
-      .from("my20fit_user_comm_prefs").update(patch).eq("user_id", uid).select("*").single();
-    return res.json({
-      ok: true,
-      prefs: {
-        consent_marketing: !!updated.consent_marketing,
-        consent_meal_reminder: !!updated.consent_meal_reminder,
-        reminder_breakfast_enabled: !!updated.reminder_breakfast_enabled,
-        reminder_lunch_enabled: !!updated.reminder_lunch_enabled,
-        reminder_dinner_enabled: !!updated.reminder_dinner_enabled,
-        reminder_breakfast_time: updated.reminder_breakfast_time,
-        reminder_lunch_time: updated.reminder_lunch_time,
-        reminder_dinner_time: updated.reminder_dinner_time,
-      },
-    });
+    // Suppression by email (reason unsubscribe) = gerbang utama; email transaksional tetap jalan.
+    let em = null;
+    try {
+      const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", uid).limit(1);
+      em = prof && prof[0] && prof[0].email;
+      if (em) await comms.addSuppression(em, uid, "unsubscribe", true);
+    } catch (e) { /* best-effort */ }
+    await admin.from("my20fit_user_comm_prefs")
+      .update({ reminder_paused_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("user_id", uid);
+    return res.json({ ok: true, unsubscribed: true });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
 // One-click unsubscribe (header List-Unsubscribe-Post dari Gmail/Yahoo). Berlaku seketika.
+// Consent opt-in dihapus → unsubscribe = suppression (berhenti SEMUA email non-transaksional)
+// + pause meal reminder. Param `c` diabaikan (all-or-nothing).
 app.post("/unsubscribe", async (req, res) => {
   const token = String((req.query && req.query.token) || "").trim();
-  const c = String((req.query && req.query.c) || "").trim();
   if (!token) return res.status(400).send("token wajib");
   try {
     const p = await comms.getPrefsByToken(token);
     if (!p) return res.status(404).send("token tidak valid");
-    const patch = { updated_at: new Date().toISOString(), consent_updated_at: new Date().toISOString(), consent_source: "unsubscribe_oneclick" };
-    if (c === "meal_reminder") { patch.consent_meal_reminder = false; patch.reminder_paused_at = new Date().toISOString(); }
-    else if (c === "marketing") { patch.consent_marketing = false; }
-    else { patch.consent_marketing = false; patch.consent_meal_reminder = false; patch.reminder_paused_at = new Date().toISOString(); }
-    await admin.from("my20fit_user_comm_prefs").update(patch).eq("user_id", p.user_id);
+    try {
+      const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", p.user_id).limit(1);
+      const em = prof && prof[0] && prof[0].email;
+      if (em) await comms.addSuppression(em, p.user_id, "unsubscribe", true);
+    } catch (e) { /* best-effort */ }
+    await admin.from("my20fit_user_comm_prefs")
+      .update({ reminder_paused_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("user_id", p.user_id);
     return res.status(200).send("OK: unsubscribed");
   } catch (e) { return res.status(500).send("error"); }
 });
@@ -520,46 +466,17 @@ app.post("/api/cron/daily", async (req, res) => {
   }
 });
 
-// ---------- Preferensi komunikasi milik user sendiri (in-app settings) ----------
-// Dipakai halaman settings untuk MENANGKAP consent (marketing / meal reminder).
-app.get("/api/comms/prefs", async (req, res) => {
+// ---------- Bahasa email milik user sendiri (in-app) ----------
+// Consent opt-in dihapus — semua email dikirim langsung; opt-out lewat unsubscribe.
+// Yang tersisa hanyalah pilihan BAHASA email (id/en) supaya isi email mengikuti user.
+app.post("/api/comms/lang", async (req, res) => {
   try {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Sesi habis. Login lagi." });
-    const p = await comms.ensurePrefs(user.id, "settings");
-    if (!p) return res.status(500).json({ error: "gagal" });
-    return res.json({
-      ok: true,
-      prefs: {
-        consent_marketing: !!p.consent_marketing,
-        consent_meal_reminder: !!p.consent_meal_reminder,
-        reminder_breakfast_enabled: !!p.reminder_breakfast_enabled,
-        reminder_lunch_enabled: !!p.reminder_lunch_enabled,
-        reminder_dinner_enabled: !!p.reminder_dinner_enabled,
-        reminder_breakfast_time: p.reminder_breakfast_time,
-        reminder_lunch_time: p.reminder_lunch_time,
-        reminder_dinner_time: p.reminder_dinner_time,
-      },
-    });
-  } catch (e) { return res.status(500).json({ error: e.message }); }
-});
-
-app.post("/api/comms/consent", async (req, res) => {
-  try {
-    const user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Sesi habis. Login lagi." });
-    const b = req.body || {};
-    const patch = {};
-    if (typeof b.marketing === "boolean") patch.marketing = b.marketing;
-    if (typeof b.meal_reminder === "boolean") patch.meal_reminder = b.meal_reminder;
-    if (b.lang === "id" || b.lang === "en") patch.lang = b.lang; // bahasa email pilihan user
-    if (!Object.keys(patch).length) return res.status(400).json({ error: "tak ada perubahan" });
-    const p = await comms.setConsentByUser(user.id, patch, "settings");
-    // Kalau meal reminder dinyalakan lagi, cabut pause.
-    if (patch.meal_reminder === true) {
-      await admin.from("my20fit_user_comm_prefs").update({ reminder_paused_at: null, reminder_consecutive_ignored: 0 }).eq("user_id", user.id);
-    }
-    return res.json({ ok: true, prefs: { consent_marketing: !!p.consent_marketing, consent_meal_reminder: !!p.consent_meal_reminder } });
+    const lang = (req.body || {}).lang;
+    if (lang !== "id" && lang !== "en") return res.status(400).json({ error: "lang harus id/en" });
+    const p = await comms.setLangByUser(user.id, lang);
+    return res.json({ ok: true, lang: (p && p.lang) || lang });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
@@ -2040,8 +1957,10 @@ app.get("/api/partner/profile", async (req, res) => {
   const uid = String(req.query.user_id || req.query.auth_user_id || "").trim();
   if (!email && !uid) return res.status(400).json({ error: "Provide ?email= or ?user_id=." });
   try {
+    // PRIVASI: data siklus menstruasi (cycle_last_period/cycle_length) TIDAK PERNAH
+    // dikembalikan ke pihak mana pun selain user sendiri — termasuk partner API.
     let q = admin.from("my20fit_profile")
-      .select("auth_user_id,email,full_name,phone,gender,age,height_cm,weight_kg,main_goal,health_conditions,avatar_url,is_plus_member,onboarding_completed,cycle_last_period,cycle_length,updated_at")
+      .select("auth_user_id,email,full_name,phone,gender,age,height_cm,weight_kg,main_goal,health_conditions,avatar_url,is_plus_member,onboarding_completed,updated_at")
       .limit(1);
     q = email ? q.eq("email", email) : q.eq("auth_user_id", uid);
     const { data, error } = await q;
@@ -2082,10 +2001,26 @@ function adminHasRole(ctx, minRole) { return !!(ctx && ADMIN_RANK[ctx.role] >= A
 // kondisi/siklus/MCU). Endpoint yang memuat data profil kesehatan WAJIB memanggil ini
 // dan memangkas field sebelum mengirim respons — diblokir di level API, bukan cuma UI.
 function adminCanSeeHealth(ctx) { return !!(ctx && ctx.role !== "marketing"); }
+// PRIVASI MUTLAK: data siklus menstruasi (cycle_last_period/cycle_length/period_length/last_period_date)
+// TIDAK PERNAH keluar ke pihak mana pun selain user sendiri — termasuk admin & SUPERADMIN.
+// adminCanSeeHealth boleh true (admin lihat BMI/MCU), tapi siklus tetap dibuang di sini.
+// Dipakai untuk memangkas field siklus dari objek profil sebelum dikirim ke admin.
+function stripMenstrualCycle(prof) {
+  if (prof && typeof prof === "object") {
+    delete prof.cycle_last_period; delete prof.cycle_length; delete prof.period_length; delete prof.last_period_date;
+  }
+  return prof;
+}
 async function requireAdmin(req, res, minRole) {
   const ctx = await getAdminContext(req);
-  if (!ctx) { res.status(401).json({ error: "Unauthorized" }); return null; }
-  if (!adminHasRole(ctx, minRole)) { res.status(403).json({ error: "Akses ditolak: butuh role " + (minRole || "viewer") + " (role kamu: " + ctx.role + ")" }); return null; }
+  if (!ctx) {
+    console.warn("admin 401:", req.method, req.path, "— no admin context (missing/invalid Bearer token or ?key=)");
+    res.status(401).json({ error: "Unauthorized" }); return null;
+  }
+  if (!adminHasRole(ctx, minRole)) {
+    console.warn("admin 403:", req.method, req.path, "— role=" + ctx.role + " need=" + (minRole || "viewer"));
+    res.status(403).json({ error: "Akses ditolak: butuh role " + (minRole || "viewer") + " (role kamu: " + ctx.role + ")" }); return null;
+  }
   return ctx;
 }
 async function adminAudit(ctx, action, target, detail) {
@@ -2159,6 +2094,31 @@ app.get("/api/admin/audit", async (req, res) => {
     const { data, error } = await q;
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ ok: true, logs: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Feature flags modul admin baru (viewer baca; superadmin toggle). Semua fitur baru
+// di-gate flag ini (default OFF). Perubahan diaudit.
+app.get("/api/admin/feature-flags", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data } = await admin.from("my20fit_admin_feature_flags")
+      .select("key,enabled,note,updated_by,updated_at").order("key", { ascending: true });
+    return res.json({ ok: true, flags: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/feature-flags", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  const b = req.body || {};
+  const key = String(b.key || "").trim();
+  if (!key) return res.status(400).json({ error: "key wajib" });
+  try {
+    const { error } = await admin.from("my20fit_admin_feature_flags")
+      .update({ enabled: !!b.enabled, updated_by: ctx.email || "admin", updated_at: new Date().toISOString() })
+      .eq("key", key);
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "feature_flag.set", key, { enabled: !!b.enabled });
+    return res.json({ ok: true });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
@@ -2249,6 +2209,20 @@ async function corpAudit(ctx, targetUserId, action, detail) {
   } catch (e) {}
 }
 
+// PRIVASI: superadmin 20FIT HANYA boleh MONITORING OPERASIONAL korporat (jumlah
+// anggota & keaktifan pemakaian). Data kesehatan INDIVIDU karyawan (BMI/MCU) — dan
+// MUTLAK data siklus menstruasi — TIDAK dibuka ke superadmin. Endpoint roster/kesehatan
+// corporate hanya untuk admin corporate perusahaan itu sendiri (jalur non-superadmin).
+// Kalau suatu saat superadmin butuh lihat data individu tertentu, itu keputusan pemilik
+// yang harus diputuskan eksplisit — BUKAN default. Gate ini ditegakkan di SERVER.
+function denyCorpHealthToSuperadmin(ctx, res) {
+  if (ctx && ctx.is_superadmin) {
+    res.status(403).json({ error: "Superadmin hanya boleh monitoring operasional korporat (lihat /api/admin/corporate/activity). Data kesehatan individu karyawan (BMI/MCU/siklus) tidak dibuka ke superadmin." });
+    return true;
+  }
+  return false;
+}
+
 // ---- SUPERADMIN: kelola akun corporate ----
 // List semua corporate + jumlah admin & anggota aktif.
 app.get("/api/admin/corporate", async (req, res) => {
@@ -2264,7 +2238,61 @@ app.get("/api/admin/corporate", async (req, res) => {
       var memberCount = (members || []).filter(function (m) { return m.corporate_id === c.id && m.status === "active"; }).length;
       return { id: c.id, name: c.name, code: c.code, status: c.status, contact_email: c.contact_email, created_at: c.created_at, admins: adminList, member_count: memberCount };
     });
+    // Audit BACA: setiap superadmin melihat daftar korporat dicatat (siapa, kapan, apa).
+    await adminAudit(ctx, "corporate.list.view", null, { count: out.length });
     return res.json({ ok: true, corporates: out });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// MONITORING OPERASIONAL (superadmin) — agregat per korporat TANPA data kesehatan.
+// Hanya: jumlah anggota aktif, keaktifan 7/30 hari (my20fit_user_activity), dan
+// pemakaian scan 30 hari. TIDAK ada BMI/MCU/siklus, TIDAK ada baris per-individu.
+// Didaftarkan SEBELUM route "/:id" supaya "activity" tidak ketangkap sebagai :id.
+app.get("/api/admin/corporate/activity", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var nowMs = Date.now();
+    var d7 = new Date(nowMs - 7 * 864e5).toISOString();
+    var d30 = new Date(nowMs - 30 * 864e5).toISOString();
+    var { data: corps, error } = await admin.from("my20fit_corporate")
+      .select("id,name,code,status,created_at").order("created_at", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    var { data: members } = await admin.from("my20fit_corporate_member").select("corporate_id,auth_user_id,status");
+    var activeMembers = (members || []).filter(function (m) { return m.status === "active"; });
+    var ids = activeMembers.map(function (m) { return m.auth_user_id; });
+    var actMap = {}, scanMap = {};
+    if (ids.length) {
+      var { data: acts } = await admin.from("my20fit_user_activity").select("auth_user_id,last_active_at").in("auth_user_id", ids);
+      (acts || []).forEach(function (a) { actMap[a.auth_user_id] = a.last_active_at; });
+      var { data: sc } = await admin.from("my20fit_scan_orders").select("auth_user_id,paid_at").eq("status", "paid").gte("paid_at", d30).in("auth_user_id", ids);
+      (sc || []).forEach(function (s) { scanMap[s.auth_user_id] = (scanMap[s.auth_user_id] || 0) + 1; });
+    }
+    var byCorp = {};
+    activeMembers.forEach(function (m) {
+      var a = byCorp[m.corporate_id] || (byCorp[m.corporate_id] = { member_count: 0, active_7d: 0, active_30d: 0, scans_30d: 0 });
+      a.member_count++;
+      var la = actMap[m.auth_user_id];
+      if (la && la >= d7) a.active_7d++;
+      if (la && la >= d30) a.active_30d++;
+      a.scans_30d += (scanMap[m.auth_user_id] || 0);
+    });
+    var out = (corps || []).map(function (c) {
+      var a = byCorp[c.id] || { member_count: 0, active_7d: 0, active_30d: 0, scans_30d: 0 };
+      return {
+        id: c.id, name: c.name, code: c.code, status: c.status, created_at: c.created_at,
+        member_count: a.member_count, active_7d: a.active_7d, active_30d: a.active_30d, scans_30d: a.scans_30d,
+        active_7d_pct: a.member_count ? Math.round(a.active_7d / a.member_count * 100) : 0,
+        active_30d_pct: a.member_count ? Math.round(a.active_30d / a.member_count * 100) : 0,
+      };
+    });
+    var totals = out.reduce(function (t, c) {
+      t.corporates++; t.members += c.member_count; t.active_7d += c.active_7d; t.active_30d += c.active_30d; t.scans_30d += c.scans_30d; return t;
+    }, { corporates: 0, members: 0, active_7d: 0, active_30d: 0, scans_30d: 0 });
+    await adminAudit(ctx, "corporate.activity.view", null, { corporates: out.length });
+    return res.json({
+      ok: true, corporates: out, totals: totals, generated_at: new Date().toISOString(),
+      note: "Operasional saja (jumlah anggota & keaktifan). TIDAK memuat data kesehatan/BMI/MCU/siklus individu.",
+    });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Buat corporate baru { name, code?, contact_email?, admin_email? }.
@@ -2323,6 +2351,8 @@ app.get("/api/admin/corporate/:id", async (req, res) => {
     var { data: admins } = await admin.from("my20fit_corporate_admin").select("auth_user_id,email,created_at").eq("corporate_id", id);
     var { data: members } = await admin.from("my20fit_corporate_member").select("status").eq("corporate_id", id);
     var active = (members || []).filter(function (m) { return m.status === "active"; }).length;
+    // Audit BACA: superadmin membuka detail korporat dicatat.
+    await adminAudit(ctx, "corporate.detail.view", id, { name: corp.name });
     return res.json({ ok: true, corporate: corp, admins: admins || [], member_count: active });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
@@ -2361,6 +2391,44 @@ app.post("/api/admin/corporate/:id/admins", async (req, res) => {
   // Jejak TIDAK menyimpan password — hanya flag apakah password di-set.
   await adminAudit(ctx, "corporate.admin.add", id, { email: email, password_set: !!r.password_set });
   return res.json({ ok: true, admin: r });
+});
+// Kirim UNDANGAN email ke admin portal korporat: link set/reset password (recovery)
+// supaya HR bikin passwordnya sendiri, lalu login di /corp-dashboard. Superadmin only.
+// (email = modul mailer di scope ini; pakai `addr` untuk alamat agar tak bentrok.)
+app.post("/api/admin/corporate/:id/admins/invite", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  var id = String(req.params.id || "");
+  var addr = String((req.body || {}).email || "").trim().toLowerCase();
+  if (!addr) return res.status(400).json({ error: "email wajib." });
+  try {
+    var uid = await findUserIdByEmail(addr);
+    if (!uid) return res.status(404).json({ error: "Akun admin belum ada. Tambah adminnya dulu, baru kirim undangan." });
+    var { data: ca } = await admin.from("my20fit_corporate_admin").select("id").eq("corporate_id", id).eq("auth_user_id", uid).limit(1);
+    if (!ca || !ca[0]) return res.status(404).json({ error: "Email itu bukan admin portal korporat ini." });
+    var { data: corp } = await admin.from("my20fit_corporate").select("name").eq("id", id).limit(1);
+    var corpName = (corp && corp[0] && corp[0].name) || "perusahaanmu";
+    var link = null;
+    try {
+      var { data: ld, error: le } = await admin.auth.admin.generateLink({
+        type: "recovery", email: addr, options: { redirectTo: APP_BASE_URL + "/reset-password" },
+      });
+      if (le) throw le;
+      link = (ld && ld.properties && ld.properties.action_link) || null;
+    } catch (e) { return res.status(500).json({ error: "Gagal membuat link undangan: " + e.message }); }
+    if (!link) return res.status(500).json({ error: "Link undangan kosong." });
+    var portal = APP_BASE_URL + "/corp-dashboard";
+    var html = '<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto">' +
+      '<h2 style="color:#C41101">Akses Dashboard HR 20FIT — ' + escHtml(corpName) + '</h2>' +
+      '<p>Kamu ditunjuk sebagai admin HR untuk memantau program kesehatan karyawan <b>' + escHtml(corpName) + '</b> di 20FIT.</p>' +
+      '<p><b>Langkah 1</b> — buat password kamu:</p>' +
+      '<p><a href="' + link + '" style="display:inline-block;background:#C41101;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">Set password</a></p>' +
+      '<p style="color:#666;font-size:12px;word-break:break-all">' + link + '</p>' +
+      '<p><b>Langkah 2</b> — login ke dashboard HR di <a href="' + portal + '">' + portal + '</a> pakai email ini + password yang kamu buat.</p>' +
+      '<p style="color:#666;font-size:12px">Akses kamu dibatasi HANYA untuk karyawan ' + escHtml(corpName) + '. Data pribadi sensitif tertentu tidak ditampilkan. Simpan email ini baik-baik.</p></div>';
+    var r = await email.send({ to: addr, subject: "Undangan Dashboard HR 20FIT — " + corpName, html: html, transactional: true, channel: "transactional", templateId: "corp_admin_invite", userId: uid });
+    await adminAudit(ctx, "corporate.admin.invite", id, { email: addr, mail_sent: !!(r && r.ok && !r.skipped), mail_skipped: !!(r && r.skipped) });
+    return res.json({ ok: true, sent: !!(r && r.ok && !r.skipped), skipped: !!(r && r.skipped), message: "Undangan dikirim ke " + addr + "." });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Hapus admin corporate.
 app.delete("/api/admin/corporate/:id/admins/:userId", async (req, res) => {
@@ -2421,9 +2489,12 @@ function corpClassifyUsage(sig) {
   return { level: freq ? "frequent" : "rare", activeDays: sig.activeDays, scans: sig.scans, workouts: sig.workouts };
 }
 // Bangun roster lengkap (kesehatan + frekuensi) untuk SATU corporate. Dipakai summary.
+// Daftar divisi kanonik (Opsi A). Disimpan sebagai KODE; label bilingual di UI.
+var CORP_DIVISIONS = ["hr", "finance", "it", "marketing", "sales", "operations", "cs", "procurement", "legal", "production", "rnd", "logistics", "ga", "engineering", "qa", "management", "other"];
+function normDivision(d) { d = String(d || "").trim().toLowerCase(); return CORP_DIVISIONS.indexOf(d) >= 0 ? d : null; }
 async function corpRoster(corporateId) {
   var { data: mem } = await admin.from("my20fit_corporate_member")
-    .select("auth_user_id,linked_at,consent_at").eq("corporate_id", corporateId).eq("status", "active").order("linked_at", { ascending: false });
+    .select("auth_user_id,linked_at,consent_at,division,division_other").eq("corporate_id", corporateId).eq("status", "active").order("linked_at", { ascending: false });
   var ids = (mem || []).map(function (m) { return m.auth_user_id; });
   if (!ids.length) return [];
   var since = new Date(Date.now() - CORP_USAGE_RULES.window_days * 864e5).toISOString(), sinceDate = since.slice(0, 10);
@@ -2449,12 +2520,14 @@ async function corpRoster(corporateId) {
       health_status: h.status, bmi: h.bmi, high_need: h.highNeed, has_mcu: h.hasMcu, has_bmi: h.hasBmi,
       attention_count: h.attentionCount, abnormal_count: h.abnormalCount,
       usage_level: u.level, active_days: u.activeDays, scans: u.scans, workouts: u.workouts, linked_at: m.linked_at,
+      division: m.division || null, division_other: m.division_other || null,
     };
   });
 }
 // Ringkasan + matriks karyawan (admin corporate). Tiap akses dicatat audit.
 app.get("/api/corp/summary", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return;
   try {
     var roster = await corpRoster(ctx.corporate_id);
     var k = { total: roster.length, healthy: 0, attention: 0, unknown: 0, frequent: 0, rare: 0, high_need: 0 };
@@ -2470,6 +2543,7 @@ app.get("/api/corp/summary", async (req, res) => {
 // Detail satu karyawan (WAJIB anggota corporate ini). Akses individual dicatat audit.
 app.get("/api/corp/member/:uid", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return;
   var uid = String(req.params.uid || "");
   try {
     var { data: mem } = await admin.from("my20fit_corporate_member")
@@ -2552,11 +2626,11 @@ app.get("/api/corp/membership", async (req, res) => {
   var user = await getUserFromReq(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
   var { data } = await admin.from("my20fit_corporate_member")
-    .select("corporate_id,status,linked_at,consent_at,consent_version").eq("auth_user_id", user.id).eq("status", "active").limit(1);
+    .select("corporate_id,status,linked_at,consent_at,consent_version,division,division_other").eq("auth_user_id", user.id).eq("status", "active").limit(1);
   var m = data && data[0];
   if (!m) return res.json({ ok: true, member: null });
   var { data: c } = await admin.from("my20fit_corporate").select("name").eq("id", m.corporate_id).limit(1);
-  return res.json({ ok: true, member: { corporate_name: (c && c[0] && c[0].name) || "—", linked_at: m.linked_at, consent_at: m.consent_at, consent_version: m.consent_version } });
+  return res.json({ ok: true, member: { corporate_name: (c && c[0] && c[0].name) || "—", linked_at: m.linked_at, consent_at: m.consent_at, consent_version: m.consent_version, division: m.division || null, division_other: m.division_other || null } });
 });
 // Keluar dari program (hormati kapan pun; setelah ini admin corporate tak bisa lihat lagi).
 app.post("/api/corp/leave", async (req, res) => {
@@ -2567,6 +2641,24 @@ app.post("/api/corp/leave", async (req, res) => {
     .eq("auth_user_id", user.id).eq("status", "active");
   if (error) return res.status(500).json({ error: error.message });
   return res.json({ ok: true });
+});
+// Set DIVISI karyawan pada keanggotaan korporat aktifnya sendiri. division wajib
+// (kode kanonik); 'other' -> division_other teks bebas. Divalidasi ke daftar resmi.
+app.post("/api/corp/set-division", async (req, res) => {
+  var user = await getUserFromReq(req);
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  var b = req.body || {};
+  var div = normDivision(b.division);
+  if (!div) return res.status(400).json({ error: "Divisi tidak valid." });
+  var other = div === "other" ? String(b.division_other || "").trim().slice(0, 60) : null;
+  if (div === "other" && !other) return res.status(400).json({ error: "Isi nama divisi (Lainnya)." });
+  var { data: mem } = await admin.from("my20fit_corporate_member")
+    .select("id").eq("auth_user_id", user.id).eq("status", "active").limit(1);
+  if (!mem || !mem[0]) return res.status(404).json({ error: "Kamu belum tergabung di korporat." });
+  var { error } = await admin.from("my20fit_corporate_member")
+    .update({ division: div, division_other: other }).eq("id", mem[0].id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ ok: true, division: div, division_other: other });
 });
 
 // ============ Account: hak data-subject (export data pribadi) ============
@@ -2635,6 +2727,7 @@ function corpMsgHtml(bodyText) {
 // Kirim pesan ke karyawan yang cocok filter. Filter DITERAPKAN ULANG di server (tak percaya client).
 app.post("/api/corp/message", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return; // filter pakai roster kesehatan -> superadmin tak boleh
   var b = req.body || {};
   var subject = String(b.subject || "").trim(), body = String(b.body || "").trim(), filter = b.filter || {};
   if (!subject || !body) return res.status(400).json({ error: "Subjek & isi pesan wajib diisi." });
@@ -2675,6 +2768,7 @@ app.post("/api/corp/message", async (req, res) => {
 // Riwayat pesan terkirim (corporate ini).
 app.get("/api/corp/messages", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return;
   try {
     var { data, error } = await admin.from("my20fit_corporate_message_log")
       .select("subject,recipient_count,sent_count,created_at,actor_email").eq("corporate_id", ctx.corporate_id)
@@ -3027,6 +3121,189 @@ app.post("/api/admin/vouchers/:id/activate", async (req, res) => {
   return res.json({ ok: true });
 });
 
+// Tracking voucher (analitik): perbandingan per voucher urut revenue bersih + tabel kode gagal.
+// Read-only, bebas data kesehatan. % pembeli baru = redeemer dengan <=1 order paid all-time (proxy).
+app.get("/api/admin/vouchers/tracking", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data: vouchers } = await admin.from("my20fit_vouchers").select("*").order("created_at", { ascending: false }).limit(2000);
+    const { data: usages } = await admin.from("my20fit_voucher_usages").select("voucher_id,auth_user_id,discount_applied").limit(100000);
+    const { data: orders } = await admin.from("my20fit_scan_orders").select("auth_user_id,net_amount,amount,status,voucher_id").limit(100000);
+    let attempts = [];
+    try { const { data: at } = await admin.from("my20fit_voucher_attempts").select("code_tried,result").limit(100000); attempts = at || []; } catch (e) {}
+    const paidByUser = {}; (orders || []).filter(o => o.status === "paid").forEach(o => { if (o.auth_user_id) paidByUser[o.auth_user_id] = (paidByUser[o.auth_user_id] || 0) + 1; });
+    const netByV = {}; (orders || []).filter(o => o.status === "paid" && o.voucher_id).forEach(o => { netByV[o.voucher_id] = (netByV[o.voucher_id] || 0) + ((o.net_amount != null ? +o.net_amount : +o.amount) || 0); });
+    const useByV = {}, redeemers = {}, discByV = {};
+    (usages || []).forEach(u => {
+      useByV[u.voucher_id] = (useByV[u.voucher_id] || 0) + 1;
+      (redeemers[u.voucher_id] = redeemers[u.voucher_id] || new Set()).add(u.auth_user_id);
+      discByV[u.voucher_id] = (discByV[u.voucher_id] || 0) + (+u.discount_applied || 0);
+    });
+    const attByCode = {}, failByCode = {};
+    (attempts).forEach(a => {
+      attByCode[a.code_tried] = (attByCode[a.code_tried] || 0) + 1;
+      if (a.result !== "ok") { const m = failByCode[a.code_tried] = failByCode[a.code_tried] || {}; m[a.result] = (m[a.result] || 0) + 1; }
+    });
+    const now = new Date();
+    const rows = (vouchers || []).map(v => {
+      const used = useByV[v.id] || 0;
+      const rset = redeemers[v.id] || new Set();
+      let newB = 0; rset.forEach(uid => { if ((paidByUser[uid] || 0) <= 1) newB++; });
+      const att = attByCode[v.code] || 0;
+      const expired = v.valid_until && new Date(v.valid_until) < now;
+      const quotaFull = v.usage_limit_total != null && used >= v.usage_limit_total;
+      const status = v.status !== "active" ? "inactive" : (expired ? "expired" : (quotaFull ? "quota_full" : "active"));
+      return {
+        id: v.id, code: v.code, discount_type: v.discount_type, discount_value: v.discount_value,
+        used: used, quota: v.usage_limit_total, discount_given: discByV[v.id] || 0, net_revenue: netByV[v.id] || 0,
+        new_buyer_pct: rset.size ? Math.round(newB / rset.size * 100) : 0,
+        attempts: att, redemption_rate: att ? Math.round(used / att * 100) : 0, status: status,
+      };
+    }).sort((a, b) => b.net_revenue - a.net_revenue);
+    const failed_codes = Object.keys(failByCode).map(code => {
+      const br = failByCode[code]; const total = Object.keys(br).reduce((s, k) => s + br[k], 0);
+      return { code: code, total: total, breakdown: br };
+    }).sort((a, b) => b.total - a.total).slice(0, 50);
+    return res.json({ ok: true, vouchers: rows, failed_codes: failed_codes });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Bulk generate kode voucher unik (staff+). Untuk satu kampanye — tiap kode 1x pakai, 1 per user.
+app.post("/api/admin/vouchers/bulk", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const n = Math.min(Math.max(parseInt(b.count, 10) || 0, 1), 100);
+  const prefix = String(b.prefix || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
+  const dt = String(b.discount_type || ""); if (["percentage", "fixed"].indexOf(dt) < 0) return res.status(400).json({ error: "discount_type harus percentage/fixed." });
+  const dv = parseInt(b.discount_value, 10) || 0; if (dv <= 0) return res.status(400).json({ error: "discount_value harus > 0." });
+  const rand = () => Math.random().toString(36).slice(2, 8).toUpperCase();
+  let created = 0; const codes = [];
+  for (let i = 0; i < n * 3 && created < n; i++) {
+    const code = (prefix || "V") + rand();
+    const row = {
+      code: code, name: b.name || null, description: b.description || null,
+      discount_type: dt, discount_value: dv, min_transaction: b.min_transaction || null,
+      usage_limit_total: 1, usage_limit_per_user: 1,
+      valid_from: b.valid_from || null, valid_until: b.valid_until || null,
+      status: "active", created_by: ctx.email || null,
+    };
+    const { error } = await admin.from("my20fit_vouchers").insert(row);
+    if (!error) { created++; codes.push(code); }
+    else if (error.code !== "23505") return res.status(500).json({ error: error.message });
+  }
+  await adminAudit(ctx, "voucher.bulk_create", (prefix || "V"), { count: created, discount_type: dt, discount_value: dv });
+  return res.json({ ok: true, created: created, codes: codes });
+});
+
+// ================= BANNER / PROMOTION (Modul 5) =================
+// Admin kelola; endpoint publik (serve + event) rate-limited. cta_url di-allowlist
+// (cegah open redirect). Impression/click best-effort, kecualikan bot.
+const BANNER_ALLOWED_HOSTS = ["my.20fit.id", "20fit.id", "www.20fit.id", "booking.20fit.id", "photo.20fit.id", "media.20fit.id"];
+function bannerCtaValid(url) {
+  const u = String(url || "").trim();
+  if (!u) return true;                    // boleh kosong
+  if (u.charAt(0) === "/") return true;   // path relatif = internal
+  try { const h = new URL(u).hostname.toLowerCase(); return BANNER_ALLOWED_HOSTS.some(d => h === d || h.endsWith("." + d)); }
+  catch (e) { return false; }
+}
+app.get("/api/admin/banners", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  const { data, error } = await admin.from("my20fit_banner").select("*").order("priority", { ascending: false }).order("created_at", { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ ok: true, banners: data || [] });
+});
+app.post("/api/admin/banners", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  if (!bannerCtaValid(b.cta_url)) return res.status(400).json({ error: "cta_url tidak diizinkan (cegah open redirect). Pakai path '/…' atau domain 20fit.id." });
+  const row = {
+    title: b.title || null, image_url_id: b.image_url_id || null, image_url_en: b.image_url_en || null,
+    alt_text_id: b.alt_text_id || null, alt_text_en: b.alt_text_en || null,
+    cta_text_id: b.cta_text_id || null, cta_text_en: b.cta_text_en || null, cta_url: b.cta_url || null,
+    cta_type: ["internal_link", "external_link", "deeplink"].indexOf(b.cta_type) >= 0 ? b.cta_type : "internal_link",
+    placement: b.placement || "below_aqi", priority: parseInt(b.priority, 10) || 0,
+    starts_at: b.starts_at || null, ends_at: b.ends_at || null, is_active: !!b.is_active, created_by: ctx.email || null,
+  };
+  const { data, error } = await admin.from("my20fit_banner").insert(row).select().limit(1);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "banner.create", (data && data[0] && data[0].id) || "", { title: row.title });
+  return res.json({ ok: true, banner: data && data[0] });
+});
+app.put("/api/admin/banners/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  if (b.cta_url !== undefined && !bannerCtaValid(b.cta_url)) return res.status(400).json({ error: "cta_url tidak diizinkan." });
+  const upd = { updated_at: new Date().toISOString() };
+  ["title", "image_url_id", "image_url_en", "alt_text_id", "alt_text_en", "cta_text_id", "cta_text_en", "cta_url", "placement", "starts_at", "ends_at"].forEach(k => { if (b[k] !== undefined) upd[k] = b[k] || null; });
+  if (b.cta_type !== undefined && ["internal_link", "external_link", "deeplink"].indexOf(b.cta_type) >= 0) upd.cta_type = b.cta_type;
+  if (b.priority !== undefined) upd.priority = parseInt(b.priority, 10) || 0;
+  if (b.is_active !== undefined) upd.is_active = !!b.is_active;
+  const { error } = await admin.from("my20fit_banner").update(upd).eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "banner.update", req.params.id, upd);
+  return res.json({ ok: true });
+});
+app.post("/api/admin/banners/:id/toggle", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const on = !!(req.body && req.body.is_active);
+  const { error } = await admin.from("my20fit_banner").update({ is_active: on, updated_at: new Date().toISOString() }).eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "banner.toggle", req.params.id, { is_active: on });
+  return res.json({ ok: true });
+});
+app.post("/api/admin/banners/reorder", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const ids = Array.isArray(req.body && req.body.ids) ? req.body.ids : [];
+  for (let i = 0; i < ids.length; i++) await admin.from("my20fit_banner").update({ priority: ids.length - i, updated_at: new Date().toISOString() }).eq("id", ids[i]);
+  await adminAudit(ctx, "banner.reorder", "", { count: ids.length });
+  return res.json({ ok: true });
+});
+app.delete("/api/admin/banners/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  const { error } = await admin.from("my20fit_banner").delete().eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  await adminAudit(ctx, "banner.delete", req.params.id, null);
+  return res.json({ ok: true });
+});
+app.get("/api/admin/banners/tracking", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data: banners } = await admin.from("my20fit_banner").select("id,title,placement,is_active,priority").limit(2000);
+    const { data: ev } = await admin.from("my20fit_banner_event").select("banner_id,event_type").limit(200000);
+    const imp = {}, clk = {};
+    (ev || []).forEach(e => { if (e.event_type === "impression") imp[e.banner_id] = (imp[e.banner_id] || 0) + 1; else if (e.event_type === "click") clk[e.banner_id] = (clk[e.banner_id] || 0) + 1; });
+    const rows = (banners || []).map(bn => { const i = imp[bn.id] || 0, c = clk[bn.id] || 0; return { id: bn.id, title: bn.title, placement: bn.placement, is_active: bn.is_active, priority: bn.priority, impressions: i, clicks: c, ctr: i ? Math.round(c / i * 1000) / 10 : 0 }; }).sort((a, b) => b.impressions - a.impressions);
+    return res.json({ ok: true, banners: rows });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Publik: banner aktif utk placement (schedule + active + priority). Rate-limited.
+app.get("/api/banners/active", apiLimiter, async (req, res) => {
+  if (!admin) return res.json({ ok: true, banners: [] });
+  try {
+    const place = String(req.query.placement || "below_aqi");
+    const nowIso = new Date().toISOString();
+    const { data } = await admin.from("my20fit_banner")
+      .select("id,image_url_id,image_url_en,alt_text_id,alt_text_en,cta_text_id,cta_text_en,cta_url,cta_type,priority,starts_at,ends_at")
+      .eq("placement", place).eq("is_active", true).order("priority", { ascending: false }).limit(20);
+    const active = (data || []).filter(b => (!b.starts_at || b.starts_at <= nowIso) && (!b.ends_at || b.ends_at >= nowIso));
+    return res.json({ ok: true, banners: active });
+  } catch (e) { return res.json({ ok: true, banners: [] }); }
+});
+// Publik: catat impression/click (balas cepat, proses async, kecualikan bot). Rate-limited.
+app.post("/api/banners/event", apiLimiter, async (req, res) => {
+  res.json({ ok: true });
+  try {
+    if (!admin) return;
+    const b = req.body || {};
+    const et = b.event_type === "click" ? "click" : (b.event_type === "impression" ? "impression" : null);
+    if (!et || !b.banner_id) return;
+    const ua = String(req.get("user-agent") || "").toLowerCase();
+    if (/bot|crawler|spider|preview|facebookexternalhit|slurp/.test(ua)) return;
+    let uid = null; try { const u = await getUserFromReq(req); uid = (u && u.id) || null; } catch (e) {}
+    await admin.from("my20fit_banner_event").insert({ banner_id: b.banner_id, user_id: uid, event_type: et });
+  } catch (e) {}
+});
+
 // ---------- Transaksi (my20fit_scan_orders) ----------
 app.get("/api/admin/transactions", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
@@ -3154,11 +3431,13 @@ app.get("/api/admin/user-detail", async (req, res) => {
   if (!uid) return res.status(400).json({ error: "uid wajib." });
   try {
     // Marketing: JANGAN select("*") — hindari bocornya health_conditions, siklus haid, dll.
-    // Hanya kolom kontak + komersial. Non-marketing tetap profil penuh.
+    // Hanya kolom kontak + komersial. Non-marketing tetap profil penuh (BMI/MCU),
+    // TAPI data siklus menstruasi tetap dibuang untuk SEMUA admin (lihat stripMenstrualCycle).
     const profileCols = adminCanSeeHealth(ctx)
       ? "*"
       : "auth_user_id,full_name,email,phone,scan_credits,onboarding_completed,is_plus_member,created_at";
     const { data: p } = await admin.from("my20fit_profile").select(profileCols).eq("auth_user_id", uid).limit(1);
+    var profileOut = stripMenstrualCycle((p && p[0]) || null);
     const { data: orders } = await admin.from("my20fit_scan_orders")
       .select("reff_no,order_type,credits,amount,net_amount,status,payment_method,voucher_id,created_at,paid_at")
       .eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(200);
@@ -3174,7 +3453,7 @@ app.get("/api/admin/user-detail", async (req, res) => {
       credits_bought: paid.reduce((s, o) => s + (+o.credits || 0), 0),
       highest_purchase: paid.reduce((m, o) => Math.max(m, (o.net_amount != null ? +o.net_amount : +o.amount) || 0), 0),
     };
-    return res.json({ ok: true, profile: (p && p[0]) || null, activity: (act && act[0]) || null, orders: orders || [], stats: stats, emails: emails || [] });
+    return res.json({ ok: true, profile: profileOut, activity: (act && act[0]) || null, orders: orders || [], stats: stats, emails: emails || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
@@ -3741,6 +4020,77 @@ app.get("/api/arena/history", async (req, res) => {
   } catch (e) {
     console.error("arena/history:", e.message);
     return res.status(e.status || 500).json({ error: e.message || "Gagal ambil riwayat." });
+  }
+});
+
+// ---------- Katalog paket Membership (Special Offer + Gym) — proxy ke booking API ----------
+// PENTING: path upstream katalog di-set via env MEMBERSHIP_CATALOG_PATH (mis. "/packages"
+// atau "/membership"). Default best-guess "/packages". Kalau path/shape belum cocok, kita
+// balas { ok:true, groups:[] } → halaman Membership tampil "empty" (BUKAN data karangan,
+// BUKAN error fatal). Bentuk mentah upstream di-log (key-nya) untuk memfinalkan mapper.
+function _mNum(v){ var n = typeof v === "number" ? v : parseFloat(String(v == null ? "" : v).replace(/[^\d.]/g, "")); return isNaN(n) ? null : n; }
+function _mRupiah(n){ return n == null ? null : ("Rp " + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")); }
+function _mList(raw){
+  if (Array.isArray(raw)) return raw;
+  if (raw && Array.isArray(raw.data)) return raw.data;
+  if (raw && Array.isArray(raw.packages)) return raw.packages;
+  return null;
+}
+function _mNormPkg(p){
+  if (!p || typeof p !== "object") return null;
+  var name = p.name || p.title || p.package_name || p.product_name || "";
+  if (!name) return null;
+  var priceN = _mNum(p.price != null ? p.price : (p.amount != null ? p.amount : p.price_final));
+  var oldN = _mNum(p.price_old != null ? p.price_old : (p.original_price != null ? p.original_price : p.price_before));
+  var perksRaw = p.perks || p.benefits || p.features || p.facilities || [];
+  var perks = Array.isArray(perksRaw)
+    ? perksRaw.map(function (x) { return typeof x === "string" ? x : (x && (x.name || x.label || x.title) || ""); }).filter(Boolean)
+    : (typeof perksRaw === "string" ? perksRaw.split(/[\n;•]/).map(function (s) { return s.trim(); }).filter(Boolean) : []);
+  return {
+    name: String(name),
+    price: _mRupiah(priceN),
+    price_old: _mRupiah(oldN),
+    period: p.period || p.duration_label || (p.duration_days ? (p.duration_days + " hari") : null),
+    perks: perks.slice(0, 6),
+    book_url: p.book_url || p.url || p.checkout_url || "https://booking.20fit.id/gym",
+  };
+}
+function mapMembershipGroups(raw){
+  if (raw && Array.isArray(raw.groups)) {
+    return raw.groups.map(function (g) {
+      return { key: g.key || g.slug || "gym", title: g.title || g.name || null, packages: (g.packages || g.items || []).map(_mNormPkg).filter(Boolean) };
+    }).filter(function (g) { return g.packages.length; });
+  }
+  var list = _mList(raw);
+  if (!list) return [];
+  var offer = [], gym = [];
+  list.forEach(function (p) {
+    var np = _mNormPkg(p); if (!np) return;
+    var isOffer = !!(p.is_offer || p.special_offer || /offer|promo|diskon|discount/i.test(String(p.category || p.type || p.group || p.tag || "")));
+    (isOffer ? offer : gym).push(np);
+  });
+  var groups = [];
+  if (offer.length) groups.push({ key: "special_offer", packages: offer });
+  if (gym.length) groups.push({ key: "gym", packages: gym });
+  return groups;
+}
+app.get("/api/membership/packages", async (req, res) => {
+  try {
+    if (!ARENA_API_KEY) return res.json({ ok: true, groups: [] }); // belum dikonfigurasi → empty
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const upath = process.env.MEMBERSHIP_CATALOG_PATH || "/packages";
+    let raw = null;
+    try {
+      const r = await fetch(ARENA_API_URL + upath, { headers: { "x-api-key": ARENA_API_KEY } });
+      if (r.ok) raw = await r.json().catch(() => null);
+      else console.warn("membership upstream", upath, "->", r.status);
+    } catch (e) { console.warn("membership upstream error:", e.message); }
+    try { console.log("membership raw shape:", raw && (Array.isArray(raw) ? ("array[" + raw.length + "]") : Object.keys(raw).join(","))); } catch (e) {}
+    return res.json({ ok: true, groups: mapMembershipGroups(raw) });
+  } catch (e) {
+    console.error("membership/packages:", e.message);
+    return res.status(500).json({ error: e.message });
   }
 });
 
@@ -4880,8 +5230,29 @@ async function creditScanOrder(reff) {
   }
   return data === true;
 }
-// Validasi voucher utk pembelian. gross = harga paket (Rp). Return {voucher, discount, final} atau {error}.
+// Catat percobaan pakai voucher (analitik "kode gagal" + redemption rate). Best-effort, non-blocking.
+async function logVoucherAttempt(code, uid, result) {
+  try { if (admin && code) await admin.from("my20fit_voucher_attempts").insert({ code_tried: String(code).trim().toUpperCase(), auth_user_id: uid || null, result: result }); } catch (e) {}
+}
+// Wrapper: jalankan validasi lalu CATAT hasilnya sebagai attempt. TIDAK mengubah perilaku validasi.
 async function validateVoucherForBuy(rawCode, gross, uid) {
+  const r = await validateVoucherForBuyInner(rawCode, gross, uid);
+  const code = String(rawCode || "").trim().toUpperCase();
+  if (code) {
+    let res = "ok";
+    if (r && r.error) {
+      if (/ditemukan/.test(r.error)) res = "not_found";
+      else if (/kedaluwarsa|belum berlaku/.test(r.error)) res = "expired";
+      else if (/kuota/.test(r.error)) res = "quota_full";
+      else if (/batas pemakaian/.test(r.error)) res = "per_user_limit";
+      else res = "not_applicable";
+    }
+    logVoucherAttempt(code, uid, res);
+  }
+  return r;
+}
+// Validasi voucher utk pembelian. gross = harga paket (Rp). Return {voucher, discount, final} atau {error}.
+async function validateVoucherForBuyInner(rawCode, gross, uid) {
   const code = String(rawCode || "").trim().toUpperCase();
   if (!code) return { voucher: null, discount: 0, final: gross };
   const { data: vs } = await admin.from("my20fit_vouchers").select("*").eq("code", code).limit(1);
@@ -4997,6 +5368,39 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// ---------- Langkah 7: swap dashboard admin ke shell baru /admin-v2 ----------
+// STAGING: /admin-dashboard OTOMATIS pakai shell baru (deteksi host railway staging atau
+//   APP_BASE_URL mengandung "staging") — tanpa menyentuh flag global.
+// PRODUKSI: tetap admin lama sampai feature flag `admin_v2` di-ON (default OFF → tak berubah).
+// Flag dibaca dari Supabase (dipakai bareng staging+prod), makanya staging pakai deteksi host,
+//   bukan flag. Reversible: matikan flag = balik ke admin lama seketika (cache 30 dtk).
+// Admin lama SELALU bisa diakses via /admin-dashboard?legacy=1 (jangan terjebak saat ON).
+let _adminV2On = false, _adminV2At = 0;
+async function adminV2Enabled() {
+  if (Date.now() - _adminV2At < 30000) return _adminV2On;
+  _adminV2At = Date.now();
+  try {
+    if (admin) {
+      const { data } = await admin.from("my20fit_admin_feature_flags").select("enabled").eq("key", "admin_v2").limit(1);
+      _adminV2On = !!(data && data[0] && data[0].enabled);
+    }
+  } catch (e) { /* pertahankan nilai terakhir */ }
+  return _adminV2On;
+}
+function isStagingReq(req) {
+  try {
+    const host = String((req.headers && req.headers.host) || "").toLowerCase();
+    if (host.indexOf("staging") >= 0) return true;
+  } catch (e) {}
+  return String(APP_BASE_URL || "").toLowerCase().indexOf("staging") >= 0;
+}
+app.get("/admin-dashboard", async (req, res, next) => {
+  if (req.query && req.query.legacy) return next();          // paksa admin lama
+  try { if (isStagingReq(req) || await adminV2Enabled()) return res.redirect(302, "/admin-v2"); } catch (e) {}
+  return next();                                              // default: admin lama (static)
+});
+
 app.use(express.static(path.join(__dirname), {
   extensions: ["html"], dotfiles: "ignore",
   setHeaders: function (res, filePath) {
