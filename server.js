@@ -2392,6 +2392,44 @@ app.post("/api/admin/corporate/:id/admins", async (req, res) => {
   await adminAudit(ctx, "corporate.admin.add", id, { email: email, password_set: !!r.password_set });
   return res.json({ ok: true, admin: r });
 });
+// Kirim UNDANGAN email ke admin portal korporat: link set/reset password (recovery)
+// supaya HR bikin passwordnya sendiri, lalu login di /corp-dashboard. Superadmin only.
+// (email = modul mailer di scope ini; pakai `addr` untuk alamat agar tak bentrok.)
+app.post("/api/admin/corporate/:id/admins/invite", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  var id = String(req.params.id || "");
+  var addr = String((req.body || {}).email || "").trim().toLowerCase();
+  if (!addr) return res.status(400).json({ error: "email wajib." });
+  try {
+    var uid = await findUserIdByEmail(addr);
+    if (!uid) return res.status(404).json({ error: "Akun admin belum ada. Tambah adminnya dulu, baru kirim undangan." });
+    var { data: ca } = await admin.from("my20fit_corporate_admin").select("id").eq("corporate_id", id).eq("auth_user_id", uid).limit(1);
+    if (!ca || !ca[0]) return res.status(404).json({ error: "Email itu bukan admin portal korporat ini." });
+    var { data: corp } = await admin.from("my20fit_corporate").select("name").eq("id", id).limit(1);
+    var corpName = (corp && corp[0] && corp[0].name) || "perusahaanmu";
+    var link = null;
+    try {
+      var { data: ld, error: le } = await admin.auth.admin.generateLink({
+        type: "recovery", email: addr, options: { redirectTo: APP_BASE_URL + "/reset-password" },
+      });
+      if (le) throw le;
+      link = (ld && ld.properties && ld.properties.action_link) || null;
+    } catch (e) { return res.status(500).json({ error: "Gagal membuat link undangan: " + e.message }); }
+    if (!link) return res.status(500).json({ error: "Link undangan kosong." });
+    var portal = APP_BASE_URL + "/corp-dashboard";
+    var html = '<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto">' +
+      '<h2 style="color:#C41101">Akses Dashboard HR 20FIT — ' + escHtml(corpName) + '</h2>' +
+      '<p>Kamu ditunjuk sebagai admin HR untuk memantau program kesehatan karyawan <b>' + escHtml(corpName) + '</b> di 20FIT.</p>' +
+      '<p><b>Langkah 1</b> — buat password kamu:</p>' +
+      '<p><a href="' + link + '" style="display:inline-block;background:#C41101;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">Set password</a></p>' +
+      '<p style="color:#666;font-size:12px;word-break:break-all">' + link + '</p>' +
+      '<p><b>Langkah 2</b> — login ke dashboard HR di <a href="' + portal + '">' + portal + '</a> pakai email ini + password yang kamu buat.</p>' +
+      '<p style="color:#666;font-size:12px">Akses kamu dibatasi HANYA untuk karyawan ' + escHtml(corpName) + '. Data pribadi sensitif tertentu tidak ditampilkan. Simpan email ini baik-baik.</p></div>';
+    var r = await email.send({ to: addr, subject: "Undangan Dashboard HR 20FIT — " + corpName, html: html, transactional: true, channel: "transactional", templateId: "corp_admin_invite", userId: uid });
+    await adminAudit(ctx, "corporate.admin.invite", id, { email: addr, mail_sent: !!(r && r.ok && !r.skipped), mail_skipped: !!(r && r.skipped) });
+    return res.json({ ok: true, sent: !!(r && r.ok && !r.skipped), skipped: !!(r && r.skipped), message: "Undangan dikirim ke " + addr + "." });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
 // Hapus admin corporate.
 app.delete("/api/admin/corporate/:id/admins/:userId", async (req, res) => {
   var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
