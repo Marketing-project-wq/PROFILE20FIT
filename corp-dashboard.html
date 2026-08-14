@@ -126,12 +126,14 @@
           <div><label>Frekuensi</label><select id="fUsage" onchange="applyFilters()"><option value="">Semua</option><option value="frequent">Sering</option><option value="rare">Jarang</option></select></div>
           <div><label>Umur</label><div class="agecombo"><input id="fAgeMin" type="number" placeholder="min" oninput="applyFilters()" /><input id="fAgeMax" type="number" placeholder="max" oninput="applyFilters()" /></div></div>
           <div><label>High need</label><select id="fHighNeed" onchange="applyFilters()"><option value="">Semua</option><option value="1">Hanya high-need</option></select></div>
+          <div><label>Divisi</label><select id="fDivision" onchange="applyFilters()"><option value="">Semua</option><option value="hr">HR / SDM</option><option value="finance">Keuangan / Akuntansi</option><option value="it">IT</option><option value="marketing">Marketing / Pemasaran</option><option value="sales">Sales / Pengembangan Bisnis</option><option value="operations">Operasional</option><option value="cs">Layanan Pelanggan</option><option value="procurement">Pengadaan</option><option value="legal">Legal / Hukum</option><option value="production">Produksi</option><option value="rnd">R&D / Riset</option><option value="logistics">Logistik / Rantai Pasok</option><option value="ga">Umum / GA</option><option value="engineering">Teknik</option><option value="qa">QA / QC</option><option value="management">Manajemen</option><option value="other">Lainnya</option></select></div>
           <div><label>&nbsp;</label><button class="btn sm ghost" onclick="exportCsv()">⬇ Export CSV</button></div>
         </div>
         <div class="tblwrap">
           <table>
             <thead><tr>
               <th onclick="sortBy('full_name')">Nama <span class="ar" id="ar-full_name"></span></th>
+              <th onclick="sortBy('division')">Divisi <span class="ar" id="ar-division"></span></th>
               <th onclick="sortBy('gender')">Gender <span class="ar" id="ar-gender"></span></th>
               <th onclick="sortBy('age')">Umur <span class="ar" id="ar-age"></span></th>
               <th onclick="sortBy('bmi')">BMI <span class="ar" id="ar-bmi"></span></th>
@@ -139,7 +141,7 @@
               <th onclick="sortBy('usage_level')">Frekuensi <span class="ar" id="ar-usage_level"></span></th>
               <th onclick="sortBy('high_need')">Perhatian <span class="ar" id="ar-high_need"></span></th>
             </tr></thead>
-            <tbody id="rows"><tr><td colspan="7"><div class="placeholder">Memuat…</div></td></tr></tbody>
+            <tbody id="rows"><tr><td colspan="8"><div class="placeholder">Memuat…</div></td></tr></tbody>
           </table>
         </div>
         <div class="msg" id="listMsg" style="text-align:left"></div>
@@ -282,9 +284,11 @@
     function applyFilters(){
       var q=($("fSearch").value||"").toLowerCase().trim();
       var fh=$("fHealth").value, fg=$("fGender").value, fu=$("fUsage").value, fhn=$("fHighNeed").value;
+      var fd=($("fDivision")||{}).value||"";
       var amin=parseInt($("fAgeMin").value,10), amax=parseInt($("fAgeMax").value,10);
       VIEW=ROSTER.filter(function(m){
         if(q && !String(m.full_name||"").toLowerCase().includes(q)) return false;
+        if(fd && m.division!==fd) return false;
         if(fh && m.health_status!==fh) return false;
         if(fg && m.gender!==fg) return false;
         if(fu && m.usage_level!==fu) return false;
@@ -307,17 +311,20 @@
       updateArrows();
     }
     function updateArrows(){
-      ["full_name","gender","age","bmi","health_status","usage_level","high_need"].forEach(function(k){ var e=$("ar-"+k); if(e) e.textContent = SORT.key===k?(SORT.dir>0?"▲":"▼"):""; });
+      ["full_name","division","gender","age","bmi","health_status","usage_level","high_need"].forEach(function(k){ var e=$("ar-"+k); if(e) e.textContent = SORT.key===k?(SORT.dir>0?"▲":"▼"):""; });
     }
     function healthPill(s){ var lbl=s==="healthy"?"Sehat":s==="attention"?"Perlu perhatian":"Data belum lengkap"; return '<span class="pill '+s+'">'+lbl+'</span>'; }
     function usagePill(s){ return '<span class="pill '+s+'">'+(s==="frequent"?"Sering":"Jarang")+'</span>'; }
     function genderLbl(g){ return g==="male"?"Pria":g==="female"?"Wanita":"—"; }
+    var DIV_LBL={hr:"HR / SDM",finance:"Keuangan / Akuntansi",it:"IT",marketing:"Marketing / Pemasaran",sales:"Sales / Pengembangan Bisnis",operations:"Operasional",cs:"Layanan Pelanggan",procurement:"Pengadaan",legal:"Legal / Hukum",production:"Produksi",rnd:"R&D / Riset",logistics:"Logistik / Rantai Pasok",ga:"Umum / GA",engineering:"Teknik",qa:"QA / QC",management:"Manajemen",other:"Lainnya"};
+    function divLbl(m){ if(!m.division) return "—"; if(m.division==="other") return m.division_other?("Lainnya: "+m.division_other):"Lainnya"; return DIV_LBL[m.division]||m.division; }
     function renderRows(){
       var b=$("rows");
-      if(!VIEW.length){ b.innerHTML='<tr><td colspan="7"><div class="placeholder">Tidak ada karyawan yang cocok.</div></td></tr>'; $("listMsg").textContent=""; return; }
+      if(!VIEW.length){ b.innerHTML='<tr><td colspan="8"><div class="placeholder">Tidak ada karyawan yang cocok.</div></td></tr>'; $("listMsg").textContent=""; return; }
       b.innerHTML=VIEW.map(function(m){
         return '<tr onclick="openMember(\''+m.auth_user_id+'\')">'+
           '<td>'+esc(m.full_name||"—")+'</td>'+
+          '<td>'+esc(divLbl(m))+'</td>'+
           '<td>'+genderLbl(m.gender)+'</td>'+
           '<td>'+(m.age!=null?m.age:"—")+'</td>'+
           '<td>'+(m.bmi!=null?m.bmi:"—")+'</td>'+
@@ -357,10 +364,10 @@
     function exportCsv(){
       if(!VIEW.length){ return; }
       if(!confirm("File CSV ini berisi DATA KESEHATAN karyawan (sensitif). Kamu bertanggung jawab menyimpannya dengan aman & menghapusnya bila tak diperlukan. Lanjut export?")) return;
-      var head=["Nama","Gender","Umur","BMI","Status kesehatan","Frekuensi","High need","Hari aktif (30h)","Scan (30h)","Workout (30h)"];
+      var head=["Nama","Divisi","Gender","Umur","BMI","Status kesehatan","Frekuensi","High need","Hari aktif (30h)","Scan (30h)","Workout (30h)"];
       var lines=[head.join(",")];
       VIEW.forEach(function(m){
-        var row=[m.full_name||"", genderLbl(m.gender), (m.age!=null?m.age:""), (m.bmi!=null?m.bmi:""),
+        var row=[m.full_name||"", divLbl(m), genderLbl(m.gender), (m.age!=null?m.age:""), (m.bmi!=null?m.bmi:""),
           (m.health_status==="healthy"?"Sehat":m.health_status==="attention"?"Perlu perhatian":"Data belum lengkap"),
           (m.usage_level==="frequent"?"Sering":"Jarang"), (m.high_need?"Ya":""), m.active_days, m.scans, m.workouts];
         lines.push(row.map(function(v){ v=String(v==null?"":v); return /[",\n]/.test(v)?('"'+v.replace(/"/g,'""')+'"'):v; }).join(","));
