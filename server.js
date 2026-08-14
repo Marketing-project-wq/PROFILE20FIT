@@ -2451,9 +2451,12 @@ function corpClassifyUsage(sig) {
   return { level: freq ? "frequent" : "rare", activeDays: sig.activeDays, scans: sig.scans, workouts: sig.workouts };
 }
 // Bangun roster lengkap (kesehatan + frekuensi) untuk SATU corporate. Dipakai summary.
+// Daftar divisi kanonik (Opsi A). Disimpan sebagai KODE; label bilingual di UI.
+var CORP_DIVISIONS = ["hr", "finance", "it", "marketing", "sales", "operations", "cs", "procurement", "legal", "production", "rnd", "logistics", "ga", "engineering", "qa", "management", "other"];
+function normDivision(d) { d = String(d || "").trim().toLowerCase(); return CORP_DIVISIONS.indexOf(d) >= 0 ? d : null; }
 async function corpRoster(corporateId) {
   var { data: mem } = await admin.from("my20fit_corporate_member")
-    .select("auth_user_id,linked_at,consent_at").eq("corporate_id", corporateId).eq("status", "active").order("linked_at", { ascending: false });
+    .select("auth_user_id,linked_at,consent_at,division,division_other").eq("corporate_id", corporateId).eq("status", "active").order("linked_at", { ascending: false });
   var ids = (mem || []).map(function (m) { return m.auth_user_id; });
   if (!ids.length) return [];
   var since = new Date(Date.now() - CORP_USAGE_RULES.window_days * 864e5).toISOString(), sinceDate = since.slice(0, 10);
@@ -2479,6 +2482,7 @@ async function corpRoster(corporateId) {
       health_status: h.status, bmi: h.bmi, high_need: h.highNeed, has_mcu: h.hasMcu, has_bmi: h.hasBmi,
       attention_count: h.attentionCount, abnormal_count: h.abnormalCount,
       usage_level: u.level, active_days: u.activeDays, scans: u.scans, workouts: u.workouts, linked_at: m.linked_at,
+      division: m.division || null, division_other: m.division_other || null,
     };
   });
 }
@@ -2584,11 +2588,11 @@ app.get("/api/corp/membership", async (req, res) => {
   var user = await getUserFromReq(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
   var { data } = await admin.from("my20fit_corporate_member")
-    .select("corporate_id,status,linked_at,consent_at,consent_version").eq("auth_user_id", user.id).eq("status", "active").limit(1);
+    .select("corporate_id,status,linked_at,consent_at,consent_version,division,division_other").eq("auth_user_id", user.id).eq("status", "active").limit(1);
   var m = data && data[0];
   if (!m) return res.json({ ok: true, member: null });
   var { data: c } = await admin.from("my20fit_corporate").select("name").eq("id", m.corporate_id).limit(1);
-  return res.json({ ok: true, member: { corporate_name: (c && c[0] && c[0].name) || "—", linked_at: m.linked_at, consent_at: m.consent_at, consent_version: m.consent_version } });
+  return res.json({ ok: true, member: { corporate_name: (c && c[0] && c[0].name) || "—", linked_at: m.linked_at, consent_at: m.consent_at, consent_version: m.consent_version, division: m.division || null, division_other: m.division_other || null } });
 });
 // Keluar dari program (hormati kapan pun; setelah ini admin corporate tak bisa lihat lagi).
 app.post("/api/corp/leave", async (req, res) => {
@@ -2599,6 +2603,24 @@ app.post("/api/corp/leave", async (req, res) => {
     .eq("auth_user_id", user.id).eq("status", "active");
   if (error) return res.status(500).json({ error: error.message });
   return res.json({ ok: true });
+});
+// Set DIVISI karyawan pada keanggotaan korporat aktifnya sendiri. division wajib
+// (kode kanonik); 'other' -> division_other teks bebas. Divalidasi ke daftar resmi.
+app.post("/api/corp/set-division", async (req, res) => {
+  var user = await getUserFromReq(req);
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  var b = req.body || {};
+  var div = normDivision(b.division);
+  if (!div) return res.status(400).json({ error: "Divisi tidak valid." });
+  var other = div === "other" ? String(b.division_other || "").trim().slice(0, 60) : null;
+  if (div === "other" && !other) return res.status(400).json({ error: "Isi nama divisi (Lainnya)." });
+  var { data: mem } = await admin.from("my20fit_corporate_member")
+    .select("id").eq("auth_user_id", user.id).eq("status", "active").limit(1);
+  if (!mem || !mem[0]) return res.status(404).json({ error: "Kamu belum tergabung di korporat." });
+  var { error } = await admin.from("my20fit_corporate_member")
+    .update({ division: div, division_other: other }).eq("id", mem[0].id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ ok: true, division: div, division_other: other });
 });
 
 // ============ Account: hak data-subject (export data pribadi) ============
