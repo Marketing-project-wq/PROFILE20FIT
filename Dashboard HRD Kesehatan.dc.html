@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #E8E7E1; }
+  * { box-sizing: border-box; }
+  a { color: #1F5C4D; text-decoration: none; }
+  a:hover { color: #143D33; }
+  ::-webkit-scrollbar { height: 6px; width: 6px; }
+  ::-webkit-scrollbar-thumb { background: #C9C7BE; border-radius: 3px; }
+</style>
+</helmet>
+
+<div style="min-height: 100vh; font-family: 'IBM Plex Sans', sans-serif; color: #16191B; background: #E8E7E1; display: flex; flex-direction: column; align-items: center; padding: 0 0 64px;">
+
+  <div style="width: 100%; max-width: 1360px; background: #F2F1EC; box-shadow: 0 24px 60px -30px rgba(0,0,0,0.45); min-height: 900px;">
+
+    <header style="background: #FFFFFF; border-bottom: 1px solid #E2E0D9; padding: 16px 20px 0;">
+      <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; justify-content: space-between;">
+        <div style="min-width: 220px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #8A9096;">HRIS Nusantara · {{ t.moduleTag }}</div>
+          <h1 style="margin: 6px 0 0; font-size: 21px; font-weight: 600; letter-spacing: -0.01em;">{{ t.appTitle }}</h1>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+          <div style="display: flex; border: 1px solid #E2E0D9; border-radius: 6px; overflow: hidden;">
+            <button onClick="{{ setId }}" style="{{ langIdStyle }}">ID</button>
+            <button onClick="{{ setEn }}" style="{{ langEnStyle }}">EN</button>
+          </div>
+          <select style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; padding: 7px 10px; border: 1px solid #E2E0D9; border-radius: 6px; background: #FFF; color: #16191B;">
+            <option>{{ t.period30 }}</option>
+            <option>{{ t.period90 }}</option>
+            <option>{{ t.periodYear }}</option>
+          </select>
+          <button style="font-size: 13px; font-weight: 500; padding: 8px 14px; border: 0; border-radius: 6px; background: #1F5C4D; color: #FFF; cursor: pointer;">{{ t.export }}</button>
+        </div>
+      </div>
+
+      <nav style="display: flex; gap: 4px; margin-top: 16px; overflow-x: auto;">
+        <button onClick="{{ goDash }}" style="{{ tabDashStyle }}">{{ t.tabDash }}</button>
+        <button onClick="{{ goDetail }}" style="{{ tabDetailStyle }}">{{ t.tabDetail }}</button>
+        <button onClick="{{ goReport }}" style="{{ tabReportStyle }}">{{ t.tabReport }}</button>
+      </nav>
+    </header>
+
+    <div style="display: flex; gap: 10px; align-items: flex-start; padding: 14px 20px; background: #EFF3F0; border-bottom: 1px solid #DDE4DF;">
+      <div style="width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #1F5C4D; color: #1F5C4D; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; margin-top: 1px;">i</div>
+      <p style="margin: 0; font-size: 12.5px; line-height: 1.5; color: #37504A; text-wrap: pretty;">{{ t.privacyNote }}</p>
+    </div>
+
+    <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+    <main style="padding: 20px; display: flex; flex-direction: column; gap: 26px;">
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: #E2E0D9; border: 1px solid #E2E0D9; border-radius: 8px; overflow: hidden;">
+        <sc-for list="{{ statusChips }}" as="c" hint-placeholder-count="4">
+          <div style="background: #FFFFFF; padding: 11px 14px;">
+            <div style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #A0A49F; font-family: 'IBM Plex Mono', monospace;">{{ c.label }}</div>
+            <div style="font-size: 12.5px; margin-top: 4px; color: {{ c.color }};">{{ c.value }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <section style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; border-bottom: 1px solid #DEDCD4; padding-bottom: 8px;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #A0A49F;">01</span>
+        <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{ s.band1 }}</h2>
+        <span style="font-size: 11.5px; color: #8A9096;">{{ s.band1Sub }}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+        <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+          <div onMouseEnter="{{ k.enter }}" onMouseLeave="{{ leave }}" style="position: relative; background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 16px; cursor: default;">
+            <div style="display: flex; gap: 8px; align-items: flex-start;">
+              <div style="flex: 1 1 auto; font-size: 11.5px; color: #6B7278; letter-spacing: 0.02em; min-height: 32px;">{{ k.label }}</div>
+              <div style="flex: none; width: 15px; height: 15px; border-radius: 50%; border: 1px solid #CFCDC5; color: #A0A49F; font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;">i</div>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 8px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; line-height: 1;">{{ k.value }}</div>
+              <div style="font-size: 12px; color: #6B7278;">{{ k.unit }}</div>
+            </div>
+            <div style="margin-top: 10px; font-size: 11.5px; color: {{ k.deltaColor }};">{{ k.delta }}</div>
+            <div style="{{ k.tipStyle }}">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #8FA69E;">{{ s.tipMeasured }}</div>
+              <div style="font-size: 12px; line-height: 1.5; margin-top: 6px; color: #F2F1EC;">{{ k.tipWhat }}</div>
+              <div style="height: 1px; background: #3A4A45; margin: 10px 0;"></div>
+              <sc-for list="{{ k.tipInputs }}" as="i" hint-placeholder-count="3">
+                <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 11px; padding: 3px 0; color: #C9CFCC;">
+                  <span>{{ i.label }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; color: #8FA69E;">{{ i.value }}</span>
+                </div>
+              </sc-for>
+              <div style="height: 1px; background: #3A4A45; margin: 10px 0;"></div>
+              <div style="font-size: 11px; line-height: 1.5; color: #A9B5B1;">{{ k.tipThreshold }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; border-bottom: 1px solid #DEDCD4; padding-bottom: 8px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #A0A49F;">02</span>
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{ s.band3 }}</h2>
+          <span style="font-size: 11.5px; color: #8A9096;">{{ s.band3Sub }}</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;">
+          <sc-for list="{{ popHealth }}" as="p" hint-placeholder-count="6">
+            <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 16px;">
+              <div style="font-size: 11.5px; color: #6B7278; min-height: 30px;">{{ p.label }}</div>
+              <div style="display: flex; align-items: baseline; gap: 7px; margin-top: 6px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; color: {{ p.color }};">{{ p.value }}</span>
+                <span style="font-size: 11.5px; color: #8A9096;">{{ p.unit }}</span>
+              </div>
+              <div style="height: 5px; border-radius: 3px; background: #F0EFE9; margin-top: 12px;">
+                <div style="height: 100%; border-radius: 3px; background: {{ p.color }}; width: {{ p.bar }};"></div>
+              </div>
+              <div style="font-size: 11px; color: #8A9096; margin-top: 8px; line-height: 1.45;">{{ p.note }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: baseline;">
+            <h3 style="margin: 0; font-size: 14px; font-weight: 600;">{{ s.condTitle }}</h3>
+            <span style="font-size: 11.5px; color: #8A9096;">{{ s.condSub }}</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 22px 30px; margin-top: 16px;">
+            <sc-for list="{{ condGroups }}" as="g" hint-placeholder-count="5">
+              <div>
+                <div style="display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid #DEDCD4;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #1F5C4D;">{{ g.title }}</span>
+                  <span style="font-size: 10.5px; color: #A0A49F;">{{ g.panel }}</span>
+                </div>
+                <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="4">
+                  <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #F4F3EE;">
+                    <div style="flex: 1 1 auto; min-width: 0;">
+                      <div style="font-size: 12.5px;">{{ c.label }}</div>
+                      <div style="font-size: 10.5px; color: #A0A49F; margin-top: 2px;">{{ c.criteria }}</div>
+                    </div>
+                    <div style="flex: 0 0 54px;">
+                      <div style="height: 5px; border-radius: 3px; background: #F0EFE9;">
+                        <div style="height: 100%; border-radius: 3px; background: {{ c.color }}; width: {{ c.bar }};"></div>
+                      </div>
+                    </div>
+                    <div style="flex: 0 0 74px; text-align: right;">
+                      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14.5px; font-weight: 600; color: {{ c.color }};">{{ c.pct }}</div>
+                      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A0A49F; margin-top: 2px;">{{ c.count }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; border-bottom: 1px solid #DEDCD4; padding-bottom: 8px; margin-bottom: -8px;">
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #A0A49F;">03</span>
+        <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{ s.band2 }}</h2>
+        <span style="font-size: 11.5px; color: #8A9096;">{{ s.band2Sub }}</span>
+      </div>
+
+      <section style="display: flex; flex-wrap: wrap; gap: 20px;">
+
+        <div style="flex: 3 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 20px;">
+
+          <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: baseline;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{ t.trendTitle }}</h2>
+              <div style="font-size: 11.5px; color: #6B7278; font-family: 'IBM Plex Mono', monospace;">{{ t.trendScale }}</div>
+            </div>
+            <div style="display: flex; align-items: flex-end; gap: 5px; height: 170px; margin-top: 20px; border-bottom: 1px solid #E2E0D9; padding-bottom: 0;">
+              <sc-for list="{{ trend }}" as="w" hint-placeholder-count="12">
+                <div style="flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; height: 100%;">
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A9096;">{{ w.value }}</div>
+                  <div style="width: 100%; border-radius: 3px 3px 0 0; background: {{ w.color }}; height: {{ w.h }};"></div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display: flex; gap: 5px; margin-top: 6px;">
+              <sc-for list="{{ trend }}" as="w" hint-placeholder-count="12">
+                <div style="flex: 1 1 0; text-align: center; font-size: 9.5px; color: #8A9096; font-family: 'IBM Plex Mono', monospace;">{{ w.label }}</div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{ t.deptTitle }}</h2>
+              <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <sc-for list="{{ legend }}" as="l" hint-placeholder-count="3">
+                  <div style="display: flex; align-items: center; gap: 5px; font-size: 11px; color: #6B7278;">
+                    <span style="width: 9px; height: 9px; border-radius: 2px; background: {{ l.color }};"></span>{{ l.label }}
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <sc-for list="{{ depts }}" as="d" hint-placeholder-count="8">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 13px 0; border-bottom: 1px solid #EFEEE8;">
+                <div style="flex: 2 1 150px; min-width: 0;">
+                  <div style="font-size: 13.5px; font-weight: 500;">{{ d.name }}</div>
+                  <div style="font-size: 11px; color: #8A9096; font-family: 'IBM Plex Mono', monospace; margin-top: 2px;">{{ d.headcountLabel }}</div>
+                </div>
+                <div style="flex: 3 1 180px; min-width: 120px;">
+                  <div style="display: flex; height: 9px; border-radius: 5px; overflow: hidden; background: #F0EFE9;">
+                    <div style="background: #C05B45; width: {{ d.high }};"></div>
+                    <div style="background: #D6A63F; width: {{ d.mid }};"></div>
+                    <div style="background: #6FA083; width: {{ d.low }};"></div>
+                  </div>
+                  <div style="font-size: 11px; color: #8A9096; margin-top: 6px;">{{ d.riskNote }}</div>
+                </div>
+                <div style="flex: 0 0 62px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 19px; font-weight: 600; color: {{ d.scoreColor }};">{{ d.score }}</div>
+                <div style="flex: 0 0 auto;">
+                  <button onClick="{{ d.open }}" style="font-size: 11.5px; font-family: 'IBM Plex Sans', sans-serif; padding: 6px 11px; border: 1px solid #E2E0D9; background: #FFF; border-radius: 6px; cursor: pointer; color: #16191B;">{{ t.open }}</button>
+                </div>
+              </div>
+            </sc-for>
+
+            <div style="display: flex; gap: 10px; align-items: center; padding: 13px 2px 2px; opacity: 0.65;">
+              <div style="flex: 2 1 170px; font-size: 13.5px; font-style: italic; color: #6B7278;">{{ t.hiddenGroup }}</div>
+              <div style="flex: 3 1 200px; font-size: 11.5px; color: #8A9096;">{{ t.hiddenReason }}</div>
+            </div>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: baseline;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{ s.heatTitle }}</h2>
+              <span style="font-size: 11.5px; color: #8A9096;">{{ s.heatSub }}</span>
+            </div>
+            <div style="overflow-x: auto; min-width: 0; margin-top: 14px;">
+              <div style="min-width: 620px;">
+                <div style="display: flex; gap: 3px; padding-left: 130px; margin-bottom: 6px;">
+                  <sc-for list="{{ heatCols }}" as="c" hint-placeholder-count="7">
+                    <div style="flex: {{ c.flex }}; text-align: center; font-size: 9.5px; font-family: 'IBM Plex Mono', monospace; color: #A0A49F; line-height: 1.3;">{{ c.label }}</div>
+                  </sc-for>
+                </div>
+                <sc-for list="{{ heatRows }}" as="r" hint-placeholder-count="8">
+                  <div style="display: flex; gap: 3px; align-items: center; margin-bottom: 3px;">
+                    <div style="flex: 0 0 130px; font-size: 11.5px; color: #16191B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px;">{{ r.name }}</div>
+                    <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="6">
+                      <div style="flex: 1 1 0; height: 28px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; background: {{ c.bg }}; color: {{ c.fg }};">{{ c.v }}</div>
+                    </sc-for>
+                    <div style="flex: 1.2 1 0; height: 28px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; background: {{ r.totalBg }}; color: {{ r.totalFg }};">{{ r.total }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; align-items: center;">
+              <sc-for list="{{ heatLegend }}" as="l" hint-placeholder-count="4">
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6B7278;">
+                  <span style="width: 12px; height: 12px; border-radius: 2px; background: {{ l.color }};"></span>{{ l.label }}
+                </div>
+              </sc-for>
+            </div>
+            <p style="margin: 12px 0 0; font-size: 11px; color: #A0A49F; line-height: 1.55;">{{ s.heatNote }}</p>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+            <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+              <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">{{ s.splitTitle }}</h2>
+              <p style="margin: 0 0 14px; font-size: 11.5px; color: #8A9096;">{{ s.splitSub }}</p>
+              <div style="display: flex; height: 30px; border-radius: 5px; overflow: hidden;">
+                <sc-for list="{{ riskSplit }}" as="r" hint-placeholder-count="3">
+                  <div style="background: {{ r.color }}; width: {{ r.pct }};"></div>
+                </sc-for>
+              </div>
+              <sc-for list="{{ riskSplit }}" as="r" hint-placeholder-count="3">
+                <div style="display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #EFEEE8;">
+                  <span style="width: 9px; height: 9px; border-radius: 2px; background: {{ r.color }}; flex: none;"></span>
+                  <span style="flex: 1 1 auto; font-size: 12.5px;">{{ r.label }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600;">{{ r.count }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A9096; flex: 0 0 40px; text-align: right;">{{ r.pct }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+          </div>
+        </div>
+
+        <div style="flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 20px;">
+
+          <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+            <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">{{ s.methodTitle }}</h2>
+            <p style="margin: 0 0 14px; font-size: 11.5px; color: #8A9096; line-height: 1.5;">{{ s.methodSub }}</p>
+            <sc-for list="{{ methodParts }}" as="m" hint-placeholder-count="5">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #EFEEE8;">
+                <div style="flex: 1 1 auto; min-width: 0;">
+                  <div style="font-size: 12.5px;">{{ m.label }}</div>
+                  <div style="font-size: 10.5px; color: #A0A49F; margin-top: 2px;">{{ m.source }}</div>
+                </div>
+                <div style="flex: 0 0 34px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 600;">{{ m.weight }}</div>
+              </div>
+            </sc-for>
+
+            <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid #E2E0D9;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
+                <h3 style="margin: 0 0 10px; font-size: 12.5px; font-weight: 600;">{{ s.deviceTitle }}</h3>
+                <span style="font-size: 10.5px; color: #8A9096;">{{ s.deviceSynced }}</span>
+              </div>
+              <sc-for list="{{ devices }}" as="d" hint-placeholder-count="5">
+                <div style="display: flex; align-items: center; gap: 10px; padding: 7px 0;">
+                  <span style="width: 7px; height: 7px; border-radius: 50%; background: {{ d.color }}; flex: none;"></span>
+                  <span style="flex: 1 1 auto; font-size: 12px; min-width: 0;">{{ d.name }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A9096;">{{ d.users }}</span>
+                </div>
+              </sc-for>
+              <button style="width: 100%; margin-top: 12px; font-size: 12.5px; font-family: 'IBM Plex Sans', sans-serif; padding: 9px; border: 1px solid #E2E0D9; background: #FFF; border-radius: 6px; cursor: pointer; color: #16191B;">{{ s.deviceManage }}</button>
+            </div>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+            <h2 style="margin: 0 0 14px; font-size: 15px; font-weight: 600;">{{ t.driversTitle }}</h2>
+            <sc-for list="{{ drivers }}" as="dr" hint-placeholder-count="4">
+              <div style="margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px;">
+                  <span>{{ dr.label }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; color: #6B7278;">{{ dr.pct }}</span>
+                </div>
+                <div style="height: 6px; border-radius: 3px; background: #F0EFE9; margin-top: 6px;">
+                  <div style="height: 100%; border-radius: 3px; background: #1F5C4D; width: {{ dr.pct }};"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
+              <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">{{ t.alertTitle }}</h2>
+              <span style="font-size: 11px; color: #8A9096;">{{ t.alertActive }}</span>
+            </div>
+            <p style="margin: 0 0 14px; font-size: 11.5px; color: #8A9096; line-height: 1.5;">{{ t.alertSub }}</p>
+            <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid #EFEEE8;">
+                <div style="flex: 1 1 auto; min-width: 0;">
+                  <div style="font-size: 12.5px;">{{ a.label }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A9096; margin-top: 3px;">{{ a.rule }}</div>
+                </div>
+                <div onClick="{{ a.toggle }}" style="{{ a.trackStyle }}">
+                  <div style="{{ a.knobStyle }}"></div>
+                </div>
+              </div>
+            </sc-for>
+            <button style="width: 100%; margin-top: 12px; font-size: 12.5px; font-family: 'IBM Plex Sans', sans-serif; padding: 9px; border: 1px solid #E2E0D9; background: #FFF; border-radius: 6px; cursor: pointer; color: #16191B;">{{ t.alertEdit }}</button>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+            <h2 style="margin: 0 0 12px; font-size: 15px; font-weight: 600;">{{ s.feedTitle }}</h2>
+            <sc-for list="{{ feed }}" as="f" hint-placeholder-count="4">
+              <div style="display: flex; gap: 10px; padding: 11px 0; border-top: 1px solid #EFEEE8;">
+                <span style="flex: none; margin-top: 5px; width: 6px; height: 6px; border-radius: 50%; background: {{ f.color }};"></span>
+                <div style="flex: 1 1 auto;">
+                  <div style="font-size: 12px; line-height: 1.45;">{{ f.text }}</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A0A49F; margin-top: 4px;">{{ f.time }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+            <h2 style="margin: 0 0 12px; font-size: 15px; font-weight: 600;">{{ t.sourceTitle }}</h2>
+            <sc-for list="{{ sources }}" as="s" hint-placeholder-count="4">
+              <div style="display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid #EFEEE8; font-size: 12px;">
+                <span style="color: #16191B;">{{ s.label }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; color: #6B7278;">{{ s.coverage }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; border-bottom: 1px solid #DEDCD4; padding-bottom: 8px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #A0A49F;">04</span>
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{ s.band4 }}</h2>
+          <span style="font-size: 11.5px; color: #8A9096;">{{ s.band4Sub }}</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+          <div style="flex: 2 1 300px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+            <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">{{ s.exTitle }}</h3>
+            <p style="margin: 0 0 18px; font-size: 11.5px; color: #8A9096;">{{ s.exSub }}</p>
+            <div style="display: flex; align-items: flex-end; gap: 10px; height: 130px; border-bottom: 1px solid #E2E0D9;">
+              <sc-for list="{{ exercise }}" as="o" hint-placeholder-count="5">
+                <div style="flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; height: 100%;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #6B7278;">{{ o.pct }}</span>
+                  <div style="width: 100%; border-radius: 3px 3px 0 0; background: {{ o.color }}; height: {{ o.h }};"></div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 6px;">
+              <sc-for list="{{ exercise }}" as="o" hint-placeholder-count="5">
+                <div style="flex: 1 1 0; text-align: center; font-size: 10px; color: #8A9096; font-family: 'IBM Plex Mono', monospace; line-height: 1.3;">{{ o.label }}</div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="flex: 1 1 240px; min-width: 0; background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+            <h3 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">{{ s.exDetailTitle }}</h3>
+            <sc-for list="{{ exerciseStats }}" as="a" hint-placeholder-count="5">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 10px 0; border-top: 1px solid #EFEEE8;">
+                <div>
+                  <div style="font-size: 12.5px;">{{ a.label }}</div>
+                  <div style="font-size: 10.5px; color: #A0A49F; margin-top: 2px;">{{ a.note }}</div>
+                </div>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; color: {{ a.color }};">{{ a.value }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; border-bottom: 1px solid #DEDCD4; padding-bottom: 8px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #A0A49F;">05</span>
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{ s.band5 }}</h2>
+          <span style="font-size: 11.5px; color: #8A9096;">{{ s.band5Sub }}</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px;">
+          <sc-for list="{{ mcuStrata }}" as="m" hint-placeholder-count="4">
+            <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 16px; border-left: 3px solid {{ m.color }};">
+              <div style="font-size: 11.5px; color: #6B7278; min-height: 30px;">{{ m.label }}</div>
+              <div style="display: flex; align-items: baseline; gap: 7px; margin-top: 6px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600;">{{ m.count }}</span>
+                <span style="font-size: 11.5px; color: #8A9096;">{{ m.pct }}</span>
+              </div>
+              <div style="font-size: 11px; color: #8A9096; margin-top: 8px; line-height: 1.45;">{{ m.note }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: baseline;">
+            <h3 style="margin: 0; font-size: 14px; font-weight: 600;">{{ s.mcuTableTitle }}</h3>
+            <span style="font-size: 11.5px; color: #8A9096;">{{ s.mcuTableSub }}</span>
+          </div>
+          <div style="overflow-x: auto; min-width: 0; margin-top: 14px;">
+            <div style="min-width: 1180px;">
+              <div style="display: flex; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid #E2E0D9;">
+                <sc-for list="{{ mcuCols }}" as="c" hint-placeholder-count="9">
+                  <div style="flex: {{ c.flex }}; font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: #A0A49F; font-family: 'IBM Plex Mono', monospace; text-align: {{ c.align }}; line-height: 1.4;">{{ c.label }}</div>
+                </sc-for>
+              </div>
+              <sc-for list="{{ mcuRows }}" as="r" hint-placeholder-count="8">
+                <div style="display: flex; gap: 8px; align-items: center; padding: 11px 0; border-bottom: 1px solid #EFEEE8;">
+                  <div style="flex: 2.4 1 0; font-size: 12.5px; min-width: 0;">
+                    <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.name }}</div>
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A0A49F; margin-top: 2px;">{{ r.participation }}</div>
+                  </div>
+                  <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5">
+                    <div style="flex: 1 1 0; text-align: center;">
+                      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; color: {{ c.color }};">{{ c.v }}</div>
+                      <div style="height: 4px; border-radius: 2px; background: #F0EFE9; margin-top: 5px;">
+                        <div style="height: 100%; border-radius: 2px; background: {{ c.color }}; width: {{ c.bar }};"></div>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <div style="flex: 1.1 1 0; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 600; color: {{ r.riskColor }};">{{ r.risk }}</div>
+                  <div style="flex: 1.3 1 0; text-align: right;">
+                    <span style="font-size: 10.5px; padding: 3px 8px; border-radius: 10px; white-space: nowrap; background: {{ r.badgeBg }}; color: {{ r.riskColor }};">{{ r.category }}</span>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="display: flex; gap: 8px; align-items: center; padding: 11px 0; opacity: 0.6;">
+                <div style="flex: 2.4 1 0; font-size: 12.5px; font-style: italic; color: #6B7278;">{{ t.hiddenGroup }}</div>
+                <div style="flex: 10.4 1 0; font-size: 11.5px; color: #8A9096;">{{ t.hiddenReason }}</div>
+              </div>
+            </div>
+          </div>
+          <p style="margin: 14px 0 0; font-size: 11px; color: #A0A49F; line-height: 1.55;">{{ s.mcuFootnote }}</p>
+        </div>
+      </section>
+    </main>
+    </sc-if>
+
+    <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+    <main style="padding: 20px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: flex-end;">
+        <div>
+          <button onClick="{{ goDash }}" style="font-size: 11.5px; font-family: 'IBM Plex Sans', sans-serif; padding: 0; border: 0; background: none; color: #1F5C4D; cursor: pointer;">{{ t.back }}</button>
+          <h2 style="margin: 6px 0 4px; font-size: 20px; font-weight: 600;">{{ sel.name }}</h2>
+          <div style="font-size: 12px; color: #8A9096; font-family: 'IBM Plex Mono', monospace;">{{ sel.headcount }} {{ t.people }} · {{ t.detailPeriod }}</div>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 10px; background: #FFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 12px 16px;">
+          <span style="font-size: 12px; color: #6B7278;">{{ s.healthScore }}</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; color: {{ sel.scoreColor }};">{{ sel.score }}</span>
+          <span style="font-size: 12px; color: #A0A49F;">/ 100</span>
+          <span style="font-size: 12px; color: {{ sel.scoreColor }};">{{ sel.level }}</span>
+        </div>
+      </div>
+
+      <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 16px 18px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: baseline;">
+          <h3 style="margin: 0; font-size: 13px; font-weight: 600;">{{ s.pickTitle }}</h3>
+          <span style="font-size: 11px; color: #A0A49F;">{{ s.pickNote }}</span>
+        </div>
+        <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+          <select onChange="{{ pickDept }}" value="{{ deptIndex }}" style="width: 100%; max-width: 380px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13.5px; padding: 10px 12px; border: 1px solid #E2E0D9; border-radius: 6px; background: #FFF; color: #16191B;">
+            <sc-for list="{{ deptPicker }}" as="p" hint-placeholder-count="8">
+              <option value="{{ p.value }}">{{ p.label }}</option>
+            </sc-for>
+          </select>
+          <button onClick="{{ openExport }}" style="font-size: 12.5px; font-weight: 500; font-family: 'IBM Plex Sans', sans-serif; padding: 10px 16px; border: 0; border-radius: 6px; background: #1F5C4D; color: #FFF; cursor: pointer; white-space: nowrap;">{{ s.dlDivision }}</button>
+        </div>
+      </div>
+
+      <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+          <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">{{ t.sleepTitle }}</h3>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 600; margin: 6px 0 14px;">{{ sleepAvg }}</div>
+          <sc-for list="{{ sleepDist }}" as="s" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+              <div style="flex: 0 0 62px; font-size: 11px; color: #6B7278; font-family: 'IBM Plex Mono', monospace;">{{ s.label }}</div>
+              <div style="flex: 1 1 auto; height: 14px; background: #F0EFE9; border-radius: 3px;">
+                <div style="height: 100%; border-radius: 3px; background: {{ s.color }}; width: {{ s.pct }};"></div>
+              </div>
+              <div style="flex: 0 0 34px; text-align: right; font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: #6B7278;">{{ s.pct }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+          <h3 style="margin: 0 0 14px; font-size: 14px; font-weight: 600;">{{ t.vitalTitle }}</h3>
+          <sc-for list="{{ vitals }}" as="v" hint-placeholder-count="4">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 10px 0; border-top: 1px solid #EFEEE8;">
+              <div>
+                <div style="font-size: 12.5px;">{{ v.label }}</div>
+                <div style="font-size: 10.5px; color: #8A9096; margin-top: 2px;">{{ v.ref }}</div>
+              </div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 600; color: {{ v.color }};">{{ v.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+          <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">{{ t.medicalTitle }}</h3>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px;">
+            <sc-for list="{{ selPanels }}" as="p" hint-placeholder-count="6">
+              <div style="flex: 1 1 60px; border-radius: 5px; padding: 7px 8px; background: {{ p.bg }}; color: {{ p.fg }};">
+                <div style="font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.8; line-height: 1.2;">{{ p.label }}</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; margin-top: 3px;">{{ p.score }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <p style="margin: 0 0 12px; font-size: 11px; color: #8A9096; line-height: 1.5;">{{ t.medicalSub }}</p>
+          <sc-for list="{{ medical }}" as="m" hint-placeholder-count="4">
+            <div style="margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px;">
+                <span>{{ m.label }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; color: #16191B; font-weight: 600;">{{ m.pct }}</span>
+              </div>
+              <div style="height: 6px; border-radius: 3px; background: #F0EFE9; margin-top: 6px;">
+                <div style="height: 100%; border-radius: 3px; background: {{ m.color }}; width: {{ m.pct }};"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: baseline;">
+          <h3 style="margin: 0; font-size: 14px; font-weight: 600;">{{ t.cohortTitle }}</h3>
+          <span style="font-size: 11px; color: #8A9096;">{{ t.cohortNote }}</span>
+        </div>
+        <div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+          <sc-for list="{{ cohorts }}" as="c" hint-placeholder-count="4">
+            <div style="border: 1px solid #EFEEE8; border-radius: 8px; padding: 14px; background: #FBFBF8;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A9096; letter-spacing: 0.06em;">{{ c.code }}</div>
+              <div style="font-size: 13.5px; font-weight: 500; margin-top: 4px;">{{ c.label }}</div>
+              <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 10px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 600; color: {{ c.color }};">{{ c.score }}</span>
+                <span style="font-size: 11px; color: #8A9096;">{{ c.size }}</span>
+              </div>
+              <div style="font-size: 11px; color: #6B7278; margin-top: 8px; line-height: 1.45;">{{ c.note }}</div>
+            </div>
+          </sc-for>
+          <div style="border: 1px dashed #D8D6CE; border-radius: 8px; padding: 14px; display: flex; align-items: center; justify-content: center; text-align: center;">
+            <div style="font-size: 11.5px; color: #A0A49F; line-height: 1.5;">{{ t.cohortHidden }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+        <h3 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">{{ t.recTitle }}</h3>
+        <sc-for list="{{ recs }}" as="r" hint-placeholder-count="3">
+          <div style="display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-top: 1px solid #EFEEE8;">
+            <span style="flex: none; margin-top: 3px; width: 7px; height: 7px; border-radius: 50%; background: {{ r.color }};"></span>
+            <div style="flex: 1 1 auto;">
+              <div style="font-size: 13px; font-weight: 500;">{{ r.title }}</div>
+              <div style="font-size: 12px; color: #6B7278; margin-top: 3px; line-height: 1.5;">{{ r.body }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </section>
+
+      <section style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: baseline;">
+          <h3 style="margin: 0; font-size: 14px; font-weight: 600;">{{ s.dlTitle }}</h3>
+          <span style="font-size: 11.5px; color: #8A9096;">{{ sel.name }}</span>
+        </div>
+        <p style="margin: 6px 0 16px; font-size: 11.5px; color: #8A9096; line-height: 1.5;">{{ s.dlSub }}</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+          <sc-for list="{{ dlSections }}" as="d" hint-placeholder-count="5">
+            <div onClick="{{ d.toggle }}" style="{{ d.style }}">
+              <div style="display: flex; gap: 9px; align-items: flex-start;">
+                <div style="{{ d.boxStyle }}">{{ d.check }}</div>
+                <div style="min-width: 0;">
+                  <div style="font-size: 12.5px; font-weight: 500;">{{ d.label }}</div>
+                  <div style="font-size: 10.5px; color: #8A9096; margin-top: 3px; line-height: 1.45;">{{ d.note }}</div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 18px;">
+          <sc-if value="{{ dlFormats }}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; border: 1px solid #E2E0D9; border-radius: 6px; overflow: hidden;">
+              <sc-for list="{{ dlFormats }}" as="fm" hint-placeholder-count="3">
+                <button onClick="{{ fm.pick }}" style="{{ fm.style }}">{{ fm.label }}</button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <button onClick="{{ openExport }}" style="font-size: 13px; font-weight: 500; font-family: 'IBM Plex Sans', sans-serif; padding: 10px 18px; border: 0; border-radius: 6px; background: #1F5C4D; color: #FFF; cursor: pointer;">{{ s.dlAction }}</button>
+          <span style="font-size: 11.5px; color: #8A9096;">{{ dlSummary }}</span>
+        </div>
+      </section>
+
+      <sc-if value="{{ exportOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position: fixed; inset: 0; z-index: 60; background: rgba(22,25,27,0.55); display: flex; align-items: center; justify-content: center; padding: 20px;">
+          <div style="width: 100%; max-width: 420px; background: #FFFFFF; border-radius: 12px; padding: 22px; box-shadow: 0 30px 70px -25px rgba(0,0,0,0.5);">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #8A9096;">{{ s.dlModalTag }}</div>
+            <h3 style="margin: 8px 0 4px; font-size: 17px; font-weight: 600;">{{ dlFileName }}</h3>
+            <p style="margin: 0 0 16px; font-size: 12px; color: #6B7278; line-height: 1.5;">{{ s.dlModalBody }}</p>
+            <sc-for list="{{ dlManifest }}" as="m" hint-placeholder-count="4">
+              <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 12px; padding: 7px 0; border-top: 1px solid #EFEEE8;">
+                <span style="color: #6B7278;">{{ m.k }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace;">{{ m.v }}</span>
+              </div>
+            </sc-for>
+            <div style="display: flex; gap: 10px; margin-top: 18px;">
+              <button onClick="{{ closeExport }}" style="flex: 1 1 auto; font-size: 13px; font-family: 'IBM Plex Sans', sans-serif; padding: 10px; border: 1px solid #E2E0D9; background: #FFF; border-radius: 6px; cursor: pointer; color: #16191B;">{{ s.dlCancel }}</button>
+              <button onClick="{{ closeExport }}" style="flex: 1 1 auto; font-size: 13px; font-weight: 500; font-family: 'IBM Plex Sans', sans-serif; padding: 10px; border: 0; background: #1F5C4D; color: #FFF; border-radius: 6px; cursor: pointer;">{{ s.dlConfirm }}</button>
+            </div>
+            <p style="margin: 14px 0 0; font-size: 10.5px; color: #A0A49F; line-height: 1.5;">{{ s.dlAudit }}</p>
+          </div>
+        </div>
+      </sc-if>
+    </main>
+    </sc-if>
+
+    <sc-if value="{{ isReport }}" hint-placeholder-val="{{ false }}">
+    <main style="padding: 20px; display: flex; flex-wrap: wrap; gap: 20px;">
+
+      <div style="flex: 2 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 20px;">
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+          <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">{{ t.reportBuild }}</h2>
+          <p style="margin: 0 0 16px; font-size: 11.5px; color: #8A9096; line-height: 1.5;">{{ t.reportSub }}</p>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px;">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: #6B7278;">{{ t.fPeriod }}
+              <select style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; padding: 8px 10px; border: 1px solid #E2E0D9; border-radius: 6px; background: #FFF; color: #16191B;">
+                <option>{{ t.optMonth }}</option>
+                <option>{{ t.optQuarter }}</option>
+              </select>
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: #6B7278;">{{ t.fScope }}
+              <select style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; padding: 8px 10px; border: 1px solid #E2E0D9; border-radius: 6px; background: #FFF; color: #16191B;">
+                <option>{{ t.optAll }}</option>
+                <option>{{ t.optSelected }}</option>
+              </select>
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: #6B7278;">{{ t.fFormat }}
+              <select style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; padding: 8px 10px; border: 1px solid #E2E0D9; border-radius: 6px; background: #FFF; color: #16191B;">
+                <option>PDF</option>
+                <option>Excel (.xlsx)</option>
+                <option>CSV</option>
+              </select>
+            </label>
+          </div>
+
+          <div style="margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+            <button style="font-size: 13px; font-weight: 500; font-family: 'IBM Plex Sans', sans-serif; padding: 10px 18px; border: 0; border-radius: 6px; background: #1F5C4D; color: #FFF; cursor: pointer;">{{ t.generate }}</button>
+          </div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: baseline;">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{ s.archiveTitle }}</h2>
+            <span style="font-size: 11.5px; color: #8A9096;">{{ s.archiveSub }}</span>
+          </div>
+          <div style="overflow-x: auto; min-width: 0; margin-top: 12px;">
+            <div style="min-width: 520px;">
+              <div style="display: flex; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid #E2E0D9;">
+                <sc-for list="{{ archiveCols }}" as="c" hint-placeholder-count="5">
+                  <div style="flex: {{ c.flex }}; text-align: {{ c.align }}; font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: #A0A49F; font-family: 'IBM Plex Mono', monospace;">{{ c.label }}</div>
+                </sc-for>
+              </div>
+              <sc-for list="{{ archive }}" as="a" hint-placeholder-count="8">
+                <div style="display: flex; gap: 10px; align-items: center; padding: 11px 0; border-bottom: 1px solid #EFEEE8;">
+                  <div style="flex: 1.6 1 0; font-size: 13px; font-weight: 500;">{{ a.month }}</div>
+                  <div style="flex: 1 1 0; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; color: {{ a.scoreColor }};">{{ a.score }}</div>
+                  <div style="flex: 1 1 0; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: {{ a.deltaColor }};">{{ a.delta }}</div>
+                  <div style="flex: 1.2 1 0; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #6B7278;">{{ a.covered }}</div>
+                  <div style="flex: 0 0 auto; position: relative;">
+                    <button onClick="{{ a.toggle }}" style="font-size: 11.5px; font-family: 'IBM Plex Sans', sans-serif; padding: 6px 12px; border: 1px solid #E2E0D9; background: #FFF; border-radius: 6px; cursor: pointer; color: #16191B; white-space: nowrap;">{{ a.buttonLabel }}</button>
+                    <div style="{{ a.menuStyle }}">
+                      <sc-for list="{{ a.options }}" as="o" hint-placeholder-count="4">
+                        <div onClick="{{ o.pick }}" style="{{ o.style }}">
+                          <span>{{ o.label }}</span>
+                          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #A0A49F;">{{ o.ext }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <p style="margin: 12px 0 0; font-size: 11px; color: #A0A49F; line-height: 1.55;">{{ s.archiveNote }}</p>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+          <h2 style="margin: 0 0 12px; font-size: 15px; font-weight: 600;">{{ t.historyTitle }}</h2>
+          <sc-for list="{{ history }}" as="h" hint-placeholder-count="4">
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid #EFEEE8;">
+              <div style="flex: 2 1 200px;">
+                <div style="font-size: 13px; font-weight: 500;">{{ h.name }}</div>
+                <div style="font-size: 11px; color: #8A9096; font-family: 'IBM Plex Mono', monospace; margin-top: 3px;">{{ h.meta }}</div>
+              </div>
+              <div style="flex: 0 0 auto; position: relative;">
+                <button onClick="{{ h.toggle }}" style="font-size: 11.5px; font-family: 'IBM Plex Sans', sans-serif; padding: 6px 12px; border: 1px solid #E2E0D9; background: #FFF; border-radius: 6px; cursor: pointer; color: #16191B;">{{ h.buttonLabel }}</button>
+                <div style="{{ h.menuStyle }}">
+                  <sc-for list="{{ h.options }}" as="o" hint-placeholder-count="4">
+                    <div onClick="{{ o.pick }}" style="{{ o.style }}">
+                      <span>{{ o.label }}</span>
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #A0A49F;">{{ o.ext }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="flex: 1 1 260px; min-width: 0;">
+        <div style="background: #FFFFFF; border: 1px solid #E2E0D9; border-radius: 10px; padding: 18px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: baseline; margin-bottom: 12px;">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600;">{{ t.previewTitle }}</h2>
+            <span style="font-size: 11px; color: #A0A49F;">{{ s.previewScope }}</span>
+          </div>
+          <div style="border: 1px solid #E2E0D9; border-radius: 6px; padding: 18px; background: #FBFBF8;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; letter-spacing: 0.12em; color: #8A9096; text-transform: uppercase;">HRIS Nusantara</div>
+            <div style="font-size: 15px; font-weight: 600; margin-top: 6px; line-height: 1.3;">{{ t.previewDocTitle }}</div>
+            <div style="font-size: 10.5px; color: #8A9096; margin-top: 4px;">{{ t.previewDocMeta }}</div>
+            <div style="height: 1px; background: #E2E0D9; margin: 14px 0;"></div>
+            <sc-for list="{{ previewRows }}" as="p" hint-placeholder-count="5">
+              <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; padding: 5px 0;">
+                <span style="color: #6B7278;">{{ p.k }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace;">{{ p.v }}</span>
+              </div>
+            </sc-for>
+            <div style="height: 1px; background: #E2E0D9; margin: 14px 0;"></div>
+            <div style="font-size: 10px; color: #A0A49F; line-height: 1.5;">{{ t.previewFooter }}</div>
+          </div>
+        </div>
+      </div>
+    </main>
+    </sc-if>
+
+    <footer style="padding: 18px 20px 28px; border-top: 1px solid #E2E0D9; font-size: 11px; color: #A0A49F; line-height: 1.6;">{{ t.footer }}</footer>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000}}">
+const COPY = {
+  id: {
+    previewAs: "Pratinjau",
+    moduleTag: "Modul Kesehatan & Kelelahan",
+    appTitle: "Analisis Kesehatan Karyawan",
+    period30: "30 hari terakhir", period90: "90 hari terakhir", periodYear: "Tahun berjalan",
+    export: "Export laporan",
+    tabDash: "Ringkasan", tabDetail: "Detail Departemen", tabReport: "Laporan",
+    privacyNote: "Mode anonim aktif. Nama, NIK, dan foto karyawan tidak ditampilkan di modul ini. Data hanya dapat dilihat sebagai agregat departemen atau kelompok kerja dengan minimal 5 orang. Kelompok di bawah 5 orang otomatis disembunyikan untuk mencegah identifikasi.",
+    trendTitle: "Indeks kesehatan perusahaan (12 minggu)", trendScale: "0–100 · makin tinggi makin sehat",
+    deptTitle: "Skor kesehatan per departemen",
+    legendHigh: "Risiko tinggi", legendMid: "Sedang", legendLow: "Aman",
+    open: "Lihat",
+    hiddenGroup: "Direksi & Sekretariat",
+    hiddenReason: "Disembunyikan — kelompok kurang dari 5 orang",
+    driversTitle: "Faktor pendorong utama",
+    alertTitle: "Ambang peringatan", alertActive: "3 aktif",
+    alertSub: "Sistem mengirim notifikasi saat ambang terlampaui, tanpa menyebut individu.",
+    alertEdit: "Atur ambang",
+    sourceTitle: "Sumber data", 
+    back: "← Kembali ke ringkasan",
+    detailDept: "Operasional Pabrik", detailPeriod: "30 hari terakhir", people: "karyawan",
+    fatigueIndex: "Indeks kelelahan", levelHigh: "Tinggi",
+    sleepTitle: "Durasi tidur rata-rata", vitalTitle: "Tanda vital & aktivitas",
+    medicalTitle: "Hasil medical check-up", medicalSub: "Persentase karyawan di luar rentang normal. Sumber: MCU tahunan 2025, divisi terpilih.",
+    cohortTitle: "Kelompok kerja", cohortNote: "Kode kelompok, bukan identitas individu",
+    cohortHidden: "2 kelompok disembunyikan\n(kurang dari 5 orang)",
+    recTitle: "Tindak lanjut yang disarankan",
+    reportBuild: "Susun laporan", reportSub: "Laporan mengikuti aturan anonimitas yang sama: agregat, minimal 5 orang per baris.",
+    fPeriod: "Periode", fScope: "Cakupan", fFormat: "Format",
+    optMonth: "Bulanan — Juli 2026", optQuarter: "Kuartal — Q2 2026",
+    optAll: "Semua departemen", optSelected: "Departemen terpilih",
+    generate: "Buat laporan", generateNote: "Estimasi 20 detik",
+    historyTitle: "Riwayat laporan", download: "Unduh",
+    previewTitle: "Pratinjau", previewDocTitle: "Laporan Kesehatan & Kelelahan Karyawan",
+    previewDocMeta: "Juli 2026 · 5.000 karyawan · Anonim",
+    previewFooter: "Dokumen ini tidak memuat identitas karyawan. Distribusi terbatas pada HR & manajemen.",
+    footer: "Data diperbarui 6 Agustus 2026, 07:00 WIB. Akses modul ini tercatat dalam log audit. Modul kesehatan tunduk pada kebijakan privasi data karyawan No. 14/HR/2026."
+  },
+  en: {
+    previewAs: "Preview",
+    moduleTag: "Health & Fatigue Module",
+    appTitle: "Employee Fatigue Analytics",
+    period30: "Last 30 days", period90: "Last 90 days", periodYear: "Year to date",
+    export: "Export report",
+    tabDash: "Overview", tabDetail: "Department detail", tabReport: "Reports",
+    privacyNote: "Anonymous mode is on. Employee names, ID numbers, and photos are not shown in this module. Data is available only as department or work-group aggregates with at least 5 people. Groups under 5 people are hidden automatically to prevent re-identification.",
+    trendTitle: "Company health index (12 weeks)", trendScale: "0–100 · higher is healthier",
+    deptTitle: "Health score by department",
+    legendHigh: "High risk", legendMid: "Moderate", legendLow: "Healthy",
+    open: "Open",
+    hiddenGroup: "Board & Secretariat",
+    hiddenReason: "Hidden — group smaller than 5 people",
+    driversTitle: "Top contributing factors",
+    alertTitle: "Alert thresholds", alertActive: "3 active",
+    alertSub: "The system notifies HR when a threshold is crossed, without naming individuals.",
+    alertEdit: "Edit thresholds",
+    sourceTitle: "Data sources",
+    back: "← Back to overview",
+    detailDept: "Plant Operations", detailPeriod: "Last 30 days", people: "employees",
+    fatigueIndex: "Fatigue index", levelHigh: "High",
+    sleepTitle: "Average sleep duration", vitalTitle: "Vitals & activity",
+    medicalTitle: "Annual check-up results", medicalSub: "Share of employees outside the normal range. Source: 2025 annual check-up, selected division.",
+    cohortTitle: "Work groups", cohortNote: "Group codes, not individual identities",
+    cohortHidden: "2 groups hidden\n(fewer than 5 people)",
+    recTitle: "Suggested follow-up",
+    reportBuild: "Build a report", reportSub: "Reports follow the same anonymity rules: aggregates only, minimum 5 people per row.",
+    fPeriod: "Period", fScope: "Scope", fFormat: "Format",
+    optMonth: "Monthly — July 2026", optQuarter: "Quarterly — Q2 2026",
+    optAll: "All departments", optSelected: "Selected departments",
+    generate: "Generate report", generateNote: "About 20 seconds",
+    historyTitle: "Report history", download: "Download",
+    previewTitle: "Preview", previewDocTitle: "Employee Health & Fatigue Report",
+    previewDocMeta: "July 2026 · 5,000 employees · Anonymised",
+    previewFooter: "This document contains no employee identities. Distribution limited to HR and management.",
+    footer: "Data updated 6 August 2026, 07:00 WIB. Access to this module is recorded in the audit log. Governed by employee data privacy policy No. 14/HR/2026."
+  }
+};
+
+const DEPTS = [
+  { id: "Operasional Pabrik", en: "Plant Operations", n: 1240, score: 74, high: 21, mid: 38 },
+  { id: "Logistik & Gudang", en: "Logistics & Warehouse", n: 680, score: 71, high: 18, mid: 36 },
+  { id: "Customer Service", en: "Customer Service", n: 540, score: 68, high: 15, mid: 34 },
+  { id: "Sales Lapangan", en: "Field Sales", n: 910, score: 63, high: 12, mid: 31 },
+  { id: "Teknologi Informasi", en: "Information Technology", n: 410, score: 58, high: 9, mid: 27 },
+  { id: "Keuangan", en: "Finance", n: 320, score: 55, high: 7, mid: 24 },
+  { id: "Riset & Pengembangan", en: "Research & Development", n: 260, score: 52, high: 6, mid: 22 },
+  { id: "HR & GA", en: "HR & General Affairs", n: 180, score: 49, high: 5, mid: 19 }
+];
+
+const TREND = [73, 72, 72, 71, 70, 70, 69, 68, 68, 67, 66, 68]; // indeks kesehatan, 100 = paling sehat
+
+// MCU 2025 per departemen:
+// [partisipasi%, overweight, obesitas, darah tinggi, darah rendah, kolesterol, gula darah, anemia, perokok, skor risiko]
+const MCU = [
+  [96, 29, 12, 17, 6, 23, 9, 11, 34, 71],
+  [94, 30, 14, 19, 5, 25, 11, 9, 38, 74],
+  [93, 26, 10, 12, 8, 20, 6, 14, 21, 58],
+  [91, 28, 11, 15, 6, 24, 8, 10, 29, 64],
+  [95, 25, 9, 10, 7, 19, 5, 12, 16, 52],
+  [97, 23, 8, 11, 7, 21, 6, 13, 12, 49],
+  [96, 21, 7, 8, 6, 17, 4, 11, 11, 43],
+  [98, 20, 6, 9, 8, 15, 4, 12, 9, 40]
+];
+const DEPT_CODES = ["GRP-OP", "GRP-LG", "GRP-CS", "GRP-SL", "GRP-IT", "GRP-FN", "GRP-RD", "GRP-HR"];
+const MCU_THRESHOLDS = [[22, 28], [8, 12], [10, 15], [5, 8], [18, 24], [5, 8], [10, 14], [15, 30]];
+
+class Component extends DCLogic {
+  state = {
+    lang: "id",
+    screen: "dash",
+    viewport: "desktop",
+    alerts: [true, true, true],
+    modules: [true, true, true, false, true, false],
+    tip: null,
+    dept: 0,
+    exportOpen: false,
+    dlFormat: "PDF",
+    dlPick: [true, true, true, true, true, true],
+    dlMenu: null,
+    archMenu: null
+  };
+
+  num(v) {
+    const s = Math.round(v).toString();
+    const sep = this.state.lang === "id" ? "." : ",";
+    return s.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+  }
+
+  scoreColor(s) { return s >= 80 ? "#4C8C6A" : s >= 68 ? "#C99A3B" : "#C05B45"; }
+
+  btn(active) {
+    return {
+      fontFamily: "'IBM Plex Sans', sans-serif", fontSize: "11px", fontWeight: 600,
+      letterSpacing: "0.06em", padding: "5px 12px", borderRadius: "4px", cursor: "pointer",
+      border: "1px solid " + (active ? "#F2F1EC" : "#3A3F42"),
+      background: active ? "#F2F1EC" : "transparent",
+      color: active ? "#16191B" : "#9DA3A6"
+    };
+  }
+
+  langBtn(active) {
+    return {
+      fontFamily: "'IBM Plex Sans', sans-serif", fontSize: "12px", fontWeight: 500,
+      padding: "7px 12px", border: 0, cursor: "pointer",
+      background: active ? "#1F5C4D" : "#FFF", color: active ? "#FFF" : "#6B7278"
+    };
+  }
+
+  tab(active) {
+    return {
+      fontFamily: "'IBM Plex Sans', sans-serif", fontSize: "13px", fontWeight: 500,
+      padding: "10px 14px 12px", border: 0, background: "none", cursor: "pointer",
+      whiteSpace: "nowrap", color: active ? "#16191B" : "#8A9096",
+      borderBottom: "2px solid " + (active ? "#1F5C4D" : "transparent")
+    };
+  }
+
+  // Skor kesehatan per panel MCU: 100 = seluruh peserta dalam rentang normal
+  panelScores(di) {
+    const m = MCU[di];
+    const clamp = v => Math.max(0, Math.min(100, Math.round(v)));
+    const panels = [
+      clamp(100 - (m[1] * 0.9 + m[2] * 2.0)),   // antropometri
+      clamp(100 - (m[3] * 1.9 + m[4] * 1.1)),   // tekanan darah
+      clamp(100 - m[5] * 1.6),                  // profil lipid
+      clamp(100 - m[6] * 3.0),                  // gula darah
+      clamp(100 - m[7] * 2.0),                  // darah lengkap
+      clamp(100 - m[8] * 1.1)                   // gaya hidup
+    ];
+    return { panels, total: Math.round(panels.reduce((a, b) => a + b, 0) / panels.length) };
+  }
+
+  historyData(isId) {
+    return [
+{ name: isId ? "Laporan Bulanan — Juni 2026" : "Monthly report — June 2026", meta: isId ? "Dibuat 2 Juli 2026 · 5.000 karyawan" : "Created 2 July 2026 · 5,000 employees", format: "PDF" },
+        { name: isId ? "Rekap Kuartal — Q2 2026" : "Quarterly summary — Q2 2026", meta: isId ? "Dibuat 1 Juli 2026 · 8 departemen" : "Created 1 July 2026 · 8 departments", format: "XLSX" },
+        { name: isId ? "Laporan Bulanan — Mei 2026" : "Monthly report — May 2026", meta: isId ? "Dibuat 3 Juni 2026 · 4.960 karyawan" : "Created 3 June 2026 · 4,960 employees", format: "PDF" },
+        { name: isId ? "Ekstrak MCU 2025 (agregat)" : "2025 check-up extract (aggregate)", meta: isId ? "Dibuat 14 Feb 2026 · anonim" : "Created 14 Feb 2026 · anonymised", format: "CSV" }
+      
+    ];
+  }
+
+  kpiData(isId) {
+    return [
+      { label: isId ? "Karyawan risiko tinggi" : "Employees at high risk", value: "628", unit: isId ? "dari 5.000" : "of 5,000",
+        delta: isId ? "▲ 12,6% dari total tenaga kerja" : "▲ 12.6% of the workforce", deltaColor: "#C05B45",
+        tipWhat: isId
+          ? "Karyawan yang indeks kesehatannya 55 atau kurang selama minimal dua minggu berturut-turut."
+          : "Employees whose health index has been 55 or below for at least two consecutive weeks.",
+        tipInputs: [
+          { label: isId ? "Indeks kesehatan ≤ 55" : "Health index ≤ 55", value: "628" },
+          { label: isId ? "Tidur < 6 jam" : "Sleep < 6 hours", value: "71%" },
+          { label: isId ? "Lembur > 10 jam/minggu" : "Overtime > 10 hrs/week", value: "58%" },
+          { label: isId ? "Shift malam berturut ≥ 4" : "≥ 4 consecutive night shifts", value: "44%" }
+        ],
+        tipThreshold: isId ? "Peringatan terkirim bila porsi risiko tinggi departemen melewati 15%." : "An alert fires when a department's high-risk share passes 15%." },
+
+      { label: isId ? "Rata-rata tidur harian" : "Average nightly sleep", value: "6:12", unit: isId ? "jam" : "hrs",
+        delta: isId ? "▼ 18 menit vs bulan lalu" : "▼ 18 min vs last month", deltaColor: "#C99A3B",
+        tipWhat: isId
+          ? "Rata-rata waktu tidur per malam dari perangkat wearable yang terhubung, 14 hari terakhir."
+          : "Average sleep time per night from connected wearables over the last 14 days.",
+        tipInputs: [
+          { label: "Garmin Connect", value: "1.840" },
+          { label: "Fitbit", value: "920" },
+          { label: "Apple Health", value: "760" },
+          { label: isId ? "Lainnya (Samsung, Oura)" : "Others (Samsung, Oura)", value: "590" }
+        ],
+        tipThreshold: isId ? "Ambang: < 6 jam memicu peringatan bila bertahan 2 minggu." : "Threshold: below 6 hours triggers an alert if sustained for 2 weeks." },
+
+    ];
+  }
+
+  renderVals() {
+    const L = this.state.lang;
+    const t = COPY[L];
+    const isId = L === "id";
+
+    const trend = TREND.map((v, i) => ({
+      value: v,
+      h: v + "%",
+      color: v >= 72 ? "#6FA083" : v >= 66 ? "#D6A63F" : "#C05B45",
+      label: "W" + (i + 1)
+    }));
+
+    const depts = DEPTS.map(d => ({
+      name: isId ? d.id : d.en,
+      headcountLabel: this.num(d.n) + " " + t.people,
+      high: d.high + "%", mid: d.mid + "%", low: (100 - d.high - d.mid) + "%",
+      riskNote: isId
+        ? d.high + "% risiko tinggi · " + this.num(d.n * d.high / 100) + " orang"
+        : d.high + "% high risk · " + this.num(d.n * d.high / 100) + " people",
+      score: this.panelScores(DEPTS.indexOf(d)).total,
+      scoreColor: this.scoreColor(this.panelScores(DEPTS.indexOf(d)).total),
+      open: () => this.setState({ dept: DEPTS.indexOf(d), screen: "detail" })
+    }));
+
+    const alerts = [
+      { label: isId ? "Skor kesehatan divisi rendah" : "Division health score low", rule: "< 68 / 100" },
+      { label: isId ? "Porsi risiko tinggi" : "High-risk share", rule: "> 15%" },
+      { label: isId ? "Tidur rata-rata rendah" : "Average sleep low", rule: isId ? "< 6 jam" : "< 6 hours" }
+    ].map((a, i) => {
+      const on = this.state.alerts[i];
+      return {
+        ...a,
+        toggle: () => this.setState(s => {
+          const n = s.alerts.slice(); n[i] = !n[i]; return { alerts: n };
+        }),
+        trackStyle: {
+          flex: "none", width: "38px", height: "22px", borderRadius: "11px", cursor: "pointer",
+          background: on ? "#1F5C4D" : "#D8D6CE", padding: "3px",
+          display: "flex", justifyContent: on ? "flex-end" : "flex-start", transition: "all .18s ease"
+        },
+        knobStyle: { width: "16px", height: "16px", borderRadius: "50%", background: "#FFF" }
+      };
+    });
+
+    const moduleLabels = isId
+      ? ["Skor kesehatan divisi", "Temuan MCU lengkap", "Tidur & pemulihan", "Aktivitas fisik & olahraga", "Kondisi kesehatan umum", "Kelompok kerja"]
+      : ["Division health score", "Full check-up findings", "Sleep & recovery", "Activity & exercise", "General health conditions", "Work groups"];
+
+    const modules = moduleLabels.map((label, i) => {
+      const on = this.state.modules[i];
+      return {
+        label,
+        toggle: () => this.setState(s => {
+          const n = s.modules.slice(); n[i] = !n[i]; return { modules: n };
+        }),
+        chipStyle: {
+          fontSize: "12.5px", padding: "8px 14px", borderRadius: "20px", cursor: "pointer",
+          userSelect: "none",
+          border: "1px solid " + (on ? "#1F5C4D" : "#E2E0D9"),
+          background: on ? "#EDF3F0" : "#FFF",
+          color: on ? "#1F5C4D" : "#8A9096"
+        }
+      };
+    });
+
+    return {
+      t,
+      isDash: this.state.screen === "dash",
+      isDetail: this.state.screen === "detail",
+      isReport: this.state.screen === "report",
+      setId: () => this.setState({ lang: "id" }),
+      setEn: () => this.setState({ lang: "en" }),
+      langIdStyle: this.langBtn(isId),
+      langEnStyle: this.langBtn(!isId),
+      goDash: () => this.setState({ screen: "dash" }),
+      goDetail: () => this.setState({ screen: "detail" }),
+      goReport: () => this.setState({ screen: "report" }),
+      tabDashStyle: this.tab(this.state.screen === "dash"),
+      tabDetailStyle: this.tab(this.state.screen === "detail"),
+      tabReportStyle: this.tab(this.state.screen === "report"),
+
+      leave: () => this.setState({ tip: null }),
+
+      sel: (() => {
+        const di = this.state.dept, d = DEPTS[di], p = this.panelScores(di);
+        return {
+          name: isId ? d.id : d.en,
+          headcount: this.num(d.n),
+          score: p.total,
+          scoreColor: p.total >= 80 ? "#4C8C6A" : p.total >= 68 ? "#C99A3B" : "#C05B45",
+          level: p.total >= 80 ? (isId ? "Baik" : "Good") : p.total >= 68 ? (isId ? "Perlu perhatian" : "Needs attention") : (isId ? "Buruk" : "Poor")
+        };
+      })(),
+
+      selPanels: (() => {
+        const labels = isId
+          ? ["Antropometri", "Tekanan darah", "Lipid", "Gula darah", "Darah lengkap", "Gaya hidup"]
+          : ["Anthropometry", "Blood pressure", "Lipids", "Glucose", "Blood count", "Lifestyle"];
+        return this.panelScores(this.state.dept).panels.map((v, i) => ({
+          label: labels[i], score: v,
+          bg: v >= 85 ? "#4C8C6A" : v >= 75 ? "#8FB39A" : v >= 65 ? "#DDB472" : v >= 55 ? "#C97A5F" : "#B04B36",
+          fg: v >= 75 && v < 85 ? "#16302A" : v >= 65 && v < 75 ? "#2A2E30" : "#FFFFFF"
+        }));
+      })(),
+
+      exportOpen: this.state.exportOpen,
+      openExport: () => this.setState({ exportOpen: true }),
+      closeExport: () => this.setState({ exportOpen: false }),
+
+      dlSections: (isId
+        ? [["Skor kesehatan & panel MCU", "Skor divisi, enam panel, dan kategori risiko"],
+           ["Temuan MCU lengkap", "Overweight, tensi, lipid, gula darah, anemia, perokok"],
+           ["Tidur & pemulihan", "Sebaran durasi tidur, HRV, detak jantung istirahat"],
+           ["Aktivitas fisik", "Langkah, menit aktif, frekuensi olahraga"],
+           ["Kelompok kerja", "Skor per kelompok, grup < 5 orang disembunyikan"],
+           ["Tindak lanjut yang disarankan", "Rekomendasi dari temuan MCU divisi ini"]]
+        : [["Health score & check-up panels", "Division score, six panels, risk category"],
+           ["Full check-up findings", "Overweight, BP, lipids, glucose, anaemia, smokers"],
+           ["Sleep & recovery", "Sleep duration spread, HRV, resting heart rate"],
+           ["Physical activity", "Steps, active minutes, exercise frequency"],
+           ["Work groups", "Score per group, groups under 5 people hidden"],
+           ["Suggested follow-up", "Recommendations from this division's findings"]]
+      ).map(([label, note], i) => {
+        const on = this.state.dlPick[i];
+        return {
+          label, note,
+          check: on ? "✓" : "",
+          toggle: () => this.setState(st => {
+            const n = st.dlPick.slice(); n[i] = !n[i]; return { dlPick: n };
+          }),
+          style: {
+            cursor: "pointer", userSelect: "none", padding: "13px 14px", borderRadius: "8px",
+            border: "1px solid " + (on ? "#1F5C4D" : "#E2E0D9"),
+            background: on ? "#F4F8F6" : "#FFF"
+          },
+          boxStyle: {
+            flex: "none", width: "16px", height: "16px", borderRadius: "3px", marginTop: "1px",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "10px", fontWeight: 700, lineHeight: 1,
+            border: "1px solid " + (on ? "#1F5C4D" : "#CFCDC5"),
+            background: on ? "#1F5C4D" : "#FFF", color: "#FFF"
+          }
+        };
+      }),
+
+      dlFormats: ["PDF", "Excel", "CSV"].map(label => {
+        const on = this.state.dlFormat === label;
+        return {
+          label,
+          pick: () => this.setState({ dlFormat: label }),
+          style: {
+            fontFamily: "'IBM Plex Sans', sans-serif", fontSize: "12.5px", fontWeight: 500,
+            padding: "9px 14px", border: 0, cursor: "pointer",
+            background: on ? "#1F5C4D" : "#FFF", color: on ? "#FFF" : "#6B7278"
+          }
+        };
+      }),
+
+      dlSummary: (() => {
+        const n = this.state.dlPick.filter(Boolean).length;
+        return isId
+          ? n + " dari 6 bagian dipilih · " + this.state.dlFormat + " · agregat"
+          : n + " of 6 sections selected · " + this.state.dlFormat + " · aggregated";
+      })(),
+
+      dlFileName: (() => {
+        const ext = this.state.dlFormat === "Excel" ? "xlsx" : this.state.dlFormat.toLowerCase();
+        return "MCU_" + DEPT_CODES[this.state.dept] + "_2026-08." + ext;
+      })(),
+
+      dlManifest: (() => {
+        const d = DEPTS[this.state.dept], p = this.panelScores(this.state.dept);
+        return [
+          { k: isId ? "Divisi" : "Division", v: DEPT_CODES[this.state.dept] },
+          { k: isId ? "Karyawan" : "Employees", v: this.num(d.n) },
+          { k: isId ? "Skor kesehatan" : "Health score", v: p.total + " / 100" },
+          { k: isId ? "Bagian disertakan" : "Sections included", v: this.state.dlPick.filter(Boolean).length + " / 6" },
+          { k: isId ? "Format" : "Format", v: this.state.dlFormat },
+          { k: isId ? "Grup disembunyikan" : "Groups hidden", v: "2" }
+        ];
+      })(),
+
+      deptIndex: this.state.dept,
+      pickDept: (ev) => this.setState({ dept: Number(ev.target.value) }),
+      deptPicker: DEPTS.map((d, i) => ({
+        value: i,
+        label: (isId ? d.id : d.en) + " · " + (isId ? "skor " : "score ") + this.panelScores(i).total
+      })),
+
+      s: {
+        tipMeasured: isId ? "Yang diukur" : "What this measures",
+        band1: isId ? "Kondisi hari ini" : "Today's condition",
+        band1Sub: isId ? "Indikator utama seluruh perusahaan" : "Company-wide headline indicators",
+        band2: isId ? "Tren & sebaran risiko" : "Trends & risk distribution",
+        band2Sub: isId ? "Perkembangan 12 minggu dan pemecahan per unit kerja" : "Twelve-week movement, broken down by work unit",
+        band3: isId ? "Kesehatan populasi" : "Population health",
+        band3Sub: isId ? "Gabungan wearable dan medical check-up tahunan" : "Wearables and the annual medical check-up combined",
+        band4: isId ? "Aktivitas fisik & olahraga" : "Physical activity & exercise",
+        band4Sub: isId ? "Dari wearable yang terhubung, 4 minggu terakhir" : "From connected wearables over the last 4 weeks",
+        heatTitle: isId ? "Peta panas kesehatan divisi" : "Division health heatmap",
+        heatSub: isId ? "Skor per panel MCU · 100 = paling sehat" : "Score per check-up panel · 100 = healthiest",
+        heatNote: isId
+          ? "Setiap sel adalah skor 0–100 untuk satu panel pemeriksaan: 100 berarti seluruh peserta divisi itu berada dalam rentang normal, dan angka turun mengikuti porsi peserta yang temuannya di luar normal. Skor divisi adalah rata-rata enam panel."
+          : "Each cell is a 0–100 score for one check-up panel: 100 means every participant in that division is within the normal range, and the number falls with the share of out-of-range findings. The division score is the average of the six panels.",
+        healthScore: isId ? "Indeks kesehatan divisi" : "Division health index",
+        previewScope: isId ? "Bulan ini · Agustus 2026" : "This month · August 2026",
+        archiveTitle: isId ? "Arsip bulanan" : "Monthly archive",
+        archiveSub: isId ? "Skor kesehatan perusahaan per bulan" : "Company health score by month",
+        archiveNote: isId
+          ? "Setiap bulan tersimpan sebagai potret terpisah, jadi laporan bulan lampau dapat diunduh ulang tanpa terpengaruh data terbaru. Skor 0–100, makin tinggi makin sehat."
+          : "Each month is stored as a separate snapshot, so past reports can be re-downloaded without being affected by newer data. Scores run 0–100, higher is healthier.",
+        dlDivision: isId ? "Unduh laporan divisi" : "Download division report",
+        dlTitle: isId ? "Unduh laporan divisi ini" : "Download this division's report",
+        dlSub: isId
+          ? "Laporan memuat seluruh grafik dan tabel di halaman ini untuk divisi terpilih, mengikuti aturan anonimitas yang sama: agregat, minimal 5 orang per baris."
+          : "The report contains every chart and table on this page for the selected division, under the same anonymity rules: aggregates only, minimum 5 people per row.",
+        dlAction: isId ? "Buat & unduh" : "Generate & download",
+        dlModalTag: isId ? "Siap diunduh" : "Ready to download",
+        dlModalBody: isId
+          ? "Berkas dibuat dari data yang tampil di halaman ini. Nama dan NIK karyawan tidak disertakan."
+          : "The file is built from the data shown on this page. Employee names and ID numbers are not included.",
+        dlCancel: isId ? "Batal" : "Cancel",
+        dlConfirm: isId ? "Unduh" : "Download",
+        dlAudit: isId
+          ? "Setiap unduhan dicatat dalam log audit beserta akun HR, divisi, dan waktu."
+          : "Every download is recorded in the audit log with the HR account, division, and timestamp.",
+        pickTitle: isId ? "Pilih divisi" : "Choose a division",
+        pickNote: isId ? "Data tetap agregat — tanpa nama karyawan" : "Data stays aggregated — no employee names",
+        exTitle: isId ? "Frekuensi olahraga per minggu" : "Exercise frequency per week",
+        exSub: isId ? "Persentase karyawan menurut jumlah sesi olahraga tercatat" : "Share of employees by recorded exercise sessions",
+        exDetailTitle: isId ? "Rincian aktivitas" : "Activity breakdown",
+        splitTitle: isId ? "Sebaran tingkat risiko" : "Risk level distribution",
+        splitSub: isId ? "5.000 karyawan, per 6 Agustus 2026" : "5,000 employees, as of 6 August 2026",
+        shiftTitle: isId ? "Perbandingan pola kerja" : "Work pattern comparison",
+        shiftSub: isId ? "Indeks kelelahan rata-rata per pola shift" : "Average fatigue index by shift pattern",
+        feedTitle: isId ? "Peringatan terbaru" : "Recent alerts",
+        otTitle: isId ? "Sebaran lembur mingguan" : "Weekly overtime distribution",
+        otSub: isId ? "Persentase karyawan menurut jam lembur per minggu" : "Share of employees by overtime hours per week",
+        absTitle: isId ? "Absensi & kehadiran" : "Absence & attendance",
+        band5: isId ? "Risiko kesehatan per departemen" : "Health risk by department",
+        band5Sub: isId ? "Berdasarkan medical check-up tahunan 2025" : "Based on the 2025 annual medical check-up",
+        condTitle: isId ? "Kondisi kesehatan umum" : "General health conditions",
+        condSub: isId ? "Persentase dari 4.700 peserta MCU 2025" : "Share of 4,700 participants in the 2025 check-up",
+        methodTitle: isId ? "Cara indeks kesehatan dihitung" : "How the health index is calculated",
+        methodSub: isId ? "Skor 0–100 per karyawan, 100 paling sehat, lalu dirata-ratakan per departemen." : "A 0–100 score per employee, 100 being healthiest, averaged per department.",
+        deviceTitle: isId ? "Perangkat terhubung" : "Connected devices",
+        deviceSynced: isId ? "Sinkron 06:45 WIB" : "Synced 06:45 WIB",
+        deviceManage: isId ? "Kelola integrasi" : "Manage integrations",
+        mcuTableTitle: isId ? "Temuan MCU per departemen" : "Check-up findings by department",
+        mcuTableSub: isId ? "Persentase peserta di luar rentang normal" : "Share of participants outside the normal range",
+        mcuFootnote: isId
+          ? "Skor risiko kesehatan 0–100 dihitung dari delapan temuan di atas, dibobot menurut panduan skrining kardiometabolik klinik perusahaan. Angka adalah agregat departemen; hasil per individu hanya dapat diakses oleh dokter perusahaan dan karyawan yang bersangkutan."
+          : "The 0–100 health risk score is derived from the eight findings above, weighted per the company clinic's cardiometabolic screening guidance. Figures are department aggregates; individual results are accessible only to the company doctor and the employee concerned."
+      },
+
+      condGroups: [
+        {
+          title: isId ? "Antropometri" : "Anthropometry", panel: isId ? "Tinggi, berat, lingkar perut" : "Height, weight, waist",
+          items: [
+            { label: isId ? "Berat badan normal" : "Normal weight", criteria: "BMI 18,5 – 24,9", pct: "58%", bar: "100%", count: this.num(2726), color: "#4C8C6A" },
+            { label: "Overweight", criteria: "BMI 25,0 – 29,9", pct: "26%", bar: "87%", count: this.num(1222), color: "#C99A3B" },
+            { label: isId ? "Obesitas" : "Obesity", criteria: "BMI ≥ 30", pct: "10%", bar: "33%", count: this.num(470), color: "#C05B45" },
+            { label: isId ? "Lingkar perut berlebih" : "Excess waist circumference", criteria: isId ? "> 90 cm (L) / > 80 cm (P)" : "> 90 cm (M) / > 80 cm (F)", pct: "31%", bar: "100%", count: this.num(1457), color: "#C99A3B" }
+          ]
+        },
+        {
+          title: isId ? "Tekanan darah" : "Blood pressure", panel: isId ? "Dua pengukuran duduk" : "Two seated readings",
+          items: [
+            { label: isId ? "Normal" : "Normal", criteria: "90/60 – 129/84 mmHg", pct: "62%", bar: "100%", count: this.num(2914), color: "#4C8C6A" },
+            { label: isId ? "Pra-hipertensi" : "Pre-hypertension", criteria: "130/85 – 139/89 mmHg", pct: "17%", bar: "55%", count: this.num(799), color: "#C99A3B" },
+            { label: isId ? "Darah tinggi" : "High blood pressure", criteria: "≥ 140/90 mmHg", pct: "14%", bar: "45%", count: this.num(658), color: "#C05B45" },
+            { label: isId ? "Darah rendah" : "Low blood pressure", criteria: "< 90/60 mmHg", pct: "7%", bar: "23%", count: this.num(329), color: "#C99A3B" }
+          ]
+        },
+        {
+          title: isId ? "Profil lipid" : "Lipid profile", panel: isId ? "Puasa 10–12 jam" : "10–12 hour fast",
+          items: [
+            { label: isId ? "Kolesterol total tinggi" : "High total cholesterol", criteria: "≥ 240 mg/dL", pct: "21%", bar: "70%", count: this.num(987), color: "#C05B45" },
+            { label: isId ? "LDL tinggi" : "High LDL", criteria: "≥ 160 mg/dL", pct: "18%", bar: "60%", count: this.num(846), color: "#C99A3B" },
+            { label: isId ? "HDL rendah" : "Low HDL", criteria: isId ? "< 40 mg/dL (L) / < 50 (P)" : "< 40 mg/dL (M) / < 50 (F)", pct: "24%", bar: "80%", count: this.num(1128), color: "#C99A3B" },
+            { label: isId ? "Trigliserida tinggi" : "High triglycerides", criteria: "≥ 200 mg/dL", pct: "16%", bar: "53%", count: this.num(752), color: "#C99A3B" }
+          ]
+        },
+        {
+          title: isId ? "Gula darah" : "Blood sugar", panel: isId ? "Glukosa puasa & HbA1c" : "Fasting glucose & HbA1c",
+          items: [
+            { label: isId ? "Normal" : "Normal", criteria: "< 100 mg/dL", pct: "72%", bar: "100%", count: this.num(3384), color: "#4C8C6A" },
+            { label: isId ? "Prediabetes" : "Pre-diabetes", criteria: "100 – 125 mg/dL", pct: "21%", bar: "70%", count: this.num(987), color: "#C99A3B" },
+            { label: isId ? "Diabetes" : "Diabetes", criteria: "≥ 126 mg/dL", pct: "7%", bar: "23%", count: this.num(329), color: "#C05B45" },
+            { label: isId ? "HbA1c ≥ 6,5%" : "HbA1c ≥ 6.5%", criteria: isId ? "Konfirmasi diabetes" : "Confirms diabetes", pct: "6%", bar: "20%", count: this.num(282), color: "#C05B45" }
+          ]
+        },
+        {
+          title: isId ? "Darah & metabolik" : "Blood & metabolic", panel: isId ? "Hematologi lengkap" : "Full blood count",
+          items: [
+            { label: isId ? "Anemia" : "Anaemia", criteria: isId ? "Hb < 12 (P) / < 13 (L)" : "Hb < 12 (F) / < 13 (M)", pct: "12%", bar: "40%", count: this.num(564), color: "#C99A3B" },
+            { label: isId ? "Asam urat tinggi" : "High uric acid", criteria: "≥ 7 mg/dL", pct: "9%", bar: "30%", count: this.num(423), color: "#C99A3B" },
+            { label: isId ? "Fungsi hati (SGPT) tinggi" : "Liver enzymes (ALT) high", criteria: "> 40 U/L", pct: "13%", bar: "43%", count: this.num(611), color: "#C99A3B" },
+            { label: isId ? "Fungsi ginjal menurun" : "Reduced kidney function", criteria: isId ? "Kreatinin di atas normal" : "Creatinine above normal", pct: "4%", bar: "13%", count: this.num(188), color: "#C05B45" }
+          ]
+        },
+        {
+          title: isId ? "Jantung & paru" : "Heart & lungs", panel: isId ? "EKG, spirometri, rontgen" : "ECG, spirometry, chest X-ray",
+          items: [
+            { label: isId ? "EKG tidak normal" : "Abnormal ECG", criteria: isId ? "Perlu evaluasi kardiologi" : "Cardiology review needed", pct: "5%", bar: "17%", count: this.num(235), color: "#C05B45" },
+            { label: isId ? "Fungsi paru di bawah normal" : "Lung function below normal", criteria: "FEV1/FVC < 70%", pct: "12%", bar: "40%", count: this.num(564), color: "#C99A3B" },
+            { label: isId ? "Rontgen dada tidak normal" : "Abnormal chest X-ray", criteria: isId ? "Temuan perlu tindak lanjut" : "Findings needing follow-up", pct: "3%", bar: "10%", count: this.num(141), color: "#C99A3B" },
+            { label: isId ? "Perokok aktif" : "Active smokers", criteria: isId ? "Tercatat saat MCU" : "Recorded at check-up", pct: "23%", bar: "77%", count: this.num(1081), color: "#C05B45" }
+          ]
+        },
+        {
+          title: isId ? "Indera & okupasi" : "Senses & occupational", panel: isId ? "Wajib untuk area produksi" : "Mandatory for production areas",
+          items: [
+            { label: isId ? "Gangguan pendengaran" : "Hearing loss", criteria: isId ? "Audiometri > 25 dB" : "Audiometry > 25 dB", pct: "16%", bar: "53%", count: this.num(752), color: "#C99A3B" },
+            { label: isId ? "Gangguan penglihatan" : "Vision impairment", criteria: isId ? "Perlu koreksi lensa" : "Needs corrective lenses", pct: "34%", bar: "100%", count: this.num(1598), color: "#C99A3B" },
+            { label: isId ? "Keluhan otot & tulang" : "Musculoskeletal complaints", criteria: isId ? "Pemeriksaan fisik" : "Physical examination", pct: "19%", bar: "63%", count: this.num(893), color: "#C99A3B" },
+            { label: isId ? "Masalah gigi & mulut" : "Dental & oral problems", criteria: isId ? "Karies aktif atau gusi" : "Active caries or gum disease", pct: "27%", bar: "90%", count: this.num(1269), color: "#C99A3B" }
+          ]
+        }
+      ],
+
+      methodParts: [
+        { label: isId ? "Durasi tidur" : "Sleep duration", source: isId ? "Wearable · rata-rata 14 hari" : "Wearable · 14-day average", weight: "30%" },
+        { label: isId ? "Konsistensi jadwal tidur" : "Sleep schedule consistency", source: isId ? "Wearable · variasi jam tidur" : "Wearable · bedtime variance", weight: "15%" },
+        { label: isId ? "Pemulihan (HRV & detak istirahat)" : "Recovery (HRV & resting HR)", source: isId ? "Wearable · tren mingguan" : "Wearable · weekly trend", weight: "20%" },
+        { label: isId ? "Jam lembur" : "Overtime hours", source: isId ? "HRIS · absensi" : "HRIS · attendance", weight: "20%" },
+        { label: isId ? "Pola shift malam" : "Night shift pattern", source: isId ? "HRIS · jadwal kerja" : "HRIS · work roster", weight: "10%" },
+        { label: isId ? "Aktivitas fisik harian" : "Daily physical activity", source: isId ? "Wearable · langkah & menit aktif" : "Wearable · steps & active minutes", weight: "5%" }
+      ],
+
+      devices: [
+        { name: "Garmin Connect", users: this.num(1840), color: "#4C8C6A" },
+        { name: "Fitbit", users: this.num(920), color: "#4C8C6A" },
+        { name: "Apple Health", users: this.num(760), color: "#4C8C6A" },
+        { name: "Samsung Health", users: this.num(410), color: "#4C8C6A" },
+        { name: "Oura Ring", users: this.num(180), color: "#C99A3B" },
+        { name: isId ? "Belum terhubung" : "Not connected", users: this.num(890), color: "#CFCDC5" }
+      ],
+
+      mcuStrata: [
+        { label: isId ? "Risiko kardiometabolik rendah" : "Low cardiometabolic risk", count: this.num(2914), pct: "62%", color: "#6FA083",
+          note: isId ? "Tanpa temuan di luar rentang normal" : "No findings outside the normal range" },
+        { label: isId ? "Risiko sedang" : "Moderate risk", count: this.num(1320), pct: "28%", color: "#D6A63F",
+          note: isId ? "Satu hingga dua temuan · disarankan konsultasi gizi" : "One or two findings · nutrition counselling advised" },
+        { label: isId ? "Risiko tinggi" : "High risk", count: this.num(466), pct: "10%", color: "#C05B45",
+          note: isId ? "Tiga temuan atau lebih · rujukan klinik perusahaan" : "Three or more findings · company clinic referral" },
+        { label: isId ? "Belum mengikuti MCU" : "Check-up not taken", count: this.num(300), pct: "6%", color: "#CFCDC5",
+          note: isId ? "Jadwal susulan dibuka September 2026" : "Make-up sessions open September 2026" }
+      ],
+
+      mcuCols: [
+        { label: isId ? "Departemen" : "Department", flex: "2.4 1 0", align: "left" },
+        { label: isId ? "Overweight" : "Overweight", flex: "1 1 0", align: "center" },
+        { label: isId ? "Obesitas" : "Obesity", flex: "1 1 0", align: "center" },
+        { label: isId ? "Darah tinggi" : "High BP", flex: "1 1 0", align: "center" },
+        { label: isId ? "Darah rendah" : "Low BP", flex: "1 1 0", align: "center" },
+        { label: isId ? "Kolesterol" : "Cholesterol", flex: "1 1 0", align: "center" },
+        { label: isId ? "Gula darah" : "Glucose", flex: "1 1 0", align: "center" },
+        { label: isId ? "Anemia" : "Anaemia", flex: "1 1 0", align: "center" },
+        { label: isId ? "Perokok" : "Smokers", flex: "1 1 0", align: "center" },
+        { label: isId ? "Skor risiko" : "Risk score", flex: "1.1 1 0", align: "right" },
+        { label: isId ? "Kategori" : "Category", flex: "1.3 1 0", align: "right" }
+      ],
+
+      mcuRows: DEPTS.map((d, i) => {
+        const m = MCU[i];
+        const risk = m[9];
+        const riskColor = risk >= 70 ? "#C05B45" : risk >= 55 ? "#C99A3B" : "#4C8C6A";
+        return {
+          name: isId ? d.id : d.en,
+          participation: (isId ? "partisipasi " : "participation ") + m[0] + "% · " + this.num(d.n * m[0] / 100),
+          cells: [1, 2, 3, 4, 5, 6, 7, 8].map(ci => {
+            const v = m[ci];
+            const th = MCU_THRESHOLDS[ci - 1];
+            return {
+              v: v + "%",
+              bar: Math.min(100, Math.round(v / th[1] * 70)) + "%",
+              color: v >= th[1] ? "#C05B45" : v >= th[0] ? "#C99A3B" : "#4C8C6A"
+            };
+          }),
+          risk,
+          riskColor,
+          badgeBg: risk >= 70 ? "#F7E7E2" : risk >= 55 ? "#F7EEDC" : "#E7F0E9",
+          category: risk >= 70 ? (isId ? "Tinggi" : "High") : risk >= 55 ? (isId ? "Sedang" : "Moderate") : (isId ? "Rendah" : "Low")
+        };
+      }),
+
+      statusChips: [
+        { label: isId ? "Diperbarui" : "Updated", value: isId ? "6 Agu 2026, 07:00 WIB" : "6 Aug 2026, 07:00 WIB", color: "#16191B" },
+        { label: isId ? "Cakupan data" : "Data coverage", value: isId ? "4.612 dari 5.000 karyawan" : "4,612 of 5,000 employees", color: "#16191B" },
+        { label: isId ? "Peringatan aktif" : "Active alerts", value: isId ? "3 departemen melewati ambang" : "3 departments over threshold", color: "#C05B45" },
+        { label: isId ? "Grup disembunyikan" : "Hidden groups", value: isId ? "3 grup (< 5 orang)" : "3 groups (< 5 people)", color: "#8A9096" }
+      ],
+
+      heatCols: [
+        { label: isId ? "Antropometri" : "Anthropometry", flex: "1 1 0" },
+        { label: isId ? "Tekanan darah" : "Blood pressure", flex: "1 1 0" },
+        { label: isId ? "Profil lipid" : "Lipid profile", flex: "1 1 0" },
+        { label: isId ? "Gula darah" : "Blood glucose", flex: "1 1 0" },
+        { label: isId ? "Darah lengkap" : "Blood count", flex: "1 1 0" },
+        { label: isId ? "Gaya hidup" : "Lifestyle", flex: "1 1 0" },
+        { label: isId ? "Skor divisi" : "Division score", flex: "1.2 1 0" }
+      ],
+      heatRows: DEPTS.map((d, di) => {
+        const p = this.panelScores(di);
+        const shade = v => v >= 85 ? { bg: "#4C8C6A", fg: "#FFFFFF" }
+          : v >= 75 ? { bg: "#8FB39A", fg: "#16302A" }
+          : v >= 65 ? { bg: "#DDB472", fg: "#2A2E30" }
+          : v >= 55 ? { bg: "#C97A5F", fg: "#FFFFFF" }
+          : { bg: "#B04B36", fg: "#FFFFFF" };
+        const tot = shade(p.total);
+        return {
+          name: isId ? d.id : d.en,
+          cells: p.panels.map(v => ({ v, ...shade(v) })),
+          total: p.total, totalBg: tot.bg, totalFg: tot.fg
+        };
+      }),
+      heatLegend: [
+        { label: isId ? "85–100 sangat baik" : "85–100 very good", color: "#4C8C6A" },
+        { label: isId ? "75–84 baik" : "75–84 good", color: "#8FB39A" },
+        { label: isId ? "65–74 perlu perhatian" : "65–74 needs attention", color: "#DDB472" },
+        { label: isId ? "di bawah 65 buruk" : "below 65 poor", color: "#B04B36" }
+      ],
+
+      riskSplit: [
+        { label: isId ? "Risiko tinggi" : "High risk", count: this.num(628), pct: "13%", color: "#C05B45" },
+        { label: isId ? "Perlu perhatian" : "Needs attention", count: this.num(1544), pct: "31%", color: "#D6A63F" },
+        { label: isId ? "Aman" : "Healthy", count: this.num(2440), pct: "49%", color: "#6FA083" },
+        { label: isId ? "Data belum cukup" : "Insufficient data", count: this.num(388), pct: "7%", color: "#CFCDC5" }
+      ],
+
+      feed: [
+        { color: "#C05B45", text: isId ? "Operasional Pabrik di bawah ambang skor kesehatan (65 < 68)." : "Plant Operations fell below the health score threshold (65 < 68).", time: isId ? "Hari ini, 07:00" : "Today, 07:00" },
+        { color: "#C05B45", text: isId ? "Logistik & Gudang: porsi risiko tinggi naik ke 18% (ambang 15%)." : "Logistics & Warehouse: high-risk share rose to 18% (threshold 15%).", time: isId ? "Kemarin, 07:00" : "Yesterday, 07:00" },
+        { color: "#D6A63F", text: isId ? "Customer Service: tidur rata-rata turun di bawah 6 jam selama 2 minggu." : "Customer Service: average sleep below 6 hours for 2 weeks.", time: isId ? "3 Agustus" : "3 August" },
+        { color: "#6FA083", text: isId ? "Keuangan kembali ke kategori baik setelah program gizi kantin." : "Finance returned to the good band after the canteen nutrition programme.", time: isId ? "29 Juli" : "29 July" }
+      ],
+
+      popHealth: [
+        { label: isId ? "Langkah harian rata-rata" : "Average daily steps", value: this.num(7940), unit: isId ? "langkah" : "steps", bar: "79%", color: "#6FA083",
+          note: isId ? "Target perusahaan 10.000" : "Company target 10,000" },
+        { label: isId ? "Overweight + obesitas" : "Overweight + obesity", value: "36", unit: "%", bar: "36%", color: "#D6A63F",
+          note: isId ? "MCU 2025 · 4.700 peserta" : "2025 check-up · 4,700 participants" },
+        { label: isId ? "Tekanan darah ≥ 140/90" : "Blood pressure ≥ 140/90", value: "14", unit: "%", bar: "14%", color: "#C05B45",
+          note: isId ? "Disarankan pemeriksaan ulang" : "Re-check recommended" },
+        { label: isId ? "Tekanan darah < 90/60" : "Blood pressure < 90/60", value: "7", unit: "%", bar: "7%", color: "#C99A3B",
+          note: isId ? "329 karyawan · sering disertai anemia" : "329 employees · often alongside anaemia" }
+      ],
+
+      exercise: [
+        { label: isId ? "0×" : "0×", pct: "24%", h: "48%", color: "#C05B45" },
+        { label: isId ? "1×" : "1×", pct: "21%", h: "42%", color: "#C97A5F" },
+        { label: isId ? "2×" : "2×", pct: "23%", h: "46%", color: "#D6A63F" },
+        { label: isId ? "3–4×" : "3–4×", pct: "22%", h: "44%", color: "#6FA083" },
+        { label: isId ? "5× atau lebih" : "5× or more", pct: "10%", h: "20%", color: "#4C8C6A" }
+      ],
+
+      exerciseStats: [
+        { label: isId ? "Memenuhi anjuran WHO" : "Meets WHO guidance", note: isId ? "150–300 menit aktivitas sedang atau 75–150 menit aktivitas berat per minggu, plus latihan kekuatan 2× seminggu" : "150–300 minutes of moderate or 75–150 minutes of vigorous activity per week, plus strength training twice a week", value: "32%", color: "#C99A3B" },
+        { label: isId ? "Menit aktif per minggu" : "Active minutes per week", note: isId ? "Rata-rata seluruh perusahaan" : "Company-wide average", value: "118", color: "#C99A3B" },
+        { label: isId ? "Langkah harian" : "Daily steps", note: isId ? "Target internal 10.000" : "Internal target 10,000", value: this.num(7940), color: "#C99A3B" },
+        { label: isId ? "Tidak pernah olahraga" : "Never exercises", note: isId ? "Nol sesi tercatat 4 minggu" : "No session recorded in 4 weeks", value: "24%", color: "#C05B45" },
+        { label: isId ? "Sesi latihan tercatat di my.20fit" : "Sessions logged in my.20fit", note: isId ? "Rata-rata per karyawan aktif / bulan" : "Average per active employee / month", value: "4,6", color: "#4C8C6A" }
+      ],
+
+      kpis: this.kpiData(isId).map((k, i) => ({
+        ...k,
+        enter: () => this.setState({ tip: i }),
+        tipStyle: {
+          position: "absolute", left: "12px", right: "12px", top: "calc(100% - 6px)", zIndex: 20,
+          background: "#1C2926", border: "1px solid #2E3F3A", borderRadius: "8px", padding: "14px",
+          boxShadow: "0 18px 40px -18px rgba(0,0,0,0.6)",
+          display: this.state.tip === i ? "block" : "none"
+        }
+      })),
+
+      trend,
+      depts,
+      legend: [
+        { label: t.legendHigh, color: "#C05B45" },
+        { label: t.legendMid, color: "#D6A63F" },
+        { label: t.legendLow, color: "#6FA083" }
+      ],
+      drivers: [
+        { label: isId ? "Lembur lebih dari 10 jam/minggu" : "Overtime over 10 hrs/week", pct: "64%" },
+        { label: isId ? "Tidur kurang dari 6 jam" : "Sleep under 6 hours", pct: "51%" },
+        { label: isId ? "Shift malam berturut-turut" : "Consecutive night shifts", pct: "37%" },
+        { label: isId ? "Kurang aktivitas fisik" : "Low physical activity", pct: "26%" }
+      ],
+      alerts,
+      sources: [
+        { label: isId ? "Wearable (jam/cincin)" : "Wearables (watch/ring)", coverage: "82%" },
+        { label: isId ? "Aktivitas fisik (wearable)" : "Physical activity (wearable)", coverage: "78%" },
+        { label: isId ? "Absensi & jam kerja" : "Attendance & work hours", coverage: "100%" },
+        { label: isId ? "Medical check-up 2025" : "2025 medical check-up", coverage: "94%" }
+      ],
+
+      sleepDist: (() => {
+        const d = DEPTS[this.state.dept];
+        const shift = (d.score - 60) / 4;
+        const raw = [10 + shift * 1.6, 22 + shift, 32, 24 - shift * 0.6, 12 - shift];
+        const tot = raw.reduce((a, b) => a + Math.max(2, b), 0);
+        const labels = [isId ? "< 5 jam" : "< 5 hrs", "5–6", "6–7", "7–8", isId ? "> 8 jam" : "> 8 hrs"];
+        const colors = ["#C05B45", "#D6A63F", "#D6A63F", "#6FA083", "#6FA083"];
+        return raw.map((v, i) => ({ label: labels[i], pct: Math.round(Math.max(2, v) / tot * 100) + "%", color: colors[i] }));
+      })(),
+      sleepAvg: (() => {
+        const mins = 405 - Math.round((DEPTS[this.state.dept].score - 49) * 1.7);
+        return Math.floor(mins / 60) + (isId ? "j " : "h ") + String(mins % 60).padStart(2, "0") + "m";
+      })(),
+      vitals: (() => {
+        const di = this.state.dept, d = DEPTS[di], m = MCU[di];
+        const hr = 62 + Math.round((d.score - 49) * 0.5);
+        const hrv = 56 - Math.round((d.score - 49) * 0.7);
+        const steps = 9200 - Math.round((d.score - 49) * 55);
+        const sick = (1.9 + (d.score - 49) * 0.05).toFixed(1).replace(".", isId ? "," : ".");
+        return [
+          { label: isId ? "Detak jantung istirahat" : "Resting heart rate", ref: "Normal 60–75 bpm", value: hr, color: hr >= 76 ? "#C05B45" : hr >= 72 ? "#C99A3B" : "#4C8C6A" },
+          { label: "HRV", ref: isId ? "Rendah di bawah 45 ms" : "Low below 45 ms", value: hrv, color: hrv < 40 ? "#C05B45" : hrv < 45 ? "#C99A3B" : "#4C8C6A" },
+          { label: isId ? "Langkah per hari" : "Steps per day", ref: isId ? "Target 10.000" : "Target 10,000", value: this.num(steps), color: steps >= 8500 ? "#4C8C6A" : steps >= 7500 ? "#C99A3B" : "#C05B45" },
+          { label: isId ? "Sesi olahraga per minggu" : "Exercise sessions per week", ref: isId ? "Anjuran 3×" : "Guidance 3×", value: (m[8] > 30 ? "1,4" : m[8] > 20 ? "1,9" : "2,4").replace(",", isId ? "," : "."), color: m[8] > 30 ? "#C05B45" : "#C99A3B" },
+          { label: isId ? "Absen sakit per orang / tahun" : "Sick days per person / year", ref: isId ? "Rata-rata nasional 2,4" : "National average 2.4", value: sick, color: parseFloat(sick.replace(",", ".")) >= 3 ? "#C05B45" : "#C99A3B" }
+        ];
+      })(),
+
+      medical: (() => {
+        const m = MCU[this.state.dept];
+        const col = (v, warn, bad) => v >= bad ? "#C05B45" : v >= warn ? "#C99A3B" : "#4C8C6A";
+        return [
+          { label: isId ? "Overweight (BMI 25–29,9)" : "Overweight (BMI 25–29.9)", pct: m[1] + "%", color: col(m[1], 22, 28) },
+          { label: isId ? "Obesitas (BMI ≥ 30)" : "Obesity (BMI ≥ 30)", pct: m[2] + "%", color: col(m[2], 8, 12) },
+          { label: isId ? "Darah tinggi ≥ 140/90" : "High blood pressure ≥ 140/90", pct: m[3] + "%", color: col(m[3], 10, 15) },
+          { label: isId ? "Darah rendah < 90/60" : "Low blood pressure < 90/60", pct: m[4] + "%", color: col(m[4], 5, 8) },
+          { label: isId ? "Kolesterol total tinggi" : "High total cholesterol", pct: m[5] + "%", color: col(m[5], 18, 24) },
+          { label: isId ? "Gula darah puasa ≥ 126" : "Fasting glucose ≥ 126", pct: m[6] + "%", color: col(m[6], 5, 8) },
+          { label: isId ? "Anemia" : "Anaemia", pct: m[7] + "%", color: col(m[7], 10, 14) },
+          { label: isId ? "Perokok aktif" : "Active smokers", pct: m[8] + "%", color: col(m[8], 15, 30) },
+          { label: isId ? "Partisipasi MCU" : "Check-up participation", pct: m[0] + "%", color: "#4C8C6A" }
+        ];
+      })(),
+
+      cohorts: (() => {
+        const di = this.state.dept, d = DEPTS[di], code = DEPT_CODES[di];
+        const groups = isId
+          ? ["Shift pagi", "Shift sore", "Shift malam", "Supervisor lini"]
+          : ["Morning shift", "Afternoon shift", "Night shift", "Line supervisors"];
+        const offs = [-4, 2, 9, -7];
+        const shares = [0.33, 0.31, 0.30, 0.06];
+        return groups.map((label, gi) => {
+          const p = this.panelScores(di).total + offs[gi] * -1;
+          const score = Math.max(35, Math.min(97, p));
+          const mins = 400 - offs[gi] * 6;
+          return {
+            code: code + "-0" + (gi + 1),
+            label,
+            score,
+            color: score >= 80 ? "#4C8C6A" : score >= 68 ? "#C99A3B" : "#C05B45",
+            size: this.num(Math.round(d.n * shares[gi])) + (isId ? " orang" : " people"),
+            note: (isId ? "Tidur " : "Sleep ") + Math.floor(mins / 60) + (isId ? "j " : "h ") + String(mins % 60).padStart(2, "0") + "m · "
+              + (isId ? "olahraga " : "exercise ") + (gi === 2 ? "1,1" : gi === 3 ? "2,3" : "1,8").replace(",", isId ? "," : ".") + "×/" + (isId ? "mgg" : "wk")
+          };
+        });
+      })(),
+      recs: (() => {
+        const di = this.state.dept, m = MCU[di], code = DEPT_CODES[di];
+        const out = [];
+        if (m[3] >= 15) out.push({ color: "#C05B45",
+          title: isId ? "Rujuk pemeriksaan ulang tekanan darah" : "Refer for blood pressure re-checks",
+          body: isId ? m[3] + "% peserta MCU divisi ini bertekanan darah ≥ 140/90, di atas rata-rata perusahaan 14%. Klinik perusahaan dapat menjadwalkan pemeriksaan ulang lewat aplikasi karyawan, tanpa data individu keluar dari klinik."
+                     : m[3] + "% of this division's check-up participants are at ≥ 140/90, above the 14% company average. The company clinic can schedule re-checks through the employee app, with no individual data leaving the clinic." });
+        if (m[1] + m[2] >= 35) out.push({ color: "#C99A3B",
+          title: isId ? "Program gizi & olahraga terarah" : "Targeted nutrition and exercise programme",
+          body: isId ? (m[1] + m[2]) + "% peserta berada di kategori overweight atau obesitas. Sesi olahraga terjadwal di jam kerja dan penyesuaian menu kantin adalah dua langkah yang paling cepat terukur."
+                     : (m[1] + m[2]) + "% of participants are overweight or obese. Scheduled exercise sessions during work hours and canteen menu changes are the two fastest measurable steps." });
+        if (m[8] >= 25) out.push({ color: "#C05B45",
+          title: isId ? "Program berhenti merokok" : "Smoking cessation programme",
+          body: isId ? m[8] + "% peserta merupakan perokok aktif, tertinggi pada kelompok " + code + "-03. Klinik perusahaan menyediakan konsultasi dan terapi pengganti nikotin."
+                     : m[8] + "% of participants are active smokers, highest in group " + code + "-03. The company clinic offers consultations and nicotine replacement therapy." });
+        if (m[7] >= 12) out.push({ color: "#C99A3B",
+          title: isId ? "Skrining anemia lanjutan" : "Follow-up anaemia screening",
+          body: isId ? m[7] + "% peserta memiliki hemoglobin di bawah rentang normal. Pemeriksaan ferritin lanjutan disarankan, terutama pada kelompok yang juga bertekanan darah rendah."
+                     : m[7] + "% of participants have haemoglobin below the normal range. Follow-up ferritin testing is advised, especially for groups that also show low blood pressure." });
+        out.push({ color: "#4C8C6A",
+          title: isId ? "Naikkan cakupan wearable divisi ini" : "Raise this division's wearable coverage",
+          body: isId ? "Skor divisi hanya sekuat data yang masuk. Kelompok dengan cakupan di bawah 70% ditandai abu-abu di peta panas dan tidak dihitung dalam rata-rata."
+                     : "The division score is only as good as the data behind it. Groups below 70% coverage are greyed out in the heatmap and excluded from the average." });
+        return out.slice(0, 4);
+      })(),
+
+      archiveCols: [
+        { label: isId ? "Bulan" : "Month", flex: "1.6 1 0", align: "left" },
+        { label: isId ? "Skor" : "Score", flex: "1 1 0", align: "center" },
+        { label: isId ? "Perubahan" : "Change", flex: "1 1 0", align: "center" },
+        { label: isId ? "Tercakup" : "Covered", flex: "1.2 1 0", align: "center" },
+        { label: "", flex: "0 0 96px", align: "right" }
+      ],
+
+      archive: (() => {
+        const months = isId
+          ? ["Agustus 2026", "Juli 2026", "Juni 2026", "Mei 2026", "April 2026", "Maret 2026", "Februari 2026", "Januari 2026"]
+          : ["August 2026", "July 2026", "June 2026", "May 2026", "April 2026", "March 2026", "February 2026", "January 2026"];
+        const scores = [68, 66, 67, 69, 71, 70, 72, 73];
+        const covered = [4612, 4580, 4534, 4498, 4402, 4361, 4290, 4188];
+        return months.map((month, i) => {
+          const diff = i === months.length - 1 ? null : scores[i] - scores[i + 1];
+          const open = this.state.archMenu === i;
+          return {
+            month,
+            score: scores[i],
+            scoreColor: scores[i] >= 72 ? "#4C8C6A" : scores[i] >= 66 ? "#C99A3B" : "#C05B45",
+            delta: diff === null ? "—" : (diff > 0 ? "▲ " : diff < 0 ? "▼ " : "— ") + Math.abs(diff),
+            deltaColor: diff === null ? "#A0A49F" : diff > 0 ? "#4C8C6A" : diff < 0 ? "#C05B45" : "#8A9096",
+            covered: this.num(covered[i]),
+            buttonLabel: t.download + (open ? " ▴" : " ▾"),
+            toggle: () => this.setState(st => ({ archMenu: st.archMenu === i ? null : i })),
+            menuStyle: {
+              display: open ? "block" : "none", position: "absolute", right: 0, top: "calc(100% + 6px)",
+              zIndex: 30, minWidth: "170px", background: "#FFF", border: "1px solid #E2E0D9",
+              borderRadius: "8px", padding: "6px", boxShadow: "0 16px 36px -16px rgba(0,0,0,0.35)"
+            },
+            options: [
+              { label: "PDF", ext: ".pdf" },
+              { label: "Excel", ext: ".xlsx" },
+              { label: "CSV", ext: ".csv" },
+              { label: isId ? "PowerPoint (ringkasan)" : "PowerPoint (summary)", ext: ".pptx" }
+            ].map(o => ({
+              ...o,
+              pick: () => this.setState({ archMenu: null }),
+              style: {
+                display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px",
+                padding: "8px 10px", borderRadius: "5px", cursor: "pointer", fontSize: "12.5px", color: "#16191B"
+              }
+            }))
+          };
+        });
+      })(),
+
+      modules,
+      history: this.historyData(isId).map((h, i) => {
+        const open = this.state.dlMenu === i;
+        return {
+          ...h,
+          buttonLabel: t.download + (open ? " ▴" : " ▾"),
+          toggle: () => this.setState(st => ({ dlMenu: st.dlMenu === i ? null : i })),
+          menuStyle: {
+            display: open ? "block" : "none", position: "absolute", right: 0, top: "calc(100% + 6px)",
+            zIndex: 30, minWidth: "170px", background: "#FFF", border: "1px solid #E2E0D9",
+            borderRadius: "8px", padding: "6px", boxShadow: "0 16px 36px -16px rgba(0,0,0,0.35)"
+          },
+          options: [
+            { label: "PDF", ext: ".pdf" },
+            { label: "Excel", ext: ".xlsx" },
+            { label: "CSV", ext: ".csv" },
+            { label: isId ? "PowerPoint (ringkasan)" : "PowerPoint (summary)", ext: ".pptx" }
+          ].map(o => ({
+            ...o,
+            pick: () => this.setState({ dlMenu: null }),
+            style: {
+              display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px",
+              padding: "8px 10px", borderRadius: "5px", cursor: "pointer", fontSize: "12.5px", color: "#16191B"
+            }
+          }))
+        };
+      }),
+      previewRows: [
+        { k: isId ? "Indeks kesehatan" : "Health index", v: "68 / 100" },
+        { k: isId ? "Risiko tinggi" : "High risk", v: "628 (12,6%)" },
+        { k: isId ? "Tidur rata-rata" : "Average sleep", v: "6:12" },
+        { k: isId ? "Departemen dianalisis" : "Departments analysed", v: "8" },
+        { k: isId ? "Grup disembunyikan" : "Groups hidden", v: "3" }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
