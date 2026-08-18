@@ -2273,6 +2273,159 @@ app.get("/api/catalog", async (req, res) => {
   }
 });
 
+// ---------- Rewards / Perks (papan perks admin + klaim member) ----------
+// Admin publikasikan perks nyata (my20fit_reward_offers); member klaim (my20fit_reward_claims,
+// status pending → admin fulfill). TIDAK ada ekonomi poin dipaksakan. Semua server-mediated
+// (RLS deny-public, service key). Tanpa data contoh — kosong sampai admin isi.
+const _crypto = require("crypto");
+function newClaimCode() { return "RWD-" + _crypto.randomBytes(4).toString("hex").toUpperCase(); }
+
+// USER: daftar perks aktif + klaim milik user.
+app.get("/api/rewards", async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ ok: false, error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ ok: false, error: "Unauthorized" });
+    const { data: offers, error: e1 } = await admin.from("my20fit_reward_offers")
+      .select("id,title,subtitle,description,image_url,terms,cost_label,stock,claimed_count")
+      .eq("active", true).order("sort_order", { ascending: true }).limit(100);
+    if (e1) throw e1;
+    const { data: claims } = await admin.from("my20fit_reward_claims")
+      .select("id,offer_id,status,claim_code,created_at").eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(100);
+    const offersOut = (offers || []).map(o => ({
+      id: o.id, title: o.title, subtitle: o.subtitle || null, description: o.description || null,
+      image_url: o.image_url || null, terms: o.terms || null, cost_label: o.cost_label || null,
+      sold_out: (o.stock != null && (o.claimed_count || 0) >= o.stock),
+    }));
+    return res.json({ ok: true, offers: offersOut, claims: claims || [] });
+  } catch (e) {
+    try { console.error("rewards:", e && e.message); } catch (_) {}
+    return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" });
+  }
+});
+// USER: klaim satu perks. Idempoten per (user, offer) selama masih pending.
+app.post("/api/rewards/claim", async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ ok: false, error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ ok: false, error: "Unauthorized" });
+    const offerId = String((req.body && req.body.offer_id) || "").trim();
+    if (!offerId) return res.status(400).json({ ok: false, error: "offer_id wajib." });
+    const { data: rows, error: e1 } = await admin.from("my20fit_reward_offers").select("id,active,stock,claimed_count,title").eq("id", offerId).limit(1);
+    if (e1) throw e1;
+    const offer = rows && rows[0];
+    if (!offer || !offer.active) return res.status(404).json({ ok: false, error: "Perks tak ditemukan / nonaktif." });
+    if (offer.stock != null && (offer.claimed_count || 0) >= offer.stock) return res.status(409).json({ ok: false, error: "Kuota perks sudah habis." });
+    // Sudah punya klaim pending untuk perks ini? kembalikan yang ada (idempoten).
+    const { data: existing } = await admin.from("my20fit_reward_claims").select("id,claim_code,status").eq("auth_user_id", user.id).eq("offer_id", offerId).eq("status", "pending").limit(1);
+    if (existing && existing[0]) return res.json({ ok: true, claim_code: existing[0].claim_code, already: true });
+    let prof = {};
+    try { const { data } = await admin.from("my20fit_profile").select("full_name,email").eq("auth_user_id", user.id).limit(1); prof = (data && data[0]) || {}; } catch (e) {}
+    const code = newClaimCode();
+    const { error: e2 } = await admin.from("my20fit_reward_claims").insert({
+      offer_id: offerId, auth_user_id: user.id, email: (prof.email || user.email || null),
+      name: prof.full_name || null, status: "pending", claim_code: code,
+    });
+    if (e2) throw e2;
+    try { await admin.from("my20fit_reward_offers").update({ claimed_count: (offer.claimed_count || 0) + 1, updated_at: new Date().toISOString() }).eq("id", offerId); } catch (_) {}
+    return res.json({ ok: true, claim_code: code });
+  } catch (e) {
+    try { console.error("rewards/claim:", e && e.message); } catch (_) {}
+    return res.status(500).json({ ok: false, error: (e && e.message) || "gagal klaim" });
+  }
+});
+
+// ADMIN CRUD perks + klaim (admin-v2 section Rewards).
+app.get("/api/admin/rewards", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data, error } = await admin.from("my20fit_reward_offers")
+      .select("id,title,subtitle,description,image_url,terms,cost_label,stock,claimed_count,active,sort_order,updated_at,updated_by")
+      .order("sort_order", { ascending: true });
+    if (error) throw error;
+    return res.json({ ok: true, offers: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/rewards", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const title = String(b.title || "").trim();
+  if (!title) return res.status(400).json({ error: "Judul perks wajib." });
+  const row = {
+    title: title.slice(0, 160),
+    subtitle: b.subtitle ? String(b.subtitle).slice(0, 200) : null,
+    description: b.description ? String(b.description).slice(0, 2000) : null,
+    image_url: b.image_url ? String(b.image_url).slice(0, 500) : null,
+    terms: b.terms ? String(b.terms).slice(0, 2000) : null,
+    cost_label: b.cost_label ? String(b.cost_label).slice(0, 80) : null,
+    stock: (b.stock === "" || b.stock == null) ? null : (Number.isFinite(+b.stock) ? (+b.stock | 0) : null),
+    active: b.active === false ? false : true,
+    sort_order: Number.isFinite(+b.sort_order) ? (+b.sort_order | 0) : 0,
+    updated_at: new Date().toISOString(),
+    updated_by: ctx.email || (ctx.via === "key" ? "master-key" : null),
+  };
+  try {
+    let data, error;
+    if (b.id) ({ data, error } = await admin.from("my20fit_reward_offers").update(row).eq("id", String(b.id)).select("id").limit(1));
+    else ({ data, error } = await admin.from("my20fit_reward_offers").insert(row).select("id").limit(1));
+    if (error) throw error;
+    await adminAudit(ctx, b.id ? "rewards.update" : "rewards.create", (data && data[0] && data[0].id) || String(b.id || ""), { title: row.title });
+    return res.json({ ok: true, id: (data && data[0] && data[0].id) || b.id || null });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/rewards/:id/toggle", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const id = String(req.params.id || "");
+  try {
+    const { data: cur } = await admin.from("my20fit_reward_offers").select("active").eq("id", id).limit(1);
+    if (!cur || !cur[0]) return res.status(404).json({ error: "Perks tak ditemukan." });
+    const next = !cur[0].active;
+    const { error } = await admin.from("my20fit_reward_offers").update({ active: next, updated_at: new Date().toISOString(), updated_by: ctx.email || null }).eq("id", id);
+    if (error) throw error;
+    await adminAudit(ctx, "rewards.toggle", id, { active: next });
+    return res.json({ ok: true, active: next });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.delete("/api/admin/rewards/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const id = String(req.params.id || "");
+  try {
+    const { error } = await admin.from("my20fit_reward_offers").delete().eq("id", id);
+    if (error) throw error;
+    await adminAudit(ctx, "rewards.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.get("/api/admin/reward-claims", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data, error } = await admin.from("my20fit_reward_claims")
+      .select("id,offer_id,email,name,status,claim_code,created_at,fulfilled_at,my20fit_reward_offers(title)")
+      .order("created_at", { ascending: false }).limit(300);
+    if (error) throw error;
+    const claims = (data || []).map(c => ({
+      id: c.id, offer_id: c.offer_id, offer_title: (c.my20fit_reward_offers && c.my20fit_reward_offers.title) || null,
+      email: c.email || null, name: c.name || null, status: c.status, claim_code: c.claim_code || null,
+      created_at: c.created_at, fulfilled_at: c.fulfilled_at || null,
+    }));
+    return res.json({ ok: true, claims });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/reward-claims/:id/fulfill", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const id = String(req.params.id || "");
+  const status = String((req.body && req.body.status) || "fulfilled");
+  if (["pending", "fulfilled", "cancelled"].indexOf(status) < 0) return res.status(400).json({ error: "Status tak valid." });
+  try {
+    const patch = { status, updated_by: ctx.email || null };
+    patch.fulfilled_at = status === "fulfilled" ? new Date().toISOString() : null;
+    const { error } = await admin.from("my20fit_reward_claims").update(patch).eq("id", id);
+    if (error) throw error;
+    await adminAudit(ctx, "reward_claims.status", id, { status });
+    return res.json({ ok: true, status });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // ================= ADMIN MONITORING (dashboard internal) =================
 // Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
