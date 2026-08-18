@@ -198,8 +198,16 @@
             <div class="adm-note" data-i18n="Select a user to see details.">Pilih user untuk lihat detail.</div>
           </aside>
         </div>
-        <div class="adm-sec-title" data-i18n="Saved segments">Segmen tersimpan</div>
-        <div id="usrSegments"></div>
+        <div class="adm-sec-title" data-i18n="Period recap">Recap periode</div>
+        <div class="adm-note" style="margin:-4px 0 10px" data-i18n="Growth funnel per period (onboarding → scan → buy → repeat). Click a card to view &amp; download that segment's users.">Funnel pertumbuhan per periode (onboarding → scan → beli → repeat). Klik kartu untuk lihat &amp; unduh user segmen itu.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+          <button class="adm-chip recapChip" data-recap="today" aria-pressed="false" data-i18n="Today">Hari ini</button>
+          <button class="adm-chip recapChip" data-recap="week" aria-pressed="false" data-i18n="This week">Minggu ini</button>
+          <button class="adm-chip recapChip" data-recap="month" aria-pressed="true" data-i18n="This month">Bulan ini</button>
+          <button class="adm-chip recapChip" data-recap="30d" aria-pressed="false" data-i18n="30 days">30 hari</button>
+        </div>
+        <div class="adm-grid" id="recapCards" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+        <div id="recapSeg" hidden style="margin-top:16px"></div>
         <div class="adm-sec-title" data-i18n="Add / import users (superadmin)">Tambah / import user (superadmin)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px">
           <div>
@@ -821,8 +829,94 @@
           '<td class="adm-mono">'+fmtDate(u.created_at)+'</td></tr>';
       }).join("");
       window.admRenderTable("#usrTable");
-      document.getElementById("usrSegments").innerHTML = '<div class="adm-callout adm-scaffold"><span class="adm-badge" data-i18n="No data yet">BELUM ADA DATA</span><div class="adm-note" data-i18n="Saved segments need the segments endpoint (table my20fit_segments exists; CRUD next increment).">Segmen tersimpan butuh endpoint segmen (tabel my20fit_segments sudah ada; CRUD menyusul).</div></div>';
+      recapInit();
     }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+String(e.message||e)+'</div></div>'; }
+  }
+
+  // ---- RECAP PERIODE (funnel onboarding→scan→beli→repeat + unduh segmen) ----
+  // Sumber: /api/admin/onboarding-recap (viewer+, NON-kesehatan). Klik kartu → daftar user
+  // segmen (nama/email/telepon + metrik periode). Unduh CSV lewat server /api/admin/export-csv
+  // (khusus staff+; dicek server-side & diaudit). Delta = beda vs periode sebelumnya sama panjang.
+  var RECAP_STATE = { range:"month", data:null, seg:null };
+  var RECAP_META = {
+    onboarded:     { en:"Onboarding",             id:"Onboarding",              slug:"onboarding" },
+    onboarded_new: { en:"New (no scan/buy)",      id:"Baru (belum scan/beli)",  slug:"baru-onboarding" },
+    scanned:       { en:"Scanned",                id:"Sudah scan",              slug:"sudah-scan" },
+    bought:        { en:"Bought",                 id:"Sudah beli",              slug:"sudah-beli" },
+    repeat:        { en:"Repeat buyer",           id:"Repeat buyer",            slug:"repeat-buyer" },
+  };
+  function recapRangeLabel(){ return ({today:L("today","hari ini"),week:L("this week","minggu ini"),month:L("this month","bulan ini"),"30d":L("30 days","30 hari")})[RECAP_STATE.range]||RECAP_STATE.range; }
+  // Kolom per segmen (satu sumber definisi; dipakai tabel & CSV). value() dijalankan per-user.
+  function recapSegCols(seg){
+    var base=[{en:"Name",id:"Nama",value:function(u){return u.full_name||"";}},
+              {en:"Email",id:"Email",value:function(u){return u.email||"";}},
+              {en:"Phone",id:"No HP",value:function(u){return u.phone||"";}}];
+    if(seg==="scanned") return base.concat([
+      {en:"Scans (period)",id:"Scan (periode)",num:true,value:function(u){return u.scans_in_window||0;}},
+      {en:"Last scan",id:"Scan terakhir",value:function(u){return fmtDate(u.last_scan_at);}} ]);
+    if(seg==="bought"||seg==="repeat") return base.concat([
+      {en:"Orders (period)",id:"Transaksi (periode)",num:true,value:function(u){return u.orders_in_window||0;}},
+      {en:"Amount (period, Rp)",id:"Nominal (periode, Rp)",num:true,csv:function(u){return u.amount_in_window||0;},value:function(u){return rp(u.amount_in_window||0);}},
+      {en:"Last buy",id:"Beli terakhir",value:function(u){return fmtDate(u.last_paid_at);}} ]);
+    return base.concat([{en:"Onboarded",id:"Tgl onboarding",value:function(u){return fmtDate(u.onboarded_at);}}]);
+  }
+  function recapDelta(cur,prev){
+    if(prev==null) return '<div class="adm-sub" style="visibility:hidden">.</div>';
+    var d=(cur||0)-(prev||0), sign=d>0?"+":"";
+    return '<div class="adm-delta'+(d<0?" adm-delta--down":"")+'" style="display:inline-block;margin-top:8px" title="'+esc(L("vs previous same-length period","dibanding periode sebelumnya sama panjang"))+'">'+sign+d+' '+L("vs prev","vs lalu")+'</div>';
+  }
+  function recapCard(seg,val,prev){
+    var m=RECAP_META[seg], on=(RECAP_STATE.seg===seg);
+    return '<div class="adm-cell recapCard'+(on?" on":"")+'" data-seg="'+seg+'" style="cursor:pointer'+(on?";background:var(--surface)":"")+'">'+
+      '<div class="adm-metric adm-num">'+(val||0)+'</div>'+
+      '<div class="adm-label" data-i18n="'+m.en+'">'+m.id+'</div>'+
+      recapDelta(val,prev)+
+      '<div class="adm-sub">'+L("click: view &amp; download","klik: lihat &amp; unduh")+'</div></div>';
+  }
+  async function recapFetch(){
+    var qs="range="+encodeURIComponent(RECAP_STATE.range)+(KEY?("&key="+encodeURIComponent(KEY)):"");
+    return fetch("/api/admin/onboarding-recap?"+qs,{credentials:"include",headers:await admAuthHeaders()});
+  }
+  function recapInit(){
+    RECAP_STATE.range="month"; RECAP_STATE.seg=null;
+    document.querySelectorAll(".recapChip").forEach(function(c){ c.setAttribute("aria-pressed",String(c.dataset.recap==="month")); });
+    var sp=document.getElementById("recapSeg"); if(sp){ sp.hidden=true; sp.innerHTML=""; }
+    loadRecap();
+  }
+  async function loadRecap(){
+    var cards=document.getElementById("recapCards"); if(!cards) return;
+    cards.innerHTML='<div class="adm-cell"><div class="adm-loading">'+L("Loading…","Memuat…")+'</div></div>';
+    var res=await recapFetch().catch(function(){return null;});
+    var j=res?await res.json().catch(function(){return null;}):null;
+    if(!res||!res.ok||!j||!j.ok){ cards.innerHTML='<div class="adm-cell"><div class="adm-note">'+esc((j&&j.error)||L("Failed to load recap.","Gagal memuat recap."))+'</div></div>'; return; }
+    RECAP_STATE.data=j; var t=j.totals||{}, pv=j.prev||{};
+    cards.innerHTML=recapCard("onboarded",t.onboarded,pv.onboarded)+recapCard("onboarded_new",t.onboarded_new,null)+
+      recapCard("scanned",t.scanned,pv.scanned)+recapCard("bought",t.bought,pv.bought)+recapCard("repeat",t.repeat,pv.repeat);
+    if(RECAP_STATE.seg) recapShowSeg(RECAP_STATE.seg); // refresh segmen terbuka dgn data baru
+  }
+  function recapShowSeg(seg){
+    var j=RECAP_STATE.data, m=RECAP_META[seg]; if(!j||!m) return;
+    RECAP_STATE.seg=seg;
+    document.querySelectorAll(".recapCard").forEach(function(el){ var on=el.dataset.seg===seg; el.classList.toggle("on",on); el.style.background=on?"var(--surface)":""; });
+    var rows=(j.segments&&j.segments[seg])||[], cols=recapSegCols(seg), sp=document.getElementById("recapSeg"); if(!sp) return;
+    sp.hidden=false;
+    var head='<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">'+
+      '<div class="adm-h2">'+esc(L(m.en,m.id))+' — '+rows.length+' user <span class="adm-note" style="font-weight:400">('+esc(recapRangeLabel())+')</span></div>'+
+      '<button class="adm-btn adm-btn--sm recapExport" data-i18n="Export CSV">Export CSV</button></div>';
+    if(!rows.length){ sp.innerHTML=head+'<div class="adm-note">'+L("No users in this segment for the selected period.","Tak ada user di segmen ini untuk periode terpilih.")+'</div>'; return; }
+    var h='<table class="adm-table"><thead><tr>'+cols.map(function(c){ return '<th'+(c.num?' class="adm-right"':'')+'>'+esc(L(c.en,c.id))+'</th>'; }).join("")+'</tr></thead><tbody>';
+    rows.slice(0,500).forEach(function(u){ h+='<tr>'+cols.map(function(c){ var v=c.value(u); return '<td'+(c.num?' class="adm-right adm-num"':(c.en==="Email"||c.en==="Phone"?' class="adm-mono"':""))+'>'+esc(v===""||v==null?"—":v)+'</td>'; }).join("")+'</tr>'; });
+    h+='</tbody></table>';
+    if(rows.length>500) h+='<div class="adm-note" style="margin-top:8px">'+L("Showing 500 of ","Menampilkan 500 dari ")+rows.length+L(" users. Download CSV for the full list."," user. Unduh CSV untuk data lengkap.")+'</div>';
+    sp.innerHTML=head+'<div style="overflow-x:auto">'+h+'</div>';
+  }
+  function recapExport(){
+    var j=RECAP_STATE.data, seg=RECAP_STATE.seg, m=RECAP_META[seg]; if(!j||!seg||!m) return;
+    if(!window.admExport){ if(window.admToast)admToast(L("Export unavailable","Export tak tersedia")); return; }
+    var rows=(j.segments&&j.segments[seg])||[]; if(!rows.length){ if(window.admToast)admToast(L("No data to download.","Tak ada data untuk diunduh.")); return; }
+    var cols=recapSegCols(seg), headers=cols.map(function(c){ return c.en; });
+    var data=rows.map(function(u){ return cols.map(function(c){ return c.csv?c.csv(u):c.value(u); }); });
+    admExport("segment:"+seg, headers, data, m.slug+"_"+RECAP_STATE.range+".csv");
   }
 
   async function loadUserDetail(uid){
@@ -1852,6 +1946,12 @@
     if(be){ bnEditById(be.closest("tr[data-bid]").dataset.bid); return; }
     var bd=e.target.closest(".bnDel");
     if(bd){ if(bd.dataset.armed==="1") return; bnDelete(bd.closest("tr[data-bid]").dataset.bid); return; }
+    var rcp=e.target.closest(".recapChip");
+    if(rcp){ document.querySelectorAll(".recapChip").forEach(function(x){x.setAttribute("aria-pressed",String(x===rcp));}); RECAP_STATE.range=rcp.dataset.recap; loadRecap(); return; }
+    var rcard=e.target.closest(".recapCard");
+    if(rcard){ recapShowSeg(rcard.dataset.seg); return; }
+    var rex=e.target.closest(".recapExport");
+    if(rex){ recapExport(); return; }
   });
   async function bnToggle(id,on){
     var r=await adminPost("/api/admin/banners/"+encodeURIComponent(id)+"/toggle",{is_active:on}).then(function(x){return x.json();}).catch(function(){return{};});
