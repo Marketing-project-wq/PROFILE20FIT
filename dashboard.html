@@ -513,6 +513,7 @@
       .twk-body{padding:18px 16px 16px;min-width:0}
       .twk-tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:3px 7px}
       .twk-name{font-weight:900;font-size:19px;line-height:1.05;margin:10px 0 2px;overflow-wrap:anywhere}
+      .twk-sub2{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.35;overflow-wrap:anywhere}
       .twk-meta{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted);margin-top:8px}
       .twk-facts{display:flex;gap:20px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
       .twk-fact span{display:block;font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
@@ -814,20 +815,25 @@
       // Data REAL dari /api/tickets/mine (server join rc_ticket_invites+rc_events, READ-ONLY,
       // hanya tiket milik EMAIL user yang login). null = loading; [] = belum punya tiket.
       var TICKETS = null;
-      var UPCOMING = null;    // null = belum dimuat/loading; [] = kosong; [..] = daftar event beli
+      // UPCOMING: null = loading | "error" = gagal muat | [] = sukses kosong | [..] = daftar event
+      var UPCOMING = null;
       var TKT_TAB = "mine";   // "mine" (tiket dimiliki) | "upcoming" (event bisa dibeli)
       window.tktSetTab = function (tab) {
         TKT_TAB = (tab === "upcoming" ? "upcoming" : "mine");
-        if (TKT_TAB === "upcoming" && UPCOMING === null && window.loadUpcoming) window.loadUpcoming(); // lazy
+        // muat saat pertama masuk tab, atau saat sebelumnya gagal (biar bisa dicoba lagi)
+        if (TKT_TAB === "upcoming" && (UPCOMING === null || UPCOMING === "error") && window.loadUpcoming) window.loadUpcoming();
         try { if (window.renderStack) window.renderStack(); } catch (e) {}
       };
-      // Katalog event bisa-dibeli (dikelola admin, tabel my20fit_event_catalog). Publik.
+      // Katalog event bisa-dibeli (dikelola admin, tabel my20fit_ticket_events). Publik via server (service key).
       window.loadUpcoming = async function loadUpcoming() {
+        UPCOMING = null; // tampilkan skeleton saat memuat / mencoba lagi
+        try { if (window.renderStack) window.renderStack(); } catch (e) {}
         try {
           var r = await fetch("/api/events/upcoming");
           var j = await r.json().catch(function () { return null; });
-          UPCOMING = (r.ok && j && j.ok && Array.isArray(j.events)) ? j.events : [];
-        } catch (e) { UPCOMING = []; }
+          if (r.ok && j && j.ok && Array.isArray(j.events)) UPCOMING = j.events;
+          else UPCOMING = "error"; // HTTP gagal / {ok:false} → bedakan dari sukses-kosong
+        } catch (e) { UPCOMING = "error"; }
         try { if (window.renderStack) window.renderStack(); } catch (e) {}
       };
       window.loadTickets = async function loadTickets() {
@@ -868,18 +874,35 @@
           (date ? '<div class="twk-meta"><div>' + _esc(date) + '</div></div>' : '') +
           facts + '</div>' + stub + '</article>';
       }
-      // Kartu event yang bisa dibeli (Event Mendatang): dari katalog admin (my20fit_event_catalog).
+      // Format "Mulai Rp X" dari price_from (integer rupiah). null → "".
+      function twkPrice(e) {
+        if (!e || e.price_from == null) return "";
+        var cur = (e.currency || "IDR");
+        var n = Number(e.price_from) || 0;
+        var amt = (cur === "IDR" ? ("Rp " + n.toLocaleString("id-ID")) : (cur + " " + n.toLocaleString()));
+        return Lx({ en: "From " + amt, id: "Mulai " + amt });
+      }
+      // Kartu event yang bisa dibeli (Event Mendatang): dari katalog admin (my20fit_ticket_events).
+      // starts_at null → "Jadwal menyusul" (tetap ditampilkan, urutan terakhir dari server).
+      // Beli Sekarang → deep-link event (buy_url dari server, sudah +UTM). Slug kosong → tombol disembunyikan.
       function twkEventCard(e) {
-        var date = (e && e.event_date) ? tktDate(e.event_date) : Lx({ en: "Date TBA", id: "Jadwal menyusul" });
-        var loc = (e && e.location) ? ('<div>' + _esc(e.location) + '</div>') : "";
-        var buy = (e && e.buy_url) || "https://ticket.20fit.id";
-        buy += (buy.indexOf("?") < 0 ? "?" : "&") + "utm_source=my20fit&utm_medium=app_widget&utm_campaign=buy_now";
+        var date = (e && e.starts_at) ? tktDate(e.starts_at) : Lx({ en: "Date TBA", id: "Jadwal menyusul" });
+        var place = [(e && e.venue) || "", (e && e.city) || ""].filter(Boolean).join(", ");
+        var loc = place ? ('<div>' + _esc(place) + '</div>') : "";
+        var org = (e && e.organizer) ? ('<div class="twk-meta"><div>' + _esc(e.organizer) + '</div></div>') : "";
+        var sub = (e && e.subtitle) ? ('<div class="twk-sub2">' + _esc(e.subtitle) + '</div>') : "";
+        var price = twkPrice(e);
+        // Tombol HANYA bila ada buy_url (slug ada). JANGAN pernah fallback ke homepage.
+        var buyBtn = (e && e.buy_url)
+          ? '<a class="twk-buy" href="' + _esc(e.buy_url) + '">' + Lx({ en: "Buy Now", id: "Beli Sekarang" }) + ' ↗</a>'
+          : '';
         return '<article class="twk-card up"><div class="twk-haz"></div><div class="twk-body">' +
-          '<div class="twk-name">' + _esc((e && e.name) || "Event 20FIT") + '</div>' +
-          '<div class="twk-meta"><div>' + _esc(date) + '</div>' + loc + '</div></div>' +
+          ((e && e.category) ? '<span class="twk-tag">' + _esc(e.category) + '</span>' : '') +
+          '<div class="twk-name">' + _esc((e && e.name) || "Event 20FIT") + '</div>' + sub +
+          '<div class="twk-meta"><div>' + _esc(date) + '</div>' + loc + '</div>' + org + '</div>' +
           '<div class="twk-stub">' +
-          ((e && e.price_label) ? '<div class="twk-amount">' + _esc(e.price_label) + '</div>' : '') +
-          '<a class="twk-buy" href="' + _esc(buy) + '">' + Lx({ en: "Buy Now", id: "Beli Sekarang" }) + ' ↗</a>' +
+          (price ? '<div class="twk-amount">' + _esc(price) + '</div>' : '') +
+          buyBtn +
           '<div class="twk-etiket">' + Lx({ en: "instant e-ticket", id: "e-tiket instan" }) + '</div></div></article>';
       }
       // QR layar penuh (tunjukkan di gerbang check-in).
@@ -904,10 +927,11 @@
           '<div class="tksub">' + Lx({ en: "Your tickets & upcoming 20FIT events", id: "Tiket kamu & event 20FIT mendatang" }) + '</div></div></div>';
         var tabs = '<div class="twk-tabs" role="tablist"><div class="twk-slider' + (TKT_TAB === "upcoming" ? " right" : "") + '" aria-hidden="true"></div>' +
           '<button type="button" role="tab" class="twk-tab' + (TKT_TAB === "mine" ? " on" : "") + '" onclick="tktSetTab(\'mine\')">' + Lx({ en: "My Ticket", id: "Tiket Saya" }) + ' <span class="twk-count">' + (TICKETS ? TICKETS.length : 0) + '</span></button>' +
-          '<button type="button" role="tab" class="twk-tab' + (TKT_TAB === "upcoming" ? " on" : "") + '" onclick="tktSetTab(\'upcoming\')">' + Lx({ en: "Upcoming", id: "Mendatang" }) + ' <span class="twk-count">' + (UPCOMING ? UPCOMING.length : 0) + '</span></button></div>';
+          '<button type="button" role="tab" class="twk-tab' + (TKT_TAB === "upcoming" ? " on" : "") + '" onclick="tktSetTab(\'upcoming\')">' + Lx({ en: "Upcoming", id: "Mendatang" }) + ' <span class="twk-count">' + (Array.isArray(UPCOMING) ? UPCOMING.length : 0) + '</span></button></div>';
         var body;
         if (TKT_TAB === "upcoming") {
           if (UPCOMING === null) body = '<div class="twk-list"><div class="tkskel" style="height:96px;border-radius:14px"></div></div>';
+          else if (UPCOMING === "error") body = '<div class="twk-empty"><h4>' + Lx({ en: "Couldn’t load events", id: "Gagal memuat event" }) + '</h4><p>' + Lx({ en: "Something went wrong. Please try again.", id: "Ada kendala memuat. Coba lagi ya." }) + '</p><button type="button" class="twk-ghost" onclick="loadUpcoming()">' + Lx({ en: "Try again", id: "Coba lagi" }) + '</button></div>';
           else if (!UPCOMING.length) body = '<div class="twk-empty"><h4>' + Lx({ en: "No open events", id: "Belum ada event" }) + '</h4><p>' + Lx({ en: "New events appear here. Explore the full catalog at 20FIT Ticket.", id: "Event baru akan muncul di sini. Lihat katalog lengkap di 20FIT Ticket." }) + '</p><a class="twk-ghost" href="https://ticket.20fit.id/id/events">' + Lx({ en: "Explore events", id: "Jelajahi event" }) + ' ↗</a></div>';
           else body = '<div class="twk-list">' + UPCOMING.map(twkEventCard).join("") + '</div>';
         } else if (TICKETS === null) {
