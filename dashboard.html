@@ -541,6 +541,7 @@
         .twk-ev-side{flex-direction:row;justify-content:space-between;align-items:center;text-align:left}
         .twk-ev-price{flex-direction:row;align-items:baseline;gap:5px}
       }
+      .twk-catlink{display:block;text-align:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;font-weight:800;color:var(--ink);text-decoration:none}
       .twk-empty{border:1.5px dashed var(--line);border-radius:14px;padding:32px 20px;text-align:center}
       .twk-empty h4{font-weight:900;font-size:17px;margin:0 0 6px}
       .twk-empty p{font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.5}
@@ -954,7 +955,8 @@
         } else {
           body = '<div class="twk-list">' + TICKETS.map(twkTicketCard).join("") + '</div>';
         }
-        return '<div class="card tkcard">' + head + tabs + body + '</div>';
+        var shop = '<a class="twk-catlink" href="/catalog">' + Lx({ en: "Browse all packages & tickets", id: "Lihat semua paket & tiket" }) + ' →</a>';
+        return '<div class="card tkcard">' + head + tabs + body + shop + '</div>';
       }
 
       function tcCalories() {
