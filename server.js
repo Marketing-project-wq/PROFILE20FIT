@@ -5736,10 +5736,14 @@ app.use((err, req, res, next) => {
 // nilai/secret TIDAK pernah ditampilkan. Membantu memverifikasi konfigurasi Railway.
 function logEnvReadiness() {
   var core = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_KEY"];
-  var important = ["FITCO_API_URL", "FITCO_PARTNER_TOKEN", "EMAIL_RESEND_API", "MAIL_FROM", "EMAIL_ENVIRONMENT"];
+  var important = ["FITCO_API_URL", "FITCO_PARTNER_TOKEN", "MAIL_FROM", "EMAIL_ENVIRONMENT"];
   var optional = ["ADMIN_KEY", "CRON_SECRET", "RESEND_WEBHOOK_SECRET", "EMAIL_TEST_WHITELIST", "MAIL_REPLY_TO", "XENDIT_ENABLED", "API_PHOTO", "PHOTO_SSO_URL", "ARENA_API_URL", "ARENA_API_KEY", "GOOGLE_CLIENT_ID", "META_PIXEL_ID", "WAQI_TOKEN", "APP_BASE_URL"];
   var miss = function (list) { return list.filter(function (k) { return !String(process.env[k] || "").trim(); }); };
   var mc = miss(core), mi = miss(important), mo = miss(optional);
+  // Resend API key: nama var Railway = "RESEND.COM_EMAIL_API" (fallback EMAIL_RESEND_API /
+  // RESEND_API_KEY). Pakai resolusi kanonik dari lib/email.js (satu sumber kebenaran) supaya
+  // key yang di-set dengan nama titik TIDAK salah dilaporkan "belum diset".
+  if (!email.envInfo().resend_key_set) mi.push("RESEND.COM_EMAIL_API");
   if (mc.length) console.warn("[20FIT][ENV] ❌ INTI belum diset (app tidak akan jalan benar):", mc.join(", "));
   else console.log("[20FIT][ENV] ✓ Env inti (Supabase) lengkap.");
   if (mi.length) console.warn("[20FIT][ENV] ⚠ PENTING belum diset (login/pembayaran/email bisa gagal):", mi.join(", "));
