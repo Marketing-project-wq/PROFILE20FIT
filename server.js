@@ -2249,6 +2249,30 @@ app.post("/api/checkout", async (req, res) => {
   }
 });
 
+// ---------- Katalog terpadu (read-layer) untuk halaman /catalog ----------
+// Baca my20fit_catalog_items (VIEW), kelompokkan per kind. Butuh login (app member).
+app.get("/api/catalog", async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ ok: false, error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ ok: false, error: "Unauthorized" });
+    const { data, error } = await admin.from("my20fit_catalog_items")
+      .select("kind,source_table,source_id,slug,title,subtitle,price,compare_at_price,currency,cover_url,metadata,sort_order")
+      .eq("is_active", true)
+      .order("kind", { ascending: true }).order("sort_order", { ascending: true });
+    if (error) throw error;
+    const ORDER = ["membership", "package", "service", "ticket"];
+    const byKind = {};
+    (data || []).forEach(it => { (byKind[it.kind] = byKind[it.kind] || []).push(it); });
+    const groups = ORDER.filter(k => byKind[k]).map(k => ({ kind: k, items: byKind[k] }));
+    Object.keys(byKind).forEach(k => { if (ORDER.indexOf(k) < 0) groups.push({ kind: k, items: byKind[k] }); });
+    return res.json({ ok: true, groups });
+  } catch (e) {
+    try { console.error("catalog:", e && e.message); } catch (_) {}
+    return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" });
+  }
+});
+
 // ================= ADMIN MONITORING (dashboard internal) =================
 // Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
