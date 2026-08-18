@@ -677,7 +677,18 @@
 <script>
 (function(){
   "use strict";
-  var KEY = new URLSearchParams(location.search).get("key") || "";
+  // Master key di-resolve dari ?key= URL ATAU sessionStorage.admin_master_key
+  // (tempat admin lama menyimpannya saat login master key). ?key= yang dibuka
+  // disimpan agar diingat lintas-reload di tab ini; kalau tak ada, jatuh ke
+  // Authorization: Bearer <JWT> lewat admAuthHeaders(). Tanpa ini, admin yang
+  // login via master key di admin lama tetap 401 di admin-v2.
+  var KEY = (function(){
+    var q = new URLSearchParams(location.search).get("key") || "";
+    try {
+      if (q) { sessionStorage.setItem("admin_master_key", q); return q; }
+      return sessionStorage.getItem("admin_master_key") || "";
+    } catch(e){ return q; }
+  })();
   var CUR = { period: "30d", section: "overview" };
   // Backend mengautentikasi /api/admin/* HANYA lewat header x-admin-key (?key=)
   // atau Authorization: Bearer <supabase JWT> — TIDAK ada auth via cookie. Jadi
