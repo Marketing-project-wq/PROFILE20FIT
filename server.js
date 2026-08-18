@@ -1973,6 +1973,79 @@ app.get("/api/partner/profile", async (req, res) => {
   }
 });
 
+// ---------- /api/tickets/mine : tiket event race milik user (widget "Upcoming Event") ----------
+// SUMBER: sistem race 20FIT (rc_ticket_invites + rc_events) — Opsi 3 (join lintas-app), atas
+// keputusan pemilik. ATURAN & PRIVASI yang WAJIB dijaga di sini:
+//  - CLAUDE.md §4: tabel non-`my20fit_*` milik app lain. Kita HANYA MEMBACA (SELECT), TIDAK PERNAH
+//    menulis ke rc_ticket_invites / rc_events.
+//  - Ruang lingkup KETAT per-user: cuma baris yang email-nya == email user yang LOGIN (diambil dari
+//    my20fit_profile by auth_user_id, bukan dari client). Tak ada param email dari client → tak bisa
+//    dipakai enumerasi tiket orang lain. Service key bypass RLS, jadi filter email WAJIB di query +
+//    dicek ulang exact-match di JS (hindari over-match wildcard ilike untuk email berisi '_').
+//  - TAHAN-GAGAL: kalau tabel tak ada / query error → balikan {ok:true, tickets:[]} supaya home aman.
+app.get("/api/tickets/mine", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    if (!admin) return res.json({ ok: true, tickets: [] });
+
+    // Identitas = email user (dari profil kita; fallback ke email auth).
+    let email = String(user.email || "").trim().toLowerCase();
+    try {
+      const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", user.id).limit(1);
+      if (prof && prof[0] && prof[0].email) email = String(prof[0].email).trim().toLowerCase();
+    } catch (_) {}
+    if (!email) return res.json({ ok: true, tickets: [] });
+
+    // READ-ONLY tabel app lain. Kandidat case-insensitive, lalu exact-match di JS.
+    let invites = [];
+    try {
+      const { data, error } = await admin.from("rc_ticket_invites")
+        .select("id,event_id,email,category_key,status,source_data,created_at")
+        .ilike("email", email).limit(50);
+      if (error) throw error;
+      invites = (data || []).filter(r => String(r.email || "").trim().toLowerCase() === email);
+    } catch (_) { return res.json({ ok: true, tickets: [] }); }
+    if (!invites.length) return res.json({ ok: true, tickets: [] });
+
+    // Nama + tanggal event dari rc_events (read-only).
+    const evIds = [...new Set(invites.map(i => i.event_id).filter(Boolean))];
+    const evMap = {};
+    if (evIds.length) {
+      try {
+        const { data: evs } = await admin.from("rc_events").select("id,name,event_date").in("id", evIds);
+        (evs || []).forEach(e => { evMap[e.id] = e; });
+      } catch (_) {}
+    }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const tickets = invites.map(i => {
+      const ev = evMap[i.event_id] || {};
+      const label = i.source_data && (i.source_data.TIKET || i.source_data.tiket);
+      return {
+        ref: String(i.id || "").replace(/-/g, "").slice(0, 8).toUpperCase(), // kode ref singkat (bukan token akses)
+        event_name: ev.name || "Event 20FIT",
+        event_date: ev.event_date || null,
+        ticket_label: label ? String(label).slice(0, 160) : null,
+        category: i.category_key || null,
+        status: i.status || null,
+        upcoming: !!(ev.event_date && String(ev.event_date) >= todayStr),
+      };
+    });
+    // Urut: upcoming dulu (tanggal terdekat), lalu past (terbaru dulu).
+    tickets.sort((a, b) => {
+      if (a.upcoming !== b.upcoming) return a.upcoming ? -1 : 1;
+      const da = a.event_date || "", db = b.event_date || "";
+      if (a.upcoming) return da < db ? -1 : (da > db ? 1 : 0);
+      return da > db ? -1 : (da < db ? 1 : 0);
+    });
+    return res.json({ ok: true, tickets, upcoming_count: tickets.filter(t => t.upcoming).length });
+  } catch (e) {
+    if (e && e.status === 503) return res.status(503).json({ error: e.userMessage || "Coba lagi sebentar." });
+    try { console.error("tickets/mine:", e && e.message); } catch (_) {}
+    return res.json({ ok: true, tickets: [] }); // tahan-gagal
+  }
+});
+
 // ================= ADMIN MONITORING (dashboard internal) =================
 // Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
 const ADMIN_KEY = process.env.ADMIN_KEY || "";

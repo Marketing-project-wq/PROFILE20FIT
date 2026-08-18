@@ -497,6 +497,19 @@
       .tkempty{margin-top:12px;padding:14px;border:1px dashed var(--line);border-radius:12px;text-align:center;font-size:12.5px;color:var(--muted)}
       .tkskel{background:linear-gradient(90deg,var(--inp),color-mix(in srgb,var(--inp) 55%,#fff),var(--inp));background-size:200% 100%;animation:tksh 1.2s infinite}
       @keyframes tksh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+      /* ---- Ticket / Upcoming Event card ---- */
+      .tkic.ticket{background:var(--amber-soft);color:var(--amber)}
+      .tktlist{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+      .tktrow{display:flex;gap:12px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:13px;background:var(--inp)}
+      .tktmain{flex:1;min-width:0}
+      .tktev{font-weight:800;font-size:14px;line-height:1.25;overflow-wrap:anywhere}
+      .tktinfo{font-size:12px;color:var(--muted);font-weight:600;margin-top:3px;overflow-wrap:anywhere}
+      .tktref{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;color:var(--pagemut);margin-top:4px}
+      .tktside{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px;text-align:right}
+      .tktdate{font-size:12px;font-weight:800;white-space:nowrap}
+      .tktpill{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:3px 8px;border-radius:999px;white-space:nowrap}
+      .tktpill.up{background:var(--red);color:#fff}
+      .tktpill.past{background:var(--card);color:var(--muted);border:1px solid var(--line)}
       /* ---- Photo.20fit.id card (katalog foto event) ---- */
       .psec{font-size:11.5px;font-weight:800;color:var(--muted);margin:14px 2px 8px;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px}
       .psec small{color:var(--pagemut);font-weight:700;font-size:11px}
@@ -737,7 +750,8 @@
         fast: '<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M9 2h6"/></svg>',
         drop: '<svg viewBox="0 0 24 24"><path d="M12 2s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg>',
         sleep: '<svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
-        pulse: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>'
+        pulse: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
+        ticket: '<svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 0-2 2v1.2a1.8 1.8 0 0 1 0 3.6V16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-1.2a1.8 1.8 0 0 1 0-3.6V10a2 2 0 0 0-2-2H4z"/><path d="M14 8v10" stroke-dasharray="2 2.4"/></svg>'
       };
       var TRK = {
         calories:  { ic: "cal",   cls: "cal",   nm: { en: "Calories", id: "Kalori" },                     d: { en: "Track daily kcal & macros", id: "Catat kalori & makro harian" }, fixed: true, render: tcCalories },
@@ -745,9 +759,10 @@
         fasting:   { ic: "fast",  cls: "fast",  nm: { en: "Intermittent Fasting", id: "Intermittent Fasting" }, d: { en: "16:8 fasting window timer", id: "Timer jendela puasa 16:8" }, render: tcFasting },
         hydration: { ic: "drop",  cls: "drop",  nm: { en: "Hydration", id: "Hidrasi" },                    d: { en: "Daily water intake", id: "Asupan air harian" }, render: tcHydration },
         sleep:     { ic: "sleep", cls: "sleep", nm: { en: "Sleep", id: "Tidur" },                          d: { en: "Duration & quality trend", id: "Durasi & tren kualitas" }, render: tcSleep },
-        health:    { ic: "pulse", cls: "pulse", nm: { en: "Health snapshot", id: "Ringkasan Kesehatan" }, d: { en: "RHR, weight & BMI", id: "RHR, berat & BMI" }, render: tcHealth }
+        health:    { ic: "pulse", cls: "pulse", nm: { en: "Health snapshot", id: "Ringkasan Kesehatan" }, d: { en: "RHR, weight & BMI", id: "RHR, berat & BMI" }, render: tcHealth },
+        ticket:    { ic: "ticket", cls: "ticket", nm: { en: "Ticket", id: "Tiket" },              d: { en: "Your upcoming 20FIT event tickets", id: "Tiket event 20FIT mendatang" }, render: tcTicket }
       };
-      var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health"];
+      var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health", "ticket"];
       // calories & photo SELALU tampil (fitur unggulan) — dipaksa hadir walau user tak pin.
       function getPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p) || !p.length) p = ["calories", "photo"]; if (p.indexOf("calories") < 0) p.unshift("calories"); if (p.indexOf("photo") < 0) p.splice(Math.min(1, p.length), 0, "photo"); return p.filter(function (x) { return TRK[x] && TRK[x].enabled !== false; }); }
       function setPins(p) { try { localStorage.setItem("my20fit_home_pins", JSON.stringify(p)); } catch (e) {} setLocalTs(new Date().toISOString()); pushPrefs(); }
@@ -764,6 +779,59 @@
           }
         } catch (e) { SLEEP7 = []; }
         try { if (window.renderStack) window.renderStack(); } catch (e) {}
+      }
+
+      // ===== Ticket / Upcoming Event (widget pinnable) =====
+      // Data REAL dari /api/tickets/mine (server join rc_ticket_invites+rc_events, READ-ONLY,
+      // hanya tiket milik EMAIL user yang login). null = loading; [] = belum punya tiket.
+      var TICKETS = null;
+      window.loadTickets = async function loadTickets() {
+        try {
+          var t = (window.Auth && Auth.token) ? await Auth.token() : null;
+          if (!t) { TICKETS = []; }
+          else {
+            var r = await fetch("/api/tickets/mine", { headers: { Authorization: "Bearer " + t } });
+            var j = await r.json().catch(function () { return null; });
+            TICKETS = (r.ok && j && j.ok && Array.isArray(j.tickets)) ? j.tickets : [];
+          }
+        } catch (e) { TICKETS = []; }
+        try { if (window.renderStack) window.renderStack(); } catch (e) {}
+      };
+      function tktDate(s) {
+        if (!s) return "";
+        var d = new Date(String(s).length <= 10 ? (s + "T00:00:00") : s);
+        if (isNaN(d)) return String(s);
+        var mEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        var mId = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+        return Lx({ en: d.getDate() + " " + mEn[d.getMonth()] + " " + d.getFullYear(),
+                   id: d.getDate() + " " + mId[d.getMonth()] + " " + d.getFullYear() });
+      }
+      function ticketRow(t) {
+        var pill = t && t.upcoming
+          ? '<span class="tktpill up">' + Lx({ en: "Upcoming", id: "Mendatang" }) + '</span>'
+          : '<span class="tktpill past">' + Lx({ en: "Done", id: "Selesai" }) + '</span>';
+        var date = (t && t.event_date) ? tktDate(t.event_date) : "";
+        return '<div class="tktrow"><div class="tktmain">' +
+          '<div class="tktev">' + _esc((t && t.event_name) || "Event 20FIT") + '</div>' +
+          ((t && t.ticket_label) ? '<div class="tktinfo">' + _esc(t.ticket_label) + '</div>' : '') +
+          ((t && t.ref) ? '<div class="tktref">' + Lx({ en: "Ref", id: "Ref" }) + ' ' + _esc(t.ref) + '</div>' : '') +
+          '</div><div class="tktside">' +
+          (date ? '<div class="tktdate">' + _esc(date) + '</div>' : '') + pill +
+          '</div></div>';
+      }
+      function tcTicket() {
+        var head = '<div class="tkhd"><div class="tkic ticket">' + TICON.ticket + '</div>' +
+          '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Upcoming Event", id: "Upcoming Event" }) + '</div>' +
+          '<div class="tksub">' + Lx({ en: "Your 20FIT event tickets", id: "Tiket event 20FIT kamu" }) + '</div></div></div>';
+        var body;
+        if (TICKETS === null) {
+          body = '<div class="tktlist"><div class="tktrow tkskel" style="height:62px;border-color:transparent"></div></div>';
+        } else if (!TICKETS.length) {
+          body = '<div class="tkempty">' + Lx({ en: "No event tickets yet. Tickets for your 20FIT events will appear here.", id: "Belum ada tiket event. Tiket event 20FIT kamu akan muncul di sini." }) + '</div>';
+        } else {
+          body = '<div class="tktlist">' + TICKETS.map(ticketRow).join("") + '</div>';
+        }
+        return '<div class="card tkcard">' + head + body + '</div>';
       }
 
       function tcCalories() {
@@ -1391,6 +1459,7 @@
       try{ if(window.renderStack) window.renderStack(); }catch(e){}
       try{ if(window.loadSleep7) window.loadSleep7(); }catch(e){}
       try{ if(window.loadPhotos) window.loadPhotos(); }catch(e){}
+      try{ if(window.loadTickets) window.loadTickets(); }catch(e){}
       renderIFWidget();
       loadIFFromCloud();
       checkAchievements();
