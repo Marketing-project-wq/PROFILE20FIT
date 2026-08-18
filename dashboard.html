@@ -510,6 +510,10 @@
       .tktpill{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:3px 8px;border-radius:999px;white-space:nowrap}
       .tktpill.up{background:var(--red);color:#fff}
       .tktpill.past{background:var(--card);color:var(--muted);border:1px solid var(--line)}
+      .tktabs{display:flex;gap:6px;margin-top:14px;background:var(--inp);border-radius:12px;padding:4px}
+      .tktab{flex:1;border:0;background:transparent;color:var(--muted);font-weight:800;font-size:12.5px;padding:9px 8px;border-radius:9px;cursor:pointer;font-family:inherit}
+      .tktab.on{background:var(--card);color:var(--txt);box-shadow:0 1px 4px rgba(0,0,0,.14)}
+      .tkempty2{padding:22px 14px;text-align:center;color:var(--muted);font-size:13px;line-height:1.5}
       /* ---- Photo.20fit.id card (katalog foto event) ---- */
       .psec{font-size:11.5px;font-weight:800;color:var(--muted);margin:14px 2px 8px;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px}
       .psec small{color:var(--pagemut);font-weight:700;font-size:11px}
@@ -785,6 +789,8 @@
       // Data REAL dari /api/tickets/mine (server join rc_ticket_invites+rc_events, READ-ONLY,
       // hanya tiket milik EMAIL user yang login). null = loading; [] = belum punya tiket.
       var TICKETS = null;
+      var TKT_TAB = "mine";   // "mine" (tiket dimiliki) | "upcoming" (event bisa dibeli)
+      window.tktSetTab = function (tab) { TKT_TAB = (tab === "upcoming" ? "upcoming" : "mine"); try { if (window.renderStack) window.renderStack(); } catch (e) {} };
       window.loadTickets = async function loadTickets() {
         try {
           var t = (window.Auth && Auth.token) ? await Auth.token() : null;
@@ -821,17 +827,23 @@
       }
       function tcTicket() {
         var head = '<div class="tkhd"><div class="tkic ticket">' + TICON.ticket + '</div>' +
-          '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Upcoming Event", id: "Upcoming Event" }) + '</div>' +
-          '<div class="tksub">' + Lx({ en: "Your 20FIT event tickets", id: "Tiket event 20FIT kamu" }) + '</div></div></div>';
+          '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Event & Tickets", id: "Event & Tiket" }) + '</div>' +
+          '<div class="tksub">' + Lx({ en: "Your tickets & upcoming 20FIT events", id: "Tiket kamu & event 20FIT mendatang" }) + '</div></div></div>';
+        var tabs = '<div class="tktabs" role="tablist">' +
+          '<button type="button" class="tktab' + (TKT_TAB === "mine" ? " on" : "") + '" onclick="tktSetTab(\'mine\')">' + Lx({ en: "My Ticket", id: "Tiket Saya" }) + '</button>' +
+          '<button type="button" class="tktab' + (TKT_TAB === "upcoming" ? " on" : "") + '" onclick="tktSetTab(\'upcoming\')">' + Lx({ en: "Upcoming Event", id: "Event Mendatang" }) + '</button></div>';
         var body;
-        if (TICKETS === null) {
+        if (TKT_TAB === "upcoming") {
+          // Katalog event bisa-dibeli dikelola dari admin (Step 2) — sumber belum tersambung.
+          body = '<div class="tkempty2">' + Lx({ en: "No events to buy yet — upcoming 20FIT events will appear here.", id: "Belum ada event untuk dibeli — event 20FIT mendatang akan muncul di sini." }) + '</div>';
+        } else if (TICKETS === null) {
           body = '<div class="tktlist"><div class="tktrow tkskel" style="height:62px;border-color:transparent"></div></div>';
         } else if (!TICKETS.length) {
           body = '<div class="tkempty">' + Lx({ en: "No event tickets yet. Tickets for your 20FIT events will appear here.", id: "Belum ada tiket event. Tiket event 20FIT kamu akan muncul di sini." }) + '</div>';
         } else {
           body = '<div class="tktlist">' + TICKETS.map(ticketRow).join("") + '</div>';
         }
-        return '<div class="card tkcard">' + head + body + '</div>';
+        return '<div class="card tkcard">' + head + tabs + body + '</div>';
       }
 
       function tcCalories() {
