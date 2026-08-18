@@ -4476,76 +4476,8 @@ app.get("/api/arena/history", async (req, res) => {
   }
 });
 
-// ---------- Katalog paket Membership (Special Offer + Gym) — proxy ke booking API ----------
-// PENTING: path upstream katalog di-set via env MEMBERSHIP_CATALOG_PATH (mis. "/packages"
-// atau "/membership"). Default best-guess "/packages". Kalau path/shape belum cocok, kita
-// balas { ok:true, groups:[] } → halaman Membership tampil "empty" (BUKAN data karangan,
-// BUKAN error fatal). Bentuk mentah upstream di-log (key-nya) untuk memfinalkan mapper.
-function _mNum(v){ var n = typeof v === "number" ? v : parseFloat(String(v == null ? "" : v).replace(/[^\d.]/g, "")); return isNaN(n) ? null : n; }
-function _mRupiah(n){ return n == null ? null : ("Rp " + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")); }
-function _mList(raw){
-  if (Array.isArray(raw)) return raw;
-  if (raw && Array.isArray(raw.data)) return raw.data;
-  if (raw && Array.isArray(raw.packages)) return raw.packages;
-  return null;
-}
-function _mNormPkg(p){
-  if (!p || typeof p !== "object") return null;
-  var name = p.name || p.title || p.package_name || p.product_name || "";
-  if (!name) return null;
-  var priceN = _mNum(p.price != null ? p.price : (p.amount != null ? p.amount : p.price_final));
-  var oldN = _mNum(p.price_old != null ? p.price_old : (p.original_price != null ? p.original_price : p.price_before));
-  var perksRaw = p.perks || p.benefits || p.features || p.facilities || [];
-  var perks = Array.isArray(perksRaw)
-    ? perksRaw.map(function (x) { return typeof x === "string" ? x : (x && (x.name || x.label || x.title) || ""); }).filter(Boolean)
-    : (typeof perksRaw === "string" ? perksRaw.split(/[\n;•]/).map(function (s) { return s.trim(); }).filter(Boolean) : []);
-  return {
-    name: String(name),
-    price: _mRupiah(priceN),
-    price_old: _mRupiah(oldN),
-    period: p.period || p.duration_label || (p.duration_days ? (p.duration_days + " hari") : null),
-    perks: perks.slice(0, 6),
-    book_url: p.book_url || p.url || p.checkout_url || "https://booking.20fit.id/gym",
-  };
-}
-function mapMembershipGroups(raw){
-  if (raw && Array.isArray(raw.groups)) {
-    return raw.groups.map(function (g) {
-      return { key: g.key || g.slug || "gym", title: g.title || g.name || null, packages: (g.packages || g.items || []).map(_mNormPkg).filter(Boolean) };
-    }).filter(function (g) { return g.packages.length; });
-  }
-  var list = _mList(raw);
-  if (!list) return [];
-  var offer = [], gym = [];
-  list.forEach(function (p) {
-    var np = _mNormPkg(p); if (!np) return;
-    var isOffer = !!(p.is_offer || p.special_offer || /offer|promo|diskon|discount/i.test(String(p.category || p.type || p.group || p.tag || "")));
-    (isOffer ? offer : gym).push(np);
-  });
-  var groups = [];
-  if (offer.length) groups.push({ key: "special_offer", packages: offer });
-  if (gym.length) groups.push({ key: "gym", packages: gym });
-  return groups;
-}
-app.get("/api/membership/packages", async (req, res) => {
-  try {
-    if (!ARENA_API_KEY) return res.json({ ok: true, groups: [] }); // belum dikonfigurasi → empty
-    const user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
-    const upath = process.env.MEMBERSHIP_CATALOG_PATH || "/packages";
-    let raw = null;
-    try {
-      const r = await fetch(ARENA_API_URL + upath, { headers: { "x-api-key": ARENA_API_KEY } });
-      if (r.ok) raw = await r.json().catch(() => null);
-      else console.warn("membership upstream", upath, "->", r.status);
-    } catch (e) { console.warn("membership upstream error:", e.message); }
-    try { console.log("membership raw shape:", raw && (Array.isArray(raw) ? ("array[" + raw.length + "]") : Object.keys(raw).join(","))); } catch (e) {}
-    return res.json({ ok: true, groups: mapMembershipGroups(raw) });
-  } catch (e) {
-    console.error("membership/packages:", e.message);
-    return res.status(500).json({ error: e.message });
-  }
-});
+// Catatan: /api/membership/packages (proxy arena-api) DIHAPUS — halaman Membership kini baca
+// dari my20fit_catalog_items via /api/catalog (sumber tunggal katalog). Lihat membership.html.
 
 // ---------- Jadwal 20FIT (Arena / Gym / Clinic) — read-only, buat KALENDER di my.20fit.id ----------
 // Data jadwal ada di Supabase yang SAMA (tabel arena_*/gym_*/clinic_* milik sistem booking masing2).
