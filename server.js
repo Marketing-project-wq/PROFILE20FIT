@@ -2030,6 +2030,7 @@ app.get("/api/tickets/mine", async (req, res) => {
         category: i.category_key || null,
         status: i.status || null,
         upcoming: !!(ev.event_date && String(ev.event_date) >= todayStr),
+        holder: i.name || (i.source_data && (i.source_data.NAMA || i.source_data[" NAMA"])) || null,
         _token: i.token || null, // dipakai bikin QR di bawah, lalu DIHAPUS dari respons
       };
     });
@@ -2045,7 +2046,7 @@ app.get("/api/tickets/mine", async (req, res) => {
     // tiket tetap tampil tanpa QR. Format gate ticket.20fit.id belum dikonfirmasi → token mentah.
     await Promise.all(tickets.map(async (t) => {
       if (t._token) {
-        try { t.qr = await QRCode.toString(String(t._token), { type: "svg", margin: 1, errorCorrectionLevel: "M" }); } catch (_) {}
+        try { t.qr = await QRCode.toString("https://ticket.20fit.id/t/" + String(t._token), { type: "svg", margin: 1, errorCorrectionLevel: "M" }); } catch (_) {}
       }
       delete t._token;
     }));
