@@ -26,22 +26,19 @@
   .grp .arrows button{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--txt);cursor:pointer;display:grid;place-items:center}
   .grp .arrows button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 
-  /* CAROUSEL: swipe di mobile, drag/arrow di desktop */
   .caro{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 12px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;cursor:grab}
   .caro.drag{cursor:grabbing;scroll-snap-type:none}
   .caro::-webkit-scrollbar{height:0}
-  .mcard{flex:0 0 78%;max-width:320px;scroll-snap-align:start;border:1px solid var(--line);border-radius:18px;padding:18px;background:var(--card);color:var(--txt);box-shadow:0 4px 16px rgba(0,0,0,.22);display:flex;flex-direction:column}
-  @media(min-width:900px){ .mcard{flex-basis:300px} }
+  .mcard{flex:0 0 78%;max-width:300px;scroll-snap-align:start;border:1px solid var(--line);border-radius:18px;padding:18px;background:var(--card);color:var(--txt);box-shadow:0 4px 16px rgba(0,0,0,.22);display:flex;flex-direction:column}
+  @media(min-width:900px){ .mcard{flex-basis:280px} }
   .mcard.offer{border-color:var(--red);box-shadow:0 6px 20px color-mix(in srgb,var(--red) 22%,transparent)}
   .mbadge{align-self:flex-start;font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff;background:var(--red);border-radius:999px;padding:4px 10px;margin-bottom:10px}
-  .mnm{font-size:18px;font-weight:900;line-height:1.2}
-  .mprice{font-size:20px;font-weight:900;color:var(--red);margin-top:8px}
-  .mprice .per{font-size:12px;font-weight:700;color:var(--muted)}
+  .mnm{font-size:17px;font-weight:900;line-height:1.2;overflow-wrap:anywhere}
+  .msub{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.35;overflow-wrap:anywhere}
+  .mprice{font-size:20px;font-weight:900;color:var(--red);margin-top:10px}
   .mold{font-size:13px;color:var(--muted);text-decoration:line-through;margin-top:2px}
-  .mperks{list-style:none;padding:0;margin:12px 0 0;display:flex;flex-direction:column;gap:7px}
-  .mperks li{font-size:12.5px;color:var(--txt);display:flex;gap:8px;line-height:1.4}
-  .mperks li svg{flex:0 0 auto;width:15px;height:15px;fill:none;stroke:var(--green);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;margin-top:1px}
-  .mcta{margin-top:14px;display:block;text-align:center;background:var(--red);color:#fff;font-weight:800;font-size:14px;border-radius:12px;padding:12px}
+  .mcta{margin-top:14px;display:block;width:100%;text-align:center;background:var(--red);color:#fff;font-weight:800;font-size:14px;border-radius:12px;padding:12px;border:0;cursor:pointer;font-family:inherit}
+  .mcta:hover{filter:brightness(.94)}
 
   .state{background:var(--card);color:var(--txt);border:1px solid var(--line);border-radius:18px;padding:34px 22px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.22);margin-top:8px}
   .state .ic{width:52px;height:52px;border-radius:15px;margin:0 auto 14px;display:grid;place-items:center;background:color-mix(in srgb,var(--red) 12%,transparent)}
@@ -50,10 +47,23 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   .state .tt{font-size:16px;font-weight:900;margin-bottom:6px}
   .state .sub{font-size:13px;color:var(--muted);line-height:1.5;max-width:380px;margin:0 auto}
-  .state .retry{margin-top:14px;display:inline-flex;gap:7px;align-items:center;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:11px;padding:9px 15px;font-weight:800;font-size:13px;cursor:pointer}
-  /* skeleton loading cards */
-  .sk{flex:0 0 78%;max-width:320px;height:230px;border-radius:18px;background:linear-gradient(90deg,var(--inp),var(--card),var(--inp));background-size:200% 100%;animation:sh 1.3s linear infinite}
+  .state .retry{margin-top:14px;display:inline-flex;gap:7px;align-items:center;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:11px;padding:9px 15px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+  .sk{flex:0 0 78%;max-width:300px;height:210px;border-radius:18px;background:linear-gradient(90deg,var(--inp),var(--card),var(--inp));background-size:200% 100%;animation:sh 1.3s linear infinite}
   @keyframes sh{to{background-position:-200% 0}}
+
+  /* checkout sheet */
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:20px;z-index:80}
+  .sheet{background:var(--card);color:var(--txt);border-radius:18px;padding:24px;max-width:400px;width:100%;position:relative;border:1px solid var(--line)}
+  .sheet h4{font-size:18px;font-weight:900;margin:0 0 3px}
+  .sheet .ssub{font-size:12.5px;color:var(--muted);margin:0}
+  .close{position:absolute;top:12px;right:12px;background:none;border:0;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:6px}
+  .tot{display:flex;justify-content:space-between;align-items:baseline;margin:16px 0;padding:14px 0;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line)}
+  .tot b{font-size:22px;font-weight:900}
+  .fld{width:100%;border:1px solid var(--line);background:var(--inp);color:var(--txt);border-radius:10px;padding:12px;font-size:14px;font-family:inherit;margin-bottom:10px}
+  .go{width:100%;background:var(--red);color:#fff;border:0;border-radius:11px;padding:13px;cursor:pointer;font-weight:800;font-size:14.5px;font-family:inherit}
+  .go[disabled]{opacity:.6;cursor:default}
+  .cmsg{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}
+  .cmsg.err{color:var(--red)}
 </style>
 </head>
 <body>
@@ -75,115 +85,152 @@
   <script>
   (function(){
     "use strict";
-    // ---- LAYER TEKS (i18n) — terpisah dari logic render ----
+    // Kategori = source_table di my20fit_catalog_items. Urutan tetap.
+    var CATS = [
+      { st:"gym_membership_plans",   title:{ en:"Gym Membership", id:"Gym Membership" } },
+      { st:"arena_packages",         title:{ en:"HYROX Arena", id:"HYROX Arena" } },
+      { st:"pt_packages",            title:{ en:"Personal Trainer", id:"Personal Trainer" } },
+      { st:"youngstar_packages",     title:{ en:"Youngstars", id:"Youngstars" } },
+      { st:"clinic_packages",        title:{ en:"Clinic", id:"Klinik" } },
+      { st:"arena_booking_packages", title:{ en:"Arena Booking", id:"Arena Booking" } }
+    ];
     var TXT = {
-      title:  { en:"Membership", id:"Membership" },
-      lead:   { en:"20FIT membership packages — special offers & gym membership.", id:"Paket membership 20FIT — special offer & gym membership." },
-      offer:  { en:"Special Offer", id:"Special Offer" },
-      gym:    { en:"Gym Membership", id:"Gym Membership" },
-      loading:{ en:"Loading packages…", id:"Memuat paket…" },
-      emptyT: { en:"No packages available", id:"Belum ada paket" },
-      emptyS: { en:"There are no membership packages right now. Please check back later.", id:"Belum ada paket membership saat ini. Cek lagi nanti." },
-      errT:   { en:"Couldn't load packages", id:"Gagal memuat paket" },
-      errS:   { en:"Something went wrong reaching the booking service.", id:"Gagal menghubungi layanan booking." },
-      retry:  { en:"Try again", id:"Coba lagi" },
-      cta:    { en:"Choose package", id:"Pilih paket" },
-      perMonth:{ en:"/mo", id:"/bln" }
+      title:{ en:"Membership", id:"Membership" },
+      lead:{ en:"20FIT membership & packages — gym, HYROX Arena, personal trainer, youngstars, clinic & arena booking.", id:"Membership & paket 20FIT — gym, HYROX Arena, personal trainer, youngstars, klinik & arena booking." },
+      emptyT:{ en:"No packages available", id:"Belum ada paket" },
+      emptyS:{ en:"There are no packages right now. Please check back later.", id:"Belum ada paket saat ini. Cek lagi nanti." },
+      errT:{ en:"Couldn't load packages", id:"Gagal memuat paket" },
+      errS:{ en:"Something went wrong reaching the catalog.", id:"Gagal menghubungi katalog." },
+      retry:{ en:"Try again", id:"Coba lagi" },
+      buy:{ en:"Buy", id:"Beli" },
+      total:{ en:"Total", id:"Total" },
+      go:{ en:"Continue to payment", id:"Lanjut ke pembayaran" },
+      phoneLbl:{ en:"Your phone number is required to pay.", id:"Nomor HP kamu wajib untuk membayar." },
+      phonePh:{ en:"Phone number (08…)", id:"Nomor HP (08…)" },
+      creating:{ en:"Creating payment…", id:"Membuat pembayaran…" },
+      redirecting:{ en:"Redirecting to payment…", id:"Mengarahkan ke pembayaran…" },
+      payErr:{ en:"Couldn't start payment. Please try again.", id:"Gagal memulai pembayaran. Coba lagi." }
     };
-    // ---- LAYER DATA — satu-satunya sumber. Fetch ke proxy server kita yang meneruskan
-    //   ke booking_api (arena-api). Bentuk: { ok, groups:[ {key:'special_offer'|'gym',
-    //   title?, packages:[ {name, price, price_old?, period, perks:[], book_url} ] } ] }
-    //   TIDAK ada data karangan di sini — kalau kosong/gagal, UI tampil empty/error. ----
-    var MembershipData = {
-      fetch: function(){
-        return apiFetch("/api/membership/packages").then(function(r){
-          if(!r.ok) throw new Error("HTTP "+r.status);
-          return r.json();
-        }).then(function(j){
-          if(!j || !j.ok) throw new Error((j&&j.error)||"bad_response");
-          return Array.isArray(j.groups) ? j.groups : [];
-        });
-      }
-    };
-    async function apiFetch(path){
-      var opts={ headers:{ "Content-Type":"application/json" } };
+    function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+    var $ = function(id){ return document.getElementById(id); };
+    function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function rupiah(n,cur){ cur=cur||"IDR"; var v=Number(n)||0; return cur==="IDR" ? ("Rp "+v.toLocaleString("id-ID")) : (cur+" "+v.toLocaleString()); }
+    async function apiFetch(path, opts){
+      opts=opts||{}; opts.headers=opts.headers||{ "Content-Type":"application/json" };
       try{ var t=(window.Auth&&Auth.token)?await Auth.token():null; if(t) opts.headers["Authorization"]="Bearer "+t; }catch(e){}
       return fetch(path, opts);
     }
 
-    function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
-    var $ = function(id){ return document.getElementById(id); };
-    function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
-    var CHECK='<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
-    var GTITLE = { special_offer: TXT.offer, offer: TXT.offer, gym: TXT.gym, gym_membership: TXT.gym };
+    // Bentuk: my20fit_catalog_items lewat /api/catalog (server, service role). Ambil kind
+    // membership+package, kelompokkan per source_table sesuai CATS. TIDAK ada katalog baru.
+    var CatalogData = {
+      fetch: function(){
+        return apiFetch("/api/catalog").then(function(r){
+          if(!r.ok) throw new Error("HTTP "+r.status);
+          return r.json();
+        }).then(function(j){
+          if(!j || !j.ok || !Array.isArray(j.groups)) throw new Error("bad_response");
+          var items=[];
+          j.groups.forEach(function(g){ if(g.kind==="membership"||g.kind==="package") items=items.concat(g.items||[]); });
+          return items;
+        });
+      }
+    };
 
-    function pkgCard(pk, isOffer){
-      var perks=(pk.perks||[]).map(function(p){ return '<li>'+CHECK+'<span>'+esc(p)+'</span></li>'; }).join("");
-      var price = pk.price!=null ? ('<div class="mprice">'+esc(String(pk.price))+(pk.period?'<span class="per"> '+esc(pk.period)+'</span>':'')+'</div>') : '';
-      var old = pk.price_old!=null ? ('<div class="mold">'+esc(String(pk.price_old))+'</div>') : '';
-      var cta = pk.book_url ? ('<a class="mcta" href="'+esc(pk.book_url)+'">'+LL(TXT.cta)+'</a>') : '';
-      return '<div class="mcard'+(isOffer?' offer':'')+'">'+
-        (isOffer?'<span class="mbadge">'+LL(TXT.offer)+'</span>':'')+
-        '<div class="mnm">'+esc(pk.name||"")+'</div>'+price+old+
-        (perks?'<ul class="mperks">'+perks+'</ul>':'')+cta+'</div>';
+    var ICON = {
+      empty:'<path d="M20 7 12 3 4 7v10l8 4 8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/>',
+      err:'<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/>'
+    };
+    var CUR = { state:"loading", cats:[] };
+
+    function pkgCard(it){
+      var was = (it.compare_at_price!=null && it.compare_at_price>it.price)
+        ? ('<div class="mold">'+esc(rupiah(it.compare_at_price,it.currency))+'</div>') : '';
+      var offer = !!was;
+      var price = (it.price!=null) ? ('<div class="mprice">'+esc(rupiah(it.price,it.currency))+'</div>') : '';
+      return '<div class="mcard'+(offer?' offer':'')+'">'+
+        (offer?'<span class="mbadge">'+LL({en:"Offer",id:"Promo"})+'</span>':'')+
+        '<div class="mnm">'+esc(it.title||"")+'</div>'+
+        (it.subtitle?'<div class="msub">'+esc(it.subtitle)+'</div>':'')+
+        price+was+
+        '<button type="button" class="mcta" data-st="'+esc(it.source_table)+'" data-si="'+esc(it.source_id)+'">'+LL(TXT.buy)+'</button>'+
+        '</div>';
     }
-    function groupBlock(g){
-      var isOffer = (g.key==="special_offer"||g.key==="offer");
-      var title = LL(g.title || GTITLE[g.key] || { en:g.key, id:g.key });
-      var cards=(g.packages||[]).map(function(pk){ return pkgCard(pk, isOffer); }).join("");
-      var id="caro_"+g.key;
-      return '<div class="grp"><div class="gt">'+esc(title)+'</div>'+
+    function catBlock(cat){
+      var id="caro_"+cat.st;
+      var cards=(cat.items||[]).map(pkgCard).join("");
+      return '<div class="grp"><div class="gt">'+esc(LL(cat.title))+'</div>'+
         '<div class="arrows"><button data-scroll="'+id+'" data-dir="-1" aria-label="prev"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>'+
         '<button data-scroll="'+id+'" data-dir="1" aria-label="next"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button></div></div>'+
         '<div class="caro" id="'+id+'">'+cards+'</div>';
-    }
-
-    function applyStatic(){
-      $("pgTitle").textContent=LL(TXT.title);
-      $("pgLead").textContent=LL(TXT.lead);
-      document.title=LL(TXT.title)+" · 20FIT";
     }
     function stateCard(cls, icon, tt, sub, retry){
       return '<div class="state '+cls+'"><div class="ic"><svg viewBox="0 0 24 24">'+icon+'</svg></div>'+
         '<div class="tt">'+tt+'</div><div class="sub">'+sub+'</div>'+
         (retry?'<button class="retry" id="mRetry"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><polyline points="23 4 23 10 17 10"/><path d="M20.5 15a9 9 0 1 1-2.1-9.4L23 10"/></svg>'+LL(TXT.retry)+'</button>':'')+'</div>';
     }
-
-    var ICON = {
-      empty:'<path d="M20 7 12 3 4 7v10l8 4 8-4z"/><path d="M4 7l8 4 8-4M12 11v10"/>',
-      err:'<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/>',
-      load:'<path d="M21 12a9 9 0 1 1-6.2-8.5"/>'
-    };
-    var CUR = { state:"loading", groups:[] };
+    function applyStatic(){ $("pgTitle").textContent=LL(TXT.title); $("pgLead").textContent=LL(TXT.lead); document.title=LL(TXT.title)+" · 20FIT"; }
     function render(){
       var root=$("mRoot"); if(!root) return;
-      if(CUR.state==="loading"){ root.innerHTML='<div class="caro">'+'<div class="sk"></div><div class="sk"></div>'+'</div>'; return; }
+      if(CUR.state==="loading"){ root.innerHTML='<div class="caro"><div class="sk"></div><div class="sk"></div></div>'; return; }
       if(CUR.state==="error"){ root.innerHTML=stateCard("err",ICON.err,LL(TXT.errT),LL(TXT.errS),true); var b=$("mRetry"); if(b)b.onclick=load; return; }
       if(CUR.state==="empty"){ root.innerHTML=stateCard("empty",ICON.empty,LL(TXT.emptyT),LL(TXT.emptyS),false); return; }
-      // ok
-      root.innerHTML=CUR.groups.map(groupBlock).join("");
-      // arrows (desktop) + drag-to-scroll (desktop)
+      root.innerHTML=CUR.cats.map(catBlock).join("");
       root.querySelectorAll('[data-scroll]').forEach(function(btn){
-        btn.onclick=function(){ var c=document.getElementById(btn.getAttribute("data-scroll")); if(c) c.scrollBy({ left: (+btn.getAttribute("data-dir"))*Math.round(c.clientWidth*0.8), behavior:"smooth" }); };
+        btn.onclick=function(){ var c=document.getElementById(btn.getAttribute("data-scroll")); if(c) c.scrollBy({ left:(+btn.getAttribute("data-dir"))*Math.round(c.clientWidth*0.85), behavior:"smooth" }); };
       });
       root.querySelectorAll('.caro').forEach(enableDrag);
+      root.querySelectorAll('.mcta').forEach(function(btn){ btn.onclick=function(){ var it=findItem(btn.getAttribute("data-st"),btn.getAttribute("data-si")); if(it) openCheckout(it); }; });
     }
-    // Drag-to-scroll pointer (desktop); mobile pakai swipe native.
     function enableDrag(c){
-      var down=false, sx=0, sl=0;
-      c.addEventListener("pointerdown", function(e){ if(e.pointerType==="touch") return; down=true; c.classList.add("drag"); sx=e.clientX; sl=c.scrollLeft; });
-      c.addEventListener("pointermove", function(e){ if(!down) return; c.scrollLeft=sl-(e.clientX-sx); });
-      var up=function(){ down=false; c.classList.remove("drag"); };
-      c.addEventListener("pointerup", up); c.addEventListener("pointerleave", up);
+      var down=false,sx=0,sl=0;
+      c.addEventListener("pointerdown",function(e){ if(e.pointerType==="touch")return; down=true;c.classList.add("drag");sx=e.clientX;sl=c.scrollLeft; });
+      c.addEventListener("pointermove",function(e){ if(!down)return; c.scrollLeft=sl-(e.clientX-sx); });
+      var up=function(){ down=false;c.classList.remove("drag"); };
+      c.addEventListener("pointerup",up); c.addEventListener("pointerleave",up);
+    }
+    function findItem(st,si){
+      for(var i=0;i<CUR.cats.length;i++){ var its=CUR.cats[i].items||[]; for(var j=0;j<its.length;j++){ if(String(its[j].source_table)===String(st)&&String(its[j].source_id)===String(si)) return its[j]; } }
+      return null;
+    }
+
+    // ---- checkout sheet (jalur sama /api/checkout) ----
+    function closeSheet(){ var o=$("ovx"); if(o)o.remove(); }
+    function openCheckout(it){
+      closeSheet();
+      var ov=document.createElement("div"); ov.className="ov"; ov.id="ovx";
+      ov.innerHTML='<div class="sheet"><button type="button" class="close" id="cx" aria-label="Close">✕</button>'+
+        '<h4>'+esc(it.title||"")+'</h4>'+(it.subtitle?'<p class="ssub">'+esc(it.subtitle)+'</p>':'')+
+        '<div class="tot"><span style="font-size:13px;color:var(--muted)">'+LL(TXT.total)+'</span><b>'+(it.price!=null?esc(rupiah(it.price,it.currency)):"—")+'</b></div>'+
+        '<input class="fld" id="phn" type="tel" placeholder="'+esc(LL(TXT.phonePh))+'" style="display:none" />'+
+        '<button type="button" class="go" id="go">'+LL(TXT.go)+'</button><div class="cmsg" id="cm"></div></div>';
+      ov.addEventListener("click",function(e){ if(e.target===ov) closeSheet(); });
+      document.body.appendChild(ov);
+      $("cx").onclick=closeSheet; $("go").onclick=function(){ pay(it); };
+    }
+    async function pay(it){
+      var go=$("go"),cm=$("cm"),phn=$("phn"); if(!go)return;
+      go.disabled=true; cm.className="cmsg"; cm.textContent=LL(TXT.creating);
+      var body={ source_table:it.source_table, source_id:it.source_id };
+      if(phn && phn.style.display!=="none" && phn.value.trim()) body.phone=phn.value.trim();
+      try{
+        var r=await apiFetch("/api/checkout",{ method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify(body) });
+        var j=await r.json().catch(function(){return null;});
+        if(r.status===400 && j && j.need_phone){ phn.style.display="block"; go.disabled=false; cm.textContent=LL(TXT.phoneLbl); phn.focus(); return; }
+        if(!r.ok || !j || !j.ok || !j.url){ go.disabled=false; cm.className="cmsg err"; cm.textContent=(j&&j.error)||LL(TXT.payErr); return; }
+        cm.className="cmsg"; cm.textContent=j.note?j.note:LL(TXT.redirecting);
+        window.location.href=j.url;
+      }catch(e){ go.disabled=false; cm.className="cmsg err"; cm.textContent=LL(TXT.payErr); }
     }
 
     function load(){
-      CUR={ state:"loading", groups:[] }; render();
-      MembershipData.fetch().then(function(groups){
-        var nonEmpty=(groups||[]).filter(function(g){ return g && (g.packages||[]).length; });
-        CUR = nonEmpty.length ? { state:"ok", groups:nonEmpty } : { state:"empty", groups:[] };
+      CUR={ state:"loading", cats:[] }; render();
+      CatalogData.fetch().then(function(items){
+        var buckets={}; items.forEach(function(it){ (buckets[it.source_table]=buckets[it.source_table]||[]).push(it); });
+        var cats=CATS.map(function(c){ return { st:c.st, title:c.title, items:buckets[c.st]||[] }; }).filter(function(c){ return c.items.length; });
+        CUR = cats.length ? { state:"ok", cats:cats } : { state:"empty", cats:[] };
         render();
-      }).catch(function(){ CUR={ state:"error", groups:[] }; render(); });
+      }).catch(function(){ CUR={ state:"error", cats:[] }; render(); });
     }
 
     (async function(){

@@ -955,7 +955,7 @@
         } else {
           body = '<div class="twk-list">' + TICKETS.map(twkTicketCard).join("") + '</div>';
         }
-        var shop = '<a class="twk-catlink" href="/catalog">' + Lx({ en: "Browse all packages & tickets", id: "Lihat semua paket & tiket" }) + ' →</a>' +
+        var shop = '<a class="twk-catlink" href="/membership">' + Lx({ en: "Browse membership & packages", id: "Lihat membership & paket" }) + ' →</a>' +
           '<a class="twk-catlink" href="/rewards" style="border-top:0;margin-top:0;padding-top:0">' + Lx({ en: "Rewards & member perks", id: "Rewards & perks member" }) + ' →</a>';
         return '<div class="card tkcard">' + head + tabs + body + shop + '</div>';
       }
