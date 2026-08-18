@@ -630,6 +630,17 @@
 
 <div class="adm-toast" data-toast hidden></div>
 
+<div id="admLogin" hidden style="position:fixed;inset:0;z-index:2000;background:var(--bg,#0b0b0c);display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:360px;background:var(--surface,#fff);border:1px solid var(--line,#E8E2DB);border-radius:16px;padding:26px">
+    <div style="font-family:var(--font-head,inherit);font-weight:900;font-size:20px;letter-spacing:1px;margin-bottom:4px">20<span style="color:var(--red,#C41101)">●</span>FIT <span style="font-weight:400;font-size:13px">Admin</span></div>
+    <div class="adm-note" data-i18n="Sign in with your 20FIT admin account.">Masuk dengan akun admin 20FIT.</div>
+    <input class="adm-input" id="admLoginEmail" type="email" placeholder="Email" style="margin-top:12px;width:100%">
+    <input class="adm-input" id="admLoginPass" type="password" placeholder="Password" style="margin-top:8px;width:100%">
+    <button class="adm-btn adm-btn--primary" id="admLoginBtn" style="width:100%;margin-top:12px" data-i18n="Sign in">Masuk</button>
+    <div class="adm-note" id="admLoginMsg" style="margin-top:8px;min-height:16px"></div>
+    <div class="adm-note" style="margin-top:10px;font-size:12px" data-i18n="Or open with ?key=ADMIN_KEY.">Atau buka dengan ?key=ADMIN_KEY.</div>
+  </div>
+</div>
 <script src="js/vendor-supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin-shell.js"></script>
@@ -1206,14 +1217,39 @@
   async function loadRole(){
     try{
       var j=await adminFetch("/api/admin/me").then(function(r){return r.json();});
-      if(!j||!j.ok) return;
+      if(!j||!j.ok) return false;
       var role=j.role||"viewer"; IS_SUPER=(role==="superadmin");
       var allow=ALLOWED[role];
       document.querySelectorAll("[data-nav]").forEach(function(b){ b.style.display=(!allow||allow.indexOf(b.dataset.nav)>=0)?"":"none"; });
       var strip=document.getElementById("roleStrip"), rt=document.getElementById("roleText");
       if(strip&&rt){ strip.hidden=false; rt.textContent=role.toUpperCase()+" · "+roleDesc(role); }
       if(allow && allow.indexOf(CUR.section)<0){ CUR.section=allow[0]; if(window.admShowSection) window.admShowSection(CUR.section); }
-    }catch(e){}
+      return true;
+    }catch(e){ return false; }
+  }
+  // ---- LOGIN (A/2) — additif: overlay hanya muncul kalau BELUM ter-auth. ----
+  async function admTryAuth(email, pass){
+    try{ if(window.Auth&&Auth.ready) await Auth.ready; }catch(e){}
+    try{
+      var res=await Auth.supabase.auth.signInWithPassword({ email:email, password:pass });
+      if(!res.error) return { ok:true };
+      try{ await Auth.fitcoLogin(email, pass); return { ok:true }; }
+      catch(e){ return { ok:false, error:res.error.message }; }
+    }catch(e){ return { ok:false, error:String((e&&e.message)||e) }; }
+  }
+  function admShowLogin(){ var o=document.getElementById("admLogin"); if(o) o.hidden=false; }
+  async function admDoLogin(){
+    var email=((document.getElementById("admLoginEmail")||{}).value||"").trim();
+    var pass=(document.getElementById("admLoginPass")||{}).value||"";
+    var msg=document.getElementById("admLoginMsg"), btn=document.getElementById("admLoginBtn");
+    if(!email||!pass){ if(msg)msg.textContent=L("Enter email & password.","Isi email & password."); return; }
+    if(msg)msg.textContent=L("Signing in…","Masuk…"); if(btn)btn.disabled=true;
+    var r=await admTryAuth(email, pass);
+    if(btn)btn.disabled=false;
+    if(!r.ok){ if(msg)msg.textContent=r.error||L("Login failed.","Login gagal."); return; }
+    var authed=await loadRole();
+    if(authed){ var o=document.getElementById("admLogin"); if(o)o.hidden=true; loadSection(CUR.section); }
+    else if(msg)msg.textContent=L("This account is not an admin.","Akun ini bukan admin.");
   }
 
   // ---- VOUCHER ----
@@ -1841,7 +1877,9 @@
       CUR.period=b.dataset.period; loadSection(CUR.section);
     });
     CUR.section = new URLSearchParams(location.search).get("section") || "overview";
-    loadRole().then(function(){ loadSection(CUR.section); });
+    loadRole().then(function(authed){ if(authed){ loadSection(CUR.section); } else { admShowLogin(); } });
+    var _alb=document.getElementById("admLoginBtn"); if(_alb) _alb.onclick=admDoLogin;
+    var _alp=document.getElementById("admLoginPass"); if(_alp) _alp.addEventListener("keydown",function(e){ if(e.key==="Enter") admDoLogin(); });
     ["vcType","vcValue","vcMin","vcLimit","vcPerUser","vcUntil"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",vcPreview); });
     var _vcb=document.getElementById("vcCreate"); if(_vcb) _vcb.onclick=vcCreate;
     var _vbb=document.getElementById("vbGen"); if(_vbb) _vbb.onclick=vbGen;
