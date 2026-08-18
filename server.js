@@ -2173,6 +2173,82 @@ app.delete("/api/admin/event-catalog/:id", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// ---------- Checkout terpadu (STAGE 2) — PROXY TIPIS ke infra 20FIT yang sudah ada ----------
+// Prinsip (hasil investigasi ekosistem): JANGAN bangun order/webhook/fulfilment sendiri —
+// itu duplikasi infra Mayar yang ada (mayar-webhook-*) → dua kebenaran & double-fulfilment.
+// my.20fit hanya jadi KLIEN: per jenis produk, panggil fungsi yang ada / deep-link portalnya.
+// Harga TIDAK pernah dipercaya dari client — item divalidasi dari my20fit_catalog_items,
+// dan create-youngstar-order pun re-validasi harga dari DB (service role).
+//
+// Status jalur (per 2026-08):
+//   youngstar_packages   → create-youngstar-order (buat order + link bayar Mayar). IN-APP.
+//   my20fit_ticket_events→ deep-link ticket.20fit.id/id/events/<slug> (+UTM).
+//   lainnya (gym/arena/pt/clinic/arena_booking/clinic_services)
+//                        → deep-link booking.20fit.id (belum ada fungsi create-order setara;
+//                          menulis ke tabel app lain dilarang §4). Jujur: belum in-app.
+//   dokter/coach         → belum (dokter nunggu keputusan is_online_bookable; coach belum ada fungsi).
+const BOOKING_PORTAL = "https://booking.20fit.id";
+const FN_BASE = SUPABASE_URL + "/functions/v1";
+app.post("/api/checkout", async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    const sourceTable = String(b.source_table || "").trim();
+    const sourceId = String(b.source_id || "").trim();
+    if (!sourceTable || !sourceId) return res.status(400).json({ error: "source_table & source_id wajib." });
+
+    // Validasi item dari read-layer katalog (server-authoritative; abaikan harga client).
+    const { data: rows, error: catErr } = await admin.from("my20fit_catalog_items")
+      .select("kind,source_table,source_id,slug,title,price,is_active")
+      .eq("source_table", sourceTable).eq("source_id", sourceId).limit(1);
+    if (catErr) return res.status(500).json({ error: catErr.message });
+    const item = rows && rows[0];
+    if (!item || !item.is_active) return res.status(404).json({ error: "Produk tak ditemukan / tidak aktif." });
+
+    // Tiket → deep-link ke ticket.20fit.id (dijual di sana; bukan via gateway kita).
+    if (sourceTable === "my20fit_ticket_events") {
+      if (!item.slug) return res.status(409).json({ error: "Slug tiket kosong." });
+      return res.json({ ok: true, mode: "redirect", provider: "external",
+        url: "https://ticket.20fit.id/id/events/" + encodeURIComponent(item.slug) + "?utm_source=my20fit&utm_medium=app_widget" });
+    }
+
+    // Youngstar → fungsi create-youngstar-order (in-app: buat order + link bayar Mayar).
+    if (sourceTable === "youngstar_packages") {
+      let prof = {};
+      try { const { data } = await admin.from("my20fit_profile").select("full_name,phone,email").eq("auth_user_id", user.id).limit(1); prof = (data && data[0]) || {}; } catch (e) {}
+      const email = String(prof.email || user.email || "").toLowerCase();
+      const full_name = prof.full_name || (email ? email.split("@")[0] : "Member");
+      const normPhone = (v) => String(v || "").replace(/[^\d+]/g, "");
+      let phone = normPhone(prof.phone);
+      if (phone.replace(/\D/g, "").length < 8) phone = normPhone(b.phone);
+      if (phone.replace(/\D/g, "").length < 8) return res.status(400).json({ error: "Nomor HP wajib untuk pembayaran.", need_phone: true });
+      const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 20000);
+      try {
+        const r = await fetch(FN_BASE + "/create-youngstar-order", {
+          method: "POST", signal: ctrl.signal,
+          headers: { Authorization: "Bearer " + SUPABASE_SERVICE_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({ youngstar_package_id: sourceId, full_name, email, phone }),
+        });
+        const j = await r.json().catch(() => null);
+        if (!r.ok || !j || !j.payment_url) return res.status(502).json({ error: (j && (j.error || j.detail)) || "Gagal membuat pembayaran." });
+        return res.json({ ok: true, mode: "redirect", provider: "mayar", order_code: j.order_code || null, url: j.payment_url });
+      } catch (e) {
+        return res.status(502).json({ error: e && e.name === "AbortError" ? "Timeout menghubungi pembayaran." : "Gagal membuat pembayaran." });
+      } finally { clearTimeout(timer); }
+    }
+
+    // Jenis lain: belum ada fungsi create-order yang bisa dipanggil dari sini tanpa menulis
+    // ke tabel app lain (§4). Deep-link ke portal booking — jujur, belum in-app.
+    return res.json({ ok: true, mode: "redirect", provider: "external", url: BOOKING_PORTAL,
+      note: "Selesaikan pembelian di booking.20fit.id (belum tersedia in-app)." });
+  } catch (e) {
+    try { console.error("checkout:", e && e.message); } catch (_) {}
+    return res.status(500).json({ error: "Checkout gagal." });
+  }
+});
+
 // ================= ADMIN MONITORING (dashboard internal) =================
 // Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
