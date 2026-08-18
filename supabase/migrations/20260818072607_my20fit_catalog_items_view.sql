@@ -1,18 +1,12 @@
 -- ============================================================
--- Migration 016 — STAGE 1 checkout terpadu: read-layer katalog produk.
--- my20fit_catalog_items = VIEW (bukan tabel). Menggabungkan semua yang bisa dibeli
--- jadi satu daftar baca: gym/arena/pt/youngstar/clinic/arena_booking + clinic_services
+-- 20260818072607_my20fit_catalog_items_view
+-- Read-layer katalog terpadu (VIEW). Menggabungkan semua produk bisa-dibeli jadi
+-- satu daftar baca: gym/arena/pt/youngstar/clinic/arena_booking + clinic_services
 -- + katalog tiket (my20fit_ticket_events).
 --
--- Aturan CLAUDE.md §4: ini LAPISAN BACA — TIDAK mengubah tabel produk app lain, hanya
--- SELECT. Nama berprefiks my20fit_. Server membaca via service key (bypass RLS tabel sumber).
---
--- id sintetis stabil = md5(source_table:source_id)::uuid, supaya bisa dijadikan acuan order.
--- price = harga jual (clinic_packages → package_price; arena_booking → price_per_hour;
--- tiket → price_from). compare_at_price = pembanding (arena original_price, clinic retail_price).
---
--- Sudah diterapkan ke project cpvzwqptzcxnwzfzgrmt via apply_migration.
--- Untuk lingkungan lain: jalankan MANUAL di Supabase SQL Editor (butuh tabel sumber ada).
+-- Aturan CLAUDE.md §4: LAPISAN BACA — TIDAK mengubah tabel produk app lain, hanya SELECT.
+-- id sintetis stabil = md5(source_table:source_id)::uuid. Server baca via service key.
+-- Definisi identik dgn pg_get_viewdef pada project cpvzwqptzcxnwzfzgrmt (version 20260818072607).
 -- ============================================================
 
 create or replace view my20fit_catalog_items as
