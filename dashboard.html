@@ -509,11 +509,9 @@
       .twk-list{display:flex;flex-direction:column;gap:14px}
       .twk-card{position:relative;display:grid;grid-template-columns:1fr 150px;background:var(--card);border:1.5px solid var(--ink);border-radius:14px;overflow:hidden}
       .twk-haz{position:absolute;top:0;left:0;right:0;height:6px;background:repeating-linear-gradient(115deg,var(--ink) 0 9px,transparent 9px 18px);opacity:.85}
-      .twk-card.up .twk-haz{background:repeating-linear-gradient(115deg,var(--red) 0 9px,transparent 9px 18px)}
       .twk-body{padding:18px 16px 16px;min-width:0}
       .twk-tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:3px 7px}
       .twk-name{font-weight:900;font-size:19px;line-height:1.05;margin:10px 0 2px;overflow-wrap:anywhere}
-      .twk-sub2{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.35;overflow-wrap:anywhere}
       .twk-meta{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted);margin-top:8px}
       .twk-facts{display:flex;gap:20px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
       .twk-fact span{display:block;font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
@@ -524,9 +522,25 @@
       .twk-qrbox{background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px;width:104px;line-height:0}
       .twk-qrbox svg{display:block;width:100%;height:auto}
       .twk-zoom{background:none;border:0;cursor:pointer;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:2px}
-      .twk-amount{font-weight:900;font-size:21px;line-height:1.05;text-align:center}
-      .twk-buy{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;background:var(--red);color:#fff;border:0;border-radius:8px;padding:11px 10px;cursor:pointer;text-decoration:none;font-weight:800;font-size:13px;letter-spacing:.03em;text-transform:uppercase}
       .twk-etiket{font-size:9.5px;color:var(--muted)}
+      /* Kartu Event Mendatang — minimalis, selaras kartu bersih web (bukan gaya tiket-sobek) */
+      .twk-ev{display:flex;justify-content:space-between;align-items:center;gap:16px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+      .twk-ev-main{min-width:0}
+      .twk-ev-cat{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+      .twk-ev-name{font-weight:800;font-size:16px;line-height:1.25;margin:0;color:var(--ink);overflow-wrap:anywhere}
+      .twk-ev-sub{font-size:13px;color:var(--muted);margin-top:3px;line-height:1.4;overflow-wrap:anywhere}
+      .twk-ev-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;font-size:12.5px;color:var(--muted)}
+      .twk-ev-meta i{color:var(--faint);font-style:normal}
+      .twk-ev-side{flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:10px;text-align:right}
+      .twk-ev-price{display:flex;flex-direction:column;line-height:1.1}
+      .twk-ev-price span{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+      .twk-ev-price b{font-size:16px;font-weight:800;color:var(--ink);margin-top:2px}
+      .twk-ev-buy{display:inline-flex;align-items:center;gap:5px;background:var(--red);color:#fff;border-radius:10px;padding:9px 14px;text-decoration:none;font-weight:800;font-size:13px;white-space:nowrap}
+      @media(max-width:560px){
+        .twk-ev{flex-direction:column;align-items:stretch}
+        .twk-ev-side{flex-direction:row;justify-content:space-between;align-items:center;text-align:left}
+        .twk-ev-price{flex-direction:row;align-items:baseline;gap:5px}
+      }
       .twk-empty{border:1.5px dashed var(--line);border-radius:14px;padding:32px 20px;text-align:center}
       .twk-empty h4{font-weight:900;font-size:17px;margin:0 0 6px}
       .twk-empty p{font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.5}
@@ -539,7 +553,7 @@
       .twk-close{position:absolute;top:10px;right:12px;background:none;border:0;cursor:pointer;font-size:18px;color:#5F6355;line-height:1}
       .twk-code{font-size:12px;font-weight:800;margin-top:14px;font-family:ui-monospace,monospace}
       .twk-hint{font-size:11px;color:#5F6355;margin-top:6px}
-      @media(max-width:600px){ .twk-card{grid-template-columns:1fr} .twk-stub{border-left:0;border-top:2px dashed var(--line);flex-direction:row;justify-content:space-between;flex-wrap:wrap;gap:10px} .twk-card.up .twk-buy{flex:1 1 100%} .twk-stub::after{left:auto;right:-9px;top:-9px;bottom:auto} }
+      @media(max-width:600px){ .twk-card{grid-template-columns:1fr} .twk-stub{border-left:0;border-top:2px dashed var(--line);flex-direction:row;justify-content:space-between;flex-wrap:wrap;gap:10px} .twk-stub::after{left:auto;right:-9px;top:-9px;bottom:auto} }
       /* ---- Photo.20fit.id card (katalog foto event) ---- */
       .psec{font-size:11.5px;font-weight:800;color:var(--muted);margin:14px 2px 8px;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px}
       .psec small{color:var(--pagemut);font-weight:700;font-size:11px}
@@ -874,36 +888,35 @@
           (date ? '<div class="twk-meta"><div>' + _esc(date) + '</div></div>' : '') +
           facts + '</div>' + stub + '</article>';
       }
-      // Format "Mulai Rp X" dari price_from (integer rupiah). null → "".
-      function twkPrice(e) {
+      // Nominal "Rp X" dari price_from (integer rupiah). null → "".
+      function twkAmount(e) {
         if (!e || e.price_from == null) return "";
         var cur = (e.currency || "IDR");
         var n = Number(e.price_from) || 0;
-        var amt = (cur === "IDR" ? ("Rp " + n.toLocaleString("id-ID")) : (cur + " " + n.toLocaleString()));
-        return Lx({ en: "From " + amt, id: "Mulai " + amt });
+        return (cur === "IDR" ? ("Rp " + n.toLocaleString("id-ID")) : (cur + " " + n.toLocaleString()));
       }
       // Kartu event yang bisa dibeli (Event Mendatang): dari katalog admin (my20fit_ticket_events).
+      // Desain MINIMALIS selaras kartu web (bukan gaya tiket-sobek yang dipakai "Tiket Saya").
       // starts_at null → "Jadwal menyusul" (tetap ditampilkan, urutan terakhir dari server).
       // Beli Sekarang → deep-link event (buy_url dari server, sudah +UTM). Slug kosong → tombol disembunyikan.
       function twkEventCard(e) {
         var date = (e && e.starts_at) ? tktDate(e.starts_at) : Lx({ en: "Date TBA", id: "Jadwal menyusul" });
+        var bits = [date];
         var place = [(e && e.venue) || "", (e && e.city) || ""].filter(Boolean).join(", ");
-        var loc = place ? ('<div>' + _esc(place) + '</div>') : "";
-        var org = (e && e.organizer) ? ('<div class="twk-meta"><div>' + _esc(e.organizer) + '</div></div>') : "";
-        var sub = (e && e.subtitle) ? ('<div class="twk-sub2">' + _esc(e.subtitle) + '</div>') : "";
-        var price = twkPrice(e);
+        if (place) bits.push(place);
+        if (e && e.organizer) bits.push(e.organizer);
+        var meta = '<div class="twk-ev-meta">' + bits.map(function (x) { return '<span>' + _esc(x) + '</span>'; }).join('<i>·</i>') + '</div>';
+        var sub = (e && e.subtitle) ? ('<div class="twk-ev-sub">' + _esc(e.subtitle) + '</div>') : "";
+        var cat = (e && e.category) ? ('<span class="twk-ev-cat">' + _esc(e.category) + '</span>') : "";
+        var amt = twkAmount(e);
+        var price = amt ? ('<div class="twk-ev-price"><span>' + Lx({ en: "From", id: "Mulai" }) + '</span><b>' + _esc(amt) + '</b></div>') : "";
         // Tombol HANYA bila ada buy_url (slug ada). JANGAN pernah fallback ke homepage.
         var buyBtn = (e && e.buy_url)
-          ? '<a class="twk-buy" href="' + _esc(e.buy_url) + '">' + Lx({ en: "Buy Now", id: "Beli Sekarang" }) + ' ↗</a>'
+          ? '<a class="twk-ev-buy" href="' + _esc(e.buy_url) + '">' + Lx({ en: "Buy", id: "Beli" }) + ' <span aria-hidden="true">↗</span></a>'
           : '';
-        return '<article class="twk-card up"><div class="twk-haz"></div><div class="twk-body">' +
-          ((e && e.category) ? '<span class="twk-tag">' + _esc(e.category) + '</span>' : '') +
-          '<div class="twk-name">' + _esc((e && e.name) || "Event 20FIT") + '</div>' + sub +
-          '<div class="twk-meta"><div>' + _esc(date) + '</div>' + loc + '</div>' + org + '</div>' +
-          '<div class="twk-stub">' +
-          (price ? '<div class="twk-amount">' + _esc(price) + '</div>' : '') +
-          buyBtn +
-          '<div class="twk-etiket">' + Lx({ en: "instant e-ticket", id: "e-tiket instan" }) + '</div></div></article>';
+        return '<article class="twk-ev"><div class="twk-ev-main">' + cat +
+          '<h4 class="twk-ev-name">' + _esc((e && e.name) || "Event 20FIT") + '</h4>' + sub + meta +
+          '</div><div class="twk-ev-side">' + price + buyBtn + '</div></article>';
       }
       // QR layar penuh (tunjukkan di gerbang check-in).
       window.twkZoom = function (ref) {
