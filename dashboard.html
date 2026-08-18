@@ -510,6 +510,21 @@
       .tktpill{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:3px 8px;border-radius:999px;white-space:nowrap}
       .tktpill.up{background:var(--red);color:#fff}
       .tktpill.past{background:var(--card);color:var(--muted);border:1px solid var(--line)}
+      .tktabs{display:flex;gap:6px;margin-top:14px;background:var(--inp);border-radius:12px;padding:4px}
+      .tktab{flex:1;border:0;background:transparent;color:var(--muted);font-weight:800;font-size:12.5px;padding:9px 8px;border-radius:9px;cursor:pointer;font-family:inherit}
+      .tktab.on{background:var(--card);color:var(--txt);box-shadow:0 1px 4px rgba(0,0,0,.14)}
+      .tkempty2{padding:22px 14px;text-align:center;color:var(--muted);font-size:13px;line-height:1.5}
+      .tktqr{margin-top:8px}
+      .tktqr summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--red);list-style:none}
+      .tktqr summary::-webkit-details-marker{display:none}
+      .tktqrbox{background:#fff;border-radius:12px;padding:12px;margin-top:8px;width:180px;max-width:100%}
+      .tktqrbox svg{display:block;width:100%;height:auto}
+      .uplist{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+      .uprow{display:flex;gap:0;align-items:stretch;border:1px solid var(--line);border-radius:13px;background:var(--inp);overflow:hidden}
+      .upimg{flex:0 0 88px;background-size:cover;background-position:center;background-repeat:no-repeat}
+      .upmain{flex:1;min-width:0;padding:12px}
+      .uppr{font-size:13px;font-weight:800;color:var(--red);margin-top:4px}
+      .upbuy{display:inline-block;margin-top:10px;background:var(--red);color:#fff;font-weight:800;font-size:13px;border-radius:10px;padding:9px 16px;text-decoration:none}
       /* ---- Photo.20fit.id card (katalog foto event) ---- */
       .psec{font-size:11.5px;font-weight:800;color:var(--muted);margin:14px 2px 8px;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px}
       .psec small{color:var(--pagemut);font-weight:700;font-size:11px}
@@ -785,6 +800,22 @@
       // Data REAL dari /api/tickets/mine (server join rc_ticket_invites+rc_events, READ-ONLY,
       // hanya tiket milik EMAIL user yang login). null = loading; [] = belum punya tiket.
       var TICKETS = null;
+      var UPCOMING = null;    // null = belum dimuat/loading; [] = kosong; [..] = daftar event beli
+      var TKT_TAB = "mine";   // "mine" (tiket dimiliki) | "upcoming" (event bisa dibeli)
+      window.tktSetTab = function (tab) {
+        TKT_TAB = (tab === "upcoming" ? "upcoming" : "mine");
+        if (TKT_TAB === "upcoming" && UPCOMING === null && window.loadUpcoming) window.loadUpcoming(); // lazy
+        try { if (window.renderStack) window.renderStack(); } catch (e) {}
+      };
+      // Katalog event bisa-dibeli (dikelola admin, tabel my20fit_event_catalog). Publik.
+      window.loadUpcoming = async function loadUpcoming() {
+        try {
+          var r = await fetch("/api/events/upcoming");
+          var j = await r.json().catch(function () { return null; });
+          UPCOMING = (r.ok && j && j.ok && Array.isArray(j.events)) ? j.events : [];
+        } catch (e) { UPCOMING = []; }
+        try { if (window.renderStack) window.renderStack(); } catch (e) {}
+      };
       window.loadTickets = async function loadTickets() {
         try {
           var t = (window.Auth && Auth.token) ? await Auth.token() : null;
@@ -811,27 +842,53 @@
           ? '<span class="tktpill up">' + Lx({ en: "Upcoming", id: "Mendatang" }) + '</span>'
           : '<span class="tktpill past">' + Lx({ en: "Done", id: "Selesai" }) + '</span>';
         var date = (t && t.event_date) ? tktDate(t.event_date) : "";
+        // QR = token asli tiket (dibuat di server). t.qr = string <svg>. Ditaruh di <details>
+        // biar rapi (buka saat mau di-scan di gate). White box supaya kontras & ke-scan.
+        var qr = (t && t.qr) ? ('<details class="tktqr"><summary>' + Lx({ en: "Show QR", id: "Tampilkan QR" }) + '</summary><div class="tktqrbox">' + t.qr + '</div></details>') : '';
         return '<div class="tktrow"><div class="tktmain">' +
           '<div class="tktev">' + _esc((t && t.event_name) || "Event 20FIT") + '</div>' +
           ((t && t.ticket_label) ? '<div class="tktinfo">' + _esc(t.ticket_label) + '</div>' : '') +
           ((t && t.ref) ? '<div class="tktref">' + Lx({ en: "Ref", id: "Ref" }) + ' ' + _esc(t.ref) + '</div>' : '') +
+          qr +
           '</div><div class="tktside">' +
           (date ? '<div class="tktdate">' + _esc(date) + '</div>' : '') + pill +
           '</div></div>';
       }
+      function upcomingRow(e) {
+        var date = (e && e.event_date) ? tktDate(e.event_date) : "";
+        var meta = [date, (e && e.location) ? _esc(e.location) : ""].filter(Boolean).join(" · ");
+        var img = (e && e.image_url) ? '<div class="upimg" style="background-image:url(\'' + _esc(e.image_url) + '\')"></div>' : '';
+        return '<div class="uprow">' + img + '<div class="upmain">' +
+          '<div class="tktev">' + _esc((e && e.name) || "Event 20FIT") + '</div>' +
+          (meta ? '<div class="tktinfo">' + meta + '</div>' : '') +
+          ((e && e.price_label) ? '<div class="uppr">' + _esc(e.price_label) + '</div>' : '') +
+          '<a class="upbuy" href="' + _esc((e && e.buy_url) || "https://ticket.20fit.id") + '">' + Lx({ en: "Buy Now", id: "Beli Sekarang" }) + '</a>' +
+          '</div></div>';
+      }
       function tcTicket() {
         var head = '<div class="tkhd"><div class="tkic ticket">' + TICON.ticket + '</div>' +
-          '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Upcoming Event", id: "Upcoming Event" }) + '</div>' +
-          '<div class="tksub">' + Lx({ en: "Your 20FIT event tickets", id: "Tiket event 20FIT kamu" }) + '</div></div></div>';
+          '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Event & Tickets", id: "Event & Tiket" }) + '</div>' +
+          '<div class="tksub">' + Lx({ en: "Your tickets & upcoming 20FIT events", id: "Tiket kamu & event 20FIT mendatang" }) + '</div></div></div>';
+        var tabs = '<div class="tktabs" role="tablist">' +
+          '<button type="button" class="tktab' + (TKT_TAB === "mine" ? " on" : "") + '" onclick="tktSetTab(\'mine\')">' + Lx({ en: "My Ticket", id: "Tiket Saya" }) + '</button>' +
+          '<button type="button" class="tktab' + (TKT_TAB === "upcoming" ? " on" : "") + '" onclick="tktSetTab(\'upcoming\')">' + Lx({ en: "Upcoming Event", id: "Event Mendatang" }) + '</button></div>';
         var body;
-        if (TICKETS === null) {
+        if (TKT_TAB === "upcoming") {
+          if (UPCOMING === null) {
+            body = '<div class="tktlist"><div class="tktrow tkskel" style="height:72px;border-color:transparent"></div></div>';
+          } else if (!UPCOMING.length) {
+            body = '<div class="tkempty2">' + Lx({ en: "No events to buy yet — upcoming 20FIT events will appear here.", id: "Belum ada event untuk dibeli — event 20FIT mendatang akan muncul di sini." }) + '</div>';
+          } else {
+            body = '<div class="uplist">' + UPCOMING.map(upcomingRow).join("") + '</div>';
+          }
+        } else if (TICKETS === null) {
           body = '<div class="tktlist"><div class="tktrow tkskel" style="height:62px;border-color:transparent"></div></div>';
         } else if (!TICKETS.length) {
           body = '<div class="tkempty">' + Lx({ en: "No event tickets yet. Tickets for your 20FIT events will appear here.", id: "Belum ada tiket event. Tiket event 20FIT kamu akan muncul di sini." }) + '</div>';
         } else {
           body = '<div class="tktlist">' + TICKETS.map(ticketRow).join("") + '</div>';
         }
-        return '<div class="card tkcard">' + head + body + '</div>';
+        return '<div class="card tkcard">' + head + tabs + body + '</div>';
       }
 
       function tcCalories() {

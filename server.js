@@ -17,6 +17,7 @@ const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerb
 const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
 const segments = require("./lib/segments"); // segment engine untuk blast email admin
 const blast = require("./lib/blast"); // send queue blast email (batching, kill switch, auto-abort)
+const QRCode = require("qrcode"); // QR digital ticket (dibuat di server, tak panggil layanan luar)
 const emailConfig = require("./lib/email-config"); // angka guardrail anti-spam (cap, kill switch, backlog, circuit breaker)
 const { createClient } = require("@supabase/supabase-js");
 
@@ -2029,6 +2030,7 @@ app.get("/api/tickets/mine", async (req, res) => {
         category: i.category_key || null,
         status: i.status || null,
         upcoming: !!(ev.event_date && String(ev.event_date) >= todayStr),
+        _token: i.token || null, // dipakai bikin QR di bawah, lalu DIHAPUS dari respons
       };
     });
     // Urut: upcoming dulu (tanggal terdekat), lalu past (terbaru dulu).
@@ -2038,12 +2040,109 @@ app.get("/api/tickets/mine", async (req, res) => {
       if (a.upcoming) return da < db ? -1 : (da > db ? 1 : 0);
       return da > db ? -1 : (da < db ? 1 : 0);
     });
+    // QR digital ticket: encode token asli per-tiket (milik user login). Dibuat di SERVER
+    // (tanpa panggilan keluar → token tak bocor ke pihak ketiga). Tak ada token / gagal →
+    // tiket tetap tampil tanpa QR. Format gate ticket.20fit.id belum dikonfirmasi → token mentah.
+    await Promise.all(tickets.map(async (t) => {
+      if (t._token) {
+        try { t.qr = await QRCode.toString(String(t._token), { type: "svg", margin: 1, errorCorrectionLevel: "M" }); } catch (_) {}
+      }
+      delete t._token;
+    }));
     return res.json({ ok: true, tickets, upcoming_count: tickets.filter(t => t.upcoming).length });
   } catch (e) {
     if (e && e.status === 503) return res.status(503).json({ error: e.userMessage || "Coba lagi sebentar." });
     try { console.error("tickets/mine:", e && e.message); } catch (_) {}
     return res.json({ ok: true, tickets: [] }); // tahan-gagal
   }
+});
+
+// ---------- Katalog "Upcoming Event" (bisa dibeli) — dikelola admin, dibaca dashboard ----------
+// Publik (tak butuh login): daftar event AKTIF utk tab "Upcoming Event". Buy Now = deep-link ke
+// ticket.20fit.id/id/events/<slug> (payment & tiket diproses DI SANA; kita tak proses bayar).
+app.get("/api/events/upcoming", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, events: [] });
+    const { data, error } = await admin.from("my20fit_event_catalog")
+      .select("id,name,event_date,location,image_url,slug,price_label")
+      .eq("active", true)
+      .order("sort_order", { ascending: true }).order("event_date", { ascending: true })
+      .limit(50);
+    if (error) throw error;
+    const events = (data || []).map(e => ({
+      id: e.id, name: e.name, event_date: e.event_date || null, location: e.location || null,
+      image_url: e.image_url || null, price_label: e.price_label || null,
+      buy_url: e.slug ? ("https://ticket.20fit.id/id/events/" + encodeURIComponent(e.slug)) : "https://ticket.20fit.id",
+    }));
+    return res.json({ ok: true, events });
+  } catch (e) {
+    try { console.error("events/upcoming:", e && e.message); } catch (_) {}
+    return res.json({ ok: true, events: [] }); // tahan-gagal
+  }
+});
+
+// ---------- Admin CRUD katalog event (admin-v2 section Event) ----------
+app.get("/api/admin/event-catalog", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data, error } = await admin.from("my20fit_event_catalog")
+      .select("id,name,event_date,location,image_url,slug,price_label,active,sort_order,updated_at,updated_by")
+      .order("sort_order", { ascending: true }).order("event_date", { ascending: true });
+    if (error) throw error;
+    return res.json({ ok: true, events: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/event-catalog", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const name = String(b.name || "").trim();
+  if (!name) return res.status(400).json({ error: "Nama event wajib." });
+  const row = {
+    name: name.slice(0, 160),
+    event_date: b.event_date ? String(b.event_date).slice(0, 10) : null,
+    location: b.location ? String(b.location).slice(0, 160) : null,
+    image_url: b.image_url ? String(b.image_url).slice(0, 500) : null,
+    slug: b.slug ? String(b.slug).trim().slice(0, 160) : null,
+    price_label: b.price_label ? String(b.price_label).slice(0, 80) : null,
+    active: b.active === false ? false : true,
+    sort_order: Number.isFinite(+b.sort_order) ? (+b.sort_order | 0) : 0,
+    updated_at: new Date().toISOString(),
+    updated_by: ctx.email || (ctx.via === "key" ? "master-key" : null),
+  };
+  try {
+    let data, error;
+    if (b.id) {
+      ({ data, error } = await admin.from("my20fit_event_catalog").update(row).eq("id", String(b.id)).select("id").limit(1));
+    } else {
+      ({ data, error } = await admin.from("my20fit_event_catalog").insert(row).select("id").limit(1));
+    }
+    if (error) throw error;
+    await adminAudit(ctx, b.id ? "event_catalog.update" : "event_catalog.create", (data && data[0] && data[0].id) || String(b.id || ""), { name: row.name });
+    return res.json({ ok: true, id: (data && data[0] && data[0].id) || b.id || null });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/event-catalog/:id/toggle", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const id = String(req.params.id || "");
+  try {
+    const { data: cur } = await admin.from("my20fit_event_catalog").select("active").eq("id", id).limit(1);
+    if (!cur || !cur[0]) return res.status(404).json({ error: "Event tak ditemukan." });
+    const next = !cur[0].active;
+    const { error } = await admin.from("my20fit_event_catalog").update({ active: next, updated_at: new Date().toISOString(), updated_by: ctx.email || null }).eq("id", id);
+    if (error) throw error;
+    await adminAudit(ctx, "event_catalog.toggle", id, { active: next });
+    return res.json({ ok: true, active: next });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.delete("/api/admin/event-catalog/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const id = String(req.params.id || "");
+  try {
+    const { error } = await admin.from("my20fit_event_catalog").delete().eq("id", id);
+    if (error) throw error;
+    await adminAudit(ctx, "event_catalog.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
 // ================= ADMIN MONITORING (dashboard internal) =================
