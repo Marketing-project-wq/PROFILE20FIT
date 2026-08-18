@@ -31,13 +31,16 @@
       <button class="adm-navitem" data-nav="overview"><span data-i18n="Overview">Overview</span></button>
       <button class="adm-navitem" data-nav="scan"><span data-i18n="Scan activity">Aktivitas scan</span></button>
       <button class="adm-navitem" data-nav="revenue"><span data-i18n="Revenue">Revenue</span><span class="adm-tag adm-tag--pending" id="navRevBadge" hidden></span></button>
+      <button class="adm-navitem" data-nav="traffic"><span data-i18n="Traffic sources">Sumber trafik</span></button>
 
       <div class="adm-navgroup" data-i18n="Manage">Kelola</div>
       <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
       <button class="adm-navitem" data-nav="voucher"><span data-i18n="Voucher">Voucher</span></button>
       <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span></button>
+      <button class="adm-navitem" data-nav="menustats"><span data-i18n="Menu interest">Minat menu</span></button>
       <button class="adm-navitem" data-nav="marketing"><span data-i18n="Marketing">Marketing</span></button>
       <button class="adm-navitem" data-nav="corporate"><span data-i18n="Corporate">Corporate</span></button>
+      <button class="adm-navitem" data-nav="events"><span data-i18n="Events">Event</span></button>
 
       <div class="adm-navgroup" data-i18n="System">Sistem</div>
       <button class="adm-navitem" data-nav="reports"><span data-i18n="Reports">Laporan</span></button>
@@ -96,6 +99,12 @@
         <div class="adm-sec-title" data-i18n="Revenue — last 14 days">Revenue — 14 hari terakhir</div>
         <div class="adm-chart" id="ovChart"></div>
         <div class="adm-note" style="margin-top:8px" id="ovChartNote"></div>
+        <div id="ovExpiring"></div>
+        <div class="adm-grid adm-grid--3" style="margin-top:16px">
+          <div><div class="adm-sec-title" style="margin-top:0" data-i18n="Order status">Status order</div><div id="ovStatus"></div></div>
+          <div><div class="adm-sec-title" style="margin-top:0" data-i18n="Payment method">Metode bayar</div><div id="ovMethod"></div></div>
+          <div><div class="adm-sec-title" style="margin-top:0" data-i18n="Top vouchers">Voucher teratas</div><div id="ovVouchers"></div></div>
+        </div>
         <div class="adm-callout adm-scaffold">
           <span class="adm-badge" data-i18n="No data yet">BELUM ADA DATA</span>
           <div class="adm-note" data-i18n="Not yet instrumented: calorie accuracy, admin device, admin page frequency. These stay empty — no invented numbers.">Belum diinstrumentasi: akurasi kalori, device admin, frekuensi halaman admin. Sengaja dikosongkan — tanpa angka karangan.</div>
@@ -149,6 +158,7 @@
           <button class="adm-btn adm-btn--sm" data-page-step="#revTable" data-step="-1">‹</button>
           <button class="adm-btn adm-btn--sm" data-page-step="#revTable" data-step="1">›</button>
         </div>
+        <div id="revDetail" class="adm-callout" style="grid-template-columns:1fr;margin-top:8px" hidden></div>
         <div class="adm-sec-title" data-i18n="Revenue per package">Revenue per paket</div>
         <div id="revByProduct"></div>
         <div class="adm-sec-title" data-i18n="Xendit reconciliation">Rekonsiliasi Xendit</div>
@@ -165,7 +175,8 @@
               <button class="adm-chip" data-table-filter="#usrTable" data-filter-key="buyer" data-filter-value="yes" data-i18n="Buyers">Pembeli</button>
               <button class="adm-chip" data-table-filter="#usrTable" data-filter-key="plus" data-filter-value="yes" data-i18n="Plus">Plus</button>
               <button class="adm-chip" data-table-filter="#usrTable" data-filter-key="credit" data-filter-value="yes" data-i18n="Has credit">Punya kredit</button>
-              <span class="adm-note" data-table-info="#usrTable" style="margin-left:auto"></span>
+              <button class="adm-btn adm-btn--sm" id="usrExport" style="margin-left:auto" data-i18n="Export CSV">Export CSV</button>
+              <span class="adm-note" data-table-info="#usrTable"></span>
             </div>
             <table class="adm-table" id="usrTable" data-table data-page-size="10">
               <thead><tr>
@@ -188,13 +199,46 @@
             <div class="adm-note" data-i18n="Select a user to see details.">Pilih user untuk lihat detail.</div>
           </aside>
         </div>
-        <div class="adm-sec-title" data-i18n="Saved segments">Segmen tersimpan</div>
-        <div id="usrSegments"></div>
+        <div class="adm-sec-title" data-i18n="Period recap">Recap periode</div>
+        <div class="adm-note" style="margin:-4px 0 10px" data-i18n="Growth funnel per period (onboarding → scan → buy → repeat). Click a card to view &amp; download that segment's users.">Funnel pertumbuhan per periode (onboarding → scan → beli → repeat). Klik kartu untuk lihat &amp; unduh user segmen itu.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+          <button class="adm-chip recapChip" data-recap="today" aria-pressed="false" data-i18n="Today">Hari ini</button>
+          <button class="adm-chip recapChip" data-recap="week" aria-pressed="false" data-i18n="This week">Minggu ini</button>
+          <button class="adm-chip recapChip" data-recap="month" aria-pressed="true" data-i18n="This month">Bulan ini</button>
+          <button class="adm-chip recapChip" data-recap="30d" aria-pressed="false" data-i18n="30 days">30 hari</button>
+        </div>
+        <div class="adm-grid" id="recapCards" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+        <div id="recapSeg" hidden style="margin-top:16px"></div>
+        <div class="adm-sec-title" data-i18n="Add / import users (superadmin)">Tambah / import user (superadmin)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px">
+          <div>
+            <div class="adm-sec-title" style="margin-top:0" data-i18n="Add user manually">Tambah user manual</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <input class="adm-input" id="nuEmail" type="email" placeholder="Email" data-i18n-ph="Email">
+              <input class="adm-input" id="nuName" placeholder="Nama (opsional)" data-i18n-ph="Name (optional)">
+              <input class="adm-input" id="nuPhone" placeholder="Telepon (opsional)" data-i18n-ph="Phone (optional)">
+              <button class="adm-btn adm-btn--primary" id="nuAdd" data-i18n="Add user">Tambah user</button>
+              <div class="adm-note" id="nuMsg"></div>
+            </div>
+          </div>
+          <div>
+            <div class="adm-sec-title" style="margin-top:0" data-i18n="Import CSV (email, full_name, phone)">Import CSV (email, full_name, phone)</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <textarea class="adm-input" id="ciText" rows="5" placeholder="email,full_name,phone" style="font-family:var(--font-mono)"></textarea>
+              <div style="display:flex;gap:8px">
+                <button class="adm-btn adm-btn--sm" id="ciPreview" data-i18n="Preview">Pratinjau</button>
+                <button class="adm-btn adm-btn--primary" id="ciCommit" style="display:none" data-i18n="Create new users">Buat user baru</button>
+              </div>
+              <div class="adm-note" id="ciReport"></div>
+            </div>
+          </div>
+        </div>
       </section>
       <section data-section="voucher" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Voucher" data-title-en="Voucher" data-question="Voucher mana yang menghasilkan revenue bersih, dan berapa % pembeli baru?" data-question-en="Which voucher drives net revenue, and what % are new buyers?">
         <div class="adm-tabs" data-tabgroup="vch" data-default="perf">
           <button data-tab="vch" data-tab-id="perf" data-i18n="Performance">Performa</button>
           <button data-tab="vch" data-tab-id="create" data-i18n="Create voucher">Buat voucher</button>
+          <button data-tab="vch" data-tab-id="manage" data-i18n="Manage">Kelola</button>
         </div>
         <div data-tabpanel="vch" data-tab="perf">
           <div class="adm-grid adm-grid--4" id="vchKpis"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
@@ -249,6 +293,28 @@
                 <textarea class="adm-input" id="vbOut" rows="5" style="font-family:var(--font-mono)" readonly></textarea>
               </div>
             </div>
+          </div>
+        </div>
+        <div data-tabpanel="vch" data-tab="manage" hidden>
+          <div style="display:flex;gap:8px;align-items:center;margin:12px 0;flex-wrap:wrap">
+            <input class="adm-input" id="vmSearch" style="max-width:220px" placeholder="Cari kode…" data-i18n-ph="Search code…">
+            <select class="adm-input" id="vmStatus" style="max-width:160px">
+              <option value="" data-i18n="All status">Semua status</option>
+              <option value="active" data-i18n="Active">Aktif</option>
+              <option value="inactive" data-i18n="Inactive">Nonaktif</option>
+            </select>
+            <button class="adm-btn adm-btn--sm" id="vmRefresh" data-i18n="Refresh">Refresh</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px">
+            <div style="overflow-x:auto">
+              <table class="adm-table" id="vmTable">
+                <thead><tr><th data-i18n="Code">Kode</th><th class="adm-right" data-i18n="Discount">Diskon</th><th class="adm-right" data-i18n="Used">Dipakai</th><th data-i18n="Valid">Berlaku</th><th data-i18n="Status">Status</th><th></th></tr></thead>
+                <tbody id="vmRows"><tr><td colspan="6"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+              </table>
+            </div>
+            <aside id="vmPane" class="adm-callout" style="grid-template-columns:1fr">
+              <div class="adm-note" data-i18n="Select a voucher for details or edit.">Pilih voucher untuk lihat detail atau edit.</div>
+            </aside>
           </div>
         </div>
       </section>
@@ -414,6 +480,9 @@
           <button data-tab="corp" data-tab-id="access" data-i18n="Access &amp; passwords">Akses &amp; password</button>
         </div>
         <div data-tabpanel="corp" data-tab="accounts">
+          <div class="adm-sec-title" style="margin-top:14px" data-i18n="Operational monitoring (all organizations)">Monitoring operasional (semua organisasi)</div>
+          <div class="adm-grid adm-grid--4" id="corpTotals"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+          <div class="adm-note" style="margin:6px 0 14px" data-i18n="Aggregate only — active member counts &amp; usage. No individual health / BMI / MCU / cycle data.">Agregat saja — jumlah anggota aktif &amp; keaktifan. Tanpa data kesehatan / BMI / MCU / siklus individu.</div>
           <div style="display:grid;grid-template-columns:1.25fr 1fr;gap:24px;margin-top:14px">
             <div>
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
@@ -425,6 +494,9 @@
                   <th data-sort="str" data-i18n="Organization">Organisasi</th>
                   <th data-sort="str" data-i18n="Code">Kode</th>
                   <th class="adm-right" data-sort="num" data-i18n="Active members">Anggota aktif</th>
+                  <th class="adm-right" data-sort="num" data-i18n="Active 7d">Aktif 7h</th>
+                  <th class="adm-right" data-sort="num" data-i18n="Active 30d">Aktif 30h</th>
+                  <th class="adm-right" data-sort="num" data-i18n="Scans 30d">Scan 30h</th>
                   <th data-sort="str" data-i18n="Admins">Admin</th>
                   <th data-sort="str" data-i18n="Status">Status</th>
                 </tr></thead>
@@ -445,6 +517,12 @@
                 <button class="adm-btn adm-btn--primary" id="coCreate" data-i18n="Create organization">Buat organisasi</button>
                 <div class="adm-note" id="coMsg"></div>
               </div>
+              <div class="adm-sec-title" style="margin-top:20px" data-i18n="HRD portal link">Link portal HRD</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input class="adm-input" id="corpPortalLink" readonly value="https://my.20fit.id/corp-dashboard" style="flex:1" onclick="this.select()">
+                <button class="adm-btn" id="corpCopyLink" data-i18n="Copy">Salin</button>
+              </div>
+              <div class="adm-note" style="margin-top:6px" data-i18n="Send this link + the portal email &amp; password to the HR team. They log in here — access is scoped to their own organization only.">Kirim link ini + email &amp; password akun portal ke tim HRD. Mereka login di sini — aksesnya khusus organisasinya sendiri.</div>
             </div>
           </div>
         </div>
@@ -476,11 +554,55 @@
               <p class="adm-note" style="margin-top:12px" data-i18n="Password is stored hashed (Supabase auth) and never shown again. Every add/remove is written to the audit log. Portal login uses the same auth, scoped to the organization.">Password disimpan sebagai hash (Supabase auth) dan tak pernah ditampilkan lagi. Setiap tambah/hapus tercatat di audit log. Login portal pakai auth yang sama, dibatasi ke organisasinya.</p>
               <div class="adm-callout" style="margin-top:14px">
                 <span class="adm-badge" data-i18n="Aggregate only">Agregat saja</span>
-                <div class="adm-note" data-i18n="The client portal (my.20fit.id corp login) shows only aggregate figures — registered vs quota, participation, group scans — never individual employee health data. An admin-side aggregate preview endpoint is not built yet (BELUM ADA).">Portal klien (login corp di my.20fit.id) hanya menampilkan angka agregat — terdaftar vs kuota, partisipasi, scan kelompok — tak pernah data kesehatan individual. Endpoint preview agregat sisi-admin belum dibangun (BELUM ADA).</div>
+                <div class="adm-note" data-i18n="The client portal (my.20fit.id corp login) shows only aggregate figures — never individual employee health data. The admin-side aggregate preview is now in the Accounts tab (active members + 7/30-day activity + scans).">Portal klien (login corp di my.20fit.id) hanya menampilkan angka agregat — tak pernah data kesehatan individual. Preview agregat sisi-admin sekarang ada di tab Akun (anggota aktif + keaktifan 7/30 hari + scan).</div>
               </div>
             </div>
           </div>
         </div>
+      </section>
+      <section data-section="traffic" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Sumber Trafik" data-title-en="Traffic sources" data-question="Dari mana user datang (UTM &amp; referrer) + konversi ke pembeli." data-question-en="Where users come from (UTM &amp; referrer) + conversion to buyers.">
+        <div class="adm-grid adm-grid--4" id="trSummary"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+        <div class="adm-sec-title" data-i18n="By source (utm_source)">Per sumber (utm_source)</div>
+        <div id="trSource"></div>
+        <div class="adm-sec-title" data-i18n="By medium">Per medium</div>
+        <div id="trMedium"></div>
+        <div class="adm-sec-title" data-i18n="By campaign">Per campaign</div>
+        <div id="trCampaign"></div>
+        <div class="adm-sec-title" data-i18n="By referrer site">Per situs perujuk (referrer)</div>
+        <div id="trReferrer"></div>
+      </section>
+      <section data-section="menustats" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Minat Menu" data-title-en="Menu interest" data-question="Menu mana yang paling sering dibuka + tipe menu yang paling diminati." data-question-en="Which menus get opened most + most-wanted menu types.">
+        <div class="adm-seg" role="group" style="margin-bottom:12px">
+          <button class="msbtn" data-msrange="7d" aria-pressed="false" data-i18n="7 days">7 hari</button>
+          <button class="msbtn" data-msrange="30d" aria-pressed="true" data-i18n="30 days">30 hari</button>
+          <button class="msbtn" data-msrange="all" aria-pressed="false" data-i18n="All">Semua</button>
+        </div>
+        <div class="adm-grid adm-grid--3" id="msSummary"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+        <div class="adm-sec-title" data-i18n="Interest by menu type">Minat per tipe menu</div>
+        <div id="msTypes"></div>
+        <div class="adm-sec-title" data-i18n="Each menu (most opened)">Setiap menu (paling banyak dibuka)</div>
+        <div id="msMenus"></div>
+      </section>
+      <section data-section="events" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Event" data-title-en="Events" data-question="Event yang bisa dibeli — tampil di tab &quot;Upcoming Event&quot; homepage." data-question-en="Buyable events — shown in the homepage &quot;Upcoming Event&quot; tab.">
+        <div class="adm-note" data-i18n="Manage buyable events for the home 'Upcoming Event' tab. Buy Now opens ticket.20fit.id/id/events/<slug> (same tab).">Kelola event yang bisa dibeli untuk tab &quot;Upcoming Event&quot; di homepage. Tombol Buy Now membuka ticket.20fit.id/id/events/&lt;slug&gt; (tab sama).</div>
+        <div style="margin-top:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px">
+          <input type="hidden" id="ev_id">
+          <input class="adm-input" id="ev_name" placeholder="Nama event *" data-i18n-ph="Event name *">
+          <input class="adm-input" id="ev_date" type="date">
+          <input class="adm-input" id="ev_loc" placeholder="Lokasi (opsional)" data-i18n-ph="Location (optional)">
+          <input class="adm-input" id="ev_slug" placeholder="slug event (untuk link beli)" data-i18n-ph="event slug (for buy link)">
+          <input class="adm-input" id="ev_img" placeholder="URL gambar (opsional)" data-i18n-ph="Image URL (optional)" style="grid-column:1/-1">
+          <input class="adm-input" id="ev_price" placeholder="Teks harga, mis. Mulai Rp 150.000 (opsional)" data-i18n-ph="Price text, e.g. From Rp 150,000 (optional)">
+          <input class="adm-input" id="ev_sort" type="number" placeholder="Urutan (0)" data-i18n-ph="Sort order (0)">
+          <label class="adm-label" style="display:flex;align-items:center;gap:8px;grid-column:1/-1"><input type="checkbox" id="ev_active" checked> <span data-i18n="Active (shown on home)">Aktif (tampil di home)</span></label>
+          <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary" id="evSaveBtn" onclick="evSave()" data-i18n="Save event">Simpan event</button>
+            <button class="adm-btn adm-btn--sm" id="evCancelBtn" onclick="evCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
+            <span class="adm-note" id="evMsg"></span>
+          </div>
+        </div>
+        <div class="adm-sec-title" style="margin-top:20px" data-i18n="Event list">Daftar event</div>
+        <div id="evList"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
       </section>
       <section data-section="reports" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Laporan" data-title-en="Reports" data-question="Revenue bulanan, funnel, retensi kohort, dan produk terlaris — bisa diekspor." data-question-en="Monthly revenue, funnel, cohort retention, and top products — exportable.">
         <div id="rpBody"><div class="adm-loading" style="margin-top:16px" data-i18n="Loading…">Memuat…</div></div>
@@ -490,6 +612,7 @@
         <div class="adm-tabs" data-tabgroup="set" data-default="flags">
           <button data-tab="set" data-tab-id="flags" data-i18n="Feature flags">Feature flag</button>
           <button data-tab="set" data-tab-id="roles" data-i18n="Admin roles">Role admin</button>
+          <button data-tab="set" data-tab-id="config" data-i18n="Config status">Status config</button>
           <button data-tab="set" data-tab-id="audit" data-i18n="Audit log">Audit log</button>
         </div>
         <div data-tabpanel="set" data-tab="flags">
@@ -497,11 +620,36 @@
           <div id="setFlags"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div>
         </div>
         <div data-tabpanel="set" data-tab="roles" hidden>
+          <div class="adm-sec-title" style="margin-top:12px" data-i18n="Add / set admin role">Tambah / set role admin</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input class="adm-input" id="setRoleEmail" type="email" placeholder="Email user 20FIT (orang@20fit.id)" data-i18n-ph="20FIT user email (person@20fit.id)" style="flex:1;min-width:220px">
+            <select class="adm-input" id="setRoleSel" style="max-width:280px">
+              <option value="viewer">viewer</option>
+              <option value="marketing">marketing (tanpa data kesehatan)</option>
+              <option value="staff">staff</option>
+              <option value="superadmin">superadmin</option>
+            </select>
+            <button class="adm-btn adm-btn--primary" id="setRoleAdd" data-i18n="Set role">Set role</button>
+          </div>
+          <div class="adm-note" id="setRoleMsg" style="margin-top:6px"></div>
           <div id="setRoles" style="margin-top:12px"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div>
         </div>
+        <div data-tabpanel="set" data-tab="config" hidden>
+          <div class="adm-note" style="margin:12px 0" data-i18n="Server environment status (secret values are never shown).">Status environment di server (nilai rahasia tidak ditampilkan).</div>
+          <div id="setConfig"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div>
+        </div>
         <div data-tabpanel="set" data-tab="audit" hidden>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
+            <select class="adm-input" id="setAuditAction" style="max-width:200px">
+              <option value="" data-i18n="All actions">Semua aksi</option>
+              <option value="role">Role</option>
+              <option value="voucher">Voucher</option>
+              <option value="corporate">Corporate</option>
+            </select>
+            <button class="adm-btn adm-btn--sm" id="setAuditRefresh" data-i18n="Refresh">Refresh</button>
+          </div>
           <table class="adm-table" style="margin-top:12px" id="setAuditTable" data-table data-page-size="20">
-            <thead><tr><th data-sort="str" data-i18n="When">Kapan</th><th data-sort="str" data-i18n="Actor">Aktor</th><th data-sort="str" data-i18n="Action">Aksi</th><th data-sort="str" data-i18n="Target">Target</th></tr></thead>
+            <thead><tr><th data-sort="str" data-i18n="When">Kapan</th><th data-sort="str" data-i18n="Actor">Aktor</th><th data-sort="str" data-i18n="Action">Aksi</th><th data-sort="str" data-i18n="Target">Target</th><th data-i18n="Detail">Detail</th></tr></thead>
             <tbody id="setAudit"></tbody>
           </table>
         </div>
@@ -512,6 +660,17 @@
 
 <div class="adm-toast" data-toast hidden></div>
 
+<div id="admLogin" hidden style="position:fixed;inset:0;z-index:2000;background:var(--bg,#0b0b0c);display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:360px;background:var(--surface,#fff);border:1px solid var(--line,#E8E2DB);border-radius:16px;padding:26px">
+    <div style="font-family:var(--font-head,inherit);font-weight:900;font-size:20px;letter-spacing:1px;margin-bottom:4px">20<span style="color:var(--red,#C41101)">●</span>FIT <span style="font-weight:400;font-size:13px">Admin</span></div>
+    <div class="adm-note" data-i18n="Sign in with your 20FIT admin account.">Masuk dengan akun admin 20FIT.</div>
+    <input class="adm-input" id="admLoginEmail" type="email" placeholder="Email" style="margin-top:12px;width:100%">
+    <input class="adm-input" id="admLoginPass" type="password" placeholder="Password" style="margin-top:8px;width:100%">
+    <button class="adm-btn adm-btn--primary" id="admLoginBtn" style="width:100%;margin-top:12px" data-i18n="Sign in">Masuk</button>
+    <div class="adm-note" id="admLoginMsg" style="margin-top:8px;min-height:16px"></div>
+    <div class="adm-note" style="margin-top:10px;font-size:12px" data-i18n="Or open with ?key=ADMIN_KEY.">Atau buka dengan ?key=ADMIN_KEY.</div>
+  </div>
+</div>
 <script src="js/vendor-supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin-shell.js"></script>
@@ -562,6 +721,13 @@
 
   // ---- OVERVIEW ----
 
+  function ovBarTable(elId, obj){
+    var e=document.getElementById(elId); if(!e) return;
+    var rows=Object.keys(obj||{}).map(function(k){return {k:k,v:obj[k]||0};}).sort(function(a,b){return b.v-a.v;});
+    if(!rows.length){ e.innerHTML='<div class="adm-note">—</div>'; return; }
+    var max=rows[0].v||1;
+    e.innerHTML='<table class="adm-table"><tbody>'+rows.map(function(r){return '<tr><td>'+esc(r.k)+'</td><td class="adm-right adm-num">'+r.v+'</td><td style="width:45%"><div class="adm-bar"><i style="width:'+Math.max(2,Math.round(r.v/max*100))+'%"></i></div></td></tr>';}).join("")+'</tbody></table>';
+  }
   async function loadOverview(){
     var kp = document.getElementById("ovKpis");
     try{
@@ -594,6 +760,14 @@
         return '<div><i style="height:'+h+'%" title="'+t.date+': '+rp(t.revenue)+'"></i></div>';
       }).join("") || '<div class="adm-note">'+L("No data in range","Tak ada data di rentang")+'</div>';
       document.getElementById("ovChartNote").textContent = L("Bars = daily revenue (paid). Hover for date.","Batang = revenue harian (paid). Arahkan untuk tanggal.");
+      // Fase E: alert voucher kedaluwarsa + breakdown status/metode + top voucher
+      var exp=(j.voucher&&j.voucher.expiring)||[];
+      var ovExp=document.getElementById("ovExpiring");
+      if(ovExp) ovExp.innerHTML = exp.length ? '<div class="adm-alert" style="margin-top:12px"><span class="dot"></span><div>'+L(exp.length+" voucher expiring in ≤7 days: ",exp.length+" voucher kedaluwarsa ≤7 hari: ")+exp.map(function(v){return esc(v.code||"—");}).join(", ")+'</div></div>' : '';
+      ovBarTable("ovStatus", tx.byStatus||{});
+      ovBarTable("ovMethod", j.byMethod||{});
+      var topV=(j.voucher&&j.voucher.top)||[], ovV=document.getElementById("ovVouchers");
+      if(ovV) ovV.innerHTML = topV.length ? '<table class="adm-table"><tbody>'+topV.slice(0,5).map(function(v){return '<tr><td class="adm-mono">'+esc(v.code||v.voucher_id||"—")+'</td><td class="adm-right adm-num">'+(v.count||0)+'</td></tr>';}).join("")+'</tbody></table>' : '<div class="adm-note">—</div>';
       if(window.applyI18n) {}
     }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Error: ","Error: ")+String(e.message||e)+'</div></div>'; }
   }
@@ -623,7 +797,7 @@
       document.getElementById("revRows").innerHTML = rows.map(function(o){
         var net=(o.net_amount!=null?o.net_amount:o.amount)||0;
         var note=o.voucher_id?L("voucher","voucher"):(o.status==="paid"&&!o.gateway_reference_id?L("paid, no gateway ref","paid, tanpa ref gateway"):"");
-        return '<tr data-status="'+(o.status||"")+'">'+
+        return '<tr data-reff="'+esc(o.reff_no||"")+'" data-status="'+(o.status||"")+'" style="cursor:pointer">'+
           '<td class="adm-mono">'+(o.reff_no||"—")+'</td>'+
           '<td>'+tag(o.status)+'</td>'+
           '<td class="adm-right adm-num">'+(o.credits||0)+'</td>'+
@@ -647,6 +821,14 @@
   }
 
   // ---- USERS ----
+  var USERS_CACHE=[];
+  function usrExportCsv(){
+    if(!window.admExport){ if(window.admToast)admToast(L("Export unavailable","Export tak tersedia")); return; }
+    admExport("users",
+      ["Name","Email","Credits","Scans","Spent","Purchases","Onboarded","Plus","Joined"],
+      USERS_CACHE.map(function(u){ return [u.full_name||"", u.email||"", u.scan_credits||0, u.scan_count||0, u.total_spent||0, u.purchases||0, u.is_onboarded?"yes":"no", u.is_plus_member?"yes":"no", (u.created_at||"").slice(0,10)]; }),
+      "users.csv");
+  }
   async function loadUsers(){
     var kp=document.getElementById("usrKpis");
     try{
@@ -658,7 +840,7 @@
         cell(String(j.active||0),"Active","Aktif") +
         cell(String(j.buyers||0),"Buyers","Pembeli") +
         cell(String(j.onboarded||0),"Onboarded","Onboarded");
-      var us=(j.users||[]);
+      var us=(j.users||[]); USERS_CACHE=us;
       document.getElementById("usrRows").innerHTML = us.map(function(u){
         return '<tr data-uid="'+u.auth_user_id+'" data-all="all" data-onboarded="'+(u.is_onboarded?"yes":"no")+'" data-buyer="'+(u.purchases>0?"yes":"no")+'" data-plus="'+(u.is_plus_member?"yes":"no")+'" data-credit="'+((u.scan_credits||0)>0?"yes":"no")+'" style="cursor:pointer">'+
           '<td>'+(u.full_name||"—")+(u.is_plus_member?' <span class="adm-tag adm-tag--outline">PLUS</span>':'')+'</td>'+
@@ -669,8 +851,94 @@
           '<td class="adm-mono">'+fmtDate(u.created_at)+'</td></tr>';
       }).join("");
       window.admRenderTable("#usrTable");
-      document.getElementById("usrSegments").innerHTML = '<div class="adm-callout adm-scaffold"><span class="adm-badge" data-i18n="No data yet">BELUM ADA DATA</span><div class="adm-note" data-i18n="Saved segments need the segments endpoint (table my20fit_segments exists; CRUD next increment).">Segmen tersimpan butuh endpoint segmen (tabel my20fit_segments sudah ada; CRUD menyusul).</div></div>';
+      recapInit();
     }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+String(e.message||e)+'</div></div>'; }
+  }
+
+  // ---- RECAP PERIODE (funnel onboarding→scan→beli→repeat + unduh segmen) ----
+  // Sumber: /api/admin/onboarding-recap (viewer+, NON-kesehatan). Klik kartu → daftar user
+  // segmen (nama/email/telepon + metrik periode). Unduh CSV lewat server /api/admin/export-csv
+  // (khusus staff+; dicek server-side & diaudit). Delta = beda vs periode sebelumnya sama panjang.
+  var RECAP_STATE = { range:"month", data:null, seg:null };
+  var RECAP_META = {
+    onboarded:     { en:"Onboarding",             id:"Onboarding",              slug:"onboarding" },
+    onboarded_new: { en:"New (no scan/buy)",      id:"Baru (belum scan/beli)",  slug:"baru-onboarding" },
+    scanned:       { en:"Scanned",                id:"Sudah scan",              slug:"sudah-scan" },
+    bought:        { en:"Bought",                 id:"Sudah beli",              slug:"sudah-beli" },
+    repeat:        { en:"Repeat buyer",           id:"Repeat buyer",            slug:"repeat-buyer" },
+  };
+  function recapRangeLabel(){ return ({today:L("today","hari ini"),week:L("this week","minggu ini"),month:L("this month","bulan ini"),"30d":L("30 days","30 hari")})[RECAP_STATE.range]||RECAP_STATE.range; }
+  // Kolom per segmen (satu sumber definisi; dipakai tabel & CSV). value() dijalankan per-user.
+  function recapSegCols(seg){
+    var base=[{en:"Name",id:"Nama",value:function(u){return u.full_name||"";}},
+              {en:"Email",id:"Email",value:function(u){return u.email||"";}},
+              {en:"Phone",id:"No HP",value:function(u){return u.phone||"";}}];
+    if(seg==="scanned") return base.concat([
+      {en:"Scans (period)",id:"Scan (periode)",num:true,value:function(u){return u.scans_in_window||0;}},
+      {en:"Last scan",id:"Scan terakhir",value:function(u){return fmtDate(u.last_scan_at);}} ]);
+    if(seg==="bought"||seg==="repeat") return base.concat([
+      {en:"Orders (period)",id:"Transaksi (periode)",num:true,value:function(u){return u.orders_in_window||0;}},
+      {en:"Amount (period, Rp)",id:"Nominal (periode, Rp)",num:true,csv:function(u){return u.amount_in_window||0;},value:function(u){return rp(u.amount_in_window||0);}},
+      {en:"Last buy",id:"Beli terakhir",value:function(u){return fmtDate(u.last_paid_at);}} ]);
+    return base.concat([{en:"Onboarded",id:"Tgl onboarding",value:function(u){return fmtDate(u.onboarded_at);}}]);
+  }
+  function recapDelta(cur,prev){
+    if(prev==null) return '<div class="adm-sub" style="visibility:hidden">.</div>';
+    var d=(cur||0)-(prev||0), sign=d>0?"+":"";
+    return '<div class="adm-delta'+(d<0?" adm-delta--down":"")+'" style="display:inline-block;margin-top:8px" title="'+esc(L("vs previous same-length period","dibanding periode sebelumnya sama panjang"))+'">'+sign+d+' '+L("vs prev","vs lalu")+'</div>';
+  }
+  function recapCard(seg,val,prev){
+    var m=RECAP_META[seg], on=(RECAP_STATE.seg===seg);
+    return '<div class="adm-cell recapCard'+(on?" on":"")+'" data-seg="'+seg+'" style="cursor:pointer'+(on?";background:var(--surface)":"")+'">'+
+      '<div class="adm-metric adm-num">'+(val||0)+'</div>'+
+      '<div class="adm-label" data-i18n="'+m.en+'">'+m.id+'</div>'+
+      recapDelta(val,prev)+
+      '<div class="adm-sub">'+L("click: view &amp; download","klik: lihat &amp; unduh")+'</div></div>';
+  }
+  async function recapFetch(){
+    var qs="range="+encodeURIComponent(RECAP_STATE.range)+(KEY?("&key="+encodeURIComponent(KEY)):"");
+    return fetch("/api/admin/onboarding-recap?"+qs,{credentials:"include",headers:await admAuthHeaders()});
+  }
+  function recapInit(){
+    RECAP_STATE.range="month"; RECAP_STATE.seg=null;
+    document.querySelectorAll(".recapChip").forEach(function(c){ c.setAttribute("aria-pressed",String(c.dataset.recap==="month")); });
+    var sp=document.getElementById("recapSeg"); if(sp){ sp.hidden=true; sp.innerHTML=""; }
+    loadRecap();
+  }
+  async function loadRecap(){
+    var cards=document.getElementById("recapCards"); if(!cards) return;
+    cards.innerHTML='<div class="adm-cell"><div class="adm-loading">'+L("Loading…","Memuat…")+'</div></div>';
+    var res=await recapFetch().catch(function(){return null;});
+    var j=res?await res.json().catch(function(){return null;}):null;
+    if(!res||!res.ok||!j||!j.ok){ cards.innerHTML='<div class="adm-cell"><div class="adm-note">'+esc((j&&j.error)||L("Failed to load recap.","Gagal memuat recap."))+'</div></div>'; return; }
+    RECAP_STATE.data=j; var t=j.totals||{}, pv=j.prev||{};
+    cards.innerHTML=recapCard("onboarded",t.onboarded,pv.onboarded)+recapCard("onboarded_new",t.onboarded_new,null)+
+      recapCard("scanned",t.scanned,pv.scanned)+recapCard("bought",t.bought,pv.bought)+recapCard("repeat",t.repeat,pv.repeat);
+    if(RECAP_STATE.seg) recapShowSeg(RECAP_STATE.seg); // refresh segmen terbuka dgn data baru
+  }
+  function recapShowSeg(seg){
+    var j=RECAP_STATE.data, m=RECAP_META[seg]; if(!j||!m) return;
+    RECAP_STATE.seg=seg;
+    document.querySelectorAll(".recapCard").forEach(function(el){ var on=el.dataset.seg===seg; el.classList.toggle("on",on); el.style.background=on?"var(--surface)":""; });
+    var rows=(j.segments&&j.segments[seg])||[], cols=recapSegCols(seg), sp=document.getElementById("recapSeg"); if(!sp) return;
+    sp.hidden=false;
+    var head='<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">'+
+      '<div class="adm-h2">'+esc(L(m.en,m.id))+' — '+rows.length+' user <span class="adm-note" style="font-weight:400">('+esc(recapRangeLabel())+')</span></div>'+
+      '<button class="adm-btn adm-btn--sm recapExport" data-i18n="Export CSV">Export CSV</button></div>';
+    if(!rows.length){ sp.innerHTML=head+'<div class="adm-note">'+L("No users in this segment for the selected period.","Tak ada user di segmen ini untuk periode terpilih.")+'</div>'; return; }
+    var h='<table class="adm-table"><thead><tr>'+cols.map(function(c){ return '<th'+(c.num?' class="adm-right"':'')+'>'+esc(L(c.en,c.id))+'</th>'; }).join("")+'</tr></thead><tbody>';
+    rows.slice(0,500).forEach(function(u){ h+='<tr>'+cols.map(function(c){ var v=c.value(u); return '<td'+(c.num?' class="adm-right adm-num"':(c.en==="Email"||c.en==="Phone"?' class="adm-mono"':""))+'>'+esc(v===""||v==null?"—":v)+'</td>'; }).join("")+'</tr>'; });
+    h+='</tbody></table>';
+    if(rows.length>500) h+='<div class="adm-note" style="margin-top:8px">'+L("Showing 500 of ","Menampilkan 500 dari ")+rows.length+L(" users. Download CSV for the full list."," user. Unduh CSV untuk data lengkap.")+'</div>';
+    sp.innerHTML=head+'<div style="overflow-x:auto">'+h+'</div>';
+  }
+  function recapExport(){
+    var j=RECAP_STATE.data, seg=RECAP_STATE.seg, m=RECAP_META[seg]; if(!j||!seg||!m) return;
+    if(!window.admExport){ if(window.admToast)admToast(L("Export unavailable","Export tak tersedia")); return; }
+    var rows=(j.segments&&j.segments[seg])||[]; if(!rows.length){ if(window.admToast)admToast(L("No data to download.","Tak ada data untuk diunduh.")); return; }
+    var cols=recapSegCols(seg), headers=cols.map(function(c){ return c.en; });
+    var data=rows.map(function(u){ return cols.map(function(c){ return c.csv?c.csv(u):c.value(u); }); });
+    admExport("segment:"+seg, headers, data, m.slug+"_"+RECAP_STATE.range+".csv");
   }
 
   async function loadUserDetail(uid){
@@ -694,8 +962,74 @@
         '</div>'+
         '<div class="adm-sec-title" style="margin:14px 0 6px">'+L("Email timeline","Timeline email")+'</div>'+
         (em.length? em.slice(0,8).map(function(m){ var st=m.clicked_at?"clicked":m.opened_at?"opened":m.delivered_at?"delivered":(m.status||"sent"); return '<div style="font-size:11px;padding:2px 0"><span class="adm-mono">'+fmtDate(m.created_at)+'</span> · '+(m.campaign_id||m.channel||"")+' · '+st+'</div>'; }).join("") : '<div class="adm-note">'+L("No emails yet.","Belum ada email.")+'</div>')+
+        (IS_SUPER? ('<div class="adm-sec-title" style="margin:14px 0 6px">'+L("Account (superadmin)","Akun (superadmin)")+'</div>'+
+          '<div style="display:flex;gap:6px"><input class="adm-input" id="ceEmail" type="email" placeholder="'+L("New email","Email baru")+'" style="flex:1"><button class="adm-btn adm-btn--sm" id="ceBtn">'+L("Change email","Ubah email")+'</button></div>'+
+          '<div class="adm-note" id="ceMsg"></div><div id="ceAudit" style="margin-top:8px"></div>') : '')+
         '</div>';
+      if(IS_SUPER){ var ceb=document.getElementById("ceBtn"); if(ceb) ceb.onclick=function(){ changeUserEmail(uid); }; loadUserAudit(uid); }
     }catch(e){ box.innerHTML='<div class="adm-note">'+String(e.message||e)+'</div>'; }
+  }
+  async function changeUserEmail(uid){
+    var em=((document.getElementById("ceEmail")||{}).value||"").trim(), msg=document.getElementById("ceMsg");
+    if(!em){ if(msg)msg.textContent=L("Enter new email.","Isi email baru."); return; }
+    if(msg)msg.textContent=L("Sending…","Mengirim…");
+    var r=await adminPost("/api/admin/user/change-email",{uid:uid,new_email:em}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(msg)msg.textContent=r.message||L("Confirmation sent (new email active after user confirms).","Konfirmasi terkirim (email baru aktif setelah user konfirmasi)."); if(window.admToast)admToast(L("Email change sent","Perubahan email dikirim")); loadUserAudit(uid); }
+    else if(msg)msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  async function loadUserAudit(uid){
+    var box=document.getElementById("ceAudit"); if(!box) return;
+    var j=await adminFetch("/api/admin/user/audit?uid="+encodeURIComponent(uid)).then(function(r){return r.json();}).catch(function(){return{};});
+    var logs=(j&&j.logs)||[];
+    if(!logs.length){ box.innerHTML='<div class="adm-note">'+L("No admin history for this user.","Belum ada riwayat admin untuk user ini.")+'</div>'; return; }
+    box.innerHTML='<div class="adm-sec-title" style="margin:8px 0 4px">'+L("Admin history","Riwayat admin")+'</div>'+logs.map(function(x){ return '<div style="font-size:11px;padding:2px 0"><span class="adm-mono">'+fmtDT(x.created_at)+'</span> · '+esc(x.action)+' · '+esc(x.actor_email||"—")+'</div>'; }).join("");
+  }
+  // ---- ADD / IMPORT USERS (superadmin) ----
+  var CI_ROWS=null;
+  async function doAddUser(){
+    var em=((document.getElementById("nuEmail")||{}).value||"").trim(), msg=document.getElementById("nuMsg");
+    if(!em){ if(msg)msg.textContent=L("Email required.","Email wajib."); return; }
+    if(msg)msg.textContent=L("Creating…","Membuat…");
+    var body={email:em, full_name:((document.getElementById("nuName")||{}).value||"").trim()||null, phone:((document.getElementById("nuPhone")||{}).value||"").trim()||null};
+    var r=await adminPost("/api/admin/user/create",body).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(msg)msg.textContent=L("User created: ","User dibuat: ")+em; if(window.admToast)admToast(L("User created","User dibuat")); ["nuEmail","nuName","nuPhone"].forEach(function(id){var e=document.getElementById(id);if(e)e.value="";}); loadUsers(); }
+    else if(msg)msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  function parseCsvUsers(text){
+    var lines=String(text||"").replace(/\r/g,"").split("\n").filter(function(l){return l.trim()!=="";});
+    if(!lines.length) return [];
+    function splitLine(l){ var out=[],cur="",q=false; for(var i=0;i<l.length;i++){var c=l[i]; if(q){ if(c==='"'){ if(l[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; } else { if(c==='"') q=true; else if(c===",") {out.push(cur);cur="";} else cur+=c; } } out.push(cur); return out.map(function(s){return s.trim();}); }
+    var first=splitLine(lines[0]).map(function(s){return s.toLowerCase();});
+    var hasHeader=first.indexOf("email")>=0, idxE=0,idxN=1,idxP=2;
+    if(hasHeader){ idxE=first.indexOf("email"); idxN=first.indexOf("full_name"); if(idxN<0)idxN=first.indexOf("name"); idxP=first.indexOf("phone"); }
+    var rows=[];
+    for(var i=hasHeader?1:0;i<lines.length;i++){ var c=splitLine(lines[i]); rows.push({ email:(c[idxE]||""), full_name: idxN>=0?(c[idxN]||""):"", phone: idxP>=0?(c[idxP]||""):"" }); }
+    return rows;
+  }
+  function renderCiReport(j){
+    var box=document.getElementById("ciReport"); if(!box) return;
+    var rows=(j&&j.rows)||[], counts=j.counts||{};
+    var head = j.mode==="preview"
+      ? L("New","Baru")+": <b>"+(counts.new||0)+"</b> · "+L("Existing","Sudah ada")+": "+(counts.duplicate_existing||0)+" · "+L("Dup in file","Ganda di file")+": "+(counts.duplicate_in_file||0)+" · Invalid: "+(counts.invalid||0)+" ("+L("total","total")+" "+j.total+")"
+      : L("Created","Dibuat")+": <b>"+(j.created||0)+"</b> · "+L("Failed","Gagal")+": "+(j.failed||0)+" ("+L("total","total")+" "+j.total+")";
+    box.innerHTML='<div class="adm-note">'+head+'</div><div style="max-height:220px;overflow:auto;margin-top:8px"><table class="adm-table"><thead><tr><th>#</th><th>Email</th><th>Status</th><th>'+L("Note","Ket.")+'</th></tr></thead><tbody>'+
+      rows.map(function(x){ return '<tr><td class="adm-num">'+x.row+'</td><td class="adm-mono">'+esc(x.email||"—")+'</td><td>'+esc(x.status)+'</td><td class="adm-note">'+esc(x.reason||"")+'</td></tr>'; }).join("")+'</tbody></table></div>';
+  }
+  async function ciPreview(){
+    var rows=parseCsvUsers((document.getElementById("ciText")||{}).value||""), box=document.getElementById("ciReport");
+    if(!rows.length){ box.innerHTML='<div class="adm-note">'+L("CSV empty / unreadable.","CSV kosong / tak terbaca.")+'</div>'; return; }
+    CI_ROWS=rows; box.innerHTML='<div class="adm-note">'+L("Processing…","Memproses…")+'</div>';
+    var r=await adminPost("/api/admin/user/bulk-import",{rows:rows,commit:false}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(!r||!r.ok){ box.innerHTML='<div class="adm-note">'+esc((r&&r.error)||L("Failed","Gagal"))+'</div>'; return; }
+    renderCiReport(r);
+    var cb=document.getElementById("ciCommit"); if(cb) cb.style.display=(r.counts&&r.counts.new)?"":"none";
+  }
+  async function ciCommit(){
+    if(!CI_ROWS) return;
+    var box=document.getElementById("ciReport"); box.innerHTML='<div class="adm-note">'+L("Creating users…","Membuat user…")+'</div>';
+    var r=await adminPost("/api/admin/user/bulk-import",{rows:CI_ROWS,commit:true}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(!r||!r.ok){ box.innerHTML='<div class="adm-note">'+esc((r&&r.error)||L("Failed","Gagal"))+'</div>'; return; }
+    renderCiReport(r); var cb=document.getElementById("ciCommit"); if(cb) cb.style.display="none"; loadUsers();
   }
 
   // ---- MARKETING / EMAIL ----
@@ -904,21 +1238,75 @@
         '</div>';
       }).join("") || '<div class="adm-note">'+L("No flags.","Tak ada flag.")+'</div>';
     }catch(e){ fb.textContent=""; }
-    var rb=document.getElementById("setRoles");
+    loadSettingsRoles();
+    loadSettingsConfig();
+    loadSettingsAudit();
+  }
+  async function loadSettingsRoles(){
+    var rb=document.getElementById("setRoles"); if(!rb) return;
     try{
       var jr=await adminFetch("/api/admin/roles").then(function(r){return r.json();});
       if(jr&&jr.ok){
-        rb.innerHTML='<table class="adm-table"><thead><tr><th>Email</th><th>Role</th><th>'+L("Since","Sejak")+'</th></tr></thead><tbody>'+
-          (jr.roles||[]).map(function(r){ return '<tr><td class="adm-mono">'+esc(r.email||"—")+'</td><td><span class="adm-tag adm-tag--outline">'+esc(r.role)+'</span></td><td class="adm-mono">'+fmtDate(r.created_at)+'</td></tr>'; }).join("")+'</tbody></table>';
+        rb.innerHTML='<table class="adm-table"><thead><tr><th>Email</th><th>Role</th><th>'+L("Since","Sejak")+'</th><th></th></tr></thead><tbody>'+
+          (jr.roles||[]).map(function(r){
+            return '<tr><td class="adm-mono">'+esc(r.email||r.auth_user_id||"—")+'</td>'+
+              '<td><span class="adm-tag adm-tag--outline">'+esc(r.role)+'</span></td>'+
+              '<td class="adm-mono">'+fmtDate(r.created_at)+'</td>'+
+              '<td class="adm-right">'+(IS_SUPER?'<button class="adm-btn adm-btn--sm setRoleDel" data-uid="'+esc(r.auth_user_id)+'" data-confirm="'+L("Remove admin access?","Hapus akses admin?")+'">'+L("Remove","Hapus")+'</button>':'')+'</td></tr>';
+          }).join("")+'</tbody></table>';
       } else rb.innerHTML='<div class="adm-note">'+L("Roles need superadmin.","Role butuh superadmin.")+'</div>';
     }catch(e){ rb.textContent=""; }
+  }
+  async function setRoleAddSubmit(){
+    var msg=document.getElementById("setRoleMsg"); if(!msg) return;
+    var email=(document.getElementById("setRoleEmail").value||"").trim();
+    var role=document.getElementById("setRoleSel").value;
+    if(!email){ msg.textContent=L("Enter email.","Isi email."); return; }
+    msg.textContent=L("Saving…","Menyimpan…");
+    var r=await adminPost("/api/admin/roles",{email:email,role:role}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ msg.textContent=L("Role set.","Role di-set."); document.getElementById("setRoleEmail").value=""; if(window.admToast)admToast(L("Role updated","Role diperbarui")); loadSettingsRoles(); }
+    else msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  async function setRoleRemove(uid){
+    if(!uid) return;
+    var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
+    var r=await fetch("/api/admin/roles/"+encodeURIComponent(uid)+qs,{method:"DELETE",credentials:"include",headers:await admAuthHeaders()}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Role removed","Role dihapus")); loadSettingsRoles(); }
+    else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
+  }
+  async function loadSettingsConfig(){
+    var body=document.getElementById("setConfig"); if(!body) return;
     try{
-      var ja=await adminFetch("/api/admin/audit?limit=200").then(function(r){return r.json();});
-      var ab=document.getElementById("setAudit");
+      var j=await adminFetch("/api/admin/config").then(function(r){return r.json();});
+      var c=j&&j.config;
+      if(!c){ body.innerHTML='<div class="adm-note">'+L("Config needs superadmin.","Status config butuh superadmin.")+'</div>'; return; }
+      function badge(ok){ return '<span class="adm-tag '+(ok?"adm-tag--paid":"adm-tag--fail")+'">'+(ok?L("set","set"):L("empty","kosong"))+'</span>'; }
+      var rows=[
+        [L("Supabase service key","Supabase service key"), badge(c.supabase_service_key)],
+        [L("Xendit active (via FITCO)","Xendit aktif (via FITCO)"), badge(c.xendit_enabled)],
+        [L("FITCO partner token","FITCO partner token"), badge(c.fitco_partner_token)],
+        [L("FITCO API URL","FITCO API URL"), '<span class="adm-mono">'+esc(c.fitco_api_url||"—")+'</span>'],
+        [L("Meta CAPI (purchase event)","Meta CAPI (event pembelian)"), badge(c.meta_capi)],
+        [L("Admin master key","Master key admin"), badge(c.admin_master_key)]
+      ];
+      var h='<table class="adm-table"><tbody>'+rows.map(function(r){return '<tr><td>'+r[0]+'</td><td class="adm-right">'+r[1]+'</td></tr>';}).join("")+'</tbody></table>';
+      if(!c.supabase_service_key) h+='<div class="adm-callout" style="margin-top:10px">'+L("Warning: SUPABASE_SERVICE_KEY not set — dashboard cannot read data.","Perhatian: SUPABASE_SERVICE_KEY belum di-set — dashboard tidak bisa baca data.")+'</div>';
+      if(!c.fitco_partner_token) h+='<div class="adm-callout" style="margin-top:10px">'+L("Warning: FITCO_PARTNER_TOKEN not set — scan package payment inactive.","Perhatian: FITCO_PARTNER_TOKEN belum di-set — pembayaran paket scan belum aktif.")+'</div>';
+      body.innerHTML=h;
+    }catch(e){ body.textContent=""; }
+  }
+  async function loadSettingsAudit(){
+    var ab=document.getElementById("setAudit"); if(!ab) return;
+    var af=document.getElementById("setAuditAction"); var action=af?af.value:"";
+    try{
+      var ja=await adminFetch("/api/admin/audit?limit=200&action="+encodeURIComponent(action)).then(function(r){return r.json();});
       if(ja&&ja.ok){
-        ab.innerHTML=(ja.logs||[]).map(function(a){ return '<tr><td class="adm-mono">'+fmtDate(a.created_at)+'</td><td class="adm-mono">'+esc(a.actor_email||"—")+'</td><td>'+esc(a.action||"")+'</td><td class="adm-mono">'+esc(a.target||"")+'</td></tr>'; }).join("");
+        ab.innerHTML=(ja.logs||[]).map(function(a){
+          var det=a.detail?esc(JSON.stringify(a.detail)):"—";
+          return '<tr><td class="adm-mono">'+fmtDate(a.created_at)+'</td><td class="adm-mono">'+esc(a.actor_email||"—")+'</td><td>'+esc(a.action||"")+'</td><td class="adm-mono">'+esc(a.target||"")+'</td><td class="adm-mono" style="max-width:280px;overflow:hidden;text-overflow:ellipsis">'+det+'</td></tr>';
+        }).join("");
         window.admRenderTable("#setAuditTable");
-      } else if(ab){ ab.innerHTML='<tr><td colspan="4" class="adm-note">'+L("Audit needs superadmin.","Audit butuh superadmin.")+'</td></tr>'; }
+      } else { ab.innerHTML='<tr><td colspan="5" class="adm-note">'+L("Audit needs superadmin.","Audit butuh superadmin.")+'</td></tr>'; }
     }catch(e){}
   }
   document.addEventListener("click", function(e){
@@ -932,9 +1320,9 @@
 
   // ---- ROLE-BASED NAV (Langkah 6) ----
   var ALLOWED={ superadmin:null, viewer:null,
-    marketing:["overview","users","voucher","marketing","reports","settings"],
+    marketing:["overview","users","voucher","marketing","reports","settings","traffic","menustats"],
     finance:["revenue","voucher","corporate","reports"],
-    staff:["users","scan","menu"] };
+    staff:["users","scan","menu","menustats"] };
   function roleDesc(role){
     var m={ superadmin:["Full access.","Akses penuh."], viewer:["Read only.","Baca saja."],
       marketing:["Voucher, campaign, segments, reports. No price/credit edits or health data.","Voucher, campaign, segmen, laporan. Tanpa ubah harga/kredit & data kesehatan."],
@@ -945,14 +1333,39 @@
   async function loadRole(){
     try{
       var j=await adminFetch("/api/admin/me").then(function(r){return r.json();});
-      if(!j||!j.ok) return;
+      if(!j||!j.ok) return false;
       var role=j.role||"viewer"; IS_SUPER=(role==="superadmin");
       var allow=ALLOWED[role];
       document.querySelectorAll("[data-nav]").forEach(function(b){ b.style.display=(!allow||allow.indexOf(b.dataset.nav)>=0)?"":"none"; });
       var strip=document.getElementById("roleStrip"), rt=document.getElementById("roleText");
       if(strip&&rt){ strip.hidden=false; rt.textContent=role.toUpperCase()+" · "+roleDesc(role); }
       if(allow && allow.indexOf(CUR.section)<0){ CUR.section=allow[0]; if(window.admShowSection) window.admShowSection(CUR.section); }
-    }catch(e){}
+      return true;
+    }catch(e){ return false; }
+  }
+  // ---- LOGIN (A/2) — additif: overlay hanya muncul kalau BELUM ter-auth. ----
+  async function admTryAuth(email, pass){
+    try{ if(window.Auth&&Auth.ready) await Auth.ready; }catch(e){}
+    try{
+      var res=await Auth.supabase.auth.signInWithPassword({ email:email, password:pass });
+      if(!res.error) return { ok:true };
+      try{ await Auth.fitcoLogin(email, pass); return { ok:true }; }
+      catch(e){ return { ok:false, error:res.error.message }; }
+    }catch(e){ return { ok:false, error:String((e&&e.message)||e) }; }
+  }
+  function admShowLogin(){ var o=document.getElementById("admLogin"); if(o) o.hidden=false; }
+  async function admDoLogin(){
+    var email=((document.getElementById("admLoginEmail")||{}).value||"").trim();
+    var pass=(document.getElementById("admLoginPass")||{}).value||"";
+    var msg=document.getElementById("admLoginMsg"), btn=document.getElementById("admLoginBtn");
+    if(!email||!pass){ if(msg)msg.textContent=L("Enter email & password.","Isi email & password."); return; }
+    if(msg)msg.textContent=L("Signing in…","Masuk…"); if(btn)btn.disabled=true;
+    var r=await admTryAuth(email, pass);
+    if(btn)btn.disabled=false;
+    if(!r.ok){ if(msg)msg.textContent=r.error||L("Login failed.","Login gagal."); return; }
+    var authed=await loadRole();
+    if(authed){ var o=document.getElementById("admLogin"); if(o)o.hidden=true; loadSection(CUR.section); }
+    else if(msg)msg.textContent=L("This account is not an admin.","Akun ini bukan admin.");
   }
 
   // ---- VOUCHER ----
@@ -1119,18 +1532,33 @@
     try{
       var j=await adminFetch("/api/admin/corporate").then(function(r){return r.json();});
       CORP_CACHE=(j&&j.corporates)||[];
+      // Agregat operasional (TANPA data kesehatan) — endpoint superadmin.
+      var actMap={}, totals=null;
+      try{
+        var av=await adminFetch("/api/admin/corporate/activity").then(function(r){return r.json();});
+        ((av&&av.corporates)||[]).forEach(function(a){ actMap[a.id]=a; });
+        totals=(av&&av.totals)||null;
+      }catch(e){}
+      var ct=document.getElementById("corpTotals");
+      if(ct) ct.innerHTML = totals
+        ? cell(totals.members||0,"Anggota aktif","Active members")+cell(totals.active_7d||0,"Aktif 7 hari","Active 7d")+cell(totals.active_30d||0,"Aktif 30 hari","Active 30d")+cell(totals.scans_30d||0,"Scan 30 hari","Scans 30d")
+        : '<div class="adm-cell"><div class="adm-note">—</div></div>';
       tb.innerHTML=CORP_CACHE.map(function(c){
+        var a=actMap[c.id]||{};
         return '<tr>'+
           '<td><b>'+esc(c.name||"—")+'</b>'+(c.contact_email?'<div class="adm-note">'+esc(c.contact_email)+'</div>':'')+'</td>'+
           '<td class="adm-mono">'+esc(c.code||"")+'</td>'+
           '<td class="adm-right adm-num" data-value="'+(c.member_count||0)+'">'+(c.member_count||0)+'</td>'+
+          '<td class="adm-right adm-num" data-value="'+(a.active_7d||0)+'">'+(a.active_7d||0)+' <span class="adm-note">('+(a.active_7d_pct||0)+'%)</span></td>'+
+          '<td class="adm-right adm-num" data-value="'+(a.active_30d||0)+'">'+(a.active_30d||0)+' <span class="adm-note">('+(a.active_30d_pct||0)+'%)</span></td>'+
+          '<td class="adm-right adm-num" data-value="'+(a.scans_30d||0)+'">'+(a.scans_30d||0)+'</td>'+
           '<td class="adm-note">'+(esc((c.admins||[]).join(", "))||"—")+'</td>'+
           '<td>'+corpStatusTag(c.status)+'</td></tr>';
       }).join("");
       window.admRenderTable("#corpTable");
       var sel=document.getElementById("caOrg");
       if(sel){ var prev=sel.value; sel.innerHTML=CORP_CACHE.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.name)+" ("+esc(c.code)+")</option>";}).join(""); if(prev&&CORP_CACHE.some(function(c){return c.id===prev;})) sel.value=prev; if(sel.value) caLoadOrg(sel.value); else { var ce=document.getElementById("caEmpty"); if(ce) ce.hidden=false; } }
-    }catch(e){ tb.innerHTML='<tr><td colspan="5" class="adm-note">'+esc(String(e.message||e))+'</td></tr>'; }
+    }catch(e){ tb.innerHTML='<tr><td colspan="8" class="adm-note">'+esc(String(e.message||e))+'</td></tr>'; }
   }
   async function corpCreate(){
     var msg=document.getElementById("coMsg");
@@ -1149,7 +1577,7 @@
       var ce=document.getElementById("caEmpty"); if(ce) ce.hidden=admins.length>0;
       tb.innerHTML=admins.map(function(a){
         return '<tr><td class="adm-mono">'+esc(a.email)+'</td><td class="adm-num adm-note">'+(a.created_at?String(a.created_at).slice(0,10):"—")+'</td>'+
-          '<td class="adm-right"><button class="adm-btn adm-btn--sm caDel" data-uid="'+esc(a.auth_user_id)+'" data-confirm="'+L("Sure?","Yakin?")+'">'+L("Remove","Hapus")+'</button></td></tr>';
+          '<td class="adm-right"><button class="adm-btn adm-btn--sm caInvite" data-email="'+esc(a.email)+'">'+L("Invite email","Undang email")+'</button> <button class="adm-btn adm-btn--sm caDel" data-uid="'+esc(a.auth_user_id)+'" data-confirm="'+L("Sure?","Yakin?")+'">'+L("Remove","Hapus")+'</button></td></tr>';
       }).join("");
     }catch(e){ tb.innerHTML=""; }
   }
@@ -1163,12 +1591,29 @@
     if(r&&r.ok){ msg.textContent=L("Saved","Tersimpan")+((r.admin&&r.admin.password_set)?(" · "+L("password set","password di-set")):""); if(window.admToast)admToast(L("Portal account saved","Akun portal tersimpan")); document.getElementById("caEmail").value=""; document.getElementById("caPass").value=""; caLoadOrg(org); loadCorporate(); }
     else msg.textContent=(r&&r.error)||L("Failed","Gagal");
   }
+  async function caInvite(addr){
+    var sel=document.getElementById("caOrg"), org=sel?sel.value:""; if(!org||!addr) return;
+    var r=await adminPost("/api/admin/corporate/"+encodeURIComponent(org)+"/admins/invite",{email:addr}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(r.message||L("Invite sent","Undangan dikirim")); }
+    else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
+  }
   async function caRemove(uid){
     var sel=document.getElementById("caOrg"), org=sel?sel.value:""; if(!org||!uid) return;
     var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
     var r=await fetch("/api/admin/corporate/"+encodeURIComponent(org)+"/admins/"+encodeURIComponent(uid)+qs,{method:"DELETE",credentials:"include",headers:await admAuthHeaders()}).then(function(x){return x.json();}).catch(function(){return{};});
     if(r&&r.ok){ if(window.admToast)admToast(L("Admin removed","Admin dihapus")); caLoadOrg(org); loadCorporate(); }
     else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
+  }
+
+  function corpCopyPortalLink(){
+    var inp=document.getElementById("corpPortalLink");
+    var link=inp&&inp.value?inp.value:"https://my.20fit.id/corp-dashboard";
+    function done(){ if(window.admToast) admToast(L("Portal link copied","Link portal disalin")); }
+    function fallback(){ try{ if(inp){ inp.focus(); inp.select(); document.execCommand&&document.execCommand("copy"); } done(); }catch(e){} }
+    try{
+      if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done,fallback);
+      else fallback();
+    }catch(e){ fallback(); }
   }
 
   // ---- SEND CAMPAIGN (Modul 4) ----
@@ -1320,7 +1765,228 @@
     rpBind("rpExpUsers",function(){admExport("top_users",["Name","Email","PageViews","LastActive"],tu.map(function(u){return [u.full_name,u.email,u.ping_count,u.last_active_at];}),"top_users.csv");});
   }
 
+  // ---- TRANSACTION DETAIL ----
+  function fmtDT(s){ return s?String(s).slice(0,16).replace("T"," "):"—"; }
+  function orderTypeLabel(t){ var m={scan_credit:L("Food scan credit","Kredit scan makanan"),plus:L("Membership Plus","Membership Plus"),other:L("Other","Lainnya")}; return m[t]||(t?esc(t):L("Food scan credit","Kredit scan makanan")); }
+  async function txRevDetail(reff){
+    var pane=document.getElementById("revDetail"); if(!pane) return;
+    pane.hidden=false; pane.innerHTML='<div class="adm-loading">'+L("Loading…","Memuat…")+'</div>';
+    var j=await adminFetch("/api/admin/transactions/"+encodeURIComponent(reff)).then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j||!j.ok){ pane.innerHTML='<div class="adm-note">'+esc((j&&j.error)||L("Failed","Gagal"))+'</div>'; return; }
+    var t=j.tx, b=j.buyer, v=j.voucher, u=j.usage;
+    pane.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div style="font-weight:800;font-size:16px">'+L("Transaction","Transaksi")+' '+esc(t.reff_no)+'</div><button class="adm-btn adm-btn--sm" id="revDetailClose">✕</button></div>'+
+      '<div class="adm-note">'+orderTypeLabel(t.order_type)+'</div>'+
+      '<div class="adm-grid adm-grid--4" style="margin:10px 0">'+
+        cell(esc(t.status),"Status","Status")+cell(rp(t.amount),"Nominal","Amount",(t.net_amount!=null&&t.net_amount!==t.amount)?(L("pay","bayar")+" "+rp(t.net_amount)):"")+
+        cell((t.credits||0)+" scan","Kredit","Credits")+cell(esc(t.payment_method||"—"),"Metode","Method")+
+      '</div>'+
+      '<table class="adm-table"><tbody>'+
+        '<tr><td>'+L("Buyer","Pembeli")+'</td><td><b>'+esc((b&&(b.full_name||b.email))||"—")+'</b>'+(b&&b.email?' · '+esc(b.email):'')+'</td></tr>'+
+        '<tr><td>Gateway ref</td><td class="adm-mono">'+esc(t.gateway_reference_id||"—")+'</td></tr>'+
+        '<tr><td>'+L("Created","Dibuat")+'</td><td class="adm-mono">'+fmtDT(t.created_at)+'</td></tr>'+
+        '<tr><td>'+L("Paid","Dibayar")+'</td><td class="adm-mono">'+fmtDT(t.paid_at)+'</td></tr>'+
+        (v?'<tr><td>Voucher</td><td><span class="adm-tag adm-tag--paid">'+esc(v.code)+'</span> '+(v.discount_type==="percentage"?(v.discount_value+"%"):rp(v.discount_value))+(u?' · '+L("discount","diskon")+' '+rp(u.discount_applied):'')+'</td></tr>':'')+
+      '</tbody></table>';
+    var cb=document.getElementById("revDetailClose"); if(cb) cb.onclick=function(){ pane.hidden=true; };
+  }
+
+  // ---- VOUCHER MANAGE (edit / activate / detail) ----
+  function vDisc(v){ return v.discount_type==="percentage" ? (v.discount_value+"%") : rp(v.discount_value); }
+  function vDOnly(d){ return d?String(d).slice(0,10):"—"; }
+  var VM_CACHE=[];
+  async function loadVoucherManage(){
+    var tb=document.getElementById("vmRows"); if(!tb) return;
+    tb.innerHTML='<tr><td colspan="6"><div class="adm-loading">'+L("Loading…","Memuat…")+'</div></td></tr>';
+    var s=(document.getElementById("vmSearch")||{}).value||"", st=(document.getElementById("vmStatus")||{}).value||"";
+    var qs="search="+encodeURIComponent(s)+"&status="+encodeURIComponent(st)+"&sort=created_at&dir=desc";
+    var j=await adminFetch("/api/admin/vouchers?"+qs).then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="6" class="adm-note">'+esc((j&&j.error)||L("Failed","Gagal"))+'</td></tr>'; return; }
+    VM_CACHE=j.vouchers||[];
+    if(!VM_CACHE.length){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("No vouchers yet.","Belum ada voucher.")+'</div></td></tr>'; return; }
+    tb.innerHTML=VM_CACHE.map(function(v){
+      var lim=v.usage_limit_total!=null?v.usage_limit_total:"∞";
+      var stg=v.status==="active"?'<span class="adm-tag adm-tag--paid">'+esc(v.status)+'</span>':'<span class="adm-tag adm-tag--mute">'+esc(v.status)+'</span>';
+      var act='<button class="adm-btn adm-btn--sm vmAct" data-a="detail" data-id="'+esc(v.id)+'">'+L("Detail","Detail")+'</button> '+
+        '<button class="adm-btn adm-btn--sm vmAct" data-a="edit" data-id="'+esc(v.id)+'">'+L("Edit","Edit")+'</button> '+
+        (v.status==="inactive"
+          ? '<button class="adm-btn adm-btn--sm vmAct" data-a="on" data-id="'+esc(v.id)+'">'+L("Activate","Aktifkan")+'</button>'
+          : '<button class="adm-btn adm-btn--sm vmAct" data-a="off" data-id="'+esc(v.id)+'" data-confirm="'+L("Deactivate?","Nonaktifkan?")+'">'+L("Deactivate","Nonaktif")+'</button>');
+      return '<tr><td class="adm-mono"><b>'+esc(v.code)+'</b></td><td class="adm-right">'+vDisc(v)+'</td><td class="adm-right adm-num">'+(v.used_count||0)+' / '+lim+'</td><td class="adm-note">'+vDOnly(v.valid_from)+' – '+vDOnly(v.valid_until)+'</td><td>'+stg+'</td><td style="white-space:nowrap">'+act+'</td></tr>';
+    }).join("");
+  }
+  async function vmDetail(id){
+    var pane=document.getElementById("vmPane"); if(!pane) return;
+    pane.innerHTML='<div class="adm-loading">'+L("Loading…","Memuat…")+'</div>';
+    var j=await adminFetch("/api/admin/vouchers/"+encodeURIComponent(id)).then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j||!j.ok){ pane.innerHTML='<div class="adm-note">'+esc((j&&j.error)||L("Failed","Gagal"))+'</div>'; return; }
+    var v=j.voucher, u=j.usages||[];
+    pane.innerHTML='<div style="font-weight:800;font-size:16px">'+esc(v.code)+'</div>'+
+      (v.description?'<div class="adm-note">'+esc(v.description)+'</div>':'')+
+      '<div class="adm-grid adm-grid--2" style="margin:10px 0">'+cell(vDisc(v),"Diskon","Discount")+cell((v.used_count||0)+" / "+(v.usage_limit_total!=null?v.usage_limit_total:"∞"),"Dipakai","Used")+'</div>'+
+      '<div class="adm-note">'+L("Valid","Berlaku")+': '+vDOnly(v.valid_from)+' – '+vDOnly(v.valid_until)+' · Min '+rp(v.min_transaction)+' · '+esc(v.status)+'</div>'+
+      '<div class="adm-sec-title">'+L("Usage history","Riwayat pemakaian")+' ('+u.length+')</div>'+
+      (u.length? '<div style="overflow-x:auto"><table class="adm-table"><thead><tr><th>User</th><th>'+L("Tx","Transaksi")+'</th><th class="adm-right">'+L("Discount","Diskon")+'</th><th>'+L("When","Waktu")+'</th></tr></thead><tbody>'+
+        u.map(function(x){return '<tr><td class="adm-mono">'+esc(String(x.auth_user_id).slice(0,8))+'…</td><td class="adm-mono">'+esc(x.reff_no||"—")+'</td><td class="adm-right adm-num">'+rp(x.discount_applied)+'</td><td class="adm-note">'+fmtDate(x.used_at)+'</td></tr>';}).join("")+'</tbody></table></div>'
+        : '<div class="adm-note">'+L("No usage yet.","Belum ada pemakaian.")+'</div>');
+  }
+  function vmEditForm(id){
+    var pane=document.getElementById("vmPane"); if(!pane) return;
+    var v=VM_CACHE.filter(function(x){return x.id===id;})[0]; if(!v) return;
+    var used=(v.used_count||0)>0, lock=used?"disabled":"";
+    pane.innerHTML='<div style="font-weight:800;font-size:16px">'+L("Edit voucher","Edit voucher")+' '+esc(v.code)+'</div>'+
+      (used?'<div class="adm-note">'+L("Used already — type/value & min are locked.","Sudah dipakai — tipe/nilai & min terkunci.")+'</div>':'')+
+      '<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">'+
+      '<label class="adm-note">'+L("Discount type","Tipe diskon")+'</label><select class="adm-input" id="vmType" '+lock+'><option value="percentage"'+(v.discount_type==="percentage"?" selected":"")+'>percentage (%)</option><option value="fixed"'+(v.discount_type==="fixed"?" selected":"")+'>fixed (Rp)</option></select>'+
+      '<label class="adm-note">'+L("Value","Nilai")+'</label><input class="adm-input" id="vmValue" type="number" '+lock+' value="'+esc(v.discount_value)+'">'+
+      '<label class="adm-note">'+L("Min transaction","Min transaksi")+'</label><input class="adm-input" id="vmMin" type="number" '+lock+' value="'+esc(v.min_transaction!=null?v.min_transaction:0)+'">'+
+      '<label class="adm-note">'+L("Total quota","Kuota total")+'</label><input class="adm-input" id="vmLimT" type="number" value="'+esc(v.usage_limit_total!=null?v.usage_limit_total:"")+'" placeholder="∞">'+
+      '<label class="adm-note">'+L("Per-user limit","Batas per user")+'</label><input class="adm-input" id="vmLimU" type="number" value="'+esc(v.usage_limit_per_user!=null?v.usage_limit_per_user:"")+'" placeholder="∞">'+
+      '<label class="adm-note">'+L("Valid from","Berlaku dari")+'</label><input class="adm-input" id="vmFrom" type="date" value="'+(v.valid_from?String(v.valid_from).slice(0,10):"")+'">'+
+      '<label class="adm-note">'+L("Valid until","Berlaku sampai")+'</label><input class="adm-input" id="vmUntil" type="date" value="'+(v.valid_until?String(v.valid_until).slice(0,10):"")+'">'+
+      '<label class="adm-note">'+L("Description","Deskripsi")+'</label><input class="adm-input" id="vmDesc" value="'+esc(v.description||"")+'">'+
+      '<div class="adm-note" id="vmMsg"></div>'+
+      '<div style="display:flex;gap:8px"><button class="adm-btn adm-btn--primary" id="vmSave">'+L("Save","Simpan")+'</button><button class="adm-btn adm-btn--sm" id="vmCancel">'+L("Cancel","Batal")+'</button></div>'+
+      '</div>';
+    document.getElementById("vmSave").onclick=function(){ vmSave(v.id); };
+    document.getElementById("vmCancel").onclick=function(){ vmDetail(v.id); };
+  }
+  async function vmSave(id){
+    var msg=document.getElementById("vmMsg");
+    var body={ discount_type:document.getElementById("vmType").value, discount_value:document.getElementById("vmValue").value,
+      min_transaction:document.getElementById("vmMin").value, usage_limit_total:document.getElementById("vmLimT").value,
+      usage_limit_per_user:document.getElementById("vmLimU").value, valid_from:document.getElementById("vmFrom").value||null,
+      valid_until:document.getElementById("vmUntil").value||null, description:document.getElementById("vmDesc").value };
+    if(msg) msg.textContent=L("Saving…","Menyimpan…");
+    var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
+    var r=await fetch("/api/admin/vouchers/"+encodeURIComponent(id)+qs,{method:"PATCH",credentials:"include",headers:Object.assign({"content-type":"application/json"},await admAuthHeaders()),body:JSON.stringify(body)}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Voucher saved","Voucher tersimpan")); loadVoucherManage(); vmDetail(id); }
+    else if(msg) msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  async function vmToggle(id, on){
+    var r=await adminPost("/api/admin/vouchers/"+encodeURIComponent(id)+"/"+(on?"activate":"deactivate"),{}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(on?L("Activated","Diaktifkan"):L("Deactivated","Dinonaktifkan")); loadVoucherManage(); }
+    else if(window.admToast)admToast((r&&r.error)||L("Failed","Gagal"));
+  }
+
+  // ---- TRAFFIC (attribution) ----
+  function trafficTable(rows){
+    if(!rows||!rows.length) return '<div class="adm-note">'+L("No data yet.","Data belum tersedia.")+'</div>';
+    return '<table class="adm-table"><thead><tr><th data-sort="str">'+L("Source","Sumber")+'</th><th class="adm-right" data-sort="num">'+L("Signups","Signup")+'</th><th class="adm-right" data-sort="num">'+L("Buyers","Pembeli")+'</th><th class="adm-right" data-sort="num">'+L("Conv.","Konversi")+'</th><th class="adm-right" data-sort="num">Revenue</th></tr></thead><tbody>'+
+      rows.map(function(g){ return '<tr><td>'+esc(g.key)+'</td><td class="adm-right adm-num">'+(g.signups||0)+'</td><td class="adm-right adm-num">'+(g.buyers||0)+'</td><td class="adm-right adm-num">'+(g.conv||0)+'%</td><td class="adm-right adm-num">'+rp(g.revenue||0)+'</td></tr>'; }).join("")+
+      '</tbody></table>';
+  }
+  async function loadTraffic(){
+    var sum=document.getElementById("trSummary");
+    ["trSource","trMedium","trCampaign","trReferrer"].forEach(function(id){var e=document.getElementById(id);if(e)e.innerHTML='<div class="adm-loading">'+L("Loading…","Memuat…")+'</div>';});
+    var j=await adminFetch("/api/admin/attribution").then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j||!j.ok){ if(sum)sum.innerHTML='<div class="adm-cell"><div class="adm-note">'+esc((j&&j.error)||L("Failed","Gagal"))+'</div></div>'; return; }
+    var tot=j.total_users||0, trk=j.tracked||0;
+    if(sum) sum.innerHTML=
+      cell(tot,"Total user","Total users")+
+      cell(trk,"Punya sumber asli","Has real source", tot?Math.round(trk/tot*100)+"%":"")+
+      cell(j.pre_tracking||0,"User lama","Legacy users")+
+      cell(j.direct_new||0,"Baru & langsung","New & direct");
+    document.getElementById("trSource").innerHTML=trafficTable(j.by_source);
+    document.getElementById("trMedium").innerHTML=trafficTable(j.by_medium);
+    document.getElementById("trCampaign").innerHTML=trafficTable(j.by_campaign);
+    document.getElementById("trReferrer").innerHTML=trafficTable(j.by_referrer);
+  }
+  // ---- MENU INTEREST (menu-analytics) ----
+  var msRange="30d";
+  async function loadMenuStats(){
+    var sum=document.getElementById("msSummary");
+    ["msTypes","msMenus"].forEach(function(id){var e=document.getElementById(id);if(e)e.innerHTML='<div class="adm-loading">'+L("Loading…","Memuat…")+'</div>';});
+    var j=await adminFetch("/api/admin/menu-analytics?range="+encodeURIComponent(msRange)).then(function(r){return r.json();}).catch(function(){return{};});
+    if(!j||!j.ok){ if(sum)sum.innerHTML='<div class="adm-cell"><div class="adm-note">'+esc((j&&j.error)||L("Failed","Gagal"))+'</div></div>'; return; }
+    if(sum) sum.innerHTML=cell(j.total_clicks||0,"Total buka menu","Total menu opens")+cell(j.unique_menus||0,"Menu unik dibuka","Unique menus")+cell(j.unique_users||0,"User unik","Unique users");
+    var ty=j.by_type||[], tEl=document.getElementById("msTypes");
+    if(!ty.length){ tEl.innerHTML='<div class="adm-note">'+L("No data yet.","Data belum tersedia.")+'</div>'; }
+    else {
+      var max=ty[0].clicks||1;
+      tEl.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Type","Tipe")+'</th><th class="adm-right">'+L("Opens","Buka")+'</th><th class="adm-right">'+L("Users","User")+'</th><th class="adm-right">'+L("Menus","Menu")+'</th><th style="width:36%">'+L("Interest","Minat")+'</th></tr></thead><tbody>'+
+        ty.map(function(g){ var pct=Math.max(2,Math.round((g.clicks/max)*100)); return '<tr><td>'+esc(String(g.type).replace(/-/g," "))+'</td><td class="adm-right adm-num">'+g.clicks+'</td><td class="adm-right adm-num">'+g.users+'</td><td class="adm-right adm-num">'+g.menus+'</td><td><div class="adm-bar"><i style="width:'+pct+'%"></i></div></td></tr>'; }).join("")+'</tbody></table>';
+    }
+    var ms=j.menus||[], mEl=document.getElementById("msMenus");
+    if(!ms.length){ mEl.innerHTML='<div class="adm-note">'+L("No data yet.","Data belum tersedia.")+'</div>'; }
+    else {
+      mEl.innerHTML='<table class="adm-table"><thead><tr><th data-sort="str">Menu</th><th data-sort="str">'+L("Type","Tipe")+'</th><th class="adm-right" data-sort="num">'+L("Opens","Buka")+'</th><th class="adm-right" data-sort="num">'+L("Unique users","User unik")+'</th><th class="adm-right" data-sort="num">'+L("Kcal","Kalori")+'</th></tr></thead><tbody>'+
+        ms.map(function(m){ var tp=(m.types||[]).map(function(t){return esc(String(t).replace(/-/g," "));}).join(", ")||"—"; return '<tr><td>'+esc(m.name||m.menu_id)+'</td><td class="adm-note">'+tp+'</td><td class="adm-right adm-num">'+(m.clicks||0)+'</td><td class="adm-right adm-num">'+(m.users||0)+'</td><td class="adm-right adm-num">'+(m.kcal!=null?m.kcal:"—")+'</td></tr>'; }).join("")+'</tbody></table>';
+    }
+  }
+
   // ---- dispatcher ----
+  // ---- EVENT CATALOG (section Event) — CRUD katalog "Upcoming Event" homepage ----
+  var EV_CACHE = [];
+  function evEsc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function evVal(id){ var el=document.getElementById(id); return el?el.value:""; }
+  async function loadEvents(){
+    var list=document.getElementById("evList"); if(!list) return;
+    list.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
+    try{
+      var res=await adminFetch("/api/admin/event-catalog");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ list.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; return; }
+      EV_CACHE=j.events||[];
+      if(!EV_CACHE.length){ list.innerHTML='<div class="adm-note">'+L("No events yet. Add one above.","Belum ada event. Tambah di atas.")+'</div>'; return; }
+      list.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Name","Nama")+'</th><th>'+L("Date","Tanggal")+'</th><th>slug</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+
+        EV_CACHE.map(function(e){
+          return '<tr><td>'+evEsc(e.name)+'</td>'+
+            '<td class="adm-mono">'+(e.event_date?evEsc(e.event_date):"—")+'</td>'+
+            '<td class="adm-mono">'+(e.slug?evEsc(e.slug):"—")+'</td>'+
+            '<td>'+(e.active?'<span class="adm-tag adm-tag--paid">ON</span>':'<span class="adm-tag adm-tag--mute">OFF</span>')+'</td>'+
+            '<td class="adm-right"><button class="adm-btn adm-btn--sm evAct" data-a="edit" data-id="'+evEsc(e.id)+'">'+L("Edit","Edit")+'</button> '+
+              '<button class="adm-btn adm-btn--sm evAct" data-a="toggle" data-id="'+evEsc(e.id)+'">'+(e.active?L("Off","Nonaktif"):L("On","Aktifkan"))+'</button> '+
+              '<button class="adm-btn adm-btn--sm evAct" data-a="delete" data-id="'+evEsc(e.id)+'">'+L("Delete","Hapus")+'</button></td></tr>';
+        }).join("")+'</tbody></table>';
+    }catch(e){ list.innerHTML='<div class="adm-note">'+L("Error loading events.","Error memuat event.")+'</div>'; }
+  }
+  window.evEdit=function(id){
+    var e=EV_CACHE.filter(function(x){return String(x.id)===String(id);})[0]; if(!e) return;
+    document.getElementById("ev_id").value=e.id||"";
+    document.getElementById("ev_name").value=e.name||"";
+    document.getElementById("ev_date").value=e.event_date||"";
+    document.getElementById("ev_loc").value=e.location||"";
+    document.getElementById("ev_slug").value=e.slug||"";
+    document.getElementById("ev_img").value=e.image_url||"";
+    document.getElementById("ev_price").value=e.price_label||"";
+    document.getElementById("ev_sort").value=(e.sort_order!=null?e.sort_order:"");
+    document.getElementById("ev_active").checked=e.active!==false;
+    var c=document.getElementById("evCancelBtn"); if(c)c.hidden=false;
+    try{ document.getElementById("ev_name").scrollIntoView({block:"center"}); }catch(_){}
+  };
+  window.evCancel=function(){
+    ["ev_id","ev_name","ev_date","ev_loc","ev_slug","ev_img","ev_price","ev_sort"].forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
+    var a=document.getElementById("ev_active"); if(a)a.checked=true;
+    var c=document.getElementById("evCancelBtn"); if(c)c.hidden=true;
+    var m=document.getElementById("evMsg"); if(m)m.textContent="";
+  };
+  window.evSave=async function(){
+    var msg=document.getElementById("evMsg");
+    var name=(evVal("ev_name")||"").trim();
+    if(!name){ if(msg)msg.textContent=L("Event name is required.","Nama event wajib."); return; }
+    var body={ id:evVal("ev_id")||undefined, name:name, event_date:evVal("ev_date")||null, location:evVal("ev_loc")||null,
+      image_url:evVal("ev_img")||null, slug:(evVal("ev_slug")||"").trim()||null, price_label:evVal("ev_price")||null,
+      sort_order:parseInt(evVal("ev_sort"),10)||0, active:!!(document.getElementById("ev_active")||{}).checked };
+    if(msg)msg.textContent=L("Saving…","Menyimpan…");
+    try{
+      var res=await adminPost("/api/admin/event-catalog", body);
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
+      if(msg)msg.textContent=L("Saved.","Tersimpan."); window.evCancel(); loadEvents();
+    }catch(e){ if(msg)msg.textContent=L("Error saving.","Error menyimpan."); }
+  };
+  window.evToggle=async function(id){
+    try{ var res=await adminPost("/api/admin/event-catalog/"+encodeURIComponent(id)+"/toggle",{}); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadEvents(); }catch(e){}
+  };
+  window.evDelete=async function(id){
+    if(!window.confirm(L("Delete this event?","Hapus event ini?"))) return;
+    try{
+      var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
+      var res=await fetch("/api/admin/event-catalog/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() });
+      var j=await res.json().catch(function(){return null;});
+      if(j&&j.ok) loadEvents();
+    }catch(e){}
+  };
   function loadSection(id){
     if(id==="overview") return loadOverview();
     if(id==="revenue") return loadRevenue();
@@ -1331,6 +1997,9 @@
     if(id==="voucher") return loadVoucher();
     if(id==="menu") return loadMenu();
     if(id==="corporate") return loadCorporate();
+    if(id==="events") return loadEvents();
+    if(id==="traffic") return loadTraffic();
+    if(id==="menustats") return loadMenuStats();
     if(id==="reports") return loadReports();
   }
   document.addEventListener("click", function(e){
@@ -1340,16 +2009,30 @@
     if(nav){ CUR.section=nav.dataset.nav; loadSection(CUR.section); return; }
     var row=e.target.closest("#usrRows tr[data-uid]");
     if(row){ document.querySelectorAll("#usrRows tr").forEach(function(x){x.style.background="";}); row.style.background="var(--surface)"; loadUserDetail(row.dataset.uid); return; }
+    var trrow=e.target.closest("#revRows tr[data-reff]");
+    if(trrow){ txRevDetail(trrow.dataset.reff); return; }
     var crow=e.target.closest("#mktCampRows tr[data-cid]");
     if(crow){ loadCampaignDrill(crow.dataset.cid); return; }
     var btab=e.target.closest('[data-tab="mkt"][data-tab-id="banner"]');
     if(btab){ setTimeout(loadBanner,0); return; }
+    var vmtab=e.target.closest('[data-tab="vch"][data-tab-id="manage"]');
+    if(vmtab){ setTimeout(loadVoucherManage,0); return; }
+    var vma=e.target.closest(".vmAct");
+    if(vma){ if(vma.dataset.confirm&&vma.dataset.armed==="1") return; var vmaA=vma.dataset.a,vmaId=vma.dataset.id; if(vmaA==="detail")vmDetail(vmaId); else if(vmaA==="edit")vmEditForm(vmaId); else if(vmaA==="on")vmToggle(vmaId,true); else if(vmaA==="off")vmToggle(vmaId,false); return; }
+    var eva=e.target.closest(".evAct");
+    if(eva){ var evaA=eva.dataset.a,evaId=eva.dataset.id; if(evaA==="edit")window.evEdit(evaId); else if(evaA==="toggle")window.evToggle(evaId); else if(evaA==="delete")window.evDelete(evaId); return; }
     var mnrow=e.target.closest("#mnRows tr[data-mid]");
     if(mnrow){ var mm=MN_CACHE.filter(function(x){return x.id===mnrow.dataset.mid;})[0]; if(mm){ document.querySelectorAll("#mnRows tr").forEach(function(x){x.style.background="";}); mnrow.style.background="var(--surface)"; mnRenderDetail(mm); } return; }
     var mnf=e.target.closest(".mnf");
     if(mnf){ MN_FILTER=mnf.dataset.s; document.querySelectorAll(".mnf").forEach(function(c){c.setAttribute("aria-pressed",String(c===mnf));}); MN_SEL=null; loadMenu(); return; }
     var cad=e.target.closest(".caDel");
     if(cad){ if(cad.dataset.armed==="1") return; caRemove(cad.dataset.uid); return; }
+    var cinv=e.target.closest(".caInvite");
+    if(cinv){ caInvite(cinv.dataset.email); return; }
+    var srd=e.target.closest(".setRoleDel");
+    if(srd){ if(srd.dataset.armed==="1") return; setRoleRemove(srd.dataset.uid); return; }
+    var msb=e.target.closest(".msbtn");
+    if(msb){ document.querySelectorAll(".msbtn").forEach(function(x){x.setAttribute("aria-pressed",String(x===msb));}); msRange=msb.dataset.msrange; loadMenuStats(); return; }
     var stab=e.target.closest('[data-tab="mkt"][data-tab-id="send"]');
     if(stab){ setTimeout(loadSend,0); return; }
     var seact=e.target.closest(".seAct");
@@ -1360,6 +2043,12 @@
     if(be){ bnEditById(be.closest("tr[data-bid]").dataset.bid); return; }
     var bd=e.target.closest(".bnDel");
     if(bd){ if(bd.dataset.armed==="1") return; bnDelete(bd.closest("tr[data-bid]").dataset.bid); return; }
+    var rcp=e.target.closest(".recapChip");
+    if(rcp){ document.querySelectorAll(".recapChip").forEach(function(x){x.setAttribute("aria-pressed",String(x===rcp));}); RECAP_STATE.range=rcp.dataset.recap; loadRecap(); return; }
+    var rcard=e.target.closest(".recapCard");
+    if(rcard){ recapShowSeg(rcard.dataset.seg); return; }
+    var rex=e.target.closest(".recapExport");
+    if(rex){ recapExport(); return; }
   });
   async function bnToggle(id,on){
     var r=await adminPost("/api/admin/banners/"+encodeURIComponent(id)+"/toggle",{is_active:on}).then(function(x){return x.json();}).catch(function(){return{};});
@@ -1385,15 +2074,28 @@
       CUR.period=b.dataset.period; loadSection(CUR.section);
     });
     CUR.section = new URLSearchParams(location.search).get("section") || "overview";
-    loadRole().then(function(){ loadSection(CUR.section); });
+    loadRole().then(function(authed){ if(authed){ loadSection(CUR.section); } else { admShowLogin(); } });
+    var _alb=document.getElementById("admLoginBtn"); if(_alb) _alb.onclick=admDoLogin;
+    var _alp=document.getElementById("admLoginPass"); if(_alp) _alp.addEventListener("keydown",function(e){ if(e.key==="Enter") admDoLogin(); });
     ["vcType","vcValue","vcMin","vcLimit","vcPerUser","vcUntil"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",vcPreview); });
     var _vcb=document.getElementById("vcCreate"); if(_vcb) _vcb.onclick=vcCreate;
     var _vbb=document.getElementById("vbGen"); if(_vbb) _vbb.onclick=vbGen;
+    var _uex=document.getElementById("usrExport"); if(_uex) _uex.onclick=usrExportCsv;
+    var _nua=document.getElementById("nuAdd"); if(_nua) _nua.onclick=doAddUser;
+    var _cip=document.getElementById("ciPreview"); if(_cip) _cip.onclick=ciPreview;
+    var _cic=document.getElementById("ciCommit"); if(_cic) _cic.onclick=ciCommit;
+    var _vmr=document.getElementById("vmRefresh"); if(_vmr) _vmr.onclick=loadVoucherManage;
+    var _vms=document.getElementById("vmStatus"); if(_vms) _vms.addEventListener("change",loadVoucherManage);
+    var _vmq=document.getElementById("vmSearch"); if(_vmq){ var _vmt; _vmq.addEventListener("input",function(){ clearTimeout(_vmt); _vmt=setTimeout(loadVoucherManage,300); }); }
     var _bs=document.getElementById("bnSave"); if(_bs) _bs.onclick=bnSave;
     var _br=document.getElementById("bnReset"); if(_br) _br.onclick=bnResetForm;
     ["bnImgId","bnImgEn","bnAltId","bnAltEn","bnCtaId","bnCtaEn"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",bnPreview); });
     var _mns=document.getElementById("mnSearch"); if(_mns){ var _mnt; _mns.addEventListener("input",function(){ clearTimeout(_mnt); _mnt=setTimeout(function(){ MN_SEL=null; loadMenu(); },300); }); }
     var _cc=document.getElementById("coCreate"); if(_cc) _cc.onclick=corpCreate;
+    var _clp=document.getElementById("corpCopyLink"); if(_clp) _clp.onclick=corpCopyPortalLink;
+    var _sra=document.getElementById("setRoleAdd"); if(_sra) _sra.onclick=setRoleAddSubmit;
+    var _saa=document.getElementById("setAuditAction"); if(_saa) _saa.addEventListener("change",loadSettingsAudit);
+    var _sar=document.getElementById("setAuditRefresh"); if(_sar) _sar.onclick=loadSettingsAudit;
     var _ca=document.getElementById("caAdd"); if(_ca) _ca.onclick=caAdd;
     var _cao=document.getElementById("caOrg"); if(_cao) _cao.addEventListener("change",function(){ caLoadOrg(this.value); });
     var _sep=document.getElementById("sePreview"); if(_sep) _sep.onclick=sePreview;

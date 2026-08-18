@@ -17,6 +17,7 @@ const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerb
 const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
 const segments = require("./lib/segments"); // segment engine untuk blast email admin
 const blast = require("./lib/blast"); // send queue blast email (batching, kill switch, auto-abort)
+const QRCode = require("qrcode"); // QR digital ticket (dibuat di server, tak panggil layanan luar)
 const emailConfig = require("./lib/email-config"); // angka guardrail anti-spam (cap, kill switch, backlog, circuit breaker)
 const { createClient } = require("@supabase/supabase-js");
 
@@ -1957,8 +1958,10 @@ app.get("/api/partner/profile", async (req, res) => {
   const uid = String(req.query.user_id || req.query.auth_user_id || "").trim();
   if (!email && !uid) return res.status(400).json({ error: "Provide ?email= or ?user_id=." });
   try {
+    // PRIVASI: data siklus menstruasi (cycle_last_period/cycle_length) TIDAK PERNAH
+    // dikembalikan ke pihak mana pun selain user sendiri — termasuk partner API.
     let q = admin.from("my20fit_profile")
-      .select("auth_user_id,email,full_name,phone,gender,age,height_cm,weight_kg,main_goal,health_conditions,avatar_url,is_plus_member,onboarding_completed,cycle_last_period,cycle_length,updated_at")
+      .select("auth_user_id,email,full_name,phone,gender,age,height_cm,weight_kg,main_goal,health_conditions,avatar_url,is_plus_member,onboarding_completed,updated_at")
       .limit(1);
     q = email ? q.eq("email", email) : q.eq("auth_user_id", uid);
     const { data, error } = await q;
@@ -1969,6 +1972,178 @@ app.get("/api/partner/profile", async (req, res) => {
     console.error("partner/profile:", e.message);
     return res.status(500).json({ error: "Internal error." });
   }
+});
+
+// ---------- /api/tickets/mine : tiket event race milik user (widget "Upcoming Event") ----------
+// SUMBER: sistem race 20FIT (rc_ticket_invites + rc_events) — Opsi 3 (join lintas-app), atas
+// keputusan pemilik. ATURAN & PRIVASI yang WAJIB dijaga di sini:
+//  - CLAUDE.md §4: tabel non-`my20fit_*` milik app lain. Kita HANYA MEMBACA (SELECT), TIDAK PERNAH
+//    menulis ke rc_ticket_invites / rc_events.
+//  - Ruang lingkup KETAT per-user: cuma baris yang email-nya == email user yang LOGIN (diambil dari
+//    my20fit_profile by auth_user_id, bukan dari client). Tak ada param email dari client → tak bisa
+//    dipakai enumerasi tiket orang lain. Service key bypass RLS, jadi filter email WAJIB di query +
+//    dicek ulang exact-match di JS (hindari over-match wildcard ilike untuk email berisi '_').
+//  - TAHAN-GAGAL: kalau tabel tak ada / query error → balikan {ok:true, tickets:[]} supaya home aman.
+app.get("/api/tickets/mine", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    if (!admin) return res.json({ ok: true, tickets: [] });
+
+    // Identitas = email user (dari profil kita; fallback ke email auth).
+    let email = String(user.email || "").trim().toLowerCase();
+    try {
+      const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", user.id).limit(1);
+      if (prof && prof[0] && prof[0].email) email = String(prof[0].email).trim().toLowerCase();
+    } catch (_) {}
+    if (!email) return res.json({ ok: true, tickets: [] });
+
+    // READ-ONLY tabel app lain. Kandidat case-insensitive, lalu exact-match di JS.
+    let invites = [];
+    try {
+      const { data, error } = await admin.from("rc_ticket_invites")
+        .select("id,event_id,email,category_key,status,source_data,created_at")
+        .ilike("email", email).limit(50);
+      if (error) throw error;
+      invites = (data || []).filter(r => String(r.email || "").trim().toLowerCase() === email);
+    } catch (_) { return res.json({ ok: true, tickets: [] }); }
+    if (!invites.length) return res.json({ ok: true, tickets: [] });
+
+    // Nama + tanggal event dari rc_events (read-only).
+    const evIds = [...new Set(invites.map(i => i.event_id).filter(Boolean))];
+    const evMap = {};
+    if (evIds.length) {
+      try {
+        const { data: evs } = await admin.from("rc_events").select("id,name,event_date").in("id", evIds);
+        (evs || []).forEach(e => { evMap[e.id] = e; });
+      } catch (_) {}
+    }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const tickets = invites.map(i => {
+      const ev = evMap[i.event_id] || {};
+      const label = i.source_data && (i.source_data.TIKET || i.source_data.tiket);
+      return {
+        ref: String(i.id || "").replace(/-/g, "").slice(0, 8).toUpperCase(), // kode ref singkat (bukan token akses)
+        event_name: ev.name || "Event 20FIT",
+        event_date: ev.event_date || null,
+        ticket_label: label ? String(label).slice(0, 160) : null,
+        category: i.category_key || null,
+        status: i.status || null,
+        upcoming: !!(ev.event_date && String(ev.event_date) >= todayStr),
+        holder: i.name || (i.source_data && (i.source_data.NAMA || i.source_data[" NAMA"])) || null,
+        _token: i.token || null, // dipakai bikin QR di bawah, lalu DIHAPUS dari respons
+      };
+    });
+    // Urut: upcoming dulu (tanggal terdekat), lalu past (terbaru dulu).
+    tickets.sort((a, b) => {
+      if (a.upcoming !== b.upcoming) return a.upcoming ? -1 : 1;
+      const da = a.event_date || "", db = b.event_date || "";
+      if (a.upcoming) return da < db ? -1 : (da > db ? 1 : 0);
+      return da > db ? -1 : (da < db ? 1 : 0);
+    });
+    // QR digital ticket: encode token asli per-tiket (milik user login). Dibuat di SERVER
+    // (tanpa panggilan keluar → token tak bocor ke pihak ketiga). Tak ada token / gagal →
+    // tiket tetap tampil tanpa QR. Format gate ticket.20fit.id belum dikonfirmasi → token mentah.
+    await Promise.all(tickets.map(async (t) => {
+      if (t._token) {
+        try { t.qr = await QRCode.toString("https://ticket.20fit.id/t/" + String(t._token), { type: "svg", margin: 1, errorCorrectionLevel: "M" }); } catch (_) {}
+      }
+      delete t._token;
+    }));
+    return res.json({ ok: true, tickets, upcoming_count: tickets.filter(t => t.upcoming).length });
+  } catch (e) {
+    if (e && e.status === 503) return res.status(503).json({ error: e.userMessage || "Coba lagi sebentar." });
+    try { console.error("tickets/mine:", e && e.message); } catch (_) {}
+    return res.json({ ok: true, tickets: [] }); // tahan-gagal
+  }
+});
+
+// ---------- Katalog "Upcoming Event" (bisa dibeli) — dikelola admin, dibaca dashboard ----------
+// Publik (tak butuh login): daftar event AKTIF utk tab "Upcoming Event". Buy Now = deep-link ke
+// ticket.20fit.id/id/events/<slug> (payment & tiket diproses DI SANA; kita tak proses bayar).
+app.get("/api/events/upcoming", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, events: [] });
+    const { data, error } = await admin.from("my20fit_event_catalog")
+      .select("id,name,event_date,location,image_url,slug,price_label")
+      .eq("active", true)
+      .order("sort_order", { ascending: true }).order("event_date", { ascending: true })
+      .limit(50);
+    if (error) throw error;
+    const events = (data || []).map(e => ({
+      id: e.id, name: e.name, event_date: e.event_date || null, location: e.location || null,
+      image_url: e.image_url || null, price_label: e.price_label || null,
+      buy_url: e.slug ? ("https://ticket.20fit.id/id/events/" + encodeURIComponent(e.slug)) : "https://ticket.20fit.id",
+    }));
+    return res.json({ ok: true, events });
+  } catch (e) {
+    try { console.error("events/upcoming:", e && e.message); } catch (_) {}
+    return res.json({ ok: true, events: [] }); // tahan-gagal
+  }
+});
+
+// ---------- Admin CRUD katalog event (admin-v2 section Event) ----------
+app.get("/api/admin/event-catalog", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data, error } = await admin.from("my20fit_event_catalog")
+      .select("id,name,event_date,location,image_url,slug,price_label,active,sort_order,updated_at,updated_by")
+      .order("sort_order", { ascending: true }).order("event_date", { ascending: true });
+    if (error) throw error;
+    return res.json({ ok: true, events: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/event-catalog", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const name = String(b.name || "").trim();
+  if (!name) return res.status(400).json({ error: "Nama event wajib." });
+  const row = {
+    name: name.slice(0, 160),
+    event_date: b.event_date ? String(b.event_date).slice(0, 10) : null,
+    location: b.location ? String(b.location).slice(0, 160) : null,
+    image_url: b.image_url ? String(b.image_url).slice(0, 500) : null,
+    slug: b.slug ? String(b.slug).trim().slice(0, 160) : null,
+    price_label: b.price_label ? String(b.price_label).slice(0, 80) : null,
+    active: b.active === false ? false : true,
+    sort_order: Number.isFinite(+b.sort_order) ? (+b.sort_order | 0) : 0,
+    updated_at: new Date().toISOString(),
+    updated_by: ctx.email || (ctx.via === "key" ? "master-key" : null),
+  };
+  try {
+    let data, error;
+    if (b.id) {
+      ({ data, error } = await admin.from("my20fit_event_catalog").update(row).eq("id", String(b.id)).select("id").limit(1));
+    } else {
+      ({ data, error } = await admin.from("my20fit_event_catalog").insert(row).select("id").limit(1));
+    }
+    if (error) throw error;
+    await adminAudit(ctx, b.id ? "event_catalog.update" : "event_catalog.create", (data && data[0] && data[0].id) || String(b.id || ""), { name: row.name });
+    return res.json({ ok: true, id: (data && data[0] && data[0].id) || b.id || null });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/event-catalog/:id/toggle", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const id = String(req.params.id || "");
+  try {
+    const { data: cur } = await admin.from("my20fit_event_catalog").select("active").eq("id", id).limit(1);
+    if (!cur || !cur[0]) return res.status(404).json({ error: "Event tak ditemukan." });
+    const next = !cur[0].active;
+    const { error } = await admin.from("my20fit_event_catalog").update({ active: next, updated_at: new Date().toISOString(), updated_by: ctx.email || null }).eq("id", id);
+    if (error) throw error;
+    await adminAudit(ctx, "event_catalog.toggle", id, { active: next });
+    return res.json({ ok: true, active: next });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.delete("/api/admin/event-catalog/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const id = String(req.params.id || "");
+  try {
+    const { error } = await admin.from("my20fit_event_catalog").delete().eq("id", id);
+    if (error) throw error;
+    await adminAudit(ctx, "event_catalog.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
 // ================= ADMIN MONITORING (dashboard internal) =================
@@ -1999,6 +2174,16 @@ function adminHasRole(ctx, minRole) { return !!(ctx && ADMIN_RANK[ctx.role] >= A
 // kondisi/siklus/MCU). Endpoint yang memuat data profil kesehatan WAJIB memanggil ini
 // dan memangkas field sebelum mengirim respons — diblokir di level API, bukan cuma UI.
 function adminCanSeeHealth(ctx) { return !!(ctx && ctx.role !== "marketing"); }
+// PRIVASI MUTLAK: data siklus menstruasi (cycle_last_period/cycle_length/period_length/last_period_date)
+// TIDAK PERNAH keluar ke pihak mana pun selain user sendiri — termasuk admin & SUPERADMIN.
+// adminCanSeeHealth boleh true (admin lihat BMI/MCU), tapi siklus tetap dibuang di sini.
+// Dipakai untuk memangkas field siklus dari objek profil sebelum dikirim ke admin.
+function stripMenstrualCycle(prof) {
+  if (prof && typeof prof === "object") {
+    delete prof.cycle_last_period; delete prof.cycle_length; delete prof.period_length; delete prof.last_period_date;
+  }
+  return prof;
+}
 async function requireAdmin(req, res, minRole) {
   const ctx = await getAdminContext(req);
   if (!ctx) {
@@ -2197,6 +2382,20 @@ async function corpAudit(ctx, targetUserId, action, detail) {
   } catch (e) {}
 }
 
+// PRIVASI: superadmin 20FIT HANYA boleh MONITORING OPERASIONAL korporat (jumlah
+// anggota & keaktifan pemakaian). Data kesehatan INDIVIDU karyawan (BMI/MCU) — dan
+// MUTLAK data siklus menstruasi — TIDAK dibuka ke superadmin. Endpoint roster/kesehatan
+// corporate hanya untuk admin corporate perusahaan itu sendiri (jalur non-superadmin).
+// Kalau suatu saat superadmin butuh lihat data individu tertentu, itu keputusan pemilik
+// yang harus diputuskan eksplisit — BUKAN default. Gate ini ditegakkan di SERVER.
+function denyCorpHealthToSuperadmin(ctx, res) {
+  if (ctx && ctx.is_superadmin) {
+    res.status(403).json({ error: "Superadmin hanya boleh monitoring operasional korporat (lihat /api/admin/corporate/activity). Data kesehatan individu karyawan (BMI/MCU/siklus) tidak dibuka ke superadmin." });
+    return true;
+  }
+  return false;
+}
+
 // ---- SUPERADMIN: kelola akun corporate ----
 // List semua corporate + jumlah admin & anggota aktif.
 app.get("/api/admin/corporate", async (req, res) => {
@@ -2212,7 +2411,61 @@ app.get("/api/admin/corporate", async (req, res) => {
       var memberCount = (members || []).filter(function (m) { return m.corporate_id === c.id && m.status === "active"; }).length;
       return { id: c.id, name: c.name, code: c.code, status: c.status, contact_email: c.contact_email, created_at: c.created_at, admins: adminList, member_count: memberCount };
     });
+    // Audit BACA: setiap superadmin melihat daftar korporat dicatat (siapa, kapan, apa).
+    await adminAudit(ctx, "corporate.list.view", null, { count: out.length });
     return res.json({ ok: true, corporates: out });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// MONITORING OPERASIONAL (superadmin) — agregat per korporat TANPA data kesehatan.
+// Hanya: jumlah anggota aktif, keaktifan 7/30 hari (my20fit_user_activity), dan
+// pemakaian scan 30 hari. TIDAK ada BMI/MCU/siklus, TIDAK ada baris per-individu.
+// Didaftarkan SEBELUM route "/:id" supaya "activity" tidak ketangkap sebagai :id.
+app.get("/api/admin/corporate/activity", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var nowMs = Date.now();
+    var d7 = new Date(nowMs - 7 * 864e5).toISOString();
+    var d30 = new Date(nowMs - 30 * 864e5).toISOString();
+    var { data: corps, error } = await admin.from("my20fit_corporate")
+      .select("id,name,code,status,created_at").order("created_at", { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    var { data: members } = await admin.from("my20fit_corporate_member").select("corporate_id,auth_user_id,status");
+    var activeMembers = (members || []).filter(function (m) { return m.status === "active"; });
+    var ids = activeMembers.map(function (m) { return m.auth_user_id; });
+    var actMap = {}, scanMap = {};
+    if (ids.length) {
+      var { data: acts } = await admin.from("my20fit_user_activity").select("auth_user_id,last_active_at").in("auth_user_id", ids);
+      (acts || []).forEach(function (a) { actMap[a.auth_user_id] = a.last_active_at; });
+      var { data: sc } = await admin.from("my20fit_scan_orders").select("auth_user_id,paid_at").eq("status", "paid").gte("paid_at", d30).in("auth_user_id", ids);
+      (sc || []).forEach(function (s) { scanMap[s.auth_user_id] = (scanMap[s.auth_user_id] || 0) + 1; });
+    }
+    var byCorp = {};
+    activeMembers.forEach(function (m) {
+      var a = byCorp[m.corporate_id] || (byCorp[m.corporate_id] = { member_count: 0, active_7d: 0, active_30d: 0, scans_30d: 0 });
+      a.member_count++;
+      var la = actMap[m.auth_user_id];
+      if (la && la >= d7) a.active_7d++;
+      if (la && la >= d30) a.active_30d++;
+      a.scans_30d += (scanMap[m.auth_user_id] || 0);
+    });
+    var out = (corps || []).map(function (c) {
+      var a = byCorp[c.id] || { member_count: 0, active_7d: 0, active_30d: 0, scans_30d: 0 };
+      return {
+        id: c.id, name: c.name, code: c.code, status: c.status, created_at: c.created_at,
+        member_count: a.member_count, active_7d: a.active_7d, active_30d: a.active_30d, scans_30d: a.scans_30d,
+        active_7d_pct: a.member_count ? Math.round(a.active_7d / a.member_count * 100) : 0,
+        active_30d_pct: a.member_count ? Math.round(a.active_30d / a.member_count * 100) : 0,
+      };
+    });
+    var totals = out.reduce(function (t, c) {
+      t.corporates++; t.members += c.member_count; t.active_7d += c.active_7d; t.active_30d += c.active_30d; t.scans_30d += c.scans_30d; return t;
+    }, { corporates: 0, members: 0, active_7d: 0, active_30d: 0, scans_30d: 0 });
+    await adminAudit(ctx, "corporate.activity.view", null, { corporates: out.length });
+    return res.json({
+      ok: true, corporates: out, totals: totals, generated_at: new Date().toISOString(),
+      note: "Operasional saja (jumlah anggota & keaktifan). TIDAK memuat data kesehatan/BMI/MCU/siklus individu.",
+    });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Buat corporate baru { name, code?, contact_email?, admin_email? }.
@@ -2271,6 +2524,8 @@ app.get("/api/admin/corporate/:id", async (req, res) => {
     var { data: admins } = await admin.from("my20fit_corporate_admin").select("auth_user_id,email,created_at").eq("corporate_id", id);
     var { data: members } = await admin.from("my20fit_corporate_member").select("status").eq("corporate_id", id);
     var active = (members || []).filter(function (m) { return m.status === "active"; }).length;
+    // Audit BACA: superadmin membuka detail korporat dicatat.
+    await adminAudit(ctx, "corporate.detail.view", id, { name: corp.name });
     return res.json({ ok: true, corporate: corp, admins: admins || [], member_count: active });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
@@ -2309,6 +2564,44 @@ app.post("/api/admin/corporate/:id/admins", async (req, res) => {
   // Jejak TIDAK menyimpan password — hanya flag apakah password di-set.
   await adminAudit(ctx, "corporate.admin.add", id, { email: email, password_set: !!r.password_set });
   return res.json({ ok: true, admin: r });
+});
+// Kirim UNDANGAN email ke admin portal korporat: link set/reset password (recovery)
+// supaya HR bikin passwordnya sendiri, lalu login di /corp-dashboard. Superadmin only.
+// (email = modul mailer di scope ini; pakai `addr` untuk alamat agar tak bentrok.)
+app.post("/api/admin/corporate/:id/admins/invite", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  var id = String(req.params.id || "");
+  var addr = String((req.body || {}).email || "").trim().toLowerCase();
+  if (!addr) return res.status(400).json({ error: "email wajib." });
+  try {
+    var uid = await findUserIdByEmail(addr);
+    if (!uid) return res.status(404).json({ error: "Akun admin belum ada. Tambah adminnya dulu, baru kirim undangan." });
+    var { data: ca } = await admin.from("my20fit_corporate_admin").select("id").eq("corporate_id", id).eq("auth_user_id", uid).limit(1);
+    if (!ca || !ca[0]) return res.status(404).json({ error: "Email itu bukan admin portal korporat ini." });
+    var { data: corp } = await admin.from("my20fit_corporate").select("name").eq("id", id).limit(1);
+    var corpName = (corp && corp[0] && corp[0].name) || "perusahaanmu";
+    var link = null;
+    try {
+      var { data: ld, error: le } = await admin.auth.admin.generateLink({
+        type: "recovery", email: addr, options: { redirectTo: APP_BASE_URL + "/reset-password" },
+      });
+      if (le) throw le;
+      link = (ld && ld.properties && ld.properties.action_link) || null;
+    } catch (e) { return res.status(500).json({ error: "Gagal membuat link undangan: " + e.message }); }
+    if (!link) return res.status(500).json({ error: "Link undangan kosong." });
+    var portal = APP_BASE_URL + "/corp-dashboard";
+    var html = '<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto">' +
+      '<h2 style="color:#C41101">Akses Dashboard HR 20FIT — ' + escHtml(corpName) + '</h2>' +
+      '<p>Kamu ditunjuk sebagai admin HR untuk memantau program kesehatan karyawan <b>' + escHtml(corpName) + '</b> di 20FIT.</p>' +
+      '<p><b>Langkah 1</b> — buat password kamu:</p>' +
+      '<p><a href="' + link + '" style="display:inline-block;background:#C41101;color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">Set password</a></p>' +
+      '<p style="color:#666;font-size:12px;word-break:break-all">' + link + '</p>' +
+      '<p><b>Langkah 2</b> — login ke dashboard HR di <a href="' + portal + '">' + portal + '</a> pakai email ini + password yang kamu buat.</p>' +
+      '<p style="color:#666;font-size:12px">Akses kamu dibatasi HANYA untuk karyawan ' + escHtml(corpName) + '. Data pribadi sensitif tertentu tidak ditampilkan. Simpan email ini baik-baik.</p></div>';
+    var r = await email.send({ to: addr, subject: "Undangan Dashboard HR 20FIT — " + corpName, html: html, transactional: true, channel: "transactional", templateId: "corp_admin_invite", userId: uid });
+    await adminAudit(ctx, "corporate.admin.invite", id, { email: addr, mail_sent: !!(r && r.ok && !r.skipped), mail_skipped: !!(r && r.skipped) });
+    return res.json({ ok: true, sent: !!(r && r.ok && !r.skipped), skipped: !!(r && r.skipped), message: "Undangan dikirim ke " + addr + "." });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Hapus admin corporate.
 app.delete("/api/admin/corporate/:id/admins/:userId", async (req, res) => {
@@ -2369,9 +2662,12 @@ function corpClassifyUsage(sig) {
   return { level: freq ? "frequent" : "rare", activeDays: sig.activeDays, scans: sig.scans, workouts: sig.workouts };
 }
 // Bangun roster lengkap (kesehatan + frekuensi) untuk SATU corporate. Dipakai summary.
+// Daftar divisi kanonik (Opsi A). Disimpan sebagai KODE; label bilingual di UI.
+var CORP_DIVISIONS = ["hr", "finance", "it", "marketing", "sales", "operations", "cs", "procurement", "legal", "production", "rnd", "logistics", "ga", "engineering", "qa", "management", "other"];
+function normDivision(d) { d = String(d || "").trim().toLowerCase(); return CORP_DIVISIONS.indexOf(d) >= 0 ? d : null; }
 async function corpRoster(corporateId) {
   var { data: mem } = await admin.from("my20fit_corporate_member")
-    .select("auth_user_id,linked_at,consent_at").eq("corporate_id", corporateId).eq("status", "active").order("linked_at", { ascending: false });
+    .select("auth_user_id,linked_at,consent_at,division,division_other").eq("corporate_id", corporateId).eq("status", "active").order("linked_at", { ascending: false });
   var ids = (mem || []).map(function (m) { return m.auth_user_id; });
   if (!ids.length) return [];
   var since = new Date(Date.now() - CORP_USAGE_RULES.window_days * 864e5).toISOString(), sinceDate = since.slice(0, 10);
@@ -2397,12 +2693,14 @@ async function corpRoster(corporateId) {
       health_status: h.status, bmi: h.bmi, high_need: h.highNeed, has_mcu: h.hasMcu, has_bmi: h.hasBmi,
       attention_count: h.attentionCount, abnormal_count: h.abnormalCount,
       usage_level: u.level, active_days: u.activeDays, scans: u.scans, workouts: u.workouts, linked_at: m.linked_at,
+      division: m.division || null, division_other: m.division_other || null,
     };
   });
 }
 // Ringkasan + matriks karyawan (admin corporate). Tiap akses dicatat audit.
 app.get("/api/corp/summary", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return;
   try {
     var roster = await corpRoster(ctx.corporate_id);
     var k = { total: roster.length, healthy: 0, attention: 0, unknown: 0, frequent: 0, rare: 0, high_need: 0 };
@@ -2418,6 +2716,7 @@ app.get("/api/corp/summary", async (req, res) => {
 // Detail satu karyawan (WAJIB anggota corporate ini). Akses individual dicatat audit.
 app.get("/api/corp/member/:uid", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return;
   var uid = String(req.params.uid || "");
   try {
     var { data: mem } = await admin.from("my20fit_corporate_member")
@@ -2500,11 +2799,11 @@ app.get("/api/corp/membership", async (req, res) => {
   var user = await getUserFromReq(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
   var { data } = await admin.from("my20fit_corporate_member")
-    .select("corporate_id,status,linked_at,consent_at,consent_version").eq("auth_user_id", user.id).eq("status", "active").limit(1);
+    .select("corporate_id,status,linked_at,consent_at,consent_version,division,division_other").eq("auth_user_id", user.id).eq("status", "active").limit(1);
   var m = data && data[0];
   if (!m) return res.json({ ok: true, member: null });
   var { data: c } = await admin.from("my20fit_corporate").select("name").eq("id", m.corporate_id).limit(1);
-  return res.json({ ok: true, member: { corporate_name: (c && c[0] && c[0].name) || "—", linked_at: m.linked_at, consent_at: m.consent_at, consent_version: m.consent_version } });
+  return res.json({ ok: true, member: { corporate_name: (c && c[0] && c[0].name) || "—", linked_at: m.linked_at, consent_at: m.consent_at, consent_version: m.consent_version, division: m.division || null, division_other: m.division_other || null } });
 });
 // Keluar dari program (hormati kapan pun; setelah ini admin corporate tak bisa lihat lagi).
 app.post("/api/corp/leave", async (req, res) => {
@@ -2515,6 +2814,24 @@ app.post("/api/corp/leave", async (req, res) => {
     .eq("auth_user_id", user.id).eq("status", "active");
   if (error) return res.status(500).json({ error: error.message });
   return res.json({ ok: true });
+});
+// Set DIVISI karyawan pada keanggotaan korporat aktifnya sendiri. division wajib
+// (kode kanonik); 'other' -> division_other teks bebas. Divalidasi ke daftar resmi.
+app.post("/api/corp/set-division", async (req, res) => {
+  var user = await getUserFromReq(req);
+  if (!user) return res.status(401).json({ error: "Unauthorized" });
+  var b = req.body || {};
+  var div = normDivision(b.division);
+  if (!div) return res.status(400).json({ error: "Divisi tidak valid." });
+  var other = div === "other" ? String(b.division_other || "").trim().slice(0, 60) : null;
+  if (div === "other" && !other) return res.status(400).json({ error: "Isi nama divisi (Lainnya)." });
+  var { data: mem } = await admin.from("my20fit_corporate_member")
+    .select("id").eq("auth_user_id", user.id).eq("status", "active").limit(1);
+  if (!mem || !mem[0]) return res.status(404).json({ error: "Kamu belum tergabung di korporat." });
+  var { error } = await admin.from("my20fit_corporate_member")
+    .update({ division: div, division_other: other }).eq("id", mem[0].id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.json({ ok: true, division: div, division_other: other });
 });
 
 // ============ Account: hak data-subject (export data pribadi) ============
@@ -2583,6 +2900,7 @@ function corpMsgHtml(bodyText) {
 // Kirim pesan ke karyawan yang cocok filter. Filter DITERAPKAN ULANG di server (tak percaya client).
 app.post("/api/corp/message", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return; // filter pakai roster kesehatan -> superadmin tak boleh
   var b = req.body || {};
   var subject = String(b.subject || "").trim(), body = String(b.body || "").trim(), filter = b.filter || {};
   if (!subject || !body) return res.status(400).json({ error: "Subjek & isi pesan wajib diisi." });
@@ -2623,6 +2941,7 @@ app.post("/api/corp/message", async (req, res) => {
 // Riwayat pesan terkirim (corporate ini).
 app.get("/api/corp/messages", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return;
   try {
     var { data, error } = await admin.from("my20fit_corporate_message_log")
       .select("subject,recipient_count,sent_count,created_at,actor_email").eq("corporate_id", ctx.corporate_id)
@@ -3285,11 +3604,13 @@ app.get("/api/admin/user-detail", async (req, res) => {
   if (!uid) return res.status(400).json({ error: "uid wajib." });
   try {
     // Marketing: JANGAN select("*") — hindari bocornya health_conditions, siklus haid, dll.
-    // Hanya kolom kontak + komersial. Non-marketing tetap profil penuh.
+    // Hanya kolom kontak + komersial. Non-marketing tetap profil penuh (BMI/MCU),
+    // TAPI data siklus menstruasi tetap dibuang untuk SEMUA admin (lihat stripMenstrualCycle).
     const profileCols = adminCanSeeHealth(ctx)
       ? "*"
       : "auth_user_id,full_name,email,phone,scan_credits,onboarding_completed,is_plus_member,created_at";
     const { data: p } = await admin.from("my20fit_profile").select(profileCols).eq("auth_user_id", uid).limit(1);
+    var profileOut = stripMenstrualCycle((p && p[0]) || null);
     const { data: orders } = await admin.from("my20fit_scan_orders")
       .select("reff_no,order_type,credits,amount,net_amount,status,payment_method,voucher_id,created_at,paid_at")
       .eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(200);
@@ -3305,7 +3626,7 @@ app.get("/api/admin/user-detail", async (req, res) => {
       credits_bought: paid.reduce((s, o) => s + (+o.credits || 0), 0),
       highest_purchase: paid.reduce((m, o) => Math.max(m, (o.net_amount != null ? +o.net_amount : +o.amount) || 0), 0),
     };
-    return res.json({ ok: true, profile: (p && p[0]) || null, activity: (act && act[0]) || null, orders: orders || [], stats: stats, emails: emails || [] });
+    return res.json({ ok: true, profile: profileOut, activity: (act && act[0]) || null, orders: orders || [], stats: stats, emails: emails || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 

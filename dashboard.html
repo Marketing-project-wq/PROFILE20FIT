@@ -47,9 +47,12 @@
   .hero.wx-night .wx-temp{color:#31427E}
   html:not(.theme-light) .hero.wx-night .wx-temp{color:#C9D4F5}
   @keyframes heroBreathe{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
-  .hero-inner{position:relative;z-index:1}
+  .hero-inner{position:relative;z-index:1;min-width:0}
   .hk{color:var(--red);font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px 2px}
-  .hello{font-size:33px;font-weight:800;margin:0 2px;letter-spacing:-.03em;line-height:1.04}
+  /* Nama panjang WAJIB wrap ke bawah (bukan kepotong oleh .hero{overflow:hidden}). Berlaku
+     di SEMUA lebar layar — overflow-wrap:anywhere memecah token panjang tanpa spasi juga
+     (mis. nama dari email.split("@")[0]). */
+  .hello{font-size:33px;font-weight:800;margin:0 2px;letter-spacing:-.03em;line-height:1.04;overflow-wrap:anywhere}
   .greetdate{font-size:13px;color:var(--faint);font-weight:600;margin:5px 2px 0}
 
   /* ---- Section labels ---- */
@@ -225,9 +228,8 @@
   }
   @media(max-width:380px){
     .grid2{grid-template-columns:1fr}
-    /* Hero: nama panjang tak terpotong, mengecil halus alih-alih meluber */
-    .hero-inner{min-width:0}
-    .hello{font-size:clamp(22px,7.6vw,28px);overflow-wrap:anywhere}
+    /* Hero di layar sempit: nama mengecil halus (wrap sudah ditangani base .hello). */
+    .hello{font-size:clamp(22px,7.6vw,28px)}
     .sec.gsec{font-size:15px}
     /* Judul section tetap satu baris di samping link aksinya (All / See all / Customize) */
     .trk-head{gap:8px}
@@ -495,6 +497,48 @@
       .tkempty{margin-top:12px;padding:14px;border:1px dashed var(--line);border-radius:12px;text-align:center;font-size:12.5px;color:var(--muted)}
       .tkskel{background:linear-gradient(90deg,var(--inp),color-mix(in srgb,var(--inp) 55%,#fff),var(--inp));background-size:200% 100%;animation:tksh 1.2s infinite}
       @keyframes tksh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+      /* ---- Ticket / Upcoming Event card ---- */
+      .tkic.ticket{background:var(--amber-soft);color:var(--amber)}
+      /* Dompet Tiket — kartu bergaya e-tiket (hazard + stub sobek + QR), token-based (dark-safe) */
+      .twk-tabs{position:relative;display:grid;grid-template-columns:1fr 1fr;border:1.5px solid var(--ink);border-radius:999px;overflow:hidden;background:var(--card);margin:14px 0}
+      .twk-slider{position:absolute;top:0;bottom:0;left:0;width:50%;background:var(--ink);transition:transform .3s cubic-bezier(.65,.05,.15,1)}
+      .twk-slider.right{transform:translateX(100%)}
+      .twk-tab{position:relative;z-index:1;background:none;border:0;cursor:pointer;padding:11px 8px;font-weight:800;font-size:13px;letter-spacing:.03em;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit}
+      .twk-tab.on{color:var(--card)}
+      .twk-count{font-size:11px;font-weight:800;border:1px solid currentColor;border-radius:999px;padding:0 6px;opacity:.8}
+      .twk-list{display:flex;flex-direction:column;gap:14px}
+      .twk-card{position:relative;display:grid;grid-template-columns:1fr 150px;background:var(--card);border:1.5px solid var(--ink);border-radius:14px;overflow:hidden}
+      .twk-haz{position:absolute;top:0;left:0;right:0;height:6px;background:repeating-linear-gradient(115deg,var(--ink) 0 9px,transparent 9px 18px);opacity:.85}
+      .twk-card.up .twk-haz{background:repeating-linear-gradient(115deg,var(--red) 0 9px,transparent 9px 18px)}
+      .twk-body{padding:18px 16px 16px;min-width:0}
+      .twk-tag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:3px 7px}
+      .twk-name{font-weight:900;font-size:19px;line-height:1.05;margin:10px 0 2px;overflow-wrap:anywhere}
+      .twk-meta{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted);margin-top:8px}
+      .twk-facts{display:flex;gap:20px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+      .twk-fact span{display:block;font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+      .twk-fact b{font-size:13px;font-weight:800;overflow-wrap:anywhere}
+      .twk-stub{position:relative;border-left:2px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:16px 12px}
+      .twk-stub::before,.twk-stub::after{content:"";position:absolute;left:-9px;width:16px;height:16px;background:var(--bg);border:1.5px solid var(--ink);border-radius:50%}
+      .twk-stub::before{top:-9px}.twk-stub::after{bottom:-9px}
+      .twk-qrbox{background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px;width:104px;line-height:0}
+      .twk-qrbox svg{display:block;width:100%;height:auto}
+      .twk-zoom{background:none;border:0;cursor:pointer;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:2px}
+      .twk-amount{font-weight:900;font-size:21px;line-height:1.05;text-align:center}
+      .twk-buy{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;background:var(--red);color:#fff;border:0;border-radius:8px;padding:11px 10px;cursor:pointer;text-decoration:none;font-weight:800;font-size:13px;letter-spacing:.03em;text-transform:uppercase}
+      .twk-etiket{font-size:9.5px;color:var(--muted)}
+      .twk-empty{border:1.5px dashed var(--line);border-radius:14px;padding:32px 20px;text-align:center}
+      .twk-empty h4{font-weight:900;font-size:17px;margin:0 0 6px}
+      .twk-empty p{font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.5}
+      .twk-ghost{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--ink);border-radius:8px;padding:9px 16px;text-decoration:none;color:var(--ink);font-weight:800;font-size:13px;cursor:pointer;background:none}
+      .twk-ov{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:24px;z-index:300}
+      .twk-sheet{background:#fff;color:#16170F;border-radius:18px;padding:24px;text-align:center;max-width:320px;width:100%;position:relative}
+      .twk-sheet h4{font-weight:900;font-size:18px;margin:0 0 3px}
+      .twk-sheet small{display:block;font-size:12px;color:#5F6355;margin-bottom:16px}
+      .twk-sheet .twk-qrbox{width:220px;margin:0 auto;border:0}
+      .twk-close{position:absolute;top:10px;right:12px;background:none;border:0;cursor:pointer;font-size:18px;color:#5F6355;line-height:1}
+      .twk-code{font-size:12px;font-weight:800;margin-top:14px;font-family:ui-monospace,monospace}
+      .twk-hint{font-size:11px;color:#5F6355;margin-top:6px}
+      @media(max-width:600px){ .twk-card{grid-template-columns:1fr} .twk-stub{border-left:0;border-top:2px dashed var(--line);flex-direction:row;justify-content:space-between;flex-wrap:wrap;gap:10px} .twk-card.up .twk-buy{flex:1 1 100%} .twk-stub::after{left:auto;right:-9px;top:-9px;bottom:auto} }
       /* ---- Photo.20fit.id card (katalog foto event) ---- */
       .psec{font-size:11.5px;font-weight:800;color:var(--muted);margin:14px 2px 8px;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px}
       .psec small{color:var(--pagemut);font-weight:700;font-size:11px}
@@ -518,8 +562,9 @@
       .pviewmodal{max-width:420px}
       .pviewimgwrap{position:relative;width:100%;aspect-ratio:3/4;max-height:56vh;border-radius:14px;overflow:hidden;background:var(--inp);margin-top:4px}
       .pviewimg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
-      .pviewinfo{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
-      .pviewname{font-weight:800;font-size:14px;color:var(--txt);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .pviewinfo{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-top:12px}
+      /* Nama foto wrap ke bawah kalau panjang — jangan dipotong ellipsis. */
+      .pviewname{font-weight:800;font-size:14px;color:var(--txt);min-width:0;overflow-wrap:anywhere}
       .pviewprice{font-weight:800;font-size:14px;color:var(--txt);flex:0 0 auto}
       .pviewprice.owned{color:var(--red)}
     </style>
@@ -734,7 +779,8 @@
         fast: '<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M9 2h6"/></svg>',
         drop: '<svg viewBox="0 0 24 24"><path d="M12 2s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg>',
         sleep: '<svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
-        pulse: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>'
+        pulse: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
+        ticket: '<svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 0-2 2v1.2a1.8 1.8 0 0 1 0 3.6V16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-1.2a1.8 1.8 0 0 1 0-3.6V10a2 2 0 0 0-2-2H4z"/><path d="M14 8v10" stroke-dasharray="2 2.4"/></svg>'
       };
       var TRK = {
         calories:  { ic: "cal",   cls: "cal",   nm: { en: "Calories", id: "Kalori" },                     d: { en: "Track daily kcal & macros", id: "Catat kalori & makro harian" }, fixed: true, render: tcCalories },
@@ -742,9 +788,10 @@
         fasting:   { ic: "fast",  cls: "fast",  nm: { en: "Intermittent Fasting", id: "Intermittent Fasting" }, d: { en: "16:8 fasting window timer", id: "Timer jendela puasa 16:8" }, render: tcFasting },
         hydration: { ic: "drop",  cls: "drop",  nm: { en: "Hydration", id: "Hidrasi" },                    d: { en: "Daily water intake", id: "Asupan air harian" }, render: tcHydration },
         sleep:     { ic: "sleep", cls: "sleep", nm: { en: "Sleep", id: "Tidur" },                          d: { en: "Duration & quality trend", id: "Durasi & tren kualitas" }, render: tcSleep },
-        health:    { ic: "pulse", cls: "pulse", nm: { en: "Health snapshot", id: "Ringkasan Kesehatan" }, d: { en: "RHR, weight & BMI", id: "RHR, berat & BMI" }, render: tcHealth }
+        health:    { ic: "pulse", cls: "pulse", nm: { en: "Health snapshot", id: "Ringkasan Kesehatan" }, d: { en: "RHR, weight & BMI", id: "RHR, berat & BMI" }, render: tcHealth },
+        ticket:    { ic: "ticket", cls: "ticket", nm: { en: "Ticket", id: "Tiket" },              d: { en: "Your upcoming 20FIT event tickets", id: "Tiket event 20FIT mendatang" }, render: tcTicket }
       };
-      var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health"];
+      var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health", "ticket"];
       // calories & photo SELALU tampil (fitur unggulan) — dipaksa hadir walau user tak pin.
       function getPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p) || !p.length) p = ["calories", "photo"]; if (p.indexOf("calories") < 0) p.unshift("calories"); if (p.indexOf("photo") < 0) p.splice(Math.min(1, p.length), 0, "photo"); return p.filter(function (x) { return TRK[x] && TRK[x].enabled !== false; }); }
       function setPins(p) { try { localStorage.setItem("my20fit_home_pins", JSON.stringify(p)); } catch (e) {} setLocalTs(new Date().toISOString()); pushPrefs(); }
@@ -761,6 +808,116 @@
           }
         } catch (e) { SLEEP7 = []; }
         try { if (window.renderStack) window.renderStack(); } catch (e) {}
+      }
+
+      // ===== Ticket / Upcoming Event (widget pinnable) =====
+      // Data REAL dari /api/tickets/mine (server join rc_ticket_invites+rc_events, READ-ONLY,
+      // hanya tiket milik EMAIL user yang login). null = loading; [] = belum punya tiket.
+      var TICKETS = null;
+      var UPCOMING = null;    // null = belum dimuat/loading; [] = kosong; [..] = daftar event beli
+      var TKT_TAB = "mine";   // "mine" (tiket dimiliki) | "upcoming" (event bisa dibeli)
+      window.tktSetTab = function (tab) {
+        TKT_TAB = (tab === "upcoming" ? "upcoming" : "mine");
+        if (TKT_TAB === "upcoming" && UPCOMING === null && window.loadUpcoming) window.loadUpcoming(); // lazy
+        try { if (window.renderStack) window.renderStack(); } catch (e) {}
+      };
+      // Katalog event bisa-dibeli (dikelola admin, tabel my20fit_event_catalog). Publik.
+      window.loadUpcoming = async function loadUpcoming() {
+        try {
+          var r = await fetch("/api/events/upcoming");
+          var j = await r.json().catch(function () { return null; });
+          UPCOMING = (r.ok && j && j.ok && Array.isArray(j.events)) ? j.events : [];
+        } catch (e) { UPCOMING = []; }
+        try { if (window.renderStack) window.renderStack(); } catch (e) {}
+      };
+      window.loadTickets = async function loadTickets() {
+        try {
+          var t = (window.Auth && Auth.token) ? await Auth.token() : null;
+          if (!t) { TICKETS = []; }
+          else {
+            var r = await fetch("/api/tickets/mine", { headers: { Authorization: "Bearer " + t } });
+            var j = await r.json().catch(function () { return null; });
+            TICKETS = (r.ok && j && j.ok && Array.isArray(j.tickets)) ? j.tickets : [];
+          }
+        } catch (e) { TICKETS = []; }
+        try { if (window.renderStack) window.renderStack(); } catch (e) {}
+      };
+      function tktDate(s) {
+        if (!s) return "";
+        var d = new Date(String(s).length <= 10 ? (s + "T00:00:00") : s);
+        if (isNaN(d)) return String(s);
+        var mEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        var mId = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+        return Lx({ en: d.getDate() + " " + mEn[d.getMonth()] + " " + d.getFullYear(),
+                   id: d.getDate() + " " + mId[d.getMonth()] + " " + d.getFullYear() });
+      }
+      // Kartu e-tiket (Tiket Saya): jenis tiket + event + tanggal + peserta/order + stub QR.
+      // QR (t.qr) = svg dari server, encode URL check-in ticket.20fit.id/t/<token>.
+      function twkTicketCard(t) {
+        var date = (t && t.event_date) ? tktDate(t.event_date) : "";
+        var facts = '<div class="twk-facts">' +
+          ((t && t.holder) ? '<div class="twk-fact"><span>' + Lx({ en: "Attendee", id: "Peserta" }) + '</span><b>' + _esc(t.holder) + '</b></div>' : '') +
+          ((t && t.ref) ? '<div class="twk-fact"><span>' + Lx({ en: "Order", id: "Order" }) + '</span><b>' + _esc(t.ref) + '</b></div>' : '') +
+          '</div>';
+        var stub = (t && t.qr)
+          ? '<div class="twk-stub"><div class="twk-qrbox">' + t.qr + '</div><button type="button" class="twk-zoom" onclick="twkZoom(\'' + _esc(t.ref || "") + '\')">' + Lx({ en: "Enlarge", id: "Perbesar" }) + '</button></div>'
+          : '<div class="twk-stub"><div class="twk-etiket">' + Lx({ en: "e-ticket", id: "e-tiket" }) + '</div></div>';
+        return '<article class="twk-card"><div class="twk-haz"></div><div class="twk-body">' +
+          ((t && (t.ticket_label || t.category)) ? '<span class="twk-tag">' + _esc(t.ticket_label || t.category) + '</span>' : '') +
+          '<div class="twk-name">' + _esc((t && t.event_name) || "Event 20FIT") + '</div>' +
+          (date ? '<div class="twk-meta"><div>' + _esc(date) + '</div></div>' : '') +
+          facts + '</div>' + stub + '</article>';
+      }
+      // Kartu event yang bisa dibeli (Event Mendatang): dari katalog admin (my20fit_event_catalog).
+      function twkEventCard(e) {
+        var date = (e && e.event_date) ? tktDate(e.event_date) : Lx({ en: "Date TBA", id: "Jadwal menyusul" });
+        var loc = (e && e.location) ? ('<div>' + _esc(e.location) + '</div>') : "";
+        var buy = (e && e.buy_url) || "https://ticket.20fit.id";
+        buy += (buy.indexOf("?") < 0 ? "?" : "&") + "utm_source=my20fit&utm_medium=app_widget&utm_campaign=buy_now";
+        return '<article class="twk-card up"><div class="twk-haz"></div><div class="twk-body">' +
+          '<div class="twk-name">' + _esc((e && e.name) || "Event 20FIT") + '</div>' +
+          '<div class="twk-meta"><div>' + _esc(date) + '</div>' + loc + '</div></div>' +
+          '<div class="twk-stub">' +
+          ((e && e.price_label) ? '<div class="twk-amount">' + _esc(e.price_label) + '</div>' : '') +
+          '<a class="twk-buy" href="' + _esc(buy) + '">' + Lx({ en: "Buy Now", id: "Beli Sekarang" }) + ' ↗</a>' +
+          '<div class="twk-etiket">' + Lx({ en: "instant e-ticket", id: "e-tiket instan" }) + '</div></div></article>';
+      }
+      // QR layar penuh (tunjukkan di gerbang check-in).
+      window.twkZoom = function (ref) {
+        var t = (TICKETS || []).filter(function (x) { return String(x.ref) === String(ref); })[0];
+        if (!t || !t.qr) return;
+        twkZoomClose();
+        var ov = document.createElement("div"); ov.className = "twk-ov"; ov.id = "twkOv";
+        ov.innerHTML = '<div class="twk-sheet"><button type="button" class="twk-close" onclick="twkZoomClose()" aria-label="Close">✕</button>' +
+          '<h4>' + _esc(t.event_name || "") + '</h4>' +
+          '<small>' + _esc([t.holder, (t.ticket_label || t.category)].filter(Boolean).join(" · ")) + '</small>' +
+          '<div class="twk-qrbox">' + t.qr + '</div>' +
+          (t.ref ? '<div class="twk-code">' + _esc(t.ref) + '</div>' : '') +
+          '<div class="twk-hint">' + Lx({ en: "Show this QR at the check-in gate.", id: "Tunjukkan QR ini di gerbang check-in." }) + '</div></div>';
+        ov.addEventListener("click", function (e) { if (e.target === ov) twkZoomClose(); });
+        document.body.appendChild(ov);
+      };
+      window.twkZoomClose = function () { var o = document.getElementById("twkOv"); if (o) o.remove(); };
+      function tcTicket() {
+        var head = '<div class="tkhd"><div class="tkic ticket">' + TICON.ticket + '</div>' +
+          '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Ticket Wallet", id: "Dompet Tiket" }) + '</div>' +
+          '<div class="tksub">' + Lx({ en: "Your tickets & upcoming 20FIT events", id: "Tiket kamu & event 20FIT mendatang" }) + '</div></div></div>';
+        var tabs = '<div class="twk-tabs" role="tablist"><div class="twk-slider' + (TKT_TAB === "upcoming" ? " right" : "") + '" aria-hidden="true"></div>' +
+          '<button type="button" role="tab" class="twk-tab' + (TKT_TAB === "mine" ? " on" : "") + '" onclick="tktSetTab(\'mine\')">' + Lx({ en: "My Ticket", id: "Tiket Saya" }) + ' <span class="twk-count">' + (TICKETS ? TICKETS.length : 0) + '</span></button>' +
+          '<button type="button" role="tab" class="twk-tab' + (TKT_TAB === "upcoming" ? " on" : "") + '" onclick="tktSetTab(\'upcoming\')">' + Lx({ en: "Upcoming", id: "Mendatang" }) + ' <span class="twk-count">' + (UPCOMING ? UPCOMING.length : 0) + '</span></button></div>';
+        var body;
+        if (TKT_TAB === "upcoming") {
+          if (UPCOMING === null) body = '<div class="twk-list"><div class="tkskel" style="height:96px;border-radius:14px"></div></div>';
+          else if (!UPCOMING.length) body = '<div class="twk-empty"><h4>' + Lx({ en: "No open events", id: "Belum ada event" }) + '</h4><p>' + Lx({ en: "New events appear here. Explore the full catalog at 20FIT Ticket.", id: "Event baru akan muncul di sini. Lihat katalog lengkap di 20FIT Ticket." }) + '</p><a class="twk-ghost" href="https://ticket.20fit.id/id/events">' + Lx({ en: "Explore events", id: "Jelajahi event" }) + ' ↗</a></div>';
+          else body = '<div class="twk-list">' + UPCOMING.map(twkEventCard).join("") + '</div>';
+        } else if (TICKETS === null) {
+          body = '<div class="twk-list"><div class="tkskel" style="height:120px;border-radius:14px"></div></div>';
+        } else if (!TICKETS.length) {
+          body = '<div class="twk-empty"><h4>' + Lx({ en: "No tickets yet", id: "Belum ada tiket" }) + '</h4><p>' + Lx({ en: "Tickets you buy will show here with a QR for check-in.", id: "Tiket yang kamu beli muncul di sini lengkap dengan QR untuk check-in." }) + '</p><button type="button" class="twk-ghost" onclick="tktSetTab(\'upcoming\')">' + Lx({ en: "See upcoming events", id: "Lihat event mendatang" }) + '</button></div>';
+        } else {
+          body = '<div class="twk-list">' + TICKETS.map(twkTicketCard).join("") + '</div>';
+        }
+        return '<div class="card tkcard">' + head + tabs + body + '</div>';
       }
 
       function tcCalories() {
@@ -1388,6 +1545,7 @@
       try{ if(window.renderStack) window.renderStack(); }catch(e){}
       try{ if(window.loadSleep7) window.loadSleep7(); }catch(e){}
       try{ if(window.loadPhotos) window.loadPhotos(); }catch(e){}
+      try{ if(window.loadTickets) window.loadTickets(); }catch(e){}
       renderIFWidget();
       loadIFFromCloud();
       checkAchievements();
