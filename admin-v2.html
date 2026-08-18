@@ -584,17 +584,29 @@
         <div id="msMenus"></div>
       </section>
       <section data-section="events" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Event" data-title-en="Events" data-question="Event yang bisa dibeli — tampil di tab &quot;Upcoming Event&quot; homepage." data-question-en="Buyable events — shown in the homepage &quot;Upcoming Event&quot; tab.">
-        <div class="adm-note" data-i18n="Manage buyable events for the home 'Upcoming Event' tab. Buy Now opens ticket.20fit.id/id/events/<slug> (same tab).">Kelola event yang bisa dibeli untuk tab &quot;Upcoming Event&quot; di homepage. Tombol Buy Now membuka ticket.20fit.id/id/events/&lt;slug&gt; (tab sama).</div>
+        <div class="adm-note" data-i18n="Manage buyable events for the home 'Upcoming' tab. Shown only when status = on_sale AND published. Buy Now opens ticket.20fit.id/id/events/<slug> (same tab); no slug = no button.">Kelola event yang bisa dibeli untuk tab &quot;Mendatang&quot; di homepage. Tampil HANYA bila status = on_sale DAN dipublikasikan. Tombol Beli Sekarang membuka ticket.20fit.id/id/events/&lt;slug&gt; (tab sama); tanpa slug = tanpa tombol.</div>
         <div style="margin-top:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px">
           <input type="hidden" id="ev_id">
+          <input type="hidden" id="ev_published_at">
+          <input class="adm-input" id="ev_slug" placeholder="slug event * (untuk link beli)" data-i18n-ph="event slug * (for buy link)">
           <input class="adm-input" id="ev_name" placeholder="Nama event *" data-i18n-ph="Event name *">
-          <input class="adm-input" id="ev_date" type="date">
-          <input class="adm-input" id="ev_loc" placeholder="Lokasi (opsional)" data-i18n-ph="Location (optional)">
-          <input class="adm-input" id="ev_slug" placeholder="slug event (untuk link beli)" data-i18n-ph="event slug (for buy link)">
-          <input class="adm-input" id="ev_img" placeholder="URL gambar (opsional)" data-i18n-ph="Image URL (optional)" style="grid-column:1/-1">
-          <input class="adm-input" id="ev_price" placeholder="Teks harga, mis. Mulai Rp 150.000 (opsional)" data-i18n-ph="Price text, e.g. From Rp 150,000 (optional)">
+          <input class="adm-input" id="ev_subtitle" placeholder="Subjudul (opsional)" data-i18n-ph="Subtitle (optional)" style="grid-column:1/-1">
+          <input class="adm-input" id="ev_organizer" placeholder="Penyelenggara (opsional)" data-i18n-ph="Organizer (optional)">
+          <input class="adm-input" id="ev_category" placeholder="Kategori (opsional)" data-i18n-ph="Category (optional)">
+          <input class="adm-input" id="ev_venue" placeholder="Venue (opsional)" data-i18n-ph="Venue (optional)">
+          <input class="adm-input" id="ev_city" placeholder="Kota (opsional)" data-i18n-ph="City (optional)">
+          <input class="adm-input" id="ev_start" type="datetime-local">
+          <input class="adm-input" id="ev_price" type="number" placeholder="Harga mulai (rupiah, angka)" data-i18n-ph="Price from (rupiah, number)">
+          <input class="adm-input" id="ev_currency" placeholder="Mata uang (IDR)" data-i18n-ph="Currency (IDR)">
+          <select class="adm-input" id="ev_status">
+            <option value="draft" data-i18n="draft">draft</option>
+            <option value="on_sale" data-i18n="on_sale">on_sale</option>
+            <option value="sold_out" data-i18n="sold_out">sold_out</option>
+            <option value="closed" data-i18n="closed">closed</option>
+          </select>
+          <input class="adm-input" id="ev_cover" placeholder="URL cover (opsional)" data-i18n-ph="Cover URL (optional)" style="grid-column:1/-1">
           <input class="adm-input" id="ev_sort" type="number" placeholder="Urutan (0)" data-i18n-ph="Sort order (0)">
-          <label class="adm-label" style="display:flex;align-items:center;gap:8px;grid-column:1/-1"><input type="checkbox" id="ev_active" checked> <span data-i18n="Active (shown on home)">Aktif (tampil di home)</span></label>
+          <label class="adm-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="ev_pub" checked> <span data-i18n="Published (visible on home)">Dipublikasikan (tampil di home)</span></label>
           <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <button class="adm-btn adm-btn--primary" id="evSaveBtn" onclick="evSave()" data-i18n="Save event">Simpan event</button>
             <button class="adm-btn adm-btn--sm" id="evCancelBtn" onclick="evCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
@@ -1939,45 +1951,71 @@
       if(!j||!j.ok){ list.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; return; }
       EV_CACHE=j.events||[];
       if(!EV_CACHE.length){ list.innerHTML='<div class="adm-note">'+L("No events yet. Add one above.","Belum ada event. Tambah di atas.")+'</div>'; return; }
-      list.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Name","Nama")+'</th><th>'+L("Date","Tanggal")+'</th><th>slug</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+
+      list.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Name","Nama")+'</th><th>slug</th><th>'+L("Start","Mulai")+'</th><th>'+L("Status","Status")+'</th><th>'+L("Published","Publish")+'</th><th></th></tr></thead><tbody>'+
         EV_CACHE.map(function(e){
+          var pub=!!e.published_at;
+          var live=(e.status==="on_sale"&&pub);
           return '<tr><td>'+evEsc(e.name)+'</td>'+
-            '<td class="adm-mono">'+(e.event_date?evEsc(e.event_date):"—")+'</td>'+
             '<td class="adm-mono">'+(e.slug?evEsc(e.slug):"—")+'</td>'+
-            '<td>'+(e.active?'<span class="adm-tag adm-tag--paid">ON</span>':'<span class="adm-tag adm-tag--mute">OFF</span>')+'</td>'+
+            '<td class="adm-mono">'+(e.starts_at?evEsc(String(e.starts_at).slice(0,10)):L("TBA","Menyusul"))+'</td>'+
+            '<td><span class="adm-tag '+(e.status==="on_sale"?"adm-tag--paid":"adm-tag--mute")+'">'+evEsc(e.status||"draft")+'</span></td>'+
+            '<td>'+(pub?'<span class="adm-tag '+(live?"adm-tag--paid":"adm-tag--mute")+'">'+(live?L("LIVE","LIVE"):L("yes","ya"))+'</span>':'<span class="adm-tag adm-tag--mute">'+L("no","tidak")+'</span>')+'</td>'+
             '<td class="adm-right"><button class="adm-btn adm-btn--sm evAct" data-a="edit" data-id="'+evEsc(e.id)+'">'+L("Edit","Edit")+'</button> '+
-              '<button class="adm-btn adm-btn--sm evAct" data-a="toggle" data-id="'+evEsc(e.id)+'">'+(e.active?L("Off","Nonaktif"):L("On","Aktifkan"))+'</button> '+
+              '<button class="adm-btn adm-btn--sm evAct" data-a="toggle" data-id="'+evEsc(e.id)+'">'+(pub?L("Unpublish","Sembunyikan"):L("Publish","Publikasikan"))+'</button> '+
               '<button class="adm-btn adm-btn--sm evAct" data-a="delete" data-id="'+evEsc(e.id)+'">'+L("Delete","Hapus")+'</button></td></tr>';
         }).join("")+'</tbody></table>';
     }catch(e){ list.innerHTML='<div class="adm-note">'+L("Error loading events.","Error memuat event.")+'</div>'; }
   }
+  // ISO → nilai input datetime-local (YYYY-MM-DDTHH:mm), waktu lokal browser.
+  function evDtLocal(iso){ if(!iso)return""; var d=new Date(iso); if(isNaN(d))return""; var p=function(n){return(n<10?"0":"")+n;}; return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes()); }
+  var EV_FIELDS=["ev_id","ev_published_at","ev_slug","ev_name","ev_subtitle","ev_organizer","ev_category","ev_venue","ev_city","ev_start","ev_price","ev_currency","ev_cover","ev_sort"];
   window.evEdit=function(id){
     var e=EV_CACHE.filter(function(x){return String(x.id)===String(id);})[0]; if(!e) return;
     document.getElementById("ev_id").value=e.id||"";
-    document.getElementById("ev_name").value=e.name||"";
-    document.getElementById("ev_date").value=e.event_date||"";
-    document.getElementById("ev_loc").value=e.location||"";
+    document.getElementById("ev_published_at").value=e.published_at||"";
     document.getElementById("ev_slug").value=e.slug||"";
-    document.getElementById("ev_img").value=e.image_url||"";
-    document.getElementById("ev_price").value=e.price_label||"";
+    document.getElementById("ev_name").value=e.name||"";
+    document.getElementById("ev_subtitle").value=e.subtitle||"";
+    document.getElementById("ev_organizer").value=e.organizer||"";
+    document.getElementById("ev_category").value=e.category||"";
+    document.getElementById("ev_venue").value=e.venue||"";
+    document.getElementById("ev_city").value=e.city||"";
+    document.getElementById("ev_start").value=evDtLocal(e.starts_at);
+    document.getElementById("ev_price").value=(e.price_from!=null?e.price_from:"");
+    document.getElementById("ev_currency").value=e.currency||"IDR";
+    document.getElementById("ev_cover").value=e.cover_url||"";
     document.getElementById("ev_sort").value=(e.sort_order!=null?e.sort_order:"");
-    document.getElementById("ev_active").checked=e.active!==false;
+    document.getElementById("ev_status").value=e.status||"draft";
+    document.getElementById("ev_pub").checked=!!e.published_at;
     var c=document.getElementById("evCancelBtn"); if(c)c.hidden=false;
-    try{ document.getElementById("ev_name").scrollIntoView({block:"center"}); }catch(_){}
+    try{ document.getElementById("ev_slug").scrollIntoView({block:"center"}); }catch(_){}
   };
   window.evCancel=function(){
-    ["ev_id","ev_name","ev_date","ev_loc","ev_slug","ev_img","ev_price","ev_sort"].forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
-    var a=document.getElementById("ev_active"); if(a)a.checked=true;
+    EV_FIELDS.forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
+    var cur=document.getElementById("ev_currency"); if(cur)cur.value="IDR";
+    var st=document.getElementById("ev_status"); if(st)st.value="draft";
+    var p=document.getElementById("ev_pub"); if(p)p.checked=true;
     var c=document.getElementById("evCancelBtn"); if(c)c.hidden=true;
     var m=document.getElementById("evMsg"); if(m)m.textContent="";
   };
   window.evSave=async function(){
     var msg=document.getElementById("evMsg");
+    var slug=(evVal("ev_slug")||"").trim();
     var name=(evVal("ev_name")||"").trim();
+    if(!slug){ if(msg)msg.textContent=L("Slug is required.","Slug wajib."); return; }
     if(!name){ if(msg)msg.textContent=L("Event name is required.","Nama event wajib."); return; }
-    var body={ id:evVal("ev_id")||undefined, name:name, event_date:evVal("ev_date")||null, location:evVal("ev_loc")||null,
-      image_url:evVal("ev_img")||null, slug:(evVal("ev_slug")||"").trim()||null, price_label:evVal("ev_price")||null,
-      sort_order:parseInt(evVal("ev_sort"),10)||0, active:!!(document.getElementById("ev_active")||{}).checked };
+    var priceStr=(evVal("ev_price")||"").trim();
+    var body={ id:evVal("ev_id")||undefined, slug:slug, name:name,
+      subtitle:evVal("ev_subtitle")||null, organizer:evVal("ev_organizer")||null,
+      category:evVal("ev_category")||null, venue:evVal("ev_venue")||null, city:evVal("ev_city")||null,
+      starts_at:evVal("ev_start")||null,
+      price_from:(priceStr!==""?parseInt(priceStr,10):null),
+      currency:(evVal("ev_currency")||"IDR").trim()||"IDR",
+      cover_url:evVal("ev_cover")||null,
+      status:evVal("ev_status")||"draft",
+      sort_order:parseInt(evVal("ev_sort"),10)||0,
+      published:!!(document.getElementById("ev_pub")||{}).checked,
+      published_at:evVal("ev_published_at")||null };
     if(msg)msg.textContent=L("Saving…","Menyimpan…");
     try{
       var res=await adminPost("/api/admin/event-catalog", body);

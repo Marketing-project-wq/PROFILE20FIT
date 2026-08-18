@@ -2058,37 +2058,74 @@ app.get("/api/tickets/mine", async (req, res) => {
   }
 });
 
-// ---------- Katalog "Upcoming Event" (bisa dibeli) — dikelola admin, dibaca dashboard ----------
-// Publik (tak butuh login): daftar event AKTIF utk tab "Upcoming Event". Buy Now = deep-link ke
+// ---------- Katalog "Event Mendatang" (bisa dibeli) — dikelola admin, dibaca dashboard ----------
+// Sumber tunggal: my20fit_ticket_events (prefiks my20fit_ sesuai CLAUDE.md §4; TIDAK menyentuh
+// rc_events milik sistem race-timing app lain). Buy Now = deep-link ke
 // ticket.20fit.id/id/events/<slug> (payment & tiket diproses DI SANA; kita tak proses bayar).
+const TICKET_STATUS = ["draft", "on_sale", "sold_out", "closed"];
+const TICKET_BUY_BASE = "https://ticket.20fit.id/id/events/";
+function ticketBuyUrl(slug) {
+  if (!slug) return null; // slug kosong → JANGAN fallback ke homepage; widget sembunyikan tombol
+  return TICKET_BUY_BASE + encodeURIComponent(slug) + "?utm_source=my20fit&utm_medium=app_widget";
+}
+// Publik (tak butuh login): daftar event on_sale utk tab "Event Mendatang".
 app.get("/api/events/upcoming", async (req, res) => {
   try {
-    if (!admin) return res.json({ ok: true, events: [] });
-    const { data, error } = await admin.from("my20fit_event_catalog")
-      .select("id,name,event_date,location,image_url,slug,price_label")
-      .eq("active", true)
-      .order("sort_order", { ascending: true }).order("event_date", { ascending: true })
+    if (!admin) return res.status(503).json({ ok: false, error: "service unavailable" });
+    const { data, error } = await admin.from("my20fit_ticket_events")
+      .select("id,slug,name,subtitle,organizer,venue,city,starts_at,price_from,currency,category,cover_url")
+      .eq("status", "on_sale").not("published_at", "is", null)
+      .order("starts_at", { ascending: true, nullsFirst: false })
+      .order("sort_order", { ascending: true })
       .limit(50);
     if (error) throw error;
     const events = (data || []).map(e => ({
-      id: e.id, name: e.name, event_date: e.event_date || null, location: e.location || null,
-      image_url: e.image_url || null, price_label: e.price_label || null,
-      buy_url: e.slug ? ("https://ticket.20fit.id/id/events/" + encodeURIComponent(e.slug)) : "https://ticket.20fit.id",
+      id: e.id, slug: e.slug || null, name: e.name,
+      subtitle: e.subtitle || null, organizer: e.organizer || null,
+      venue: e.venue || null, city: e.city || null,
+      starts_at: e.starts_at || null,
+      price_from: (e.price_from == null ? null : (+e.price_from | 0)),
+      currency: e.currency || "IDR", category: e.category || null,
+      cover_url: e.cover_url || null,
+      buy_url: ticketBuyUrl(e.slug),
     }));
     return res.json({ ok: true, events });
   } catch (e) {
     try { console.error("events/upcoming:", e && e.message); } catch (_) {}
-    return res.json({ ok: true, events: [] }); // tahan-gagal
+    // Kembalikan error nyata → widget bisa bedakan "gagal" (tombol coba lagi) dari "kosong".
+    return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" });
   }
 });
 
 // ---------- Admin CRUD katalog event (admin-v2 section Event) ----------
+function ticketRowFromBody(b, ctx) {
+  const now = new Date().toISOString();
+  return {
+    slug: String(b.slug || "").trim().toLowerCase().slice(0, 160),
+    name: String(b.name || "").trim().slice(0, 200),
+    subtitle: b.subtitle ? String(b.subtitle).slice(0, 240) : null,
+    organizer: b.organizer ? String(b.organizer).slice(0, 160) : null,
+    venue: b.venue ? String(b.venue).slice(0, 200) : null,
+    city: b.city ? String(b.city).slice(0, 120) : null,
+    starts_at: b.starts_at ? new Date(b.starts_at).toISOString() : null,
+    price_from: Number.isFinite(+b.price_from) && String(b.price_from).trim() !== "" ? (+b.price_from | 0) : null,
+    currency: (b.currency ? String(b.currency).trim().toUpperCase() : "IDR").slice(0, 8) || "IDR",
+    category: b.category ? String(b.category).slice(0, 80) : null,
+    cover_url: b.cover_url ? String(b.cover_url).slice(0, 500) : null,
+    status: TICKET_STATUS.includes(b.status) ? b.status : "draft",
+    sort_order: Number.isFinite(+b.sort_order) ? (+b.sort_order | 0) : 0,
+    published_at: b.published ? (b.published_at ? new Date(b.published_at).toISOString() : now) : null,
+    updated_at: now,
+    updated_by: ctx.email || (ctx.via === "key" ? "master-key" : null),
+  };
+}
 app.get("/api/admin/event-catalog", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
   try {
-    const { data, error } = await admin.from("my20fit_event_catalog")
-      .select("id,name,event_date,location,image_url,slug,price_label,active,sort_order,updated_at,updated_by")
-      .order("sort_order", { ascending: true }).order("event_date", { ascending: true });
+    const { data, error } = await admin.from("my20fit_ticket_events")
+      .select("id,slug,name,subtitle,organizer,venue,city,starts_at,price_from,currency,category,cover_url,status,sort_order,published_at,updated_at,updated_by")
+      .order("sort_order", { ascending: true })
+      .order("starts_at", { ascending: true, nullsFirst: false });
     if (error) throw error;
     return res.json({ ok: true, events: data || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
@@ -2096,54 +2133,144 @@ app.get("/api/admin/event-catalog", async (req, res) => {
 app.post("/api/admin/event-catalog", async (req, res) => {
   const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
   const b = req.body || {};
-  const name = String(b.name || "").trim();
-  if (!name) return res.status(400).json({ error: "Nama event wajib." });
-  const row = {
-    name: name.slice(0, 160),
-    event_date: b.event_date ? String(b.event_date).slice(0, 10) : null,
-    location: b.location ? String(b.location).slice(0, 160) : null,
-    image_url: b.image_url ? String(b.image_url).slice(0, 500) : null,
-    slug: b.slug ? String(b.slug).trim().slice(0, 160) : null,
-    price_label: b.price_label ? String(b.price_label).slice(0, 80) : null,
-    active: b.active === false ? false : true,
-    sort_order: Number.isFinite(+b.sort_order) ? (+b.sort_order | 0) : 0,
-    updated_at: new Date().toISOString(),
-    updated_by: ctx.email || (ctx.via === "key" ? "master-key" : null),
-  };
+  const row = ticketRowFromBody(b, ctx);
+  if (!row.name) return res.status(400).json({ error: "Nama event wajib." });
+  if (!row.slug) return res.status(400).json({ error: "Slug wajib (untuk deep-link Beli Sekarang)." });
   try {
     let data, error;
     if (b.id) {
-      ({ data, error } = await admin.from("my20fit_event_catalog").update(row).eq("id", String(b.id)).select("id").limit(1));
+      ({ data, error } = await admin.from("my20fit_ticket_events").update(row).eq("id", String(b.id)).select("id").limit(1));
     } else {
-      ({ data, error } = await admin.from("my20fit_event_catalog").insert(row).select("id").limit(1));
+      ({ data, error } = await admin.from("my20fit_ticket_events").insert(row).select("id").limit(1));
     }
     if (error) throw error;
-    await adminAudit(ctx, b.id ? "event_catalog.update" : "event_catalog.create", (data && data[0] && data[0].id) || String(b.id || ""), { name: row.name });
+    await adminAudit(ctx, b.id ? "ticket_events.update" : "ticket_events.create", (data && data[0] && data[0].id) || String(b.id || ""), { name: row.name, slug: row.slug });
     return res.json({ ok: true, id: (data && data[0] && data[0].id) || b.id || null });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
+// Toggle publish/unpublish (published_at null <-> now). Event tampil di tab bila status=on_sale DAN published.
 app.post("/api/admin/event-catalog/:id/toggle", async (req, res) => {
   const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
   const id = String(req.params.id || "");
   try {
-    const { data: cur } = await admin.from("my20fit_event_catalog").select("active").eq("id", id).limit(1);
+    const { data: cur } = await admin.from("my20fit_ticket_events").select("published_at").eq("id", id).limit(1);
     if (!cur || !cur[0]) return res.status(404).json({ error: "Event tak ditemukan." });
-    const next = !cur[0].active;
-    const { error } = await admin.from("my20fit_event_catalog").update({ active: next, updated_at: new Date().toISOString(), updated_by: ctx.email || null }).eq("id", id);
+    const nextPub = cur[0].published_at ? null : new Date().toISOString();
+    const { error } = await admin.from("my20fit_ticket_events").update({ published_at: nextPub, updated_at: new Date().toISOString(), updated_by: ctx.email || null }).eq("id", id);
     if (error) throw error;
-    await adminAudit(ctx, "event_catalog.toggle", id, { active: next });
-    return res.json({ ok: true, active: next });
+    await adminAudit(ctx, "ticket_events.toggle", id, { published: !!nextPub });
+    return res.json({ ok: true, published: !!nextPub });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 app.delete("/api/admin/event-catalog/:id", async (req, res) => {
   const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
   const id = String(req.params.id || "");
   try {
-    const { error } = await admin.from("my20fit_event_catalog").delete().eq("id", id);
+    const { error } = await admin.from("my20fit_ticket_events").delete().eq("id", id);
     if (error) throw error;
-    await adminAudit(ctx, "event_catalog.delete", id, null);
+    await adminAudit(ctx, "ticket_events.delete", id, null);
     return res.json({ ok: true });
   } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ---------- Checkout terpadu (STAGE 2) — PROXY TIPIS ke infra 20FIT yang sudah ada ----------
+// Prinsip (hasil investigasi ekosistem): JANGAN bangun order/webhook/fulfilment sendiri —
+// itu duplikasi infra Mayar yang ada (mayar-webhook-*) → dua kebenaran & double-fulfilment.
+// my.20fit hanya jadi KLIEN: per jenis produk, panggil fungsi yang ada / deep-link portalnya.
+// Harga TIDAK pernah dipercaya dari client — item divalidasi dari my20fit_catalog_items,
+// dan create-youngstar-order pun re-validasi harga dari DB (service role).
+//
+// Status jalur (per 2026-08):
+//   youngstar_packages   → create-youngstar-order (buat order + link bayar Mayar). IN-APP.
+//   my20fit_ticket_events→ deep-link ticket.20fit.id/id/events/<slug> (+UTM).
+//   lainnya (gym/arena/pt/clinic/arena_booking/clinic_services)
+//                        → deep-link booking.20fit.id (belum ada fungsi create-order setara;
+//                          menulis ke tabel app lain dilarang §4). Jujur: belum in-app.
+//   dokter/coach         → belum (dokter nunggu keputusan is_online_bookable; coach belum ada fungsi).
+const BOOKING_PORTAL = "https://booking.20fit.id";
+const FN_BASE = SUPABASE_URL + "/functions/v1";
+app.post("/api/checkout", async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    const sourceTable = String(b.source_table || "").trim();
+    const sourceId = String(b.source_id || "").trim();
+    if (!sourceTable || !sourceId) return res.status(400).json({ error: "source_table & source_id wajib." });
+
+    // Validasi item dari read-layer katalog (server-authoritative; abaikan harga client).
+    const { data: rows, error: catErr } = await admin.from("my20fit_catalog_items")
+      .select("kind,source_table,source_id,slug,title,price,is_active")
+      .eq("source_table", sourceTable).eq("source_id", sourceId).limit(1);
+    if (catErr) return res.status(500).json({ error: catErr.message });
+    const item = rows && rows[0];
+    if (!item || !item.is_active) return res.status(404).json({ error: "Produk tak ditemukan / tidak aktif." });
+
+    // Tiket → deep-link ke ticket.20fit.id (dijual di sana; bukan via gateway kita).
+    if (sourceTable === "my20fit_ticket_events") {
+      if (!item.slug) return res.status(409).json({ error: "Slug tiket kosong." });
+      return res.json({ ok: true, mode: "redirect", provider: "external",
+        url: "https://ticket.20fit.id/id/events/" + encodeURIComponent(item.slug) + "?utm_source=my20fit&utm_medium=app_widget" });
+    }
+
+    // Youngstar → fungsi create-youngstar-order (in-app: buat order + link bayar Mayar).
+    if (sourceTable === "youngstar_packages") {
+      let prof = {};
+      try { const { data } = await admin.from("my20fit_profile").select("full_name,phone,email").eq("auth_user_id", user.id).limit(1); prof = (data && data[0]) || {}; } catch (e) {}
+      const email = String(prof.email || user.email || "").toLowerCase();
+      const full_name = prof.full_name || (email ? email.split("@")[0] : "Member");
+      const normPhone = (v) => String(v || "").replace(/[^\d+]/g, "");
+      let phone = normPhone(prof.phone);
+      if (phone.replace(/\D/g, "").length < 8) phone = normPhone(b.phone);
+      if (phone.replace(/\D/g, "").length < 8) return res.status(400).json({ error: "Nomor HP wajib untuk pembayaran.", need_phone: true });
+      const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 20000);
+      try {
+        const r = await fetch(FN_BASE + "/create-youngstar-order", {
+          method: "POST", signal: ctrl.signal,
+          headers: { Authorization: "Bearer " + SUPABASE_SERVICE_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({ youngstar_package_id: sourceId, full_name, email, phone }),
+        });
+        const j = await r.json().catch(() => null);
+        if (!r.ok || !j || !j.payment_url) return res.status(502).json({ error: (j && (j.error || j.detail)) || "Gagal membuat pembayaran." });
+        return res.json({ ok: true, mode: "redirect", provider: "mayar", order_code: j.order_code || null, url: j.payment_url });
+      } catch (e) {
+        return res.status(502).json({ error: e && e.name === "AbortError" ? "Timeout menghubungi pembayaran." : "Gagal membuat pembayaran." });
+      } finally { clearTimeout(timer); }
+    }
+
+    // Jenis lain: belum ada fungsi create-order yang bisa dipanggil dari sini tanpa menulis
+    // ke tabel app lain (§4). Deep-link ke portal booking — jujur, belum in-app.
+    return res.json({ ok: true, mode: "redirect", provider: "external", url: BOOKING_PORTAL,
+      note: "Selesaikan pembelian di booking.20fit.id (belum tersedia in-app)." });
+  } catch (e) {
+    try { console.error("checkout:", e && e.message); } catch (_) {}
+    return res.status(500).json({ error: "Checkout gagal." });
+  }
+});
+
+// ---------- Katalog terpadu (read-layer) untuk halaman /catalog ----------
+// Baca my20fit_catalog_items (VIEW), kelompokkan per kind. Butuh login (app member).
+app.get("/api/catalog", async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ ok: false, error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ ok: false, error: "Unauthorized" });
+    const { data, error } = await admin.from("my20fit_catalog_items")
+      .select("kind,source_table,source_id,slug,title,subtitle,price,compare_at_price,currency,cover_url,metadata,sort_order")
+      .eq("is_active", true)
+      .order("kind", { ascending: true }).order("sort_order", { ascending: true });
+    if (error) throw error;
+    const ORDER = ["membership", "package", "service", "ticket"];
+    const byKind = {};
+    (data || []).forEach(it => { (byKind[it.kind] = byKind[it.kind] || []).push(it); });
+    const groups = ORDER.filter(k => byKind[k]).map(k => ({ kind: k, items: byKind[k] }));
+    Object.keys(byKind).forEach(k => { if (ORDER.indexOf(k) < 0) groups.push({ kind: k, items: byKind[k] }); });
+    return res.json({ ok: true, groups });
+  } catch (e) {
+    try { console.error("catalog:", e && e.message); } catch (_) {}
+    return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" });
+  }
 });
 
 // ================= ADMIN MONITORING (dashboard internal) =================

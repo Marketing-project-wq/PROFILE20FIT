@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Katalog · 20FIT</title>
+<style>
+  :root{--red:#C41101;--bg:#F3F2F0;--card:#FFFFFF;--line:#EBEBEF;--txt:#15171C;--ink:#15171C;--muted:#8A8D94;--faint:#B7B9BF;--inp:#F2F2F5;--dark:#000;--pagetx:#15171C}
+  html:not(.theme-light){ --bg:#0C0D10;--card:#17191F;--txt:#F4F5F7;--ink:#F4F5F7;--muted:#8E9198;--faint:#5C5F66;--line:#25272E;--inp:#23262E;--pagetx:#F4F5F7 }
+  *{box-sizing:border-box}
+  a{text-decoration:none}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 96px}
+  .wrap{max-width:760px;margin:0 auto}
+  .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+  .logobar img{height:34px}
+  .logobar a{color:#cfc8bd;font-size:13px;font-weight:700}
+  h1{font-size:24px;font-weight:900;margin:0 0 6px;text-transform:uppercase}
+  .lead{opacity:.85;font-size:14px;margin:0 0 16px;line-height:1.5}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:999px;padding:8px 14px;cursor:pointer;font-size:12.5px;font-weight:700;white-space:nowrap}
+  .chip.on{border-color:var(--ink);background:var(--ink);color:var(--card)}
+  .grp{margin:18px 0 8px}
+  .gt{font-size:13px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:10px}
+  .card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .cnm{font-weight:800;font-size:15.5px;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
+  .csub{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.4;overflow-wrap:anywhere}
+  .cprice{margin-top:12px;display:flex;align-items:baseline;gap:8px}
+  .cprice b{font-size:18px;font-weight:900;color:var(--ink)}
+  .cwas{font-size:12.5px;color:var(--muted);text-decoration:line-through}
+  .cbuy{margin-top:12px;background:var(--red);color:#fff;border:0;border-radius:10px;padding:11px;cursor:pointer;font-weight:800;font-size:13.5px;text-align:center;font-family:inherit}
+  .cbuy:hover{filter:brightness(.94)}
+  /* states */
+  .state{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:34px 22px;text-align:center;margin-top:10px}
+  .state .tt{font-size:16px;font-weight:900;margin-bottom:6px}
+  .state .sub{font-size:13px;color:var(--muted);line-height:1.5;max-width:400px;margin:0 auto}
+  .state .retry{margin-top:14px;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:11px;padding:9px 15px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+  .sk{height:150px;border-radius:14px;background:linear-gradient(90deg,var(--inp),var(--card),var(--inp));background-size:200% 100%;animation:sh 1.3s linear infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+  /* checkout sheet */
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px;z-index:80}
+  .sheet{background:var(--card);color:var(--txt);border-radius:18px;padding:24px;max-width:400px;width:100%;position:relative;border:1px solid var(--line)}
+  .sheet h4{font-size:18px;font-weight:900;margin:0 0 3px}
+  .sheet .ssub{font-size:12.5px;color:var(--muted);margin:0}
+  .close{position:absolute;top:12px;right:12px;background:none;border:0;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:6px}
+  .tot{display:flex;justify-content:space-between;align-items:baseline;margin:16px 0;padding:14px 0;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line)}
+  .tot b{font-size:22px;font-weight:900}
+  .fld{width:100%;border:1px solid var(--line);background:var(--inp);color:var(--txt);border-radius:10px;padding:12px;font-size:14px;font-family:inherit;margin-bottom:10px}
+  .go{width:100%;background:var(--red);color:#fff;border:0;border-radius:11px;padding:13px;cursor:pointer;font-weight:800;font-size:14.5px;font-family:inherit}
+  .go[disabled]{opacity:.6;cursor:default}
+  .msg{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.5}
+  .msg.err{color:var(--red)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logobar">
+      <img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" />
+      <a href="dashboard.html">← <span data-i18n="nav_home">Home</span></a>
+    </div>
+    <h1 id="pgTitle">Katalog</h1>
+    <p class="lead" id="pgLead"></p>
+    <div id="chips" class="chips"></div>
+    <div id="root"></div>
+  </div>
+
+  <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+  (function(){
+    "use strict";
+    var TXT = {
+      title:{ en:"Catalog", id:"Katalog" },
+      lead:{ en:"Everything you can buy at 20FIT — packages, memberships, services & event tickets.", id:"Semua yang bisa dibeli di 20FIT — paket, membership, layanan & tiket event." },
+      all:{ en:"All", id:"Semua" },
+      loading:{ en:"Loading catalog…", id:"Memuat katalog…" },
+      emptyT:{ en:"Nothing here yet", id:"Belum ada apa-apa" },
+      emptyS:{ en:"No items available right now. Please check back later.", id:"Belum ada item saat ini. Cek lagi nanti." },
+      errT:{ en:"Couldn't load catalog", id:"Gagal memuat katalog" },
+      errS:{ en:"Something went wrong. Please try again.", id:"Ada kendala. Coba lagi ya." },
+      retry:{ en:"Try again", id:"Coba lagi" },
+      buy:{ en:"Buy", id:"Beli" },
+      from:{ en:"From", id:"Mulai" },
+      total:{ en:"Total", id:"Total" },
+      go:{ en:"Continue to payment", id:"Lanjut ke pembayaran" },
+      phoneLbl:{ en:"Your phone number is required to pay.", id:"Nomor HP kamu wajib untuk membayar." },
+      phonePh:{ en:"Phone number (08…)", id:"Nomor HP (08…)" },
+      creating:{ en:"Creating payment…", id:"Membuat pembayaran…" },
+      redirecting:{ en:"Redirecting to payment…", id:"Mengarahkan ke pembayaran…" },
+      deeplinkNote:{ en:"This item is completed at booking.20fit.id.", id:"Item ini diselesaikan di booking.20fit.id." },
+      payErr:{ en:"Couldn't start payment. Please try again.", id:"Gagal memulai pembayaran. Coba lagi." }
+    };
+    var KIND = {
+      membership:{ en:"Membership", id:"Membership" },
+      "package":{ en:"Packages", id:"Paket" },
+      service:{ en:"Services", id:"Layanan" },
+      ticket:{ en:"Tickets & Events", id:"Tiket & Event" }
+    };
+
+    function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+    var $ = function(id){ return document.getElementById(id); };
+    function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function rupiah(n,cur){ cur=cur||"IDR"; var v=Number(n)||0; return cur==="IDR" ? ("Rp "+v.toLocaleString("id-ID")) : (cur+" "+v.toLocaleString()); }
+
+    async function apiFetch(path, opts){
+      opts = opts || {}; opts.headers = opts.headers || { "Content-Type":"application/json" };
+      try{ var t=(window.Auth&&Auth.token)?await Auth.token():null; if(t) opts.headers["Authorization"]="Bearer "+t; }catch(e){}
+      return fetch(path, opts);
+    }
+
+    var CUR = { state:"loading", groups:[], filter:"all" };
+
+    function card(it){
+      var was = (it.compare_at_price!=null && it.compare_at_price>it.price)
+        ? ('<span class="cwas">'+esc(rupiah(it.compare_at_price,it.currency))+'</span>') : '';
+      var price = (it.price!=null)
+        ? ('<div class="cprice"><b>'+esc(rupiah(it.price,it.currency))+'</b>'+was+'</div>') : '';
+      return '<div class="card">'+
+        '<div class="cnm">'+esc(it.title||"")+'</div>'+
+        (it.subtitle?'<div class="csub">'+esc(it.subtitle)+'</div>':'')+
+        price+
+        '<button type="button" class="cbuy" data-st="'+esc(it.source_table)+'" data-si="'+esc(it.source_id)+'">'+LL(TXT.buy)+'</button>'+
+        '</div>';
+    }
+    function groupBlock(g){
+      var title = LL(KIND[g.kind] || { en:g.kind, id:g.kind });
+      return '<div class="grp"><div class="gt">'+esc(title)+'</div>'+
+        '<div class="grid">'+(g.items||[]).map(card).join("")+'</div></div>';
+    }
+
+    function applyStatic(){
+      $("pgTitle").textContent=LL(TXT.title);
+      $("pgLead").textContent=LL(TXT.lead);
+      document.title=LL(TXT.title)+" · 20FIT";
+    }
+    function renderChips(){
+      var box=$("chips"); if(!box) return;
+      if(CUR.state!=="ok"){ box.innerHTML=""; return; }
+      var chips=[{k:"all",label:LL(TXT.all)}].concat(CUR.groups.map(function(g){ return {k:g.kind,label:LL(KIND[g.kind]||{en:g.kind,id:g.kind})}; }));
+      box.innerHTML=chips.map(function(c){ return '<button type="button" class="chip'+(CUR.filter===c.k?" on":"")+'" data-k="'+esc(c.k)+'">'+esc(c.label)+'</button>'; }).join("");
+      box.querySelectorAll(".chip").forEach(function(b){ b.onclick=function(){ CUR.filter=b.getAttribute("data-k"); renderChips(); renderBody(); }; });
+    }
+    function renderBody(){
+      var root=$("root"); if(!root) return;
+      if(CUR.state==="loading"){ root.innerHTML='<div class="grid"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>'; return; }
+      if(CUR.state==="error"){ root.innerHTML='<div class="state"><div class="tt">'+LL(TXT.errT)+'</div><div class="sub">'+LL(TXT.errS)+'</div><button class="retry" id="rt">'+LL(TXT.retry)+'</button></div>'; var b=$("rt"); if(b)b.onclick=load; return; }
+      if(CUR.state==="empty"){ root.innerHTML='<div class="state"><div class="tt">'+LL(TXT.emptyT)+'</div><div class="sub">'+LL(TXT.emptyS)+'</div></div>'; return; }
+      var groups = CUR.filter==="all" ? CUR.groups : CUR.groups.filter(function(g){ return g.kind===CUR.filter; });
+      root.innerHTML=groups.map(groupBlock).join("");
+      root.querySelectorAll(".cbuy").forEach(function(btn){
+        btn.onclick=function(){ openCheckoutBtn(btn); };
+      });
+    }
+    function render(){ renderChips(); renderBody(); }
+
+    function findItem(st, si){
+      for(var i=0;i<CUR.groups.length;i++){ var its=CUR.groups[i].items||[]; for(var j=0;j<its.length;j++){ if(String(its[j].source_table)===String(st)&&String(its[j].source_id)===String(si)) return its[j]; } }
+      return null;
+    }
+    function openCheckoutBtn(btn){
+      var it=findItem(btn.getAttribute("data-st"), btn.getAttribute("data-si"));
+      if(it) openCheckout(it);
+    }
+
+    // ---- Checkout sheet ----
+    function closeSheet(){ var o=$("ovx"); if(o)o.remove(); }
+    function openCheckout(it){
+      closeSheet();
+      var ov=document.createElement("div"); ov.className="ov"; ov.id="ovx";
+      var priceHtml = it.price!=null ? esc(rupiah(it.price,it.currency)) : "—";
+      ov.innerHTML='<div class="sheet">'+
+        '<button type="button" class="close" id="cx" aria-label="Close">✕</button>'+
+        '<h4>'+esc(it.title||"")+'</h4>'+
+        (it.subtitle?'<p class="ssub">'+esc(it.subtitle)+'</p>':'')+
+        '<div class="tot"><span style="font-size:13px;color:var(--muted)">'+LL(TXT.total)+'</span><b>'+priceHtml+'</b></div>'+
+        '<input class="fld" id="phn" type="tel" placeholder="'+esc(LL(TXT.phonePh))+'" style="display:none" />'+
+        '<button type="button" class="go" id="go">'+LL(TXT.go)+'</button>'+
+        '<div class="msg" id="cm"></div>'+
+        '</div>';
+      ov.addEventListener("click", function(e){ if(e.target===ov) closeSheet(); });
+      document.body.appendChild(ov);
+      $("cx").onclick=closeSheet;
+      $("go").onclick=function(){ pay(it); };
+    }
+    async function pay(it){
+      var go=$("go"), cm=$("cm"), phn=$("phn");
+      if(!go) return;
+      go.disabled=true; cm.className="msg"; cm.textContent=LL(TXT.creating);
+      var body={ source_table:it.source_table, source_id:it.source_id };
+      if(phn && phn.style.display!=="none" && phn.value.trim()) body.phone=phn.value.trim();
+      try{
+        var r=await apiFetch("/api/checkout", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify(body) });
+        var j=await r.json().catch(function(){ return null; });
+        if(r.status===400 && j && j.need_phone){
+          phn.style.display="block"; go.disabled=false;
+          cm.className="msg"; cm.textContent=LL(TXT.phoneLbl);
+          phn.focus(); return;
+        }
+        if(!r.ok || !j || !j.ok || !j.url){
+          go.disabled=false; cm.className="msg err"; cm.textContent=(j&&j.error)||LL(TXT.payErr); return;
+        }
+        cm.className="msg"; cm.textContent = j.note ? (j.note) : LL(TXT.redirecting);
+        // Same-tab redirect (aturan proyek: tanpa tab baru).
+        window.location.href=j.url;
+      }catch(e){
+        go.disabled=false; cm.className="msg err"; cm.textContent=LL(TXT.payErr);
+      }
+    }
+
+    function load(){
+      CUR.state="loading"; render();
+      apiFetch("/api/catalog").then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+        if(!j || !j.ok || !Array.isArray(j.groups)){ CUR.state="error"; CUR.groups=[]; render(); return; }
+        var groups=j.groups.filter(function(g){ return g && (g.items||[]).length; });
+        CUR.groups=groups; CUR.state=groups.length?"ok":"empty"; if(CUR.filter==="all"){} render();
+      }).catch(function(){ CUR.state="error"; CUR.groups=[]; render(); });
+    }
+
+    (async function(){
+      try{ if(window.Auth&&Auth.requireAuth) await Auth.requireAuth(); }catch(e){}
+      applyStatic();
+      if(window.I18N&&I18N.onChange) I18N.onChange(function(){ applyStatic(); render(); });
+      load();
+    })();
+  })();
+  </script>
+</body>
+</html>
