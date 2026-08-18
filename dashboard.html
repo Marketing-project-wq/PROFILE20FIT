@@ -524,8 +524,12 @@
       .twk-zoom{background:none;border:0;cursor:pointer;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:2px}
       .twk-etiket{font-size:9.5px;color:var(--muted)}
       /* Kartu Event Mendatang — minimalis, selaras kartu bersih web (bukan gaya tiket-sobek) */
-      .twk-ev{display:flex;justify-content:space-between;align-items:center;gap:16px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
-      .twk-ev-main{min-width:0}
+      .twk-ev{display:flex;justify-content:space-between;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+      .twk-ev-cover{flex:0 0 auto;width:60px;height:60px;border-radius:12px;overflow:hidden;background:var(--line)}
+      .twk-ev-cover img{width:100%;height:100%;object-fit:cover;display:block}
+      .twk-ev-cover.noimg{background:repeating-linear-gradient(115deg,var(--red) 0 8px,color-mix(in srgb,var(--red) 60%,#000) 8px 16px)}
+      .twk-ev-cover.noimg img{display:none}
+      .twk-ev-main{min-width:0;flex:1}
       .twk-ev-cat{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
       .twk-ev-name{font-weight:800;font-size:16px;line-height:1.25;margin:0;color:var(--ink);overflow-wrap:anywhere}
       .twk-ev-sub{font-size:13px;color:var(--muted);margin-top:3px;line-height:1.4;overflow-wrap:anywhere}
@@ -863,14 +867,31 @@
         } catch (e) { TICKETS = []; }
         try { if (window.renderStack) window.renderStack(); } catch (e) {}
       };
+      // Tanggal SELALU dirender di Asia/Jakarta (WIB). Nilai date-only (≤10 char) dianggap
+      // tanggal kalender WIB; timestamptz penuh dikonversi ke WIB via Intl.
       function tktDate(s) {
         if (!s) return "";
-        var d = new Date(String(s).length <= 10 ? (s + "T00:00:00") : s);
+        var dateOnly = String(s).length <= 10;
+        var d = new Date(dateOnly ? (s + "T00:00:00+07:00") : s);
         if (isNaN(d)) return String(s);
-        var mEn = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        var mId = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-        return Lx({ en: d.getDate() + " " + mEn[d.getMonth()] + " " + d.getFullYear(),
-                   id: d.getDate() + " " + mId[d.getMonth()] + " " + d.getFullYear() });
+        var loc = Lx({ en: "en-GB", id: "id-ID" });
+        try { return new Intl.DateTimeFormat(loc, { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" }).format(d); }
+        catch (e) {
+          var mId = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+          return d.getDate() + " " + mId[d.getMonth()] + " " + d.getFullYear();
+        }
+      }
+      // Tanggal + jam WIB untuk event (starts_at). Date-only → tanpa jam.
+      function tktWhen(s) {
+        if (!s) return "";
+        if (String(s).length <= 10) return tktDate(s);
+        var d = new Date(s); if (isNaN(d)) return String(s);
+        var loc = Lx({ en: "en-GB", id: "id-ID" });
+        try {
+          var dp = new Intl.DateTimeFormat(loc, { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" }).format(d);
+          var tp = new Intl.DateTimeFormat(loc, { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Jakarta" }).format(d);
+          return dp + " · " + tp + " WIB";
+        } catch (e) { return tktDate(s); }
       }
       // Kartu e-tiket (Tiket Saya): jenis tiket + event + tanggal + peserta/order + stub QR.
       // QR (t.qr) = svg dari server, encode URL check-in ticket.20fit.id/t/<token>.
@@ -901,7 +922,7 @@
       // starts_at null → "Jadwal menyusul" (tetap ditampilkan, urutan terakhir dari server).
       // Beli Sekarang → deep-link event (buy_url dari server, sudah +UTM). Slug kosong → tombol disembunyikan.
       function twkEventCard(e) {
-        var date = (e && e.starts_at) ? tktDate(e.starts_at) : Lx({ en: "Date TBA", id: "Jadwal menyusul" });
+        var date = (e && e.starts_at) ? tktWhen(e.starts_at) : Lx({ en: "Date TBA", id: "Jadwal menyusul" });
         var bits = [date];
         var place = [(e && e.venue) || "", (e && e.city) || ""].filter(Boolean).join(", ");
         if (place) bits.push(place);
@@ -911,11 +932,15 @@
         var cat = (e && e.category) ? ('<span class="twk-ev-cat">' + _esc(e.category) + '</span>') : "";
         var amt = twkAmount(e);
         var price = amt ? ('<div class="twk-ev-price"><span>' + Lx({ en: "From", id: "Mulai" }) + '</span><b>' + _esc(amt) + '</b></div>') : "";
+        // Cover event dari cover_url (DB); NULL → fallback aksen (bukan kartu kosong).
+        var cover = (e && e.cover_url)
+          ? '<div class="twk-ev-cover"><img src="' + _esc(e.cover_url) + '" alt="" loading="lazy" onerror="this.closest(\'.twk-ev-cover\').classList.add(\'noimg\')"></div>'
+          : '<div class="twk-ev-cover noimg"></div>';
         // Tombol HANYA bila ada buy_url (slug ada). JANGAN pernah fallback ke homepage.
         var buyBtn = (e && e.buy_url)
           ? '<a class="twk-ev-buy" href="' + _esc(e.buy_url) + '">' + Lx({ en: "Buy", id: "Beli" }) + ' <span aria-hidden="true">↗</span></a>'
           : '';
-        return '<article class="twk-ev"><div class="twk-ev-main">' + cat +
+        return '<article class="twk-ev">' + cover + '<div class="twk-ev-main">' + cat +
           '<h4 class="twk-ev-name">' + _esc((e && e.name) || "Event 20FIT") + '</h4>' + sub + meta +
           '</div><div class="twk-ev-side">' + price + buyBtn + '</div></article>';
       }
