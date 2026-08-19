@@ -314,6 +314,22 @@
     <div class="foot-bot"><span data-k="footRights"></span> · my.20fit.id</div>
   </footer>
 
+  <!-- Promo CTA sekunder (dari my20fit_promo_banners, teks dwibahasa & tanggal dari DB;
+       auto-hilang setelah ends_at; klik → mode Buat Akun). Putih border merah, bukan merah penuh. -->
+  <style>
+    #promoLogin{padding:4px 18px 30px}
+    .promo-login{display:flex;align-items:center;gap:12px;width:100%;max-width:520px;margin:0 auto;
+      background:#fff;border:1.8px solid #C41101;border-radius:14px;padding:13px 16px;cursor:pointer;
+      text-align:left;font-family:inherit;text-decoration:none}
+    .promo-login:focus-visible{outline:3px solid #C41101;outline-offset:2px}
+    .promo-login .pl-ic{flex:0 0 auto;width:42px;height:42px;border-radius:12px;background:#FCEBED;color:#C41101;display:grid;place-items:center}
+    .promo-login .pl-ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .promo-login .pl-tx{display:flex;flex-direction:column;min-width:0}
+    .promo-login .pl-tx b{color:#151515;font-weight:800;font-size:14px;line-height:1.2;overflow-wrap:anywhere}
+    .promo-login .pl-tx small{color:#8a2b23;font-size:12px;margin-top:2px}
+  </style>
+  <div id="promoLogin" hidden></div>
+
   <!-- ============ STICKY CTA ============ -->
   <div class="sticky" id="sticky">
     <span class="stx" data-k="stickyText"></span>
@@ -471,6 +487,30 @@
       document.getElementById("forgot").textContent=d.forgot;
       renderMarketing();
       refreshMode();
+      renderPromoLogin();
+    }
+    // Tombol promo sekunder di halaman login: konten & tanggal dari my20fit_promo_banners
+    // (via /api/promo/banner yang sudah memfilter jendela active/ends_at). Gagal/tak ada → sembunyi.
+    var PROMO_LB; // undefined=blm fetch | null=tak ada | {..}=ada
+    function plEsc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c];}); }
+    function plFmtEnds(iso){ if(!iso) return ""; var dt=new Date(iso); if(isNaN(dt)) return ""; try{ return new Intl.DateTimeFormat(lang==="en"?"en-GB":"id-ID",{day:"numeric",month:"short",year:"numeric",timeZone:"Asia/Jakarta"}).format(dt); }catch(e){ return ""; } }
+    function drawPromoLogin(){
+      var box=document.getElementById("promoLogin"); if(!box) return;
+      var b=PROMO_LB;
+      if(!b){ box.hidden=true; box.innerHTML=""; return; }
+      var title=lang==="en"?(b.title_en||b.title_id||""):(b.title_id||b.title_en||"");
+      var sub=lang==="en"?"Create a my.20fit.id account to claim":"Buat akun my.20fit.id untuk klaim";
+      var ends=plFmtEnds(b.ends_at);
+      var until=ends?((lang==="en"?" · only until ":" · hanya sampai ")+ends):"";
+      var GIFT='<rect x="3" y="8" width="18" height="4" rx="1"></rect><path d="M12 8v13"></path><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"></path><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8"></path><path d="M16.5 8a2.5 2.5 0 0 0 0-5C13 3 12 8 12 8"></path>';
+      box.hidden=false;
+      box.innerHTML='<button type="button" class="promo-login" onclick="goCreate()" aria-label="'+plEsc(title+" — "+sub+until)+'">'
+        +'<span class="pl-ic" aria-hidden="true"><svg viewBox="0 0 24 24">'+GIFT+'</svg></span>'
+        +'<span class="pl-tx"><b>'+plEsc(title)+'</b><small>'+plEsc(sub+until)+'</small></span></button>';
+    }
+    function renderPromoLogin(){
+      if(PROMO_LB!==undefined){ drawPromoLogin(); return; }
+      fetch("/api/promo/banner").then(function(r){return r.ok?r.json():null;}).then(function(j){ PROMO_LB=(j&&j.ok&&j.banner)?j.banner:null; drawPromoLogin(); }).catch(function(){ PROMO_LB=null; drawPromoLogin(); });
     }
     function refreshMode(){
       const d=T[lang];
