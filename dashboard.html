@@ -354,6 +354,30 @@
       </div>
     </header>
 
+    <!-- Banner promo Physio (di bawah AQI) — bilingual EN/ID via renderPhysioPromo(). -->
+    <style>
+      .physio-promo{margin:14px 2px 0;border-radius:16px;overflow:hidden;
+        background:linear-gradient(120deg,var(--red,#C41101),#7a0a00);color:#fff;
+        display:flex;align-items:center;gap:14px;padding:16px 18px;position:relative}
+      .physio-promo .pp-badge{flex:0 0 auto;width:52px;height:52px;border-radius:14px;
+        background:rgba(255,255,255,.16);display:grid;place-items:center;font-weight:900;font-size:15px;line-height:1;text-align:center}
+      .physio-promo .pp-body{min-width:0;flex:1}
+      .physio-promo .pp-h{font-weight:900;font-size:16px;line-height:1.15;text-transform:uppercase;letter-spacing:.01em;overflow-wrap:anywhere}
+      .physio-promo .pp-s{font-size:12.5px;opacity:.9;margin-top:3px;line-height:1.4}
+      .physio-promo .pp-cta{flex:0 0 auto;background:#fff;color:var(--red,#C41101);border-radius:10px;
+        padding:11px 16px;font-weight:900;font-size:13px;letter-spacing:.02em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
+      .physio-promo .pp-cta:hover{filter:brightness(.96)}
+      @media(max-width:560px){ .physio-promo{flex-wrap:wrap} .physio-promo .pp-cta{width:100%;text-align:center} }
+    </style>
+    <div class="physio-promo" id="physioPromo">
+      <div class="pp-badge">10%<br>OFF</div>
+      <div class="pp-body">
+        <div class="pp-h" id="ppH">10% OFF PHYSIO THERAPY AWAITS!</div>
+        <div class="pp-s" id="ppS">Create My20FIT account to claim</div>
+      </div>
+      <a class="pp-cta" id="ppCta" href="/rewards">CLAIM NOW</a>
+    </div>
+
     <!-- Promo banner (Modul 5) — tampil di bawah kartu AQI. Kosong = tak muncul. -->
     <style>
       .promo-banner{margin:14px 2px 0;display:flex;flex-direction:column;gap:10px}
@@ -1559,9 +1583,17 @@
       window.renderStack();
       window.renderCzSheet();
       window.applyExtra();
+      // Banner promo Physio (di bawah AQI) — teks bilingual EN/ID.
+      window.renderPhysioPromo = function () {
+        var h = document.getElementById("ppH"), s = document.getElementById("ppS"), c = document.getElementById("ppCta");
+        if (h) h.textContent = Lx({ en: "10% OFF PHYSIO THERAPY AWAITS!", id: "DISKON 10% PHYSIO THERAPY MENANTIMU!" });
+        if (s) s.textContent = Lx({ en: "Create My20FIT account to claim", id: "Buat akun My20FIT untuk klaim" });
+        if (c) c.textContent = Lx({ en: "Claim Now", id: "Klaim Sekarang" });
+      };
+      window.renderPhysioPromo();
       var czb = document.getElementById("czBg");
       if (czb) czb.addEventListener("click", function (e) { if (e.target === czb) window.closeCustomize(); });
-      if (window.I18N && I18N.onChange) I18N.onChange(function () { buildSvcGrid(); window.buildBooking(); window.renderStack(); window.renderCzSheet(); });
+      if (window.I18N && I18N.onChange) I18N.onChange(function () { buildSvcGrid(); window.buildBooking(); window.renderStack(); window.renderCzSheet(); window.renderPhysioPromo(); });
     })();
   </script>
   <script>try{ Meta.track("View Dashboard"); }catch(e){}</script>
