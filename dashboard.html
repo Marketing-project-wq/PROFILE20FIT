@@ -357,21 +357,24 @@
 
     <!-- Banner promo Physio (di bawah AQI) — bilingual EN/ID via renderPhysioPromo(). -->
     <style>
-      /* Seluruh banner = <a> (bisa diklik + keyboard). Latar gradient, atau foto + overlay gelap. */
-      .physio-promo{position:relative;display:flex;align-items:center;gap:14px;margin:14px 2px 0;
-        border-radius:16px;overflow:hidden;padding:16px 18px;color:#fff;text-decoration:none;cursor:pointer;
-        background:linear-gradient(120deg,var(--red,#C41101),#7a0a00);box-shadow:var(--shadow)}
-      .physio-promo.has-img{background-size:cover;background-position:center}
-      .physio-promo.has-img::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.66),rgba(0,0,0,.38))}
-      .physio-promo > *{position:relative;z-index:1}
-      .physio-promo:focus-visible{outline:3px solid #fff;outline-offset:2px}
-      .physio-promo .pp-badge{flex:0 0 auto;width:52px;height:52px;border-radius:14px;
-        background:rgba(255,255,255,.18);display:grid;place-items:center;font-weight:900;font-size:15px;line-height:1;text-align:center}
+      /* Banner = <a> putih dengan border merah (menyatu dgn kartu lain). Aksen merah hanya di
+         ikon kado + tombol CTA. Judul gelap (kontras >4.5:1). Dark mode: pakai permukaan kartu
+         gelap (bukan putih murni), border merah tetap. Token adaptif → aman light & dark. */
+      .physio-promo{position:relative;display:flex;align-items:center;gap:13px;margin:14px 2px 0;
+        border-radius:16px;padding:14px 16px;text-decoration:none;cursor:pointer;
+        background:var(--card);border:1.8px solid var(--red);box-shadow:var(--shadow);color:var(--ink)}
+      .physio-promo:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+      /* Ikon kado garis dalam bungkus merah-muda — pola sama dgn ikon kartu lain. */
+      .physio-promo .pp-ic{flex:0 0 auto;width:50px;height:50px;border-radius:14px;background:var(--red-soft);
+        color:var(--red);display:grid;place-items:center}
+      .physio-promo .pp-ic svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
       .physio-promo .pp-body{min-width:0;flex:1}
-      .physio-promo .pp-h{font-weight:900;font-size:16px;line-height:1.15;text-transform:uppercase;letter-spacing:.01em;overflow-wrap:anywhere}
-      .physio-promo .pp-s{font-size:12.5px;opacity:.92;margin-top:3px;line-height:1.4}
-      .physio-promo .pp-cta{flex:0 0 auto;background:#fff;color:var(--red,#C41101);border-radius:10px;
-        padding:11px 16px;font-weight:900;font-size:13px;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap}
+      .physio-promo .pp-h{font-weight:900;font-size:15.5px;line-height:1.2;color:var(--ink);overflow-wrap:anywhere}
+      .physio-promo .pp-s{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+      /* image_url opsional = elemen kecil di sisi, BUKAN latar penuh. */
+      .physio-promo .pp-img{flex:0 0 auto;width:48px;height:48px;border-radius:12px;object-fit:cover;border:1px solid var(--line)}
+      .physio-promo .pp-cta{flex:0 0 auto;background:var(--red);color:#fff;border-radius:10px;
+        padding:10px 15px;font-weight:800;font-size:13px;letter-spacing:.02em;white-space:nowrap}
       @media(max-width:560px){ .physio-promo{flex-wrap:wrap} .physio-promo .pp-cta{width:100%;text-align:center} }
     </style>
     <div id="physioPromo" hidden></div>
@@ -1397,13 +1400,14 @@
           var title = Lx({ en: b.title_en || "", id: b.title_id || b.title_en || "" });
           var sub = Lx({ en: b.subtitle_en || "", id: b.subtitle_id || b.subtitle_en || "" });
           var cta = Lx({ en: b.cta_en || "Claim", id: b.cta_id || b.cta_en || "Klaim" });
-          var cls = "physio-promo" + (b.image_url ? " has-img" : "");
-          var imgStyle = b.image_url ? (" style=\"background-image:url('" + _esc(b.image_url) + "')\"") : "";
+          // Ikon kado garis (senada ikon kartu lain) — aria-hidden karena makna dibawa judul (yang memuat angka diskon).
+          var GIFT = '<rect x="3" y="8" width="18" height="4" rx="1"></rect><path d="M12 8v13"></path><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"></path><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8"></path><path d="M16.5 8a2.5 2.5 0 0 0 0-5C13 3 12 8 12 8"></path>';
+          var img = b.image_url ? ('<img class="pp-img" src="' + _esc(b.image_url) + '" alt="" loading="lazy" onerror="this.remove()">') : '';
           box.hidden = false;
-          box.innerHTML = '<a class="' + cls + '"' + imgStyle + ' href="' + _esc(b.wa_url) + '" target="_blank" rel="noopener noreferrer" aria-label="' + _esc(title) + '">' +
-            '<div class="pp-badge">10%<br>OFF</div>' +
+          box.innerHTML = '<a class="physio-promo" href="' + _esc(b.wa_url) + '" target="_blank" rel="noopener noreferrer" aria-label="' + _esc(title) + '">' +
+            '<span class="pp-ic" aria-hidden="true"><svg viewBox="0 0 24 24">' + GIFT + '</svg></span>' +
             '<div class="pp-body"><div class="pp-h">' + _esc(title) + '</div><div class="pp-s">' + _esc(sub) + '</div></div>' +
-            '<span class="pp-cta">' + _esc(cta) + '</span></a>';
+            img + '<span class="pp-cta">' + _esc(cta) + '</span></a>';
           var a = box.querySelector("a.physio-promo");
           if (a) a.addEventListener("click", function () {
             (async function () {
