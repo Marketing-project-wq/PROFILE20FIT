@@ -816,8 +816,8 @@
         ticket: '<svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 0-2 2v1.2a1.8 1.8 0 0 1 0 3.6V16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-1.2a1.8 1.8 0 0 1 0-3.6V10a2 2 0 0 0-2-2H4z"/><path d="M14 8v10" stroke-dasharray="2 2.4"/></svg>'
       };
       var TRK = {
-        calories:  { ic: "cal",   cls: "cal",   nm: { en: "Calories", id: "Kalori" },                     d: { en: "Track daily kcal & macros", id: "Catat kalori & makro harian" }, fixed: true, render: tcCalories },
-        photo:     { ic: "photo", cls: "photo", fixed: true, nm: { en: "Your Photo.20fit.id", id: "Foto 20FIT-mu" }, d: { en: "Face-search your 20FIT event photos", id: "Cari foto event 20FIT pakai wajahmu" }, render: tcPhoto },
+        calories:  { ic: "cal",   cls: "cal",   nm: { en: "Calories", id: "Kalori" },                     d: { en: "Track daily kcal & macros", id: "Catat kalori & makro harian" }, render: tcCalories },
+        photo:     { ic: "photo", cls: "photo", nm: { en: "Your Photo.20fit.id", id: "Foto 20FIT-mu" }, d: { en: "Face-search your 20FIT event photos", id: "Cari foto event 20FIT pakai wajahmu" }, render: tcPhoto },
         fasting:   { ic: "fast",  cls: "fast",  nm: { en: "Intermittent Fasting", id: "Intermittent Fasting" }, d: { en: "16:8 fasting window timer", id: "Timer jendela puasa 16:8" }, render: tcFasting },
         hydration: { ic: "drop",  cls: "drop",  nm: { en: "Hydration", id: "Hidrasi" },                    d: { en: "Daily water intake", id: "Asupan air harian" }, render: tcHydration },
         sleep:     { ic: "sleep", cls: "sleep", nm: { en: "Sleep", id: "Tidur" },                          d: { en: "Duration & quality trend", id: "Durasi & tren kualitas" }, render: tcSleep },
@@ -826,7 +826,10 @@
       };
       var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health", "ticket"];
       // calories & photo SELALU tampil (fitur unggulan) — dipaksa hadir walau user tak pin.
-      function getPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p) || !p.length) p = ["calories", "photo"]; if (p.indexOf("calories") < 0) p.unshift("calories"); if (p.indexOf("photo") < 0) p.splice(Math.min(1, p.length), 0, "photo"); return p.filter(function (x) { return TRK[x] && TRK[x].enabled !== false; }); }
+      // Default pin: KOSONG untuk user baru / belum pernah set (Calories & Photo TIDAK auto-pin).
+      // "belum pernah set" (null) → default []. "sudah set & kosong" ([]) → hormati kosong.
+      // List tersimpan (mis. user yang sengaja pin sesuatu) dihormati apa adanya — tak dilepas.
+      function getPins() { var p = null; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p)) p = []; return p.filter(function (x) { return TRK[x] && TRK[x].enabled !== false; }); }
       function setPins(p) { try { localStorage.setItem("my20fit_home_pins", JSON.stringify(p)); } catch (e) {} setLocalTs(new Date().toISOString()); pushPrefs(); }
       // Data 7 malam terakhir utk mini bar chart Sleep (null = masih loading). Data REAL dari daily_log.
       var SLEEP7 = null;
