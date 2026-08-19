@@ -2061,6 +2061,116 @@ app.get("/api/events/upcoming", async (req, res) => {
   }
 });
 
+// ---------- Sinkronisasi cover event dari TICKET_API → Supabase Storage ----------
+// Kontrak upstream (dari edge function ticket-embed): base https://ticket.20fit.id/api/embed/v1,
+// GET /events, header Authorization: Bearer <app key>. Kunci dibaca dari env TICKET_API
+// (fallback TIKCET_API karena ejaan variabel di Railway). Gambar TIDAK di-hotlink: diunduh lalu
+// diunggah ke bucket publik `event-covers`, cover_url diisi URL Storage → tahan bila CDN upstream berubah.
+// Idempoten: cocokkan by slug (unique my20fit_ticket_events_slug_key), upload upsert, UPDATE by slug.
+// Guard: x-cron-secret === CRON_SECRET. `?debug=1` → kembalikan bentuk 1 event mentah (tanpa unggah)
+// supaya nama field cover bisa dikonfirmasi tanpa membocorkan rahasia.
+const TICKET_API_RAW = process.env.TICKET_API || process.env.TIKCET_API || "";
+const TICKET_EMBED_BASE = "https://ticket.20fit.id/api/embed/v1";
+// Nama field kandidat untuk URL gambar cover di response /events (dicoba berurutan; bisa dioverride env).
+const COVER_FIELDS = (process.env.TICKET_COVER_FIELD ? [process.env.TICKET_COVER_FIELD] : [])
+  .concat(["cover_url", "coverUrl", "cover_image", "coverImage", "cover", "banner_url", "bannerUrl",
+    "banner_image", "banner", "image_url", "imageUrl", "image", "poster_url", "poster",
+    "thumbnail_url", "thumbnail", "og_image", "ogImage", "photo_url", "photo"]);
+function pickImageUrl(ev) {
+  if (!ev || typeof ev !== "object") return null;
+  for (const f of COVER_FIELDS) {
+    const v = ev[f];
+    if (typeof v === "string" && /^https?:\/\//i.test(v)) return { url: v, field: f };
+  }
+  // Bentuk bersarang umum: media/images/photos = array of string|{url}.
+  for (const key of ["media", "images", "photos", "gallery"]) {
+    const arr = ev[key];
+    if (Array.isArray(arr) && arr.length) {
+      const first = arr[0];
+      const u = typeof first === "string" ? first : (first && (first.url || first.src || first.image_url));
+      if (typeof u === "string" && /^https?:\/\//i.test(u)) return { url: u, field: key + "[0]" };
+    }
+  }
+  return null;
+}
+function extFromContentType(ct, url) {
+  const t = String(ct || "").toLowerCase();
+  if (t.includes("png")) return "png";
+  if (t.includes("webp")) return "webp";
+  if (t.includes("jpeg") || t.includes("jpg")) return "jpg";
+  const m = String(url || "").split("?")[0].match(/\.(png|webp|jpe?g)$/i);
+  return m ? m[1].toLowerCase().replace("jpeg", "jpg") : "jpg";
+}
+async function ticketApiEvents() {
+  // TICKET_API bisa berisi key (pakai base tetap + Bearer) ATAU base URL (opsional key terpisah).
+  let base = TICKET_EMBED_BASE, key = TICKET_API_RAW;
+  if (/^https?:\/\//i.test(TICKET_API_RAW)) { base = TICKET_API_RAW.replace(/\/+$/, ""); key = process.env.TICKET_API_KEY || process.env.TICKET_EMBED_KEY || ""; }
+  const headers = { "Content-Type": "application/json" };
+  if (key) headers.Authorization = "Bearer " + key;
+  const r = await fetch(base + "/events", { headers });
+  const text = await r.text();
+  let data; try { data = JSON.parse(text); } catch (_) { data = null; }
+  if (!r.ok) throw new Error("TICKET_API /events HTTP " + r.status);
+  const list = Array.isArray(data) ? data
+    : (data && Array.isArray(data.events)) ? data.events
+    : (data && Array.isArray(data.data)) ? data.data
+    : (data && data.data && Array.isArray(data.data.events)) ? data.data.events : [];
+  return list;
+}
+app.post("/api/cron/sync-event-covers", async (req, res) => {
+  const secret = req.get("x-cron-secret") || (req.query && req.query.key) || "";
+  if (!CRON_SECRET || secret !== CRON_SECRET) return res.status(401).json({ error: "unauthorized" });
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  if (!TICKET_API_RAW) return res.status(500).json({ error: "TICKET_API belum di-set di server." });
+  try {
+    const events = await ticketApiEvents();
+    // Debug: tunjukkan bentuk 1 event (nama field) tanpa mengunggah apa pun.
+    if (String((req.query && req.query.debug) || "") === "1") {
+      const sample = events[0] || null;
+      return res.json({ ok: true, debug: true, count: events.length,
+        sample_keys: sample ? Object.keys(sample) : [], sample, picked: sample ? pickImageUrl(sample) : null });
+    }
+    const bySlug = new Map();
+    for (const ev of events) {
+      const slug = String((ev && (ev.slug || ev.event_slug)) || "").trim().toLowerCase();
+      if (slug) bySlug.set(slug, ev);
+    }
+    // Isi semua baris katalog kita (termasuk status closed) supaya siap bila dibuka lagi.
+    const { data: rows, error: selErr } = await admin.from("my20fit_ticket_events").select("id,slug,rc_event_id");
+    if (selErr) throw selErr;
+    const updated = [], skipped = [];
+    for (const row of (rows || [])) {
+      const slug = String(row.slug || "").trim().toLowerCase();
+      const ev = bySlug.get(slug);
+      if (!ev) { skipped.push({ slug, reason: "not_in_ticket_api" }); continue; }
+      const pick = pickImageUrl(ev);
+      if (!pick) { skipped.push({ slug, reason: "no_image_field" }); continue; }
+      try {
+        const imgRes = await fetch(pick.url);
+        if (!imgRes.ok) { skipped.push({ slug, reason: "image_http_" + imgRes.status }); continue; }
+        const ct = imgRes.headers.get("content-type") || "";
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        const path = slug + "." + extFromContentType(ct, pick.url);
+        const up = await admin.storage.from("event-covers").upload(path, buf, { contentType: ct || "image/jpeg", upsert: true });
+        if (up.error) { skipped.push({ slug, reason: "upload:" + up.error.message }); continue; }
+        const pub = admin.storage.from("event-covers").getPublicUrl(path);
+        const coverUrl = pub && pub.data && pub.data.publicUrl;
+        if (!coverUrl) { skipped.push({ slug, reason: "no_public_url" }); continue; }
+        const patch = { cover_url: coverUrl, synced_at: new Date().toISOString() };
+        const evId = ev.id || ev.event_id || ev.rc_event_id;
+        if (evId && !row.rc_event_id) patch.rc_event_id = String(evId);
+        const { error: upErr } = await admin.from("my20fit_ticket_events").update(patch).eq("slug", row.slug);
+        if (upErr) { skipped.push({ slug, reason: "db:" + upErr.message }); continue; }
+        updated.push({ slug, cover_url: coverUrl, field: pick.field });
+      } catch (e) { skipped.push({ slug, reason: (e && e.message) || "error" }); }
+    }
+    return res.json({ ok: true, source_events: events.length, updated_count: updated.length, updated, skipped });
+  } catch (e) {
+    try { console.error("sync-event-covers:", e && e.message); } catch (_) {}
+    return res.status(500).json({ ok: false, error: (e && e.message) || "sync gagal" });
+  }
+});
+
 // ---------- Admin CRUD katalog event (admin-v2 section Event) ----------
 function ticketRowFromBody(b, ctx) {
   const now = new Date().toISOString();
