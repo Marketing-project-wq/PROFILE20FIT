@@ -47,9 +47,12 @@
   .hero.wx-night .wx-temp{color:#31427E}
   html:not(.theme-light) .hero.wx-night .wx-temp{color:#C9D4F5}
   @keyframes heroBreathe{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
-  .hero-inner{position:relative;z-index:1}
+  .hero-inner{position:relative;z-index:1;min-width:0}
   .hk{color:var(--red);font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px 2px}
-  .hello{font-size:33px;font-weight:800;margin:0 2px;letter-spacing:-.03em;line-height:1.04}
+  /* Nama panjang WAJIB wrap ke bawah (bukan kepotong oleh .hero{overflow:hidden}). Berlaku
+     di SEMUA lebar layar — overflow-wrap:anywhere memecah token panjang tanpa spasi juga
+     (mis. nama dari email.split("@")[0]). */
+  .hello{font-size:33px;font-weight:800;margin:0 2px;letter-spacing:-.03em;line-height:1.04;overflow-wrap:anywhere}
   .greetdate{font-size:13px;color:var(--faint);font-weight:600;margin:5px 2px 0}
 
   /* ---- Section labels ---- */
@@ -225,9 +228,8 @@
   }
   @media(max-width:380px){
     .grid2{grid-template-columns:1fr}
-    /* Hero: nama panjang tak terpotong, mengecil halus alih-alih meluber */
-    .hero-inner{min-width:0}
-    .hello{font-size:clamp(22px,7.6vw,28px);overflow-wrap:anywhere}
+    /* Hero di layar sempit: nama mengecil halus (wrap sudah ditangani base .hello). */
+    .hello{font-size:clamp(22px,7.6vw,28px)}
     .sec.gsec{font-size:15px}
     /* Judul section tetap satu baris di samping link aksinya (All / See all / Customize) */
     .trk-head{gap:8px}
@@ -324,6 +326,7 @@
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/glass-app.css">
+<link rel="stylesheet" href="css/ticket-wallet.css">
 </head>
 <body>
 <!-- 20FIT-BUILD: reskin-new-design 2026-07-02 -->
@@ -351,6 +354,27 @@
         <div class="asrc" id="wbadge"></div>
       </div>
     </header>
+
+    <!-- Banner promo Physio (di bawah AQI) — bilingual EN/ID via renderPhysioPromo(). -->
+    <style>
+      /* Seluruh banner = <a> (bisa diklik + keyboard). Latar gradient, atau foto + overlay gelap. */
+      .physio-promo{position:relative;display:flex;align-items:center;gap:14px;margin:14px 2px 0;
+        border-radius:16px;overflow:hidden;padding:16px 18px;color:#fff;text-decoration:none;cursor:pointer;
+        background:linear-gradient(120deg,var(--red,#C41101),#7a0a00);box-shadow:var(--shadow)}
+      .physio-promo.has-img{background-size:cover;background-position:center}
+      .physio-promo.has-img::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.66),rgba(0,0,0,.38))}
+      .physio-promo > *{position:relative;z-index:1}
+      .physio-promo:focus-visible{outline:3px solid #fff;outline-offset:2px}
+      .physio-promo .pp-badge{flex:0 0 auto;width:52px;height:52px;border-radius:14px;
+        background:rgba(255,255,255,.18);display:grid;place-items:center;font-weight:900;font-size:15px;line-height:1;text-align:center}
+      .physio-promo .pp-body{min-width:0;flex:1}
+      .physio-promo .pp-h{font-weight:900;font-size:16px;line-height:1.15;text-transform:uppercase;letter-spacing:.01em;overflow-wrap:anywhere}
+      .physio-promo .pp-s{font-size:12.5px;opacity:.92;margin-top:3px;line-height:1.4}
+      .physio-promo .pp-cta{flex:0 0 auto;background:#fff;color:var(--red,#C41101);border-radius:10px;
+        padding:11px 16px;font-weight:900;font-size:13px;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap}
+      @media(max-width:560px){ .physio-promo{flex-wrap:wrap} .physio-promo .pp-cta{width:100%;text-align:center} }
+    </style>
+    <div id="physioPromo" hidden></div>
 
     <!-- Promo banner (Modul 5) — tampil di bawah kartu AQI. Kosong = tak muncul. -->
     <style>
@@ -493,8 +517,11 @@
       .tkstat b{display:block;font-size:20px;font-weight:900;line-height:1}
       .tkstat span{display:block;font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:5px}
       .tkempty{margin-top:12px;padding:14px;border:1px dashed var(--line);border-radius:12px;text-align:center;font-size:12.5px;color:var(--muted)}
-      .tkskel{background:linear-gradient(90deg,var(--inp),color-mix(in srgb,var(--inp) 55%,#fff),var(--inp));background-size:200% 100%;animation:tksh 1.2s infinite}
-      @keyframes tksh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+      /* .tkskel + @keyframes tksh dipindah ke css/ticket-wallet.css (dipakai widget & tile lain). */
+      /* ---- Ticket / Upcoming Event card ---- */
+      .tkic.ticket{background:var(--amber-soft);color:var(--amber)}
+      /* Gaya widget Ticket Wallet (tab, carousel/grid, kartu, empty/error, overlay QR) dipindah
+         ke css/ticket-wallet.css — SATU sumber kebenaran, dipakai bareng halaman /event. */
       /* ---- Photo.20fit.id card (katalog foto event) ---- */
       .psec{font-size:11.5px;font-weight:800;color:var(--muted);margin:14px 2px 8px;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:6px}
       .psec small{color:var(--pagemut);font-weight:700;font-size:11px}
@@ -518,8 +545,9 @@
       .pviewmodal{max-width:420px}
       .pviewimgwrap{position:relative;width:100%;aspect-ratio:3/4;max-height:56vh;border-radius:14px;overflow:hidden;background:var(--inp);margin-top:4px}
       .pviewimg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
-      .pviewinfo{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
-      .pviewname{font-weight:800;font-size:14px;color:var(--txt);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .pviewinfo{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-top:12px}
+      /* Nama foto wrap ke bawah kalau panjang — jangan dipotong ellipsis. */
+      .pviewname{font-weight:800;font-size:14px;color:var(--txt);min-width:0;overflow-wrap:anywhere}
       .pviewprice{font-weight:800;font-size:14px;color:var(--txt);flex:0 0 auto}
       .pviewprice.owned{color:var(--red)}
     </style>
@@ -712,6 +740,7 @@
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/i18n.js"></script>
+  <script src="js/ticket-wallet.js"></script>
   <script src="js/fasting.js"></script>
   <script src="js/achievements.js"></script>
   <script src="js/nutrition.js"></script>
@@ -734,19 +763,24 @@
         fast: '<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M9 2h6"/></svg>',
         drop: '<svg viewBox="0 0 24 24"><path d="M12 2s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg>',
         sleep: '<svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
-        pulse: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>'
+        pulse: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
+        ticket: '<svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 0-2 2v1.2a1.8 1.8 0 0 1 0 3.6V16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-1.2a1.8 1.8 0 0 1 0-3.6V10a2 2 0 0 0-2-2H4z"/><path d="M14 8v10" stroke-dasharray="2 2.4"/></svg>'
       };
       var TRK = {
-        calories:  { ic: "cal",   cls: "cal",   nm: { en: "Calories", id: "Kalori" },                     d: { en: "Track daily kcal & macros", id: "Catat kalori & makro harian" }, fixed: true, render: tcCalories },
-        photo:     { ic: "photo", cls: "photo", fixed: true, nm: { en: "Your Photo.20fit.id", id: "Foto 20FIT-mu" }, d: { en: "Face-search your 20FIT event photos", id: "Cari foto event 20FIT pakai wajahmu" }, render: tcPhoto },
+        calories:  { ic: "cal",   cls: "cal",   nm: { en: "Calories", id: "Kalori" },                     d: { en: "Track daily kcal & macros", id: "Catat kalori & makro harian" }, render: tcCalories },
+        photo:     { ic: "photo", cls: "photo", nm: { en: "Your Photo.20fit.id", id: "Foto 20FIT-mu" }, d: { en: "Face-search your 20FIT event photos", id: "Cari foto event 20FIT pakai wajahmu" }, render: tcPhoto },
         fasting:   { ic: "fast",  cls: "fast",  nm: { en: "Intermittent Fasting", id: "Intermittent Fasting" }, d: { en: "16:8 fasting window timer", id: "Timer jendela puasa 16:8" }, render: tcFasting },
         hydration: { ic: "drop",  cls: "drop",  nm: { en: "Hydration", id: "Hidrasi" },                    d: { en: "Daily water intake", id: "Asupan air harian" }, render: tcHydration },
         sleep:     { ic: "sleep", cls: "sleep", nm: { en: "Sleep", id: "Tidur" },                          d: { en: "Duration & quality trend", id: "Durasi & tren kualitas" }, render: tcSleep },
-        health:    { ic: "pulse", cls: "pulse", nm: { en: "Health snapshot", id: "Ringkasan Kesehatan" }, d: { en: "RHR, weight & BMI", id: "RHR, berat & BMI" }, render: tcHealth }
+        health:    { ic: "pulse", cls: "pulse", nm: { en: "Health snapshot", id: "Ringkasan Kesehatan" }, d: { en: "RHR, weight & BMI", id: "RHR, berat & BMI" }, render: tcHealth },
+        ticket:    { ic: "ticket", cls: "ticket", nm: { en: "Ticket", id: "Tiket" },              d: { en: "Your upcoming 20FIT event tickets", id: "Tiket event 20FIT mendatang" }, render: tcTicket }
       };
-      var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health"];
+      var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health", "ticket"];
       // calories & photo SELALU tampil (fitur unggulan) — dipaksa hadir walau user tak pin.
-      function getPins() { var p; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p) || !p.length) p = ["calories", "photo"]; if (p.indexOf("calories") < 0) p.unshift("calories"); if (p.indexOf("photo") < 0) p.splice(Math.min(1, p.length), 0, "photo"); return p.filter(function (x) { return TRK[x] && TRK[x].enabled !== false; }); }
+      // Default pin: KOSONG untuk user baru / belum pernah set (Calories & Photo TIDAK auto-pin).
+      // "belum pernah set" (null) → default []. "sudah set & kosong" ([]) → hormati kosong.
+      // List tersimpan (mis. user yang sengaja pin sesuatu) dihormati apa adanya — tak dilepas.
+      function getPins() { var p = null; try { p = JSON.parse(localStorage.getItem("my20fit_home_pins") || "null"); } catch (e) {} if (!Array.isArray(p)) p = []; return p.filter(function (x) { return TRK[x] && TRK[x].enabled !== false; }); }
       function setPins(p) { try { localStorage.setItem("my20fit_home_pins", JSON.stringify(p)); } catch (e) {} setLocalTs(new Date().toISOString()); pushPrefs(); }
       // Data 7 malam terakhir utk mini bar chart Sleep (null = masih loading). Data REAL dari daily_log.
       var SLEEP7 = null;
@@ -761,6 +795,22 @@
           }
         } catch (e) { SLEEP7 = []; }
         try { if (window.renderStack) window.renderStack(); } catch (e) {}
+      }
+
+      // ===== Ticket / Upcoming Event (widget pinnable) =====
+      // Logic + data + kartu widget ADA di js/ticket-wallet.js (KOMPONEN BERSAMA dengan /event —
+      // satu sumber kebenaran, tanpa copy-paste). Di sini hanya chrome kartu dashboard: header +
+      // isi (TicketWallet.renderInner, varian "caro"/compact) + link katalog. window.renderStack
+      // didaftarkan sebagai callback TicketWallet.onRender() saat startup, jadi widget ikut
+      // ter-render ulang tiap data/tab berubah. tktSetTab/loadUpcoming/twkZoom = global dari modul.
+      function tcTicket() {
+        var head = '<div class="tkhd"><div class="tkic ticket">' + TICON.ticket + '</div>' +
+          '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Ticket Wallet", id: "Dompet Tiket" }) + '</div>' +
+          '<div class="tksub">' + Lx({ en: "Your tickets & upcoming 20FIT events", id: "Tiket kamu & event 20FIT mendatang" }) + '</div></div></div>';
+        var body = (window.TicketWallet && window.TicketWallet.renderInner) ? window.TicketWallet.renderInner({ layout: "caro" }) : '';
+        var shop = '<a class="twk-catlink" href="/membership">' + Lx({ en: "Browse membership & packages", id: "Lihat membership & paket" }) + ' →</a>' +
+          '<a class="twk-catlink" href="/rewards" style="border-top:0;margin-top:0;padding-top:0">' + Lx({ en: "Rewards & member perks", id: "Rewards & perks member" }) + ' →</a>';
+        return '<div class="card tkcard">' + head + body + shop + '</div>';
       }
 
       function tcCalories() {
@@ -1336,9 +1386,40 @@
       window.renderStack();
       window.renderCzSheet();
       window.applyExtra();
+      // Banner promo (di bawah AQI) — konten & target WA dari DB (/api/promo/banner). Bilingual.
+      // Seluruh area = <a> ke WhatsApp (tab baru + rel noopener). Klik dicatat (non-blok).
+      var PROMO_BANNER; // undefined=belum fetch, null=tak ada, {..}=ada
+      window.renderPhysioPromo = function () {
+        var box = document.getElementById("physioPromo"); if (!box) return;
+        var draw = function () {
+          var b = PROMO_BANNER;
+          if (!b || !b.wa_url) { box.hidden = true; box.innerHTML = ""; return; }
+          var title = Lx({ en: b.title_en || "", id: b.title_id || b.title_en || "" });
+          var sub = Lx({ en: b.subtitle_en || "", id: b.subtitle_id || b.subtitle_en || "" });
+          var cta = Lx({ en: b.cta_en || "Claim", id: b.cta_id || b.cta_en || "Klaim" });
+          var cls = "physio-promo" + (b.image_url ? " has-img" : "");
+          var imgStyle = b.image_url ? (" style=\"background-image:url('" + _esc(b.image_url) + "')\"") : "";
+          box.hidden = false;
+          box.innerHTML = '<a class="' + cls + '"' + imgStyle + ' href="' + _esc(b.wa_url) + '" target="_blank" rel="noopener noreferrer" aria-label="' + _esc(title) + '">' +
+            '<div class="pp-badge">10%<br>OFF</div>' +
+            '<div class="pp-body"><div class="pp-h">' + _esc(title) + '</div><div class="pp-s">' + _esc(sub) + '</div></div>' +
+            '<span class="pp-cta">' + _esc(cta) + '</span></a>';
+          var a = box.querySelector("a.physio-promo");
+          if (a) a.addEventListener("click", function () {
+            (async function () {
+              var t = null; try { t = (window.Auth && Auth.token) ? await Auth.token() : null; } catch (e) {}
+              try { fetch("/api/promo/click", { method: "POST", keepalive: true, headers: Object.assign({ "Content-Type": "application/json" }, t ? { Authorization: "Bearer " + t } : {}), body: JSON.stringify({ key: b.key }) }); } catch (e) {}
+            })();
+          });
+        };
+        if (PROMO_BANNER === undefined) {
+          fetch("/api/promo/banner").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { PROMO_BANNER = (j && j.ok && j.banner) ? j.banner : null; draw(); }).catch(function () { PROMO_BANNER = null; draw(); });
+        } else { draw(); }
+      };
+      window.renderPhysioPromo();
       var czb = document.getElementById("czBg");
       if (czb) czb.addEventListener("click", function (e) { if (e.target === czb) window.closeCustomize(); });
-      if (window.I18N && I18N.onChange) I18N.onChange(function () { buildSvcGrid(); window.buildBooking(); window.renderStack(); window.renderCzSheet(); });
+      if (window.I18N && I18N.onChange) I18N.onChange(function () { buildSvcGrid(); window.buildBooking(); window.renderStack(); window.renderCzSheet(); window.renderPhysioPromo(); });
     })();
   </script>
   <script>try{ Meta.track("View Dashboard"); }catch(e){}</script>
@@ -1388,6 +1469,7 @@
       try{ if(window.renderStack) window.renderStack(); }catch(e){}
       try{ if(window.loadSleep7) window.loadSleep7(); }catch(e){}
       try{ if(window.loadPhotos) window.loadPhotos(); }catch(e){}
+      try{ if(window.TicketWallet){ window.TicketWallet.onRender(window.renderStack); window.TicketWallet.init(); } }catch(e){}
       renderIFWidget();
       loadIFFromCloud();
       checkAchievements();

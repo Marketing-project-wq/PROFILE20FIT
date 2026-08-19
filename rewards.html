@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rewards · 20FIT</title>
+<style>
+  :root{--red:#C41101;--bg:#F3F2F0;--card:#FFFFFF;--line:#EBEBEF;--txt:#15171C;--ink:#15171C;--muted:#8A8D94;--faint:#B7B9BF;--inp:#F2F2F5;--dark:#000;--pagetx:#15171C;--green:#2A7A4F}
+  html:not(.theme-light){ --bg:#0C0D10;--card:#17191F;--txt:#F4F5F7;--ink:#F4F5F7;--muted:#8E9198;--faint:#5C5F66;--line:#25272E;--inp:#23262E;--pagetx:#F4F5F7 }
+  *{box-sizing:border-box}
+  a{text-decoration:none}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 96px}
+  .wrap{max-width:760px;margin:0 auto}
+  .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+  .logobar img{height:34px}
+  .logobar a{color:#cfc8bd;font-size:13px;font-weight:700}
+  h1{font-size:24px;font-weight:900;margin:0 0 6px;text-transform:uppercase}
+  .lead{opacity:.85;font-size:14px;margin:0 0 16px;line-height:1.5}
+  .gt{font-size:13px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:20px 0 8px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  .card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .cnm{font-weight:800;font-size:16px;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
+  .csub{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.4;overflow-wrap:anywhere}
+  .cdesc{font-size:13px;color:var(--txt);opacity:.85;margin-top:8px;line-height:1.5;overflow-wrap:anywhere}
+  .ccost{margin-top:10px;font-size:12.5px;font-weight:800;color:var(--red)}
+  .cbtn{margin-top:12px;background:var(--red);color:#fff;border:0;border-radius:10px;padding:11px;cursor:pointer;font-weight:800;font-size:13.5px;text-align:center;font-family:inherit}
+  .cbtn[disabled]{opacity:.55;cursor:default}
+  .claimrow{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:9px}
+  .claimrow .cc{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:800;font-size:14px}
+  .badge{font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border-radius:6px;padding:3px 8px}
+  .badge.pending{color:#C87000;background:color-mix(in srgb,#C87000 12%,transparent)}
+  .badge.fulfilled{color:var(--green);background:color-mix(in srgb,var(--green) 14%,transparent)}
+  .badge.cancelled{color:var(--muted);background:var(--inp)}
+  .state{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:34px 22px;text-align:center;margin-top:10px}
+  .state .tt{font-size:16px;font-weight:900;margin-bottom:6px}
+  .state .sub{font-size:13px;color:var(--muted);line-height:1.5;max-width:400px;margin:0 auto}
+  .state .retry{margin-top:14px;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:11px;padding:9px 15px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+  .sk{height:150px;border-radius:14px;background:linear-gradient(90deg,var(--inp),var(--card),var(--inp));background-size:200% 100%;animation:sh 1.3s linear infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px;z-index:80}
+  .sheet{background:var(--card);color:var(--txt);border-radius:18px;padding:26px;max-width:380px;width:100%;position:relative;border:1px solid var(--line);text-align:center}
+  .close{position:absolute;top:12px;right:12px;background:none;border:0;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:6px}
+  .sheet h4{font-size:18px;font-weight:900;margin:0 0 4px}
+  .sheet .code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:800;font-size:22px;margin:16px 0 8px;letter-spacing:.04em}
+  .sheet p{font-size:12.5px;color:var(--muted);line-height:1.5;margin:0}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logobar">
+      <img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" />
+      <a href="dashboard.html">← <span data-i18n="nav_home">Home</span></a>
+    </div>
+    <h1 id="pgTitle">Rewards</h1>
+    <p class="lead" id="pgLead"></p>
+    <div id="root"></div>
+  </div>
+
+  <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+  (function(){
+    "use strict";
+    var TXT = {
+      title:{ en:"Rewards", id:"Rewards" },
+      lead:{ en:"Member perks from 20FIT — claim, then show your code at the venue.", id:"Perks member 20FIT — klaim, lalu tunjukkan kodenya di lokasi." },
+      offers:{ en:"Available perks", id:"Perks tersedia" },
+      mine:{ en:"My claims", id:"Klaim saya" },
+      loading:{ en:"Loading rewards…", id:"Memuat rewards…" },
+      emptyT:{ en:"No perks yet", id:"Belum ada perks" },
+      emptyS:{ en:"New member perks appear here. Please check back later.", id:"Perks member baru akan muncul di sini. Cek lagi nanti." },
+      errT:{ en:"Couldn't load rewards", id:"Gagal memuat rewards" },
+      errS:{ en:"Something went wrong. Please try again.", id:"Ada kendala. Coba lagi ya." },
+      retry:{ en:"Try again", id:"Coba lagi" },
+      claim:{ en:"Claim", id:"Klaim" },
+      claimed:{ en:"Claimed", id:"Sudah diklaim" },
+      soldout:{ en:"Fully claimed", id:"Kuota habis" },
+      claiming:{ en:"Claiming…", id:"Mengklaim…" },
+      claimOkT:{ en:"Perk claimed!", id:"Perks berhasil diklaim!" },
+      claimOkP:{ en:"Show this code at the venue to redeem. It's also saved under “My claims”.", id:"Tunjukkan kode ini di lokasi untuk menukarkan. Tersimpan juga di “Klaim saya”." },
+      claimErr:{ en:"Couldn't claim. Please try again.", id:"Gagal klaim. Coba lagi." },
+      st_pending:{ en:"Pending", id:"Menunggu" },
+      st_fulfilled:{ en:"Redeemed", id:"Ditukarkan" },
+      st_cancelled:{ en:"Cancelled", id:"Dibatalkan" }
+    };
+    function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+    var $ = function(id){ return document.getElementById(id); };
+    function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    async function apiFetch(path, opts){
+      opts = opts || {}; opts.headers = opts.headers || { "Content-Type":"application/json" };
+      try{ var t=(window.Auth&&Auth.token)?await Auth.token():null; if(t) opts.headers["Authorization"]="Bearer "+t; }catch(e){}
+      return fetch(path, opts);
+    }
+    var CUR = { state:"loading", offers:[], claims:[] };
+    function claimedOfferIds(){ var s={}; (CUR.claims||[]).forEach(function(c){ if(c.status==="pending"||c.status==="fulfilled") s[c.offer_id]=1; }); return s; }
+    function offerCard(o, claimedSet){
+      var already = !!claimedSet[o.id];
+      var disabled = o.sold_out || already;
+      var label = already ? LL(TXT.claimed) : (o.sold_out ? LL(TXT.soldout) : LL(TXT.claim));
+      return '<div class="card">'+
+        '<div class="cnm">'+esc(o.title||"")+'</div>'+
+        (o.subtitle?'<div class="csub">'+esc(o.subtitle)+'</div>':'')+
+        (o.description?'<div class="cdesc">'+esc(o.description)+'</div>':'')+
+        (o.cost_label?'<div class="ccost">'+esc(o.cost_label)+'</div>':'')+
+        '<button type="button" class="cbtn" data-id="'+esc(o.id)+'"'+(disabled?' disabled':'')+'>'+label+'</button>'+
+        '</div>';
+    }
+    function stBadge(s){ var m={pending:TXT.st_pending,fulfilled:TXT.st_fulfilled,cancelled:TXT.st_cancelled}; return '<span class="badge '+esc(s)+'">'+LL(m[s]||{en:s,id:s})+'</span>'; }
+    function claimRow(c){
+      var t=(CUR.offers.filter(function(o){return o.id===c.offer_id;})[0]||{}).title||"";
+      return '<div class="claimrow"><div><div style="font-weight:700;font-size:13.5px">'+esc(t||"Perk")+'</div>'+
+        (c.claim_code?'<div class="cc">'+esc(c.claim_code)+'</div>':'')+'</div>'+stBadge(c.status)+'</div>';
+    }
+    function render(){
+      var root=$("root"); if(!root) return;
+      if(CUR.state==="loading"){ root.innerHTML='<div class="grid"><div class="sk"></div><div class="sk"></div></div>'; return; }
+      if(CUR.state==="error"){ root.innerHTML='<div class="state"><div class="tt">'+LL(TXT.errT)+'</div><div class="sub">'+LL(TXT.errS)+'</div><button class="retry" id="rt">'+LL(TXT.retry)+'</button></div>'; var b=$("rt"); if(b)b.onclick=load; return; }
+      var html="";
+      if(!CUR.offers.length){ html+='<div class="state"><div class="tt">'+LL(TXT.emptyT)+'</div><div class="sub">'+LL(TXT.emptyS)+'</div></div>'; }
+      else { var cs=claimedOfferIds(); html+='<div class="gt">'+LL(TXT.offers)+'</div><div class="grid">'+CUR.offers.map(function(o){return offerCard(o,cs);}).join("")+'</div>'; }
+      if((CUR.claims||[]).length){ html+='<div class="gt">'+LL(TXT.mine)+'</div>'+CUR.claims.map(claimRow).join(""); }
+      root.innerHTML=html;
+      root.querySelectorAll(".cbtn").forEach(function(btn){ if(!btn.disabled) btn.onclick=function(){ claim(btn.getAttribute("data-id"), btn); }; });
+    }
+    function applyStatic(){ $("pgTitle").textContent=LL(TXT.title); $("pgLead").textContent=LL(TXT.lead); document.title=LL(TXT.title)+" · 20FIT"; }
+    function showCode(code){
+      var ov=document.createElement("div"); ov.className="ov"; ov.id="ovx";
+      ov.innerHTML='<div class="sheet"><button type="button" class="close" id="cx" aria-label="Close">✕</button>'+
+        '<h4>'+LL(TXT.claimOkT)+'</h4><div class="code">'+esc(code)+'</div><p>'+LL(TXT.claimOkP)+'</p></div>';
+      ov.addEventListener("click",function(e){ if(e.target===ov) ov.remove(); });
+      document.body.appendChild(ov); $("cx").onclick=function(){ ov.remove(); };
+    }
+    async function claim(offerId, btn){
+      if(btn){ btn.disabled=true; btn.textContent=LL(TXT.claiming); }
+      try{
+        var r=await apiFetch("/api/rewards/claim",{ method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ offer_id:offerId }) });
+        var j=await r.json().catch(function(){return null;});
+        if(!r.ok || !j || !j.ok){ if(btn){ btn.disabled=false; btn.textContent=LL(TXT.claim); } alert((j&&j.error)||LL(TXT.claimErr)); return; }
+        if(j.claim_code) showCode(j.claim_code);
+        load();
+      }catch(e){ if(btn){ btn.disabled=false; btn.textContent=LL(TXT.claim); } alert(LL(TXT.claimErr)); }
+    }
+    function load(){
+      CUR.state="loading"; render();
+      apiFetch("/api/rewards").then(function(r){ return r.ok?r.json():null; }).then(function(j){
+        if(!j || !j.ok){ CUR.state="error"; render(); return; }
+        CUR.offers=j.offers||[]; CUR.claims=j.claims||[]; CUR.state="ok"; render();
+      }).catch(function(){ CUR.state="error"; render(); });
+    }
+    (async function(){
+      try{ if(window.Auth&&Auth.requireAuth) await Auth.requireAuth(); }catch(e){}
+      applyStatic();
+      if(window.I18N&&I18N.onChange) I18N.onChange(function(){ applyStatic(); render(); });
+      load();
+    })();
+  })();
+  </script>
+</body>
+</html>

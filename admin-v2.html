@@ -40,6 +40,8 @@
       <button class="adm-navitem" data-nav="menustats"><span data-i18n="Menu interest">Minat menu</span></button>
       <button class="adm-navitem" data-nav="marketing"><span data-i18n="Marketing">Marketing</span></button>
       <button class="adm-navitem" data-nav="corporate"><span data-i18n="Corporate">Corporate</span></button>
+      <button class="adm-navitem" data-nav="events"><span data-i18n="Events">Event</span></button>
+      <button class="adm-navitem" data-nav="rewards"><span data-i18n="Rewards">Rewards</span></button>
 
       <div class="adm-navgroup" data-i18n="System">Sistem</div>
       <button class="adm-navitem" data-nav="reports"><span data-i18n="Reports">Laporan</span></button>
@@ -98,6 +100,12 @@
         <div class="adm-sec-title" data-i18n="Revenue — last 14 days">Revenue — 14 hari terakhir</div>
         <div class="adm-chart" id="ovChart"></div>
         <div class="adm-note" style="margin-top:8px" id="ovChartNote"></div>
+        <div id="ovExpiring"></div>
+        <div class="adm-grid adm-grid--3" style="margin-top:16px">
+          <div><div class="adm-sec-title" style="margin-top:0" data-i18n="Order status">Status order</div><div id="ovStatus"></div></div>
+          <div><div class="adm-sec-title" style="margin-top:0" data-i18n="Payment method">Metode bayar</div><div id="ovMethod"></div></div>
+          <div><div class="adm-sec-title" style="margin-top:0" data-i18n="Top vouchers">Voucher teratas</div><div id="ovVouchers"></div></div>
+        </div>
         <div class="adm-callout adm-scaffold">
           <span class="adm-badge" data-i18n="No data yet">BELUM ADA DATA</span>
           <div class="adm-note" data-i18n="Not yet instrumented: calorie accuracy, admin device, admin page frequency. These stay empty — no invented numbers.">Belum diinstrumentasi: akurasi kalori, device admin, frekuensi halaman admin. Sengaja dikosongkan — tanpa angka karangan.</div>
@@ -192,8 +200,16 @@
             <div class="adm-note" data-i18n="Select a user to see details.">Pilih user untuk lihat detail.</div>
           </aside>
         </div>
-        <div class="adm-sec-title" data-i18n="Saved segments">Segmen tersimpan</div>
-        <div id="usrSegments"></div>
+        <div class="adm-sec-title" data-i18n="Period recap">Recap periode</div>
+        <div class="adm-note" style="margin:-4px 0 10px" data-i18n="Growth funnel per period (onboarding → scan → buy → repeat). Click a card to view &amp; download that segment's users.">Funnel pertumbuhan per periode (onboarding → scan → beli → repeat). Klik kartu untuk lihat &amp; unduh user segmen itu.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+          <button class="adm-chip recapChip" data-recap="today" aria-pressed="false" data-i18n="Today">Hari ini</button>
+          <button class="adm-chip recapChip" data-recap="week" aria-pressed="false" data-i18n="This week">Minggu ini</button>
+          <button class="adm-chip recapChip" data-recap="month" aria-pressed="true" data-i18n="This month">Bulan ini</button>
+          <button class="adm-chip recapChip" data-recap="30d" aria-pressed="false" data-i18n="30 days">30 hari</button>
+        </div>
+        <div class="adm-grid" id="recapCards" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+        <div id="recapSeg" hidden style="margin-top:16px"></div>
         <div class="adm-sec-title" data-i18n="Add / import users (superadmin)">Tambah / import user (superadmin)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px">
           <div>
@@ -568,6 +584,63 @@
         <div class="adm-sec-title" data-i18n="Each menu (most opened)">Setiap menu (paling banyak dibuka)</div>
         <div id="msMenus"></div>
       </section>
+      <section data-section="events" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Event" data-title-en="Events" data-question="Event yang bisa dibeli — tampil di tab &quot;Upcoming Event&quot; homepage." data-question-en="Buyable events — shown in the homepage &quot;Upcoming Event&quot; tab.">
+        <div class="adm-note" data-i18n="Manage buyable events for the home 'Upcoming' tab. Shown only when status = on_sale AND published. Buy Now opens ticket.20fit.id/id/events/<slug> (same tab); no slug = no button.">Kelola event yang bisa dibeli untuk tab &quot;Mendatang&quot; di homepage. Tampil HANYA bila status = on_sale DAN dipublikasikan. Tombol Beli Sekarang membuka ticket.20fit.id/id/events/&lt;slug&gt; (tab sama); tanpa slug = tanpa tombol.</div>
+        <div style="margin-top:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px">
+          <input type="hidden" id="ev_id">
+          <input type="hidden" id="ev_published_at">
+          <input class="adm-input" id="ev_slug" placeholder="slug event * (untuk link beli)" data-i18n-ph="event slug * (for buy link)">
+          <input class="adm-input" id="ev_name" placeholder="Nama event *" data-i18n-ph="Event name *">
+          <input class="adm-input" id="ev_subtitle" placeholder="Subjudul (opsional)" data-i18n-ph="Subtitle (optional)" style="grid-column:1/-1">
+          <input class="adm-input" id="ev_organizer" placeholder="Penyelenggara (opsional)" data-i18n-ph="Organizer (optional)">
+          <input class="adm-input" id="ev_category" placeholder="Kategori (opsional)" data-i18n-ph="Category (optional)">
+          <input class="adm-input" id="ev_venue" placeholder="Venue (opsional)" data-i18n-ph="Venue (optional)">
+          <input class="adm-input" id="ev_city" placeholder="Kota (opsional)" data-i18n-ph="City (optional)">
+          <input class="adm-input" id="ev_start" type="datetime-local">
+          <input class="adm-input" id="ev_price" type="number" placeholder="Harga mulai (rupiah, angka)" data-i18n-ph="Price from (rupiah, number)">
+          <input class="adm-input" id="ev_currency" placeholder="Mata uang (IDR)" data-i18n-ph="Currency (IDR)">
+          <select class="adm-input" id="ev_status">
+            <option value="draft" data-i18n="draft">draft</option>
+            <option value="on_sale" data-i18n="on_sale">on_sale</option>
+            <option value="sold_out" data-i18n="sold_out">sold_out</option>
+            <option value="closed" data-i18n="closed">closed</option>
+          </select>
+          <input class="adm-input" id="ev_cover" placeholder="URL cover (opsional)" data-i18n-ph="Cover URL (optional)" style="grid-column:1/-1">
+          <input class="adm-input" id="ev_sort" type="number" placeholder="Urutan (0)" data-i18n-ph="Sort order (0)">
+          <label class="adm-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="ev_pub" checked> <span data-i18n="Published (visible on home)">Dipublikasikan (tampil di home)</span></label>
+          <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary" id="evSaveBtn" onclick="evSave()" data-i18n="Save event">Simpan event</button>
+            <button class="adm-btn adm-btn--sm" id="evCancelBtn" onclick="evCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
+            <span class="adm-note" id="evMsg"></span>
+          </div>
+        </div>
+        <div class="adm-sec-title" style="margin-top:20px" data-i18n="Event list">Daftar event</div>
+        <div id="evList"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+      </section>
+      <section data-section="rewards" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Rewards" data-title-en="Rewards" data-question="Perks member yang bisa diklaim — tampil di halaman /rewards. Member klaim → dapat kode → kamu tandai ditukarkan." data-question-en="Claimable member perks — shown on /rewards. Member claims → gets a code → you mark redeemed.">
+        <div class="adm-note" data-i18n="Publish real perks. No points economy — cost is free text. Members claim and show the code at the venue.">Publikasikan perks nyata. Tanpa ekonomi poin — biaya berupa teks bebas. Member klaim & tunjukkan kodenya di lokasi.</div>
+        <div style="margin-top:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px">
+          <input type="hidden" id="rw_id">
+          <input class="adm-input" id="rw_title" placeholder="Judul perks *" data-i18n-ph="Perk title *">
+          <input class="adm-input" id="rw_subtitle" placeholder="Subjudul (opsional)" data-i18n-ph="Subtitle (optional)">
+          <textarea class="adm-input" id="rw_description" placeholder="Deskripsi (opsional)" data-i18n-ph="Description (optional)" style="grid-column:1/-1;min-height:60px"></textarea>
+          <input class="adm-input" id="rw_cost" placeholder="Label biaya, mis. Gratis member (opsional)" data-i18n-ph="Cost label, e.g. Free for members (optional)">
+          <input class="adm-input" id="rw_stock" type="number" placeholder="Kuota (kosong = tak terbatas)" data-i18n-ph="Stock (empty = unlimited)">
+          <input class="adm-input" id="rw_image" placeholder="URL gambar (opsional)" data-i18n-ph="Image URL (optional)">
+          <input class="adm-input" id="rw_sort" type="number" placeholder="Urutan (0)" data-i18n-ph="Sort order (0)">
+          <textarea class="adm-input" id="rw_terms" placeholder="Syarat & ketentuan (opsional)" data-i18n-ph="Terms (optional)" style="grid-column:1/-1;min-height:50px"></textarea>
+          <label class="adm-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="rw_active" checked> <span data-i18n="Active (visible)">Aktif (tampil)</span></label>
+          <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary" id="rwSaveBtn" onclick="rwSave()" data-i18n="Save perk">Simpan perks</button>
+            <button class="adm-btn adm-btn--sm" id="rwCancelBtn" onclick="rwCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
+            <span class="adm-note" id="rwMsg"></span>
+          </div>
+        </div>
+        <div class="adm-sec-title" style="margin-top:20px" data-i18n="Perk list">Daftar perks</div>
+        <div id="rwList"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+        <div class="adm-sec-title" style="margin-top:20px" data-i18n="Claims">Klaim member</div>
+        <div id="rwClaims"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+      </section>
       <section data-section="reports" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Laporan" data-title-en="Reports" data-question="Revenue bulanan, funnel, retensi kohort, dan produk terlaris — bisa diekspor." data-question-en="Monthly revenue, funnel, cohort retention, and top products — exportable.">
         <div id="rpBody"><div class="adm-loading" style="margin-top:16px" data-i18n="Loading…">Memuat…</div></div>
         <div class="adm-note" style="margin-top:20px"><span class="adm-tag adm-tag--mute">BELUM ADA</span> <span data-i18n="Scheduled/emailed reports are not built yet — these are on-demand with CSV export (export needs staff+ role).">Report terjadwal/dikirim-email belum dibangun — ini on-demand dengan ekspor CSV (ekspor butuh role staff+).</span></div>
@@ -624,13 +697,35 @@
 
 <div class="adm-toast" data-toast hidden></div>
 
+<div id="admLogin" hidden style="position:fixed;inset:0;z-index:2000;background:var(--bg,#0b0b0c);display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:360px;background:var(--surface,#fff);border:1px solid var(--line,#E8E2DB);border-radius:16px;padding:26px">
+    <div style="font-family:var(--font-head,inherit);font-weight:900;font-size:20px;letter-spacing:1px;margin-bottom:4px">20<span style="color:var(--red,#C41101)">●</span>FIT <span style="font-weight:400;font-size:13px">Admin</span></div>
+    <div class="adm-note" data-i18n="Sign in with your 20FIT admin account.">Masuk dengan akun admin 20FIT.</div>
+    <input class="adm-input" id="admLoginEmail" type="email" placeholder="Email" style="margin-top:12px;width:100%">
+    <input class="adm-input" id="admLoginPass" type="password" placeholder="Password" style="margin-top:8px;width:100%">
+    <button class="adm-btn adm-btn--primary" id="admLoginBtn" style="width:100%;margin-top:12px" data-i18n="Sign in">Masuk</button>
+    <div class="adm-note" id="admLoginMsg" style="margin-top:8px;min-height:16px"></div>
+    <div class="adm-note" style="margin-top:10px;font-size:12px" data-i18n="Or open with ?key=ADMIN_KEY.">Atau buka dengan ?key=ADMIN_KEY.</div>
+  </div>
+</div>
 <script src="js/vendor-supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin-shell.js"></script>
 <script>
 (function(){
   "use strict";
-  var KEY = new URLSearchParams(location.search).get("key") || "";
+  // Master key di-resolve dari ?key= URL ATAU sessionStorage.admin_master_key
+  // (tempat admin lama menyimpannya saat login master key). ?key= yang dibuka
+  // disimpan agar diingat lintas-reload di tab ini; kalau tak ada, jatuh ke
+  // Authorization: Bearer <JWT> lewat admAuthHeaders(). Tanpa ini, admin yang
+  // login via master key di admin lama tetap 401 di admin-v2.
+  var KEY = (function(){
+    var q = new URLSearchParams(location.search).get("key") || "";
+    try {
+      if (q) { sessionStorage.setItem("admin_master_key", q); return q; }
+      return sessionStorage.getItem("admin_master_key") || "";
+    } catch(e){ return q; }
+  })();
   var CUR = { period: "30d", section: "overview" };
   // Backend mengautentikasi /api/admin/* HANYA lewat header x-admin-key (?key=)
   // atau Authorization: Bearer <supabase JWT> — TIDAK ada auth via cookie. Jadi
@@ -674,6 +769,13 @@
 
   // ---- OVERVIEW ----
 
+  function ovBarTable(elId, obj){
+    var e=document.getElementById(elId); if(!e) return;
+    var rows=Object.keys(obj||{}).map(function(k){return {k:k,v:obj[k]||0};}).sort(function(a,b){return b.v-a.v;});
+    if(!rows.length){ e.innerHTML='<div class="adm-note">—</div>'; return; }
+    var max=rows[0].v||1;
+    e.innerHTML='<table class="adm-table"><tbody>'+rows.map(function(r){return '<tr><td>'+esc(r.k)+'</td><td class="adm-right adm-num">'+r.v+'</td><td style="width:45%"><div class="adm-bar"><i style="width:'+Math.max(2,Math.round(r.v/max*100))+'%"></i></div></td></tr>';}).join("")+'</tbody></table>';
+  }
   async function loadOverview(){
     var kp = document.getElementById("ovKpis");
     try{
@@ -706,6 +808,14 @@
         return '<div><i style="height:'+h+'%" title="'+t.date+': '+rp(t.revenue)+'"></i></div>';
       }).join("") || '<div class="adm-note">'+L("No data in range","Tak ada data di rentang")+'</div>';
       document.getElementById("ovChartNote").textContent = L("Bars = daily revenue (paid). Hover for date.","Batang = revenue harian (paid). Arahkan untuk tanggal.");
+      // Fase E: alert voucher kedaluwarsa + breakdown status/metode + top voucher
+      var exp=(j.voucher&&j.voucher.expiring)||[];
+      var ovExp=document.getElementById("ovExpiring");
+      if(ovExp) ovExp.innerHTML = exp.length ? '<div class="adm-alert" style="margin-top:12px"><span class="dot"></span><div>'+L(exp.length+" voucher expiring in ≤7 days: ",exp.length+" voucher kedaluwarsa ≤7 hari: ")+exp.map(function(v){return esc(v.code||"—");}).join(", ")+'</div></div>' : '';
+      ovBarTable("ovStatus", tx.byStatus||{});
+      ovBarTable("ovMethod", j.byMethod||{});
+      var topV=(j.voucher&&j.voucher.top)||[], ovV=document.getElementById("ovVouchers");
+      if(ovV) ovV.innerHTML = topV.length ? '<table class="adm-table"><tbody>'+topV.slice(0,5).map(function(v){return '<tr><td class="adm-mono">'+esc(v.code||v.voucher_id||"—")+'</td><td class="adm-right adm-num">'+(v.count||0)+'</td></tr>';}).join("")+'</tbody></table>' : '<div class="adm-note">—</div>';
       if(window.applyI18n) {}
     }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Error: ","Error: ")+String(e.message||e)+'</div></div>'; }
   }
@@ -789,8 +899,94 @@
           '<td class="adm-mono">'+fmtDate(u.created_at)+'</td></tr>';
       }).join("");
       window.admRenderTable("#usrTable");
-      document.getElementById("usrSegments").innerHTML = '<div class="adm-callout adm-scaffold"><span class="adm-badge" data-i18n="No data yet">BELUM ADA DATA</span><div class="adm-note" data-i18n="Saved segments need the segments endpoint (table my20fit_segments exists; CRUD next increment).">Segmen tersimpan butuh endpoint segmen (tabel my20fit_segments sudah ada; CRUD menyusul).</div></div>';
+      recapInit();
     }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+String(e.message||e)+'</div></div>'; }
+  }
+
+  // ---- RECAP PERIODE (funnel onboarding→scan→beli→repeat + unduh segmen) ----
+  // Sumber: /api/admin/onboarding-recap (viewer+, NON-kesehatan). Klik kartu → daftar user
+  // segmen (nama/email/telepon + metrik periode). Unduh CSV lewat server /api/admin/export-csv
+  // (khusus staff+; dicek server-side & diaudit). Delta = beda vs periode sebelumnya sama panjang.
+  var RECAP_STATE = { range:"month", data:null, seg:null };
+  var RECAP_META = {
+    onboarded:     { en:"Onboarding",             id:"Onboarding",              slug:"onboarding" },
+    onboarded_new: { en:"New (no scan/buy)",      id:"Baru (belum scan/beli)",  slug:"baru-onboarding" },
+    scanned:       { en:"Scanned",                id:"Sudah scan",              slug:"sudah-scan" },
+    bought:        { en:"Bought",                 id:"Sudah beli",              slug:"sudah-beli" },
+    repeat:        { en:"Repeat buyer",           id:"Repeat buyer",            slug:"repeat-buyer" },
+  };
+  function recapRangeLabel(){ return ({today:L("today","hari ini"),week:L("this week","minggu ini"),month:L("this month","bulan ini"),"30d":L("30 days","30 hari")})[RECAP_STATE.range]||RECAP_STATE.range; }
+  // Kolom per segmen (satu sumber definisi; dipakai tabel & CSV). value() dijalankan per-user.
+  function recapSegCols(seg){
+    var base=[{en:"Name",id:"Nama",value:function(u){return u.full_name||"";}},
+              {en:"Email",id:"Email",value:function(u){return u.email||"";}},
+              {en:"Phone",id:"No HP",value:function(u){return u.phone||"";}}];
+    if(seg==="scanned") return base.concat([
+      {en:"Scans (period)",id:"Scan (periode)",num:true,value:function(u){return u.scans_in_window||0;}},
+      {en:"Last scan",id:"Scan terakhir",value:function(u){return fmtDate(u.last_scan_at);}} ]);
+    if(seg==="bought"||seg==="repeat") return base.concat([
+      {en:"Orders (period)",id:"Transaksi (periode)",num:true,value:function(u){return u.orders_in_window||0;}},
+      {en:"Amount (period, Rp)",id:"Nominal (periode, Rp)",num:true,csv:function(u){return u.amount_in_window||0;},value:function(u){return rp(u.amount_in_window||0);}},
+      {en:"Last buy",id:"Beli terakhir",value:function(u){return fmtDate(u.last_paid_at);}} ]);
+    return base.concat([{en:"Onboarded",id:"Tgl onboarding",value:function(u){return fmtDate(u.onboarded_at);}}]);
+  }
+  function recapDelta(cur,prev){
+    if(prev==null) return '<div class="adm-sub" style="visibility:hidden">.</div>';
+    var d=(cur||0)-(prev||0), sign=d>0?"+":"";
+    return '<div class="adm-delta'+(d<0?" adm-delta--down":"")+'" style="display:inline-block;margin-top:8px" title="'+esc(L("vs previous same-length period","dibanding periode sebelumnya sama panjang"))+'">'+sign+d+' '+L("vs prev","vs lalu")+'</div>';
+  }
+  function recapCard(seg,val,prev){
+    var m=RECAP_META[seg], on=(RECAP_STATE.seg===seg);
+    return '<div class="adm-cell recapCard'+(on?" on":"")+'" data-seg="'+seg+'" style="cursor:pointer'+(on?";background:var(--surface)":"")+'">'+
+      '<div class="adm-metric adm-num">'+(val||0)+'</div>'+
+      '<div class="adm-label" data-i18n="'+m.en+'">'+m.id+'</div>'+
+      recapDelta(val,prev)+
+      '<div class="adm-sub">'+L("click: view &amp; download","klik: lihat &amp; unduh")+'</div></div>';
+  }
+  async function recapFetch(){
+    var qs="range="+encodeURIComponent(RECAP_STATE.range)+(KEY?("&key="+encodeURIComponent(KEY)):"");
+    return fetch("/api/admin/onboarding-recap?"+qs,{credentials:"include",headers:await admAuthHeaders()});
+  }
+  function recapInit(){
+    RECAP_STATE.range="month"; RECAP_STATE.seg=null;
+    document.querySelectorAll(".recapChip").forEach(function(c){ c.setAttribute("aria-pressed",String(c.dataset.recap==="month")); });
+    var sp=document.getElementById("recapSeg"); if(sp){ sp.hidden=true; sp.innerHTML=""; }
+    loadRecap();
+  }
+  async function loadRecap(){
+    var cards=document.getElementById("recapCards"); if(!cards) return;
+    cards.innerHTML='<div class="adm-cell"><div class="adm-loading">'+L("Loading…","Memuat…")+'</div></div>';
+    var res=await recapFetch().catch(function(){return null;});
+    var j=res?await res.json().catch(function(){return null;}):null;
+    if(!res||!res.ok||!j||!j.ok){ cards.innerHTML='<div class="adm-cell"><div class="adm-note">'+esc((j&&j.error)||L("Failed to load recap.","Gagal memuat recap."))+'</div></div>'; return; }
+    RECAP_STATE.data=j; var t=j.totals||{}, pv=j.prev||{};
+    cards.innerHTML=recapCard("onboarded",t.onboarded,pv.onboarded)+recapCard("onboarded_new",t.onboarded_new,null)+
+      recapCard("scanned",t.scanned,pv.scanned)+recapCard("bought",t.bought,pv.bought)+recapCard("repeat",t.repeat,pv.repeat);
+    if(RECAP_STATE.seg) recapShowSeg(RECAP_STATE.seg); // refresh segmen terbuka dgn data baru
+  }
+  function recapShowSeg(seg){
+    var j=RECAP_STATE.data, m=RECAP_META[seg]; if(!j||!m) return;
+    RECAP_STATE.seg=seg;
+    document.querySelectorAll(".recapCard").forEach(function(el){ var on=el.dataset.seg===seg; el.classList.toggle("on",on); el.style.background=on?"var(--surface)":""; });
+    var rows=(j.segments&&j.segments[seg])||[], cols=recapSegCols(seg), sp=document.getElementById("recapSeg"); if(!sp) return;
+    sp.hidden=false;
+    var head='<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">'+
+      '<div class="adm-h2">'+esc(L(m.en,m.id))+' — '+rows.length+' user <span class="adm-note" style="font-weight:400">('+esc(recapRangeLabel())+')</span></div>'+
+      '<button class="adm-btn adm-btn--sm recapExport" data-i18n="Export CSV">Export CSV</button></div>';
+    if(!rows.length){ sp.innerHTML=head+'<div class="adm-note">'+L("No users in this segment for the selected period.","Tak ada user di segmen ini untuk periode terpilih.")+'</div>'; return; }
+    var h='<table class="adm-table"><thead><tr>'+cols.map(function(c){ return '<th'+(c.num?' class="adm-right"':'')+'>'+esc(L(c.en,c.id))+'</th>'; }).join("")+'</tr></thead><tbody>';
+    rows.slice(0,500).forEach(function(u){ h+='<tr>'+cols.map(function(c){ var v=c.value(u); return '<td'+(c.num?' class="adm-right adm-num"':(c.en==="Email"||c.en==="Phone"?' class="adm-mono"':""))+'>'+esc(v===""||v==null?"—":v)+'</td>'; }).join("")+'</tr>'; });
+    h+='</tbody></table>';
+    if(rows.length>500) h+='<div class="adm-note" style="margin-top:8px">'+L("Showing 500 of ","Menampilkan 500 dari ")+rows.length+L(" users. Download CSV for the full list."," user. Unduh CSV untuk data lengkap.")+'</div>';
+    sp.innerHTML=head+'<div style="overflow-x:auto">'+h+'</div>';
+  }
+  function recapExport(){
+    var j=RECAP_STATE.data, seg=RECAP_STATE.seg, m=RECAP_META[seg]; if(!j||!seg||!m) return;
+    if(!window.admExport){ if(window.admToast)admToast(L("Export unavailable","Export tak tersedia")); return; }
+    var rows=(j.segments&&j.segments[seg])||[]; if(!rows.length){ if(window.admToast)admToast(L("No data to download.","Tak ada data untuk diunduh.")); return; }
+    var cols=recapSegCols(seg), headers=cols.map(function(c){ return c.en; });
+    var data=rows.map(function(u){ return cols.map(function(c){ return c.csv?c.csv(u):c.value(u); }); });
+    admExport("segment:"+seg, headers, data, m.slug+"_"+RECAP_STATE.range+".csv");
   }
 
   async function loadUserDetail(uid){
@@ -1185,14 +1381,39 @@
   async function loadRole(){
     try{
       var j=await adminFetch("/api/admin/me").then(function(r){return r.json();});
-      if(!j||!j.ok) return;
+      if(!j||!j.ok) return false;
       var role=j.role||"viewer"; IS_SUPER=(role==="superadmin");
       var allow=ALLOWED[role];
       document.querySelectorAll("[data-nav]").forEach(function(b){ b.style.display=(!allow||allow.indexOf(b.dataset.nav)>=0)?"":"none"; });
       var strip=document.getElementById("roleStrip"), rt=document.getElementById("roleText");
       if(strip&&rt){ strip.hidden=false; rt.textContent=role.toUpperCase()+" · "+roleDesc(role); }
       if(allow && allow.indexOf(CUR.section)<0){ CUR.section=allow[0]; if(window.admShowSection) window.admShowSection(CUR.section); }
-    }catch(e){}
+      return true;
+    }catch(e){ return false; }
+  }
+  // ---- LOGIN (A/2) — additif: overlay hanya muncul kalau BELUM ter-auth. ----
+  async function admTryAuth(email, pass){
+    try{ if(window.Auth&&Auth.ready) await Auth.ready; }catch(e){}
+    try{
+      var res=await Auth.supabase.auth.signInWithPassword({ email:email, password:pass });
+      if(!res.error) return { ok:true };
+      try{ await Auth.fitcoLogin(email, pass); return { ok:true }; }
+      catch(e){ return { ok:false, error:res.error.message }; }
+    }catch(e){ return { ok:false, error:String((e&&e.message)||e) }; }
+  }
+  function admShowLogin(){ var o=document.getElementById("admLogin"); if(o) o.hidden=false; }
+  async function admDoLogin(){
+    var email=((document.getElementById("admLoginEmail")||{}).value||"").trim();
+    var pass=(document.getElementById("admLoginPass")||{}).value||"";
+    var msg=document.getElementById("admLoginMsg"), btn=document.getElementById("admLoginBtn");
+    if(!email||!pass){ if(msg)msg.textContent=L("Enter email & password.","Isi email & password."); return; }
+    if(msg)msg.textContent=L("Signing in…","Masuk…"); if(btn)btn.disabled=true;
+    var r=await admTryAuth(email, pass);
+    if(btn)btn.disabled=false;
+    if(!r.ok){ if(msg)msg.textContent=r.error||L("Login failed.","Login gagal."); return; }
+    var authed=await loadRole();
+    if(authed){ var o=document.getElementById("admLogin"); if(o)o.hidden=true; loadSection(CUR.section); }
+    else if(msg)msg.textContent=L("This account is not an admin.","Akun ini bukan admin.");
   }
 
   // ---- VOUCHER ----
@@ -1742,6 +1963,203 @@
   }
 
   // ---- dispatcher ----
+  // ---- EVENT CATALOG (section Event) — CRUD katalog "Upcoming Event" homepage ----
+  var EV_CACHE = [];
+  function evEsc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function evVal(id){ var el=document.getElementById(id); return el?el.value:""; }
+  async function loadEvents(){
+    var list=document.getElementById("evList"); if(!list) return;
+    list.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
+    try{
+      var res=await adminFetch("/api/admin/event-catalog");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ list.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; return; }
+      EV_CACHE=j.events||[];
+      if(!EV_CACHE.length){ list.innerHTML='<div class="adm-note">'+L("No events yet. Add one above.","Belum ada event. Tambah di atas.")+'</div>'; return; }
+      list.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Name","Nama")+'</th><th>slug</th><th>'+L("Start","Mulai")+'</th><th>'+L("Status","Status")+'</th><th>'+L("Published","Publish")+'</th><th></th></tr></thead><tbody>'+
+        EV_CACHE.map(function(e){
+          var pub=!!e.published_at;
+          var live=(e.status==="on_sale"&&pub);
+          return '<tr><td>'+evEsc(e.name)+'</td>'+
+            '<td class="adm-mono">'+(e.slug?evEsc(e.slug):"—")+'</td>'+
+            '<td class="adm-mono">'+(e.starts_at?evEsc(String(e.starts_at).slice(0,10)):L("TBA","Menyusul"))+'</td>'+
+            '<td><span class="adm-tag '+(e.status==="on_sale"?"adm-tag--paid":"adm-tag--mute")+'">'+evEsc(e.status||"draft")+'</span></td>'+
+            '<td>'+(pub?'<span class="adm-tag '+(live?"adm-tag--paid":"adm-tag--mute")+'">'+(live?L("LIVE","LIVE"):L("yes","ya"))+'</span>':'<span class="adm-tag adm-tag--mute">'+L("no","tidak")+'</span>')+'</td>'+
+            '<td class="adm-right"><button class="adm-btn adm-btn--sm evAct" data-a="edit" data-id="'+evEsc(e.id)+'">'+L("Edit","Edit")+'</button> '+
+              '<button class="adm-btn adm-btn--sm evAct" data-a="toggle" data-id="'+evEsc(e.id)+'">'+(pub?L("Unpublish","Sembunyikan"):L("Publish","Publikasikan"))+'</button> '+
+              '<button class="adm-btn adm-btn--sm evAct" data-a="delete" data-id="'+evEsc(e.id)+'">'+L("Delete","Hapus")+'</button></td></tr>';
+        }).join("")+'</tbody></table>';
+    }catch(e){ list.innerHTML='<div class="adm-note">'+L("Error loading events.","Error memuat event.")+'</div>'; }
+  }
+  // ISO → nilai input datetime-local (YYYY-MM-DDTHH:mm), waktu lokal browser.
+  function evDtLocal(iso){ if(!iso)return""; var d=new Date(iso); if(isNaN(d))return""; var p=function(n){return(n<10?"0":"")+n;}; return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes()); }
+  var EV_FIELDS=["ev_id","ev_published_at","ev_slug","ev_name","ev_subtitle","ev_organizer","ev_category","ev_venue","ev_city","ev_start","ev_price","ev_currency","ev_cover","ev_sort"];
+  window.evEdit=function(id){
+    var e=EV_CACHE.filter(function(x){return String(x.id)===String(id);})[0]; if(!e) return;
+    document.getElementById("ev_id").value=e.id||"";
+    document.getElementById("ev_published_at").value=e.published_at||"";
+    document.getElementById("ev_slug").value=e.slug||"";
+    document.getElementById("ev_name").value=e.name||"";
+    document.getElementById("ev_subtitle").value=e.subtitle||"";
+    document.getElementById("ev_organizer").value=e.organizer||"";
+    document.getElementById("ev_category").value=e.category||"";
+    document.getElementById("ev_venue").value=e.venue||"";
+    document.getElementById("ev_city").value=e.city||"";
+    document.getElementById("ev_start").value=evDtLocal(e.starts_at);
+    document.getElementById("ev_price").value=(e.price_from!=null?e.price_from:"");
+    document.getElementById("ev_currency").value=e.currency||"IDR";
+    document.getElementById("ev_cover").value=e.cover_url||"";
+    document.getElementById("ev_sort").value=(e.sort_order!=null?e.sort_order:"");
+    document.getElementById("ev_status").value=e.status||"draft";
+    document.getElementById("ev_pub").checked=!!e.published_at;
+    var c=document.getElementById("evCancelBtn"); if(c)c.hidden=false;
+    try{ document.getElementById("ev_slug").scrollIntoView({block:"center"}); }catch(_){}
+  };
+  window.evCancel=function(){
+    EV_FIELDS.forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
+    var cur=document.getElementById("ev_currency"); if(cur)cur.value="IDR";
+    var st=document.getElementById("ev_status"); if(st)st.value="draft";
+    var p=document.getElementById("ev_pub"); if(p)p.checked=true;
+    var c=document.getElementById("evCancelBtn"); if(c)c.hidden=true;
+    var m=document.getElementById("evMsg"); if(m)m.textContent="";
+  };
+  window.evSave=async function(){
+    var msg=document.getElementById("evMsg");
+    var slug=(evVal("ev_slug")||"").trim();
+    var name=(evVal("ev_name")||"").trim();
+    if(!slug){ if(msg)msg.textContent=L("Slug is required.","Slug wajib."); return; }
+    if(!name){ if(msg)msg.textContent=L("Event name is required.","Nama event wajib."); return; }
+    var priceStr=(evVal("ev_price")||"").trim();
+    var body={ id:evVal("ev_id")||undefined, slug:slug, name:name,
+      subtitle:evVal("ev_subtitle")||null, organizer:evVal("ev_organizer")||null,
+      category:evVal("ev_category")||null, venue:evVal("ev_venue")||null, city:evVal("ev_city")||null,
+      starts_at:evVal("ev_start")||null,
+      price_from:(priceStr!==""?parseInt(priceStr,10):null),
+      currency:(evVal("ev_currency")||"IDR").trim()||"IDR",
+      cover_url:evVal("ev_cover")||null,
+      status:evVal("ev_status")||"draft",
+      sort_order:parseInt(evVal("ev_sort"),10)||0,
+      published:!!(document.getElementById("ev_pub")||{}).checked,
+      published_at:evVal("ev_published_at")||null };
+    if(msg)msg.textContent=L("Saving…","Menyimpan…");
+    try{
+      var res=await adminPost("/api/admin/event-catalog", body);
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
+      if(msg)msg.textContent=L("Saved.","Tersimpan."); window.evCancel(); loadEvents();
+    }catch(e){ if(msg)msg.textContent=L("Error saving.","Error menyimpan."); }
+  };
+  window.evToggle=async function(id){
+    try{ var res=await adminPost("/api/admin/event-catalog/"+encodeURIComponent(id)+"/toggle",{}); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadEvents(); }catch(e){}
+  };
+  window.evDelete=async function(id){
+    if(!window.confirm(L("Delete this event?","Hapus event ini?"))) return;
+    try{
+      var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
+      var res=await fetch("/api/admin/event-catalog/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() });
+      var j=await res.json().catch(function(){return null;});
+      if(j&&j.ok) loadEvents();
+    }catch(e){}
+  };
+  // ---- REWARDS (section Rewards) — CRUD perks + kelola klaim ----
+  var RW_CACHE=[];
+  async function loadRewards(){
+    var list=document.getElementById("rwList");
+    if(list){
+      list.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
+      try{
+        var res=await adminFetch("/api/admin/rewards");
+        var j=await res.json().catch(function(){return null;});
+        if(!j||!j.ok){ list.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; }
+        else { RW_CACHE=j.offers||[];
+          if(!RW_CACHE.length) list.innerHTML='<div class="adm-note">'+L("No perks yet. Add one above.","Belum ada perks. Tambah di atas.")+'</div>';
+          else list.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Title","Judul")+'</th><th>'+L("Cost","Biaya")+'</th><th>'+L("Claimed","Diklaim")+'</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+
+            RW_CACHE.map(function(o){
+              var stock=(o.stock==null)?"∞":o.stock;
+              return '<tr><td>'+evEsc(o.title)+'</td><td class="adm-mono">'+(o.cost_label?evEsc(o.cost_label):"—")+'</td>'+
+                '<td class="adm-mono">'+(o.claimed_count||0)+" / "+evEsc(String(stock))+'</td>'+
+                '<td>'+(o.active?'<span class="adm-tag adm-tag--paid">ON</span>':'<span class="adm-tag adm-tag--mute">OFF</span>')+'</td>'+
+                '<td class="adm-right"><button class="adm-btn adm-btn--sm rwAct" data-a="edit" data-id="'+evEsc(o.id)+'">'+L("Edit","Edit")+'</button> '+
+                  '<button class="adm-btn adm-btn--sm rwAct" data-a="toggle" data-id="'+evEsc(o.id)+'">'+(o.active?L("Off","Nonaktif"):L("On","Aktifkan"))+'</button> '+
+                  '<button class="adm-btn adm-btn--sm rwAct" data-a="delete" data-id="'+evEsc(o.id)+'">'+L("Delete","Hapus")+'</button></td></tr>';
+            }).join("")+'</tbody></table>';
+        }
+      }catch(e){ list.innerHTML='<div class="adm-note">'+L("Error loading perks.","Error memuat perks.")+'</div>'; }
+    }
+    loadRewardClaims();
+  }
+  async function loadRewardClaims(){
+    var box=document.getElementById("rwClaims"); if(!box) return;
+    try{
+      var res=await adminFetch("/api/admin/reward-claims");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ box.innerHTML='<div class="adm-note">'+L("Failed to load claims.","Gagal memuat klaim.")+'</div>'; return; }
+      var cl=j.claims||[];
+      if(!cl.length){ box.innerHTML='<div class="adm-note">'+L("No claims yet.","Belum ada klaim.")+'</div>'; return; }
+      box.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Perk","Perks")+'</th><th>'+L("Member","Member")+'</th><th>'+L("Code","Kode")+'</th><th>'+L("Status","Status")+'</th><th></th></tr></thead><tbody>'+
+        cl.map(function(c){
+          var act = c.status==="pending"
+            ? '<button class="adm-btn adm-btn--sm rcAct" data-id="'+evEsc(c.id)+'" data-s="fulfilled">'+L("Mark redeemed","Tandai ditukarkan")+'</button> <button class="adm-btn adm-btn--sm rcAct" data-id="'+evEsc(c.id)+'" data-s="cancelled">'+L("Cancel","Batalkan")+'</button>'
+            : '<button class="adm-btn adm-btn--sm rcAct" data-id="'+evEsc(c.id)+'" data-s="pending">'+L("Reopen","Buka lagi")+'</button>';
+          var badge = c.status==="fulfilled"?'<span class="adm-tag adm-tag--paid">'+L("Redeemed","Ditukarkan")+'</span>':(c.status==="cancelled"?'<span class="adm-tag adm-tag--mute">'+L("Cancelled","Dibatalkan")+'</span>':'<span class="adm-tag">'+L("Pending","Menunggu")+'</span>');
+          return '<tr><td>'+evEsc(c.offer_title||"—")+'</td><td class="adm-mono">'+evEsc(c.email||c.name||"—")+'</td><td class="adm-mono">'+evEsc(c.claim_code||"—")+'</td><td>'+badge+'</td><td class="adm-right">'+act+'</td></tr>';
+        }).join("")+'</tbody></table>';
+    }catch(e){ box.innerHTML='<div class="adm-note">'+L("Error loading claims.","Error memuat klaim.")+'</div>'; }
+  }
+  window.rwEdit=function(id){
+    var o=RW_CACHE.filter(function(x){return String(x.id)===String(id);})[0]; if(!o) return;
+    document.getElementById("rw_id").value=o.id||"";
+    document.getElementById("rw_title").value=o.title||"";
+    document.getElementById("rw_subtitle").value=o.subtitle||"";
+    document.getElementById("rw_description").value=o.description||"";
+    document.getElementById("rw_cost").value=o.cost_label||"";
+    document.getElementById("rw_stock").value=(o.stock!=null?o.stock:"");
+    document.getElementById("rw_image").value=o.image_url||"";
+    document.getElementById("rw_sort").value=(o.sort_order!=null?o.sort_order:"");
+    document.getElementById("rw_terms").value=o.terms||"";
+    document.getElementById("rw_active").checked=o.active!==false;
+    var c=document.getElementById("rwCancelBtn"); if(c)c.hidden=false;
+    try{ document.getElementById("rw_title").scrollIntoView({block:"center"}); }catch(_){}
+  };
+  window.rwCancel=function(){
+    ["rw_id","rw_title","rw_subtitle","rw_description","rw_cost","rw_stock","rw_image","rw_sort","rw_terms"].forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
+    var a=document.getElementById("rw_active"); if(a)a.checked=true;
+    var c=document.getElementById("rwCancelBtn"); if(c)c.hidden=true;
+    var m=document.getElementById("rwMsg"); if(m)m.textContent="";
+  };
+  window.rwSave=async function(){
+    var msg=document.getElementById("rwMsg");
+    var title=(evVal("rw_title")||"").trim();
+    if(!title){ if(msg)msg.textContent=L("Title is required.","Judul wajib."); return; }
+    var stockStr=(evVal("rw_stock")||"").trim();
+    var body={ id:evVal("rw_id")||undefined, title:title, subtitle:evVal("rw_subtitle")||null,
+      description:evVal("rw_description")||null, cost_label:evVal("rw_cost")||null,
+      stock:(stockStr!==""?parseInt(stockStr,10):null), image_url:evVal("rw_image")||null,
+      terms:evVal("rw_terms")||null, sort_order:parseInt(evVal("rw_sort"),10)||0,
+      active:!!(document.getElementById("rw_active")||{}).checked };
+    if(msg)msg.textContent=L("Saving…","Menyimpan…");
+    try{
+      var res=await adminPost("/api/admin/rewards", body);
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
+      if(msg)msg.textContent=L("Saved.","Tersimpan."); window.rwCancel(); loadRewards();
+    }catch(e){ if(msg)msg.textContent=L("Error saving.","Error menyimpan."); }
+  };
+  window.rwToggle=async function(id){
+    try{ var res=await adminPost("/api/admin/rewards/"+encodeURIComponent(id)+"/toggle",{}); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadRewards(); }catch(e){}
+  };
+  window.rwDelete=async function(id){
+    if(!window.confirm(L("Delete this perk?","Hapus perks ini?"))) return;
+    try{
+      var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
+      var res=await fetch("/api/admin/rewards/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() });
+      var j=await res.json().catch(function(){return null;});
+      if(j&&j.ok) loadRewards();
+    }catch(e){}
+  };
+  window.rcFulfill=async function(id, status){
+    try{ var res=await adminPost("/api/admin/reward-claims/"+encodeURIComponent(id)+"/fulfill",{ status:status }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadRewardClaims(); }catch(e){}
+  };
   function loadSection(id){
     if(id==="overview") return loadOverview();
     if(id==="revenue") return loadRevenue();
@@ -1752,6 +2170,8 @@
     if(id==="voucher") return loadVoucher();
     if(id==="menu") return loadMenu();
     if(id==="corporate") return loadCorporate();
+    if(id==="events") return loadEvents();
+    if(id==="rewards") return loadRewards();
     if(id==="traffic") return loadTraffic();
     if(id==="menustats") return loadMenuStats();
     if(id==="reports") return loadReports();
@@ -1773,6 +2193,12 @@
     if(vmtab){ setTimeout(loadVoucherManage,0); return; }
     var vma=e.target.closest(".vmAct");
     if(vma){ if(vma.dataset.confirm&&vma.dataset.armed==="1") return; var vmaA=vma.dataset.a,vmaId=vma.dataset.id; if(vmaA==="detail")vmDetail(vmaId); else if(vmaA==="edit")vmEditForm(vmaId); else if(vmaA==="on")vmToggle(vmaId,true); else if(vmaA==="off")vmToggle(vmaId,false); return; }
+    var eva=e.target.closest(".evAct");
+    if(eva){ var evaA=eva.dataset.a,evaId=eva.dataset.id; if(evaA==="edit")window.evEdit(evaId); else if(evaA==="toggle")window.evToggle(evaId); else if(evaA==="delete")window.evDelete(evaId); return; }
+    var rwa=e.target.closest(".rwAct");
+    if(rwa){ var rwaA=rwa.dataset.a,rwaId=rwa.dataset.id; if(rwaA==="edit")window.rwEdit(rwaId); else if(rwaA==="toggle")window.rwToggle(rwaId); else if(rwaA==="delete")window.rwDelete(rwaId); return; }
+    var rca=e.target.closest(".rcAct");
+    if(rca){ window.rcFulfill(rca.dataset.id, rca.dataset.s); return; }
     var mnrow=e.target.closest("#mnRows tr[data-mid]");
     if(mnrow){ var mm=MN_CACHE.filter(function(x){return x.id===mnrow.dataset.mid;})[0]; if(mm){ document.querySelectorAll("#mnRows tr").forEach(function(x){x.style.background="";}); mnrow.style.background="var(--surface)"; mnRenderDetail(mm); } return; }
     var mnf=e.target.closest(".mnf");
@@ -1795,6 +2221,12 @@
     if(be){ bnEditById(be.closest("tr[data-bid]").dataset.bid); return; }
     var bd=e.target.closest(".bnDel");
     if(bd){ if(bd.dataset.armed==="1") return; bnDelete(bd.closest("tr[data-bid]").dataset.bid); return; }
+    var rcp=e.target.closest(".recapChip");
+    if(rcp){ document.querySelectorAll(".recapChip").forEach(function(x){x.setAttribute("aria-pressed",String(x===rcp));}); RECAP_STATE.range=rcp.dataset.recap; loadRecap(); return; }
+    var rcard=e.target.closest(".recapCard");
+    if(rcard){ recapShowSeg(rcard.dataset.seg); return; }
+    var rex=e.target.closest(".recapExport");
+    if(rex){ recapExport(); return; }
   });
   async function bnToggle(id,on){
     var r=await adminPost("/api/admin/banners/"+encodeURIComponent(id)+"/toggle",{is_active:on}).then(function(x){return x.json();}).catch(function(){return{};});
@@ -1820,7 +2252,9 @@
       CUR.period=b.dataset.period; loadSection(CUR.section);
     });
     CUR.section = new URLSearchParams(location.search).get("section") || "overview";
-    loadRole().then(function(){ loadSection(CUR.section); });
+    loadRole().then(function(authed){ if(authed){ loadSection(CUR.section); } else { admShowLogin(); } });
+    var _alb=document.getElementById("admLoginBtn"); if(_alb) _alb.onclick=admDoLogin;
+    var _alp=document.getElementById("admLoginPass"); if(_alp) _alp.addEventListener("keydown",function(e){ if(e.key==="Enter") admDoLogin(); });
     ["vcType","vcValue","vcMin","vcLimit","vcPerUser","vcUntil"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",vcPreview); });
     var _vcb=document.getElementById("vcCreate"); if(_vcb) _vcb.onclick=vcCreate;
     var _vbb=document.getElementById("vbGen"); if(_vbb) _vbb.onclick=vbGen;
