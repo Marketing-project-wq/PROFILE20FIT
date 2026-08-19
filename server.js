@@ -2470,20 +2470,267 @@ app.get("/api/home-tiles", async (req, res) => {
   } catch (e) { return res.json({ ok: true, tiles: [] }); }
 });
 
-// Daftar coach untuk Book Coach: arena_coaches + gym_coaches (aktif), dengan penanda asal.
+// Daftar coach untuk Book Coach + carousel home. Sumber = roster CMS my20fit_coaches.
+// Filter venue lewat KOLOM coaches.venue (arena/gym/both), bukan cocok teks. Dibaca server
+// (service key); tabel deny-public. Kosong sampai admin mengisi roster.
 app.get("/api/coaches", async (req, res) => {
   try {
     if (!admin) return res.status(503).json({ ok: false, error: "service unavailable" });
-    const [ar, gy] = await Promise.all([
-      admin.from("arena_coaches").select("id,name,speciality,photo_url").eq("is_active", true).order("name", { ascending: true }),
-      admin.from("gym_coaches").select("id,name,speciality,photo_url").eq("is_active", true).order("name", { ascending: true }),
-    ]);
-    if (ar.error) throw ar.error; if (gy.error) throw gy.error;
-    const coaches = []
-      .concat((ar.data || []).map(c => ({ id: c.id, source: "arena", name: c.name, speciality: c.speciality || null, photo_url: c.photo_url || null })))
-      .concat((gy.data || []).map(c => ({ id: c.id, source: "gym", name: c.name, speciality: c.speciality || null, photo_url: c.photo_url || null })));
+    const venue = String(req.query.venue || "").toLowerCase();
+    let q = admin.from("my20fit_coaches")
+      .select("id,display_name,venue,speciality,photo_url,sort_order")
+      .eq("is_active", true);
+    if (venue === "arena") q = q.in("venue", ["arena", "both"]);
+    else if (venue === "gym") q = q.in("venue", ["gym", "both"]);
+    q = q.order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+    const { data, error } = await q;
+    if (error) throw error;
+    const coaches = (data || []).map(c => ({
+      id: c.id, name: c.display_name, venue: c.venue,
+      speciality: c.speciality || null, photo_url: c.photo_url || null,
+    }));
     return res.json({ ok: true, coaches });
   } catch (e) { return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" }); }
+});
+
+// Klik coach -> HANYA kelas yang diajar coach itu. Join lewat my20fit_coach_instructor_aliases
+// (bukan tebak-teks): tiap alias = kecocokan TEPAT teks instructor di jadwal. Tampilkan jadwal
+// mendatang & tidak dibatalkan; hitung sisa kuota; kelas penuh / lewat cutoff / sudah lewat tetap
+// ditampilkan tapi tidak bisa dipilih, dengan alasannya.
+app.get("/api/coaches/:id/classes", async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ ok: false, error: "service unavailable" });
+    const id = String(req.params.id || "");
+    const { data: crows } = await admin.from("my20fit_coaches")
+      .select("id,display_name,venue,speciality,photo_url").eq("id", id).limit(1);
+    const coach = crows && crows[0];
+    if (!coach) return res.status(404).json({ ok: false, error: "coach tidak ditemukan" });
+    const { data: aliases } = await admin.from("my20fit_coach_instructor_aliases")
+      .select("instructor_text,source").eq("coach_id", id);
+    const textsBy = { arena: [], gym: [] };
+    (aliases || []).forEach(a => { if (textsBy[a.source]) textsBy[a.source].push(a.instructor_text); });
+    const p2 = (n) => (n < 10 ? "0" + n : "" + n);
+    const now = new Date();
+    const today = now.getFullYear() + "-" + p2(now.getMonth() + 1) + "-" + p2(now.getDate());
+    const clean = (nm) => String(nm || "").replace(/^20FIT\s+Arena\s+/i, "").replace(/^20FIT\s+/i, "").trim();
+    const out = [];
+    async function collect(source) {
+      const texts = textsBy[source]; if (!texts.length) return;
+      const cfg = CLASS_VENUES[source];
+      const sel = "id,schedule_date,start_time,end_time,instructor,quota" +
+        (source === "arena" ? ",cutoff_minutes" : "") + "," + cfg.types + "(name,color)";
+      const { data, error } = await admin.from(cfg.table)
+        .select(sel).in("instructor", texts)
+        .gte("schedule_date", today).eq("is_cancelled", false)
+        .order("schedule_date", { ascending: true }).order("start_time", { ascending: true }).limit(400);
+      if (error) throw error;
+      const rows = data || [];
+      const ids = rows.map(r => r.id);
+      const booked = {};
+      if (ids.length) {
+        const bt = source === "arena" ? "arena_class_bookings" : "gym_class_bookings";
+        const { data: bks } = await admin.from(bt).select("schedule_id,status").in("schedule_id", ids).limit(5000);
+        (bks || []).forEach(b => {
+          const s = String(b.status || "").toLowerCase();
+          if (/cancel|fail|expire|refund/.test(s)) return;   // kursi cuma terpakai kalau booking hidup
+          booked[b.schedule_id] = (booked[b.schedule_id] || 0) + 1;
+        });
+      }
+      rows.forEach(r => {
+        const t = r[cfg.types] || {};
+        const start = String(r.start_time || "").slice(0, 5), end = String(r.end_time || "").slice(0, 5);
+        const startDt = new Date(r.schedule_date + "T" + (r.start_time || "00:00:00") + "+07:00"); // WIB
+        const quota = (r.quota == null) ? null : +r.quota;
+        const remaining = (quota == null) ? null : Math.max(0, quota - (booked[r.id] || 0));
+        const cutoffMin = source === "arena" ? (r.cutoff_minutes == null ? 0 : +r.cutoff_minutes) : 0;
+        const cutoffDt = new Date(startDt.getTime() - cutoffMin * 60000);
+        let selectable = true, reason = null;
+        if (now.getTime() >= startDt.getTime()) { selectable = false; reason = "passed"; }
+        else if (now.getTime() >= cutoffDt.getTime()) { selectable = false; reason = "closed"; }
+        else if (remaining != null && remaining <= 0) { selectable = false; reason = "full"; }
+        out.push({
+          source, id: r.id, date: r.schedule_date, start, end,
+          name: clean(t.name) || "Kelas", color: t.color || "#C41101",
+          instructor: r.instructor || "", quota, remaining, selectable, reason,
+          book_url: cfg.book,
+        });
+      });
+    }
+    await collect("arena"); await collect("gym");
+    out.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+    return res.json({ ok: true, coach: {
+      id: coach.id, name: coach.display_name, venue: coach.venue,
+      speciality: coach.speciality || null, photo_url: coach.photo_url || null }, classes: out });
+  } catch (e) { return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" }); }
+});
+
+// Daftar dokter untuk carousel home. Sumber = roster CMS my20fit_doctors (BUKAN admin_users).
+// Kosong sampai admin mengisi -> carousel dokter di home disembunyikan seluruhnya oleh frontend.
+app.get("/api/doctors", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, doctors: [] });
+    const { data, error } = await admin.from("my20fit_doctors")
+      .select("id,display_name,speciality,photo_url,sort_order")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+    if (error) throw error;
+    return res.json({ ok: true, doctors: (data || []).map(d => ({
+      id: d.id, name: d.display_name, speciality: d.speciality || null, photo_url: d.photo_url || null })) });
+  } catch (e) { return res.json({ ok: true, doctors: [] }); }
+});
+
+// ---------- CMS admin: roster coach + pemetaan alias + roster dokter + inventori instructor ----------
+app.get("/api/admin/coaches", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data: cs, error } = await admin.from("my20fit_coaches")
+      .select("id,display_name,venue,speciality,bio,photo_url,is_active,sort_order")
+      .order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+    if (error) throw error;
+    const { data: al } = await admin.from("my20fit_coach_instructor_aliases").select("id,coach_id,instructor_text,source");
+    const byCoach = {};
+    (al || []).forEach(a => { (byCoach[a.coach_id] || (byCoach[a.coach_id] = [])).push({ id: a.id, instructor_text: a.instructor_text, source: a.source }); });
+    const coaches = (cs || []).map(c => Object.assign({}, c, { aliases: byCoach[c.id] || [] }));
+    return res.json({ ok: true, coaches });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/coaches", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const name = String(b.display_name || "").trim();
+  if (!name) return res.status(400).json({ error: "Nama coach wajib." });
+  const venue = ["arena", "gym", "both"].indexOf(String(b.venue)) >= 0 ? String(b.venue) : "both";
+  const row = {
+    display_name: name.slice(0, 160), venue,
+    speciality: b.speciality ? String(b.speciality).slice(0, 200) : null,
+    bio: b.bio ? String(b.bio).slice(0, 2000) : null,
+    photo_url: b.photo_url ? String(b.photo_url).slice(0, 500) : null,
+    is_active: b.is_active === false ? false : true,
+    sort_order: Number.isFinite(+b.sort_order) ? (+b.sort_order | 0) : 0,
+    updated_at: new Date().toISOString(),
+  };
+  try {
+    let data, error;
+    if (b.id) ({ data, error } = await admin.from("my20fit_coaches").update(row).eq("id", String(b.id)).select("id").limit(1));
+    else ({ data, error } = await admin.from("my20fit_coaches").insert(row).select("id").limit(1));
+    if (error) throw error;
+    await adminAudit(ctx, b.id ? "coaches.update" : "coaches.create", (data && data[0] && data[0].id) || String(b.id || ""), { name });
+    return res.json({ ok: true, id: (data && data[0] && data[0].id) || b.id || null });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.delete("/api/admin/coaches/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const id = String(req.params.id || "");
+  try {
+    const { error } = await admin.from("my20fit_coaches").delete().eq("id", id);
+    if (error) throw error;
+    await adminAudit(ctx, "coaches.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/coach-aliases", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const coachId = String(b.coach_id || "");
+  const text = String(b.instructor_text || "").trim();
+  const source = ["arena", "gym"].indexOf(String(b.source)) >= 0 ? String(b.source) : null;
+  if (!coachId || !text || !source) return res.status(400).json({ error: "coach_id, instructor_text, source wajib." });
+  try {
+    const { data, error } = await admin.from("my20fit_coach_instructor_aliases")
+      .upsert({ coach_id: coachId, instructor_text: text.slice(0, 200), source },
+        { onConflict: "coach_id,source,instructor_text", ignoreDuplicates: true })
+      .select("id").limit(1);
+    if (error) throw error;
+    await adminAudit(ctx, "coach_aliases.add", coachId, { instructor_text: text, source });
+    return res.json({ ok: true, id: (data && data[0] && data[0].id) || null });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.delete("/api/admin/coach-aliases/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const id = String(req.params.id || "");
+  try {
+    const { error } = await admin.from("my20fit_coach_instructor_aliases").delete().eq("id", id);
+    if (error) throw error;
+    await adminAudit(ctx, "coach_aliases.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Inventori nilai instructor unik (kedua tabel jadwal) + jumlah kelas + status pemetaan.
+// mapped_to = daftar coach yang sudah dipetakan ke teks itu; unmapped = belum ada satu pun.
+app.get("/api/admin/instructor-values", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const p2 = (n) => (n < 10 ? "0" + n : "" + n);
+    const now = new Date();
+    const today = now.getFullYear() + "-" + p2(now.getMonth() + 1) + "-" + p2(now.getDate());
+    async function inv(source) {
+      const cfg = CLASS_VENUES[source];
+      const { data } = await admin.from(cfg.table).select("instructor,schedule_date,is_cancelled").limit(5000);
+      const m = {};
+      (data || []).forEach(r => {
+        const key = String(r.instructor || "").trim(); if (!key) return;
+        const o = m[key] || (m[key] = { instructor_text: key, source, total: 0, upcoming: 0 });
+        o.total++;
+        if (String(r.schedule_date) >= today && r.is_cancelled !== true) o.upcoming++;
+      });
+      return Object.keys(m).map(k => m[k]);
+    }
+    const [a, g] = await Promise.all([inv("arena"), inv("gym")]);
+    const vals = a.concat(g);
+    const { data: al } = await admin.from("my20fit_coach_instructor_aliases")
+      .select("instructor_text,source,coach_id,my20fit_coaches(display_name)");
+    const mapped = {};
+    (al || []).forEach(x => {
+      const k = x.source + "||" + x.instructor_text;
+      (mapped[k] || (mapped[k] = [])).push((x.my20fit_coaches && x.my20fit_coaches.display_name) || x.coach_id);
+    });
+    vals.forEach(v => { v.mapped_to = mapped[v.source + "||" + v.instructor_text] || []; });
+    vals.sort((x, y) => (y.upcoming - x.upcoming) || (y.total - x.total));
+    return res.json({ ok: true, values: vals, unmapped_count: vals.filter(v => !v.mapped_to.length).length });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.get("/api/admin/doctors", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data, error } = await admin.from("my20fit_doctors")
+      .select("id,display_name,speciality,bio,photo_url,is_active,sort_order")
+      .order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+    if (error) throw error;
+    return res.json({ ok: true, doctors: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/doctors", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const name = String(b.display_name || "").trim();
+  if (!name) return res.status(400).json({ error: "Nama dokter wajib." });
+  const row = {
+    display_name: name.slice(0, 160),
+    speciality: b.speciality ? String(b.speciality).slice(0, 200) : null,
+    bio: b.bio ? String(b.bio).slice(0, 2000) : null,
+    photo_url: b.photo_url ? String(b.photo_url).slice(0, 500) : null,
+    is_active: b.is_active === false ? false : true,
+    sort_order: Number.isFinite(+b.sort_order) ? (+b.sort_order | 0) : 0,
+    updated_at: new Date().toISOString(),
+  };
+  try {
+    let data, error;
+    if (b.id) ({ data, error } = await admin.from("my20fit_doctors").update(row).eq("id", String(b.id)).select("id").limit(1));
+    else ({ data, error } = await admin.from("my20fit_doctors").insert(row).select("id").limit(1));
+    if (error) throw error;
+    await adminAudit(ctx, b.id ? "doctors.update" : "doctors.create", (data && data[0] && data[0].id) || String(b.id || ""), { name });
+    return res.json({ ok: true, id: (data && data[0] && data[0].id) || b.id || null });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.delete("/api/admin/doctors/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const id = String(req.params.id || "");
+  try {
+    const { error } = await admin.from("my20fit_doctors").delete().eq("id", id);
+    if (error) throw error;
+    await adminAudit(ctx, "doctors.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
 // Layanan dokter (requires_doctor=true) untuk Book Doctor (request).
