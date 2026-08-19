@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Purchases · 20FIT</title>
+<style>
+  :root{--red:#C41101;--bg:#F3F2F0;--card:#FFFFFF;--line:#E8E2DB;--txt:#1A1714;--ink:#16170F;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#16170F;--green:#2A7A4F;--amber:#C87000;--shadow:0 2px 12px rgba(0,0,0,.10)}
+  html:not(.theme-light){ --bg:#0C0D10;--card:#17191F;--line:#25272E;--txt:#F4F5F7;--ink:#F4F5F7;--muted:#8E9198;--inp:#23262E;--pagetx:#F4F5F7 }
+  *{box-sizing:border-box} a{text-decoration:none;color:inherit}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 96px}
+  .wrap{max-width:560px;margin:0 auto}
+  .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:16px;display:flex;align-items:center}
+  .logobar img{height:34px}
+  h1{font-size:24px;font-weight:900;margin:0 0 6px;text-transform:uppercase}
+  .lead{color:var(--muted);font-size:14px;margin:0 0 16px;line-height:1.5}
+  .row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 15px;margin-bottom:10px;box-shadow:var(--shadow)}
+  .row .bd{min-width:0;flex:1}
+  .row .nm{font-weight:800;font-size:14.5px;color:var(--ink);overflow-wrap:anywhere}
+  .row .mt{font-size:12px;color:var(--muted);margin-top:3px}
+  .row .rt{flex:0 0 auto;text-align:right}
+  .row .am{font-weight:800;font-size:14px;color:var(--ink)}
+  .kindtag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:2px 6px;margin-right:6px}
+  .badge{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:3px 9px;margin-top:6px}
+  .badge.ok{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}
+  .badge.wait{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber)}
+  .badge.no{background:color-mix(in srgb,var(--muted) 16%,transparent);color:var(--muted)}
+  .state{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:30px 20px;text-align:center;color:var(--muted);font-size:13px}
+  .retry{margin-top:12px;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:10px;padding:9px 16px;font-weight:800;font-size:13px;cursor:pointer}
+  .skel{height:64px;border-radius:14px;background:linear-gradient(90deg,var(--inp),color-mix(in srgb,var(--inp) 55%,#fff),var(--inp));background-size:200% 100%;animation:sh 1.2s infinite;margin-bottom:10px}
+  @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" /></div>
+    <h1 id="pgTitle">Purchases</h1>
+    <p class="lead" id="pgLead"></p>
+    <div id="root"></div>
+  </div>
+
+  <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+  (function(){
+    "use strict";
+    var TXT={
+      title:{en:"Purchases",id:"Pembelian"},
+      lead:{en:"All your 20FIT purchases & bookings — tickets, membership, packages, classes, arena, clinic.",
+            id:"Semua pembelian & booking 20FIT-mu — tiket, membership, paket, kelas, arena, klinik."},
+      err:{en:"Couldn't load your purchases.",id:"Gagal memuat pembelian."},
+      retry:{en:"Try again",id:"Coba lagi"},
+      empty:{en:"No purchases yet.",id:"Belum ada pembelian."}
+    };
+    function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+    function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]; }); }
+    function rp(n){ return (n==null)?"":("Rp "+(Number(n)||0).toLocaleString("id-ID")); }
+    var $=function(id){return document.getElementById(id);};
+    async function apiFetch(path){ var o={headers:{"Content-Type":"application/json"}}; try{var t=await Auth.token(); if(t)o.headers["Authorization"]="Bearer "+t;}catch(e){} return fetch(path,o); }
+    function fmtDate(s){ if(!s)return""; var d=new Date(s); if(isNaN(d))return""; try{ return new Intl.DateTimeFormat(window.L&&L({en:"x",id:"y"})==="y"?"id-ID":"en-GB",{day:"numeric",month:"short",year:"numeric",timeZone:"Asia/Jakarta"}).format(d);}catch(e){return String(s).slice(0,10);} }
+    function badge(st){ var s=String(st||"").toLowerCase();
+      if(/paid|settle|success|complete|confirm|fulfil/.test(s)) return '<span class="badge ok">'+esc(st)+'</span>';
+      if(/pending|request|await|unpaid/.test(s)) return '<span class="badge wait">'+esc(st)+'</span>';
+      return '<span class="badge no">'+esc(st||"—")+'</span>';
+    }
+    var ITEMS=null, STATE="loading";
+    function applyStatic(){ $("pgTitle").textContent=LL(TXT.title); $("pgLead").textContent=LL(TXT.lead); document.title=LL(TXT.title)+" · 20FIT"; }
+    function render(){
+      var root=$("root"); if(!root)return;
+      if(STATE==="loading"){ root.innerHTML='<div class="skel"></div><div class="skel"></div><div class="skel"></div>'; return; }
+      if(STATE==="error"){ root.innerHTML='<div class="state">'+LL(TXT.err)+'<br><button class="retry" id="rt">'+LL(TXT.retry)+'</button></div>'; var b=$("rt"); if(b)b.onclick=load; return; }
+      if(!ITEMS||!ITEMS.length){ root.innerHTML='<div class="state">'+LL(TXT.empty)+'</div>'; return; }
+      root.innerHTML=ITEMS.map(function(o){
+        return '<div class="row"><div class="bd"><div class="nm"><span class="kindtag">'+esc(o.kind||"")+'</span>'+esc(o.title||"")+'</div>'
+          +'<div class="mt">'+esc(fmtDate(o.date))+(o.ref?(' · '+esc(o.ref)):'')+'</div>'+badge(o.status)+'</div>'
+          +'<div class="rt"><div class="am">'+esc(rp(o.amount))+'</div></div></div>';
+      }).join("");
+    }
+    async function load(){
+      STATE="loading"; render();
+      try{
+        var r=await apiFetch("/api/my/purchases");
+        var j=await r.json().catch(function(){return null;});
+        if(!r.ok||!j||!j.ok){ STATE="error"; render(); return; }
+        ITEMS=j.items||[]; STATE="ready"; render();
+      }catch(e){ STATE="error"; render(); }
+    }
+    (async function(){
+      try{ if(window.Auth&&Auth.requireAuth) await Auth.requireAuth(); }catch(e){}
+      applyStatic();
+      if(window.I18N&&I18N.onChange) I18N.onChange(function(){ applyStatic(); render(); });
+      load();
+    })();
+  })();
+  </script>
+</body>
+</html>
