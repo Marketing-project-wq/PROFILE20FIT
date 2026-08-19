@@ -1,0 +1,76 @@
+/* ============================================================
+   Ticket Wallet — style KOMPONEN BERSAMA (widget dashboard + halaman /event).
+   SATU sumber kebenaran: jangan salin gaya ini ke halaman lain, cukup <link> file ini.
+   Semua warna pakai token --fit/design-system dengan FALLBACK, jadi komponen tetap
+   tampil benar di halaman yang tidak memuat design-system penuh (mis. /event).
+   Chrome kartu dashboard (.tkcard/.tkhd/.tkic/.tktitle/.tksub) TIDAK di sini —
+   itu milik dashboard. File ini hanya isi widget: tab, daftar/carousel, kartu,
+   state kosong/error, dan overlay QR.
+   ============================================================ */
+
+/* Skeleton loading (dipakai body widget). */
+.tkskel{background:linear-gradient(90deg,var(--inp,#F2F2F5),color-mix(in srgb,var(--inp,#F2F2F5) 55%,#fff),var(--inp,#F2F2F5));background-size:200% 100%;animation:tksh 1.2s infinite}
+@keyframes tksh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* Tab My Ticket / Upcoming */
+.twk-tabs{position:relative;display:grid;grid-template-columns:1fr 1fr;border:1.5px solid var(--ink,#15171C);border-radius:999px;overflow:hidden;background:var(--card,#fff);margin:14px 0}
+.twk-slider{position:absolute;top:0;bottom:0;left:0;width:50%;background:var(--ink,#15171C);transition:transform .3s cubic-bezier(.65,.05,.15,1)}
+.twk-slider.right{transform:translateX(100%)}
+.twk-tab{position:relative;z-index:1;background:none;border:0;cursor:pointer;padding:11px 8px;font-weight:800;font-size:13px;letter-spacing:.03em;color:var(--ink,#15171C);display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit}
+.twk-tab.on{color:var(--card,#fff)}
+.twk-count{font-size:11px;font-weight:800;border:1px solid currentColor;border-radius:999px;padding:0 6px;opacity:.8}
+.twk-list{display:flex;flex-direction:column;gap:14px}
+
+/* QR box (overlay + inline) */
+.twk-qrbox{background:#fff;border:1px solid var(--line,#EBEBEF);border-radius:8px;padding:6px;width:104px;line-height:0}
+.twk-qrbox svg{display:block;width:100%;height:auto}
+
+/* Carousel horizontal (varian compact / dashboard) */
+.twk-caro-wrap{position:relative;margin-top:4px}
+.twk-caro{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 2px 6px}
+.twk-caro::-webkit-scrollbar{display:none}
+.twk-arrows{display:none;gap:8px;justify-content:flex-end;margin-top:8px}
+@media(min-width:900px){ .twk-arrows.show{display:flex} }
+.twk-arrow{width:34px;height:34px;border-radius:10px;border:1px solid var(--line,#EBEBEF);background:var(--card,#fff);color:var(--ink,#15171C);cursor:pointer;display:grid;place-items:center}
+.twk-arrow svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+
+/* Grid (varian spacious / halaman Event) — kartu membungkus, tanpa panah */
+.twk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:4px}
+.twk-grid .twk-pcard{flex:initial;max-width:none}
+
+/* Kartu portrait (tiket & event) */
+.twk-pcard{flex:0 0 82%;max-width:290px;scroll-snap-align:start;display:flex;flex-direction:column;background:var(--card,#fff);border:1px solid var(--line,#EBEBEF);border-radius:16px;overflow:hidden;box-shadow:var(--shadow,0 2px 12px rgba(16,18,22,.08))}
+@media(min-width:900px){ .twk-caro .twk-pcard{flex-basis:270px} }
+.twk-pcover{position:relative;width:100%;aspect-ratio:16/10;background:var(--line,#EBEBEF)}
+.twk-pcover img{width:100%;height:100%;object-fit:cover;display:block}
+.twk-pcover.noimg{background:repeating-linear-gradient(115deg,var(--red,#C41101) 0 10px,color-mix(in srgb,var(--red,#C41101) 55%,#000) 10px 20px)}
+.twk-pcover.noimg img{display:none}
+.twk-pcat{position:absolute;top:10px;left:10px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.42);border-radius:6px;padding:4px 8px}
+.twk-pbody{padding:14px 15px 15px;display:flex;flex-direction:column;gap:6px;flex:1}
+.twk-pname{font-weight:800;font-size:16px;line-height:1.2;color:var(--ink,#15171C);overflow-wrap:anywhere}
+.twk-pmeta{font-size:12.5px;color:var(--muted,#8A8D94);line-height:1.45;display:flex;flex-direction:column;gap:2px}
+.twk-pprice{margin-top:auto;display:flex;align-items:baseline;gap:6px;padding-top:8px}
+.twk-pprice small{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#8A8D94)}
+.twk-pprice b{font-size:17px;font-weight:900;color:var(--ink,#15171C)}
+.twk-pbuy{margin-top:10px;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--red,#C41101);color:#fff;border-radius:10px;padding:11px;font-weight:800;font-size:13.5px;text-decoration:none;border:0;cursor:pointer;font-family:inherit}
+.twk-pbuy:hover{filter:brightness(.95)}
+@media(prefers-reduced-motion:reduce){ .twk-caro{scroll-behavior:auto} }
+
+/* Link katalog (footer widget dashboard) */
+.twk-catlink{display:block;text-align:center;margin-top:14px;padding-top:14px;border-top:1px solid var(--line,#EBEBEF);font-size:13px;font-weight:800;color:var(--ink,#15171C);text-decoration:none}
+
+/* State kosong / error */
+.twk-empty{border:1.5px dashed var(--line,#EBEBEF);border-radius:14px;padding:32px 20px;text-align:center}
+.twk-empty h4{font-weight:900;font-size:17px;margin:0 0 6px;color:var(--ink,#15171C)}
+.twk-empty p{font-size:13px;color:var(--muted,#8A8D94);margin:0 0 14px;line-height:1.5}
+.twk-ghost{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--ink,#15171C);border-radius:8px;padding:9px 16px;text-decoration:none;color:var(--ink,#15171C);font-weight:800;font-size:13px;cursor:pointer;background:none}
+
+/* Overlay QR layar penuh */
+.twk-ov{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:24px;z-index:300}
+.twk-sheet{background:#fff;color:#16170F;border-radius:18px;padding:24px;text-align:center;max-width:320px;width:100%;position:relative}
+.twk-sheet h4{font-weight:900;font-size:18px;margin:0 0 3px}
+.twk-sheet small{display:block;font-size:12px;color:#5F6355;margin-bottom:16px}
+.twk-sheet .twk-qrbox{width:220px;margin:0 auto;border:0}
+.twk-close{position:absolute;top:10px;right:12px;background:none;border:0;cursor:pointer;font-size:18px;color:#5F6355;line-height:1}
+.twk-code{font-size:12px;font-weight:800;margin-top:14px;font-family:ui-monospace,monospace}
+.twk-hint{font-size:11px;color:#5F6355;margin-top:6px}
