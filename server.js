@@ -2415,9 +2415,15 @@ app.post("/api/admin/reward-claims/:id/fulfill", async (req, res) => {
 app.get("/api/promo/banner", async (req, res) => {
   try {
     if (!admin) return res.json({ ok: true, banner: null });
+    // Service key bypass RLS → jendela waktu (starts_at/ends_at) difilter EKSPLISIT di sini,
+    // supaya promo berhenti sendiri setelah ends_at tanpa deploy/hapus manual.
+    const nowIso = new Date().toISOString();
     const { data, error } = await admin.from("my20fit_promo_banners")
-      .select("id,key,title_en,title_id,subtitle_en,subtitle_id,cta_en,cta_id,image_url,wa_phone,wa_message")
-      .eq("active", true).order("sort_order", { ascending: true }).limit(1);
+      .select("id,key,title_en,title_id,subtitle_en,subtitle_id,cta_en,cta_id,image_url,wa_phone,wa_message,ends_at")
+      .eq("active", true)
+      .or("starts_at.is.null,starts_at.lte." + nowIso)
+      .or("ends_at.is.null,ends_at.gt." + nowIso)
+      .order("sort_order", { ascending: true }).limit(1);
     if (error) throw error;
     const b = data && data[0];
     if (!b) return res.json({ ok: true, banner: null });
@@ -2426,7 +2432,7 @@ app.get("/api/promo/banner", async (req, res) => {
     return res.json({ ok: true, banner: {
       id: b.id, key: b.key, title_en: b.title_en, title_id: b.title_id,
       subtitle_en: b.subtitle_en, subtitle_id: b.subtitle_id, cta_en: b.cta_en, cta_id: b.cta_id,
-      image_url: b.image_url || null, wa_url: wa } });
+      image_url: b.image_url || null, ends_at: b.ends_at || null, wa_url: wa } });
   } catch (e) {
     try { console.error("promo/banner:", e && e.message); } catch (_) {}
     return res.json({ ok: true, banner: null }); // tahan-gagal → banner tak muncul, home aman
