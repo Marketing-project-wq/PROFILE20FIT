@@ -42,6 +42,7 @@
       <button class="adm-navitem" data-nav="corporate"><span data-i18n="Corporate">Corporate</span></button>
       <button class="adm-navitem" data-nav="events"><span data-i18n="Events">Event</span></button>
       <button class="adm-navitem" data-nav="rewards"><span data-i18n="Rewards">Rewards</span></button>
+      <button class="adm-navitem" data-nav="coaches"><span data-i18n="Coaches">Coach</span></button>
 
       <div class="adm-navgroup" data-i18n="System">Sistem</div>
       <button class="adm-navitem" data-nav="reports"><span data-i18n="Reports">Laporan</span></button>
@@ -646,6 +647,53 @@
         <div id="rwList"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
         <div class="adm-sec-title" style="margin-top:20px" data-i18n="Claims">Klaim member</div>
         <div id="rwClaims"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+      </section>
+      <section data-section="coaches" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Coach &amp; Dokter" data-title-en="Coaches &amp; Doctors" data-question="Roster coach (tampil di Book Coach &amp; home) + pemetaan alias ke jadwal, plus roster dokter." data-question-en="Coach roster (shown on Book Coach &amp; home) + alias mapping to schedules, plus doctor roster.">
+        <div class="adm-note" data-i18n="Roster shown to members. Not linked to arena_coaches/gym_coaches. Class filtering uses the alias map below, not text matching — assign every instructor value to a coach or its classes stay invisible on the coach page.">Roster yang ditampilkan ke member. Tidak terhubung ke arena_coaches/gym_coaches. Penyaringan kelas pakai pemetaan alias di bawah, BUKAN cocok teks — tugaskan tiap nilai instructor ke coach, kalau tidak kelasnya tak terlihat di halaman coach.</div>
+
+        <div class="adm-sec-title" style="margin-top:18px" data-i18n="Coach roster">Roster coach</div>
+        <div style="margin-top:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px">
+          <input type="hidden" id="co_id">
+          <input class="adm-input" id="co_name" placeholder="Nama tampilan *" data-i18n-ph="Display name *">
+          <select class="adm-input" id="co_venue">
+            <option value="both" data-i18n="both (Arena + Gym)">both (Arena + Gym)</option>
+            <option value="arena" data-i18n="arena">arena</option>
+            <option value="gym" data-i18n="gym">gym</option>
+          </select>
+          <input class="adm-input" id="co_speciality" placeholder="Keahlian (opsional)" data-i18n-ph="Speciality (optional)">
+          <input class="adm-input" id="co_photo" placeholder="URL foto (opsional)" data-i18n-ph="Photo URL (optional)">
+          <textarea class="adm-input" id="co_bio" placeholder="Bio (opsional)" data-i18n-ph="Bio (optional)" style="grid-column:1/-1;min-height:52px"></textarea>
+          <input class="adm-input" id="co_sort" type="number" placeholder="Urutan (0)" data-i18n-ph="Sort order (0)">
+          <label class="adm-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="co_active" checked> <span data-i18n="Active (visible)">Aktif (tampil)</span></label>
+          <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary" id="coSaveBtn" onclick="coSave()" data-i18n="Save coach">Simpan coach</button>
+            <button class="adm-btn adm-btn--sm" id="coCancelBtn" onclick="coCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
+            <span class="adm-note" id="coMsg"></span>
+          </div>
+        </div>
+        <div id="coList" style="margin-top:14px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+
+        <div class="adm-sec-title" style="margin-top:24px" data-i18n="Instructor values → assign to a coach">Nilai instructor → tugaskan ke coach</div>
+        <div class="adm-note" data-i18n="Every unique instructor from the class schedules. Assign each to one or more coaches. Unmapped values (their classes are invisible on the coach page) are listed first.">Semua nilai instructor unik dari jadwal kelas. Tugaskan tiap nilai ke satu atau beberapa coach. Nilai yang belum dipetakan (kelasnya tak terlihat di halaman coach) ditaruh paling atas.</div>
+        <div id="ivBox" style="margin-top:10px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+
+        <div class="adm-sec-title" style="margin-top:24px" data-i18n="Doctor roster">Roster dokter</div>
+        <div class="adm-note" data-i18n="Fill only after each doctor consents to being shown publicly. Do NOT copy from internal staff accounts. Empty = the doctor carousel on home stays hidden.">Isi HANYA setelah tiap dokter setuju ditampilkan ke publik. JANGAN menyalin dari akun staf internal. Kosong = carousel dokter di home tetap disembunyikan.</div>
+        <div style="margin-top:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px">
+          <input type="hidden" id="dc_id">
+          <input class="adm-input" id="dc_name" placeholder="Nama tampilan *" data-i18n-ph="Display name *">
+          <input class="adm-input" id="dc_speciality" placeholder="Keahlian (opsional)" data-i18n-ph="Speciality (optional)">
+          <input class="adm-input" id="dc_photo" placeholder="URL foto (opsional)" data-i18n-ph="Photo URL (optional)" style="grid-column:1/-1">
+          <textarea class="adm-input" id="dc_bio" placeholder="Bio (opsional)" data-i18n-ph="Bio (optional)" style="grid-column:1/-1;min-height:52px"></textarea>
+          <input class="adm-input" id="dc_sort" type="number" placeholder="Urutan (0)" data-i18n-ph="Sort order (0)">
+          <label class="adm-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="dc_active" checked> <span data-i18n="Active (visible)">Aktif (tampil)</span></label>
+          <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary" id="dcSaveBtn" onclick="dcSave()" data-i18n="Save doctor">Simpan dokter</button>
+            <button class="adm-btn adm-btn--sm" id="dcCancelBtn" onclick="dcCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
+            <span class="adm-note" id="dcMsg"></span>
+          </div>
+        </div>
+        <div id="dcList" style="margin-top:14px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
       </section>
       <section data-section="reports" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Laporan" data-title-en="Reports" data-question="Revenue bulanan, funnel, retensi kohort, dan produk terlaris — bisa diekspor." data-question-en="Monthly revenue, funnel, cohort retention, and top products — exportable.">
         <div id="rpBody"><div class="adm-loading" style="margin-top:16px" data-i18n="Loading…">Memuat…</div></div>
@@ -1374,9 +1422,9 @@
 
   // ---- ROLE-BASED NAV (Langkah 6) ----
   var ALLOWED={ superadmin:null, viewer:null,
-    marketing:["overview","users","voucher","marketing","reports","settings","traffic","menustats"],
+    marketing:["overview","users","voucher","marketing","reports","settings","traffic","menustats","coaches"],
     finance:["revenue","voucher","corporate","reports"],
-    staff:["users","scan","menu","menustats"] };
+    staff:["users","scan","menu","menustats","coaches"] };
   function roleDesc(role){
     var m={ superadmin:["Full access.","Akses penuh."], viewer:["Read only.","Baca saja."],
       marketing:["Voucher, campaign, segments, reports. No price/credit edits or health data.","Voucher, campaign, segmen, laporan. Tanpa ubah harga/kredit & data kesehatan."],
@@ -2178,6 +2226,145 @@
   window.rcFulfill=async function(id, status){
     try{ var res=await adminPost("/api/admin/reward-claims/"+encodeURIComponent(id)+"/fulfill",{ status:status }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadRewardClaims(); }catch(e){}
   };
+  // ---- COACH & DOCTOR ROSTER (section Coaches) — roster + alias mapping + doctor roster ----
+  var CO_CACHE=[], IV_CACHE=[];
+  function coV(id){ var el=document.getElementById(id); return el?el.value:""; }
+  function coTag(v){ return v==="gym"?"Gym":(v==="arena"?"Arena":"Arena + Gym"); }
+  async function loadCoaches(){
+    var list=document.getElementById("coList"); if(list) list.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
+    await Promise.all([coLoadList(), coLoadDoctors()]);
+    await coLoadInstructorValues();  // butuh CO_CACHE utk dropdown
+  }
+  async function coLoadList(){
+    var list=document.getElementById("coList"); if(!list) return;
+    try{
+      var res=await adminFetch("/api/admin/coaches");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ list.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; return; }
+      CO_CACHE=j.coaches||[];
+      if(!CO_CACHE.length){ list.innerHTML='<div class="adm-note">'+L("No coaches yet. Add one above.","Belum ada coach. Tambah di atas.")+'</div>'; return; }
+      list.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Name","Nama")+'</th><th>'+L("Venue","Venue")+'</th><th>'+L("Aliases (mapped instructor text)","Alias (teks instructor)")+'</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+
+        CO_CACHE.map(function(c){
+          var chips=(c.aliases||[]).map(function(a){ return '<span class="adm-tag adm-tag--mute" style="margin:1px 2px">'+evEsc(a.instructor_text)+' · '+evEsc(a.source)+' <a href="#" class="alDel" data-id="'+evEsc(a.id)+'" title="'+L("Remove","Hapus")+'">✕</a></span>'; }).join("");
+          if(!chips) chips='<span class="adm-note" style="margin:0">'+L("none — classes won't show","belum ada — kelas tak tampil")+'</span>';
+          return '<tr><td>'+evEsc(c.display_name)+(c.speciality?'<br><span class="adm-note" style="margin:0">'+evEsc(c.speciality)+'</span>':'')+'</td>'+
+            '<td><span class="adm-tag adm-tag--mute">'+coTag(c.venue)+'</span></td>'+
+            '<td>'+chips+'</td>'+
+            '<td>'+(c.is_active?'<span class="adm-tag adm-tag--paid">'+L("yes","ya")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("no","tidak")+'</span>')+'</td>'+
+            '<td class="adm-right"><button class="adm-btn adm-btn--sm coAct" data-a="edit" data-id="'+evEsc(c.id)+'">'+L("Edit","Edit")+'</button> '+
+              '<button class="adm-btn adm-btn--sm coAct" data-a="delete" data-id="'+evEsc(c.id)+'">'+L("Delete","Hapus")+'</button></td></tr>';
+        }).join("")+'</tbody></table>';
+    }catch(e){ list.innerHTML='<div class="adm-note">'+L("Error loading coaches.","Error memuat coach.")+'</div>'; }
+  }
+  async function coLoadInstructorValues(){
+    var box=document.getElementById("ivBox"); if(!box) return;
+    try{
+      var res=await adminFetch("/api/admin/instructor-values");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ box.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div>'; return; }
+      IV_CACHE=j.values||[];
+      if(!IV_CACHE.length){ box.innerHTML='<div class="adm-note">'+L("No instructor values.","Tak ada nilai instructor.")+'</div>'; return; }
+      var opts=CO_CACHE.map(function(c){ return '<option value="'+evEsc(c.id)+'">'+evEsc(c.display_name)+'</option>'; }).join("");
+      var head='<div class="adm-note" style="margin:0 0 8px">'+L("Unmapped","Belum dipetakan")+': <b>'+(j.unmapped_count||0)+'</b> / '+IV_CACHE.length+'</div>';
+      box.innerHTML=head+'<table class="adm-table"><thead><tr><th>'+L("Source","Sumber")+'</th><th>'+L("Instructor","Instructor")+'</th><th>'+L("Upcoming","Mendatang")+'</th><th>'+L("Total","Total")+'</th><th>'+L("Mapped to","Dipetakan ke")+'</th><th>'+L("Assign","Tugaskan")+'</th></tr></thead><tbody>'+
+        IV_CACHE.map(function(v){
+          var mapped=(v.mapped_to&&v.mapped_to.length);
+          var chips=mapped?v.mapped_to.map(function(n){return '<span class="adm-tag adm-tag--paid" style="margin:1px 2px">'+evEsc(n)+'</span>';}).join(""):'<span class="adm-tag adm-tag--pending">'+L("none","belum")+'</span>';
+          var assign = CO_CACHE.length
+            ? '<select class="adm-input" style="max-width:150px;display:inline-block">'+opts+'</select> <button class="adm-btn adm-btn--sm ivMap" data-src="'+evEsc(v.source)+'" data-text="'+evEsc(v.instructor_text)+'">'+L("Map","Petakan")+'</button>'
+            : '<span class="adm-note" style="margin:0">'+L("add a coach first","tambah coach dulu")+'</span>';
+          return '<tr'+(mapped?'':' style="background:color-mix(in srgb,var(--warn,#C87000) 8%,transparent)"')+'><td><span class="adm-tag adm-tag--mute">'+evEsc(v.source)+'</span></td><td>'+evEsc(v.instructor_text)+'</td><td>'+(v.upcoming||0)+'</td><td>'+(v.total||0)+'</td><td>'+chips+'</td><td>'+assign+'</td></tr>';
+        }).join("")+'</tbody></table>';
+    }catch(e){ box.innerHTML='<div class="adm-note">'+L("Error loading values.","Error memuat nilai.")+'</div>'; }
+  }
+  window.coSave=async function(){
+    var msg=document.getElementById("coMsg"); var name=(coV("co_name")||"").trim();
+    if(!name){ if(msg)msg.textContent=L("Display name is required.","Nama tampilan wajib."); return; }
+    var body={ id:coV("co_id")||undefined, display_name:name, venue:coV("co_venue")||"both",
+      speciality:coV("co_speciality")||null, photo_url:coV("co_photo")||null, bio:coV("co_bio")||null,
+      sort_order:parseInt(coV("co_sort"),10)||0, is_active:!!(document.getElementById("co_active")||{}).checked };
+    if(msg)msg.textContent=L("Saving…","Menyimpan…");
+    try{ var res=await adminPost("/api/admin/coaches", body); var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
+      if(msg)msg.textContent=L("Saved.","Tersimpan."); window.coCancel(); loadCoaches();
+    }catch(e){ if(msg)msg.textContent=L("Error saving.","Error menyimpan."); }
+  };
+  window.coEdit=function(id){
+    var c=CO_CACHE.filter(function(x){return String(x.id)===String(id);})[0]; if(!c) return;
+    document.getElementById("co_id").value=c.id||""; document.getElementById("co_name").value=c.display_name||"";
+    document.getElementById("co_venue").value=c.venue||"both"; document.getElementById("co_speciality").value=c.speciality||"";
+    document.getElementById("co_photo").value=c.photo_url||""; document.getElementById("co_bio").value=c.bio||"";
+    document.getElementById("co_sort").value=(c.sort_order!=null?c.sort_order:""); document.getElementById("co_active").checked=(c.is_active!==false);
+    var cb=document.getElementById("coCancelBtn"); if(cb)cb.hidden=false;
+    try{ document.getElementById("co_name").scrollIntoView({block:"center"}); }catch(_){}
+  };
+  window.coCancel=function(){
+    ["co_id","co_name","co_speciality","co_photo","co_bio","co_sort"].forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
+    var v=document.getElementById("co_venue"); if(v)v.value="both"; var a=document.getElementById("co_active"); if(a)a.checked=true;
+    var cb=document.getElementById("coCancelBtn"); if(cb)cb.hidden=true; var m=document.getElementById("coMsg"); if(m)m.textContent="";
+  };
+  window.coDelete=async function(id){
+    if(!window.confirm(L("Delete this coach? Its aliases are removed too.","Hapus coach ini? Alias-nya ikut terhapus."))) return;
+    try{ var qs=KEY?("?key="+encodeURIComponent(KEY)):""; var res=await fetch("/api/admin/coaches/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadCoaches(); }catch(e){}
+  };
+  window.ivMap=async function(btn){
+    var td=btn.closest("td"); var sel=td?td.querySelector("select"):null; var coachId=sel?sel.value:"";
+    if(!coachId) return;
+    try{ var res=await adminPost("/api/admin/coach-aliases",{ coach_id:coachId, instructor_text:btn.dataset.text, source:btn.dataset.src }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadCoaches(); }catch(e){}
+  };
+  window.alDel=async function(id){
+    try{ var qs=KEY?("?key="+encodeURIComponent(KEY)):""; var res=await fetch("/api/admin/coach-aliases/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadCoaches(); }catch(e){}
+  };
+  // Doctor roster
+  var DC_CACHE=[];
+  async function coLoadDoctors(){
+    var list=document.getElementById("dcList"); if(!list) return;
+    try{
+      var res=await adminFetch("/api/admin/doctors");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ list.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div>'; return; }
+      DC_CACHE=j.doctors||[];
+      if(!DC_CACHE.length){ list.innerHTML='<div class="adm-note">'+L("No doctors yet — doctor carousel on home stays hidden.","Belum ada dokter — carousel dokter di home tetap tersembunyi.")+'</div>'; return; }
+      list.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Name","Nama")+'</th><th>'+L("Speciality","Keahlian")+'</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+
+        DC_CACHE.map(function(d){
+          return '<tr><td>'+evEsc(d.display_name)+'</td><td>'+(d.speciality?evEsc(d.speciality):"—")+'</td>'+
+            '<td>'+(d.is_active?'<span class="adm-tag adm-tag--paid">'+L("yes","ya")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("no","tidak")+'</span>')+'</td>'+
+            '<td class="adm-right"><button class="adm-btn adm-btn--sm dcAct" data-a="edit" data-id="'+evEsc(d.id)+'">'+L("Edit","Edit")+'</button> '+
+              '<button class="adm-btn adm-btn--sm dcAct" data-a="delete" data-id="'+evEsc(d.id)+'">'+L("Delete","Hapus")+'</button></td></tr>';
+        }).join("")+'</tbody></table>';
+    }catch(e){ list.innerHTML='<div class="adm-note">'+L("Error loading doctors.","Error memuat dokter.")+'</div>'; }
+  }
+  window.dcSave=async function(){
+    var msg=document.getElementById("dcMsg"); var name=(coV("dc_name")||"").trim();
+    if(!name){ if(msg)msg.textContent=L("Display name is required.","Nama tampilan wajib."); return; }
+    var body={ id:coV("dc_id")||undefined, display_name:name, speciality:coV("dc_speciality")||null,
+      photo_url:coV("dc_photo")||null, bio:coV("dc_bio")||null, sort_order:parseInt(coV("dc_sort"),10)||0,
+      is_active:!!(document.getElementById("dc_active")||{}).checked };
+    if(msg)msg.textContent=L("Saving…","Menyimpan…");
+    try{ var res=await adminPost("/api/admin/doctors", body); var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
+      if(msg)msg.textContent=L("Saved.","Tersimpan."); window.dcCancel(); coLoadDoctors();
+    }catch(e){ if(msg)msg.textContent=L("Error saving.","Error menyimpan."); }
+  };
+  window.dcEdit=function(id){
+    var d=DC_CACHE.filter(function(x){return String(x.id)===String(id);})[0]; if(!d) return;
+    document.getElementById("dc_id").value=d.id||""; document.getElementById("dc_name").value=d.display_name||"";
+    document.getElementById("dc_speciality").value=d.speciality||""; document.getElementById("dc_photo").value=d.photo_url||"";
+    document.getElementById("dc_bio").value=d.bio||""; document.getElementById("dc_sort").value=(d.sort_order!=null?d.sort_order:"");
+    document.getElementById("dc_active").checked=(d.is_active!==false);
+    var cb=document.getElementById("dcCancelBtn"); if(cb)cb.hidden=false;
+    try{ document.getElementById("dc_name").scrollIntoView({block:"center"}); }catch(_){}
+  };
+  window.dcCancel=function(){
+    ["dc_id","dc_name","dc_speciality","dc_photo","dc_bio","dc_sort"].forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
+    var a=document.getElementById("dc_active"); if(a)a.checked=true;
+    var cb=document.getElementById("dcCancelBtn"); if(cb)cb.hidden=true; var m=document.getElementById("dcMsg"); if(m)m.textContent="";
+  };
+  window.dcDelete=async function(id){
+    if(!window.confirm(L("Delete this doctor?","Hapus dokter ini?"))) return;
+    try{ var qs=KEY?("?key="+encodeURIComponent(KEY)):""; var res=await fetch("/api/admin/doctors/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) coLoadDoctors(); }catch(e){}
+  };
+
   function loadSection(id){
     if(id==="overview") return loadOverview();
     if(id==="revenue") return loadRevenue();
@@ -2190,6 +2377,7 @@
     if(id==="corporate") return loadCorporate();
     if(id==="events") return loadEvents();
     if(id==="rewards") return loadRewards();
+    if(id==="coaches") return loadCoaches();
     if(id==="traffic") return loadTraffic();
     if(id==="menustats") return loadMenuStats();
     if(id==="reports") return loadReports();
@@ -2217,6 +2405,14 @@
     if(rwa){ var rwaA=rwa.dataset.a,rwaId=rwa.dataset.id; if(rwaA==="edit")window.rwEdit(rwaId); else if(rwaA==="toggle")window.rwToggle(rwaId); else if(rwaA==="delete")window.rwDelete(rwaId); return; }
     var rca=e.target.closest(".rcAct");
     if(rca){ window.rcFulfill(rca.dataset.id, rca.dataset.s); return; }
+    var coa=e.target.closest(".coAct");
+    if(coa){ var coaA=coa.dataset.a,coaId=coa.dataset.id; if(coaA==="edit")window.coEdit(coaId); else if(coaA==="delete")window.coDelete(coaId); return; }
+    var alx=e.target.closest(".alDel");
+    if(alx){ e.preventDefault(); window.alDel(alx.dataset.id); return; }
+    var ivm=e.target.closest(".ivMap");
+    if(ivm){ window.ivMap(ivm); return; }
+    var dca=e.target.closest(".dcAct");
+    if(dca){ var dcaA=dca.dataset.a,dcaId=dca.dataset.id; if(dcaA==="edit")window.dcEdit(dcaId); else if(dcaA==="delete")window.dcDelete(dcaId); return; }
     var mnrow=e.target.closest("#mnRows tr[data-mid]");
     if(mnrow){ var mm=MN_CACHE.filter(function(x){return x.id===mnrow.dataset.mid;})[0]; if(mm){ document.querySelectorAll("#mnRows tr").forEach(function(x){x.style.background="";}); mnrow.style.background="var(--surface)"; mnRenderDetail(mm); } return; }
     var mnf=e.target.closest(".mnf");

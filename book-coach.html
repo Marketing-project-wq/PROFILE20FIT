@@ -6,18 +6,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Book Coach · 20FIT</title>
 <style>
-  :root{--red:#C41101;--bg:#F3F2F0;--card:#FFFFFF;--line:#E8E2DB;--txt:#1A1714;--ink:#16170F;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#16170F;--shadow:0 2px 12px rgba(0,0,0,.10)}
+  :root{--red:#C41101;--bg:#F3F2F0;--card:#FFFFFF;--line:#E8E2DB;--txt:#1A1714;--ink:#16170F;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#16170F;--green:#2A7A4F;--amber:#C87000;--shadow:0 2px 12px rgba(0,0,0,.10)}
   html:not(.theme-light){ --bg:#0C0D10;--card:#17191F;--line:#25272E;--txt:#F4F5F7;--ink:#F4F5F7;--muted:#8E9198;--inp:#23262E;--pagetx:#F4F5F7 }
   *{box-sizing:border-box} a{text-decoration:none;color:inherit}
   body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 96px}
   .wrap{max-width:620px;margin:0 auto}
   .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:16px;display:flex;align-items:center}
   .logobar img{height:34px}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:10px}
   h1{font-size:24px;font-weight:900;margin:0 0 6px;text-transform:uppercase}
-  .lead{color:var(--muted);font-size:14px;margin:0 0 16px;line-height:1.5}
+  .lead{color:var(--muted);font-size:14px;margin:0 0 14px;line-height:1.5}
+  .filters{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+  .filters button{border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 15px;font-weight:800;font-size:13px;cursor:pointer}
+  .filters button[aria-pressed="true"]{border-color:var(--red);color:var(--red)}
   .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
   @media(min-width:560px){ .grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
-  .cc{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+  .cc{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;cursor:pointer}
   .cc .av{width:100%;aspect-ratio:1;position:relative;background:var(--inp)}
   .cc .av img{width:100%;height:100%;object-fit:cover;display:block}
   .cc .ini{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:30px;letter-spacing:.02em}
@@ -25,6 +29,29 @@
   .cc .bd{padding:11px 12px 13px}
   .cc .nm{font-weight:800;font-size:14px;line-height:1.2;color:var(--ink);overflow-wrap:anywhere}
   .cc .sp{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+  /* detail */
+  .dhead{display:flex;gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow);margin-bottom:16px}
+  .dhead .av{flex:0 0 72px;width:72px;height:72px;border-radius:14px;overflow:hidden;position:relative;background:var(--inp)}
+  .dhead .av img{width:100%;height:100%;object-fit:cover;display:block}
+  .dhead .ini{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:26px}
+  .dhead .nm{font-weight:900;font-size:19px;color:var(--ink)}
+  .dhead .sp{font-size:13px;color:var(--muted);margin-top:2px}
+  .dhead .vn{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:5px}
+  .daygrp{margin-bottom:14px}
+  .dayh{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 8px}
+  .cl{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:9px;box-shadow:var(--shadow)}
+  .cl .dot{flex:0 0 auto;width:8px;height:38px;border-radius:5px;background:var(--red)}
+  .cl .bd{min-width:0;flex:1}
+  .cl .tm{font-weight:800;font-size:14px;color:var(--ink)}
+  .cl .nm{font-size:13px;color:var(--ink);margin-top:1px;overflow-wrap:anywhere}
+  .cl .mt{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .cl .rt{flex:0 0 auto;text-align:right}
+  .qbadge{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:3px 9px}
+  .qbadge.ok{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}
+  .qbadge.low{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber)}
+  .qbadge.no{background:color-mix(in srgb,var(--muted) 18%,transparent);color:var(--muted)}
+  .bookbtn{display:inline-block;margin-top:6px;border:1.5px solid var(--red);color:var(--red);background:transparent;border-radius:9px;padding:6px 12px;font-weight:800;font-size:12px}
+  .reason{display:inline-block;margin-top:6px;font-size:11.5px;font-weight:700;color:var(--muted)}
   .foot{margin-top:18px;text-align:center}
   .foot a{display:inline-block;border:1.5px solid var(--ink);border-radius:10px;padding:11px 18px;font-weight:800;font-size:13px;color:var(--ink)}
   .foot p{color:var(--muted);font-size:12.5px;margin:0 0 10px;line-height:1.5}
@@ -39,8 +66,14 @@
 <body>
   <div class="wrap">
     <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" /></div>
+    <a class="back" id="backLink" href="/book-coach" hidden>← <span id="backTxt">Semua coach</span></a>
     <h1 id="pgTitle">Book Coach</h1>
     <p class="lead" id="pgLead"></p>
+    <div class="filters" id="filters" hidden>
+      <button data-venue="" aria-pressed="true" id="fAll">Semua</button>
+      <button data-venue="arena" aria-pressed="false">Arena</button>
+      <button data-venue="gym" aria-pressed="false">Gym</button>
+    </div>
     <div id="root"></div>
   </div>
 
@@ -54,11 +87,22 @@
     "use strict";
     var TXT={
       title:{en:"Book Coach",id:"Book Coach"},
-      lead:{en:"Our Arena & Gym coaches. Pick your class and schedule in Book Class.",
-            id:"Coach Arena & Gym kami. Pilih kelas & jadwalnya di Book Class."},
+      lead:{en:"Our Arena & Gym coaches. Tap a coach to see the classes they teach.",
+            id:"Coach Arena & Gym kami. Ketuk coach untuk lihat kelas yang mereka ajar."},
+      leadDetail:{en:"Upcoming classes taught by this coach. Booking opens on the 20FIT booking site.",
+            id:"Kelas mendatang yang diajar coach ini. Booking dibuka di situs booking 20FIT."},
       loadErr:{en:"Couldn't load coaches.",id:"Gagal memuat coach."},
+      classErr:{en:"Couldn't load classes.",id:"Gagal memuat kelas."},
       retry:{en:"Try again",id:"Coba lagi"},
       empty:{en:"No coaches available right now.",id:"Belum ada coach saat ini."},
+      emptyClass:{en:"No upcoming classes for this coach yet.",id:"Belum ada kelas mendatang untuk coach ini."},
+      back:{en:"All coaches",id:"Semua coach"},
+      all:{en:"All",id:"Semua"},
+      book:{en:"Book",id:"Booking"},
+      seatsLeft:{en:"left",id:"sisa"},
+      full:{en:"Full",id:"Penuh"},
+      closed:{en:"Registration closed",id:"Pendaftaran ditutup"},
+      passed:{en:"Already started",id:"Sudah berlangsung"},
       footNote:{en:"Class schedules & booking are managed in Book Class.",id:"Jadwal kelas & booking dikelola di Book Class."},
       footCta:{en:"Go to Book Class",id:"Ke Book Class"}
     };
@@ -66,43 +110,114 @@
     function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]; }); }
     var $=function(id){return document.getElementById(id);};
     async function apiFetch(path){ var o={headers:{"Content-Type":"application/json"}}; try{var tk=await Auth.token(); if(tk)o.headers["Authorization"]="Bearer "+tk;}catch(e){} return fetch(path,o); }
-    // Inisial + warna stabil dari nama (fallback foto). Blok warna, bukan ikon abu seragam.
     var PAL=["#C41101","#2A7A4F","#2F6BFF","#7c5cff","#C87000","#0EA5A5","#B0308A","#4A5568"];
     function initials(n){ var p=String(n||"").trim().split(/\s+/); var a=(p[0]||"")[0]||"", b=(p.length>1?(p[p.length-1][0]||""):""); return (a+b).toUpperCase()||"?"; }
     function colorFor(n){ var s=String(n||""),h=0; for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0; return PAL[h%PAL.length]; }
-
-    var COACHES=null, STATE="loading";
-    function applyStatic(){ $("pgTitle").textContent=LL(TXT.title); $("pgLead").textContent=LL(TXT.lead); document.title=LL(TXT.title)+" · 20FIT"; }
-    function card(c){
-      var av = c.photo_url
-        ? '<div class="av"><img src="'+esc(c.photo_url)+'" alt="'+esc(c.name)+'" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'"><span class="ini" style="display:none;background:'+colorFor(c.name)+'">'+esc(initials(c.name))+'</span>'
-        : '<div class="av"><span class="ini" style="background:'+colorFor(c.name)+'">'+esc(initials(c.name))+'</span>';
-      var tag = c.source==="gym" ? "Gym" : "Arena";
-      av += '<span class="tag">'+tag+'</span></div>';
-      return '<div class="cc">'+av+'<div class="bd"><div class="nm">'+esc(c.name)+'</div>'+(c.speciality?'<div class="sp">'+esc(c.speciality)+'</div>':'')+'</div></div>';
+    function venueTag(v){ return v==="gym"?"Gym":(v==="arena"?"Arena":"Arena · Gym"); }
+    function avatarInner(name, photo, cls){
+      var color=colorFor(name);
+      if(photo) return '<img src="'+esc(photo)+'" alt="'+esc(name)+'" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'"><span class="ini" style="display:none;background:'+color+'">'+esc(initials(name))+'</span>';
+      return '<span class="ini" style="background:'+color+'">'+esc(initials(name))+'</span>';
     }
-    function render(){
+    function fmtDay(s){ if(!s)return""; var d=new Date(s+"T00:00:00"); if(isNaN(d))return s; try{ return new Intl.DateTimeFormat(LL({en:"x",id:"y"})==="y"?"id-ID":"en-GB",{weekday:"long",day:"numeric",month:"short",timeZone:"Asia/Jakarta"}).format(d);}catch(e){return s;} }
+
+    var COACHES=null, STATE="loading", VENUE="", DETAIL=null;
+    function coachId(){ try{ return new URLSearchParams(location.search).get("coach")||""; }catch(e){ return ""; } }
+
+    function applyStatic(){
+      var isDetail=!!coachId();
+      $("pgLead").textContent=LL(isDetail?TXT.leadDetail:TXT.lead);
+      $("fAll").textContent=LL(TXT.all);
+      $("backTxt").textContent=LL(TXT.back);
+      document.title=LL(TXT.title)+" · 20FIT";
+      $("filters").hidden=isDetail;
+      $("backLink").hidden=!isDetail;
+    }
+
+    // ---------- List view ----------
+    function coachCard(c){
+      return '<a class="cc" href="/book-coach?coach='+encodeURIComponent(c.id)+'">'
+        +'<div class="av">'+avatarInner(c.name,c.photo_url)+'<span class="tag">'+esc(venueTag(c.venue))+'</span></div>'
+        +'<div class="bd"><div class="nm">'+esc(c.name)+'</div>'+(c.speciality?'<div class="sp">'+esc(c.speciality)+'</div>':'')+'</div></a>';
+    }
+    function renderList(){
       var root=$("root"); if(!root) return;
       if(STATE==="loading"){ root.innerHTML='<div class="skg"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>'; return; }
-      if(STATE==="error"){ root.innerHTML='<div class="state">'+LL(TXT.loadErr)+'<br><button class="retry" id="rt">'+LL(TXT.retry)+'</button></div>'; var b=$("rt"); if(b)b.onclick=load; return; }
+      if(STATE==="error"){ root.innerHTML='<div class="state">'+LL(TXT.loadErr)+'<br><button class="retry" id="rt">'+LL(TXT.retry)+'</button></div>'; var b=$("rt"); if(b)b.onclick=loadList; return; }
       if(!COACHES||!COACHES.length){ root.innerHTML='<div class="state">'+LL(TXT.empty)+'</div>'; return; }
-      root.innerHTML='<div class="grid">'+COACHES.map(card).join("")+'</div>'
+      root.innerHTML='<div class="grid">'+COACHES.map(coachCard).join("")+'</div>'
         +'<div class="foot"><p>'+LL(TXT.footNote)+'</p><a href="/classes">'+LL(TXT.footCta)+' →</a></div>';
     }
-    async function load(){
-      STATE="loading"; render();
+    async function loadList(){
+      STATE="loading"; renderList();
       try{
-        var r=await apiFetch("/api/coaches");
+        var r=await apiFetch("/api/coaches"+(VENUE?("?venue="+encodeURIComponent(VENUE)):""));
         var j=await r.json().catch(function(){return null;});
-        if(!r.ok||!j||!j.ok){ STATE="error"; render(); return; }
-        COACHES=j.coaches||[]; STATE="ready"; render();
-      }catch(e){ STATE="error"; render(); }
+        if(!r.ok||!j||!j.ok){ STATE="error"; renderList(); return; }
+        COACHES=j.coaches||[]; STATE="ready"; renderList();
+      }catch(e){ STATE="error"; renderList(); }
+    }
+
+    // ---------- Detail view ----------
+    function classRow(k){
+      var q="";
+      if(k.remaining!=null){
+        var cls = k.remaining<=0?"no":(k.remaining<=3?"low":"ok");
+        q='<span class="qbadge '+cls+'">'+(k.remaining<=0?LL(TXT.full):(k.remaining+" "+LL(TXT.seatsLeft)))+'</span>';
+      }
+      var action;
+      if(k.selectable){ action='<a class="bookbtn" href="'+esc(k.book_url)+'">'+LL(TXT.book)+' →</a>'; }
+      else{ var rt=k.reason==="passed"?TXT.passed:(k.reason==="closed"?TXT.closed:(k.reason==="full"?TXT.full:TXT.closed)); action='<span class="reason">'+LL(rt)+'</span>'; }
+      return '<div class="cl"><div class="dot" style="background:'+esc(k.color||"#C41101")+'"></div>'
+        +'<div class="bd"><div class="tm">'+esc(k.start)+(k.end?('–'+esc(k.end)):'')+'</div>'
+        +'<div class="nm">'+esc(k.name)+'</div>'
+        +(k.instructor?'<div class="mt">'+esc(k.instructor)+'</div>':'')+'</div>'
+        +'<div class="rt">'+q+'<br>'+action+'</div></div>';
+    }
+    function renderDetail(){
+      var root=$("root"); if(!root) return;
+      if(STATE==="loading"){ root.innerHTML='<div class="state">'+LL({en:"Loading…",id:"Memuat…"})+'</div>'; return; }
+      if(STATE==="error"){ root.innerHTML='<div class="state">'+LL(TXT.classErr)+'<br><button class="retry" id="rt">'+LL(TXT.retry)+'</button></div>'; var b=$("rt"); if(b)b.onclick=loadDetail; return; }
+      var d=DETAIL||{}, c=d.coach||{}, cls=d.classes||[];
+      var head='<div class="dhead"><div class="av">'+avatarInner(c.name,c.photo_url)+'</div>'
+        +'<div><div class="nm">'+esc(c.name||"")+'</div>'+(c.speciality?'<div class="sp">'+esc(c.speciality)+'</div>':'')
+        +'<div class="vn">'+esc(venueTag(c.venue))+'</div></div></div>';
+      if(!cls.length){ root.innerHTML=head+'<div class="state">'+LL(TXT.emptyClass)+'</div>'; return; }
+      var byDay={}, order=[];
+      cls.forEach(function(k){ if(!byDay[k.date]){ byDay[k.date]=[]; order.push(k.date); } byDay[k.date].push(k); });
+      var body=order.map(function(dt){
+        return '<div class="daygrp"><div class="dayh">'+esc(fmtDay(dt))+'</div>'+byDay[dt].map(classRow).join("")+'</div>';
+      }).join("");
+      root.innerHTML=head+body;
+    }
+    async function loadDetail(){
+      STATE="loading"; renderDetail();
+      try{
+        var r=await apiFetch("/api/coaches/"+encodeURIComponent(coachId())+"/classes");
+        var j=await r.json().catch(function(){return null;});
+        if(!r.ok||!j||!j.ok){ STATE="error"; renderDetail(); return; }
+        DETAIL=j; STATE="ready"; renderDetail();
+      }catch(e){ STATE="error"; renderDetail(); }
+    }
+
+    function boot(){
+      applyStatic();
+      if(coachId()){ loadDetail(); }
+      else{
+        $("filters").querySelectorAll("button").forEach(function(btn){
+          btn.addEventListener("click", function(){
+            VENUE=btn.dataset.venue||"";
+            $("filters").querySelectorAll("button").forEach(function(b){ b.setAttribute("aria-pressed", String(b===btn)); });
+            loadList();
+          });
+        });
+        loadList();
+      }
     }
     (async function(){
       try{ if(window.Auth&&Auth.requireAuth) await Auth.requireAuth(); }catch(e){}
-      applyStatic();
-      if(window.I18N&&I18N.onChange) I18N.onChange(function(){ applyStatic(); render(); });
-      load();
+      if(window.I18N&&I18N.onChange) I18N.onChange(function(){ applyStatic(); if(coachId()) renderDetail(); else renderList(); });
+      boot();
     })();
   })();
   </script>

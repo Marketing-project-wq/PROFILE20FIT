@@ -690,6 +690,31 @@
     </div>
 
     </div><!-- /extraTrackers -->
+
+    <!-- ===== Coach & Dokter carousel (paling bawah home) ===== -->
+    <style>
+      #rosterSection .percard{flex:0 0 auto;width:118px;scroll-snap-align:start;text-align:center;text-decoration:none;color:inherit}
+      #rosterSection .perav{width:96px;height:96px;border-radius:50%;margin:0 auto;position:relative;overflow:hidden;background:var(--inp);border:1px solid var(--line)}
+      #rosterSection .perav img{width:100%;height:100%;object-fit:cover;display:block}
+      #rosterSection .perini{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:30px;letter-spacing:.02em}
+      #rosterSection .pernm{font-weight:800;font-size:13px;margin-top:8px;color:var(--txt);line-height:1.2;overflow-wrap:anywhere}
+      #rosterSection .persp{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
+    </style>
+    <div id="rosterSection" hidden>
+      <div id="coachBlock" hidden>
+        <div class="trk-head" style="margin-top:16px">
+          <div class="sec gsec" data-en="Meet our coaches" data-id="Kenalan dengan coach" style="margin:0">Meet our coaches</div>
+          <a class="trk-all" href="/book-coach" data-en="All" data-id="Semua">All</a>
+        </div>
+        <div class="hscroll" id="coachRail"></div>
+      </div>
+      <div id="doctorBlock" hidden>
+        <div class="trk-head" style="margin-top:12px">
+          <div class="sec gsec" data-en="Our doctors" data-id="Dokter kami" style="margin:0">Our doctors</div>
+        </div>
+        <div class="hscroll" id="doctorRail"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Customize trackers sheet -->
@@ -1355,6 +1380,42 @@
       }
       window.buildBooking = function () { buildLoc(); };
 
+      // ---- Carousel coach & dokter (paling bawah home) ----
+      // Sumber: /api/coaches + /api/doctors (roster CMS my20fit_). Blok disembunyikan penuh
+      // saat kosong (dokter kosong sampai admin isi -> tak ada kartu kosong). Foto fallback =
+      // inisial di atas blok warna. Klik coach -> halaman detail /book-coach?coach=<id>.
+      window.buildRoster = function () {
+        var sec = document.getElementById("rosterSection"); if (!sec) return;
+        var PAL = ["#C41101", "#2A7A4F", "#2F6BFF", "#7c5cff", "#C87000", "#0EA5A5", "#B0308A", "#4A5568"];
+        function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
+        function initials(n) { var p = String(n || "").trim().split(/\s+/); var a = (p[0] || "")[0] || "", b = (p.length > 1 ? (p[p.length - 1][0] || "") : ""); return (a + b).toUpperCase() || "?"; }
+        function colorFor(n) { var s = String(n || ""), h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return PAL[h % PAL.length]; }
+        function avatar(name, photo) {
+          var color = colorFor(name);
+          if (photo) return '<div class="perav"><img src="' + esc(photo) + '" alt="' + esc(name) + '" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'"><span class="perini" style="display:none;background:' + color + '">' + esc(initials(name)) + '</span></div>';
+          return '<div class="perav"><span class="perini" style="background:' + color + '">' + esc(initials(name)) + '</span></div>';
+        }
+        function fill(rail, items, linkFn) {
+          rail.innerHTML = items.map(function (p) {
+            var inner = avatar(p.name, p.photo_url) + '<div class="pernm">' + esc(p.name) + '</div>' + (p.speciality ? '<div class="persp">' + esc(p.speciality) + '</div>' : '');
+            var href = linkFn ? linkFn(p) : null;
+            return href ? '<a class="percard" href="' + esc(href) + '">' + inner + '</a>' : '<div class="percard">' + inner + '</div>';
+          }).join("");
+        }
+        fetch("/api/coaches").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+          var cb = document.getElementById("coachBlock"), rail = document.getElementById("coachRail");
+          var list = (j && j.ok && j.coaches) || [];
+          if (list.length && rail) { fill(rail, list, function (p) { return "/book-coach?coach=" + encodeURIComponent(p.id); }); cb.hidden = false; sec.hidden = false; }
+          else if (cb) { cb.hidden = true; }
+        }).catch(function () {});
+        fetch("/api/doctors").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+          var db = document.getElementById("doctorBlock"), rail = document.getElementById("doctorRail");
+          var list = (j && j.ok && j.doctors) || [];
+          if (list.length && rail) { fill(rail, list, null); db.hidden = false; sec.hidden = false; }
+          else if (db) { db.hidden = true; }
+        }).catch(function () {});
+      };
+
       // ---- Sync layer: state pin/toggle home tersinkron lintas-device per akun ----
       // localStorage tetap sumber cepat (render awal); server (my20fit_profile.home_prefs)
       // dipakai untuk rekonsiliasi LWW. Aman saat logged-out/offline (tak pernah throw).
@@ -1413,6 +1474,7 @@
       // Boot — grid + booking + tracker stack + sheet + tutup klik-luar.
       buildSvcGrid();
       window.buildBooking();
+      window.buildRoster();
       window.renderStack();
       window.renderCzSheet();
       window.applyExtra();
