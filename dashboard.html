@@ -357,21 +357,24 @@
 
     <!-- Banner promo Physio (di bawah AQI) — bilingual EN/ID via renderPhysioPromo(). -->
     <style>
-      /* Seluruh banner = <a> (bisa diklik + keyboard). Latar gradient, atau foto + overlay gelap. */
-      .physio-promo{position:relative;display:flex;align-items:center;gap:14px;margin:14px 2px 0;
-        border-radius:16px;overflow:hidden;padding:16px 18px;color:#fff;text-decoration:none;cursor:pointer;
-        background:linear-gradient(120deg,var(--red,#C41101),#7a0a00);box-shadow:var(--shadow)}
-      .physio-promo.has-img{background-size:cover;background-position:center}
-      .physio-promo.has-img::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.66),rgba(0,0,0,.38))}
-      .physio-promo > *{position:relative;z-index:1}
-      .physio-promo:focus-visible{outline:3px solid #fff;outline-offset:2px}
-      .physio-promo .pp-badge{flex:0 0 auto;width:52px;height:52px;border-radius:14px;
-        background:rgba(255,255,255,.18);display:grid;place-items:center;font-weight:900;font-size:15px;line-height:1;text-align:center}
+      /* Banner = <a> putih dengan border merah (menyatu dgn kartu lain). Aksen merah hanya di
+         ikon kado + tombol CTA. Judul gelap (kontras >4.5:1). Dark mode: pakai permukaan kartu
+         gelap (bukan putih murni), border merah tetap. Token adaptif → aman light & dark. */
+      .physio-promo{position:relative;display:flex;align-items:center;gap:13px;margin:14px 2px 0;
+        border-radius:16px;padding:14px 16px;text-decoration:none;cursor:pointer;
+        background:var(--card);border:1.8px solid var(--red);box-shadow:var(--shadow);color:var(--ink)}
+      .physio-promo:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+      /* Ikon kado garis dalam bungkus merah-muda — pola sama dgn ikon kartu lain. */
+      .physio-promo .pp-ic{flex:0 0 auto;width:50px;height:50px;border-radius:14px;background:var(--red-soft);
+        color:var(--red);display:grid;place-items:center}
+      .physio-promo .pp-ic svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
       .physio-promo .pp-body{min-width:0;flex:1}
-      .physio-promo .pp-h{font-weight:900;font-size:16px;line-height:1.15;text-transform:uppercase;letter-spacing:.01em;overflow-wrap:anywhere}
-      .physio-promo .pp-s{font-size:12.5px;opacity:.92;margin-top:3px;line-height:1.4}
-      .physio-promo .pp-cta{flex:0 0 auto;background:#fff;color:var(--red,#C41101);border-radius:10px;
-        padding:11px 16px;font-weight:900;font-size:13px;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap}
+      .physio-promo .pp-h{font-weight:900;font-size:15.5px;line-height:1.2;color:var(--ink);overflow-wrap:anywhere}
+      .physio-promo .pp-s{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+      /* image_url opsional = elemen kecil di sisi, BUKAN latar penuh. */
+      .physio-promo .pp-img{flex:0 0 auto;width:48px;height:48px;border-radius:12px;object-fit:cover;border:1px solid var(--line)}
+      .physio-promo .pp-cta{flex:0 0 auto;background:var(--red);color:#fff;border-radius:10px;
+        padding:10px 15px;font-weight:800;font-size:13px;letter-spacing:.02em;white-space:nowrap}
       @media(max-width:560px){ .physio-promo{flex-wrap:wrap} .physio-promo .pp-cta{width:100%;text-align:center} }
     </style>
     <div id="physioPromo" hidden></div>
@@ -413,8 +416,9 @@
       /* Hint */
       .trk-hint{border:1px dashed var(--amber);background:var(--amber-soft);color:var(--amber);
         border-radius:13px;padding:12px 15px;font-weight:700;font-size:13px;margin-top:14px;line-height:1.5}
-      /* Grid layanan */
-      .svcgrid2{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+      /* Grid layanan — 2 kolom mobile, 4 kolom desktop (8 tile = 4×2). Teks tak terpotong. */
+      .svcgrid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:18px}
+      @media(min-width:560px){ .svcgrid2{grid-template-columns:repeat(4,minmax(0,1fr))} }
       @media(max-width:360px){ .svcgrid2{gap:8px} }
       .svc2{position:relative;min-width:0;display:flex;flex-direction:column;align-items:center;gap:9px;
         text-decoration:none;color:var(--txt);cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -1189,6 +1193,8 @@
       };
 
       var IC = {
+        doctor: '<path d="M6 3v5a4 4 0 0 0 8 0V3"/><path d="M5 3h2M13 3h2"/><path d="M10 15a4 4 0 0 0 8 0v-3"/><circle cx="18" cy="10" r="2"/>',
+        coach: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
         dumbbell: '<path d="M6.5 6.5 17.5 17.5"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/>',
         heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>',
         card: '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
@@ -1211,14 +1217,20 @@
       // SEMUA same-tab (svcTile pakai <a href> tanpa target=_blank). News = eksternal
       // media.20fit.id (tetap same-tab). Book Class & Recovery pakai halaman /classes
       // (schedule) — Recovery = venue klinik.
+      // Definisi tile (ikon/label/href). Visibilitas & urutan diatur dari CMS via
+      // /api/home-tiles (tabel my20fit_home_tiles) — key harus cocok. Book Recovery kini
+      // "Physio · Massage" (hanya requires_doctor=false) karena Book Doctor berdiri sendiri.
       var SVCS = [
-        { ic: "pin",      lbl: { en: "Medical", id: "Medical" },           sub: { en: "Medical Check Up", id: "Medical Check Up" }, href: "/medical" },
-        { ic: "card",     lbl: { en: "Membership", id: "Membership" },     sub: { en: "Special Offer · Gym", id: "Special Offer · Gym" }, href: "/membership" },
-        { ic: "diet",     lbl: { en: "Diet", id: "Diet" },                 sub: { en: "Meal plans", id: "Rencana makan" }, href: "/diet" },
-        { ic: "dumbbell", lbl: { en: "Book Class", id: "Book Kelas" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/classes" },
-        { ic: "heart",    lbl: { en: "Book Recovery", id: "Book Recovery" }, sub: { en: "Physio · Doctor", id: "Fisio · Dokter" }, href: "/classes?venue=clinic" },
-        { ic: "news",     lbl: { en: "News", id: "Berita" },               sub: { en: "media.20fit.id", id: "media.20fit.id" }, href: "https://media.20fit.id" }
+        { key: "medical",       ic: "pin",      lbl: { en: "Medical", id: "Medical" },           sub: { en: "Medical Check Up", id: "Medical Check Up" }, href: "/medical" },
+        { key: "membership",    ic: "card",     lbl: { en: "Membership", id: "Membership" },     sub: { en: "Special Offer · Gym", id: "Special Offer · Gym" }, href: "/membership" },
+        { key: "diet",          ic: "diet",     lbl: { en: "Diet", id: "Diet" },                 sub: { en: "Meal plans", id: "Rencana makan" }, href: "/diet" },
+        { key: "book-class",    ic: "dumbbell", lbl: { en: "Book Class", id: "Book Kelas" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/classes" },
+        { key: "book-doctor",   ic: "doctor",   lbl: { en: "Book Doctor", id: "Book Dokter" },   sub: { en: "Konsultasi · Klinik", id: "Konsultasi · Klinik" }, href: "/book-doctor" },
+        { key: "book-coach",    ic: "coach",    lbl: { en: "Book Coach", id: "Book Coach" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/book-coach" },
+        { key: "book-recovery", ic: "heart",    lbl: { en: "Book Recovery", id: "Book Recovery" }, sub: { en: "Physio · Massage", id: "Fisio · Massage" }, href: "/classes?venue=clinic" },
+        { key: "news",          ic: "news",     lbl: { en: "News", id: "Berita" },               sub: { en: "media.20fit.id", id: "media.20fit.id" }, href: "https://media.20fit.id" }
       ];
+      var TILE_CFG = null; // {key:{hidden,sort_order}} dari CMS; null = belum termuat (pakai default)
 
       function svcTile(o) {
         var svg = '<svg viewBox="0 0 24 24" aria-hidden="true">' + (IC[o.ic] || "") + '</svg>';
@@ -1228,8 +1240,26 @@
       }
       window.buildSvcGrid = function () {
         var el = document.getElementById("svcGrid2"); if (!el) return;
-        el.innerHTML = SVCS.map(svcTile).join("");
+        // Terapkan CMS: sembunyikan tile hidden, urutkan by sort_order (default = urutan array).
+        var list = SVCS.slice();
+        if (TILE_CFG) {
+          list = list.filter(function (o) { var c = TILE_CFG[o.key]; return !(c && c.hidden); });
+          list.sort(function (a, b) {
+            var sa = (TILE_CFG[a.key] ? TILE_CFG[a.key].sort_order : 999), sb = (TILE_CFG[b.key] ? TILE_CFG[b.key].sort_order : 999);
+            return sa - sb;
+          });
+        }
+        el.innerHTML = list.map(svcTile).join("");
       };
+      // Muat konfigurasi tile dari CMS sekali; gagal → diamkan (pakai default 8 tile).
+      (function loadHomeTiles() {
+        fetch("/api/home-tiles").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+          if (j && j.ok && Array.isArray(j.tiles)) {
+            TILE_CFG = {}; j.tiles.forEach(function (t) { TILE_CFG[t.key] = { hidden: !!t.hidden, sort_order: (t.sort_order == null ? 999 : t.sort_order) }; });
+            window.buildSvcGrid();
+          }
+        }).catch(function () {});
+      })();
 
       // ---- Customize sheet: pin & reorder (TRACKER, bukan shortcut) ----
       function extraOn() { try { return localStorage.getItem("my20fit_home_extra") === "1"; } catch (e) { return false; } }
@@ -1397,13 +1427,14 @@
           var title = Lx({ en: b.title_en || "", id: b.title_id || b.title_en || "" });
           var sub = Lx({ en: b.subtitle_en || "", id: b.subtitle_id || b.subtitle_en || "" });
           var cta = Lx({ en: b.cta_en || "Claim", id: b.cta_id || b.cta_en || "Klaim" });
-          var cls = "physio-promo" + (b.image_url ? " has-img" : "");
-          var imgStyle = b.image_url ? (" style=\"background-image:url('" + _esc(b.image_url) + "')\"") : "";
+          // Ikon kado garis (senada ikon kartu lain) — aria-hidden karena makna dibawa judul (yang memuat angka diskon).
+          var GIFT = '<rect x="3" y="8" width="18" height="4" rx="1"></rect><path d="M12 8v13"></path><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"></path><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8"></path><path d="M16.5 8a2.5 2.5 0 0 0 0-5C13 3 12 8 12 8"></path>';
+          var img = b.image_url ? ('<img class="pp-img" src="' + _esc(b.image_url) + '" alt="" loading="lazy" onerror="this.remove()">') : '';
           box.hidden = false;
-          box.innerHTML = '<a class="' + cls + '"' + imgStyle + ' href="' + _esc(b.wa_url) + '" target="_blank" rel="noopener noreferrer" aria-label="' + _esc(title) + '">' +
-            '<div class="pp-badge">10%<br>OFF</div>' +
+          box.innerHTML = '<a class="physio-promo" href="' + _esc(b.wa_url) + '" target="_blank" rel="noopener noreferrer" aria-label="' + _esc(title) + '">' +
+            '<span class="pp-ic" aria-hidden="true"><svg viewBox="0 0 24 24">' + GIFT + '</svg></span>' +
             '<div class="pp-body"><div class="pp-h">' + _esc(title) + '</div><div class="pp-s">' + _esc(sub) + '</div></div>' +
-            '<span class="pp-cta">' + _esc(cta) + '</span></a>';
+            img + '<span class="pp-cta">' + _esc(cta) + '</span></a>';
           var a = box.querySelector("a.physio-promo");
           if (a) a.addEventListener("click", function () {
             (async function () {
