@@ -586,6 +586,10 @@
       </section>
       <section data-section="events" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Event" data-title-en="Events" data-question="Event yang bisa dibeli — tampil di tab &quot;Upcoming Event&quot; homepage." data-question-en="Buyable events — shown in the homepage &quot;Upcoming Event&quot; tab.">
         <div class="adm-note" data-i18n="Manage buyable events for the home 'Upcoming' tab. Shown only when status = on_sale AND published. Buy Now opens ticket.20fit.id/id/events/<slug> (same tab); no slug = no button.">Kelola event yang bisa dibeli untuk tab &quot;Mendatang&quot; di homepage. Tampil HANYA bila status = on_sale DAN dipublikasikan. Tombol Beli Sekarang membuka ticket.20fit.id/id/events/&lt;slug&gt; (tab sama); tanpa slug = tanpa tombol.</div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button class="adm-btn" type="button" onclick="window.evSync()" id="evSyncBtn" data-i18n="Sync now from TICKET_API">Sinkronkan sekarang dari TICKET_API</button>
+          <span id="evSyncMsg" class="adm-note" style="margin:0"></span>
+        </div>
         <div style="margin-top:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px">
           <input type="hidden" id="ev_id">
           <input type="hidden" id="ev_published_at">
@@ -604,6 +608,8 @@
             <option value="on_sale" data-i18n="on_sale">on_sale</option>
             <option value="sold_out" data-i18n="sold_out">sold_out</option>
             <option value="closed" data-i18n="closed">closed</option>
+            <option value="ended" data-i18n="ended">ended</option>
+            <option value="archived" data-i18n="archived">archived</option>
           </select>
           <input class="adm-input" id="ev_cover" placeholder="URL cover (opsional)" data-i18n-ph="Cover URL (optional)" style="grid-column:1/-1">
           <input class="adm-input" id="ev_sort" type="number" placeholder="Urutan (0)" data-i18n-ph="Sort order (0)">
@@ -1991,6 +1997,18 @@
         }).join("")+'</tbody></table>';
     }catch(e){ list.innerHTML='<div class="adm-note">'+L("Error loading events.","Error memuat event.")+'</div>'; }
   }
+  // Sinkronkan semua event + cover dari TICKET_API sekarang (server → edge function sync-ticket-events).
+  window.evSync=async function(){
+    var btn=document.getElementById("evSyncBtn"), msg=document.getElementById("evSyncMsg");
+    if(btn)btn.disabled=true; if(msg)msg.textContent=L("Syncing…","Menyinkronkan…");
+    try{
+      var res=await adminPost("/api/admin/sync-events",{});
+      var j=await res.json().catch(function(){return null;});
+      if(!res.ok||!j||!j.ok){ if(msg)msg.textContent=L("Sync failed.","Sinkronisasi gagal.")+" ["+evEsc(await admErr(res,j))+"]"; }
+      else{ var r=j.result||{}; if(msg)msg.textContent=L("Synced","Tersinkron")+": "+((r.upserted_count)||0)+" event, "+((r.archived&&r.archived.length)||0)+" "+L("archived","diarsipkan")+"."; loadEvents(); }
+    }catch(e){ if(msg)msg.textContent=L("Sync error.","Error sinkronisasi."); }
+    finally{ if(btn)btn.disabled=false; }
+  };
   // ISO → nilai input datetime-local (YYYY-MM-DDTHH:mm), waktu lokal browser.
   function evDtLocal(iso){ if(!iso)return""; var d=new Date(iso); if(isNaN(d))return""; var p=function(n){return(n<10?"0":"")+n;}; return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes()); }
   var EV_FIELDS=["ev_id","ev_published_at","ev_slug","ev_name","ev_subtitle","ev_organizer","ev_category","ev_venue","ev_city","ev_start","ev_price","ev_currency","ev_cover","ev_sort"];
