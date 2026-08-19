@@ -356,27 +356,24 @@
 
     <!-- Banner promo Physio (di bawah AQI) — bilingual EN/ID via renderPhysioPromo(). -->
     <style>
-      .physio-promo{margin:14px 2px 0;border-radius:16px;overflow:hidden;
-        background:linear-gradient(120deg,var(--red,#C41101),#7a0a00);color:#fff;
-        display:flex;align-items:center;gap:14px;padding:16px 18px;position:relative}
+      /* Seluruh banner = <a> (bisa diklik + keyboard). Latar gradient, atau foto + overlay gelap. */
+      .physio-promo{position:relative;display:flex;align-items:center;gap:14px;margin:14px 2px 0;
+        border-radius:16px;overflow:hidden;padding:16px 18px;color:#fff;text-decoration:none;cursor:pointer;
+        background:linear-gradient(120deg,var(--red,#C41101),#7a0a00);box-shadow:var(--shadow)}
+      .physio-promo.has-img{background-size:cover;background-position:center}
+      .physio-promo.has-img::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.66),rgba(0,0,0,.38))}
+      .physio-promo > *{position:relative;z-index:1}
+      .physio-promo:focus-visible{outline:3px solid #fff;outline-offset:2px}
       .physio-promo .pp-badge{flex:0 0 auto;width:52px;height:52px;border-radius:14px;
-        background:rgba(255,255,255,.16);display:grid;place-items:center;font-weight:900;font-size:15px;line-height:1;text-align:center}
+        background:rgba(255,255,255,.18);display:grid;place-items:center;font-weight:900;font-size:15px;line-height:1;text-align:center}
       .physio-promo .pp-body{min-width:0;flex:1}
       .physio-promo .pp-h{font-weight:900;font-size:16px;line-height:1.15;text-transform:uppercase;letter-spacing:.01em;overflow-wrap:anywhere}
-      .physio-promo .pp-s{font-size:12.5px;opacity:.9;margin-top:3px;line-height:1.4}
+      .physio-promo .pp-s{font-size:12.5px;opacity:.92;margin-top:3px;line-height:1.4}
       .physio-promo .pp-cta{flex:0 0 auto;background:#fff;color:var(--red,#C41101);border-radius:10px;
-        padding:11px 16px;font-weight:900;font-size:13px;letter-spacing:.02em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
-      .physio-promo .pp-cta:hover{filter:brightness(.96)}
+        padding:11px 16px;font-weight:900;font-size:13px;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap}
       @media(max-width:560px){ .physio-promo{flex-wrap:wrap} .physio-promo .pp-cta{width:100%;text-align:center} }
     </style>
-    <div class="physio-promo" id="physioPromo">
-      <div class="pp-badge">10%<br>OFF</div>
-      <div class="pp-body">
-        <div class="pp-h" id="ppH">10% OFF PHYSIO THERAPY AWAITS!</div>
-        <div class="pp-s" id="ppS">Create My20FIT account to claim</div>
-      </div>
-      <a class="pp-cta" id="ppCta" href="/rewards">CLAIM NOW</a>
-    </div>
+    <div id="physioPromo" hidden></div>
 
     <!-- Promo banner (Modul 5) — tampil di bawah kartu AQI. Kosong = tak muncul. -->
     <style>
@@ -1597,12 +1594,35 @@
       window.renderStack();
       window.renderCzSheet();
       window.applyExtra();
-      // Banner promo Physio (di bawah AQI) — teks bilingual EN/ID.
+      // Banner promo (di bawah AQI) — konten & target WA dari DB (/api/promo/banner). Bilingual.
+      // Seluruh area = <a> ke WhatsApp (tab baru + rel noopener). Klik dicatat (non-blok).
+      var PROMO_BANNER; // undefined=belum fetch, null=tak ada, {..}=ada
       window.renderPhysioPromo = function () {
-        var h = document.getElementById("ppH"), s = document.getElementById("ppS"), c = document.getElementById("ppCta");
-        if (h) h.textContent = Lx({ en: "10% OFF PHYSIO THERAPY AWAITS!", id: "DISKON 10% PHYSIO THERAPY MENANTIMU!" });
-        if (s) s.textContent = Lx({ en: "Create My20FIT account to claim", id: "Buat akun My20FIT untuk klaim" });
-        if (c) c.textContent = Lx({ en: "Claim Now", id: "Klaim Sekarang" });
+        var box = document.getElementById("physioPromo"); if (!box) return;
+        var draw = function () {
+          var b = PROMO_BANNER;
+          if (!b || !b.wa_url) { box.hidden = true; box.innerHTML = ""; return; }
+          var title = Lx({ en: b.title_en || "", id: b.title_id || b.title_en || "" });
+          var sub = Lx({ en: b.subtitle_en || "", id: b.subtitle_id || b.subtitle_en || "" });
+          var cta = Lx({ en: b.cta_en || "Claim", id: b.cta_id || b.cta_en || "Klaim" });
+          var cls = "physio-promo" + (b.image_url ? " has-img" : "");
+          var imgStyle = b.image_url ? (" style=\"background-image:url('" + _esc(b.image_url) + "')\"") : "";
+          box.hidden = false;
+          box.innerHTML = '<a class="' + cls + '"' + imgStyle + ' href="' + _esc(b.wa_url) + '" target="_blank" rel="noopener noreferrer" aria-label="' + _esc(title) + '">' +
+            '<div class="pp-badge">10%<br>OFF</div>' +
+            '<div class="pp-body"><div class="pp-h">' + _esc(title) + '</div><div class="pp-s">' + _esc(sub) + '</div></div>' +
+            '<span class="pp-cta">' + _esc(cta) + '</span></a>';
+          var a = box.querySelector("a.physio-promo");
+          if (a) a.addEventListener("click", function () {
+            (async function () {
+              var t = null; try { t = (window.Auth && Auth.token) ? await Auth.token() : null; } catch (e) {}
+              try { fetch("/api/promo/click", { method: "POST", keepalive: true, headers: Object.assign({ "Content-Type": "application/json" }, t ? { Authorization: "Bearer " + t } : {}), body: JSON.stringify({ key: b.key }) }); } catch (e) {}
+            })();
+          });
+        };
+        if (PROMO_BANNER === undefined) {
+          fetch("/api/promo/banner").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { PROMO_BANNER = (j && j.ok && j.banner) ? j.banner : null; draw(); }).catch(function () { PROMO_BANNER = null; draw(); });
+        } else { draw(); }
       };
       window.renderPhysioPromo();
       var czb = document.getElementById("czBg");
