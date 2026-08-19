@@ -198,25 +198,9 @@ app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webho
 // Railway = reverse proxy 1 hop -> req.ip benar (pakai X-Forwarded-For dari proxy tepercaya).
 app.set("trust proxy", 1);
 
-// ---------- ADMIN HANYA DI STAGING (produksi = 404, bukan 403) ----------
-// Panel admin internal tidak boleh terjangkau dari produksi: rute halaman, aset klien
-// (admin-shell.js/admin-theme.css), dan API /api/admin/* dikembalikan 404 di host non-staging —
-// server-side (bukan cek client), sebelum static & route mana pun. Default MATI: host yang bukan
-// staging dianggap produksi → admin off (lupa set env tak akan menyalakan admin di prod).
-// Portal KORPORAT (/corp-dashboard, /api/corp/*) TIDAK diblok — itu fitur produksi utk klien korporat.
-// isStagingReq() di-hoist (dideklarasikan sbg function di bawah).
-app.use((req, res, next) => {
-  const p = req.path || "";
-  const isAdmin =
-    /^\/admin($|[\/.\-])/.test(p) ||               // /admin, /admin.html, /admin-dashboard, /admin-v2, /admin-email
-    p === "/js/admin-shell.js" ||
-    p === "/css/admin-theme.css" ||
-    /^\/api\/admin(\/|$)/.test(p);
-  if (isAdmin && !isStagingReq(req)) {
-    return res.status(404).sendFile(path.join(__dirname, "index.html")); // 404 generik; jangan bocorkan keberadaannya
-  }
-  next();
-});
+// ADMIN CMS tersedia di produksi maupun staging. Akses tetap dijaga di server:
+// halaman admin butuh login + baris di my20fit_admin_roles, dan semua /api/admin/*
+// lewat requireAdmin (JWT admin atau master ADMIN_KEY). Portal korporat juga produksi.
 
 app.post("/api/cron/fasting-notify", async (req, res) => {
   const secret = req.get("x-cron-secret") || (req.query && req.query.key) || "";
