@@ -2549,6 +2549,109 @@ app.get("/api/my/clinic-requests", async (req, res) => {
   } catch (e) { return res.json({ ok: true, items: [] }); }
 });
 
+// ================= FASE 3 & 6: CHECKOUT TERPADU + RIWAYAT =================
+// FASE 6 — Riwayat pembelian user: gabungan my20fit_orders + booking + scan, difilter
+// auth_user_id (dibaca SERVER pakai service key; user hanya lihat miliknya). Tiap sumber
+// dibungkus try → satu gagal tak menjatuhkan yang lain.
+app.get("/api/my/purchases", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "session", session_expired: true });
+    if (!admin) return res.json({ ok: true, items: [] });
+    const uid = user.id;
+    const out = [];
+    const push = (o) => { if (o) out.push(o); };
+    // Orders terpadu
+    try {
+      const { data } = await admin.from("my20fit_orders")
+        .select("order_no,kind,status,net_amount,currency,created_at,paid_at,metadata").eq("auth_user_id", uid)
+        .order("created_at", { ascending: false }).limit(100);
+      (data || []).forEach(o => push({ source: "order", kind: o.kind, title: (o.metadata && o.metadata.title) || o.kind, status: o.status, amount: o.net_amount, currency: o.currency || "IDR", date: o.paid_at || o.created_at, ref: o.order_no }));
+    } catch (_) {}
+    // Kelas
+    try {
+      const { data } = await admin.from("arena_class_bookings").select("booking_code,status,price,created_at").eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(100);
+      (data || []).forEach(o => push({ source: "class", kind: "class", title: "Arena/Gym Class", status: o.status, amount: o.price, currency: "IDR", date: o.created_at, ref: o.booking_code }));
+    } catch (_) {}
+    // Arena
+    try {
+      const { data } = await admin.from("arena_bookings").select("booking_code,status,created_at").eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(100);
+      (data || []).forEach(o => push({ source: "arena", kind: "venue", title: "Arena Booking", status: o.status, amount: null, currency: "IDR", date: o.created_at, ref: o.booking_code }));
+    } catch (_) {}
+    // Klinik (request/booking dari my.20fit)
+    try {
+      const { data } = await admin.from("clinic_bookings").select("booking_code,status,price,created_at").eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(100);
+      (data || []).forEach(o => push({ source: "clinic", kind: "service", title: "Clinic", status: o.status, amount: o.price, currency: "IDR", date: o.created_at, ref: o.booking_code }));
+    } catch (_) {}
+    // Scan credits
+    try {
+      const { data } = await admin.from("my20fit_scan_orders").select("reff_no,status,net_amount,amount,created_at,paid_at").eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(100);
+      (data || []).forEach(o => push({ source: "scan", kind: "scan", title: "Food Scan Credits", status: o.status, amount: (o.net_amount != null ? o.net_amount : o.amount), currency: "IDR", date: o.paid_at || o.created_at, ref: o.reff_no }));
+    } catch (_) {}
+    out.sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+    return res.json({ ok: true, items: out });
+  } catch (e) { return res.json({ ok: true, items: [] }); }
+});
+
+// FASE 3 — Checkout terpadu. Harga DIVALIDASI ULANG di server (katalog/ticket_events), buat
+// my20fit_orders 'pending', kembalikan next-step. Gateway inline BELUM (kredensial Xendit
+// dedicated belum ada) → payload: ticket=deep-link penerbit, service=bayar-di-klinik, lainnya=pending.
+app.post("/api/checkout", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const b = req.body || {};
+    const kind = String(b.kind || "").trim();
+    const itemRef = String(b.itemRef || b.item_ref || "").trim();
+    const qty = Math.max(1, Math.min(20, parseInt(b.quantity || 1, 10) || 1));
+    const allowed = ["ticket", "membership", "package", "class", "venue", "service"];
+    if (!allowed.includes(kind)) return res.status(400).json({ error: "Jenis pembelian tidak dikenal." });
+    if (!itemRef) return res.status(400).json({ error: "Item wajib." });
+    // Harga dari server (JANGAN percaya client).
+    let unit = null, title = null, buyUrl = null;
+    if (kind === "ticket") {
+      const { data } = await admin.from("my20fit_ticket_events").select("slug,name,price_from,status,published_at").eq("slug", itemRef).limit(1);
+      const e = data && data[0];
+      if (!e || e.status !== "on_sale" || !e.published_at) return res.status(400).json({ error: "Event tidak tersedia." });
+      unit = Number(e.price_from) || 0; title = e.name; buyUrl = ticketBuyUrl(e.slug);
+    } else {
+      const { data } = await admin.from("my20fit_catalog_items").select("source_id,title,price,is_active").eq("source_id", itemRef).limit(1);
+      const it = data && data[0];
+      if (!it || it.is_active !== true) return res.status(400).json({ error: "Item tidak tersedia." });
+      unit = Number(it.price) || 0; title = it.title;
+    }
+    const subtotal = unit * qty;
+    // Pastikan buyer ada.
+    let buyerId = null;
+    try {
+      const { data: bd } = await admin.from("my20fit_buyers").select("id").eq("auth_user_id", user.id).limit(1);
+      if (bd && bd[0]) buyerId = bd[0].id;
+      else { const { data: ins } = await admin.from("my20fit_buyers").insert({ auth_user_id: user.id, primary_email: (user.email || "").toLowerCase() }).select("id").limit(1); buyerId = ins && ins[0] ? ins[0].id : null; }
+    } catch (_) {}
+    const orderNo = "MY-" + Date.now().toString(36).toUpperCase() + "-" + Math.floor(Math.random() * 10000);
+    const { data: ord, error } = await admin.from("my20fit_orders").insert({
+      order_no: orderNo, auth_user_id: user.id, buyer_id: buyerId, kind, channel: "my20fit",
+      subtotal, discount: 0, net_amount: subtotal, currency: "IDR", status: "pending",
+      payment_method: String(b.method || "") || null,
+      expires_at: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
+      metadata: { itemRef, quantity: qty, title },
+    }).select("id,order_no").limit(1);
+    if (error) throw error;
+    const orderId = ord && ord[0] ? ord[0].id : null;
+    if (orderId) { try { await admin.from("my20fit_order_items").insert({ order_id: orderId, kind, item_ref: itemRef, title, quantity: qty, unit_price: unit, line_total: subtotal }); } catch (_) {} }
+    // Next-step (belum ada gateway inline).
+    let payload;
+    if (kind === "ticket") payload = { type: "deeplink", url: buyUrl, note: "Selesaikan pembayaran tiket di penerbit resmi 20FIT Ticket." };
+    else if (kind === "service") payload = { type: "pay_at_clinic", note: "Bayar di klinik saat kedatangan; staf akan mencatat pembayaran." };
+    else payload = { type: "pending", note: "Pesanan tersimpan sebagai pending. Pembayaran online akan tersedia setelah gateway aktif." };
+    return res.json({ ok: true, orderNo, reference: orderId, paymentPayload: payload });
+  } catch (e) {
+    try { console.error("checkout:", e && e.message); } catch (_) {}
+    return res.status(500).json({ error: (e && e.message) || "Checkout gagal." });
+  }
+});
+
 // ================= ADMIN MONITORING (dashboard internal) =================
 // Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
