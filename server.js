@@ -17,7 +17,6 @@ const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerb
 const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
 const segments = require("./lib/segments"); // segment engine untuk blast email admin
 const blast = require("./lib/blast"); // send queue blast email (batching, kill switch, auto-abort)
-const QRCode = require("qrcode"); // QR digital ticket (dibuat di server, tak panggil layanan luar)
 const emailConfig = require("./lib/email-config"); // angka guardrail anti-spam (cap, kill switch, backlog, circuit breaker)
 const { createClient } = require("@supabase/supabase-js");
 
@@ -1974,85 +1973,50 @@ app.get("/api/partner/profile", async (req, res) => {
   }
 });
 
-// ---------- /api/tickets/mine : tiket event race milik user (widget "Upcoming Event") ----------
-// SUMBER: sistem race 20FIT (rc_ticket_invites + rc_events) — Opsi 3 (join lintas-app), atas
-// keputusan pemilik. ATURAN & PRIVASI yang WAJIB dijaga di sini:
-//  - CLAUDE.md §4: tabel non-`my20fit_*` milik app lain. Kita HANYA MEMBACA (SELECT), TIDAK PERNAH
-//    menulis ke rc_ticket_invites / rc_events.
-//  - Ruang lingkup KETAT per-user: cuma baris yang email-nya == email user yang LOGIN (diambil dari
-//    my20fit_profile by auth_user_id, bukan dari client). Tak ada param email dari client → tak bisa
-//    dipakai enumerasi tiket orang lain. Service key bypass RLS, jadi filter email WAJIB di query +
-//    dicek ulang exact-match di JS (hindari over-match wildcard ilike untuk email berisi '_').
-//  - TAHAN-GAGAL: kalau tabel tak ada / query error → balikan {ok:true, tickets:[]} supaya home aman.
+// ---------- /api/tickets/mine : tiket event yang DIBELI user (widget "My Tickets") ----------
+// SUMBER: event_transaction (impor invoice Mayar) — pembelian NYATA per email user. READ-ONLY.
+//  - CLAUDE.md §4: tabel non-`my20fit_*` milik app lain → HANYA SELECT.
+//  - Per-user KETAT: email dari my20fit_profile by auth_user_id (bukan client). Service key bypass
+//    RLS → filter email WAJIB + exact-match di JS.
+//  - QR: event_transaction TIDAK punya kode gerbang. Sesuai ATURAN KERAS 2b, JANGAN mengarang QR
+//    (dan JANGAN pakai rc_ticket_invites.token — itu undangan race-timing, bukan tiket berbayar).
+//    QR/e-tiket asli diterbitkan ticket.20fit.id (via API_TICKET) — integrasi belum tersambung,
+//    jadi kartu tampil TANPA QR + arahkan ke penerbit. `qr_pending:true`.
+//  - TAHAN-GAGAL: query error → {ok:true, tickets:[]}.
 app.get("/api/tickets/mine", async (req, res) => {
   try {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
     if (!admin) return res.json({ ok: true, tickets: [] });
-
-    // Identitas = email user (dari profil kita; fallback ke email auth).
     let email = String(user.email || "").trim().toLowerCase();
     try {
       const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", user.id).limit(1);
       if (prof && prof[0] && prof[0].email) email = String(prof[0].email).trim().toLowerCase();
     } catch (_) {}
     if (!email) return res.json({ ok: true, tickets: [] });
-
-    // READ-ONLY tabel app lain. Kandidat case-insensitive, lalu exact-match di JS.
-    let invites = [];
+    let rows = [];
     try {
-      const { data, error } = await admin.from("rc_ticket_invites")
-        .select("id,event_id,email,category_key,status,source_data,created_at")
-        .ilike("email", email).limit(50);
+      const { data, error } = await admin.from("event_transaction")
+        .select("invoice_id,product_name,event_name,customer_name,status,paid_at,gross_amount,is_excluded,email")
+        .ilike("email", email).limit(100);
       if (error) throw error;
-      invites = (data || []).filter(r => String(r.email || "").trim().toLowerCase() === email);
+      rows = (data || []).filter(r => String(r.email || "").trim().toLowerCase() === email && r.is_excluded !== true);
     } catch (_) { return res.json({ ok: true, tickets: [] }); }
-    if (!invites.length) return res.json({ ok: true, tickets: [] });
-
-    // Nama + tanggal event dari rc_events (read-only).
-    const evIds = [...new Set(invites.map(i => i.event_id).filter(Boolean))];
-    const evMap = {};
-    if (evIds.length) {
-      try {
-        const { data: evs } = await admin.from("rc_events").select("id,name,event_date").in("id", evIds);
-        (evs || []).forEach(e => { evMap[e.id] = e; });
-      } catch (_) {}
-    }
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const tickets = invites.map(i => {
-      const ev = evMap[i.event_id] || {};
-      const label = i.source_data && (i.source_data.TIKET || i.source_data.tiket);
-      return {
-        ref: String(i.id || "").replace(/-/g, "").slice(0, 8).toUpperCase(), // kode ref singkat (bukan token akses)
-        event_name: ev.name || "Event 20FIT",
-        event_date: ev.event_date || null,
-        ticket_label: label ? String(label).slice(0, 160) : null,
-        category: i.category_key || null,
-        status: i.status || null,
-        upcoming: !!(ev.event_date && String(ev.event_date) >= todayStr),
-        holder: i.name || (i.source_data && (i.source_data.NAMA || i.source_data[" NAMA"])) || null,
-        _token: i.token || null, // dipakai bikin QR di bawah, lalu DIHAPUS dari respons
-      };
-    });
-    // Urut: upcoming dulu (tanggal terdekat), lalu past (terbaru dulu).
-    tickets.sort((a, b) => {
-      if (a.upcoming !== b.upcoming) return a.upcoming ? -1 : 1;
-      const da = a.event_date || "", db = b.event_date || "";
-      if (a.upcoming) return da < db ? -1 : (da > db ? 1 : 0);
-      return da > db ? -1 : (da < db ? 1 : 0);
-    });
-    // QR digital ticket: encode token asli per-tiket (milik user login). Dibuat di SERVER
-    // (tanpa panggilan keluar → token tak bocor ke pihak ketiga). Tak ada token / gagal →
-    // tiket tetap tampil tanpa QR. Format gate ticket.20fit.id belum dikonfirmasi → token mentah.
-    await Promise.all(tickets.map(async (t) => {
-      if (t._token) {
-        try { t.qr = await QRCode.toString("https://ticket.20fit.id/t/" + String(t._token), { type: "svg", margin: 1, errorCorrectionLevel: "M" }); } catch (_) {}
-      }
-      delete t._token;
+    const isPaid = (s) => /paid|settle|success|complete/i.test(String(s || ""));
+    const tickets = rows.filter(r => isPaid(r.status)).map(r => ({
+      ref: (String(r.invoice_id || "").slice(0, 24)) || null,
+      event_name: r.event_name || r.product_name || "Event 20FIT",
+      product_name: r.product_name || null,
+      holder: r.customer_name || null,
+      status: "valid",
+      paid_at: r.paid_at || null,
+      amount: (r.gross_amount == null ? null : Number(r.gross_amount)),
+      qr: null,          // TIDAK dikarang — QR gerbang asli diterbitkan ticket.20fit.id
+      qr_pending: true,
     }));
-    return res.json({ ok: true, tickets, upcoming_count: tickets.filter(t => t.upcoming).length });
+    tickets.sort((a, b) => String(b.paid_at || "").localeCompare(String(a.paid_at || "")));
+    return res.json({ ok: true, tickets, count: tickets.length });
   } catch (e) {
-    if (e && e.status === 503) return res.status(503).json({ error: e.userMessage || "Coba lagi sebentar." });
     try { console.error("tickets/mine:", e && e.message); } catch (_) {}
     return res.json({ ok: true, tickets: [] }); // tahan-gagal
   }

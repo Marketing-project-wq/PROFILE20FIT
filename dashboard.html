@@ -893,21 +893,22 @@
           return dp + " · " + tp + " WIB";
         } catch (e) { return tktDate(s); }
       }
-      // Kartu e-tiket (Tiket Saya): jenis tiket + event + tanggal + peserta/order + stub QR.
-      // QR (t.qr) = svg dari server, encode URL check-in ticket.20fit.id/t/<token>.
+      // Kartu tiket DIBELI (Tiket Saya): pembelian nyata dari event_transaction (per email user).
+      // QR gerbang TIDAK dikarang (aturan 2b) — kalau t.qr ada (dari penerbit) render; kalau
+      // qr_pending, tampilkan info + arahkan ke ticket.20fit.id. rc_ticket_invites.token TIDAK dipakai.
       function twkTicketCard(t) {
-        var date = (t && t.event_date) ? tktDate(t.event_date) : "";
+        var date = (t && t.paid_at) ? tktDate(t.paid_at) : "";
         var facts = '<div class="twk-facts">' +
           ((t && t.holder) ? '<div class="twk-fact"><span>' + Lx({ en: "Attendee", id: "Peserta" }) + '</span><b>' + _esc(t.holder) + '</b></div>' : '') +
           ((t && t.ref) ? '<div class="twk-fact"><span>' + Lx({ en: "Order", id: "Order" }) + '</span><b>' + _esc(t.ref) + '</b></div>' : '') +
           '</div>';
         var stub = (t && t.qr)
           ? '<div class="twk-stub"><div class="twk-qrbox">' + t.qr + '</div><button type="button" class="twk-zoom" onclick="twkZoom(\'' + _esc(t.ref || "") + '\')">' + Lx({ en: "Enlarge", id: "Perbesar" }) + '</button></div>'
-          : '<div class="twk-stub"><div class="twk-etiket">' + Lx({ en: "e-ticket", id: "e-tiket" }) + '</div></div>';
+          : '<div class="twk-stub"><div class="twk-etiket">' + Lx({ en: "QR at ticket.20fit.id", id: "QR di ticket.20fit.id" }) + '</div><a class="twk-zoom" href="https://ticket.20fit.id" style="text-decoration:none">' + Lx({ en: "Open e-ticket ↗", id: "Buka e-tiket ↗" }) + '</a></div>';
         return '<article class="twk-card"><div class="twk-haz"></div><div class="twk-body">' +
-          ((t && (t.ticket_label || t.category)) ? '<span class="twk-tag">' + _esc(t.ticket_label || t.category) + '</span>' : '') +
+          ((t && t.product_name) ? '<span class="twk-tag">' + _esc(t.product_name) + '</span>' : '') +
           '<div class="twk-name">' + _esc((t && t.event_name) || "Event 20FIT") + '</div>' +
-          (date ? '<div class="twk-meta"><div>' + _esc(date) + '</div></div>' : '') +
+          (date ? '<div class="twk-meta"><div>' + Lx({ en: "Paid ", id: "Dibayar " }) + _esc(date) + '</div></div>' : '') +
           facts + '</div>' + stub + '</article>';
       }
       // Nominal "Rp X" dari price_from (integer rupiah). null → "".
