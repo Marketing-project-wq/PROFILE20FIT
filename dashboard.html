@@ -416,8 +416,9 @@
       /* Hint */
       .trk-hint{border:1px dashed var(--amber);background:var(--amber-soft);color:var(--amber);
         border-radius:13px;padding:12px 15px;font-weight:700;font-size:13px;margin-top:14px;line-height:1.5}
-      /* Grid layanan */
-      .svcgrid2{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+      /* Grid layanan — 2 kolom mobile, 4 kolom desktop (8 tile = 4×2). Teks tak terpotong. */
+      .svcgrid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:18px}
+      @media(min-width:560px){ .svcgrid2{grid-template-columns:repeat(4,minmax(0,1fr))} }
       @media(max-width:360px){ .svcgrid2{gap:8px} }
       .svc2{position:relative;min-width:0;display:flex;flex-direction:column;align-items:center;gap:9px;
         text-decoration:none;color:var(--txt);cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -1192,6 +1193,8 @@
       };
 
       var IC = {
+        doctor: '<path d="M6 3v5a4 4 0 0 0 8 0V3"/><path d="M5 3h2M13 3h2"/><path d="M10 15a4 4 0 0 0 8 0v-3"/><circle cx="18" cy="10" r="2"/>',
+        coach: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
         dumbbell: '<path d="M6.5 6.5 17.5 17.5"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/>',
         heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>',
         card: '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
@@ -1214,14 +1217,20 @@
       // SEMUA same-tab (svcTile pakai <a href> tanpa target=_blank). News = eksternal
       // media.20fit.id (tetap same-tab). Book Class & Recovery pakai halaman /classes
       // (schedule) — Recovery = venue klinik.
+      // Definisi tile (ikon/label/href). Visibilitas & urutan diatur dari CMS via
+      // /api/home-tiles (tabel my20fit_home_tiles) — key harus cocok. Book Recovery kini
+      // "Physio · Massage" (hanya requires_doctor=false) karena Book Doctor berdiri sendiri.
       var SVCS = [
-        { ic: "pin",      lbl: { en: "Medical", id: "Medical" },           sub: { en: "Medical Check Up", id: "Medical Check Up" }, href: "/medical" },
-        { ic: "card",     lbl: { en: "Membership", id: "Membership" },     sub: { en: "Special Offer · Gym", id: "Special Offer · Gym" }, href: "/membership" },
-        { ic: "diet",     lbl: { en: "Diet", id: "Diet" },                 sub: { en: "Meal plans", id: "Rencana makan" }, href: "/diet" },
-        { ic: "dumbbell", lbl: { en: "Book Class", id: "Book Kelas" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/classes" },
-        { ic: "heart",    lbl: { en: "Book Recovery", id: "Book Recovery" }, sub: { en: "Physio · Doctor", id: "Fisio · Dokter" }, href: "/classes?venue=clinic" },
-        { ic: "news",     lbl: { en: "News", id: "Berita" },               sub: { en: "media.20fit.id", id: "media.20fit.id" }, href: "https://media.20fit.id" }
+        { key: "medical",       ic: "pin",      lbl: { en: "Medical", id: "Medical" },           sub: { en: "Medical Check Up", id: "Medical Check Up" }, href: "/medical" },
+        { key: "membership",    ic: "card",     lbl: { en: "Membership", id: "Membership" },     sub: { en: "Special Offer · Gym", id: "Special Offer · Gym" }, href: "/membership" },
+        { key: "diet",          ic: "diet",     lbl: { en: "Diet", id: "Diet" },                 sub: { en: "Meal plans", id: "Rencana makan" }, href: "/diet" },
+        { key: "book-class",    ic: "dumbbell", lbl: { en: "Book Class", id: "Book Kelas" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/classes" },
+        { key: "book-doctor",   ic: "doctor",   lbl: { en: "Book Doctor", id: "Book Dokter" },   sub: { en: "Konsultasi · Klinik", id: "Konsultasi · Klinik" }, href: "/book-doctor" },
+        { key: "book-coach",    ic: "coach",    lbl: { en: "Book Coach", id: "Book Coach" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/book-coach" },
+        { key: "book-recovery", ic: "heart",    lbl: { en: "Book Recovery", id: "Book Recovery" }, sub: { en: "Physio · Massage", id: "Fisio · Massage" }, href: "/classes?venue=clinic" },
+        { key: "news",          ic: "news",     lbl: { en: "News", id: "Berita" },               sub: { en: "media.20fit.id", id: "media.20fit.id" }, href: "https://media.20fit.id" }
       ];
+      var TILE_CFG = null; // {key:{hidden,sort_order}} dari CMS; null = belum termuat (pakai default)
 
       function svcTile(o) {
         var svg = '<svg viewBox="0 0 24 24" aria-hidden="true">' + (IC[o.ic] || "") + '</svg>';
@@ -1231,8 +1240,26 @@
       }
       window.buildSvcGrid = function () {
         var el = document.getElementById("svcGrid2"); if (!el) return;
-        el.innerHTML = SVCS.map(svcTile).join("");
+        // Terapkan CMS: sembunyikan tile hidden, urutkan by sort_order (default = urutan array).
+        var list = SVCS.slice();
+        if (TILE_CFG) {
+          list = list.filter(function (o) { var c = TILE_CFG[o.key]; return !(c && c.hidden); });
+          list.sort(function (a, b) {
+            var sa = (TILE_CFG[a.key] ? TILE_CFG[a.key].sort_order : 999), sb = (TILE_CFG[b.key] ? TILE_CFG[b.key].sort_order : 999);
+            return sa - sb;
+          });
+        }
+        el.innerHTML = list.map(svcTile).join("");
       };
+      // Muat konfigurasi tile dari CMS sekali; gagal → diamkan (pakai default 8 tile).
+      (function loadHomeTiles() {
+        fetch("/api/home-tiles").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+          if (j && j.ok && Array.isArray(j.tiles)) {
+            TILE_CFG = {}; j.tiles.forEach(function (t) { TILE_CFG[t.key] = { hidden: !!t.hidden, sort_order: (t.sort_order == null ? 999 : t.sort_order) }; });
+            window.buildSvcGrid();
+          }
+        }).catch(function () {});
+      })();
 
       // ---- Customize sheet: pin & reorder (TRACKER, bukan shortcut) ----
       function extraOn() { try { return localStorage.getItem("my20fit_home_extra") === "1"; } catch (e) { return false; } }

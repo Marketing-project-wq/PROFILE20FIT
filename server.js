@@ -2455,6 +2455,100 @@ app.post("/api/promo/click", async (req, res) => {
   }
 });
 
+// ================= HOME TILES + BOOK COACH + BOOK DOCTOR =================
+// Visibilitas & urutan tile grid home dari CMS (my20fit_home_tiles). Tahan-gagal → dashboard default.
+app.get("/api/home-tiles", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, tiles: [] });
+    const { data, error } = await admin.from("my20fit_home_tiles").select("key,hidden,sort_order").order("sort_order", { ascending: true });
+    if (error) throw error;
+    return res.json({ ok: true, tiles: data || [] });
+  } catch (e) { return res.json({ ok: true, tiles: [] }); }
+});
+
+// Daftar coach untuk Book Coach: arena_coaches + gym_coaches (aktif), dengan penanda asal.
+app.get("/api/coaches", async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ ok: false, error: "service unavailable" });
+    const [ar, gy] = await Promise.all([
+      admin.from("arena_coaches").select("id,name,speciality,photo_url").eq("is_active", true).order("name", { ascending: true }),
+      admin.from("gym_coaches").select("id,name,speciality,photo_url").eq("is_active", true).order("name", { ascending: true }),
+    ]);
+    if (ar.error) throw ar.error; if (gy.error) throw gy.error;
+    const coaches = []
+      .concat((ar.data || []).map(c => ({ id: c.id, source: "arena", name: c.name, speciality: c.speciality || null, photo_url: c.photo_url || null })))
+      .concat((gy.data || []).map(c => ({ id: c.id, source: "gym", name: c.name, speciality: c.speciality || null, photo_url: c.photo_url || null })));
+    return res.json({ ok: true, coaches });
+  } catch (e) { return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" }); }
+});
+
+// Layanan dokter (requires_doctor=true) untuk Book Doctor (request).
+app.get("/api/clinic/doctor-services", async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ ok: false, error: "service unavailable" });
+    const { data, error } = await admin.from("clinic_services")
+      .select("id,name,price,description").eq("requires_doctor", true).eq("is_active", true).order("price", { ascending: true });
+    if (error) throw error;
+    return res.json({ ok: true, services: data || [] });
+  } catch (e) { return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" }); }
+});
+
+// Book Doctor = REQUEST (bukan booking pasti). Server-side (service key), hanya baris milik user,
+// channel='my20fit', TANPA slot (klinik tak pakai slot utk dokter). Dokter dikonfirmasi admin.
+app.post("/api/book/doctor-request", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const b = req.body || {};
+    const serviceId = String(b.service_id || "").trim();
+    const wantDate = String(b.preferred_date || "").slice(0, 10);
+    const complaint = String(b.complaint || "").slice(0, 1000);
+    if (!serviceId) return res.status(400).json({ error: "Layanan wajib dipilih." });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(wantDate)) return res.status(400).json({ error: "Tanggal wajib." });
+    // Validasi layanan = dokter & aktif; harga DARI SERVER (jangan percaya client).
+    const { data: svc } = await admin.from("clinic_services").select("id,name,price,requires_doctor,is_active").eq("id", serviceId).limit(1);
+    const s = svc && svc[0];
+    if (!s || s.requires_doctor !== true || s.is_active !== true) return res.status(400).json({ error: "Layanan tidak tersedia untuk request." });
+    // Data diri dari profil (jangan minta ketik ulang).
+    let email = String(user.email || "").trim().toLowerCase(), fullName = "", phone = "";
+    try {
+      const { data: prof } = await admin.from("my20fit_profile").select("email,full_name,phone").eq("auth_user_id", user.id).limit(1);
+      if (prof && prof[0]) { if (prof[0].email) email = String(prof[0].email).trim().toLowerCase(); fullName = prof[0].full_name || ""; phone = prof[0].phone || ""; }
+    } catch (_) {}
+    if (!fullName) fullName = email || "Member 20FIT";
+    if (!phone) phone = "-";
+    const code = "MYD-" + Date.now().toString(36).toUpperCase() + "-" + Math.floor(Math.random() * 10000);
+    const row = {
+      booking_code: code, service_id: serviceId, slot_id: null,
+      full_name: fullName, email: email || null, phone: phone,
+      notes: complaint || null, price: Number(s.price) || 0,
+      status: "requested", manual_date: wantDate,
+      auth_user_id: user.id, channel: "my20fit",
+    };
+    const { data, error } = await admin.from("clinic_bookings").insert(row).select("id,booking_code").limit(1);
+    if (error) throw error;
+    return res.json({ ok: true, booking_code: code, id: (data && data[0] && data[0].id) || null });
+  } catch (e) {
+    try { console.error("book/doctor-request:", e && e.message); } catch (_) {}
+    return res.status(500).json({ error: (e && e.message) || "Gagal mengirim permintaan." });
+  }
+});
+
+// Request/booking klinik milik user (dari my.20fit) — dibaca server (service key, filter auth_user_id).
+app.get("/api/my/clinic-requests", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "session", session_expired: true });
+    if (!admin) return res.json({ ok: true, items: [] });
+    const { data, error } = await admin.from("clinic_bookings")
+      .select("booking_code,service_id,status,manual_date,created_at,notes")
+      .eq("auth_user_id", user.id).eq("channel", "my20fit").order("created_at", { ascending: false }).limit(50);
+    if (error) throw error;
+    return res.json({ ok: true, items: data || [] });
+  } catch (e) { return res.json({ ok: true, items: [] }); }
+});
+
 // ================= ADMIN MONITORING (dashboard internal) =================
 // Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
