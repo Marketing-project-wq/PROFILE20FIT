@@ -2390,6 +2390,46 @@ app.post("/api/admin/reward-claims/:id/fulfill", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// ---------- Banner promo (Bagian 4): konten + target WA dari DB + catat klik ----------
+// Konten/nomor/pesan WA disimpan di my20fit_promo_banners (bukan hardcode). URL WA dirakit di
+// server. Klik dicatat ke my20fit_promo_banner_clicks (siapa/kapan/banner mana). Server-mediated.
+app.get("/api/promo/banner", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, banner: null });
+    const { data, error } = await admin.from("my20fit_promo_banners")
+      .select("id,key,title_en,title_id,subtitle_en,subtitle_id,cta_en,cta_id,image_url,wa_phone,wa_message")
+      .eq("active", true).order("sort_order", { ascending: true }).limit(1);
+    if (error) throw error;
+    const b = data && data[0];
+    if (!b) return res.json({ ok: true, banner: null });
+    let wa = null;
+    if (b.wa_phone) wa = "https://api.whatsapp.com/send?phone=" + encodeURIComponent(String(b.wa_phone).replace(/[^\d]/g, "")) + (b.wa_message ? ("&text=" + encodeURIComponent(b.wa_message)) : "");
+    return res.json({ ok: true, banner: {
+      id: b.id, key: b.key, title_en: b.title_en, title_id: b.title_id,
+      subtitle_en: b.subtitle_en, subtitle_id: b.subtitle_id, cta_en: b.cta_en, cta_id: b.cta_id,
+      image_url: b.image_url || null, wa_url: wa } });
+  } catch (e) {
+    try { console.error("promo/banner:", e && e.message); } catch (_) {}
+    return res.json({ ok: true, banner: null }); // tahan-gagal → banner tak muncul, home aman
+  }
+});
+app.post("/api/promo/click", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true });
+    const b = req.body || {};
+    const key = String(b.key || "").slice(0, 80) || null;
+    let uid = null; try { const u = await getUserFromReq(req); uid = u ? u.id : null; } catch (_) {}
+    let bid = b.banner_id ? String(b.banner_id) : null;
+    if (!bid && key) { try { const { data } = await admin.from("my20fit_promo_banners").select("id").eq("key", key).limit(1); bid = data && data[0] ? data[0].id : null; } catch (_) {} }
+    const ua = String(req.headers["user-agent"] || "").slice(0, 300);
+    await admin.from("my20fit_promo_banner_clicks").insert({ banner_id: bid, banner_key: key, auth_user_id: uid, user_agent: ua });
+    return res.json({ ok: true });
+  } catch (e) {
+    try { console.error("promo/click:", e && e.message); } catch (_) {}
+    return res.json({ ok: true }); // logging gagal TIDAK memblok user ke WhatsApp
+  }
+});
+
 // ================= ADMIN MONITORING (dashboard internal) =================
 // Nilai HANYA dari env ADMIN_KEY (RAHASIA). Tanpa default: env kosong = terkunci (fail-closed).
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
