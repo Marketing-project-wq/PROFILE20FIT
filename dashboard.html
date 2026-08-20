@@ -497,6 +497,7 @@
       .tkic.drop{background:var(--blue-soft);color:var(--blue)}
       .tkic.sleep{background:#efeafc;color:#7c5cff}
       .tkic.pulse{background:var(--green-soft);color:var(--green)}
+      .tkic.gift{background:var(--red-soft);color:var(--red)}
       html:not(.theme-light) .tkic.sleep{background:#221c3a}
       .tktitle{font-weight:800;font-size:15px}
       .tksub{font-size:13px;color:var(--muted);margin-top:1px}
@@ -793,7 +794,8 @@
         drop: '<svg viewBox="0 0 24 24"><path d="M12 2s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/></svg>',
         sleep: '<svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
         pulse: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
-        ticket: '<svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 0-2 2v1.2a1.8 1.8 0 0 1 0 3.6V16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-1.2a1.8 1.8 0 0 1 0-3.6V10a2 2 0 0 0-2-2H4z"/><path d="M14 8v10" stroke-dasharray="2 2.4"/></svg>'
+        ticket: '<svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 0-2 2v1.2a1.8 1.8 0 0 1 0 3.6V16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-1.2a1.8 1.8 0 0 1 0-3.6V10a2 2 0 0 0-2-2H4z"/><path d="M14 8v10" stroke-dasharray="2 2.4"/></svg>',
+        gift: '<svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M12 8S10.5 3 7.5 4.5 9 8 12 8zM12 8s1.5-5 4.5-3.5S15 8 12 8z"/></svg>'
       };
       var TRK = {
         calories:  { ic: "cal",   cls: "cal",   nm: { en: "Calories", id: "Kalori" },                     d: { en: "Track daily kcal & macros", id: "Catat kalori & makro harian" }, render: tcCalories },
@@ -802,9 +804,10 @@
         hydration: { ic: "drop",  cls: "drop",  nm: { en: "Hydration", id: "Hidrasi" },                    d: { en: "Daily water intake", id: "Asupan air harian" }, render: tcHydration },
         sleep:     { ic: "sleep", cls: "sleep", nm: { en: "Sleep", id: "Tidur" },                          d: { en: "Duration & quality trend", id: "Durasi & tren kualitas" }, render: tcSleep },
         health:    { ic: "pulse", cls: "pulse", nm: { en: "Health snapshot", id: "Ringkasan Kesehatan" }, d: { en: "RHR, weight & BMI", id: "RHR, berat & BMI" }, render: tcHealth },
-        ticket:    { ic: "ticket", cls: "ticket", nm: { en: "Ticket", id: "Tiket" },              d: { en: "Your upcoming 20FIT event tickets", id: "Tiket event 20FIT mendatang" }, render: tcTicket }
+        ticket:    { ic: "ticket", cls: "ticket", nm: { en: "Ticket", id: "Tiket" },              d: { en: "Your upcoming 20FIT event tickets", id: "Tiket event 20FIT mendatang" }, render: tcTicket },
+        rewards:   { ic: "gift",  cls: "gift",  nm: { en: "Rewards", id: "Rewards" },             d: { en: "Vouchers you've claimed & their codes", id: "Voucher yang kamu klaim & kodenya" }, render: tcRewards }
       };
-      var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health", "ticket"];
+      var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health", "ticket", "rewards"];
       // calories & photo SELALU tampil (fitur unggulan) — dipaksa hadir walau user tak pin.
       // Default pin: KOSONG untuk user baru / belum pernah set (Calories & Photo TIDAK auto-pin).
       // "belum pernah set" (null) → default []. "sudah set & kosong" ([]) → hormati kosong.
@@ -840,6 +843,45 @@
         var shop = '<a class="twk-catlink" href="/membership">' + Lx({ en: "Browse membership & packages", id: "Lihat membership & paket" }) + ' →</a>' +
           '<a class="twk-catlink" href="/rewards" style="border-top:0;margin-top:0;padding-top:0">' + Lx({ en: "Rewards & member perks", id: "Rewards & perks member" }) + ' →</a>';
         return '<div class="card tkcard">' + head + body + shop + '</div>';
+      }
+
+      // ===== Rewards widget (Customize, TIDAK default-pin) — voucher aktif user + kode klaim =====
+      // Data milik user dari /api/rewards (klaim status 'pending' = sudah diklaim, belum ditukar).
+      // Tak ada kolom kedaluwarsa di skema, jadi ditampilkan yang terbaru (bukan "terdekat expired").
+      var REWARDS_W = null;            // null=belum dimuat | {pending:[...]} | {error:true}
+      var _rewardsWLoading = false;
+      function rwwEsc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
+      window.loadRewardsWidget = async function () {
+        if (_rewardsWLoading) return; _rewardsWLoading = true;
+        try {
+          var t = (window.Auth && Auth.token) ? await Auth.token() : null;
+          var r = await fetch("/api/rewards", { headers: t ? { Authorization: "Bearer " + t } : {} });
+          var j = await r.json().catch(function () { return null; });
+          if (j && j.ok) { REWARDS_W = { pending: (j.claims || []).filter(function (c) { return c.status === "pending"; }) }; }
+          else { REWARDS_W = { error: true }; }
+        } catch (e) { REWARDS_W = { error: true }; }
+        _rewardsWLoading = false;
+        try { window.renderStack(); } catch (e) {}
+      };
+      function tcRewards() {
+        var head = '<div class="tkhd"><div class="tkic gift">' + TICON.gift + '</div>' +
+          '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Rewards", id: "Rewards" }) + '</div>' +
+          '<div class="tksub">' + Lx({ en: "Your claimed member perks", id: "Perks member yang kamu klaim" }) + '</div></div></div>';
+        function wrap(inner) { return '<div class="card tkcard">' + head + inner + '</div>'; }
+        if (REWARDS_W === null) { if (!_rewardsWLoading) window.loadRewardsWidget(); return wrap('<div class="tkempty">' + Lx({ en: "Loading…", id: "Memuat…" }) + '</div>'); }
+        if (REWARDS_W.error) { return wrap('<a class="twk-catlink" href="/rewards">' + Lx({ en: "Open Rewards", id: "Buka Rewards" }) + ' →</a>'); }
+        var pend = REWARDS_W.pending || [];
+        if (!pend.length) {
+          return wrap('<div class="tkempty">' + Lx({ en: "No active vouchers yet.", id: "Belum ada voucher aktif." }) + '</div>' +
+            '<a class="twk-catlink" href="/rewards">' + Lx({ en: "See claimable perks", id: "Lihat perks yang bisa diklaim" }) + ' →</a>');
+        }
+        var rows = pend.slice(0, 2).map(function (c) {
+          return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line)">' +
+            '<div style="min-width:0;font-weight:700;font-size:13.5px;overflow-wrap:anywhere">' + rwwEsc(c.offer_title || Lx({ en: "Perks", id: "Perks" })) + '</div>' +
+            '<div style="flex:0 0 auto;font-weight:800;font-size:13px;letter-spacing:.04em;color:var(--red);background:var(--inp);border-radius:8px;padding:5px 9px">' + rwwEsc(c.claim_code || "—") + '</div></div>';
+        }).join("");
+        var more = '<a class="twk-catlink" href="/rewards">' + Lx({ en: "View all rewards", id: "Lihat semua rewards" }) + ' (' + pend.length + ') →</a>';
+        return wrap('<div style="margin-top:6px">' + rows + '</div>' + more);
       }
 
       function tcCalories() {
@@ -1223,6 +1265,7 @@
         dumbbell: '<path d="M6.5 6.5 17.5 17.5"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/>',
         heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>',
         card: '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+        gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M12 8S10.5 3 7.5 4.5 9 8 12 8zM12 8s1.5-5 4.5-3.5S15 8 12 8z"/>',
         flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
         activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
         news: '<path d="M4 4h13a1 1 0 0 1 1 1v14a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1h-2"/><path d="M4 4a1 1 0 0 0-1 1v13a2 2 0 0 0 2 2h11a1 1 0 0 0 1-1V4z"/><path d="M7 8h7M7 12h7M7 16h4"/>',
@@ -1253,6 +1296,7 @@
         { key: "book-doctor",   ic: "doctor",   lbl: { en: "Book Doctor", id: "Book Dokter" },   sub: { en: "Konsultasi · Klinik", id: "Konsultasi · Klinik" }, href: "/book-doctor" },
         { key: "book-coach",    ic: "coach",    lbl: { en: "Book Coach", id: "Book Coach" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/book-coach" },
         { key: "book-recovery", ic: "heart",    lbl: { en: "Book Recovery", id: "Book Recovery" }, sub: { en: "Physio · Massage", id: "Fisio · Massage" }, href: "/classes?venue=clinic" },
+        { key: "rewards",       ic: "gift",     lbl: { en: "Rewards", id: "Rewards" },           sub: { en: "Voucher · Member perks", id: "Voucher · Member perks" }, href: "/rewards" },
         { key: "news",          ic: "news",     lbl: { en: "News", id: "Berita" },               sub: { en: "media.20fit.id", id: "media.20fit.id" }, href: "https://media.20fit.id" }
       ];
       var TILE_CFG = null; // {key:{hidden,sort_order}} dari CMS; null = belum termuat (pakai default)

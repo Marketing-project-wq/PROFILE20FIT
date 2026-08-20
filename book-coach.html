@@ -166,7 +166,7 @@
         q='<span class="qbadge '+cls+'">'+(k.remaining<=0?LL(TXT.full):(k.remaining+" "+LL(TXT.seatsLeft)))+'</span>';
       }
       var action;
-      if(k.selectable){ action='<a class="bookbtn" href="'+esc(k.book_url)+'">'+LL(TXT.book)+' →</a>'; }
+      if(k.selectable){ action='<a class="bookbtn" href="/book-class?source='+encodeURIComponent(k.source)+'&schedule='+encodeURIComponent(k.id)+'">'+LL(TXT.book)+' →</a>'; }
       else{ var rt=k.reason==="passed"?TXT.passed:(k.reason==="closed"?TXT.closed:(k.reason==="full"?TXT.full:TXT.closed)); action='<span class="reason">'+LL(rt)+'</span>'; }
       return '<div class="cl"><div class="dot" style="background:'+esc(k.color||"#C41101")+'"></div>'
         +'<div class="bd"><div class="tm">'+esc(k.start)+(k.end?('–'+esc(k.end)):'')+'</div>'

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Booking · 20FIT</title>
+<style>
+  :root{--red:#C41101;--bg:#F3F2F0;--card:#FFFFFF;--line:#E8E2DB;--ink:#16170F;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#16170F;--green:#2A7A4F;--amber:#C87000;--shadow:0 2px 12px rgba(0,0,0,.10)}
+  html:not(.theme-light){ --bg:#0C0D10;--card:#17191F;--line:#25272E;--ink:#F4F5F7;--muted:#8E9198;--inp:#23262E;--pagetx:#F4F5F7 }
+  *{box-sizing:border-box} a{text-decoration:none;color:inherit}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 96px}
+  .wrap{max-width:520px;margin:0 auto}
+  .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:16px;display:flex;align-items:center}
+  .logobar img{height:34px}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:10px}
+  h1{font-size:22px;font-weight:900;margin:0 0 14px;text-transform:uppercase}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+  .cl-h{display:flex;gap:12px;align-items:center}
+  .cl-dot{flex:0 0 auto;width:8px;height:42px;border-radius:5px;background:var(--red)}
+  .cl-nm{font-weight:900;font-size:17px;color:var(--ink);overflow-wrap:anywhere}
+  .cl-mt{font-size:13px;color:var(--muted);margin-top:2px}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+  .row:first-child{border-top:0}
+  .row .k{color:var(--muted)} .row .v{font-weight:800;color:var(--ink)}
+  .tot .v{font-size:18px;color:var(--red)}
+  label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:0 0 5px}
+  input{width:100%;border:1.5px solid var(--line);background:var(--inp);color:var(--ink);border-radius:11px;padding:12px 13px;font-size:15px}
+  input[readonly]{opacity:.7}
+  .fld{margin-bottom:12px}
+  .pay{width:100%;border:0;background:var(--red);color:#fff;border-radius:13px;padding:15px;font-weight:800;font-size:15px;cursor:pointer}
+  .pay:disabled{opacity:.5;cursor:not-allowed}
+  .note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5;text-align:center}
+  .msg{font-size:13px;font-weight:700;margin-top:10px;text-align:center}
+  .msg.err{color:var(--red)} .msg.ok{color:var(--green)}
+  .badge{display:inline-block;font-size:12px;font-weight:800;border-radius:999px;padding:4px 10px}
+  .badge.no{background:color-mix(in srgb,var(--muted) 18%,transparent);color:var(--muted)}
+  .state{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 20px;text-align:center;color:var(--muted);font-size:13px}
+  .retry{margin-top:12px;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:10px;padding:9px 16px;font-weight:800;font-size:13px;cursor:pointer}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" /></div>
+    <a class="back" id="backLink" href="/classes">← <span id="backTxt">Kembali</span></a>
+    <h1 id="pgTitle">Booking</h1>
+    <div id="root"><div class="state" id="loadState">…</div></div>
+  </div>
+
+  <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+  (function(){
+    "use strict";
+    var TXT={
+      title:{en:"Confirm booking",id:"Konfirmasi booking"},
+      back:{en:"Back to classes",id:"Kembali ke kelas"},
+      loadErr:{en:"Couldn't load this class.",id:"Gagal memuat kelas ini."},
+      retry:{en:"Try again",id:"Coba lagi"},
+      when:{en:"Schedule",id:"Jadwal"},
+      seats:{en:"Seats left",id:"Sisa kursi"},
+      price:{en:"Price",id:"Harga"},
+      total:{en:"Total",id:"Total"},
+      name:{en:"Name",id:"Nama"},
+      email:{en:"Email",id:"Email"},
+      phone:{en:"Phone (WhatsApp)",id:"No. HP (WhatsApp)"},
+      phoneHint:{en:"Used for your booking & payment.",id:"Dipakai untuk booking & pembayaran."},
+      pay:{en:"Pay & book",id:"Bayar & booking"},
+      free:{en:"Book (free)",id:"Booking (gratis)"},
+      paying:{en:"Preparing payment…",id:"Menyiapkan pembayaran…"},
+      okFree:{en:"Booked! See you there.",id:"Booking berhasil! Sampai jumpa."},
+      full:{en:"This class is full.",id:"Kelas ini sudah penuh."},
+      closed:{en:"Registration is closed.",id:"Pendaftaran sudah ditutup."},
+      passed:{en:"This class has started.",id:"Kelas ini sudah berlangsung."},
+      cancelled:{en:"This class was cancelled.",id:"Kelas ini dibatalkan."},
+      needPhone:{en:"Please enter your phone number.",id:"Isi nomor HP dulu ya."},
+      pending:{en:"You already have a booking awaiting payment for this class.",id:"Kamu sudah punya booking yang menunggu pembayaran untuk kelas ini."},
+      payNote:{en:"You'll be taken to the secure 20FIT payment page. Your seat is held while you pay.",id:"Kamu akan diarahkan ke halaman pembayaran 20FIT. Kursimu ditahan selama proses bayar."}
+    };
+    function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+    function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]; }); }
+    function rp(n){ return "Rp "+(Number(n)||0).toLocaleString("id-ID"); }
+    var $=function(id){return document.getElementById(id);};
+    function qp(k){ try{ return new URLSearchParams(location.search).get(k)||""; }catch(e){ return ""; } }
+    async function apiGet(path){ var o={headers:{"Content-Type":"application/json"}}; try{var t=await Auth.token(); if(t)o.headers["Authorization"]="Bearer "+t;}catch(e){} return fetch(path,o); }
+    async function apiPost(path,body){ var o={method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})}; try{var t=await Auth.token(); if(t)o.headers["Authorization"]="Bearer "+t;}catch(e){} return fetch(path,o); }
+    function fmtDay(s,st,en){ if(!s)return""; var d=new Date(s+"T00:00:00"); var day=s; try{ day=new Intl.DateTimeFormat(LL({en:"x",id:"y"})==="y"?"id-ID":"en-GB",{weekday:"long",day:"numeric",month:"short",timeZone:"Asia/Jakarta"}).format(d); }catch(e){} return day+" · "+st+(en?("–"+en):""); }
+
+    var SOURCE=qp("source"), SCHED=qp("schedule")||qp("schedule_id"), INFO=null, PROFILE=null;
+
+    function reasonMsg(r){ return LL(r==="full"?TXT.full:r==="closed"?TXT.closed:r==="passed"?TXT.passed:r==="cancelled"?TXT.cancelled:TXT.closed); }
+
+    function render(){
+      var root=$("root"); if(!root) return;
+      var i=INFO, p=PROFILE||{};
+      var seats=(i.remaining==null)?"":('<div class="row"><span class="k">'+LL(TXT.seats)+'</span><span class="v">'+i.remaining+'</span></div>');
+      var summary='<div class="card"><div class="cl-h"><div class="cl-dot" style="background:'+esc(i.color||"#C41101")+'"></div>'
+        +'<div><div class="cl-nm">'+esc(i.name)+'</div><div class="cl-mt">'+esc(fmtDay(i.date,i.start,i.end))+' · '+(i.source==="gym"?"Gym":"Arena")+'</div></div></div></div>';
+      if(!i.selectable){
+        root.innerHTML=summary+'<div class="card"><div class="badge no">'+reasonMsg(i.reason)+'</div><div class="note">'+LL({en:"Pick another class in Book Class.",id:"Pilih kelas lain di Book Class."})+'</div><div style="margin-top:12px"><a class="back" href="/classes">← '+LL(TXT.back)+'</a></div></div>';
+        return;
+      }
+      var phoneVal=p.phone||"";
+      var form='<div class="card">'
+        +seats
+        +'<div class="row"><span class="k">'+LL(TXT.price)+'</span><span class="v">'+(i.price?rp(i.price):LL({en:"Free",id:"Gratis"}))+'</span></div>'
+        +'<div class="row tot"><span class="k">'+LL(TXT.total)+'</span><span class="v">'+(i.price?rp(i.price):LL({en:"Free",id:"Gratis"}))+'</span></div>'
+        +'</div>'
+        +'<div class="card">'
+        +'<div class="fld"><label>'+LL(TXT.name)+'</label><input id="f_name" value="'+esc(p.full_name||"")+'" readonly></div>'
+        +'<div class="fld"><label>'+LL(TXT.email)+'</label><input id="f_email" value="'+esc(p.email||"")+'" readonly></div>'
+        +'<div class="fld"><label>'+LL(TXT.phone)+'</label><input id="f_phone" inputmode="tel" placeholder="08xxxxxxxxxx" value="'+esc(phoneVal)+'"><div class="note" style="text-align:left;margin-top:5px">'+LL(TXT.phoneHint)+'</div></div>'
+        +'<button class="pay" id="payBtn">'+LL(i.price?TXT.pay:TXT.free)+(i.price?(' · '+rp(i.price)):'')+'</button>'
+        +'<div class="msg" id="msg"></div>'
+        +'<div class="note">'+LL(TXT.payNote)+'</div>'
+        +'</div>';
+      root.innerHTML=summary+form;
+      $("payBtn").onclick=doPay;
+    }
+    async function doPay(){
+      var btn=$("payBtn"), msg=$("msg");
+      var phone=($("f_phone")&&$("f_phone").value||"").trim();
+      if(phone.replace(/\D/g,"").length<8){ msg.className="msg err"; msg.textContent=LL(TXT.needPhone); if($("f_phone"))$("f_phone").focus(); return; }
+      btn.disabled=true; msg.className="msg"; msg.textContent=LL(TXT.paying);
+      try{
+        var r=await apiPost("/api/book/class",{source:SOURCE,schedule_id:SCHED,phone:phone});
+        var j=await r.json().catch(function(){return null;});
+        if(r.ok&&j&&j.ok&&j.mode==="redirect"&&j.url){ window.location.href=j.url; return; }
+        if(r.ok&&j&&j.ok&&j.mode==="free"){ msg.className="msg ok"; msg.textContent=LL(TXT.okFree); btn.textContent="✓"; return; }
+        if(r.status===409&&j&&j.pending){ msg.className="msg err"; msg.textContent=LL(TXT.pending); btn.disabled=false; return; }
+        msg.className="msg err"; msg.textContent=(j&&j.error)||reasonMsg((j&&j.reason)||""); btn.disabled=false;
+      }catch(e){ msg.className="msg err"; msg.textContent=LL({en:"Something went wrong. Try again.",id:"Terjadi kesalahan. Coba lagi."}); btn.disabled=false; }
+    }
+    function applyStatic(){ $("pgTitle").textContent=LL(TXT.title); $("backTxt").textContent=LL(TXT.back); document.title=LL(TXT.title)+" · 20FIT"; }
+    async function load(){
+      var root=$("root"); root.innerHTML='<div class="state">…</div>';
+      if(["arena","gym"].indexOf(SOURCE)<0||!SCHED){ root.innerHTML='<div class="state">'+LL(TXT.loadErr)+'</div>'; return; }
+      try{
+        var r=await apiGet("/api/book/class-info?source="+encodeURIComponent(SOURCE)+"&schedule_id="+encodeURIComponent(SCHED));
+        var j=await r.json().catch(function(){return null;});
+        if(!r.ok||!j||!j.ok){ root.innerHTML='<div class="state">'+LL(TXT.loadErr)+'<br><button class="retry" id="rt">'+LL(TXT.retry)+'</button></div>'; var b=$("rt"); if(b)b.onclick=load; return; }
+        INFO=j.info; PROFILE=j.profile||{}; render();
+      }catch(e){ root.innerHTML='<div class="state">'+LL(TXT.loadErr)+'</div>'; }
+    }
+    (async function(){
+      try{ if(window.Auth&&Auth.requireAuth) await Auth.requireAuth(); }catch(e){}
+      applyStatic();
+      if(window.I18N&&I18N.onChange) I18N.onChange(function(){ applyStatic(); if(INFO)render(); });
+      load();
+    })();
+  })();
+  </script>
+</body>
+</html>
