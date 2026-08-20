@@ -2278,13 +2278,21 @@ app.get("/api/rewards", async (req, res) => {
       .eq("active", true).order("sort_order", { ascending: true }).limit(100);
     if (e1) throw e1;
     const { data: claims } = await admin.from("my20fit_reward_claims")
-      .select("id,offer_id,status,claim_code,created_at").eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(100);
-    const offersOut = (offers || []).map(o => ({
-      id: o.id, title: o.title, subtitle: o.subtitle || null, description: o.description || null,
-      image_url: o.image_url || null, terms: o.terms || null, cost_label: o.cost_label || null,
-      sold_out: (o.stock != null && (o.claimed_count || 0) >= o.stock),
+      .select("id,offer_id,status,claim_code,created_at,my20fit_reward_offers(title)").eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(100);
+    // Saring di SERVER: hanya yang masih bisa diklaim (active + stok tersisa). Jangan kirim
+    // yang sold-out lalu disaring client — itu membocorkan kampanye yang belum jalan / habis.
+    const offersOut = (offers || [])
+      .filter(o => o.stock == null || (o.claimed_count || 0) < o.stock)
+      .map(o => ({
+        id: o.id, title: o.title, subtitle: o.subtitle || null, description: o.description || null,
+        image_url: o.image_url || null, terms: o.terms || null, cost_label: o.cost_label || null,
+        sold_out: false,
+      }));
+    const claimsOut = (claims || []).map(c => ({
+      id: c.id, offer_id: c.offer_id, status: c.status, claim_code: c.claim_code || null,
+      created_at: c.created_at, offer_title: (c.my20fit_reward_offers && c.my20fit_reward_offers.title) || null,
     }));
-    return res.json({ ok: true, offers: offersOut, claims: claims || [] });
+    return res.json({ ok: true, offers: offersOut, claims: claimsOut });
   } catch (e) {
     try { console.error("rewards:", e && e.message); } catch (_) {}
     return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" });
