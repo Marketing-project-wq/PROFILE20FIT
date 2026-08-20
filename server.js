@@ -2587,6 +2587,142 @@ app.get("/api/doctors", async (req, res) => {
   } catch (e) { return res.json({ ok: true, doctors: [] }); }
 });
 
+// ================= BOOKING ARENA/GYM IN-APP (kanal my20fit, DB sama) =================
+// Alur = alur yang sudah ada di booking.20fit.id: buat baris 'pending_payment' (RPC kuota-aman)
+// -> create-mayar-payment -> user bayar -> webhook mayar-webhook-arena mengubah jadi 'confirmed'.
+// booking_code prefiks: CL- (arena class), GM- (gym class). Menambah kanal, TIDAK mengganti
+// jalur cash/transfer walk-in. Voucher & sewa venue (BK-) menyusul.
+async function classBookingInfo(source, scheduleId) {
+  const cfg = CLASS_VENUES[source]; if (!cfg) return null;
+  const extra = source === "arena" ? ",price_override,cutoff_minutes" : "";
+  const sel = "id,class_type_id,schedule_date,start_time,end_time,quota,is_cancelled" + extra + "," + cfg.types + "(name,color," + cfg.price + ")";
+  const { data } = await admin.from(cfg.table).select(sel).eq("id", scheduleId).limit(1);
+  const s = data && data[0]; if (!s) return null;
+  const t = s[cfg.types] || {};
+  const basePrice = (source === "arena" && s.price_override != null) ? +s.price_override : (t[cfg.price] != null ? +t[cfg.price] : 0);
+  const bt = source === "arena" ? "arena_class_bookings" : "gym_class_bookings";
+  const { data: bks } = await admin.from(bt).select("status").eq("schedule_id", scheduleId).limit(5000);
+  let used = 0; (bks || []).forEach(b => { const st = String(b.status || "").toLowerCase(); if (!/cancel|fail|expire|refund/.test(st)) used++; });
+  const quota = s.quota == null ? null : +s.quota;
+  const remaining = quota == null ? null : Math.max(0, quota - used);
+  const startDt = new Date(s.schedule_date + "T" + (s.start_time || "00:00:00") + "+07:00"); // WIB
+  const cutoffMin = source === "arena" ? (s.cutoff_minutes == null ? 0 : +s.cutoff_minutes) : 0;
+  const cutoffDt = new Date(startDt.getTime() - cutoffMin * 60000);
+  const now = new Date();
+  let selectable = true, reason = null;
+  if (s.is_cancelled) { selectable = false; reason = "cancelled"; }
+  else if (now.getTime() >= startDt.getTime()) { selectable = false; reason = "passed"; }
+  else if (now.getTime() >= cutoffDt.getTime()) { selectable = false; reason = "closed"; }
+  else if (remaining != null && remaining <= 0) { selectable = false; reason = "full"; }
+  const clean = (nm) => String(nm || "").replace(/^20FIT\s+Arena\s+/i, "").replace(/^20FIT\s+/i, "").trim();
+  return {
+    source, id: s.id, name: clean(t.name) || "Kelas", color: t.color || "#C41101",
+    date: s.schedule_date, start: String(s.start_time || "").slice(0, 5), end: String(s.end_time || "").slice(0, 5),
+    price: basePrice, quota, remaining, selectable, reason,
+  };
+}
+app.get("/api/book/class-info", async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ ok: false, error: "service unavailable" });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ ok: false, error: "Unauthorized" });
+    const source = String(req.query.source || "").toLowerCase();
+    const scheduleId = String(req.query.schedule_id || "");
+    if (["arena", "gym"].indexOf(source) < 0 || !scheduleId) return res.status(400).json({ ok: false, error: "source & schedule_id wajib." });
+    const info = await classBookingInfo(source, scheduleId);
+    if (!info) return res.status(404).json({ ok: false, error: "Jadwal tidak ditemukan." });
+    let prof = {};
+    try { const { data } = await admin.from("my20fit_profile").select("full_name,email,phone").eq("auth_user_id", user.id).limit(1); prof = (data && data[0]) || {}; } catch (e) {}
+    return res.json({ ok: true, info, profile: {
+      full_name: prof.full_name || "", email: (prof.email || user.email || ""), phone: prof.phone || "" } });
+  } catch (e) { return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" }); }
+});
+function newBookingCode(prefix) { return prefix + Date.now().toString(36).toUpperCase() + "-" + Math.floor(Math.random() * 1679616).toString(36).toUpperCase(); }
+app.post("/api/book/class", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const b = req.body || {};
+    const source = String(b.source || "").toLowerCase();
+    const scheduleId = String(b.schedule_id || "");
+    if (["arena", "gym"].indexOf(source) < 0 || !scheduleId) return res.status(400).json({ error: "source & schedule_id wajib." });
+
+    const info = await classBookingInfo(source, scheduleId);
+    if (!info) return res.status(404).json({ error: "Jadwal tidak ditemukan." });
+    if (!info.selectable) {
+      const msg = info.reason === "full" ? "Kelas sudah penuh." : info.reason === "passed" ? "Kelas sudah berlangsung." : info.reason === "cancelled" ? "Kelas dibatalkan." : "Pendaftaran kelas sudah ditutup.";
+      return res.status(409).json({ error: msg, reason: info.reason });
+    }
+
+    const bt = source === "arena" ? "arena_class_bookings" : "gym_class_bookings";
+    // Cegah dobel: sudah ada pending_payment utk user+jadwal ini -> pakai yang lama (jangan buat baru).
+    try {
+      const { data: dup } = await admin.from(bt).select("booking_code").eq("schedule_id", scheduleId).eq("auth_user_id", user.id).eq("status", "pending_payment").limit(1);
+      if (dup && dup[0]) return res.status(409).json({ error: "Kamu sudah punya booking yang menunggu pembayaran untuk kelas ini.", booking_code: dup[0].booking_code, pending: true });
+    } catch (_) {}
+
+    // Data diri dari profil (jangan minta ketik ulang). Nomor HP wajib utk Mayar.
+    let prof = {};
+    try { const { data } = await admin.from("my20fit_profile").select("full_name,email,phone").eq("auth_user_id", user.id).limit(1); prof = (data && data[0]) || {}; } catch (e) {}
+    const email = String(prof.email || user.email || "").trim().toLowerCase();
+    const fullName = prof.full_name || (email ? email.split("@")[0] : "Member 20FIT");
+    const normPhone = (v) => String(v || "").replace(/[^\d+]/g, "");
+    let phone = normPhone(prof.phone);
+    if (phone.replace(/\D/g, "").length < 8) phone = normPhone(b.phone);
+    if (phone.replace(/\D/g, "").length < 8) return res.status(400).json({ error: "Nomor HP wajib untuk pembayaran.", need_phone: true });
+
+    const price = info.price || 0;
+    const discount = 0; // voucher menyusul (tabel vouchers milik app lain — belum diproses in-app)
+    const code = newBookingCode(source === "arena" ? "CL-" : "GM-");
+
+    // Baris pending_payment via RPC kuota-aman (kunci baris jadwal, cek kuota, insert).
+    const { error: rpcErr } = await admin.rpc("my20fit_book_class", {
+      p_source: source, p_schedule_id: scheduleId, p_auth_user_id: user.id, p_booking_code: code,
+      p_full_name: fullName, p_email: email, p_phone: phone,
+      p_price: price, p_discount: discount, p_voucher_code: null,
+    });
+    if (rpcErr) {
+      const m = String(rpcErr.message || "");
+      if (/full/.test(m)) return res.status(409).json({ error: "Kelas sudah penuh." });
+      if (/cancelled/.test(m)) return res.status(409).json({ error: "Kelas dibatalkan." });
+      if (/schedule_not_found/.test(m)) return res.status(404).json({ error: "Jadwal tidak ditemukan." });
+      throw rpcErr;
+    }
+
+    // Kelas gratis -> tak perlu bayar; langsung confirm.
+    if (!price) {
+      try { await admin.from(bt).update({ status: "confirmed", payment_method: "free", updated_at: new Date().toISOString() }).eq("booking_code", code); } catch (_) {}
+      return res.json({ ok: true, mode: "free", booking_code: code });
+    }
+
+    // Pembayaran Mayar (fungsi yang sama dgn produk lain). Redirect balik ke my.20fit.
+    const base = String(process.env.APP_BASE_URL || (req.protocol + "://" + req.get("host")) || "").replace(/\/$/, "");
+    const redirectUrl = base + "/payment/success?src=class&code=" + encodeURIComponent(code);
+    const ctrl = new AbortController(); const timer = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const r = await fetch(FN_BASE + "/create-mayar-payment", {
+        method: "POST", signal: ctrl.signal,
+        headers: { Authorization: "Bearer " + SUPABASE_SERVICE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ booking_code: code, name: fullName, email, phone, amount: price,
+          description: "Booking " + info.name + " - " + code, redirect_url: redirectUrl }),
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j || !j.payment_url) {
+        try { await admin.from(bt).update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("booking_code", code); } catch (_) {}
+        return res.status(502).json({ error: (j && (j.error || j.detail)) || "Gagal membuat pembayaran." });
+      }
+      return res.json({ ok: true, mode: "redirect", provider: "mayar", booking_code: code, url: j.payment_url });
+    } catch (e) {
+      try { await admin.from(bt).update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("booking_code", code); } catch (_) {}
+      return res.status(502).json({ error: e && e.name === "AbortError" ? "Timeout menghubungi pembayaran." : "Gagal membuat pembayaran." });
+    } finally { clearTimeout(timer); }
+  } catch (e) {
+    try { console.error("book/class:", e && e.message); } catch (_) {}
+    return res.status(500).json({ error: (e && e.message) || "Gagal memproses booking." });
+  }
+});
+
 // ---------- CMS admin: roster coach + pemetaan alias + roster dokter + inventori instructor ----------
 app.get("/api/admin/coaches", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;

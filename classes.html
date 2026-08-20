@@ -123,7 +123,7 @@
 
     // Label bilingual (Indonesia primary; sistem app default id). Shared antar venue.
     var TXT={
-      noteT:{id:"Booking di booking.20fit.id",en:"Booking on booking.20fit.id"},
+      noteT:{id:"Booking 20FIT",en:"20FIT Booking"},
       book:{id:"Book",en:"Book"},
       loading:{id:"Memuat jadwal…",en:"Loading schedule…"},
       err:{id:"Gagal memuat jadwal. Coba lagi nanti atau buka booking.20fit.id.",en:"Failed to load schedule. Try again later or open booking.20fit.id."},
@@ -136,20 +136,20 @@
     var VTXT={
       arena:{
         title:{id:"Jadwal Kelas Arena",en:"Arena Class Schedule"},
-        lead:{id:"Jadwal kelas 20FIT Arena yang akurat — pilih tanggal untuk lihat kelas. Booking & pembayaran diarahkan ke booking.20fit.id.",
-              en:"Accurate 20FIT Arena class schedule — pick a date to see classes. Booking & payment go to booking.20fit.id."},
-        noteS:{id:"Tanggal & jam di sini diambil langsung dari sistem 20FIT (akurat). Ketersediaan kursi & pembayaran diproses di booking.20fit.id — tombol Book akan membukanya.",
-               en:"Dates & times here come straight from the 20FIT system (accurate). Seat availability & payment are handled on booking.20fit.id — the Book button opens it."},
+        lead:{id:"Jadwal kelas 20FIT Arena yang akurat — pilih tanggal untuk lihat kelas. Booking & pembayaran langsung di sini.",
+              en:"Accurate 20FIT Arena class schedule — pick a date to see classes. Book & pay right here."},
+        noteS:{id:"Tanggal & jam diambil langsung dari sistem 20FIT. Pilih kelas → isi data → bayar, semuanya di my.20fit. Kursimu ditahan selama pembayaran.",
+               en:"Dates & times come straight from the 20FIT system. Pick a class → fill your details → pay, all in my.20fit. Your seat is held while you pay."},
         bookAll:{id:"Booking kelas di booking.20fit.id",en:"Book a class on booking.20fit.id"},
         empty:{id:"Belum ada jadwal kelas dalam waktu dekat. Cek langsung di booking.20fit.id.",en:"No upcoming classes yet. Check booking.20fit.id directly."},
         emptyDay:{id:"Tidak ada kelas di tanggal ini.",en:"No classes on this date."}
       },
       gym:{
         title:{id:"Jadwal Kelas Gym",en:"Gym Class Schedule"},
-        lead:{id:"Jadwal kelas 20FIT Gym yang akurat — pilih tanggal untuk lihat kelas. Booking & pembayaran diarahkan ke booking.20fit.id.",
-              en:"Accurate 20FIT Gym class schedule — pick a date to see classes. Booking & payment go to booking.20fit.id."},
-        noteS:{id:"Tanggal & jam di sini diambil langsung dari sistem 20FIT (akurat). Ketersediaan kursi & pembayaran diproses di booking.20fit.id — tombol Book akan membukanya.",
-               en:"Dates & times here come straight from the 20FIT system (accurate). Seat availability & payment are handled on booking.20fit.id — the Book button opens it."},
+        lead:{id:"Jadwal kelas 20FIT Gym yang akurat — pilih tanggal untuk lihat kelas. Booking & pembayaran langsung di sini.",
+              en:"Accurate 20FIT Gym class schedule — pick a date to see classes. Book & pay right here."},
+        noteS:{id:"Tanggal & jam diambil langsung dari sistem 20FIT. Pilih kelas → isi data → bayar, semuanya di my.20fit. Kursimu ditahan selama pembayaran.",
+               en:"Dates & times come straight from the 20FIT system. Pick a class → fill your details → pay, all in my.20fit. Your seat is held while you pay."},
         bookAll:{id:"Booking kelas di booking.20fit.id",en:"Book a class on booking.20fit.id"},
         empty:{id:"Belum ada jadwal kelas Gym dalam waktu dekat. Cek langsung di booking.20fit.id.",en:"No upcoming Gym classes yet. Check booking.20fit.id directly."},
         emptyDay:{id:"Tidak ada kelas di tanggal ini.",en:"No classes on this date."}
@@ -177,15 +177,12 @@
     function todayStr(){ var n=new Date(); var p2=function(x){return x<10?"0"+x:""+x;}; return n.getFullYear()+"-"+p2(n.getMonth()+1)+"-"+p2(n.getDate()); }
     function rupiah(v){ if(v==null||isNaN(v)) return ""; return "Rp "+Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,"."); }
 
-    // Deep-link ke booking.20fit.id supaya kelas LANGSUNG kepilih di sana (user tinggal isi
-    // data + bayar). Kontrak URL sesuai halaman booking:
-    //   arena → /book?type=class&date=YYYY-MM-DD&schedule=<schedule_id>
-    //   gym   → /gym?class=<class_type_id>&date=YYYY-MM-DD&schedule=<schedule_id>
-    //   clinic→ tetap generik (booking klinik tak punya deep-link slot). BOOK_URL sudah per-venue.
+    // Arena/Gym: booking DISELESAIKAN IN-APP di my.20fit (/book-class → isi data → bayar Mayar).
+    //   arena/gym → /book-class?source=<venue>&schedule=<schedule_id>
+    //   clinic    → tetap ke booking.20fit.id (belum in-app). BOOK_URL sudah per-venue.
     function bookHref(c, date){
       var enc=encodeURIComponent;
-      if(VENUE==="arena" && c && c.id) return BOOK_URL+"?type=class&date="+enc(date)+"&schedule="+enc(c.id);
-      if(VENUE==="gym" && c && c.id && c.class_type_id) return BOOK_URL+"?class="+enc(c.class_type_id)+"&date="+enc(date)+"&schedule="+enc(c.id);
+      if((VENUE==="arena"||VENUE==="gym") && c && c.id) return "/book-class?source="+enc(VENUE)+"&schedule="+enc(c.id);
       return BOOK_URL;
     }
 
@@ -230,6 +227,8 @@
       $("noteTitle").textContent=LL(TXT.noteT);
       $("noteSub").textContent=LL(VC.noteS);
       $("bookAllTxt").textContent=LL(VC.bookAll);
+      // Arena/Gym kini in-app -> sembunyikan tombol "book all" eksternal (khusus clinic).
+      var ba=$("bookAll"); if(ba) ba.style.display=(VENUE==="clinic")?"":"none";
       $("discTxt").textContent=LL(TXT.disc);
       document.title=LL(VC.title)+" · 20FIT";
     }
