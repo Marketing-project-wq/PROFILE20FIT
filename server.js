@@ -1977,8 +1977,61 @@ app.get("/api/partner/profile", async (req, res) => {
   }
 });
 
+// ---------- Embed ticket.20fit.id (lewat edge function `ticket-embed`) ----------
+// Kontrak (dari edge function ticket-embed, verify_jwt): action `user_token` (email dari sesi)
+// → { userToken }; `my_tickets` {userToken} → daftar tiket ASLI user; `ticket_qr` {userToken,code}
+// → QR e-tiket ASLI. Dipanggil dgn JWT user. SEMUA tahan-gagal (embed mati → fallback ke
+// event_transaction tanpa QR). Bentuk field respons upstream dipetakan defensif (multi-nama).
+const TICKET_EMBED_URL = String(SUPABASE_URL || "").replace(/\/+$/, "") + "/functions/v1/ticket-embed";
+function bearerOf(req) { const h = req.headers.authorization || ""; return h.startsWith("Bearer ") ? h.slice(7) : ""; }
+function firstOf(o, keys) { for (const k of keys) { if (o && o[k] != null && o[k] !== "") return o[k]; } return null; }
+function pickArray(d) {
+  if (Array.isArray(d)) return d;
+  if (d && typeof d === "object") { for (const k of ["tickets", "data", "items", "results"]) if (Array.isArray(d[k])) return d[k]; }
+  return null;
+}
+async function ticketEmbed(userJwt, action, extra) {
+  if (!userJwt || !SUPABASE_ANON_KEY) return { status: 0, data: null };
+  const ctrl = new AbortController(); const to = setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, 10000);
+  try {
+    const r = await fetch(TICKET_EMBED_URL, {
+      method: "POST", signal: ctrl.signal,
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + userJwt, apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify(Object.assign({ action }, extra || {})),
+    });
+    const j = await r.json().catch(() => null);
+    return { status: r.status, data: j };
+  } catch (e) { return { status: 0, data: null, error: e && e.message }; } finally { clearTimeout(to); }
+}
+function mapEmbedTicket(t) {
+  t = t || {};
+  const code = firstOf(t, ["code", "ticketCode", "ticket_code", "id", "ref", "reference"]);
+  return {
+    ref: code != null ? String(code) : null,
+    code: code != null ? String(code) : null,
+    event_name: firstOf(t, ["eventName", "event_name", "event", "title", "name"]) || "Event 20FIT",
+    product_name: firstOf(t, ["ticketType", "ticket_type", "categoryName", "category", "productName", "product_name"]),
+    holder: firstOf(t, ["holderName", "holder", "attendeeName", "attendee", "customerName", "name"]),
+    paid_at: firstOf(t, ["purchasedAt", "paidAt", "paid_at", "createdAt", "created_at", "date"]),
+    status: "valid",
+    cover_url: firstOf(t, ["coverUrl", "cover_url", "bannerUrl", "image"]),
+    has_qr: true,   // QR asli diambil lazy via /api/tickets/qr?code=
+    qr: null,
+  };
+}
+async function embedMyTickets(userJwt) {
+  const ut = await ticketEmbed(userJwt, "user_token");
+  const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
+  if (!userToken) return null;
+  const mt = await ticketEmbed(userJwt, "my_tickets", { userToken });
+  const arr = pickArray(mt.data);
+  if (!arr) return null;
+  return arr.map(mapEmbedTicket).filter(t => t.code);
+}
+
 // ---------- /api/tickets/mine : tiket event yang DIBELI user (widget "My Tickets") ----------
-// SUMBER: event_transaction (impor invoice Mayar) — pembelian NYATA per email user. READ-ONLY.
+// SUMBER UTAMA: embed ticket.20fit.id (tiket ASLI + kode → QR asli). FALLBACK (embed mati/kosong):
+// event_transaction (impor invoice Mayar) — pembelian NYATA per email user. READ-ONLY.
 //  - CLAUDE.md §4: tabel non-`my20fit_*` milik app lain → HANYA SELECT.
 //  - Per-user KETAT: email dari my20fit_profile by auth_user_id (bukan client). Service key bypass
 //    RLS → filter email WAJIB + exact-match di JS.
@@ -1998,6 +2051,14 @@ app.get("/api/tickets/mine", async (req, res) => {
       if (prof && prof[0] && prof[0].email) email = String(prof[0].email).trim().toLowerCase();
     } catch (_) {}
     if (!email) return res.json({ ok: true, tickets: [] });
+    // SUMBER UTAMA: tiket ASLI + QR dari ticket.20fit.id (embed). Tahan-gagal → fallback di bawah.
+    try {
+      const embedList = await embedMyTickets(bearerOf(req));
+      if (Array.isArray(embedList) && embedList.length) {
+        return res.json({ ok: true, tickets: embedList, source: "embed", count: embedList.length });
+      }
+    } catch (_) {}
+    // FALLBACK: pembelian dari event_transaction (tanpa QR gerbang).
     let rows = [];
     try {
       const { data, error } = await admin.from("event_transaction")
@@ -2023,6 +2084,45 @@ app.get("/api/tickets/mine", async (req, res) => {
   } catch (e) {
     try { console.error("tickets/mine:", e && e.message); } catch (_) {}
     return res.json({ ok: true, tickets: [] }); // tahan-gagal
+  }
+});
+
+// ---------- /api/tickets/qr?code= : QR e-tiket ASLI (ticket.20fit.id via embed, lazy) ----------
+// Dipanggil saat user membuka QR sebuah tiket. Ambil userToken (email sesi) lalu ticket_qr{code}.
+// Normalisasi respons upstream ke {img|svg|payload} agar frontend bisa render apa pun bentuknya.
+// ?debug=1 (superadmin) → kembalikan respons mentah utk memetakan bentuk sekali saja.
+app.get("/api/tickets/qr", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis." });
+    const code = String(req.query.code || "").trim();
+    if (!code) return res.status(400).json({ error: "code wajib." });
+    const userJwt = bearerOf(req);
+    const ut = await ticketEmbed(userJwt, "user_token");
+    const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
+    if (!userToken) return res.json({ ok: false, error: "no_user_token" });
+    const qr = await ticketEmbed(userJwt, "ticket_qr", { userToken, code });
+    const d = qr.data;
+    if (String(req.query.debug || "") === "1") {
+      const ctx = await getAdminContext(req);
+      if (ctx && ctx.role === "superadmin") return res.json({ ok: true, debug: true, raw: d });
+    }
+    let img = null, svg = null, payload = null;
+    const looksImg = (s) => /^https?:\/\//i.test(String(s)) || /^data:image\//i.test(String(s));
+    if (typeof d === "string") {
+      if (looksImg(d)) img = d; else if (/<svg/i.test(d)) svg = d; else payload = d;
+    } else if (d && typeof d === "object") {
+      img = firstOf(d, ["qrUrl", "qr_url", "imageUrl", "image_url", "png", "url", "dataUrl", "data_url"]);
+      if (img && !looksImg(img)) img = "data:image/png;base64," + img; // base64 mentah
+      svg = firstOf(d, ["svg", "qrSvg", "qr_svg"]);
+      payload = firstOf(d, ["payload", "value", "content", "qr", "code", "token", "data"]);
+      if (!img && payload && looksImg(payload)) { img = String(payload); payload = null; }
+      if (!svg && payload && /<svg/i.test(String(payload))) { svg = String(payload); payload = null; }
+    }
+    return res.json({ ok: !!(img || svg || payload), img, svg, payload, code });
+  } catch (e) {
+    try { console.error("tickets/qr:", e && e.message); } catch (_) {}
+    return res.json({ ok: false });
   }
 });
 
