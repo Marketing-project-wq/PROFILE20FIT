@@ -108,8 +108,8 @@
       (date ? '<span>' + Lx({ en: "Paid ", id: "Dibayar " }) + esc(date) + '</span>' : '') +
       ((t && t.ref) ? '<span>' + Lx({ en: "Order ", id: "Order " }) + esc(t.ref) + '</span>' : '') +
       '</div>';
-    var action = (t && t.qr)
-      ? '<button type="button" class="twk-pbuy" style="background:var(--ink,#15171C)" onclick="twkZoom(\'' + esc(t.ref || "") + '\')">' + Lx({ en: "Show QR", id: "Tampilkan QR" }) + '</button>'
+    var action = (t && (t.code || t.qr))
+      ? '<button type="button" class="twk-pbuy" style="background:var(--ink,#15171C)" onclick="twkZoom(\'' + esc(t.code || t.ref || "") + '\')">' + Lx({ en: "Show QR", id: "Tampilkan QR" }) + '</button>'
       : '<a class="twk-pbuy" style="background:var(--ink,#15171C)" href="https://ticket.20fit.id">' + Lx({ en: "Open e-ticket at ticket.20fit.id", id: "Buka e-tiket di ticket.20fit.id" }) + '</a>';
     return '<article class="twk-pcard">' + cover + '<div class="twk-pbody">' +
       '<div class="twk-pname">' + esc(nm) + '</div>' + meta +
@@ -164,20 +164,51 @@
     caro.scrollBy({ left: dir * Math.round(caro.clientWidth * 0.85), behavior: reduce ? "auto" : "smooth" });
   };
 
-  // ---- QR overlay ----
-  window.twkZoom = function (ref) {
-    var t = (TICKETS || []).filter(function (x) { return String(x.ref) === String(ref); })[0];
-    if (!t || !t.qr) return;
+  // ---- QR lib (lazy; hanya dipakai kalau embed mengirim payload string, bukan gambar) ----
+  var _qrP = null;
+  function twkQrLib() {
+    if (window.qrcode) return Promise.resolve(true);
+    if (_qrP) return _qrP;
+    _qrP = new Promise(function (res) { var s = document.createElement("script"); s.src = "js/qrcode-generator.js"; s.async = true; s.onload = function () { res(!!window.qrcode); }; s.onerror = function () { res(false); }; document.head.appendChild(s); });
+    return _qrP;
+  }
+  async function twkEncodeQr(text) {
+    var ok = await twkQrLib(); if (!ok || !window.qrcode) return "";
+    try { var q = window.qrcode(0, "M"); q.addData(String(text)); q.make(); return q.createSvgTag({ cellSize: 5, margin: 1, scalable: true }); } catch (e) { return ""; }
+  }
+  // Ambil QR e-tiket ASLI by code dari server (/api/tickets/qr → embed ticket.20fit.id). HTML atau "".
+  async function twkFetchQr(code) {
+    if (!code) return "";
+    var tok = (window.Auth && Auth.token) ? await Auth.token() : null;
+    if (!tok) return "";
+    var r = await fetch("/api/tickets/qr?code=" + encodeURIComponent(code), { headers: { Authorization: "Bearer " + tok } });
+    var j = await r.json().catch(function () { return null; });
+    if (!j || !j.ok) return "";
+    if (j.img) return '<img src="' + esc(j.img) + '" alt="QR" style="width:100%;height:100%;display:block;image-rendering:pixelated">';
+    if (j.svg) return j.svg;
+    if (j.payload) { var svg = await twkEncodeQr(j.payload); return svg || ('<div class="twk-code">' + esc(j.payload) + '</div>'); }
+    return "";
+  }
+
+  // ---- QR overlay (ambil QR asli by code, lazy) ----
+  window.twkZoom = async function (ref) {
+    var t = (TICKETS || []).filter(function (x) { return String(x.ref) === String(ref) || String(x.code) === String(ref); })[0];
+    if (!t) return;
     window.twkZoomClose();
     var ov = document.createElement("div"); ov.className = "twk-ov"; ov.id = "twkOv";
     ov.innerHTML = '<div class="twk-sheet"><button type="button" class="twk-close" onclick="twkZoomClose()" aria-label="Close">✕</button>' +
       '<h4>' + esc(t.event_name || "") + '</h4>' +
-      '<small>' + esc([t.holder, (t.ticket_label || t.category)].filter(Boolean).join(" · ")) + '</small>' +
-      '<div class="twk-qrbox">' + t.qr + '</div>' +
+      '<small>' + esc([t.holder, (t.product_name || t.category)].filter(Boolean).join(" · ")) + '</small>' +
+      '<div class="twk-qrbox" id="twkQrBox"><div class="tkskel" style="width:100%;height:100%;min-height:180px;border-radius:10px"></div></div>' +
       (t.ref ? '<div class="twk-code">' + esc(t.ref) + '</div>' : '') +
       '<div class="twk-hint">' + Lx({ en: "Show this QR at the check-in gate.", id: "Tunjukkan QR ini di gerbang check-in." }) + '</div></div>';
     ov.addEventListener("click", function (e) { if (e.target === ov) window.twkZoomClose(); });
     document.body.appendChild(ov);
+    var box = document.getElementById("twkQrBox");
+    try {
+      var html = t.qr || (await twkFetchQr(t.code || t.ref));
+      if (box) box.innerHTML = html || ('<div class="twk-hint" style="padding:14px 0">' + Lx({ en: "QR not available yet — open your e-ticket at ticket.20fit.id.", id: "QR belum tersedia — buka e-tiket di ticket.20fit.id." }) + '</div><a class="twk-pbuy" style="background:var(--ink,#15171C)" href="https://ticket.20fit.id">ticket.20fit.id ↗</a>');
+    } catch (e) { if (box) box.innerHTML = '<div class="twk-hint" style="padding:14px 0">' + Lx({ en: "Couldn’t load QR.", id: "Gagal memuat QR." }) + '</div>'; }
   };
   window.twkZoomClose = function () { var o = document.getElementById("twkOv"); if (o) o.remove(); };
 
