@@ -1,11 +1,33 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-08-13 · **Commit staging:** `8c31776`
+> **Pembaruan terakhir:** 2026-08-21 · **Commit staging:** `8c31776`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
 Dokumen ini status hidup. Setelah mengubah fitur/arsitektur/route/skema, **perbarui
 bagian yang relevan + tanggal & commit di atas** sebelum sesi berakhir.
+
+---
+
+## 0. Catatan insiden operasional (2026-08-21)
+
+**Insiden:** ±13:00–14:40 WIB banyak widget staging (`/book-coach`, Ticket Wallet event,
+Photo) tampil **"Couldn't load" bareng**. Widget yang baca **langsung** ke Supabase dari
+browser (Fasting/Profil/Calories via `Auth.supabase.from`) tetap jalan; yang lewat
+**server `/api/*`** (coaches/events/photo/tickets) gagal semua.
+
+**Akar masalah (dari log Supabase):** BUKAN data hilang / service key / RLS / env.
+Sepanjang insiden panggilan service-key server → Supabase tetap **200** (coaches/doctors/
+ticket_events, error ≈ 0) dan datanya utuh (Event 3 on_sale; Coach/Dokter memang kosong
+by design, roster via CMS; transaksi tiket ada). Karena server **dapat 200 dari Supabase
+tapi balasannya gagal sampai ke browser** untuk **semua** `/api/*` sekaligus → penyebab =
+**container Railway STAGING sempat tidak sehat** (crash/restart/kehabisan resource).
+Bersamaan, edge fn `ticket-embed` sempat **404** (upstream, fail-safe) → **pulih 200**
+±15:20 WIB. Container pulih sendiri (server-side hijau, 0 error) sejak sore.
+
+**Tindakan:** redeploy staging (restart container bersih). **Fix durable** (kalau
+berulang) = cek **Railway staging → Metrics/Deploy logs** untuk OOM/restart/disk penuh &
+naikkan resource — **butuh akses dashboard Railway (di luar agent).**
 
 ---
 

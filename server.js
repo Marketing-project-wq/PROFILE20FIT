@@ -1977,8 +1977,61 @@ app.get("/api/partner/profile", async (req, res) => {
   }
 });
 
+// ---------- Embed ticket.20fit.id (lewat edge function `ticket-embed`) ----------
+// Kontrak (dari edge function ticket-embed, verify_jwt): action `user_token` (email dari sesi)
+// → { userToken }; `my_tickets` {userToken} → daftar tiket ASLI user; `ticket_qr` {userToken,code}
+// → QR e-tiket ASLI. Dipanggil dgn JWT user. SEMUA tahan-gagal (embed mati → fallback ke
+// event_transaction tanpa QR). Bentuk field respons upstream dipetakan defensif (multi-nama).
+const TICKET_EMBED_URL = String(SUPABASE_URL || "").replace(/\/+$/, "") + "/functions/v1/ticket-embed";
+function bearerOf(req) { const h = req.headers.authorization || ""; return h.startsWith("Bearer ") ? h.slice(7) : ""; }
+function firstOf(o, keys) { for (const k of keys) { if (o && o[k] != null && o[k] !== "") return o[k]; } return null; }
+function pickArray(d) {
+  if (Array.isArray(d)) return d;
+  if (d && typeof d === "object") { for (const k of ["tickets", "data", "items", "results"]) if (Array.isArray(d[k])) return d[k]; }
+  return null;
+}
+async function ticketEmbed(userJwt, action, extra) {
+  if (!userJwt || !SUPABASE_ANON_KEY) return { status: 0, data: null };
+  const ctrl = new AbortController(); const to = setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, 10000);
+  try {
+    const r = await fetch(TICKET_EMBED_URL, {
+      method: "POST", signal: ctrl.signal,
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + userJwt, apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify(Object.assign({ action }, extra || {})),
+    });
+    const j = await r.json().catch(() => null);
+    return { status: r.status, data: j };
+  } catch (e) { return { status: 0, data: null, error: e && e.message }; } finally { clearTimeout(to); }
+}
+function mapEmbedTicket(t) {
+  t = t || {};
+  const code = firstOf(t, ["code", "ticketCode", "ticket_code", "id", "ref", "reference"]);
+  return {
+    ref: code != null ? String(code) : null,
+    code: code != null ? String(code) : null,
+    event_name: firstOf(t, ["eventName", "event_name", "event", "title", "name"]) || "Event 20FIT",
+    product_name: firstOf(t, ["ticketType", "ticket_type", "categoryName", "category", "productName", "product_name"]),
+    holder: firstOf(t, ["holderName", "holder", "attendeeName", "attendee", "customerName", "name"]),
+    paid_at: firstOf(t, ["purchasedAt", "paidAt", "paid_at", "createdAt", "created_at", "date"]),
+    status: "valid",
+    cover_url: firstOf(t, ["coverUrl", "cover_url", "bannerUrl", "image"]),
+    has_qr: true,   // QR asli diambil lazy via /api/tickets/qr?code=
+    qr: null,
+  };
+}
+async function embedMyTickets(userJwt) {
+  const ut = await ticketEmbed(userJwt, "user_token");
+  const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
+  if (!userToken) return null;
+  const mt = await ticketEmbed(userJwt, "my_tickets", { userToken });
+  const arr = pickArray(mt.data);
+  if (!arr) return null;
+  return arr.map(mapEmbedTicket).filter(t => t.code);
+}
+
 // ---------- /api/tickets/mine : tiket event yang DIBELI user (widget "My Tickets") ----------
-// SUMBER: event_transaction (impor invoice Mayar) — pembelian NYATA per email user. READ-ONLY.
+// SUMBER UTAMA: embed ticket.20fit.id (tiket ASLI + kode → QR asli). FALLBACK (embed mati/kosong):
+// event_transaction (impor invoice Mayar) — pembelian NYATA per email user. READ-ONLY.
 //  - CLAUDE.md §4: tabel non-`my20fit_*` milik app lain → HANYA SELECT.
 //  - Per-user KETAT: email dari my20fit_profile by auth_user_id (bukan client). Service key bypass
 //    RLS → filter email WAJIB + exact-match di JS.
@@ -1998,6 +2051,14 @@ app.get("/api/tickets/mine", async (req, res) => {
       if (prof && prof[0] && prof[0].email) email = String(prof[0].email).trim().toLowerCase();
     } catch (_) {}
     if (!email) return res.json({ ok: true, tickets: [] });
+    // SUMBER UTAMA: tiket ASLI + QR dari ticket.20fit.id (embed). Tahan-gagal → fallback di bawah.
+    try {
+      const embedList = await embedMyTickets(bearerOf(req));
+      if (Array.isArray(embedList) && embedList.length) {
+        return res.json({ ok: true, tickets: embedList, source: "embed", count: embedList.length });
+      }
+    } catch (_) {}
+    // FALLBACK: pembelian dari event_transaction (tanpa QR gerbang).
     let rows = [];
     try {
       const { data, error } = await admin.from("event_transaction")
@@ -2023,6 +2084,45 @@ app.get("/api/tickets/mine", async (req, res) => {
   } catch (e) {
     try { console.error("tickets/mine:", e && e.message); } catch (_) {}
     return res.json({ ok: true, tickets: [] }); // tahan-gagal
+  }
+});
+
+// ---------- /api/tickets/qr?code= : QR e-tiket ASLI (ticket.20fit.id via embed, lazy) ----------
+// Dipanggil saat user membuka QR sebuah tiket. Ambil userToken (email sesi) lalu ticket_qr{code}.
+// Normalisasi respons upstream ke {img|svg|payload} agar frontend bisa render apa pun bentuknya.
+// ?debug=1 (superadmin) → kembalikan respons mentah utk memetakan bentuk sekali saja.
+app.get("/api/tickets/qr", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis." });
+    const code = String(req.query.code || "").trim();
+    if (!code) return res.status(400).json({ error: "code wajib." });
+    const userJwt = bearerOf(req);
+    const ut = await ticketEmbed(userJwt, "user_token");
+    const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
+    if (!userToken) return res.json({ ok: false, error: "no_user_token" });
+    const qr = await ticketEmbed(userJwt, "ticket_qr", { userToken, code });
+    const d = qr.data;
+    if (String(req.query.debug || "") === "1") {
+      const ctx = await getAdminContext(req);
+      if (ctx && ctx.role === "superadmin") return res.json({ ok: true, debug: true, raw: d });
+    }
+    let img = null, svg = null, payload = null;
+    const looksImg = (s) => /^https?:\/\//i.test(String(s)) || /^data:image\//i.test(String(s));
+    if (typeof d === "string") {
+      if (looksImg(d)) img = d; else if (/<svg/i.test(d)) svg = d; else payload = d;
+    } else if (d && typeof d === "object") {
+      img = firstOf(d, ["qrUrl", "qr_url", "imageUrl", "image_url", "png", "url", "dataUrl", "data_url"]);
+      if (img && !looksImg(img)) img = "data:image/png;base64," + img; // base64 mentah
+      svg = firstOf(d, ["svg", "qrSvg", "qr_svg"]);
+      payload = firstOf(d, ["payload", "value", "content", "qr", "code", "token", "data"]);
+      if (!img && payload && looksImg(payload)) { img = String(payload); payload = null; }
+      if (!svg && payload && /<svg/i.test(String(payload))) { svg = String(payload); payload = null; }
+    }
+    return res.json({ ok: !!(img || svg || payload), img, svg, payload, code });
+  } catch (e) {
+    try { console.error("tickets/qr:", e && e.message); } catch (_) {}
+    return res.json({ ok: false });
   }
 });
 
@@ -5432,6 +5532,48 @@ app.post("/api/scan/consume", async (req, res) => {
 // foto tanpa makanan = tak dipotong). Client tak lagi memanggil mesin AI langsung utk foto.
 // (Ketik-nama-makanan & MCU TETAP gratis & tak lewat sini.)
 const AI_FN_URL = SUPABASE_URL + "/functions/v1/my20fit-ai";
+// Secret khusus-server untuk edge my20fit-ai: hanya server yang tahu, dikirim sebagai
+// header supaya edge MENOLAK panggilan langsung dari browser. Nilai HANYA dari env
+// (Railway) — TAK PERNAH ditulis di kode/log. Kosong (belum di-set) => header kosong;
+// edge belum mengunci sampai secret dipasang di kedua sisi (server + Supabase edge fn).
+const AI_EDGE_SECRET = process.env.AI_EDGE_SECRET || "";
+// Timeout khusus AI (bisa lama utk MCU/PDF), terpisah dari SUPA_TIMEOUT_MS (12s, utk REST).
+const AI_TIMEOUT_MS = parseInt(process.env.AI_TIMEOUT_MS || "90000", 10);
+// SATU jalur pemanggilan mesin AI (my20fit-ai) untuk SEMUA aksi (food/mcu/translate).
+// AI SELALU dari server, tak pernah dari browser. Melempar AbortError saat timeout.
+async function callAiEdge(payload, timeoutMs) {
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), timeoutMs || AI_TIMEOUT_MS);
+  try {
+    const r = await fetch(AI_FN_URL, {
+      method: "POST", signal: ctrl.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + SUPABASE_ANON_KEY,
+        "apikey": SUPABASE_ANON_KEY,
+        "x-ai-edge-secret": AI_EDGE_SECRET,
+      },
+      body: JSON.stringify(payload),
+    });
+    const j = await r.json().catch(() => ({}));
+    return { httpOk: r.ok, status: r.status, json: j };
+  } finally {
+    clearTimeout(to);
+  }
+}
+// Jejak akses AI (MCU/translate): SIAPA + KAPAN + ok/gagal. TIDAK mencatat isi file
+// atau hasil analisis — hanya jejak akses. Best-effort: gagal log tak menggagalkan request.
+async function logAiAccess(userId, route, ok, errCode) {
+  try {
+    if (!admin) return;
+    await admin.from("my20fit_ai_access_log").insert({
+      auth_user_id: userId || null,
+      route: String(route || "").slice(0, 40),
+      ok: !!ok,
+      err_code: errCode ? String(errCode).slice(0, 60) : null,
+    });
+  } catch (e) { /* jangan ganggu alur utama */ }
+}
 function scanPeriodJakarta() {
   // Sama persis dgn RPC my20fit_consume_scan: to_char(now() AT TIME ZONE 'Asia/Jakarta','YYYY-MM').
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).formatToParts(new Date());
@@ -5525,20 +5667,15 @@ app.post("/api/scan/ai", async (req, res) => {
       return res.status(402).json({ ok: false, code: "scan_limit",
         quota: shapeQuotaServer({ used: used, free_limit: 10, credits: credits, period: period }) });
     }
-    // 2) Panggil mesin AI server-side.
+    // 2) Panggil mesin AI server-side (satu jalur callAiEdge: secret + timeout terpusat).
     let aiJson = null;
     try {
-      const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 90000);
-      const r = await fetch(AI_FN_URL, {
-        method: "POST", signal: ctrl.signal,
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
-        body: JSON.stringify({ action: "food", image: body.image, text: body.text, lang: body.lang, reference: await buildFoodReference(40) }),
-      });
-      clearTimeout(to);
-      aiJson = await r.json().catch(() => ({}));
-      if (!r.ok || !aiJson || !aiJson.result) throw new Error((aiJson && aiJson.error) || "Gagal menganalisa.");
+      const ai = await callAiEdge({ action: "food", image: body.image, text: body.text, lang: body.lang, reference: await buildFoodReference(40) });
+      aiJson = ai.json;
+      if (!ai.httpOk || !aiJson || !aiJson.result) throw new Error((aiJson && aiJson.error) || "Gagal menganalisa.");
     } catch (e) {
-      return res.status(502).json({ error: (e && e.message) || "Gagal menghubungi mesin AI. Coba lagi." });
+      if (e && e.name === "AbortError") return res.status(504).json({ error: "Analisa memakan waktu lebih lama dari biasanya. Coba lagi ya." });
+      return res.status(502).json({ error: "Gagal menghubungi mesin AI. Coba lagi." });
     }
     // 2b) Cara A: sempurnakan dgn kamus internal — override kalau makanan sudah dikoreksi cukup sering.
     try { await refineWithFoodRef(aiJson.result); } catch (e) {}
@@ -5553,6 +5690,57 @@ app.post("/api/scan/ai", async (req, res) => {
     }
     return res.json({ ok: true, result: aiJson.result, consumed: detected, quota: quota });
   } catch (e) { console.error("scan/ai:", e && e.message); return res.status(500).json({ error: "Gagal memproses scan." }); }
+});
+
+// ---------- MCU (Medical Check-Up): analisa hasil lab di SERVER, WAJIB login ----------
+// Dulu browser memanggil edge my20fit-ai LANGSUNG (anon key di HTML) tanpa auth server —
+// dipindah ke sini: verifikasi login -> panggil AI via callAiEdge (secret) -> balikan hasil.
+// File diproses di MEMORI (req.body) & TIDAK ditulis ke disk. Jejak akses dicatat (tanpa isi).
+app.post("/api/mcu", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const body = req.body || {};
+    if (!body.file) return res.status(400).json({ error: "File tidak ada." });
+    let ai;
+    try {
+      ai = await callAiEdge({ action: "mcu", file: body.file, mime: body.mime, lang: body.lang });
+      if (!ai.httpOk || !ai.json || !ai.json.result) throw new Error((ai.json && ai.json.error) || "gagal");
+    } catch (e) {
+      logAiAccess(user.id, "mcu", false, (e && e.name) || "error");
+      if (e && e.name === "AbortError") return res.status(504).json({ error: "Analisa memakan waktu lebih lama dari biasanya. Coba lagi ya." });
+      return res.status(502).json({ error: "Gagal menganalisa hasil MCU. Coba lagi." });
+    }
+    logAiAccess(user.id, "mcu", true);
+    return res.json({ ok: true, result: ai.json.result });
+  } catch (e) {
+    console.error("api/mcu:", e && e.message);
+    return res.status(500).json({ error: "Gagal memproses. Coba lagi." });
+  }
+});
+
+// ---------- Terjemah hasil (mis. MCU) ID<->EN via AI, di SERVER, WAJIB login ----------
+app.post("/api/translate", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const body = req.body || {};
+    if (!body.data || !body.lang) return res.status(400).json({ error: "Data tidak lengkap." });
+    let ai;
+    try {
+      ai = await callAiEdge({ action: "translate", lang: body.lang, data: body.data });
+      if (!ai.httpOk || !ai.json || !ai.json.result) throw new Error((ai.json && ai.json.error) || "gagal");
+    } catch (e) {
+      logAiAccess(user.id, "translate", false, (e && e.name) || "error");
+      if (e && e.name === "AbortError") return res.status(504).json({ error: "Terjemahan memakan waktu lebih lama. Coba lagi ya." });
+      return res.status(502).json({ error: "Gagal menerjemahkan. Coba lagi." });
+    }
+    logAiAccess(user.id, "translate", true);
+    return res.json({ ok: true, result: ai.json.result });
+  } catch (e) {
+    console.error("api/translate:", e && e.message);
+    return res.status(500).json({ error: "Gagal memproses. Coba lagi." });
+  }
 });
 
 // POST /api/scan/food-correction — user membetulkan hasil scan (nama + gram + kalori/makro).

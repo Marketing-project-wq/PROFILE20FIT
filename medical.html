@@ -203,8 +203,8 @@
   <script src="js/meta-pixel.js"></script>
   <script>try{ Meta.track("View Medical"); }catch(e){}</script>
   <script>
-    const AI_URL="https://cpvzwqptzcxnwzfzgrmt.supabase.co/functions/v1/my20fit-ai";
-    const ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwdnp3cXB0emN4bnd6Znpncm10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2MzE0MzksImV4cCI6MjA5MTIwNzQzOX0.DIP-tTFxa3GHMhT6b1Tq-Zz0a24P-vbU9ixEtITbqpI";
+    // Analisa MCU + terjemah lewat SERVER (/api/mcu, /api/translate) — BUKAN langsung ke
+    // edge function. Tak ada anon key / URL AI di client (AI selalu dipanggil dari server).
     let user=null, history=[], profile=null;
     function readData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
     // Perkecil gambar sebelum dikirim -> upload & OCR jauh lebih cepat (PDF dilewati)
@@ -270,11 +270,12 @@
         }else{ url=await fileURL(f); mime=f.type; }
       }catch(e3){ box.innerHTML='<div class="card" style="color:var(--red)">'+L({en:"Couldn't read the file. Try another.",id:"Gagal membaca file. Coba file lain."})+'</div>'; e.target.value=""; return; }
       try{
-        const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),90000);
-        const r=await fetch(AI_URL,{method:"POST",signal:ctrl.signal,headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"mcu",file:url,mime:mime,lang:I18N.lang})});
+        const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),95000);
+        const tk=(window.Auth&&Auth.token)?await Auth.token():null;
+        const r=await fetch("/api/mcu",{method:"POST",signal:ctrl.signal,headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},body:JSON.stringify({file:url,mime:mime,lang:I18N.lang})});
         clearTimeout(to);
-        const j=await r.json();
-        if(!r.ok||!j.result)throw new Error((j.error||L({en:"Failed to analyse document",id:"Gagal menganalisa dokumen"}))+(j.detail?" — "+j.detail:""));
+        const j=await r.json().catch(()=>null);
+        if(!r.ok||!j||!j.result)throw new Error((j&&j.error)||L({en:"Failed to analyse document",id:"Gagal menganalisa dokumen"}));
         j.result._lang=I18N.lang;
         showResult(j.result);
         try{localStorage.setItem(sig,JSON.stringify(j.result));}catch(e1){}
@@ -584,9 +585,10 @@
     async function aiTranslate(lang, data){
       const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),45000);
       try{
-        const r=await fetch(AI_URL,{method:"POST",signal:ctrl.signal,headers:{"Content-Type":"application/json","Authorization":"Bearer "+ANON,"apikey":ANON},body:JSON.stringify({action:"translate",lang:lang,data:data})});
+        const tk=(window.Auth&&Auth.token)?await Auth.token():null;
+        const r=await fetch("/api/translate",{method:"POST",signal:ctrl.signal,headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},body:JSON.stringify({lang:lang,data:data})});
         clearTimeout(to);
-        const j=await r.json();
+        const j=await r.json().catch(()=>null);
         return (r.ok&&j&&j.result)?j.result:null;
       }catch(e){ clearTimeout(to); return null; }
     }
