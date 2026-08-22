@@ -5532,6 +5532,48 @@ app.post("/api/scan/consume", async (req, res) => {
 // foto tanpa makanan = tak dipotong). Client tak lagi memanggil mesin AI langsung utk foto.
 // (Ketik-nama-makanan & MCU TETAP gratis & tak lewat sini.)
 const AI_FN_URL = SUPABASE_URL + "/functions/v1/my20fit-ai";
+// Secret khusus-server untuk edge my20fit-ai: hanya server yang tahu, dikirim sebagai
+// header supaya edge MENOLAK panggilan langsung dari browser. Nilai HANYA dari env
+// (Railway) — TAK PERNAH ditulis di kode/log. Kosong (belum di-set) => header kosong;
+// edge belum mengunci sampai secret dipasang di kedua sisi (server + Supabase edge fn).
+const AI_EDGE_SECRET = process.env.AI_EDGE_SECRET || "";
+// Timeout khusus AI (bisa lama utk MCU/PDF), terpisah dari SUPA_TIMEOUT_MS (12s, utk REST).
+const AI_TIMEOUT_MS = parseInt(process.env.AI_TIMEOUT_MS || "90000", 10);
+// SATU jalur pemanggilan mesin AI (my20fit-ai) untuk SEMUA aksi (food/mcu/translate).
+// AI SELALU dari server, tak pernah dari browser. Melempar AbortError saat timeout.
+async function callAiEdge(payload, timeoutMs) {
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), timeoutMs || AI_TIMEOUT_MS);
+  try {
+    const r = await fetch(AI_FN_URL, {
+      method: "POST", signal: ctrl.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + SUPABASE_ANON_KEY,
+        "apikey": SUPABASE_ANON_KEY,
+        "x-ai-edge-secret": AI_EDGE_SECRET,
+      },
+      body: JSON.stringify(payload),
+    });
+    const j = await r.json().catch(() => ({}));
+    return { httpOk: r.ok, status: r.status, json: j };
+  } finally {
+    clearTimeout(to);
+  }
+}
+// Jejak akses AI (MCU/translate): SIAPA + KAPAN + ok/gagal. TIDAK mencatat isi file
+// atau hasil analisis — hanya jejak akses. Best-effort: gagal log tak menggagalkan request.
+async function logAiAccess(userId, route, ok, errCode) {
+  try {
+    if (!admin) return;
+    await admin.from("my20fit_ai_access_log").insert({
+      auth_user_id: userId || null,
+      route: String(route || "").slice(0, 40),
+      ok: !!ok,
+      err_code: errCode ? String(errCode).slice(0, 60) : null,
+    });
+  } catch (e) { /* jangan ganggu alur utama */ }
+}
 function scanPeriodJakarta() {
   // Sama persis dgn RPC my20fit_consume_scan: to_char(now() AT TIME ZONE 'Asia/Jakarta','YYYY-MM').
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit" }).formatToParts(new Date());
@@ -5625,20 +5667,15 @@ app.post("/api/scan/ai", async (req, res) => {
       return res.status(402).json({ ok: false, code: "scan_limit",
         quota: shapeQuotaServer({ used: used, free_limit: 10, credits: credits, period: period }) });
     }
-    // 2) Panggil mesin AI server-side.
+    // 2) Panggil mesin AI server-side (satu jalur callAiEdge: secret + timeout terpusat).
     let aiJson = null;
     try {
-      const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 90000);
-      const r = await fetch(AI_FN_URL, {
-        method: "POST", signal: ctrl.signal,
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
-        body: JSON.stringify({ action: "food", image: body.image, text: body.text, lang: body.lang, reference: await buildFoodReference(40) }),
-      });
-      clearTimeout(to);
-      aiJson = await r.json().catch(() => ({}));
-      if (!r.ok || !aiJson || !aiJson.result) throw new Error((aiJson && aiJson.error) || "Gagal menganalisa.");
+      const ai = await callAiEdge({ action: "food", image: body.image, text: body.text, lang: body.lang, reference: await buildFoodReference(40) });
+      aiJson = ai.json;
+      if (!ai.httpOk || !aiJson || !aiJson.result) throw new Error((aiJson && aiJson.error) || "Gagal menganalisa.");
     } catch (e) {
-      return res.status(502).json({ error: (e && e.message) || "Gagal menghubungi mesin AI. Coba lagi." });
+      if (e && e.name === "AbortError") return res.status(504).json({ error: "Analisa memakan waktu lebih lama dari biasanya. Coba lagi ya." });
+      return res.status(502).json({ error: "Gagal menghubungi mesin AI. Coba lagi." });
     }
     // 2b) Cara A: sempurnakan dgn kamus internal — override kalau makanan sudah dikoreksi cukup sering.
     try { await refineWithFoodRef(aiJson.result); } catch (e) {}
@@ -5653,6 +5690,57 @@ app.post("/api/scan/ai", async (req, res) => {
     }
     return res.json({ ok: true, result: aiJson.result, consumed: detected, quota: quota });
   } catch (e) { console.error("scan/ai:", e && e.message); return res.status(500).json({ error: "Gagal memproses scan." }); }
+});
+
+// ---------- MCU (Medical Check-Up): analisa hasil lab di SERVER, WAJIB login ----------
+// Dulu browser memanggil edge my20fit-ai LANGSUNG (anon key di HTML) tanpa auth server —
+// dipindah ke sini: verifikasi login -> panggil AI via callAiEdge (secret) -> balikan hasil.
+// File diproses di MEMORI (req.body) & TIDAK ditulis ke disk. Jejak akses dicatat (tanpa isi).
+app.post("/api/mcu", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const body = req.body || {};
+    if (!body.file) return res.status(400).json({ error: "File tidak ada." });
+    let ai;
+    try {
+      ai = await callAiEdge({ action: "mcu", file: body.file, mime: body.mime, lang: body.lang });
+      if (!ai.httpOk || !ai.json || !ai.json.result) throw new Error((ai.json && ai.json.error) || "gagal");
+    } catch (e) {
+      logAiAccess(user.id, "mcu", false, (e && e.name) || "error");
+      if (e && e.name === "AbortError") return res.status(504).json({ error: "Analisa memakan waktu lebih lama dari biasanya. Coba lagi ya." });
+      return res.status(502).json({ error: "Gagal menganalisa hasil MCU. Coba lagi." });
+    }
+    logAiAccess(user.id, "mcu", true);
+    return res.json({ ok: true, result: ai.json.result });
+  } catch (e) {
+    console.error("api/mcu:", e && e.message);
+    return res.status(500).json({ error: "Gagal memproses. Coba lagi." });
+  }
+});
+
+// ---------- Terjemah hasil (mis. MCU) ID<->EN via AI, di SERVER, WAJIB login ----------
+app.post("/api/translate", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const body = req.body || {};
+    if (!body.data || !body.lang) return res.status(400).json({ error: "Data tidak lengkap." });
+    let ai;
+    try {
+      ai = await callAiEdge({ action: "translate", lang: body.lang, data: body.data });
+      if (!ai.httpOk || !ai.json || !ai.json.result) throw new Error((ai.json && ai.json.error) || "gagal");
+    } catch (e) {
+      logAiAccess(user.id, "translate", false, (e && e.name) || "error");
+      if (e && e.name === "AbortError") return res.status(504).json({ error: "Terjemahan memakan waktu lebih lama. Coba lagi ya." });
+      return res.status(502).json({ error: "Gagal menerjemahkan. Coba lagi." });
+    }
+    logAiAccess(user.id, "translate", true);
+    return res.json({ ok: true, result: ai.json.result });
+  } catch (e) {
+    console.error("api/translate:", e && e.message);
+    return res.status(500).json({ error: "Gagal memproses. Coba lagi." });
+  }
 });
 
 // POST /api/scan/food-correction — user membetulkan hasil scan (nama + gram + kalori/makro).
