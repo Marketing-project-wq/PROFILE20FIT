@@ -3,6 +3,8 @@
 //
 // KEAMANAN: TIDAK ADA API key di-hardcode. Wajib env OPENROUTER_API_KEY.
 // (Key lama yang pernah hardcode HARUS di-revoke di OpenRouter.)
+// GERBANG SERVER-ONLY (LANGKAH 5): wajib header x-ai-edge-secret == env AI_EDGE_SECRET (fail-closed).
+// Menolak browser/pihak luar. Set AI_EDGE_SECRET di Supabase edge secrets SEBELUM deploy versi ini.
 //
 // Sumber kebenaran versi function ini = file ini (ver-control). Deploy manual/approval.
 
@@ -71,8 +73,24 @@ const FOODTEXT_SYS =
 const MCU_SYS =
   'You are a medical document explainer for the 20fit health app. The user uploads a medical check-up document or lab result. OCR and explain the data in plain language for a layperson. RESPOND AS FAST AND CONCISE AS POSSIBLE: summary max 2 sentences, and EACH explanation/why_it_matters/what_to_do must be ONE short sentence; plans are short bullet phrases. STRICT RULES: (1) ALWAYS include a clear reminder that this interpretation is NOT a substitute for consulting a doctor. (2) Do NOT make any diagnosis or name any disease; only explain factually what each value means, how it compares to its normal reference range, and in general terms why an out-of-range value matters for health. (3) If any part of the document is unreadable or unclear, list which parts in the unreadable field. (4) Maintain patient data confidentiality and never invent data that is not present. (5) For every parameter outside its normal range, set status to "attention" and add an entry to abnormal_findings. Respond ONLY with a valid JSON object (no markdown, no code fences) with these keys: document_type (string), patient_name (string or null), date (string or null), summary (2 sentences max, no diagnosis), parameters (array, each object: label, value, normal_range, status one of "normal"|"attention"|"unknown", direction one of "high"|"low"|"normal"|"unknown", explanation one short sentence without diagnosis), abnormal_findings (array, each object: label, value, severity one of "ringan"|"sedang"|"tinggi", why_it_matters one short factual sentence on why being out of range can be risky WITHOUT diagnosing, what_to_do one short action tip), eating_plan (array of 3-5 short bullet phrases), exercise_plan (array of 3-4 short bullet phrases; advise consulting the 20fit trainer/doctor before intense exercise if findings are concerning), lifestyle_plan (array of 2-3 short bullet phrases), unreadable (array of strings), disclaimer (one sentence reminding this is not a substitute for a doctor and to consult the 20fit doctor).';
 
+// Perbandingan konstan-waktu (hindari timing attack) untuk secret.
+function safeEq(a: string, b: string): boolean {
+  const ae = new TextEncoder().encode(a), be = new TextEncoder().encode(b);
+  if (ae.length !== be.length) return false;
+  let d = 0;
+  for (let i = 0; i < ae.length; i++) d |= ae[i] ^ be[i];
+  return d === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  // GERBANG: hanya server yang tahu AI_EDGE_SECRET boleh memanggil. GAGAL-TERTUTUP:
+  // secret belum di-set di edge -> tolak SEMUA. Header hilang/salah -> tolak. 401 generik.
+  {
+    const want = Deno.env.get("AI_EDGE_SECRET") || "";
+    const got = req.headers.get("x-ai-edge-secret") || "";
+    if (!want || !got || !safeEq(want, got)) return json({ error: "unauthorized" }, 401);
+  }
   try {
     const key = Deno.env.get("OPENROUTER_API_KEY");
     if (!key) return json({ error: "OPENROUTER_API_KEY belum di-set di environment." }, 500);
