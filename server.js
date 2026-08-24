@@ -198,6 +198,19 @@ app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webho
 // Railway = reverse proxy 1 hop -> req.ip benar (pakai X-Forwarded-For dari proxy tepercaya).
 app.set("trust proxy", 1);
 
+// ---------- Ekosistem sub-domain: klasifikasi host (FASE 1B foundation, DORMAN) ----------
+// Satu app melayani my.20fit.id + (nanti) calories./menu./medicalcheckup. Middleware ini HANYA
+// menandai req.ecoApp dari Host header. Host tak dikenal -> 'my' (perilaku lama TIDAK berubah).
+// Belum ada routing/halaman yang bercabang di sini — aktif saat DNS sub-domain diarahkan & halaman dibangun.
+function ecoAppOf(req) {
+  const host = String(req.headers.host || "").toLowerCase().split(":")[0];
+  if (host.startsWith("calories")) return "calories";
+  if (host.startsWith("menu")) return "menu";
+  if (host.startsWith("medicalcheckup")) return "medicalcheckup";
+  return "my";
+}
+app.use((req, res, next) => { req.ecoApp = ecoAppOf(req); next(); });
+
 // ADMIN CMS tersedia di produksi maupun staging. Akses tetap dijaga di server:
 // halaman admin butuh login + baris di my20fit_admin_roles, dan semua /api/admin/*
 // lewat requireAdmin (JWT admin atau master ADMIN_KEY). Portal korporat juga produksi.
@@ -1005,6 +1018,19 @@ app.use([
   "/api/fitco-verify-email", "/api/fitco-resend-verify-email",
 ], authLimiter);
 
+// Limiter AI generatif (translate) — panggilan berbiaya ke OpenRouter. Cegah dipakai sebagai
+// layanan terjemahan umum. Per-IP (pola sama seperti limiter lain; auth user diverifikasi di route).
+const aiLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, max: 20,
+  standardHeaders: true, legacyHeaders: false, message: limitMsg,
+});
+app.use("/api/translate", aiLimiter);
+// Limiter scan publik anonim — AI berbiaya. Lebih ketat dari apiLimiter (yang tetap berlaku juga).
+const pubScanLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, max: 15,
+  standardHeaders: true, legacyHeaders: false, message: limitMsg,
+});
+
 // Jaring pengaman proses: JANGAN biarkan promise-rejection / exception tak tertangani meng-crash
 // server (dulu bisa bikin request in-flight kena 502 platform tanpa jejak). Log saja, proses hidup.
 process.on("unhandledRejection", (reason) => {
@@ -1027,6 +1053,51 @@ function sha256(s) {
 
 function gen6() {
   return String(crypto.randomInt(100000, 1000000));
+}
+
+// ---------- Ekosistem sub-domain: identitas anonim + guard SSO (FASE 1B foundation) ----------
+// Kuota scan anonim TIDAK di localStorage (gampang dihapus) — dicatat di server per anon_id.
+const ANON_COOKIE = "eco_anon";
+const ANON_SCAN_LIMIT = 5;            // 5 scan TOTAL utk pengunjung anonim (bukan harian; tak ada reset).
+const ANON_SCAN_TTL_DAYS = 7;         // hasil scan anonim disimpan sementara, dihapus cron.
+const ANON_SALT = process.env.ANON_ID_SALT || SUPABASE_SERVICE_KEY || "20fit"; // garam hash IP (jangan simpan IP mentah).
+function readCookie(req, name) {
+  const raw = String(req.headers.cookie || "");
+  const parts = raw.split(";");
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i].trim(); const eq = p.indexOf("=");
+    if (eq > 0 && p.slice(0, eq) === name) { try { return decodeURIComponent(p.slice(eq + 1)); } catch (e) { return p.slice(eq + 1); } }
+  }
+  return null;
+}
+// Ambil / buat sesi anonim (cookie httpOnly). createIfMissing=false -> jangan buat baru (read-only).
+async function getAnonSession(req, res, createIfMissing) {
+  if (!admin) return null;
+  const existing = readCookie(req, ANON_COOKIE);
+  if (existing) {
+    const { data } = await admin.from("my20fit_anonymous_sessions").select("*").eq("anon_id", existing).limit(1);
+    if (data && data[0]) return data[0];
+  }
+  if (!createIfMissing) return null;
+  const anonId = crypto.randomUUID();
+  const row = {
+    anon_id: anonId,
+    ip_hash: sha256((req.ip || "") + "|" + ANON_SALT).slice(0, 64),
+    ua_hash: sha256(String(req.headers["user-agent"] || "") + "|" + ANON_SALT).slice(0, 32),
+    scan_count: 0,
+  };
+  const { data: ins } = await admin.from("my20fit_anonymous_sessions").insert(row).select("*").limit(1);
+  res.cookie(ANON_COOKIE, anonId, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 30 * 24 * 3600 * 1000 });
+  return (ins && ins[0]) || row;
+}
+// return_to WAJIB *.20fit.id (anti open-redirect). Selain https + domain 20fit -> null (jangan dipakai).
+function safeReturnTo(url) {
+  try {
+    const u = new URL(String(url || ""));
+    if (u.protocol !== "https:") return null;
+    const h = u.hostname.toLowerCase();
+    return (h === "20fit.id" || h.endsWith(".20fit.id")) ? u.toString() : null;
+  } catch (e) { return null; }
 }
 
 // Ambil user dari Authorization: Bearer <jwt>
@@ -5726,6 +5797,7 @@ app.post("/api/translate", async (req, res) => {
     if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
     const body = req.body || {};
     if (!body.data || !body.lang) return res.status(400).json({ error: "Data tidak lengkap." });
+    if (JSON.stringify(body.data).length > 12000) return res.status(413).json({ error: "Teks terlalu panjang untuk diterjemahkan." });
     let ai;
     try {
       ai = await callAiEdge({ action: "translate", lang: body.lang, data: body.data });
@@ -5741,6 +5813,80 @@ app.post("/api/translate", async (req, res) => {
     console.error("api/translate:", e && e.message);
     return res.status(500).json({ error: "Gagal memproses. Coba lagi." });
   }
+});
+
+// ============ EKOSISTEM SUB-DOMAIN PUBLIK — endpoint anonim (FASE 1B foundation) ============
+// Dipakai halaman publik calories.20fit.id (DIBANGUN NANTI). Member yang login TIDAK lewat sini —
+// halaman publik mengarahkan member ke /api/scan/ai (kuota member existing 10/bln TAK berubah).
+// Gating: 5 scan TOTAL (bukan harian, tanpa reset). Hasil scan segar PENUH (tak diblur).
+// Yang DIKUNCI = RIWAYAT: nilai gizi item riwayat TIDAK dikirim ke browser.
+app.post("/api/pub/scan", pubScanLimiter, async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ error: "Layanan belum siap." });
+    const body = req.body || {};
+    if (body.action !== "food") return res.status(400).json({ error: "action tidak didukung." });
+    if (!body.image && !body.text) return res.status(400).json({ error: "Foto atau teks makanan wajib." });
+    const sess = await getAnonSession(req, res, true);
+    if (!sess) return res.status(503).json({ error: "Layanan belum siap." });
+    if ((sess.scan_count || 0) >= ANON_SCAN_LIMIT) {
+      return res.status(402).json({ ok: false, code: "anon_limit", requires_account: true, used: sess.scan_count || 0, limit: ANON_SCAN_LIMIT });
+    }
+    let ai;
+    try {
+      ai = await callAiEdge({ action: "food", image: body.image, text: body.text, lang: body.lang, reference: await buildFoodReference(40) });
+      if (!ai.httpOk || !ai.json || !ai.json.result) throw new Error((ai.json && ai.json.error) || "gagal");
+    } catch (e) {
+      if (e && e.name === "AbortError") return res.status(504).json({ error: "Analisa memakan waktu lebih lama. Coba lagi ya." });
+      return res.status(502).json({ error: "Gagal menghubungi mesin AI. Coba lagi." });
+    }
+    try { await refineWithFoodRef(ai.json.result); } catch (e) {}
+    const detected = ai.json.result && Array.isArray(ai.json.result.items) && ai.json.result.items.length > 0;
+    let used = sess.scan_count || 0;
+    if (detected) {
+      used = used + 1;
+      try { await admin.from("my20fit_anonymous_scans").insert({ anon_id: sess.anon_id, result: ai.json.result }); } catch (e) {}
+      try { await admin.from("my20fit_anonymous_sessions").update({ scan_count: used, last_seen_at: new Date().toISOString() }).eq("anon_id", sess.anon_id); } catch (e) {}
+    }
+    // Hasil segar tetap PENUH (tak diblur). Kunci hanya di riwayat.
+    return res.json({ ok: true, result: ai.json.result, consumed: detected, used: used, limit: ANON_SCAN_LIMIT, remaining: Math.max(0, ANON_SCAN_LIMIT - used) });
+  } catch (e) { console.error("pub/scan:", e && e.message); return res.status(500).json({ error: "Gagal memproses scan." }); }
+});
+
+// GET /api/pub/scan/history — riwayat anonim: nama + waktu SAJA. Nilai gizi DIKUNCI di server.
+app.get("/api/pub/scan/history", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, items: [], used: 0, limit: ANON_SCAN_LIMIT });
+    const sess = await getAnonSession(req, res, false);
+    if (!sess) return res.json({ ok: true, items: [], used: 0, limit: ANON_SCAN_LIMIT, requires_account: false });
+    const { data } = await admin.from("my20fit_anonymous_scans")
+      .select("id,result,created_at").eq("anon_id", sess.anon_id)
+      .order("created_at", { ascending: false }).limit(50);
+    const items = (data || []).map(function (r) {
+      const rr = r.result || {};
+      const names = Array.isArray(rr.items) ? rr.items.map(function (it) { return it && it.name; }).filter(Boolean) : [];
+      // SENGAJA tanpa kcal/protein/carbs/fat -> nilai gizi riwayat tak dikirim ke browser (locked).
+      return { id: r.id, name: names.join(", ") || "Scan", created_at: r.created_at, locked: true, requires_account: true };
+    });
+    return res.json({ ok: true, items: items, used: sess.scan_count || 0, limit: ANON_SCAN_LIMIT, requires_account: items.length > 0 });
+  } catch (e) { console.error("pub/history:", e && e.message); return res.status(500).json({ error: "Gagal memuat riwayat." }); }
+});
+
+// GET /api/pub/quota — status kuota scan anonim.
+app.get("/api/pub/quota", async (req, res) => {
+  try {
+    const sess = await getAnonSession(req, res, false);
+    const used = sess ? (sess.scan_count || 0) : 0;
+    return res.json({ ok: true, used: used, limit: ANON_SCAN_LIMIT, remaining: Math.max(0, ANON_SCAN_LIMIT - used) });
+  } catch (e) { return res.json({ ok: true, used: 0, limit: ANON_SCAN_LIMIT, remaining: ANON_SCAN_LIMIT }); }
+});
+
+// Cron: hapus data scan anonim kadaluarsa (>7 hari) + sesi anonim mati. Lindungi CRON_SECRET.
+app.post("/api/cron/purge-anon", async (req, res) => {
+  const key = req.query.key || req.headers["x-cron-secret"] || "";
+  if (!CRON_SECRET || key !== CRON_SECRET) return res.status(401).json({ error: "unauthorized" });
+  if (!admin) return res.status(503).json({ error: "unavailable" });
+  try { await admin.rpc("my20fit_purge_anon", { p_days: ANON_SCAN_TTL_DAYS }); return res.json({ ok: true }); }
+  catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
 // POST /api/scan/food-correction — user membetulkan hasil scan (nama + gram + kalori/makro).
@@ -5805,20 +5951,14 @@ app.post("/api/scan/food-text", async (req, res) => {
           note: (lang === "en") ? "Calculated from 20FIT corrected data." : "Dihitung dari data koreksi 20FIT." } });
       }
     }
-    // 2) Belum di kamus -> panggil AI (edge fn). Tetap gratis (tak potong jatah).
+    // 2) Belum di kamus -> panggil AI via callAiEdge (secret + timeout terpusat). Tetap gratis.
     try {
-      const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 60000);
-      const r = await fetch(AI_FN_URL, {
-        method: "POST", signal: ctrl.signal,
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + SUPABASE_ANON_KEY, "apikey": SUPABASE_ANON_KEY },
-        body: JSON.stringify({ action: "food", text: name + ", " + grams + " gram", lang: lang }),
-      });
-      clearTimeout(to);
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok || !j || !j.result) throw new Error((j && j.error) || "Gagal menganalisa.");
-      return res.json({ ok: true, source: "ai", result: j.result });
+      const ai = await callAiEdge({ action: "food", text: name + ", " + grams + " gram", lang: lang }, 60000);
+      if (!ai.httpOk || !ai.json || !ai.json.result) throw new Error((ai.json && ai.json.error) || "Gagal menganalisa.");
+      return res.json({ ok: true, source: "ai", result: ai.json.result });
     } catch (e) {
-      return res.status(502).json({ error: (e && e.message) || "Gagal menghubungi mesin AI. Coba lagi." });
+      if (e && e.name === "AbortError") return res.status(504).json({ error: "Analisa memakan waktu lebih lama dari biasanya. Coba lagi ya." });
+      return res.status(502).json({ error: "Gagal menghubungi mesin AI. Coba lagi." });
     }
   } catch (e) { console.error("food-text:", e && e.message); return res.status(500).json({ error: "Gagal memproses." }); }
 });
@@ -6616,9 +6756,11 @@ app.get("*", (req, res) => {
 // Tanda tangan 4-argumen WAJIB — begitu Express mengenali ini sebagai error handler.
 app.use((err, req, res, next) => {
   const aborted = err && (err.name === "AbortError" || err.code === "ABORT_ERR");
+  const tooBig = err && (err.type === "entity.too.large" || err.status === 413 || err.statusCode === 413);
   try { console.error("unhandled", req.method, req.originalUrl, "-", (err && err.stack) || err); } catch (e) {}
   if (res.headersSent) return next(err);
   if (!req.path.startsWith("/api/")) return res.status(500).send("Internal Server Error");
+  if (tooBig) return res.status(413).json({ error: "File terlalu besar (maks 8MB). Coba file yang lebih kecil atau kompres dulu." });
   return res.status(aborted ? 504 : 500).json({
     error: aborted
       ? "Server terlalu lama merespons. Coba lagi sebentar lagi."
