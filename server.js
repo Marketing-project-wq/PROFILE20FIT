@@ -215,6 +215,23 @@ app.use((req, res, next) => { req.ecoApp = ecoAppOf(req); next(); });
 // halaman admin butuh login + baris di my20fit_admin_roles, dan semua /api/admin/*
 // lewat requireAdmin (JWT admin atau master ADMIN_KEY). Portal korporat juga produksi.
 
+// Penjaga sisi-DB (pelengkap CI): alarm kalau view my20fit_doctors_public memuat
+// admin_user_id atau hilang. Panggil berkala (scheduler) dgn ?key=CRON_SECRET.
+app.get("/api/cron/guard-doctors-view", async (req, res) => {
+  const secret = req.get("x-cron-secret") || (req.query && req.query.key) || "";
+  if (!CRON_SECRET || secret !== CRON_SECRET) return res.status(401).json({ error: "unauthorized" });
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const { data, error } = await admin.rpc("my20fit_check_doctors_view");
+    if (error) throw error;
+    if (data === true) {
+      try { console.error("[SECURITY] my20fit_doctors_public memuat admin_user_id atau hilang — cek view!"); } catch (_) {}
+      return res.status(500).json({ ok: false, alert: "doctors_view_exposes_admin_user_id_or_missing" });
+    }
+    return res.json({ ok: true, clean: true });
+  } catch (e) { return res.status(500).json({ ok: false, error: (e && e.message) || "check failed" }); }
+});
+
 app.post("/api/cron/fasting-notify", async (req, res) => {
   const secret = req.get("x-cron-secret") || (req.query && req.query.key) || "";
   if (!CRON_SECRET || secret !== CRON_SECRET) return res.status(401).json({ error: "unauthorized" });
