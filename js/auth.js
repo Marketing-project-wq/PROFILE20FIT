@@ -233,6 +233,27 @@
     location.href = PHOTO_ORIGIN + "/login"; // fallback terakhir: login manual di photo
   }
 
+  // ---------- SSO KELUAR: buka calories.20fit.id tanpa login ulang ----------
+  // Pola SAMA dgn photoSso: oper access_token+refresh_token sesi browser ini via URL fragment.
+  // App calories (Supabase setSession dari location.hash) men-seat sesi. Parity dgn login native
+  // (magic-link/OAuth implicit juga mendaratkan #access_token di fragment) — bukan paparan baru.
+  // Panggil ini dari my.20fit saat mengarahkan user ke scanner kalori subdomain.
+  const CALORIES_ORIGIN = "https://calories.20fit.id";
+  async function caloriesSso() {
+    await ready;
+    let s = null;
+    try { const { data } = await supabase.auth.getSession(); s = data && data.session; } catch (e) {}
+    if (s && s.access_token && s.refresh_token) {
+      const exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
+      const frag = "#access_token=" + encodeURIComponent(s.access_token) +
+        "&refresh_token=" + encodeURIComponent(s.refresh_token) +
+        "&expires_in=" + exp + "&token_type=bearer&type=magiclink";
+      location.href = CALORIES_ORIGIN + "/" + frag;
+      return;
+    }
+    location.href = CALORIES_ORIGIN + "/"; // belum ada sesi -> app calories yang arahkan ke login
+  }
+
   // ---------- VERIFIKASI OTP AKUN 20FIT (wajib pasca-registrasi baru) ----------
   // OTP ini BEDA dari OTP Supabase kita (sendOtp/verifyOtp di bawah) — ini kode
   // yang dikirim 20FIT sendiri untuk memverifikasi akun di ekosistem mereka.
@@ -589,6 +610,7 @@
     fitcoRegister,
     tokenLogin,
     photoSso,
+    caloriesSso,
     fitcoVerifyEmail,
     fitcoResendVerifyEmail,
     hasWebPassword,
