@@ -3054,8 +3054,8 @@ app.post("/api/admin/upload-photo", async (req, res) => {
   try {
     const b = req.body || {};
     const dataUrl = String(b.data_url || "");
-    const m = dataUrl.match(/^data:(image\/(png|jpe?g|webp|gif));base64,([A-Za-z0-9+/=]+)$/);
-    if (!m) return res.status(400).json({ error: "Format gambar tidak didukung (png/jpg/webp/gif)." });
+    const m = dataUrl.match(/^data:(image\/(png|jpe?g|webp));base64,([A-Za-z0-9+/=]+)$/);
+    if (!m) return res.status(400).json({ error: "Format gambar tidak didukung (png/jpg/webp)." });
     const contentType = m[1];
     const ext = (m[2] === "jpeg") ? "jpg" : m[2];
     const buf = Buffer.from(m[3], "base64");
@@ -3068,6 +3068,38 @@ app.post("/api/admin/upload-photo", async (req, res) => {
     await adminAudit(ctx, "photo.upload", name, { bytes: buf.length });
     return res.json({ ok: true, url: (pub && pub.publicUrl) || null, path: name });
   } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal unggah foto." }); }
+});
+
+// ---------- CMS: nyala/mati kotak grid home (my20fit_home_tiles) + jumlah data per kotak ----------
+app.get("/api/admin/home-tiles", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data: tiles, error } = await admin.from("my20fit_home_tiles").select("key,hidden,sort_order").order("sort_order", { ascending: true });
+    if (error) throw error;
+    // Jumlah data per kotak berbasis-data -> supaya tak menyalakan kotak kosong.
+    const counts = {};
+    async function cnt(key, table, col) {
+      try { const { count } = await admin.from(table).select("id", { count: "exact", head: true }).eq(col, true); counts[key] = count || 0; } catch (_) { counts[key] = null; }
+    }
+    await cnt("book-coach", "my20fit_coaches", "is_active");
+    await cnt("book-doctor", "my20fit_doctors", "is_active");
+    await cnt("rewards", "my20fit_reward_offers", "active");
+    return res.json({ ok: true, tiles: (tiles || []).map(t => ({ key: t.key, hidden: !!t.hidden, sort_order: t.sort_order, count: (t.key in counts) ? counts[t.key] : null })) });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/home-tiles/toggle", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const key = String(b.key || "").trim();
+  const hidden = (b.hidden === true || b.hidden === "true");
+  if (!key) return res.status(400).json({ error: "key wajib." });
+  try {
+    const { data, error } = await admin.from("my20fit_home_tiles").update({ hidden }).eq("key", key).select("key").limit(1);
+    if (error) throw error;
+    if (!data || !data.length) return res.status(404).json({ error: "Kotak tak ditemukan: " + key });
+    await adminAudit(ctx, "home_tiles.toggle", key, { hidden });
+    return res.json({ ok: true, key, hidden });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
 // Layanan dokter (requires_doctor=true) untuk Book Doctor (request).

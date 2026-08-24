@@ -43,6 +43,7 @@
       <button class="adm-navitem" data-nav="events"><span data-i18n="Events">Event</span></button>
       <button class="adm-navitem" data-nav="rewards"><span data-i18n="Rewards">Rewards</span></button>
       <button class="adm-navitem" data-nav="coaches"><span data-i18n="Coaches">Coach</span></button>
+      <button class="adm-navitem" data-nav="hometiles"><span data-i18n="Home grid">Grid Home</span></button>
 
       <div class="adm-navgroup" data-i18n="System">Sistem</div>
       <button class="adm-navitem" data-nav="reports"><span data-i18n="Reports">Laporan</span></button>
@@ -704,6 +705,10 @@
           </div>
         </div>
         <div id="dcList" style="margin-top:14px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+      </section>
+      <section data-section="hometiles" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Grid Home" data-title-en="Home grid" data-question="Nyalakan/matikan kotak menu di homepage. Jumlah data ditampilkan supaya tak menyalakan kotak kosong." data-question-en="Turn homepage menu tiles on/off. Data counts shown so you don't enable an empty tile.">
+        <div class="adm-note" data-i18n="Toggle each homepage tile. A tile backed by data shows its active count — don't switch one on while it reads 0.">Nyalakan/matikan tiap kotak homepage. Kotak berbasis data menampilkan jumlah aktifnya — jangan nyalakan kalau masih 0.</div>
+        <div id="htList" style="margin-top:14px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
       </section>
       <section data-section="reports" hidden data-kicker="SISTEM" data-kicker-en="SYSTEM" data-title="Laporan" data-title-en="Reports" data-question="Revenue bulanan, funnel, retensi kohort, dan produk terlaris — bisa diekspor." data-question-en="Monthly revenue, funnel, cohort retention, and top products — exportable.">
         <div id="rpBody"><div class="adm-loading" style="margin-top:16px" data-i18n="Loading…">Memuat…</div></div>
@@ -1432,9 +1437,9 @@
 
   // ---- ROLE-BASED NAV (Langkah 6) ----
   var ALLOWED={ superadmin:null, viewer:null,
-    marketing:["overview","users","voucher","marketing","reports","settings","traffic","menustats","coaches"],
+    marketing:["overview","users","voucher","marketing","reports","settings","traffic","menustats","coaches","hometiles"],
     finance:["revenue","voucher","corporate","reports"],
-    staff:["users","scan","menu","menustats","coaches"] };
+    staff:["users","scan","menu","menustats","coaches","hometiles"] };
   function roleDesc(role){
     var m={ superadmin:["Full access.","Akses penuh."], viewer:["Read only.","Baca saja."],
       marketing:["Voucher, campaign, segments, reports. No price/credit edits or health data.","Voucher, campaign, segmen, laporan. Tanpa ubah harga/kredit & data kesehatan."],
@@ -2398,6 +2403,32 @@
     finally{ input.value=""; }
   };
 
+  // ---- HOME GRID TILES (section hometiles) — nyala/mati kotak + jumlah data per kotak ----
+  var HT_LABELS={ medical:"Medical", membership:"Membership", diet:"Diet", "book-class":"Book Class", "book-doctor":"Book Doctor", "book-coach":"Book Coach", "book-recovery":"Book Recovery", rewards:"Rewards", news:"News" };
+  async function loadHomeTiles(){
+    var box=document.getElementById("htList"); if(!box) return;
+    box.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
+    try{
+      var res=await adminFetch("/api/admin/home-tiles");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ box.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; return; }
+      var tiles=j.tiles||[];
+      if(!tiles.length){ box.innerHTML='<div class="adm-note">'+L("No tiles.","Tak ada kotak.")+'</div>'; return; }
+      box.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Tile","Kotak")+'</th><th>'+L("Active data","Data aktif")+'</th><th>'+L("Status","Status")+'</th><th></th></tr></thead><tbody>'+
+        tiles.map(function(t){
+          var label=HT_LABELS[t.key]||t.key;
+          var cnt=(t.count==null)?'<span class="adm-note" style="margin:0">—</span>':((t.count===0)?('<span class="adm-tag adm-tag--pending">0</span>'):('<span class="adm-tag adm-tag--paid">'+t.count+'</span>'));
+          var on=!t.hidden;
+          var statusTag=on?'<span class="adm-tag adm-tag--paid">'+L("ON","NYALA")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("OFF","MATI")+'</span>';
+          var btn='<button class="adm-btn adm-btn--sm htToggle" data-key="'+evEsc(t.key)+'" data-on="'+(on?'1':'0')+'">'+(on?L("Turn off","Matikan"):L("Turn on","Nyalakan"))+'</button>';
+          return '<tr><td>'+evEsc(label)+' <span class="adm-mono" style="opacity:.55">'+evEsc(t.key)+'</span></td><td>'+cnt+'</td><td>'+statusTag+'</td><td class="adm-right">'+btn+'</td></tr>';
+        }).join("")+'</tbody></table>';
+    }catch(e){ box.innerHTML='<div class="adm-note">'+L("Error loading tiles.","Error memuat kotak.")+'</div>'; }
+  }
+  window.htToggle=async function(key, currentlyOn){
+    try{ var res=await adminPost("/api/admin/home-tiles/toggle", { key:key, hidden: currentlyOn }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadHomeTiles(); }catch(e){}
+  };
+
   function loadSection(id){
     if(id==="overview") return loadOverview();
     if(id==="revenue") return loadRevenue();
@@ -2411,6 +2442,7 @@
     if(id==="events") return loadEvents();
     if(id==="rewards") return loadRewards();
     if(id==="coaches") return loadCoaches();
+    if(id==="hometiles") return loadHomeTiles();
     if(id==="traffic") return loadTraffic();
     if(id==="menustats") return loadMenuStats();
     if(id==="reports") return loadReports();
@@ -2446,6 +2478,8 @@
     if(ivm){ window.ivMap(ivm); return; }
     var dca=e.target.closest(".dcAct");
     if(dca){ var dcaA=dca.dataset.a,dcaId=dca.dataset.id; if(dcaA==="edit")window.dcEdit(dcaId); else if(dcaA==="delete")window.dcDelete(dcaId); return; }
+    var htt=e.target.closest(".htToggle");
+    if(htt){ window.htToggle(htt.dataset.key, htt.dataset.on==="1"); return; }
     var mnrow=e.target.closest("#mnRows tr[data-mid]");
     if(mnrow){ var mm=MN_CACHE.filter(function(x){return x.id===mnrow.dataset.mid;})[0]; if(mm){ document.querySelectorAll("#mnRows tr").forEach(function(x){x.style.background="";}); mnrow.style.background="var(--surface)"; mnRenderDetail(mm); } return; }
     var mnf=e.target.closest(".mnf");
