@@ -211,6 +211,24 @@ function ecoAppOf(req) {
 }
 app.use((req, res, next) => { req.ecoApp = ecoAppOf(req); next(); });
 
+// CORS first-party: izinkan subdomain 20FIT lain (mis. calories.20fit.id) memanggil /api
+// lintas-origin dgn Bearer token. Hanya origin *.20fit.id / 20fit.id yang di-echo (bukan '*').
+// Auth pakai Bearer (bukan cookie) -> tak set Allow-Credentials. Request tanpa Origin
+// (same-origin / server-to-server) lewat tanpa perubahan.
+const CORS_ALLOW_20FIT = /^https:\/\/([a-z0-9-]+\.)*20fit\.id$/i;
+app.use("/api", (req, res, next) => {
+  const origin = req.get("origin") || "";
+  if (origin && CORS_ALLOW_20FIT.test(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-key, x-cron-secret");
+    res.setHeader("Access-Control-Max-Age", "600");
+  }
+  if (req.method === "OPTIONS") return res.status(204).end();
+  next();
+});
+
 // ADMIN CMS tersedia di produksi maupun staging. Akses tetap dijaga di server:
 // halaman admin butuh login + baris di my20fit_admin_roles, dan semua /api/admin/*
 // lewat requireAdmin (JWT admin atau master ADMIN_KEY). Portal korporat juga produksi.
@@ -5648,6 +5666,20 @@ function shapeQuotaServer(q) {
   const freeLeft = Math.max(0, freeLimit - used);
   return { used: used, freeLimit: freeLimit, freeLeft: freeLeft, credits: credits, remaining: freeLeft + credits, period: (q && q.period) || null };
 }
+// GET /api/scan/quota — baca saldo/kuota TANPA memotong (utk tampilan, mis. calories.20fit.id).
+// Read-only via RPC my20fit_scan_quota. Balikan { ok, quota }.
+app.get("/api/scan/quota", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data, error } = await admin.rpc("my20fit_scan_quota", { p_uid: user.id });
+    if (error) throw error;
+    // Profil belum ada -> default (0 used, 10 free, 0 credits).
+    return res.json({ ok: true, quota: shapeQuotaServer((data && data.ok) ? data : {}) });
+  } catch (e) { console.error("scan/quota:", e.message); return res.status(500).json({ error: e.message }); }
+});
+
 // POST /api/scan/consume — kurangi 1 scan (gratis dulu 10/bln, lalu kredit berbayar)
 // lewat RPC atomik my20fit_consume_scan. Saldo TIDAK lagi ditulis dari client.
 // 402 + code=scan_limit kalau kuota habis. Balikan { ok, quota }.
