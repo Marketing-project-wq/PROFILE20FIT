@@ -3047,6 +3047,28 @@ app.delete("/api/admin/doctors/:id", async (req, res) => {
     return res.json({ ok: true });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
+// Unggah foto coach/dokter -> Supabase Storage bucket 'coach-photos' (public), balik URL publik.
+// Simpan di Storage (bukan tempel URL eksternal). Terima data URL base64 (limit body 8mb).
+app.post("/api/admin/upload-photo", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const dataUrl = String(b.data_url || "");
+    const m = dataUrl.match(/^data:(image\/(png|jpe?g|webp|gif));base64,([A-Za-z0-9+/=]+)$/);
+    if (!m) return res.status(400).json({ error: "Format gambar tidak didukung (png/jpg/webp/gif)." });
+    const contentType = m[1];
+    const ext = (m[2] === "jpeg") ? "jpg" : m[2];
+    const buf = Buffer.from(m[3], "base64");
+    if (buf.length > 5 * 1024 * 1024) return res.status(413).json({ error: "Ukuran gambar maksimal 5MB." });
+    const folder = (String(b.kind || "coach") === "doctor") ? "doctors" : "coaches";
+    const name = folder + "/" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6).toString(36) + "." + ext;
+    const { error } = await admin.storage.from("coach-photos").upload(name, buf, { contentType, upsert: false });
+    if (error) throw error;
+    const { data: pub } = admin.storage.from("coach-photos").getPublicUrl(name);
+    await adminAudit(ctx, "photo.upload", name, { bytes: buf.length });
+    return res.json({ ok: true, url: (pub && pub.publicUrl) || null, path: name });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal unggah foto." }); }
+});
 
 // Layanan dokter (requires_doctor=true) untuk Book Doctor (request).
 app.get("/api/clinic/doctor-services", async (req, res) => {

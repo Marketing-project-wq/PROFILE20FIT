@@ -661,7 +661,12 @@
             <option value="gym" data-i18n="gym">gym</option>
           </select>
           <input class="adm-input" id="co_speciality" placeholder="Keahlian (opsional)" data-i18n-ph="Speciality (optional)">
-          <input class="adm-input" id="co_photo" placeholder="URL foto (opsional)" data-i18n-ph="Photo URL (optional)">
+          <input class="adm-input" id="co_photo" placeholder="URL foto (otomatis dari upload)" data-i18n-ph="Photo URL (auto from upload)">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <input type="file" id="co_photo_file" accept="image/png,image/jpeg,image/webp" style="font-size:12px" onchange="admPhotoPick(this,'coach')">
+            <img id="co_photo_prev" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;display:none;border:1px solid var(--border,#ddd)">
+            <span class="adm-note" id="co_photo_msg" style="margin:0"></span>
+          </div>
           <textarea class="adm-input" id="co_bio" placeholder="Bio (opsional)" data-i18n-ph="Bio (optional)" style="grid-column:1/-1;min-height:52px"></textarea>
           <input class="adm-input" id="co_sort" type="number" placeholder="Urutan (0)" data-i18n-ph="Sort order (0)">
           <label class="adm-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="co_active" checked> <span data-i18n="Active (visible)">Aktif (tampil)</span></label>
@@ -683,7 +688,12 @@
           <input type="hidden" id="dc_id">
           <input class="adm-input" id="dc_name" placeholder="Nama tampilan *" data-i18n-ph="Display name *">
           <input class="adm-input" id="dc_speciality" placeholder="Keahlian (opsional)" data-i18n-ph="Speciality (optional)">
-          <input class="adm-input" id="dc_photo" placeholder="URL foto (opsional)" data-i18n-ph="Photo URL (optional)" style="grid-column:1/-1">
+          <input class="adm-input" id="dc_photo" placeholder="URL foto (otomatis dari upload)" data-i18n-ph="Photo URL (auto from upload)" style="grid-column:1/-1">
+          <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <input type="file" id="dc_photo_file" accept="image/png,image/jpeg,image/webp" style="font-size:12px" onchange="admPhotoPick(this,'doctor')">
+            <img id="dc_photo_prev" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;display:none;border:1px solid var(--border,#ddd)">
+            <span class="adm-note" id="dc_photo_msg" style="margin:0"></span>
+          </div>
           <textarea class="adm-input" id="dc_bio" placeholder="Bio (opsional)" data-i18n-ph="Bio (optional)" style="grid-column:1/-1;min-height:52px"></textarea>
           <input class="adm-input" id="dc_sort" type="number" placeholder="Urutan (0)" data-i18n-ph="Sort order (0)">
           <label class="adm-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="dc_active" checked> <span data-i18n="Active (visible)">Aktif (tampil)</span></label>
@@ -2294,6 +2304,7 @@
     document.getElementById("co_id").value=c.id||""; document.getElementById("co_name").value=c.display_name||"";
     document.getElementById("co_venue").value=c.venue||"both"; document.getElementById("co_speciality").value=c.speciality||"";
     document.getElementById("co_photo").value=c.photo_url||""; document.getElementById("co_bio").value=c.bio||"";
+    var cpp=document.getElementById("co_photo_prev"); if(cpp){ if(c.photo_url){cpp.src=c.photo_url;cpp.style.display="inline-block";}else{cpp.style.display="none";} } var cpm=document.getElementById("co_photo_msg"); if(cpm)cpm.textContent="";
     document.getElementById("co_sort").value=(c.sort_order!=null?c.sort_order:""); document.getElementById("co_active").checked=(c.is_active!==false);
     var cb=document.getElementById("coCancelBtn"); if(cb)cb.hidden=false;
     try{ document.getElementById("co_name").scrollIntoView({block:"center"}); }catch(_){}
@@ -2301,6 +2312,7 @@
   window.coCancel=function(){
     ["co_id","co_name","co_speciality","co_photo","co_bio","co_sort"].forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
     var v=document.getElementById("co_venue"); if(v)v.value="both"; var a=document.getElementById("co_active"); if(a)a.checked=true;
+    var cpp=document.getElementById("co_photo_prev"); if(cpp)cpp.style.display="none"; var cpm=document.getElementById("co_photo_msg"); if(cpm)cpm.textContent="";
     var cb=document.getElementById("coCancelBtn"); if(cb)cb.hidden=true; var m=document.getElementById("coMsg"); if(m)m.textContent="";
   };
   window.coDelete=async function(id){
@@ -2351,6 +2363,7 @@
     document.getElementById("dc_id").value=d.id||""; document.getElementById("dc_name").value=d.display_name||"";
     document.getElementById("dc_speciality").value=d.speciality||""; document.getElementById("dc_photo").value=d.photo_url||"";
     document.getElementById("dc_bio").value=d.bio||""; document.getElementById("dc_sort").value=(d.sort_order!=null?d.sort_order:"");
+    var dpp=document.getElementById("dc_photo_prev"); if(dpp){ if(d.photo_url){dpp.src=d.photo_url;dpp.style.display="inline-block";}else{dpp.style.display="none";} } var dpm=document.getElementById("dc_photo_msg"); if(dpm)dpm.textContent="";
     document.getElementById("dc_active").checked=(d.is_active!==false);
     var cb=document.getElementById("dcCancelBtn"); if(cb)cb.hidden=false;
     try{ document.getElementById("dc_name").scrollIntoView({block:"center"}); }catch(_){}
@@ -2358,11 +2371,31 @@
   window.dcCancel=function(){
     ["dc_id","dc_name","dc_speciality","dc_photo","dc_bio","dc_sort"].forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
     var a=document.getElementById("dc_active"); if(a)a.checked=true;
+    var dpp=document.getElementById("dc_photo_prev"); if(dpp)dpp.style.display="none"; var dpm=document.getElementById("dc_photo_msg"); if(dpm)dpm.textContent="";
     var cb=document.getElementById("dcCancelBtn"); if(cb)cb.hidden=true; var m=document.getElementById("dcMsg"); if(m)m.textContent="";
   };
   window.dcDelete=async function(id){
     if(!window.confirm(L("Delete this doctor?","Hapus dokter ini?"))) return;
     try{ var qs=KEY?("?key="+encodeURIComponent(KEY)):""; var res=await fetch("/api/admin/doctors/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) coLoadDoctors(); }catch(e){}
+  };
+
+  // Unggah foto coach/dokter -> /api/admin/upload-photo (Supabase Storage), isi field URL + preview.
+  window.admPhotoPick = async function(input, kind){
+    var file = input && input.files && input.files[0]; if(!file) return;
+    var pre = (kind==="doctor") ? "dc" : "co";
+    var msg = document.getElementById(pre+"_photo_msg"), prev = document.getElementById(pre+"_photo_prev"), urlEl = document.getElementById(pre+"_photo");
+    if(file.size > 5*1024*1024){ if(msg) msg.textContent=L("Max 5MB.","Maks 5MB."); input.value=""; return; }
+    if(msg) msg.textContent=L("Uploading…","Mengunggah…");
+    try{
+      var dataUrl = await new Promise(function(resolve,reject){ var r=new FileReader(); r.onload=function(){resolve(r.result);}; r.onerror=reject; r.readAsDataURL(file); });
+      var res = await adminPost("/api/admin/upload-photo", { data_url: dataUrl, kind: kind });
+      var j = await res.json().catch(function(){return null;});
+      if(!res.ok || !j || !j.ok || !j.url){ if(msg) msg.textContent=L("Upload failed: ","Gagal unggah: ")+(await admErr(res,j)); return; }
+      if(urlEl) urlEl.value = j.url;
+      if(prev){ prev.src = j.url; prev.style.display="inline-block"; }
+      if(msg) msg.textContent=L("Uploaded ✓","Terunggah ✓");
+    }catch(e){ if(msg) msg.textContent=L("Upload error.","Error unggah."); }
+    finally{ input.value=""; }
   };
 
   function loadSection(id){
