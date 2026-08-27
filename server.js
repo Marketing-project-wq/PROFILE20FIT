@@ -224,6 +224,10 @@ app.use("/api", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-key, x-cron-secret");
     res.setHeader("Access-Control-Max-Age", "600");
+    // /api/pub/* uses httpOnly cookie for anon session tracking
+    if ((req.originalUrl || "").startsWith("/api/pub/")) {
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+    }
   }
   if (req.method === "OPTIONS") return res.status(204).end();
   next();
