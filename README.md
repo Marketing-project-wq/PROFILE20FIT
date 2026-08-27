@@ -1,576 +1,484 @@
-# Handoff: 20fit Health Profile Dashboard
+# Handoff: HRD Anonymous Health & Fatigue Dashboard (my.20fit × HRIS module)
 
 ## Overview
-A complete member health dashboard for 20FIT Sport Clinic Indonesia. Members can track their health, upload medical check-up documents, get personalised exercise + nutrition recommendations, track calories, menstrual cycle (female), sleep, water, breathing exercises, and book 20fit services.
 
-This is the **design spec and reference prototype** for implementing these screens inside the existing `my20fit` React + Vite + Supabase codebase at `artifacts/my20fit/`.
+An admin module for HR staff at a ~5,000-employee company. HR monitors the workforce's
+**health and fatigue** at an aggregate level and can export reports — but must **never** see
+individual employee identities. Data comes from four sources: connected wearables
+(Garmin/Fitbit/Apple/Samsung/Oura), the annual medical check-up (MCU), HRIS attendance
+and working-hours data, and the my.20fit training platform.
 
-## ⚠️ Workflow & Secrets (WAJIB dibaca sebelum commit)
-
-- **Alur git staging-first** — semua perubahan lewat branch kerja → `staging`;
-  merge ke `main` (production) hanya atas perintah eksplisit pemilik produk.
-  Lihat [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md).
-- **Token & API key tidak boleh di-commit** — simpan di GitHub Actions Secrets /
-  Railway Variables / `.env` lokal. Daftar nama secret dan status rotasi ada di
-  [`docs/GITHUB_SECRETS.md`](docs/GITHUB_SECRETS.md).
-- CI menjalankan secret scan (gitleaks) di setiap push/PR
-  (`.github/workflows/secret-scan.yml`).
+Three screens, one bilingual UI (Indonesian / English, switchable at runtime), fully responsive
+from ~390px phones to 1360px desktop.
 
 ## About the Design Files
-The files in this bundle (`20fit-login.html` and `20fit-dashboard.html`) are **high-fidelity HTML prototypes** — they show exact intended look, layout, interactions, and copy. They are **not production code**. The task is to **recreate these designs as React components** inside the existing codebase (`artifacts/my20fit/src/`), using the established patterns (Radix UI, Tailwind CSS v4, TanStack Query, wouter, Framer Motion, Recharts) and wiring to real Supabase data.
+
+`Dashboard HRD Kesehatan.dc.html` in this bundle is a **design reference created in HTML** —
+a working prototype that shows intended look, copy, and behaviour. It is **not production code
+to copy directly**. The task is to **recreate this design in the target codebase's existing
+environment** (React, Vue, Next.js, SwiftUI, native, etc.) using its established component
+library, styling approach, routing, and data layer. If no environment exists yet, choose the
+framework most appropriate for the product and implement the design there.
+
+The prototype's own runtime (a template + logic-class wrapper) is scaffolding — ignore it.
+What matters is the layout, the numbers' meaning, the interaction model, and the privacy rules.
 
 ## Fidelity
-**High-fidelity** — pixel-perfect mockups with final colors, typography, spacing, copy, and all interactions. Recreate exactly using the codebase's existing libraries. Design system tokens are in `src/index.css`.
+
+**High-fidelity.** Final colours, typography, spacing, copy (both languages), thresholds, and
+interaction states are all specified below and should be reproduced faithfully. The sample
+figures are realistic placeholders — replace them with real API data, keep the presentation.
 
 ---
 
-## Design Tokens
+## Core domain rules
 
-### Colors
-```
-Brand Red:      #C41101   (primary CTA, active nav, badges)
-Brand Gold:     #D4A800   (Plus member)
-Background:     #EDE8DF   (warm off-white)
-Card:           #FFFFFF
-Card2:          #F0EDE5   (secondary bg)
-Text:           #0A0908
-Text Soft:      #555555
-Muted:          #9E8E7A
-Border:         #E8E2DB
-Border Warm:    #DDD5C8
-Dark BG:        #0A0908   (dark cards/sidebar)
-Dark Card:      #131310
-Dark Text:      #F0EDE6
-```
+These are the rules the whole module hangs on. Enforce them **server-side**, not just in the UI.
 
-### Typography
-```
-Anton (400)          → Display/hero headings, large numbers
-Barlow Condensed (900) → Section labels (9px, 3px letter-spacing, uppercase)
-Inter (400/500/600/700) → Body, forms, paragraphs
-JetBrains Mono (400/700) → Data values, numbers, metrics
-```
+1. **No identities.** No names, employee IDs (NIK), photos, or per-person rows anywhere in this
+   module, at any zoom level, in any export.
+2. **Minimum group size 5.** Any department, work group, or report row covering fewer than
+   5 people is suppressed and shown as an explicit "hidden" placeholder (see below) — never
+   silently dropped, so HR can tell data exists but is protected.
+3. **One score polarity.** Every 0–100 score in the module is a **health score: higher is
+   healthier.** There is no fatigue-polarity number anywhere. 
+   Bands: **≥ 80 good (green) · 68–79 needs attention (amber) · < 68 poor (red)**.
+4. **Audit log.** Opening the module and every export are recorded with HR account, scope
+   (division), and timestamp. Surfaced in the footer and the export dialog.
+5. **Individual medical results** stay with the company clinic and the employee. HR sees only
+   percentages of participants outside the normal range.
 
-### Spacing / Radius
-```
-Card border-radius: 16px
-Button border-radius: 10-12px
-Badge border-radius: 20px (pill)
-Content max-width: 720px (desktop content column)
-Sidebar: 220px wide, fixed, dark bg #0A0908
-```
+### Health score derivation
 
-### Shadows
-```
-Card: 0 2px 12px rgba(10,9,8,0.06)
-Card hover: 0 4px 20px rgba(10,9,8,0.10)
-CTA button: 0 4px 14px rgba(196,17,1,0.25)
-```
+**Division health score** = mean of six MCU panel scores. Each panel score starts at 100 and
+falls with the share of participants whose findings are outside the normal range:
 
----
+| Panel | Formula (findings are % of participants) |
+|---|---|
+| Anthropometry | `100 − (overweight × 0.9 + obesity × 2.0)` |
+| Blood pressure | `100 − (highBP × 1.9 + lowBP × 1.1)` |
+| Lipid profile | `100 − cholesterol × 1.6` |
+| Blood glucose | `100 − glucose × 3.0` |
+| Blood count | `100 − anaemia × 2.0` |
+| Lifestyle | `100 − smokers × 1.1` |
 
-## Layout Pattern
-- **Desktop (≥1024px):** Fixed sidebar (220px, dark) + scrollable main content (max-w-[720px] mx-auto)
-- **Mobile (<1024px):** Sticky top header (52px) + fixed bottom nav (5 items) + content padding-bottom 120px
-- **Sidebar items:** Home, Medical Record & Plan, Progress, Calorie Tracker, Profile
-- **Bottom nav items:** Home, Medical, Progress, Calories, Profile
+Each panel clamps to 0–100 and rounds; the division score is the rounded mean of the six.
+Weights encode clinical severity (an obese share hurts more than an overweight share, a
+diabetic share more than a cholesterol share). Keep them configurable server-side.
 
----
+**Company fatigue/health index** (the 12-week trend and the KPI cards) is a separate per-employee
+0–100 score averaged upward, composed of:
 
-## Screens
+| Input | Weight | Source |
+|---|---|---|
+| Sleep duration (14-day average) | 30% | wearable |
+| Sleep schedule consistency (bedtime variance) | 15% | wearable |
+| Recovery — HRV & resting HR trend | 20% | wearable |
+| Overtime hours | 20% | HRIS attendance |
+| Night shift pattern | 10% | HRIS roster |
+| Daily physical activity (steps, active minutes) | 5% | wearable |
+
+The module previously included mental-health / wellness metrics (mood score, stress score,
+daily self-report). **These were deliberately removed.** Do not reintroduce them. Only physical
+and clinically measurable metrics appear.
 
 ---
 
-### 1. Login / Register (Login.dc.html → `src/pages/Login.tsx`)
+## Screens / Views
 
-**Desktop layout:** Split panel — left 45% dark (#0A0908) hero with logo + tagline, right 55% white form card.
-**Mobile:** Single centered card, logo top.
+Shared chrome on all three screens:
 
-#### Tabs: Sign In / Buat Akun
-Toggle between login and register. Active tab has red underline border.
+**Header** — white, `1px solid #E2E0D9` bottom border, `16px 20px 0` padding.
+Left: mono eyebrow `HRIS Nusantara · Modul Kesehatan & Kelelahan` (10.5px, `#8A9096`,
+letter-spacing 0.14em, uppercase) above `h1` "Analisis Kelelahan Karyawan" (21px/600, −0.01em).
+Right, in a wrapping row (gap 8px): an **ID / EN** segmented control (12px, active segment
+`#1F5C4D` on white, 6px radius, 1px `#E2E0D9` border, overflow hidden), a **period select**
+(30 hari / 90 hari / tahun berjalan, 13px, 7px 10px padding), and a primary **Export laporan**
+button (`#1F5C4D`, white text, 13px/500, 8px 14px, 6px radius).
 
-#### Sign In Form Fields:
-- Email (type=email, autocomplete=email)
-- Password (type=password, show/hide toggle)
-- "Forgot password?" link → `/reset-password`
-- CTA button: "Masuk" (red, full width)
-- Divider "atau"
-- Google OAuth button (outline, Google icon)
-- Magic Link button (outline, envelope icon) → `/magic-link`
+**Tabs** — 4px gap, horizontally scrollable, 13px/500, `10px 14px 12px` padding, active tab
+`#16191B` with a 2px `#1F5C4D` bottom border, inactive `#8A9096` and transparent border.
+Tabs: Ringkasan / Detail Departemen / Laporan (Overview / Department detail / Reports).
 
-#### Register Form Fields (in order):
-1. **Gender** — radio button cards: "Pria" / "Wanita" (selected = dark bg, red border)
-2. **Full Name** (text, autocomplete=name)
-3. **Email** (email, autocomplete=email)
-4. **Phone** — prefix "+62" box + number input
-5. **Date of Birth** (type=date, max=today)
-6. **Height** (number, min=100 max=250, suffix "cm")
-7. **Weight** (number, min=30 max=200, suffix "kg")
-8. **BMI Preview** — auto-calculates when height+weight filled:
-   - Formula: `weight / (height/100)²`
-   - < 18.5 → "Underweight" red
-   - 18.5–24.9 → "Normal Weight" green (#2A7A4F)
-   - 25–29.9 → "Overweight" orange (#C87000)
-   - ≥ 30 → "Obese" red
-   - Show colored card with BMI number, label, one-line description
-9. **Password** (min 8 chars)
-10. **Goals questionnaire** (after main form, separate step):
-    - "What is your main goal?" → cards: Lose Weight / Build Muscle / Get Healthier / Improve Fitness
-    - "Do you have any medical conditions we should know about?" → multi-select checkboxes + free text
-    - Save to `my20fit_profile` as `main_goal` and `health_conditions`
+**Privacy banner** — `#EFF3F0` background, `1px solid #DDE4DF` bottom border, `14px 20px`.
+An 18px circled "i" (1.5px `#1F5C4D` border) plus 12.5px `#37504A` text, line-height 1.5:
 
-#### On successful register:
-- Save profile data to `my20fit_profile` (Supabase): name, email, phone, gender, birthdate, height_cm, weight_kg, calculated BMI
-- Redirect to welcome/onboarding walkthrough → then dashboard
+> Mode anonim aktif. Nama, NIK, dan foto karyawan tidak ditampilkan di modul ini. Data hanya
+> dapat dilihat sebagai agregat departemen atau kelompok kerja dengan minimal 5 orang.
+> Kelompok di bawah 5 orang otomatis disembunyikan untuk mencegah identifikasi.
 
-#### State to save:
-```typescript
-// In my20fit_profile table:
-gender: 'male' | 'female' | 'other'
-birthdate: string (ISO date)
-height_cm: number
-weight_kg: number
-// Computed on frontend, not stored:
-bmi: number
-// In profile or separate field:
-main_goal: 'lose' | 'muscle' | 'health' | 'fit'
-health_conditions: string[] // multi-select
-```
+EN: "Anonymous mode is on. Employee names, ID numbers, and photos are not shown in this module.
+Data is available only as department or work-group aggregates with at least 5 people. Groups
+under 5 people are hidden automatically to prevent re-identification."
+
+**Footer** — `18px 20px 28px`, top border `#E2E0D9`, 11px `#A0A49F`, line-height 1.6:
+"Data diperbarui 6 Agustus 2026, 07:00 WIB. Akses modul ini tercatat dalam log audit. Modul
+kesehatan tunduk pada kebijakan privasi data karyawan No. 14/HR/2026."
+
+**Page frame** — content is centred, `max-width: 1360px`, background `#F2F1EC`, page background
+`#E8E7E1`, drop shadow `0 24px 60px -30px rgba(0,0,0,0.45)`. Everything below reflows by
+`flex-wrap` + `min-width: 0` and `repeat(auto-fit, minmax(...))` grids — there is no viewport
+toggle and no breakpoint-specific layout code.
 
 ---
 
-### 2. Onboarding Walkthrough (after first login)
-Full-screen overlay with steps explaining features:
-1. Welcome + name greeting
-2. Medical Check-Up upload
-3. Health Plan & Recommendations
-4. Daily Tracking (sleep, water, calories)
-5. Book 20fit Services
+### 1. Ringkasan (Overview)
 
-On complete → set `onboarding_completed: true` in profile.
+Purpose: HR's daily monitoring view. Five numbered bands, `20px` padding, `26px` gap.
 
----
+**Status strip** — a 4-cell grid (`minmax(150px, 1fr)`, 1px gaps over a `#E2E0D9` background so
+the gaps read as hairlines, 8px radius, overflow hidden). Each cell: white, `11px 14px`, a 10px
+uppercase mono label (`#A0A49F`, 0.1em) over a 12.5px value.
+Cells: Diperbarui `6 Agu 2026, 07:00 WIB` · Cakupan data `4.612 dari 5.000 karyawan` ·
+Peringatan aktif `3 departemen melewati ambang` (red `#C05B45`) · Grup disembunyikan
+`3 grup (< 5 orang)` (`#8A9096`).
 
-### 3. Home Dashboard (`src/pages/Dashboard.tsx`)
+**Band headers** (every band) — a row with a mono two-digit number (`11px`, `#A0A49F`), an `h2`
+(15px/600), and a 11.5px `#8A9096` subtitle, over a `1px solid #DEDCD4` bottom border with 8px
+padding-bottom.
 
-#### 3a. Greeting Card
-- "Selamat pagi/siang/sore/malam, [Name]!" (time-based)
-- Date + day in Barlow Condensed
-- If female: show current menstrual cycle phase badge (Menstrual/Follicular/Ovulation/Luteal)
+**01 Kondisi hari ini** — "Indikator utama seluruh perusahaan".
+Grid `minmax(180px, 1fr)`, 12px gap. Two KPI cards (white, 1px `#E2E0D9`, 10px radius, 16px pad):
 
-#### 3b. Stats Row (3 cards, horizontal scroll mobile)
-- **BMI card** — large Anton number, colored by category, label badge
-- **Weight card** — current weight_kg + height_cm
-- **Cycle Phase card** (female only) — current phase name + emoji + days info
+| Card | Value | Delta line |
+|---|---|---|
+| Karyawan risiko tinggi | `628` / `dari 5.000` | `▲ 12,6% dari total tenaga kerja` (red) |
+| Rata-rata tidur harian | `6:12` / `jam` | `▼ 18 menit vs bulan lalu` (amber `#C99A3B`) |
 
-#### 3c. Daily Achievement Progress
-- Horizontal progress bar showing % of daily tasks done
-- Label: "X / Y tasks completed today"
-- Tasks: drink 8 glasses water, 7+ hours sleep, log meal, complete workout, breathing session
-- When 100%: red bar turns green + confetti popup
+Card anatomy: 11.5px `#6B7278` label (min-height 32px) with a 15px circled "i" affordance
+(1px `#CFCDC5`, 9.5px/700 `#A0A49F`) pushed right; then a 30px/600 mono value (−0.02em) with a
+12px unit baseline-aligned; then the 11.5px delta line.
 
-#### 3d. Weather + AQI Widget (side-by-side, 2-col grid)
+**Hover tooltip (both cards).** On `mouseenter` the card shows an absolutely-positioned panel
+(`left/right: 12px`, `top: calc(100% - 6px)`, z-index 20, background `#1C2926`, 1px `#2E3F3A`,
+8px radius, 14px pad, shadow `0 18px 40px -18px rgba(0,0,0,0.6)`) containing:
+a 9.5px uppercase mono kicker "Yang diukur" (`#8FA69E`, 0.1em) · a 12px `#F2F1EC` explanation ·
+a `#3A4A45` hairline · a list of indicator rows (11px `#C9CFCC` label, mono `#8FA69E` value) ·
+another hairline · a 11px `#A9B5B1` threshold line. Hidden again on `mouseleave`.
+Only one tooltip is open at a time (single `tip` state holding the card index).
 
-**Weather panel:**
-- Section label "Weather · Jakarta"
-- Weather icon (SVG) + temperature (°C) large Anton + description
-- Outdoor/Indoor recommendation badge
-- "Try today" list: 2-3 workout types based on weather
+Content — *Karyawan risiko tinggi*: "Karyawan yang indeks kesehatannya 55 atau kurang selama
+minimal dua minggu berturut-turut." Rows: Indeks kesehatan ≤ 55 `628` · Tidur < 6 jam `71%` ·
+Lembur > 10 jam/minggu `58%` · Shift malam berturut ≥ 4 `44%`. Threshold: "Peringatan terkirim
+bila porsi risiko tinggi departemen melewati 15%."
+*Rata-rata tidur harian*: "Rata-rata waktu tidur per malam dari perangkat wearable yang
+terhubung, 14 hari terakhir." Rows: Garmin Connect `1.840` · Fitbit `920` · Apple Health `760` ·
+Lainnya (Samsung, Oura) `590`. Threshold: "Ambang: < 6 jam memicu peringatan bila bertahan 2 minggu."
 
-**AQI panel:**
-- Section label "Air Quality · AQI"
-- Animated mini scene (60px tall):
-  - AQI ≤ 50: blue sky gradient + sun pulse animation + floating clouds
-  - AQI 51–100: golden hazy sky + pulsing haze overlay
-  - AQI > 100: dark brown sky + floating particle dots animation
-- Large AQI number (Anton, colored) + progress bar
-- Label (Good/Moderate/Unhealthy) + advice text
+**02 Kesehatan populasi** — "Gabungan wearable dan medical check-up tahunan".
+- Card grid `minmax(210px, 1fr)`: 4 cards — Langkah harian rata-rata `7.940 langkah`
+  (bar 79%, green, note "Target perusahaan 10.000") · Overweight + obesitas `36 %` (amber) ·
+  Tekanan darah ≥ 140/90 `14 %` (red, note "Disarankan pemeriksaan ulang") ·
+  Tekanan darah < 90/60 `7 %` (amber, note "329 karyawan · sering disertai anemia").
+  Anatomy: 11.5px label (min-height 30px), 24px/600 mono value + 11.5px unit, a 5px track
+  (`#F0EFE9`, 3px radius) with a coloured fill, then an 11px `#8A9096` note.
+- **Kondisi kesehatan umum** card — "Persentase dari 4.700 peserta MCU 2025". Findings grouped
+  by check-up panel in a `minmax(290px, 1fr)` grid, `22px 30px` gaps. Each group has a 10px
+  uppercase mono `#1F5C4D` title plus a 10.5px `#A0A49F` panel note over a `#DEDCD4` rule, then
+  rows: 12.5px label + 10.5px `#A0A49F` clinical criteria, a 66px mini bar, and a right-aligned
+  15px/600 mono percentage with an 10.5px count beneath.
+  Groups and rows (criteria in parentheses): **Antropometri** — overweight (BMI 25–29,9) 26% /
+  1.222 · obesitas (BMI ≥ 30) 10% / 470 · berat normal (BMI 18,5–24,9) 58% / 2.726.
+  **Tekanan darah** — darah tinggi (≥ 140/90) 14% / 658 · darah rendah (< 90/60) 7% / 329.
+  **Profil lipid** — kolesterol total tinggi (≥ 240 mg/dL) 21% / 987.
+  **Gula darah** — gula darah puasa tinggi (≥ 126 mg/dL) 7% / 329.
+  **Darah lengkap** — anemia (Hb < 12 P / < 13 L) 12% / 564 · asam urat tinggi (≥ 7 mg/dL) 9% / 423.
+  **Gaya hidup** — perokok aktif (self-report saat MCU) 23% / 1.081.
 
-**Animations needed:**
-```css
-@keyframes sunPulse { scale 1→1.06→1, opacity 1→.85→1, 3s }
-@keyframes floatCloud { translateX 0→6px→0, 4s }
-@keyframes floatCloud2 { translateX 0→-8px→0, 5s }
-@keyframes hazePulse { opacity .4→.7→.4, 3s }
-@keyframes grimPulse { opacity .6→1→.6, 4s }
-@keyframes particleDrift { translateY 0→-24px + fade out, 3s }
-```
+**03 Tren & sebaran risiko** — main column (`flex: 3 1 340px`) + rail (`flex: 1 1 260px`), 20px gap,
+both `min-width: 0`.
 
-#### 3e. Recommended Workouts Widget
-- Dark card (#0A0908)
-- 3 exercise rows: icon + name + duration/intensity + reason (italic)
-- Tag badges: "MCU" (red, from medical check-up result) / "Goal" (dark) / "Sleep" (grey)
-- Logic:
-  - Read `my20fit_mcu_result` from localStorage
-  - Read `main_goal` from profile
-  - Read sleep hours logged today
-  - AQI > 100 → force indoor workouts
-  - Sleep < 5h → downgrade intensity to Light
-  - LDL high in MCU → recommend EMS + Cardio with tag "MCU"
-- "Booked ✓" badge (red) if session booked today
-- "Book →" button (dark) → navigate to Calendar/Progress
+Main column, in order:
+1. **Indeks kesehatan perusahaan (12 minggu)** — caption "0–100 · makin tinggi makin sehat".
+   A 170px bar row (5px gaps, `#E2E0D9` baseline). Values W1→W12:
+   `73 72 72 71 70 70 69 68 68 67 66 68`; bar height = value%; colour green `#6FA083` ≥ 72,
+   amber `#D6A63F` ≥ 66, else red `#C05B45`. 10px mono value above each bar, 9.5px `W1…W12`
+   labels below.
+2. **Skor kesehatan per departemen** — legend chips (Risiko tinggi `#C05B45` / Sedang `#D6A63F` /
+   Aman `#6FA083`). One row per department: name + mono headcount; a 9px stacked risk bar
+   (high/mid/low shares) with an 11px note "21% risiko tinggi · 260 orang"; a 19px/600 mono
+   health score coloured by band; and a **Lihat** button that opens that division's detail screen.
+   Then the suppression row, at 0.65 opacity: "Direksi & Sekretariat" / "Disembunyikan — kelompok
+   kurang dari 5 orang".
+3. **Peta panas kesehatan divisi** — "Skor per panel MCU · 100 = paling sehat". Horizontally
+   scrollable (`min-width: 620px`) matrix: a 130px name column, then six panel columns
+   (Antropometri, Tekanan darah, Profil lipid, Gula darah, Darah lengkap, Gaya hidup) and a
+   wider **Skor divisi** column (`flex: 1.2`). Cells are 28px tall, 3px radius, mono 10.5px,
+   with the score-band fill: `≥ 85 #4C8C6A` (white text) · `≥ 75 #8FB39A` (`#16302A`) ·
+   `≥ 65 #DDB472` (`#2A2E30`) · `≥ 55 #C97A5F` (white) · else `#B04B36` (white). Below: a legend
+   (85–100 sangat baik / 75–84 baik / 65–74 perlu perhatian / di bawah 65 buruk) and the note
+   explaining that 100 means every participant is within the normal range and that the division
+   score is the mean of the six panels.
+4. **Sebaran tingkat risiko** — a 30px stacked bar plus legend rows with counts and percentages:
+   Risiko tinggi 628 / 13% · Perlu perhatian 1.544 / 31% · Aman 2.440 / 49% ·
+   Data belum cukup 388 / 7% (`#CFCDC5`).
 
-#### 3f. Breathing Exercise Widget
-- Section label + "✓ Session Done" badge when complete
-- Pattern selector (3 buttons):
-  - **4-7-8** — Inhale 4s, Hold 7s, Exhale 8s (4 cycles)
-  - **Box 4×4** — Inhale 4s, Hold 4s, Exhale 4s, Hold 4s (4 cycles)
-  - **Relax 5-5** — Inhale 5s, Exhale 5s (6 cycles)
-- Animated ring (100px circle):
-  - Inhale: scale 1→1.55, opacity .7→1 (css animation)
-  - Exhale: scale 1.55→1, opacity 1→.7
-  - Hold: opacity pulse
-- Phase label (Anton 22px) + countdown seconds
-- Progress dots (one per cycle, fill red as completed)
-- Start/Stop button
-- On complete: Congrats popup + achievement unlocked
+Rail, in order:
+1. **Cara indeks kesehatan dihitung** — "Skor 0–100 per karyawan, 100 paling sehat, lalu
+   dirata-ratakan per departemen." The six weighted inputs from the table above (label + 10.5px
+   source line + right-aligned mono weight). Below a divider: **Perangkat terhubung** with
+   "Sinkron 06:45 WIB" and a dot+name+count list — Garmin Connect 1.840, Fitbit 920,
+   Apple Health 760, Samsung Health 410, Oura Ring 180 (amber dot), Belum terhubung 890
+   (`#CFCDC5`) — then a full-width secondary "Kelola integrasi" button.
+2. **Faktor pendorong utama** — Lembur lebih dari 10 jam/minggu 64% · Tidur kurang dari 6 jam 51% ·
+   Shift malam berturut-turut 37% · Kurang aktivitas fisik 26%. Label + mono percentage over a
+   6px `#F0EFE9` track with a `#1F5C4D` fill.
+3. **Ambang peringatan** — "3 aktif"; sub "Sistem mengirim notifikasi saat ambang terlampaui,
+   tanpa menyebut individu." Three toggle rows: Skor kesehatan divisi rendah `< 68 / 100` ·
+   Porsi risiko tinggi `> 15%` · Tidur rata-rata rendah `< 6 jam`. Toggle: 38×22px pill,
+   `#1F5C4D` on / `#D8D6CE` off, 16px white knob, `justify-content` flips, `all .18s ease`.
+   Then a full-width "Atur ambang" secondary button.
+4. **Peringatan terbaru** — dot + text + mono timestamp: "Operasional Pabrik di bawah ambang skor
+   kesehatan (65 < 68)." Hari ini, 07:00 · "Logistik & Gudang: porsi risiko tinggi naik ke 18%
+   (ambang 15%)." Kemarin, 07:00 · "Customer Service: tidur rata-rata turun di bawah 6 jam selama
+   2 minggu." 3 Agustus · "Keuangan kembali ke kategori baik setelah program gizi kantin." 29 Juli.
+5. **Sumber data** — Wearable (jam/cincin) 82% · Aktivitas fisik (wearable) 78% ·
+   Absensi & jam kerja 100% · Medical check-up 2025 94%.
 
-#### 3g. Sleep + Water Tracker (side-by-side)
+**04 Aktivitas fisik & olahraga** — "Dari wearable yang terhubung, 4 minggu terakhir".
+Left card (`flex: 2 1 300px`): **Frekuensi olahraga per minggu** — a 130px bar chart over five
+buckets `0× 24%` (red) · `1× 21%` (`#C97A5F`) · `2× 23%` (amber) · `3–4× 22%` (`#6FA083`) ·
+`5× atau lebih 10%` (`#4C8C6A`). Right card (`flex: 1 1 240px`): **Rincian aktivitas** —
+Memenuhi anjuran WHO `32%` (note: "150–300 menit aktivitas sedang atau 75–150 menit aktivitas
+berat per minggu, plus latihan kekuatan 2× seminggu") · Menit aktif per minggu `118` ·
+Langkah harian `7.940` · Tidak pernah olahraga `24%` (red) ·
+Sesi latihan tercatat di my.20fit `4,6` (green, "Rata-rata per karyawan aktif / bulan").
 
-**Sleep card:**
-- Section label + hours display (Anton large)
-- +/- stepper (0–12h in 0.5h steps)
-- Progress bar (0–8h target)
-- "Log Sleep →" button → saves, checks if ≥8h → congrats popup
-
-**Water card:**
-- Section label + glasses display (Anton large)
-- Glass icons grid (8 total, filled red when drunk)
-- Tap to add glass (up to 8)
-- Progress bar
-- When 8 glasses: congrats popup
-
-#### 3h. Calorie Quick View
-- Link/button → navigate to Calorie Tracker page
-- Shows: consumed / goal kcal, ring chart
-
-#### 3i. Food Recommendation (Today's Plan)
-Below calorie view, always visible:
-- Dark header card with goal kcal + remaining kcal
-- Breakfast / Lunch / Dinner / Snack sections
-- Each meal item: emoji icon + name + macro pills (kcal, P, C, F) + tag badge
-- Based on `main_goal` + MCU results
-- "Book with nutritionist" CTA at bottom
-
-#### 3j. Menstrual Cycle Widget (FEMALE ONLY)
-Shown only when `gender === 'female'`:
-
-**Input mode:**
-- "🔴 Today is my period" big red button → sets Day 1, transitions to result
-- OR: "How many days ago was your last period?" number input + Set button
-
-**Result mode (after setting):**
-- Phase name (Menstrual/Follicular/Ovulation/Luteal) in large Anton
-- Days until next period
-- Phase description + exercise/food tip
-- Edit button → back to input
-
-**Phase calculation (28-day default):**
-- Day 1–5: Menstrual (red)
-- Day 6–13: Follicular (orange)
-- Day 14: Ovulation (yellow)
-- Day 15–28: Luteal (purple)
-
----
-
-### 4. Medical Record & Plan (`src/pages/MedicalRecord.tsx`)
-
-#### Tabs: Records / Upload / Doctor's Records
-
-**Records tab (default):**
-
-History list — each record card shows:
-- Date + source (e.g., "RS Pondok Indah" or "20fit Clinic")
-- Document type label
-- Overall grade badge (A/B/C/D)
-- "Uploaded by Dr. [Name]" note if from doctor
-- "View Results →" button
-
-**On "View Results"** → opens full result view:
-
-*Document Summary section:*
-- Document title, date, patient name, source
-- Grade badge (A/B/C/D) with description
-- 2-sentence summary (from AI analysis or doctor notes)
-- "Uploaded by [Doctor name + specialization]" if doctor-uploaded
-
-*Parameters Found section:*
-- "Needs Attention" red card — for each abnormal value:
-  - Parameter name + value (JetBrains Mono) + status badge
-  - Normal range
-  - What this value means (plain language, no diagnosis)
-  - Note: "Consult your 20fit doctor for proper advice"
-- "Within Normal Range" green card — for normal values:
-  - Same fields, less emphasis
-
-*Exercise for Your Results section:*
-- 3 service cards (EMS, Personal Training, Physio) each with:
-  - Service name + why relevant to their specific values
-  - Duration/frequency tags
-  - Book → button
-
-*Nutrition for Your Results section:*
-- Cards per abnormal finding (e.g., "Because of borderline LDL")
-- Bullet list of foods to eat more of + why
-- Card for each normal value to maintain
-- "Book with nutritionist" CTA
-
-*Your Plan section:*
-- 20fit service recommendations as action cards
-- Book a session with doctor button
-
-**Upload tab:**
-- Choose: Medical Document or Food/Calorie scan
-- Method: Take Photo (camera) or Upload from Album
-- Processing animation (scan lines)
-- Result display → auto-navigates to Records with new entry
-
-**Doctor's Records tab:**
-- Same format as user records but with "Uploaded by Dr. [Name]" badge
-- Privacy note: "Only visible to you and your 20fit doctor"
-
-#### Data model:
-```typescript
-interface MCUResult {
-  id: string
-  uploaded_at: string
-  source: 'self' | 'doctor'
-  doctor_name?: string
-  document_type: string
-  grade: 'A' | 'B' | 'C' | 'D'
-  summary: string
-  parameters: Array<{
-    label: string
-    value: string
-    status: 'ok' | 'high' | 'low' | 'warning'
-    normal_range: string
-    explanation: string
-  }>
-  exercise_recs: Array<{ service: string; why: string; frequency: string }>
-  nutrition_recs: Array<{ trigger: string; items: string[] }>
-  checklist: Array<{ title: string; priority: 'high' | 'med' | 'low' }>
-}
-```
+**05 Risiko kesehatan per departemen** — "Berdasarkan medical check-up tahunan 2025".
+- Four stratification cards (3px coloured left border): Risiko kardiometabolik rendah `2.914 / 62%`
+  (green) · Risiko sedang `1.320 / 28%` (amber, "Satu hingga dua temuan · disarankan konsultasi
+  gizi") · Risiko tinggi `466 / 10%` (red, "Tiga temuan atau lebih · rujukan klinik perusahaan") ·
+  Belum mengikuti MCU `300 / 6%` (`#CFCDC5`, "Jadwal susulan dibuka September 2026").
+- **Temuan MCU per departemen** — horizontally scrollable table (`min-width: 1180px`).
+  Columns: Departemen (`flex 2.4`, with a mono sub-line "partisipasi 96% · 1.190"), then eight
+  finding columns — Overweight, Obesitas, Darah tinggi, Darah rendah, Kolesterol, Gula darah,
+  Anemia, Perokok — each a centred mono percentage over a 4px mini bar, coloured green/amber/red
+  against per-column thresholds `[22,28] [8,12] [10,15] [5,8] [18,24] [5,8] [10,14] [15,30]`
+  (below warn = green, ≥ warn = amber, ≥ bad = red); then Skor risiko (`flex 1.1`, 17px/600 mono)
+  and Kategori (`flex 1.3`, a 10.5px pill — red `#F7E7E2`, amber `#F7EEDC`, green `#E7F0E9`).
+  A suppression row closes the table, then the footnote explaining the 0–100 score and that
+  individual results are only accessible to the company doctor and the employee.
 
 ---
 
-### 5. Progress (`src/pages/Progress.tsx`)
+### 2. Detail Departemen (Department detail)
 
-#### 5a. This Week card (dark #0A0908)
-- "X%" large red number (weekly task completion)
-- 7-day bar chart: today=red, done=dark, partial=grey, future=light grey
-- Stats row: Workouts / Tasks Done / Day Streak (Anton 32px each)
+Purpose: drill into one division. Everything on the screen is derived from the selected division.
 
-#### 5b. Today's Achievements board
-- Auto-unlocks based on daily activity:
-  - 💧 Hydration Hero (8 glasses) → +50 pts
-  - 🌙 Sleep Champion (8h sleep) → +50 pts
-  - 🎯 Task Master (3+ tasks) → +75 pts
-  - 🔥 Calorie Target (80%+ of goal) → +40 pts
-- Total points display
-- Empty state: "Complete tasks to earn achievements today!"
+**Header row** — a text "← Kembali ke ringkasan" button, the division name (20px/600), a mono
+sub-line "1.240 karyawan · 30 hari terakhir"; right, a white bordered card showing
+"Indeks kesehatan divisi" + a 26px/600 mono score, "/ 100", and the band label (Baik ≥ 80 /
+Perlu perhatian ≥ 68 / Buruk).
 
-#### 5c. Health Reminders
-- Next Medical Check-Up: last date + recommended next date + Book → button
-- Fitness Assessment: status + Schedule → button
+**Division picker** — a card with "Pilih divisi" and the note "Data tetap agregat — tanpa nama
+karyawan"; a `<select>` (max-width 380px, 13.5px, 10px 12px, 6px radius) whose options read
+`"Operasional Pabrik · skor 65"`; beside it a primary "Unduh laporan divisi" button that opens
+the export dialog. Changing the select re-renders the whole screen.
 
-#### 5d. Key Metrics (2-col grid)
-- Cards: BMI, Current Weight, Weekly Workouts, Rest Days
+**Three cards** (`minmax(260px, 1fr)`, 16px gap):
+1. **Durasi tidur rata-rata** — a 26px/600 mono figure (e.g. `6j 13m`), then five distribution
+   rows (`< 5 jam`, `5–6`, `6–7`, `7–8`, `> 8 jam`): a 62px mono label, a 14px `#F0EFE9` track
+   with a coloured fill, and a 34px right-aligned mono percentage. Both the average and the
+   spread shift with the division.
+2. **Tanda vital & aktivitas** — rows of label + 10.5px reference range + a 17px/600 mono value,
+   coloured by band: Detak jantung istirahat (Normal 60–75 bpm) · HRV (Rendah di bawah 45 ms) ·
+   Langkah per hari (Target 10.000) · Sesi olahraga per minggu (Anjuran 3×) ·
+   Absen sakit per orang / tahun (Rata-rata nasional 2,4).
+3. **Hasil medical check-up** — sub "Persentase karyawan di luar rentang normal. Sumber: MCU
+   tahunan 2025, divisi terpilih." First a six-chip panel-score strip (`flex: 1 1 60px` each,
+   5px radius, band-coloured background, a 9px uppercase label over a 15px/600 mono score) for
+   Antropometri / Tekanan darah / Lipid / Gula darah / Darah lengkap / Gaya hidup; then the nine
+   finding rows for that division (overweight, obesitas, darah tinggi, darah rendah, kolesterol,
+   gula darah puasa, anemia, perokok aktif, partisipasi MCU) as label + mono percentage over a
+   6px track.
 
-#### 5e. Calendar & Workouts (merged into Progress)
-Full calendar view:
-- Month navigation (← →)
-- 7-column day grid
-- Each cell shows:
-  - Day number
-  - Session label (red text, e.g. "Group EMS") if 20fit class booked
-  - User workout label (grey text) if self-logged
-  - Colored dots: black=self workout, red=booked class
-  - Menstrual phase color coding (female): red=menstrual, orange=follicular, yellow=ovulation, purple=luteal
+**Kelompok kerja** — "Kode kelompok, bukan identitas individu". A `minmax(200px, 1fr)` grid of
+group cards on `#FBFBF8` with a 1px `#EFEEE8` border: a mono code (`GRP-OP-01` … division-coded:
+OP, LG, CS, SL, IT, FN, RD, HR), a label (Shift pagi / Shift sore / Shift malam / Supervisor lini),
+a 24px/600 mono score with the group size beside it, and a note "Tidur 6j 34m · olahraga 1,8×/mgg".
+A dashed placeholder card closes the grid: "2 kelompok disembunyikan (kurang dari 5 orang)".
 
-**Tap any cell:** Opens "Plan Your Workout" bottom sheet modal:
-- Shows booked 20fit session if exists (with time)
-- Workout type selector (pill buttons): 🏃 Run / 🏋️ Gym / 🧘 Yoga / 🚴 Bike / 🏊 Swim / ⚡ EMS / 🤸 Other
-- Free text note input
-- Save → adds to calendar cell + congrats popup
+**Tindak lanjut yang disarankan** — up to four recommendations, each a coloured dot plus a 13px
+title and a 12px body, generated from that division's findings. Rules:
+`highBP ≥ 15%` → blood-pressure re-checks (red) · `overweight + obesity ≥ 35%` → targeted
+nutrition and exercise programme (amber) · `smokers ≥ 25%` → cessation programme, naming the
+worst group code (red) · `anaemia ≥ 12%` → follow-up ferritin screening (amber). A green
+"Naikkan cakupan wearable divisi ini" item always closes the list.
 
-**Menstrual cycle color legend** (female):
-- Menstrual (Day 1-5): rgba(196,17,1,0.12) background
-- Follicular (Day 6-13): rgba(255,160,0,0.08)
-- Ovulation (Day 14): rgba(255,200,0,0.15)
-- Luteal (Day 15-28): rgba(120,80,180,0.08)
+**Export panel** — "Unduh laporan divisi ini" with the selected division named on the right, and
+the note that the report contains every chart and table on the page under the same anonymity
+rules. A `minmax(220px, 1fr)` grid of six selectable section cards (checkbox square 16px, 3px
+radius, `#1F5C4D` when checked; card border turns `#1F5C4D` and background `#F4F8F6` when
+selected): Skor kesehatan & panel MCU · Temuan MCU lengkap · Tidur & pemulihan · Aktivitas fisik ·
+Kelompok kerja · Tindak lanjut yang disarankan. Below: a PDF / Excel / CSV segmented control, a
+primary "Buat & unduh" button, and a live summary "4 dari 6 bagian dipilih · PDF · agregat".
 
-**Phase workout recommendations** (female, appears below calendar):
-- Card per phase with recommended 20fit services + Book button
-
----
-
-### 6. Calorie Tracker (`src/pages/CalorieTracker.tsx`)
-
-#### Tabs: Today / Monthly / Food Recs
-
-**Today tab:**
-- Calorie ring chart: consumed vs goal
-- Macro bars: Protein / Carbs / Fat (progress bars with gram amounts + daily targets)
-- Meal log: Breakfast / Lunch / Dinner / Snack with date header
-- Food Recommendations section (always visible):
-  - Dark header: "Today's Food Plan — Hit [goal] kcal"
-  - Remaining kcal badge
-  - Meal sections (Breakfast/Lunch/Dinner/Snack) with food cards
-  - Each card: emoji + name + description + macro pills + tag
-  - "Book with nutritionist" CTA
-
-**Monthly tab:**
-- Monthly average stats
-- Week-by-week summary list
-
-**Food Recs tab:**
-- Same as food recommendation section in Today tab
-
-#### Calorie Goal Calculation:
-```
-Base goal from profile (default 2000 kcal)
-Adjusted by main_goal:
-  lose: -300 kcal
-  muscle: +300 kcal
-  health: ±0
-  fit: +100 kcal
-```
+**Export dialog** — a fixed overlay `rgba(22,25,27,0.55)`, centred card (max-width 420px, 12px
+radius, 22px pad, shadow `0 30px 70px -25px rgba(0,0,0,0.5)`): a mono kicker "Siap diunduh",
+the generated filename (`MCU_GRP-LG_2026-08.xlsx` — `MCU_<divisionCode>_<YYYY-MM>.<ext>`, with
+Excel → `xlsx`), a 12px explanation that no names or ID numbers are included, a manifest list
+(Divisi, Karyawan, Skor kesehatan, Bagian disertakan, Format, Grup disembunyikan), Batal /
+Unduh buttons, and the audit note "Setiap unduhan dicatat dalam log audit beserta akun HR,
+divisi, dan waktu."
 
 ---
 
-### 7. Profile (`src/pages/Profile.tsx`)
+### 3. Laporan (Reports)
 
-#### Profile Header
-- Avatar (circle, 80px): tap to change → file picker → save to localStorage + Supabase Storage
-- Full name (editable inline, tap to edit)
-- Email (read-only)
-- BMI badge + category
+Two columns: builder + archive + history (`flex: 2 1 320px`) and a preview rail (`flex: 1 1 260px`).
 
-#### Editable Sections
-Each section has Edit button → inline edit mode → Save:
+**Susun laporan** — "Laporan mengikuti aturan anonimitas yang sama: agregat, minimal 5 orang per
+baris." Three selects in a `minmax(190px, 1fr)` grid: Periode (Bulanan — Juli 2026 / Kuartal —
+Q2 2026), Cakupan (Semua departemen / Departemen terpilih), Format (PDF / Excel (.xlsx) / CSV).
+Then a primary "Buat laporan" button. (No module chips — deliberately removed.)
 
-**Personal Info:**
-- Full Name, Date of Birth, Phone, Gender (radio)
+**Arsip bulanan** — "Skor kesehatan perusahaan per bulan". A scrollable table (`min-width: 520px`)
+with columns Bulan / Skor / Perubahan / Tercakup / (action). Eight snapshots, newest first:
 
-**Body Metrics:**
-- Height (cm), Weight (kg) — save → recalculate BMI
+| Bulan | Skor | Perubahan | Tercakup |
+|---|---|---|---|
+| Agustus 2026 | 68 | ▲ 2 | 4.612 |
+| Juli 2026 | 66 | ▼ 1 | 4.580 |
+| Juni 2026 | 67 | ▼ 2 | 4.534 |
+| Mei 2026 | 69 | ▼ 2 | 4.498 |
+| April 2026 | 71 | ▲ 1 | 4.402 |
+| Maret 2026 | 70 | ▼ 2 | 4.361 |
+| Februari 2026 | 72 | ▼ 1 | 4.290 |
+| Januari 2026 | 73 | — | 4.188 |
 
-**Health Goals (editable):**
-- Main Goal (4 radio cards)
-- Custom goals (add/edit/delete list)
-- Health Conditions (multi-select checkboxes + free text)
+Score colour by band; change ▲ green / ▼ red / — grey. Each row's **Unduh ▾** button opens a
+per-row dropdown (absolute, right-aligned, min-width 170px, 8px radius, 6px pad, shadow
+`0 16px 36px -16px rgba(0,0,0,0.35)`) offering PDF `.pdf` / Excel `.xlsx` / CSV `.csv` /
+PowerPoint (ringkasan) `.pptx`. Only one menu open at a time; the caret flips to ▴.
+Note beneath: each month is a separate stored snapshot, so past reports can be re-downloaded
+without being affected by newer data.
 
-**Menstrual Settings (female only):**
-- Cycle length (number input, default 28 days)
-- Last period date
+**Riwayat laporan** — previously generated files: Laporan Bulanan — Juni 2026 (PDF, "Dibuat 2 Juli
+2026 · 5.000 karyawan") · Rekap Kuartal — Q2 2026 (XLSX, 8 departemen) · Laporan Bulanan — Mei
+2026 (PDF, 4.960 karyawan) · Ekstrak MCU 2025 (agregat) (CSV, anonim). Same **Unduh ▾** menu.
 
-#### Actions
-- Log Out button (bottom, red outline) → `supabase.auth.signOut()` → redirect to login
-- Delete Account (danger zone, at very bottom)
+**Pratinjau** — a document mock on `#FBFBF8`: mono kicker "HRIS Nusantara", title "Laporan
+Kesehatan & Kelelahan Karyawan", meta "Juli 2026 · 5.000 karyawan · Anonim", a rule, then
+key/value rows — Indeks kesehatan `68 / 100`, Risiko tinggi `628 (12,6%)`, Tidur rata-rata
+`6:12`, Departemen dianalisis `8`, Grup disembunyikan `3` — a rule, and the footer "Dokumen ini
+tidak memuat identitas karyawan. Distribusi terbatas pada HR & manajemen."
 
 ---
 
 ## Interactions & Behavior
 
-### Congrats Popup
-Appears whenever a daily achievement is unlocked:
-- Fixed bottom-right (or bottom sheet on mobile)
-- Icon (large emoji) + title + description
-- Animates in from bottom (spring animation)
-- Auto-dismisses after 4 seconds or on tap
-- Only shows once per achievement per day (localStorage flag)
+| Interaction | Behaviour |
+|---|---|
+| Tab click | Switches screen; no route change in the prototype — use real routes (`/health`, `/health/division/:code`, `/health/reports`). |
+| ID / EN toggle | Swaps every string, including number separators (`4.612` in ID, `4,612` in EN) and decimal commas (`4,6` vs `4.6`). |
+| KPI card hover | Opens the indicator tooltip; closes on mouse leave. Needs a tap/focus equivalent on touch and keyboard. |
+| Department row "Lihat" | Sets the selected division and navigates to the detail screen. |
+| Division `<select>` | Re-derives heading, headcount, score, sleep, vitals, MCU findings, panel chips, work groups, and recommendations. |
+| Alert threshold toggles | Optimistic switch; persist per HR account. |
+| Export section cards | Toggle inclusion; the summary line and manifest update live. |
+| Format segmented control / row menus | Sets the export format; filename extension follows. |
+| "Buat & unduh" / "Unduh" | Opens the confirm dialog; confirming triggers the real export job and writes an audit entry. |
+| Heatmap & wide tables | Scroll horizontally inside their own card — the page itself never scrolls sideways. |
 
-### Navigation
-- Sidebar/bottom nav highlights active page
-- Page transitions: fade-up animation (opacity 0→1, translateY 12px→0, 0.28s ease)
+**Responsive behaviour.** No media queries. Columns are `flex` with `min-width: 0` and small
+flex bases (300–340px main, 240–260px rails); card groups use `repeat(auto-fit, minmax(…, 1fr))`.
+At ~390px everything stacks in one column and only the two wide tables scroll. Verified: zero
+horizontal overflow at 390px.
 
-### Scan / Upload Flow
-1. FAB button "Scan Your Calories" (fixed bottom-right, above bottom nav on mobile)
-2. Opens full-screen modal overlay
-3. Two options: "Take a Photo" (camera capture) / "Upload from Album" (file picker)
-4. Processing screen: scan line animation + "Analysing..." text
-5. Result → adds to calorie log or MCU records
-
-### Calendar Workout Modal
-- Bottom sheet (mobile) / centered modal (desktop)
-- Animates up from bottom
-- Backdrop tap closes
-
----
+**Accessibility to add in implementation** (the prototype does not cover it): keyboard access to
+the tooltips and dropdown menus, `aria-expanded` on the Unduh buttons, focus trap and Esc in the
+export dialog, and non-colour cues for the heatmap bands (the numbers already carry the value).
 
 ## State Management
 
-### Supabase Tables (already exist — use existing schema)
-- `my20fit_profile` — user profile, updated with new fields
-- New fields needed: `main_goal`, `health_conditions`, `menstrual_cycle_length`, `last_period_date`
+Prototype state, all local:
 
-### localStorage Keys (existing convention `my20fit_*`)
-```
-my20fit_mcu_result       — latest MCU JSON (existing)
-my20fit_checklist_*      — daily tasks (existing)
-my20fit_sleep            — sleep log (existing)
-my20fit_water            — water log (existing)
-my20fit_workout          — workout log (existing)
-my20fit_breathing_*      — breathing session per date (new)
-my20fit_user_workouts    — calendar workout entries (new)
-my20fit_cycle_data       — menstrual cycle settings (new)
-```
+| State | Type | Purpose |
+|---|---|---|
+| `lang` | `"id" \| "en"` | Language |
+| `screen` | `"dash" \| "detail" \| "report"` | Active tab (replace with routing) |
+| `dept` | `number` | Selected division index |
+| `tip` | `number \| null` | Which KPI tooltip is open |
+| `alerts` | `boolean[3]` | Alert threshold switches |
+| `dlPick` | `boolean[6]` | Export section selection |
+| `dlFormat` | `"PDF" \| "Excel" \| "CSV"` | Export format |
+| `exportOpen` | `boolean` | Export dialog |
+| `dlMenu` | `number \| null` | Open history row menu |
+| `archMenu` | `number \| null` | Open archive row menu |
 
-### New API Endpoints Needed
-- `POST /api/analyze-mcu` — already exists (see CLAUDE.md)
-- `POST /api/nutrition-recommendation` — already exists
-- `GET /api/weather?city=Jakarta` — new (or use existing WeatherAPI key)
-- `GET /api/aqi?city=Jakarta` — new (use IQAir or AQICN API)
+Data the real implementation needs to fetch: company KPIs and the 12-week index series; the
+department list with headcount, risk shares, and MCU findings; the population-health and
+general-conditions aggregates; activity/exercise distributions; per-division detail (sleep
+distribution, vitals, MCU panel scores, work groups); alert configuration; the monthly archive
+index; and generated-report metadata. All aggregate endpoints must apply the group-size-5
+suppression before returning.
 
----
+## Design Tokens
+
+**Colour**
+
+| Token | Hex | Use |
+|---|---|---|
+| Page background | `#E8E7E1` | Outside the frame |
+| Frame background | `#F2F1EC` | Content area |
+| Surface | `#FFFFFF` | Cards, header |
+| Surface subtle | `#FBFBF8` | Nested cards (work groups, preview) |
+| Border | `#E2E0D9` | Card and control borders |
+| Border strong | `#DEDCD4` | Band header rules |
+| Divider | `#EFEEE8` | Row separators |
+| Divider faint | `#F4F3EE` | Grouped-list rows |
+| Track | `#F0EFE9` | Bar tracks |
+| Text | `#16191B` | Primary |
+| Text secondary | `#6B7278` | Labels |
+| Text muted | `#8A9096` | Meta |
+| Text faint | `#A0A49F` | Footnotes, kickers |
+| Primary | `#1F5C4D` | Buttons, active states, bar fills |
+| Primary hover | `#143D33` | Link hover |
+| Primary tint | `#EDF3F0` / `#F4F8F6` | Selected chips and cards |
+| Info band | `#EFF3F0` bg, `#DDE4DF` border, `#37504A` text | Privacy banner |
+| Bad | `#C05B45` | Red state |
+| Bad deep | `#B04B36` | Heatmap worst band |
+| Bad soft | `#C97A5F` | Heatmap second band |
+| Warn | `#D6A63F` / `#C99A3B` | Amber fill / amber text |
+| Warn soft | `#DDB472` | Heatmap mid band |
+| Good | `#6FA083` / `#4C8C6A` | Green fill / green text |
+| Good soft | `#8FB39A` | Heatmap good band |
+| Neutral data | `#CFCDC5` | "No data" segments |
+| Tooltip surface | `#1C2926` bg, `#2E3F3A` border, `#8FA69E` kicker, `#C9CFCC` rows, `#A9B5B1` footnote | KPI tooltips |
+| Badge backgrounds | `#F7E7E2` / `#F7EEDC` / `#E7F0E9` | Category pills |
+| Dark strip | `#16191B` bg, `#9DA3A6` text | Reserved dark chrome |
+| Overlay | `rgba(22,25,27,0.55)` | Dialog scrim |
+
+**Type** — `IBM Plex Sans` (400/500/600/700) for UI, `IBM Plex Mono` (400/500/600) for every
+number, code, timestamp, and column header. Scale in use: 30/26/24/21/20/19/17/15/14/13.5/13/
+12.5/12/11.5/11/10.5/10/9.5/9px. Tracking: `-0.02em` on large mono figures, `-0.01em` on the h1,
+`0.06–0.14em` on uppercase mono kickers. `text-wrap: pretty` on long paragraphs.
+
+**Spacing** — 2 / 3 / 4 / 5 / 6 / 8 / 10 / 12 / 14 / 16 / 18 / 20 / 22 / 26 / 28 / 30px.
+Card padding 16–18px, page padding 20px, band gap 26px, column gap 20px, card grid gap 12px.
+
+**Radius** — 2 (legend swatch) / 3 (bars, heat cells) / 4 / 5 / 6 (buttons, inputs) / 8 (menus,
+nested cards) / 10 (cards) / 11–20 (pills) / 12 (dialog) / 50% (dots).
+
+**Shadow** — frame `0 24px 60px -30px rgba(0,0,0,0.45)`; tooltip `0 18px 40px -18px rgba(0,0,0,0.6)`;
+dropdown `0 16px 36px -16px rgba(0,0,0,0.35)`; dialog `0 30px 70px -25px rgba(0,0,0,0.5)`.
+
+**Bar heights** — 4 (table mini) / 5 (card) / 6 (rail) / 8 / 9 (risk stack) / 14 (sleep) /
+26–28 (heat cell) / 30 (stacked split) px.
 
 ## Assets
 
-### Logo
-- `/logo-20fit.jpg` (already in `artifacts/my20fit/public/`)
-- Use as `<img>` tag, never as text "my20FIT"
+None. No images, no icon font, no SVG illustration — the "i" affordances are text in a bordered
+circle and the trend arrows are the characters ▲ ▼ ▴ ▾ ✓. Fonts load from Google Fonts
+(IBM Plex Sans, IBM Plex Mono); self-host them in production.
 
-### Icons
-- All icons in prototype are inline SVG — recreate using Lucide React (already in codebase) or inline SVG
-- Weather icons: custom SVG (cloud, sun, rain, storm)
+If a logo or brand mark is needed, use the existing 20fit brand assets from your codebase —
+none are included here.
 
-### Fonts
-Already imported in `src/index.css`:
-- Anton, Barlow Condensed, Inter, JetBrains Mono
+## Files
 
----
-
-## Files in This Package
-| File | Description |
-|---|---|
-| `20fit-login.html` | Login + Register screen (self-contained HTML reference) |
-| `20fit-dashboard.html` | Full dashboard prototype (self-contained HTML reference) |
-| `Dashboard.dc.html` | Source design file (editable, for design reference only) |
-| `Login.dc.html` | Source login design file |
-| `README.md` | This document |
-
----
-
-## Implementation Priority (suggested order)
-1. **Register form** — add new fields (birthdate, height, weight, BMI preview, goals)
-2. **Home dashboard** — weather+AQI widget, breathing widget, exercise recs widget
-3. **Medical Record page** — upload flow + result view with parameter explanations
-4. **Calorie Tracker** — food recommendations section
-5. **Progress page** — weekly stats, achievements, calendar improvements
-6. **Menstrual tracker** — female-only, cycle phase calculation
-7. **Profile** — editable sections, health conditions
-
----
-
-## Notes for Claude Code
-
-1. **Do NOT ship the HTML files** — they are visual references only
-2. **Use existing Radix UI + Tailwind** patterns from the codebase — do not introduce new UI libraries
-3. **All new Supabase columns** must be added via migration (use `supabase migration new`)
-4. **MCU privacy** — medical records are RLS-protected: only `auth.uid() = auth_user_id` can read
-5. **Doctor upload** — doctors upload via a separate admin panel (not in scope here); the member can only READ doctor-uploaded records, not edit/delete
-6. **No self-diagnosis** — MCU analysis only explains what values mean in plain language; never says "you have X disease"
-7. **Breathing timer** — use `setInterval` in a `useEffect` with proper cleanup on unmount
-8. **AQI animations** — use Framer Motion (already in codebase) instead of CSS keyframes
-9. **Calendar workout entries** — store in `my20fit_workout` localStorage key (already exists), keyed by date
+- `Dashboard HRD Kesehatan.dc.html` — the full prototype: all three screens, both languages,
+  every interaction described above. Sample data lives in the logic class near the top
+  (`DEPTS`, `MCU`, `MCU_THRESHOLDS`, `DEPT_CODES`, `TREND`) and the derivations in
+  `panelScores()`, `kpiData()`, and `renderVals()`.
+- `README.md` — this document.
