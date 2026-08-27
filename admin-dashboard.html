@@ -1548,7 +1548,7 @@
       var plotH=H-padT-padB, base=padT+plotH;
       var max=items.reduce(function(m,d){return Math.max(m,d.value);},0)||1;
       var st=(W-padX*2)/n, bw=Math.min(o.maxBar||34, st*0.62);
-      var s='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" font-family="inherit">';
+      var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="min-width:'+(o.minW||320)+'px;max-width:'+W+'px;height:auto" font-family="inherit">';
       items.forEach(function(d,i){
         var x=padX + i*st + st/2, bh=Math.round(d.value/max*plotH), y=base-bh;
         s+='<rect x="'+(x-bw/2).toFixed(1)+'" y="'+y+'" width="'+bw.toFixed(1)+'" height="'+Math.max(bh,0)+'" rx="3" fill="'+color+'"/>';
