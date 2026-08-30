@@ -596,6 +596,17 @@
     if (profile.fitco_email_verified === false) return go("verify.html");
     if (!profileComplete(profile)) return go("onboarding.html");
     if (!hasWebPassword(user)) return go("setpassword.html");
+    // Tujuan lanjutan setelah login penuh, mis. balik ke calories.20fit.id kalau
+    // orang datang dari sana (Sign In di calorietracker -> login.html?next=calories).
+    // Diset ke sessionStorage sekali di entry (login.html/code-login.html) karena URL
+    // query aslinya tak ikut lewat rantai redirect verify/onboarding/setpassword di atas.
+    try {
+      const next = sessionStorage.getItem("post_auth_next");
+      if (next === "calories") {
+        sessionStorage.removeItem("post_auth_next");
+        return caloriesSso();
+      }
+    } catch (e) {}
     return go("dashboard.html");
   }
 

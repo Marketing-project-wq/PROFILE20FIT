@@ -161,8 +161,17 @@
       document.getElementById("notregBox").style.display="block";
     }
     function currentEmail(){ return (document.getElementById("email").value||"").trim(); }
-    function goCreate(){ const e=currentEmail(); location.href="login.html?mode=up"+(e?("&email="+encodeURIComponent(e)):""); }
-    function goPassword(){ const e=currentEmail(); location.href="login.html"+(e?("?email="+encodeURIComponent(e)):""); }
+    // Bangun query string ke login.html, ikutkan ?next= (mis. "calories") kalau ada supaya
+    // tujuan lanjutan tak hilang saat lompat dari sini ke login.html.
+    function loginQS(extra){
+      const p=new URLSearchParams();
+      Object.keys(extra||{}).forEach(function(k){ if(extra[k]) p.set(k,extra[k]); });
+      try{ const n=new URLSearchParams(location.search).get("next"); if(n) p.set("next",n); }catch(e){}
+      const s=p.toString();
+      return s?("?"+s):"";
+    }
+    function goCreate(){ location.href="login.html"+loginQS({mode:"up",email:currentEmail()}); }
+    function goPassword(){ location.href="login.html"+loginQS({email:currentEmail()}); }
     async function verifyCode(){
       const d=T[lang];
       const code=(document.getElementById("code").value||"").trim();
@@ -180,6 +189,9 @@
         const q=new URLSearchParams(location.search);
         const pre=q.get("email");
         if(pre)document.getElementById("email").value=pre;
+        // Datang dari calorietracker (?next=calories): simpan tujuan SEBELUM
+        // routeAfterAuth() di bawah sempat kepanggil — sama seperti login.html.
+        if(q.get("next")==="calories") sessionStorage.setItem("post_auth_next","calories");
       }catch(e){}
       applyLang();
       // Kalau sudah login, arahkan sesuai flow
