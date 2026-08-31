@@ -1135,6 +1135,28 @@
       }
       return "<span class='tagrole' style='background:rgba(138,124,104,.16);color:var(--muted)' title='Belum masukan data / belum selesai onboarding di my.20fit.id'>Belum</span>";
     }
+    var U_SORT_COL=null, U_SORT_DIR=1;
+    function uSortBy(col){
+      if(U_SORT_COL===col){ U_SORT_DIR*=-1; } else { U_SORT_COL=col; U_SORT_DIR=1; }
+      renderUserList();
+    }
+    function uSortVal(u,col){
+      if(col==="status") return u.active?0:1;
+      if(col==="onboarding") return u.is_onboarded?0:1;
+      if(col==="nama") return (u.full_name||"").toLowerCase();
+      if(col==="onb_tgl") return u.onboarded_at?new Date(u.onboarded_at).getTime():0;
+      if(col==="scan") return u.scans_used||0;
+      if(col==="sisa") return u.scan_remaining==null?-1:u.scan_remaining;
+      if(col==="aktif") return u.minutes_ago==null?Infinity:u.minutes_ago;
+      if(col==="beli") return u.purchases||0;
+      if(col==="total") return u.total_spent||0;
+      if(col==="tertinggi") return u.highest_purchase||0;
+      return 0;
+    }
+    function thSort(col,label){
+      var ind=U_SORT_COL===col?(U_SORT_DIR===1?" ▲":" ▼"):"";
+      return "<th style='cursor:pointer;user-select:none;white-space:nowrap' onclick='uSortBy(\""+col+"\")'>"+label+ind+"</th>";
+    }
     function renderUserList(){
       var list=$("uList");
       // Gate unduh: hanya staff/superadmin (server juga menolak selain itu).
@@ -1167,9 +1189,18 @@
         if(q&&!((String(u.full_name||"").toLowerCase().indexOf(q)>=0)||(String(u.email||"").toLowerCase().indexOf(q)>=0)||(String(u.phone||"").toLowerCase().indexOf(q)>=0))) return false;
         return true;
       });
-      var us=FILTERED_USERS;
+      var us=FILTERED_USERS.slice();
       if(!us.length){ list.innerHTML="<div class='placeholder'>Tidak ada user cocok.</div>"; return; }
-      var h="<div style='overflow-x:auto'><table><thead><tr><th>Status</th><th>Onboarding</th><th>Nama</th><th>Email</th><th>No. WA</th><th>Tgl Onboarding</th><th>Scan dipakai</th><th>Sisa Scan</th><th>Terakhir aktif</th><th>Produk terlaris</th><th>Beli</th><th>Total belanja</th><th>Tertinggi</th><th></th></tr></thead><tbody>";
+      if(U_SORT_COL){ us.sort(function(a,b){
+        var av=uSortVal(a,U_SORT_COL), bv=uSortVal(b,U_SORT_COL);
+        return (av<bv?-1:av>bv?1:0)*U_SORT_DIR;
+      }); }
+      var h="<div style='overflow-x:auto'><table><thead><tr>"+
+        thSort("status","Status")+thSort("onboarding","Onboarding")+thSort("nama","Nama")+
+        "<th>Email</th><th>No. WA</th>"+thSort("onb_tgl","Tgl Onboarding")+
+        thSort("scan","Scan dipakai")+thSort("sisa","Sisa Scan")+thSort("aktif","Terakhir aktif")+
+        "<th>Produk terlaris</th>"+thSort("beli","Beli")+thSort("total","Total belanja")+
+        thSort("tertinggi","Tertinggi")+"<th></th></tr></thead><tbody>";
       us.forEach(function(u){
         var dotc=u.active?"var(--green,#1a7f37)":"#8A7C68";
         var tp=u.top_product?esc(u.top_product.name)+" <span style='color:var(--muted)'>("+u.top_product.count+"×)</span>":"—";
