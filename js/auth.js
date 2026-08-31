@@ -233,12 +233,16 @@
     location.href = PHOTO_ORIGIN + "/login"; // fallback terakhir: login manual di photo
   }
 
-  // ---------- SSO KELUAR: buka calories.20fit.id tanpa login ulang ----------
+  // ---------- SSO KELUAR: buka calorietracker.20fit.id tanpa login ulang ----------
   // Pola SAMA dgn photoSso: oper access_token+refresh_token sesi browser ini via URL fragment.
-  // App calories (Supabase setSession dari location.hash) men-seat sesi. Parity dgn login native
-  // (magic-link/OAuth implicit juga mendaratkan #access_token di fragment) — bukan paparan baru.
-  // Panggil ini dari my.20fit saat mengarahkan user ke scanner kalori subdomain.
-  const CALORIES_ORIGIN = "https://calories.20fit.id";
+  // App calorietracker (Supabase setSession dari location.hash) men-seat sesi. Parity dgn login
+  // native (magic-link/OAuth implicit juga mendaratkan #access_token di fragment) — bukan paparan
+  // baru. Panggil ini dari my.20fit saat mengarahkan user ke scanner kalori subdomain.
+  // CATATAN (audit 2026-08-31): sebelumnya nilainya "calories.20fit.id" — domain itu TIDAK
+  // PERNAH punya DNS record (dicek langsung, NXDOMAIN), jadi tombol Sign In & kartu Kalori
+  // selalu gagal (site can't be reached) begitu dipanggil. Nama yang benar & live:
+  // calorietracker.20fit.id.
+  const CALORIES_ORIGIN = "https://calorietracker.20fit.id";
   async function caloriesSso() {
     await ready;
     let s = null;
@@ -251,7 +255,7 @@
       location.href = CALORIES_ORIGIN + "/" + frag;
       return;
     }
-    location.href = CALORIES_ORIGIN + "/"; // belum ada sesi -> app calories yang arahkan ke login
+    location.href = CALORIES_ORIGIN + "/"; // belum ada sesi -> app calorietracker yang arahkan ke login
   }
 
   // ---------- VERIFIKASI OTP AKUN 20FIT (wajib pasca-registrasi baru) ----------
@@ -596,7 +600,7 @@
     if (profile.fitco_email_verified === false) return go("verify.html");
     if (!profileComplete(profile)) return go("onboarding.html");
     if (!hasWebPassword(user)) return go("setpassword.html");
-    // Tujuan lanjutan setelah login penuh, mis. balik ke calories.20fit.id kalau
+    // Tujuan lanjutan setelah login penuh, mis. balik ke calorietracker.20fit.id kalau
     // orang datang dari sana (Sign In di calorietracker -> login.html?next=calories).
     // Diset ke sessionStorage sekali di entry (login.html/code-login.html) karena URL
     // query aslinya tak ikut lewat rantai redirect verify/onboarding/setpassword di atas.
