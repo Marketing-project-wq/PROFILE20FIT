@@ -1612,6 +1612,8 @@
       (m.photo_url?'<img src="'+esc(m.photo_url)+'" alt="" style="max-width:100%;margin-top:10px;border:1px solid var(--line)" onerror="this.style.display=\'none\'">':'')+
       (ing.length?'<div class="adm-sec-title">'+L("Ingredients","Bahan")+'</div><ul style="margin:6px 0 0;padding-left:18px">'+ing.map(function(x){return '<li>'+x+'</li>';}).join("")+'</ul>':'')+
       (stp.length?'<div class="adm-sec-title">'+L("Steps","Langkah")+'</div><ol style="margin:6px 0 0;padding-left:18px">'+stp.map(function(x){return '<li>'+x+'</li>';}).join("")+'</ol>':'')+
+      // Foto tiap langkah (step berfoto) — moderator WAJIB bisa lihat utk cek konten tak pantas.
+      ((Array.isArray(m.steps_json)&&m.steps_json.some(function(s){return s&&s.photo;}))?'<div class="adm-sec-title">'+L("Step photos","Foto langkah")+'</div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">'+m.steps_json.map(function(s,i){return (s&&s.photo)?'<figure style="margin:0"><img src="'+esc(s.photo)+'" alt="" style="width:120px;height:120px;object-fit:cover;border:1px solid var(--line);border-radius:8px" onerror="this.style.display=\'none\'"><figcaption class="adm-note" style="font-size:11px;text-align:center">'+L("Step","Langkah")+' '+(i+1)+'</figcaption></figure>':'';}).join("")+'</div>':'')+
       (m.status==="rejected"&&m.reject_reason?'<div class="adm-callout adm-callout--danger" style="margin-top:12px"><span class="adm-badge">'+L("Reject reason","Alasan tolak")+'</span><div class="adm-note">'+esc(m.reject_reason)+'</div></div>':'')+
       '<div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">'+
         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
