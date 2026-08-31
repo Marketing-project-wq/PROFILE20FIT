@@ -625,7 +625,7 @@
     (function(){
       try{
         const q=new URLSearchParams(location.search);
-        if(q.get("next")==="calories") sessionStorage.setItem("post_auth_next","calories");
+        { const n=q.get("next"); if(n==="calories"||n==="menu") sessionStorage.setItem("post_auth_next",n); }
       }catch(e){}
     })();
 
