@@ -1007,7 +1007,7 @@ const isPollPath = (req) => PAYMENT_POLL_PATHS.has((req.originalUrl || "").split
 // Proxy gambar preview foto (/api/photo/thumb/:id) = satu request per thumbnail. Satu carousel
 // bisa memuat belasan gambar sekaligus -> jangan dihitung ke ember 50/10mnt (nanti user kehabisan
 // limit hanya karena membuka dashboard). Punya limiter sendiri yang longgar + cache browser.
-const isImgPath = (req) => (req.originalUrl || "").split("?")[0].startsWith("/api/photo/thumb/");
+const isImgPath = (req) => { const _p = (req.originalUrl || "").split("?")[0]; return _p.startsWith("/api/photo/thumb/") || _p.startsWith("/api/menu/photo"); };
 
 // message berupa OBJEK -> express-rate-limit membalas JSON. Kalau string (default), body-nya
 // text/html dan res.json() di klien meledak -> error ditelan diam-diam (persis bug di atas).
@@ -1042,6 +1042,7 @@ app.use("/api/scan/order-status", pollLimiter);
 app.use("/api/scan/reconcile", pollLimiter);
 app.use("/api/photo/scan-status", pollLimiter);
 app.use("/api/photo/thumb/", imgLimiter);
+app.use("/api/menu/photo", imgLimiter); // foto katalog menu.20fit.id (publik) — kuota longgar, exempt dari apiLimiter 50/10mnt via isImgPath
 
 // Limiter KETAT untuk endpoint kredensial — 50/10mnt global terlalu longgar buat
 // tebak-password / OTP. 12 percobaan / 15 menit / IP masih longgar utk user sah.
@@ -6299,6 +6300,55 @@ app.get("/api/foodphoto", async (req, res) => {
       } catch (_e) {}
     }
     return res.json({ ok: false }); // tak ada foto asli yang cocok → klien pakai placeholder rapi
+  } catch (e) { return res.json({ ok: false }); }
+});
+
+// PUBLIK: foto makanan untuk katalog menu.20fit.id (browse tanpa login). Cermin /api/foodphoto
+// langkah 1-3 (cache Pexels -> Pexels -> TheMealDB) TANPA langkah 0 AI (butuh token user). Sengaja
+// tidak dishare-helper dgn /api/foodphoto agar endptoint AI authed itu tak tersentuh. Rate limit
+// imgLimiter (lihat isImgPath). ok:false -> klien pakai placeholder emoji.
+app.get("/api/menu/photo", async (req, res) => {
+  try {
+    const id = String(req.query.id || "").slice(0, 80);
+    const q = String(req.query.q || "").slice(0, 120);    // nama deskriptif (Pexels)
+    const mdb = String(req.query.mdb || "").slice(0, 60); // kata kunci pendek (TheMealDB)
+    if (!id) return res.json({ ok: false });
+    const cacheId = id + "-px";
+    if (admin) {
+      try {
+        const { data } = await admin.from("my20fit_foodimg").select("url").eq("id", cacheId).limit(1);
+        if (data && data[0] && data[0].url) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: data[0].url, cached: true }); }
+      } catch (_e) {}
+    }
+    const key = process.env.PEXELS_API_KEY;
+    if (key && q) {
+      try {
+        const pr = await fetch("https://api.pexels.com/v1/search?orientation=landscape&per_page=1&query=" + encodeURIComponent(q),
+          { headers: { Authorization: key } });
+        if (pr.ok) {
+          const pj = await pr.json();
+          const p = pj && pj.photos && pj.photos[0];
+          const url = p && p.src && (p.src.medium || p.src.large || p.src.original);
+          if (url) {
+            if (admin) { try { await admin.from("my20fit_foodimg").upsert({ id: cacheId, url: url }); } catch (_e) {} }
+            res.set("Cache-Control", "public, max-age=86400");
+            return res.json({ ok: true, url: url, source: "pexels" });
+          }
+        }
+      } catch (_e) {}
+    }
+    const mdbQ = mdb || q;
+    if (mdbQ) {
+      try {
+        const mr = await fetch("https://www.themealdb.com/api/json/v1/1/search.php?s=" + encodeURIComponent(mdbQ));
+        if (mr.ok) {
+          const mj = await mr.json();
+          const m = mj && mj.meals;
+          if (m && m[0] && m[0].strMealThumb) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: m[0].strMealThumb + "/small", source: "themealdb" }); }
+        }
+      } catch (_e) {}
+    }
+    return res.json({ ok: false });
   } catch (e) { return res.json({ ok: false }); }
 });
 
