@@ -619,9 +619,9 @@
       }
     }
 
-    // Datang dari calorietracker (Sign In di calories.20fit.id -> login.html?next=calories):
-    // simpan tujuan ke sessionStorage SEBELUM Auth.routeAfterAuth() sempat kepanggil, supaya
-    // dia tau harus balik ke calories.20fit.id (bukan dashboard) begitu login penuh selesai.
+    // Datang dari calorietracker.20fit.id (Sign In -> login.html?next=calories): simpan tujuan
+    // ke sessionStorage SEBELUM Auth.routeAfterAuth() sempat kepanggil, supaya dia tau harus
+    // balik ke calorietracker.20fit.id (bukan dashboard) begitu login penuh selesai.
     (function(){
       try{
         const q=new URLSearchParams(location.search);

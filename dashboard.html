@@ -892,7 +892,7 @@
         var pct = tgt ? Math.max(0, Math.min(100, Math.round(eaten / tgt * 100))) : 0;
         var mt = (window.Nutrition && Nutrition.macrosFor) ? Nutrition.macrosFor(profile, tgt) : { p: Math.round(tgt * 0.25 / 4), c: Math.round(tgt * 0.45 / 4), f: Math.round(tgt * 0.25 / 9) };
         function macro(n, val, tot, col) { var p = tot ? Math.max(0, Math.min(100, Math.round(val / tot * 100))) : 0; return '<div class="tc-m"><div class="tc-ml"><span class="tc-mn">' + n + '</span><span class="tc-mv">' + val + '/' + tot + 'g</span></div><div class="tc-bar"><i style="width:' + p + '%;background:' + col + '"></i></div></div>'; }
-        // Kartu Kalori membuka subdomain calories.20fit.id (SSO hand-off via Auth.caloriesSso()).
+        // Kartu Kalori membuka subdomain calorietracker.20fit.id (SSO hand-off via Auth.caloriesSso()).
         // Fallback href=calories.html tetap ada -> kalau JS/sesi gagal, jatuh ke scanner in-app.
         return '<a class="card trkcal" href="calories.html" onclick="if(window.Auth&&Auth.caloriesSso){event.preventDefault();Auth.caloriesSso();}"><div class="tkhd"><div class="tkic cal">' + TICON.cal + '</div>' +
           '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Calories", id: "Kalori" }) + '</div><div class="tc-kcal tkmono">' + eaten + ' / ' + tgt.toLocaleString() + ' kcal <small>· ' + pct + '%</small></div></div><span class="tkchev">›</span></div>' +
