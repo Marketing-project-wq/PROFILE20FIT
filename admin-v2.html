@@ -1608,6 +1608,7 @@
       '<div style="display:flex;align-items:baseline;gap:10px;justify-content:space-between">'+
         '<h2 class="adm-h2">'+esc(m.name||"—")+'</h2>'+mnStatusTag(m.status)+'</div>'+
       '<div class="adm-note" style="margin-top:4px">'+esc(m.contributor_name||"")+(m.contributor_email?" · "+esc(m.contributor_email):"")+(m.est_kcal!=null?" · "+m.est_kcal+" kkal":"")+(m.diet_type?" · "+esc(m.diet_type):"")+'</div>'+
+      (m.health_flag?'<div class="adm-callout adm-callout--danger" style="margin-top:10px"><span class="adm-badge">'+L("&#9888; Health claim?","&#9888; Klaim kesehatan?")+'</span><div class="adm-note">'+L("Possible medical/health claim in this recipe — review carefully. Reject or edit before publishing (false medical claims are a clinic risk).","Kemungkinan klaim medis/kesehatan di resep ini — review hati-hati. Tolak atau edit sebelum tayang (klaim medis palsu = risiko klinik).")+'</div></div>':'')+
       (m.photo_url?'<img src="'+esc(m.photo_url)+'" alt="" style="max-width:100%;margin-top:10px;border:1px solid var(--line)" onerror="this.style.display=\'none\'">':'')+
       (ing.length?'<div class="adm-sec-title">'+L("Ingredients","Bahan")+'</div><ul style="margin:6px 0 0;padding-left:18px">'+ing.map(function(x){return '<li>'+x+'</li>';}).join("")+'</ul>':'')+
       (stp.length?'<div class="adm-sec-title">'+L("Steps","Langkah")+'</div><ol style="margin:6px 0 0;padding-left:18px">'+stp.map(function(x){return '<li>'+x+'</li>';}).join("")+'</ol>':'')+

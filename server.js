@@ -4153,7 +4153,7 @@ app.get("/api/menu/mine", async (req, res) => {
   var user = await getUserFromReq(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
   var { data: rows, error } = await admin.from("my20fit_menu_contribution")
-    .select("id,name,diet_type,status,reject_reason,est_kcal,created_at,reviewed_at,published")
+    .select("id,name,diet_type,ingredients,steps,photo_url,status,reject_reason,est_kcal,created_at,reviewed_at,published")
     .eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(200);
   if (error) return res.status(500).json({ error: error.message });
   var approved = (rows || []).filter(function (r) { return r.status === "approved"; }).length;
@@ -4194,7 +4194,7 @@ app.get("/api/admin/menu", async (req, res) => {
     var ids = Array.from(new Set((rows || []).map(function (r) { return r.auth_user_id; })));
     var pmap = {};
     if (ids.length) { var { data: profs } = await admin.from("my20fit_profile").select("auth_user_id,full_name,email").in("auth_user_id", ids); (profs || []).forEach(function (p) { pmap[p.auth_user_id] = p; }); }
-    var out = (rows || []).map(function (r) { var p = pmap[r.auth_user_id] || {}; return Object.assign({}, r, { contributor_name: p.full_name || null, contributor_email: p.email || null }); });
+    var out = (rows || []).map(function (r) { var p = pmap[r.auth_user_id] || {}; return Object.assign({}, r, { contributor_name: p.full_name || null, contributor_email: p.email || null, health_flag: menuHealthFlag(r.name, r.ingredients, r.steps) }); });
     return res.json({ ok: true, menus: out });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
@@ -4228,6 +4228,56 @@ app.post("/api/admin/menu/:id/reject", async (req, res) => {
   await adminAudit(ctx, wasApproved ? "menu.revoke" : "menu.reject", id, { user: m.auth_user_id, reason: reason, credits_clawed: clawed });
   return res.json({ ok: true, credits_clawed: clawed });
 });
+
+// ============ DIET Bagian 2: endpoint PUBLIK untuk menu.20fit.id ============
+// Subdomain menu.20fit.id (frontend terpisah) menarik data dari SINI — SATU sumber,
+// tanpa duplikat katalog. Semua di bawah ini boleh diakses TANPA login (browse publik).
+
+// Deteksi KLAIM KESEHATAN/medis pada kontribusi user. Ini SINYAL untuk reviewer admin —
+// gerbang tayang tetap moderasi admin (approve/reject), bukan auto-block.
+var MENU_HEALTH_CLAIM_RE = /(menyembuhkan|nyembuhin|mengobati|\bobat\b|\bsembuh\b|anti[- ]?kanker|\bkanker\b|diabetes|tekanan darah|gula darah|kolesterol|detoks total|awet muda|\bcure\b|\bcures\b|\bheals?\b|\btreats?\b)/i;
+function menuHealthFlag(name, ingredients, steps) {
+  try { return MENU_HEALTH_CLAIM_RE.test([name, ingredients, steps].join(" ")); }
+  catch (e) { return false; }
+}
+
+// Katalog resep resmi 20FIT dibaca dari js/recipes.js (SATU sumber; sama dgn /diet).
+var _menuCatalogCache = null;
+function loadMenuCatalog() {
+  if (_menuCatalogCache) return _menuCatalogCache;
+  try { var m = require("./js/recipes.js"); _menuCatalogCache = (m && Array.isArray(m.LIST)) ? m.LIST : []; }
+  catch (e) { _menuCatalogCache = []; }
+  return _menuCatalogCache;
+}
+
+// PUBLIK: katalog resep resmi 20FIT (id, nama EN/ID, makro perkiraan, bahan, langkah).
+app.get("/api/menu/catalog", function (req, res) {
+  var list = loadMenuCatalog();
+  res.set("Cache-Control", "public, max-age=300");
+  return res.json({ ok: true, count: list.length, recipes: list });
+});
+
+// PUBLIK: kontribusi user yang APPROVED + PUBLISHED (tanpa PII). Dibaca service key
+// (bypass RLS) TAPI difilter ketat ke approved+published & field aman -> layak publik.
+app.get("/api/menu/published", async function (req, res) {
+  try {
+    if (!admin) return res.json({ ok: true, menus: [] });
+    var q = String(req.query.q || "").trim();
+    var diet = String(req.query.diet || "").trim().toLowerCase();
+    var limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 100));
+    var query = admin.from("my20fit_menu_contribution")
+      .select("id,name,diet_type,ingredients,steps,photo_url,est_kcal,reviewed_at")
+      .eq("status", "approved").eq("published", true)
+      .order("reviewed_at", { ascending: false }).limit(limit);
+    if (q) query = query.ilike("name", "%" + q + "%");
+    if (diet && MENU_DIET_TYPES.indexOf(diet) >= 0) query = query.eq("diet_type", diet);
+    var { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ ok: true, menus: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // Info konfigurasi runtime (superadmin only) — status env, TANPA membocorkan nilai rahasia.
 app.get("/api/admin/config", async (req, res) => {
   const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
