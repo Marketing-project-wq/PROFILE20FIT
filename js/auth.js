@@ -258,12 +258,13 @@
     location.href = CALORIES_ORIGIN + "/"; // belum ada sesi -> app calorietracker yang arahkan ke login
   }
 
-  // ---------- SSO KELUAR: buka menu.20fit.id tanpa login ulang ----------
+  // ---------- SSO KELUAR: buka app menu resep tanpa login ulang ----------
   // Pola SAMA dgn caloriesSso: oper access_token+refresh_token sesi browser ini via URL fragment.
   // App menu (Supabase setSession dari location.hash) men-seat sesi lalu STRIP token dari URL
   // (history.replaceState) — token tak pernah masuk log server. Panggil saat mengarahkan user
   // ke katalog resep subdomain.
-  const MENU_ORIGIN = "https://menu.20fit.id";
+  // Domain produksi app menu = recepie.20fit.id (bukan menu.20fit.id yang belum ada DNS-nya).
+  const MENU_ORIGIN = "https://recepie.20fit.id";
   async function menuSso() {
     await ready;
     let s = null;
