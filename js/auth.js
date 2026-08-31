@@ -258,6 +258,28 @@
     location.href = CALORIES_ORIGIN + "/"; // belum ada sesi -> app calorietracker yang arahkan ke login
   }
 
+  // ---------- SSO KELUAR: buka app menu resep tanpa login ulang ----------
+  // Pola SAMA dgn caloriesSso: oper access_token+refresh_token sesi browser ini via URL fragment.
+  // App menu (Supabase setSession dari location.hash) men-seat sesi lalu STRIP token dari URL
+  // (history.replaceState) — token tak pernah masuk log server. Panggil saat mengarahkan user
+  // ke katalog resep subdomain.
+  // Domain produksi app menu = recepie.20fit.id (bukan menu.20fit.id yang belum ada DNS-nya).
+  const MENU_ORIGIN = "https://recepie.20fit.id";
+  async function menuSso() {
+    await ready;
+    let s = null;
+    try { const { data } = await supabase.auth.getSession(); s = data && data.session; } catch (e) {}
+    if (s && s.access_token && s.refresh_token) {
+      const exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
+      const frag = "#access_token=" + encodeURIComponent(s.access_token) +
+        "&refresh_token=" + encodeURIComponent(s.refresh_token) +
+        "&expires_in=" + exp + "&token_type=bearer&type=magiclink";
+      location.href = MENU_ORIGIN + "/" + frag;
+      return;
+    }
+    location.href = MENU_ORIGIN + "/"; // belum ada sesi -> app menu yang arahkan ke login
+  }
+
   // ---------- VERIFIKASI OTP AKUN 20FIT (wajib pasca-registrasi baru) ----------
   // OTP ini BEDA dari OTP Supabase kita (sendOtp/verifyOtp di bawah) — ini kode
   // yang dikirim 20FIT sendiri untuk memverifikasi akun di ekosistem mereka.
@@ -610,6 +632,10 @@
         sessionStorage.removeItem("post_auth_next");
         return caloriesSso();
       }
+      if (next === "menu") {
+        sessionStorage.removeItem("post_auth_next");
+        return menuSso();
+      }
     } catch (e) {}
     return go("dashboard.html");
   }
@@ -626,6 +652,7 @@
     tokenLogin,
     photoSso,
     caloriesSso,
+    menuSso,
     fitcoVerifyEmail,
     fitcoResendVerifyEmail,
     hasWebPassword,

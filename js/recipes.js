@@ -1275,5 +1275,13 @@
     _ioMap.set(el, rec); io.observe(el);
   }
 
-  window.Recipes = { LIST: LIST, byType: byType, recommendForMacros: recommendForMacros, resolveImg: resolveImg, applyThumb: applyThumb, applyThumbLazy: applyThumbLazy, DIET_TYPES: ["normal", "vegetarian", "vegan", "pescatarian", "keto", "high-protein", "low-carb", "halal"] };
+  var _DIET_TYPES = ["normal", "vegetarian", "vegan", "pescatarian", "keto", "high-protein", "low-carb", "halal"];
+  if (typeof window !== "undefined") {
+    window.Recipes = { LIST: LIST, byType: byType, recommendForMacros: recommendForMacros, resolveImg: resolveImg, applyThumb: applyThumb, applyThumbLazy: applyThumbLazy, DIET_TYPES: _DIET_TYPES };
+  }
+  // Ekspor untuk Node (server.js: GET /api/menu/catalog) — SATU sumber data resep resmi 20FIT.
+  // Aman di browser (module undefined) & di server (window undefined -> di-guard di atas).
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { LIST: LIST, DIET_TYPES: _DIET_TYPES };
+  }
 })();
