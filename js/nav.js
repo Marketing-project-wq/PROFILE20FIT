@@ -2,6 +2,11 @@
 // Mengikuti design system "Glass Minimalist" (20fit-design-system.css).
 // Visual only: tidak mengubah handler/logika halaman.
 (function () {
+  // Halaman di-iframe (mis. calories.html di dalam calorietracker.20fit.id) -> skip semua
+  // chrome navigasi (sidebar/bottom-nav/logo/FAB). Konten pemanggil (calorietracker) sudah
+  // punya nav sendiri; dobel nav di dalam iframe cuma bikin sempit & membingungkan. Halaman
+  // itu sendiri (form, data, tombol) tetap identik — cuma chrome-nya yang disembunyikan.
+  try { if (window.self !== window.top) return; } catch (e) { return; } // cross-origin -> anggap framed
   const ICON = {
     home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
     event: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',

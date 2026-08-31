@@ -6850,6 +6850,17 @@ app.use(express.static(path.join(__dirname), {
     // kalau berubah). Efeknya: setelah deploy, user OTOMATIS dapat versi terbaru tanpa
     // hard-refresh. Tidak menyentuh localStorage/sesi login -> tidak ada risiko user ke-logout.
     if (/\.(html|js|css)$/i.test(filePath)) res.setHeader("Cache-Control", "no-cache");
+
+    // Izinkan calories.html di-iframe HANYA dari calorietracker.20fit.id (fitur tracker lengkap
+    // ditampilkan di sana lewat iframe, bukan duplikasi kode — lihat Calories.20fit InsightPage).
+    // helmet() di atas sudah pasang X-Frame-Options: SAMEORIGIN secara global untuk SEMUA
+    // halaman (proteksi clickjacking default) -> di sini kita override KHUSUS calories.html
+    // pakai CSP frame-ancestors yang lebih presisi (whitelist origin tertentu, bukan buka ke
+    // semua origin) sambil BUKAN mencabut X-Frame-Options untuk halaman lain mana pun.
+    if (/(^|\/)calories\.html$/i.test(filePath)) {
+      res.removeHeader("X-Frame-Options");
+      res.setHeader("Content-Security-Policy", "frame-ancestors 'self' https://calorietracker.20fit.id");
+    }
   }
 }));
 app.get("*", (req, res) => {
