@@ -95,8 +95,12 @@ Deno.serve(async (req) => {
 
     // Prompt: SATU piring/mangkuk, SATU dish, tajam, warna hidup. Tegaskan BUKAN kolase/grid/
     // gambar berulang — dulu "fills entire frame edge to edge" bikin model malah menge-tile jadi
-    // beberapa piring (double). desc (bahan) bikin AI tahu persis dish-nya (mis. masakan Indonesia).
+    // beberapa piring (double). desc (bahan) bikin AI tahu persis dish-nya. `indo` (opsional,
+    // default true) menambah styling ala food photography Indonesia (piring keramik sederhana/
+    // alas tikar anyaman/daun pisang, cahaya hangat tropis) — TANPA memaksa elemen semisal
+    // sambal/kerupuk ke dish yang bukan masakan Indonesia (mis. burger/pizza/pasta di katalog ini).
     const desc = String(b.desc || '').slice(0, 400);
+    const indoStyle = b.indo !== false;
     const prompt =
       `ONE single wide landscape (4:3) photorealistic food photograph of the dish "${name}"` +
       (desc ? `, made of ${desc}` : '') +
@@ -104,7 +108,14 @@ Deno.serve(async (req) => {
       `It is a SINGLE photo — absolutely NOT a collage, NOT a grid, NOT a strip, NOT multiple plates ` +
       `side by side, NOT the dish repeated or tiled. Just one plate. Shot from a 45-degree angle, ` +
       `bright even lighting, sharp focus, vivid appetizing natural colors, crisp fine detail, ` +
-      `professional food-magazine style. No blur, no text, no watermark, no hands, no packaging.`;
+      `professional food-magazine style. No blur, no text, no watermark, no hands, no packaging.` +
+      (indoStyle
+        ? ` Styled the way Indonesian food blogs and warung/restaurant menus photograph dishes: ` +
+          `simple ceramic or enamel plate (or banana-leaf lining if it suits the dish), warm ` +
+          `natural tropical daylight, a woven rattan placemat or rustic wood table. The dish ` +
+          `itself must stay exactly what "${name}" is — do not add sambal, kerupuk, or other ` +
+          `Indonesian side dishes unless they are already part of the description above.`
+        : '');
 
     const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
