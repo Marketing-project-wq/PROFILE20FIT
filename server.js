@@ -224,8 +224,10 @@ app.use("/api", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-key, x-cron-secret");
     res.setHeader("Access-Control-Max-Age", "600");
-    // /api/pub/* uses httpOnly cookie for anon session tracking
-    if ((req.originalUrl || "").startsWith("/api/pub/")) {
+    // /api/pub/* dan /api/menu/* pakai cookie httpOnly (eco_anon) utk sesi anonim
+    // (mis. like tanpa login) -> browser wajib boleh kirim/terima cookie lintas-origin.
+    var _url = req.originalUrl || "";
+    if (_url.startsWith("/api/pub/") || _url.startsWith("/api/menu/")) {
       res.setHeader("Access-Control-Allow-Credentials", "true");
     }
   }
@@ -4125,6 +4127,11 @@ app.get("/api/corp/messages", async (req, res) => {
 // ================= DIET Bagian 1: kontribusi menu + reward =================
 var MENU_DAILY_LIMIT = 5;
 var MENU_DIET_TYPES = ["normal", "vegetarian", "vegan", "pescatarian", "keto", "halal", "high-protein", "low-carb"];
+// Ambang reward sumbang-resep -- SATU sumber angka (dipakai /api/menu/mine & /api/menu/reward-config).
+// HARUS sama dengan yang di-hardcode di RPC my20fit_grant_menu_reward (floor(approved/10), credits=5) --
+// itu RPC terpisah, sudah live/dipakai, sengaja TIDAK diubah di sini (lihat diskusi Tahap 3).
+var MENU_REWARD_PER_CYCLE = 10;   // kontribusi approved per cycle
+var MENU_REWARD_SCAN_CREDITS = 5; // kredit scan didapat tiap cycle
 function menuHash(name, ingredients, steps) {
   var norm = function (s) { return String(s || "").toLowerCase().replace(/\s+/g, " ").trim(); };
   return sha256(norm(name) + "|" + norm(ingredients) + "|" + norm(steps));
@@ -4159,6 +4166,13 @@ app.post("/api/menu/submit", async (req, res) => {
   }
   return res.json({ ok: true, id: data.id });
 });
+// PUBLIK: angka ambang reward sumbang-resep -- supaya frontend TIDAK hardcode "10"/"5" (bisa
+// diubah di sini tanpa deploy frontend). Tidak butuh login: dipakai jadi ajakan SEBELUM user
+// masuk juga (tombol "Bikin resep"), bukan cuma di halaman progres yang sudah login.
+app.get("/api/menu/reward-config", function (req, res) {
+  res.set("Cache-Control", "public, max-age=3600");
+  return res.json({ ok: true, per_cycle: MENU_REWARD_PER_CYCLE, reward_scan: MENU_REWARD_SCAN_CREDITS });
+});
 // User: submission-ku + progres reward.
 app.get("/api/menu/mine", async (req, res) => {
   var user = await getUserFromReq(req);
@@ -4167,10 +4181,19 @@ app.get("/api/menu/mine", async (req, res) => {
     .select("id,name,diet_type,ingredients,steps,steps_json,photo_url,status,reject_reason,est_kcal,servings,cook_minutes,created_at,reviewed_at,published")
     .eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(200);
   if (error) return res.status(500).json({ error: error.message });
+  // "approved": dipakai match reward RPC yang sudah live (approved saja, lihat catatan di atas
+  // MENU_REWARD_PER_CYCLE). "approvedPublished": buat TAMPILAN progres Tahap 3 -- syarat lebih
+  // ketat (approved DAN published) supaya orang tak asal kirim 10 resep yang belum tentu tayang.
   var approved = (rows || []).filter(function (r) { return r.status === "approved"; }).length;
+  var approvedPublished = (rows || []).filter(function (r) { return r.status === "approved" && r.published; }).length;
   var { data: rl } = await admin.from("my20fit_menu_reward_log").select("credits_granted").eq("auth_user_id", user.id).eq("status", "granted");
   var creditsEarned = (rl || []).reduce(function (s, x) { return s + (+x.credits_granted || 0); }, 0);
-  return res.json({ ok: true, submissions: rows || [], approved: approved, per_cycle: 10, reward_scan: 5, toward_next: approved % 10, credits_earned: creditsEarned });
+  return res.json({
+    ok: true, submissions: rows || [],
+    approved: approved, approved_published: approvedPublished,
+    per_cycle: MENU_REWARD_PER_CYCLE, reward_scan: MENU_REWARD_SCAN_CREDITS,
+    toward_next: approved % MENU_REWARD_PER_CYCLE, credits_earned: creditsEarned,
+  });
 });
 // User: revisi menu yang DITOLAK -> pending lagi.
 app.post("/api/menu/:id/revise", async (req, res) => {
@@ -4336,30 +4359,78 @@ app.post("/api/menu/upload", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal unggah foto." }); }
 });
 
-// AUTH: toggle heart. 1 user 1 reaction/resep (unique DB). Body {source:'official'|'member'}.
-// Jumlah dihitung server (service key) -> tak bisa dicurangi client.
+// PUBLIK (login opsional): toggle heart. 1 pemilik (akun ATAU sesi anonim) 1 reaction/resep
+// (unique index DB, lihat migration menu_reaction_allow_anon_like). Body {source:'official'|'member'}.
+// Jumlah dihitung server (service key) -> tak bisa dicurangi client. Guest diidentifikasi lewat
+// cookie httpOnly eco_anon (my20fit_anonymous_sessions) -- SAMA dgn kuota scan anonim, dibuat
+// on-demand di sini (bukan dari sekadar buka halaman) supaya tabel tak dibanjiri sesi tak aktif.
 app.post("/api/menu/:id/react", async (req, res) => {
   try {
-    var user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
     var menu_id = String(req.params.id || "").slice(0, 80);
     var source = String((req.body || {}).source || "").trim().toLowerCase();
     if (!menu_id) return res.status(400).json({ error: "menu_id wajib." });
     if (source !== "official" && source !== "member") return res.status(400).json({ error: "source tidak valid." });
+
+    var user = await getUserFromReq(req);
+    var ownerCol = user ? "auth_user_id" : "anon_id";
+    var ownerVal = user ? user.id : null;
+    if (!user) {
+      var sess = await getAnonSession(req, res, true);
+      if (!sess) return res.status(503).json({ error: "Server belum siap." });
+      ownerVal = sess.anon_id;
+    }
+
     var { data: ex } = await admin.from("my20fit_menu_reaction").select("id")
-      .eq("auth_user_id", user.id).eq("source", source).eq("menu_id", menu_id).limit(1);
+      .eq(ownerCol, ownerVal).eq("source", source).eq("menu_id", menu_id).limit(1);
     var reacted;
     if (ex && ex[0]) {
       await admin.from("my20fit_menu_reaction").delete().eq("id", ex[0].id);
       reacted = false;
     } else {
-      var ins = await admin.from("my20fit_menu_reaction").insert({ auth_user_id: user.id, source: source, menu_id: menu_id, kind: "heart" });
+      var row = { source: source, menu_id: menu_id, kind: "heart" };
+      row[ownerCol] = ownerVal;
+      var ins = await admin.from("my20fit_menu_reaction").insert(row);
       if (ins.error && ins.error.code !== "23505") throw ins.error; // 23505 = race, sudah ada -> anggap reacted
       reacted = true;
     }
     var { count } = await admin.from("my20fit_menu_reaction").select("id", { count: "exact", head: true })
       .eq("source", source).eq("menu_id", menu_id);
     return res.json({ ok: true, reacted: reacted, count: count || 0 });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+
+// AUTH: pindahkan like sesi anonim (cookie eco_anon) ke akun yang baru login/daftar, supaya
+// guest yang like lalu bikin akun tidak kehilangan like-nya. Idempoten: aman dipanggil berkali-kali
+// (anon session yang sudah converted_user_id -> tak ada baris anon lagi utk dipindah).
+app.post("/api/menu/claim-anon-likes", async (req, res) => {
+  try {
+    var user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    var sess = await getAnonSession(req, res, false);
+    if (!sess) return res.json({ ok: true, migrated: 0 });
+
+    var { data: anonRows } = await admin.from("my20fit_menu_reaction")
+      .select("id,source,menu_id,kind").eq("anon_id", sess.anon_id);
+    anonRows = anonRows || [];
+    var migrated = 0;
+    if (anonRows.length) {
+      var { data: ownRows } = await admin.from("my20fit_menu_reaction")
+        .select("source,menu_id,kind").eq("auth_user_id", user.id);
+      var ownKeys = new Set((ownRows || []).map(function (r) { return r.source + ":" + r.menu_id + ":" + r.kind; }));
+      for (var i = 0; i < anonRows.length; i++) {
+        var r = anonRows[i];
+        var key = r.source + ":" + r.menu_id + ":" + r.kind;
+        if (ownKeys.has(key)) {
+          // Akun ini sudah like resep yang sama dari device lain -> baris anon jadi duplikat, buang.
+          await admin.from("my20fit_menu_reaction").delete().eq("id", r.id);
+        } else {
+          await admin.from("my20fit_menu_reaction").update({ auth_user_id: user.id, anon_id: null }).eq("id", r.id);
+          migrated++;
+        }
+      }
+    }
+    try { await admin.from("my20fit_anonymous_sessions").update({ converted_user_id: user.id }).eq("anon_id", sess.anon_id); } catch (_e) {}
+    return res.json({ ok: true, migrated: migrated });
   } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
 });
 
@@ -4438,6 +4509,14 @@ app.get("/api/menu/social", async (req, res) => {
           (mr || []).forEach(function (r) { reacted.push(r.source + ":" + r.menu_id); });
           var { data: ms } = await admin.from("my20fit_menu_save").select("source,menu_id").eq("auth_user_id", user.id).in("menu_id", ids);
           (ms || []).forEach(function (r) { saved.push(r.source + ":" + r.menu_id); });
+        } else {
+          // Guest: baca status like MILIKNYA dari sesi anonim (cookie eco_anon) kalau sudah ada --
+          // read-only (createIfMissing=false), jangan bikin sesi baru cuma dari lihat-lihat halaman.
+          var anonSess = await getAnonSession(req, res, false);
+          if (anonSess) {
+            var { data: ar } = await admin.from("my20fit_menu_reaction").select("source,menu_id").eq("anon_id", anonSess.anon_id).in("menu_id", ids);
+            (ar || []).forEach(function (r) { reacted.push(r.source + ":" + r.menu_id); });
+          }
         }
       } catch (_e) { /* state user opsional — abaikan, counts publik tetap dikembalikan */ }
     }
