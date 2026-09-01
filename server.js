@@ -12,6 +12,7 @@ const path = require("path");
 const crypto = require("crypto");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const { OAuth2Client } = require("google-auth-library");
 const email = require("./lib/email"); // SATU-SATUNYA jalur kirim email (Resend)
 const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerbang frekuensi
 const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
@@ -1577,13 +1578,25 @@ app.post("/api/fitco-login", async (req, res) => {
 // Login pakai akun GOOGLE via API 20FIT (dokumentasi developer "Login by Google").
 // Frontend mengirim ID token dari Google Identity Services. Identitas (email/nama/
 // google_auth_id) diambil server dari payload token itu — bukan dari input bebas
-// client — lalu API 20FIT yang memverifikasi keaslian token ke Google.
-// Decode payload JWT (base64url) tanpa verifikasi tanda tangan.
-function decodeJwtPayload(jwt) {
+// client. SERVER memverifikasi tanda tangan ID token langsung ke Google lebih
+// dulu (verifyGoogleIdToken), baru API 20FIT ikut memverifikasi — defense-in-depth.
+// Verifikasi Google ID token ke Google (tanda tangan, iss, aud, exp) SEBELUM dipercaya.
+// audience = web client ID + (opsional) client ID mobile via env GOOGLE_CLIENT_IDS (koma).
+const googleVerifier = new OAuth2Client();
+async function verifyGoogleIdToken(credential) {
+  const audiences = [GOOGLE_CLIENT_ID, ...String(process.env.GOOGLE_CLIENT_IDS || "")
+    .split(",").map((s) => s.trim()).filter(Boolean)];
+  let ticket;
   try {
-    const part = String(jwt).split(".")[1] || "";
-    return JSON.parse(Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
-  } catch (e) { return {}; }
+    ticket = await googleVerifier.verifyIdToken({ idToken: credential, audience: audiences });
+  } catch (e) {
+    const err = new Error("Google credential tidak valid."); err.status = 401; throw err;
+  }
+  const p = ticket.getPayload() || {};
+  if (!p.email || p.email_verified !== true) {
+    const err = new Error("Email Google belum terverifikasi."); err.status = 401; throw err;
+  }
+  return p; // { email, sub, name, given_name, family_name, email_verified, picture, ... }
 }
 
 // Jembatan bersama: klaim Google (email/nama/sub) + ID token → verifikasi ke API
@@ -1634,7 +1647,8 @@ app.post("/api/fitco-google-login", async (req, res) => {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
     const credential = String((req.body && req.body.credential) || "").trim();
     if (!credential) return res.status(400).json({ error: "Google credential wajib." });
-    const out = await bridgeGoogleToSession(decodeJwtPayload(credential), credential);
+    const claims = await verifyGoogleIdToken(credential);
+    const out = await bridgeGoogleToSession(claims, credential);
     return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: out.fitco_user_id, fitco_token: out.fitco_token });
   } catch (e) {
     console.error("fitco-google-login:", e.message);
