@@ -224,8 +224,10 @@ app.use("/api", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-key, x-cron-secret");
     res.setHeader("Access-Control-Max-Age", "600");
-    // /api/pub/* uses httpOnly cookie for anon session tracking
-    if ((req.originalUrl || "").startsWith("/api/pub/")) {
+    // /api/pub/* dan /api/menu/* pakai cookie httpOnly (eco_anon) utk sesi anonim
+    // (mis. like tanpa login) -> browser wajib boleh kirim/terima cookie lintas-origin.
+    var _url = req.originalUrl || "";
+    if (_url.startsWith("/api/pub/") || _url.startsWith("/api/menu/")) {
       res.setHeader("Access-Control-Allow-Credentials", "true");
     }
   }
@@ -4336,30 +4338,78 @@ app.post("/api/menu/upload", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal unggah foto." }); }
 });
 
-// AUTH: toggle heart. 1 user 1 reaction/resep (unique DB). Body {source:'official'|'member'}.
-// Jumlah dihitung server (service key) -> tak bisa dicurangi client.
+// PUBLIK (login opsional): toggle heart. 1 pemilik (akun ATAU sesi anonim) 1 reaction/resep
+// (unique index DB, lihat migration menu_reaction_allow_anon_like). Body {source:'official'|'member'}.
+// Jumlah dihitung server (service key) -> tak bisa dicurangi client. Guest diidentifikasi lewat
+// cookie httpOnly eco_anon (my20fit_anonymous_sessions) -- SAMA dgn kuota scan anonim, dibuat
+// on-demand di sini (bukan dari sekadar buka halaman) supaya tabel tak dibanjiri sesi tak aktif.
 app.post("/api/menu/:id/react", async (req, res) => {
   try {
-    var user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
     var menu_id = String(req.params.id || "").slice(0, 80);
     var source = String((req.body || {}).source || "").trim().toLowerCase();
     if (!menu_id) return res.status(400).json({ error: "menu_id wajib." });
     if (source !== "official" && source !== "member") return res.status(400).json({ error: "source tidak valid." });
+
+    var user = await getUserFromReq(req);
+    var ownerCol = user ? "auth_user_id" : "anon_id";
+    var ownerVal = user ? user.id : null;
+    if (!user) {
+      var sess = await getAnonSession(req, res, true);
+      if (!sess) return res.status(503).json({ error: "Server belum siap." });
+      ownerVal = sess.anon_id;
+    }
+
     var { data: ex } = await admin.from("my20fit_menu_reaction").select("id")
-      .eq("auth_user_id", user.id).eq("source", source).eq("menu_id", menu_id).limit(1);
+      .eq(ownerCol, ownerVal).eq("source", source).eq("menu_id", menu_id).limit(1);
     var reacted;
     if (ex && ex[0]) {
       await admin.from("my20fit_menu_reaction").delete().eq("id", ex[0].id);
       reacted = false;
     } else {
-      var ins = await admin.from("my20fit_menu_reaction").insert({ auth_user_id: user.id, source: source, menu_id: menu_id, kind: "heart" });
+      var row = { source: source, menu_id: menu_id, kind: "heart" };
+      row[ownerCol] = ownerVal;
+      var ins = await admin.from("my20fit_menu_reaction").insert(row);
       if (ins.error && ins.error.code !== "23505") throw ins.error; // 23505 = race, sudah ada -> anggap reacted
       reacted = true;
     }
     var { count } = await admin.from("my20fit_menu_reaction").select("id", { count: "exact", head: true })
       .eq("source", source).eq("menu_id", menu_id);
     return res.json({ ok: true, reacted: reacted, count: count || 0 });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+
+// AUTH: pindahkan like sesi anonim (cookie eco_anon) ke akun yang baru login/daftar, supaya
+// guest yang like lalu bikin akun tidak kehilangan like-nya. Idempoten: aman dipanggil berkali-kali
+// (anon session yang sudah converted_user_id -> tak ada baris anon lagi utk dipindah).
+app.post("/api/menu/claim-anon-likes", async (req, res) => {
+  try {
+    var user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    var sess = await getAnonSession(req, res, false);
+    if (!sess) return res.json({ ok: true, migrated: 0 });
+
+    var { data: anonRows } = await admin.from("my20fit_menu_reaction")
+      .select("id,source,menu_id,kind").eq("anon_id", sess.anon_id);
+    anonRows = anonRows || [];
+    var migrated = 0;
+    if (anonRows.length) {
+      var { data: ownRows } = await admin.from("my20fit_menu_reaction")
+        .select("source,menu_id,kind").eq("auth_user_id", user.id);
+      var ownKeys = new Set((ownRows || []).map(function (r) { return r.source + ":" + r.menu_id + ":" + r.kind; }));
+      for (var i = 0; i < anonRows.length; i++) {
+        var r = anonRows[i];
+        var key = r.source + ":" + r.menu_id + ":" + r.kind;
+        if (ownKeys.has(key)) {
+          // Akun ini sudah like resep yang sama dari device lain -> baris anon jadi duplikat, buang.
+          await admin.from("my20fit_menu_reaction").delete().eq("id", r.id);
+        } else {
+          await admin.from("my20fit_menu_reaction").update({ auth_user_id: user.id, anon_id: null }).eq("id", r.id);
+          migrated++;
+        }
+      }
+    }
+    try { await admin.from("my20fit_anonymous_sessions").update({ converted_user_id: user.id }).eq("anon_id", sess.anon_id); } catch (_e) {}
+    return res.json({ ok: true, migrated: migrated });
   } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
 });
 
@@ -4438,6 +4488,14 @@ app.get("/api/menu/social", async (req, res) => {
           (mr || []).forEach(function (r) { reacted.push(r.source + ":" + r.menu_id); });
           var { data: ms } = await admin.from("my20fit_menu_save").select("source,menu_id").eq("auth_user_id", user.id).in("menu_id", ids);
           (ms || []).forEach(function (r) { saved.push(r.source + ":" + r.menu_id); });
+        } else {
+          // Guest: baca status like MILIKNYA dari sesi anonim (cookie eco_anon) kalau sudah ada --
+          // read-only (createIfMissing=false), jangan bikin sesi baru cuma dari lihat-lihat halaman.
+          var anonSess = await getAnonSession(req, res, false);
+          if (anonSess) {
+            var { data: ar } = await admin.from("my20fit_menu_reaction").select("source,menu_id").eq("anon_id", anonSess.anon_id).in("menu_id", ids);
+            (ar || []).forEach(function (r) { reacted.push(r.source + ":" + r.menu_id); });
+          }
         }
       } catch (_e) { /* state user opsional — abaikan, counts publik tetap dikembalikan */ }
     }
