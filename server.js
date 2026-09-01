@@ -6544,7 +6544,10 @@ app.get("/api/menu/photo", async (req, res) => {
         if (pr.ok) {
           const pj = await pr.json();
           const p = pj && pj.photos && pj.photos[0];
-          const url = p && p.src && (p.src.medium || p.src.large || p.src.original);
+          // Sumber wajib >=1024px di sisi terpendek — jangan paksa isi foto kecil
+          // (fallback ke sumber berikutnya / placeholder emoji drpd foto buram/kepotong).
+          const shortSide = p ? Math.min(Number(p.width) || 0, Number(p.height) || 0) : 0;
+          const url = p && p.src && shortSide >= 1024 ? (p.src.large2x || p.src.original) : null;
           if (url) {
             if (admin) { try { await admin.from("my20fit_foodimg").upsert({ id: cacheId, url: url }); } catch (_e) {} }
             res.set("Cache-Control", "public, max-age=86400");
@@ -6560,7 +6563,9 @@ app.get("/api/menu/photo", async (req, res) => {
         if (mr.ok) {
           const mj = await mr.json();
           const m = mj && mj.meals;
-          if (m && m[0] && m[0].strMealThumb) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: m[0].strMealThumb + "/small", source: "themealdb" }); }
+          // Tanpa suffix ukuran = varian TERBESAR yg disediakan TheMealDB (sebelumnya "/small"
+          // sengaja minta yg terkecil, ~312px — di bawah standar 1024px kita).
+          if (m && m[0] && m[0].strMealThumb) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: m[0].strMealThumb, source: "themealdb" }); }
         }
       } catch (_e) {}
     }
