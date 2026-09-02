@@ -4448,6 +4448,24 @@ app.post("/api/menu/delivery-click", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// PUBLIK: daftar resep yang punya >=1 tautan pesan-antar AKTIF (utk halaman "Eat Now").
+// Ringan -- balik kunci {source, menu_id} saja; frontend punya katalog/published utk nama+foto.
+app.get("/api/menu/eat-now", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, items: [] });
+    var { data, error } = await admin.from("my20fit_menu_delivery_links")
+      .select("source,menu_id").eq("is_active", true);
+    if (error) return res.status(500).json({ error: error.message });
+    var seen = {}, items = [];
+    (data || []).forEach(function (l) {
+      var k = l.source + ":" + l.menu_id;
+      if (!seen[k]) { seen[k] = 1; items.push({ source: l.source, menu_id: l.menu_id }); }
+    });
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ ok: true, items: items });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // ADMIN (superadmin): preset kategori GrabFood siap pakai (biar admin tak salin URL manual).
 app.get("/api/admin/menu-delivery/presets", async (req, res) => {
   var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
