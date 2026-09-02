@@ -4144,6 +4144,9 @@ app.post("/api/menu/submit", async (req, res) => {
   var b = req.body || {};
   var name = String(b.name || "").trim(), ingredients = String(b.ingredients || "").trim(), steps = String(b.steps || "").trim();
   var diet_type = String(b.diet_type || "normal").trim().toLowerCase();
+  // Nama tampilan publik -- diisi kontributor sendiri di form (BUKAN email/nama akun asli,
+  // lihat migration menu_contribution_display_name). Kosong -> null, klien tampilkan fallback.
+  var display_name = String(b.display_name || "").trim().slice(0, 60) || null;
   var stepsStruct = normalizeMenuSteps(b.steps_json);
   if (stepsStruct) steps = stepsStruct.text; // langkah terstruktur (step berfoto) jadi sumber teks langkah
   if (!name || !ingredients || !steps) return res.status(400).json({ error: "Nama, bahan, dan cara buat wajib diisi." });
@@ -4160,7 +4163,7 @@ app.post("/api/menu/submit", async (req, res) => {
     .eq("auth_user_id", user.id).gte("created_at", startOfTodayISO());
   if ((head.count || 0) >= MENU_DAILY_LIMIT) return res.status(429).json({ error: "Batas " + MENU_DAILY_LIMIT + " submit/hari tercapai. Coba lagi besok." });
   var { data, error } = await admin.from("my20fit_menu_contribution")
-    .insert({ auth_user_id: user.id, name: name, diet_type: diet_type, ingredients: ingredients, steps: steps, steps_json: stepsStruct ? stepsStruct.json : null, servings: servings, cook_minutes: cook_minutes, prep_minutes: prep_minutes, equipment: equipment, prep_note: prep_note, photo_url: photo_url, est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps) })
+    .insert({ auth_user_id: user.id, name: name, diet_type: diet_type, display_name: display_name, ingredients: ingredients, steps: steps, steps_json: stepsStruct ? stepsStruct.json : null, servings: servings, cook_minutes: cook_minutes, prep_minutes: prep_minutes, equipment: equipment, prep_note: prep_note, photo_url: photo_url, est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps) })
     .select("id").limit(1).single();
   if (error) {
     if (error.code === "23505" || String(error.message || "").toLowerCase().indexOf("duplicate") >= 0)
@@ -4181,7 +4184,7 @@ app.get("/api/menu/mine", async (req, res) => {
   var user = await getUserFromReq(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
   var { data: rows, error } = await admin.from("my20fit_menu_contribution")
-    .select("id,name,diet_type,ingredients,steps,steps_json,photo_url,status,reject_reason,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,created_at,reviewed_at,published")
+    .select("id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,status,reject_reason,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,created_at,reviewed_at,published")
     .eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(200);
   if (error) return res.status(500).json({ error: error.message });
   // "approved": dipakai match reward RPC yang sudah live (approved saja, lihat catatan di atas
@@ -4220,6 +4223,7 @@ app.post("/api/menu/:id/revise", async (req, res) => {
   if (b.prep_note != null) patch.prep_note = String(b.prep_note).trim().slice(0, 500) || null;
   if (b.est_kcal != null) patch.est_kcal = (b.est_kcal === "") ? null : (Math.max(0, Math.round(+b.est_kcal)) || null);
   if (b.photo_url != null) patch.photo_url = b.photo_url ? String(b.photo_url) : null;
+  if (b.display_name != null) patch.display_name = String(b.display_name || "").trim().slice(0, 60) || null;
   var { error } = await admin.from("my20fit_menu_contribution").update(patch).eq("id", id).eq("auth_user_id", user.id);
   if (error) { if (error.code === "23505") return res.status(409).json({ error: "Isi menu identik dgn yang sudah ada." }); return res.status(500).json({ error: error.message }); }
   return res.json({ ok: true });
@@ -4230,7 +4234,7 @@ app.get("/api/admin/menu", async (req, res) => {
   try {
     var status = String(req.query.status || "").trim(), q = String(req.query.q || "").trim();
     var query = admin.from("my20fit_menu_contribution")
-      .select("id,auth_user_id,name,diet_type,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,status,reject_reason,created_at,reviewed_at,published")
+      .select("id,auth_user_id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,status,reject_reason,created_at,reviewed_at,published")
       .order("created_at", { ascending: false }).limit(200);
     if (["pending", "approved", "rejected"].indexOf(status) >= 0) query = query.eq("status", status);
     if (q) query = query.ilike("name", "%" + q + "%");
@@ -4311,7 +4315,7 @@ app.get("/api/menu/published", async function (req, res) {
     var diet = String(req.query.diet || "").trim().toLowerCase();
     var limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 100));
     var query = admin.from("my20fit_menu_contribution")
-      .select("id,name,diet_type,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,reviewed_at")
+      .select("id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,reviewed_at")
       .eq("status", "approved").eq("published", true)
       .order("reviewed_at", { ascending: false }).limit(limit);
     if (q) query = query.ilike("name", "%" + q + "%");
@@ -4320,6 +4324,66 @@ app.get("/api/menu/published", async function (req, res) {
     if (error) return res.status(500).json({ error: error.message });
     res.set("Cache-Control", "public, max-age=60");
     return res.json({ ok: true, menus: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK: katering yang menjual resep ini -- penghubung EKSPLISIT lewat (source, menu_id),
+// bukan pencocokan nama (lihat migration create_my20fit_caterer_menus). Murni direktori,
+// TANPA transaksi/komisi (dikonfirmasi user) -- order_url/whatsapp langsung ke katering.
+// Urutan default: terverifikasi dulu, lalu sort_order manual dari CMS -- BUKAN "terpopuler"
+// (datanya belum cukup, lihat my20fit_caterer_clicks). "Terdekat" dihitung di klien (browser
+// yang punya lokasi user, bukan server) dari latitude/longitude yang dikirim di sini.
+app.get("/api/menu/:id/caterers", async (req, res) => {
+  try {
+    var menu_id = String(req.params.id || "").slice(0, 80);
+    var source = String(req.query.source || "").trim().toLowerCase();
+    if (!menu_id || (source !== "official" && source !== "member")) return res.json({ ok: true, caterers: [] });
+    if (!admin) return res.json({ ok: true, caterers: [] });
+    var { data: links, error } = await admin.from("my20fit_caterer_menus")
+      .select("price,portion_note,sort_order,my20fit_caterers!inner(id,name,slug,description,logo_url,phone,whatsapp,address,area,latitude,longitude,delivery_areas,min_order,order_url,is_verified,sort_order,is_active)")
+      .eq("source", source).eq("menu_id", menu_id).eq("is_available", true)
+      .eq("my20fit_caterers.is_active", true);
+    if (error) return res.status(500).json({ error: error.message });
+    var out = (links || []).map(function (l) {
+      var c = l.my20fit_caterers;
+      return {
+        id: c.id, name: c.name, slug: c.slug, description: c.description, logo_url: c.logo_url,
+        phone: c.phone, whatsapp: c.whatsapp, address: c.address, area: c.area,
+        latitude: c.latitude, longitude: c.longitude, delivery_areas: c.delivery_areas,
+        min_order: c.min_order, order_url: c.order_url, is_verified: c.is_verified,
+        price: l.price, portion_note: l.portion_note,
+        _sort: (c.is_verified ? 0 : 1) + "-" + String(c.sort_order || 0).padStart(6, "0") + "-" + String(l.sort_order || 0).padStart(6, "0"),
+      };
+    }).sort(function (a, b) { return a._sort < b._sort ? -1 : a._sort > b._sort ? 1 : 0; })
+      .map(function (c) { delete c._sort; return c; });
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ ok: true, caterers: out });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK (login opsional, guest via cookie eco_anon -- pola sama dgn reaction): catat klik ke
+// katering. HANYA disimpan -- TIDAK dipakai utk urutan apapun sekarang (belum cukup data).
+// Tabel my20fit_caterer_clicks sengaja 0 RLS policy -- baca/tulis cuma lewat sini.
+app.post("/api/menu/caterer-click", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true });
+    var b = req.body || {};
+    var caterer_id = String(b.caterer_id || "").trim();
+    var source = String(b.source || "").trim().toLowerCase();
+    var menu_id = String(b.menu_id || "").slice(0, 80);
+    if (!caterer_id || !menu_id || (source !== "official" && source !== "member")) {
+      return res.status(400).json({ error: "caterer_id, source, menu_id wajib." });
+    }
+    var user = await getUserFromReq(req);
+    var row = { caterer_id: caterer_id, source: source, menu_id: menu_id };
+    if (user) {
+      row.auth_user_id = user.id;
+    } else {
+      var sess = await getAnonSession(req, res, true);
+      if (sess) row.anon_id = sess.anon_id;
+    }
+    await admin.from("my20fit_caterer_clicks").insert(row);
+    return res.json({ ok: true });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
