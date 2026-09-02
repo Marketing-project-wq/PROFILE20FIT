@@ -224,8 +224,10 @@ app.use("/api", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-key, x-cron-secret");
     res.setHeader("Access-Control-Max-Age", "600");
-    // /api/pub/* uses httpOnly cookie for anon session tracking
-    if ((req.originalUrl || "").startsWith("/api/pub/")) {
+    // /api/pub/* dan /api/menu/* pakai cookie httpOnly (eco_anon) utk sesi anonim
+    // (mis. like tanpa login) -> browser wajib boleh kirim/terima cookie lintas-origin.
+    var _url = req.originalUrl || "";
+    if (_url.startsWith("/api/pub/") || _url.startsWith("/api/menu/")) {
       res.setHeader("Access-Control-Allow-Credentials", "true");
     }
   }
@@ -4125,6 +4127,11 @@ app.get("/api/corp/messages", async (req, res) => {
 // ================= DIET Bagian 1: kontribusi menu + reward =================
 var MENU_DAILY_LIMIT = 5;
 var MENU_DIET_TYPES = ["normal", "vegetarian", "vegan", "pescatarian", "keto", "halal", "high-protein", "low-carb"];
+// Ambang reward sumbang-resep -- SATU sumber angka (dipakai /api/menu/mine & /api/menu/reward-config).
+// HARUS sama dengan yang di-hardcode di RPC my20fit_grant_menu_reward (floor(approved/10), credits=5) --
+// itu RPC terpisah, sudah live/dipakai, sengaja TIDAK diubah di sini (lihat diskusi Tahap 3).
+var MENU_REWARD_PER_CYCLE = 10;   // kontribusi approved per cycle
+var MENU_REWARD_SCAN_CREDITS = 5; // kredit scan didapat tiap cycle
 function menuHash(name, ingredients, steps) {
   var norm = function (s) { return String(s || "").toLowerCase().replace(/\s+/g, " ").trim(); };
   return sha256(norm(name) + "|" + norm(ingredients) + "|" + norm(steps));
@@ -4137,6 +4144,9 @@ app.post("/api/menu/submit", async (req, res) => {
   var b = req.body || {};
   var name = String(b.name || "").trim(), ingredients = String(b.ingredients || "").trim(), steps = String(b.steps || "").trim();
   var diet_type = String(b.diet_type || "normal").trim().toLowerCase();
+  // Nama tampilan publik -- diisi kontributor sendiri di form (BUKAN email/nama akun asli,
+  // lihat migration menu_contribution_display_name). Kosong -> null, klien tampilkan fallback.
+  var display_name = String(b.display_name || "").trim().slice(0, 60) || null;
   var stepsStruct = normalizeMenuSteps(b.steps_json);
   if (stepsStruct) steps = stepsStruct.text; // langkah terstruktur (step berfoto) jadi sumber teks langkah
   if (!name || !ingredients || !steps) return res.status(400).json({ error: "Nama, bahan, dan cara buat wajib diisi." });
@@ -4146,11 +4156,14 @@ app.post("/api/menu/submit", async (req, res) => {
   var est_kcal = (b.est_kcal != null && b.est_kcal !== "") ? (Math.max(0, Math.round(+b.est_kcal)) || null) : null;
   var servings = (b.servings != null && b.servings !== "") ? (Math.max(1, Math.round(+b.servings)) || null) : null;
   var cook_minutes = (b.cook_minutes != null && b.cook_minutes !== "") ? (Math.max(0, Math.round(+b.cook_minutes)) || null) : null;
+  var prep_minutes = (b.prep_minutes != null && b.prep_minutes !== "") ? (Math.max(0, Math.round(+b.prep_minutes)) || null) : null;
+  var equipment = b.equipment ? String(b.equipment).trim().slice(0, 300) || null : null;
+  var prep_note = b.prep_note ? String(b.prep_note).trim().slice(0, 500) || null : null;
   var head = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true })
     .eq("auth_user_id", user.id).gte("created_at", startOfTodayISO());
   if ((head.count || 0) >= MENU_DAILY_LIMIT) return res.status(429).json({ error: "Batas " + MENU_DAILY_LIMIT + " submit/hari tercapai. Coba lagi besok." });
   var { data, error } = await admin.from("my20fit_menu_contribution")
-    .insert({ auth_user_id: user.id, name: name, diet_type: diet_type, ingredients: ingredients, steps: steps, steps_json: stepsStruct ? stepsStruct.json : null, servings: servings, cook_minutes: cook_minutes, photo_url: photo_url, est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps) })
+    .insert({ auth_user_id: user.id, name: name, diet_type: diet_type, display_name: display_name, ingredients: ingredients, steps: steps, steps_json: stepsStruct ? stepsStruct.json : null, servings: servings, cook_minutes: cook_minutes, prep_minutes: prep_minutes, equipment: equipment, prep_note: prep_note, photo_url: photo_url, est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps) })
     .select("id").limit(1).single();
   if (error) {
     if (error.code === "23505" || String(error.message || "").toLowerCase().indexOf("duplicate") >= 0)
@@ -4159,18 +4172,34 @@ app.post("/api/menu/submit", async (req, res) => {
   }
   return res.json({ ok: true, id: data.id });
 });
+// PUBLIK: angka ambang reward sumbang-resep -- supaya frontend TIDAK hardcode "10"/"5" (bisa
+// diubah di sini tanpa deploy frontend). Tidak butuh login: dipakai jadi ajakan SEBELUM user
+// masuk juga (tombol "Bikin resep"), bukan cuma di halaman progres yang sudah login.
+app.get("/api/menu/reward-config", function (req, res) {
+  res.set("Cache-Control", "public, max-age=3600");
+  return res.json({ ok: true, per_cycle: MENU_REWARD_PER_CYCLE, reward_scan: MENU_REWARD_SCAN_CREDITS });
+});
 // User: submission-ku + progres reward.
 app.get("/api/menu/mine", async (req, res) => {
   var user = await getUserFromReq(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
   var { data: rows, error } = await admin.from("my20fit_menu_contribution")
-    .select("id,name,diet_type,ingredients,steps,steps_json,photo_url,status,reject_reason,est_kcal,servings,cook_minutes,created_at,reviewed_at,published")
+    .select("id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,status,reject_reason,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,created_at,reviewed_at,published")
     .eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(200);
   if (error) return res.status(500).json({ error: error.message });
+  // "approved": dipakai match reward RPC yang sudah live (approved saja, lihat catatan di atas
+  // MENU_REWARD_PER_CYCLE). "approvedPublished": buat TAMPILAN progres Tahap 3 -- syarat lebih
+  // ketat (approved DAN published) supaya orang tak asal kirim 10 resep yang belum tentu tayang.
   var approved = (rows || []).filter(function (r) { return r.status === "approved"; }).length;
+  var approvedPublished = (rows || []).filter(function (r) { return r.status === "approved" && r.published; }).length;
   var { data: rl } = await admin.from("my20fit_menu_reward_log").select("credits_granted").eq("auth_user_id", user.id).eq("status", "granted");
   var creditsEarned = (rl || []).reduce(function (s, x) { return s + (+x.credits_granted || 0); }, 0);
-  return res.json({ ok: true, submissions: rows || [], approved: approved, per_cycle: 10, reward_scan: 5, toward_next: approved % 10, credits_earned: creditsEarned });
+  return res.json({
+    ok: true, submissions: rows || [],
+    approved: approved, approved_published: approvedPublished,
+    per_cycle: MENU_REWARD_PER_CYCLE, reward_scan: MENU_REWARD_SCAN_CREDITS,
+    toward_next: approved % MENU_REWARD_PER_CYCLE, credits_earned: creditsEarned,
+  });
 });
 // User: revisi menu yang DITOLAK -> pending lagi.
 app.post("/api/menu/:id/revise", async (req, res) => {
@@ -4189,8 +4218,12 @@ app.post("/api/menu/:id/revise", async (req, res) => {
   if (stepsStruct) patch.steps_json = stepsStruct.json; else if (b.steps_json === null) patch.steps_json = null;
   if (b.servings != null) patch.servings = (b.servings === "") ? null : (Math.max(1, Math.round(+b.servings)) || null);
   if (b.cook_minutes != null) patch.cook_minutes = (b.cook_minutes === "") ? null : (Math.max(0, Math.round(+b.cook_minutes)) || null);
+  if (b.prep_minutes != null) patch.prep_minutes = (b.prep_minutes === "") ? null : (Math.max(0, Math.round(+b.prep_minutes)) || null);
+  if (b.equipment != null) patch.equipment = String(b.equipment).trim().slice(0, 300) || null;
+  if (b.prep_note != null) patch.prep_note = String(b.prep_note).trim().slice(0, 500) || null;
   if (b.est_kcal != null) patch.est_kcal = (b.est_kcal === "") ? null : (Math.max(0, Math.round(+b.est_kcal)) || null);
   if (b.photo_url != null) patch.photo_url = b.photo_url ? String(b.photo_url) : null;
+  if (b.display_name != null) patch.display_name = String(b.display_name || "").trim().slice(0, 60) || null;
   var { error } = await admin.from("my20fit_menu_contribution").update(patch).eq("id", id).eq("auth_user_id", user.id);
   if (error) { if (error.code === "23505") return res.status(409).json({ error: "Isi menu identik dgn yang sudah ada." }); return res.status(500).json({ error: error.message }); }
   return res.json({ ok: true });
@@ -4201,7 +4234,7 @@ app.get("/api/admin/menu", async (req, res) => {
   try {
     var status = String(req.query.status || "").trim(), q = String(req.query.q || "").trim();
     var query = admin.from("my20fit_menu_contribution")
-      .select("id,auth_user_id,name,diet_type,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,status,reject_reason,created_at,reviewed_at,published")
+      .select("id,auth_user_id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,status,reject_reason,created_at,reviewed_at,published")
       .order("created_at", { ascending: false }).limit(200);
     if (["pending", "approved", "rejected"].indexOf(status) >= 0) query = query.eq("status", status);
     if (q) query = query.ilike("name", "%" + q + "%");
@@ -4282,7 +4315,7 @@ app.get("/api/menu/published", async function (req, res) {
     var diet = String(req.query.diet || "").trim().toLowerCase();
     var limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 100));
     var query = admin.from("my20fit_menu_contribution")
-      .select("id,name,diet_type,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,reviewed_at")
+      .select("id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,reviewed_at")
       .eq("status", "approved").eq("published", true)
       .order("reviewed_at", { ascending: false }).limit(limit);
     if (q) query = query.ilike("name", "%" + q + "%");
@@ -4291,6 +4324,208 @@ app.get("/api/menu/published", async function (req, res) {
     if (error) return res.status(500).json({ error: error.message });
     res.set("Cache-Control", "public, max-age=60");
     return res.json({ ok: true, menus: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK: katering yang menjual resep ini -- penghubung EKSPLISIT lewat (source, menu_id),
+// bukan pencocokan nama (lihat migration create_my20fit_caterer_menus). Murni direktori,
+// TANPA transaksi/komisi (dikonfirmasi user) -- order_url/whatsapp langsung ke katering.
+// Urutan default: terverifikasi dulu, lalu sort_order manual dari CMS -- BUKAN "terpopuler"
+// (datanya belum cukup, lihat my20fit_caterer_clicks). "Terdekat" dihitung di klien (browser
+// yang punya lokasi user, bukan server) dari latitude/longitude yang dikirim di sini.
+app.get("/api/menu/:id/caterers", async (req, res) => {
+  try {
+    var menu_id = String(req.params.id || "").slice(0, 80);
+    var source = String(req.query.source || "").trim().toLowerCase();
+    if (!menu_id || (source !== "official" && source !== "member")) return res.json({ ok: true, caterers: [] });
+    if (!admin) return res.json({ ok: true, caterers: [] });
+    var { data: links, error } = await admin.from("my20fit_caterer_menus")
+      .select("price,portion_note,sort_order,my20fit_caterers!inner(id,name,slug,description,logo_url,phone,whatsapp,address,area,latitude,longitude,delivery_areas,min_order,order_url,is_verified,sort_order,is_active)")
+      .eq("source", source).eq("menu_id", menu_id).eq("is_available", true)
+      .eq("my20fit_caterers.is_active", true);
+    if (error) return res.status(500).json({ error: error.message });
+    var out = (links || []).map(function (l) {
+      var c = l.my20fit_caterers;
+      return {
+        id: c.id, name: c.name, slug: c.slug, description: c.description, logo_url: c.logo_url,
+        phone: c.phone, whatsapp: c.whatsapp, address: c.address, area: c.area,
+        latitude: c.latitude, longitude: c.longitude, delivery_areas: c.delivery_areas,
+        min_order: c.min_order, order_url: c.order_url, is_verified: c.is_verified,
+        price: l.price, portion_note: l.portion_note,
+        _sort: (c.is_verified ? 0 : 1) + "-" + String(c.sort_order || 0).padStart(6, "0") + "-" + String(l.sort_order || 0).padStart(6, "0"),
+      };
+    }).sort(function (a, b) { return a._sort < b._sort ? -1 : a._sort > b._sort ? 1 : 0; })
+      .map(function (c) { delete c._sort; return c; });
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ ok: true, caterers: out });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK (login opsional, guest via cookie eco_anon -- pola sama dgn reaction): catat klik ke
+// katering. HANYA disimpan -- TIDAK dipakai utk urutan apapun sekarang (belum cukup data).
+// Tabel my20fit_caterer_clicks sengaja 0 RLS policy -- baca/tulis cuma lewat sini.
+app.post("/api/menu/caterer-click", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true });
+    var b = req.body || {};
+    var caterer_id = String(b.caterer_id || "").trim();
+    var source = String(b.source || "").trim().toLowerCase();
+    var menu_id = String(b.menu_id || "").slice(0, 80);
+    if (!caterer_id || !menu_id || (source !== "official" && source !== "member")) {
+      return res.status(400).json({ error: "caterer_id, source, menu_id wajib." });
+    }
+    var user = await getUserFromReq(req);
+    var row = { caterer_id: caterer_id, source: source, menu_id: menu_id };
+    if (user) {
+      row.auth_user_id = user.id;
+    } else {
+      var sess = await getAnonSession(req, res, true);
+      if (sess) row.anon_id = sess.anon_id;
+    }
+    await admin.from("my20fit_caterer_clicks").insert(row);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ---------- recepie.20fit.id "Eat Now" -> pesan-antar (GrabFood dll) ----------
+// TANPA API/scraping Grab. Hanya menautkan ke halaman KATEGORI publik mereka (meta-robots
+// index,follow -> memang boleh ditautkan). Pemetaan EKSPLISIT per resep, admin isi via CMS
+// (tabel my20fit_menu_delivery_links). Kita TIDAK klaim "restoran X jual ini" -- daftar
+// restoran baru muncul di sisi Grab setelah user isi alamat. Preset kategori GrabFood
+// dikumpulkan manual dari struktur URL publik food.grab.com (bukan scraping katalog).
+var GRABFOOD_BASE = "https://food.grab.com";
+var GRABFOOD_PRESETS = [
+  { label: "Nasi Goreng", path: "/id/id/cuisines/nasi-goreng-delivery/71" },
+  { label: "Ayam Goreng", path: "/id/id/cuisines/ayam-goreng-delivery/69" },
+  { label: "Ayam", path: "/id/id/cuisines/ayam-delivery/43" },
+  { label: "Sate", path: "/id/id/cuisines/sate-delivery/150" },
+  { label: "Bakso", path: "/id/id/cuisines/bakso-delivery/8" },
+  { label: "Mie", path: "/id/id/cuisines/mie-delivery/126" },
+  { label: "Aneka Nasi", path: "/id/id/cuisines/aneka-nasi-delivery/144" },
+  { label: "Hidangan Laut", path: "/id/id/cuisines/hidangan-laut-delivery/151" },
+  { label: "Martabak", path: "/id/id/cuisines/martabak-delivery/107" },
+  { label: "Camilan", path: "/id/id/cuisines/camilan-delivery/157" },
+  { label: "Kopi", path: "/id/id/cuisines/kopi-delivery/47" },
+  { label: "Minuman", path: "/id/id/cuisines/minuman-delivery/24" },
+  { label: "Roti & Kue", path: "/id/id/cuisines/roti-kue-delivery/7" },
+  { label: "Masakan Indonesia", path: "/id/id/restaurants?category=indonesian-87" },
+];
+
+// PUBLIK: tautan pesan-antar AKTIF utk satu resep (urut sort_order). Kosong -> klien sembunyikan.
+app.get("/api/menu/:id/delivery", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, links: [] });
+    var menu_id = String(req.params.id || "").slice(0, 80);
+    var source = String(req.query.source || "").trim().toLowerCase();
+    if (!menu_id || (source !== "official" && source !== "member")) return res.json({ ok: true, links: [] });
+    var { data, error } = await admin.from("my20fit_menu_delivery_links")
+      .select("id,provider,label,url,sort_order")
+      .eq("source", source).eq("menu_id", menu_id).eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    if (error) return res.status(500).json({ error: error.message });
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ ok: true, links: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK (login opsional, guest via cookie eco_anon): catat klik ke penyedia pesan-antar.
+// Hanya analitik -- TIDAK dipakai utk urutan apa pun sekarang. Pola sama caterer-click.
+app.post("/api/menu/delivery-click", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true });
+    var b = req.body || {};
+    var source = String(b.source || "").trim().toLowerCase();
+    var menu_id = String(b.menu_id || "").slice(0, 80);
+    var provider = String(b.provider || "").trim().slice(0, 40);
+    if (!menu_id || !provider || (source !== "official" && source !== "member"))
+      return res.status(400).json({ error: "source, menu_id, provider wajib." });
+    var user = await getUserFromReq(req);
+    var row = { source: source, menu_id: menu_id, provider: provider };
+    if (user) row.auth_user_id = user.id;
+    else { var sess = await getAnonSession(req, res, true); if (sess) row.anon_id = sess.anon_id; }
+    await admin.from("my20fit_menu_delivery_clicks").insert(row);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN (superadmin): preset kategori GrabFood siap pakai (biar admin tak salin URL manual).
+app.get("/api/admin/menu-delivery/presets", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  return res.json({ ok: true, grabfood_base: GRABFOOD_BASE, presets: GRABFOOD_PRESETS });
+});
+
+// ADMIN: daftar pemetaan + resep yang BELUM dipetakan (biar kelihatan yang tertinggal).
+app.get("/api/admin/menu-delivery", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var { data: links, error } = await admin.from("my20fit_menu_delivery_links")
+      .select("id,source,menu_id,provider,label,url,sort_order,is_active,created_at,updated_at")
+      .order("updated_at", { ascending: false }).limit(2000);
+    if (error) return res.status(500).json({ error: error.message });
+    var official = loadMenuCatalog().map(function (r) {
+      return { source: "official", menu_id: r.id, name: (r.nm && (r.nm.id || r.nm.en)) || r.id };
+    });
+    var { data: mem } = await admin.from("my20fit_menu_contribution")
+      .select("id,name").eq("status", "approved").eq("published", true).limit(1000);
+    var recipes = official.concat((mem || []).map(function (m) { return { source: "member", menu_id: m.id, name: m.name }; }));
+    var mapped = {};
+    (links || []).forEach(function (l) { mapped[l.source + ":" + l.menu_id] = true; });
+    var unmapped = recipes.filter(function (r) { return !mapped[r.source + ":" + r.menu_id]; });
+    return res.json({ ok: true, links: links || [], recipes: recipes, unmapped_count: unmapped.length, unmapped: unmapped });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: buat pemetaan. (Data pemetaan diisi admin, bukan ditebak dari nama makanan.)
+app.post("/api/admin/menu-delivery", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var b = req.body || {};
+    var source = String(b.source || "").trim().toLowerCase();
+    var menu_id = String(b.menu_id || "").slice(0, 80);
+    var provider = String(b.provider || "grabfood").trim().slice(0, 40);
+    var label = String(b.label || "").trim().slice(0, 120);
+    var url = String(b.url || "").trim();
+    if (!menu_id || !label || !url || (source !== "official" && source !== "member"))
+      return res.status(400).json({ error: "source, menu_id, label, url wajib." });
+    if (!/^https:\/\//i.test(url)) return res.status(400).json({ error: "URL harus diawali https://" });
+    var sort_order = (b.sort_order != null && b.sort_order !== "") ? (parseInt(b.sort_order, 10) || 0) : 0;
+    var is_active = b.is_active === false ? false : true;
+    var { data, error } = await admin.from("my20fit_menu_delivery_links")
+      .insert({ source: source, menu_id: menu_id, provider: provider, label: label, url: url, sort_order: sort_order, is_active: is_active })
+      .select("id").limit(1).single();
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "menu_delivery.create", data.id, { source: source, menu_id: menu_id, provider: provider });
+    return res.json({ ok: true, id: data.id });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: ubah pemetaan.
+app.post("/api/admin/menu-delivery/:id/update", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || ""), b = req.body || {};
+    var patch = { updated_at: new Date().toISOString() };
+    if (b.provider != null) patch.provider = String(b.provider).trim().slice(0, 40);
+    if (b.label != null) patch.label = String(b.label).trim().slice(0, 120);
+    if (b.url != null) { var u = String(b.url).trim(); if (!/^https:\/\//i.test(u)) return res.status(400).json({ error: "URL harus https://" }); patch.url = u; }
+    if (b.sort_order != null) patch.sort_order = parseInt(b.sort_order, 10) || 0;
+    if (b.is_active != null) patch.is_active = !!b.is_active;
+    var { error } = await admin.from("my20fit_menu_delivery_links").update(patch).eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "menu_delivery.update", id, patch);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: hapus pemetaan.
+app.post("/api/admin/menu-delivery/:id/delete", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || "");
+    var { error } = await admin.from("my20fit_menu_delivery_links").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "menu_delivery.delete", id, null);
+    return res.json({ ok: true });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
@@ -4336,30 +4571,78 @@ app.post("/api/menu/upload", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal unggah foto." }); }
 });
 
-// AUTH: toggle heart. 1 user 1 reaction/resep (unique DB). Body {source:'official'|'member'}.
-// Jumlah dihitung server (service key) -> tak bisa dicurangi client.
+// PUBLIK (login opsional): toggle heart. 1 pemilik (akun ATAU sesi anonim) 1 reaction/resep
+// (unique index DB, lihat migration menu_reaction_allow_anon_like). Body {source:'official'|'member'}.
+// Jumlah dihitung server (service key) -> tak bisa dicurangi client. Guest diidentifikasi lewat
+// cookie httpOnly eco_anon (my20fit_anonymous_sessions) -- SAMA dgn kuota scan anonim, dibuat
+// on-demand di sini (bukan dari sekadar buka halaman) supaya tabel tak dibanjiri sesi tak aktif.
 app.post("/api/menu/:id/react", async (req, res) => {
   try {
-    var user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Unauthorized" });
     var menu_id = String(req.params.id || "").slice(0, 80);
     var source = String((req.body || {}).source || "").trim().toLowerCase();
     if (!menu_id) return res.status(400).json({ error: "menu_id wajib." });
     if (source !== "official" && source !== "member") return res.status(400).json({ error: "source tidak valid." });
+
+    var user = await getUserFromReq(req);
+    var ownerCol = user ? "auth_user_id" : "anon_id";
+    var ownerVal = user ? user.id : null;
+    if (!user) {
+      var sess = await getAnonSession(req, res, true);
+      if (!sess) return res.status(503).json({ error: "Server belum siap." });
+      ownerVal = sess.anon_id;
+    }
+
     var { data: ex } = await admin.from("my20fit_menu_reaction").select("id")
-      .eq("auth_user_id", user.id).eq("source", source).eq("menu_id", menu_id).limit(1);
+      .eq(ownerCol, ownerVal).eq("source", source).eq("menu_id", menu_id).limit(1);
     var reacted;
     if (ex && ex[0]) {
       await admin.from("my20fit_menu_reaction").delete().eq("id", ex[0].id);
       reacted = false;
     } else {
-      var ins = await admin.from("my20fit_menu_reaction").insert({ auth_user_id: user.id, source: source, menu_id: menu_id, kind: "heart" });
+      var row = { source: source, menu_id: menu_id, kind: "heart" };
+      row[ownerCol] = ownerVal;
+      var ins = await admin.from("my20fit_menu_reaction").insert(row);
       if (ins.error && ins.error.code !== "23505") throw ins.error; // 23505 = race, sudah ada -> anggap reacted
       reacted = true;
     }
     var { count } = await admin.from("my20fit_menu_reaction").select("id", { count: "exact", head: true })
       .eq("source", source).eq("menu_id", menu_id);
     return res.json({ ok: true, reacted: reacted, count: count || 0 });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+
+// AUTH: pindahkan like sesi anonim (cookie eco_anon) ke akun yang baru login/daftar, supaya
+// guest yang like lalu bikin akun tidak kehilangan like-nya. Idempoten: aman dipanggil berkali-kali
+// (anon session yang sudah converted_user_id -> tak ada baris anon lagi utk dipindah).
+app.post("/api/menu/claim-anon-likes", async (req, res) => {
+  try {
+    var user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    var sess = await getAnonSession(req, res, false);
+    if (!sess) return res.json({ ok: true, migrated: 0 });
+
+    var { data: anonRows } = await admin.from("my20fit_menu_reaction")
+      .select("id,source,menu_id,kind").eq("anon_id", sess.anon_id);
+    anonRows = anonRows || [];
+    var migrated = 0;
+    if (anonRows.length) {
+      var { data: ownRows } = await admin.from("my20fit_menu_reaction")
+        .select("source,menu_id,kind").eq("auth_user_id", user.id);
+      var ownKeys = new Set((ownRows || []).map(function (r) { return r.source + ":" + r.menu_id + ":" + r.kind; }));
+      for (var i = 0; i < anonRows.length; i++) {
+        var r = anonRows[i];
+        var key = r.source + ":" + r.menu_id + ":" + r.kind;
+        if (ownKeys.has(key)) {
+          // Akun ini sudah like resep yang sama dari device lain -> baris anon jadi duplikat, buang.
+          await admin.from("my20fit_menu_reaction").delete().eq("id", r.id);
+        } else {
+          await admin.from("my20fit_menu_reaction").update({ auth_user_id: user.id, anon_id: null }).eq("id", r.id);
+          migrated++;
+        }
+      }
+    }
+    try { await admin.from("my20fit_anonymous_sessions").update({ converted_user_id: user.id }).eq("anon_id", sess.anon_id); } catch (_e) {}
+    return res.json({ ok: true, migrated: migrated });
   } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
 });
 
@@ -4438,6 +4721,14 @@ app.get("/api/menu/social", async (req, res) => {
           (mr || []).forEach(function (r) { reacted.push(r.source + ":" + r.menu_id); });
           var { data: ms } = await admin.from("my20fit_menu_save").select("source,menu_id").eq("auth_user_id", user.id).in("menu_id", ids);
           (ms || []).forEach(function (r) { saved.push(r.source + ":" + r.menu_id); });
+        } else {
+          // Guest: baca status like MILIKNYA dari sesi anonim (cookie eco_anon) kalau sudah ada --
+          // read-only (createIfMissing=false), jangan bikin sesi baru cuma dari lihat-lihat halaman.
+          var anonSess = await getAnonSession(req, res, false);
+          if (anonSess) {
+            var { data: ar } = await admin.from("my20fit_menu_reaction").select("source,menu_id").eq("anon_id", anonSess.anon_id).in("menu_id", ids);
+            (ar || []).forEach(function (r) { reacted.push(r.source + ":" + r.menu_id); });
+          }
         }
       } catch (_e) { /* state user opsional — abaikan, counts publik tetap dikembalikan */ }
     }
@@ -6471,15 +6762,64 @@ app.get("/api/foodphoto", async (req, res) => {
 });
 
 // PUBLIK: foto makanan untuk katalog menu.20fit.id (browse tanpa login). Cermin /api/foodphoto
-// langkah 1-3 (cache Pexels -> Pexels -> TheMealDB) TANPA langkah 0 AI (butuh token user). Sengaja
-// tidak dishare-helper dgn /api/foodphoto agar endptoint AI authed itu tak tersentuh. Rate limit
-// imgLimiter (lihat isImgPath). ok:false -> klien pakai placeholder emoji.
+// tapi TERBALIK urutan cache-check: AI (langkah 0) SEKARANG diaktifkan di sini juga (permintaan
+// owner, foto masakan bergaya Indonesia), TAPI hanya utk id yang benar2 ada di katalog resmi
+// (loadMenuCatalog) — endpoint ini publik/tanpa login, jadi id sembarangan tidak boleh bisa
+// memicu generate AI berbayar berulang-ulang (biaya + abuse). Tiap id resmi digenerate SEKALI lalu
+// dicache permanen (tabel my20fit_foodimg + Supabase Storage) — lihat my20fit-foodimg. Gagal/tak
+// eligible -> lanjut Pexels -> TheMealDB seperti sebelumnya. Rate limit imgLimiter (lihat isImgPath).
+// ok:false -> klien pakai placeholder emoji.
+const AI_FOODIMG_TIMEOUT_MS = parseInt(process.env.AI_FOODIMG_TIMEOUT_MS || "40000", 10);
+let _officialMenuIdSet = null;
+function isOfficialMenuId(id) {
+  if (!_officialMenuIdSet) {
+    _officialMenuIdSet = new Set(loadMenuCatalog().map((r) => String(r && r.id || "")));
+  }
+  return _officialMenuIdSet.has(id);
+}
 app.get("/api/menu/photo", async (req, res) => {
   try {
     const id = String(req.query.id || "").slice(0, 80);
-    const q = String(req.query.q || "").slice(0, 120);    // nama deskriptif (Pexels)
+    const q = String(req.query.q || "").slice(0, 120);    // nama deskriptif (Pexels & AI)
     const mdb = String(req.query.mdb || "").slice(0, 60); // kata kunci pendek (TheMealDB)
     if (!id) return res.json({ ok: false });
+
+    // 0) GENERATE AI (google/gemini-2.5-flash-image via my20fit-foodimg), gaya foto Indonesia.
+    //    Suffix cache "-ai-id" beda dari "-v8" punya /api/foodphoto (prompt berbeda) supaya tidak
+    //    ikut ke-skip oleh cache lama. Dipanggil dgn kredensial anon server (pola sama dgn
+    //    callAiEdge) krn endpoint ini publik & tak punya token user untuk diteruskan.
+    if (isOfficialMenuId(id) && q) {
+      const aiCacheId = id + "-ai-id";
+      if (admin) {
+        try {
+          const { data } = await admin.from("my20fit_foodimg").select("url").eq("id", aiCacheId).limit(1);
+          if (data && data[0] && data[0].url) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: data[0].url, cached: true, source: "ai" }); }
+        } catch (_e) {}
+      }
+      // Timeout eksplisit (pola sama dgn callAiEdge) — endpoint ini PUBLIK & tanpa login, jadi
+      // kalau OpenRouter/Supabase lambat/macet, jangan sampai request pengunjung anonim nge-hang.
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), AI_FOODIMG_TIMEOUT_MS);
+      try {
+        const catRec = loadMenuCatalog().find((r) => r && r.id === id);
+        const desc = catRec && catRec.ing && (catRec.ing.en || catRec.ing.id) || "";
+        const fr = await fetch(SUPABASE_URL + "/functions/v1/my20fit-foodimg", {
+          method: "POST",
+          signal: ctrl.signal,
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY, apikey: SUPABASE_ANON_KEY },
+          body: JSON.stringify({ id: aiCacheId, name: q, desc: String(desc).slice(0, 400), indo: true }),
+        });
+        if (fr.ok) {
+          const fj = await fr.json();
+          if (fj && fj.ok && fj.url) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: fj.url, source: "ai" }); }
+        }
+      } catch (_e) {
+        // timeout/network error -> lanjut fallback Pexels/TheMealDB di bawah, jangan gagalkan request.
+      } finally {
+        clearTimeout(to);
+      }
+    }
+
     const cacheId = id + "-px";
     if (admin) {
       try {
@@ -6495,7 +6835,10 @@ app.get("/api/menu/photo", async (req, res) => {
         if (pr.ok) {
           const pj = await pr.json();
           const p = pj && pj.photos && pj.photos[0];
-          const url = p && p.src && (p.src.medium || p.src.large || p.src.original);
+          // Sumber wajib >=1024px di sisi terpendek — jangan paksa isi foto kecil
+          // (fallback ke sumber berikutnya / placeholder emoji drpd foto buram/kepotong).
+          const shortSide = p ? Math.min(Number(p.width) || 0, Number(p.height) || 0) : 0;
+          const url = p && p.src && shortSide >= 1024 ? (p.src.large2x || p.src.original) : null;
           if (url) {
             if (admin) { try { await admin.from("my20fit_foodimg").upsert({ id: cacheId, url: url }); } catch (_e) {} }
             res.set("Cache-Control", "public, max-age=86400");
@@ -6511,7 +6854,9 @@ app.get("/api/menu/photo", async (req, res) => {
         if (mr.ok) {
           const mj = await mr.json();
           const m = mj && mj.meals;
-          if (m && m[0] && m[0].strMealThumb) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: m[0].strMealThumb + "/small", source: "themealdb" }); }
+          // Tanpa suffix ukuran = varian TERBESAR yg disediakan TheMealDB (sebelumnya "/small"
+          // sengaja minta yg terkecil, ~312px — di bawah standar 1024px kita).
+          if (m && m[0] && m[0].strMealThumb) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: m[0].strMealThumb, source: "themealdb" }); }
         }
       } catch (_e) {}
     }
