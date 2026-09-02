@@ -4387,6 +4387,148 @@ app.post("/api/menu/caterer-click", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// ---------- recepie.20fit.id "Eat Now" -> pesan-antar (GrabFood dll) ----------
+// TANPA API/scraping Grab. Hanya menautkan ke halaman KATEGORI publik mereka (meta-robots
+// index,follow -> memang boleh ditautkan). Pemetaan EKSPLISIT per resep, admin isi via CMS
+// (tabel my20fit_menu_delivery_links). Kita TIDAK klaim "restoran X jual ini" -- daftar
+// restoran baru muncul di sisi Grab setelah user isi alamat. Preset kategori GrabFood
+// dikumpulkan manual dari struktur URL publik food.grab.com (bukan scraping katalog).
+var GRABFOOD_BASE = "https://food.grab.com";
+var GRABFOOD_PRESETS = [
+  { label: "Nasi Goreng", path: "/id/id/cuisines/nasi-goreng-delivery/71" },
+  { label: "Ayam Goreng", path: "/id/id/cuisines/ayam-goreng-delivery/69" },
+  { label: "Ayam", path: "/id/id/cuisines/ayam-delivery/43" },
+  { label: "Sate", path: "/id/id/cuisines/sate-delivery/150" },
+  { label: "Bakso", path: "/id/id/cuisines/bakso-delivery/8" },
+  { label: "Mie", path: "/id/id/cuisines/mie-delivery/126" },
+  { label: "Aneka Nasi", path: "/id/id/cuisines/aneka-nasi-delivery/144" },
+  { label: "Hidangan Laut", path: "/id/id/cuisines/hidangan-laut-delivery/151" },
+  { label: "Martabak", path: "/id/id/cuisines/martabak-delivery/107" },
+  { label: "Camilan", path: "/id/id/cuisines/camilan-delivery/157" },
+  { label: "Kopi", path: "/id/id/cuisines/kopi-delivery/47" },
+  { label: "Minuman", path: "/id/id/cuisines/minuman-delivery/24" },
+  { label: "Roti & Kue", path: "/id/id/cuisines/roti-kue-delivery/7" },
+  { label: "Masakan Indonesia", path: "/id/id/restaurants?category=indonesian-87" },
+];
+
+// PUBLIK: tautan pesan-antar AKTIF utk satu resep (urut sort_order). Kosong -> klien sembunyikan.
+app.get("/api/menu/:id/delivery", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, links: [] });
+    var menu_id = String(req.params.id || "").slice(0, 80);
+    var source = String(req.query.source || "").trim().toLowerCase();
+    if (!menu_id || (source !== "official" && source !== "member")) return res.json({ ok: true, links: [] });
+    var { data, error } = await admin.from("my20fit_menu_delivery_links")
+      .select("id,provider,label,url,sort_order")
+      .eq("source", source).eq("menu_id", menu_id).eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    if (error) return res.status(500).json({ error: error.message });
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ ok: true, links: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK (login opsional, guest via cookie eco_anon): catat klik ke penyedia pesan-antar.
+// Hanya analitik -- TIDAK dipakai utk urutan apa pun sekarang. Pola sama caterer-click.
+app.post("/api/menu/delivery-click", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true });
+    var b = req.body || {};
+    var source = String(b.source || "").trim().toLowerCase();
+    var menu_id = String(b.menu_id || "").slice(0, 80);
+    var provider = String(b.provider || "").trim().slice(0, 40);
+    if (!menu_id || !provider || (source !== "official" && source !== "member"))
+      return res.status(400).json({ error: "source, menu_id, provider wajib." });
+    var user = await getUserFromReq(req);
+    var row = { source: source, menu_id: menu_id, provider: provider };
+    if (user) row.auth_user_id = user.id;
+    else { var sess = await getAnonSession(req, res, true); if (sess) row.anon_id = sess.anon_id; }
+    await admin.from("my20fit_menu_delivery_clicks").insert(row);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN (superadmin): preset kategori GrabFood siap pakai (biar admin tak salin URL manual).
+app.get("/api/admin/menu-delivery/presets", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  return res.json({ ok: true, grabfood_base: GRABFOOD_BASE, presets: GRABFOOD_PRESETS });
+});
+
+// ADMIN: daftar pemetaan + resep yang BELUM dipetakan (biar kelihatan yang tertinggal).
+app.get("/api/admin/menu-delivery", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var { data: links, error } = await admin.from("my20fit_menu_delivery_links")
+      .select("id,source,menu_id,provider,label,url,sort_order,is_active,created_at,updated_at")
+      .order("updated_at", { ascending: false }).limit(2000);
+    if (error) return res.status(500).json({ error: error.message });
+    var official = loadMenuCatalog().map(function (r) {
+      return { source: "official", menu_id: r.id, name: (r.nm && (r.nm.id || r.nm.en)) || r.id };
+    });
+    var { data: mem } = await admin.from("my20fit_menu_contribution")
+      .select("id,name").eq("status", "approved").eq("published", true).limit(1000);
+    var recipes = official.concat((mem || []).map(function (m) { return { source: "member", menu_id: m.id, name: m.name }; }));
+    var mapped = {};
+    (links || []).forEach(function (l) { mapped[l.source + ":" + l.menu_id] = true; });
+    var unmapped = recipes.filter(function (r) { return !mapped[r.source + ":" + r.menu_id]; });
+    return res.json({ ok: true, links: links || [], recipes: recipes, unmapped_count: unmapped.length, unmapped: unmapped });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: buat pemetaan. (Data pemetaan diisi admin, bukan ditebak dari nama makanan.)
+app.post("/api/admin/menu-delivery", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var b = req.body || {};
+    var source = String(b.source || "").trim().toLowerCase();
+    var menu_id = String(b.menu_id || "").slice(0, 80);
+    var provider = String(b.provider || "grabfood").trim().slice(0, 40);
+    var label = String(b.label || "").trim().slice(0, 120);
+    var url = String(b.url || "").trim();
+    if (!menu_id || !label || !url || (source !== "official" && source !== "member"))
+      return res.status(400).json({ error: "source, menu_id, label, url wajib." });
+    if (!/^https:\/\//i.test(url)) return res.status(400).json({ error: "URL harus diawali https://" });
+    var sort_order = (b.sort_order != null && b.sort_order !== "") ? (parseInt(b.sort_order, 10) || 0) : 0;
+    var is_active = b.is_active === false ? false : true;
+    var { data, error } = await admin.from("my20fit_menu_delivery_links")
+      .insert({ source: source, menu_id: menu_id, provider: provider, label: label, url: url, sort_order: sort_order, is_active: is_active })
+      .select("id").limit(1).single();
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "menu_delivery.create", data.id, { source: source, menu_id: menu_id, provider: provider });
+    return res.json({ ok: true, id: data.id });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: ubah pemetaan.
+app.post("/api/admin/menu-delivery/:id/update", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || ""), b = req.body || {};
+    var patch = { updated_at: new Date().toISOString() };
+    if (b.provider != null) patch.provider = String(b.provider).trim().slice(0, 40);
+    if (b.label != null) patch.label = String(b.label).trim().slice(0, 120);
+    if (b.url != null) { var u = String(b.url).trim(); if (!/^https:\/\//i.test(u)) return res.status(400).json({ error: "URL harus https://" }); patch.url = u; }
+    if (b.sort_order != null) patch.sort_order = parseInt(b.sort_order, 10) || 0;
+    if (b.is_active != null) patch.is_active = !!b.is_active;
+    var { error } = await admin.from("my20fit_menu_delivery_links").update(patch).eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "menu_delivery.update", id, patch);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: hapus pemetaan.
+app.post("/api/admin/menu-delivery/:id/delete", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || "");
+    var { error } = await admin.from("my20fit_menu_delivery_links").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "menu_delivery.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // ---------- recepie.20fit.id: foto langkah, reaction (heart), save (koleksi) ----------
 // Normalisasi langkah terstruktur (step berfoto). Terima [{t, photo}] -> bersihkan, batasi
 // jumlah/panjang, foto HANYA URL bucket menu-photos kita (anti tempel URL eksternal) / null.
