@@ -1551,6 +1551,13 @@ app.post("/api/fitco-login", async (req, res) => {
     const fitcoToken =
       fj.access_token || fd.access_token ||
       (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
+    // Refresh token dari 20FIT — kontrak terverifikasi: nested di `data.token.refresh_token`.
+    // WAJIB diteruskan: tanpa ini app menyimpan refresh=null, interceptor-nya melewati
+    // silent-refresh, dan 401 pertama setelah access token 24 jam kedaluwarsa jadi FINAL
+    // (user kehilangan FIT Points sampai logout+login manual).
+    // 🔴 KREDENSIAL — jangan pernah di-log/ikut pesan error.
+    const fitcoRefresh =
+      (fd.token && fd.token.refresh_token) || fd.refresh_token || fj.refresh_token || null;
     if (!fitcoToken) return res.status(401).json({ error: "Login 20FIT gagal (token tidak diterima)." });
     let fitcoUserId = fd.user_id || fd.id || null;
 
@@ -1568,7 +1575,7 @@ app.post("/api/fitco-login", async (req, res) => {
     info.fitcoEmailVerified = true;
     const out = await mirrorAndMintOtp(info);
     // Kirim user_id + token 20FIT ke client (dipakai untuk order/pembayaran shop 20FIT).
-    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken });
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken, fitco_refresh_token: fitcoRefresh });
   } catch (e) {
     console.error("fitco-login:", e.message);
     return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
@@ -1624,6 +1631,13 @@ async function bridgeGoogleToSession(claims, idToken) {
   const fitcoToken =
     fj.access_token || fd.access_token ||
     (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
+  // Lihat catatan di /api/fitco-login. ⚠️ Kontrak refresh token jalur GOOGLE
+  // (`/api/v1/auth/login/google`) BELUM pernah diverifikasi langsung seperti jalur
+  // password — kalau 20FIT tak mengirimnya, nilainya null dan perilakunya sama
+  // seperti sebelum perubahan ini (tak ada fallback yang dikarang).
+  // 🔴 KREDENSIAL — jangan pernah di-log/ikut pesan error.
+  const fitcoRefresh =
+    (fd.token && fd.token.refresh_token) || fd.refresh_token || fj.refresh_token || null;
   if (!fitcoToken) { const e = new Error("Login Google 20FIT gagal (token tidak diterima)."); e.status = 401; throw e; }
   let fitcoUserId = fd.user_id || fd.id || null;
 
@@ -1637,7 +1651,7 @@ async function bridgeGoogleToSession(claims, idToken) {
   info.fitcoUserId = fitcoUserId;
   info.fitcoEmailVerified = true; // login Google diterima 20FIT + email diverifikasi Google
   const out = await mirrorAndMintOtp(info);
-  return { email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken };
+  return { email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken, fitco_refresh_token: fitcoRefresh };
 }
 
 // Login Google (GIS): frontend kirim ID token (credential) via POST, server
@@ -1649,7 +1663,7 @@ app.post("/api/fitco-google-login", async (req, res) => {
     if (!credential) return res.status(400).json({ error: "Google credential wajib." });
     const claims = await verifyGoogleIdToken(credential);
     const out = await bridgeGoogleToSession(claims, credential);
-    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: out.fitco_user_id, fitco_token: out.fitco_token });
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: out.fitco_user_id, fitco_token: out.fitco_token, fitco_refresh_token: out.fitco_refresh_token });
   } catch (e) {
     console.error("fitco-google-login:", e.message);
     return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
@@ -1978,7 +1992,7 @@ app.post("/api/fitco-register", async (req, res) => {
     // 2) Login ke 20FIT utk ambil token + profil (best effort). Kalau butuh verifikasi
     //    OTP, langkah ini bisa gagal — tidak apa, kita tetap buat sesi dari data daftar.
     let info = { email, fullName: name, gender: (gender === "male" || gender === "female") ? gender : null, phone: phone || null, avatar: null, birthdate: dob || null };
-    let fitcoToken = null, fitcoUserId = null;
+    let fitcoToken = null, fitcoUserId = null, fitcoRefresh = null;
     try {
       const lr = await fetch(FITCO_API + FITCO_LOGIN_PATH, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -1987,6 +2001,12 @@ app.post("/api/fitco-register", async (req, res) => {
       const lj = await lr.json().catch(() => ({}));
       const fd = (lj && lj.data) || lj || {};
       fitcoToken = fd.access_token || (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
+      // ⚠️ Bentuk di SINI beda dari dua jalur lain: variabel response-nya `lj`
+      // (bukan `fj`), dan ekstraksi access token di atas TIDAK mengecek root
+      // (`lj.access_token`). Asimetri itu dipertahankan apa adanya — bukan tugas
+      // ini untuk menyeragamkannya, dan mengubahnya diam-diam berisiko.
+      // 🔴 KREDENSIAL — jangan pernah di-log/ikut pesan error.
+      fitcoRefresh = (fd.token && fd.token.refresh_token) || fd.refresh_token || null;
       fitcoUserId = fd.user_id || fd.id || null;
       if (fitcoToken) {
         try { const p = await fetch20fitProfile(fitcoToken); info = { email: p.email || email, fullName: p.fullName || name, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar, birthdate: p.birthdate || dob }; fitcoUserId = p.fitcoUserId || fitcoUserId; } catch (e) {}
@@ -2004,7 +2024,7 @@ app.post("/api/fitco-register", async (req, res) => {
     info.fitcoEmailVerified = false;
     const out = await mirrorAndMintOtp(info);
     // Kirim user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
-    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken });
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken, fitco_refresh_token: fitcoRefresh });
   } catch (e) {
     console.error("fitco-register:", e.message);
     return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal daftar. Coba lagi." });
