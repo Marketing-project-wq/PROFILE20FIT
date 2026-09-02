@@ -4547,6 +4547,170 @@ app.post("/api/admin/menu-delivery/:id/delete", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// ---------- recepie.20fit.id: Artikel in-house (Tahap 6) ----------
+// Di-host DI SINI (bukan media_articles/WordPress) -> tak ada duplicate content. Superadmin tulis
+// via CMS; publik baca hanya 'published' (service key; RLS deny-public). body_md dirender aman di klien.
+function slugifyArticle(s) {
+  return String(s || "").toLowerCase().trim()
+    .replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 80)
+    || ("artikel-" + Date.now().toString(36));
+}
+
+// PUBLIK: daftar artikel terbit (ringkas, tanpa body).
+app.get("/api/menu/articles", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, articles: [] });
+    var category = String(req.query.category || "").trim();
+    var limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    var q = admin.from("my20fit_recipe_article")
+      .select("id,slug,title,excerpt,cover_url,category,author_name,published_at")
+      .eq("status", "published").order("published_at", { ascending: false }).limit(limit);
+    if (category) q = q.eq("category", category);
+    var { data, error } = await q;
+    if (error) return res.status(500).json({ error: error.message });
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ ok: true, articles: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK: satu artikel terbit (full body) + resep terkait.
+app.get("/api/menu/articles/:slug", async (req, res) => {
+  try {
+    if (!admin) return res.status(404).json({ error: "not found" });
+    var slug = String(req.params.slug || "").slice(0, 100);
+    var { data: a } = await admin.from("my20fit_recipe_article")
+      .select("id,slug,title,excerpt,body_md,cover_url,category,author_name,published_at,status")
+      .eq("slug", slug).limit(1).single();
+    if (!a || a.status !== "published") return res.status(404).json({ error: "not found" });
+    var { data: links } = await admin.from("my20fit_recipe_article_link").select("source,menu_id").eq("article_id", a.id);
+    delete a.status;
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ ok: true, article: a, recipes: links || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK: artikel terbit terkait sebuah resep (utk "mau makan di luar?" di halaman resep).
+app.get("/api/menu/:id/articles", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, articles: [] });
+    var menu_id = String(req.params.id || "").slice(0, 80);
+    var source = String(req.query.source || "").trim().toLowerCase();
+    if (!menu_id || (source !== "official" && source !== "member")) return res.json({ ok: true, articles: [] });
+    var { data: links } = await admin.from("my20fit_recipe_article_link").select("article_id").eq("source", source).eq("menu_id", menu_id);
+    var ids = (links || []).map(function (l) { return l.article_id; });
+    if (!ids.length) return res.json({ ok: true, articles: [] });
+    var { data: arts } = await admin.from("my20fit_recipe_article")
+      .select("id,slug,title,excerpt,cover_url,category,published_at")
+      .in("id", ids).eq("status", "published").order("published_at", { ascending: false });
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ ok: true, articles: arts || [] });
+  } catch (e) { return res.json({ ok: true, articles: [] }); }
+});
+
+// ADMIN (superadmin): daftar semua artikel (semua status).
+app.get("/api/admin/articles", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var { data, error } = await admin.from("my20fit_recipe_article")
+      .select("id,slug,title,category,author_name,status,published_at,updated_at")
+      .order("updated_at", { ascending: false }).limit(500);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true, articles: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: satu artikel penuh + link (utk editor).
+app.get("/api/admin/articles/:id", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || "");
+    var { data: a } = await admin.from("my20fit_recipe_article").select("*").eq("id", id).limit(1).single();
+    if (!a) return res.status(404).json({ error: "not found" });
+    var { data: links } = await admin.from("my20fit_recipe_article_link").select("source,menu_id").eq("article_id", id);
+    return res.json({ ok: true, article: a, links: links || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: buat artikel.
+app.post("/api/admin/articles", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var b = req.body || {};
+    var title = String(b.title || "").trim();
+    if (!title) return res.status(400).json({ error: "Judul wajib." });
+    var slug = String(b.slug || "").trim(); slug = slug ? slugifyArticle(slug) : slugifyArticle(title);
+    var status = (b.status === "published") ? "published" : "draft";
+    var row = {
+      title: title, slug: slug,
+      excerpt: b.excerpt ? String(b.excerpt).slice(0, 500) : null,
+      body_md: b.body_md ? String(b.body_md) : null,
+      cover_url: b.cover_url ? String(b.cover_url) : null,
+      category: b.category ? String(b.category).trim().slice(0, 60) : null,
+      author_name: b.author_name ? String(b.author_name).trim().slice(0, 120) : null,
+      status: status,
+      published_at: status === "published" ? new Date().toISOString() : null,
+    };
+    var { data, error } = await admin.from("my20fit_recipe_article").insert(row).select("id,slug").limit(1).single();
+    if (error) { if (error.code === "23505") return res.status(409).json({ error: "Slug sudah dipakai." }); return res.status(500).json({ error: error.message }); }
+    await adminAudit(ctx, "article.create", data.id, { slug: data.slug });
+    return res.json({ ok: true, id: data.id, slug: data.slug });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: ubah artikel.
+app.post("/api/admin/articles/:id/update", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || ""), b = req.body || {};
+    var patch = { updated_at: new Date().toISOString() };
+    if (b.title != null) patch.title = String(b.title).trim();
+    if (b.slug != null) patch.slug = slugifyArticle(b.slug);
+    if (b.excerpt != null) patch.excerpt = b.excerpt ? String(b.excerpt).slice(0, 500) : null;
+    if (b.body_md != null) patch.body_md = b.body_md ? String(b.body_md) : null;
+    if (b.cover_url != null) patch.cover_url = b.cover_url ? String(b.cover_url) : null;
+    if (b.category != null) patch.category = b.category ? String(b.category).trim().slice(0, 60) : null;
+    if (b.author_name != null) patch.author_name = b.author_name ? String(b.author_name).trim().slice(0, 120) : null;
+    if (b.status != null) {
+      var st = (b.status === "published") ? "published" : "draft"; patch.status = st;
+      if (st === "published") { var { data: cur } = await admin.from("my20fit_recipe_article").select("published_at").eq("id", id).limit(1).single(); if (!cur || !cur.published_at) patch.published_at = new Date().toISOString(); }
+    }
+    var { error } = await admin.from("my20fit_recipe_article").update(patch).eq("id", id);
+    if (error) { if (error.code === "23505") return res.status(409).json({ error: "Slug sudah dipakai." }); return res.status(500).json({ error: error.message }); }
+    await adminAudit(ctx, "article.update", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: hapus artikel.
+app.post("/api/admin/articles/:id/delete", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || "");
+    var { error } = await admin.from("my20fit_recipe_article").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "article.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: set resep terkait (ganti semua). Body {links:[{source,menu_id}]}.
+app.post("/api/admin/articles/:id/links", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || "");
+    var arr = Array.isArray((req.body || {}).links) ? req.body.links : [];
+    var rows = [];
+    arr.slice(0, 50).forEach(function (l) {
+      var s = String((l && l.source) || "").toLowerCase(); var mid = String((l && l.menu_id) || "").slice(0, 80);
+      if ((s === "official" || s === "member") && mid) rows.push({ article_id: id, source: s, menu_id: mid });
+    });
+    await admin.from("my20fit_recipe_article_link").delete().eq("article_id", id);
+    if (rows.length) { var ins = await admin.from("my20fit_recipe_article_link").insert(rows); if (ins.error) return res.status(500).json({ error: ins.error.message }); }
+    await adminAudit(ctx, "article.links", id, { count: rows.length });
+    return res.json({ ok: true, count: rows.length });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // ---------- recepie.20fit.id: foto langkah, reaction (heart), save (koleksi) ----------
 // Normalisasi langkah terstruktur (step berfoto). Terima [{t, photo}] -> bersihkan, batasi
 // jumlah/panjang, foto HANYA URL bucket menu-photos kita (anti tempel URL eksternal) / null.

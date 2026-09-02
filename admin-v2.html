@@ -39,6 +39,7 @@
       <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span></button>
       <button class="adm-navitem" data-nav="menustats"><span data-i18n="Menu interest">Minat menu</span></button>
       <button class="adm-navitem" data-nav="delivery"><span data-i18n="Eat Now / delivery">Eat Now / pesan-antar</span></button>
+      <button class="adm-navitem" data-nav="articles"><span data-i18n="Articles">Artikel</span></button>
       <button class="adm-navitem" data-nav="marketing"><span data-i18n="Marketing">Marketing</span></button>
       <button class="adm-navitem" data-nav="corporate"><span data-i18n="Corporate">Corporate</span></button>
       <button class="adm-navitem" data-nav="events"><span data-i18n="Events">Event</span></button>
@@ -355,6 +356,9 @@
       </section>
       <section data-section="delivery" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Eat Now / pesan-antar" data-title-en="Eat Now / delivery" data-question="Resep mana yang ditautkan ke kategori GrabFood/GoFood, dan mana yang belum dipetakan?" data-question-en="Which recipes link to a GrabFood/GoFood category, and which are still unmapped?">
         <div id="dlvBox"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+      </section>
+      <section data-section="articles" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Artikel" data-title-en="Articles" data-question="Artikel rekomendasi tempat makan yang tayang langsung di recepie.20fit.id (bukan WordPress)." data-question-en="Restaurant-recommendation articles hosted directly on recepie.20fit.id (not WordPress).">
+        <div id="artBox"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
       </section>
       <section data-section="marketing" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Marketing" data-title-en="Marketing" data-question="Campaign mana yang perform (click rate), dan siapa yang klik?" data-question-en="Which campaign performs (click rate), and who clicked?">
         <div class="adm-tabs" data-tabgroup="mkt" data-default="email">
@@ -2454,6 +2458,7 @@
     if(id==="menustats") return loadMenuStats();
     if(id==="reports") return loadReports();
     if(id==="delivery") return loadDelivery();
+    if(id==="articles") return loadArticles();
   }
 
   // ---------- CMS: Eat Now / pesan-antar (my20fit_menu_delivery_links) ----------
@@ -2518,6 +2523,90 @@
   async function dlvToggle(id, active){
     var r=await adminPost("/api/admin/menu-delivery/"+encodeURIComponent(id)+"/update", { is_active: active }).then(function(x){return x.json();}).catch(function(){return null;});
     if(r&&r.ok){ loadDelivery(); }
+  }
+
+  // ---------- CMS: Artikel in-house (my20fit_recipe_article) ----------
+  var ART_RECIPES=[]; // {source, menu_id, name} utk picker link (reuse endpoint delivery)
+  async function loadArticles(){
+    var box=document.getElementById("artBox"); if(!box) return;
+    box.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
+    var j=await adminFetch("/api/admin/articles").then(function(r){return r.json();}).catch(function(){return null;});
+    if(!j||!j.ok){ box.innerHTML='<div class="adm-note">'+L("Failed to load. Open with ?key=ADMIN_KEY or log in as admin.","Gagal memuat. Buka dengan ?key=ADMIN_KEY atau login admin.")+'</div>'; return; }
+    var arts=j.articles||[];
+    var rows=arts.map(function(a){
+      return '<tr data-art-edit="'+esc(a.id)+'" style="cursor:pointer">'+
+        '<td>'+esc(a.title)+' <span class="adm-mono" style="opacity:.5">/'+esc(a.slug||"")+'</span></td>'+
+        '<td>'+esc(a.category||"—")+'</td>'+
+        '<td>'+(a.status==="published"?'<span class="adm-badge">'+L("Published","Terbit")+'</span>':'<span class="adm-badge" style="opacity:.6">'+L("Draft","Draf")+'</span>')+'</td>'+
+        '<td class="adm-mono" style="font-size:11px">'+esc(String(a.updated_at||"").slice(0,10))+'</td>'+
+      '</tr>';
+    }).join("");
+    box.innerHTML=
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
+        '<div class="adm-note">'+arts.length+' '+L("articles","artikel")+'</div>'+
+        '<button class="adm-btn adm-btn--primary" id="artNew">'+L("+ New article","+ Artikel baru")+'</button>'+
+      '</div>'+
+      '<div id="artEditor"></div>'+
+      '<table class="adm-table"><thead><tr><th>'+L("Title","Judul")+'</th><th>'+L("Category","Kategori")+'</th><th>Status</th><th>'+L("Updated","Diubah")+'</th></tr></thead><tbody>'+(rows||('<tr><td colspan="4" class="adm-note">'+L("No articles yet.","Belum ada artikel.")+'</td></tr>'))+'</tbody></table>';
+    document.getElementById("artNew").addEventListener("click",function(){ artEdit(null); });
+    box.querySelectorAll("[data-art-edit]").forEach(function(tr){ tr.addEventListener("click",function(){ artEdit(tr.getAttribute("data-art-edit")); }); });
+  }
+  async function artEdit(id){
+    var ed=document.getElementById("artEditor"); if(!ed) return;
+    ed.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
+    if(!ART_RECIPES.length){ var dj=await adminFetch("/api/admin/menu-delivery").then(function(r){return r.json();}).catch(function(){return null;}); ART_RECIPES=(dj&&dj.recipes)||[]; }
+    var a={ id:null, title:"", slug:"", excerpt:"", body_md:"", cover_url:"", category:"", author_name:"", status:"draft" }, links=[];
+    if(id){
+      var j=await adminFetch("/api/admin/articles/"+encodeURIComponent(id)).then(function(r){return r.json();}).catch(function(){return null;});
+      if(!j||!j.ok){ ed.innerHTML='<div class="adm-note">'+L("Failed.","Gagal.")+'</div>'; return; }
+      a=j.article; links=j.links||[];
+    }
+    var linkSet={}; links.forEach(function(l){ linkSet[l.source+":"+l.menu_id]=1; });
+    var recipeChecks=ART_RECIPES.map(function(r){ var k=r.source+":"+r.menu_id; return '<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 10px 2px 0;font-size:12px"><input type="checkbox" data-art-link="'+esc(k)+'"'+(linkSet[k]?" checked":"")+'>'+esc(r.name)+'</label>'; }).join("");
+    ed.innerHTML=
+      '<div class="adm-card" style="padding:14px;margin-bottom:14px">'+
+        '<input type="hidden" id="artId" value="'+esc(a.id||"")+'">'+
+        '<div style="display:grid;gap:8px">'+
+          '<label class="adm-note">'+L("Title","Judul")+'<input class="adm-input" id="artTitle" value="'+esc(a.title||"")+'"></label>'+
+          '<label class="adm-note">Slug (URL)<input class="adm-input" id="artSlug" value="'+esc(a.slug||"")+'" placeholder="'+L("auto from title","otomatis dari judul")+'"></label>'+
+          '<label class="adm-note">'+L("Category","Kategori")+'<input class="adm-input" id="artCat" value="'+esc(a.category||"")+'" placeholder="tempat-makan"></label>'+
+          '<label class="adm-note">'+L("Author","Penulis")+'<input class="adm-input" id="artAuthor" value="'+esc(a.author_name||"")+'"></label>'+
+          '<label class="adm-note">'+L("Cover image URL","URL gambar sampul")+'<input class="adm-input" id="artCover" value="'+esc(a.cover_url||"")+'" placeholder="https://…"></label>'+
+          '<label class="adm-note">'+L("Excerpt","Ringkasan")+'<textarea class="adm-input" id="artExcerpt" rows="2">'+esc(a.excerpt||"")+'</textarea></label>'+
+          '<label class="adm-note">'+L("Body (Markdown)","Isi (Markdown)")+'<textarea class="adm-input" id="artBody" rows="10">'+esc(a.body_md||"")+'</textarea></label>'+
+          '<div class="adm-note">'+L("Related recipes","Resep terkait")+'<div style="max-height:150px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:4px">'+(recipeChecks||L("(no recipes)","(tak ada resep)"))+'</div></div>'+
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
+            '<button class="adm-btn adm-btn--primary" id="artSaveDraft">'+L("Save draft","Simpan draf")+'</button>'+
+            '<button class="adm-btn adm-btn--primary" id="artPublish">'+L("Save & publish","Simpan & terbitkan")+'</button>'+
+            (a.id?'<button class="adm-btn" id="artDelete" style="margin-left:auto">'+L("Delete","Hapus")+'</button>':'')+
+            '<button class="adm-btn" id="artCancel">'+L("Cancel","Batal")+'</button>'+
+          '</div>'+
+          '<div class="adm-note" id="artMsg"></div>'+
+        '</div>'+
+      '</div>';
+    document.getElementById("artSaveDraft").addEventListener("click",function(){ artSave("draft"); });
+    document.getElementById("artPublish").addEventListener("click",function(){ artSave("published"); });
+    document.getElementById("artCancel").addEventListener("click",function(){ ed.innerHTML=""; });
+    var del=document.getElementById("artDelete"); if(del) del.addEventListener("click",function(){ artDelete(a.id); });
+    try { ed.scrollIntoView({ behavior:"smooth", block:"start" }); } catch(_e){}
+  }
+  async function artSave(status){
+    var id=document.getElementById("artId").value;
+    var msg=document.getElementById("artMsg"); msg.textContent=L("Saving…","Menyimpan…");
+    var body={ title:document.getElementById("artTitle").value, slug:document.getElementById("artSlug").value, category:document.getElementById("artCat").value, author_name:document.getElementById("artAuthor").value, cover_url:document.getElementById("artCover").value, excerpt:document.getElementById("artExcerpt").value, body_md:document.getElementById("artBody").value, status:status };
+    var res, aid=id;
+    if(id){ res=await adminPost("/api/admin/articles/"+encodeURIComponent(id)+"/update", body).then(function(r){return r.json();}).catch(function(){return null;}); }
+    else { res=await adminPost("/api/admin/articles", body).then(function(r){return r.json();}).catch(function(){return null;}); if(res&&res.ok) aid=res.id; }
+    if(!res||!res.ok){ msg.textContent=L("Failed: ","Gagal: ")+((res&&res.error)||"error"); return; }
+    var links=[]; document.querySelectorAll("[data-art-link]:checked").forEach(function(c){ var v=c.getAttribute("data-art-link"); var i=v.indexOf(":"); links.push({ source:v.slice(0,i), menu_id:v.slice(i+1) }); });
+    await adminPost("/api/admin/articles/"+encodeURIComponent(aid)+"/links", { links:links }).then(function(r){return r.json();}).catch(function(){return null;});
+    if(window.admToast)admToast(L("Saved","Tersimpan"));
+    loadArticles();
+  }
+  async function artDelete(id){
+    if(!confirm(L("Delete this article?","Hapus artikel ini?"))) return;
+    var r=await adminPost("/api/admin/articles/"+encodeURIComponent(id)+"/delete", {}).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ loadArticles(); }
   }
 
   document.addEventListener("click", function(e){
