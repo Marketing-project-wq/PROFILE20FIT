@@ -4138,6 +4138,20 @@ function menuHash(name, ingredients, steps) {
 }
 function startOfTodayISO() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); }
 // User: submit menu baru (batas harian + deteksi duplikat via content_hash).
+// PUBLIK: teks konsent aktif utk kirim resep -- CMS-driven (tabel, bukan hardcode di kode)
+// supaya bisa diedit tanpa deploy. Klien WAJIB tampilkan versi ini & kirim balik `consent_version`
+// saat submit; server validasi ulang thd baris aktif saat itu (lihat /api/menu/submit).
+app.get("/api/menu/consent-text", async function (req, res) {
+  try {
+    if (!admin) return res.status(503).json({ error: "Layanan tidak tersedia." });
+    var { data, error } = await admin.from("my20fit_menu_consent_text")
+      .select("version,text_id,text_en").eq("is_active", true).order("created_at", { ascending: false }).limit(1);
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data || !data[0]) return res.status(503).json({ error: "Teks konsent belum tersedia." });
+    res.set("Cache-Control", "public, max-age=300");
+    return res.json({ ok: true, version: data[0].version, text_id: data[0].text_id, text_en: data[0].text_en });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
 app.post("/api/menu/submit", async (req, res) => {
   var user = await getUserFromReq(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
@@ -4159,11 +4173,22 @@ app.post("/api/menu/submit", async (req, res) => {
   var prep_minutes = (b.prep_minutes != null && b.prep_minutes !== "") ? (Math.max(0, Math.round(+b.prep_minutes)) || null) : null;
   var equipment = b.equipment ? String(b.equipment).trim().slice(0, 300) || null : null;
   var prep_note = b.prep_note ? String(b.prep_note).trim().slice(0, 500) || null : null;
+  // Konsent WAJIB: validasi ulang thd baris aktif SEKARANG di server (jangan percaya versi/hash
+  // dari klien) -- kalau teks berubah sejak klien memuat form, tolak & minta klien muat ulang.
+  var consentVersionSent = String(b.consent_version || "").trim();
+  if (!consentVersionSent) return res.status(400).json({ error: "Anda harus menyetujui teks konsent sebelum mengirim resep." });
+  var { data: consentRows } = await admin.from("my20fit_menu_consent_text")
+    .select("version,text_id,text_en").eq("is_active", true).order("created_at", { ascending: false }).limit(1);
+  var activeConsent = consentRows && consentRows[0];
+  if (!activeConsent || activeConsent.version !== consentVersionSent) {
+    return res.status(409).json({ error: "Teks konsent sudah diperbarui -- muat ulang halaman dan setujui versi terbaru." });
+  }
+  var consentTextHash = sha256(activeConsent.version + "\n" + activeConsent.text_id + "\n" + activeConsent.text_en);
   var head = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true })
     .eq("auth_user_id", user.id).gte("created_at", startOfTodayISO());
   if ((head.count || 0) >= MENU_DAILY_LIMIT) return res.status(429).json({ error: "Batas " + MENU_DAILY_LIMIT + " submit/hari tercapai. Coba lagi besok." });
   var { data, error } = await admin.from("my20fit_menu_contribution")
-    .insert({ auth_user_id: user.id, name: name, diet_type: diet_type, display_name: display_name, ingredients: ingredients, steps: steps, steps_json: stepsStruct ? stepsStruct.json : null, servings: servings, cook_minutes: cook_minutes, prep_minutes: prep_minutes, equipment: equipment, prep_note: prep_note, photo_url: photo_url, est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps) })
+    .insert({ auth_user_id: user.id, name: name, diet_type: diet_type, display_name: display_name, ingredients: ingredients, steps: steps, steps_json: stepsStruct ? stepsStruct.json : null, servings: servings, cook_minutes: cook_minutes, prep_minutes: prep_minutes, equipment: equipment, prep_note: prep_note, photo_url: photo_url, est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps), consent_version: activeConsent.version, consent_text_hash: consentTextHash, consent_at: new Date().toISOString() })
     .select("id").limit(1).single();
   if (error) {
     if (error.code === "23505" || String(error.message || "").toLowerCase().indexOf("duplicate") >= 0)
@@ -4214,7 +4239,18 @@ app.post("/api/menu/:id/revise", async (req, res) => {
   if (stepsStruct) steps = stepsStruct.text; // langkah terstruktur (step berfoto) jadi sumber teks langkah
   if (!name || !ingredients || !steps) return res.status(400).json({ error: "Nama, bahan, dan cara buat wajib." });
   var diet_type = String(b.diet_type || "normal").trim().toLowerCase(); if (MENU_DIET_TYPES.indexOf(diet_type) < 0) diet_type = "normal";
-  var patch = { name: name, ingredients: ingredients, steps: steps, diet_type: diet_type, content_hash: menuHash(name, ingredients, steps), status: "pending", reject_reason: null, updated_at: new Date().toISOString() };
+  // Konten berubah lewat revisi -> minta konsent ulang thd baris aktif SEKARANG (sama seperti
+  // submit baru), supaya rekaman konsent selalu match versi teks yang benar-benar berlaku.
+  var consentVersionSent = String(b.consent_version || "").trim();
+  if (!consentVersionSent) return res.status(400).json({ error: "Anda harus menyetujui teks konsent sebelum mengirim revisi." });
+  var { data: consentRows } = await admin.from("my20fit_menu_consent_text")
+    .select("version,text_id,text_en").eq("is_active", true).order("created_at", { ascending: false }).limit(1);
+  var activeConsent = consentRows && consentRows[0];
+  if (!activeConsent || activeConsent.version !== consentVersionSent) {
+    return res.status(409).json({ error: "Teks konsent sudah diperbarui -- muat ulang halaman dan setujui versi terbaru." });
+  }
+  var consentTextHash = sha256(activeConsent.version + "\n" + activeConsent.text_id + "\n" + activeConsent.text_en);
+  var patch = { name: name, ingredients: ingredients, steps: steps, diet_type: diet_type, content_hash: menuHash(name, ingredients, steps), status: "pending", reject_reason: null, updated_at: new Date().toISOString(), consent_version: activeConsent.version, consent_text_hash: consentTextHash, consent_at: new Date().toISOString() };
   if (stepsStruct) patch.steps_json = stepsStruct.json; else if (b.steps_json === null) patch.steps_json = null;
   if (b.servings != null) patch.servings = (b.servings === "") ? null : (Math.max(1, Math.round(+b.servings)) || null);
   if (b.cook_minutes != null) patch.cook_minutes = (b.cook_minutes === "") ? null : (Math.max(0, Math.round(+b.cook_minutes)) || null);
@@ -4228,14 +4264,15 @@ app.post("/api/menu/:id/revise", async (req, res) => {
   if (error) { if (error.code === "23505") return res.status(409).json({ error: "Isi menu identik dgn yang sudah ada." }); return res.status(500).json({ error: error.message }); }
   return res.json({ ok: true });
 });
-// Superadmin: antrian review (filter status + cari nama).
+// Superadmin: antrian review (filter status + cari nama). Urutan default OLDEST-FIRST
+// (antrian FIFO -- yang paling lama menunggu ditinjau duluan), bukan newest-first.
 app.get("/api/admin/menu", async (req, res) => {
   var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
   try {
     var status = String(req.query.status || "").trim(), q = String(req.query.q || "").trim();
     var query = admin.from("my20fit_menu_contribution")
       .select("id,auth_user_id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,status,reject_reason,created_at,reviewed_at,published")
-      .order("created_at", { ascending: false }).limit(200);
+      .order("created_at", { ascending: true }).limit(200);
     if (["pending", "approved", "rejected"].indexOf(status) >= 0) query = query.eq("status", status);
     if (q) query = query.ilike("name", "%" + q + "%");
     var { data: rows, error } = await query;
@@ -4244,14 +4281,60 @@ app.get("/api/admin/menu", async (req, res) => {
     var pmap = {};
     if (ids.length) { var { data: profs } = await admin.from("my20fit_profile").select("auth_user_id,full_name,email").in("auth_user_id", ids); (profs || []).forEach(function (p) { pmap[p.auth_user_id] = p; }); }
     var out = (rows || []).map(function (r) { var p = pmap[r.auth_user_id] || {}; return Object.assign({}, r, { contributor_name: p.full_name || null, contributor_email: p.email || null, health_flag: menuHealthFlag(r.name, r.ingredients, r.steps) }); });
-    return res.json({ ok: true, menus: out });
+    var { count: pendingCount } = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true }).eq("status", "pending");
+    return res.json({ ok: true, menus: out, pending_count: pendingCount || 0 });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Superadmin: edit isi (bukan status) SEBELUM approve -- mis. rapikan typo/nama alat yang
+// keliru sebelum ditayangkan. Tidak boleh mengubah status/published/reviewed_*/reject_reason
+// lewat sini (itu tetap lewat approve/reject saja).
+app.post("/api/admin/menu/:id/edit", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  var id = String(req.params.id || ""), b = req.body || {};
+  try {
+    var { data: cur } = await admin.from("my20fit_menu_contribution").select("id").eq("id", id).limit(1).single();
+    if (!cur) return res.status(404).json({ error: "Menu tidak ditemukan." });
+    var patch = { updated_at: new Date().toISOString() };
+    if (b.name != null) patch.name = String(b.name).trim().slice(0, 200);
+    if (b.ingredients != null) patch.ingredients = String(b.ingredients).trim();
+    if (b.steps != null) patch.steps = String(b.steps).trim();
+    if (b.diet_type != null) { var dt = String(b.diet_type).trim().toLowerCase(); if (MENU_DIET_TYPES.indexOf(dt) >= 0) patch.diet_type = dt; }
+    if (b.servings != null) patch.servings = (b.servings === "") ? null : (Math.max(1, Math.round(+b.servings)) || null);
+    if (b.cook_minutes != null) patch.cook_minutes = (b.cook_minutes === "") ? null : (Math.max(0, Math.round(+b.cook_minutes)) || null);
+    if (b.prep_minutes != null) patch.prep_minutes = (b.prep_minutes === "") ? null : (Math.max(0, Math.round(+b.prep_minutes)) || null);
+    if (b.equipment != null) patch.equipment = String(b.equipment).trim().slice(0, 300) || null;
+    if (b.prep_note != null) patch.prep_note = String(b.prep_note).trim().slice(0, 500) || null;
+    if (b.est_kcal != null) patch.est_kcal = (b.est_kcal === "") ? null : (Math.max(0, Math.round(+b.est_kcal)) || null);
+    if (patch.name != null || patch.ingredients != null || patch.steps != null) {
+      var { data: full } = await admin.from("my20fit_menu_contribution").select("name,ingredients,steps").eq("id", id).limit(1).single();
+      patch.content_hash = menuHash(patch.name != null ? patch.name : (full && full.name), patch.ingredients != null ? patch.ingredients : (full && full.ingredients), patch.steps != null ? patch.steps : (full && full.steps));
+    }
+    var { error } = await admin.from("my20fit_menu_contribution").update(patch).eq("id", id);
+    if (error) { if (error.code === "23505") return res.status(409).json({ error: "Isi menu identik dgn yang sudah ada." }); return res.status(500).json({ error: error.message }); }
+    await adminAudit(ctx, "menu.edit", id, { fields: Object.keys(patch).filter(function (k) { return k !== "updated_at"; }) });
+    return res.json({ ok: true });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Superadmin: approve -> publish + beri reward (RPC idempoten).
+// Notifikasi email status resep (approve/reject) -- best-effort, TIDAK boleh menggagalkan
+// aksi admin kalau kirim gagal (pola sama dgn reward grant/clawback RPC di bawah).
+async function menuNotifyStatus(userId, recipeName, status, reason) {
+  try {
+    var { data: profs } = await admin.from("my20fit_profile").select("email,full_name").eq("auth_user_id", userId).limit(1);
+    var email_ = profs && profs[0] && profs[0].email;
+    if (!email_) return;
+    var approved = status === "approved";
+    var subject = approved ? "Resepmu \"" + recipeName + "\" disetujui & tayang!" : "Resepmu \"" + recipeName + "\" perlu direvisi";
+    var html = approved
+      ? "<p>Halo,</p><p>Resep <b>" + recipeName + "</b> yang kamu kirim ke menu.20fit.id sudah <b>disetujui dan tayang</b>. Terima kasih sudah berkontribusi!</p><p>Lihat status submission-mu di <a href=\"https://my.20fit.id/menu/submission-saya\">my.20fit.id</a>.</p>"
+      : "<p>Halo,</p><p>Resep <b>" + recipeName + "</b> yang kamu kirim ke menu.20fit.id belum bisa tayang. Alasan dari reviewer:</p><blockquote>" + String(reason || "").replace(/</g, "&lt;") + "</blockquote><p>Kamu bisa revisi dan kirim ulang lewat <a href=\"https://my.20fit.id/menu/submission-saya\">my.20fit.id</a>.</p>";
+    await email.send({ to: email_, subject: subject, html: html, transactional: true, channel: "transactional", templateId: approved ? "menu_approved" : "menu_rejected", userId: userId });
+  } catch (e) { /* notifikasi best-effort -- jangan gagalkan aksi admin */ }
+}
 app.post("/api/admin/menu/:id/approve", async (req, res) => {
   var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
   var id = String(req.params.id || "");
-  var { data: m } = await admin.from("my20fit_menu_contribution").select("id,auth_user_id,status").eq("id", id).limit(1).single();
+  var { data: m } = await admin.from("my20fit_menu_contribution").select("id,auth_user_id,name,status").eq("id", id).limit(1).single();
   if (!m) return res.status(404).json({ error: "Menu tidak ditemukan." });
   var { error } = await admin.from("my20fit_menu_contribution")
     .update({ status: "approved", published: true, reject_reason: null, reviewed_by: ctx.user_id || null, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id);
@@ -4259,6 +4342,7 @@ app.post("/api/admin/menu/:id/approve", async (req, res) => {
   var granted = 0;
   try { var { data: g } = await admin.rpc("my20fit_grant_menu_reward", { p_uid: m.auth_user_id }); granted = +g || 0; } catch (e) {}
   await adminAudit(ctx, "menu.approve", id, { user: m.auth_user_id, credits_granted: granted });
+  menuNotifyStatus(m.auth_user_id, m.name, "approved", null); // best-effort, tak ditunggu (jangan lambatkan respons admin)
   return res.json({ ok: true, credits_granted: granted });
 });
 // Superadmin: reject (alasan wajib). Kalau menu tadinya APPROVED -> clawback reward.
@@ -4266,7 +4350,7 @@ app.post("/api/admin/menu/:id/reject", async (req, res) => {
   var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
   var id = String(req.params.id || ""), reason = String((req.body || {}).reason || "").trim();
   if (!reason) return res.status(400).json({ error: "Alasan penolakan wajib diisi." });
-  var { data: m } = await admin.from("my20fit_menu_contribution").select("id,auth_user_id,status").eq("id", id).limit(1).single();
+  var { data: m } = await admin.from("my20fit_menu_contribution").select("id,auth_user_id,name,status").eq("id", id).limit(1).single();
   if (!m) return res.status(404).json({ error: "Menu tidak ditemukan." });
   var wasApproved = m.status === "approved";
   var { error } = await admin.from("my20fit_menu_contribution")
@@ -4275,6 +4359,7 @@ app.post("/api/admin/menu/:id/reject", async (req, res) => {
   var clawed = 0;
   if (wasApproved) { try { var { data: rv } = await admin.rpc("my20fit_revoke_menu_reward", { p_uid: m.auth_user_id }); clawed = +rv || 0; } catch (e) {} }
   await adminAudit(ctx, wasApproved ? "menu.revoke" : "menu.reject", id, { user: m.auth_user_id, reason: reason, credits_clawed: clawed });
+  menuNotifyStatus(m.auth_user_id, m.name, "rejected", reason); // best-effort, tak ditunggu
   return res.json({ ok: true, credits_clawed: clawed });
 });
 
