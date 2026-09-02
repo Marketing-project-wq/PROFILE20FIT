@@ -4408,6 +4408,23 @@ app.get("/api/menu/:id/delivery-links", async function (req, res) {
     return res.json({ ok: true, links: data || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
+// PUBLIK: SELURUH pemetaan aktif, dipakai halaman "Eat Now" khusus (Tahap 4) -- tanpa join
+// metadata resep di server (frontend sudah punya katalog lengkap lewat /catalog + /published,
+// tinggal dicocokkan via source+menu_id; entri yg resepnya sudah tak ada/diarsipkan cukup
+// dilewati di sisi klien). "label" di sini SEKALIGUS jadi nama kategori utk pengelompokan
+// (mis. "Nasi Goreng") -- tak perlu kolom kategori terpisah.
+app.get("/api/menu/delivery-links", async function (req, res) {
+  try {
+    if (!admin) return res.json({ ok: true, links: [] });
+    var { data, error } = await admin.from("my20fit_menu_delivery_links")
+      .select("id,source,menu_id,provider,label,url")
+      .eq("is_active", true)
+      .order("label", { ascending: true }).order("sort_order", { ascending: true });
+    if (error) return res.status(500).json({ error: error.message });
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ ok: true, links: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
 // PUBLIK (login opsional): catat klik "Eat Now" -- tanpa ini tak akan pernah tahu fitur dipakai.
 app.post("/api/menu/delivery-click", async (req, res) => {
   try {
