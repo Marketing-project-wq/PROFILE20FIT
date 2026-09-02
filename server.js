@@ -4387,7 +4387,166 @@ app.post("/api/menu/caterer-click", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
-// ---------- recepie.20fit.id: foto langkah, reaction (heart), save (koleksi) ----------
+// ---------- "Eat Now": link kategori pesan-antar (GrabFood/GoFood) per resep ----------
+// TANPA API/scraping -- cuma tautan biasa ke halaman kategori publik mereka, dipetakan
+// eksplisit per resep lewat CMS admin (bukan tebakan dari nama saat query).
+
+// PUBLIK: link pesan-antar aktif utk satu resep, urut sort_order.
+app.get("/api/menu/:id/delivery-links", async function (req, res) {
+  try {
+    if (!admin) return res.json({ ok: true, links: [] });
+    var source = String(req.query.source || "").trim().toLowerCase();
+    var menu_id = String(req.params.id || "").slice(0, 80);
+    if (!menu_id || (source !== "official" && source !== "member")) {
+      return res.status(400).json({ error: "source (official|member) wajib." });
+    }
+    var { data, error } = await admin.from("my20fit_menu_delivery_links")
+      .select("id,provider,label,url").eq("source", source).eq("menu_id", menu_id).eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    if (error) return res.status(500).json({ error: error.message });
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ ok: true, links: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// PUBLIK (login opsional): catat klik "Eat Now" -- tanpa ini tak akan pernah tahu fitur dipakai.
+app.post("/api/menu/delivery-click", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true });
+    var b = req.body || {};
+    var provider = String(b.provider || "").trim().toLowerCase();
+    var source = String(b.source || "").trim().toLowerCase();
+    var menu_id = String(b.menu_id || "").slice(0, 80);
+    if (!menu_id || (source !== "official" && source !== "member") || (provider !== "grabfood" && provider !== "gofood")) {
+      return res.status(400).json({ error: "source, menu_id, provider wajib." });
+    }
+    var user = await getUserFromReq(req);
+    var row = { source: source, menu_id: menu_id, provider: provider };
+    if (user) row.auth_user_id = user.id;
+    else { var sess = await getAnonSession(req, res, true); if (sess) row.anon_id = sess.anon_id; }
+    await admin.from("my20fit_menu_delivery_clicks").insert(row);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Superadmin CMS: kelola pemetaan resep -> link pesan-antar.
+app.get("/api/admin/menu/delivery-links", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    var source = String(req.query.source || "").trim().toLowerCase();
+    var menu_id = String(req.query.menu_id || "").trim();
+    var query = admin.from("my20fit_menu_delivery_links")
+      .select("id,source,menu_id,provider,label,url,sort_order,is_active,created_at,updated_at")
+      .order("source", { ascending: true }).order("menu_id", { ascending: true }).order("sort_order", { ascending: true });
+    if (source === "official" || source === "member") query = query.eq("source", source);
+    if (menu_id) query = query.eq("menu_id", menu_id);
+    const { data, error } = await query;
+    if (error) throw error;
+    return res.json({ ok: true, links: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Resep (official + member approved+published) yang BELUM punya pemetaan aktif -- supaya
+// admin lihat mana yang tertinggal (bukan pencocokan nama, murni selisih set).
+app.get("/api/admin/menu/delivery-links/unmapped", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    var catalog = loadMenuCatalog();
+    var { data: memRows, error: merr } = await admin.from("my20fit_menu_contribution")
+      .select("id,name").eq("status", "approved").eq("published", true);
+    if (merr) throw merr;
+    var { data: mapped, error: lerr } = await admin.from("my20fit_menu_delivery_links").select("source,menu_id");
+    if (lerr) throw lerr;
+    var mappedSet = new Set((mapped || []).map(function (m) { return m.source + ":" + m.menu_id; }));
+    var unmappedOfficial = catalog
+      .filter(function (r) { return !mappedSet.has("official:" + r.id); })
+      .map(function (r) { return { source: "official", menu_id: r.id, name: (r.nm && (r.nm.id || r.nm.en)) || r.id }; });
+    var unmappedMember = (memRows || [])
+      .filter(function (m) { return !mappedSet.has("member:" + m.id); })
+      .map(function (m) { return { source: "member", menu_id: m.id, name: m.name }; });
+    return res.json({ ok: true, unmapped: unmappedOfficial.concat(unmappedMember) });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Buat/edit satu pemetaan (id di body -> update, tanpa id -> create). Pola sama /api/admin/coaches.
+app.post("/api/admin/menu/delivery-links", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const source = String(b.source || "").trim().toLowerCase();
+  const menu_id = String(b.menu_id || "").trim();
+  const provider = String(b.provider || "").trim().toLowerCase();
+  const label = String(b.label || "").trim();
+  const url = String(b.url || "").trim();
+  if (source !== "official" && source !== "member") return res.status(400).json({ error: "source harus official/member." });
+  if (!menu_id) return res.status(400).json({ error: "menu_id wajib." });
+  if (provider !== "grabfood" && provider !== "gofood") return res.status(400).json({ error: "provider harus grabfood/gofood." });
+  if (!label) return res.status(400).json({ error: "label wajib." });
+  if (!/^https:\/\//i.test(url)) return res.status(400).json({ error: "url harus https://" });
+  const row = {
+    source, menu_id: menu_id.slice(0, 80), provider, label: label.slice(0, 120), url: url.slice(0, 1000),
+    sort_order: Number.isFinite(+b.sort_order) ? (+b.sort_order | 0) : 0,
+    is_active: b.is_active === false ? false : true,
+    updated_at: new Date().toISOString(),
+  };
+  try {
+    let data, error;
+    if (b.id) ({ data, error } = await admin.from("my20fit_menu_delivery_links").update(row).eq("id", String(b.id)).select("id").limit(1));
+    else ({ data, error } = await admin.from("my20fit_menu_delivery_links").insert(row).select("id").limit(1));
+    if (error) throw error;
+    await adminAudit(ctx, b.id ? "delivery_links.update" : "delivery_links.create", (data && data[0] && data[0].id) || String(b.id || ""), { source, menu_id, provider });
+    return res.json({ ok: true, id: (data && data[0] && data[0].id) || b.id || null });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.delete("/api/admin/menu/delivery-links/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  try {
+    const { error } = await admin.from("my20fit_menu_delivery_links").delete().eq("id", String(req.params.id));
+    if (error) throw error;
+    await adminAudit(ctx, "delivery_links.delete", String(req.params.id), {});
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// CMS: kategori GrabFood siap-pakai (picker) -- supaya admin tinggal pilih, bukan salin-tempel
+// URL manual. Bisa tambah kategori baru kalau Grab menambah kategori.
+app.get("/api/admin/grabfood-categories", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data, error } = await admin.from("my20fit_grabfood_categories")
+      .select("id,label,url,sort_order,is_active").order("sort_order", { ascending: true });
+    if (error) throw error;
+    return res.json({ ok: true, categories: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/grabfood-categories", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const label = String(b.label || "").trim();
+  const url = String(b.url || "").trim();
+  if (!label) return res.status(400).json({ error: "label wajib." });
+  if (!/^https:\/\/food\.grab\.com\//i.test(url)) return res.status(400).json({ error: "url harus link food.grab.com" });
+  const row = {
+    label: label.slice(0, 120), url: url.slice(0, 1000),
+    sort_order: Number.isFinite(+b.sort_order) ? (+b.sort_order | 0) : 0,
+    is_active: b.is_active === false ? false : true,
+  };
+  try {
+    let data, error;
+    if (b.id) ({ data, error } = await admin.from("my20fit_grabfood_categories").update(row).eq("id", String(b.id)).select("id").limit(1));
+    else ({ data, error } = await admin.from("my20fit_grabfood_categories").insert(row).select("id").limit(1));
+    if (error) throw error;
+    await adminAudit(ctx, b.id ? "grabfood_categories.update" : "grabfood_categories.create", (data && data[0] && data[0].id) || String(b.id || ""), { label });
+    return res.json({ ok: true, id: (data && data[0] && data[0].id) || b.id || null });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.delete("/api/admin/grabfood-categories/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  try {
+    const { error } = await admin.from("my20fit_grabfood_categories").delete().eq("id", String(req.params.id));
+    if (error) throw error;
+    await adminAudit(ctx, "grabfood_categories.delete", String(req.params.id), {});
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ---------- recipe.20fit.id: foto langkah, reaction (heart), save (koleksi) ----------
 // Normalisasi langkah terstruktur (step berfoto). Terima [{t, photo}] -> bersihkan, batasi
 // jumlah/panjang, foto HANYA URL bucket menu-photos kita (anti tempel URL eksternal) / null.
 // Balik { json, text } — text dipakai kolom `steps` lama (kompatibel mundur + tampil moderasi).

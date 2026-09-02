@@ -37,6 +37,7 @@
       <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
       <button class="adm-navitem" data-nav="voucher"><span data-i18n="Voucher">Voucher</span></button>
       <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span></button>
+      <button class="adm-navitem" data-nav="eatnow"><span data-i18n="Eat Now">Eat Now</span></button>
       <button class="adm-navitem" data-nav="menustats"><span data-i18n="Menu interest">Minat menu</span></button>
       <button class="adm-navitem" data-nav="marketing"><span data-i18n="Marketing">Marketing</span></button>
       <button class="adm-navitem" data-nav="corporate"><span data-i18n="Corporate">Corporate</span></button>
@@ -349,6 +350,93 @@
           </div>
           <div id="mnDetail" style="border-left:1px solid var(--line);padding-left:24px">
             <div class="adm-note" data-i18n="Select a menu from the queue to review.">Pilih menu dari antrian untuk direview.</div>
+          </div>
+        </div>
+      </section>
+      <section data-section="eatnow" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Eat Now" data-title-en="Eat Now" data-question="Resep mana yang sudah punya link pesan-antar (GrabFood/GoFood), dan mana yang belum?" data-question-en="Which recipes already have a delivery-service link (GrabFood/GoFood), and which don't?">
+        <div class="adm-callout" style="margin:16px 0">
+          <span class="adm-badge" data-i18n="No API, no scraping">Tanpa API, tanpa scraping</span>
+          <div class="adm-note" style="line-height:1.6" data-i18n="These are plain links to GrabFood/GoFood's public category pages -- not a live restaurant listing. Never claim 'restaurant X sells this' -- the actual restaurant list only loads client-side after the visitor enters their address.">Ini tautan biasa ke halaman kategori publik GrabFood/GoFood -- BUKAN daftar restoran real-time. Jangan pernah klaim "restoran X menjual ini" -- daftar restoran asli baru dimuat di sisi pengunjung setelah dia memasukkan alamat.</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+          <button class="adm-chip dlt" data-t="unmapped" aria-pressed="true" data-i18n="Not mapped yet">Belum dipetakan</button>
+          <button class="adm-chip dlt" data-t="all" data-i18n="All mappings">Semua pemetaan</button>
+          <button class="adm-chip dlt" data-t="categories" data-i18n="GrabFood categories">Kategori GrabFood</button>
+        </div>
+
+        <!-- Tab: belum dipetakan -->
+        <div id="dlUnmappedTab">
+          <table class="adm-table"><thead><tr>
+            <th data-i18n="Recipe">Resep</th><th data-i18n="Source">Sumber</th><th></th>
+          </tr></thead><tbody id="dlUnmappedRows"></tbody></table>
+          <div class="adm-note" id="dlUnmappedEmpty" hidden data-i18n="Every recipe is mapped.">Semua resep sudah punya pemetaan.</div>
+        </div>
+
+        <!-- Tab: semua pemetaan -->
+        <div id="dlAllTab" hidden>
+          <table class="adm-table"><thead><tr>
+            <th data-i18n="Recipe">Resep</th><th data-i18n="Provider">Provider</th><th data-i18n="Label">Label</th>
+            <th data-i18n="Order">Urutan</th><th data-i18n="Active">Aktif</th><th></th>
+          </tr></thead><tbody id="dlAllRows"></tbody></table>
+        </div>
+
+        <!-- Tab: kategori GrabFood -->
+        <div id="dlCatTab" hidden>
+          <table class="adm-table"><thead><tr>
+            <th data-i18n="Label">Label</th><th data-i18n="URL">URL</th><th data-i18n="Order">Urutan</th><th data-i18n="Active">Aktif</th><th></th>
+          </tr></thead><tbody id="dlCatRows"></tbody></table>
+          <div class="adm-sec-title" style="margin-top:16px" data-i18n="Add category">Tambah kategori</div>
+          <div style="display:grid;grid-template-columns:1.5fr 2fr 0.6fr auto;gap:6px;align-items:center;max-width:760px">
+            <input class="adm-input" id="dlCatLabel" placeholder="Label (mis. Nasi Goreng)" data-i18n-ph="Label (e.g. Nasi Goreng)">
+            <input class="adm-input" id="dlCatUrl" placeholder="https://food.grab.com/id/id/cuisines/...">
+            <input class="adm-input" id="dlCatSort" type="number" value="0">
+            <button class="adm-btn adm-btn--primary" id="dlCatAdd" data-i18n="Add">Tambah</button>
+          </div>
+          <div class="adm-note" id="dlCatMsg" style="margin-top:6px"></div>
+        </div>
+
+        <!-- Form tambah/edit pemetaan -->
+        <div class="adm-callout" style="margin-top:20px;padding:14px" id="dlForm">
+          <div class="adm-sec-title" id="dlFormTitle" data-i18n="Map a recipe">Petakan resep</div>
+          <input type="hidden" id="dlEditId">
+          <label class="adm-note" data-i18n="Recipe">Resep</label>
+          <select class="adm-input" id="dlRecipePicker" style="margin-bottom:8px"></select>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div>
+              <label class="adm-note" data-i18n="Provider">Provider</label>
+              <select class="adm-input" id="dlProvider">
+                <option value="grabfood">GrabFood</option>
+                <option value="gofood" disabled>GoFood (belum aktif)</option>
+              </select>
+            </div>
+            <div>
+              <label class="adm-note" data-i18n="GrabFood category (optional shortcut)">Kategori GrabFood (opsional, isi otomatis)</label>
+              <select class="adm-input" id="dlCatPicker"><option value="">— pilih kategori siap-pakai —</option></select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-top:8px">
+            <div>
+              <label class="adm-note" data-i18n="Label shown to visitors">Label yang tampil ke pengunjung</label>
+              <input class="adm-input" id="dlLabel" placeholder="Nasi Goreng">
+            </div>
+            <div>
+              <label class="adm-note">URL</label>
+              <input class="adm-input" id="dlUrl" placeholder="https://food.grab.com/id/id/cuisines/...">
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;margin-top:8px">
+            <div>
+              <label class="adm-note" data-i18n="Order">Urutan</label>
+              <input class="adm-input" id="dlSort" type="number" value="0" style="max-width:100px">
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;margin-top:16px">
+              <input type="checkbox" id="dlActive" checked> <span data-i18n="Active">Aktif</span>
+            </label>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+            <button class="adm-btn adm-btn--primary" id="dlSave" data-i18n="Save">Simpan</button>
+            <button class="adm-btn" id="dlCancel" hidden data-i18n="Cancel">Batal</button>
+            <span class="adm-note" id="dlMsg"></span>
           </div>
         </div>
       </section>
@@ -1439,7 +1527,7 @@
   var ALLOWED={ superadmin:null, viewer:null,
     marketing:["overview","users","voucher","marketing","reports","settings","traffic","menustats","coaches","hometiles"],
     finance:["revenue","voucher","corporate","reports"],
-    staff:["users","scan","menu","menustats","coaches","hometiles"] };
+    staff:["users","scan","menu","eatnow","menustats","coaches","hometiles"] };
   function roleDesc(role){
     var m={ superadmin:["Full access.","Akses penuh."], viewer:["Read only.","Baca saja."],
       marketing:["Voucher, campaign, segments, reports. No price/credit edits or health data.","Voucher, campaign, segmen, laporan. Tanpa ubah harga/kredit & data kesehatan."],
@@ -1641,6 +1729,157 @@
     var r=await adminPost("/api/admin/menu/"+encodeURIComponent(id)+"/reject",{reason:reason}).then(function(x){return x.json();}).catch(function(){return{};});
     if(r&&r.ok){ if(window.admToast)admToast(L("Rejected","Ditolak")+(r.credits_clawed?(" · −"+r.credits_clawed+" "+L("credits","kredit")):"")); loadMenu(); }
     else if(msg) msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+
+  // ---- EAT NOW: pemetaan resep -> link pesan-antar (GrabFood/GoFood) ----
+  var DL_TAB="unmapped", DL_LINKS=[], DL_CATS=[], DL_RECIPES=[]; // DL_RECIPES: {source,menu_id,name} gabungan official+member published, utk picker
+  async function dlLoadRecipes(){
+    if(DL_RECIPES.length) return DL_RECIPES;
+    var out=[];
+    try{
+      var cat=await fetch("/api/menu/catalog").then(function(r){return r.json();});
+      (cat.recipes||[]).forEach(function(r){ out.push({source:"official", menu_id:r.id, name:(r.nm&&(r.nm.id||r.nm.en))||r.id}); });
+    }catch(e){}
+    try{
+      var pub=await fetch("/api/menu/published").then(function(r){return r.json();});
+      (pub.menus||[]).forEach(function(m){ out.push({source:"member", menu_id:m.id, name:m.name}); });
+    }catch(e){}
+    DL_RECIPES=out;
+    return out;
+  }
+  function dlRecipeName(source,menu_id){
+    var r=DL_RECIPES.filter(function(x){return x.source===source&&x.menu_id===menu_id;})[0];
+    return r?r.name:menu_id;
+  }
+  async function dlInit(){
+    await dlLoadRecipes();
+    var picker=document.getElementById("dlRecipePicker");
+    if(picker) picker.innerHTML=DL_RECIPES.map(function(r){ return '<option value="'+esc(r.source)+'|'+esc(r.menu_id)+'">'+esc(r.name)+' ('+(r.source==="official"?"Resmi":"Member")+')</option>'; }).join("");
+    var catPicker=document.getElementById("dlCatPicker");
+    var catsRes=await adminFetch("/api/admin/grabfood-categories").then(function(r){return r.json();}).catch(function(){return{};});
+    DL_CATS=(catsRes&&catsRes.categories)||[];
+    if(catPicker) catPicker.innerHTML='<option value="">— pilih kategori siap-pakai —</option>'+DL_CATS.map(function(c){ return '<option value="'+esc(c.id)+'" data-label="'+esc(c.label)+'" data-url="'+esc(c.url)+'">'+esc(c.label)+'</option>'; }).join("");
+    dlShowTab(DL_TAB);
+  }
+  function dlShowTab(t){
+    DL_TAB=t;
+    document.querySelectorAll(".dlt").forEach(function(c){ c.setAttribute("aria-pressed", String(c.dataset.t===t)); });
+    document.getElementById("dlUnmappedTab").hidden = t!=="unmapped";
+    document.getElementById("dlAllTab").hidden = t!=="all";
+    document.getElementById("dlCatTab").hidden = t!=="categories";
+    if(t==="unmapped") dlLoadUnmapped();
+    else if(t==="all") dlLoadAll();
+    else if(t==="categories") dlLoadCats();
+  }
+  async function dlLoadUnmapped(){
+    var tb=document.getElementById("dlUnmappedRows"); if(!tb) return;
+    tb.innerHTML='<tr><td colspan="3" class="adm-loading">'+L("Loading…","Memuat…")+'</td></tr>';
+    var j=await adminFetch("/api/admin/menu/delivery-links/unmapped").then(function(r){return r.json();}).catch(function(){return{};});
+    var rows=(j&&j.unmapped)||[];
+    document.getElementById("dlUnmappedEmpty").hidden=rows.length>0;
+    tb.innerHTML=rows.map(function(r){
+      return '<tr><td>'+esc(r.name)+'</td><td class="adm-note">'+(r.source==="official"?L("Official","Resmi"):"Member")+'</td>'+
+        '<td class="adm-right"><button class="adm-btn adm-btn--sm dlMapBtn" data-source="'+esc(r.source)+'" data-mid="'+esc(r.menu_id)+'" data-name="'+esc(r.name)+'">'+L("Map","Petakan")+'</button></td></tr>';
+    }).join("");
+  }
+  async function dlLoadAll(){
+    var tb=document.getElementById("dlAllRows"); if(!tb) return;
+    tb.innerHTML='<tr><td colspan="6" class="adm-loading">'+L("Loading…","Memuat…")+'</td></tr>';
+    await dlLoadRecipes();
+    var j=await adminFetch("/api/admin/menu/delivery-links").then(function(r){return r.json();}).catch(function(){return{};});
+    DL_LINKS=(j&&j.links)||[];
+    tb.innerHTML=DL_LINKS.map(function(l){
+      return '<tr><td>'+esc(dlRecipeName(l.source,l.menu_id))+'<div class="adm-note">'+(l.source==="official"?L("Official","Resmi"):"Member")+'</div></td>'+
+        '<td>'+esc(l.provider)+'</td><td>'+esc(l.label)+'</td><td class="adm-right adm-num">'+l.sort_order+'</td>'+
+        '<td>'+(l.is_active?'<span class="adm-tag adm-tag--paid">'+L("Active","Aktif")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("Off","Nonaktif")+'</span>')+'</td>'+
+        '<td class="adm-right" style="white-space:nowrap"><button class="adm-btn adm-btn--sm dlEditBtn" data-id="'+esc(l.id)+'">'+L("Edit","Edit")+'</button> '+
+        '<button class="adm-btn adm-btn--sm dlDelBtn" data-id="'+esc(l.id)+'" data-confirm="'+L("Delete this mapping?","Hapus pemetaan ini?")+'">'+L("Delete","Hapus")+'</button></td></tr>';
+    }).join("");
+  }
+  async function dlLoadCats(){
+    var tb=document.getElementById("dlCatRows"); if(!tb) return;
+    tb.innerHTML='<tr><td colspan="5" class="adm-loading">'+L("Loading…","Memuat…")+'</td></tr>';
+    var j=await adminFetch("/api/admin/grabfood-categories").then(function(r){return r.json();}).catch(function(){return{};});
+    DL_CATS=(j&&j.categories)||[];
+    tb.innerHTML=DL_CATS.map(function(c){
+      return '<tr><td>'+esc(c.label)+'</td><td class="adm-mono" style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(c.url)+'</td>'+
+        '<td class="adm-right adm-num">'+c.sort_order+'</td>'+
+        '<td>'+(c.is_active?'<span class="adm-tag adm-tag--paid">'+L("Active","Aktif")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("Off","Nonaktif")+'</span>')+'</td>'+
+        '<td class="adm-right"><button class="adm-btn adm-btn--sm dlCatToggle" data-id="'+esc(c.id)+'" data-active="'+(c.is_active?"1":"0")+'">'+(c.is_active?L("Turn off","Matikan"):L("Turn on","Nyalakan"))+'</button> '+
+        '<button class="adm-btn adm-btn--sm dlCatDel" data-id="'+esc(c.id)+'" data-confirm="'+L("Delete this category?","Hapus kategori ini?")+'">'+L("Delete","Hapus")+'</button></td></tr>';
+    }).join("");
+  }
+  function dlResetForm(){
+    document.getElementById("dlEditId").value="";
+    document.getElementById("dlFormTitle").textContent=L("Map a recipe","Petakan resep");
+    document.getElementById("dlProvider").value="grabfood";
+    document.getElementById("dlCatPicker").value="";
+    document.getElementById("dlLabel").value="";
+    document.getElementById("dlUrl").value="";
+    document.getElementById("dlSort").value="0";
+    document.getElementById("dlActive").checked=true;
+    document.getElementById("dlCancel").hidden=true;
+    document.getElementById("dlMsg").textContent="";
+  }
+  function dlStartMap(source,menu_id){
+    dlResetForm();
+    var picker=document.getElementById("dlRecipePicker");
+    if(picker) picker.value=source+"|"+menu_id;
+    document.getElementById("dlForm").scrollIntoView({behavior:"smooth",block:"center"});
+  }
+  function dlStartEdit(id){
+    var l=DL_LINKS.filter(function(x){return x.id===id;})[0]; if(!l) return;
+    dlResetForm();
+    document.getElementById("dlEditId").value=l.id;
+    document.getElementById("dlFormTitle").textContent=L("Edit mapping","Edit pemetaan");
+    var picker=document.getElementById("dlRecipePicker"); if(picker) picker.value=l.source+"|"+l.menu_id;
+    document.getElementById("dlProvider").value=l.provider;
+    document.getElementById("dlLabel").value=l.label;
+    document.getElementById("dlUrl").value=l.url;
+    document.getElementById("dlSort").value=l.sort_order;
+    document.getElementById("dlActive").checked=l.is_active;
+    document.getElementById("dlCancel").hidden=false;
+    document.getElementById("dlForm").scrollIntoView({behavior:"smooth",block:"center"});
+  }
+  async function dlSave(){
+    var msg=document.getElementById("dlMsg");
+    var picker=document.getElementById("dlRecipePicker");
+    var parts=(picker&&picker.value||"").split("|");
+    var body={
+      id: (document.getElementById("dlEditId")||{}).value || undefined,
+      source: parts[0], menu_id: parts[1],
+      provider: document.getElementById("dlProvider").value,
+      label: document.getElementById("dlLabel").value,
+      url: document.getElementById("dlUrl").value,
+      sort_order: +document.getElementById("dlSort").value || 0,
+      is_active: document.getElementById("dlActive").checked,
+    };
+    if(!body.source||!body.menu_id){ msg.textContent=L("Pick a recipe first.","Pilih resep dulu."); return; }
+    msg.textContent=L("Saving…","Menyimpan…");
+    var r=await adminPost("/api/admin/menu/delivery-links", body).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Saved","Tersimpan")); dlResetForm(); dlShowTab("all"); }
+    else msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  async function dlDelete(id){
+    var r=await fetch("/api/admin/menu/delivery-links/"+encodeURIComponent(id)+(KEY?("?key="+encodeURIComponent(KEY)):""), {method:"DELETE", credentials:"include", headers: await admAuthHeaders()}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Deleted","Terhapus")); dlLoadAll(); }
+  }
+  async function dlCatAdd(){
+    var msg=document.getElementById("dlCatMsg");
+    var body={ label: document.getElementById("dlCatLabel").value, url: document.getElementById("dlCatUrl").value, sort_order: +document.getElementById("dlCatSort").value||0 };
+    if(!body.label||!body.url){ msg.textContent=L("Label and URL are required.","Label dan URL wajib."); return; }
+    msg.textContent=L("Saving…","Menyimpan…");
+    var r=await adminPost("/api/admin/grabfood-categories", body).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Added","Ditambahkan")); ["dlCatLabel","dlCatUrl"].forEach(function(id){document.getElementById(id).value="";}); document.getElementById("dlCatSort").value="0"; msg.textContent=""; dlLoadCats(); }
+    else msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+  async function dlCatToggle(id,curActive){
+    var r=await adminPost("/api/admin/grabfood-categories", {id:id, is_active: !curActive}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok) dlLoadCats();
+  }
+  async function dlCatDelete(id){
+    var r=await fetch("/api/admin/grabfood-categories/"+encodeURIComponent(id)+(KEY?("?key="+encodeURIComponent(KEY)):""), {method:"DELETE", credentials:"include", headers: await admAuthHeaders()}).then(function(x){return x.json();}).catch(function(){return{};});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Deleted","Terhapus")); dlLoadCats(); }
   }
 
   // ---- CORPORATE (Modul 2) ----
@@ -2441,6 +2680,7 @@
     if(id==="settings") return loadSettings();
     if(id==="voucher") return loadVoucher();
     if(id==="menu") return loadMenu();
+    if(id==="eatnow") return dlInit();
     if(id==="corporate") return loadCorporate();
     if(id==="events") return loadEvents();
     if(id==="rewards") return loadRewards();
@@ -2487,6 +2727,18 @@
     if(mnrow){ var mm=MN_CACHE.filter(function(x){return x.id===mnrow.dataset.mid;})[0]; if(mm){ document.querySelectorAll("#mnRows tr").forEach(function(x){x.style.background="";}); mnrow.style.background="var(--surface)"; mnRenderDetail(mm); } return; }
     var mnf=e.target.closest(".mnf");
     if(mnf){ MN_FILTER=mnf.dataset.s; document.querySelectorAll(".mnf").forEach(function(c){c.setAttribute("aria-pressed",String(c===mnf));}); MN_SEL=null; loadMenu(); return; }
+    var dlt=e.target.closest(".dlt");
+    if(dlt){ dlShowTab(dlt.dataset.t); return; }
+    var dlmap=e.target.closest(".dlMapBtn");
+    if(dlmap){ dlStartMap(dlmap.dataset.source, dlmap.dataset.mid); return; }
+    var dledit=e.target.closest(".dlEditBtn");
+    if(dledit){ dlStartEdit(dledit.dataset.id); return; }
+    var dldel=e.target.closest(".dlDelBtn");
+    if(dldel){ if(dldel.dataset.armed==="1") return; dlDelete(dldel.dataset.id); return; }
+    var dlct=e.target.closest(".dlCatToggle");
+    if(dlct){ dlCatToggle(dlct.dataset.id, dlct.dataset.active==="1"); return; }
+    var dlcd=e.target.closest(".dlCatDel");
+    if(dlcd){ if(dlcd.dataset.armed==="1") return; dlCatDelete(dlcd.dataset.id); return; }
     var cad=e.target.closest(".caDel");
     if(cad){ if(cad.dataset.armed==="1") return; caRemove(cad.dataset.uid); return; }
     var cinv=e.target.closest(".caInvite");
@@ -2553,6 +2805,15 @@
     var _br=document.getElementById("bnReset"); if(_br) _br.onclick=bnResetForm;
     ["bnImgId","bnImgEn","bnAltId","bnAltEn","bnCtaId","bnCtaEn"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",bnPreview); });
     var _mns=document.getElementById("mnSearch"); if(_mns){ var _mnt; _mns.addEventListener("input",function(){ clearTimeout(_mnt); _mnt=setTimeout(function(){ MN_SEL=null; loadMenu(); },300); }); }
+    var _dls=document.getElementById("dlSave"); if(_dls) _dls.onclick=dlSave;
+    var _dlc=document.getElementById("dlCancel"); if(_dlc) _dlc.onclick=dlResetForm;
+    var _dlca=document.getElementById("dlCatAdd"); if(_dlca) _dlca.onclick=dlCatAdd;
+    var _dlcp=document.getElementById("dlCatPicker");
+    if(_dlcp) _dlcp.addEventListener("change", function(){
+      var opt=_dlcp.options[_dlcp.selectedIndex]; if(!opt||!opt.value) return;
+      document.getElementById("dlLabel").value=opt.dataset.label||"";
+      document.getElementById("dlUrl").value=opt.dataset.url||"";
+    });
     var _cc=document.getElementById("coCreate"); if(_cc) _cc.onclick=corpCreate;
     var _clp=document.getElementById("corpCopyLink"); if(_clp) _clp.onclick=corpCopyPortalLink;
     var _sra=document.getElementById("setRoleAdd"); if(_sra) _sra.onclick=setRoleAddSubmit;
