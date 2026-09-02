@@ -263,8 +263,11 @@
   // App menu (Supabase setSession dari location.hash) men-seat sesi lalu STRIP token dari URL
   // (history.replaceState) — token tak pernah masuk log server. Panggil saat mengarahkan user
   // ke katalog resep subdomain.
-  // Domain produksi app menu = recepie.20fit.id (bukan menu.20fit.id yang belum ada DNS-nya).
-  const MENU_ORIGIN = "https://recepie.20fit.id";
+  // Domain resmi = recipe.20fit.id (dikonfirmasi user 2026-09-02). "menu.20fit.id" tak pernah
+  // punya DNS; "recepie.20fit.id" (salah eja) adalah domain produksi yang SEMPAT dipakai di sini
+  // -- kalau masih ada yang mengarah ke situ, app recipe.20fit.id sendiri yang redirect (lihat
+  // index.html repo MENU), jadi tak perlu di-cek ulang di sini.
+  const MENU_ORIGIN = "https://recipe.20fit.id";
   async function menuSso() {
     await ready;
     let s = null;

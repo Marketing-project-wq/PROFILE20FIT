@@ -189,7 +189,7 @@
         const q=new URLSearchParams(location.search);
         const pre=q.get("email");
         if(pre)document.getElementById("email").value=pre;
-        // Datang dari calorietracker (?next=calories) atau menu.20fit.id (?next=menu):
+        // Datang dari calorietracker (?next=calories) atau recipe.20fit.id (?next=menu):
         // simpan tujuan SEBELUM routeAfterAuth() di bawah sempat kepanggil — sama seperti login.html.
         { const n=q.get("next"); if(n==="calories"||n==="menu") sessionStorage.setItem("post_auth_next",n); }
       }catch(e){}
