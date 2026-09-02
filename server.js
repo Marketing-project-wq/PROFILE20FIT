@@ -205,7 +205,7 @@ app.set("trust proxy", 1);
 function ecoAppOf(req) {
   const host = String(req.headers.host || "").toLowerCase().split(":")[0];
   if (host.startsWith("calories")) return "calories";
-  if (host.startsWith("menu")) return "menu";
+  if (host.startsWith("recipe")) return "menu"; // domain resmi recipe.20fit.id (label internal "menu" dibiarkan -- tak ada yg baca nilainya, lihat DORMAN di atas)
   if (host.startsWith("medicalcheckup")) return "medicalcheckup";
   return "my";
 }
@@ -1047,7 +1047,7 @@ app.use("/api/scan/order-status", pollLimiter);
 app.use("/api/scan/reconcile", pollLimiter);
 app.use("/api/photo/scan-status", pollLimiter);
 app.use("/api/photo/thumb/", imgLimiter);
-app.use("/api/menu/photo", imgLimiter); // foto katalog menu.20fit.id (publik) — kuota longgar, exempt dari apiLimiter 50/10mnt via isImgPath
+app.use("/api/menu/photo", imgLimiter); // foto katalog recipe.20fit.id (publik) — kuota longgar, exempt dari apiLimiter 50/10mnt via isImgPath
 // Unggah foto resep (submit/revisi, butuh login): longgar utk foto per-langkah beruntun, tetap terbatas.
 const uploadLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: limitMsg });
 app.use("/api/menu/upload", uploadLimiter);
@@ -4278,8 +4278,8 @@ app.post("/api/admin/menu/:id/reject", async (req, res) => {
   return res.json({ ok: true, credits_clawed: clawed });
 });
 
-// ============ DIET Bagian 2: endpoint PUBLIK untuk menu.20fit.id ============
-// Subdomain menu.20fit.id (frontend terpisah) menarik data dari SINI — SATU sumber,
+// ============ DIET Bagian 2: endpoint PUBLIK untuk recipe.20fit.id ============
+// Subdomain recipe.20fit.id (frontend terpisah) menarik data dari SINI — SATU sumber,
 // tanpa duplikat katalog. Semua di bawah ini boleh diakses TANPA login (browse publik).
 
 // Deteksi KLAIM KESEHATAN/medis pada kontribusi user. Ini SINYAL untuk reviewer admin —
@@ -4387,7 +4387,7 @@ app.post("/api/menu/caterer-click", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
-// ---------- recepie.20fit.id: foto langkah, reaction (heart), save (koleksi) ----------
+// ---------- recipe.20fit.id: foto langkah, reaction (heart), save (koleksi) ----------
 // Normalisasi langkah terstruktur (step berfoto). Terima [{t, photo}] -> bersihkan, batasi
 // jumlah/panjang, foto HANYA URL bucket menu-photos kita (anti tempel URL eksternal) / null.
 // Balik { json, text } — text dipakai kolom `steps` lama (kompatibel mundur + tampil moderasi).
@@ -6619,7 +6619,7 @@ app.get("/api/foodphoto", async (req, res) => {
   } catch (e) { return res.json({ ok: false }); }
 });
 
-// PUBLIK: foto makanan untuk katalog menu.20fit.id (browse tanpa login). Cermin /api/foodphoto
+// PUBLIK: foto makanan untuk katalog recipe.20fit.id (browse tanpa login). Cermin /api/foodphoto
 // tapi TERBALIK urutan cache-check: AI (langkah 0) SEKARANG diaktifkan di sini juga (permintaan
 // owner, foto masakan bergaya Indonesia), TAPI hanya utk id yang benar2 ada di katalog resmi
 // (loadMenuCatalog) — endpoint ini publik/tanpa login, jadi id sembarangan tidak boleh bisa
