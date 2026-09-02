@@ -4156,11 +4156,14 @@ app.post("/api/menu/submit", async (req, res) => {
   var est_kcal = (b.est_kcal != null && b.est_kcal !== "") ? (Math.max(0, Math.round(+b.est_kcal)) || null) : null;
   var servings = (b.servings != null && b.servings !== "") ? (Math.max(1, Math.round(+b.servings)) || null) : null;
   var cook_minutes = (b.cook_minutes != null && b.cook_minutes !== "") ? (Math.max(0, Math.round(+b.cook_minutes)) || null) : null;
+  var prep_minutes = (b.prep_minutes != null && b.prep_minutes !== "") ? (Math.max(0, Math.round(+b.prep_minutes)) || null) : null;
+  var equipment = b.equipment ? String(b.equipment).trim().slice(0, 300) || null : null;
+  var prep_note = b.prep_note ? String(b.prep_note).trim().slice(0, 500) || null : null;
   var head = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true })
     .eq("auth_user_id", user.id).gte("created_at", startOfTodayISO());
   if ((head.count || 0) >= MENU_DAILY_LIMIT) return res.status(429).json({ error: "Batas " + MENU_DAILY_LIMIT + " submit/hari tercapai. Coba lagi besok." });
   var { data, error } = await admin.from("my20fit_menu_contribution")
-    .insert({ auth_user_id: user.id, name: name, diet_type: diet_type, display_name: display_name, ingredients: ingredients, steps: steps, steps_json: stepsStruct ? stepsStruct.json : null, servings: servings, cook_minutes: cook_minutes, photo_url: photo_url, est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps) })
+    .insert({ auth_user_id: user.id, name: name, diet_type: diet_type, display_name: display_name, ingredients: ingredients, steps: steps, steps_json: stepsStruct ? stepsStruct.json : null, servings: servings, cook_minutes: cook_minutes, prep_minutes: prep_minutes, equipment: equipment, prep_note: prep_note, photo_url: photo_url, est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps) })
     .select("id").limit(1).single();
   if (error) {
     if (error.code === "23505" || String(error.message || "").toLowerCase().indexOf("duplicate") >= 0)
@@ -4181,7 +4184,7 @@ app.get("/api/menu/mine", async (req, res) => {
   var user = await getUserFromReq(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
   var { data: rows, error } = await admin.from("my20fit_menu_contribution")
-    .select("id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,status,reject_reason,est_kcal,servings,cook_minutes,created_at,reviewed_at,published")
+    .select("id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,status,reject_reason,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,created_at,reviewed_at,published")
     .eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(200);
   if (error) return res.status(500).json({ error: error.message });
   // "approved": dipakai match reward RPC yang sudah live (approved saja, lihat catatan di atas
@@ -4215,6 +4218,9 @@ app.post("/api/menu/:id/revise", async (req, res) => {
   if (stepsStruct) patch.steps_json = stepsStruct.json; else if (b.steps_json === null) patch.steps_json = null;
   if (b.servings != null) patch.servings = (b.servings === "") ? null : (Math.max(1, Math.round(+b.servings)) || null);
   if (b.cook_minutes != null) patch.cook_minutes = (b.cook_minutes === "") ? null : (Math.max(0, Math.round(+b.cook_minutes)) || null);
+  if (b.prep_minutes != null) patch.prep_minutes = (b.prep_minutes === "") ? null : (Math.max(0, Math.round(+b.prep_minutes)) || null);
+  if (b.equipment != null) patch.equipment = String(b.equipment).trim().slice(0, 300) || null;
+  if (b.prep_note != null) patch.prep_note = String(b.prep_note).trim().slice(0, 500) || null;
   if (b.est_kcal != null) patch.est_kcal = (b.est_kcal === "") ? null : (Math.max(0, Math.round(+b.est_kcal)) || null);
   if (b.photo_url != null) patch.photo_url = b.photo_url ? String(b.photo_url) : null;
   if (b.display_name != null) patch.display_name = String(b.display_name || "").trim().slice(0, 60) || null;
@@ -4228,7 +4234,7 @@ app.get("/api/admin/menu", async (req, res) => {
   try {
     var status = String(req.query.status || "").trim(), q = String(req.query.q || "").trim();
     var query = admin.from("my20fit_menu_contribution")
-      .select("id,auth_user_id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,status,reject_reason,created_at,reviewed_at,published")
+      .select("id,auth_user_id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,status,reject_reason,created_at,reviewed_at,published")
       .order("created_at", { ascending: false }).limit(200);
     if (["pending", "approved", "rejected"].indexOf(status) >= 0) query = query.eq("status", status);
     if (q) query = query.ilike("name", "%" + q + "%");
@@ -4309,7 +4315,7 @@ app.get("/api/menu/published", async function (req, res) {
     var diet = String(req.query.diet || "").trim().toLowerCase();
     var limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 100));
     var query = admin.from("my20fit_menu_contribution")
-      .select("id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,reviewed_at")
+      .select("id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,reviewed_at")
       .eq("status", "approved").eq("published", true)
       .order("reviewed_at", { ascending: false }).limit(limit);
     if (q) query = query.ilike("name", "%" + q + "%");
