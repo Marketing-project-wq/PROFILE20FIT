@@ -4584,26 +4584,50 @@ app.post("/api/admin/menu-delivery/:id/delete", async (req, res) => {
 // ---------- recepie.20fit.id: Artikel in-house (Tahap 6) ----------
 // Di-host DI SINI (bukan media_articles/WordPress) -> tak ada duplicate content. Superadmin tulis
 // via CMS; publik baca hanya 'published' (service key; RLS deny-public). body_md dirender aman di klien.
+// Bilingual PENUH (title_id/title_en dst) -- situs ini toggle ID/EN di semua halaman lain
+// (resep, Eat Now), jadi artikel ikut pola yang sama. Endpoint publik balikin objek {id,en}
+// mentah (klien pilih sesuai lang aktif), sama seperti OfficialRecipe.nm/ing/steps.
 function slugifyArticle(s) {
   return String(s || "").toLowerCase().trim()
     .replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 80)
     || ("artikel-" + Date.now().toString(36));
 }
+// null kalau KEDUA bahasa kosong (field opsional, mis. excerpt/category) -- kalau salah satu
+// terisi tetap balikin objek (sisi kosong jadi "", klien fallback ke bahasa yg ada).
+function biOrNull(idVal, enVal) {
+  var i = idVal == null ? "" : String(idVal);
+  var e = enVal == null ? "" : String(enVal);
+  if (!i && !e) return null;
+  return { id: i, en: e };
+}
+function articleSummaryShape(a) {
+  return {
+    id: a.id, slug: a.slug,
+    title: { id: a.title_id || "", en: a.title_en || "" },
+    excerpt: biOrNull(a.excerpt_id, a.excerpt_en),
+    cover_url: a.cover_url,
+    category: biOrNull(a.category_id, a.category_en),
+    author_name: a.author_name,
+    published_at: a.published_at,
+  };
+}
 
-// PUBLIK: daftar artikel terbit (ringkas, tanpa body).
+// PUBLIK: daftar artikel terbit (ringkas, tanpa body). ?category= cocok di KEDUA bahasa
+// (klien tak tahu category disimpan dlm bahasa mana -- picker filter dibangun dari data
+// yang sudah termuat, jadi ini murni jaga-jaga).
 app.get("/api/menu/articles", async (req, res) => {
   try {
     if (!admin) return res.json({ ok: true, articles: [] });
     var category = String(req.query.category || "").trim();
     var limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
     var q = admin.from("my20fit_recipe_article")
-      .select("id,slug,title,excerpt,cover_url,category,author_name,published_at")
+      .select("id,slug,title_id,title_en,excerpt_id,excerpt_en,cover_url,category_id,category_en,author_name,published_at")
       .eq("status", "published").order("published_at", { ascending: false }).limit(limit);
-    if (category) q = q.eq("category", category);
+    if (category) q = q.or("category_id.eq." + category + ",category_en.eq." + category);
     var { data, error } = await q;
     if (error) return res.status(500).json({ error: error.message });
     res.set("Cache-Control", "public, max-age=120");
-    return res.json({ ok: true, articles: data || [] });
+    return res.json({ ok: true, articles: (data || []).map(articleSummaryShape) });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
@@ -4613,13 +4637,14 @@ app.get("/api/menu/articles/:slug", async (req, res) => {
     if (!admin) return res.status(404).json({ error: "not found" });
     var slug = String(req.params.slug || "").slice(0, 100);
     var { data: a } = await admin.from("my20fit_recipe_article")
-      .select("id,slug,title,excerpt,body_md,cover_url,category,author_name,published_at,status")
+      .select("id,slug,title_id,title_en,excerpt_id,excerpt_en,body_md_id,body_md_en,cover_url,category_id,category_en,author_name,published_at,status")
       .eq("slug", slug).limit(1).single();
     if (!a || a.status !== "published") return res.status(404).json({ error: "not found" });
     var { data: links } = await admin.from("my20fit_recipe_article_link").select("source,menu_id").eq("article_id", a.id);
-    delete a.status;
+    var shaped = articleSummaryShape(a);
+    shaped.body_md = biOrNull(a.body_md_id, a.body_md_en);
     res.set("Cache-Control", "public, max-age=120");
-    return res.json({ ok: true, article: a, recipes: links || [] });
+    return res.json({ ok: true, article: shaped, recipes: links || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
@@ -4634,26 +4659,27 @@ app.get("/api/menu/:id/articles", async (req, res) => {
     var ids = (links || []).map(function (l) { return l.article_id; });
     if (!ids.length) return res.json({ ok: true, articles: [] });
     var { data: arts } = await admin.from("my20fit_recipe_article")
-      .select("id,slug,title,excerpt,cover_url,category,published_at")
+      .select("id,slug,title_id,title_en,excerpt_id,excerpt_en,cover_url,category_id,category_en,author_name,published_at")
       .in("id", ids).eq("status", "published").order("published_at", { ascending: false });
     res.set("Cache-Control", "public, max-age=120");
-    return res.json({ ok: true, articles: arts || [] });
+    return res.json({ ok: true, articles: (arts || []).map(articleSummaryShape) });
   } catch (e) { return res.json({ ok: true, articles: [] }); }
 });
 
-// ADMIN (superadmin): daftar semua artikel (semua status).
+// ADMIN (superadmin): daftar semua artikel (semua status). title_id dipakai sbg label
+// tabel (bahasa utama editor), title_en tetap dibalikin utk dicek kelengkapannya.
 app.get("/api/admin/articles", async (req, res) => {
   var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
   try {
     var { data, error } = await admin.from("my20fit_recipe_article")
-      .select("id,slug,title,category,author_name,status,published_at,updated_at")
+      .select("id,slug,title_id,title_en,category_id,author_name,status,published_at,updated_at")
       .order("updated_at", { ascending: false }).limit(500);
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ ok: true, articles: data || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
-// ADMIN: satu artikel penuh + link (utk editor).
+// ADMIN: satu artikel penuh (kolom bilingual mentah, utk editor 2 bahasa) + link.
 app.get("/api/admin/articles/:id", async (req, res) => {
   var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
   try {
@@ -4665,21 +4691,27 @@ app.get("/api/admin/articles/:id", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
-// ADMIN: buat artikel.
+// ADMIN: buat artikel. Judul (ID) wajib selalu; Judul (EN) boleh nyusul saat masih draft,
+// tapi wajib sebelum terbit (lihat pengecekan status di bawah).
 app.post("/api/admin/articles", async (req, res) => {
   var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
   try {
     var b = req.body || {};
-    var title = String(b.title || "").trim();
-    if (!title) return res.status(400).json({ error: "Judul wajib." });
-    var slug = String(b.slug || "").trim(); slug = slug ? slugifyArticle(slug) : slugifyArticle(title);
+    var titleId = String(b.title_id || "").trim();
+    var titleEn = String(b.title_en || "").trim();
+    if (!titleId) return res.status(400).json({ error: "Judul (ID) wajib." });
+    var slug = String(b.slug || "").trim(); slug = slug ? slugifyArticle(slug) : slugifyArticle(titleId);
     var status = (b.status === "published") ? "published" : "draft";
+    if (status === "published" && !titleEn) return res.status(400).json({ error: "Judul (EN) wajib sebelum terbit." });
     var row = {
-      title: title, slug: slug,
-      excerpt: b.excerpt ? String(b.excerpt).slice(0, 500) : null,
-      body_md: b.body_md ? String(b.body_md) : null,
+      title_id: titleId, title_en: titleEn, slug: slug,
+      excerpt_id: b.excerpt_id ? String(b.excerpt_id).slice(0, 500) : null,
+      excerpt_en: b.excerpt_en ? String(b.excerpt_en).slice(0, 500) : null,
+      body_md_id: b.body_md_id ? String(b.body_md_id) : null,
+      body_md_en: b.body_md_en ? String(b.body_md_en) : null,
       cover_url: b.cover_url ? String(b.cover_url) : null,
-      category: b.category ? String(b.category).trim().slice(0, 60) : null,
+      category_id: b.category_id ? String(b.category_id).trim().slice(0, 60) : null,
+      category_en: b.category_en ? String(b.category_en).trim().slice(0, 60) : null,
       author_name: b.author_name ? String(b.author_name).trim().slice(0, 120) : null,
       status: status,
       published_at: status === "published" ? new Date().toISOString() : null,
@@ -4697,16 +4729,20 @@ app.post("/api/admin/articles/:id/update", async (req, res) => {
   try {
     var id = String(req.params.id || ""), b = req.body || {};
     var patch = { updated_at: new Date().toISOString() };
-    if (b.title != null) patch.title = String(b.title).trim();
+    if (b.title_id != null) patch.title_id = String(b.title_id).trim();
+    if (b.title_en != null) patch.title_en = String(b.title_en).trim();
     if (b.slug != null) patch.slug = slugifyArticle(b.slug);
-    if (b.excerpt != null) patch.excerpt = b.excerpt ? String(b.excerpt).slice(0, 500) : null;
-    if (b.body_md != null) patch.body_md = b.body_md ? String(b.body_md) : null;
+    if (b.excerpt_id != null) patch.excerpt_id = b.excerpt_id ? String(b.excerpt_id).slice(0, 500) : null;
+    if (b.excerpt_en != null) patch.excerpt_en = b.excerpt_en ? String(b.excerpt_en).slice(0, 500) : null;
+    if (b.body_md_id != null) patch.body_md_id = b.body_md_id ? String(b.body_md_id) : null;
+    if (b.body_md_en != null) patch.body_md_en = b.body_md_en ? String(b.body_md_en) : null;
     if (b.cover_url != null) patch.cover_url = b.cover_url ? String(b.cover_url) : null;
-    if (b.category != null) patch.category = b.category ? String(b.category).trim().slice(0, 60) : null;
+    if (b.category_id != null) patch.category_id = b.category_id ? String(b.category_id).trim().slice(0, 60) : null;
+    if (b.category_en != null) patch.category_en = b.category_en ? String(b.category_en).trim().slice(0, 60) : null;
     if (b.author_name != null) patch.author_name = b.author_name ? String(b.author_name).trim().slice(0, 120) : null;
     if (b.status != null) {
       var st = (b.status === "published") ? "published" : "draft"; patch.status = st;
-      if (st === "published") { var { data: cur } = await admin.from("my20fit_recipe_article").select("published_at").eq("id", id).limit(1).single(); if (!cur || !cur.published_at) patch.published_at = new Date().toISOString(); }
+      if (st === "published") { var { data: cur } = await admin.from("my20fit_recipe_article").select("published_at,title_en").eq("id", id).limit(1).single(); if (!cur || !cur.published_at) patch.published_at = new Date().toISOString(); if (cur && !cur.title_en && !patch.title_en) return res.status(400).json({ error: "Judul (EN) wajib sebelum terbit." }); }
     }
     var { error } = await admin.from("my20fit_recipe_article").update(patch).eq("id", id);
     if (error) { if (error.code === "23505") return res.status(409).json({ error: "Slug sudah dipakai." }); return res.status(500).json({ error: error.message }); }
