@@ -2535,8 +2535,8 @@
     var arts=j.articles||[];
     var rows=arts.map(function(a){
       return '<tr data-art-edit="'+esc(a.id)+'" style="cursor:pointer">'+
-        '<td>'+esc(a.title)+' <span class="adm-mono" style="opacity:.5">/'+esc(a.slug||"")+'</span></td>'+
-        '<td>'+esc(a.category||"—")+'</td>'+
+        '<td>'+esc(a.title_id)+' <span class="adm-mono" style="opacity:.5">/'+esc(a.slug||"")+'</span>'+(a.title_en?'':' <span class="adm-tag" style="background:#fee;color:#c00" title="'+L("Missing EN title","Judul EN belum ada")+'">EN?</span>')+'</td>'+
+        '<td>'+esc(a.category_id||"—")+'</td>'+
         '<td>'+(a.status==="published"?'<span class="adm-badge">'+L("Published","Terbit")+'</span>':'<span class="adm-badge" style="opacity:.6">'+L("Draft","Draf")+'</span>')+'</td>'+
         '<td class="adm-mono" style="font-size:11px">'+esc(String(a.updated_at||"").slice(0,10))+'</td>'+
       '</tr>';
@@ -2555,7 +2555,7 @@
     var ed=document.getElementById("artEditor"); if(!ed) return;
     ed.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
     if(!ART_RECIPES.length){ var dj=await adminFetch("/api/admin/menu-delivery").then(function(r){return r.json();}).catch(function(){return null;}); ART_RECIPES=(dj&&dj.recipes)||[]; }
-    var a={ id:null, title:"", slug:"", excerpt:"", body_md:"", cover_url:"", category:"", author_name:"", status:"draft" }, links=[];
+    var a={ id:null, title_id:"", title_en:"", slug:"", excerpt_id:"", excerpt_en:"", body_md_id:"", body_md_en:"", cover_url:"", category_id:"", category_en:"", author_name:"", status:"draft" }, links=[];
     if(id){
       var j=await adminFetch("/api/admin/articles/"+encodeURIComponent(id)).then(function(r){return r.json();}).catch(function(){return null;});
       if(!j||!j.ok){ ed.innerHTML='<div class="adm-note">'+L("Failed.","Gagal.")+'</div>'; return; }
@@ -2566,14 +2566,27 @@
     ed.innerHTML=
       '<div class="adm-card" style="padding:14px;margin-bottom:14px">'+
         '<input type="hidden" id="artId" value="'+esc(a.id||"")+'">'+
+        '<div class="adm-note" style="margin-bottom:4px">'+L("Situs ini bilingual (toggle ID/EN) -- isi kedua bahasa. Judul (EN) wajib sebelum terbit.","Situs ini bilingual (toggle ID/EN) -- isi kedua bahasa. Judul (EN) wajib sebelum terbit.")+'</div>'+
         '<div style="display:grid;gap:8px">'+
-          '<label class="adm-note">'+L("Title","Judul")+'<input class="adm-input" id="artTitle" value="'+esc(a.title||"")+'"></label>'+
-          '<label class="adm-note">Slug (URL)<input class="adm-input" id="artSlug" value="'+esc(a.slug||"")+'" placeholder="'+L("auto from title","otomatis dari judul")+'"></label>'+
-          '<label class="adm-note">'+L("Category","Kategori")+'<input class="adm-input" id="artCat" value="'+esc(a.category||"")+'" placeholder="tempat-makan"></label>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+            '<label class="adm-note">'+L("Title (ID)","Judul (ID)")+'<input class="adm-input" id="artTitleId" value="'+esc(a.title_id||"")+'"></label>'+
+            '<label class="adm-note">'+L("Title (EN)","Judul (EN)")+'<input class="adm-input" id="artTitleEn" value="'+esc(a.title_en||"")+'"></label>'+
+          '</div>'+
+          '<label class="adm-note">Slug (URL)<input class="adm-input" id="artSlug" value="'+esc(a.slug||"")+'" placeholder="'+L("auto dari judul (ID)","auto from title (ID)")+'"></label>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+            '<label class="adm-note">'+L("Category (ID)","Kategori (ID)")+'<input class="adm-input" id="artCatId" value="'+esc(a.category_id||"")+'" placeholder="tempat-makan"></label>'+
+            '<label class="adm-note">'+L("Category (EN)","Kategori (EN)")+'<input class="adm-input" id="artCatEn" value="'+esc(a.category_en||"")+'" placeholder="dining-out"></label>'+
+          '</div>'+
           '<label class="adm-note">'+L("Author","Penulis")+'<input class="adm-input" id="artAuthor" value="'+esc(a.author_name||"")+'"></label>'+
           '<label class="adm-note">'+L("Cover image URL","URL gambar sampul")+'<input class="adm-input" id="artCover" value="'+esc(a.cover_url||"")+'" placeholder="https://…"></label>'+
-          '<label class="adm-note">'+L("Excerpt","Ringkasan")+'<textarea class="adm-input" id="artExcerpt" rows="2">'+esc(a.excerpt||"")+'</textarea></label>'+
-          '<label class="adm-note">'+L("Body (Markdown)","Isi (Markdown)")+'<textarea class="adm-input" id="artBody" rows="10">'+esc(a.body_md||"")+'</textarea></label>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+            '<label class="adm-note">'+L("Excerpt (ID)","Ringkasan (ID)")+'<textarea class="adm-input" id="artExcerptId" rows="2">'+esc(a.excerpt_id||"")+'</textarea></label>'+
+            '<label class="adm-note">'+L("Excerpt (EN)","Ringkasan (EN)")+'<textarea class="adm-input" id="artExcerptEn" rows="2">'+esc(a.excerpt_en||"")+'</textarea></label>'+
+          '</div>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+            '<label class="adm-note">'+L("Body (ID, Markdown)","Isi (ID, Markdown)")+'<textarea class="adm-input" id="artBodyId" rows="10">'+esc(a.body_md_id||"")+'</textarea></label>'+
+            '<label class="adm-note">'+L("Body (EN, Markdown)","Isi (EN, Markdown)")+'<textarea class="adm-input" id="artBodyEn" rows="10">'+esc(a.body_md_en||"")+'</textarea></label>'+
+          '</div>'+
           '<div class="adm-note">'+L("Related recipes","Resep terkait")+'<div style="max-height:150px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:4px">'+(recipeChecks||L("(no recipes)","(tak ada resep)"))+'</div></div>'+
           '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
             '<button class="adm-btn adm-btn--primary" id="artSaveDraft">'+L("Save draft","Simpan draf")+'</button>'+
@@ -2593,7 +2606,7 @@
   async function artSave(status){
     var id=document.getElementById("artId").value;
     var msg=document.getElementById("artMsg"); msg.textContent=L("Saving…","Menyimpan…");
-    var body={ title:document.getElementById("artTitle").value, slug:document.getElementById("artSlug").value, category:document.getElementById("artCat").value, author_name:document.getElementById("artAuthor").value, cover_url:document.getElementById("artCover").value, excerpt:document.getElementById("artExcerpt").value, body_md:document.getElementById("artBody").value, status:status };
+    var body={ title_id:document.getElementById("artTitleId").value, title_en:document.getElementById("artTitleEn").value, slug:document.getElementById("artSlug").value, category_id:document.getElementById("artCatId").value, category_en:document.getElementById("artCatEn").value, author_name:document.getElementById("artAuthor").value, cover_url:document.getElementById("artCover").value, excerpt_id:document.getElementById("artExcerptId").value, excerpt_en:document.getElementById("artExcerptEn").value, body_md_id:document.getElementById("artBodyId").value, body_md_en:document.getElementById("artBodyEn").value, status:status };
     var res, aid=id;
     if(id){ res=await adminPost("/api/admin/articles/"+encodeURIComponent(id)+"/update", body).then(function(r){return r.json();}).catch(function(){return null;}); }
     else { res=await adminPost("/api/admin/articles", body).then(function(r){return r.json();}).catch(function(){return null;}); if(res&&res.ok) aid=res.id; }
