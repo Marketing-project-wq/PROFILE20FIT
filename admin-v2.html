@@ -36,7 +36,7 @@
       <div class="adm-navgroup" data-i18n="Manage">Kelola</div>
       <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
       <button class="adm-navitem" data-nav="voucher"><span data-i18n="Voucher">Voucher</span></button>
-      <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span></button>
+      <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span><span class="adm-tag adm-tag--pending" id="navMenuBadge" hidden></span></button>
       <button class="adm-navitem" data-nav="menustats"><span data-i18n="Menu interest">Minat menu</span></button>
       <button class="adm-navitem" data-nav="delivery"><span data-i18n="Eat Now / delivery">Eat Now / pesan-antar</span></button>
       <button class="adm-navitem" data-nav="articles"><span data-i18n="Articles">Artikel</span></button>
@@ -330,6 +330,7 @@
         </div>
         <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:24px">
           <div>
+            <div class="adm-note" id="mnPendingNote" style="margin-bottom:6px"></div>
             <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
               <button class="adm-chip mnf" data-s="pending" aria-pressed="true" data-i18n="Pending">Menunggu</button>
               <button class="adm-chip mnf" data-s="approved" data-i18n="Approved">Disetujui</button>
@@ -1590,6 +1591,11 @@
       var j=await adminFetch(qs).then(function(r){return r.json();});
       MN_CACHE=(j&&j.menus)||[];
       document.getElementById("mnEmpty").hidden=MN_CACHE.length>0;
+      var pend=(j&&j.pending_count)||0;
+      var badge=document.getElementById("navMenuBadge");
+      if(badge){ badge.hidden=pend<=0; badge.textContent=String(pend); }
+      var note=document.getElementById("mnPendingNote");
+      if(note) note.textContent=pend>0?(pend+" "+L("recipe(s) waiting for review","resep menunggu ditinjau")):L("Nothing pending.","Tidak ada yang menunggu.");
       tb.innerHTML=MN_CACHE.map(function(m){
         return '<tr data-mid="'+esc(m.id)+'" style="cursor:pointer'+(MN_SEL===m.id?';background:var(--surface)':'')+'">'+
           '<td><b>'+esc(m.name||"—")+'</b>'+(m.diet_type?'<div class="adm-note">'+esc(m.diet_type)+'</div>':'')+'</td>'+
@@ -1623,9 +1629,11 @@
       // Foto tiap langkah (step berfoto) — moderator WAJIB bisa lihat utk cek konten tak pantas.
       ((Array.isArray(m.steps_json)&&m.steps_json.some(function(s){return s&&s.photo;}))?'<div class="adm-sec-title">'+L("Step photos","Foto langkah")+'</div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">'+m.steps_json.map(function(s,i){return (s&&s.photo)?'<figure style="margin:0"><img src="'+esc(s.photo)+'" alt="" style="width:120px;height:120px;object-fit:cover;border:1px solid var(--line);border-radius:8px" onerror="this.style.display=\'none\'"><figcaption class="adm-note" style="font-size:11px;text-align:center">'+L("Step","Langkah")+' '+(i+1)+'</figcaption></figure>':'';}).join("")+'</div>':'')+
       (m.status==="rejected"&&m.reject_reason?'<div class="adm-callout adm-callout--danger" style="margin-top:12px"><span class="adm-badge">'+L("Reject reason","Alasan tolak")+'</span><div class="adm-note">'+esc(m.reject_reason)+'</div></div>':'')+
+      '<div id="mnEditBox" style="margin-top:12px"></div>'+
       '<div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">'+
         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
           (m.status!=="approved"?'<button class="adm-btn adm-btn--primary" id="mnApprove">'+L("Approve &amp; publish","Setujui &amp; tayangkan")+'</button>':'')+
+          '<button class="adm-btn" id="mnEditToggle">'+L("Edit before approving","Edit sebelum setujui")+'</button>'+
           '<select class="adm-input" id="mnReason" style="max-width:220px">'+reasons+'</select>'+
           '<button class="adm-btn" id="mnReject">'+L("Reject","Tolak")+'</button>'+
         '</div>'+
@@ -1634,6 +1642,42 @@
       '</div>';
     var ap=document.getElementById("mnApprove"); if(ap) ap.onclick=function(){ mnApprove(m.id); };
     document.getElementById("mnReject").onclick=function(){ mnReject(m.id); };
+    document.getElementById("mnEditToggle").onclick=function(){ mnRenderEdit(m); };
+  }
+  // Edit isi (bukan status) SEBELUM approve -- mis. rapikan typo/nama alat yang keliru.
+  function mnRenderEdit(m){
+    var box=document.getElementById("mnEditBox"); if(!box) return;
+    if(box.dataset.open==="1"){ box.innerHTML=""; box.dataset.open="0"; return; }
+    box.dataset.open="1";
+    box.innerHTML=
+      '<div class="adm-callout" style="padding:10px">'+
+        '<label class="adm-note">'+L("Name","Nama")+'</label><input class="adm-input" id="mnEName" value="'+esc(m.name||"")+'" style="margin-bottom:6px">'+
+        '<label class="adm-note">'+L("Ingredients","Bahan")+'</label><textarea class="adm-input" id="mnEIng" rows="4" style="margin-bottom:6px">'+esc(m.ingredients||"")+'</textarea>'+
+        '<label class="adm-note">'+L("Steps","Langkah")+'</label><textarea class="adm-input" id="mnESteps" rows="4" style="margin-bottom:6px">'+esc(m.steps||"")+'</textarea>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
+          '<div><label class="adm-note">'+L("Prep (min)","Siap-siap (mnt)")+'</label><input class="adm-input" id="mnEPrep" type="number" value="'+(m.prep_minutes!=null?m.prep_minutes:"")+'"></div>'+
+          '<div><label class="adm-note">'+L("Cook (min)","Masak (mnt)")+'</label><input class="adm-input" id="mnECook" type="number" value="'+(m.cook_minutes!=null?m.cook_minutes:"")+'"></div>'+
+        '</div>'+
+        '<label class="adm-note" style="margin-top:6px;display:block">'+L("Equipment","Alat")+'</label><input class="adm-input" id="mnEEquip" value="'+esc(m.equipment||"")+'" style="margin-bottom:6px">'+
+        '<label class="adm-note">'+L("Prep note","Catatan sebelum masak")+'</label><textarea class="adm-input" id="mnEPrepNote" rows="2" style="margin-bottom:6px">'+esc(m.prep_note||"")+'</textarea>'+
+        '<button class="adm-btn adm-btn--primary adm-btn--sm" id="mnESave">'+L("Save edits","Simpan perubahan")+'</button>'+
+        '<span class="adm-note" id="mnEMsg" style="margin-left:8px"></span>'+
+      '</div>';
+    document.getElementById("mnESave").onclick=async function(){
+      var msg=document.getElementById("mnEMsg"); if(msg) msg.textContent=L("Saving…","Menyimpan…");
+      var body={
+        name: document.getElementById("mnEName").value,
+        ingredients: document.getElementById("mnEIng").value,
+        steps: document.getElementById("mnESteps").value,
+        prep_minutes: document.getElementById("mnEPrep").value,
+        cook_minutes: document.getElementById("mnECook").value,
+        equipment: document.getElementById("mnEEquip").value,
+        prep_note: document.getElementById("mnEPrepNote").value,
+      };
+      var r=await adminPost("/api/admin/menu/"+encodeURIComponent(m.id)+"/edit",body).then(function(x){return x.json();}).catch(function(){return{};});
+      if(r&&r.ok){ if(window.admToast)admToast(L("Saved","Tersimpan")); loadMenu(); }
+      else if(msg) msg.textContent=(r&&r.error)||L("Failed","Gagal");
+    };
   }
   async function mnApprove(id){
     var msg=document.getElementById("mnMsg"); if(msg) msg.textContent=L("Approving…","Menyetujui…");
