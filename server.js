@@ -4361,6 +4361,58 @@ app.get("/api/menu/published", async function (req, res) {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// PUBLIK: halaman Jelajah (official + member published) dgn pencarian/filter DAN pagination
+// SERVER-SIDE sungguhan -- gantikan pola lama (client muat SEMUA resep lalu slice sendiri).
+// Urutan SAMA dgn buildVMs() di frontend: member (reviewed_at desc) dulu, baru official
+// (urutan katalog, stabil). Filter category HANYA cocok resep official -- member tak punya
+// kolom kategori (perilaku sama dgn filter client-side sebelumnya, bukan regresi baru).
+app.get("/api/menu/browse", async function (req, res) {
+  try {
+    var q = String(req.query.q || "").trim().toLowerCase();
+    var category = String(req.query.category || "").trim();
+    var diet = String(req.query.diet || "").trim();
+    var lang = String(req.query.lang || "id").trim() === "en" ? "en" : "id";
+    var limit = Math.min(48, Math.max(1, parseInt(req.query.limit, 10) || 16));
+    var offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
+    var official = loadMenuCatalog().filter(function (r) {
+      if (category && r.cat !== category) return false;
+      if (diet && (!Array.isArray(r.types) || r.types.indexOf(diet) < 0)) return false;
+      if (q) {
+        var nm = ((r.nm && r.nm[lang]) || (r.nm && r.nm.en) || "").toLowerCase();
+        if (nm.indexOf(q) < 0) return false;
+      }
+      return true;
+    });
+
+    var members = [];
+    if (admin && !category) { // member tak punya kategori -> filter category apa pun kosongkan member
+      var mquery = admin.from("my20fit_menu_contribution")
+        .select("id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,reviewed_at")
+        .eq("status", "approved").eq("published", true)
+        .order("reviewed_at", { ascending: false }).limit(500);
+      if (q) mquery = mquery.ilike("name", "%" + q + "%");
+      if (diet && MENU_DIET_TYPES.indexOf(diet) >= 0) mquery = mquery.eq("diet_type", diet);
+      var { data: memRows, error: merr } = await mquery;
+      if (merr) return res.status(500).json({ error: merr.message });
+      members = memRows || [];
+    }
+
+    var totalMembers = members.length, total = totalMembers + official.length;
+    var end = offset + limit;
+    var pageMembers = offset < totalMembers ? members.slice(offset, Math.min(end, totalMembers)) : [];
+    var officialStart = Math.max(0, offset - totalMembers);
+    var officialEnd = Math.max(0, end - totalMembers);
+    var pageOfficial = officialEnd > 0 ? official.slice(officialStart, officialEnd) : [];
+
+    res.set("Cache-Control", "public, max-age=30");
+    return res.json({
+      ok: true, official: pageOfficial, members: pageMembers,
+      total: total, has_more: end < total, next_offset: end,
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // PUBLIK: katering yang menjual resep ini -- penghubung EKSPLISIT lewat (source, menu_id),
 // bukan pencocokan nama (lihat migration create_my20fit_caterer_menus). Murni direktori,
 // TANPA transaksi/komisi (dikonfirmasi user) -- order_url/whatsapp langsung ke katering.
