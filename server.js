@@ -4159,7 +4159,8 @@ app.get("/api/corp/messages", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // ================= DIET Bagian 1: kontribusi menu + reward =================
-var MENU_DAILY_LIMIT = 5;
+var MENU_DAILY_LIMIT = 5;          // batas submit/hari untuk user LOGIN (per akun)
+var MENU_ANON_DAILY_LIMIT = 3;     // batas submit/hari untuk KONTRIBUTOR ANONIM (per sesi-cookie & per IP)
 var MENU_DIET_TYPES = ["normal", "vegetarian", "vegan", "pescatarian", "keto", "halal", "high-protein", "low-carb"];
 // Ambang reward sumbang-resep -- SATU sumber angka (dipakai /api/menu/mine & /api/menu/reward-config).
 // HARUS sama dengan yang di-hardcode di RPC my20fit_grant_menu_reward (floor(approved/10), credits=5) --
@@ -4171,11 +4172,31 @@ function menuHash(name, ingredients, steps) {
   return sha256(norm(name) + "|" + norm(ingredients) + "|" + norm(steps));
 }
 function startOfTodayISO() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); }
-// User: submit menu baru (batas harian + deteksi duplikat via content_hash).
+// Submit menu baru. BOLEH TANPA LOGIN (kontributor anonim) -- tetap MASUK ANTREAN MODERASI
+// admin (status "pending", TIDAK langsung tayang). Anti-spam tanpa captcha: honeypot + batas
+// harian per sesi-cookie & per IP (hash, bukan IP mentah) + dedup content_hash. User login
+// tetap batas 5/hari; anonim 3/hari.
 app.post("/api/menu/submit", async (req, res) => {
-  var user = await getUserFromReq(req);
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
   var b = req.body || {};
+  // Honeypot: field tersembunyi "website" HARUS kosong. Bot yang auto-isi semua field -> terisi.
+  // Balas seolah sukses (bot tak curiga & tak retry) TAPI TIDAK menulis apa pun ke DB/antrean.
+  if (String(b.website || "").trim() !== "") return res.json({ ok: true, id: null });
+
+  // Login opsional. getUserFromReq bisa throw (Supabase down) -> 503 jelas, bukan "Unauthorized".
+  var user = null;
+  try { user = await getUserFromReq(req); }
+  catch (e) { return res.status(e.status || 503).json({ error: e.userMessage || "Tidak bisa memverifikasi sesi kamu. Coba lagi." }); }
+
+  // Tanpa login -> pakai/siapkan sesi anonim (cookie httpOnly eco_anon) utk batas & jejak moderasi.
+  var anonSess = null, ipHash = null;
+  if (!user) {
+    anonSess = await getAnonSession(req, res, true);
+    if (!anonSess || !anonSess.anon_id) return res.status(503).json({ error: "Tidak bisa memulai sesi. Coba lagi sebentar lagi." });
+    // Selalu pakai IP request SAAT INI (bukan ip_hash tersimpan) -- batas per-IP inilah yang
+    // menahan penyalahguna yang menghapus cookie berulang (dapat anon_id baru, IP tetap sama).
+    ipHash = sha256((req.ip || "") + "|" + ANON_SALT).slice(0, 64);
+  }
+
   var name = String(b.name || "").trim(), ingredients = String(b.ingredients || "").trim(), steps = String(b.steps || "").trim();
   var diet_type = String(b.diet_type || "normal").trim().toLowerCase();
   // Nama tampilan publik -- diisi kontributor sendiri di form (BUKAN email/nama akun asli,
@@ -4193,12 +4214,30 @@ app.post("/api/menu/submit", async (req, res) => {
   var prep_minutes = (b.prep_minutes != null && b.prep_minutes !== "") ? (Math.max(0, Math.round(+b.prep_minutes)) || null) : null;
   var equipment = b.equipment ? String(b.equipment).trim().slice(0, 300) || null : null;
   var prep_note = b.prep_note ? String(b.prep_note).trim().slice(0, 500) || null : null;
-  var head = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true })
-    .eq("auth_user_id", user.id).gte("created_at", startOfTodayISO());
-  if ((head.count || 0) >= MENU_DAILY_LIMIT) return res.status(429).json({ error: "Batas " + MENU_DAILY_LIMIT + " submit/hari tercapai. Coba lagi besok." });
-  var { data, error } = await admin.from("my20fit_menu_contribution")
-    .insert({ auth_user_id: user.id, name: name, diet_type: diet_type, display_name: display_name, ingredients: ingredients, steps: steps, steps_json: stepsStruct ? stepsStruct.json : null, servings: servings, cook_minutes: cook_minutes, prep_minutes: prep_minutes, equipment: equipment, prep_note: prep_note, photo_url: photo_url, est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps) })
-    .select("id").limit(1).single();
+
+  // Batas harian: login per-akun; anonim per-sesi DAN per-IP (cegah hapus-cookie berulang).
+  if (user) {
+    var head = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true })
+      .eq("auth_user_id", user.id).gte("created_at", startOfTodayISO());
+    if ((head.count || 0) >= MENU_DAILY_LIMIT) return res.status(429).json({ error: "Batas " + MENU_DAILY_LIMIT + " submit/hari tercapai. Coba lagi besok." });
+  } else {
+    var hSess = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true })
+      .eq("anon_id", anonSess.anon_id).gte("created_at", startOfTodayISO());
+    var hIp = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true })
+      .eq("submit_ip_hash", ipHash).gte("created_at", startOfTodayISO());
+    if ((hSess.count || 0) >= MENU_ANON_DAILY_LIMIT || (hIp.count || 0) >= MENU_ANON_DAILY_LIMIT)
+      return res.status(429).json({ error: "Batas " + MENU_ANON_DAILY_LIMIT + " kiriman/hari (tanpa login) tercapai. Coba lagi besok, atau login untuk batas lebih besar." });
+  }
+
+  var row = {
+    name: name, diet_type: diet_type, display_name: display_name, ingredients: ingredients, steps: steps,
+    steps_json: stepsStruct ? stepsStruct.json : null, servings: servings, cook_minutes: cook_minutes,
+    prep_minutes: prep_minutes, equipment: equipment, prep_note: prep_note, photo_url: photo_url,
+    est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps),
+  };
+  if (user) row.auth_user_id = user.id;
+  else { row.anon_id = anonSess.anon_id; row.submit_ip_hash = ipHash; }
+  var { data, error } = await admin.from("my20fit_menu_contribution").insert(row).select("id").limit(1).single();
   if (error) {
     if (error.code === "23505" || String(error.message || "").toLowerCase().indexOf("duplicate") >= 0)
       return res.status(409).json({ error: "Menu dengan isi persis sama sudah ada. Buat yang berbeda." });
@@ -4274,10 +4313,19 @@ app.get("/api/admin/menu", async (req, res) => {
     if (q) query = query.ilike("name", "%" + q + "%");
     var { data: rows, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
-    var ids = Array.from(new Set((rows || []).map(function (r) { return r.auth_user_id; })));
+    // Kontributor anonim -> auth_user_id null. Buang null sebelum lookup profil (biar query .in valid).
+    var ids = Array.from(new Set((rows || []).map(function (r) { return r.auth_user_id; }).filter(Boolean)));
     var pmap = {};
     if (ids.length) { var { data: profs } = await admin.from("my20fit_profile").select("auth_user_id,full_name,email").in("auth_user_id", ids); (profs || []).forEach(function (p) { pmap[p.auth_user_id] = p; }); }
-    var out = (rows || []).map(function (r) { var p = pmap[r.auth_user_id] || {}; return Object.assign({}, r, { contributor_name: p.full_name || null, contributor_email: p.email || null, health_flag: menuHealthFlag(r.name, r.ingredients, r.steps) }); });
+    var out = (rows || []).map(function (r) {
+      var isAnon = !r.auth_user_id; var p = pmap[r.auth_user_id] || {};
+      return Object.assign({}, r, {
+        is_anon: isAnon,
+        contributor_name: isAnon ? (r.display_name || "Anonim") : (p.full_name || null),
+        contributor_email: isAnon ? null : (p.email || null),
+        health_flag: menuHealthFlag(r.name, r.ingredients, r.steps),
+      });
+    });
     return res.json({ ok: true, menus: out });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
@@ -4291,7 +4339,9 @@ app.post("/api/admin/menu/:id/approve", async (req, res) => {
     .update({ status: "approved", published: true, reject_reason: null, reviewed_by: ctx.user_id || null, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id);
   if (error) return res.status(500).json({ error: error.message });
   var granted = 0;
-  try { var { data: g } = await admin.rpc("my20fit_grant_menu_reward", { p_uid: m.auth_user_id }); granted = +g || 0; } catch (e) {}
+  // Reward hanya untuk kontributor LOGIN. Kiriman anonim (auth_user_id null) tetap bisa tayang,
+  // tapi tak dapat kredit (tak ada akun tujuan) -> jangan panggil RPC dgn p_uid null.
+  if (m.auth_user_id) { try { var { data: g } = await admin.rpc("my20fit_grant_menu_reward", { p_uid: m.auth_user_id }); granted = +g || 0; } catch (e) {} }
   await adminAudit(ctx, "menu.approve", id, { user: m.auth_user_id, credits_granted: granted });
   return res.json({ ok: true, credits_granted: granted });
 });
@@ -4307,7 +4357,8 @@ app.post("/api/admin/menu/:id/reject", async (req, res) => {
     .update({ status: "rejected", published: false, reject_reason: reason, reviewed_by: ctx.user_id || null, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id);
   if (error) return res.status(500).json({ error: error.message });
   var clawed = 0;
-  if (wasApproved) { try { var { data: rv } = await admin.rpc("my20fit_revoke_menu_reward", { p_uid: m.auth_user_id }); clawed = +rv || 0; } catch (e) {} }
+  // Clawback hanya relevan kalau tadinya approved DAN kontributor login (anonim tak pernah dapat kredit).
+  if (wasApproved && m.auth_user_id) { try { var { data: rv } = await admin.rpc("my20fit_revoke_menu_reward", { p_uid: m.auth_user_id }); clawed = +rv || 0; } catch (e) {} }
   await adminAudit(ctx, wasApproved ? "menu.revoke" : "menu.reject", id, { user: m.auth_user_id, reason: reason, credits_clawed: clawed });
   return res.json({ ok: true, credits_clawed: clawed });
 });
