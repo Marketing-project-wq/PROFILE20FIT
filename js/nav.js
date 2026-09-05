@@ -2,6 +2,11 @@
 // Mengikuti design system "Glass Minimalist" (20fit-design-system.css).
 // Visual only: tidak mengubah handler/logika halaman.
 (function () {
+  // Halaman di-iframe (mis. calories.html di dalam calorietracker.20fit.id) -> skip semua
+  // chrome navigasi (sidebar/bottom-nav/logo/FAB). Konten pemanggil (calorietracker) sudah
+  // punya nav sendiri; dobel nav di dalam iframe cuma bikin sempit & membingungkan. Halaman
+  // itu sendiri (form, data, tombol) tetap identik — cuma chrome-nya yang disembunyikan.
+  try { if (window.self !== window.top) return; } catch (e) { return; } // cross-origin -> anggap framed
   const ICON = {
     home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
     event: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
@@ -21,6 +26,14 @@
   ];
   const cur = (location.pathname.split("/").pop() || "dashboard.html").toLowerCase();
   const tr = (key, fb) => (window.I18N ? I18N.t(key) : fb);
+
+  // Item "Calories" di menu (sidebar + bottom-nav): SSO hand-off ke subdomain
+  // calorietracker.20fit.id (Auth.caloriesSso()) — sama persis pola kartu Kalori di
+  // dashboard.html. href="calories.html" tetap dipasang sebagai fallback (JS/sesi gagal
+  // -> jatuh ke scanner in-app di sini, bukan macet).
+  function navOnclick(it) {
+    return it.k === "calories" ? ' onclick="if(window.Auth&&Auth.caloriesSso){event.preventDefault();Auth.caloriesSso();}"' : "";
+  }
 
   const SYS = "-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Inter',system-ui,'Segoe UI',Roboto,Arial,sans-serif";
   const css = `
@@ -136,7 +149,7 @@
   function renderSide() {
     side.innerHTML =
       '<div class="sbrand"><img src="' + LOGO + '" alt="20FIT"></div>' +
-      items.map(it => `<a href="${it.href}" class="navi ${cur === it.href ? "on" : ""}">${svg(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
+      items.map(it => `<a href="${it.href}" class="navi ${cur === it.href ? "on" : ""}"${navOnclick(it)}>${svg(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
       `<button class="sscan" type="button">${svg("scan")}<span>${tr("nav_scan", "Scan")}</span></button>` +
       '<div class="sfoot"><div class="av" id="navAv">·</div><div class="tx"><div class="nm" id="navNm">20FIT</div><div class="em" id="navEm">member</div></div></div>';
     side.querySelector(".sscan").onclick = doScan;
@@ -162,7 +175,7 @@
   nav.className = "bnav";
   function renderNav() {
     nav.innerHTML = items.map(it =>
-      `<a href="${it.href}" class="${cur === it.href ? "on" : ""}">${svg(it.k)}${tr(it.key, it.k)}</a>`
+      `<a href="${it.href}" class="${cur === it.href ? "on" : ""}"${navOnclick(it)}>${svg(it.k)}${tr(it.key, it.k)}</a>`
     ).join("");
   }
   renderNav();
