@@ -1318,7 +1318,7 @@
             '<span class="icofb" hidden>' + svg + '</span></span>';
         }
         var sub = o.sub ? '<div class="s2-sub">' + Lx(o.sub) + '</div>' : '';
-        var inner = '<div class="s2-ic">' + iconInner + '</div><div class="s2-lbl">' + Lx(o.lbl) + '</div>' + sub;
+        var inner = '<div class="s2-ic' + (f ? " s2-ic3d" : "") + '">' + iconInner + '</div><div class="s2-lbl">' + Lx(o.lbl) + '</div>' + sub;
         return '<a class="svc2" href="' + o.href + '">' + inner + '</a>';   // selalu same-tab
       }
       window.buildSvcGrid = function () {
