@@ -2415,7 +2415,7 @@
   };
 
   // ---- HOME GRID TILES (section hometiles) — nyala/mati kotak + jumlah data per kotak ----
-  var HT_LABELS={ medical:"Medical", membership:"Membership", diet:"Diet", "book-class":"Book Class", "book-doctor":"Book Doctor", "book-coach":"Book Coach", "book-recovery":"Book Recovery", rewards:"Rewards", news:"News" };
+  var HT_LABELS={ medical:"Medical", membership:"Membership", diet:"Diet", "book-class":"Book Class", "book-doctor":"Book Doctor", "book-coach":"Book Coach", "book-recovery":"Book Recovery", rewards:"Rewards", news:"News", team:"Team carousel" };
   async function loadHomeTiles(){
     var box=document.getElementById("htList"); if(!box) return;
     box.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
@@ -2429,6 +2429,7 @@
         tiles.map(function(t){
           var label=HT_LABELS[t.key]||t.key;
           var cnt=(t.count==null)?'<span class="adm-note" style="margin:0">—</span>':((t.count===0)?('<span class="adm-tag adm-tag--pending">0</span>'):('<span class="adm-tag adm-tag--paid">'+t.count+'</span>'));
+          if(t.key==="team" && t.roles){ var rr=t.roles; var pc=function(v){return v==null?"?":v;}; cnt=cnt+' <span class="adm-mono" style="opacity:.6">'+L("C","C")+pc(rr.coach)+"·"+L("D","D")+pc(rr.doctor)+"·"+L("P","P")+pc(rr.physiotherapist)+'</span>'; }
           var on=!t.hidden;
           var statusTag=on?'<span class="adm-tag adm-tag--paid">'+L("ON","NYALA")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("OFF","MATI")+'</span>';
           var btn='<button class="adm-btn adm-btn--sm htToggle" data-key="'+evEsc(t.key)+'" data-on="'+(on?'1':'0')+'">'+(on?L("Turn off","Matikan"):L("Turn on","Nyalakan"))+'</button>';

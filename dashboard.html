@@ -710,35 +710,33 @@
 
     </div><!-- /extraTrackers -->
 
-    <!-- ===== Coach & Dokter carousel (paling bawah home) ===== -->
+    <!-- ===== Team carousel (coach + dokter + fisio jadi satu) — paling bawah home ===== -->
     <style>
+      #rosterSection .teamwrap{position:relative}
       #rosterSection .percard{flex:0 0 auto;width:118px;scroll-snap-align:start;text-align:center;text-decoration:none;color:inherit}
       #rosterSection .perav{width:96px;height:96px;border-radius:50%;margin:0 auto;position:relative;overflow:hidden;background:var(--inp);border:1px solid var(--line)}
       #rosterSection .perav img{width:100%;height:100%;object-fit:cover;object-position:center 28%;display:block}
       #rosterSection .perini{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:30px;letter-spacing:.02em}
       #rosterSection .pernm{font-weight:800;font-size:13px;margin-top:8px;color:var(--txt);line-height:1.2;overflow-wrap:anywhere}
+      #rosterSection .perrole{font-size:10px;font-weight:800;margin-top:3px;color:var(--red);text-transform:uppercase;letter-spacing:.04em}
       #rosterSection .persp{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
       #rosterSection .pernophoto{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.25;opacity:.8}
+      /* Panah hanya tampil saat overflow (class has-arrows) & di desktop. */
+      #rosterSection .teamarrow{position:absolute;top:30px;z-index:3;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;display:none;place-items:center;box-shadow:0 6px 16px rgba(0,0,0,.16)}
+      #rosterSection .teamarrow svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+      #rosterSection .teamarrow.left{left:-8px} #rosterSection .teamarrow.right{right:-8px}
+      #rosterSection.has-arrows .teamarrow{display:grid}
+      @media(max-width:899px){ #rosterSection .teamarrow{display:none!important} }
     </style>
     <div id="rosterSection" hidden>
-      <div id="coachBlock" hidden>
-        <div class="trk-head" style="margin-top:16px">
-          <div class="sec gsec" data-en="Meet our coaches" data-id="Kenalan dengan coach" style="margin:0">Meet our coaches</div>
-          <a class="trk-all" href="/book-coach" data-en="All" data-id="Semua">All</a>
-        </div>
-        <div class="hscroll" id="coachRail"></div>
+      <div class="trk-head" style="margin-top:22px">
+        <a class="sec gsec" id="teamTitle" href="/team" data-en="Meet Our Doctors &amp; Coaches" data-id="Tim Dokter &amp; Coach Kami" style="margin:0;text-decoration:none">Meet Our Doctors &amp; Coaches</a>
+        <a class="trk-all" href="/team" data-en="View more" data-id="Lihat semua">View more</a>
       </div>
-      <div id="doctorBlock" hidden>
-        <div class="trk-head" style="margin-top:12px">
-          <div class="sec gsec" data-en="Our doctors" data-id="Dokter kami" style="margin:0">Our doctors</div>
-        </div>
-        <div class="hscroll" id="doctorRail"></div>
-      </div>
-      <div id="physioBlock" hidden>
-        <div class="trk-head" style="margin-top:12px">
-          <div class="sec gsec" data-en="Our physiotherapists" data-id="Fisioterapis kami" style="margin:0">Our physiotherapists</div>
-        </div>
-        <div class="hscroll" id="physioRail"></div>
+      <div class="teamwrap">
+        <button class="teamarrow left" type="button" aria-label="Previous" onclick="teamScroll(-1)"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <div class="hscroll" id="teamRail"></div>
+        <button class="teamarrow right" type="button" aria-label="Next" onclick="teamScroll(1)"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
       </div>
     </div>
   </div>
@@ -1422,6 +1420,7 @@
           if (j && j.ok && Array.isArray(j.tiles)) {
             TILE_CFG = {}; j.tiles.forEach(function (t) { TILE_CFG[t.key] = { hidden: !!t.hidden, sort_order: (t.sort_order == null ? 999 : t.sort_order), icon_url: t.icon_url || null }; });
             window.buildSvcGrid();
+            if (window.buildRoster) window.buildRoster(); // terapkan toggle 'team' dari CMS
           }
         }).catch(function () {});
       })();
@@ -1521,7 +1520,7 @@
       window.buildBooking = function () { buildLoc(); };
 
       // ---- Carousel coach & dokter (paling bawah home) ----
-      // Sumber: /api/coaches + /api/doctors (roster CMS my20fit_). Blok disembunyikan penuh
+      // Sumber tunggal: /api/team (view my20fit_team_public: coach+dokter+fisio). Section disembunyikan penuh
       // saat kosong (dokter kosong sampai admin isi -> tak ada kartu kosong). Foto fallback =
       // inisial di atas blok warna. Klik coach -> halaman detail /book-coach?coach=<id>.
 
@@ -1536,8 +1535,22 @@
         if (mark) mark.hidden = false;
       };
 
+      // Label peran (dwibahasa) + rute detail per peran (keputusan pemilik):
+      // coach -> kelasnya, dokter -> book-doctor, fisio -> jadwal klinik.
+      var ROLE_LBL = { coach: { en: "Coach", id: "Coach" }, doctor: { en: "Doctor", id: "Dokter" }, physiotherapist: { en: "Physiotherapist", id: "Fisioterapis" } };
+      function teamHref(p) {
+        if (p.role === "coach") return "/book-coach?coach=" + encodeURIComponent(p.id);
+        if (p.role === "doctor") return "/book-doctor";
+        if (p.role === "physiotherapist") return "/classes?venue=clinic";
+        return null;
+      }
+      window.teamScroll = function (dir) { var r = document.getElementById("teamRail"); if (r) r.scrollBy({ left: dir * Math.max(260, Math.round(r.clientWidth * 0.8)), behavior: "smooth" }); };
+      var TEAM_CACHE = null;
       window.buildRoster = function () {
         var sec = document.getElementById("rosterSection"); if (!sec) return;
+        // Toggle CMS: baris 'team' di my20fit_home_tiles hidden -> sembunyikan seluruh section.
+        var cfg = (typeof TILE_CFG !== "undefined" && TILE_CFG) ? TILE_CFG.team : null;
+        if (cfg && cfg.hidden) { sec.hidden = true; return; }
         var PAL = ["#C41101", "#2A7A4F", "#2F6BFF", "#7c5cff", "#C87000", "#0EA5A5", "#B0308A", "#4A5568"];
         function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
         function initials(n) { var p = String(n || "").trim().split(/\s+/); var a = (p[0] || "")[0] || "", b = (p.length > 1 ? (p[p.length - 1][0] || "") : ""); return (a + b).toUpperCase() || "?"; }
@@ -1549,36 +1562,35 @@
           if (photo) return '<div class="perav"><img src="' + esc(photo) + '" alt="' + esc(name) + '" loading="lazy" onerror="rosterPhotoFail(this)">' + ini + '</div>';
           return '<div class="perav">' + ini + '</div>';
         }
-        function fill(rail, items, linkFn) {
-          rail.innerHTML = items.map(function (p) {
-            // Tanda "foto belum ada": tampil saat photo_url kosong, dan dibuka oleh
-            // rosterPhotoFail() kalau URL-nya ada tapi gagal dimuat (mis. 404) — supaya
-            // URL rusak terlihat saat review, bukan diam-diam jatuh ke inisial.
+        function render(list) {
+          var rail = document.getElementById("teamRail"); if (!rail) return;
+          if (!list.length) { sec.hidden = true; return; }   // kosong -> sembunyikan seluruh section (tanpa judul menggantung)
+          rail.innerHTML = list.map(function (p) {
+            var role = ROLE_LBL[p.role] ? Lx(ROLE_LBL[p.role]) : "";
+            // Tanda "foto belum ada": tampil saat photo_url kosong; dibuka rosterPhotoFail() bila URL 404.
             var inner = avatar(p.name, p.photo_url) + '<div class="pernm">' + esc(p.name) + '</div>'
+              + '<div class="perrole">' + esc(role) + '</div>'
               + (p.speciality ? '<div class="persp">' + esc(p.speciality) + '</div>' : '')
               + '<div class="pernophoto" data-en="' + esc(NOPHOTO.en) + '" data-id="' + esc(NOPHOTO.id) + '"'
               + (p.photo_url ? " hidden" : "") + '>' + esc(Lx(NOPHOTO)) + '</div>';
-            var href = linkFn ? linkFn(p) : null;
+            var href = teamHref(p);
             return href ? '<a class="percard" href="' + esc(href) + '">' + inner + '</a>' : '<div class="percard">' + inner + '</div>';
           }).join("");
+          sec.hidden = false;
+          // Panah hanya kalau overflow (tak muat semua).
+          requestAnimationFrame(function () { sec.classList.toggle("has-arrows", rail.scrollWidth > rail.clientWidth + 4); });
         }
-        // Tiga rail berpola sama; hanya kartu coach yang bisa diklik ke halaman detail.
-        // Blok yang listnya kosong tetap disembunyikan penuh -> tak ada judul menggantung.
-        [
-          { url: "/api/coaches", key: "coaches", block: "coachBlock", rail: "coachRail",
-            link: function (p) { return "/book-coach?coach=" + encodeURIComponent(p.id); } },
-          { url: "/api/doctors", key: "doctors", block: "doctorBlock", rail: "doctorRail", link: null },
-          { url: "/api/physiotherapists", key: "physiotherapists", block: "physioBlock", rail: "physioRail", link: null },
-        ].forEach(function (c) {
-          fetch(c.url).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
-            var blk = document.getElementById(c.block), rail = document.getElementById(c.rail);
-            if (!blk) return;
-            var list = (j && j.ok && j[c.key]) || [];
-            if (list.length && rail) { fill(rail, list, c.link); blk.hidden = false; sec.hidden = false; }
-            else { blk.hidden = true; }
-          }).catch(function () {});
-        });
+        if (TEAM_CACHE) { render(TEAM_CACHE); return; }
+        // Sumber tunggal: /api/team (view gabungan, peran tercampur by sort_order).
+        fetch("/api/team").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+          TEAM_CACHE = (j && j.ok && j.team) || []; render(TEAM_CACHE);
+        }).catch(function () {});
       };
+      // Recompute panah saat ukuran layar berubah.
+      window.addEventListener("resize", function () {
+        var sec = document.getElementById("rosterSection"), rail = document.getElementById("teamRail");
+        if (sec && rail && !sec.hidden) sec.classList.toggle("has-arrows", rail.scrollWidth > rail.clientWidth + 4);
+      });
 
       // ---- Sync layer: state pin/toggle home tersinkron lintas-device per akun ----
       // localStorage tetap sumber cepat (render awal); server (my20fit_profile.home_prefs)
