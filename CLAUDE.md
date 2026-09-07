@@ -3,7 +3,7 @@
 Aturan tetap di bawah ini WAJIB diikuti setiap sesi. Ditulis dari instruksi
 pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 
-> **Pembaruan dokumen terakhir:** 2026-08-13 · **Commit staging:** `8c31776`
+> **Pembaruan dokumen terakhir:** 2026-09-07 · **Commit staging:** `62ff6b2`
 > Claude Code memuat file ini otomatis di awal sesi. Baca ini dulu, lalu buka
 > dokumen pecahan sesuai kebutuhan.
 
@@ -157,7 +157,7 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 **Publik/auth:** `/` (→`/login`), `/login`, `/code-login`, `/verify`, `/reset-password`, `/setpassword`, `/onboarding`, `/unsubscribe`, `/privacy`.
 **Member (perlu login):** `/dashboard` (home 6-tile), `/calories`, `/progress`, `/profile`, `/medical`, `/diet`, `/classes` (Book Class, toggle Arena/Gym; `?venue=clinic`=Book Recovery), `/membership` (carousel — **data belum tersambung**), `/event` (**placeholder "Upcoming"**), `/payment/pending|success|failed`.
 **Admin:** `/admin`(→`/admin-dashboard`), `/admin-dashboard` (lama), `/admin-v2` (redesign; staging default), `/admin-email`, `/corp-dashboard`.
-**API:** `/api/*` (~121 route) — user (`/api/scan/*`, `/api/classes/schedule`, `/api/arena/history`, `/api/membership/packages`, `/api/photo/*`, `/api/weather`, `/api/aqi`, dll), admin (`/api/admin/*` ~53, semua lewat `requireAdmin`), corporate (`/api/corp/*`), cron (`/api/cron/*`, dilindungi `CRON_SECRET`), webhook (`/api/webhooks/resend`).
+**API:** `/api/*` (~122 route) — user (`/api/scan/*`, `/api/classes/schedule`, `/api/arena/history`, `/api/membership/packages`, `/api/coaches`, `/api/doctors`, `/api/physiotherapists`, `/api/photo/*`, `/api/weather`, `/api/aqi`, dll), admin (`/api/admin/*` ~53, semua lewat `requireAdmin`), corporate (`/api/corp/*`), cron (`/api/cron/*`, dilindungi `CRON_SECRET`), webhook (`/api/webhooks/resend`).
 Tile **News** = eksternal `media.20fit.id` (same-tab, tanpa halaman).
 
 ## D. Auth & peran (ringkas)
@@ -214,8 +214,10 @@ Daftar lengkap nama ada di `.env.example` (contoh, tanpa nilai asli).
 
 ## H. Status ringkas
 Fitur inti (auth, onboarding, dashboard, calorie, payment, email, admin, voucher, banner,
-corporate, jadwal) **jalan**. **Setengah jadi:** carousel Membership (nunggu endpoint) &
-halaman Event (nunggu API). **Detail + utang teknis + keputusan → `docs/STATUS.md`.**
+corporate, jadwal) **jalan**. Roster home (coach / dokter / fisioterapis) **terisi & tampil**.
+**Setengah jadi:** carousel Membership (nunggu endpoint), halaman Event (nunggu API), CMS admin
+fisioterapis (belum ada seksinya di `/admin-v2` — baru bisa lewat SQL).
+**Detail + utang teknis + keputusan → `docs/STATUS.md`.**
 
 ## I. HAL YANG JANGAN DILAKUKAN (spesifik proyek)
 - Jangan edit tabel Supabase **tanpa prefix `my20fit_*`** (milik app lain).
