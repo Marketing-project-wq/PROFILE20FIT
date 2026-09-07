@@ -436,6 +436,16 @@
       .svc2 .s2-ic svg{width:40px;height:40px;fill:none;stroke:var(--ink);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
       .svc2 .s2-ic svg .d{fill:color-mix(in srgb,var(--red) 9%,transparent);stroke:none}
       .svc2 .s2-ic svg .a{stroke:color-mix(in srgb,var(--red) 55%,var(--muted))}
+      /* Ikon 3D dari CMS (PNG/WebP transparan): objek ~72% kotak (ruang tepi seragam),
+         satu drop-shadow via CSS (ikut bentuk objek, bukan kotak), retina-siap (aset @2x
+         dirender di ukuran kecil). aspect-ratio kotak sudah terkunci di .s2-ic. */
+      .svc2 .s2-ic .s2-imgwrap{width:100%;height:100%;display:grid;place-items:center}
+      /* Satu ukuran render untuk semua (tinggi tetap) -> ukuran optik seragam & tak pernah
+         meluber ke label. max-width menahan ikon lebar (mis. dumbbell) tetap dalam kotak. */
+      .svc2 .s2-ic .s2-img{width:auto;height:54px;max-width:76%;object-fit:contain;
+        filter:drop-shadow(0 3px 6px rgba(0,0,0,.20));transition:filter .16s ease,transform .12s ease}
+      @media(hover:hover){ .svc2:hover .s2-ic .s2-img{filter:drop-shadow(0 6px 12px rgba(0,0,0,.26))} }
+      @media(prefers-reduced-motion:reduce){ .svc2 .s2-ic,.svc2 .s2-ic .s2-img{transition:none} .svc2:active .s2-ic{transform:none} }
       .svc2 .s2-lbl{font-size:12.5px;font-weight:800;text-align:center;line-height:1.2}
       .svc2 .s2-sub{font-size:10.5px;font-weight:700;color:var(--muted);text-align:center;line-height:1.2;margin-top:-4px}
       .svc2 .s2-badge{position:absolute;top:-6px;right:14%;min-width:20px;height:20px;padding:0 5px;border-radius:99px;
@@ -1375,8 +1385,20 @@
           '<path class="a" d="M7 8.5h5"/><path d="M7 12h7M7 15.5h5"/>'
       };
       function svcTile(o) {
-        var art = IC3D[o.key] || (IC[o.ic] || "");        // vektor duotone; fallback ikon garis lama
-        var iconInner = '<svg viewBox="0 0 24 24" aria-hidden="true">' + art + '</svg>';
+        var art = IC3D[o.key] || (IC[o.ic] || "");        // vektor duotone; fallback bila icon_url kosong/gagal
+        var vec = '<svg viewBox="0 0 24 24" aria-hidden="true">' + art + '</svg>';
+        var cfg = TILE_CFG && TILE_CFG[o.key];
+        var iconUrl = cfg && cfg.icon_url;                 // ikon dari CMS (Supabase Storage), null = pakai vektor
+        var iconInner;
+        if (iconUrl) {
+          // Eager-load (grid ada di layar pertama, jangan lazy). Gagal load -> tampil vektor fallback.
+          iconInner = '<span class="s2-imgwrap"><img class="s2-img" src="' + iconUrl + '" alt="" aria-hidden="true" ' +
+            'decoding="async" fetchpriority="high" ' +
+            'onerror="this.style.display=\'none\';var f=this.nextElementSibling;if(f)f.hidden=false">' +
+            '<span class="s2-imgfb" hidden>' + vec + '</span></span>';
+        } else {
+          iconInner = vec;
+        }
         var sub = o.sub ? '<div class="s2-sub">' + Lx(o.sub) + '</div>' : '';
         var inner = '<div class="s2-ic">' + iconInner + '</div><div class="s2-lbl">' + Lx(o.lbl) + '</div>' + sub;
         return '<a class="svc2" href="' + o.href + '">' + inner + '</a>';   // selalu same-tab
@@ -1398,7 +1420,7 @@
       (function loadHomeTiles() {
         fetch("/api/home-tiles").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
           if (j && j.ok && Array.isArray(j.tiles)) {
-            TILE_CFG = {}; j.tiles.forEach(function (t) { TILE_CFG[t.key] = { hidden: !!t.hidden, sort_order: (t.sort_order == null ? 999 : t.sort_order) }; });
+            TILE_CFG = {}; j.tiles.forEach(function (t) { TILE_CFG[t.key] = { hidden: !!t.hidden, sort_order: (t.sort_order == null ? 999 : t.sort_order), icon_url: t.icon_url || null }; });
             window.buildSvcGrid();
           }
         }).catch(function () {});
