@@ -12,6 +12,24 @@
   };
   const svg = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + '</svg>';
 
+  // Ikon 3D (PNG dari CDN media.20fit.id). Kalau gagal load -> fallback ke ikon SVG lama
+  // (onerror) supaya tampilan tak jebol. 'scan' TETAP SVG (belum ada gambar 3D).
+  const MEDIA3D = "https://media.20fit.id/wp-content/uploads/2026/09/";
+  const IMG3D = {
+    home:     MEDIA3D + "Footer-Home-1.png",
+    event:    MEDIA3D + "Footer-Ticket-1.png",
+    calories: MEDIA3D + "Footer-Calorie-1.png",
+    progress: MEDIA3D + "Footer-Activity-1.png",
+    profile:  MEDIA3D + "Footer-Account-1.png",
+  };
+  const iconHtml = (k) => {
+    const u = IMG3D[k];
+    if (!u) return svg(k);
+    return '<span class="ico3d"><img src="' + u + '" alt="" loading="lazy" decoding="async" ' +
+      'onerror="this.style.display=\'none\';var f=this.nextElementSibling;if(f)f.hidden=false">' +
+      '<span class="icofb" hidden>' + svg(k) + '</span></span>';
+  };
+
   const items = [
     { href: "dashboard.html", key: "nav_home", k: "home" },
     { href: "event.html", key: "nav_event", k: "event" },
@@ -70,6 +88,11 @@
       padding:6px 4px;border-radius:999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:.15s}
     .bnav a.on{color:var(--red,#D4283A);background:color-mix(in srgb,var(--red,#D4283A) 12%,transparent)}
     .bnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    /* Ikon 3D (PNG) — ukuran seragam, crop rapi via object-fit, tajam di retina. */
+    .ico3d{display:inline-flex;align-items:center;justify-content:center;line-height:0;flex:0 0 auto}
+    .ico3d img{display:block;object-fit:contain}
+    .navside .navi .ico3d img{width:26px;height:26px}
+    .bnav a .ico3d img{width:29px;height:29px}
     .bnav a.on svg{stroke:var(--red,#D4283A)}
     .scanfab{position:fixed;right:18px;bottom:96px;z-index:41;background:var(--red,#D4283A);color:#fff;border:0;border-radius:50%;
       width:58px;height:58px;font-size:10px;font-weight:750;font-family:${SYS};cursor:pointer;
@@ -136,7 +159,7 @@
   function renderSide() {
     side.innerHTML =
       '<div class="sbrand"><img src="' + LOGO + '" alt="20FIT"></div>' +
-      items.map(it => `<a href="${it.href}" class="navi ${cur === it.href ? "on" : ""}">${svg(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
+      items.map(it => `<a href="${it.href}" class="navi ${cur === it.href ? "on" : ""}">${iconHtml(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
       `<button class="sscan" type="button">${svg("scan")}<span>${tr("nav_scan", "Scan")}</span></button>` +
       '<div class="sfoot"><div class="av" id="navAv">·</div><div class="tx"><div class="nm" id="navNm">20FIT</div><div class="em" id="navEm">member</div></div></div>';
     side.querySelector(".sscan").onclick = doScan;
@@ -162,7 +185,7 @@
   nav.className = "bnav";
   function renderNav() {
     nav.innerHTML = items.map(it =>
-      `<a href="${it.href}" class="${cur === it.href ? "on" : ""}">${svg(it.k)}${tr(it.key, it.k)}</a>`
+      `<a href="${it.href}" class="${cur === it.href ? "on" : ""}">${iconHtml(it.k)}${tr(it.key, it.k)}</a>`
     ).join("");
   }
   renderNav();
