@@ -2725,7 +2725,7 @@ app.post("/api/promo/click", async (req, res) => {
 app.get("/api/home-tiles", async (req, res) => {
   try {
     if (!admin) return res.json({ ok: true, tiles: [] });
-    const { data, error } = await admin.from("my20fit_home_tiles").select("key,hidden,sort_order").order("sort_order", { ascending: true });
+    const { data, error } = await admin.from("my20fit_home_tiles").select("key,hidden,sort_order,icon_url").order("sort_order", { ascending: true });
     if (error) throw error;
     return res.json({ ok: true, tiles: data || [] });
   } catch (e) { return res.json({ ok: true, tiles: [] }); }
