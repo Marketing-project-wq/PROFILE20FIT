@@ -220,14 +220,10 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
 /* ---- 9. Toast ----------------------------------------------------------- */
 .toast{background:var(--ink) !important;color:var(--bg) !important;border-radius:var(--radius) !important}
 
-/* ---- 10. Ikon 3D (tile home menu) — ukuran seragam, crop rapi via object-fit ---- */
+/* ---- 10. Ikon 3D (dipakai nav mobile/sidebar) — ukuran seragam via object-fit ---- */
+/* Tile home menu kini pakai ikon SVG vektor duotone (lihat dashboard.html .s2-ic svg),
+   bukan PNG lagi — aturan .s2-ic3d/img tile dihapus. .ico3d di bawah masih dipakai nav. */
 .ico3d{display:inline-flex;align-items:center;justify-content:center;line-height:0}
 .ico3d img{display:block;object-fit:contain}
-/* Tile ber-ikon 3D: buang kotak warna di belakang -> art 3D tampil bersih & lebih besar. */
-.s2-ic.s2-ic3d{background:transparent!important;box-shadow:none!important;border:0!important}
-/* 72px = sebesar mungkin tanpa mengubah layout: kotak tile dibatasi max-height:78px
-   (dashboard.html .svc2 .s2-ic), jadi 72px masih muat utuh dengan sisa 3px atas-bawah
-   dan tidak menyenggol .s2-lbl. Seragam untuk SEMUA tile 3D. */
-.s2-ic.s2-ic3d .ico3d img{width:72px;height:72px}
 
 @media (prefers-reduced-motion:reduce){ body::before,body::after{animation:none !important} }
