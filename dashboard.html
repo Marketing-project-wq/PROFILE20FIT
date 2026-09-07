@@ -696,10 +696,11 @@
     <style>
       #rosterSection .percard{flex:0 0 auto;width:118px;scroll-snap-align:start;text-align:center;text-decoration:none;color:inherit}
       #rosterSection .perav{width:96px;height:96px;border-radius:50%;margin:0 auto;position:relative;overflow:hidden;background:var(--inp);border:1px solid var(--line)}
-      #rosterSection .perav img{width:100%;height:100%;object-fit:cover;display:block}
+      #rosterSection .perav img{width:100%;height:100%;object-fit:cover;object-position:center 28%;display:block}
       #rosterSection .perini{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:30px;letter-spacing:.02em}
       #rosterSection .pernm{font-weight:800;font-size:13px;margin-top:8px;color:var(--txt);line-height:1.2;overflow-wrap:anywhere}
       #rosterSection .persp{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
+      #rosterSection .pernophoto{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.25;opacity:.8}
     </style>
     <div id="rosterSection" hidden>
       <div id="coachBlock" hidden>
@@ -1444,20 +1445,40 @@
       // Sumber: /api/coaches + /api/doctors (roster CMS my20fit_). Blok disembunyikan penuh
       // saat kosong (dokter kosong sampai admin isi -> tak ada kartu kosong). Foto fallback =
       // inisial di atas blok warna. Klik coach -> halaman detail /book-coach?coach=<id>.
+
+      // Foto gagal dimuat -> sembunyikan <img>, tampilkan inisial, lalu buka tanda
+      // "foto belum ada" pada kartu itu. Global karena dipanggil dari atribut onerror.
+      window.rosterPhotoFail = function (img) {
+        img.style.display = "none";
+        var ini = img.parentNode && img.parentNode.querySelector(".perini");
+        if (ini) ini.style.display = "grid";
+        var card = img.closest && img.closest(".percard");
+        var mark = card && card.querySelector(".pernophoto");
+        if (mark) mark.hidden = false;
+      };
+
       window.buildRoster = function () {
         var sec = document.getElementById("rosterSection"); if (!sec) return;
         var PAL = ["#C41101", "#2A7A4F", "#2F6BFF", "#7c5cff", "#C87000", "#0EA5A5", "#B0308A", "#4A5568"];
         function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
         function initials(n) { var p = String(n || "").trim().split(/\s+/); var a = (p[0] || "")[0] || "", b = (p.length > 1 ? (p[p.length - 1][0] || "") : ""); return (a + b).toUpperCase() || "?"; }
         function colorFor(n) { var s = String(n || ""), h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return PAL[h % PAL.length]; }
+        var NOPHOTO = { en: "Photo not available", id: "Foto belum ada" };
         function avatar(name, photo) {
           var color = colorFor(name);
-          if (photo) return '<div class="perav"><img src="' + esc(photo) + '" alt="' + esc(name) + '" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'"><span class="perini" style="display:none;background:' + color + '">' + esc(initials(name)) + '</span></div>';
-          return '<div class="perav"><span class="perini" style="background:' + color + '">' + esc(initials(name)) + '</span></div>';
+          var ini = '<span class="perini" style="' + (photo ? "display:none;" : "") + 'background:' + color + '">' + esc(initials(name)) + '</span>';
+          if (photo) return '<div class="perav"><img src="' + esc(photo) + '" alt="' + esc(name) + '" loading="lazy" onerror="rosterPhotoFail(this)">' + ini + '</div>';
+          return '<div class="perav">' + ini + '</div>';
         }
         function fill(rail, items, linkFn) {
           rail.innerHTML = items.map(function (p) {
-            var inner = avatar(p.name, p.photo_url) + '<div class="pernm">' + esc(p.name) + '</div>' + (p.speciality ? '<div class="persp">' + esc(p.speciality) + '</div>' : '');
+            // Tanda "foto belum ada": tampil saat photo_url kosong, dan dibuka oleh
+            // rosterPhotoFail() kalau URL-nya ada tapi gagal dimuat (mis. 404) — supaya
+            // URL rusak terlihat saat review, bukan diam-diam jatuh ke inisial.
+            var inner = avatar(p.name, p.photo_url) + '<div class="pernm">' + esc(p.name) + '</div>'
+              + (p.speciality ? '<div class="persp">' + esc(p.speciality) + '</div>' : '')
+              + '<div class="pernophoto" data-en="' + esc(NOPHOTO.en) + '" data-id="' + esc(NOPHOTO.id) + '"'
+              + (p.photo_url ? " hidden" : "") + '>' + esc(Lx(NOPHOTO)) + '</div>';
             var href = linkFn ? linkFn(p) : null;
             return href ? '<a class="percard" href="' + esc(href) + '">' + inner + '</a>' : '<div class="percard">' + inner + '</div>';
           }).join("");
