@@ -91,8 +91,8 @@
     /* Ikon 3D (PNG) — ukuran seragam, crop rapi via object-fit, tajam di retina. */
     .ico3d{display:inline-flex;align-items:center;justify-content:center;line-height:0;flex:0 0 auto}
     .ico3d img{display:block;object-fit:contain}
-    .navside .navi .ico3d img{width:26px;height:26px}
-    .bnav a .ico3d img{width:29px;height:29px}
+    .navside .navi .ico3d img{width:32px;height:32px}
+    .bnav a .ico3d img{width:36px;height:36px}
     .bnav a.on svg{stroke:var(--red,#D4283A)}
     .scanfab{position:fixed;right:18px;bottom:96px;z-index:41;background:var(--red,#D4283A);color:#fff;border:0;border-radius:50%;
       width:58px;height:58px;font-size:10px;font-weight:750;font-family:${SYS};cursor:pointer;

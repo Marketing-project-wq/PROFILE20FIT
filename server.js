@@ -2840,6 +2840,22 @@ app.get("/api/doctors", async (req, res) => {
   } catch (e) { return res.json({ ok: true, doctors: [] }); }
 });
 
+// Daftar fisioterapis untuk carousel home. Tabel terpisah dari my20fit_doctors:
+// fisioterapis bukan dokter, dan my20fit_doctors dijaga view publik + cek CI tersendiri.
+// Kosong -> carousel fisioterapis di home disembunyikan seluruhnya oleh frontend.
+app.get("/api/physiotherapists", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, physiotherapists: [] });
+    const { data, error } = await admin.from("my20fit_physiotherapists")
+      .select("id,display_name,speciality,photo_url,sort_order")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+    if (error) throw error;
+    return res.json({ ok: true, physiotherapists: (data || []).map(p => ({
+      id: p.id, name: p.display_name, speciality: p.speciality || null, photo_url: p.photo_url || null })) });
+  } catch (e) { return res.json({ ok: true, physiotherapists: [] }); }
+});
+
 // ================= BOOKING ARENA/GYM IN-APP (kanal my20fit, DB sama) =================
 // Alur = alur yang sudah ada di booking.20fit.id: buat baris 'pending_payment' (RPC kuota-aman)
 // -> create-mayar-payment -> user bayar -> webhook mayar-webhook-arena mengubah jadi 'confirmed'.
