@@ -2867,7 +2867,9 @@ app.get("/api/team", async (req, res) => {
     const { data, error } = await admin.from("my20fit_team_public")
       .select(cols)
       .eq("is_active", true)
-      .order("sort_order", { ascending: true }).order("role", { ascending: true }).order("display_name", { ascending: true });
+      // Kelompok per-peran (coach -> doctor -> physiotherapist, urut alfabet role), lalu sort_order.
+      // Homepage TIDAK mencampur peran: semua coach dulu, baru dokter, baru fisioterapis.
+      .order("role", { ascending: true }).order("sort_order", { ascending: true }).order("display_name", { ascending: true });
     if (error) throw error;
     const team = (data || []).map(p => {
       const o = { id: p.id, role: p.role, name: p.display_name, speciality: p.speciality || null, photo_url: p.photo_url || null, venue: p.venue || null };
