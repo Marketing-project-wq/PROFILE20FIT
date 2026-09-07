@@ -716,6 +716,12 @@
         </div>
         <div class="hscroll" id="doctorRail"></div>
       </div>
+      <div id="physioBlock" hidden>
+        <div class="trk-head" style="margin-top:12px">
+          <div class="sec gsec" data-en="Our physiotherapists" data-id="Fisioterapis kami" style="margin:0">Our physiotherapists</div>
+        </div>
+        <div class="hscroll" id="physioRail"></div>
+      </div>
     </div>
   </div>
 
@@ -1483,18 +1489,22 @@
             return href ? '<a class="percard" href="' + esc(href) + '">' + inner + '</a>' : '<div class="percard">' + inner + '</div>';
           }).join("");
         }
-        fetch("/api/coaches").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
-          var cb = document.getElementById("coachBlock"), rail = document.getElementById("coachRail");
-          var list = (j && j.ok && j.coaches) || [];
-          if (list.length && rail) { fill(rail, list, function (p) { return "/book-coach?coach=" + encodeURIComponent(p.id); }); cb.hidden = false; sec.hidden = false; }
-          else if (cb) { cb.hidden = true; }
-        }).catch(function () {});
-        fetch("/api/doctors").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
-          var db = document.getElementById("doctorBlock"), rail = document.getElementById("doctorRail");
-          var list = (j && j.ok && j.doctors) || [];
-          if (list.length && rail) { fill(rail, list, null); db.hidden = false; sec.hidden = false; }
-          else if (db) { db.hidden = true; }
-        }).catch(function () {});
+        // Tiga rail berpola sama; hanya kartu coach yang bisa diklik ke halaman detail.
+        // Blok yang listnya kosong tetap disembunyikan penuh -> tak ada judul menggantung.
+        [
+          { url: "/api/coaches", key: "coaches", block: "coachBlock", rail: "coachRail",
+            link: function (p) { return "/book-coach?coach=" + encodeURIComponent(p.id); } },
+          { url: "/api/doctors", key: "doctors", block: "doctorBlock", rail: "doctorRail", link: null },
+          { url: "/api/physiotherapists", key: "physiotherapists", block: "physioBlock", rail: "physioRail", link: null },
+        ].forEach(function (c) {
+          fetch(c.url).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+            var blk = document.getElementById(c.block), rail = document.getElementById(c.rail);
+            if (!blk) return;
+            var list = (j && j.ok && j[c.key]) || [];
+            if (list.length && rail) { fill(rail, list, c.link); blk.hidden = false; sec.hidden = false; }
+            else { blk.hidden = true; }
+          }).catch(function () {});
+        });
       };
 
       // ---- Sync layer: state pin/toggle home tersinkron lintas-device per akun ----
