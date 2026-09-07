@@ -3172,7 +3172,7 @@ app.post("/api/admin/upload-photo", async (req, res) => {
 app.get("/api/admin/home-tiles", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
   try {
-    const { data: tiles, error } = await admin.from("my20fit_home_tiles").select("key,hidden,sort_order").order("sort_order", { ascending: true });
+    const { data: tiles, error } = await admin.from("my20fit_home_tiles").select("key,hidden,sort_order,icon_url").order("sort_order", { ascending: true });
     if (error) throw error;
     // Jumlah data per kotak berbasis-data -> supaya tak menyalakan kotak kosong.
     const counts = {};
@@ -3182,7 +3182,7 @@ app.get("/api/admin/home-tiles", async (req, res) => {
     await cnt("book-coach", "my20fit_coaches", "is_active");
     await cnt("book-doctor", "my20fit_doctors", "is_active");
     await cnt("rewards", "my20fit_reward_offers", "active");
-    return res.json({ ok: true, tiles: (tiles || []).map(t => ({ key: t.key, hidden: !!t.hidden, sort_order: t.sort_order, count: (t.key in counts) ? counts[t.key] : null })) });
+    return res.json({ ok: true, tiles: (tiles || []).map(t => ({ key: t.key, hidden: !!t.hidden, sort_order: t.sort_order, icon_url: t.icon_url || null, count: (t.key in counts) ? counts[t.key] : null })) });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 app.post("/api/admin/home-tiles/toggle", async (req, res) => {
@@ -3198,6 +3198,42 @@ app.post("/api/admin/home-tiles/toggle", async (req, res) => {
     await adminAudit(ctx, "home_tiles.toggle", key, { hidden });
     return res.json({ ok: true, key, hidden });
   } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// CMS: set / hapus ikon tile home. Upload (png/webp/svg transparan) -> bucket
+// home-tile-icons -> simpan public URL ke my20fit_home_tiles.icon_url. Ganti ikon
+// TANPA deploy. { key, data_url } untuk set; { key, clear:true } untuk kembali ke default.
+app.post("/api/admin/home-tiles/icon", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const key = String(b.key || "").trim();
+  if (!key) return res.status(400).json({ error: "key wajib." });
+  try {
+    if (b.clear === true || b.clear === "true") {
+      const { data, error } = await admin.from("my20fit_home_tiles").update({ icon_url: null }).eq("key", key).select("key").limit(1);
+      if (error) throw error;
+      if (!data || !data.length) return res.status(404).json({ error: "Kotak tak ditemukan: " + key });
+      await adminAudit(ctx, "home_tiles.icon.clear", key, null);
+      return res.json({ ok: true, key, icon_url: null });
+    }
+    const dataUrl = String(b.data_url || "");
+    const m = dataUrl.match(/^data:(image\/(png|webp|svg\+xml));base64,([A-Za-z0-9+/=]+)$/);
+    if (!m) return res.status(400).json({ error: "Format tidak didukung (png/webp/svg)." });
+    const contentType = m[1];
+    const ext = (m[2] === "svg+xml") ? "svg" : m[2];
+    const buf = Buffer.from(m[3], "base64");
+    if (buf.length > 5 * 1024 * 1024) return res.status(413).json({ error: "Ukuran ikon maksimal 5MB." });
+    const safeKey = key.replace(/[^a-z0-9-]/gi, "") || "tile";
+    const name = safeKey + "/" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6).toString(36) + "." + ext;
+    const { error: upErr } = await admin.storage.from("home-tile-icons").upload(name, buf, { contentType, upsert: false });
+    if (upErr) throw upErr;
+    const { data: pub } = admin.storage.from("home-tile-icons").getPublicUrl(name);
+    const url = (pub && pub.publicUrl) || null;
+    const { data, error } = await admin.from("my20fit_home_tiles").update({ icon_url: url }).eq("key", key).select("key").limit(1);
+    if (error) throw error;
+    if (!data || !data.length) return res.status(404).json({ error: "Kotak tak ditemukan: " + key });
+    await adminAudit(ctx, "home_tiles.icon.set", key, { bytes: buf.length, path: name });
+    return res.json({ ok: true, key, icon_url: url });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal unggah ikon." }); }
 });
 
 // Layanan dokter (requires_doctor=true) untuk Book Doctor (request).
