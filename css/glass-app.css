@@ -38,8 +38,15 @@
   --fit-red-soft:#FCEBED;--fit-blue-soft:#EAF1FF;--fit-amber-soft:#FDF1E2;--fit-green-soft:#E6F6EE;
   --fit-ink:#15171C;--fit-ink-soft:#8A8D94;--fit-ink-faint:#B7B9BF;--fit-line:#EBEBEF;
   --fit-bg1:#F1F1F4;--fit-bg2:#F1F1F4;
-  --fit-glass:#FFFFFF;--fit-glass-strong:#FFFFFF;--fit-glass-border:#EBEBEF;--fit-blur:0px;
+  --fit-glass:rgba(255,255,255,.60);--fit-glass-strong:rgba(255,255,255,.78);--fit-glass-border:rgba(255,255,255,.7);--fit-blur:0px;
   --fit-radius:22px;--fit-radius-sm:14px;--fit-shadow:0 1px 2px rgba(16,18,22,.04),0 10px 30px rgba(16,18,22,.045);
+
+  /* Liquid Glass v5 — LIGHT. Blur ASLI hanya nav/panel/modal (sedikit); kartu list
+     pakai translucent+highlight TANPA blur (banyak elemen -> hindari lag). */
+  --glass:rgba(255,255,255,.60);--glass-2:rgba(255,255,255,.42);
+  --glass-nav:rgba(255,255,255,.66);--glass-brd:rgba(255,255,255,.72);--glass-hair:rgba(16,18,22,.07);
+  --glass-blur:20px;
+  --glass-sh:inset 0 1px 0 rgba(255,255,255,.6),0 10px 30px rgba(16,18,22,.10),0 2px 6px rgba(16,18,22,.05);
   --fit-font-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",system-ui,sans-serif;
   --fit-font-mono:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
   --fit-font-body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
@@ -64,29 +71,45 @@ html[data-theme="dark"]{
   --fit-red-soft:#33191D;--fit-blue-soft:#182238;--fit-amber-soft:#2E2213;--fit-green-soft:#12271C;
   --fit-ink:#F4F5F7;--fit-ink-soft:#8E9198;--fit-ink-faint:#5C5F66;--fit-line:#24262D;
   --fit-bg1:#0B0C0F;--fit-bg2:#0B0C0F;
-  --fit-glass:#16181E;--fit-glass-strong:#16181E;--fit-glass-border:#24262D;
+  --fit-glass:rgba(30,33,41,.62);--fit-glass-strong:rgba(30,33,41,.80);--fit-glass-border:rgba(255,255,255,.08);
   --fit-shadow:0 1px 2px rgba(0,0,0,.3),0 12px 34px rgba(0,0,0,.35);
+
+  /* Liquid Glass v5 — DARK */
+  --glass:rgba(32,35,43,.60);--glass-2:rgba(22,24,30,.44);
+  --glass-nav:rgba(18,20,26,.60);--glass-brd:rgba(255,255,255,.08);--glass-hair:rgba(255,255,255,.06);
+  --glass-blur:22px;
+  --glass-sh:inset 0 1px 0 rgba(255,255,255,.05),0 12px 34px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.3);
 }
 
-/* ---- 3. Page background: flat, no gradient, no orbs ---------------------- */
+/* ---- 3. Page background: subtle liquid-glass depth (gradient wash, no busy orbs) ----
+   Gradient statis brand-tinted -> kaca translucent punya sesuatu utk dibiaskan.
+   background-attachment:fixed -> kesan kaca di atas latar diam. Ringan (tanpa filter). */
 html,body{background:var(--bg)}
 body{
-  background:var(--bg) !important;background-attachment:scroll !important;
+  background:
+    radial-gradient(1100px 620px at 12% -8%, color-mix(in srgb,var(--red) 8%,transparent), transparent 60%),
+    radial-gradient(1000px 720px at 112% 6%, color-mix(in srgb,var(--blue) 7%,transparent), transparent 55%),
+    var(--bg) !important;
+  background-attachment:fixed !important;
   color:var(--pagetx);
   font-family:var(--font-sys) !important;
 }
-/* remove the old glass orbs entirely */
+/* orb animasi lama tetap mati (gradient statis di atas cukup, tak nge-lag) */
 body::before,body::after{content:none !important;display:none !important}
 
-/* ---- 4. Solid flat cards (undo glass blur/tint) ------------------------- */
+/* ---- 4. Liquid-glass cards — translucent + highlight tepi + shadow ---------
+   TANPA backdrop-filter: kartu itu BANYAK (list panjang), blur asli di semua = lag.
+   Kaca "disimulasi": gradient translucent + garis highlight (di box-shadow inset) +
+   hairline border. Permukaan cukup pekat (~.6) supaya teks tetap terbaca jelas. */
 .card,.panel,.wcard{
-  background:var(--card) !important;
+  background:linear-gradient(155deg,var(--glass),var(--glass-2)) !important;
+  border:1px solid var(--glass-hair) !important;
   -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
-  box-shadow:var(--shadow) !important;
+  box-shadow:var(--glass-sh) !important;
   color:var(--txt);
 }
-/* keep the medical upload card's dashed red border (v4) */
-.card.up{background:color-mix(in srgb,var(--red-soft) 55%,var(--card)) !important}
+/* kartu upload medical: pertahankan nuansa merah lembut (di atas kaca) */
+.card.up{background:color-mix(in srgb,var(--red-soft) 55%,var(--glass)) !important}
 
 /* ---- 5. Typography: system fonts everywhere (no Barlow / Mono / Manrope)
    Override the hard-coded display/data fonts a few widgets still request. */
@@ -173,28 +196,33 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
 
 /* ---- 8. Shared nav (nav.js) + floating toggles (i18n.js) -> flat --------- */
 .navside{
-  background:var(--card) !important;
-  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
-  border-right:1px solid var(--line) !important;
+  background:linear-gradient(180deg,var(--glass-nav),var(--glass-2)) !important;
+  -webkit-backdrop-filter:saturate(180%) blur(var(--glass-blur)) !important;backdrop-filter:saturate(180%) blur(var(--glass-blur)) !important;
+  border-right:1px solid var(--glass-hair) !important;box-shadow:inset -1px 0 0 var(--glass-brd) !important;
 }
 .bnav{
-  background:color-mix(in srgb,var(--bg) 82%,transparent) !important;
-  -webkit-backdrop-filter:saturate(180%) blur(18px) !important;backdrop-filter:saturate(180%) blur(18px) !important;
-  border:0 !important;border-top:1px solid var(--line) !important;box-shadow:none !important;
+  background:linear-gradient(180deg,var(--glass-2),var(--glass-nav)) !important;
+  -webkit-backdrop-filter:saturate(180%) blur(var(--glass-blur)) !important;backdrop-filter:saturate(180%) blur(var(--glass-blur)) !important;
+  border:0 !important;border-top:1px solid var(--glass-brd) !important;box-shadow:0 -8px 24px rgba(16,18,22,.06) !important;
 }
 .bnav a{color:var(--faint) !important;font-family:var(--font-sys) !important;text-transform:none !important;letter-spacing:0 !important;font-weight:650 !important}
 .bnav a.on{color:var(--red) !important}
 .bnav a.on svg{stroke:var(--red) !important}
 .scanfab{background:var(--red) !important;box-shadow:0 10px 22px color-mix(in srgb,var(--red) 40%,transparent) !important;font-family:var(--font-sys) !important}
 .langfab,.themefab{
-  background:var(--card) !important;border:1px solid var(--line) !important;
-  -webkit-backdrop-filter:none !important;backdrop-filter:none !important;color:var(--muted) !important;
-  box-shadow:var(--shadow) !important;
+  background:var(--glass-nav) !important;border:1px solid var(--glass-hair) !important;
+  -webkit-backdrop-filter:saturate(180%) blur(var(--glass-blur)) !important;backdrop-filter:saturate(180%) blur(var(--glass-blur)) !important;color:var(--muted) !important;
+  box-shadow:var(--glass-sh) !important;
 }
 .langfab button{color:var(--muted) !important;font-family:var(--font-sys) !important}
 .langfab button.on{background:var(--red) !important;color:#fff !important}
 
 /* ---- 9. Toast ----------------------------------------------------------- */
 .toast{background:var(--ink) !important;color:var(--bg) !important;border-radius:var(--radius) !important}
+
+/* ---- 10. Ikon 3D (tile home menu) — ukuran seragam, crop rapi via object-fit ---- */
+.ico3d{display:inline-flex;align-items:center;justify-content:center;line-height:0}
+.ico3d img{display:block;object-fit:contain}
+.s2-ic .ico3d img{width:34px;height:34px}
 
 @media (prefers-reduced-motion:reduce){ body::before,body::after{animation:none !important} }

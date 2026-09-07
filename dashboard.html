@@ -1301,10 +1301,24 @@
       ];
       var TILE_CFG = null; // {key:{hidden,sort_order}} dari CMS; null = belum termuat (pakai default)
 
+      // Ikon 3D per-tile (PNG dari CDN). Gagal load -> fallback ikon SVG lama. 'rewards' TETAP SVG.
+      var MEDIA3D_BASE = "https://media.20fit.id/wp-content/uploads/2026/09/";
+      var TILE_IMG3D = {
+        medical: "Menu-Medical-Checkup-1.png", membership: "Menu-Membership-1.png",
+        diet: "Menu-Food-1.png", "book-class": "Menu-Coach-1.png",
+        "book-doctor": "Menu-Doctor-1.png", "book-coach": "Menu-Coach-1.png",
+        "book-recovery": "Menu-Doctor-1.png", news: "Vector-20FIT-Media-1.png",
+      };
       function svcTile(o) {
         var svg = '<svg viewBox="0 0 24 24" aria-hidden="true">' + (IC[o.ic] || "") + '</svg>';
+        var f = TILE_IMG3D[o.key], iconInner = svg;
+        if (f) {
+          iconInner = '<span class="ico3d"><img src="' + MEDIA3D_BASE + f + '" alt="" loading="lazy" decoding="async" ' +
+            'onerror="this.style.display=\'none\';var fb=this.nextElementSibling;if(fb)fb.hidden=false">' +
+            '<span class="icofb" hidden>' + svg + '</span></span>';
+        }
         var sub = o.sub ? '<div class="s2-sub">' + Lx(o.sub) + '</div>' : '';
-        var inner = '<div class="s2-ic">' + svg + '</div><div class="s2-lbl">' + Lx(o.lbl) + '</div>' + sub;
+        var inner = '<div class="s2-ic">' + iconInner + '</div><div class="s2-lbl">' + Lx(o.lbl) + '</div>' + sub;
         return '<a class="svc2" href="' + o.href + '">' + inner + '</a>';   // selalu same-tab
       }
       window.buildSvcGrid = function () {
