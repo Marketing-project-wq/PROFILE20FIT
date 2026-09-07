@@ -2856,6 +2856,28 @@ app.get("/api/physiotherapists", async (req, res) => {
   } catch (e) { return res.json({ ok: true, physiotherapists: [] }); }
 });
 
+// Tim gabungan (coach + dokter + fisioterapis) untuk carousel & halaman "Meet the team".
+// Sumber tunggal = view my20fit_team_public (role literal, TANPA admin_user_id). Service role.
+// Urut sort_order lalu role -> peran tercampur di carousel. include_bio=1 utk halaman penuh.
+app.get("/api/team", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, team: [] });
+    const withBio = String(req.query.include_bio || "") === "1";
+    const cols = "id,role,display_name,speciality,photo_url,venue,sort_order" + (withBio ? ",bio" : "");
+    const { data, error } = await admin.from("my20fit_team_public")
+      .select(cols)
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }).order("role", { ascending: true }).order("display_name", { ascending: true });
+    if (error) throw error;
+    const team = (data || []).map(p => {
+      const o = { id: p.id, role: p.role, name: p.display_name, speciality: p.speciality || null, photo_url: p.photo_url || null, venue: p.venue || null };
+      if (withBio) o.bio = p.bio || null;
+      return o;
+    });
+    return res.json({ ok: true, team });
+  } catch (e) { return res.json({ ok: true, team: [] }); }
+});
+
 // ================= BOOKING ARENA/GYM IN-APP (kanal my20fit, DB sama) =================
 // Alur = alur yang sudah ada di booking.20fit.id: buat baris 'pending_payment' (RPC kuota-aman)
 // -> create-mayar-payment -> user bayar -> webhook mayar-webhook-arena mengubah jadi 'confirmed'.
@@ -3182,7 +3204,14 @@ app.get("/api/admin/home-tiles", async (req, res) => {
     await cnt("book-coach", "my20fit_coaches", "is_active");
     await cnt("book-doctor", "my20fit_doctors", "is_active");
     await cnt("rewards", "my20fit_reward_offers", "active");
-    return res.json({ ok: true, tiles: (tiles || []).map(t => ({ key: t.key, hidden: !!t.hidden, sort_order: t.sort_order, icon_url: t.icon_url || null, count: (t.key in counts) ? counts[t.key] : null })) });
+    // Carousel 'team' = gabungan coach+dokter+fisio; simpan rincian per-peran utk CMS.
+    const teamRoles = { coach: null, doctor: null, physiotherapist: null };
+    async function cntActive(k, table) { try { const { count } = await admin.from(table).select("id", { count: "exact", head: true }).eq("is_active", true); teamRoles[k] = count || 0; } catch (_) { teamRoles[k] = null; } }
+    await cntActive("coach", "my20fit_coaches");
+    await cntActive("doctor", "my20fit_doctors");
+    await cntActive("physiotherapist", "my20fit_physiotherapists");
+    counts["team"] = (teamRoles.coach || 0) + (teamRoles.doctor || 0) + (teamRoles.physiotherapist || 0);
+    return res.json({ ok: true, tiles: (tiles || []).map(t => ({ key: t.key, hidden: !!t.hidden, sort_order: t.sort_order, icon_url: t.icon_url || null, count: (t.key in counts) ? counts[t.key] : null, roles: (t.key === "team") ? teamRoles : undefined })) });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 app.post("/api/admin/home-tiles/toggle", async (req, res) => {
