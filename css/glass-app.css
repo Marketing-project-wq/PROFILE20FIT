@@ -223,9 +223,11 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
 /* ---- 10. Ikon 3D (tile home menu) — ukuran seragam, crop rapi via object-fit ---- */
 .ico3d{display:inline-flex;align-items:center;justify-content:center;line-height:0}
 .ico3d img{display:block;object-fit:contain}
-.s2-ic .ico3d img{width:40px;height:40px}
 /* Tile ber-ikon 3D: buang kotak warna di belakang -> art 3D tampil bersih & lebih besar. */
 .s2-ic.s2-ic3d{background:transparent!important;box-shadow:none!important;border:0!important}
-.s2-ic.s2-ic3d .ico3d img{width:48px;height:48px}
+/* 72px = sebesar mungkin tanpa mengubah layout: kotak tile dibatasi max-height:78px
+   (dashboard.html .svc2 .s2-ic), jadi 72px masih muat utuh dengan sisa 3px atas-bawah
+   dan tidak menyenggol .s2-lbl. Seragam untuk SEMUA tile 3D. */
+.s2-ic.s2-ic3d .ico3d img{width:72px;height:72px}
 
 @media (prefers-reduced-motion:reduce){ body::before,body::after{animation:none !important} }

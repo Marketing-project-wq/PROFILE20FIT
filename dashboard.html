@@ -696,10 +696,11 @@
     <style>
       #rosterSection .percard{flex:0 0 auto;width:118px;scroll-snap-align:start;text-align:center;text-decoration:none;color:inherit}
       #rosterSection .perav{width:96px;height:96px;border-radius:50%;margin:0 auto;position:relative;overflow:hidden;background:var(--inp);border:1px solid var(--line)}
-      #rosterSection .perav img{width:100%;height:100%;object-fit:cover;display:block}
+      #rosterSection .perav img{width:100%;height:100%;object-fit:cover;object-position:center 28%;display:block}
       #rosterSection .perini{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:30px;letter-spacing:.02em}
       #rosterSection .pernm{font-weight:800;font-size:13px;margin-top:8px;color:var(--txt);line-height:1.2;overflow-wrap:anywhere}
       #rosterSection .persp{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
+      #rosterSection .pernophoto{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.25;opacity:.8}
     </style>
     <div id="rosterSection" hidden>
       <div id="coachBlock" hidden>
@@ -714,6 +715,12 @@
           <div class="sec gsec" data-en="Our doctors" data-id="Dokter kami" style="margin:0">Our doctors</div>
         </div>
         <div class="hscroll" id="doctorRail"></div>
+      </div>
+      <div id="physioBlock" hidden>
+        <div class="trk-head" style="margin-top:12px">
+          <div class="sec gsec" data-en="Our physiotherapists" data-id="Fisioterapis kami" style="margin:0">Our physiotherapists</div>
+        </div>
+        <div class="hscroll" id="physioRail"></div>
       </div>
     </div>
   </div>
@@ -1307,9 +1314,9 @@
       var MEDIA3D_BASE = "https://media.20fit.id/wp-content/uploads/2026/09/";
       var TILE_IMG3D = {
         medical: "Menu-Medical-Checkup-1.png", membership: "Menu-Membership-1.png",
-        diet: "Menu-Food-1.png", "book-class": "Menu-Coach-1.png",
+        diet: "Menu-Food-1.png", "book-class": "Vector-20FIT-Gym-1.png",
         "book-doctor": "Menu-Doctor-1.png", "book-coach": "Menu-Coach-1.png",
-        "book-recovery": "Menu-Doctor-1.png", news: "Vector-20FIT-Media-1.png",
+        "book-recovery": "Vector-20FIT-Clinic-1.png", news: "Vector-20FIT-Media-1.png",
       };
       function svcTile(o) {
         var svg = '<svg viewBox="0 0 24 24" aria-hidden="true">' + (IC[o.ic] || "") + '</svg>';
@@ -1444,36 +1451,60 @@
       // Sumber: /api/coaches + /api/doctors (roster CMS my20fit_). Blok disembunyikan penuh
       // saat kosong (dokter kosong sampai admin isi -> tak ada kartu kosong). Foto fallback =
       // inisial di atas blok warna. Klik coach -> halaman detail /book-coach?coach=<id>.
+
+      // Foto gagal dimuat -> sembunyikan <img>, tampilkan inisial, lalu buka tanda
+      // "foto belum ada" pada kartu itu. Global karena dipanggil dari atribut onerror.
+      window.rosterPhotoFail = function (img) {
+        img.style.display = "none";
+        var ini = img.parentNode && img.parentNode.querySelector(".perini");
+        if (ini) ini.style.display = "grid";
+        var card = img.closest && img.closest(".percard");
+        var mark = card && card.querySelector(".pernophoto");
+        if (mark) mark.hidden = false;
+      };
+
       window.buildRoster = function () {
         var sec = document.getElementById("rosterSection"); if (!sec) return;
         var PAL = ["#C41101", "#2A7A4F", "#2F6BFF", "#7c5cff", "#C87000", "#0EA5A5", "#B0308A", "#4A5568"];
         function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
         function initials(n) { var p = String(n || "").trim().split(/\s+/); var a = (p[0] || "")[0] || "", b = (p.length > 1 ? (p[p.length - 1][0] || "") : ""); return (a + b).toUpperCase() || "?"; }
         function colorFor(n) { var s = String(n || ""), h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return PAL[h % PAL.length]; }
+        var NOPHOTO = { en: "Photo not available", id: "Foto belum ada" };
         function avatar(name, photo) {
           var color = colorFor(name);
-          if (photo) return '<div class="perav"><img src="' + esc(photo) + '" alt="' + esc(name) + '" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'"><span class="perini" style="display:none;background:' + color + '">' + esc(initials(name)) + '</span></div>';
-          return '<div class="perav"><span class="perini" style="background:' + color + '">' + esc(initials(name)) + '</span></div>';
+          var ini = '<span class="perini" style="' + (photo ? "display:none;" : "") + 'background:' + color + '">' + esc(initials(name)) + '</span>';
+          if (photo) return '<div class="perav"><img src="' + esc(photo) + '" alt="' + esc(name) + '" loading="lazy" onerror="rosterPhotoFail(this)">' + ini + '</div>';
+          return '<div class="perav">' + ini + '</div>';
         }
         function fill(rail, items, linkFn) {
           rail.innerHTML = items.map(function (p) {
-            var inner = avatar(p.name, p.photo_url) + '<div class="pernm">' + esc(p.name) + '</div>' + (p.speciality ? '<div class="persp">' + esc(p.speciality) + '</div>' : '');
+            // Tanda "foto belum ada": tampil saat photo_url kosong, dan dibuka oleh
+            // rosterPhotoFail() kalau URL-nya ada tapi gagal dimuat (mis. 404) — supaya
+            // URL rusak terlihat saat review, bukan diam-diam jatuh ke inisial.
+            var inner = avatar(p.name, p.photo_url) + '<div class="pernm">' + esc(p.name) + '</div>'
+              + (p.speciality ? '<div class="persp">' + esc(p.speciality) + '</div>' : '')
+              + '<div class="pernophoto" data-en="' + esc(NOPHOTO.en) + '" data-id="' + esc(NOPHOTO.id) + '"'
+              + (p.photo_url ? " hidden" : "") + '>' + esc(Lx(NOPHOTO)) + '</div>';
             var href = linkFn ? linkFn(p) : null;
             return href ? '<a class="percard" href="' + esc(href) + '">' + inner + '</a>' : '<div class="percard">' + inner + '</div>';
           }).join("");
         }
-        fetch("/api/coaches").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
-          var cb = document.getElementById("coachBlock"), rail = document.getElementById("coachRail");
-          var list = (j && j.ok && j.coaches) || [];
-          if (list.length && rail) { fill(rail, list, function (p) { return "/book-coach?coach=" + encodeURIComponent(p.id); }); cb.hidden = false; sec.hidden = false; }
-          else if (cb) { cb.hidden = true; }
-        }).catch(function () {});
-        fetch("/api/doctors").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
-          var db = document.getElementById("doctorBlock"), rail = document.getElementById("doctorRail");
-          var list = (j && j.ok && j.doctors) || [];
-          if (list.length && rail) { fill(rail, list, null); db.hidden = false; sec.hidden = false; }
-          else if (db) { db.hidden = true; }
-        }).catch(function () {});
+        // Tiga rail berpola sama; hanya kartu coach yang bisa diklik ke halaman detail.
+        // Blok yang listnya kosong tetap disembunyikan penuh -> tak ada judul menggantung.
+        [
+          { url: "/api/coaches", key: "coaches", block: "coachBlock", rail: "coachRail",
+            link: function (p) { return "/book-coach?coach=" + encodeURIComponent(p.id); } },
+          { url: "/api/doctors", key: "doctors", block: "doctorBlock", rail: "doctorRail", link: null },
+          { url: "/api/physiotherapists", key: "physiotherapists", block: "physioBlock", rail: "physioRail", link: null },
+        ].forEach(function (c) {
+          fetch(c.url).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+            var blk = document.getElementById(c.block), rail = document.getElementById(c.rail);
+            if (!blk) return;
+            var list = (j && j.ok && j[c.key]) || [];
+            if (list.length && rail) { fill(rail, list, c.link); blk.hidden = false; sec.hidden = false; }
+            else { blk.hidden = true; }
+          }).catch(function () {});
+        });
       };
 
       // ---- Sync layer: state pin/toggle home tersinkron lintas-device per akun ----
@@ -2333,6 +2364,231 @@
       .then(function(r){return r.json();})
       .then(function(j){ if(j&&j.ok&&(j.banners||[]).length) render(j.banners); })
       .catch(function(){});
+  })();
+  </script>
+
+  <!-- ======================================================================
+       HOMEPAGE TOP-RIGHT: menu profil + toggle "Semua Produk 20FIT".
+       Disisipkan ke baris .topfab (dibuat js/i18n.js) → berdampingan dgn
+       toggle EN/ID + tema. Homepage-only (cuma di dashboard.html).
+       Data profil per-user dari Auth (getUser/getProfile); foto = avatar_url,
+       fallback inisial. Produk: internal (in-app), subdomain via SSO (tanpa
+       login ulang, token tak nyangkut di URL), eksternal same-tab.
+       ====================================================================== -->
+  <style>
+    .hpx-ctl{position:relative;display:flex;align-items:center}
+    .hpx-btn{display:flex;align-items:center;gap:7px;background:var(--card,#fff);border:1px solid var(--line,#E8E2DB);
+      border-radius:10px;padding:5px 9px;box-shadow:0 4px 16px rgba(0,0,0,.20);cursor:pointer;color:var(--ink,#15171C);
+      font-weight:800;font-size:12px;font-family:inherit;max-width:180px;line-height:1}
+    .hpx-btn:focus-visible{outline:2px solid var(--red,#C41101);outline-offset:2px}
+    .hpx-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+    .hpx-btn .hpx-cv{width:13px;height:13px;color:var(--muted,#8A8D94);transition:transform .18s}
+    .hpx-btn[aria-expanded="true"] .hpx-cv{transform:rotate(180deg)}
+    .hpx-av{width:26px;height:26px;border-radius:999px;flex:0 0 auto;display:grid;place-items:center;color:#fff;
+      font-weight:800;font-size:11px;background:var(--red,#C41101);background-size:cover;background-position:center;overflow:hidden}
+    /* Mobile-first: di layar sempit tampilkan ikon saja (nama tetap ada di header dropdown)
+       supaya baris top-right tak penuh berdampingan EN/ID + tema. >=560px baru tampil label. */
+    .hpx-nm,.hpx-prlbl{display:none}
+    @media(min-width:560px){ .hpx-nm{display:inline;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .hpx-prlbl{display:inline} }
+    /* Panel diikat ke pojok kanan-atas viewport (bukan ke tombol) supaya tak pernah
+       terpotong di layar HP — tombol profil ada di kiri baris. */
+    .hpx-menu{position:fixed;top:58px;right:10px;z-index:70;width:min(92vw,320px);
+      background:var(--card,#fff);border:1px solid var(--line,#E8E2DB);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.28);
+      padding:7px;overflow:hidden auto;max-height:calc(100vh - 76px)}
+    @media(min-width:900px){ .hpx-menu{top:56px;right:14px} }
+    .hpx-mhd{display:flex;align-items:center;gap:10px;padding:9px 10px 11px;border-bottom:1px solid var(--line,#E8E2DB);margin-bottom:6px}
+    .hpx-mhd .hpx-av{width:38px;height:38px;font-size:14px}
+    .hpx-mhd .mnm{font-weight:800;font-size:13.5px;color:var(--ink);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .hpx-mhd .mem{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .hpx-it{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:transparent;border:0;cursor:pointer;
+      padding:10px 11px;border-radius:10px;color:var(--ink,#15171C);font-weight:650;font-size:13.5px;font-family:inherit;text-decoration:none}
+    .hpx-it:hover,.hpx-it:focus-visible{background:var(--inp,#F2F2F5);outline:none}
+    .hpx-it .ic{width:34px;height:34px;flex:0 0 auto;border-radius:10px;display:grid;place-items:center;background:var(--red-soft,#FCEBED);color:var(--red,#C41101)}
+    .hpx-it .ic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .hpx-it .tx{min-width:0;flex:1}
+    .hpx-it .tx b{display:block;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .hpx-it .tx small{color:var(--muted);font-weight:600;font-size:11px}
+    .hpx-it.danger{color:var(--red,#C41101)} .hpx-it.danger .ic{background:transparent}
+    .hpx-sec{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#8A8D94);font-weight:800;padding:10px 11px 5px}
+    .hpx-badge{flex:0 0 auto;font-size:9.5px;font-weight:800;letter-spacing:.03em;padding:3px 7px;border-radius:999px;
+      background:var(--inp,#F2F2F5);color:var(--muted,#8A8D94);text-transform:uppercase}
+  </style>
+  <script>
+  (function () {
+    // Jalan setelah i18n menaruh .topfab. Kalau belum ada, tunggu sebentar.
+    function ready(cb, tries) {
+      var bar = document.querySelector(".topfab");
+      if (bar) return cb(bar);
+      if ((tries || 0) > 40) return; // ~4s, menyerah diam-diam
+      setTimeout(function () { ready(cb, (tries || 0) + 1); }, 100);
+    }
+    var LL = function (o) { return (window.L ? window.L(o) : (o.id || o.en)); };
+    function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+    function svg(p){ return '<svg viewBox="0 0 24 24" aria-hidden="true">' + p + '</svg>'; }
+    var IC = {
+      caret:'<polyline points="6 9 12 15 18 9"/>',
+      grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',
+      user:'<circle cx="12" cy="8" r="4.5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+      gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+      logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+      home:'<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+      flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+      clip:'<path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/>',
+      chart:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+      bowl:'<path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M12 3v4M9 4v3M15 4v3"/>',
+      book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+      dumbbell:'<path d="M6.5 6.5 17.5 17.5M4 9l1-1M20 15l-1 1M8 4l-2 2 3 3M16 20l2-2-3-3M3 12l2 2M19 10l2 2"/>',
+      coach:'<circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/>',
+      doctor:'<path d="M12 3v4M8 4h8"/><path d="M6 7v5a6 6 0 0 0 12 0V7"/><circle cx="18" cy="17" r="3"/>',
+      heart:'<path d="M19 14c1.5-1.5 3-3.3 3-5.5A4.5 4.5 0 0 0 12 5 4.5 4.5 0 0 0 2 8.5c0 4.5 7 9.5 10 11.5 1.5-1 4-2.8 6-5"/>',
+      card:'<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',
+      gift:'<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
+      ticket:'<path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4z"/><line x1="13" y1="7" x2="13" y2="17"/>',
+      bag:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+      camera:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+      news:'<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9h4"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>',
+      calcheck:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/>',
+      ext:'<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>'
+    };
+
+    // Daftar produk — HANYA yang beneran ada. type: in=internal, sso=Auth.<fn>Sso, ext=eksternal same-tab.
+    var GROUPS = [
+      { title:{en:"In my.20fit",id:"Di my.20fit"}, items:[
+        { ic:"home",  t:{en:"Home",id:"Beranda"},              type:"in",  href:"dashboard.html" },
+        { ic:"clip",  t:{en:"Medical Check-Up",id:"Medical Check-Up"}, type:"in", href:"medical.html" },
+        { ic:"chart", t:{en:"Progress",id:"Progress"},          type:"in",  href:"progress.html" },
+        { ic:"bowl",  t:{en:"Diet · Meal plan",id:"Diet · Rencana makan"}, type:"in", href:"diet.html" },
+        { ic:"dumbbell", t:{en:"Book Class · Arena/Gym",id:"Book Kelas · Arena/Gym"}, type:"in", href:"classes.html" },
+        { ic:"coach", t:{en:"Book Coach",id:"Book Coach"},      type:"in",  href:"book-coach.html" },
+        { ic:"doctor",t:{en:"Book Doctor",id:"Book Dokter"},    type:"in",  href:"book-doctor.html" },
+        { ic:"heart", t:{en:"Book Recovery",id:"Book Recovery"},type:"in",  href:"classes.html?venue=clinic" },
+        { ic:"card",  t:{en:"Membership",id:"Membership"},      type:"in",  href:"membership.html" },
+        { ic:"gift",  t:{en:"Rewards",id:"Rewards"},            type:"in",  href:"rewards.html" },
+        { ic:"ticket",t:{en:"Event · Ticket",id:"Event · Tiket"}, type:"in", href:"event.html" },
+        { ic:"bag",   t:{en:"Purchases",id:"Pembelian"},        type:"in",  href:"purchases.html" }
+      ]},
+      { title:{en:"Open with your account",id:"Buka pakai akunmu"}, badge:{en:"SSO",id:"SSO"}, items:[
+        { ic:"flame", t:{en:"Calorie Scan",id:"Scan Kalori"},   type:"sso", fn:"caloriesSso" },
+        { ic:"book",  t:{en:"Recipes · Menu",id:"Resep · Menu"},type:"sso", fn:"menuSso" },
+        { ic:"camera",t:{en:"Progress Photo",id:"Foto Progres"},type:"sso", fn:"photoSso" }
+      ]},
+      { title:{en:"Other 20FIT sites",id:"Situs 20FIT lainnya"}, badge:{en:"External",id:"Eksternal"}, items:[
+        { ic:"news",  t:{en:"Media · News",id:"Media · Berita"}, type:"ext", href:"https://media.20fit.id" },
+        { ic:"calcheck", t:{en:"Booking 20FIT",id:"Booking 20FIT"}, type:"ext", href:"https://booking.20fit.id" }
+      ]}
+    ];
+
+    ready(function (bar) {
+      var openMenu = null;
+      function closeAll(){ if(openMenu){ openMenu.menu.hidden=true; openMenu.btn.setAttribute("aria-expanded","false"); openMenu=null; } }
+      function toggle(ctl){ if(openMenu===ctl){ closeAll(); return; } closeAll(); ctl.menu.hidden=false; ctl.btn.setAttribute("aria-expanded","true"); openMenu=ctl; }
+      document.addEventListener("click", function(e){ if(openMenu && !openMenu.el.contains(e.target)) closeAll(); });
+      document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeAll(); });
+
+      // ---- avatar helpers (per-user; foto atau inisial) ----
+      function initials(n){ var p=String(n||"").trim().split(/\s+/); var a=(p[0]||"")[0]||"", b=(p.length>1?(p[p.length-1][0]||""):""); return (a+b).toUpperCase()||"?"; }
+      function avaColor(s){ var h=0,i; for(i=0;i<String(s).length;i++){ h=(h*31+String(s).charCodeAt(i))>>>0; } return "hsl("+(h%360)+" 58% 42%)"; }
+      function paintAva(els, name, photo){
+        els.forEach(function(a){
+          a.style.background=avaColor(name||"member");
+          a.textContent=initials(name);
+          if(photo){ a.style.backgroundImage="url('"+photo.replace(/'/g,"%27")+"')"; a.textContent=""; }
+        });
+      }
+
+      // ---------- PRODUCTS control ----------
+      var prod = document.createElement("div"); prod.className="hpx-ctl";
+      prod.innerHTML =
+        '<button class="hpx-btn" id="hpxProdBtn" aria-haspopup="true" aria-expanded="false">'+
+          svg(IC.grid)+'<span class="hpx-prlbl"></span>'+svg(IC.caret).replace("<svg ","<svg class=\"hpx-cv\" ")+
+        '</button>'+
+        '<div class="hpx-menu" id="hpxProdMenu" role="menu" hidden></div>';
+      var prodCtl = { el:prod, btn:prod.querySelector("#hpxProdBtn"), menu:prod.querySelector("#hpxProdMenu") };
+
+      // ---------- PROFILE control ----------
+      var prof = document.createElement("div"); prof.className="hpx-ctl";
+      prof.innerHTML =
+        '<button class="hpx-btn" id="hpxProfBtn" aria-haspopup="true" aria-expanded="false">'+
+          '<span class="hpx-av" aria-hidden="true">·</span><span class="hpx-nm">—</span>'+svg(IC.caret).replace("<svg ","<svg class=\"hpx-cv\" ")+
+        '</button>'+
+        '<div class="hpx-menu" id="hpxProfMenu" role="menu" hidden></div>';
+      var profCtl = { el:prof, btn:prof.querySelector("#hpxProfBtn"), menu:prof.querySelector("#hpxProfMenu") };
+
+      // Sisipkan di depan baris top-right (kiri dari EN/ID + tema).
+      bar.insertBefore(prodCtl.el, bar.firstChild);
+      bar.insertBefore(profCtl.el, bar.firstChild);
+
+      prodCtl.btn.addEventListener("click", function(e){ e.stopPropagation(); toggle(prodCtl); });
+      profCtl.btn.addEventListener("click", function(e){ e.stopPropagation(); toggle(profCtl); });
+
+      // ---- render produk ----
+      function openProduct(it){
+        closeAll();
+        if(it.type==="in"){ location.href=it.href; return; }
+        if(it.type==="ext"){ location.href=it.href; return; }         // same-tab (aturan: dilarang tab baru)
+        if(it.type==="sso"){                                          // subdomain: SSO tanpa login ulang
+          if(window.Auth && typeof Auth[it.fn]==="function"){ Auth[it.fn](); }
+          else { location.href="login.html"; }
+        }
+      }
+      function renderProd(){
+        var html="";
+        GROUPS.forEach(function(g){
+          html += '<div class="hpx-sec">'+esc(LL(g.title))+(g.badge?' · '+esc(LL(g.badge)):'')+'</div>';
+          g.items.forEach(function(it,idx){
+            var badge = it.type==="ext"?'<span class="hpx-badge">'+esc(LL({en:"External",id:"Eksternal"}))+'</span>'
+                       : it.type==="sso"?'<span class="hpx-badge">SSO</span>':'';
+            html += '<button class="hpx-it" role="menuitem" data-g="'+GROUPS.indexOf(g)+'" data-i="'+idx+'">'+
+              '<span class="ic">'+svg(IC[it.ic]||IC.grid)+'</span><span class="tx"><b>'+esc(LL(it.t))+'</b></span>'+badge+'</button>';
+          });
+        });
+        prodCtl.menu.innerHTML=html;
+        prodCtl.menu.querySelectorAll(".hpx-it").forEach(function(b){
+          b.addEventListener("click", function(){ openProduct(GROUPS[+b.dataset.g].items[+b.dataset.i]); });
+        });
+        var lbl=prod.querySelector(".hpx-prlbl"); if(lbl) lbl.textContent=LL({en:"Products",id:"Produk"});
+        prodCtl.btn.setAttribute("aria-label", LL({en:"All 20FIT products",id:"Semua produk 20FIT"}));
+      }
+
+      // ---- render profil menu ----
+      var uName="", uEmail="", uPhoto="";
+      function renderProf(){
+        profCtl.menu.innerHTML =
+          '<div class="hpx-mhd"><span class="hpx-av" aria-hidden="true">·</span>'+
+            '<div style="min-width:0"><div class="mnm">'+esc(uName||LL({en:"Member",id:"Member"}))+'</div>'+
+            '<div class="mem">'+esc(uEmail||"")+'</div></div></div>'+
+          '<a class="hpx-it" role="menuitem" href="profile.html"><span class="ic">'+svg(IC.user)+'</span><span class="tx"><b>'+esc(LL({en:"View Profile",id:"Lihat Profil"}))+'</b></span></a>'+
+          '<a class="hpx-it" role="menuitem" href="profile.html"><span class="ic">'+svg(IC.gear)+'</span><span class="tx"><b>'+esc(LL({en:"Settings",id:"Pengaturan"}))+'</b></span></a>'+
+          '<button class="hpx-it danger" role="menuitem" id="hpxLogout"><span class="ic">'+svg(IC.logout)+'</span><span class="tx"><b>'+esc(LL({en:"Log Out",id:"Keluar"}))+'</b></span></button>';
+        // repaint avatar di header menu + tombol
+        paintAva([profCtl.menu.querySelector(".hpx-av"), prof.querySelector(".hpx-av")], uName, uPhoto);
+        var lo=profCtl.menu.querySelector("#hpxLogout");
+        if(lo) lo.addEventListener("click", async function(){ closeAll(); try{ if(window.Auth&&Auth.signOut){ await Auth.signOut(); } }catch(e){} location.href="login.html"; });
+        var nm=prof.querySelector(".hpx-nm"); if(nm) nm.textContent = uName || LL({en:"Member",id:"Member"});
+      }
+
+      renderProd(); renderProf();
+
+      // isi data user (per-user; tak ke-expose ke user lain)
+      (function loadUser(){
+        try{
+          if(!(window.Auth && Auth.getUser)) return;
+          Auth.getUser().then(function(u){
+            if(!u) { location.href="login.html"; return; }
+            uEmail = u.email || "";
+            uName = (u.user_metadata && u.user_metadata.full_name) || (uEmail?uEmail.split("@")[0]:"Member");
+            try{ var cv=localStorage.getItem("my20fit_avatar_"+(u.id||"me")); if(cv) uPhoto=cv; }catch(e){}
+            renderProf();
+            if(Auth.getProfile) Auth.getProfile().then(function(p){
+              if(p){ if(p.full_name) uName=p.full_name; if(p.avatar_url){ uPhoto=p.avatar_url; try{localStorage.setItem("my20fit_avatar_"+(u.id||"me"),p.avatar_url);}catch(e2){} } renderProf(); }
+            }).catch(function(){});
+          }).catch(function(){});
+        }catch(e){}
+      })();
+
+      // ikut ganti bahasa
+      if(window.I18N && I18N.onChange) I18N.onChange(function(){ renderProd(); renderProf(); });
+    });
   })();
   </script>
 
