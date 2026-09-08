@@ -1456,14 +1456,21 @@ const SCAN_PACKAGES = {
 // /api/v1/auth/login/google). Yang perlu di server hanyalah GOOGLE_CLIENT_ID
 // (nilai PUBLIK — memang tampil di web). Tidak perlu Client Secret / Redirect URI.
 //
-// Nilai diambil dari env GOOGLE_CLIENT_ID (bisa beda per environment: local /
-// staging / production). Ada DEFAULT publik (Client ID web app 20FIT) supaya
-// tombol Google SELALU tampil walau env belum diisi — pola yang sama dengan
-// Supabase URL/anon key yang juga punya default publik di kode. Client ID
-// bersifat PUBLIK (bukan secret). Frontend mengambilnya lewat GET /api/config
-// (satu sumber). Untuk override, set env GOOGLE_CLIENT_ID di Railway.
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ||
-  "26509397037-8d1s0c39hb31738fcl816b8jrv7fdt6i.apps.googleusercontent.com";
+// Nilai HANYA dari env GOOGLE_CLIENT_ID (bisa beda per environment: local /
+// staging / production). Client ID bersifat PUBLIK (bukan secret). Frontend
+// mengambilnya lewat GET /api/config (satu sumber).
+//
+// TIDAK ADA nilai default. Dulu ada default hardcoded
+// "26509397037-8d1s0c39hb31738fcl816b8jrv7fdt6i" yang dikira "Client ID web app
+// 20FIT" — ternyata itu Client ID **iOS** milik app mobile (terdaftar sebagai
+// reversed-client-id di `ios/Runner/Info.plist` → `CFBundleURLSchemes`). Client
+// bertipe iOS TIDAK PUNYA kolom "Authorized JavaScript origins" sama sekali,
+// jadi GIS di web selalu ditolak Google dengan
+// `Error 401: invalid_client` + "no registered origin" — apa pun origin-nya.
+// Default itu bukan jaring pengaman; ia menjamin tombol Google rusak diam-diam.
+// Kosong = tombol Google disembunyikan (login.html sudah menangani ini dan
+// menulis peringatan di console), bukan tombol yang menabrak halaman error Google.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 // Ambil profil user dari 20FIT pakai access_token (Bearer). Return field yg kita pakai.
 async function fetch20fitProfile(fitcoToken) {
   const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null, fitcoUserId: null };
@@ -1608,10 +1615,21 @@ app.post("/api/fitco-login", async (req, res) => {
 // dulu (verifyGoogleIdToken), baru API 20FIT ikut memverifikasi — defense-in-depth.
 // Verifikasi Google ID token ke Google (tanda tangan, iss, aud, exp) SEBELUM dipercaya.
 // audience = web client ID + (opsional) client ID mobile via env GOOGLE_CLIENT_IDS (koma).
+// PENTING: app mobile menandatangani ID token-nya dengan client ID iOS/Android-nya
+// sendiri, jadi client ID itu HARUS ada di GOOGLE_CLIENT_IDS — kalau tidak, login
+// Google dari app mobile ditolak di sini walau webnya benar.
 const googleVerifier = new OAuth2Client();
 async function verifyGoogleIdToken(credential) {
+  // filter(Boolean) juga membuang GOOGLE_CLIENT_ID yang kosong (env belum diisi),
+  // supaya audiens "" tak pernah ikut dikirim ke verifier.
   const audiences = [GOOGLE_CLIENT_ID, ...String(process.env.GOOGLE_CLIENT_IDS || "")
-    .split(",").map((s) => s.trim()).filter(Boolean)];
+    .split(",").map((s) => s.trim())].filter(Boolean);
+  // Tanpa satu pun audiens terdaftar, verifikasi audience tak bisa ditegakkan —
+  // TOLAK, jangan terima token apa pun. (Daftar kosong bisa membuat verifier
+  // melewati cek `aud`, artinya ID token dari app Google MANA PUN akan lolos.)
+  if (!audiences.length) {
+    const err = new Error("Login Google belum dikonfigurasi di server."); err.status = 503; throw err;
+  }
   let ticket;
   try {
     ticket = await googleVerifier.verifyIdToken({ idToken: credential, audience: audiences });
