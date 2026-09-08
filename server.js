@@ -7779,6 +7779,10 @@ app.get("/payment/failed", (req, res) => {
   res.sendFile(path.join(__dirname, "payment-failed.html"));
 });
 
+// Diet -> Recipe: halaman /diet di-rename jadi /recipe (recipe.html). Redirect
+// permanen supaya tautan/bookmark lama tetap jalan. Tangani sebelum static+.html.
+app.get(["/diet", "/diet.html"], (req, res) => res.redirect(301, "/recipe"));
+
 // ---------- Static (URL bersih tanpa .html) + fallback ----------
 // Redirect /halaman.html -> /halaman (querystring dipertahankan), lalu sajikan
 // /halaman dari halaman.html lewat opsi extensions. Jadi URL nggak ada ".html" lagi.
