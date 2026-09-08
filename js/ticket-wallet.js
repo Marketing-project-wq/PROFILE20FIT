@@ -12,7 +12,7 @@
 
    Cara pakai (host tak terikat markup internal):
      TicketWallet.onRender(fn)          // daftarkan callback; dipanggil tiap state berubah
-     TicketWallet.init({eagerUpcoming}) // muat data (tickets selalu; upcoming eager utk /event)
+     TicketWallet.init()               // muat data (tiket + katalog event, dua-duanya)
      host tempel: el.innerHTML = TicketWallet.renderInner({layout:"caro"|"grid"})
    Global onclick diekspos (tktSetTab / loadUpcoming / loadTickets / twkZoom / twkCaroScroll)
    supaya markup inline jalan di kedua halaman.
@@ -64,11 +64,13 @@
       }
     } catch (e) { TICKETS = []; REASON = "upstream_unavailable"; }
     // Tentukan tab default sekali, setelah tahu apakah user punya tiket.
+    // PUNYA tiket  -> "Tiket Saya" (tiketnya + QR-nya yang paling dicari).
+    // TIDAK punya   -> "Mendatang", APA PUN sebabnya. User yang belum beli harus melihat
+    //                  event yang bisa dibeli, bukan halaman kosong.
+    // Sebab kegagalan tidak ikut hilang: tab "Tiket Saya" tetap memuat pesannya
+    // (verifikasi email / coba lagi) dan tombol tabnya diberi tanda "!" — lihat renderInner.
     if (!tabTouched) {
-      // Tetap di "Tiket Saya" kalau punya tiket ATAU kalau pengambilannya gagal — kalau
-      // gagal lalu dilempar ke "Mendatang", pesan kegagalannya tak akan pernah terlihat.
-      var gagal = REASON && REASON !== "no_tickets";
-      if ((TICKETS && TICKETS.length) || gagal) { TAB = "mine"; }
+      if (TICKETS && TICKETS.length) { TAB = "mine"; }
       else { TAB = "upcoming"; if (UPCOMING === null || UPCOMING === "error") window.loadUpcoming(); }
     }
     notify();
@@ -296,8 +298,13 @@
     opts = opts || {};
     var layout = opts.layout === "grid" ? "grid" : "caro";
     var tab = effTab();
+    // Badge tab "Tiket Saya": jumlah tiket. Kalau pengambilannya GAGAL (perlu verifikasi /
+    // upstream mati), angka 0 menyesatkan — terbaca "kamu tidak punya tiket". Tampilkan "!"
+    // supaya kegagalan tetap terlihat walau tab defaultnya sekarang "Mendatang".
+    var mineGagal = !!(TICKETS && !TICKETS.length && REASON && REASON !== "no_tickets");
+    var mineBadge = mineGagal ? "!" : (TICKETS ? TICKETS.length : 0);
     var tabs = '<div class="twk-tabs" role="tablist"><div class="twk-slider' + (tab === "upcoming" ? " right" : "") + '" aria-hidden="true"></div>' +
-      '<button type="button" role="tab" class="twk-tab' + (tab === "mine" ? " on" : "") + '" onclick="tktSetTab(\'mine\')">' + Lx({ en: "My Ticket", id: "Tiket Saya" }) + ' <span class="twk-count">' + (TICKETS ? TICKETS.length : 0) + '</span></button>' +
+      '<button type="button" role="tab" class="twk-tab' + (tab === "mine" ? " on" : "") + '" onclick="tktSetTab(\'mine\')"' + (mineGagal ? ' title="' + Lx({ en: "Couldn’t load your tickets", id: "Tiketmu gagal dimuat" }) + '"' : '') + '>' + Lx({ en: "My Ticket", id: "Tiket Saya" }) + ' <span class="twk-count">' + mineBadge + '</span></button>' +
       '<button type="button" role="tab" class="twk-tab' + (tab === "upcoming" ? " on" : "") + '" onclick="tktSetTab(\'upcoming\')">' + Lx({ en: "Upcoming", id: "Mendatang" }) + ' <span class="twk-count">' + (Array.isArray(UPCOMING) ? UPCOMING.length : 0) + '</span></button></div>';
     var body;
     if (tab === "upcoming") {
@@ -319,7 +326,10 @@
   window.TicketWallet = {
     onRender: function (fn) { if (typeof fn === "function") cbs.push(fn); },
     renderInner: renderInner,
-    init: function (opts) { opts = opts || {}; window.loadTickets(); if (opts.eagerUpcoming) window.loadUpcoming(); },
+    // Keduanya dimuat di awal: "Mendatang" kini tab default untuk user yang belum punya
+    // tiket, jadi datanya harus sudah jalan bersamaan — bukan baru ditarik setelah tiket
+    // selesai (itu membuat skeleton muncul dua kali).
+    init: function () { window.loadTickets(); window.loadUpcoming(); },
     counts: function () { return { tickets: (TICKETS ? TICKETS.length : 0), upcoming: (Array.isArray(UPCOMING) ? UPCOMING.length : 0) }; },
     tab: function () { return effTab(); }
   };
