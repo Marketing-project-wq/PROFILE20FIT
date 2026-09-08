@@ -1119,13 +1119,13 @@ function readCookie(req, name) {
   }
   return null;
 }
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ANON_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // anon_id yang DIBAWA KLIEN (cookie my20fit_anon di .20fit.id, dibagikan lintas app 20FIT).
 // Dioper via header x-anon-id / ?anon= / body.anon_id. Ini kunci penyatuan data anon lintas
 // properti: semua app pakai id yang SAMA, jadi scan/like/kontribusi anon ketemu satu akun.
 function clientAnonId(req) {
   var v = String((req.headers && req.headers["x-anon-id"]) || (req.query && req.query.anon) || (req.body && req.body.anon_id) || "").trim();
-  return UUID_RE.test(v) ? v : null;
+  return ANON_UUID_RE.test(v) ? v : null;
 }
 // Cookie anon BERSAMA (JS-readable) di .20fit.id supaya semua *.20fit.id memakai id yang sama
 // + bisa dibaca app untuk klaim saat login. Bukan pengganti eco_anon (httpOnly) di same-origin.
