@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-07 · **Commit staging:** `62ff6b2`
+> **Pembaruan terakhir:** 2026-09-08 · **Commit staging:** `a8e89a8`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -53,6 +53,12 @@ naikkan resource — **butuh akses dashboard Railway (di luar agent).**
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
 
+- **Tiket user tidak muncul — akar masalahnya DI LUAR repo ini (PR #417).** Tiket **tidak disimpan di Supabase kita**: sapuan `pg_stat_user_tables` menunjukkan tak ada tabel yang menerima pembelian tiket baru, dan `my20fit_orders` berisi **nol** `kind='ticket'`. Tiket hidup di **ticket.20fit.id**, dibaca lewat edge function `ticket-embed`.
+  - **Titik gagal:** `POST /api/embed/v1/partner/user-token` balas **404 pada 141 dari 143 panggilan** (log edge fn 24 jam; action dipisah lewat ukuran body request — `user_token`=23 B, `events`=19 B, `my_tickets`=282–321 B). Langkah `my_tickets` sendiri **selalu 200** saat tokennya terbit, termasuk mengembalikan tiket asli. Jadi pipeline utuh; yang gagal penukaran email→token.
+  - **Sudah disingkirkan:** `TICKET_EMBED_KEY` terpasang (`events` → 200); email profil vs `auth.users` **0 beda** dari 1374; email di `my20fit_buyer_identities` **0 beda** dari 921.
+  - **Sudah diperbaiki di PR #417:** `/api/tickets/mine` kini membawa `reason` + `source` saat kosong, dan widget membedakan "belum beli" / "akun tak dikenali penerbit" / "gagal memuat". Sebelumnya semua kegagalan tampil sama sebagai "Belum ada tiket" sehingga masalah tak pernah terlihat. `?debug=1` (superadmin) membuka respons mentah upstream.
+  - **TANYA PEMILIK ticket.20fit.id:** (1) apakah 404 di `/partner/user-token` memang berarti "email belum terdaftar"? (2) adakah endpoint untuk mendaftarkan/menautkan email, atau mencari pembeli lewat nomor HP? Sampai itu terjawab, tiket user tetap tidak akan muncul.
+  - **Arsip `event_transaction` bukan data hidup** — impor batch invoice, `paid_at` terbaru 2026-08-11, impor terakhir 2026-08-18. Tetap disajikan (isinya pembelian nyata; 242 dari 1374 user app punya email di sana) tapi ditandai `source:"archive"`. Pembelian baru tak akan pernah muncul di sana.
 - **CMS admin fisioterapis BELUM ADA.** `my20fit_physiotherapists` sudah dipakai frontend, tapi belum punya seksi di `/admin-v2` seperti dokter & coach — untuk sekarang hanya bisa diedit lewat SQL. Endpoint `/api/admin/physiotherapists` juga belum dibuat.
 - **Ikon 3D: latar menyatu di dalam file PNG.** Kotak CSS sudah transparan (`.s2-ic.s2-ic3d` → `background rgba(0,0,0,0)`, terverifikasi via computed style), jadi latar yang terlihat berasal dari file di `media.20fit.id`. **TANYA PEMILIK:** perlu PNG versi transparan. Ikon 3D **Reward** juga belum ada filenya — tile Rewards masih SVG (`ic:"gift"`).
 - **dr. Ande belum ada foto.** URL yang diberikan menunjuk file dr. Anna; tidak dipasang demi menghindari salah orang. Sementara pakai placeholder inisial + penanda.
