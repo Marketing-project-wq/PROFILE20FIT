@@ -87,8 +87,8 @@
       corp_title:"Corporate Program",
       prof_del_title:"Delete account", prof_del_warn:"This permanently deletes your profile, health data (MCU), daily logs, menu contributions, and purchase history. It cannot be undone.", prof_del_type:"Type DELETE to confirm", prof_del_confirm:"Delete permanently",
       // diet
-      diet_title:"Diet",
-      diet_intro:"20FIT meal recommendations — pick a diet type, then tap a dish for the full recipe.",
+      diet_title:"Recipe",
+      diet_intro:"20FIT recipes & member menus — pick a diet type, then tap a dish for the full recipe. Contribute your own anytime.",
       diet_disc:"Calorie & macro figures are estimates for portion guidance — not a substitute for professional nutrition advice. Photos are placeholders; real photos coming soon.",
       diet_recipes_loading:"Loading recipes…",
       diet_none:"No recipes for this type yet.",
@@ -205,8 +205,8 @@
       corp_title:"Program Korporat",
       prof_del_title:"Hapus akun", prof_del_warn:"Ini menghapus permanen profil, data kesehatan (MCU), log harian, kontribusi menu, dan riwayat pembelianmu. Tidak bisa dibatalkan.", prof_del_type:"Ketik DELETE untuk konfirmasi", prof_del_confirm:"Hapus permanen",
       // diet
-      diet_title:"Diet",
-      diet_intro:"Rekomendasi menu dari 20FIT — pilih tipe diet, lalu ketuk menu untuk resep lengkapnya.",
+      diet_title:"Resep",
+      diet_intro:"Resep 20FIT & menu dari member — pilih tipe diet, lalu ketuk menu untuk resep lengkapnya. Sumbang resepmu kapan saja.",
       diet_disc:"Angka kalori & makro adalah perkiraan untuk panduan porsi — bukan pengganti saran ahli gizi. Foto masih placeholder; foto asli menyusul.",
       diet_recipes_loading:"Memuat resep…",
       diet_none:"Belum ada resep untuk tipe ini.",
