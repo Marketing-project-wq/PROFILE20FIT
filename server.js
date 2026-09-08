@@ -4883,6 +4883,28 @@ app.get("/api/menu/article-categories", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// Estimasi menit baca dari panjang teks (~200 kata/mnt). Buang gambar & URL markdown.
+// SATU rumus dipakai bareng (my.20fit + recipe.20fit lewat endpoint di bawah).
+function computeReadMinutes(body) {
+  var words = String(body || "")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\]\([^)]*\)/g, "] ")
+    .replace(/[#*_>`~-]/g, " ").trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+// PUBLIK: peta { slug -> menit baca } semua artikel terbit (dihitung dari body_md di server).
+// SUMBER TUNGGAL: menggantikan pembacaan Supabase langsung di recipe.20fit (readtime.ts).
+app.get("/api/menu/article-readtimes", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, minutes: {} });
+    var { data } = await admin.from("my20fit_recipe_article")
+      .select("slug,body_md,body_md_id,body_md_en").eq("status", "published");
+    var out = {};
+    (data || []).forEach(function (r) { if (r.slug) out[r.slug] = computeReadMinutes(r.body_md || r.body_md_id || r.body_md_en || ""); });
+    res.set("Cache-Control", "public, max-age=300");
+    return res.json({ ok: true, minutes: out });
+  } catch (e) { return res.json({ ok: true, minutes: {} }); }
+});
+
 // PUBLIK: satu artikel terbit (full body dari body_md) + resep terkait. Sadar bahasa.
 app.get("/api/menu/articles/:slug", async (req, res) => {
   try {
