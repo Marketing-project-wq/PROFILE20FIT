@@ -12,12 +12,12 @@
   };
   const svg = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + '</svg>';
 
-  // Ikon 3D (PNG lokal dari repo, /img/nav/*.png) — hasil bake dari vektor Canva
-  // (Footer *.svg) dengan background DIHAPUS (transparan), jadi ikon "melayang" bukan
-  // gambar putih ditempel. Disajikan same-origin dari git, bukan CDN media.20fit.id
-  // (yang versinya masih ber-background putih). Kalau gagal load -> fallback ke ikon
-  // SVG lama (onerror) supaya tampilan tak jebol. 'scan' TETAP SVG (belum ada gambar 3D).
-  const IMG3D = {
+  // Ikon garis (line) lokal dari repo, /img/nav/*.png — hasil ekstraksi dari vektor
+  // Canva jadi MASK alfa (bentuk garis saja, tanpa warna). Dirender sebagai CSS mask
+  // lalu diwarnai `currentColor`, jadi WARNA GARIS mengikuti tema — abu muted saat tak
+  // aktif, merah saat aktif, dan menyesuaikan light/dark — TIDAK PERNAH hitam.
+  // Disajikan same-origin dari git. 'scan' TETAP SVG (belum ada gambar).
+  const NAVICON = {
     home:     "/img/nav/home.png",
     event:    "/img/nav/event.png",
     calories: "/img/nav/calories.png",
@@ -25,11 +25,9 @@
     profile:  "/img/nav/profile.png",
   };
   const iconHtml = (k) => {
-    const u = IMG3D[k];
+    const u = NAVICON[k];
     if (!u) return svg(k);
-    return '<span class="ico3d"><img src="' + u + '" alt="" loading="lazy" decoding="async" ' +
-      'onerror="this.style.display=\'none\';var f=this.nextElementSibling;if(f)f.hidden=false">' +
-      '<span class="icofb" hidden>' + svg(k) + '</span></span>';
+    return '<span class="navico" style="-webkit-mask-image:url(\'' + u + '\');mask-image:url(\'' + u + '\')"></span>';
   };
 
   const items = [
@@ -81,23 +79,27 @@
     .navside .sfoot .em{font-family:${SYS};font-size:11.5px;color:var(--muted,#8A8D94);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
     /* ---------- BOTTOM NAV + FAB (mobile <900px) — flat v4 ---------- */
-    .bnav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:space-around;gap:8px;
-      padding:9px 12px calc(9px + env(safe-area-inset-bottom));
-      background:color-mix(in srgb,var(--bg,#F1F1F4) 82%,transparent);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);
-      border-top:1px solid var(--line,#EBEBEF)}
+    /* Bilah bawah MELAYANG: ada jarak dari tepi kiri/kanan/bawah, sudut membulat, bayangan
+       lembut (senada kartu), hormati safe-area iPhone. Konten halaman diberi padding bawah
+       cukup (lihat @media di bawah) supaya baris terakhir tak tertutup bilah. */
+    .bnav{position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:40;
+      display:flex;justify-content:space-around;gap:6px;padding:8px 10px;border-radius:22px;
+      background:color-mix(in srgb,var(--card,#fff) 90%,transparent);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);
+      border:1px solid var(--line,#EBEBEF);box-shadow:0 8px 28px rgba(0,0,0,.14),0 2px 8px rgba(0,0,0,.06)}
     .bnav a{flex:1;max-width:76px;min-height:44px;text-align:center;text-decoration:none;color:var(--faint,#B7B9BF);
       font-family:${SYS};font-size:10.5px;font-weight:650;
       padding:6px 4px;border-radius:999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:.15s}
     .bnav a.on{color:var(--red,#D4283A);background:color-mix(in srgb,var(--red,#D4283A) 12%,transparent)}
     .bnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-    /* Ikon 3D (PNG transparan) — "melayang" tanpa plate, drop-shadow lembut biar
-       terangkat dari latar (samakan gaya dengan ikon grid Home). object-fit contain
-       supaya proporsi terjaga & tajam di retina. */
-    .ico3d{display:inline-flex;align-items:center;justify-content:center;line-height:0;flex:0 0 auto}
-    .ico3d img{display:block;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(0,0,0,.22))}
-    .navside .navi .ico3d img{width:34px;height:34px}
-    .bnav a .ico3d img{width:40px;height:40px;transition:transform .15s}
-    .bnav a.on .ico3d img{transform:translateY(-1px) scale(1.06)}
+    /* Ikon garis (CSS mask) — bentuk dari PNG mask, WARNA dari currentColor. Jadi garis
+       ikut warna teks navigasi: muted saat tak aktif, merah saat aktif, putih di item
+       sidebar aktif — menyesuaikan light/dark, tak pernah hitam. */
+    .navico{display:inline-block;flex:0 0 auto;background-color:currentColor;
+      -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;
+      -webkit-mask-size:contain;mask-size:contain}
+    .navside .navi .navico{width:24px;height:24px}
+    .bnav a .navico{width:26px;height:26px;transition:transform .15s}
+    .bnav a.on .navico{transform:translateY(-1px) scale(1.06)}
     .bnav a.on svg{stroke:var(--red,#D4283A)}
     .scanfab{position:fixed;right:18px;bottom:96px;z-index:41;background:var(--red,#D4283A);color:#fff;border:0;border-radius:50%;
       width:58px;height:58px;font-size:10px;font-weight:750;font-family:${SYS};cursor:pointer;
