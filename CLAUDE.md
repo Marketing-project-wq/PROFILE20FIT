@@ -3,7 +3,7 @@
 Aturan tetap di bawah ini WAJIB diikuti setiap sesi. Ditulis dari instruksi
 pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 
-> **Pembaruan dokumen terakhir:** 2026-09-07 · **Commit staging:** `62ff6b2`
+> **Pembaruan dokumen terakhir:** 2026-09-08 · **Commit staging:** `9ded2e7`
 > Claude Code memuat file ini otomatis di awal sesi. Baca ini dulu, lalu buka
 > dokumen pecahan sesuai kebutuhan.
 
@@ -19,6 +19,7 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 - **`docs/STATUS.md`** — status fitur terkini, utang teknis, keputusan (paling sering berubah; **baca ini untuk tahu kondisi sekarang**).
 - **`docs/DATABASE.md`** — tabel `my20fit_*`, migration, cara jalan DB.
 - **`docs/CODEBASE-MAP.md`** — peta arsitektur/route/API detail (⚠️ **sebagian STALE** — lihat `docs/STATUS.md` §4; verifikasi ke kode).
+- **`docs/TICKET-API-REQUEST.md`** — permintaan teknis ke tim ticket.20fit.id (webhook pembelian / baca pesanan per email) + peta endpoint embed API hasil pengukuran.
 - **`docs/GIT_WORKFLOW.md`**, **`docs/GITHUB_SECRETS.md`** — alur git & penanganan secret.
 - Email: `docs/EMAIL-*.md`, `docs/RESEND-SETUP-AUDIT.md`, `docs/EMAIL-LOGIC-SPEC.md`.
 - Bagian **Tech stack, Struktur repo, Route, Env, Cara menjalankan, Konvensi, Jangan
