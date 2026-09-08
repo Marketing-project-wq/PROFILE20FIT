@@ -630,8 +630,34 @@
   //   1) belum lengkap  -> isi DATA dulu (onboarding)
   //   2) data lengkap tapi belum punya password web -> BUAT PASSWORD
   //   3) lengkap & punya password -> dashboard
+  // TAHAP 2 — penyatuan data: klaim data anonim (scan kalori, like/simpan resep,
+  // kontribusi) ke akun ini setelah login/daftar. anon_id dibagikan lintas *.20fit.id
+  // via cookie `my20fit_anon` atau param handoff `?anon=` saat SSO. Best-effort &
+  // fire-and-forget (tak memblok routing). Idempoten di server (RPC my20fit_claim_anon).
+  function readAnonIds() {
+    var ids = [];
+    try { var m = document.cookie.match(/(?:^|;\s*)my20fit_anon=([^;]+)/); if (m) ids.push(decodeURIComponent(m[1])); } catch (e) {}
+    try { var u = new URLSearchParams(location.search).get("anon"); if (u) ids.push(u); } catch (e) {}
+    try { var s = localStorage.getItem("my20fit_anon"); if (s) ids.push(s); } catch (e) {}
+    return ids.join(",").split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+  }
+  async function claimAnon() {
+    try {
+      var ids = readAnonIds();
+      if (!ids.length) return;
+      var at = await token();
+      if (!at) return;
+      await fetch("/api/anon/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + at },
+        body: JSON.stringify({ anon_ids: ids }),
+      });
+    } catch (e) { /* best-effort; jangan ganggu login */ }
+  }
+
   async function routeAfterAuth() {
     const user = await requireAuth();
+    claimAnon(); // fire-and-forget: pindahkan data anonim ke akun ini (idempoten)
     const profile = await ensureProfile(user);
     // Sengaja HANYA cek fitco_email_verified, TIDAK ikut syaratkan fitco_user_id.
     // fitco_user_id kadang masih null tepat setelah registrasi baru (dia baru
@@ -697,6 +723,7 @@
     getPrefs,
     savePrefs,
     routeAfterAuth,
+    claimAnon,
     token,
     go,
   };
