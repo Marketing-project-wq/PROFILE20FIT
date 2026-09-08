@@ -3,7 +3,10 @@
    SATU sumber kebenaran, TIDAK ada copy-paste antar halaman.
 
    Sumber data:
-     - GET /api/tickets/mine   → tiket yang DIBELI user (per email, dari event_transaction).
+     - GET /api/tickets/mine   → tiket yang DIBELI user. Sumbernya ticket.20fit.id (embed);
+       kalau kosong, jatuh ke arsip event_transaction (impor historis, tanpa QR gerbang).
+       Saat daftarnya kosong, respons membawa `reason` — WAJIB dipakai untuk membedakan
+       "memang belum beli" dari "gagal mengambil". Jangan samakan keduanya.
      - GET /api/events/upcoming→ katalog event on_sale (my20fit_ticket_events, publik).
    Waktu SELALU dirender Asia/Jakarta (WIB).
 
@@ -25,6 +28,10 @@
 
   // ---- STATE ----
   var TICKETS = null;   // null=loading | [] kosong | [..] daftar
+  // REASON dipakai HANYA saat TICKETS kosong: membedakan "memang belum beli" (no_tickets)
+  // dari "kami gagal mengambilnya" (identity_not_recognized / upstream_unavailable / …).
+  // Tanpa ini keduanya tampil sebagai "Belum ada tiket" dan kegagalan nyata tak terlihat.
+  var REASON = null;
   var UPCOMING = null;  // null=loading | "error" gagal | [] sukses-kosong | [..] daftar
   var TAB = null;       // null=belum diputuskan | "mine" | "upcoming"
   var tabTouched = false;
@@ -50,12 +57,17 @@
       else {
         var r = await fetch("/api/tickets/mine", { headers: { Authorization: "Bearer " + t } });
         var j = await r.json().catch(function () { return null; });
-        TICKETS = (r.ok && j && j.ok && Array.isArray(j.tickets)) ? j.tickets : [];
+        if (r.ok && j && j.ok && Array.isArray(j.tickets)) {
+          TICKETS = j.tickets; REASON = j.reason || null;
+        } else { TICKETS = []; REASON = "upstream_unavailable"; }
       }
-    } catch (e) { TICKETS = []; }
+    } catch (e) { TICKETS = []; REASON = "upstream_unavailable"; }
     // Tentukan tab default sekali, setelah tahu apakah user punya tiket.
     if (!tabTouched) {
-      if (TICKETS && TICKETS.length) { TAB = "mine"; }
+      // Tetap di "Tiket Saya" kalau punya tiket ATAU kalau pengambilannya gagal — kalau
+      // gagal lalu dilempar ke "Mendatang", pesan kegagalannya tak akan pernah terlihat.
+      var gagal = REASON && REASON !== "no_tickets";
+      if ((TICKETS && TICKETS.length) || gagal) { TAB = "mine"; }
       else { TAB = "upcoming"; if (UPCOMING === null || UPCOMING === "error") window.loadUpcoming(); }
     }
     notify();
@@ -213,6 +225,26 @@
   window.twkZoomClose = function () { var o = document.getElementById("twkOv"); if (o) o.remove(); };
 
   // ---- RENDER (tabs + body). Host membungkus dengan chrome-nya sendiri. ----
+  // Kosong ≠ selalu "belum beli". Kalau pengambilan yang gagal, katakan apa adanya +
+  // beri langkah yang bisa ditempuh user — jangan menyamar jadi "belum ada tiket".
+  function emptyMineHtml() {
+    if (REASON === "identity_not_recognized") {
+      return '<div class="twk-empty"><h4>' + Lx({ en: "We couldn't find your ticket account", id: "Akunmu belum dikenali di sistem tiket" }) + '</h4><p>'
+        + Lx({ en: "Tickets are issued by ticket.20fit.id. If you bought with a different email than the one you use here, they won't show up. Open the issuer to check.",
+               id: "Tiket diterbitkan ticket.20fit.id. Kalau kamu beli memakai email yang berbeda dari email akun ini, tiketnya tidak akan muncul. Cek langsung di penerbitnya." })
+        + '</p><a class="twk-ghost" href="https://ticket.20fit.id">ticket.20fit.id ↗</a></div>';
+    }
+    if (REASON && REASON !== "no_tickets") {
+      return '<div class="twk-empty"><h4>' + Lx({ en: "Couldn't load your tickets", id: "Gagal memuat tiketmu" }) + '</h4><p>'
+        + Lx({ en: "This is a problem on our side, not an empty wallet. Please try again.",
+               id: "Ini kendala di sisi kami, bukan berarti kamu belum punya tiket. Coba lagi ya." })
+        + '</p><button type="button" class="twk-ghost" onclick="loadTickets()">' + Lx({ en: "Try again", id: "Coba lagi" }) + '</button></div>';
+    }
+    return '<div class="twk-empty"><h4>' + Lx({ en: "No tickets yet", id: "Belum ada tiket" }) + '</h4><p>'
+      + Lx({ en: "Tickets you buy will show here with a QR for check-in.", id: "Tiket yang kamu beli muncul di sini lengkap dengan QR untuk check-in." })
+      + '</p><button type="button" class="twk-ghost" onclick="tktSetTab(\'upcoming\')">' + Lx({ en: "See upcoming events", id: "Lihat event mendatang" }) + '</button></div>';
+  }
+
   function renderInner(opts) {
     opts = opts || {};
     var layout = opts.layout === "grid" ? "grid" : "caro";
@@ -229,7 +261,7 @@
     } else if (TICKETS === null) {
       body = '<div class="twk-list"><div class="tkskel" style="height:120px;border-radius:14px"></div></div>';
     } else if (!TICKETS.length) {
-      body = '<div class="twk-empty"><h4>' + Lx({ en: "No tickets yet", id: "Belum ada tiket" }) + '</h4><p>' + Lx({ en: "Tickets you buy will show here with a QR for check-in.", id: "Tiket yang kamu beli muncul di sini lengkap dengan QR untuk check-in." }) + '</p><button type="button" class="twk-ghost" onclick="tktSetTab(\'upcoming\')">' + Lx({ en: "See upcoming events", id: "Lihat event mendatang" }) + '</button></div>';
+      body = emptyMineHtml();
     } else {
       body = listWrap(TICKETS.map(twkTicketCard).join(""), TICKETS.length, layout);
     }

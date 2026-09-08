@@ -2191,14 +2191,26 @@ function mapEmbedTicket(t) {
     qr: null,
   };
 }
+// Hasil berbentuk {ok, tickets|reason, status, raw} — BUKAN null polos. Alasannya: dulu
+// setiap kegagalan (identitas tak dikenal, upstream mati, bentuk respons berubah) sama-sama
+// jadi null lalu jatuh ke arsip lalu tampil "belum ada tiket" — tak terbedakan dari user yang
+// memang belum beli, sehingga masalah nyata tak pernah kelihatan.
+// Catatan lapangan (log edge fn, 24 jam): 141 dari 143 panggilan `user_token` balas 404 dari
+// ticket.20fit.id, sedangkan `my_tickets` selalu 200 saat tokennya berhasil terbit. Jadi titik
+// gagal yang dominan = penukaran email->token, bukan pengambilan tiketnya.
 async function embedMyTickets(userJwt) {
   const ut = await ticketEmbed(userJwt, "user_token");
   const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
-  if (!userToken) return null;
+  if (!userToken) {
+    // 404 = ticket.20fit.id tak mengenali email sesi ini sebagai user-nya (mis. tiket dibeli
+    // memakai email lain). Selain itu = upstream bermasalah/tak terjangkau.
+    return { ok: false, status: ut.status, raw: ut.data,
+             reason: ut.status === 404 ? "identity_not_recognized" : "upstream_unavailable" };
+  }
   const mt = await ticketEmbed(userJwt, "my_tickets", { userToken });
   const arr = pickArray(mt.data);
-  if (!arr) return null;
-  return arr.map(mapEmbedTicket).filter(t => t.code);
+  if (!arr) return { ok: false, status: mt.status, raw: mt.data, reason: "tickets_unreadable" };
+  return { ok: true, status: mt.status, raw: mt.data, tickets: arr.map(mapEmbedTicket).filter(t => t.code) };
 }
 
 // ---------- /api/tickets/mine : tiket event yang DIBELI user (widget "My Tickets") ----------
@@ -2222,15 +2234,29 @@ app.get("/api/tickets/mine", async (req, res) => {
       const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", user.id).limit(1);
       if (prof && prof[0] && prof[0].email) email = String(prof[0].email).trim().toLowerCase();
     } catch (_) {}
-    if (!email) return res.json({ ok: true, tickets: [] });
-    // SUMBER UTAMA: tiket ASLI + QR dari ticket.20fit.id (embed). Tahan-gagal → fallback di bawah.
-    try {
-      const embedList = await embedMyTickets(bearerOf(req));
-      if (Array.isArray(embedList) && embedList.length) {
-        return res.json({ ok: true, tickets: embedList, source: "embed", count: embedList.length });
-      }
-    } catch (_) {}
-    // FALLBACK: pembelian dari event_transaction (tanpa QR gerbang).
+    if (!email) return res.json({ ok: true, tickets: [], count: 0, source: "none", reason: "no_email" });
+    // ?debug=1 HANYA untuk superadmin (pola sama dengan /api/tickets/qr): berisi respons
+    // mentah upstream, dipakai memetakan kegagalan tanpa menebak.
+    let debug = false;
+    if (String(req.query.debug || "") === "1") {
+      try { const ctx = await getAdminContext(req); debug = !!(ctx && ctx.role === "superadmin"); } catch (_) {}
+    }
+    // SUMBER UTAMA: tiket ASLI + QR dari ticket.20fit.id (embed). Gagal → arsip di bawah,
+    // TAPI sebabnya disimpan supaya tetap bisa dilaporkan kalau arsip juga kosong.
+    let emb = null;
+    try { emb = await embedMyTickets(bearerOf(req)); }
+    catch (e) { emb = { ok: false, status: 0, reason: "upstream_unavailable", raw: String((e && e.message) || e) }; }
+    const dbg = (extra) => {
+      if (!debug) return extra;
+      return Object.assign({}, extra, { debug: { embed: emb } });
+    };
+    if (emb && emb.ok && emb.tickets.length) {
+      return res.json(dbg({ ok: true, tickets: emb.tickets, source: "embed", count: emb.tickets.length }));
+    }
+    // ARSIP: pembelian dari event_transaction. Ini impor batch invoice (historis, tanpa QR
+    // gerbang) — BUKAN data hidup, jadi pembelian baru tidak akan muncul di sini. Tetap
+    // disajikan karena isinya pembelian NYATA milik user; ditandai source:"archive" supaya
+    // tak tertukar dengan tiket aktif dari penerbit.
     let rows = [];
     try {
       const { data, error } = await admin.from("event_transaction")
@@ -2238,7 +2264,10 @@ app.get("/api/tickets/mine", async (req, res) => {
         .ilike("email", email).limit(100);
       if (error) throw error;
       rows = (data || []).filter(r => String(r.email || "").trim().toLowerCase() === email && r.is_excluded !== true);
-    } catch (_) { return res.json({ ok: true, tickets: [] }); }
+    } catch (_) {
+      return res.json(dbg({ ok: true, tickets: [], count: 0, source: "none",
+        reason: (emb && emb.reason) || "archive_unavailable" }));
+    }
     const isPaid = (s) => /paid|settle|success|complete/i.test(String(s || ""));
     const tickets = rows.filter(r => isPaid(r.status)).map(r => ({
       ref: (String(r.invoice_id || "").slice(0, 24)) || null,
@@ -2252,10 +2281,14 @@ app.get("/api/tickets/mine", async (req, res) => {
       qr_pending: true,
     }));
     tickets.sort((a, b) => String(b.paid_at || "").localeCompare(String(a.paid_at || "")));
-    return res.json({ ok: true, tickets, count: tickets.length });
+    if (tickets.length) return res.json(dbg({ ok: true, tickets, count: tickets.length, source: "archive" }));
+    // Benar-benar kosong di kedua sumber. Laporkan SEBABNYA: kalau embed gagal, itu bukan
+    // "belum punya tiket" — frontend harus bilang beda supaya masalah nyata tidak tersamar.
+    return res.json(dbg({ ok: true, tickets: [], count: 0, source: "none",
+      reason: (emb && emb.ok) ? "no_tickets" : ((emb && emb.reason) || "upstream_unavailable") }));
   } catch (e) {
     try { console.error("tickets/mine:", e && e.message); } catch (_) {}
-    return res.json({ ok: true, tickets: [] }); // tahan-gagal
+    return res.json({ ok: true, tickets: [], count: 0, source: "none", reason: "server_error" });
   }
 });
 
