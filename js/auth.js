@@ -182,6 +182,27 @@
     return data;
   }
 
+  // ---------- LOGIN GOOGLE HYBRID (pemulihan user Google) ----------
+  // Satu credential (ID token dari Google Identity Services) dipakai dua jalur BERURUTAN:
+  //   1) Jalur 20FIT (fitcoGoogleLogin): member 20FIT diverifikasi ke API 20FIT, sesi dibuat
+  //      via OTP, DAN dapat FITCO token untuk order/pembayaran shop 20FIT.
+  //   2) Kalau 20FIT menolak (email bukan akun 20FIT) atau tak tersambung -> FALLBACK ke
+  //      supabase.auth.signInWithIdToken (Google NATIVE Supabase). Semua akun Google lama
+  //      punya google identity di Supabase (auth.identities), jadi ini mendaratkan user ke
+  //      baris auth.users yang SAMA — dicocokkan via google sub — BUKAN akun baru.
+  // Hasil: tak ada user Google yang terkunci, dan member 20FIT tetap mendapat tokennya.
+  async function googleSignIn(credential) {
+    await ready;
+    try {
+      return await fitcoGoogleLogin(credential); // jalur utama: 20FIT (+ FITCO token)
+    } catch (e) {
+      // Jalur 20FIT gagal — jangan menyerah; coba sesi Google native Supabase.
+    }
+    const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token: credential });
+    if (error) throw new Error(_t("Google sign-in failed.", "Gagal login dengan Google."));
+    return data;
+  }
+
   // ---------- SSO SEAMLESS: login pakai access_token 20FIT (tanpa password) ----------
   // Dipakai kalau app utama 20FIT mengoper token-nya ke my.20fit.id.
   async function tokenLogin(fitcoToken) {
@@ -647,6 +668,7 @@
     verifyLoginCode,
     fitcoLogin,
     fitcoGoogleLogin,
+    googleSignIn,
     googleClientId: function () { return cfgGoogleClientId; },
     fitcoRegister,
     tokenLogin,
