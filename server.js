@@ -4356,6 +4356,100 @@ app.get("/api/menu/consent", async (req, res) => {
     return res.json({ ok: true, consent: { version: data.version, text: (lang === "en" ? (data.text_en || data.text_id) : (data.text_id || data.text_en)) || "" } });
   } catch (e) { return res.json({ ok: true, consent: null }); }
 });
+
+// Baca dimensi gambar dari header (tanpa library): PNG / JPEG / WebP. {w,h} atau null.
+function readImageSize(buf) {
+  try {
+    if (buf.length > 24 && buf[0] === 0x89 && buf[1] === 0x50) return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+    if (buf[0] === 0xFF && buf[1] === 0xD8) {
+      var o = 2;
+      while (o + 9 < buf.length) {
+        if (buf[o] !== 0xFF) { o++; continue; }
+        var mk = buf[o + 1];
+        if (mk >= 0xC0 && mk <= 0xCF && mk !== 0xC4 && mk !== 0xC8 && mk !== 0xCC) return { h: buf.readUInt16BE(o + 5), w: buf.readUInt16BE(o + 7) };
+        if (mk === 0xD8 || mk === 0xD9 || (mk >= 0xD0 && mk <= 0xD7)) { o += 2; continue; }
+        o += 2 + buf.readUInt16BE(o + 2);
+      }
+    }
+    if (buf.length > 30 && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") {
+      var fmt = buf.toString("ascii", 12, 16);
+      if (fmt === "VP8 ") return { w: (buf.readUInt16LE(26) & 0x3fff), h: (buf.readUInt16LE(28) & 0x3fff) };
+      if (fmt === "VP8L") { var b = buf.readUInt32LE(21); return { w: (b & 0x3fff) + 1, h: ((b >> 14) & 0x3fff) + 1 }; }
+      if (fmt === "VP8X") return { w: ((buf[24] | (buf[25] << 8) | (buf[26] << 16)) & 0xffffff) + 1, h: ((buf[27] | (buf[28] << 8) | (buf[29] << 16)) & 0xffffff) + 1 };
+    }
+  } catch (e) {}
+  return { w: null, h: null };
+}
+function sniffImage(buf) {
+  if (buf[0] === 0x89 && buf[1] === 0x50) return { ct: "image/png", ext: "png" };
+  if (buf[0] === 0xFF && buf[1] === 0xD8) return { ct: "image/jpeg", ext: "jpg" };
+  if (buf.length > 12 && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") return { ct: "image/webp", ext: "webp" };
+  return null;
+}
+// ADMIN (key): pindahkan cover artikel dari hotlink Unsplash/Pexels ke Storage (bucket
+// article-covers) + isi source_url/width/height/bytes. IDEMPOTEN: lewati yang sudah di
+// Storage. Gate: header x-admin-key=ADMIN_KEY atau ?key=CRON_SECRET. Balik ringkasan +
+// daftar gagal (tak menyentuh baris yang gagal -> cover_url lama dibiarkan, bukan mati baru).
+// Inti migrasi (dipakai endpoint & auto-run boot). Balik ringkasan; baris gagal TIDAK diubah.
+async function runArticleCoverMigration(only) {
+  var q = admin.from("my20fit_recipe_article").select("id,slug,cover_url,source_url").order("published_at", { ascending: false });
+  if (only) q = q.eq("slug", only);
+  var { data: arts, error } = await q;
+  if (error) throw new Error(error.message);
+  var migrated = 0, skipped = 0, failed = [];
+  for (var i = 0; i < (arts || []).length; i++) {
+    var a = arts[i], url = a.cover_url || "";
+    if (url.indexOf("/storage/v1/object/public/") >= 0) { skipped++; continue; }
+    if (!/^https?:\/\//i.test(url)) { failed.push({ slug: a.slug, reason: "no-url" }); continue; }
+    try {
+      var r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; 20fit-migrator/1.0)", "Accept": "image/*", "Referer": "https://my.20fit.id/" } });
+      if (!r.ok) { failed.push({ slug: a.slug, reason: "http " + r.status }); continue; }
+      var buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length > 5 * 1024 * 1024) { failed.push({ slug: a.slug, reason: "too-big " + buf.length }); continue; }
+      var sn = sniffImage(buf); if (!sn) { failed.push({ slug: a.slug, reason: "not-image" }); continue; }
+      var dim = readImageSize(buf);
+      var path = a.id + "." + sn.ext;
+      var up = await admin.storage.from("article-covers").upload(path, buf, { contentType: sn.ct, upsert: true });
+      if (up.error) { failed.push({ slug: a.slug, reason: "upload " + up.error.message }); continue; }
+      var pub = admin.storage.from("article-covers").getPublicUrl(path);
+      var newUrl = pub && pub.data && pub.data.publicUrl;
+      if (!newUrl) { failed.push({ slug: a.slug, reason: "no-public-url" }); continue; }
+      var patch = { cover_url: newUrl, width: dim.w, height: dim.h, bytes: buf.length };
+      if (!a.source_url) patch.source_url = url;
+      var upd = await admin.from("my20fit_recipe_article").update(patch).eq("id", a.id);
+      if (upd.error) { failed.push({ slug: a.slug, reason: "db " + upd.error.message }); continue; }
+      migrated++;
+    } catch (e) { failed.push({ slug: a.slug, reason: (e && e.message) || "err" }); }
+  }
+  return { total: (arts || []).length, migrated: migrated, skipped: skipped, failed_count: failed.length, failed: failed };
+}
+app.post("/api/admin/migrate-article-covers", async (req, res) => {
+  try {
+    var key = String(req.query.key || req.headers["x-admin-key"] || "");
+    if (!((ADMIN_KEY && key === ADMIN_KEY) || (CRON_SECRET && key === CRON_SECRET))) return res.status(401).json({ error: "unauthorized" });
+    if (!admin) return res.status(503).json({ error: "unavailable" });
+    var out = await runArticleCoverMigration(String(req.query.slug || "").trim());
+    return res.json(Object.assign({ ok: true }, out));
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// AUTO one-shot saat boot: rehost cover artikel hotlink -> Storage. Idempoten (lewati yang
+// sudah di Storage), async (tak memblokir boot), sekali per proses. Aman diulang: begitu 54
+// cover sudah di Storage, run berikutnya no-op. DB & Storage dipakai bersama -> memperbaiki
+// gambar untuk semua environment sekali jalan.
+var _coverAutoRan = false;
+async function autoMigrateArticleCovers() {
+  if (_coverAutoRan || !admin) return; _coverAutoRan = true;
+  try {
+    var { count } = await admin.from("my20fit_recipe_article").select("id", { count: "exact", head: true })
+      .not("cover_url", "ilike", "%/storage/v1/object/public/%");
+    if (!count) return; // semua sudah di Storage
+    console.log("[article-covers] auto-rehost mulai (" + count + " cover di luar Storage) ...");
+    var out = await runArticleCoverMigration("");
+    console.log("[article-covers] auto-rehost selesai:", JSON.stringify({ migrated: out.migrated, skipped: out.skipped, failed: out.failed_count }));
+    if (out.failed_count) { try { console.log("[article-covers] gagal:", JSON.stringify(out.failed)); } catch (_e) {} }
+  } catch (e) { try { console.error("[article-covers] auto-rehost error:", e.message); } catch (_e) {} }
+}
+setTimeout(function () { autoMigrateArticleCovers(); }, 20000);
 // PUBLIK: angka ambang reward sumbang-resep -- supaya frontend TIDAK hardcode "10"/"5" (bisa
 // diubah di sini tanpa deploy frontend). Tidak butuh login: dipakai jadi ajakan SEBELUM user
 // masuk juga (tombol "Bikin resep"), bukan cuma di halaman progres yang sudah login.
@@ -4809,6 +4903,28 @@ app.get("/api/menu/article-categories", async (req, res) => {
     res.set("Cache-Control", "public, max-age=300");
     return res.json({ ok: true, categories: cats });
   } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Estimasi menit baca dari panjang teks (~200 kata/mnt). Buang gambar & URL markdown.
+// SATU rumus dipakai bareng (my.20fit + recipe.20fit lewat endpoint di bawah).
+function computeReadMinutes(body) {
+  var words = String(body || "")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\]\([^)]*\)/g, "] ")
+    .replace(/[#*_>`~-]/g, " ").trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+// PUBLIK: peta { slug -> menit baca } semua artikel terbit (dihitung dari body_md di server).
+// SUMBER TUNGGAL: menggantikan pembacaan Supabase langsung di recipe.20fit (readtime.ts).
+app.get("/api/menu/article-readtimes", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, minutes: {} });
+    var { data } = await admin.from("my20fit_recipe_article")
+      .select("slug,body_md,body_md_id,body_md_en").eq("status", "published");
+    var out = {};
+    (data || []).forEach(function (r) { if (r.slug) out[r.slug] = computeReadMinutes(r.body_md || r.body_md_id || r.body_md_en || ""); });
+    res.set("Cache-Control", "public, max-age=300");
+    return res.json({ ok: true, minutes: out });
+  } catch (e) { return res.json({ ok: true, minutes: {} }); }
 });
 
 // PUBLIK: satu artikel terbit (full body dari body_md) + resep terkait. Sadar bahasa.
