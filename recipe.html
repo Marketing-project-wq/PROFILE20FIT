@@ -82,7 +82,9 @@
   .agrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   @media(min-width:700px){ .agrid{grid-template-columns:1fr 1fr 1fr} }
   .acard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);text-align:left;padding:0;font-family:inherit;color:var(--txt)}
-  .acover{aspect-ratio:16/10;background-size:cover;background-position:center;background-color:var(--inp)}
+  .acover{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;object-position:center;background:var(--inp);border:0}
+  .art-hero{display:block;width:100%;aspect-ratio:16/9;max-height:42vh;object-fit:cover;object-position:center;border-radius:14px;margin-bottom:12px;background:var(--inp)}
+  img.imgfb{object-fit:contain;padding:0}
   .abody{padding:10px 12px}
   .acatlbl{font-size:10px;font-weight:800;color:var(--red);text-transform:uppercase;letter-spacing:.4px}
   .atitle{font-weight:800;font-size:13.5px;line-height:1.25;margin-top:3px;color:var(--txt)}
@@ -532,9 +534,13 @@
       finally{ ART_ST.loading=false; }
     }
     function loadMoreArticles(){ loadArticles(); }
+    // Cadangan gambar (SVG data-URI, ikon peralatan makan) — dipakai saat cover kosong/gagal.
+    var IMG_FALLBACK="data:image/svg+xml;utf8,"+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='320' height='200'><rect width='320' height='200' fill='#F0EDE5'/><g fill='none' stroke='#C9BEA9' stroke-width='7' stroke-linecap='round'><path d='M150 66v70M138 66v24a12 12 0 0 0 24 0V66'/><path d='M186 66c-9 0-13 12-13 27s7 15 13 15v28'/></g></svg>");
     function artCardHtml(a,i){
-      var cover=a.cover_url?(' style="background-image:url('+JSON.stringify(a.cover_url)+')"'):'';
-      return '<button class="acard" onclick="openArticle('+i+')"><div class="acover"'+cover+'></div>'+
+      var src=a.cover_url?esc(a.cover_url):IMG_FALLBACK;
+      var eager=i<3; // beberapa kartu pertama eager, sisanya lazy
+      return '<button class="acard" onclick="openArticle('+i+')">'+
+        '<img class="acover" src="'+src+'" alt="'+esc(a.title||"")+'" '+(eager?'loading="eager" fetchpriority="high"':'loading="lazy"')+' onerror="this.onerror=null;this.src=IMG_FALLBACK;this.classList.add(\'imgfb\')">'+
         '<div class="abody"><div class="acatlbl">'+esc(a.category_label||"")+'</div>'+
         '<div class="atitle">'+esc(a.title||"")+'</div><div class="aexc">'+esc(a.excerpt||"")+'</div></div></button>';
     }
@@ -570,7 +576,7 @@
       try{
         var r=await fetch("/api/menu/articles/"+encodeURIComponent(a.slug)+"?lang="+artLang());
         if(!r.ok) throw new Error("http"); var j=await r.json(); var art=(j&&j.article)||{};
-        var hero=art.cover_url?('<div class="pm-hero" style="background-image:url('+JSON.stringify(art.cover_url)+')"></div>'):'';
+        var hero='<img class="art-hero" src="'+(art.cover_url?esc(art.cover_url):IMG_FALLBACK)+'" alt="'+esc(art.title||"")+'" onerror="this.onerror=null;this.src=IMG_FALLBACK;this.classList.add(\'imgfb\')">';
         read.innerHTML=hero+'<div class="acatlbl">'+esc(art.category_label||"")+'</div>'+
           '<h2 style="margin-top:4px">'+esc(art.title||"")+'</h2>'+
           (art.author_name?('<div class="muted" style="margin-bottom:10px">'+esc(art.author_name)+'</div>'):'')+
