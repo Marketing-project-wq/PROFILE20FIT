@@ -29,7 +29,8 @@
   // ---- STATE ----
   var TICKETS = null;   // null=loading | [] kosong | [..] daftar
   // REASON dipakai HANYA saat TICKETS kosong: membedakan "memang belum beli" (no_tickets)
-  // dari "kami gagal mengambilnya" (identity_not_recognized / upstream_unavailable / …).
+  // dari "perlu verifikasi email ke penerbit" (needs_verification) dan "gagal ambil"
+  // (upstream_unavailable / tickets_unreadable / server_error).
   // Tanpa ini keduanya tampil sebagai "Belum ada tiket" dan kegagalan nyata tak terlihat.
   var REASON = null;
   var UPCOMING = null;  // null=loading | "error" gagal | [] sukses-kosong | [..] daftar
@@ -225,14 +226,60 @@
   window.twkZoomClose = function () { var o = document.getElementById("twkOv"); if (o) o.remove(); };
 
   // ---- RENDER (tabs + body). Host membungkus dengan chrome-nya sendiri. ----
+  // ---- Verifikasi email ke penerbit tiket (jalur OTP) ----
+  // Email TIDAK dikirim dari sini — server & edge function menurunkannya dari sesi,
+  // jadi user hanya bisa memverifikasi emailnya sendiri.
+  async function twkPost(path, bodyObj) {
+    var t = (window.Auth && Auth.token) ? await Auth.token() : null;
+    if (!t) return { ok: false, error: "no_session" };
+    var r = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
+      body: JSON.stringify(bodyObj || {}),
+    });
+    var j = await r.json().catch(function () { return null; });
+    return (j && typeof j === "object") ? j : { ok: false };
+  }
+  function twkVerifyBox(msg, isErr) {
+    var el = document.getElementById("twkVerify"); if (!el) return;
+    el.innerHTML =
+      '<input id="twkCode" inputmode="numeric" autocomplete="one-time-code" placeholder="' + esc(Lx({ en: "Enter code", id: "Masukkan kode" })) + '"'
+      + ' style="width:100%;max-width:220px;padding:10px 12px;border-radius:12px;border:1px solid var(--line,#EBEBEF);background:var(--card,#fff);color:var(--txt,#15171C);font-size:15px;text-align:center;letter-spacing:.12em">'
+      + '<div style="margin-top:8px"><button type="button" class="twk-ghost" onclick="tktVerifyConfirm()">' + Lx({ en: "Confirm", id: "Konfirmasi" }) + '</button></div>'
+      + (msg ? '<p style="margin:8px 0 0;font-size:12.5px;color:' + (isErr ? 'var(--red,#D4283A)' : 'var(--muted,#8A8D94)') + '">' + esc(msg) + '</p>' : '');
+  }
+  window.tktVerifyStart = async function () {
+    var el = document.getElementById("twkVerify");
+    if (el) el.innerHTML = '<p style="margin:0;font-size:13px;color:var(--muted,#8A8D94)">' + Lx({ en: "Sending…", id: "Mengirim…" }) + '</p>';
+    var j = await twkPost("/api/tickets/verify/request");
+    if (j && j.ok) twkVerifyBox(Lx({ en: "Code sent. Check your inbox.", id: "Kode terkirim. Cek inbox emailmu." }), false);
+    else twkVerifyBox(Lx({ en: "Couldn't send the code. Try again.", id: "Gagal mengirim kode. Coba lagi." }), true);
+  };
+  window.tktVerifyConfirm = async function () {
+    var inp = document.getElementById("twkCode");
+    var code = inp ? String(inp.value || "").trim() : "";
+    if (!code) { twkVerifyBox(Lx({ en: "Enter the code first.", id: "Masukkan kodenya dulu." }), true); return; }
+    var j = await twkPost("/api/tickets/verify/confirm", { code: code });
+    if (j && j.ok) {
+      TICKETS = Array.isArray(j.tickets) ? j.tickets : [];
+      REASON = TICKETS.length ? null : "no_tickets";
+      TAB = "mine"; tabTouched = true;
+      notify();
+      return;
+    }
+    twkVerifyBox((j && j.error) || Lx({ en: "Wrong or expired code.", id: "Kode salah atau kedaluwarsa." }), true);
+  };
+
   // Kosong ≠ selalu "belum beli". Kalau pengambilan yang gagal, katakan apa adanya +
   // beri langkah yang bisa ditempuh user — jangan menyamar jadi "belum ada tiket".
   function emptyMineHtml() {
-    if (REASON === "identity_not_recognized") {
-      return '<div class="twk-empty"><h4>' + Lx({ en: "We couldn't find your ticket account", id: "Akunmu belum dikenali di sistem tiket" }) + '</h4><p>'
-        + Lx({ en: "Tickets are issued by ticket.20fit.id. If you bought with a different email than the one you use here, they won't show up. Open the issuer to check.",
-               id: "Tiket diterbitkan ticket.20fit.id. Kalau kamu beli memakai email yang berbeda dari email akun ini, tiketnya tidak akan muncul. Cek langsung di penerbitnya." })
-        + '</p><a class="twk-ghost" href="https://ticket.20fit.id">ticket.20fit.id ↗</a></div>';
+    // Pembeli TAMU tidak punya akun di ticket.20fit.id, jadi tiketnya hanya bisa diambil
+    // setelah dia membuktikan kepemilikan email lewat kode. Bukan "belum punya tiket".
+    if (REASON === "needs_verification") {
+      return '<div class="twk-empty"><h4>' + Lx({ en: "Verify your email to see your tickets", id: "Verifikasi email untuk melihat tiketmu" }) + '</h4><p>'
+        + Lx({ en: "Your tickets are issued by ticket.20fit.id. We'll email you a code once — after that they appear here automatically.",
+               id: "Tiketmu diterbitkan ticket.20fit.id. Kami kirim satu kode ke emailmu — setelah itu tiketnya muncul di sini otomatis." })
+        + '</p><div id="twkVerify"><button type="button" class="twk-ghost" onclick="tktVerifyStart()">' + Lx({ en: "Email me the code", id: "Kirim kode ke emailku" }) + '</button></div></div>';
     }
     if (REASON && REASON !== "no_tickets") {
       return '<div class="twk-empty"><h4>' + Lx({ en: "Couldn't load your tickets", id: "Gagal memuat tiketmu" }) + '</h4><p>'
