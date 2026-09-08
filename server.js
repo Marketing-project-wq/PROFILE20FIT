@@ -4725,35 +4725,83 @@ function slugifyArticle(s) {
 }
 
 // PUBLIK: daftar artikel terbit (ringkas, tanpa body).
+// Resolusi kolom bahasa artikel. CATATAN DATA: body penuh HANYA ada di `body_md`
+// (rata2 ~7000 char); `body_md_id`/`body_md_en` pendek/tak lengkap -> jangan dipakai
+// untuk isi. Judul/excerpt/kategori pakai *_<lang> dgn fallback ke legacy.
+function pickLang(o, base, lang) {
+  var v = o[base + "_" + (lang === "en" ? "en" : "id")];
+  if (v == null || v === "") v = o[base]; // fallback legacy
+  if (v == null || v === "") v = o[base + "_id"] || o[base + "_en"] || "";
+  return v;
+}
+function langOf(req) { return String(req.query.lang || "id").toLowerCase() === "en" ? "en" : "id"; }
+
+// PUBLIK: daftar artikel terbit — PAGINASI DI SERVER (offset/limit, default 16),
+// filter kategori (pakai category_id kanonik), sadar bahasa. Balikin has_more + total.
 app.get("/api/menu/articles", async (req, res) => {
   try {
-    if (!admin) return res.json({ ok: true, articles: [] });
+    if (!admin) return res.json({ ok: true, articles: [], has_more: false, total: 0 });
+    var lang = langOf(req);
     var category = String(req.query.category || "").trim();
-    var limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    var limit = Math.min(48, Math.max(1, parseInt(req.query.limit) || 16));
+    var offset = Math.max(0, parseInt(req.query.offset) || 0);
     var q = admin.from("my20fit_recipe_article")
-      .select("id,slug,title,excerpt,cover_url,category,author_name,published_at")
-      .eq("status", "published").order("published_at", { ascending: false }).limit(limit);
-    if (category) q = q.eq("category", category);
-    var { data, error } = await q;
+      .select("id,slug,title,title_id,title_en,excerpt,excerpt_id,excerpt_en,cover_url,category,category_id,category_en,author_name,published_at", { count: "exact" })
+      .eq("status", "published").order("published_at", { ascending: false }).range(offset, offset + limit - 1);
+    if (category) q = q.eq("category_id", category);
+    var { data, error, count } = await q;
     if (error) return res.status(500).json({ error: error.message });
+    var articles = (data || []).map(function (a) {
+      return {
+        id: a.id, slug: a.slug, cover_url: a.cover_url, author_name: a.author_name, published_at: a.published_at,
+        title: pickLang(a, "title", lang), excerpt: pickLang(a, "excerpt", lang),
+        category: a.category_id || a.category || "", category_label: pickLang(a, "category", lang),
+      };
+    });
     res.set("Cache-Control", "public, max-age=120");
-    return res.json({ ok: true, articles: data || [] });
+    return res.json({ ok: true, articles: articles, total: count || 0, has_more: (offset + articles.length) < (count || 0) });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
-// PUBLIK: satu artikel terbit (full body) + resep terkait.
+// PUBLIK: daftar kategori artikel (kanonik category_id + label sesuai bahasa) + jumlah.
+app.get("/api/menu/article-categories", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, categories: [] });
+    var lang = langOf(req);
+    var { data, error } = await admin.from("my20fit_recipe_article")
+      .select("category_id,category_en,category").eq("status", "published");
+    if (error) return res.status(500).json({ error: error.message });
+    var map = {};
+    (data || []).forEach(function (r) {
+      var key = r.category_id || r.category || ""; if (!key) return;
+      if (!map[key]) map[key] = { key: key, label: (lang === "en" ? (r.category_en || key) : key), count: 0 };
+      map[key].count++;
+    });
+    var cats = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return a.label.localeCompare(b.label); });
+    res.set("Cache-Control", "public, max-age=300");
+    return res.json({ ok: true, categories: cats });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK: satu artikel terbit (full body dari body_md) + resep terkait. Sadar bahasa.
 app.get("/api/menu/articles/:slug", async (req, res) => {
   try {
     if (!admin) return res.status(404).json({ error: "not found" });
+    var lang = langOf(req);
     var slug = String(req.params.slug || "").slice(0, 100);
     var { data: a } = await admin.from("my20fit_recipe_article")
-      .select("id,slug,title,excerpt,body_md,cover_url,category,author_name,published_at,status")
+      .select("id,slug,title,title_id,title_en,excerpt,excerpt_id,excerpt_en,body_md,cover_url,category,category_id,category_en,author_name,published_at,status")
       .eq("slug", slug).limit(1).single();
     if (!a || a.status !== "published") return res.status(404).json({ error: "not found" });
     var { data: links } = await admin.from("my20fit_recipe_article_link").select("source,menu_id").eq("article_id", a.id);
-    delete a.status;
+    var article = {
+      id: a.id, slug: a.slug, cover_url: a.cover_url, author_name: a.author_name, published_at: a.published_at,
+      title: pickLang(a, "title", lang), excerpt: pickLang(a, "excerpt", lang),
+      category_label: pickLang(a, "category", lang),
+      body_md: a.body_md || a.body_md_id || a.body_md_en || "", // isi penuh ada di body_md
+    };
     res.set("Cache-Control", "public, max-age=120");
-    return res.json({ ok: true, article: a, recipes: links || [] });
+    return res.json({ ok: true, article: article, recipes: links || [] });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
