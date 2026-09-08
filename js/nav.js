@@ -37,7 +37,12 @@
     { href: "progress.html", key: "nav_progress", k: "progress" },
     { href: "profile.html", key: "nav_profile", k: "profile" },
   ];
-  const cur = (location.pathname.split("/").pop() || "dashboard.html").toLowerCase();
+  // Halaman aktif — normalisasi supaya cocok di URL BERSIH (/dashboard) MAUPUN
+  // dengan .html (/dashboard.html). Tanpa strip .html, highlight tak pernah menyala
+  // di produksi (routing app pakai URL bersih). Root "" -> dashboard.
+  const norm = (s) => String(s || "").toLowerCase().replace(/\.html$/, "");
+  const cur = norm(location.pathname.split("/").pop()) || "dashboard";
+  const isOn = (href) => norm(href) === cur;
   const tr = (key, fb) => (window.I18N ? I18N.t(key) : fb);
 
   const SYS = "-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Inter',system-ui,'Segoe UI',Roboto,Arial,sans-serif";
@@ -166,7 +171,7 @@
   function renderSide() {
     side.innerHTML =
       '<div class="sbrand"><img src="' + LOGO + '" alt="20FIT"></div>' +
-      items.map(it => `<a href="${it.href}" class="navi ${cur === it.href ? "on" : ""}">${iconHtml(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
+      items.map(it => `<a href="${it.href}" class="navi ${isOn(it.href) ? "on" : ""}">${iconHtml(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
       `<button class="sscan" type="button">${svg("scan")}<span>${tr("nav_scan", "Scan")}</span></button>` +
       '<div class="sfoot"><div class="av" id="navAv">·</div><div class="tx"><div class="nm" id="navNm">20FIT</div><div class="em" id="navEm">member</div></div></div>';
     side.querySelector(".sscan").onclick = doScan;
@@ -192,7 +197,7 @@
   nav.className = "bnav";
   function renderNav() {
     nav.innerHTML = items.map(it =>
-      `<a href="${it.href}" class="${cur === it.href ? "on" : ""}">${iconHtml(it.k)}${tr(it.key, it.k)}</a>`
+      `<a href="${it.href}" class="${isOn(it.href) ? "on" : ""}">${iconHtml(it.k)}${tr(it.key, it.k)}</a>`
     ).join("");
   }
   renderNav();
