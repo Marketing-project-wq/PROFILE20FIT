@@ -2198,14 +2198,46 @@ function mapEmbedTicket(t) {
 // Catatan lapangan (log edge fn, 24 jam): 141 dari 143 panggilan `user_token` balas 404 dari
 // ticket.20fit.id, sedangkan `my_tickets` selalu 200 saat tokennya berhasil terbit. Jadi titik
 // gagal yang dominan = penukaran email->token, bukan pengambilan tiketnya.
+// userToken hasil verifikasi OTP, disimpan per user supaya tak diminta OTP tiap buka
+// halaman. TIDAK PERNAH dikirim ke browser — hanya dipakai server saat memanggil embed.
+async function getTicketToken(userId) {
+  try {
+    const { data } = await admin.from("my20fit_ticket_tokens")
+      .select("user_token,expires_at").eq("auth_user_id", userId).limit(1);
+    const row = data && data[0];
+    if (!row || !row.user_token) return null;
+    if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now()) return null;
+    return row.user_token;
+  } catch (_) { return null; }
+}
+async function saveTicketToken(userId, email, token, expiresInSec) {
+  try {
+    const exp = Number.isFinite(+expiresInSec) && +expiresInSec > 0
+      ? new Date(Date.now() + (+expiresInSec * 1000)).toISOString() : null;
+    await admin.from("my20fit_ticket_tokens").upsert({
+      auth_user_id: userId, email: String(email || "").trim().toLowerCase(),
+      user_token: String(token), expires_at: exp, updated_at: new Date().toISOString(),
+    }, { onConflict: "auth_user_id" });
+  } catch (_) {}
+}
+// Ambil tiket memakai userToken yang sudah ada (hasil OTP). Dipakai sebelum mencoba
+// jalur partner, karena jalur partner gagal untuk pembeli tamu.
+async function embedTicketsWithToken(userJwt, userToken) {
+  const mt = await ticketEmbed(userJwt, "my_tickets", { userToken });
+  const arr = pickArray(mt.data);
+  if (!arr) return { ok: false, status: mt.status, raw: mt.data, reason: "tickets_unreadable" };
+  return { ok: true, status: mt.status, raw: mt.data, tickets: arr.map(mapEmbedTicket).filter(t => t.code) };
+}
 async function embedMyTickets(userJwt) {
   const ut = await ticketEmbed(userJwt, "user_token");
   const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
   if (!userToken) {
-    // 404 = ticket.20fit.id tak mengenali email sesi ini sebagai user-nya (mis. tiket dibeli
-    // memakai email lain). Selain itu = upstream bermasalah/tak terjangkau.
+    // 404 {"error":"user_not_found"} = email ini TIDAK punya AKUN di ticket.20fit.id.
+    // Itu normal: mayoritas orang beli sebagai TAMU. Terbukti 2026-09-08 — 8 dari 8 email
+    // pembeli ASLI (diambil dari event_transaction) juga ditolak 404. Jadi ini BUKAN
+    // "belum pernah beli" dan BUKAN salah email; jalan keluarnya = verifikasi OTP.
     return { ok: false, status: ut.status, raw: ut.data,
-             reason: ut.status === 404 ? "identity_not_recognized" : "upstream_unavailable" };
+             reason: ut.status === 404 ? "needs_verification" : "upstream_unavailable" };
   }
   const mt = await ticketEmbed(userJwt, "my_tickets", { userToken });
   const arr = pickArray(mt.data);
@@ -2244,8 +2276,18 @@ app.get("/api/tickets/mine", async (req, res) => {
     // SUMBER UTAMA: tiket ASLI + QR dari ticket.20fit.id (embed). Gagal → arsip di bawah,
     // TAPI sebabnya disimpan supaya tetap bisa dilaporkan kalau arsip juga kosong.
     let emb = null;
-    try { emb = await embedMyTickets(bearerOf(req)); }
-    catch (e) { emb = { ok: false, status: 0, reason: "upstream_unavailable", raw: String((e && e.message) || e) }; }
+    try {
+      // 1) userToken hasil verifikasi OTP kalau sudah pernah — ini jalur yang berhasil
+      //    untuk pembeli tamu. 2) baru jalur partner (hanya jalan utk pemilik AKUN
+      //    ticket.20fit.id). Urutan ini penting: kebalikannya membuat pembeli tamu
+      //    selalu mentok di 404 walau tokennya sudah ada.
+      const saved = await getTicketToken(user.id);
+      if (saved) {
+        emb = await embedTicketsWithToken(bearerOf(req), saved);
+        if (!emb.ok || !emb.tickets.length) emb = null;   // token basi/ditolak -> coba jalur lain
+      }
+      if (!emb) emb = await embedMyTickets(bearerOf(req));
+    } catch (e) { emb = { ok: false, status: 0, reason: "upstream_unavailable", raw: String((e && e.message) || e) }; }
     const dbg = (extra) => {
       if (!debug) return extra;
       return Object.assign({}, extra, { debug: { embed: emb } });
@@ -2292,6 +2334,50 @@ app.get("/api/tickets/mine", async (req, res) => {
   }
 });
 
+// ---------- Verifikasi email ke ticket.20fit.id (jalur OTP) ----------
+// Pembeli TAMU tidak punya akun di ticket.20fit.id, jadi /partner/user-token selalu
+// balas user_not_found. Satu-satunya cara mendapat userToken untuk mereka adalah
+// membuktikan kepemilikan email lewat OTP. Dua endpoint di bawah membungkus itu.
+//
+// KEAMANAN: email TIDAK diambil dari body. Edge function menurunkannya sendiri dari
+// JWT sesi pemanggil, jadi user hanya bisa meminta/memverifikasi OTP untuk email
+// miliknya sendiri — tak bisa memancing tiket orang lain. Token hasilnya disimpan
+// server-side dan tidak pernah dikirim ke browser.
+app.post("/api/tickets/verify/request", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const r = await ticketEmbed(bearerOf(req), "otp_request");
+    if (r.status >= 200 && r.status < 300) {
+      return res.json({ ok: true, email: String(user.email || "").trim().toLowerCase() });
+    }
+    return res.status(502).json({ ok: false, error: "Gagal mengirim kode ke emailmu. Coba lagi sebentar lagi.", upstream_status: r.status });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: (e && e.message) || "gagal" });
+  }
+});
+
+app.post("/api/tickets/verify/confirm", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const code = String((req.body && (req.body.code || req.body.otp)) || "").trim();
+    if (!code) return res.status(400).json({ ok: false, error: "Kode wajib diisi." });
+    const r = await ticketEmbed(bearerOf(req), "otp_verify", { code });
+    const token = r.data && firstOf(r.data, ["userToken", "user_token", "token"]);
+    if (!token) {
+      return res.status(400).json({ ok: false, error: "Kode salah atau sudah kedaluwarsa.", upstream_status: r.status });
+    }
+    const expIn = r.data && firstOf(r.data, ["expiresInSec", "expires_in", "expiresIn"]);
+    if (admin) await saveTicketToken(user.id, user.email, token, expIn);
+    // Langsung ambil tiketnya supaya user melihat hasilnya tanpa memuat ulang.
+    const got = await embedTicketsWithToken(bearerOf(req), token);
+    return res.json({ ok: true, tickets: (got.ok ? got.tickets : []), count: (got.ok ? got.tickets.length : 0) });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: (e && e.message) || "gagal" });
+  }
+});
+
 // ---------- /api/tickets/qr?code= : QR e-tiket ASLI (ticket.20fit.id via embed, lazy) ----------
 // Dipanggil saat user membuka QR sebuah tiket. Ambil userToken (email sesi) lalu ticket_qr{code}.
 // Normalisasi respons upstream ke {img|svg|payload} agar frontend bisa render apa pun bentuknya.
@@ -2303,9 +2389,14 @@ app.get("/api/tickets/qr", async (req, res) => {
     const code = String(req.query.code || "").trim();
     if (!code) return res.status(400).json({ error: "code wajib." });
     const userJwt = bearerOf(req);
-    const ut = await ticketEmbed(userJwt, "user_token");
-    const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
-    if (!userToken) return res.json({ ok: false, error: "no_user_token" });
+    // Token hasil verifikasi OTP dipakai lebih dulu: pembeli TAMU tak punya akun di
+    // ticket.20fit.id, jadi /partner/user-token balas user_not_found dan QR-nya ikut gagal.
+    let userToken = admin ? await getTicketToken(user.id) : null;
+    if (!userToken) {
+      const ut = await ticketEmbed(userJwt, "user_token");
+      userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
+    }
+    if (!userToken) return res.json({ ok: false, error: "no_user_token", needs_verification: true });
     const qr = await ticketEmbed(userJwt, "ticket_qr", { userToken, code });
     const d = qr.data;
     if (String(req.query.debug || "") === "1") {
