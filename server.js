@@ -1119,24 +1119,43 @@ function readCookie(req, name) {
   }
   return null;
 }
-// Ambil / buat sesi anonim (cookie httpOnly). createIfMissing=false -> jangan buat baru (read-only).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// anon_id yang DIBAWA KLIEN (cookie my20fit_anon di .20fit.id, dibagikan lintas app 20FIT).
+// Dioper via header x-anon-id / ?anon= / body.anon_id. Ini kunci penyatuan data anon lintas
+// properti: semua app pakai id yang SAMA, jadi scan/like/kontribusi anon ketemu satu akun.
+function clientAnonId(req) {
+  var v = String((req.headers && req.headers["x-anon-id"]) || (req.query && req.query.anon) || (req.body && req.body.anon_id) || "").trim();
+  return UUID_RE.test(v) ? v : null;
+}
+// Cookie anon BERSAMA (JS-readable) di .20fit.id supaya semua *.20fit.id memakai id yang sama
+// + bisa dibaca app untuk klaim saat login. Bukan pengganti eco_anon (httpOnly) di same-origin.
+function setSharedAnonCookie(res, id) {
+  try { if (res) res.cookie("my20fit_anon", id, { httpOnly: false, secure: true, sameSite: "lax", path: "/", domain: ".20fit.id", maxAge: 30 * 24 * 3600 * 1000 }); } catch (e) {}
+}
+// Ambil / buat sesi anonim. Prioritas anon_id: klien (x-anon-id) -> cookie eco_anon.
+// createIfMissing=false -> jangan buat baru (read-only).
 async function getAnonSession(req, res, createIfMissing) {
   if (!admin) return null;
-  const existing = readCookie(req, ANON_COOKIE);
-  if (existing) {
-    const { data } = await admin.from("my20fit_anonymous_sessions").select("*").eq("anon_id", existing).limit(1);
-    if (data && data[0]) return data[0];
+  const wanted = clientAnonId(req) || readCookie(req, ANON_COOKIE);
+  if (wanted) {
+    const { data } = await admin.from("my20fit_anonymous_sessions").select("*").eq("anon_id", wanted).limit(1);
+    if (data && data[0]) { setSharedAnonCookie(res, wanted); return data[0]; }
   }
   if (!createIfMissing) return null;
-  const anonId = crypto.randomUUID();
+  const anonId = (wanted && clientAnonId(req)) ? wanted : (wanted || crypto.randomUUID());
   const row = {
     anon_id: anonId,
     ip_hash: sha256((req.ip || "") + "|" + ANON_SALT).slice(0, 64),
     ua_hash: sha256(String(req.headers["user-agent"] || "") + "|" + ANON_SALT).slice(0, 32),
     scan_count: 0,
   };
-  const { data: ins } = await admin.from("my20fit_anonymous_sessions").insert(row).select("*").limit(1);
-  res.cookie(ANON_COOKIE, anonId, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 30 * 24 * 3600 * 1000 });
+  let { data: ins, error: insErr } = await admin.from("my20fit_anonymous_sessions").insert(row).select("*").limit(1);
+  if (insErr) { // balapan / id sudah ada -> ambil baris yang ada
+    const { data: ex } = await admin.from("my20fit_anonymous_sessions").select("*").eq("anon_id", anonId).limit(1);
+    ins = ex;
+  }
+  if (res) res.cookie(ANON_COOKIE, anonId, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 30 * 24 * 3600 * 1000 });
+  setSharedAnonCookie(res, anonId);
   return (ins && ins[0]) || row;
 }
 // return_to WAJIB *.20fit.id (anti open-redirect). Selain https + domain 20fit -> null (jangan dipakai).
@@ -7060,8 +7079,14 @@ app.post("/api/anon/claim", async (req, res) => {
     catch (e) { return res.status(e.status || 503).json({ error: e.userMessage || "Tidak bisa memverifikasi sesi." }); }
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     const b = req.body || {};
-    // Terima anon_id dari body dan/atau cookie my20fit_anon (dibagikan lintas *.20fit.id).
-    const raw = [].concat(b.anon_ids || b.anon_id || [], (req.cookies && req.cookies.my20fit_anon) || []);
+    // Kumpulkan anon_id dari SEMUA sumber: body, header x-anon-id, cookie bersama
+    // my20fit_anon (.20fit.id), dan cookie eco_anon (sesi anon same-origin my.20fit).
+    const raw = [].concat(
+      b.anon_ids || b.anon_id || [],
+      (req.headers && req.headers["x-anon-id"]) || [],
+      readCookie(req, "my20fit_anon") || [],
+      readCookie(req, ANON_COOKIE) || []
+    );
     const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const uuids = [...new Set(raw.map(String).map(s => s.trim()).filter(s => UUID.test(s)))].slice(0, 50);
     const texts = [...new Set([].concat(b.anon_texts || []).map(String).map(s => s.trim()).filter(Boolean))].slice(0, 50);
