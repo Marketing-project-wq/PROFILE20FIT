@@ -4964,6 +4964,11 @@ app.post("/api/menu/:id/react", async (req, res) => {
 // AUTH: pindahkan like sesi anonim (cookie eco_anon) ke akun yang baru login/daftar, supaya
 // guest yang like lalu bikin akun tidak kehilangan like-nya. Idempoten: aman dipanggil berkali-kali
 // (anon session yang sudah converted_user_id -> tak ada baris anon lagi utk dipindah).
+// Konflik (device lain sudah like resep sama) DITEGAKKAN oleh unique index DB
+// my20fit_menu_reaction_user_unique (auth_user_id,source,menu_id,kind) WHERE auth_user_id IS NOT
+// NULL -- bukan pre-check SELECT+Set di kode (race-condition-prone kalau dipanggil bersamaan
+// dari 2 tab/device). UPDATE dicoba dulu; kalau kena 23505 (unique_violation), baris anon itu
+// pasti duplikat -> dihapus.
 app.post("/api/menu/claim-anon-likes", async (req, res) => {
   try {
     var user = await getUserFromReq(req);
@@ -4975,20 +4980,15 @@ app.post("/api/menu/claim-anon-likes", async (req, res) => {
       .select("id,source,menu_id,kind").eq("anon_id", sess.anon_id);
     anonRows = anonRows || [];
     var migrated = 0;
-    if (anonRows.length) {
-      var { data: ownRows } = await admin.from("my20fit_menu_reaction")
-        .select("source,menu_id,kind").eq("auth_user_id", user.id);
-      var ownKeys = new Set((ownRows || []).map(function (r) { return r.source + ":" + r.menu_id + ":" + r.kind; }));
-      for (var i = 0; i < anonRows.length; i++) {
-        var r = anonRows[i];
-        var key = r.source + ":" + r.menu_id + ":" + r.kind;
-        if (ownKeys.has(key)) {
-          // Akun ini sudah like resep yang sama dari device lain -> baris anon jadi duplikat, buang.
-          await admin.from("my20fit_menu_reaction").delete().eq("id", r.id);
-        } else {
-          await admin.from("my20fit_menu_reaction").update({ auth_user_id: user.id, anon_id: null }).eq("id", r.id);
-          migrated++;
-        }
+    for (var i = 0; i < anonRows.length; i++) {
+      var r = anonRows[i];
+      var upd = await admin.from("my20fit_menu_reaction")
+        .update({ auth_user_id: user.id, anon_id: null }).eq("id", r.id);
+      if (upd.error && upd.error.code === "23505") {
+        // Akun ini sudah like resep yang sama dari device lain -> baris anon jadi duplikat, buang.
+        await admin.from("my20fit_menu_reaction").delete().eq("id", r.id);
+      } else if (!upd.error) {
+        migrated++;
       }
     }
     try { await admin.from("my20fit_anonymous_sessions").update({ converted_user_id: user.id }).eq("anon_id", sess.anon_id); } catch (_e) {}
