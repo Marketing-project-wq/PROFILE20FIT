@@ -6855,6 +6855,31 @@ app.post("/api/cron/purge-anon", async (req, res) => {
   catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// POST /api/anon/claim — TAHAP 2 penyatuan data: user yg BARU login/daftar mengklaim
+// data yg dia kumpulkan saat anonim (anon_id dari cookie .20fit.id / localStorage).
+// Set converted_user_id (jembatan scan kalori & MCU) + tautkan like/kontribusi/klik ke user.
+// IDEMPOTEN via RPC my20fit_claim_anon (unique constraint yg ada + filter is-null). Aman
+// diulang tiap login. RPC memaksa klaim ke pemilik sesi (auth.uid()/p_user terverifikasi).
+app.post("/api/anon/claim", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    let user;
+    try { user = await getUserFromReq(req); }
+    catch (e) { return res.status(e.status || 503).json({ error: e.userMessage || "Tidak bisa memverifikasi sesi." }); }
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    // Terima anon_id dari body dan/atau cookie my20fit_anon (dibagikan lintas *.20fit.id).
+    const raw = [].concat(b.anon_ids || b.anon_id || [], (req.cookies && req.cookies.my20fit_anon) || []);
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuids = [...new Set(raw.map(String).map(s => s.trim()).filter(s => UUID.test(s)))].slice(0, 50);
+    const texts = [...new Set([].concat(b.anon_texts || []).map(String).map(s => s.trim()).filter(Boolean))].slice(0, 50);
+    if (!uuids.length && !texts.length) return res.json({ ok: true, claimed: null, note: "no anon ids" });
+    const { data, error } = await admin.rpc("my20fit_claim_anon", { p_user: user.id, p_anon: uuids, p_anon_text: texts });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true, claimed: data });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // POST /api/scan/food-correction — user membetulkan hasil scan (nama + gram + kalori/makro).
 // Kontribusi DIANONIMKAN ke kamus makanan (my20fit_food_ref): TIDAK menyimpan identitas user,
 // foto, atau tanggal — cuma "nama makanan -> nutrisi per gram". Butuh login (anti-spam minimal).
