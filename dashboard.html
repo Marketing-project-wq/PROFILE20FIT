@@ -426,7 +426,7 @@
          ikon yang menonjol, bukan kotaknya. Border pakai campuran --ink → tetap kelihatan
          di light & dark. Ukuran seragam (aspect 1, max-height sama). */
       .svc2 .s2-ic{width:100%;aspect-ratio:1;max-height:78px;border-radius:20px;
-        background:color-mix(in srgb,var(--card) 55%,transparent);
+        background:transparent;
         border:1px solid color-mix(in srgb,var(--ink) 13%,transparent);box-shadow:none;
         display:grid;place-items:center;transition:transform .12s ease,background .16s ease,border-color .16s ease}
       @media(hover:hover){ .svc2:hover .s2-ic{background:color-mix(in srgb,var(--red) 9%,var(--card));
@@ -1382,20 +1382,11 @@
           '<path d="M17.5 8.5H19a1 1 0 0 1 1 1V18a2 2 0 0 1-2 2"/>' +
           '<path class="a" d="M7 8.5h5"/><path d="M7 12h7M7 15.5h5"/>'
       };
-      // Ikon 3D default per-tile (PNG). Dipakai kalau CMS belum set icon_url. Gagal load -> vektor.
-      var MEDIA3D_BASE = "https://media.20fit.id/wp-content/uploads/2026/09/";
-      var TILE_IMG3D = {
-        medical: "Menu-Medical-Checkup-1.png", membership: "Menu-Membership-1.png",
-        diet: "Menu-Food-1.png", "book-class": "Vector-20FIT-Gym-1.png",
-        "book-doctor": "Menu-Doctor-1.png", "book-coach": "Menu-Coach-1.png",
-        "book-recovery": "Vector-20FIT-Clinic-1.png", news: "Vector-20FIT-Media-1.png",
-      };
       function svcTile(o) {
-        var art = IC3D[o.key] || (IC[o.ic] || "");        // vektor duotone = fallback terakhir
+        var art = IC3D[o.key] || (IC[o.ic] || "");        // ikon vektor duotone (default)
         var vec = '<svg viewBox="0 0 24 24" aria-hidden="true">' + art + '</svg>';
         var cfg = TILE_CFG && TILE_CFG[o.key];
-        // Prioritas: CMS icon_url -> ikon 3D default (TILE_IMG3D) -> vektor.
-        var iconUrl = (cfg && cfg.icon_url) || (TILE_IMG3D[o.key] ? (MEDIA3D_BASE + TILE_IMG3D[o.key]) : null);
+        var iconUrl = cfg && cfg.icon_url;                 // CMS icon_url menang; kalau kosong -> vektor
         var iconInner;
         if (iconUrl) {
           // Eager-load (grid ada di layar pertama, jangan lazy). Gagal load -> tampil vektor fallback.
