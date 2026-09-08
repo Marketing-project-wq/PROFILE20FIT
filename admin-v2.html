@@ -2415,7 +2415,7 @@
   };
 
   // ---- HOME GRID TILES (section hometiles) — nyala/mati kotak + jumlah data per kotak ----
-  var HT_LABELS={ medical:"Medical", membership:"Membership", diet:"Diet", "book-class":"Book Class", "book-doctor":"Book Doctor", "book-coach":"Book Coach", "book-recovery":"Book Recovery", rewards:"Rewards", news:"News" };
+  var HT_LABELS={ medical:"Medical", membership:"Membership", diet:"Diet", "book-class":"Book Class", "book-doctor":"Book Doctor", "book-coach":"Book Coach", "book-recovery":"Book Recovery", rewards:"Rewards", news:"News", team:"Team carousel" };
   async function loadHomeTiles(){
     var box=document.getElementById("htList"); if(!box) return;
     box.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
@@ -2425,19 +2425,38 @@
       if(!j||!j.ok){ box.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; return; }
       var tiles=j.tiles||[];
       if(!tiles.length){ box.innerHTML='<div class="adm-note">'+L("No tiles.","Tak ada kotak.")+'</div>'; return; }
-      box.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Tile","Kotak")+'</th><th>'+L("Active data","Data aktif")+'</th><th>'+L("Status","Status")+'</th><th></th></tr></thead><tbody>'+
+      box.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Tile","Kotak")+'</th><th>'+L("Icon","Ikon")+'</th><th>'+L("Active data","Data aktif")+'</th><th>'+L("Status","Status")+'</th><th></th></tr></thead><tbody>'+
         tiles.map(function(t){
           var label=HT_LABELS[t.key]||t.key;
           var cnt=(t.count==null)?'<span class="adm-note" style="margin:0">—</span>':((t.count===0)?('<span class="adm-tag adm-tag--pending">0</span>'):('<span class="adm-tag adm-tag--paid">'+t.count+'</span>'));
+          if(t.key==="team" && t.roles){ var rr=t.roles; var pc=function(v){return v==null?"?":v;}; cnt=cnt+' <span class="adm-mono" style="opacity:.6">'+L("C","C")+pc(rr.coach)+"·"+L("D","D")+pc(rr.doctor)+"·"+L("P","P")+pc(rr.physiotherapist)+'</span>'; }
           var on=!t.hidden;
           var statusTag=on?'<span class="adm-tag adm-tag--paid">'+L("ON","NYALA")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("OFF","MATI")+'</span>';
           var btn='<button class="adm-btn adm-btn--sm htToggle" data-key="'+evEsc(t.key)+'" data-on="'+(on?'1':'0')+'">'+(on?L("Turn off","Matikan"):L("Turn on","Nyalakan"))+'</button>';
-          return '<tr><td>'+evEsc(label)+' <span class="adm-mono" style="opacity:.55">'+evEsc(t.key)+'</span></td><td>'+cnt+'</td><td>'+statusTag+'</td><td class="adm-right">'+btn+'</td></tr>';
-        }).join("")+'</tbody></table>';
+          var prev=t.icon_url?('<img src="'+evEsc(t.icon_url)+'" alt="" style="width:30px;height:30px;object-fit:contain;vertical-align:middle;border-radius:7px;background:linear-gradient(45deg,#eee 25%,transparent 25%,transparent 75%,#eee 75%)0 0/10px 10px">'):('<span class="adm-note" style="margin:0">—</span>');
+          var iconCell=prev+' <label class="adm-btn adm-btn--sm" style="cursor:pointer">'+L("Upload","Unggah")+'<input type="file" accept="image/png,image/webp,image/svg+xml" style="display:none" onchange="htIconPick(this,\''+evEsc(t.key)+'\')"></label>'+(t.icon_url?(' <button class="adm-btn adm-btn--sm htIconReset" data-key="'+evEsc(t.key)+'">'+L("Reset","Reset")+'</button>'):'');
+          return '<tr><td>'+evEsc(label)+' <span class="adm-mono" style="opacity:.55">'+evEsc(t.key)+'</span></td><td>'+iconCell+'</td><td>'+cnt+'</td><td>'+statusTag+'</td><td class="adm-right">'+btn+'</td></tr>';
+        }).join("")+'</tbody></table>'+
+        '<div class="adm-note" style="margin-top:8px">'+L("Icon: transparent PNG/WebP, ~square, ≤5MB. Empty = built-in vector icon.","Ikon: PNG/WebP transparan, ~persegi, ≤5MB. Kosong = ikon vektor bawaan.")+'</div>';
     }catch(e){ box.innerHTML='<div class="adm-note">'+L("Error loading tiles.","Error memuat kotak.")+'</div>'; }
   }
   window.htToggle=async function(key, currentlyOn){
     try{ var res=await adminPost("/api/admin/home-tiles/toggle", { key:key, hidden: currentlyOn }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadHomeTiles(); }catch(e){}
+  };
+  window.htIconPick=async function(input, key){
+    var file=input.files&&input.files[0]; if(!file){ return; }
+    try{
+      if(file.size>5*1024*1024){ alert(L("Max 5MB.","Maks 5MB.")); input.value=""; return; }
+      var dataUrl=await new Promise(function(resolve,reject){ var r=new FileReader(); r.onload=function(){resolve(r.result);}; r.onerror=reject; r.readAsDataURL(file); });
+      var res=await adminPost("/api/admin/home-tiles/icon", { key:key, data_url:dataUrl });
+      var j=await res.json().catch(function(){return null;});
+      if(!res.ok||!j||!j.ok){ alert(L("Upload failed: ","Gagal unggah: ")+(await admErr(res,j))); return; }
+      loadHomeTiles();
+    }catch(e){ alert(L("Upload error.","Error unggah.")); }
+    finally{ input.value=""; }
+  };
+  window.htIconReset=async function(key){
+    try{ var res=await adminPost("/api/admin/home-tiles/icon", { key:key, clear:true }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadHomeTiles(); }catch(e){}
   };
 
   function loadSection(id){
@@ -2642,6 +2661,8 @@
     if(dca){ var dcaA=dca.dataset.a,dcaId=dca.dataset.id; if(dcaA==="edit")window.dcEdit(dcaId); else if(dcaA==="delete")window.dcDelete(dcaId); return; }
     var htt=e.target.closest(".htToggle");
     if(htt){ window.htToggle(htt.dataset.key, htt.dataset.on==="1"); return; }
+    var htr=e.target.closest(".htIconReset");
+    if(htr){ window.htIconReset(htr.dataset.key); return; }
     var mnrow=e.target.closest("#mnRows tr[data-mid]");
     if(mnrow){ var mm=MN_CACHE.filter(function(x){return x.id===mnrow.dataset.mid;})[0]; if(mm){ document.querySelectorAll("#mnRows tr").forEach(function(x){x.style.background="";}); mnrow.style.background="var(--surface)"; mnRenderDetail(mm); } return; }
     var mnf=e.target.closest(".mnf");

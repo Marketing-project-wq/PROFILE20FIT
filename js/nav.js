@@ -12,15 +12,17 @@
   };
   const svg = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + '</svg>';
 
-  // Ikon 3D (PNG dari CDN media.20fit.id). Kalau gagal load -> fallback ke ikon SVG lama
-  // (onerror) supaya tampilan tak jebol. 'scan' TETAP SVG (belum ada gambar 3D).
-  const MEDIA3D = "https://media.20fit.id/wp-content/uploads/2026/09/";
+  // Ikon 3D (PNG lokal dari repo, /img/nav/*.png) — hasil bake dari vektor Canva
+  // (Footer *.svg) dengan background DIHAPUS (transparan), jadi ikon "melayang" bukan
+  // gambar putih ditempel. Disajikan same-origin dari git, bukan CDN media.20fit.id
+  // (yang versinya masih ber-background putih). Kalau gagal load -> fallback ke ikon
+  // SVG lama (onerror) supaya tampilan tak jebol. 'scan' TETAP SVG (belum ada gambar 3D).
   const IMG3D = {
-    home:     MEDIA3D + "Footer-Home-1.png",
-    event:    MEDIA3D + "Footer-Ticket-1.png",
-    calories: MEDIA3D + "Footer-Calorie-1.png",
-    progress: MEDIA3D + "Footer-Activity-1.png",
-    profile:  MEDIA3D + "Footer-Account-1.png",
+    home:     "/img/nav/home.png",
+    event:    "/img/nav/event.png",
+    calories: "/img/nav/calories.png",
+    progress: "/img/nav/progress.png",
+    profile:  "/img/nav/profile.png",
   };
   const iconHtml = (k) => {
     const u = IMG3D[k];
@@ -88,11 +90,14 @@
       padding:6px 4px;border-radius:999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:.15s}
     .bnav a.on{color:var(--red,#D4283A);background:color-mix(in srgb,var(--red,#D4283A) 12%,transparent)}
     .bnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-    /* Ikon 3D (PNG) — ukuran seragam, crop rapi via object-fit, tajam di retina. */
+    /* Ikon 3D (PNG transparan) — "melayang" tanpa plate, drop-shadow lembut biar
+       terangkat dari latar (samakan gaya dengan ikon grid Home). object-fit contain
+       supaya proporsi terjaga & tajam di retina. */
     .ico3d{display:inline-flex;align-items:center;justify-content:center;line-height:0;flex:0 0 auto}
-    .ico3d img{display:block;object-fit:contain}
-    .navside .navi .ico3d img{width:32px;height:32px}
-    .bnav a .ico3d img{width:36px;height:36px}
+    .ico3d img{display:block;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(0,0,0,.22))}
+    .navside .navi .ico3d img{width:34px;height:34px}
+    .bnav a .ico3d img{width:40px;height:40px;transition:transform .15s}
+    .bnav a.on .ico3d img{transform:translateY(-1px) scale(1.06)}
     .bnav a.on svg{stroke:var(--red,#D4283A)}
     .scanfab{position:fixed;right:18px;bottom:96px;z-index:41;background:var(--red,#D4283A);color:#fff;border:0;border-radius:50%;
       width:58px;height:58px;font-size:10px;font-weight:750;font-family:${SYS};cursor:pointer;
