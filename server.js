@@ -4291,6 +4291,7 @@ app.post("/api/menu/submit", async (req, res) => {
   if (MENU_DIET_TYPES.indexOf(diet_type) < 0) diet_type = "normal";
   var photo_url = b.photo_url ? String(b.photo_url) : null;
   if (photo_url && photo_url.length > 3000000) return res.status(413).json({ error: "Foto terlalu besar. Kompres dulu (maks ~2MB)." });
+  var consent_version = b.consent_version ? String(b.consent_version).trim().slice(0, 40) : null;
   var est_kcal = (b.est_kcal != null && b.est_kcal !== "") ? (Math.max(0, Math.round(+b.est_kcal)) || null) : null;
   var servings = (b.servings != null && b.servings !== "") ? (Math.max(1, Math.round(+b.servings)) || null) : null;
   var cook_minutes = (b.cook_minutes != null && b.cook_minutes !== "") ? (Math.max(0, Math.round(+b.cook_minutes)) || null) : null;
@@ -4320,6 +4321,19 @@ app.post("/api/menu/submit", async (req, res) => {
   };
   if (user) row.auth_user_id = user.id;
   else { row.anon_id = anonSess.anon_id; row.submit_ip_hash = ipHash; }
+  // Rekam persetujuan (my20fit_menu_consent_text) kalau klien mengirim versinya: catat
+  // versi + waktu + hash teks yang berlaku (bukti consent per-kiriman).
+  if (consent_version) {
+    try {
+      var { data: cx } = await admin.from("my20fit_menu_consent_text")
+        .select("version,text_id,text_en").eq("version", consent_version).limit(1).single();
+      if (cx) {
+        row.consent_version = cx.version;
+        row.consent_at = new Date().toISOString();
+        row.consent_text_hash = sha256(((cx.text_id || "") + "|" + (cx.text_en || "")) + "|" + ANON_SALT).slice(0, 64);
+      }
+    } catch (e) { /* non-fatal */ }
+  }
   var { data, error } = await admin.from("my20fit_menu_contribution").insert(row).select("id").limit(1).single();
   if (error) {
     if (error.code === "23505" || String(error.message || "").toLowerCase().indexOf("duplicate") >= 0)
@@ -4327,6 +4341,20 @@ app.post("/api/menu/submit", async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
   return res.json({ ok: true, id: data.id });
+});
+
+// PUBLIK: teks persetujuan kirim resep yang aktif (my20fit_menu_consent_text), sesuai bahasa.
+app.get("/api/menu/consent", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, consent: null });
+    var lang = String(req.query.lang || "id").toLowerCase() === "en" ? "en" : "id";
+    var { data } = await admin.from("my20fit_menu_consent_text")
+      .select("version,text_id,text_en").eq("is_active", true)
+      .order("created_at", { ascending: false }).limit(1).single();
+    if (!data) return res.json({ ok: true, consent: null });
+    res.set("Cache-Control", "public, max-age=300");
+    return res.json({ ok: true, consent: { version: data.version, text: (lang === "en" ? (data.text_en || data.text_id) : (data.text_id || data.text_en)) || "" } });
+  } catch (e) { return res.json({ ok: true, consent: null }); }
 });
 // PUBLIK: angka ambang reward sumbang-resep -- supaya frontend TIDAK hardcode "10"/"5" (bisa
 // diubah di sini tanpa deploy frontend). Tidak butuh login: dipakai jadi ajakan SEBELUM user

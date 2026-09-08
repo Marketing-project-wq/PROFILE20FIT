@@ -101,6 +101,15 @@
   .amd img{max-width:100%;border-radius:12px;margin:12px 0}
   .amd a{color:var(--red);font-weight:700}
   .amd strong{font-weight:800}
+  /* Like / Save di detail resep */
+  .rsoc{display:flex;gap:10px;margin:14px 0 4px}
+  .soc-btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:11px;padding:9px 13px;font-weight:800;font-size:13px;cursor:pointer}
+  .soc-btn svg{fill:none;stroke:currentColor}
+  .soc-btn.on{color:var(--red);border-color:var(--red)}
+  .soc-btn.on svg{fill:var(--red)}
+  /* Consent kirim resep */
+  .cbx{display:flex;gap:10px;align-items:flex-start;margin:6px 0 2px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--txt);font-size:12.5px;line-height:1.5;cursor:pointer}
+  .cbx input{width:auto;margin-top:2px;flex:0 0 auto}
 </style>
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/glass-app.css">
@@ -169,6 +178,7 @@
           <div><label><span data-i18n="diet_l_kcal">Estimated calories</span> <span style="text-transform:none;font-weight:400" data-i18n="diet_optional">(optional)</span></label><input id="mKcal" type="number" inputmode="numeric" data-i18n-ph="diet_ph_kcal" placeholder="e.g. 550" /></div>
           <div><label><span data-i18n="diet_l_photo">Photo</span> <span style="text-transform:none;font-weight:400" data-i18n="diet_optional">(optional)</span></label><input id="mPhoto" type="file" accept="image/*" /></div>
         </div>
+        <div id="consentBox" style="margin-top:14px"></div>
         <button class="btn" id="btnSubmit" onclick="submitMenu()" data-i18n="diet_btn_submit">Submit menu</button>
         <div class="msg" id="subMsg"></div>
         <div class="muted" style="margin-top:12px;font-size:12px" data-i18n="diet_track_hint">Track your submissions and revise rejected menus in your Profile.</div>
@@ -225,7 +235,7 @@
     function toggleShare(){
       var sec=$("shareSec"), btn=$("shareToggle");
       var open=sec.hasAttribute("hidden");
-      if(open){ sec.removeAttribute("hidden"); btn.classList.add("open"); if(!mineLoaded){ mineLoaded=true; loadMine(); } }
+      if(open){ sec.removeAttribute("hidden"); btn.classList.add("open"); loadConsent(); if(!mineLoaded){ mineLoaded=true; loadMine(); } }
       else { sec.setAttribute("hidden",""); btn.classList.remove("open"); }
     }
 
@@ -251,6 +261,11 @@
     function titleOf(it){ return it.source==="20fit" ? LL(it.nm) : (it.title||""); }
     function ingOf(it){ return it.source==="20fit" ? LL(it.ingO) : (it.ing||""); }
     function stepsOf(it){ return it.source==="20fit" ? LL(it.stepsO) : (it.steps||""); }
+    // Like/Save: petakan item -> (source, menu_id) yang dipakai endpoint /api/menu/*.
+    function srcOf(it){ return it.source==="20fit" ? "official" : "member"; }
+    function midOf(it){ return it.source==="20fit" ? String((it.rec&&it.rec.id)||"") : String(it.key||"").replace(/^u_/,""); }
+    function heartSvg(){ return '<svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>'; }
+    function bookmarkSvg(){ return '<svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>'; }
     function renderChips(){
       var types=["all"].concat(window.Recipes?Recipes.DIET_TYPES:[]);
       var lbl={all:T("diet_all"),"high-protein":"High-protein","low-carb":"Low-carb"};
@@ -316,10 +331,12 @@
         hero+
         '<h2 style="margin-top:0">'+esc(titleOf(it))+'</h2>'+badges+
         '<div class="muted">~'+(it.kcal!=null?it.kcal+' '+esc(T("diet_kcal")):'—')+(it.source==="user"?' · '+esc(T("diet_user_contrib")):'')+'</div>'+mac+
+        '<div class="rsoc" id="recSocial"></div>'+
         '<label>'+esc(T("recipe_ing"))+'</label><div style="white-space:pre-wrap;font-size:14px">'+esc(ingOf(it))+'</div>'+
         '<label>'+esc(T("recipe_steps"))+'</label><div style="white-space:pre-wrap;font-size:14px">'+esc(stepsOf(it))+'</div>'+
         (it.source==="20fit"?'<div class="rdisc">'+esc(T("diet_nutri_est"))+'</div>':'')+
         logBtn;
+      loadRecSocial(it); // Like/Save state (server, service key) + wiring tombol
       // Resolve real food photo for 20fit hero (emoji stays as fallback on failure).
       if(window.Recipes && Recipes.applyThumb && it.rec && !it.photo){
         Recipes.applyThumb(document.querySelector("#recBody .pm-hero"), it.rec);
@@ -410,12 +427,14 @@
       var m=$("subMsg"); m.className="msg err"; m.textContent="";
       var name=$("mName").value.trim(), ing=$("mIng").value.trim(), steps=$("mSteps").value.trim();
       if(!name||!ing||!steps){ m.textContent=T("diet_err_required"); return; }
+      if(CONSENT&&CONSENT.text){ var cc=$("consentChk2"); if(!cc||!cc.checked){ m.textContent=T("rec_consent_required"); return; } }
       var btn=$("btnSubmit"); btn.disabled=true; m.className="msg"; m.textContent=T("diet_sending");
       readPhoto($("mPhoto").files[0], async function(photo, perr){
         if(perr){ m.className="msg err"; m.textContent=perr; btn.disabled=false; return; }
         var body={ name:name, diet_type:$("mType").value, ingredients:ing, steps:steps };
         var kc=$("mKcal").value.trim(); if(kc) body.est_kcal=kc;
         if(photo) body.photo_url=photo;
+        if(CONSENT&&CONSENT.version) body.consent_version=CONSENT.version;
         try{
           var r=await dietFetch("/api/menu/submit",{method:"POST",body:JSON.stringify(body)});
           var j=await r.json().catch(function(){return{};});
@@ -426,6 +445,59 @@
           loadMine();
         }catch(e){ btn.disabled=false; m.className="msg err"; m.textContent=T("diet_err_net"); }
       });
+    }
+
+    // ============ LIKE / SAVE (detail resep) ============
+    function drawRecSocial(el,it,st){
+      el.innerHTML=
+        '<button class="soc-btn'+(st.reacted?" on":"")+'" onclick="toggleLike(this)">'+heartSvg()+' <span class="soc-c">'+(st.cnt||0)+'</span></button>'+
+        '<button class="soc-btn'+(st.saved?" on":"")+'" onclick="toggleSave(this)">'+bookmarkSvg()+' <span>'+esc(st.saved?T("rec_saved"):T("rec_save"))+'</span></button>';
+      el._it=it; el._st=st;
+    }
+    async function loadRecSocial(it){
+      var el=document.getElementById("recSocial"); if(!el) return;
+      var src=srcOf(it), mid=midOf(it); if(!mid){ el.innerHTML=""; return; }
+      var st={reacted:false,saved:false,cnt:0};
+      drawRecSocial(el,it,st); // tampil dulu (optimis 0), lalu sinkronkan
+      try{
+        var tok=await Auth.token();
+        var r=await fetch("/api/menu/social?ids="+encodeURIComponent(src+":"+mid), tok?{headers:{Authorization:"Bearer "+tok}}:undefined);
+        var j=await r.json();
+        st.cnt=(j.counts&&j.counts[src+":"+mid])||0;
+        st.reacted=(j.reacted||[]).indexOf(src+":"+mid)>=0;
+        st.saved=(j.saved||[]).indexOf(src+":"+mid)>=0;
+        if(document.getElementById("recSocial")===el) drawRecSocial(el,it,st);
+      }catch(e){}
+    }
+    async function toggleLike(btn){
+      var el=document.getElementById("recSocial"), it=el&&el._it; if(!it) return;
+      var tok=await Auth.token(); if(!tok){ location.href="login.html"; return; }
+      btn.disabled=true;
+      try{
+        var r=await fetch("/api/menu/"+encodeURIComponent(midOf(it))+"/react",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok},body:JSON.stringify({source:srcOf(it)})});
+        var j=await r.json(); if(r.ok){ el._st.reacted=j.reacted; el._st.cnt=j.count; drawRecSocial(el,it,el._st); }
+      }catch(e){}
+    }
+    async function toggleSave(btn){
+      var el=document.getElementById("recSocial"), it=el&&el._it; if(!it) return;
+      var tok=await Auth.token(); if(!tok){ location.href="login.html"; return; }
+      btn.disabled=true;
+      try{
+        var r=await fetch("/api/menu/"+encodeURIComponent(midOf(it))+"/save",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok},body:JSON.stringify({source:srcOf(it)})});
+        var j=await r.json(); if(r.ok){ el._st.saved=j.saved; drawRecSocial(el,it,el._st); }
+      }catch(e){}
+    }
+
+    // ============ CONSENT kirim resep ============
+    var CONSENT=null; // {version,text} | null
+    async function loadConsent(){
+      try{
+        var r=await fetch("/api/menu/consent?lang="+((window.I18N&&I18N.lang==="en")?"en":"id"));
+        var j=await r.json(); CONSENT=(j&&j.consent)||null;
+      }catch(e){ CONSENT=null; }
+      var box=$("consentBox"); if(!box) return;
+      if(!CONSENT||!CONSENT.text){ box.innerHTML=""; return; }
+      box.innerHTML='<label class="cbx"><input type="checkbox" id="consentChk2"><span>'+esc(CONSENT.text)+'</span></label>';
     }
 
     // ============ ARTIKEL RESEP ============
