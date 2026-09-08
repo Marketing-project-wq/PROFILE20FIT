@@ -237,7 +237,7 @@
     <div class="card" id="menuRecCard">
       <div><div style="font-weight:800;font-size:15px">🍽️ <span data-i18n="cal_mrec_title">Menu recommendations</span></div><div class="muted" style="font-size:12px" data-i18n="cal_mrec_sub">Based on your remaining macros today · swipe for more</div></div>
       <div id="menuRecBody" style="margin-top:12px"><div class="muted" style="font-size:12.5px" data-i18n="cal_mrec_loading">Loading recommendations…</div></div>
-      <a href="diet.html" style="display:block;text-align:center;margin-top:12px;color:var(--red);font-weight:800;text-decoration:none;font-size:13px" data-i18n="cal_mrec_more">See more menus →</a>
+      <a href="recipe.html" style="display:block;text-align:center;margin-top:12px;color:var(--red);font-weight:800;text-decoration:none;font-size:13px" data-i18n="cal_mrec_more">See more menus →</a>
       <div style="font-size:11px;color:var(--muted);margin-top:10px" data-i18n="cal_mrec_disc">Rough guidance — not a substitute for a nutritionist.</div>
     </div>
   </div>
@@ -435,7 +435,7 @@
       var nm=function(o){ return window.L?L(o):(o.id||o.en); };
       if(!recs.length){ body.innerHTML='<div class="muted" style="font-size:12.5px">'+L({en:"No recommendations yet. Complete your profile (weight/height) & log your food first.",id:"Belum ada rekomendasi. Lengkapi profil (berat/tinggi) & catat makananmu dulu."})+'</div>'; return; }
       var cards=recs.map(function(r){
-        return '<a class="mrec-card" href="diet.html">'+
+        return '<a class="mrec-card" href="recipe.html">'+
           '<div class="mrec-thumb" id="mrecthumb-'+r.id+'" style="background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+r.emoji+'</div>'+
           '<div class="mrec-b"><div class="mrec-nm">'+nm(r.nm)+'</div>'+
           '<div class="mrec-meta">~'+r.kcal+' kcal</div>'+

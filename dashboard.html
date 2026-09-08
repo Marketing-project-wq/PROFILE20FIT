@@ -1314,7 +1314,7 @@
       var SVCS = [
         { key: "medical",       ic: "pin",      lbl: { en: "Medical", id: "Medical" },           sub: { en: "Medical Check Up", id: "Medical Check Up" }, href: "/medical" },
         { key: "membership",    ic: "card",     lbl: { en: "Membership", id: "Membership" },     sub: { en: "Special Offer · Gym", id: "Special Offer · Gym" }, href: "/membership" },
-        { key: "diet",          ic: "diet",     lbl: { en: "Diet", id: "Diet" },                 sub: { en: "Meal plans", id: "Rencana makan" }, href: "/diet" },
+        { key: "diet",          ic: "diet",     lbl: { en: "Recipe", id: "Resep" },              sub: { en: "Recipes & menus", id: "Resep & menu" }, href: "/recipe" },
         { key: "book-class",    ic: "dumbbell", lbl: { en: "Book Class", id: "Book Kelas" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/classes" },
         { key: "book-doctor",   ic: "doctor",   lbl: { en: "Book Doctor", id: "Book Dokter" },   sub: { en: "Konsultasi · Klinik", id: "Konsultasi · Klinik" }, href: "/book-doctor" },
         { key: "book-coach",    ic: "coach",    lbl: { en: "Book Coach", id: "Book Coach" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/book-coach" },
@@ -2553,7 +2553,7 @@
         { ic:"home",  t:{en:"Home",id:"Beranda"},              type:"in",  href:"dashboard.html" },
         { ic:"clip",  t:{en:"Medical Check-Up",id:"Medical Check-Up"}, type:"in", href:"medical.html" },
         { ic:"chart", t:{en:"Progress",id:"Progress"},          type:"in",  href:"progress.html" },
-        { ic:"bowl",  t:{en:"Diet · Meal plan",id:"Diet · Rencana makan"}, type:"in", href:"diet.html" },
+        { ic:"bowl",  t:{en:"Recipe",id:"Resep"}, type:"in", href:"recipe.html" },
         { ic:"dumbbell", t:{en:"Book Class · Arena/Gym",id:"Book Kelas · Arena/Gym"}, type:"in", href:"classes.html" },
         { ic:"coach", t:{en:"Book Coach",id:"Book Coach"},      type:"in",  href:"book-coach.html" },
         { ic:"doctor",t:{en:"Book Doctor",id:"Book Dokter"},    type:"in",  href:"book-doctor.html" },
@@ -2565,7 +2565,6 @@
       ]},
       { title:{en:"Open with your account",id:"Buka pakai akunmu"}, badge:{en:"SSO",id:"SSO"}, items:[
         { ic:"flame", t:{en:"Calorie Scan",id:"Scan Kalori"},   type:"sso", fn:"caloriesSso" },
-        { ic:"book",  t:{en:"Recipes · Menu",id:"Resep · Menu"},type:"sso", fn:"menuSso" },
         { ic:"camera",t:{en:"Progress Photo",id:"Foto Progres"},type:"sso", fn:"photoSso" }
       ]},
       { title:{en:"Other 20FIT sites",id:"Situs 20FIT lainnya"}, badge:{en:"External",id:"Eksternal"}, items:[
