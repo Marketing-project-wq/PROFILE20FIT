@@ -24,6 +24,11 @@
 /* QR box (overlay + inline) */
 .twk-qrbox{background:#fff;border:1px solid var(--line,#EBEBEF);border-radius:8px;padding:6px;width:104px;line-height:0}
 .twk-qrbox svg{display:block;width:100%;height:auto}
+/* QR di dalam kartu tiket — tampil LANGSUNG, tidak di balik tombol. Latar selalu putih
+   (juga di dark mode) karena pemindai gerbang butuh kontras QR yang benar. */
+.twk-qrmini{background:#fff;border:1px solid var(--line,#EBEBEF);border-radius:8px;padding:6px;width:96px;line-height:0;margin:10px 0 2px}
+.twk-qrmini svg,.twk-qrmini img{display:block;width:100%;height:auto}
+.twk-qrmini .twk-code{line-height:1.3}
 
 /* Carousel horizontal (varian compact / dashboard) */
 .twk-caro-wrap{position:relative;margin-top:4px}
@@ -74,3 +79,72 @@
 .twk-close{position:absolute;top:10px;right:12px;background:none;border:0;cursor:pointer;font-size:18px;color:#5F6355;line-height:1}
 .twk-code{font-size:12px;font-weight:800;margin-top:14px;font-family:ui-monospace,monospace}
 .twk-hint{font-size:11px;color:#5F6355;margin-top:6px}
+
+/* ============================================================
+   Kartu grup "Tiket Saya" (satu per event, bisa ditekan) + Halaman E-Ticket.
+   Warna pakai token --bg/--card/--ink/--muted/--line (auto light/dark). QR SELALU
+   di kotak PUTIH (juga dark mode) — pemindai gerbang butuh QR gelap di atas terang.
+   ============================================================ */
+.twk-tap{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
+.twk-tap:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(16,18,22,.14)}
+.twk-tap:focus-visible{outline:2px solid var(--ink,#15171C);outline-offset:2px}
+.twk-topline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px}
+.twk-nbadge{font-size:11px;font-weight:800;letter-spacing:.02em;color:var(--muted,#8A8D94);border:1px solid var(--line,#EBEBEF);border-radius:999px;padding:2px 9px}
+.twk-open{margin-top:auto;padding-top:10px;font-size:13px;font-weight:800;color:var(--ink,#15171C)}
+.etk-daterow{display:inline-flex;align-items:center;gap:6px}
+.etk-cal{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px}
+
+/* Badge status gerbang */
+.etk-badge{font-size:11px;font-weight:900;letter-spacing:.06em;border-radius:999px;padding:4px 11px;white-space:nowrap;line-height:1.5}
+.etk-b-green{background:rgba(14,122,59,.15);color:#0E7A3B}
+.etk-b-grey{background:rgba(138,141,148,.18);color:#6B6F76}
+.etk-b-red{background:rgba(196,17,1,.14);color:#C41101}
+.etk-b-blue{background:rgba(20,102,196,.14);color:#1466C4}
+
+/* Halaman E-Ticket (layar penuh) */
+.etk-lock{overflow:hidden}
+.etk-ov{position:fixed;inset:0;z-index:400;background:var(--bg,#F1F1F4);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.etk-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;background:var(--bg,#F1F1F4)}
+.etk-back{width:40px;height:40px;flex:none;border:0;background:var(--card,#fff);border-radius:12px;display:grid;place-items:center;cursor:pointer;color:var(--ink,#15171C);box-shadow:0 1px 5px rgba(16,18,22,.10)}
+.etk-back svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.etk-title{margin:0;font-size:20px;font-weight:900;color:var(--ink,#15171C)}
+.etk-wrap{max-width:480px;margin:0 auto;padding:4px 16px calc(env(safe-area-inset-bottom) + 36px);display:flex;flex-direction:column;gap:16px}
+.etk-card{background:var(--card,#fff);border-radius:22px;overflow:hidden;box-shadow:0 2px 14px rgba(16,18,22,.06)}
+
+/* Kartu 1 — event */
+.etk-cover{position:relative;width:100%;aspect-ratio:16/9;background:var(--line,#EBEBEF)}
+.etk-cover img{width:100%;height:100%;object-fit:cover;display:block}
+/* Fallback cover RAPI (bukan garis merah lama): panel netral + label kecil, tanpa memasangkan
+   gambar event lain. Dipakai di halaman E-Ticket dan kartu grup "Tiket Saya". */
+.etk-cover.noimg,.twk-tap .twk-pcover.noimg{background:linear-gradient(135deg,var(--inp,#F2F2F5),var(--line,#E7E7EC))}
+.etk-cover.noimg img,.twk-tap .twk-pcover.noimg img{display:none}
+.etk-cover.noimg::after,.twk-tap .twk-pcover.noimg::after{content:"20FIT · E-TICKET";position:absolute;inset:0;display:grid;place-items:center;color:var(--muted,#8A8D94);font-weight:800;letter-spacing:.14em;font-size:12px}
+.etk-evbody{padding:18px 18px 20px}
+.etk-evtop{display:flex;align-items:flex-start;gap:12px;justify-content:space-between}
+.etk-evname{margin:0;font-size:22px;font-weight:900;line-height:1.22;color:var(--ink,#15171C);overflow-wrap:anywhere}
+.etk-evtop .etk-badge{margin-top:4px;flex:none}
+.etk-evbody .etk-daterow{color:var(--muted,#8A8D94);font-size:13.5px;font-weight:600;margin-top:12px}
+
+/* Kartu 2..N — tiket */
+.etk-tcard{padding:20px 18px 22px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.etk-tlabel{align-self:flex-start;display:flex;align-items:center;gap:10px;font-size:15px;font-weight:800;color:var(--ink,#15171C);margin-bottom:16px}
+.etk-qr{background:#fff;border-radius:16px;padding:18px;width:100%;max-width:264px;aspect-ratio:1/1;display:grid;place-items:center;box-shadow:0 0 0 1px rgba(16,18,22,.06)}
+.etk-qr svg,.etk-qr img{display:block;width:100%;height:100%;image-rendering:pixelated}
+.etk-qr[onclick]{cursor:zoom-in}
+.etk-qr-none{aspect-ratio:auto;min-height:150px;flex-direction:column;gap:12px}
+.etk-qrmsg{font-size:13px;font-weight:600;color:#6B6F76}
+.etk-linkbtn{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:#15171C;text-decoration:none;border:1.5px solid #15171C;border-radius:10px;padding:8px 14px}
+.etk-coderow{display:inline-flex;align-items:center;gap:8px;margin-top:14px}
+.etk-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px;font-weight:700;letter-spacing:.04em;color:var(--ink,#15171C)}
+.etk-copy{width:32px;height:32px;flex:none;border:1px solid var(--line,#EBEBEF);background:var(--card,#fff);border-radius:9px;display:grid;place-items:center;cursor:pointer;color:var(--muted,#8A8D94)}
+.etk-copy svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.etk-copy.ok{color:#0E7A3B;border-color:#0E7A3B}
+.etk-rows{width:100%;margin-top:18px;display:flex;flex-direction:column}
+.etk-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:11px 0;border-top:1px solid var(--line,#EBEBEF);text-align:left}
+.etk-k{font-size:13px;color:var(--muted,#8A8D94);flex:none}
+.etk-v{font-size:14px;font-weight:800;color:var(--ink,#15171C);text-align:right;overflow-wrap:anywhere}
+
+/* QR layar penuh (tap QR → scan mudah) */
+.etk-qrfull{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;padding:28px;cursor:zoom-out}
+.etk-qrfull-box{background:#fff;border-radius:20px;padding:26px;width:100%;max-width:360px;aspect-ratio:1/1;display:grid;place-items:center}
+.etk-qrfull-box svg,.etk-qrfull-box img{width:100%;height:100%;image-rendering:pixelated}

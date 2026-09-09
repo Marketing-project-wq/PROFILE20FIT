@@ -1456,14 +1456,21 @@ const SCAN_PACKAGES = {
 // /api/v1/auth/login/google). Yang perlu di server hanyalah GOOGLE_CLIENT_ID
 // (nilai PUBLIK — memang tampil di web). Tidak perlu Client Secret / Redirect URI.
 //
-// Nilai diambil dari env GOOGLE_CLIENT_ID (bisa beda per environment: local /
-// staging / production). Ada DEFAULT publik (Client ID web app 20FIT) supaya
-// tombol Google SELALU tampil walau env belum diisi — pola yang sama dengan
-// Supabase URL/anon key yang juga punya default publik di kode. Client ID
-// bersifat PUBLIK (bukan secret). Frontend mengambilnya lewat GET /api/config
-// (satu sumber). Untuk override, set env GOOGLE_CLIENT_ID di Railway.
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ||
-  "26509397037-8d1s0c39hb31738fcl816b8jrv7fdt6i.apps.googleusercontent.com";
+// Nilai HANYA dari env GOOGLE_CLIENT_ID (bisa beda per environment: local /
+// staging / production). Client ID bersifat PUBLIK (bukan secret). Frontend
+// mengambilnya lewat GET /api/config (satu sumber).
+//
+// TIDAK ADA nilai default. Dulu ada default hardcoded
+// "26509397037-8d1s0c39hb31738fcl816b8jrv7fdt6i" yang dikira "Client ID web app
+// 20FIT" — ternyata itu Client ID **iOS** milik app mobile (terdaftar sebagai
+// reversed-client-id di `ios/Runner/Info.plist` → `CFBundleURLSchemes`). Client
+// bertipe iOS TIDAK PUNYA kolom "Authorized JavaScript origins" sama sekali,
+// jadi GIS di web selalu ditolak Google dengan
+// `Error 401: invalid_client` + "no registered origin" — apa pun origin-nya.
+// Default itu bukan jaring pengaman; ia menjamin tombol Google rusak diam-diam.
+// Kosong = tombol Google disembunyikan (login.html sudah menangani ini dan
+// menulis peringatan di console), bukan tombol yang menabrak halaman error Google.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 // Ambil profil user dari 20FIT pakai access_token (Bearer). Return field yg kita pakai.
 async function fetch20fitProfile(fitcoToken) {
   const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null, fitcoUserId: null };
@@ -1608,10 +1615,21 @@ app.post("/api/fitco-login", async (req, res) => {
 // dulu (verifyGoogleIdToken), baru API 20FIT ikut memverifikasi — defense-in-depth.
 // Verifikasi Google ID token ke Google (tanda tangan, iss, aud, exp) SEBELUM dipercaya.
 // audience = web client ID + (opsional) client ID mobile via env GOOGLE_CLIENT_IDS (koma).
+// PENTING: app mobile menandatangani ID token-nya dengan client ID iOS/Android-nya
+// sendiri, jadi client ID itu HARUS ada di GOOGLE_CLIENT_IDS — kalau tidak, login
+// Google dari app mobile ditolak di sini walau webnya benar.
 const googleVerifier = new OAuth2Client();
 async function verifyGoogleIdToken(credential) {
+  // filter(Boolean) juga membuang GOOGLE_CLIENT_ID yang kosong (env belum diisi),
+  // supaya audiens "" tak pernah ikut dikirim ke verifier.
   const audiences = [GOOGLE_CLIENT_ID, ...String(process.env.GOOGLE_CLIENT_IDS || "")
-    .split(",").map((s) => s.trim()).filter(Boolean)];
+    .split(",").map((s) => s.trim())].filter(Boolean);
+  // Tanpa satu pun audiens terdaftar, verifikasi audience tak bisa ditegakkan —
+  // TOLAK, jangan terima token apa pun. (Daftar kosong bisa membuat verifier
+  // melewati cek `aud`, artinya ID token dari app Google MANA PUN akan lolos.)
+  if (!audiences.length) {
+    const err = new Error("Login Google belum dikonfigurasi di server."); err.status = 503; throw err;
+  }
   let ticket;
   try {
     ticket = await googleVerifier.verifyIdToken({ idToken: credential, audience: audiences });
@@ -2175,42 +2193,126 @@ async function ticketEmbed(userJwt, action, extra) {
     return { status: r.status, data: j };
   } catch (e) { return { status: 0, data: null, error: e && e.message }; } finally { clearTimeout(to); }
 }
+// PENGAMAN UMUM anti-"[object Object]". Nilai dari penerbit bisa datang sebagai string
+// ATAU objek ({name}/{fullName}/{en,id}/{title}). textOf mengekstrak teks yang benar;
+// kalau tak ketemu properti teks yang wajar, kembalikan null — TIDAK PERNAH String(obj)
+// yang menghasilkan "[object Object]". Dipakai untuk SEMUA field teks embed (event_name,
+// product_name, holder, buyer) supaya tak ada satu pun yang bisa bocor jadi "[object Object]".
+function textOf(v) {
+  if (v == null) return null;
+  if (typeof v === "string") return v.trim() || null;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) { for (const x of v) { const s = textOf(x); if (s) return s; } return null; }
+  if (typeof v === "object") {
+    const n = firstOf(v, ["name", "fullName", "full_name", "displayName", "title", "label", "en", "id", "text", "value"]);
+    return n != null ? textOf(n) : null;   // rekursif: {title:{en:"..."}} pun aman
+  }
+  return null;
+}
+// nameOf = alias khusus nama orang, tetap dipakai di tempat lain. Sekarang menumpang textOf.
+function nameOf(v) { return textOf(v); }
+// URL-guard: cover harus string URL/data-URI. Kalau penerbit kirim objek/anomali, jangan
+// diteruskan (nanti jadi src="[object Object]"), kembalikan null → UI pakai fallback rapi.
+function urlOf(v) {
+  const s = (typeof v === "string") ? v.trim() : (v && typeof v === "object" ? textOf(v) : null);
+  return (s && /^(https?:\/\/|data:image\/|\/)/i.test(s)) ? s : null;
+}
+// Status GERBANG dari penerbit — JANGAN dikarang jadi selalu "valid". Kalau penerbit
+// mengirim status, normalkan; kalau tidak, kembalikan null dan biar UI memutuskan
+// (tiket live dari /me/tickets defaultnya dianggap valid oleh UI, tapi status "used"/
+// "expired"/"cancelled" dari penerbit WAJIB dihormati — tiket dipakai tak boleh terbaca VALID).
+function ticketStatusOf(t) {
+  const raw = String(textOf(firstOf(t, ["status", "state", "ticketStatus", "ticket_status"])) || "").toLowerCase();
+  if (!raw) return null;
+  if (/cancel|void|refund/.test(raw)) return "cancelled";
+  if (/used|checked|scan|redeem|attend/.test(raw)) return "used";
+  if (/expire|ended|closed|past/.test(raw)) return "expired";
+  if (/valid|active|issued|paid|confirm|ok/.test(raw)) return "valid";
+  return raw;   // status tak dikenal → teruskan apa adanya (jangan sembunyikan kebenaran)
+}
 function mapEmbedTicket(t) {
   t = t || {};
   const code = firstOf(t, ["code", "ticketCode", "ticket_code", "id", "ref", "reference"]);
   return {
     ref: code != null ? String(code) : null,
     code: code != null ? String(code) : null,
-    event_name: firstOf(t, ["eventName", "event_name", "event", "title", "name"]) || "Event 20FIT",
-    product_name: firstOf(t, ["ticketType", "ticket_type", "categoryName", "category", "productName", "product_name"]),
-    holder: firstOf(t, ["holderName", "holder", "attendeeName", "attendee", "customerName", "name"]),
-    paid_at: firstOf(t, ["purchasedAt", "paidAt", "paid_at", "createdAt", "created_at", "date"]),
-    status: "valid",
-    cover_url: firstOf(t, ["coverUrl", "cover_url", "bannerUrl", "image"]),
-    has_qr: true,   // QR asli diambil lazy via /api/tickets/qr?code=
-    qr: null,
+    event_name: textOf(firstOf(t, ["eventName", "event_name", "event", "title", "name"])) || "Event 20FIT",
+    event_slug: textOf(firstOf(t, ["eventSlug", "event_slug", "slug"])),
+    event_date: firstOf(t, ["eventStartsAt", "startsAt", "starts_at", "eventDate", "event_date", "date"]),
+    product_name: textOf(firstOf(t, ["ticketType", "ticket_type", "categoryName", "category", "productName", "product_name"])),
+    holder: textOf(firstOf(t, ["holderName", "holder", "attendeeName", "attendee", "customerName", "name"])),
+    // Nama PEMESAN (yang membayar), beda dari `holder` (yang hadir). Dipetakan defensif
+    // seperti field lain: kalau penerbit tak mengirimnya, tetap null dan UI menyembunyikannya.
+    // TIDAK dikarang dari data lain.
+    buyer: textOf(firstOf(t, ["buyerName", "buyer_name", "ordererName", "purchaserName", "buyer", "orderer", "purchaser"])),
+    paid_at: firstOf(t, ["purchasedAt", "paidAt", "paid_at", "createdAt", "created_at"]),
+    // Status GERBANG asli dari penerbit; live embed ticket tanpa status → dianggap "valid".
+    status: ticketStatusOf(t) || "valid",
+    cover_url: urlOf(firstOf(t, ["coverUrl", "cover_url", "bannerUrl", "image"])),
+    qr: null,   // diisi attachQrs() sebelum respons dikirim — bukan request terpisah per tiket
   };
 }
-// Hasil berbentuk {ok, tickets|reason, status, raw} — BUKAN null polos. Alasannya: dulu
-// setiap kegagalan (identitas tak dikenal, upstream mati, bentuk respons berubah) sama-sama
-// jadi null lalu jatuh ke arsip lalu tampil "belum ada tiket" — tak terbedakan dari user yang
-// memang belum beli, sehingga masalah nyata tak pernah kelihatan.
-// Catatan lapangan (log edge fn, 24 jam): 141 dari 143 panggilan `user_token` balas 404 dari
-// ticket.20fit.id, sedangkan `my_tickets` selalu 200 saat tokennya berhasil terbit. Jadi titik
-// gagal yang dominan = penukaran email->token, bukan pengambilan tiketnya.
+// Normalisasi respons QR penerbit → {img, svg, payload}. SATU sumber kebenaran:
+// dipakai attachQrs() (borongan) dan /api/tickets/qr (satuan).
+function normalizeQr(d) {
+  let img = null, svg = null, payload = null;
+  const looksImg = (s) => /^https?:\/\//i.test(String(s)) || /^data:image\//i.test(String(s));
+  if (typeof d === "string") {
+    if (looksImg(d)) img = d; else if (/<svg/i.test(d)) svg = d; else payload = d;
+  } else if (d && typeof d === "object") {
+    img = firstOf(d, ["qrUrl", "qr_url", "imageUrl", "image_url", "png", "url", "dataUrl", "data_url"]);
+    if (img && !looksImg(img)) img = "data:image/png;base64," + img; // base64 mentah
+    svg = firstOf(d, ["svg", "qrSvg", "qr_svg"]);
+    payload = firstOf(d, ["payload", "value", "content", "qr", "code", "token", "data"]);
+    if (!img && payload && looksImg(payload)) { img = String(payload); payload = null; }
+    if (!svg && payload && /<svg/i.test(String(payload))) { svg = String(payload); payload = null; }
+  }
+  return { ok: !!(img || svg || payload), img, svg, payload };
+}
+// Ambil QR SEMUA tiket sekaligus (paralel) dan tempelkan ke tiketnya. Sebelumnya browser
+// meminta satu per satu lewat /api/tickets/qr (N+1) dan QR baru muncul setelah user menekan
+// tombol. Kegagalan satu QR tidak menggagalkan yang lain — tiketnya tetap tampil tanpa QR.
+async function attachQrs(userJwt, userToken, tickets) {
+  if (!userToken || !tickets || !tickets.length) return tickets;
+  await Promise.all(tickets.map(async (t) => {
+    if (!t.code) return;
+    try {
+      const r = await ticketEmbed(userJwt, "ticket_qr", { userToken, code: t.code });
+      const q = normalizeQr(r.data);
+      if (q.ok) t.qr = q;
+    } catch (_) { /* satu QR gagal → tiket tetap tampil, tanpa QR */ }
+  }));
+  return tickets;
+}
+// Hasil berbentuk {ok, tickets|reason, status, raw} — BUKAN null polos, supaya "gagal
+// mengambil" bisa dibedakan dari "memang belum beli".
+// TANPA OTP (keputusan pemilik): setiap user my.20fit diperlakukan sebagai USER, bukan tamu.
+// Server menukar email SESI mereka jadi userToken lewat jalur PARTNER server-ke-server
+// (action `user_token` → /partner/user-token, kunci partner). Ini jalan TANPA verifikasi
+// untuk email yang dikenal penerbit (punya akun ticket.20fit.id). Untuk email yang belum
+// dikenal penerbit, jalur ini 404 dan kita JATUH ke arsip — TIDAK meminta OTP. Membuat QR
+// tampil untuk SEMUA pembeli tanpa OTP butuh endpoint partner baru di ticket.20fit.id
+// (list tiket + QR by verified email) — lihat docs/TICKET-API-REQUEST.md.
+async function embedTicketsWithToken(userJwt, userToken) {
+  const mt = await ticketEmbed(userJwt, "my_tickets", { userToken });
+  const arr = pickArray(mt.data);
+  if (!arr) return { ok: false, status: mt.status, raw: mt.data, reason: "tickets_unreadable" };
+  // userToken ikut dikembalikan supaya pemanggil bisa mengambil QR-nya sekaligus.
+  return { ok: true, status: mt.status, raw: mt.data, userToken, tickets: arr.map(mapEmbedTicket).filter(t => t.code) };
+}
 async function embedMyTickets(userJwt) {
   const ut = await ticketEmbed(userJwt, "user_token");
   const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
   if (!userToken) {
-    // 404 = ticket.20fit.id tak mengenali email sesi ini sebagai user-nya (mis. tiket dibeli
-    // memakai email lain). Selain itu = upstream bermasalah/tak terjangkau.
+    // 404 = email ini belum dikenal penerbit (beli sebagai tamu / belum punya akun di sana).
+    // BUKAN "belum pernah beli". TANPA OTP: kita tidak meminta verifikasi — cukup jatuh ke
+    // arsip. reason `no_account` dipakai frontend hanya untuk memilih pesan yang tepat,
+    // tanpa memunculkan langkah verifikasi apa pun.
     return { ok: false, status: ut.status, raw: ut.data,
-             reason: ut.status === 404 ? "identity_not_recognized" : "upstream_unavailable" };
+             reason: ut.status === 404 ? "no_account" : "upstream_unavailable" };
   }
-  const mt = await ticketEmbed(userJwt, "my_tickets", { userToken });
-  const arr = pickArray(mt.data);
-  if (!arr) return { ok: false, status: mt.status, raw: mt.data, reason: "tickets_unreadable" };
-  return { ok: true, status: mt.status, raw: mt.data, tickets: arr.map(mapEmbedTicket).filter(t => t.code) };
+  // Token sudah di tangan → ambil tiketnya (bentuk hasil ditulis sekali, termasuk userToken utk QR).
+  return await embedTicketsWithToken(userJwt, userToken);
 }
 
 // ---------- /api/tickets/mine : tiket event yang DIBELI user (widget "My Tickets") ----------
@@ -2241,16 +2343,27 @@ app.get("/api/tickets/mine", async (req, res) => {
     if (String(req.query.debug || "") === "1") {
       try { const ctx = await getAdminContext(req); debug = !!(ctx && ctx.role === "superadmin"); } catch (_) {}
     }
-    // SUMBER UTAMA: tiket ASLI + QR dari ticket.20fit.id (embed). Gagal → arsip di bawah,
-    // TAPI sebabnya disimpan supaya tetap bisa dilaporkan kalau arsip juga kosong.
+    // SUMBER UTAMA: tiket ASLI + QR dari ticket.20fit.id (embed), lewat jalur PARTNER
+    // server-ke-server TANPA OTP (email sesi ditukar jadi userToken pakai kunci partner).
+    // Berhasil untuk email yang dikenal penerbit; kalau 404/ gagal → jatuh ke arsip di bawah.
+    // Sebab kegagalan disimpan supaya tetap bisa dilaporkan kalau arsip juga kosong.
     let emb = null;
-    try { emb = await embedMyTickets(bearerOf(req)); }
-    catch (e) { emb = { ok: false, status: 0, reason: "upstream_unavailable", raw: String((e && e.message) || e) }; }
+    try {
+      emb = await embedMyTickets(bearerOf(req));
+    } catch (e) { emb = { ok: false, status: 0, reason: "upstream_unavailable", raw: String((e && e.message) || e) }; }
     const dbg = (extra) => {
       if (!debug) return extra;
       return Object.assign({}, extra, { debug: { embed: emb } });
     };
     if (emb && emb.ok && emb.tickets.length) {
+      // QR semua tiket diambil sekaligus (paralel) supaya browser tak perlu meminta
+      // satu per satu dan QR bisa langsung tampil di kartu — bukan di balik tombol.
+      await attachQrs(bearerOf(req), emb.userToken, emb.tickets);
+      // Jumlah tiket per event. Skema penerbit FLAT (satu baris = satu tiket), jadi qty
+      // dihitung dari pengelompokan — bukan field yang dikarang.
+      const perEvent = {};
+      for (const t of emb.tickets) perEvent[t.event_name] = (perEvent[t.event_name] || 0) + 1;
+      for (const t of emb.tickets) t.event_qty = perEvent[t.event_name];
       return res.json(dbg({ ok: true, tickets: emb.tickets, source: "embed", count: emb.tickets.length }));
     }
     // ARSIP: pembelian dari event_transaction. Ini impor batch invoice (historis, tanpa QR
@@ -2269,12 +2382,22 @@ app.get("/api/tickets/mine", async (req, res) => {
         reason: (emb && emb.reason) || "archive_unavailable" }));
     }
     const isPaid = (s) => /paid|settle|success|complete/i.test(String(s || ""));
-    const tickets = rows.filter(r => isPaid(r.status)).map(r => ({
+    // FILTER NON-TIKET (rule ditunjukkan ke pemilik sebelum dipasang): arsip event_transaction
+    // memuat banyak jenis pembelian, bukan cuma tiket event. Yang jelas BUKAN tiket disaring:
+    //   Penagihan (billing) · Bazaar Visitor · Photo / "Pictures Pass" · Merch (tshirt/jersey/
+    //   kaos/backpack/"badge of honor") · "Claim Free Trial" · "Protection"/asuransi cedera.
+    // Sisanya (spectator pass, HYROX simulation, race, dll = tiket event) tetap tampil.
+    const NONTICKET_RE = /penagihan|bazaar|photo|foto|picture|merch|t-?shirt|jersey|kaos|backpack|badge of honor|free trial|protection|injury/i;
+    const isTicket = (r) => !NONTICKET_RE.test(String(r.product_name || ""));
+    const tickets = rows.filter(r => isPaid(r.status) && isTicket(r)).map(r => ({
       ref: (String(r.invoice_id || "").slice(0, 24)) || null,
       event_name: r.event_name || r.product_name || "Event 20FIT",
       product_name: r.product_name || null,
       holder: r.customer_name || null,
-      status: "valid",
+      // ARSIP hanya punya status BAYAR, bukan status GERBANG. JANGAN tulis "valid" (menyesatkan
+      // di gerbang). status:null + paid:true → UI menandai "Lunas", bukan badge VALID.
+      status: null,
+      paid: true,
       paid_at: r.paid_at || null,
       amount: (r.gross_amount == null ? null : Number(r.gross_amount)),
       qr: null,          // TIDAK dikarang — QR gerbang asli diterbitkan ticket.20fit.id
@@ -2292,6 +2415,10 @@ app.get("/api/tickets/mine", async (req, res) => {
   }
 });
 
+// (Endpoint OTP `/api/tickets/verify/*` DIHAPUS — keputusan pemilik: TANPA OTP. User tak
+// pernah diminta verifikasi. Tiket diambil lewat jalur partner server-ke-server; kalau
+// email belum dikenal penerbit, tampil dari arsip tanpa langkah tambahan.)
+
 // ---------- /api/tickets/qr?code= : QR e-tiket ASLI (ticket.20fit.id via embed, lazy) ----------
 // Dipanggil saat user membuka QR sebuah tiket. Ambil userToken (email sesi) lalu ticket_qr{code}.
 // Normalisasi respons upstream ke {img|svg|payload} agar frontend bisa render apa pun bentuknya.
@@ -2303,6 +2430,10 @@ app.get("/api/tickets/qr", async (req, res) => {
     const code = String(req.query.code || "").trim();
     if (!code) return res.status(400).json({ error: "code wajib." });
     const userJwt = bearerOf(req);
+    // TANPA OTP: tukar email sesi jadi userToken lewat jalur partner server-ke-server.
+    // Kalau penerbit belum mengenal email ini (404), QR memang belum bisa diambil di sini —
+    // frontend menampilkannya sebagai "belum tersedia" + arahkan ke ticket.20fit.id, TANPA
+    // meminta verifikasi apa pun.
     const ut = await ticketEmbed(userJwt, "user_token");
     const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
     if (!userToken) return res.json({ ok: false, error: "no_user_token" });
@@ -2312,19 +2443,8 @@ app.get("/api/tickets/qr", async (req, res) => {
       const ctx = await getAdminContext(req);
       if (ctx && ctx.role === "superadmin") return res.json({ ok: true, debug: true, raw: d });
     }
-    let img = null, svg = null, payload = null;
-    const looksImg = (s) => /^https?:\/\//i.test(String(s)) || /^data:image\//i.test(String(s));
-    if (typeof d === "string") {
-      if (looksImg(d)) img = d; else if (/<svg/i.test(d)) svg = d; else payload = d;
-    } else if (d && typeof d === "object") {
-      img = firstOf(d, ["qrUrl", "qr_url", "imageUrl", "image_url", "png", "url", "dataUrl", "data_url"]);
-      if (img && !looksImg(img)) img = "data:image/png;base64," + img; // base64 mentah
-      svg = firstOf(d, ["svg", "qrSvg", "qr_svg"]);
-      payload = firstOf(d, ["payload", "value", "content", "qr", "code", "token", "data"]);
-      if (!img && payload && looksImg(payload)) { img = String(payload); payload = null; }
-      if (!svg && payload && /<svg/i.test(String(payload))) { svg = String(payload); payload = null; }
-    }
-    return res.json({ ok: !!(img || svg || payload), img, svg, payload, code });
+    const q = normalizeQr(d);
+    return res.json({ ok: q.ok, img: q.img, svg: q.svg, payload: q.payload, code });
   } catch (e) {
     try { console.error("tickets/qr:", e && e.message); } catch (_) {}
     return res.json({ ok: false });

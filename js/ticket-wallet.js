@@ -12,10 +12,10 @@
 
    Cara pakai (host tak terikat markup internal):
      TicketWallet.onRender(fn)          // daftarkan callback; dipanggil tiap state berubah
-     TicketWallet.init({eagerUpcoming}) // muat data (tickets selalu; upcoming eager utk /event)
+     TicketWallet.init()               // muat data (tiket + katalog event, dua-duanya)
      host tempel: el.innerHTML = TicketWallet.renderInner({layout:"caro"|"grid"})
-   Global onclick diekspos (tktSetTab / loadUpcoming / loadTickets / twkZoom / twkCaroScroll)
-   supaya markup inline jalan di kedua halaman.
+   Global onclick diekspos (tktSetTab / loadUpcoming / loadTickets / twkCaroScroll /
+   twkOpenEticket / twkCloseEticket / twkCopy / twkQrFull) supaya markup inline jalan.
 
    Default tab BERDASARKAN kondisi user setelah data dimuat: punya tiket → "Tiket Saya",
    belum → "Mendatang". Berhenti auto-memilih begitu user menyentuh tab sendiri.
@@ -23,14 +23,32 @@
 (function () {
   "use strict";
 
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
+  // PENGAMAN UMUM anti-"[object Object]": kalau yang mau dirender ternyata objek/array,
+  // ekstrak properti teks yang wajar; kalau tak ada, kosongkan — JANGAN pernah keluarkan
+  // "[object Object]". Server sudah menyaring, ini lapisan kedua supaya aman di mana pun.
+  function txt(v) {
+    if (v == null) return "";
+    if (typeof v === "string") return v;
+    if (typeof v === "number" || typeof v === "boolean") return String(v);
+    if (Array.isArray(v)) { for (var i = 0; i < v.length; i++) { var s = txt(v[i]); if (s) return s; } return ""; }
+    if (typeof v === "object") {
+      var keys = ["name", "fullName", "full_name", "displayName", "title", "label", "en", "id", "text", "value"];
+      for (var k = 0; k < keys.length; k++) { if (v[keys[k]] != null) return txt(v[keys[k]]); }
+      return "";
+    }
+    return "";
+  }
+  function esc(s) { return txt(s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
   function Lx(o) { try { if (window.L) return window.L(o); } catch (e) {} return (o && (o.id || o.en)) || ""; }
 
   // ---- STATE ----
-  var TICKETS = null;   // null=loading | [] kosong | [..] daftar
+  var TICKETS = null;   // null=loading | [] kosong | [..] daftar (flat, satu baris = satu tiket)
+  var GROUPS = null;    // tiket dikelompokkan per event (1 kartu/event di daftar; buka → halaman E-Ticket)
+  var SOURCE = null;    // "embed" (tiket asli+QR) | "archive" (arsip, tanpa QR) | "none"
   // REASON dipakai HANYA saat TICKETS kosong: membedakan "memang belum beli" (no_tickets)
-  // dari "kami gagal mengambilnya" (identity_not_recognized / upstream_unavailable / …).
-  // Tanpa ini keduanya tampil sebagai "Belum ada tiket" dan kegagalan nyata tak terlihat.
+  // dari "email belum dikenal penerbit" (no_account) dan "gagal ambil"
+  // (upstream_unavailable / tickets_unreadable / server_error). TANPA OTP — reason hanya
+  // memilih pesan yang tepat, tidak pernah memunculkan langkah verifikasi.
   var REASON = null;
   var UPCOMING = null;  // null=loading | "error" gagal | [] sukses-kosong | [..] daftar
   var TAB = null;       // null=belum diputuskan | "mine" | "upcoming"
@@ -41,13 +59,21 @@
   function effTab() { return TAB || "mine"; }
 
   // ---- LOADERS ----
+  // Single-flight: init() memuat tiket & katalog BERSAMAAN, dan loadTickets juga
+  // memanggil loadUpcoming kalau UPCOMING masih null. Tanpa penjaga ini keduanya
+  // menembak /api/events/upcoming dua kali dan skeleton berkedip dua kali —
+  // persis yang seharusnya dihindari. Penjaga ini juga menahan klik tab beruntun.
+  var upcomingJalan = false;
   window.loadUpcoming = async function loadUpcoming() {
+    if (upcomingJalan) return;
+    upcomingJalan = true;
     UPCOMING = null; notify(); // skeleton saat memuat / mencoba lagi
     try {
       var r = await fetch("/api/events/upcoming");
       var j = await r.json().catch(function () { return null; });
       UPCOMING = (r.ok && j && j.ok && Array.isArray(j.events)) ? j.events : "error"; // bedakan gagal vs kosong
     } catch (e) { UPCOMING = "error"; }
+    finally { upcomingJalan = false; }
     notify();
   };
   window.loadTickets = async function loadTickets() {
@@ -58,20 +84,47 @@
         var r = await fetch("/api/tickets/mine", { headers: { Authorization: "Bearer " + t } });
         var j = await r.json().catch(function () { return null; });
         if (r.ok && j && j.ok && Array.isArray(j.tickets)) {
-          TICKETS = j.tickets; REASON = j.reason || null;
-        } else { TICKETS = []; REASON = "upstream_unavailable"; }
+          TICKETS = j.tickets; REASON = j.reason || null; SOURCE = j.source || null;
+          // QR (kalau penerbit mengirimnya) dirender jadi HTML sekali di sini supaya halaman
+          // E-Ticket bisa menampilkannya langsung tanpa request tambahan. Payload string
+          // perlu di-encode → async.
+          try {
+            await Promise.all(TICKETS.map(async function (t) { t._qrHtml = await twkQrHtml(t.qr); }));
+          } catch (e) { /* satu gagal → tiketnya tetap ada, QR-nya menyusul */ }
+          GROUPS = groupByEvent(TICKETS);
+        } else { TICKETS = []; GROUPS = []; REASON = "upstream_unavailable"; }
       }
-    } catch (e) { TICKETS = []; REASON = "upstream_unavailable"; }
+    } catch (e) { TICKETS = []; GROUPS = []; REASON = "upstream_unavailable"; }
     // Tentukan tab default sekali, setelah tahu apakah user punya tiket.
+    // PUNYA tiket  -> "Tiket Saya". TIDAK punya -> "Mendatang" (apa pun sebabnya) supaya user
+    // yang belum beli melihat event yang bisa dibeli, bukan halaman kosong. Sebab kegagalan
+    // tidak hilang: tab "Tiket Saya" tetap memuat pesannya + tombol tabnya diberi tanda "!".
     if (!tabTouched) {
-      // Tetap di "Tiket Saya" kalau punya tiket ATAU kalau pengambilannya gagal — kalau
-      // gagal lalu dilempar ke "Mendatang", pesan kegagalannya tak akan pernah terlihat.
-      var gagal = REASON && REASON !== "no_tickets";
-      if ((TICKETS && TICKETS.length) || gagal) { TAB = "mine"; }
+      if (TICKETS && TICKETS.length) { TAB = "mine"; }
       else { TAB = "upcoming"; if (UPCOMING === null || UPCOMING === "error") window.loadUpcoming(); }
     }
     notify();
   };
+  // Kelompokkan tiket per event: satu order berisi banyak tiket → satu kartu event di daftar,
+  // dan di halaman E-Ticket tampil sebagai "Ticket 1..N", masing-masing QR sendiri.
+  function groupByEvent(tickets) {
+    var map = {}, order = [];
+    (tickets || []).forEach(function (t) {
+      var key = String(t.event_slug || t.event_name || "Event 20FIT");
+      if (!map[key]) { map[key] = { key: key, event_name: t.event_name || "Event 20FIT", cover_url: t.cover_url || null, event_date: t.event_date || t.paid_at || null, tickets: [], _st: {} }; order.push(key); }
+      var g = map[key];
+      if (!g.cover_url && t.cover_url) g.cover_url = t.cover_url;
+      if (!g.event_date && (t.event_date || t.paid_at)) g.event_date = t.event_date || t.paid_at;
+      g.tickets.push(t);
+      var st = t.status || (t.paid ? "paid" : "valid");
+      g._st[st] = (g._st[st] || 0) + 1;
+    });
+    return order.map(function (k) {
+      var g = map[k]; var keys = Object.keys(g._st);
+      g.status = (keys.length === 1) ? keys[0] : "mixed";  // event-level badge hanya kalau seragam
+      delete g._st; return g;
+    });
+  }
   window.tktSetTab = function (tab) {
     tabTouched = true;
     TAB = (tab === "upcoming" ? "upcoming" : "mine");
@@ -105,27 +158,53 @@
     } catch (e) { return tktDate(s); }
   }
 
+  // Tanggal singkat gaya acuan: "Fri, Sep 11" (WIB). Dipakai di daftar & halaman E-Ticket.
+  function tktDayLabel(s) {
+    if (!s) return "";
+    var dateOnly = String(s).length <= 10;
+    var d = new Date(dateOnly ? (s + "T00:00:00+07:00") : s);
+    if (isNaN(d)) return String(s);
+    var loc = Lx({ en: "en-US", id: "id-ID" });
+    try { return new Intl.DateTimeFormat(loc, { weekday: "short", month: "short", day: "numeric", timeZone: "Asia/Jakarta" }).format(d); }
+    catch (e) { return tktDate(s); }
+  }
+  // Ikon kalender kecil (inline SVG, ikut warna teks).
+  function calIcon() { return '<svg class="etk-cal" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2.5" x2="8" y2="6"/><line x1="16" y1="2.5" x2="16" y2="6"/></svg>'; }
+  // Badge status GERBANG (warna acuan): VALID hijau · USED/EXPIRED abu · CANCELLED merah.
+  // PAID (arsip) biru — itu status BAYAR, bukan gerbang, jadi TIDAK hijau. "mixed"/kosong → null
+  // (badge event-level disembunyikan; tiap tiket menampilkan status sendiri).
+  function statusPill(st) {
+    st = String(st || "").toLowerCase();
+    if (st === "used") return { label: Lx({ en: "USED", id: "TERPAKAI" }), cls: "etk-b-grey" };
+    if (st === "expired") return { label: Lx({ en: "EXPIRED", id: "KEDALUWARSA" }), cls: "etk-b-grey" };
+    if (st === "cancelled") return { label: Lx({ en: "CANCELLED", id: "DIBATALKAN" }), cls: "etk-b-red" };
+    if (st === "paid") return { label: Lx({ en: "PAID", id: "LUNAS" }), cls: "etk-b-blue" };
+    if (st === "valid") return { label: "VALID", cls: "etk-b-green" };
+    if (!st || st === "mixed") return null;
+    return { label: st.toUpperCase(), cls: "etk-b-grey" };
+  }
+  function badgeHtml(st) { var p = statusPill(st); return p ? '<span class="etk-badge ' + p.cls + '">' + esc(p.label) + '</span>' : ''; }
+
   // ---- CARDS ----
-  // Tiket DIBELI (Tiket Saya): pembelian nyata dari event_transaction (per email user).
-  // QR gerbang TIDAK dikarang (aturan 2b): t.qr (dari penerbit) → tombol; kalau tidak → arah ke ticket.20fit.id.
-  function twkTicketCard(t) {
-    var nm = (t && t.event_name) || "Event 20FIT";
-    var date = (t && t.paid_at) ? tktDate(t.paid_at) : "";
-    var cover = (t && t.cover_url)
-      ? '<div class="twk-pcover"><img src="' + esc(t.cover_url) + '" alt="' + esc(nm) + '" loading="lazy" onerror="this.closest(\'.twk-pcover\').classList.add(\'noimg\')"></div>'
+  // Daftar "Tiket Saya": SATU kartu per EVENT (bukan per tiket). Badge "N tiket" kalau >1.
+  // Ditekan → buka halaman E-Ticket (semua tiket event itu; tiap tiket QR sendiri).
+  // idx = indeks di GROUPS (dilewatkan sebagai angka → aman dari injeksi nama event).
+  function twkGroupCard(g, idx) {
+    var nm = g.event_name || "Event 20FIT";
+    var when = g.event_date ? tktDayLabel(g.event_date) : Lx({ en: "Date TBA", id: "Jadwal menyusul" });
+    var n = g.tickets.length;
+    var cover = g.cover_url
+      ? '<div class="twk-pcover"><img src="' + esc(g.cover_url) + '" alt="' + esc(nm) + '" loading="lazy" onerror="this.closest(\'.twk-pcover\').classList.add(\'noimg\')"></div>'
       : '<div class="twk-pcover noimg"></div>';
-    var meta = '<div class="twk-pmeta">' +
-      ((t && t.product_name) ? '<span>' + esc(t.product_name) + '</span>' : '') +
-      ((t && t.holder) ? '<span>' + Lx({ en: "Attendee: ", id: "Peserta: " }) + esc(t.holder) + '</span>' : '') +
-      (date ? '<span>' + Lx({ en: "Paid ", id: "Dibayar " }) + esc(date) + '</span>' : '') +
-      ((t && t.ref) ? '<span>' + Lx({ en: "Order ", id: "Order " }) + esc(t.ref) + '</span>' : '') +
-      '</div>';
-    var action = (t && (t.code || t.qr))
-      ? '<button type="button" class="twk-pbuy" style="background:var(--ink,#15171C)" onclick="twkZoom(\'' + esc(t.code || t.ref || "") + '\')">' + Lx({ en: "Show QR", id: "Tampilkan QR" }) + '</button>'
-      : '<a class="twk-pbuy" style="background:var(--ink,#15171C)" href="https://ticket.20fit.id">' + Lx({ en: "Open e-ticket at ticket.20fit.id", id: "Buka e-tiket di ticket.20fit.id" }) + '</a>';
-    return '<article class="twk-pcard">' + cover + '<div class="twk-pbody">' +
+    var topline = '<div class="twk-topline">' + badgeHtml(g.status) +
+      (n > 1 ? '<span class="twk-nbadge">' + n + ' ' + Lx({ en: "tickets", id: "tiket" }) + '</span>' : '') + '</div>';
+    var meta = '<div class="twk-pmeta"><span class="etk-daterow">' + calIcon() + '<span>' + esc(when) + '</span></span></div>';
+    return '<article class="twk-pcard twk-tap" role="button" tabindex="0" aria-label="' + esc(nm) + '"' +
+      ' onclick="twkOpenEticket(' + idx + ')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();twkOpenEticket(' + idx + ')}">' +
+      cover + '<div class="twk-pbody">' + topline +
       '<div class="twk-pname">' + esc(nm) + '</div>' + meta +
-      '<div style="margin-top:auto">' + action + '</div></div></article>';
+      '<div class="twk-open">' + Lx({ en: "View e-ticket", id: "Lihat e-tiket" }) + ' <span aria-hidden="true">→</span></div>' +
+      '</div></article>';
   }
   // Nominal "Rp X" dari price_from (integer rupiah). null → "".
   function twkAmount(e) {
@@ -188,53 +267,117 @@
     var ok = await twkQrLib(); if (!ok || !window.qrcode) return "";
     try { var q = window.qrcode(0, "M"); q.addData(String(text)); q.make(); return q.createSvgTag({ cellSize: 5, margin: 1, scalable: true }); } catch (e) { return ""; }
   }
-  // Ambil QR e-tiket ASLI by code dari server (/api/tickets/qr → embed ticket.20fit.id). HTML atau "".
+  // Ubah QR dari penerbit ({img|svg|payload}) jadi HTML. SATU sumber kebenaran, dipakai
+  // kartu tiket (QR sudah ikut di /api/tickets/mine) maupun twkFetchQr (jalur satuan).
+  async function twkQrHtml(q) {
+    if (!q || !q.ok) return "";
+    if (q.img) return '<img src="' + esc(q.img) + '" alt="QR" style="width:100%;height:100%;display:block;image-rendering:pixelated">';
+    if (q.svg) return q.svg;
+    if (q.payload) { var svg = await twkEncodeQr(q.payload); return svg || ('<div class="twk-code">' + esc(q.payload) + '</div>'); }
+    return "";
+  }
+  // Ambil QR e-tiket ASLI by code dari server (/api/tickets/qr → embed ticket.20fit.id).
+  // Cadangan: normalnya QR sudah ikut di /api/tickets/mine, jadi ini hanya dipakai kalau
+  // tiket itu belum membawa QR (mis. pengambilan borongannya gagal untuk satu tiket).
   async function twkFetchQr(code) {
     if (!code) return "";
     var tok = (window.Auth && Auth.token) ? await Auth.token() : null;
     if (!tok) return "";
     var r = await fetch("/api/tickets/qr?code=" + encodeURIComponent(code), { headers: { Authorization: "Bearer " + tok } });
     var j = await r.json().catch(function () { return null; });
-    if (!j || !j.ok) return "";
-    if (j.img) return '<img src="' + esc(j.img) + '" alt="QR" style="width:100%;height:100%;display:block;image-rendering:pixelated">';
-    if (j.svg) return j.svg;
-    if (j.payload) { var svg = await twkEncodeQr(j.payload); return svg || ('<div class="twk-code">' + esc(j.payload) + '</div>'); }
-    return "";
+    return await twkQrHtml(j);
   }
 
-  // ---- QR overlay (ambil QR asli by code, lazy) ----
-  window.twkZoom = async function (ref) {
-    var t = (TICKETS || []).filter(function (x) { return String(x.ref) === String(ref) || String(x.code) === String(ref); })[0];
-    if (!t) return;
-    window.twkZoomClose();
-    var ov = document.createElement("div"); ov.className = "twk-ov"; ov.id = "twkOv";
-    ov.innerHTML = '<div class="twk-sheet"><button type="button" class="twk-close" onclick="twkZoomClose()" aria-label="Close">✕</button>' +
-      '<h4>' + esc(t.event_name || "") + '</h4>' +
-      '<small>' + esc([t.holder, (t.product_name || t.category)].filter(Boolean).join(" · ")) + '</small>' +
-      '<div class="twk-qrbox" id="twkQrBox"><div class="tkskel" style="width:100%;height:100%;min-height:180px;border-radius:10px"></div></div>' +
-      (t.ref ? '<div class="twk-code">' + esc(t.ref) + '</div>' : '') +
-      '<div class="twk-hint">' + Lx({ en: "Show this QR at the check-in gate.", id: "Tunjukkan QR ini di gerbang check-in." }) + '</div></div>';
-    ov.addEventListener("click", function (e) { if (e.target === ov) window.twkZoomClose(); });
+  // ---- Halaman E-Ticket (layar penuh) — dibuka saat user menekan kartu event ----
+  // Tata letak mengikuti e-ticket ticket.20fit.id: Kartu 1 = info event (cover + nama +
+  // badge status + tanggal "Fri, Sep 11" WIB). Kartu 2..N = SATU per tiket (label "Ticket N",
+  // QR besar di kotak putih, kode tiket monospace + salin, baris Holder & jenis tiket).
+  // TANPA OTP: hanya menampilkan data yang SUDAH ada dari /api/tickets/mine.
+  var _wake = null;
+  async function etkWake() { try { if (navigator.wakeLock && !_wake) _wake = await navigator.wakeLock.request("screen"); } catch (e) {} }
+  function etkWakeRelease() { try { if (_wake) { _wake.release(); _wake = null; } } catch (e) {} }
+  // Catatan: web TAK PUNYA API standar untuk menaikkan kecerahan layar secara paksa.
+  // Wake Lock mencegah layar meredup/terkunci saat QR tampil — sedekat mungkin ke tujuan itu.
+  function backIcon() { return '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>'; }
+  function copyIcon() { return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>'; }
+  function checkIcon() { return '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>'; }
+  function etkRow(k, v) { return '<div class="etk-row"><span class="etk-k">' + esc(k) + '</span><span class="etk-v">' + esc(v) + '</span></div>'; }
+  function etkTicketCard(t, i, g) {
+    var label = Lx({ en: "Ticket ", id: "Tiket " }) + (i + 1);
+    var tst = t.status || (t.paid ? "paid" : "valid");
+    // Status per-tiket ditampilkan bila event campur-status ATAU tiket ini bukan "valid"
+    // (jujur soal used/expired/cancelled — tiket dipakai TAK BOLEH terbaca seolah valid).
+    var showBadge = (g && g.status === "mixed") || (tst !== "valid");
+    var head = '<div class="etk-tlabel">' + esc(label) + (showBadge ? badgeHtml(tst) : '') + '</div>';
+    // QR: kalau ada dari penerbit → tampil di kotak putih; tap → layar penuh utk scan.
+    // Kalau belum ada (mis. arsip) → keadaan rapi, arahkan ke penerbit. TIDAK dikarang.
+    var qr = t._qrHtml
+      ? '<div class="etk-qr" role="img" aria-label="' + esc(Lx({ en: "Ticket QR", id: "QR tiket" })) + '"' + ((t.code || t.ref) ? ' onclick="twkQrFull(\'' + esc(String(t.code || t.ref)) + '\')" title="' + esc(Lx({ en: "Tap to enlarge", id: "Ketuk untuk perbesar" })) + '"' : '') + '>' + t._qrHtml + '</div>'
+      : '<div class="etk-qr etk-qr-none"><div class="etk-qrmsg">' + Lx({ en: "QR available at ticket.20fit.id", id: "QR tersedia di ticket.20fit.id" }) + '</div><a class="etk-linkbtn" href="https://ticket.20fit.id"><span aria-hidden="true">→</span> ticket.20fit.id</a></div>';
+    var code = (t.code || t.ref)
+      ? '<div class="etk-coderow"><span class="etk-code" id="etkc' + i + '">' + esc(String(t.code || t.ref)) + '</span>' +
+        '<button type="button" class="etk-copy" aria-label="' + esc(Lx({ en: "Copy code", id: "Salin kode" })) + '" onclick="twkCopy(\'etkc' + i + '\',this)">' + copyIcon() + '</button></div>'
+      : '';
+    var rows = '';
+    if (t.holder) rows += etkRow(Lx({ en: "Holder", id: "Pemegang" }), t.holder);
+    if (t.product_name) rows += etkRow(Lx({ en: "Ticket type", id: "Jenis tiket" }), t.product_name);
+    return '<section class="etk-card etk-tcard">' + head + qr + code +
+      (rows ? '<div class="etk-rows">' + rows + '</div>' : '') + '</section>';
+  }
+  window.twkOpenEticket = function (idx) {
+    var g = (GROUPS || [])[idx]; if (!g) return;
+    window.twkCloseEticket();
+    var when = g.event_date ? tktDayLabel(g.event_date) : Lx({ en: "Date TBA", id: "Jadwal menyusul" });
+    var cover = g.cover_url
+      ? '<div class="etk-cover"><img src="' + esc(g.cover_url) + '" alt="' + esc(g.event_name) + '" onerror="this.closest(\'.etk-cover\').classList.add(\'noimg\')"></div>'
+      : '<div class="etk-cover noimg"></div>';
+    var ev = '<section class="etk-card etk-evcard">' + cover +
+      '<div class="etk-evbody"><div class="etk-evtop"><h2 class="etk-evname">' + esc(g.event_name) + '</h2>' + badgeHtml(g.status) + '</div>' +
+      '<div class="etk-daterow">' + calIcon() + '<span>' + esc(when) + '</span></div></div></section>';
+    var cards = g.tickets.map(function (t, i) { return etkTicketCard(t, i, g); }).join("");
+    var ov = document.createElement("div"); ov.className = "etk-ov"; ov.id = "etkOv";
+    ov.innerHTML = '<div class="etk-head"><button type="button" class="etk-back" aria-label="' + esc(Lx({ en: "Back", id: "Kembali" })) + '" onclick="twkCloseEticket()">' + backIcon() + '</button><h1 class="etk-title">E-Ticket</h1></div>' +
+      '<div class="etk-wrap">' + ev + cards + '</div>';
     document.body.appendChild(ov);
-    var box = document.getElementById("twkQrBox");
-    try {
-      var html = t.qr || (await twkFetchQr(t.code || t.ref));
-      if (box) box.innerHTML = html || ('<div class="twk-hint" style="padding:14px 0">' + Lx({ en: "QR not available yet — open your e-ticket at ticket.20fit.id.", id: "QR belum tersedia — buka e-tiket di ticket.20fit.id." }) + '</div><a class="twk-pbuy" style="background:var(--ink,#15171C)" href="https://ticket.20fit.id">ticket.20fit.id ↗</a>');
-    } catch (e) { if (box) box.innerHTML = '<div class="twk-hint" style="padding:14px 0">' + Lx({ en: "Couldn’t load QR.", id: "Gagal memuat QR." }) + '</div>'; }
+    document.documentElement.classList.add("etk-lock");
+    etkWake();
+    ov._esc = function (e) { if (e.key === "Escape") window.twkCloseEticket(); };
+    document.addEventListener("keydown", ov._esc);
   };
-  window.twkZoomClose = function () { var o = document.getElementById("twkOv"); if (o) o.remove(); };
+  window.twkCloseEticket = function () {
+    var o = document.getElementById("etkOv");
+    if (o) { if (o._esc) document.removeEventListener("keydown", o._esc); o.remove(); }
+    document.documentElement.classList.remove("etk-lock");
+    var f = document.getElementById("etkQrFull"); if (f) f.remove();
+    etkWakeRelease();
+  };
+  // Salin kode tiket + umpan balik singkat (ikon centang 1,4 detik).
+  window.twkCopy = function (id, btn) {
+    var el = document.getElementById(id); if (!el) return;
+    var text = el.textContent || "";
+    var done = function () { if (!btn) return; var t0 = btn.innerHTML; btn.classList.add("ok"); btn.innerHTML = checkIcon(); setTimeout(function () { btn.classList.remove("ok"); btn.innerHTML = t0; }, 1400); };
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, function () { etkCopyFallback(text); done(); }); return; } } catch (e) {}
+    etkCopyFallback(text); done();
+  };
+  function etkCopyFallback(text) { try { var ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); } catch (e) {} }
+  // QR layar penuh (tap QR di kartu tiket) — untuk scan mudah di gerbang.
+  window.twkQrFull = async function (code) {
+    var t = (TICKETS || []).filter(function (x) { return String(x.code) === String(code) || String(x.ref) === String(code); })[0];
+    var html = t ? (t._qrHtml || (await twkFetchQr(t.code || t.ref))) : "";
+    if (!html) return;
+    var f = document.getElementById("etkQrFull"); if (f) f.remove();
+    var ov = document.createElement("div"); ov.className = "etk-qrfull"; ov.id = "etkQrFull";
+    ov.innerHTML = '<div class="etk-qrfull-box">' + html + '</div>';
+    ov.addEventListener("click", function () { ov.remove(); });
+    document.body.appendChild(ov);
+    etkWake();
+  };
 
   // ---- RENDER (tabs + body). Host membungkus dengan chrome-nya sendiri. ----
-  // Kosong ≠ selalu "belum beli". Kalau pengambilan yang gagal, katakan apa adanya +
-  // beri langkah yang bisa ditempuh user — jangan menyamar jadi "belum ada tiket".
+  // Kosong ≠ selalu "belum beli". TANPA OTP: kegagalan pengambilan tetap dibedakan dari
+  // "memang belum beli", tapi TIDAK PERNAH memunculkan langkah verifikasi.
   function emptyMineHtml() {
-    if (REASON === "identity_not_recognized") {
-      return '<div class="twk-empty"><h4>' + Lx({ en: "We couldn't find your ticket account", id: "Akunmu belum dikenali di sistem tiket" }) + '</h4><p>'
-        + Lx({ en: "Tickets are issued by ticket.20fit.id. If you bought with a different email than the one you use here, they won't show up. Open the issuer to check.",
-               id: "Tiket diterbitkan ticket.20fit.id. Kalau kamu beli memakai email yang berbeda dari email akun ini, tiketnya tidak akan muncul. Cek langsung di penerbitnya." })
-        + '</p><a class="twk-ghost" href="https://ticket.20fit.id">ticket.20fit.id ↗</a></div>';
-    }
-    if (REASON && REASON !== "no_tickets") {
+    if (REASON && REASON !== "no_tickets" && REASON !== "no_account") {
       return '<div class="twk-empty"><h4>' + Lx({ en: "Couldn't load your tickets", id: "Gagal memuat tiketmu" }) + '</h4><p>'
         + Lx({ en: "This is a problem on our side, not an empty wallet. Please try again.",
                id: "Ini kendala di sisi kami, bukan berarti kamu belum punya tiket. Coba lagi ya." })
@@ -249,8 +392,13 @@
     opts = opts || {};
     var layout = opts.layout === "grid" ? "grid" : "caro";
     var tab = effTab();
+    // Badge tab "Tiket Saya": jumlah tiket. Kalau pengambilannya GAGAL (perlu verifikasi /
+    // upstream mati), angka 0 menyesatkan — terbaca "kamu tidak punya tiket". Tampilkan "!"
+    // supaya kegagalan tetap terlihat walau tab defaultnya sekarang "Mendatang".
+    var mineGagal = !!(TICKETS && !TICKETS.length && REASON && REASON !== "no_tickets");
+    var mineBadge = mineGagal ? "!" : (TICKETS ? TICKETS.length : 0);
     var tabs = '<div class="twk-tabs" role="tablist"><div class="twk-slider' + (tab === "upcoming" ? " right" : "") + '" aria-hidden="true"></div>' +
-      '<button type="button" role="tab" class="twk-tab' + (tab === "mine" ? " on" : "") + '" onclick="tktSetTab(\'mine\')">' + Lx({ en: "My Ticket", id: "Tiket Saya" }) + ' <span class="twk-count">' + (TICKETS ? TICKETS.length : 0) + '</span></button>' +
+      '<button type="button" role="tab" class="twk-tab' + (tab === "mine" ? " on" : "") + '" onclick="tktSetTab(\'mine\')"' + (mineGagal ? ' title="' + Lx({ en: "Couldn’t load your tickets", id: "Tiketmu gagal dimuat" }) + '"' : '') + '>' + Lx({ en: "My Ticket", id: "Tiket Saya" }) + ' <span class="twk-count">' + mineBadge + '</span></button>' +
       '<button type="button" role="tab" class="twk-tab' + (tab === "upcoming" ? " on" : "") + '" onclick="tktSetTab(\'upcoming\')">' + Lx({ en: "Upcoming", id: "Mendatang" }) + ' <span class="twk-count">' + (Array.isArray(UPCOMING) ? UPCOMING.length : 0) + '</span></button></div>';
     var body;
     if (tab === "upcoming") {
@@ -263,7 +411,9 @@
     } else if (!TICKETS.length) {
       body = emptyMineHtml();
     } else {
-      body = listWrap(TICKETS.map(twkTicketCard).join(""), TICKETS.length, layout);
+      // SATU kartu per event (grup). Ditekan → halaman E-Ticket (semua tiket event itu).
+      var groups = GROUPS || groupByEvent(TICKETS);
+      body = listWrap(groups.map(function (g, i) { return twkGroupCard(g, i); }).join(""), groups.length, layout);
     }
     return tabs + body;
   }
@@ -272,7 +422,10 @@
   window.TicketWallet = {
     onRender: function (fn) { if (typeof fn === "function") cbs.push(fn); },
     renderInner: renderInner,
-    init: function (opts) { opts = opts || {}; window.loadTickets(); if (opts.eagerUpcoming) window.loadUpcoming(); },
+    // Keduanya dimuat di awal: "Mendatang" kini tab default untuk user yang belum punya
+    // tiket, jadi datanya harus sudah jalan bersamaan — bukan baru ditarik setelah tiket
+    // selesai (itu membuat skeleton muncul dua kali).
+    init: function () { window.loadTickets(); window.loadUpcoming(); },
     counts: function () { return { tickets: (TICKETS ? TICKETS.length : 0), upcoming: (Array.isArray(UPCOMING) ? UPCOMING.length : 0) }; },
     tab: function () { return effTab(); }
   };
