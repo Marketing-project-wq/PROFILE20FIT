@@ -2330,8 +2330,11 @@ async function loadTicketCatalog() {
   } catch (_) { _ticketCatalog = _ticketCatalog || []; }
   return _ticketCatalog;
 }
+// Normalisasi nama event: lowercase + buang non-alnum. TIDAK membuang "(invitation only)"
+// dsb — justru itu yang membedakan dua varian event serupa (mis. reguler vs invitation),
+// supaya kecocokan PERSIS memilih varian yang benar (tanggal/poster beda).
 function normEventName(s) {
-  return String(s || "").toLowerCase().replace(/\(invitation only\)/g, "").replace(/[^a-z0-9]+/g, "");
+  return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 async function enrichTicketsWithCatalog(tickets) {
   if (!tickets || !tickets.length || !admin) return tickets;
@@ -2347,7 +2350,12 @@ async function enrichTicketsWithCatalog(tickets) {
     if (!hit) {
       const tn = normEventName(t.event_name);
       if (tn.length >= 8) {
-        hit = cat.find((e) => { const en = normEventName(e.name); return en && (en === tn || en.includes(tn) || tn.includes(en)); }) || null;
+        // UTAMAKAN kecocokan PERSIS (nama sama) sebelum "saling memuat", supaya tiket
+        // "…Jakarta Hybrid Race" tidak salah ambil ke varian "(Invitation Only) …" yang
+        // tanggalnya beda — dua event serupa bisa sama-sama ada di katalog.
+        hit = cat.find((e) => normEventName(e.name) === tn) ||
+              cat.find((e) => { const en = normEventName(e.name); return en && (en.includes(tn) || tn.includes(en)); }) ||
+              null;
       }
     }
     if (hit) {
