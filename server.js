@@ -2315,6 +2315,50 @@ async function embedMyTickets(userJwt) {
   return await embedTicketsWithToken(userJwt, userToken);
 }
 
+// Lengkapi cover & tanggal event tiket dari katalog my20fit_ticket_events kalau tiket belum
+// membawanya (mis. penerbit tak kirim cover → kartu tadinya tampil fallback + "Date TBA").
+// Dicocokkan HANYA ke event yang SAMA: by slug persis, atau nama dinormalisasi yang saling
+// memuat. Event yang memang tak ada di katalog (mis. Sportfest/Platarox) tetap pakai fallback
+// rapi — TIDAK dipasangkan ke event lain sekadar supaya ada gambar (aturan pemilik).
+let _ticketCatalog = null, _ticketCatalogAt = 0;
+async function loadTicketCatalog() {
+  const now = Date.now();
+  if (_ticketCatalog && (now - _ticketCatalogAt) < 300000) return _ticketCatalog; // cache 5 menit
+  try {
+    const { data } = await admin.from("my20fit_ticket_events").select("slug,name,cover_url,starts_at,venue,city");
+    _ticketCatalog = data || []; _ticketCatalogAt = now;
+  } catch (_) { _ticketCatalog = _ticketCatalog || []; }
+  return _ticketCatalog;
+}
+function normEventName(s) {
+  return String(s || "").toLowerCase().replace(/\(invitation only\)/g, "").replace(/[^a-z0-9]+/g, "");
+}
+async function enrichTicketsWithCatalog(tickets) {
+  if (!tickets || !tickets.length || !admin) return tickets;
+  const cat = await loadTicketCatalog();
+  if (!cat.length) return tickets;
+  const bySlug = {};
+  cat.forEach((e) => { if (e.slug) bySlug[String(e.slug).toLowerCase()] = e; });
+  for (const t of tickets) {
+    if (t.cover_url && t.event_date) continue; // sudah lengkap
+    let hit = null;
+    const slug = t.event_slug ? String(t.event_slug).toLowerCase() : "";
+    if (slug && bySlug[slug]) hit = bySlug[slug];
+    if (!hit) {
+      const tn = normEventName(t.event_name);
+      if (tn.length >= 8) {
+        hit = cat.find((e) => { const en = normEventName(e.name); return en && (en === tn || en.includes(tn) || tn.includes(en)); }) || null;
+      }
+    }
+    if (hit) {
+      if (!t.cover_url && hit.cover_url) t.cover_url = hit.cover_url;
+      if (!t.event_date && hit.starts_at) t.event_date = hit.starts_at;
+      if (!t.venue && (hit.venue || hit.city)) t.venue = [hit.venue, hit.city].filter(Boolean).join(", ");
+    }
+  }
+  return tickets;
+}
+
 // ---------- /api/tickets/mine : tiket event yang DIBELI user (widget "My Tickets") ----------
 // SUMBER UTAMA: embed ticket.20fit.id (tiket ASLI + kode → QR asli). FALLBACK (embed mati/kosong):
 // event_transaction (impor invoice Mayar) — pembelian NYATA per email user. READ-ONLY.
@@ -2364,6 +2408,9 @@ app.get("/api/tickets/mine", async (req, res) => {
       const perEvent = {};
       for (const t of emb.tickets) perEvent[t.event_name] = (perEvent[t.event_name] || 0) + 1;
       for (const t of emb.tickets) t.event_qty = perEvent[t.event_name];
+      // Lengkapi cover + tanggal dari katalog kalau penerbit tak mengirimnya (kartu tak lagi
+      // tampil fallback "20FIT · E-TICKET" / "Date TBA" untuk event yang ADA di katalog kita).
+      await enrichTicketsWithCatalog(emb.tickets);
       return res.json(dbg({ ok: true, tickets: emb.tickets, source: "embed", count: emb.tickets.length }));
     }
     // ARSIP: pembelian dari event_transaction. Ini impor batch invoice (historis, tanpa QR
@@ -2404,6 +2451,7 @@ app.get("/api/tickets/mine", async (req, res) => {
       qr_pending: true,
     }));
     tickets.sort((a, b) => String(b.paid_at || "").localeCompare(String(a.paid_at || "")));
+    await enrichTicketsWithCatalog(tickets); // cover + tanggal event dari katalog (event yang sama)
     if (tickets.length) return res.json(dbg({ ok: true, tickets, count: tickets.length, source: "archive" }));
     // Benar-benar kosong di kedua sumber. Laporkan SEBABNYA: kalau embed gagal, itu bukan
     // "belum punya tiket" — frontend harus bilang beda supaya masalah nyata tidak tersamar.
