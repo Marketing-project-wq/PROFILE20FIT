@@ -66,6 +66,29 @@ Akibatnya terlihat langsung pada kasus nyata 2026-09-08:
 Pembayaran **berhasil dan tercatat di ticket.20fit.id** (+71 terjual sejak sync), tapi di
 sisi kami **nol baris** — kami tidak punya cara apa pun untuk tahu siapa pembelinya.
 
+## 4b. Syarat dari pemilik produk: TANPA OTP
+
+Keputusan pemilik my.20fit.id (2026-09-08): **user harus bisa langsung melihat tiket yang
+sudah dia beli — tanpa disuruh memasukkan kode OTP.**
+
+Dengan API yang ada sekarang, syarat itu **tidak bisa kami penuhi dari sisi kami**, karena:
+
+- `GET /me/tickets` mewajibkan header `X-Embed-User-Token`;
+- `userToken` hanya bisa terbit lewat dua jalan: `POST /partner/user-token` (menuntut email
+  punya **akun** — 404 untuk 8 dari 8 pembeli asli) atau **OTP**;
+- tidak ada endpoint yang mendaftar tiket/pesanan **per email**, dan tidak ada webhook.
+
+Jadi menghapus OTP tanpa penggantinya berarti pembeli tamu tidak melihat apa pun. Ini
+persis yang membuat permintaan di §5 menjadi mendesak: **hanya kalian yang bisa membuat
+pengalaman "langsung" itu mungkin.**
+
+Satu pertanyaan tambahan yang murah untuk kalian jawab, dan bisa langsung menyelesaikan
+semuanya tanpa endpoint baru: **kalau seorang pembeli tamu kemudian mendaftar akun di
+ticket.20fit.id dengan email yang sama, apakah pesanan tamunya otomatis tertaut ke akun
+itu?** Kalau ya, `/partner/user-token` akan berhasil untuk mereka dan tiketnya muncul di
+my.20fit.id **otomatis, tanpa OTP, tanpa perubahan API apa pun.** Kalau tidak, adakah
+cara menautkannya (mis. saat pendaftaran, atau lewat endpoint partner)?
+
 ## 5. Yang kami minta (urut preferensi)
 
 1. **Webhook pembelian.** POST ke endpoint kami saat pesanan lunas, ditandatangani

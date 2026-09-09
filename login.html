@@ -368,7 +368,7 @@
         errMatch:"Passwords don't match.", errGender:"Please choose your gender.", errDob:"Please enter your date of birth.",
         btnIn:"Sign In", btnUp:"Create Account",
         forgot:"Forgot password?",
-        orsep:"or", google:"Continue with Google",
+        orsep:"or", google:"Continue with Google", googleOff:"Google sign-in isn’t available right now. Please use your email and password.",
         namePh:"Your name", phonePh:"+62 812 3456 7890",
         cardNote:"Already have a 20FIT account? Your same login works here.",
         errCred:"Wrong email or password.", errExists:"Email already registered. Tap Sign In or use another email.",
@@ -400,7 +400,7 @@
         errMatch:"Password tidak sama, ulangi.", errGender:"Pilih jenis kelamin dulu.", errDob:"Isi tanggal lahir dulu.",
         btnIn:"Masuk", btnUp:"Buat Akun",
         forgot:"Lupa password?",
-        orsep:"atau", google:"Lanjut dengan Google",
+        orsep:"atau", google:"Lanjut dengan Google", googleOff:"Login Google sedang tidak tersedia. Pakai email dan password dulu ya.",
         namePh:"Nama kamu", phonePh:"+62 812 3456 7890",
         cardNote:"Sudah punya akun 20FIT? Login yang sama berlaku di sini.",
         errCred:"Email atau password salah.", errExists:"Email sudah terdaftar. Klik Masuk atau pakai email lain.",
@@ -690,15 +690,21 @@
         host.style.display="flex";
         google.accounts.id.initialize({client_id:cid,callback:onGoogleCredential});
         google.accounts.id.renderButton(host,{theme:"outline",size:"large",shape:"pill",text:"continue_with",width:280,locale:lang==="id"?"id":"en"});
-        // Kalau tombol resmi gagal render (mis. origin belum terdaftar di Google Console),
-        // sediakan tombol cadangan yang memicu One Tap.
+        // Tombol resmi gagal render = client ID ditolak Google untuk origin ini (origin
+        // belum terdaftar, atau client-nya bukan tipe "Web application" — client iOS/Android
+        // tidak punya Authorized JavaScript origins sama sekali).
+        //
+        // Dulu di sini ada tombol cadangan yang memicu One Tap (google.accounts.id.prompt()).
+        // Itu SALAH: kalau tombol resmi ditolak, One Tap ditolak juga — user diantar ke
+        // halaman "Access blocked: Authorisation error / invalid_client" milik Google dan
+        // mengira app-nya rusak. Lebih jujur: katakan Google sedang tak tersedia dan arahkan
+        // ke email/password yang memang jalan. Sebabnya tetap dicatat di console untuk dev.
         setTimeout(function(){
           if(host && host.childElementCount===0){
-            console.warn("[google] Tombol GIS tidak ter-render. Cek 'Authorized JavaScript origins' di Google Cloud Console untuk origin ini:", location.origin);
-            host.innerHTML='<button type="button" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--txt);font-weight:700;font-size:14px;cursor:pointer">'
-              +'<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.71-1.57 2.68-3.89 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.47.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>'
-              +'<span>'+(T[lang].google||"Continue with Google")+'</span></button>';
-            host.firstChild.onclick=function(){ try{ google.accounts.id.prompt(); }catch(e){ msg(terjemah("google"),"err"); } };
+            console.warn("[google] Tombol GIS tidak ter-render — Google menolak client ID ini untuk origin", location.origin,
+              "| Cek di Google Cloud Console: client HARUS bertipe 'Web application' DAN origin ini terdaftar di 'Authorized JavaScript origins'.");
+            host.innerHTML='<p style="margin:0;font-size:13px;line-height:1.5;color:var(--muted);text-align:center">'
+              +(T[lang].googleOff||"Google sign-in isn’t available right now.")+'</p>';
           }
         }, 1200);
       }catch(e){ console.warn("[google] init error:", e); }

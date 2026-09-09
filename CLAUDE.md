@@ -183,7 +183,8 @@ Tile **News** = eksternal `media.20fit.id` (same-tab, tanpa halaman).
 | `EMAIL_ENVIRONMENT`, `EMAIL_TEST_WHITELIST`, `MAIL_FROM`, `MAIL_REPLY_TO` | Mode & alamat email | config |
 | `RESEND_WEBHOOK_SECRET` 🔒 | Verifikasi webhook Resend (Svix) | utk webhook |
 | `META_PIXEL_ID`, `META_CAPI_ACCESS_TOKEN` 🔒, `META_CAPI_VERSION` | Meta Pixel + Conversions API | opsional |
-| `GOOGLE_CLIENT_ID` | Google Identity Services (login Google, publik) | opsional |
+| `GOOGLE_CLIENT_ID` | Google Identity Services (login Google, publik). **Harus tipe Web application** + origin situs terdaftar di "Authorized JavaScript origins". Tanpa ini tombol Google disembunyikan (tidak ada default) | wajib utk login Google |
+| `GOOGLE_CLIENT_IDS` | Client ID tambahan yang boleh jadi audience ID token (koma) — isi Client ID iOS/Android app mobile | wajib utk login Google dari app mobile |
 | `WAQI_TOKEN` 🔒, `PEXELS_API_KEY` 🔒 | AQI (WAQI) & foto makanan (Pexels) | opsional |
 | `PHOTO_APP_URL`, `PHOTO_API_URL`, `PHOTO_SSO_REDIRECT`, `PHOTO_OP_TIMEOUT_MS` | Integrasi photo.20fit.id (SSO) | opsional |
 | `CRON_SECRET` 🔒 | Proteksi endpoint `/api/cron/*` | utk cron |
