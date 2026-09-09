@@ -1,7 +1,8 @@
 # Permintaan teknis ke tim ticket.20fit.id
 
-> Dibuat 2026-09-08. Semua angka di bawah adalah **hasil pengukuran**, bukan
-> perkiraan. Kalau ada yang keliru, tolong dikoreksi — kami akan ukur ulang.
+> Dibuat 2026-09-08 · diperbarui 2026-09-09 (OTP dihapus dari my.20fit — lihat §4b).
+> Semua angka di bawah adalah **hasil pengukuran**, bukan perkiraan. Kalau ada yang
+> keliru, tolong dikoreksi — kami akan ukur ulang.
 
 ## 1. Konteks
 
@@ -82,6 +83,14 @@ Jadi menghapus OTP tanpa penggantinya berarti pembeli tamu tidak melihat apa pun
 persis yang membuat permintaan di §5 menjadi mendesak: **hanya kalian yang bisa membuat
 pengalaman "langsung" itu mungkin.**
 
+> **Update 2026-09-09:** OTP kini **sudah kami hapus sepenuhnya** dari my.20fit.id
+> (endpoint `/api/tickets/verify/*` dan seluruh UI-nya dibuang) atas keputusan pemilik.
+> Halaman "Tiket Saya" sekarang: (a) untuk email yang **dikenal** penerbit → tampil tiket
+> lengkap + QR lewat jalur partner server-ke-server, **tanpa OTP**; (b) untuk email yang
+> belum dikenal → tampil pembelian dari **arsip** (nama event, jenis, tanggal, "LUNAS")
+> **tanpa QR**, dengan tautan ke ticket.20fit.id. Detail non-kredensial jujur apa adanya;
+> QR-nya menunggu §5. Artinya celah di atas kini **live di produksi** — makin mendesak.
+
 Satu pertanyaan tambahan yang murah untuk kalian jawab, dan bisa langsung menyelesaikan
 semuanya tanpa endpoint baru: **kalau seorang pembeli tamu kemudian mendaftar akun di
 ticket.20fit.id dengan email yang sama, apakah pesanan tamunya otomatis tertaut ke akun
@@ -93,11 +102,16 @@ cara menautkannya (mis. saat pendaftaran, atau lewat endpoint partner)?
 
 1. **Webhook pembelian.** POST ke endpoint kami saat pesanan lunas, ditandatangani
    (HMAC header, secret dibagi di luar jalur). Payload minimal: `orderId`, `status`,
-   `event` (id/slug), daftar tipe tiket + kode tiket, dan `buyer.email` (+ `buyer.phone`
-   kalau ada). Ini yang membuat tiket muncul **otomatis**.
-2. **Endpoint partner baca pesanan per email.** Mis. `GET /partner/orders?email=...`
-   dengan APP KEY (server-to-server, bukan dari browser). Ini cukup untuk menarik
-   on-demand tanpa webhook.
+   `event` (id/slug + nama + tanggal + cover), daftar tiket (tiap tiket: `code`,
+   `ticketType`, `holderName`, `status` gerbang), `buyer.email` (+ `buyer.phone` kalau ada),
+   **dan QR tiap tiket** (payload atau URL gambar). Ini yang membuat tiket + QR muncul
+   **otomatis, tanpa OTP**.
+2. **Endpoint partner baca tiket + QR per email.** Mis.
+   `GET /partner/tickets?email=...` dan `GET /partner/tickets/{code}/qr?email=...` dengan
+   APP KEY (server-ke-server, bukan dari browser) — mengembalikan tiket **dan QR** untuk
+   email itu **tanpa** `X-Embed-User-Token`/OTP. Ini penukar langsung `/me/tickets` +
+   `/tickets/{code}/qr` yang sekarang menuntut token per-user. Cukup untuk menarik on-demand
+   tanpa webhook. (Keamanan: email selalu dari sesi login user di sisi kami — lihat §7.)
 3. **Kalau (1) dan (2) belum bisa — minimal jawab ini:**
    - Apakah 404 `user_not_found` di `/partner/user-token` memang berarti "email belum
      punya akun"?
