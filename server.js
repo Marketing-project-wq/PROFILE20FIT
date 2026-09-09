@@ -1063,7 +1063,7 @@ const authLimiter = rateLimit({
   message: limitMsg,
 });
 app.use([
-  "/api/fitco-login", "/api/fitco-register", "/api/fitco-forgot", "/api/fitco-reset",
+  "/api/fitco-login", "/api/fitco-register", "/api/reset/request", "/api/reset/confirm",
   "/api/fitco-verify-email", "/api/fitco-resend-verify-email",
 ], authLimiter);
 
@@ -6506,39 +6506,80 @@ app.get("/api/admin/attribution", async (req, res) => {
 // Catatan: endpoint lama /api/admin/stats (era admin.html) sudah dihapus —
 // digantikan /api/admin/metrics (RBAC requireAdmin) di admin dashboard baru.
 
-// ---------- Lupa password via API 20FIT (kirim OTP + reset) ----------
-// Reset di sini = reset password akun 20FIT yang sama (dipakai app 20FIT juga).
-app.post("/api/fitco-forgot", async (req, res) => {
+// ---------- Lupa password: OTP sendiri (email) → set password Supabase ----------
+// Jalur FITCO lama (/api/v1/auth/password/forgot|reset) DIHAPUS: reset "tidak bisa sama
+// sekali" lewat jalur itu. Reset di sini SELF-CONTAINED & tak bergantung FITCO:
+//   1) /api/reset/request — kirim kode 6 digit ke email (Resend), kalau akunnya ada.
+//   2) /api/reset/confirm — verifikasi kode → SET password akun SUPABASE via admin API.
+// Login memakai fitcoLogin dulu lalu FALLBACK Auth.signIn (password Supabase), jadi
+// password baru ini langsung dipakai user untuk masuk. CATATAN: yang direset adalah
+// password my.20fit (Supabase); password 20FIT di FITCO TIDAK ikut berubah (jalur FITCO
+// tak bisa dipakai). Kode = HASH sha256 di email_verification_tokens (bukan mentah).
+async function findAuthUserByEmail(email) {
+  const target = String(email || "").trim().toLowerCase();
+  if (!target || !admin) return null;
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const users = (data && data.users) || [];
+    const hit = users.find((u) => String(u.email || "").trim().toLowerCase() === target);
+    if (hit) return hit;
+    if (users.length < 1000) break; // halaman terakhir
+  }
+  return null;
+}
+app.post("/api/reset/request", async (req, res) => {
   try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
     const email = String((req.body && req.body.email) || "").trim().toLowerCase();
     if (!email) return res.status(400).json({ error: "Email wajib diisi." });
-    const r = await fetch(FITCO_API + "/api/v1/auth/password/forgot", {
-      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(r.status === 422 ? 400 : r.status).json({ error: (j && (j.message || j.error)) || "Gagal mengirim kode reset." });
-    return res.json({ ok: true });
+    // ANTI-ENUMERASI: selalu balas ok. Kode hanya benar-benar dikirim kalau akunnya ada.
+    let devCode;
+    try {
+      const u = await findAuthUserByEmail(email);
+      if (u && u.id) {
+        const code = gen6();
+        const expires = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString();
+        await admin.from("email_verification_tokens").delete().eq("auth_user_id", u.id).is("consumed_at", null);
+        const { error: insErr } = await admin.from("email_verification_tokens")
+          .insert({ auth_user_id: u.id, email, token: sha256(code), expires_at: expires });
+        if (insErr) throw insErr;
+        const r = await sendOtpEmail(email, code);
+        if (!IS_PROD && !r.sent) devCode = code; // dev only, tak pernah di produksi
+      }
+    } catch (e) { console.error("reset/request:", e && e.message); }
+    const payload = { ok: true };
+    if (devCode) payload.devCode = devCode;
+    return res.json(payload);
   } catch (e) {
-    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+    return res.status(500).json({ error: "Gagal mengirim kode reset. Coba lagi." });
   }
 });
-app.post("/api/fitco-reset", async (req, res) => {
+app.post("/api/reset/confirm", async (req, res) => {
   try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
     const email = String((req.body && req.body.email) || "").trim().toLowerCase();
     const otp = String((req.body && req.body.otp) || "").trim();
     const password = String((req.body && req.body.password) || "");
     if (!email || !otp || !password) return res.status(400).json({ error: "Email, kode & password wajib diisi." });
     if (password.length < 8) return res.status(400).json({ error: "Password minimal 8 karakter." });
-    const r = await fetch(FITCO_API + "/api/v1/auth/password/reset", {
-      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ email, otp, password, password_confirmation: password }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(r.status === 422 ? 400 : r.status).json({ error: (j && (j.message || j.error)) || "Kode salah atau kedaluwarsa." });
+    const u = await findAuthUserByEmail(email);
+    // Jangan bocorkan apakah email terdaftar — pesan sama dengan kode salah.
+    if (!u || !u.id) return res.status(400).json({ error: "Kode salah atau kedaluwarsa." });
+    const { data: rows, error } = await admin.from("email_verification_tokens")
+      .select("id").eq("auth_user_id", u.id).eq("token", sha256(otp))
+      .is("consumed_at", null).gt("expires_at", new Date().toISOString()).limit(1);
+    if (error) throw error;
+    if (!rows || !rows.length) return res.status(400).json({ error: "Kode salah atau kedaluwarsa." });
+    // Set password Supabase (🔴 nilai password JANGAN pernah di-log).
+    const md = Object.assign({}, u.user_metadata || {}, { has_pw: true });
+    const { error: upErr } = await admin.auth.admin.updateUserById(u.id, { password, user_metadata: md });
+    if (upErr) throw upErr;
+    await admin.from("email_verification_tokens").update({ consumed_at: new Date().toISOString() }).eq("id", rows[0].id);
     return res.json({ ok: true });
   } catch (e) {
-    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+    console.error("reset/confirm:", e && e.message);
+    return res.status(500).json({ error: "Gagal menyimpan password baru. Coba lagi." });
   }
 });
 
