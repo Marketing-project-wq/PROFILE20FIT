@@ -2193,6 +2193,14 @@ async function ticketEmbed(userJwt, action, extra) {
     return { status: r.status, data: j };
   } catch (e) { return { status: 0, data: null, error: e && e.message }; } finally { clearTimeout(to); }
 }
+// Nama bisa datang sebagai string ATAU objek ({name}/{fullName}). Tanpa ini objek
+// terender jadi "[object Object]" di kartu tiket.
+function nameOf(v) {
+  if (v == null) return null;
+  if (typeof v === "string") return v.trim() || null;
+  if (typeof v === "object") { const n = firstOf(v, ["name", "fullName", "full_name", "displayName"]); return n ? String(n).trim() : null; }
+  return String(v).trim() || null;
+}
 function mapEmbedTicket(t) {
   t = t || {};
   const code = firstOf(t, ["code", "ticketCode", "ticket_code", "id", "ref", "reference"]);
@@ -2201,13 +2209,48 @@ function mapEmbedTicket(t) {
     code: code != null ? String(code) : null,
     event_name: firstOf(t, ["eventName", "event_name", "event", "title", "name"]) || "Event 20FIT",
     product_name: firstOf(t, ["ticketType", "ticket_type", "categoryName", "category", "productName", "product_name"]),
-    holder: firstOf(t, ["holderName", "holder", "attendeeName", "attendee", "customerName", "name"]),
+    holder: nameOf(firstOf(t, ["holderName", "holder", "attendeeName", "attendee", "customerName", "name"])),
+    // Nama PEMESAN (yang membayar), beda dari `holder` (yang hadir). Dipetakan defensif
+    // seperti field lain: kalau penerbit tak mengirimnya, tetap null dan UI menyembunyikannya.
+    // TIDAK dikarang dari data lain.
+    buyer: nameOf(firstOf(t, ["buyerName", "buyer_name", "ordererName", "purchaserName", "buyer", "orderer", "purchaser"])),
     paid_at: firstOf(t, ["purchasedAt", "paidAt", "paid_at", "createdAt", "created_at", "date"]),
     status: "valid",
     cover_url: firstOf(t, ["coverUrl", "cover_url", "bannerUrl", "image"]),
-    has_qr: true,   // QR asli diambil lazy via /api/tickets/qr?code=
-    qr: null,
+    qr: null,   // diisi attachQrs() sebelum respons dikirim — bukan request terpisah per tiket
   };
+}
+// Normalisasi respons QR penerbit → {img, svg, payload}. SATU sumber kebenaran:
+// dipakai attachQrs() (borongan) dan /api/tickets/qr (satuan).
+function normalizeQr(d) {
+  let img = null, svg = null, payload = null;
+  const looksImg = (s) => /^https?:\/\//i.test(String(s)) || /^data:image\//i.test(String(s));
+  if (typeof d === "string") {
+    if (looksImg(d)) img = d; else if (/<svg/i.test(d)) svg = d; else payload = d;
+  } else if (d && typeof d === "object") {
+    img = firstOf(d, ["qrUrl", "qr_url", "imageUrl", "image_url", "png", "url", "dataUrl", "data_url"]);
+    if (img && !looksImg(img)) img = "data:image/png;base64," + img; // base64 mentah
+    svg = firstOf(d, ["svg", "qrSvg", "qr_svg"]);
+    payload = firstOf(d, ["payload", "value", "content", "qr", "code", "token", "data"]);
+    if (!img && payload && looksImg(payload)) { img = String(payload); payload = null; }
+    if (!svg && payload && /<svg/i.test(String(payload))) { svg = String(payload); payload = null; }
+  }
+  return { ok: !!(img || svg || payload), img, svg, payload };
+}
+// Ambil QR SEMUA tiket sekaligus (paralel) dan tempelkan ke tiketnya. Sebelumnya browser
+// meminta satu per satu lewat /api/tickets/qr (N+1) dan QR baru muncul setelah user menekan
+// tombol. Kegagalan satu QR tidak menggagalkan yang lain — tiketnya tetap tampil tanpa QR.
+async function attachQrs(userJwt, userToken, tickets) {
+  if (!userToken || !tickets || !tickets.length) return tickets;
+  await Promise.all(tickets.map(async (t) => {
+    if (!t.code) return;
+    try {
+      const r = await ticketEmbed(userJwt, "ticket_qr", { userToken, code: t.code });
+      const q = normalizeQr(r.data);
+      if (q.ok) t.qr = q;
+    } catch (_) { /* satu QR gagal → tiket tetap tampil, tanpa QR */ }
+  }));
+  return tickets;
 }
 // Hasil berbentuk {ok, tickets|reason, status, raw} — BUKAN null polos. Alasannya: dulu
 // setiap kegagalan (identitas tak dikenal, upstream mati, bentuk respons berubah) sama-sama
@@ -2218,14 +2261,19 @@ function mapEmbedTicket(t) {
 // gagal yang dominan = penukaran email->token, bukan pengambilan tiketnya.
 // userToken hasil verifikasi OTP, disimpan per user supaya tak diminta OTP tiap buka
 // halaman. TIDAK PERNAH dikirim ke browser — hanya dipakai server saat memanggil embed.
+// Token dikembalikan APA ADANYA — kedaluwarsanya TIDAK dinilai dari jam kita.
+// Alasannya terukur: satu-satunya token nyata yang pernah terbit (2026-09-08 14:04:32)
+// diberi `expiresInSec` = 900 detik oleh penerbit. Dengan membuang token begitu jam kita
+// lewat, user pembeli TAMU diminta verifikasi ulang SETIAP 15 MENIT — itu yang terasa
+// seperti gate permanen. Penerbit adalah pemegang keputusan yang sah: token mati cukup
+// dibalas 401/kosong, dan pemanggil sudah menangani itu dengan jatuh ke jalur berikutnya.
+// Kolom `expires_at` tetap ditulis saveTicketToken sebagai catatan diagnostik.
 async function getTicketToken(userId) {
   try {
     const { data } = await admin.from("my20fit_ticket_tokens")
-      .select("user_token,expires_at").eq("auth_user_id", userId).limit(1);
+      .select("user_token").eq("auth_user_id", userId).limit(1);
     const row = data && data[0];
-    if (!row || !row.user_token) return null;
-    if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now()) return null;
-    return row.user_token;
+    return (row && row.user_token) ? row.user_token : null;
   } catch (_) { return null; }
 }
 async function saveTicketToken(userId, email, token, expiresInSec) {
@@ -2244,7 +2292,8 @@ async function embedTicketsWithToken(userJwt, userToken) {
   const mt = await ticketEmbed(userJwt, "my_tickets", { userToken });
   const arr = pickArray(mt.data);
   if (!arr) return { ok: false, status: mt.status, raw: mt.data, reason: "tickets_unreadable" };
-  return { ok: true, status: mt.status, raw: mt.data, tickets: arr.map(mapEmbedTicket).filter(t => t.code) };
+  // userToken ikut dikembalikan supaya pemanggil bisa mengambil QR-nya sekaligus.
+  return { ok: true, status: mt.status, raw: mt.data, userToken, tickets: arr.map(mapEmbedTicket).filter(t => t.code) };
 }
 async function embedMyTickets(userJwt) {
   const ut = await ticketEmbed(userJwt, "user_token");
@@ -2257,10 +2306,9 @@ async function embedMyTickets(userJwt) {
     return { ok: false, status: ut.status, raw: ut.data,
              reason: ut.status === 404 ? "needs_verification" : "upstream_unavailable" };
   }
-  const mt = await ticketEmbed(userJwt, "my_tickets", { userToken });
-  const arr = pickArray(mt.data);
-  if (!arr) return { ok: false, status: mt.status, raw: mt.data, reason: "tickets_unreadable" };
-  return { ok: true, status: mt.status, raw: mt.data, tickets: arr.map(mapEmbedTicket).filter(t => t.code) };
+  // Token sudah di tangan → pengambilan tiketnya identik dengan jalur token tersimpan.
+  // Dipakai bersama supaya bentuk hasil (termasuk userToken utk QR) hanya ditulis sekali.
+  return await embedTicketsWithToken(userJwt, userToken);
 }
 
 // ---------- /api/tickets/mine : tiket event yang DIBELI user (widget "My Tickets") ----------
@@ -2311,6 +2359,14 @@ app.get("/api/tickets/mine", async (req, res) => {
       return Object.assign({}, extra, { debug: { embed: emb } });
     };
     if (emb && emb.ok && emb.tickets.length) {
+      // QR semua tiket diambil sekaligus (paralel) supaya browser tak perlu meminta
+      // satu per satu dan QR bisa langsung tampil di kartu — bukan di balik tombol.
+      await attachQrs(bearerOf(req), emb.userToken, emb.tickets);
+      // Jumlah tiket per event. Skema penerbit FLAT (satu baris = satu tiket), jadi qty
+      // dihitung dari pengelompokan — bukan field yang dikarang.
+      const perEvent = {};
+      for (const t of emb.tickets) perEvent[t.event_name] = (perEvent[t.event_name] || 0) + 1;
+      for (const t of emb.tickets) t.event_qty = perEvent[t.event_name];
       return res.json(dbg({ ok: true, tickets: emb.tickets, source: "embed", count: emb.tickets.length }));
     }
     // ARSIP: pembelian dari event_transaction. Ini impor batch invoice (historis, tanpa QR
@@ -2421,19 +2477,8 @@ app.get("/api/tickets/qr", async (req, res) => {
       const ctx = await getAdminContext(req);
       if (ctx && ctx.role === "superadmin") return res.json({ ok: true, debug: true, raw: d });
     }
-    let img = null, svg = null, payload = null;
-    const looksImg = (s) => /^https?:\/\//i.test(String(s)) || /^data:image\//i.test(String(s));
-    if (typeof d === "string") {
-      if (looksImg(d)) img = d; else if (/<svg/i.test(d)) svg = d; else payload = d;
-    } else if (d && typeof d === "object") {
-      img = firstOf(d, ["qrUrl", "qr_url", "imageUrl", "image_url", "png", "url", "dataUrl", "data_url"]);
-      if (img && !looksImg(img)) img = "data:image/png;base64," + img; // base64 mentah
-      svg = firstOf(d, ["svg", "qrSvg", "qr_svg"]);
-      payload = firstOf(d, ["payload", "value", "content", "qr", "code", "token", "data"]);
-      if (!img && payload && looksImg(payload)) { img = String(payload); payload = null; }
-      if (!svg && payload && /<svg/i.test(String(payload))) { svg = String(payload); payload = null; }
-    }
-    return res.json({ ok: !!(img || svg || payload), img, svg, payload, code });
+    const q = normalizeQr(d);
+    return res.json({ ok: q.ok, img: q.img, svg: q.svg, payload: q.payload, code });
   } catch (e) {
     try { console.error("tickets/qr:", e && e.message); } catch (_) {}
     return res.json({ ok: false });

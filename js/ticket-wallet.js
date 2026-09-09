@@ -68,6 +68,12 @@
         var j = await r.json().catch(function () { return null; });
         if (r.ok && j && j.ok && Array.isArray(j.tickets)) {
           TICKETS = j.tickets; REASON = j.reason || null;
+          // QR sudah ikut di respons. Dirender jadi HTML SEKARANG (sekali, di luar
+          // twkTicketCard yang sinkron) supaya kartu bisa menampilkannya langsung tanpa
+          // tombol dan tanpa request tambahan. Payload string perlu di-encode → async.
+          try {
+            await Promise.all(TICKETS.map(async function (t) { t._qrHtml = await twkQrHtml(t.qr); }));
+          } catch (e) { /* satu gagal → kartunya tampil tanpa QR, tiketnya tetap ada */ }
         } else { TICKETS = []; REASON = "upstream_unavailable"; }
       }
     } catch (e) { TICKETS = []; REASON = "upstream_unavailable"; }
@@ -125,17 +131,28 @@
     var cover = (t && t.cover_url)
       ? '<div class="twk-pcover"><img src="' + esc(t.cover_url) + '" alt="' + esc(nm) + '" loading="lazy" onerror="this.closest(\'.twk-pcover\').classList.add(\'noimg\')"></div>'
       : '<div class="twk-pcover noimg"></div>';
+    // Nama PEMESAN hanya ditampilkan kalau memang dikirim penerbit DAN berbeda dari
+    // nama peserta — kalau sama, mengulangnya cuma bikin kartu berisik.
+    var beda = t && t.buyer && t.holder && String(t.buyer).trim().toLowerCase() !== String(t.holder).trim().toLowerCase();
     var meta = '<div class="twk-pmeta">' +
       ((t && t.product_name) ? '<span>' + esc(t.product_name) + '</span>' : '') +
+      ((t && t.event_qty > 1) ? '<span>' + Lx({ en: "Tickets for this event: ", id: "Tiket untuk event ini: " }) + esc(t.event_qty) + '</span>' : '') +
       ((t && t.holder) ? '<span>' + Lx({ en: "Attendee: ", id: "Peserta: " }) + esc(t.holder) + '</span>' : '') +
+      (beda ? '<span>' + Lx({ en: "Ordered by: ", id: "Pemesan: " }) + esc(t.buyer) + '</span>' : '') +
       (date ? '<span>' + Lx({ en: "Paid ", id: "Dibayar " }) + esc(date) + '</span>' : '') +
       ((t && t.ref) ? '<span>' + Lx({ en: "Order ", id: "Order " }) + esc(t.ref) + '</span>' : '') +
       '</div>';
-    var action = (t && (t.code || t.qr))
-      ? '<button type="button" class="twk-pbuy" style="background:var(--ink,#15171C)" onclick="twkZoom(\'' + esc(t.code || t.ref || "") + '\')">' + Lx({ en: "Show QR", id: "Tampilkan QR" }) + '</button>'
-      : '<a class="twk-pbuy" style="background:var(--ink,#15171C)" href="https://ticket.20fit.id">' + Lx({ en: "Open e-ticket at ticket.20fit.id", id: "Buka e-tiket di ticket.20fit.id" }) + '</a>';
+    // QR LANGSUNG di kartu — tidak di balik tombol. Sudah dirender di loadTickets.
+    var qr = (t && t._qrHtml)
+      ? '<div class="twk-qrmini" role="img" aria-label="' + esc(Lx({ en: "Ticket QR", id: "QR tiket" })) + '">' + t._qrHtml + '</div>'
+      : '';
+    var action = (t && t._qrHtml)
+      ? '<button type="button" class="twk-pbuy" style="background:var(--ink,#15171C)" onclick="twkZoom(\'' + esc(t.code || t.ref || "") + '\')">' + Lx({ en: "Enlarge QR", id: "Perbesar QR" }) + '</button>'
+      : (t && t.code)
+        ? '<button type="button" class="twk-pbuy" style="background:var(--ink,#15171C)" onclick="twkZoom(\'' + esc(t.code || t.ref || "") + '\')">' + Lx({ en: "Show QR", id: "Tampilkan QR" }) + '</button>'
+        : '<a class="twk-pbuy" style="background:var(--ink,#15171C)" href="https://ticket.20fit.id">' + Lx({ en: "Open e-ticket at ticket.20fit.id", id: "Buka e-tiket di ticket.20fit.id" }) + '</a>';
     return '<article class="twk-pcard">' + cover + '<div class="twk-pbody">' +
-      '<div class="twk-pname">' + esc(nm) + '</div>' + meta +
+      '<div class="twk-pname">' + esc(nm) + '</div>' + meta + qr +
       '<div style="margin-top:auto">' + action + '</div></div></article>';
   }
   // Nominal "Rp X" dari price_from (integer rupiah). null → "".
@@ -199,18 +216,25 @@
     var ok = await twkQrLib(); if (!ok || !window.qrcode) return "";
     try { var q = window.qrcode(0, "M"); q.addData(String(text)); q.make(); return q.createSvgTag({ cellSize: 5, margin: 1, scalable: true }); } catch (e) { return ""; }
   }
-  // Ambil QR e-tiket ASLI by code dari server (/api/tickets/qr → embed ticket.20fit.id). HTML atau "".
+  // Ubah QR dari penerbit ({img|svg|payload}) jadi HTML. SATU sumber kebenaran, dipakai
+  // kartu tiket (QR sudah ikut di /api/tickets/mine) maupun twkFetchQr (jalur satuan).
+  async function twkQrHtml(q) {
+    if (!q || !q.ok) return "";
+    if (q.img) return '<img src="' + esc(q.img) + '" alt="QR" style="width:100%;height:100%;display:block;image-rendering:pixelated">';
+    if (q.svg) return q.svg;
+    if (q.payload) { var svg = await twkEncodeQr(q.payload); return svg || ('<div class="twk-code">' + esc(q.payload) + '</div>'); }
+    return "";
+  }
+  // Ambil QR e-tiket ASLI by code dari server (/api/tickets/qr → embed ticket.20fit.id).
+  // Cadangan: normalnya QR sudah ikut di /api/tickets/mine, jadi ini hanya dipakai kalau
+  // tiket itu belum membawa QR (mis. pengambilan borongannya gagal untuk satu tiket).
   async function twkFetchQr(code) {
     if (!code) return "";
     var tok = (window.Auth && Auth.token) ? await Auth.token() : null;
     if (!tok) return "";
     var r = await fetch("/api/tickets/qr?code=" + encodeURIComponent(code), { headers: { Authorization: "Bearer " + tok } });
     var j = await r.json().catch(function () { return null; });
-    if (!j || !j.ok) return "";
-    if (j.img) return '<img src="' + esc(j.img) + '" alt="QR" style="width:100%;height:100%;display:block;image-rendering:pixelated">';
-    if (j.svg) return j.svg;
-    if (j.payload) { var svg = await twkEncodeQr(j.payload); return svg || ('<div class="twk-code">' + esc(j.payload) + '</div>'); }
-    return "";
+    return await twkQrHtml(j);
   }
 
   // ---- QR overlay (ambil QR asli by code, lazy) ----
@@ -229,7 +253,7 @@
     document.body.appendChild(ov);
     var box = document.getElementById("twkQrBox");
     try {
-      var html = t.qr || (await twkFetchQr(t.code || t.ref));
+      var html = (await twkQrHtml(t.qr)) || (await twkFetchQr(t.code || t.ref));
       if (box) box.innerHTML = html || ('<div class="twk-hint" style="padding:14px 0">' + Lx({ en: "QR not available yet — open your e-ticket at ticket.20fit.id.", id: "QR belum tersedia — buka e-tiket di ticket.20fit.id." }) + '</div><a class="twk-pbuy" style="background:var(--ink,#15171C)" href="https://ticket.20fit.id">ticket.20fit.id ↗</a>');
     } catch (e) { if (box) box.innerHTML = '<div class="twk-hint" style="padding:14px 0">' + Lx({ en: "Couldn’t load QR.", id: "Gagal memuat QR." }) + '</div>'; }
   };
