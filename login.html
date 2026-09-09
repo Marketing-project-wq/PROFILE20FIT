@@ -94,7 +94,6 @@
   .forgot-row a{color:var(--red);text-decoration:none;font-weight:700}
   .orsep{display:flex;align-items:center;gap:12px;margin:16px 0 4px;color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
   .orsep::before,.orsep::after{content:"";flex:1;height:1px;background:var(--border)}
-  #gsiBtn{display:flex;justify-content:center;margin-top:12px}
   #googleFallbackBtn{width:100%;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;background:var(--card);color:var(--txt);font-family:Manrope;font-weight:700;font-size:15px;cursor:pointer}
   #googleFallbackBtn:hover{background:var(--inp)}
   #googleFallbackBtn svg{flex:none}
@@ -256,15 +255,12 @@
         </form>
         <div class="forgot-row"><a id="forgot" href="reset-password.html"></a></div>
 
-        <!-- Login Google. DUA jalur, tombol SELALU tampil:
-             (1) GIS (#gsiBtn): tombol resmi Google (inline) kalau GOOGLE_CLIENT_ID terisi —
-                 handler HYBRID Auth.googleSignIn (jalur 20FIT + FITCO token, fallback Supabase).
-             (2) Fallback (#googleFallbackBtn): kalau GIS tak tersedia (env kosong / origin
-                 ditolak), tombol ini pakai Supabase OAuth redirect (Auth.googleOAuth) — jalan
-                 TANPA GOOGLE_CLIENT_ID karena memakai Google provider Supabase. User lama
-                 tetap masuk ke akun yang SAMA (dicocokkan native oleh Supabase). -->
+        <!-- Login Google — Supabase OAuth redirect (Auth.googleOAuth). TIDAK pakai GIS:
+             GIS mewajibkan tiap origin didaftarkan di Google Cloud dan gampang patah
+             ("no registered origin / invalid_client"). Jalur Supabase pakai client &
+             callback yang dikonfigurasi di Supabase — tak bergantung origin kita. User
+             Google lama masuk ke akun yang SAMA (dicocokkan native oleh Supabase). -->
         <div class="orsep" id="orsep" style="display:none"><span data-k="orsep">or</span></div>
-        <div id="gsiBtn" style="display:none;justify-content:center"></div>
         <button type="button" id="googleFallbackBtn" onclick="onGoogleFallback()" style="display:none">
           <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
           <span data-k="google">Continue with Google</span>
@@ -673,72 +669,27 @@
       }catch(e){}
     })();
 
-    // ---- Login Google (Google Identity Services) — handler HYBRID ----
-    // SDK GIS mengambil ID token → Auth.googleSignIn: coba API 20FIT dulu (member dapat
-    // FITCO token), kalau ditolak fallback ke sesi Google native Supabase (akun yang SAMA).
-    async function onGoogleCredential(resp){
-      if(!resp||!resp.credential)return;
-      msg(T[lang].processing,"");
-      try{
-        await Auth.googleSignIn(resp.credential);
-        try{ Meta.track("Lead", {content_name:"login_google"}); }catch(e){}
-        await Auth.routeAfterAuth();
-      }catch(e){ msg(terjemah(e.message),"err"); }
-    }
-    // Tombol Google SELALU tampil. Kalau GIS (GOOGLE_CLIENT_ID) tersedia → tombol resmi
-    // inline (jalur 20FIT + FITCO). Kalau tidak / ditolak Google → tombol fallback yang
-    // pakai Supabase OAuth redirect (Auth.googleOAuth) — jalan tanpa GOOGLE_CLIENT_ID.
-    function showGoogleFallback(){
-      var host=document.getElementById("gsiBtn"); if(host){ host.style.display="none"; host.innerHTML=""; }
-      var sep=document.getElementById("orsep"); if(sep) sep.style.display="";
-      var fb=document.getElementById("googleFallbackBtn"); if(fb) fb.style.display="flex";
-    }
+    // ---- Login Google — Supabase OAuth redirect ----
+    // Kenapa BUKAN GIS: Google Identity Services mewajibkan SETIAP origin didaftarkan di
+    // Google Cloud; kalau tidak → "Access blocked: no registered origin / Error 401:
+    // invalid_client". Rapuh & di luar kendali kode. Tombol ini memakai Supabase OAuth:
+    // redirect ke Google via Supabase (client + callback dikonfigurasi di Supabase,
+    // TIDAK bergantung origin kita), balik ke /login lalu routeAfterAuth menyeat sesi.
+    // User Google lama masuk ke akun yang SAMA (dicocokkan native oleh Supabase, by sub/email).
     window.onGoogleFallback=async function(){
       msg(T[lang].processing,"");
       try{
         try{ Meta.track("Lead", {content_name:"login_google"}); }catch(e){}
-        await Auth.googleOAuth(); // memicu redirect ke Google (via Supabase); balik ke /login
+        await Auth.googleOAuth(); // redirect ke Google (via Supabase); balik ke /login
       }catch(e){ msg(terjemah(e.message),"err"); }
     };
-    var _googleInit=false;
-    async function initGoogleLogin(){
-      if(_googleInit) return; _googleInit=true; // idempoten: dipanggil dari onload/onerror/timer
-      try{
-        await Auth.ready;
-        const cid=Auth.googleClientId&&Auth.googleClientId();
-        const gisReady=cid && window.google && google.accounts && google.accounts.id;
-        // Tanpa GIS (env kosong / SDK gagal / origin ditolak) → langsung fallback OAuth.
-        if(!gisReady){
-          if(!cid) console.warn("[google] GOOGLE_CLIENT_ID kosong → pakai fallback Supabase OAuth.");
-          else console.warn("[google] SDK GIS tak siap → pakai fallback Supabase OAuth.");
-          showGoogleFallback();
-          return;
-        }
-        const host=document.getElementById("gsiBtn");
-        // Tampilkan container DULU baru render — kalau masih display:none saat renderButton,
-        // GIS bisa menghasilkan tombol berukuran 0px (kelihatan "tidak muncul").
-        document.getElementById("orsep").style.display="";
-        host.style.display="flex";
-        google.accounts.id.initialize({client_id:cid,callback:onGoogleCredential});
-        google.accounts.id.renderButton(host,{theme:"outline",size:"large",shape:"pill",text:"continue_with",width:280,locale:lang==="id"?"id":"en"});
-        // Tombol resmi gagal render = client ID ditolak Google untuk origin ini (bukan tipe
-        // "Web application", atau origin belum terdaftar). JANGAN tinggalkan user tanpa opsi:
-        // beralih ke tombol fallback (Supabase OAuth) yang tak butuh client ID web kita.
-        setTimeout(function(){
-          if(host && host.childElementCount===0){
-            console.warn("[google] Tombol GIS ditolak untuk origin", location.origin, "→ beralih ke fallback Supabase OAuth.");
-            showGoogleFallback();
-          }
-        }, 1200);
-      }catch(e){ console.warn("[google] init error:", e); showGoogleFallback(); }
-    }
+    (async function initGoogleLogin(){
+      try{ await Auth.ready; }catch(e){}
+      var sep=document.getElementById("orsep"); if(sep) sep.style.display="";
+      var fb=document.getElementById("googleFallbackBtn"); if(fb) fb.style.display="flex";
+    })();
 
     try{ Meta.track("ViewContent", {content_name:"login"}); }catch(e){}
-    // Jaring pengaman: kalau SDK GIS gagal dimuat (diblokir jaringan/extension) sehingga
-    // onload tak pernah jalan, tetap tampilkan opsi Google (fallback OAuth) setelah 2.5s.
-    setTimeout(initGoogleLogin, 2500);
   </script>
-  <!-- SDK Google Identity Services — dimuat setelah script utama supaya initGoogleLogin sudah ada -->
-  <script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleLogin()" onerror="initGoogleLogin()"></script>
 </body>
 </html>
