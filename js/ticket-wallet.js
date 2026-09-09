@@ -42,13 +42,21 @@
   function effTab() { return TAB || "mine"; }
 
   // ---- LOADERS ----
+  // Single-flight: init() memuat tiket & katalog BERSAMAAN, dan loadTickets juga
+  // memanggil loadUpcoming kalau UPCOMING masih null. Tanpa penjaga ini keduanya
+  // menembak /api/events/upcoming dua kali dan skeleton berkedip dua kali —
+  // persis yang seharusnya dihindari. Penjaga ini juga menahan klik tab beruntun.
+  var upcomingJalan = false;
   window.loadUpcoming = async function loadUpcoming() {
+    if (upcomingJalan) return;
+    upcomingJalan = true;
     UPCOMING = null; notify(); // skeleton saat memuat / mencoba lagi
     try {
       var r = await fetch("/api/events/upcoming");
       var j = await r.json().catch(function () { return null; });
       UPCOMING = (r.ok && j && j.ok && Array.isArray(j.events)) ? j.events : "error"; // bedakan gagal vs kosong
     } catch (e) { UPCOMING = "error"; }
+    finally { upcomingJalan = false; }
     notify();
   };
   window.loadTickets = async function loadTickets() {
