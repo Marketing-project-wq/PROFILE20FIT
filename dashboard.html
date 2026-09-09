@@ -969,6 +969,31 @@
         location.href = PHOTO_ORIGIN + "/login"; // fallback: login manual di photo
         return false;
       };
+      // Handoff SSO ke recepie.20fit.id (app resep/menu penuh) — SELF-CONTAINED di dashboard,
+      // pakai sesi Supabase yang sudah ada. TIDAK bergantung Auth.menuSso (bisa ke-cache versi
+      // lama -> gagal). Oper access_token+refresh_token via URL FRAGMENT (#): tak masuk log server;
+      // app menu men-seat sesi (setSession) lalu strip token dari URL. Mendarat di ROOT recepie
+      // (bukan deep-link yang belum tentu ada). Konsep sama Gojek->GoFood / Google: pindah app
+      // tanpa login/daftar ulang. Fallback href = recepie root (app menu punya login sendiri).
+      var MENU_ORIGIN = "https://recepie.20fit.id";
+      window.openRecipeGo = async function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        try {
+          var sb = window.Auth && Auth.supabase;
+          var s = null;
+          if (sb) { try { var d = await sb.auth.getSession(); s = d && d.data && d.data.session; } catch (err) {} }
+          if (s && s.access_token && s.refresh_token) {
+            var exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
+            var frag = "#access_token=" + encodeURIComponent(s.access_token) +
+              "&refresh_token=" + encodeURIComponent(s.refresh_token) +
+              "&expires_in=" + exp + "&token_type=bearer&type=magiclink";
+            location.href = MENU_ORIGIN + "/" + frag;
+            return false;
+          }
+        } catch (err) {}
+        location.href = MENU_ORIGIN + "/"; // belum ada sesi -> app menu yang arahkan ke login sendiri
+        return false;
+      };
       // Modal PREVIEW foto di dalam my.20fit — andal, nggak pernah "blank"/gagal. Klik tile -> ini.
       window.openPhotoView = function (id, e) {
         if (e && e.preventDefault) e.preventDefault();
@@ -1314,7 +1339,7 @@
       var SVCS = [
         { key: "medical",       ic: "pin",      lbl: { en: "Medical", id: "Medical" },           sub: { en: "Medical Check Up", id: "Medical Check Up" }, href: "/medical" },
         { key: "membership",    ic: "card",     lbl: { en: "Membership", id: "Membership" },     sub: { en: "Special Offer · Gym", id: "Special Offer · Gym" }, href: "/membership" },
-        { key: "diet",          ic: "diet",     lbl: { en: "Recipe", id: "Resep" },              sub: { en: "Recipes & menus", id: "Resep & menu" }, href: "/recipe" },
+        { key: "diet",          ic: "diet",     lbl: { en: "Recipe", id: "Resep" },              sub: { en: "Recipes & menus", id: "Resep & menu" }, href: "https://recepie.20fit.id/", onclick: "return openRecipeGo(event)" },
         { key: "book-class",    ic: "dumbbell", lbl: { en: "Book Class", id: "Book Kelas" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/classes" },
         { key: "book-doctor",   ic: "doctor",   lbl: { en: "Book Doctor", id: "Book Dokter" },   sub: { en: "Konsultasi · Klinik", id: "Konsultasi · Klinik" }, href: "/book-doctor" },
         { key: "book-coach",    ic: "coach",    lbl: { en: "Book Coach", id: "Book Coach" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/book-coach" },
@@ -1401,7 +1426,10 @@
         }
         var sub = o.sub ? '<div class="s2-sub">' + Lx(o.sub) + '</div>' : '';
         var inner = '<div class="s2-ic">' + iconInner + '</div><div class="s2-lbl">' + Lx(o.lbl) + '</div>' + sub;
-        return '<a class="svc2" href="' + o.href + '">' + inner + '</a>';   // selalu same-tab
+        // onclick opsional (mis. SSO hand-off ke subdomain). Tanpa onclick -> <a href> biasa.
+        // TETAP same-tab (tak ada target=_blank); kalau JS/sesi gagal, href jadi fallback.
+        var oc = o.onclick ? ' onclick="' + o.onclick + '"' : '';
+        return '<a class="svc2" href="' + o.href + '"' + oc + '>' + inner + '</a>';   // selalu same-tab
       }
       window.buildSvcGrid = function () {
         var el = document.getElementById("svcGrid2"); if (!el) return;
