@@ -103,20 +103,6 @@
   .wrow .rs{font-size:12.5px;color:var(--muted)}
   .tag{font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
 
-  /* ---- Train at home accordion ---- */
-  .ahrow{border-bottom:1px solid var(--line);padding:12px 2px;cursor:pointer}
-  .ahrow:last-of-type{border-bottom:0}
-  .ahhead{display:flex;align-items:center;gap:12px}
-  .ahhead .ri{width:40px;height:40px;border-radius:12px;background:var(--inp);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:18px}
-  .ahhead .a{font-size:15px;font-weight:700}
-  .ahhead .b{font-size:12px;color:var(--muted);font-weight:600}
-  .ahhead .cv{color:var(--faint);font-weight:800;font-size:13px;flex:0 0 auto}
-  .ahtut{max-height:0;overflow:hidden;transition:max-height .35s ease}
-  .ahrow.open .ahtut{max-height:300px}
-  .ahtut .in{padding:10px 2px 2px}
-  .ahtut .st{font-size:13px;color:var(--muted);padding:4px 0;display:flex;gap:8px;line-height:1.45}
-  .ahtut .st b{color:var(--txt)}
-
   /* ---- Breathing ---- */
   .seg{display:flex;gap:7px;background:var(--inp);padding:4px;border-radius:13px;margin-bottom:6px}
   .seg button{flex:1;padding:9px;border:0;border-radius:10px;background:transparent;color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;transition:.16s}
@@ -149,17 +135,6 @@
   .hrdot{width:9px;height:9px;border-radius:50%;background:var(--red);flex:0 0 auto;margin-top:5px}
   .hrok{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)}
 
-  /* ---- Sleep inputs ---- */
-  .sleeprow{display:flex;flex-direction:column;gap:12px;margin:10px 0 2px}
-  .sleepfld{display:block;min-width:0}
-  .sleepfld label{display:block;font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
-  .tpick{display:flex;align-items:center;gap:4px}
-  .tpick input{min-width:0;padding:11px 2px;background:var(--inp);border:1px solid var(--line);border-radius:11px;color:var(--txt);font-size:15px;font-family:inherit;text-align:center}
-  .tpick input.tn{flex:1 1 0;width:auto}
-  .tpick input.ta{flex:1 1 0;width:auto;text-transform:uppercase}
-  .tpick input:focus{outline:none;border-color:var(--red)}
-  .tpick span{color:var(--muted);font-weight:700}
-
   /* ---- Water big glass ---- */
   .bigglass{position:relative;width:100px;height:120px;margin:12px auto 4px;border:2px solid var(--blue);border-top-width:2px;
     border-radius:14px;overflow:hidden;background:var(--blue-soft);cursor:pointer}
@@ -184,17 +159,6 @@
   .slpsave:active{transform:scale(.97)}
   .slpmsg{margin-top:10px;font-size:12.5px;font-weight:700;color:var(--blue);background:var(--blue-soft);border-radius:10px;padding:9px 12px;line-height:1.4}
   .slpmsg.hide{display:none}
-  /* Widget WATER di home — 8 gelas; ketuk satu gelas -> keisi (air naik beranimasi). */
-  .wgrid{display:flex;gap:7px;margin:14px 2px 6px}
-  .wg{position:relative;flex:1 1 0;min-width:0;max-width:46px;height:48px;border:2px solid var(--blue);border-radius:5px 5px 11px 11px;overflow:hidden;cursor:pointer;background:var(--card);padding:0;transition:transform .12s}
-  .wg:active{transform:scale(.9)}
-  .wg:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-  .wg .wgf{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,#5aa3ff,#2f6fe0);transition:height .45s cubic-bezier(.2,.8,.2,1)}
-  .wg.full .wgf{height:100%}
-  /* +/- kontrol hidrasi (kartu tracker) — senada dgn widget lain */
-  .wgctl{display:flex;gap:8px;margin:10px 2px 2px}
-  .wgctl button{flex:1;height:38px;border-radius:11px;border:0;background:var(--inp);color:var(--txt);font-size:19px;font-weight:800;cursor:pointer;transition:transform .14s}
-  .wgctl button:active{transform:scale(.94)}
 
   /* ---- Checklist ---- */
   .chkhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
@@ -271,15 +235,6 @@
   @media(max-width:560px){ .wx-temp{font-size:28px} .aqi-line .arow{flex-wrap:wrap} .aqi-line .alvl{font-size:11px} }
   /* ---- At-home exercise list + tutorial modal ---- */
   .ahlist{overflow:hidden;margin-top:4px}
-  .ahitem{display:flex;align-items:center;gap:13px;padding:13px 2px;cursor:pointer;border-top:1px solid var(--line)}
-  .ahitem:first-child{border-top:0}
-  .ahitem .ic{flex:0 0 40px;width:40px;height:40px;border-radius:12px;background:var(--green-soft);display:grid;place-items:center;color:var(--green)}
-  .ahitem .ic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-  .ahitem .nm{flex:1;min-width:0}
-  .ahitem .nm .t{font-size:15px;font-weight:700}
-  .ahitem .nm .s{font-size:12px;color:var(--muted)}
-  .ahitem .play{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:800;text-transform:uppercase;letter-spacing:.03em;font-size:10px;padding:5px 9px;border-radius:999px;background:var(--red-soft);color:var(--red-ink)}
-  .ahitem .play svg{width:10px;height:10px;fill:currentColor;stroke:none}
   .modal-bg{position:fixed;inset:0;z-index:200;background:rgba(10,12,16,.5);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);display:none;align-items:flex-end;justify-content:center}
   .modal-bg.open{display:flex}
   .modal{width:100%;max-width:460px;background:var(--card);border-radius:24px 24px 0 0;max-height:92vh;overflow-y:auto;padding:8px 20px calc(env(safe-area-inset-bottom) + 22px);box-shadow:0 -10px 40px rgba(0,0,0,.25);animation:msheet .28s cubic-bezier(.2,.8,.2,1)}
@@ -288,38 +243,6 @@
   .m-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
   .m-title{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;text-transform:uppercase;font-size:22px;font-weight:900;letter-spacing:.01em}
   .m-sub{font-family:var(--fit-font-mono,'JetBrains Mono'),monospace;font-size:12px;color:var(--muted);margin-top:2px}
-  .demo{margin:16px 0;height:190px;border-radius:18px;background:var(--inp);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;position:relative;overflow:hidden;padding:34px 14px 16px}
-  .tempo-tag{position:absolute;top:12px;left:14px;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
-  .voicebtn{position:absolute;top:9px;right:9px;width:32px;height:32px;border-radius:999px;border:0;background:var(--card);color:var(--ink);box-shadow:var(--shadow);cursor:pointer;display:grid;place-items:center;z-index:3;padding:0}
-  .voicebtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .voicebtn .voff{display:none}
-  .voicebtn.muted{color:var(--muted)}
-  .voicebtn.muted .von{display:none}.voicebtn.muted .voff{display:block}
-  /* Tempo pacer — a simple round dot that pulses with the rhythm (isolated layer) */
-  .figwrap{height:118px;width:100%;display:grid;place-items:center;contain:layout paint;overflow:hidden}
-  .pacer-dot{width:96px;height:96px;border-radius:50%;background:var(--red);will-change:transform;
-    box-shadow:0 12px 30px color-mix(in srgb,var(--red) 34%,transparent);transition:transform .85s ease-in-out}
-  .pacer-dot.sm{transform:scale(.56)}                          /* rep: down */
-  .pacer-dot.hold{animation:dotHold 3s ease-in-out infinite}   /* hold / march */
-  @keyframes dotHold{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-  .pacer-dot.rest{background:var(--muted);transform:scale(.82);box-shadow:none} /* rest / cool-down */
-  .pacer-lbl{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--red);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;line-height:1.1}
-  @media (prefers-reduced-motion: reduce){ .pacer-dot{transition:none !important;animation:none !important} }
-  .pacer-lbl{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--red);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;line-height:1.1}
-  @media (prefers-reduced-motion: reduce){ .exfig *{animation:none !important} }
-  .m-target{display:flex;gap:10px;margin:4px 0 16px}
-  .chipm{flex:1;background:var(--inp);border-radius:14px;padding:11px;text-align:center}
-  .chipm .cv{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:18px;font-weight:900}
-  .chipm .cl{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin-top:1px}
-  .m-steps{margin:0 0 4px;padding:0;list-style:none;counter-reset:s}
-  .m-steps li{counter-increment:s;position:relative;padding:11px 0 11px 40px;font-size:13.5px;line-height:1.45;border-top:1px solid var(--line)}
-  .m-steps li::before{content:counter(s);position:absolute;left:0;top:9px;width:26px;height:26px;border-radius:999px;background:var(--red-soft);color:var(--red-ink);font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-size:12px;font-weight:800;display:grid;place-items:center}
-  .m-timer{display:flex;align-items:center;gap:12px;margin-top:16px}
-  .m-time{font-family:var(--fit-font-mono,'JetBrains Mono'),monospace;font-size:30px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;min-width:98px}
-  .m-timerbtn{flex:1;border:0;background:var(--red);color:#fff;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:800;text-transform:uppercase;letter-spacing:.03em;font-size:15px;padding:14px;border-radius:14px;cursor:pointer;box-shadow:0 8px 22px color-mix(in srgb,var(--red) 30%,transparent)}
-  .m-timerbtn.run{background:var(--inp);color:var(--ink);box-shadow:none}
-  .m-safety{font-size:11px;color:var(--muted);line-height:1.5;margin-top:16px;background:var(--amber-soft);border-radius:12px;padding:11px 13px;display:flex;gap:8px}
-  .m-safety svg{flex:0 0 14px;margin-top:1px;color:var(--amber);fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   @media(min-width:620px){ .modal-bg{align-items:center;padding:24px} .modal{border-radius:24px} .grab{display:none} }
   .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
 </style>
@@ -622,75 +545,20 @@
           <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <span data-i18n="book_recworkout">Ready to train? Book your class at 20FIT.</span>
         </a>
-
-        <!-- Latihan di rumah -->
-        <div class="card" style="margin-top:12px">
-          <div style="font-weight:800;font-size:15px" data-en="Or train at home · no equipment" data-id="Atau latihan di rumah · tanpa alat">Or train at home · no equipment</div>
-          <div class="muted" style="font-size:12px;margin:2px 0 8px" data-en="General starting point — not a personalised program." data-id="Panduan umum — bukan program personal.">General starting point — not a personalised program.</div>
-          <div class="ahlist" id="homeList"></div>
-          <div class="muted" style="font-size:11px;margin-top:10px" data-en="Warm up first. Stop if you feel dizzy or short of breath." data-id="Pemanasan dulu. Berhenti kalau pusing atau sesak.">Warm up first. Stop if you feel dizzy or short of breath.</div>
-        </div>
       </div>
 
-      <!-- Kolom kanan: WELLNESS ROUTINES -->
+      <!-- Kolom kanan: WATER (non-customizable, always visible) -->
       <div class="col">
-        <div class="sec gsec" data-en="Wellness routines · optional" data-id="Rutinitas Wellness · opsional">Wellness routines</div>
-        <div class="sec" data-i18n="sec_breath" style="margin-top:8px">Breathing Exercise</div>
-        <div class="card">
-          <div class="seg">
-            <button data-p="478" class="active" onclick="pickPattern('478')" data-i18n="breath_anxiety">Anxiety</button>
-            <button data-p="box" onclick="pickPattern('box')" data-i18n="breath_workout">Workout</button>
-            <button data-p="relax" onclick="pickPattern('relax')" data-i18n="breath_relax">Relax</button>
+        <div class="sec gsec" data-en="Daily Water" data-id="Air Harian">Daily Water</div>
+        <div class="card" style="text-align:center">
+          <div class="muted" data-i18n="water_label" style="text-align:left">Water (glasses) · target 8</div>
+          <div class="bigglass" id="bigGlass" onclick="setWater(water+1)" title="tap to add">
+            <div class="bgfill" id="bgFill"><span class="bgwave"></span></div>
+            <div class="bgcount" id="bgCount">0/8</div>
           </div>
-          <div class="muted" id="bcap" style="font-size:12px;text-align:center;margin:8px 0 4px"></div>
-          <div class="ring" id="ring" onclick="toggleBreath()" style="cursor:pointer" title="Tap to start/stop"><div style="text-align:center"><div class="ph" id="bphase" data-i18n="ready">Ready</div><div class="cd" id="bcd" data-i18n="press_start">Tap start</div></div></div>
-          <div class="dots" id="bdots"></div>
-          <button class="btn" id="bbtn" onclick="toggleBreath()" data-i18n="start">Start</button>
-        </div>
-
-        <div id="ifWidget"></div>
-
-        <div class="sec" data-i18n="sec_sleepwater">Sleep & Water</div>
-        <div class="grid2">
-          <div class="card">
-            <div class="muted" data-i18n="sleep_label">Sleep — what time you sleep & wake</div>
-            <div class="sleeprow">
-              <div class="sleepfld">
-                <label data-i18n="bedtime">Bedtime</label>
-                <div class="tpick">
-                  <input id="bedH" class="tn" list="hList" inputmode="numeric" maxlength="2" placeholder="10" oninput="onSleepChange()" />
-                  <span>:</span>
-                  <input id="bedM" class="tn" list="mList" inputmode="numeric" maxlength="2" placeholder="00" oninput="onSleepChange()" />
-                  <input id="bedAP" class="ta" list="apList" maxlength="2" placeholder="PM" oninput="onSleepChange()" />
-                </div>
-              </div>
-              <div class="sleepfld">
-                <label data-i18n="waketime">Wake up</label>
-                <div class="tpick">
-                  <input id="wakeH" class="tn" list="hList" inputmode="numeric" maxlength="2" placeholder="6" oninput="onSleepChange()" />
-                  <span>:</span>
-                  <input id="wakeM" class="tn" list="mList" inputmode="numeric" maxlength="2" placeholder="00" oninput="onSleepChange()" />
-                  <input id="wakeAP" class="ta" list="apList" maxlength="2" placeholder="AM" oninput="onSleepChange()" />
-                </div>
-              </div>
-            </div>
-            <datalist id="hList"></datalist>
-            <datalist id="mList"></datalist>
-            <datalist id="apList"></datalist>
-            <div class="big" id="sleepVal" style="text-align:center;margin:8px 0 2px">0</div>
-            <div class="bar"><i id="sleepBar"></i></div>
-            <button class="btn dark" style="margin-top:10px" onclick="saveSleep()" data-i18n="save_sleep">Save Sleep</button>
-          </div>
-          <div class="card" style="text-align:center">
-            <div class="muted" data-i18n="water_label" style="text-align:left">Water (glasses) · target 8</div>
-            <div class="bigglass" id="bigGlass" onclick="setWater(water+1)" title="tap to add">
-              <div class="bgfill" id="bgFill"><span class="bgwave"></span></div>
-              <div class="bgcount" id="bgCount">0/8</div>
-            </div>
-            <div class="wctrl">
-              <button onclick="event.stopPropagation();setWater(water-1)">−</button>
-              <button onclick="event.stopPropagation();setWater(water+1)">+</button>
-            </div>
+          <div class="wctrl">
+            <button onclick="event.stopPropagation();setWater(water-1)">−</button>
+            <button onclick="event.stopPropagation();setWater(water+1)">+</button>
           </div>
         </div>
       </div>
@@ -754,7 +622,7 @@
         <div class="cz-lbl" id="czAvailLbl" style="margin-top:16px"></div>
         <div id="czAvail"></div>
         <div class="cz-row" style="border-top:1px solid var(--line);margin-top:10px">
-          <div class="cz-tx"><div class="cz-t" data-en="More detail" data-id="Detail lain">More detail</div><div class="cz-d" data-en="Checklist, Cycle, Breathing, Workouts" data-id="Checklist, Siklus, Napas, Latihan">Checklist, Cycle, Breathing, Workouts</div></div>
+          <div class="cz-tx"><div class="cz-t" data-en="More detail" data-id="Detail lain">More detail</div><div class="cz-d" data-en="Checklist, Cycle & more" data-id="Checklist, Siklus & lainnya">Checklist, Cycle & more</div></div>
           <button class="cz-sw" id="czExtra" type="button" onclick="toggleExtra()" aria-label="More detail"></button>
         </div>
       </div>
@@ -762,29 +630,6 @@
   </div>
 
 
-  <!-- Tutorial modal (latihan di rumah) -->
-  <div class="modal-bg" id="exModalBg">
-    <div class="modal">
-      <div class="grab"></div>
-      <div class="m-head">
-        <div><div class="m-title" id="mTitle">—</div><div class="m-sub" id="mSub">—</div></div>
-        <button class="x-close" id="mClose" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-      </div>
-      <div class="demo">
-        <div class="tempo-tag" id="mTempoTag">Tempo guide</div>
-        <button class="voicebtn" id="mVoice" type="button" aria-label="Voice guide" title="Suara panduan">
-          <svg class="von" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
-          <svg class="voff" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
-        </button>
-        <div class="figwrap"><div class="pacer-dot" id="mDot"></div></div>
-        <div class="pacer-lbl" id="pacerLbl">Follow the pace</div>
-      </div>
-      <div class="m-target"><div class="chipm"><div class="cv" id="mSets">3</div><div class="cl" id="mSetsL">sets</div></div><div class="chipm"><div class="cv" id="mReps">10–12</div><div class="cl" id="mRepsL">reps</div></div><div class="chipm"><div class="cv" id="mRest">45s</div><div class="cl" id="mRestL">rest</div></div></div>
-      <ol class="m-steps" id="mSteps"></ol>
-      <div class="m-timer"><div class="m-time" id="mTime">00:00</div><button class="m-timerbtn" id="mTimerBtn" type="button">Start set timer</button></div>
-      <div class="m-safety"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span id="mSafety">Rep counts are a general starting point — adjust to your level.</span></div>
-    </div>
-  </div>
 
   <div class="toast" id="toast"></div>
 
@@ -816,19 +661,20 @@
         sleep: '<svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
         pulse: '<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
         ticket: '<svg viewBox="0 0 24 24"><path d="M4 8a2 2 0 0 0-2 2v1.2a1.8 1.8 0 0 1 0 3.6V16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-1.2a1.8 1.8 0 0 1 0-3.6V10a2 2 0 0 0-2-2H4z"/><path d="M14 8v10" stroke-dasharray="2 2.4"/></svg>',
-        gift: '<svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M12 8S10.5 3 7.5 4.5 9 8 12 8zM12 8s1.5-5 4.5-3.5S15 8 12 8z"/></svg>'
+        gift: '<svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M12 8S10.5 3 7.5 4.5 9 8 12 8zM12 8s1.5-5 4.5-3.5S15 8 12 8z"/></svg>',
+        wind: '<svg viewBox="0 0 24 24"><path d="M9.6 4.7A3 3 0 0 1 15 6a3 3 0 0 1-3 3H2"/><path d="M12.6 19.3A3 3 0 1 0 18 18a3 3 0 0 0-3-3H2"/><path d="M3 12h13"/></svg>'
       };
       var TRK = {
         calories:  { ic: "cal",   cls: "cal",   nm: { en: "Calories", id: "Kalori" },                     d: { en: "Track daily kcal & macros", id: "Catat kalori & makro harian" }, render: tcCalories },
         photo:     { ic: "photo", cls: "photo", nm: { en: "Your Photo.20fit.id", id: "Foto 20FIT-mu" }, d: { en: "Face-search your 20FIT event photos", id: "Cari foto event 20FIT pakai wajahmu" }, render: tcPhoto },
         fasting:   { ic: "fast",  cls: "fast",  nm: { en: "Intermittent Fasting", id: "Intermittent Fasting" }, d: { en: "16:8 fasting window timer", id: "Timer jendela puasa 16:8" }, render: tcFasting },
-        hydration: { ic: "drop",  cls: "drop",  nm: { en: "Hydration", id: "Hidrasi" },                    d: { en: "Daily water intake", id: "Asupan air harian" }, render: tcHydration },
+        breathing: { ic: "wind",  cls: "wind",  nm: { en: "Breathing", id: "Pernapasan" },                d: { en: "Guided breathing exercises", id: "Latihan pernapasan terpandu" }, render: tcBreathing },
         sleep:     { ic: "sleep", cls: "sleep", nm: { en: "Sleep", id: "Tidur" },                          d: { en: "Duration & quality trend", id: "Durasi & tren kualitas" }, render: tcSleep },
         health:    { ic: "pulse", cls: "pulse", nm: { en: "Health snapshot", id: "Ringkasan Kesehatan" }, d: { en: "RHR, weight & BMI", id: "RHR, berat & BMI" }, render: tcHealth },
         ticket:    { ic: "ticket", cls: "ticket", nm: { en: "Ticket", id: "Tiket" },              d: { en: "Your upcoming 20FIT event tickets", id: "Tiket event 20FIT mendatang" }, render: tcTicket },
         rewards:   { ic: "gift",  cls: "gift",  nm: { en: "Rewards", id: "Rewards" },             d: { en: "Vouchers you've claimed & their codes", id: "Voucher yang kamu klaim & kodenya" }, render: tcRewards }
       };
-      var TRK_ALL = ["calories", "photo", "fasting", "hydration", "sleep", "health", "ticket", "rewards"];
+      var TRK_ALL = ["calories", "photo", "fasting", "breathing", "sleep", "health", "ticket", "rewards"];
       // calories & photo SELALU tampil (fitur unggulan) — dipaksa hadir walau user tak pin.
       // Default pin: KOSONG untuk user baru / belum pernah set (Calories & Photo TIDAK auto-pin).
       // "belum pernah set" (null) → default []. "sudah set & kosong" ([]) → hormati kosong.
@@ -1193,29 +1039,49 @@
       }
       function tcFasting() {
         var st = (window.Fasting && Fasting.state) ? Fasting.state() : null;
-        var ic = '<div class="tkic fast">' + TICON.fast + '</div>';
-        if (!st) return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd">' + ic + '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub">' + Lx({ en: "Choose your intermittent style", id: "Pilih gaya intermittent-mu" }) + '</div></div><span class="tkchev">›</span></div></a>';
-        var name = window.L ? L(st.style.name) : st.style.name.en;
-        if (st.weekly) return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd">' + ic + '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub tkmono">' + name + '</div></div><span class="tkchev">›</span></div></a>';
-        var phaseTotal = (st.eating ? st.style.eat : st.style.fast) * 60;
-        var frac = phaseTotal ? Math.max(0, Math.min(1, (phaseTotal - st.untilMin) / phaseTotal)) : 0;
-        var hrs = Math.floor(st.untilMin / 60), mn = st.untilMin % 60;
-        var C = 2 * Math.PI * 30, off = C * (1 - frac);
-        var ring = '<div class="tkring"><svg viewBox="0 0 68 68"><circle class="rbg" cx="34" cy="34" r="30"/><circle class="rfg" cx="34" cy="34" r="30" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '" transform="rotate(-90 34 34)"/><text class="rtx" x="34" y="38" text-anchor="middle">' + hrs + 'h' + mn + 'm</text></svg></div>';
-        var lab = st.eating ? Lx({ en: "left in eating window", id: "sisa jendela makan" }) : Lx({ en: "until eating window", id: "sampai jendela makan" });
-        return '<a class="card tkcard" href="calories.html#fasting"><div class="tkhd">' + ic + '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Intermittent Fasting", id: "Intermittent Fasting" }) + '</div><div class="tksub tkmono">' + name + ' · ' + lab + '</div></div>' + ring + '</div></a>';
-      }
-      function tcHydration() {
-        var g = 0; try { g = (typeof daily !== "undefined" && daily) ? +daily.water_glasses || 0 : 0; } catch (e) {}
-        g = Math.max(0, Math.min(8, g));
-        var glasses = '';
-        for (var i = 1; i <= 8; i++) {
-          glasses += '<button type="button" class="wg' + (i <= g ? ' full' : '') + '" onclick="hydTap(' + i + ',event)" aria-label="' + Lx({ en: "Glass", id: "Gelas" }) + ' ' + i + '"><span class="wgf"></span></button>';
+        if (!st) {
+          return '<a class="card tkcard" href="calories.html#fasting" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)">' +
+            '<div class="tkic fast">' + TICON.fast + '</div><div style="flex:1"><div style="font-weight:800">' + Lx({ en: "Choose your intermittent style", id: "Pilih gaya intermittent-mu" }) + '</div>' +
+            '<div class="muted" style="font-size:12px">' + Lx({ en: "16:8, 18:6, OMAD & more — tap to adopt.", id: "16:8, 18:6, OMAD, dll — ketuk untuk adopsi." }) + '</div></div>' +
+            '<span style="color:var(--pagemut);font-weight:800">›</span></a>';
         }
-        return '<div class="card tkcard"><div class="tkhd"><div class="tkic drop">' + TICON.drop + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Hydration", id: "Hidrasi" }) + '</div>' +
-          '<div class="tkval tkmono" id="wgVal">' + (g * 0.25).toFixed(1) + '<small> / 2.0 L · ' + g + ' ' + Lx({ en: "of 8 glasses", id: "dari 8 gelas" }) + '</small></div></div></div>' +
-          '<div class="wgrid" id="wgGrid">' + glasses + '</div>' +
-          '<div class="wgctl"><button type="button" onclick="hydDelta(-1,event)" aria-label="' + Lx({ en: "Remove a glass", id: "Kurangi gelas" }) + '">−</button><button type="button" onclick="hydDelta(1,event)" aria-label="' + Lx({ en: "Add a glass", id: "Tambah gelas" }) + '">+</button></div></div>';
+        var s = st.style;
+        var name = window.L ? L(s.name) : s.name.en;
+        if (st.weekly) {
+          return '<div class="card tkcard"><div style="font-weight:900">' + name + '</div><div class="muted" style="margin-top:4px">' + (window.L ? L(s.desc) : s.desc.en) + '</div></div>';
+        }
+        var hrs = Math.floor(st.untilMin / 60), mn = st.untilMin % 60;
+        var totalMin = (st.eating ? s.eat : s.fast) * 60;
+        var pct = Math.max(0, Math.min(100, (1 - st.untilMin / totalMin) * 100));
+        var kcalInfo = (function () { var t = (typeof profile !== "undefined" && profile && typeof calCalGoal === "function") ? calCalGoal(profile) : 2000; var m = (window.Fasting && Fasting.mealsFor) ? Fasting.mealsFor(s.id) : 3; var pm = Math.max(1, Math.round(t / m / 10) * 10); return ' · ≈' + pm + ' ' + Lx({ en: "kcal/meal", id: "kkal/makan" }) + ' (' + m + '×)'; })();
+        return '<div class="card tkcard"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:900">' + name + '</div>' +
+          '<span class="ifbadge ' + (st.eating ? "eat" : "fast") + '">' + (st.eating ? Lx({ en: "Eating", id: "Makan" }) : Lx({ en: "Fasting", id: "Puasa" })) + '</span></div>' +
+          '<div class="ift" style="margin-top:6px">' + hrs + 'h ' + mn + 'm <span class="muted" style="font-size:12px;font-family:inherit;font-weight:600">' + (st.eating ? Lx({ en: "left in window", id: "sisa jendela" }) : Lx({ en: "until eating", id: "sampai makan" })) + '</span></div>' +
+          '<div class="bar" style="margin-top:8px"><i style="width:' + pct + '%;background:' + (st.eating ? "#2A7A4F" : "#C87000") + '"></i></div>' +
+          '<div class="muted" style="margin-top:6px;font-size:12px">' + Lx({ en: "Window", id: "Jendela" }) + ': ' + st.window.start + '–' + st.window.end + kcalInfo + '</div>' +
+          '<a class="muted" href="calories.html#fasting" style="font-size:12px;text-decoration:none;color:var(--red);font-weight:700;display:inline-block;margin-top:6px">' + Lx({ en: "Manage ›", id: "Atur ›" }) + '</a></div>';
+      }
+      // ===== Breathing exercise tracker (customizable) =====
+      function tcBreathing() {
+        var done = false; try { done = (typeof daily !== "undefined" && daily && daily.breathing_done); } catch (e) {}
+        var BDESC = {
+          478: { en: "4-7-8 · calms anxiety & helps sleep", id: "4-7-8 · redakan cemas & bantu tidur" },
+          box: { en: "Box 4×4 · focus & recovery", id: "Box 4×4 · fokus & pemulihan" },
+          relax: { en: "5-5 · slow breathing to relax", id: "5-5 · napas pelan untuk rileks" }
+        };
+        var curPat = window._breathPat || "478";
+        return '<div class="card tkcard">' +
+          '<div class="tkhd"><div class="tkic wind">' + TICON.wind + '</div><div style="flex:1"><div class="tktitle">' + Lx({ en: "Breathing Exercise", id: "Latihan Pernapasan" }) + '</div>' +
+          '<div class="tksub">' + (done ? Lx({ en: "Done today ✓", id: "Selesai hari ini ✓" }) : Lx(BDESC[curPat])) + '</div></div></div>' +
+          '<div class="seg" style="margin-top:10px">' +
+            '<button data-p="478" class="' + (curPat === "478" ? "active" : "") + '" onclick="pickPattern(\'478\')">' + Lx({ en: "Anxiety", id: "Cemas" }) + '</button>' +
+            '<button data-p="box" class="' + (curPat === "box" ? "active" : "") + '" onclick="pickPattern(\'box\')">' + Lx({ en: "Workout", id: "Latihan" }) + '</button>' +
+            '<button data-p="relax" class="' + (curPat === "relax" ? "active" : "") + '" onclick="pickPattern(\'relax\')">' + Lx({ en: "Relax", id: "Rileks" }) + '</button>' +
+          '</div>' +
+          '<div class="muted" id="bcap" style="font-size:12px;text-align:center;margin:8px 0 4px"></div>' +
+          '<div class="ring" id="ring" onclick="toggleBreath()" style="cursor:pointer" title="Tap to start/stop"><div style="text-align:center"><div class="ph" id="bphase">' + Lx({ en: "Ready", id: "Siap" }) + '</div><div class="cd" id="bcd">' + Lx({ en: "Tap start", id: "Ketuk mulai" }) + '</div></div></div>' +
+          '<div class="dots" id="bdots"></div>' +
+          '<button class="btn" id="bbtn" onclick="toggleBreath()">' + Lx({ en: "Start", id: "Mulai" }) + '</button></div>';
       }
       // Ambang tidur (dikonfirmasi pemilik): <7 kurang · 7–9 cukup · >9 lebih.
       // Diekspos ke window supaya bisa dipanggil dari widget SLEEP di blok lain (saveSleepWidget).
@@ -1256,30 +1122,17 @@
         if (b == null && w == null) return head + '</a>';
         return head + '<div class="tkstats"><div class="tkstat"><b>' + (w != null ? w : '—') + '</b><span>' + Lx({ en: "Weight kg", id: "Berat kg" }) + '</span></div><div class="tkstat"><b>' + (b != null ? b.toFixed(1) : '—') + '</b><span>BMI</span></div></div></a>';
       }
-      // Log Minerals Drank — 8 gelas. Ketuk gelas ke-i: isi sampai gelas i; ketuk gelas terakhir
-      // yang terisi -> kosongkan satu. setWater simpan ke DB + animasikan gelas (.full + transition).
-      window.hydTap = function (i, e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        var cur = 0; try { cur = (typeof daily !== "undefined" && daily) ? +daily.water_glasses || 0 : 0; } catch (err) {}
-        var n = (i === cur) ? i - 1 : i;
-        n = Math.max(0, Math.min(8, n));
-        try { if (typeof setWater === "function") setWater(n); } catch (err) {}
-      };
-      // +/- kontrol hidrasi — SATU sumber kebenaran (daily.water_glasses via setWater).
-      // setWater sudah clamp 0..8, jadi nilai tak pernah di bawah 0 & sinkron dgn preset gelas.
-      window.hydDelta = function (d, e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        var cur = 0; try { cur = (typeof daily !== "undefined" && daily) ? +daily.water_glasses || 0 : 0; } catch (err) {}
-        var n = Math.max(0, cur + d);
-        try { if (typeof setWater === "function") setWater(n); } catch (err) {}
-      };
       // SSO ke photo.20fit.id. Delegasi ke openPhotoGo (self-contained, pakai Auth.supabase) supaya
       // TIDAK bergantung Auth.photoSso yang bisa ke-cache versi lama -> "Failed to open 20FIT Photo.".
       window.openPhotoSso = function (e) { return window.openPhotoGo(e); };
 
       window.renderStack = function () {
         var el = document.getElementById("trackerStack"); if (!el) return;
+        // Jangan re-render selama sesi pernapasan aktif (timer berjalan di DOM)
+        if (window._breathRunning) return;
         el.innerHTML = getPins().map(function (id) { try { return TRK[id].render(); } catch (e) { return ""; } }).join("");
+        // Setelah render, update caption pernapasan jika card breathing ada
+        try { if (typeof updateBreathCap === "function") updateBreathCap(); } catch (e) {}
       };
 
       var IC = {
@@ -1730,10 +1583,6 @@
         water=Number(daily.water_glasses||0);
         try{ checkState=(typeof daily.checklist==="string"?JSON.parse(daily.checklist):daily.checklist)||{}; }catch(e){ checkState={}; }
       }
-      fillSleepSelects();
-      set12("bed", sleepBed||"22:00");
-      set12("wake", sleepWake||"06:00");
-      onSleepChange();
       renderWater(); renderChecklist();
       loadWeather();
       loadHealthReminder();
@@ -1741,7 +1590,6 @@
       try{ if(window.loadSleep7) window.loadSleep7(); }catch(e){}
       try{ if(window.loadPhotos) window.loadPhotos(); }catch(e){}
       try{ if(window.TicketWallet){ window.TicketWallet.onRender(window.renderStack); window.TicketWallet.init(); } }catch(e){}
-      renderIFWidget();
       loadIFFromCloud();
       checkAchievements();
       try{ if(window.syncPrefsOnLoad) window.syncPrefsOnLoad(); }catch(e){}
@@ -1823,26 +1671,6 @@
       el.innerHTML=html;
     }
 
-    // ---- Widget Intermittent Fasting ----
-    function renderIFWidget(){
-      const el=document.getElementById("ifWidget"); if(!el)return;
-      const st=Fasting.state();
-      const sec='<div class="sec">'+L({en:"Intermittent Fasting",id:"Intermittent Fasting"})+'</div>';
-      if(!st){
-        el.innerHTML=sec+'<a class="card" href="calories.html#fasting" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)"><div style="flex:1"><div style="font-weight:800">'+L({en:"Choose your intermittent style",id:"Pilih gaya intermittent-mu"})+'</div><div class="muted" style="font-size:12px">'+L({en:"16:8, 18:6, OMAD & more — tap to adopt.",id:"16:8, 18:6, OMAD, dll — ketuk untuk adopsi."})+'</div></div><span style="color:var(--pagemut);font-weight:800">›</span></a>';
-        return;
-      }
-      const s=st.style;
-      if(st.weekly){ el.innerHTML=sec+'<div class="card"><div style="font-weight:900">'+L(s.name)+'</div><div class="muted" style="margin-top:4px">'+L(s.desc)+'</div></div>'; return; }
-      const hrs=Math.floor(st.untilMin/60), mn=st.untilMin%60;
-      const totalMin=(st.eating?s.eat:s.fast)*60;
-      const pct=Math.max(0,Math.min(100,(1-st.untilMin/totalMin)*100));
-      el.innerHTML=sec+'<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:900">'+L(s.name)+'</div><span class="ifbadge '+(st.eating?"eat":"fast")+'">'+(st.eating?L({en:"Eating",id:"Makan"}):L({en:"Fasting",id:"Puasa"}))+'</span></div>'+
-        '<div class="ift" style="margin-top:6px">'+hrs+'h '+mn+'m <span class="muted" style="font-size:12px;font-family:inherit;font-weight:600">'+(st.eating?L({en:"left in window",id:"sisa jendela"}):L({en:"until eating",id:"sampai makan"}))+'</span></div>'+
-        '<div class="bar" style="margin-top:8px"><i style="width:'+pct+'%;background:'+(st.eating?"#2A7A4F":"#C87000")+'"></i></div>'+
-        '<div class="muted" style="margin-top:6px;font-size:12px">'+L({en:"Window",id:"Jendela"})+': '+st.window.start+'–'+st.window.end+(function(){var t=profile?calCalGoal(profile):2000;var m=Fasting.mealsFor(s.id);var pm=Math.max(1,Math.round(t/m/10)*10);return ' · ≈'+pm+' '+L({en:"kcal/meal",id:"kkal/makan"})+' ('+m+'×)';})()+'</div>'+
-        '<a class="muted" href="calories.html#fasting" style="font-size:12px;text-decoration:none;color:var(--red);font-weight:700;display:inline-block;margin-top:6px">'+L({en:"Manage ›",id:"Atur ›"})+'</a></div>';
-    }
     // Sinkron gaya puasa dari akun (my20fit_fasting) kalau device ini belum punya —
     // biar widget puasa di HOME sama persis dgn halaman Calories walau beda device / habis clear browser.
     // READ-ONLY: cuma SELECT dari DB lalu isi localStorage; tidak mengubah cara/struktur penyimpanan.
@@ -1852,10 +1680,11 @@
         if(!profile||!profile.auth_user_id||!Auth.supabase)return;
         const {data}=await Auth.supabase.from("my20fit_fasting").select("style,start_time").eq("auth_user_id",profile.auth_user_id).limit(1);
         const r=data&&data[0];
-        if(r&&r.style){ Fasting.set({id:r.style,start:String(r.start_time||"12:00").slice(0,5)}); renderIFWidget(); if(window.renderStack)renderStack(); }
+        if(r&&r.style){ Fasting.set({id:r.style,start:String(r.start_time||"12:00").slice(0,5)}); if(window.renderStack)renderStack(); }
       }catch(e){}
     }
-    setInterval(renderIFWidget,60000);
+    // Refresh tracker stack setiap menit supaya IF countdown tetap akurat
+    setInterval(function(){ if(window.renderStack) renderStack(); },60000);
 
     // ---- Siklus menstruasi (khusus wanita) ----
     const PHASES=[
@@ -2064,82 +1893,42 @@
                     box:{seq:[["in",4],["hold",4],["out",4],["hold",4]],cycles:4},
                     relax:{seq:[["in",5],["out",5]],cycles:6}};
     function phaseLabel(t){return t==="in"?L({en:"Breathe in",id:"Tarik napas"}):t==="hold"?L({en:"Hold",id:"Tahan"}):L({en:"Breathe out",id:"Buang napas"});}
+    // Expose ke window supaya renderStack bisa cek & tcBreathing bisa baca
+    window._breathPat="478"; window._breathRunning=false;
     let pat="478",running=false,timer=null;
     const BREATH_DESC={
       478:{en:"4-7-8 · calms the nervous system, eases anxiety & helps sleep",id:"4-7-8 · menenangkan saraf, redakan cemas & bantu tidur"},
       box:{en:"Box 4×4 · sharpen focus & recovery — great around workouts",id:"Box 4×4 · fokus & pemulihan — pas buat sebelum/sesudah latihan"},
       relax:{en:"5-5 · slow breathing to relax & wind down",id:"5-5 · napas pelan untuk rileks & menenangkan diri"}
     };
-    function updateBreathCap(){document.getElementById("bcap").textContent=L(BREATH_DESC[pat]);}
-    function pickPattern(p){if(running)return;pat=p;document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle("active",b.dataset.p===p));renderDots(0);updateBreathCap()}
-    function renderDots(done){const c=PATTERNS[pat].cycles;let h="";for(let i=0;i<c;i++)h+='<i class="'+(i<done?"on":"")+'"></i>';document.getElementById("bdots").innerHTML=h}
+    function updateBreathCap(){var el=document.getElementById("bcap"); if(el) el.textContent=L(BREATH_DESC[pat]);}
+    function pickPattern(p){if(running)return;pat=p;window._breathPat=p;document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle("active",b.dataset.p===p));renderDots(0);updateBreathCap()}
+    function renderDots(done){var el=document.getElementById("bdots"); if(!el)return; const c=PATTERNS[pat].cycles;let h="";for(let i=0;i<c;i++)h+='<i class="'+(i<done?"on":"")+'"></i>';el.innerHTML=h}
     function toggleBreath(){running?stopBreath(false):startBreath()}
     function startBreath(){
-      running=true;document.getElementById("bbtn").textContent=I18N.t("stop");
+      running=true;window._breathRunning=true;
+      var bbtn=document.getElementById("bbtn"); if(bbtn) bbtn.textContent=I18N.t("stop");
       const {seq,cycles}=PATTERNS[pat];let cyc=0,step=0;renderDots(0);
-      const ring=document.getElementById("ring");
+      const ring=document.getElementById("ring"); if(!ring)return;
       function run(){
         if(cyc>=cycles){stopBreath(true);return}
         const [type,secs]=seq[step];
-        document.getElementById("bphase").textContent=phaseLabel(type);
+        var bp=document.getElementById("bphase"); if(bp) bp.textContent=phaseLabel(type);
         ring.style.transitionDuration=secs+"s";
         ring.style.transform=type==="in"?"scale(1.5)":type==="out"?"scale(1)":ring.style.transform;
-        let left=secs;document.getElementById("bcd").textContent=left+"s";
-        timer=setInterval(()=>{left--;document.getElementById("bcd").textContent=Math.max(left,0)+"s";
+        let left=secs;var bcd=document.getElementById("bcd"); if(bcd) bcd.textContent=left+"s";
+        timer=setInterval(()=>{left--;var cd=document.getElementById("bcd"); if(cd) cd.textContent=Math.max(left,0)+"s";
           if(left<=0){clearInterval(timer);step++;if(step>=seq.length){step=0;cyc++;renderDots(cyc)}run()}},1000);
       }
       run();
     }
     async function stopBreath(done){
-      running=false;clearInterval(timer);
-      document.getElementById("bbtn").textContent=I18N.t("start");
-      document.getElementById("ring").style.transform="scale(1)";
-      document.getElementById("bphase").textContent=done?L({en:"Done",id:"Selesai"}):I18N.t("ready");
-      document.getElementById("bcd").textContent=done?L({en:"Session complete",id:"Sesi lengkap"}):I18N.t("press_start");
+      running=false;window._breathRunning=false;clearInterval(timer);
+      var bbtn=document.getElementById("bbtn"); if(bbtn) bbtn.textContent=I18N.t("start");
+      var ring=document.getElementById("ring"); if(ring) ring.style.transform="scale(1)";
+      var bp=document.getElementById("bphase"); if(bp) bp.textContent=done?L({en:"Done",id:"Selesai"}):I18N.t("ready");
+      var bcd=document.getElementById("bcd"); if(bcd) bcd.textContent=done?L({en:"Session complete",id:"Sesi lengkap"}):I18N.t("press_start");
       if(done){ try{ await Auth.saveDaily({breathing_done:true}); if(daily)daily.breathing_done=true; renderChecklist(); toast(L({en:"Breathing session done!",id:"Sesi napas selesai!"})); }catch(e){} }
-    }
-
-    // Hitung durasi tidur dari jam tidur -> jam bangun (lewat tengah malam diperhitungkan)
-    function calcSleepHours(bed,wake){
-      if(!bed||!wake)return 0;
-      const [bh,bm]=bed.split(":").map(Number),[wh,wm]=wake.split(":").map(Number);
-      let mins=(wh*60+wm)-(bh*60+bm);
-      if(mins<=0)mins+=24*60; // bangun keesokan hari
-      return +(mins/60).toFixed(1);
-    }
-    // ---- Picker jam dengan AM/PM (bisa diketik atau pilih dari saran) ----
-    function fillSleepSelects(){
-      let hs="";for(let i=1;i<=12;i++)hs+='<option value="'+i+'">';
-      let ms="";for(let m=0;m<60;m+=5)ms+='<option value="'+String(m).padStart(2,"0")+'">';
-      document.getElementById("hList").innerHTML=hs;
-      document.getElementById("mList").innerHTML=ms;
-      document.getElementById("apList").innerHTML='<option value="AM"><option value="PM">';
-    }
-    function to24(h12,mm,ap){h12=+h12;let h=h12%12;if(ap==="PM")h+=12;return String(h).padStart(2,"0")+":"+mm;}
-    function set12(prefix,hhmm){
-      const [H,M]=hhmm.split(":");let h=+H;const ap=h>=12?"PM":"AM";let h12=h%12;if(h12===0)h12=12;
-      document.getElementById(prefix+"H").value=String(h12);
-      document.getElementById(prefix+"M").value=String(+M).padStart(2,"0");
-      document.getElementById(prefix+"AP").value=ap;
-    }
-    function readSel(prefix){
-      let h=parseInt(document.getElementById(prefix+"H").value,10);if(isNaN(h))h=12;h=Math.min(12,Math.max(1,h));
-      let m=parseInt(document.getElementById(prefix+"M").value,10);if(isNaN(m))m=0;m=Math.min(59,Math.max(0,m));
-      let ap=(document.getElementById(prefix+"AP").value||"AM").trim().toUpperCase();ap=ap.charAt(0)==="P"?"PM":"AM";
-      return to24(h,String(m).padStart(2,"0"),ap);
-    }
-    function onSleepChange(){
-      sleepBed=readSel("bed");sleepWake=readSel("wake");
-      sleepH=calcSleepHours(sleepBed,sleepWake);renderSleep();
-    }
-    function renderSleep(){
-      document.getElementById("sleepVal").innerHTML=sleepH+'<small style="font-size:14px;color:var(--muted);font-weight:600"> '+I18N.t("hours")+'</small>';
-      document.getElementById("sleepBar").style.width=Math.min(sleepH/8*100,100)+"%";
-    }
-    async function saveSleep(){
-      if(!sleepBed||!sleepWake){toast(L({en:"Set bedtime & wake time first",id:"Isi jam tidur & bangun dulu"}));return}
-      try{await Auth.saveDaily({sleep_bed:sleepBed,sleep_wake:sleepWake,sleep_hours:sleepH});
-        toast(sleepH>=7?L({en:"Good sleep!",id:"Tidur cukup!"}):L({en:"Sleep saved ✓",id:"Tidur tersimpan ✓"}));renderChecklist();checkAchievements();}catch(e){toast(L({en:"Save failed",id:"Gagal simpan"}))}
     }
     // Widget SLEEP di home — input durasi langsung (stepper) lalu simpan + keterangan suportif.
     window.slpStep=function(d){
@@ -2157,7 +1946,6 @@
         sleepH=h; if(typeof daily!=="undefined"&&daily) daily.sleep_hours=h;
         var sub=document.getElementById("slpSub"); if(sub) sub.textContent=h.toFixed(1)+'h · '+L({en:"goal 8h",id:"target 8h"});
         var msg=document.getElementById("slpMsg"); if(msg){ msg.textContent=(window.sleepMsg?sleepMsg(h):""); msg.classList.toggle("hide",!h); }
-        try{ if(typeof renderSleep==="function"&&document.getElementById("sleepVal")) renderSleep(); }catch(e){}  // sinkron panel detail
         try{ if(window.loadSleep7) window.loadSleep7(); }catch(e){}                                              // refresh grafik 7 malam
         toast(L({en:"Sleep saved ✓",id:"Tidur tersimpan ✓"}));
         try{ checkAchievements(); }catch(e){}
@@ -2172,16 +1960,10 @@
       var f=document.getElementById("bgFill"); if(f) f.style.height=Math.min(water/8*100,100)+"%";
       var c=document.getElementById("bgCount"); if(c) c.textContent=water+"/8";
     }
-    // 8 gelas di WIDGET home — toggle .full di tempat -> transition CSS beranimasi (tidak re-render).
-    function renderWaterWidget(){
-      var grid=document.getElementById("wgGrid");
-      if(grid){ var gl=grid.querySelectorAll(".wg"); for(var i=0;i<gl.length;i++){ gl[i].classList.toggle("full", i < water); } }
-      var v=document.getElementById("wgVal"); if(v) v.innerHTML=(water*0.25).toFixed(1)+'<small> / 2.0 L · '+water+' '+L({en:"of 8 glasses",id:"dari 8 gelas"})+'</small>';
-    }
     async function setWater(n){
       water=Math.max(0,Math.min(8,n));
       if(typeof daily!=="undefined"&&daily) daily.water_glasses=water;   // per-hari (my20fit_daily_log) -> reset harian
-      renderWater();renderWaterWidget();
+      renderWater();
       try{await Auth.saveDaily({water_glasses:water});_waterDirty=false;if(water>=8)toast(L({en:"Water goal reached!",id:"Target air tercapai!"}));renderChecklist();checkAchievements();}
       catch(e){_waterDirty=true;toast(L({en:"Saved offline — will sync",id:"Disimpan offline — akan sinkron"}));renderChecklist();checkAchievements();} // offline → tandai, flush saat "online"
     }
@@ -2260,12 +2042,11 @@
       updateBreathCap();
       if(!profile)return;
       document.getElementById("greet").textContent=greetWord();
-      renderSleep(); renderWater(); renderChecklist();
+      renderWater(); renderChecklist();
       refreshWeatherText();
       if(aqiVal!=null) drawAqi(aqiVal);
       loadRecs();
       loadHealthReminder();
-      renderIFWidget();
       if((profile.gender||"")==="female") renderCycle();
     });
 
@@ -2297,126 +2078,6 @@
       }
       fillG(); if(window.I18N&&I18N.onChange)I18N.onChange(fillG);
     })();
-  </script>
-  <script>
-  // Latihan di rumah + modal tutorial (scoped; tidak mengubah logika lain)
-  (function(){
-    var homeList=document.getElementById("homeList"); if(!homeList)return;
-    var L=window.L||function(o){return o&&(o.en!=null?o.en:"");};
-    var icons={
-      squat:'<path d="M4 12h4l2 6 4-14 2 8h4"/>',
-      push:'<path d="M6 4v16M18 4v16M6 8h12M6 16h12"/>',
-      plank:'<path d="M3 14h18M6 14v-3M18 14v-3"/><circle cx="4" cy="10" r="1.4"/>',
-      bridge:'<path d="M3 16a9 9 0 0 1 18 0"/><path d="M3 16v3M21 16v3"/>',
-      wall:'<path d="M5 4v16M5 12h9v8"/>',
-      march:'<circle cx="12" cy="4.5" r="1.6"/><path d="M12 7v6l-3 5M12 10l4 3"/>'
-    };
-    var EX=[
-      {icon:'squat',n:{en:'Bodyweight Squat',id:'Squat Tanpa Beban'},s:{en:'Legs',id:'Kaki'},sets:3,reps:'10–12',repl:{en:'reps',id:'repetisi'},rest:'45s',type:'rep',
-        steps:{en:['Feet shoulder-width, toes slightly out.','Push hips back and bend knees, chest up.','Lower until thighs near parallel.','Drive through heels to stand; exhale up.'],
-               id:['Kaki selebar bahu, ujung kaki sedikit keluar.','Dorong pinggul ke belakang, tekuk lutut, dada tegak.','Turun sampai paha hampir sejajar lantai.','Dorong lewat tumit untuk berdiri; buang napas saat naik.']}},
-      {icon:'push',n:{en:'Knee / Full Push-up',id:'Push-up (Lutut/Penuh)'},s:{en:'Chest',id:'Dada'},sets:3,reps:'6–10',repl:{en:'reps',id:'repetisi'},rest:'60s',type:'rep',
-        steps:{en:['Hands slightly wider than shoulders (knees down if needed).','Body in a straight line, core braced.','Lower chest toward the floor, elbows ~45 deg.','Press up; keep hips level.'],
-               id:['Tangan sedikit lebih lebar dari bahu (boleh lutut menempel).','Badan lurus, perut dikencangkan.','Turunkan dada ke lantai, siku ~45 derajat.','Dorong naik; jaga pinggul tetap rata.']}},
-      {icon:'plank',n:{en:'Plank',id:'Plank'},s:{en:'Core hold',id:'Perut tahan'},sets:3,reps:'20–40s',repl:{en:'hold',id:'tahan'},rest:'45s',type:'time',
-        steps:{en:['Forearms under shoulders, feet hip-width.','Straight line head to heels, no sagging.','Squeeze glutes and brace your core.','Breathe steadily and hold.'],
-               id:['Lengan bawah di bawah bahu, kaki selebar pinggul.','Garis lurus kepala-tumit, pinggul jangan turun.','Kencangkan bokong dan perut.','Napas teratur dan tahan.']}},
-      {icon:'bridge',n:{en:'Glute Bridge',id:'Glute Bridge'},s:{en:'Glutes',id:'Bokong'},sets:3,reps:'12–15',repl:{en:'reps',id:'repetisi'},rest:'40s',type:'rep',
-        steps:{en:['Lie on your back, knees bent, feet flat.','Push through heels and lift hips up.','Squeeze glutes at the top, ribs down.','Lower slowly with control.'],
-               id:['Telentang, lutut ditekuk, telapak kaki menempel.','Dorong lewat tumit, angkat pinggul.','Kencangkan bokong di atas, tulang rusuk turun.','Turun perlahan terkontrol.']}},
-      {icon:'wall',n:{en:'Wall Sit',id:'Wall Sit'},s:{en:'Legs hold',id:'Kaki tahan'},sets:3,reps:'20–40s',repl:{en:'hold',id:'tahan'},rest:'45s',type:'time',
-        steps:{en:['Back flat against a wall, feet out in front.','Slide down until knees about 90 deg.','Weight in your heels, back on the wall.','Hold and breathe.'],
-               id:['Punggung menempel tembok, kaki agak ke depan.','Turun sampai lutut sekitar 90 derajat.','Berat di tumit, punggung tetap menempel.','Tahan dan bernapas.']}},
-      {icon:'march',n:{en:'Standing March',id:'Jalan di Tempat'},s:{en:'Low-impact cardio',id:'Kardio ringan'},sets:3,reps:'40–60s',repl:{en:'each',id:'per sisi'},rest:'30s',type:'time',
-        steps:{en:['Stand tall, core engaged.','Drive one knee to hip height, then the other.','Pump your arms in rhythm.','Steady, controlled pace, quiet landings.'],
-               id:['Berdiri tegak, perut aktif.','Angkat satu lutut setinggi pinggul, ganti sisi.','Ayun lengan mengikuti irama.','Tempo stabil dan terkontrol, pijakan halus.']}}
-    ];
-    var play='<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
-    function renderList(){
-      homeList.innerHTML=EX.map(function(ex,i){
-        return '<div class="ahitem" data-i="'+i+'"><div class="ic"><svg viewBox="0 0 24 24">'+icons[ex.icon]+'</svg></div>'+
-          '<div class="nm"><div class="t">'+L(ex.n)+'</div><div class="s">'+L(ex.s)+' · '+ex.sets+'×'+ex.reps+'</div></div>'+
-          '<span class="play">'+play+L({en:'Tutorial',id:'Tutorial'})+'</span></div>';
-      }).join("");
-      [].forEach.call(homeList.querySelectorAll(".ahitem"),function(row){ row.addEventListener("click",function(){ openModal(+row.getAttribute("data-i")); }); });
-    }
-    var bg=document.getElementById("exModalBg");
-    var mTitle=document.getElementById("mTitle"),mSub=document.getElementById("mSub"),mSteps=document.getElementById("mSteps"),
-        mSets=document.getElementById("mSets"),mReps=document.getElementById("mReps"),mRepsL=document.getElementById("mRepsL"),mRest=document.getElementById("mRest"),
-        mSetsL=document.getElementById("mSetsL"),mRestL=document.getElementById("mRestL"),mTempo=document.getElementById("mTempoTag"),
-        pacerLbl=document.getElementById("pacerLbl"),mDot=document.getElementById("mDot"),vbtn=document.getElementById("mVoice"),
-        mTime=document.getElementById("mTime"),mTimerBtn=document.getElementById("mTimerBtn"),mSafety=document.getElementById("mSafety");
-    var pTimer=null,pDown=true,phInt=null,preInt=null,phase='',phSecs=0,setNo=0,workSecs=0,restSecs=0,running=false,guided=false,curEx=null,curType='rep';
-    // ---- Voice guidance (browser speech; user can mute) ----
-    var synth=window.speechSynthesis||null, voiceOn=!!synth;
-    if(vbtn){ vbtn.classList.toggle('muted',!voiceOn); vbtn.addEventListener('click',function(){ voiceOn=!voiceOn; vbtn.classList.toggle('muted',!voiceOn); if(!voiceOn)stopSpeak(); }); }
-    function speak(txt){ if(!voiceOn||!synth||!txt)return; try{ synth.cancel(); var u=new SpeechSynthesisUtterance(txt); u.lang=(window.I18N&&I18N.lang==='id')?'id-ID':'en-US'; u.rate=1; u.pitch=1; synth.speak(u);}catch(e){} }
-    function stopSpeak(){ try{ if(synth)synth.cancel(); }catch(e){} }
-    function fmt(x){var m=Math.floor(x/60),r=x%60;return (m<10?'0':'')+m+':'+(r<10?'0':'')+r;}
-    function setTag(t){ if(mTempo) mTempo.textContent=t; }
-    function setDot(mode){ if(!mDot)return; mDot.classList.remove('sm','hold','rest'); if(mode==='hold')mDot.classList.add('hold'); else if(mode==='rest')mDot.classList.add('rest'); }
-    // ---- rep/hold cue (figure animates via CSS; speaks only during a guided run) ----
-    function pace(){ pDown=!pDown; if(mDot)mDot.classList.toggle('sm',pDown); pacerLbl.textContent=pDown?L({en:'DOWN',id:'TURUN'}):L({en:'UP',id:'NAIK'}); if(guided)speak(pDown?L({en:'Down',id:'Turun'}):L({en:'Up',id:'Naik'})); }
-    function startCue(t){ stopCue();
-      if(t==='rep'){ setDot('rep'); pDown=false; if(mDot)mDot.classList.remove('sm'); pacerLbl.textContent=L({en:'UP',id:'NAIK'}); pTimer=setInterval(pace,2000); }
-      else if(curEx&&curEx.icon==='march'){ setDot('hold'); pacerLbl.textContent=L({en:'MARCH',id:'JALAN'}); if(guided)speak(L({en:'March in place',id:'Jalan di tempat'})); }
-      else { setDot('hold'); pacerLbl.textContent=L({en:'HOLD',id:'TAHAN'}); if(guided)speak(L({en:'Hold, keep steady',id:'Tahan, jaga stabil'})); }
-    }
-    function stopCue(){ if(pTimer){clearInterval(pTimer);pTimer=null;} }
-    // ---- Guided sets: WORK -> REST -> ... -> cool down (with spoken cues) ----
-    function parseSecs(str){ var m=String(str).match(/\d+/g); return m?parseInt(m[m.length-1],10):30; }
-    function computeWork(ex){ if(ex.type==='time') return Math.max(15,parseSecs(ex.reps));
-      var m=String(ex.reps).match(/\d+/g); var reps=m?parseInt(m[m.length-1],10):10; return Math.min(60,Math.max(20,Math.round(reps*3.2))); }
-    function enterWork(){ phase='work'; phSecs=workSecs; guided=true;
-      setTag(L({en:'Set',id:'Set'})+' '+setNo+'/'+curEx.sets+' · '+L({en:'WORK',id:'KERJA'}));
-      startCue(curType); mTime.textContent=fmt(phSecs); }
-    function enterRest(){ phase='rest'; phSecs=restSecs; stopCue();
-      setTag(L({en:'Set',id:'Set'})+' '+setNo+'/'+curEx.sets+' · '+L({en:'REST',id:'ISTIRAHAT'}));
-      pacerLbl.textContent=L({en:'REST',id:'ISTIRAHAT'}); setDot('rest');
-      speak(L({en:'Now rest your body',id:'Sekarang istirahatkan tubuhmu'})); mTime.textContent=fmt(phSecs); }
-    function finishAll(){ stopGuided(true); setTag(L({en:'Done',id:'Selesai'}));
-      pacerLbl.textContent=L({en:'DONE',id:'SELESAI'}); setDot('rest');
-      speak(L({en:'Great job. Cool down your body.',id:'Kerja bagus. Dinginkan tubuhmu.'})); mTime.textContent='00:00'; }
-    function tick(){ phSecs--; mTime.textContent=fmt(Math.max(0,phSecs));
-      if(phSecs>0){ if(phSecs<=3) speak(String(phSecs)); return; }   // hitung mundur suara 3-2-1 tiap fase
-      if(phase==='work'){ if(setNo>=curEx.sets){ finishAll(); return; } enterRest(); }
-      else { setNo++; enterWork(); } }
-    // Aba-aba 3-2-1 + suara sebelum workout benar-benar mulai
-    function preCountdown(done){
-      stopCue(); if(phInt){clearInterval(phInt);phInt=null;} if(preInt){clearInterval(preInt);preInt=null;}
-      setDot('rest'); setTag(L({en:'Get ready',id:'Bersiap'})); speak(L({en:'Get ready',id:'Bersiap'}));
-      var n=3;
-      function show(){
-        if(n>0){ pacerLbl.textContent=String(n); mTime.textContent='00:0'+n; speak(String(n)); n--; }
-        else { clearInterval(preInt); preInt=null; pacerLbl.textContent=L({en:'GO!',id:'MULAI!'}); speak(L({en:'Go!',id:'Mulai!'})); setTimeout(function(){ if(running)done(); },450); }
-      }
-      show(); preInt=setInterval(show,1000);
-    }
-    function startGuided(){ running=true; guided=true; setNo=1; workSecs=computeWork(curEx); restSecs=parseSecs(curEx.rest);
-      mTimerBtn.textContent=L({en:'Stop',id:'Stop'}); mTimerBtn.classList.add('run');
-      preCountdown(function(){ enterWork(); if(phInt)clearInterval(phInt); phInt=setInterval(tick,1000); }); }
-    function stopGuided(done){ running=false; guided=false; if(phInt){clearInterval(phInt);phInt=null;} if(preInt){clearInterval(preInt);preInt=null;}
-      mTimerBtn.textContent=L({en:'Start guided sets',id:'Mulai set terpandu'}); mTimerBtn.classList.remove('run');
-      if(!done){ stopSpeak(); mTime.textContent='00:00'; setTag(L({en:'Tempo guide',id:'Panduan tempo'})); if(curEx){ startCue(curType); } } }
-    mTimerBtn.addEventListener("click",function(){ if(running){ stopGuided(false); } else { startGuided(); } });
-    function openModal(i){ var ex=EX[i]; curEx=ex; curType=ex.type;
-      mTitle.textContent=L(ex.n); mSub.textContent=L(ex.s)+' · '+L({en:'at home, no equipment',id:'di rumah, tanpa alat'});
-      mSets.textContent=ex.sets; mReps.textContent=ex.reps; mRepsL.textContent=L(ex.repl); mRest.textContent=ex.rest;
-      mSetsL.textContent=L({en:'sets',id:'set'}); mRestL.textContent=L({en:'rest',id:'istirahat'}); setTag(L({en:'Tempo guide',id:'Panduan tempo'}));
-      mSafety.textContent=L({en:'Rep counts are a general starting point - adjust to your level. Move slowly and stop if anything hurts.',id:'Jumlah repetisi hanya patokan umum - sesuaikan levelmu. Gerak perlahan dan berhenti kalau ada yang sakit.'});
-      mSteps.innerHTML=''; L(ex.steps).forEach(function(st){ var li=document.createElement('li'); li.textContent=st; mSteps.appendChild(li); });
-      running=false; guided=false; if(phInt){clearInterval(phInt);phInt=null;} stopCue(); stopSpeak();
-      mTimerBtn.classList.remove('run'); mTimerBtn.textContent=L({en:'Start guided sets',id:'Mulai set terpandu'}); mTime.textContent='00:00';
-      setDot('rep'); startCue(ex.type);
-      bg.classList.add('open'); document.body.style.overflow='hidden';
-    }
-    function closeModal(){ bg.classList.remove('open'); document.body.style.overflow=''; stopCue(); if(phInt){clearInterval(phInt);phInt=null;} if(preInt){clearInterval(preInt);preInt=null;} stopSpeak(); running=false; guided=false; if(mDot)mDot.classList.remove('sm','hold','rest'); }
-    document.getElementById("mClose").addEventListener("click",closeModal);
-    bg.addEventListener('click',function(e){ if(e.target===bg)closeModal(); });
-    document.addEventListener('keydown',function(e){ if(e.key==='Escape')closeModal(); });
-    renderList();
-    if(window.I18N&&I18N.onChange) I18N.onChange(renderList);
-  })();
   </script>
   <script>
   // Promo banner (Modul 5): ambil banner aktif utk placement below_aqi, render di bawah AQI.
