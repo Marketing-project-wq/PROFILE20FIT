@@ -355,7 +355,7 @@
   </div>
 
   <script src="js/vendor-supabase.js"></script>
-  <script src="js/auth.js"></script>
+  <script src="js/auth.js?v=20260910-oauth"></script>
   <script src="js/meta-pixel.js"></script>
   <script src="js/pw-toggle.js"></script>
   <script>
@@ -680,8 +680,19 @@
       msg(T[lang].processing,"");
       try{
         try{ Meta.track("Lead", {content_name:"login_google"}); }catch(e){}
-        await Auth.googleOAuth(); // redirect ke Google (via Supabase); balik ke /login
-      }catch(e){ msg(terjemah(e.message),"err"); }
+        await Auth.ready;
+        var offMsg=L({en:"Google sign-in isn’t available right now. Please use email & password.",id:"Login Google sedang tidak tersedia. Pakai email & password dulu ya."});
+        if(typeof Auth.googleOAuth==="function"){
+          await Auth.googleOAuth(); // redirect ke Google (via Supabase); balik ke /login
+          return;
+        }
+        // Pengaman kalau js/auth.js versi lama masih ter-cache (belum punya googleOAuth):
+        // panggil Supabase langsung (metode stabil dari vendor-supabase.js).
+        var supa=Auth.supabase;
+        if(!supa||!supa.auth||typeof supa.auth.signInWithOAuth!=="function"){ msg(offMsg,"err"); return; }
+        var r=await supa.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+"/login"}});
+        if(r&&r.error){ msg(offMsg,"err"); }
+      }catch(e){ msg((e&&e.message)?terjemah(e.message):L({en:"Google sign-in failed.",id:"Gagal login dengan Google."}),"err"); }
     };
     (async function initGoogleLogin(){
       try{ await Auth.ready; }catch(e){}
