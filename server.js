@@ -1065,6 +1065,7 @@ const authLimiter = rateLimit({
 app.use([
   "/api/fitco-login", "/api/fitco-register", "/api/reset/request", "/api/reset/confirm",
   "/api/fitco-verify-email", "/api/fitco-resend-verify-email",
+  "/api/fitco-forgot", "/api/fitco-reset",
 ], authLimiter);
 
 // Limiter AI generatif (translate) — panggilan berbiaya ke OpenRouter. Cegah dipakai sebagai
@@ -2123,6 +2124,53 @@ app.post("/api/fitco-resend-verify-email", async (req, res) => {
     return res.status(r.status).json(j);
   } catch (e) {
     console.error("fitco-resend-verify-email:", e.message);
+    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+  }
+});
+
+// ---------- Lupa password (app 20FIT): teruskan ke FITCO (OTP kirim + reset) ----------
+// Dipakai oleh app 20FIT (5.1.2+): kirim email → FITCO kirim OTP → user isi OTP +
+// password baru. Reset dari WEB (reset-password.html) memakai jalur SENDIRI
+// /api/reset/{request,confirm} (OTP + set password Supabase). Dua jalur ini SENGAJA
+// terpisah — jangan digabung. Kontrak app: SEMUA balasan HARUS JSON object (sukses
+// {ok:true}, gagal {error}); status & pesan gagal diteruskan apa adanya dari FITCO
+// (perilaku anti-enumerasi ikut upstream, tidak menambah kepastian). JANGAN log
+// password/otp. Endpoint /api/v1/auth/password/forgot terverifikasi 200 (10 Sep 2026).
+app.post("/api/fitco-forgot", async (req, res) => {
+  try {
+    const email = String((req.body && req.body.email) || "").trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: "Email wajib diisi." });
+    const r = await fetch(FITCO_API + "/api/v1/auth/password/forgot", {
+      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status).json({ error: (j && (j.message || j.error)) || "Gagal mengirim kode reset. Coba lagi." });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("fitco-forgot:", e.message);
+    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+  }
+});
+app.post("/api/fitco-reset", async (req, res) => {
+  try {
+    const email = String((req.body && req.body.email) || "").trim().toLowerCase();
+    const otp = String((req.body && req.body.otp) || "").trim();
+    const password = String((req.body && req.body.password) || "");
+    if (!email || !otp || !password) return res.status(400).json({ error: "Email, kode & password wajib diisi." });
+    if (password.length < 8) return res.status(400).json({ error: "Password minimal 8 karakter." });
+    // FITCO menuntut 4 field; app 5.1.2 hanya kirim 3 → isi password_confirmation dari
+    // password. Kalau app kirim password_confirmation sendiri, hormati (jangan ditimpa).
+    const password_confirmation = String((req.body && req.body.password_confirmation) || password);
+    const r = await fetch(FITCO_API + "/api/v1/auth/password/reset", {
+      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ email, otp, password, password_confirmation }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status).json({ error: (j && (j.message || j.error)) || "Gagal mengubah password. Periksa kode lalu coba lagi." });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("fitco-reset:", e.message);
     return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
   }
 });
