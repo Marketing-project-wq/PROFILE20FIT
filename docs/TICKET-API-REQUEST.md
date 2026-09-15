@@ -116,11 +116,17 @@ cara menautkannya (mis. saat pendaftaran, atau lewat endpoint partner)?
    - Apakah 404 `user_not_found` di `/partner/user-token` memang berarti "email belum
      punya akun"?
    - Adakah cara menerbitkan `userToken` untuk pembeli **tamu** (punya tiket, tanpa akun)?
-   - Apakah `POST /otp/verify` menerbitkan `userToken` untuk email tanpa akun? (Kami sudah
-     memasang jalur OTP di my.20fit.id — user menekan "Kirim kode ke emailku" lalu
-     memasukkan kodenya — tapi kami **belum bisa memastikan** jalur ini berhasil untuk
-     pembeli tamu tanpa mengetesnya dengan pembeli asli.)
    - Adakah cara mencari pembeli lewat **nomor HP**, bukan email?
+
+**Catatan terukur (bukan permintaan).** `userToken` berumur **900 detik** — `/otp/verify`
+mengembalikan `expiresInSec` = 900, dan kami sudah membuktikan umur itu ditegakkan: token
+nyata yang terbit 2026-09-08 14:04 kami kirim ulang ke `GET /me/tickets` ~16 jam kemudian
+dan dibalas **`401 user_unauthorized`**. Karena itu kami **tidak menyimpan** token — tiap
+permintaan kami mint ulang lewat `/partner/user-token`, dan itu aman untuk email yang
+dikenal penerbit. Untuk email yang **tidak** dikenal, tidak ada jalur mint sama sekali;
+itulah yang membuat §5.1/§5.2 mendesak. (Pertanyaan lama "apakah `/otp/verify` menerbitkan
+token untuk email tanpa akun" **sudah terjawab: ya** — kami mengukurnya sendiri. Jalur
+OTP-nya sudah kami hapus dari my.20fit.id, lihat §4b, jadi ini fakta, bukan permintaan.)
 
 ## 6. Yang TIDAK kami minta
 

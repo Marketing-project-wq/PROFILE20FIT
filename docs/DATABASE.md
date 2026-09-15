@@ -1,6 +1,6 @@
 # DATABASE — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-07 · **Commit staging:** `62ff6b2`
+> **Pembaruan terakhir:** 2026-09-15 · **Commit staging:** `50b5f8f` · **Production:** `5a406ec`
 > Sumber: `db/*.sql`, `supabase/`, dan pemakaian di `server.js`. Nama tabel & migration
 > terverifikasi dari file. **Detail kolom: buka file migration terkait** (di bawah tak
 > diisi kolom tebakan). Relasi umum lihat catatan.
@@ -24,6 +24,7 @@
 | Banner / promo | `my20fit_banner`, `my20fit_banner_event` |
 | Corporate | `my20fit_corporate`, `my20fit_corporate_admin`, `my20fit_corporate_member`, `my20fit_corporate_message_log`, `my20fit_corporate_access_log` |
 | Roster tampilan (coach/dokter/fisioterapis) | `my20fit_coaches`, `my20fit_coach_instructor_aliases`, `my20fit_doctors`, `my20fit_physiotherapists` |
+| Tiket event | `my20fit_ticket_events` (katalog + `sold_count` agregat, disinkron `sync-ticket-events`). `my20fit_ticket_tokens` masih ada di DB tapi **sudah tidak dipakai kode mana pun** sejak jalur OTP dibuang (`d1c2a38`). Arsip pembelian dibaca **read-only** dari `event_transaction` — tabel **milik app lain**, tanpa prefix: jangan ditulis. |
 
 ### Relasi & kolom kunci (terverifikasi dari `server.js`)
 - **`auth_user_id`** = FK ke Supabase `auth.users.id`. Hampir semua tabel milik-user di-query `.eq("auth_user_id", user.id)` — ini kunci kepemilikan data.
@@ -66,7 +67,8 @@
 - `supabase/migrations/20260803_my20fit_food_ref.sql` — migration bergaya Supabase CLI (food ref).
 - `supabase/migrations/20260819110000_coaches_doctors_roster.sql` — roster coach + alias instructor + dokter.
 - `supabase/migrations/20260907000000_physiotherapists_roster.sql` — roster fisioterapis (`my20fit_physiotherapists`). **Sudah dijalankan** di project `cpvzwqptzcxnwzfzgrmt` (aditif; rollback: `drop table my20fit_physiotherapists;`).
-- `supabase/functions/` — Edge Functions: `my20fit-ai`, `my20fit-foodimg` (TypeScript, di-deploy terpisah via Supabase).
+- `supabase/migrations/20260908000000_ticket_user_tokens.sql` — `my20fit_ticket_tokens` (PK `auth_user_id`, RLS deny-public). Dibuat untuk menyimpan `userToken` penerbit hasil OTP. **SUDAH TIDAK DIPAKAI:** commit `d1c2a38` (2026-09-09, kini di production) membuang seluruh jalur OTP beserta `getTicketToken`, jadi tak ada kode yang membaca/menulis tabel ini lagi. Tabelnya sengaja **dibiarkan** (tidak di-drop) — keputusan drop ada di pemilik; migration-nya tetap dicatat di sini supaya riwayatnya jelas. Catatan terukur yang masih berlaku: penerbit memberi umur token **900 detik (15 menit)** dan benar-benar menegakkannya (token 16 jam → `401 user_unauthorized`). Karena token tak lagi disimpan, `/api/tickets/mine` mint ulang lewat `/partner/user-token` tiap permintaan.
+- `supabase/functions/` — Edge Functions: `my20fit-ai`, `my20fit-foodimg`, `sync-ticket-events`, `ticket-embed` (TypeScript, di-deploy terpisah via Supabase). `ticket-embed` memegang secret `TICKET_EMBED_KEY` dan jadi **satu-satunya** jalur ke `ticket.20fit.id/api/embed/v1`; `server.js` tak punya env tiket sama sekali.
 
 ## Cara menjalankan migration
 - **TIDAK ADA runner otomatis** di repo (package.json hanya `start`). Migration dijalankan **MANUAL** di **Supabase SQL Editor**, berurutan sesuai nomor.
