@@ -1063,8 +1063,9 @@ const authLimiter = rateLimit({
   message: limitMsg,
 });
 app.use([
-  "/api/fitco-login", "/api/fitco-register", "/api/fitco-forgot", "/api/fitco-reset",
+  "/api/fitco-login", "/api/fitco-register", "/api/reset/request", "/api/reset/confirm",
   "/api/fitco-verify-email", "/api/fitco-resend-verify-email",
+  "/api/fitco-forgot", "/api/fitco-reset",
 ], authLimiter);
 
 // Limiter AI generatif (translate) — panggilan berbiaya ke OpenRouter. Cegah dipakai sebagai
@@ -2127,6 +2128,53 @@ app.post("/api/fitco-resend-verify-email", async (req, res) => {
   }
 });
 
+// ---------- Lupa password (app 20FIT): teruskan ke FITCO (OTP kirim + reset) ----------
+// Dipakai oleh app 20FIT (5.1.2+): kirim email → FITCO kirim OTP → user isi OTP +
+// password baru. Reset dari WEB (reset-password.html) memakai jalur SENDIRI
+// /api/reset/{request,confirm} (OTP + set password Supabase). Dua jalur ini SENGAJA
+// terpisah — jangan digabung. Kontrak app: SEMUA balasan HARUS JSON object (sukses
+// {ok:true}, gagal {error}); status & pesan gagal diteruskan apa adanya dari FITCO
+// (perilaku anti-enumerasi ikut upstream, tidak menambah kepastian). JANGAN log
+// password/otp. Endpoint /api/v1/auth/password/forgot terverifikasi 200 (10 Sep 2026).
+app.post("/api/fitco-forgot", async (req, res) => {
+  try {
+    const email = String((req.body && req.body.email) || "").trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: "Email wajib diisi." });
+    const r = await fetch(FITCO_API + "/api/v1/auth/password/forgot", {
+      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status).json({ error: (j && (j.message || j.error)) || "Gagal mengirim kode reset. Coba lagi." });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("fitco-forgot:", e.message);
+    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+  }
+});
+app.post("/api/fitco-reset", async (req, res) => {
+  try {
+    const email = String((req.body && req.body.email) || "").trim().toLowerCase();
+    const otp = String((req.body && req.body.otp) || "").trim();
+    const password = String((req.body && req.body.password) || "");
+    if (!email || !otp || !password) return res.status(400).json({ error: "Email, kode & password wajib diisi." });
+    if (password.length < 8) return res.status(400).json({ error: "Password minimal 8 karakter." });
+    // FITCO menuntut 4 field; app 5.1.2 hanya kirim 3 → isi password_confirmation dari
+    // password. Kalau app kirim password_confirmation sendiri, hormati (jangan ditimpa).
+    const password_confirmation = String((req.body && req.body.password_confirmation) || password);
+    const r = await fetch(FITCO_API + "/api/v1/auth/password/reset", {
+      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ email, otp, password, password_confirmation }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status).json({ error: (j && (j.message || j.error)) || "Gagal mengubah password. Periksa kode lalu coba lagi." });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("fitco-reset:", e.message);
+    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+  }
+});
+
 // ================= PARTNER API (untuk tim/produk lain di ekosistem 20FIT) =================
 // Dilindungi API key — nilai HANYA dari env PARTNER_API_KEY (RAHASIA, server-only).
 // Tidak ada default di kode: kalau env belum diisi, endpoint terkunci (fail-closed).
@@ -2193,13 +2241,42 @@ async function ticketEmbed(userJwt, action, extra) {
     return { status: r.status, data: j };
   } catch (e) { return { status: 0, data: null, error: e && e.message }; } finally { clearTimeout(to); }
 }
-// Nama bisa datang sebagai string ATAU objek ({name}/{fullName}). Tanpa ini objek
-// terender jadi "[object Object]" di kartu tiket.
-function nameOf(v) {
+// PENGAMAN UMUM anti-"[object Object]". Nilai dari penerbit bisa datang sebagai string
+// ATAU objek ({name}/{fullName}/{en,id}/{title}). textOf mengekstrak teks yang benar;
+// kalau tak ketemu properti teks yang wajar, kembalikan null — TIDAK PERNAH String(obj)
+// yang menghasilkan "[object Object]". Dipakai untuk SEMUA field teks embed (event_name,
+// product_name, holder, buyer) supaya tak ada satu pun yang bisa bocor jadi "[object Object]".
+function textOf(v) {
   if (v == null) return null;
   if (typeof v === "string") return v.trim() || null;
-  if (typeof v === "object") { const n = firstOf(v, ["name", "fullName", "full_name", "displayName"]); return n ? String(n).trim() : null; }
-  return String(v).trim() || null;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) { for (const x of v) { const s = textOf(x); if (s) return s; } return null; }
+  if (typeof v === "object") {
+    const n = firstOf(v, ["name", "fullName", "full_name", "displayName", "title", "label", "en", "id", "text", "value"]);
+    return n != null ? textOf(n) : null;   // rekursif: {title:{en:"..."}} pun aman
+  }
+  return null;
+}
+// nameOf = alias khusus nama orang, tetap dipakai di tempat lain. Sekarang menumpang textOf.
+function nameOf(v) { return textOf(v); }
+// URL-guard: cover harus string URL/data-URI. Kalau penerbit kirim objek/anomali, jangan
+// diteruskan (nanti jadi src="[object Object]"), kembalikan null → UI pakai fallback rapi.
+function urlOf(v) {
+  const s = (typeof v === "string") ? v.trim() : (v && typeof v === "object" ? textOf(v) : null);
+  return (s && /^(https?:\/\/|data:image\/|\/)/i.test(s)) ? s : null;
+}
+// Status GERBANG dari penerbit — JANGAN dikarang jadi selalu "valid". Kalau penerbit
+// mengirim status, normalkan; kalau tidak, kembalikan null dan biar UI memutuskan
+// (tiket live dari /me/tickets defaultnya dianggap valid oleh UI, tapi status "used"/
+// "expired"/"cancelled" dari penerbit WAJIB dihormati — tiket dipakai tak boleh terbaca VALID).
+function ticketStatusOf(t) {
+  const raw = String(textOf(firstOf(t, ["status", "state", "ticketStatus", "ticket_status"])) || "").toLowerCase();
+  if (!raw) return null;
+  if (/cancel|void|refund/.test(raw)) return "cancelled";
+  if (/used|checked|scan|redeem|attend/.test(raw)) return "used";
+  if (/expire|ended|closed|past/.test(raw)) return "expired";
+  if (/valid|active|issued|paid|confirm|ok/.test(raw)) return "valid";
+  return raw;   // status tak dikenal → teruskan apa adanya (jangan sembunyikan kebenaran)
 }
 function mapEmbedTicket(t) {
   t = t || {};
@@ -2207,16 +2284,19 @@ function mapEmbedTicket(t) {
   return {
     ref: code != null ? String(code) : null,
     code: code != null ? String(code) : null,
-    event_name: firstOf(t, ["eventName", "event_name", "event", "title", "name"]) || "Event 20FIT",
-    product_name: firstOf(t, ["ticketType", "ticket_type", "categoryName", "category", "productName", "product_name"]),
-    holder: nameOf(firstOf(t, ["holderName", "holder", "attendeeName", "attendee", "customerName", "name"])),
+    event_name: textOf(firstOf(t, ["eventName", "event_name", "event", "title", "name"])) || "Event 20FIT",
+    event_slug: textOf(firstOf(t, ["eventSlug", "event_slug", "slug"])),
+    event_date: firstOf(t, ["eventStartsAt", "startsAt", "starts_at", "eventDate", "event_date", "date"]),
+    product_name: textOf(firstOf(t, ["ticketType", "ticket_type", "categoryName", "category", "productName", "product_name"])),
+    holder: textOf(firstOf(t, ["holderName", "holder", "attendeeName", "attendee", "customerName", "name"])),
     // Nama PEMESAN (yang membayar), beda dari `holder` (yang hadir). Dipetakan defensif
     // seperti field lain: kalau penerbit tak mengirimnya, tetap null dan UI menyembunyikannya.
     // TIDAK dikarang dari data lain.
-    buyer: nameOf(firstOf(t, ["buyerName", "buyer_name", "ordererName", "purchaserName", "buyer", "orderer", "purchaser"])),
-    paid_at: firstOf(t, ["purchasedAt", "paidAt", "paid_at", "createdAt", "created_at", "date"]),
-    status: "valid",
-    cover_url: firstOf(t, ["coverUrl", "cover_url", "bannerUrl", "image"]),
+    buyer: textOf(firstOf(t, ["buyerName", "buyer_name", "ordererName", "purchaserName", "buyer", "orderer", "purchaser"])),
+    paid_at: firstOf(t, ["purchasedAt", "paidAt", "paid_at", "createdAt", "created_at"]),
+    // Status GERBANG asli dari penerbit; live embed ticket tanpa status → dianggap "valid".
+    status: ticketStatusOf(t) || "valid",
+    cover_url: urlOf(firstOf(t, ["coverUrl", "cover_url", "bannerUrl", "image"])),
     qr: null,   // diisi attachQrs() sebelum respons dikirim — bukan request terpisah per tiket
   };
 }
@@ -2252,42 +2332,15 @@ async function attachQrs(userJwt, userToken, tickets) {
   }));
   return tickets;
 }
-// Hasil berbentuk {ok, tickets|reason, status, raw} — BUKAN null polos. Alasannya: dulu
-// setiap kegagalan (identitas tak dikenal, upstream mati, bentuk respons berubah) sama-sama
-// jadi null lalu jatuh ke arsip lalu tampil "belum ada tiket" — tak terbedakan dari user yang
-// memang belum beli, sehingga masalah nyata tak pernah kelihatan.
-// Catatan lapangan (log edge fn, 24 jam): 141 dari 143 panggilan `user_token` balas 404 dari
-// ticket.20fit.id, sedangkan `my_tickets` selalu 200 saat tokennya berhasil terbit. Jadi titik
-// gagal yang dominan = penukaran email->token, bukan pengambilan tiketnya.
-// userToken hasil verifikasi OTP, disimpan per user supaya tak diminta OTP tiap buka
-// halaman. TIDAK PERNAH dikirim ke browser — hanya dipakai server saat memanggil embed.
-// Token dikembalikan APA ADANYA — kedaluwarsanya TIDAK dinilai dari jam kita.
-// Alasannya terukur: satu-satunya token nyata yang pernah terbit (2026-09-08 14:04:32)
-// diberi `expiresInSec` = 900 detik oleh penerbit. Dengan membuang token begitu jam kita
-// lewat, user pembeli TAMU diminta verifikasi ulang SETIAP 15 MENIT — itu yang terasa
-// seperti gate permanen. Penerbit adalah pemegang keputusan yang sah: token mati cukup
-// dibalas 401/kosong, dan pemanggil sudah menangani itu dengan jatuh ke jalur berikutnya.
-// Kolom `expires_at` tetap ditulis saveTicketToken sebagai catatan diagnostik.
-async function getTicketToken(userId) {
-  try {
-    const { data } = await admin.from("my20fit_ticket_tokens")
-      .select("user_token").eq("auth_user_id", userId).limit(1);
-    const row = data && data[0];
-    return (row && row.user_token) ? row.user_token : null;
-  } catch (_) { return null; }
-}
-async function saveTicketToken(userId, email, token, expiresInSec) {
-  try {
-    const exp = Number.isFinite(+expiresInSec) && +expiresInSec > 0
-      ? new Date(Date.now() + (+expiresInSec * 1000)).toISOString() : null;
-    await admin.from("my20fit_ticket_tokens").upsert({
-      auth_user_id: userId, email: String(email || "").trim().toLowerCase(),
-      user_token: String(token), expires_at: exp, updated_at: new Date().toISOString(),
-    }, { onConflict: "auth_user_id" });
-  } catch (_) {}
-}
-// Ambil tiket memakai userToken yang sudah ada (hasil OTP). Dipakai sebelum mencoba
-// jalur partner, karena jalur partner gagal untuk pembeli tamu.
+// Hasil berbentuk {ok, tickets|reason, status, raw} — BUKAN null polos, supaya "gagal
+// mengambil" bisa dibedakan dari "memang belum beli".
+// TANPA OTP (keputusan pemilik): setiap user my.20fit diperlakukan sebagai USER, bukan tamu.
+// Server menukar email SESI mereka jadi userToken lewat jalur PARTNER server-ke-server
+// (action `user_token` → /partner/user-token, kunci partner). Ini jalan TANPA verifikasi
+// untuk email yang dikenal penerbit (punya akun ticket.20fit.id). Untuk email yang belum
+// dikenal penerbit, jalur ini 404 dan kita JATUH ke arsip — TIDAK meminta OTP. Membuat QR
+// tampil untuk SEMUA pembeli tanpa OTP butuh endpoint partner baru di ticket.20fit.id
+// (list tiket + QR by verified email) — lihat docs/TICKET-API-REQUEST.md.
 async function embedTicketsWithToken(userJwt, userToken) {
   const mt = await ticketEmbed(userJwt, "my_tickets", { userToken });
   const arr = pickArray(mt.data);
@@ -2299,16 +2352,67 @@ async function embedMyTickets(userJwt) {
   const ut = await ticketEmbed(userJwt, "user_token");
   const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
   if (!userToken) {
-    // 404 {"error":"user_not_found"} = email ini TIDAK punya AKUN di ticket.20fit.id.
-    // Itu normal: mayoritas orang beli sebagai TAMU. Terbukti 2026-09-08 — 8 dari 8 email
-    // pembeli ASLI (diambil dari event_transaction) juga ditolak 404. Jadi ini BUKAN
-    // "belum pernah beli" dan BUKAN salah email; jalan keluarnya = verifikasi OTP.
+    // 404 = email ini belum dikenal penerbit (beli sebagai tamu / belum punya akun di sana).
+    // BUKAN "belum pernah beli". TANPA OTP: kita tidak meminta verifikasi — cukup jatuh ke
+    // arsip. reason `no_account` dipakai frontend hanya untuk memilih pesan yang tepat,
+    // tanpa memunculkan langkah verifikasi apa pun.
     return { ok: false, status: ut.status, raw: ut.data,
-             reason: ut.status === 404 ? "needs_verification" : "upstream_unavailable" };
+             reason: ut.status === 404 ? "no_account" : "upstream_unavailable" };
   }
-  // Token sudah di tangan → pengambilan tiketnya identik dengan jalur token tersimpan.
-  // Dipakai bersama supaya bentuk hasil (termasuk userToken utk QR) hanya ditulis sekali.
+  // Token sudah di tangan → ambil tiketnya (bentuk hasil ditulis sekali, termasuk userToken utk QR).
   return await embedTicketsWithToken(userJwt, userToken);
+}
+
+// Lengkapi cover & tanggal event tiket dari katalog my20fit_ticket_events kalau tiket belum
+// membawanya (mis. penerbit tak kirim cover → kartu tadinya tampil fallback + "Date TBA").
+// Dicocokkan HANYA ke event yang SAMA: by slug persis, atau nama dinormalisasi yang saling
+// memuat. Event yang memang tak ada di katalog (mis. Sportfest/Platarox) tetap pakai fallback
+// rapi — TIDAK dipasangkan ke event lain sekadar supaya ada gambar (aturan pemilik).
+let _ticketCatalog = null, _ticketCatalogAt = 0;
+async function loadTicketCatalog() {
+  const now = Date.now();
+  if (_ticketCatalog && (now - _ticketCatalogAt) < 300000) return _ticketCatalog; // cache 5 menit
+  try {
+    const { data } = await admin.from("my20fit_ticket_events").select("slug,name,cover_url,starts_at,venue,city");
+    _ticketCatalog = data || []; _ticketCatalogAt = now;
+  } catch (_) { _ticketCatalog = _ticketCatalog || []; }
+  return _ticketCatalog;
+}
+// Normalisasi nama event: lowercase + buang non-alnum. TIDAK membuang "(invitation only)"
+// dsb — justru itu yang membedakan dua varian event serupa (mis. reguler vs invitation),
+// supaya kecocokan PERSIS memilih varian yang benar (tanggal/poster beda).
+function normEventName(s) {
+  return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+async function enrichTicketsWithCatalog(tickets) {
+  if (!tickets || !tickets.length || !admin) return tickets;
+  const cat = await loadTicketCatalog();
+  if (!cat.length) return tickets;
+  const bySlug = {};
+  cat.forEach((e) => { if (e.slug) bySlug[String(e.slug).toLowerCase()] = e; });
+  for (const t of tickets) {
+    if (t.cover_url && t.event_date) continue; // sudah lengkap
+    let hit = null;
+    const slug = t.event_slug ? String(t.event_slug).toLowerCase() : "";
+    if (slug && bySlug[slug]) hit = bySlug[slug];
+    if (!hit) {
+      const tn = normEventName(t.event_name);
+      if (tn.length >= 8) {
+        // UTAMAKAN kecocokan PERSIS (nama sama) sebelum "saling memuat", supaya tiket
+        // "…Jakarta Hybrid Race" tidak salah ambil ke varian "(Invitation Only) …" yang
+        // tanggalnya beda — dua event serupa bisa sama-sama ada di katalog.
+        hit = cat.find((e) => normEventName(e.name) === tn) ||
+              cat.find((e) => { const en = normEventName(e.name); return en && (en.includes(tn) || tn.includes(en)); }) ||
+              null;
+      }
+    }
+    if (hit) {
+      if (!t.cover_url && hit.cover_url) t.cover_url = hit.cover_url;
+      if (!t.event_date && hit.starts_at) t.event_date = hit.starts_at;
+      if (!t.venue && (hit.venue || hit.city)) t.venue = [hit.venue, hit.city].filter(Boolean).join(", ");
+    }
+  }
+  return tickets;
 }
 
 // ---------- /api/tickets/mine : tiket event yang DIBELI user (widget "My Tickets") ----------
@@ -2339,20 +2443,13 @@ app.get("/api/tickets/mine", async (req, res) => {
     if (String(req.query.debug || "") === "1") {
       try { const ctx = await getAdminContext(req); debug = !!(ctx && ctx.role === "superadmin"); } catch (_) {}
     }
-    // SUMBER UTAMA: tiket ASLI + QR dari ticket.20fit.id (embed). Gagal → arsip di bawah,
-    // TAPI sebabnya disimpan supaya tetap bisa dilaporkan kalau arsip juga kosong.
+    // SUMBER UTAMA: tiket ASLI + QR dari ticket.20fit.id (embed), lewat jalur PARTNER
+    // server-ke-server TANPA OTP (email sesi ditukar jadi userToken pakai kunci partner).
+    // Berhasil untuk email yang dikenal penerbit; kalau 404/ gagal → jatuh ke arsip di bawah.
+    // Sebab kegagalan disimpan supaya tetap bisa dilaporkan kalau arsip juga kosong.
     let emb = null;
     try {
-      // 1) userToken hasil verifikasi OTP kalau sudah pernah — ini jalur yang berhasil
-      //    untuk pembeli tamu. 2) baru jalur partner (hanya jalan utk pemilik AKUN
-      //    ticket.20fit.id). Urutan ini penting: kebalikannya membuat pembeli tamu
-      //    selalu mentok di 404 walau tokennya sudah ada.
-      const saved = await getTicketToken(user.id);
-      if (saved) {
-        emb = await embedTicketsWithToken(bearerOf(req), saved);
-        if (!emb.ok || !emb.tickets.length) emb = null;   // token basi/ditolak -> coba jalur lain
-      }
-      if (!emb) emb = await embedMyTickets(bearerOf(req));
+      emb = await embedMyTickets(bearerOf(req));
     } catch (e) { emb = { ok: false, status: 0, reason: "upstream_unavailable", raw: String((e && e.message) || e) }; }
     const dbg = (extra) => {
       if (!debug) return extra;
@@ -2367,6 +2464,9 @@ app.get("/api/tickets/mine", async (req, res) => {
       const perEvent = {};
       for (const t of emb.tickets) perEvent[t.event_name] = (perEvent[t.event_name] || 0) + 1;
       for (const t of emb.tickets) t.event_qty = perEvent[t.event_name];
+      // Lengkapi cover + tanggal dari katalog kalau penerbit tak mengirimnya (kartu tak lagi
+      // tampil fallback "20FIT · E-TICKET" / "Date TBA" untuk event yang ADA di katalog kita).
+      await enrichTicketsWithCatalog(emb.tickets);
       return res.json(dbg({ ok: true, tickets: emb.tickets, source: "embed", count: emb.tickets.length }));
     }
     // ARSIP: pembelian dari event_transaction. Ini impor batch invoice (historis, tanpa QR
@@ -2385,18 +2485,29 @@ app.get("/api/tickets/mine", async (req, res) => {
         reason: (emb && emb.reason) || "archive_unavailable" }));
     }
     const isPaid = (s) => /paid|settle|success|complete/i.test(String(s || ""));
-    const tickets = rows.filter(r => isPaid(r.status)).map(r => ({
+    // FILTER NON-TIKET (rule ditunjukkan ke pemilik sebelum dipasang): arsip event_transaction
+    // memuat banyak jenis pembelian, bukan cuma tiket event. Yang jelas BUKAN tiket disaring:
+    //   Penagihan (billing) · Bazaar Visitor · Photo / "Pictures Pass" · Merch (tshirt/jersey/
+    //   kaos/backpack/"badge of honor") · "Claim Free Trial" · "Protection"/asuransi cedera.
+    // Sisanya (spectator pass, HYROX simulation, race, dll = tiket event) tetap tampil.
+    const NONTICKET_RE = /penagihan|bazaar|photo|foto|picture|merch|t-?shirt|jersey|kaos|backpack|badge of honor|free trial|protection|injury/i;
+    const isTicket = (r) => !NONTICKET_RE.test(String(r.product_name || ""));
+    const tickets = rows.filter(r => isPaid(r.status) && isTicket(r)).map(r => ({
       ref: (String(r.invoice_id || "").slice(0, 24)) || null,
       event_name: r.event_name || r.product_name || "Event 20FIT",
       product_name: r.product_name || null,
       holder: r.customer_name || null,
-      status: "valid",
+      // ARSIP hanya punya status BAYAR, bukan status GERBANG. JANGAN tulis "valid" (menyesatkan
+      // di gerbang). status:null + paid:true → UI menandai "Lunas", bukan badge VALID.
+      status: null,
+      paid: true,
       paid_at: r.paid_at || null,
       amount: (r.gross_amount == null ? null : Number(r.gross_amount)),
       qr: null,          // TIDAK dikarang — QR gerbang asli diterbitkan ticket.20fit.id
       qr_pending: true,
     }));
     tickets.sort((a, b) => String(b.paid_at || "").localeCompare(String(a.paid_at || "")));
+    await enrichTicketsWithCatalog(tickets); // cover + tanggal event dari katalog (event yang sama)
     if (tickets.length) return res.json(dbg({ ok: true, tickets, count: tickets.length, source: "archive" }));
     // Benar-benar kosong di kedua sumber. Laporkan SEBABNYA: kalau embed gagal, itu bukan
     // "belum punya tiket" — frontend harus bilang beda supaya masalah nyata tidak tersamar.
@@ -2408,49 +2519,9 @@ app.get("/api/tickets/mine", async (req, res) => {
   }
 });
 
-// ---------- Verifikasi email ke ticket.20fit.id (jalur OTP) ----------
-// Pembeli TAMU tidak punya akun di ticket.20fit.id, jadi /partner/user-token selalu
-// balas user_not_found. Satu-satunya cara mendapat userToken untuk mereka adalah
-// membuktikan kepemilikan email lewat OTP. Dua endpoint di bawah membungkus itu.
-//
-// KEAMANAN: email TIDAK diambil dari body. Edge function menurunkannya sendiri dari
-// JWT sesi pemanggil, jadi user hanya bisa meminta/memverifikasi OTP untuk email
-// miliknya sendiri — tak bisa memancing tiket orang lain. Token hasilnya disimpan
-// server-side dan tidak pernah dikirim ke browser.
-app.post("/api/tickets/verify/request", async (req, res) => {
-  try {
-    const user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
-    const r = await ticketEmbed(bearerOf(req), "otp_request");
-    if (r.status >= 200 && r.status < 300) {
-      return res.json({ ok: true, email: String(user.email || "").trim().toLowerCase() });
-    }
-    return res.status(502).json({ ok: false, error: "Gagal mengirim kode ke emailmu. Coba lagi sebentar lagi.", upstream_status: r.status });
-  } catch (e) {
-    return res.status(500).json({ ok: false, error: (e && e.message) || "gagal" });
-  }
-});
-
-app.post("/api/tickets/verify/confirm", async (req, res) => {
-  try {
-    const user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
-    const code = String((req.body && (req.body.code || req.body.otp)) || "").trim();
-    if (!code) return res.status(400).json({ ok: false, error: "Kode wajib diisi." });
-    const r = await ticketEmbed(bearerOf(req), "otp_verify", { code });
-    const token = r.data && firstOf(r.data, ["userToken", "user_token", "token"]);
-    if (!token) {
-      return res.status(400).json({ ok: false, error: "Kode salah atau sudah kedaluwarsa.", upstream_status: r.status });
-    }
-    const expIn = r.data && firstOf(r.data, ["expiresInSec", "expires_in", "expiresIn"]);
-    if (admin) await saveTicketToken(user.id, user.email, token, expIn);
-    // Langsung ambil tiketnya supaya user melihat hasilnya tanpa memuat ulang.
-    const got = await embedTicketsWithToken(bearerOf(req), token);
-    return res.json({ ok: true, tickets: (got.ok ? got.tickets : []), count: (got.ok ? got.tickets.length : 0) });
-  } catch (e) {
-    return res.status(500).json({ ok: false, error: (e && e.message) || "gagal" });
-  }
-});
+// (Endpoint OTP `/api/tickets/verify/*` DIHAPUS — keputusan pemilik: TANPA OTP. User tak
+// pernah diminta verifikasi. Tiket diambil lewat jalur partner server-ke-server; kalau
+// email belum dikenal penerbit, tampil dari arsip tanpa langkah tambahan.)
 
 // ---------- /api/tickets/qr?code= : QR e-tiket ASLI (ticket.20fit.id via embed, lazy) ----------
 // Dipanggil saat user membuka QR sebuah tiket. Ambil userToken (email sesi) lalu ticket_qr{code}.
@@ -2463,14 +2534,13 @@ app.get("/api/tickets/qr", async (req, res) => {
     const code = String(req.query.code || "").trim();
     if (!code) return res.status(400).json({ error: "code wajib." });
     const userJwt = bearerOf(req);
-    // Token hasil verifikasi OTP dipakai lebih dulu: pembeli TAMU tak punya akun di
-    // ticket.20fit.id, jadi /partner/user-token balas user_not_found dan QR-nya ikut gagal.
-    let userToken = admin ? await getTicketToken(user.id) : null;
-    if (!userToken) {
-      const ut = await ticketEmbed(userJwt, "user_token");
-      userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
-    }
-    if (!userToken) return res.json({ ok: false, error: "no_user_token", needs_verification: true });
+    // TANPA OTP: tukar email sesi jadi userToken lewat jalur partner server-ke-server.
+    // Kalau penerbit belum mengenal email ini (404), QR memang belum bisa diambil di sini —
+    // frontend menampilkannya sebagai "belum tersedia" + arahkan ke ticket.20fit.id, TANPA
+    // meminta verifikasi apa pun.
+    const ut = await ticketEmbed(userJwt, "user_token");
+    const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
+    if (!userToken) return res.json({ ok: false, error: "no_user_token" });
     const qr = await ticketEmbed(userJwt, "ticket_qr", { userToken, code });
     const d = qr.data;
     if (String(req.query.debug || "") === "1") {
@@ -6540,39 +6610,80 @@ app.get("/api/admin/attribution", async (req, res) => {
 // Catatan: endpoint lama /api/admin/stats (era admin.html) sudah dihapus —
 // digantikan /api/admin/metrics (RBAC requireAdmin) di admin dashboard baru.
 
-// ---------- Lupa password via API 20FIT (kirim OTP + reset) ----------
-// Reset di sini = reset password akun 20FIT yang sama (dipakai app 20FIT juga).
-app.post("/api/fitco-forgot", async (req, res) => {
+// ---------- Lupa password: OTP sendiri (email) → set password Supabase ----------
+// Jalur FITCO lama (/api/v1/auth/password/forgot|reset) DIHAPUS: reset "tidak bisa sama
+// sekali" lewat jalur itu. Reset di sini SELF-CONTAINED & tak bergantung FITCO:
+//   1) /api/reset/request — kirim kode 6 digit ke email (Resend), kalau akunnya ada.
+//   2) /api/reset/confirm — verifikasi kode → SET password akun SUPABASE via admin API.
+// Login memakai fitcoLogin dulu lalu FALLBACK Auth.signIn (password Supabase), jadi
+// password baru ini langsung dipakai user untuk masuk. CATATAN: yang direset adalah
+// password my.20fit (Supabase); password 20FIT di FITCO TIDAK ikut berubah (jalur FITCO
+// tak bisa dipakai). Kode = HASH sha256 di email_verification_tokens (bukan mentah).
+async function findAuthUserByEmail(email) {
+  const target = String(email || "").trim().toLowerCase();
+  if (!target || !admin) return null;
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const users = (data && data.users) || [];
+    const hit = users.find((u) => String(u.email || "").trim().toLowerCase() === target);
+    if (hit) return hit;
+    if (users.length < 1000) break; // halaman terakhir
+  }
+  return null;
+}
+app.post("/api/reset/request", async (req, res) => {
   try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
     const email = String((req.body && req.body.email) || "").trim().toLowerCase();
     if (!email) return res.status(400).json({ error: "Email wajib diisi." });
-    const r = await fetch(FITCO_API + "/api/v1/auth/password/forgot", {
-      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(r.status === 422 ? 400 : r.status).json({ error: (j && (j.message || j.error)) || "Gagal mengirim kode reset." });
-    return res.json({ ok: true });
+    // ANTI-ENUMERASI: selalu balas ok. Kode hanya benar-benar dikirim kalau akunnya ada.
+    let devCode;
+    try {
+      const u = await findAuthUserByEmail(email);
+      if (u && u.id) {
+        const code = gen6();
+        const expires = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString();
+        await admin.from("email_verification_tokens").delete().eq("auth_user_id", u.id).is("consumed_at", null);
+        const { error: insErr } = await admin.from("email_verification_tokens")
+          .insert({ auth_user_id: u.id, email, token: sha256(code), expires_at: expires });
+        if (insErr) throw insErr;
+        const r = await sendOtpEmail(email, code);
+        if (!IS_PROD && !r.sent) devCode = code; // dev only, tak pernah di produksi
+      }
+    } catch (e) { console.error("reset/request:", e && e.message); }
+    const payload = { ok: true };
+    if (devCode) payload.devCode = devCode;
+    return res.json(payload);
   } catch (e) {
-    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+    return res.status(500).json({ error: "Gagal mengirim kode reset. Coba lagi." });
   }
 });
-app.post("/api/fitco-reset", async (req, res) => {
+app.post("/api/reset/confirm", async (req, res) => {
   try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
     const email = String((req.body && req.body.email) || "").trim().toLowerCase();
     const otp = String((req.body && req.body.otp) || "").trim();
     const password = String((req.body && req.body.password) || "");
     if (!email || !otp || !password) return res.status(400).json({ error: "Email, kode & password wajib diisi." });
     if (password.length < 8) return res.status(400).json({ error: "Password minimal 8 karakter." });
-    const r = await fetch(FITCO_API + "/api/v1/auth/password/reset", {
-      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ email, otp, password, password_confirmation: password }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(r.status === 422 ? 400 : r.status).json({ error: (j && (j.message || j.error)) || "Kode salah atau kedaluwarsa." });
+    const u = await findAuthUserByEmail(email);
+    // Jangan bocorkan apakah email terdaftar — pesan sama dengan kode salah.
+    if (!u || !u.id) return res.status(400).json({ error: "Kode salah atau kedaluwarsa." });
+    const { data: rows, error } = await admin.from("email_verification_tokens")
+      .select("id").eq("auth_user_id", u.id).eq("token", sha256(otp))
+      .is("consumed_at", null).gt("expires_at", new Date().toISOString()).limit(1);
+    if (error) throw error;
+    if (!rows || !rows.length) return res.status(400).json({ error: "Kode salah atau kedaluwarsa." });
+    // Set password Supabase (🔴 nilai password JANGAN pernah di-log).
+    const md = Object.assign({}, u.user_metadata || {}, { has_pw: true });
+    const { error: upErr } = await admin.auth.admin.updateUserById(u.id, { password, user_metadata: md });
+    if (upErr) throw upErr;
+    await admin.from("email_verification_tokens").update({ consumed_at: new Date().toISOString() }).eq("id", rows[0].id);
     return res.json({ ok: true });
   } catch (e) {
-    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+    console.error("reset/confirm:", e && e.message);
+    return res.status(500).json({ error: "Gagal menyimpan password baru. Coba lagi." });
   }
 });
 

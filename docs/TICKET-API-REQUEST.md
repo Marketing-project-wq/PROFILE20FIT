@@ -1,7 +1,8 @@
 # Permintaan teknis ke tim ticket.20fit.id
 
-> Dibuat 2026-09-08. Semua angka di bawah adalah **hasil pengukuran**, bukan
-> perkiraan. Kalau ada yang keliru, tolong dikoreksi — kami akan ukur ulang.
+> Dibuat 2026-09-08 · diperbarui 2026-09-09 (OTP dihapus dari my.20fit — lihat §4b).
+> Semua angka di bawah adalah **hasil pengukuran**, bukan perkiraan. Kalau ada yang
+> keliru, tolong dikoreksi — kami akan ukur ulang.
 
 ## 1. Konteks
 
@@ -82,6 +83,14 @@ Jadi menghapus OTP tanpa penggantinya berarti pembeli tamu tidak melihat apa pun
 persis yang membuat permintaan di §5 menjadi mendesak: **hanya kalian yang bisa membuat
 pengalaman "langsung" itu mungkin.**
 
+> **Update 2026-09-09:** OTP kini **sudah kami hapus sepenuhnya** dari my.20fit.id
+> (endpoint `/api/tickets/verify/*` dan seluruh UI-nya dibuang) atas keputusan pemilik.
+> Halaman "Tiket Saya" sekarang: (a) untuk email yang **dikenal** penerbit → tampil tiket
+> lengkap + QR lewat jalur partner server-ke-server, **tanpa OTP**; (b) untuk email yang
+> belum dikenal → tampil pembelian dari **arsip** (nama event, jenis, tanggal, "LUNAS")
+> **tanpa QR**, dengan tautan ke ticket.20fit.id. Detail non-kredensial jujur apa adanya;
+> QR-nya menunggu §5. Artinya celah di atas kini **live di produksi** — makin mendesak.
+
 Satu pertanyaan tambahan yang murah untuk kalian jawab, dan bisa langsung menyelesaikan
 semuanya tanpa endpoint baru: **kalau seorang pembeli tamu kemudian mendaftar akun di
 ticket.20fit.id dengan email yang sama, apakah pesanan tamunya otomatis tertaut ke akun
@@ -93,32 +102,31 @@ cara menautkannya (mis. saat pendaftaran, atau lewat endpoint partner)?
 
 1. **Webhook pembelian.** POST ke endpoint kami saat pesanan lunas, ditandatangani
    (HMAC header, secret dibagi di luar jalur). Payload minimal: `orderId`, `status`,
-   `event` (id/slug), daftar tipe tiket + kode tiket, dan `buyer.email` (+ `buyer.phone`
-   kalau ada). Ini yang membuat tiket muncul **otomatis**.
-2. **Endpoint partner baca pesanan per email.** Mis. `GET /partner/orders?email=...`
-   dengan APP KEY (server-to-server, bukan dari browser). Ini cukup untuk menarik
-   on-demand tanpa webhook.
-3. **`userToken` berumur 900 detik — mohon diperpanjang, atau beri refresh token.**
-   **Terukur:** `POST /otp/verify` menerbitkan `userToken` dengan `expiresInSec` = **900**.
-   Token nyata yang terbit 2026-09-08 14:04 kami kirim ulang ke `GET /me/tickets` ~16 jam
-   kemudian dan dibalas **`401 user_unauthorized`** — jadi umur itu benar-benar ditegakkan.
-
-   Akibatnya untuk pembeli **tamu**: 15 menit setelah verifikasi, tiketnya tidak bisa
-   dibaca lagi, dan satu-satunya cara memperbaruinya adalah **meminta user memasukkan kode
-   OTP lagi**. Kami tidak punya jalan lain — tidak ada endpoint refresh di API ini, dan
-   `/partner/user-token` menolak mereka (404) karena mereka tidak punya akun.
-   Untuk pemilik akun tidak ada masalah: kami bisa mint ulang diam-diam lewat
-   `/partner/user-token`.
-
-   Yang kami minta, salah satu: **TTL lebih panjang** untuk token hasil OTP, **atau**
-   sebuah **refresh token** yang bisa dipakai server kami tanpa melibatkan user lagi.
-
-4. **Kalau (1)–(3) belum bisa — minimal jawab ini:**
+   `event` (id/slug + nama + tanggal + cover), daftar tiket (tiap tiket: `code`,
+   `ticketType`, `holderName`, `status` gerbang), `buyer.email` (+ `buyer.phone` kalau ada),
+   **dan QR tiap tiket** (payload atau URL gambar). Ini yang membuat tiket + QR muncul
+   **otomatis, tanpa OTP**.
+2. **Endpoint partner baca tiket + QR per email.** Mis.
+   `GET /partner/tickets?email=...` dan `GET /partner/tickets/{code}/qr?email=...` dengan
+   APP KEY (server-ke-server, bukan dari browser) — mengembalikan tiket **dan QR** untuk
+   email itu **tanpa** `X-Embed-User-Token`/OTP. Ini penukar langsung `/me/tickets` +
+   `/tickets/{code}/qr` yang sekarang menuntut token per-user. Cukup untuk menarik on-demand
+   tanpa webhook. (Keamanan: email selalu dari sesi login user di sisi kami — lihat §7.)
+3. **Kalau (1) dan (2) belum bisa — minimal jawab ini:**
    - Apakah 404 `user_not_found` di `/partner/user-token` memang berarti "email belum
      punya akun"?
-   - Adakah cara menerbitkan `userToken` untuk pembeli **tamu** (punya tiket, tanpa akun)
-     selain OTP?
+   - Adakah cara menerbitkan `userToken` untuk pembeli **tamu** (punya tiket, tanpa akun)?
    - Adakah cara mencari pembeli lewat **nomor HP**, bukan email?
+
+**Catatan terukur (bukan permintaan).** `userToken` berumur **900 detik** — `/otp/verify`
+mengembalikan `expiresInSec` = 900, dan kami sudah membuktikan umur itu ditegakkan: token
+nyata yang terbit 2026-09-08 14:04 kami kirim ulang ke `GET /me/tickets` ~16 jam kemudian
+dan dibalas **`401 user_unauthorized`**. Karena itu kami **tidak menyimpan** token — tiap
+permintaan kami mint ulang lewat `/partner/user-token`, dan itu aman untuk email yang
+dikenal penerbit. Untuk email yang **tidak** dikenal, tidak ada jalur mint sama sekali;
+itulah yang membuat §5.1/§5.2 mendesak. (Pertanyaan lama "apakah `/otp/verify` menerbitkan
+token untuk email tanpa akun" **sudah terjawab: ya** — kami mengukurnya sendiri. Jalur
+OTP-nya sudah kami hapus dari my.20fit.id, lihat §4b, jadi ini fakta, bukan permintaan.)
 
 ## 6. Yang TIDAK kami minta
 

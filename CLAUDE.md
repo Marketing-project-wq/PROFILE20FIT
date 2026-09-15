@@ -3,7 +3,7 @@
 Aturan tetap di bawah ini WAJIB diikuti setiap sesi. Ditulis dari instruksi
 pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 
-> **Pembaruan dokumen terakhir:** 2026-09-09 · **Commit staging:** `ee20c56`
+> **Pembaruan dokumen terakhir:** 2026-09-15 · **Commit staging:** `50b5f8f` · **Production:** `5a406ec`
 > Claude Code memuat file ini otomatis di awal sesi. Baca ini dulu, lalu buka
 > dokumen pecahan sesuai kebutuhan.
 
@@ -156,7 +156,7 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 
 ## C. Route / halaman (ringkas; detail & API di `docs/CODEBASE-MAP.md`)
 **Publik/auth:** `/` (→`/login`), `/login`, `/code-login`, `/verify`, `/reset-password`, `/setpassword`, `/onboarding`, `/unsubscribe`, `/privacy`.
-**Member (perlu login):** `/dashboard` (home 6-tile), `/calories`, `/progress`, `/profile`, `/medical`, `/diet`, `/classes` (Book Class, toggle Arena/Gym; `?venue=clinic`=Book Recovery), `/membership` (carousel — **data belum tersambung**), `/event` (**placeholder "Upcoming"**), `/payment/pending|success|failed`.
+**Member (perlu login):** `/dashboard` (home 6-tile), `/calories`, `/progress`, `/profile`, `/medical`, `/diet`, `/classes` (Book Class, toggle Arena/Gym; `?venue=clinic`=Book Recovery), `/membership` (carousel — **data belum tersambung**), `/event` (**Ticket Wallet**: tab "Tiket Saya" + "Upcoming"; widget bersama `js/ticket-wallet.js`, dipakai juga di `/dashboard`), `/payment/pending|success|failed`.
 **Admin:** `/admin`(→`/admin-dashboard`), `/admin-dashboard` (lama), `/admin-v2` (redesign; staging default), `/admin-email`, `/corp-dashboard`.
 **API:** `/api/*` (~122 route) — user (`/api/scan/*`, `/api/classes/schedule`, `/api/arena/history`, `/api/membership/packages`, `/api/coaches`, `/api/doctors`, `/api/physiotherapists`, `/api/photo/*`, `/api/weather`, `/api/aqi`, dll), admin (`/api/admin/*` ~53, semua lewat `requireAdmin`), corporate (`/api/corp/*`), cron (`/api/cron/*`, dilindungi `CRON_SECRET`), webhook (`/api/webhooks/resend`).
 Tile **News** = eksternal `media.20fit.id` (same-tab, tanpa halaman).
@@ -217,7 +217,7 @@ Daftar lengkap nama ada di `.env.example` (contoh, tanpa nilai asli).
 ## H. Status ringkas
 Fitur inti (auth, onboarding, dashboard, calorie, payment, email, admin, voucher, banner,
 corporate, jadwal) **jalan**. Roster home (coach / dokter / fisioterapis) **terisi & tampil**.
-**Setengah jadi:** carousel Membership (nunggu endpoint), halaman Event (nunggu API), CMS admin
+**Setengah jadi:** carousel Membership (nunggu endpoint), CMS admin
 fisioterapis (belum ada seksinya di `/admin-v2` — baru bisa lewat SQL).
 **Detail + utang teknis + keputusan → `docs/STATUS.md`.**
 
@@ -235,7 +235,7 @@ fisioterapis (belum ada seksinya di `/admin-v2` — baru bisa lewat SQL).
 
 ## J. Langkah berikutnya (urut prioritas)
 1. **Membership berdata:** konfirmasi path katalog upstream + set env `MEMBERSHIP_CATALOG_PATH`, finalkan mapper `/api/membership/packages`.
-2. **Event:** bangun API `/api/events` + sambungkan `event.html` (`EventData.fetch`).
+2. **Tiket — QR untuk pembeli yang emailnya belum dikenal penerbit.** Halaman Event & Ticket Wallet sudah tersambung (`/api/events/upcoming` + `/api/tickets/mine`), tapi pembeli yang tak dikenal `ticket.20fit.id` hanya dapat arsip **tanpa QR**. Hanya tim ticket.20fit.id yang bisa menutup ini — permintaannya di `docs/TICKET-API-REQUEST.md` §5.
 3. **admin-v2 #293:** putuskan merge (sessionStorage master key + banner login).
 4. **Verifikasi migration 013** sudah dijalankan di staging & produksi.
 5. **Refresh `docs/CODEBASE-MAP.md`** yang stale (email consent, ref baris server.js).

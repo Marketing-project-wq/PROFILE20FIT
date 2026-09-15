@@ -203,6 +203,25 @@
     return data;
   }
 
+  // ---------- LOGIN GOOGLE via OAuth redirect Supabase (TANPA GOOGLE_CLIENT_ID) ----------
+  // Dipakai sebagai jalur tombol Google kalau GIS tak tersedia (GOOGLE_CLIENT_ID belum
+  // di-set / origin ditolak). Ini memakai Google provider milik SUPABASE (client-nya
+  // dikonfigurasi di dashboard Supabase, bukan env kita), jadi tombol tetap jalan tanpa
+  // konfigurasi env di sisi kita. Alur redirect: browser → Google → balik ke /login;
+  // sesi di-seat otomatis (detectSessionInUrl) lalu login.html memanggil routeAfterAuth.
+  // Akun dicocokkan native oleh Supabase (google sub / email) → user LAMA masuk ke baris
+  // yang SAMA, bukan akun baru. Kalau provider belum aktif, Supabase balas error → tombol
+  // menampilkan pesan "Google tidak tersedia" dan user tetap bisa pakai email/password.
+  async function googleOAuth() {
+    await ready;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: location.origin + "/login" },
+    });
+    if (error) throw new Error(_t("Google sign-in isn’t available right now.", "Login Google sedang tidak tersedia."));
+    // Sukses = browser sedang redirect ke Google; tak ada nilai balik yang berarti.
+  }
+
   // ---------- SSO SEAMLESS: login pakai access_token 20FIT (tanpa password) ----------
   // Dipakai kalau app utama 20FIT mengoper token-nya ke my.20fit.id.
   async function tokenLogin(fitcoToken) {
@@ -695,6 +714,7 @@
     fitcoLogin,
     fitcoGoogleLogin,
     googleSignIn,
+    googleOAuth,
     googleClientId: function () { return cfgGoogleClientId; },
     fitcoRegister,
     tokenLogin,

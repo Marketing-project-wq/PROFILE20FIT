@@ -63,7 +63,7 @@ Canonical URLs are extensionless. Special routes: `/payment/pending`+`/payment/s
 | `login.html` | `/login` | Auth entry: 20FIT(FITCO) login/register, Supabase pw fallback, Google, SSO-token. | `/api/fitco-login\|register\|google-login\|token-login`, `/api/config` |
 | `code-login.html` | `/code-login` | Passwordless OTP login (existing accounts). | edge `my20fit-otp`, Supabase `verifyOtp` |
 | `verify.html` | `/verify` | Verify 20FIT email via OTP before onboarding. | `/api/fitco-verify-email`, `/api/fitco-resend-verify-email` |
-| `reset-password.html` | `/reset-password` | Forgot/reset password via 20FIT API. | `/api/fitco-forgot`, `/api/fitco-reset` |
+| `reset-password.html` | `/reset-password` | Web forgot/reset: OTP email → set **Supabase** web password (self-contained, not FITCO). | `/api/reset/request`, `/api/reset/confirm` |
 | `setpassword.html` | `/setpassword` | Set a Supabase web password (post-onboarding). | `Auth.setWebPassword` |
 | `onboarding.html` | `/onboarding` | Collect profile (gender/dob/height/weight/goal/conditions) + **email consent**. | `Auth.saveOnboarding` → `my20fit_profile`, `/api/comms/consent` |
 | `dashboard.html` | `/dashboard` | Home hub: weather/AQI, recommended workouts, breathing, fasting, cycle, achievements, Photo progress, home-prefs sync. | `/api/weather`, `/api/aqi`, `/api/photo/*` |
@@ -77,6 +77,8 @@ Canonical URLs are extensionless. Special routes: `/payment/pending`+`/payment/s
 | `payment-pending.html` | `/payment/pending`,`/success` | Post-checkout; polls until credits confirmed. | `/api/payment/status` |
 | `payment-failed.html` | `/payment/failed` | Failure landing → retry `/calories`. | — |
 | `privacy.html` | `/privacy` | Static privacy policy. | — |
+
+> **Forgot-password split:** the `reset-password.html` row is the **web** flow (Supabase pw via `/api/reset/*`). The **mobile app** (5.1.2+) uses API-only routes `/api/fitco-forgot` + `/api/fitco-reset` (→ FITCO `/api/v1/auth/password/{forgot,reset}`; no web page). Intentional split — web resets the Supabase pw, app resets the FITCO pw.
 
 ### Shared JS modules (`js/`)
 `auth.js` (Auth: Supabase client, FITCO login, OTP, profile CRUD, scan quota, routing; `Auth.ready` is a Promise, `Auth.token()`), `i18n.js` (EN/ID, `window.L`, lang toggle, `localStorage.lang`), `nav.js` (sidebar + bottom-nav + Scan FAB), `recipes.js` (recipe dataset + food-photo resolver), `nutrition.js` (healthy-food composer), `fasting.js` (IF styles/timer), `deals.js` (scan-credit top-up flow), `tour.js` (per-page walkthroughs), `cycle.js` (menstrual phase tips), `achievements.js` (badges), `orders.js` (per-device order history — **not authoritative**), `pw-toggle.js` (password show/hide), `meta-pixel.js` (Pixel + CAPI dedup).
