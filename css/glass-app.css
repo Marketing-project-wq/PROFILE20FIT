@@ -101,7 +101,7 @@ body::before,body::after{content:none !important;display:none !important}
    TANPA backdrop-filter: kartu itu BANYAK (list panjang), blur asli di semua = lag.
    Kaca "disimulasi": gradient translucent + garis highlight (di box-shadow inset) +
    hairline border. Permukaan cukup pekat (~.6) supaya teks tetap terbaca jelas. */
-.card,.panel,.wcard{
+.card,.panel{
   background:linear-gradient(155deg,var(--glass),var(--glass-2)) !important;
   border:1px solid var(--glass-hair) !important;
   -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
@@ -113,12 +113,11 @@ body::before,body::after{content:none !important;display:none !important}
 
 /* ---- 5. Typography: system fonts everywhere (no Barlow / Mono / Manrope)
    Override the hard-coded display/data fonts a few widgets still request. */
-.big,.hello,.headline,.sec,.hk,.m-title,.aqinum,.ift,.dtogo b,.m-time,.m-sub,
-.wx-temp,.chipm .cv,.chipm .cl,.pacer,.pacer-lbl,.tempo-tag,.m-steps li::before,
-.m-timerbtn,.aqi-line .alab,.aqi-line .anum,.aqi-line .alvl{
+.big,.hello,.headline,.sec,.hk,.m-title,.aqinum,.ift,.dtogo b,.m-sub,
+.wx-temp,.pacer,.aqi-line .alab,.aqi-line .anum,.aqi-line .alvl{
   font-family:var(--font-sys) !important;
 }
-.ift,.dtogo b,.m-time{font-variant-numeric:tabular-nums}
+.ift,.dtogo b{font-variant-numeric:tabular-nums}
 
 /* ---- 5b. v4 is all sentence-case: soften the leftover UPPERCASE labels ---- */
 .hk{color:var(--muted) !important;text-transform:none !important;letter-spacing:0 !important;font-weight:600 !important;font-size:13px !important}
@@ -127,45 +126,44 @@ body::before,body::after{content:none !important;display:none !important}
 /* keep .vital .lbl (BMI/WEIGHT/HEIGHT) uppercase — matches v4 */
 
 /* ---- 6. BUTTONS — flat v4 (system font, sentence case, no glow spread) --- */
-.btn,.bookbtn,.cta,.book,.bookchip,.startbtn,.mini-btn,.btn2,.hbtn,.cbbtn,.sbtn,.fbtn,.mbtn,.gbtn,.scanbtn,
-.m-timerbtn,.wbtn,button[type="submit"],input[type="submit"],input[type="button"]{
+.btn,.bookbtn,.cta,.book,.bookchip,.btn2,.cbbtn,.sbtn,.gbtn,.scanbtn,
+button[type="submit"],input[type="submit"],input[type="button"]{
   font-family:var(--font-sys) !important;font-weight:750 !important;
   text-transform:none !important;letter-spacing:0 !important;
   border-radius:var(--radius) !important;transition:.16s;
 }
-.btn:active,.bookbtn:active,.cta:active,.book:active,.startbtn:active,.btn2:active,
-.hbtn:active,.cbbtn:active,.mbtn:active,.gbtn:active,.scanbtn:active,.m-timerbtn:active,
+.btn:active,.bookbtn:active,.cta:active,.book:active,.btn2:active,
+.cbbtn:active,.gbtn:active,.scanbtn:active,
 button[type="submit"]:active,input[type="submit"]:active{transform:scale(.98)}
 
 /* PRIMARY / CTA / submit -> solid red, soft v4 shadow */
-.btn:not(.dark):not(.ghost),.bookbtn:not(.ghost):not(.alt),.cta,.book,.bookchip,.cbbtn,.fbtn,
-.hbtn.solid,.startbtn:not(.running),.m-timerbtn:not(.run),button[type="submit"]:not(.dark):not(.ghost){
+.btn:not(.dark):not(.ghost),.bookbtn:not(.ghost):not(.alt),.cta,.book,.bookchip,.cbbtn,button[type="submit"]:not(.dark):not(.ghost){
   background:var(--red) !important;color:#fff !important;border:0 !important;
   box-shadow:0 8px 20px color-mix(in srgb,var(--red) 26%,transparent) !important;
 }
 /* SECONDARY / ghost / running -> flat grey chip */
-.btn.dark,.btn.ghost,.bookbtn.ghost,.bookbtn.alt,.hbtn.ghost,.mini-btn,.startbtn.running,.m-timerbtn.run,.gbtn{
+.btn.dark,.btn.ghost,.bookbtn.ghost,.bookbtn.alt,.gbtn{
   background:var(--inp) !important;border:0 !important;color:var(--txt) !important;
   box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;
 }
 /* Dark "ink" buttons (upload, email-code, scan) */
-.btn2,.mbtn,.scanbtn{background:var(--dark) !important;color:var(--bg) !important;border:0 !important;box-shadow:none !important}
+.btn2,.scanbtn{background:var(--dark) !important;color:var(--bg) !important;border:0 !important;box-shadow:none !important}
 /* DARK MODE: --dark & --bg are both near-black, so the ink buttons above would be
    black-on-black (invisible). Give them a visible elevated surface + light text. */
-html:not(.theme-light) .btn2,html:not(.theme-light) .mbtn,html:not(.theme-light) .scanbtn,
-html[data-theme="dark"] .btn2,html[data-theme="dark"] .mbtn,html[data-theme="dark"] .scanbtn{
+html:not(.theme-light) .btn2,html:not(.theme-light) .scanbtn,
+html[data-theme="dark"] .btn2,html[data-theme="dark"] .scanbtn{
   background:var(--inp) !important;color:var(--txt) !important;border:1px solid var(--line) !important}
 
 /* Focus ring (a11y) + disabled */
 .btn:focus-visible,.bookbtn:focus-visible,.cta:focus-visible,.book:focus-visible,
-.startbtn:focus-visible,.btn2:focus-visible,.hbtn:focus-visible,.cbbtn:focus-visible,.sbtn:focus-visible,
-.mbtn:focus-visible,.gbtn:focus-visible,.m-timerbtn:focus-visible,.seg button:focus-visible,.chip:focus-visible,
+.btn2:focus-visible,.cbbtn:focus-visible,.sbtn:focus-visible,.gbtn:focus-visible,
+.seg button:focus-visible,.chip:focus-visible,
 button:focus-visible,input[type="submit"]:focus-visible{outline:2px solid var(--red);outline-offset:2px}
-.btn:disabled,.bookbtn:disabled,.cta:disabled,.startbtn:disabled,.btn2:disabled,.hbtn:disabled,
+.btn:disabled,.bookbtn:disabled,.cta:disabled,.btn2:disabled,
 .sbtn:disabled,.gbtn:disabled,button:disabled,input:disabled{opacity:.55;cursor:not-allowed}
 
 /* ---- 7. Inputs / segmented / chips as flat ------------------------------ */
-input,select,textarea,.tpick input,.search{
+input,select,textarea,.search{
   background:var(--inp) !important;border:1px solid var(--line) !important;
   color:var(--txt);
 }
@@ -174,8 +172,8 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
   background:var(--inp) !important;border:0 !important;
   -webkit-backdrop-filter:none !important;backdrop-filter:none !important;
 }
-.seg button.active,.chip.on,.chip2.on{background:var(--card) !important;color:var(--ink) !important;box-shadow:0 2px 6px rgba(0,0,0,.07)}
-[data-theme="dark"] .seg button.active,[data-theme="dark"] .chip.on,[data-theme="dark"] .chip2.on{background:var(--inp) !important;color:var(--ink) !important}
+.seg button.active,.chip.on{background:var(--card) !important;color:var(--ink) !important;box-shadow:0 2px 6px rgba(0,0,0,.07)}
+[data-theme="dark"] .seg button.active,[data-theme="dark"] .chip.on{background:var(--inp) !important;color:var(--ink) !important}
 
 /* ---- 7b. PILL MENU BUTTONS — bentuk oval memanjang yang KONSISTEN app-wide -----
    Semua chip/segment/menu-button (dashboard, diet, progress, calories, profile,
@@ -183,7 +181,7 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
    (999px), tinggi seragam 40px (lebih lebar dari tinggi = oval memanjang),
    padding horizontal sama, dan label 1 baris (nowrap) dengan ellipsis kalau
    kepanjangan — jadi label panjang TIDAK merusak bentuk pil / meluber. */
-.chip,.chip2,.seg button,.fit-seg button,.trk-cust{
+.chip,.seg button,.trk-cust{
   border-radius:999px !important;
   min-height:40px !important;
   padding:0 16px !important;
@@ -192,7 +190,7 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
   line-height:1.1;
 }
 /* Jarak antar-pill & dari tepi konsisten (baris chip yang wrap / scroll). */
-.chips,.chips2,.filters{gap:8px !important}
+.chips,.filters{gap:8px !important}
 
 /* ---- 8. Shared nav (nav.js) + floating toggles (i18n.js) -> flat --------- */
 .navside{
@@ -219,11 +217,5 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
 
 /* ---- 9. Toast ----------------------------------------------------------- */
 .toast{background:var(--ink) !important;color:var(--bg) !important;border-radius:var(--radius) !important}
-
-/* ---- 10. Ikon 3D (dipakai nav mobile/sidebar) — ukuran seragam via object-fit ---- */
-/* Tile home menu kini pakai ikon SVG vektor duotone (lihat dashboard.html .s2-ic svg),
-   bukan PNG lagi — aturan .s2-ic3d/img tile dihapus. .ico3d di bawah masih dipakai nav. */
-.ico3d{display:inline-flex;align-items:center;justify-content:center;line-height:0}
-.ico3d img{display:block;object-fit:contain}
 
 @media (prefers-reduced-motion:reduce){ body::before,body::after{animation:none !important} }
