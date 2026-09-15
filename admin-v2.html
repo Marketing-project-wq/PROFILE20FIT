@@ -36,7 +36,7 @@
       <div class="adm-navgroup" data-i18n="Manage">Kelola</div>
       <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
       <button class="adm-navitem" data-nav="voucher"><span data-i18n="Voucher">Voucher</span></button>
-      <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span></button>
+      <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span><span class="adm-tag adm-tag--pending" id="navMenuBadge" hidden></span></button>
       <button class="adm-navitem" data-nav="menustats"><span data-i18n="Menu interest">Minat menu</span></button>
       <button class="adm-navitem" data-nav="delivery"><span data-i18n="Eat Now / delivery">Eat Now / pesan-antar</span></button>
       <button class="adm-navitem" data-nav="articles"><span data-i18n="Articles">Artikel</span></button>
@@ -1581,6 +1581,18 @@
     if(s==="rejected") return '<span class="adm-tag adm-tag--fail">'+L("Rejected","Ditolak")+'</span>';
     return '<span class="adm-tag adm-tag--pending">'+L("Pending","Menunggu")+'</span>';
   }
+  // Badge nav "Menu diet": jumlah submission MENUNGGU review. Dipanggil saat boot &
+  // tiap selesai loadMenu (approve/reject memanggil loadMenu lagi). Diam kalau gagal —
+  // badge cuma bantu, jangan ganggu dashboard.
+  async function refreshMenuPendingBadge(){
+    var badge=document.getElementById("navMenuBadge"); if(!badge) return;
+    try{
+      var j=await adminFetch("/api/admin/menu?status=pending").then(function(r){return r.json();});
+      var n=(j&&Array.isArray(j.menus))?j.menus.length:0;
+      if(n>0){ badge.hidden=false; badge.textContent=String(n); }
+      else { badge.hidden=true; badge.textContent=""; }
+    }catch(e){}
+  }
   async function loadMenu(){
     var tb=document.getElementById("mnRows"); if(!tb) return;
     var qs="/api/admin/menu"+(MN_FILTER!=="all"?("?status="+MN_FILTER):"");
@@ -1600,6 +1612,7 @@
       }).join("");
       if(MN_SEL){ var cur=MN_CACHE.filter(function(x){return x.id===MN_SEL;})[0]; if(cur) mnRenderDetail(cur); }
     }catch(e){ tb.innerHTML='<tr><td colspan="5" class="adm-note">'+esc(String(e.message||e))+'</td></tr>'; }
+    refreshMenuPendingBadge();
   }
   function mnList(v){ if(v==null) return ""; if(Array.isArray(v)) return v; try{ var p=JSON.parse(v); return Array.isArray(p)?p:String(v); }catch(e){ return String(v); } }
   function mnItems(v){
@@ -2545,6 +2558,53 @@
   }
 
   // ---------- CMS: Artikel in-house (my20fit_recipe_article) ----------
+  // Renderer Markdown MINIMAL & AMAN untuk PRATINJAU editor: escape HTML dulu, link/gambar
+  // http(s) saja. Subset SAMA dengan recepie.20fit (src/lib/markdown.ts) supaya pratinjau di
+  // CMS = hasil yang tayang. Bukan Markdown penuh — cukup heading, bold, italic, list, kutipan,
+  // link, gambar, paragraf.
+  function artEscHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function artSafeUrl(u){ return /^https?:\/\//i.test(u)?u:null; }
+  function artInlineMd(s){
+    var out=artEscHtml(s);
+    out=out.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g,function(_m,alt,url){ var safe=artSafeUrl(url); return safe?'<img src="'+safe+'" alt="'+artEscHtml(alt)+'" style="max-width:100%;border-radius:10px;margin:10px 0">':""; });
+    out=out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,function(_m,text,url){ var safe=artSafeUrl(url); return safe?'<a href="'+safe+'" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:underline">'+text+'</a>':text; });
+    out=out.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+    out=out.replace(/\*([^*]+)\*/g,"<em>$1</em>");
+    return out;
+  }
+  function artRenderMarkdown(md){
+    var lines=String(md||"").replace(/\r\n/g,"\n").split("\n"), html=[], inList=false;
+    function closeList(){ if(inList){ html.push("</ul>"); inList=false; } }
+    for(var i=0;i<lines.length;i++){
+      var line=lines[i].replace(/\s+$/,"");
+      if(/^###\s+/.test(line)){ closeList(); html.push('<h3 style="margin:16px 0 6px;font-size:16px;font-weight:700;color:var(--ink)">'+artInlineMd(line.replace(/^###\s+/,""))+'</h3>'); }
+      else if(/^##\s+/.test(line)){ closeList(); html.push('<h2 style="margin:20px 0 8px;font-size:19px;font-weight:800;color:var(--ink)">'+artInlineMd(line.replace(/^##\s+/,""))+'</h2>'); }
+      else if(/^#\s+/.test(line)){ closeList(); html.push('<h2 style="margin:20px 0 8px;font-size:22px;font-weight:800;color:var(--ink)">'+artInlineMd(line.replace(/^#\s+/,""))+'</h2>'); }
+      else if(/^>\s?/.test(line)){ closeList(); html.push('<blockquote style="margin:12px 0;border-left:3px solid var(--accent);background:var(--surface);padding:8px 12px;font-style:italic;color:var(--ink-2)">'+artInlineMd(line.replace(/^>\s?/,""))+'</blockquote>'); }
+      else if(/^[-*]\s+/.test(line)){ if(!inList){ html.push('<ul style="margin:10px 0;padding-left:20px;color:var(--ink)">'); inList=true; } html.push('<li style="margin:4px 0;line-height:1.6">'+artInlineMd(line.replace(/^[-*]\s+/,""))+'</li>'); }
+      else if(line.trim()===""){ closeList(); }
+      else { closeList(); html.push('<p style="margin:10px 0;line-height:1.7;color:var(--ink)">'+artInlineMd(line)+'</p>'); }
+    }
+    closeList(); return html.join("\n");
+  }
+  // Statistik baca — rumus SAMA PERSIS dgn server (computeReadMinutes, ~200 kata/mnt), plus
+  // rasio bullet untuk ingatkan standar "paragraf, bukan semua bullet; 5–10 menit baca".
+  function artReadStats(md){
+    var words=String(md||"").replace(/!\[[^\]]*\]\([^)]*\)/g," ").replace(/\]\([^)]*\)/g,"] ").replace(/[#*_>`~-]/g," ").trim().split(/\s+/).filter(Boolean).length;
+    var mins=Math.max(1,Math.round(words/200));
+    var nonEmpty=String(md||"").split("\n").filter(function(l){return l.trim()!=="";});
+    var bullets=nonEmpty.filter(function(l){return /^\s*[-*]\s+/.test(l);}).length;
+    return { words:words, mins:mins, nonEmpty:nonEmpty.length, bulletRatio:(nonEmpty.length?bullets/nonEmpty.length:0) };
+  }
+  function artStatsHtml(md){
+    var s=artReadStats(md), warn=[];
+    if(s.words>0 && s.mins<5) warn.push(L("a bit short — aim 5–10 min","agak pendek — target 5–10 menit"));
+    if(s.mins>10) warn.push(L("a bit long — aim 5–10 min","agak panjang — target 5–10 menit"));
+    if(s.nonEmpty>=4 && s.bulletRatio>0.6) warn.push(L("mostly bullets — use paragraphs","kebanyakan bullet — pakai paragraf"));
+    var base="≈ "+s.mins+" "+L("min read","menit baca")+" · "+s.words+" "+L("words","kata");
+    if(warn.length) return '<span style="color:var(--accent);font-weight:600">'+base+" — "+warn.join(" · ")+"</span>";
+    return '<span style="color:var(--ink-3)">'+base+(s.words>0?" · "+L("length OK","panjang pas"):"")+"</span>";
+  }
   var ART_RECIPES=[]; // {source, menu_id, name} utk picker link (reuse endpoint delivery)
   async function loadArticles(){
     var box=document.getElementById("artBox"); if(!box) return;
@@ -2592,7 +2652,18 @@
           '<label class="adm-note">'+L("Author","Penulis")+'<input class="adm-input" id="artAuthor" value="'+esc(a.author_name||"")+'"></label>'+
           '<label class="adm-note">'+L("Cover image URL","URL gambar sampul")+'<input class="adm-input" id="artCover" value="'+esc(a.cover_url||"")+'" placeholder="https://…"></label>'+
           '<label class="adm-note">'+L("Excerpt","Ringkasan")+'<textarea class="adm-input" id="artExcerpt" rows="2">'+esc(a.excerpt||"")+'</textarea></label>'+
-          '<label class="adm-note">'+L("Body (Markdown)","Isi (Markdown)")+'<textarea class="adm-input" id="artBody" rows="10">'+esc(a.body_md||"")+'</textarea></label>'+
+          '<div class="adm-note">'+
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'+
+              '<span>'+L("Body (Markdown)","Isi (Markdown)")+'</span>'+
+              '<span style="margin-left:auto;display:inline-flex;gap:2px">'+
+                '<button type="button" class="adm-btn adm-btn--sm artTab" data-artview="write" aria-pressed="true">'+L("Write","Tulis")+'</button>'+
+                '<button type="button" class="adm-btn adm-btn--sm artTab" data-artview="preview" aria-pressed="false">'+L("Preview","Pratinjau")+'</button>'+
+              '</span>'+
+            '</div>'+
+            '<textarea class="adm-input" id="artBody" rows="12">'+esc(a.body_md||"")+'</textarea>'+
+            '<div id="artPreview" style="border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--bg);min-height:120px" hidden></div>'+
+            '<div id="artReadStats" style="margin-top:6px;font-size:12px"></div>'+
+          '</div>'+
           '<div class="adm-note">'+L("Related recipes","Resep terkait")+'<div style="max-height:150px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:4px">'+(recipeChecks||L("(no recipes)","(tak ada resep)"))+'</div></div>'+
           '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
             '<button class="adm-btn adm-btn--primary" id="artSaveDraft">'+L("Save draft","Simpan draf")+'</button>'+
@@ -2607,6 +2678,20 @@
     document.getElementById("artPublish").addEventListener("click",function(){ artSave("published"); });
     document.getElementById("artCancel").addEventListener("click",function(){ ed.innerHTML=""; });
     var del=document.getElementById("artDelete"); if(del) del.addEventListener("click",function(){ artDelete(a.id); });
+    // Pratinjau Markdown + statistik baca live. Pratinjau = renderer AMAN yang sama dgn recepie.
+    (function(){
+      var _body=document.getElementById("artBody"), _prev=document.getElementById("artPreview"), _stats=document.getElementById("artReadStats");
+      if(!_body) return;
+      function upd(){ if(_stats) _stats.innerHTML=artStatsHtml(_body.value); if(_prev && !_prev.hidden) _prev.innerHTML=artRenderMarkdown(_body.value); }
+      _body.addEventListener("input",upd);
+      document.querySelectorAll(".artTab").forEach(function(btn){ btn.addEventListener("click",function(){
+        var v=btn.getAttribute("data-artview");
+        document.querySelectorAll(".artTab").forEach(function(b){ b.setAttribute("aria-pressed",String(b===btn)); });
+        if(v==="preview"){ _prev.innerHTML=artRenderMarkdown(_body.value); _prev.hidden=false; _body.hidden=true; }
+        else { _prev.hidden=true; _body.hidden=false; }
+      }); });
+      upd();
+    })();
     try { ed.scrollIntoView({ behavior:"smooth", block:"start" }); } catch(_e){}
   }
   async function artSave(status){
@@ -2716,7 +2801,7 @@
       CUR.period=b.dataset.period; loadSection(CUR.section);
     });
     CUR.section = new URLSearchParams(location.search).get("section") || "overview";
-    loadRole().then(function(authed){ if(authed){ loadSection(CUR.section); } else { admShowLogin(); } });
+    loadRole().then(function(authed){ if(authed){ loadSection(CUR.section); refreshMenuPendingBadge(); } else { admShowLogin(); } });
     var _alb=document.getElementById("admLoginBtn"); if(_alb) _alb.onclick=admDoLogin;
     var _alp=document.getElementById("admLoginPass"); if(_alp) _alp.addEventListener("keydown",function(e){ if(e.key==="Enter") admDoLogin(); });
     ["vcType","vcValue","vcMin","vcLimit","vcPerUser","vcUntil"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input",vcPreview); });
