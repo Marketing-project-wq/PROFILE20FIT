@@ -80,6 +80,36 @@ browser** akan menuntut pelonggaran RLS yang dipakai bareng recipe.20fit.id — 
 arah **masuk**: `login.html` / `code-login.html` menerima `?next=menu`, lalu mengembalikan user ke
 app menu setelah login.
 
+## 1c. Foto resep: satu resolver untuk my.20fit & recipe.20fit
+
+**Gejala (2026-09-16):** di `/recipe` my.20fit foto kartu tampak abu-abu/pucat, padahal di
+recipe.20fit.id foto yang sama muncul bagus.
+
+**Akar masalah — BUKAN jaringan.** Filenya sehat (diunduh langsung: `beef-burger-v8.png` →
+HTTP 200, 1024×1024, 1519 KB, gambarnya tajam). Penyebabnya CSS: placeholder dirender dengan
+**shorthand** `style="background:linear-gradient(...)"`. Shorthand `background` me-reset
+sub-properti yang tak disebut, jadi `background-size:cover` + `background-position:center` di
+stylesheet **ikut ter-reset** ke `auto` / `0% 0%` — dan karena inline, ia menang atas stylesheet.
+`_setBg()` hanya menyetel `backgroundImage`, sehingga foto 1024×1024 tampil pada ukuran ASLI
+menempel di pojok kiri-atas kotak ~275 px → yang terlihat cuma latar blur foto.
+Terbukti lewat computed style (`background-size=auto` vs `cover`) dan render Chromium headless
+halaman `recipe.html` asli, sebelum vs sesudah.
+
+**Diperbaiki:** `recipe.html` (`.rthumb`, `.pm-hero`) dan `calories.html` (`.mrec-thumb`) memakai
+`background-image:` bukan shorthand; `.mrec-thumb` diberi `background-size:cover` (sebelumnya tak
+punya sama sekali); `_setBg()` di `js/recipe-photos.js` kini menyetel size/position eksplisit.
+
+**Sumber foto DISATUKAN.** Dulu `/api/foodphoto` (my.20fit) dan `/api/menu/photo`
+(recipe.20fit.id) punya logika sendiri-sendiri yang berbeda hasil: `-v8` + Pexels `medium`
+(~350px) + TheMealDB `/small` (~312px) vs `-ai-id` + syarat sisi terpendek ≥1024px. Terukur di
+`my20fit_foodimg`: **120 baris `-ai-id`** tapi hanya **102 baris `-v8`** — 18 resep tak punya foto
+di jalur my.20fit. Sekarang keduanya memanggil satu fungsi `resolveMenuPhoto()`; hasilnya identik
+dan `server.js` berkurang ~49 baris.
+
+**MASIH ADA, di luar cakupan:** `dashboard.html` `paintAva()` memakai pola yang sama
+(`el.style.background = ...` lalu `backgroundImage`), jadi **foto avatar kemungkinan ikut
+kepotong**. `profile.html` aman. Belum disentuh — tanya pemilik dulu.
+
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
 
 - **Tiket user tidak muncul — akar masalahnya DI LUAR repo ini (PR #417).** Tiket **tidak disimpan di Supabase kita**: sapuan `pg_stat_user_tables` menunjukkan tak ada tabel yang menerima pembelian tiket baru, dan `my20fit_orders` berisi **nol** `kind='ticket'`. Tiket hidup di **ticket.20fit.id**, dibaca lewat edge function `ticket-embed`.

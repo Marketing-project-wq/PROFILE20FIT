@@ -7806,91 +7806,13 @@ app.post("/api/menu/open", async (req, res) => {
   } catch (e) { return res.json({ ok: false }); }
 });
 
-// GET /api/foodphoto?id=<menu>&q=<english name> — foto ASLI menu diet (BUKAN generate AI).
-// Sumber utama: Pexels (foto profesional, lisensi bebas komersial) bila PEXELS_API_KEY di-set;
-// kalau belum di-set → fallback TheMealDB (nama cocok). URL Pexels di-cache per menu di
-// my20fit_foodimg (id = "<menu>-px") → STABIL & Pexels dipanggil sekali per menu (hemat kuota).
-// Foto AI DIHENTIKAN: hasil selalu blur/tak akurat (keterbatasan text-to-image). Butuh login.
-app.get("/api/foodphoto", async (req, res) => {
-  try {
-    const user = await getUserFromReq(req);
-    if (!user) return res.json({ ok: false });
-    const id = String(req.query.id || "").slice(0, 80);
-    const q = String(req.query.q || "").slice(0, 120);       // nama deskriptif (buat AI & Pexels)
-    const mdb = String(req.query.mdb || "").slice(0, 60);    // kata kunci pendek (buat TheMealDB)
-    const desc = String(req.query.desc || "").slice(0, 400); // bahan (buat AI biar tahu dish-nya)
-    if (!id) return res.json({ ok: false });
-
-    // 0) GENERATE AI (google/gemini-2.5-flash-image) via edge function — PRIMARY (permintaan owner).
-    //    Prompt v7 (edge): tegas SATU foto landscape 4:3, satu piring, BUKAN kolase. id "-v8" =
-    //    regenerate bersih dgn prompt itu. Key OpenRouter hanya di Supabase secret (bukan di kode).
-    //    Gagal/kosong → Pexels/TheMealDB di bawah. Butuh token user (verify_jwt) → forward Authorization.
-    const auth = req.headers.authorization || "";
-    if (auth && q) {
-      try {
-        const fr = await fetch(SUPABASE_URL + "/functions/v1/my20fit-foodimg", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": auth, "apikey": SUPABASE_ANON_KEY },
-          body: JSON.stringify({ id: id + "-v8", name: q, desc: desc }),
-        });
-        if (fr.ok) {
-          const fj = await fr.json();
-          if (fj && fj.ok && fj.url) return res.json({ ok: true, url: fj.url, source: "ai" });
-        }
-      } catch (_e) {}
-    }
-
-    const cacheId = id + "-px";
-    // 1) cache stabil (Pexels yang sudah pernah resolve) → URL tak berubah tiap load.
-    if (admin) {
-      try {
-        const { data } = await admin.from("my20fit_foodimg").select("url").eq("id", cacheId).limit(1);
-        if (data && data[0] && data[0].url) return res.json({ ok: true, url: data[0].url, cached: true });
-      } catch (_e) {}
-    }
-    // 2) Pexels — foto asli & jelas. Hanya kalau key di-set (owner isi di Railway env).
-    const key = process.env.PEXELS_API_KEY;
-    if (key && q) {
-      try {
-        const pr = await fetch("https://api.pexels.com/v1/search?orientation=landscape&per_page=1&query=" + encodeURIComponent(q),
-          { headers: { Authorization: key } });
-        if (pr.ok) {
-          const pj = await pr.json();
-          const p = pj && pj.photos && pj.photos[0];
-          const url = p && p.src && (p.src.medium || p.src.large || p.src.original);
-          if (url) {
-            if (admin) { try { await admin.from("my20fit_foodimg").upsert({ id: cacheId, url: url }); } catch (_e) {} }
-            return res.json({ ok: true, url: url, source: "pexels" });
-          }
-        }
-      } catch (_e) {}
-    }
-    // 3) fallback TheMealDB — pakai kata kunci PENDEK (mdb, mis. "chicken") supaya foto ASLI
-    //    muncul walau tanpa key Pexels. Foto jelas tapi GENERIK (bukan dish persis). Tidak di-cache
-    //    (biar otomatis upgrade ke Pexels begitu key di-set). Kalau mdb kosong, coba q.
-    const mdbQ = mdb || q;
-    if (mdbQ) {
-      try {
-        const mr = await fetch("https://www.themealdb.com/api/json/v1/1/search.php?s=" + encodeURIComponent(mdbQ));
-        if (mr.ok) {
-          const mj = await mr.json();
-          const m = mj && mj.meals;
-          if (m && m[0] && m[0].strMealThumb) return res.json({ ok: true, url: m[0].strMealThumb + "/small", source: "themealdb" });
-        }
-      } catch (_e) {}
-    }
-    return res.json({ ok: false }); // tak ada foto asli yang cocok → klien pakai placeholder rapi
-  } catch (e) { return res.json({ ok: false }); }
-});
-
-// PUBLIK: foto makanan untuk katalog menu.20fit.id (browse tanpa login). Cermin /api/foodphoto
-// tapi TERBALIK urutan cache-check: AI (langkah 0) SEKARANG diaktifkan di sini juga (permintaan
-// owner, foto masakan bergaya Indonesia), TAPI hanya utk id yang benar2 ada di katalog resmi
-// (loadMenuCatalog) — endpoint ini publik/tanpa login, jadi id sembarangan tidak boleh bisa
-// memicu generate AI berbayar berulang-ulang (biaya + abuse). Tiap id resmi digenerate SEKALI lalu
-// dicache permanen (tabel my20fit_foodimg + Supabase Storage) — lihat my20fit-foodimg. Gagal/tak
-// eligible -> lanjut Pexels -> TheMealDB seperti sebelumnya. Rate limit imgLimiter (lihat isImgPath).
-// ok:false -> klien pakai placeholder emoji.
+// ---------- FOTO MENU: satu resolver dipakai DUA endpoint ----------
+// Dulu /api/foodphoto dan /api/menu/photo punya logika sendiri-sendiri yang hampir sama tapi
+// BEDA hasilnya: /api/foodphoto memakai cache AI "-v8" + Pexels ukuran `medium` (~350px) +
+// TheMealDB "/small" (~312px), sementara /api/menu/photo memakai "-ai-id" + syarat sisi terpendek
+// >=1024px. Akibatnya foto di my.20fit /recipe beda (dan lebih buram) daripada di recipe.20fit.id,
+// dan 18 resep tak punya baris "-v8" sama sekali. Logikanya disatukan di sini supaya kedua produk
+// menampilkan foto yang PERSIS sama (CLAUDE.md §2: satu sumber kebenaran).
 const AI_FOODIMG_TIMEOUT_MS = parseInt(process.env.AI_FOODIMG_TIMEOUT_MS || "40000", 10);
 let _officialMenuIdSet = null;
 function isOfficialMenuId(id) {
@@ -7899,90 +7821,119 @@ function isOfficialMenuId(id) {
   }
   return _officialMenuIdSet.has(id);
 }
+
+// Urutan: cache AI ("-ai-id") -> generate AI -> cache Pexels ("-px") -> Pexels -> TheMealDB.
+// Generate AI HANYA untuk id yang benar-benar ada di katalog resmi: endpoint publik tak boleh
+// bisa dipicu id sembarangan berulang-ulang (biaya + abuse). Balikan {ok:false} -> klien pakai
+// placeholder emoji. Tidak pernah melempar; kegagalan satu sumber lanjut ke sumber berikutnya.
+async function resolveMenuPhoto(id, q, mdb) {
+  if (!id) return { ok: false };
+
+  // 0) AI (google/gemini-2.5-flash-image via edge fn my20fit-foodimg), gaya foto Indonesia.
+  //    Dipanggil dgn kredensial anon server — endpoint publik tak punya token user utk diteruskan.
+  if (isOfficialMenuId(id) && q) {
+    const aiCacheId = id + "-ai-id";
+    if (admin) {
+      try {
+        const { data } = await admin.from("my20fit_foodimg").select("url").eq("id", aiCacheId).limit(1);
+        if (data && data[0] && data[0].url) return { ok: true, url: data[0].url, cached: true, source: "ai" };
+      } catch (_e) {}
+    }
+    // Timeout eksplisit: kalau OpenRouter/Supabase macet, jangan sampai request pengunjung nge-hang.
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), AI_FOODIMG_TIMEOUT_MS);
+    try {
+      const catRec = loadMenuCatalog().find((r) => r && r.id === id);
+      const desc = (catRec && catRec.ing && (catRec.ing.en || catRec.ing.id)) || "";
+      const fr = await fetch(SUPABASE_URL + "/functions/v1/my20fit-foodimg", {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY, apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({ id: aiCacheId, name: q, desc: String(desc).slice(0, 400), indo: true }),
+      });
+      if (fr.ok) {
+        const fj = await fr.json();
+        if (fj && fj.ok && fj.url) return { ok: true, url: fj.url, source: "ai" };
+      }
+    } catch (_e) {
+      // timeout/network error -> lanjut Pexels/TheMealDB di bawah, jangan gagalkan request.
+    } finally {
+      clearTimeout(to);
+    }
+  }
+
+  // 1) cache Pexels yang sudah pernah resolve -> URL tak berubah tiap load.
+  const cacheId = id + "-px";
+  if (admin) {
+    try {
+      const { data } = await admin.from("my20fit_foodimg").select("url").eq("id", cacheId).limit(1);
+      if (data && data[0] && data[0].url) return { ok: true, url: data[0].url, cached: true };
+    } catch (_e) {}
+  }
+
+  // 2) Pexels — hanya kalau key di-set. Sumber wajib >=1024px di sisi terpendek: jangan paksa isi
+  //    foto kecil (lebih baik lanjut ke sumber berikutnya drpd foto buram/kepotong).
+  const key = process.env.PEXELS_API_KEY;
+  if (key && q) {
+    try {
+      const pr = await fetch("https://api.pexels.com/v1/search?orientation=landscape&per_page=1&query=" + encodeURIComponent(q),
+        { headers: { Authorization: key } });
+      if (pr.ok) {
+        const pj = await pr.json();
+        const ph = pj && pj.photos && pj.photos[0];
+        const shortSide = ph ? Math.min(Number(ph.width) || 0, Number(ph.height) || 0) : 0;
+        const url = ph && ph.src && shortSide >= 1024 ? (ph.src.large2x || ph.src.original) : null;
+        if (url) {
+          if (admin) { try { await admin.from("my20fit_foodimg").upsert({ id: cacheId, url: url }); } catch (_e) {} }
+          return { ok: true, url: url, source: "pexels" };
+        }
+      }
+    } catch (_e) {}
+  }
+
+  // 3) TheMealDB — kata kunci PENDEK (mis. "chicken"). TANPA suffix ukuran = varian TERBESAR
+  //    (dulu "/small" ~312px, di bawah standar 1024px kita). Tidak di-cache biar otomatis naik
+  //    ke Pexels/AI begitu tersedia.
+  const mdbQ = mdb || q;
+  if (mdbQ) {
+    try {
+      const mr = await fetch("https://www.themealdb.com/api/json/v1/1/search.php?s=" + encodeURIComponent(mdbQ));
+      if (mr.ok) {
+        const mj = await mr.json();
+        const m = mj && mj.meals;
+        if (m && m[0] && m[0].strMealThumb) return { ok: true, url: m[0].strMealThumb, source: "themealdb" };
+      }
+    } catch (_e) {}
+  }
+  return { ok: false };
+}
+
+// GET /api/foodphoto?id=&q=&mdb= — foto menu untuk halaman member (/recipe, /calories).
+// BUTUH LOGIN (dipakai dari halaman member). Hasilnya identik dengan /api/menu/photo yang dipakai
+// recipe.20fit.id — sengaja, supaya foto di kedua produk sama persis.
+app.get("/api/foodphoto", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.json({ ok: false });
+    const id = String(req.query.id || "").slice(0, 80);
+    const q = String(req.query.q || "").slice(0, 120);
+    const mdb = String(req.query.mdb || "").slice(0, 60);
+    const out = await resolveMenuPhoto(id, q, mdb);
+    if (out.ok) res.set("Cache-Control", "public, max-age=86400");
+    return res.json(out);
+  } catch (e) { return res.json({ ok: false }); }
+});
+
+// PUBLIK: foto makanan untuk katalog recipe.20fit.id (browse tanpa login). Sumber & urutan sama
+// persis dengan /api/foodphoto di atas. Rate limit imgLimiter (lihat isImgPath).
 app.get("/api/menu/photo", async (req, res) => {
   try {
     const id = String(req.query.id || "").slice(0, 80);
-    const q = String(req.query.q || "").slice(0, 120);    // nama deskriptif (Pexels & AI)
-    const mdb = String(req.query.mdb || "").slice(0, 60); // kata kunci pendek (TheMealDB)
-    if (!id) return res.json({ ok: false });
-
-    // 0) GENERATE AI (google/gemini-2.5-flash-image via my20fit-foodimg), gaya foto Indonesia.
-    //    Suffix cache "-ai-id" beda dari "-v8" punya /api/foodphoto (prompt berbeda) supaya tidak
-    //    ikut ke-skip oleh cache lama. Dipanggil dgn kredensial anon server (pola sama dgn
-    //    callAiEdge) krn endpoint ini publik & tak punya token user untuk diteruskan.
-    if (isOfficialMenuId(id) && q) {
-      const aiCacheId = id + "-ai-id";
-      if (admin) {
-        try {
-          const { data } = await admin.from("my20fit_foodimg").select("url").eq("id", aiCacheId).limit(1);
-          if (data && data[0] && data[0].url) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: data[0].url, cached: true, source: "ai" }); }
-        } catch (_e) {}
-      }
-      // Timeout eksplisit (pola sama dgn callAiEdge) — endpoint ini PUBLIK & tanpa login, jadi
-      // kalau OpenRouter/Supabase lambat/macet, jangan sampai request pengunjung anonim nge-hang.
-      const ctrl = new AbortController();
-      const to = setTimeout(() => ctrl.abort(), AI_FOODIMG_TIMEOUT_MS);
-      try {
-        const catRec = loadMenuCatalog().find((r) => r && r.id === id);
-        const desc = catRec && catRec.ing && (catRec.ing.en || catRec.ing.id) || "";
-        const fr = await fetch(SUPABASE_URL + "/functions/v1/my20fit-foodimg", {
-          method: "POST",
-          signal: ctrl.signal,
-          headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY, apikey: SUPABASE_ANON_KEY },
-          body: JSON.stringify({ id: aiCacheId, name: q, desc: String(desc).slice(0, 400), indo: true }),
-        });
-        if (fr.ok) {
-          const fj = await fr.json();
-          if (fj && fj.ok && fj.url) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: fj.url, source: "ai" }); }
-        }
-      } catch (_e) {
-        // timeout/network error -> lanjut fallback Pexels/TheMealDB di bawah, jangan gagalkan request.
-      } finally {
-        clearTimeout(to);
-      }
-    }
-
-    const cacheId = id + "-px";
-    if (admin) {
-      try {
-        const { data } = await admin.from("my20fit_foodimg").select("url").eq("id", cacheId).limit(1);
-        if (data && data[0] && data[0].url) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: data[0].url, cached: true }); }
-      } catch (_e) {}
-    }
-    const key = process.env.PEXELS_API_KEY;
-    if (key && q) {
-      try {
-        const pr = await fetch("https://api.pexels.com/v1/search?orientation=landscape&per_page=1&query=" + encodeURIComponent(q),
-          { headers: { Authorization: key } });
-        if (pr.ok) {
-          const pj = await pr.json();
-          const p = pj && pj.photos && pj.photos[0];
-          // Sumber wajib >=1024px di sisi terpendek — jangan paksa isi foto kecil
-          // (fallback ke sumber berikutnya / placeholder emoji drpd foto buram/kepotong).
-          const shortSide = p ? Math.min(Number(p.width) || 0, Number(p.height) || 0) : 0;
-          const url = p && p.src && shortSide >= 1024 ? (p.src.large2x || p.src.original) : null;
-          if (url) {
-            if (admin) { try { await admin.from("my20fit_foodimg").upsert({ id: cacheId, url: url }); } catch (_e) {} }
-            res.set("Cache-Control", "public, max-age=86400");
-            return res.json({ ok: true, url: url, source: "pexels" });
-          }
-        }
-      } catch (_e) {}
-    }
-    const mdbQ = mdb || q;
-    if (mdbQ) {
-      try {
-        const mr = await fetch("https://www.themealdb.com/api/json/v1/1/search.php?s=" + encodeURIComponent(mdbQ));
-        if (mr.ok) {
-          const mj = await mr.json();
-          const m = mj && mj.meals;
-          // Tanpa suffix ukuran = varian TERBESAR yg disediakan TheMealDB (sebelumnya "/small"
-          // sengaja minta yg terkecil, ~312px — di bawah standar 1024px kita).
-          if (m && m[0] && m[0].strMealThumb) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: m[0].strMealThumb, source: "themealdb" }); }
-        }
-      } catch (_e) {}
-    }
-    return res.json({ ok: false });
+    const q = String(req.query.q || "").slice(0, 120);
+    const mdb = String(req.query.mdb || "").slice(0, 60);
+    const out = await resolveMenuPhoto(id, q, mdb);
+    if (out.ok) res.set("Cache-Control", "public, max-age=86400");
+    return res.json(out);
   } catch (e) { return res.json({ ok: false }); }
 });
 

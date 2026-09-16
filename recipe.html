@@ -289,7 +289,7 @@
       var KC=T("diet_kcal");
       grid.innerHTML=list.map(function(it){
         var thumb=it.photo ? ('<div class="rthumb" style="background-image:url('+JSON.stringify(it.photo)+')"></div>')
-                           : ('<div class="rthumb" id="th_'+it.key+'" style="background:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>');
+                           : ('<div class="rthumb" id="th_'+it.key+'" style="background-image:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>');
         var mac=(it.p!=null)?('<div class="rmac"><span>P '+it.p+'g</span><span>C '+it.c+'g</span><span>F '+it.f+'g</span></div>'):'';
         var meta='~'+(it.kcal!=null?it.kcal+' '+KC:'—')+(it.source==="user"?' · <span class="rc-user">USER</span>':'');
         return '<button class="rcard" onclick="openRecipe(\''+it.key+'\')">'+thumb+
@@ -328,7 +328,7 @@
       trackMenuOpen(it);
       var mac=(it.p!=null)?('<div class="rmac" style="margin:8px 0"><span>'+esc(T("cal_protein"))+' '+it.p+'g</span><span>'+esc(T("cal_carbs"))+' '+it.c+'g</span><span>'+esc(T("cal_fat"))+' '+it.f+'g</span></div>'):'';
       var hero=it.photo ? '<div class="pm-hero" style="background-image:url('+JSON.stringify(it.photo)+')"></div>'
-                        : '<div class="pm-hero" style="background:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>';
+                        : '<div class="pm-hero" style="background-image:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>';
       var tps=(it.types||[]).filter(Boolean);
       var badges=tps.length?('<div class="pm-types">'+tps.map(function(t){return '<span>'+esc(String(t).replace(/-/g," "))+'</span>';}).join("")+'</div>'):'';
       var logBtn=(it.kcal!=null)
