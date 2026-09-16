@@ -110,6 +110,35 @@ dan `server.js` berkurang ~49 baris.
 (`el.style.background = ...` lalu `backgroundImage`), jadi **foto avatar kemungkinan ikut
 kepotong**. `profile.html` aman. Belum disentuh — tanya pemilik dulu.
 
+## 1d. Recipe disamakan dgn recipe.20fit.id — BERTAHAP (Tahap 1 selesai)
+
+Sumber acuan: repo **`Marketing-project-wq/MENU`** (= recipe.20fit.id, `public/version.json`
+menyebut dirinya `20fit-menu (recepie.20fit.id)`). Stack-nya **React + Vite + TypeScript +
+Tailwind** — jadi fiturnya DITULIS ULANG dengan vanilla JS di sini, bukan disalin (CLAUDE.md §5
+melarang menambah framework/bundler).
+
+Halaman di sana: `home`, `browse (/resep)`, `detail`, `articles`, `article`, `submit`, `mine`,
+`saved`, `eatnow`, `admin`. Di my.20fit semuanya masih menyatu di `recipe.html`.
+
+**Tahap 1 (2026-09-16) — SELESAI:** `/recipe` jadi browse resep penuh dan **artikel dibuang
+dari halaman ini** (keputusan pemilik).
+- Cari (nama + bahan), filter **kategori** (16 kategori diambil dari data, bukan daftar tebakan),
+  **diet** (chip lama), **kalori** (<300 / 300–500 / 500–700 / 700+), **urutkan** (kalori
+  terendah/tertinggi, protein tertinggi, tercepat dimasak, nama A–Z) — nilai & label mengikuti
+  `KCAL_RANGES`/`SORT_OPTIONS` di repo MENU, termasuk **batas kalori yang inklusif**.
+- Muat bertahap 15 per klik; bar "N resep + filter aktif + Atur ulang"; filter tersimpan di URL
+  (`?q=&category=&diet=&kcal=&sort=`) jadi bisa dibagikan/di-refresh.
+- Kartu: badge waktu masak, "oleh <pembuat>", chip kalori + 2 tag diet, batang proporsi makro.
+
+**Artikel: DITUNDA, bukan dihapus dari sistem.** 67 artikel `my20fit_recipe_article` dan seluruh
+endpoint-nya (`/api/menu/articles`, `article-categories`, `article-readtimes`, `articles/:slug`)
+**tetap utuh di server** — yang dibuang hanya UI-nya di `recipe.html`. Konsekuensi jujur: untuk
+sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dibuat. Kunci i18n
+`rec_articles_h`/`rec_art_*`/`rec_all` sengaja DIBIARKAN di `js/i18n.js` karena akan dipakai lagi.
+
+**Belum dikerjakan (tahap berikutnya, urut):** halaman artikel · tersimpan · punyaku · kirim resep
+(sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
+
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
 
 - **Tiket user tidak muncul — akar masalahnya DI LUAR repo ini (PR #417).** Tiket **tidak disimpan di Supabase kita**: sapuan `pg_stat_user_tables` menunjukkan tak ada tabel yang menerima pembelian tiket baru, dan `my20fit_orders` berisi **nol** `kind='ticket'`. Tiket hidup di **ticket.20fit.id**, dibaca lewat edge function `ticket-embed`.
