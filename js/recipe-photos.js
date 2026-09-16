@@ -12,17 +12,27 @@
     function done(url){ if(url){ c=_imgCache(); c[rec.id]=url; _saveImg(c); } return url||null; }
     var q = rec.pq || (rec.nm && rec.nm.en) || rec.q || "";
     var mdb = rec.q || "";
-    var desc = (rec.ing && rec.ing.en) ? String(rec.ing.en).replace(/\n/g, ", ") : "";
     var tokP = (window.Auth && Auth.token) ? Promise.resolve(Auth.token()).catch(function(){return null;}) : Promise.resolve(null);
     return tokP.then(function(tok){
       var h = {}; if(tok) h["Authorization"] = "Bearer " + tok;
-      return fetch("/api/foodphoto?id="+encodeURIComponent(rec.id)+"&q="+encodeURIComponent(q)+"&mdb="+encodeURIComponent(mdb)+"&desc="+encodeURIComponent(desc), { headers: h })
+      return fetch("/api/foodphoto?id="+encodeURIComponent(rec.id)+"&q="+encodeURIComponent(q)+"&mdb="+encodeURIComponent(mdb), { headers: h })
         .then(function(r){ return r.ok ? r.json() : null; })
         .then(function(j){ return done(j && j.ok && j.url ? j.url : null); })
         .catch(function(){ return done(null); });
     }).catch(function(){ return done(null); });
   }
-  function _setBg(el, url){ if(!el||!url) return; el.style.backgroundImage = "url('" + url + "')"; el.classList.add("has-photo"); el.textContent = ""; }
+  // Setel size/position EKSPLISIT, jangan bergantung pada stylesheet: kalau elemennya punya
+  // inline `style="background:..."` (shorthand), sub-properti background-size/-position di CSS
+  // ikut ter-reset ke auto/0% 0% dan foto tampil pada ukuran asli, menempel di pojok kiri-atas.
+  function _setBg(el, url){
+    if(!el||!url) return;
+    el.style.backgroundImage = "url('" + url + "')";
+    el.style.backgroundSize = "cover";
+    el.style.backgroundPosition = "center";
+    el.style.backgroundRepeat = "no-repeat";
+    el.classList.add("has-photo");
+    el.textContent = "";
+  }
   function applyThumb(el, rec){
     if(!el || !rec) return;
     resolveImg(rec).then(function(u){ _setBg(el, u); }).catch(function(){});
