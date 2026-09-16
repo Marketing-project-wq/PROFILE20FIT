@@ -63,7 +63,14 @@
   // memanggil loadUpcoming kalau UPCOMING masih null. Tanpa penjaga ini keduanya
   // menembak /api/events/upcoming dua kali dan skeleton berkedip dua kali —
   // persis yang seharusnya dihindari. Penjaga ini juga menahan klik tab beruntun.
+  //
+  // AUTO-RETRY: kegagalan pertama (biasa terjadi saat server deploy/restart)
+  // dicoba ulang sekali setelah jeda pendek. Kalau masih gagal, tampilkan error
+  // seperti biasa (tombol "Coba lagi" tetap ada). Ini menghindari halaman kosong
+  // permanen yang hanya butuh refresh.
+  var RETRY_DELAY = 3000; // ms sebelum auto-retry
   var upcomingJalan = false;
+  var _upRetried = false;
   window.loadUpcoming = async function loadUpcoming() {
     if (upcomingJalan) return;
     upcomingJalan = true;
@@ -74,8 +81,15 @@
       UPCOMING = (r.ok && j && j.ok && Array.isArray(j.events)) ? j.events : "error"; // bedakan gagal vs kosong
     } catch (e) { UPCOMING = "error"; }
     finally { upcomingJalan = false; }
+    if (UPCOMING === "error" && !_upRetried) {
+      _upRetried = true;
+      setTimeout(function () { window.loadUpcoming(); }, RETRY_DELAY);
+      return;
+    }
+    if (UPCOMING !== "error") _upRetried = false;
     notify();
   };
+  var _tkRetried = false;
   window.loadTickets = async function loadTickets() {
     try {
       var t = (window.Auth && Auth.token) ? await Auth.token() : null;
@@ -100,6 +114,12 @@
         } else { TICKETS = []; GROUPS = []; REASON = "upstream_unavailable"; }
       }
     } catch (e) { TICKETS = []; GROUPS = []; REASON = "upstream_unavailable"; }
+    if (REASON === "upstream_unavailable" && !_tkRetried) {
+      _tkRetried = true;
+      setTimeout(function () { window.loadTickets(); }, RETRY_DELAY);
+      return;
+    }
+    if (REASON !== "upstream_unavailable") _tkRetried = false;
     // Tentukan tab default sekali, setelah tahu apakah user punya tiket.
     // PUNYA tiket  -> "Tiket Saya". TIDAK punya -> "Mendatang" (apa pun sebabnya) supaya user
     // yang belum beli melihat event yang bisa dibeli, bukan halaman kosong. Sebab kegagalan
@@ -423,6 +443,20 @@
     }
     return tabs + body;
   }
+
+  // ---- RECOVERY otomatis: pulihkan data saat koneksi kembali atau tab aktif lagi ----
+  // Skenario: server restart saat deploy, koneksi putus sebentar, HP sleep lalu bangun.
+  // Kalau state terakhir = error, coba muat ulang tanpa perlu user menekan tombol.
+  function _recover() {
+    if (UPCOMING === "error") { _upRetried = false; window.loadUpcoming(); }
+    if (TICKETS && !TICKETS.length && REASON === "upstream_unavailable") { _tkRetried = false; window.loadTickets(); }
+  }
+  try { window.addEventListener("online", _recover); } catch (e) {}
+  try {
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) _recover();
+    });
+  } catch (e) {}
 
   // ---- API PUBLIK ----
   window.TicketWallet = {
