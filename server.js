@@ -4872,6 +4872,26 @@ app.get("/api/menu/catalog", function (req, res) {
   return res.json({ ok: true, count: list.length, recipes: list });
 });
 
+// PUBLIK: rekomendasi resep berdasar SISA makro (gram). Logika sama dgn
+// Recipes.recommendForMacros tapi dijalankan server-side — frontend tak perlu muat
+// seluruh katalog ~291KB. ?p=30&c=50&f=10&n=10 (n opsional, default 5).
+app.get("/api/menu/recommend", function (req, res) {
+  var list = loadMenuCatalog();
+  var rp = Math.max(0, +(req.query.p || 0));
+  var rc = Math.max(0, +(req.query.c || 0));
+  var rf = Math.max(0, +(req.query.f || 0));
+  var n = Math.min(20, Math.max(1, parseInt(req.query.n) || 5));
+  var met = { p: rp <= 8, c: rc <= 15, f: rf <= 6 };
+  var scored = list.map(function (r) {
+    var gain = Math.min(r.p, rp) + Math.min(r.c, rc) + Math.min(r.f, rf);
+    var pen = (met.p ? r.p * 0.6 : 0) + (met.c ? r.c * 0.5 : 0) + (met.f ? r.f * 0.9 : 0);
+    return { r: r, score: gain - pen };
+  }).sort(function (a, b) { return b.score - a.score; });
+  var recs = scored.slice(0, n).map(function (x) { return x.r; });
+  res.set("Cache-Control", "public, max-age=120");
+  return res.json({ ok: true, recipes: recs });
+});
+
 // PUBLIK: kontribusi user yang APPROVED + PUBLISHED (tanpa PII). Dibaca service key
 // (bypass RLS) TAPI difilter ketat ke approved+published & field aman -> layak publik.
 app.get("/api/menu/published", async function (req, res) {

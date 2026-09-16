@@ -210,7 +210,7 @@
   <script src="js/auth.js"></script>
   <script src="js/i18n.js"></script>
   <script src="js/nav.js"></script>
-  <script src="js/recipes.js"></script>
+  <script src="js/recipe-photos.js"></script>
   <script>
     var user=null, LASTJ=null, mineLoaded=false;
     function $(id){ return document.getElementById(id); }
@@ -243,16 +243,21 @@
 
     // ---- Rekomendasi resep: resep resmi 20FIT + menu user approved+published ----
     var ITEMS=[], curType="all";
+    var DIET_TYPES=["normal","vegetarian","vegan","pescatarian","keto","high-protein","low-carb","halal"];
     function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
     async function loadRecipes(){
-      var userMenus=[];
+      var catalog=[], userMenus=[];
       try{
-        var res=await Auth.supabase.from("my20fit_menu_contribution")
-          .select("id,name,diet_type,ingredients,steps,photo_url,est_kcal")
-          .eq("status","approved").eq("published",true).order("reviewed_at",{ascending:false}).limit(100);
-        userMenus=(res&&res.data)||[];
+        var r1=await fetch("/api/menu/catalog");
+        var j1=r1.ok?await r1.json():null;
+        catalog=(j1&&j1.ok&&Array.isArray(j1.recipes))?j1.recipes:[];
       }catch(e){}
-      ITEMS=(window.Recipes?Recipes.LIST:[]).map(function(r){
+      try{
+        var r2=await fetch("/api/menu/published");
+        var j2=r2.ok?await r2.json():null;
+        userMenus=(j2&&j2.ok&&Array.isArray(j2.menus))?j2.menus:[];
+      }catch(e){}
+      ITEMS=catalog.map(function(r){
         return { key:"r_"+r.id, nm:r.nm, kcal:r.kcal, p:r.p, c:r.c, f:r.f, types:r.types||[], ingO:r.ing, stepsO:r.steps, emoji:r.emoji, tint:r.tint, source:"20fit", rec:r };
       });
       userMenus.forEach(function(m){
@@ -269,7 +274,7 @@
     function heartSvg(){ return '<svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>'; }
     function bookmarkSvg(){ return '<svg viewBox="0 0 24 24" width="16" height="16" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>'; }
     function renderChips(){
-      var types=["all"].concat(window.Recipes?Recipes.DIET_TYPES:[]);
+      var types=["all"].concat(DIET_TYPES);
       var lbl={all:T("diet_all"),"high-protein":"High-protein","low-carb":"Low-carb"};
       document.getElementById("dietChips").innerHTML=types.map(function(t){
         var name=lbl[t]||(t.charAt(0).toUpperCase()+t.slice(1));
@@ -292,8 +297,8 @@
       }).join("");
       // Resolve real food photos for 20fit items (emoji stays as fallback on failure).
       // Lazy: hanya fetch saat kartunya masuk viewport (hindari belasan fetch serentak).
-      if(window.Recipes && (Recipes.applyThumbLazy || Recipes.applyThumb)){
-        var _apply = Recipes.applyThumbLazy || Recipes.applyThumb;
+      if(window.RecipePhotos && (RecipePhotos.applyThumbLazy || RecipePhotos.applyThumb)){
+        var _apply = RecipePhotos.applyThumbLazy || RecipePhotos.applyThumb;
         list.forEach(function(it){
           if(it.rec && !it.photo){ _apply(document.getElementById("th_"+it.key), it.rec); }
         });
@@ -340,8 +345,8 @@
         logBtn;
       loadRecSocial(it); // Like/Save state (server, service key) + wiring tombol
       // Resolve real food photo for 20fit hero (emoji stays as fallback on failure).
-      if(window.Recipes && Recipes.applyThumb && it.rec && !it.photo){
-        Recipes.applyThumb(document.querySelector("#recBody .pm-hero"), it.rec);
+      if(window.RecipePhotos && RecipePhotos.applyThumb && it.rec && !it.photo){
+        RecipePhotos.applyThumb(document.querySelector("#recBody .pm-hero"), it.rec);
       }
       var pm=document.getElementById("recPm"); if(pm) pm.scrollTop=0;
       document.getElementById("recBg").classList.add("open");
