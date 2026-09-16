@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-16 · **Commit staging:** `15ec3bd` · **Production:** `c1a173e`
+> **Pembaruan terakhir:** 2026-09-16 · **Commit staging:** `138a067` · **Production:** `309004d`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -50,6 +50,7 @@ naikkan resource — **butuh akses dashboard Railway (di luar agent).**
 | **Book Class filter** | `/classes` punya toggle **Arena/Gym** in-page; `?venue=clinic` = Book Recovery (tanpa toggle) | `classes.html` (PR #295) |
 | **Menu bar Event** | Item menu bar `Medical` → `Event`; `event.html` placeholder "Upcoming" | `js/nav.js`, `event.html` (PR #294) |
 | **Roster home (coach/dokter/fisioterapis)** | Tiga rail di bawah home: `/api/coaches`, `/api/doctors`, `/api/physiotherapists`. Terisi: 4 coach (+23 alias instructor), 5 dokter, 3 fisioterapis. Kartu tanpa `photo_url` — atau yang `<img>`-nya gagal dimuat — ditandai "Foto belum ada" | `dashboard.html`, `server.js` (PR #412) |
+| **Recipe data via API** | `js/recipes.js` (~291KB, 120 resep) **tidak lagi dimuat di browser**. Halaman `recipe.html` dan `calories.html` kini fetch dari `/api/menu/catalog` (daftar lengkap) dan `/api/menu/recommend` (rekomendasi berdasar sisa makro). Utilitas foto diekstrak ke `js/recipe-photos.js` (~2KB, `window.RecipePhotos`). `js/recipes.js` tetap ada untuk dipakai server-side (`loadMenuCatalog`). | `recipe.html`, `calories.html`, `js/recipe-photos.js`, `server.js` (PR #442/#443) |
 
 ## 1b. Recipe: IN-APP, jangan dilempar keluar lagi
 
@@ -61,7 +62,7 @@ Yang sudah ada dan dipakai — **jangan dibangun ulang**:
 | Bagian | Sumber sebenarnya | Jumlah (terukur 2026-09-16) |
 |---|---|---|
 | Halaman | `recipe.html` (grid + modal detail: bahan, langkah, kalori, P/K/L, like/save, tombol **Log Food** ke Calories). `/diet` redirect 301 ke `/recipe` | 1 halaman |
-| Resep resmi | File **di repo ini**: `js/recipes.js` (dwibahasa EN/ID), dimuat langsung browser **dan** disajikan `/api/menu/catalog` | **120** |
+| Resep resmi | `js/recipes.js` **di repo ini**, dwibahasa EN/ID — dibaca **server** lalu disajikan `/api/menu/catalog`. Sejak PR #442 browser tidak lagi memuat filenya; detail di baris **Recipe data via API** (§1) | **120** |
 | Artikel | `my20fit_recipe_article` di Supabase bersama, dibaca **server** pakai service key (RLS deny-public tetap utuh) | **67 published**, 9 kategori |
 | Kontribusi user | `my20fit_menu_contribution` — alurnya jalan, datanya masih kosong | **0 baris** |
 
@@ -93,7 +94,8 @@ app menu setelah login.
     - Email **tidak dikenal** penerbit → jatuh ke arsip `event_transaction` (read-only, tabel app lain): nama event, jenis, tanggal, "Lunas" — **tanpa QR** (`qr:null`, `qr_pending:true`). QR tidak pernah dikarang, dan status gerbang tidak pernah ditulis "valid". `source:"archive"`.
     - Dua-duanya kosong → `source:"none"` + `reason` (`no_tickets` / `upstream_unavailable` / `server_error` / dst.) supaya kegagalan nyata tidak tersamar jadi "belum beli".
   - **Gate konfirmasi: TIDAK ADA — dan sekarang tombol verifikasinya pun tidak ada.** Diselidiki 2026-09-09: tidak pernah ada modal, route guard, checkbox, atau flag `isVerified`/`claimed` di kode kita. Tombol "verifikasi" yang dulu muncul saat hasil = 0 ikut terhapus bersama jalur OTP.
-  - **Production sudah sejajar `staging`** (`5a406ec`, 2026-09-11) — catatan lama "main tertinggal PR #419/#421" **sudah tidak berlaku**.
+  - **Production sudah sejajar `staging`** (`bb259f4`, 2026-09-16) — catatan lama "main tertinggal PR #419/#421" **sudah tidak berlaku**.
+  - **Auto-retry + recovery (PR #438, `bb259f4`):** `ticket-wallet.js` kini retry otomatis sekali (3s delay) saat `loadUpcoming()` atau `loadTickets()` gagal — menghindari error permanen akibat server restart saat deploy. Ditambah listener `visibilitychange` + `online` yang memuat ulang data otomatis saat tab aktif kembali atau koneksi pulih. Retry hanya sekali; kalau masih gagal, tampil error + tombol "Coba lagi" manual seperti biasa.
   - **Tidak ada webhook pembelian sama sekali.** `sync-ticket-events` hanya menarik `/events` dan menyimpan `sold_count` **agregat**, tak pernah identitas pembeli. Terukur 2026-09-08: Sports Summit live `sold`=**1233** vs `my20fit_ticket_events.sold_count`=**1162** (sync 2026-09-07 21:00) → **+71 terjual sejak sync**, sementara di DB kami **nol baris hari itu**. Pembayaran berhasil dan tercatat di ticket.20fit.id, tapi kami tak punya cara tahu siapa pembelinya — **tidak ada baris yang bisa "diperbaiki" di sisi kami.**
   - **TANYA PEMILIK ticket.20fit.id:** permintaan teknisnya sudah ditulis lengkap di **`docs/TICKET-API-REQUEST.md`** — intinya minta **webhook pembelian** atau **endpoint partner baca pesanan per email**. Sampai salah satunya ada, pembeli yang emailnya belum dikenal penerbit hanya bisa melihat pembeliannya dari **arsip, tanpa QR**.
   - **Arsip `event_transaction` bukan data hidup** — impor batch invoice, `paid_at` terbaru 2026-08-11, impor terakhir 2026-08-18. Tetap disajikan (isinya pembelian nyata; 242 dari 1374 user app punya email di sana) tapi ditandai `source:"archive"`. Pembelian baru tak akan pernah muncul di sana.

@@ -63,7 +63,14 @@
   // memanggil loadUpcoming kalau UPCOMING masih null. Tanpa penjaga ini keduanya
   // menembak /api/events/upcoming dua kali dan skeleton berkedip dua kali —
   // persis yang seharusnya dihindari. Penjaga ini juga menahan klik tab beruntun.
+  //
+  // AUTO-RETRY: kegagalan pertama (biasa terjadi saat server deploy/restart)
+  // dicoba ulang sekali setelah jeda pendek. Kalau masih gagal, tampilkan error
+  // seperti biasa (tombol "Coba lagi" tetap ada). Ini menghindari halaman kosong
+  // permanen yang hanya butuh refresh.
+  var RETRY_DELAY = 3000; // ms sebelum auto-retry
   var upcomingJalan = false;
+  var _upRetried = false;
   window.loadUpcoming = async function loadUpcoming() {
     if (upcomingJalan) return;
     upcomingJalan = true;
@@ -74,8 +81,15 @@
       UPCOMING = (r.ok && j && j.ok && Array.isArray(j.events)) ? j.events : "error"; // bedakan gagal vs kosong
     } catch (e) { UPCOMING = "error"; }
     finally { upcomingJalan = false; }
+    if (UPCOMING === "error" && !_upRetried) {
+      _upRetried = true;
+      setTimeout(function () { window.loadUpcoming(); }, RETRY_DELAY);
+      return;
+    }
+    if (UPCOMING !== "error") _upRetried = false;
     notify();
   };
+  var _tkRetried = false;
   window.loadTickets = async function loadTickets() {
     try {
       var t = (window.Auth && Auth.token) ? await Auth.token() : null;
@@ -89,12 +103,23 @@
           // E-Ticket bisa menampilkannya langsung tanpa request tambahan. Payload string
           // perlu di-encode → async.
           try {
-            await Promise.all(TICKETS.map(async function (t) { t._qrHtml = await twkQrHtml(t.qr); }));
+            await Promise.all(TICKETS.map(async function (t) {
+              t._qrHtml = await twkQrHtml(t.qr);
+              if (!t._qrHtml && (t.code || t.ref)) {
+                t._qrHtml = await twkEncodeQr(String(t.code || t.ref));
+              }
+            }));
           } catch (e) { /* satu gagal → tiketnya tetap ada, QR-nya menyusul */ }
           GROUPS = groupByEvent(TICKETS);
         } else { TICKETS = []; GROUPS = []; REASON = "upstream_unavailable"; }
       }
     } catch (e) { TICKETS = []; GROUPS = []; REASON = "upstream_unavailable"; }
+    if (REASON === "upstream_unavailable" && !_tkRetried) {
+      _tkRetried = true;
+      setTimeout(function () { window.loadTickets(); }, RETRY_DELAY);
+      return;
+    }
+    if (REASON !== "upstream_unavailable") _tkRetried = false;
     // Tentukan tab default sekali, setelah tahu apakah user punya tiket.
     // PUNYA tiket  -> "Tiket Saya". TIDAK punya -> "Mendatang" (apa pun sebabnya) supaya user
     // yang belum beli melihat event yang bisa dibeli, bukan halaman kosong. Sebab kegagalan
@@ -194,8 +219,8 @@
     var when = g.event_date ? tktDayLabel(g.event_date) : Lx({ en: "Date TBA", id: "Jadwal menyusul" });
     var n = g.tickets.length;
     var cover = g.cover_url
-      ? '<div class="twk-pcover"><img src="' + esc(g.cover_url) + '" alt="' + esc(nm) + '" loading="lazy" onerror="this.closest(\'.twk-pcover\').classList.add(\'noimg\')"></div>'
-      : '<div class="twk-pcover noimg"></div>';
+      ? '<div class="twk-pcover" data-label="' + esc(nm) + '"><img src="' + esc(g.cover_url) + '" alt="' + esc(nm) + '" loading="lazy" onerror="this.closest(\'.twk-pcover\').classList.add(\'noimg\')"></div>'
+      : '<div class="twk-pcover noimg" data-label="' + esc(nm) + '"></div>';
     var topline = '<div class="twk-topline">' + badgeHtml(g.status) +
       (n > 1 ? '<span class="twk-nbadge">' + n + ' ' + Lx({ en: "tickets", id: "tiket" }) + '</span>' : '') + '</div>';
     var meta = '<div class="twk-pmeta"><span class="etk-daterow">' + calIcon() + '<span>' + esc(when) + '</span></span></div>';
@@ -220,8 +245,8 @@
     var place = [(e && e.venue) || "", (e && e.city) || ""].filter(Boolean).join(", ");
     var org = (e && e.organizer) || "";
     var cover = (e && e.cover_url)
-      ? '<div class="twk-pcover"><img src="' + esc(e.cover_url) + '" alt="' + esc(nm) + '" loading="lazy" onerror="this.closest(\'.twk-pcover\').classList.add(\'noimg\')">' + ((e && e.category) ? '<span class="twk-pcat">' + esc(e.category) + '</span>' : '') + '</div>'
-      : '<div class="twk-pcover noimg">' + ((e && e.category) ? '<span class="twk-pcat">' + esc(e.category) + '</span>' : '') + '</div>';
+      ? '<div class="twk-pcover" data-label="' + esc(nm) + '"><img src="' + esc(e.cover_url) + '" alt="' + esc(nm) + '" loading="lazy" onerror="this.closest(\'.twk-pcover\').classList.add(\'noimg\')">' + ((e && e.category) ? '<span class="twk-pcat">' + esc(e.category) + '</span>' : '') + '</div>'
+      : '<div class="twk-pcover noimg" data-label="' + esc(nm) + '">' + ((e && e.category) ? '<span class="twk-pcat">' + esc(e.category) + '</span>' : '') + '</div>';
     var meta = '<div class="twk-pmeta">' +
       '<span>' + esc(when) + '</span>' +
       (place ? '<span>' + esc(place) + '</span>' : '') +
@@ -328,9 +353,10 @@
     var g = (GROUPS || [])[idx]; if (!g) return;
     window.twkCloseEticket();
     var when = g.event_date ? tktDayLabel(g.event_date) : Lx({ en: "Date TBA", id: "Jadwal menyusul" });
+    var coverLabel = esc(g.event_name || '20FIT \xb7 E-TICKET');
     var cover = g.cover_url
-      ? '<div class="etk-cover"><img src="' + esc(g.cover_url) + '" alt="' + esc(g.event_name) + '" onerror="this.closest(\'.etk-cover\').classList.add(\'noimg\')"></div>'
-      : '<div class="etk-cover noimg"></div>';
+      ? '<div class="etk-cover" data-label="' + coverLabel + '"><img src="' + esc(g.cover_url) + '" alt="' + esc(g.event_name) + '" onerror="this.closest(\'.etk-cover\').classList.add(\'noimg\')"></div>'
+      : '<div class="etk-cover noimg" data-label="' + coverLabel + '"></div>';
     var ev = '<section class="etk-card etk-evcard">' + cover +
       '<div class="etk-evbody"><div class="etk-evtop"><h2 class="etk-evname">' + esc(g.event_name) + '</h2>' + badgeHtml(g.status) + '</div>' +
       '<div class="etk-daterow">' + calIcon() + '<span>' + esc(when) + '</span></div></div></section>';
@@ -417,6 +443,20 @@
     }
     return tabs + body;
   }
+
+  // ---- RECOVERY otomatis: pulihkan data saat koneksi kembali atau tab aktif lagi ----
+  // Skenario: server restart saat deploy, koneksi putus sebentar, HP sleep lalu bangun.
+  // Kalau state terakhir = error, coba muat ulang tanpa perlu user menekan tombol.
+  function _recover() {
+    if (UPCOMING === "error") { _upRetried = false; window.loadUpcoming(); }
+    if (TICKETS && !TICKETS.length && REASON === "upstream_unavailable") { _tkRetried = false; window.loadTickets(); }
+  }
+  try { window.addEventListener("online", _recover); } catch (e) {}
+  try {
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) _recover();
+    });
+  } catch (e) {}
 
   // ---- API PUBLIK ----
   window.TicketWallet = {
