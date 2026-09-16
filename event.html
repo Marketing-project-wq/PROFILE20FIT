@@ -70,7 +70,7 @@
       if(window.TicketWallet){
         window.TicketWallet.onRender(renderPage);   // re-render tiap data/tab berubah
         renderPage();                               // gambar awal (skeleton)
-        window.TicketWallet.init({ eagerUpcoming:true }); // muat tiket + katalog event
+        window.TicketWallet.init(); // muat tiket + katalog event
       }
     })();
   })();

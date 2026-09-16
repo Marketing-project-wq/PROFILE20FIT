@@ -237,7 +237,7 @@
     <div class="card" id="menuRecCard">
       <div><div style="font-weight:800;font-size:15px">🍽️ <span data-i18n="cal_mrec_title">Menu recommendations</span></div><div class="muted" style="font-size:12px" data-i18n="cal_mrec_sub">Based on your remaining macros today · swipe for more</div></div>
       <div id="menuRecBody" style="margin-top:12px"><div class="muted" style="font-size:12.5px" data-i18n="cal_mrec_loading">Loading recommendations…</div></div>
-      <a href="diet.html" style="display:block;text-align:center;margin-top:12px;color:var(--red);font-weight:800;text-decoration:none;font-size:13px" data-i18n="cal_mrec_more">See more menus →</a>
+      <a href="recipe.html" style="display:block;text-align:center;margin-top:12px;color:var(--red);font-weight:800;text-decoration:none;font-size:13px" data-i18n="cal_mrec_more">See more menus →</a>
       <div style="font-size:11px;color:var(--muted);margin-top:10px" data-i18n="cal_mrec_disc">Rough guidance — not a substitute for a nutritionist.</div>
     </div>
   </div>
@@ -368,7 +368,7 @@
   <script src="js/i18n.js"></script>
   <script src="js/fasting.js"></script>
   <script src="js/nutrition.js"></script>
-  <script src="js/recipes.js"></script>
+  <script src="js/recipe-photos.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/tour.js"></script>
   <script src="js/orders.js"></script>
@@ -424,28 +424,31 @@
       log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}${i.t?`<span class="mtime">${i.t}</span>`:""}</span><span class="kc">${i.kcal} ${kc()} <button class="x-close x-ghost x-sm x-danger" onclick="del(${idx})" aria-label="Remove"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span></div>`).join(""):'<div class="muted">'+I18N.t("cal_empty")+'</div>';
     }
     // ---- Rekomendasi menu berdasar SISA makro hari ini (Bagian 3) ----
-    function renderMenuRec(tp,tc,tf){
-      var body=document.getElementById("menuRecBody"); if(!body||!window.Recipes) return;
+    async function renderMenuRec(tp,tc,tf){
+      var body=document.getElementById("menuRecBody"); if(!body) return;
       var MT=(typeof macroT!=="undefined"&&macroT)?macroT:{};
       var rem={ p:Math.round((MT.p||0)-tp), c:Math.round((MT.c||0)-tc), f:Math.round((MT.f||0)-tf) };
-      var recs=Recipes.recommendForMacros(rem,10);
+      var recs=[];
+      try{
+        var r=await fetch("/api/menu/recommend?p="+rem.p+"&c="+rem.c+"&f="+rem.f+"&n=10");
+        var j=r.ok?await r.json():null;
+        recs=(j&&j.ok&&Array.isArray(j.recipes))?j.recipes:[];
+      }catch(e){}
       var lbl={p:L({en:"protein",id:"protein"}),c:L({en:"carbs",id:"karbo"}),f:L({en:"fat",id:"lemak"})}, parts=[];
       ["p","c","f"].forEach(function(k){ if(rem[k]>0) parts.push(lbl[k]+" "+rem[k]+"g"); });
       var lead=parts.length?(L({en:"Remaining today: ",id:"Sisa hari ini: "})+parts.join(" · ")):L({en:"You've nearly hit your daily macro target 🎉",id:"Target makro harianmu hampir terpenuhi 🎉"});
       var nm=function(o){ return window.L?L(o):(o.id||o.en); };
       if(!recs.length){ body.innerHTML='<div class="muted" style="font-size:12.5px">'+L({en:"No recommendations yet. Complete your profile (weight/height) & log your food first.",id:"Belum ada rekomendasi. Lengkapi profil (berat/tinggi) & catat makananmu dulu."})+'</div>'; return; }
       var cards=recs.map(function(r){
-        return '<a class="mrec-card" href="diet.html">'+
+        return '<a class="mrec-card" href="recipe.html">'+
           '<div class="mrec-thumb" id="mrecthumb-'+r.id+'" style="background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+r.emoji+'</div>'+
           '<div class="mrec-b"><div class="mrec-nm">'+nm(r.nm)+'</div>'+
           '<div class="mrec-meta">~'+r.kcal+' kcal</div>'+
           '<div class="mrec-macros">P'+r.p+' · C'+r.c+' · F'+r.f+'</div></div></a>';
       }).join("");
       body.innerHTML='<div class="muted" style="font-size:12.5px;margin-bottom:8px">'+lead+'</div><div class="mrec-row">'+cards+'</div>';
-      // Ganti thumbnail emoji dengan foto makanan asli (TheMealDB, di-cache). No-op & emoji tetap kalau gagal / helper belum ada.
-      // Lazy: hanya fetch saat kartunya masuk viewport.
-      if(window.Recipes && (Recipes.applyThumbLazy || Recipes.applyThumb)){
-        var _apply = Recipes.applyThumbLazy || Recipes.applyThumb;
+      if(window.RecipePhotos && (RecipePhotos.applyThumbLazy || RecipePhotos.applyThumb)){
+        var _apply = RecipePhotos.applyThumbLazy || RecipePhotos.applyThumb;
         recs.forEach(function(r){
           var t=document.getElementById("mrecthumb-"+r.id);
           if(t) _apply(t,r);
@@ -578,21 +581,21 @@
       var chips=["p","c","f"].map(function(k){ if(rem[k]<=0) return ""; return '<span class="fsum-gap-chip'+(k===big?" big":"")+'">'+lbl[k]+' '+rem[k]+'g</span>'; }).join("");
       h+='<div class="fsum-gap-chips">'+chips+'</div>';
       h+='<div class="fsum-lbl" style="margin-top:2px">'+L({en:"Fill the biggest gap ("+lbl[big]+") with",id:"Tutup kekurangan terbesar ("+lbl[big]+") dengan"})+'</div>';
-      var recs=[];
-      try{ if(window.Recipes&&Recipes.recommendForMacros) recs=Recipes.recommendForMacros(rem,3)||[]; }catch(e){}
-      if(recs.length){
-        h+=recs.map(function(r){
+      h+='<div id="fsumGapFoods">';
+      var STAT={
+        p:[{e:"🥚",en:"Boiled eggs",id:"Telur rebus"},{e:"🍗",en:"Grilled chicken breast",id:"Dada ayam panggang"},{e:"🧀",en:"Greek yogurt / cottage cheese",id:"Greek yogurt / keju cottage"}],
+        c:[{e:"🍚",en:"Brown rice",id:"Nasi merah"},{e:"🍠",en:"Sweet potato",id:"Ubi"},{e:"🌾",en:"Oats",id:"Oat"}],
+        f:[{e:"🥑",en:"Avocado",id:"Alpukat"},{e:"🥜",en:"Nuts / peanut butter",id:"Kacang / selai kacang"},{e:"🫒",en:"Olive oil drizzle",id:"Siraman minyak zaitun"}]
+      };
+      h+=(STAT[big]||[]).map(function(s){ return '<div class="fsum-food"><div class="em" style="background:var(--inp)">'+s.e+'</div><div class="fn">'+L({en:s.en,id:s.id})+'</div></div>'; }).join("");
+      h+='</div>';
+      (function(r){ fetch("/api/menu/recommend?p="+r.p+"&c="+r.c+"&f="+r.f+"&n=3").then(function(x){return x.ok?x.json():null;}).then(function(j){
+        var el=document.getElementById("fsumGapFoods"); if(!el||!j||!j.ok||!j.recipes||!j.recipes.length) return;
+        el.innerHTML=j.recipes.map(function(r){
           var nm=window.L?L(r.nm):(r.nm&&(r.nm.id||r.nm.en));
           return '<div class="fsum-food"><div class="em" style="background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+r.emoji+'</div><div class="fn">'+fsumEsc(nm)+'</div><div class="fk">~'+r.kcal+' '+kc()+' · P'+r.p+' C'+r.c+' F'+r.f+'</div></div>';
         }).join("");
-      } else {
-        var STAT={
-          p:[{e:"🥚",en:"Boiled eggs",id:"Telur rebus"},{e:"🍗",en:"Grilled chicken breast",id:"Dada ayam panggang"},{e:"🧀",en:"Greek yogurt / cottage cheese",id:"Greek yogurt / keju cottage"}],
-          c:[{e:"🍚",en:"Brown rice",id:"Nasi merah"},{e:"🍠",en:"Sweet potato",id:"Ubi"},{e:"🌾",en:"Oats",id:"Oat"}],
-          f:[{e:"🥑",en:"Avocado",id:"Alpukat"},{e:"🥜",en:"Nuts / peanut butter",id:"Kacang / selai kacang"},{e:"🫒",en:"Olive oil drizzle",id:"Siraman minyak zaitun"}]
-        };
-        h+=(STAT[big]||[]).map(function(s){ return '<div class="fsum-food"><div class="em" style="background:var(--inp)">'+s.e+'</div><div class="fn">'+L({en:s.en,id:s.id})+'</div></div>'; }).join("");
-      }
+      }).catch(function(){}); })(rem);
       h+='</div>';
       return h;
     }

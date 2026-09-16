@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-08-21 · **Commit staging:** `8c31776`
+> **Pembaruan terakhir:** 2026-09-16 · **Commit staging:** `138a067` · **Production:** `309004d`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -49,8 +49,65 @@ naikkan resource — **butuh akses dashboard Railway (di luar agent).**
 | **Homepage 6-tile → halaman** | Tile Baris 1 = 6 opsi, tiap tile navigasi ke route sendiri (bukan panel inline). Panel inline & pin Baris 2 **dihapus** | `dashboard.html` (PR #295) |
 | **Book Class filter** | `/classes` punya toggle **Arena/Gym** in-page; `?venue=clinic` = Book Recovery (tanpa toggle) | `classes.html` (PR #295) |
 | **Menu bar Event** | Item menu bar `Medical` → `Event`; `event.html` placeholder "Upcoming" | `js/nav.js`, `event.html` (PR #294) |
+| **Roster home (coach/dokter/fisioterapis)** | Tiga rail di bawah home: `/api/coaches`, `/api/doctors`, `/api/physiotherapists`. Terisi: 4 coach (+23 alias instructor), 5 dokter, 3 fisioterapis. Kartu tanpa `photo_url` — atau yang `<img>`-nya gagal dimuat — ditandai "Foto belum ada" | `dashboard.html`, `server.js` (PR #412) |
+| **Recipe data via API** | `js/recipes.js` (~291KB, 120 resep) **tidak lagi dimuat di browser**. Halaman `recipe.html` dan `calories.html` kini fetch dari `/api/menu/catalog` (daftar lengkap) dan `/api/menu/recommend` (rekomendasi berdasar sisa makro). Utilitas foto diekstrak ke `js/recipe-photos.js` (~2KB, `window.RecipePhotos`). `js/recipes.js` tetap ada untuk dipakai server-side (`loadMenuCatalog`). | `recipe.html`, `calories.html`, `js/recipe-photos.js`, `server.js` (PR #442/#443) |
+
+## 1b. Recipe: IN-APP, jangan dilempar keluar lagi
+
+**Keputusan pemilik (2026-09-16): fitur resep tampil DI DALAM my.20fit.id.** User tidak boleh
+ke-lempar ke `recipe.20fit.id` / `recepie.20fit.id`.
+
+Yang sudah ada dan dipakai — **jangan dibangun ulang**:
+
+| Bagian | Sumber sebenarnya | Jumlah (terukur 2026-09-16) |
+|---|---|---|
+| Halaman | `recipe.html` (grid + modal detail: bahan, langkah, kalori, P/K/L, like/save, tombol **Log Food** ke Calories). `/diet` redirect 301 ke `/recipe` | 1 halaman |
+| Resep resmi | `js/recipes.js` **di repo ini**, dwibahasa EN/ID — dibaca **server** lalu disajikan `/api/menu/catalog`. Sejak PR #442 browser tidak lagi memuat filenya; detail di baris **Recipe data via API** (§1) | **120** |
+| Artikel | `my20fit_recipe_article` di Supabase bersama, dibaca **server** pakai service key (RLS deny-public tetap utuh) | **67 published**, 9 kategori |
+| Kontribusi user | `my20fit_menu_contribution` — alurnya jalan, datanya masih kosong | **0 baris** |
+
+**TIDAK ADA API resep terpisah di Railway** yang perlu disambungkan, dan **tidak ada tabel konten
+resep lain** di Supabase ini (`recipe_admin_role`/`recipe_admin_audit_log` cuma tabel admin;
+`cf_menu` itu menu kafe — ada harga & stok, bukan resep). Membaca tabel resep **langsung dari
+browser** akan menuntut pelonggaran RLS yang dipakai bareng recipe.20fit.id — **jangan**.
+
+**Riwayat bolak-balik (supaya tidak terulang ketiga kalinya):**
+- `f087920` (2026-09-08) — "rename Diet → Recipe + jadikan menu/resep in-app (bukan SSO keluar)". Tile → `/recipe`.
+- PR #423 / `94b4a68` (2026-09-15, **di-merge langsung ke `main` tanpa lewat staging**) — tile diubah jadi SSO keluar ke `recepie.20fit.id`.
+- **2026-09-16** — tile dikembalikan ke `/recipe`; blok handoff `openRecipeGo` + `MENU_ORIGIN` di `dashboard.html` dihapus karena jadi dead code.
+
+**JANGAN hapus `Auth.menuSso()` di `js/auth.js`** — itu bukan sisa PR #423. Masih terpakai untuk
+arah **masuk**: `login.html` / `code-login.html` menerima `?next=menu`, lalu mengembalikan user ke
+app menu setelah login.
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+
+- **Tiket user tidak muncul — akar masalahnya DI LUAR repo ini (PR #417).** Tiket **tidak disimpan di Supabase kita**: sapuan `pg_stat_user_tables` menunjukkan tak ada tabel yang menerima pembelian tiket baru, dan `my20fit_orders` berisi **nol** `kind='ticket'`. Tiket hidup di **ticket.20fit.id**, dibaca lewat edge function `ticket-embed`.
+  - **Titik gagal:** `POST /api/embed/v1/partner/user-token` balas **404 pada 141 dari 143 panggilan** (log edge fn 24 jam; action dipisah lewat ukuran body request — `user_token`=23 B, `events`=19 B, `my_tickets`=282–321 B). Langkah `my_tickets` sendiri **selalu 200** saat tokennya terbit, termasuk mengembalikan tiket asli. Jadi pipeline utuh; yang gagal penukaran email→token.
+  - **Sudah disingkirkan:** `TICKET_EMBED_KEY` terpasang (`events` → 200); email profil vs `auth.users` **0 beda** dari 1374; email di `my20fit_buyer_identities` **0 beda** dari 921.
+  - **Sudah diperbaiki di PR #417:** `/api/tickets/mine` kini membawa `reason` + `source` saat kosong, dan widget membedakan "belum beli" / "akun tak dikenali penerbit" / "gagal memuat". Sebelumnya semua kegagalan tampil sama sebagai "Belum ada tiket" sehingga masalah tak pernah terlihat. `?debug=1` (superadmin) membuka respons mentah upstream.
+  - **Sebab 404-nya terukur (bukan salah data kami):** `/partner/user-token` menjawab "email ini punya AKUN?", **bukan** "punya TIKET?". **8 dari 8** pembeli asli → 404; **3 user yang belum pernah beli** → 200; email **fiktif** → 404 yang identik. Pencocokan case-**insensitive** (HURUF BESAR pun 200). Jadi pembeli **tamu** (guest checkout, tanpa akun) tak pernah bisa ditampilkan lewat jalur ini.
+  - **Jalur OTP penerbit (PR #419) — terbukti bekerja, tapi SUDAH DIHAPUS dari produk.** `/otp/verify` memang menerbitkan `userToken` untuk email tanpa akun (baris nyata `my20fit_ticket_tokens`, dibuat 2026-09-08 14:04:32, token 248 karakter) — jadi pertanyaan "apakah OTP menolong pembeli tamu" terjawab **ya**. Tapi atas keputusan pemilik (TANPA OTP), commit `d1c2a38` (2026-09-09) **membuang seluruh jalur itu**: endpoint `/api/tickets/verify/*` hilang, `getTicketToken` hilang, dan tabel `my20fit_ticket_tokens` **tidak lagi disentuh kode mana pun** — tabelnya masih ada di DB, hanya menganggur.
+  - **Token penerbit hanya hidup 900 detik (15 menit) — TERVERIFIKASI 2026-09-09.** Baris nyata: `expires_at` = 14:19:32, tepat 900 detik setelah dibuat. Token itu dikirim ulang ke `/me/tickets` ~16 jam kemudian dan dibalas **`401 {"error":"user_unauthorized","message":"Missing/invalid X-Embed-User-Token"}`** (diuji lewat `pg_net` dari dalam Postgres supaya nilai tokennya tidak pernah keluar dari database). **Sekarang bukan lagi masalah user:** token tidak disimpan lagi, jadi `/api/tickets/mine` mint ulang lewat `/partner/user-token` pada **setiap** permintaan. Permintaan "TTL lebih panjang / refresh token" karena itu **dicabut** dari `docs/TICKET-API-REQUEST.md` dan turun jadi catatan terukur di sana — bukan permintaan.
+  - **Desain yang HIDUP sekarang (`d1c2a38`, sudah di production sejak `5a406ec` 2026-09-11): TANPA OTP, tanpa gate.** `/api/tickets/mine` ambil email dari sesi login → `my20fit_profile` → tukar jadi token lewat jalur **partner server-ke-server**. Tiga hasil:
+    - Email **dikenal** penerbit → tiket asli + **QR gerbang** (`attachQrs`, paralel — N+1 hilang), plus `event_qty` (dihitung dari pengelompokan; skema penerbit flat 1 baris = 1 tiket) dan cover/tanggal dilengkapi dari katalog. `source:"embed"`.
+    - Email **tidak dikenal** penerbit → jatuh ke arsip `event_transaction` (read-only, tabel app lain): nama event, jenis, tanggal, "Lunas" — **tanpa QR** (`qr:null`, `qr_pending:true`). QR tidak pernah dikarang, dan status gerbang tidak pernah ditulis "valid". `source:"archive"`.
+    - Dua-duanya kosong → `source:"none"` + `reason` (`no_tickets` / `upstream_unavailable` / `server_error` / dst.) supaya kegagalan nyata tidak tersamar jadi "belum beli".
+  - **Gate konfirmasi: TIDAK ADA — dan sekarang tombol verifikasinya pun tidak ada.** Diselidiki 2026-09-09: tidak pernah ada modal, route guard, checkbox, atau flag `isVerified`/`claimed` di kode kita. Tombol "verifikasi" yang dulu muncul saat hasil = 0 ikut terhapus bersama jalur OTP.
+  - **Production sudah sejajar `staging`** (`bb259f4`, 2026-09-16) — catatan lama "main tertinggal PR #419/#421" **sudah tidak berlaku**.
+  - **Auto-retry + recovery (PR #438, `bb259f4`):** `ticket-wallet.js` kini retry otomatis sekali (3s delay) saat `loadUpcoming()` atau `loadTickets()` gagal — menghindari error permanen akibat server restart saat deploy. Ditambah listener `visibilitychange` + `online` yang memuat ulang data otomatis saat tab aktif kembali atau koneksi pulih. Retry hanya sekali; kalau masih gagal, tampil error + tombol "Coba lagi" manual seperti biasa.
+  - **Tidak ada webhook pembelian sama sekali.** `sync-ticket-events` hanya menarik `/events` dan menyimpan `sold_count` **agregat**, tak pernah identitas pembeli. Terukur 2026-09-08: Sports Summit live `sold`=**1233** vs `my20fit_ticket_events.sold_count`=**1162** (sync 2026-09-07 21:00) → **+71 terjual sejak sync**, sementara di DB kami **nol baris hari itu**. Pembayaran berhasil dan tercatat di ticket.20fit.id, tapi kami tak punya cara tahu siapa pembelinya — **tidak ada baris yang bisa "diperbaiki" di sisi kami.**
+  - **TANYA PEMILIK ticket.20fit.id:** permintaan teknisnya sudah ditulis lengkap di **`docs/TICKET-API-REQUEST.md`** — intinya minta **webhook pembelian** atau **endpoint partner baca pesanan per email**. Sampai salah satunya ada, pembeli yang emailnya belum dikenal penerbit hanya bisa melihat pembeliannya dari **arsip, tanpa QR**.
+  - **Arsip `event_transaction` bukan data hidup** — impor batch invoice, `paid_at` terbaru 2026-08-11, impor terakhir 2026-08-18. Tetap disajikan (isinya pembelian nyata; 242 dari 1374 user app punya email di sana) tapi ditandai `source:"archive"`. Pembelian baru tak akan pernah muncul di sana.
+- **Login Google web MATI — sebabnya di Google Cloud Console, bukan di kode.** Gejala: `Access blocked: Authorisation error` · `no registered origin` · `Error 401: invalid_client`.
+  - **Sebab terukur:** `server.js` memakai default hardcoded `26509397037-8d1s0c39hb31738fcl816b8jrv7fdt6i` yang komentarnya menyebut "Client ID web app 20FIT". Client ID yang **sama persis** terdaftar di repo app mobile sebagai reversed-client-id **iOS** (`20FIT_MOBILEAPP/ios/Runner/Info.plist` → `CFBundleURLTypes`/`CFBundleURLSchemes`). Client bertipe iOS **tidak punya kolom "Authorized JavaScript origins"**, jadi GIS di web selalu ditolak — menambah origin tidak akan menolong.
+  - **Data:** `auth.identities` provider `google` = 287 (Jun 122, Jul 118, Ags 47, **Sep 0**); terakhir dibuat & terakhir login sama-sama **2026-08-18 05:22 UTC**. Provider `email` masih aktif harian. Tombol Google di web sendiri **baru masuk `main` hari ini** lewat `d041061` — sebelum itu tag SDK `accounts.google.com/gsi/client` tak pernah ada di `main` (`git log --full-history -S`). Dugaan (**BELUM TERVERIFIKASI**): 287 identitas itu dari app mobile, yang memang memakai `google_sign_in` v7 + `serverClientId`.
+  - **Sudah diperbaiki di kode (PR #421):** default Client ID iOS dibuang (kosong → tombol disembunyikan); daftar audiens kosong pada `verifyGoogleIdToken` ditolak 503 supaya cek `aud` tak bisa dilewati; tombol cadangan yang memicu One Tap dihapus — kalau tombol resmi ditolak, One Tap ditolak juga, dan user diantar ke halaman error Google seolah app-nya rusak. Kini muncul pesan "Login Google sedang tidak tersedia" + arahan ke email/password.
+  - **TANYA/TUGAS PEMILIK (tidak bisa dari repo):** buat OAuth client baru bertipe **Web application** di project `26509397037`, isi Authorized JavaScript origins (`https://my.20fit.id` + URL staging Railway, tanpa path/slash), redirect URIs dikosongkan; lalu set `GOOGLE_CLIENT_ID` = client Web baru dan `GOOGLE_CLIENT_IDS` = client ID iOS di Railway (staging + prod). Tanpa yang kedua, login Google dari **app mobile** ikut ditolak server. Cek juga provider Google di Supabase Auth aktif (dipakai jalur cadangan `signInWithIdToken`).
+- **CMS admin fisioterapis BELUM ADA.** `my20fit_physiotherapists` sudah dipakai frontend, tapi belum punya seksi di `/admin-v2` seperti dokter & coach — untuk sekarang hanya bisa diedit lewat SQL. Endpoint `/api/admin/physiotherapists` juga belum dibuat.
+- **Ikon 3D: latar menyatu di dalam file PNG.** Kotak CSS sudah transparan (`.s2-ic.s2-ic3d` → `background rgba(0,0,0,0)`, terverifikasi via computed style), jadi latar yang terlihat berasal dari file di `media.20fit.id`. **TANYA PEMILIK:** perlu PNG versi transparan. Ikon 3D **Reward** juga belum ada filenya — tile Rewards masih SVG (`ic:"gift"`).
+- **dr. Ande belum ada foto.** URL yang diberikan menunjuk file dr. Anna; tidak dipasang demi menghindari salah orang. Sementara pakai placeholder inisial + penanda.
+- **~15 instruktur lain belum masuk roster coach** (Elsen, Andro, Brian, YoKae, Gilang, Mae, Ista, dll). Kelas mereka tetap jalan, hanya tak punya kartu coach.
 
 - **Membership catalog** (`/membership`): halaman + carousel + proxy `GET /api/membership/packages` **sudah dibuat** (PR #295), TAPI endpoint upstream katalog belum tersambung.
   - Proxy meneruskan ke arena-api pada path env `MEMBERSHIP_CATALOG_PATH` (default `/packages`), mapper defensif. Kalau path/shape belum cocok → balas `groups:[]` (halaman "empty", tanpa data karangan) dan **log `membership raw shape: …`** di server.

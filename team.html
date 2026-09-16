@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Our Team · 20FIT</title>
+<style>
+  :root{--red:#C41101;--bg:#F3F2F0;--card:#FFFFFF;--line:#E8E2DB;--txt:#1A1714;--ink:#16170F;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#16170F;--green:#2A7A4F;--amber:#C87000;--shadow:0 2px 12px rgba(0,0,0,.10)}
+  html:not(.theme-light){ --bg:#0C0D10;--card:#17191F;--line:#25272E;--txt:#F4F5F7;--ink:#F4F5F7;--muted:#8E9198;--inp:#23262E;--pagetx:#F4F5F7 }
+  *{box-sizing:border-box} a{text-decoration:none;color:inherit}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 96px}
+  .wrap{max-width:760px;margin:0 auto}
+  .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:16px;display:flex;align-items:center}
+  .logobar img{height:34px}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:10px}
+  h1{font-size:24px;font-weight:900;margin:0 0 6px;text-transform:uppercase;letter-spacing:-.01em}
+  .lead{color:var(--muted);font-size:14px;margin:0 0 14px;line-height:1.5}
+  .filters{display:flex;gap:8px;margin:0 0 6px;flex-wrap:wrap}
+  .filters button{border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 15px;font-weight:800;font-size:13px;cursor:pointer}
+  .filters button[aria-pressed="true"]{border-color:var(--red);color:var(--red)}
+  .venuefilt{display:flex;gap:8px;align-items:center;margin:2px 0 16px;flex-wrap:wrap}
+  .venuefilt .vlbl{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  .venuefilt button{border:1.2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 13px;font-weight:800;font-size:12.5px;cursor:pointer}
+  .venuefilt button[aria-pressed="true"]{border-color:var(--red);color:var(--red)}
+  .grpTitle{font-size:16px;font-weight:900;margin:20px 2px 12px;color:var(--pagetx)}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  @media(min-width:560px){ .grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  @media(min-width:760px){ .grid{grid-template-columns:repeat(4,minmax(0,1fr))} }
+  .cc{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;cursor:pointer}
+  .cc .av{width:100%;aspect-ratio:1;position:relative;background:var(--inp)}
+  .cc .av img{width:100%;height:100%;object-fit:cover;object-position:center 28%;display:block}
+  .cc .ini{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:30px;letter-spacing:.02em}
+  .cc .tag{position:absolute;top:8px;left:8px;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.42);border-radius:6px;padding:3px 7px}
+  .cc .bd{padding:11px 12px 13px}
+  .cc .nm{font-weight:800;font-size:14px;line-height:1.2;color:var(--ink);overflow-wrap:anywhere}
+  .cc .sp{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .cc .bio{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .cc .nophoto{font-size:10px;color:var(--muted);margin-top:5px;opacity:.85}
+  .state{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 20px;text-align:center;color:var(--muted);font-size:13px}
+  .retry{margin-top:12px;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:10px;padding:9px 16px;font-weight:800;font-size:13px;cursor:pointer}
+  .skg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  @media(min-width:560px){ .skg{grid-template-columns:repeat(3,1fr)} }
+  .skel{aspect-ratio:.82;border-radius:16px;background:linear-gradient(90deg,var(--inp),color-mix(in srgb,var(--inp) 55%,#fff),var(--inp));background-size:200% 100%;animation:sh 1.2s infinite}
+  @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" /></div>
+    <a class="back" href="/dashboard">← <span data-en="Home" data-id="Beranda">Home</span></a>
+    <h1 id="pgTitle">Meet Our Doctors &amp; Coaches</h1>
+    <p class="lead" id="pgLead"></p>
+    <div class="filters" id="roleFilters" hidden>
+      <button data-role="" aria-pressed="true">All</button>
+      <button data-role="doctor" aria-pressed="false">Doctors</button>
+      <button data-role="coach" aria-pressed="false">Coaches</button>
+      <button data-role="physiotherapist" aria-pressed="false">Physiotherapists</button>
+    </div>
+    <div class="venuefilt" id="venueFilters" hidden>
+      <span class="vlbl" data-en="Coach venue" data-id="Venue coach">Coach venue</span>
+      <button data-venue="" aria-pressed="true" data-en="All" data-id="Semua">All</button>
+      <button data-venue="arena" aria-pressed="false">Arena</button>
+      <button data-venue="gym" aria-pressed="false">Gym</button>
+    </div>
+    <div id="root"></div>
+  </div>
+
+  <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/nav.js"></script>
+  <script>
+  (function(){
+    "use strict";
+    var TXT={
+      title:{en:"Meet Our Doctors & Coaches",id:"Tim Dokter & Coach Kami"},
+      lead:{en:"Our doctors, coaches, and physiotherapists — the team behind your 20FIT journey.",
+            id:"Dokter, coach, dan fisioterapis kami — tim di balik perjalanan 20FIT-mu."},
+      loadErr:{en:"Couldn't load the team.",id:"Gagal memuat tim."},
+      retry:{en:"Try again",id:"Coba lagi"},
+      empty:{en:"No team members available right now.",id:"Belum ada anggota tim saat ini."},
+      all:{en:"All",id:"Semua"},
+      nophoto:{en:"Photo not available",id:"Foto belum ada"}
+    };
+    var ROLE_F={ "":{en:"All",id:"Semua"}, doctor:{en:"Doctors",id:"Dokter"}, coach:{en:"Coaches",id:"Coach"}, physiotherapist:{en:"Physiotherapists",id:"Fisioterapis"} };
+    var GRP_TITLE={ doctor:{en:"Doctors",id:"Dokter"}, coach:{en:"Coaches",id:"Coach"}, physiotherapist:{en:"Physiotherapists",id:"Fisioterapis"} };
+    var GRP_ORDER=["doctor","coach","physiotherapist"];
+    function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+    function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]; }); }
+    var $=function(id){return document.getElementById(id);};
+    var PAL=["#C41101","#2A7A4F","#2F6BFF","#7c5cff","#C87000","#0EA5A5","#B0308A","#4A5568"];
+    function initials(n){ var p=String(n||"").trim().split(/\s+/); var a=(p[0]||"")[0]||"", b=(p.length>1?(p[p.length-1][0]||""):""); return (a+b).toUpperCase()||"?"; }
+    function colorFor(n){ var s=String(n||""),h=0; for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0; return PAL[h%PAL.length]; }
+    function hrefFor(p){ if(p.role==="coach")return "/book-coach?coach="+encodeURIComponent(p.id); if(p.role==="doctor")return "/book-doctor"; if(p.role==="physiotherapist")return "/classes?venue=clinic"; return "#"; }
+
+    var TEAM=null, STATE="loading", ROLE="", VENUE="";
+
+    function applyStatic(){
+      $("pgTitle").innerHTML = esc(LL(TXT.title));
+      $("pgLead").textContent = LL(TXT.lead);
+      // Label chip peran
+      $("roleFilters").querySelectorAll("button").forEach(function(b){ var r=b.getAttribute("data-role")||""; b.textContent=LL(ROLE_F[r]); });
+      // data-en/id statik lain (venue label, All) di-handle i18n.js; teks 'All' venue via LL:
+      var va=$("venueFilters").querySelector('button[data-venue=""]'); if(va) va.textContent=LL(TXT.all);
+    }
+
+    function avatarInner(name, photo){
+      var color=colorFor(name);
+      if(photo) return '<img src="'+esc(photo)+'" alt="'+esc(name)+'" loading="lazy" onerror="this.style.display=\'none\';var n=this.nextElementSibling;if(n)n.style.display=\'grid\';var b=this.closest(\'.cc\');var m=b&&b.querySelector(\'.nophoto\');if(m)m.hidden=false"><span class="ini" style="display:none;background:'+color+'">'+esc(initials(name))+'</span>';
+      return '<span class="ini" style="background:'+color+'">'+esc(initials(name))+'</span>';
+    }
+    function card(p){
+      var tag = p.role==="coach" ? (p.venue==="gym"?"Gym":(p.venue==="arena"?"Arena":"Arena · Gym")) : LL(GRP_TITLE[p.role]||{en:p.role,id:p.role});
+      var nophoto='<div class="nophoto" data-en="'+esc(TXT.nophoto.en)+'" data-id="'+esc(TXT.nophoto.id)+'"'+(p.photo_url?' hidden':'')+'>'+esc(LL(TXT.nophoto))+'</div>';
+      var inner='<div class="av">'+avatarInner(p.name,p.photo_url)+'<span class="tag">'+esc(tag)+'</span></div>'+
+        '<div class="bd"><div class="nm">'+esc(p.name)+'</div>'+
+        (p.speciality?'<div class="sp">'+esc(p.speciality)+'</div>':'')+
+        (p.bio?'<div class="bio">'+esc(p.bio)+'</div>':'')+ nophoto +'</div>';
+      return '<a class="cc" href="'+esc(hrefFor(p))+'">'+inner+'</a>';
+    }
+
+    function render(){
+      var root=$("root");
+      if(STATE==="loading"){ root.innerHTML='<div class="skg">'+Array(8).join(0).split("0").map(function(){return '<div class="skel"></div>';}).join("")+'</div>'; return; }
+      if(STATE==="error"){ root.innerHTML='<div class="state">'+esc(LL(TXT.loadErr))+'<br><button class="retry" id="rtry">'+esc(LL(TXT.retry))+'</button></div>'; var rb=$("rtry"); if(rb)rb.onclick=load; return; }
+      var list=TEAM||[];
+      if(!list.length){ root.innerHTML='<div class="state">'+esc(LL(TXT.empty))+'</div>'; return; }
+      // filter venue hanya berlaku utk coach
+      function coachVenueOk(p){ if(!VENUE)return true; if(VENUE==="arena")return p.venue==="arena"||p.venue==="both"; if(VENUE==="gym")return p.venue==="gym"||p.venue==="both"; return true; }
+      var html="";
+      GRP_ORDER.forEach(function(role){
+        if(ROLE && ROLE!==role) return;               // filter peran
+        var items=list.filter(function(p){ return p.role===role && (role!=="coach" || coachVenueOk(p)); });
+        if(!items.length) return;                       // grup kosong -> jangan tampil
+        html+='<div class="grpTitle">'+esc(LL(GRP_TITLE[role]))+' <span style="color:var(--muted);font-weight:700">('+items.length+')</span></div>'+
+          '<div class="grid">'+items.map(card).join("")+'</div>';
+      });
+      root.innerHTML = html || '<div class="state">'+esc(LL(TXT.empty))+'</div>';
+      // Venue filter hanya relevan kalau coach ikut ditampilkan.
+      $("venueFilters").hidden = !(ROLE==="" || ROLE==="coach");
+    }
+
+    function bindFilters(){
+      $("roleFilters").hidden=false;
+      $("roleFilters").querySelectorAll("button").forEach(function(b){
+        b.addEventListener("click",function(){
+          ROLE=b.getAttribute("data-role")||"";
+          $("roleFilters").querySelectorAll("button").forEach(function(x){ x.setAttribute("aria-pressed", String(x===b)); });
+          render();
+        });
+      });
+      $("venueFilters").querySelectorAll("button").forEach(function(b){
+        b.addEventListener("click",function(){
+          VENUE=b.getAttribute("data-venue")||"";
+          $("venueFilters").querySelectorAll("button").forEach(function(x){ x.setAttribute("aria-pressed", String(x===b)); });
+          render();
+        });
+      });
+    }
+
+    async function load(){
+      STATE="loading"; render();
+      try{
+        var r=await fetch("/api/team?include_bio=1");
+        var j=await r.json().catch(function(){return null;});
+        if(!j||!j.ok){ STATE="error"; render(); return; }
+        TEAM=j.team||[]; STATE="ready";
+        if(TEAM.length) bindFilters();
+        render();
+      }catch(e){ STATE="error"; render(); }
+    }
+
+    applyStatic(); load();
+    if(window.I18N && I18N.onChange) I18N.onChange(function(){ applyStatic(); render(); });
+  })();
+  </script>
+</body>
+</html>

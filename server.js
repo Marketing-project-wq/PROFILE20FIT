@@ -12,6 +12,7 @@ const path = require("path");
 const crypto = require("crypto");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const { OAuth2Client } = require("google-auth-library");
 const email = require("./lib/email"); // SATU-SATUNYA jalur kirim email (Resend)
 const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerbang frekuensi
 const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
@@ -224,8 +225,10 @@ app.use("/api", (req, res, next) => {
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-key, x-cron-secret");
     res.setHeader("Access-Control-Max-Age", "600");
-    // /api/pub/* uses httpOnly cookie for anon session tracking
-    if ((req.originalUrl || "").startsWith("/api/pub/")) {
+    // /api/pub/* dan /api/menu/* pakai cookie httpOnly (eco_anon) utk sesi anonim
+    // (mis. like tanpa login) -> browser wajib boleh kirim/terima cookie lintas-origin.
+    var _url = req.originalUrl || "";
+    if (_url.startsWith("/api/pub/") || _url.startsWith("/api/menu/")) {
       res.setHeader("Access-Control-Allow-Credentials", "true");
     }
   }
@@ -1007,7 +1010,10 @@ const isPollPath = (req) => PAYMENT_POLL_PATHS.has((req.originalUrl || "").split
 // Proxy gambar preview foto (/api/photo/thumb/:id) = satu request per thumbnail. Satu carousel
 // bisa memuat belasan gambar sekaligus -> jangan dihitung ke ember 50/10mnt (nanti user kehabisan
 // limit hanya karena membuka dashboard). Punya limiter sendiri yang longgar + cache browser.
-const isImgPath = (req) => (req.originalUrl || "").split("?")[0].startsWith("/api/photo/thumb/");
+const isImgPath = (req) => { const _p = (req.originalUrl || "").split("?")[0]; return _p.startsWith("/api/photo/thumb/") || _p.startsWith("/api/menu/photo"); };
+// Unggah foto resep (submit resep multi-langkah bisa mengirim belasan gambar beruntun) ->
+// jangan dihitung ke ember 50/10mnt; ada uploadLimiter sendiri di bawah.
+const isMenuUploadPath = (req) => (req.originalUrl || "").split("?")[0].startsWith("/api/menu/upload");
 
 // message berupa OBJEK -> express-rate-limit membalas JSON. Kalau string (default), body-nya
 // text/html dan res.json() di klien meledak -> error ditelan diam-diam (persis bug di atas).
@@ -1019,7 +1025,7 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: limitMsg,
-  skip: (req) => isPollPath(req) || isImgPath(req), // ditangani pollLimiter/imgLimiter di bawah
+  skip: (req) => isPollPath(req) || isImgPath(req) || isMenuUploadPath(req), // ditangani pollLimiter/imgLimiter/uploadLimiter di bawah
 });
 const pollLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -1042,6 +1048,10 @@ app.use("/api/scan/order-status", pollLimiter);
 app.use("/api/scan/reconcile", pollLimiter);
 app.use("/api/photo/scan-status", pollLimiter);
 app.use("/api/photo/thumb/", imgLimiter);
+app.use("/api/menu/photo", imgLimiter); // foto katalog menu.20fit.id (publik) — kuota longgar, exempt dari apiLimiter 50/10mnt via isImgPath
+// Unggah foto resep (submit/revisi, butuh login): longgar utk foto per-langkah beruntun, tetap terbatas.
+const uploadLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: limitMsg });
+app.use("/api/menu/upload", uploadLimiter);
 
 // Limiter KETAT untuk endpoint kredensial — 50/10mnt global terlalu longgar buat
 // tebak-password / OTP. 12 percobaan / 15 menit / IP masih longgar utk user sah.
@@ -1053,8 +1063,9 @@ const authLimiter = rateLimit({
   message: limitMsg,
 });
 app.use([
-  "/api/fitco-login", "/api/fitco-register", "/api/fitco-forgot", "/api/fitco-reset",
+  "/api/fitco-login", "/api/fitco-register", "/api/reset/request", "/api/reset/confirm",
   "/api/fitco-verify-email", "/api/fitco-resend-verify-email",
+  "/api/fitco-forgot", "/api/fitco-reset",
 ], authLimiter);
 
 // Limiter AI generatif (translate) — panggilan berbiaya ke OpenRouter. Cegah dipakai sebagai
@@ -1109,24 +1120,43 @@ function readCookie(req, name) {
   }
   return null;
 }
-// Ambil / buat sesi anonim (cookie httpOnly). createIfMissing=false -> jangan buat baru (read-only).
+const ANON_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// anon_id yang DIBAWA KLIEN (cookie my20fit_anon di .20fit.id, dibagikan lintas app 20FIT).
+// Dioper via header x-anon-id / ?anon= / body.anon_id. Ini kunci penyatuan data anon lintas
+// properti: semua app pakai id yang SAMA, jadi scan/like/kontribusi anon ketemu satu akun.
+function clientAnonId(req) {
+  var v = String((req.headers && req.headers["x-anon-id"]) || (req.query && req.query.anon) || (req.body && req.body.anon_id) || "").trim();
+  return ANON_UUID_RE.test(v) ? v : null;
+}
+// Cookie anon BERSAMA (JS-readable) di .20fit.id supaya semua *.20fit.id memakai id yang sama
+// + bisa dibaca app untuk klaim saat login. Bukan pengganti eco_anon (httpOnly) di same-origin.
+function setSharedAnonCookie(res, id) {
+  try { if (res) res.cookie("my20fit_anon", id, { httpOnly: false, secure: true, sameSite: "lax", path: "/", domain: ".20fit.id", maxAge: 30 * 24 * 3600 * 1000 }); } catch (e) {}
+}
+// Ambil / buat sesi anonim. Prioritas anon_id: klien (x-anon-id) -> cookie eco_anon.
+// createIfMissing=false -> jangan buat baru (read-only).
 async function getAnonSession(req, res, createIfMissing) {
   if (!admin) return null;
-  const existing = readCookie(req, ANON_COOKIE);
-  if (existing) {
-    const { data } = await admin.from("my20fit_anonymous_sessions").select("*").eq("anon_id", existing).limit(1);
-    if (data && data[0]) return data[0];
+  const wanted = clientAnonId(req) || readCookie(req, ANON_COOKIE);
+  if (wanted) {
+    const { data } = await admin.from("my20fit_anonymous_sessions").select("*").eq("anon_id", wanted).limit(1);
+    if (data && data[0]) { setSharedAnonCookie(res, wanted); return data[0]; }
   }
   if (!createIfMissing) return null;
-  const anonId = crypto.randomUUID();
+  const anonId = (wanted && clientAnonId(req)) ? wanted : (wanted || crypto.randomUUID());
   const row = {
     anon_id: anonId,
     ip_hash: sha256((req.ip || "") + "|" + ANON_SALT).slice(0, 64),
     ua_hash: sha256(String(req.headers["user-agent"] || "") + "|" + ANON_SALT).slice(0, 32),
     scan_count: 0,
   };
-  const { data: ins } = await admin.from("my20fit_anonymous_sessions").insert(row).select("*").limit(1);
-  res.cookie(ANON_COOKIE, anonId, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 30 * 24 * 3600 * 1000 });
+  let { data: ins, error: insErr } = await admin.from("my20fit_anonymous_sessions").insert(row).select("*").limit(1);
+  if (insErr) { // balapan / id sudah ada -> ambil baris yang ada
+    const { data: ex } = await admin.from("my20fit_anonymous_sessions").select("*").eq("anon_id", anonId).limit(1);
+    ins = ex;
+  }
+  if (res) res.cookie(ANON_COOKIE, anonId, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 30 * 24 * 3600 * 1000 });
+  setSharedAnonCookie(res, anonId);
   return (ins && ins[0]) || row;
 }
 // return_to WAJIB *.20fit.id (anti open-redirect). Selain https + domain 20fit -> null (jangan dipakai).
@@ -1427,14 +1457,21 @@ const SCAN_PACKAGES = {
 // /api/v1/auth/login/google). Yang perlu di server hanyalah GOOGLE_CLIENT_ID
 // (nilai PUBLIK — memang tampil di web). Tidak perlu Client Secret / Redirect URI.
 //
-// Nilai diambil dari env GOOGLE_CLIENT_ID (bisa beda per environment: local /
-// staging / production). Ada DEFAULT publik (Client ID web app 20FIT) supaya
-// tombol Google SELALU tampil walau env belum diisi — pola yang sama dengan
-// Supabase URL/anon key yang juga punya default publik di kode. Client ID
-// bersifat PUBLIK (bukan secret). Frontend mengambilnya lewat GET /api/config
-// (satu sumber). Untuk override, set env GOOGLE_CLIENT_ID di Railway.
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ||
-  "26509397037-8d1s0c39hb31738fcl816b8jrv7fdt6i.apps.googleusercontent.com";
+// Nilai HANYA dari env GOOGLE_CLIENT_ID (bisa beda per environment: local /
+// staging / production). Client ID bersifat PUBLIK (bukan secret). Frontend
+// mengambilnya lewat GET /api/config (satu sumber).
+//
+// TIDAK ADA nilai default. Dulu ada default hardcoded
+// "26509397037-8d1s0c39hb31738fcl816b8jrv7fdt6i" yang dikira "Client ID web app
+// 20FIT" — ternyata itu Client ID **iOS** milik app mobile (terdaftar sebagai
+// reversed-client-id di `ios/Runner/Info.plist` → `CFBundleURLSchemes`). Client
+// bertipe iOS TIDAK PUNYA kolom "Authorized JavaScript origins" sama sekali,
+// jadi GIS di web selalu ditolak Google dengan
+// `Error 401: invalid_client` + "no registered origin" — apa pun origin-nya.
+// Default itu bukan jaring pengaman; ia menjamin tombol Google rusak diam-diam.
+// Kosong = tombol Google disembunyikan (login.html sudah menangani ini dan
+// menulis peringatan di console), bukan tombol yang menabrak halaman error Google.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 // Ambil profil user dari 20FIT pakai access_token (Bearer). Return field yg kita pakai.
 async function fetch20fitProfile(fitcoToken) {
   const out = { email: null, fullName: null, gender: null, phone: null, avatar: null, birthdate: null, fitcoUserId: null };
@@ -1541,6 +1578,13 @@ app.post("/api/fitco-login", async (req, res) => {
     const fitcoToken =
       fj.access_token || fd.access_token ||
       (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
+    // Refresh token dari 20FIT — kontrak terverifikasi: nested di `data.token.refresh_token`.
+    // WAJIB diteruskan: tanpa ini app menyimpan refresh=null, interceptor-nya melewati
+    // silent-refresh, dan 401 pertama setelah access token 24 jam kedaluwarsa jadi FINAL
+    // (user kehilangan FIT Points sampai logout+login manual).
+    // 🔴 KREDENSIAL — jangan pernah di-log/ikut pesan error.
+    const fitcoRefresh =
+      (fd.token && fd.token.refresh_token) || fd.refresh_token || fj.refresh_token || null;
     if (!fitcoToken) return res.status(401).json({ error: "Login 20FIT gagal (token tidak diterima)." });
     let fitcoUserId = fd.user_id || fd.id || null;
 
@@ -1558,7 +1602,7 @@ app.post("/api/fitco-login", async (req, res) => {
     info.fitcoEmailVerified = true;
     const out = await mirrorAndMintOtp(info);
     // Kirim user_id + token 20FIT ke client (dipakai untuk order/pembayaran shop 20FIT).
-    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken });
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken, fitco_refresh_token: fitcoRefresh });
   } catch (e) {
     console.error("fitco-login:", e.message);
     return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
@@ -1568,13 +1612,36 @@ app.post("/api/fitco-login", async (req, res) => {
 // Login pakai akun GOOGLE via API 20FIT (dokumentasi developer "Login by Google").
 // Frontend mengirim ID token dari Google Identity Services. Identitas (email/nama/
 // google_auth_id) diambil server dari payload token itu — bukan dari input bebas
-// client — lalu API 20FIT yang memverifikasi keaslian token ke Google.
-// Decode payload JWT (base64url) tanpa verifikasi tanda tangan.
-function decodeJwtPayload(jwt) {
+// client. SERVER memverifikasi tanda tangan ID token langsung ke Google lebih
+// dulu (verifyGoogleIdToken), baru API 20FIT ikut memverifikasi — defense-in-depth.
+// Verifikasi Google ID token ke Google (tanda tangan, iss, aud, exp) SEBELUM dipercaya.
+// audience = web client ID + (opsional) client ID mobile via env GOOGLE_CLIENT_IDS (koma).
+// PENTING: app mobile menandatangani ID token-nya dengan client ID iOS/Android-nya
+// sendiri, jadi client ID itu HARUS ada di GOOGLE_CLIENT_IDS — kalau tidak, login
+// Google dari app mobile ditolak di sini walau webnya benar.
+const googleVerifier = new OAuth2Client();
+async function verifyGoogleIdToken(credential) {
+  // filter(Boolean) juga membuang GOOGLE_CLIENT_ID yang kosong (env belum diisi),
+  // supaya audiens "" tak pernah ikut dikirim ke verifier.
+  const audiences = [GOOGLE_CLIENT_ID, ...String(process.env.GOOGLE_CLIENT_IDS || "")
+    .split(",").map((s) => s.trim())].filter(Boolean);
+  // Tanpa satu pun audiens terdaftar, verifikasi audience tak bisa ditegakkan —
+  // TOLAK, jangan terima token apa pun. (Daftar kosong bisa membuat verifier
+  // melewati cek `aud`, artinya ID token dari app Google MANA PUN akan lolos.)
+  if (!audiences.length) {
+    const err = new Error("Login Google belum dikonfigurasi di server."); err.status = 503; throw err;
+  }
+  let ticket;
   try {
-    const part = String(jwt).split(".")[1] || "";
-    return JSON.parse(Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
-  } catch (e) { return {}; }
+    ticket = await googleVerifier.verifyIdToken({ idToken: credential, audience: audiences });
+  } catch (e) {
+    const err = new Error("Google credential tidak valid."); err.status = 401; throw err;
+  }
+  const p = ticket.getPayload() || {};
+  if (!p.email || p.email_verified !== true) {
+    const err = new Error("Email Google belum terverifikasi."); err.status = 401; throw err;
+  }
+  return p; // { email, sub, name, given_name, family_name, email_verified, picture, ... }
 }
 
 // Jembatan bersama: klaim Google (email/nama/sub) + ID token → verifikasi ke API
@@ -1602,6 +1669,13 @@ async function bridgeGoogleToSession(claims, idToken) {
   const fitcoToken =
     fj.access_token || fd.access_token ||
     (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
+  // Lihat catatan di /api/fitco-login. ⚠️ Kontrak refresh token jalur GOOGLE
+  // (`/api/v1/auth/login/google`) BELUM pernah diverifikasi langsung seperti jalur
+  // password — kalau 20FIT tak mengirimnya, nilainya null dan perilakunya sama
+  // seperti sebelum perubahan ini (tak ada fallback yang dikarang).
+  // 🔴 KREDENSIAL — jangan pernah di-log/ikut pesan error.
+  const fitcoRefresh =
+    (fd.token && fd.token.refresh_token) || fd.refresh_token || fj.refresh_token || null;
   if (!fitcoToken) { const e = new Error("Login Google 20FIT gagal (token tidak diterima)."); e.status = 401; throw e; }
   let fitcoUserId = fd.user_id || fd.id || null;
 
@@ -1615,7 +1689,7 @@ async function bridgeGoogleToSession(claims, idToken) {
   info.fitcoUserId = fitcoUserId;
   info.fitcoEmailVerified = true; // login Google diterima 20FIT + email diverifikasi Google
   const out = await mirrorAndMintOtp(info);
-  return { email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken };
+  return { email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken, fitco_refresh_token: fitcoRefresh };
 }
 
 // Login Google (GIS): frontend kirim ID token (credential) via POST, server
@@ -1625,8 +1699,9 @@ app.post("/api/fitco-google-login", async (req, res) => {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
     const credential = String((req.body && req.body.credential) || "").trim();
     if (!credential) return res.status(400).json({ error: "Google credential wajib." });
-    const out = await bridgeGoogleToSession(decodeJwtPayload(credential), credential);
-    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: out.fitco_user_id, fitco_token: out.fitco_token });
+    const claims = await verifyGoogleIdToken(credential);
+    const out = await bridgeGoogleToSession(claims, credential);
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: out.fitco_user_id, fitco_token: out.fitco_token, fitco_refresh_token: out.fitco_refresh_token });
   } catch (e) {
     console.error("fitco-google-login:", e.message);
     return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal login. Coba lagi." });
@@ -1955,7 +2030,7 @@ app.post("/api/fitco-register", async (req, res) => {
     // 2) Login ke 20FIT utk ambil token + profil (best effort). Kalau butuh verifikasi
     //    OTP, langkah ini bisa gagal — tidak apa, kita tetap buat sesi dari data daftar.
     let info = { email, fullName: name, gender: (gender === "male" || gender === "female") ? gender : null, phone: phone || null, avatar: null, birthdate: dob || null };
-    let fitcoToken = null, fitcoUserId = null;
+    let fitcoToken = null, fitcoUserId = null, fitcoRefresh = null;
     try {
       const lr = await fetch(FITCO_API + FITCO_LOGIN_PATH, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -1964,6 +2039,12 @@ app.post("/api/fitco-register", async (req, res) => {
       const lj = await lr.json().catch(() => ({}));
       const fd = (lj && lj.data) || lj || {};
       fitcoToken = fd.access_token || (fd.token && (fd.token.access_token || (typeof fd.token === "string" ? fd.token : null))) || null;
+      // ⚠️ Bentuk di SINI beda dari dua jalur lain: variabel response-nya `lj`
+      // (bukan `fj`), dan ekstraksi access token di atas TIDAK mengecek root
+      // (`lj.access_token`). Asimetri itu dipertahankan apa adanya — bukan tugas
+      // ini untuk menyeragamkannya, dan mengubahnya diam-diam berisiko.
+      // 🔴 KREDENSIAL — jangan pernah di-log/ikut pesan error.
+      fitcoRefresh = (fd.token && fd.token.refresh_token) || fd.refresh_token || null;
       fitcoUserId = fd.user_id || fd.id || null;
       if (fitcoToken) {
         try { const p = await fetch20fitProfile(fitcoToken); info = { email: p.email || email, fullName: p.fullName || name, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar, birthdate: p.birthdate || dob }; fitcoUserId = p.fitcoUserId || fitcoUserId; } catch (e) {}
@@ -1981,7 +2062,7 @@ app.post("/api/fitco-register", async (req, res) => {
     info.fitcoEmailVerified = false;
     const out = await mirrorAndMintOtp(info);
     // Kirim user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
-    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken });
+    return res.json({ ok: true, email: out.email, email_otp: out.email_otp, fitco_user_id: fitcoUserId, fitco_token: fitcoToken, fitco_refresh_token: fitcoRefresh });
   } catch (e) {
     console.error("fitco-register:", e.message);
     return res.status(e.status || 500).json({ error: e.status ? e.message : "Gagal daftar. Coba lagi." });
@@ -2043,6 +2124,53 @@ app.post("/api/fitco-resend-verify-email", async (req, res) => {
     return res.status(r.status).json(j);
   } catch (e) {
     console.error("fitco-resend-verify-email:", e.message);
+    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+  }
+});
+
+// ---------- Lupa password (app 20FIT): teruskan ke FITCO (OTP kirim + reset) ----------
+// Dipakai oleh app 20FIT (5.1.2+): kirim email → FITCO kirim OTP → user isi OTP +
+// password baru. Reset dari WEB (reset-password.html) memakai jalur SENDIRI
+// /api/reset/{request,confirm} (OTP + set password Supabase). Dua jalur ini SENGAJA
+// terpisah — jangan digabung. Kontrak app: SEMUA balasan HARUS JSON object (sukses
+// {ok:true}, gagal {error}); status & pesan gagal diteruskan apa adanya dari FITCO
+// (perilaku anti-enumerasi ikut upstream, tidak menambah kepastian). JANGAN log
+// password/otp. Endpoint /api/v1/auth/password/forgot terverifikasi 200 (10 Sep 2026).
+app.post("/api/fitco-forgot", async (req, res) => {
+  try {
+    const email = String((req.body && req.body.email) || "").trim().toLowerCase();
+    if (!email) return res.status(400).json({ error: "Email wajib diisi." });
+    const r = await fetch(FITCO_API + "/api/v1/auth/password/forgot", {
+      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status).json({ error: (j && (j.message || j.error)) || "Gagal mengirim kode reset. Coba lagi." });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("fitco-forgot:", e.message);
+    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+  }
+});
+app.post("/api/fitco-reset", async (req, res) => {
+  try {
+    const email = String((req.body && req.body.email) || "").trim().toLowerCase();
+    const otp = String((req.body && req.body.otp) || "").trim();
+    const password = String((req.body && req.body.password) || "");
+    if (!email || !otp || !password) return res.status(400).json({ error: "Email, kode & password wajib diisi." });
+    if (password.length < 8) return res.status(400).json({ error: "Password minimal 8 karakter." });
+    // FITCO menuntut 4 field; app 5.1.2 hanya kirim 3 → isi password_confirmation dari
+    // password. Kalau app kirim password_confirmation sendiri, hormati (jangan ditimpa).
+    const password_confirmation = String((req.body && req.body.password_confirmation) || password);
+    const r = await fetch(FITCO_API + "/api/v1/auth/password/reset", {
+      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ email, otp, password, password_confirmation }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status).json({ error: (j && (j.message || j.error)) || "Gagal mengubah password. Periksa kode lalu coba lagi." });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("fitco-reset:", e.message);
     return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
   }
 });
@@ -2113,30 +2241,178 @@ async function ticketEmbed(userJwt, action, extra) {
     return { status: r.status, data: j };
   } catch (e) { return { status: 0, data: null, error: e && e.message }; } finally { clearTimeout(to); }
 }
+// PENGAMAN UMUM anti-"[object Object]". Nilai dari penerbit bisa datang sebagai string
+// ATAU objek ({name}/{fullName}/{en,id}/{title}). textOf mengekstrak teks yang benar;
+// kalau tak ketemu properti teks yang wajar, kembalikan null — TIDAK PERNAH String(obj)
+// yang menghasilkan "[object Object]". Dipakai untuk SEMUA field teks embed (event_name,
+// product_name, holder, buyer) supaya tak ada satu pun yang bisa bocor jadi "[object Object]".
+function textOf(v) {
+  if (v == null) return null;
+  if (typeof v === "string") return v.trim() || null;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) { for (const x of v) { const s = textOf(x); if (s) return s; } return null; }
+  if (typeof v === "object") {
+    const n = firstOf(v, ["name", "fullName", "full_name", "displayName", "title", "label", "en", "id", "text", "value"]);
+    return n != null ? textOf(n) : null;   // rekursif: {title:{en:"..."}} pun aman
+  }
+  return null;
+}
+// nameOf = alias khusus nama orang, tetap dipakai di tempat lain. Sekarang menumpang textOf.
+function nameOf(v) { return textOf(v); }
+// URL-guard: cover harus string URL/data-URI. Kalau penerbit kirim objek/anomali, jangan
+// diteruskan (nanti jadi src="[object Object]"), kembalikan null → UI pakai fallback rapi.
+function urlOf(v) {
+  const s = (typeof v === "string") ? v.trim() : (v && typeof v === "object" ? textOf(v) : null);
+  return (s && /^(https?:\/\/|data:image\/|\/)/i.test(s)) ? s : null;
+}
+// Status GERBANG dari penerbit — JANGAN dikarang jadi selalu "valid". Kalau penerbit
+// mengirim status, normalkan; kalau tidak, kembalikan null dan biar UI memutuskan
+// (tiket live dari /me/tickets defaultnya dianggap valid oleh UI, tapi status "used"/
+// "expired"/"cancelled" dari penerbit WAJIB dihormati — tiket dipakai tak boleh terbaca VALID).
+function ticketStatusOf(t) {
+  const raw = String(textOf(firstOf(t, ["status", "state", "ticketStatus", "ticket_status"])) || "").toLowerCase();
+  if (!raw) return null;
+  if (/cancel|void|refund/.test(raw)) return "cancelled";
+  if (/used|checked|scan|redeem|attend/.test(raw)) return "used";
+  if (/expire|ended|closed|past/.test(raw)) return "expired";
+  if (/valid|active|issued|paid|confirm|ok/.test(raw)) return "valid";
+  return raw;   // status tak dikenal → teruskan apa adanya (jangan sembunyikan kebenaran)
+}
 function mapEmbedTicket(t) {
   t = t || {};
   const code = firstOf(t, ["code", "ticketCode", "ticket_code", "id", "ref", "reference"]);
   return {
     ref: code != null ? String(code) : null,
     code: code != null ? String(code) : null,
-    event_name: firstOf(t, ["eventName", "event_name", "event", "title", "name"]) || "Event 20FIT",
-    product_name: firstOf(t, ["ticketType", "ticket_type", "categoryName", "category", "productName", "product_name"]),
-    holder: firstOf(t, ["holderName", "holder", "attendeeName", "attendee", "customerName", "name"]),
-    paid_at: firstOf(t, ["purchasedAt", "paidAt", "paid_at", "createdAt", "created_at", "date"]),
-    status: "valid",
-    cover_url: firstOf(t, ["coverUrl", "cover_url", "bannerUrl", "image"]),
-    has_qr: true,   // QR asli diambil lazy via /api/tickets/qr?code=
-    qr: null,
+    event_name: textOf(firstOf(t, ["eventName", "event_name", "event", "title", "name"])) || "Event 20FIT",
+    event_slug: textOf(firstOf(t, ["eventSlug", "event_slug", "slug"])),
+    event_date: firstOf(t, ["eventStartsAt", "startsAt", "starts_at", "eventDate", "event_date", "date"]),
+    product_name: textOf(firstOf(t, ["ticketType", "ticket_type", "categoryName", "category", "productName", "product_name"])),
+    holder: textOf(firstOf(t, ["holderName", "holder", "attendeeName", "attendee", "customerName", "name"])),
+    // Nama PEMESAN (yang membayar), beda dari `holder` (yang hadir). Dipetakan defensif
+    // seperti field lain: kalau penerbit tak mengirimnya, tetap null dan UI menyembunyikannya.
+    // TIDAK dikarang dari data lain.
+    buyer: textOf(firstOf(t, ["buyerName", "buyer_name", "ordererName", "purchaserName", "buyer", "orderer", "purchaser"])),
+    paid_at: firstOf(t, ["purchasedAt", "paidAt", "paid_at", "createdAt", "created_at"]),
+    // Status GERBANG asli dari penerbit; live embed ticket tanpa status → dianggap "valid".
+    status: ticketStatusOf(t) || "valid",
+    cover_url: urlOf(firstOf(t, ["coverUrl", "cover_url", "bannerUrl", "image"])),
+    qr: null,   // diisi attachQrs() sebelum respons dikirim — bukan request terpisah per tiket
   };
+}
+// Normalisasi respons QR penerbit → {img, svg, payload}. SATU sumber kebenaran:
+// dipakai attachQrs() (borongan) dan /api/tickets/qr (satuan).
+function normalizeQr(d) {
+  let img = null, svg = null, payload = null;
+  const looksImg = (s) => /^https?:\/\//i.test(String(s)) || /^data:image\//i.test(String(s));
+  if (typeof d === "string") {
+    if (looksImg(d)) img = d; else if (/<svg/i.test(d)) svg = d; else payload = d;
+  } else if (d && typeof d === "object") {
+    img = firstOf(d, ["qrUrl", "qr_url", "imageUrl", "image_url", "png", "url", "dataUrl", "data_url"]);
+    if (img && !looksImg(img)) img = "data:image/png;base64," + img; // base64 mentah
+    svg = firstOf(d, ["svg", "qrSvg", "qr_svg"]);
+    payload = firstOf(d, ["payload", "value", "content", "qr", "code", "token", "data"]);
+    if (!img && payload && looksImg(payload)) { img = String(payload); payload = null; }
+    if (!svg && payload && /<svg/i.test(String(payload))) { svg = String(payload); payload = null; }
+  }
+  return { ok: !!(img || svg || payload), img, svg, payload };
+}
+// Ambil QR SEMUA tiket sekaligus (paralel) dan tempelkan ke tiketnya. Sebelumnya browser
+// meminta satu per satu lewat /api/tickets/qr (N+1) dan QR baru muncul setelah user menekan
+// tombol. Kegagalan satu QR tidak menggagalkan yang lain — tiketnya tetap tampil tanpa QR.
+async function attachQrs(userJwt, userToken, tickets) {
+  if (!userToken || !tickets || !tickets.length) return tickets;
+  await Promise.all(tickets.map(async (t) => {
+    if (!t.code) return;
+    try {
+      const r = await ticketEmbed(userJwt, "ticket_qr", { userToken, code: t.code });
+      const q = normalizeQr(r.data);
+      if (q.ok) t.qr = q;
+    } catch (_) { /* satu QR gagal → tiket tetap tampil, tanpa QR */ }
+  }));
+  return tickets;
+}
+// Hasil berbentuk {ok, tickets|reason, status, raw} — BUKAN null polos, supaya "gagal
+// mengambil" bisa dibedakan dari "memang belum beli".
+// TANPA OTP (keputusan pemilik): setiap user my.20fit diperlakukan sebagai USER, bukan tamu.
+// Server menukar email SESI mereka jadi userToken lewat jalur PARTNER server-ke-server
+// (action `user_token` → /partner/user-token, kunci partner). Ini jalan TANPA verifikasi
+// untuk email yang dikenal penerbit (punya akun ticket.20fit.id). Untuk email yang belum
+// dikenal penerbit, jalur ini 404 dan kita JATUH ke arsip — TIDAK meminta OTP. Membuat QR
+// tampil untuk SEMUA pembeli tanpa OTP butuh endpoint partner baru di ticket.20fit.id
+// (list tiket + QR by verified email) — lihat docs/TICKET-API-REQUEST.md.
+async function embedTicketsWithToken(userJwt, userToken) {
+  const mt = await ticketEmbed(userJwt, "my_tickets", { userToken });
+  const arr = pickArray(mt.data);
+  if (!arr) return { ok: false, status: mt.status, raw: mt.data, reason: "tickets_unreadable" };
+  // userToken ikut dikembalikan supaya pemanggil bisa mengambil QR-nya sekaligus.
+  return { ok: true, status: mt.status, raw: mt.data, userToken, tickets: arr.map(mapEmbedTicket).filter(t => t.code) };
 }
 async function embedMyTickets(userJwt) {
   const ut = await ticketEmbed(userJwt, "user_token");
   const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
-  if (!userToken) return null;
-  const mt = await ticketEmbed(userJwt, "my_tickets", { userToken });
-  const arr = pickArray(mt.data);
-  if (!arr) return null;
-  return arr.map(mapEmbedTicket).filter(t => t.code);
+  if (!userToken) {
+    // 404 = email ini belum dikenal penerbit (beli sebagai tamu / belum punya akun di sana).
+    // BUKAN "belum pernah beli". TANPA OTP: kita tidak meminta verifikasi — cukup jatuh ke
+    // arsip. reason `no_account` dipakai frontend hanya untuk memilih pesan yang tepat,
+    // tanpa memunculkan langkah verifikasi apa pun.
+    return { ok: false, status: ut.status, raw: ut.data,
+             reason: ut.status === 404 ? "no_account" : "upstream_unavailable" };
+  }
+  // Token sudah di tangan → ambil tiketnya (bentuk hasil ditulis sekali, termasuk userToken utk QR).
+  return await embedTicketsWithToken(userJwt, userToken);
+}
+
+// Lengkapi cover & tanggal event tiket dari katalog my20fit_ticket_events kalau tiket belum
+// membawanya (mis. penerbit tak kirim cover → kartu tadinya tampil fallback + "Date TBA").
+// Dicocokkan HANYA ke event yang SAMA: by slug persis, atau nama dinormalisasi yang saling
+// memuat. Event yang memang tak ada di katalog (mis. Sportfest/Platarox) tetap pakai fallback
+// rapi — TIDAK dipasangkan ke event lain sekadar supaya ada gambar (aturan pemilik).
+let _ticketCatalog = null, _ticketCatalogAt = 0;
+async function loadTicketCatalog() {
+  const now = Date.now();
+  if (_ticketCatalog && (now - _ticketCatalogAt) < 300000) return _ticketCatalog; // cache 5 menit
+  try {
+    const { data } = await admin.from("my20fit_ticket_events").select("slug,name,cover_url,starts_at,venue,city");
+    _ticketCatalog = data || []; _ticketCatalogAt = now;
+  } catch (_) { _ticketCatalog = _ticketCatalog || []; }
+  return _ticketCatalog;
+}
+// Normalisasi nama event: lowercase + buang non-alnum. TIDAK membuang "(invitation only)"
+// dsb — justru itu yang membedakan dua varian event serupa (mis. reguler vs invitation),
+// supaya kecocokan PERSIS memilih varian yang benar (tanggal/poster beda).
+function normEventName(s) {
+  return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+async function enrichTicketsWithCatalog(tickets) {
+  if (!tickets || !tickets.length || !admin) return tickets;
+  const cat = await loadTicketCatalog();
+  if (!cat.length) return tickets;
+  const bySlug = {};
+  cat.forEach((e) => { if (e.slug) bySlug[String(e.slug).toLowerCase()] = e; });
+  for (const t of tickets) {
+    if (t.cover_url && t.event_date) continue; // sudah lengkap
+    let hit = null;
+    const slug = t.event_slug ? String(t.event_slug).toLowerCase() : "";
+    if (slug && bySlug[slug]) hit = bySlug[slug];
+    if (!hit) {
+      const tn = normEventName(t.event_name);
+      if (tn.length >= 8) {
+        // UTAMAKAN kecocokan PERSIS (nama sama) sebelum "saling memuat", supaya tiket
+        // "…Jakarta Hybrid Race" tidak salah ambil ke varian "(Invitation Only) …" yang
+        // tanggalnya beda — dua event serupa bisa sama-sama ada di katalog.
+        hit = cat.find((e) => normEventName(e.name) === tn) ||
+              cat.find((e) => { const en = normEventName(e.name); return en && (en.includes(tn) || tn.includes(en)); }) ||
+              null;
+      }
+    }
+    if (hit) {
+      if (!t.cover_url && hit.cover_url) t.cover_url = hit.cover_url;
+      if (!t.event_date && hit.starts_at) t.event_date = hit.starts_at;
+      if (!t.venue && (hit.venue || hit.city)) t.venue = [hit.venue, hit.city].filter(Boolean).join(", ");
+    }
+  }
+  return tickets;
 }
 
 // ---------- /api/tickets/mine : tiket event yang DIBELI user (widget "My Tickets") ----------
@@ -2160,15 +2436,43 @@ app.get("/api/tickets/mine", async (req, res) => {
       const { data: prof } = await admin.from("my20fit_profile").select("email").eq("auth_user_id", user.id).limit(1);
       if (prof && prof[0] && prof[0].email) email = String(prof[0].email).trim().toLowerCase();
     } catch (_) {}
-    if (!email) return res.json({ ok: true, tickets: [] });
-    // SUMBER UTAMA: tiket ASLI + QR dari ticket.20fit.id (embed). Tahan-gagal → fallback di bawah.
+    if (!email) return res.json({ ok: true, tickets: [], count: 0, source: "none", reason: "no_email" });
+    // ?debug=1 HANYA untuk superadmin (pola sama dengan /api/tickets/qr): berisi respons
+    // mentah upstream, dipakai memetakan kegagalan tanpa menebak.
+    let debug = false;
+    if (String(req.query.debug || "") === "1") {
+      try { const ctx = await getAdminContext(req); debug = !!(ctx && ctx.role === "superadmin"); } catch (_) {}
+    }
+    // SUMBER UTAMA: tiket ASLI + QR dari ticket.20fit.id (embed), lewat jalur PARTNER
+    // server-ke-server TANPA OTP (email sesi ditukar jadi userToken pakai kunci partner).
+    // Berhasil untuk email yang dikenal penerbit; kalau 404/ gagal → jatuh ke arsip di bawah.
+    // Sebab kegagalan disimpan supaya tetap bisa dilaporkan kalau arsip juga kosong.
+    let emb = null;
     try {
-      const embedList = await embedMyTickets(bearerOf(req));
-      if (Array.isArray(embedList) && embedList.length) {
-        return res.json({ ok: true, tickets: embedList, source: "embed", count: embedList.length });
-      }
-    } catch (_) {}
-    // FALLBACK: pembelian dari event_transaction (tanpa QR gerbang).
+      emb = await embedMyTickets(bearerOf(req));
+    } catch (e) { emb = { ok: false, status: 0, reason: "upstream_unavailable", raw: String((e && e.message) || e) }; }
+    const dbg = (extra) => {
+      if (!debug) return extra;
+      return Object.assign({}, extra, { debug: { embed: emb } });
+    };
+    if (emb && emb.ok && emb.tickets.length) {
+      // QR semua tiket diambil sekaligus (paralel) supaya browser tak perlu meminta
+      // satu per satu dan QR bisa langsung tampil di kartu — bukan di balik tombol.
+      await attachQrs(bearerOf(req), emb.userToken, emb.tickets);
+      // Jumlah tiket per event. Skema penerbit FLAT (satu baris = satu tiket), jadi qty
+      // dihitung dari pengelompokan — bukan field yang dikarang.
+      const perEvent = {};
+      for (const t of emb.tickets) perEvent[t.event_name] = (perEvent[t.event_name] || 0) + 1;
+      for (const t of emb.tickets) t.event_qty = perEvent[t.event_name];
+      // Lengkapi cover + tanggal dari katalog kalau penerbit tak mengirimnya (kartu tak lagi
+      // tampil fallback "20FIT · E-TICKET" / "Date TBA" untuk event yang ADA di katalog kita).
+      await enrichTicketsWithCatalog(emb.tickets);
+      return res.json(dbg({ ok: true, tickets: emb.tickets, source: "embed", count: emb.tickets.length }));
+    }
+    // ARSIP: pembelian dari event_transaction. Ini impor batch invoice (historis, tanpa QR
+    // gerbang) — BUKAN data hidup, jadi pembelian baru tidak akan muncul di sini. Tetap
+    // disajikan karena isinya pembelian NYATA milik user; ditandai source:"archive" supaya
+    // tak tertukar dengan tiket aktif dari penerbit.
     let rows = [];
     try {
       const { data, error } = await admin.from("event_transaction")
@@ -2176,26 +2480,48 @@ app.get("/api/tickets/mine", async (req, res) => {
         .ilike("email", email).limit(100);
       if (error) throw error;
       rows = (data || []).filter(r => String(r.email || "").trim().toLowerCase() === email && r.is_excluded !== true);
-    } catch (_) { return res.json({ ok: true, tickets: [] }); }
+    } catch (_) {
+      return res.json(dbg({ ok: true, tickets: [], count: 0, source: "none",
+        reason: (emb && emb.reason) || "archive_unavailable" }));
+    }
     const isPaid = (s) => /paid|settle|success|complete/i.test(String(s || ""));
-    const tickets = rows.filter(r => isPaid(r.status)).map(r => ({
+    // FILTER NON-TIKET (rule ditunjukkan ke pemilik sebelum dipasang): arsip event_transaction
+    // memuat banyak jenis pembelian, bukan cuma tiket event. Yang jelas BUKAN tiket disaring:
+    //   Penagihan (billing) · Bazaar Visitor · Photo / "Pictures Pass" · Merch (tshirt/jersey/
+    //   kaos/backpack/"badge of honor") · "Claim Free Trial" · "Protection"/asuransi cedera.
+    // Sisanya (spectator pass, HYROX simulation, race, dll = tiket event) tetap tampil.
+    const NONTICKET_RE = /penagihan|bazaar|photo|foto|picture|merch|t-?shirt|jersey|kaos|backpack|badge of honor|free trial|protection|injury/i;
+    const isTicket = (r) => !NONTICKET_RE.test(String(r.product_name || ""));
+    const tickets = rows.filter(r => isPaid(r.status) && isTicket(r)).map(r => ({
       ref: (String(r.invoice_id || "").slice(0, 24)) || null,
       event_name: r.event_name || r.product_name || "Event 20FIT",
       product_name: r.product_name || null,
       holder: r.customer_name || null,
-      status: "valid",
+      // ARSIP hanya punya status BAYAR, bukan status GERBANG. JANGAN tulis "valid" (menyesatkan
+      // di gerbang). status:null + paid:true → UI menandai "Lunas", bukan badge VALID.
+      status: null,
+      paid: true,
       paid_at: r.paid_at || null,
       amount: (r.gross_amount == null ? null : Number(r.gross_amount)),
       qr: null,          // TIDAK dikarang — QR gerbang asli diterbitkan ticket.20fit.id
       qr_pending: true,
     }));
     tickets.sort((a, b) => String(b.paid_at || "").localeCompare(String(a.paid_at || "")));
-    return res.json({ ok: true, tickets, count: tickets.length });
+    await enrichTicketsWithCatalog(tickets); // cover + tanggal event dari katalog (event yang sama)
+    if (tickets.length) return res.json(dbg({ ok: true, tickets, count: tickets.length, source: "archive" }));
+    // Benar-benar kosong di kedua sumber. Laporkan SEBABNYA: kalau embed gagal, itu bukan
+    // "belum punya tiket" — frontend harus bilang beda supaya masalah nyata tidak tersamar.
+    return res.json(dbg({ ok: true, tickets: [], count: 0, source: "none",
+      reason: (emb && emb.ok) ? "no_tickets" : ((emb && emb.reason) || "upstream_unavailable") }));
   } catch (e) {
     try { console.error("tickets/mine:", e && e.message); } catch (_) {}
-    return res.json({ ok: true, tickets: [] }); // tahan-gagal
+    return res.json({ ok: true, tickets: [], count: 0, source: "none", reason: "server_error" });
   }
 });
+
+// (Endpoint OTP `/api/tickets/verify/*` DIHAPUS — keputusan pemilik: TANPA OTP. User tak
+// pernah diminta verifikasi. Tiket diambil lewat jalur partner server-ke-server; kalau
+// email belum dikenal penerbit, tampil dari arsip tanpa langkah tambahan.)
 
 // ---------- /api/tickets/qr?code= : QR e-tiket ASLI (ticket.20fit.id via embed, lazy) ----------
 // Dipanggil saat user membuka QR sebuah tiket. Ambil userToken (email sesi) lalu ticket_qr{code}.
@@ -2208,6 +2534,10 @@ app.get("/api/tickets/qr", async (req, res) => {
     const code = String(req.query.code || "").trim();
     if (!code) return res.status(400).json({ error: "code wajib." });
     const userJwt = bearerOf(req);
+    // TANPA OTP: tukar email sesi jadi userToken lewat jalur partner server-ke-server.
+    // Kalau penerbit belum mengenal email ini (404), QR memang belum bisa diambil di sini —
+    // frontend menampilkannya sebagai "belum tersedia" + arahkan ke ticket.20fit.id, TANPA
+    // meminta verifikasi apa pun.
     const ut = await ticketEmbed(userJwt, "user_token");
     const userToken = ut.data && firstOf(ut.data, ["userToken", "user_token", "token"]);
     if (!userToken) return res.json({ ok: false, error: "no_user_token" });
@@ -2217,19 +2547,8 @@ app.get("/api/tickets/qr", async (req, res) => {
       const ctx = await getAdminContext(req);
       if (ctx && ctx.role === "superadmin") return res.json({ ok: true, debug: true, raw: d });
     }
-    let img = null, svg = null, payload = null;
-    const looksImg = (s) => /^https?:\/\//i.test(String(s)) || /^data:image\//i.test(String(s));
-    if (typeof d === "string") {
-      if (looksImg(d)) img = d; else if (/<svg/i.test(d)) svg = d; else payload = d;
-    } else if (d && typeof d === "object") {
-      img = firstOf(d, ["qrUrl", "qr_url", "imageUrl", "image_url", "png", "url", "dataUrl", "data_url"]);
-      if (img && !looksImg(img)) img = "data:image/png;base64," + img; // base64 mentah
-      svg = firstOf(d, ["svg", "qrSvg", "qr_svg"]);
-      payload = firstOf(d, ["payload", "value", "content", "qr", "code", "token", "data"]);
-      if (!img && payload && looksImg(payload)) { img = String(payload); payload = null; }
-      if (!svg && payload && /<svg/i.test(String(payload))) { svg = String(payload); payload = null; }
-    }
-    return res.json({ ok: !!(img || svg || payload), img, svg, payload, code });
+    const q = normalizeQr(d);
+    return res.json({ ok: q.ok, img: q.img, svg: q.svg, payload: q.payload, code });
   } catch (e) {
     try { console.error("tickets/qr:", e && e.message); } catch (_) {}
     return res.json({ ok: false });
@@ -2682,7 +3001,7 @@ app.post("/api/promo/click", async (req, res) => {
 app.get("/api/home-tiles", async (req, res) => {
   try {
     if (!admin) return res.json({ ok: true, tiles: [] });
-    const { data, error } = await admin.from("my20fit_home_tiles").select("key,hidden,sort_order").order("sort_order", { ascending: true });
+    const { data, error } = await admin.from("my20fit_home_tiles").select("key,hidden,sort_order,icon_url").order("sort_order", { ascending: true });
     if (error) throw error;
     return res.json({ ok: true, tiles: data || [] });
   } catch (e) { return res.json({ ok: true, tiles: [] }); }
@@ -2795,6 +3114,46 @@ app.get("/api/doctors", async (req, res) => {
     return res.json({ ok: true, doctors: (data || []).map(d => ({
       id: d.id, name: d.display_name, speciality: d.speciality || null, photo_url: d.photo_url || null })) });
   } catch (e) { return res.json({ ok: true, doctors: [] }); }
+});
+
+// Daftar fisioterapis untuk carousel home. Tabel terpisah dari my20fit_doctors:
+// fisioterapis bukan dokter, dan my20fit_doctors dijaga view publik + cek CI tersendiri.
+// Kosong -> carousel fisioterapis di home disembunyikan seluruhnya oleh frontend.
+app.get("/api/physiotherapists", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, physiotherapists: [] });
+    const { data, error } = await admin.from("my20fit_physiotherapists")
+      .select("id,display_name,speciality,photo_url,sort_order")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+    if (error) throw error;
+    return res.json({ ok: true, physiotherapists: (data || []).map(p => ({
+      id: p.id, name: p.display_name, speciality: p.speciality || null, photo_url: p.photo_url || null })) });
+  } catch (e) { return res.json({ ok: true, physiotherapists: [] }); }
+});
+
+// Tim gabungan (coach + dokter + fisioterapis) untuk carousel & halaman "Meet the team".
+// Sumber tunggal = view my20fit_team_public (role literal, TANPA admin_user_id). Service role.
+// Urut sort_order lalu role -> peran tercampur di carousel. include_bio=1 utk halaman penuh.
+app.get("/api/team", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, team: [] });
+    const withBio = String(req.query.include_bio || "") === "1";
+    const cols = "id,role,display_name,speciality,photo_url,venue,sort_order" + (withBio ? ",bio" : "");
+    const { data, error } = await admin.from("my20fit_team_public")
+      .select(cols)
+      .eq("is_active", true)
+      // Kelompok per-peran (coach -> doctor -> physiotherapist, urut alfabet role), lalu sort_order.
+      // Homepage TIDAK mencampur peran: semua coach dulu, baru dokter, baru fisioterapis.
+      .order("role", { ascending: true }).order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+    if (error) throw error;
+    const team = (data || []).map(p => {
+      const o = { id: p.id, role: p.role, name: p.display_name, speciality: p.speciality || null, photo_url: p.photo_url || null, venue: p.venue || null };
+      if (withBio) o.bio = p.bio || null;
+      return o;
+    });
+    return res.json({ ok: true, team });
+  } catch (e) { return res.json({ ok: true, team: [] }); }
 });
 
 // ================= BOOKING ARENA/GYM IN-APP (kanal my20fit, DB sama) =================
@@ -3113,7 +3472,7 @@ app.post("/api/admin/upload-photo", async (req, res) => {
 app.get("/api/admin/home-tiles", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
   try {
-    const { data: tiles, error } = await admin.from("my20fit_home_tiles").select("key,hidden,sort_order").order("sort_order", { ascending: true });
+    const { data: tiles, error } = await admin.from("my20fit_home_tiles").select("key,hidden,sort_order,icon_url").order("sort_order", { ascending: true });
     if (error) throw error;
     // Jumlah data per kotak berbasis-data -> supaya tak menyalakan kotak kosong.
     const counts = {};
@@ -3123,7 +3482,14 @@ app.get("/api/admin/home-tiles", async (req, res) => {
     await cnt("book-coach", "my20fit_coaches", "is_active");
     await cnt("book-doctor", "my20fit_doctors", "is_active");
     await cnt("rewards", "my20fit_reward_offers", "active");
-    return res.json({ ok: true, tiles: (tiles || []).map(t => ({ key: t.key, hidden: !!t.hidden, sort_order: t.sort_order, count: (t.key in counts) ? counts[t.key] : null })) });
+    // Carousel 'team' = gabungan coach+dokter+fisio; simpan rincian per-peran utk CMS.
+    const teamRoles = { coach: null, doctor: null, physiotherapist: null };
+    async function cntActive(k, table) { try { const { count } = await admin.from(table).select("id", { count: "exact", head: true }).eq("is_active", true); teamRoles[k] = count || 0; } catch (_) { teamRoles[k] = null; } }
+    await cntActive("coach", "my20fit_coaches");
+    await cntActive("doctor", "my20fit_doctors");
+    await cntActive("physiotherapist", "my20fit_physiotherapists");
+    counts["team"] = (teamRoles.coach || 0) + (teamRoles.doctor || 0) + (teamRoles.physiotherapist || 0);
+    return res.json({ ok: true, tiles: (tiles || []).map(t => ({ key: t.key, hidden: !!t.hidden, sort_order: t.sort_order, icon_url: t.icon_url || null, count: (t.key in counts) ? counts[t.key] : null, roles: (t.key === "team") ? teamRoles : undefined })) });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 app.post("/api/admin/home-tiles/toggle", async (req, res) => {
@@ -3139,6 +3505,42 @@ app.post("/api/admin/home-tiles/toggle", async (req, res) => {
     await adminAudit(ctx, "home_tiles.toggle", key, { hidden });
     return res.json({ ok: true, key, hidden });
   } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// CMS: set / hapus ikon tile home. Upload (png/webp/svg transparan) -> bucket
+// home-tile-icons -> simpan public URL ke my20fit_home_tiles.icon_url. Ganti ikon
+// TANPA deploy. { key, data_url } untuk set; { key, clear:true } untuk kembali ke default.
+app.post("/api/admin/home-tiles/icon", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const key = String(b.key || "").trim();
+  if (!key) return res.status(400).json({ error: "key wajib." });
+  try {
+    if (b.clear === true || b.clear === "true") {
+      const { data, error } = await admin.from("my20fit_home_tiles").update({ icon_url: null }).eq("key", key).select("key").limit(1);
+      if (error) throw error;
+      if (!data || !data.length) return res.status(404).json({ error: "Kotak tak ditemukan: " + key });
+      await adminAudit(ctx, "home_tiles.icon.clear", key, null);
+      return res.json({ ok: true, key, icon_url: null });
+    }
+    const dataUrl = String(b.data_url || "");
+    const m = dataUrl.match(/^data:(image\/(png|webp|svg\+xml));base64,([A-Za-z0-9+/=]+)$/);
+    if (!m) return res.status(400).json({ error: "Format tidak didukung (png/webp/svg)." });
+    const contentType = m[1];
+    const ext = (m[2] === "svg+xml") ? "svg" : m[2];
+    const buf = Buffer.from(m[3], "base64");
+    if (buf.length > 5 * 1024 * 1024) return res.status(413).json({ error: "Ukuran ikon maksimal 5MB." });
+    const safeKey = key.replace(/[^a-z0-9-]/gi, "") || "tile";
+    const name = safeKey + "/" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6).toString(36) + "." + ext;
+    const { error: upErr } = await admin.storage.from("home-tile-icons").upload(name, buf, { contentType, upsert: false });
+    if (upErr) throw upErr;
+    const { data: pub } = admin.storage.from("home-tile-icons").getPublicUrl(name);
+    const url = (pub && pub.publicUrl) || null;
+    const { data, error } = await admin.from("my20fit_home_tiles").update({ icon_url: url }).eq("key", key).select("key").limit(1);
+    if (error) throw error;
+    if (!data || !data.length) return res.status(404).json({ error: "Kotak tak ditemukan: " + key });
+    await adminAudit(ctx, "home_tiles.icon.set", key, { bytes: buf.length, path: name });
+    return res.json({ ok: true, key, icon_url: url });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal unggah ikon." }); }
 });
 
 // Layanan dokter (requires_doctor=true) untuk Book Doctor (request).
@@ -4116,31 +4518,99 @@ app.get("/api/corp/messages", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // ================= DIET Bagian 1: kontribusi menu + reward =================
-var MENU_DAILY_LIMIT = 5;
+var MENU_DAILY_LIMIT = 5;          // batas submit/hari untuk user LOGIN (per akun)
+var MENU_ANON_DAILY_LIMIT = 3;     // batas submit/hari untuk KONTRIBUTOR ANONIM (per sesi-cookie & per IP)
 var MENU_DIET_TYPES = ["normal", "vegetarian", "vegan", "pescatarian", "keto", "halal", "high-protein", "low-carb"];
+// Ambang reward sumbang-resep -- SATU sumber angka (dipakai /api/menu/mine & /api/menu/reward-config).
+// HARUS sama dengan yang di-hardcode di RPC my20fit_grant_menu_reward (floor(approved/10), credits=5) --
+// itu RPC terpisah, sudah live/dipakai, sengaja TIDAK diubah di sini (lihat diskusi Tahap 3).
+var MENU_REWARD_PER_CYCLE = 10;   // kontribusi approved per cycle
+var MENU_REWARD_SCAN_CREDITS = 5; // kredit scan didapat tiap cycle
 function menuHash(name, ingredients, steps) {
   var norm = function (s) { return String(s || "").toLowerCase().replace(/\s+/g, " ").trim(); };
   return sha256(norm(name) + "|" + norm(ingredients) + "|" + norm(steps));
 }
 function startOfTodayISO() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); }
-// User: submit menu baru (batas harian + deteksi duplikat via content_hash).
+// Submit menu baru. BOLEH TANPA LOGIN (kontributor anonim) -- tetap MASUK ANTREAN MODERASI
+// admin (status "pending", TIDAK langsung tayang). Anti-spam tanpa captcha: honeypot + batas
+// harian per sesi-cookie & per IP (hash, bukan IP mentah) + dedup content_hash. User login
+// tetap batas 5/hari; anonim 3/hari.
 app.post("/api/menu/submit", async (req, res) => {
-  var user = await getUserFromReq(req);
-  if (!user) return res.status(401).json({ error: "Unauthorized" });
   var b = req.body || {};
+  // Honeypot: field tersembunyi "website" HARUS kosong. Bot yang auto-isi semua field -> terisi.
+  // Balas seolah sukses (bot tak curiga & tak retry) TAPI TIDAK menulis apa pun ke DB/antrean.
+  if (String(b.website || "").trim() !== "") return res.json({ ok: true, id: null });
+
+  // Login opsional. getUserFromReq bisa throw (Supabase down) -> 503 jelas, bukan "Unauthorized".
+  var user = null;
+  try { user = await getUserFromReq(req); }
+  catch (e) { return res.status(e.status || 503).json({ error: e.userMessage || "Tidak bisa memverifikasi sesi kamu. Coba lagi." }); }
+
+  // Tanpa login -> pakai/siapkan sesi anonim (cookie httpOnly eco_anon) utk batas & jejak moderasi.
+  var anonSess = null, ipHash = null;
+  if (!user) {
+    anonSess = await getAnonSession(req, res, true);
+    if (!anonSess || !anonSess.anon_id) return res.status(503).json({ error: "Tidak bisa memulai sesi. Coba lagi sebentar lagi." });
+    // Selalu pakai IP request SAAT INI (bukan ip_hash tersimpan) -- batas per-IP inilah yang
+    // menahan penyalahguna yang menghapus cookie berulang (dapat anon_id baru, IP tetap sama).
+    ipHash = sha256((req.ip || "") + "|" + ANON_SALT).slice(0, 64);
+  }
+
   var name = String(b.name || "").trim(), ingredients = String(b.ingredients || "").trim(), steps = String(b.steps || "").trim();
   var diet_type = String(b.diet_type || "normal").trim().toLowerCase();
+  // Nama tampilan publik -- diisi kontributor sendiri di form (BUKAN email/nama akun asli,
+  // lihat migration menu_contribution_display_name). Kosong -> null, klien tampilkan fallback.
+  var display_name = String(b.display_name || "").trim().slice(0, 60) || null;
+  var stepsStruct = normalizeMenuSteps(b.steps_json);
+  if (stepsStruct) steps = stepsStruct.text; // langkah terstruktur (step berfoto) jadi sumber teks langkah
   if (!name || !ingredients || !steps) return res.status(400).json({ error: "Nama, bahan, dan cara buat wajib diisi." });
   if (MENU_DIET_TYPES.indexOf(diet_type) < 0) diet_type = "normal";
   var photo_url = b.photo_url ? String(b.photo_url) : null;
   if (photo_url && photo_url.length > 3000000) return res.status(413).json({ error: "Foto terlalu besar. Kompres dulu (maks ~2MB)." });
+  var consent_version = b.consent_version ? String(b.consent_version).trim().slice(0, 40) : null;
   var est_kcal = (b.est_kcal != null && b.est_kcal !== "") ? (Math.max(0, Math.round(+b.est_kcal)) || null) : null;
-  var head = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true })
-    .eq("auth_user_id", user.id).gte("created_at", startOfTodayISO());
-  if ((head.count || 0) >= MENU_DAILY_LIMIT) return res.status(429).json({ error: "Batas " + MENU_DAILY_LIMIT + " submit/hari tercapai. Coba lagi besok." });
-  var { data, error } = await admin.from("my20fit_menu_contribution")
-    .insert({ auth_user_id: user.id, name: name, diet_type: diet_type, ingredients: ingredients, steps: steps, photo_url: photo_url, est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps) })
-    .select("id").limit(1).single();
+  var servings = (b.servings != null && b.servings !== "") ? (Math.max(1, Math.round(+b.servings)) || null) : null;
+  var cook_minutes = (b.cook_minutes != null && b.cook_minutes !== "") ? (Math.max(0, Math.round(+b.cook_minutes)) || null) : null;
+  var prep_minutes = (b.prep_minutes != null && b.prep_minutes !== "") ? (Math.max(0, Math.round(+b.prep_minutes)) || null) : null;
+  var equipment = b.equipment ? String(b.equipment).trim().slice(0, 300) || null : null;
+  var prep_note = b.prep_note ? String(b.prep_note).trim().slice(0, 500) || null : null;
+
+  // Batas harian: login per-akun; anonim per-sesi DAN per-IP (cegah hapus-cookie berulang).
+  if (user) {
+    var head = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true })
+      .eq("auth_user_id", user.id).gte("created_at", startOfTodayISO());
+    if ((head.count || 0) >= MENU_DAILY_LIMIT) return res.status(429).json({ error: "Batas " + MENU_DAILY_LIMIT + " submit/hari tercapai. Coba lagi besok." });
+  } else {
+    var hSess = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true })
+      .eq("anon_id", anonSess.anon_id).gte("created_at", startOfTodayISO());
+    var hIp = await admin.from("my20fit_menu_contribution").select("id", { count: "exact", head: true })
+      .eq("submit_ip_hash", ipHash).gte("created_at", startOfTodayISO());
+    if ((hSess.count || 0) >= MENU_ANON_DAILY_LIMIT || (hIp.count || 0) >= MENU_ANON_DAILY_LIMIT)
+      return res.status(429).json({ error: "Batas " + MENU_ANON_DAILY_LIMIT + " kiriman/hari (tanpa login) tercapai. Coba lagi besok, atau login untuk batas lebih besar." });
+  }
+
+  var row = {
+    name: name, diet_type: diet_type, display_name: display_name, ingredients: ingredients, steps: steps,
+    steps_json: stepsStruct ? stepsStruct.json : null, servings: servings, cook_minutes: cook_minutes,
+    prep_minutes: prep_minutes, equipment: equipment, prep_note: prep_note, photo_url: photo_url,
+    est_kcal: est_kcal, content_hash: menuHash(name, ingredients, steps),
+  };
+  if (user) row.auth_user_id = user.id;
+  else { row.anon_id = anonSess.anon_id; row.submit_ip_hash = ipHash; }
+  // Rekam persetujuan (my20fit_menu_consent_text) kalau klien mengirim versinya: catat
+  // versi + waktu + hash teks yang berlaku (bukti consent per-kiriman).
+  if (consent_version) {
+    try {
+      var { data: cx } = await admin.from("my20fit_menu_consent_text")
+        .select("version,text_id,text_en").eq("version", consent_version).limit(1).single();
+      if (cx) {
+        row.consent_version = cx.version;
+        row.consent_at = new Date().toISOString();
+        row.consent_text_hash = sha256(((cx.text_id || "") + "|" + (cx.text_en || "")) + "|" + ANON_SALT).slice(0, 64);
+      }
+    } catch (e) { /* non-fatal */ }
+  }
+  var { data, error } = await admin.from("my20fit_menu_contribution").insert(row).select("id").limit(1).single();
   if (error) {
     if (error.code === "23505" || String(error.message || "").toLowerCase().indexOf("duplicate") >= 0)
       return res.status(409).json({ error: "Menu dengan isi persis sama sudah ada. Buat yang berbeda." });
@@ -4148,18 +4618,142 @@ app.post("/api/menu/submit", async (req, res) => {
   }
   return res.json({ ok: true, id: data.id });
 });
+
+// PUBLIK: teks persetujuan kirim resep yang aktif (my20fit_menu_consent_text), sesuai bahasa.
+app.get("/api/menu/consent", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, consent: null });
+    var lang = String(req.query.lang || "id").toLowerCase() === "en" ? "en" : "id";
+    var { data } = await admin.from("my20fit_menu_consent_text")
+      .select("version,text_id,text_en").eq("is_active", true)
+      .order("created_at", { ascending: false }).limit(1).single();
+    if (!data) return res.json({ ok: true, consent: null });
+    res.set("Cache-Control", "public, max-age=300");
+    return res.json({ ok: true, consent: { version: data.version, text: (lang === "en" ? (data.text_en || data.text_id) : (data.text_id || data.text_en)) || "" } });
+  } catch (e) { return res.json({ ok: true, consent: null }); }
+});
+
+// Baca dimensi gambar dari header (tanpa library): PNG / JPEG / WebP. {w,h} atau null.
+function readImageSize(buf) {
+  try {
+    if (buf.length > 24 && buf[0] === 0x89 && buf[1] === 0x50) return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
+    if (buf[0] === 0xFF && buf[1] === 0xD8) {
+      var o = 2;
+      while (o + 9 < buf.length) {
+        if (buf[o] !== 0xFF) { o++; continue; }
+        var mk = buf[o + 1];
+        if (mk >= 0xC0 && mk <= 0xCF && mk !== 0xC4 && mk !== 0xC8 && mk !== 0xCC) return { h: buf.readUInt16BE(o + 5), w: buf.readUInt16BE(o + 7) };
+        if (mk === 0xD8 || mk === 0xD9 || (mk >= 0xD0 && mk <= 0xD7)) { o += 2; continue; }
+        o += 2 + buf.readUInt16BE(o + 2);
+      }
+    }
+    if (buf.length > 30 && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") {
+      var fmt = buf.toString("ascii", 12, 16);
+      if (fmt === "VP8 ") return { w: (buf.readUInt16LE(26) & 0x3fff), h: (buf.readUInt16LE(28) & 0x3fff) };
+      if (fmt === "VP8L") { var b = buf.readUInt32LE(21); return { w: (b & 0x3fff) + 1, h: ((b >> 14) & 0x3fff) + 1 }; }
+      if (fmt === "VP8X") return { w: ((buf[24] | (buf[25] << 8) | (buf[26] << 16)) & 0xffffff) + 1, h: ((buf[27] | (buf[28] << 8) | (buf[29] << 16)) & 0xffffff) + 1 };
+    }
+  } catch (e) {}
+  return { w: null, h: null };
+}
+function sniffImage(buf) {
+  if (buf[0] === 0x89 && buf[1] === 0x50) return { ct: "image/png", ext: "png" };
+  if (buf[0] === 0xFF && buf[1] === 0xD8) return { ct: "image/jpeg", ext: "jpg" };
+  if (buf.length > 12 && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") return { ct: "image/webp", ext: "webp" };
+  return null;
+}
+// ADMIN (key): pindahkan cover artikel dari hotlink Unsplash/Pexels ke Storage (bucket
+// article-covers) + isi source_url/width/height/bytes. IDEMPOTEN: lewati yang sudah di
+// Storage. Gate: header x-admin-key=ADMIN_KEY atau ?key=CRON_SECRET. Balik ringkasan +
+// daftar gagal (tak menyentuh baris yang gagal -> cover_url lama dibiarkan, bukan mati baru).
+// Inti migrasi (dipakai endpoint & auto-run boot). Balik ringkasan; baris gagal TIDAK diubah.
+async function runArticleCoverMigration(only) {
+  var q = admin.from("my20fit_recipe_article").select("id,slug,cover_url,source_url").order("published_at", { ascending: false });
+  if (only) q = q.eq("slug", only);
+  var { data: arts, error } = await q;
+  if (error) throw new Error(error.message);
+  var migrated = 0, skipped = 0, failed = [];
+  for (var i = 0; i < (arts || []).length; i++) {
+    var a = arts[i], url = a.cover_url || "";
+    if (url.indexOf("/storage/v1/object/public/") >= 0) { skipped++; continue; }
+    if (!/^https?:\/\//i.test(url)) { failed.push({ slug: a.slug, reason: "no-url" }); continue; }
+    try {
+      var r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; 20fit-migrator/1.0)", "Accept": "image/*", "Referer": "https://my.20fit.id/" } });
+      if (!r.ok) { failed.push({ slug: a.slug, reason: "http " + r.status }); continue; }
+      var buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length > 5 * 1024 * 1024) { failed.push({ slug: a.slug, reason: "too-big " + buf.length }); continue; }
+      var sn = sniffImage(buf); if (!sn) { failed.push({ slug: a.slug, reason: "not-image" }); continue; }
+      var dim = readImageSize(buf);
+      var path = a.id + "." + sn.ext;
+      var up = await admin.storage.from("article-covers").upload(path, buf, { contentType: sn.ct, upsert: true });
+      if (up.error) { failed.push({ slug: a.slug, reason: "upload " + up.error.message }); continue; }
+      var pub = admin.storage.from("article-covers").getPublicUrl(path);
+      var newUrl = pub && pub.data && pub.data.publicUrl;
+      if (!newUrl) { failed.push({ slug: a.slug, reason: "no-public-url" }); continue; }
+      var patch = { cover_url: newUrl, width: dim.w, height: dim.h, bytes: buf.length };
+      if (!a.source_url) patch.source_url = url;
+      var upd = await admin.from("my20fit_recipe_article").update(patch).eq("id", a.id);
+      if (upd.error) { failed.push({ slug: a.slug, reason: "db " + upd.error.message }); continue; }
+      migrated++;
+    } catch (e) { failed.push({ slug: a.slug, reason: (e && e.message) || "err" }); }
+  }
+  return { total: (arts || []).length, migrated: migrated, skipped: skipped, failed_count: failed.length, failed: failed };
+}
+app.post("/api/admin/migrate-article-covers", async (req, res) => {
+  try {
+    var key = String(req.query.key || req.headers["x-admin-key"] || "");
+    if (!((ADMIN_KEY && key === ADMIN_KEY) || (CRON_SECRET && key === CRON_SECRET))) return res.status(401).json({ error: "unauthorized" });
+    if (!admin) return res.status(503).json({ error: "unavailable" });
+    var out = await runArticleCoverMigration(String(req.query.slug || "").trim());
+    return res.json(Object.assign({ ok: true }, out));
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// AUTO one-shot saat boot: rehost cover artikel hotlink -> Storage. Idempoten (lewati yang
+// sudah di Storage), async (tak memblokir boot), sekali per proses. Aman diulang: begitu 54
+// cover sudah di Storage, run berikutnya no-op. DB & Storage dipakai bersama -> memperbaiki
+// gambar untuk semua environment sekali jalan.
+var _coverAutoRan = false;
+async function autoMigrateArticleCovers() {
+  if (_coverAutoRan || !admin) return; _coverAutoRan = true;
+  try {
+    var { count } = await admin.from("my20fit_recipe_article").select("id", { count: "exact", head: true })
+      .not("cover_url", "ilike", "%/storage/v1/object/public/%");
+    if (!count) return; // semua sudah di Storage
+    console.log("[article-covers] auto-rehost mulai (" + count + " cover di luar Storage) ...");
+    var out = await runArticleCoverMigration("");
+    console.log("[article-covers] auto-rehost selesai:", JSON.stringify({ migrated: out.migrated, skipped: out.skipped, failed: out.failed_count }));
+    if (out.failed_count) { try { console.log("[article-covers] gagal:", JSON.stringify(out.failed)); } catch (_e) {} }
+  } catch (e) { try { console.error("[article-covers] auto-rehost error:", e.message); } catch (_e) {} }
+}
+setTimeout(function () { autoMigrateArticleCovers(); }, 20000);
+// PUBLIK: angka ambang reward sumbang-resep -- supaya frontend TIDAK hardcode "10"/"5" (bisa
+// diubah di sini tanpa deploy frontend). Tidak butuh login: dipakai jadi ajakan SEBELUM user
+// masuk juga (tombol "Bikin resep"), bukan cuma di halaman progres yang sudah login.
+app.get("/api/menu/reward-config", function (req, res) {
+  res.set("Cache-Control", "public, max-age=3600");
+  return res.json({ ok: true, per_cycle: MENU_REWARD_PER_CYCLE, reward_scan: MENU_REWARD_SCAN_CREDITS });
+});
 // User: submission-ku + progres reward.
 app.get("/api/menu/mine", async (req, res) => {
   var user = await getUserFromReq(req);
   if (!user) return res.status(401).json({ error: "Unauthorized" });
   var { data: rows, error } = await admin.from("my20fit_menu_contribution")
-    .select("id,name,diet_type,status,reject_reason,est_kcal,created_at,reviewed_at,published")
+    .select("id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,status,reject_reason,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,created_at,reviewed_at,published")
     .eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(200);
   if (error) return res.status(500).json({ error: error.message });
+  // "approved": dipakai match reward RPC yang sudah live (approved saja, lihat catatan di atas
+  // MENU_REWARD_PER_CYCLE). "approvedPublished": buat TAMPILAN progres Tahap 3 -- syarat lebih
+  // ketat (approved DAN published) supaya orang tak asal kirim 10 resep yang belum tentu tayang.
   var approved = (rows || []).filter(function (r) { return r.status === "approved"; }).length;
+  var approvedPublished = (rows || []).filter(function (r) { return r.status === "approved" && r.published; }).length;
   var { data: rl } = await admin.from("my20fit_menu_reward_log").select("credits_granted").eq("auth_user_id", user.id).eq("status", "granted");
   var creditsEarned = (rl || []).reduce(function (s, x) { return s + (+x.credits_granted || 0); }, 0);
-  return res.json({ ok: true, submissions: rows || [], approved: approved, per_cycle: 10, reward_scan: 5, toward_next: approved % 10, credits_earned: creditsEarned });
+  return res.json({
+    ok: true, submissions: rows || [],
+    approved: approved, approved_published: approvedPublished,
+    per_cycle: MENU_REWARD_PER_CYCLE, reward_scan: MENU_REWARD_SCAN_CREDITS,
+    toward_next: approved % MENU_REWARD_PER_CYCLE, credits_earned: creditsEarned,
+  });
 });
 // User: revisi menu yang DITOLAK -> pending lagi.
 app.post("/api/menu/:id/revise", async (req, res) => {
@@ -4170,11 +4764,20 @@ app.post("/api/menu/:id/revise", async (req, res) => {
   if (!cur || cur.auth_user_id !== user.id) return res.status(404).json({ error: "Menu tidak ditemukan." });
   if (cur.status !== "rejected") return res.status(400).json({ error: "Hanya menu yang ditolak yang bisa direvisi." });
   var name = String(b.name || "").trim(), ingredients = String(b.ingredients || "").trim(), steps = String(b.steps || "").trim();
+  var stepsStruct = normalizeMenuSteps(b.steps_json);
+  if (stepsStruct) steps = stepsStruct.text; // langkah terstruktur (step berfoto) jadi sumber teks langkah
   if (!name || !ingredients || !steps) return res.status(400).json({ error: "Nama, bahan, dan cara buat wajib." });
   var diet_type = String(b.diet_type || "normal").trim().toLowerCase(); if (MENU_DIET_TYPES.indexOf(diet_type) < 0) diet_type = "normal";
   var patch = { name: name, ingredients: ingredients, steps: steps, diet_type: diet_type, content_hash: menuHash(name, ingredients, steps), status: "pending", reject_reason: null, updated_at: new Date().toISOString() };
+  if (stepsStruct) patch.steps_json = stepsStruct.json; else if (b.steps_json === null) patch.steps_json = null;
+  if (b.servings != null) patch.servings = (b.servings === "") ? null : (Math.max(1, Math.round(+b.servings)) || null);
+  if (b.cook_minutes != null) patch.cook_minutes = (b.cook_minutes === "") ? null : (Math.max(0, Math.round(+b.cook_minutes)) || null);
+  if (b.prep_minutes != null) patch.prep_minutes = (b.prep_minutes === "") ? null : (Math.max(0, Math.round(+b.prep_minutes)) || null);
+  if (b.equipment != null) patch.equipment = String(b.equipment).trim().slice(0, 300) || null;
+  if (b.prep_note != null) patch.prep_note = String(b.prep_note).trim().slice(0, 500) || null;
   if (b.est_kcal != null) patch.est_kcal = (b.est_kcal === "") ? null : (Math.max(0, Math.round(+b.est_kcal)) || null);
   if (b.photo_url != null) patch.photo_url = b.photo_url ? String(b.photo_url) : null;
+  if (b.display_name != null) patch.display_name = String(b.display_name || "").trim().slice(0, 60) || null;
   var { error } = await admin.from("my20fit_menu_contribution").update(patch).eq("id", id).eq("auth_user_id", user.id);
   if (error) { if (error.code === "23505") return res.status(409).json({ error: "Isi menu identik dgn yang sudah ada." }); return res.status(500).json({ error: error.message }); }
   return res.json({ ok: true });
@@ -4185,16 +4788,25 @@ app.get("/api/admin/menu", async (req, res) => {
   try {
     var status = String(req.query.status || "").trim(), q = String(req.query.q || "").trim();
     var query = admin.from("my20fit_menu_contribution")
-      .select("id,auth_user_id,name,diet_type,ingredients,steps,photo_url,est_kcal,status,reject_reason,created_at,reviewed_at,published")
+      .select("id,auth_user_id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,status,reject_reason,created_at,reviewed_at,published")
       .order("created_at", { ascending: false }).limit(200);
     if (["pending", "approved", "rejected"].indexOf(status) >= 0) query = query.eq("status", status);
     if (q) query = query.ilike("name", "%" + q + "%");
     var { data: rows, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
-    var ids = Array.from(new Set((rows || []).map(function (r) { return r.auth_user_id; })));
+    // Kontributor anonim -> auth_user_id null. Buang null sebelum lookup profil (biar query .in valid).
+    var ids = Array.from(new Set((rows || []).map(function (r) { return r.auth_user_id; }).filter(Boolean)));
     var pmap = {};
     if (ids.length) { var { data: profs } = await admin.from("my20fit_profile").select("auth_user_id,full_name,email").in("auth_user_id", ids); (profs || []).forEach(function (p) { pmap[p.auth_user_id] = p; }); }
-    var out = (rows || []).map(function (r) { var p = pmap[r.auth_user_id] || {}; return Object.assign({}, r, { contributor_name: p.full_name || null, contributor_email: p.email || null }); });
+    var out = (rows || []).map(function (r) {
+      var isAnon = !r.auth_user_id; var p = pmap[r.auth_user_id] || {};
+      return Object.assign({}, r, {
+        is_anon: isAnon,
+        contributor_name: isAnon ? (r.display_name || "Anonim") : (p.full_name || null),
+        contributor_email: isAnon ? null : (p.email || null),
+        health_flag: menuHealthFlag(r.name, r.ingredients, r.steps),
+      });
+    });
     return res.json({ ok: true, menus: out });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
@@ -4208,7 +4820,9 @@ app.post("/api/admin/menu/:id/approve", async (req, res) => {
     .update({ status: "approved", published: true, reject_reason: null, reviewed_by: ctx.user_id || null, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id);
   if (error) return res.status(500).json({ error: error.message });
   var granted = 0;
-  try { var { data: g } = await admin.rpc("my20fit_grant_menu_reward", { p_uid: m.auth_user_id }); granted = +g || 0; } catch (e) {}
+  // Reward hanya untuk kontributor LOGIN. Kiriman anonim (auth_user_id null) tetap bisa tayang,
+  // tapi tak dapat kredit (tak ada akun tujuan) -> jangan panggil RPC dgn p_uid null.
+  if (m.auth_user_id) { try { var { data: g } = await admin.rpc("my20fit_grant_menu_reward", { p_uid: m.auth_user_id }); granted = +g || 0; } catch (e) {} }
   await adminAudit(ctx, "menu.approve", id, { user: m.auth_user_id, credits_granted: granted });
   return res.json({ ok: true, credits_granted: granted });
 });
@@ -4224,10 +4838,955 @@ app.post("/api/admin/menu/:id/reject", async (req, res) => {
     .update({ status: "rejected", published: false, reject_reason: reason, reviewed_by: ctx.user_id || null, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id);
   if (error) return res.status(500).json({ error: error.message });
   var clawed = 0;
-  if (wasApproved) { try { var { data: rv } = await admin.rpc("my20fit_revoke_menu_reward", { p_uid: m.auth_user_id }); clawed = +rv || 0; } catch (e) {} }
+  // Clawback hanya relevan kalau tadinya approved DAN kontributor login (anonim tak pernah dapat kredit).
+  if (wasApproved && m.auth_user_id) { try { var { data: rv } = await admin.rpc("my20fit_revoke_menu_reward", { p_uid: m.auth_user_id }); clawed = +rv || 0; } catch (e) {} }
   await adminAudit(ctx, wasApproved ? "menu.revoke" : "menu.reject", id, { user: m.auth_user_id, reason: reason, credits_clawed: clawed });
   return res.json({ ok: true, credits_clawed: clawed });
 });
+
+// ============ DIET Bagian 2: endpoint PUBLIK untuk menu.20fit.id ============
+// Subdomain menu.20fit.id (frontend terpisah) menarik data dari SINI — SATU sumber,
+// tanpa duplikat katalog. Semua di bawah ini boleh diakses TANPA login (browse publik).
+
+// Deteksi KLAIM KESEHATAN/medis pada kontribusi user. Ini SINYAL untuk reviewer admin —
+// gerbang tayang tetap moderasi admin (approve/reject), bukan auto-block.
+var MENU_HEALTH_CLAIM_RE = /(menyembuhkan|nyembuhin|mengobati|\bobat\b|\bsembuh\b|anti[- ]?kanker|\bkanker\b|diabetes|tekanan darah|gula darah|kolesterol|detoks total|awet muda|\bcure\b|\bcures\b|\bheals?\b|\btreats?\b)/i;
+function menuHealthFlag(name, ingredients, steps) {
+  try { return MENU_HEALTH_CLAIM_RE.test([name, ingredients, steps].join(" ")); }
+  catch (e) { return false; }
+}
+
+// Katalog resep resmi 20FIT dibaca dari js/recipes.js (SATU sumber; sama dgn /diet).
+var _menuCatalogCache = null;
+function loadMenuCatalog() {
+  if (_menuCatalogCache) return _menuCatalogCache;
+  try { var m = require("./js/recipes.js"); _menuCatalogCache = (m && Array.isArray(m.LIST)) ? m.LIST : []; }
+  catch (e) { _menuCatalogCache = []; }
+  return _menuCatalogCache;
+}
+
+// PUBLIK: katalog resep resmi 20FIT (id, nama EN/ID, makro perkiraan, bahan, langkah).
+app.get("/api/menu/catalog", function (req, res) {
+  var list = loadMenuCatalog();
+  res.set("Cache-Control", "public, max-age=300");
+  return res.json({ ok: true, count: list.length, recipes: list });
+});
+
+// PUBLIK: rekomendasi resep berdasar SISA makro (gram). Logika sama dgn
+// Recipes.recommendForMacros tapi dijalankan server-side — frontend tak perlu muat
+// seluruh katalog ~291KB. ?p=30&c=50&f=10&n=10 (n opsional, default 5).
+app.get("/api/menu/recommend", function (req, res) {
+  var list = loadMenuCatalog();
+  var rp = Math.max(0, +(req.query.p || 0));
+  var rc = Math.max(0, +(req.query.c || 0));
+  var rf = Math.max(0, +(req.query.f || 0));
+  var n = Math.min(20, Math.max(1, parseInt(req.query.n) || 5));
+  var met = { p: rp <= 8, c: rc <= 15, f: rf <= 6 };
+  var scored = list.map(function (r) {
+    var gain = Math.min(r.p, rp) + Math.min(r.c, rc) + Math.min(r.f, rf);
+    var pen = (met.p ? r.p * 0.6 : 0) + (met.c ? r.c * 0.5 : 0) + (met.f ? r.f * 0.9 : 0);
+    return { r: r, score: gain - pen };
+  }).sort(function (a, b) { return b.score - a.score; });
+  var recs = scored.slice(0, n).map(function (x) { return x.r; });
+  res.set("Cache-Control", "public, max-age=120");
+  return res.json({ ok: true, recipes: recs });
+});
+
+// PUBLIK: kontribusi user yang APPROVED + PUBLISHED (tanpa PII). Dibaca service key
+// (bypass RLS) TAPI difilter ketat ke approved+published & field aman -> layak publik.
+app.get("/api/menu/published", async function (req, res) {
+  try {
+    if (!admin) return res.json({ ok: true, menus: [] });
+    var q = String(req.query.q || "").trim();
+    var diet = String(req.query.diet || "").trim().toLowerCase();
+    var limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 100));
+    var query = admin.from("my20fit_menu_contribution")
+      .select("id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,reviewed_at")
+      .eq("status", "approved").eq("published", true)
+      .order("reviewed_at", { ascending: false }).limit(limit);
+    if (q) query = query.ilike("name", "%" + q + "%");
+    if (diet && MENU_DIET_TYPES.indexOf(diet) >= 0) query = query.eq("diet_type", diet);
+    var { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ ok: true, menus: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// =================================================================================
+// CONTENT API v1 — buat PRODUK 20FIT LAIN menarik konten menu (artikel & resep).
+// Read-only, KONTEN PUBLIK/PUBLISHED saja. Key-gated: header `x-api-key` (atau
+// `Authorization: Bearer <key>`). Key disimpan di ENV `CONTENT_API_KEYS` di SERVER
+// (format "namaProduk:key,lainnya:key2") — TIDAK di frontend, TIDAK di-commit.
+// Field privat (auth_user_id, anon_id, submit_ip_hash, submission belum-approve)
+// TIDAK pernah di-select. Semua share Supabase yang sama, tapi API ini = satu pintu
+// terkontrol + rate-limit supaya rapi & bisa dicabut per-consumer tanpa buka DB.
+// Panggil dari SERVER consumer (bukan browser) supaya key tetap rahasia.
+// =================================================================================
+function parseContentApiKeys() {
+  var raw = String(process.env.CONTENT_API_KEYS || "").trim();
+  var map = new Map();
+  raw.split(",").forEach(function (pair) {
+    var s = pair.trim(); if (!s) return;
+    var i = s.indexOf(":"); if (i < 1) return;
+    var name = s.slice(0, i).trim(); var key = s.slice(i + 1).trim();
+    if (name && key) map.set(key, name);
+  });
+  return map;
+}
+var CONTENT_API_KEYS = parseContentApiKeys();
+function requireContentKey(req, res, next) {
+  if (CONTENT_API_KEYS.size === 0) return res.status(503).json({ error: "Content API belum dikonfigurasi (CONTENT_API_KEYS kosong)." });
+  var key = req.get("x-api-key") || "";
+  if (!key) { var au = req.get("authorization") || ""; var mm = au.match(/^Bearer\s+(.+)$/i); if (mm) key = mm[1].trim(); }
+  var consumer = key ? CONTENT_API_KEYS.get(key) : null;
+  if (!consumer) return res.status(401).json({ error: "API key tidak valid. Kirim header 'x-api-key'." });
+  req.apiConsumer = consumer;
+  next();
+}
+var contentApiLimiter = rateLimit({ windowMs: 5 * 60 * 1000, max: 600, standardHeaders: true, legacyHeaders: false, message: limitMsg });
+app.use("/api/content/", contentApiLimiter);
+
+// Ambil string sesuai bahasa dari objek {id,en} (resep resmi) — fallback aman.
+function pickContentLang(o, lang) { if (!o || typeof o !== "object") return ""; return o[lang] || o.id || o.en || ""; }
+
+function normContentArticle(a) {
+  return {
+    id: a.id, slug: a.slug,
+    title: { id: a.title_id || a.title || "", en: a.title_en || a.title || "" },
+    excerpt: { id: a.excerpt_id || a.excerpt || "", en: a.excerpt_en || a.excerpt || "" },
+    category: { id: a.category_id || a.category || "", en: a.category_en || a.category_id || a.category || "" },
+    cover_url: a.cover_url || null, author_name: a.author_name || null, published_at: a.published_at || null,
+  };
+}
+function normContentOfficialRecipe(r, lang) {
+  return {
+    key: "official:" + r.id, source: "official", id: String(r.id),
+    name: pickContentLang(r.nm, lang),
+    kcal: (typeof r.kcal === "number") ? r.kcal : null,
+    macros: { p: r.p != null ? r.p : null, c: r.c != null ? r.c : null, f: r.f != null ? r.f : null, fiber: r.fiber != null ? r.fiber : null, sugar: r.sugar != null ? r.sugar : null, sodium: r.sodium != null ? r.sodium : null },
+    nutrition_is_estimate: true,
+    diet_types: Array.isArray(r.types) ? r.types : [],
+    category: r.cat || null,
+    ingredients: pickContentLang(r.ing, lang),
+    steps: pickContentLang(r.steps, lang),
+    steps_json: null,
+    servings: (typeof r.servings === "number") ? r.servings : null,
+    cook_minutes: (typeof r.cookMinutes === "number") ? r.cookMinutes : null,
+    prep_minutes: (typeof r.prepMinutes === "number") ? r.prepMinutes : null,
+    equipment: pickContentLang(r.equipment, lang) || null,
+    prep_note: pickContentLang(r.prepNote, lang) || null,
+    photo_url: null, emoji: r.emoji || null, contributor: "20FIT Kitchen",
+  };
+}
+function normContentMemberRecipe(m) {
+  var mac = (m.macros && typeof m.macros === "object") ? m.macros : null;
+  return {
+    key: "member:" + m.id, source: "member", id: String(m.id),
+    name: m.name || "",
+    kcal: (typeof m.est_kcal === "number") ? m.est_kcal : null,
+    macros: mac ? { p: mac.p != null ? mac.p : null, c: mac.c != null ? mac.c : null, f: mac.f != null ? mac.f : null, fiber: mac.fiber != null ? mac.fiber : null, sugar: mac.sugar != null ? mac.sugar : null, sodium: mac.sodium != null ? mac.sodium : null } : null,
+    nutrition_is_estimate: true,
+    diet_types: m.diet_type ? [m.diet_type] : [],
+    category: null,
+    ingredients: m.ingredients || "",
+    steps: m.steps || "",
+    steps_json: Array.isArray(m.steps_json) ? m.steps_json : null,
+    servings: (typeof m.servings === "number") ? m.servings : null,
+    cook_minutes: (typeof m.cook_minutes === "number") ? m.cook_minutes : null,
+    prep_minutes: (typeof m.prep_minutes === "number") ? m.prep_minutes : null,
+    equipment: m.equipment || null,
+    prep_note: m.prep_note || null,
+    photo_url: m.photo_url || null, emoji: null, contributor: m.display_name || "Komunitas 20FIT",
+  };
+}
+var CONTENT_MEMBER_COLS = "id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,macros,servings,cook_minutes,prep_minutes,equipment,prep_note,reviewed_at";
+
+// Info + cek key (consumer bisa verifikasi key-nya valid).
+app.get("/api/content/v1", requireContentKey, function (req, res) {
+  return res.json({
+    ok: true, consumer: req.apiConsumer, version: "v1",
+    endpoints: ["/api/content/v1/articles", "/api/content/v1/articles/:slug", "/api/content/v1/article-categories", "/api/content/v1/recipes", "/api/content/v1/recipes/:key"],
+    note: "Konten publik/published saja. Angka gizi = PERKIRAAN (nutrition_is_estimate).",
+  });
+});
+
+// Daftar artikel terbit (ringkasan, tanpa body). Query: category, limit(<=50), offset.
+app.get("/api/content/v1/articles", requireContentKey, async function (req, res) {
+  try {
+    if (!admin) return res.json({ ok: true, articles: [], total: 0, has_more: false });
+    var category = String(req.query.category || "").trim();
+    var limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    var offset = Math.max(0, parseInt(req.query.offset) || 0);
+    var query = admin.from("my20fit_recipe_article")
+      .select("id,slug,title,title_id,title_en,excerpt,excerpt_id,excerpt_en,cover_url,category,category_id,category_en,author_name,published_at", { count: "exact" })
+      .eq("status", "published").order("published_at", { ascending: false }).range(offset, offset + limit - 1);
+    if (category) query = query.eq("category_id", category);
+    var { data, error, count } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    var articles = (data || []).map(normContentArticle);
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ ok: true, articles: articles, total: count || 0, has_more: (offset + articles.length) < (count || 0) });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Satu artikel terbit + body (2 bahasa).
+app.get("/api/content/v1/articles/:slug", requireContentKey, async function (req, res) {
+  try {
+    if (!admin) return res.status(404).json({ error: "not found" });
+    var slug = String(req.params.slug || "").trim();
+    var { data, error } = await admin.from("my20fit_recipe_article")
+      .select("id,slug,title,title_id,title_en,excerpt,excerpt_id,excerpt_en,body_md,body_md_id,body_md_en,cover_url,category,category_id,category_en,author_name,published_at,width,height")
+      .eq("status", "published").eq("slug", slug).limit(1);
+    if (error) return res.status(500).json({ error: error.message });
+    var a = data && data[0];
+    if (!a) return res.status(404).json({ error: "not found" });
+    var out = normContentArticle(a);
+    out.body = { id: a.body_md_id || a.body_md || "", en: a.body_md_en || a.body_md || "" };
+    out.cover = { url: a.cover_url || null, width: a.width || null, height: a.height || null };
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ ok: true, article: out });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Kategori artikel + jumlah.
+app.get("/api/content/v1/article-categories", requireContentKey, async function (req, res) {
+  try {
+    if (!admin) return res.json({ ok: true, categories: [] });
+    var { data, error } = await admin.from("my20fit_recipe_article")
+      .select("category_id,category_en,category").eq("status", "published");
+    if (error) return res.status(500).json({ error: error.message });
+    var m = new Map();
+    (data || []).forEach(function (a) {
+      var id = a.category_id || a.category || ""; if (!id) return;
+      var cur = m.get(id) || { id: id, label: { id: a.category || id, en: a.category_en || a.category || id }, count: 0 };
+      cur.count++; m.set(id, cur);
+    });
+    res.set("Cache-Control", "public, max-age=300");
+    return res.json({ ok: true, categories: Array.from(m.values()) });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Daftar resep (resmi + member approved), dinormalisasi + tag `source`. Query:
+// lang(id/en), source(all/official/member), diet, q, limit(<=100), offset.
+app.get("/api/content/v1/recipes", requireContentKey, async function (req, res) {
+  try {
+    var lang = langOf(req);
+    var source = String(req.query.source || "all").toLowerCase();
+    var diet = String(req.query.diet || "").trim().toLowerCase();
+    var qtext = String(req.query.q || "").trim().toLowerCase();
+    var limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    var offset = Math.max(0, parseInt(req.query.offset) || 0);
+    var items = [];
+    if (source === "all" || source === "official") {
+      loadMenuCatalog().forEach(function (r) { items.push(normContentOfficialRecipe(r, lang)); });
+    }
+    if ((source === "all" || source === "member") && admin) {
+      var { data } = await admin.from("my20fit_menu_contribution").select(CONTENT_MEMBER_COLS)
+        .eq("status", "approved").eq("published", true).order("reviewed_at", { ascending: false }).limit(500);
+      (data || []).forEach(function (mm) { items.push(normContentMemberRecipe(mm)); });
+    }
+    if (diet) items = items.filter(function (it) { return it.diet_types.indexOf(diet) >= 0; });
+    if (qtext) items = items.filter(function (it) { return String(it.name || "").toLowerCase().indexOf(qtext) >= 0; });
+    var total = items.length;
+    var page = items.slice(offset, offset + limit);
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ ok: true, recipes: page, total: total, has_more: (offset + page.length) < total, lang: lang });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Satu resep by key: "official:<id>" atau "member:<uuid>".
+app.get("/api/content/v1/recipes/:key", requireContentKey, async function (req, res) {
+  try {
+    var lang = langOf(req);
+    var key = String(req.params.key || "");
+    var i = key.indexOf(":");
+    var src = i > 0 ? key.slice(0, i) : "official";
+    var id = i > 0 ? key.slice(i + 1) : key;
+    if (src === "official") {
+      var r = loadMenuCatalog().find(function (x) { return String(x.id) === String(id); });
+      if (!r) return res.status(404).json({ error: "not found" });
+      res.set("Cache-Control", "public, max-age=300");
+      return res.json({ ok: true, recipe: normContentOfficialRecipe(r, lang) });
+    }
+    if (src === "member") {
+      if (!admin) return res.status(404).json({ error: "not found" });
+      if (!/^[0-9a-fA-F-]{16,}$/.test(id)) return res.status(404).json({ error: "not found" });
+      var { data, error } = await admin.from("my20fit_menu_contribution").select(CONTENT_MEMBER_COLS)
+        .eq("status", "approved").eq("published", true).eq("id", id).limit(1);
+      if (error) return res.status(500).json({ error: error.message });
+      var mrec = data && data[0];
+      if (!mrec) return res.status(404).json({ error: "not found" });
+      res.set("Cache-Control", "public, max-age=120");
+      return res.json({ ok: true, recipe: normContentMemberRecipe(mrec) });
+    }
+    return res.status(400).json({ error: "key harus 'official:<id>' atau 'member:<uuid>'." });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// ============================ END CONTENT API v1 ============================
+
+// PUBLIK: katering yang menjual resep ini -- penghubung EKSPLISIT lewat (source, menu_id),
+// bukan pencocokan nama (lihat migration create_my20fit_caterer_menus). Murni direktori,
+// TANPA transaksi/komisi (dikonfirmasi user) -- order_url/whatsapp langsung ke katering.
+// Urutan default: terverifikasi dulu, lalu sort_order manual dari CMS -- BUKAN "terpopuler"
+// (datanya belum cukup, lihat my20fit_caterer_clicks). "Terdekat" dihitung di klien (browser
+// yang punya lokasi user, bukan server) dari latitude/longitude yang dikirim di sini.
+app.get("/api/menu/:id/caterers", async (req, res) => {
+  try {
+    var menu_id = String(req.params.id || "").slice(0, 80);
+    var source = String(req.query.source || "").trim().toLowerCase();
+    if (!menu_id || (source !== "official" && source !== "member")) return res.json({ ok: true, caterers: [] });
+    if (!admin) return res.json({ ok: true, caterers: [] });
+    var { data: links, error } = await admin.from("my20fit_caterer_menus")
+      .select("price,portion_note,sort_order,my20fit_caterers!inner(id,name,slug,description,logo_url,phone,whatsapp,address,area,latitude,longitude,delivery_areas,min_order,order_url,is_verified,sort_order,is_active)")
+      .eq("source", source).eq("menu_id", menu_id).eq("is_available", true)
+      .eq("my20fit_caterers.is_active", true);
+    if (error) return res.status(500).json({ error: error.message });
+    var out = (links || []).map(function (l) {
+      var c = l.my20fit_caterers;
+      return {
+        id: c.id, name: c.name, slug: c.slug, description: c.description, logo_url: c.logo_url,
+        phone: c.phone, whatsapp: c.whatsapp, address: c.address, area: c.area,
+        latitude: c.latitude, longitude: c.longitude, delivery_areas: c.delivery_areas,
+        min_order: c.min_order, order_url: c.order_url, is_verified: c.is_verified,
+        price: l.price, portion_note: l.portion_note,
+        _sort: (c.is_verified ? 0 : 1) + "-" + String(c.sort_order || 0).padStart(6, "0") + "-" + String(l.sort_order || 0).padStart(6, "0"),
+      };
+    }).sort(function (a, b) { return a._sort < b._sort ? -1 : a._sort > b._sort ? 1 : 0; })
+      .map(function (c) { delete c._sort; return c; });
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ ok: true, caterers: out });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK (login opsional, guest via cookie eco_anon -- pola sama dgn reaction): catat klik ke
+// katering. HANYA disimpan -- TIDAK dipakai utk urutan apapun sekarang (belum cukup data).
+// Tabel my20fit_caterer_clicks sengaja 0 RLS policy -- baca/tulis cuma lewat sini.
+app.post("/api/menu/caterer-click", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true });
+    var b = req.body || {};
+    var caterer_id = String(b.caterer_id || "").trim();
+    var source = String(b.source || "").trim().toLowerCase();
+    var menu_id = String(b.menu_id || "").slice(0, 80);
+    if (!caterer_id || !menu_id || (source !== "official" && source !== "member")) {
+      return res.status(400).json({ error: "caterer_id, source, menu_id wajib." });
+    }
+    var user = await getUserFromReq(req);
+    var row = { caterer_id: caterer_id, source: source, menu_id: menu_id };
+    if (user) {
+      row.auth_user_id = user.id;
+    } else {
+      var sess = await getAnonSession(req, res, true);
+      if (sess) row.anon_id = sess.anon_id;
+    }
+    await admin.from("my20fit_caterer_clicks").insert(row);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ---------- recepie.20fit.id "Eat Now" -> pesan-antar (GrabFood dll) ----------
+// TANPA API/scraping Grab. Hanya menautkan ke halaman KATEGORI publik mereka (meta-robots
+// index,follow -> memang boleh ditautkan). Pemetaan EKSPLISIT per resep, admin isi via CMS
+// (tabel my20fit_menu_delivery_links). Kita TIDAK klaim "restoran X jual ini" -- daftar
+// restoran baru muncul di sisi Grab setelah user isi alamat. Preset kategori GrabFood
+// dikumpulkan manual dari struktur URL publik food.grab.com (bukan scraping katalog).
+var GRABFOOD_BASE = "https://food.grab.com";
+var GRABFOOD_PRESETS = [
+  { label: "Nasi Goreng", path: "/id/id/cuisines/nasi-goreng-delivery/71" },
+  { label: "Ayam Goreng", path: "/id/id/cuisines/ayam-goreng-delivery/69" },
+  { label: "Ayam", path: "/id/id/cuisines/ayam-delivery/43" },
+  { label: "Sate", path: "/id/id/cuisines/sate-delivery/150" },
+  { label: "Bakso", path: "/id/id/cuisines/bakso-delivery/8" },
+  { label: "Mie", path: "/id/id/cuisines/mie-delivery/126" },
+  { label: "Aneka Nasi", path: "/id/id/cuisines/aneka-nasi-delivery/144" },
+  { label: "Hidangan Laut", path: "/id/id/cuisines/hidangan-laut-delivery/151" },
+  { label: "Martabak", path: "/id/id/cuisines/martabak-delivery/107" },
+  { label: "Camilan", path: "/id/id/cuisines/camilan-delivery/157" },
+  { label: "Kopi", path: "/id/id/cuisines/kopi-delivery/47" },
+  { label: "Minuman", path: "/id/id/cuisines/minuman-delivery/24" },
+  { label: "Roti & Kue", path: "/id/id/cuisines/roti-kue-delivery/7" },
+  { label: "Masakan Indonesia", path: "/id/id/restaurants?category=indonesian-87" },
+];
+
+// PUBLIK: tautan pesan-antar AKTIF utk satu resep (urut sort_order). Kosong -> klien sembunyikan.
+app.get("/api/menu/:id/delivery", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, links: [] });
+    var menu_id = String(req.params.id || "").slice(0, 80);
+    var source = String(req.query.source || "").trim().toLowerCase();
+    if (!menu_id || (source !== "official" && source !== "member")) return res.json({ ok: true, links: [] });
+    var { data, error } = await admin.from("my20fit_menu_delivery_links")
+      .select("id,provider,label,url,sort_order")
+      .eq("source", source).eq("menu_id", menu_id).eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    if (error) return res.status(500).json({ error: error.message });
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ ok: true, links: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK (login opsional, guest via cookie eco_anon): catat klik ke penyedia pesan-antar.
+// Hanya analitik -- TIDAK dipakai utk urutan apa pun sekarang. Pola sama caterer-click.
+app.post("/api/menu/delivery-click", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true });
+    var b = req.body || {};
+    var source = String(b.source || "").trim().toLowerCase();
+    var menu_id = String(b.menu_id || "").slice(0, 80);
+    var provider = String(b.provider || "").trim().slice(0, 40);
+    if (!menu_id || !provider || (source !== "official" && source !== "member"))
+      return res.status(400).json({ error: "source, menu_id, provider wajib." });
+    var user = await getUserFromReq(req);
+    var row = { source: source, menu_id: menu_id, provider: provider };
+    if (user) row.auth_user_id = user.id;
+    else { var sess = await getAnonSession(req, res, true); if (sess) row.anon_id = sess.anon_id; }
+    await admin.from("my20fit_menu_delivery_clicks").insert(row);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK: daftar resep yang punya >=1 tautan pesan-antar AKTIF (utk halaman "Eat Now").
+// Ringan -- balik kunci {source, menu_id} saja; frontend punya katalog/published utk nama+foto.
+app.get("/api/menu/eat-now", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, items: [] });
+    var { data, error } = await admin.from("my20fit_menu_delivery_links")
+      .select("source,menu_id").eq("is_active", true);
+    if (error) return res.status(500).json({ error: error.message });
+    var seen = {}, items = [];
+    (data || []).forEach(function (l) {
+      var k = l.source + ":" + l.menu_id;
+      if (!seen[k]) { seen[k] = 1; items.push({ source: l.source, menu_id: l.menu_id }); }
+    });
+    res.set("Cache-Control", "public, max-age=60");
+    return res.json({ ok: true, items: items });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN (superadmin): preset kategori GrabFood siap pakai (biar admin tak salin URL manual).
+app.get("/api/admin/menu-delivery/presets", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  return res.json({ ok: true, grabfood_base: GRABFOOD_BASE, presets: GRABFOOD_PRESETS });
+});
+
+// ADMIN: daftar pemetaan + resep yang BELUM dipetakan (biar kelihatan yang tertinggal).
+app.get("/api/admin/menu-delivery", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var { data: links, error } = await admin.from("my20fit_menu_delivery_links")
+      .select("id,source,menu_id,provider,label,url,sort_order,is_active,created_at,updated_at")
+      .order("updated_at", { ascending: false }).limit(2000);
+    if (error) return res.status(500).json({ error: error.message });
+    var official = loadMenuCatalog().map(function (r) {
+      return { source: "official", menu_id: r.id, name: (r.nm && (r.nm.id || r.nm.en)) || r.id };
+    });
+    var { data: mem } = await admin.from("my20fit_menu_contribution")
+      .select("id,name").eq("status", "approved").eq("published", true).limit(1000);
+    var recipes = official.concat((mem || []).map(function (m) { return { source: "member", menu_id: m.id, name: m.name }; }));
+    var mapped = {};
+    (links || []).forEach(function (l) { mapped[l.source + ":" + l.menu_id] = true; });
+    var unmapped = recipes.filter(function (r) { return !mapped[r.source + ":" + r.menu_id]; });
+    return res.json({ ok: true, links: links || [], recipes: recipes, unmapped_count: unmapped.length, unmapped: unmapped });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: buat pemetaan. (Data pemetaan diisi admin, bukan ditebak dari nama makanan.)
+app.post("/api/admin/menu-delivery", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var b = req.body || {};
+    var source = String(b.source || "").trim().toLowerCase();
+    var menu_id = String(b.menu_id || "").slice(0, 80);
+    var provider = String(b.provider || "grabfood").trim().slice(0, 40);
+    var label = String(b.label || "").trim().slice(0, 120);
+    var url = String(b.url || "").trim();
+    if (!menu_id || !label || !url || (source !== "official" && source !== "member"))
+      return res.status(400).json({ error: "source, menu_id, label, url wajib." });
+    if (!/^https:\/\//i.test(url)) return res.status(400).json({ error: "URL harus diawali https://" });
+    var sort_order = (b.sort_order != null && b.sort_order !== "") ? (parseInt(b.sort_order, 10) || 0) : 0;
+    var is_active = b.is_active === false ? false : true;
+    var { data, error } = await admin.from("my20fit_menu_delivery_links")
+      .insert({ source: source, menu_id: menu_id, provider: provider, label: label, url: url, sort_order: sort_order, is_active: is_active })
+      .select("id").limit(1).single();
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "menu_delivery.create", data.id, { source: source, menu_id: menu_id, provider: provider });
+    return res.json({ ok: true, id: data.id });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: ubah pemetaan.
+app.post("/api/admin/menu-delivery/:id/update", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || ""), b = req.body || {};
+    var patch = { updated_at: new Date().toISOString() };
+    if (b.provider != null) patch.provider = String(b.provider).trim().slice(0, 40);
+    if (b.label != null) patch.label = String(b.label).trim().slice(0, 120);
+    if (b.url != null) { var u = String(b.url).trim(); if (!/^https:\/\//i.test(u)) return res.status(400).json({ error: "URL harus https://" }); patch.url = u; }
+    if (b.sort_order != null) patch.sort_order = parseInt(b.sort_order, 10) || 0;
+    if (b.is_active != null) patch.is_active = !!b.is_active;
+    var { error } = await admin.from("my20fit_menu_delivery_links").update(patch).eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "menu_delivery.update", id, patch);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: hapus pemetaan.
+app.post("/api/admin/menu-delivery/:id/delete", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || "");
+    var { error } = await admin.from("my20fit_menu_delivery_links").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "menu_delivery.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ---------- recepie.20fit.id: Artikel in-house (Tahap 6) ----------
+// Di-host DI SINI (bukan media_articles/WordPress) -> tak ada duplicate content. Superadmin tulis
+// via CMS; publik baca hanya 'published' (service key; RLS deny-public). body_md dirender aman di klien.
+function slugifyArticle(s) {
+  return String(s || "").toLowerCase().trim()
+    .replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 80)
+    || ("artikel-" + Date.now().toString(36));
+}
+
+// PUBLIK: daftar artikel terbit (ringkas, tanpa body).
+// Resolusi kolom bahasa artikel. CATATAN DATA: body penuh HANYA ada di `body_md`
+// (rata2 ~7000 char); `body_md_id`/`body_md_en` pendek/tak lengkap -> jangan dipakai
+// untuk isi. Judul/excerpt/kategori pakai *_<lang> dgn fallback ke legacy.
+function pickLang(o, base, lang) {
+  var v = o[base + "_" + (lang === "en" ? "en" : "id")];
+  if (v == null || v === "") v = o[base]; // fallback legacy
+  if (v == null || v === "") v = o[base + "_id"] || o[base + "_en"] || "";
+  return v;
+}
+function langOf(req) { return String(req.query.lang || "id").toLowerCase() === "en" ? "en" : "id"; }
+
+// PUBLIK: daftar artikel terbit — PAGINASI DI SERVER (offset/limit, default 16),
+// filter kategori (pakai category_id kanonik), sadar bahasa. Balikin has_more + total.
+app.get("/api/menu/articles", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, articles: [], has_more: false, total: 0 });
+    var lang = langOf(req);
+    var category = String(req.query.category || "").trim();
+    var limit = Math.min(48, Math.max(1, parseInt(req.query.limit) || 16));
+    var offset = Math.max(0, parseInt(req.query.offset) || 0);
+    var q = admin.from("my20fit_recipe_article")
+      .select("id,slug,title,title_id,title_en,excerpt,excerpt_id,excerpt_en,cover_url,category,category_id,category_en,author_name,published_at", { count: "exact" })
+      .eq("status", "published").order("published_at", { ascending: false }).range(offset, offset + limit - 1);
+    if (category) q = q.eq("category_id", category);
+    var { data, error, count } = await q;
+    if (error) return res.status(500).json({ error: error.message });
+    var articles = (data || []).map(function (a) {
+      return {
+        id: a.id, slug: a.slug, cover_url: a.cover_url, author_name: a.author_name, published_at: a.published_at,
+        title: pickLang(a, "title", lang), excerpt: pickLang(a, "excerpt", lang),
+        category: a.category_id || a.category || "", category_label: pickLang(a, "category", lang),
+      };
+    });
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ ok: true, articles: articles, total: count || 0, has_more: (offset + articles.length) < (count || 0) });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK: daftar kategori artikel (kanonik category_id + label sesuai bahasa) + jumlah.
+app.get("/api/menu/article-categories", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, categories: [] });
+    var lang = langOf(req);
+    var { data, error } = await admin.from("my20fit_recipe_article")
+      .select("category_id,category_en,category").eq("status", "published");
+    if (error) return res.status(500).json({ error: error.message });
+    var map = {};
+    (data || []).forEach(function (r) {
+      var key = r.category_id || r.category || ""; if (!key) return;
+      if (!map[key]) map[key] = { key: key, label: (lang === "en" ? (r.category_en || key) : key), count: 0 };
+      map[key].count++;
+    });
+    var cats = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return a.label.localeCompare(b.label); });
+    res.set("Cache-Control", "public, max-age=300");
+    return res.json({ ok: true, categories: cats });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Estimasi menit baca dari panjang teks (~200 kata/mnt). Buang gambar & URL markdown.
+// SATU rumus dipakai bareng (my.20fit + recipe.20fit lewat endpoint di bawah).
+function computeReadMinutes(body) {
+  var words = String(body || "")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\]\([^)]*\)/g, "] ")
+    .replace(/[#*_>`~-]/g, " ").trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+// PUBLIK: peta { slug -> menit baca } semua artikel terbit (dihitung dari body_md di server).
+// SUMBER TUNGGAL: menggantikan pembacaan Supabase langsung di recipe.20fit (readtime.ts).
+app.get("/api/menu/article-readtimes", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, minutes: {} });
+    var { data } = await admin.from("my20fit_recipe_article")
+      .select("slug,body_md,body_md_id,body_md_en").eq("status", "published");
+    var out = {};
+    (data || []).forEach(function (r) { if (r.slug) out[r.slug] = computeReadMinutes(r.body_md || r.body_md_id || r.body_md_en || ""); });
+    res.set("Cache-Control", "public, max-age=300");
+    return res.json({ ok: true, minutes: out });
+  } catch (e) { return res.json({ ok: true, minutes: {} }); }
+});
+
+// PUBLIK: satu artikel terbit (full body dari body_md) + resep terkait. Sadar bahasa.
+app.get("/api/menu/articles/:slug", async (req, res) => {
+  try {
+    if (!admin) return res.status(404).json({ error: "not found" });
+    var lang = langOf(req);
+    var slug = String(req.params.slug || "").slice(0, 100);
+    var { data: a } = await admin.from("my20fit_recipe_article")
+      .select("id,slug,title,title_id,title_en,excerpt,excerpt_id,excerpt_en,body_md,cover_url,category,category_id,category_en,author_name,published_at,status")
+      .eq("slug", slug).limit(1).single();
+    if (!a || a.status !== "published") return res.status(404).json({ error: "not found" });
+    var { data: links } = await admin.from("my20fit_recipe_article_link").select("source,menu_id").eq("article_id", a.id);
+    var article = {
+      id: a.id, slug: a.slug, cover_url: a.cover_url, author_name: a.author_name, published_at: a.published_at,
+      title: pickLang(a, "title", lang), excerpt: pickLang(a, "excerpt", lang),
+      category_label: pickLang(a, "category", lang),
+      body_md: a.body_md || a.body_md_id || a.body_md_en || "", // isi penuh ada di body_md
+    };
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ ok: true, article: article, recipes: links || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// PUBLIK: artikel terbit terkait sebuah resep (utk "mau makan di luar?" di halaman resep).
+app.get("/api/menu/:id/articles", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, articles: [] });
+    var menu_id = String(req.params.id || "").slice(0, 80);
+    var source = String(req.query.source || "").trim().toLowerCase();
+    if (!menu_id || (source !== "official" && source !== "member")) return res.json({ ok: true, articles: [] });
+    var { data: links } = await admin.from("my20fit_recipe_article_link").select("article_id").eq("source", source).eq("menu_id", menu_id);
+    var ids = (links || []).map(function (l) { return l.article_id; });
+    if (!ids.length) return res.json({ ok: true, articles: [] });
+    var { data: arts } = await admin.from("my20fit_recipe_article")
+      .select("id,slug,title,excerpt,cover_url,category,published_at")
+      .in("id", ids).eq("status", "published").order("published_at", { ascending: false });
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ ok: true, articles: arts || [] });
+  } catch (e) { return res.json({ ok: true, articles: [] }); }
+});
+
+// ADMIN (superadmin): daftar semua artikel (semua status).
+app.get("/api/admin/articles", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var { data, error } = await admin.from("my20fit_recipe_article")
+      .select("id,slug,title,category,author_name,status,published_at,updated_at")
+      .order("updated_at", { ascending: false }).limit(500);
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true, articles: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: satu artikel penuh + link (utk editor).
+app.get("/api/admin/articles/:id", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || "");
+    var { data: a } = await admin.from("my20fit_recipe_article").select("*").eq("id", id).limit(1).single();
+    if (!a) return res.status(404).json({ error: "not found" });
+    var { data: links } = await admin.from("my20fit_recipe_article_link").select("source,menu_id").eq("article_id", id);
+    return res.json({ ok: true, article: a, links: links || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: buat artikel.
+app.post("/api/admin/articles", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var b = req.body || {};
+    var title = String(b.title || "").trim();
+    if (!title) return res.status(400).json({ error: "Judul wajib." });
+    var slug = String(b.slug || "").trim(); slug = slug ? slugifyArticle(slug) : slugifyArticle(title);
+    var status = (b.status === "published") ? "published" : "draft";
+    var row = {
+      title: title, slug: slug,
+      excerpt: b.excerpt ? String(b.excerpt).slice(0, 500) : null,
+      body_md: b.body_md ? String(b.body_md) : null,
+      cover_url: b.cover_url ? String(b.cover_url) : null,
+      category: b.category ? String(b.category).trim().slice(0, 60) : null,
+      author_name: b.author_name ? String(b.author_name).trim().slice(0, 120) : null,
+      status: status,
+      published_at: status === "published" ? new Date().toISOString() : null,
+    };
+    var { data, error } = await admin.from("my20fit_recipe_article").insert(row).select("id,slug").limit(1).single();
+    if (error) { if (error.code === "23505") return res.status(409).json({ error: "Slug sudah dipakai." }); return res.status(500).json({ error: error.message }); }
+    await adminAudit(ctx, "article.create", data.id, { slug: data.slug });
+    return res.json({ ok: true, id: data.id, slug: data.slug });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: ubah artikel.
+app.post("/api/admin/articles/:id/update", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || ""), b = req.body || {};
+    var patch = { updated_at: new Date().toISOString() };
+    if (b.title != null) patch.title = String(b.title).trim();
+    if (b.slug != null) patch.slug = slugifyArticle(b.slug);
+    if (b.excerpt != null) patch.excerpt = b.excerpt ? String(b.excerpt).slice(0, 500) : null;
+    if (b.body_md != null) patch.body_md = b.body_md ? String(b.body_md) : null;
+    if (b.cover_url != null) patch.cover_url = b.cover_url ? String(b.cover_url) : null;
+    if (b.category != null) patch.category = b.category ? String(b.category).trim().slice(0, 60) : null;
+    if (b.author_name != null) patch.author_name = b.author_name ? String(b.author_name).trim().slice(0, 120) : null;
+    if (b.status != null) {
+      var st = (b.status === "published") ? "published" : "draft"; patch.status = st;
+      if (st === "published") { var { data: cur } = await admin.from("my20fit_recipe_article").select("published_at").eq("id", id).limit(1).single(); if (!cur || !cur.published_at) patch.published_at = new Date().toISOString(); }
+    }
+    var { error } = await admin.from("my20fit_recipe_article").update(patch).eq("id", id);
+    if (error) { if (error.code === "23505") return res.status(409).json({ error: "Slug sudah dipakai." }); return res.status(500).json({ error: error.message }); }
+    await adminAudit(ctx, "article.update", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: hapus artikel.
+app.post("/api/admin/articles/:id/delete", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || "");
+    var { error } = await admin.from("my20fit_recipe_article").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "article.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ADMIN: set resep terkait (ganti semua). Body {links:[{source,menu_id}]}.
+app.post("/api/admin/articles/:id/links", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  try {
+    var id = String(req.params.id || "");
+    var arr = Array.isArray((req.body || {}).links) ? req.body.links : [];
+    var rows = [];
+    arr.slice(0, 50).forEach(function (l) {
+      var s = String((l && l.source) || "").toLowerCase(); var mid = String((l && l.menu_id) || "").slice(0, 80);
+      if ((s === "official" || s === "member") && mid) rows.push({ article_id: id, source: s, menu_id: mid });
+    });
+    await admin.from("my20fit_recipe_article_link").delete().eq("article_id", id);
+    if (rows.length) { var ins = await admin.from("my20fit_recipe_article_link").insert(rows); if (ins.error) return res.status(500).json({ error: ins.error.message }); }
+    await adminAudit(ctx, "article.links", id, { count: rows.length });
+    return res.json({ ok: true, count: rows.length });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ---------- recepie.20fit.id: foto langkah, reaction (heart), save (koleksi) ----------
+// Normalisasi langkah terstruktur (step berfoto). Terima [{t, photo}] -> bersihkan, batasi
+// jumlah/panjang, foto HANYA URL bucket menu-photos kita (anti tempel URL eksternal) / null.
+// Balik { json, text } — text dipakai kolom `steps` lama (kompatibel mundur + tampil moderasi).
+function normalizeMenuSteps(input) {
+  if (!Array.isArray(input)) return null;
+  var out = [];
+  for (var i = 0; i < input.length && out.length < 40; i++) {
+    var it = input[i] || {};
+    var t = String(it.t == null ? "" : it.t).trim().slice(0, 2000);
+    var photo = it.photo == null ? null : String(it.photo).trim();
+    if (photo && !/^https:\/\/[a-z0-9.-]*supabase\.co\/storage\/v1\/object\/public\/menu-photos\//i.test(photo)) photo = null;
+    if (!t && !photo) continue;
+    out.push({ t: t, photo: photo || null });
+  }
+  if (!out.length) return null;
+  var text = out.map(function (s, idx) { return (idx + 1) + ". " + s.t; }).join("\n");
+  return { json: out, text: text };
+}
+
+// AUTH: unggah satu foto resep (utama / per-langkah) -> bucket 'menu-photos' (publik), balik URL.
+// Disimpan di Storage (bukan base64 di DB). Nama file di-namespace per user + acak (tak tertebak).
+app.post("/api/menu/upload", async (req, res) => {
+  try {
+    var user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (!admin) return res.status(503).json({ error: "Storage tidak tersedia." });
+    var dataUrl = String((req.body || {}).data_url || "");
+    var m = dataUrl.match(/^data:(image\/(png|jpe?g|webp));base64,([A-Za-z0-9+/=]+)$/);
+    if (!m) return res.status(400).json({ error: "Format gambar tidak didukung (png/jpg/webp)." });
+    var contentType = m[1];
+    var ext = (m[2] === "jpeg") ? "jpg" : m[2];
+    var buf = Buffer.from(m[3], "base64");
+    if (buf.length > 5 * 1024 * 1024) return res.status(413).json({ error: "Ukuran gambar maksimal 5MB." });
+    var name = user.id + "/" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e9).toString(36) + "." + ext;
+    var up = await admin.storage.from("menu-photos").upload(name, buf, { contentType: contentType, upsert: false });
+    if (up.error) throw up.error;
+    var { data: pub } = admin.storage.from("menu-photos").getPublicUrl(name);
+    return res.json({ ok: true, url: (pub && pub.publicUrl) || null, path: name });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal unggah foto." }); }
+});
+
+// PUBLIK (login opsional): toggle heart. 1 pemilik (akun ATAU sesi anonim) 1 reaction/resep
+// (unique index DB, lihat migration menu_reaction_allow_anon_like). Body {source:'official'|'member'}.
+// Jumlah dihitung server (service key) -> tak bisa dicurangi client. Guest diidentifikasi lewat
+// cookie httpOnly eco_anon (my20fit_anonymous_sessions) -- SAMA dgn kuota scan anonim, dibuat
+// on-demand di sini (bukan dari sekadar buka halaman) supaya tabel tak dibanjiri sesi tak aktif.
+app.post("/api/menu/:id/react", async (req, res) => {
+  try {
+    var menu_id = String(req.params.id || "").slice(0, 80);
+    var source = String((req.body || {}).source || "").trim().toLowerCase();
+    if (!menu_id) return res.status(400).json({ error: "menu_id wajib." });
+    if (source !== "official" && source !== "member") return res.status(400).json({ error: "source tidak valid." });
+
+    var user = await getUserFromReq(req);
+    var ownerCol = user ? "auth_user_id" : "anon_id";
+    var ownerVal = user ? user.id : null;
+    if (!user) {
+      var sess = await getAnonSession(req, res, true);
+      if (!sess) return res.status(503).json({ error: "Server belum siap." });
+      ownerVal = sess.anon_id;
+    }
+
+    var { data: ex } = await admin.from("my20fit_menu_reaction").select("id")
+      .eq(ownerCol, ownerVal).eq("source", source).eq("menu_id", menu_id).limit(1);
+    var reacted;
+    if (ex && ex[0]) {
+      await admin.from("my20fit_menu_reaction").delete().eq("id", ex[0].id);
+      reacted = false;
+    } else {
+      var row = { source: source, menu_id: menu_id, kind: "heart" };
+      row[ownerCol] = ownerVal;
+      var ins = await admin.from("my20fit_menu_reaction").insert(row);
+      if (ins.error && ins.error.code !== "23505") throw ins.error; // 23505 = race, sudah ada -> anggap reacted
+      reacted = true;
+    }
+    var { count } = await admin.from("my20fit_menu_reaction").select("id", { count: "exact", head: true })
+      .eq("source", source).eq("menu_id", menu_id);
+    return res.json({ ok: true, reacted: reacted, count: count || 0 });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+
+// AUTH: pindahkan like sesi anonim (cookie eco_anon) ke akun yang baru login/daftar, supaya
+// guest yang like lalu bikin akun tidak kehilangan like-nya. Idempoten: aman dipanggil berkali-kali
+// (anon session yang sudah converted_user_id -> tak ada baris anon lagi utk dipindah).
+app.post("/api/menu/claim-anon-likes", async (req, res) => {
+  try {
+    var user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    var sess = await getAnonSession(req, res, false);
+    if (!sess) return res.json({ ok: true, migrated: 0 });
+
+    var { data: anonRows } = await admin.from("my20fit_menu_reaction")
+      .select("id,source,menu_id,kind").eq("anon_id", sess.anon_id);
+    anonRows = anonRows || [];
+    var migrated = 0;
+    if (anonRows.length) {
+      var { data: ownRows } = await admin.from("my20fit_menu_reaction")
+        .select("source,menu_id,kind").eq("auth_user_id", user.id);
+      var ownKeys = new Set((ownRows || []).map(function (r) { return r.source + ":" + r.menu_id + ":" + r.kind; }));
+      for (var i = 0; i < anonRows.length; i++) {
+        var r = anonRows[i];
+        var key = r.source + ":" + r.menu_id + ":" + r.kind;
+        if (ownKeys.has(key)) {
+          // Akun ini sudah like resep yang sama dari device lain -> baris anon jadi duplikat, buang.
+          await admin.from("my20fit_menu_reaction").delete().eq("id", r.id);
+        } else {
+          await admin.from("my20fit_menu_reaction").update({ auth_user_id: user.id, anon_id: null }).eq("id", r.id);
+          migrated++;
+        }
+      }
+    }
+    try { await admin.from("my20fit_anonymous_sessions").update({ converted_user_id: user.id }).eq("anon_id", sess.anon_id); } catch (_e) {}
+    return res.json({ ok: true, migrated: migrated });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+
+// AUTH: toggle simpan resep ke koleksi. Body {source:'official'|'member'}.
+app.post("/api/menu/:id/save", async (req, res) => {
+  try {
+    var user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    var menu_id = String(req.params.id || "").slice(0, 80);
+    var source = String((req.body || {}).source || "").trim().toLowerCase();
+    if (!menu_id) return res.status(400).json({ error: "menu_id wajib." });
+    if (source !== "official" && source !== "member") return res.status(400).json({ error: "source tidak valid." });
+    var { data: ex } = await admin.from("my20fit_menu_save").select("id")
+      .eq("auth_user_id", user.id).eq("source", source).eq("menu_id", menu_id).limit(1);
+    var saved;
+    if (ex && ex[0]) {
+      await admin.from("my20fit_menu_save").delete().eq("id", ex[0].id);
+      saved = false;
+    } else {
+      var ins = await admin.from("my20fit_menu_save").insert({ auth_user_id: user.id, source: source, menu_id: menu_id });
+      if (ins.error && ins.error.code !== "23505") throw ins.error;
+      saved = true;
+    }
+    return res.json({ ok: true, saved: saved });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+
+// AUTH: koleksi resep tersimpan milik user. Member approved+published di-hydrate (kartu penuh);
+// official dikembalikan sbg id (klien resolve dari katalog yang sudah ada).
+app.get("/api/menu/saved", async (req, res) => {
+  try {
+    var user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    var { data: rows, error } = await admin.from("my20fit_menu_save")
+      .select("source,menu_id,created_at").eq("auth_user_id", user.id)
+      .order("created_at", { ascending: false }).limit(300);
+    if (error) throw error;
+    rows = rows || [];
+    var memberIds = rows.filter(function (r) { return r.source === "member"; }).map(function (r) { return r.menu_id; });
+    var members = {};
+    if (memberIds.length) {
+      var { data: mem } = await admin.from("my20fit_menu_contribution")
+        .select("id,name,diet_type,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,reviewed_at,status,published")
+        .in("id", memberIds);
+      (mem || []).forEach(function (mm) { if (mm.status === "approved" && mm.published) members[mm.id] = mm; });
+    }
+    return res.json({ ok: true, saved: rows, members: members });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+
+// PUBLIK: jumlah heart utk banyak resep sekaligus (1 call/halaman utk kartu & detail).
+// ?ids=source:menu_id,source:menu_id,... Kalau ada token user -> sekaligus balik state
+// reacted/saved milik user (opsional; kegagalan verifikasi token TIDAK menghapus counts publik).
+app.get("/api/menu/social", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, counts: {}, reacted: [], saved: [] });
+    var raw = String(req.query.ids || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 200);
+    var pairs = [];
+    raw.forEach(function (tok) {
+      var i = tok.indexOf(":"); if (i < 0) return;
+      var s = tok.slice(0, i).toLowerCase(), mid = tok.slice(i + 1);
+      if ((s === "official" || s === "member") && mid) pairs.push({ source: s, menu_id: mid });
+    });
+    var counts = {};
+    var ids = pairs.map(function (p) { return p.menu_id; });
+    if (ids.length) {
+      var { data: cnts } = await admin.from("my20fit_menu_reaction_count").select("source,menu_id,cnt").in("menu_id", ids);
+      (cnts || []).forEach(function (r) { counts[r.source + ":" + r.menu_id] = r.cnt; });
+    }
+    var reacted = [], saved = [];
+    if (ids.length) {
+      try {
+        var user = await getUserFromReq(req);
+        if (user) {
+          var { data: mr } = await admin.from("my20fit_menu_reaction").select("source,menu_id").eq("auth_user_id", user.id).in("menu_id", ids);
+          (mr || []).forEach(function (r) { reacted.push(r.source + ":" + r.menu_id); });
+          var { data: ms } = await admin.from("my20fit_menu_save").select("source,menu_id").eq("auth_user_id", user.id).in("menu_id", ids);
+          (ms || []).forEach(function (r) { saved.push(r.source + ":" + r.menu_id); });
+        } else {
+          // Guest: baca status like MILIKNYA dari sesi anonim (cookie eco_anon) kalau sudah ada --
+          // read-only (createIfMissing=false), jangan bikin sesi baru cuma dari lihat-lihat halaman.
+          var anonSess = await getAnonSession(req, res, false);
+          if (anonSess) {
+            var { data: ar } = await admin.from("my20fit_menu_reaction").select("source,menu_id").eq("anon_id", anonSess.anon_id).in("menu_id", ids);
+            (ar || []).forEach(function (r) { reacted.push(r.source + ":" + r.menu_id); });
+          }
+        }
+      } catch (_e) { /* state user opsional — abaikan, counts publik tetap dikembalikan */ }
+    }
+    res.set("Cache-Control", "no-store");
+    return res.json({ ok: true, counts: counts, reacted: reacted, saved: saved });
+  } catch (e) { return res.json({ ok: true, counts: {}, reacted: [], saved: [] }); }
+});
+
 // Info konfigurasi runtime (superadmin only) — status env, TANPA membocorkan nilai rahasia.
 app.get("/api/admin/config", async (req, res) => {
   const ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
@@ -5283,39 +6842,80 @@ app.get("/api/admin/attribution", async (req, res) => {
 // Catatan: endpoint lama /api/admin/stats (era admin.html) sudah dihapus —
 // digantikan /api/admin/metrics (RBAC requireAdmin) di admin dashboard baru.
 
-// ---------- Lupa password via API 20FIT (kirim OTP + reset) ----------
-// Reset di sini = reset password akun 20FIT yang sama (dipakai app 20FIT juga).
-app.post("/api/fitco-forgot", async (req, res) => {
+// ---------- Lupa password: OTP sendiri (email) → set password Supabase ----------
+// Jalur FITCO lama (/api/v1/auth/password/forgot|reset) DIHAPUS: reset "tidak bisa sama
+// sekali" lewat jalur itu. Reset di sini SELF-CONTAINED & tak bergantung FITCO:
+//   1) /api/reset/request — kirim kode 6 digit ke email (Resend), kalau akunnya ada.
+//   2) /api/reset/confirm — verifikasi kode → SET password akun SUPABASE via admin API.
+// Login memakai fitcoLogin dulu lalu FALLBACK Auth.signIn (password Supabase), jadi
+// password baru ini langsung dipakai user untuk masuk. CATATAN: yang direset adalah
+// password my.20fit (Supabase); password 20FIT di FITCO TIDAK ikut berubah (jalur FITCO
+// tak bisa dipakai). Kode = HASH sha256 di email_verification_tokens (bukan mentah).
+async function findAuthUserByEmail(email) {
+  const target = String(email || "").trim().toLowerCase();
+  if (!target || !admin) return null;
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const users = (data && data.users) || [];
+    const hit = users.find((u) => String(u.email || "").trim().toLowerCase() === target);
+    if (hit) return hit;
+    if (users.length < 1000) break; // halaman terakhir
+  }
+  return null;
+}
+app.post("/api/reset/request", async (req, res) => {
   try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
     const email = String((req.body && req.body.email) || "").trim().toLowerCase();
     if (!email) return res.status(400).json({ error: "Email wajib diisi." });
-    const r = await fetch(FITCO_API + "/api/v1/auth/password/forgot", {
-      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(r.status === 422 ? 400 : r.status).json({ error: (j && (j.message || j.error)) || "Gagal mengirim kode reset." });
-    return res.json({ ok: true });
+    // ANTI-ENUMERASI: selalu balas ok. Kode hanya benar-benar dikirim kalau akunnya ada.
+    let devCode;
+    try {
+      const u = await findAuthUserByEmail(email);
+      if (u && u.id) {
+        const code = gen6();
+        const expires = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString();
+        await admin.from("email_verification_tokens").delete().eq("auth_user_id", u.id).is("consumed_at", null);
+        const { error: insErr } = await admin.from("email_verification_tokens")
+          .insert({ auth_user_id: u.id, email, token: sha256(code), expires_at: expires });
+        if (insErr) throw insErr;
+        const r = await sendOtpEmail(email, code);
+        if (!IS_PROD && !r.sent) devCode = code; // dev only, tak pernah di produksi
+      }
+    } catch (e) { console.error("reset/request:", e && e.message); }
+    const payload = { ok: true };
+    if (devCode) payload.devCode = devCode;
+    return res.json(payload);
   } catch (e) {
-    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+    return res.status(500).json({ error: "Gagal mengirim kode reset. Coba lagi." });
   }
 });
-app.post("/api/fitco-reset", async (req, res) => {
+app.post("/api/reset/confirm", async (req, res) => {
   try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
     const email = String((req.body && req.body.email) || "").trim().toLowerCase();
     const otp = String((req.body && req.body.otp) || "").trim();
     const password = String((req.body && req.body.password) || "");
     if (!email || !otp || !password) return res.status(400).json({ error: "Email, kode & password wajib diisi." });
     if (password.length < 8) return res.status(400).json({ error: "Password minimal 8 karakter." });
-    const r = await fetch(FITCO_API + "/api/v1/auth/password/reset", {
-      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ email, otp, password, password_confirmation: password }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(r.status === 422 ? 400 : r.status).json({ error: (j && (j.message || j.error)) || "Kode salah atau kedaluwarsa." });
+    const u = await findAuthUserByEmail(email);
+    // Jangan bocorkan apakah email terdaftar — pesan sama dengan kode salah.
+    if (!u || !u.id) return res.status(400).json({ error: "Kode salah atau kedaluwarsa." });
+    const { data: rows, error } = await admin.from("email_verification_tokens")
+      .select("id").eq("auth_user_id", u.id).eq("token", sha256(otp))
+      .is("consumed_at", null).gt("expires_at", new Date().toISOString()).limit(1);
+    if (error) throw error;
+    if (!rows || !rows.length) return res.status(400).json({ error: "Kode salah atau kedaluwarsa." });
+    // Set password Supabase (🔴 nilai password JANGAN pernah di-log).
+    const md = Object.assign({}, u.user_metadata || {}, { has_pw: true });
+    const { error: upErr } = await admin.auth.admin.updateUserById(u.id, { password, user_metadata: md });
+    if (upErr) throw upErr;
+    await admin.from("email_verification_tokens").update({ consumed_at: new Date().toISOString() }).eq("id", rows[0].id);
     return res.json({ ok: true });
   } catch (e) {
-    return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+    console.error("reset/confirm:", e && e.message);
+    return res.status(500).json({ error: "Gagal menyimpan password baru. Coba lagi." });
   }
 });
 
@@ -5996,6 +7596,37 @@ app.post("/api/cron/purge-anon", async (req, res) => {
   catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// POST /api/anon/claim — TAHAP 2 penyatuan data: user yg BARU login/daftar mengklaim
+// data yg dia kumpulkan saat anonim (anon_id dari cookie .20fit.id / localStorage).
+// Set converted_user_id (jembatan scan kalori & MCU) + tautkan like/kontribusi/klik ke user.
+// IDEMPOTEN via RPC my20fit_claim_anon (unique constraint yg ada + filter is-null). Aman
+// diulang tiap login. RPC memaksa klaim ke pemilik sesi (auth.uid()/p_user terverifikasi).
+app.post("/api/anon/claim", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    let user;
+    try { user = await getUserFromReq(req); }
+    catch (e) { return res.status(e.status || 503).json({ error: e.userMessage || "Tidak bisa memverifikasi sesi." }); }
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    // Kumpulkan anon_id dari SEMUA sumber: body, header x-anon-id, cookie bersama
+    // my20fit_anon (.20fit.id), dan cookie eco_anon (sesi anon same-origin my.20fit).
+    const raw = [].concat(
+      b.anon_ids || b.anon_id || [],
+      (req.headers && req.headers["x-anon-id"]) || [],
+      readCookie(req, "my20fit_anon") || [],
+      readCookie(req, ANON_COOKIE) || []
+    );
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuids = [...new Set(raw.map(String).map(s => s.trim()).filter(s => UUID.test(s)))].slice(0, 50);
+    const texts = [...new Set([].concat(b.anon_texts || []).map(String).map(s => s.trim()).filter(Boolean))].slice(0, 50);
+    if (!uuids.length && !texts.length) return res.json({ ok: true, claimed: null, note: "no anon ids" });
+    const { data, error } = await admin.rpc("my20fit_claim_anon", { p_user: user.id, p_anon: uuids, p_anon_text: texts });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.json({ ok: true, claimed: data });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 // POST /api/scan/food-correction — user membetulkan hasil scan (nama + gram + kalori/makro).
 // Kontribusi DIANONIMKAN ke kamus makanan (my20fit_food_ref): TIDAK menyimpan identitas user,
 // foto, atau tanggal — cuma "nama makanan -> nutrisi per gram". Butuh login (anti-spam minimal).
@@ -6249,6 +7880,109 @@ app.get("/api/foodphoto", async (req, res) => {
       } catch (_e) {}
     }
     return res.json({ ok: false }); // tak ada foto asli yang cocok → klien pakai placeholder rapi
+  } catch (e) { return res.json({ ok: false }); }
+});
+
+// PUBLIK: foto makanan untuk katalog menu.20fit.id (browse tanpa login). Cermin /api/foodphoto
+// tapi TERBALIK urutan cache-check: AI (langkah 0) SEKARANG diaktifkan di sini juga (permintaan
+// owner, foto masakan bergaya Indonesia), TAPI hanya utk id yang benar2 ada di katalog resmi
+// (loadMenuCatalog) — endpoint ini publik/tanpa login, jadi id sembarangan tidak boleh bisa
+// memicu generate AI berbayar berulang-ulang (biaya + abuse). Tiap id resmi digenerate SEKALI lalu
+// dicache permanen (tabel my20fit_foodimg + Supabase Storage) — lihat my20fit-foodimg. Gagal/tak
+// eligible -> lanjut Pexels -> TheMealDB seperti sebelumnya. Rate limit imgLimiter (lihat isImgPath).
+// ok:false -> klien pakai placeholder emoji.
+const AI_FOODIMG_TIMEOUT_MS = parseInt(process.env.AI_FOODIMG_TIMEOUT_MS || "40000", 10);
+let _officialMenuIdSet = null;
+function isOfficialMenuId(id) {
+  if (!_officialMenuIdSet) {
+    _officialMenuIdSet = new Set(loadMenuCatalog().map((r) => String(r && r.id || "")));
+  }
+  return _officialMenuIdSet.has(id);
+}
+app.get("/api/menu/photo", async (req, res) => {
+  try {
+    const id = String(req.query.id || "").slice(0, 80);
+    const q = String(req.query.q || "").slice(0, 120);    // nama deskriptif (Pexels & AI)
+    const mdb = String(req.query.mdb || "").slice(0, 60); // kata kunci pendek (TheMealDB)
+    if (!id) return res.json({ ok: false });
+
+    // 0) GENERATE AI (google/gemini-2.5-flash-image via my20fit-foodimg), gaya foto Indonesia.
+    //    Suffix cache "-ai-id" beda dari "-v8" punya /api/foodphoto (prompt berbeda) supaya tidak
+    //    ikut ke-skip oleh cache lama. Dipanggil dgn kredensial anon server (pola sama dgn
+    //    callAiEdge) krn endpoint ini publik & tak punya token user untuk diteruskan.
+    if (isOfficialMenuId(id) && q) {
+      const aiCacheId = id + "-ai-id";
+      if (admin) {
+        try {
+          const { data } = await admin.from("my20fit_foodimg").select("url").eq("id", aiCacheId).limit(1);
+          if (data && data[0] && data[0].url) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: data[0].url, cached: true, source: "ai" }); }
+        } catch (_e) {}
+      }
+      // Timeout eksplisit (pola sama dgn callAiEdge) — endpoint ini PUBLIK & tanpa login, jadi
+      // kalau OpenRouter/Supabase lambat/macet, jangan sampai request pengunjung anonim nge-hang.
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), AI_FOODIMG_TIMEOUT_MS);
+      try {
+        const catRec = loadMenuCatalog().find((r) => r && r.id === id);
+        const desc = catRec && catRec.ing && (catRec.ing.en || catRec.ing.id) || "";
+        const fr = await fetch(SUPABASE_URL + "/functions/v1/my20fit-foodimg", {
+          method: "POST",
+          signal: ctrl.signal,
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + SUPABASE_ANON_KEY, apikey: SUPABASE_ANON_KEY },
+          body: JSON.stringify({ id: aiCacheId, name: q, desc: String(desc).slice(0, 400), indo: true }),
+        });
+        if (fr.ok) {
+          const fj = await fr.json();
+          if (fj && fj.ok && fj.url) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: fj.url, source: "ai" }); }
+        }
+      } catch (_e) {
+        // timeout/network error -> lanjut fallback Pexels/TheMealDB di bawah, jangan gagalkan request.
+      } finally {
+        clearTimeout(to);
+      }
+    }
+
+    const cacheId = id + "-px";
+    if (admin) {
+      try {
+        const { data } = await admin.from("my20fit_foodimg").select("url").eq("id", cacheId).limit(1);
+        if (data && data[0] && data[0].url) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: data[0].url, cached: true }); }
+      } catch (_e) {}
+    }
+    const key = process.env.PEXELS_API_KEY;
+    if (key && q) {
+      try {
+        const pr = await fetch("https://api.pexels.com/v1/search?orientation=landscape&per_page=1&query=" + encodeURIComponent(q),
+          { headers: { Authorization: key } });
+        if (pr.ok) {
+          const pj = await pr.json();
+          const p = pj && pj.photos && pj.photos[0];
+          // Sumber wajib >=1024px di sisi terpendek — jangan paksa isi foto kecil
+          // (fallback ke sumber berikutnya / placeholder emoji drpd foto buram/kepotong).
+          const shortSide = p ? Math.min(Number(p.width) || 0, Number(p.height) || 0) : 0;
+          const url = p && p.src && shortSide >= 1024 ? (p.src.large2x || p.src.original) : null;
+          if (url) {
+            if (admin) { try { await admin.from("my20fit_foodimg").upsert({ id: cacheId, url: url }); } catch (_e) {} }
+            res.set("Cache-Control", "public, max-age=86400");
+            return res.json({ ok: true, url: url, source: "pexels" });
+          }
+        }
+      } catch (_e) {}
+    }
+    const mdbQ = mdb || q;
+    if (mdbQ) {
+      try {
+        const mr = await fetch("https://www.themealdb.com/api/json/v1/1/search.php?s=" + encodeURIComponent(mdbQ));
+        if (mr.ok) {
+          const mj = await mr.json();
+          const m = mj && mj.meals;
+          // Tanpa suffix ukuran = varian TERBESAR yg disediakan TheMealDB (sebelumnya "/small"
+          // sengaja minta yg terkecil, ~312px — di bawah standar 1024px kita).
+          if (m && m[0] && m[0].strMealThumb) { res.set("Cache-Control", "public, max-age=86400"); return res.json({ ok: true, url: m[0].strMealThumb, source: "themealdb" }); }
+        }
+      } catch (_e) {}
+    }
+    return res.json({ ok: false });
   } catch (e) { return res.json({ ok: false }); }
 });
 
@@ -6791,6 +8525,10 @@ app.get(["/payment/pending", "/payment/success"], (req, res) => {
 app.get("/payment/failed", (req, res) => {
   res.sendFile(path.join(__dirname, "payment-failed.html"));
 });
+
+// Diet -> Recipe: halaman /diet di-rename jadi /recipe (recipe.html). Redirect
+// permanen supaya tautan/bookmark lama tetap jalan. Tangani sebelum static+.html.
+app.get(["/diet", "/diet.html"], (req, res) => res.redirect(301, "/recipe"));
 
 // ---------- Static (URL bersih tanpa .html) + fallback ----------
 // Redirect /halaman.html -> /halaman (querystring dipertahankan), lalu sajikan

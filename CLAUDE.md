@@ -3,7 +3,7 @@
 Aturan tetap di bawah ini WAJIB diikuti setiap sesi. Ditulis dari instruksi
 pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 
-> **Pembaruan dokumen terakhir:** 2026-08-13 · **Commit staging:** `8c31776`
+> **Pembaruan dokumen terakhir:** 2026-09-16 · **Commit staging:** `138a067` · **Production:** `309004d`
 > Claude Code memuat file ini otomatis di awal sesi. Baca ini dulu, lalu buka
 > dokumen pecahan sesuai kebutuhan.
 
@@ -19,6 +19,7 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 - **`docs/STATUS.md`** — status fitur terkini, utang teknis, keputusan (paling sering berubah; **baca ini untuk tahu kondisi sekarang**).
 - **`docs/DATABASE.md`** — tabel `my20fit_*`, migration, cara jalan DB.
 - **`docs/CODEBASE-MAP.md`** — peta arsitektur/route/API detail (⚠️ **sebagian STALE** — lihat `docs/STATUS.md` §4; verifikasi ke kode).
+- **`docs/TICKET-API-REQUEST.md`** — permintaan teknis ke tim ticket.20fit.id (webhook pembelian / baca pesanan per email) + peta endpoint embed API hasil pengukuran.
 - **`docs/GIT_WORKFLOW.md`**, **`docs/GITHUB_SECRETS.md`** — alur git & penanganan secret.
 - Email: `docs/EMAIL-*.md`, `docs/RESEND-SETUP-AUDIT.md`, `docs/EMAIL-LOGIC-SPEC.md`.
 - Bagian **Tech stack, Struktur repo, Route, Env, Cara menjalankan, Konvensi, Jangan
@@ -155,9 +156,9 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 
 ## C. Route / halaman (ringkas; detail & API di `docs/CODEBASE-MAP.md`)
 **Publik/auth:** `/` (→`/login`), `/login`, `/code-login`, `/verify`, `/reset-password`, `/setpassword`, `/onboarding`, `/unsubscribe`, `/privacy`.
-**Member (perlu login):** `/dashboard` (home 6-tile), `/calories`, `/progress`, `/profile`, `/medical`, `/diet`, `/classes` (Book Class, toggle Arena/Gym; `?venue=clinic`=Book Recovery), `/membership` (carousel — **data belum tersambung**), `/event` (**placeholder "Upcoming"**), `/payment/pending|success|failed`.
+**Member (perlu login):** `/dashboard` (home 6-tile), `/calories`, `/progress`, `/profile`, `/medical`, `/recipe` (**Recipe in-app**: browse resep + detail + kontribusi; katalog & artikel dibaca dari `/api/menu/*`, `/diet` redirect 301 ke sini), `/classes` (Book Class, toggle Arena/Gym; `?venue=clinic`=Book Recovery), `/membership` (carousel — **data belum tersambung**), `/event` (**Ticket Wallet**: tab "Tiket Saya" + "Upcoming"; widget bersama `js/ticket-wallet.js`, dipakai juga di `/dashboard`), `/payment/pending|success|failed`.
 **Admin:** `/admin`(→`/admin-dashboard`), `/admin-dashboard` (lama), `/admin-v2` (redesign; staging default), `/admin-email`, `/corp-dashboard`.
-**API:** `/api/*` (~121 route) — user (`/api/scan/*`, `/api/classes/schedule`, `/api/arena/history`, `/api/membership/packages`, `/api/photo/*`, `/api/weather`, `/api/aqi`, dll), admin (`/api/admin/*` ~53, semua lewat `requireAdmin`), corporate (`/api/corp/*`), cron (`/api/cron/*`, dilindungi `CRON_SECRET`), webhook (`/api/webhooks/resend`).
+**API:** `/api/*` (~123 route) — user (`/api/scan/*`, `/api/menu/catalog` (daftar resep), `/api/menu/recommend` (rekomendasi per sisa makro), `/api/menu/published`, `/api/classes/schedule`, `/api/arena/history`, `/api/membership/packages`, `/api/coaches`, `/api/doctors`, `/api/physiotherapists`, `/api/photo/*`, `/api/weather`, `/api/aqi`, dll), admin (`/api/admin/*` ~53, semua lewat `requireAdmin`), corporate (`/api/corp/*`), cron (`/api/cron/*`, dilindungi `CRON_SECRET`), webhook (`/api/webhooks/resend`).
 Tile **News** = eksternal `media.20fit.id` (same-tab, tanpa halaman).
 
 ## D. Auth & peran (ringkas)
@@ -182,7 +183,8 @@ Tile **News** = eksternal `media.20fit.id` (same-tab, tanpa halaman).
 | `EMAIL_ENVIRONMENT`, `EMAIL_TEST_WHITELIST`, `MAIL_FROM`, `MAIL_REPLY_TO` | Mode & alamat email | config |
 | `RESEND_WEBHOOK_SECRET` 🔒 | Verifikasi webhook Resend (Svix) | utk webhook |
 | `META_PIXEL_ID`, `META_CAPI_ACCESS_TOKEN` 🔒, `META_CAPI_VERSION` | Meta Pixel + Conversions API | opsional |
-| `GOOGLE_CLIENT_ID` | Google Identity Services (login Google, publik) | opsional |
+| `GOOGLE_CLIENT_ID` | Google Identity Services (login Google, publik). **Harus tipe Web application** + origin situs terdaftar di "Authorized JavaScript origins". Tanpa ini tombol Google disembunyikan (tidak ada default) | wajib utk login Google |
+| `GOOGLE_CLIENT_IDS` | Client ID tambahan yang boleh jadi audience ID token (koma) — isi Client ID iOS/Android app mobile | wajib utk login Google dari app mobile |
 | `WAQI_TOKEN` 🔒, `PEXELS_API_KEY` 🔒 | AQI (WAQI) & foto makanan (Pexels) | opsional |
 | `PHOTO_APP_URL`, `PHOTO_API_URL`, `PHOTO_SSO_REDIRECT`, `PHOTO_OP_TIMEOUT_MS` | Integrasi photo.20fit.id (SSO) | opsional |
 | `CRON_SECRET` 🔒 | Proteksi endpoint `/api/cron/*` | utk cron |
@@ -214,8 +216,10 @@ Daftar lengkap nama ada di `.env.example` (contoh, tanpa nilai asli).
 
 ## H. Status ringkas
 Fitur inti (auth, onboarding, dashboard, calorie, payment, email, admin, voucher, banner,
-corporate, jadwal) **jalan**. **Setengah jadi:** carousel Membership (nunggu endpoint) &
-halaman Event (nunggu API). **Detail + utang teknis + keputusan → `docs/STATUS.md`.**
+corporate, jadwal) **jalan**. Roster home (coach / dokter / fisioterapis) **terisi & tampil**.
+**Setengah jadi:** carousel Membership (nunggu endpoint), CMS admin
+fisioterapis (belum ada seksinya di `/admin-v2` — baru bisa lewat SQL).
+**Detail + utang teknis + keputusan → `docs/STATUS.md`.**
 
 ## I. HAL YANG JANGAN DILAKUKAN (spesifik proyek)
 - Jangan edit tabel Supabase **tanpa prefix `my20fit_*`** (milik app lain).
@@ -231,7 +235,7 @@ halaman Event (nunggu API). **Detail + utang teknis + keputusan → `docs/STATUS
 
 ## J. Langkah berikutnya (urut prioritas)
 1. **Membership berdata:** konfirmasi path katalog upstream + set env `MEMBERSHIP_CATALOG_PATH`, finalkan mapper `/api/membership/packages`.
-2. **Event:** bangun API `/api/events` + sambungkan `event.html` (`EventData.fetch`).
+2. **Tiket — QR untuk pembeli yang emailnya belum dikenal penerbit.** Halaman Event & Ticket Wallet sudah tersambung (`/api/events/upcoming` + `/api/tickets/mine`), tapi pembeli yang tak dikenal `ticket.20fit.id` hanya dapat arsip **tanpa QR**. Hanya tim ticket.20fit.id yang bisa menutup ini — permintaannya di `docs/TICKET-API-REQUEST.md` §5.
 3. **admin-v2 #293:** putuskan merge (sessionStorage master key + banner login).
 4. **Verifikasi migration 013** sudah dijalankan di staging & produksi.
 5. **Refresh `docs/CODEBASE-MAP.md`** yang stale (email consent, ref baris server.js).

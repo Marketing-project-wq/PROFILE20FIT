@@ -17,6 +17,24 @@
   };
   const svg = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + '</svg>';
 
+  // Ikon garis (line) lokal dari repo, /img/nav/*.png — hasil ekstraksi dari vektor
+  // Canva jadi MASK alfa (bentuk garis saja, tanpa warna). Dirender sebagai CSS mask
+  // lalu diwarnai `currentColor`, jadi WARNA GARIS mengikuti tema — abu muted saat tak
+  // aktif, merah saat aktif, dan menyesuaikan light/dark — TIDAK PERNAH hitam.
+  // Disajikan same-origin dari git. 'scan' TETAP SVG (belum ada gambar).
+  const NAVICON = {
+    home:     "/img/nav/home.png",
+    event:    "/img/nav/event.png",
+    calories: "/img/nav/calories.png",
+    progress: "/img/nav/progress.png",
+    profile:  "/img/nav/profile.png",
+  };
+  const iconHtml = (k) => {
+    const u = NAVICON[k];
+    if (!u) return svg(k);
+    return '<span class="navico" style="-webkit-mask-image:url(\'' + u + '\');mask-image:url(\'' + u + '\')"></span>';
+  };
+
   const items = [
     { href: "dashboard.html", key: "nav_home", k: "home" },
     { href: "event.html", key: "nav_event", k: "event" },
@@ -24,7 +42,12 @@
     { href: "progress.html", key: "nav_progress", k: "progress" },
     { href: "profile.html", key: "nav_profile", k: "profile" },
   ];
-  const cur = (location.pathname.split("/").pop() || "dashboard.html").toLowerCase();
+  // Halaman aktif — normalisasi supaya cocok di URL BERSIH (/dashboard) MAUPUN
+  // dengan .html (/dashboard.html). Tanpa strip .html, highlight tak pernah menyala
+  // di produksi (routing app pakai URL bersih). Root "" -> dashboard.
+  const norm = (s) => String(s || "").toLowerCase().replace(/\.html$/, "");
+  const cur = norm(location.pathname.split("/").pop()) || "dashboard";
+  const isOn = (href) => norm(href) === cur;
   const tr = (key, fb) => (window.I18N ? I18N.t(key) : fb);
 
   // Item "Calories" di menu (sidebar + bottom-nav): SSO hand-off ke subdomain
@@ -74,15 +97,27 @@
     .navside .sfoot .em{font-family:${SYS};font-size:11.5px;color:var(--muted,#8A8D94);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
     /* ---------- BOTTOM NAV + FAB (mobile <900px) — flat v4 ---------- */
-    .bnav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:space-around;gap:8px;
-      padding:9px 12px calc(9px + env(safe-area-inset-bottom));
-      background:color-mix(in srgb,var(--bg,#F1F1F4) 82%,transparent);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);
-      border-top:1px solid var(--line,#EBEBEF)}
+    /* Bilah bawah MELAYANG: ada jarak dari tepi kiri/kanan/bawah, sudut membulat, bayangan
+       lembut (senada kartu), hormati safe-area iPhone. Konten halaman diberi padding bawah
+       cukup (lihat @media di bawah) supaya baris terakhir tak tertutup bilah. */
+    .bnav{position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:40;
+      display:flex;justify-content:space-around;gap:6px;padding:8px 10px;border-radius:22px;
+      background:color-mix(in srgb,var(--card,#fff) 90%,transparent);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);
+      border:1px solid var(--line,#EBEBEF);box-shadow:0 8px 28px rgba(0,0,0,.14),0 2px 8px rgba(0,0,0,.06)}
     .bnav a{flex:1;max-width:76px;min-height:44px;text-align:center;text-decoration:none;color:var(--faint,#B7B9BF);
       font-family:${SYS};font-size:10.5px;font-weight:650;
       padding:6px 4px;border-radius:999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:.15s}
     .bnav a.on{color:var(--red,#D4283A);background:color-mix(in srgb,var(--red,#D4283A) 12%,transparent)}
     .bnav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    /* Ikon garis (CSS mask) — bentuk dari PNG mask, WARNA dari currentColor. Jadi garis
+       ikut warna teks navigasi: muted saat tak aktif, merah saat aktif, putih di item
+       sidebar aktif — menyesuaikan light/dark, tak pernah hitam. */
+    .navico{display:inline-block;flex:0 0 auto;background-color:currentColor;
+      -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;
+      -webkit-mask-size:contain;mask-size:contain}
+    .navside .navi .navico{width:24px;height:24px}
+    .bnav a .navico{width:26px;height:26px;transition:transform .15s}
+    .bnav a.on .navico{transform:translateY(-1px) scale(1.06)}
     .bnav a.on svg{stroke:var(--red,#D4283A)}
     .scanfab{position:fixed;right:18px;bottom:96px;z-index:41;background:var(--red,#D4283A);color:#fff;border:0;border-radius:50%;
       width:58px;height:58px;font-size:10px;font-weight:750;font-family:${SYS};cursor:pointer;
@@ -149,7 +184,7 @@
   function renderSide() {
     side.innerHTML =
       '<div class="sbrand"><img src="' + LOGO + '" alt="20FIT"></div>' +
-      items.map(it => `<a href="${it.href}" class="navi ${cur === it.href ? "on" : ""}"${navOnclick(it)}>${svg(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
+      items.map(it => `<a href="${it.href}" class="navi ${isOn(it.href) ? "on" : ""}"${navOnclick(it)}>${iconHtml(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
       `<button class="sscan" type="button">${svg("scan")}<span>${tr("nav_scan", "Scan")}</span></button>` +
       '<div class="sfoot"><div class="av" id="navAv">·</div><div class="tx"><div class="nm" id="navNm">20FIT</div><div class="em" id="navEm">member</div></div></div>';
     side.querySelector(".sscan").onclick = doScan;
@@ -175,7 +210,7 @@
   nav.className = "bnav";
   function renderNav() {
     nav.innerHTML = items.map(it =>
-      `<a href="${it.href}" class="${cur === it.href ? "on" : ""}"${navOnclick(it)}>${svg(it.k)}${tr(it.key, it.k)}</a>`
+      `<a href="${it.href}" class="${isOn(it.href) ? "on" : ""}"${navOnclick(it)}>${iconHtml(it.k)}${tr(it.key, it.k)}</a>`
     ).join("");
   }
   renderNav();

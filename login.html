@@ -92,6 +92,11 @@
   .msg.err{color:var(--red)}.msg.ok{color:#2A7A4F}
   .forgot-row{text-align:center;margin-top:12px;font-size:13px}
   .forgot-row a{color:var(--red);text-decoration:none;font-weight:700}
+  .orsep{display:flex;align-items:center;gap:12px;margin:16px 0 4px;color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .orsep::before,.orsep::after{content:"";flex:1;height:1px;background:var(--border)}
+  #googleFallbackBtn{width:100%;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;background:var(--card);color:var(--txt);font-family:Manrope;font-weight:700;font-size:15px;cursor:pointer}
+  #googleFallbackBtn:hover{background:var(--inp)}
+  #googleFallbackBtn svg{flex:none}
   .card-note{margin-top:16px;padding-top:14px;border-top:1px solid var(--border);text-align:center;color:var(--muted);font-size:12.5px;line-height:1.5}
   .gender2{display:flex;gap:10px}
   .gender2 button{flex:1;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--card);color:var(--muted);font-weight:700;cursor:pointer;font-family:Manrope;font-size:14px}
@@ -249,6 +254,18 @@
         <button class="btn" id="submit" type="submit"></button>
         </form>
         <div class="forgot-row"><a id="forgot" href="reset-password.html"></a></div>
+
+        <!-- Login Google — Supabase OAuth redirect (Auth.googleOAuth). TIDAK pakai GIS:
+             GIS mewajibkan tiap origin didaftarkan di Google Cloud dan gampang patah
+             ("no registered origin / invalid_client"). Jalur Supabase pakai client &
+             callback yang dikonfigurasi di Supabase — tak bergantung origin kita. User
+             Google lama masuk ke akun yang SAMA (dicocokkan native oleh Supabase). -->
+        <div class="orsep" id="orsep" style="display:none"><span data-k="orsep">or</span></div>
+        <button type="button" id="googleFallbackBtn" onclick="onGoogleFallback()" style="display:none">
+          <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          <span data-k="google">Continue with Google</span>
+        </button>
+
         <div class="msg" id="msg"></div>
         <div class="card-note" data-k="cardNote"></div>
       </div>
@@ -338,7 +355,7 @@
   </div>
 
   <script src="js/vendor-supabase.js"></script>
-  <script src="js/auth.js"></script>
+  <script src="js/auth.js?v=20260910-oauth"></script>
   <script src="js/meta-pixel.js"></script>
   <script src="js/pw-toggle.js"></script>
   <script>
@@ -355,6 +372,7 @@
         errMatch:"Passwords don't match.", errGender:"Please choose your gender.", errDob:"Please enter your date of birth.",
         btnIn:"Sign In", btnUp:"Create Account",
         forgot:"Forgot password?",
+        orsep:"or", google:"Continue with Google", googleOff:"Google sign-in isn’t available right now. Please use your email and password.",
         namePh:"Your name", phonePh:"+62 812 3456 7890",
         cardNote:"Already have a 20FIT account? Your same login works here.",
         errCred:"Wrong email or password.", errExists:"Email already registered. Tap Sign In or use another email.",
@@ -386,6 +404,7 @@
         errMatch:"Password tidak sama, ulangi.", errGender:"Pilih jenis kelamin dulu.", errDob:"Isi tanggal lahir dulu.",
         btnIn:"Masuk", btnUp:"Buat Akun",
         forgot:"Lupa password?",
+        orsep:"atau", google:"Lanjut dengan Google", googleOff:"Login Google sedang tidak tersedia. Pakai email dan password dulu ya.",
         namePh:"Nama kamu", phonePh:"+62 812 3456 7890",
         cardNote:"Sudah punya akun 20FIT? Login yang sama berlaku di sini.",
         errCred:"Email atau password salah.", errExists:"Email sudah terdaftar. Klik Masuk atau pakai email lain.",
@@ -619,13 +638,13 @@
       }
     }
 
-    // Datang dari calorietracker (Sign In di calories.20fit.id -> login.html?next=calories):
-    // simpan tujuan ke sessionStorage SEBELUM Auth.routeAfterAuth() sempat kepanggil, supaya
-    // dia tau harus balik ke calories.20fit.id (bukan dashboard) begitu login penuh selesai.
+    // Datang dari calorietracker.20fit.id (Sign In -> login.html?next=calories): simpan tujuan
+    // ke sessionStorage SEBELUM Auth.routeAfterAuth() sempat kepanggil, supaya dia tau harus
+    // balik ke calorietracker.20fit.id (bukan dashboard) begitu login penuh selesai.
     (function(){
       try{
         const q=new URLSearchParams(location.search);
-        if(q.get("next")==="calories") sessionStorage.setItem("post_auth_next","calories");
+        { const n=q.get("next"); if(n==="calories"||n==="menu") sessionStorage.setItem("post_auth_next",n); }
       }catch(e){}
     })();
 
@@ -648,6 +667,37 @@
         const em=q.get("email"); if(em) document.getElementById("email").value=em;
         if(q.get("mode")==="up"){ setMode("up"); if(em) msg(lang==="en"?"This email has no account yet — create one below.":"Email ini belum punya akun — buat akunnya di bawah ya.","err"); }
       }catch(e){}
+    })();
+
+    // ---- Login Google — Supabase OAuth redirect ----
+    // Kenapa BUKAN GIS: Google Identity Services mewajibkan SETIAP origin didaftarkan di
+    // Google Cloud; kalau tidak → "Access blocked: no registered origin / Error 401:
+    // invalid_client". Rapuh & di luar kendali kode. Tombol ini memakai Supabase OAuth:
+    // redirect ke Google via Supabase (client + callback dikonfigurasi di Supabase,
+    // TIDAK bergantung origin kita), balik ke /login lalu routeAfterAuth menyeat sesi.
+    // User Google lama masuk ke akun yang SAMA (dicocokkan native oleh Supabase, by sub/email).
+    window.onGoogleFallback=async function(){
+      msg(T[lang].processing,"");
+      try{
+        try{ Meta.track("Lead", {content_name:"login_google"}); }catch(e){}
+        await Auth.ready;
+        var offMsg=(lang==="id")?"Login Google sedang tidak tersedia. Pakai email & password dulu ya.":"Google sign-in isn’t available right now. Please use email & password.";
+        if(typeof Auth.googleOAuth==="function"){
+          await Auth.googleOAuth(); // redirect ke Google (via Supabase); balik ke /login
+          return;
+        }
+        // Pengaman kalau js/auth.js versi lama masih ter-cache (belum punya googleOAuth):
+        // panggil Supabase langsung (metode stabil dari vendor-supabase.js).
+        var supa=Auth.supabase;
+        if(!supa||!supa.auth||typeof supa.auth.signInWithOAuth!=="function"){ msg(offMsg,"err"); return; }
+        var r=await supa.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+"/login"}});
+        if(r&&r.error){ msg(offMsg,"err"); }
+      }catch(e){ msg((e&&e.message)?terjemah(e.message):((lang==="id")?"Gagal login dengan Google.":"Google sign-in failed."),"err"); }
+    };
+    (async function initGoogleLogin(){
+      try{ await Auth.ready; }catch(e){}
+      var sep=document.getElementById("orsep"); if(sep) sep.style.display="";
+      var fb=document.getElementById("googleFallbackBtn"); if(fb) fb.style.display="flex";
     })();
 
     try{ Meta.track("ViewContent", {content_name:"login"}); }catch(e){}

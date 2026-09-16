@@ -182,6 +182,46 @@
     return data;
   }
 
+  // ---------- LOGIN GOOGLE HYBRID (pemulihan user Google) ----------
+  // Satu credential (ID token dari Google Identity Services) dipakai dua jalur BERURUTAN:
+  //   1) Jalur 20FIT (fitcoGoogleLogin): member 20FIT diverifikasi ke API 20FIT, sesi dibuat
+  //      via OTP, DAN dapat FITCO token untuk order/pembayaran shop 20FIT.
+  //   2) Kalau 20FIT menolak (email bukan akun 20FIT) atau tak tersambung -> FALLBACK ke
+  //      supabase.auth.signInWithIdToken (Google NATIVE Supabase). Semua akun Google lama
+  //      punya google identity di Supabase (auth.identities), jadi ini mendaratkan user ke
+  //      baris auth.users yang SAMA — dicocokkan via google sub — BUKAN akun baru.
+  // Hasil: tak ada user Google yang terkunci, dan member 20FIT tetap mendapat tokennya.
+  async function googleSignIn(credential) {
+    await ready;
+    try {
+      return await fitcoGoogleLogin(credential); // jalur utama: 20FIT (+ FITCO token)
+    } catch (e) {
+      // Jalur 20FIT gagal — jangan menyerah; coba sesi Google native Supabase.
+    }
+    const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token: credential });
+    if (error) throw new Error(_t("Google sign-in failed.", "Gagal login dengan Google."));
+    return data;
+  }
+
+  // ---------- LOGIN GOOGLE via OAuth redirect Supabase (TANPA GOOGLE_CLIENT_ID) ----------
+  // Dipakai sebagai jalur tombol Google kalau GIS tak tersedia (GOOGLE_CLIENT_ID belum
+  // di-set / origin ditolak). Ini memakai Google provider milik SUPABASE (client-nya
+  // dikonfigurasi di dashboard Supabase, bukan env kita), jadi tombol tetap jalan tanpa
+  // konfigurasi env di sisi kita. Alur redirect: browser → Google → balik ke /login;
+  // sesi di-seat otomatis (detectSessionInUrl) lalu login.html memanggil routeAfterAuth.
+  // Akun dicocokkan native oleh Supabase (google sub / email) → user LAMA masuk ke baris
+  // yang SAMA, bukan akun baru. Kalau provider belum aktif, Supabase balas error → tombol
+  // menampilkan pesan "Google tidak tersedia" dan user tetap bisa pakai email/password.
+  async function googleOAuth() {
+    await ready;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: location.origin + "/login" },
+    });
+    if (error) throw new Error(_t("Google sign-in isn’t available right now.", "Login Google sedang tidak tersedia."));
+    // Sukses = browser sedang redirect ke Google; tak ada nilai balik yang berarti.
+  }
+
   // ---------- SSO SEAMLESS: login pakai access_token 20FIT (tanpa password) ----------
   // Dipakai kalau app utama 20FIT mengoper token-nya ke my.20fit.id.
   async function tokenLogin(fitcoToken) {
@@ -233,12 +273,16 @@
     location.href = PHOTO_ORIGIN + "/login"; // fallback terakhir: login manual di photo
   }
 
-  // ---------- SSO KELUAR: buka calories.20fit.id tanpa login ulang ----------
+  // ---------- SSO KELUAR: buka calorietracker.20fit.id tanpa login ulang ----------
   // Pola SAMA dgn photoSso: oper access_token+refresh_token sesi browser ini via URL fragment.
-  // App calories (Supabase setSession dari location.hash) men-seat sesi. Parity dgn login native
-  // (magic-link/OAuth implicit juga mendaratkan #access_token di fragment) — bukan paparan baru.
-  // Panggil ini dari my.20fit saat mengarahkan user ke scanner kalori subdomain.
-  const CALORIES_ORIGIN = "https://calories.20fit.id";
+  // App calorietracker (Supabase setSession dari location.hash) men-seat sesi. Parity dgn login
+  // native (magic-link/OAuth implicit juga mendaratkan #access_token di fragment) — bukan paparan
+  // baru. Panggil ini dari my.20fit saat mengarahkan user ke scanner kalori subdomain.
+  // CATATAN (audit 2026-08-31): sebelumnya nilainya "calories.20fit.id" — domain itu TIDAK
+  // PERNAH punya DNS record (dicek langsung, NXDOMAIN), jadi tombol Sign In & kartu Kalori
+  // selalu gagal (site can't be reached) begitu dipanggil. Nama yang benar & live:
+  // calorietracker.20fit.id.
+  const CALORIES_ORIGIN = "https://calorietracker.20fit.id";
   async function caloriesSso() {
     await ready;
     let s = null;
@@ -251,7 +295,29 @@
       location.href = CALORIES_ORIGIN + "/" + frag;
       return;
     }
-    location.href = CALORIES_ORIGIN + "/"; // belum ada sesi -> app calories yang arahkan ke login
+    location.href = CALORIES_ORIGIN + "/"; // belum ada sesi -> app calorietracker yang arahkan ke login
+  }
+
+  // ---------- SSO KELUAR: buka app menu resep tanpa login ulang ----------
+  // Pola SAMA dgn caloriesSso: oper access_token+refresh_token sesi browser ini via URL fragment.
+  // App menu (Supabase setSession dari location.hash) men-seat sesi lalu STRIP token dari URL
+  // (history.replaceState) — token tak pernah masuk log server. Panggil saat mengarahkan user
+  // ke katalog resep subdomain.
+  // Domain produksi app menu = recepie.20fit.id (bukan menu.20fit.id yang belum ada DNS-nya).
+  const MENU_ORIGIN = "https://recepie.20fit.id";
+  async function menuSso() {
+    await ready;
+    let s = null;
+    try { const { data } = await supabase.auth.getSession(); s = data && data.session; } catch (e) {}
+    if (s && s.access_token && s.refresh_token) {
+      const exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
+      const frag = "#access_token=" + encodeURIComponent(s.access_token) +
+        "&refresh_token=" + encodeURIComponent(s.refresh_token) +
+        "&expires_in=" + exp + "&token_type=bearer&type=magiclink";
+      location.href = MENU_ORIGIN + "/" + frag;
+      return;
+    }
+    location.href = MENU_ORIGIN + "/"; // belum ada sesi -> app menu yang arahkan ke login
   }
 
   // ---------- VERIFIKASI OTP AKUN 20FIT (wajib pasca-registrasi baru) ----------
@@ -583,8 +649,34 @@
   //   1) belum lengkap  -> isi DATA dulu (onboarding)
   //   2) data lengkap tapi belum punya password web -> BUAT PASSWORD
   //   3) lengkap & punya password -> dashboard
+  // TAHAP 2 — penyatuan data: klaim data anonim (scan kalori, like/simpan resep,
+  // kontribusi) ke akun ini setelah login/daftar. anon_id dibagikan lintas *.20fit.id
+  // via cookie `my20fit_anon` atau param handoff `?anon=` saat SSO. Best-effort &
+  // fire-and-forget (tak memblok routing). Idempoten di server (RPC my20fit_claim_anon).
+  function readAnonIds() {
+    var ids = [];
+    try { var m = document.cookie.match(/(?:^|;\s*)my20fit_anon=([^;]+)/); if (m) ids.push(decodeURIComponent(m[1])); } catch (e) {}
+    try { var u = new URLSearchParams(location.search).get("anon"); if (u) ids.push(u); } catch (e) {}
+    try { var s = localStorage.getItem("my20fit_anon"); if (s) ids.push(s); } catch (e) {}
+    return ids.join(",").split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+  }
+  async function claimAnon() {
+    try {
+      var ids = readAnonIds();
+      if (!ids.length) return;
+      var at = await token();
+      if (!at) return;
+      await fetch("/api/anon/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + at },
+        body: JSON.stringify({ anon_ids: ids }),
+      });
+    } catch (e) { /* best-effort; jangan ganggu login */ }
+  }
+
   async function routeAfterAuth() {
     const user = await requireAuth();
+    claimAnon(); // fire-and-forget: pindahkan data anonim ke akun ini (idempoten)
     const profile = await ensureProfile(user);
     // Sengaja HANYA cek fitco_email_verified, TIDAK ikut syaratkan fitco_user_id.
     // fitco_user_id kadang masih null tepat setelah registrasi baru (dia baru
@@ -596,7 +688,7 @@
     if (profile.fitco_email_verified === false) return go("verify.html");
     if (!profileComplete(profile)) return go("onboarding.html");
     if (!hasWebPassword(user)) return go("setpassword.html");
-    // Tujuan lanjutan setelah login penuh, mis. balik ke calories.20fit.id kalau
+    // Tujuan lanjutan setelah login penuh, mis. balik ke calorietracker.20fit.id kalau
     // orang datang dari sana (Sign In di calorietracker -> login.html?next=calories).
     // Diset ke sessionStorage sekali di entry (login.html/code-login.html) karena URL
     // query aslinya tak ikut lewat rantai redirect verify/onboarding/setpassword di atas.
@@ -605,6 +697,10 @@
       if (next === "calories") {
         sessionStorage.removeItem("post_auth_next");
         return caloriesSso();
+      }
+      if (next === "menu") {
+        sessionStorage.removeItem("post_auth_next");
+        return menuSso();
       }
     } catch (e) {}
     return go("dashboard.html");
@@ -617,11 +713,14 @@
     verifyLoginCode,
     fitcoLogin,
     fitcoGoogleLogin,
+    googleSignIn,
+    googleOAuth,
     googleClientId: function () { return cfgGoogleClientId; },
     fitcoRegister,
     tokenLogin,
     photoSso,
     caloriesSso,
+    menuSso,
     fitcoVerifyEmail,
     fitcoResendVerifyEmail,
     hasWebPassword,
@@ -644,6 +743,7 @@
     getPrefs,
     savePrefs,
     routeAfterAuth,
+    claimAnon,
     token,
     go,
   };
