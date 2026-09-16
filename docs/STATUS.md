@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-16 · **Commit staging:** `530e4b3` · **Production:** `bb259f4`
+> **Pembaruan terakhir:** 2026-09-16 · **Commit staging:** `7fc4998` · **Production:** `3d3db2c`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -50,6 +50,7 @@ naikkan resource — **butuh akses dashboard Railway (di luar agent).**
 | **Book Class filter** | `/classes` punya toggle **Arena/Gym** in-page; `?venue=clinic` = Book Recovery (tanpa toggle) | `classes.html` (PR #295) |
 | **Menu bar Event** | Item menu bar `Medical` → `Event`; `event.html` placeholder "Upcoming" | `js/nav.js`, `event.html` (PR #294) |
 | **Roster home (coach/dokter/fisioterapis)** | Tiga rail di bawah home: `/api/coaches`, `/api/doctors`, `/api/physiotherapists`. Terisi: 4 coach (+23 alias instructor), 5 dokter, 3 fisioterapis. Kartu tanpa `photo_url` — atau yang `<img>`-nya gagal dimuat — ditandai "Foto belum ada" | `dashboard.html`, `server.js` (PR #412) |
+| **Recipe data via API** | `js/recipes.js` (~291KB, 120 resep) **tidak lagi dimuat di browser**. Halaman `recipe.html` dan `calories.html` kini fetch dari `/api/menu/catalog` (daftar lengkap) dan `/api/menu/recommend` (rekomendasi berdasar sisa makro). Utilitas foto diekstrak ke `js/recipe-photos.js` (~2KB, `window.RecipePhotos`). `js/recipes.js` tetap ada untuk dipakai server-side (`loadMenuCatalog`). | `recipe.html`, `calories.html`, `js/recipe-photos.js`, `server.js` (PR #442/#443) |
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
 
