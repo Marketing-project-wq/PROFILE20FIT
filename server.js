@@ -4893,6 +4893,218 @@ app.get("/api/menu/published", async function (req, res) {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+// =================================================================================
+// CONTENT API v1 — buat PRODUK 20FIT LAIN menarik konten menu (artikel & resep).
+// Read-only, KONTEN PUBLIK/PUBLISHED saja. Key-gated: header `x-api-key` (atau
+// `Authorization: Bearer <key>`). Key disimpan di ENV `CONTENT_API_KEYS` di SERVER
+// (format "namaProduk:key,lainnya:key2") — TIDAK di frontend, TIDAK di-commit.
+// Field privat (auth_user_id, anon_id, submit_ip_hash, submission belum-approve)
+// TIDAK pernah di-select. Semua share Supabase yang sama, tapi API ini = satu pintu
+// terkontrol + rate-limit supaya rapi & bisa dicabut per-consumer tanpa buka DB.
+// Panggil dari SERVER consumer (bukan browser) supaya key tetap rahasia.
+// =================================================================================
+function parseContentApiKeys() {
+  var raw = String(process.env.CONTENT_API_KEYS || "").trim();
+  var map = new Map();
+  raw.split(",").forEach(function (pair) {
+    var s = pair.trim(); if (!s) return;
+    var i = s.indexOf(":"); if (i < 1) return;
+    var name = s.slice(0, i).trim(); var key = s.slice(i + 1).trim();
+    if (name && key) map.set(key, name);
+  });
+  return map;
+}
+var CONTENT_API_KEYS = parseContentApiKeys();
+function requireContentKey(req, res, next) {
+  if (CONTENT_API_KEYS.size === 0) return res.status(503).json({ error: "Content API belum dikonfigurasi (CONTENT_API_KEYS kosong)." });
+  var key = req.get("x-api-key") || "";
+  if (!key) { var au = req.get("authorization") || ""; var mm = au.match(/^Bearer\s+(.+)$/i); if (mm) key = mm[1].trim(); }
+  var consumer = key ? CONTENT_API_KEYS.get(key) : null;
+  if (!consumer) return res.status(401).json({ error: "API key tidak valid. Kirim header 'x-api-key'." });
+  req.apiConsumer = consumer;
+  next();
+}
+var contentApiLimiter = rateLimit({ windowMs: 5 * 60 * 1000, max: 600, standardHeaders: true, legacyHeaders: false, message: limitMsg });
+app.use("/api/content/", contentApiLimiter);
+
+// Ambil string sesuai bahasa dari objek {id,en} (resep resmi) — fallback aman.
+function pickContentLang(o, lang) { if (!o || typeof o !== "object") return ""; return o[lang] || o.id || o.en || ""; }
+
+function normContentArticle(a) {
+  return {
+    id: a.id, slug: a.slug,
+    title: { id: a.title_id || a.title || "", en: a.title_en || a.title || "" },
+    excerpt: { id: a.excerpt_id || a.excerpt || "", en: a.excerpt_en || a.excerpt || "" },
+    category: { id: a.category_id || a.category || "", en: a.category_en || a.category_id || a.category || "" },
+    cover_url: a.cover_url || null, author_name: a.author_name || null, published_at: a.published_at || null,
+  };
+}
+function normContentOfficialRecipe(r, lang) {
+  return {
+    key: "official:" + r.id, source: "official", id: String(r.id),
+    name: pickContentLang(r.nm, lang),
+    kcal: (typeof r.kcal === "number") ? r.kcal : null,
+    macros: { p: r.p != null ? r.p : null, c: r.c != null ? r.c : null, f: r.f != null ? r.f : null, fiber: r.fiber != null ? r.fiber : null, sugar: r.sugar != null ? r.sugar : null, sodium: r.sodium != null ? r.sodium : null },
+    nutrition_is_estimate: true,
+    diet_types: Array.isArray(r.types) ? r.types : [],
+    category: r.cat || null,
+    ingredients: pickContentLang(r.ing, lang),
+    steps: pickContentLang(r.steps, lang),
+    steps_json: null,
+    servings: (typeof r.servings === "number") ? r.servings : null,
+    cook_minutes: (typeof r.cookMinutes === "number") ? r.cookMinutes : null,
+    prep_minutes: (typeof r.prepMinutes === "number") ? r.prepMinutes : null,
+    equipment: pickContentLang(r.equipment, lang) || null,
+    prep_note: pickContentLang(r.prepNote, lang) || null,
+    photo_url: null, emoji: r.emoji || null, contributor: "20FIT Kitchen",
+  };
+}
+function normContentMemberRecipe(m) {
+  var mac = (m.macros && typeof m.macros === "object") ? m.macros : null;
+  return {
+    key: "member:" + m.id, source: "member", id: String(m.id),
+    name: m.name || "",
+    kcal: (typeof m.est_kcal === "number") ? m.est_kcal : null,
+    macros: mac ? { p: mac.p != null ? mac.p : null, c: mac.c != null ? mac.c : null, f: mac.f != null ? mac.f : null, fiber: mac.fiber != null ? mac.fiber : null, sugar: mac.sugar != null ? mac.sugar : null, sodium: mac.sodium != null ? mac.sodium : null } : null,
+    nutrition_is_estimate: true,
+    diet_types: m.diet_type ? [m.diet_type] : [],
+    category: null,
+    ingredients: m.ingredients || "",
+    steps: m.steps || "",
+    steps_json: Array.isArray(m.steps_json) ? m.steps_json : null,
+    servings: (typeof m.servings === "number") ? m.servings : null,
+    cook_minutes: (typeof m.cook_minutes === "number") ? m.cook_minutes : null,
+    prep_minutes: (typeof m.prep_minutes === "number") ? m.prep_minutes : null,
+    equipment: m.equipment || null,
+    prep_note: m.prep_note || null,
+    photo_url: m.photo_url || null, emoji: null, contributor: m.display_name || "Komunitas 20FIT",
+  };
+}
+var CONTENT_MEMBER_COLS = "id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,macros,servings,cook_minutes,prep_minutes,equipment,prep_note,reviewed_at";
+
+// Info + cek key (consumer bisa verifikasi key-nya valid).
+app.get("/api/content/v1", requireContentKey, function (req, res) {
+  return res.json({
+    ok: true, consumer: req.apiConsumer, version: "v1",
+    endpoints: ["/api/content/v1/articles", "/api/content/v1/articles/:slug", "/api/content/v1/article-categories", "/api/content/v1/recipes", "/api/content/v1/recipes/:key"],
+    note: "Konten publik/published saja. Angka gizi = PERKIRAAN (nutrition_is_estimate).",
+  });
+});
+
+// Daftar artikel terbit (ringkasan, tanpa body). Query: category, limit(<=50), offset.
+app.get("/api/content/v1/articles", requireContentKey, async function (req, res) {
+  try {
+    if (!admin) return res.json({ ok: true, articles: [], total: 0, has_more: false });
+    var category = String(req.query.category || "").trim();
+    var limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    var offset = Math.max(0, parseInt(req.query.offset) || 0);
+    var query = admin.from("my20fit_recipe_article")
+      .select("id,slug,title,title_id,title_en,excerpt,excerpt_id,excerpt_en,cover_url,category,category_id,category_en,author_name,published_at", { count: "exact" })
+      .eq("status", "published").order("published_at", { ascending: false }).range(offset, offset + limit - 1);
+    if (category) query = query.eq("category_id", category);
+    var { data, error, count } = await query;
+    if (error) return res.status(500).json({ error: error.message });
+    var articles = (data || []).map(normContentArticle);
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ ok: true, articles: articles, total: count || 0, has_more: (offset + articles.length) < (count || 0) });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Satu artikel terbit + body (2 bahasa).
+app.get("/api/content/v1/articles/:slug", requireContentKey, async function (req, res) {
+  try {
+    if (!admin) return res.status(404).json({ error: "not found" });
+    var slug = String(req.params.slug || "").trim();
+    var { data, error } = await admin.from("my20fit_recipe_article")
+      .select("id,slug,title,title_id,title_en,excerpt,excerpt_id,excerpt_en,body_md,body_md_id,body_md_en,cover_url,category,category_id,category_en,author_name,published_at,width,height")
+      .eq("status", "published").eq("slug", slug).limit(1);
+    if (error) return res.status(500).json({ error: error.message });
+    var a = data && data[0];
+    if (!a) return res.status(404).json({ error: "not found" });
+    var out = normContentArticle(a);
+    out.body = { id: a.body_md_id || a.body_md || "", en: a.body_md_en || a.body_md || "" };
+    out.cover = { url: a.cover_url || null, width: a.width || null, height: a.height || null };
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ ok: true, article: out });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Kategori artikel + jumlah.
+app.get("/api/content/v1/article-categories", requireContentKey, async function (req, res) {
+  try {
+    if (!admin) return res.json({ ok: true, categories: [] });
+    var { data, error } = await admin.from("my20fit_recipe_article")
+      .select("category_id,category_en,category").eq("status", "published");
+    if (error) return res.status(500).json({ error: error.message });
+    var m = new Map();
+    (data || []).forEach(function (a) {
+      var id = a.category_id || a.category || ""; if (!id) return;
+      var cur = m.get(id) || { id: id, label: { id: a.category || id, en: a.category_en || a.category || id }, count: 0 };
+      cur.count++; m.set(id, cur);
+    });
+    res.set("Cache-Control", "public, max-age=300");
+    return res.json({ ok: true, categories: Array.from(m.values()) });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Daftar resep (resmi + member approved), dinormalisasi + tag `source`. Query:
+// lang(id/en), source(all/official/member), diet, q, limit(<=100), offset.
+app.get("/api/content/v1/recipes", requireContentKey, async function (req, res) {
+  try {
+    var lang = langOf(req);
+    var source = String(req.query.source || "all").toLowerCase();
+    var diet = String(req.query.diet || "").trim().toLowerCase();
+    var qtext = String(req.query.q || "").trim().toLowerCase();
+    var limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    var offset = Math.max(0, parseInt(req.query.offset) || 0);
+    var items = [];
+    if (source === "all" || source === "official") {
+      loadMenuCatalog().forEach(function (r) { items.push(normContentOfficialRecipe(r, lang)); });
+    }
+    if ((source === "all" || source === "member") && admin) {
+      var { data } = await admin.from("my20fit_menu_contribution").select(CONTENT_MEMBER_COLS)
+        .eq("status", "approved").eq("published", true).order("reviewed_at", { ascending: false }).limit(500);
+      (data || []).forEach(function (mm) { items.push(normContentMemberRecipe(mm)); });
+    }
+    if (diet) items = items.filter(function (it) { return it.diet_types.indexOf(diet) >= 0; });
+    if (qtext) items = items.filter(function (it) { return String(it.name || "").toLowerCase().indexOf(qtext) >= 0; });
+    var total = items.length;
+    var page = items.slice(offset, offset + limit);
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ ok: true, recipes: page, total: total, has_more: (offset + page.length) < total, lang: lang });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// Satu resep by key: "official:<id>" atau "member:<uuid>".
+app.get("/api/content/v1/recipes/:key", requireContentKey, async function (req, res) {
+  try {
+    var lang = langOf(req);
+    var key = String(req.params.key || "");
+    var i = key.indexOf(":");
+    var src = i > 0 ? key.slice(0, i) : "official";
+    var id = i > 0 ? key.slice(i + 1) : key;
+    if (src === "official") {
+      var r = loadMenuCatalog().find(function (x) { return String(x.id) === String(id); });
+      if (!r) return res.status(404).json({ error: "not found" });
+      res.set("Cache-Control", "public, max-age=300");
+      return res.json({ ok: true, recipe: normContentOfficialRecipe(r, lang) });
+    }
+    if (src === "member") {
+      if (!admin) return res.status(404).json({ error: "not found" });
+      if (!/^[0-9a-fA-F-]{16,}$/.test(id)) return res.status(404).json({ error: "not found" });
+      var { data, error } = await admin.from("my20fit_menu_contribution").select(CONTENT_MEMBER_COLS)
+        .eq("status", "approved").eq("published", true).eq("id", id).limit(1);
+      if (error) return res.status(500).json({ error: error.message });
+      var mrec = data && data[0];
+      if (!mrec) return res.status(404).json({ error: "not found" });
+      res.set("Cache-Control", "public, max-age=120");
+      return res.json({ ok: true, recipe: normContentMemberRecipe(mrec) });
+    }
+    return res.status(400).json({ error: "key harus 'official:<id>' atau 'member:<uuid>'." });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// ============================ END CONTENT API v1 ============================
+
 // PUBLIK: katering yang menjual resep ini -- penghubung EKSPLISIT lewat (source, menu_id),
 // bukan pencocokan nama (lihat migration create_my20fit_caterer_menus). Murni direktori,
 // TANPA transaksi/komisi (dikonfirmasi user) -- order_url/whatsapp langsung ke katering.
