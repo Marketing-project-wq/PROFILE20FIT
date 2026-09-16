@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-15 · **Commit staging:** `50b5f8f` · **Production:** `5a406ec`
+> **Pembaruan terakhir:** 2026-09-16 · **Commit staging:** `530e4b3` · **Production:** `bb259f4`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -65,7 +65,8 @@ naikkan resource — **butuh akses dashboard Railway (di luar agent).**
     - Email **tidak dikenal** penerbit → jatuh ke arsip `event_transaction` (read-only, tabel app lain): nama event, jenis, tanggal, "Lunas" — **tanpa QR** (`qr:null`, `qr_pending:true`). QR tidak pernah dikarang, dan status gerbang tidak pernah ditulis "valid". `source:"archive"`.
     - Dua-duanya kosong → `source:"none"` + `reason` (`no_tickets` / `upstream_unavailable` / `server_error` / dst.) supaya kegagalan nyata tidak tersamar jadi "belum beli".
   - **Gate konfirmasi: TIDAK ADA — dan sekarang tombol verifikasinya pun tidak ada.** Diselidiki 2026-09-09: tidak pernah ada modal, route guard, checkbox, atau flag `isVerified`/`claimed` di kode kita. Tombol "verifikasi" yang dulu muncul saat hasil = 0 ikut terhapus bersama jalur OTP.
-  - **Production sudah sejajar `staging`** (`5a406ec`, 2026-09-11) — catatan lama "main tertinggal PR #419/#421" **sudah tidak berlaku**.
+  - **Production sudah sejajar `staging`** (`bb259f4`, 2026-09-16) — catatan lama "main tertinggal PR #419/#421" **sudah tidak berlaku**.
+  - **Auto-retry + recovery (PR #438, `bb259f4`):** `ticket-wallet.js` kini retry otomatis sekali (3s delay) saat `loadUpcoming()` atau `loadTickets()` gagal — menghindari error permanen akibat server restart saat deploy. Ditambah listener `visibilitychange` + `online` yang memuat ulang data otomatis saat tab aktif kembali atau koneksi pulih. Retry hanya sekali; kalau masih gagal, tampil error + tombol "Coba lagi" manual seperti biasa.
   - **Tidak ada webhook pembelian sama sekali.** `sync-ticket-events` hanya menarik `/events` dan menyimpan `sold_count` **agregat**, tak pernah identitas pembeli. Terukur 2026-09-08: Sports Summit live `sold`=**1233** vs `my20fit_ticket_events.sold_count`=**1162** (sync 2026-09-07 21:00) → **+71 terjual sejak sync**, sementara di DB kami **nol baris hari itu**. Pembayaran berhasil dan tercatat di ticket.20fit.id, tapi kami tak punya cara tahu siapa pembelinya — **tidak ada baris yang bisa "diperbaiki" di sisi kami.**
   - **TANYA PEMILIK ticket.20fit.id:** permintaan teknisnya sudah ditulis lengkap di **`docs/TICKET-API-REQUEST.md`** — intinya minta **webhook pembelian** atau **endpoint partner baca pesanan per email**. Sampai salah satunya ada, pembeli yang emailnya belum dikenal penerbit hanya bisa melihat pembeliannya dari **arsip, tanpa QR**.
   - **Arsip `event_transaction` bukan data hidup** — impor batch invoice, `paid_at` terbaru 2026-08-11, impor terakhir 2026-08-18. Tetap disajikan (isinya pembelian nyata; 242 dari 1374 user app punya email di sana) tapi ditandai `source:"archive"`. Pembelian baru tak akan pernah muncul di sana.
