@@ -48,8 +48,6 @@
   .rbody{padding:10px 12px}
   .rname{font-weight:800;font-size:14px;line-height:1.2;color:var(--txt)}
   .rmeta{font-size:11.5px;color:var(--muted);margin-top:3px}
-  .rmac{display:flex;gap:6px;margin-top:8px;font-size:10.5px;font-weight:700;flex-wrap:wrap}
-  .rmac span{background:var(--inp);border-radius:6px;padding:3px 6px;color:var(--txt)}
   .rc-user{font-size:9px;background:var(--green);color:#fff;padding:2px 6px;border-radius:99px;font-weight:800;vertical-align:middle}
   .rdisc{font-size:11.5px;color:var(--muted);background:var(--inp);border-radius:10px;padding:10px 12px;margin-top:12px}
   /* Share Your Menu toggle */
@@ -70,6 +68,38 @@
   .pm-hero{aspect-ratio:4/3;max-height:56vh;border-radius:14px;display:grid;place-items:center;font-size:64px;background-size:cover;background-repeat:no-repeat;background-position:center;background-color:var(--inp);margin-bottom:12px}
   .pm-types{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
   .pm-types span{font-size:11px;font-weight:800;background:var(--inp);color:var(--txt);border-radius:99px;padding:4px 10px;text-transform:capitalize}
+  /* --- Detail resep: panel gizi + porsi + dua kolom Bahan/Cara buat (pola sama dgn recipe.20fit.id) --- */
+  .nutri{border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px;background:var(--inp)}
+  .nutri-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .nutri-h .lbl{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+  .nutri-h .kcal{font-size:19px;font-weight:900;color:var(--txt)}
+  .nutri-h .kcal small{font-size:11px;font-weight:600;color:var(--muted);margin-left:3px}
+  .porsi{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border-radius:10px;padding:8px 12px;margin-bottom:12px}
+  .porsi .q{font-size:12.5px;font-weight:700;color:var(--muted)}
+  .porsi .ctl{display:flex;align-items:center;gap:10px}
+  .porsi button{width:28px;height:28px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--txt);font-size:15px;font-weight:800;cursor:pointer;line-height:1;font-family:inherit}
+  .porsi button:disabled{opacity:.3;cursor:default}
+  .porsi .n{min-width:22px;text-align:center;font-size:14px;font-weight:900;color:var(--txt)}
+  .mbar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:var(--card)}
+  .mbar i{display:block;transition:width .2s}
+  .mleg{display:flex;justify-content:space-between;gap:8px;margin-top:7px;font-size:11px;color:var(--muted);font-weight:600}
+  .mleg b{display:inline-block;width:8px;height:8px;border-radius:99px;margin-right:5px;vertical-align:middle}
+  .mgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+  .mgrid div{background:var(--card);border-radius:10px;padding:9px 6px;text-align:center}
+  .mgrid .k{font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+  .mgrid .v{font-size:15px;font-weight:900;color:var(--txt);margin-top:3px}
+  .nutri-note{font-size:11px;font-style:italic;color:var(--muted);margin-top:11px;line-height:1.5}
+  .cols{display:grid;grid-template-columns:1fr;gap:14px;margin-top:18px}
+  @media(min-width:760px){ .cols{grid-template-columns:1fr 1.35fr;gap:18px} }
+  .col{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--card)}
+  .col h3{margin:0 0 10px;padding-bottom:9px;border-bottom:1px solid var(--line);font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+  .ing{list-style:none;margin:0;padding:0}
+  .ing li{position:relative;padding-left:16px;font-size:13.5px;line-height:1.55;margin:7px 0;color:var(--txt)}
+  .ing li::before{content:"";position:absolute;left:3px;top:8px;width:5px;height:5px;border-radius:99px;background:var(--red)}
+  .stp{list-style:none;margin:0;padding:0;counter-reset:st}
+  .stp li{display:flex;gap:11px;margin:12px 0}
+  .stp .no{flex:0 0 auto;width:26px;height:26px;border-radius:99px;background:var(--red);color:#fff;font-size:12.5px;font-weight:800;display:grid;place-items:center}
+  .stp .tx{font-size:13.5px;line-height:1.6;color:var(--txt)}
   .pm-log{width:100%;margin-top:18px;padding:14px;border:0;border-radius:12px;background:var(--green);color:#fff;font-weight:800;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
   .pm-log:disabled{opacity:.6;cursor:default}
   @media(min-width:620px){ .pm-bg{align-items:center;padding:24px} .pm{border-radius:22px} .pm .grab{display:none} }
@@ -269,11 +299,11 @@
       }catch(e){}
       ITEMS=catalog.map(function(r){
         return { key:"r_"+r.id, nm:r.nm, kcal:r.kcal, p:r.p, c:r.c, f:r.f, types:r.types||[], ingO:r.ing, stepsO:r.steps, emoji:r.emoji, tint:r.tint,
-                 cat:r.cat||"", mins:(+r.cookMinutes||0)+(+r.prepMinutes||0), by:"20FIT", source:"20fit", rec:r };
+                 cat:r.cat||"", mins:(+r.cookMinutes||0)+(+r.prepMinutes||0), by:"20FIT", servings:(+r.servings||1), source:"20fit", rec:r };
       });
       userMenus.forEach(function(m){
         ITEMS.push({ key:"u_"+m.id, title:m.name, kcal:m.est_kcal||null, types:[m.diet_type||"normal"], ing:m.ingredients||"", steps:m.steps||"",
-                     photo:m.photo_url||null, cat:"", mins:(+m.cook_minutes||0)+(+m.prep_minutes||0), by:m.display_name||"", source:"user" });
+                     photo:m.photo_url||null, cat:"", mins:(+m.cook_minutes||0)+(+m.prep_minutes||0), by:m.display_name||"", servings:(+m.servings||1), source:"user" });
       });
       renderFilterControls(); renderChips(); renderRecipes();
     }
@@ -455,29 +485,99 @@
         }).catch(function(){});
       }catch(e){}
     }
+    // ---- Detail resep: panel gizi + kontrol porsi + dua kolom Bahan/Cara buat ----
+    // Mengikuti DetailPage.tsx di repo MENU (recipe.20fit.id): porsi 1..12, angka gizi
+    // diskalakan ratio = porsi/porsi-dasar, dan proporsi batang dihitung dari KALORI
+    // (protein & karbo 4 kkal/g, lemak 9 kkal/g) — bukan dari gram.
+    var MIN_PORSI=1, MAX_PORSI=12, curPorsi=1, curBase=1;
+    function ratioPorsi(){ return curBase>0 ? (curPorsi/curBase) : 1; }
+    function skala(v){ return (v==null) ? null : Math.round(v*ratioPorsi()); }
+    function setPorsi(d){
+      var n=curPorsi+d;
+      if(n<MIN_PORSI||n>MAX_PORSI) return;
+      curPorsi=n; renderNutrition();
+    }
+    function macroBarBig(p,c,f){
+      var pc=p*4, cc=c*4, fc=f*9, tot=pc+cc+fc;
+      if(!tot) return "";
+      var pp=Math.round(pc/tot*100), cp=Math.round(cc/tot*100), fp=100-pp-cp;
+      var B="var(--blue,#2F6BFF)", A="var(--amber,#C87000)", R="var(--red)";
+      return '<div class="mbar"><i style="width:'+pp+'%;background:'+B+'"></i>'+
+             '<i style="width:'+cp+'%;background:'+A+'"></i>'+
+             '<i style="width:'+fp+'%;background:'+R+'"></i></div>'+
+        '<div class="mleg">'+
+          '<span><b style="background:'+B+'"></b>'+esc(T("cal_protein"))+' '+pp+'%</span>'+
+          '<span><b style="background:'+A+'"></b>'+esc(T("cal_carbs"))+' '+cp+'%</span>'+
+          '<span><b style="background:'+R+'"></b>'+esc(T("cal_fat"))+' '+fp+'%</span>'+
+        '</div>';
+    }
+    // Panel gizi dirender terpisah supaya tombol +/- porsi tak perlu membangun ulang modal.
+    function renderNutrition(){
+      var box=document.getElementById("nutriBox"); var it=curLogItem;
+      if(!box||!it) return;
+      if(it.kcal==null){ box.innerHTML='<div class="rdisc">'+esc(T("diet_log_nokcal"))+'</div>'; return; }
+      var kc=skala(it.kcal), P=skala(it.p)||0, C=skala(it.c)||0, F=skala(it.f)||0;
+      var punyaMakro=(it.p!=null);
+      box.innerHTML=
+        '<div class="nutri-h"><span class="lbl">'+esc(T("rec_nutrition"))+'</span>'+
+          '<span class="kcal">'+kc+'<small>'+esc(T("diet_kcal"))+'</small></span></div>'+
+        '<div class="porsi"><span class="q">'+esc(T("rec_portions"))+'</span>'+
+          '<span class="ctl">'+
+            '<button type="button" onclick="setPorsi(-1)"'+(curPorsi<=MIN_PORSI?" disabled":"")+' aria-label="-">−</button>'+
+            '<span class="n">'+curPorsi+'</span>'+
+            '<button type="button" onclick="setPorsi(1)"'+(curPorsi>=MAX_PORSI?" disabled":"")+' aria-label="+">+</button>'+
+          '</span></div>'+
+        (punyaMakro ? (macroBarBig(P,C,F)+
+          '<div class="mgrid">'+
+            '<div><div class="k">'+esc(T("cal_protein"))+'</div><div class="v">'+P+' g</div></div>'+
+            '<div><div class="k">'+esc(T("cal_carbs"))+'</div><div class="v">'+C+' g</div></div>'+
+            '<div><div class="k">'+esc(T("cal_fat"))+'</div><div class="v">'+F+' g</div></div>'+
+          '</div>') : '')+
+        '<div class="nutri-note">'+esc(T("diet_nutri_est"))+' — '+esc(T("rec_est_for").replace("{n}", String(curPorsi)))+'</div>'+
+        '<button class="pm-log" onclick="logFood()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> '+
+          esc(T("diet_logfood"))+' <span style="opacity:.85;font-weight:700">· '+kc+' '+esc(T("diet_kcal"))+' · '+curPorsi+' '+esc(T("rec_portion_word"))+'</span></button>';
+    }
+    // Bahan -> daftar berpoin; baris kosong dibuang. TEKSNYA TIDAK diskalakan (lihat catatan).
+    function ingListHtml(it){
+      var baris=String(ingOf(it)||"").split(/\r?\n/).map(function(x){ return x.trim(); }).filter(Boolean);
+      if(!baris.length) return '<div class="muted" style="font-size:13px">—</div>';
+      return '<ul class="ing">'+baris.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join("")+'</ul>';
+    }
+    // Cara buat -> daftar bernomor; nomor bawaan di teks ("1. ") dibuang biar tak dobel.
+    function stepListHtml(it){
+      var baris=String(stepsOf(it)||"").split(/\r?\n/).map(function(x){ return x.trim(); }).filter(Boolean)
+        .map(function(x){ return x.replace(/^\d+[.)]\s*/, ""); });
+      if(!baris.length) return '<div class="muted" style="font-size:13px">—</div>';
+      return '<ol class="stp">'+baris.map(function(x,i){
+        return '<li><span class="no">'+(i+1)+'</span><span class="tx">'+esc(x)+'</span></li>';
+      }).join("")+'</ol>';
+    }
     function openRecipe(key){
       var it=ITEMS.filter(function(x){return x.key===key;})[0]; if(!it) return;
       curLogItem=it;
+      curBase=Math.max(1, +it.servings||1); curPorsi=curBase;
       trackMenuOpen(it);
-      var mac=(it.p!=null)?('<div class="rmac" style="margin:8px 0"><span>'+esc(T("cal_protein"))+' '+it.p+'g</span><span>'+esc(T("cal_carbs"))+' '+it.c+'g</span><span>'+esc(T("cal_fat"))+' '+it.f+'g</span></div>'):'';
       var hero=it.photo ? '<div class="pm-hero" style="background-image:url('+JSON.stringify(it.photo)+')"></div>'
                         : '<div class="pm-hero" style="background-image:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>';
-      var tps=(it.types||[]).filter(Boolean);
-      var badges=tps.length?('<div class="pm-types">'+tps.map(function(t){return '<span>'+esc(String(t).replace(/-/g," "))+'</span>';}).join("")+'</div>'):'';
-      var logBtn=(it.kcal!=null)
-        ? '<button class="pm-log" onclick="logFood()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> '+esc(T("diet_logfood"))+'</button>'
-        : '<div class="rdisc" style="margin-top:16px">'+esc(T("diet_log_nokcal"))+'</div>';
+      var chips=[];
+      if(it.cat) chips.push(it.cat);
+      (it.types||[]).filter(Boolean).forEach(function(t){ chips.push(String(t).replace(/-/g," ")); });
+      if(it.source==="user") chips.push(T("diet_user_contrib"));
+      var badges=chips.length?('<div class="pm-types">'+chips.map(function(t){return '<span>'+esc(t)+'</span>';}).join("")+'</div>'):'';
+      var by=it.by?('<div class="muted" style="font-size:12px">'+esc(T("rec_by"))+' '+esc(it.by)+(it.mins?(' · '+it.mins+' '+esc(T("rec_min"))):'')+'</div>'):'';
+      var catatanBahan=(curBase>1)?('<div class="nutri-note" style="margin:0 0 10px">'+esc(T("rec_ing_base_note").replace("{n}", String(curBase)))+'</div>'):'';
       document.getElementById("recBody").innerHTML=
         hero+
-        '<h2 style="margin-top:0">'+esc(titleOf(it))+'</h2>'+badges+
-        '<div class="muted">~'+(it.kcal!=null?it.kcal+' '+esc(T("diet_kcal")):'—')+(it.source==="user"?' · '+esc(T("diet_user_contrib")):'')+'</div>'+mac+
+        '<h2 style="margin-top:0">'+esc(titleOf(it))+'</h2>'+badges+by+
         '<div class="rsoc" id="recSocial"></div>'+
-        '<label>'+esc(T("recipe_ing"))+'</label><div style="white-space:pre-wrap;font-size:14px">'+esc(ingOf(it))+'</div>'+
-        '<label>'+esc(T("recipe_steps"))+'</label><div style="white-space:pre-wrap;font-size:14px">'+esc(stepsOf(it))+'</div>'+
-        (it.source==="20fit"?'<div class="rdisc">'+esc(T("diet_nutri_est"))+'</div>':'')+
-        logBtn;
+        '<div class="nutri" id="nutriBox"></div>'+
+        '<div class="cols">'+
+          '<section class="col"><h3>'+esc(T("recipe_ing"))+'</h3>'+catatanBahan+ingListHtml(it)+'</section>'+
+          '<section class="col"><h3>'+esc(T("recipe_steps"))+'</h3>'+stepListHtml(it)+'</section>'+
+        '</div>';
+      renderNutrition();
       loadRecSocial(it); // Like/Save state (server, service key) + wiring tombol
-      // Resolve real food photo for 20fit hero (emoji stays as fallback on failure).
+      // Foto asli resep 20FIT untuk hero (emoji tetap jadi cadangan kalau gagal).
       if(window.RecipePhotos && RecipePhotos.applyThumb && it.rec && !it.photo){
         RecipePhotos.applyThumb(document.querySelector("#recBody .pm-hero"), it.rec);
       }
@@ -510,7 +610,9 @@
     async function logFood(){
       var it=curLogItem; if(!it||it.kcal==null) return;
       var btn=document.querySelector(".pm-log"); if(btn) btn.disabled=true;
-      var item={ name:titleOf(it), kcal:Math.round(it.kcal)||0, p:Math.round(+it.p||0), c:Math.round(+it.c||0), f:Math.round(+it.f||0), t:nowHM() };
+      // Angka yang dicatat = hasil skala porsi yang dipilih user, bukan angka dasar resep.
+      var nm=titleOf(it)+((curPorsi&&curPorsi!==1)?(" ("+curPorsi+" "+T("rec_portion_word")+")"):"");
+      var item={ name:nm, kcal:skala(it.kcal)||0, p:skala(it.p)||0, c:skala(it.c)||0, f:skala(it.f)||0, t:nowHM() };
       var key=calKeyToday();
       // Ambil cal_items TERKINI dari akun dulu (hindari nimpa log dari device lain); fallback cache device.
       var items=null;
