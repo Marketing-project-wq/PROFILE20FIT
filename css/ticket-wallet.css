@@ -118,7 +118,7 @@
    gambar event lain. Dipakai di halaman E-Ticket dan kartu grup "Tiket Saya". */
 .etk-cover.noimg,.twk-tap .twk-pcover.noimg{background:linear-gradient(135deg,var(--inp,#F2F2F5),var(--line,#E7E7EC))}
 .etk-cover.noimg img,.twk-tap .twk-pcover.noimg img{display:none}
-.etk-cover.noimg::after,.twk-tap .twk-pcover.noimg::after{content:"20FIT · E-TICKET";position:absolute;inset:0;display:grid;place-items:center;color:var(--muted,#8A8D94);font-weight:800;letter-spacing:.14em;font-size:12px}
+.etk-cover.noimg::after,.twk-tap .twk-pcover.noimg::after{content:attr(data-label);position:absolute;inset:0;display:grid;place-items:center;color:var(--muted,#8A8D94);font-weight:800;letter-spacing:.14em;font-size:12px;padding:0 18px;text-align:center;line-height:1.4}
 .etk-evbody{padding:18px 18px 20px}
 .etk-evtop{display:flex;align-items:flex-start;gap:12px;justify-content:space-between}
 .etk-evname{margin:0;font-size:22px;font-weight:900;line-height:1.22;color:var(--ink,#15171C);overflow-wrap:anywhere}
