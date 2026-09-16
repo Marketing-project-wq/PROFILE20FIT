@@ -64,8 +64,6 @@
   .card{background:var(--card);color:var(--txt);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);border:0}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
-  .main{display:grid;grid-template-columns:1fr;gap:0 22px;align-items:start}
-  @media(min-width:900px){ .main{grid-template-columns:1.15fr 1fr} }
   .sechead-row{display:flex;justify-content:space-between;align-items:center;margin:0 2px 9px}
 
   /* ---- Vitals (BMI / Weight / Height) ---- */
@@ -76,7 +74,7 @@
   .vital .val{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-top:8px;line-height:1;color:var(--ink)}
   .vital .val small{font-size:13px;font-weight:600;color:var(--muted);margin-left:2px}
 
-  /* ---- Book / CTA buttons ---- */
+  /* ---- CTA buttons ---- */
   .bookbtn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;margin-top:12px;padding:15px;
     border:0;border-radius:var(--radius);background:var(--red);color:#fff;font-weight:800;font-size:15px;cursor:pointer;text-decoration:none;
     box-shadow:0 10px 24px color-mix(in srgb,var(--red) 28%,transparent);transition:.16s}
@@ -88,20 +86,9 @@
     box-shadow:0 8px 20px color-mix(in srgb,var(--red) 26%,transparent);transition:.16s}
   .btn:active{transform:scale(.99)}
   .btn.dark{background:var(--inp);color:var(--txt);box-shadow:none}
-
-  /* ---- Recommended workouts list rows ---- */
-  .wrow{display:flex;align-items:center;gap:13px;padding:14px 4px;border-bottom:1px solid var(--line);transition:opacity .15s}
-  a.wrow{text-decoration:none;color:inherit}
-  a.wrow:active{opacity:.6}
   /* Hapus underline default pada semua link (T5) — kartu tracker (.tkcard dll) pakai warna/hover sbg affordance */
   a{text-decoration:none}
   a.card,.tkcard{color:inherit}
-  .wrow:last-child{border-bottom:0}
-  .wrow .em{width:40px;height:40px;border-radius:12px;background:var(--red-soft);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
-  .wrow .em svg{width:21px;height:21px;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .wrow .nm{font-weight:700;font-size:15px}
-  .wrow .rs{font-size:12.5px;color:var(--muted)}
-  .tag{font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}
 
   /* ---- Breathing ---- */
   .seg{display:flex;gap:7px;background:var(--inp);padding:4px;border-radius:13px;margin-bottom:6px}
@@ -135,18 +122,6 @@
   .hrdot{width:9px;height:9px;border-radius:50%;background:var(--red);flex:0 0 auto;margin-top:5px}
   .hrok{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)}
 
-  /* ---- Water big glass ---- */
-  .bigglass{position:relative;width:100px;height:120px;margin:12px auto 4px;border:2px solid var(--blue);border-top-width:2px;
-    border-radius:14px;overflow:hidden;background:var(--blue-soft);cursor:pointer}
-  .bgfill{position:absolute;left:0;right:0;bottom:0;height:0;background:linear-gradient(180deg,#5aa3ff,#2f6fe0);transition:height .55s cubic-bezier(.2,.8,.2,1);overflow:visible}
-  .bgwave{position:absolute;left:-40%;width:180%;height:26px;top:-13px;border-radius:50%;background:#7fb4ff;
-    transform:rotate(var(--wtilt,0deg));transition:transform .15s ease-out;animation:wbob 3.6s ease-in-out infinite}
-  .bgwave::after{content:"";position:absolute;left:0;right:0;top:6px;height:26px;border-radius:50%;background:#5aa3ff;opacity:.6}
-  @keyframes wbob{0%,100%{margin-top:0}50%{margin-top:-3px}}
-  .bgcount{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:24px;color:var(--ink);text-shadow:0 1px 3px rgba(255,255,255,.5)}
-  .wctrl{display:flex;gap:10px;justify-content:center;margin-top:10px}
-  .wctrl button{flex:1;max-width:64px;height:42px;border-radius:12px;border:0;background:var(--inp);color:var(--txt);font-size:20px;font-weight:800;cursor:pointer;transition:.14s}
-  .wctrl button:active{transform:scale(.94)}
   /* Widget SLEEP di home — stepper durasi + keterangan suportif */
   .slplog{display:flex;align-items:center;gap:8px;margin-top:12px}
   .slplog>button{width:40px;height:40px;border-radius:12px;border:0;background:var(--inp);color:var(--txt);font-size:22px;font-weight:800;cursor:pointer;flex:0 0 auto;transition:.14s}
@@ -204,7 +179,7 @@
   }
   @media (prefers-reduced-motion: reduce){
     *{transition:none !important}
-    .ring,.hero .glow,.bgwave{animation:none !important}
+    .ring,.hero .glow{animation:none !important}
   }
 
   /* ---- Sky-bleed weather + AQI bar in hero (glass reference) ---- */
@@ -532,36 +507,6 @@
       <div class="vital"><div class="lbl" data-i18n="stat_bmi">BMI</div><div class="val" id="bmi">–</div></div>
       <div class="vital"><div class="lbl" data-i18n="stat_weight">Weight</div><div class="val" id="berat">–</div></div>
       <div class="vital"><div class="lbl" data-i18n="stat_height">Height</div><div class="val" id="tinggi">–</div></div>
-    </div>
-
-    <!-- 2 kolom di desktop (bento) -->
-    <div class="main">
-      <!-- Kolom kiri: TRAIN TODAY -->
-      <div class="col">
-        <div class="sec gsec" data-en="Train today" data-id="Latihan Hari Ini">Train today</div>
-        <div class="sec" data-i18n="sec_recs">Recommended Workouts</div>
-        <div class="card" id="recs"></div>
-        <a class="bookbtn" href="https://booking.20fit.id/gym" >
-          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          <span data-i18n="book_recworkout">Ready to train? Book your class at 20FIT.</span>
-        </a>
-      </div>
-
-      <!-- Kolom kanan: WATER (non-customizable, always visible) -->
-      <div class="col">
-        <div class="sec gsec" data-en="Daily Water" data-id="Air Harian">Daily Water</div>
-        <div class="card" style="text-align:center">
-          <div class="muted" data-i18n="water_label" style="text-align:left">Water (glasses) · target 8</div>
-          <div class="bigglass" id="bigGlass" onclick="setWater(water+1)" title="tap to add">
-            <div class="bgfill" id="bgFill"><span class="bgwave"></span></div>
-            <div class="bgcount" id="bgCount">0/8</div>
-          </div>
-          <div class="wctrl">
-            <button onclick="event.stopPropagation();setWater(water-1)">−</button>
-            <button onclick="event.stopPropagation();setWater(water+1)">+</button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="sec" data-i18n="sec_checklist">Today's Checklist</div>
@@ -1493,7 +1438,7 @@
         try { window.renderCzSheet && window.renderCzSheet(); } catch (e) {}
         try { window.applyExtra && window.applyExtra(); } catch (e) {}
       }
-      var _dirty = false, _pushT = null, _waterDirty = false;
+      var _dirty = false, _pushT = null;
       function pushPrefs() {
         if (!window.Auth) return;
         if (_pushT) clearTimeout(_pushT);
@@ -1526,8 +1471,6 @@
       window.syncPrefsOnLoad = syncPrefsOnLoad;
       window.addEventListener("online", function () {
         if (_dirty) pushPrefs();
-        // Air (my20fit_daily_log) juga di-flush ulang saat koneksi balik — LWW pakai nilai terakhir.
-        if (_waterDirty && typeof water !== "undefined" && window.Auth && typeof setWater === "function") setWater(water);
       });
 
       // Boot — grid + booking + tracker stack + sheet + tutup klik-luar.
@@ -1611,7 +1554,7 @@
         water=Number(daily.water_glasses||0);
         try{ checkState=(typeof daily.checklist==="string"?JSON.parse(daily.checklist):daily.checklist)||{}; }catch(e){ checkState={}; }
       }
-      renderWater(); renderChecklist();
+      renderChecklist();
       loadWeather();
       loadHealthReminder();
       try{ if(window.renderStack) window.renderStack(); }catch(e){}
@@ -1855,7 +1798,6 @@
         }catch(e2){}
       }
       if(rb)rb.classList.remove("spin");
-      loadRecs();
     }
     // Scene cuaca beranimasi sesuai kode WMO Open-Meteo + siang/malam
     // Ikon cuaca di hero (sky-bleed) — ganti sesuai kode WMO + siang/malam
@@ -1887,34 +1829,6 @@
       const adv=document.getElementById("aqiadvice"); if(adv){ adv.textContent=info.t; adv.style.color=info.c; }
       const m=document.getElementById("aqiMarker");
       if(m){ const pct=Math.max(2,Math.min(98,(aqi/300)*100)); requestAnimationFrame(()=>{ m.style.left=pct+"%"; }); m.style.borderColor=info.c; }
-    }
-
-    // Hanya produk yang BENAR-BENAR tersedia di booking.20fit.id + deep-link per lokasi
-    const BOOK_LOC={ book:"https://booking.20fit.id/book", gym:"https://booking.20fit.id/gym", clinic:"https://booking.20fit.id/clinic" };
-    // [nama, {desc}, lokasi]  -> Arena=book, Gym=gym
-    const PRODUCTS={
-      hyroxC:["HYROX Complete",{en:"All levels · 60 min",id:"Semua level · 60 mnt"},"book"],
-      hyroxF:["HYROX Foundation",{en:"Beginner · functional strength",id:"Pemula · kekuatan fungsional"},"book"],
-      hyper:["Hyper Class",{en:"High-intensity training",id:"Latihan intensitas tinggi"},"gym"],
-      ems:["EMS",{en:"Smart muscle activation",id:"Aktivasi otot pintar"},"gym"],
-      bws:["Bodyweight Strength",{en:"No equipment needed",id:"Tanpa alat"},"gym"],
-      vinyasa:["Vinyasa Yoga",{en:"Breath-led flow",id:"Mengalir mengikuti napas"},"gym"],
-      hatta:["Hatta Yoga",{en:"Mindful & restorative",id:"Menenangkan & pemulihan"},"gym"]
-    };
-    const RECS_BY_GOAL={ lose:["hyper","hyroxC","ems"], muscle:["bws","ems","hyroxF"], health:["hatta","vinyasa","hyroxF"], fit:["hyroxF","hyper","hyroxC"] };
-    function loadRecs(){
-      const goal=profile.main_goal||"health";
-      let keys=(RECS_BY_GOAL[goal]||RECS_BY_GOAL.health).slice();
-      let tag="Goal";
-      if(aqiVal>100){ keys=["ems","bws","hyper"]; tag="AQI"; } // semua indoor saat AQI tinggi
-      const tagCol={Goal:"background:var(--inp);color:#8A7C68",AQI:"background:var(--red);color:#fff"};
-      const tagTxt=(tag==="Goal")?L({en:"Goal",id:"Tujuan"}):"AQI";
-      const exIcon='<svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>';
-      const goIcon='<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:var(--pagemut);stroke-width:2;flex:0 0 auto"><polyline points="9 18 15 12 9 6"/></svg>';
-      document.getElementById("recs").innerHTML=keys.map(k=>{
-        const p=PRODUCTS[k];
-        return '<a class="wrow" href="'+BOOK_LOC[p[2]]+'" ><div class="em">'+exIcon+'</div><div style="flex:1"><div class="nm">'+p[0]+'</div><div class="rs">'+L(p[1])+'</div></div><span class="tag" style="'+tagCol[tag]+'">'+tagTxt+'</span>'+goIcon+'</a>';
-      }).join("");
     }
 
     const PATTERNS={478:{seq:[["in",4],["hold",7],["out",8]],cycles:4},
@@ -1984,18 +1898,6 @@
       }
     };
 
-    function renderWater(){
-      var f=document.getElementById("bgFill"); if(f) f.style.height=Math.min(water/8*100,100)+"%";
-      var c=document.getElementById("bgCount"); if(c) c.textContent=water+"/8";
-    }
-    async function setWater(n){
-      water=Math.max(0,Math.min(8,n));
-      if(typeof daily!=="undefined"&&daily) daily.water_glasses=water;   // per-hari (my20fit_daily_log) -> reset harian
-      renderWater();
-      try{await Auth.saveDaily({water_glasses:water});_waterDirty=false;if(water>=8)toast(L({en:"Water goal reached!",id:"Target air tercapai!"}));renderChecklist();checkAchievements();}
-      catch(e){_waterDirty=true;toast(L({en:"Saved offline — will sync",id:"Disimpan offline — akan sinkron"}));renderChecklist();checkAchievements();} // offline → tandai, flush saat "online"
-    }
-
     // ---- Checklist harian (aktivitas yang bisa dilacak lewat widget) ----
     const CHK_ICON={
       food:'<path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/>',
@@ -2010,7 +1912,7 @@
     //  sleep7   -> widget Tidur            (auto)
     //  food_log -> Calorie Tracker         (auto)
     //  breathe  -> widget Pernapasan       (auto)
-    //  workout  -> widget Latihan (Train today / latihan di rumah) — centang manual
+    //  workout  -> centang manual
     const CHK_POOL=[
       {id:"water8",ic:"water",lbl:{en:"Drink 8 glasses of water",id:"Minum 8 gelas air"}},
       {id:"sleep7",ic:"sleep",lbl:{en:"Sleep at least 7 hours",id:"Tidur minimal 7 jam"}},
@@ -2070,30 +1972,13 @@
       updateBreathCap();
       if(!profile)return;
       document.getElementById("greet").textContent=greetWord();
-      renderWater(); renderChecklist();
+      renderChecklist();
       refreshWeatherText();
       if(aqiVal!=null) drawAqi(aqiVal);
-      loadRecs();
       loadHealthReminder();
       if((profile.gender||"")==="female") renderCycle();
     });
 
-    // ---- Air bergerak sesuai kemiringan device (HP) / gerak kursor (laptop) ----
-    (function(){
-      let orientActive=false;
-      function setTilt(deg){deg=Math.max(-16,Math.min(16,deg));document.documentElement.style.setProperty("--wtilt",deg.toFixed(1)+"deg");}
-      function onOrient(e){ if(e&&e.gamma!=null){ orientActive=true; setTilt(e.gamma*0.5); } }
-      window.addEventListener("deviceorientation", onOrient, true);
-      // laptop / device tanpa sensor: ikuti posisi kursor horizontal
-      window.addEventListener("pointermove", function(e){ if(orientActive)return; const c=window.innerWidth/2; setTilt(((e.clientX-c)/c)*12); });
-      // iOS butuh izin -> minta saat user tap gelas
-      const g=document.getElementById("bigGlass");
-      if(g) g.addEventListener("click", function(){
-        try{ if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){
-          DeviceOrientationEvent.requestPermission().then(function(s){ if(s==="granted") window.addEventListener("deviceorientation", onOrient, true); }).catch(function(){});
-        } }catch(e){}
-      });
-    })();
   </script>
   <script>
     // Isi label grup (data-en/data-id) + tanggal sapaan — ikut ganti bahasa

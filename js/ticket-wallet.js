@@ -89,7 +89,12 @@
           // E-Ticket bisa menampilkannya langsung tanpa request tambahan. Payload string
           // perlu di-encode → async.
           try {
-            await Promise.all(TICKETS.map(async function (t) { t._qrHtml = await twkQrHtml(t.qr); }));
+            await Promise.all(TICKETS.map(async function (t) {
+              t._qrHtml = await twkQrHtml(t.qr);
+              if (!t._qrHtml && (t.code || t.ref)) {
+                t._qrHtml = await twkEncodeQr(String(t.code || t.ref));
+              }
+            }));
           } catch (e) { /* satu gagal → tiketnya tetap ada, QR-nya menyusul */ }
           GROUPS = groupByEvent(TICKETS);
         } else { TICKETS = []; GROUPS = []; REASON = "upstream_unavailable"; }
@@ -194,8 +199,8 @@
     var when = g.event_date ? tktDayLabel(g.event_date) : Lx({ en: "Date TBA", id: "Jadwal menyusul" });
     var n = g.tickets.length;
     var cover = g.cover_url
-      ? '<div class="twk-pcover"><img src="' + esc(g.cover_url) + '" alt="' + esc(nm) + '" loading="lazy" onerror="this.closest(\'.twk-pcover\').classList.add(\'noimg\')"></div>'
-      : '<div class="twk-pcover noimg"></div>';
+      ? '<div class="twk-pcover" data-label="' + esc(nm) + '"><img src="' + esc(g.cover_url) + '" alt="' + esc(nm) + '" loading="lazy" onerror="this.closest(\'.twk-pcover\').classList.add(\'noimg\')"></div>'
+      : '<div class="twk-pcover noimg" data-label="' + esc(nm) + '"></div>';
     var topline = '<div class="twk-topline">' + badgeHtml(g.status) +
       (n > 1 ? '<span class="twk-nbadge">' + n + ' ' + Lx({ en: "tickets", id: "tiket" }) + '</span>' : '') + '</div>';
     var meta = '<div class="twk-pmeta"><span class="etk-daterow">' + calIcon() + '<span>' + esc(when) + '</span></span></div>';
@@ -220,8 +225,8 @@
     var place = [(e && e.venue) || "", (e && e.city) || ""].filter(Boolean).join(", ");
     var org = (e && e.organizer) || "";
     var cover = (e && e.cover_url)
-      ? '<div class="twk-pcover"><img src="' + esc(e.cover_url) + '" alt="' + esc(nm) + '" loading="lazy" onerror="this.closest(\'.twk-pcover\').classList.add(\'noimg\')">' + ((e && e.category) ? '<span class="twk-pcat">' + esc(e.category) + '</span>' : '') + '</div>'
-      : '<div class="twk-pcover noimg">' + ((e && e.category) ? '<span class="twk-pcat">' + esc(e.category) + '</span>' : '') + '</div>';
+      ? '<div class="twk-pcover" data-label="' + esc(nm) + '"><img src="' + esc(e.cover_url) + '" alt="' + esc(nm) + '" loading="lazy" onerror="this.closest(\'.twk-pcover\').classList.add(\'noimg\')">' + ((e && e.category) ? '<span class="twk-pcat">' + esc(e.category) + '</span>' : '') + '</div>'
+      : '<div class="twk-pcover noimg" data-label="' + esc(nm) + '">' + ((e && e.category) ? '<span class="twk-pcat">' + esc(e.category) + '</span>' : '') + '</div>';
     var meta = '<div class="twk-pmeta">' +
       '<span>' + esc(when) + '</span>' +
       (place ? '<span>' + esc(place) + '</span>' : '') +
@@ -328,9 +333,10 @@
     var g = (GROUPS || [])[idx]; if (!g) return;
     window.twkCloseEticket();
     var when = g.event_date ? tktDayLabel(g.event_date) : Lx({ en: "Date TBA", id: "Jadwal menyusul" });
+    var coverLabel = esc(g.event_name || '20FIT \xb7 E-TICKET');
     var cover = g.cover_url
-      ? '<div class="etk-cover"><img src="' + esc(g.cover_url) + '" alt="' + esc(g.event_name) + '" onerror="this.closest(\'.etk-cover\').classList.add(\'noimg\')"></div>'
-      : '<div class="etk-cover noimg"></div>';
+      ? '<div class="etk-cover" data-label="' + coverLabel + '"><img src="' + esc(g.cover_url) + '" alt="' + esc(g.event_name) + '" onerror="this.closest(\'.etk-cover\').classList.add(\'noimg\')"></div>'
+      : '<div class="etk-cover noimg" data-label="' + coverLabel + '"></div>';
     var ev = '<section class="etk-card etk-evcard">' + cover +
       '<div class="etk-evbody"><div class="etk-evtop"><h2 class="etk-evname">' + esc(g.event_name) + '</h2>' + badgeHtml(g.status) + '</div>' +
       '<div class="etk-daterow">' + calIcon() + '<span>' + esc(when) + '</span></div></div></section>';
