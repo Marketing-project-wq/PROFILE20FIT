@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-16 · **Commit staging:** `7fc4998` · **Production:** `3d3db2c`
+> **Pembaruan terakhir:** 2026-09-16 · **Commit staging:** `138a067` · **Production:** `309004d`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -51,6 +51,34 @@ naikkan resource — **butuh akses dashboard Railway (di luar agent).**
 | **Menu bar Event** | Item menu bar `Medical` → `Event`; `event.html` placeholder "Upcoming" | `js/nav.js`, `event.html` (PR #294) |
 | **Roster home (coach/dokter/fisioterapis)** | Tiga rail di bawah home: `/api/coaches`, `/api/doctors`, `/api/physiotherapists`. Terisi: 4 coach (+23 alias instructor), 5 dokter, 3 fisioterapis. Kartu tanpa `photo_url` — atau yang `<img>`-nya gagal dimuat — ditandai "Foto belum ada" | `dashboard.html`, `server.js` (PR #412) |
 | **Recipe data via API** | `js/recipes.js` (~291KB, 120 resep) **tidak lagi dimuat di browser**. Halaman `recipe.html` dan `calories.html` kini fetch dari `/api/menu/catalog` (daftar lengkap) dan `/api/menu/recommend` (rekomendasi berdasar sisa makro). Utilitas foto diekstrak ke `js/recipe-photos.js` (~2KB, `window.RecipePhotos`). `js/recipes.js` tetap ada untuk dipakai server-side (`loadMenuCatalog`). | `recipe.html`, `calories.html`, `js/recipe-photos.js`, `server.js` (PR #442/#443) |
+
+## 1b. Recipe: IN-APP, jangan dilempar keluar lagi
+
+**Keputusan pemilik (2026-09-16): fitur resep tampil DI DALAM my.20fit.id.** User tidak boleh
+ke-lempar ke `recipe.20fit.id` / `recepie.20fit.id`.
+
+Yang sudah ada dan dipakai — **jangan dibangun ulang**:
+
+| Bagian | Sumber sebenarnya | Jumlah (terukur 2026-09-16) |
+|---|---|---|
+| Halaman | `recipe.html` (grid + modal detail: bahan, langkah, kalori, P/K/L, like/save, tombol **Log Food** ke Calories). `/diet` redirect 301 ke `/recipe` | 1 halaman |
+| Resep resmi | `js/recipes.js` **di repo ini**, dwibahasa EN/ID — dibaca **server** lalu disajikan `/api/menu/catalog`. Sejak PR #442 browser tidak lagi memuat filenya; detail di baris **Recipe data via API** (§1) | **120** |
+| Artikel | `my20fit_recipe_article` di Supabase bersama, dibaca **server** pakai service key (RLS deny-public tetap utuh) | **67 published**, 9 kategori |
+| Kontribusi user | `my20fit_menu_contribution` — alurnya jalan, datanya masih kosong | **0 baris** |
+
+**TIDAK ADA API resep terpisah di Railway** yang perlu disambungkan, dan **tidak ada tabel konten
+resep lain** di Supabase ini (`recipe_admin_role`/`recipe_admin_audit_log` cuma tabel admin;
+`cf_menu` itu menu kafe — ada harga & stok, bukan resep). Membaca tabel resep **langsung dari
+browser** akan menuntut pelonggaran RLS yang dipakai bareng recipe.20fit.id — **jangan**.
+
+**Riwayat bolak-balik (supaya tidak terulang ketiga kalinya):**
+- `f087920` (2026-09-08) — "rename Diet → Recipe + jadikan menu/resep in-app (bukan SSO keluar)". Tile → `/recipe`.
+- PR #423 / `94b4a68` (2026-09-15, **di-merge langsung ke `main` tanpa lewat staging**) — tile diubah jadi SSO keluar ke `recepie.20fit.id`.
+- **2026-09-16** — tile dikembalikan ke `/recipe`; blok handoff `openRecipeGo` + `MENU_ORIGIN` di `dashboard.html` dihapus karena jadi dead code.
+
+**JANGAN hapus `Auth.menuSso()` di `js/auth.js`** — itu bukan sisa PR #423. Masih terpakai untuk
+arah **masuk**: `login.html` / `code-login.html` menerima `?next=menu`, lalu mengembalikan user ke
+app menu setelah login.
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
 
