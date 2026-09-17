@@ -1,0 +1,3139 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "20FIT Recipe API",
+    "version": "1.0.0",
+    "description": "API publik di balik **recipe.20fit.id** (resep sehat 20FIT), di-serve dari **my.20fit.id**. Dokumen ini mencakup DUA API terpisah:\n\n1. **Recipe App API** (`/api/menu/*`) -- backend-for-frontend milik aplikasi recipe.20fit.id sendiri. Sebagian besar publik/baca-saja; aksi yang menyentuh data milik user (simpan, unggah, submission) butuh token login (Supabase JWT). Beberapa aksi publik (like, klik katering/pesan-antar, kirim resep) bekerja untuk pengunjung anonim lewat cookie `eco_anon` (httpOnly, di-set otomatis oleh server -- klien tidak perlu mengelolanya).\n2. **Content API v1** (`/api/content/v1/*`) -- API baca-saja yang MEMANG dibuat untuk produk 20FIT lain / integrasi pihak ketiga menarik konten resep & artikel, digerbangi API key.\n\n**Semua angka gizi (kkal, protein, karbo, lemak, dst.) adalah PERKIRAAN, bukan hasil pengujian laboratorium.**",
+    "contact": {
+      "name": "20FIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://my.20fit.id",
+      "description": "Produksi"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Recipe App",
+      "description": "Dipakai oleh recipe.20fit.id sendiri (`/api/menu/*`)."
+    },
+    {
+      "name": "Content API v1",
+      "description": "Untuk integrasi produk/pihak lain, digerbangi API key (`/api/content/v1/*`)."
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "supabaseAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Access token Supabase Auth milik user 20FIT. Kirim sebagai `Authorization: Bearer <token>`."
+      },
+      "anonCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "eco_anon",
+        "description": "Cookie httpOnly berisi ID sesi anonim, DI-SET OTOMATIS oleh server (klien tidak perlu membuatnya sendiri) saat mengakses endpoint yang mendukung aksi anonim (like, klik katering/pesan-antar, kirim resep tanpa login). Dibagikan lintas subdomain *.20fit.id supaya identitas anonim yang sama dikenali di produk 20FIT lain."
+      },
+      "contentApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "API key Content API v1 (bisa juga dikirim sebagai `Authorization: Bearer <key>`). Diberikan per-konsumer oleh pemilik 20FIT, disimpan di env server (`CONTENT_API_KEYS`) -- HANYA dipanggil dari server konsumer, JANGAN dari browser (key akan bocor)."
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Pesan error untuk ditampilkan/di-log."
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "OkOnly": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "LocalizedText": {
+        "type": "object",
+        "description": "Teks dwibahasa. `id` = Bahasa Indonesia, `en` = English.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "en": {
+            "type": "string"
+          }
+        }
+      },
+      "Nutrients": {
+        "type": "object",
+        "description": "Gizi PERKIRAAN (bukan hasil lab) -- p/c/f dalam gram, sodium dalam mg.",
+        "properties": {
+          "p": {
+            "type": "number",
+            "description": "Protein (g)"
+          },
+          "c": {
+            "type": "number",
+            "description": "Karbohidrat (g)"
+          },
+          "f": {
+            "type": "number",
+            "description": "Lemak (g)"
+          },
+          "fiber": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Serat (g) -- opsional, tak semua resep punya."
+          },
+          "sugar": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Gula (g) -- opsional."
+          },
+          "sodium": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Natrium (mg) -- opsional."
+          }
+        },
+        "required": [
+          "p",
+          "c",
+          "f"
+        ]
+      },
+      "RecipeStep": {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "description": "Teks langkah."
+          },
+          "photo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "description": "URL foto proses (bucket menu-photos) atau null."
+          }
+        },
+        "required": [
+          "t"
+        ]
+      },
+      "DietType": {
+        "type": "string",
+        "enum": [
+          "normal",
+          "vegetarian",
+          "vegan",
+          "pescatarian",
+          "keto",
+          "halal",
+          "high-protein",
+          "low-carb"
+        ]
+      },
+      "OfficialRecipe": {
+        "type": "object",
+        "description": "Satu resep resmi 20FIT (sumber: js/recipes.js, statis, sama untuk semua pengguna).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "rice-chicken"
+          },
+          "emoji": {
+            "type": "string"
+          },
+          "tint": {
+            "type": "string",
+            "description": "Warna hex placeholder kartu."
+          },
+          "kcal": {
+            "type": "number"
+          },
+          "p": {
+            "type": "number",
+            "description": "Protein (g)"
+          },
+          "c": {
+            "type": "number",
+            "description": "Karbohidrat (g)"
+          },
+          "f": {
+            "type": "number",
+            "description": "Lemak (g)"
+          },
+          "fiber": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sugar": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "sodium": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DietType"
+            }
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Kata kunci gambar (TheMealDB)."
+          },
+          "cat": {
+            "type": "string",
+            "example": "Chicken"
+          },
+          "nm": {
+            "$ref": "#/components/schemas/LocalizedText",
+            "description": "Nama resep."
+          },
+          "ing": {
+            "$ref": "#/components/schemas/LocalizedText",
+            "description": "Daftar bahan, teks (pisah baris)."
+          },
+          "steps": {
+            "$ref": "#/components/schemas/LocalizedText",
+            "description": "Langkah, teks (pisah baris, bernomor)."
+          },
+          "servings": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "cookMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "prepMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "equipment": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "prepNote": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "commonMistake": {
+            "$ref": "#/components/schemas/LocalizedText"
+          }
+        },
+        "required": [
+          "id",
+          "kcal",
+          "p",
+          "c",
+          "f",
+          "types",
+          "cat",
+          "nm",
+          "ing",
+          "steps"
+        ]
+      },
+      "MemberContribution": {
+        "type": "object",
+        "description": "Satu resep kiriman member yang sudah approved + published.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "diet_type": {
+            "$ref": "#/components/schemas/DietType"
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Nama tampilan publik kontributor (BUKAN nama akun/email)."
+          },
+          "ingredients": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "string"
+          },
+          "steps_json": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/RecipeStep"
+            }
+          },
+          "photo_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "est_kcal": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "servings": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "cook_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "prep_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "equipment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prep_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reviewed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "diet_type",
+          "ingredients",
+          "steps"
+        ]
+      },
+      "MySubmission": {
+        "type": "object",
+        "description": "Submission milik user yang sedang login (termasuk yang belum tayang).",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MemberContribution"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "approved",
+                  "rejected"
+                ]
+              },
+              "reject_reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "published": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "status",
+              "created_at",
+              "published"
+            ]
+          }
+        ]
+      },
+      "Caterer": {
+        "type": "object",
+        "description": "Mitra katering pihak ketiga yang menjual resep ini -- direktori murni, TANPA transaksi/komisi lewat 20FIT.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "logo_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "whatsapp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "area": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "latitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "longitude": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "delivery_areas": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "min_order": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "order_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "is_verified": {
+            "type": "boolean"
+          },
+          "price": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Harga resep ini di katering tsb, bila diisi admin."
+          },
+          "portion_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "is_verified"
+        ]
+      },
+      "DeliveryLink": {
+        "type": "object",
+        "description": "Tautan pesan-antar pihak ketiga (mis. kategori GrabFood) -- BUKAN hasil scraping, dipetakan manual oleh admin.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string",
+            "example": "grabfood"
+          },
+          "label": {
+            "type": "string",
+            "example": "Nasi Goreng"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "sort_order": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "label",
+          "url"
+        ]
+      },
+      "ArticleSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "author_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "title": {
+            "type": "string",
+            "description": "Sudah dipilih sesuai ?lang=."
+          },
+          "excerpt": {
+            "type": "string",
+            "description": "Sudah dipilih sesuai ?lang=."
+          },
+          "category": {
+            "type": "string",
+            "description": "category_id kanonik."
+          },
+          "category_label": {
+            "type": "string",
+            "description": "Label kategori sesuai ?lang=."
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title"
+        ]
+      },
+      "ArticleFull": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "author_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "title": {
+            "type": "string"
+          },
+          "excerpt": {
+            "type": "string"
+          },
+          "category_label": {
+            "type": "string"
+          },
+          "body_md": {
+            "type": "string",
+            "description": "Isi lengkap, format Markdown."
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "body_md"
+        ]
+      },
+      "ContentArticleSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "excerpt": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "category": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "author_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "title"
+        ]
+      },
+      "ContentArticleFull": {
+        "type": "object",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ContentArticleSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "body": {
+                "$ref": "#/components/schemas/LocalizedText",
+                "description": "Isi lengkap per bahasa, Markdown."
+              },
+              "cover": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "uri"
+                  },
+                  "width": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "height": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ContentRecipe": {
+        "type": "object",
+        "description": "Resep dinormalisasi (resmi ATAU kiriman member approved+published), format seragam.",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "official:rice-chicken",
+            "description": "\"official:<id>\" atau \"member:<uuid>\"."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "official",
+              "member"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kcal": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "macros": {
+            "$ref": "#/components/schemas/Nutrients"
+          },
+          "nutrition_is_estimate": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "SELALU true -- angka gizi bukan hasil lab."
+          },
+          "diet_types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DietType"
+            }
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ingredients": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "string"
+          },
+          "steps_json": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/RecipeStep"
+            }
+          },
+          "servings": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "cook_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "prep_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "equipment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prep_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "photo_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "emoji": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contributor": {
+            "type": "string",
+            "example": "20FIT Kitchen"
+          }
+        },
+        "required": [
+          "key",
+          "source",
+          "id",
+          "name",
+          "nutrition_is_estimate"
+        ]
+      }
+    }
+  },
+  "paths": {
+    "/api/menu/catalog": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Katalog resep resmi 20FIT",
+        "description": "Semua resep resmi (sumber statis, sama untuk semua pengguna). Di-cache 5 menit.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "recipes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OfficialRecipe"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/recommend": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Rekomendasi resep berdasar sisa makro",
+        "description": "Menyaring & mengurutkan katalog resmi berdasar sisa gram protein/karbo/lemak harian pengguna.",
+        "parameters": [
+          {
+            "name": "p",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "minimum": 0
+            },
+            "description": "Sisa protein (g)."
+          },
+          {
+            "name": "c",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "minimum": 0
+            },
+            "description": "Sisa karbohidrat (g)."
+          },
+          {
+            "name": "f",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "minimum": 0
+            },
+            "description": "Sisa lemak (g)."
+          },
+          {
+            "name": "n",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 5
+            },
+            "description": "Jumlah rekomendasi."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "recipes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OfficialRecipe"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/published": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Resep kiriman member yang sudah tayang",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cari nama resep (substring, case-insensitive)."
+          },
+          {
+            "name": "diet",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/DietType"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "menus": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MemberContribution"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/reward-config": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Ambang & besaran reward sumbang-resep",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "per_cycle": {
+                      "type": "integer"
+                    },
+                    "reward_scan": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/consent": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Teks persetujuan kirim resep yang aktif",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "id",
+                "en"
+              ],
+              "default": "id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "consent": {
+                      "oneOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "version": {
+                              "type": "string"
+                            },
+                            "text": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/{id}/caterers": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Katering yang menjual resep ini",
+        "description": "Direktori murni -- TANPA transaksi/komisi lewat 20FIT. Diurutkan: terverifikasi dulu, lalu sort_order manual admin.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Untuk source=official: id dari katalog (mis. \"rice-chicken\"). Untuk source=member: UUID kontribusi."
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "official",
+                "member"
+              ]
+            },
+            "description": "Menentukan tabel asal resep yang dimaksud oleh {id}."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "caterers": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Caterer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/{id}/delivery": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Tautan pesan-antar aktif untuk resep ini",
+        "description": "Tautan ke halaman KATEGORI publik penyedia (mis. GrabFood) -- bukan hasil scraping, dipetakan manual oleh admin.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Untuk source=official: id dari katalog (mis. \"rice-chicken\"). Untuk source=member: UUID kontribusi."
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "official",
+                "member"
+              ]
+            },
+            "description": "Menentukan tabel asal resep yang dimaksud oleh {id}."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "links": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DeliveryLink"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/eat-now": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Resep yang punya ≥ 1 tautan pesan-antar aktif",
+        "description": "Ringan -- hanya balik kunci {source, menu_id}; klien resolve nama/foto dari /catalog atau /published.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "official",
+                              "member"
+                            ]
+                          },
+                          "menu_id": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/articles": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Daftar artikel terbit (ringkas)",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 48,
+              "default": 16
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "id",
+                "en"
+              ],
+              "default": "id"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "category_id kanonik."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "articles": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ArticleSummary"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/article-categories": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Daftar kategori artikel + jumlah",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "id",
+                "en"
+              ],
+              "default": "id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "count": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/article-readtimes": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Estimasi menit baca semua artikel terbit",
+        "description": "Peta { slug -> menit }, dihitung server dari panjang body (~200 kata/menit). Sumber tunggal, dipakai recipe.20fit.id.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "minutes": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      },
+                      "description": "Key = slug artikel."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/articles/{slug}": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Satu artikel terbit (isi penuh) + resep terkait",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "id",
+                "en"
+              ],
+              "default": "id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "article": {
+                      "$ref": "#/components/schemas/ArticleFull"
+                    },
+                    "recipes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "official",
+                              "member"
+                            ]
+                          },
+                          "menu_id": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Artikel tidak ditemukan / belum terbit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/{id}/articles": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Artikel terbit yang terkait sebuah resep",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Untuk source=official: id dari katalog (mis. \"rice-chicken\"). Untuk source=member: UUID kontribusi."
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "official",
+                "member"
+              ]
+            },
+            "description": "Menentukan tabel asal resep yang dimaksud oleh {id}."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "articles": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ArticleSummary"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/social": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Jumlah heart (+ status like/save milik user) untuk banyak resep sekaligus",
+        "description": "Satu panggilan untuk render banyak kartu. Kalau ada token/cookie sesi valid, ikut balik status reacted/saved milik pemanggil -- kegagalan verifikasi TIDAK menghapus angka publiknya.",
+        "security": [
+          {
+            "supabaseAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Daftar dipisah koma, format \"source:menu_id\", maks 200.",
+            "example": "official:rice-chicken,member:9f2b..."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "counts": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      },
+                      "description": "Key = \"source:menu_id\"."
+                    },
+                    "reacted": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Subset `ids` yang di-like pemanggil (butuh sesi)."
+                    },
+                    "saved": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Subset `ids` yang disimpan pemanggil (butuh login)."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/photo": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Resolusi foto untuk satu resep",
+        "description": "Coba AI (resep resmi tertentu) -> Pexels -> TheMealDB -> `{ok:false}` (klien pakai placeholder emoji). Hasil di-cache per id.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Nama deskriptif (untuk Pexels/AI)."
+          },
+          {
+            "name": "mdb",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Kata kunci pendek untuk TheMealDB."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "cached": {
+                      "type": "boolean"
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "ai"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/submit": {
+      "post": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Kirim resep baru (boleh tanpa login)",
+        "description": "Login opsional. Tanpa login -> pakai cookie anonim `eco_anon` (dibuat otomatis) untuk batas kirim/hari & jejak moderasi. SEMUA kiriman (login maupun anonim) masuk antrean moderasi admin -- TIDAK langsung tayang. Field `website` adalah honeypot anti-bot: HARUS dikosongkan oleh klien asli.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "ingredients": {
+                    "type": "string"
+                  },
+                  "steps": {
+                    "type": "string"
+                  },
+                  "steps_json": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/RecipeStep"
+                    },
+                    "description": "Opsional -- kalau diisi, menggantikan `steps` sebagai sumber teks."
+                  },
+                  "diet_type": {
+                    "$ref": "#/components/schemas/DietType"
+                  },
+                  "display_name": {
+                    "type": "string",
+                    "maxLength": 60,
+                    "description": "Nama tampilan publik -- BUKAN nama akun/email."
+                  },
+                  "photo_url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "consent_version": {
+                    "type": "string",
+                    "description": "Versi teks consent yang disetujui pengirim (dari GET /api/menu/consent)."
+                  },
+                  "est_kcal": {
+                    "type": "number"
+                  },
+                  "servings": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "cook_minutes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "prep_minutes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "equipment": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "prep_note": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "website": {
+                    "type": "string",
+                    "description": "HONEYPOT -- kosongkan. Diisi -> server balas sukses palsu tanpa menyimpan apa pun."
+                  }
+                },
+                "required": [
+                  "name",
+                  "ingredients",
+                  "steps"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Field wajib kosong.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Isi identik dengan kiriman yang sudah ada (content_hash unik).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Batas kirim/hari tercapai (5/hari login, 3/hari anonim per sesi & per IP).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Tidak bisa memverifikasi sesi / memulai sesi anonim.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/caterer-click": {
+      "post": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Catat klik ke katering",
+        "description": "Analitik saja (belum dipakai untuk pengurutan). Login opsional -- tamu diidentifikasi lewat cookie `eco_anon`.",
+        "security": [
+          {
+            "supabaseAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "caterer_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "official",
+                      "member"
+                    ]
+                  },
+                  "menu_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "caterer_id",
+                  "source",
+                  "menu_id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOnly"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Field wajib kosong / source tidak valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/delivery-click": {
+      "post": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Catat klik ke penyedia pesan-antar",
+        "description": "Analitik saja. Login opsional -- tamu diidentifikasi lewat cookie `eco_anon`.",
+        "security": [
+          {
+            "supabaseAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "official",
+                      "member"
+                    ]
+                  },
+                  "menu_id": {
+                    "type": "string"
+                  },
+                  "provider": {
+                    "type": "string",
+                    "example": "grabfood"
+                  }
+                },
+                "required": [
+                  "source",
+                  "menu_id",
+                  "provider"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOnly"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Field wajib kosong / source tidak valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/{id}/react": {
+      "post": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Toggle like (heart) sebuah resep",
+        "description": "Login opsional. Tanpa login -> otomatis dibuatkan sesi anonim (cookie `eco_anon`) kalau belum ada. Satu pemilik (akun atau sesi anonim) hanya bisa like sekali per resep.",
+        "security": [
+          {
+            "supabaseAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "official",
+                      "member"
+                    ]
+                  }
+                },
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "reacted": {
+                      "type": "boolean",
+                      "description": "true = baru di-like, false = baru di-unlike."
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "Total like resep ini setelah aksi."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "menu_id / source tidak valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Tidak bisa memulai sesi anonim.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/mine": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Submission milik saya + progres reward",
+        "security": [
+          {
+            "supabaseAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "submissions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MySubmission"
+                      }
+                    },
+                    "approved": {
+                      "type": "integer"
+                    },
+                    "approved_published": {
+                      "type": "integer"
+                    },
+                    "per_cycle": {
+                      "type": "integer"
+                    },
+                    "reward_scan": {
+                      "type": "integer"
+                    },
+                    "toward_next": {
+                      "type": "integer"
+                    },
+                    "credits_earned": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum login.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/{id}/revise": {
+      "post": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Revisi submission yang ditolak",
+        "description": "Hanya submission MILIK SENDIRI berstatus \"rejected\" yang bisa direvisi. Setelah revisi, status kembali ke \"pending\" (masuk antrean moderasi lagi).",
+        "security": [
+          {
+            "supabaseAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "ingredients": {
+                    "type": "string"
+                  },
+                  "steps": {
+                    "type": "string"
+                  },
+                  "steps_json": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/RecipeStep"
+                    }
+                  },
+                  "diet_type": {
+                    "$ref": "#/components/schemas/DietType"
+                  },
+                  "display_name": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "photo_url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "est_kcal": {
+                    "type": "number"
+                  },
+                  "servings": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "cook_minutes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "prep_minutes": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "equipment": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "prep_note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "name",
+                  "ingredients",
+                  "steps"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOnly"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Field wajib kosong.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum login.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Submission tidak ditemukan / bukan milik pemanggil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Isi identik dengan kiriman yang sudah ada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/upload": {
+      "post": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Unggah foto resep (utama / per-langkah)",
+        "description": "Gambar dikirim sebagai data URI base64 (BUKAN multipart), maks 5MB, png/jpg/webp. Disimpan ke Supabase Storage bucket publik `menu-photos`, balik URL publiknya.",
+        "security": [
+          {
+            "supabaseAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "data_url": {
+                    "type": "string",
+                    "description": "Format: data:image/(png|jpeg|webp);base64,<...>",
+                    "example": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
+                  }
+                },
+                "required": [
+                  "data_url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "path": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Format gambar tidak didukung.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum login.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Ukuran gambar melebihi 5MB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Storage tidak tersedia.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/claim-anon-likes": {
+      "post": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Pindahkan like sesi anonim ke akun setelah login/daftar",
+        "description": "Idempoten -- aman dipanggil berkali-kali. Dipanggil klien tepat setelah login/daftar sukses supaya like yang dibuat saat masih tamu tidak hilang.",
+        "security": [
+          {
+            "supabaseAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "migrated": {
+                      "type": "integer",
+                      "description": "Jumlah like yang berhasil dipindah."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum login.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/{id}/save": {
+      "post": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Toggle simpan resep ke koleksi pribadi",
+        "security": [
+          {
+            "supabaseAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "official",
+                      "member"
+                    ]
+                  }
+                },
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "saved": {
+                      "type": "boolean",
+                      "description": "true = baru disimpan, false = baru dihapus dari koleksi."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "menu_id / source tidak valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum login.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/saved": {
+      "get": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Koleksi resep tersimpan milik saya",
+        "description": "Resep sumber \"member\" langsung di-hydrate (data penuh di `members`); sumber \"official\" hanya dibalik id-nya (klien resolve dari GET /api/menu/catalog).",
+        "security": [
+          {
+            "supabaseAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "saved": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "official",
+                              "member"
+                            ]
+                          },
+                          "menu_id": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "members": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "$ref": "#/components/schemas/MemberContribution"
+                      },
+                      "description": "Key = id kontribusi member."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum login.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/menu/open": {
+      "post": {
+        "tags": [
+          "Recipe App"
+        ],
+        "summary": "Catat sinyal minat: user membuka detail resep",
+        "description": "Butuh login (meski best-effort/analitik) -- lihat catatan di deskripsi API. Kegagalan tidak pernah menghentikan alur klien (server balas `{ok:false}` untuk error non-auth).",
+        "security": [
+          {
+            "supabaseAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "menu_id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "types": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 8
+                  },
+                  "cat": {
+                    "type": "string"
+                  },
+                  "kcal": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "menu_id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkOnly"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "menu_id wajib.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Belum login.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/v1": {
+      "get": {
+        "tags": [
+          "Content API v1"
+        ],
+        "summary": "Info API + verifikasi API key",
+        "security": [
+          {
+            "contentApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "consumer": {
+                      "type": "string",
+                      "description": "Nama konsumer terkait key yang dipakai."
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "endpoints": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API key tidak ada / tidak valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/v1/articles": {
+      "get": {
+        "tags": [
+          "Content API v1"
+        ],
+        "summary": "Daftar artikel terbit (ringkas, dwibahasa)",
+        "security": [
+          {
+            "contentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "category_id kanonik."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "articles": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ContentArticleSummary"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API key tidak ada / tidak valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/v1/articles/{slug}": {
+      "get": {
+        "tags": [
+          "Content API v1"
+        ],
+        "summary": "Satu artikel terbit, isi penuh dwibahasa",
+        "security": [
+          {
+            "contentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "article": {
+                      "$ref": "#/components/schemas/ContentArticleFull"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API key tidak ada / tidak valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Artikel tidak ditemukan / belum terbit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/v1/article-categories": {
+      "get": {
+        "tags": [
+          "Content API v1"
+        ],
+        "summary": "Kategori artikel + jumlah",
+        "security": [
+          {
+            "contentApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "$ref": "#/components/schemas/LocalizedText"
+                          },
+                          "count": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API key tidak ada / tidak valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/v1/recipes": {
+      "get": {
+        "tags": [
+          "Content API v1"
+        ],
+        "summary": "Daftar resep (resmi + kiriman member approved), format seragam",
+        "security": [
+          {
+            "contentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "id",
+                "en"
+              ],
+              "default": "id"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "official",
+                "member"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "diet",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/DietType"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cari nama (substring, case-insensitive)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "recipes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ContentRecipe"
+                      }
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "lang": {
+                      "type": "string",
+                      "enum": [
+                        "id",
+                        "en"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API key tidak ada / tidak valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/content/v1/recipes/{key}": {
+      "get": {
+        "tags": [
+          "Content API v1"
+        ],
+        "summary": "Satu resep by key",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "id",
+                "en"
+              ],
+              "default": "id"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "\"official:<id>\" atau \"member:<uuid>\".",
+            "example": "official:rice-chicken"
+          }
+        ],
+        "security": [
+          {
+            "contentApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "recipe": {
+                      "$ref": "#/components/schemas/ContentRecipe"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Format `key` tidak valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API key tidak ada / tidak valid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resep tidak ditemukan.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
