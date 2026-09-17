@@ -19,8 +19,8 @@ Selain itu, **dua kunci pelindung endpoint milik app ini** sempat ter-hardcode
 sebagai nilai default di `server.js` (repo public) dan sekarang sudah dihapus
 dari kode (jadi env-only, fail-closed):
 
-- `PARTNER_API_KEY` — dulu `p20f_842d…` (pelindung `/api/partner/*`)
-- `ADMIN_KEY` — dulu `adm_91bb…` (pelindung `/api/admin/stats`)
+- `PARTNER_API_KEY` — pelindung `/api/partner/*` (nilai lama disamarkan; wajib rotasi)
+- `ADMIN_KEY` — pelindung `/api/admin/stats` (nilai lama disamarkan; wajib rotasi)
 
 Keduanya sempat terlihat publik → **wajib dirotasi** (ganti nilai baru) lalu isi
 di Railway Variables. Sampai diisi, kedua endpoint terkunci (balas `503`).
@@ -34,6 +34,19 @@ Tindakan wajib:
    force-push) — perlu koordinasi karena mengubah riwayat `main`.
 3. Aktifkan **GitHub Secret Scanning + Push Protection** di
    Settings → Code security and analysis.
+
+> **Status audit 2026-09-17 (sesi Claude Code).** Working tree diverifikasi
+> bersih: `20fit-api-docs.html` tidak ada di disk maupun riwayat git yang
+> terjangkau clone ini, `.gitignore` sudah memblokir semua export koleksi API
+> (Bruno/Postman/OpenCollection), dan `openapi/*` memakai `securitySchemes`
+> tanpa token literal. Kunci **ticket.20fit.id** (`TICKET_EMBED_KEY`) TIDAK
+> pernah ada di repo — hanya di secret edge function `ticket-embed` (di luar
+> repo ini); `server.js` memanggilnya pakai JWT user + anon key.
+> **Sisa yang belum tertutup (DI LUAR jangkauan repo/agent):**
+> (1) **rotasi/revoke** token FITCO & 20FIT yang terlanjur publik — hanya tim
+> dev FITCO/20FIT yang bisa; (2) **purge riwayat `main`** di GitHub (BFG /
+> `git filter-repo` + force-push) — butuh koordinasi pemilik, TIDAK dijalankan
+> otomatis (CLAUDE.md §1: jangan rewrite history ter-merge).
 
 ## Di Mana Menyimpan Secret
 
