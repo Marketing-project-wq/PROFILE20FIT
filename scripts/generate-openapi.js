@@ -282,7 +282,8 @@ const spec = {
     title: "20FIT Recipe API",
     version: "1.0.0",
     description:
-      "API publik di balik **recipe.20fit.id** (resep sehat 20FIT), di-serve dari **my.20fit.id**. " +
+      "API publik di balik **recipe.20fit.id** (resep sehat 20FIT). Backend aslinya berjalan di **my.20fit.id**; " +
+      "**recipe.20fit.id** meneruskan (proxy) path di dokumen ini ke backend yang sama, jadi keduanya bisa dipakai. " +
       "Dokumen ini mencakup DUA API terpisah:\n\n" +
       "1. **Recipe App API** (`/api/menu/*`) -- backend-for-frontend milik aplikasi recipe.20fit.id sendiri. " +
       "Sebagian besar publik/baca-saja; aksi yang menyentuh data milik user (simpan, unggah, submission) butuh token login (Supabase JWT). " +
@@ -291,7 +292,17 @@ const spec = {
       "**Semua angka gizi (kkal, protein, karbo, lemak, dst.) adalah PERKIRAAN, bukan hasil pengujian laboratorium.**",
     contact: { name: "20FIT" },
   },
-  servers: [{ url: "https://my.20fit.id", description: "Produksi" }],
+  servers: [
+    {
+      url: "https://recipe.20fit.id",
+      description:
+        "Produksi (recipe.20fit.id) -- disarankan untuk konsumen eksternal. Hanya path di dokumen ini (/api/menu/*, /api/content/v1/*, /api/docs, /api/openapi.*) yang tersedia di domain ini, diteruskan (proxy) ke backend asli.",
+    },
+    {
+      url: "https://my.20fit.id",
+      description: "Backend asli tempat semua endpoint di dokumen ini benar-benar berjalan. Boleh dipanggil langsung juga.",
+    },
+  ],
   tags: [
     { name: "Recipe App", description: "Dipakai oleh recipe.20fit.id sendiri (`/api/menu/*`)." },
     { name: "Content API v1", description: "Untuk integrasi produk/pihak lain, digerbangi API key (`/api/content/v1/*`)." },
