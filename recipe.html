@@ -48,8 +48,6 @@
   .rbody{padding:10px 12px}
   .rname{font-weight:800;font-size:14px;line-height:1.2;color:var(--txt)}
   .rmeta{font-size:11.5px;color:var(--muted);margin-top:3px}
-  .rmac{display:flex;gap:6px;margin-top:8px;font-size:10.5px;font-weight:700;flex-wrap:wrap}
-  .rmac span{background:var(--inp);border-radius:6px;padding:3px 6px;color:var(--txt)}
   .rc-user{font-size:9px;background:var(--green);color:#fff;padding:2px 6px;border-radius:99px;font-weight:800;vertical-align:middle}
   .rdisc{font-size:11.5px;color:var(--muted);background:var(--inp);border-radius:10px;padding:10px 12px;margin-top:12px}
   /* Share Your Menu toggle */
@@ -70,6 +68,39 @@
   .pm-hero{aspect-ratio:4/3;max-height:56vh;border-radius:14px;display:grid;place-items:center;font-size:64px;background-size:cover;background-repeat:no-repeat;background-position:center;background-color:var(--inp);margin-bottom:12px}
   .pm-types{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
   .pm-types span{font-size:11px;font-weight:800;background:var(--inp);color:var(--txt);border-radius:99px;padding:4px 10px;text-transform:capitalize}
+  /* --- Detail resep: panel gizi + porsi + dua kolom Bahan/Cara buat (pola sama dgn recipe.20fit.id) --- */
+  .nutri{border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px;background:var(--inp)}
+  .nutri-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .nutri-h .lbl{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+  .nutri-h .kcal{font-size:19px;font-weight:900;color:var(--txt)}
+  .nutri-h .kcal small{font-size:11px;font-weight:600;color:var(--muted);margin-left:3px}
+  .porsi{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border-radius:10px;padding:8px 12px;margin-bottom:12px}
+  .porsi .q{font-size:12.5px;font-weight:700;color:var(--muted)}
+  .porsi .ctl{display:flex;align-items:center;gap:10px}
+  .porsi button{width:28px;height:28px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--txt);font-size:15px;font-weight:800;cursor:pointer;line-height:1;font-family:inherit}
+  .porsi button:disabled{opacity:.3;cursor:default}
+  .porsi .n{min-width:22px;text-align:center;font-size:14px;font-weight:900;color:var(--txt)}
+  .mbar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:var(--card)}
+  .mbar i{display:block;transition:width .2s}
+  .mleg{display:flex;justify-content:space-between;gap:8px;margin-top:7px;font-size:11px;color:var(--muted);font-weight:600}
+  .mleg b{display:inline-block;width:8px;height:8px;border-radius:99px;margin-right:5px;vertical-align:middle}
+  .mgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+  .mgrid div{background:var(--card);border-radius:10px;padding:9px 6px;text-align:center}
+  .mgrid .k{font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+  .mgrid .v{font-size:15px;font-weight:900;color:var(--txt);margin-top:3px}
+  .nutri-note{font-size:11px;font-style:italic;color:var(--muted);margin-top:11px;line-height:1.5}
+  .cols{display:grid;grid-template-columns:1fr;gap:14px;margin-top:18px}
+  @media(min-width:760px){ .cols{grid-template-columns:1fr 1.35fr;gap:18px} }
+  .col{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--card)}
+  .col h3{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin:0 0 10px;padding-bottom:9px;border-bottom:1px solid var(--line);font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+  .ing-x{flex:none;font-size:10.5px;font-weight:800;letter-spacing:0;text-transform:none;padding:3px 8px;border-radius:99px;background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red)}
+  .ing{list-style:none;margin:0;padding:0}
+  .ing li{position:relative;padding-left:16px;font-size:13.5px;line-height:1.55;margin:7px 0;color:var(--txt)}
+  .ing li::before{content:"";position:absolute;left:3px;top:8px;width:5px;height:5px;border-radius:99px;background:var(--red)}
+  .stp{list-style:none;margin:0;padding:0;counter-reset:st}
+  .stp li{display:flex;gap:11px;margin:12px 0}
+  .stp .no{flex:0 0 auto;width:26px;height:26px;border-radius:99px;background:var(--red);color:#fff;font-size:12.5px;font-weight:800;display:grid;place-items:center}
+  .stp .tx{font-size:13.5px;line-height:1.6;color:var(--txt)}
   .pm-log{width:100%;margin-top:18px;padding:14px;border:0;border-radius:12px;background:var(--green);color:#fff;font-weight:800;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
   .pm-log:disabled{opacity:.6;cursor:default}
   @media(min-width:620px){ .pm-bg{align-items:center;padding:24px} .pm{border-radius:22px} .pm .grab{display:none} }
@@ -79,30 +110,29 @@
   .toast button{background:transparent;border:0;color:#7fd4ff;font-weight:800;cursor:pointer;font-size:13.5px;white-space:nowrap}
   /* Articles (my20fit_recipe_article) */
   .sec-h2{font-size:15px;font-weight:900;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.5px}
-  .agrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media(min-width:700px){ .agrid{grid-template-columns:1fr 1fr 1fr} }
-  .acard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);text-align:left;padding:0;font-family:inherit;color:var(--txt)}
-  .acover{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;object-position:center;background:var(--inp);border:0}
-  .art-hero{display:block;width:100%;aspect-ratio:16/9;max-height:42vh;object-fit:cover;object-position:center;border-radius:14px;margin-bottom:12px;background:var(--inp)}
-  img.imgfb{object-fit:contain;padding:0}
-  .abody{padding:10px 12px}
-  .acatlbl{font-size:10px;font-weight:800;color:var(--red);text-transform:uppercase;letter-spacing:.4px}
-  .atitle{font-weight:800;font-size:13.5px;line-height:1.25;margin-top:3px;color:var(--txt)}
-  .aexc{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .askel{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;height:172px}
   .sk{width:100%;height:100%;background:linear-gradient(90deg,var(--inp) 25%,rgba(128,128,128,.12) 37%,var(--inp) 63%);background-size:400% 100%;animation:skl 1.3s infinite}
   @keyframes skl{0%{background-position:100% 0}100%{background-position:0 0}}
+  /* --- Browse resep: bar filter, badge waktu masak, tag & batang makro --- */
+  .rfilters{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:12px}
+  @media(min-width:700px){ .rfilters{grid-template-columns:1.4fr 1fr 1fr 1fr} }
+  .rfield{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--card);color:var(--txt);font-size:13px;font-weight:600;font-family:inherit}
+  .rfield.on{border-color:var(--red);color:var(--red)}
+  .ractive{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-2px 0 12px;font-size:11.5px;color:var(--muted)}
+  .ractive .tag{background:var(--inp);border-radius:99px;padding:3px 9px;font-weight:700;color:var(--txt)}
+  .ractive button{background:none;border:0;color:var(--red);font-weight:800;font-size:11.5px;cursor:pointer;font-family:inherit;padding:3px 4px}
+  .rthumbwrap{position:relative}
+  .rtime{position:absolute;left:8px;bottom:8px;display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.45);color:#fff;border-radius:99px;padding:3px 8px;font-size:10.5px;font-weight:700}
+  .rby{font-size:10.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rtags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .rtags span{background:var(--inp);border-radius:99px;padding:3px 8px;font-size:10px;font-weight:700;color:var(--txt)}
+  .rbar{display:flex;height:6px;border-radius:99px;overflow:hidden;margin-top:8px;background:var(--inp)}
+  .rbar i{display:block}
+  .rbarlbl{display:flex;gap:9px;margin-top:5px;font-size:10px;font-weight:700;color:var(--muted)}
   .loadmore{width:100%;margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:11px;background:var(--card);color:var(--txt);font-weight:800;font-size:14px;cursor:pointer}
   .errbox{padding:18px;text-align:center;color:var(--muted);font-size:13px}
   .errbox button{margin-top:10px;padding:9px 16px;border:1px solid var(--red);border-radius:10px;background:transparent;color:var(--red);font-weight:800;cursor:pointer}
   /* Article reader (markdown) */
-  .amd{font-size:14.5px;line-height:1.7;color:var(--txt)}
-  .amd h1,.amd h2,.amd h3{font-weight:800;margin:18px 0 8px;line-height:1.3}
-  .amd h1{font-size:20px}.amd h2{font-size:17px}.amd h3{font-size:15px}
-  .amd p{margin:10px 0}.amd ul,.amd ol{margin:10px 0;padding-left:22px}.amd li{margin:4px 0}
-  .amd img{max-width:100%;border-radius:12px;margin:12px 0}
-  .amd a{color:var(--red);font-weight:700}
-  .amd strong{font-weight:800}
   /* Like / Save di detail resep */
   .rsoc{display:flex;gap:10px;margin:14px 0 4px}
   .soc-btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--card);color:var(--txt);border-radius:11px;padding:9px 13px;font-weight:800;font-size:13px;cursor:pointer}
@@ -125,16 +155,19 @@
     <h1 data-i18n="diet_title">Recipe</h1>
     <p class="lead" data-i18n="diet_intro">20FIT recipes &amp; member menus — pick a diet type, then tap a dish for the full recipe. Contribute your own anytime.</p>
 
-    <!-- ARTIKEL RESEP (my20fit_recipe_article) — paginasi di server, filter kategori -->
-    <div class="sec-h2" data-i18n="rec_articles_h">Articles</div>
-    <div class="chips" id="artCats"></div>
-    <div class="agrid" id="artGrid"></div>
-    <button class="loadmore" id="artMore" hidden onclick="loadMoreArticles()" data-i18n="rec_load_more">Load more</button>
-
-    <!-- BAGIAN UTAMA: rekomendasi menu 20FIT per tipe diet -->
-    <div class="sec-h2" data-i18n="rec_recipes_h" style="margin-top:26px">Recipes</div>
+    <!-- BROWSE RESEP: cari + filter (kategori / diet / kalori) + urutkan + muat bertahap.
+         Susunan & opsi mengikuti halaman /resep di recipe.20fit.id. -->
+    <div class="sec-h2" data-i18n="rec_recipes_h">Recipes</div>
+    <div class="rfilters">
+      <input class="rfield" id="rq" type="search" oninput="onFilterChange()" data-i18n-ph="rec_search" placeholder="Search recipes…" aria-label="Search recipes">
+      <select class="rfield" id="rcat" onchange="onFilterChange()" aria-label="Category"></select>
+      <select class="rfield" id="rkcal" onchange="onFilterChange()" aria-label="Calories"></select>
+      <select class="rfield" id="rsort" onchange="onFilterChange()" aria-label="Sort"></select>
+    </div>
     <div class="chips" id="dietChips"></div>
+    <div class="ractive" id="rActive"></div>
     <div class="rgrid" id="recipeGrid"><div class="empty" data-i18n="diet_recipes_loading">Loading recipes…</div></div>
+    <button class="loadmore" id="recMore" hidden onclick="showMoreRecipes()" data-i18n="rec_load_more">Load more</button>
     <div class="rdisc" data-i18n="diet_disc">Calorie &amp; macro figures are estimates for portion guidance — not a substitute for professional nutrition advice. Photos are placeholders; real photos coming soon.</div>
 
     <!-- Pintu masuk kontribusi (tersembunyi di balik toggle) -->
@@ -196,14 +229,6 @@
       <div id="recBody"></div>
     </div>
   </div>
-  <!-- Reader artikel in-app (markdown -> HTML) -->
-  <div class="pm-bg" id="artBg">
-    <div class="pm" id="artPm">
-      <button class="x-close x-abs" onclick="closeArticle()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-      <div class="grab"></div>
-      <div id="artRead"></div>
-    </div>
-  </div>
   <div class="toast" id="toast"></div>
 
   <script src="js/vendor-supabase.js"></script>
@@ -223,14 +248,14 @@
     }
     (async function(){
       user=await Auth.requireAuth();
+      readUrlFilters();
+      renderRecipeSkeleton();
       loadRecipes();
-      loadCategories(); reloadArticles();
     })();
     // Re-render teks dinamis saat bahasa diganti (static di-handle i18n.apply()).
     if(window.I18N&&I18N.onChange) I18N.onChange(function(){
-      renderChips(); renderRecipes();
+      renderFilterControls(); renderChips(); renderRecipes();
       if(LASTJ) renderReward(LASTJ);
-      loadCategories(); reloadArticles(); // artikel dibaca ulang dgn bahasa baru
     });
 
     // ---- Toggle "Share Your Menu" (lazy-load submission saat pertama dibuka) ----
@@ -243,6 +268,22 @@
 
     // ---- Rekomendasi resep: resep resmi 20FIT + menu user approved+published ----
     var ITEMS=[], curType="all";
+    // Filter & urutan: nilai + label MENGIKUTI /resep di recipe.20fit.id supaya perilakunya sama.
+    var FILT={q:"",cat:"",kcal:"",sort:""};
+    var PAGE_SIZE=15, shown=PAGE_SIZE;
+    var KCAL_RANGES=[
+      {v:"0-300",   min:0,   max:300,      nm:{id:"< 300 kal",     en:"< 300 cal"}},
+      {v:"300-500", min:300, max:500,      nm:{id:"300–500 kal",   en:"300–500 cal"}},
+      {v:"500-700", min:500, max:700,      nm:{id:"500–700 kal",   en:"500–700 cal"}},
+      {v:"700+",    min:700, max:Infinity, nm:{id:"700+ kal",      en:"700+ cal"}}
+    ];
+    var SORT_OPTIONS=[
+      {v:"kcal-asc",     nm:{id:"Kalori terendah",   en:"Lowest calories"}},
+      {v:"kcal-desc",    nm:{id:"Kalori tertinggi",  en:"Highest calories"}},
+      {v:"protein-desc", nm:{id:"Protein tertinggi", en:"Most protein"}},
+      {v:"time-asc",     nm:{id:"Tercepat dimasak",  en:"Quickest to cook"}},
+      {v:"name-asc",     nm:{id:"Nama A–Z",          en:"Name A–Z"}}
+    ];
     var DIET_TYPES=["normal","vegetarian","vegan","pescatarian","keto","high-protein","low-carb","halal"];
     function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
     async function loadRecipes(){
@@ -258,12 +299,14 @@
         userMenus=(j2&&j2.ok&&Array.isArray(j2.menus))?j2.menus:[];
       }catch(e){}
       ITEMS=catalog.map(function(r){
-        return { key:"r_"+r.id, nm:r.nm, kcal:r.kcal, p:r.p, c:r.c, f:r.f, types:r.types||[], ingO:r.ing, stepsO:r.steps, emoji:r.emoji, tint:r.tint, source:"20fit", rec:r };
+        return { key:"r_"+r.id, nm:r.nm, kcal:r.kcal, p:r.p, c:r.c, f:r.f, types:r.types||[], ingO:r.ing, stepsO:r.steps, emoji:r.emoji, tint:r.tint,
+                 cat:r.cat||"", mins:(+r.cookMinutes||0)+(+r.prepMinutes||0), by:"20FIT", servings:(+r.servings||1), source:"20fit", rec:r };
       });
       userMenus.forEach(function(m){
-        ITEMS.push({ key:"u_"+m.id, title:m.name, kcal:m.est_kcal||null, types:[m.diet_type||"normal"], ing:m.ingredients||"", steps:m.steps||"", photo:m.photo_url||null, source:"user" });
+        ITEMS.push({ key:"u_"+m.id, title:m.name, kcal:m.est_kcal||null, types:[m.diet_type||"normal"], ing:m.ingredients||"", steps:m.steps||"",
+                     photo:m.photo_url||null, cat:"", mins:(+m.cook_minutes||0)+(+m.prep_minutes||0), by:m.display_name||"", servings:(+m.servings||1), source:"user" });
       });
-      renderChips(); renderRecipes();
+      renderFilterControls(); renderChips(); renderRecipes();
     }
     function titleOf(it){ return it.source==="20fit" ? LL(it.nm) : (it.title||""); }
     function ingOf(it){ return it.source==="20fit" ? LL(it.ingO) : (it.ing||""); }
@@ -281,25 +324,146 @@
         return '<button class="chip'+(t===curType?" on":"")+'" onclick="setDietType(\''+t+'\')">'+esc(name)+'</button>';
       }).join("");
     }
-    function setDietType(t){ curType=t; renderChips(); renderRecipes(); }
-    function renderRecipes(){
-      var grid=document.getElementById("recipeGrid");
-      var list=ITEMS.filter(function(it){ return curType==="all"||it.types.indexOf(curType)>=0; });
-      if(!list.length){ grid.innerHTML='<div class="empty">'+esc(T("diet_none"))+'</div>'; return; }
+    // Kerangka kartu selagi katalog dimuat (pengganti teks "Loading recipes…" yang polos).
+    function renderRecipeSkeleton(){
+      var g=document.getElementById("recipeGrid"); if(!g) return;
+      g.innerHTML=Array(6).fill('<div class="askel"><div class="sk"></div></div>').join("");
+      var m=$("recMore"); if(m) m.hidden=true;
+    }
+    function setDietType(t){ curType=t; shown=PAGE_SIZE; syncUrl(); renderChips(); renderRecipes(); }
+    function LLx(o){ return (window.I18N&&I18N.lang==="en")?o.en:o.id; }
+
+    // ---- URL <-> filter: bisa dibagikan & di-refresh tanpa kehilangan pilihan ----
+    function readUrlFilters(){
+      try{
+        var q=new URLSearchParams(location.search);
+        FILT.q=q.get("q")||""; FILT.cat=q.get("category")||""; FILT.kcal=q.get("kcal")||""; FILT.sort=q.get("sort")||"";
+        curType=q.get("diet")||"all";
+      }catch(e){}
+    }
+    function syncUrl(){
+      try{
+        var q=new URLSearchParams();
+        if(FILT.q.trim()) q.set("q",FILT.q.trim());
+        if(FILT.cat) q.set("category",FILT.cat);
+        if(curType&&curType!=="all") q.set("diet",curType);
+        if(FILT.kcal) q.set("kcal",FILT.kcal);
+        if(FILT.sort) q.set("sort",FILT.sort);
+        var qs=q.toString();
+        history.replaceState(null,"",location.pathname+(qs?("?"+qs):""));
+      }catch(e){}
+    }
+
+    // ---- Kontrol filter: kategori diambil dari data (bukan daftar tebakan) ----
+    function categoriesOf(){
+      var set={}; ITEMS.forEach(function(it){ if(it.cat) set[it.cat]=1; });
+      return Object.keys(set).sort();
+    }
+    function fillSelect(el, opts, cur, kosongLbl){
+      if(!el) return;
+      el.innerHTML='<option value="">'+esc(kosongLbl)+'</option>'+
+        opts.map(function(o){ return '<option value="'+esc(o.v)+'"'+(o.v===cur?" selected":"")+'>'+esc(o.nm)+'</option>'; }).join("");
+      el.classList.toggle("on", !!cur);
+    }
+    function renderFilterControls(){
+      var qEl=$("rq"); if(qEl){ qEl.value=FILT.q; qEl.classList.toggle("on", !!FILT.q.trim()); }
+      fillSelect($("rcat"), categoriesOf().map(function(c){ return {v:c, nm:c}; }), FILT.cat, T("rec_all_cat"));
+      fillSelect($("rkcal"), KCAL_RANGES.map(function(r){ return {v:r.v, nm:LLx(r.nm)}; }), FILT.kcal, T("rec_all_kcal"));
+      fillSelect($("rsort"), SORT_OPTIONS.map(function(o){ return {v:o.v, nm:LLx(o.nm)}; }), FILT.sort, T("rec_sort_default"));
+    }
+    function onFilterChange(){
+      FILT.q=($("rq")||{}).value||"";
+      FILT.cat=($("rcat")||{}).value||"";
+      FILT.kcal=($("rkcal")||{}).value||"";
+      FILT.sort=($("rsort")||{}).value||"";
+      shown=PAGE_SIZE; syncUrl(); renderFilterControls(); renderRecipes();
+    }
+    function resetFilters(){
+      FILT={q:"",cat:"",kcal:"",sort:""}; curType="all"; shown=PAGE_SIZE;
+      syncUrl(); renderFilterControls(); renderChips(); renderRecipes();
+    }
+    function showMoreRecipes(){ shown+=PAGE_SIZE; renderRecipes(); }
+
+    // ---- Saring + urutkan (aturan sama dgn recipe.20fit.id) ----
+    function filteredItems(){
+      var q=FILT.q.trim().toLowerCase();
+      var kr=null; for(var i=0;i<KCAL_RANGES.length;i++){ if(KCAL_RANGES[i].v===FILT.kcal) kr=KCAL_RANGES[i]; }
+      var list=ITEMS.filter(function(it){
+        if(q){
+          var hay=(titleOf(it)+" "+ingOf(it)).toLowerCase();
+          if(hay.indexOf(q)<0) return false;
+        }
+        if(FILT.cat && it.cat!==FILT.cat) return false;
+        if(curType!=="all" && it.types.indexOf(curType)<0) return false;
+        if(kr){ if(it.kcal==null) return false; if(it.kcal<kr.min||it.kcal>kr.max) return false; }
+        return true;
+      });
+      var INF=Infinity;
+      switch(FILT.sort){
+        case "kcal-asc":     return list.sort(function(a,b){ return (a.kcal==null?INF:a.kcal)-(b.kcal==null?INF:b.kcal); });
+        case "kcal-desc":    return list.sort(function(a,b){ return (b.kcal||0)-(a.kcal||0); });
+        case "protein-desc": return list.sort(function(a,b){ return (b.p||0)-(a.p||0); });
+        case "time-asc":     return list.sort(function(a,b){ return (a.mins||INF)-(b.mins||INF); });
+        case "name-asc":     return list.sort(function(a,b){ return titleOf(a).localeCompare(titleOf(b)); });
+        default:             return list;
+      }
+    }
+    function renderActive(total){
+      var box=$("rActive"); if(!box) return;
+      var tags=[];
+      if(FILT.q.trim()) tags.push('"'+esc(FILT.q.trim())+'"');
+      if(FILT.cat) tags.push(esc(FILT.cat));
+      if(curType!=="all") tags.push(esc(curType.replace(/-/g," ")));
+      if(FILT.kcal){ for(var i=0;i<KCAL_RANGES.length;i++){ if(KCAL_RANGES[i].v===FILT.kcal) tags.push(esc(LLx(KCAL_RANGES[i].nm))); } }
+      if(!tags.length){ box.innerHTML=""; return; }
+      box.innerHTML='<span>'+total+' '+esc(T("rec_results"))+'</span>'+
+        tags.map(function(t){ return '<span class="tag">'+t+'</span>'; }).join("")+
+        '<button type="button" onclick="resetFilters()">'+esc(T("rec_reset"))+'</button>';
+    }
+    // Batang makro: proporsi protein/karbo/lemak — pola sama dgn kartu di recipe.20fit.id.
+    function macroBar(it){
+      if(it.p==null) return "";
+      var p=+it.p||0, c=+it.c||0, f=+it.f||0, tot=p+c+f;
+      if(!tot) return "";
+      var pp=Math.round(p/tot*100), cp=Math.round(c/tot*100), fp=100-pp-cp;
+      return '<div class="rbar">'+
+        '<i style="width:'+pp+'%;background:var(--blue,#2F6BFF)"></i>'+
+        '<i style="width:'+cp+'%;background:var(--amber,#C87000)"></i>'+
+        '<i style="width:'+fp+'%;background:var(--red)"></i></div>'+
+        '<div class="rbarlbl"><span>P '+p+'g</span><span>C '+c+'g</span><span>F '+f+'g</span></div>';
+    }
+    function clockSvg(){ return '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'; }
+    function recipeCardHtml(it){
       var KC=T("diet_kcal");
-      grid.innerHTML=list.map(function(it){
-        var thumb=it.photo ? ('<div class="rthumb" style="background-image:url('+JSON.stringify(it.photo)+')"></div>')
-                           : ('<div class="rthumb" id="th_'+it.key+'" style="background:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>');
-        var mac=(it.p!=null)?('<div class="rmac"><span>P '+it.p+'g</span><span>C '+it.c+'g</span><span>F '+it.f+'g</span></div>'):'';
-        var meta='~'+(it.kcal!=null?it.kcal+' '+KC:'—')+(it.source==="user"?' · <span class="rc-user">USER</span>':'');
-        return '<button class="rcard" onclick="openRecipe(\''+it.key+'\')">'+thumb+
-          '<div class="rbody"><div class="rname">'+esc(titleOf(it))+'</div><div class="rmeta">'+meta+'</div>'+mac+'</div></button>';
-      }).join("");
-      // Resolve real food photos for 20fit items (emoji stays as fallback on failure).
-      // Lazy: hanya fetch saat kartunya masuk viewport (hindari belasan fetch serentak).
+      var inner=it.photo ? ('<div class="rthumb" style="background-image:url('+JSON.stringify(it.photo)+')"></div>')
+                         : ('<div class="rthumb" id="th_'+it.key+'" style="background-image:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>');
+      var time=it.mins ? ('<span class="rtime">'+clockSvg()+it.mins+' '+esc(T("rec_min"))+'</span>') : '';
+      var thumb='<div class="rthumbwrap">'+inner+time+'</div>';
+      var tags='<div class="rtags">'+
+        (it.kcal!=null?('<span>'+it.kcal+' '+esc(KC)+'</span>'):'')+
+        (it.types||[]).slice(0,2).map(function(t){ return '<span>'+esc(String(t).replace(/-/g," "))+'</span>'; }).join("")+
+        (it.source==="user"?'<span class="rc-user">USER</span>':'')+'</div>';
+      var by=it.by ? ('<div class="rby">'+esc(T("rec_by"))+' '+esc(it.by)+'</div>') : '';
+      return '<button class="rcard" onclick="openRecipe(\''+it.key+'\')">'+thumb+
+        '<div class="rbody"><div class="rname">'+esc(titleOf(it))+'</div>'+by+tags+macroBar(it)+'</div></button>';
+    }
+    function renderRecipes(){
+      var grid=document.getElementById("recipeGrid"), more=$("recMore");
+      var list=filteredItems();
+      renderActive(list.length);
+      if(!list.length){
+        grid.innerHTML='<div class="empty" style="grid-column:1/-1">'+esc(T("diet_none"))+'</div>';
+        if(more) more.hidden=true;
+        return;
+      }
+      var page=list.slice(0, shown);
+      grid.innerHTML=page.map(recipeCardHtml).join("");
+      if(more) more.hidden = shown>=list.length;
+      // Foto asli resep 20FIT (emoji tetap jadi cadangan kalau gagal).
+      // Lazy: baru di-fetch saat kartunya masuk viewport (hindari belasan fetch serentak).
       if(window.RecipePhotos && (RecipePhotos.applyThumbLazy || RecipePhotos.applyThumb)){
         var _apply = RecipePhotos.applyThumbLazy || RecipePhotos.applyThumb;
-        list.forEach(function(it){
+        page.forEach(function(it){
           if(it.rec && !it.photo){ _apply(document.getElementById("th_"+it.key), it.rec); }
         });
       }
@@ -322,29 +486,165 @@
         }).catch(function(){});
       }catch(e){}
     }
+    // ---- Detail resep: panel gizi + kontrol porsi + dua kolom Bahan/Cara buat ----
+    // Mengikuti DetailPage.tsx di repo MENU (recipe.20fit.id): porsi 1..12, angka gizi
+    // diskalakan ratio = porsi/porsi-dasar, dan proporsi batang dihitung dari KALORI
+    // (protein & karbo 4 kkal/g, lemak 9 kkal/g) — bukan dari gram.
+    var MIN_PORSI=1, MAX_PORSI=12, curPorsi=1, curBase=1;
+    function ratioPorsi(){ return curBase>0 ? (curPorsi/curBase) : 1; }
+    function skala(v){ return (v==null) ? null : Math.round(v*ratioPorsi()); }
+    function setPorsi(d){
+      var n=curPorsi+d;
+      if(n<MIN_PORSI||n>MAX_PORSI) return;
+      curPorsi=n; renderNutrition(); renderIngredients();
+    }
+    function macroBarBig(p,c,f){
+      var pc=p*4, cc=c*4, fc=f*9, tot=pc+cc+fc;
+      if(!tot) return "";
+      var pp=Math.round(pc/tot*100), cp=Math.round(cc/tot*100), fp=100-pp-cp;
+      var B="var(--blue,#2F6BFF)", A="var(--amber,#C87000)", R="var(--red)";
+      return '<div class="mbar"><i style="width:'+pp+'%;background:'+B+'"></i>'+
+             '<i style="width:'+cp+'%;background:'+A+'"></i>'+
+             '<i style="width:'+fp+'%;background:'+R+'"></i></div>'+
+        '<div class="mleg">'+
+          '<span><b style="background:'+B+'"></b>'+esc(T("cal_protein"))+' '+pp+'%</span>'+
+          '<span><b style="background:'+A+'"></b>'+esc(T("cal_carbs"))+' '+cp+'%</span>'+
+          '<span><b style="background:'+R+'"></b>'+esc(T("cal_fat"))+' '+fp+'%</span>'+
+        '</div>';
+    }
+    // Panel gizi dirender terpisah supaya tombol +/- porsi tak perlu membangun ulang modal.
+    function renderNutrition(){
+      var box=document.getElementById("nutriBox"); var it=curLogItem;
+      if(!box||!it) return;
+      if(it.kcal==null){ box.innerHTML='<div class="rdisc">'+esc(T("diet_log_nokcal"))+'</div>'; return; }
+      var kc=skala(it.kcal), P=skala(it.p)||0, C=skala(it.c)||0, F=skala(it.f)||0;
+      var punyaMakro=(it.p!=null);
+      box.innerHTML=
+        '<div class="nutri-h"><span class="lbl">'+esc(T("rec_nutrition"))+'</span>'+
+          '<span class="kcal">'+kc+'<small>'+esc(T("diet_kcal"))+'</small></span></div>'+
+        '<div class="porsi"><span class="q">'+esc(T("rec_portions"))+'</span>'+
+          '<span class="ctl">'+
+            '<button type="button" onclick="setPorsi(-1)"'+(curPorsi<=MIN_PORSI?" disabled":"")+' aria-label="-">−</button>'+
+            '<span class="n">'+curPorsi+'</span>'+
+            '<button type="button" onclick="setPorsi(1)"'+(curPorsi>=MAX_PORSI?" disabled":"")+' aria-label="+">+</button>'+
+          '</span></div>'+
+        (punyaMakro ? (macroBarBig(P,C,F)+
+          '<div class="mgrid">'+
+            '<div><div class="k">'+esc(T("cal_protein"))+'</div><div class="v">'+P+' g</div></div>'+
+            '<div><div class="k">'+esc(T("cal_carbs"))+'</div><div class="v">'+C+' g</div></div>'+
+            '<div><div class="k">'+esc(T("cal_fat"))+'</div><div class="v">'+F+' g</div></div>'+
+          '</div>') : '')+
+        '<div class="nutri-note">'+esc(T("diet_nutri_est"))+' — '+esc(T("rec_est_for").replace("{n}", String(curPorsi)))+'</div>'+
+        '<button class="pm-log" onclick="logFood()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> '+
+          esc(T("diet_logfood"))+' <span style="opacity:.85;font-weight:700">· '+kc+' '+esc(T("diet_kcal"))+' · '+curPorsi+' '+esc(T("rec_portion_word"))+'</span></button>';
+    }
+    // ---- Skala JUMLAH bahan dari TEKS BEBAS ----
+    // Port dari src/lib/scaleIngredients.ts di repo MENU (recipe.20fit.id): aturan,
+    // dukungan format, dan cara menulis hasilnya dibuat sama persis. BEST-EFFORT —
+    // hanya kuantitas di AWAL baris yang diskalakan ("2 potong ayam"); angka lain di
+    // baris tidak disentuh, dan baris tanpa kuantitas awal ("garam secukupnya")
+    // dibiarkan apa adanya. Lebih baik tidak diubah daripada salah-skala.
+    var UNI_FRAC={"½":0.5,"⅓":1/3,"⅔":2/3,"¼":0.25,"¾":0.75,
+                  "⅕":0.2,"⅖":0.4,"⅗":0.6,"⅘":0.8,
+                  "⅙":1/6,"⅚":5/6,"⅛":0.125,"⅜":0.375,"⅝":0.625,"⅞":0.875};
+    var FRAC_CH="½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞";
+    // Satu token kuantitas -> angka. null kalau bukan angka yang dikenali.
+    function parseQty(tok){
+      var t=String(tok||"").trim(); if(!t) return null;
+      var m=t.match(/^(\d+)\s+(\d+)\/(\d+)$/);                 // campuran: "1 1/2"
+      if(m){ var d=+m[3]; return d ? ((+m[1])+(+m[2])/d) : null; }
+      m=t.match(new RegExp("^(\\d+)\\s*(["+FRAC_CH+"])$"));       // campuran unicode: "1½"
+      if(m) return (+m[1])+UNI_FRAC[m[2]];
+      if(t.length===1 && UNI_FRAC[t]!=null) return UNI_FRAC[t];    // "½"
+      m=t.match(/^(\d+)\/(\d+)$/);                              // "1/2"
+      if(m){ var d2=+m[2]; return d2 ? (+m[1])/d2 : null; }
+      if(/^\d+(?:[.,]\d+)?$/.test(t)) return parseFloat(t.replace(",","."));
+      return null;
+    }
+    // Angka hasil skala -> teks rapi: bulat, pecahan umum, atau desimal.
+    function fmtQty(n){
+      if(!isFinite(n)||n<0) return String(n);
+      n=Math.round(n*1000)/1000;                                   // buang noise floating point
+      var whole=Math.floor(n+1e-9), frac=n-whole;
+      if(frac<1e-6) return String(whole);
+      var tbl=[[0.5,"½"],[0.25,"¼"],[0.75,"¾"],[1/3,"⅓"],[2/3,"⅔"]];
+      for(var i=0;i<tbl.length;i++){
+        if(Math.abs(frac-tbl[i][0])<0.01) return whole>0 ? (whole+tbl[i][1]) : tbl[i][1];
+      }
+      return n.toFixed(2).replace(/0+$/,"").replace(/\.$/,"");
+    }
+    var RE_QTY=new RegExp("^("+
+      "\\d+\\s+\\d+\\/\\d+"+        // 1 1/2
+      "|\\d+\\s*["+FRAC_CH+"]"+         // 1½
+      "|\\d+\\/\\d+"+                 // 1/2
+      "|["+FRAC_CH+"]"+                 // ½
+      "|\\d+(?:[.,]\\d+)?"+             // 2 / 2.5 / 2,5
+      ")(?=\\s|$|[a-zA-Z(])");
+    var RE_QTY_RANGE=/^(\d+(?:[.,]\d+)?)\s*[-–—]\s*(\d+(?:[.,]\d+)?)(?=\s|$|[a-zA-Z(])/;
+    function scaleIngLine(line, ratio){
+      if(!isFinite(ratio)||ratio<=0||Math.abs(ratio-1)<1e-9) return line;
+      var r=line.match(RE_QTY_RANGE);                              // rentang dulu: "2-3" -> "4-6"
+      if(r){
+        var a=parseQty(r[1]), b=parseQty(r[2]);
+        if(a!=null&&b!=null) return fmtQty(a*ratio)+"–"+fmtQty(b*ratio)+line.slice(r[0].length);
+      }
+      var m=line.match(RE_QTY);
+      if(m){
+        var n=parseQty(m[1]);
+        if(n!=null) return fmtQty(n*ratio)+line.slice(m[1].length);
+      }
+      return line;                                                 // tak ada kuantitas awal -> biarkan
+    }
+    // Bahan -> daftar berpoin; jumlahnya ikut porsi terpilih.
+    function ingListHtml(it){
+      var ratio=ratioPorsi();
+      var baris=String(ingOf(it)||"").split(/\r?\n/).map(function(x){ return x.trim(); }).filter(Boolean);
+      if(!baris.length) return '<div class="muted" style="font-size:13px">—</div>';
+      return '<ul class="ing">'+baris.map(function(x){ return '<li>'+esc(scaleIngLine(x,ratio))+'</li>'; }).join("")+'</ul>';
+    }
+    // Kolom bahan dirender terpisah supaya tombol +/- porsi bisa memperbarui jumlahnya.
+    function renderIngredients(){
+      var box=document.getElementById("ingBox"); var it=curLogItem;
+      if(!box||!it) return;
+      var ratio=ratioPorsi(), berskala=Math.abs(ratio-1)>1e-9;
+      var chip=berskala ? '<span class="ing-x">'+esc(T("rec_ing_scale_badge").replace("{n}", String(parseFloat(ratio.toFixed(2)))))+'</span>' : '';
+      var catatan=berskala ? '<div class="nutri-note" style="margin:0 0 10px">'+esc(T("rec_ing_scale_note"))+'</div>' : '';
+      box.innerHTML='<h3>'+esc(T("recipe_ing"))+chip+'</h3>'+catatan+ingListHtml(it);
+    }
+    // Cara buat -> daftar bernomor; nomor bawaan di teks ("1. ") dibuang biar tak dobel.
+    function stepListHtml(it){
+      var baris=String(stepsOf(it)||"").split(/\r?\n/).map(function(x){ return x.trim(); }).filter(Boolean)
+        .map(function(x){ return x.replace(/^\d+[.)]\s*/, ""); });
+      if(!baris.length) return '<div class="muted" style="font-size:13px">—</div>';
+      return '<ol class="stp">'+baris.map(function(x,i){
+        return '<li><span class="no">'+(i+1)+'</span><span class="tx">'+esc(x)+'</span></li>';
+      }).join("")+'</ol>';
+    }
     function openRecipe(key){
       var it=ITEMS.filter(function(x){return x.key===key;})[0]; if(!it) return;
       curLogItem=it;
+      curBase=Math.max(1, +it.servings||1); curPorsi=curBase;
       trackMenuOpen(it);
-      var mac=(it.p!=null)?('<div class="rmac" style="margin:8px 0"><span>'+esc(T("cal_protein"))+' '+it.p+'g</span><span>'+esc(T("cal_carbs"))+' '+it.c+'g</span><span>'+esc(T("cal_fat"))+' '+it.f+'g</span></div>'):'';
       var hero=it.photo ? '<div class="pm-hero" style="background-image:url('+JSON.stringify(it.photo)+')"></div>'
-                        : '<div class="pm-hero" style="background:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>';
-      var tps=(it.types||[]).filter(Boolean);
-      var badges=tps.length?('<div class="pm-types">'+tps.map(function(t){return '<span>'+esc(String(t).replace(/-/g," "))+'</span>';}).join("")+'</div>'):'';
-      var logBtn=(it.kcal!=null)
-        ? '<button class="pm-log" onclick="logFood()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> '+esc(T("diet_logfood"))+'</button>'
-        : '<div class="rdisc" style="margin-top:16px">'+esc(T("diet_log_nokcal"))+'</div>';
+                        : '<div class="pm-hero" style="background-image:linear-gradient(160deg,'+(it.tint||"#888")+'33,'+(it.tint||"#888")+'11)">'+(it.emoji||"🍽️")+'</div>';
+      var chips=[];
+      if(it.cat) chips.push(it.cat);
+      (it.types||[]).filter(Boolean).forEach(function(t){ chips.push(String(t).replace(/-/g," ")); });
+      if(it.source==="user") chips.push(T("diet_user_contrib"));
+      var badges=chips.length?('<div class="pm-types">'+chips.map(function(t){return '<span>'+esc(t)+'</span>';}).join("")+'</div>'):'';
+      var by=it.by?('<div class="muted" style="font-size:12px">'+esc(T("rec_by"))+' '+esc(it.by)+(it.mins?(' · '+it.mins+' '+esc(T("rec_min"))):'')+'</div>'):'';
       document.getElementById("recBody").innerHTML=
         hero+
-        '<h2 style="margin-top:0">'+esc(titleOf(it))+'</h2>'+badges+
-        '<div class="muted">~'+(it.kcal!=null?it.kcal+' '+esc(T("diet_kcal")):'—')+(it.source==="user"?' · '+esc(T("diet_user_contrib")):'')+'</div>'+mac+
+        '<h2 style="margin-top:0">'+esc(titleOf(it))+'</h2>'+badges+by+
         '<div class="rsoc" id="recSocial"></div>'+
-        '<label>'+esc(T("recipe_ing"))+'</label><div style="white-space:pre-wrap;font-size:14px">'+esc(ingOf(it))+'</div>'+
-        '<label>'+esc(T("recipe_steps"))+'</label><div style="white-space:pre-wrap;font-size:14px">'+esc(stepsOf(it))+'</div>'+
-        (it.source==="20fit"?'<div class="rdisc">'+esc(T("diet_nutri_est"))+'</div>':'')+
-        logBtn;
+        '<div class="nutri" id="nutriBox"></div>'+
+        '<div class="cols">'+
+          '<section class="col" id="ingBox"></section>'+
+          '<section class="col"><h3>'+esc(T("recipe_steps"))+'</h3>'+stepListHtml(it)+'</section>'+
+        '</div>';
+      renderNutrition(); renderIngredients();
       loadRecSocial(it); // Like/Save state (server, service key) + wiring tombol
-      // Resolve real food photo for 20fit hero (emoji stays as fallback on failure).
+      // Foto asli resep 20FIT untuk hero (emoji tetap jadi cadangan kalau gagal).
       if(window.RecipePhotos && RecipePhotos.applyThumb && it.rec && !it.photo){
         RecipePhotos.applyThumb(document.querySelector("#recBody .pm-hero"), it.rec);
       }
@@ -377,7 +677,9 @@
     async function logFood(){
       var it=curLogItem; if(!it||it.kcal==null) return;
       var btn=document.querySelector(".pm-log"); if(btn) btn.disabled=true;
-      var item={ name:titleOf(it), kcal:Math.round(it.kcal)||0, p:Math.round(+it.p||0), c:Math.round(+it.c||0), f:Math.round(+it.f||0), t:nowHM() };
+      // Angka yang dicatat = hasil skala porsi yang dipilih user, bukan angka dasar resep.
+      var nm=titleOf(it)+((curPorsi&&curPorsi!==1)?(" ("+curPorsi+" "+T("rec_portion_word")+")"):"");
+      var item={ name:nm, kcal:skala(it.kcal)||0, p:skala(it.p)||0, c:skala(it.c)||0, f:skala(it.f)||0, t:nowHM() };
       var key=calKeyToday();
       // Ambil cal_items TERKINI dari akun dulu (hindari nimpa log dari device lain); fallback cache device.
       var items=null;
@@ -507,94 +809,6 @@
       box.innerHTML='<label class="cbx"><input type="checkbox" id="consentChk2"><span>'+esc(CONSENT.text)+'</span></label>';
     }
 
-    // ============ ARTIKEL RESEP ============
-    // Sumber: my20fit_recipe_article (54 artikel) via endpoint server (paginasi server).
-    // Kolom bahasa: judul/excerpt/kategori pakai *_<lang>; ISI penuh dari body_md.
-    var ART_ITEMS=[], ART_CATS=[], ART_ST={cat:"",offset:0,limit:16,done:false,loading:false};
-    function artLang(){ return (window.I18N&&I18N.lang==="en")?"en":"id"; }
-    async function loadCategories(){
-      try{ var r=await fetch("/api/menu/article-categories?lang="+artLang()); var j=await r.json(); ART_CATS=(j&&j.categories)||[]; }
-      catch(e){ ART_CATS=[]; }
-      renderCats();
-    }
-    function renderCats(){
-      var html='<button class="chip'+(ART_ST.cat===""?" on":"")+'" onclick="setArtCat(-1)">'+esc(T("rec_all"))+'</button>';
-      html+=ART_CATS.map(function(c,i){ return '<button class="chip'+(ART_ST.cat===c.key?" on":"")+'" onclick="setArtCat('+i+')">'+esc(c.label)+' <span style="opacity:.55">'+(c.count||0)+'</span></button>'; }).join("");
-      $("artCats").innerHTML=html;
-    }
-    function setArtCat(i){ ART_ST.cat=(i<0)?"":((ART_CATS[i]&&ART_CATS[i].key)||""); renderCats(); reloadArticles(); }
-    function renderArtSkeleton(){ $("artGrid").innerHTML=Array(6).fill('<div class="askel"><div class="sk"></div></div>').join(""); $("artMore").hidden=true; }
-    function reloadArticles(){ ART_ITEMS=[]; ART_ST.offset=0; ART_ST.done=false; renderArtSkeleton(); loadArticles(); }
-    async function loadArticles(){
-      if(ART_ST.loading||ART_ST.done) return; ART_ST.loading=true;
-      var url="/api/menu/articles?lang="+artLang()+"&offset="+ART_ST.offset+"&limit="+ART_ST.limit+(ART_ST.cat?("&category="+encodeURIComponent(ART_ST.cat)):"");
-      try{
-        var r=await fetch(url); if(!r.ok) throw new Error("http "+r.status);
-        var j=await r.json(); if(!j.ok) throw new Error("resp");
-        (j.articles||[]).forEach(function(a){ ART_ITEMS.push(a); });
-        ART_ST.offset+=(j.articles||[]).length;
-        ART_ST.done=!j.has_more;
-        renderArticles();
-      }catch(e){ renderArtError(); }
-      finally{ ART_ST.loading=false; }
-    }
-    function loadMoreArticles(){ loadArticles(); }
-    // Cadangan gambar (SVG data-URI, ikon peralatan makan) — dipakai saat cover kosong/gagal.
-    var IMG_FALLBACK="data:image/svg+xml;utf8,"+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='320' height='200'><rect width='320' height='200' fill='#F0EDE5'/><g fill='none' stroke='#C9BEA9' stroke-width='7' stroke-linecap='round'><path d='M150 66v70M138 66v24a12 12 0 0 0 24 0V66'/><path d='M186 66c-9 0-13 12-13 27s7 15 13 15v28'/></g></svg>");
-    function artCardHtml(a,i){
-      var src=a.cover_url?esc(a.cover_url):IMG_FALLBACK;
-      var eager=i<3; // beberapa kartu pertama eager, sisanya lazy
-      return '<button class="acard" onclick="openArticle('+i+')">'+
-        '<img class="acover" src="'+src+'" alt="'+esc(a.title||"")+'" '+(eager?'loading="eager" fetchpriority="high"':'loading="lazy"')+' onerror="this.onerror=null;this.src=IMG_FALLBACK;this.classList.add(\'imgfb\')">'+
-        '<div class="abody"><div class="acatlbl">'+esc(a.category_label||"")+'</div>'+
-        '<div class="atitle">'+esc(a.title||"")+'</div><div class="aexc">'+esc(a.excerpt||"")+'</div></div></button>';
-    }
-    function renderArticles(){
-      var grid=$("artGrid");
-      if(!ART_ITEMS.length){ grid.innerHTML='<div class="errbox" style="grid-column:1/-1">'+esc(T("rec_art_empty"))+'</div>'; $("artMore").hidden=true; return; }
-      grid.innerHTML=ART_ITEMS.map(artCardHtml).join("");
-      $("artMore").hidden=ART_ST.done;
-    }
-    // BEDA error vs empty: error hanya kalau BELUM ada isi sama sekali (query gagal),
-    // bukan diperlakukan sebagai "kosong biasa".
-    function renderArtError(){
-      if(ART_ITEMS.length) return; // sudah ada isi -> biarkan; jangan timpa
-      $("artGrid").innerHTML='<div class="errbox" style="grid-column:1/-1">'+esc(T("rec_art_err"))+'<br><button onclick="reloadArticles()">'+esc(T("rec_retry"))+'</button></div>';
-      $("artMore").hidden=true;
-    }
-    // Markdown -> HTML minimal (escape dulu, baru markup). body_md dari WordPress.
-    function mdToHtml(md){
-      var s=esc(md||"");
-      s=s.replace(/!\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g,'<img src="$2" alt="$1">');
-      s=s.replace(/\[([^\]]+)\]\(([^)\s]+)[^)]*\)/g,'<a href="$2" rel="noopener">$1</a>');
-      s=s.replace(/^#{4,6}\s?(.*)$/gm,'<h3>$1</h3>').replace(/^###\s?(.*)$/gm,'<h3>$1</h3>')
-         .replace(/^##\s?(.*)$/gm,'<h2>$1</h2>').replace(/^#\s?(.*)$/gm,'<h1>$1</h1>');
-      s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/(^|[^*])\*([^*]+)\*/g,'$1<em>$2</em>');
-      s=s.replace(/(?:^|\n)((?:\s*[-*]\s+.*(?:\n|$))+)/g,function(m,blk){ return '\n<ul>'+blk.trim().split(/\n/).map(function(l){return '<li>'+l.replace(/^\s*[-*]\s+/,'')+'</li>';}).join('')+'</ul>\n'; });
-      s=s.replace(/(?:^|\n)((?:\s*\d+\.\s+.*(?:\n|$))+)/g,function(m,blk){ return '\n<ol>'+blk.trim().split(/\n/).map(function(l){return '<li>'+l.replace(/^\s*\d+\.\s+/,'')+'</li>';}).join('')+'</ol>\n'; });
-      return s.split(/\n{2,}/).map(function(b){ b=b.trim(); if(!b) return ""; if(/^<(h1|h2|h3|ul|ol|img)/.test(b)) return b; return '<p>'+b.replace(/\n/g,"<br>")+'</p>'; }).join("\n");
-    }
-    async function openArticle(i){
-      var a=ART_ITEMS[i]; if(!a) return;
-      var read=$("artRead"); read.innerHTML='<div class="askel" style="height:220px"><div class="sk"></div></div>';
-      $("artBg").classList.add("open"); document.body.style.overflow="hidden"; var pm=$("artPm"); if(pm) pm.scrollTop=0;
-      try{
-        var r=await fetch("/api/menu/articles/"+encodeURIComponent(a.slug)+"?lang="+artLang());
-        if(!r.ok) throw new Error("http"); var j=await r.json(); var art=(j&&j.article)||{};
-        var hero='<img class="art-hero" src="'+(art.cover_url?esc(art.cover_url):IMG_FALLBACK)+'" alt="'+esc(art.title||"")+'" onerror="this.onerror=null;this.src=IMG_FALLBACK;this.classList.add(\'imgfb\')">';
-        read.innerHTML=hero+'<div class="acatlbl">'+esc(art.category_label||"")+'</div>'+
-          '<h2 style="margin-top:4px">'+esc(art.title||"")+'</h2>'+
-          (art.author_name?('<div class="muted" style="margin-bottom:10px">'+esc(art.author_name)+'</div>'):'')+
-          '<div class="amd">'+mdToHtml(art.body_md)+'</div>';
-        if(pm) pm.scrollTop=0;
-      }catch(e){ read.innerHTML='<div class="errbox">'+esc(T("rec_art_err"))+'<br><button onclick="openArticle('+i+')">'+esc(T("rec_retry"))+'</button></div>'; }
-    }
-    function closeArticle(){ $("artBg").classList.remove("open"); document.body.style.overflow=""; }
-    (function(){
-      var bg=$("artBg"); if(!bg) return;
-      bg.addEventListener("click",function(e){ if(e.target===bg) closeArticle(); });
-      document.addEventListener("keydown",function(e){ if(e.key==="Escape" && bg.classList.contains("open")) closeArticle(); });
-    })();
   </script>
 </body>
 </html>

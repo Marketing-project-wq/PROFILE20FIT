@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-16 · **Commit staging:** `138a067` · **Production:** `309004d`
+> **Pembaruan terakhir:** 2026-09-17 · **Commit staging:** `5535ac2` · **Production:** `125cd22`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -80,6 +80,73 @@ browser** akan menuntut pelonggaran RLS yang dipakai bareng recipe.20fit.id — 
 arah **masuk**: `login.html` / `code-login.html` menerima `?next=menu`, lalu mengembalikan user ke
 app menu setelah login.
 
+## 1c. Foto resep: satu resolver untuk my.20fit & recipe.20fit
+
+**Gejala (2026-09-16):** di `/recipe` my.20fit foto kartu tampak abu-abu/pucat, padahal di
+recipe.20fit.id foto yang sama muncul bagus.
+
+**Akar masalah — BUKAN jaringan.** Filenya sehat (diunduh langsung: `beef-burger-v8.png` →
+HTTP 200, 1024×1024, 1519 KB, gambarnya tajam). Penyebabnya CSS: placeholder dirender dengan
+**shorthand** `style="background:linear-gradient(...)"`. Shorthand `background` me-reset
+sub-properti yang tak disebut, jadi `background-size:cover` + `background-position:center` di
+stylesheet **ikut ter-reset** ke `auto` / `0% 0%` — dan karena inline, ia menang atas stylesheet.
+`_setBg()` hanya menyetel `backgroundImage`, sehingga foto 1024×1024 tampil pada ukuran ASLI
+menempel di pojok kiri-atas kotak ~275 px → yang terlihat cuma latar blur foto.
+Terbukti lewat computed style (`background-size=auto` vs `cover`) dan render Chromium headless
+halaman `recipe.html` asli, sebelum vs sesudah.
+
+**Diperbaiki:** `recipe.html` (`.rthumb`, `.pm-hero`) dan `calories.html` (`.mrec-thumb`) memakai
+`background-image:` bukan shorthand; `.mrec-thumb` diberi `background-size:cover` (sebelumnya tak
+punya sama sekali); `_setBg()` di `js/recipe-photos.js` kini menyetel size/position eksplisit.
+
+**Sumber foto DISATUKAN.** Dulu `/api/foodphoto` (my.20fit) dan `/api/menu/photo`
+(recipe.20fit.id) punya logika sendiri-sendiri yang berbeda hasil: `-v8` + Pexels `medium`
+(~350px) + TheMealDB `/small` (~312px) vs `-ai-id` + syarat sisi terpendek ≥1024px. Terukur di
+`my20fit_foodimg`: **120 baris `-ai-id`** tapi hanya **102 baris `-v8`** — 18 resep tak punya foto
+di jalur my.20fit. Sekarang keduanya memanggil satu fungsi `resolveMenuPhoto()`; hasilnya identik
+dan `server.js` berkurang ~49 baris.
+
+**MASIH ADA, di luar cakupan:** `dashboard.html` `paintAva()` memakai pola yang sama
+(`el.style.background = ...` lalu `backgroundImage`), jadi **foto avatar kemungkinan ikut
+kepotong**. `profile.html` aman. Belum disentuh — tanya pemilik dulu.
+
+## 1d. Recipe disamakan dgn recipe.20fit.id — BERTAHAP (Tahap 1 selesai)
+
+Sumber acuan: repo **`Marketing-project-wq/MENU`** (= recipe.20fit.id, `public/version.json`
+menyebut dirinya `20fit-menu (recepie.20fit.id)`). Stack-nya **React + Vite + TypeScript +
+Tailwind** — jadi fiturnya DITULIS ULANG dengan vanilla JS di sini, bukan disalin (CLAUDE.md §5
+melarang menambah framework/bundler).
+
+Halaman di sana: `home`, `browse (/resep)`, `detail`, `articles`, `article`, `submit`, `mine`,
+`saved`, `eatnow`, `admin`. Di my.20fit semuanya masih menyatu di `recipe.html`.
+
+**Tahap 1 (2026-09-16) — SELESAI:** `/recipe` jadi browse resep penuh dan **artikel dibuang
+dari halaman ini** (keputusan pemilik).
+- Cari (nama + bahan), filter **kategori** (16 kategori diambil dari data, bukan daftar tebakan),
+  **diet** (chip lama), **kalori** (<300 / 300–500 / 500–700 / 700+), **urutkan** (kalori
+  terendah/tertinggi, protein tertinggi, tercepat dimasak, nama A–Z) — nilai & label mengikuti
+  `KCAL_RANGES`/`SORT_OPTIONS` di repo MENU, termasuk **batas kalori yang inklusif**.
+- Muat bertahap 15 per klik; bar "N resep + filter aktif + Atur ulang"; filter tersimpan di URL
+  (`?q=&category=&diet=&kcal=&sort=`) jadi bisa dibagikan/di-refresh.
+- Kartu: badge waktu masak, "oleh <pembuat>", chip kalori + 2 tag diet, batang proporsi makro.
+- **Detail resep** (klik kartu) mengikuti `DetailPage.tsx`: panel gizi, kontrol porsi 1..12,
+  batang makro dengan persen dihitung dari **kalori** (4/4/9 kkal per g), dua kolom Bahan | Cara buat.
+- **Jumlah bahan ikut porsi** (2026-09-17): aturan di-port dari `src/lib/scaleIngredients.ts` di repo
+  MENU — hanya kuantitas di awal baris yang diskalakan; rentang (`2-3` → `4-6`), pecahan, dan unicode
+  didukung; baris tanpa kuantitas awal (`garam secukupnya`) dibiarkan. Ini **best-effort dari teks
+  bebas** (bahan disimpan sebagai string, bukan data terstruktur) — batasan yang sama dengan
+  recipe.20fit.id, dan UI memberi catatan eksplisit ke user. Akurasi 100% butuh perubahan struktur
+  data bahan di kedua app — **TANYA PEMILIK REPO** sebelum menempuh itu.
+
+**Artikel: DITUNDA, bukan dihapus dari sistem.** 67 artikel `my20fit_recipe_article` dan seluruh
+endpoint-nya (`/api/menu/articles`, `article-categories`, `article-readtimes`, `articles/:slug`)
+**tetap utuh di server** — yang dibuang hanya UI-nya di `recipe.html`. Konsekuensi jujur: untuk
+sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dibuat. Kunci i18n
+`rec_articles_h`/`rec_art_*`/`rec_all` sengaja DIBIARKAN di `js/i18n.js` karena akan dipakai lagi.
+
+**Belum dikerjakan (tahap berikutnya, urut):** halaman artikel · tersimpan · punyaku · kirim resep
+(sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
+
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
 
 - **Tiket user tidak muncul — akar masalahnya DI LUAR repo ini (PR #417).** Tiket **tidak disimpan di Supabase kita**: sapuan `pg_stat_user_tables` menunjukkan tak ada tabel yang menerima pembelian tiket baru, dan `my20fit_orders` berisi **nol** `kind='ticket'`. Tiket hidup di **ticket.20fit.id**, dibaca lewat edge function `ticket-embed`.
@@ -99,11 +166,15 @@ app menu setelah login.
   - **Tidak ada webhook pembelian sama sekali.** `sync-ticket-events` hanya menarik `/events` dan menyimpan `sold_count` **agregat**, tak pernah identitas pembeli. Terukur 2026-09-08: Sports Summit live `sold`=**1233** vs `my20fit_ticket_events.sold_count`=**1162** (sync 2026-09-07 21:00) → **+71 terjual sejak sync**, sementara di DB kami **nol baris hari itu**. Pembayaran berhasil dan tercatat di ticket.20fit.id, tapi kami tak punya cara tahu siapa pembelinya — **tidak ada baris yang bisa "diperbaiki" di sisi kami.**
   - **TANYA PEMILIK ticket.20fit.id:** permintaan teknisnya sudah ditulis lengkap di **`docs/TICKET-API-REQUEST.md`** — intinya minta **webhook pembelian** atau **endpoint partner baca pesanan per email**. Sampai salah satunya ada, pembeli yang emailnya belum dikenal penerbit hanya bisa melihat pembeliannya dari **arsip, tanpa QR**.
   - **Arsip `event_transaction` bukan data hidup** — impor batch invoice, `paid_at` terbaru 2026-08-11, impor terakhir 2026-08-18. Tetap disajikan (isinya pembelian nyata; 242 dari 1374 user app punya email di sana) tapi ditandai `source:"archive"`. Pembelian baru tak akan pernah muncul di sana.
-- **Login Google web MATI — sebabnya di Google Cloud Console, bukan di kode.** Gejala: `Access blocked: Authorisation error` · `no registered origin` · `Error 401: invalid_client`.
+- **Login Google web MATI — sebabnya di Google Cloud Console + Supabase, bukan di kode.** Gejala TERBARU (2026-09-17, screenshot pemilik): **`Error 400: redirect_uri_mismatch`**. Gejala lama (sebelum jalur GIS dibuang): `Access blocked: Authorisation error` · `no registered origin` · `Error 401: invalid_client`. **Panduan klik-per-klik untuk pemilik ada di `docs/GOOGLE_LOGIN_SETUP.md`.**
   - **Sebab terukur:** `server.js` memakai default hardcoded `26509397037-8d1s0c39hb31738fcl816b8jrv7fdt6i` yang komentarnya menyebut "Client ID web app 20FIT". Client ID yang **sama persis** terdaftar di repo app mobile sebagai reversed-client-id **iOS** (`20FIT_MOBILEAPP/ios/Runner/Info.plist` → `CFBundleURLTypes`/`CFBundleURLSchemes`). Client bertipe iOS **tidak punya kolom "Authorized JavaScript origins"**, jadi GIS di web selalu ditolak — menambah origin tidak akan menolong.
   - **Data:** `auth.identities` provider `google` = 287 (Jun 122, Jul 118, Ags 47, **Sep 0**); terakhir dibuat & terakhir login sama-sama **2026-08-18 05:22 UTC**. Provider `email` masih aktif harian. Tombol Google di web sendiri **baru masuk `main` hari ini** lewat `d041061` — sebelum itu tag SDK `accounts.google.com/gsi/client` tak pernah ada di `main` (`git log --full-history -S`). Dugaan (**BELUM TERVERIFIKASI**): 287 identitas itu dari app mobile, yang memang memakai `google_sign_in` v7 + `serverClientId`.
   - **Sudah diperbaiki di kode (PR #421):** default Client ID iOS dibuang (kosong → tombol disembunyikan); daftar audiens kosong pada `verifyGoogleIdToken` ditolak 503 supaya cek `aud` tak bisa dilewati; tombol cadangan yang memicu One Tap dihapus — kalau tombol resmi ditolak, One Tap ditolak juga, dan user diantar ke halaman error Google seolah app-nya rusak. Kini muncul pesan "Login Google sedang tidak tersedia" + arahan ke email/password.
-  - **TANYA/TUGAS PEMILIK (tidak bisa dari repo):** buat OAuth client baru bertipe **Web application** di project `26509397037`, isi Authorized JavaScript origins (`https://my.20fit.id` + URL staging Railway, tanpa path/slash), redirect URIs dikosongkan; lalu set `GOOGLE_CLIENT_ID` = client Web baru dan `GOOGLE_CLIENT_IDS` = client ID iOS di Railway (staging + prod). Tanpa yang kedua, login Google dari **app mobile** ikut ditolak server. Cek juga provider Google di Supabase Auth aktif (dipakai jalur cadangan `signInWithIdToken`).
+  - **JALUR WEB SUDAH BUKAN GIS LAGI (diverifikasi 2026-09-17).** `login.html` memanggil `Auth.googleOAuth()` → `supabase.auth.signInWithOAuth({provider:"google", redirectTo:<origin>/login})`. Grep seluruh repo: **nol** referensi `accounts.google.com/gsi/client` / `google.accounts.id`, dan **nol** halaman web yang memanggil `Auth.googleSignIn` atau `Auth.googleClientId`. Konsekuensi penting: **`GOOGLE_CLIENT_ID` di Railway TIDAK memengaruhi tombol Google di web** — env itu hanya dipakai `verifyGoogleIdToken` untuk `POST /api/fitco-google-login`, yaitu jalur **app mobile**. Catatan lama di sini yang menyuruh mengisi Railway untuk memperbaiki web **KELIRU** dan sudah diganti.
+  - **Sebab `redirect_uri_mismatch` (terukur dari kode):** alur Supabase OAuth memulangkan user ke `https://cpvzwqptzcxnwzfzgrmt.supabase.co/auth/v1/callback`. Kalau URL itu tidak terdaftar di **Authorized redirect URIs** OAuth client yang dipasang di Supabase, Google menolak dengan pesan tersebut. Client bertipe iOS tidak punya kolom itu sama sekali.
+  - **TUGAS PEMILIK (tidak bisa dari repo — butuh akses dashboard):** (A) Google Cloud project `26509397037` → OAuth client tipe **Web application**, Authorized redirect URI = `https://cpvzwqptzcxnwzfzgrmt.supabase.co/auth/v1/callback`; (B) Supabase → Authentication → Providers → Google: enable + isi Client ID & Secret client Web (client iOS lama JANGAN dihapus, tambahkan dipisah koma), lalu URL Configuration → Redirect URLs diisi `https://my.20fit.id/login` + URL staging; (C) **opsional, hanya untuk app mobile** → Railway `GOOGLE_CLIENT_ID` = client Web, `GOOGLE_CLIENT_IDS` = client iOS. Langkah persisnya di `docs/GOOGLE_LOGIN_SETUP.md`.
+  - **Angka pembanding sebelum perubahan (diukur 2026-09-17):** `auth.users` = **2569**, email dobel = **0**, user punya identitas Google = **286**, user >1 provider = **20**. Dipakai untuk membuktikan ganti Client ID tidak membuat akun kembar. Supabase mencocokkan identitas lewat `sub` Google (bukan Client ID) sehingga seharusnya aman — **BELUM TERVERIFIKASI** sampai ada user lama yang login ulang.
+  - **Token callback tidak nyangkut di URL (diverifikasi di bundle):** `js/vendor-supabase.js` = supabase-js **2.108.2**, `flowType` default `implicit` dan klien kita tidak menimpanya, jadi token datang di **fragment** (`#access_token=...`) yang tidak pernah dikirim ke server; cabang implicit di bundle menutup dengan `window.location.hash = ""` sehingga fragment langsung dibersihkan. Pindah ke **PKCE** (token tak pernah muncul di URL) **belum** ditempuh karena callback photo/calorietracker/menu masih bergantung fragment implicit — **TANYA PEMILIK REPO** kalau mau, itu pekerjaan terpisah.
 - **CMS admin fisioterapis BELUM ADA.** `my20fit_physiotherapists` sudah dipakai frontend, tapi belum punya seksi di `/admin-v2` seperti dokter & coach — untuk sekarang hanya bisa diedit lewat SQL. Endpoint `/api/admin/physiotherapists` juga belum dibuat.
 - **Ikon 3D: latar menyatu di dalam file PNG.** Kotak CSS sudah transparan (`.s2-ic.s2-ic3d` → `background rgba(0,0,0,0)`, terverifikasi via computed style), jadi latar yang terlihat berasal dari file di `media.20fit.id`. **TANYA PEMILIK:** perlu PNG versi transparan. Ikon 3D **Reward** juga belum ada filenya — tile Rewards masih SVG (`ic:"gift"`).
 - **dr. Ande belum ada foto.** URL yang diberikan menunjuk file dr. Anna; tidak dipasang demi menghindari salah orang. Sementara pakai placeholder inisial + penanda.

@@ -3,7 +3,7 @@
 Aturan tetap di bawah ini WAJIB diikuti setiap sesi. Ditulis dari instruksi
 pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 
-> **Pembaruan dokumen terakhir:** 2026-09-16 · **Commit staging:** `138a067` · **Production:** `309004d`
+> **Pembaruan dokumen terakhir:** 2026-09-17 · **Commit staging:** `5535ac2` · **Production:** `125cd22`
 > Claude Code memuat file ini otomatis di awal sesi. Baca ini dulu, lalu buka
 > dokumen pecahan sesuai kebutuhan.
 
@@ -21,6 +21,8 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 - **`docs/CODEBASE-MAP.md`** — peta arsitektur/route/API detail (⚠️ **sebagian STALE** — lihat `docs/STATUS.md` §4; verifikasi ke kode).
 - **`docs/TICKET-API-REQUEST.md`** — permintaan teknis ke tim ticket.20fit.id (webhook pembelian / baca pesanan per email) + peta endpoint embed API hasil pengukuran.
 - **`docs/GIT_WORKFLOW.md`**, **`docs/GITHUB_SECRETS.md`** — alur git & penanganan secret.
+- **`docs/GOOGLE_LOGIN_SETUP.md`** — panduan klik-per-klik untuk pemilik: setup OAuth Google
+  (Google Cloud + Supabase + Railway). Web pakai Supabase OAuth, bukan GIS.
 - Email: `docs/EMAIL-*.md`, `docs/RESEND-SETUP-AUDIT.md`, `docs/EMAIL-LOGIC-SPEC.md`.
 - Bagian **Tech stack, Struktur repo, Route, Env, Cara menjalankan, Konvensi, Jangan
   dilakukan, Langkah berikutnya** ada di bawah aturan kerja file ini.
@@ -100,7 +102,9 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 
 ## Konteks penting
 - Login app 20FIT lewat API FITCO (`Auth.fitcoLogin`), fallback ke password
-  Supabase (`Auth.signIn`). Admin dashboard pakai password Supabase; login juga
+  Supabase (`Auth.signIn`). **Login Google di web lewat Supabase OAuth
+  redirect** (`Auth.googleOAuth`), bukan Google Identity Services — konfigurasinya di
+  dashboard Google Cloud + Supabase, bukan env kita. Lihat `docs/GOOGLE_LOGIN_SETUP.md`. Admin dashboard pakai password Supabase; login juga
   fallback ke FITCO. `Auth.ready` adalah **Promise** (pakai `await Auth.ready`,
   bukan `Auth.ready()`).
 - Pembayaran: **Xendit via API 20FIT, bukan Xendit langsung.** Kita POST
@@ -183,7 +187,7 @@ Tile **News** = eksternal `media.20fit.id` (same-tab, tanpa halaman).
 | `EMAIL_ENVIRONMENT`, `EMAIL_TEST_WHITELIST`, `MAIL_FROM`, `MAIL_REPLY_TO` | Mode & alamat email | config |
 | `RESEND_WEBHOOK_SECRET` 🔒 | Verifikasi webhook Resend (Svix) | utk webhook |
 | `META_PIXEL_ID`, `META_CAPI_ACCESS_TOKEN` 🔒, `META_CAPI_VERSION` | Meta Pixel + Conversions API | opsional |
-| `GOOGLE_CLIENT_ID` | Google Identity Services (login Google, publik). **Harus tipe Web application** + origin situs terdaftar di "Authorized JavaScript origins". Tanpa ini tombol Google disembunyikan (tidak ada default) | wajib utk login Google |
+| `GOOGLE_CLIENT_ID` | Audience ID token Google di server (`verifyGoogleIdToken` → `POST /api/fitco-google-login`). **Dipakai app mobile, BUKAN tombol Google di web** — web lewat Supabase OAuth (`signInWithOAuth`), tidak menyentuh env ini. Isi dengan client tipe **Web application** | wajib utk login Google app mobile |
 | `GOOGLE_CLIENT_IDS` | Client ID tambahan yang boleh jadi audience ID token (koma) — isi Client ID iOS/Android app mobile | wajib utk login Google dari app mobile |
 | `WAQI_TOKEN` 🔒, `PEXELS_API_KEY` 🔒 | AQI (WAQI) & foto makanan (Pexels) | opsional |
 | `PHOTO_APP_URL`, `PHOTO_API_URL`, `PHOTO_SSO_REDIRECT`, `PHOTO_OP_TIMEOUT_MS` | Integrasi photo.20fit.id (SSO) | opsional |
