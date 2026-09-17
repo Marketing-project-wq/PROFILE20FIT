@@ -50,13 +50,9 @@
   const isOn = (href) => norm(href) === cur;
   const tr = (key, fb) => (window.I18N ? I18N.t(key) : fb);
 
-  // Item "Calories" di menu (sidebar + bottom-nav): SSO hand-off ke subdomain
-  // calorietracker.20fit.id (Auth.caloriesSso()) — sama persis pola kartu Kalori di
-  // dashboard.html. href="calories.html" tetap dipasang sebagai fallback (JS/sesi gagal
-  // -> jatuh ke scanner in-app di sini, bukan macet).
-  function navOnclick(it) {
-    return it.k === "calories" ? ' onclick="if(window.Auth&&Auth.caloriesSso){event.preventDefault();Auth.caloriesSso();}"' : "";
-  }
+  // Item "Calories" di menu (sidebar + bottom-nav) TETAP di dalam my.20fit:
+  // href="calories.html" -> scanner/tracker kalori lama. JANGAN dilempar ke subdomain
+  // (keputusan pemilik 2026-09-17) — Auth.caloriesSso() sengaja tidak dipanggil di sini.
 
   const SYS = "-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Inter',system-ui,'Segoe UI',Roboto,Arial,sans-serif";
   const css = `
@@ -184,7 +180,7 @@
   function renderSide() {
     side.innerHTML =
       '<div class="sbrand"><img src="' + LOGO + '" alt="20FIT"></div>' +
-      items.map(it => `<a href="${it.href}" class="navi ${isOn(it.href) ? "on" : ""}"${navOnclick(it)}>${iconHtml(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
+      items.map(it => `<a href="${it.href}" class="navi ${isOn(it.href) ? "on" : ""}">${iconHtml(it.k)}<span>${tr(it.key, it.k)}</span></a>`).join("") +
       `<button class="sscan" type="button">${svg("scan")}<span>${tr("nav_scan", "Scan")}</span></button>` +
       '<div class="sfoot"><div class="av" id="navAv">·</div><div class="tx"><div class="nm" id="navNm">20FIT</div><div class="em" id="navEm">member</div></div></div>';
     side.querySelector(".sscan").onclick = doScan;
@@ -210,7 +206,7 @@
   nav.className = "bnav";
   function renderNav() {
     nav.innerHTML = items.map(it =>
-      `<a href="${it.href}" class="${isOn(it.href) ? "on" : ""}"${navOnclick(it)}>${iconHtml(it.k)}${tr(it.key, it.k)}</a>`
+      `<a href="${it.href}" class="${isOn(it.href) ? "on" : ""}">${iconHtml(it.k)}${tr(it.key, it.k)}</a>`
     ).join("");
   }
   renderNav();

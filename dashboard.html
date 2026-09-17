@@ -704,9 +704,9 @@
         var pct = tgt ? Math.max(0, Math.min(100, Math.round(eaten / tgt * 100))) : 0;
         var mt = (window.Nutrition && Nutrition.macrosFor) ? Nutrition.macrosFor(profile, tgt) : { p: Math.round(tgt * 0.25 / 4), c: Math.round(tgt * 0.45 / 4), f: Math.round(tgt * 0.25 / 9) };
         function macro(n, val, tot, col) { var p = tot ? Math.max(0, Math.min(100, Math.round(val / tot * 100))) : 0; return '<div class="tc-m"><div class="tc-ml"><span class="tc-mn">' + n + '</span><span class="tc-mv">' + val + '/' + tot + 'g</span></div><div class="tc-bar"><i style="width:' + p + '%;background:' + col + '"></i></div></div>'; }
-        // Kartu Kalori membuka subdomain calorietracker.20fit.id (SSO hand-off via Auth.caloriesSso()).
-        // Fallback href=calories.html tetap ada -> kalau JS/sesi gagal, jatuh ke scanner in-app.
-        return '<a class="card trkcal" href="calories.html" onclick="if(window.Auth&&Auth.caloriesSso){event.preventDefault();Auth.caloriesSso();}"><div class="tkhd"><div class="tkic cal">' + TICON.cal + '</div>' +
+        // Kartu Kalori TETAP di dalam my.20fit -> calories.html (tracker + scanner lama).
+        // JANGAN dilempar ke subdomain (keputusan pemilik 2026-09-17).
+        return '<a class="card trkcal" href="calories.html"><div class="tkhd"><div class="tkic cal">' + TICON.cal + '</div>' +
           '<div style="flex:1"><div class="tktitle">' + Lx({ en: "Calories", id: "Kalori" }) + '</div><div class="tc-kcal tkmono">' + eaten + ' / ' + tgt.toLocaleString() + ' kcal <small>· ' + pct + '%</small></div></div><span class="tkchev">›</span></div>' +
           '<div class="tc-macros">' + macro(Lx({ en: "Protein", id: "Protein" }), Math.round(em.p), mt.p, "#C41101") + macro(Lx({ en: "Carbs", id: "Karbo" }), Math.round(em.c), mt.c, "#C87000") + macro(Lx({ en: "Fat", id: "Lemak" }), Math.round(em.f), mt.f, "#2F6BFF") + '</div></a>';
       }
@@ -2102,6 +2102,7 @@
         { ic:"home",  t:{en:"Home",id:"Beranda"},              type:"in",  href:"dashboard.html" },
         { ic:"clip",  t:{en:"Medical Check-Up",id:"Medical Check-Up"}, type:"in", href:"medical.html" },
         { ic:"chart", t:{en:"Progress",id:"Progress"},          type:"in",  href:"progress.html" },
+        { ic:"flame", t:{en:"Calorie Scan",id:"Scan Kalori"},   type:"in",  href:"calories.html" },
         { ic:"bowl",  t:{en:"Recipe",id:"Resep"}, type:"in", href:"recipe.html" },
         { ic:"dumbbell", t:{en:"Book Class · Arena/Gym",id:"Book Kelas · Arena/Gym"}, type:"in", href:"classes.html" },
         { ic:"coach", t:{en:"Book Coach",id:"Book Coach"},      type:"in",  href:"book-coach.html" },
@@ -2113,7 +2114,6 @@
         { ic:"bag",   t:{en:"Purchases",id:"Pembelian"},        type:"in",  href:"purchases.html" }
       ]},
       { title:{en:"Open with your account",id:"Buka pakai akunmu"}, badge:{en:"SSO",id:"SSO"}, items:[
-        { ic:"flame", t:{en:"Calorie Scan",id:"Scan Kalori"},   type:"sso", fn:"caloriesSso" },
         { ic:"camera",t:{en:"Progress Photo",id:"Foto Progres"},type:"sso", fn:"photoSso" }
       ]},
       { title:{en:"Other 20FIT sites",id:"Situs 20FIT lainnya"}, badge:{en:"External",id:"Eksternal"}, items:[
