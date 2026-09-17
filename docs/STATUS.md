@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-16 · **Commit staging:** `138a067` · **Production:** `309004d`
+> **Pembaruan terakhir:** 2026-09-17 · **Commit staging:** `9d942ba` · **Production:** `125cd22`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -129,6 +129,14 @@ dari halaman ini** (keputusan pemilik).
 - Muat bertahap 15 per klik; bar "N resep + filter aktif + Atur ulang"; filter tersimpan di URL
   (`?q=&category=&diet=&kcal=&sort=`) jadi bisa dibagikan/di-refresh.
 - Kartu: badge waktu masak, "oleh <pembuat>", chip kalori + 2 tag diet, batang proporsi makro.
+- **Detail resep** (klik kartu) mengikuti `DetailPage.tsx`: panel gizi, kontrol porsi 1..12,
+  batang makro dengan persen dihitung dari **kalori** (4/4/9 kkal per g), dua kolom Bahan | Cara buat.
+- **Jumlah bahan ikut porsi** (2026-09-17): aturan di-port dari `src/lib/scaleIngredients.ts` di repo
+  MENU — hanya kuantitas di awal baris yang diskalakan; rentang (`2-3` → `4-6`), pecahan, dan unicode
+  didukung; baris tanpa kuantitas awal (`garam secukupnya`) dibiarkan. Ini **best-effort dari teks
+  bebas** (bahan disimpan sebagai string, bukan data terstruktur) — batasan yang sama dengan
+  recipe.20fit.id, dan UI memberi catatan eksplisit ke user. Akurasi 100% butuh perubahan struktur
+  data bahan di kedua app — **TANYA PEMILIK REPO** sebelum menempuh itu.
 
 **Artikel: DITUNDA, bukan dihapus dari sistem.** 67 artikel `my20fit_recipe_article` dan seluruh
 endpoint-nya (`/api/menu/articles`, `article-categories`, `article-readtimes`, `articles/:slug`)
