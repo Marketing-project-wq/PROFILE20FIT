@@ -92,7 +92,8 @@
   .cols{display:grid;grid-template-columns:1fr;gap:14px;margin-top:18px}
   @media(min-width:760px){ .cols{grid-template-columns:1fr 1.35fr;gap:18px} }
   .col{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--card)}
-  .col h3{margin:0 0 10px;padding-bottom:9px;border-bottom:1px solid var(--line);font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+  .col h3{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 8px;margin:0 0 10px;padding-bottom:9px;border-bottom:1px solid var(--line);font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+  .ing-x{flex:none;font-size:10.5px;font-weight:800;letter-spacing:0;text-transform:none;padding:3px 8px;border-radius:99px;background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red)}
   .ing{list-style:none;margin:0;padding:0}
   .ing li{position:relative;padding-left:16px;font-size:13.5px;line-height:1.55;margin:7px 0;color:var(--txt)}
   .ing li::before{content:"";position:absolute;left:3px;top:8px;width:5px;height:5px;border-radius:99px;background:var(--red)}
@@ -495,7 +496,7 @@
     function setPorsi(d){
       var n=curPorsi+d;
       if(n<MIN_PORSI||n>MAX_PORSI) return;
-      curPorsi=n; renderNutrition();
+      curPorsi=n; renderNutrition(); renderIngredients();
     }
     function macroBarBig(p,c,f){
       var pc=p*4, cc=c*4, fc=f*9, tot=pc+cc+fc;
@@ -537,11 +538,78 @@
         '<button class="pm-log" onclick="logFood()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> '+
           esc(T("diet_logfood"))+' <span style="opacity:.85;font-weight:700">· '+kc+' '+esc(T("diet_kcal"))+' · '+curPorsi+' '+esc(T("rec_portion_word"))+'</span></button>';
     }
-    // Bahan -> daftar berpoin; baris kosong dibuang. TEKSNYA TIDAK diskalakan (lihat catatan).
+    // ---- Skala JUMLAH bahan dari TEKS BEBAS ----
+    // Port dari src/lib/scaleIngredients.ts di repo MENU (recipe.20fit.id): aturan,
+    // dukungan format, dan cara menulis hasilnya dibuat sama persis. BEST-EFFORT —
+    // hanya kuantitas di AWAL baris yang diskalakan ("2 potong ayam"); angka lain di
+    // baris tidak disentuh, dan baris tanpa kuantitas awal ("garam secukupnya")
+    // dibiarkan apa adanya. Lebih baik tidak diubah daripada salah-skala.
+    var UNI_FRAC={"½":0.5,"⅓":1/3,"⅔":2/3,"¼":0.25,"¾":0.75,
+                  "⅕":0.2,"⅖":0.4,"⅗":0.6,"⅘":0.8,
+                  "⅙":1/6,"⅚":5/6,"⅛":0.125,"⅜":0.375,"⅝":0.625,"⅞":0.875};
+    var FRAC_CH="½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞";
+    // Satu token kuantitas -> angka. null kalau bukan angka yang dikenali.
+    function parseQty(tok){
+      var t=String(tok||"").trim(); if(!t) return null;
+      var m=t.match(/^(\d+)\s+(\d+)\/(\d+)$/);                 // campuran: "1 1/2"
+      if(m){ var d=+m[3]; return d ? ((+m[1])+(+m[2])/d) : null; }
+      m=t.match(new RegExp("^(\\d+)\\s*(["+FRAC_CH+"])$"));       // campuran unicode: "1½"
+      if(m) return (+m[1])+UNI_FRAC[m[2]];
+      if(t.length===1 && UNI_FRAC[t]!=null) return UNI_FRAC[t];    // "½"
+      m=t.match(/^(\d+)\/(\d+)$/);                              // "1/2"
+      if(m){ var d2=+m[2]; return d2 ? (+m[1])/d2 : null; }
+      if(/^\d+(?:[.,]\d+)?$/.test(t)) return parseFloat(t.replace(",","."));
+      return null;
+    }
+    // Angka hasil skala -> teks rapi: bulat, pecahan umum, atau desimal.
+    function fmtQty(n){
+      if(!isFinite(n)||n<0) return String(n);
+      n=Math.round(n*1000)/1000;                                   // buang noise floating point
+      var whole=Math.floor(n+1e-9), frac=n-whole;
+      if(frac<1e-6) return String(whole);
+      var tbl=[[0.5,"½"],[0.25,"¼"],[0.75,"¾"],[1/3,"⅓"],[2/3,"⅔"]];
+      for(var i=0;i<tbl.length;i++){
+        if(Math.abs(frac-tbl[i][0])<0.01) return whole>0 ? (whole+tbl[i][1]) : tbl[i][1];
+      }
+      return n.toFixed(2).replace(/0+$/,"").replace(/\.$/,"");
+    }
+    var RE_QTY=new RegExp("^("+
+      "\\d+\\s+\\d+\\/\\d+"+        // 1 1/2
+      "|\\d+\\s*["+FRAC_CH+"]"+         // 1½
+      "|\\d+\\/\\d+"+                 // 1/2
+      "|["+FRAC_CH+"]"+                 // ½
+      "|\\d+(?:[.,]\\d+)?"+             // 2 / 2.5 / 2,5
+      ")(?=\\s|$|[a-zA-Z(])");
+    var RE_QTY_RANGE=/^(\d+(?:[.,]\d+)?)\s*[-–—]\s*(\d+(?:[.,]\d+)?)(?=\s|$|[a-zA-Z(])/;
+    function scaleIngLine(line, ratio){
+      if(!isFinite(ratio)||ratio<=0||Math.abs(ratio-1)<1e-9) return line;
+      var r=line.match(RE_QTY_RANGE);                              // rentang dulu: "2-3" -> "4-6"
+      if(r){
+        var a=parseQty(r[1]), b=parseQty(r[2]);
+        if(a!=null&&b!=null) return fmtQty(a*ratio)+"–"+fmtQty(b*ratio)+line.slice(r[0].length);
+      }
+      var m=line.match(RE_QTY);
+      if(m){
+        var n=parseQty(m[1]);
+        if(n!=null) return fmtQty(n*ratio)+line.slice(m[1].length);
+      }
+      return line;                                                 // tak ada kuantitas awal -> biarkan
+    }
+    // Bahan -> daftar berpoin; jumlahnya ikut porsi terpilih.
     function ingListHtml(it){
+      var ratio=ratioPorsi();
       var baris=String(ingOf(it)||"").split(/\r?\n/).map(function(x){ return x.trim(); }).filter(Boolean);
       if(!baris.length) return '<div class="muted" style="font-size:13px">—</div>';
-      return '<ul class="ing">'+baris.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join("")+'</ul>';
+      return '<ul class="ing">'+baris.map(function(x){ return '<li>'+esc(scaleIngLine(x,ratio))+'</li>'; }).join("")+'</ul>';
+    }
+    // Kolom bahan dirender terpisah supaya tombol +/- porsi bisa memperbarui jumlahnya.
+    function renderIngredients(){
+      var box=document.getElementById("ingBox"); var it=curLogItem;
+      if(!box||!it) return;
+      var ratio=ratioPorsi(), berskala=Math.abs(ratio-1)>1e-9;
+      var chip=berskala ? '<span class="ing-x">'+esc(T("rec_ing_scale_badge").replace("{n}", String(parseFloat(ratio.toFixed(2)))))+'</span>' : '';
+      var catatan=berskala ? '<div class="nutri-note" style="margin:0 0 10px">'+esc(T("rec_ing_scale_note"))+'</div>' : '';
+      box.innerHTML='<h3>'+esc(T("recipe_ing"))+chip+'</h3>'+catatan+ingListHtml(it);
     }
     // Cara buat -> daftar bernomor; nomor bawaan di teks ("1. ") dibuang biar tak dobel.
     function stepListHtml(it){
@@ -565,17 +633,16 @@
       if(it.source==="user") chips.push(T("diet_user_contrib"));
       var badges=chips.length?('<div class="pm-types">'+chips.map(function(t){return '<span>'+esc(t)+'</span>';}).join("")+'</div>'):'';
       var by=it.by?('<div class="muted" style="font-size:12px">'+esc(T("rec_by"))+' '+esc(it.by)+(it.mins?(' · '+it.mins+' '+esc(T("rec_min"))):'')+'</div>'):'';
-      var catatanBahan=(curBase>1)?('<div class="nutri-note" style="margin:0 0 10px">'+esc(T("rec_ing_base_note").replace("{n}", String(curBase)))+'</div>'):'';
       document.getElementById("recBody").innerHTML=
         hero+
         '<h2 style="margin-top:0">'+esc(titleOf(it))+'</h2>'+badges+by+
         '<div class="rsoc" id="recSocial"></div>'+
         '<div class="nutri" id="nutriBox"></div>'+
         '<div class="cols">'+
-          '<section class="col"><h3>'+esc(T("recipe_ing"))+'</h3>'+catatanBahan+ingListHtml(it)+'</section>'+
+          '<section class="col" id="ingBox"></section>'+
           '<section class="col"><h3>'+esc(T("recipe_steps"))+'</h3>'+stepListHtml(it)+'</section>'+
         '</div>';
-      renderNutrition();
+      renderNutrition(); renderIngredients();
       loadRecSocial(it); // Like/Save state (server, service key) + wiring tombol
       // Foto asli resep 20FIT untuk hero (emoji tetap jadi cadangan kalau gagal).
       if(window.RecipePhotos && RecipePhotos.applyThumb && it.rec && !it.photo){
