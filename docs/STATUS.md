@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-17 · **Commit staging:** `5535ac2` · **Production:** `125cd22`
+> **Pembaruan terakhir:** 2026-09-17 · **Commit staging:** `2b30541` · **Production:** `eaf3199`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
