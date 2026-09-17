@@ -3,15 +3,19 @@
   "info": {
     "title": "20FIT Recipe API",
     "version": "1.0.0",
-    "description": "API publik di balik **recipe.20fit.id** (resep sehat 20FIT), di-serve dari **my.20fit.id**. Dokumen ini mencakup DUA API terpisah:\n\n1. **Recipe App API** (`/api/menu/*`) -- backend-for-frontend milik aplikasi recipe.20fit.id sendiri. Sebagian besar publik/baca-saja; aksi yang menyentuh data milik user (simpan, unggah, submission) butuh token login (Supabase JWT). Beberapa aksi publik (like, klik katering/pesan-antar, kirim resep) bekerja untuk pengunjung anonim lewat cookie `eco_anon` (httpOnly, di-set otomatis oleh server -- klien tidak perlu mengelolanya).\n2. **Content API v1** (`/api/content/v1/*`) -- API baca-saja yang MEMANG dibuat untuk produk 20FIT lain / integrasi pihak ketiga menarik konten resep & artikel, digerbangi API key.\n\n**Semua angka gizi (kkal, protein, karbo, lemak, dst.) adalah PERKIRAAN, bukan hasil pengujian laboratorium.**",
+    "description": "API publik di balik **recipe.20fit.id** (resep sehat 20FIT). Backend aslinya berjalan di **my.20fit.id**; **recipe.20fit.id** meneruskan (proxy) path di dokumen ini ke backend yang sama, jadi keduanya bisa dipakai. Dokumen ini mencakup DUA API terpisah:\n\n1. **Recipe App API** (`/api/menu/*`) -- backend-for-frontend milik aplikasi recipe.20fit.id sendiri. Sebagian besar publik/baca-saja; aksi yang menyentuh data milik user (simpan, unggah, submission) butuh token login (Supabase JWT). Beberapa aksi publik (like, klik katering/pesan-antar, kirim resep) bekerja untuk pengunjung anonim lewat cookie `eco_anon` (httpOnly, di-set otomatis oleh server -- klien tidak perlu mengelolanya).\n2. **Content API v1** (`/api/content/v1/*`) -- API baca-saja yang MEMANG dibuat untuk produk 20FIT lain / integrasi pihak ketiga menarik konten resep & artikel, digerbangi API key.\n\n**Semua angka gizi (kkal, protein, karbo, lemak, dst.) adalah PERKIRAAN, bukan hasil pengujian laboratorium.**",
     "contact": {
       "name": "20FIT"
     }
   },
   "servers": [
     {
+      "url": "https://recipe.20fit.id",
+      "description": "Produksi (recipe.20fit.id) -- disarankan untuk konsumen eksternal. Hanya path di dokumen ini (/api/menu/*, /api/content/v1/*, /api/docs, /api/openapi.*) yang tersedia di domain ini, diteruskan (proxy) ke backend asli."
+    },
+    {
       "url": "https://my.20fit.id",
-      "description": "Produksi"
+      "description": "Backend asli tempat semua endpoint di dokumen ini benar-benar berjalan. Boleh dipanggil langsung juga."
     }
   ],
   "tags": [
