@@ -3,7 +3,9 @@
 Aturan tetap di bawah ini WAJIB diikuti setiap sesi. Ditulis dari instruksi
 pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 
-> **Pembaruan dokumen terakhir:** 2026-09-17 · **Commit staging:** `2b30541` · **Production:** `eaf3199`
+> **Pembaruan dokumen terakhir:** 2026-09-19 · **Commit staging:** `2b30541` · **Production:** `7740dbf`
+> (Hash di atas = kondisi SEBELUM rilis yang membawa baris ini; merge commit rilisnya sendiri
+> otomatis lebih baru. Jangan kejar selisih satu merge commit itu.)
 > Claude Code memuat file ini otomatis di awal sesi. Baca ini dulu, lalu buka
 > dokumen pecahan sesuai kebutuhan.
 

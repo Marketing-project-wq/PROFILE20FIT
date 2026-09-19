@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-17 · **Commit staging:** `2b30541` · **Production:** `eaf3199`
+> **Pembaruan terakhir:** 2026-09-19 · **Commit staging:** `2b30541` · **Production:** `7740dbf`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -148,6 +148,13 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **OpenAPI/Scalar untuk Recipe App API + Content API v1 (PR #454, #455) MERGE LANGSUNG KE `main`.**
+  Dikerjakan sesi lain dan **melewati `staging`** — melanggar CLAUDE.md §1. Tidak di-revert (sudah
+  jalan di produksi, tidak ada tanda kerusakan), tapi dicatat di sini supaya tidak terulang:
+  `openapi/openapi.json`, `openapi/openapi.yaml`, `scripts/generate-openapi.js`, +44 baris di
+  `server.js`. `staging` disinkronkan menyusul lewat rilis 2026-09-19. **BELUM TERVERIFIKASI:**
+  apakah endpoint dokumentasinya sudah dites di produksi.
+
 
 - **Tiket user tidak muncul — akar masalahnya DI LUAR repo ini (PR #417).** Tiket **tidak disimpan di Supabase kita**: sapuan `pg_stat_user_tables` menunjukkan tak ada tabel yang menerima pembelian tiket baru, dan `my20fit_orders` berisi **nol** `kind='ticket'`. Tiket hidup di **ticket.20fit.id**, dibaca lewat edge function `ticket-embed`.
   - **Titik gagal:** `POST /api/embed/v1/partner/user-token` balas **404 pada 141 dari 143 panggilan** (log edge fn 24 jam; action dipisah lewat ukuran body request — `user_token`=23 B, `events`=19 B, `my_tickets`=282–321 B). Langkah `my_tickets` sendiri **selalu 200** saat tokennya terbit, termasuk mengembalikan tiket asli. Jadi pipeline utuh; yang gagal penukaran email→token.
