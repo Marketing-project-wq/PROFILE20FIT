@@ -9,6 +9,7 @@
 require("dotenv").config();
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
 const crypto = require("crypto");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
@@ -8529,6 +8530,49 @@ app.get("/admin-dashboard", async (req, res, next) => {
   if (req.query && req.query.legacy) return next();          // paksa admin lama
   try { if (isStagingReq(req) || await adminV2Enabled()) return res.redirect(302, "/admin-v2"); } catch (e) {}
   return next();                                              // default: admin lama (static)
+});
+
+// ============================================================================
+// Dokumentasi API publik (OpenAPI 3.1) -- Recipe App API (/api/menu/*) + Content
+// API v1 (/api/content/v1/*). Spec di-generate dari scripts/generate-openapi.js
+// (SATU sumber -- edit di sana, lalu jalankan ulang script itu, JANGAN edit file
+// di openapi/ langsung). Didaftarkan SEBELUM express.static + catch-all "*" di
+// bawah supaya tidak ikut ketelan jadi index.html (penyebab umum 404 di /api-docs).
+// TIDAK mengubah endpoint /api/menu atau /api/content yang sudah ada -- murni nambah.
+var _openapiSpecCache = null;
+function loadOpenapiSpec() {
+  if (_openapiSpecCache) return _openapiSpecCache;
+  try { _openapiSpecCache = JSON.parse(fs.readFileSync(path.join(__dirname, "openapi", "openapi.json"), "utf8")); }
+  catch (e) { _openapiSpecCache = null; }
+  return _openapiSpecCache;
+}
+app.get("/api/openapi.json", function (req, res) {
+  var spec = loadOpenapiSpec();
+  if (!spec) return res.status(503).json({ error: "Spec belum di-generate. Jalankan scripts/generate-openapi.js." });
+  res.set("Cache-Control", "public, max-age=300");
+  return res.json(spec);
+});
+app.get("/api/openapi.yaml", function (req, res) {
+  var file = path.join(__dirname, "openapi", "openapi.yaml");
+  fs.readFile(file, "utf8", function (err, text) {
+    if (err) return res.status(503).type("text/plain").send("Spec belum di-generate. Jalankan scripts/generate-openapi.js.");
+    res.set("Cache-Control", "public, max-age=300");
+    res.type("text/yaml").send(text);
+  });
+});
+// Swagger UI/Scalar butuh dimuat dari browser -> CDN publik, BUKAN dependency npm baru
+// di server (sesuai CLAUDE.md §5 "jangan tambah framework baru"). Halaman statis murni,
+// tanpa build step; CSP dari helmet di app ini sudah dimatikan (lihat app.use(helmet(...))
+// di atas) jadi tidak ada konflik CSP dengan script CDN ini.
+app.get("/api/docs", function (req, res) {
+  res.type("html").send(
+    "<!doctype html><html lang=\"id\"><head><meta charset=\"utf-8\">" +
+    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
+    "<title>20FIT Recipe API -- Dokumentasi</title></head><body>" +
+    "<script id=\"api-reference\" data-url=\"/api/openapi.json\"></script>" +
+    "<script src=\"https://cdn.jsdelivr.net/npm/@scalar/api-reference\"></script>" +
+    "</body></html>"
+  );
 });
 
 app.use(express.static(path.join(__dirname), {
