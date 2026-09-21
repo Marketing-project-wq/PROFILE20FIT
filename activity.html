@@ -10,23 +10,41 @@
   /* Token khusus halaman Activity (dari spesifikasi pemilik). Gelap = default;
      mode terang dipetakan ulang di blok html.theme-light supaya tetap terbaca —
      halaman lain memakai kelas theme-light yang sama (CLAUDE.md §G). */
+  /* Token halaman ini MENUMPANG token repo (css/20fit-design-system.css + glass-app.css)
+     supaya warnanya sama dengan halaman lain dan ikut dark/light app. Nilai setelah koma
+     = cadangan kalau stylesheet gagal dimuat, jadi halaman tetap terbaca. --accent/--green/
+     --amber/--red SENGAJA memakai palet repo, bukan palet sendiri. */
   :root{
-    --a-bg:#0C0C0E; --a-surface:#161619; --a-line:#2A2A30;
-    --a-txt:#F4F4F6; --a-mut:#8B8B96;
-    --accent:#3B82F6; --green:#22C55E; --amber:#F59E0B; --red:#EF4444; --purple:#A855F7;
+    --a-bg:var(--bg,#F1F1F4);
+    --a-surface:var(--card,#FFFFFF);
+    --a-line:var(--glass-hair,var(--line,#EBEBEF));
+    --a-txt:var(--txt,#15171C);
+    --a-mut:var(--muted,#8A8D94);
+    --accent:var(--blue,#2F6BFF);
+    --purple:#A855F7;
     --strava:#FC4C02; --cyan:#22D3EE; --zone3:#EAB308; --zone4:#F97316;
     --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
     --sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
   }
-  html.theme-light{
-    --a-bg:#F6F6F8; --a-surface:#FFFFFF; --a-line:#E4E4EA;
-    --a-txt:#0A0A0C; --a-mut:#6B6B78;
-  }
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;background:var(--a-bg);color:var(--a-txt);font-family:var(--sans);padding:20px 16px 100px;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:640px;margin:0 auto}
+  /* Lebar: dulu 640px rata-tengah, jadi kolom sempit dengan ruang kosong lebar di kiri-kanan
+     (sidebar desktop 238px membuatnya makin terdorong). Sekarang lebih lebar, dan di layar
+     besar isinya dibagi dua kolom supaya ruang terpakai, bukan sekadar memanjang ke bawah. */
+  .wrap{max-width:1120px;margin:0 auto}
+  @media(min-width:1040px){
+    body{padding-left:26px;padding-right:26px}
+    /* Bagian harian: dua kolom eksplisit. minmax(0,1fr) supaya isi panjang tidak memaksa melebar. */
+    .dgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+    .dgrid>*{min-width:0}
+    /* Bagian lama: isinya dirender kode warisan (tak bisa dibungkus grid per-kartu),
+       jadi pakai multi-kolom + larangan patah di tengah kartu. */
+    #lgcContent{columns:2;column-gap:16px}
+    #lgcContent>*{break-inside:avoid;-webkit-column-break-inside:avoid}
+    #lgcContent .sec{break-after:avoid}
+  }
   .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
-  .card{background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px;padding:16px}
+  .card{background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius,16px);padding:16px}
   .card+.card{margin-top:12px}
   .muted{color:var(--a-mut)}
 
@@ -41,7 +59,8 @@
   /* 2. Date navigator */
   .dnav{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;margin-bottom:12px;scrollbar-width:none}
   .dnav::-webkit-scrollbar{display:none}
-  .dpill{flex:none;min-width:52px;padding:8px 6px;border-radius:12px;border:1px solid var(--a-line);background:var(--a-surface);
+  .dpill{flex:none;min-width:52px;padding:8px 6px;border-radius:var(--radius-sm,12px);border:1px solid var(--glass-hair,var(--a-line));
+    background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));box-shadow:var(--glass-sh,none);
     text-align:center;cursor:pointer;font-family:inherit;color:var(--a-txt)}
   .dpill .dw{font-size:10.5px;color:var(--a-mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700}
   .dpill .dd{font-size:15px;font-weight:800;margin-top:2px;font-family:var(--mono)}
@@ -50,14 +69,15 @@
   .dpill:disabled{opacity:.35;cursor:default}
 
   /* 3. Upload */
-  .drop{border:1.5px dashed var(--a-line);border-radius:14px;padding:26px 16px;text-align:center;cursor:pointer;background:transparent}
+  .drop{border:1.5px dashed var(--glass-brd,var(--a-line));border-radius:var(--radius,14px);padding:26px 16px;
+    text-align:center;cursor:pointer;background:var(--glass-2,transparent)}
   .drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
   .drop svg{width:26px;height:26px;stroke:var(--a-mut);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   .drop .t{font-weight:700;font-size:14.5px;margin-top:8px}
   .drop .s{font-size:12.5px;color:var(--a-mut);margin-top:3px}
   .trk{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-  .trk button{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:10px;border:1px solid var(--a-line);
-    background:var(--a-surface);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+  .trk button{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:10px;border:1px solid var(--glass-hair,var(--a-line));
+    background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));box-shadow:var(--glass-sh,none);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
   .trk button i{width:8px;height:8px;border-radius:99px;display:inline-block;flex:none}
   .orsep{text-align:center;font-size:11.5px;color:var(--a-mut);margin:14px 0 0}
 
@@ -81,7 +101,9 @@
   .hrz-r .d{font-size:11.5px;font-family:var(--mono);color:var(--a-mut);width:46px;text-align:right}
 
   /* 5. AI analysis */
-  .ai{background:linear-gradient(145deg,var(--a-surface),color-mix(in srgb,var(--accent) 9%,var(--a-surface)))}
+  /* Skin kaca menyetel .card{background:...!important}, jadi gradient biasa akan kalah.
+     Pola tint ini menyalin cara repo melakukannya untuk .card.up — semburat di ATAS kaca. */
+  .card.ai{background:color-mix(in srgb,var(--accent) 7%,var(--glass,var(--a-surface))) !important}
   .ai-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
   .ai-h svg{width:17px;height:17px;fill:var(--accent)}
   .ai-h .t{font-weight:800;font-size:14px}
@@ -131,7 +153,9 @@
   /* 9. Habits */
   .chips{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
   .chips::-webkit-scrollbar{display:none}
-  .chip{flex:none;min-width:96px;border:1px solid var(--a-line);border-radius:12px;padding:11px 12px;text-align:center;background:transparent}
+  .chip{flex:none;min-width:96px;border:1px solid var(--glass-hair,var(--a-line));border-radius:var(--radius-sm,12px);
+    padding:11px 12px;text-align:center;background:linear-gradient(155deg,var(--glass,transparent),var(--glass-2,transparent));
+    box-shadow:var(--glass-sh,none)}
   .chip .e{font-size:21px;line-height:1}
   .chip .n{font-size:11.5px;font-weight:700;margin-top:5px}
   .chip .s{font-size:11px;color:var(--a-mut);margin-top:2px;font-family:var(--mono)}
@@ -233,6 +257,12 @@
   @media(max-width:560px){ .lgc .wrap{padding:16px 12px} .lgc .card{padding:14px} .lgc .achg{grid-template-columns:1fr} .lgc .hello{font-size:24px} }
 
 </style>
+<!-- Dimuat SESUDAH <style> halaman, sama seperti dashboard/calories/recipe: skin kaca
+     memakai !important untuk .card sehingga kartu di sini otomatis ikut liquid-glass
+     yang sama dengan seluruh app. activity.html tadinya satu-satunya halaman yang
+     tidak memuat keduanya — itu sebabnya tampilannya beda sendiri. -->
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/glass-app.css">
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 </head>
 <body>
@@ -252,6 +282,8 @@
 
   <div id="errBox"></div>
 
+  <div class="dgrid">
+  <div>
   <!-- 3. UPLOAD -->
   <div class="card">
     <div class="drop" id="drop" tabindex="0" role="button">
@@ -271,6 +303,12 @@
   <div class="sechd" data-i18n="act_sec_week">Ringkasan minggu ini</div>
   <div class="card" id="weekBox"></div>
 
+  <div class="sechd" data-i18n="act_sec_habit">Kebiasaan harian</div>
+  <div class="chips" id="habitBox"></div>
+
+  </div>
+  <div>
+
   <!-- 5. AI ANALYSIS + 6. SCORE -->
   <div class="sechd" data-i18n="act_sec_ai">AI Coach</div>
   <div id="aiBox"></div>
@@ -284,8 +322,8 @@
        angka yang sama muncul dua kali dengan dua target berbeda. -->
 
   <!-- 9. HABITS -->
-  <div class="sechd" data-i18n="act_sec_habit">Kebiasaan harian</div>
-  <div class="chips" id="habitBox"></div>
+  </div>
+  </div><!-- /dgrid -->
 
   <!-- 10. WEEKLY -->
   <!-- Isi halaman Activity LAMA (dulu /progress), MENYATU di alur yang sama —
