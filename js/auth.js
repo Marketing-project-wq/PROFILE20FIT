@@ -238,30 +238,70 @@
     return data;
   }
 
-  // ---------- SSO KELUAR: buka 20FIT Photo (photo.20fit.id) tanpa login ulang ----------
-  // photo.20fit.id memakai PROJECT SUPABASE YANG SAMA. Jalur UTAMA (nol server, nol config):
-  // oper access_token+refresh_token sesi yang SUDAH ada di browser ini lewat URL fragment ke
-  // /auth/callback photo — client Supabase-nya (detectSessionInUrl, implicit flow) men-seat sesi,
-  // lalu sync-supabase-user menautkan baris user.
-  // CATATAN keamanan: fragment (#) tidak dikirim ke server, TAPI bisa tersimpan di history browser.
-  // Ini SAMA dengan login native photo.20fit sendiri (magic-link/Google OAuth implicit juga
-  // mendaratkan #access_token&refresh_token di /auth/callback), jadi paritas — bukan paparan baru.
-  // FALLBACK (browser tak punya sesi): /api/photo-sso mint magic link ber-redirect (action_link,
-  // yang juga berujung refresh_token di fragment via GoTrue /verify).
-  const PHOTO_ORIGIN = "https://photo.20fit.id";
+  // ---------- SSO KELUAR: buka produk 20FIT lain tanpa login ulang ----------
+  // SEBELUMNYA: tiga fungsi nyaris identik (photoSso/caloriesSso/menuSso) yang menyalin
+  // blok pembuatan fragment yang sama. Digabung jadi SATU jalur + satu daftar tujuan
+  // (CLAUDE.md §2: satu sumber kebenaran). Menambah produk = menambah satu baris di ECO.
+  //
+  // CARA KERJA: oper access_token+refresh_token sesi yang SUDAH ada di browser ini lewat
+  // URL fragment ke tujuan. Client Supabase di sana (detectSessionInUrl / setSession dari
+  // location.hash) men-seat sesinya. Nol server, nol konfigurasi, dan BERJALAN HARI INI
+  // untuk subdomain yang sudah mendukungnya.
+  // KEAMANAN: fragment (#) TIDAK pernah dikirim ke server — tidak masuk log, tidak masuk
+  // Referer. Bisa tersimpan di history browser, TAPI itu sama persis dengan login native
+  // tiap produk (magic-link & Google OAuth implicit juga mendaratkan #access_token di
+  // /auth/callback). Jadi paritas, bukan paparan baru.
+  const ECO = {
+    photo:   { origin: "https://photo.20fit.id",           path: "/auth/callback" },
+    // calorietracker: "calories.20fit.id" TIDAK PERNAH punya DNS record (NXDOMAIN,
+    // diverifikasi 2026-08-31) — nama yang benar & live adalah calorietracker.20fit.id.
+    calorie: { origin: "https://calorietracker.20fit.id",  path: "/" },
+    // App menu produksi = recepie.20fit.id (menu.20fit.id belum punya DNS).
+    recipe:  { origin: "https://recepie.20fit.id",         path: "/" },
+    mcu:     { origin: "https://medicalscanner.20fit.id",  path: "/" },
+    media:   { origin: "https://media.20fit.id",           path: "/" },
+    workout: { origin: "https://workout.20fit.id",         path: "/" },
+    ticket:  { origin: "https://ticket.20fit.id",          path: "/" },
+    talent:  { origin: "https://talent.20fit.id",          path: "/" },
+    my20fit: { origin: "https://my.20fit.id",              path: "/" },
+    home:    { origin: "https://20fit.id",                 path: "/" }
+  };
+
+  function ssoFragment(s) {
+    const exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
+    return "#access_token=" + encodeURIComponent(s.access_token) +
+      "&refresh_token=" + encodeURIComponent(s.refresh_token) +
+      "&expires_in=" + exp + "&token_type=bearer&type=magiclink";
+  }
+
+  // Buka produk 20FIT lain, membawa sesi kalau ada. `key` = kunci di ECO, ATAU URL penuh
+  // ke subdomain 20FIT. Tanpa sesi -> buka biasa dan produk tujuan yang mengarahkan login.
+  async function ssoTo(key, subPath) {
+    await ready;
+    const t = ECO[key];
+    let origin, path;
+    if (t) { origin = t.origin; path = subPath || t.path; }
+    else {
+      // URL penuh: hanya izinkan 20fit.id / *.20fit.id supaya token tak pernah dioper ke luar.
+      let u = null;
+      try { u = new URL(String(key)); } catch (e) { return; }
+      if (u.protocol !== "https:" || !/^([a-z0-9-]+\.)*20fit\.id$/i.test(u.hostname)) return;
+      origin = u.origin; path = subPath || (u.pathname + u.search);
+    }
+    let s = null;
+    try { const { data } = await supabase.auth.getSession(); s = data && data.session; } catch (e) {}
+    if (s && s.access_token && s.refresh_token) { location.href = origin + path + ssoFragment(s); return; }
+    location.href = origin + path;
+  }
+
+  // Pembungkus tipis untuk pemanggil yang sudah ada (dashboard.html, nav). Bukan kode mati —
+  // ketiganya masih dipanggil; isinya kini satu jalur yang sama.
   async function photoSso() {
     await ready;
     let s = null;
     try { const { data } = await supabase.auth.getSession(); s = data && data.session; } catch (e) {}
-    if (s && s.access_token && s.refresh_token) {
-      const exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
-      const frag = "#access_token=" + encodeURIComponent(s.access_token) +
-        "&refresh_token=" + encodeURIComponent(s.refresh_token) +
-        "&expires_in=" + exp + "&token_type=bearer&type=magiclink";
-      location.href = PHOTO_ORIGIN + "/auth/callback" + frag;
-      return;
-    }
-    // Fallback: minta server mint action_link (butuh sesi terverifikasi di server).
+    if (s && s.access_token && s.refresh_token) { return ssoTo("photo"); }
+    // Tanpa sesi di browser: minta server mint magic link (butuh sesi terverifikasi di server).
     const at = await token();
     if (at) {
       try {
@@ -270,55 +310,10 @@
         if (r.ok && j.sso_url) { location.href = j.sso_url; return; }
       } catch (e) {}
     }
-    location.href = PHOTO_ORIGIN + "/login"; // fallback terakhir: login manual di photo
+    location.href = ECO.photo.origin + "/login";
   }
-
-  // ---------- SSO KELUAR: buka calorietracker.20fit.id tanpa login ulang ----------
-  // Pola SAMA dgn photoSso: oper access_token+refresh_token sesi browser ini via URL fragment.
-  // App calorietracker (Supabase setSession dari location.hash) men-seat sesi. Parity dgn login
-  // native (magic-link/OAuth implicit juga mendaratkan #access_token di fragment) — bukan paparan
-  // baru. Panggil ini dari my.20fit saat mengarahkan user ke scanner kalori subdomain.
-  // CATATAN (audit 2026-08-31): sebelumnya nilainya "calories.20fit.id" — domain itu TIDAK
-  // PERNAH punya DNS record (dicek langsung, NXDOMAIN), jadi tombol Sign In & kartu Kalori
-  // selalu gagal (site can't be reached) begitu dipanggil. Nama yang benar & live:
-  // calorietracker.20fit.id.
-  const CALORIES_ORIGIN = "https://calorietracker.20fit.id";
-  async function caloriesSso() {
-    await ready;
-    let s = null;
-    try { const { data } = await supabase.auth.getSession(); s = data && data.session; } catch (e) {}
-    if (s && s.access_token && s.refresh_token) {
-      const exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
-      const frag = "#access_token=" + encodeURIComponent(s.access_token) +
-        "&refresh_token=" + encodeURIComponent(s.refresh_token) +
-        "&expires_in=" + exp + "&token_type=bearer&type=magiclink";
-      location.href = CALORIES_ORIGIN + "/" + frag;
-      return;
-    }
-    location.href = CALORIES_ORIGIN + "/"; // belum ada sesi -> app calorietracker yang arahkan ke login
-  }
-
-  // ---------- SSO KELUAR: buka app menu resep tanpa login ulang ----------
-  // Pola SAMA dgn caloriesSso: oper access_token+refresh_token sesi browser ini via URL fragment.
-  // App menu (Supabase setSession dari location.hash) men-seat sesi lalu STRIP token dari URL
-  // (history.replaceState) — token tak pernah masuk log server. Panggil saat mengarahkan user
-  // ke katalog resep subdomain.
-  // Domain produksi app menu = recepie.20fit.id (bukan menu.20fit.id yang belum ada DNS-nya).
-  const MENU_ORIGIN = "https://recepie.20fit.id";
-  async function menuSso() {
-    await ready;
-    let s = null;
-    try { const { data } = await supabase.auth.getSession(); s = data && data.session; } catch (e) {}
-    if (s && s.access_token && s.refresh_token) {
-      const exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
-      const frag = "#access_token=" + encodeURIComponent(s.access_token) +
-        "&refresh_token=" + encodeURIComponent(s.refresh_token) +
-        "&expires_in=" + exp + "&token_type=bearer&type=magiclink";
-      location.href = MENU_ORIGIN + "/" + frag;
-      return;
-    }
-    location.href = MENU_ORIGIN + "/"; // belum ada sesi -> app menu yang arahkan ke login
-  }
+  function caloriesSso() { return ssoTo("calorie"); }
+  function menuSso() { return ssoTo("recipe"); }
 
   // ---------- VERIFIKASI OTP AKUN 20FIT (wajib pasca-registrasi baru) ----------
   // OTP ini BEDA dari OTP Supabase kita (sendOtp/verifyOtp di bawah) — ini kode
@@ -724,6 +719,8 @@
     photoSso,
     caloriesSso,
     menuSso,
+    ssoTo,        // jalur SSO umum ke produk 20FIT mana pun (dipakai universal nav)
+    ECO,          // daftar tujuan — satu sumber kebenaran
     fitcoVerifyEmail,
     fitcoResendVerifyEmail,
     hasWebPassword,
