@@ -12,10 +12,20 @@
  * IKON: SEMUA path diambil VERBATIM dari ikon vektor yang sudah dipakai app ini
  * (dashboard.html, js/nav.js, js/tour.js) — bukan ditulis ulang, bukan emoji.
  *
- * Pakai: <script src="js/universal-nav.js" defer></script>  (otomatis memasang dirinya)
+ * DUA CARA PAKAI:
+ *  1. Bar sendiri (default, untuk subdomain lain):
+ *       <script src="js/universal-nav.js" defer></script>
+ *  2. TANPA bar — grid produknya ditempel ke menu yang sudah ada di halaman:
+ *       <script src="js/universal-nav.js" data-no-bar defer></script>
+ *       ... lalu: UniversalNav.renderAppsInto(elemen)
+ *     Dipakai dashboard.html: halaman itu SUDAH punya menu di samping toggle EN/ID,
+ *     jadi menambah bar hitam di atasnya = dua menu produk (langgar CLAUDE.md §2).
  */
 (function () {
   "use strict";
+
+  var SELF = document.currentScript;
+  var NO_BAR = !!(SELF && SELF.hasAttribute("data-no-bar"));
 
   // IKON: SEMUANYA diambil VERBATIM dari ikon vektor yang SUDAH dipakai app ini
   // (dashboard.html TICON & js/nav.js ICON) — bukan ditulis ulang, bukan emoji.
@@ -137,13 +147,52 @@
     'width:36px;height:36px;border:0;border-radius:50%;background:#f0f0f0;color:#111;cursor:pointer}',
     '.un-apps,.un-prof{margin-top:44px}',
     '}',
-    '@media(min-width:640px) and (max-width:1023px){.un-apps{width:min(560px,95vw)}}'
+    '@media(min-width:640px) and (max-width:1023px){.un-apps{width:min(560px,95vw)}}',
+    /* Varian TERTANAM: dipakai saat grid ditempel ke menu milik halaman (tanpa bar). */
+    '.un-embed{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}',
+    '.un-embed .un-app{padding:10px 4px;gap:2px;color:inherit}',
+    '.un-embed .un-app .un-l{font-size:11px}',
+    '.un-embed .un-app:hover{background:color-mix(in srgb,currentColor 7%,transparent)}',
+    '.un-embed .un-here{font-size:8.5px}'
   ].join("");
+
+  function injectCss() {
+    if (document.getElementById("un20-css")) return;
+    var st = document.createElement("style"); st.id = "un20-css"; st.textContent = CSS;
+    document.head.appendChild(st);
+  }
+
+  // Pasang HANYA grid produk ke wadah yang diberikan. Dipakai halaman yang sudah punya
+  // menunya sendiri (dashboard) supaya tidak ada dua menu produk. Menyuntik CSS-nya juga
+  // supaya bisa dipanggil tanpa bar pernah dipasang.
+  function renderAppsInto(el) {
+    if (!el) return;
+    injectCss();
+    var cur = currentId();
+    el.classList.add("un-embed");
+    el.innerHTML = ITEMS.map(function (it) {
+      var on = it.id === cur;
+      return '<a class="un-app" role="menuitem" href="' + esc(it.url) + '" data-url="' + esc(it.url) + '"' +
+        (on ? ' aria-current="page"' : '') + '>' +
+        '<span class="un-ic" style="color:' + esc(it.color) + '">' + svg(it.icon, 24) + '</span>' +
+        '<span class="un-l">' + esc(it.label) + '</span>' +
+        (on ? '<span class="un-here">\u25CF Kamu di sini</span>' : '') +
+        '</a>';
+    }).join("");
+    Array.prototype.forEach.call(el.querySelectorAll("[data-url]"), function (a) {
+      a.onclick = function (e) {
+        e.preventDefault();
+        if (a.getAttribute("aria-current") === "page") return;
+        if (window.Auth && typeof Auth.ssoTo === "function") Auth.ssoTo(a.getAttribute("data-url"));
+        else location.href = a.getAttribute("data-url");
+      };
+    });
+    return el;
+  }
 
   function mount() {
     if (document.getElementById("un20")) return;
-    var st = document.createElement("style"); st.id = "un20-css"; st.textContent = CSS;
-    document.head.appendChild(st);
+    injectCss();
 
     var cur = currentId();
     var curItem = ITEMS.filter(function (i) { return i.id === cur; })[0];
@@ -285,8 +334,10 @@
     window.addEventListener("scroll", function () { if (openKind) closeAll(); }, { passive: true });
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount);
-  else mount();
+  if (!NO_BAR) {
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mount);
+    else mount();
+  }
 
-  window.UniversalNav = { mount: mount, ITEMS: ITEMS, currentId: currentId };
+  window.UniversalNav = { mount: mount, renderAppsInto: renderAppsInto, ITEMS: ITEMS, currentId: currentId };
 })();

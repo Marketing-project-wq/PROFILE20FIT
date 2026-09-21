@@ -587,9 +587,10 @@
   <script src="js/nutrition.js"></script>
   <script src="js/cycle.js"></script>
   <script src="js/nav.js"></script>
-  <!-- Bar ekosistem 20FIT (app switcher + profil). Dipasang di dashboard DULU supaya
-       pemilik bisa melihat dampaknya ke layout sebelum digulirkan ke halaman lain. -->
-  <script src="js/universal-nav.js" defer></script>
+  <!-- Grid produk ekosistem 20FIT. data-no-bar = JANGAN pasang bar hitam sendiri:
+       halaman ini SUDAH punya menu produk di samping toggle EN/ID, dan dua menu produk
+       melanggar CLAUDE.md §2. Grid-nya ditempel ke menu itu lewat renderAppsInto(). -->
+  <script src="js/universal-nav.js" data-no-bar defer></script>
   <script src="js/tour.js"></script>
   <script src="js/meta-pixel.js"></script>
   <script>
@@ -2194,6 +2195,11 @@
       }
       function renderProd(){
         var html="";
+        // Grid ekosistem (10 produk subdomain) di paling atas. Wadahnya diisi
+        // UniversalNav.renderAppsInto() SESUDAH innerHTML dipasang — kalau diisi duluan,
+        // innerHTML di bawah menimpanya.
+        html += '<div class="hpx-sec">'+esc(LL({en:"All 20FIT products",id:"Semua produk 20FIT"}))+'</div>'+
+                '<div id="hpxEco"></div>';
         GROUPS.forEach(function(g){
           html += '<div class="hpx-sec">'+esc(LL(g.title))+(g.badge?' · '+esc(LL(g.badge)):'')+'</div>';
           g.items.forEach(function(it,idx){
@@ -2204,6 +2210,10 @@
           });
         });
         prodCtl.menu.innerHTML=html;
+        // Grid ekosistem: satu sumber daftar produk (js/universal-nav.js), bukan salinan
+        // kedua di halaman ini. Kalau berkasnya gagal dimuat, wadahnya tinggal kosong dan
+        // menu lama tetap utuh — tidak ada yang hilang.
+        try{ if(window.UniversalNav) UniversalNav.renderAppsInto(prodCtl.menu.querySelector("#hpxEco")); }catch(e){}
         prodCtl.menu.querySelectorAll(".hpx-it").forEach(function(b){
           b.addEventListener("click", function(){ openProduct(GROUPS[+b.dataset.g].items[+b.dataset.i]); });
         });
