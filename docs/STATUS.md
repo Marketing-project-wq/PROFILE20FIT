@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-21 · **Commit staging:** `23a2bd3` · **Production:** `7740dbf`
+> **Pembaruan terakhir:** 2026-09-21 · **Commit staging:** `7637161` · **Production:** `7740dbf`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -218,6 +218,33 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
       tidak tersimpan — supaya fitur bisa diuji sebelum bucket dibuat.
     - **BELUM TERVERIFIKASI:** akurasi bacaan pada screenshot tracker ASLI. Diuji dengan
       respons AI tiruan; ketepatan OCR baru bisa dinilai setelah edge fn di-deploy ulang.
+- **`/calories` disamakan dengan home calorietracker.20fit.id (21 Sep 2026).**
+  Hasil pembandingan repo `Marketing-project-wq/Calories.20fit` terhadap `calories.html`:
+  - **API-nya SUDAH tersambung sejak awal.** `constants.ts` di calorietracker menyetel
+    `API_BASE = MY20FIT` dan memanggil `/api/scan/ai`, `/api/scan/food-text`,
+    `/api/scan/food-correction`, `/api/scan/quota`, `/api/scan/buy` — semuanya endpoint
+    milik repo INI dan sudah ada di `server.js`. Jadi calorietracker adalah KLIEN
+    my.20fit.id, bukan layanan terpisah yang perlu di-proxy.
+  - **Panel 1-9 sudah ada** di `/calories`: target+termometer, makro, scan foto, ketik
+    manual, health meter, cek per-item, nutrient gap, saran makan berikutnya (semuanya
+    di `fsum*` dalam `calories.html`), puasa (`js/fasting.js`), dan daftar "Today's Food"
+    lengkap dengan tombol hapus (`#log` + `del(i)`).
+  - **Yang BENAR-BENAR kurang cuma satu: Rencana Makan harian.** Sudah dibuat:
+    `js/meal-plan.js` — port vanilla dari `src/lib/mealPlan.ts`. Aturan pemilihannya
+    disalin apa adanya: porsi 25/35/30/10 persen, PRNG mulberry32 ber-seed (seed =
+    hari ke-n dalam setahun, "Acak lagi" menaikkan seed), toleransi jarak
+    `budget*0.35+40`, shortlist 4, dan satu resep tak dipakai dua kali sehari.
+  - Sumber datanya `/api/menu/catalog` (120 resep, sudah ada) — sama dengan sumber yang
+    dipakai calorietracker. Tidak ada API baru.
+  - **Tautan resep pakai `/recipe?q=<nama>`**, karena `/recipe` BELUM punya deep-link per
+    resep (hanya filter `q`/`category`/`diet`/`kcal`/`sort`). Kalau deep-link per resep
+    dibuat nanti, tautan ini sebaiknya diarahkan ke sana.
+  - **BELUM DIKERJAKAN:** `js/fasting.js` di sini 93 baris, `src/lib/fasting.ts` di
+    calorietracker 231 baris — fitur puasanya lebih dangkal. Selisihnya belum
+    diperiksa baris-per-baris. **TANYA PEMILIK REPO** apakah perlu disamakan juga.
+  - **CATATAN:** calorietracker membaca tabel `ct_meal` (tanpa prefix `my20fit_`).
+    Tabel itu milik app tersebut; repo ini TIDAK menyentuhnya (CLAUDE.md §4).
+
   - **TUGAS PEMILIK sebelum fitur ini utuh:** (1) jalankan migration 017 manual; (2) buat bucket
     Storage **`workout-uploads`** (PRIVAT); (3) deploy ulang edge fn `my20fit-ai` supaya aksi
     `plan` **dan `workout`** aktif — tanpa ini `/api/activity/scan` membalas 503 dengan pesan

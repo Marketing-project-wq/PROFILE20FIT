@@ -228,6 +228,8 @@
     <div class="card" id="foodSummary"></div>
     <div class="sec" data-i18n="cal_today_sec">Today's Food</div>
     <div class="card"><div id="log"></div></div>
+    <div class="sec" id="mealPlanSec">Rencana Makan</div>
+    <div class="card" id="mealPlan"></div>
 
      </div>
     </div>
@@ -244,6 +246,28 @@
 
   <!-- Healthy-swap pop-up (shown after a scan) -->
   <style>
+  /* Rencana makan harian (js/meal-plan.js). Token repo, tanpa warna baru. */
+  .mp-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .mp-head .mp-t{font-weight:800;font-size:14px}
+  .mp-re{margin-left:auto;border:1px solid var(--line,#e5e0d8);background:transparent;color:inherit;
+    border-radius:9px;padding:6px 12px;font-family:inherit;font-weight:700;font-size:12.5px;cursor:pointer}
+  .mp-list{display:flex;flex-direction:column}
+  .mp-row{display:flex;align-items:center;gap:11px;padding:10px 0;text-decoration:none;color:inherit;
+    border-top:1px solid var(--line,#e5e0d8)}
+  .mp-row:first-child{border-top:0}
+  .mp-em{font-size:20px;line-height:1;flex:0 0 auto}
+  .mp-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .mp-meal{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#9a907f)}
+  .mp-nm{font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mp-mac{font-size:11.5px;color:var(--muted,#9a907f)}
+  .mp-kc{flex:0 0 auto;text-align:right;line-height:1.25}
+  .mp-kc b{font-size:15px;font-weight:800}
+  .mp-kc s{display:block;text-decoration:none;font-size:11px;color:var(--muted,#9a907f)}
+  .mp-tot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;
+    padding-top:11px;border-top:1px solid var(--line,#e5e0d8);font-size:13px;font-weight:700}
+  .mp-tot .mp-tv s{text-decoration:none;font-weight:600;color:var(--muted,#9a907f);font-size:11.5px}
+  .mp-note{margin-top:9px;font-size:11.5px;color:var(--muted,#9a907f);line-height:1.5}
+  .mp-msg{font-size:12.5px;color:var(--muted,#9a907f)}
     .hopt-bg{position:fixed;inset:0;z-index:95;background:rgba(10,12,16,.5);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:none;align-items:flex-end;justify-content:center}
     .hopt-bg.open{display:flex}
     .hopt{width:100%;max-width:440px;background:var(--card);border-radius:22px 22px 0 0;max-height:90vh;overflow-y:auto;padding:8px 20px calc(env(safe-area-inset-bottom) + 22px);box-shadow:0 -10px 40px rgba(0,0,0,.25);animation:hoptS .28s cubic-bezier(.2,.8,.2,1)}
@@ -368,6 +392,7 @@
   <script src="js/i18n.js"></script>
   <script src="js/fasting.js"></script>
   <script src="js/nutrition.js"></script>
+<script src="js/meal-plan.js"></script>
   <script src="js/recipe-photos.js"></script>
   <script src="js/nav.js"></script>
   <script src="js/tour.js"></script>
@@ -419,6 +444,8 @@
       setMacro("cVal",tc,macroT.c,"cBar");
       setMacro("fVal",tf,macroT.f,"fBar");
       try{ renderMenuRec(tp,tc,tf); }catch(e){}
+      // Rencana makan memakai target kalori halaman ini — satu sumber angka, bukan salinan.
+      try{ if(_mealPlan) _mealPlan.setTarget(goal); }catch(e){}
       try{ renderFoodSummary(); }catch(e){}
       const log=document.getElementById("log");
       log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}${i.t?`<span class="mtime">${i.t}</span>`:""}</span><span class="kc">${i.kcal} ${kc()} <button class="x-close x-ghost x-sm x-danger" onclick="del(${idx})" aria-label="Remove"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span></div>`).join(""):'<div class="muted">'+I18N.t("cal_empty")+'</div>';
@@ -1123,6 +1150,13 @@
       try{ if(Fasting.get())return; const {data}=await Auth.supabase.from("my20fit_fasting").select("style,start_time").eq("auth_user_id",profileRef.auth_user_id).limit(1); const r=data&&data[0]; if(r&&r.style){ Fasting.set({id:r.style,start:String(r.start_time||"12:00").slice(0,5)}); recompute(); renderIF(); } }catch(e){}
     }
 
+    var _mealPlan=null;
+    function mountMealPlan(){
+      var sec=document.getElementById("mealPlanSec"), el=document.getElementById("mealPlan");
+      if(!el||!window.MealPlan) return;
+      if(sec) sec.textContent=L({en:"Meal plan",id:"Rencana Makan"});
+      _mealPlan=MealPlan.mount(el,{target:goal});
+    }
     (async function(){
       const p=await Auth.getProfile();
       profileRef=p; baseGoal=Nutrition.goalFor(p); curGoal=p.main_goal||"health";
@@ -1147,6 +1181,7 @@
       // Ini jaring pengaman utamanya: satu-satunya jalur yang tetap bekerja walau user
       // tak pernah kembali ke tab ini, ganti device, atau localStorage-nya hilang.
       try{ if(window.Deals && Deals.sweep) Deals.sweep(refreshQuota); }catch(e){}
+          try{ mountMealPlan(); }catch(e){}
     })();
     // Deteksi kepulangan dari Xendit lewat query URL.
     // CATATAN (diperbaiki 2026-07-16): jalur ini pada praktiknya TIDAK PERNAH terpicu.
