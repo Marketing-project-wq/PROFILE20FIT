@@ -148,6 +148,48 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Foto avatar di dashboard tampil salah — DIPERBAIKI 2026-09-21.** `paintAva()` menyetel
+  `a.style.background = <warna>` (shorthand) sebelum `backgroundImage`. Shorthand inline
+  me-reset `background-size` ke `auto` dan `background-position` ke `0% 0%`, dan gaya inline
+  menang atas `.hpx-av{background-size:cover}` di stylesheet. Terbukti lewat computed style:
+  `size:auto, pos:0% 0%, rep:repeat` — foto tampil ukuran asli, rata kiri-atas, DAN berulang;
+  di lingkaran 26px user cuma melihat secuil pojok fotonya. Diperbaiki jadi `backgroundColor`
+  + `backgroundSize/Position/Repeat` eksplisit, dan `backgroundImage` dikosongkan saat user
+  tak punya foto (dulu foto user sebelumnya bisa tertinggal). Diverifikasi dengan menjalankan
+  fungsi `paintAva` ASLI dari `dashboard.html` di Chromium.
+  Pola yang sama disapu ke seluruh repo: hanya SATU kejadian. `profile.html` `setAva()` aman
+  (tak pakai shorthand inline, CSS `.ava` sudah `cover`), `js/nav.js` sudah menyetel `cover`
+  sendiri, `js/recipe-photos.js` sudah diperbaiki di PR #447.
+- **`js/recipes.js` BUKAN dead code — jangan hapus.** Tidak dimuat halaman mana pun di browser,
+  tapi `server.js:4865` mem-`require`-nya untuk katalog resep resmi (`/api/menu/catalog`), dan
+  `scripts/backfill-menu-photos.js` juga. Yang diekspor hanya `LIST` + `DIET_TYPES`.
+  **Catatan:** fungsi browser di dalamnya (`_setBg`, `applyThumb` di ~baris 1283-1289) otomatis
+  jadi tak pernah jalan karena file ini kini murni dipakai server. `_setBg` di sana masih punya
+  bug `background-size` yang sama. TIDAK disentuh: file ini di-`require` server, mengubahnya
+  berisiko ke katalog resep. **TANYA PEMILIK REPO** sebelum membersihkannya.
+
+- **Halaman Activity (`/activity`) — BARU 2026-09-21, belum dites di staging.** Upload/isi workout,
+  zona HR, rencana harian AI, nutrisi, kebiasaan, ringkasan minggu.
+  - **Spesifikasi awal minta React+Vite+Tailwind dan 3 tabel baru; keduanya DITOLAK** karena
+    melanggar CLAUDE.md §5/§I (vanilla) dan §2/§4 (duplikasi + prefix). Dibangun vanilla, dan
+    dua dari tiga tabel dipakai ulang: `my20fit_workout` (dorman, 0 baris → diperluas) dan
+    `my20fit_daily_log` (hidup, 679 baris → hanya `steps` yang ditambah). Lihat
+    `db/supabase-migration-017-activity.sql` untuk daftar kolom yang SENGAJA tidak dibuat.
+  - **AI lewat jalur tunggal yang sudah ada** (`callAiEdge` → edge `my20fit-ai`, aksi baru `plan`),
+    bukan edge function terpisah. Provider tetap **OpenRouter + Gemini**, bukan Anthropic —
+    spesifikasi menyebut "Anthropic Claude API", repo memakai yang lain sejak awal.
+  - **Ada rencana cadangan tanpa AI** (`fallbackPlan` di `server.js`): dihitung dari angka yang ada,
+    ditandai "TANPA AI" di UI. Jadi halaman tetap berguna sebelum edge fn di-deploy.
+  - **TUGAS PEMILIK sebelum fitur ini utuh:** (1) jalankan migration 017 manual; (2) buat bucket
+    Storage **`workout-uploads`** (PRIVAT); (3) deploy ulang edge fn `my20fit-ai` supaya aksi
+    `plan` aktif; (4) Strava OAuth (Client ID/Secret di Railway + redirect URI di dashboard
+    Strava) — tombol tracker sekarang jujur bilang "belum tersambung".
+  - **TANYA PEMILIK REPO — tabrakan nama:** item nav `nav_progress` berlabel **"Activity"/"Aktivitas"**
+    tapi menuju `/progress`. Sekarang ada dua hal bernama Activity. Nav SENGAJA tidak diubah
+    (menyentuh semua halaman); `/activity` diakses dari tile dashboard.
+  - **BELUM TERVERIFIKASI:** OCR screenshot workout (belum ada — angka diisi user), sinkronisasi
+    tracker (belum ada satupun), dan perilaku di perangkat nyata.
+
 - **OpenAPI/Scalar untuk Recipe App API + Content API v1 (PR #454, #455) MERGE LANGSUNG KE `main`.**
   Dikerjakan sesi lain dan **melewati `staging`** — melanggar CLAUDE.md §1. Tidak di-revert (sudah
   jalan di produksi, tidak ada tanda kerusakan), tapi dicatat di sini supaya tidak terulang:

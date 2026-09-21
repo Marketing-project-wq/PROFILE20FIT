@@ -1113,6 +1113,7 @@
         { key: "medical",       ic: "pin",      lbl: { en: "Medical", id: "Medical" },           sub: { en: "Medical Check Up", id: "Medical Check Up" }, href: "/medical" },
         { key: "membership",    ic: "card",     lbl: { en: "Membership", id: "Membership" },     sub: { en: "Special Offer · Gym", id: "Special Offer · Gym" }, href: "/membership" },
         { key: "diet",          ic: "diet",     lbl: { en: "Recipe", id: "Resep" },              sub: { en: "Recipes & menus", id: "Resep & menu" }, href: "/recipe" },
+        { key: "activity",      ic: "activity", lbl: { en: "Activity", id: "Activity" },         sub: { en: "Workout & AI coach", id: "Workout & AI coach" }, href: "/activity" },
         { key: "book-class",    ic: "dumbbell", lbl: { en: "Book Class", id: "Book Kelas" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/classes" },
         { key: "book-doctor",   ic: "doctor",   lbl: { en: "Book Doctor", id: "Book Dokter" },   sub: { en: "Konsultasi · Klinik", id: "Konsultasi · Klinik" }, href: "/book-doctor" },
         { key: "book-coach",    ic: "coach",    lbl: { en: "Book Coach", id: "Book Coach" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/book-coach" },
@@ -2134,9 +2135,22 @@
       function avaColor(s){ var h=0,i; for(i=0;i<String(s).length;i++){ h=(h*31+String(s).charCodeAt(i))>>>0; } return "hsl("+(h%360)+" 58% 42%)"; }
       function paintAva(els, name, photo){
         els.forEach(function(a){
-          a.style.background=avaColor(name||"member");
+          // backgroundColor, BUKAN shorthand `background`. Shorthand inline me-reset
+          // background-size ke auto & background-position ke 0% 0%, dan gaya inline
+          // menang atas `.hpx-av{background-size:cover}` di stylesheet — akibatnya foto
+          // avatar tampil ukuran asli, rata kiri-atas, DAN berulang. Di lingkaran 26px
+          // user cuma melihat secuil pojok fotonya. (Terbukti via computed style.)
+          a.style.backgroundColor=avaColor(name||"member");
           a.textContent=initials(name);
-          if(photo){ a.style.backgroundImage="url('"+photo.replace(/'/g,"%27")+"')"; a.textContent=""; }
+          if(photo){
+            a.style.backgroundImage="url('"+photo.replace(/'/g,"%27")+"')";
+            a.style.backgroundSize="cover";
+            a.style.backgroundPosition="center";
+            a.style.backgroundRepeat="no-repeat";
+            a.textContent="";
+          } else {
+            a.style.backgroundImage="";   // ganti user tanpa foto -> jangan wariskan foto sebelumnya
+          }
         });
       }
 

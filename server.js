@@ -4407,6 +4407,7 @@ app.post("/api/corp/set-division", async (req, res) => {
 // SENGAJA tidak diekspor: token transien, bukan data pribadi bermakna.
 var USER_DATA_TABLES = [
   "my20fit_profile", "my20fit_daily_log", "my20fit_health_entry", "my20fit_workout",
+  "my20fit_daily_plan",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
   "my20fit_scan_orders", "my20fit_scan_ledger", "my20fit_voucher_usages"
@@ -8467,6 +8468,316 @@ app.get("/ip", async (req, res) => {
     '<p style="color:#999;font-size:12.5px;margin-top:22px;line-height:1.6">Refresh halaman ini 3–4×. Kalau angkanya tetap = IP stabil (aman didaftarkan). Kalau berubah-ubah = IP Railway dinamis, hubungi aku dulu.</p>' +
     '</body>');
 });
+
+// ================= ACTIVITY: workout + rencana harian AI (halaman /activity) =================
+// Sumber kebenaran SENGAJA dipakai ulang, bukan dibikin baru (CLAUDE.md §2):
+//   workout   -> my20fit_workout    (diperluas migration 017; dulu tabel dorman 0 baris)
+//   harian    -> my20fit_daily_log  (SUDAH hidup: sleep_hours, water_glasses, cal_items,
+//                                    checklist, steps). Ditulis browser via RLS
+//                                    (Auth.saveDaily) — TIDAK diduplikasi endpoint di sini.
+//   rencana   -> my20fit_daily_plan (baru)
+// Total kalori/makro TIDAK disimpan: dijumlahkan dari cal_items saat baca (sumAllCal).
+
+// Jumlahkan cal_items -> total harian. Bentuk item: {name,kcal,p,c,f,t} (lihat calories.html).
+function sumCalItems(items) {
+  var t = { kcal: 0, p: 0, c: 0, f: 0, n: 0 };
+  if (!Array.isArray(items)) return t;
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i] || {};
+    t.kcal += (+it.kcal || 0); t.p += (+it.p || 0); t.c += (+it.c || 0); t.f += (+it.f || 0); t.n++;
+  }
+  t.kcal = Math.round(t.kcal); t.p = Math.round(t.p); t.c = Math.round(t.c); t.f = Math.round(t.f);
+  return t;
+}
+function ymd(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function isYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "")); }
+
+// GET /api/activity/day?date=YYYY-MM-DD
+// Satu panggilan untuk seluruh halaman: workout hari itu + ringkasan harian + rencana AI
+// + 7 hari terakhir (buat grafik mingguan). Hemat bolak-balik request.
+app.get("/api/activity/day", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const date = isYmd(req.query.date) ? String(req.query.date) : ymd(new Date());
+    const from = new Date(date + "T00:00:00"); from.setDate(from.getDate() - 6);
+    const fromStr = ymd(from);
+
+    const [wRes, dRes, pRes, wkRes] = await Promise.all([
+      admin.from("my20fit_workout").select("*").eq("auth_user_id", user.id).eq("workout_date", date).order("created_at", { ascending: true }),
+      admin.from("my20fit_daily_log").select("*").eq("auth_user_id", user.id).eq("log_date", date).limit(1),
+      admin.from("my20fit_daily_plan").select("*").eq("auth_user_id", user.id).eq("plan_date", date).limit(1),
+      admin.from("my20fit_workout").select("workout_date,duration_min,distance_km").eq("auth_user_id", user.id).gte("workout_date", fromStr).lte("workout_date", date),
+    ]);
+    if (wRes.error) throw wRes.error;
+
+    const dl = (dRes.data && dRes.data[0]) || null;
+    const totals = sumCalItems(dl && dl.cal_items);
+    // Hanya field yang dipakai halaman — bukan seluruh baris (data harian bisa sensitif).
+    const daily = dl ? {
+      log_date: dl.log_date, sleep_hours: dl.sleep_hours, water_glasses: dl.water_glasses,
+      steps: dl.steps, weight_kg: dl.weight_kg, checklist: dl.checklist || null,
+      totals: totals, cal_count: totals.n,
+    } : { log_date: date, sleep_hours: null, water_glasses: null, steps: null, weight_kg: null, checklist: null, totals: sumCalItems(null), cal_count: 0 };
+
+    return res.json({
+      ok: true, date: date,
+      workouts: wRes.data || [],
+      daily: daily,
+      plan: (pRes.data && pRes.data[0]) || null,
+      week: wkRes.data || [],
+    });
+  } catch (e) {
+    console.error("activity/day:", e.message);
+    return res.status(500).json({ error: "Gagal memuat data activity." });
+  }
+});
+
+// POST /api/activity/workout — simpan workout (manual, hasil unggahan, atau sync tracker).
+app.post("/api/activity/workout", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {};
+    const date = isYmd(b.workout_date) ? String(b.workout_date) : ymd(new Date());
+    const dur = Number(b.duration_min);
+    // duration_min NOT NULL di skema — tolak di sini supaya errornya jelas, bukan 500 dari PG.
+    if (!isFinite(dur) || dur <= 0) return res.status(400).json({ error: "Durasi (menit) wajib diisi dan harus lebih dari 0." });
+    const SRC = ["strava", "garmin", "apple_health", "google_fit", "manual", "upload"];
+    const source = SRC.indexOf(String(b.source || "manual")) >= 0 ? String(b.source) : "manual";
+
+    const row = {
+      auth_user_id: user.id,
+      workout_date: date,
+      type: String(b.type || "other").slice(0, 40),
+      duration_min: dur,
+      source: source,
+      title: b.title ? String(b.title).slice(0, 160) : null,
+      note: b.note ? String(b.note).slice(0, 500) : null,
+      distance_km: (b.distance_km != null && isFinite(+b.distance_km)) ? +b.distance_km : null,
+      calories_burned: (b.calories_burned != null && isFinite(+b.calories_burned)) ? Math.round(+b.calories_burned) : null,
+      avg_heart_rate: (b.avg_heart_rate != null && isFinite(+b.avg_heart_rate)) ? Math.round(+b.avg_heart_rate) : null,
+      max_heart_rate: (b.max_heart_rate != null && isFinite(+b.max_heart_rate)) ? Math.round(+b.max_heart_rate) : null,
+      hr_zone_data: b.hr_zone_data || null,
+      pace_data: b.pace_data || null,
+      elevation_gain_m: (b.elevation_gain_m != null && isFinite(+b.elevation_gain_m)) ? +b.elevation_gain_m : null,
+      uploaded_file_url: b.uploaded_file_url ? String(b.uploaded_file_url).slice(0, 500) : null,
+      external_id: b.external_id ? String(b.external_id).slice(0, 120) : null,
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await admin.from("my20fit_workout").insert(row).select().single();
+    if (error) throw error;
+    return res.json({ ok: true, workout: data });
+  } catch (e) {
+    console.error("activity/workout:", e.message);
+    return res.status(500).json({ error: "Gagal menyimpan workout." });
+  }
+});
+
+// DELETE /api/activity/workout/:id — hanya milik sendiri (eq auth_user_id, bukan cuma id).
+app.delete("/api/activity/workout/:id", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { error } = await admin.from("my20fit_workout").delete()
+      .eq("id", String(req.params.id)).eq("auth_user_id", user.id);
+    if (error) throw error;
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("activity/workout delete:", e.message);
+    return res.status(500).json({ error: "Gagal menghapus workout." });
+  }
+});
+
+// POST /api/activity/upload — simpan screenshot/foto workout ke Storage (bucket PRIVAT).
+// Pola sama dengan /api/admin/upload-photo: data URL base64, batas ukuran di server.
+// Bucket privat -> balikan signed URL berumur pendek, BUKAN public URL.
+app.post("/api/activity/upload", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const dataUrl = String((req.body || {}).data_url || "");
+    const m = dataUrl.match(/^data:(image\/(png|jpe?g|webp));base64,([A-Za-z0-9+/=]+)$/);
+    if (!m) return res.status(400).json({ error: "Format gambar tidak didukung (png/jpg/webp)." });
+    const buf = Buffer.from(m[3], "base64");
+    if (buf.length > 5 * 1024 * 1024) return res.status(413).json({ error: "Ukuran gambar maksimal 5MB." });
+    const ext = (m[2] === "jpeg") ? "jpg" : m[2];
+    // Prefix user.id -> berkas satu user terkumpul & tak bisa ditebak lintas user.
+    const name = user.id + "/" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6).toString(36) + "." + ext;
+    const up = await admin.storage.from("workout-uploads").upload(name, buf, { contentType: m[1], upsert: false });
+    if (up.error) {
+      // Bucket belum dibuat pemilik -> pesan yang bisa ditindaklanjuti, bukan 500 buntu.
+      const msg = String(up.error.message || "");
+      if (/not found|does not exist/i.test(msg)) {
+        return res.status(503).json({ error: "Bucket 'workout-uploads' belum dibuat di Supabase Storage. Hubungi admin." });
+      }
+      throw up.error;
+    }
+    const sg = await admin.storage.from("workout-uploads").createSignedUrl(name, 60 * 60 * 24 * 7);
+    return res.json({ ok: true, path: name, url: (sg.data && sg.data.signedUrl) || null });
+  } catch (e) {
+    console.error("activity/upload:", e.message);
+    return res.status(500).json({ error: "Gagal mengunggah berkas." });
+  }
+});
+
+// ---------- Rencana harian ----------
+// Rencana cadangan TANPA AI: dihitung dari angka yang ADA, bukan karangan. Dipakai kalau
+// edge AI belum di-deploy / gagal, supaya halaman tetap berguna dan tak pernah kosong.
+// Target di sini sengaja umum & konservatif; halaman menandainya sebagai "tanpa AI".
+function fallbackPlan(ctx) {
+  const d = ctx.daily || {}, t = (d.totals || {});
+  const sleep = (d.sleep_hours != null) ? +d.sleep_hours : null;
+  const water = (d.water_glasses != null) ? +d.water_glasses : null;
+  const didWorkout = (ctx.workouts || []).length > 0;
+  const gaps = [];
+  gaps.push({ area: "Tidur", status: sleep == null ? "warning" : (sleep >= 7 ? "good" : (sleep >= 6 ? "warning" : "critical")),
+              value: sleep == null ? "belum diisi" : (sleep + " / 7.5j") });
+  gaps.push({ area: "Hidrasi", status: water == null ? "warning" : (water >= 8 ? "good" : (water >= 5 ? "warning" : "critical")),
+              value: water == null ? "belum diisi" : (water + " / 8 gelas") });
+  gaps.push({ area: "Latihan", status: didWorkout ? "good" : "warning", value: didWorkout ? "selesai" : "belum ada" });
+  gaps.push({ area: "Protein", status: t.p >= 100 ? "good" : (t.p >= 60 ? "warning" : "critical"), value: (t.p || 0) + " g" });
+  gaps.push({ area: "Kalori", status: t.kcal > 0 ? "good" : "warning", value: t.kcal > 0 ? (t.kcal + " kkal") : "belum dicatat" });
+
+  // Skor = rata-rata sederhana dari 5 area di atas. Transparan & bisa dijelaskan.
+  const pts = gaps.map(g => g.status === "good" ? 100 : (g.status === "warning" ? 55 : 20));
+  const score = Math.round(pts.reduce((a, b) => a + b, 0) / pts.length);
+
+  const goals = [
+    { id: "g-water",   title: "Minum 8 gelas air",         desc: "Sebar sepanjang hari, jangan menumpuk di malam hari.", category: "habit",     time: "Sepanjang hari", done: false },
+    { id: "g-sleep",   title: "Tidur 7–8 jam",             desc: "Matikan layar 30 menit sebelum tidur.",                category: "recovery",  time: "22:30",          done: false },
+    { id: "g-protein", title: "Protein 1.6 g/kg berat",    desc: "Bagi rata di 3 waktu makan.",                          category: "nutrition", time: "Tiap makan",     done: false },
+    { id: "g-move",    title: didWorkout ? "Jalan santai 20 menit" : "Latihan 30 menit",
+                       desc: didWorkout ? "Pemulihan aktif setelah latihan hari ini." : "Zona 2 — masih bisa ngobrol sambil jalan.",
+                       category: "exercise", time: "06:30", done: false },
+    { id: "g-stretch", title: "Peregangan 10 menit",       desc: "Fokus pinggul dan punggung bawah.",                    category: "recovery",  time: "Malam",          done: false },
+    { id: "g-veg",     title: "Sayur di 2 waktu makan",    desc: "Serat bantu kenyang lebih lama.",                      category: "nutrition", time: "Siang & malam",  done: false },
+    { id: "g-steps",   title: "8.000 langkah",             desc: "Naik tangga, parkir agak jauh.",                       category: "habit",     time: "Sepanjang hari", done: false },
+  ];
+  return {
+    overall_score: score,
+    analysis_text: "Rencana ini disusun dari angka yang kamu catat hari ini, tanpa AI. " +
+      (sleep != null && sleep < 7 ? "Tidurmu masih di bawah 7 jam — itu yang paling berpengaruh hari ini. " : "") +
+      (didWorkout ? "Latihan hari ini sudah tercatat." : "Belum ada latihan tercatat hari ini."),
+    gaps: gaps, goals: goals,
+    nutrition_targets: { kcal: 2200, p: 130, c: 240, f: 70, water_glasses: 8 },
+    source: "fallback",
+  };
+}
+
+// POST /api/activity/plan { date } — buat/segarkan rencana harian.
+// AI lewat SATU jalur yang sudah ada (callAiEdge) — bukan edge function baru.
+// Kalau AI gagal/belum di-deploy: PAKAI fallback, jangan gagalkan permintaan.
+app.post("/api/activity/plan", async (req, res) => {
+  let userId = null;
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    userId = user.id;
+    const b = req.body || {};
+    const date = isYmd(b.date) ? String(b.date) : ymd(new Date());
+    const from = new Date(date + "T00:00:00"); from.setDate(from.getDate() - 6);
+
+    const [wRes, dRes, hRes, pRes] = await Promise.all([
+      admin.from("my20fit_workout").select("*").eq("auth_user_id", user.id).eq("workout_date", date),
+      admin.from("my20fit_daily_log").select("*").eq("auth_user_id", user.id).eq("log_date", date).limit(1),
+      admin.from("my20fit_workout").select("workout_date,type,duration_min,distance_km,avg_heart_rate").eq("auth_user_id", user.id).gte("workout_date", ymd(from)).lte("workout_date", date),
+      admin.from("my20fit_profile").select("age,gender,height_cm,weight_kg,activity_level,main_goal").eq("auth_user_id", user.id).limit(1),
+    ]);
+    const dl = (dRes.data && dRes.data[0]) || null;
+    const daily = {
+      sleep_hours: dl ? dl.sleep_hours : null,
+      water_glasses: dl ? dl.water_glasses : null,
+      steps: dl ? dl.steps : null,
+      totals: sumCalItems(dl && dl.cal_items),
+    };
+    const ctx = { date: date, workouts: wRes.data || [], daily: daily, history_7d: hRes.data || [], profile: (pRes.data && pRes.data[0]) || null };
+
+    let plan = null, aiOk = false;
+    try {
+      const lang = (String(b.lang || "id") === "en") ? "en" : "id";
+      const ai = await callAiEdge({ action: "plan", lang: lang, data: ctx }, 60000);
+      const j = ai && ai.json;
+      // Terima HANYA kalau bentuknya benar. Setengah-jadi -> pakai fallback, jangan render sampah.
+      if (ai.httpOk && j && j.overall_score != null && Array.isArray(j.goals) && j.goals.length) {
+        plan = {
+          overall_score: Math.max(0, Math.min(100, Math.round(+j.overall_score || 0))),
+          analysis_text: String(j.analysis_text || "").slice(0, 1200),
+          gaps: Array.isArray(j.gaps) ? j.gaps.slice(0, 8) : [],
+          goals: j.goals.slice(0, 10).map((g, i) => ({
+            id: String(g.id || ("g" + i)).slice(0, 40),
+            title: String(g.title || "").slice(0, 120),
+            desc: String(g.desc || g.description || "").slice(0, 240),
+            category: ["exercise", "nutrition", "habit", "recovery"].indexOf(String(g.category)) >= 0 ? String(g.category) : "habit",
+            time: String(g.time || "").slice(0, 40),
+            done: false,
+          })),
+          nutrition_targets: j.nutrition_targets || null,
+          source: "ai",
+        };
+        aiOk = true;
+      }
+    } catch (e) { /* jatuh ke fallback di bawah */ }
+    if (!plan) plan = fallbackPlan(ctx);
+
+    const row = {
+      auth_user_id: user.id, plan_date: date,
+      overall_score: plan.overall_score, analysis_text: plan.analysis_text,
+      gaps: plan.gaps, goals: plan.goals, nutrition_targets: plan.nutrition_targets,
+      generated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await admin.from("my20fit_daily_plan")
+      .upsert(row, { onConflict: "auth_user_id,plan_date" }).select().single();
+    if (error) throw error;
+    logAiAccess(user.id, "activity/plan", aiOk, aiOk ? null : "fallback");
+    return res.json({ ok: true, plan: data, source: plan.source });
+  } catch (e) {
+    console.error("activity/plan:", e.message);
+    logAiAccess(userId, "activity/plan", false, "server");
+    return res.status(500).json({ error: "Gagal membuat rencana harian." });
+  }
+});
+
+// PATCH /api/activity/goal { date, goal_id, done } — centang/lepas satu goal.
+// Ditulis server supaya hanya field `done` yang bisa berubah: klien tak bisa menyunting
+// judul/kategori/skor lewat endpoint ini.
+app.patch("/api/activity/goal", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {};
+    const date = isYmd(b.date) ? String(b.date) : ymd(new Date());
+    const gid = String(b.goal_id || "");
+    if (!gid) return res.status(400).json({ error: "goal_id wajib." });
+    const { data: rows, error: e1 } = await admin.from("my20fit_daily_plan")
+      .select("id,goals").eq("auth_user_id", user.id).eq("plan_date", date).limit(1);
+    if (e1) throw e1;
+    const row = rows && rows[0];
+    if (!row) return res.status(404).json({ error: "Rencana hari itu belum ada." });
+    const goals = Array.isArray(row.goals) ? row.goals : [];
+    let found = false;
+    for (var i = 0; i < goals.length; i++) {
+      if (String(goals[i] && goals[i].id) === gid) { goals[i].done = !!b.done; found = true; break; }
+    }
+    if (!found) return res.status(404).json({ error: "Goal tidak ditemukan." });
+    const { error: e2 } = await admin.from("my20fit_daily_plan")
+      .update({ goals: goals, updated_at: new Date().toISOString() }).eq("id", row.id).eq("auth_user_id", user.id);
+    if (e2) throw e2;
+    return res.json({ ok: true, goals: goals });
+  } catch (e) {
+    console.error("activity/goal:", e.message);
+    return res.status(500).json({ error: "Gagal memperbarui goal." });
+  }
+});
+// ================= END ACTIVITY =================
 
 // ---------- Halaman balik-dari-pembayaran (landing redirect dari Xendit) ----------
 // /payment/pending (+ alias /payment/success) & /payment/failed. Dilayani eksplisit supaya
