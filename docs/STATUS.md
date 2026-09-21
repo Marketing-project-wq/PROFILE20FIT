@@ -148,6 +148,26 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Foto avatar di dashboard tampil salah — DIPERBAIKI 2026-09-21.** `paintAva()` menyetel
+  `a.style.background = <warna>` (shorthand) sebelum `backgroundImage`. Shorthand inline
+  me-reset `background-size` ke `auto` dan `background-position` ke `0% 0%`, dan gaya inline
+  menang atas `.hpx-av{background-size:cover}` di stylesheet. Terbukti lewat computed style:
+  `size:auto, pos:0% 0%, rep:repeat` — foto tampil ukuran asli, rata kiri-atas, DAN berulang;
+  di lingkaran 26px user cuma melihat secuil pojok fotonya. Diperbaiki jadi `backgroundColor`
+  + `backgroundSize/Position/Repeat` eksplisit, dan `backgroundImage` dikosongkan saat user
+  tak punya foto (dulu foto user sebelumnya bisa tertinggal). Diverifikasi dengan menjalankan
+  fungsi `paintAva` ASLI dari `dashboard.html` di Chromium.
+  Pola yang sama disapu ke seluruh repo: hanya SATU kejadian. `profile.html` `setAva()` aman
+  (tak pakai shorthand inline, CSS `.ava` sudah `cover`), `js/nav.js` sudah menyetel `cover`
+  sendiri, `js/recipe-photos.js` sudah diperbaiki di PR #447.
+- **`js/recipes.js` BUKAN dead code — jangan hapus.** Tidak dimuat halaman mana pun di browser,
+  tapi `server.js:4865` mem-`require`-nya untuk katalog resep resmi (`/api/menu/catalog`), dan
+  `scripts/backfill-menu-photos.js` juga. Yang diekspor hanya `LIST` + `DIET_TYPES`.
+  **Catatan:** fungsi browser di dalamnya (`_setBg`, `applyThumb` di ~baris 1283-1289) otomatis
+  jadi tak pernah jalan karena file ini kini murni dipakai server. `_setBg` di sana masih punya
+  bug `background-size` yang sama. TIDAK disentuh: file ini di-`require` server, mengubahnya
+  berisiko ke katalog resep. **TANYA PEMILIK REPO** sebelum membersihkannya.
+
 - **Halaman Activity (`/activity`) — BARU 2026-09-21, belum dites di staging.** Upload/isi workout,
   zona HR, rencana harian AI, nutrisi, kebiasaan, ringkasan minggu.
   - **Spesifikasi awal minta React+Vite+Tailwind dan 3 tabel baru; keduanya DITOLAK** karena

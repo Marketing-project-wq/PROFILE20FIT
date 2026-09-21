@@ -2135,9 +2135,22 @@
       function avaColor(s){ var h=0,i; for(i=0;i<String(s).length;i++){ h=(h*31+String(s).charCodeAt(i))>>>0; } return "hsl("+(h%360)+" 58% 42%)"; }
       function paintAva(els, name, photo){
         els.forEach(function(a){
-          a.style.background=avaColor(name||"member");
+          // backgroundColor, BUKAN shorthand `background`. Shorthand inline me-reset
+          // background-size ke auto & background-position ke 0% 0%, dan gaya inline
+          // menang atas `.hpx-av{background-size:cover}` di stylesheet — akibatnya foto
+          // avatar tampil ukuran asli, rata kiri-atas, DAN berulang. Di lingkaran 26px
+          // user cuma melihat secuil pojok fotonya. (Terbukti via computed style.)
+          a.style.backgroundColor=avaColor(name||"member");
           a.textContent=initials(name);
-          if(photo){ a.style.backgroundImage="url('"+photo.replace(/'/g,"%27")+"')"; a.textContent=""; }
+          if(photo){
+            a.style.backgroundImage="url('"+photo.replace(/'/g,"%27")+"')";
+            a.style.backgroundSize="cover";
+            a.style.backgroundPosition="center";
+            a.style.backgroundRepeat="no-repeat";
+            a.textContent="";
+          } else {
+            a.style.backgroundImage="";   // ganti user tanpa foto -> jangan wariskan foto sebelumnya
+          }
         });
       }
 
