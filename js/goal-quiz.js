@@ -67,7 +67,7 @@
     "box-shadow:inset 0 0 0 3px var(--gq-glass)}",
 
     /* ---- Jadwal harian: 3 kotak sejajar, angka mono besar ---- */
-    ".gq-three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}",
+    ".gq-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}",
     ".gq-box{background:var(--gq-glass-raised);border:1px solid var(--gq-border);border-radius:var(--gq-r-inner);padding:11px 9px}",
     ".gq-box .gq-k{font-size:11px;color:var(--gq-ink-faint);font-weight:700;margin-bottom:6px}",
     ".gq-box input{width:100%;background:transparent;border:0;padding:0;color:var(--gq-ink);",
@@ -87,7 +87,9 @@
     ".gq :focus-visible{outline:none;box-shadow:0 0 0 2px #08080A,0 0 0 4px #3B82F6}",
     "html.theme-light .gq :focus-visible{box-shadow:0 0 0 2px #F1F1F4,0 0 0 4px #3B82F6}",
 
-    "@media(max-width:400px){.gq-three{grid-template-columns:1fr}}"
+    "@media(max-width:430px){.gq-box{padding:10px 7px}.gq-box .gq-k{font-size:10px}",
+    ".gq-box input{font-size:15px}.gq-box input::-webkit-calendar-picker-indicator{display:none}",
+    "#gqWater{font-size:12px}}"
   ].join("");
 
   var GOALS = [

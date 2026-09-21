@@ -398,6 +398,7 @@
 <script src="js/vendor-supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/i18n.js"></script>
+<script src="js/goal-quiz.js"></script>
 <script src="js/nav.js"></script>
 <!-- Dipakai tampilan Progres (halaman Activity lama): pencapaian, siklus, puasa, gizi. -->
 <script src="js/achievements.js"></script>
@@ -740,8 +741,10 @@
     if(!p){
       host.innerHTML='<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span></div>'+
         '<p class="muted">'+esc(T("act_ai_none"))+'</p>'+
-        '<button class="btn" id="genBtn" style="margin-top:12px">'+esc(T("act_ai_gen"))+'</button></div>';
+        '<button class="btn" id="genBtn" style="margin-top:12px">'+esc(T("act_ai_gen"))+'</button>'+
+        '<button class="btn ghost" id="goalBtn" style="margin-top:8px">'+esc(T("act_goal_cta"))+'</button></div>';
       document.getElementById("genBtn").onclick=function(){ hasWorkout()?genPlan(false):renderNeedWorkout(); };
+      document.getElementById("goalBtn").onclick=renderGoalQuiz;
       return;
     }
     var gaps=Array.isArray(p.gaps)?p.gaps:[];
@@ -803,6 +806,22 @@
     el.scrollIntoView({behavior:"smooth",block:"center"});
     el.classList.add("hl"); el.focus({preventScroll:true});
     setTimeout(function(){ el.classList.remove("hl"); },2400);
+  }
+  // Quiz "Set Your Goal" (js/goal-quiz.js) dipasang DI DALAM kartu analisis, bukan di
+  // halaman terpisah: jawabannya cuma dipakai untuk rencana, dan CTA-nya memang
+  // "Buat rencana saya". Komponennya sendiri HANYA menyimpan + memanggil onComplete;
+  // pembuatan rencana tetap milik genPlan() di sini, lengkap dengan gerbang hasWorkout().
+  function renderGoalQuiz(){
+    var host=document.getElementById("aiBox");
+    if(!window.GoalQuiz){ showErr(T("act_ai_fail"),false); return; }
+    host.innerHTML='<div id="gqHost"></div>'+
+      '<button class="btn ghost" id="gqBack" style="margin-top:8px">'+esc(T("act_need_back"))+'</button>';
+    document.getElementById("gqBack").onclick=function(){ renderAi(); };
+    GoalQuiz.mount(document.getElementById("gqHost"),{ onComplete:function(){
+      renderAi();
+      // Rencananya dibuat lewat jalur yang sudah ada, termasuk pemandu kalau belum ada workout.
+      hasWorkout()?genPlan(false):renderNeedWorkout();
+    }});
   }
   function renderNeedWorkout(){
     var host=document.getElementById("aiBox");

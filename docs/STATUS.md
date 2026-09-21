@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-21 · **Commit staging:** `7637161` · **Production:** `7740dbf`
+> **Pembaruan terakhir:** 2026-09-21 · **Commit staging:** `245b7d1` · **Production:** `7740dbf`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -244,6 +244,108 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     diperiksa baris-per-baris. **TANYA PEMILIK REPO** apakah perlu disamakan juga.
   - **CATATAN:** calorietracker membaca tabel `ct_meal` (tanpa prefix `my20fit_`).
     Tabel itu milik app tersebut; repo ini TIDAK menyentuhnya (CLAUDE.md §4).
+
+- **Sinkronisasi ekosistem (calorie / recipe / MCU) — SUDAH JALAN, jangan dibuat ulang.**
+  Diperiksa ke DB LIVE + kode calorietracker pada 21 Sep 2026, setelah ada dokumen yang
+  mengusulkan 8 tabel baru (`calorie_logs`, `calorie_profiles`, `calorie_daily_summary`,
+  `calorie_favorites`, `recipe_bookmarks`, `recipe_meal_plans`, `mcu_scans`,
+  `mcu_scan_results`). **Usulan itu TIDAK dijalankan**, dan ini alasannya:
+  - **Kalori sudah sinkron lewat `my20fit_daily_log.cal_items`.** Bukan dugaan — komentar
+    di kode calorietracker sendiri menyatakannya: `src/lib/memberTracker.ts:20` "ADDITIVE
+    to the cal_items shape **my.20fit.id shares**", dan `src/lib/scanMeal.ts:3` menulis ke
+    `my20fit_daily_log.cal_items` "**so my.20fit.id stays consistent**". Kedua app
+    membaca DAN menulis kolom yang sama.
+    Membuat `calorie_logs` = penyimpanan KETIGA → justru memutus sinkron yang sudah jalan,
+    dan itu persis "tabel duplikat" yang dilarang dokumen itu sendiri.
+  - **Resep juga menulis kalori ke kolom yang sama.** recipe.20fit.id (repo
+    `Marketing-project-wq/MENU`) punya `src/lib/calorieLog.ts` yang menambah entri ke
+    `my20fit_daily_log.cal_items` dengan bentuk `{name,kcal,p,c,f,t}` dan komentar
+    "POLA PERSIS my.20fit (`Auth.saveDaily`)". Jadi kolom itu dipakai TIGA app.
+    Di DB live ada **153 baris** `my20fit_daily_log` dengan `cal_items` terisi.
+  - **MCU SUDAH SINKRON DUA ARAH — terverifikasi 21 Sep 2026** (dulu ditulis BELUM
+    TERVERIFIKASI di sini; sekarang sudah dibaca). medicalscanner.20fit.id = repo
+    `Marketing-project-wq/MEDICAL-CHECK-UP-`. Browser-nya menyimpan hasil scan ke
+    **`my20fit_mcu_result`** di bawah RLS (`src/client/app.js:508` insert
+    `{auth_user_id, result, analyzed_at}`), membaca riwayat dari tabel yang sama
+    (`:593`) dan menghapus dari situ (`:577`). Tabel yang sama dibaca `/medical` di repo
+    ini dan `server.js:4295`, serta sudah masuk `USER_DATA_TABLES` (`server.js:4411`).
+    DB live: **18 baris**. Jadi `mcu_scans` + `mcu_scan_results` tidak diperlukan.
+  - **`my20fit_mcu_pending_scan` sekarang YATIM — TANYA PEMILIK REPO.** 0 baris, dan
+    tidak ada satu pun referensi ke tabel itu di repo ini (cek: `grep -rn
+    mcu_pending_scan` cuma ketemu dokumen ini). Kolomnya (`anon_id`, `teaser`) cocok
+    dengan alur "tahan hasil sampai daftar" yang di repo MCU sudah DIHAPUS —
+    komentarnya: "no teaser, no anonymous hold-until-signup — those violated §0.1 and
+    are gone". Kandidat kuat untuk di-drop, TAPI jangan di-drop sebelum pemilik
+    konfirmasi tak ada app lain yang memakainya. (Baris lama di sini menulis tabel ini
+    "sudah dipakai server.js" — itu KELIRU.)
+  - **Bookmark resep: tabelnya ada, tapi sinkronnya SATU ARAH.** `my20fit_menu_save`
+    (`id, auth_user_id, source, menu_id, created_at`, 2 baris) ditulis & dibaca
+    `server.js` (`POST /api/menu/:id/save`, `GET /api/menu/saved`). recipe.20fit.id
+    **belum punya fitur simpan sama sekali** — `grep` di repo MENU tidak menemukan
+    `my20fit_menu_save` maupun bookmark; yang ada cuma `my20fit_menu_reaction` (love),
+    dan komentarnya sendiri mencatat "save = 0". Jadi `recipe_bookmarks` bukan cuma
+    duplikat, tak ada yang perlu disinkronkan dari sisi sana. Kalau mau bookmark
+    lintas-app, yang benar: recipe.20fit.id memakai endpoint `/api/menu/:id/save`
+    yang SUDAH ada — bukan tabel baru.
+  - **`recipe_meal_plans` tidak dibuat, dan memang tak perlu tabel.** Rencana makan di
+    `/calories` (`js/meal-plan.js`) deterministik dari seed hari-ke-N + katalog
+    `/api/menu/catalog`, hasilnya sama tiap kali dihitung ulang, jadi tak ada state
+    yang perlu disimpan.
+  - **Semua nama tabel usulan melanggar CLAUDE.md §4** (tanpa prefix `my20fit_`, di project
+    Supabase yang dipakai bersama ratusan tabel app lain). Bukan kekhawatiran teoretis:
+    di project yang sama SUDAH ADA `mcu_articles`, `mcu_quiz_api_keys`,
+    `recipe_admin_role`, `recipe_admin_audit_log` — tanpa prefix, milik app lain.
+    `mcu_scans` / `recipe_bookmarks` akan duduk persis di sebelahnya.
+  - **`ct_meal` / `ct_meal_component` / `ct_meal_audit`** milik calorietracker (detail menu,
+    ditautkan dari `cal_items.mid`). Repo ini TIDAK menyentuhnya.
+  - Yang DIKERJAKAN dari dokumen itu: (a) penyelarasan nama URL `/recipes` → `/recipe`
+    dan `/mcu` → `/medical` (301); (b) seksi **"Resep tersimpan"** di `/recipe` — lihat
+    butir berikutnya. Halamannya tidak diduplikasi, tabel baru tidak dibuat.
+  - **TANYA PEMILIK REPO — `MY20FIT_ORIGIN` di app MCU.** `/api/analyze-mcu` yang dipanggil
+    medicalscanner.20fit.id **tidak ada di repo ini**; endpoint itu ada di repo
+    `my20fit-dashboard` (`artifacts/api-server/src/routes/mcu.ts:21`). Tapi default di
+    kode MCU adalah `https://my.20fit.id` (`src/server.js:34`), jadi kalau env
+    `MY20FIT_ORIGIN` di Railway-nya tidak di-set ke host dashboard, scan-nya kena 404.
+    Perlu dicek pemilik — repo itu di luar repo ini, tidak diubah dari sini.
+
+- **`/recipe`: seksi "Resep tersimpan" (21 Sep 2026).** `GET /api/menu/saved` sudah ada
+  sejak lama di `server.js:5727` dan terdaftar di OpenAPI, tapi **tidak ada satu pun
+  pemanggil di frontend** — tombol Simpan menulis ke `my20fit_menu_save`, lalu tak ada
+  halaman yang membacanya kembali. Sekarang `/recipe` menampilkannya di atas daftar resep.
+  Tanpa tabel baru, tanpa endpoint baru.
+  - Resep resmi di-resolve dari katalog yang sudah dimuat; menu member yang tersimpan tapi
+    tak terbawa `/api/menu/published` di-hydrate dari payload `members` endpoint itu sendiri.
+  - Entri yang resepnya sudah tidak ada di katalog TIDAK dikarang atau disembunyikan diam-diam
+    — dihitung dan ditulis apa adanya ("N resep tersimpan sudah tidak tersedia").
+  - Seksinya disembunyikan kalau user belum pernah menyimpan apa pun.
+  - Tombol Simpan/Batal simpan di detail resep langsung memperbarui seksi ini tanpa reload.
+  - Diuji headless (Chromium) untuk 3 keadaan: ada simpanan (kartu tampil + catatan hilang),
+    `/api/menu/saved` gagal 500 (pesan + tombol coba lagi), dan belum ada simpanan
+    (seksi hidden). Termasuk un-save → kartu hilang, save lagi → kartu balik.
+  - Ikut diperbaiki: `toggleLike`/`toggleSave` dulu meninggalkan tombol `disabled` selamanya
+    kalau request-nya gagal (pola bug yang sama dengan `genPlan` di /activity).
+
+- **Quiz "Set Your Goal" SEKARANG TERPASANG di `/activity` (21 Sep 2026).** Sebelumnya
+  `js/goal-quiz.js` sudah ada tapi tak dipanggil dari mana pun (dead code menurut
+  CLAUDE.md §8). Sekarang: tombol **"Tentukan targetmu"** di kartu "Belum ada rencana"
+  membuka quiz di dalam `#aiBox`; `onComplete` mengembalikan kartu analisis lalu lanjut
+  ke `genPlan()` — lewat gerbang `hasWorkout()` yang sudah ada, jadi kalau belum ada
+  workout yang muncul tetap pemandu upload, bukan API call yang gagal.
+  - Komponennya sendiri HANYA menyimpan + memanggil `onComplete`; pembuatan rencana
+    tetap milik `activity.html`.
+  - Perbaikan tata letak: 3 kotak jadwal harian dulu **menumpuk di bawah 400px** —
+    melanggar spesifikasi ("3 kotak sejajar") persis di lebar sasaran ~390px. Sekarang
+    tetap 3 kolom (`repeat(3,minmax(0,1fr))`), yang mengecil huruf & padding-nya.
+    Diukur di viewport 390px: tiga kotak sama lebar (84px), satu baris, nol teks
+    terpotong, nol overflow horizontal.
+  - **Tanpa migration 018, tombol simpannya GAGAL** — dan itu ditampilkan apa adanya:
+    "Tabel goal belum ada di database (migration 018). Hubungi admin.", quiz tetap
+    terbuka, tombol bisa dicoba lagi. Diuji headless.
+
+- **Migration 017 & 018 DIPASTIKAN BELUM DIJALANKAN (dicek ke DB live 21 Sep 2026).**
+  Buktinya: `my20fit_workout` masih 8 kolom (017 menambah 12 → seharusnya 20), tabel
+  `my20fit_daily_plan` (017) dan `my20fit_member_goals` (018) tidak ada di DB. Selama ini
+  belum dijalankan, tombol "Buat rencana" di /activity dan simpan GoalQuiz akan gagal.
 
   - **TUGAS PEMILIK sebelum fitur ini utuh:** (1) jalankan migration 017 manual; (2) buat bucket
     Storage **`workout-uploads`** (PRIVAT); (3) deploy ulang edge fn `my20fit-ai` supaya aksi
