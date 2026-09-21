@@ -183,6 +183,11 @@
   .sechd{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--a-mut);font-weight:800;margin:20px 2px 8px}
   .btn{width:100%;padding:12px;border:0;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit}
   .btn.ghost{background:transparent;border:1px solid var(--a-line);color:var(--a-txt)}
+  /* Catatan hasil bacaan AI di dialog workout. */
+  .dlgnote{border-radius:var(--radius-sm,10px);padding:10px 12px;font-size:12.5px;line-height:1.5;margin:10px 0 2px}
+  .dlgnote.ok{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--a-txt)}
+  .dlgnote.warn{background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--a-txt)}
+  .dlgnote .dlgsub{color:var(--a-mut);font-size:11.5px;margin-top:4px}
   .btn:disabled{opacity:.55;cursor:default}
   .err{color:var(--red);font-size:12.5px}
   .skel{background:color-mix(in srgb,var(--a-txt) 7%,transparent);border-radius:8px;animation:pul 1.3s ease-in-out infinite}
@@ -318,9 +323,9 @@
     <div class="drop" id="drop" tabindex="0" role="button">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       <div class="t" data-i18n="act_up_t">Upload hasil workout</div>
-      <div class="s" data-i18n="act_up_s">Screenshot, foto, atau file dari tracker kamu</div>
+      <div class="s" data-i18n="act_up_s">Screenshot, foto, atau file dari tracker kamu — bisa 5 sekaligus</div>
     </div>
-    <input type="file" id="file" accept="image/png,image/jpeg,image/webp" style="display:none">
+    <input type="file" id="file" accept="image/png,image/jpeg,image/webp" multiple style="display:none">
     <div class="orsep" data-i18n="act_up_or">atau hubungkan langsung</div>
     <div class="trk" id="trk"></div>
   </div>
@@ -372,6 +377,7 @@
 <dialog id="woDlg">
   <div style="font-weight:800;font-size:15px" data-i18n="act_dlg_t">Detail workout</div>
   <div class="muted" style="font-size:12px;margin-top:3px" data-i18n="act_dlg_s">Isi yang kamu tahu saja. Yang kosong tidak akan ditebak.</div>
+  <div id="dlgAi"></div>
   <label data-i18n="act_f_title">Nama workout</label><input id="fTitle" placeholder="Morning Run">
   <label data-i18n="act_f_type">Jenis</label>
   <select id="fType">
@@ -475,43 +481,132 @@
     drop.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); file.click(); } };
     ["dragenter","dragover"].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.add("over"); }); });
     ["dragleave","drop"].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.remove("over"); }); });
-    drop.addEventListener("drop",function(e){ var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) handleFile(f); });
-    file.onchange=function(){ var f=file.files&&file.files[0]; if(f) handleFile(f); file.value=""; };
+    drop.addEventListener("drop",function(e){ handleFiles(e.dataTransfer&&e.dataTransfer.files); });
+    file.onchange=function(){ handleFiles(file.files); file.value=""; };
   }
-  var PENDING_URL=null;
-  function handleFile(f){
-    if(f.size>5*1024*1024){ showErr(T("act_too_big"),false); return; }
-    var rd=new FileReader();
-    rd.onload=async function(){
-      clearErr();
-      var drop=document.getElementById("drop");
-      var old=drop.innerHTML; drop.innerHTML='<div class="s">'+esc(T("act_uploading"))+'</div>';
+
+  // Satu sesi latihan sering tersebar di beberapa layar tracker (ringkasan, zona HR,
+  // split), jadi upload menerima BEBERAPA gambar dan semuanya dibaca sebagai SATU workout.
+  var MAX_IMG=5;
+  var PENDING_URLS=[], PENDING_AI=null;
+
+  function readAsDataUrl(f){
+    return new Promise(function(res,rej){
+      var rd=new FileReader();
+      rd.onload=function(){ res(rd.result); };
+      rd.onerror=function(){ rej(new Error("read")); };
+      rd.readAsDataURL(f);
+    });
+  }
+  // Gambar diperkecil SEBELUM dikirim ke /api/activity/scan. Batas body server 8MB —
+  // lima screenshot ukuran penuh tak akan muat, dan OCR angka tracker tak butuh resolusi
+  // penuh. Yang diunggah ke Storage tetap berkas aslinya.
+  function shrink(dataUrl){
+    return new Promise(function(res){
+      var img=new Image();
+      img.onload=function(){
+        var MAXD=1400, w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        if(!w||!h){ res(dataUrl); return; }
+        var sc=Math.min(1,MAXD/Math.max(w,h));
+        var cw=Math.round(w*sc), ch=Math.round(h*sc);
+        try{
+          var cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
+          cv.getContext("2d").drawImage(img,0,0,cw,ch);
+          res(cv.toDataURL("image/jpeg",0.82));
+        }catch(e){ res(dataUrl); }   // canvas gagal -> kirim aslinya, server yang menolak kalau kebesaran
+      };
+      img.onerror=function(){ res(dataUrl); };
+      img.src=dataUrl;
+    });
+  }
+
+  async function handleFiles(list){
+    var files=Array.prototype.slice.call(list||[]).filter(function(f){ return /^image\/(png|jpe?g|webp)$/.test(f.type); });
+    if(!files.length) return;
+    if(files.length>MAX_IMG){
+      showErr(Lx({en:"Up to "+MAX_IMG+" images at once.",id:"Maksimal "+MAX_IMG+" gambar sekaligus."}),false); return;
+    }
+    for(var i=0;i<files.length;i++){ if(files[i].size>5*1024*1024){ showErr(T("act_too_big"),false); return; } }
+
+    clearErr();
+    var drop=document.getElementById("drop"), old=drop.innerHTML;
+    var urls=[], smalls=[], storeFailed=false;
+    try{
+      for(var k=0;k<files.length;k++){
+        drop.innerHTML='<div class="s">'+esc(Lx({en:"Uploading "+(k+1)+"/"+files.length+"\u2026",id:"Mengunggah "+(k+1)+"/"+files.length+"\u2026"}))+'</div>';
+        var du=await readAsDataUrl(files[k]);
+        smalls.push(await shrink(du));
+        // Penyimpanan gagal TIDAK menghentikan pembacaan: angkanya masih bisa dibaca dari
+        // gambar yang ada di memori. User diberi tahu gambarnya tidak tersimpan.
+        try{
+          var r=await apiFetch("/api/activity/upload",{method:"POST",body:JSON.stringify({data_url:du})});
+          var j=await r.json().catch(function(){return {};});
+          if(r.ok&&j.url) urls.push(j.url); else storeFailed=true;
+        }catch(e){ storeFailed=true; }
+      }
+
+      drop.innerHTML='<div class="s">'+esc(Lx({en:"Reading your tracker\u2026",id:"Membaca tracker kamu\u2026"}))+'</div>';
+      var ai=null, aiErr=null;
       try{
-        var r=await apiFetch("/api/activity/upload",{method:"POST",body:JSON.stringify({data_url:rd.result})});
-        var j=await r.json().catch(function(){return {};});
-        if(!r.ok){ showErr(j.error||T("act_up_fail"),false); drop.innerHTML=old; return; }
-        PENDING_URL=j.url||null;
-        drop.innerHTML=old;
-        // Gambar sudah tersimpan, tapi ANGKA-nya belum: OCR otomatis belum ada, jadi
-        // user yang mengisi. Lebih jujur daripada menebak isi screenshot.
-        openDlg();
-      }catch(e){ showErr(T("act_up_fail"),false); drop.innerHTML=old; }
-    };
-    rd.readAsDataURL(f);
+        var sr=await apiFetch("/api/activity/scan",{method:"POST",body:JSON.stringify({images:smalls,lang:I18N.lang})});
+        var sj=await sr.json().catch(function(){return {};});
+        if(sr.ok&&sj.ok&&sj.readable) ai=sj.result; else aiErr=sj.error||null;
+      }catch(e){ aiErr=null; }
+
+      PENDING_URLS=urls; PENDING_AI=ai;
+      drop.innerHTML=old;
+      openDlg(files.length,ai,aiErr,storeFailed);
+    }catch(e){
+      drop.innerHTML=old; showErr(T("act_up_fail"),false);
+    }
   }
 
   // ---- Dialog workout manual ----
-  function openDlg(){
+  function setV(id,v){ document.getElementById(id).value=(v==null?"":String(v)); }
+  function openDlg(nImg,ai,aiErr,storeFailed){
     document.getElementById("dlgErr").textContent="";
+    var box=document.getElementById("dlgAi"); box.innerHTML="";
+    if(ai){
+      // Prefill HANYA field yang benar-benar dibaca. Yang null dibiarkan kosong —
+      // dialog ini tidak boleh memunculkan angka yang tidak ada di gambar.
+      setV("fTitle",ai.title); setV("fDur",ai.duration_min); setV("fDist",ai.distance_km);
+      setV("fKcal",ai.calories_burned); setV("fHr",ai.avg_heart_rate);
+      if(ai.type){ var sel=document.getElementById("fType");
+        for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===ai.type){ sel.selectedIndex=i; break; } } }
+      var conf=(ai.confidence!=null)?(" \u00b7 "+Math.round(ai.confidence)+"%"):"";
+      box.innerHTML='<div class="dlgnote ok">'+esc(Lx({
+          en:"Read by AI from "+nImg+" image"+(nImg>1?"s":"")+(ai.source_guess?" ("+ai.source_guess+")":"")+conf+". Check the numbers before saving.",
+          id:"Dibaca AI dari "+nImg+" gambar"+(ai.source_guess?" ("+ai.source_guess+")":"")+conf+". Periksa angkanya sebelum disimpan."
+        }))+'<div class="dlgsub">'+esc(Lx({
+          en:"Blank fields were not readable \u2014 they are not guessed.",
+          id:"Kolom yang kosong tidak terbaca \u2014 tidak ditebak."}))+'</div></div>';
+    } else if(nImg){
+      box.innerHTML='<div class="dlgnote warn">'+esc(aiErr||Lx({
+        en:"Couldn't read the numbers from those images. Fill them in yourself.",
+        id:"Angkanya tidak terbaca dari gambar itu. Isi sendiri ya."}))+'</div>';
+    }
+    if(storeFailed){
+      box.innerHTML+='<div class="dlgnote warn">'+esc(Lx({
+        en:"Some images could not be saved to storage, but the workout can still be recorded.",
+        id:"Sebagian gambar gagal disimpan, tapi workout-nya tetap bisa dicatat."}))+'</div>';
+    }
     document.getElementById("woDlg").showModal();
   }
   function wireDlg(){
-    document.getElementById("dlgCancel").onclick=function(){ PENDING_URL=null; document.getElementById("woDlg").close(); };
+    document.getElementById("dlgCancel").onclick=function(){ PENDING_URLS=[]; PENDING_AI=null; document.getElementById("woDlg").close(); };
     document.getElementById("dlgSave").onclick=async function(){
       var dur=parseFloat(document.getElementById("fDur").value);
       if(!isFinite(dur)||dur<=0){ document.getElementById("dlgErr").textContent=T("act_need_dur"); return; }
       var body={
-        workout_date:SEL, source:PENDING_URL?"upload":"manual", uploaded_file_url:PENDING_URL,
+        workout_date:SEL, source:PENDING_URLS.length?"upload":"manual",
+        uploaded_file_url:PENDING_URLS[0]||null,
+        // Kolom uploaded_file_url cuma muat SATU url; daftar lengkap + jejak bacaan AI
+        // (seberapa yakin, kolom apa yang dibaca) disimpan di raw_data supaya bisa diaudit.
+        raw_data:(PENDING_URLS.length||PENDING_AI)?{
+          uploaded_file_urls:PENDING_URLS,
+          ai_scan:PENDING_AI?{confidence:PENDING_AI.confidence,fields_read:PENDING_AI.fields_read,
+                              source_guess:PENDING_AI.source_guess,note:PENDING_AI.note}:null
+        }:null,
         title:document.getElementById("fTitle").value||null,
         type:document.getElementById("fType").value, duration_min:dur,
         distance_km:parseFloat(document.getElementById("fDist").value)||null,
@@ -525,7 +620,7 @@
         if(!r.ok){ document.getElementById("dlgErr").textContent=j.error||T("act_save_fail"); btn.disabled=false; return; }
         document.getElementById("woDlg").close();
         ["fTitle","fDur","fDist","fKcal","fHr"].forEach(function(id){ document.getElementById(id).value=""; });
-        PENDING_URL=null;
+        PENDING_URLS=[]; PENDING_AI=null;
         await load(SEL);
         genPlan(true);   // workout baru -> rencana disegarkan
       }catch(e){ document.getElementById("dlgErr").textContent=T("act_save_fail"); }
@@ -541,7 +636,7 @@
     if(!ws.length){
       host.innerHTML='<div class="card"><div class="muted" style="font-size:13px;text-align:center;padding:6px 0">'+
         esc(T("act_no_workout"))+'</div><button class="btn ghost" id="addManual" style="margin-top:10px">'+esc(T("act_add_manual"))+'</button></div>';
-      document.getElementById("addManual").onclick=function(){ PENDING_URL=null; openDlg(); };
+      document.getElementById("addManual").onclick=function(){ PENDING_URLS=[]; PENDING_AI=null; openDlg(); };
       return;
     }
     host.innerHTML=ws.map(function(w){
