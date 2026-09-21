@@ -72,6 +72,9 @@
   .drop{border:1.5px dashed var(--glass-brd,var(--a-line));border-radius:var(--radius,14px);padding:26px 16px;
     text-align:center;cursor:pointer;background:var(--glass-2,transparent)}
   .drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+  /* Sorotan sesaat saat pemandu "Tambahkan workout dulu" melempar ke sini. */
+  .drop.hl{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 22%,transparent)}
+  .needl{margin:10px 0 14px;padding-left:20px;font-size:13px;line-height:1.7;color:var(--a-mut)}
   .drop svg{width:26px;height:26px;stroke:var(--a-mut);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   .drop .t{font-weight:700;font-size:14.5px;margin-top:8px}
   .drop .s{font-size:12.5px;color:var(--a-mut);margin-top:3px}
@@ -600,7 +603,7 @@
       host.innerHTML='<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span></div>'+
         '<p class="muted">'+esc(T("act_ai_none"))+'</p>'+
         '<button class="btn" id="genBtn" style="margin-top:12px">'+esc(T("act_ai_gen"))+'</button></div>';
-      document.getElementById("genBtn").onclick=function(){ genPlan(false); };
+      document.getElementById("genBtn").onclick=function(){ hasWorkout()?genPlan(false):renderNeedWorkout(); };
       return;
     }
     var gaps=Array.isArray(p.gaps)?p.gaps:[];
@@ -631,6 +634,7 @@
   async function genPlan(silent){
     if(BUSY) return; BUSY=true;
     var b=document.getElementById("genBtn")||document.getElementById("regenBtn");
+    var lbl=b?b.textContent:null;
     if(b){ b.disabled=true; b.textContent=T("act_ai_working"); }
     try{
       var r=await apiFetch("/api/activity/plan",{method:"POST",body:JSON.stringify({date:SEL,lang:I18N.lang})});
@@ -638,7 +642,44 @@
       if(!r.ok){ if(!silent) showErr(j.error||T("act_ai_fail"),false); }
       else { DAY.plan=j.plan; if(j.source) DAY.plan.source=j.source; renderAi(); renderGoals(); }
     }catch(e){ if(!silent) showErr(T("act_ai_fail"),false); }
-    BUSY=false;
+    finally{
+      // Kalau gagal, renderAi() tidak dipanggil sehingga tombolnya tetap ada di DOM.
+      // Tanpa pemulihan ini tombolnya tersangkut "Sedang diproses..." dan mati selamanya.
+      // Saat berhasil, b sudah dilepas renderAi() -> menulis ke node lepas itu tidak apa-apa.
+      if(b&&b.isConnected){ b.disabled=false; if(lbl!=null) b.textContent=lbl; }
+      BUSY=false;
+    }
+  }
+
+  // Rencana AI dibangun dari data workout. Tanpa satu pun workout, memanggil API cuma
+  // menghasilkan kegagalan yang tak memberi tahu apa-apa ke user. Jadi tombolnya
+  // memunculkan pemandu, bukan memanggil API.
+  function hasWorkout(){ return (((DAY&&DAY.workouts)||[]).length>0); }
+  function hasDaily(){
+    var d=(DAY&&DAY.daily)||{}, ck=d.checklist||{};
+    return d.sleep_hours!=null||d.water_glasses!=null||d.steps!=null||d.weight_kg!=null||
+           !!ck.breathing||!!d.breathing_done||(+((d.totals&&d.totals.kcal)||0)>0)||(+(d.cal_count||0)>0);
+  }
+  function gotoUpload(){
+    var el=document.getElementById("drop"); if(!el) return;
+    el.scrollIntoView({behavior:"smooth",block:"center"});
+    el.classList.add("hl"); el.focus({preventScroll:true});
+    setTimeout(function(){ el.classList.remove("hl"); },2400);
+  }
+  function renderNeedWorkout(){
+    var host=document.getElementById("aiBox");
+    host.innerHTML='<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_need_t"))+'</span></div>'+
+      '<p class="muted">'+esc(T("act_need_b"))+'</p>'+
+      '<ol class="needl"><li>'+esc(T("act_need_1"))+'</li><li>'+esc(T("act_need_2"))+'</li><li>'+esc(T("act_need_3"))+'</li></ol>'+
+      '<button class="btn" id="needGo">'+esc(T("act_need_cta"))+'</button>'+
+      (hasDaily()?'<button class="btn ghost" id="needAny" style="margin-top:8px">'+esc(T("act_need_any"))+'</button>':'')+
+      '<button class="btn ghost" id="needBack" style="margin-top:8px">'+esc(T("act_need_back"))+'</button></div>';
+    document.getElementById("needGo").onclick=gotoUpload;
+    document.getElementById("needBack").onclick=function(){ renderAi(); };
+    var any=document.getElementById("needAny");
+    // Data harian (tidur/air/langkah/nutrisi) tetap cukup untuk sebuah rencana, jadi
+    // jalan itu TIDAK ditutup - cuma tidak lagi jadi satu-satunya tombol yang buntu.
+    if(any) any.onclick=function(){ renderAi(); genPlan(false); };
   }
 
   // ---- 7. Goals ----
