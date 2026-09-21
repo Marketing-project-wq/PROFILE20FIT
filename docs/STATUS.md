@@ -148,6 +148,24 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Tabrakan nama "Activity" SELESAI (2026-09-21).** Item nav berlabel "Activity"/"Aktivitas"
+  (`nav_progress`) dulu menunjuk `/progress`, sehingga pemilik mengklik "Activity" dan mendarat
+  di halaman LAMA — bagian baru tak pernah terlihat. Sekarang: item nav menunjuk `activity.html`,
+  dan `/progress` **redirect 302** ke `/activity`.
+  - **302, bukan 301** — sengaja. Selama masa verifikasi ini masih bisa dibalik tanpa tersangkut
+    cache permanen di browser user. Naikkan ke 301 setelah `/activity` terbukti beres.
+  - **Pintu darurat `/progress?legacy=1`** menyajikan halaman lama, mengikuti pola yang sudah
+    dipakai repo untuk `/admin-dashboard?legacy=1`. Karena itu `progress.html` BUKAN file mati.
+  - **Utang yang diakui:** isi `progress.html` kini ADA DI DUA TEMPAT (aslinya + salinan di
+    `activity.html`). Itu melanggar §2 (satu sumber kebenaran). Sengaja dibiarkan satu putaran
+    sebagai jalan mundur selagi `/activity` belum terverifikasi di perangkat nyata.
+    **HAPUS `progress.html` + pintu daruratnya** begitu pemilik memastikan `/activity` beres.
+- **Pesan error jujur saat migration 017 belum jalan.** `/api/activity/day` memang tetap 200
+  (error tabel `my20fit_daily_plan` yang belum ada ditelan -> `plan:null`), tapi "Buat rencana"
+  dan centang goal akan gagal. Dulu balasannya generik; sekarang `isMissingSchema()` mengenali
+  Postgres 42P01/42703 dan membalas **503** + pesan "migration 017 belum dijalankan", bukan
+  "Gagal membuat rencana harian" yang tidak memberi petunjuk apa pun.
+
 - **Foto avatar di dashboard tampil salah — DIPERBAIKI 2026-09-21.** `paintAva()` menyetel
   `a.style.background = <warna>` (shorthand) sebelum `backgroundImage`. Shorthand inline
   me-reset `background-size` ke `auto` dan `background-position` ke `0% 0%`, dan gaya inline

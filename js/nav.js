@@ -39,7 +39,11 @@
     { href: "dashboard.html", key: "nav_home", k: "home" },
     { href: "event.html", key: "nav_event", k: "event" },
     { href: "calories.html", key: "nav_calories", k: "calories" },
-    { href: "progress.html", key: "nav_progress", k: "progress" },
+    // Label item ini memang "Activity"/"Aktivitas" (nav_progress), dan sekarang menunjuk
+    // ke activity.html — halaman itu SUDAH memuat seluruh isi progress.html plus bagian
+    // harian yang baru. Kunci i18n & ikon sengaja tetap `nav_progress`/`progress` supaya
+    // tidak perlu mengganti kunci di dua bahasa; yang berubah hanya tujuannya.
+    { href: "activity.html", key: "nav_progress", k: "progress" },
     { href: "profile.html", key: "nav_profile", k: "profile" },
   ];
   // Halaman aktif — normalisasi supaya cocok di URL BERSIH (/dashboard) MAUPUN

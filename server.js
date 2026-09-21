@@ -8494,6 +8494,15 @@ function ymd(d) {
 }
 function isYmd(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "")); }
 
+// Migration 017 belum dijalankan -> tabel/kolom baru belum ada. Postgres membalas 42P01
+// (undefined_table) / 42703 (undefined_column). Tanpa penanganan ini, user cuma melihat
+// "Gagal membuat rencana harian" dan tak ada yang tahu sebabnya di mana.
+function isMissingSchema(e) {
+  var c = String((e && e.code) || ""), m = String((e && e.message) || "");
+  return c === "42P01" || c === "42703" ||
+         /my20fit_daily_plan/.test(m) && /does not exist|schema cache/i.test(m);
+}
+
 // GET /api/activity/day?date=YYYY-MM-DD
 // Satu panggilan untuk seluruh halaman: workout hari itu + ringkasan harian + rencana AI
 // + 7 hari terakhir (buat grafik mingguan). Hemat bolak-balik request.
@@ -8740,7 +8749,10 @@ app.post("/api/activity/plan", async (req, res) => {
     return res.json({ ok: true, plan: data, source: plan.source });
   } catch (e) {
     console.error("activity/plan:", e.message);
-    logAiAccess(userId, "activity/plan", false, "server");
+    logAiAccess(userId, "activity/plan", false, isMissingSchema(e) ? "schema" : "server");
+    if (isMissingSchema(e)) {
+      return res.status(503).json({ error: "Rencana harian belum bisa disimpan: migration 017 belum dijalankan di database. Hubungi admin.", setup_required: true });
+    }
     return res.status(500).json({ error: "Gagal membuat rencana harian." });
   }
 });
@@ -8774,6 +8786,9 @@ app.patch("/api/activity/goal", async (req, res) => {
     return res.json({ ok: true, goals: goals });
   } catch (e) {
     console.error("activity/goal:", e.message);
+    if (isMissingSchema(e)) {
+      return res.status(503).json({ error: "Belum bisa menyimpan: migration 017 belum dijalankan di database. Hubungi admin.", setup_required: true });
+    }
     return res.status(500).json({ error: "Gagal memperbarui goal." });
   }
 });
@@ -8792,6 +8807,18 @@ app.get("/payment/failed", (req, res) => {
 // Diet -> Recipe: halaman /diet di-rename jadi /recipe (recipe.html). Redirect
 // permanen supaya tautan/bookmark lama tetap jalan. Tangani sebelum static+.html.
 app.get(["/diet", "/diet.html"], (req, res) => res.redirect(301, "/recipe"));
+
+// Progress -> Activity: /activity sudah memuat SELURUH isi halaman /progress (di-port utuh)
+// plus bagian harian yang baru, jadi dua halaman ini tidak lagi berdiri sendiri-sendiri.
+// 302 (sementara), BUKAN 301: selama masa verifikasi ini masih bisa dibalik tanpa tersangkut
+// cache permanen di browser user. Naikkan ke 301 setelah pemilik memastikan /activity beres.
+// Pintu darurat `?legacy=1` mengikuti pola yang SUDAH dipakai repo ini untuk
+// /admin-dashboard: halaman lama tetap bisa dibuka kalau yang baru bermasalah, jadi
+// progress.html bukan file mati dan kita tidak kehilangan jalan mundur.
+app.get(["/progress", "/progress.html"], (req, res, next) => {
+  if (req.query && req.query.legacy) return next();   // /progress?legacy=1 -> halaman lama
+  return res.redirect(302, "/activity");
+});
 
 // ---------- Static (URL bersih tanpa .html) + fallback ----------
 // Redirect /halaman.html -> /halaman (querystring dipertahankan), lalu sajikan
