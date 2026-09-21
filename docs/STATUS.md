@@ -325,6 +325,23 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   - Ikut diperbaiki: `toggleLike`/`toggleSave` dulu meninggalkan tombol `disabled` selamanya
     kalau request-nya gagal (pola bug yang sama dengan `genPlan` di /activity).
 
+- **Quiz "Set Your Goal" SEKARANG TERPASANG di `/activity` (21 Sep 2026).** Sebelumnya
+  `js/goal-quiz.js` sudah ada tapi tak dipanggil dari mana pun (dead code menurut
+  CLAUDE.md §8). Sekarang: tombol **"Tentukan targetmu"** di kartu "Belum ada rencana"
+  membuka quiz di dalam `#aiBox`; `onComplete` mengembalikan kartu analisis lalu lanjut
+  ke `genPlan()` — lewat gerbang `hasWorkout()` yang sudah ada, jadi kalau belum ada
+  workout yang muncul tetap pemandu upload, bukan API call yang gagal.
+  - Komponennya sendiri HANYA menyimpan + memanggil `onComplete`; pembuatan rencana
+    tetap milik `activity.html`.
+  - Perbaikan tata letak: 3 kotak jadwal harian dulu **menumpuk di bawah 400px** —
+    melanggar spesifikasi ("3 kotak sejajar") persis di lebar sasaran ~390px. Sekarang
+    tetap 3 kolom (`repeat(3,minmax(0,1fr))`), yang mengecil huruf & padding-nya.
+    Diukur di viewport 390px: tiga kotak sama lebar (84px), satu baris, nol teks
+    terpotong, nol overflow horizontal.
+  - **Tanpa migration 018, tombol simpannya GAGAL** — dan itu ditampilkan apa adanya:
+    "Tabel goal belum ada di database (migration 018). Hubungi admin.", quiz tetap
+    terbuka, tombol bisa dicoba lagi. Diuji headless.
+
 - **Migration 017 & 018 DIPASTIKAN BELUM DIJALANKAN (dicek ke DB live 21 Sep 2026).**
   Buktinya: `my20fit_workout` masih 8 kolom (017 menambah 12 → seharusnya 20), tabel
   `my20fit_daily_plan` (017) dan `my20fit_member_goals` (018) tidak ada di DB. Selama ini
