@@ -31,7 +31,14 @@
     } catch (e) { /* pakai fallback */ }
     cfgUrl = url; cfgKey = key;
     supabase = window.supabase.createClient(url, key, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      // flowType PKCE (bukan implicit, yang jadi default supabase-js v2).
+      // Dengan implicit, GoTrue memulangkan access_token + refresh_token di FRAGMENT URL
+      // -> masuk history browser. Dengan PKCE yang pulang cuma `?code=` berumur pendek,
+      // lalu ditukar jadi sesi lewat POST. Token tak pernah muncul di URL.
+      // TIDAK mengubah redirect URI ke Google (itu selalu <project>.supabase.co/auth/v1/callback),
+      // jadi tidak butuh perubahan allow-list apa pun. Didukung bundle yang di-vendor
+      // (diperiksa: supabase-js 2.108.2 punya code_verifier/code_challenge/exchangeCodeForSession).
+      auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
     });
     return supabase;
   })();
@@ -216,7 +223,15 @@
     await ready;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: location.origin + "/login" },
+      options: {
+        // redirectTo SENGAJA tetap /login, bukan /auth/callback. Tujuan redirect WAJIB
+        // terdaftar di Supabase -> Authentication -> URL Configuration; memindahkannya
+        // sebelum pemilik menambahkan URL baru di sana justru membuat login gagal
+        // (GoTrue jatuh ke Site URL). Pindah kalau URL barunya sudah terdaftar.
+        redirectTo: location.origin + "/login",
+        // Perangkat dipakai bergantian -> jangan diam-diam memakai akun Google terakhir.
+        queryParams: { prompt: "select_account" },
+      },
     });
     if (error) throw new Error(_t("Google sign-in isn’t available right now.", "Login Google sedang tidak tersedia."));
     // Sukses = browser sedang redirect ke Google; tak ada nilai balik yang berarti.
