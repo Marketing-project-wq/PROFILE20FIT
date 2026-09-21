@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-21 · **Commit staging:** `7637161` · **Production:** `7740dbf`
+> **Pembaruan terakhir:** 2026-09-21 · **Commit staging:** `245b7d1` · **Production:** `7740dbf`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -244,6 +244,38 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     diperiksa baris-per-baris. **TANYA PEMILIK REPO** apakah perlu disamakan juga.
   - **CATATAN:** calorietracker membaca tabel `ct_meal` (tanpa prefix `my20fit_`).
     Tabel itu milik app tersebut; repo ini TIDAK menyentuhnya (CLAUDE.md §4).
+
+- **Sinkronisasi ekosistem (calorie / recipe / MCU) — SUDAH JALAN, jangan dibuat ulang.**
+  Diperiksa ke DB LIVE + kode calorietracker pada 21 Sep 2026, setelah ada dokumen yang
+  mengusulkan 8 tabel baru (`calorie_logs`, `calorie_profiles`, `calorie_daily_summary`,
+  `calorie_favorites`, `recipe_bookmarks`, `recipe_meal_plans`, `mcu_scans`,
+  `mcu_scan_results`). **Usulan itu TIDAK dijalankan**, dan ini alasannya:
+  - **Kalori sudah sinkron lewat `my20fit_daily_log.cal_items`.** Bukan dugaan — komentar
+    di kode calorietracker sendiri menyatakannya: `src/lib/memberTracker.ts:20` "ADDITIVE
+    to the cal_items shape **my.20fit.id shares**", dan `src/lib/scanMeal.ts:3` menulis ke
+    `my20fit_daily_log.cal_items` "**so my.20fit.id stays consistent**". Kedua app
+    membaca DAN menulis kolom yang sama.
+    Membuat `calorie_logs` = penyimpanan KETIGA → justru memutus sinkron yang sudah jalan,
+    dan itu persis "tabel duplikat" yang dilarang dokumen itu sendiri.
+  - **Bookmark resep sudah ada:** `my20fit_menu_save` (`auth_user_id, source, menu_id`),
+    dipakai `server.js` untuk simpan/hapus resep.
+  - **Hasil MCU sudah ada:** `my20fit_mcu_result` (`auth_user_id, result jsonb,
+    analyzed_at, file_path`) + `my20fit_mcu_pending_scan`. Sudah dipakai server.js dan
+    sudah masuk `USER_DATA_TABLES`.
+  - **Semua nama tabel usulan melanggar CLAUDE.md §4** (tanpa prefix `my20fit_`, di project
+    Supabase yang dipakai bersama ratusan tabel app lain).
+  - **`ct_meal` / `ct_meal_component` / `ct_meal_audit`** milik calorietracker (detail menu,
+    ditautkan dari `cal_items.mid`). Repo ini TIDAK menyentuhnya.
+  - Yang DIKERJAKAN dari dokumen itu cuma penyelarasan nama URL: `/recipes` → `/recipe`
+    dan `/mcu` → `/medical` (301). Halamannya tidak diduplikasi.
+  - **BELUM TERVERIFIKASI:** apakah `medicalscanner.20fit.id` menulis ke
+    `my20fit_mcu_result` atau ke tabelnya sendiri. Repo-nya belum dibaca. **TANYA PEMILIK
+    REPO** sebelum menyimpulkan MCU sudah sinkron dua arah.
+
+- **Migration 017 & 018 DIPASTIKAN BELUM DIJALANKAN (dicek ke DB live 21 Sep 2026).**
+  Buktinya: `my20fit_workout` masih 8 kolom (017 menambah 12 → seharusnya 20), tabel
+  `my20fit_daily_plan` (017) dan `my20fit_member_goals` (018) tidak ada di DB. Selama ini
+  belum dijalankan, tombol "Buat rencana" di /activity dan simpan GoalQuiz akan gagal.
 
   - **TUGAS PEMILIK sebelum fitur ini utuh:** (1) jalankan migration 017 manual; (2) buat bucket
     Storage **`workout-uploads`** (PRIVAT); (3) deploy ulang edge fn `my20fit-ai` supaya aksi

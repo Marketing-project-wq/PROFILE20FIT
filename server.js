@@ -8901,6 +8901,14 @@ app.get("/payment/failed", (req, res) => {
 // permanen supaya tautan/bookmark lama tetap jalan. Tangani sebelum static+.html.
 app.get(["/diet", "/diet.html"], (req, res) => res.redirect(301, "/recipe"));
 
+// Nama URL dari dokumen "Sinkronisasi Ekosistem" (/recipes, /mcu) diarahkan ke halaman
+// yang SUDAH ADA di repo ini. Halamannya tidak diduplikasi — cuma namanya yang beda:
+//   /recipes -> /recipe  (resep + resep tersimpan, baca my20fit_menu_save)
+//   /mcu     -> /medical (hasil MCU, baca my20fit_mcu_result)
+// 301 karena ini memang nama lain untuk halaman yang sama, bukan percobaan sementara.
+app.get(["/recipes", "/recipes.html"], (req, res) => res.redirect(301, "/recipe"));
+app.get(["/mcu", "/mcu.html"], (req, res) => res.redirect(301, "/medical"));
+
 // Progress -> Activity: /activity sudah memuat SELURUH isi halaman /progress (di-port utuh)
 // plus bagian harian yang baru, jadi dua halaman ini tidak lagi berdiri sendiri-sendiri.
 // 302 (sementara), BUKAN 301: selama masa verifikasi ini masih bisa dibalik tanpa tersangkut
