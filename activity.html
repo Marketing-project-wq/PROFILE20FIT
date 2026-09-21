@@ -325,7 +325,7 @@
       <div class="t" data-i18n="act_up_t">Upload hasil workout</div>
       <div class="s" data-i18n="act_up_s">Screenshot, foto, atau file dari tracker kamu — bisa 5 sekaligus</div>
     </div>
-    <input type="file" id="file" accept="image/png,image/jpeg,image/webp" multiple style="display:none">
+    <input type="file" id="file" accept="image/*,.heic,.heif" multiple style="display:none">
     <div class="orsep" data-i18n="act_up_or">atau hubungkan langsung</div>
     <div class="trk" id="trk"></div>
   </div>
@@ -520,8 +520,36 @@
     });
   }
 
+  // Ubah gambar yang formatnya tak diterima server (HEIC dari iPhone, GIF, BMP, TIFF)
+  // menjadi JPEG — SELAMA browser bisa men-decode-nya. Kalau tidak bisa, kita bilang
+  // formatnya apa, bukan diam saja.
+  function reencode(dataUrl){
+    return new Promise(function(res){
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var cv=document.createElement("canvas");
+          cv.width=img.naturalWidth||img.width; cv.height=img.naturalHeight||img.height;
+          if(!cv.width||!cv.height){ res(null); return; }
+          cv.getContext("2d").drawImage(img,0,0);
+          res(cv.toDataURL("image/jpeg",0.92));
+        }catch(e){ res(null); }
+      };
+      img.onerror=function(){ res(null); };   // browser tak bisa decode (mis. HEIC di Chrome)
+      img.src=dataUrl;
+    });
+  }
+  var OK_RE=/^image\/(png|jpe?g|webp)$/;
+  async function toSupported(f){
+    var du=await readAsDataUrl(f);
+    if(OK_RE.test(f.type)) return {ok:true,dataUrl:du};
+    var conv=await reencode(du);
+    if(conv) return {ok:true,dataUrl:conv,converted:true};
+    return {ok:false,name:f.name||"?",type:f.type||"?"};
+  }
+
   async function handleFiles(list){
-    var files=Array.prototype.slice.call(list||[]).filter(function(f){ return /^image\/(png|jpe?g|webp)$/.test(f.type); });
+    var files=Array.prototype.slice.call(list||[]);
     if(!files.length) return;
     if(files.length>MAX_IMG){
       showErr(Lx({en:"Up to "+MAX_IMG+" images at once.",id:"Maksimal "+MAX_IMG+" gambar sekaligus."}),false); return;
@@ -532,18 +560,27 @@
     var drop=document.getElementById("drop"), old=drop.innerHTML;
     var urls=[], smalls=[], storeFailed=false;
     try{
+      var ditolak=[], storeMsg=null, converted=0;
       for(var k=0;k<files.length;k++){
         drop.innerHTML='<div class="s">'+esc(Lx({en:"Uploading "+(k+1)+"/"+files.length+"\u2026",id:"Mengunggah "+(k+1)+"/"+files.length+"\u2026"}))+'</div>';
-        var du=await readAsDataUrl(files[k]);
-        smalls.push(await shrink(du));
+        var sup=await toSupported(files[k]);
+        if(!sup.ok){ ditolak.push(sup.name+" ("+sup.type+")"); continue; }
+        if(sup.converted) converted++;
+        smalls.push(await shrink(sup.dataUrl));
         // Penyimpanan gagal TIDAK menghentikan pembacaan: angkanya masih bisa dibaca dari
-        // gambar yang ada di memori. User diberi tahu gambarnya tidak tersimpan.
+        // gambar yang ada di memori. Alasan dari server DISIMPAN supaya bisa ditampilkan
+        // apa adanya — dulu kegagalan ini cuma jadi catatan samar di dialog.
         try{
-          var r=await apiFetch("/api/activity/upload",{method:"POST",body:JSON.stringify({data_url:du})});
+          var r=await apiFetch("/api/activity/upload",{method:"POST",body:JSON.stringify({data_url:sup.dataUrl})});
           var j=await r.json().catch(function(){return {};});
-          if(r.ok&&j.url) urls.push(j.url); else storeFailed=true;
+          if(r.ok&&j.url) urls.push(j.url); else { storeFailed=true; if(!storeMsg) storeMsg=j.error||null; }
         }catch(e){ storeFailed=true; }
       }
+      if(ditolak.length){
+        showErr(Lx({en:"These files can't be read: "+ditolak.join(", ")+". Use a PNG, JPG, or WebP screenshot.",
+                    id:"Berkas ini tidak bisa dibaca: "+ditolak.join(", ")+". Pakai screenshot PNG, JPG, atau WebP."}),false);
+      }
+      if(!smalls.length){ drop.innerHTML=old; return; }
 
       drop.innerHTML='<div class="s">'+esc(Lx({en:"Reading your tracker\u2026",id:"Membaca tracker kamu\u2026"}))+'</div>';
       var ai=null, aiErr=null;
@@ -555,7 +592,8 @@
 
       PENDING_URLS=urls; PENDING_AI=ai;
       drop.innerHTML=old;
-      openDlg(files.length,ai,aiErr,storeFailed);
+      if(storeFailed&&storeMsg) showErr(storeMsg,false);
+      openDlg(smalls.length,ai,aiErr,storeFailed,converted);
     }catch(e){
       drop.innerHTML=old; showErr(T("act_up_fail"),false);
     }
@@ -563,7 +601,7 @@
 
   // ---- Dialog workout manual ----
   function setV(id,v){ document.getElementById(id).value=(v==null?"":String(v)); }
-  function openDlg(nImg,ai,aiErr,storeFailed){
+  function openDlg(nImg,ai,aiErr,storeFailed,converted){
     document.getElementById("dlgErr").textContent="";
     var box=document.getElementById("dlgAi"); box.innerHTML="";
     if(ai){
@@ -584,6 +622,11 @@
       box.innerHTML='<div class="dlgnote warn">'+esc(aiErr||Lx({
         en:"Couldn't read the numbers from those images. Fill them in yourself.",
         id:"Angkanya tidak terbaca dari gambar itu. Isi sendiri ya."}))+'</div>';
+    }
+    if(converted){
+      box.innerHTML+='<div class="dlgnote warn">'+esc(Lx({
+        en:converted+" image(s) were converted to JPG so they could be read.",
+        id:converted+" gambar diubah jadi JPG supaya bisa dibaca."}))+'</div>';
     }
     if(storeFailed){
       box.innerHTML+='<div class="dlgnote warn">'+esc(Lx({
