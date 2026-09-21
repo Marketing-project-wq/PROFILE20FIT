@@ -626,6 +626,25 @@
     return data;
   }
 
+  // Rentang tanggal (inklusif) -> dipakai chart mingguan & riwayat di /calories.
+  // Query-nya SENGAJA sama bentuknya dengan calorietracker.20fit.id
+  // (src/lib/memberHistory.ts: select log_date+cal_items dari my20fit_daily_log,
+  // difilter auth_user_id, diurutkan log_date turun) supaya riwayat di kedua app
+  // membaca baris yang sama persis — bukan dua sumber yang bisa berbeda.
+  async function getDailyRange(fromStr, toStr) {
+    const user = await requireAuth();
+    let q = supabase
+      .from("my20fit_daily_log")
+      .select("log_date,cal_items")
+      .eq("auth_user_id", user.id)
+      .gte("log_date", fromStr)
+      .order("log_date", { ascending: false });
+    if (toStr) q = q.lte("log_date", toStr);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data || [];
+  }
+
   // ---------- PREFERENSI HOME (sinkron antar-device, per akun) ----------
   // Disimpan di my20fit_profile.home_prefs (jsonb) + home_prefs_updated_at (LWW).
   // Isi: { pins:[...], shortcuts:[...], extra:bool, ... } — layout home yang di-pin user.
@@ -754,6 +773,7 @@
     profileComplete,
     bmiInfo,
     getDailyLog,
+    getDailyRange,
     saveDaily,
     getPrefs,
     savePrefs,
