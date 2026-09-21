@@ -101,6 +101,19 @@ Deno.serve(async (req) => {
         ? "Write every text field in the JSON output in ENGLISH."
         : "Tulis semua teks pada output JSON dalam BAHASA INDONESIA.",
     };
+    // Halaman Activity: rencana coaching harian. Output JSON KETAT supaya server bisa
+    // menyimpannya apa adanya ke my20fit_daily_plan tanpa menebak bentuk.
+    const PLAN_SYS =
+      'You are a fitness coach for 20FIT, a gym and sport ecosystem in Jakarta. You receive ONE member\'s data for a single day plus a 7-day history. '+
+      'Write a short daily coaching plan. STRICT RULES: (1) You are NOT a doctor — never diagnose, never name a disease, never give medical advice; for anything health-related, advise consulting the 20FIT doctor. '+
+      '(2) Base every statement ONLY on the numbers given. If a number is missing, say it is missing — NEVER invent a value. '+
+      '(3) overall_score is 0-100 and must reflect the data given, not optimism. '+
+      '(4) analysis_text is 2-3 sentences, conversational, mentioning the single most important thing to fix today. '+
+      '(5) gaps: 3-5 items, each {area, status one of "good"|"warning"|"critical", value a SHORT string like "5.5 / 7.5h"}. '+
+      '(6) goals: 6-8 items, each {id short slug, title max 8 words, desc one short sentence, category one of "exercise"|"nutrition"|"habit"|"recovery", time short string like "07:00" or "Sepanjang hari", done false}. '+
+      '(7) nutrition_targets: {kcal, p, c, f, water_glasses} integers, realistic for this member. '+
+      'Respond ONLY with a valid JSON object (no markdown, no code fences) with keys: overall_score, analysis_text, gaps, goals, nutrition_targets.';
+
     let messages: unknown, maxTok: number, plugins: unknown = null;
     if (b.action === "food") {
       if (b.image) {
@@ -131,12 +144,17 @@ Deno.serve(async (req) => {
       maxTok = 6000;
       const target = b.lang === "en" ? "English" : "Bahasa Indonesia";
       messages = [{ role: "system", content: "You are a translator. Translate ALL human-readable string VALUES in the given JSON into " + target + ". Keep the JSON structure and keys identical. DO NOT translate or change these code values: status (normal/attention/unknown), direction (high/low/normal/unknown), severity (ringan/sedang/tinggi), positive (true/false), and any numeric value or measurement. Respond ONLY with the translated JSON object, no markdown." }, { role: "user", content: JSON.stringify(b.data || {}).slice(0, 9000) }];
+    } else if (b.action === "plan") {
+      if (!b.data) return json({ error: "data wajib diisi" }, 400);
+      maxTok = 2500;
+      messages = [{ role: "system", content: PLAN_SYS }, langMsg,
+        { role: "user", content: "Member data for the day + 7-day history:\n" + JSON.stringify(b.data).slice(0, 6000) }];
     } else return json({ error: "action tidak dikenal" }, 400);
 
-    const model = b.action === "mcu" || b.action === "translate" ? MODEL_MCU : MODEL_FOOD;
+    const model = (b.action === "mcu" || b.action === "translate" || b.action === "plan") ? MODEL_MCU : MODEL_FOOD;
     const payload: Record<string, unknown> = { model, messages, max_tokens: maxTok, temperature: 0.2, reasoning: { enabled: false } };
     if (plugins) payload.plugins = plugins;
-    if (b.action === "mcu" || b.action === "translate") payload.response_format = { type: "json_object" };
+    if (b.action === "mcu" || b.action === "translate" || b.action === "plan") payload.response_format = { type: "json_object" };
     const callOR = (p: unknown) => fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json", "HTTP-Referer": "https://my.20fit.id", "X-Title": "20fit Health Profile" },

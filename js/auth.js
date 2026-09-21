@@ -585,23 +585,26 @@
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
 
-  async function getDailyLog() {
+  // dateStr opsional -> default HARI INI. Halaman Activity memakai argumen itu untuk
+  // navigator 7 hari; pemanggil lama tanpa argumen perilakunya TIDAK berubah.
+  async function getDailyLog(dateStr) {
     const user = await requireAuth();
     const { data, error } = await supabase
       .from("my20fit_daily_log")
       .select("*")
       .eq("auth_user_id", user.id)
-      .eq("log_date", todayStr())
+      .eq("log_date", dateStr || todayStr())
       .limit(1);
     if (error) throw error;
     return (data && data[0]) || null;
   }
 
-  // Upsert sebagian field untuk hari ini (per user + tanggal)
-  async function saveDaily(fields) {
+  // Upsert sebagian field (per user + tanggal). dateStr opsional -> default HARI INI,
+  // jadi pemanggil lama (calories/progress/dashboard) tidak berubah perilakunya.
+  async function saveDaily(fields, dateStr) {
     const user = await requireAuth();
     const row = Object.assign(
-      { auth_user_id: user.id, log_date: todayStr(), updated_at: new Date().toISOString() },
+      { auth_user_id: user.id, log_date: dateStr || todayStr(), updated_at: new Date().toISOString() },
       fields
     );
     const { data, error } = await supabase

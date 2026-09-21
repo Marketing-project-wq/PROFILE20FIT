@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Activity · 20FIT</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* Token khusus halaman Activity (dari spesifikasi pemilik). Gelap = default;
+     mode terang dipetakan ulang di blok html.theme-light supaya tetap terbaca —
+     halaman lain memakai kelas theme-light yang sama (CLAUDE.md §G). */
+  :root{
+    --a-bg:#0C0C0E; --a-surface:#161619; --a-line:#2A2A30;
+    --a-txt:#F4F4F6; --a-mut:#8B8B96;
+    --accent:#3B82F6; --green:#22C55E; --amber:#F59E0B; --red:#EF4444; --purple:#A855F7;
+    --strava:#FC4C02; --cyan:#22D3EE; --zone3:#EAB308; --zone4:#F97316;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  html.theme-light{
+    --a-bg:#F6F6F8; --a-surface:#FFFFFF; --a-line:#E4E4EA;
+    --a-txt:#0A0A0C; --a-mut:#6B6B78;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--a-bg);color:var(--a-txt);font-family:var(--sans);padding:20px 16px 100px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:640px;margin:0 auto}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .card{background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px;padding:16px}
+  .card+.card{margin-top:12px}
+  .muted{color:var(--a-mut)}
+
+  /* 1. Header */
+  .ahead{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .ahead h1{font-size:22px;font-weight:800;margin:0;letter-spacing:-.3px}
+  .ahead .date{font-size:13px;color:var(--a-mut);margin-top:2px}
+  .ahead .av{margin-left:auto;width:38px;height:38px;border-radius:99px;background:var(--a-surface);border:1px solid var(--a-line);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;overflow:hidden;flex:none}
+  .ahead .av img{width:100%;height:100%;object-fit:cover}
+
+  /* 2. Date navigator */
+  .dnav{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;margin-bottom:12px;scrollbar-width:none}
+  .dnav::-webkit-scrollbar{display:none}
+  .dpill{flex:none;min-width:52px;padding:8px 6px;border-radius:12px;border:1px solid var(--a-line);background:var(--a-surface);
+    text-align:center;cursor:pointer;font-family:inherit;color:var(--a-txt)}
+  .dpill .dw{font-size:10.5px;color:var(--a-mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+  .dpill .dd{font-size:15px;font-weight:800;margin-top:2px;font-family:var(--mono)}
+  .dpill.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .dpill.on .dw{color:rgba(255,255,255,.85)}
+  .dpill:disabled{opacity:.35;cursor:default}
+
+  /* 3. Upload */
+  .drop{border:1.5px dashed var(--a-line);border-radius:14px;padding:26px 16px;text-align:center;cursor:pointer;background:transparent}
+  .drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+  .drop svg{width:26px;height:26px;stroke:var(--a-mut);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .drop .t{font-weight:700;font-size:14.5px;margin-top:8px}
+  .drop .s{font-size:12.5px;color:var(--a-mut);margin-top:3px}
+  .trk{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .trk button{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:10px;border:1px solid var(--a-line);
+    background:var(--a-surface);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+  .trk button i{width:8px;height:8px;border-radius:99px;display:inline-block;flex:none}
+  .orsep{text-align:center;font-size:11.5px;color:var(--a-mut);margin:14px 0 0}
+
+  /* 4. Workout card */
+  .wo-h{display:flex;align-items:center;gap:11px}
+  .wo-ic{width:40px;height:40px;border-radius:11px;background:color-mix(in srgb,var(--strava) 16%,transparent);
+    display:flex;align-items:center;justify-content:center;font-size:19px;flex:none}
+  .wo-t{font-weight:700;font-size:15px;line-height:1.25}
+  .wo-s{font-size:12px;color:var(--a-mut);margin-top:2px}
+  .wo-x{margin-left:auto;background:none;border:0;color:var(--a-mut);font-size:17px;cursor:pointer;padding:2px 4px;font-family:inherit}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+  .stats>div{text-align:center;padding:9px 4px;border-radius:9px;background:color-mix(in srgb,var(--a-txt) 5%,transparent)}
+  .stats .k{font-size:10px;color:var(--a-mut);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+  .stats .v{font-size:15px;font-weight:800;font-family:var(--mono);margin-top:3px}
+  .hrz{margin-top:15px}
+  .hrz-h{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--a-mut);font-weight:800;margin-bottom:9px}
+  .hrz-r{display:flex;align-items:center;gap:9px;margin:6px 0}
+  .hrz-r .z{font-size:11px;font-weight:800;width:20px;color:var(--a-mut);font-family:var(--mono)}
+  .hrz-r .bar{flex:1;height:8px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden}
+  .hrz-r .bar i{display:block;height:100%;border-radius:99px}
+  .hrz-r .d{font-size:11.5px;font-family:var(--mono);color:var(--a-mut);width:46px;text-align:right}
+
+  /* 5. AI analysis */
+  .ai{background:linear-gradient(145deg,var(--a-surface),color-mix(in srgb,var(--accent) 9%,var(--a-surface)))}
+  .ai-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .ai-h svg{width:17px;height:17px;fill:var(--accent)}
+  .ai-h .t{font-weight:800;font-size:14px}
+  .ai-h .b{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:.5px;padding:3px 8px;border-radius:99px;
+    background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+  .ai p{margin:0;font-size:13.5px;line-height:1.65}
+  .hl{display:inline;padding:1px 7px;border-radius:99px;font-weight:700;font-size:12.5px;white-space:nowrap}
+  .hl.good{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+  .hl.warning{background:color-mix(in srgb,var(--amber) 18%,transparent);color:var(--amber)}
+  .hl.critical{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
+
+  /* 6. Score + gaps */
+  .sg{display:grid;grid-template-columns:118px 1fr;gap:14px;align-items:center}
+  .ringw{position:relative;width:118px;height:118px}
+  .ringw svg{transform:rotate(-90deg)}
+  .ringw .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ringw .n b{font-size:29px;font-family:var(--mono);font-weight:700;line-height:1}
+  .ringw .n s{font-size:10px;color:var(--a-mut);text-decoration:none;letter-spacing:.6px;text-transform:uppercase;margin-top:3px;font-weight:700}
+  .gaps{display:flex;flex-direction:column;gap:7px}
+  .gap{display:flex;align-items:center;gap:8px;font-size:12.5px}
+  .gap i{width:7px;height:7px;border-radius:99px;flex:none}
+  .gap .v{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--a-mut)}
+
+  /* 7. Goals */
+  .gh{display:flex;align-items:center;gap:8px;margin:-16px -16px 12px;padding:14px 16px;border-radius:13px 13px 0 0;
+    background:linear-gradient(100deg,color-mix(in srgb,var(--accent) 14%,transparent),color-mix(in srgb,var(--purple) 14%,transparent))}
+  .gh svg{width:16px;height:16px;fill:var(--accent)}
+  .gh .t{font-weight:800;font-size:13.5px}
+  .gh .c{margin-left:auto;font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--a-mut)}
+  .goal{display:flex;gap:11px;padding:10px 0;border-top:1px solid var(--a-line);cursor:pointer}
+  .goal:first-of-type{border-top:0}
+  .cb{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--a-line);flex:none;margin-top:1px;
+    display:flex;align-items:center;justify-content:center}
+  .cb svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+  .goal.done .cb{background:var(--green);border-color:var(--green)}
+  .goal.done .cb svg{opacity:1}
+  .goal.done .gt{text-decoration:line-through;color:var(--a-mut)}
+  .gt{font-size:13.5px;font-weight:600;line-height:1.35}
+  .gd{font-size:12px;color:var(--a-mut);margin-top:2px;line-height:1.45}
+  .gtime{font-size:11px;font-family:var(--mono);color:var(--a-mut);margin-top:3px}
+  .cat{font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;flex:none;align-self:flex-start;margin-left:auto;white-space:nowrap}
+  .cat.exercise{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+  .cat.nutrition{background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green)}
+  .cat.habit{background:color-mix(in srgb,var(--purple) 16%,transparent);color:var(--purple)}
+  .cat.recovery{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber)}
+
+  /* 8. Nutrition */
+  .ngrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .ncard{border:1px solid var(--a-line);border-radius:11px;padding:11px}
+  .ncard .k{font-size:11px;color:var(--a-mut);font-weight:700}
+  .ncard .v{font-size:19px;font-weight:800;font-family:var(--mono);margin-top:4px}
+  .ncard .v small{font-size:11.5px;color:var(--a-mut);font-weight:500}
+  .pbar{height:4px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 9%,transparent);margin-top:8px;overflow:hidden}
+  .pbar i{display:block;height:100%;border-radius:99px}
+
+  /* 9. Habits */
+  .chips{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;min-width:96px;border:1px solid var(--a-line);border-radius:12px;padding:11px 12px;text-align:center;background:transparent}
+  .chip .e{font-size:21px;line-height:1}
+  .chip .n{font-size:11.5px;font-weight:700;margin-top:5px}
+  .chip .s{font-size:11px;color:var(--a-mut);margin-top:2px;font-family:var(--mono)}
+  .chip.warn{border-color:color-mix(in srgb,var(--amber) 45%,transparent)}
+  .chip.warn .s{color:var(--amber)}
+
+  /* 10. Weekly */
+  .wk{display:flex;gap:18px;margin-bottom:14px}
+  .wk .b{font-size:23px;font-weight:800;font-family:var(--mono);line-height:1}
+  .wk .l{font-size:11px;color:var(--a-mut);margin-top:3px}
+  .bars{display:flex;gap:6px;align-items:flex-end;height:58px}
+  .bars .c{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+  .bars .bar{width:100%;border-radius:5px 5px 0 0;min-height:3px;background:color-mix(in srgb,var(--green) 70%,transparent)}
+  .bars .bar.empty{background:transparent;border:1px dashed var(--a-line);min-height:14px}
+  .bars .bar.today{background:var(--accent)}
+  .bars .lb{font-size:9.5px;color:var(--a-mut);text-transform:uppercase;font-weight:700}
+
+  .sechd{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--a-mut);font-weight:800;margin:20px 2px 8px}
+  .btn{width:100%;padding:12px;border:0;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit}
+  .btn.ghost{background:transparent;border:1px solid var(--a-line);color:var(--a-txt)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .err{color:var(--red);font-size:12.5px}
+  .skel{background:color-mix(in srgb,var(--a-txt) 7%,transparent);border-radius:8px;animation:pul 1.3s ease-in-out infinite}
+  @keyframes pul{0%,100%{opacity:1}50%{opacity:.45}}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  dialog{border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);border-radius:14px;padding:18px;max-width:380px;width:92%;font-family:var(--sans)}
+  dialog label{display:block;font-size:12px;font-weight:700;color:var(--a-mut);margin:10px 0 4px}
+  dialog input,dialog select{width:100%;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px}
+  @media(min-width:760px){ .ngrid{grid-template-columns:repeat(4,1fr)} }
+</style>
+<script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 1. HEADER -->
+  <div class="ahead">
+    <div>
+      <h1 data-i18n="act_title">Activity</h1>
+      <div class="date" id="hdDate">—</div>
+    </div>
+    <div class="av" id="hdAv">·</div>
+  </div>
+
+  <!-- 2. DATE NAVIGATOR -->
+  <div class="dnav" id="dnav"></div>
+
+  <div id="errBox"></div>
+
+  <!-- 3. UPLOAD -->
+  <div class="card">
+    <div class="drop" id="drop" tabindex="0" role="button">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div class="t" data-i18n="act_up_t">Upload hasil workout</div>
+      <div class="s" data-i18n="act_up_s">Screenshot, foto, atau file dari tracker kamu</div>
+    </div>
+    <input type="file" id="file" accept="image/png,image/jpeg,image/webp" style="display:none">
+    <div class="orsep" data-i18n="act_up_or">atau hubungkan langsung</div>
+    <div class="trk" id="trk"></div>
+  </div>
+
+  <!-- 4. WORKOUT -->
+  <div class="sechd" data-i18n="act_sec_workout">Workout</div>
+  <div id="woBox"></div>
+
+  <!-- 5. AI ANALYSIS + 6. SCORE -->
+  <div class="sechd" data-i18n="act_sec_ai">AI Coach</div>
+  <div id="aiBox"></div>
+
+  <!-- 7. GOALS -->
+  <div id="goalBox"></div>
+
+  <!-- 8. NUTRITION -->
+  <div class="sechd" data-i18n="act_sec_nutri">Nutrisi</div>
+  <div class="card"><div class="ngrid" id="nutriBox"></div></div>
+
+  <!-- 9. HABITS -->
+  <div class="sechd" data-i18n="act_sec_habit">Kebiasaan harian</div>
+  <div class="chips" id="habitBox"></div>
+
+  <!-- 10. WEEKLY -->
+  <div class="sechd" data-i18n="act_sec_week">Ringkasan minggu ini</div>
+  <div class="card" id="weekBox"></div>
+
+</div>
+
+<dialog id="woDlg">
+  <div style="font-weight:800;font-size:15px" data-i18n="act_dlg_t">Detail workout</div>
+  <div class="muted" style="font-size:12px;margin-top:3px" data-i18n="act_dlg_s">Isi yang kamu tahu saja. Yang kosong tidak akan ditebak.</div>
+  <label data-i18n="act_f_title">Nama workout</label><input id="fTitle" placeholder="Morning Run">
+  <label data-i18n="act_f_type">Jenis</label>
+  <select id="fType">
+    <option value="run">Run</option><option value="cycling">Cycling</option><option value="gym">Gym</option>
+    <option value="hyrox">Hyrox</option><option value="swimming">Swimming</option><option value="other">Lainnya</option>
+  </select>
+  <label data-i18n="act_f_dur">Durasi (menit) *</label><input id="fDur" type="number" min="1" inputmode="numeric" placeholder="45">
+  <label data-i18n="act_f_dist">Jarak (km)</label><input id="fDist" type="number" step="0.01" inputmode="decimal" placeholder="5.2">
+  <label data-i18n="act_f_kcal">Kalori terbakar</label><input id="fKcal" type="number" inputmode="numeric" placeholder="380">
+  <label data-i18n="act_f_hr">Rata-rata BPM</label><input id="fHr" type="number" inputmode="numeric" placeholder="142">
+  <div id="dlgErr" class="err" style="margin-top:10px"></div>
+  <div style="display:flex;gap:8px;margin-top:14px">
+    <button class="btn ghost" id="dlgCancel" type="button" data-i18n="act_cancel">Batal</button>
+    <button class="btn" id="dlgSave" type="button" data-i18n="act_save">Simpan</button>
+  </div>
+</dialog>
+
+<script src="js/vendor-supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+  // ---- Halaman Activity ----
+  // Data: /api/activity/day (workout + harian + rencana + 7 hari) — satu panggilan.
+  // Catatan jujur yang dipakai sepanjang file: kalau angkanya TIDAK ADA, tampilkan
+  // "—" atau "belum diisi". JANGAN pernah mengarang nilai supaya grafik terlihat penuh.
+  var user=null, DAY=null, SEL=todayStr(), BUSY=false;
+
+  function T(k){ return (window.I18N&&I18N.t)?I18N.t(k):k; }
+  function Lx(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+  function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function dObj(s){ return new Date(s+"T00:00:00"); }
+  function isToday(s){ return s===todayStr(); }
+
+  async function apiFetch(path,opts){
+    opts=opts||{}; opts.headers=Object.assign({"Content-Type":"application/json"},opts.headers||{});
+    var tk=await Auth.token(); if(tk) opts.headers.Authorization="Bearer "+tk;
+    return fetch(path,opts);
+  }
+  function showErr(msg,retry){
+    document.getElementById("errBox").innerHTML =
+      '<div class="card" style="border-color:var(--red)"><div class="err">'+esc(msg)+'</div>'+
+      (retry?'<button class="btn ghost" id="retryBtn" style="margin-top:10px">'+esc(T("act_retry"))+'</button>':'')+'</div>';
+    var r=document.getElementById("retryBtn"); if(r) r.onclick=function(){ load(SEL); };
+  }
+  function clearErr(){ document.getElementById("errBox").innerHTML=""; }
+
+  // ---- 1. Header ----
+  function renderHead(){
+    var d=dObj(SEL);
+    var opt={weekday:"long",day:"numeric",month:"long",year:"numeric"};
+    document.getElementById("hdDate").textContent=d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",opt);
+    var av=document.getElementById("hdAv");
+    if(user&&user.avatar_url){ av.innerHTML='<img src="'+esc(user.avatar_url)+'" alt="">'; }
+    else { av.textContent=((user&&(user.full_name||user.email)||"2").trim()[0]||"2").toUpperCase(); }
+  }
+
+  // ---- 2. Date navigator (7 hari terakhir; hari depan dimatikan) ----
+  function renderDnav(){
+    var host=document.getElementById("dnav"), out="", t=new Date();
+    for(var i=6;i>=0;i--){
+      var d=new Date(t); d.setDate(d.getDate()-i);
+      var s=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      var wd=d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"short"});
+      out+='<button class="dpill'+(s===SEL?" on":"")+'" data-d="'+s+'"><div class="dw">'+esc(wd)+'</div><div class="dd">'+d.getDate()+'</div></button>';
+    }
+    host.innerHTML=out;
+    Array.prototype.forEach.call(host.querySelectorAll(".dpill"),function(b){
+      b.onclick=function(){ if(BUSY) return; SEL=b.getAttribute("data-d"); renderDnav(); renderHead(); load(SEL); };
+    });
+  }
+
+  // ---- 3. Upload ----
+  var TRACKERS=[
+    {k:"strava",n:"Strava",c:"var(--strava)",live:false},
+    {k:"garmin",n:"Garmin",c:"var(--cyan)",live:false},
+    {k:"apple_health",n:"Apple Health",c:"#9CA3AF",live:false},
+    {k:"google_fit",n:"Google Fit",c:"#4285F4",live:false}
+  ];
+  function renderTrk(){
+    document.getElementById("trk").innerHTML=TRACKERS.map(function(t){
+      return '<button type="button" data-k="'+t.k+'"><i style="background:'+t.c+'"></i>'+esc(t.n)+'</button>';
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll("#trk button"),function(b){
+      b.onclick=function(){
+        // Belum ada satu pun tracker yang tersambung. Katakan apa adanya — jangan
+        // pura-pura menyambung lalu diam-diam gagal.
+        alert(T("act_trk_soon"));
+      };
+    });
+  }
+  function wireUpload(){
+    var drop=document.getElementById("drop"), file=document.getElementById("file");
+    drop.onclick=function(){ file.click(); };
+    drop.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); file.click(); } };
+    ["dragenter","dragover"].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.add("over"); }); });
+    ["dragleave","drop"].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.remove("over"); }); });
+    drop.addEventListener("drop",function(e){ var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) handleFile(f); });
+    file.onchange=function(){ var f=file.files&&file.files[0]; if(f) handleFile(f); file.value=""; };
+  }
+  var PENDING_URL=null;
+  function handleFile(f){
+    if(f.size>5*1024*1024){ showErr(T("act_too_big"),false); return; }
+    var rd=new FileReader();
+    rd.onload=async function(){
+      clearErr();
+      var drop=document.getElementById("drop");
+      var old=drop.innerHTML; drop.innerHTML='<div class="s">'+esc(T("act_uploading"))+'</div>';
+      try{
+        var r=await apiFetch("/api/activity/upload",{method:"POST",body:JSON.stringify({data_url:rd.result})});
+        var j=await r.json().catch(function(){return {};});
+        if(!r.ok){ showErr(j.error||T("act_up_fail"),false); drop.innerHTML=old; return; }
+        PENDING_URL=j.url||null;
+        drop.innerHTML=old;
+        // Gambar sudah tersimpan, tapi ANGKA-nya belum: OCR otomatis belum ada, jadi
+        // user yang mengisi. Lebih jujur daripada menebak isi screenshot.
+        openDlg();
+      }catch(e){ showErr(T("act_up_fail"),false); drop.innerHTML=old; }
+    };
+    rd.readAsDataURL(f);
+  }
+
+  // ---- Dialog workout manual ----
+  function openDlg(){
+    document.getElementById("dlgErr").textContent="";
+    document.getElementById("woDlg").showModal();
+  }
+  function wireDlg(){
+    document.getElementById("dlgCancel").onclick=function(){ PENDING_URL=null; document.getElementById("woDlg").close(); };
+    document.getElementById("dlgSave").onclick=async function(){
+      var dur=parseFloat(document.getElementById("fDur").value);
+      if(!isFinite(dur)||dur<=0){ document.getElementById("dlgErr").textContent=T("act_need_dur"); return; }
+      var body={
+        workout_date:SEL, source:PENDING_URL?"upload":"manual", uploaded_file_url:PENDING_URL,
+        title:document.getElementById("fTitle").value||null,
+        type:document.getElementById("fType").value, duration_min:dur,
+        distance_km:parseFloat(document.getElementById("fDist").value)||null,
+        calories_burned:parseInt(document.getElementById("fKcal").value,10)||null,
+        avg_heart_rate:parseInt(document.getElementById("fHr").value,10)||null
+      };
+      var btn=this; btn.disabled=true;
+      try{
+        var r=await apiFetch("/api/activity/workout",{method:"POST",body:JSON.stringify(body)});
+        var j=await r.json().catch(function(){return {};});
+        if(!r.ok){ document.getElementById("dlgErr").textContent=j.error||T("act_save_fail"); btn.disabled=false; return; }
+        document.getElementById("woDlg").close();
+        ["fTitle","fDur","fDist","fKcal","fHr"].forEach(function(id){ document.getElementById(id).value=""; });
+        PENDING_URL=null;
+        await load(SEL);
+        genPlan(true);   // workout baru -> rencana disegarkan
+      }catch(e){ document.getElementById("dlgErr").textContent=T("act_save_fail"); }
+      btn.disabled=false;
+    };
+  }
+
+  // ---- 4. Workout + HR zones ----
+  var ZC={z1:"var(--accent)",z2:"var(--green)",z3:"var(--zone3)",z4:"var(--zone4)",z5:"var(--red)"};
+  function hms(sec){ var m=Math.round(sec/60); return m>=60?(Math.floor(m/60)+"j "+(m%60)+"m"):(m+"m"); }
+  function renderWorkouts(){
+    var host=document.getElementById("woBox"), ws=(DAY&&DAY.workouts)||[];
+    if(!ws.length){
+      host.innerHTML='<div class="card"><div class="muted" style="font-size:13px;text-align:center;padding:6px 0">'+
+        esc(T("act_no_workout"))+'</div><button class="btn ghost" id="addManual" style="margin-top:10px">'+esc(T("act_add_manual"))+'</button></div>';
+      document.getElementById("addManual").onclick=function(){ PENDING_URL=null; openDlg(); };
+      return;
+    }
+    host.innerHTML=ws.map(function(w){
+      var st=[];
+      st.push(["act_st_dist", w.distance_km!=null?(w.distance_km+" km"):"—"]);
+      st.push(["act_st_dur",  w.duration_min!=null?hms(w.duration_min*60):"—"]);
+      st.push(["act_st_hr",   w.avg_heart_rate!=null?(w.avg_heart_rate+""):"—"]);
+      st.push(["act_st_kcal", w.calories_burned!=null?(w.calories_burned+""):"—"]);
+      var z=w.hr_zone_data||null, zh="";
+      if(z){
+        var tot=["z1","z2","z3","z4","z5"].reduce(function(a,k){return a+(+z[k]||0);},0);
+        if(tot>0){
+          zh='<div class="hrz"><div class="hrz-h">'+esc(T("act_hrz"))+'</div>'+
+            ["z1","z2","z3","z4","z5"].map(function(k){
+              var v=+z[k]||0, pct=Math.round(v/tot*100);
+              return '<div class="hrz-r"><span class="z">'+k.toUpperCase()+'</span>'+
+                '<span class="bar"><i style="width:'+pct+'%;background:'+ZC[k]+'"></i></span>'+
+                '<span class="d">'+(v?hms(v):"—")+'</span></div>';
+            }).join("")+'</div>';
+        }
+      }
+      var src=w.source?(" · "+w.source.replace(/_/g," ")):"";
+      return '<div class="card"><div class="wo-h"><div class="wo-ic">'+(w.type==="cycling"?"🚴":w.type==="swimming"?"🏊":w.type==="gym"?"🏋️":"🏃")+'</div>'+
+        '<div style="flex:1;min-width:0"><div class="wo-t">'+esc(w.title||w.type||"Workout")+'</div>'+
+        '<div class="wo-s">'+esc(src.replace(/^ · /,""))+'</div></div>'+
+        '<button class="wo-x" data-del="'+esc(w.id)+'" title="'+esc(T("act_delete"))+'">✕</button></div>'+
+        '<div class="stats">'+st.map(function(s){
+          return '<div><div class="k">'+esc(T(s[0]))+'</div><div class="v">'+esc(s[1])+'</div></div>';
+        }).join("")+'</div>'+zh+
+        (w.uploaded_file_url?'<div class="muted" style="font-size:11.5px;margin-top:10px">📎 '+esc(T("act_has_file"))+'</div>':'')+
+        '</div>';
+    }).join("");
+    Array.prototype.forEach.call(host.querySelectorAll("[data-del]"),function(b){
+      b.onclick=async function(){
+        if(!confirm(T("act_del_confirm"))) return;
+        try{ await apiFetch("/api/activity/workout/"+b.getAttribute("data-del"),{method:"DELETE"}); await load(SEL); }catch(e){}
+      };
+    });
+  }
+
+  // ---- 5. AI analysis + 6. score & gaps ----
+  // Sorot inline: kata di dalam <<good|teks>> dibungkus pill. Dibangun dari `gaps`,
+  // bukan dari menebak-nebak kata di kalimat AI.
+  function hlText(txt,gaps){
+    var out=esc(txt||"");
+    (gaps||[]).forEach(function(g){
+      if(!g||!g.value||!g.area) return;
+      var st=["good","warning","critical"].indexOf(String(g.status))>=0?g.status:"warning";
+      var needle=esc(String(g.value));
+      if(needle&&out.indexOf(needle)>=0){
+        out=out.replace(needle,'<span class="hl '+st+'">'+needle+'</span>');
+      }
+    });
+    return out;
+  }
+  function renderAi(){
+    var host=document.getElementById("aiBox"), p=DAY&&DAY.plan;
+    if(!p){
+      host.innerHTML='<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span></div>'+
+        '<p class="muted">'+esc(T("act_ai_none"))+'</p>'+
+        '<button class="btn" id="genBtn" style="margin-top:12px">'+esc(T("act_ai_gen"))+'</button></div>';
+      document.getElementById("genBtn").onclick=function(){ genPlan(false); };
+      return;
+    }
+    var gaps=Array.isArray(p.gaps)?p.gaps:[];
+    var score=(p.overall_score!=null)?p.overall_score:0;
+    var C=2*Math.PI*46, off=C-(C*Math.max(0,Math.min(100,score))/100);
+    var sc=score>=75?"var(--green)":(score>=45?"var(--amber)":"var(--red)");
+    host.innerHTML=
+      '<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span>'+
+        '<span class="b">'+esc(p.source==="fallback"?T("act_ai_nofb"):"AI COACH")+'</span></div>'+
+        '<p>'+hlText(p.analysis_text,gaps)+'</p></div>'+
+      '<div class="card"><div class="sg">'+
+        '<div class="ringw"><svg width="118" height="118" viewBox="0 0 118 118">'+
+          '<circle cx="59" cy="59" r="46" fill="none" stroke="var(--a-line)" stroke-width="9"/>'+
+          '<circle cx="59" cy="59" r="46" fill="none" stroke="'+sc+'" stroke-width="9" stroke-linecap="round" '+
+            'stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
+          '<div class="n"><b>'+score+'</b><s>'+esc(T("act_score"))+'</s></div></div>'+
+        '<div class="gaps">'+(gaps.length?gaps.map(function(g){
+          var st=["good","warning","critical"].indexOf(String(g.status))>=0?g.status:"warning";
+          var col=st==="good"?"var(--green)":(st==="warning"?"var(--amber)":"var(--red)");
+          return '<div class="gap"><i style="background:'+col+'"></i>'+esc(g.area||"")+'<span class="v">'+esc(g.value||"—")+'</span></div>';
+        }).join(""):'<div class="muted" style="font-size:12.5px">'+esc(T("act_no_gap"))+'</div>')+'</div>'+
+      '</div>'+
+      '<button class="btn ghost" id="regenBtn" style="margin-top:12px">'+esc(T("act_ai_regen"))+'</button></div>';
+    document.getElementById("regenBtn").onclick=function(){ genPlan(false); };
+  }
+  function starSvg(){ return '<svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg>'; }
+
+  async function genPlan(silent){
+    if(BUSY) return; BUSY=true;
+    var b=document.getElementById("genBtn")||document.getElementById("regenBtn");
+    if(b){ b.disabled=true; b.textContent=T("act_ai_working"); }
+    try{
+      var r=await apiFetch("/api/activity/plan",{method:"POST",body:JSON.stringify({date:SEL,lang:I18N.lang})});
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok){ if(!silent) showErr(j.error||T("act_ai_fail"),false); }
+      else { DAY.plan=j.plan; if(j.source) DAY.plan.source=j.source; renderAi(); renderGoals(); renderNutri(); }
+    }catch(e){ if(!silent) showErr(T("act_ai_fail"),false); }
+    BUSY=false;
+  }
+
+  // ---- 7. Goals ----
+  function renderGoals(){
+    var host=document.getElementById("goalBox"), p=DAY&&DAY.plan;
+    if(!p||!Array.isArray(p.goals)||!p.goals.length){ host.innerHTML=""; return; }
+    var gs=p.goals, done=gs.filter(function(g){return g.done;}).length;
+    host.innerHTML='<div class="card" style="margin-top:12px"><div class="gh">'+starSvg()+
+      '<span class="t">'+esc(T("act_goal_t"))+'</span><span class="c">'+done+'/'+gs.length+'</span></div>'+
+      gs.map(function(g){
+        var cat=["exercise","nutrition","habit","recovery"].indexOf(String(g.category))>=0?g.category:"habit";
+        return '<div class="goal'+(g.done?" done":"")+'" data-g="'+esc(g.id)+'">'+
+          '<span class="cb"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>'+
+          '<div style="flex:1;min-width:0"><div class="gt">'+esc(g.title||"")+'</div>'+
+          (g.desc?'<div class="gd">'+esc(g.desc)+'</div>':'')+
+          (g.time?'<div class="gtime">'+esc(g.time)+'</div>':'')+'</div>'+
+          '<span class="cat '+cat+'">'+esc(T("act_cat_"+cat))+'</span></div>';
+      }).join("")+'</div>';
+    Array.prototype.forEach.call(host.querySelectorAll(".goal"),function(el){
+      el.onclick=async function(){
+        var gid=el.getAttribute("data-g");
+        var g=(DAY.plan.goals||[]).filter(function(x){return String(x.id)===gid;})[0];
+        if(!g) return;
+        var next=!g.done;
+        g.done=next; renderGoals();                      // optimistis: terasa instan
+        try{
+          var r=await apiFetch("/api/activity/goal",{method:"PATCH",body:JSON.stringify({date:SEL,goal_id:gid,done:next})});
+          if(!r.ok) throw new Error();
+        }catch(e){ g.done=!next; renderGoals(); showErr(T("act_goal_fail"),false); }  // gagal -> kembalikan
+      };
+    });
+  }
+
+  // ---- 8. Nutrition ----
+  function pct(v,t){ return (!t||t<=0)?0:Math.max(0,Math.min(100,Math.round(v/t*100))); }
+  function barCol(p){ return p>=80?"var(--green)":(p>=45?"var(--amber)":"var(--red)"); }
+  function renderNutri(){
+    var host=document.getElementById("nutriBox");
+    var d=(DAY&&DAY.daily)||{}, t=d.totals||{kcal:0,p:0,c:0,f:0};
+    var tg=(DAY&&DAY.plan&&DAY.plan.nutrition_targets)||null;
+    var rows=[
+      ["🔥",T("act_n_kcal"), t.kcal, tg&&tg.kcal],
+      ["🥩",T("act_n_p"),    t.p,    tg&&tg.p],
+      ["🍚",T("act_n_c"),    t.c,    tg&&tg.c],
+      ["💧",T("act_n_water"),(d.water_glasses!=null?d.water_glasses:0), (tg&&tg.water_glasses)||8]
+    ];
+    host.innerHTML=rows.map(function(r){
+      var has=r[3]!=null&&r[3]>0, p=has?pct(r[2],r[3]):0;
+      return '<div class="ncard"><div class="k">'+r[0]+' '+esc(r[1])+'</div>'+
+        '<div class="v">'+r[2]+(has?'<small> / '+r[3]+'</small>':'<small> / —</small>')+'</div>'+
+        '<div class="pbar"><i style="width:'+p+'%;background:'+barCol(p)+'"></i></div></div>';
+    }).join("");
+  }
+
+  // ---- 9. Habits ----
+  function renderHabits(){
+    var d=(DAY&&DAY.daily)||{};
+    var sleep=d.sleep_hours, water=d.water_glasses, steps=d.steps;
+    var ck=d.checklist||{};
+    var items=[
+      {e:"😴",n:T("act_h_sleep"), s:sleep!=null?(sleep+"j"):T("act_empty"),      warn:(sleep!=null&&sleep<7)||sleep==null},
+      {e:"💧",n:T("act_h_water"), s:water!=null?(water+"/8"):T("act_empty"),     warn:(water==null||water<8)},
+      {e:"👟",n:T("act_h_steps"), s:steps!=null?String(steps):T("act_empty"),    warn:(steps==null||steps<8000)},
+      {e:"🧘",n:T("act_h_breath"),s:(ck&&ck.breathing)||d.breathing_done?T("act_done"):T("act_empty"), warn:!((ck&&ck.breathing)||d.breathing_done)}
+    ];
+    document.getElementById("habitBox").innerHTML=items.map(function(i){
+      return '<div class="chip'+(i.warn?" warn":"")+'"><div class="e">'+i.e+'</div><div class="n">'+esc(i.n)+'</div><div class="s">'+esc(i.s)+'</div></div>';
+    }).join("");
+  }
+
+  // ---- 10. Weekly ----
+  function renderWeek(){
+    var wk=(DAY&&DAY.week)||[], byDate={};
+    wk.forEach(function(w){
+      var k=w.workout_date; if(!byDate[k]) byDate[k]={min:0,km:0,n:0};
+      byDate[k].min+=(+w.duration_min||0); byDate[k].km+=(+w.distance_km||0); byDate[k].n++;
+    });
+    var days=[], base=dObj(SEL), totKm=0, totN=0, maxMin=1;
+    for(var i=6;i>=0;i--){
+      var d=new Date(base); d.setDate(d.getDate()-i);
+      var s=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      var r=byDate[s]||{min:0,km:0,n:0};
+      totKm+=r.km; totN+=r.n; if(r.min>maxMin) maxMin=r.min;
+      days.push({s:s,r:r,lb:d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"narrow"})});
+    }
+    document.getElementById("weekBox").innerHTML=
+      '<div class="wk"><div><div class="b">'+(Math.round(totKm*10)/10)+'</div><div class="l">'+esc(T("act_wk_km"))+'</div></div>'+
+      '<div><div class="b">'+totN+'</div><div class="l">'+esc(T("act_wk_n"))+'</div></div></div>'+
+      '<div class="bars">'+days.map(function(d){
+        var h=d.r.min>0?Math.max(8,Math.round(d.r.min/maxMin*46)):0;
+        var cls=d.r.min>0?(d.s===SEL?"bar today":"bar"):"bar empty";
+        return '<div class="c"><div class="'+cls+'" style="height:'+(h||14)+'px"></div><div class="lb">'+esc(d.lb)+'</div></div>';
+      }).join("")+'</div>';
+  }
+
+  // ---- Muat semua ----
+  async function load(date){
+    BUSY=true; clearErr();
+    document.getElementById("woBox").innerHTML='<div class="card"><div class="skel" style="height:86px"></div></div>';
+    try{
+      var r=await apiFetch("/api/activity/day?date="+encodeURIComponent(date));
+      if(r.status===401){ location.href="/login"; return; }
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok||!j.ok){ showErr(j.error||T("act_load_fail"),true); document.getElementById("woBox").innerHTML=""; BUSY=false; return; }
+      DAY=j;
+      renderWorkouts(); renderAi(); renderGoals(); renderNutri(); renderHabits(); renderWeek();
+    }catch(e){
+      showErr(T("act_load_fail"),true); document.getElementById("woBox").innerHTML="";
+    }
+    BUSY=false;
+  }
+
+  (async function(){
+    user=await Auth.requireAuth();
+    try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
+    renderHead(); renderDnav(); renderTrk(); wireUpload(); wireDlg();
+    await load(SEL);
+  })();
+
+  if(window.I18N&&I18N.onChange) I18N.onChange(function(){
+    renderHead(); renderDnav(); renderTrk();
+    if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderNutri(); renderHabits(); renderWeek(); }
+  });
+</script>
+</body>
+</html>
