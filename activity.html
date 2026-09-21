@@ -41,7 +41,7 @@
        jadi pakai multi-kolom + larangan patah di tengah kartu. */
     #lgcContent{columns:2;column-gap:16px}
     #lgcContent>*{break-inside:avoid;-webkit-column-break-inside:avoid}
-    #lgcContent .sec{break-after:avoid}
+    #lgcContent .sec,#lgcContent .psec,#lgcContent .psec-row,#lgcContent .psub{break-after:avoid}
   }
   .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
   .card{background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius,16px);padding:16px}
@@ -153,6 +153,10 @@
   /* 9. Habits */
   .chips{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
   .chips::-webkit-scrollbar{display:none}
+  /* Layar lebar: chip kebiasaan cukup dibungkus, tak perlu digeser ke samping —
+     dengan overflow-x:auto chip terakhir tampak terpotong di tepi kolom.
+     HARUS di bawah aturan .chips di atas: spesifisitasnya sama, jadi urutan yang menentukan. */
+  @media(min-width:1040px){ .chips{flex-wrap:wrap;overflow-x:visible} }
   .chip{flex:none;min-width:96px;border:1px solid var(--glass-hair,var(--a-line));border-radius:var(--radius-sm,12px);
     padding:11px 12px;text-align:center;background:linear-gradient(155deg,var(--glass,transparent),var(--glass-2,transparent));
     box-shadow:var(--glass-sh,none)}
@@ -201,6 +205,32 @@
   .lgc .hk{color:var(--red);font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:16px 2px 0}
   .lgc .hello{font-size:28px;font-weight:900;margin:2px 2px 6px;text-transform:uppercase;letter-spacing:-.5px}
   .lgc .sec{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--pagemut);font-weight:700;margin:22px 2px 8px}
+  /* Header & kartu bagian ATAS warisan (Body status, What to watch, RaceLab).
+     TERTINGGAL saat penyalinan pertama ke berkas ini — 29 kelas tanpa aturan sama
+     sekali, sehingga judul & subjudulnya tampil sebagai teks polos tak berbentuk.
+     Disalin dari progress.html; token lamanya sudah dipetakan di aturan .lgc di atas. */
+  .lgc .psec{font-size:19px;font-weight:900;letter-spacing:-.02em;margin:26px 2px 4px}
+  .lgc .psub{font-size:13px;color:var(--muted);font-weight:600;margin:0 2px 12px}
+  .lgc .psec-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .lgc .plink{color:var(--red);font-weight:800;font-size:13.5px;text-decoration:none;flex:0 0 auto}
+  .lgc .pdivide{border:0;border-top:1px solid var(--line);margin:30px 0 4px}
+  .lgc .bmiwrap{display:flex;align-items:center;gap:18px}
+  .lgc .bmibig{font-size:44px;font-weight:900;line-height:.95;letter-spacing:-.02em;font-family:'JetBrains Mono',monospace}
+  .lgc .bmicat{font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-top:4px}
+  .lgc .bmigauge{position:relative;height:8px;border-radius:99px;background:linear-gradient(90deg,#2F6BFF,#2A7A4F,#C87000,#C41101);margin:6px 0 4px}
+  .lgc .bmigauge i{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--txt);transform:translate(-50%,-50%)}
+  .lgc .bmiscale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-weight:700;font-family:'JetBrains Mono',monospace}
+  .lgc .w2row{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--line)}
+  .lgc .w2row:first-child{border-top:0}
+  .lgc .w2dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .lgc .w2tx{flex:1;min-width:0;font-size:14px;font-weight:650}
+  .lgc .pbadge{font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:4px 9px;border-radius:8px;flex:0 0 auto}
+  .lgc .soonbox{border:1px dashed var(--line);border-radius:14px;padding:18px;text-align:center;color:var(--muted);font-size:13.5px;line-height:1.5}
+  .lgc .soonpill{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff;background:var(--muted);padding:3px 9px;border-radius:99px;margin-bottom:8px}
+  .lgc .racecard{background:#131417;color:#fff;border:1px solid #23252b;border-radius:18px;padding:18px}
+  .lgc .racehead{display:flex;align-items:center;gap:8px;font-weight:900;font-size:15px}
+  .lgc .racesub{color:#9aa0ab;font-size:12px;margin:3px 0 14px}
+  .lgc .raceempty{color:#9aa0ab;text-align:center;padding:10px 6px;font-size:13.5px;line-height:1.5}
   .lgc .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 2px 10px rgba(10,9,8,.04);color:var(--txt)}
   .lgc .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
   .lgc .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
