@@ -128,15 +128,6 @@
   .cat.habit{background:color-mix(in srgb,var(--purple) 16%,transparent);color:var(--purple)}
   .cat.recovery{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber)}
 
-  /* 8. Nutrition */
-  .ngrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .ncard{border:1px solid var(--a-line);border-radius:11px;padding:11px}
-  .ncard .k{font-size:11px;color:var(--a-mut);font-weight:700}
-  .ncard .v{font-size:19px;font-weight:800;font-family:var(--mono);margin-top:4px}
-  .ncard .v small{font-size:11.5px;color:var(--a-mut);font-weight:500}
-  .pbar{height:4px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 9%,transparent);margin-top:8px;overflow:hidden}
-  .pbar i{display:block;height:100%;border-radius:99px}
-
   /* 9. Habits */
   .chips{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
   .chips::-webkit-scrollbar{display:none}
@@ -169,16 +160,6 @@
   dialog{border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);border-radius:14px;padding:18px;max-width:380px;width:92%;font-family:var(--sans)}
   dialog label{display:block;font-size:12px;font-weight:700;color:var(--a-mut);margin:10px 0 4px}
   dialog input,dialog select{width:100%;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px}
-  @media(min-width:760px){ .ngrid{grid-template-columns:repeat(4,1fr)} }
-
-  /* Tab: "Hari Ini" (tampilan harian baru) vs "Progres" (isi halaman Activity LAMA,
-     dulu di /progress — dipertahankan utuh atas permintaan pemilik). */
-  .tabs{display:flex;gap:6px;background:color-mix(in srgb,var(--a-txt) 6%,transparent);
-    border-radius:12px;padding:4px;margin-bottom:14px}
-  .tabs button{flex:1;padding:9px 10px;border:0;border-radius:9px;background:transparent;
-    color:var(--a-mut);font-family:inherit;font-weight:700;font-size:13px;cursor:pointer}
-  .tabs button.on{background:var(--a-surface);color:var(--a-txt);box-shadow:0 1px 3px rgba(0,0,0,.18)}
-  .view[hidden]{display:none}
 
   /* ---- Gaya halaman Activity LAMA, di-scope ke .lgc ----
      Token lamanya dipetakan ke palet baru di aturan .lgc pertama, jadi isinya ikut
@@ -266,12 +247,6 @@
     <div class="av" id="hdAv">·</div>
   </div>
 
-  <div class="tabs" id="tabs">
-    <button type="button" data-v="today" class="on" data-i18n="act_tab_today">Hari Ini</button>
-    <button type="button" data-v="prog" data-i18n="act_tab_prog">Progres</button>
-  </div>
-
-  <div class="view" id="vToday">
   <!-- 2. DATE NAVIGATOR -->
   <div class="dnav" id="dnav"></div>
 
@@ -293,6 +268,9 @@
   <div class="sechd" data-i18n="act_sec_workout">Workout</div>
   <div id="woBox"></div>
 
+  <div class="sechd" data-i18n="act_sec_week">Ringkasan minggu ini</div>
+  <div class="card" id="weekBox"></div>
+
   <!-- 5. AI ANALYSIS + 6. SCORE -->
   <div class="sechd" data-i18n="act_sec_ai">AI Coach</div>
   <div id="aiBox"></div>
@@ -300,21 +278,20 @@
   <!-- 7. GOALS -->
   <div id="goalBox"></div>
 
-  <!-- 8. NUTRITION -->
-  <div class="sechd" data-i18n="act_sec_nutri">Nutrisi</div>
-  <div class="card"><div class="ngrid" id="nutriBox"></div></div>
+  <!-- Kartu "Nutrisi 2x2" SENGAJA TIDAK ADA di sini: kartu "Overall - Hari Ini" milik
+       halaman lama (di bawah) sudah menampilkan Kalori/Protein/Karbo/Lemak/Air/Tidur
+       vs target, dihitung dari BMI + berat + tujuan di profil. Menaruh keduanya =
+       angka yang sama muncul dua kali dengan dua target berbeda. -->
 
   <!-- 9. HABITS -->
   <div class="sechd" data-i18n="act_sec_habit">Kebiasaan harian</div>
   <div class="chips" id="habitBox"></div>
 
   <!-- 10. WEEKLY -->
-  <div class="sechd" data-i18n="act_sec_week">Ringkasan minggu ini</div>
-  <div class="card" id="weekBox"></div>
-  </div><!-- /vToday -->
-
-  <!-- Tampilan Progres = isi halaman Activity LAMA, dipertahankan utuh. -->
-  <div class="view lgc" id="vProg" hidden>
+  <!-- Isi halaman Activity LAMA (dulu /progress), MENYATU di alur yang sama —
+       bukan tab terpisah. Ditaruh setelah bagian harian karena isinya cakupan
+       mingguan/jangka panjang: status tubuh, konsistensi, berat, pencapaian, riwayat. -->
+  <div class="lgc" id="vProg">
     <div class="hk" id="lgcHk">Your journey</div>
     <!-- Halaman lama menulis judulnya ke elemen ini. Header baru SUDAH memuat "Activity",
          jadi node-nya disembunyikan — kode warisan tetap utuh, judulnya tidak dobel. -->
@@ -595,7 +572,7 @@
       var r=await apiFetch("/api/activity/plan",{method:"POST",body:JSON.stringify({date:SEL,lang:I18N.lang})});
       var j=await r.json().catch(function(){return {};});
       if(!r.ok){ if(!silent) showErr(j.error||T("act_ai_fail"),false); }
-      else { DAY.plan=j.plan; if(j.source) DAY.plan.source=j.source; renderAi(); renderGoals(); renderNutri(); }
+      else { DAY.plan=j.plan; if(j.source) DAY.plan.source=j.source; renderAi(); renderGoals(); }
     }catch(e){ if(!silent) showErr(T("act_ai_fail"),false); }
     BUSY=false;
   }
@@ -631,26 +608,9 @@
     });
   }
 
-  // ---- 8. Nutrition ----
-  function pct(v,t){ return (!t||t<=0)?0:Math.max(0,Math.min(100,Math.round(v/t*100))); }
-  function barCol(p){ return p>=80?"var(--green)":(p>=45?"var(--amber)":"var(--red)"); }
-  function renderNutri(){
-    var host=document.getElementById("nutriBox");
-    var d=(DAY&&DAY.daily)||{}, t=d.totals||{kcal:0,p:0,c:0,f:0};
-    var tg=(DAY&&DAY.plan&&DAY.plan.nutrition_targets)||null;
-    var rows=[
-      ["🔥",T("act_n_kcal"), t.kcal, tg&&tg.kcal],
-      ["🥩",T("act_n_p"),    t.p,    tg&&tg.p],
-      ["🍚",T("act_n_c"),    t.c,    tg&&tg.c],
-      ["💧",T("act_n_water"),(d.water_glasses!=null?d.water_glasses:0), (tg&&tg.water_glasses)||8]
-    ];
-    host.innerHTML=rows.map(function(r){
-      var has=r[3]!=null&&r[3]>0, p=has?pct(r[2],r[3]):0;
-      return '<div class="ncard"><div class="k">'+r[0]+' '+esc(r[1])+'</div>'+
-        '<div class="v">'+r[2]+(has?'<small> / '+r[3]+'</small>':'<small> / —</small>')+'</div>'+
-        '<div class="pbar"><i style="width:'+p+'%;background:'+barCol(p)+'"></i></div></div>';
-    }).join("");
-  }
+  // Kartu Nutrisi 2x2 dibuang saat penggabungan: 'Overall - Hari Ini' (halaman lama)
+  // sudah menampilkan angka yang sama dengan target dari profil. Fungsi renderNutri,
+  // pct dan barCol ikut dihapus — tak ada pemanggil tersisa (CLAUDE.md §8).
 
   // ---- 9. Habits ----
   function renderHabits(){
@@ -703,7 +663,7 @@
       var j=await r.json().catch(function(){return {};});
       if(!r.ok||!j.ok){ showErr(j.error||T("act_load_fail"),true); document.getElementById("woBox").innerHTML=""; BUSY=false; return; }
       DAY=j;
-      renderWorkouts(); renderAi(); renderGoals(); renderNutri(); renderHabits(); renderWeek();
+      renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek();
     }catch(e){
       showErr(T("act_load_fail"),true); document.getElementById("woBox").innerHTML="";
     }
@@ -715,34 +675,20 @@
     try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
     renderHead(); renderDnav(); renderTrk(); wireUpload(); wireDlg();
     await load(SEL);
+    // Isi Activity lama menyatu di halaman yang sama. Dijalankan SETELAH bagian harian
+    // supaya yang di layar pertama tampil duluan; skripnya berat (pencapaian, siklus,
+    // riwayat arena). Gagal di sini TIDAK boleh merusak bagian harian di atasnya.
+    try{ startLegacyActivity(); }catch(e){
+      var lc=document.getElementById("lgcContent");
+      if(lc) lc.innerHTML='<div class="card"><div class="muted">'+esc(T("act_load_fail"))+'</div></div>';
+    }
   })();
 
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
     renderHead(); renderDnav(); renderTrk();
-    if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderNutri(); renderHabits(); renderWeek(); }
+    if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek(); }
   });
 
-  // ---- Pengalih tab ----
-  // Tampilan Progres dimuat MALAS: skripnya berat (achievements, siklus, riwayat arena),
-  // jadi baru dijalankan saat tabnya pertama dibuka. Halaman harian tetap cepat.
-  var progLoaded=false;
-  (function(){
-    var host=document.getElementById("tabs");
-    Array.prototype.forEach.call(host.querySelectorAll("button"),function(b){
-      b.onclick=function(){
-        var v=b.getAttribute("data-v");
-        Array.prototype.forEach.call(host.querySelectorAll("button"),function(x){ x.classList.toggle("on", x===b); });
-        document.getElementById("vToday").hidden = (v!=="today");
-        document.getElementById("vProg").hidden  = (v!=="prog");
-        if(v==="prog" && !progLoaded){ progLoaded=true; try{ startLegacyActivity(); }catch(e){
-          document.getElementById("lgcContent").innerHTML='<div class="card"><div class="muted">'+esc(T("act_load_fail"))+'</div></div>';
-        } }
-        try{ history.replaceState(null,"",location.pathname+(v==="prog"?"?view=prog":"")); }catch(e){}
-      };
-    });
-    // Bisa ditautkan langsung: /activity?view=prog
-    try{ if(new URLSearchParams(location.search).get("view")==="prog"){ host.querySelector('[data-v="prog"]').click(); } }catch(e){}
-  })();
 </script>
 
 <script>
