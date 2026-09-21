@@ -3,7 +3,7 @@
 Aturan tetap di bawah ini WAJIB diikuti setiap sesi. Ditulis dari instruksi
 pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 
-> **Pembaruan dokumen terakhir:** 2026-09-19 · **Commit staging:** `2b30541` · **Production:** `7740dbf`
+> **Pembaruan dokumen terakhir:** 2026-09-21 · **Commit staging:** `2b30541` · **Production:** `7740dbf`
 > (Hash di atas = kondisi SEBELUM rilis yang membawa baris ini; merge commit rilisnya sendiri
 > otomatis lebih baru. Jangan kejar selisih satu merge commit itu.)
 > Claude Code memuat file ini otomatis di awal sesi. Baca ini dulu, lalu buka
@@ -164,7 +164,7 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 **Publik/auth:** `/` (→`/login`), `/login`, `/code-login`, `/verify`, `/reset-password`, `/setpassword`, `/onboarding`, `/unsubscribe`, `/privacy`.
 **Member (perlu login):** `/dashboard` (home 6-tile), `/activity` (**Activity**: upload/isi workout, zona HR, rencana harian AI, nutrisi, kebiasaan, ringkasan minggu — data dari `/api/activity/*`), `/calories`, `/progress` (**redirect 302 ke `/activity`**; halaman lama masih bisa dibuka via `/progress?legacy=1`), `/profile`, `/medical`, `/recipe` (**Recipe in-app**: browse resep + detail + kontribusi; katalog & artikel dibaca dari `/api/menu/*`, `/diet` redirect 301 ke sini), `/classes` (Book Class, toggle Arena/Gym; `?venue=clinic`=Book Recovery), `/membership` (carousel — **data belum tersambung**), `/event` (**Ticket Wallet**: tab "Tiket Saya" + "Upcoming"; widget bersama `js/ticket-wallet.js`, dipakai juga di `/dashboard`), `/payment/pending|success|failed`.
 **Admin:** `/admin`(→`/admin-dashboard`), `/admin-dashboard` (lama), `/admin-v2` (redesign; staging default), `/admin-email`, `/corp-dashboard`.
-**API:** `/api/*` (~123 route) — user (`/api/scan/*`, `/api/menu/catalog` (daftar resep), `/api/menu/recommend` (rekomendasi per sisa makro), `/api/menu/published`, `/api/classes/schedule`, `/api/arena/history`, `/api/membership/packages`, `/api/coaches`, `/api/doctors`, `/api/physiotherapists`, `/api/activity/*` (day/workout/upload/plan/goal), `/api/photo/*`, `/api/weather`, `/api/aqi`, dll), admin (`/api/admin/*` ~53, semua lewat `requireAdmin`), corporate (`/api/corp/*`), cron (`/api/cron/*`, dilindungi `CRON_SECRET`), webhook (`/api/webhooks/resend`).
+**API:** `/api/*` (~123 route) — user (`/api/scan/*`, `/api/menu/catalog` (daftar resep), `/api/menu/recommend` (rekomendasi per sisa makro), `/api/menu/published`, `/api/classes/schedule`, `/api/arena/history`, `/api/membership/packages`, `/api/coaches`, `/api/doctors`, `/api/physiotherapists`, `/api/activity/*` (day/workout/upload/**scan**/plan/goal — `scan` membaca screenshot health tracker lewat OpenRouter, bisa sampai 5 gambar untuk SATU sesi), `/api/photo/*`, `/api/weather`, `/api/aqi`, dll), admin (`/api/admin/*` ~53, semua lewat `requireAdmin`), corporate (`/api/corp/*`), cron (`/api/cron/*`, dilindungi `CRON_SECRET`), webhook (`/api/webhooks/resend`).
 Tile **News** = eksternal `media.20fit.id` (same-tab, tanpa halaman).
 
 ## D. Auth & peran (ringkas)

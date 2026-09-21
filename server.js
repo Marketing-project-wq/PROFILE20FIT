@@ -8575,6 +8575,10 @@ app.post("/api/activity/workout", async (req, res) => {
       pace_data: b.pace_data || null,
       elevation_gain_m: (b.elevation_gain_m != null && isFinite(+b.elevation_gain_m)) ? +b.elevation_gain_m : null,
       uploaded_file_url: b.uploaded_file_url ? String(b.uploaded_file_url).slice(0, 500) : null,
+      // Satu sesi bisa diunggah dari BEBERAPA gambar (ringkasan + zona HR + split).
+      // Kolom uploaded_file_url cuma muat satu, jadi daftar lengkapnya + jejak hasil
+      // bacaan AI disimpan di raw_data (jsonb, sudah ada di migration 017).
+      raw_data: (b.raw_data && typeof b.raw_data === "object") ? b.raw_data : null,
       external_id: b.external_id ? String(b.external_id).slice(0, 120) : null,
       updated_at: new Date().toISOString(),
     };
@@ -8633,6 +8637,95 @@ app.post("/api/activity/upload", async (req, res) => {
   } catch (e) {
     console.error("activity/upload:", e.message);
     return res.status(500).json({ error: "Gagal mengunggah berkas." });
+  }
+});
+
+// POST /api/activity/scan — baca screenshot/foto health tracker pakai AI (OpenRouter
+// lewat edge fn my20fit-ai, jalur yang SAMA dengan scan kalori & MCU). Menerima BEBERAPA
+// gambar untuk SATU sesi latihan: layar ringkasan + zona HR + split.
+//
+// Endpoint ini TIDAK menyimpan apa pun. Dia hanya membaca dan mengembalikan angka supaya
+// user bisa memeriksanya dulu di dialog sebelum disimpan. Angka yang tak terbaca dibalikan
+// null — bukan ditebak.
+const SCAN_MAX_IMAGES = 5;
+const SCAN_MAX_BYTES_EACH = 1.8 * 1024 * 1024; // gambar sudah diperkecil di browser
+const SCAN_MAX_BYTES_TOTAL = 6 * 1024 * 1024;  // batas body express 8mb - ruang untuk overhead
+app.post("/api/activity/scan", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    if (!AI_EDGE_SECRET) return res.status(503).json({ error: "AI belum dikonfigurasi di server. Hubungi admin." });
+
+    const raw = (req.body || {}).images;
+    const images = Array.isArray(raw) ? raw.filter((x) => typeof x === "string" && x) : [];
+    if (!images.length) return res.status(400).json({ error: "Tidak ada gambar yang dikirim." });
+    if (images.length > SCAN_MAX_IMAGES) {
+      return res.status(400).json({ error: "Maksimal " + SCAN_MAX_IMAGES + " gambar sekali baca." });
+    }
+    let total = 0;
+    for (const im of images) {
+      const m = String(im).match(/^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=]+)$/);
+      if (!m) return res.status(400).json({ error: "Format gambar tidak didukung (png/jpg/webp)." });
+      const bytes = Math.floor(m[2].length * 3 / 4);
+      if (bytes > SCAN_MAX_BYTES_EACH) return res.status(413).json({ error: "Gambar terlalu besar setelah diperkecil." });
+      total += bytes;
+    }
+    if (total > SCAN_MAX_BYTES_TOTAL) return res.status(413).json({ error: "Total gambar terlalu besar. Kurangi jumlahnya." });
+
+    const lang = ((req.body || {}).lang === "en") ? "en" : "id";
+    let ai;
+    try {
+      ai = await callAiEdge({ action: "workout", images: images, lang: lang }, 90000);
+    } catch (e) {
+      logAiAccess(user.id, "workout", false, (e && e.name) || "error");
+      return res.status(504).json({ error: "AI tidak merespons. Coba lagi." });
+    }
+    if (!ai.httpOk || !ai.json || !ai.json.ok) {
+      const detail = String((ai.json && (ai.json.error || ai.json.detail)) || "");
+      logAiAccess(user.id, "workout", false, detail.slice(0, 60));
+      // Edge fn versi lama belum kenal action ini -> pesan yang bisa ditindaklanjuti.
+      if (/action tidak dikenal/i.test(detail)) {
+        return res.status(503).json({ error: "Pembaca tracker belum aktif: edge function my20fit-ai perlu di-deploy ulang. Hubungi admin." });
+      }
+      return res.status(502).json({ error: "Gagal membaca gambar tracker." });
+    }
+    logAiAccess(user.id, "workout", true);
+    const r = ai.json.result || {};
+    // Bentuk hasil dinormalkan di sini supaya frontend tak perlu menebak-nebak, dan supaya
+    // nilai yang tidak masuk akal dari AI tidak lolos diam-diam ke dialog.
+    const num = (v, min, max) => {
+      const n = Number(v);
+      if (!isFinite(n) || n <= 0) return null;
+      if (min != null && n < min) return null;
+      if (max != null && n > max) return null;
+      return n;
+    };
+    // Sama persis dengan pilihan di <select id="fType"> pada activity.html — supaya hasil
+    // AI bisa langsung dipilihkan di dialog tanpa lapisan pemetaan yang bisa melenceng.
+    const TYPES = ["run", "cycling", "gym", "hyrox", "swimming", "other"];
+    return res.json({
+      ok: true,
+      readable: r.readable !== false,
+      result: {
+        title: r.title ? String(r.title).slice(0, 160) : null,
+        type: TYPES.indexOf(String(r.type)) >= 0 ? String(r.type) : null,
+        duration_min: num(r.duration_min, 0.1, 1440),
+        distance_km: num(r.distance_km, 0.01, 1000),
+        calories_burned: num(r.calories_burned, 1, 20000),
+        avg_heart_rate: num(r.avg_heart_rate, 25, 250),
+        max_heart_rate: num(r.max_heart_rate, 25, 250),
+        elevation_gain_m: num(r.elevation_gain_m, 0.1, 10000),
+        hr_zone_data: (r.hr_zone_data && typeof r.hr_zone_data === "object") ? r.hr_zone_data : null,
+        pace_data: (r.pace_data && typeof r.pace_data === "object") ? r.pace_data : null,
+        source_guess: r.source_guess ? String(r.source_guess).slice(0, 40) : null,
+        confidence: num(r.confidence, 0, 100),
+        fields_read: Array.isArray(r.fields_read) ? r.fields_read.slice(0, 20).map((x) => String(x).slice(0, 40)) : [],
+        note: r.note ? String(r.note).slice(0, 300) : null,
+      },
+    });
+  } catch (e) {
+    console.error("activity/scan:", e.message);
+    return res.status(500).json({ error: "Gagal membaca gambar tracker." });
   }
 });
 

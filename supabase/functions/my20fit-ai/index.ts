@@ -1,5 +1,6 @@
 // my20fit-ai — Edge Function gateway ke OpenRouter untuk: food scan (foto/teks),
-// MCU explainer, dan translate. Dipanggil server (server.js /api/scan/ai), bukan frontend.
+// MCU explainer, translate, rencana harian (plan), dan baca screenshot health tracker
+// (workout, BISA BEBERAPA GAMBAR). Dipanggil server, bukan frontend.
 //
 // KEAMANAN: TIDAK ADA API key di-hardcode. Wajib env OPENROUTER_API_KEY.
 // (Key lama yang pernah hardcode HARUS di-revoke di OpenRouter.)
@@ -114,6 +115,24 @@ Deno.serve(async (req) => {
       '(7) nutrition_targets: {kcal, p, c, f, water_glasses} integers, realistic for this member. '+
       'Respond ONLY with a valid JSON object (no markdown, no code fences) with keys: overall_score, analysis_text, gaps, goals, nutrition_targets.';
 
+    // Halaman Activity: BACA screenshot/foto dari health tracker (Strava, Garmin, Apple
+    // Health, Google Fit, treadmill, jam tangan). Bisa BEBERAPA gambar sekaligus untuk SATU
+    // sesi latihan — mis. layar ringkasan + layar zona detak jantung + layar split.
+    // Aturan terpenting: JANGAN MENGARANG. Angka yang tidak terbaca harus null.
+    const WORKOUT_SYS =
+      'You read screenshots and photos from fitness trackers (Strava, Garmin, Apple Health, Google Fit, Fitbit, Polar, treadmill consoles, smartwatches) for the 20FIT app. '+
+      'The images you receive all belong to ONE SINGLE workout session — for example a summary screen, a heart-rate zone screen, and a splits screen. Merge them into ONE result. '+
+      'STRICT RULES: (1) NEVER invent a number. If a value is not clearly readable in the images, set it to null. A null is correct; a guess is not. '+
+      '(2) Do not convert or compute a value you cannot see, EXCEPT unit conversion of a value that IS shown (miles to km, mm:ss pace to seconds). '+
+      '(3) If two images disagree on the same field, use the one from the summary/detail screen and lower confidence. '+
+      '(4) If the images are clearly NOT a workout (a meal, a document, a selfie), set readable=false and leave every field null. '+
+      '(5) duration_min is total moving/elapsed time in MINUTES (may be fractional). hr_zone_data is SECONDS per zone. pace_data.avg_sec_per_km is seconds per kilometre. '+
+      '(6) type must be EXACTLY one of these app values: run, cycling, gym, hyrox, swimming, other. '+
+      'Map what you see onto them: cycling covers bike/ride/spin, gym covers strength/weights/HIIT/rowing/elliptical, swimming covers pool and open water, other covers walking, yoga, and anything else. '+
+      '(7) confidence is 0-100 and must be honest — lower it for blurry, cropped, or partly hidden numbers. '+
+      '(8) fields_read lists ONLY the field names you actually read off the images. '+
+      'Respond ONLY with a valid JSON object (no markdown, no code fences) with keys: readable (boolean), title, type, duration_min, distance_km, calories_burned, avg_heart_rate, max_heart_rate, elevation_gain_m, hr_zone_data (object z1..z5 in seconds or null), pace_data (object with avg_sec_per_km or null), source_guess (tracker name or null), confidence, fields_read (array of strings), note (one short sentence, or null).';
+
     let messages: unknown, maxTok: number, plugins: unknown = null;
     if (b.action === "food") {
       if (b.image) {
@@ -144,6 +163,15 @@ Deno.serve(async (req) => {
       maxTok = 6000;
       const target = b.lang === "en" ? "English" : "Bahasa Indonesia";
       messages = [{ role: "system", content: "You are a translator. Translate ALL human-readable string VALUES in the given JSON into " + target + ". Keep the JSON structure and keys identical. DO NOT translate or change these code values: status (normal/attention/unknown), direction (high/low/normal/unknown), severity (ringan/sedang/tinggi), positive (true/false), and any numeric value or measurement. Respond ONLY with the translated JSON object, no markdown." }, { role: "user", content: JSON.stringify(b.data || {}).slice(0, 9000) }];
+    } else if (b.action === "workout") {
+      // Gambar dikirim sebagai ARRAY supaya satu sesi latihan bisa dibaca dari beberapa
+      // layar sekaligus. Batas 5 dijaga juga di server; di sini fail-closed kalau kosong.
+      const imgs = Array.isArray(b.images) ? b.images.filter((x: unknown) => typeof x === "string" && x) : [];
+      if (!imgs.length) return json({ error: "images wajib diisi" }, 400);
+      maxTok = 1500;
+      const wc: unknown[] = [{ type: "text", text: "Read this ONE workout from " + imgs.length + " image(s) and return the JSON. Any number you cannot clearly read must be null." }];
+      for (const im of imgs.slice(0, 5)) wc.push({ type: "image_url", image_url: { url: im } });
+      messages = [{ role: "system", content: WORKOUT_SYS }, langMsg, { role: "user", content: wc }];
     } else if (b.action === "plan") {
       if (!b.data) return json({ error: "data wajib diisi" }, 400);
       maxTok = 2500;
@@ -151,10 +179,10 @@ Deno.serve(async (req) => {
         { role: "user", content: "Member data for the day + 7-day history:\n" + JSON.stringify(b.data).slice(0, 6000) }];
     } else return json({ error: "action tidak dikenal" }, 400);
 
-    const model = (b.action === "mcu" || b.action === "translate" || b.action === "plan") ? MODEL_MCU : MODEL_FOOD;
+    const model = (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout") ? MODEL_MCU : MODEL_FOOD;
     const payload: Record<string, unknown> = { model, messages, max_tokens: maxTok, temperature: 0.2, reasoning: { enabled: false } };
     if (plugins) payload.plugins = plugins;
-    if (b.action === "mcu" || b.action === "translate" || b.action === "plan") payload.response_format = { type: "json_object" };
+    if (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout") payload.response_format = { type: "json_object" };
     const callOR = (p: unknown) => fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json", "HTTP-Referer": "https://my.20fit.id", "X-Title": "20fit Health Profile" },

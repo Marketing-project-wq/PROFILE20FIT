@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-19 · **Commit staging:** `2b30541` · **Production:** `7740dbf`
+> **Pembaruan terakhir:** 2026-09-21 · **Commit staging:** `23a2bd3` · **Production:** `7740dbf`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -198,10 +198,31 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     spesifikasi menyebut "Anthropic Claude API", repo memakai yang lain sejak awal.
   - **Ada rencana cadangan tanpa AI** (`fallbackPlan` di `server.js`): dihitung dari angka yang ada,
     ditandai "TANPA AI" di UI. Jadi halaman tetap berguna sebelum edge fn di-deploy.
+  - **Baca screenshot health tracker (21 Sep 2026).** Upload menerima **sampai 5 gambar**
+    untuk SATU sesi latihan (layar ringkasan + zona HR + split), dibaca AI lewat jalur yang
+    sama: `POST /api/activity/scan` → `callAiEdge({action:"workout"})` → edge `my20fit-ai` →
+    **OpenRouter** (model `AI_MODEL_MCU`, default `google/gemini-3-flash-preview`).
+    - Endpoint scan **tidak menyimpan apa pun** — hasilnya mengisi dialog supaya user
+      memeriksa dulu. Angka yang tidak terbaca dibalikan **null**, tidak ditebak; kolom yang
+      kosong di dialog memang tidak terbaca.
+    - Gambar **diperkecil di browser** (maks sisi 1400px, JPEG 0.82) sebelum dikirim ke scan —
+      batas body Express 8MB tak muat untuk lima screenshot ukuran penuh. Yang diunggah ke
+      Storage tetap berkas aslinya.
+    - `my20fit_workout.uploaded_file_url` cuma muat SATU url, jadi daftar lengkap + jejak
+      bacaan AI (confidence, kolom yang dibaca) disimpan di **`raw_data`** (jsonb, sudah ada
+      di migration 017). **Tidak perlu migration baru.**
+    - Daftar jenis workout di prompt edge, validasi server, dan `<select id="fType">`
+      SENGAJA sama persis (`run/cycling/gym/hyrox/swimming/other`) supaya tak perlu lapisan
+      pemetaan yang bisa melenceng.
+    - Kalau bucket belum ada, pembacaan AI **tetap jalan** dan user diberi tahu gambarnya
+      tidak tersimpan — supaya fitur bisa diuji sebelum bucket dibuat.
+    - **BELUM TERVERIFIKASI:** akurasi bacaan pada screenshot tracker ASLI. Diuji dengan
+      respons AI tiruan; ketepatan OCR baru bisa dinilai setelah edge fn di-deploy ulang.
   - **TUGAS PEMILIK sebelum fitur ini utuh:** (1) jalankan migration 017 manual; (2) buat bucket
     Storage **`workout-uploads`** (PRIVAT); (3) deploy ulang edge fn `my20fit-ai` supaya aksi
-    `plan` aktif; (4) Strava OAuth (Client ID/Secret di Railway + redirect URI di dashboard
-    Strava) — tombol tracker sekarang jujur bilang "belum tersambung".
+    `plan` **dan `workout`** aktif — tanpa ini `/api/activity/scan` membalas 503 dengan pesan
+    yang menyebut langkah ini; (4) Strava OAuth (Client ID/Secret di Railway + redirect URI di
+    dashboard Strava) — tombol tracker sekarang jujur bilang "belum tersambung".
   - **TANYA PEMILIK REPO — tabrakan nama:** item nav `nav_progress` berlabel **"Activity"/"Aktivitas"**
     tapi menuju `/progress`. Sekarang ada dua hal bernama Activity. Nav SENGAJA tidak diubah
     (menyentuh semua halaman); `/activity` diakses dari tile dashboard.
