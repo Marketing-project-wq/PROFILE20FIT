@@ -66,6 +66,43 @@
   .togo{margin-top:8px;font-size:13px;color:var(--muted)}
   .togo b{font-size:24px;color:var(--red);font-family:'JetBrains Mono',monospace;margin-right:4px}
   .mtime{font-size:11px;color:var(--muted);font-weight:600;margin-left:6px}
+  /* --- Makanan Hari Ini per waktu makan --- */
+  .mealgrp{padding:2px 0 10px}
+  .mealgrp+.mealgrp{border-top:1px solid var(--line);margin-top:10px;padding-top:12px}
+  .mealhd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px}
+  .mealnm{font-weight:800;font-size:13.5px}
+  .mealkc{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}
+  .mealnone{font-size:12.5px;padding:6px 0}
+  .mealadd{display:inline-block;margin-top:8px;background:transparent;border:1px dashed var(--line);border-radius:10px;
+    padding:7px 11px;color:var(--muted);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .mealadd:hover{border-color:var(--red);color:var(--red)}
+  .mealquick{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+  .mealhint{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);margin:8px 0 0}
+  .mealhint:empty{margin:0}
+  .mealhint-x{background:none;border:0;color:var(--red);font:inherit;font-size:12px;font-weight:800;cursor:pointer;padding:0}
+  /* --- Modal ubah item --- */
+  .edgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 16px}
+  .edf{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .edf-wide{grid-column:1/-1}
+  .edf>span{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .edf input,.edf select{width:100%;box-sizing:border-box;background:var(--card);color:var(--txt);
+    border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;font-size:14px}
+  /* --- Chart mingguan --- */
+  .wk-top{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-weight:700;margin-bottom:10px}
+  .wk-svg{display:block;width:100%;height:104px}
+  .wk-x{display:grid;grid-template-columns:repeat(7,1fr);margin-top:5px;font-size:11px;color:var(--muted);font-weight:700;text-align:center}
+  .wk-avg{margin-top:11px;font-size:12.5px;font-weight:700}
+  .wk-avg s{text-decoration:none;color:var(--muted);font-weight:600}
+  /* --- Riwayat --- */
+  .hst+.hst{border-top:1px solid var(--line)}
+  .hst-hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;width:100%;
+    background:none;border:0;padding:11px 0;color:var(--txt);font:inherit;text-align:left;cursor:pointer}
+  .hst-d{font-weight:700;font-size:13.5px}
+  .hst-d i{font-style:normal;font-size:11px;color:var(--muted);font-weight:700}
+  .hst-k{font-size:12.5px;white-space:nowrap}
+  .hst-k s{text-decoration:none;color:var(--muted);font-weight:600}
+  .hst-b{padding:0 0 10px 10px;border-left:2px solid var(--line);margin:0 0 8px 2px}
+  .hst-b .item{padding:7px 0;font-size:13px}
   /* intermittent fasting */
   .ifopt{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
   .ifopt:last-child{border-bottom:0}
@@ -214,6 +251,7 @@
       <div id="scanresult" style="margin-top:12px"></div>
 
       <div class="ormanual" data-i18n="cal_ortype">or type food + grams (auto kcal)</div>
+      <div class="mealhint" id="addMealHint"></div>
       <div class="add">
         <input id="fname" data-i18n-ph="cal_foodname" placeholder="Food name" />
         <input id="fgram" class="k" type="number" data-i18n-ph="cal_grams" placeholder="grams" />
@@ -230,6 +268,13 @@
     <div class="card"><div id="log"></div></div>
     <div class="sec" id="mealPlanSec">Rencana Makan</div>
     <div class="card" id="mealPlan"></div>
+    <!-- Chart mingguan + riwayat. Sumbernya my20fit_daily_log (log_date, cal_items) —
+         query yang SAMA bentuknya dengan calorietracker.20fit.id (src/lib/memberHistory.ts),
+         jadi angkanya pasti sama di kedua app. Tanpa tabel baru. -->
+    <div class="sec" id="weekSec">Minggu Ini</div>
+    <div class="card" id="weekCard"></div>
+    <div class="sec" id="histSec">Riwayat</div>
+    <div class="card" id="histCard"></div>
 
      </div>
     </div>
@@ -377,6 +422,30 @@
   </div>
 
   <!-- Pop-up hasil scan (analisa lengkap) -->
+  <!-- Ubah satu item log. Kunci yang tak dikenal halaman ini (mid/cid dari scan
+       native calorietracker) dipertahankan saat menyimpan — lihat saveEdit(). -->
+  <div class="hopt-bg" id="edBg">
+    <div class="hopt">
+      <h3 id="edTitle" data-i18n="cal_ed_t">Ubah makanan</h3>
+      <div class="edgrid">
+        <label class="edf edf-wide"><span id="edLName" data-i18n="cal_ed_name">Nama</span><input id="edName" type="text" maxlength="120"></label>
+        <label class="edf"><span id="edLMeal" data-i18n="cal_ed_meal">Waktu makan</span>
+          <select id="edMeal">
+            <option value="breakfast">Sarapan</option>
+            <option value="lunch">Makan siang</option>
+            <option value="dinner">Makan malam</option>
+            <option value="snack">Cemilan</option>
+          </select></label>
+        <label class="edf"><span id="edLKcal" data-i18n="cal_ed_kcal">Kalori</span><input id="edKcal" type="number" inputmode="numeric" min="0"></label>
+        <label class="edf"><span id="edLP" data-i18n="cal_ed_p">Protein (g)</span><input id="edP" type="number" inputmode="numeric" min="0"></label>
+        <label class="edf"><span id="edLC" data-i18n="cal_ed_c">Karbo (g)</span><input id="edC" type="number" inputmode="numeric" min="0"></label>
+        <label class="edf"><span id="edLF" data-i18n="cal_ed_f">Lemak (g)</span><input id="edF" type="number" inputmode="numeric" min="0"></label>
+      </div>
+      <button class="hopt-close" id="edSave" data-i18n="cal_ed_save" onclick="saveEdit()">Simpan</button>
+      <button class="hopt-ghost" id="edCancel" data-i18n="cal_ed_cancel" onclick="closeEdit()">Batal</button>
+    </div>
+  </div>
+
   <div class="hopt-bg" id="scanBg">
     <div class="hopt">
       <div class="grab"></div>
@@ -447,8 +516,44 @@
       // Rencana makan memakai target kalori halaman ini — satu sumber angka, bukan salinan.
       try{ if(_mealPlan) _mealPlan.setTarget(goal); }catch(e){}
       try{ renderFoodSummary(); }catch(e){}
-      const log=document.getElementById("log");
-      log.innerHTML=items.length?items.map((i,idx)=>`<div class="item"><span>${i.name}${i.t?`<span class="mtime">${i.t}</span>`:""}</span><span class="kc">${i.kcal} ${kc()} <button class="x-close x-ghost x-sm x-danger" onclick="del(${idx})" aria-label="Remove"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span></div>`).join(""):'<div class="muted">'+I18N.t("cal_empty")+'</div>';
+      renderLog();
+      renderAddMealHint();
+      // Chart & riwayat memakai `items` untuk HARI INI, jadi ikut digambar ulang di sini —
+      // tanpa fetch ulang (data hari lain sudah ada di HIST).
+      try{ if(HIST){ renderWeek(); renderHist(); } }catch(e){}
+    }
+
+    // ---- Makanan Hari Ini, dikelompokkan per waktu makan ----
+    // Urutannya tetap urutan asli di cal_items (indeks dipakai del/openEdit), jadi
+    // pengelompokan ini murni tampilan — bentuk datanya tidak berubah.
+    function renderLog(){
+      const log=document.getElementById("log"); if(!log) return;
+      if(!items.length){ log.innerHTML='<div class="muted">'+I18N.t("cal_empty")+'</div>'+mealAddRow(); return; }
+      var buckets={breakfast:[],lunch:[],dinner:[],snack:[]};
+      items.forEach(function(it,idx){ buckets[itemMeal(it)].push({it:it,idx:idx}); });
+      log.innerHTML=MEAL_TYPES.map(function(m){
+        var rows=buckets[m], tot=rows.reduce(function(a,r){ return a+(+r.it.kcal||0); },0);
+        return '<div class="mealgrp">'+
+          '<div class="mealhd"><span class="mealnm">'+MEAL_TX[m].e+' '+escA(L(MEAL_TX[m]))+'</span>'+
+            '<span class="mealkc">'+tot+' '+escA(kc())+'</span></div>'+
+          (rows.length
+            ? rows.map(function(r){
+                var i=r.it;
+                return '<div class="item"><span>'+escA(i.name)+(i.t?'<span class="mtime">'+escA(i.t)+'</span>':'')+'</span>'+
+                  '<span class="kc">'+(+i.kcal||0)+' '+escA(kc())+
+                  ' <button class="x-close x-ghost x-sm" onclick="openEdit('+r.idx+')" aria-label="'+escA(L({en:"Edit",id:"Ubah"}))+'" title="'+escA(L({en:"Edit",id:"Ubah"}))+'">'+
+                    '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>'+
+                  ' <button class="x-close x-ghost x-sm x-danger" onclick="del('+r.idx+')" aria-label="Remove"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></span></div>';
+              }).join("")
+            : '<div class="muted mealnone">'+escA(L({en:"Nothing yet.",id:"Belum ada."}))+'</div>')+
+          '<button type="button" class="mealadd" onclick="setAddMeal(\''+m+'\')">+ '+escA(L({en:"Add to",id:"Tambah ke"}))+' '+escA(L(MEAL_TX[m]))+'</button>'+
+        '</div>';
+      }).join("");
+    }
+    function mealAddRow(){
+      return '<div class="mealquick">'+MEAL_TYPES.map(function(m){
+        return '<button type="button" class="mealadd" onclick="setAddMeal(\''+m+'\')">'+MEAL_TX[m].e+' '+escA(L(MEAL_TX[m]))+'</button>';
+      }).join("")+'</div>';
     }
     // ---- Rekomendasi menu berdasar SISA makro hari ini (Bagian 3) ----
     async function renderMenuRec(tp,tc,tf){
@@ -697,8 +802,86 @@
       btn.disabled=false;
     }
     function nowHM(){const d=new Date();return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
-    function addToLog(name,kcal,p,c,f){items.push({name:name,kcal:Math.round(kcal)||0,p:Math.round(+p||0),c:Math.round(+c||0),f:Math.round(+f||0),t:nowHM()});save();_fsumGapFlash=true;render();/* flash nutrient-gap on new log/scan */}
+    // ---- Ember waktu makan ----
+    // Aturannya DISALIN dari calorietracker.20fit.id (src/lib/memberTracker.ts:
+    // inferMeal/itemMeal), bukan dikarang ulang: kunci `m` bersifat ADITIF di dalam
+    // cal_items, dan item lama (atau yang datang dari scan foto) yang belum punya `m`
+    // dikelompokkan dari JAM-nya. Batas jamnya sama persis supaya satu item jatuh di
+    // ember yang sama di kedua app.
+    var MEAL_TYPES=["breakfast","lunch","dinner","snack"];
+    var MEAL_TX={
+      breakfast:{en:"Breakfast",id:"Sarapan",e:"\uD83C\uDF05"},
+      lunch:{en:"Lunch",id:"Makan siang",e:"\uD83C\uDF1E"},
+      dinner:{en:"Dinner",id:"Makan malam",e:"\uD83C\uDF19"},
+      snack:{en:"Snack",id:"Cemilan",e:"\uD83C\uDF6A"}
+    };
+    function inferMeal(t){
+      var h=parseInt(String(t||"").slice(0,2),10);
+      if(isNaN(h))return "snack";
+      if(h<10)return "breakfast";
+      if(h<15)return "lunch";
+      if(h<21)return "dinner";
+      return "snack";
+    }
+    function itemMeal(it){ return (it&&it.m&&MEAL_TYPES.indexOf(it.m)>=0)?it.m:inferMeal(it&&it.t); }
+    // Ember yang sedang dituju form "tambah". null = biarkan jamnya yang menentukan.
+    var addMeal=null;
+    function setAddMeal(m){
+      addMeal=(MEAL_TYPES.indexOf(m)>=0)?m:null;
+      var f=document.getElementById("fname"); if(f){ f.focus(); f.scrollIntoView({behavior:"smooth",block:"center"}); }
+      renderAddMealHint();
+    }
+    function renderAddMealHint(){
+      var el=document.getElementById("addMealHint"); if(!el) return;
+      if(!addMeal){ el.innerHTML=""; return; }
+      el.innerHTML='<span>'+escA(L({en:"Adding to",id:"Menambah ke"}))+' <b>'+escA(L(MEAL_TX[addMeal]))+'</b></span>'+
+        '<button type="button" class="mealhint-x" onclick="setAddMeal(null)">'+escA(L({en:"cancel",id:"batal"}))+'</button>';
+    }
+
+    function addToLog(name,kcal,p,c,f,meal){
+      var it={name:name,kcal:Math.round(kcal)||0,p:Math.round(+p||0),c:Math.round(+c||0),f:Math.round(+f||0),t:nowHM()};
+      var m=meal||addMeal; if(m&&MEAL_TYPES.indexOf(m)>=0) it.m=m;
+      items.push(it);
+      addMeal=null; renderAddMealHint();
+      save();_fsumGapFlash=true;render();/* flash nutrient-gap on new log/scan */
+    }
     function del(i){items.splice(i,1);save();render()}
+
+    // ---- Ubah satu item ----
+    // Kunci yang TIDAK dikenal halaman ini (mid/cid dari scan native calorietracker)
+    // sengaja DIPERTAHANKAN: item disalin dulu, lalu hanya field yang diedit ditimpa.
+    // Kalau item ditulis ulang dari nol, tautan ke ct_meal punya app sebelah putus.
+    var editIdx=null;
+    function openEdit(i){
+      var it=items[i]; if(!it) return;
+      editIdx=i;
+      document.getElementById("edName").value=it.name||"";
+      document.getElementById("edKcal").value=(+it.kcal||0);
+      document.getElementById("edP").value=(+it.p||0);
+      document.getElementById("edC").value=(+it.c||0);
+      document.getElementById("edF").value=(+it.f||0);
+      var sel=document.getElementById("edMeal");
+      sel.innerHTML=MEAL_TYPES.map(function(m){ return '<option value="'+m+'">'+escA(L(MEAL_TX[m]))+'</option>'; }).join("");
+      sel.value=itemMeal(it);
+      document.getElementById("edBg").classList.add("open");
+      document.getElementById("edName").focus();
+    }
+    function closeEdit(){ editIdx=null; document.getElementById("edBg").classList.remove("open"); }
+    function saveEdit(){
+      if(editIdx==null||!items[editIdx]) return closeEdit();
+      var nm=document.getElementById("edName").value.trim();
+      if(!nm){ document.getElementById("edName").focus(); return; }
+      var cur=items[editIdx];
+      var next={}; for(var k in cur){ if(Object.prototype.hasOwnProperty.call(cur,k)) next[k]=cur[k]; }
+      next.name=nm;
+      next.kcal=Math.round(+document.getElementById("edKcal").value||0);
+      next.p=Math.round(+document.getElementById("edP").value||0);
+      next.c=Math.round(+document.getElementById("edC").value||0);
+      next.f=Math.round(+document.getElementById("edF").value||0);
+      next.m=document.getElementById("edMeal").value;
+      items[editIdx]=next;
+      closeEdit(); save(); render();
+    }
 
     // ---- Scan makanan: foto -> /api/scan/ai (server), ketik manual -> /api/scan/food-text (server) ----
     let lastScan=[];
@@ -1165,6 +1348,7 @@
       refreshQuota();       // tampilkan sisa kuota scan + link paket
       loadCalFromCloud();   // sinkron kalori dari akun
       loadIFFromCloud();    // sinkron gaya puasa dari akun
+      loadHistory();        // chart mingguan + riwayat (my20fit_daily_log 14 hari)
       if(location.hash==="#scan"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});}
       if(location.hash==="#camera"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});setTimeout(function(){try{openCamera();}catch(e){}},400);}
       // Foto dari tombol "Scan" global (halaman lain) -> langsung analisa di sini
@@ -1206,7 +1390,115 @@
       }catch(e){}
     }
     setInterval(renderIF,60000); // update countdown tiap menit
-    I18N.onChange(()=>{render();renderIF();refreshQuota();syncCamLabels();});
+    // ================= CHART MINGGUAN + RIWAYAT =================
+    // Satu kali ambil data (14 hari terakhir) dipakai keduanya: chart memotong 7 hari
+    // terakhir, riwayat memakai seluruhnya. Hari INI diambil dari `items` di memori,
+    // bukan dari baris DB, supaya angkanya tidak tertinggal saat baru saja mencatat.
+    var HIST=null, HIST_ERR=false, HIST_OPEN={}, HIST_SHOWN=7;
+    function dstr(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+    function sumKcal(arr){ return (arr||[]).reduce(function(a,i){ return a+(+((i&&i.kcal))||0); },0); }
+    async function loadHistory(){
+      var wc=document.getElementById("weekCard"), hc=document.getElementById("histCard");
+      if(!wc||!hc) return;
+      HIST_ERR=false;
+      var msg='<div class="muted" style="font-size:12.5px">'+escA(L({en:"Loading…",id:"Memuat…"}))+'</div>';
+      wc.innerHTML=msg; hc.innerHTML=msg;
+      try{
+        var since=new Date(); since.setDate(since.getDate()-13);
+        var rows=await Auth.getDailyRange(dstr(since));
+        HIST={};
+        (rows||[]).forEach(function(r){ HIST[r.log_date]=Array.isArray(r.cal_items)?r.cal_items.filter(Boolean):[]; });
+      }catch(e){ HIST=null; HIST_ERR=true; }
+      renderWeek(); renderHist();
+    }
+    function dayItems(ds){
+      if(ds===dstr(new Date())) return items;          // hari ini = keadaan di layar
+      return (HIST&&HIST[ds])||null;                    // null = tidak ada baris untuk hari itu
+    }
+    function errBox(retryFn){
+      return '<div class="muted" style="font-size:12.5px">'+escA(L({en:"Couldn't load your history.",id:"Gagal memuat riwayat."}))+
+        ' <button type="button" class="mealadd" style="margin-top:6px" onclick="'+retryFn+'">'+escA(L({en:"Retry",id:"Coba lagi"}))+'</button></div>';
+    }
+    function renderWeek(){
+      var el=document.getElementById("weekCard"); if(!el) return;
+      var sec=document.getElementById("weekSec"); if(sec) sec.textContent=L({en:"This week",id:"Minggu Ini"});
+      if(HIST_ERR){ el.innerHTML=errBox("loadHistory()"); return; }
+      if(!HIST) return;
+      var DOW=[{en:"Sun",id:"Min"},{en:"Mon",id:"Sen"},{en:"Tue",id:"Sel"},{en:"Wed",id:"Rab"},{en:"Thu",id:"Kam"},{en:"Fri",id:"Jum"},{en:"Sat",id:"Sab"}];
+      var days=[];
+      for(var k=6;k>=0;k--){
+        var d=new Date(); d.setDate(d.getDate()-k);
+        var ds=dstr(d), its=dayItems(ds);
+        days.push({ ds:ds, dow:L(DOW[d.getDay()]), kcal:its?sumKcal(its):null });
+      }
+      var logged=days.filter(function(x){ return x.kcal!=null; });
+      if(!logged.length){
+        el.innerHTML='<div class="muted" style="font-size:12.5px">'+escA(L({en:"No food logged in the last 7 days.",id:"Belum ada catatan makan 7 hari terakhir."}))+'</div>';
+        return;
+      }
+      // Skala dari nilai terbesar ATAU target — mana yang lebih tinggi, supaya garis
+      // target selalu terlihat dan batang tidak pernah keluar area.
+      var top=Math.max(goal||0, Math.max.apply(null, logged.map(function(x){ return x.kcal; })))||1;
+      var W=7*34, H=104, BW=20;
+      var bars=days.map(function(x,i){
+        var cx=i*34+(34-BW)/2;
+        if(x.kcal==null) return '<rect x="'+cx+'" y="'+(H-6)+'" width="'+BW+'" height="6" rx="3" fill="var(--line)"/>';
+        var h=Math.max(3, Math.round(x.kcal/top*H));
+        var over=(goal&&x.kcal>goal);
+        return '<rect x="'+cx+'" y="'+(H-h)+'" width="'+BW+'" height="'+h+'" rx="4" fill="'+(over?"#C87000":"var(--red)")+'"><title>'+escA(x.dow)+": "+x.kcal+" "+escA(kc())+'</title></rect>';
+      }).join("");
+      var ty=goal?(H-Math.round(goal/top*H)):-1;
+      var tline=(ty>=0&&ty<=H)?'<line x1="0" y1="'+ty+'" x2="'+W+'" y2="'+ty+'" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 4" opacity=".7"/>':"";
+      var avg=Math.round(logged.reduce(function(a,x){ return a+x.kcal; },0)/logged.length);
+      el.innerHTML=
+        '<div class="wk-top"><span>'+escA(L({en:"Daily target",id:"Target harian"}))+'</span><b>'+goal+' '+escA(kc())+'</b></div>'+
+        '<svg class="wk-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="'+
+          escA(L({en:"Calories over the last 7 days",id:"Kalori 7 hari terakhir"}))+'">'+tline+bars+'</svg>'+
+        '<div class="wk-x">'+days.map(function(x){ return '<span>'+escA(x.dow)+'</span>'; }).join("")+'</div>'+
+        '<div class="wk-avg">'+escA(L({en:"Average",id:"Rata-rata"}))+': <b>'+avg+'</b> '+escA(kc())+'/'+escA(L({en:"day",id:"hari"}))+
+          ' <s>('+logged.length+' '+escA(L({en:"days logged",id:"hari tercatat"}))+')</s></div>';
+    }
+    function toggleHist(ds){ HIST_OPEN[ds]=!HIST_OPEN[ds]; renderHist(); }
+    function moreHist(){ HIST_SHOWN+=7; renderHist(); }
+    function renderHist(){
+      var el=document.getElementById("histCard"); if(!el) return;
+      var sec=document.getElementById("histSec"); if(sec) sec.textContent=L({en:"History",id:"Riwayat"});
+      if(HIST_ERR){ el.innerHTML=errBox("loadHistory()"); return; }
+      if(!HIST) return;
+      var today=dstr(new Date()), rows=[];
+      for(var k=0;k<14;k++){
+        var d=new Date(); d.setDate(d.getDate()-k);
+        var ds=dstr(d), its=dayItems(ds);
+        if(ds!==today && !its) continue;              // hari tanpa baris dilewati
+        if(!its||!its.length) continue;                // hari tanpa makanan dilewati (sama dgn calorietracker)
+        rows.push({ ds:ds, d:d, its:its });
+      }
+      if(!rows.length){
+        el.innerHTML='<div class="muted" style="font-size:12.5px">'+escA(L({en:"Nothing logged in the last 14 days.",id:"Belum ada catatan 14 hari terakhir."}))+'</div>';
+        return;
+      }
+      var page=rows.slice(0,HIST_SHOWN);
+      el.innerHTML=page.map(function(r){
+        var tot=sumKcal(r.its), diff=(goal||0)-tot, open=!!HIST_OPEN[r.ds];
+        var dl=r.d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"short",day:"numeric",month:"short"});
+        var note=(goal? (diff>=0 ? (L({en:"left",id:"sisa"})+" "+diff) : (L({en:"over",id:"lebih"})+" "+Math.abs(diff))) : "");
+        return '<div class="hst">'+
+          '<button type="button" class="hst-hd" onclick="toggleHist(\''+r.ds+'\')" aria-expanded="'+(open?"true":"false")+'">'+
+            '<span class="hst-d">'+escA(dl)+(r.ds===today?' <i>'+escA(L({en:"today",id:"hari ini"}))+'</i>':'')+'</span>'+
+            '<span class="hst-k"><b>'+tot+'</b> '+escA(kc())+(note?' <s>('+escA(note)+')</s>':'')+'</span>'+
+          '</button>'+
+          (open? '<div class="hst-b">'+r.its.map(function(i){
+              return '<div class="item"><span>'+escA(i.name)+(i.t?'<span class="mtime">'+escA(i.t)+'</span>':'')+'</span>'+
+                '<span class="kc">'+(+i.kcal||0)+' '+escA(kc())+'</span></div>';
+            }).join("")+'</div>' : '')+
+        '</div>';
+      }).join("")+
+      (rows.length>HIST_SHOWN
+        ? '<button type="button" class="mealadd" style="margin-top:12px" onclick="moreHist()">'+escA(L({en:"Load more",id:"Muat lebih banyak"}))+'</button>'
+        : '');
+    }
+
+    I18N.onChange(()=>{render();renderIF();refreshQuota();syncCamLabels();renderWeek();renderHist();});
   </script>
 </body>
 </html>

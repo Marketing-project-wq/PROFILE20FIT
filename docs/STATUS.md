@@ -245,6 +245,40 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   - **CATATAN:** calorietracker membaca tabel `ct_meal` (tanpa prefix `my20fit_`).
     Tabel itu milik app tersebut; repo ini TIDAK menyentuhnya (CLAUDE.md §4).
 
+- **`/calories`: kelompok waktu makan + ubah item + chart mingguan + riwayat (21 Sep 2026).**
+  Menjawab permintaan "pasang semua fitur calorietracker.20fit.id di /calories".
+  Semuanya di atas `my20fit_daily_log.cal_items` yang SUDAH dipakai bersama — nol tabel baru,
+  nol endpoint baru.
+  - **Waktu makan** (sarapan/siang/malam/cemilan): aturan disalin dari calorietracker
+    (`src/lib/memberTracker.ts` — `inferMeal`/`itemMeal`). Kunci `m` bersifat aditif di
+    dalam `cal_items`; item lama tanpa `m` dikelompokkan dari JAM-nya dengan batas yang
+    sama persis (<10 sarapan, <15 siang, <21 malam, sisanya cemilan), jadi satu item
+    jatuh di ember yang sama di kedua app.
+  - **Ubah item**: nama/kalori/P/C/F/waktu makan. `saveEdit()` MENYALIN item lalu menimpa
+    field yang diedit saja — kunci `mid`/`cid` milik calorietracker (tautan ke `ct_meal`
+    untuk breakdown kaya di History-nya) TIDAK ikut terhapus. Diuji.
+  - **Chart mingguan & riwayat 14 hari**: `Auth.getDailyRange()` (baru di `js/auth.js`),
+    query-nya sengaja sebentuk dengan `src/lib/memberHistory.ts` milik calorietracker
+    (select `log_date,cal_items` dari `my20fit_daily_log`, filter `auth_user_id`, urut
+    turun), jadi angkanya pasti sama di kedua app. Hari ini dibaca dari state di layar,
+    bukan dari DB, supaya tidak tertinggal.
+  - **BELUM dikerjakan, dan alasannya:**
+    - **Favorit** — butuh penyimpanan sendiri. `cal_items` per-hari, jadi tidak muat.
+      Perlu tabel `my20fit_*` + migration manual. Lagipula **calorietracker belum punya
+      fitur favorit**, jadi tidak ada lawan sinkronnya sekarang. **TANYA PEMILIK REPO.**
+    - **Artikel nutrisi** — tabel `nutrition_articles` ADA (12 baris) tapi TANPA prefix
+      `my20fit_` alias milik app lain (CLAUDE.md §4). Rencananya dibaca lewat endpoint
+      proxy read-only di `server.js` supaya kredensial tetap di server; belum dibuat.
+    - **Field fiber/gula/catatan/satuan porsi** di form tambah — belum ada di bentuk
+      `cal_items` yang dipakai bersama; menambahkannya aman (aditif) tapi calorietracker
+      tidak akan menampilkannya. **TANYA PEMILIK REPO** apakah tetap mau.
+  - **Dokumen permintaannya keliru di dua titik, dicatat supaya tidak diulang:**
+    (a) `calorie-service.js` **tidak ada** di repo calorietracker (`Marketing-project-wq/
+    calories.20fit`) — lib-nya TypeScript (`memberTracker.ts` dkk), jadi tak ada yang bisa
+    "di-copy persis"; (b) tabel `calorie_logs`/`calorie_profiles`/`calorie_favorites`/
+    `calorie_daily_summary` **tidak ada** di DB live, dan membuatnya justru MEMUTUS sinkron
+    (calorietracker menulis ke `cal_items`), sehingga TEST 2-5 di dokumen itu malah gagal.
+
 - **Sinkronisasi ekosistem (calorie / recipe / MCU) — SUDAH JALAN, jangan dibuat ulang.**
   Diperiksa ke DB LIVE + kode calorietracker pada 21 Sep 2026, setelah ada dokumen yang
   mengusulkan 8 tabel baru (`calorie_logs`, `calorie_profiles`, `calorie_daily_summary`,
