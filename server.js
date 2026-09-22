@@ -18,6 +18,8 @@ const email = require("./lib/email"); // SATU-SATUNYA jalur kirim email (Resend)
 const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerbang frekuensi
 const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
 const segments = require("./lib/segments"); // segment engine untuk blast email admin
+const visbody = require("./lib/visbody"); // SATU-SATUNYA jalur ke Visbody WellnessHub (timbangan S20)
+const qrcode = require("./js/qrcode-generator");
 const blast = require("./lib/blast"); // send queue blast email (batching, kill switch, auto-abort)
 const emailConfig = require("./lib/email-config"); // angka guardrail anti-spam (cap, kill switch, backlog, circuit breaker)
 const { createClient } = require("@supabase/supabase-js");
@@ -193,7 +195,7 @@ app.use(express.json({
   limit: "8mb", // 8mb: foto scan (base64) lewat /api/scan/ai
   // Simpan raw body HANYA untuk webhook (verifikasi signature Svix/Resend butuh byte mentah).
   verify: function (req, res, buf) {
-    if (req.url && req.url.indexOf("/api/webhooks/") === 0) req.rawBody = buf;
+    if (req.url && (req.url.indexOf("/api/webhooks/") === 0 || req.url.indexOf("/api/visbody/") === 0)) req.rawBody = buf;
   },
 }));
 app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webhook form-encoded
@@ -352,6 +354,228 @@ function verifyResendSignature(req) {
   }
   return false;
 }
+
+// ============================================================
+// VISBODY S20 — timbangan body composition di lokasi
+// ============================================================
+// Alur: member naik timbangan -> Visbody Cloud kirim webhook ke sini -> kita simpan
+// scannya. Scan BELUM punya pemilik sampai member memindai QR di layar timbangan dan
+// mengklaimnya lewat /api/visbody/bind-user. Setelah diklaim barulah data ukurannya
+// diambil dan disimpan atas nama member itu.
+//
+// KENAPA TIDAK LANGSUNG DICOCOKKAN LEWAT EMAIL/NAMA DARI TIMBANGAN: identitas yang
+// diketik di layar timbangan tidak terverifikasi. Mencocokkannya otomatis = menyerahkan
+// data komposisi tubuh seseorang ke akun yang belum tentu dia (aturan pemilik: hanya
+// cocokkan lewat identitas yang PASTI & TERVERIFIKASI).
+
+const VISBODY_CLAIM_WINDOW_MS = 30 * 60 * 1000; // scan hanya bisa diklaim 30 menit pertama
+
+// Ambil data ukur dari Visbody lalu simpan atas nama user. Dipakai DUA jalur:
+// webhook (kalau scan sudah punya third_uid) dan bind-user (klaim lewat QR).
+async function visbodyFetchAndStore(scanRow, userId) {
+  try {
+    const data = await visbody.getScanData(scanRow.scan_id);
+    const mapped = visbody.mapBodyComposition(data && data.body_composition);
+    if (!mapped) {
+      await admin.from("my20fit_visbody_scan")
+        .update({ status: "failed", last_error: "balasan Visbody tanpa body_composition", updated_at: new Date().toISOString() })
+        .eq("scan_id", scanRow.scan_id);
+      return false;
+    }
+    const row = Object.assign({}, mapped, {
+      scan_id: scanRow.scan_id,
+      auth_user_id: userId,
+      raw_data: data,
+      scanned_at: scanRow.scan_time,
+    });
+    // onConflict scan_id: webhook + klaim QR bisa sama-sama sampai di sini; satu scan
+    // tetap satu baris hasil, tidak menggandakan titik di chart tren.
+    const up = await admin.from("my20fit_visbody_body").upsert(row, { onConflict: "scan_id" });
+    if (up.error) throw up.error;
+
+    const pdf = await visbody.getPdfUrl(scanRow.scan_id);
+    await admin.from("my20fit_visbody_scan").update({
+      status: "data_fetched",
+      auth_user_id: userId,
+      pdf_url: pdf || scanRow.pdf_url || null,
+      last_error: null,
+      updated_at: new Date().toISOString(),
+    }).eq("scan_id", scanRow.scan_id);
+    return true;
+  } catch (e) {
+    console.error("visbody fetch/store:", (e && e.message) || e);
+    await admin.from("my20fit_visbody_scan").update({
+      status: "failed",
+      last_error: String((e && e.message) || e).slice(0, 500),
+      updated_at: new Date().toISOString(),
+    }).eq("scan_id", scanRow.scan_id).then(function () {}, function () {});
+    return false;
+  }
+}
+
+// WEBHOOK — dipanggil Visbody Cloud tiap selesai scan.
+app.post("/api/visbody/webhook", async (req, res) => {
+  const ok = visbody.verifyWebhook(
+    req.get("x-visbody-timestamp"),
+    req.rawBody,
+    req.get("x-visbody-signature")
+  );
+  if (!ok) return res.status(401).json({ code: 401, error: "invalid signature" });
+  if (!admin) return res.status(500).json({ code: 500, error: "server belum dikonfigurasi" });
+
+  const b = req.body || {};
+  const scanId = String(b.scan_id || "").slice(0, 120);
+  if (!scanId) return res.status(400).json({ code: 400, error: "scan_id wajib" });
+
+  try {
+    const ui = b.user_info || {};
+    // third_uid HANYA dipercaya kalau berbentuk UUID — itu yang kita kirim saat bind.
+    const boundUid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(ui.third_uid || ""))
+      ? String(ui.third_uid) : null;
+
+    const row = {
+      scan_id: scanId,
+      device_sn: String(b.device_sn || b.device_id || "").slice(0, 120),
+      scan_time: b.scan_time || new Date().toISOString(),
+      event_id: b.event_id ? String(b.event_id).slice(0, 200) : null,
+      visbody_name: ui.name ? String(ui.name).slice(0, 120) : null,
+      visbody_sex: (+ui.sex === 1 || +ui.sex === 2) ? +ui.sex : null,
+      visbody_age: (+ui.age > 0) ? Math.round(+ui.age) : null,
+      visbody_height: (+ui.height > 0) ? +ui.height : null,
+      visbody_birthday: ui.birthday ? String(ui.birthday).slice(0, 20) : null,
+      auth_user_id: boundUid,
+      status: boundUid ? "bound" : "received",
+      measured_items: b.measured_items || null,
+      raw_webhook: b,
+      updated_at: new Date().toISOString(),
+    };
+    // Idempoten lewat UNIQUE(scan_id): kiriman ulang memperbarui baris yang sama,
+    // bukan membuat baris kedua.
+    const up = await admin.from("my20fit_visbody_scan").upsert(row, { onConflict: "scan_id" }).select().single();
+    if (up.error) throw up.error;
+
+    // Balas cepat; Visbody tidak perlu menunggu kita mengambil data ukurnya.
+    res.json({ code: 0 });
+
+    const mi = b.measured_items || {};
+    if (boundUid && mi.body_composition === "completed") {
+      visbodyFetchAndStore(up.data, boundUid).catch(function () {});
+    }
+  } catch (e) {
+    console.error("visbody webhook:", (e && e.message) || e);
+    if (!res.headersSent) res.status(500).json({ code: 500, error: "internal" });
+  }
+});
+
+// TOKEN — dipanggil TIMBANGAN (arah sebaliknya) untuk membuka sesi ke kita.
+const visbodyDeviceTokens = new Map();
+function visbodySweepTokens() {
+  const now = Date.now();
+  visbodyDeviceTokens.forEach(function (exp, t) { if (exp < now) visbodyDeviceTokens.delete(t); });
+}
+app.get("/api/visbody/token", (req, res) => {
+  if (!visbody.checkDeviceCreds(req.query.key, req.query.secret)) {
+    return res.json({ code: 30001, error_msg: "Invalid credentials" });
+  }
+  visbodySweepTokens();
+  const token = crypto.randomUUID();
+  visbodyDeviceTokens.set(token, Date.now() + 7200 * 1000);
+  res.json({ code: 0, data: { token: token, expires_in: 7200 } });
+});
+
+// QR — dipanggil timbangan setelah scan; kita balas gambar QR berisi tautan klaim.
+// QR dibuat DI SINI dengan js/qrcode-generator.js yang sudah ada di repo, bukan dikirim
+// ke layanan QR pihak ketiga: scan_id tidak perlu bocor ke luar 20FIT.
+app.get("/api/visbody/qrcode", (req, res) => {
+  const token = String(req.query.token || "");
+  visbodySweepTokens();
+  if (!visbodyDeviceTokens.has(token)) return res.json({ code: 30001, error_msg: "Invalid token" });
+  const scanId = String(req.query.scan_id || "").slice(0, 120);
+  const deviceId = String(req.query.device_id || "").slice(0, 120);
+  if (!scanId) return res.json({ code: 30002, error_msg: "scan_id wajib" });
+  try {
+    const url = (APP_BASE_URL || "https://my.20fit.id").replace(/\/$/, "") +
+      "/body-scan?claim=" + encodeURIComponent(scanId) +
+      (deviceId ? "&device=" + encodeURIComponent(deviceId) : "");
+    const qr = qrcode(0, "M");
+    qr.addData(url);
+    qr.make();
+    const svg = qr.createSvgTag({ cellSize: 6, margin: 4 });
+    res.json({ code: 0, data: { url: "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64") } });
+  } catch (e) {
+    console.error("visbody qrcode:", (e && e.message) || e);
+    res.json({ code: 30003, error_msg: "gagal membuat QR" });
+  }
+});
+
+// KLAIM — member memindai QR lalu halaman /body-scan memanggil ini dengan token miliknya.
+app.post("/api/visbody/bind-user", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (!admin) return res.status(500).json({ error: "server belum dikonfigurasi" });
+    const scanId = String((req.body || {}).scan_id || "").slice(0, 120);
+    if (!scanId) return res.status(400).json({ error: "scan_id wajib" });
+
+    const { data: rows } = await admin.from("my20fit_visbody_scan")
+      .select("*").eq("scan_id", scanId).limit(1);
+    const scan = rows && rows[0];
+    if (!scan) return res.status(404).json({ error: "scan_not_found" });
+
+    // Sudah milik orang lain -> TIDAK dipindahkan. Data komposisi tubuh bukan barang
+    // yang boleh berpindah akun hanya karena tautannya dibuka orang lain.
+    if (scan.auth_user_id && scan.auth_user_id !== user.id) {
+      return res.status(409).json({ error: "already_claimed" });
+    }
+    if (scan.auth_user_id === user.id) {
+      return res.json({ ok: true, already: true, scan_id: scanId });
+    }
+    // Jendela klaim: tautan QR tidak memuat rahasia apa pun, jadi umurnya dibatasi.
+    if (Date.now() - new Date(scan.scan_time).getTime() > VISBODY_CLAIM_WINDOW_MS) {
+      return res.status(410).json({ error: "claim_expired" });
+    }
+
+    // Kirim identitas kita ke Visbody supaya scan berikutnya sudah ber-third_uid.
+    // Gagal di sini TIDAK membatalkan klaim: kepemilikan di DB kita yang menentukan.
+    let bindWarn = null;
+    try {
+      const { data: prof } = await admin.from("my20fit_profile")
+        .select("full_name,gender,height_cm,age").eq("auth_user_id", user.id).limit(1);
+      const p = (prof && prof[0]) || {};
+      // Visbody mewajibkan `birthday` (YYYY-MM-DD), sementara profil kita cuma menyimpan
+      // `age`. Urutan sumbernya: (1) tanggal yang DIKETIK MEMBER di layar timbangan —
+      // itu data sungguhan; (2) turunan dari `age`, sengaja dipatok 1 Januari dan
+      // ditandai sebagai perkiraan, bukan tanggal lahir yang dikarang seolah pasti.
+      let birthday = scan.visbody_birthday || null;
+      if (!birthday && +p.age > 0 && +p.age < 120) birthday = (new Date().getFullYear() - Math.round(+p.age)) + "-01-01";
+      await visbody.bindUser(scanId, scan.device_sn, {
+        id: user.id,
+        email: user.email,
+        name: p.full_name || String(user.email || "").split("@")[0],
+        sex: p.gender === "female" ? 2 : (p.gender === "male" ? 1 : (scan.visbody_sex || 1)),
+        height: +p.height_cm || +scan.visbody_height || 170,
+        birthday: birthday || "1990-01-01",
+      });
+    } catch (e) {
+      bindWarn = String((e && e.message) || e).slice(0, 300);
+      console.error("visbody bind:", bindWarn);
+    }
+
+    const upd = await admin.from("my20fit_visbody_scan")
+      .update({ auth_user_id: user.id, status: "bound", updated_at: new Date().toISOString() })
+      .eq("scan_id", scanId).is("auth_user_id", null).select();
+    // .is(null) = klaim hanya menang kalau saat itu memang masih kosong (dua orang
+    // memindai QR yang sama secara bersamaan -> hanya satu yang dapat).
+    if (upd.error) throw upd.error;
+    if (!upd.data || !upd.data.length) return res.status(409).json({ error: "already_claimed" });
+
+    const stored = await visbodyFetchAndStore(scan, user.id);
+    return res.json({ ok: true, scan_id: scanId, data_ready: stored, bind_warning: bindWarn });
+  } catch (e) {
+    console.error("visbody bind-user:", (e && e.message) || e);
+    return res.status(500).json({ error: (e && e.message) || "Gagal." });
+  }
+});
 
 app.post("/api/webhooks/resend", async (req, res) => {
   if (!verifyResendSignature(req)) return res.status(401).json({ error: "invalid signature" });
