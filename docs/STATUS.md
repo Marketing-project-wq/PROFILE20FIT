@@ -279,6 +279,22 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     `calorie_daily_summary` **tidak ada** di DB live, dan membuatnya justru MEMUTUS sinkron
     (calorietracker menulis ke `cal_items`), sehingga TEST 2-5 di dokumen itu malah gagal.
 
+- **Visbody tersambung ke Activity + bisa ditemukan (22 Sep 2026).**
+  - `js/body-scan.js` — SATU pembaca bersama (`BodyScan.latest/all/count/latestWithPrev`),
+    dipakai `/body-scan` dan `/activity` supaya tidak ada dua salinan query.
+  - **`/activity` kartu "Status Tubuh"**: kalau ada hasil timbangan, angka TERUKUR
+    (berat, lemak %, massa otot, BMI) menggantikan BMI perkiraan dari profil, lengkap
+    dengan selisih terhadap scan sebelumnya dan tautan ke `/body-scan`. Tanpa hasil
+    timbangan ATAU kalau tabelnya belum ada, kartu lama yang tampil — tanpa error.
+  - **`/dashboard`**: item "Body Scan" ditambahkan ke menu produk (sebelumnya
+    `/body-scan` tidak tertaut dari mana pun).
+  - Diuji headless 3 keadaan: ada scan (kartu terukur + delta + tautan), belum ada scan
+    (kartu BMI lama), dan tabel belum ada / query gagal (kartu BMI lama, nol error JS —
+    ini keadaan produksi sekarang).
+  - **BELUM dikerjakan:** BMR dari timbangan belum dipakai untuk target kalori di
+    `/calories`. Itu mengubah angka target milik user, jadi perlu keputusan pemilik dulu
+    (disarankan: tampilkan sebagai referensi, bukan menimpa target diam-diam).
+
 - **Visbody S20 (timbangan body composition) — KODE SIAP, BELUM BISA JALAN (22 Sep 2026).**
   `db/supabase-migration-019-visbody.sql`, `lib/visbody.js`, 4 route `/api/visbody/*`,
   halaman `/body-scan`.

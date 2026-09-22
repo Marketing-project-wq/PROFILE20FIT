@@ -399,6 +399,7 @@
 <script src="js/auth.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/goal-quiz.js"></script>
+<script src="js/body-scan.js"></script>
 <script src="js/nav.js"></script>
 <!-- Dipakai tampilan Progres (halaman Activity lama): pencapaian, siklus, puasa, gizi. -->
 <script src="js/achievements.js"></script>
@@ -1083,7 +1084,19 @@
     // ===== Progress redesign (SS3–5) — section baru =====
     function bmiOf(p){ var w=+p.weight_kg,h=+p.height_cm; if(!w||!h)return null; return Math.round(w/Math.pow(h/100,2)*10)/10; }
     function bmiCat(b){ if(b<18.5)return {t:L({en:"UNDERWEIGHT",id:"KURUS"}),c:"#2F6BFF"}; if(b<25)return {t:L({en:"NORMAL",id:"NORMAL"}),c:"#2A7A4F"}; if(b<30)return {t:L({en:"OVERWEIGHT",id:"BERLEBIH"}),c:"#C87000"}; return {t:L({en:"OBESE",id:"OBESITAS"}),c:"#C41101"}; }
+    // Hasil timbangan Visbody (kalau ada). Diisi loadBodyScan() setelah halaman siap;
+    // null = belum pernah scan ATAU tabelnya belum dibuat -> kartu lama yang dipakai.
+    var BSCAN=null, BSCAN_PREV=null;
+    function bsNum(v,d){ return (v===null||v===undefined)?null:(+v).toFixed(d===undefined?1:d).replace(/\.0$/,""); }
+    function bsDelta(now,prev,inv){
+      if(now==null||prev==null) return "";
+      var d=+(now-prev); if(Math.abs(d)<0.05) return "";
+      var good = inv ? d<0 : d>0;   // inv: turun itu bagus (berat, lemak)
+      return '<span class="pbadge" style="margin-left:6px;color:'+(good?"#2A7A4F":"#C87000")+';background:'+(good?"rgba(42,122,79,.12)":"rgba(200,112,0,.12)")+'">'+(d>0?"+":"−")+Math.abs(d).toFixed(1)+'</span>';
+    }
     function bodyStatusCard(){
+      // Angka TERUKUR mengalahkan perkiraan: kalau ada hasil timbangan, itu yang tampil.
+      if(BSCAN) return bodyScanCard();
       var head='<div class="psec-row"><div class="psec">'+L({en:"Body status",id:"Status Tubuh"})+'</div><a class="plink" href="medical.html">'+L({en:"Medical",id:"Medis"})+' ›</a></div><div class="psub">'+L({en:"From your latest MCU & profile",id:"Dari MCU & profil terakhir"})+'</div>';
       var b=profile?bmiOf(profile):null;
       if(b==null) return head+'<a class="card" href="onboarding.html" style="display:block;text-decoration:none;color:var(--txt)"><div style="font-weight:800">'+L({en:"Add weight & height",id:"Isi berat & tinggi"})+'</div><div class="muted" style="font-size:12px">'+L({en:"So we can show your body status.",id:"Biar status tubuhmu bisa ditampilkan."})+'</div></a>';
@@ -1093,6 +1106,39 @@
         '<div style="flex:1"><div class="bmigauge"><i style="left:'+pos+'%;border-color:'+cat.c+'"></i></div>'+
         '<div class="bmiscale"><span>18.5</span><span>25</span><span>30</span></div></div></div>'+
         '<div class="muted" style="font-size:12.5px;margin-top:12px">'+((b>=18.5&&b<25)?L({en:"Your BMI is healthy. Maintain weight & muscle.",id:"BMI kamu sehat. Pertahankan berat & komposisi otot."}):L({en:"Keep an eye on your weight & body composition.",id:"Perhatikan berat & komposisi tubuhmu."}))+'</div></div>';
+    }
+    // Kartu hasil timbangan Visbody: angka yang benar-benar diukur di lokasi.
+    function bodyScanCard(){
+      var s=BSCAN, p=BSCAN_PREV;
+      var when=new Date(s.scanned_at).toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{day:"numeric",month:"short",year:"numeric"});
+      var head='<div class="psec-row"><div class="psec">'+L({en:"Body status",id:"Status Tubuh"})+'</div>'+
+        '<a class="plink" href="body-scan.html">'+L({en:"Body Scan",id:"Body Scan"})+' ›</a></div>'+
+        '<div class="psub">'+L({en:"Measured on the 20FIT scale",id:"Diukur di timbangan 20FIT"})+' · '+esc(when)+'</div>';
+      var rows=[
+        [L({en:"Weight",id:"Berat"}), bsNum(s.body_weight), "kg", bsDelta(s.body_weight, p&&p.body_weight, true)],
+        [L({en:"Body fat",id:"Lemak tubuh"}), bsNum(s.body_fat_percentage), "%", bsDelta(s.body_fat_percentage, p&&p.body_fat_percentage, true)],
+        [L({en:"Muscle mass",id:"Massa otot"}), bsNum(s.muscle_mass), "kg", bsDelta(s.muscle_mass, p&&p.muscle_mass, false)],
+        ["BMI", bsNum(s.body_mass_index), "", bsDelta(s.body_mass_index, p&&p.body_mass_index, true)]
+      ].filter(function(r){ return r[1]!=null; });
+      if(!rows.length) return head+'<div class="card"><div class="muted" style="font-size:12.5px">'+esc(L({en:"The last scan has no readable numbers.",id:"Scan terakhir tidak punya angka yang bisa dibaca."}))+'</div></div>';
+      return head+'<a class="card" href="body-scan.html" style="display:block;text-decoration:none;color:var(--txt)">'+
+        rows.map(function(r){
+          return '<div class="psec-row" style="padding:7px 0"><div class="w2tx">'+esc(r[0])+'</div>'+
+            '<div style="font-weight:800;white-space:nowrap">'+esc(r[1])+(r[2]?' <span class="muted" style="font-weight:700;font-size:12px">'+esc(r[2])+'</span>':'')+r[3]+'</div></div>';
+        }).join("")+
+        (p?'<div class="muted" style="font-size:11.5px;margin-top:8px">'+esc(L({en:"Change vs your previous scan.",id:"Perubahan dibanding scan sebelumnya."}))+'</div>':'')+
+        '</a>';
+    }
+    // Dimuat SETELAH render pertama supaya halaman tidak menunggu query ini. Kalau ada
+    // hasilnya, bagian atas digambar ulang; kalau tidak, halaman tetap seperti semula.
+    async function loadBodyScan(){
+      try{
+        if(!window.BodyScan) return;
+        var r=await BodyScan.latestWithPrev();
+        if(!r || !r.now) return;
+        BSCAN=r.now; BSCAN_PREV=r.prev;
+        if(typeof render==="function") render();
+      }catch(e){ /* tabel belum ada / gagal -> biarkan kartu lama */ }
     }
     function w2Badge(f){ var s=String(f.severity||f.level||f.status||"").toLowerCase();
       if(/high|tinggi|danger|perhatian|abnormal/.test(s)) return {t:L({en:"WATCH",id:"PERHATIAN"}),c:"#C41101",bg:"rgba(196,17,1,.1)"};
@@ -1297,6 +1343,7 @@
       try{ const {data}=await Auth.supabase.from("my20fit_mcu_result").select("result").eq("auth_user_id",user.id).order("created_at",{ascending:false}).limit(1); if(data&&data[0]){profile._hasMcu=true;profile._mcu=data[0].result;} }catch(e){}
       render();
       loadArena();   // tarik riwayat 20FIT Arena (async, isi section History 20FIT)
+      loadBodyScan();// hasil timbangan Visbody (async; kalau ada, kartu Status Tubuh diganti)
       if(window.Ach)Ach.check({days:days,hasFasting:!!localStorage.getItem("my20fit_if"),hasMcu:!!profile._hasMcu});
       if(window.I18N&&I18N.onChange)I18N.onChange(render);
     })();
