@@ -1429,7 +1429,7 @@
       for(var k=6;k>=0;k--){
         var d=new Date(); d.setDate(d.getDate()-k);
         var ds=dstr(d), its=dayItems(ds);
-        days.push({ ds:ds, dow:L(DOW[d.getDay()]), kcal:its?sumKcal(its):null });
+        days.push({ ds:ds, dow:L(DOW[d.getDay()]), kcal:(its && its.length)?sumKcal(its):null });
       }
       var logged=days.filter(function(x){ return x.kcal!=null; });
       if(!logged.length){
