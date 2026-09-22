@@ -87,6 +87,8 @@
   .edf>span{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
   .edf input,.edf select{width:100%;box-sizing:border-box;background:var(--card);color:var(--txt);
     border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;font-size:14px}
+  .edmsg{font-size:12.5px;color:var(--red);font-weight:600;margin:0 0 10px}
+  .edmsg:empty{margin:0}
   /* --- Chart mingguan --- */
   .wk-top{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-weight:700;margin-bottom:10px}
   .wk-svg{display:block;width:100%;height:104px}
@@ -441,6 +443,7 @@
         <label class="edf"><span id="edLC" data-i18n="cal_ed_c">Karbo (g)</span><input id="edC" type="number" inputmode="numeric" min="0"></label>
         <label class="edf"><span id="edLF" data-i18n="cal_ed_f">Lemak (g)</span><input id="edF" type="number" inputmode="numeric" min="0"></label>
       </div>
+      <div class="edmsg" id="edMsg"></div>
       <button class="hopt-close" id="edSave" data-i18n="cal_ed_save" onclick="saveEdit()">Simpan</button>
       <button class="hopt-ghost" id="edCancel" data-i18n="cal_ed_cancel" onclick="closeEdit()">Batal</button>
     </div>
@@ -475,7 +478,7 @@
     let goal=2000, baseGoal=2000, profileRef=null, items=[], curGoal="health", macroT={p:120,c:230,f:60};
     // Goal & makro dari SATU sumber (js/nutrition.js) — sinkron dgn Home & Progress.
     function recompute(){ goal=Fasting.adjustGoal(baseGoal); if(profileRef)macroT=Nutrition.macrosFor(profileRef, goal); }
-    function load(){try{items=JSON.parse(localStorage.getItem(todayKey())||"[]")}catch(e){items=[]}}
+    function load(){try{var a=JSON.parse(localStorage.getItem(todayKey())||"[]");items=Array.isArray(a)?a.filter(Boolean):[]}catch(e){items=[]}}
     let calSaveT=null;
     function save(){
       localStorage.setItem(todayKey(),JSON.stringify(items));               // cache cepat di device
@@ -486,7 +489,7 @@
     async function loadCalFromCloud(){
       try{
         const d=await Auth.getDailyLog();
-        if(d && Array.isArray(d.cal_items)){ items=d.cal_items; localStorage.setItem(todayKey(),JSON.stringify(items)); render(); }
+        if(d && Array.isArray(d.cal_items)){ items=d.cal_items.filter(Boolean); localStorage.setItem(todayKey(),JSON.stringify(items)); render(); }
         else if(items && items.length){ if(window.Auth&&Auth.saveDaily)Auth.saveDaily({cal_items:items}); } // ada di device, belum di akun -> dorong ke akun
       }catch(e){}
     }
@@ -838,11 +841,18 @@
         '<button type="button" class="mealhint-x" onclick="setAddMeal(null)">'+escA(L({en:"cancel",id:"batal"}))+'</button>';
     }
 
-    function addToLog(name,kcal,p,c,f,meal){
+    // pushItem TIDAK menyimpan & TIDAK menggambar ulang — itu urusan pemanggil, supaya satu
+    // scan berisi banyak makanan cukup sekali simpan + sekali render (bukan N kali).
+    function pushItem(name,kcal,p,c,f,meal){
       var it={name:name,kcal:Math.round(kcal)||0,p:Math.round(+p||0),c:Math.round(+c||0),f:Math.round(+f||0),t:nowHM()};
-      var m=meal||addMeal; if(m&&MEAL_TYPES.indexOf(m)>=0) it.m=m;
+      if(meal&&MEAL_TYPES.indexOf(meal)>=0) it.m=meal;
       items.push(it);
-      addMeal=null; renderAddMealHint();
+      return it;
+    }
+    function clearAddMeal(){ addMeal=null; renderAddMealHint(); }
+    function addToLog(name,kcal,p,c,f,meal){
+      pushItem(name,kcal,p,c,f,meal||addMeal);
+      clearAddMeal();
       save();_fsumGapFlash=true;render();/* flash nutrient-gap on new log/scan */
     }
     function del(i){items.splice(i,1);save();render()}
@@ -851,10 +861,10 @@
     // Kunci yang TIDAK dikenal halaman ini (mid/cid dari scan native calorietracker)
     // sengaja DIPERTAHANKAN: item disalin dulu, lalu hanya field yang diedit ditimpa.
     // Kalau item ditulis ulang dari nol, tautan ke ct_meal punya app sebelah putus.
-    var editIdx=null;
+    var editRef=null;
     function openEdit(i){
       var it=items[i]; if(!it) return;
-      editIdx=i;
+      editRef=it;
       document.getElementById("edName").value=it.name||"";
       document.getElementById("edKcal").value=(+it.kcal||0);
       document.getElementById("edP").value=(+it.p||0);
@@ -863,15 +873,27 @@
       var sel=document.getElementById("edMeal");
       sel.innerHTML=MEAL_TYPES.map(function(m){ return '<option value="'+m+'">'+escA(L(MEAL_TX[m]))+'</option>'; }).join("");
       sel.value=itemMeal(it);
+      var em0=document.getElementById("edMsg"); if(em0) em0.textContent="";
       document.getElementById("edBg").classList.add("open");
       document.getElementById("edName").focus();
     }
-    function closeEdit(){ editIdx=null; document.getElementById("edBg").classList.remove("open"); }
+    function closeEdit(){ editRef=null; document.getElementById("edBg").classList.remove("open"); }
     function saveEdit(){
-      if(editIdx==null||!items[editIdx]) return closeEdit();
+      if(!editRef) return closeEdit();
+      var idx=items.indexOf(editRef);
+      // Item hilang dari daftar (mis. log hari ini baru saja diganti dari akun, atau
+      // dihapus di tab lain) -> jangan menulis apa pun.
+      if(idx<0){
+        // Modal SENGAJA dibiarkan terbuka: user baru saja menekan Simpan, jadi dia harus
+        // tahu kenapa tidak ada yang berubah — bukan modal yang menutup diam-diam.
+        var em=document.getElementById("edMsg");
+        if(em) em.textContent=L({en:"That item is no longer in today's log — nothing was changed.",
+                                 id:"Item itu sudah tidak ada di catatan hari ini — tidak ada yang diubah."});
+        return;
+      }
       var nm=document.getElementById("edName").value.trim();
       if(!nm){ document.getElementById("edName").focus(); return; }
-      var cur=items[editIdx];
+      var cur=editRef;
       var next={}; for(var k in cur){ if(Object.prototype.hasOwnProperty.call(cur,k)) next[k]=cur[k]; }
       next.name=nm;
       next.kcal=Math.round(+document.getElementById("edKcal").value||0);
@@ -879,7 +901,7 @@
       next.c=Math.round(+document.getElementById("edC").value||0);
       next.f=Math.round(+document.getElementById("edF").value||0);
       next.m=document.getElementById("edMeal").value;
-      items[editIdx]=next;
+      items[idx]=next;
       closeEdit(); save(); render();
     }
 
@@ -1205,7 +1227,14 @@
     // (Deteksi pembayaran sukses, toast tunggu-bayar, thank-you, & polling status dipindah
     //  ke js/deals.js — dipakai bersama calories & profile.)
     (function(){ var sbg=document.getElementById("scanBg"); if(sbg)sbg.addEventListener("click",function(e){ if(e.target===sbg)closeScanModal(); }); })();
-    function addScanned(){lastScan.forEach(i=>addToLog(i.name,i.kcal,i.protein_g,i.carbs_g,i.fat_g));closeScanModal();document.getElementById("scanresult").innerHTML='<div style="color:var(--green)">'+I18N.t("cal_added")+'</div>'}
+    function addScanned(){
+      var m=addMeal;                                   // kunci ember untuk SELURUH batch
+      lastScan.forEach(function(i){ pushItem(i.name,i.kcal,i.protein_g,i.carbs_g,i.fat_g,m); });
+      clearAddMeal();
+      save();_fsumGapFlash=true;render();              // sekali simpan, sekali render
+      closeScanModal();
+      document.getElementById("scanresult").innerHTML='<div style="color:var(--green)">'+I18N.t("cal_added")+'</div>';
+    }
 
     // ---- Healthy-swap pop-up: same calories from healthier options + how much is still needed ----
     function openHealthyModal(scanKcal){
@@ -1429,7 +1458,7 @@
       for(var k=6;k>=0;k--){
         var d=new Date(); d.setDate(d.getDate()-k);
         var ds=dstr(d), its=dayItems(ds);
-        days.push({ ds:ds, dow:L(DOW[d.getDay()]), kcal:its?sumKcal(its):null });
+        days.push({ ds:ds, dow:L(DOW[d.getDay()]), kcal:(its && its.length)?sumKcal(its):null });
       }
       var logged=days.filter(function(x){ return x.kcal!=null; });
       if(!logged.length){
