@@ -279,6 +279,45 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     `calorie_daily_summary` **tidak ada** di DB live, dan membuatnya justru MEMUTUS sinkron
     (calorietracker menulis ke `cal_items`), sehingga TEST 2-5 di dokumen itu malah gagal.
 
+- **Visbody S20 (timbangan body composition) — KODE SIAP, BELUM BISA JALAN (22 Sep 2026).**
+  `db/supabase-migration-019-visbody.sql`, `lib/visbody.js`, 4 route `/api/visbody/*`,
+  halaman `/body-scan`.
+  - **Nama tabel `my20fit_visbody_scan` + `my20fit_visbody_body`**, bukan `visbody_scans` /
+    `visbody_body_composition` seperti spesifikasi (CLAUDE.md §4). Dicek ke DB live:
+    belum ada tabel apa pun berawalan `visbody` maupun `my20fit_visbody`.
+  - **Scan TIDAK dicocokkan otomatis ke akun.** Identitas yang diketik di layar timbangan
+    tidak terverifikasi, jadi mencocokkannya otomatis = menyerahkan data komposisi tubuh
+    seseorang ke akun yang belum tentu dia. Kepemilikan hanya lewat member memindai QR →
+    `POST /api/visbody/bind-user`, dengan jendela klaim **30 menit** dan klaim atomik
+    (`.is("auth_user_id", null)`) supaya dua orang yang memindai QR sama tidak sama-sama dapat.
+  - **QR dibuat di server** pakai `js/qrcode-generator.js` yang sudah ada di repo, BUKAN
+    dikirim ke `api.qrserver.com` seperti contoh spesifikasi — scan_id tidak perlu bocor
+    ke layanan pihak ketiga.
+  - **TIGA KEKELIRUAN SPESIFIKASI yang diperbaiki, bukan disalin:**
+    1. `timingSafeEqual` tanpa cek panjang → MELEMPAR (dibuktikan:
+       `ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH`), jadi signature palsu berbuah 500, bukan 401.
+    2. HMAC dihitung atas `JSON.stringify(req.body)` — itu hasil serialisasi ULANG, bukan
+       byte yang ditandatangani Visbody, jadi verifikasi akan selalu gagal. Sekarang
+       memakai `req.rawBody` (penangkapnya diperluas ke `/api/visbody/`).
+    3. Alur bind-lewat-QR di spesifikasi tidak pernah mengambil data ukurnya, dan endpoint
+       `/api/visbody/bind-user` yang dipanggil halaman bind tidak pernah ditulis.
+  - **`my20fit_profile` TIDAK punya kolom `birthdate`** (dicek ke DB live: yang ada `age`).
+    Kode awal saya meminta kolom itu dan akan membuat bind gagal diam-diam; sudah diperbaiki.
+  - **BELUM DIUJI KE API ASLI** — kredensial `VISBODY_*` belum ada dan tidak ada timbangan.
+    Yang sudah diuji: `lib/visbody.js` unit (20/20: signature, anti-replay, device creds,
+    pemetaan nilai null vs 0) + pembuatan QR beneran jalan di Node. Route express-nya
+    **belum pernah dijalankan** — `npm install` diblokir registry di lingkungan ini.
+  - **TUGAS PEMILIK:** (1) jalankan migration 019 manual; (2) minta `VISBODY_ACCOUNT_KEY`,
+    `VISBODY_ACCOUNT_SECRET`, `VISBODY_WEBHOOK_SECRET` + serial timbangan ke Visbody;
+    (3) buat sendiri `VISBODY_DEVICE_KEY`/`VISBODY_DEVICE_SECRET` lalu berikan ke Visbody;
+    (4) daftarkan ke Visbody: webhook `https://my.20fit.id/api/visbody/webhook`,
+    token `/api/visbody/token`, qrcode `/api/visbody/qrcode`.
+  - **BELUM TERVERIFIKASI — TANYA VISBODY:** bentuk persis body webhook (`scan_id`,
+    `event_id`, `device_sn`, `user_info.third_uid`, `measured_items`) dan nama header
+    (`x-visbody-timestamp`, `x-visbody-signature`) diambil dari rangkuman di prompt, bukan
+    dari dokumen/respons asli. Kalau berbeda, yang perlu disesuaikan cuma pemetaan di
+    route webhook + `verifyWebhook()`.
+
 - **Sinkronisasi ekosistem (calorie / recipe / MCU) — SUDAH JALAN, jangan dibuat ulang.**
   Diperiksa ke DB LIVE + kode calorietracker pada 21 Sep 2026, setelah ada dokumen yang
   mengusulkan 8 tabel baru (`calorie_logs`, `calorie_profiles`, `calorie_daily_summary`,
