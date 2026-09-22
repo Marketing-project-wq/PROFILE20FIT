@@ -2037,6 +2037,9 @@
       background:var(--card,#fff);border:1px solid var(--line,#E8E2DB);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.28);
       padding:7px;overflow:hidden auto;max-height:calc(100vh - 76px)}
     @media(min-width:900px){ .hpx-menu{top:56px;right:14px} }
+    /* Menu Products = mega menu bergrup (universal-nav). Dilebarkan di layar ≥640px supaya
+       grid produk (Booking sampai 4 kolom) muat lega; menu profil tetap sempit. */
+    @media(min-width:640px){ #hpxProdMenu{width:min(94vw,430px)} }
     .hpx-mhd{display:flex;align-items:center;gap:10px;padding:9px 10px 11px;border-bottom:1px solid var(--line,#E8E2DB);margin-bottom:6px}
     .hpx-mhd .hpx-av{width:38px;height:38px;font-size:14px}
     .hpx-mhd .mnm{font-weight:800;font-size:13.5px;color:var(--ink);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2051,8 +2054,6 @@
     .hpx-it .tx small{color:var(--muted);font-weight:600;font-size:11px}
     .hpx-it.danger{color:var(--red,#C41101)} .hpx-it.danger .ic{background:transparent}
     .hpx-sec{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#8A8D94);font-weight:800;padding:10px 11px 5px}
-    .hpx-badge{flex:0 0 auto;font-size:9.5px;font-weight:800;letter-spacing:.03em;padding:3px 7px;border-radius:999px;
-      background:var(--inp,#F2F2F5);color:var(--muted,#8A8D94);text-transform:uppercase}
     /* Mobile: rampingkan baris kontrol atas supaya seluruh kluster muat di kanan &
        TIDAK menutupi logo 20FIT (pojok kiri atas). Tema jadi ikon saja, lang & chip ringkas. */
     @media(max-width:560px){
@@ -2080,53 +2081,17 @@
       grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',
       user:'<circle cx="12" cy="8" r="4.5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
       gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-      logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
-      home:'<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
-      flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
-      clip:'<path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/>',
-      chart:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
-      bowl:'<path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M12 3v4M9 4v3M15 4v3"/>',
-      book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
-      dumbbell:'<path d="M6.5 6.5 17.5 17.5M4 9l1-1M20 15l-1 1M8 4l-2 2 3 3M16 20l2-2-3-3M3 12l2 2M19 10l2 2"/>',
-      coach:'<circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/>',
-      doctor:'<path d="M12 3v4M8 4h8"/><path d="M6 7v5a6 6 0 0 0 12 0V7"/><circle cx="18" cy="17" r="3"/>',
-      heart:'<path d="M19 14c1.5-1.5 3-3.3 3-5.5A4.5 4.5 0 0 0 12 5 4.5 4.5 0 0 0 2 8.5c0 4.5 7 9.5 10 11.5 1.5-1 4-2.8 6-5"/>',
-      card:'<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',
-      gift:'<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
-      ticket:'<path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4z"/><line x1="13" y1="7" x2="13" y2="17"/>',
-      bag:'<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>',
-      camera:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
-      news:'<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9h4"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/>',
-      calcheck:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/>',
-      ext:'<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>'
+      logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>'
     };
+    // Ikon produk (home/clip/chart/bowl/dumbbell/coach/doctor/heart/card/gift/ticket/bag/
+    // camera/news/calcheck/ext) DIPINDAH ke js/universal-nav.js bersama daftar produknya.
+    // Yang tersisa di sini hanya ikon kontrol header (caret/grid/user/gear/logout).
 
-    // Daftar produk — HANYA yang beneran ada. type: in=internal, sso=Auth.<fn>Sso, ext=eksternal same-tab.
-    var GROUPS = [
-      { title:{en:"In my.20fit",id:"Di my.20fit"}, items:[
-        { ic:"home",  t:{en:"Home",id:"Beranda"},              type:"in",  href:"dashboard.html" },
-        { ic:"clip",  t:{en:"Medical Check-Up",id:"Medical Check-Up"}, type:"in", href:"medical.html" },
-        { ic:"chart", t:{en:"Body Scan",id:"Body Scan"},        type:"in",  href:"body-scan.html" },
-        { ic:"chart", t:{en:"Progress",id:"Progress"},          type:"in",  href:"progress.html" },
-        { ic:"flame", t:{en:"Calorie Scan",id:"Scan Kalori"},   type:"in",  href:"calories.html" },
-        { ic:"bowl",  t:{en:"Recipe",id:"Resep"}, type:"in", href:"recipe.html" },
-        { ic:"dumbbell", t:{en:"Book Class · Arena/Gym",id:"Book Kelas · Arena/Gym"}, type:"in", href:"classes.html" },
-        { ic:"coach", t:{en:"Book Coach",id:"Book Coach"},      type:"in",  href:"book-coach.html" },
-        { ic:"doctor",t:{en:"Book Doctor",id:"Book Dokter"},    type:"in",  href:"book-doctor.html" },
-        { ic:"heart", t:{en:"Book Recovery",id:"Book Recovery"},type:"in",  href:"classes.html?venue=clinic" },
-        { ic:"card",  t:{en:"Membership",id:"Membership"},      type:"in",  href:"membership.html" },
-        { ic:"gift",  t:{en:"Rewards",id:"Rewards"},            type:"in",  href:"rewards.html" },
-        { ic:"ticket",t:{en:"Event · Ticket",id:"Event · Tiket"}, type:"in", href:"event.html" },
-        { ic:"bag",   t:{en:"Purchases",id:"Pembelian"},        type:"in",  href:"purchases.html" }
-      ]},
-      { title:{en:"Open with your account",id:"Buka pakai akunmu"}, badge:{en:"SSO",id:"SSO"}, items:[
-        { ic:"camera",t:{en:"Progress Photo",id:"Foto Progres"},type:"sso", fn:"photoSso" }
-      ]},
-      { title:{en:"Other 20FIT sites",id:"Situs 20FIT lainnya"}, badge:{en:"External",id:"Eksternal"}, items:[
-        { ic:"news",  t:{en:"Media · News",id:"Media · Berita"}, type:"ext", href:"https://media.20fit.id" },
-        { ic:"calcheck", t:{en:"Booking 20FIT",id:"Booking 20FIT"}, type:"ext", href:"https://booking.20fit.id" }
-      ]}
-    ];
+    // Daftar produk kini SATU sumber di js/universal-nav.js (ITEMS) dan dirender sebagai
+    // satu mega menu bergrup lewat UniversalNav.renderAppsInto(). Array GROUPS lama +
+    // openProduct() dihapus supaya tidak ada duplikat produk (CLAUDE.md §2/§8).
+    // Membership, Rewards & Purchases tetap terjangkau: dua yang pertama sebagai tile di
+    // grid layanan dashboard (SVCS), Purchases di menu profil (universal-nav).
 
     ready(function (bar) {
       var openMenu = null;
@@ -2185,39 +2150,16 @@
       profCtl.btn.addEventListener("click", function(e){ e.stopPropagation(); toggle(profCtl); });
 
       // ---- render produk ----
-      function openProduct(it){
-        closeAll();
-        if(it.type==="in"){ location.href=it.href; return; }
-        if(it.type==="ext"){ location.href=it.href; return; }         // same-tab (aturan: dilarang tab baru)
-        if(it.type==="sso"){                                          // subdomain: SSO tanpa login ulang
-          if(window.Auth && typeof Auth[it.fn]==="function"){ Auth[it.fn](); }
-          else { location.href="login.html"; }
-        }
-      }
+      // SATU mega menu: SELURUH produk 20FIT dirender oleh js/universal-nav.js
+      // (UniversalNav.renderAppsInto) — sudah dikelompokkan (Utama/Health/Activity/Event/
+      // Booking) dan dedup. Tidak ada lagi daftar "Di my.20fit" terpisah yang mengulang
+      // produk yang sama (CLAUDE.md §2: satu sumber, tanpa duplikat). Kalau berkas
+      // universal-nav gagal dimuat, wadahnya tinggal kosong — menu tetap aman.
       function renderProd(){
-        var html="";
-        // Grid ekosistem (10 produk subdomain) di paling atas. Wadahnya diisi
-        // UniversalNav.renderAppsInto() SESUDAH innerHTML dipasang — kalau diisi duluan,
-        // innerHTML di bawah menimpanya.
-        html += '<div class="hpx-sec">'+esc(LL({en:"All 20FIT products",id:"Semua produk 20FIT"}))+'</div>'+
-                '<div id="hpxEco"></div>';
-        GROUPS.forEach(function(g){
-          html += '<div class="hpx-sec">'+esc(LL(g.title))+(g.badge?' · '+esc(LL(g.badge)):'')+'</div>';
-          g.items.forEach(function(it,idx){
-            var badge = it.type==="ext"?'<span class="hpx-badge">'+esc(LL({en:"External",id:"Eksternal"}))+'</span>'
-                       : it.type==="sso"?'<span class="hpx-badge">SSO</span>':'';
-            html += '<button class="hpx-it" role="menuitem" data-g="'+GROUPS.indexOf(g)+'" data-i="'+idx+'">'+
-              '<span class="ic">'+svg(IC[it.ic]||IC.grid)+'</span><span class="tx"><b>'+esc(LL(it.t))+'</b></span>'+badge+'</button>';
-          });
-        });
-        prodCtl.menu.innerHTML=html;
-        // Grid ekosistem: satu sumber daftar produk (js/universal-nav.js), bukan salinan
-        // kedua di halaman ini. Kalau berkasnya gagal dimuat, wadahnya tinggal kosong dan
-        // menu lama tetap utuh — tidak ada yang hilang.
+        prodCtl.menu.innerHTML =
+          '<div class="hpx-sec">'+esc(LL({en:"All 20FIT products",id:"Semua produk 20FIT"}))+'</div>'+
+          '<div id="hpxEco"></div>';
         try{ if(window.UniversalNav) UniversalNav.renderAppsInto(prodCtl.menu.querySelector("#hpxEco")); }catch(e){}
-        prodCtl.menu.querySelectorAll(".hpx-it").forEach(function(b){
-          b.addEventListener("click", function(){ openProduct(GROUPS[+b.dataset.g].items[+b.dataset.i]); });
-        });
         var lbl=prod.querySelector(".hpx-prlbl"); if(lbl) lbl.textContent=LL({en:"Products",id:"Produk"});
         prodCtl.btn.setAttribute("aria-label", LL({en:"All 20FIT products",id:"Semua produk 20FIT"}));
       }
