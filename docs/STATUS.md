@@ -323,11 +323,16 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     Yang sudah diuji: `lib/visbody.js` unit (20/20: signature, anti-replay, device creds,
     pemetaan nilai null vs 0) + pembuatan QR beneran jalan di Node. Route express-nya
     **belum pernah dijalankan** — `npm install` diblokir registry di lingkungan ini.
-  - **TUGAS PEMILIK:** (1) jalankan migration 019 manual; (2) minta `VISBODY_ACCOUNT_KEY`,
+  - **TUGAS PEMILIK → langkah lengkapnya sekarang di `docs/VISBODY-SETUP.md`** (pesan siap
+    kirim ke Visbody, nama variabel Railway, URL yang didaftarkan, cara uji, cara baca
+    kegagalan). Ringkasnya: (1) ~~migration 019~~ **SUDAH dijalankan 22 Sep 2026** — kedua
+    tabel ada, RLS aktif, **0 baris**; (2) minta `VISBODY_ACCOUNT_KEY`,
     `VISBODY_ACCOUNT_SECRET`, `VISBODY_WEBHOOK_SECRET` + serial timbangan ke Visbody;
     (3) buat sendiri `VISBODY_DEVICE_KEY`/`VISBODY_DEVICE_SECRET` lalu berikan ke Visbody;
     (4) daftarkan ke Visbody: webhook `https://my.20fit.id/api/visbody/webhook`,
     token `/api/visbody/token`, qrcode `/api/visbody/qrcode`.
+    **Selama (2) dan (4) belum selesai, nol data bisa masuk** — bukan karena kodenya, tapi
+    karena webhook tidak pernah dikirim dan tanda tangannya tidak bisa diverifikasi.
   - **BELUM TERVERIFIKASI — TANYA VISBODY:** bentuk persis body webhook (`scan_id`,
     `event_id`, `device_sn`, `user_info.third_uid`, `measured_items`) dan nama header
     (`x-visbody-timestamp`, `x-visbody-signature`) diambil dari rangkuman di prompt, bukan
