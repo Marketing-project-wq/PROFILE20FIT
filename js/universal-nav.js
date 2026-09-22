@@ -127,6 +127,16 @@
     ["/dashboard", "my20fit"]
   ];
 
+  // Ikon produk = artwork branded 20FIT (hasil kecilkan berkas .svg repo jadi PNG kecil
+  // di /img/products/<id>.png). 14 dari 16 produk punya artwork; Body Scan & Talent belum
+  // ada → tetap pakai ikon garis inline (P[icon], ikut warna/tema). Artwork raster full-color
+  // (tidak ikut tema) — makanya diberi chip putih di CSS supaya rapi di light & dark.
+  var NO_ART = { bodyscan: 1, talent: 1 };
+  ITEMS.forEach(function (it) { if (!NO_ART[it.id]) it.img = "/img/products/" + it.id + ".png"; });
+  // Base URL ikon: di my.20fit/staging = same-origin (""), di subdomain lain = absolut ke
+  // my.20fit.id (tempat berkasnya) supaya bar universal tetap dapat ikon di mana pun dipasang.
+  var ICON_BASE = MY_HOSTS[location.hostname] ? "" : "https://my.20fit.id";
+
   // recepie.20fit.id = typo domain yang SUDAH terpasang di produksi; keduanya dipetakan
   // ke id yang sama supaya highlight "Kamu di sini" tetap benar.
   var HOSTS = {
@@ -169,9 +179,15 @@
   // Render satu kartu produk + baris grup berlabel. Dipakai dua varian (bar & tertanam).
   function appCell(it, size, embed, cur) {
     var on = it.id === cur;
+    // Semua ikon duduk di "chip" putih membulat → tampil konsisten seperti app-tile, dan
+    // rapi baik di menu terang maupun gelap. Chip berisi artwork branded (img) atau, untuk
+    // 2 produk tanpa artwork, ikon garis berwarna merah 20FIT.
+    var inner = it.img
+      ? '<img class="un-img" src="' + esc(ICON_BASE + it.img) + '" alt="" loading="lazy">'
+      : '<span style="color:#C41101;line-height:0">' + svg(it.icon, size + 4) + '</span>';
     return '<a class="un-app" role="menuitem" href="' + esc(it.url) + '" data-id="' + esc(it.id) + '"' +
       (on ? ' aria-current="page"' : '') + '>' +
-      '<span class="un-ic" style="color:' + esc(it.color) + '">' + svg(it.icon, size) + '</span>' +
+      '<span class="un-ic un-chip">' + inner + '</span>' +
       '<span class="un-l">' + esc(it.label) + '</span>' +
       (embed ? '' : '<span class="un-d">' + esc(it.desc) + '</span>') +
       (on ? '<span class="un-here">● Kamu di sini</span>' : '') +
@@ -183,8 +199,9 @@
       var list = ITEMS.filter(function (it) { return it.group === g.id; });
       if (!list.length) return "";
       var lab = g.label ? '<div class="un-glabel">' + esc(g.label) + '</div>' : '';
-      var wide = list.length >= 4 ? " c4" : ""; // Booking (4) = satu baris; sisanya 3 kolom.
-      return '<div class="un-group">' + lab + '<div class="un-grow' + wide + '">' +
+      // Selalu 3 kolom per baris (semua breakpoint) — keputusan pemilik. Booking (4 item)
+      // otomatis jadi 3 + 1.
+      return '<div class="un-group">' + lab + '<div class="un-grow">' +
         list.map(function (it) { return appCell(it, size, embed, cur); }).join("") + '</div></div>';
     }).join("");
   }
@@ -226,12 +243,14 @@
     '.un-group{margin-top:14px}.un-group:first-child{margin-top:0}',
     '.un-glabel{font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px 4px}',
     '.un-grow{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}',
-    '.un-grow.c4{grid-template-columns:repeat(4,1fr)}',
     '.un-app{display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px;padding:13px 6px;border-radius:12px;',
     'text-decoration:none;color:#1a1a1a;border:2px solid transparent;background:transparent;cursor:pointer;font-family:inherit}',
     '.un-app:hover{background:#f5f5f5}',
     '.un-app[aria-current="page"]{background:#f0f0f0;border-color:#111;cursor:default}',
     '.un-app .un-ic{line-height:0}',
+    '.un-chip{width:46px;height:46px;border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.12);overflow:hidden}',
+    '.un-img{width:90%;height:90%;object-fit:contain;display:block}',
+    '.un-embed .un-chip{width:40px;height:40px;border-radius:11px}',
     '.un-app .un-l{font-size:12px;font-weight:600;line-height:1.2}',
     '.un-app .un-d{font-size:10px;color:#888;line-height:1.2}',
     '.un-here{font-size:9px;color:#16A34A;font-weight:700}',
@@ -255,7 +274,6 @@
     '@media(max-width:639px){',
     '.un-pop{position:fixed;inset:0;width:100vw;height:100dvh;border-radius:0;padding:16px;overflow:auto}',
     '.un-apps{width:100%}',
-    '.un-grow,.un-grow.c4{grid-template-columns:repeat(2,1fr)}',
     '.un-prof{width:100%}',
     '.un-x{display:flex;align-items:center;justify-content:center;position:absolute;top:12px;right:12px;',
     'width:36px;height:36px;border:0;border-radius:50%;background:#f0f0f0;color:#111;cursor:pointer}',
