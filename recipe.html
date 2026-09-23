@@ -155,6 +155,16 @@
     <h1 data-i18n="diet_title">Recipe</h1>
     <p class="lead" data-i18n="diet_intro">20FIT recipes &amp; member menus — pick a diet type, then tap a dish for the full recipe. Contribute your own anytime.</p>
 
+    <!-- RESEP TERSIMPAN: koleksi milik user sendiri. Sumbernya endpoint yang SUDAH ada,
+         GET /api/menu/saved -> tabel my20fit_menu_save (server.js). Tidak ada tabel baru:
+         tombol Simpan di detail resep sudah menulis ke tabel itu, cuma belum pernah ada
+         halaman yang membacanya kembali. Disembunyikan kalau user belum menyimpan apa pun. -->
+    <section id="savedSec" hidden>
+      <div class="sec-h2" data-i18n="rec_saved_h">Saved recipes</div>
+      <div class="rgrid" id="savedGrid"></div>
+      <div class="rdisc" id="savedGone" hidden></div>
+    </section>
+
     <!-- BROWSE RESEP: cari + filter (kategori / diet / kalori) + urutkan + muat bertahap.
          Susunan & opsi mengikuti halaman /resep di recipe.20fit.id. -->
     <div class="sec-h2" data-i18n="rec_recipes_h">Recipes</div>
@@ -254,7 +264,7 @@
     })();
     // Re-render teks dinamis saat bahasa diganti (static di-handle i18n.apply()).
     if(window.I18N&&I18N.onChange) I18N.onChange(function(){
-      renderFilterControls(); renderChips(); renderRecipes();
+      renderFilterControls(); renderChips(); renderRecipes(); renderSaved();
       if(LASTJ) renderReward(LASTJ);
     });
 
@@ -307,6 +317,70 @@
                      photo:m.photo_url||null, cat:"", mins:(+m.cook_minutes||0)+(+m.prep_minutes||0), by:m.display_name||"", servings:(+m.servings||1), source:"user" });
       });
       renderFilterControls(); renderChips(); renderRecipes();
+      loadSaved();
+    }
+
+    // ============ RESEP TERSIMPAN ============
+    // SAVED berisi kunci "source:menu_id" milik user, dipakai juga untuk memperbarui
+    // seksi ini saat tombol Simpan/Batal simpan ditekan di detail resep.
+    var SAVED=null;
+    function savedKeyOf(it){ return srcOf(it)+":"+midOf(it); }
+    async function loadSaved(){
+      var sec=$("savedSec"), grid=$("savedGrid"); if(!sec||!grid) return;
+      sec.removeAttribute("hidden");
+      grid.innerHTML='<div class="empty" style="grid-column:1/-1">'+esc(T("rec_saved_loading"))+'</div>';
+      var j;
+      try{
+        var r=await dietFetch("/api/menu/saved");
+        if(!r.ok) throw new Error("http "+r.status);
+        j=await r.json();
+        if(!j||!j.ok||!Array.isArray(j.saved)) throw new Error("bentuk data tak dikenal");
+      }catch(e){
+        grid.innerHTML='<div class="empty" style="grid-column:1/-1">'+esc(T("rec_saved_err"))+
+          ' <button class="chip" onclick="loadSaved()">'+esc(T("rec_retry"))+'</button></div>';
+        return;
+      }
+      // Menu member yang tersimpan tapi belum ada di ITEMS (mis. tak terbawa
+      // /api/menu/published) di-hydrate dari payload endpoint — bukan dikarang.
+      var members=j.members||{};
+      j.saved.forEach(function(row){
+        if(row.source!=="member") return;
+        if(ITEMS.some(function(it){ return it.key==="u_"+row.menu_id; })) return;
+        var m=members[row.menu_id]; if(!m) return;
+        ITEMS.push({ key:"u_"+m.id, title:m.name, kcal:m.est_kcal||null, types:[m.diet_type||"normal"],
+                     ing:m.ingredients||"", steps:m.steps||"", photo:m.photo_url||null, cat:"",
+                     mins:(+m.cook_minutes||0)+(+m.prep_minutes||0), by:m.display_name||"",
+                     servings:(+m.servings||1), source:"user" });
+      });
+      SAVED=j.saved.map(function(row){ return row.source+":"+row.menu_id; });
+      renderSaved();
+    }
+    function renderSaved(){
+      var sec=$("savedSec"), grid=$("savedGrid"), gone=$("savedGone");
+      if(!sec||!grid||!gone||!SAVED) return;
+      var byKey={};
+      ITEMS.forEach(function(it){ var k=savedKeyOf(it); if(midOf(it)) byKey[k]=it; });
+      var found=[], missing=0;
+      SAVED.forEach(function(k){ if(byKey[k]) found.push(byKey[k]); else missing++; });
+      if(!found.length && !missing){
+        // Belum pernah menyimpan apa pun -> seksinya disembunyikan, bukan kartu kosong.
+        sec.setAttribute("hidden",""); return;
+      }
+      sec.removeAttribute("hidden");
+      grid.innerHTML = found.length
+        ? found.map(recipeCardHtml).join("")
+        : '<div class="empty" style="grid-column:1/-1">'+esc(T("rec_saved_none"))+'</div>';
+      if(missing){
+        gone.textContent=String(T("rec_saved_gone")).replace("{n}", missing);
+        gone.removeAttribute("hidden");
+      } else { gone.setAttribute("hidden",""); }
+      // Foto asli: pola sama dengan renderRecipes(), lazy per kartu.
+      if(window.RecipePhotos && (RecipePhotos.applyThumbLazy || RecipePhotos.applyThumb)){
+        var _apply = RecipePhotos.applyThumbLazy || RecipePhotos.applyThumb;
+        found.forEach(function(it){
+          if(it.rec && !it.photo){ _apply(document.getElementById("th_"+it.key), it.rec); }
+        });
+      }
     }
     function titleOf(it){ return it.source==="20fit" ? LL(it.nm) : (it.title||""); }
     function ingOf(it){ return it.source==="20fit" ? LL(it.ingO) : (it.ing||""); }
@@ -786,6 +860,9 @@
         var r=await fetch("/api/menu/"+encodeURIComponent(midOf(it))+"/react",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok},body:JSON.stringify({source:srcOf(it)})});
         var j=await r.json(); if(r.ok){ el._st.reacted=j.reacted; el._st.cnt=j.count; drawRecSocial(el,it,el._st); }
       }catch(e){}
+      // drawRecSocial() menggambar ulang tombolnya; kalau request gagal tombol lama masih
+      // ada dan harus dihidupkan lagi, bukan ditinggal mati.
+      finally{ if(btn.isConnected) btn.disabled=false; }
     }
     async function toggleSave(btn){
       var el=document.getElementById("recSocial"), it=el&&el._it; if(!it) return;
@@ -793,8 +870,20 @@
       btn.disabled=true;
       try{
         var r=await fetch("/api/menu/"+encodeURIComponent(midOf(it))+"/save",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+tok},body:JSON.stringify({source:srcOf(it)})});
-        var j=await r.json(); if(r.ok){ el._st.saved=j.saved; drawRecSocial(el,it,el._st); }
+        var j=await r.json();
+        if(r.ok){
+          el._st.saved=j.saved; drawRecSocial(el,it,el._st);
+          // Seksi "Resep tersimpan" ikut berubah saat itu juga — tanpa memuat ulang halaman
+          // dan tanpa memanggil /api/menu/saved lagi.
+          if(SAVED){
+            var k=savedKeyOf(it), i=SAVED.indexOf(k);
+            if(j.saved && i<0) SAVED.unshift(k);
+            if(!j.saved && i>=0) SAVED.splice(i,1);
+            renderSaved();
+          }
+        }
       }catch(e){}
+      finally{ if(btn.isConnected) btn.disabled=false; }
     }
 
     // ============ CONSENT kirim resep ============

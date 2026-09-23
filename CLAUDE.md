@@ -3,7 +3,7 @@
 Aturan tetap di bawah ini WAJIB diikuti setiap sesi. Ditulis dari instruksi
 pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 
-> **Pembaruan dokumen terakhir:** 2026-09-19 · **Commit staging:** `2b30541` · **Production:** `7740dbf`
+> **Pembaruan dokumen terakhir:** 2026-09-21 · **Commit staging:** `2b30541` · **Production:** `7740dbf`
 > (Hash di atas = kondisi SEBELUM rilis yang membawa baris ini; merge commit rilisnya sendiri
 > otomatis lebih baru. Jangan kejar selisih satu merge commit itu.)
 > Claude Code memuat file ini otomatis di awal sesi. Baca ini dulu, lalu buka
@@ -21,10 +21,15 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 - **`docs/STATUS.md`** — status fitur terkini, utang teknis, keputusan (paling sering berubah; **baca ini untuk tahu kondisi sekarang**).
 - **`docs/DATABASE.md`** — tabel `my20fit_*`, migration, cara jalan DB.
 - **`docs/CODEBASE-MAP.md`** — peta arsitektur/route/API detail (⚠️ **sebagian STALE** — lihat `docs/STATUS.md` §4; verifikasi ke kode).
+- **`docs/VISBODY-SETUP.md`** — daftar kerja pemilik untuk menyambungkan timbangan Visbody S20 (kredensial yang diminta ke Visbody, variabel Railway, URL yang didaftarkan, cara uji tanpa/dengan timbangan).
 - **`docs/TICKET-API-REQUEST.md`** — permintaan teknis ke tim ticket.20fit.id (webhook pembelian / baca pesanan per email) + peta endpoint embed API hasil pengukuran.
 - **`docs/GIT_WORKFLOW.md`**, **`docs/GITHUB_SECRETS.md`** — alur git & penanganan secret.
 - **`docs/GOOGLE_LOGIN_SETUP.md`** — panduan klik-per-klik untuk pemilik: setup OAuth Google
   (Google Cloud + Supabase + Railway). Web pakai Supabase OAuth, bukan GIS.
+- **`docs/PRODUCTS-MENU-SSO.md`** — spec "Products menu + SSO" lintas produk 20FIT (sumber
+  kebenaran untuk tim produk lain memasang menu seragam). Ada **catatan editor** yang
+  memetakan spec ke kondisi my.20fit: menu = `js/universal-nav.js` (vanilla, bukan React),
+  SSO = `Auth.ssoTo()` (belum edge-function `sso-generate`/`sso-consume`).
 - Email: `docs/EMAIL-*.md`, `docs/RESEND-SETUP-AUDIT.md`, `docs/EMAIL-LOGIC-SPEC.md`.
 - Bagian **Tech stack, Struktur repo, Route, Env, Cara menjalankan, Konvensi, Jangan
   dilakukan, Langkah berikutnya** ada di bawah aturan kerja file ini.
@@ -162,9 +167,9 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 
 ## C. Route / halaman (ringkas; detail & API di `docs/CODEBASE-MAP.md`)
 **Publik/auth:** `/` (→`/login`), `/login`, `/code-login`, `/verify`, `/reset-password`, `/setpassword`, `/onboarding`, `/unsubscribe`, `/privacy`.
-**Member (perlu login):** `/dashboard` (home 6-tile), `/calories`, `/progress`, `/profile`, `/medical`, `/recipe` (**Recipe in-app**: browse resep + detail + kontribusi; katalog & artikel dibaca dari `/api/menu/*`, `/diet` redirect 301 ke sini), `/classes` (Book Class, toggle Arena/Gym; `?venue=clinic`=Book Recovery), `/membership` (carousel — **data belum tersambung**), `/event` (**Ticket Wallet**: tab "Tiket Saya" + "Upcoming"; widget bersama `js/ticket-wallet.js`, dipakai juga di `/dashboard`), `/payment/pending|success|failed`.
+**Member (perlu login):** `/dashboard` (home 6-tile), `/activity` (**Activity**: upload/isi workout, zona HR, rencana harian AI, nutrisi, kebiasaan, ringkasan minggu — data dari `/api/activity/*`), `/calories`, `/progress` (**redirect 302 ke `/activity`**; halaman lama masih bisa dibuka via `/progress?legacy=1`), `/profile`, `/medical`, `/recipe` (**Recipe in-app**: browse resep + detail + kontribusi; katalog & artikel dibaca dari `/api/menu/*`, `/diet` redirect 301 ke sini), `/classes` (Book Class, toggle Arena/Gym; `?venue=clinic`=Book Recovery), `/membership` (carousel — **data belum tersambung**), `/event` (**Ticket Wallet**: tab "Tiket Saya" + "Upcoming"; widget bersama `js/ticket-wallet.js`, dipakai juga di `/dashboard`), `/payment/pending|success|failed`.
 **Admin:** `/admin`(→`/admin-dashboard`), `/admin-dashboard` (lama), `/admin-v2` (redesign; staging default), `/admin-email`, `/corp-dashboard`.
-**API:** `/api/*` (~123 route) — user (`/api/scan/*`, `/api/menu/catalog` (daftar resep), `/api/menu/recommend` (rekomendasi per sisa makro), `/api/menu/published`, `/api/classes/schedule`, `/api/arena/history`, `/api/membership/packages`, `/api/coaches`, `/api/doctors`, `/api/physiotherapists`, `/api/photo/*`, `/api/weather`, `/api/aqi`, dll), admin (`/api/admin/*` ~53, semua lewat `requireAdmin`), corporate (`/api/corp/*`), cron (`/api/cron/*`, dilindungi `CRON_SECRET`), webhook (`/api/webhooks/resend`).
+**API:** `/api/*` (~123 route) — user (`/api/scan/*`, `/api/menu/catalog` (daftar resep), `/api/menu/recommend` (rekomendasi per sisa makro), `/api/menu/published`, `/api/classes/schedule`, `/api/arena/history`, `/api/membership/packages`, `/api/coaches`, `/api/doctors`, `/api/physiotherapists`, `/api/activity/*` (day/workout/upload/**scan**/plan/goal — `scan` membaca screenshot health tracker lewat OpenRouter, bisa sampai 5 gambar untuk SATU sesi), `/api/photo/*`, `/api/weather`, `/api/aqi`, dll), admin (`/api/admin/*` ~53, semua lewat `requireAdmin`), corporate (`/api/corp/*`), cron (`/api/cron/*`, dilindungi `CRON_SECRET`), webhook (`/api/webhooks/resend`).
 Tile **News** = eksternal `media.20fit.id` (same-tab, tanpa halaman).
 
 ## D. Auth & peran (ringkas)

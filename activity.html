@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Activity · 20FIT</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* Token khusus halaman Activity (dari spesifikasi pemilik). Gelap = default;
+     mode terang dipetakan ulang di blok html.theme-light supaya tetap terbaca —
+     halaman lain memakai kelas theme-light yang sama (CLAUDE.md §G). */
+  /* Token halaman ini MENUMPANG token repo (css/20fit-design-system.css + glass-app.css)
+     supaya warnanya sama dengan halaman lain dan ikut dark/light app. Nilai setelah koma
+     = cadangan kalau stylesheet gagal dimuat, jadi halaman tetap terbaca. --accent/--green/
+     --amber/--red SENGAJA memakai palet repo, bukan palet sendiri. */
+  :root{
+    --a-bg:var(--bg,#F1F1F4);
+    --a-surface:var(--card,#FFFFFF);
+    --a-line:var(--glass-hair,var(--line,#EBEBEF));
+    --a-txt:var(--txt,#15171C);
+    --a-mut:var(--muted,#8A8D94);
+    --accent:var(--blue,#2F6BFF);
+    --purple:#A855F7;
+    --strava:#FC4C02; --cyan:#22D3EE; --zone3:#EAB308; --zone4:#F97316;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--a-bg);color:var(--a-txt);font-family:var(--sans);padding:20px 16px 100px;-webkit-font-smoothing:antialiased}
+  /* Lebar: dulu 640px rata-tengah, jadi kolom sempit dengan ruang kosong lebar di kiri-kanan
+     (sidebar desktop 238px membuatnya makin terdorong). Sekarang lebih lebar, dan di layar
+     besar isinya dibagi dua kolom supaya ruang terpakai, bukan sekadar memanjang ke bawah. */
+  .wrap{max-width:1120px;margin:0 auto}
+  @media(min-width:1040px){
+    body{padding-left:26px;padding-right:26px}
+    /* Bagian harian: dua kolom eksplisit. minmax(0,1fr) supaya isi panjang tidak memaksa melebar. */
+    .dgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+    .dgrid>*{min-width:0}
+    /* Bagian lama: isinya dirender kode warisan (tak bisa dibungkus grid per-kartu),
+       jadi pakai multi-kolom + larangan patah di tengah kartu. */
+    #lgcContent{columns:2;column-gap:16px}
+    #lgcContent>*{break-inside:avoid;-webkit-column-break-inside:avoid}
+    #lgcContent .sec,#lgcContent .psec,#lgcContent .psec-row,#lgcContent .psub{break-after:avoid}
+  }
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .card{background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius,16px);padding:16px}
+  .card+.card{margin-top:12px}
+  .muted{color:var(--a-mut)}
+
+  /* 1. Header */
+  .ahead{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .ahead h1{font-size:22px;font-weight:800;margin:0;letter-spacing:-.3px}
+  .ahead .date{font-size:13px;color:var(--a-mut);margin-top:2px}
+  .ahead .av{margin-left:auto;width:38px;height:38px;border-radius:99px;background:var(--a-surface);border:1px solid var(--a-line);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;overflow:hidden;flex:none}
+  .ahead .av img{width:100%;height:100%;object-fit:cover}
+
+  /* 2. Date navigator */
+  .dnav{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;margin-bottom:12px;scrollbar-width:none}
+  .dnav::-webkit-scrollbar{display:none}
+  .dpill{flex:none;min-width:52px;padding:8px 6px;border-radius:var(--radius-sm,12px);border:1px solid var(--glass-hair,var(--a-line));
+    background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));box-shadow:var(--glass-sh,none);
+    text-align:center;cursor:pointer;font-family:inherit;color:var(--a-txt)}
+  .dpill .dw{font-size:10.5px;color:var(--a-mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+  .dpill .dd{font-size:15px;font-weight:800;margin-top:2px;font-family:var(--mono)}
+  .dpill.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .dpill.on .dw{color:rgba(255,255,255,.85)}
+  .dpill:disabled{opacity:.35;cursor:default}
+
+  /* 3. Upload */
+  .drop{border:1.5px dashed var(--glass-brd,var(--a-line));border-radius:var(--radius,14px);padding:26px 16px;
+    text-align:center;cursor:pointer;background:var(--glass-2,transparent)}
+  .drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+  /* Sorotan sesaat saat pemandu "Tambahkan workout dulu" melempar ke sini. */
+  .drop.hl{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 22%,transparent)}
+  .needl{margin:10px 0 14px;padding-left:20px;font-size:13px;line-height:1.7;color:var(--a-mut)}
+  .drop svg{width:26px;height:26px;stroke:var(--a-mut);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .drop .t{font-weight:700;font-size:14.5px;margin-top:8px}
+  .drop .s{font-size:12.5px;color:var(--a-mut);margin-top:3px}
+  .trk{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .trk button{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:10px;border:1px solid var(--glass-hair,var(--a-line));
+    background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));box-shadow:var(--glass-sh,none);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+  .trk button i{width:8px;height:8px;border-radius:99px;display:inline-block;flex:none}
+  .orsep{text-align:center;font-size:11.5px;color:var(--a-mut);margin:14px 0 0}
+
+  /* 4. Workout card */
+  .wo-h{display:flex;align-items:center;gap:11px}
+  .wo-ic{width:40px;height:40px;border-radius:11px;background:color-mix(in srgb,var(--strava) 16%,transparent);
+    display:flex;align-items:center;justify-content:center;font-size:19px;flex:none}
+  .wo-t{font-weight:700;font-size:15px;line-height:1.25}
+  .wo-s{font-size:12px;color:var(--a-mut);margin-top:2px}
+  .wo-x{margin-left:auto;background:none;border:0;color:var(--a-mut);font-size:17px;cursor:pointer;padding:2px 4px;font-family:inherit}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+  .stats>div{text-align:center;padding:9px 4px;border-radius:9px;background:color-mix(in srgb,var(--a-txt) 5%,transparent)}
+  .stats .k{font-size:10px;color:var(--a-mut);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+  .stats .v{font-size:15px;font-weight:800;font-family:var(--mono);margin-top:3px}
+  .hrz{margin-top:15px}
+  .hrz-h{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--a-mut);font-weight:800;margin-bottom:9px}
+  .hrz-r{display:flex;align-items:center;gap:9px;margin:6px 0}
+  .hrz-r .z{font-size:11px;font-weight:800;width:20px;color:var(--a-mut);font-family:var(--mono)}
+  .hrz-r .bar{flex:1;height:8px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden}
+  .hrz-r .bar i{display:block;height:100%;border-radius:99px}
+  .hrz-r .d{font-size:11.5px;font-family:var(--mono);color:var(--a-mut);width:46px;text-align:right}
+
+  /* 5. AI analysis */
+  /* Skin kaca menyetel .card{background:...!important}, jadi gradient biasa akan kalah.
+     Pola tint ini menyalin cara repo melakukannya untuk .card.up — semburat di ATAS kaca. */
+  .card.ai{background:color-mix(in srgb,var(--accent) 7%,var(--glass,var(--a-surface))) !important}
+  .ai-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .ai-h svg{width:17px;height:17px;fill:var(--accent)}
+  .ai-h .t{font-weight:800;font-size:14px}
+  .ai-h .b{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:.5px;padding:3px 8px;border-radius:99px;
+    background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+  .ai p{margin:0;font-size:13.5px;line-height:1.65}
+  .hl{display:inline;padding:1px 7px;border-radius:99px;font-weight:700;font-size:12.5px;white-space:nowrap}
+  .hl.good{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
+  .hl.warning{background:color-mix(in srgb,var(--amber) 18%,transparent);color:var(--amber)}
+  .hl.critical{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
+
+  /* 6. Score + gaps */
+  .sg{display:grid;grid-template-columns:118px 1fr;gap:14px;align-items:center}
+  .ringw{position:relative;width:118px;height:118px}
+  .ringw svg{transform:rotate(-90deg)}
+  .ringw .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ringw .n b{font-size:29px;font-family:var(--mono);font-weight:700;line-height:1}
+  .ringw .n s{font-size:10px;color:var(--a-mut);text-decoration:none;letter-spacing:.6px;text-transform:uppercase;margin-top:3px;font-weight:700}
+  .gaps{display:flex;flex-direction:column;gap:7px}
+  .gap{display:flex;align-items:center;gap:8px;font-size:12.5px}
+  .gap i{width:7px;height:7px;border-radius:99px;flex:none}
+  .gap .v{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--a-mut)}
+
+  /* 7. Goals */
+  .gh{display:flex;align-items:center;gap:8px;margin:-16px -16px 12px;padding:14px 16px;border-radius:13px 13px 0 0;
+    background:linear-gradient(100deg,color-mix(in srgb,var(--accent) 14%,transparent),color-mix(in srgb,var(--purple) 14%,transparent))}
+  .gh svg{width:16px;height:16px;fill:var(--accent)}
+  .gh .t{font-weight:800;font-size:13.5px}
+  .gh .c{margin-left:auto;font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--a-mut)}
+  .goal{display:flex;gap:11px;padding:10px 0;border-top:1px solid var(--a-line);cursor:pointer}
+  .goal:first-of-type{border-top:0}
+  .cb{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--a-line);flex:none;margin-top:1px;
+    display:flex;align-items:center;justify-content:center}
+  .cb svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+  .goal.done .cb{background:var(--green);border-color:var(--green)}
+  .goal.done .cb svg{opacity:1}
+  .goal.done .gt{text-decoration:line-through;color:var(--a-mut)}
+  .gt{font-size:13.5px;font-weight:600;line-height:1.35}
+  .gd{font-size:12px;color:var(--a-mut);margin-top:2px;line-height:1.45}
+  .gtime{font-size:11px;font-family:var(--mono);color:var(--a-mut);margin-top:3px}
+  .cat{font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;flex:none;align-self:flex-start;margin-left:auto;white-space:nowrap}
+  .cat.exercise{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+  .cat.nutrition{background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green)}
+  .cat.habit{background:color-mix(in srgb,var(--purple) 16%,transparent);color:var(--purple)}
+  .cat.recovery{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber)}
+
+  /* 9. Habits */
+  .chips{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  /* Layar lebar: chip kebiasaan cukup dibungkus, tak perlu digeser ke samping —
+     dengan overflow-x:auto chip terakhir tampak terpotong di tepi kolom.
+     HARUS di bawah aturan .chips di atas: spesifisitasnya sama, jadi urutan yang menentukan. */
+  @media(min-width:1040px){ .chips{flex-wrap:wrap;overflow-x:visible} }
+  .chip{flex:none;min-width:96px;border:1px solid var(--glass-hair,var(--a-line));border-radius:var(--radius-sm,12px);
+    padding:11px 12px;text-align:center;background:linear-gradient(155deg,var(--glass,transparent),var(--glass-2,transparent));
+    box-shadow:var(--glass-sh,none)}
+  .chip .e{font-size:21px;line-height:1}
+  .chip .n{font-size:11.5px;font-weight:700;margin-top:5px}
+  .chip .s{font-size:11px;color:var(--a-mut);margin-top:2px;font-family:var(--mono)}
+  .chip.warn{border-color:color-mix(in srgb,var(--amber) 45%,transparent)}
+  .chip.warn .s{color:var(--amber)}
+
+  /* 10. Weekly */
+  .wk{display:flex;gap:18px;margin-bottom:14px}
+  .wk .b{font-size:23px;font-weight:800;font-family:var(--mono);line-height:1}
+  .wk .l{font-size:11px;color:var(--a-mut);margin-top:3px}
+  .bars{display:flex;gap:6px;align-items:flex-end;height:58px}
+  .bars .c{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+  .bars .bar{width:100%;border-radius:5px 5px 0 0;min-height:3px;background:color-mix(in srgb,var(--green) 70%,transparent)}
+  .bars .bar.empty{background:transparent;border:1px dashed var(--a-line);min-height:14px}
+  .bars .bar.today{background:var(--accent)}
+  .bars .lb{font-size:9.5px;color:var(--a-mut);text-transform:uppercase;font-weight:700}
+
+  .sechd{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--a-mut);font-weight:800;margin:20px 2px 8px}
+  .btn{width:100%;padding:12px;border:0;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit}
+  .btn.ghost{background:transparent;border:1px solid var(--a-line);color:var(--a-txt)}
+  /* Catatan hasil bacaan AI di dialog workout. */
+  .dlgnote{border-radius:var(--radius-sm,10px);padding:10px 12px;font-size:12.5px;line-height:1.5;margin:10px 0 2px}
+  .dlgnote.ok{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--a-txt)}
+  .dlgnote.warn{background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--a-txt)}
+  .dlgnote .dlgsub{color:var(--a-mut);font-size:11.5px;margin-top:4px}
+  .btn:disabled{opacity:.55;cursor:default}
+  .err{color:var(--red);font-size:12.5px}
+  .skel{background:color-mix(in srgb,var(--a-txt) 7%,transparent);border-radius:8px;animation:pul 1.3s ease-in-out infinite}
+  @keyframes pul{0%,100%{opacity:1}50%{opacity:.45}}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  dialog{border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);border-radius:14px;padding:18px;max-width:380px;width:92%;font-family:var(--sans)}
+  dialog label{display:block;font-size:12px;font-weight:700;color:var(--a-mut);margin:10px 0 4px}
+  dialog input,dialog select{width:100%;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px}
+
+  /* ---- Gaya halaman Activity LAMA, di-scope ke .lgc ----
+     Token lamanya dipetakan ke palet baru di aturan .lgc pertama, jadi isinya ikut
+     tampilan baru tanpa menulis ulang 115 baris CSS satu per satu. Catatan penting:
+     --red di halaman lama berarti AKSEN MEREK (bukan "bahaya"), makanya dipetakan ke
+     --accent — kalau dipetakan ke --red halaman ini, semua sorotan jadi merah error. */
+
+  .lgc{--red:var(--accent);--bg:transparent;--card:var(--a-surface);--line:var(--a-line);--txt:var(--a-txt);--muted:var(--a-mut);--inp:color-mix(in srgb,var(--a-txt) 8%,transparent);--dark:var(--a-surface);--pagetx:var(--a-txt);--pagemut:var(--a-mut)}
+  .lgc *{box-sizing:border-box}
+  .lgc a{text-decoration:none}
+  .lgc{color:var(--pagetx);font-family:var(--sans)}
+  .lgc .wrap{max-width:none;margin:0;padding:0}
+  .lgc .top{background:var(--dark);border-radius:0 0 18px 18px;padding:16px 18px;display:flex;align-items:center;justify-content:center;margin:0 -16px 4px}
+  .lgc .top img{height:38px}
+  .lgc .hk{color:var(--red);font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:16px 2px 0}
+  .lgc .hello{font-size:28px;font-weight:900;margin:2px 2px 6px;text-transform:uppercase;letter-spacing:-.5px}
+  .lgc .sec{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--pagemut);font-weight:700;margin:22px 2px 8px}
+  /* Header & kartu bagian ATAS warisan (Body status, What to watch).
+     TERTINGGAL saat penyalinan pertama ke berkas ini — 29 kelas tanpa aturan sama
+     sekali, sehingga judul & subjudulnya tampil sebagai teks polos tak berbentuk.
+     Disalin dari progress.html; token lamanya sudah dipetakan di aturan .lgc di atas. */
+  .lgc .psec{font-size:19px;font-weight:900;letter-spacing:-.02em;margin:26px 2px 4px}
+  .lgc .psub{font-size:13px;color:var(--muted);font-weight:600;margin:0 2px 12px}
+  .lgc .psec-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .lgc .plink{color:var(--red);font-weight:800;font-size:13.5px;text-decoration:none;flex:0 0 auto}
+  .lgc .pdivide{border:0;border-top:1px solid var(--line);margin:30px 0 4px}
+  .lgc .bmiwrap{display:flex;align-items:center;gap:18px}
+  .lgc .bmibig{font-size:44px;font-weight:900;line-height:.95;letter-spacing:-.02em;font-family:'JetBrains Mono',monospace}
+  .lgc .bmicat{font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-top:4px}
+  .lgc .bmigauge{position:relative;height:8px;border-radius:99px;background:linear-gradient(90deg,#2F6BFF,#2A7A4F,#C87000,#C41101);margin:6px 0 4px}
+  .lgc .bmigauge i{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:#fff;border:3px solid var(--txt);transform:translate(-50%,-50%)}
+  .lgc .bmiscale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-weight:700;font-family:'JetBrains Mono',monospace}
+  .lgc .w2row{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--line)}
+  .lgc .w2row:first-child{border-top:0}
+  .lgc .w2dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+  .lgc .w2tx{flex:1;min-width:0;font-size:14px;font-weight:650}
+  .lgc .pbadge{font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:4px 9px;border-radius:8px;flex:0 0 auto}
+  .lgc .soonbox{border:1px dashed var(--line);border-radius:14px;padding:18px;text-align:center;color:var(--muted);font-size:13.5px;line-height:1.5}
+  .lgc .soonpill{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff;background:var(--muted);padding:3px 9px;border-radius:99px;margin-bottom:8px}
+  .lgc .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 2px 10px rgba(10,9,8,.04);color:var(--txt)}
+  .lgc .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .lgc .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+  .lgc .stat .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+  .lgc .stat .v{font-size:26px;font-weight:900;margin-top:6px;font-family:'JetBrains Mono',monospace}
+  .lgc .stat .v small{font-size:12px;color:var(--muted);font-weight:600;font-family:inherit}
+  .lgc .muted{color:var(--muted);font-size:13px}
+  /* streak */
+  .lgc .streak{display:flex;align-items:center;gap:16px}
+  .lgc .streak .fire{font-size:40px;line-height:1}
+  .lgc .streak .big{font-size:34px;font-weight:900;font-family:'JetBrains Mono',monospace;line-height:1}
+  .lgc .cbar{height:9px;background:var(--inp);border-radius:6px;overflow:hidden;margin-top:8px}
+  .lgc .cbar i{display:block;height:100%;background:linear-gradient(90deg,#ff7a45,#C41101);border-radius:6px}
+  /* bar chart */
+  .lgc .chrow{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .lgc .chrow .lbl{width:34px;font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;flex:0 0 auto;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px}
+  .lgc .chtrack{flex:1;height:20px;background:var(--inp);border-radius:6px;overflow:hidden;min-width:0}
+  .lgc .chtrack i{display:block;height:100%;border-radius:6px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+  .lgc .chrow .val{width:64px;text-align:right;font-size:12px;font-weight:700;flex:0 0 auto;font-family:'JetBrains Mono',monospace}
+  .lgc .chgoal{font-size:11px;color:var(--muted);margin-top:2px}
+  /* weight */
+  .lgc .wlog{display:flex;gap:8px;margin-top:12px}
+  .lgc .wlog input{flex:1;min-width:0;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--inp);color:var(--txt);font-size:15px;font-family:inherit;text-align:center}
+  .lgc .wlog button{flex:0 0 auto;background:var(--red);color:#fff;border:0;border-radius:10px;padding:0 18px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit}
+  .lgc .cycrec{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  @media(max-width:480px){ .lgc .cycrec{grid-template-columns:1fr} }
+  .lgc .cyccol{background:var(--inp);border-radius:12px;padding:10px 12px}
+  .lgc .cyclbl{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px}
+  .lgc .cyccol ul{margin:0;padding-left:16px}
+  .lgc .cyccol li{font-size:12.5px;line-height:1.5;margin-bottom:4px}
+  .lgc .bkrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+  .lgc .bkrow:first-of-type{border-top:0}
+  .lgc .bkdate{flex:0 0 auto;width:46px;text-align:center;background:var(--red);color:#fff;border-radius:10px;padding:6px 0}
+  .lgc .bkdate .bkd{font-size:18px;font-weight:900;line-height:1}
+  .lgc .bkdate .bkm{font-size:10px;font-weight:700;text-transform:uppercase}
+  .lgc .bkinfo{min-width:0}.lgc .bkinfo .bkt{font-weight:800;font-size:14px}
+  .lgc .wrow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .lgc .wrow:last-child{border-bottom:0}
+  .lgc .wrow .kg{font-weight:800;font-family:'JetBrains Mono',monospace}
+  .lgc .delta{font-size:12px;font-weight:800;padding:2px 8px;border-radius:20px}
+  /* achievements */
+  .lgc .achg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .lgc .ach{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--inp)}
+  .lgc .ach.on{background:rgba(42,122,79,.10);border-color:rgba(42,122,79,.35)}
+  .lgc .ach.off{opacity:.5}
+  .lgc .ach .em{font-size:22px;flex:0 0 auto}
+  .lgc .ach .t{font-size:12px;font-weight:800;line-height:1.25}
+  .lgc .ach .s{font-size:10px;color:var(--muted)}
+  .lgc .empty{color:var(--muted);text-align:center;padding:22px 8px;font-size:14px}
+  .lgc .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
+  .lgc .ach .em .emi{width:22px;height:22px}
+  .lgc .fire .emi{width:28px;height:28px}
+  @media(min-width:900px){ .lgc .main2{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:start} }
+  @media(max-width:560px){ .lgc .wrap{padding:16px 12px} .lgc .card{padding:14px} .lgc .achg{grid-template-columns:1fr} .lgc .hello{font-size:24px} }
+
+</style>
+<!-- Dimuat SESUDAH <style> halaman, sama seperti dashboard/calories/recipe: skin kaca
+     memakai !important untuk .card sehingga kartu di sini otomatis ikut liquid-glass
+     yang sama dengan seluruh app. activity.html tadinya satu-satunya halaman yang
+     tidak memuat keduanya — itu sebabnya tampilannya beda sendiri. -->
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/glass-app.css">
+<script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 1. HEADER -->
+  <div class="ahead">
+    <div>
+      <h1 data-i18n="act_title">Activity</h1>
+      <div class="date" id="hdDate">—</div>
+    </div>
+    <div class="av" id="hdAv">·</div>
+  </div>
+
+  <!-- 2. DATE NAVIGATOR -->
+  <div class="dnav" id="dnav"></div>
+
+  <div id="errBox"></div>
+
+  <div class="dgrid">
+  <div>
+  <!-- 3. UPLOAD -->
+  <div class="card">
+    <div class="drop" id="drop" tabindex="0" role="button">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div class="t" data-i18n="act_up_t">Upload hasil workout</div>
+      <div class="s" data-i18n="act_up_s">Screenshot, foto, atau file dari tracker kamu — bisa 5 sekaligus</div>
+    </div>
+    <input type="file" id="file" accept="image/*,.heic,.heif" multiple style="display:none">
+    <div class="orsep" data-i18n="act_up_or">atau hubungkan langsung</div>
+    <div class="trk" id="trk"></div>
+  </div>
+
+  <!-- 4. WORKOUT -->
+  <div class="sechd" data-i18n="act_sec_workout">Workout</div>
+  <div id="woBox"></div>
+
+  <div class="sechd" data-i18n="act_sec_week">Ringkasan minggu ini</div>
+  <div class="card" id="weekBox"></div>
+
+  <div class="sechd" data-i18n="act_sec_habit">Kebiasaan harian</div>
+  <div class="chips" id="habitBox"></div>
+
+  </div>
+  <div>
+
+  <!-- 5. AI ANALYSIS + 6. SCORE -->
+  <div class="sechd" data-i18n="act_sec_ai">AI Coach</div>
+  <div id="aiBox"></div>
+
+  <!-- 7. GOALS -->
+  <div id="goalBox"></div>
+
+  <!-- Kartu "Nutrisi 2x2" SENGAJA TIDAK ADA di sini: kartu "Overall - Hari Ini" milik
+       halaman lama (di bawah) sudah menampilkan Kalori/Protein/Karbo/Lemak/Air/Tidur
+       vs target, dihitung dari BMI + berat + tujuan di profil. Menaruh keduanya =
+       angka yang sama muncul dua kali dengan dua target berbeda. -->
+
+  <!-- 9. HABITS -->
+  </div>
+  </div><!-- /dgrid -->
+
+  <!-- 10. WEEKLY -->
+  <!-- Isi halaman Activity LAMA (dulu /progress), MENYATU di alur yang sama —
+       bukan tab terpisah. Ditaruh setelah bagian harian karena isinya cakupan
+       mingguan/jangka panjang: status tubuh, konsistensi, berat, pencapaian, riwayat. -->
+  <div class="lgc" id="vProg">
+    <div class="hk" id="lgcHk">Your journey</div>
+    <!-- Halaman lama menulis judulnya ke elemen ini. Header baru SUDAH memuat "Activity",
+         jadi node-nya disembunyikan — kode warisan tetap utuh, judulnya tidak dobel. -->
+    <div class="hello" id="lgcHello" hidden></div>
+    <div id="lgcContent"><div class="card"><div class="muted" id="loading">Loading…</div></div></div>
+  </div>
+
+</div>
+<div class="lgc"><div class="toast" id="lgcToast" style="position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--a-surface);border:1px solid var(--a-line);color:var(--a-txt);padding:12px 18px;border-radius:12px;font-weight:700;font-size:14px;opacity:0;transition:all .4s;z-index:9;pointer-events:none"></div></div>
+
+<dialog id="woDlg">
+  <div style="font-weight:800;font-size:15px" data-i18n="act_dlg_t">Detail workout</div>
+  <div class="muted" style="font-size:12px;margin-top:3px" data-i18n="act_dlg_s">Isi yang kamu tahu saja. Yang kosong tidak akan ditebak.</div>
+  <div id="dlgAi"></div>
+  <label data-i18n="act_f_title">Nama workout</label><input id="fTitle" placeholder="Morning Run">
+  <label data-i18n="act_f_type">Jenis</label>
+  <select id="fType">
+    <option value="run">Run</option><option value="cycling">Cycling</option><option value="gym">Gym</option>
+    <option value="hyrox">Hyrox</option><option value="swimming">Swimming</option><option value="other">Lainnya</option>
+  </select>
+  <label data-i18n="act_f_dur">Durasi (menit) *</label><input id="fDur" type="number" min="1" inputmode="numeric" placeholder="45">
+  <label data-i18n="act_f_dist">Jarak (km)</label><input id="fDist" type="number" step="0.01" inputmode="decimal" placeholder="5.2">
+  <label data-i18n="act_f_kcal">Kalori terbakar</label><input id="fKcal" type="number" inputmode="numeric" placeholder="380">
+  <label data-i18n="act_f_hr">Rata-rata BPM</label><input id="fHr" type="number" inputmode="numeric" placeholder="142">
+  <div id="dlgErr" class="err" style="margin-top:10px"></div>
+  <div style="display:flex;gap:8px;margin-top:14px">
+    <button class="btn ghost" id="dlgCancel" type="button" data-i18n="act_cancel">Batal</button>
+    <button class="btn" id="dlgSave" type="button" data-i18n="act_save">Simpan</button>
+  </div>
+</dialog>
+
+<script src="js/vendor-supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/goal-quiz.js"></script>
+<script src="js/body-scan.js"></script>
+<script src="js/nav.js"></script>
+<!-- Dipakai tampilan Progres (halaman Activity lama): pencapaian, siklus, puasa, gizi. -->
+<script src="js/achievements.js"></script>
+<script src="js/cycle.js"></script>
+<script src="js/fasting.js"></script>
+<script src="js/nutrition.js"></script>
+<script>
+  // ---- Halaman Activity ----
+  // Data: /api/activity/day (workout + harian + rencana + 7 hari) — satu panggilan.
+  // Catatan jujur yang dipakai sepanjang file: kalau angkanya TIDAK ADA, tampilkan
+  // "—" atau "belum diisi". JANGAN pernah mengarang nilai supaya grafik terlihat penuh.
+  var user=null, DAY=null, SEL=todayStr(), BUSY=false;
+
+  function T(k){ return (window.I18N&&I18N.t)?I18N.t(k):k; }
+  function Lx(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+  function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function dObj(s){ return new Date(s+"T00:00:00"); }
+  function isToday(s){ return s===todayStr(); }
+
+  async function apiFetch(path,opts){
+    opts=opts||{}; opts.headers=Object.assign({"Content-Type":"application/json"},opts.headers||{});
+    var tk=await Auth.token(); if(tk) opts.headers.Authorization="Bearer "+tk;
+    return fetch(path,opts);
+  }
+  function showErr(msg,retry){
+    document.getElementById("errBox").innerHTML =
+      '<div class="card" style="border-color:var(--red)"><div class="err">'+esc(msg)+'</div>'+
+      (retry?'<button class="btn ghost" id="retryBtn" style="margin-top:10px">'+esc(T("act_retry"))+'</button>':'')+'</div>';
+    var r=document.getElementById("retryBtn"); if(r) r.onclick=function(){ load(SEL); };
+  }
+  function clearErr(){ document.getElementById("errBox").innerHTML=""; }
+
+  // ---- 1. Header ----
+  function renderHead(){
+    var d=dObj(SEL);
+    var opt={weekday:"long",day:"numeric",month:"long",year:"numeric"};
+    document.getElementById("hdDate").textContent=d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",opt);
+    var av=document.getElementById("hdAv");
+    if(user&&user.avatar_url){ av.innerHTML='<img src="'+esc(user.avatar_url)+'" alt="">'; }
+    else { av.textContent=((user&&(user.full_name||user.email)||"2").trim()[0]||"2").toUpperCase(); }
+  }
+
+  // ---- 2. Date navigator (7 hari terakhir; hari depan dimatikan) ----
+  function renderDnav(){
+    var host=document.getElementById("dnav"), out="", t=new Date();
+    for(var i=6;i>=0;i--){
+      var d=new Date(t); d.setDate(d.getDate()-i);
+      var s=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      var wd=d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"short"});
+      out+='<button class="dpill'+(s===SEL?" on":"")+'" data-d="'+s+'"><div class="dw">'+esc(wd)+'</div><div class="dd">'+d.getDate()+'</div></button>';
+    }
+    host.innerHTML=out;
+    Array.prototype.forEach.call(host.querySelectorAll(".dpill"),function(b){
+      b.onclick=function(){ if(BUSY) return; SEL=b.getAttribute("data-d"); renderDnav(); renderHead(); load(SEL); };
+    });
+  }
+
+  // ---- 3. Upload ----
+  var TRACKERS=[
+    {k:"strava",n:"Strava",c:"var(--strava)",live:false},
+    {k:"garmin",n:"Garmin",c:"var(--cyan)",live:false},
+    {k:"apple_health",n:"Apple Health",c:"#9CA3AF",live:false},
+    {k:"google_fit",n:"Google Fit",c:"#4285F4",live:false}
+  ];
+  function renderTrk(){
+    document.getElementById("trk").innerHTML=TRACKERS.map(function(t){
+      return '<button type="button" data-k="'+t.k+'"><i style="background:'+t.c+'"></i>'+esc(t.n)+'</button>';
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll("#trk button"),function(b){
+      b.onclick=function(){
+        // Belum ada satu pun tracker yang tersambung. Katakan apa adanya — jangan
+        // pura-pura menyambung lalu diam-diam gagal.
+        alert(T("act_trk_soon"));
+      };
+    });
+  }
+  function wireUpload(){
+    var drop=document.getElementById("drop"), file=document.getElementById("file");
+    drop.onclick=function(){ file.click(); };
+    drop.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); file.click(); } };
+    ["dragenter","dragover"].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.add("over"); }); });
+    ["dragleave","drop"].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.remove("over"); }); });
+    drop.addEventListener("drop",function(e){ handleFiles(e.dataTransfer&&e.dataTransfer.files); });
+    file.onchange=function(){ handleFiles(file.files); file.value=""; };
+  }
+
+  // Satu sesi latihan sering tersebar di beberapa layar tracker (ringkasan, zona HR,
+  // split), jadi upload menerima BEBERAPA gambar dan semuanya dibaca sebagai SATU workout.
+  var MAX_IMG=5;
+  var PENDING_URLS=[], PENDING_AI=null;
+
+  function readAsDataUrl(f){
+    return new Promise(function(res,rej){
+      var rd=new FileReader();
+      rd.onload=function(){ res(rd.result); };
+      rd.onerror=function(){ rej(new Error("read")); };
+      rd.readAsDataURL(f);
+    });
+  }
+  // Gambar diperkecil SEBELUM dikirim ke /api/activity/scan. Batas body server 8MB —
+  // lima screenshot ukuran penuh tak akan muat, dan OCR angka tracker tak butuh resolusi
+  // penuh. Yang diunggah ke Storage tetap berkas aslinya.
+  function shrink(dataUrl){
+    return new Promise(function(res){
+      var img=new Image();
+      img.onload=function(){
+        var MAXD=1400, w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        if(!w||!h){ res(dataUrl); return; }
+        var sc=Math.min(1,MAXD/Math.max(w,h));
+        var cw=Math.round(w*sc), ch=Math.round(h*sc);
+        try{
+          var cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
+          cv.getContext("2d").drawImage(img,0,0,cw,ch);
+          res(cv.toDataURL("image/jpeg",0.82));
+        }catch(e){ res(dataUrl); }   // canvas gagal -> kirim aslinya, server yang menolak kalau kebesaran
+      };
+      img.onerror=function(){ res(dataUrl); };
+      img.src=dataUrl;
+    });
+  }
+
+  // Ubah gambar yang formatnya tak diterima server (HEIC dari iPhone, GIF, BMP, TIFF)
+  // menjadi JPEG — SELAMA browser bisa men-decode-nya. Kalau tidak bisa, kita bilang
+  // formatnya apa, bukan diam saja.
+  function reencode(dataUrl){
+    return new Promise(function(res){
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var cv=document.createElement("canvas");
+          cv.width=img.naturalWidth||img.width; cv.height=img.naturalHeight||img.height;
+          if(!cv.width||!cv.height){ res(null); return; }
+          cv.getContext("2d").drawImage(img,0,0);
+          res(cv.toDataURL("image/jpeg",0.92));
+        }catch(e){ res(null); }
+      };
+      img.onerror=function(){ res(null); };   // browser tak bisa decode (mis. HEIC di Chrome)
+      img.src=dataUrl;
+    });
+  }
+  var OK_RE=/^image\/(png|jpe?g|webp)$/;
+  async function toSupported(f){
+    var du=await readAsDataUrl(f);
+    if(OK_RE.test(f.type)) return {ok:true,dataUrl:du};
+    var conv=await reencode(du);
+    if(conv) return {ok:true,dataUrl:conv,converted:true};
+    return {ok:false,name:f.name||"?",type:f.type||"?"};
+  }
+
+  async function handleFiles(list){
+    var files=Array.prototype.slice.call(list||[]);
+    if(!files.length) return;
+    if(files.length>MAX_IMG){
+      showErr(Lx({en:"Up to "+MAX_IMG+" images at once.",id:"Maksimal "+MAX_IMG+" gambar sekaligus."}),false); return;
+    }
+    for(var i=0;i<files.length;i++){ if(files[i].size>5*1024*1024){ showErr(T("act_too_big"),false); return; } }
+
+    clearErr();
+    var drop=document.getElementById("drop"), old=drop.innerHTML;
+    var urls=[], smalls=[], storeFailed=false;
+    try{
+      var ditolak=[], storeMsg=null, converted=0;
+      for(var k=0;k<files.length;k++){
+        drop.innerHTML='<div class="s">'+esc(Lx({en:"Uploading "+(k+1)+"/"+files.length+"\u2026",id:"Mengunggah "+(k+1)+"/"+files.length+"\u2026"}))+'</div>';
+        var sup=await toSupported(files[k]);
+        if(!sup.ok){ ditolak.push(sup.name+" ("+sup.type+")"); continue; }
+        if(sup.converted) converted++;
+        smalls.push(await shrink(sup.dataUrl));
+        // Penyimpanan gagal TIDAK menghentikan pembacaan: angkanya masih bisa dibaca dari
+        // gambar yang ada di memori. Alasan dari server DISIMPAN supaya bisa ditampilkan
+        // apa adanya — dulu kegagalan ini cuma jadi catatan samar di dialog.
+        try{
+          var r=await apiFetch("/api/activity/upload",{method:"POST",body:JSON.stringify({data_url:sup.dataUrl})});
+          var j=await r.json().catch(function(){return {};});
+          if(r.ok&&j.url) urls.push(j.url); else { storeFailed=true; if(!storeMsg) storeMsg=j.error||null; }
+        }catch(e){ storeFailed=true; }
+      }
+      if(ditolak.length){
+        showErr(Lx({en:"These files can't be read: "+ditolak.join(", ")+". Use a PNG, JPG, or WebP screenshot.",
+                    id:"Berkas ini tidak bisa dibaca: "+ditolak.join(", ")+". Pakai screenshot PNG, JPG, atau WebP."}),false);
+      }
+      if(!smalls.length){ drop.innerHTML=old; return; }
+
+      drop.innerHTML='<div class="s">'+esc(Lx({en:"Reading your tracker\u2026",id:"Membaca tracker kamu\u2026"}))+'</div>';
+      var ai=null, aiErr=null;
+      try{
+        var sr=await apiFetch("/api/activity/scan",{method:"POST",body:JSON.stringify({images:smalls,lang:I18N.lang})});
+        var sj=await sr.json().catch(function(){return {};});
+        if(sr.ok&&sj.ok&&sj.readable) ai=sj.result; else aiErr=sj.error||null;
+      }catch(e){ aiErr=null; }
+
+      PENDING_URLS=urls; PENDING_AI=ai;
+      drop.innerHTML=old;
+      if(storeFailed&&storeMsg) showErr(storeMsg,false);
+      openDlg(smalls.length,ai,aiErr,storeFailed,converted);
+    }catch(e){
+      drop.innerHTML=old; showErr(T("act_up_fail"),false);
+    }
+  }
+
+  // ---- Dialog workout manual ----
+  function setV(id,v){ document.getElementById(id).value=(v==null?"":String(v)); }
+  function openDlg(nImg,ai,aiErr,storeFailed,converted){
+    document.getElementById("dlgErr").textContent="";
+    var box=document.getElementById("dlgAi"); box.innerHTML="";
+    if(ai){
+      // Prefill HANYA field yang benar-benar dibaca. Yang null dibiarkan kosong —
+      // dialog ini tidak boleh memunculkan angka yang tidak ada di gambar.
+      setV("fTitle",ai.title); setV("fDur",ai.duration_min); setV("fDist",ai.distance_km);
+      setV("fKcal",ai.calories_burned); setV("fHr",ai.avg_heart_rate);
+      if(ai.type){ var sel=document.getElementById("fType");
+        for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===ai.type){ sel.selectedIndex=i; break; } } }
+      var conf=(ai.confidence!=null)?(" \u00b7 "+Math.round(ai.confidence)+"%"):"";
+      box.innerHTML='<div class="dlgnote ok">'+esc(Lx({
+          en:"Read by AI from "+nImg+" image"+(nImg>1?"s":"")+(ai.source_guess?" ("+ai.source_guess+")":"")+conf+". Check the numbers before saving.",
+          id:"Dibaca AI dari "+nImg+" gambar"+(ai.source_guess?" ("+ai.source_guess+")":"")+conf+". Periksa angkanya sebelum disimpan."
+        }))+'<div class="dlgsub">'+esc(Lx({
+          en:"Blank fields were not readable \u2014 they are not guessed.",
+          id:"Kolom yang kosong tidak terbaca \u2014 tidak ditebak."}))+'</div></div>';
+    } else if(nImg){
+      box.innerHTML='<div class="dlgnote warn">'+esc(aiErr||Lx({
+        en:"Couldn't read the numbers from those images. Fill them in yourself.",
+        id:"Angkanya tidak terbaca dari gambar itu. Isi sendiri ya."}))+'</div>';
+    }
+    if(converted){
+      box.innerHTML+='<div class="dlgnote warn">'+esc(Lx({
+        en:converted+" image(s) were converted to JPG so they could be read.",
+        id:converted+" gambar diubah jadi JPG supaya bisa dibaca."}))+'</div>';
+    }
+    if(storeFailed){
+      box.innerHTML+='<div class="dlgnote warn">'+esc(Lx({
+        en:"Some images could not be saved to storage, but the workout can still be recorded.",
+        id:"Sebagian gambar gagal disimpan, tapi workout-nya tetap bisa dicatat."}))+'</div>';
+    }
+    document.getElementById("woDlg").showModal();
+  }
+  function wireDlg(){
+    document.getElementById("dlgCancel").onclick=function(){ PENDING_URLS=[]; PENDING_AI=null; document.getElementById("woDlg").close(); };
+    document.getElementById("dlgSave").onclick=async function(){
+      var dur=parseFloat(document.getElementById("fDur").value);
+      if(!isFinite(dur)||dur<=0){ document.getElementById("dlgErr").textContent=T("act_need_dur"); return; }
+      var body={
+        workout_date:SEL, source:PENDING_URLS.length?"upload":"manual",
+        uploaded_file_url:PENDING_URLS[0]||null,
+        // Kolom uploaded_file_url cuma muat SATU url; daftar lengkap + jejak bacaan AI
+        // (seberapa yakin, kolom apa yang dibaca) disimpan di raw_data supaya bisa diaudit.
+        raw_data:(PENDING_URLS.length||PENDING_AI)?{
+          uploaded_file_urls:PENDING_URLS,
+          ai_scan:PENDING_AI?{confidence:PENDING_AI.confidence,fields_read:PENDING_AI.fields_read,
+                              source_guess:PENDING_AI.source_guess,note:PENDING_AI.note}:null
+        }:null,
+        title:document.getElementById("fTitle").value||null,
+        type:document.getElementById("fType").value, duration_min:dur,
+        distance_km:parseFloat(document.getElementById("fDist").value)||null,
+        calories_burned:parseInt(document.getElementById("fKcal").value,10)||null,
+        avg_heart_rate:parseInt(document.getElementById("fHr").value,10)||null
+      };
+      var btn=this; btn.disabled=true;
+      try{
+        var r=await apiFetch("/api/activity/workout",{method:"POST",body:JSON.stringify(body)});
+        var j=await r.json().catch(function(){return {};});
+        if(!r.ok){ document.getElementById("dlgErr").textContent=j.error||T("act_save_fail"); btn.disabled=false; return; }
+        document.getElementById("woDlg").close();
+        ["fTitle","fDur","fDist","fKcal","fHr"].forEach(function(id){ document.getElementById(id).value=""; });
+        PENDING_URLS=[]; PENDING_AI=null;
+        await load(SEL);
+        genPlan(true);   // workout baru -> rencana disegarkan
+      }catch(e){ document.getElementById("dlgErr").textContent=T("act_save_fail"); }
+      btn.disabled=false;
+    };
+  }
+
+  // ---- 4. Workout + HR zones ----
+  var ZC={z1:"var(--accent)",z2:"var(--green)",z3:"var(--zone3)",z4:"var(--zone4)",z5:"var(--red)"};
+  function hms(sec){ var m=Math.round(sec/60); return m>=60?(Math.floor(m/60)+"j "+(m%60)+"m"):(m+"m"); }
+  function renderWorkouts(){
+    var host=document.getElementById("woBox"), ws=(DAY&&DAY.workouts)||[];
+    if(!ws.length){
+      host.innerHTML='<div class="card"><div class="muted" style="font-size:13px;text-align:center;padding:6px 0">'+
+        esc(T("act_no_workout"))+'</div><button class="btn ghost" id="addManual" style="margin-top:10px">'+esc(T("act_add_manual"))+'</button></div>';
+      document.getElementById("addManual").onclick=function(){ PENDING_URLS=[]; PENDING_AI=null; openDlg(); };
+      return;
+    }
+    host.innerHTML=ws.map(function(w){
+      var st=[];
+      st.push(["act_st_dist", w.distance_km!=null?(w.distance_km+" km"):"—"]);
+      st.push(["act_st_dur",  w.duration_min!=null?hms(w.duration_min*60):"—"]);
+      st.push(["act_st_hr",   w.avg_heart_rate!=null?(w.avg_heart_rate+""):"—"]);
+      st.push(["act_st_kcal", w.calories_burned!=null?(w.calories_burned+""):"—"]);
+      var z=w.hr_zone_data||null, zh="";
+      if(z){
+        var tot=["z1","z2","z3","z4","z5"].reduce(function(a,k){return a+(+z[k]||0);},0);
+        if(tot>0){
+          zh='<div class="hrz"><div class="hrz-h">'+esc(T("act_hrz"))+'</div>'+
+            ["z1","z2","z3","z4","z5"].map(function(k){
+              var v=+z[k]||0, pct=Math.round(v/tot*100);
+              return '<div class="hrz-r"><span class="z">'+k.toUpperCase()+'</span>'+
+                '<span class="bar"><i style="width:'+pct+'%;background:'+ZC[k]+'"></i></span>'+
+                '<span class="d">'+(v?hms(v):"—")+'</span></div>';
+            }).join("")+'</div>';
+        }
+      }
+      var src=w.source?(" · "+w.source.replace(/_/g," ")):"";
+      return '<div class="card"><div class="wo-h"><div class="wo-ic">'+(w.type==="cycling"?"🚴":w.type==="swimming"?"🏊":w.type==="gym"?"🏋️":"🏃")+'</div>'+
+        '<div style="flex:1;min-width:0"><div class="wo-t">'+esc(w.title||w.type||"Workout")+'</div>'+
+        '<div class="wo-s">'+esc(src.replace(/^ · /,""))+'</div></div>'+
+        '<button class="wo-x" data-del="'+esc(w.id)+'" title="'+esc(T("act_delete"))+'">✕</button></div>'+
+        '<div class="stats">'+st.map(function(s){
+          return '<div><div class="k">'+esc(T(s[0]))+'</div><div class="v">'+esc(s[1])+'</div></div>';
+        }).join("")+'</div>'+zh+
+        (w.uploaded_file_url?'<div class="muted" style="font-size:11.5px;margin-top:10px">📎 '+esc(T("act_has_file"))+'</div>':'')+
+        '</div>';
+    }).join("");
+    Array.prototype.forEach.call(host.querySelectorAll("[data-del]"),function(b){
+      b.onclick=async function(){
+        if(!confirm(T("act_del_confirm"))) return;
+        try{ await apiFetch("/api/activity/workout/"+b.getAttribute("data-del"),{method:"DELETE"}); await load(SEL); }catch(e){}
+      };
+    });
+  }
+
+  // ---- 5. AI analysis + 6. score & gaps ----
+  // Sorot inline: kata di dalam <<good|teks>> dibungkus pill. Dibangun dari `gaps`,
+  // bukan dari menebak-nebak kata di kalimat AI.
+  function hlText(txt,gaps){
+    var out=esc(txt||"");
+    (gaps||[]).forEach(function(g){
+      if(!g||!g.value||!g.area) return;
+      var st=["good","warning","critical"].indexOf(String(g.status))>=0?g.status:"warning";
+      var needle=esc(String(g.value));
+      if(needle&&out.indexOf(needle)>=0){
+        out=out.replace(needle,'<span class="hl '+st+'">'+needle+'</span>');
+      }
+    });
+    return out;
+  }
+  function renderAi(){
+    var host=document.getElementById("aiBox"), p=DAY&&DAY.plan;
+    if(!p){
+      host.innerHTML='<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span></div>'+
+        '<p class="muted">'+esc(T("act_ai_none"))+'</p>'+
+        '<button class="btn" id="genBtn" style="margin-top:12px">'+esc(T("act_ai_gen"))+'</button>'+
+        '<button class="btn ghost" id="goalBtn" style="margin-top:8px">'+esc(T("act_goal_cta"))+'</button></div>';
+      document.getElementById("genBtn").onclick=function(){ hasWorkout()?genPlan(false):renderNeedWorkout(); };
+      document.getElementById("goalBtn").onclick=renderGoalQuiz;
+      return;
+    }
+    var gaps=Array.isArray(p.gaps)?p.gaps:[];
+    var score=(p.overall_score!=null)?p.overall_score:0;
+    var C=2*Math.PI*46, off=C-(C*Math.max(0,Math.min(100,score))/100);
+    var sc=score>=75?"var(--green)":(score>=45?"var(--amber)":"var(--red)");
+    host.innerHTML=
+      '<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span>'+
+        '<span class="b">'+esc(p.source==="fallback"?T("act_ai_nofb"):"AI COACH")+'</span></div>'+
+        '<p>'+hlText(p.analysis_text,gaps)+'</p></div>'+
+      '<div class="card"><div class="sg">'+
+        '<div class="ringw"><svg width="118" height="118" viewBox="0 0 118 118">'+
+          '<circle cx="59" cy="59" r="46" fill="none" stroke="var(--a-line)" stroke-width="9"/>'+
+          '<circle cx="59" cy="59" r="46" fill="none" stroke="'+sc+'" stroke-width="9" stroke-linecap="round" '+
+            'stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
+          '<div class="n"><b>'+score+'</b><s>'+esc(T("act_score"))+'</s></div></div>'+
+        '<div class="gaps">'+(gaps.length?gaps.map(function(g){
+          var st=["good","warning","critical"].indexOf(String(g.status))>=0?g.status:"warning";
+          var col=st==="good"?"var(--green)":(st==="warning"?"var(--amber)":"var(--red)");
+          return '<div class="gap"><i style="background:'+col+'"></i>'+esc(g.area||"")+'<span class="v">'+esc(g.value||"—")+'</span></div>';
+        }).join(""):'<div class="muted" style="font-size:12.5px">'+esc(T("act_no_gap"))+'</div>')+'</div>'+
+      '</div>'+
+      '<button class="btn ghost" id="regenBtn" style="margin-top:12px">'+esc(T("act_ai_regen"))+'</button></div>';
+    document.getElementById("regenBtn").onclick=function(){ genPlan(false); };
+  }
+  function starSvg(){ return '<svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg>'; }
+
+  async function genPlan(silent){
+    if(BUSY) return; BUSY=true;
+    var b=document.getElementById("genBtn")||document.getElementById("regenBtn");
+    var lbl=b?b.textContent:null;
+    if(b){ b.disabled=true; b.textContent=T("act_ai_working"); }
+    try{
+      var r=await apiFetch("/api/activity/plan",{method:"POST",body:JSON.stringify({date:SEL,lang:I18N.lang})});
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok){ if(!silent) showErr(j.error||T("act_ai_fail"),false); }
+      else { DAY.plan=j.plan; if(j.source) DAY.plan.source=j.source; renderAi(); renderGoals(); }
+    }catch(e){ if(!silent) showErr(T("act_ai_fail"),false); }
+    finally{
+      // Kalau gagal, renderAi() tidak dipanggil sehingga tombolnya tetap ada di DOM.
+      // Tanpa pemulihan ini tombolnya tersangkut "Sedang diproses..." dan mati selamanya.
+      // Saat berhasil, b sudah dilepas renderAi() -> menulis ke node lepas itu tidak apa-apa.
+      if(b&&b.isConnected){ b.disabled=false; if(lbl!=null) b.textContent=lbl; }
+      BUSY=false;
+    }
+  }
+
+  // Rencana AI dibangun dari data workout. Tanpa satu pun workout, memanggil API cuma
+  // menghasilkan kegagalan yang tak memberi tahu apa-apa ke user. Jadi tombolnya
+  // memunculkan pemandu, bukan memanggil API.
+  function hasWorkout(){ return (((DAY&&DAY.workouts)||[]).length>0); }
+  function hasDaily(){
+    var d=(DAY&&DAY.daily)||{}, ck=d.checklist||{};
+    return d.sleep_hours!=null||d.water_glasses!=null||d.steps!=null||d.weight_kg!=null||
+           !!ck.breathing||!!d.breathing_done||(+((d.totals&&d.totals.kcal)||0)>0)||(+(d.cal_count||0)>0);
+  }
+  function gotoUpload(){
+    var el=document.getElementById("drop"); if(!el) return;
+    el.scrollIntoView({behavior:"smooth",block:"center"});
+    el.classList.add("hl"); el.focus({preventScroll:true});
+    setTimeout(function(){ el.classList.remove("hl"); },2400);
+  }
+  // Quiz "Set Your Goal" (js/goal-quiz.js) dipasang DI DALAM kartu analisis, bukan di
+  // halaman terpisah: jawabannya cuma dipakai untuk rencana, dan CTA-nya memang
+  // "Buat rencana saya". Komponennya sendiri HANYA menyimpan + memanggil onComplete;
+  // pembuatan rencana tetap milik genPlan() di sini, lengkap dengan gerbang hasWorkout().
+  function renderGoalQuiz(){
+    var host=document.getElementById("aiBox");
+    if(!window.GoalQuiz){ showErr(T("act_ai_fail"),false); return; }
+    host.innerHTML='<div id="gqHost"></div>'+
+      '<button class="btn ghost" id="gqBack" style="margin-top:8px">'+esc(T("act_need_back"))+'</button>';
+    document.getElementById("gqBack").onclick=function(){ renderAi(); };
+    GoalQuiz.mount(document.getElementById("gqHost"),{ onComplete:function(){
+      renderAi();
+      // Rencananya dibuat lewat jalur yang sudah ada, termasuk pemandu kalau belum ada workout.
+      hasWorkout()?genPlan(false):renderNeedWorkout();
+    }});
+  }
+  function renderNeedWorkout(){
+    var host=document.getElementById("aiBox");
+    host.innerHTML='<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_need_t"))+'</span></div>'+
+      '<p class="muted">'+esc(T("act_need_b"))+'</p>'+
+      '<ol class="needl"><li>'+esc(T("act_need_1"))+'</li><li>'+esc(T("act_need_2"))+'</li><li>'+esc(T("act_need_3"))+'</li></ol>'+
+      '<button class="btn" id="needGo">'+esc(T("act_need_cta"))+'</button>'+
+      (hasDaily()?'<button class="btn ghost" id="needAny" style="margin-top:8px">'+esc(T("act_need_any"))+'</button>':'')+
+      '<button class="btn ghost" id="needBack" style="margin-top:8px">'+esc(T("act_need_back"))+'</button></div>';
+    document.getElementById("needGo").onclick=gotoUpload;
+    document.getElementById("needBack").onclick=function(){ renderAi(); };
+    var any=document.getElementById("needAny");
+    // Data harian (tidur/air/langkah/nutrisi) tetap cukup untuk sebuah rencana, jadi
+    // jalan itu TIDAK ditutup - cuma tidak lagi jadi satu-satunya tombol yang buntu.
+    if(any) any.onclick=function(){ renderAi(); genPlan(false); };
+  }
+
+  // ---- 7. Goals ----
+  function renderGoals(){
+    var host=document.getElementById("goalBox"), p=DAY&&DAY.plan;
+    if(!p||!Array.isArray(p.goals)||!p.goals.length){ host.innerHTML=""; return; }
+    var gs=p.goals, done=gs.filter(function(g){return g.done;}).length;
+    host.innerHTML='<div class="card" style="margin-top:12px"><div class="gh">'+starSvg()+
+      '<span class="t">'+esc(T("act_goal_t"))+'</span><span class="c">'+done+'/'+gs.length+'</span></div>'+
+      gs.map(function(g){
+        var cat=["exercise","nutrition","habit","recovery"].indexOf(String(g.category))>=0?g.category:"habit";
+        return '<div class="goal'+(g.done?" done":"")+'" data-g="'+esc(g.id)+'">'+
+          '<span class="cb"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>'+
+          '<div style="flex:1;min-width:0"><div class="gt">'+esc(g.title||"")+'</div>'+
+          (g.desc?'<div class="gd">'+esc(g.desc)+'</div>':'')+
+          (g.time?'<div class="gtime">'+esc(g.time)+'</div>':'')+'</div>'+
+          '<span class="cat '+cat+'">'+esc(T("act_cat_"+cat))+'</span></div>';
+      }).join("")+'</div>';
+    Array.prototype.forEach.call(host.querySelectorAll(".goal"),function(el){
+      el.onclick=async function(){
+        var gid=el.getAttribute("data-g");
+        var g=(DAY.plan.goals||[]).filter(function(x){return String(x.id)===gid;})[0];
+        if(!g) return;
+        var next=!g.done;
+        g.done=next; renderGoals();                      // optimistis: terasa instan
+        try{
+          var r=await apiFetch("/api/activity/goal",{method:"PATCH",body:JSON.stringify({date:SEL,goal_id:gid,done:next})});
+          if(!r.ok) throw new Error();
+        }catch(e){ g.done=!next; renderGoals(); showErr(T("act_goal_fail"),false); }  // gagal -> kembalikan
+      };
+    });
+  }
+
+  // Kartu Nutrisi 2x2 dibuang saat penggabungan: 'Overall - Hari Ini' (halaman lama)
+  // sudah menampilkan angka yang sama dengan target dari profil. Fungsi renderNutri,
+  // pct dan barCol ikut dihapus — tak ada pemanggil tersisa (CLAUDE.md §8).
+
+  // ---- 9. Habits ----
+  function renderHabits(){
+    var d=(DAY&&DAY.daily)||{};
+    var sleep=d.sleep_hours, water=d.water_glasses, steps=d.steps;
+    var ck=d.checklist||{};
+    var items=[
+      {e:"😴",n:T("act_h_sleep"), s:sleep!=null?(sleep+"j"):T("act_empty"),      warn:(sleep!=null&&sleep<7)||sleep==null},
+      {e:"💧",n:T("act_h_water"), s:water!=null?(water+"/8"):T("act_empty"),     warn:(water==null||water<8)},
+      {e:"👟",n:T("act_h_steps"), s:steps!=null?String(steps):T("act_empty"),    warn:(steps==null||steps<8000)},
+      {e:"🧘",n:T("act_h_breath"),s:(ck&&ck.breathing)||d.breathing_done?T("act_done"):T("act_empty"), warn:!((ck&&ck.breathing)||d.breathing_done)}
+    ];
+    document.getElementById("habitBox").innerHTML=items.map(function(i){
+      return '<div class="chip'+(i.warn?" warn":"")+'"><div class="e">'+i.e+'</div><div class="n">'+esc(i.n)+'</div><div class="s">'+esc(i.s)+'</div></div>';
+    }).join("");
+  }
+
+  // ---- 10. Weekly ----
+  function renderWeek(){
+    var wk=(DAY&&DAY.week)||[], byDate={};
+    wk.forEach(function(w){
+      var k=w.workout_date; if(!byDate[k]) byDate[k]={min:0,km:0,n:0};
+      byDate[k].min+=(+w.duration_min||0); byDate[k].km+=(+w.distance_km||0); byDate[k].n++;
+    });
+    var days=[], base=dObj(SEL), totKm=0, totN=0, maxMin=1;
+    for(var i=6;i>=0;i--){
+      var d=new Date(base); d.setDate(d.getDate()-i);
+      var s=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      var r=byDate[s]||{min:0,km:0,n:0};
+      totKm+=r.km; totN+=r.n; if(r.min>maxMin) maxMin=r.min;
+      days.push({s:s,r:r,lb:d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"narrow"})});
+    }
+    document.getElementById("weekBox").innerHTML=
+      '<div class="wk"><div><div class="b">'+(Math.round(totKm*10)/10)+'</div><div class="l">'+esc(T("act_wk_km"))+'</div></div>'+
+      '<div><div class="b">'+totN+'</div><div class="l">'+esc(T("act_wk_n"))+'</div></div></div>'+
+      '<div class="bars">'+days.map(function(d){
+        var h=d.r.min>0?Math.max(8,Math.round(d.r.min/maxMin*46)):0;
+        var cls=d.r.min>0?(d.s===SEL?"bar today":"bar"):"bar empty";
+        return '<div class="c"><div class="'+cls+'" style="height:'+(h||14)+'px"></div><div class="lb">'+esc(d.lb)+'</div></div>';
+      }).join("")+'</div>';
+  }
+
+  // ---- Muat semua ----
+  async function load(date){
+    BUSY=true; clearErr();
+    document.getElementById("woBox").innerHTML='<div class="card"><div class="skel" style="height:86px"></div></div>';
+    try{
+      var r=await apiFetch("/api/activity/day?date="+encodeURIComponent(date));
+      if(r.status===401){ location.href="/login"; return; }
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok||!j.ok){ showErr(j.error||T("act_load_fail"),true); document.getElementById("woBox").innerHTML=""; BUSY=false; return; }
+      DAY=j;
+      renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek();
+    }catch(e){
+      showErr(T("act_load_fail"),true); document.getElementById("woBox").innerHTML="";
+    }
+    BUSY=false;
+  }
+
+  (async function(){
+    user=await Auth.requireAuth();
+    try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
+    renderHead(); renderDnav(); renderTrk(); wireUpload(); wireDlg();
+    await load(SEL);
+    // Isi Activity lama menyatu di halaman yang sama. Dijalankan SETELAH bagian harian
+    // supaya yang di layar pertama tampil duluan; skripnya berat (pencapaian, siklus,
+    // riwayat arena). Gagal di sini TIDAK boleh merusak bagian harian di atasnya.
+    try{ startLegacyActivity(); }catch(e){
+      var lc=document.getElementById("lgcContent");
+      if(lc) lc.innerHTML='<div class="card"><div class="muted">'+esc(T("act_load_fail"))+'</div></div>';
+    }
+  })();
+
+  if(window.I18N&&I18N.onChange) I18N.onChange(function(){
+    renderHead(); renderDnav(); renderTrk();
+    if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek(); }
+  });
+
+</script>
+
+<script>
+  // ============================================================================
+  // Tampilan PROGRES — kode halaman Activity LAMA (dulu progress.html), DISALIN UTUH.
+  // Dibungkus fungsi supaya variabel globalnya (user, profile, render, todayStr, esc,
+  // toast, days, weights) TIDAK bentrok dengan nama yang sama di tampilan harian.
+  // Dipanggil sekali dari pengalih tab di atas.
+  // Halaman /progress SENGAJA dibiarkan hidup apa adanya — belum diarahkan ke sini
+  // sampai pemilik mengonfirmasi (lihat docs/STATUS.md).
+  // ============================================================================
+  function startLegacyActivity(){
+    let user=null, profile=null, days=[], weights=[], arenaData=null;
+    // Pre-launch feature flags — set true to re-enable. Underlying code retained below.
+    var SHOW_UPCOMING_BOOKINGS=false, SHOW_ACTIVITY_NOTES=false;
+    const WD_EN=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], WD_ID=["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
+    function todayStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+    function lastNDates(n){const out=[];const base=new Date();for(let i=n-1;i>=0;i--){const d=new Date(base);d.setDate(base.getDate()-i);out.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));}return out;}
+    // Minggu berjalan MULAI SENIN (Mon..Sun)
+    function currentWeekDates(){
+      const base=new Date();base.setHours(0,0,0,0);
+      const dow=base.getDay();               // 0=Min..6=Sab
+      const offset=(dow===0?6:dow-1);        // jarak hari ke Senin
+      const mon=new Date(base);mon.setDate(base.getDate()-offset);
+      const out=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);out.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));}
+      return out;
+    }
+    function wdLabel(ds){const d=new Date(ds+"T00:00:00");return (I18N.lang==="id"?WD_ID:WD_EN)[d.getDay()];}
+    function readCal(d){try{const it=JSON.parse(localStorage.getItem("my20fit_cal_"+d)||"[]");return it.reduce((s,i)=>s+(+i.kcal||0),0);}catch(e){return 0;}}
+    function readWeights(){try{return JSON.parse(localStorage.getItem("my20fit_weight")||"[]");}catch(e){return [];}}
+    // Goal & makro dari SATU sumber (js/nutrition.js) + penyesuaian puasa — sinkron dgn Home & Calories.
+    function calGoal(p){var base=(window.Nutrition&&Nutrition.goalFor)?Nutrition.goalFor(p):2000;return (window.Fasting&&Fasting.adjustGoal)?Fasting.adjustGoal(base):base;}
+    function calcMacros(p,goal){return (window.Nutrition&&Nutrition.macrosFor)?Nutrition.macrosFor(p,goal):{p:Math.round(goal*0.25/4),c:Math.round(goal*0.45/4),f:Math.round(goal*0.25/9)};}
+    function toast(t){const el=document.getElementById("lgcToast");el.textContent=t;el.style.opacity=1;el.style.transform="translateX(-50%) translateY(0)";setTimeout(()=>{el.style.opacity=0;el.style.transform="translateX(-50%) translateY(20px)";},2600);}
+
+    function barChart(title,rows,goal,unit,color,goalTxt){
+      const max=Math.max(goal||0,...rows.map(r=>r.v),1);
+      const bars=rows.map(r=>{const pct=Math.max(r.v>0?6:0,Math.min(100,r.v/max*100));
+        return '<div class="chrow"><span class="lbl">'+r.l+'</span><div class="chtrack"><i style="width:'+pct+'%;background:'+(r.v>0?color:"transparent")+'"></i></div><span class="val">'+(r.v>0?r.disp:'–')+'</span></div>';}).join("");
+      return '<div class="card"><div style="font-weight:800;margin-bottom:4px">'+title+'</div>'+(goalTxt?'<div class="chgoal">'+goalTxt+'</div>':'')+bars+'</div>';
+    }
+
+    // ---- Overall: apakah kebutuhan harian user (dari data mereka) sudah terpenuhi ----
+    function metricRow(label,cur,tgt,unit,met,curDisp){
+      const pct=tgt?Math.min(100,Math.round(cur/tgt*100)):0;
+      return '<div style="margin:12px 0 0"><div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700">'+
+        '<span>'+(met?'✓':'○')+' '+label+'</span>'+
+        '<span style="font-family:JetBrains Mono,monospace;color:'+(met?'#2A7A4F':'var(--muted)')+'">'+(curDisp!=null?curDisp:cur)+' / '+tgt+' '+unit+'</span></div>'+
+        '<div class="chtrack" style="height:9px;margin-top:5px"><i style="width:'+pct+'%;background:'+(met?'#2A7A4F':'#C87000')+'"></i></div></div>';
+    }
+    function overallCard(){
+      const head='<div class="sec">'+L({en:"Overall · Today",id:"Overall · Hari Ini"})+'</div>';
+      if(!profile||!profile.weight_kg||!profile.height_cm){
+        return head+'<a class="card" href="onboarding.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt);border-color:rgba(196,17,1,.35);background:rgba(196,17,1,.06)"><div style="flex:1"><div style="font-weight:800">'+L({en:"Complete your profile first",id:"Lengkapi profil dulu"})+'</div><div class="muted" style="font-size:12px">'+L({en:"Add weight, height & goal so we can calculate what your body needs.",id:"Isi berat, tinggi & tujuan biar kami bisa hitung kebutuhan tubuhmu."})+'</div></div><span style="color:var(--pagemut);font-weight:800">›</span></a>';
+      }
+      const tday=todayStr();
+      const todayLog=(days.find(d=>d.date===tday)||{}).log;
+      let items=[]; if(todayLog&&Array.isArray(todayLog.cal_items))items=todayLog.cal_items; else { try{items=JSON.parse(localStorage.getItem("my20fit_cal_"+tday)||"[]");}catch(e){} }
+      const eaten=items.reduce((s,i)=>s+(+i.kcal||0),0);
+      const pE=items.reduce((s,i)=>s+(+i.p||0),0), cE=items.reduce((s,i)=>s+(+i.c||0),0), fE=items.reduce((s,i)=>s+(+i.f||0),0);
+      const water=todayLog?+todayLog.water_glasses||0:0, sleep=todayLog?+todayLog.sleep_hours||0:0;
+      const goal=calGoal(profile), mac=calcMacros(profile,goal);
+      const M=[
+        {l:L({en:"Calories",id:"Kalori"}),      cur:eaten, tgt:goal,  u:L({en:"kcal",id:"kkal"}), met:eaten>=goal*0.85},
+        {l:L({en:"Protein",id:"Protein"}),      cur:Math.round(pE), tgt:mac.p, u:"g", met:pE>=mac.p*0.9},
+        {l:L({en:"Carbs",id:"Karbo"}),          cur:Math.round(cE), tgt:mac.c, u:"g", met:cE>=mac.c*0.9},
+        {l:L({en:"Fat",id:"Lemak"}),            cur:Math.round(fE), tgt:mac.f, u:"g", met:fE>=mac.f*0.9},
+        {l:L({en:"Water",id:"Air"}),            cur:water, tgt:8, u:L({en:"gl",id:"gls"}), met:water>=8},
+        {l:L({en:"Sleep",id:"Tidur"}),          cur:sleep, tgt:8, u:L({en:"h",id:"jam"}), met:sleep>=7, disp:(sleep?sleep.toFixed(1):0)}
+      ];
+      const metN=M.filter(m=>m.met).length, score=Math.round(metN/M.length*100);
+      const col=score>=70?"#2A7A4F":score>=40?"#C87000":"#C41101";
+      const rows=M.map(m=>metricRow(m.l,m.cur,m.tgt,m.u,m.met,m.disp)).join("");
+      return head+'<div class="card"><div style="display:flex;align-items:center;gap:16px">'+
+        '<div style="font-size:36px;font-weight:900;font-family:JetBrains Mono,monospace;color:'+col+';line-height:1">'+score+'%</div>'+
+        '<div style="flex:1"><div style="font-weight:800">'+metN+' / '+M.length+' '+L({en:"needs met today",id:"kebutuhan terpenuhi hari ini"})+'</div>'+
+        '<div class="cbar" style="margin-top:6px"><i style="width:'+score+'%;background:'+col+'"></i></div></div></div>'+
+        rows+
+        '<div class="muted" style="font-size:11px;margin-top:12px">'+L({en:"Targets from your BMI, weight & goal. Log meals, water & sleep to complete them.",id:"Target dari BMI, berat & tujuanmu. Catat makan, air & tidur untuk memenuhinya."})+'</div></div>';
+    }
+
+    // ---- Siklus menstruasi (khusus female) ----
+    function cycleCard(){
+      if(!profile || String(profile.gender||"").toLowerCase()!=="female") return "";
+      const head='<div class="sec">'+L({en:"Menstrual Cycle",id:"Siklus Menstruasi"})+'</div>';
+      const last=profile.cycle_last_period;
+      const dateInput='<div class="wlog"><input id="periodIn" type="date" value="'+(last||"")+'" max="'+todayStr()+'" /><button onclick="savePeriod()">'+L({en:"Save",id:"Simpan"})+'</button></div>';
+      if(!last){
+        return head+'<div class="card"><div style="font-weight:800">'+L({en:"Track your cycle",id:"Lacak siklusmu"})+'</div>'+
+          '<div class="muted" style="font-size:12px;margin:4px 0 2px">'+L({en:"When did your last period start? We’ll show your phase & tips.",id:"Kapan menstruasi terakhir kamu mulai? Kami tampilkan fase & sarannya."})+'</div>'+dateInput+'</div>';
+      }
+      const ci=window.Cycle?Cycle.info(last,profile.cycle_length,profile.period_length):null;
+      if(!ci) return head+'<div class="card">'+dateInput+'</div>';
+      const m=ci.meta;
+      const doList=m.doTips.map(t=>'<li>'+L(t)+'</li>').join('');
+      const eatList=m.eatTips.map(t=>'<li>'+L(t)+'</li>').join('');
+      return head+'<div class="card">'+
+        '<div style="display:flex;align-items:center;gap:14px">'+
+          '<div style="width:34px;height:34px;border-radius:50%;flex:0 0 auto;background:'+m.color+';box-shadow:0 0 0 5px color-mix(in srgb,'+m.color+' 20%,transparent)"></div>'+
+          '<div style="flex:1"><div style="font-weight:800;font-size:16px;color:'+m.color+'">'+L(m.name)+'</div>'+
+          '<div class="muted" style="font-size:12.5px">'+L({en:"Day",id:"Hari ke-"})+' '+ci.day+' · '+L({en:"next period ~"+ci.daysToNext+" days",id:"menstruasi berikutnya ~"+ci.daysToNext+" hari"})+'</div></div>'+
+        '</div>'+
+        '<div style="margin-top:10px;font-size:13px;line-height:1.5">'+L(m.summary)+'</div>'+
+        '<div class="cycrec"><div class="cyccol"><div class="cyclbl"><svg class="emi" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> '+L({en:"Do",id:"Lakukan"})+'</div><ul>'+doList+'</ul></div>'+
+        '<div class="cyccol"><div class="cyclbl"><svg class="emi" viewBox="0 0 24 24"><path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M12 4v7"/></svg> '+L({en:"Eat",id:"Makan"})+'</div><ul>'+eatList+'</ul></div></div>'+
+        '<div class="muted" style="font-size:11.5px;margin-top:12px">'+L({en:"Started your period? Update the date:",id:"Menstruasi mulai? Perbarui tanggalnya:"})+'</div>'+dateInput+'</div>';
+    }
+    async function savePeriod(){
+      const v=document.getElementById("periodIn").value;
+      if(!v){toast(L({en:"Pick a date",id:"Pilih tanggal"}));return;}
+      try{await Auth.supabase.from("my20fit_profile").update({cycle_last_period:v,updated_at:new Date().toISOString()}).eq("auth_user_id",user.id);profile.cycle_last_period=v;}catch(e){}
+      toast(L({en:"Cycle updated",id:"Siklus diperbarui"}));
+      render();
+    }
+
+    // ---- Kalender booking 20FIT (hanya muncul kalau ada booking) ----
+    // bookings diisi dari ekosistem 20FIT (butuh token/API 20FIT). Kosong -> kartu tidak muncul.
+    let bookings=[];
+    function calendarCard(){
+      if(!bookings || !bookings.length) return "";
+      const head='<div class="sec">'+L({en:"Your 20FIT Bookings",id:"Booking 20FIT Kamu"})+'</div>';
+      const rows=bookings.slice().sort((a,b)=>String(a.date+a.time)<String(b.date+b.time)?-1:1).map(function(b){
+        return '<div class="bkrow"><div class="bkdate"><div class="bkd">'+(b.day||"")+'</div><div class="bkm">'+(b.mon||"")+'</div></div>'+
+          '<div class="bkinfo"><div class="bkt">'+(b.title||L({en:"Booking",id:"Booking"}))+'</div>'+
+          '<div class="muted" style="font-size:12px">'+[b.time,b.location,b.coach].filter(Boolean).join(" · ")+'</div></div></div>';
+      }).join("");
+      return head+'<div class="card"><div style="font-weight:800;margin-bottom:8px">'+L({en:"Upcoming",id:"Akan Datang"})+'</div>'+rows+'</div>';
+    }
+
+    // ===== Progress redesign (SS3–5) — section baru =====
+    function bmiOf(p){ var w=+p.weight_kg,h=+p.height_cm; if(!w||!h)return null; return Math.round(w/Math.pow(h/100,2)*10)/10; }
+    function bmiCat(b){ if(b<18.5)return {t:L({en:"UNDERWEIGHT",id:"KURUS"}),c:"#2F6BFF"}; if(b<25)return {t:L({en:"NORMAL",id:"NORMAL"}),c:"#2A7A4F"}; if(b<30)return {t:L({en:"OVERWEIGHT",id:"BERLEBIH"}),c:"#C87000"}; return {t:L({en:"OBESE",id:"OBESITAS"}),c:"#C41101"}; }
+    // Hasil timbangan Visbody (kalau ada). Diisi loadBodyScan() setelah halaman siap;
+    // null = belum pernah scan ATAU tabelnya belum dibuat -> kartu lama yang dipakai.
+    var BSCAN=null, BSCAN_PREV=null;
+    function bsNum(v,d){ return (v===null||v===undefined)?null:(+v).toFixed(d===undefined?1:d).replace(/\.0$/,""); }
+    function bsDelta(now,prev,inv){
+      if(now==null||prev==null) return "";
+      var d=+(now-prev); if(Math.abs(d)<0.05) return "";
+      var good = inv ? d<0 : d>0;   // inv: turun itu bagus (berat, lemak)
+      return '<span class="pbadge" style="margin-left:6px;color:'+(good?"#2A7A4F":"#C87000")+';background:'+(good?"rgba(42,122,79,.12)":"rgba(200,112,0,.12)")+'">'+(d>0?"+":"−")+Math.abs(d).toFixed(1)+'</span>';
+    }
+    function bodyStatusCard(){
+      // Angka TERUKUR mengalahkan perkiraan: kalau ada hasil timbangan, itu yang tampil.
+      if(BSCAN) return bodyScanCard();
+      var head='<div class="psec-row"><div class="psec">'+L({en:"Body status",id:"Status Tubuh"})+'</div><a class="plink" href="medical.html">'+L({en:"Medical",id:"Medis"})+' ›</a></div><div class="psub">'+L({en:"From your latest MCU & profile",id:"Dari MCU & profil terakhir"})+'</div>';
+      var b=profile?bmiOf(profile):null;
+      if(b==null) return head+'<a class="card" href="onboarding.html" style="display:block;text-decoration:none;color:var(--txt)"><div style="font-weight:800">'+L({en:"Add weight & height",id:"Isi berat & tinggi"})+'</div><div class="muted" style="font-size:12px">'+L({en:"So we can show your body status.",id:"Biar status tubuhmu bisa ditampilkan."})+'</div></a>';
+      var cat=bmiCat(b), pos=Math.max(0,Math.min(100,(b-15)/20*100));
+      return head+'<div class="card"><div class="bmiwrap">'+
+        '<div><div class="bmibig">'+b.toFixed(1)+'</div><div class="bmicat" style="color:'+cat.c+'">'+cat.t+'</div></div>'+
+        '<div style="flex:1"><div class="bmigauge"><i style="left:'+pos+'%;border-color:'+cat.c+'"></i></div>'+
+        '<div class="bmiscale"><span>18.5</span><span>25</span><span>30</span></div></div></div>'+
+        '<div class="muted" style="font-size:12.5px;margin-top:12px">'+((b>=18.5&&b<25)?L({en:"Your BMI is healthy. Maintain weight & muscle.",id:"BMI kamu sehat. Pertahankan berat & komposisi otot."}):L({en:"Keep an eye on your weight & body composition.",id:"Perhatikan berat & komposisi tubuhmu."}))+'</div></div>';
+    }
+    // Kartu hasil timbangan Visbody: angka yang benar-benar diukur di lokasi.
+    function bodyScanCard(){
+      var s=BSCAN, p=BSCAN_PREV;
+      var when=new Date(s.scanned_at).toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{day:"numeric",month:"short",year:"numeric"});
+      var head='<div class="psec-row"><div class="psec">'+L({en:"Body status",id:"Status Tubuh"})+'</div>'+
+        '<a class="plink" href="body-scan.html">'+L({en:"Body Scan",id:"Body Scan"})+' ›</a></div>'+
+        '<div class="psub">'+L({en:"Measured on the 20FIT scale",id:"Diukur di timbangan 20FIT"})+' · '+esc(when)+'</div>';
+      var rows=[
+        [L({en:"Weight",id:"Berat"}), bsNum(s.body_weight), "kg", bsDelta(s.body_weight, p&&p.body_weight, true)],
+        [L({en:"Body fat",id:"Lemak tubuh"}), bsNum(s.body_fat_percentage), "%", bsDelta(s.body_fat_percentage, p&&p.body_fat_percentage, true)],
+        [L({en:"Muscle mass",id:"Massa otot"}), bsNum(s.muscle_mass), "kg", bsDelta(s.muscle_mass, p&&p.muscle_mass, false)],
+        ["BMI", bsNum(s.body_mass_index), "", bsDelta(s.body_mass_index, p&&p.body_mass_index, true)]
+      ].filter(function(r){ return r[1]!=null; });
+      if(!rows.length) return head+'<div class="card"><div class="muted" style="font-size:12.5px">'+esc(L({en:"The last scan has no readable numbers.",id:"Scan terakhir tidak punya angka yang bisa dibaca."}))+'</div></div>';
+      return head+'<a class="card" href="body-scan.html" style="display:block;text-decoration:none;color:var(--txt)">'+
+        rows.map(function(r){
+          return '<div class="psec-row" style="padding:7px 0"><div class="w2tx">'+esc(r[0])+'</div>'+
+            '<div style="font-weight:800;white-space:nowrap">'+esc(r[1])+(r[2]?' <span class="muted" style="font-weight:700;font-size:12px">'+esc(r[2])+'</span>':'')+r[3]+'</div></div>';
+        }).join("")+
+        (p?'<div class="muted" style="font-size:11.5px;margin-top:8px">'+esc(L({en:"Change vs your previous scan.",id:"Perubahan dibanding scan sebelumnya."}))+'</div>':'')+
+        '</a>';
+    }
+    // Dimuat SETELAH render pertama supaya halaman tidak menunggu query ini. Kalau ada
+    // hasilnya, bagian atas digambar ulang; kalau tidak, halaman tetap seperti semula.
+    async function loadBodyScan(){
+      try{
+        if(!window.BodyScan) return;
+        var r=await BodyScan.latestWithPrev();
+        if(!r || !r.now) return;
+        BSCAN=r.now; BSCAN_PREV=r.prev;
+        if(typeof render==="function") render();
+      }catch(e){ /* tabel belum ada / gagal -> biarkan kartu lama */ }
+    }
+    function w2Badge(f){ var s=String(f.severity||f.level||f.status||"").toLowerCase();
+      if(/high|tinggi|danger|perhatian|abnormal/.test(s)) return {t:L({en:"WATCH",id:"PERHATIAN"}),c:"#C41101",bg:"rgba(196,17,1,.1)"};
+      if(/med|sedang|warning/.test(s)) return {t:L({en:"MODERATE",id:"SEDANG"}),c:"#C87000",bg:"rgba(200,112,0,.12)"};
+      if(/good|ok|normal|baik/.test(s)) return {t:L({en:"GOOD",id:"BAIK"}),c:"#2A7A4F",bg:"rgba(42,122,79,.12)"};
+      return {t:L({en:"CHECK",id:"CEK"}),c:"#2F6BFF",bg:"rgba(47,107,255,.12)"}; }
+    function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+    function whatToWatchCard(){
+      var res=profile&&profile._mcu, att=(res&&res.abnormal_findings)||[];
+      var head='<div class="psec">'+L({en:"What to watch",id:"Yang Perlu Diperhatikan"})+'</div><div class="psub">'+(att.length?(att.length+' '+L({en:"things from your health data",id:"hal dari data kesehatanmu"})):L({en:"From your latest MCU",id:"Dari MCU terakhirmu"}))+'</div>';
+      if(!res) return head+'<div class="card"><div class="soonbox"><div class="soonpill">'+L({en:"No MCU yet",id:"Belum ada MCU"})+'</div>'+L({en:"Do a Medical Check-up to see what to keep an eye on.",id:"Lakukan Medical Check-up untuk tahu apa yang perlu dijaga."})+'</div></div>';
+      if(!att.length) return head+'<a class="card" href="medical.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--txt)"><span class="w2dot" style="background:#2A7A4F"></span><div class="w2tx">'+L({en:"Latest check-up: all normal",id:"Check-up terakhir: semua normal"})+'</div><span class="pbadge" style="color:#2A7A4F;background:rgba(42,122,79,.12)">'+L({en:"GOOD",id:"BAIK"})+'</span></a>';
+      var rows=att.slice(0,6).map(function(f){ var b=w2Badge(f);
+        return '<div class="w2row"><span class="w2dot" style="background:'+b.c+'"></span><div class="w2tx">'+esc(f.label||"")+(f.value?' — '+esc(f.value):'')+'</div><span class="pbadge" style="color:'+b.c+';background:'+b.bg+'">'+b.t+'</span></div>'; }).join("");
+      return head+'<div class="card">'+rows+'</div>';
+    }
+    function monName(m){ return (I18N.lang==="id"?["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"]:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"])[m]; }
+    function upcomingCalCard(){
+      var head='<div class="psec-row"><div class="psec">'+L({en:"Upcoming bookings",id:"Booking Terdekat"})+'</div><a class="plink" href="https://booking.20fit.id">'+L({en:"All",id:"Semua"})+' ›</a></div><div class="psub">'+L({en:"Your nearest schedule",id:"Jadwal aktivitas terdekat"})+'</div>';
+      var bk=(arenaData&&!arenaData.error&&arenaData.bookings)||[]; var dm={}, up=[]; var t0=new Date(); t0.setHours(0,0,0,0);
+      bk.forEach(function(b){ var sc=b.arena_class_schedules||{}, ds=sc.schedule_date; if(!ds)return; dm[ds]=1; var dd=new Date(ds+"T00:00:00"); if(dd>=t0) up.push({date:ds,time:arTime(sc.start_time),title:(sc.arena_class_types&&sc.arena_class_types.name)||L({en:"Class",id:"Kelas"}),coach:sc.instructor||"",status:b.status}); });
+      up.sort(function(a,b){return (a.date+a.time)<(b.date+b.time)?-1:1;});
+      var y=t0.getFullYear(), m=t0.getMonth(), first=new Date(y,m,1), sd=(first.getDay()===0?6:first.getDay()-1), dim=new Date(y,m+1,0).getDate();
+      var WD=(I18N.lang==="id"?["Sn","Sl","Rb","Km","Jm","Sb","Mg"]:["Mo","Tu","We","Th","Fr","Sa","Su"]);
+      var cells=WD.map(function(w){return '<div class="mch">'+w+'</div>';}).join("");
+      for(var i=0;i<sd;i++) cells+='<div class="mcd dim"></div>';
+      for(var d=1;d<=dim;d++){ var ds=y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"); cells+='<div class="mcd'+(d===t0.getDate()?" today":"")+(dm[ds]?" has":"")+'">'+d+(dm[ds]?'<span class="mdot"></span>':'')+'</div>'; }
+      var html='<div class="card"><div style="font-weight:800;margin-bottom:6px">'+monName(m)+' '+y+'</div><div class="mcal">'+cells+'</div>';
+      if(arenaData===null) html+='<div class="muted" style="font-size:12.5px;margin-top:12px">'+L({en:"Loading your bookings…",id:"Memuat booking kamu…"})+'</div>';
+      else if(!up.length) html+='<div class="muted" style="font-size:12.5px;margin-top:12px">'+(arenaData.error==="no_phone"?L({en:"Add your phone number in profile to sync bookings.",id:"Isi nomor HP di profil untuk sinkron booking."}):L({en:"No upcoming bookings. Book a class at booking.20fit.id.",id:"Belum ada booking terdekat. Booking kelas di booking.20fit.id."}))+'</div>';
+      else html+='<div class="bklist">'+up.slice(0,4).map(function(u){ var dd=new Date(u.date+"T00:00:00");
+        return '<div class="bkrow"><div class="bkdate"><div class="bkd">'+dd.getDate()+'</div><div class="bkm">'+monName(dd.getMonth())+'</div></div><div class="bkinfo"><div class="bkt">'+u.title+(u.time?' · '+u.time:'')+'</div><div class="muted" style="font-size:12px">'+[u.coach].filter(Boolean).join(" · ")+'</div></div>'+arBadge(u.status)+'</div>'; }).join("")+'</div>';
+      return head+html+'</div>';
+    }
+    function activityNotesCard(){
+      return '<div class="psec">'+L({en:"Activity notes",id:"Catatan Aktivitas"})+'</div><div class="psub">'+L({en:"Notes from every session",id:"Catatan tiap sesi kamu"})+'</div>'+
+        '<div class="chips"><span class="chip on">'+L({en:"All",id:"Semua"})+'</span><span class="chip"><span class="cdot" style="background:#2F6BFF"></span>'+L({en:"Doctor & Medic",id:"Dokter & Medis"})+'</span><span class="chip"><span class="cdot" style="background:#C41101"></span>Coach</span></div>'+
+        '<div class="card"><div class="soonbox"><div class="soonpill">'+L({en:"Coming soon",id:"Segera hadir"})+'</div>'+L({en:"Coach & doctor notes will appear here after your classes — connecting to the coach & doctor portal soon.",id:"Catatan coach & dokter muncul di sini setelah kelasmu — segera tersambung ke portal coach & dokter."})+'</div></div>';
+    }
+    function newTop(){ return bodyStatusCard()+whatToWatchCard()+'<div id="newArena"></div>'+(SHOW_ACTIVITY_NOTES?activityNotesCard():'')+'<hr class="pdivide"><div class="sec" style="margin-top:12px">'+L({en:"More detail",id:"Detail Lainnya"})+'</div>'; }
+    // RaceLab dikeluarkan atas permintaan pemilik (21 Sep 2026). Markup lamanya ada di
+    // git history dan masih hidup di progress.html (/progress?legacy=1) kalau perlu dikembalikan.
+    function renderNewArena(){ var el=document.getElementById("newArena"); if(el) el.innerHTML=(SHOW_UPCOMING_BOOKINGS?upcomingCalCard():''); }
+
+    function render(){
+      const c=document.getElementById("lgcContent");
+      document.getElementById("lgcHk").textContent=L({en:"Your journey",id:"Perjalananmu"});
+      document.getElementById("lgcHello").textContent=L({en:"Activity",id:"Aktivitas"});
+      if(!days.length){ c.innerHTML=newTop()+overallCard()+cycleCard()+calendarCard()+'<div class="card" style="margin-top:14px"><div class="empty">'+L({en:"Start tracking your water, sleep & meals — your weekly progress will appear here.",id:"Mulai catat air, tidur & makananmu — progres mingguanmu akan muncul di sini."})+'</div></div>'+'<div id="arenaHist"></div>'; renderArena(); renderNewArena(); return; }
+
+      // ---- summary ----
+      const tracked=days.filter(d=>d.log&&(d.log.water_glasses>0||d.log.sleep_hours>0||d.cal>0)).length;
+      const sleepVals=days.filter(d=>d.log&&d.log.sleep_hours>0).map(d=>+d.log.sleep_hours);
+      const avgSleep=sleepVals.length?(sleepVals.reduce((a,b)=>a+b,0)/sleepVals.length):0;
+      const waterVals=days.filter(d=>d.log&&d.log.water_glasses>0).map(d=>+d.log.water_glasses);
+      const avgWater=waterVals.length?(waterVals.reduce((a,b)=>a+b,0)/waterVals.length):0;
+      // streak (dari hari ini mundur)
+      let streak=0; for(let i=days.length-1;i>=0;i--){const d=days[i];if(d.log&&(d.log.water_glasses>0||d.log.sleep_hours>0||d.cal>0))streak++;else break;}
+      const consist=Math.round(tracked/days.length*100);
+
+      const summary='<div class="grid3">'+
+        '<div class="card stat"><div class="k">'+L({en:"Days tracked",id:"Hari tercatat"})+'</div><div class="v">'+tracked+'<small>/7</small></div></div>'+
+        '<div class="card stat"><div class="k">'+L({en:"Avg sleep",id:"Rata2 tidur"})+'</div><div class="v">'+(avgSleep?avgSleep.toFixed(1):'–')+'<small>'+(avgSleep?'h':'')+'</small></div></div>'+
+        '<div class="card stat"><div class="k">'+L({en:"Avg water",id:"Rata2 air"})+'</div><div class="v">'+(avgWater?avgWater.toFixed(1):'–')+'<small>'+(avgWater?L({en:"gl",id:"gls"}):'')+'</small></div></div>'+
+        '</div>';
+
+      const streakCard='<div class="sec">'+L({en:"Consistency",id:"Konsistensi"})+'</div>'+
+        '<div class="card streak"><div class="fire"><svg class="emi" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></div><div style="flex:1"><div class="big">'+streak+' <span style="font-size:15px;font-weight:700;font-family:inherit;color:var(--muted)">'+L({en:streak===1?"day streak":"day streak",id:"hari beruntun"})+'</span></div>'+
+        '<div class="muted" style="font-size:12px;margin-top:2px">'+L({en:"Weekly consistency",id:"Konsistensi mingguan"})+': '+consist+'%</div><div class="cbar"><i style="width:'+consist+'%"></i></div></div></div>';
+
+      // ---- charts ----
+      const goal=calGoal(profile);
+      const waterChart=barChart(L({en:"Water this week",id:"Air minggu ini"}),
+        days.map(d=>({l:wdLabel(d.date),v:d.log?+d.log.water_glasses||0:0,disp:(d.log?+d.log.water_glasses||0:0)+''})),8,"gl","#3b82f6",L({en:"Target 8 glasses/day",id:"Target 8 gelas/hari"}));
+      const sleepChart=barChart(L({en:"Sleep this week",id:"Tidur minggu ini"}),
+        days.map(d=>({l:wdLabel(d.date),v:d.log?+d.log.sleep_hours||0:0,disp:(d.log&&d.log.sleep_hours?(+d.log.sleep_hours).toFixed(1)+'h':'0')})),8,"h","#7c5cff",L({en:"Target 7–8 hours/night",id:"Target 7–8 jam/malam"}));
+      const calChart=barChart(L({en:"Calories this week",id:"Kalori minggu ini"}),
+        days.map(d=>({l:wdLabel(d.date),v:d.cal||0,disp:(d.cal||0)+''})),goal,"kcal","#C41101",L({en:"Daily target ≈ "+goal+" kcal",id:"Target harian ≈ "+goal+" kkal"})+' · '+L({en:"synced to your account",id:"tersinkron ke akunmu"}));
+
+      const charts='<div class="sec">'+L({en:"This Week",id:"Minggu Ini"})+'</div><div class="main2"><div>'+waterChart+'<div style="height:14px"></div>'+sleepChart+'</div><div>'+calChart+'</div></div>';
+
+      // ---- weight ----
+      let wRows='';
+      if(weights.length){
+        const sorted=[...weights].sort((a,b)=>a.d<b.d?1:-1).slice(0,6);
+        wRows=sorted.map((w,i)=>{const prev=sorted[i+1];let dl='';
+          if(prev){const diff=+(w.kg-prev.kg).toFixed(1);const down=diff<0;dl='<span class="delta" style="background:'+(down?"rgba(42,122,79,.15);color:#2A7A4F":diff>0?"rgba(196,17,1,.12);color:#C41101":"rgba(154,144,127,.15);color:#9a907f")+'">'+(diff>0?'+':'')+diff+' kg</span>';}
+          return '<div class="wrow"><span class="muted">'+w.d+'</span><span><span class="kg">'+w.kg+'</span> kg '+dl+'</span></div>';}).join("");
+      } else { wRows='<div class="muted" style="padding:6px 0">'+L({en:"No entries yet. Log your weight to see your trend.",id:"Belum ada catatan. Catat beratmu untuk lihat tren."})+'</div>'; }
+      const firstW=weights.length?[...weights].sort((a,b)=>a.d<b.d?-1:1)[0]:null;
+      const lastW=weights.length?[...weights].sort((a,b)=>a.d<b.d?1:-1)[0]:null;
+      let totalDelta='';
+      if(firstW&&lastW&&firstW.d!==lastW.d){const dt=+(lastW.kg-firstW.kg).toFixed(1);totalDelta='<div class="muted" style="margin-top:6px;font-size:12px">'+L({en:"Since you started: ",id:"Sejak mulai: "})+'<b style="color:'+(dt<0?"#2A7A4F":dt>0?"#C41101":"#9a907f")+'">'+(dt>0?'+':'')+dt+' kg</b></div>';}
+      const weightCard='<div class="sec">'+L({en:"Weight",id:"Berat Badan"})+'</div>'+
+        '<div class="card"><div style="font-weight:800">'+L({en:"Track your weight",id:"Catat berat badanmu"})+'</div>'+
+        '<div class="muted" style="font-size:12px">'+L({en:"Add today\'s weight to build your trend.",id:"Tambahkan berat hari ini untuk bikin tren."})+'</div>'+
+        '<div class="wlog"><input id="wIn" type="number" inputmode="decimal" step="0.1" placeholder="'+(profile.weight_kg||"kg")+'" /><button onclick="logWeight()">'+L({en:"Save",id:"Simpan"})+'</button></div>'+
+        totalDelta+'<div style="margin-top:12px">'+wRows+'</div></div>';
+
+      // ---- achievements ----
+      const stats=Ach.buildStats(days,{hasFasting:!!localStorage.getItem("my20fit_if"),hasMcu:!!profile._hasMcu});
+      const earnedIds=Ach.earned(stats);
+      const achCard='<div class="sec">'+L({en:"Achievements",id:"Pencapaian"})+'</div><div class="card"><div class="achg">'+
+        Ach.DEFS.map(a=>{const on=earnedIds.indexOf(a.id)>-1;return '<div class="ach '+(on?"on":"off")+'"><div class="em">'+(on?a.em:'<svg class="emi" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>')+'</div><div><div class="t">'+L(a.t)+'</div><div class="s">'+L(a.s)+'</div></div></div>';}).join("")+'</div></div>';
+
+      c.innerHTML=newTop()+overallCard()+cycleCard()+calendarCard()+summary+streakCard+charts+weightCard+achCard+'<div id="arenaHist"></div>';
+      renderArena();
+      renderNewArena();
+    }
+
+    // ---- History 20FIT / Riwayat 20FIT (20FIT Arena: kelas, paket, venue) ----
+    function arRupiah(n){ return "Rp "+(+n||0).toLocaleString("id-ID"); }
+    function arDate(s){ if(!s)return"—"; try{ const d=new Date(String(s).length<=10?s+"T00:00:00":s); return d.toLocaleDateString(I18N.lang==="id"?"id-ID":"en-GB",{day:"2-digit",month:"short",year:"numeric"}); }catch(e){ return s; } }
+    function arTime(t){ return t?String(t).slice(0,5):""; }
+    function arBadge(s){
+      const map={confirmed:["#2A7A4F","rgba(42,122,79,.14)"],pending_payment:["#C87000","rgba(200,112,0,.14)"],cancelled:["#C41101","rgba(196,17,1,.12)"]};
+      const c=map[s]||["#9a907f","rgba(154,144,127,.15)"];
+      const lbl={confirmed:L({en:"Confirmed",id:"Terkonfirmasi"}),pending_payment:L({en:"Pending",id:"Menunggu"}),cancelled:L({en:"Cancelled",id:"Batal"})}[s]||s||"—";
+      return '<span style="font-size:11px;font-weight:800;padding:2px 8px;border-radius:20px;color:'+c[0]+';background:'+c[1]+'">'+lbl+'</span>';
+    }
+    function renderArena(){
+      const box=document.getElementById("arenaHist"); if(!box) return;
+      const head='<div class="sec">'+L({en:"History 20FIT",id:"Riwayat 20FIT"})+'</div>';
+      if(arenaData===null){ box.innerHTML=head+'<div class="card"><div class="muted" style="font-size:13px">'+L({en:"Loading your 20FIT Arena history…",id:"Memuat riwayat 20FIT Arena kamu…"})+'</div></div>'; return; }
+      if(arenaData.error){
+        const noPhone=arenaData.error==="no_phone";
+        box.innerHTML=head+'<div class="card"><div class="muted" style="font-size:13px">'+
+          (noPhone?L({en:"Add your phone number in your profile to see your class, package & venue history.",id:"Isi nomor HP di profil untuk melihat riwayat kelas, paket & venue kamu."})
+                  :L({en:"Couldn't load your 20FIT history right now.",id:"Belum bisa memuat riwayat 20FIT kamu sekarang."}))+'</div></div>';
+        return;
+      }
+      const bk=arenaData.bookings||[], pk=arenaData.packages||[], vn=arenaData.venue||[];
+      if(!bk.length && !pk.length && !vn.length){
+        box.innerHTML=head+'<div class="card"><div class="empty">'+L({en:"No 20FIT Arena activity yet. Book a class at booking.20fit.id and it will appear here.",id:"Belum ada aktivitas 20FIT Arena. Booking kelas di booking.20fit.id dan riwayatnya muncul di sini."})+'</div></div>';
+        return;
+      }
+      let html=head;
+      if(bk.length){
+        html+='<div class="card"><div style="font-weight:800;margin-bottom:6px">'+L({en:"Class bookings",id:"Booking Kelas"})+'</div>'+
+          bk.map(b=>{ const sc=b.arena_class_schedules||{}, ct=sc.arena_class_types||{}, color=ct.color||"#C41101";
+            return '<div style="display:flex;gap:11px;padding:10px 0;border-top:1px solid var(--line,#eee)">'+
+              '<span style="width:10px;height:10px;border-radius:3px;margin-top:5px;flex:0 0 auto;background:'+color+'"></span>'+
+              '<div style="flex:1;min-width:0"><div style="font-weight:800;font-size:14px">'+esc(ct.name||L({en:"Class",id:"Kelas"}))+'</div>'+
+                '<div class="muted" style="font-size:12px">'+arDate(sc.schedule_date)+(sc.start_time?' · '+arTime(sc.start_time)+(sc.end_time?'–'+arTime(sc.end_time):''):'')+(sc.instructor?' · '+esc(sc.instructor):'')+'</div></div>'+
+              '<div style="text-align:right;flex:0 0 auto">'+arBadge(b.status)+'<div class="muted" style="font-size:12px;margin-top:3px">'+arRupiah(b.price)+'</div></div>'+
+            '</div>';
+          }).join("")+'</div>';
+      }
+      if(pk.length){
+        html+='<div class="card"><div style="font-weight:800;margin-bottom:6px">'+L({en:"Session packages",id:"Paket Sesi"})+'</div>'+
+          pk.map(p=>{ const v=(p.arena_package_vouchers||[])[0]||null, used=v?v.used_sessions:0, tot=v?v.total_sessions:p.sessions;
+            return '<div style="padding:10px 0;border-top:1px solid var(--line,#eee)">'+
+              '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div style="font-weight:800;font-size:14px">'+esc(p.package_name||L({en:"Package",id:"Paket"}))+'</div>'+arBadge(p.status)+'</div>'+
+              '<div class="muted" style="font-size:12px;margin-top:2px">'+arRupiah(p.price)+(v?' · '+L({en:"used",id:"terpakai"})+' '+used+'/'+tot+(v.is_active?'':' · '+L({en:"inactive",id:"nonaktif"})):'')+'</div>'+
+            '</div>';
+          }).join("")+'</div>';
+      }
+      if(vn.length){
+        html+='<div class="card"><div style="font-weight:800;margin-bottom:6px">'+L({en:"Venue bookings",id:"Booking Venue"})+'</div>'+
+          vn.map(b=>'<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line,#eee)">'+
+              '<div><div style="font-weight:800;font-size:14px">'+arDate(b.booking_date)+'</div>'+
+                '<div class="muted" style="font-size:12px">'+arTime(b.start_time)+(b.end_time?'–'+arTime(b.end_time):'')+' · '+(b.customer_type==="corporation"?L({en:"Corporate",id:"Korporasi"}):L({en:"Individual",id:"Individu"}))+'</div></div>'+
+              '<div style="text-align:right">'+arBadge(b.status)+'<div class="muted" style="font-size:12px;margin-top:3px">'+arRupiah(b.price)+'</div></div>'+
+            '</div>').join("")+'</div>';
+      }
+      box.innerHTML=html;
+    }
+    async function loadArena(){
+      try{
+        const tk=await Auth.token(); if(!tk){ arenaData={error:"unauth"}; renderArena(); return; }
+        const r=await fetch("/api/arena/history",{headers:{Authorization:"Bearer "+tk}});
+        const j=await r.json().catch(()=>({}));
+        arenaData = r.ok ? j : {error:(j.error||"failed")};
+      }catch(e){ arenaData={error:"failed"}; }
+      renderArena();
+      renderNewArena();
+    }
+
+    async function logWeight(){
+      const v=parseFloat(document.getElementById("wIn").value);
+      if(!v||v<20||v>400){toast(L({en:"Enter a valid weight",id:"Masukkan berat yang valid"}));return;}
+      const d=todayStr(); const kg=+v.toFixed(1);
+      weights=weights.filter(w=>w.d!==d); weights.push({d:d,kg:kg});
+      try{localStorage.setItem("my20fit_weight",JSON.stringify(weights));}catch(e){}
+      try{await Auth.saveDaily({weight_kg:kg});}catch(e){}                       // riwayat per hari di DB
+      try{await Auth.supabase.from("my20fit_profile").update({weight_kg:kg,updated_at:new Date().toISOString()}).eq("auth_user_id",user.id);profile.weight_kg=kg;}catch(e){}
+      toast(L({en:"Weight saved",id:"Berat tersimpan"}));
+      render();
+    }
+
+    (async function(){
+      try{ user=await Auth.requireAuth(); }catch(e){ return; }
+      try{ profile=await Auth.getProfile(); }catch(e){ profile={}; }
+      const dates=currentWeekDates();
+      let logMap={};
+      try{ const {data}=await Auth.supabase.from("my20fit_daily_log").select("*").eq("auth_user_id",user.id).gte("log_date",dates[0]).order("log_date"); (data||[]).forEach(r=>logMap[r.log_date]=r); }catch(e){}
+      days=dates.map(d=>{const r=logMap[d]||null;const cal=(r&&Array.isArray(r.cal_items))?r.cal_items.reduce((s,i)=>s+(+i.kcal||0),0):readCal(d);return {date:d,log:r,cal:cal};});
+      // Riwayat berat dari DB (lintas-device), fallback ke localStorage
+      try{ const {data}=await Auth.supabase.from("my20fit_daily_log").select("log_date,weight_kg").eq("auth_user_id",user.id).not("weight_kg","is",null).order("log_date",{ascending:false}).limit(30); weights=(data||[]).map(r=>({d:r.log_date,kg:+r.weight_kg})); }catch(e){ weights=readWeights(); }
+      if(!weights.length && profile.weight_kg){ weights=[{d:todayStr(),kg:+profile.weight_kg}]; }
+      // MCU terakhir untuk achievement + kartu medical
+      try{ const {data}=await Auth.supabase.from("my20fit_mcu_result").select("result").eq("auth_user_id",user.id).order("created_at",{ascending:false}).limit(1); if(data&&data[0]){profile._hasMcu=true;profile._mcu=data[0].result;} }catch(e){}
+      render();
+      loadArena();   // tarik riwayat 20FIT Arena (async, isi section History 20FIT)
+      loadBodyScan();// hasil timbangan Visbody (async; kalau ada, kartu Status Tubuh diganti)
+      if(window.Ach)Ach.check({days:days,hasFasting:!!localStorage.getItem("my20fit_if"),hasMcu:!!profile._hasMcu});
+      if(window.I18N&&I18N.onChange)I18N.onChange(render);
+    })();
+  }
+</script>
+</body>
+</html>

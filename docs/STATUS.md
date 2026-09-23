@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-19 · **Commit staging:** `2b30541` · **Production:** `7740dbf`
+> **Pembaruan terakhir:** 2026-09-21 · **Commit staging:** `245b7d1` · **Production:** `7740dbf`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -148,6 +148,334 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Tabrakan nama "Activity" SELESAI (2026-09-21).** Item nav berlabel "Activity"/"Aktivitas"
+  (`nav_progress`) dulu menunjuk `/progress`, sehingga pemilik mengklik "Activity" dan mendarat
+  di halaman LAMA — bagian baru tak pernah terlihat. Sekarang: item nav menunjuk `activity.html`,
+  dan `/progress` **redirect 302** ke `/activity`.
+  - **302, bukan 301** — sengaja. Selama masa verifikasi ini masih bisa dibalik tanpa tersangkut
+    cache permanen di browser user. Naikkan ke 301 setelah `/activity` terbukti beres.
+  - **Pintu darurat `/progress?legacy=1`** menyajikan halaman lama, mengikuti pola yang sudah
+    dipakai repo untuk `/admin-dashboard?legacy=1`. Karena itu `progress.html` BUKAN file mati.
+  - **Utang yang diakui:** isi `progress.html` kini ADA DI DUA TEMPAT (aslinya + salinan di
+    `activity.html`). Itu melanggar §2 (satu sumber kebenaran). Sengaja dibiarkan satu putaran
+    sebagai jalan mundur selagi `/activity` belum terverifikasi di perangkat nyata.
+    **HAPUS `progress.html` + pintu daruratnya** begitu pemilik memastikan `/activity` beres.
+- **Pesan error jujur saat migration 017 belum jalan.** `/api/activity/day` memang tetap 200
+  (error tabel `my20fit_daily_plan` yang belum ada ditelan -> `plan:null`), tapi "Buat rencana"
+  dan centang goal akan gagal. Dulu balasannya generik; sekarang `isMissingSchema()` mengenali
+  Postgres 42P01/42703 dan membalas **503** + pesan "migration 017 belum dijalankan", bukan
+  "Gagal membuat rencana harian" yang tidak memberi petunjuk apa pun.
+
+- **Foto avatar di dashboard tampil salah — DIPERBAIKI 2026-09-21.** `paintAva()` menyetel
+  `a.style.background = <warna>` (shorthand) sebelum `backgroundImage`. Shorthand inline
+  me-reset `background-size` ke `auto` dan `background-position` ke `0% 0%`, dan gaya inline
+  menang atas `.hpx-av{background-size:cover}` di stylesheet. Terbukti lewat computed style:
+  `size:auto, pos:0% 0%, rep:repeat` — foto tampil ukuran asli, rata kiri-atas, DAN berulang;
+  di lingkaran 26px user cuma melihat secuil pojok fotonya. Diperbaiki jadi `backgroundColor`
+  + `backgroundSize/Position/Repeat` eksplisit, dan `backgroundImage` dikosongkan saat user
+  tak punya foto (dulu foto user sebelumnya bisa tertinggal). Diverifikasi dengan menjalankan
+  fungsi `paintAva` ASLI dari `dashboard.html` di Chromium.
+  Pola yang sama disapu ke seluruh repo: hanya SATU kejadian. `profile.html` `setAva()` aman
+  (tak pakai shorthand inline, CSS `.ava` sudah `cover`), `js/nav.js` sudah menyetel `cover`
+  sendiri, `js/recipe-photos.js` sudah diperbaiki di PR #447.
+- **`js/recipes.js` BUKAN dead code — jangan hapus.** Tidak dimuat halaman mana pun di browser,
+  tapi `server.js:4865` mem-`require`-nya untuk katalog resep resmi (`/api/menu/catalog`), dan
+  `scripts/backfill-menu-photos.js` juga. Yang diekspor hanya `LIST` + `DIET_TYPES`.
+  **Catatan:** fungsi browser di dalamnya (`_setBg`, `applyThumb` di ~baris 1283-1289) otomatis
+  jadi tak pernah jalan karena file ini kini murni dipakai server. `_setBg` di sana masih punya
+  bug `background-size` yang sama. TIDAK disentuh: file ini di-`require` server, mengubahnya
+  berisiko ke katalog resep. **TANYA PEMILIK REPO** sebelum membersihkannya.
+
+- **Halaman Activity (`/activity`) — BARU 2026-09-21, belum dites di staging.** Upload/isi workout,
+  zona HR, rencana harian AI, nutrisi, kebiasaan, ringkasan minggu.
+  - **Spesifikasi awal minta React+Vite+Tailwind dan 3 tabel baru; keduanya DITOLAK** karena
+    melanggar CLAUDE.md §5/§I (vanilla) dan §2/§4 (duplikasi + prefix). Dibangun vanilla, dan
+    dua dari tiga tabel dipakai ulang: `my20fit_workout` (dorman, 0 baris → diperluas) dan
+    `my20fit_daily_log` (hidup, 679 baris → hanya `steps` yang ditambah). Lihat
+    `db/supabase-migration-017-activity.sql` untuk daftar kolom yang SENGAJA tidak dibuat.
+  - **AI lewat jalur tunggal yang sudah ada** (`callAiEdge` → edge `my20fit-ai`, aksi baru `plan`),
+    bukan edge function terpisah. Provider tetap **OpenRouter + Gemini**, bukan Anthropic —
+    spesifikasi menyebut "Anthropic Claude API", repo memakai yang lain sejak awal.
+  - **Ada rencana cadangan tanpa AI** (`fallbackPlan` di `server.js`): dihitung dari angka yang ada,
+    ditandai "TANPA AI" di UI. Jadi halaman tetap berguna sebelum edge fn di-deploy.
+  - **Baca screenshot health tracker (21 Sep 2026).** Upload menerima **sampai 5 gambar**
+    untuk SATU sesi latihan (layar ringkasan + zona HR + split), dibaca AI lewat jalur yang
+    sama: `POST /api/activity/scan` → `callAiEdge({action:"workout"})` → edge `my20fit-ai` →
+    **OpenRouter** (model `AI_MODEL_MCU`, default `google/gemini-3-flash-preview`).
+    - Endpoint scan **tidak menyimpan apa pun** — hasilnya mengisi dialog supaya user
+      memeriksa dulu. Angka yang tidak terbaca dibalikan **null**, tidak ditebak; kolom yang
+      kosong di dialog memang tidak terbaca.
+    - Gambar **diperkecil di browser** (maks sisi 1400px, JPEG 0.82) sebelum dikirim ke scan —
+      batas body Express 8MB tak muat untuk lima screenshot ukuran penuh. Yang diunggah ke
+      Storage tetap berkas aslinya.
+    - `my20fit_workout.uploaded_file_url` cuma muat SATU url, jadi daftar lengkap + jejak
+      bacaan AI (confidence, kolom yang dibaca) disimpan di **`raw_data`** (jsonb, sudah ada
+      di migration 017). **Tidak perlu migration baru.**
+    - Daftar jenis workout di prompt edge, validasi server, dan `<select id="fType">`
+      SENGAJA sama persis (`run/cycling/gym/hyrox/swimming/other`) supaya tak perlu lapisan
+      pemetaan yang bisa melenceng.
+    - Kalau bucket belum ada, pembacaan AI **tetap jalan** dan user diberi tahu gambarnya
+      tidak tersimpan — supaya fitur bisa diuji sebelum bucket dibuat.
+    - **BELUM TERVERIFIKASI:** akurasi bacaan pada screenshot tracker ASLI. Diuji dengan
+      respons AI tiruan; ketepatan OCR baru bisa dinilai setelah edge fn di-deploy ulang.
+- **`/calories` disamakan dengan home calorietracker.20fit.id (21 Sep 2026).**
+  Hasil pembandingan repo `Marketing-project-wq/Calories.20fit` terhadap `calories.html`:
+  - **API-nya SUDAH tersambung sejak awal.** `constants.ts` di calorietracker menyetel
+    `API_BASE = MY20FIT` dan memanggil `/api/scan/ai`, `/api/scan/food-text`,
+    `/api/scan/food-correction`, `/api/scan/quota`, `/api/scan/buy` — semuanya endpoint
+    milik repo INI dan sudah ada di `server.js`. Jadi calorietracker adalah KLIEN
+    my.20fit.id, bukan layanan terpisah yang perlu di-proxy.
+  - **Panel 1-9 sudah ada** di `/calories`: target+termometer, makro, scan foto, ketik
+    manual, health meter, cek per-item, nutrient gap, saran makan berikutnya (semuanya
+    di `fsum*` dalam `calories.html`), puasa (`js/fasting.js`), dan daftar "Today's Food"
+    lengkap dengan tombol hapus (`#log` + `del(i)`).
+  - **Yang BENAR-BENAR kurang cuma satu: Rencana Makan harian.** Sudah dibuat:
+    `js/meal-plan.js` — port vanilla dari `src/lib/mealPlan.ts`. Aturan pemilihannya
+    disalin apa adanya: porsi 25/35/30/10 persen, PRNG mulberry32 ber-seed (seed =
+    hari ke-n dalam setahun, "Acak lagi" menaikkan seed), toleransi jarak
+    `budget*0.35+40`, shortlist 4, dan satu resep tak dipakai dua kali sehari.
+  - Sumber datanya `/api/menu/catalog` (120 resep, sudah ada) — sama dengan sumber yang
+    dipakai calorietracker. Tidak ada API baru.
+  - **Tautan resep pakai `/recipe?q=<nama>`**, karena `/recipe` BELUM punya deep-link per
+    resep (hanya filter `q`/`category`/`diet`/`kcal`/`sort`). Kalau deep-link per resep
+    dibuat nanti, tautan ini sebaiknya diarahkan ke sana.
+  - **BELUM DIKERJAKAN:** `js/fasting.js` di sini 93 baris, `src/lib/fasting.ts` di
+    calorietracker 231 baris — fitur puasanya lebih dangkal. Selisihnya belum
+    diperiksa baris-per-baris. **TANYA PEMILIK REPO** apakah perlu disamakan juga.
+  - **CATATAN:** calorietracker membaca tabel `ct_meal` (tanpa prefix `my20fit_`).
+    Tabel itu milik app tersebut; repo ini TIDAK menyentuhnya (CLAUDE.md §4).
+
+- **`/calories`: kelompok waktu makan + ubah item + chart mingguan + riwayat (21 Sep 2026).**
+  Menjawab permintaan "pasang semua fitur calorietracker.20fit.id di /calories".
+  Semuanya di atas `my20fit_daily_log.cal_items` yang SUDAH dipakai bersama — nol tabel baru,
+  nol endpoint baru.
+  - **Waktu makan** (sarapan/siang/malam/cemilan): aturan disalin dari calorietracker
+    (`src/lib/memberTracker.ts` — `inferMeal`/`itemMeal`). Kunci `m` bersifat aditif di
+    dalam `cal_items`; item lama tanpa `m` dikelompokkan dari JAM-nya dengan batas yang
+    sama persis (<10 sarapan, <15 siang, <21 malam, sisanya cemilan), jadi satu item
+    jatuh di ember yang sama di kedua app.
+  - **Ubah item**: nama/kalori/P/C/F/waktu makan. `saveEdit()` MENYALIN item lalu menimpa
+    field yang diedit saja — kunci `mid`/`cid` milik calorietracker (tautan ke `ct_meal`
+    untuk breakdown kaya di History-nya) TIDAK ikut terhapus. Diuji.
+  - **Chart mingguan & riwayat 14 hari**: `Auth.getDailyRange()` (baru di `js/auth.js`),
+    query-nya sengaja sebentuk dengan `src/lib/memberHistory.ts` milik calorietracker
+    (select `log_date,cal_items` dari `my20fit_daily_log`, filter `auth_user_id`, urut
+    turun), jadi angkanya pasti sama di kedua app. Hari ini dibaca dari state di layar,
+    bukan dari DB, supaya tidak tertinggal.
+  - **BELUM dikerjakan, dan alasannya:**
+    - **Favorit** — butuh penyimpanan sendiri. `cal_items` per-hari, jadi tidak muat.
+      Perlu tabel `my20fit_*` + migration manual. Lagipula **calorietracker belum punya
+      fitur favorit**, jadi tidak ada lawan sinkronnya sekarang. **TANYA PEMILIK REPO.**
+    - **Artikel nutrisi** — tabel `nutrition_articles` ADA (12 baris) tapi TANPA prefix
+      `my20fit_` alias milik app lain (CLAUDE.md §4). Rencananya dibaca lewat endpoint
+      proxy read-only di `server.js` supaya kredensial tetap di server; belum dibuat.
+    - **Field fiber/gula/catatan/satuan porsi** di form tambah — belum ada di bentuk
+      `cal_items` yang dipakai bersama; menambahkannya aman (aditif) tapi calorietracker
+      tidak akan menampilkannya. **TANYA PEMILIK REPO** apakah tetap mau.
+  - **Dokumen permintaannya keliru di dua titik, dicatat supaya tidak diulang:**
+    (a) `calorie-service.js` **tidak ada** di repo calorietracker (`Marketing-project-wq/
+    calories.20fit`) — lib-nya TypeScript (`memberTracker.ts` dkk), jadi tak ada yang bisa
+    "di-copy persis"; (b) tabel `calorie_logs`/`calorie_profiles`/`calorie_favorites`/
+    `calorie_daily_summary` **tidak ada** di DB live, dan membuatnya justru MEMUTUS sinkron
+    (calorietracker menulis ke `cal_items`), sehingga TEST 2-5 di dokumen itu malah gagal.
+
+- **Visbody tersambung ke Activity + bisa ditemukan (22 Sep 2026).**
+  - `js/body-scan.js` — SATU pembaca bersama (`BodyScan.latest/all/count/latestWithPrev`),
+    dipakai `/body-scan` dan `/activity` supaya tidak ada dua salinan query.
+  - **`/activity` kartu "Status Tubuh"**: kalau ada hasil timbangan, angka TERUKUR
+    (berat, lemak %, massa otot, BMI) menggantikan BMI perkiraan dari profil, lengkap
+    dengan selisih terhadap scan sebelumnya dan tautan ke `/body-scan`. Tanpa hasil
+    timbangan ATAU kalau tabelnya belum ada, kartu lama yang tampil — tanpa error.
+  - **`/dashboard`**: item "Body Scan" ditambahkan ke menu produk (sebelumnya
+    `/body-scan` tidak tertaut dari mana pun).
+  - Diuji headless 3 keadaan: ada scan (kartu terukur + delta + tautan), belum ada scan
+    (kartu BMI lama), dan tabel belum ada / query gagal (kartu BMI lama, nol error JS —
+    ini keadaan produksi sekarang).
+  - **BELUM dikerjakan:** BMR dari timbangan belum dipakai untuk target kalori di
+    `/calories`. Itu mengubah angka target milik user, jadi perlu keputusan pemilik dulu
+    (disarankan: tampilkan sebagai referensi, bukan menimpa target diam-diam).
+
+- **`/body-scan` RUSAK TOTAL sejak dibuat, diperbaiki (23 Sep 2026).** Halaman itu punya
+  `function L(o){ return (window.L?window.L(o):…) }` di level teratas script inline.
+  Deklarasi fungsi top-level bernama `L` **menimpa** `window.L` milik `js/i18n.js:403`,
+  jadi `window.L(o)` memanggil dirinya sendiri → `RangeError: Maximum call stack size
+  exceeded` pada pemanggilan `L()` pertama. Dibuktikan dijalankan di Chromium, bukan
+  dibaca: sebelum script inline `L()` mengembalikan `"Berat"`, sesudahnya melempar, dan
+  `window.L === L` bernilai `true`. Tidak pernah ketahuan karena tabelnya masih 0 baris
+  sehingga halaman selalu berhenti di keadaan kosong. **Halaman lain tidak kena** — hanya
+  `body-scan.html` yang punya pembungkus ini (`grep`: 0 di `activity/calories/event/
+  classes`). Perbaikannya: pembungkus dihapus, pakai `window.L` langsung seperti halaman lain.
+- **Rentang acuan & status Visbody sekarang ditampilkan (23 Sep 2026).** Tiap metrik dari
+  Visbody berbentuk `{name,value,unit,extra:{status_info:{description},reference:{low,
+  standard,high}}}`. Selama ini `extra` ikut tersimpan di `raw_data` tapi **tidak pernah
+  dibaca** — member cuma melihat angka telanjang. Sekarang `/body-scan` menampilkan chip
+  Normal / Di atas normal / Di bawah normal + rentang normalnya. `raw_data` sengaja TIDAK
+  masuk daftar kolom daftar (satu baris bisa puluhan KB × 50 baris); diambil per scan lewat
+  `BodyScan.detail()`. Status yang tidak dikenali tidak ditebak, dan rentang hanya digambar
+  kalau `low < high` — contoh resmi `visceral_fat_grade` punya `standard:"0"` padahal
+  `low:"0.90"`.
+- **Duplikasi query dihapus (23 Sep 2026).** `body-scan.html` ternyata punya query
+  `my20fit_visbody_body` **sendiri** dan tidak pernah memuat `js/body-scan.js`, padahal
+  komentar di modul itu mengklaim jadi satu-satunya pembaca (CLAUDE.md §2). Sekarang
+  halaman memakai `BodyScan.state()/reset()`; sisa query di repo: 1 di server (tulis),
+  1 pembaca bersama.
+- **Visbody S20 (timbangan body composition) — KODE SIAP, BELUM BISA JALAN (22 Sep 2026).**
+  `db/supabase-migration-019-visbody.sql`, `lib/visbody.js`, 4 route `/api/visbody/*`,
+  halaman `/body-scan`.
+  - **Nama tabel `my20fit_visbody_scan` + `my20fit_visbody_body`**, bukan `visbody_scans` /
+    `visbody_body_composition` seperti spesifikasi (CLAUDE.md §4). Dicek ke DB live:
+    belum ada tabel apa pun berawalan `visbody` maupun `my20fit_visbody`.
+  - **Scan TIDAK dicocokkan otomatis ke akun.** Identitas yang diketik di layar timbangan
+    tidak terverifikasi, jadi mencocokkannya otomatis = menyerahkan data komposisi tubuh
+    seseorang ke akun yang belum tentu dia. Kepemilikan hanya lewat member memindai QR →
+    `POST /api/visbody/bind-user`, dengan jendela klaim **30 menit** dan klaim atomik
+    (`.is("auth_user_id", null)`) supaya dua orang yang memindai QR sama tidak sama-sama dapat.
+  - **QR dibuat di server** pakai `js/qrcode-generator.js` yang sudah ada di repo, BUKAN
+    dikirim ke `api.qrserver.com` seperti contoh spesifikasi — scan_id tidak perlu bocor
+    ke layanan pihak ketiga.
+  - **TIGA KEKELIRUAN SPESIFIKASI yang diperbaiki, bukan disalin:**
+    1. `timingSafeEqual` tanpa cek panjang → MELEMPAR (dibuktikan:
+       `ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH`), jadi signature palsu berbuah 500, bukan 401.
+    2. HMAC dihitung atas `JSON.stringify(req.body)` — itu hasil serialisasi ULANG, bukan
+       byte yang ditandatangani Visbody, jadi verifikasi akan selalu gagal. Sekarang
+       memakai `req.rawBody` (penangkapnya diperluas ke `/api/visbody/`).
+    3. Alur bind-lewat-QR di spesifikasi tidak pernah mengambil data ukurnya, dan endpoint
+       `/api/visbody/bind-user` yang dipanggil halaman bind tidak pernah ditulis.
+  - **`my20fit_profile` TIDAK punya kolom `birthdate`** (dicek ke DB live: yang ada `age`).
+    Kode awal saya meminta kolom itu dan akan membuat bind gagal diam-diam; sudah diperbaiki.
+  - **BELUM DIUJI KE API ASLI** — kredensial `VISBODY_*` belum ada dan tidak ada timbangan.
+    Yang sudah diuji: `lib/visbody.js` unit (20/20: signature, anti-replay, device creds,
+    pemetaan nilai null vs 0) + pembuatan QR beneran jalan di Node. Route express-nya
+    **belum pernah dijalankan** — `npm install` diblokir registry di lingkungan ini.
+  - **TUGAS PEMILIK → langkah lengkapnya sekarang di `docs/VISBODY-SETUP.md`** (pesan siap
+    kirim ke Visbody, nama variabel Railway, URL yang didaftarkan, cara uji, cara baca
+    kegagalan). Ringkasnya: (1) ~~migration 019~~ **SUDAH dijalankan 22 Sep 2026** — kedua
+    tabel ada, RLS aktif, **0 baris**; (2) minta `VISBODY_ACCOUNT_KEY`,
+    `VISBODY_ACCOUNT_SECRET`, `VISBODY_WEBHOOK_SECRET` + serial timbangan ke Visbody;
+    (3) buat sendiri `VISBODY_DEVICE_KEY`/`VISBODY_DEVICE_SECRET` lalu berikan ke Visbody;
+    (4) daftarkan ke Visbody: webhook `https://my.20fit.id/api/visbody/webhook`,
+    token `/api/visbody/token`, qrcode `/api/visbody/qrcode`.
+    **Selama (2) dan (4) belum selesai, nol data bisa masuk** — bukan karena kodenya, tapi
+    karena webhook tidak pernah dikirim dan tanda tangannya tidak bisa diverifikasi.
+  - **BELUM TERVERIFIKASI — TANYA VISBODY:** bentuk persis body webhook (`scan_id`,
+    `event_id`, `device_sn`, `user_info.third_uid`, `measured_items`) dan nama header
+    (`x-visbody-timestamp`, `x-visbody-signature`) diambil dari rangkuman di prompt, bukan
+    dari dokumen/respons asli. Kalau berbeda, yang perlu disesuaikan cuma pemetaan di
+    route webhook + `verifyWebhook()`.
+
+- **Sinkronisasi ekosistem (calorie / recipe / MCU) — SUDAH JALAN, jangan dibuat ulang.**
+  Diperiksa ke DB LIVE + kode calorietracker pada 21 Sep 2026, setelah ada dokumen yang
+  mengusulkan 8 tabel baru (`calorie_logs`, `calorie_profiles`, `calorie_daily_summary`,
+  `calorie_favorites`, `recipe_bookmarks`, `recipe_meal_plans`, `mcu_scans`,
+  `mcu_scan_results`). **Usulan itu TIDAK dijalankan**, dan ini alasannya:
+  - **Kalori sudah sinkron lewat `my20fit_daily_log.cal_items`.** Bukan dugaan — komentar
+    di kode calorietracker sendiri menyatakannya: `src/lib/memberTracker.ts:20` "ADDITIVE
+    to the cal_items shape **my.20fit.id shares**", dan `src/lib/scanMeal.ts:3` menulis ke
+    `my20fit_daily_log.cal_items` "**so my.20fit.id stays consistent**". Kedua app
+    membaca DAN menulis kolom yang sama.
+    Membuat `calorie_logs` = penyimpanan KETIGA → justru memutus sinkron yang sudah jalan,
+    dan itu persis "tabel duplikat" yang dilarang dokumen itu sendiri.
+  - **Resep juga menulis kalori ke kolom yang sama.** recipe.20fit.id (repo
+    `Marketing-project-wq/MENU`) punya `src/lib/calorieLog.ts` yang menambah entri ke
+    `my20fit_daily_log.cal_items` dengan bentuk `{name,kcal,p,c,f,t}` dan komentar
+    "POLA PERSIS my.20fit (`Auth.saveDaily`)". Jadi kolom itu dipakai TIGA app.
+    Di DB live ada **153 baris** `my20fit_daily_log` dengan `cal_items` terisi.
+  - **MCU SUDAH SINKRON DUA ARAH — terverifikasi 21 Sep 2026** (dulu ditulis BELUM
+    TERVERIFIKASI di sini; sekarang sudah dibaca). medicalscanner.20fit.id = repo
+    `Marketing-project-wq/MEDICAL-CHECK-UP-`. Browser-nya menyimpan hasil scan ke
+    **`my20fit_mcu_result`** di bawah RLS (`src/client/app.js:508` insert
+    `{auth_user_id, result, analyzed_at}`), membaca riwayat dari tabel yang sama
+    (`:593`) dan menghapus dari situ (`:577`). Tabel yang sama dibaca `/medical` di repo
+    ini dan `server.js:4295`, serta sudah masuk `USER_DATA_TABLES` (`server.js:4411`).
+    DB live: **18 baris**. Jadi `mcu_scans` + `mcu_scan_results` tidak diperlukan.
+  - **`my20fit_mcu_pending_scan` sekarang YATIM — TANYA PEMILIK REPO.** 0 baris, dan
+    tidak ada satu pun referensi ke tabel itu di repo ini (cek: `grep -rn
+    mcu_pending_scan` cuma ketemu dokumen ini). Kolomnya (`anon_id`, `teaser`) cocok
+    dengan alur "tahan hasil sampai daftar" yang di repo MCU sudah DIHAPUS —
+    komentarnya: "no teaser, no anonymous hold-until-signup — those violated §0.1 and
+    are gone". Kandidat kuat untuk di-drop, TAPI jangan di-drop sebelum pemilik
+    konfirmasi tak ada app lain yang memakainya. (Baris lama di sini menulis tabel ini
+    "sudah dipakai server.js" — itu KELIRU.)
+  - **Bookmark resep: tabelnya ada, tapi sinkronnya SATU ARAH.** `my20fit_menu_save`
+    (`id, auth_user_id, source, menu_id, created_at`, 2 baris) ditulis & dibaca
+    `server.js` (`POST /api/menu/:id/save`, `GET /api/menu/saved`). recipe.20fit.id
+    **belum punya fitur simpan sama sekali** — `grep` di repo MENU tidak menemukan
+    `my20fit_menu_save` maupun bookmark; yang ada cuma `my20fit_menu_reaction` (love),
+    dan komentarnya sendiri mencatat "save = 0". Jadi `recipe_bookmarks` bukan cuma
+    duplikat, tak ada yang perlu disinkronkan dari sisi sana. Kalau mau bookmark
+    lintas-app, yang benar: recipe.20fit.id memakai endpoint `/api/menu/:id/save`
+    yang SUDAH ada — bukan tabel baru.
+  - **`recipe_meal_plans` tidak dibuat, dan memang tak perlu tabel.** Rencana makan di
+    `/calories` (`js/meal-plan.js`) deterministik dari seed hari-ke-N + katalog
+    `/api/menu/catalog`, hasilnya sama tiap kali dihitung ulang, jadi tak ada state
+    yang perlu disimpan.
+  - **Semua nama tabel usulan melanggar CLAUDE.md §4** (tanpa prefix `my20fit_`, di project
+    Supabase yang dipakai bersama ratusan tabel app lain). Bukan kekhawatiran teoretis:
+    di project yang sama SUDAH ADA `mcu_articles`, `mcu_quiz_api_keys`,
+    `recipe_admin_role`, `recipe_admin_audit_log` — tanpa prefix, milik app lain.
+    `mcu_scans` / `recipe_bookmarks` akan duduk persis di sebelahnya.
+  - **`ct_meal` / `ct_meal_component` / `ct_meal_audit`** milik calorietracker (detail menu,
+    ditautkan dari `cal_items.mid`). Repo ini TIDAK menyentuhnya.
+  - Yang DIKERJAKAN dari dokumen itu: (a) penyelarasan nama URL `/recipes` → `/recipe`
+    dan `/mcu` → `/medical` (301); (b) seksi **"Resep tersimpan"** di `/recipe` — lihat
+    butir berikutnya. Halamannya tidak diduplikasi, tabel baru tidak dibuat.
+  - **TANYA PEMILIK REPO — `MY20FIT_ORIGIN` di app MCU.** `/api/analyze-mcu` yang dipanggil
+    medicalscanner.20fit.id **tidak ada di repo ini**; endpoint itu ada di repo
+    `my20fit-dashboard` (`artifacts/api-server/src/routes/mcu.ts:21`). Tapi default di
+    kode MCU adalah `https://my.20fit.id` (`src/server.js:34`), jadi kalau env
+    `MY20FIT_ORIGIN` di Railway-nya tidak di-set ke host dashboard, scan-nya kena 404.
+    Perlu dicek pemilik — repo itu di luar repo ini, tidak diubah dari sini.
+
+- **`/recipe`: seksi "Resep tersimpan" (21 Sep 2026).** `GET /api/menu/saved` sudah ada
+  sejak lama di `server.js:5727` dan terdaftar di OpenAPI, tapi **tidak ada satu pun
+  pemanggil di frontend** — tombol Simpan menulis ke `my20fit_menu_save`, lalu tak ada
+  halaman yang membacanya kembali. Sekarang `/recipe` menampilkannya di atas daftar resep.
+  Tanpa tabel baru, tanpa endpoint baru.
+  - Resep resmi di-resolve dari katalog yang sudah dimuat; menu member yang tersimpan tapi
+    tak terbawa `/api/menu/published` di-hydrate dari payload `members` endpoint itu sendiri.
+  - Entri yang resepnya sudah tidak ada di katalog TIDAK dikarang atau disembunyikan diam-diam
+    — dihitung dan ditulis apa adanya ("N resep tersimpan sudah tidak tersedia").
+  - Seksinya disembunyikan kalau user belum pernah menyimpan apa pun.
+  - Tombol Simpan/Batal simpan di detail resep langsung memperbarui seksi ini tanpa reload.
+  - Diuji headless (Chromium) untuk 3 keadaan: ada simpanan (kartu tampil + catatan hilang),
+    `/api/menu/saved` gagal 500 (pesan + tombol coba lagi), dan belum ada simpanan
+    (seksi hidden). Termasuk un-save → kartu hilang, save lagi → kartu balik.
+  - Ikut diperbaiki: `toggleLike`/`toggleSave` dulu meninggalkan tombol `disabled` selamanya
+    kalau request-nya gagal (pola bug yang sama dengan `genPlan` di /activity).
+
+- **Quiz "Set Your Goal" SEKARANG TERPASANG di `/activity` (21 Sep 2026).** Sebelumnya
+  `js/goal-quiz.js` sudah ada tapi tak dipanggil dari mana pun (dead code menurut
+  CLAUDE.md §8). Sekarang: tombol **"Tentukan targetmu"** di kartu "Belum ada rencana"
+  membuka quiz di dalam `#aiBox`; `onComplete` mengembalikan kartu analisis lalu lanjut
+  ke `genPlan()` — lewat gerbang `hasWorkout()` yang sudah ada, jadi kalau belum ada
+  workout yang muncul tetap pemandu upload, bukan API call yang gagal.
+  - Komponennya sendiri HANYA menyimpan + memanggil `onComplete`; pembuatan rencana
+    tetap milik `activity.html`.
+  - Perbaikan tata letak: 3 kotak jadwal harian dulu **menumpuk di bawah 400px** —
+    melanggar spesifikasi ("3 kotak sejajar") persis di lebar sasaran ~390px. Sekarang
+    tetap 3 kolom (`repeat(3,minmax(0,1fr))`), yang mengecil huruf & padding-nya.
+    Diukur di viewport 390px: tiga kotak sama lebar (84px), satu baris, nol teks
+    terpotong, nol overflow horizontal.
+  - **Tanpa migration 018, tombol simpannya GAGAL** — dan itu ditampilkan apa adanya:
+    "Tabel goal belum ada di database (migration 018). Hubungi admin.", quiz tetap
+    terbuka, tombol bisa dicoba lagi. Diuji headless.
+
+- **Migration 017 & 018 DIPASTIKAN BELUM DIJALANKAN (dicek ke DB live 21 Sep 2026).**
+  Buktinya: `my20fit_workout` masih 8 kolom (017 menambah 12 → seharusnya 20), tabel
+  `my20fit_daily_plan` (017) dan `my20fit_member_goals` (018) tidak ada di DB. Selama ini
+  belum dijalankan, tombol "Buat rencana" di /activity dan simpan GoalQuiz akan gagal.
+
+  - **TUGAS PEMILIK sebelum fitur ini utuh:** (1) jalankan migration 017 manual; (2) buat bucket
+    Storage **`workout-uploads`** (PRIVAT); (3) deploy ulang edge fn `my20fit-ai` supaya aksi
+    `plan` **dan `workout`** aktif — tanpa ini `/api/activity/scan` membalas 503 dengan pesan
+    yang menyebut langkah ini; (4) Strava OAuth (Client ID/Secret di Railway + redirect URI di
+    dashboard Strava) — tombol tracker sekarang jujur bilang "belum tersambung".
+  - **TANYA PEMILIK REPO — tabrakan nama:** item nav `nav_progress` berlabel **"Activity"/"Aktivitas"**
+    tapi menuju `/progress`. Sekarang ada dua hal bernama Activity. Nav SENGAJA tidak diubah
+    (menyentuh semua halaman); `/activity` diakses dari tile dashboard.
+  - **BELUM TERVERIFIKASI:** OCR screenshot workout (belum ada — angka diisi user), sinkronisasi
+    tracker (belum ada satupun), dan perilaku di perangkat nyata.
+
 - **OpenAPI/Scalar untuk Recipe App API + Content API v1 (PR #454, #455) MERGE LANGSUNG KE `main`.**
   Dikerjakan sesi lain dan **melewati `staging`** — melanggar CLAUDE.md §1. Tidak di-revert (sudah
   jalan di produksi, tidak ada tanda kerusakan), tapi dicatat di sini supaya tidak terulang:

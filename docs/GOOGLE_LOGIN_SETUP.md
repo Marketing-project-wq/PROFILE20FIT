@@ -259,6 +259,44 @@ termasuk alamat di address bar (bagian `authError=...` berguna).
 
 ---
 
+## Yang berubah di KODE pada 21 Sep 2026 (sudah dikerjakan, bukan tugasmu)
+
+Mengikuti dokumen "Login dengan Google — my.20fit.id Web" dari tim app:
+
+| Hal | Sebelum | Sekarang |
+|---|---|---|
+| `flowType` | tidak di-set → **implicit** (default supabase-js v2) | **`pkce`** |
+| Pemilih akun | tidak ada | `prompt: "select_account"` |
+| `redirectTo` | `<origin>/login` | **tetap** `<origin>/login` (sengaja) |
+
+**Kenapa PKCE.** Dengan *implicit*, GoTrue memulangkan `access_token` + `refresh_token` di
+**fragment URL** — ikut tersimpan di history browser. Dengan PKCE yang pulang cuma `?code=`
+berumur pendek, lalu ditukar jadi sesi lewat POST. Token tak pernah muncul di URL.
+
+**Ini TIDAK mengubah apa pun yang harus kamu setel.** Redirect URI yang dilihat Google selalu
+`https://cpvzwqptzcxnwzfzgrmt.supabase.co/auth/v1/callback` — tidak tergantung `flowType`.
+Diverifikasi di browser: URL OAuth yang dihasilkan berisi `code_challenge` (`s256`),
+`prompt=select_account`, host tujuan `cpvzwqptzcxnwzfzgrmt.supabase.co`, dan **nol token di URL**.
+
+**Kenapa `redirectTo` TIDAK dipindah ke `/auth/callback`** seperti saran dokumen itu: tujuan
+redirect WAJIB terdaftar di **Supabase → Authentication → URL Configuration** (Bagian B3).
+Memindahkannya sebelum kamu menambahkan URL barunya di sana justru membuat login GAGAL —
+GoTrue jatuh ke Site URL. Kalau kamu mau pindah: tambahkan `https://my.20fit.id/auth/callback`
+di daftar itu dulu, kabari saya, baru saya pindahkan.
+
+### Publishable key (`sb_publishable_…`) — kalau mau ganti, itu ENV, bukan kode
+
+Dokumen tim app menyarankan memakai publishable key menggantikan anon key. **Tidak perlu ubah
+kode**: `js/auth.js` mengambil URL + key dari `/api/config`, yang membacanya dari env Railway.
+Cukup ganti nilai **`SUPABASE_ANON_KEY`** di Railway Variables.
+
+⚠️ **BELUM TERVERIFIKASI:** saya belum menguji apakah bundle supabase-js yang di-vendor
+(2.108.2) menerima format kunci `sb_publishable_…`. Kalau setelah diganti login jadi gagal,
+kembalikan ke anon key lama dan kabari saya. Anon key lama tetap ada sebagai fallback di kode,
+jadi tidak ada risiko kehilangan akses total.
+
+---
+
 ## Catatan teknis (tidak perlu kamu kerjakan)
 
 - **Jalur web:** `login.html` → `Auth.googleOAuth()` → `supabase.auth.signInWithOAuth`
