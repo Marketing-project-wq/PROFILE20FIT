@@ -1655,13 +1655,43 @@ async function bridgeGoogleToSession(claims, idToken) {
 
   let fj = {};
   try {
+    // 🔎 DIAGNOSTIK SEMENTARA — insiden "Google account isn't registered" untuk akun
+    // yang JELAS terdaftar (login_type=google, google_id cocok). Baris `!fr.ok` di
+    // bawah memetakan SEMUA respons non-2xx FITCO jadi 401, dan app membaca 401 itu
+    // sebagai "belum terdaftar" — sementara status & body asli FITCO dibuang tanpa
+    // jejak, jadi tak ada cara tahu FITCO sebenarnya mengeluh apa.
+    // Blok log ini hanya MENCATAT; tak ada perilaku yang berubah. HAPUS setelah
+    // kontrak FITCO diketahui.
+    const reqBody = { name: gname, email, access_token: idToken, google_auth_id: gsub };
     const fr = await fetch(FITCO_API + FITCO_GOOGLE_LOGIN_PATH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: gname, email, access_token: idToken, google_auth_id: gsub }),
+      body: JSON.stringify(reqBody),
     });
-    fj = await fr.json().catch(() => ({}));
-    if (!fr.ok) { const e = new Error("Login Google ditolak 20FIT. Pastikan email Google ini terdaftar sebagai akun 20FIT."); e.status = 401; throw e; }
+    // Dibaca sebagai TEKS dulu: `fr.json()` menelan body non-JSON (halaman error
+    // HTML, body kosong, plain text) jadi `{}` tanpa sisa — persis bukti yang
+    // sedang kita cari. `fj` tetap bernilai sama seperti sebelumnya: JSON → objek,
+    // non-JSON → `{}`.
+    const rawBody = await fr.text().catch(() => "");
+    try { fj = JSON.parse(rawBody); } catch (_) { fj = {}; }
+    if (!fr.ok) {
+      // 🔴 idToken TIDAK PERNAH ikut ter-log — hanya NAMA field yang membawanya dan
+      // panjangnya, cukup untuk memastikan kontrak request tanpa membocorkan
+      // kredensial. Email di-mask; body dipotong 600 char supaya log tak meledak.
+      console.error(
+        "[google-login][FITCO-REJECT]",
+        "status=" + fr.status,
+        "statusText=" + JSON.stringify(fr.statusText || ""),
+        "url=" + FITCO_API + FITCO_GOOGLE_LOGIN_PATH,
+        "sent_fields=" + JSON.stringify(Object.keys(reqBody)),
+        "id_token_sent_as=access_token",
+        "id_token_len=" + String(idToken || "").length,
+        "google_auth_id_len=" + String(gsub || "").length,
+        "email=" + email.replace(/^(.{2}).*(@.*)$/, "$1***$2"),
+        "body=" + JSON.stringify(rawBody).slice(0, 600)
+      );
+      const e = new Error("Login Google ditolak 20FIT. Pastikan email Google ini terdaftar sebagai akun 20FIT."); e.status = 401; throw e;
+    }
   } catch (e) {
     if (e && e.status) throw e;
     const err = new Error("Tidak bisa menghubungi server 20FIT. Coba lagi."); err.status = 502; throw err;
