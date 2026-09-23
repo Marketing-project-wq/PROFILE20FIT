@@ -97,16 +97,25 @@
   .stats .v{font-size:15px;font-weight:800;font-family:var(--mono);margin-top:3px}
   .hrz{margin-top:15px}
   .hrz-h{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--a-mut);font-weight:800;margin-bottom:9px}
-  .hrz-r{display:flex;align-items:center;gap:9px;margin:6px 0}
-  .hrz-r .z{font-size:11px;font-weight:800;width:20px;color:var(--a-mut);font-family:var(--mono)}
-  .hrz-r .bar{flex:1;height:8px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden}
-  .hrz-r .bar i{display:block;height:100%;border-radius:99px}
-  .hrz-r .d{font-size:11.5px;font-family:var(--mono);color:var(--a-mut);width:46px;text-align:right}
+  /* HR zone: SATU bar bertumpuk + legenda + kaption (adopsi dari mockup Glass Bubble) */
+  .hrz-top{display:flex;align-items:center;margin-bottom:9px}
+  .hrz-top .hrz-h{margin-bottom:0;flex:1}
+  .hrz-tot{font-size:11px;color:var(--a-mut)}
+  .hrzbar{display:flex;gap:2px;height:12px;border-radius:99px;overflow:hidden;background:color-mix(in srgb,var(--a-txt) 8%,transparent)}
+  .hrzbar i{display:block;min-width:2px}
+  .hrz-leg{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+  .hrz-l{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--a-mut);font-family:var(--mono)}
+  .hrz-l i{width:8px;height:8px;border-radius:99px;display:inline-block}
+  .hrz-cap{margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--a-mut)}
 
   /* 5. AI analysis */
   /* Skin kaca menyetel .card{background:...!important}, jadi gradient biasa akan kalah.
      Pola tint ini menyalin cara repo melakukannya untuk .card.up — semburat di ATAS kaca. */
-  .card.ai{background:color-mix(in srgb,var(--accent) 7%,var(--glass,var(--a-surface))) !important}
+  .card.ai{background:color-mix(in srgb,var(--accent) 7%,var(--glass,var(--a-surface))) !important;position:relative;overflow:hidden}
+  /* Radial-glow sudut (adopsi mockup) — pakai token --accent, halus di light & dark */
+  .card.ai::before{content:"";position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:99px;
+    background:radial-gradient(circle,color-mix(in srgb,var(--accent) 22%,transparent),transparent 70%);pointer-events:none;z-index:0}
+  .card.ai>*{position:relative;z-index:1}
   .ai-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
   .ai-h svg{width:17px;height:17px;fill:var(--accent)}
   .ai-h .t{font-weight:800;font-size:14px}
@@ -125,6 +134,10 @@
   .ringw .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
   .ringw .n b{font-size:29px;font-family:var(--mono);font-weight:700;line-height:1}
   .ringw .n s{font-size:10px;color:var(--a-mut);text-decoration:none;letter-spacing:.6px;text-transform:uppercase;margin-top:3px;font-weight:700}
+  /* Badge status skor + selisih vs kemarin (adopsi mockup) */
+  .sbadge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:11.5px;font-weight:800;align-self:flex-start}
+  .sbadge i{width:8px;height:8px;border-radius:99px;flex:none}
+  .sdelta{font-family:var(--mono);font-weight:800}
   .gaps{display:flex;flex-direction:column;gap:7px}
   .gap{display:flex;align-items:center;gap:8px;font-size:12.5px}
   .gap i{width:7px;height:7px;border-radius:99px;flex:none}
@@ -741,13 +754,21 @@
       if(z){
         var tot=["z1","z2","z3","z4","z5"].reduce(function(a,k){return a+(+z[k]||0);},0);
         if(tot>0){
-          zh='<div class="hrz"><div class="hrz-h">'+esc(T("act_hrz"))+'</div>'+
-            ["z1","z2","z3","z4","z5"].map(function(k){
-              var v=+z[k]||0, pct=Math.round(v/tot*100);
-              return '<div class="hrz-r"><span class="z">'+k.toUpperCase()+'</span>'+
-                '<span class="bar"><i style="width:'+pct+'%;background:'+ZC[k]+'"></i></span>'+
-                '<span class="d">'+(v?hms(v):"—")+'</span></div>';
-            }).join("")+'</div>';
+          var ZLAB={z1:"Z1",z2:"Z2",z3:"Z3",z4:"Z4",z5:"Z5"};
+          var ZDESC={z1:{en:"very light — warm-up & recovery",id:"sangat ringan — pemanasan & pemulihan"},
+                     z2:{en:"light cardio — great for endurance",id:"kardio ringan — bagus buat endurance"},
+                     z3:{en:"moderate — aerobic tempo",id:"sedang — tempo aerobik"},
+                     z4:{en:"hard — threshold effort",id:"keras — usaha ambang"},
+                     z5:{en:"max — short bursts",id:"maksimal — ledakan singkat"}};
+          var dom="z1", dv=-1;
+          ["z1","z2","z3","z4","z5"].forEach(function(k){ if((+z[k]||0)>dv){ dv=+z[k]||0; dom=k; } });
+          var seg=["z1","z2","z3","z4","z5"].map(function(k){ var v=+z[k]||0; return v>0?('<i style="flex:'+v+';background:'+ZC[k]+'"></i>'):''; }).join("");
+          var leg=["z1","z2","z3","z4","z5"].map(function(k){ return '<span class="hrz-l"><i style="background:'+ZC[k]+'"></i>'+ZLAB[k]+'</span>'; }).join("");
+          zh='<div class="hrz"><div class="hrz-top"><span class="hrz-h">'+esc(T("act_hrz"))+'</span><span class="hrz-tot mono">'+esc(hms(tot))+' '+esc(Lx({en:"total",id:"total"}))+'</span></div>'+
+            '<div class="hrzbar">'+seg+'</div>'+
+            '<div class="hrz-leg">'+leg+'</div>'+
+            '<div class="hrz-cap">'+esc(Lx({en:"Longest in ",id:"Paling lama di "}))+'<b style="color:'+ZC[dom]+'">'+ZLAB[dom]+'</b> — '+esc(Lx(ZDESC[dom]))+'</div>'+
+            '</div>';
         }
       }
       var src=w.source?(" · "+w.source.replace(/_/g," ")):"";
@@ -799,6 +820,15 @@
     var score=(p.overall_score!=null)?p.overall_score:0;
     var C=2*Math.PI*46, off=C-(C*Math.max(0,Math.min(100,score))/100);
     var sc=score>=75?"var(--green)":(score>=45?"var(--amber)":"var(--red)");
+    // Badge status + selisih vs kemarin (adopsi mockup). Status dari skor sekarang (tanpa fetch);
+    // selisih dari skor rencana kemarin yang dimuat loadPrevScore().
+    var stKey=score>=75?"good":(score>=45?"warning":"critical");
+    var stCol=stKey==="good"?"var(--green)":(stKey==="warning"?"var(--amber)":"var(--red)");
+    var stBg="color-mix(in srgb,"+stCol+" 16%,transparent)";
+    var stLbl=stKey==="good"?Lx({en:"On track",id:"On track"}):(stKey==="warning"?Lx({en:"On the way",id:"Menuju target"}):Lx({en:"Needs attention",id:"Perlu perhatian"}));
+    var deltaLine="";
+    if(PREV_SCORE!=null){ var dd=score-PREV_SCORE; var dcol=dd>0?"var(--green)":(dd<0?"var(--red)":"var(--a-mut)");
+      deltaLine='<span class="sdelta" style="color:'+dcol+'">'+((dd>0?"+":"")+dd)+'</span> '+esc(Lx({en:"vs yesterday",id:"vs kemarin"})); }
     host.innerHTML=
       '<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span>'+
         '<span class="b">'+esc(p.source==="fallback"?T("act_ai_nofb"):"AI COACH")+'</span></div>'+
@@ -809,7 +839,10 @@
           '<circle cx="59" cy="59" r="46" fill="none" stroke="'+sc+'" stroke-width="9" stroke-linecap="round" '+
             'stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
           '<div class="n"><b>'+score+'</b><s>'+esc(T("act_score"))+'</s></div></div>'+
-        '<div class="gaps">'+(gaps.length?gaps.map(function(g){
+        '<div class="gaps">'+
+          '<span class="sbadge" style="background:'+stBg+';color:'+stCol+'"><i style="background:'+stCol+'"></i>'+esc(stLbl)+'</span>'+
+          (PREV_SCORE!=null?('<div class="muted" style="font-size:11.5px;margin:-2px 0 2px">'+deltaLine+'</div>'):'')+
+          (gaps.length?gaps.map(function(g){
           var st=["good","warning","critical"].indexOf(String(g.status))>=0?g.status:"warning";
           var col=st==="good"?"var(--green)":(st==="warning"?"var(--amber)":"var(--red)");
           return '<div class="gap"><i style="background:'+col+'"></i>'+esc(g.area||"")+'<span class="v">'+esc(g.value||"—")+'</span></div>';
@@ -974,6 +1007,7 @@
   var SLP_TARGET=8;      // jam — sama dgn chart tidur & kartu Overall lama
   var HYD_TARGET=2000;   // ml = 8 gelas x 250; sengaja disamakan dgn target air 8 gelas app
   var SLEEP=null, SLEEP7=[], HYDRA=[], AUTH_UID=null, SH_BUSY=false, SH_LOADED={}, SLP_Q=null;
+  var PREV_SCORE=null;   // skor rencana kemarin (untuk selisih di kartu skor) — diisi loadPrevScore()
 
   function ymdOf(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function addDays(s,n){ var d=dObj(s); d.setDate(d.getDate()+n); return ymdOf(d); }
@@ -987,6 +1021,16 @@
   function calcCross(bed,wake){ if(!bed||!wake) return false; var b=bed.split(":"),w=wake.split(":"); return ((+w[0])*60+(+w[1]))<=((+b[0])*60+(+b[1])); }
   function mkTs(dateStr,hhmm,shift){ if(!hhmm) return null; var p=hhmm.split(":"); var d=dObj(dateStr); d.setDate(d.getDate()+(shift||0)); d.setHours(+p[0]||0,+p[1]||0,0,0); return d.toISOString(); }
   async function ensureUid(){ if(AUTH_UID) return AUTH_UID; try{ var au=await Auth.supabase.auth.getUser(); AUTH_UID=(au&&au.data&&au.data.user)?au.data.user.id:null; }catch(e){} return AUTH_UID; }
+
+  async function loadPrevScore(date){
+    try{
+      var uid=await ensureUid(); if(!uid){ PREV_SCORE=null; return; }
+      var prev=addDays(date,-1);
+      var r=await Auth.supabase.from("my20fit_daily_plan").select("overall_score").eq("auth_user_id",uid).eq("plan_date",prev).limit(1);
+      PREV_SCORE=(r&&r.data&&r.data[0]&&r.data[0].overall_score!=null)?+r.data[0].overall_score:null;
+    }catch(e){ PREV_SCORE=null; }
+    if(DAY&&DAY.plan) renderAi();
+  }
 
   async function loadSleepHydra(date){
     var sb=document.getElementById("sleepBox"), hb=document.getElementById("hydraBox");
@@ -1161,7 +1205,7 @@
       if(!r.ok||!j.ok){ showErr(j.error||T("act_load_fail"),true); document.getElementById("woBox").innerHTML=""; BUSY=false; return; }
       DAY=j;
       renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek();
-      loadSleepHydra(date);
+      loadSleepHydra(date); loadPrevScore(date);
     }catch(e){
       showErr(T("act_load_fail"),true); document.getElementById("woBox").innerHTML="";
     }
