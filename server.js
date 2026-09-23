@@ -1662,10 +1662,13 @@ async function bridgeGoogleToSession(claims, idToken) {
     // jejak, jadi tak ada cara tahu FITCO sebenarnya mengeluh apa.
     // Blok log ini hanya MENCATAT; tak ada perilaku yang berubah. HAPUS setelah
     // kontrak FITCO diketahui.
+    // Header dipegang di const supaya yang DIKIRIM dan yang DI-LOG dijamin objek yang
+    // sama — kalau nanti ada header ditambah, log ikut berubah sendiri, tak bisa drift.
+    const reqHeaders = { "Content-Type": "application/json" };
     const reqBody = { name: gname, email, access_token: idToken, google_auth_id: gsub };
     const fr = await fetch(FITCO_API + FITCO_GOOGLE_LOGIN_PATH, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: reqHeaders,
       body: JSON.stringify(reqBody),
     });
     // Dibaca sebagai TEKS dulu: `fr.json()` menelan body non-JSON (halaman error
@@ -1689,6 +1692,42 @@ async function bridgeGoogleToSession(claims, idToken) {
         "google_auth_id_len=" + String(gsub || "").length,
         "email=" + email.replace(/^(.{2}).*(@.*)$/, "$1***$2"),
         "body=" + JSON.stringify(rawBody).slice(0, 600)
+      );
+      // Body request sudah terbukti BUKAN pemicunya (FITCO balas 200 untuk semua
+      // kombinasi body saat dites langsung), jadi pembedanya ada di luar body.
+      // Nama header + ada/tidaknya saja; nilai yang berbau kredensial di-redact.
+      const SECRETISH = /(authorization|token|secret|key|cookie|credential|password|signature|auth)/i;
+      const fmtHeaders = (entries) => entries.map(function (kv) {
+        const k = String(kv[0]), v = String(kv[1] == null ? "" : kv[1]);
+        // 🔴 Nilai berbau kredensial TIDAK PERNAH dicetak — cuma ada/tidak + panjang.
+        return SECRETISH.test(k)
+          ? k + "=<ada,redacted,len=" + v.length + ">"
+          : k + "=" + JSON.stringify(v).slice(0, 120);
+      }).join(" ") || "<kosong>";
+      // Yang kita set sendiri.
+      let hSent = "<gagal-baca>";
+      try { hSent = fmtHeaders(Object.keys(reqHeaders).map((k) => [k, reqHeaders[k]])); } catch (_) {}
+      // Yang EFEKTIF dikirim undici (termasuk default yang ia tambahkan sendiri:
+      // user-agent, accept, accept-encoding, ...). Body sengaja tak diikutkan — objek
+      // Request ini cuma untuk MEMBACA header, tak pernah dipakai mengirim apa pun.
+      let hEffective = "<gagal-baca>";
+      try {
+        hEffective = fmtHeaders([...new Request(FITCO_API + FITCO_GOOGLE_LOGIN_PATH, {
+          method: "POST", headers: reqHeaders,
+        }).headers.entries()]);
+      } catch (_) {}
+      // Header RESPONS FITCO — ini yang membedakan "FITCO sendiri yang menolak"
+      // dari "ada WAF/proxy/Cloudflare di depan yang memotong" (cf-ray, server,
+      // x-ratelimit-*). Pembeda paling mungkin kalau dites dari laptop balas 200
+      // tapi dari IP Railway balas 422.
+      let hResp = "<gagal-baca>";
+      try { hResp = fmtHeaders([...fr.headers.entries()]); } catch (_) {}
+      console.error(
+        "[google-login][FITCO-REJECT][headers]",
+        "status=" + fr.status,
+        "| req_set=" + hSent,
+        "| req_effective=" + hEffective,
+        "| resp=" + hResp
       );
       const e = new Error("Login Google ditolak 20FIT. Pastikan email Google ini terdaftar sebagai akun 20FIT."); e.status = 401; throw e;
     }
