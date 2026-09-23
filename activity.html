@@ -290,6 +290,33 @@
   @media(min-width:900px){ .lgc .main2{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:start} }
   @media(max-width:560px){ .lgc .wrap{padding:16px 12px} .lgc .card{padding:14px} .lgc .achg{grid-template-columns:1fr} .lgc .hello{font-size:24px} }
 
+  /* ---- Tidur & Hidrasi (tracker harian, ditambahkan) ---- */
+  .shh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .shh .e{font-size:18px;line-height:1}
+  .shh .t{font-weight:800;font-size:14px}
+  .shh .r{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--a-mut)}
+  .hbar{height:12px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden;margin:10px 0 6px}
+  .hbar i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .4s cubic-bezier(.2,.8,.2,1)}
+  .hyq{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .hyq button{display:inline-flex;align-items:center;gap:6px;padding:9px 12px;border-radius:10px;border:1px solid var(--glass-hair,var(--a-line));
+    background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));box-shadow:var(--glass-sh,none);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .hyc{display:flex;gap:8px;margin-top:10px}
+  .hyc input{flex:1;min-width:0;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px}
+  .hyc button{flex:0 0 auto;padding:0 16px;border-radius:9px;border:0;background:var(--accent);color:#fff;font-weight:800;cursor:pointer;font-family:inherit}
+  .hlog{margin-top:12px}
+  .hlog .row{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--a-line);font-size:13px}
+  .hlog .row:first-child{border-top:0}
+  .hlog .row .tm{font-family:var(--mono);font-size:12px;color:var(--a-mut);width:44px;flex:none}
+  .hlog .row .amt{margin-left:auto;font-family:var(--mono);font-weight:700}
+  .hlog .row .del{background:none;border:0;color:var(--a-mut);cursor:pointer;font-size:14px;padding:0 2px;font-family:inherit}
+  .qz{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:4px}
+  .qz button{padding:8px 3px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;text-align:center;line-height:1.5}
+  .qz button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .slpmeta{display:flex;gap:16px;align-items:center;margin-top:2px}
+  .slpmeta .b{font-size:22px;font-weight:800;font-family:var(--mono);line-height:1}
+  .slpmeta .l{font-size:11px;color:var(--a-mut);margin-top:3px}
+  .qbadge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green);white-space:nowrap}
+
 </style>
 <!-- Dimuat SESUDAH <style> halaman, sama seperti dashboard/calories/recipe: skin kaca
      memakai !important untuk .card sehingga kartu di sini otomatis ikut liquid-glass
@@ -339,6 +366,10 @@
 
   <div class="sechd" data-i18n="act_sec_habit">Kebiasaan harian</div>
   <div class="chips" id="habitBox"></div>
+
+  <!-- Tidur & Hidrasi (tracker harian) — client-side Supabase + RLS, agregat disinkron ke my20fit_daily_log -->
+  <div id="sleepBox"></div>
+  <div id="hydraBox"></div>
 
   </div>
   <div>
@@ -392,6 +423,22 @@
   <div style="display:flex;gap:8px;margin-top:14px">
     <button class="btn ghost" id="dlgCancel" type="button" data-i18n="act_cancel">Batal</button>
     <button class="btn" id="dlgSave" type="button" data-i18n="act_save">Simpan</button>
+  </div>
+</dialog>
+
+<dialog id="slpDlg">
+  <div style="font-weight:800;font-size:15px" id="slpDlgT">Catat tidur</div>
+  <div class="muted" style="font-size:12px;margin-top:3px" id="slpDlgS">Durasi dihitung otomatis dari jam tidur &amp; bangun.</div>
+  <label id="slpLbBed">Jam tidur</label><input id="slpBed" type="time">
+  <label id="slpLbWake">Jam bangun</label><input id="slpWake" type="time">
+  <div class="muted" id="slpDur" style="font-size:12.5px;margin:8px 0 2px">—</div>
+  <label id="slpLbQual">Kualitas tidur</label>
+  <div class="qz" id="slpQual"></div>
+  <label id="slpLbAwake">Berapa kali terbangun</label><input id="slpAwake" type="number" min="0" inputmode="numeric" placeholder="0">
+  <div id="slpErr" class="err" style="margin-top:10px"></div>
+  <div style="display:flex;gap:8px;margin-top:14px">
+    <button class="btn ghost" id="slpCancel" type="button">Batal</button>
+    <button class="btn" id="slpSave" type="button">Simpan</button>
   </div>
 </dialog>
 
@@ -916,6 +963,193 @@
       }).join("")+'</div>';
   }
 
+  // ============================================================
+  // ---- Tidur & Hidrasi (tracker harian) ----
+  // Tabel BARU my20fit_sleep + my20fit_hydration (migration 020), diakses CLIENT-SIDE
+  // lewat Auth.supabase + RLS (pola sama my20fit_daily_log). Agregat (sleep_hours,
+  // water_glasses) DISINKRON ke my20fit_daily_log lewat Auth.saveDaily supaya skor &
+  // rencana AI harian yang sudah ada tetap jalan tanpa ubah logika. Semua dibungkus
+  // try/catch: kalau migration belum dijalankan, kartu tampil kosong, halaman tak rusak.
+  // ============================================================
+  var SLP_TARGET=8;      // jam — sama dgn chart tidur & kartu Overall lama
+  var HYD_TARGET=2000;   // ml = 8 gelas x 250; sengaja disamakan dgn target air 8 gelas app
+  var SLEEP=null, SLEEP7=[], HYDRA=[], AUTH_UID=null, SH_BUSY=false, SH_LOADED={}, SLP_Q=null;
+
+  function ymdOf(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function addDays(s,n){ var d=dObj(s); d.setDate(d.getDate()+n); return ymdOf(d); }
+  function durLabel(h){ if(h==null) return "—"; var mm=Math.round(h*60), H=Math.floor(mm/60), M=mm%60; return I18N.lang==="en"?(H+"h"+(M?(" "+M+"m"):"")):(H+"j"+(M?(" "+M+"m"):"")); }
+  function qualLabel(q){ return Lx(({poor:{en:"Poor",id:"Buruk"},fair:{en:"Fair",id:"Cukup"},good:{en:"Good",id:"Baik"},excellent:{en:"Excellent",id:"Sangat baik"}})[q]||{en:q||"",id:q||""}); }
+  function drinkLabel(t){ return Lx(({water:{en:"Water",id:"Air"},coffee:{en:"Coffee",id:"Kopi"},tea:{en:"Tea",id:"Teh"},juice:{en:"Juice",id:"Jus"},sports_drink:{en:"Sports drink",id:"Minuman olahraga"},other:{en:"Other",id:"Lainnya"}})[t]||{en:t||"",id:t||""}); }
+  function drinkEmoji(t){ return ({water:"💧",coffee:"☕",tea:"🍵",juice:"🧃",sports_drink:"🥤",other:"🥛"})[t]||"💧"; }
+  function fmtTime(ts){ try{ return new Date(ts).toLocaleTimeString(I18N.lang==="en"?"en-GB":"id-ID",{hour:"2-digit",minute:"2-digit"}); }catch(e){ return ""; } }
+  function fmtTimeInput(ts){ try{ var d=new Date(ts); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }catch(e){ return ""; } }
+  function calcDur(bed,wake){ if(!bed||!wake) return null; var b=bed.split(":"),w=wake.split(":"); var bm=(+b[0])*60+(+b[1]), wm=(+w[0])*60+(+w[1]); if(!isFinite(bm)||!isFinite(wm)) return null; var d=wm-bm; if(d<=0) d+=1440; return Math.round(d/60*10)/10; }
+  function calcCross(bed,wake){ if(!bed||!wake) return false; var b=bed.split(":"),w=wake.split(":"); return ((+w[0])*60+(+w[1]))<=((+b[0])*60+(+b[1])); }
+  function mkTs(dateStr,hhmm,shift){ if(!hhmm) return null; var p=hhmm.split(":"); var d=dObj(dateStr); d.setDate(d.getDate()+(shift||0)); d.setHours(+p[0]||0,+p[1]||0,0,0); return d.toISOString(); }
+  async function ensureUid(){ if(AUTH_UID) return AUTH_UID; try{ var au=await Auth.supabase.auth.getUser(); AUTH_UID=(au&&au.data&&au.data.user)?au.data.user.id:null; }catch(e){} return AUTH_UID; }
+
+  async function loadSleepHydra(date){
+    var sb=document.getElementById("sleepBox"), hb=document.getElementById("hydraBox");
+    if(!sb||!hb) return;
+    if(!SH_LOADED[date]){ var sk='<div class="card"><div class="skel" style="height:76px"></div></div>'; sb.innerHTML=sk; hb.innerHTML=sk; }
+    try{
+      var uid=await ensureUid();
+      if(!uid){ SLEEP=null; SLEEP7=[]; HYDRA=[]; renderSleep(); renderHydra(); return; }
+      var from7=addDays(date,-6);
+      var sres=await Auth.supabase.from("my20fit_sleep").select("*").eq("auth_user_id",uid).gte("sleep_date",from7).lte("sleep_date",date).order("sleep_date",{ascending:true});
+      SLEEP7=(sres&&sres.data)||[]; SLEEP=SLEEP7.filter(function(r){return r.sleep_date===date;})[0]||null;
+      var hres=await Auth.supabase.from("my20fit_hydration").select("*").eq("auth_user_id",uid).eq("log_date",date).order("logged_at",{ascending:true});
+      HYDRA=(hres&&hres.data)||[];
+    }catch(e){ SLEEP=null; SLEEP7=[]; HYDRA=[]; }
+    SH_LOADED[date]=true;
+    renderSleep(); renderHydra();
+  }
+
+  function sleep7Bars(){
+    var map={}; SLEEP7.forEach(function(r){ map[r.sleep_date]=+r.duration_hours||0; });
+    var base=dObj(SEL), max=SLP_TARGET, days=[];
+    for(var i=6;i>=0;i--){ var d=new Date(base); d.setDate(d.getDate()-i); var s=ymdOf(d); var v=map[s]||0; if(v>max) max=v;
+      days.push({s:s,v:v,lb:d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"narrow"})}); }
+    return '<div class="bars" style="margin-top:12px">'+days.map(function(d){
+      var h=d.v>0?Math.max(8,Math.round(d.v/max*46)):0;
+      var cls=d.v>0?(d.s===SEL?"bar today":"bar"):"bar empty";
+      return '<div class="c"><div class="'+cls+'" style="height:'+(h||14)+'px"></div><div class="lb">'+esc(d.lb)+'</div></div>';
+    }).join("")+'</div>';
+  }
+
+  function renderSleep(){
+    var host=document.getElementById("sleepBox"); if(!host) return;
+    var hd='<div class="sechd">'+esc(Lx({en:"Sleep",id:"Tidur"}))+'</div>';
+    var s=SLEEP, dur=(s&&s.duration_hours!=null)?+s.duration_hours:null;
+    var pct=dur!=null?Math.max(0,Math.min(100,Math.round(dur/SLP_TARGET*100))):0;
+    var head='<div class="shh"><span class="e">😴</span><span class="t">'+esc(Lx({en:"Sleep",id:"Tidur"}))+'</span><span class="r">'+esc(Lx({en:SLP_TARGET+"h target",id:"target "+SLP_TARGET+"j"}))+'</span></div>';
+    var body;
+    if(s){
+      var q=s.quality?('<span class="qbadge">'+esc(qualLabel(s.quality))+'</span>'):'';
+      var times=(s.bedtime&&s.wake_time)?(esc(fmtTime(s.bedtime))+" → "+esc(fmtTime(s.wake_time))):esc(Lx({en:"logged",id:"tercatat"}));
+      body=head+'<div class="slpmeta"><div><div class="b">'+esc(durLabel(dur))+'</div><div class="l">'+times+'</div></div>'+
+        (q?('<div style="margin-left:auto">'+q+'</div>'):'')+'</div>'+
+        '<div class="hbar"><i style="width:'+pct+'%;background:'+((dur!=null&&dur>=7)?"var(--green)":"var(--accent)")+'"></i></div>'+
+        (s.awake_times?('<div class="muted" style="font-size:12px">'+esc(Lx({en:"Woke up "+s.awake_times+"×",id:"Terbangun "+s.awake_times+"×"}))+'</div>'):'')+
+        sleep7Bars()+
+        '<button class="btn ghost" id="slpEdit" style="margin-top:12px">'+esc(Lx({en:"Edit sleep",id:"Ubah tidur"}))+'</button>';
+    } else {
+      body=head+'<div class="muted" style="font-size:13px">'+esc(Lx({en:"No sleep logged for this day.",id:"Belum ada catatan tidur untuk hari ini."}))+'</div>'+
+        sleep7Bars()+
+        '<button class="btn" id="slpEdit" style="margin-top:12px">'+esc(Lx({en:"Log sleep",id:"Catat tidur"}))+'</button>';
+    }
+    host.innerHTML=hd+'<div class="card">'+body+'</div>';
+    var b=document.getElementById("slpEdit"); if(b) b.onclick=openSleepDlg;
+  }
+
+  function renderHydra(){
+    var host=document.getElementById("hydraBox"); if(!host) return;
+    var total=HYDRA.reduce(function(a,r){return a+(+r.amount_ml||0);},0);
+    var pct=Math.max(0,Math.min(100,Math.round(total/HYD_TARGET*100)));
+    var remain=Math.max(0,HYD_TARGET-total), glasses=Math.round(remain/250);
+    var quicks=[{ml:250,e:"💧",lbl:"250ml",t:"water"},{ml:500,e:"💧",lbl:"500ml",t:"water"},{ml:200,e:"☕",lbl:Lx({en:"Coffee",id:"Kopi"}),t:"coffee"},{ml:200,e:"🍵",lbl:Lx({en:"Tea",id:"Teh"}),t:"tea"}];
+    var hd='<div class="sechd">'+esc(Lx({en:"Hydration",id:"Hidrasi"}))+'</div>';
+    var qbtns=quicks.map(function(q,i){ return '<button type="button" data-q="'+i+'">'+q.e+' '+esc(q.lbl)+'</button>'; }).join("");
+    var logs=HYDRA.length?('<div class="hlog">'+HYDRA.slice().reverse().map(function(r){
+        return '<div class="row"><span class="tm">'+esc(fmtTime(r.logged_at))+'</span>'+drinkEmoji(r.drink_type)+' '+esc(drinkLabel(r.drink_type))+
+          '<span class="amt">'+(+r.amount_ml||0)+' ml</span><button class="del" data-del="'+esc(r.id)+'" title="'+esc(Lx({en:"Delete",id:"Hapus"}))+'">✕</button></div>';
+      }).join("")+'</div>'):'';
+    host.innerHTML=hd+'<div class="card">'+
+      '<div class="shh"><span class="e">💧</span><span class="t">'+esc(Lx({en:"Hydration",id:"Hidrasi"}))+'</span><span class="r">'+total+' / '+HYD_TARGET+' ml</span></div>'+
+      '<div class="hbar"><i style="width:'+pct+'%"></i></div>'+
+      '<div class="muted" style="font-size:12px">'+esc(remain>0?Lx({en:remain+" ml to go ("+glasses+" glass"+(glasses!==1?"es":"")+")",id:"Sisa "+remain+" ml ("+glasses+" gelas)"}):Lx({en:"Target reached 🎉",id:"Target tercapai 🎉"}))+'</div>'+
+      '<div class="hyq" id="hyq">'+qbtns+'</div>'+
+      '<div class="hyc"><input id="hyCustom" type="number" inputmode="numeric" min="1" placeholder="'+esc(Lx({en:"Custom ml",id:"ml lain"}))+'"><button type="button" id="hyAdd">'+esc(Lx({en:"Add",id:"Tambah"}))+'</button></div>'+
+      logs+'</div>';
+    Array.prototype.forEach.call(host.querySelectorAll("#hyq button"),function(b){ b.onclick=function(){ var q=quicks[+b.getAttribute("data-q")]; if(q) addDrink(q.ml,q.t); }; });
+    var add=document.getElementById("hyAdd"); if(add) add.onclick=function(){ var v=parseInt(document.getElementById("hyCustom").value,10); if(isFinite(v)&&v>0) addDrink(v,"water"); };
+    Array.prototype.forEach.call(host.querySelectorAll("[data-del]"),function(b){ b.onclick=function(){ delDrink(b.getAttribute("data-del")); }; });
+  }
+
+  async function syncWater(){
+    var total=HYDRA.reduce(function(a,r){return a+(+r.amount_ml||0);},0);
+    var glasses=Math.round(total/250);
+    try{ await Auth.saveDaily({water_glasses:glasses}, SEL); }catch(e){}
+    if(DAY&&DAY.daily){ DAY.daily.water_glasses=glasses; renderHabits(); }
+  }
+  async function addDrink(ml,type){
+    if(SH_BUSY) return; SH_BUSY=true;
+    try{
+      var uid=await ensureUid(); if(!uid) throw new Error("uid");
+      var res=await Auth.supabase.from("my20fit_hydration").insert({auth_user_id:uid, log_date:SEL, amount_ml:Math.round(ml), drink_type:type||"water"}).select().single();
+      if(res.error) throw res.error;
+      HYDRA.push(res.data); renderHydra(); await syncWater();
+    }catch(e){ showErr(Lx({en:"Couldn't save your drink. The hydration table may not be set up yet.",id:"Gagal menyimpan minuman. Tabel hidrasi mungkin belum disiapkan."}),false); }
+    SH_BUSY=false;
+  }
+  async function delDrink(id){
+    try{ var uid=await ensureUid(); await Auth.supabase.from("my20fit_hydration").delete().eq("id",id).eq("auth_user_id",uid); }catch(e){}
+    HYDRA=HYDRA.filter(function(r){return String(r.id)!==String(id);});
+    renderHydra(); await syncWater();
+  }
+
+  // ---- Dialog tidur ----
+  function renderQual(){
+    var host=document.getElementById("slpQual"); if(!host) return;
+    var qs=[["poor","😫"],["fair","😐"],["good","🙂"],["excellent","😴"]];
+    host.innerHTML=qs.map(function(q){ return '<button type="button" data-q="'+q[0]+'" class="'+(SLP_Q===q[0]?"on":"")+'">'+q[1]+'<br>'+esc(qualLabel(q[0]))+'</button>'; }).join("");
+    Array.prototype.forEach.call(host.querySelectorAll("button"),function(b){ b.onclick=function(){ SLP_Q=b.getAttribute("data-q"); renderQual(); }; });
+  }
+  function updateSlpDur(){
+    var d=calcDur(document.getElementById("slpBed").value,document.getElementById("slpWake").value);
+    document.getElementById("slpDur").textContent = d!=null?(Lx({en:"Duration",id:"Durasi"})+": "+durLabel(d)):"—";
+  }
+  function setSlpLabels(){
+    document.getElementById("slpDlgT").textContent=Lx({en:"Log sleep",id:"Catat tidur"});
+    document.getElementById("slpDlgS").textContent=Lx({en:"Duration is calculated from bedtime & wake time.",id:"Durasi dihitung otomatis dari jam tidur & bangun."});
+    document.getElementById("slpLbBed").textContent=Lx({en:"Bedtime",id:"Jam tidur"});
+    document.getElementById("slpLbWake").textContent=Lx({en:"Wake time",id:"Jam bangun"});
+    document.getElementById("slpLbQual").textContent=Lx({en:"Sleep quality",id:"Kualitas tidur"});
+    document.getElementById("slpLbAwake").textContent=Lx({en:"Times woken up",id:"Berapa kali terbangun"});
+    document.getElementById("slpCancel").textContent=Lx({en:"Cancel",id:"Batal"});
+    document.getElementById("slpSave").textContent=Lx({en:"Save",id:"Simpan"});
+  }
+  function openSleepDlg(){
+    var s=SLEEP||{};
+    document.getElementById("slpBed").value=s.bedtime?fmtTimeInput(s.bedtime):"";
+    document.getElementById("slpWake").value=s.wake_time?fmtTimeInput(s.wake_time):"";
+    document.getElementById("slpAwake").value=(s.awake_times!=null?s.awake_times:"");
+    SLP_Q=s.quality||null;
+    document.getElementById("slpErr").textContent="";
+    setSlpLabels(); renderQual(); updateSlpDur();
+    document.getElementById("slpDlg").showModal();
+  }
+  function wireSleepDlg(){
+    var bed=document.getElementById("slpBed"), wake=document.getElementById("slpWake");
+    if(bed){ bed.onchange=updateSlpDur; bed.oninput=updateSlpDur; }
+    if(wake){ wake.onchange=updateSlpDur; wake.oninput=updateSlpDur; }
+    var cancel=document.getElementById("slpCancel"); if(cancel) cancel.onclick=function(){ document.getElementById("slpDlg").close(); };
+    var save=document.getElementById("slpSave"); if(save) save.onclick=saveSleep;
+  }
+  async function saveSleep(){
+    var bed=document.getElementById("slpBed").value, wake=document.getElementById("slpWake").value;
+    var dur=calcDur(bed,wake);
+    if(dur==null){ document.getElementById("slpErr").textContent=Lx({en:"Enter bedtime and wake time.",id:"Isi jam tidur dan jam bangun."}); return; }
+    var awake=parseInt(document.getElementById("slpAwake").value,10); if(!isFinite(awake)||awake<0) awake=null;
+    var btn=document.getElementById("slpSave"); btn.disabled=true;
+    try{
+      var uid=await ensureUid(); if(!uid) throw new Error("uid");
+      var cross=calcCross(bed,wake);
+      var row={ auth_user_id:uid, sleep_date:SEL, bedtime:mkTs(SEL,bed,cross?-1:0), wake_time:mkTs(SEL,wake,0),
+        duration_hours:dur, quality:SLP_Q||null, awake_times:awake, source:"manual", updated_at:new Date().toISOString() };
+      var res=await Auth.supabase.from("my20fit_sleep").upsert(row,{onConflict:"auth_user_id,sleep_date"}).select().single();
+      if(res.error) throw res.error;
+      SLEEP=res.data;
+      SLEEP7=SLEEP7.filter(function(r){return r.sleep_date!==SEL;}); SLEEP7.push(res.data);
+      SLEEP7.sort(function(a,b){return a.sleep_date<b.sleep_date?-1:1;});
+      document.getElementById("slpDlg").close();
+      renderSleep();
+      try{ await Auth.saveDaily({sleep_hours:dur}, SEL); }catch(e){}
+      if(DAY&&DAY.daily){ DAY.daily.sleep_hours=dur; renderHabits(); }
+    }catch(e){ document.getElementById("slpErr").textContent=Lx({en:"Couldn't save. The sleep table may not be set up yet.",id:"Gagal menyimpan. Tabel tidur mungkin belum disiapkan."}); }
+    btn.disabled=false;
+  }
+
   // ---- Muat semua ----
   async function load(date){
     BUSY=true; clearErr();
@@ -927,6 +1161,7 @@
       if(!r.ok||!j.ok){ showErr(j.error||T("act_load_fail"),true); document.getElementById("woBox").innerHTML=""; BUSY=false; return; }
       DAY=j;
       renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek();
+      loadSleepHydra(date);
     }catch(e){
       showErr(T("act_load_fail"),true); document.getElementById("woBox").innerHTML="";
     }
@@ -935,8 +1170,9 @@
 
   (async function(){
     user=await Auth.requireAuth();
+    AUTH_UID=(user&&user.id)||null;   // tangkap id auth SEBELUM profil digabung (profil bisa punya kolom id sendiri)
     try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
-    renderHead(); renderDnav(); renderTrk(); wireUpload(); wireDlg();
+    renderHead(); renderDnav(); renderTrk(); wireUpload(); wireDlg(); wireSleepDlg();
     await load(SEL);
     // Isi Activity lama menyatu di halaman yang sama. Dijalankan SETELAH bagian harian
     // supaya yang di layar pertama tampil duluan; skripnya berat (pencapaian, siklus,
@@ -950,6 +1186,7 @@
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
     renderHead(); renderDnav(); renderTrk();
     if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek(); }
+    renderSleep(); renderHydra();
   });
 
 </script>
