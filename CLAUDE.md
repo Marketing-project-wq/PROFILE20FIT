@@ -26,6 +26,10 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 - **`docs/GIT_WORKFLOW.md`**, **`docs/GITHUB_SECRETS.md`** — alur git & penanganan secret.
 - **`docs/GOOGLE_LOGIN_SETUP.md`** — panduan klik-per-klik untuk pemilik: setup OAuth Google
   (Google Cloud + Supabase + Railway). Web pakai Supabase OAuth, bukan GIS.
+- **`docs/PRODUCTS-MENU-SSO.md`** — spec "Products menu + SSO" lintas produk 20FIT (sumber
+  kebenaran untuk tim produk lain memasang menu seragam). Ada **catatan editor** yang
+  memetakan spec ke kondisi my.20fit: menu = `js/universal-nav.js` (vanilla, bukan React),
+  SSO = `Auth.ssoTo()` (belum edge-function `sso-generate`/`sso-consume`).
 - Email: `docs/EMAIL-*.md`, `docs/RESEND-SETUP-AUDIT.md`, `docs/EMAIL-LOGIC-SPEC.md`.
 - Bagian **Tech stack, Struktur repo, Route, Env, Cara menjalankan, Konvensi, Jangan
   dilakukan, Langkah berikutnya** ada di bawah aturan kerja file ini.

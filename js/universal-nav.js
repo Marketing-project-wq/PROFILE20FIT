@@ -183,11 +183,11 @@
     // rapi baik di menu terang maupun gelap. Chip berisi artwork branded (img) atau, untuk
     // 2 produk tanpa artwork, ikon garis berwarna merah 20FIT.
     var inner = it.img
-      ? '<img class="un-img" src="' + esc(ICON_BASE + it.img) + '" alt="" loading="lazy">'
-      : '<span style="color:#C41101;line-height:0">' + svg(it.icon, size + 4) + '</span>';
+      ? '<img class="un-img" src="' + esc(ICON_BASE + it.img + "?v=2") + '" alt="" loading="lazy">'
+      : svg(it.icon, size);
     return '<a class="un-app" role="menuitem" href="' + esc(it.url) + '" data-id="' + esc(it.id) + '"' +
       (on ? ' aria-current="page"' : '') + '>' +
-      '<span class="un-ic un-chip">' + inner + '</span>' +
+      '<span class="un-ic' + (it.img ? '' : ' un-line') + '">' + inner + '</span>' +
       '<span class="un-l">' + esc(it.label) + '</span>' +
       (embed ? '' : '<span class="un-d">' + esc(it.desc) + '</span>') +
       (on ? '<span class="un-here">● Kamu di sini</span>' : '') +
@@ -247,10 +247,14 @@
     'text-decoration:none;color:#1a1a1a;border:2px solid transparent;background:transparent;cursor:pointer;font-family:inherit}',
     '.un-app:hover{background:#f5f5f5}',
     '.un-app[aria-current="page"]{background:#f0f0f0;border-color:#111;cursor:default}',
-    '.un-app .un-ic{line-height:0}',
-    '.un-chip{width:46px;height:46px;border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.12);overflow:hidden}',
-    '.un-img{width:90%;height:90%;object-fit:contain;display:block}',
-    '.un-embed .un-chip{width:40px;height:40px;border-radius:11px}',
+    // Ikon TANPA latar, besar & "melayang" (drop-shadow) — meniru grid produk di home
+    // (.svc2 .s2-img: height 64px, transparan, tanpa kotak). Tinggi tetap = ukuran optik
+    // seragam; width auto + max-width supaya ikon lebar (mis. dumbbell) tak meluber.
+    '.un-app .un-ic{display:flex;align-items:center;justify-content:center;line-height:0}',
+    '.un-ic .un-img{height:62px;width:auto;max-width:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 8px rgba(0,0,0,.22))}',
+    '.un-embed .un-ic .un-img{height:58px}',
+    '.un-ic.un-line{color:#C41101}',
+    '.un-ic.un-line svg{width:54px;height:54px}',
     '.un-app .un-l{font-size:12px;font-weight:600;line-height:1.2}',
     '.un-app .un-d{font-size:10px;color:#888;line-height:1.2}',
     '.un-here{font-size:9px;color:#16A34A;font-weight:700}',
