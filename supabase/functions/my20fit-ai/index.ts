@@ -133,6 +133,17 @@ Deno.serve(async (req) => {
       '(8) fields_read lists ONLY the field names you actually read off the images. '+
       'Respond ONLY with a valid JSON object (no markdown, no code fences) with keys: readable (boolean), title, type, duration_min, distance_km, calories_burned, avg_heart_rate, max_heart_rate, elevation_gain_m, hr_zone_data (object z1..z5 in seconds or null), pace_data (object with avg_sec_per_km or null), source_guess (tracker name or null), confidence, fields_read (array of strings), note (one short sentence, or null).';
 
+    // AI Coach: susun WORKOUT PLAN mingguan terstruktur dari jawaban quiz. Output JSON KETAT
+    // supaya server bisa memvalidasi & menyimpannya ke my20fit_workout_plan tanpa menebak.
+    const PROGRAM_SYS =
+      'You are a certified fitness coach for 20FIT, a gym and sport ecosystem in Jakarta. You receive ONE member\'s quiz answers, safety screening flags, and profile. Build a WEEKLY workout plan they can follow. '+
+      'STRICT RULES: (1) You are NOT a doctor — never diagnose, never name a disease, never give medical advice. If safety_flags show injury, current pain, or a medical condition, output a CONSERVATIVE plan (low impact, lower volume), set needs_specialist=true, and in disclaimer advise consulting a 20FIT specialist BEFORE starting. '+
+      '(2) Respect availability: days_per_week, minutes_per_session, and location/equipment (home no-equipment = bodyweight only; gym = machines/weights allowed; 20FIT Arena = functional). Never prescribe equipment the member does not have. '+
+      '(3) Match difficulty to their level and self-test. Use progressive overload with a clear, simple progression per exercise. '+
+      '(4) Keep it realistic and safe; do not exceed the minutes per session. (5) NEVER invent medical claims or physiological numbers. '+
+      'Write name/note/progression in the member\'s language (id = Bahasa Indonesia). '+
+      'Respond ONLY with a valid JSON object (no markdown, no code fences) with keys: plan_name (string), level ("beginner"|"intermediate"|"advanced"), goal (string), location (string), days_per_week (int), minutes_per_session (int), needs_specialist (boolean), weekly_note (one short sentence), days (array; each {key, label, focus, exercises: array of {key, name, sets int, reps string like "8-10" or a number, unit one of "reps"|"sec"|"min", rest_sec int, note short, progression short}}), disclaimer (one sentence reminding this is not medical advice).';
+
     let messages: unknown, maxTok: number, plugins: unknown = null;
     if (b.action === "food") {
       if (b.image) {
@@ -177,12 +188,17 @@ Deno.serve(async (req) => {
       maxTok = 2500;
       messages = [{ role: "system", content: PLAN_SYS }, langMsg,
         { role: "user", content: "Member data for the day + 7-day history:\n" + JSON.stringify(b.data).slice(0, 6000) }];
+    } else if (b.action === "program") {
+      if (!b.data) return json({ error: "data wajib diisi" }, 400);
+      maxTok = 3000;
+      messages = [{ role: "system", content: PROGRAM_SYS }, langMsg,
+        { role: "user", content: "Member quiz answers + safety_flags + profile. Build the weekly workout plan JSON:\n" + JSON.stringify(b.data).slice(0, 6000) }];
     } else return json({ error: "action tidak dikenal" }, 400);
 
-    const model = (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout") ? MODEL_MCU : MODEL_FOOD;
+    const model = (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout" || b.action === "program") ? MODEL_MCU : MODEL_FOOD;
     const payload: Record<string, unknown> = { model, messages, max_tokens: maxTok, temperature: 0.2, reasoning: { enabled: false } };
     if (plugins) payload.plugins = plugins;
-    if (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout") payload.response_format = { type: "json_object" };
+    if (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout" || b.action === "program") payload.response_format = { type: "json_object" };
     const callOR = (p: unknown) => fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json", "HTTP-Referer": "https://my.20fit.id", "X-Title": "20fit Health Profile" },
