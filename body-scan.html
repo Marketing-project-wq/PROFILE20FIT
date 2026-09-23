@@ -32,6 +32,15 @@
   .kv .v s{text-decoration:none;font-size:12px;font-weight:700;color:var(--muted);margin-left:3px}
   .kv .d{font-size:11.5px;font-weight:700;margin-top:3px}
   .kv .d.up{color:#C87000}.kv .d.dn{color:#1d6b41}
+  /* Status dari Visbody: Normal / Over / Under. Warna ikut ARTI, dan tidak pernah
+     jadi satu-satunya penanda — teksnya selalu ditulis. */
+  .st{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+      padding:2px 7px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+  .st.ok{color:#1d6b41;background:rgba(29,107,65,.10);border-color:rgba(29,107,65,.25)}
+  .st.hi,.st.lo{color:#C87000;background:rgba(200,112,0,.10);border-color:rgba(200,112,0,.25)}
+  .kv .st{margin-top:6px}
+  .ref{font-size:10.5px;font-weight:600;color:var(--muted);margin-top:4px;white-space:nowrap}
+  .row .rt{display:flex;align-items:center;gap:7px}
   /* detail */
   .rows{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
   @media(max-width:560px){ .rows{grid-template-columns:1fr} }
@@ -75,13 +84,33 @@
 <script src="js/auth.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/nav.js"></script>
+<script src="js/body-scan.js"></script>
 <script>
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
-  function L(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
   function num(v,d){ return (v===null||v===undefined||v==="")?null:(+v).toFixed(d===undefined?1:d).replace(/\.0$/,""); }
 
   // ---------- Klaim scan (user memindai QR di layar timbangan) ----------
+  // Rentang acuan + status per metrik untuk scan terakhir. Kosong sampai detail()
+  // selesai — halaman TIDAK menunggunya; angkanya tampil dulu, chip menyusul.
+  var REF={};
+  function stLabel(st){
+    var k=String(st||"").toLowerCase();
+    if(k==="normal") return {cls:"ok", t:{en:"Normal",id:"Normal"}};
+    if(k==="over"||k==="high") return {cls:"hi", t:{en:"Above normal",id:"Di atas normal"}};
+    if(k==="under"||k==="low") return {cls:"lo", t:{en:"Below normal",id:"Di bawah normal"}};
+    return null;   // status yang tidak dikenali TIDAK ditebak-tebak
+  }
+  function stChip(field){
+    var r=REF[field]; if(!r) return "";
+    var m=stLabel(r.status); if(!m) return "";
+    return '<span class="st '+m.cls+'">'+esc(L(m.t))+'</span>';
+  }
+  function refText(field,d){
+    var r=REF[field]; if(!r||r.low==null||r.high==null) return "";
+    return '<div class="ref">'+esc(L({en:"Normal",id:"Normal"}))+' '+
+      esc(num(r.low,d))+'–'+esc(num(r.high,d))+'</div>';
+  }
   function claimIcon(){ return '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>'; }
   function warnIcon(){ return '<svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>'; }
   function claimCard(cls,icon,title,body){
@@ -128,16 +157,15 @@
   // ---------- Data ----------
   var SCANS=null, ERR=false;
   async function loadScans(){
-    ERR=false;
+    ERR=false; REF={}; REF_FOR=null;
     try{
-      // Dibaca LANGSUNG dari Supabase dengan JWT user: RLS tabel ini select-own-row,
-      // jadi user tidak bisa melihat scan orang lain walau mencoba.
-      var q=await Auth.supabase
-        .from("my20fit_visbody_body")
-        .select("scan_id,scanned_at,body_weight,body_fat_percentage,body_fat_mass,muscle_mass,skeletal_muscle,fat_free_mass,protein,total_body_water,intracellular_water,extracellular_water,extracellular_water_ratio,total_minerals,basal_metabolic_rate,metabolic_age,body_mass_index,visceral_fat_grade,waist_hip_ratio,body_composition_score,segmental_muscle_mass,segmental_fat_mass")
-        .order("scanned_at",{ascending:false}).limit(50);
-      if(q.error) throw q.error;
-      SCANS=q.data||[];
+      // Querynya ada di js/body-scan.js — satu pembaca dipakai bareng /activity
+      // (CLAUDE.md §2). RLS tabelnya select-own-row, jadi user tidak bisa melihat
+      // scan orang lain walau mencoba.
+      BodyScan.reset();
+      var st=await BodyScan.state();
+      if(st.unavailable) throw new Error("unavailable");
+      SCANS=st.list||[];
     }catch(e){ SCANS=null; ERR=true; }
     render();
   }
@@ -163,8 +191,22 @@
       tb.innerHTML=""; hb.innerHTML=""; return;
     }
     renderLatest(SCANS[0], SCANS[1]); renderTrend(); renderHist();
+    loadRefs(SCANS[0]);
   }
 
+  // Rentang acuan menyusul setelah angkanya tampil. Kalau gagal diambil, halaman
+  // tetap seperti sebelumnya — chip-nya saja yang tidak muncul.
+  var REF_FOR=null;
+  function loadRefs(s0){
+    if(!s0||!s0.scan_id||!window.BodyScan||!BodyScan.detail) return;
+    if(REF_FOR===s0.scan_id) return;
+    REF_FOR=s0.scan_id;
+    BodyScan.detail(s0.scan_id).then(function(r){
+      if(REF_FOR!==s0.scan_id) return;
+      if(!r||!Object.keys(r).length) return;
+      REF=r; renderLatest(SCANS[0], SCANS[1]);
+    }, function(){});
+  }
   function delta(now,prev,inv){
     if(now==null||prev==null) return "";
     var d=+(now-prev); if(Math.abs(d)<0.05) return "";
@@ -172,9 +214,10 @@
     var good = inv ? d<0 : d>0;
     return '<div class="d '+(good?"dn":"up")+'">'+(d>0?"+":"−")+Math.abs(d).toFixed(1)+'</div>';
   }
-  function kv(label,val,unit,d){
+  function kv(label,val,unit,d,field,rd){
     return '<div class="kv"><div class="k">'+esc(label)+'</div>'+
-      '<div class="v">'+(val==null?"—":esc(val))+(val!=null&&unit?'<s>'+esc(unit)+'</s>':'')+'</div>'+(d||"")+'</div>';
+      '<div class="v">'+(val==null?"—":esc(val))+(val!=null&&unit?'<s>'+esc(unit)+'</s>':'')+'</div>'+(d||"")+
+      (field?stChip(field):"")+(field?refText(field,rd):"")+'</div>';
   }
   function renderLatest(s,prev){
     var dt=new Date(s.scanned_at).toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",
@@ -199,14 +242,16 @@
     $("latestBox").innerHTML=
       '<div class="sec">'+esc(L({en:"Latest scan",id:"Scan terakhir"}))+' · '+esc(dt)+'</div>'+
       '<div class="big">'+
-        kv(L({en:"Weight",id:"Berat"}), num(s.body_weight), "kg", delta(s.body_weight, prev&&prev.body_weight, true))+
-        kv(L({en:"Body fat",id:"Lemak tubuh"}), num(s.body_fat_percentage), "%", delta(s.body_fat_percentage, prev&&prev.body_fat_percentage, true))+
-        kv(L({en:"Muscle mass",id:"Massa otot"}), num(s.muscle_mass), "kg", delta(s.muscle_mass, prev&&prev.muscle_mass, false))+
-        kv("BMI", num(s.body_mass_index), "", delta(s.body_mass_index, prev&&prev.body_mass_index, true))+
+        kv(L({en:"Weight",id:"Berat"}), num(s.body_weight), "kg", delta(s.body_weight, prev&&prev.body_weight, true), "body_weight", 1)+
+        kv(L({en:"Body fat",id:"Lemak tubuh"}), num(s.body_fat_percentage), "%", delta(s.body_fat_percentage, prev&&prev.body_fat_percentage, true), "body_fat_percentage", 1)+
+        kv(L({en:"Muscle mass",id:"Massa otot"}), num(s.muscle_mass), "kg", delta(s.muscle_mass, prev&&prev.muscle_mass, false), "muscle_mass", 1)+
+        kv("BMI", num(s.body_mass_index), "", delta(s.body_mass_index, prev&&prev.body_mass_index, true), "body_mass_index", 1)+
       '</div>'+
       (rows.length?'<div class="card" style="margin-top:12px"><div class="rows">'+rows.map(function(r){
         var u=r[2]?(" "+r[2]):"";
-        return '<div class="row"><span>'+esc(L(r[1]))+'</span><b>'+esc(num(s[r[0]], r[0]==="extracellular_water_ratio"||r[0]==="waist_hip_ratio"?3:1))+esc(u)+'</b></div>';
+        var dg=(r[0]==="extracellular_water_ratio"||r[0]==="waist_hip_ratio")?3:1;
+        return '<div class="row"><span>'+esc(L(r[1]))+'</span>'+
+          '<span class="rt">'+stChip(r[0])+'<b>'+esc(num(s[r[0]], dg))+esc(u)+'</b></span></div>';
       }).join("")+'</div></div>':'')+
       '<div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.5">'+
         esc(L({en:"Measured by the Visbody scale at a 20FIT location. Guidance only — not a medical diagnosis.",

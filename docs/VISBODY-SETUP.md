@@ -52,11 +52,19 @@ Selain itu, empat hal yang perlu **dikonfirmasi tertulis** (bukan diasumsikan):
    `scan_id`, `device_sn` (atau `device_id`), `scan_time`, `event_id`,
    `measured_items.body_composition`, dan `user_info.{name,sex,age,height,birthday,third_uid}`.
 
-> **Ini bagian paling penting dari seluruh dokumen.** Bentuk body dan nama header di atas
-> diambil dari rangkuman di prompt spesifikasi, **bukan dari dokumen resmi Visbody dan
-> bukan dari respons asli**. Kalau ternyata beda, yang perlu diubah cuma pemetaan di route
-> webhook dan `verifyWebhook()` — kecil, tapi harus tahu dulu bentuk sebenarnya. Jangan
-> lewati konfirmasi ini dengan asumsi "biasanya begitu".
+> **Sebagian sudah terjawab (23 Sep 2026).** Pemilik membaca
+> <https://developer.visbody.ai/integration/v2/> lalu merangkumnya, dan rangkuman itu
+> **cocok** dengan yang sudah terlanjur dikodekan: header `x-visbody-timestamp` /
+> `x-visbody-signature`, HMAC-SHA256 atas `"<timestamp>.<raw body>"` berawalan `sha256=`,
+> endpoint `/api/v2/{token,scan,user/bind,pdf,list}`, dan alur device token + qrcode.
+>
+> Yang **masih** perlu diminta: **contoh body webhook asli**. Yang dirangkum adalah contoh
+> *respons scan*, bukan *payload webhook* — dua hal berbeda, dan verifikasi signature
+> bergantung pada yang kedua.
+>
+> Catatan kejujuran: saya **tidak bisa membuka** halaman dokumentasinya — domainnya
+> diblokir kebijakan jaringan sesi ini (`CONNECT tunnel failed, response 403`). Jadi yang
+> mencocokkan adalah rangkuman pemilik, bukan pembacaan saya atas dokumen aslinya.
 
 ### Pesan siap kirim ke Visbody
 
@@ -246,12 +254,35 @@ where status = 'failed' order by updated_at desc limit 10;
   mencemari chart tren.
 - **QR dibuat di server kita**, bukan dikirim ke layanan QR pihak ketiga.
 
+## Bagian 8b — Beda dari contoh kode di spesifikasi, disengaja
+
+| Contoh di spesifikasi | Yang dipakai | Alasan |
+|---|---|---|
+| `timingSafeEqual` tanpa cek panjang | panjang dicek dulu | `timingSafeEqual` **melempar** kalau panjang beda → signature palsu berbuah 500, bukan 401 |
+| HMAC atas `JSON.stringify(req.body)` | `req.rawBody` | serialisasi ulang ≠ byte yang ditandatangani Visbody → verifikasi selalu gagal |
+| Idempotency: `select….single()` per `event_id` | `upsert` on `scan_id` + unique index parsial `event_id` | `.single()` **error** saat barisnya belum ada — jalur "belum pernah diproses" justru melempar |
+| QR lewat `api.qrserver.com` | dibuat di server kita (`js/qrcode-generator.js`) | `scan_id` tidak perlu bocor ke pihak ketiga |
+
+Dua beda kecil lagi: tautan di QR memakai `/body-scan?claim=<scan_id>` (bukan
+`/body-scan/bind?…`) supaya tidak perlu route tambahan; dan nama env service key di repo
+ini **`SUPABASE_SERVICE_KEY`**, bukan `SUPABASE_SERVICE_ROLE_KEY` seperti di spesifikasi —
+jangan bikin variabel baru, yang lama sudah terisi.
+
+`VISBODY_DEVICE_SN` yang disebut spesifikasi **tidak dipakai** kode saat ini: `device_sn`
+diambil dari body webhook. Kalau nanti mau menolak webhook dari perangkat di luar milik
+20FIT, SN itu bisa jadi allowlist — bilang saja, tapi ingat konsekuensinya waktu unit
+bertambah.
+
 ## Bagian 9 — Sisa pekerjaan setelah integrasi ini dinyatakan jalan
 
 1. Tambahkan `my20fit_visbody_scan` + `my20fit_visbody_body` ke `USER_DATA_TABLES` di
    `server.js` (ekspor data pribadi user) — belum dilakukan, sengaja, sampai jalurnya
    terbukti hidup.
 2. Putuskan kebijakan pembersihan scan yang tak pernah diklaim (mis. > 90 hari).
-3. **BMR dari timbangan belum dipakai di `/calories`.** Itu mengubah angka target kalori
-   milik user, jadi perlu keputusan pemilik. Saran: tampilkan sebagai referensi di samping
-   target, bukan menimpa target diam-diam.
+3. **BMR dari timbangan belum dipakai di `/calories`.** Spesifikasi meminta
+   `basal_metabolic_rate × 1.55` ditulis ke `calorie_profiles.daily_calorie_target`.
+   **Tabel `calorie_profiles` TIDAK ADA di database ini** — dicek langsung ke
+   `information_schema`; yang ada hanya `my20fit_visbody_body` dan `my20fit_visbody_scan`.
+   Jadi potongan kode itu tidak bisa dijalankan apa adanya. Lagi pula menimpa target
+   kalori milik user perlu keputusan pemilik. Saran tetap: tampilkan BMR sebagai
+   **referensi** di samping target, bukan menimpa target diam-diam.

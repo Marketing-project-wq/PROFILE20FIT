@@ -295,6 +295,30 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     `/calories`. Itu mengubah angka target milik user, jadi perlu keputusan pemilik dulu
     (disarankan: tampilkan sebagai referensi, bukan menimpa target diam-diam).
 
+- **`/body-scan` RUSAK TOTAL sejak dibuat, diperbaiki (23 Sep 2026).** Halaman itu punya
+  `function L(o){ return (window.L?window.L(o):…) }` di level teratas script inline.
+  Deklarasi fungsi top-level bernama `L` **menimpa** `window.L` milik `js/i18n.js:403`,
+  jadi `window.L(o)` memanggil dirinya sendiri → `RangeError: Maximum call stack size
+  exceeded` pada pemanggilan `L()` pertama. Dibuktikan dijalankan di Chromium, bukan
+  dibaca: sebelum script inline `L()` mengembalikan `"Berat"`, sesudahnya melempar, dan
+  `window.L === L` bernilai `true`. Tidak pernah ketahuan karena tabelnya masih 0 baris
+  sehingga halaman selalu berhenti di keadaan kosong. **Halaman lain tidak kena** — hanya
+  `body-scan.html` yang punya pembungkus ini (`grep`: 0 di `activity/calories/event/
+  classes`). Perbaikannya: pembungkus dihapus, pakai `window.L` langsung seperti halaman lain.
+- **Rentang acuan & status Visbody sekarang ditampilkan (23 Sep 2026).** Tiap metrik dari
+  Visbody berbentuk `{name,value,unit,extra:{status_info:{description},reference:{low,
+  standard,high}}}`. Selama ini `extra` ikut tersimpan di `raw_data` tapi **tidak pernah
+  dibaca** — member cuma melihat angka telanjang. Sekarang `/body-scan` menampilkan chip
+  Normal / Di atas normal / Di bawah normal + rentang normalnya. `raw_data` sengaja TIDAK
+  masuk daftar kolom daftar (satu baris bisa puluhan KB × 50 baris); diambil per scan lewat
+  `BodyScan.detail()`. Status yang tidak dikenali tidak ditebak, dan rentang hanya digambar
+  kalau `low < high` — contoh resmi `visceral_fat_grade` punya `standard:"0"` padahal
+  `low:"0.90"`.
+- **Duplikasi query dihapus (23 Sep 2026).** `body-scan.html` ternyata punya query
+  `my20fit_visbody_body` **sendiri** dan tidak pernah memuat `js/body-scan.js`, padahal
+  komentar di modul itu mengklaim jadi satu-satunya pembaca (CLAUDE.md §2). Sekarang
+  halaman memakai `BodyScan.state()/reset()`; sisa query di repo: 1 di server (tulis),
+  1 pembaca bersama.
 - **Visbody S20 (timbangan body composition) — KODE SIAP, BELUM BISA JALAN (22 Sep 2026).**
   `db/supabase-migration-019-visbody.sql`, `lib/visbody.js`, 4 route `/api/visbody/*`,
   halaman `/body-scan`.
