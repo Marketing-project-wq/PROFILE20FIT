@@ -183,7 +183,7 @@
     // rapi baik di menu terang maupun gelap. Chip berisi artwork branded (img) atau, untuk
     // 2 produk tanpa artwork, ikon garis berwarna merah 20FIT.
     var inner = it.img
-      ? '<img class="un-img" src="' + esc(ICON_BASE + it.img) + '" alt="" loading="lazy">'
+      ? '<img class="un-img" src="' + esc(ICON_BASE + it.img + "?v=2") + '" alt="" loading="lazy">'
       : svg(it.icon, size);
     return '<a class="un-app" role="menuitem" href="' + esc(it.url) + '" data-id="' + esc(it.id) + '"' +
       (on ? ' aria-current="page"' : '') + '>' +
