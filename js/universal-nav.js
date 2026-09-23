@@ -247,11 +247,14 @@
     'text-decoration:none;color:#1a1a1a;border:2px solid transparent;background:transparent;cursor:pointer;font-family:inherit}',
     '.un-app:hover{background:#f5f5f5}',
     '.un-app[aria-current="page"]{background:#f0f0f0;border-color:#111;cursor:default}',
-    '.un-app .un-ic{width:52px;height:52px;display:flex;align-items:center;justify-content:center;line-height:0}',
-    '.un-embed .un-app .un-ic{width:46px;height:46px}',
-    '.un-ic .un-img{width:100%;height:100%;object-fit:contain;display:block}',
+    // Ikon TANPA latar, besar & "melayang" (drop-shadow) — meniru grid produk di home
+    // (.svc2 .s2-img: height 64px, transparan, tanpa kotak). Tinggi tetap = ukuran optik
+    // seragam; width auto + max-width supaya ikon lebar (mis. dumbbell) tak meluber.
+    '.un-app .un-ic{display:flex;align-items:center;justify-content:center;line-height:0}',
+    '.un-ic .un-img{height:62px;width:auto;max-width:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 8px rgba(0,0,0,.22))}',
+    '.un-embed .un-ic .un-img{height:58px}',
     '.un-ic.un-line{color:#C41101}',
-    '.un-ic.un-line svg{width:88%;height:88%}',
+    '.un-ic.un-line svg{width:54px;height:54px}',
     '.un-app .un-l{font-size:12px;font-weight:600;line-height:1.2}',
     '.un-app .un-d{font-size:10px;color:#888;line-height:1.2}',
     '.un-here{font-size:9px;color:#16A34A;font-weight:700}',
