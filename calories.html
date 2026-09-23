@@ -269,7 +269,8 @@
     <div class="sec" data-i18n="cal_today_sec">Today's Food</div>
     <div class="card"><div id="log"></div></div>
     <div class="sec" id="mealPlanSec">Rencana Makan</div>
-    <div class="card" id="mealPlan"></div>
+    <div class="mp-lead" id="mealPlanLead"></div>
+    <div id="mealPlan"></div>
     <!-- Chart mingguan + riwayat. Sumbernya my20fit_daily_log (log_date, cal_items) —
          query yang SAMA bentuknya dengan calorietracker.20fit.id (src/lib/memberHistory.ts),
          jadi angkanya pasti sama di kedua app. Tanpa tabel baru. -->
@@ -293,28 +294,57 @@
 
   <!-- Healthy-swap pop-up (shown after a scan) -->
   <style>
-  /* Rencana makan harian (js/meal-plan.js). Token repo, tanpa warna baru. */
-  .mp-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-  .mp-head .mp-t{font-weight:800;font-size:14px}
+  /* Rencana makan harian (js/meal-plan.js) — tata letak mengikuti MEAL PLAN
+     RECOMMENDATION di calorietracker.20fit.id: kartu header berisi target, satu kartu
+     per waktu makan, lalu kartu total gelap. Semua warna dari token repo (CLAUDE.md §G),
+     tidak ada hex baru kecuali latar kartu total. */
+  .mp-lead{font-size:12.5px;color:var(--muted,#9a907f);line-height:1.55;margin:-4px 0 10px}
+
+  .mp-hd{background:var(--card,#fff);border:1px solid var(--line,#e5e0d8);border-radius:16px;
+    padding:14px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .mp-hd-l{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .mp-lbl{font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted,#9a907f)}
+  .mp-tg b{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .mp-tg s{text-decoration:none;font-size:12px;font-weight:700;color:var(--muted,#9a907f);margin-left:3px}
   .mp-re{margin-left:auto;border:1px solid var(--line,#e5e0d8);background:transparent;color:inherit;
-    border-radius:9px;padding:6px 12px;font-family:inherit;font-weight:700;font-size:12.5px;cursor:pointer}
-  .mp-list{display:flex;flex-direction:column}
-  .mp-row{display:flex;align-items:center;gap:11px;padding:10px 0;text-decoration:none;color:inherit;
-    border-top:1px solid var(--line,#e5e0d8)}
-  .mp-row:first-child{border-top:0}
-  .mp-em{font-size:20px;line-height:1;flex:0 0 auto}
-  .mp-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-  .mp-meal{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#9a907f)}
-  .mp-nm{font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .mp-mac{font-size:11.5px;color:var(--muted,#9a907f)}
-  .mp-kc{flex:0 0 auto;text-align:right;line-height:1.25}
-  .mp-kc b{font-size:15px;font-weight:800}
-  .mp-kc s{display:block;text-decoration:none;font-size:11px;color:var(--muted,#9a907f)}
-  .mp-tot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;
-    padding-top:11px;border-top:1px solid var(--line,#e5e0d8);font-size:13px;font-weight:700}
-  .mp-tot .mp-tv s{text-decoration:none;font-weight:600;color:var(--muted,#9a907f);font-size:11.5px}
+    border-radius:999px;padding:8px 14px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .mp-re:hover{background:rgba(0,0,0,.04)}
+
+  .mp-card{background:var(--card,#fff);border:1px solid var(--line,#e5e0d8);border-radius:16px;
+    padding:13px 15px;margin-top:10px}
+  .mp-mh{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .mp-mi{font-size:15px;line-height:1}
+  .mp-mn{font-weight:800;font-size:14.5px}
+  .mp-mk{margin-left:auto;font-weight:800;font-size:13px;color:var(--red,#C41101);white-space:nowrap}
+
+  .mp-item{display:flex;align-items:center;gap:12px}
+  /* Kotak foto: emoji dulu, lalu diganti foto oleh RecipePhotos (jalur /api/foodphoto
+     yang SAMA dengan /recipe). Kalau fotonya gagal, emoji tetap terbaca. */
+  .mp-ph{flex:0 0 auto;width:52px;height:52px;border-radius:12px;display:flex;align-items:center;
+    justify-content:center;font-size:24px;background:rgba(0,0,0,.05);overflow:hidden}
+  .mp-ph.has-photo{background-color:transparent}
+  .mp-it{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .mp-nm{font-size:14px;font-weight:700;line-height:1.3}
+  .mp-sub{font-size:11.5px;color:var(--muted,#9a907f)}
+  .mp-cta{flex:0 0 auto;background:var(--red,#C41101);color:#fff;text-decoration:none;
+    border-radius:999px;padding:9px 16px;font-size:12.5px;font-weight:800;white-space:nowrap}
+  .mp-cta:hover{filter:brightness(1.07)}
+  @media(max-width:420px){
+    .mp-item{flex-wrap:wrap}
+    .mp-cta{width:100%;text-align:center;margin-top:2px}
+  }
+
+  .mp-total{background:#11100e;color:#fff;border-radius:16px;padding:15px 17px;margin-top:10px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .mp-tl{font-weight:700;font-size:14px}
+  .mp-tr{text-align:right;line-height:1.3}
+  .mp-tr b{display:block;font-size:20px;font-weight:800;letter-spacing:-.02em}
+  .mp-tr s{display:block;text-decoration:none;font-size:11.5px;opacity:.72;margin-top:2px}
+
   .mp-note{margin-top:9px;font-size:11.5px;color:var(--muted,#9a907f);line-height:1.5}
-  .mp-msg{font-size:12.5px;color:var(--muted,#9a907f)}
+  .mp-msg{font-size:12.5px;color:var(--muted,#9a907f);background:var(--card,#fff);
+    border:1px solid var(--line,#e5e0d8);border-radius:16px;padding:14px 16px}
     .hopt-bg{position:fixed;inset:0;z-index:95;background:rgba(10,12,16,.5);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:none;align-items:flex-end;justify-content:center}
     .hopt-bg.open{display:flex}
     .hopt{width:100%;max-width:440px;background:var(--card);border-radius:22px 22px 0 0;max-height:90vh;overflow-y:auto;padding:8px 20px calc(env(safe-area-inset-bottom) + 22px);box-shadow:0 -10px 40px rgba(0,0,0,.25);animation:hoptS .28s cubic-bezier(.2,.8,.2,1)}
@@ -1366,7 +1396,11 @@
     function mountMealPlan(){
       var sec=document.getElementById("mealPlanSec"), el=document.getElementById("mealPlan");
       if(!el||!window.MealPlan) return;
-      if(sec) sec.textContent=L({en:"Meal plan",id:"Rencana Makan"});
+      if(sec) sec.textContent=L({en:"Meal plan recommendation",id:"Rekomendasi rencana makan"});
+      var lead=document.getElementById("mealPlanLead");
+      if(lead) lead.textContent=L({
+        en:"A sample daily meal layout from the 20FIT recipe catalog, tuned to your calorie target.",
+        id:"Contoh susunan makan sehari dari katalog resep 20FIT, disesuaikan dengan target kalorimu."});
       _mealPlan=MealPlan.mount(el,{target:goal});
     }
     (async function(){
