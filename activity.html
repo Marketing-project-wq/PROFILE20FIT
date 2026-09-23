@@ -59,14 +59,16 @@
   /* 2. Date navigator */
   .dnav{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;margin-bottom:12px;scrollbar-width:none}
   .dnav::-webkit-scrollbar{display:none}
-  .dpill{flex:none;min-width:52px;padding:8px 6px;border-radius:var(--radius-sm,12px);border:1px solid var(--glass-hair,var(--a-line));
-    background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));box-shadow:var(--glass-sh,none);
-    text-align:center;cursor:pointer;font-family:inherit;color:var(--a-txt)}
-  .dpill .dw{font-size:10.5px;color:var(--a-mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700}
-  .dpill .dd{font-size:15px;font-weight:800;margin-top:2px;font-family:var(--mono)}
-  .dpill.on{background:var(--accent);border-color:var(--accent);color:#fff}
-  .dpill.on .dw{color:rgba(255,255,255,.85)}
-  .dpill:disabled{opacity:.35;cursor:default}
+  /* 3 pill relatif (Kemarin / Hari ini / Besok) — gaya mockup */
+  .dpill3{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:99px;
+    border:1px solid var(--glass-hair,var(--a-line));background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));
+    box-shadow:var(--glass-sh,none);cursor:pointer;font-family:inherit}
+  .dpill3 .d3l{font-size:13px;font-weight:600;color:var(--a-txt)}
+  .dpill3 .d3d{font-size:11px;color:var(--a-mut);font-family:var(--mono)}
+  .dpill3.on{background:var(--accent);border-color:var(--accent);box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 30%,transparent)}
+  .dpill3.on .d3l{color:#fff}
+  .dpill3.on .d3d{color:rgba(255,255,255,.85)}
+  .dpill3:disabled{opacity:.4;cursor:default}
 
   /* 3. Upload */
   .drop{border:1.5px dashed var(--glass-brd,var(--a-line));border-radius:var(--radius,14px);padding:26px 16px;
@@ -127,9 +129,13 @@
   .hl.warning{background:color-mix(in srgb,var(--amber) 18%,transparent);color:var(--amber)}
   .hl.critical{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
 
-  /* 6. Score + gaps */
-  .sg{display:grid;grid-template-columns:118px 1fr;gap:14px;align-items:center}
-  .ringw{position:relative;width:118px;height:118px}
+  /* 6. Score card (dinaikkan ke atas, gaya mockup) + gaps */
+  .scoretop{margin-bottom:12px}
+  .stpwrap{display:flex;align-items:center;gap:16px}
+  .stpinfo{flex:1;min-width:0}
+  .stpt{font-size:16px;font-weight:700}
+  .stpmsg{font-size:13.5px;line-height:1.5;margin-top:4px}
+  .ringw{position:relative;width:118px;height:118px;flex:none}
   .ringw svg{transform:rotate(-90deg)}
   .ringw .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
   .ringw .n b{font-size:29px;font-family:var(--mono);font-weight:700;line-height:1}
@@ -137,7 +143,6 @@
   /* Badge status skor + selisih vs kemarin (adopsi mockup) */
   .sbadge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:11.5px;font-weight:800;align-self:flex-start}
   .sbadge i{width:8px;height:8px;border-radius:99px;flex:none}
-  .sdelta{font-family:var(--mono);font-weight:800}
   .gaps{display:flex;flex-direction:column;gap:7px}
   .gap{display:flex;align-items:center;gap:8px;font-size:12.5px}
   .gap i{width:7px;height:7px;border-radius:99px;flex:none}
@@ -356,6 +361,9 @@
 
   <div id="errBox"></div>
 
+  <!-- Kartu skor dinaikkan ke atas (gaya mockup); diisi renderScore() saat ada rencana -->
+  <div id="scoreTop"></div>
+
   <div class="dgrid">
   <div>
   <!-- 3. UPLOAD -->
@@ -496,8 +504,10 @@
   // ---- 1. Header ----
   function renderHead(){
     var d=dObj(SEL);
-    var opt={weekday:"long",day:"numeric",month:"long",year:"numeric"};
-    document.getElementById("hdDate").textContent=d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",opt);
+    // Sub-judul: hari ini -> "Progress kamu hari ini" (gaya mockup); hari lain -> tanggalnya.
+    document.getElementById("hdDate").textContent = isToday(SEL)
+      ? Lx({en:"Your progress today",id:"Progress kamu hari ini"})
+      : d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
     var av=document.getElementById("hdAv");
     if(user&&user.avatar_url){ av.innerHTML='<img src="'+esc(user.avatar_url)+'" alt="">'; }
     else { av.textContent=((user&&(user.full_name||user.email)||"2").trim()[0]||"2").toUpperCase(); }
@@ -505,16 +515,17 @@
 
   // ---- 2. Date navigator (7 hari terakhir; hari depan dimatikan) ----
   function renderDnav(){
-    var host=document.getElementById("dnav"), out="", t=new Date();
-    for(var i=6;i>=0;i--){
-      var d=new Date(t); d.setDate(d.getDate()-i);
-      var s=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-      var wd=d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"short"});
-      out+='<button class="dpill'+(s===SEL?" on":"")+'" data-d="'+s+'"><div class="dw">'+esc(wd)+'</div><div class="dd">'+d.getDate()+'</div></button>';
-    }
-    host.innerHTML=out;
-    Array.prototype.forEach.call(host.querySelectorAll(".dpill"),function(b){
-      b.onclick=function(){ if(BUSY) return; SEL=b.getAttribute("data-d"); renderDnav(); renderHead(); load(SEL); };
+    var host=document.getElementById("dnav"), today=todayStr();
+    var items=[{off:-1,lbl:Lx({en:"Yesterday",id:"Kemarin"})},{off:0,lbl:Lx({en:"Today",id:"Hari ini"})},{off:1,lbl:Lx({en:"Tomorrow",id:"Besok"})}];
+    host.innerHTML=items.map(function(it){
+      var s=addDays(today,it.off), d=dObj(s);
+      var dt=d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{day:"numeric",month:"short"});
+      var future=it.off>0;   // masa depan: belum ada data -> dinonaktifkan (konsisten perilaku lama)
+      return '<button class="dpill3'+(s===SEL?" on":"")+'" data-d="'+s+'"'+(future?" disabled":"")+'>'+
+        '<span class="d3l">'+esc(it.lbl)+'</span><span class="d3d">'+esc(dt)+'</span></button>';
+    }).join("");
+    Array.prototype.forEach.call(host.querySelectorAll(".dpill3"),function(b){
+      b.onclick=function(){ if(BUSY||b.disabled) return; SEL=b.getAttribute("data-d"); renderDnav(); renderHead(); load(SEL); };
     });
   }
 
@@ -806,6 +817,7 @@
     return out;
   }
   function renderAi(){
+    renderScore();   // kartu skor di atas (#scoreTop) selalu ikut ter-render bareng AI Coach
     var host=document.getElementById("aiBox"), p=DAY&&DAY.plan;
     if(!p){
       host.innerHTML='<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span></div>'+
@@ -817,39 +829,53 @@
       return;
     }
     var gaps=Array.isArray(p.gaps)?p.gaps:[];
-    var score=(p.overall_score!=null)?p.overall_score:0;
-    var C=2*Math.PI*46, off=C-(C*Math.max(0,Math.min(100,score))/100);
-    var sc=score>=75?"var(--green)":(score>=45?"var(--amber)":"var(--red)");
-    // Badge status + selisih vs kemarin (adopsi mockup). Status dari skor sekarang (tanpa fetch);
-    // selisih dari skor rencana kemarin yang dimuat loadPrevScore().
-    var stKey=score>=75?"good":(score>=45?"warning":"critical");
-    var stCol=stKey==="good"?"var(--green)":(stKey==="warning"?"var(--amber)":"var(--red)");
-    var stBg="color-mix(in srgb,"+stCol+" 16%,transparent)";
-    var stLbl=stKey==="good"?Lx({en:"On track",id:"On track"}):(stKey==="warning"?Lx({en:"On the way",id:"Menuju target"}):Lx({en:"Needs attention",id:"Perlu perhatian"}));
-    var deltaLine="";
-    if(PREV_SCORE!=null){ var dd=score-PREV_SCORE; var dcol=dd>0?"var(--green)":(dd<0?"var(--red)":"var(--a-mut)");
-      deltaLine='<span class="sdelta" style="color:'+dcol+'">'+((dd>0?"+":"")+dd)+'</span> '+esc(Lx({en:"vs yesterday",id:"vs kemarin"})); }
+    // Kartu skor (ring + badge) pindah ke ATAS lewat renderScore(). Di sini tinggal
+    // analisa AI + daftar gap + tombol regenerate.
     host.innerHTML=
       '<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span>'+
         '<span class="b">'+esc(p.source==="fallback"?T("act_ai_nofb"):"AI COACH")+'</span></div>'+
         '<p>'+hlText(p.analysis_text,gaps)+'</p></div>'+
-      '<div class="card"><div class="sg">'+
-        '<div class="ringw"><svg width="118" height="118" viewBox="0 0 118 118">'+
-          '<circle cx="59" cy="59" r="46" fill="none" stroke="var(--a-line)" stroke-width="9"/>'+
-          '<circle cx="59" cy="59" r="46" fill="none" stroke="'+sc+'" stroke-width="9" stroke-linecap="round" '+
-            'stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
-          '<div class="n"><b>'+score+'</b><s>'+esc(T("act_score"))+'</s></div></div>'+
-        '<div class="gaps">'+
-          '<span class="sbadge" style="background:'+stBg+';color:'+stCol+'"><i style="background:'+stCol+'"></i>'+esc(stLbl)+'</span>'+
-          (PREV_SCORE!=null?('<div class="muted" style="font-size:11.5px;margin:-2px 0 2px">'+deltaLine+'</div>'):'')+
-          (gaps.length?gaps.map(function(g){
+      '<div class="card">'+
+        (gaps.length?('<div class="gaps">'+gaps.map(function(g){
           var st=["good","warning","critical"].indexOf(String(g.status))>=0?g.status:"warning";
           var col=st==="good"?"var(--green)":(st==="warning"?"var(--amber)":"var(--red)");
           return '<div class="gap"><i style="background:'+col+'"></i>'+esc(g.area||"")+'<span class="v">'+esc(g.value||"—")+'</span></div>';
-        }).join(""):'<div class="muted" style="font-size:12.5px">'+esc(T("act_no_gap"))+'</div>')+'</div>'+
-      '</div>'+
-      '<button class="btn ghost" id="regenBtn" style="margin-top:12px">'+esc(T("act_ai_regen"))+'</button></div>';
+        }).join("")+'</div>'):'<div class="muted" style="font-size:12.5px">'+esc(T("act_no_gap"))+'</div>')+
+        '<button class="btn ghost" id="regenBtn" style="margin-top:12px">'+esc(T("act_ai_regen"))+'</button>'+
+      '</div>';
     document.getElementById("regenBtn").onclick=function(){ genPlan(false); };
+  }
+
+  // Kartu "Skor hari ini" dinaikkan ke paling atas (#scoreTop), gaya mockup: ring + status
+  // + selisih vs kemarin. Hanya tampil kalau ada rencana; tanpa rencana -> kosong (CTA
+  // "Buat rencana" tetap di kartu AI Coach di kolom kanan).
+  function renderScore(){
+    var host=document.getElementById("scoreTop"); if(!host) return;
+    var p=DAY&&DAY.plan;
+    if(!p){ host.innerHTML=""; return; }
+    var score=(p.overall_score!=null)?p.overall_score:0;
+    var C=2*Math.PI*46, off=C-(C*Math.max(0,Math.min(100,score))/100);
+    var sc=score>=75?"var(--green)":(score>=45?"var(--amber)":"var(--red)");
+    var stKey=score>=75?"good":(score>=45?"warning":"critical");
+    var stCol=stKey==="good"?"var(--green)":(stKey==="warning"?"var(--amber)":"var(--red)");
+    var stBg="color-mix(in srgb,"+stCol+" 16%,transparent)";
+    var stLbl=stKey==="good"?Lx({en:"On track",id:"On track"}):(stKey==="warning"?Lx({en:"On the way",id:"Menuju target"}):Lx({en:"Needs attention",id:"Perlu perhatian"}));
+    var msg=stKey==="good"?Lx({en:"You're on track.",id:"Kamu on track."}):(stKey==="warning"?Lx({en:"Getting there.",id:"Terus jalan, hampir sampai."}):Lx({en:"Needs attention today.",id:"Perlu perhatian hari ini."}));
+    if(PREV_SCORE!=null){ var dd=score-PREV_SCORE;
+      msg+= dd>0?Lx({en:" Up +"+dd+" from yesterday.",id:" Naik +"+dd+" dari kemarin."})
+           :(dd<0?Lx({en:" Down "+(-dd)+" from yesterday.",id:" Turun "+(-dd)+" dari kemarin."})
+                 :Lx({en:" Same as yesterday.",id:" Sama seperti kemarin."})); }
+    var ttl=isToday(SEL)?Lx({en:"Today’s score",id:"Skor hari ini"}):Lx({en:"Score",id:"Skor"});
+    host.innerHTML='<div class="card scoretop"><div class="stpwrap">'+
+      '<div class="ringw"><svg width="118" height="118" viewBox="0 0 118 118">'+
+        '<circle cx="59" cy="59" r="46" fill="none" stroke="var(--a-line)" stroke-width="9"/>'+
+        '<circle cx="59" cy="59" r="46" fill="none" stroke="'+sc+'" stroke-width="9" stroke-linecap="round" '+
+          'stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
+        '<div class="n"><b>'+score+'</b><s>/ 100</s></div></div>'+
+      '<div class="stpinfo"><div class="stpt">'+esc(ttl)+'</div>'+
+        '<div class="stpmsg muted">'+esc(msg)+'</div>'+
+        '<span class="sbadge" style="background:'+stBg+';color:'+stCol+';margin-top:10px"><i style="background:'+stCol+'"></i>'+esc(stLbl)+'</span>'+
+      '</div></div></div>';
   }
   function starSvg(){ return '<svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg>'; }
 
