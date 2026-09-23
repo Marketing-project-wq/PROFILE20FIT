@@ -4631,7 +4631,7 @@ app.post("/api/corp/set-division", async (req, res) => {
 // SENGAJA tidak diekspor: token transien, bukan data pribadi bermakna.
 var USER_DATA_TABLES = [
   "my20fit_profile", "my20fit_daily_log", "my20fit_health_entry", "my20fit_workout",
-  "my20fit_daily_plan",
+  "my20fit_daily_plan", "my20fit_sleep", "my20fit_hydration",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
   "my20fit_scan_orders", "my20fit_scan_ledger", "my20fit_voucher_usages"
