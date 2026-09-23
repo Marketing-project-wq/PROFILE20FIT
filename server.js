@@ -9147,6 +9147,59 @@ app.get(["/progress", "/progress.html"], (req, res, next) => {
 
 // ---------- Static (URL bersih tanpa .html) + fallback ----------
 // Redirect /halaman.html -> /halaman (querystring dipertahankan), lalu sajikan
+// ---------- /b/:id — render cta_html banner sebagai halaman HTML ----------
+// Dibaca pakai anon key (RLS: policy banner_public_read_app_home). Tanpa izin script,
+// HTML di-strip & CSP script-src 'none'. Dengan izin script, CSP `sandbox` (tanpa
+// allow-same-origin) membuat halaman ber-origin opaque → script banner tak bisa membaca
+// localStorage/cookie sesi member di my.20fit.id.
+function bannerStripScripts(html) {
+  return String(html)
+    .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
+    .replace(/<script[^>]*>/gi, "")
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
+    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "")
+    .replace(/javascript:/gi, "");
+}
+function bannerEsc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function bannerShell(body, title) {
+  return `<!doctype html><html lang="id"><head><meta charset="utf-8">`
+    + `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">`
+    + `<title>${bannerEsc(title)}</title><style>`
+    + `:root{color-scheme:light dark}*{box-sizing:border-box}html,body{margin:0;padding:0}`
+    + `body{padding:16px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55;color:#111;background:#fff;-webkit-text-size-adjust:100%}`
+    + `@media(prefers-color-scheme:dark){body{color:#f2f2f2;background:#000}}`
+    + `img,video,iframe{max-width:100%;height:auto;border-radius:12px}a{color:#e11d2a}h1,h2,h3{line-height:1.2}.fit-wrap{max-width:640px;margin:0 auto}`
+    + `</style></head><body><div class="fit-wrap">${body}</div></body></html>`;
+}
+const BANNER_CSP_NO = "default-src 'self' https: data:; img-src https: data:; style-src 'unsafe-inline' https:; script-src 'none'; frame-src https:;";
+const BANNER_CSP_YES = "default-src 'self' https: data: blob:; img-src https: data:; style-src 'unsafe-inline' https:; script-src 'unsafe-inline' https:; frame-src https:; sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-top-navigation-by-user-activation;";
+
+app.get("/b/:id", async (req, res) => {
+  const id = String(req.params.id || "");
+  const send = (status, html, csp) => res.status(status)
+    .set("Content-Type", "text/html; charset=utf-8")
+    .set("Content-Security-Policy", csp)
+    .set("Cache-Control", status === 200 ? "public, max-age=60" : "no-store")
+    .send(html);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return send(400, bannerShell("<p>Banner tidak ditemukan.</p>", "20FIT"), BANNER_CSP_NO);
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return send(502, bannerShell("<p>Gagal memuat.</p>", "20FIT"), BANNER_CSP_NO);
+  try {
+    const r = await supaFetch(`${SUPABASE_URL}/rest/v1/my20fit_banner?id=eq.${encodeURIComponent(id)}&is_active=eq.true&select=title,cta_html,cta_html_allow_scripts`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } });
+    const rows = await r.json();
+    const b = Array.isArray(rows) ? rows[0] : null;
+    if (!b || !b.cta_html || !String(b.cta_html).trim()) return send(404, bannerShell("<p>Konten tidak tersedia.</p>", "20FIT"), BANNER_CSP_NO);
+    const allow = b.cta_html_allow_scripts === true;
+    const body = allow ? String(b.cta_html) : bannerStripScripts(b.cta_html);
+    return send(200, bannerShell(body, b.title || "20FIT"), allow ? BANNER_CSP_YES : BANNER_CSP_NO);
+  } catch (e) {
+    return send(502, bannerShell("<p>Gagal memuat.</p>", "20FIT"), BANNER_CSP_NO);
+  }
+});
+
 // /halaman dari halaman.html lewat opsi extensions. Jadi URL nggak ada ".html" lagi.
 app.get(/\.html$/, (req, res) => {
   const clean = req.path.replace(/\.html$/, "");
