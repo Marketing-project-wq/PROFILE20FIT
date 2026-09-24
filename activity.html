@@ -35,8 +35,12 @@
   @media(min-width:1040px){
     body{padding-left:26px;padding-right:26px}
     /* Bagian harian: dua kolom eksplisit. minmax(0,1fr) supaya isi panjang tidak memaksa melebar. */
-    .dgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
-    .dgrid>*{min-width:0}
+    /* Auto-balance kartu harian ke 2 kolom (teknik multi-kolom, sama dgn #lgcContent):
+       konten mengalir & tinggi kolom otomatis seimbang, jadi kolom kanan tak lagi kosong
+       walau tinggi konten kiri vs kanan beda. Di <1040px otomatis 1 kolom (tak ada aturan columns). */
+    .dgrid{columns:2;column-gap:16px}
+    .dgrid>*{-webkit-column-break-inside:avoid;break-inside:avoid;min-width:0}
+    .dgrid>.sechd{-webkit-column-break-after:avoid;break-after:avoid}
     /* Bagian lama: isinya dirender kode warisan (tak bisa dibungkus grid per-kartu),
        jadi pakai multi-kolom + larangan patah di tengah kartu. */
     #lgcContent{columns:2;column-gap:16px}
@@ -59,14 +63,16 @@
   /* 2. Date navigator */
   .dnav{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;margin-bottom:12px;scrollbar-width:none}
   .dnav::-webkit-scrollbar{display:none}
-  .dpill{flex:none;min-width:52px;padding:8px 6px;border-radius:var(--radius-sm,12px);border:1px solid var(--glass-hair,var(--a-line));
-    background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));box-shadow:var(--glass-sh,none);
-    text-align:center;cursor:pointer;font-family:inherit;color:var(--a-txt)}
-  .dpill .dw{font-size:10.5px;color:var(--a-mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700}
-  .dpill .dd{font-size:15px;font-weight:800;margin-top:2px;font-family:var(--mono)}
-  .dpill.on{background:var(--accent);border-color:var(--accent);color:#fff}
-  .dpill.on .dw{color:rgba(255,255,255,.85)}
-  .dpill:disabled{opacity:.35;cursor:default}
+  /* 3 pill relatif (Kemarin / Hari ini / Besok) — gaya mockup */
+  .dpill3{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:99px;
+    border:1px solid var(--glass-hair,var(--a-line));background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));
+    box-shadow:var(--glass-sh,none);cursor:pointer;font-family:inherit}
+  .dpill3 .d3l{font-size:13px;font-weight:600;color:var(--a-txt)}
+  .dpill3 .d3d{font-size:11px;color:var(--a-mut);font-family:var(--mono)}
+  .dpill3.on{background:var(--accent);border-color:var(--accent);box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 30%,transparent)}
+  .dpill3.on .d3l{color:#fff}
+  .dpill3.on .d3d{color:rgba(255,255,255,.85)}
+  .dpill3:disabled{opacity:.4;cursor:default}
 
   /* 3. Upload */
   .drop{border:1.5px dashed var(--glass-brd,var(--a-line));border-radius:var(--radius,14px);padding:26px 16px;
@@ -97,16 +103,25 @@
   .stats .v{font-size:15px;font-weight:800;font-family:var(--mono);margin-top:3px}
   .hrz{margin-top:15px}
   .hrz-h{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--a-mut);font-weight:800;margin-bottom:9px}
-  .hrz-r{display:flex;align-items:center;gap:9px;margin:6px 0}
-  .hrz-r .z{font-size:11px;font-weight:800;width:20px;color:var(--a-mut);font-family:var(--mono)}
-  .hrz-r .bar{flex:1;height:8px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden}
-  .hrz-r .bar i{display:block;height:100%;border-radius:99px}
-  .hrz-r .d{font-size:11.5px;font-family:var(--mono);color:var(--a-mut);width:46px;text-align:right}
+  /* HR zone: SATU bar bertumpuk + legenda + kaption (adopsi dari mockup Glass Bubble) */
+  .hrz-top{display:flex;align-items:center;margin-bottom:9px}
+  .hrz-top .hrz-h{margin-bottom:0;flex:1}
+  .hrz-tot{font-size:11px;color:var(--a-mut)}
+  .hrzbar{display:flex;gap:2px;height:12px;border-radius:99px;overflow:hidden;background:color-mix(in srgb,var(--a-txt) 8%,transparent)}
+  .hrzbar i{display:block;min-width:2px}
+  .hrz-leg{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+  .hrz-l{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--a-mut);font-family:var(--mono)}
+  .hrz-l i{width:8px;height:8px;border-radius:99px;display:inline-block}
+  .hrz-cap{margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--a-mut)}
 
   /* 5. AI analysis */
   /* Skin kaca menyetel .card{background:...!important}, jadi gradient biasa akan kalah.
      Pola tint ini menyalin cara repo melakukannya untuk .card.up — semburat di ATAS kaca. */
-  .card.ai{background:color-mix(in srgb,var(--accent) 7%,var(--glass,var(--a-surface))) !important}
+  .card.ai{background:color-mix(in srgb,var(--accent) 7%,var(--glass,var(--a-surface))) !important;position:relative;overflow:hidden}
+  /* Radial-glow sudut (adopsi mockup) — pakai token --accent, halus di light & dark */
+  .card.ai::before{content:"";position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:99px;
+    background:radial-gradient(circle,color-mix(in srgb,var(--accent) 22%,transparent),transparent 70%);pointer-events:none;z-index:0}
+  .card.ai>*{position:relative;z-index:1}
   .ai-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
   .ai-h svg{width:17px;height:17px;fill:var(--accent)}
   .ai-h .t{font-weight:800;font-size:14px}
@@ -118,13 +133,20 @@
   .hl.warning{background:color-mix(in srgb,var(--amber) 18%,transparent);color:var(--amber)}
   .hl.critical{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
 
-  /* 6. Score + gaps */
-  .sg{display:grid;grid-template-columns:118px 1fr;gap:14px;align-items:center}
-  .ringw{position:relative;width:118px;height:118px}
+  /* 6. Score card (dinaikkan ke atas, gaya mockup) + gaps */
+  .scoretop{margin-bottom:12px}
+  .stpwrap{display:flex;align-items:center;gap:16px}
+  .stpinfo{flex:1;min-width:0}
+  .stpt{font-size:16px;font-weight:700}
+  .stpmsg{font-size:13.5px;line-height:1.5;margin-top:4px}
+  .ringw{position:relative;width:118px;height:118px;flex:none}
   .ringw svg{transform:rotate(-90deg)}
   .ringw .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
   .ringw .n b{font-size:29px;font-family:var(--mono);font-weight:700;line-height:1}
   .ringw .n s{font-size:10px;color:var(--a-mut);text-decoration:none;letter-spacing:.6px;text-transform:uppercase;margin-top:3px;font-weight:700}
+  /* Badge status skor + selisih vs kemarin (adopsi mockup) */
+  .sbadge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:11.5px;font-weight:800;align-self:flex-start}
+  .sbadge i{width:8px;height:8px;border-radius:99px;flex:none}
   .gaps{display:flex;flex-direction:column;gap:7px}
   .gap{display:flex;align-items:center;gap:8px;font-size:12.5px}
   .gap i{width:7px;height:7px;border-radius:99px;flex:none}
@@ -290,6 +312,33 @@
   @media(min-width:900px){ .lgc .main2{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:start} }
   @media(max-width:560px){ .lgc .wrap{padding:16px 12px} .lgc .card{padding:14px} .lgc .achg{grid-template-columns:1fr} .lgc .hello{font-size:24px} }
 
+  /* ---- Tidur & Hidrasi (tracker harian, ditambahkan) ---- */
+  .shh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .shh .e{font-size:18px;line-height:1}
+  .shh .t{font-weight:800;font-size:14px}
+  .shh .r{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--a-mut)}
+  .hbar{height:12px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden;margin:10px 0 6px}
+  .hbar i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .4s cubic-bezier(.2,.8,.2,1)}
+  .hyq{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .hyq button{display:inline-flex;align-items:center;gap:6px;padding:9px 12px;border-radius:10px;border:1px solid var(--glass-hair,var(--a-line));
+    background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));box-shadow:var(--glass-sh,none);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .hyc{display:flex;gap:8px;margin-top:10px}
+  .hyc input{flex:1;min-width:0;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px}
+  .hyc button{flex:0 0 auto;padding:0 16px;border-radius:9px;border:0;background:var(--accent);color:#fff;font-weight:800;cursor:pointer;font-family:inherit}
+  .hlog{margin-top:12px}
+  .hlog .row{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--a-line);font-size:13px}
+  .hlog .row:first-child{border-top:0}
+  .hlog .row .tm{font-family:var(--mono);font-size:12px;color:var(--a-mut);width:44px;flex:none}
+  .hlog .row .amt{margin-left:auto;font-family:var(--mono);font-weight:700}
+  .hlog .row .del{background:none;border:0;color:var(--a-mut);cursor:pointer;font-size:14px;padding:0 2px;font-family:inherit}
+  .qz{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:4px}
+  .qz button{padding:8px 3px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;text-align:center;line-height:1.5}
+  .qz button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .slpmeta{display:flex;gap:16px;align-items:center;margin-top:2px}
+  .slpmeta .b{font-size:22px;font-weight:800;font-family:var(--mono);line-height:1}
+  .slpmeta .l{font-size:11px;color:var(--a-mut);margin-top:3px}
+  .qbadge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green);white-space:nowrap}
+
 </style>
 <!-- Dimuat SESUDAH <style> halaman, sama seperti dashboard/calories/recipe: skin kaca
      memakai !important untuk .card sehingga kartu di sini otomatis ikut liquid-glass
@@ -316,8 +365,21 @@
 
   <div id="errBox"></div>
 
+  <!-- Kartu skor dinaikkan ke atas (gaya mockup); diisi renderScore() saat ada rencana -->
+  <div id="scoreTop"></div>
+
+  <!-- AI Coach entry: headline penuh-lebar (di atas grid) supaya jadi hal pertama yang
+       terlihat di desktop & mobile — bukan terkubur di kolom kanan. Link internal same-tab (§G). -->
+  <a class="card" href="/coach" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--a-txt);margin:0 0 12px;border-color:color-mix(in srgb,var(--accent) 35%,var(--a-line));background:color-mix(in srgb,var(--accent) 7%,var(--a-surface))">
+    <span style="width:40px;height:40px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent)"><span class="fic" data-ic="target" aria-hidden="true"></span></span>
+    <span style="flex:1;min-width:0">
+      <span style="display:block;font-size:14.5px;font-weight:700" data-i18n="act_coach_cta">Weekly workout program</span>
+      <span style="display:block;font-size:12px;color:var(--a-mut);margin-top:2px" data-i18n="act_coach_sub">Answer a quick quiz — no workout upload needed</span>
+    </span>
+    <span style="font-size:22px;color:var(--accent);flex:none" aria-hidden="true">›</span>
+  </a>
+
   <div class="dgrid">
-  <div>
   <!-- 3. UPLOAD -->
   <div class="card">
     <div class="drop" id="drop" tabindex="0" role="button">
@@ -340,10 +402,12 @@
   <div class="sechd" data-i18n="act_sec_habit">Kebiasaan harian</div>
   <div class="chips" id="habitBox"></div>
 
-  </div>
-  <div>
+  <!-- Tidur & Hidrasi (tracker harian) — client-side Supabase + RLS, agregat disinkron ke my20fit_daily_log -->
+  <div id="sleepBox"></div>
+  <div id="hydraBox"></div>
 
-  <!-- 5. AI ANALYSIS + 6. SCORE -->
+
+  <!-- 5. AI ANALYSIS (analisis harian) + 6. SCORE -->
   <div class="sechd" data-i18n="act_sec_ai">AI Coach</div>
   <div id="aiBox"></div>
 
@@ -354,9 +418,6 @@
        halaman lama (di bawah) sudah menampilkan Kalori/Protein/Karbo/Lemak/Air/Tidur
        vs target, dihitung dari BMI + berat + tujuan di profil. Menaruh keduanya =
        angka yang sama muncul dua kali dengan dua target berbeda. -->
-
-  <!-- 9. HABITS -->
-  </div>
   </div><!-- /dgrid -->
 
   <!-- 10. WEEKLY -->
@@ -395,6 +456,23 @@
   </div>
 </dialog>
 
+<dialog id="slpDlg">
+  <div style="font-weight:800;font-size:15px" id="slpDlgT">Catat tidur</div>
+  <div class="muted" style="font-size:12px;margin-top:3px" id="slpDlgS">Durasi dihitung otomatis dari jam tidur &amp; bangun.</div>
+  <label id="slpLbBed">Jam tidur</label><input id="slpBed" type="time">
+  <label id="slpLbWake">Jam bangun</label><input id="slpWake" type="time">
+  <div class="muted" id="slpDur" style="font-size:12.5px;margin:8px 0 2px">—</div>
+  <label id="slpLbQual">Kualitas tidur</label>
+  <div class="qz" id="slpQual"></div>
+  <label id="slpLbAwake">Berapa kali terbangun</label><input id="slpAwake" type="number" min="0" inputmode="numeric" placeholder="0">
+  <div id="slpErr" class="err" style="margin-top:10px"></div>
+  <div style="display:flex;gap:8px;margin-top:14px">
+    <button class="btn ghost" id="slpCancel" type="button">Batal</button>
+    <button class="btn" id="slpSave" type="button">Simpan</button>
+  </div>
+</dialog>
+
+<script src="js/fiticons.js"></script>
 <script src="js/vendor-supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/i18n.js"></script>
@@ -436,8 +514,10 @@
   // ---- 1. Header ----
   function renderHead(){
     var d=dObj(SEL);
-    var opt={weekday:"long",day:"numeric",month:"long",year:"numeric"};
-    document.getElementById("hdDate").textContent=d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",opt);
+    // Sub-judul: hari ini -> "Progress kamu hari ini" (gaya mockup); hari lain -> tanggalnya.
+    document.getElementById("hdDate").textContent = isToday(SEL)
+      ? Lx({en:"Your progress today",id:"Progress kamu hari ini"})
+      : d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
     var av=document.getElementById("hdAv");
     if(user&&user.avatar_url){ av.innerHTML='<img src="'+esc(user.avatar_url)+'" alt="">'; }
     else { av.textContent=((user&&(user.full_name||user.email)||"2").trim()[0]||"2").toUpperCase(); }
@@ -445,16 +525,17 @@
 
   // ---- 2. Date navigator (7 hari terakhir; hari depan dimatikan) ----
   function renderDnav(){
-    var host=document.getElementById("dnav"), out="", t=new Date();
-    for(var i=6;i>=0;i--){
-      var d=new Date(t); d.setDate(d.getDate()-i);
-      var s=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
-      var wd=d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"short"});
-      out+='<button class="dpill'+(s===SEL?" on":"")+'" data-d="'+s+'"><div class="dw">'+esc(wd)+'</div><div class="dd">'+d.getDate()+'</div></button>';
-    }
-    host.innerHTML=out;
-    Array.prototype.forEach.call(host.querySelectorAll(".dpill"),function(b){
-      b.onclick=function(){ if(BUSY) return; SEL=b.getAttribute("data-d"); renderDnav(); renderHead(); load(SEL); };
+    var host=document.getElementById("dnav"), today=todayStr();
+    var items=[{off:-1,lbl:Lx({en:"Yesterday",id:"Kemarin"})},{off:0,lbl:Lx({en:"Today",id:"Hari ini"})},{off:1,lbl:Lx({en:"Tomorrow",id:"Besok"})}];
+    host.innerHTML=items.map(function(it){
+      var s=addDays(today,it.off), d=dObj(s);
+      var dt=d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{day:"numeric",month:"short"});
+      var future=it.off>0;   // masa depan: belum ada data -> dinonaktifkan (konsisten perilaku lama)
+      return '<button class="dpill3'+(s===SEL?" on":"")+'" data-d="'+s+'"'+(future?" disabled":"")+'>'+
+        '<span class="d3l">'+esc(it.lbl)+'</span><span class="d3d">'+esc(dt)+'</span></button>';
+    }).join("");
+    Array.prototype.forEach.call(host.querySelectorAll(".dpill3"),function(b){
+      b.onclick=function(){ if(BUSY||b.disabled) return; SEL=b.getAttribute("data-d"); renderDnav(); renderHead(); load(SEL); };
     });
   }
 
@@ -694,24 +775,32 @@
       if(z){
         var tot=["z1","z2","z3","z4","z5"].reduce(function(a,k){return a+(+z[k]||0);},0);
         if(tot>0){
-          zh='<div class="hrz"><div class="hrz-h">'+esc(T("act_hrz"))+'</div>'+
-            ["z1","z2","z3","z4","z5"].map(function(k){
-              var v=+z[k]||0, pct=Math.round(v/tot*100);
-              return '<div class="hrz-r"><span class="z">'+k.toUpperCase()+'</span>'+
-                '<span class="bar"><i style="width:'+pct+'%;background:'+ZC[k]+'"></i></span>'+
-                '<span class="d">'+(v?hms(v):"—")+'</span></div>';
-            }).join("")+'</div>';
+          var ZLAB={z1:"Z1",z2:"Z2",z3:"Z3",z4:"Z4",z5:"Z5"};
+          var ZDESC={z1:{en:"very light — warm-up & recovery",id:"sangat ringan — pemanasan & pemulihan"},
+                     z2:{en:"light cardio — great for endurance",id:"kardio ringan — bagus buat endurance"},
+                     z3:{en:"moderate — aerobic tempo",id:"sedang — tempo aerobik"},
+                     z4:{en:"hard — threshold effort",id:"keras — usaha ambang"},
+                     z5:{en:"max — short bursts",id:"maksimal — ledakan singkat"}};
+          var dom="z1", dv=-1;
+          ["z1","z2","z3","z4","z5"].forEach(function(k){ if((+z[k]||0)>dv){ dv=+z[k]||0; dom=k; } });
+          var seg=["z1","z2","z3","z4","z5"].map(function(k){ var v=+z[k]||0; return v>0?('<i style="flex:'+v+';background:'+ZC[k]+'"></i>'):''; }).join("");
+          var leg=["z1","z2","z3","z4","z5"].map(function(k){ return '<span class="hrz-l"><i style="background:'+ZC[k]+'"></i>'+ZLAB[k]+'</span>'; }).join("");
+          zh='<div class="hrz"><div class="hrz-top"><span class="hrz-h">'+esc(T("act_hrz"))+'</span><span class="hrz-tot mono">'+esc(hms(tot))+' '+esc(Lx({en:"total",id:"total"}))+'</span></div>'+
+            '<div class="hrzbar">'+seg+'</div>'+
+            '<div class="hrz-leg">'+leg+'</div>'+
+            '<div class="hrz-cap">'+esc(Lx({en:"Longest in ",id:"Paling lama di "}))+'<b style="color:'+ZC[dom]+'">'+ZLAB[dom]+'</b> — '+esc(Lx(ZDESC[dom]))+'</div>'+
+            '</div>';
         }
       }
       var src=w.source?(" · "+w.source.replace(/_/g," ")):"";
-      return '<div class="card"><div class="wo-h"><div class="wo-ic">'+(w.type==="cycling"?"🚴":w.type==="swimming"?"🏊":w.type==="gym"?"🏋️":"🏃")+'</div>'+
+      return '<div class="card"><div class="wo-h"><div class="wo-ic">'+(w.type==="cycling"?FIC("cycle"):w.type==="swimming"?FIC("swim"):w.type==="gym"?FIC("dumbbell"):FIC("run"))+'</div>'+
         '<div style="flex:1;min-width:0"><div class="wo-t">'+esc(w.title||w.type||"Workout")+'</div>'+
         '<div class="wo-s">'+esc(src.replace(/^ · /,""))+'</div></div>'+
         '<button class="wo-x" data-del="'+esc(w.id)+'" title="'+esc(T("act_delete"))+'">✕</button></div>'+
         '<div class="stats">'+st.map(function(s){
           return '<div><div class="k">'+esc(T(s[0]))+'</div><div class="v">'+esc(s[1])+'</div></div>';
         }).join("")+'</div>'+zh+
-        (w.uploaded_file_url?'<div class="muted" style="font-size:11.5px;margin-top:10px">📎 '+esc(T("act_has_file"))+'</div>':'')+
+        (w.uploaded_file_url?'<div class="muted" style="font-size:11.5px;margin-top:10px">'+FIC("attach",14)+' '+esc(T("act_has_file"))+'</div>':'')+
         '</div>';
     }).join("");
     Array.prototype.forEach.call(host.querySelectorAll("[data-del]"),function(b){
@@ -738,6 +827,7 @@
     return out;
   }
   function renderAi(){
+    renderScore();   // kartu skor di atas (#scoreTop) selalu ikut ter-render bareng AI Coach
     var host=document.getElementById("aiBox"), p=DAY&&DAY.plan;
     if(!p){
       host.innerHTML='<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span></div>'+
@@ -749,27 +839,53 @@
       return;
     }
     var gaps=Array.isArray(p.gaps)?p.gaps:[];
-    var score=(p.overall_score!=null)?p.overall_score:0;
-    var C=2*Math.PI*46, off=C-(C*Math.max(0,Math.min(100,score))/100);
-    var sc=score>=75?"var(--green)":(score>=45?"var(--amber)":"var(--red)");
+    // Kartu skor (ring + badge) pindah ke ATAS lewat renderScore(). Di sini tinggal
+    // analisa AI + daftar gap + tombol regenerate.
     host.innerHTML=
       '<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span>'+
         '<span class="b">'+esc(p.source==="fallback"?T("act_ai_nofb"):"AI COACH")+'</span></div>'+
         '<p>'+hlText(p.analysis_text,gaps)+'</p></div>'+
-      '<div class="card"><div class="sg">'+
-        '<div class="ringw"><svg width="118" height="118" viewBox="0 0 118 118">'+
-          '<circle cx="59" cy="59" r="46" fill="none" stroke="var(--a-line)" stroke-width="9"/>'+
-          '<circle cx="59" cy="59" r="46" fill="none" stroke="'+sc+'" stroke-width="9" stroke-linecap="round" '+
-            'stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
-          '<div class="n"><b>'+score+'</b><s>'+esc(T("act_score"))+'</s></div></div>'+
-        '<div class="gaps">'+(gaps.length?gaps.map(function(g){
+      '<div class="card">'+
+        (gaps.length?('<div class="gaps">'+gaps.map(function(g){
           var st=["good","warning","critical"].indexOf(String(g.status))>=0?g.status:"warning";
           var col=st==="good"?"var(--green)":(st==="warning"?"var(--amber)":"var(--red)");
           return '<div class="gap"><i style="background:'+col+'"></i>'+esc(g.area||"")+'<span class="v">'+esc(g.value||"—")+'</span></div>';
-        }).join(""):'<div class="muted" style="font-size:12.5px">'+esc(T("act_no_gap"))+'</div>')+'</div>'+
-      '</div>'+
-      '<button class="btn ghost" id="regenBtn" style="margin-top:12px">'+esc(T("act_ai_regen"))+'</button></div>';
+        }).join("")+'</div>'):'<div class="muted" style="font-size:12.5px">'+esc(T("act_no_gap"))+'</div>')+
+        '<button class="btn ghost" id="regenBtn" style="margin-top:12px">'+esc(T("act_ai_regen"))+'</button>'+
+      '</div>';
     document.getElementById("regenBtn").onclick=function(){ genPlan(false); };
+  }
+
+  // Kartu "Skor hari ini" dinaikkan ke paling atas (#scoreTop), gaya mockup: ring + status
+  // + selisih vs kemarin. Hanya tampil kalau ada rencana; tanpa rencana -> kosong (CTA
+  // "Buat rencana" tetap di kartu AI Coach di kolom kanan).
+  function renderScore(){
+    var host=document.getElementById("scoreTop"); if(!host) return;
+    var p=DAY&&DAY.plan;
+    if(!p){ host.innerHTML=""; return; }
+    var score=(p.overall_score!=null)?p.overall_score:0;
+    var C=2*Math.PI*46, off=C-(C*Math.max(0,Math.min(100,score))/100);
+    var sc=score>=75?"var(--green)":(score>=45?"var(--amber)":"var(--red)");
+    var stKey=score>=75?"good":(score>=45?"warning":"critical");
+    var stCol=stKey==="good"?"var(--green)":(stKey==="warning"?"var(--amber)":"var(--red)");
+    var stBg="color-mix(in srgb,"+stCol+" 16%,transparent)";
+    var stLbl=stKey==="good"?Lx({en:"On track",id:"On track"}):(stKey==="warning"?Lx({en:"On the way",id:"Menuju target"}):Lx({en:"Needs attention",id:"Perlu perhatian"}));
+    var msg=stKey==="good"?Lx({en:"You're on track.",id:"Kamu on track."}):(stKey==="warning"?Lx({en:"Getting there.",id:"Terus jalan, hampir sampai."}):Lx({en:"Needs attention today.",id:"Perlu perhatian hari ini."}));
+    if(PREV_SCORE!=null){ var dd=score-PREV_SCORE;
+      msg+= dd>0?Lx({en:" Up +"+dd+" from yesterday.",id:" Naik +"+dd+" dari kemarin."})
+           :(dd<0?Lx({en:" Down "+(-dd)+" from yesterday.",id:" Turun "+(-dd)+" dari kemarin."})
+                 :Lx({en:" Same as yesterday.",id:" Sama seperti kemarin."})); }
+    var ttl=isToday(SEL)?Lx({en:"Today’s score",id:"Skor hari ini"}):Lx({en:"Score",id:"Skor"});
+    host.innerHTML='<div class="card scoretop"><div class="stpwrap">'+
+      '<div class="ringw"><svg width="118" height="118" viewBox="0 0 118 118">'+
+        '<circle cx="59" cy="59" r="46" fill="none" stroke="var(--a-line)" stroke-width="9"/>'+
+        '<circle cx="59" cy="59" r="46" fill="none" stroke="'+sc+'" stroke-width="9" stroke-linecap="round" '+
+          'stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
+        '<div class="n"><b>'+score+'</b><s>/ 100</s></div></div>'+
+      '<div class="stpinfo"><div class="stpt">'+esc(ttl)+'</div>'+
+        '<div class="stpmsg muted">'+esc(msg)+'</div>'+
+        '<span class="sbadge" style="background:'+stBg+';color:'+stCol+';margin-top:10px"><i style="background:'+stCol+'"></i>'+esc(stLbl)+'</span>'+
+      '</div></div></div>';
   }
   function starSvg(){ return '<svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg>'; }
 
@@ -881,10 +997,10 @@
     var sleep=d.sleep_hours, water=d.water_glasses, steps=d.steps;
     var ck=d.checklist||{};
     var items=[
-      {e:"😴",n:T("act_h_sleep"), s:sleep!=null?(sleep+"j"):T("act_empty"),      warn:(sleep!=null&&sleep<7)||sleep==null},
-      {e:"💧",n:T("act_h_water"), s:water!=null?(water+"/8"):T("act_empty"),     warn:(water==null||water<8)},
-      {e:"👟",n:T("act_h_steps"), s:steps!=null?String(steps):T("act_empty"),    warn:(steps==null||steps<8000)},
-      {e:"🧘",n:T("act_h_breath"),s:(ck&&ck.breathing)||d.breathing_done?T("act_done"):T("act_empty"), warn:!((ck&&ck.breathing)||d.breathing_done)}
+      {e:FIC("moon"),n:T("act_h_sleep"), s:sleep!=null?(sleep+"j"):T("act_empty"),      warn:(sleep!=null&&sleep<7)||sleep==null},
+      {e:FIC("water"),n:T("act_h_water"), s:water!=null?(water+"/8"):T("act_empty"),     warn:(water==null||water<8)},
+      {e:FIC("steps"),n:T("act_h_steps"), s:steps!=null?String(steps):T("act_empty"),    warn:(steps==null||steps<8000)},
+      {e:FIC("breathe"),n:T("act_h_breath"),s:(ck&&ck.breathing)||d.breathing_done?T("act_done"):T("act_empty"), warn:!((ck&&ck.breathing)||d.breathing_done)}
     ];
     document.getElementById("habitBox").innerHTML=items.map(function(i){
       return '<div class="chip'+(i.warn?" warn":"")+'"><div class="e">'+i.e+'</div><div class="n">'+esc(i.n)+'</div><div class="s">'+esc(i.s)+'</div></div>';
@@ -916,6 +1032,204 @@
       }).join("")+'</div>';
   }
 
+  // ============================================================
+  // ---- Tidur & Hidrasi (tracker harian) ----
+  // Tabel BARU my20fit_sleep + my20fit_hydration (migration 020), diakses CLIENT-SIDE
+  // lewat Auth.supabase + RLS (pola sama my20fit_daily_log). Agregat (sleep_hours,
+  // water_glasses) DISINKRON ke my20fit_daily_log lewat Auth.saveDaily supaya skor &
+  // rencana AI harian yang sudah ada tetap jalan tanpa ubah logika. Semua dibungkus
+  // try/catch: kalau migration belum dijalankan, kartu tampil kosong, halaman tak rusak.
+  // ============================================================
+  var SLP_TARGET=8;      // jam — sama dgn chart tidur & kartu Overall lama
+  var HYD_TARGET=2000;   // ml = 8 gelas x 250; sengaja disamakan dgn target air 8 gelas app
+  var SLEEP=null, SLEEP7=[], HYDRA=[], AUTH_UID=null, SH_BUSY=false, SH_LOADED={}, SLP_Q=null;
+  var PREV_SCORE=null;   // skor rencana kemarin (untuk selisih di kartu skor) — diisi loadPrevScore()
+
+  function ymdOf(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function addDays(s,n){ var d=dObj(s); d.setDate(d.getDate()+n); return ymdOf(d); }
+  function durLabel(h){ if(h==null) return "—"; var mm=Math.round(h*60), H=Math.floor(mm/60), M=mm%60; return I18N.lang==="en"?(H+"h"+(M?(" "+M+"m"):"")):(H+"j"+(M?(" "+M+"m"):"")); }
+  function qualLabel(q){ return Lx(({poor:{en:"Poor",id:"Buruk"},fair:{en:"Fair",id:"Cukup"},good:{en:"Good",id:"Baik"},excellent:{en:"Excellent",id:"Sangat baik"}})[q]||{en:q||"",id:q||""}); }
+  function drinkLabel(t){ return Lx(({water:{en:"Water",id:"Air"},coffee:{en:"Coffee",id:"Kopi"},tea:{en:"Tea",id:"Teh"},juice:{en:"Juice",id:"Jus"},sports_drink:{en:"Sports drink",id:"Minuman olahraga"},other:{en:"Other",id:"Lainnya"}})[t]||{en:t||"",id:t||""}); }
+  function drinkEmoji(t){ return ({water:FIC("water"),coffee:FIC("coffee"),tea:FIC("tea"),juice:FIC("juice"),sports_drink:FIC("soda"),other:FIC("glass")})[t]||FIC("water"); }
+  function fmtTime(ts){ try{ return new Date(ts).toLocaleTimeString(I18N.lang==="en"?"en-GB":"id-ID",{hour:"2-digit",minute:"2-digit"}); }catch(e){ return ""; } }
+  function fmtTimeInput(ts){ try{ var d=new Date(ts); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }catch(e){ return ""; } }
+  function calcDur(bed,wake){ if(!bed||!wake) return null; var b=bed.split(":"),w=wake.split(":"); var bm=(+b[0])*60+(+b[1]), wm=(+w[0])*60+(+w[1]); if(!isFinite(bm)||!isFinite(wm)) return null; var d=wm-bm; if(d<=0) d+=1440; return Math.round(d/60*10)/10; }
+  function calcCross(bed,wake){ if(!bed||!wake) return false; var b=bed.split(":"),w=wake.split(":"); return ((+w[0])*60+(+w[1]))<=((+b[0])*60+(+b[1])); }
+  function mkTs(dateStr,hhmm,shift){ if(!hhmm) return null; var p=hhmm.split(":"); var d=dObj(dateStr); d.setDate(d.getDate()+(shift||0)); d.setHours(+p[0]||0,+p[1]||0,0,0); return d.toISOString(); }
+  async function ensureUid(){ if(AUTH_UID) return AUTH_UID; try{ var au=await Auth.supabase.auth.getUser(); AUTH_UID=(au&&au.data&&au.data.user)?au.data.user.id:null; }catch(e){} return AUTH_UID; }
+
+  async function loadPrevScore(date){
+    try{
+      var uid=await ensureUid(); if(!uid){ PREV_SCORE=null; return; }
+      var prev=addDays(date,-1);
+      var r=await Auth.supabase.from("my20fit_daily_plan").select("overall_score").eq("auth_user_id",uid).eq("plan_date",prev).limit(1);
+      PREV_SCORE=(r&&r.data&&r.data[0]&&r.data[0].overall_score!=null)?+r.data[0].overall_score:null;
+    }catch(e){ PREV_SCORE=null; }
+    if(DAY&&DAY.plan) renderAi();
+  }
+
+  async function loadSleepHydra(date){
+    var sb=document.getElementById("sleepBox"), hb=document.getElementById("hydraBox");
+    if(!sb||!hb) return;
+    if(!SH_LOADED[date]){ var sk='<div class="card"><div class="skel" style="height:76px"></div></div>'; sb.innerHTML=sk; hb.innerHTML=sk; }
+    try{
+      var uid=await ensureUid();
+      if(!uid){ SLEEP=null; SLEEP7=[]; HYDRA=[]; renderSleep(); renderHydra(); return; }
+      var from7=addDays(date,-6);
+      var sres=await Auth.supabase.from("my20fit_sleep").select("*").eq("auth_user_id",uid).gte("sleep_date",from7).lte("sleep_date",date).order("sleep_date",{ascending:true});
+      SLEEP7=(sres&&sres.data)||[]; SLEEP=SLEEP7.filter(function(r){return r.sleep_date===date;})[0]||null;
+      var hres=await Auth.supabase.from("my20fit_hydration").select("*").eq("auth_user_id",uid).eq("log_date",date).order("logged_at",{ascending:true});
+      HYDRA=(hres&&hres.data)||[];
+    }catch(e){ SLEEP=null; SLEEP7=[]; HYDRA=[]; }
+    SH_LOADED[date]=true;
+    renderSleep(); renderHydra();
+  }
+
+  function sleep7Bars(){
+    var map={}; SLEEP7.forEach(function(r){ map[r.sleep_date]=+r.duration_hours||0; });
+    var base=dObj(SEL), max=SLP_TARGET, days=[];
+    for(var i=6;i>=0;i--){ var d=new Date(base); d.setDate(d.getDate()-i); var s=ymdOf(d); var v=map[s]||0; if(v>max) max=v;
+      days.push({s:s,v:v,lb:d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"narrow"})}); }
+    return '<div class="bars" style="margin-top:12px">'+days.map(function(d){
+      var h=d.v>0?Math.max(8,Math.round(d.v/max*46)):0;
+      var cls=d.v>0?(d.s===SEL?"bar today":"bar"):"bar empty";
+      return '<div class="c"><div class="'+cls+'" style="height:'+(h||14)+'px"></div><div class="lb">'+esc(d.lb)+'</div></div>';
+    }).join("")+'</div>';
+  }
+
+  function renderSleep(){
+    var host=document.getElementById("sleepBox"); if(!host) return;
+    var hd='<div class="sechd">'+esc(Lx({en:"Sleep",id:"Tidur"}))+'</div>';
+    var s=SLEEP, dur=(s&&s.duration_hours!=null)?+s.duration_hours:null;
+    var pct=dur!=null?Math.max(0,Math.min(100,Math.round(dur/SLP_TARGET*100))):0;
+    var head='<div class="shh"><span class="e">'+FIC("moon")+'</span><span class="t">'+esc(Lx({en:"Sleep",id:"Tidur"}))+'</span><span class="r">'+esc(Lx({en:SLP_TARGET+"h target",id:"target "+SLP_TARGET+"j"}))+'</span></div>';
+    var body;
+    if(s){
+      var q=s.quality?('<span class="qbadge">'+esc(qualLabel(s.quality))+'</span>'):'';
+      var times=(s.bedtime&&s.wake_time)?(esc(fmtTime(s.bedtime))+" → "+esc(fmtTime(s.wake_time))):esc(Lx({en:"logged",id:"tercatat"}));
+      body=head+'<div class="slpmeta"><div><div class="b">'+esc(durLabel(dur))+'</div><div class="l">'+times+'</div></div>'+
+        (q?('<div style="margin-left:auto">'+q+'</div>'):'')+'</div>'+
+        '<div class="hbar"><i style="width:'+pct+'%;background:'+((dur!=null&&dur>=7)?"var(--green)":"var(--accent)")+'"></i></div>'+
+        (s.awake_times?('<div class="muted" style="font-size:12px">'+esc(Lx({en:"Woke up "+s.awake_times+"×",id:"Terbangun "+s.awake_times+"×"}))+'</div>'):'')+
+        sleep7Bars()+
+        '<button class="btn ghost" id="slpEdit" style="margin-top:12px">'+esc(Lx({en:"Edit sleep",id:"Ubah tidur"}))+'</button>';
+    } else {
+      body=head+'<div class="muted" style="font-size:13px">'+esc(Lx({en:"No sleep logged for this day.",id:"Belum ada catatan tidur untuk hari ini."}))+'</div>'+
+        sleep7Bars()+
+        '<button class="btn" id="slpEdit" style="margin-top:12px">'+esc(Lx({en:"Log sleep",id:"Catat tidur"}))+'</button>';
+    }
+    host.innerHTML=hd+'<div class="card">'+body+'</div>';
+    var b=document.getElementById("slpEdit"); if(b) b.onclick=openSleepDlg;
+  }
+
+  function renderHydra(){
+    var host=document.getElementById("hydraBox"); if(!host) return;
+    var total=HYDRA.reduce(function(a,r){return a+(+r.amount_ml||0);},0);
+    var pct=Math.max(0,Math.min(100,Math.round(total/HYD_TARGET*100)));
+    var remain=Math.max(0,HYD_TARGET-total), glasses=Math.round(remain/250);
+    var quicks=[{ml:250,e:FIC("water"),lbl:"250ml",t:"water"},{ml:500,e:FIC("water"),lbl:"500ml",t:"water"},{ml:200,e:FIC("coffee"),lbl:Lx({en:"Coffee",id:"Kopi"}),t:"coffee"},{ml:200,e:FIC("tea"),lbl:Lx({en:"Tea",id:"Teh"}),t:"tea"}];
+    var hd='<div class="sechd">'+esc(Lx({en:"Hydration",id:"Hidrasi"}))+'</div>';
+    var qbtns=quicks.map(function(q,i){ return '<button type="button" data-q="'+i+'">'+q.e+' '+esc(q.lbl)+'</button>'; }).join("");
+    var logs=HYDRA.length?('<div class="hlog">'+HYDRA.slice().reverse().map(function(r){
+        return '<div class="row"><span class="tm">'+esc(fmtTime(r.logged_at))+'</span>'+drinkEmoji(r.drink_type)+' '+esc(drinkLabel(r.drink_type))+
+          '<span class="amt">'+(+r.amount_ml||0)+' ml</span><button class="del" data-del="'+esc(r.id)+'" title="'+esc(Lx({en:"Delete",id:"Hapus"}))+'">✕</button></div>';
+      }).join("")+'</div>'):'';
+    host.innerHTML=hd+'<div class="card">'+
+      '<div class="shh"><span class="e">'+FIC("water")+'</span><span class="t">'+esc(Lx({en:"Hydration",id:"Hidrasi"}))+'</span><span class="r">'+total+' / '+HYD_TARGET+' ml</span></div>'+
+      '<div class="hbar"><i style="width:'+pct+'%"></i></div>'+
+      '<div class="muted" style="font-size:12px">'+esc(remain>0?Lx({en:remain+" ml to go ("+glasses+" glass"+(glasses!==1?"es":"")+")",id:"Sisa "+remain+" ml ("+glasses+" gelas)"}):Lx({en:"Target reached",id:"Target tercapai"}))+'</div>'+
+      '<div class="hyq" id="hyq">'+qbtns+'</div>'+
+      '<div class="hyc"><input id="hyCustom" type="number" inputmode="numeric" min="1" placeholder="'+esc(Lx({en:"Custom ml",id:"ml lain"}))+'"><button type="button" id="hyAdd">'+esc(Lx({en:"Add",id:"Tambah"}))+'</button></div>'+
+      logs+'</div>';
+    Array.prototype.forEach.call(host.querySelectorAll("#hyq button"),function(b){ b.onclick=function(){ var q=quicks[+b.getAttribute("data-q")]; if(q) addDrink(q.ml,q.t); }; });
+    var add=document.getElementById("hyAdd"); if(add) add.onclick=function(){ var v=parseInt(document.getElementById("hyCustom").value,10); if(isFinite(v)&&v>0) addDrink(v,"water"); };
+    Array.prototype.forEach.call(host.querySelectorAll("[data-del]"),function(b){ b.onclick=function(){ delDrink(b.getAttribute("data-del")); }; });
+  }
+
+  async function syncWater(){
+    var total=HYDRA.reduce(function(a,r){return a+(+r.amount_ml||0);},0);
+    var glasses=Math.round(total/250);
+    try{ await Auth.saveDaily({water_glasses:glasses}, SEL); }catch(e){}
+    if(DAY&&DAY.daily){ DAY.daily.water_glasses=glasses; renderHabits(); }
+  }
+  async function addDrink(ml,type){
+    if(SH_BUSY) return; SH_BUSY=true;
+    try{
+      var uid=await ensureUid(); if(!uid) throw new Error("uid");
+      var res=await Auth.supabase.from("my20fit_hydration").insert({auth_user_id:uid, log_date:SEL, amount_ml:Math.round(ml), drink_type:type||"water"}).select().single();
+      if(res.error) throw res.error;
+      HYDRA.push(res.data); renderHydra(); await syncWater();
+    }catch(e){ showErr(Lx({en:"Couldn't save your drink. The hydration table may not be set up yet.",id:"Gagal menyimpan minuman. Tabel hidrasi mungkin belum disiapkan."}),false); }
+    SH_BUSY=false;
+  }
+  async function delDrink(id){
+    try{ var uid=await ensureUid(); await Auth.supabase.from("my20fit_hydration").delete().eq("id",id).eq("auth_user_id",uid); }catch(e){}
+    HYDRA=HYDRA.filter(function(r){return String(r.id)!==String(id);});
+    renderHydra(); await syncWater();
+  }
+
+  // ---- Dialog tidur ----
+  function renderQual(){
+    var host=document.getElementById("slpQual"); if(!host) return;
+    var qs=[["poor",FIC("mood-bad")],["fair",FIC("mood-ok")],["good",FIC("mood-good")],["excellent",FIC("moon")]];
+    host.innerHTML=qs.map(function(q){ return '<button type="button" data-q="'+q[0]+'" class="'+(SLP_Q===q[0]?"on":"")+'">'+q[1]+'<br>'+esc(qualLabel(q[0]))+'</button>'; }).join("");
+    Array.prototype.forEach.call(host.querySelectorAll("button"),function(b){ b.onclick=function(){ SLP_Q=b.getAttribute("data-q"); renderQual(); }; });
+  }
+  function updateSlpDur(){
+    var d=calcDur(document.getElementById("slpBed").value,document.getElementById("slpWake").value);
+    document.getElementById("slpDur").textContent = d!=null?(Lx({en:"Duration",id:"Durasi"})+": "+durLabel(d)):"—";
+  }
+  function setSlpLabels(){
+    document.getElementById("slpDlgT").textContent=Lx({en:"Log sleep",id:"Catat tidur"});
+    document.getElementById("slpDlgS").textContent=Lx({en:"Duration is calculated from bedtime & wake time.",id:"Durasi dihitung otomatis dari jam tidur & bangun."});
+    document.getElementById("slpLbBed").textContent=Lx({en:"Bedtime",id:"Jam tidur"});
+    document.getElementById("slpLbWake").textContent=Lx({en:"Wake time",id:"Jam bangun"});
+    document.getElementById("slpLbQual").textContent=Lx({en:"Sleep quality",id:"Kualitas tidur"});
+    document.getElementById("slpLbAwake").textContent=Lx({en:"Times woken up",id:"Berapa kali terbangun"});
+    document.getElementById("slpCancel").textContent=Lx({en:"Cancel",id:"Batal"});
+    document.getElementById("slpSave").textContent=Lx({en:"Save",id:"Simpan"});
+  }
+  function openSleepDlg(){
+    var s=SLEEP||{};
+    document.getElementById("slpBed").value=s.bedtime?fmtTimeInput(s.bedtime):"";
+    document.getElementById("slpWake").value=s.wake_time?fmtTimeInput(s.wake_time):"";
+    document.getElementById("slpAwake").value=(s.awake_times!=null?s.awake_times:"");
+    SLP_Q=s.quality||null;
+    document.getElementById("slpErr").textContent="";
+    setSlpLabels(); renderQual(); updateSlpDur();
+    document.getElementById("slpDlg").showModal();
+  }
+  function wireSleepDlg(){
+    var bed=document.getElementById("slpBed"), wake=document.getElementById("slpWake");
+    if(bed){ bed.onchange=updateSlpDur; bed.oninput=updateSlpDur; }
+    if(wake){ wake.onchange=updateSlpDur; wake.oninput=updateSlpDur; }
+    var cancel=document.getElementById("slpCancel"); if(cancel) cancel.onclick=function(){ document.getElementById("slpDlg").close(); };
+    var save=document.getElementById("slpSave"); if(save) save.onclick=saveSleep;
+  }
+  async function saveSleep(){
+    var bed=document.getElementById("slpBed").value, wake=document.getElementById("slpWake").value;
+    var dur=calcDur(bed,wake);
+    if(dur==null){ document.getElementById("slpErr").textContent=Lx({en:"Enter bedtime and wake time.",id:"Isi jam tidur dan jam bangun."}); return; }
+    var awake=parseInt(document.getElementById("slpAwake").value,10); if(!isFinite(awake)||awake<0) awake=null;
+    var btn=document.getElementById("slpSave"); btn.disabled=true;
+    try{
+      var uid=await ensureUid(); if(!uid) throw new Error("uid");
+      var cross=calcCross(bed,wake);
+      var row={ auth_user_id:uid, sleep_date:SEL, bedtime:mkTs(SEL,bed,cross?-1:0), wake_time:mkTs(SEL,wake,0),
+        duration_hours:dur, quality:SLP_Q||null, awake_times:awake, source:"manual", updated_at:new Date().toISOString() };
+      var res=await Auth.supabase.from("my20fit_sleep").upsert(row,{onConflict:"auth_user_id,sleep_date"}).select().single();
+      if(res.error) throw res.error;
+      SLEEP=res.data;
+      SLEEP7=SLEEP7.filter(function(r){return r.sleep_date!==SEL;}); SLEEP7.push(res.data);
+      SLEEP7.sort(function(a,b){return a.sleep_date<b.sleep_date?-1:1;});
+      document.getElementById("slpDlg").close();
+      renderSleep();
+      try{ await Auth.saveDaily({sleep_hours:dur}, SEL); }catch(e){}
+      if(DAY&&DAY.daily){ DAY.daily.sleep_hours=dur; renderHabits(); }
+    }catch(e){ document.getElementById("slpErr").textContent=Lx({en:"Couldn't save. The sleep table may not be set up yet.",id:"Gagal menyimpan. Tabel tidur mungkin belum disiapkan."}); }
+    btn.disabled=false;
+  }
+
   // ---- Muat semua ----
   async function load(date){
     BUSY=true; clearErr();
@@ -927,6 +1241,7 @@
       if(!r.ok||!j.ok){ showErr(j.error||T("act_load_fail"),true); document.getElementById("woBox").innerHTML=""; BUSY=false; return; }
       DAY=j;
       renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek();
+      loadSleepHydra(date); loadPrevScore(date);
     }catch(e){
       showErr(T("act_load_fail"),true); document.getElementById("woBox").innerHTML="";
     }
@@ -935,8 +1250,9 @@
 
   (async function(){
     user=await Auth.requireAuth();
+    AUTH_UID=(user&&user.id)||null;   // tangkap id auth SEBELUM profil digabung (profil bisa punya kolom id sendiri)
     try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
-    renderHead(); renderDnav(); renderTrk(); wireUpload(); wireDlg();
+    renderHead(); renderDnav(); renderTrk(); wireUpload(); wireDlg(); wireSleepDlg();
     await load(SEL);
     // Isi Activity lama menyatu di halaman yang sama. Dijalankan SETELAH bagian harian
     // supaya yang di layar pertama tampil duluan; skripnya berat (pencapaian, siklus,
@@ -950,6 +1266,7 @@
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
     renderHead(); renderDnav(); renderTrk();
     if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek(); }
+    renderSleep(); renderHydra();
   });
 
 </script>

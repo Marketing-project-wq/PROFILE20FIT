@@ -93,22 +93,22 @@
   ].join("");
 
   var GOALS = [
-    { v: "lose_weight",  e: "🔥", t: { en: "Lose weight",  id: "Turun berat" } },
-    { v: "build_muscle", e: "💪", t: { en: "Build muscle", id: "Massa otot" } },
-    { v: "stamina",      e: "🏃", t: { en: "Stamina",      id: "Stamina" } },
-    { v: "race_prep",    e: "🏅", t: { en: "Race prep",    id: "Race prep" } }
+    { v: "lose_weight",  e: FIC("fire"),     t: { en: "Lose weight",  id: "Turun berat" } },
+    { v: "build_muscle", e: FIC("dumbbell"), t: { en: "Build muscle", id: "Massa otot" } },
+    { v: "stamina",      e: FIC("run"),      t: { en: "Stamina",      id: "Stamina" } },
+    { v: "race_prep",    e: FIC("medal"),    t: { en: "Race prep",    id: "Race prep" } }
   ];
   var LEVELS = [
-    { v: "rare",     e: "🛋️", t: { en: "Rarely",          id: "Jarang" } },
-    { v: "light",    e: "🚶",       t: { en: "1-2× a week", id: "1-2x seminggu" } },
-    { v: "moderate", e: "🏃",       t: { en: "3-4× a week", id: "3-4x seminggu" } },
-    { v: "daily",    e: "⚡",             t: { en: "Every day",        id: "Tiap hari" } }
+    { v: "rare",     e: FIC("rest"),      t: { en: "Rarely",          id: "Jarang" } },
+    { v: "light",    e: FIC("walk"),      t: { en: "1-2× a week", id: "1-2x seminggu" } },
+    { v: "moderate", e: FIC("run"),       t: { en: "3-4× a week", id: "3-4x seminggu" } },
+    { v: "daily",    e: FIC("lightning"), t: { en: "Every day",        id: "Tiap hari" } }
   ];
   var DIETS = [
-    { v: "any",        e: "🍽️", t: { en: "Anything",   id: "Apa aja" } },
-    { v: "halal",      e: "🌿",       t: { en: "Halal",      id: "Halal" } },
-    { v: "vegetarian", e: "🥗",       t: { en: "Vegetarian", id: "Vegetarian" } },
-    { v: "no_pork",    e: "🚫",       t: { en: "No pork",    id: "No pork" } }
+    { v: "any",        e: FIC("meal"), t: { en: "Anything",   id: "Apa aja" } },
+    { v: "halal",      e: FIC("veg"),  t: { en: "Halal",      id: "Halal" } },
+    { v: "vegetarian", e: FIC("veg"),  t: { en: "Vegetarian", id: "Vegetarian" } },
+    { v: "no_pork",    e: FIC("ban"),  t: { en: "No pork",    id: "No pork" } }
   ];
 
   function L(o) { return (window.L ? window.L(o) : (o && (o.id || o.en))) || ""; }

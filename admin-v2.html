@@ -785,6 +785,7 @@
     <div class="adm-note" style="margin-top:10px;font-size:12px" data-i18n="Or open with ?key=ADMIN_KEY.">Atau buka dengan ?key=ADMIN_KEY.</div>
   </div>
 </div>
+<script src="js/fiticons.js"></script>
 <script src="js/vendor-supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin-shell.js"></script>
@@ -1756,7 +1757,7 @@
     var tsel=document.getElementById("seTemplate"); if(!tsel) return;
     try{
       var t=await adminFetch("/api/admin/email/templates").then(function(r){return r.json();});
-      tsel.innerHTML=((t&&t.templates)||[]).map(function(x){ return '<option value="'+esc(x.id)+'">'+esc(x.label||x.id)+(x.customized?" ✎":"")+'</option>'; }).join("")||'<option value="">—</option>';
+      tsel.innerHTML=((t&&t.templates)||[]).map(function(x){ return '<option value="'+esc(x.id)+'">'+esc(x.label||x.id)+(x.customized?" "+L("(custom)","(kustom)"):"")+'</option>'; }).join("")||'<option value="">—</option>';
     }catch(e){}
     try{
       var s=await adminFetch("/api/admin/email/segments").then(function(r){return r.json();});
@@ -1902,7 +1903,7 @@
     var j=await adminFetch("/api/admin/transactions/"+encodeURIComponent(reff)).then(function(r){return r.json();}).catch(function(){return{};});
     if(!j||!j.ok){ pane.innerHTML='<div class="adm-note">'+esc((j&&j.error)||L("Failed","Gagal"))+'</div>'; return; }
     var t=j.tx, b=j.buyer, v=j.voucher, u=j.usage;
-    pane.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div style="font-weight:800;font-size:16px">'+L("Transaction","Transaksi")+' '+esc(t.reff_no)+'</div><button class="adm-btn adm-btn--sm" id="revDetailClose">✕</button></div>'+
+    pane.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div style="font-weight:800;font-size:16px">'+L("Transaction","Transaksi")+' '+esc(t.reff_no)+'</div><button class="adm-btn adm-btn--sm" id="revDetailClose">'+FIC("x",16)+'</button></div>'+
       '<div class="adm-note">'+orderTypeLabel(t.order_type)+'</div>'+
       '<div class="adm-grid adm-grid--4" style="margin:10px 0">'+
         cell(esc(t.status),"Status","Status")+cell(rp(t.amount),"Nominal","Amount",(t.net_amount!=null&&t.net_amount!==t.amount)?(L("pay","bayar")+" "+rp(t.net_amount)):"")+
@@ -2271,7 +2272,7 @@
       if(!CO_CACHE.length){ list.innerHTML='<div class="adm-note">'+L("No coaches yet. Add one above.","Belum ada coach. Tambah di atas.")+'</div>'; return; }
       list.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Name","Nama")+'</th><th>'+L("Venue","Venue")+'</th><th>'+L("Aliases (mapped instructor text)","Alias (teks instructor)")+'</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+
         CO_CACHE.map(function(c){
-          var chips=(c.aliases||[]).map(function(a){ return '<span class="adm-tag adm-tag--mute" style="margin:1px 2px">'+evEsc(a.instructor_text)+' · '+evEsc(a.source)+' <a href="#" class="alDel" data-id="'+evEsc(a.id)+'" title="'+L("Remove","Hapus")+'">✕</a></span>'; }).join("");
+          var chips=(c.aliases||[]).map(function(a){ return '<span class="adm-tag adm-tag--mute" style="margin:1px 2px">'+evEsc(a.instructor_text)+' · '+evEsc(a.source)+' <a href="#" class="alDel" data-id="'+evEsc(a.id)+'" title="'+L("Remove","Hapus")+'">'+FIC("x",16)+'</a></span>'; }).join("");
           if(!chips) chips='<span class="adm-note" style="margin:0">'+L("none — classes won't show","belum ada — kelas tak tampil")+'</span>';
           return '<tr><td>'+evEsc(c.display_name)+(c.speciality?'<br><span class="adm-note" style="margin:0">'+evEsc(c.speciality)+'</span>':'')+'</td>'+
             '<td><span class="adm-tag adm-tag--mute">'+coTag(c.venue)+'</span></td>'+
@@ -2501,7 +2502,7 @@
         '<td>'+esc(l.provider)+'</td>'+
         '<td>'+esc(l.label)+'</td>'+
         '<td><a href="'+esc(l.url)+'" target="_blank" rel="noopener noreferrer" class="adm-mono" style="font-size:11px">'+esc(l.url.slice(0,48))+'…</a></td>'+
-        '<td>'+(l.is_active?'✅':'—')+'</td>'+
+        '<td>'+(l.is_active?FIC("check",16):'—')+'</td>'+
         '<td style="white-space:nowrap"><button class="adm-btn adm-btn--sm" data-dlv-toggle="'+esc(l.id)+'" data-active="'+(l.is_active?"1":"0")+'">'+(l.is_active?L("Deactivate","Nonaktif"):L("Activate","Aktifkan"))+'</button> <button class="adm-btn adm-btn--sm" data-dlv-del="'+esc(l.id)+'">'+L("Delete","Hapus")+'</button></td>'+
       '</tr>';
     }).join("");

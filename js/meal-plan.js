@@ -18,11 +18,14 @@
   // Porsi target harian per waktu makan — angka dari mealPlan.ts.
   var MEAL_SHARE = { breakfast: 0.25, lunch: 0.35, dinner: 0.30, snack: 0.10 };
   var MEAL_ORDER = ["breakfast", "lunch", "dinner", "snack"];
+  // Emoji waktu makan sengaja SAMA dengan chip di calories.html (MEAL_TX di sana),
+  // bukan menyalin ikon calorietracker — supaya satu halaman tidak memakai dua set ikon
+  // untuk hal yang sama.
   var MEAL_TX = {
-    breakfast: { en: "Breakfast", id: "Sarapan" },
-    lunch:     { en: "Lunch",     id: "Makan siang" },
-    dinner:    { en: "Dinner",    id: "Makan malam" },
-    snack:     { en: "Snack",     id: "Camilan" }
+    breakfast: { en: "Breakfast", id: "Sarapan",     e: FIC("sunrise") },
+    lunch:     { en: "Lunch",     id: "Makan siang", e: FIC("sun") },
+    dinner:    { en: "Dinner",    id: "Makan malam", e: FIC("moon") },
+    snack:     { en: "Snack",     id: "Camilan",     e: FIC("cookie") }
   };
 
   function L(o) { return (window.L ? window.L(o) : (o && (o.id || o.en))) || ""; }
@@ -32,6 +35,11 @@
     });
   }
   function kcLbl() { return L({ en: "kcal", id: "kkal" }); }
+  function fmt(n) {
+    n = Math.round(+n || 0);
+    try { return n.toLocaleString((window.I18N && I18N.lang === "en") ? "en-US" : "id-ID"); }
+    catch (e) { return String(n); }
+  }
 
   // mulberry32 — PRNG ber-seed, disalin apa adanya supaya seed yang sama selalu
   // menghasilkan rencana yang sama (stabil per hari; "acak lagi" menaikkan seed).
@@ -53,6 +61,9 @@
 
   function toItem(r) {
     return {
+      // `rec` = record katalog apa adanya; RecipePhotos.resolveImg() butuh id/q/nm/pq.
+      // Foto memakai jalur yang SAMA dengan /recipe (/api/foodphoto), bukan sumber lain.
+      rec: r,
       id: r.id, emoji: r.emoji || null,
       name: L(r.nm || { en: r.id, id: r.id }),
       kcal: +r.kcal || 0, p: +r.p || 0, c: +r.c || 0, f: +r.f || 0,
@@ -99,20 +110,40 @@
     return _inflight;
   }
 
-  function mealHtml(m) {
+  function mealHtml(m, i) {
     var it = m.items[0];
-    // /recipe belum punya deep-link per resep (hanya ?q=), jadi tautannya ke pencarian
-    // nama resep. Same-tab, tanpa target=_blank (CLAUDE.md §G).
+    // /recipe BELUM punya deep-link per resep (hanya ?q=), jadi tombolnya membuka
+    // pencarian nama resep. Same-tab, tanpa target=_blank (CLAUDE.md §G).
     var href = "/recipe?q=" + encodeURIComponent(it.name);
-    return '<a class="mp-row" href="' + href + '">' +
-      '<span class="mp-em" aria-hidden="true">' + (it.emoji ? esc(it.emoji) : "🍽️") + '</span>' +
-      '<span class="mp-mid">' +
-        '<span class="mp-meal">' + esc(L(MEAL_TX[m.meal])) + '</span>' +
-        '<span class="mp-nm">' + esc(it.name) + '</span>' +
-        '<span class="mp-mac">P ' + Math.round(it.p) + 'g · C ' + Math.round(it.c) + 'g · F ' + Math.round(it.f) + 'g</span>' +
-      '</span>' +
-      '<span class="mp-kc"><b>' + Math.round(it.kcal) + '</b><s>' + L({ en: "of", id: "dari" }) + ' ' + m.budget + '</s></span>' +
-      '</a>';
+    return '<div class="mp-card">' +
+      '<div class="mp-mh">' +
+        '<span class="mp-mi" aria-hidden="true">' + MEAL_TX[m.meal].e + '</span>' +
+        '<span class="mp-mn">' + esc(L(MEAL_TX[m.meal])) + '</span>' +
+        '<span class="mp-mk">~' + fmt(it.kcal) + ' ' + esc(kcLbl()) + '</span>' +
+      '</div>' +
+      '<div class="mp-item">' +
+        '<span class="mp-ph" data-mp-photo="' + i + '" aria-hidden="true">' +
+          FIC(it.emoji || "meal", 20) + '</span>' +
+        '<span class="mp-it">' +
+          '<span class="mp-nm">' + esc(it.name) + '</span>' +
+          '<span class="mp-sub">' + fmt(it.kcal) + ' ' + esc(kcLbl()) +
+            ' · P ' + Math.round(it.p) + 'g · C ' + Math.round(it.c) + 'g · F ' + Math.round(it.f) + 'g</span>' +
+        '</span>' +
+        '<a class="mp-cta" href="' + href + '">' + esc(L({ en: "See Recipe", id: "Lihat Resep" })) + '</a>' +
+      '</div>' +
+    '</div>';
+  }
+
+  // Foto dipasang SETELAH HTML masuk DOM, lazy (IntersectionObserver di recipe-photos.js)
+  // supaya tidak 4 fetch sekaligus. Kalau modulnya belum ada, emoji tetap tampil.
+  function applyPhotos(el, plan) {
+    if (!window.RecipePhotos) return;
+    var fn = RecipePhotos.applyThumbLazy || RecipePhotos.applyThumb;
+    if (!fn) return;
+    plan.meals.forEach(function (m, i) {
+      var box = el.querySelector('[data-mp-photo="' + i + '"]');
+      if (box && m.items[0] && m.items[0].rec) fn(box, m.items[0].rec);
+    });
   }
 
   function render(el, plan, target) {
@@ -123,23 +154,27 @@
       })) + '</div>';
       return;
     }
-    var diff = plan.kcal - plan.target;
-    var diffTx = (diff >= 0 ? "+" : "−") + Math.abs(Math.round(diff));
     el.innerHTML =
-      '<div class="mp-head">' +
-        '<span class="mp-t">' + esc(L({ en: "Today's meal plan", id: "Rencana makan hari ini" })) + '</span>' +
-        '<button type="button" class="mp-re" id="mpRe">' + esc(L({ en: "Shuffle", id: "Acak lagi" })) + '</button>' +
+      '<div class="mp-hd">' +
+        '<span class="mp-hd-l">' +
+          '<span class="mp-lbl">' + esc(L({ en: "Target", id: "Target" })) + '</span>' +
+          '<span class="mp-tg"><b>' + fmt(plan.target) + '</b> <s>' + esc(kcLbl()) + '</s></span>' +
+        '</span>' +
+        '<button type="button" class="mp-re" id="mpRe">' +
+          '<span aria-hidden="true">' + FIC("refresh", 14) + '</span> ' +
+          esc(L({ en: "Another variation", id: "Variasi lain" })) + '</button>' +
       '</div>' +
-      '<div class="mp-list">' + plan.meals.map(mealHtml).join("") + '</div>' +
-      '<div class="mp-tot">' +
-        '<span>' + esc(L({ en: "Plan total", id: "Total rencana" })) + '</span>' +
-        '<span class="mp-tv"><b>' + Math.round(plan.kcal) + '</b> ' + esc(kcLbl()) +
-          ' <s>' + esc(L({ en: "target", id: "target" })) + ' ' + Math.round(target) + ' · ' + diffTx + '</s></span>' +
+      plan.meals.map(mealHtml).join("") +
+      '<div class="mp-total">' +
+        '<span class="mp-tl">' + esc(L({ en: "Day total", id: "Total hari ini" })) + '</span>' +
+        '<span class="mp-tr"><b>' + fmt(plan.kcal) + ' ' + esc(kcLbl()) + '</b>' +
+          '<s>P ' + Math.round(plan.p) + 'g · C ' + Math.round(plan.c) + 'g · F ' + Math.round(plan.f) + 'g</s></span>' +
       '</div>' +
       '<div class="mp-note">' + esc(L({
         en: "A suggestion only — nothing here is logged until you add it yourself.",
         id: "Sekadar saran — tidak ada yang tercatat sampai kamu tambahkan sendiri."
       })) + '</div>';
+    applyPhotos(el, plan);
   }
 
   function mount(el, opts) {

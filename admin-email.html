@@ -157,7 +157,7 @@
         <table><thead><tr><th>Campaign</th><th>Kirim</th><th>Terkirim</th><th>Buka%</th><th>Klik%</th><th>Bounce%</th><th>Complaint%</th><th></th></tr></thead>
         <tbody id="camRows"><tr><td colspan="8" class="muted">Memuat…</td></tr></tbody></table>
       </div>
-      <div class="muted" style="font-size:11px;margin-top:8px">⚠ <b>Open-rate tidak akurat</b> — Apple Mail Privacy & proxy gambar bikin sebagian "buka" palsu/tak tercatat. <b>Click-rate</b> jauh lebih andal untuk ukur minat.</div>
+      <div class="muted" style="font-size:11px;margin-top:8px"><span class="fic" data-ic="warn" aria-hidden="true"></span> <b>Open-rate tidak akurat</b> — Apple Mail Privacy & proxy gambar bikin sebagian "buka" palsu/tak tercatat. <b>Click-rate</b> jauh lebih andal untuk ukur minat.</div>
 
       <div id="camDetail" style="display:none;margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px">
@@ -201,6 +201,7 @@
   </div>
 </div>
 
+<script src="js/fiticons.js"></script>
 <script src="js/auth.js"></script>
 <script>
 (function () {
@@ -469,12 +470,12 @@
     el("bTestState").textContent = "mengirim…";
     var j = await adminFetch("/api/admin/email/send/test", { method:"POST", body: JSON.stringify({ send_id: blastState.sendId }) }).then(function(r){return r.json();}).catch(function(){return{};});
     if (j && j.ok) {
-      el("bTestState").textContent = "✅ Tes terkirim ke "+j.to+".";
+      el("bTestState").innerHTML = '<span style="color:var(--ok)">'+FIC("check",16)+'</span> Tes terkirim ke '+esc(j.to)+'.';
       var p = blastState.preview||{};
       el("bConfirmSummary").textContent = "Akan mengirim ke "+ (p.total_eligible||0) +" orang.";
       el("bConfirmName").textContent = el("bName").value.trim();
       setTimeout(function(){ bshow(5); }, 700);
-    } else { el("bTestState").textContent = "❌ "+((j&&(j.error||(j.result&&j.result.error)))||"gagal (cek domain Resend / whitelist)"); }
+    } else { el("bTestState").innerHTML = '<span style="color:var(--red)">'+FIC("x",16)+'</span> '+esc((j&&(j.error||(j.result&&j.result.error)))||"gagal (cek domain Resend / whitelist)"); }
   };
 
   el("bConfirmInput").addEventListener("input", function(){
@@ -489,7 +490,7 @@
 
   function renderProg(s, by){
     el("bProgress").innerHTML = stat(s.total_eligible||0,"Target") + stat(s.total_sent||0,"Terkirim") + stat(s.total_failed||0,"Gagal",(s.total_failed||0)>0) + stat(by.skipped||0,"Dilewati") + stat(s.status,"Status", s.status==="failed");
-    el("bProgMsg").textContent = s.abort_reason ? ("⚠ "+s.abort_reason) : ("Status: "+s.status+" — batch jalan via cron /api/cron/email-queue");
+    el("bProgMsg").innerHTML = s.abort_reason ? ('<span style="color:var(--red)">'+FIC("warn",16)+'</span> '+esc(s.abort_reason)) : ("Status: "+esc(s.status)+" — batch jalan via cron /api/cron/email-queue");
   }
   async function pollProgress(){
     if (blastState.poll) clearInterval(blastState.poll);

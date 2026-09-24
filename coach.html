@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Coach · 20FIT</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  /* Token halaman AI Coach — menumpang token repo (css/*.css) supaya ikut dark/light app,
+     nilai setelah koma = cadangan kalau stylesheet gagal dimuat. Pola sama activity.html. */
+  :root{
+    --a-bg:var(--bg,#F1F1F4); --a-surface:var(--card,#FFFFFF);
+    --a-line:var(--glass-hair,var(--line,#EBEBEF)); --a-txt:var(--txt,#15171C); --a-mut:var(--muted,#8A8D94);
+    --accent:var(--blue,#2F6BFF); --purple:#A855F7;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--a-bg);color:var(--a-txt);font-family:var(--sans);padding:20px 16px 100px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:720px;margin:0 auto}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .muted{color:var(--a-mut)}
+  .card{background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius,16px);padding:16px}
+  .card+.card{margin-top:12px}
+  .sechd{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--a-mut);font-weight:800;margin:20px 2px 8px}
+  .err{color:var(--red);font-size:12.5px}
+  .skel{background:color-mix(in srgb,var(--a-txt) 7%,transparent);border-radius:8px;animation:pul 1.3s ease-in-out infinite}
+  @keyframes pul{0%,100%{opacity:1}50%{opacity:.45}}
+
+  /* header */
+  .chead{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .chead .bk{width:38px;height:38px;border-radius:99px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);
+    display:flex;align-items:center;justify-content:center;text-decoration:none;flex:none;font-size:18px}
+  .chead h1{font-size:22px;font-weight:800;margin:0;letter-spacing:-.3px}
+  .chead .sub{font-size:13px;color:var(--a-mut);margin-top:2px}
+
+  /* buttons */
+  .btn{width:100%;padding:13px;border:0;border-radius:12px;background:var(--accent);color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit}
+  .btn.ghost{background:transparent;border:1px solid var(--a-line);color:var(--a-txt)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .btn+.btn{margin-top:8px}
+
+  /* hero */
+  .hero{position:relative;overflow:hidden;background:color-mix(in srgb,var(--accent) 8%,var(--glass,var(--a-surface))) !important}
+  .hero::before{content:"";position:absolute;top:-50px;right:-50px;width:180px;height:180px;border-radius:99px;
+    background:radial-gradient(circle,color-mix(in srgb,var(--accent) 24%,transparent),transparent 70%);pointer-events:none}
+  .hero>*{position:relative}
+  .hero .big{font-size:22px;font-weight:800;letter-spacing:-.3px;margin:2px 0 6px}
+  .hero p{margin:0 0 14px;font-size:13.5px;line-height:1.6;color:var(--a-mut)}
+  .hero ul{margin:0 0 16px;padding-left:18px;font-size:13px;line-height:1.8;color:var(--a-txt)}
+
+  /* quiz */
+  .qsec{margin-top:14px}
+  .qlabel{font-size:14px;font-weight:700;margin-bottom:3px}
+  .qhint{font-size:12px;color:var(--a-mut);margin-bottom:9px}
+  .qopts{display:flex;flex-wrap:wrap;gap:8px}
+  .qopt{border:1px solid var(--a-line);border-radius:12px;padding:10px 13px;font-size:13px;font-weight:600;cursor:pointer;
+    background:linear-gradient(155deg,var(--glass,transparent),var(--glass-2,transparent));color:var(--a-txt);font-family:inherit}
+  .qopt.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .qnums{display:flex;gap:8px;flex-wrap:wrap}
+  .qnum{flex:1;min-width:120px}
+  .qnum label{display:block;font-size:11.5px;font-weight:700;color:var(--a-mut);margin:0 0 4px}
+  .qnum input,.qnum select{width:100%;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px}
+  .qchk{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:12px;border:1px solid var(--a-line);background:color-mix(in srgb,var(--a-txt) 3%,transparent);margin-top:6px}
+  .qchk input{margin-top:2px;width:18px;height:18px;flex:none}
+  .qchk .t{font-size:12.5px;line-height:1.55}
+  .qnote{width:100%;margin-top:8px;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:13px}
+
+  /* plan */
+  .planhead .pn{font-size:18px;font-weight:800;letter-spacing:-.2px}
+  .planhead .wn{font-size:13px;color:var(--a-mut);margin-top:3px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;padding:4px 10px;border-radius:99px;margin-top:8px}
+  .badge.src{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+  .needspec{margin-top:12px;padding:12px 14px;border-radius:12px;font-size:12.5px;line-height:1.55;
+    background:color-mix(in srgb,var(--amber) 14%,transparent);border:1px solid color-mix(in srgb,var(--amber) 40%,transparent);color:var(--a-txt)}
+  .day{border:1px solid var(--a-line);border-radius:14px;margin-top:10px;overflow:hidden}
+  .day-h{display:flex;align-items:center;gap:10px;padding:13px 14px;cursor:pointer;background:color-mix(in srgb,var(--a-txt) 3%,transparent)}
+  .day-h .dl{font-weight:800;font-size:14px}
+  .day-h .df{font-size:11.5px;color:var(--a-mut);margin-left:auto;text-transform:capitalize}
+  .day-b{padding:4px 14px 12px}
+  .ex{display:flex;align-items:center;gap:11px;padding:11px 0;border-top:1px solid var(--a-line)}
+  .ex:first-child{border-top:0}
+  .ex .en{font-size:14px;font-weight:600;flex:1;min-width:0}
+  .ex .em{font-family:var(--mono);font-size:12.5px;color:var(--a-mut);white-space:nowrap}
+  .ex .sw{background:none;border:0;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:2px 4px;flex:none}
+  .ex .prog{font-size:11.5px;color:var(--a-mut);margin-top:2px}
+  .adjrow{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .adjrow .btn{width:auto;flex:1;min-width:130px;padding:11px}
+
+  /* cta — JANGAN pakai class "cta" utk kontainer: glass-app.css memakai .cta sbg tombol
+     PRIMER merah (!important), warnanya bakal nembus sela tombol. Pakai .ctawrap. */
+  .ctawrap{display:flex;flex-direction:column;gap:10px}
+  .cta-b{display:flex;align-items:center;gap:12px;padding:14px;border-radius:14px;border:1px solid var(--a-line);cursor:pointer;
+    background:var(--a-surface);color:var(--a-txt);font-family:inherit;text-align:left;width:100%}
+  .cta-b .ic{width:40px;height:40px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;font-size:20px}
+  .cta-b .ct{display:block;font-size:14.5px;font-weight:700}
+  .cta-b .cs{display:block;font-size:12px;color:var(--a-mut);margin-top:2px}
+  .cta-b.primary{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--a-surface))}
+  .disc{font-size:11.5px;color:var(--a-mut);line-height:1.55;margin-top:14px}
+
+  /* sesi harian (Fase 2) */
+  .today{display:flex;align-items:center;gap:12px;margin-bottom:12px;border-color:color-mix(in srgb,var(--accent) 30%,var(--a-line));background:color-mix(in srgb,var(--accent) 6%,var(--a-surface))}
+  .today .ic{width:42px;height:42px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
+  .today .tt{font-size:14.5px;font-weight:800}
+  .today .ts{font-size:12px;color:var(--a-mut);margin-top:2px}
+  .today .go{margin-left:auto;flex:none;background:var(--accent);color:#fff;border:0;border-radius:10px;padding:9px 14px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+  .sleepgrid{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .sleepgrid .qopt{flex:1;min-width:74px;text-align:center}
+  .adjbanner{margin-top:12px;padding:11px 13px;border-radius:12px;font-size:12.5px;line-height:1.5}
+  .adjbanner.none{background:color-mix(in srgb,var(--green) 13%,transparent);border:1px solid color-mix(in srgb,var(--green) 34%,transparent)}
+  .adjbanner.lighter{background:color-mix(in srgb,var(--amber) 14%,transparent);border:1px solid color-mix(in srgb,var(--amber) 38%,transparent)}
+  .adjbanner.rest{background:color-mix(in srgb,var(--red) 12%,transparent);border:1px solid color-mix(in srgb,var(--red) 34%,transparent)}
+  .adjbanner.unknown{background:color-mix(in srgb,var(--a-txt) 5%,transparent);border:1px solid var(--a-line)}
+  .pbar{height:8px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 10%,transparent);overflow:hidden;margin:10px 0 2px}
+  .pbar>i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .25s}
+  .exblk{border:1px solid var(--a-line);border-radius:14px;margin-top:10px;overflow:hidden}
+  .exblk .eh{padding:11px 14px;background:color-mix(in srgb,var(--a-txt) 3%,transparent)}
+  .exblk .eh .n{font-weight:800;font-size:14px}
+  .exblk .eh .s{font-size:11.5px;color:var(--a-mut);margin-top:2px}
+  .setrow{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--a-line)}
+  .setrow .sx{font-family:var(--mono);font-size:12px;color:var(--a-mut);width:44px;flex:none}
+  .setrow .rin{width:56px;flex:none;padding:7px;border-radius:8px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:13px;text-align:center}
+  .setrow .un{font-size:11.5px;color:var(--a-mut);flex:1;min-width:0}
+  .setrow .ck{width:30px;height:30px;flex:none;border-radius:9px;border:1.5px solid var(--a-line);background:transparent;color:var(--a-mut);font-size:16px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center}
+  .setrow .ck.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .setrow.done .un{text-decoration:line-through;opacity:.6}
+  .hist{margin-top:6px}
+  .hrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--a-line);font-size:13px}
+  .hrow:first-child{border-top:0}
+  .hrow .hd{font-weight:700;min-width:64px}
+  .hrow .hf{color:var(--a-mut);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hrow .hs{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;flex:none}
+  .hrow .hs.done{background:color-mix(in srgb,var(--green) 15%,transparent);color:var(--green)}
+  .hrow .hs.active{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+  .hrow .hs.skipped{background:color-mix(in srgb,var(--a-txt) 8%,transparent);color:var(--a-mut)}
+
+  /* progress + achievement (Fase 3) */
+  .pstat{display:flex;gap:8px}
+  .pstat .s{flex:1;text-align:center;border:1px solid var(--a-line);border-radius:12px;padding:10px 6px}
+  .pstat .s b{display:block;font-size:20px;font-weight:800;font-family:var(--mono)}
+  .pstat .s span{font-size:10.5px;color:var(--a-mut)}
+  .exchart{margin-top:14px}
+  .exchart .h{display:flex;align-items:baseline;gap:8px;font-size:13px;font-weight:700;margin-bottom:6px}
+  .exchart .h .v{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--a-mut);font-weight:600}
+  .bars2{display:flex;align-items:flex-end;gap:5px;height:56px}
+  .bars2 .b{flex:1;background:color-mix(in srgb,var(--accent) 22%,transparent);border-radius:4px 4px 0 0;min-height:3px}
+  .bars2 .b.last{background:var(--accent)}
+  .badges{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+  .badge2{display:flex;align-items:center;gap:10px;border:1px solid var(--a-line);border-radius:12px;padding:11px}
+  .badge2 .bic{width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--a-txt) 6%,transparent);color:var(--a-mut)}
+  .badge2.on .bic{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
+  .badge2 .bt{font-size:12.5px;font-weight:700}
+  .badge2 .bd{font-size:11px;color:var(--a-mut);margin-top:1px}
+  .badge2.off{opacity:.55}
+  @media(max-width:400px){ .badges{grid-template-columns:1fr} }
+</style>
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/glass-app.css">
+<script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+</head>
+<body>
+<div class="wrap">
+  <div class="chead">
+    <a class="bk" href="/activity" aria-label="Kembali" title="Kembali">‹</a>
+    <div>
+      <h1 data-i18n="coach_title">AI Coach</h1>
+      <div class="sub" id="coachSub">Rencana latihan personal dari quiz</div>
+    </div>
+  </div>
+  <div id="errBox"></div>
+  <div id="coachRoot"><div class="card"><div class="skel" style="height:120px"></div></div></div>
+</div>
+
+<script src="js/fiticons.js"></script>
+<script src="js/vendor-supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/coach.js"></script>
+</body>
+</html>

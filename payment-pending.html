@@ -38,14 +38,14 @@
         <div class="sub" id="txtLoadSub">Checking your payment status…</div>
       </div>
       <div id="stSuccess" class="hidden">
-        <div class="emoji">✅</div>
+        <div class="emoji"><span class="fic" data-ic="check" data-ic-size="52" style="color:var(--green)" aria-hidden="true"></span></div>
         <h1 id="txtOkTitle">Payment Successful!</h1>
         <div class="sub" id="txtOkSub">Thank you — your payment is confirmed.</div>
         <div class="credits"><div class="big" id="okCredits">+0 Scan Credits</div><div class="tot" id="okTotal"></div></div>
         <button class="pri" id="okHome">Back to Dashboard</button>
       </div>
       <div id="stPending" class="hidden">
-        <div class="emoji">⏳</div>
+        <div class="emoji"><span class="fic" data-ic="clock" data-ic-size="52" aria-hidden="true"></span></div>
         <h1 id="txtPendTitle">Awaiting Confirmation</h1>
         <div class="sub" id="txtPendSub">If you've already paid on Xendit, this updates automatically. You can also check now.</div>
         <button class="pri" id="checkBtn">Check Payment Status</button>
@@ -53,7 +53,7 @@
         <div class="msg" id="pendMsg"></div>
       </div>
       <div id="stFailed" class="hidden">
-        <div class="emoji">❌</div>
+        <div class="emoji"><span class="fic" data-ic="x" data-ic-size="52" style="color:var(--red)" aria-hidden="true"></span></div>
         <h1 id="txtFailTitle">Payment Failed</h1>
         <div class="sub" id="txtFailSub">Payment failed or expired. You can try again.</div>
         <button class="pri" id="retryBtn">Try Again</button>
@@ -62,6 +62,7 @@
     </div>
   </div>
 
+  <script src="js/fiticons.js"></script>
   <script src="js/i18n.js"></script>
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>

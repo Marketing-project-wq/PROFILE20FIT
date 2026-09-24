@@ -269,7 +269,8 @@
     <div class="sec" data-i18n="cal_today_sec">Today's Food</div>
     <div class="card"><div id="log"></div></div>
     <div class="sec" id="mealPlanSec">Rencana Makan</div>
-    <div class="card" id="mealPlan"></div>
+    <div class="mp-lead" id="mealPlanLead"></div>
+    <div id="mealPlan"></div>
     <!-- Chart mingguan + riwayat. Sumbernya my20fit_daily_log (log_date, cal_items) —
          query yang SAMA bentuknya dengan calorietracker.20fit.id (src/lib/memberHistory.ts),
          jadi angkanya pasti sama di kedua app. Tanpa tabel baru. -->
@@ -284,7 +285,7 @@
     <!-- Rekomendasi menu berdasar SISA makro hari ini — full-width di bawah 2 kolom.
          Desktop: grid banyak kolom (manfaatin lebar). Mobile: tetap carousel horizontal. -->
     <div class="card" id="menuRecCard">
-      <div><div style="font-weight:800;font-size:15px">🍽️ <span data-i18n="cal_mrec_title">Menu recommendations</span></div><div class="muted" style="font-size:12px" data-i18n="cal_mrec_sub">Based on your remaining macros today · swipe for more</div></div>
+      <div><div style="font-weight:800;font-size:15px"><span class="fic" data-ic="meal" aria-hidden="true"></span> <span data-i18n="cal_mrec_title">Menu recommendations</span></div><div class="muted" style="font-size:12px" data-i18n="cal_mrec_sub">Based on your remaining macros today · swipe for more</div></div>
       <div id="menuRecBody" style="margin-top:12px"><div class="muted" style="font-size:12.5px" data-i18n="cal_mrec_loading">Loading recommendations…</div></div>
       <a href="recipe.html" style="display:block;text-align:center;margin-top:12px;color:var(--red);font-weight:800;text-decoration:none;font-size:13px" data-i18n="cal_mrec_more">See more menus →</a>
       <div style="font-size:11px;color:var(--muted);margin-top:10px" data-i18n="cal_mrec_disc">Rough guidance — not a substitute for a nutritionist.</div>
@@ -293,28 +294,57 @@
 
   <!-- Healthy-swap pop-up (shown after a scan) -->
   <style>
-  /* Rencana makan harian (js/meal-plan.js). Token repo, tanpa warna baru. */
-  .mp-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-  .mp-head .mp-t{font-weight:800;font-size:14px}
+  /* Rencana makan harian (js/meal-plan.js) — tata letak mengikuti MEAL PLAN
+     RECOMMENDATION di calorietracker.20fit.id: kartu header berisi target, satu kartu
+     per waktu makan, lalu kartu total gelap. Semua warna dari token repo (CLAUDE.md §G),
+     tidak ada hex baru kecuali latar kartu total. */
+  .mp-lead{font-size:12.5px;color:var(--muted,#9a907f);line-height:1.55;margin:-4px 0 10px}
+
+  .mp-hd{background:var(--card,#fff);border:1px solid var(--line,#e5e0d8);border-radius:16px;
+    padding:14px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .mp-hd-l{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .mp-lbl{font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted,#9a907f)}
+  .mp-tg b{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .mp-tg s{text-decoration:none;font-size:12px;font-weight:700;color:var(--muted,#9a907f);margin-left:3px}
   .mp-re{margin-left:auto;border:1px solid var(--line,#e5e0d8);background:transparent;color:inherit;
-    border-radius:9px;padding:6px 12px;font-family:inherit;font-weight:700;font-size:12.5px;cursor:pointer}
-  .mp-list{display:flex;flex-direction:column}
-  .mp-row{display:flex;align-items:center;gap:11px;padding:10px 0;text-decoration:none;color:inherit;
-    border-top:1px solid var(--line,#e5e0d8)}
-  .mp-row:first-child{border-top:0}
-  .mp-em{font-size:20px;line-height:1;flex:0 0 auto}
-  .mp-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-  .mp-meal{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#9a907f)}
-  .mp-nm{font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .mp-mac{font-size:11.5px;color:var(--muted,#9a907f)}
-  .mp-kc{flex:0 0 auto;text-align:right;line-height:1.25}
-  .mp-kc b{font-size:15px;font-weight:800}
-  .mp-kc s{display:block;text-decoration:none;font-size:11px;color:var(--muted,#9a907f)}
-  .mp-tot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;
-    padding-top:11px;border-top:1px solid var(--line,#e5e0d8);font-size:13px;font-weight:700}
-  .mp-tot .mp-tv s{text-decoration:none;font-weight:600;color:var(--muted,#9a907f);font-size:11.5px}
+    border-radius:999px;padding:8px 14px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .mp-re:hover{background:rgba(0,0,0,.04)}
+
+  .mp-card{background:var(--card,#fff);border:1px solid var(--line,#e5e0d8);border-radius:16px;
+    padding:13px 15px;margin-top:10px}
+  .mp-mh{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .mp-mi{font-size:15px;line-height:1}
+  .mp-mn{font-weight:800;font-size:14.5px}
+  .mp-mk{margin-left:auto;font-weight:800;font-size:13px;color:var(--red,#C41101);white-space:nowrap}
+
+  .mp-item{display:flex;align-items:center;gap:12px}
+  /* Kotak foto: emoji dulu, lalu diganti foto oleh RecipePhotos (jalur /api/foodphoto
+     yang SAMA dengan /recipe). Kalau fotonya gagal, emoji tetap terbaca. */
+  .mp-ph{flex:0 0 auto;width:52px;height:52px;border-radius:12px;display:flex;align-items:center;
+    justify-content:center;font-size:24px;background:rgba(0,0,0,.05);overflow:hidden}
+  .mp-ph.has-photo{background-color:transparent}
+  .mp-it{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .mp-nm{font-size:14px;font-weight:700;line-height:1.3}
+  .mp-sub{font-size:11.5px;color:var(--muted,#9a907f)}
+  .mp-cta{flex:0 0 auto;background:var(--red,#C41101);color:#fff;text-decoration:none;
+    border-radius:999px;padding:9px 16px;font-size:12.5px;font-weight:800;white-space:nowrap}
+  .mp-cta:hover{filter:brightness(1.07)}
+  @media(max-width:420px){
+    .mp-item{flex-wrap:wrap}
+    .mp-cta{width:100%;text-align:center;margin-top:2px}
+  }
+
+  .mp-total{background:#11100e;color:#fff;border-radius:16px;padding:15px 17px;margin-top:10px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .mp-tl{font-weight:700;font-size:14px}
+  .mp-tr{text-align:right;line-height:1.3}
+  .mp-tr b{display:block;font-size:20px;font-weight:800;letter-spacing:-.02em}
+  .mp-tr s{display:block;text-decoration:none;font-size:11.5px;opacity:.72;margin-top:2px}
+
   .mp-note{margin-top:9px;font-size:11.5px;color:var(--muted,#9a907f);line-height:1.5}
-  .mp-msg{font-size:12.5px;color:var(--muted,#9a907f)}
+  .mp-msg{font-size:12.5px;color:var(--muted,#9a907f);background:var(--card,#fff);
+    border:1px solid var(--line,#e5e0d8);border-radius:16px;padding:14px 16px}
     .hopt-bg{position:fixed;inset:0;z-index:95;background:rgba(10,12,16,.5);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:none;align-items:flex-end;justify-content:center}
     .hopt-bg.open{display:flex}
     .hopt{width:100%;max-width:440px;background:var(--card);border-radius:22px 22px 0 0;max-height:90vh;overflow-y:auto;padding:8px 20px calc(env(safe-area-inset-bottom) + 22px);box-shadow:0 -10px 40px rgba(0,0,0,.25);animation:hoptS .28s cubic-bezier(.2,.8,.2,1)}
@@ -459,6 +489,7 @@
     </div>
   </div>
 
+  <script src="js/fiticons.js"></script>
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/i18n.js"></script>
@@ -571,12 +602,12 @@
       }catch(e){}
       var lbl={p:L({en:"protein",id:"protein"}),c:L({en:"carbs",id:"karbo"}),f:L({en:"fat",id:"lemak"})}, parts=[];
       ["p","c","f"].forEach(function(k){ if(rem[k]>0) parts.push(lbl[k]+" "+rem[k]+"g"); });
-      var lead=parts.length?(L({en:"Remaining today: ",id:"Sisa hari ini: "})+parts.join(" · ")):L({en:"You've nearly hit your daily macro target 🎉",id:"Target makro harianmu hampir terpenuhi 🎉"});
+      var lead=parts.length?(L({en:"Remaining today: ",id:"Sisa hari ini: "})+parts.join(" · ")):L({en:"You've nearly hit your daily macro target",id:"Target makro harianmu hampir terpenuhi"});
       var nm=function(o){ return window.L?L(o):(o.id||o.en); };
       if(!recs.length){ body.innerHTML='<div class="muted" style="font-size:12.5px">'+L({en:"No recommendations yet. Complete your profile (weight/height) & log your food first.",id:"Belum ada rekomendasi. Lengkapi profil (berat/tinggi) & catat makananmu dulu."})+'</div>'; return; }
       var cards=recs.map(function(r){
         return '<a class="mrec-card" href="recipe.html">'+
-          '<div class="mrec-thumb" id="mrecthumb-'+r.id+'" style="background-image:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+r.emoji+'</div>'+
+          '<div class="mrec-thumb" id="mrecthumb-'+r.id+'" style="background-image:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+FIC(r.emoji||"meal",26)+'</div>'+
           '<div class="mrec-b"><div class="mrec-nm">'+nm(r.nm)+'</div>'+
           '<div class="mrec-meta">~'+r.kcal+' kcal</div>'+
           '<div class="mrec-macros">P'+r.p+' · C'+r.c+' · F'+r.f+'</div></div></a>';
@@ -718,9 +749,9 @@
       h+='<div class="fsum-lbl" style="margin-top:2px">'+L({en:"Fill the biggest gap ("+lbl[big]+") with",id:"Tutup kekurangan terbesar ("+lbl[big]+") dengan"})+'</div>';
       h+='<div id="fsumGapFoods">';
       var STAT={
-        p:[{e:"🥚",en:"Boiled eggs",id:"Telur rebus"},{e:"🍗",en:"Grilled chicken breast",id:"Dada ayam panggang"},{e:"🧀",en:"Greek yogurt / cottage cheese",id:"Greek yogurt / keju cottage"}],
-        c:[{e:"🍚",en:"Brown rice",id:"Nasi merah"},{e:"🍠",en:"Sweet potato",id:"Ubi"},{e:"🌾",en:"Oats",id:"Oat"}],
-        f:[{e:"🥑",en:"Avocado",id:"Alpukat"},{e:"🥜",en:"Nuts / peanut butter",id:"Kacang / selai kacang"},{e:"🫒",en:"Olive oil drizzle",id:"Siraman minyak zaitun"}]
+        p:[{e:FIC("egg"),en:"Boiled eggs",id:"Telur rebus"},{e:FIC("protein"),en:"Grilled chicken breast",id:"Dada ayam panggang"},{e:FIC("dairy"),en:"Greek yogurt / cottage cheese",id:"Greek yogurt / keju cottage"}],
+        c:[{e:FIC("meal"),en:"Brown rice",id:"Nasi merah"},{e:FIC("meal"),en:"Sweet potato",id:"Ubi"},{e:FIC("grain"),en:"Oats",id:"Oat"}],
+        f:[{e:FIC("veg"),en:"Avocado",id:"Alpukat"},{e:FIC("veg"),en:"Nuts / peanut butter",id:"Kacang / selai kacang"},{e:FIC("veg"),en:"Olive oil drizzle",id:"Siraman minyak zaitun"}]
       };
       h+=(STAT[big]||[]).map(function(s){ return '<div class="fsum-food"><div class="em" style="background:var(--inp)">'+s.e+'</div><div class="fn">'+L({en:s.en,id:s.id})+'</div></div>'; }).join("");
       h+='</div>';
@@ -728,7 +759,7 @@
         var el=document.getElementById("fsumGapFoods"); if(!el||!j||!j.ok||!j.recipes||!j.recipes.length) return;
         el.innerHTML=j.recipes.map(function(r){
           var nm=window.L?L(r.nm):(r.nm&&(r.nm.id||r.nm.en));
-          return '<div class="fsum-food"><div class="em" style="background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+r.emoji+'</div><div class="fn">'+fsumEsc(nm)+'</div><div class="fk">~'+r.kcal+' '+kc()+' · P'+r.p+' C'+r.c+' F'+r.f+'</div></div>';
+          return '<div class="fsum-food"><div class="em" style="background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+FIC(r.emoji||"meal",22)+'</div><div class="fn">'+fsumEsc(nm)+'</div><div class="fk">~'+r.kcal+' '+kc()+' · P'+r.p+' C'+r.c+' F'+r.f+'</div></div>';
         }).join("");
       }).catch(function(){}); })(rem);
       h+='</div>';
@@ -813,10 +844,10 @@
     // ember yang sama di kedua app.
     var MEAL_TYPES=["breakfast","lunch","dinner","snack"];
     var MEAL_TX={
-      breakfast:{en:"Breakfast",id:"Sarapan",e:"\uD83C\uDF05"},
-      lunch:{en:"Lunch",id:"Makan siang",e:"\uD83C\uDF1E"},
-      dinner:{en:"Dinner",id:"Makan malam",e:"\uD83C\uDF19"},
-      snack:{en:"Snack",id:"Cemilan",e:"\uD83C\uDF6A"}
+      breakfast:{en:"Breakfast",id:"Sarapan",e:FIC("sunrise")},
+      lunch:{en:"Lunch",id:"Makan siang",e:FIC("sun")},
+      dinner:{en:"Dinner",id:"Makan malam",e:FIC("moon")},
+      snack:{en:"Snack",id:"Cemilan",e:FIC("cookie")}
     };
     function inferMeal(t){
       var h=parseInt(String(t||"").slice(0,2),10);
@@ -1072,7 +1103,7 @@
       // Konfirmasi porsi = cara paling ngangkat akurasi. Dorong lebih kuat kalau AI kurang yakin.
       if(conf>0 && conf<60){
         h+='<div style="background:#FDECEC;border:1px solid #f3c2bd;border-radius:10px;padding:9px 11px;margin:0 0 10px;font-size:12.5px;color:#8a2b22">'+
-           L({en:"⚠ Portion looks uncertain — check & fix the grams under Portions below for a more accurate number.",id:"⚠ Porsinya belum pasti — cek & benerin gram di bagian Porsi di bawah biar lebih akurat."})+'</div>';
+           L({en:"Portion looks uncertain — check & fix the grams under Portions below for a more accurate number.",id:"Porsinya belum pasti — cek & benerin gram di bagian Porsi di bawah biar lebih akurat."})+'</div>';
       }
       if(res.assumptions && res.assumptions.length){
         h+='<div style="font-size:11.5px;color:var(--muted,#8A7C68);margin:0 0 8px">'+L({en:"Assumptions",id:"Asumsi"})+': '+res.assumptions.map(function(x){return esc(String(x));}).join(" · ")+'</div>';
@@ -1205,7 +1236,7 @@
     async function refreshQuota(){
       const el=document.getElementById("scanquota"); if(!el)return;
       let q; try{ q=await Auth.getScanQuota(); }catch(e){ el.innerHTML=""; return; }
-      const btn='<button type="button" onclick="exploreDeals()" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;border:0;border-radius:999px;background:var(--green,#2A7A4F);color:#fff;font-weight:800;font-size:13px;padding:9px 16px;cursor:pointer;box-shadow:0 3px 10px rgba(42,122,79,.28)">⚡ '+
+      const btn='<button type="button" onclick="exploreDeals()" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;border:0;border-radius:999px;background:var(--green,#2A7A4F);color:#fff;font-weight:800;font-size:13px;padding:9px 16px;cursor:pointer;box-shadow:0 3px 10px rgba(42,122,79,.28)">'+FIC("lightning",14)+' '+
         L({en:"Explore top-up deals",id:"Lihat paket top-up"})+'</button>';
       if(q.remaining<=0){
         el.innerHTML='<div style="color:var(--red);font-weight:700">'+
@@ -1366,7 +1397,11 @@
     function mountMealPlan(){
       var sec=document.getElementById("mealPlanSec"), el=document.getElementById("mealPlan");
       if(!el||!window.MealPlan) return;
-      if(sec) sec.textContent=L({en:"Meal plan",id:"Rencana Makan"});
+      if(sec) sec.textContent=L({en:"Meal plan recommendation",id:"Rekomendasi rencana makan"});
+      var lead=document.getElementById("mealPlanLead");
+      if(lead) lead.textContent=L({
+        en:"A sample daily meal layout from the 20FIT recipe catalog, tuned to your calorie target.",
+        id:"Contoh susunan makan sehari dari katalog resep 20FIT, disesuaikan dengan target kalorimu."});
       _mealPlan=MealPlan.mount(el,{target:goal});
     }
     (async function(){

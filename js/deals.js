@@ -106,7 +106,7 @@
       '<button id="dlToastBtn"></button><button class="x-close x-ghost x-sm" id="dlToastClose" aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>' +
       '<div class="dl-bg" id="dlThxBg"><div class="dl-card dl-thx">' +
       '<button class="x-close x-abs" id="dlThxX" aria-label="Tutup"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>' +
-      '<div class="dl-grab"></div><div class="em">🎉</div><h3 id="dlThxTitle"></h3><div class="dl-sub" id="dlThxSub"></div>' +
+      '<div class="dl-grab"></div><div class="em">' + FIC("spark", 40) + '</div><h3 id="dlThxTitle"></h3><div class="dl-sub" id="dlThxSub"></div>' +
       '<button class="dl-primary" id="dlThxClose"></button>' +
       '</div></div>';
     document.body.appendChild(root);
@@ -350,7 +350,7 @@
   // ---------- Thank-you ----------
   function showThanks(credits) {
     injectOnce();
-    document.getElementById("dlThxTitle").textContent = L({ en: "Your purchase has succeeded 🎉", id: "Pembayaranmu berhasil 🎉" });
+    document.getElementById("dlThxTitle").innerHTML = L({ en: "Your purchase has succeeded " + FIC("spark", 16), id: "Pembayaranmu berhasil " + FIC("spark", 16) });
     document.getElementById("dlThxSub").textContent = L({ en: credits + " extra calorie scans have been added to your account — happy scanning!", id: credits + " scan kalori tambahan sudah masuk ke akunmu — selamat scan!" });
     document.getElementById("dlThxClose").textContent = L({ en: "Great!", id: "Mantap!" });
     document.getElementById("dlThxBg").classList.add("open");
