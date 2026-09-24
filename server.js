@@ -4633,7 +4633,7 @@ var USER_DATA_TABLES = [
   "my20fit_profile", "my20fit_daily_log", "my20fit_health_entry", "my20fit_workout",
   "my20fit_daily_plan", "my20fit_sleep", "my20fit_hydration",
   "my20fit_coach_quiz", "my20fit_workout_plan", "my20fit_coach_cta_event",
-  "my20fit_coach_session", "my20fit_coach_set_log",
+  "my20fit_coach_session", "my20fit_coach_set_log", "my20fit_coach_achievement",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
   "my20fit_scan_orders", "my20fit_scan_ledger", "my20fit_voucher_usages"
@@ -9536,6 +9536,83 @@ app.get("/api/coach/sessions", async (req, res) => {
   } catch (e) {
     if (isMissingSchema(e)) return res.json({ ok: true, sessions: [], setup_required: true });
     return res.status(500).json({ error: "Gagal memuat riwayat." });
+  }
+});
+// ---------- FASE 3: progress per gerakan + achievement ----------
+// Definisi badge (code-side). test(g) dievaluasi thd hasil coachGather(). Ikon = nama fiticons.
+var COACH_ACH_DEFS = [
+  { key: "first_session", icon: "check",     name: { en: "First workout", id: "Latihan pertama" }, desc: { en: "Complete your first session", id: "Selesaikan sesi pertama" }, test: function (g) { return g.stats.sessions_done >= 1; } },
+  { key: "sessions_10",   icon: "medal",     name: { en: "10 sessions", id: "10 sesi" },           desc: { en: "Complete 10 sessions", id: "Selesaikan 10 sesi" },        test: function (g) { return g.stats.sessions_done >= 10; } },
+  { key: "streak_3",      icon: "fire",      name: { en: "3-day streak", id: "Streak 3 hari" },    desc: { en: "Train 3 days in a row", id: "Latihan 3 hari berturut" },  test: function (g) { return g.stats.streak >= 3; } },
+  { key: "month_8",       icon: "spark",     name: { en: "Consistent month", id: "Bulan konsisten" }, desc: { en: "8 sessions in a month", id: "8 sesi dalam sebulan" },  test: function (g) { return g.stats.this_month >= 8; } },
+  { key: "personal_record", icon: "lightning", name: { en: "Personal record", id: "Rekor pribadi" }, desc: { en: "Beat your reps on an exercise", id: "Lampaui rep di satu gerakan" }, test: function (g) { return !!g.has_pr; } },
+  { key: "allrounder",    icon: "target",    name: { en: "All-rounder", id: "Serba bisa" },        desc: { en: "Log 6 different exercises", id: "Catat 6 gerakan berbeda" }, test: function (g) { return g.stats.distinct_ex >= 6; } }
+];
+// Kumpulkan sesi + set-log user -> seri progress per gerakan + statistik + deteksi PR.
+async function coachGather(userId) {
+  const { data: srows } = await admin.from("my20fit_coach_session").select("id,session_date,status").eq("auth_user_id", userId).order("session_date", { ascending: false }).limit(60);
+  const sessions = srows || [];
+  const sids = sessions.map(function (s) { return s.id; });
+  let logs = [];
+  if (sids.length) { const { data } = await admin.from("my20fit_coach_set_log").select("session_id,ex_key,ex_name,done,done_reps").in("session_id", sids); logs = data || []; }
+  const sdate = {}; sessions.forEach(function (s) { sdate[s.id] = s.session_date; });
+  const perEx = {};
+  logs.forEach(function (l) {
+    if (!l.done) return; const k = l.ex_key; const d = sdate[l.session_id]; if (!k || !d) return;
+    if (!perEx[k]) perEx[k] = { name: l.ex_name || k, byDate: {} };
+    perEx[k].byDate[d] = (perEx[k].byDate[d] || 0) + (+l.done_reps || 0);
+  });
+  const exercises = Object.keys(perEx).map(function (k) {
+    const bd = perEx[k].byDate; const pts = Object.keys(bd).sort().map(function (d) { return { date: d, reps: bd[d] }; });
+    return { key: k, name: perEx[k].name, points: pts.slice(-8) };
+  }).filter(function (e) { return e.points.length; });
+  const doneS = sessions.filter(function (s) { return s.status === "done"; });
+  const ym = new Date().toISOString().slice(0, 7);
+  const this_month = doneS.filter(function (s) { return String(s.session_date).slice(0, 7) === ym; }).length;
+  const days = Array.from(new Set(doneS.map(function (s) { return s.session_date; }))).sort().reverse();
+  let streak = 0;
+  if (days.length) {
+    streak = 1; let cur = new Date(days[0] + "T00:00:00");
+    for (let i = 1; i < days.length; i++) { const prev = new Date(days[i] + "T00:00:00"); const diff = Math.round((cur - prev) / 86400000); if (diff === 1) { streak++; cur = prev; } else if (diff === 0) { continue; } else break; }
+  }
+  let has_pr = false;
+  exercises.forEach(function (e) { if (e.points.length >= 2 && e.points[e.points.length - 1].reps > e.points[0].reps) has_pr = true; });
+  return { sessions: sessions, logs: logs, exercises: exercises, has_pr: has_pr,
+    stats: { sessions_done: doneS.length, total_sets: logs.filter(function (l) { return l.done; }).length, distinct_ex: exercises.length, this_month: this_month, streak: streak } };
+}
+// GET /api/coach/progress — seri per gerakan + statistik ringkas (untuk chart).
+app.get("/api/coach/progress", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, exercises: [], stats: {} });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const g = await coachGather(user.id);
+    return res.json({ ok: true, exercises: g.exercises, stats: g.stats, has_pr: g.has_pr });
+  } catch (e) {
+    if (isMissingSchema(e)) return res.json({ ok: true, exercises: [], stats: {}, setup_required: true });
+    return res.status(500).json({ error: "Gagal memuat progress." });
+  }
+});
+// GET /api/coach/achievements — hitung badge dari data, simpan yang baru diraih, balikin daftar.
+app.get("/api/coach/achievements", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, badges: [] });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const g = await coachGather(user.id);
+    const earnedKeys = COACH_ACH_DEFS.filter(function (d) { try { return d.test(g); } catch (e) { return false; } }).map(function (d) { return d.key; });
+    const earnedAt = {};
+    try {
+      const { data } = await admin.from("my20fit_coach_achievement").select("key,earned_at").eq("auth_user_id", user.id);
+      (data || []).forEach(function (r) { earnedAt[r.key] = r.earned_at; });
+      const toAdd = earnedKeys.filter(function (k) { return !earnedAt[k]; });
+      if (toAdd.length) { await admin.from("my20fit_coach_achievement").insert(toAdd.map(function (k) { return { auth_user_id: user.id, key: k }; })); const now = new Date().toISOString(); toAdd.forEach(function (k) { earnedAt[k] = now; }); }
+    } catch (e) { /* tabel mungkin belum ada — badge tetap dihitung, status simpan diabaikan */ }
+    const badges = COACH_ACH_DEFS.map(function (d) { return { key: d.key, icon: d.icon, name: d.name, desc: d.desc, earned: earnedKeys.indexOf(d.key) >= 0, earned_at: earnedAt[d.key] || null }; });
+    return res.json({ ok: true, badges: badges, stats: g.stats });
+  } catch (e) {
+    if (isMissingSchema(e)) return res.json({ ok: true, badges: [], setup_required: true });
+    return res.status(500).json({ error: "Gagal memuat achievement." });
   }
 });
 // ================= END AI COACH =================
