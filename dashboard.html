@@ -558,7 +558,7 @@
       <div class="grab"></div>
       <div class="m-head">
         <div><div class="m-title" data-en="Customize your trackers" data-id="Sesuaikan tracker kamu">Customize your trackers</div>
-        <div class="m-sub" data-en="Pin the cards you want · drag ☰ to reorder" data-id="Pin kartu yang kamu mau · seret ☰ untuk atur urutan">Pin the cards you want · drag ☰ to reorder</div></div>
+        <div class="m-sub"><span data-en="Pin the cards you want · drag " data-id="Pin kartu yang kamu mau · seret ">Pin the cards you want · drag </span><span class="fic" data-ic="menu" data-ic-size="16" aria-hidden="true"></span><span data-en=" to reorder" data-id=" untuk atur urutan"> to reorder</span></div></div>
         <button class="x-close" type="button" onclick="closeCustomize()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>
       <div class="cz-body">
@@ -578,6 +578,7 @@
 
   <div class="toast" id="toast"></div>
 
+  <script src="js/fiticons.js"></script>
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/i18n.js"></script>
@@ -778,7 +779,7 @@
         var d = document.createElement("div"); d.id = "pviewBg"; d.className = "pscanbg";
         d.innerHTML = '<div class="pscanmodal pviewmodal">' +
           '<div class="pscanhd"><div class="pscanttl" id="pviewTtl">' + Lx({ en: "Your photo", id: "Fotomu" }) + '</div>' +
-          '<button type="button" class="pscanx" onclick="closePhotoView()" aria-label="Close">✕</button></div>' +
+          '<button type="button" class="pscanx" onclick="closePhotoView()" aria-label="Close">'+FIC("x")+'</button></div>' +
           '<div id="pviewBody"></div></div>';
         document.body.appendChild(d);
         d.addEventListener("click", function (ev) { if (ev.target === d) closePhotoView(); });
@@ -875,7 +876,7 @@
         var d = document.createElement("div"); d.id = "pscanBg"; d.className = "pscanbg";
         d.innerHTML = '<div class="pscanmodal">' +
           '<div class="pscanhd"><div class="pscanttl">' + Lx({ en: "Find my photos", id: "Cari fotoku" }) + '</div>' +
-          '<button type="button" class="pscanx" onclick="closePhotoScan()" aria-label="Close">✕</button></div>' +
+          '<button type="button" class="pscanx" onclick="closePhotoScan()" aria-label="Close">'+FIC("x")+'</button></div>' +
           '<div id="pscanBody"></div>' +
           // dua input: selfie (capture=user -> kamera depan di HP) & upload (tanpa capture -> galeri/file)
           '<input id="pscanFile" type="file" accept="image/*" capture="user" style="display:none">' +

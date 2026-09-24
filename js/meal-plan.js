@@ -22,10 +22,10 @@
   // bukan menyalin ikon calorietracker — supaya satu halaman tidak memakai dua set ikon
   // untuk hal yang sama.
   var MEAL_TX = {
-    breakfast: { en: "Breakfast", id: "Sarapan",     e: "\uD83C\uDF05" },
-    lunch:     { en: "Lunch",     id: "Makan siang", e: "\uD83C\uDF1E" },
-    dinner:    { en: "Dinner",    id: "Makan malam", e: "\uD83C\uDF19" },
-    snack:     { en: "Snack",     id: "Camilan",     e: "\uD83C\uDF6A" }
+    breakfast: { en: "Breakfast", id: "Sarapan",     e: FIC("sunrise") },
+    lunch:     { en: "Lunch",     id: "Makan siang", e: FIC("sun") },
+    dinner:    { en: "Dinner",    id: "Makan malam", e: FIC("moon") },
+    snack:     { en: "Snack",     id: "Camilan",     e: FIC("cookie") }
   };
 
   function L(o) { return (window.L ? window.L(o) : (o && (o.id || o.en))) || ""; }
@@ -117,13 +117,13 @@
     var href = "/recipe?q=" + encodeURIComponent(it.name);
     return '<div class="mp-card">' +
       '<div class="mp-mh">' +
-        '<span class="mp-mi" aria-hidden="true">' + esc(MEAL_TX[m.meal].e) + '</span>' +
+        '<span class="mp-mi" aria-hidden="true">' + MEAL_TX[m.meal].e + '</span>' +
         '<span class="mp-mn">' + esc(L(MEAL_TX[m.meal])) + '</span>' +
         '<span class="mp-mk">~' + fmt(it.kcal) + ' ' + esc(kcLbl()) + '</span>' +
       '</div>' +
       '<div class="mp-item">' +
         '<span class="mp-ph" data-mp-photo="' + i + '" aria-hidden="true">' +
-          (it.emoji ? esc(it.emoji) : "\uD83C\uDF7D\uFE0F") + '</span>' +
+          FIC(it.emoji || "meal", 20) + '</span>' +
         '<span class="mp-it">' +
           '<span class="mp-nm">' + esc(it.name) + '</span>' +
           '<span class="mp-sub">' + fmt(it.kcal) + ' ' + esc(kcLbl()) +
@@ -161,7 +161,7 @@
           '<span class="mp-tg"><b>' + fmt(plan.target) + '</b> <s>' + esc(kcLbl()) + '</s></span>' +
         '</span>' +
         '<button type="button" class="mp-re" id="mpRe">' +
-          '<span aria-hidden="true">\u27F3</span> ' +
+          '<span aria-hidden="true">' + FIC("refresh", 14) + '</span> ' +
           esc(L({ en: "Another variation", id: "Variasi lain" })) + '</button>' +
       '</div>' +
       plan.meals.map(mealHtml).join("") +

@@ -101,14 +101,14 @@
     <div class="top">
       <div class="logo">20<span style="color:var(--red)">●</span>FIT <span style="font-weight:400;font-size:12px;color:#9a907f">corporate</span></div>
       <div class="co" id="coName">—</div>
-      <button class="btn sm" id="navDash" onclick="showView('dash')">📊 Dashboard</button>
-      <button class="btn sm ghost" id="navMsg" onclick="showView('msg')">✉️ Kirim Pesan</button>
+      <button class="btn sm" id="navDash" onclick="showView('dash')"><span class="fic" data-ic="chart" aria-hidden="true"></span> Dashboard</button>
+      <button class="btn sm ghost" id="navMsg" onclick="showView('msg')"><span class="fic" data-ic="mail" aria-hidden="true"></span> Kirim Pesan</button>
       <div class="spacer"></div>
-      <button class="btn sm ghost" id="btnRefresh">↻ Refresh</button>
-      <button class="btn sm" style="background:#333" id="btnLogout">⎋ Keluar</button>
+      <button class="btn sm ghost" id="btnRefresh"><span class="fic" data-ic="refresh" aria-hidden="true"></span> Refresh</button>
+      <button class="btn sm" style="background:#333" id="btnLogout"><span class="fic" data-ic="exit" aria-hidden="true"></span> Keluar</button>
     </div>
     <div class="main" id="viewDash">
-      <div class="disc">🔒 <b>Indikasi awal, bukan diagnosis.</b> Status "perlu perhatian" adalah sinyal skrining dari BMI + hasil MCU (sebagian dianalisa otomatis), untuk mendorong konsultasi — <b>bukan</b> keputusan medis atau dasar keputusan kepegawaian. Data ini sensitif; akses kamu tercatat.</div>
+      <div class="disc"><span class="fic" data-ic="lock" aria-hidden="true"></span> <b>Indikasi awal, bukan diagnosis.</b> Status "perlu perhatian" adalah sinyal skrining dari BMI + hasil MCU (sebagian dianalisa otomatis), untuk mendorong konsultasi — <b>bukan</b> keputusan medis atau dasar keputusan kepegawaian. Data ini sensitif; akses kamu tercatat.</div>
 
       <div class="kpis" id="kpis"></div>
 
@@ -127,7 +127,7 @@
           <div><label>Umur</label><div class="agecombo"><input id="fAgeMin" type="number" placeholder="min" oninput="applyFilters()" /><input id="fAgeMax" type="number" placeholder="max" oninput="applyFilters()" /></div></div>
           <div><label>High need</label><select id="fHighNeed" onchange="applyFilters()"><option value="">Semua</option><option value="1">Hanya high-need</option></select></div>
           <div><label>Divisi</label><select id="fDivision" onchange="applyFilters()"><option value="">Semua</option><option value="hr">HR / SDM</option><option value="finance">Keuangan / Akuntansi</option><option value="it">IT</option><option value="marketing">Marketing / Pemasaran</option><option value="sales">Sales / Pengembangan Bisnis</option><option value="operations">Operasional</option><option value="cs">Layanan Pelanggan</option><option value="procurement">Pengadaan</option><option value="legal">Legal / Hukum</option><option value="production">Produksi</option><option value="rnd">R&D / Riset</option><option value="logistics">Logistik / Rantai Pasok</option><option value="ga">Umum / GA</option><option value="engineering">Teknik</option><option value="qa">QA / QC</option><option value="management">Manajemen</option><option value="other">Lainnya</option></select></div>
-          <div><label>&nbsp;</label><button class="btn sm ghost" onclick="exportCsv()">⬇ Export CSV</button></div>
+          <div><label>&nbsp;</label><button class="btn sm ghost" onclick="exportCsv()"><span class="fic" data-ic="download" aria-hidden="true"></span> Export CSV</button></div>
         </div>
         <div class="tblwrap">
           <table>
@@ -150,7 +150,7 @@
 
     <!-- ===== VIEW: KIRIM PESAN (FASE 4) ===== -->
     <div class="main hidden" id="viewMsg">
-      <div class="disc">✉️ Kirim reminder/rekomendasi ke karyawan. Pilih penerima lewat filter, cek daftarnya, lalu kirim. Pesan hanya dikirim ke anggota <b>aktif</b> program (yang sudah keluar tidak dikirimi). Gunakan dengan bertanggung jawab — jangan untuk keputusan kepegawaian.</div>
+      <div class="disc"><span class="fic" data-ic="mail" aria-hidden="true"></span> Kirim reminder/rekomendasi ke karyawan. Pilih penerima lewat filter, cek daftarnya, lalu kirim. Pesan hanya dikirim ke anggota <b>aktif</b> program (yang sudah keluar tidak dikirimi). Gunakan dengan bertanggung jawab — jangan untuk keputusan kepegawaian.</div>
       <div class="card">
         <h3>1. Pilih penerima</h3>
         <div class="filters">
@@ -189,6 +189,7 @@
     <div class="modal" id="modalBox"><div class="placeholder">Memuat…</div></div>
   </div>
 
+  <script src="js/fiticons.js"></script>
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
   <script>
@@ -330,7 +331,7 @@
           '<td>'+(m.bmi!=null?m.bmi:"—")+'</td>'+
           '<td>'+healthPill(m.health_status)+'</td>'+
           '<td>'+usagePill(m.usage_level)+'</td>'+
-          '<td>'+(m.high_need?'<span class="hn" title="High need of care">⚠</span>':'')+'</td>'+
+          '<td>'+(m.high_need?'<span class="hn" title="High need of care">'+FIC("warn",16)+'</span>':'')+'</td>'+
         '</tr>';
       }).join("");
       $("listMsg").className="msg"; $("listMsg").textContent=VIEW.length+" dari "+ROSTER.length+" karyawan";
@@ -348,7 +349,7 @@
       var abn=(m.abnormal_findings||[]).map(function(a){ return '<li>'+esc(typeof a==="string"?a:(a&&a.finding)||JSON.stringify(a))+'</li>'; }).join("");
       $("modalBox").innerHTML=
         '<button class="x-close x-abs" onclick="closeModal()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>'+
-        '<h3 style="margin:0 0 12px">'+esc(m.full_name||"—")+' '+(m.high_need?'<span class="hn">⚠ high need</span>':'')+'</h3>'+
+        '<h3 style="margin:0 0 12px">'+esc(m.full_name||"—")+' '+(m.high_need?'<span class="hn">'+FIC("warn",16)+' high need</span>':'')+'</h3>'+
         '<div class="kv"><span class="k">Status</span><span class="v">'+healthPill(m.health_status)+'</span></div>'+
         '<div class="kv"><span class="k">Gender · Umur</span><span class="v">'+genderLbl(m.gender)+' · '+(m.age!=null?m.age:"—")+'</span></div>'+
         '<div class="kv"><span class="k">BMI</span><span class="v">'+(m.bmi!=null?m.bmi:"—")+'</span></div>'+
