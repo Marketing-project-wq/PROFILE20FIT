@@ -8150,6 +8150,42 @@ app.get("/api/foodphoto", async (req, res) => {
   } catch (e) { return res.json({ ok: false }); }
 });
 
+// ADMIN CMS recipe.20fit.id: cari FOTO STOK (Pexels) untuk cover artikel yang di-generate AI.
+// Gate = admin recipe (baris di recipe_admin_role), pakai PEXELS_API_KEY yang sudah ada di server
+// (browser tak boleh pegang key ini). Balikin beberapa opsi biar admin bisa pilih.
+app.get("/api/menu/stock-photo", async (req, res) => {
+  try {
+    let user = null;
+    try { user = await getUserFromReq(req); }
+    catch (e) { return res.status(e.status || 503).json({ error: e.userMessage || "auth error" }); }
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (!admin) return res.status(503).json({ error: "Service tak tersedia." });
+    // Hanya admin recipe (bukan admin korporat) — tabel recipe_admin_role.
+    const { data: adm } = await admin.from("recipe_admin_role").select("role").eq("user_id", user.id).maybeSingle();
+    if (!adm) return res.status(403).json({ error: "Bukan admin recipe." });
+
+    const q = String(req.query.q || "").slice(0, 120).trim();
+    if (!q) return res.status(400).json({ error: "Parameter q wajib diisi." });
+    const key = process.env.PEXELS_API_KEY;
+    if (!key) return res.status(503).json({ error: "PEXELS_API_KEY belum di-set di server." });
+
+    const pr = await fetch(
+      "https://api.pexels.com/v1/search?orientation=landscape&per_page=9&query=" + encodeURIComponent(q),
+      { headers: { Authorization: key } }
+    );
+    if (!pr.ok) return res.status(502).json({ error: "Pexels error " + pr.status });
+    const pjson = await pr.json();
+    const photos = Array.isArray(pjson && pjson.photos) ? pjson.photos : [];
+    const urls = photos
+      .map((p) => p && p.src && (p.src.large2x || p.src.large || p.src.original))
+      .filter(Boolean);
+    if (!urls.length) return res.json({ ok: false, urls: [] });
+    return res.json({ ok: true, url: urls[0], urls: urls });
+  } catch (e) {
+    return res.status(500).json({ error: String((e && e.message) || e) });
+  }
+});
+
 // PUBLIK: foto makanan untuk katalog recipe.20fit.id (browse tanpa login). Sumber & urutan sama
 // persis dengan /api/foodphoto di atas. Rate limit imgLimiter (lihat isImgPath).
 app.get("/api/menu/photo", async (req, res) => {
