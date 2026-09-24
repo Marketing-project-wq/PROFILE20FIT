@@ -4633,6 +4633,7 @@ var USER_DATA_TABLES = [
   "my20fit_profile", "my20fit_daily_log", "my20fit_health_entry", "my20fit_workout",
   "my20fit_daily_plan", "my20fit_sleep", "my20fit_hydration",
   "my20fit_coach_quiz", "my20fit_workout_plan", "my20fit_coach_cta_event",
+  "my20fit_coach_session", "my20fit_coach_set_log",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
   "my20fit_scan_orders", "my20fit_scan_ledger", "my20fit_voucher_usages"
@@ -9363,6 +9364,179 @@ app.post("/api/coach/cta", async (req, res) => {
     try { if (admin) await admin.from("my20fit_coach_cta_event").insert({ auth_user_id: user.id, cta_type: t, plan_id: b.plan_id || null }); } catch (e) { /* best-effort */ }
     return res.json({ ok: true, url: url });
   } catch (e) { return res.status(500).json({ error: "Gagal mencatat CTA." }); }
+});
+// ---------- FASE 2: sesi latihan harian (sleep-check + check-in per set + progress) ----------
+// AMBANG TIDUR -> penyesuaian beban sesi. PENTING: ANGKA INI PERLU DIVALIDASI COACH/PROFESIONAL.
+// Bukan standar medis; default konservatif: makin kurang tidur, makin diturunkan volumenya.
+function coachSleepAdjust(h) {
+  if (h == null || !isFinite(h)) return "unknown";
+  if (h < 5) return "rest";       // sangat kurang -> sarankan recovery / gerakan ringan
+  if (h < 6.5) return "lighter";  // kurang -> kurangi 1 set per gerakan
+  return "none";                  // cukup -> target normal
+}
+function coachAdjustExercises(exs, adjust) {
+  return (Array.isArray(exs) ? exs : []).map(function (e) {
+    var orig = Math.max(1, parseInt(e.sets, 10) || 3);
+    var t = orig;
+    if (adjust === "lighter") t = Math.max(1, orig - 1);
+    else if (adjust === "rest") t = Math.max(1, Math.floor(orig / 2));
+    return { key: String(e.key || ""), name: String(e.name || ""), unit: e.unit || "reps",
+      reps: e.reps == null ? "" : e.reps, target_sets: t, orig_sets: orig, progression: e.progression || "" };
+  }).filter(function (e) { return e.key; });
+}
+function coachToday() { return new Date().toISOString().slice(0, 10); }
+// Baca jam tidur "hari ini" (tanggal bangun): daily_log dulu (ringkasan skor), lalu my20fit_sleep.
+async function coachReadSleep(userId, date) {
+  try {
+    const { data } = await admin.from("my20fit_daily_log").select("sleep_hours").eq("auth_user_id", userId).eq("log_date", date).limit(1);
+    if (data && data[0] && data[0].sleep_hours != null) return +data[0].sleep_hours;
+  } catch (e) {}
+  try {
+    const { data } = await admin.from("my20fit_sleep").select("duration_hours").eq("auth_user_id", userId).eq("sleep_date", date).limit(1);
+    if (data && data[0] && data[0].duration_hours != null) return +data[0].duration_hours;
+  } catch (e) {}
+  return null;
+}
+// Simpan jam tidur (best-effort ke daily_log + my20fit_sleep) supaya skor & detail ikut konsisten.
+async function coachWriteSleep(userId, date, hours) {
+  try { await admin.from("my20fit_daily_log").upsert({ auth_user_id: userId, log_date: date, sleep_hours: hours }, { onConflict: "auth_user_id,log_date" }); } catch (e) {}
+  try { await admin.from("my20fit_sleep").upsert({ auth_user_id: userId, sleep_date: date, duration_hours: hours, source: "manual", updated_at: new Date().toISOString() }, { onConflict: "auth_user_id,sleep_date" }); } catch (e) {}
+}
+
+// GET /api/coach/session?date= — sesi tanggal itu (kalau ada) + set log; plus plan aktif &
+// jam tidur yang sudah diketahui supaya UI bisa menawarkan "mulai" bila belum ada sesi.
+app.get("/api/coach/session", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, session: null });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || "")) ? String(req.query.date) : coachToday();
+    const { data: srows } = await admin.from("my20fit_coach_session").select("*").eq("auth_user_id", user.id).eq("session_date", date).limit(1);
+    const session = (srows && srows[0]) || null;
+    let sets = [];
+    if (session) {
+      const { data: lrows } = await admin.from("my20fit_coach_set_log").select("*").eq("session_id", session.id).order("ex_key", { ascending: true }).order("set_index", { ascending: true });
+      sets = lrows || [];
+    }
+    const { data: prows } = await admin.from("my20fit_workout_plan").select("*").eq("auth_user_id", user.id).eq("is_active", true).order("created_at", { ascending: false }).limit(1);
+    const plan = (prows && prows[0]) || null;
+    const sleep = await coachReadSleep(user.id, date);
+    return res.json({ ok: true, date: date, session: session, sets: sets, plan: plan, sleep_hours: sleep });
+  } catch (e) {
+    if (isMissingSchema(e)) return res.json({ ok: true, session: null, setup_required: true });
+    return res.status(500).json({ error: "Gagal memuat sesi." });
+  }
+});
+// POST /api/coach/session/start — mulai (atau ambil) sesi hari ini dari plan aktif.
+// body: {date?, day_key?, sleep_hours?}. Sleep-check -> adjust target -> seed set log.
+app.post("/api/coach/session/start", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {};
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date || "")) ? String(b.date) : coachToday();
+    // Sesi sudah ada utk tanggal ini -> balikin apa adanya (idempoten; jangan hapus progres).
+    const { data: exist } = await admin.from("my20fit_coach_session").select("*").eq("auth_user_id", user.id).eq("session_date", date).limit(1);
+    if (exist && exist[0]) {
+      const { data: lrows } = await admin.from("my20fit_coach_set_log").select("*").eq("session_id", exist[0].id).order("ex_key", { ascending: true }).order("set_index", { ascending: true });
+      return res.json({ ok: true, session: exist[0], sets: lrows || [], existing: true });
+    }
+    const { data: prows } = await admin.from("my20fit_workout_plan").select("*").eq("auth_user_id", user.id).eq("is_active", true).order("created_at", { ascending: false }).limit(1);
+    const planRow = (prows && prows[0]) || null;
+    if (!planRow) return res.status(400).json({ error: "Belum ada plan aktif. Buat plan dulu.", need_plan: true });
+    const plan = planRow.plan || {};
+    const days = Array.isArray(plan.days) ? plan.days : [];
+    if (!days.length) return res.status(400).json({ error: "Plan tidak punya hari latihan." });
+    let day = null;
+    if (b.day_key) day = days.find(function (d) { return d.key === b.day_key; });
+    if (!day) day = days[0];
+    // sleep-check: pakai input kalau ada (dan simpan), kalau tidak baca yg sudah tercatat.
+    let sleep = (b.sleep_hours != null && isFinite(+b.sleep_hours)) ? Math.max(0, Math.min(24, +b.sleep_hours)) : null;
+    if (sleep != null) await coachWriteSleep(user.id, date, sleep);
+    else sleep = await coachReadSleep(user.id, date);
+    const adjust = coachSleepAdjust(sleep);
+    const exs = coachAdjustExercises(day.exercises, adjust);
+    const planned = { day_key: day.key, day_label: day.label || "", focus: day.focus || "", adjust: adjust, sleep_hours: sleep, exercises: exs };
+    const srow = { auth_user_id: user.id, plan_id: planRow.id, session_date: date, day_key: day.key || null,
+      day_label: day.label || null, focus: day.focus || null, sleep_hours: sleep, sleep_adjust: adjust,
+      status: "active", planned: planned, updated_at: new Date().toISOString() };
+    const { data: ins, error } = await admin.from("my20fit_coach_session").insert(srow).select().single();
+    if (error) throw error;
+    const seed = [];
+    exs.forEach(function (e) {
+      for (var i = 1; i <= e.target_sets; i++) {
+        seed.push({ auth_user_id: user.id, session_id: ins.id, ex_key: e.key, ex_name: e.name, set_index: i,
+          target_reps: String(e.reps == null ? "" : e.reps).slice(0, 20), unit: e.unit, done: false });
+      }
+    });
+    let sets = [];
+    if (seed.length) { const { data: sl } = await admin.from("my20fit_coach_set_log").insert(seed).select(); sets = sl || []; }
+    return res.json({ ok: true, session: ins, sets: sets });
+  } catch (e) {
+    console.error("coach/session/start:", e.message);
+    if (isMissingSchema(e)) return res.status(503).json({ error: "Fitur sesi belum aktif: migration 022 belum dijalankan di database. Hubungi admin.", setup_required: true });
+    return res.status(500).json({ error: "Gagal memulai sesi." });
+  }
+});
+// POST /api/coach/session/set — catat/toggle satu set. body {session_id, ex_key, set_index, done, done_reps?, weight_kg?}
+app.post("/api/coach/session/set", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {};
+    if (!b.session_id || !b.ex_key || !(+b.set_index >= 1)) return res.status(400).json({ error: "Parameter set tidak lengkap." });
+    // Service key bypass RLS -> cek manual sesi milik user sebelum mengubah log-nya.
+    const { data: sc } = await admin.from("my20fit_coach_session").select("id,auth_user_id").eq("id", b.session_id).limit(1);
+    if (!sc || !sc[0] || sc[0].auth_user_id !== user.id) return res.status(404).json({ error: "Sesi tidak ditemukan." });
+    const patch = { done: !!b.done, logged_at: new Date().toISOString() };
+    if (b.done_reps != null && isFinite(+b.done_reps)) patch.done_reps = Math.max(0, Math.min(9999, Math.round(+b.done_reps)));
+    if (b.weight_kg != null && isFinite(+b.weight_kg)) patch.weight_kg = Math.max(0, Math.min(2000, +b.weight_kg));
+    const { data, error } = await admin.from("my20fit_coach_set_log").update(patch)
+      .eq("session_id", b.session_id).eq("ex_key", String(b.ex_key)).eq("set_index", Math.round(+b.set_index)).select().single();
+    if (error) throw error;
+    return res.json({ ok: true, set: data });
+  } catch (e) {
+    if (isMissingSchema(e)) return res.status(503).json({ error: "migration 022 belum dijalankan.", setup_required: true });
+    return res.status(500).json({ error: "Gagal menyimpan set." });
+  }
+});
+// POST /api/coach/session/finish — tandai sesi selesai/skip. body {session_id, status?, note?}
+app.post("/api/coach/session/finish", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {};
+    if (!b.session_id) return res.status(400).json({ error: "session_id wajib." });
+    const status = b.status === "skipped" ? "skipped" : "done";
+    const { data, error } = await admin.from("my20fit_coach_session")
+      .update({ status: status, completed_at: new Date().toISOString(), note: (b.note != null ? String(b.note).slice(0, 300) : null), updated_at: new Date().toISOString() })
+      .eq("id", b.session_id).eq("auth_user_id", user.id).select().single();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: "Sesi tidak ditemukan." });
+    return res.json({ ok: true, session: data });
+  } catch (e) {
+    if (isMissingSchema(e)) return res.status(503).json({ error: "migration 022 belum dijalankan.", setup_required: true });
+    return res.status(500).json({ error: "Gagal menyelesaikan sesi." });
+  }
+});
+// GET /api/coach/sessions?limit= — riwayat sesi (progress ringkas).
+app.get("/api/coach/sessions", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, sessions: [] });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const lim = Math.max(1, Math.min(60, parseInt(req.query.limit, 10) || 14));
+    const { data } = await admin.from("my20fit_coach_session")
+      .select("id,session_date,day_label,focus,sleep_hours,sleep_adjust,status,completed_at")
+      .eq("auth_user_id", user.id).order("session_date", { ascending: false }).limit(lim);
+    return res.json({ ok: true, sessions: data || [] });
+  } catch (e) {
+    if (isMissingSchema(e)) return res.json({ ok: true, sessions: [], setup_required: true });
+    return res.status(500).json({ error: "Gagal memuat riwayat." });
+  }
 });
 // ================= END AI COACH =================
 

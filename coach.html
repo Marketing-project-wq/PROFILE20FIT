@@ -98,6 +98,42 @@
   .cta-b .cs{display:block;font-size:12px;color:var(--a-mut);margin-top:2px}
   .cta-b.primary{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--a-surface))}
   .disc{font-size:11.5px;color:var(--a-mut);line-height:1.55;margin-top:14px}
+
+  /* sesi harian (Fase 2) */
+  .today{display:flex;align-items:center;gap:12px;margin-bottom:12px;border-color:color-mix(in srgb,var(--accent) 30%,var(--a-line));background:color-mix(in srgb,var(--accent) 6%,var(--a-surface))}
+  .today .ic{width:42px;height:42px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
+  .today .tt{font-size:14.5px;font-weight:800}
+  .today .ts{font-size:12px;color:var(--a-mut);margin-top:2px}
+  .today .go{margin-left:auto;flex:none;background:var(--accent);color:#fff;border:0;border-radius:10px;padding:9px 14px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+  .sleepgrid{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .sleepgrid .qopt{flex:1;min-width:74px;text-align:center}
+  .adjbanner{margin-top:12px;padding:11px 13px;border-radius:12px;font-size:12.5px;line-height:1.5}
+  .adjbanner.none{background:color-mix(in srgb,var(--green) 13%,transparent);border:1px solid color-mix(in srgb,var(--green) 34%,transparent)}
+  .adjbanner.lighter{background:color-mix(in srgb,var(--amber) 14%,transparent);border:1px solid color-mix(in srgb,var(--amber) 38%,transparent)}
+  .adjbanner.rest{background:color-mix(in srgb,var(--red) 12%,transparent);border:1px solid color-mix(in srgb,var(--red) 34%,transparent)}
+  .adjbanner.unknown{background:color-mix(in srgb,var(--a-txt) 5%,transparent);border:1px solid var(--a-line)}
+  .pbar{height:8px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 10%,transparent);overflow:hidden;margin:10px 0 2px}
+  .pbar>i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .25s}
+  .exblk{border:1px solid var(--a-line);border-radius:14px;margin-top:10px;overflow:hidden}
+  .exblk .eh{padding:11px 14px;background:color-mix(in srgb,var(--a-txt) 3%,transparent)}
+  .exblk .eh .n{font-weight:800;font-size:14px}
+  .exblk .eh .s{font-size:11.5px;color:var(--a-mut);margin-top:2px}
+  .setrow{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--a-line)}
+  .setrow .sx{font-family:var(--mono);font-size:12px;color:var(--a-mut);width:44px;flex:none}
+  .setrow .rin{width:56px;flex:none;padding:7px;border-radius:8px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:13px;text-align:center}
+  .setrow .un{font-size:11.5px;color:var(--a-mut);flex:1;min-width:0}
+  .setrow .ck{width:30px;height:30px;flex:none;border-radius:9px;border:1.5px solid var(--a-line);background:transparent;color:var(--a-mut);font-size:16px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center}
+  .setrow .ck.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .setrow.done .un{text-decoration:line-through;opacity:.6}
+  .hist{margin-top:6px}
+  .hrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--a-line);font-size:13px}
+  .hrow:first-child{border-top:0}
+  .hrow .hd{font-weight:700;min-width:64px}
+  .hrow .hf{color:var(--a-mut);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hrow .hs{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;flex:none}
+  .hrow .hs.done{background:color-mix(in srgb,var(--green) 15%,transparent);color:var(--green)}
+  .hrow .hs.active{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+  .hrow .hs.skipped{background:color-mix(in srgb,var(--a-txt) 8%,transparent);color:var(--a-mut)}
 </style>
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/glass-app.css">
