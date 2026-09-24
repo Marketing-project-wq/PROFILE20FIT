@@ -314,22 +314,24 @@
       /* Hint */
       .trk-hint{border:1px dashed var(--amber);background:var(--amber-soft);color:var(--amber);
         border-radius:13px;padding:12px 15px;font-weight:700;font-size:13px;margin-top:14px;line-height:1.5}
-      /* Grid layanan — 2 kolom mobile, 4 kolom desktop (8 tile = 4×2). Teks tak terpotong. */
-      .svcgrid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:18px}
-      @media(min-width:560px){ .svcgrid2{grid-template-columns:repeat(4,minmax(0,1fr))} }
-      @media(max-width:360px){ .svcgrid2{gap:8px} }
-      .svc2{position:relative;min-width:0;display:flex;flex-direction:column;align-items:center;gap:9px;
+      /* Grid layanan — 4 kolom di SEMUA ukuran (gaya app-launcher). Mobile: ikon lebih kecil &
+         sub disembunyikan (label saja) biar 4 tile muat rapi; makin lebar makin besar + sub tampil. */
+      .svcgrid2{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:18px}
+      @media(max-width:360px){ .svcgrid2{gap:6px} }
+      @media(min-width:480px){ .svcgrid2{gap:12px} }
+      @media(min-width:560px){ .svcgrid2{gap:14px} }
+      .svc2{position:relative;min-width:0;display:flex;flex-direction:column;align-items:center;gap:7px;
         text-decoration:none;color:var(--txt);cursor:pointer;-webkit-tap-highlight-color:transparent}
       /* Kotak toggle: OUTLINE tipis + latar kaca sangat halus (bukan putih pekat) supaya
          ikon yang menonjol, bukan kotaknya. Border pakai campuran --ink → tetap kelihatan
          di light & dark. Ukuran seragam (aspect 1, max-height sama). */
       /* Ikon 3D melayang di atas latar (tanpa kotak/plat/outline) — ikon yang tampil. */
-      .svc2 .s2-ic{width:100%;aspect-ratio:1;max-height:78px;border-radius:20px;
+      .svc2 .s2-ic{width:100%;aspect-ratio:1;max-height:56px;border-radius:15px;
         background:transparent;border:0;box-shadow:none;
         display:grid;place-items:center;transition:transform .12s ease}
       .svc2:active .s2-ic{transform:scale(.95)}
       /* Ikon vektor duotone — bobot optik ~40px di kotak 78px. */
-      .svc2 .s2-ic svg{width:40px;height:40px;fill:none;stroke:var(--ink);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+      .svc2 .s2-ic svg{width:28px;height:28px;fill:none;stroke:var(--ink);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
       .svc2 .s2-ic svg .d{fill:color-mix(in srgb,var(--red) 9%,transparent);stroke:none}
       .svc2 .s2-ic svg .a{stroke:color-mix(in srgb,var(--red) 55%,var(--muted))}
       /* Ikon 3D dari CMS (PNG/WebP transparan): objek ~72% kotak (ruang tepi seragam),
@@ -338,12 +340,27 @@
       .svc2 .s2-ic .s2-imgwrap{width:100%;height:100%;display:grid;place-items:center}
       /* Satu ukuran render untuk semua (tinggi tetap) -> ukuran optik seragam & tak pernah
          meluber ke label. max-width menahan ikon lebar (mis. dumbbell) tetap dalam kotak. */
-      .svc2 .s2-ic .s2-img{width:auto;height:64px;max-width:92%;object-fit:contain;
+      .svc2 .s2-ic .s2-img{width:auto;height:44px;max-width:92%;object-fit:contain;
         filter:drop-shadow(0 4px 8px rgba(0,0,0,.22));transition:filter .16s ease,transform .12s ease}
       @media(hover:hover){ .svc2:hover .s2-ic .s2-img{filter:drop-shadow(0 6px 12px rgba(0,0,0,.26))} }
       @media(prefers-reduced-motion:reduce){ .svc2 .s2-ic,.svc2 .s2-ic .s2-img{transition:none} .svc2:active .s2-ic{transform:none} }
-      .svc2 .s2-lbl{font-size:12.5px;font-weight:800;text-align:center;line-height:1.2}
-      .svc2 .s2-sub{font-size:10.5px;font-weight:700;color:var(--muted);text-align:center;line-height:1.2;margin-top:-4px}
+      .svc2 .s2-lbl{font-size:10.5px;font-weight:800;text-align:center;line-height:1.15}
+      .svc2 .s2-sub{display:none;font-size:10px;font-weight:700;color:var(--muted);text-align:center;line-height:1.2;margin-top:-2px}
+      /* Layar lebih lebar: ikon & teks dibesarkan lagi, sub ditampilkan. */
+      @media(min-width:480px){
+        .svc2{gap:9px}
+        .svc2 .s2-ic{max-height:72px;border-radius:18px}
+        .svc2 .s2-ic svg{width:36px;height:36px}
+        .svc2 .s2-ic .s2-img{height:58px}
+        .svc2 .s2-lbl{font-size:12px}
+        .svc2 .s2-sub{display:block}
+      }
+      @media(min-width:560px){
+        .svc2 .s2-ic{max-height:78px;border-radius:20px}
+        .svc2 .s2-ic svg{width:40px;height:40px}
+        .svc2 .s2-ic .s2-img{height:64px}
+        .svc2 .s2-lbl{font-size:12.5px}
+      }
       .svc2 .s2-badge{position:absolute;top:-6px;right:14%;min-width:20px;height:20px;padding:0 5px;border-radius:99px;
         background:var(--red);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;box-shadow:0 3px 8px rgba(196,17,1,.4)}
       /* Customize sheet: pakai style .modal-bg/.modal yang sudah ada */
