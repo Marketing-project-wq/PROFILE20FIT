@@ -98,6 +98,7 @@
     <div class="msg" id="msg"></div>
   </div>
 
+  <script src="js/fiticons.js"></script>
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/i18n.js"></script>
@@ -116,7 +117,7 @@
       el.style.background=done?"rgba(42,122,79,.10)":"rgba(196,17,1,.08)";
       el.style.color=done?"#2A7A4F":"#C41101";
       el.style.border="1px solid "+(done?"rgba(42,122,79,.35)":"rgba(196,17,1,.30)");
-      el.textContent=done?L({en:"✅ You're onboarded — you can update your data below.",id:"✅ Kamu sudah onboarding — data di bawah bisa kamu perbarui."}):L({en:"⚠️ You're not onboarded yet — complete your data below and save.",id:"⚠️ Kamu belum onboarding — lengkapi data di bawah lalu simpan."});
+      el.innerHTML=done?FIC("check",16)+" "+L({en:"You're onboarded — you can update your data below.",id:"Kamu sudah onboarding — data di bawah bisa kamu perbarui."}):FIC("warn",16)+" "+L({en:"You're not onboarded yet — complete your data below and save.",id:"Kamu belum onboarding — lengkapi data di bawah lalu simpan."});
     }
     function prefill(p){
       if(p.gender) pickGender(p.gender);

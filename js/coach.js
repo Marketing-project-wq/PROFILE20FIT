@@ -264,12 +264,14 @@
       ctaBtn("membership", svgIcon("coach"), { en: "Train with a 20FIT coach", id: "Latihan bareng coach 20FIT" }, { en: "20FIT Arena / Gym membership", id: "Membership 20FIT Arena / Gym" }, false) +
       ctaBtn("start_solo", svgIcon("solo"), { en: "Start on my own now", id: "Mulai sendiri sekarang" }, { en: "Follow the plan yourself", id: "Ikuti plan ini sendiri" }, false) +
       '</div></div>';
-    html += '<div class="sechd">' + esc(Lx({ en: "History", id: "Riwayat" })) + '</div>' +
+    html += '<div class="sechd">' + esc(Lx({ en: "Progress", id: "Progress" })) + '</div>' +
+      '<div class="card" id="progBox"><div class="skel" style="height:90px"></div></div>' +
+      '<div class="sechd">' + esc(Lx({ en: "History", id: "Riwayat" })) + '</div>' +
       '<div class="card"><div id="histBox" class="hist"><div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "Loading…", id: "Memuat…" })) + '</div></div></div>';
     root().innerHTML = html;
 
     var tgo = el("todayGo"); if (tgo) tgo.onclick = openSession;
-    loadHistory();
+    loadHistory(); loadProgress();
 
     Array.prototype.forEach.call(root().querySelectorAll(".day-h"), function (h) {
       h.onclick = function () { var b = h.nextElementSibling; if (b) b.style.display = (b.style.display === "none") ? "" : "none"; };
@@ -485,6 +487,45 @@
           '<span class="hs ' + cls + '">' + esc(lbl) + '</span></div>';
       }).join("");
     } catch (e) { box.innerHTML = ""; }
+  }
+
+  // ---- Progress + achievement (Fase 3) ----
+  function icoOf(n) { return window.FIC ? FIC(n, 18) : ""; }
+  async function loadProgress() {
+    var box = el("progBox"); if (!box) return;
+    try {
+      var pr = await apiFetch("/api/coach/progress"); var pj = await pr.json().catch(function () { return {}; });
+      var ar = await apiFetch("/api/coach/achievements"); var aj = await ar.json().catch(function () { return {}; });
+      renderProgress(box, pj || {}, aj || {});
+    } catch (e) { box.innerHTML = '<div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "Couldn't load progress.", id: "Gagal memuat progress." })) + '</div>'; }
+  }
+  function renderProgress(box, pj, aj) {
+    var st = pj.stats || {}, exs = pj.exercises || [], badges = aj.badges || [];
+    var earned = badges.filter(function (b) { return b.earned; }).length;
+    var html = '<div class="pstat">' +
+      '<div class="s"><b>' + (st.sessions_done || 0) + '</b><span>' + esc(Lx({ en: "Sessions", id: "Sesi" })) + '</span></div>' +
+      '<div class="s"><b>' + (st.streak || 0) + '</b><span>' + esc(Lx({ en: "Day streak", id: "Streak hari" })) + '</span></div>' +
+      '<div class="s"><b>' + (st.this_month || 0) + '</b><span>' + esc(Lx({ en: "This month", id: "Bulan ini" })) + '</span></div></div>';
+    if (exs.length) {
+      html += exs.map(function (e) {
+        var mx = Math.max.apply(null, e.points.map(function (p) { return p.reps; }).concat([1]));
+        var last = e.points[e.points.length - 1];
+        var bars = e.points.map(function (p, i) { var h = Math.max(3, Math.round(p.reps / mx * 56)); return '<div class="b' + (i === e.points.length - 1 ? ' last' : '') + '" style="height:' + h + 'px" title="' + esc(p.date) + ': ' + p.reps + '"></div>'; }).join("");
+        return '<div class="exchart"><div class="h">' + esc(e.name) + '<span class="v">' + (last ? last.reps : 0) + ' ' + esc(Lx({ en: "reps", id: "rep" })) + '</span></div><div class="bars2">' + bars + '</div></div>';
+      }).join("");
+    } else {
+      html += '<div class="muted" style="font-size:12.5px;margin-top:8px">' + esc(Lx({ en: "Finish a workout to see progress per exercise.", id: "Selesaikan latihan untuk lihat progress per gerakan." })) + '</div>';
+    }
+    html += '<div class="sechd" style="margin:16px 2px 6px">' + esc(Lx({ en: "Achievements", id: "Pencapaian" })) + (badges.length ? ' <span class="muted" style="font-weight:600">' + earned + '/' + badges.length + '</span>' : '') + '</div>';
+    if (badges.length) {
+      html += '<div class="badges">' + badges.map(function (b) {
+        return '<div class="badge2 ' + (b.earned ? 'on' : 'off') + '"><span class="bic">' + icoOf(b.icon) + '</span>' +
+          '<span style="flex:1;min-width:0"><span class="bt" style="display:block">' + esc(Lx(b.name)) + '</span><span class="bd" style="display:block">' + esc(Lx(b.desc)) + '</span></span></div>';
+      }).join("") + '</div>';
+    } else {
+      html += '<div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "Badges unlock as you train.", id: "Badge terbuka seiring kamu latihan." })) + '</div>';
+    }
+    box.innerHTML = html;
   }
 
   if (window.I18N && I18N.onChange) I18N.onChange(function () { if (!BUSY && !INSESSION) render(); });

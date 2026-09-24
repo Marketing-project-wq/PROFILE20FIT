@@ -161,7 +161,7 @@
     <div class="card">
       <div class="card-hd">
         <h2 data-i18n="prof_detail">Profile details</h2>
-        <button class="edit-btn" id="editBtn" onclick="openEdit()">✏️ <span data-i18n="prof_edit">Edit</span></button>
+        <button class="edit-btn" id="editBtn" onclick="openEdit()"><span class="fic" data-ic="edit" data-ic-size="16" aria-hidden="true"></span> <span data-i18n="prof_edit">Edit</span></button>
       </div>
       <div id="pSummary"></div>
       <div class="msg" id="msg"></div>
@@ -169,7 +169,7 @@
 
     <!-- Corporate Health Program (opt-in, dengan persetujuan) -->
     <div class="card" id="corpCard">
-      <div class="card-hd"><h2>🏢 <span data-i18n="corp_title">Corporate Program</span></h2></div>
+      <div class="card-hd"><h2><span class="fic" data-ic="building" aria-hidden="true"></span> <span data-i18n="corp_title">Corporate Program</span></h2></div>
       <div id="corpBody"><div class="muted">…</div></div>
     </div>
 
@@ -311,6 +311,7 @@
     </div>
   </div>
 
+  <script src="js/fiticons.js"></script>
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/i18n.js"></script>
@@ -558,7 +559,7 @@
       h+='<div class="r"><span class="mk">'+L({en:"Method",id:"Metode"})+'</span><span class="mv">'+methodLabel(o)+'</span></div>';
       h+='</div>';
       h+='<div class="rc-rule dash"></div>';
-      h+='<div class="rc-foot">'+L({en:"Thank you for your purchase 💚",id:"Terima kasih atas pembelianmu 💚"})+'<br><b>my.20fit.id</b></div>';
+      h+='<div class="rc-foot">'+L({en:"Thank you for your purchase ",id:"Terima kasih atas pembelianmu "})+FIC("heart",16)+'<br><b>my.20fit.id</b></div>';
       h+='</div>';
       document.getElementById("odBody").innerHTML=h;
       document.getElementById("odBg").classList.add("open");
@@ -601,7 +602,7 @@
       box.innerHTML=MYMENUS.map(function(m){
         var rr=(m.status==="rejected"&&m.reject_reason)?'<div class="mrr">'+escapeHtml(T("diet_reason"))+' '+escapeHtml(m.reject_reason)+'</div>':'';
         var rev=(m.status==="rejected")?'<button class="btn out sm" style="margin-top:8px" onclick="openMenuRev(\''+m.id+'\')">'+escapeHtml(T("diet_revise"))+'</button>':'';
-        return '<div class="msub"><div class="mth">🍽️</div><div class="mi">'+
+        return '<div class="msub"><div class="mth">'+FIC("meal")+'</div><div class="mi">'+
           '<div class="mn">'+escapeHtml(m.name||"")+'</div>'+
           '<div class="muted" style="font-size:12px">'+escapeHtml(m.diet_type||"")+(m.est_kcal?(' · ~'+m.est_kcal+' '+escapeHtml(KC)):'')+'</div>'+
           '<span class="badge '+m.status+'">'+escapeHtml(menuStatusLabel(m.status))+'</span>'+rr+rev+

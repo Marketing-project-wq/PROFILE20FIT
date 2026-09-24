@@ -285,7 +285,7 @@
     <!-- Rekomendasi menu berdasar SISA makro hari ini — full-width di bawah 2 kolom.
          Desktop: grid banyak kolom (manfaatin lebar). Mobile: tetap carousel horizontal. -->
     <div class="card" id="menuRecCard">
-      <div><div style="font-weight:800;font-size:15px">🍽️ <span data-i18n="cal_mrec_title">Menu recommendations</span></div><div class="muted" style="font-size:12px" data-i18n="cal_mrec_sub">Based on your remaining macros today · swipe for more</div></div>
+      <div><div style="font-weight:800;font-size:15px"><span class="fic" data-ic="meal" aria-hidden="true"></span> <span data-i18n="cal_mrec_title">Menu recommendations</span></div><div class="muted" style="font-size:12px" data-i18n="cal_mrec_sub">Based on your remaining macros today · swipe for more</div></div>
       <div id="menuRecBody" style="margin-top:12px"><div class="muted" style="font-size:12.5px" data-i18n="cal_mrec_loading">Loading recommendations…</div></div>
       <a href="recipe.html" style="display:block;text-align:center;margin-top:12px;color:var(--red);font-weight:800;text-decoration:none;font-size:13px" data-i18n="cal_mrec_more">See more menus →</a>
       <div style="font-size:11px;color:var(--muted);margin-top:10px" data-i18n="cal_mrec_disc">Rough guidance — not a substitute for a nutritionist.</div>
@@ -489,6 +489,7 @@
     </div>
   </div>
 
+  <script src="js/fiticons.js"></script>
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/i18n.js"></script>
@@ -601,12 +602,12 @@
       }catch(e){}
       var lbl={p:L({en:"protein",id:"protein"}),c:L({en:"carbs",id:"karbo"}),f:L({en:"fat",id:"lemak"})}, parts=[];
       ["p","c","f"].forEach(function(k){ if(rem[k]>0) parts.push(lbl[k]+" "+rem[k]+"g"); });
-      var lead=parts.length?(L({en:"Remaining today: ",id:"Sisa hari ini: "})+parts.join(" · ")):L({en:"You've nearly hit your daily macro target 🎉",id:"Target makro harianmu hampir terpenuhi 🎉"});
+      var lead=parts.length?(L({en:"Remaining today: ",id:"Sisa hari ini: "})+parts.join(" · ")):L({en:"You've nearly hit your daily macro target",id:"Target makro harianmu hampir terpenuhi"});
       var nm=function(o){ return window.L?L(o):(o.id||o.en); };
       if(!recs.length){ body.innerHTML='<div class="muted" style="font-size:12.5px">'+L({en:"No recommendations yet. Complete your profile (weight/height) & log your food first.",id:"Belum ada rekomendasi. Lengkapi profil (berat/tinggi) & catat makananmu dulu."})+'</div>'; return; }
       var cards=recs.map(function(r){
         return '<a class="mrec-card" href="recipe.html">'+
-          '<div class="mrec-thumb" id="mrecthumb-'+r.id+'" style="background-image:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+r.emoji+'</div>'+
+          '<div class="mrec-thumb" id="mrecthumb-'+r.id+'" style="background-image:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+FIC(r.emoji||"meal",26)+'</div>'+
           '<div class="mrec-b"><div class="mrec-nm">'+nm(r.nm)+'</div>'+
           '<div class="mrec-meta">~'+r.kcal+' kcal</div>'+
           '<div class="mrec-macros">P'+r.p+' · C'+r.c+' · F'+r.f+'</div></div></a>';
@@ -748,9 +749,9 @@
       h+='<div class="fsum-lbl" style="margin-top:2px">'+L({en:"Fill the biggest gap ("+lbl[big]+") with",id:"Tutup kekurangan terbesar ("+lbl[big]+") dengan"})+'</div>';
       h+='<div id="fsumGapFoods">';
       var STAT={
-        p:[{e:"🥚",en:"Boiled eggs",id:"Telur rebus"},{e:"🍗",en:"Grilled chicken breast",id:"Dada ayam panggang"},{e:"🧀",en:"Greek yogurt / cottage cheese",id:"Greek yogurt / keju cottage"}],
-        c:[{e:"🍚",en:"Brown rice",id:"Nasi merah"},{e:"🍠",en:"Sweet potato",id:"Ubi"},{e:"🌾",en:"Oats",id:"Oat"}],
-        f:[{e:"🥑",en:"Avocado",id:"Alpukat"},{e:"🥜",en:"Nuts / peanut butter",id:"Kacang / selai kacang"},{e:"🫒",en:"Olive oil drizzle",id:"Siraman minyak zaitun"}]
+        p:[{e:FIC("egg"),en:"Boiled eggs",id:"Telur rebus"},{e:FIC("protein"),en:"Grilled chicken breast",id:"Dada ayam panggang"},{e:FIC("dairy"),en:"Greek yogurt / cottage cheese",id:"Greek yogurt / keju cottage"}],
+        c:[{e:FIC("meal"),en:"Brown rice",id:"Nasi merah"},{e:FIC("meal"),en:"Sweet potato",id:"Ubi"},{e:FIC("grain"),en:"Oats",id:"Oat"}],
+        f:[{e:FIC("veg"),en:"Avocado",id:"Alpukat"},{e:FIC("veg"),en:"Nuts / peanut butter",id:"Kacang / selai kacang"},{e:FIC("veg"),en:"Olive oil drizzle",id:"Siraman minyak zaitun"}]
       };
       h+=(STAT[big]||[]).map(function(s){ return '<div class="fsum-food"><div class="em" style="background:var(--inp)">'+s.e+'</div><div class="fn">'+L({en:s.en,id:s.id})+'</div></div>'; }).join("");
       h+='</div>';
@@ -758,7 +759,7 @@
         var el=document.getElementById("fsumGapFoods"); if(!el||!j||!j.ok||!j.recipes||!j.recipes.length) return;
         el.innerHTML=j.recipes.map(function(r){
           var nm=window.L?L(r.nm):(r.nm&&(r.nm.id||r.nm.en));
-          return '<div class="fsum-food"><div class="em" style="background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+r.emoji+'</div><div class="fn">'+fsumEsc(nm)+'</div><div class="fk">~'+r.kcal+' '+kc()+' · P'+r.p+' C'+r.c+' F'+r.f+'</div></div>';
+          return '<div class="fsum-food"><div class="em" style="background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+FIC(r.emoji||"meal",22)+'</div><div class="fn">'+fsumEsc(nm)+'</div><div class="fk">~'+r.kcal+' '+kc()+' · P'+r.p+' C'+r.c+' F'+r.f+'</div></div>';
         }).join("");
       }).catch(function(){}); })(rem);
       h+='</div>';
@@ -843,10 +844,10 @@
     // ember yang sama di kedua app.
     var MEAL_TYPES=["breakfast","lunch","dinner","snack"];
     var MEAL_TX={
-      breakfast:{en:"Breakfast",id:"Sarapan",e:"\uD83C\uDF05"},
-      lunch:{en:"Lunch",id:"Makan siang",e:"\uD83C\uDF1E"},
-      dinner:{en:"Dinner",id:"Makan malam",e:"\uD83C\uDF19"},
-      snack:{en:"Snack",id:"Cemilan",e:"\uD83C\uDF6A"}
+      breakfast:{en:"Breakfast",id:"Sarapan",e:FIC("sunrise")},
+      lunch:{en:"Lunch",id:"Makan siang",e:FIC("sun")},
+      dinner:{en:"Dinner",id:"Makan malam",e:FIC("moon")},
+      snack:{en:"Snack",id:"Cemilan",e:FIC("cookie")}
     };
     function inferMeal(t){
       var h=parseInt(String(t||"").slice(0,2),10);
@@ -1102,7 +1103,7 @@
       // Konfirmasi porsi = cara paling ngangkat akurasi. Dorong lebih kuat kalau AI kurang yakin.
       if(conf>0 && conf<60){
         h+='<div style="background:#FDECEC;border:1px solid #f3c2bd;border-radius:10px;padding:9px 11px;margin:0 0 10px;font-size:12.5px;color:#8a2b22">'+
-           L({en:"⚠ Portion looks uncertain — check & fix the grams under Portions below for a more accurate number.",id:"⚠ Porsinya belum pasti — cek & benerin gram di bagian Porsi di bawah biar lebih akurat."})+'</div>';
+           L({en:"Portion looks uncertain — check & fix the grams under Portions below for a more accurate number.",id:"Porsinya belum pasti — cek & benerin gram di bagian Porsi di bawah biar lebih akurat."})+'</div>';
       }
       if(res.assumptions && res.assumptions.length){
         h+='<div style="font-size:11.5px;color:var(--muted,#8A7C68);margin:0 0 8px">'+L({en:"Assumptions",id:"Asumsi"})+': '+res.assumptions.map(function(x){return esc(String(x));}).join(" · ")+'</div>';
@@ -1235,7 +1236,7 @@
     async function refreshQuota(){
       const el=document.getElementById("scanquota"); if(!el)return;
       let q; try{ q=await Auth.getScanQuota(); }catch(e){ el.innerHTML=""; return; }
-      const btn='<button type="button" onclick="exploreDeals()" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;border:0;border-radius:999px;background:var(--green,#2A7A4F);color:#fff;font-weight:800;font-size:13px;padding:9px 16px;cursor:pointer;box-shadow:0 3px 10px rgba(42,122,79,.28)">⚡ '+
+      const btn='<button type="button" onclick="exploreDeals()" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;border:0;border-radius:999px;background:var(--green,#2A7A4F);color:#fff;font-weight:800;font-size:13px;padding:9px 16px;cursor:pointer;box-shadow:0 3px 10px rgba(42,122,79,.28)">'+FIC("lightning",14)+' '+
         L({en:"Explore top-up deals",id:"Lihat paket top-up"})+'</button>';
       if(q.remaining<=0){
         el.innerHTML='<div style="color:var(--red);font-weight:700">'+
