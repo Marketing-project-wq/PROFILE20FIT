@@ -1202,7 +1202,7 @@
       };
       // Ikon 3D transparan (di-bake dari SVG Canva: layer warna + mask di-un-premultiply -> PNG
       // transparan, tanpa kotak putih). Ada di /img/tiles/<key>.png. Tile tanpa aset -> vektor.
-      var TILE_IMG3D = { medical:1, membership:1, diet:1, "book-class":1, "book-doctor":1, "book-coach":1, "book-recovery":1, news:1 };
+      var TILE_IMG3D = { medical:1, membership:1, diet:1, "book-class":1, "book-doctor":1, "book-coach":1, "book-recovery":1, rewards:1, news:1 };
       function svcTile(o) {
         var art = IC3D[o.key] || (IC[o.ic] || "");        // ikon VEKTOR (fallback)
         var vec = '<svg viewBox="0 0 24 24" aria-hidden="true">' + art + '</svg>';
