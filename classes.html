@@ -41,11 +41,11 @@
   .coachttl{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
   .coachrow{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .coachrow::-webkit-scrollbar{display:none}
-  .coachcard{flex:0 0 auto;width:76px;display:flex;flex-direction:column;align-items:center;gap:7px}
-  .coachph{width:64px;height:64px;border-radius:50%;object-fit:cover;object-position:center 22%;background:var(--inp);border:2px solid var(--line);display:block}
-  .coachini{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:20px;border:2px solid var(--line)}
-  .coachnm{font-size:11px;font-weight:700;color:var(--pagetx);text-align:center;line-height:1.2;overflow-wrap:anywhere}
-  @media(max-width:767px){ .coachph,.coachini{width:56px;height:56px} .coachcard{width:66px} }
+  /* Frame foto SERAGAM 170x170 utk SEMUA coach (object-fit cover → crop ke kotak sama persis). */
+  .coachcard{flex:0 0 auto;width:170px;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .coachph{width:170px;height:170px;border-radius:16px;object-fit:cover;object-position:center 22%;background:var(--inp);border:1px solid var(--line);display:block}
+  .coachini{width:170px;height:170px;border-radius:16px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:46px;border:1px solid var(--line)}
+  .coachnm{font-size:13px;font-weight:700;color:var(--pagetx);text-align:center;line-height:1.25;overflow-wrap:anywhere}
   /* Kartu kelas */
   .clist{display:flex;flex-direction:column;gap:12px}
   .ccard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 15px;color:var(--txt);box-shadow:0 2px 10px rgba(0,0,0,.25);display:flex;gap:13px;align-items:stretch}
