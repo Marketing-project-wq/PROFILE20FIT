@@ -24,20 +24,22 @@
   .venuefilt button{border:1.2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 13px;font-weight:800;font-size:12.5px;cursor:pointer}
   .venuefilt button[aria-pressed="true"]{border-color:var(--red);color:var(--red)}
   .grpTitle{font-size:16px;font-weight:900;margin:20px 2px 12px;color:var(--pagetx)}
-  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-  @media(min-width:560px){ .grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
-  @media(min-width:760px){ .grid{grid-template-columns:repeat(4,minmax(0,1fr))} }
+  /* Kartu coach: seragam 170px, di-center. align-items:start supaya kartu setinggi konten (foto+nama)
+     — TIDAK meregang mengikuti kartu tertinggi (itu yang dulu bikin ruang kosong di bawah nama). */
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+  @media(min-width:520px){ .grid{grid-template-columns:repeat(auto-fill,170px);justify-content:center} }
   .cc{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;cursor:pointer}
   .cc .av{width:100%;aspect-ratio:1;position:relative;overflow:hidden;background:var(--inp)}
   /* img HARUS absolute (inset:0) supaya tinggi frame murni dari aspect-ratio — bukan dari tinggi
      asli foto. Kalau img ikut normal-flow dgn height:100%, aspect-ratio box gagal & foto tampil
      mengikuti rasio aslinya (foto tinggi jadi kepanjangan, foto lebar jadi pendek). */
-  .cc .av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 22%;display:block}
+  .cc .av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;display:block}
   .cc .ini{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:30px;letter-spacing:.02em}
-  .cc .tag{position:absolute;top:8px;left:8px;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.42);border-radius:6px;padding:3px 7px}
-  .cc .bd{padding:11px 12px 13px}
-  .cc .nm{font-weight:800;font-size:14px;line-height:1.2;color:var(--ink);overflow-wrap:anywhere}
-  .cc .sp{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .cc .tag{position:absolute;top:6px;left:6px;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.45);border-radius:5px;padding:2px 6px}
+  /* Area nama COMPACT — tinggi = konten + padding kecil, tanpa min-height. */
+  .cc .bd{padding:8px 10px}
+  .cc .nm{font-weight:700;font-size:13px;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
+  .cc .sp{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cc .bio{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
   .cc .nophoto{font-size:10px;color:var(--muted);margin-top:5px;opacity:.85}
   .state{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 20px;text-align:center;color:var(--muted);font-size:13px}
