@@ -3255,6 +3255,32 @@ app.get("/api/coaches", async (req, res) => {
   } catch (e) { return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" }); }
 });
 
+// Coach + teks instruktur alias-nya (my20fit_coach_instructor_aliases). Dipakai halaman Book
+// Class (FASE 2) untuk: (a) menampilkan HANYA coach yang punya kelas di jadwal yang sedang
+// tampil, (b) klik coach -> filter jadwal ke kelasnya. Kecocokan = teks instructor PERSIS
+// (bukan tebak-teks). Read-only; tidak menyentuh perilaku /api/coaches yang lama.
+app.get("/api/coaches/aliases", async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ ok: false, error: "service unavailable" });
+    const { data: coaches, error: ce } = await admin.from("my20fit_coaches")
+      .select("id,display_name,venue,speciality,photo_url,sort_order")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+    if (ce) throw ce;
+    const { data: al, error: ae } = await admin.from("my20fit_coach_instructor_aliases")
+      .select("coach_id,instructor_text,source");
+    if (ae) throw ae;
+    const byCoach = {};
+    (al || []).forEach(a => { (byCoach[a.coach_id] || (byCoach[a.coach_id] = [])).push(a.instructor_text); });
+    const out = (coaches || []).map(c => ({
+      id: c.id, name: c.display_name, venue: c.venue,
+      speciality: c.speciality || null, photo_url: c.photo_url || null,
+      instructor_texts: byCoach[c.id] || [],
+    }));
+    return res.json({ ok: true, coaches: out });
+  } catch (e) { return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" }); }
+});
+
 // Klik coach -> HANYA kelas yang diajar coach itu. Join lewat my20fit_coach_instructor_aliases
 // (bukan tebak-teks): tiap alias = kecocokan TEPAT teks instructor di jadwal. Tampilkan jadwal
 // mendatang & tidak dibatalkan; hitung sisa kuota; kelas penuh / lewat cutoff / sudah lewat tetap
