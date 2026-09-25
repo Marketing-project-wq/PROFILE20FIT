@@ -89,14 +89,14 @@
     "use strict";
     var TXT={
       title:{en:"Book Coach",id:"Book Coach"},
-      lead:{en:"Our Arena & Gym coaches. Tap a coach to see the classes they teach.",
-            id:"Coach Arena & Gym kami. Ketuk coach untuk lihat kelas yang mereka ajar."},
+      lead:{en:"Coaches with upcoming classes. Tap a coach to see their schedule.",
+            id:"Coach yang punya kelas mendatang. Ketuk coach untuk lihat jadwalnya."},
       leadDetail:{en:"Upcoming classes taught by this coach. Booking opens on the 20FIT booking site.",
             id:"Kelas mendatang yang diajar coach ini. Booking dibuka di situs booking 20FIT."},
       loadErr:{en:"Couldn't load coaches.",id:"Gagal memuat coach."},
       classErr:{en:"Couldn't load classes.",id:"Gagal memuat kelas."},
       retry:{en:"Try again",id:"Coba lagi"},
-      empty:{en:"No coaches available right now.",id:"Belum ada coach saat ini."},
+      empty:{en:"No coaches with upcoming classes right now.",id:"Belum ada coach dengan kelas mendatang saat ini."},
       emptyClass:{en:"No upcoming classes for this coach yet.",id:"Belum ada kelas mendatang untuk coach ini."},
       back:{en:"All coaches",id:"Semua coach"},
       all:{en:"All",id:"Semua"},
@@ -153,7 +153,8 @@
     async function loadList(){
       STATE="loading"; renderList();
       try{
-        var r=await apiFetch("/api/coaches"+(VENUE?("?venue="+encodeURIComponent(VENUE)):""));
+        // active=1 -> FASE 2: HANYA coach yang punya kelas mendatang (server yang hitung via alias).
+        var r=await apiFetch("/api/coaches?active=1"+(VENUE?("&venue="+encodeURIComponent(VENUE)):""));
         var j=await r.json().catch(function(){return null;});
         if(!r.ok||!j||!j.ok){ STATE="error"; renderList(); return; }
         COACHES=j.coaches||[]; STATE="ready"; renderList();
