@@ -7335,6 +7335,78 @@ app.get("/api/classes/schedule", async (req, res) => {
   } catch (e) { console.error("classes/schedule:", e.message); return res.status(500).json({ error: e.message }); }
 });
 
+// Upcoming classes (FLAT, lintas arena+gym) untuk section "Upcoming Classes" di /team & home.
+// Kelas mendatang (belum lewat jam mulai), tidak dibatalkan; hitung sisa kursi (remaining) &
+// selectable/reason spt endpoint coach. Petakan instructor -> coach (nama+foto) lewat alias.
+// Book = deep-link /book-class?source&schedule (alur sama dgn halaman lain). Publik? -> perlu login
+// utk booking, tapi daftar boleh dibaca tanpa data sensitif. Tetap butuh service key (admin).
+app.get("/api/classes/upcoming", async (req, res) => {
+  try {
+    if (!admin) return res.status(503).json({ ok: false, error: "service unavailable" });
+    const days = Math.min(30, Math.max(1, parseInt(req.query.days, 10) || 14));
+    const limit = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 40));
+    const p2 = (n) => (n < 10 ? "0" + n : "" + n);
+    const now = new Date();
+    const today = now.getFullYear() + "-" + p2(now.getMonth() + 1) + "-" + p2(now.getDate());
+    const end = new Date(now.getTime() + days * 86400000);
+    const toD = end.getFullYear() + "-" + p2(end.getMonth() + 1) + "-" + p2(end.getDate());
+    // Peta instructor-text -> coach (nama + foto), per source, lewat alias.
+    const { data: al } = await admin.from("my20fit_coach_instructor_aliases").select("coach_id,instructor_text,source");
+    const coachIds = [...new Set((al || []).map(a => a.coach_id))];
+    const coachById = {};
+    if (coachIds.length) {
+      const { data: cs } = await admin.from("my20fit_coaches").select("id,display_name,photo_url,venue").in("id", coachIds);
+      (cs || []).forEach(c => { coachById[c.id] = { id: c.id, name: c.display_name, photo_url: c.photo_url || null, venue: c.venue }; });
+    }
+    const aliasMap = { arena: {}, gym: {} };
+    (al || []).forEach(a => { if (aliasMap[a.source] && coachById[a.coach_id]) aliasMap[a.source][a.instructor_text] = coachById[a.coach_id]; });
+    const clean = (nm) => String(nm || "").replace(/^20FIT\s+Arena\s+/i, "").replace(/^20FIT\s+/i, "").trim();
+    const out = [];
+    async function collect(source) {
+      const cfg = CLASS_VENUES[source];
+      const sel = "id,schedule_date,start_time,end_time,instructor,quota" +
+        (source === "arena" ? ",cutoff_minutes" : "") + "," + cfg.types + "(name,color," + cfg.dur + ")";
+      const { data, error } = await admin.from(cfg.table)
+        .select(sel).gte("schedule_date", today).lte("schedule_date", toD).eq("is_cancelled", false)
+        .order("schedule_date", { ascending: true }).order("start_time", { ascending: true }).limit(500);
+      if (error) throw error;
+      const rows = data || [];
+      const ids = rows.map(r => r.id);
+      const booked = {};
+      if (ids.length) {
+        const bt = source === "arena" ? "arena_class_bookings" : "gym_class_bookings";
+        const { data: bks } = await admin.from(bt).select("schedule_id,status").in("schedule_id", ids).limit(8000);
+        (bks || []).forEach(b => { const s = String(b.status || "").toLowerCase(); if (/cancel|fail|expire|refund/.test(s)) return; booked[b.schedule_id] = (booked[b.schedule_id] || 0) + 1; });
+      }
+      rows.forEach(r => {
+        const t = r[cfg.types] || {};
+        const start = String(r.start_time || "").slice(0, 5), endt = String(r.end_time || "").slice(0, 5);
+        const startDt = new Date(r.schedule_date + "T" + (r.start_time || "00:00:00") + "+07:00"); // WIB
+        if (now.getTime() >= startDt.getTime()) return;   // sudah lewat jam mulai -> buang
+        const quota = r.quota == null ? null : +r.quota;
+        const remaining = quota == null ? null : Math.max(0, quota - (booked[r.id] || 0));
+        const cutoffMin = source === "arena" ? (r.cutoff_minutes == null ? 0 : +r.cutoff_minutes) : 0;
+        const cutoffDt = new Date(startDt.getTime() - cutoffMin * 60000);
+        let selectable = true, reason = null;
+        if (now.getTime() >= cutoffDt.getTime()) { selectable = false; reason = "closed"; }
+        else if (remaining != null && remaining <= 0) { selectable = false; reason = "full"; }
+        out.push({
+          source, id: r.id, date: r.schedule_date, start, end: endt,
+          name: clean(t.name) || "Kelas", color: t.color || "#C41101",
+          duration_min: t[cfg.dur] || null,
+          instructor: r.instructor || "",
+          coach: aliasMap[source][r.instructor] || null,
+          quota, remaining, selectable, reason,
+          book_url: "/book-class?source=" + source + "&schedule=" + encodeURIComponent(r.id),
+        });
+      });
+    }
+    await collect("arena"); await collect("gym");
+    out.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+    return res.json({ ok: true, classes: out.slice(0, limit) });
+  } catch (e) { return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" }); }
+});
+
 // ---------- Beli paket scan kalori (pembayaran via Xendit lewat FITCO shop order) ----------
 // FITCO shop order (payment_type "xendit-invoices") -> FITCO bikin invoice Xendit &
 // balikkan link. FITCO_PARTNER_TOKEN dipakai sbg Bearer utk order + baca/cancel status

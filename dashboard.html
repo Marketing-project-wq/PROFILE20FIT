@@ -253,6 +253,26 @@
       </div>
     </header>
 
+    <!-- Upcoming Classes (persis di bawah AQI) — scroll horizontal; data /api/classes/upcoming.
+         Kosong / gagal = section disembunyikan. Klik item -> /book-class deep-link. -->
+    <style>
+      .home-upc{margin:20px 2px 0}
+      .home-upc-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+      .home-upc-hd h3{font-size:18px;font-weight:900;color:var(--ink);margin:0}
+      .home-upc-all{font-size:13px;font-weight:700;color:var(--muted);text-decoration:none;white-space:nowrap}
+      .home-upc-scroll{display:flex;gap:16px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+      .home-upc-scroll::-webkit-scrollbar{display:none}
+      .home-upc-item{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:96px;max-width:96px;flex:0 0 auto;text-decoration:none}
+      .home-upc-date{font-size:12px;font-weight:700;color:var(--muted);margin-bottom:2px}
+      .home-upc-date .d{color:var(--red);font-size:8px;vertical-align:middle}
+      .home-upc-ph{width:76px;height:76px;border-radius:50%;object-fit:cover;object-position:top;border:2px solid var(--line);background:var(--inp);display:block}
+      .home-upc-ini{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:24px;border:2px solid var(--line)}
+      .home-upc-nm{font-size:13px;font-weight:800;color:var(--ink);text-align:center;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:92px}
+      .home-upc-cls{font-size:11px;font-style:italic;color:var(--muted);text-align:center;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:92px}
+      .home-upc-tm{font-size:12px;font-weight:700;color:var(--muted)}
+    </style>
+    <section class="home-upc" id="homeUpc" hidden></section>
+
     <!-- Banner promo Physio (di bawah AQI) — bilingual EN/ID via renderPhysioPromo(). -->
     <style>
       /* Banner = <a> putih dengan border merah (menyatu dgn kartu lain). Aksen merah hanya di
@@ -1534,6 +1554,42 @@
       if(h<19)return L({en:"Good evening",id:"Selamat sore"});
       return L({en:"Good night",id:"Selamat malam"});}
 
+    // Upcoming Classes di home (di bawah AQI) — scroll horizontal, foto coach bulat.
+    // Self-contained: esc lokal + window.L. Endpoint tak butuh auth (service key di server).
+    async function loadHomeUpcoming(){
+      var wrap=document.getElementById("homeUpc"); if(!wrap) return;
+      var esc=function(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); };
+      var tr=function(o){ return window.L?window.L(o):(o.id||o.en); };
+      var ini=function(n){ n=String(n||"").replace(/^Coach\s+/i,"").trim(); return (n[0]||"?").toUpperCase(); };
+      var col=function(n){ var h=0;n=String(n||"");for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))>>>0;return "hsl("+(h%360)+" 45% 42%)"; };
+      try{
+        var r=await fetch("/api/classes/upcoming?days=14&limit=20");
+        var j=await r.json().catch(function(){return null;});
+        var list=(j&&j.ok&&Array.isArray(j.classes))?j.classes:[];
+        if(!list.length){ wrap.hidden=true; return; }
+        var items=list.map(function(c){
+          var d=new Date(c.date+"T"+(c.start||"00:00")+":00+07:00");
+          var dl=d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+          var nm=c.coach?c.coach.name:(c.instructor||"");
+          var shortNm=String(nm).replace(/^Coach\s+/i,"");
+          var ph=(c.coach&&c.coach.photo_url)
+            ? '<img class="home-upc-ph" src="'+esc(c.coach.photo_url)+'" alt="" loading="lazy" onerror="this.style.display=\'none\';var s=this.nextElementSibling;if(s)s.style.display=\'grid\'"><span class="home-upc-ini" style="display:none;background:'+col(nm)+'">'+esc(ini(nm))+'</span>'
+            : '<span class="home-upc-ini" style="background:'+col(nm)+'">'+esc(ini(nm))+'</span>';
+          return '<a class="home-upc-item" href="'+esc(c.book_url)+'">'+
+            '<span class="home-upc-date"><span class="d">●</span> '+esc(dl)+'</span>'+
+            ph+
+            '<span class="home-upc-nm">'+esc(shortNm)+'</span>'+
+            '<span class="home-upc-cls">'+esc(c.name||"")+'</span>'+
+            '<span class="home-upc-tm">'+esc(c.start||"")+'</span>'+
+          '</a>';
+        }).join("");
+        wrap.innerHTML='<div class="home-upc-hd"><h3>'+esc(tr({en:"Upcoming Classes",id:"Kelas Mendatang"}))+
+          '</h3><a class="home-upc-all" href="/classes">'+esc(tr({en:"See All",id:"Lihat Semua"}))+' ›</a></div>'+
+          '<div class="home-upc-scroll">'+items+'</div>';
+        wrap.hidden=false;
+      }catch(e){ wrap.hidden=true; }
+    }
+
     (async function init(){
       profile = await Auth.getProfile();
       const nm = profile.full_name || (profile.email?profile.email.split("@")[0]:"");
@@ -1553,6 +1609,7 @@
       }
       renderChecklist();
       loadWeather();
+      loadHomeUpcoming();
       loadHealthReminder();
       try{ if(window.renderStack) window.renderStack(); }catch(e){}
       try{ if(window.loadSleep7) window.loadSleep7(); }catch(e){}

@@ -48,6 +48,22 @@
   @media(min-width:560px){ .skg{grid-template-columns:repeat(3,1fr)} }
   .skel{aspect-ratio:.82;border-radius:16px;background:linear-gradient(90deg,var(--inp),color-mix(in srgb,var(--inp) 55%,#fff),var(--inp));background-size:200% 100%;animation:sh 1.2s infinite}
   @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  /* ── Upcoming Classes (di bawah grid coach) ── */
+  .upcoming{margin-top:34px;padding-top:24px;border-top:1px solid var(--line)}
+  .uc-h{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
+  .uc-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:var(--card)}
+  .uc-main{min-width:0}
+  .uc-nm{font-size:14.5px;font-weight:800;color:var(--ink);margin:0;display:flex;align-items:center;gap:8px}
+  .uc-dot{width:9px;height:9px;border-radius:3px;flex:0 0 auto}
+  .uc-meta{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .uc-when{font-size:12px;color:var(--muted);margin-top:2px}
+  .uc-right{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+  .uc-slots{font-size:11.5px;font-weight:700;color:var(--muted);white-space:nowrap}
+  .uc-slots.low{color:#F97316}
+  .uc-slots.full{color:var(--red)}
+  .uc-book{padding:7px 15px;background:var(--red);color:#fff;border-radius:9px;font-size:12px;font-weight:800;white-space:nowrap}
+  .uc-reason{font-size:11.5px;font-weight:700;color:var(--muted);white-space:nowrap}
+  @media(max-width:520px){ .uc-card{flex-direction:column;align-items:stretch} .uc-right{justify-content:space-between} }
 </style>
 </head>
 <body>
@@ -69,6 +85,7 @@
       <button data-venue="gym" aria-pressed="false">Gym</button>
     </div>
     <div id="root"></div>
+    <div id="upcoming" class="upcoming" hidden></div>
   </div>
 
   <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
@@ -177,8 +194,51 @@
       }catch(e){ STATE="error"; render(); }
     }
 
-    applyStatic(); load();
-    if(window.I18N && I18N.onChange) I18N.onChange(function(){ applyStatic(); render(); });
+    // ── Upcoming Classes (flat lintas arena+gym) — /api/classes/upcoming ──
+    var UPC=null;
+    function ucLoc(){ return (window.I18N && I18N.lang==="en")?"en-US":"id-ID"; }
+    function venueLbl(src){ return src==="gym"?"Gym":(src==="arena"?"Arena":src); }
+    function reasonLbl(r){ return r==="full"?LL({en:"Full",id:"Penuh"}):(r==="passed"?LL({en:"Passed",id:"Lewat"}):LL({en:"Closed",id:"Ditutup"})); }
+    function fmtWhen(dateStr,start,end){
+      var d=new Date(dateStr+"T"+(start||"00:00")+":00+07:00");
+      var ds=d.toLocaleDateString(ucLoc(),{weekday:"short",day:"numeric",month:"short"});
+      return ds+" · "+(start||"")+(end?("–"+end):"");
+    }
+    function ucCard(c){
+      var coachName=c.coach?c.coach.name:(c.instructor||"");
+      var meta=esc(coachName)+(coachName?" · ":"")+esc(venueLbl(c.source));
+      var slots="";
+      if(c.remaining!=null){
+        var sc=c.remaining<=0?"full":(c.remaining<=3?"low":"");
+        var stx=c.remaining<=0?LL({en:"Full",id:"Penuh"}):(c.remaining+" "+LL({en:"left",id:"sisa"}));
+        slots='<span class="uc-slots '+sc+'">'+esc(stx)+'</span>';
+      }
+      var action=c.selectable
+        ? '<a class="uc-book" href="'+esc(c.book_url)+'">'+esc(LL({en:"Book",id:"Book"}))+'</a>'
+        : (c.reason==="full" ? "" : '<span class="uc-reason">'+esc(reasonLbl(c.reason))+'</span>');  // "full" sudah tampil di badge slots
+      return '<div class="uc-card"><div class="uc-main">'+
+        '<div class="uc-nm"><span class="uc-dot" style="background:'+esc(c.color||"#C41101")+'"></span>'+esc(c.name||"Kelas")+'</div>'+
+        '<div class="uc-meta">'+meta+'</div>'+
+        '<div class="uc-when">'+esc(fmtWhen(c.date,c.start,c.end))+'</div>'+
+        '</div><div class="uc-right">'+slots+action+'</div></div>';
+    }
+    function renderUpcoming(){
+      var wrap=$("upcoming"); if(!wrap) return;
+      if(!UPC||!UPC.length){ wrap.hidden=true; wrap.innerHTML=""; return; }
+      wrap.innerHTML='<div class="uc-h">'+esc(LL({en:"Upcoming Classes",id:"Kelas Mendatang"}))+'</div>'+UPC.map(ucCard).join("");
+      wrap.hidden=false;
+    }
+    async function loadUpcoming(){
+      try{
+        var r=await fetch("/api/classes/upcoming?days=14&limit=30");
+        var j=await r.json().catch(function(){return null;});
+        UPC=(j&&j.ok&&Array.isArray(j.classes))?j.classes:[];
+      }catch(e){ UPC=[]; }
+      renderUpcoming();
+    }
+
+    applyStatic(); load(); loadUpcoming();
+    if(window.I18N && I18N.onChange) I18N.onChange(function(){ applyStatic(); render(); renderUpcoming(); });
   })();
   </script>
 </body>
