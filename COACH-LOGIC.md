@@ -22,20 +22,34 @@ Sebuah kelas dihitung available kalau SEMUA true (sudah dihitung server di `/api
 5. ada `instructor` (ter-mapping ke coach lewat alias).
 
 ## Fase implementasi
-- **FASE 1 (sekarang, live di staging):** strip **Coaches** di `classes.html` menampilkan **SEMUA**
-  coach dari `/api/coaches` (foto + nama) — **tanpa** filter ketersediaan, non-interaktif. Tujuannya
-  supaya pemilik bisa mereview semua foto coach dulu.
-- **FASE 2 (menunggu aba-aba pemilik):** aktifkan aturan **"coach hanya muncul kalau punya ≥1 kelas
-  available"** + klik coach → filter jadwal ke kelas coach itu. Otomatis/real-time (kelas baru →
-  coach muncul; kelas lewat/penuh/cancel → coach hilang). Endpoint: reuse alias + jadwal
-  (`/api/coaches/:id/classes`), atau endpoint baru "active coaches".
+- **FASE 1 (selesai, sudah di produksi):** strip **Coaches** di `classes.html` menampilkan SEMUA
+  coach dari `/api/coaches` (foto + nama), non-interaktif. Sudah **digantikan** FASE 2.
+- **FASE 2 (LIVE — implementasi sekarang):** strip menampilkan **HANYA coach yang punya kelas di
+  jadwal yang sedang tampil**, dan **klik coach → filter jadwal ke kelasnya** (klik lagi / tombol
+  "Semua coach" = lepas filter). Mekanismenya:
+  - Endpoint baru **`GET /api/coaches/aliases`** (read-only) mengembalikan tiap coach + daftar
+    `instructor_texts` alias-nya (join `my20fit_coach_instructor_aliases`).
+  - Frontend memuat jadwal (`/api/classes/schedule?days=21`) + daftar coach+alias itu, lalu coach
+    dianggap **"punya kelas"** kalau salah satu `instructor_text`-nya **muncul PERSIS** di antara
+    teks `instructor` kelas yang sedang tampil. Jadi filter otomatis konsisten dengan jadwal yang
+    benar-benar dilihat user, dan **real-time**: ganti venue / jadwal berubah → dihitung ulang;
+    coach tanpa kelas otomatis hilang, coach yang dapat kelas otomatis muncul.
+  - **Definisi "punya kelas" = ADA kelas** (mendatang, tidak dibatalkan, dalam jendela 21 hari yang
+    dimuat) — bukan "masih ada kursi". Status per-kelas (penuh/closed/passed) tetap dihitung di
+    `/api/coaches/:id/classes` (dipakai halaman `book-coach.html`), bukan di strip ini.
 
 ## Catatan data (per 2026-09-25, dari jadwal nyata)
-- Coach yang PUNYA kelas mendatang: **Brian, Elsen, Rheza, Gilang, Calysta, Andrew** (kelas solo),
-  dan **Josea** (hanya kelas berdua `Ade x Josea`).
-- **Nando**: belum ada kelas mendatang → saat FASE 2 aktif, dia **tidak** tampil sampai punya kelas
-  (sesuai aturan; bukan bug).
-- `my20fit_coaches` juga berisi entri **pasangan** (mis. `Rheza & Alfarizky`) untuk kelas co-teach —
-  di FASE 1 ikut tampil. Bisa disembunyikan (hanya individu) kalau pemilik mau.
-- Alias untuk Brian/Elsen/Gilang/Andrew/Josea **belum** diisi — akan diisi saat FASE 2 dari teks
-  instruktur asli jadwal (`Brian`, `Elsen`, `Gilang`, `Andrew`, `Ade x Josea`).
+- **Alias yang SUDAH ditambahkan (source arena, exact-name):** `Brian`→Coach Brian, `Elsen`→Coach
+  Elsen, `Gilang`→Coach Gilang, `Andrew`→Coach Andrew, `Ista`→Ista, `YoKae`→Yokae. (Teks di jadwal
+  memang persis nama itu; catatan: jadwal mengeja **"YoKae"**.)
+- Alias lama yang sudah ada tetap dipakai: Calysta, Rheza, Nando, Dhani(`Dani`), plus pasangan
+  (mis. `Ade x Josea`→pasangan **Josea & Ade**).
+- **Nando**: belum ada kelas mendatang → **tidak tampil** sampai punya kelas (sesuai aturan; bukan bug).
+- Entri **pasangan** (`Rheza & Alfarizky`, `Josea & Ade`, dst.) ikut tampil kalau teks pasangannya
+  ada di jadwal. Bisa disembunyikan (hanya individu) kalau pemilik mau.
+- **BELUM dipetakan (sengaja — menunggu konfirmasi pemilik, tidak ditebak):**
+  - **Gym `Andro` (5 kelas), `Chynthia` (2 kelas):** tidak ada coach dengan nama itu di
+    `my20fit_coaches` → tak bisa dipastikan siapa. **TANYA PEMILIK.**
+  - **Co-teach `Kiki, Mae` (1) & `Asa & Mae` (1):** kalau pemilik mau **Kiki**/**Mae** ikut muncul
+    saat mengajar berdua, tambahkan alias `Kiki, Mae`→Kiki, `Kiki, Mae`→Mae, `Asa & Mae`→Mae
+    (konvensi co-teach→solo yang sudah dipakai coach lain). `Asa` belum ada di roster.
