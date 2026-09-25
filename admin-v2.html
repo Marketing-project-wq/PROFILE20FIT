@@ -2397,14 +2397,42 @@
   };
 
   // Unggah foto coach/dokter -> /api/admin/upload-photo (Supabase Storage), isi field URL + preview.
+  // Kecilkan + kompres foto di browser SEBELUM upload → file kecil permanen (hemat kuota,
+  // loading cepat di internet jelek). Cap sisi terpanjang 512px, JPEG q0.82. Kalau sudah kecil
+  // / decode gagal → pakai file asli. Untuk foto coach/dokter (foto, bukan PNG transparan).
+  function admDownscaleImage(file, maxSide, quality){
+    return new Promise(function(resolve){
+      var r=new FileReader();
+      r.onerror=function(){ resolve(null); };
+      r.onload=function(){
+        var orig=r.result, img=new Image();
+        img.onerror=function(){ resolve(orig); };
+        img.onload=function(){
+          var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+          if(!w||!h){ resolve(orig); return; }
+          var scale=Math.min(1, maxSide/Math.max(w,h));
+          if(scale>=1){ resolve(orig); return; }   // sudah cukup kecil → pakai asli
+          var nw=Math.round(w*scale), nh=Math.round(h*scale);
+          var c=document.createElement("canvas"); c.width=nw; c.height=nh;
+          var cx=c.getContext("2d"); cx.imageSmoothingEnabled=true; cx.imageSmoothingQuality="high";
+          cx.drawImage(img,0,0,nw,nh);
+          try{ resolve(c.toDataURL("image/jpeg", quality)); }catch(e){ resolve(orig); }
+        };
+        img.src=orig;
+      };
+      r.readAsDataURL(file);
+    });
+  }
   window.admPhotoPick = async function(input, kind){
     var file = input && input.files && input.files[0]; if(!file) return;
     var pre = (kind==="doctor") ? "dc" : "co";
     var msg = document.getElementById(pre+"_photo_msg"), prev = document.getElementById(pre+"_photo_prev"), urlEl = document.getElementById(pre+"_photo");
     if(file.size > 5*1024*1024){ if(msg) msg.textContent=L("Max 5MB.","Maks 5MB."); input.value=""; return; }
-    if(msg) msg.textContent=L("Uploading…","Mengunggah…");
+    if(msg) msg.textContent=L("Optimizing…","Mengoptimalkan…");
     try{
-      var dataUrl = await new Promise(function(resolve,reject){ var r=new FileReader(); r.onload=function(){resolve(r.result);}; r.onerror=reject; r.readAsDataURL(file); });
+      var dataUrl = await admDownscaleImage(file, 512, 0.82);
+      if(!dataUrl){ if(msg) msg.textContent=L("Read error.","Gagal baca file."); return; }
+      if(msg) msg.textContent=L("Uploading…","Mengunggah…");
       var res = await adminPost("/api/admin/upload-photo", { data_url: dataUrl, kind: kind });
       var j = await res.json().catch(function(){return null;});
       if(!res.ok || !j || !j.ok || !j.url){ if(msg) msg.textContent=L("Upload failed: ","Gagal unggah: ")+(await admErr(res,j)); return; }
