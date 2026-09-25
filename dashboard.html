@@ -347,12 +347,12 @@
          ikon yang menonjol, bukan kotaknya. Border pakai campuran --ink → tetap kelihatan
          di light & dark. Ukuran seragam (aspect 1, max-height sama). */
       /* Ikon 3D melayang di atas latar (tanpa kotak/plat/outline) — ikon yang tampil. */
-      .svc2 .s2-ic{width:100%;aspect-ratio:1;max-height:56px;border-radius:15px;
+      .svc2 .s2-ic{width:100%;aspect-ratio:1;max-height:68px;border-radius:15px;
         background:transparent;border:0;box-shadow:none;
         display:grid;place-items:center;transition:transform .12s ease}
       .svc2:active .s2-ic{transform:scale(.95)}
       /* Ikon vektor duotone — bobot optik ~40px di kotak 78px. */
-      .svc2 .s2-ic svg{width:28px;height:28px;fill:none;stroke:var(--ink);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+      .svc2 .s2-ic svg{width:34px;height:34px;fill:none;stroke:var(--ink);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
       .svc2 .s2-ic svg .d{fill:color-mix(in srgb,var(--red) 9%,transparent);stroke:none}
       .svc2 .s2-ic svg .a{stroke:color-mix(in srgb,var(--red) 55%,var(--muted))}
       /* Ikon 3D dari CMS (PNG/WebP transparan): objek ~72% kotak (ruang tepi seragam),
@@ -361,7 +361,7 @@
       .svc2 .s2-ic .s2-imgwrap{width:100%;height:100%;display:grid;place-items:center}
       /* Satu ukuran render untuk semua (tinggi tetap) -> ukuran optik seragam & tak pernah
          meluber ke label. max-width menahan ikon lebar (mis. dumbbell) tetap dalam kotak. */
-      .svc2 .s2-ic .s2-img{width:auto;height:44px;max-width:92%;object-fit:contain;
+      .svc2 .s2-ic .s2-img{width:auto;height:54px;max-width:92%;object-fit:contain;
         filter:drop-shadow(0 4px 8px rgba(0,0,0,.22));transition:filter .16s ease,transform .12s ease}
       @media(hover:hover){ .svc2:hover .s2-ic .s2-img{filter:drop-shadow(0 6px 12px rgba(0,0,0,.26))} }
       @media(prefers-reduced-motion:reduce){ .svc2 .s2-ic,.svc2 .s2-ic .s2-img{transition:none} .svc2:active .s2-ic{transform:none} }
@@ -1585,7 +1585,7 @@
           '</a>';
         }).join("");
         wrap.innerHTML='<div class="home-upc-hd"><h3>'+esc(tr({en:"Upcoming Classes",id:"Kelas Mendatang"}))+
-          '</h3><a class="home-upc-all" href="/classes">'+esc(tr({en:"See All",id:"Lihat Semua"}))+' ›</a></div>'+
+          '</h3><a class="home-upc-all" href="/classes?period=this_week">'+esc(tr({en:"See All",id:"Lihat Semua"}))+' ›</a></div>'+
           '<div class="home-upc-scroll">'+items+'</div>';
         wrap.hidden=false;
       }catch(e){ wrap.hidden=true; }
