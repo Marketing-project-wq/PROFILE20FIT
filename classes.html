@@ -5,6 +5,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Jadwal Kelas · 20FIT</title>
+<link rel="preconnect" href="https://media.20fit.id">
 <style>
   :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#EDE8DF;--green:#2A7A4F;--amber:#C87000}
   *{box-sizing:border-box}
@@ -83,6 +84,10 @@
   .vseg{display:inline-flex;background:var(--inp);border-radius:12px;padding:4px;gap:4px;margin:0 0 16px}
   .vseg button{border:0;background:transparent;color:var(--muted);font-weight:800;font-size:13px;padding:9px 20px;border-radius:9px;cursor:pointer;font-family:inherit}
   .vseg button.on{background:var(--card);color:var(--txt);box-shadow:0 1px 5px rgba(0,0,0,.25)}
+  /* Filter periode (Minggu Ini / Minggu Depan / 2 Minggu / Semua) — pill di atas date strip. */
+  .perseg{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+  .perseg button{border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:800;font-size:12px;padding:6px 13px;border-radius:999px;cursor:pointer;font-family:inherit}
+  .perseg button.on{border-color:#C41101;color:#C41101}
 </style>
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/glass-app.css">
@@ -118,6 +123,7 @@
       <div class="coachrow" id="coachRow"></div>
     </div>
 
+    <div class="perseg" id="perSeg" hidden></div>
     <div class="datestrip" id="dateStrip"></div>
     <div class="dhead" id="dHead"></div>
     <div class="clist" id="classList">
@@ -138,6 +144,8 @@
   <script src="js/nav.js"></script>
   <script>
     var user=null, DATA=null, BOOK_URL="https://booking.20fit.id/book", curDate=null, COACHES=null, coachFilter=null;
+    // Filter periode. Default dari ?period= (mis. dari "See All" home = this_week), kalau tidak ada = all.
+    var PERIOD=(function(){ var m=location.search.match(/[?&]period=(this_week|next_week|two_weeks|all)/); return m?m[1]:"all"; })();
     function $(id){ return document.getElementById(id); }
     function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
     function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
@@ -224,8 +232,9 @@
       try{ user=await Auth.requireAuth(); }catch(e){}
       applyStatic();
       renderVenueSeg();
+      renderPeriodSeg();
       var _cc=$("coachClear"); if(_cc) _cc.addEventListener("click", clearCoachFilter);
-      if(window.I18N&&I18N.onChange) I18N.onChange(function(){ applyStatic(); renderVenueSeg(); render(); renderCoachStrip(); });
+      if(window.I18N&&I18N.onChange) I18N.onChange(function(){ applyStatic(); renderVenueSeg(); renderPeriodSeg(); render(); renderCoachStrip(); });
       load();
       loadCoaches();
     })();
@@ -269,7 +278,7 @@
         var c=x.c, nm=esc(c.name||""), ini=esc(coachInitials(c.name)), col=coachColor(c.name);
         var sel=(coachFilter&&coachFilter.id===c.id)?" sel":"";
         var ph=c.photo_url
-          ? '<img class="coachph" src="'+esc(c.photo_url)+'" alt="'+nm+'" loading="lazy" onerror="this.style.display=\'none\';var s=this.nextElementSibling;if(s)s.style.display=\'grid\'"><span class="coachini" style="display:none;background:'+col+'">'+ini+'</span>'
+          ? '<img class="coachph" src="'+esc(c.photo_url)+'" alt="'+nm+'" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var s=this.nextElementSibling;if(s)s.style.display=\'grid\'"><span class="coachini" style="display:none;background:'+col+'">'+ini+'</span>'
           : '<span class="coachini" style="background:'+col+'">'+ini+'</span>';
         return '<div class="coachcard'+sel+'" role="button" tabindex="0" data-id="'+esc(c.id)+'" aria-pressed="'+(sel?"true":"false")+'">'+ph+'<span class="coachnm">'+nm+'</span></div>';
       }).join("");
@@ -294,6 +303,37 @@
       renderCoachStrip(); render();
     }
     function clearCoachFilter(){ if(!coachFilter) return; coachFilter=null; curDate=null; renderCoachStrip(); render(); }
+
+    // ── Filter periode (this_week / next_week / two_weeks / all) — menyaring tanggal di date strip. ──
+    var PERIOD_OPTS=[
+      {p:"this_week", t:{en:"This Week",id:"Minggu Ini"}},
+      {p:"next_week", t:{en:"Next Week",id:"Minggu Depan"}},
+      {p:"two_weeks", t:{en:"2 Weeks",id:"2 Minggu"}},
+      {p:"all", t:{en:"All",id:"Semua"}}
+    ];
+    function ymd(d){ var p=function(n){return n<10?"0"+n:""+n;}; return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate()); }
+    function periodRange(p){
+      var now=new Date(), dow=(now.getDay()+6)%7; // Senin=0 .. Minggu=6
+      if(p==="this_week"){ var e=new Date(now); e.setDate(e.getDate()+(6-dow)); return {start:ymd(now), end:ymd(e)}; }
+      if(p==="next_week"){ var s=new Date(now); s.setDate(s.getDate()+(7-dow)); var e2=new Date(now); e2.setDate(e2.getDate()+(13-dow)); return {start:ymd(s), end:ymd(e2)}; }
+      if(p==="two_weeks"){ var e3=new Date(now); e3.setDate(e3.getDate()+14); return {start:ymd(now), end:ymd(e3)}; }
+      return {start:null, end:null}; // all
+    }
+    function renderPeriodSeg(){
+      var seg=$("perSeg"); if(!seg) return;
+      seg.innerHTML=PERIOD_OPTS.map(function(o){
+        return '<button type="button" data-p="'+o.p+'" class="'+(o.p===PERIOD?"on":"")+'">'+esc(LL(o.t))+'</button>';
+      }).join("");
+      Array.prototype.forEach.call(seg.querySelectorAll("button"), function(b){
+        b.onclick=function(){ var p=b.getAttribute("data-p"); if(p!==PERIOD) setPeriod(p); };
+      });
+      seg.hidden=false;
+    }
+    function setPeriod(p){
+      PERIOD=p; curDate=null;
+      try{ var u=new URL(location.href); u.searchParams.set("period", p); history.replaceState(null,"",u.pathname+u.search); }catch(e){}
+      renderPeriodSeg(); render();
+    }
 
     // Filter Arena/Gym in-page (hanya halaman ini). Klinik (Book Recovery) TANPA toggle.
     function renderVenueSeg(){
@@ -363,13 +403,18 @@
           return { date:d.date, classes:(d.classes||[]).filter(function(c){ return coachFilter.texts.indexOf(c.instructor)>=0; }) };
         }).filter(function(d){ return d.classes.length; });
       }
+      // Filter periode: batasi tanggal ke window terpilih (all = tanpa batas).
+      var pr=periodRange(PERIOD);
+      if(pr.start||pr.end){
+        view=view.filter(function(d){ return (!pr.start||d.date>=pr.start) && (!pr.end||d.date<=pr.end); });
+      }
       if(!view.length){
         $("dateStrip").innerHTML="";
         $("dHead").textContent="";
         $("classList").innerHTML='<div class="empty">'+esc(LL(VC.empty))+'</div>';
         return;
       }
-      // Tanggal terpilih harus ada di view (sehabis pilih coach / ganti tanggal / ganti bahasa).
+      // Tanggal terpilih harus ada di view (sehabis pilih coach / ganti tanggal / ganti bahasa / periode).
       if(!view.some(function(d){ return d.date===curDate; })){
         var t0=todayStr(); curDate=view.some(function(d){ return d.date===t0; })?t0:view[0].date;
       }
