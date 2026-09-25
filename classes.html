@@ -5,6 +5,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Jadwal Kelas · 20FIT</title>
+<link rel="preconnect" href="https://media.20fit.id">
 <style>
   :root{--red:#C41101;--bg:#0b0b0c;--card:#FFFFFF;--line:#E8E2DB;--txt:#0A0908;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#EDE8DF;--green:#2A7A4F;--amber:#C87000}
   *{box-sizing:border-box}
@@ -269,7 +270,7 @@
         var c=x.c, nm=esc(c.name||""), ini=esc(coachInitials(c.name)), col=coachColor(c.name);
         var sel=(coachFilter&&coachFilter.id===c.id)?" sel":"";
         var ph=c.photo_url
-          ? '<img class="coachph" src="'+esc(c.photo_url)+'" alt="'+nm+'" loading="lazy" onerror="this.style.display=\'none\';var s=this.nextElementSibling;if(s)s.style.display=\'grid\'"><span class="coachini" style="display:none;background:'+col+'">'+ini+'</span>'
+          ? '<img class="coachph" src="'+esc(c.photo_url)+'" alt="'+nm+'" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var s=this.nextElementSibling;if(s)s.style.display=\'grid\'"><span class="coachini" style="display:none;background:'+col+'">'+ini+'</span>'
           : '<span class="coachini" style="background:'+col+'">'+ini+'</span>';
         return '<div class="coachcard'+sel+'" role="button" tabindex="0" data-id="'+esc(c.id)+'" aria-pressed="'+(sel?"true":"false")+'">'+ph+'<span class="coachnm">'+nm+'</span></div>';
       }).join("");

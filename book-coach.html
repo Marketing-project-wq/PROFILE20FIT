@@ -5,6 +5,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Book Coach · 20FIT</title>
+<link rel="preconnect" href="https://media.20fit.id">
 <style>
   :root{--red:#C41101;--bg:#F3F2F0;--card:#FFFFFF;--line:#E8E2DB;--txt:#1A1714;--ink:#16170F;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#16170F;--green:#2A7A4F;--amber:#C87000;--shadow:0 2px 12px rgba(0,0,0,.10)}
   html:not(.theme-light){ --bg:#0C0D10;--card:#17191F;--line:#25272E;--txt:#F4F5F7;--ink:#F4F5F7;--muted:#8E9198;--inp:#23262E;--pagetx:#F4F5F7 }
@@ -118,7 +119,7 @@
     function venueTag(v){ return v==="gym"?"Gym":(v==="arena"?"Arena":"Arena · Gym"); }
     function avatarInner(name, photo, cls){
       var color=colorFor(name);
-      if(photo) return '<img src="'+esc(photo)+'" alt="'+esc(name)+'" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'"><span class="ini" style="display:none;background:'+color+'">'+esc(initials(name))+'</span>';
+      if(photo) return '<img src="'+esc(photo)+'" alt="'+esc(name)+'" loading="lazy" decoding="async" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'"><span class="ini" style="display:none;background:'+color+'">'+esc(initials(name))+'</span>';
       return '<span class="ini" style="background:'+color+'">'+esc(initials(name))+'</span>';
     }
     function fmtDay(s){ if(!s)return""; var d=new Date(s+"T00:00:00"); if(isNaN(d))return s; try{ return new Intl.DateTimeFormat(LL({en:"x",id:"y"})==="y"?"id-ID":"en-GB",{weekday:"long",day:"numeric",month:"short",timeZone:"Asia/Jakarta"}).format(d);}catch(e){return s;} }

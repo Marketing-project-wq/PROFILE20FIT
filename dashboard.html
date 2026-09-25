@@ -5,6 +5,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Dashboard · 20FIT</title>
+<link rel="preconnect" href="https://media.20fit.id">
 <style>
   /* ===== 20FIT Dashboard — new visual design (light-first, dark via app toggle) =====
      Re-skin only: every wired id/handler & the whole <script> are unchanged. */
@@ -1573,7 +1574,7 @@
           var nm=c.coach?c.coach.name:(c.instructor||"");
           var shortNm=String(nm).replace(/^Coach\s+/i,"");
           var ph=(c.coach&&c.coach.photo_url)
-            ? '<img class="home-upc-ph" src="'+esc(c.coach.photo_url)+'" alt="" loading="lazy" onerror="this.style.display=\'none\';var s=this.nextElementSibling;if(s)s.style.display=\'grid\'"><span class="home-upc-ini" style="display:none;background:'+col(nm)+'">'+esc(ini(nm))+'</span>'
+            ? '<img class="home-upc-ph" src="'+esc(c.coach.photo_url)+'" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var s=this.nextElementSibling;if(s)s.style.display=\'grid\'"><span class="home-upc-ini" style="display:none;background:'+col(nm)+'">'+esc(ini(nm))+'</span>'
             : '<span class="home-upc-ini" style="background:'+col(nm)+'">'+esc(ini(nm))+'</span>';
           return '<a class="home-upc-item" href="'+esc(c.book_url)+'">'+
             '<span class="home-upc-date"><span class="d">●</span> '+esc(dl)+'</span>'+
