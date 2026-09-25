@@ -24,20 +24,22 @@
   .venuefilt button{border:1.2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 13px;font-weight:800;font-size:12.5px;cursor:pointer}
   .venuefilt button[aria-pressed="true"]{border-color:var(--red);color:var(--red)}
   .grpTitle{font-size:16px;font-weight:900;margin:20px 2px 12px;color:var(--pagetx)}
-  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-  @media(min-width:560px){ .grid{grid-template-columns:repeat(3,minmax(0,1fr))} }
-  @media(min-width:760px){ .grid{grid-template-columns:repeat(4,minmax(0,1fr))} }
+  /* Kartu coach: seragam 170px, di-center. align-items:start supaya kartu setinggi konten (foto+nama)
+     — TIDAK meregang mengikuti kartu tertinggi (itu yang dulu bikin ruang kosong di bawah nama). */
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+  @media(min-width:520px){ .grid{grid-template-columns:repeat(auto-fill,170px);justify-content:center} }
   .cc{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;cursor:pointer}
   .cc .av{width:100%;aspect-ratio:1;position:relative;overflow:hidden;background:var(--inp)}
   /* img HARUS absolute (inset:0) supaya tinggi frame murni dari aspect-ratio — bukan dari tinggi
      asli foto. Kalau img ikut normal-flow dgn height:100%, aspect-ratio box gagal & foto tampil
      mengikuti rasio aslinya (foto tinggi jadi kepanjangan, foto lebar jadi pendek). */
-  .cc .av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 22%;display:block}
+  .cc .av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;display:block}
   .cc .ini{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:30px;letter-spacing:.02em}
-  .cc .tag{position:absolute;top:8px;left:8px;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.42);border-radius:6px;padding:3px 7px}
-  .cc .bd{padding:11px 12px 13px}
-  .cc .nm{font-weight:800;font-size:14px;line-height:1.2;color:var(--ink);overflow-wrap:anywhere}
-  .cc .sp{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .cc .tag{position:absolute;top:6px;left:6px;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.45);border-radius:5px;padding:2px 6px}
+  /* Area nama COMPACT — tinggi = konten + padding kecil, tanpa min-height. */
+  .cc .bd{padding:8px 10px}
+  .cc .nm{font-weight:700;font-size:13px;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
+  .cc .sp{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cc .bio{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
   .cc .nophoto{font-size:10px;color:var(--muted);margin-top:5px;opacity:.85}
   .state{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 20px;text-align:center;color:var(--muted);font-size:13px}
@@ -46,6 +48,22 @@
   @media(min-width:560px){ .skg{grid-template-columns:repeat(3,1fr)} }
   .skel{aspect-ratio:.82;border-radius:16px;background:linear-gradient(90deg,var(--inp),color-mix(in srgb,var(--inp) 55%,#fff),var(--inp));background-size:200% 100%;animation:sh 1.2s infinite}
   @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  /* ── Upcoming Classes (di bawah grid coach) ── */
+  .upcoming{margin-top:34px;padding-top:24px;border-top:1px solid var(--line)}
+  .uc-h{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
+  .uc-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:var(--card)}
+  .uc-main{min-width:0}
+  .uc-nm{font-size:14.5px;font-weight:800;color:var(--ink);margin:0;display:flex;align-items:center;gap:8px}
+  .uc-dot{width:9px;height:9px;border-radius:3px;flex:0 0 auto}
+  .uc-meta{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .uc-when{font-size:12px;color:var(--muted);margin-top:2px}
+  .uc-right{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+  .uc-slots{font-size:11.5px;font-weight:700;color:var(--muted);white-space:nowrap}
+  .uc-slots.low{color:#F97316}
+  .uc-slots.full{color:var(--red)}
+  .uc-book{padding:7px 15px;background:var(--red);color:#fff;border-radius:9px;font-size:12px;font-weight:800;white-space:nowrap}
+  .uc-reason{font-size:11.5px;font-weight:700;color:var(--muted);white-space:nowrap}
+  @media(max-width:520px){ .uc-card{flex-direction:column;align-items:stretch} .uc-right{justify-content:space-between} }
 </style>
 </head>
 <body>
@@ -67,6 +85,7 @@
       <button data-venue="gym" aria-pressed="false">Gym</button>
     </div>
     <div id="root"></div>
+    <div id="upcoming" class="upcoming" hidden></div>
   </div>
 
   <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
@@ -175,8 +194,51 @@
       }catch(e){ STATE="error"; render(); }
     }
 
-    applyStatic(); load();
-    if(window.I18N && I18N.onChange) I18N.onChange(function(){ applyStatic(); render(); });
+    // ── Upcoming Classes (flat lintas arena+gym) — /api/classes/upcoming ──
+    var UPC=null;
+    function ucLoc(){ return (window.I18N && I18N.lang==="en")?"en-US":"id-ID"; }
+    function venueLbl(src){ return src==="gym"?"Gym":(src==="arena"?"Arena":src); }
+    function reasonLbl(r){ return r==="full"?LL({en:"Full",id:"Penuh"}):(r==="passed"?LL({en:"Passed",id:"Lewat"}):LL({en:"Closed",id:"Ditutup"})); }
+    function fmtWhen(dateStr,start,end){
+      var d=new Date(dateStr+"T"+(start||"00:00")+":00+07:00");
+      var ds=d.toLocaleDateString(ucLoc(),{weekday:"short",day:"numeric",month:"short"});
+      return ds+" · "+(start||"")+(end?("–"+end):"");
+    }
+    function ucCard(c){
+      var coachName=c.coach?c.coach.name:(c.instructor||"");
+      var meta=esc(coachName)+(coachName?" · ":"")+esc(venueLbl(c.source));
+      var slots="";
+      if(c.remaining!=null){
+        var sc=c.remaining<=0?"full":(c.remaining<=3?"low":"");
+        var stx=c.remaining<=0?LL({en:"Full",id:"Penuh"}):(c.remaining+" "+LL({en:"left",id:"sisa"}));
+        slots='<span class="uc-slots '+sc+'">'+esc(stx)+'</span>';
+      }
+      var action=c.selectable
+        ? '<a class="uc-book" href="'+esc(c.book_url)+'">'+esc(LL({en:"Book",id:"Book"}))+'</a>'
+        : (c.reason==="full" ? "" : '<span class="uc-reason">'+esc(reasonLbl(c.reason))+'</span>');  // "full" sudah tampil di badge slots
+      return '<div class="uc-card"><div class="uc-main">'+
+        '<div class="uc-nm"><span class="uc-dot" style="background:'+esc(c.color||"#C41101")+'"></span>'+esc(c.name||"Kelas")+'</div>'+
+        '<div class="uc-meta">'+meta+'</div>'+
+        '<div class="uc-when">'+esc(fmtWhen(c.date,c.start,c.end))+'</div>'+
+        '</div><div class="uc-right">'+slots+action+'</div></div>';
+    }
+    function renderUpcoming(){
+      var wrap=$("upcoming"); if(!wrap) return;
+      if(!UPC||!UPC.length){ wrap.hidden=true; wrap.innerHTML=""; return; }
+      wrap.innerHTML='<div class="uc-h">'+esc(LL({en:"Upcoming Classes",id:"Kelas Mendatang"}))+'</div>'+UPC.map(ucCard).join("");
+      wrap.hidden=false;
+    }
+    async function loadUpcoming(){
+      try{
+        var r=await fetch("/api/classes/upcoming?days=14&limit=30");
+        var j=await r.json().catch(function(){return null;});
+        UPC=(j&&j.ok&&Array.isArray(j.classes))?j.classes:[];
+      }catch(e){ UPC=[]; }
+      renderUpcoming();
+    }
+
+    applyStatic(); load(); loadUpcoming();
+    if(window.I18N && I18N.onChange) I18N.onChange(function(){ applyStatic(); render(); renderUpcoming(); });
   })();
   </script>
 </body>
