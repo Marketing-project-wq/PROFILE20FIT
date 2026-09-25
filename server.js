@@ -3247,10 +3247,36 @@ app.get("/api/coaches", async (req, res) => {
     q = q.order("sort_order", { ascending: true }).order("display_name", { ascending: true });
     const { data, error } = await q;
     if (error) throw error;
-    const coaches = (data || []).map(c => ({
+    let coaches = (data || []).map(c => ({
       id: c.id, name: c.display_name, venue: c.venue,
       speciality: c.speciality || null, photo_url: c.photo_url || null,
     }));
+    // ?active=1 -> HANYA coach yang punya kelas mendatang (halaman Book Coach FASE 2).
+    // "Punya kelas" = ada alias (my20fit_coach_instructor_aliases) yang teksnya PERSIS cocok
+    // dgn instructor kelas mendatang (tidak dibatalkan) di jadwal arena/gym. Konsisten dgn
+    // strip Coaches di Book Class. venue arena/gym -> cek source itu saja; tanpa venue -> keduanya.
+    if (String(req.query.active || "") === "1") {
+      const p2 = (n) => (n < 10 ? "0" + n : "" + n);
+      const now = new Date();
+      const today = now.getFullYear() + "-" + p2(now.getMonth() + 1) + "-" + p2(now.getDate());
+      async function upcomingInstructors(source) {
+        const cfg = CLASS_VENUES[source];
+        const { data: rows } = await admin.from(cfg.table)
+          .select("instructor").gte("schedule_date", today).eq("is_cancelled", false).limit(3000);
+        const set = {};
+        (rows || []).forEach(r => { if (r.instructor) set[r.instructor] = 1; });
+        return set;
+      }
+      const [arenaSet, gymSet] = await Promise.all([upcomingInstructors("arena"), upcomingInstructors("gym")]);
+      const { data: al } = await admin.from("my20fit_coach_instructor_aliases").select("coach_id,instructor_text,source");
+      const hasA = {}, hasG = {};
+      (al || []).forEach(a => {
+        if (a.source === "arena" && arenaSet[a.instructor_text]) hasA[a.coach_id] = 1;
+        else if (a.source === "gym" && gymSet[a.instructor_text]) hasG[a.coach_id] = 1;
+      });
+      coaches = coaches.filter(c =>
+        venue === "arena" ? !!hasA[c.id] : venue === "gym" ? !!hasG[c.id] : (!!hasA[c.id] || !!hasG[c.id]));
+    }
     return res.json({ ok: true, coaches });
   } catch (e) { return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" }); }
 });
