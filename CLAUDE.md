@@ -3,7 +3,7 @@
 Aturan tetap di bawah ini WAJIB diikuti setiap sesi. Ditulis dari instruksi
 pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 
-> **Pembaruan dokumen terakhir:** 2026-09-21 · **Commit staging:** `2b30541` · **Production:** `7740dbf`
+> **Pembaruan dokumen terakhir:** 2026-09-26 · **Commit staging:** `98bd28a` · **Production:** `f0803af`
 > (Hash di atas = kondisi SEBELUM rilis yang membawa baris ini; merge commit rilisnya sendiri
 > otomatis lebih baru. Jangan kejar selisih satu merge commit itu.)
 > Claude Code memuat file ini otomatis di awal sesi. Baca ini dulu, lalu buka
@@ -132,8 +132,11 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
   Mengubah ini butuh perubahan di backend 20FIT, bukan di repo ini.
 - Admin dashboard: `/admin-dashboard` (RBAC superadmin/staff/viewer di
   `my20fit_admin_roles`); `/admin` redirect ke sana. `ADMIN_KEY` = master key
-  superadmin opsional. Di **staging**, `/admin-dashboard` auto-redirect ke `/admin-v2`
-  (deteksi host); **produksi** tetap admin lama sampai flag `admin_v2` ON.
+  superadmin opsional. `/admin-dashboard` auto-redirect ke `/admin-v2`: di **staging**
+  via deteksi host, dan di **produksi** karena flag `admin_v2` kini **ON** (sejak
+  2026-09-25). Admin lama tetap bisa dibuka via `/admin-dashboard?legacy=1`. Reversible:
+  set flag OFF di `my20fit_admin_feature_flags`. Editor foto coach ada di admin-v2 →
+  Coaches (upload auto-resize ≤512px).
 
 ---
 
@@ -167,9 +170,9 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 
 ## C. Route / halaman (ringkas; detail & API di `docs/CODEBASE-MAP.md`)
 **Publik/auth:** `/` (→`/login`), `/login`, `/code-login`, `/verify`, `/reset-password`, `/setpassword`, `/onboarding`, `/unsubscribe`, `/privacy`.
-**Member (perlu login):** `/dashboard` (home 6-tile), `/activity` (**Activity**: upload/isi workout, zona HR, rencana harian AI, nutrisi, kebiasaan, ringkasan minggu — data dari `/api/activity/*`), `/calories`, `/progress` (**redirect 302 ke `/activity`**; halaman lama masih bisa dibuka via `/progress?legacy=1`), `/profile`, `/medical`, `/recipe` (**Recipe in-app**: browse resep + detail + kontribusi; katalog & artikel dibaca dari `/api/menu/*`, `/diet` redirect 301 ke sini), `/classes` (Book Class, toggle Arena/Gym; `?venue=clinic`=Book Recovery), `/membership` (carousel — **data belum tersambung**), `/event` (**Ticket Wallet**: tab "Tiket Saya" + "Upcoming"; widget bersama `js/ticket-wallet.js`, dipakai juga di `/dashboard`), `/payment/pending|success|failed`.
+**Member (perlu login):** `/dashboard` (home 6-tile), `/activity` (**Activity**: upload/isi workout, zona HR, rencana harian AI, nutrisi, kebiasaan, ringkasan minggu — data dari `/api/activity/*`), `/calories`, `/progress` (**redirect 302 ke `/activity`**; halaman lama masih bisa dibuka via `/progress?legacy=1`), `/profile`, `/medical`, `/recipe` (**Recipe in-app**: browse resep + detail + kontribusi; katalog & artikel dibaca dari `/api/menu/*`, `/diet` redirect 301 ke sini), `/classes` (Book Class: toggle Arena/Gym + **strip Coaches** FASE 2 (hanya coach ber-kelas, klik=filter jadwal) + **filter periode** Minggu Ini/Depan/2 Minggu/Semua (`?period=`) + section **Upcoming Classes**; `?venue=clinic`=Book Recovery), `/book-coach` (list **hanya coach ber-kelas** + jadwal per coach), `/team` (Meet Our Doctors & Coaches: grid foto 170px + Upcoming Classes), `/membership` (carousel — **data belum tersambung**), `/event` (**Ticket Wallet**: tab "Tiket Saya" + "Upcoming"; widget bersama `js/ticket-wallet.js`, dipakai juga di `/dashboard`), `/payment/pending|success|failed`.
 **Admin:** `/admin`(→`/admin-dashboard`), `/admin-dashboard` (lama), `/admin-v2` (redesign; staging default), `/admin-email`, `/corp-dashboard`.
-**API:** `/api/*` (~123 route) — user (`/api/scan/*`, `/api/menu/catalog` (daftar resep), `/api/menu/recommend` (rekomendasi per sisa makro), `/api/menu/published`, `/api/classes/schedule`, `/api/arena/history`, `/api/membership/packages`, `/api/coaches`, `/api/doctors`, `/api/physiotherapists`, `/api/activity/*` (day/workout/upload/**scan**/plan/goal — `scan` membaca screenshot health tracker lewat OpenRouter, bisa sampai 5 gambar untuk SATU sesi), `/api/photo/*`, `/api/weather`, `/api/aqi`, dll), admin (`/api/admin/*` ~53, semua lewat `requireAdmin`), corporate (`/api/corp/*`), cron (`/api/cron/*`, dilindungi `CRON_SECRET`), webhook (`/api/webhooks/resend`).
+**API:** `/api/*` (~123 route) — user (`/api/scan/*`, `/api/menu/catalog` (daftar resep), `/api/menu/recommend` (rekomendasi per sisa makro), `/api/menu/published`, `/api/classes/schedule`, `/api/classes/upcoming` (kelas mendatang flat lintas arena+gym utk section Upcoming Classes), `/api/arena/history`, `/api/membership/packages`, `/api/coaches` (+`?active=1`=hanya coach ber-kelas), `/api/coaches/aliases` (coach+teks alias, utk strip FASE 2), `/api/coaches/:id/classes`, `/api/team`, `/api/doctors`, `/api/physiotherapists`, `/api/activity/*` (day/workout/upload/**scan**/plan/goal — `scan` membaca screenshot health tracker lewat OpenRouter, bisa sampai 5 gambar untuk SATU sesi), `/api/photo/*`, `/api/weather`, `/api/aqi`, dll), admin (`/api/admin/*` ~53, semua lewat `requireAdmin`), corporate (`/api/corp/*`), cron (`/api/cron/*`, dilindungi `CRON_SECRET`), webhook (`/api/webhooks/resend`).
 Tile **News** = eksternal `media.20fit.id` (same-tab, tanpa halaman).
 
 ## D. Auth & peran (ringkas)
@@ -247,10 +250,12 @@ fisioterapis (belum ada seksinya di `/admin-v2` — baru bisa lewat SQL).
 ## J. Langkah berikutnya (urut prioritas)
 1. **Membership berdata:** konfirmasi path katalog upstream + set env `MEMBERSHIP_CATALOG_PATH`, finalkan mapper `/api/membership/packages`.
 2. **Tiket — QR untuk pembeli yang emailnya belum dikenal penerbit.** Halaman Event & Ticket Wallet sudah tersambung (`/api/events/upcoming` + `/api/tickets/mine`), tapi pembeli yang tak dikenal `ticket.20fit.id` hanya dapat arsip **tanpa QR**. Hanya tim ticket.20fit.id yang bisa menutup ini — permintaannya di `docs/TICKET-API-REQUEST.md` §5.
-3. **admin-v2 #293:** putuskan merge (sessionStorage master key + banner login).
-4. **Verifikasi migration 013** sudah dijalankan di staging & produksi.
-5. **Refresh `docs/CODEBASE-MAP.md`** yang stale (email consent, ref baris server.js).
-6. (Opsional) promo-banner `_blank` → same-tab bila pemilik mau.
+3. **Coach alias yang belum dipetakan (TANYA PEMILIK):** co-teach `Kiki, Mae` & `Asa & Mae` (kalau Kiki/Mae mau muncul saat mengajar berdua), gym `Chynthia`. Asumsi `Andro`=Coach Andrew sudah dipakai — koreksi kalau salah.
+4. **admin-v2 #293 (opsional):** flag `admin_v2` sudah ON di produksi & bagian sessionStorage master key sudah ada; sisa yang mungkin di-merge dari branch `claude/admin-v2-fix-auth` = **banner login penuh** (kalau login UX kurang mulus).
+5. (Opsional) **Upload ulang 11 foto coach** lewat admin-v2 → Coaches supaya ikut auto-resize (yang sekarang masih file besar dari WordPress).
+6. **Verifikasi migration 013** sudah dijalankan di staging & produksi.
+7. **Refresh `docs/CODEBASE-MAP.md`** yang stale (email consent, ref baris server.js).
+8. (Opsional) promo-banner `_blank` → same-tab bila pemilik mau.
 
 ## K. Cara merawat dokumen ini
 > **Untuk sesi Claude Code berikutnya:** Baca file ini di awal sesi. **Setelah**

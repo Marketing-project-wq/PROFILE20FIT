@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-21 · **Commit staging:** `245b7d1` · **Production:** `7740dbf`
+> **Pembaruan terakhir:** 2026-09-26 · **Commit staging:** `98bd28a` · **Production:** `f0803af`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -42,14 +42,20 @@ naikkan resource — **butuh akses dashboard Railway (di luar agent).**
 | Pembayaran | Xendit **via API FITCO/20FIT** (shop order). Kredit masuk via polling + sapuan reconcile (tak ada webhook di sini) | `/api/scan/buy\|order-status\|reconcile` |
 | Email | Resend (satu jalur `lib/email.js`); consent **dihapus** → kirim langsung, opt-out via unsubscribe/suppression/frequency; blast wizard, automations, kill switch, webhook | `lib/*.js`, `admin-email.html`, `/api/webhooks/resend` |
 | Admin console | `admin-dashboard` (lama) + `admin-v2` (redesign). RBAC marketing/viewer/staff/superadmin. Section: Overview/Revenue/User/Scan/Marketing/Voucher/Menu/Corporate/Reports/Settings | `admin-v2.html`, `js/admin-shell.js`, `/api/admin/*` |
-| Admin swap | `/admin-dashboard` auto → `/admin-v2` **di staging** (deteksi host). Produksi tetap admin lama sampai flag `admin_v2` ON | `server.js` (`adminV2Enabled`, `isStagingReq`) |
+| Admin swap | `/admin-dashboard` auto → `/admin-v2`. **Flag `admin_v2` kini ON di PRODUKSI** (2026-09-25) → produksi & staging sama-sama pakai admin-v2. Admin lama tetap bisa dibuka via `?legacy=1`. Reversible: set flag OFF di `my20fit_admin_feature_flags` | `server.js` (`adminV2Enabled`, `isStagingReq`) |
 | Voucher / Banner / Corporate | Modul voucher (logging/tracking/bulk), banner/promo (render dashboard), corporate (roster, pesan) | migration 011/012, `corp-dashboard.html` |
 | Jadwal kelas | `/api/classes/schedule?venue=arena\|gym\|clinic` (baca Supabase) → halaman `/classes` | `classes.html` |
 | Riwayat arena | `/api/arena/history` proxy ke **arena-api** (`ARENA_API_KEY`), member-scoped | `progress.html` |
 | **Homepage 6-tile → halaman** | Tile Baris 1 = 6 opsi, tiap tile navigasi ke route sendiri (bukan panel inline). Panel inline & pin Baris 2 **dihapus** | `dashboard.html` (PR #295) |
 | **Book Class filter** | `/classes` punya toggle **Arena/Gym** in-page; `?venue=clinic` = Book Recovery (tanpa toggle) | `classes.html` (PR #295) |
 | **Menu bar Event** | Item menu bar `Medical` → `Event`; `event.html` placeholder "Upcoming" | `js/nav.js`, `event.html` (PR #294) |
-| **Roster home (coach/dokter/fisioterapis)** | Tiga rail di bawah home: `/api/coaches`, `/api/doctors`, `/api/physiotherapists`. Terisi: 4 coach (+23 alias instructor), 5 dokter, 3 fisioterapis. Kartu tanpa `photo_url` — atau yang `<img>`-nya gagal dimuat — ditandai "Foto belum ada" | `dashboard.html`, `server.js` (PR #412) |
+| **Roster home (coach/dokter/fisioterapis)** | Tiga rail di bawah home: `/api/coaches`, `/api/doctors`, `/api/physiotherapists`. Roster coach diperluas (solo + pasangan co-teach) & foto diperbarui (2026-09). Kartu tanpa `photo_url` — atau yang `<img>`-nya gagal dimuat — ditandai "Foto belum ada" | `dashboard.html`, `server.js` (PR #412) |
+| **Halaman Team `/team`** | "Meet Our Doctors & Coaches": grid coach+dokter+fisio dari `/api/team`. Frame foto **seragam 170px** (aspect-ratio box, `object-fit:cover object-position:top`), nama compact. Di bawahnya section **Upcoming Classes** | `team.html` (PR #502/#506) |
+| **Coaches strip Book Class (FASE 2)** | Strip coach di `/classes`: **hanya coach yang punya kelas** di jadwal yang tampil (match teks instructor PERSIS via `my20fit_coach_instructor_aliases`) + klik coach → filter jadwal. Endpoint `GET /api/coaches/aliases` | `classes.html`, `server.js` (PR #498/#501), `COACH-LOGIC.md` |
+| **Book Coach FASE 2** | `/book-coach` list = **hanya coach ber-kelas** (`/api/coaches?active=1`). Frame foto 170px | `book-coach.html`, `server.js` (PR #504/#505) |
+| **Upcoming Classes** | Section daftar kelas mendatang (flat, lintas arena+gym, sisa kursi + Book) di `/team` & **row scroll di home (bawah AQI)**. Endpoint `GET /api/classes/upcoming?days&limit` (map instructor→coach via alias) | `team.html`, `dashboard.html`, `server.js` (PR #506) |
+| **Book Class filter periode** | `/classes` punya pill **Minggu Ini / Minggu Depan / 2 Minggu / Semua** (+ toggle venue + filter coach). "See All" home → `/classes?period=this_week` | `classes.html`, `dashboard.html` (PR #508) |
+| **Perf foto coach** | `preconnect` + `decoding="async"` di halaman coach; upload foto admin **auto-resize ≤512px + kompres JPEG** sebelum simpan ke Storage | `team.html`/`book-coach.html`/`classes.html`/`dashboard.html`/`admin-v2.html` (PR #507) |
 | **Recipe data via API** | `js/recipes.js` (~291KB, 120 resep) **tidak lagi dimuat di browser**. Halaman `recipe.html` dan `calories.html` kini fetch dari `/api/menu/catalog` (daftar lengkap) dan `/api/menu/recommend` (rekomendasi berdasar sisa makro). Utilitas foto diekstrak ke `js/recipe-photos.js` (~2KB, `window.RecipePhotos`). `js/recipes.js` tetap ada untuk dipakai server-side (`loadMenuCatalog`). | `recipe.html`, `calories.html`, `js/recipe-photos.js`, `server.js` (PR #442/#443) |
 
 ## 1b. Recipe: IN-APP, jangan dilempar keluar lagi
@@ -513,7 +519,8 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 - **CMS admin fisioterapis BELUM ADA.** `my20fit_physiotherapists` sudah dipakai frontend, tapi belum punya seksi di `/admin-v2` seperti dokter & coach — untuk sekarang hanya bisa diedit lewat SQL. Endpoint `/api/admin/physiotherapists` juga belum dibuat.
 - **Ikon 3D: latar menyatu di dalam file PNG.** Kotak CSS sudah transparan (`.s2-ic.s2-ic3d` → `background rgba(0,0,0,0)`, terverifikasi via computed style), jadi latar yang terlihat berasal dari file di `media.20fit.id`. **TANYA PEMILIK:** perlu PNG versi transparan. Ikon 3D **Reward** juga belum ada filenya — tile Rewards masih SVG (`ic:"gift"`).
 - **dr. Ande belum ada foto.** URL yang diberikan menunjuk file dr. Anna; tidak dipasang demi menghindari salah orang. Sementara pakai placeholder inisial + penanda.
-- **~15 instruktur lain belum masuk roster coach** (Elsen, Andro, Brian, YoKae, Gilang, Mae, Ista, dll). Kelas mereka tetap jalan, hanya tak punya kartu coach.
+- **Roster coach & alias diperluas (2026-09-25/26).** Ditambahkan coach solo (Brian, Elsen, Gilang, Andrew, Josea) + alias exact-name (`Brian`,`Elsen`,`Gilang`,`Andrew`,`Ista`,`YoKae`) dan **`Andro` (gym) → Coach Andrew** (ejaan jadwal gym). Foto 11 coach diperbarui.
+  - **Belum dipetakan (TANYA PEMILIK):** gym `Chynthia`; co-teach `Kiki, Mae` / `Asa & Mae` (kalau mau Kiki/Mae muncul saat mengajar berdua). **Asumsi `Andro`=Coach Andrew** — koreksi kalau ternyata beda orang.
 
 - **Membership catalog** (`/membership`): halaman + carousel + proxy `GET /api/membership/packages` **sudah dibuat** (PR #295), TAPI endpoint upstream katalog belum tersambung.
   - Proxy meneruskan ke arena-api pada path env `MEMBERSHIP_CATALOG_PATH` (default `/packages`), mapper defensif. Kalau path/shape belum cocok → balas `groups:[]` (halaman "empty", tanpa data karangan) dan **log `membership raw shape: …`** di server.
@@ -527,7 +534,7 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 
 ## 4. Bug / utang teknis diketahui
 
-- **admin-v2 fix auth #293 BELUM ter-merge.** Branch `claude/admin-v2-fix-auth` (CI hijau) menambah: baca master key admin dari `sessionStorage.admin_master_key` + banner "login admin" saat belum terautentikasi. Saat ini admin-v2 autentikasi via `Authorization: Bearer <JWT>` (jika login app/admin password) atau `?key=ADMIN_KEY`. **TANYA PEMILIK** apakah mau di-merge.
+- **admin-v2 auth: sebagian #293 sudah ada.** admin-v2 kini baca master key dari `?key=` / `sessionStorage.admin_master_key` + pesan panduan "Buka dengan ?key=ADMIN_KEY atau login admin" per-seksi. Autentikasi: `Authorization: Bearer <JWT>` (login app/admin password) atau `?key=ADMIN_KEY`. **Flag `admin_v2` ON di produksi (2026-09-25).** Yang mungkin masih kurang dari branch `claude/admin-v2-fix-auth`: **banner login penuh** saat belum terautentikasi — kalau login UX dirasa kurang mulus, pertimbangkan merge branch itu.
 - **`getAdminContext` menelan error infra jadi 401.** Kalau Supabase `getUser` timeout/mati (status 503 dari `getUserFromReq`), `getAdminContext` menangkap dan balas `null` → `requireAdmin` balas **401** (seolah sesi habis), bukan 503. Menyesatkan saat debug. (`server.js`.) Prioritas rendah.
 - **Promo-banner masih pakai `target="_blank"`.** Di `dashboard.html` render `#promoBanner` (banner marketing admin, `cta_type==="external_link"`) — satu-satunya `_blank` tersisa. Terpisah dari tile navigation. **TANYA PEMILIK** apakah mau dijadikan same-tab.
 - **`docs/CODEBASE-MAP.md` sebagian STALE.** Ditulis pada "TASK 0"; masih menyebut *email consent* di onboarding (sudah dihapus migration 013) dan referensi baris `server.js` lama (server.js kini lebih besar). Pakai untuk peta umum, tapi verifikasi ke kode untuk detail terkini.
@@ -537,7 +544,7 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 
 - **Pembayaran: Xendit via API FITCO/20FIT, bukan Xendit langsung.** Akun Xendit dipakai bersama app lain; webhook invoice account-global → callback "paid" selalu ke backend 20FIT, tak pernah ke my.20fit.id. Maka **tak ada webhook di sisi kita**; kredit lewat polling + `/api/scan/reconcile` (idempoten via RPC `my20fit_credit_scan`). Lihat CLAUDE.md "Konteks penting".
 - **Email consent dihapus** (PR #291, migration 013): kirim langsung, model opt-out (unsubscribe + suppression + frequency cap).
-- **Admin swap staging-first** (PR #290): staging pakai `admin-v2` via deteksi host; produksi tetap admin lama sampai flag `admin_v2` ON (reversible).
+- **Admin swap staging-first** (PR #290): staging pakai `admin-v2` via deteksi host; produksi digating flag `admin_v2` (reversible). **Flag di-ON-kan di produksi 2026-09-25** (permintaan pemilik, untuk editor foto coach) — admin lama tetap via `?legacy=1`.
 - **Tile homepage → halaman sendiri** (PR #295): panel inline expand diganti navigasi per-route atas permintaan pemilik. Book Class/Recovery **reuse `/classes`** (hindari duplikasi), bukan halaman baru.
 - **Membership tanpa data dummy**: placeholder "empty" sampai endpoint katalog asli tersedia (aturan: jangan karang data/endpoint).
 - **Navigasi tile & 6 halaman WAJIB same-tab** (tanpa `target="_blank"`/`window.open`), termasuk link eksternal media.20fit.id & booking.20fit.id.
