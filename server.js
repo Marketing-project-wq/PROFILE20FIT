@@ -8931,6 +8931,106 @@ app.get("/api/activity/day", async (req, res) => {
   }
 });
 
+// GET /api/activity/health-score — skor kesehatan komposit, DIHITUNG on-the-fly dari data
+// yang SUDAH ADA (tanpa tabel baru): konsistensi workout, nutrisi, tidur, hidrasi, komposisi
+// tubuh (Visbody), dan lab (MCU). Bobot didistribusi ulang ke kategori yang datanya tersedia.
+// BUKAN diagnosis medis — angka indikatif dari data user sendiri.
+app.get("/api/activity/health-score", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+
+    const today = ymd(new Date());
+    const now = new Date(today + "T00:00:00");
+    const dow = (now.getDay() + 6) % 7;                 // Senin = 0
+    const monday = new Date(now); monday.setDate(now.getDate() - dow);
+    const from7 = new Date(now); from7.setDate(now.getDate() - 6);
+    const mondayStr = ymd(monday), from7Str = ymd(from7);
+
+    // Query paralel; tabel yang belum ada / kosong -> data null -> kategori dilewati (graceful).
+    const [wkRes, dlRes, vbRes, mcuRes] = await Promise.all([
+      admin.from("my20fit_workout").select("workout_date").eq("auth_user_id", user.id).gte("workout_date", mondayStr).lte("workout_date", today),
+      admin.from("my20fit_daily_log").select("log_date,sleep_hours,water_glasses,cal_items").eq("auth_user_id", user.id).gte("log_date", from7Str).lte("log_date", today),
+      admin.from("my20fit_visbody_body").select("body_fat_percentage,body_mass_index,muscle_mass,scanned_at").eq("auth_user_id", user.id).order("scanned_at", { ascending: false }).limit(1),
+      admin.from("my20fit_mcu_result").select("result,created_at").eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(1),
+    ]);
+
+    const scores = {}; let totalWeight = 0;
+    const clamp100 = (n) => Math.max(0, Math.min(100, Math.round(n)));
+
+    // Workout consistency (25%) — target default 4x/minggu (hari unik yg ada workout).
+    {
+      const days = new Set((wkRes.data || []).map((w) => w.workout_date));
+      const target = 4;
+      scores.workout = { score: clamp100((days.size / target) * 100), weight: 25, detail: days.size + "/" + target + " hari" };
+      totalWeight += 25;
+    }
+    const dl = dlRes.data || [];
+    // Nutrition (20%) — rata-rata kalori vs target default 2000; skor puncak di rentang wajar.
+    {
+      const withCal = dl.filter((d) => Array.isArray(d.cal_items) && d.cal_items.length);
+      if (withCal.length) {
+        const avg = withCal.reduce((s, d) => s + sumCalItems(d.cal_items).kcal, 0) / withCal.length;
+        const ratio = avg / 2000;
+        const sc = (ratio >= 0.8 && ratio <= 1.2) ? 90 : (ratio >= 0.6 && ratio <= 1.4) ? 70 : 40;
+        scores.nutrition = { score: sc, weight: 20, detail: Math.round(avg) + " kkal/hari" };
+        totalWeight += 20;
+      }
+    }
+    // Sleep (15%) — target 7.5 jam/malam.
+    {
+      const arr = dl.filter((d) => d.sleep_hours != null).map((d) => +d.sleep_hours).filter((n) => isFinite(n) && n > 0);
+      if (arr.length) {
+        const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
+        scores.sleep = { score: clamp100((avg / 7.5) * 100), weight: 15, detail: avg.toFixed(1) + " jam" };
+        totalWeight += 15;
+      }
+    }
+    // Hydration (10%) — target 8 gelas/hari.
+    {
+      const arr = dl.filter((d) => d.water_glasses != null).map((d) => +d.water_glasses).filter((n) => isFinite(n) && n >= 0);
+      if (arr.length) {
+        const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
+        scores.hydration = { score: clamp100((avg / 8) * 100), weight: 10, detail: avg.toFixed(1) + " gelas" };
+        totalWeight += 10;
+      }
+    }
+    // Body composition (20%) — dari Visbody terbaru (BMI + body fat), simplified.
+    {
+      const b = (vbRes.data && vbRes.data[0]) || null;
+      if (b) {
+        const bmi = +b.body_mass_index, bf = +b.body_fat_percentage;
+        const parts = [];
+        if (isFinite(bmi) && bmi > 0) parts.push(bmi >= 18.5 && bmi <= 24.9 ? 95 : (bmi >= 25 && bmi <= 29.9) ? 70 : 40);
+        if (isFinite(bf) && bf > 0) parts.push(bf <= 25 ? 90 : bf <= 30 ? 70 : 50);
+        if (parts.length) {
+          const det = [isFinite(bmi) && bmi > 0 ? "BMI " + bmi : "", isFinite(bf) && bf > 0 ? "BF " + bf + "%" : ""].filter(Boolean).join(" · ");
+          scores.body = { score: clamp100(parts.reduce((a, c) => a + c, 0) / parts.length), weight: 20, detail: det };
+          totalWeight += 20;
+        }
+      }
+    }
+    // Lab / MCU (10%) — dari abnormal_findings hasil AI (bukan ambang medis karangan).
+    {
+      const m = (mcuRes.data && mcuRes.data[0]) || null;
+      if (m) {
+        const abn = (m.result && Array.isArray(m.result.abnormal_findings)) ? m.result.abnormal_findings.length : 0;
+        const sc = abn === 0 ? 95 : abn <= 2 ? 75 : 55;
+        scores.lab = { score: sc, weight: 10, detail: abn + " temuan perlu perhatian" };
+        totalWeight += 10;
+      }
+    }
+
+    let total = 0;
+    if (totalWeight > 0) for (const k in scores) total += scores[k].score * (scores[k].weight / totalWeight);
+    return res.json({ ok: true, total: Math.round(total), have_any: totalWeight > 0, breakdown: scores });
+  } catch (e) {
+    console.error("activity/health-score:", e.message);
+    return res.status(500).json({ error: "Gagal menghitung health score." });
+  }
+});
+
 // POST /api/activity/workout — simpan workout (manual, hasil unggahan, atau sync tracker).
 app.post("/api/activity/workout", async (req, res) => {
   try {
