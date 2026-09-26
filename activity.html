@@ -354,6 +354,20 @@
   .slpmeta .b{font-size:22px;font-weight:800;font-family:var(--mono);line-height:1}
   .slpmeta .l{font-size:11px;color:var(--a-mut);margin-top:3px}
   .qbadge{font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green);white-space:nowrap}
+  /* Health Score komposit */
+  .hsc .hsc-hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .hsc .hsc-hd .t{font-size:14.5px;font-weight:800}
+  .hsc .hsc-hd .n{font-size:15px;font-weight:800;font-family:var(--mono);color:var(--a-mut)}
+  .hsc .hsc-hd .n b{font-size:26px;color:var(--a-txt)}
+  .hsc .hsc-bar{height:9px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden;margin-top:8px}
+  .hsc .hsc-bar>i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--green),var(--accent))}
+  .hsc .hsc-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px 16px;margin-top:15px}
+  .hsc .hsc-cl{display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;gap:8px}
+  .hsc .hsc-cl .v{color:var(--a-mut);font-family:var(--mono);font-weight:800;white-space:nowrap}
+  .hsc .hsc-cb{height:6px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden;margin-top:4px}
+  .hsc .hsc-cb>i{display:block;height:100%;border-radius:99px;background:var(--green)}
+  .hsc .hsc-det{font-size:10px;color:var(--a-mut);font-weight:600;margin-top:2px}
+  .hsc .hsc-note{font-size:10.5px;color:var(--a-mut);margin-top:13px}
 
 </style>
 <!-- Dimuat SESUDAH <style> halaman, sama seperti dashboard/calories/recipe: skin kaca
@@ -383,6 +397,8 @@
 
   <!-- Kartu skor dinaikkan ke atas (gaya mockup); diisi renderScore() saat ada rencana -->
   <div id="scoreTop"></div>
+  <!-- Health Score komposit (6 kategori) — dihitung on-the-fly dari data live -->
+  <div id="healthScoreBox"></div>
 
   <!-- AI Coach entry: headline penuh-lebar (di atas grid) supaya jadi hal pertama yang
        terlihat di desktop & mobile — bukan terkubur di kolom kanan. Link internal same-tab (§G). -->
@@ -1316,12 +1332,62 @@
     BUSY=false;
   }
 
+  // ---- Health Score komposit (6 kategori) ----
+  // Dihitung server-side dari data live (workout/nutrisi/tidur/hidrasi/Visbody/MCU); di sini
+  // hanya render. Weekly/7-hari -> tak perlu re-fetch tiap ganti tanggal.
+  var HS=null;
+  var HS_CATS=[
+    ["workout",{en:"Workout",id:"Workout"}],
+    ["nutrition",{en:"Nutrition",id:"Nutrisi"}],
+    ["sleep",{en:"Sleep",id:"Tidur"}],
+    ["hydration",{en:"Hydration",id:"Hidrasi"}],
+    ["body",{en:"Body",id:"Tubuh"}],
+    ["lab",{en:"Lab",id:"Lab"}]
+  ];
+  async function loadHealthScore(){
+    var host=document.getElementById("healthScoreBox"); if(!host) return;
+    host.innerHTML='<div class="card"><div class="skel" style="height:120px"></div></div>';
+    try{
+      var r=await apiFetch("/api/activity/health-score");
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok||!j.ok){ HS=null; host.innerHTML=""; return; }
+      HS=j; renderHealthScore();
+    }catch(e){ HS=null; host.innerHTML=""; }
+  }
+  function renderHealthScore(){
+    var host=document.getElementById("healthScoreBox"); if(!host) return;
+    if(!HS){ host.innerHTML=""; return; }
+    if(!HS.have_any){
+      host.innerHTML='<div class="card hsc"><div class="hsc-hd"><span class="t">'+esc(Lx({en:"Health Score",id:"Health Score"}))+'</span></div>'+
+        '<div class="hsc-note" style="margin-top:8px;font-size:12px">'+esc(Lx({
+          en:"Not enough data yet. Log workouts, sleep and water — or get a Visbody scan — to see your score.",
+          id:"Data belum cukup. Log workout, tidur & air — atau scan Visbody — supaya skormu muncul."}))+'</div></div>';
+      return;
+    }
+    var bd=HS.breakdown||{};
+    var cats=HS_CATS.filter(function(c){ return bd[c[0]]; }).map(function(c){
+      var s=bd[c[0]], pct=Math.max(0,Math.min(100,Math.round(s.score)));
+      return '<div class="hsc-cat"><div class="hsc-cl"><span>'+esc(Lx(c[1]))+'</span><span class="v">'+pct+'%</span></div>'+
+        '<div class="hsc-cb"><i style="width:'+pct+'%"></i></div>'+
+        (s.detail?'<div class="hsc-det">'+esc(s.detail)+'</div>':'')+'</div>';
+    }).join("");
+    var tot=Math.max(0,Math.min(100,HS.total||0));
+    host.innerHTML='<div class="card hsc">'+
+      '<div class="hsc-hd"><span class="t">'+esc(Lx({en:"Health Score",id:"Health Score"}))+'</span>'+
+        '<span class="n"><b>'+esc(String(HS.total))+'</b> / 100</span></div>'+
+      '<div class="hsc-bar"><i style="width:'+tot+'%"></i></div>'+
+      '<div class="hsc-grid">'+cats+'</div>'+
+      '<div class="hsc-note">'+esc(Lx({en:"Indicative, from your own data — not a medical diagnosis.",id:"Indikatif dari datamu — bukan diagnosis medis."}))+'</div>'+
+    '</div>';
+  }
+
   (async function(){
     user=await Auth.requireAuth();
     AUTH_UID=(user&&user.id)||null;   // tangkap id auth SEBELUM profil digabung (profil bisa punya kolom id sendiri)
     try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
     renderHead(); renderDnav(); renderTrk(); wireUpload(); wireDlg(); wireSleepDlg();
     await load(SEL);
+    loadHealthScore();   // komposit weekly — fire-and-forget, tak menahan render harian
     // Isi Activity lama menyatu di halaman yang sama. Dijalankan SETELAH bagian harian
     // supaya yang di layar pertama tampil duluan; skripnya berat (pencapaian, siklus,
     // riwayat arena). Gagal di sini TIDAK boleh merusak bagian harian di atasnya.
@@ -1334,7 +1400,7 @@
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
     renderHead(); renderDnav(); renderTrk();
     if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek(); }
-    renderSleep(); renderHydra();
+    renderSleep(); renderHydra(); renderHealthScore();
   });
 
 </script>
