@@ -190,6 +190,22 @@
   .chip .s{font-size:11px;color:var(--a-mut);margin-top:2px;font-family:var(--mono)}
   .chip.warn{border-color:color-mix(in srgb,var(--amber) 45%,transparent)}
   .chip.warn .s{color:var(--amber)}
+  /* Post-workout meal (S3) */
+  .pwm{background:color-mix(in srgb,var(--green) 8%,var(--a-surface));border-color:color-mix(in srgb,var(--green) 26%,var(--a-line));margin-top:12px}
+  .pwm-h{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14.5px}
+  .pwm-h .pwm-emo{font-size:18px;line-height:1}
+  .pwm-sub{font-size:12.5px;color:var(--a-mut);margin-top:6px}
+  .pwm-tips{margin:10px 0 4px;padding-left:18px;font-size:12.5px;line-height:1.55}
+  .pwm-tips li{margin:2px 0}
+  .pwm-fromlbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;font-weight:800;margin-top:10px}
+  .pwm-recs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .pwm-chip{display:flex;flex-direction:column;gap:2px;text-decoration:none;border:1px solid var(--a-line);
+    border-radius:12px;padding:8px 11px;background:var(--a-surface);color:var(--a-txt);min-width:0;flex:1 1 30%}
+  .pwm-chip:hover{border-color:color-mix(in srgb,var(--green) 45%,transparent)}
+  .pwm-nm{font-size:12.5px;font-weight:700}
+  .pwm-kc{font-size:11px;color:var(--green);font-weight:700}
+  .pwm-mc{font-size:10.5px;color:var(--a-mut);font-family:var(--mono)}
+  .pwm-log{margin-top:12px;background:var(--green);text-align:center;text-decoration:none;display:block}
 
   /* 10. Weekly */
   .wk{display:flex;gap:18px;margin-bottom:14px}
@@ -395,6 +411,8 @@
   <!-- 4. WORKOUT -->
   <div class="sechd" data-i18n="act_sec_workout">Workout</div>
   <div id="woBox"></div>
+  <!-- Post-workout meal (S3): saran isi ulang setelah ada workout di hari terpilih -->
+  <div id="pwMealBox"></div>
 
   <div class="sechd" data-i18n="act_sec_week">Ringkasan minggu ini</div>
   <div class="card" id="weekBox"></div>
@@ -758,6 +776,7 @@
   var ZC={z1:"var(--accent)",z2:"var(--green)",z3:"var(--zone3)",z4:"var(--zone4)",z5:"var(--red)"};
   function hms(sec){ var m=Math.round(sec/60); return m>=60?(Math.floor(m/60)+"j "+(m%60)+"m"):(m+"m"); }
   function renderWorkouts(){
+    renderPostWorkoutMeal();
     var host=document.getElementById("woBox"), ws=(DAY&&DAY.workouts)||[];
     if(!ws.length){
       host.innerHTML='<div class="card"><div class="muted" style="font-size:13px;text-align:center;padding:6px 0">'+
@@ -809,6 +828,55 @@
         try{ await apiFetch("/api/activity/workout/"+b.getAttribute("data-del"),{method:"DELETE"}); await load(SEL); }catch(e){}
       };
     });
+  }
+
+  // ---- Post-workout meal (S3) ----
+  // Muncul kalau hari terpilih punya minimal satu workout. Saran isi ulang pakai target
+  // makro tetap (protein 25-30g, karbo 40-50g) -> query /api/menu/recommend SEKALI lalu
+  // di-cache; nama menu ikut bahasa aktif saat render. Endpoint recommend publik (tanpa auth).
+  var PW_RECS=null, PW_LOADING=false;
+  function renderPostWorkoutMeal(){
+    var host=document.getElementById("pwMealBox"); if(!host) return;
+    var ws=(DAY&&DAY.workouts)||[];
+    if(!ws.length){ host.innerHTML=""; return; }
+    var kcal=ws.reduce(function(a,w){ return a+(+w.calories_burned||0); },0);
+    var burnLine=kcal>0
+      ? Lx({en:"You burned ~"+kcal+" kcal. Here's how to refuel:",id:"Kamu baru bakar ~"+kcal+" kkal. Ini saran isi ulangnya:"})
+      : Lx({en:"Nice session — here's how to refuel:",id:"Sesi bagus — ini saran isi ulangnya:"});
+    var recsHtml;
+    if(PW_RECS===null){
+      recsHtml='<div class="muted" style="font-size:12px">'+esc(Lx({en:"Loading suggestions…",id:"Memuat saran…"}))+'</div>';
+    } else if(!PW_RECS.length){
+      recsHtml='<div class="muted" style="font-size:12px">'+esc(Lx({en:"Meal suggestions unavailable right now.",id:"Saran menu belum bisa dimuat."}))+'</div>';
+    } else {
+      recsHtml='<div class="pwm-recs">'+PW_RECS.map(function(r){
+        var nm=(r.nm?Lx(r.nm):"")||r.id||"Menu";
+        var href="/recipe?q="+encodeURIComponent(r.q||nm);
+        return '<a class="pwm-chip" href="'+esc(href)+'"><span class="pwm-nm">'+esc(nm)+'</span>'+
+          '<span class="pwm-kc">'+esc((r.kcal||0)+" kcal")+'</span>'+
+          '<span class="pwm-mc">P'+esc(r.p||0)+' C'+esc(r.c||0)+' F'+esc(r.f||0)+'</span></a>';
+      }).join("")+'</div>';
+    }
+    host.innerHTML='<div class="card pwm">'+
+      '<div class="pwm-h"><span class="pwm-emo">🍽️</span><span>'+esc(Lx({en:"Post-workout: what to eat",id:"Post-Workout: apa yang dimakan"}))+'</span></div>'+
+      '<div class="pwm-sub">'+esc(burnLine)+'</div>'+
+      '<ul class="pwm-tips">'+
+        '<li>'+esc(Lx({en:"Protein 25–30 g (eggs, chicken, fish, whey)",id:"Protein 25–30 g (telur, ayam, ikan, whey)"}))+'</li>'+
+        '<li>'+esc(Lx({en:"Carbs 40–50 g (rice, oats, fruit)",id:"Karbo 40–50 g (nasi, oat, buah)"}))+'</li>'+
+        '<li>'+esc(Lx({en:"Water 500–750 ml",id:"Air 500–750 ml"}))+'</li>'+
+      '</ul>'+
+      '<div class="pwm-fromlbl muted">'+esc(Lx({en:"From the 20FIT menu:",id:"Dari menu 20FIT:"}))+'</div>'+
+      recsHtml+
+      '<a class="btn pwm-log" href="/calories">'+esc(Lx({en:"Log to Calorie Tracker",id:"Catat ke Tracker Kalori"}))+' →</a>'+
+    '</div>';
+    if(PW_RECS===null && !PW_LOADING){
+      PW_LOADING=true;
+      fetch("/api/menu/recommend?p=30&c=50&f=10&n=3").then(function(x){return x.ok?x.json():null;}).then(function(j){
+        PW_RECS=(j&&Array.isArray(j.recipes))?j.recipes:[];
+        PW_LOADING=false;
+        if(((DAY&&DAY.workouts)||[]).length) renderPostWorkoutMeal();
+      }).catch(function(){ PW_RECS=[]; PW_LOADING=false; if(((DAY&&DAY.workouts)||[]).length) renderPostWorkoutMeal(); });
+    }
   }
 
   // ---- 5. AI analysis + 6. score & gaps ----
