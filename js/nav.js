@@ -2,16 +2,22 @@
 // Mengikuti design system "Glass Minimalist" (20fit-design-system.css).
 // Visual only: tidak mengubah handler/logika halaman.
 (function () {
-  // Skip chrome navigasi HANYA saat halaman KALORI di-embed di calorietracker.20fit.id
-  // (pemanggil itu sudah punya nav sendiri -> hindari dobel nav yang bikin sempit).
-  // DULU: skip untuk SEMUA iframe/webview -> ini bikin nav HILANG di HP kalau app dibuka
-  // lewat in-app browser / konteks yang nge-frame halaman lain (mis. /dashboard, /activity):
-  // pengguna lihat datanya tapi tanpa menu sama sekali. Sekarang halaman selain kalori
-  // TETAP dapat nav walau di-frame. (location.pathname = path frame INI sendiri -> aman
-  // dibaca walau parent cross-origin.)
+  // Skip chrome navigasi HANYA saat halaman ini di-embed oleh calorietracker.20fit.id
+  // (pemanggil itu sudah punya nav sendiri -> hindari dobel nav). Ditentukan dari EMBEDDER,
+  // BUKAN nama halaman: kalau seluruh app dibuka di webview/in-app browser (embedder bukan
+  // calorietracker), SEMUA halaman -- termasuk /calories -- tetap dapat nav, jadi bar tidak
+  // hilang saat pindah menu.
+  // Riwayat: v1 skip semua iframe -> nav hilang total di webview. v2 skip halaman calories
+  // saat di-frame -> nav hilang pas buka tab Calories di webview. v3 (ini) skip hanya embed
+  // calorietracker (deteksi via location.ancestorOrigins + document.referrer).
   var _framed = false;
   try { _framed = (window.self !== window.top); } catch (e) { _framed = true; } // cross-origin -> anggap framed
-  if (_framed && /(^|\/)calories(\.html)?$/i.test(location.pathname)) return;
+  if (_framed) {
+    var _emb = "";
+    try { var _ao = window.location.ancestorOrigins; if (_ao && _ao.length) _emb = Array.prototype.join.call(_ao, " "); } catch (e) {}
+    try { _emb += " " + (document.referrer || ""); } catch (e) {}
+    if (/calorietracker\.20fit\.id/i.test(_emb)) return; // di dalam calorietracker -> skip nav
+  }
   const ICON = {
     home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
     event: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
