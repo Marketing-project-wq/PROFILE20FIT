@@ -4,8 +4,10 @@
 //
 // KEAMANAN: TIDAK ADA API key di-hardcode. Wajib env OPENROUTER_API_KEY.
 // (Key lama yang pernah hardcode HARUS di-revoke di OpenRouter.)
-// GERBANG SERVER-ONLY (LANGKAH 5): wajib header x-ai-edge-secret == env AI_EDGE_SECRET (fail-closed).
-// Menolak browser/pihak luar. Set AI_EDGE_SECRET di Supabase edge secrets SEBELUM deploy versi ini.
+// GERBANG SERVER-ONLY: header x-ai-edge-secret == env AI_EDGE_SECRET. OPSIONAL & maju-kompatibel:
+// selama AI_EDGE_SECRET BELUM di-set di edge, gerbang dilewati (edge terbuka, paritas versi lama)
+// supaya food-scan + chat jalan tanpa config tambahan. Begitu AI_EDGE_SECRET di-set di edge + Railway,
+// gerbang otomatis mengunci (TANPA perlu redeploy).
 //
 // Sumber kebenaran versi function ini = file ini (ver-control). Deploy manual/approval.
 
@@ -106,12 +108,15 @@ const ACTIVITY_SCAN_SYS =
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  // GERBANG: hanya server yang tahu AI_EDGE_SECRET boleh memanggil. GAGAL-TERTUTUP:
-  // secret belum di-set di edge -> tolak SEMUA. Header hilang/salah -> tolak. 401 generik.
+  // GERBANG OPSIONAL: kunci HANYA kalau AI_EDGE_SECRET sudah di-set di edge secrets. Selama
+  // belum di-set -> edge terbuka (paritas versi lama) supaya food-scan & chat jalan tanpa config
+  // tambahan. Set AI_EDGE_SECRET di edge + Railway kapan saja utk mengunci — tanpa redeploy.
   {
     const want = Deno.env.get("AI_EDGE_SECRET") || "";
-    const got = req.headers.get("x-ai-edge-secret") || "";
-    if (!want || !got || !safeEq(want, got)) return json({ error: "unauthorized" }, 401);
+    if (want) {
+      const got = req.headers.get("x-ai-edge-secret") || "";
+      if (!safeEq(want, got)) return json({ error: "unauthorized" }, 401);
+    }
   }
   try {
     const key = Deno.env.get("OPENROUTER_API_KEY");
