@@ -25,6 +25,10 @@ function pj(t: string) {
 
 const MODEL_FOOD = Deno.env.get("AI_MODEL_FOOD") || "google/gemini-2.5-flash";
 const MODEL_MCU = Deno.env.get("AI_MODEL_MCU") || "google/gemini-3-flash-preview";
+// Chatbot AI Coach (percakapan persona + quick-analysis). Default Gemini (konsisten dgn AI
+// lain, tanpa config tambahan). Ganti via env AI_MODEL_CHAT kalau mau model lain
+// (mis. anthropic/claude-haiku-4.5) — asal akun OpenRouter punya aksesnya.
+const MODEL_CHAT = Deno.env.get("AI_MODEL_CHAT") || "google/gemini-2.5-flash";
 
 // ---- Prompt food scan (FOTO). Fokus akurasi: porsi, cara masak, kalori tersembunyi, confidence. ----
 const FOOD_SYS =
@@ -193,10 +197,25 @@ Deno.serve(async (req) => {
       maxTok = 3000;
       messages = [{ role: "system", content: PROGRAM_SYS }, langMsg,
         { role: "user", content: "Member quiz answers + safety_flags + profile. Build the weekly workout plan JSON:\n" + JSON.stringify(b.data).slice(0, 6000) }];
+    } else if (b.action === "chat") {
+      // Percakapan AI Coach (persona) + quick-analysis "Coach Says". Server (server.js) yang
+      // menyusun `messages`: system (persona + aturan + data user + kelas coach) + riwayat +
+      // pesan user. Edge fn cuma RELAY ke OpenRouter sebagai TEKS BEBAS (bukan JSON). Persona &
+      // data TIDAK dibangun di sini (server yang punya akses DB). Fail-closed kalau kosong.
+      const msgs = Array.isArray(b.messages)
+        ? b.messages.filter((m: { role?: unknown; content?: unknown }) =>
+            m && typeof m.role === "string" && typeof m.content === "string" && m.content)
+        : [];
+      if (!msgs.length) return json({ error: "messages wajib diisi" }, 400);
+      maxTok = Math.min(2048, Math.max(256, Number(b.max_tokens) || 1024));
+      messages = msgs;
     } else return json({ error: "action tidak dikenal" }, 400);
 
-    const model = (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout" || b.action === "program") ? MODEL_MCU : MODEL_FOOD;
-    const payload: Record<string, unknown> = { model, messages, max_tokens: maxTok, temperature: 0.2, reasoning: { enabled: false } };
+    const model = b.action === "chat" ? MODEL_CHAT
+      : (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout" || b.action === "program") ? MODEL_MCU
+      : MODEL_FOOD;
+    // Chat sedikit lebih "hidup" (persona) -> temperature naik; analisa/ekstraksi tetap 0.2.
+    const payload: Record<string, unknown> = { model, messages, max_tokens: maxTok, temperature: b.action === "chat" ? 0.6 : 0.2, reasoning: { enabled: false } };
     if (plugins) payload.plugins = plugins;
     if (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout" || b.action === "program") payload.response_format = { type: "json_object" };
     const callOR = (p: unknown) => fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -209,6 +228,11 @@ Deno.serve(async (req) => {
     if (!r.ok) { const t = await r.text(); return json({ error: "AI error " + r.status, detail: t.slice(0, 400) }, 500); }
     const data = await r.json();
     const content = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "";
+    // Chat = teks bebas (persona), bukan JSON -> balikan apa adanya.
+    if (b.action === "chat") {
+      if (!content) return json({ error: "Balasan kosong dari AI." }, 502);
+      return json({ ok: true, reply: content });
+    }
     const parsed = pj(content);
     if (!parsed) return json({ error: "Gagal membaca hasil AI.", raw: String(content).slice(0, 500) }, 502);
     return json({ ok: true, result: parsed });
