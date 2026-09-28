@@ -1557,38 +1557,51 @@
 
     // Upcoming Classes di home (di bawah AQI) — scroll horizontal, foto coach bulat.
     // Self-contained: esc lokal + window.L. Endpoint tak butuh auth (service key di server).
-    async function loadHomeUpcoming(){
+    // Cache-first: render instan dari cache sesi supaya balik ke home TIDAK memunculkan
+    // "loading" lambat tiap kali. Data tetap disegarkan diam-diam di belakang layar.
+    var HOME_UPC_CK="my20fit_home_upc_v1";
+    function paintHomeUpcoming(list){
       var wrap=document.getElementById("homeUpc"); if(!wrap) return;
       var esc=function(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); };
       var tr=function(o){ return window.L?window.L(o):(o.id||o.en); };
       var ini=function(n){ n=String(n||"").replace(/^Coach\s+/i,"").trim(); return (n[0]||"?").toUpperCase(); };
       var col=function(n){ var h=0;n=String(n||"");for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))>>>0;return "hsl("+(h%360)+" 45% 42%)"; };
+      if(!Array.isArray(list)||!list.length){ wrap.hidden=true; return; }
+      var items=list.map(function(c){
+        var d=new Date(c.date+"T"+(c.start||"00:00")+":00+07:00");
+        var dl=d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+        var nm=c.coach?c.coach.name:(c.instructor||"");
+        var shortNm=String(nm).replace(/^Coach\s+/i,"");
+        var ph=(c.coach&&c.coach.photo_url)
+          ? '<img class="home-upc-ph" src="'+esc(c.coach.photo_url)+'" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var s=this.nextElementSibling;if(s)s.style.display=\'grid\'"><span class="home-upc-ini" style="display:none;background:'+col(nm)+'">'+esc(ini(nm))+'</span>'
+          : '<span class="home-upc-ini" style="background:'+col(nm)+'">'+esc(ini(nm))+'</span>';
+        return '<a class="home-upc-item" href="'+esc(c.book_url)+'">'+
+          '<span class="home-upc-date"><span class="d">●</span> '+esc(dl)+'</span>'+
+          ph+
+          '<span class="home-upc-nm">'+esc(shortNm)+'</span>'+
+          '<span class="home-upc-cls">'+esc(c.name||"")+'</span>'+
+          '<span class="home-upc-tm">'+esc(c.start||"")+'</span>'+
+        '</a>';
+      }).join("");
+      wrap.innerHTML='<div class="home-upc-hd"><h3>'+esc(tr({en:"Upcoming Classes",id:"Kelas Mendatang"}))+
+        '</h3><a class="home-upc-all" href="/classes?period=this_week">'+esc(tr({en:"See All",id:"Lihat Semua"}))+' ›</a></div>'+
+        '<div class="home-upc-scroll">'+items+'</div>';
+      wrap.hidden=false;
+    }
+    async function loadHomeUpcoming(){
+      var wrap=document.getElementById("homeUpc"); if(!wrap) return;
+      // 1) Paint dari cache sesi lebih dulu (instan, tanpa flicker) kalau ada.
+      var hadCache=false;
+      try{ var cached=JSON.parse(sessionStorage.getItem(HOME_UPC_CK)||"null");
+        if(Array.isArray(cached)&&cached.length){ paintHomeUpcoming(cached); hadCache=true; } }catch(e){}
+      // 2) Segarkan diam-diam & simpan ke cache.
       try{
         var r=await fetch("/api/classes/upcoming?days=14&limit=20");
         var j=await r.json().catch(function(){return null;});
         var list=(j&&j.ok&&Array.isArray(j.classes))?j.classes:[];
-        if(!list.length){ wrap.hidden=true; return; }
-        var items=list.map(function(c){
-          var d=new Date(c.date+"T"+(c.start||"00:00")+":00+07:00");
-          var dl=d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
-          var nm=c.coach?c.coach.name:(c.instructor||"");
-          var shortNm=String(nm).replace(/^Coach\s+/i,"");
-          var ph=(c.coach&&c.coach.photo_url)
-            ? '<img class="home-upc-ph" src="'+esc(c.coach.photo_url)+'" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var s=this.nextElementSibling;if(s)s.style.display=\'grid\'"><span class="home-upc-ini" style="display:none;background:'+col(nm)+'">'+esc(ini(nm))+'</span>'
-            : '<span class="home-upc-ini" style="background:'+col(nm)+'">'+esc(ini(nm))+'</span>';
-          return '<a class="home-upc-item" href="'+esc(c.book_url)+'">'+
-            '<span class="home-upc-date"><span class="d">●</span> '+esc(dl)+'</span>'+
-            ph+
-            '<span class="home-upc-nm">'+esc(shortNm)+'</span>'+
-            '<span class="home-upc-cls">'+esc(c.name||"")+'</span>'+
-            '<span class="home-upc-tm">'+esc(c.start||"")+'</span>'+
-          '</a>';
-        }).join("");
-        wrap.innerHTML='<div class="home-upc-hd"><h3>'+esc(tr({en:"Upcoming Classes",id:"Kelas Mendatang"}))+
-          '</h3><a class="home-upc-all" href="/classes?period=this_week">'+esc(tr({en:"See All",id:"Lihat Semua"}))+' ›</a></div>'+
-          '<div class="home-upc-scroll">'+items+'</div>';
-        wrap.hidden=false;
-      }catch(e){ wrap.hidden=true; }
+        paintHomeUpcoming(list);
+        try{ sessionStorage.setItem(HOME_UPC_CK, JSON.stringify(list)); }catch(e){}
+      }catch(e){ if(!hadCache) wrap.hidden=true; }   // gagal refresh: cache lama tetap tampil
     }
 
     (async function init(){

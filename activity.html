@@ -84,11 +84,6 @@
   .drop svg{width:26px;height:26px;stroke:var(--a-mut);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   .drop .t{font-weight:700;font-size:14.5px;margin-top:8px}
   .drop .s{font-size:12.5px;color:var(--a-mut);margin-top:3px}
-  .trk{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-  .trk button{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:10px;border:1px solid var(--glass-hair,var(--a-line));
-    background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));box-shadow:var(--glass-sh,none);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
-  .trk button i{width:8px;height:8px;border-radius:99px;display:inline-block;flex:none}
-  .orsep{text-align:center;font-size:11.5px;color:var(--a-mut);margin:14px 0 0}
 
   /* 4. Workout card */
   .wo-h{display:flex;align-items:center;gap:11px}
@@ -463,6 +458,18 @@
   <!-- Health Score komposit (6 kategori) — dihitung on-the-fly dari data live -->
   <div id="healthScoreBox"></div>
 
+  <!-- Upload workout — LANGSUNG di bawah Health Score (permintaan pemilik). Hanya upload
+       langsung; tombol "hubungkan tracker" (Strava/Garmin/Apple/Google) dihapus karena
+       integrasi live belum ada — jangan pura-pura bisa connect. -->
+  <div class="card">
+    <div class="drop" id="drop" tabindex="0" role="button">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div class="t" data-i18n="act_up_t">Upload hasil workout</div>
+      <div class="s" data-i18n="act_up_s">Screenshot, foto, atau file dari tracker kamu — bisa 5 sekaligus</div>
+    </div>
+    <input type="file" id="file" accept="image/*,.heic,.heif" multiple style="display:none">
+  </div>
+
   <!-- AI Coach entry: headline penuh-lebar (di atas grid) supaya jadi hal pertama yang
        terlihat di desktop & mobile — bukan terkubur di kolom kanan. Link internal same-tab (§G). -->
   <div class="card consult" style="position:relative;overflow:hidden;margin:0 0 12px;border:1px solid color-mix(in srgb,var(--fit-red,#E4002B) 26%,var(--a-line));background:linear-gradient(135deg,color-mix(in srgb,var(--fit-red,#E4002B) 11%,var(--a-surface)),var(--a-surface))">
@@ -483,18 +490,6 @@
   <input type="file" id="tplFile" accept="image/*,.heic,.heif" style="display:none">
 
   <div class="dgrid">
-  <!-- 3. UPLOAD -->
-  <div class="card">
-    <div class="drop" id="drop" tabindex="0" role="button">
-      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <div class="t" data-i18n="act_up_t">Upload hasil workout</div>
-      <div class="s" data-i18n="act_up_s">Screenshot, foto, atau file dari tracker kamu — bisa 5 sekaligus</div>
-    </div>
-    <input type="file" id="file" accept="image/*,.heic,.heif" multiple style="display:none">
-    <div class="orsep" data-i18n="act_up_or">atau hubungkan langsung</div>
-    <div class="trk" id="trk"></div>
-  </div>
-
   <!-- 4. WORKOUT -->
   <div class="sechd" data-i18n="act_sec_workout">Workout</div>
   <div id="woBox"></div>
@@ -644,25 +639,7 @@
     });
   }
 
-  // ---- 3. Upload ----
-  var TRACKERS=[
-    {k:"strava",n:"Strava",c:"var(--strava)",live:false},
-    {k:"garmin",n:"Garmin",c:"var(--cyan)",live:false},
-    {k:"apple_health",n:"Apple Health",c:"#9CA3AF",live:false},
-    {k:"google_fit",n:"Google Fit",c:"#4285F4",live:false}
-  ];
-  function renderTrk(){
-    document.getElementById("trk").innerHTML=TRACKERS.map(function(t){
-      return '<button type="button" data-k="'+t.k+'"><i style="background:'+t.c+'"></i>'+esc(t.n)+'</button>';
-    }).join("");
-    Array.prototype.forEach.call(document.querySelectorAll("#trk button"),function(b){
-      b.onclick=function(){
-        // Belum ada satu pun tracker yang tersambung. Katakan apa adanya — jangan
-        // pura-pura menyambung lalu diam-diam gagal.
-        alert(T("act_trk_soon"));
-      };
-    });
-  }
+  // ---- 3. Upload (langsung saja; tombol sync tracker dihapus atas permintaan pemilik) ----
   function wireUpload(){
     var drop=document.getElementById("drop"), file=document.getElementById("file");
     drop.onclick=function(){ file.click(); };
@@ -1583,7 +1560,7 @@
     user=await Auth.requireAuth();
     AUTH_UID=(user&&user.id)||null;   // tangkap id auth SEBELUM profil digabung (profil bisa punya kolom id sendiri)
     try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
-    renderHead(); renderDnav(); renderTrk(); wireUpload(); wireDlg(); wireSleepDlg();
+    renderHead(); renderDnav(); wireUpload(); wireDlg(); wireSleepDlg();
     await load(SEL);
     loadHealthScore();   // komposit weekly — fire-and-forget, tak menahan render harian
     renderConsult();     // muka coach di kartu Consultation — fire-and-forget
@@ -1599,7 +1576,7 @@
   })();
 
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
-    renderHead(); renderDnav(); renderTrk();
+    renderHead(); renderDnav();
     if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek(); }
     renderSleep(); renderHydra(); renderHealthScore();
   });
