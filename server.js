@@ -10233,6 +10233,12 @@ app.get(["/payment/pending", "/payment/success"], (req, res) => {
 app.get(["/activity/history", "/activity/history.html"], (req, res) => {
   res.sendFile(path.join(__dirname, "activity-history.html"));
 });
+// Callback OAuth Google (Supabase redirect balik ke sini) -> auth-callback.html menyeat sesi.
+// Path bertingkat, jadi harus eksplisit sebelum static. Daftarkan URL ini di Supabase
+// -> Authentication -> URL Configuration (Redirect URLs) utk tiap origin.
+app.get(["/auth/callback", "/auth/callback.html"], (req, res) => {
+  res.sendFile(path.join(__dirname, "auth-callback.html"));
+});
 app.get("/payment/failed", (req, res) => {
   res.sendFile(path.join(__dirname, "payment-failed.html"));
 });

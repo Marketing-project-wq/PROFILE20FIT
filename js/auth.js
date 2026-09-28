@@ -224,11 +224,12 @@
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        // redirectTo SENGAJA tetap /login, bukan /auth/callback. Tujuan redirect WAJIB
-        // terdaftar di Supabase -> Authentication -> URL Configuration; memindahkannya
-        // sebelum pemilik menambahkan URL baru di sana justru membuat login gagal
-        // (GoTrue jatuh ke Site URL). Pindah kalau URL barunya sudah terdaftar.
-        redirectTo: location.origin + "/login",
+        // redirectTo = /auth/callback (mengikuti LOGIN_GOOGLE_my20fit_untuk_web.md). WAJIB
+        // didaftarkan di Supabase -> Authentication -> URL Configuration (Redirect URLs):
+        // https://my.20fit.id/auth/callback + URL staging /auth/callback (atau pola /**).
+        // Kalau belum terdaftar, GoTrue jatuh ke Site URL & login gagal. Halaman
+        // /auth/callback menukar ?code= jadi sesi (detectSessionInUrl) lalu routeAfterAuth.
+        redirectTo: location.origin + "/auth/callback",
         // Perangkat dipakai bergantian -> jangan diam-diam memakai akun Google terakhir.
         queryParams: { prompt: "select_account" },
       },

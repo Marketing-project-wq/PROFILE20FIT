@@ -267,7 +267,7 @@ Mengikuti dokumen "Login dengan Google — my.20fit.id Web" dari tim app:
 |---|---|---|
 | `flowType` | tidak di-set → **implicit** (default supabase-js v2) | **`pkce`** |
 | Pemilih akun | tidak ada | `prompt: "select_account"` |
-| `redirectTo` | `<origin>/login` | **tetap** `<origin>/login` (sengaja) |
+| `redirectTo` | `<origin>/login` | **`<origin>/auth/callback`** (per MD baru; dicakup pola `/**` di B3) |
 
 **Kenapa PKCE.** Dengan *implicit*, GoTrue memulangkan `access_token` + `refresh_token` di
 **fragment URL** — ikut tersimpan di history browser. Dengan PKCE yang pulang cuma `?code=`
@@ -278,11 +278,16 @@ berumur pendek, lalu ditukar jadi sesi lewat POST. Token tak pernah muncul di UR
 Diverifikasi di browser: URL OAuth yang dihasilkan berisi `code_challenge` (`s256`),
 `prompt=select_account`, host tujuan `cpvzwqptzcxnwzfzgrmt.supabase.co`, dan **nol token di URL**.
 
-**Kenapa `redirectTo` TIDAK dipindah ke `/auth/callback`** seperti saran dokumen itu: tujuan
-redirect WAJIB terdaftar di **Supabase → Authentication → URL Configuration** (Bagian B3).
-Memindahkannya sebelum kamu menambahkan URL barunya di sana justru membuat login GAGAL —
-GoTrue jatuh ke Site URL. Kalau kamu mau pindah: tambahkan `https://my.20fit.id/auth/callback`
-di daftar itu dulu, kabari saya, baru saya pindahkan.
+**`redirectTo` kini `/auth/callback`** (mengikuti MD baru "LOGIN_GOOGLE_my20fit_untuk_web.md").
+Ada halaman `auth-callback.html` (route `/auth/callback` di `server.js`) yang menukar `?code=`
+jadi sesi lalu `routeAfterAuth`. Tujuan redirect ini WAJIB ada di **Supabase → Authentication →
+URL Configuration** — **sudah tercakup** kalau pola `https://my.20fit.id/**` +
+`https://profile20fit-staging.up.railway.app/**` (Bagian B3) sudah didaftarkan. Kalau belum,
+tambahkan juga `https://my.20fit.id/auth/callback` + versi staging-nya.
+
+> ⚠️ **PENTING:** ini TIDAK menghilangkan error `redirect_uri_mismatch`. Error itu dari **Google**
+> (redirect URI Supabase belum terdaftar di OAuth client Google) — perbaikannya **Bagian A5**,
+> berlaku untuk `/login` maupun `/auth/callback`. Kode tak bisa memperbaikinya.
 
 ### Publishable key (`sb_publishable_…`) — kalau mau ganti, itu ENV, bukan kode
 
