@@ -5172,6 +5172,20 @@ app.get("/api/menu/recommend", function (req, res) {
   return res.json({ ok: true, recipes: recs });
 });
 
+// PUBLIK: "Food of the Day" — SATU resep unggulan yang berputar harian (deterministik dari
+// tanggal, sama untuk semua user). Sumber = katalog resmi js/recipes.js (yang juga dipakai
+// recepie.20fit.id). Dipakai kartu di /calories; endpoint kecil supaya frontend tak perlu
+// muat seluruh katalog. Index harian pakai zona Asia/Jakarta (UTC+7).
+app.get("/api/menu/food-of-the-day", function (req, res) {
+  var list = loadMenuCatalog();
+  if (!list.length) { res.set("Cache-Control", "public, max-age=300"); return res.json({ ok: true, recipe: null }); }
+  var dayMs = 24 * 3600 * 1000;
+  var dayIdx = Math.floor((Date.now() + 7 * 3600 * 1000) / dayMs);
+  var r = list[((dayIdx % list.length) + list.length) % list.length];
+  res.set("Cache-Control", "public, max-age=1800");
+  return res.json({ ok: true, recipe: r });
+});
+
 // PUBLIK: kontribusi user yang APPROVED + PUBLISHED (tanpa PII). Dibaca service key
 // (bypass RLS) TAPI difilter ketat ke approved+published & field aman -> layak publik.
 app.get("/api/menu/published", async function (req, res) {

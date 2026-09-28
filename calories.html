@@ -191,6 +191,11 @@
   .fsum-next .tx .msg{font-size:13px;font-weight:650;line-height:1.45}
   .fsum-next-foods{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   .fsum-next-foods span{font-size:12px;font-weight:700;padding:5px 11px;border-radius:999px;background:var(--inp);color:var(--txt)}
+  /* Food of the Day (kartu Nutrient gap -> resep unggulan harian + link recepie.20fit.id) */
+  .fsum-fotd{text-decoration:none;color:inherit;border-radius:10px;margin-top:2px}
+  .fsum-fotd:hover{background:var(--inp)}
+  .fsum-menu-link{display:inline-flex;align-items:center;gap:5px;margin-top:10px;font-size:12.5px;font-weight:800;color:var(--green-ink,#16A34A);text-decoration:none}
+  .fsum-menu-link:hover{text-decoration:underline}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
@@ -746,22 +751,19 @@
       }
       var chips=["p","c","f"].map(function(k){ if(rem[k]<=0) return ""; return '<span class="fsum-gap-chip'+(k===big?" big":"")+'">'+lbl[k]+' '+rem[k]+'g</span>'; }).join("");
       h+='<div class="fsum-gap-chips">'+chips+'</div>';
-      h+='<div class="fsum-lbl" style="margin-top:2px">'+L({en:"Fill the biggest gap ("+lbl[big]+") with",id:"Tutup kekurangan terbesar ("+lbl[big]+") dengan"})+'</div>';
-      h+='<div id="fsumGapFoods">';
-      var STAT={
-        p:[{e:FIC("egg"),en:"Boiled eggs",id:"Telur rebus"},{e:FIC("protein"),en:"Grilled chicken breast",id:"Dada ayam panggang"},{e:FIC("dairy"),en:"Greek yogurt / cottage cheese",id:"Greek yogurt / keju cottage"}],
-        c:[{e:FIC("meal"),en:"Brown rice",id:"Nasi merah"},{e:FIC("meal"),en:"Sweet potato",id:"Ubi"},{e:FIC("grain"),en:"Oats",id:"Oat"}],
-        f:[{e:FIC("veg"),en:"Avocado",id:"Alpukat"},{e:FIC("veg"),en:"Nuts / peanut butter",id:"Kacang / selai kacang"},{e:FIC("veg"),en:"Olive oil drizzle",id:"Siraman minyak zaitun"}]
-      };
-      h+=(STAT[big]||[]).map(function(s){ return '<div class="fsum-food"><div class="em" style="background:var(--inp)">'+s.e+'</div><div class="fn">'+L({en:s.en,id:s.id})+'</div></div>'; }).join("");
-      h+='</div>';
-      (function(r){ fetch("/api/menu/recommend?p="+r.p+"&c="+r.c+"&f="+r.f+"&n=3").then(function(x){return x.ok?x.json():null;}).then(function(j){
-        var el=document.getElementById("fsumGapFoods"); if(!el||!j||!j.ok||!j.recipes||!j.recipes.length) return;
-        el.innerHTML=j.recipes.map(function(r){
-          var nm=window.L?L(r.nm):(r.nm&&(r.nm.id||r.nm.en));
-          return '<div class="fsum-food"><div class="em" style="background:linear-gradient(160deg,'+r.tint+'33,'+r.tint+'11)">'+FIC(r.emoji||"meal",22)+'</div><div class="fn">'+fsumEsc(nm)+'</div><div class="fk">~'+r.kcal+' '+kc()+' · P'+r.p+' C'+r.c+' F'+r.f+'</div></div>';
-        }).join("");
-      }).catch(function(){}); })(rem);
+      h+='<div class="fsum-lbl" style="margin-top:2px"><span class="fic" data-ic="meal" aria-hidden="true"></span> '+L({en:"Food of the Day",id:"Menu Hari Ini"})+'</div>';
+      h+='<div id="fsumFotd"><div class="muted" style="font-size:12.5px">'+L({en:"Loading…",id:"Memuat…"})+'</div></div>';
+      h+='<a class="fsum-menu-link" href="https://recepie.20fit.id">'+L({en:"See the full menu on recepie.20fit.id",id:"Lihat menu lengkap di recepie.20fit.id"})+' →</a>';
+      // FotD = satu resep unggulan rotasi harian dari katalog (sumber sama dgn recepie.20fit.id).
+      // Kartu & tombol mengarah ke recepie.20fit.id (same-tab, sesuai aturan navigasi §G).
+      fetch("/api/menu/food-of-the-day").then(function(x){return x.ok?x.json():null;}).then(function(j){
+        var el=document.getElementById("fsumFotd"); if(!el) return;
+        var r=j&&j.ok&&j.recipe;
+        if(!r){ el.innerHTML=""; return; }
+        var nm=window.L?L(r.nm):(r.nm&&(r.nm.id||r.nm.en));
+        var tint=r.tint||"#16A34A";
+        el.innerHTML='<a class="fsum-food fsum-fotd" href="https://recepie.20fit.id"><div class="em" style="background:linear-gradient(160deg,'+tint+'33,'+tint+'11)">'+FIC(r.emoji||"meal",22)+'</div><div class="fn">'+fsumEsc(nm)+'</div><div class="fk">~'+(r.kcal||0)+' '+kc()+' · P'+(r.p||0)+' C'+(r.c||0)+' F'+(r.f||0)+'</div></a>';
+      }).catch(function(){ var el=document.getElementById("fsumFotd"); if(el) el.innerHTML=""; });
       h+='</div>';
       return h;
     }
