@@ -87,6 +87,23 @@ function safeEq(a: string, b: string): boolean {
   return d === 0;
 }
 
+// Scan screenshot health/fitness (Garmin/Strava/Apple/Samsung/timbangan/food log) -> JSON.
+const ACTIVITY_SCAN_SYS =
+  'You read a health/fitness screenshot for the 20fit app and extract ONLY the data that is visibly present. ' +
+  'It may be a workout summary, sleep data, daily activity, a body-weight scale, or a food log. ' +
+  'Respond ONLY with a valid JSON object (no markdown, no code fences) with these keys: ' +
+  'type ("workout"|"sleep"|"daily_activity"|"weight"|"food_log"|"other"), ' +
+  'activity_type (string or null), duration_minutes (number or null), distance_km (number or null), ' +
+  'calories_burned (number or null), avg_heart_rate (number or null), max_heart_rate (number or null), ' +
+  'avg_pace (string or null), hr_zones (object {zone1..zone5} minutes or null), ' +
+  'sleep_duration_hours (number or null), deep_sleep_hours (number or null), rem_sleep_hours (number or null), ' +
+  'sleep_quality (string or null), bedtime (string or null), wake_time (string or null), ' +
+  'steps (number or null), resting_heart_rate (number or null), active_minutes (number or null), total_calories (number or null), ' +
+  'weight_kg (number or null), total_calories_eaten (number or null), meals (array or null), ' +
+  'date (YYYY-MM-DD or null), source ("garmin"|"apple"|"strava"|"samsung"|"other"), ' +
+  'summary (one short sentence describing what the screenshot shows). ' +
+  'Use null for anything not visible. Never invent numbers. If it is not a health/fitness screenshot, set type "other" and say so in summary.';
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   // GERBANG: hanya server yang tahu AI_EDGE_SECRET boleh memanggil. GAGAL-TERTUTUP:
@@ -209,6 +226,22 @@ Deno.serve(async (req) => {
       if (!msgs.length) return json({ error: "messages wajib diisi" }, 400);
       maxTok = Math.min(2048, Math.max(256, Number(b.max_tokens) || 1024));
       messages = msgs;
+    } else if (b.action === "activity") {
+      // Upload analysis: (a) b.image -> scan screenshot jadi JSON; ATAU (b) b.messages (disusun
+      // server, berisi data user) -> full plan JSON. Dua-duanya keluar JSON terstruktur.
+      if (b.image) {
+        maxTok = 1500;
+        messages = [{ role: "system", content: ACTIVITY_SCAN_SYS }, langMsg,
+          { role: "user", content: [
+            { type: "text", text: "Extract semua data health/fitness yang TERLIHAT di screenshot ini sebagai JSON. Null untuk yang tidak ada." },
+            { type: "image_url", image_url: { url: b.image } },
+          ] }];
+      } else if (Array.isArray(b.messages) && b.messages.length) {
+        maxTok = Math.min(3000, Math.max(512, Number(b.max_tokens) || 2000));
+        messages = b.messages.filter((m: { role?: unknown; content?: unknown }) =>
+          m && typeof m.role === "string" && typeof m.content === "string" && m.content);
+        if (!(messages as unknown[]).length) return json({ error: "messages wajib diisi" }, 400);
+      } else return json({ error: "image atau messages wajib diisi" }, 400);
     } else return json({ error: "action tidak dikenal" }, 400);
 
     const model = b.action === "chat" ? MODEL_CHAT
@@ -217,7 +250,7 @@ Deno.serve(async (req) => {
     // Chat sedikit lebih "hidup" (persona) -> temperature naik; analisa/ekstraksi tetap 0.2.
     const payload: Record<string, unknown> = { model, messages, max_tokens: maxTok, temperature: b.action === "chat" ? 0.6 : 0.2, reasoning: { enabled: false } };
     if (plugins) payload.plugins = plugins;
-    if (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout" || b.action === "program") payload.response_format = { type: "json_object" };
+    if (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout" || b.action === "program" || b.action === "activity") payload.response_format = { type: "json_object" };
     const callOR = (p: unknown) => fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json", "HTTP-Referer": "https://my.20fit.id", "X-Title": "20fit Health Profile" },

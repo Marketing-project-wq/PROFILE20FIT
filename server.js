@@ -4687,6 +4687,7 @@ var USER_DATA_TABLES = [
   "my20fit_coach_quiz", "my20fit_workout_plan", "my20fit_coach_cta_event",
   "my20fit_coach_session", "my20fit_coach_set_log", "my20fit_coach_achievement",
   "my20fit_coach_chat_session", "my20fit_coach_chat_message",
+  "my20fit_activity_uploads", "my20fit_today_plans",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
   "my20fit_scan_orders", "my20fit_scan_ledger", "my20fit_voucher_usages"
@@ -10047,6 +10048,119 @@ app.post("/api/activity/quick-analysis", async (req, res) => {
     logAiAccess(user.id, "coach/quick", true);
     return res.json({ ok: true, reply: reply, coach_id: coachId });
   } catch (e) { console.error("quick-analysis:", e.message); return res.status(500).json({ error: "Gagal analisa." }); }
+});
+
+// ---------- ACTIVITY: Upload -> Analisa -> Full Plan (Fase 1) ----------
+// User upload screenshot health/olahraga -> AI extract data -> AI full plan (workout/food/
+// sleep/hydration + coach says) yang menyesuaikan kekurangan kemarin. Reuse edge action
+// "activity" (vision scan + JSON plan) + loadCoachContext + persona. Simpan best-effort ke
+// my20fit_activity_uploads / my20fit_today_plans (migration 025). Bukan diagnosis medis.
+const ACTIVITY_PLAN_RULES =
+  "Kamu fitness advisor 20FIT. Dari DATA UPLOAD TERBARU + DATA HISTORIS user, buat FULL PLAN hari ini. " +
+  "Analisa dulu apa yang KURANG kemarin/beberapa hari terakhir (tidur, makan/kalori, hidrasi, overtraining/kurang latihan), " +
+  "lalu susun plan yang MENYESUAIKAN kekurangan itu (mis. tidur kurang + workout berat -> hari ini recovery). " +
+  "DILARANG: diagnosa medis, resep obat/dosis, klaim hasil pasti, body shaming. JANGAN mengarang angka yang tak ada di data. " +
+  "Balas HANYA JSON (tanpa markdown, tanpa code fence) bentuk persis: " +
+  "{\"yesterday_gaps\":[{\"category\":\"sleep|nutrition|hydration|workout\",\"status\":\"kurang|cukup|berlebih\",\"detail\":\"...\"}]," +
+  "\"today_plan\":{" +
+  "\"workout\":{\"recommendation\":\"...\",\"type\":\"...\",\"intensity\":\"low|moderate|high|rest\",\"duration_min\":0,\"reason\":\"...\"}," +
+  "\"food\":{\"calorie_target\":0,\"priority_macro\":\"protein|carbs|balanced\",\"meals\":[{\"meal\":\"...\",\"suggestion\":\"...\",\"calories\":0}],\"note\":\"...\"}," +
+  "\"sleep\":{\"target_bedtime\":\"22:00\",\"target_hours\":0,\"reason\":\"...\",\"tips\":[\"...\"]}," +
+  "\"hydration\":{\"target_ml\":0,\"reason\":\"...\",\"schedule\":[\"07:00 - 500ml\"]}}," +
+  "\"coach_says\":\"2-3 kalimat sesuai persona, ringkas & personal\"," +
+  "\"cta\":{\"book_class\":{\"show\":true,\"text\":\"...\"},\"visbody\":{\"show\":false,\"text\":\"...\"},\"doctor\":{\"show\":false,\"text\":\"...\"}}}";
+
+app.post("/api/activity/upload-analyze", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    if (!AI_EDGE_SECRET) return res.status(503).json({ error: "AI belum dikonfigurasi di server. Hubungi admin." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {};
+    const image = String(b.image || b.base64 || "");
+    if (!image || image.length < 32) return res.status(400).json({ error: "Gambar wajib diisi." });
+    if (image.length > 8 * 1024 * 1024) return res.status(400).json({ error: "Gambar terlalu besar (maks ~8MB)." });
+    const lang = (String(b.lang || "id") === "en") ? "en" : "id";
+    const coachId = coachPersonaOk(b.coach_id) ? String(b.coach_id).toLowerCase() : "nando";
+
+    // 1) SCAN screenshot -> extract data (edge action "activity" + image).
+    let extracted = null;
+    try {
+      const s = await callAiEdge({ action: "activity", image: image, lang: lang }, 60000);
+      if (!s.httpOk || !s.json || !s.json.ok || !s.json.result) { logAiAccess(user.id, "activity/scan", false, "edge"); return res.status(502).json({ error: "Gagal membaca screenshot. Coba lagi." }); }
+      extracted = s.json.result;
+    } catch (e) { logAiAccess(user.id, "activity/scan", false, "timeout"); return res.status(504).json({ error: "AI nggak merespons saat baca screenshot." }); }
+
+    // 2) load data historis user (reuse konteks coach).
+    const ctx = await loadCoachContext(user.id);
+
+    // 3) generate full plan (edge action "activity" + messages disusun server).
+    const persona = COACH_PERSONAS[coachId];
+    const sys = persona.persona + "\n\n" + ACTIVITY_PLAN_RULES +
+      "\n\nDATA UPLOAD TERBARU (JSON):\n" + JSON.stringify(extracted).slice(0, 3000) +
+      "\n\nDATA HISTORIS USER (JSON):\n" + JSON.stringify(ctx).slice(0, 6000) +
+      "\n\nBahasa jawaban: " + (lang === "en" ? "English." : "Bahasa Indonesia.");
+    let analysis = null;
+    try {
+      const p = await callAiEdge({ action: "activity", messages: [{ role: "system", content: sys }, { role: "user", content: "Buat analisa kekurangan kemarin + full plan hari ini sesuai aturan. JSON only." }], max_tokens: 2400, lang: lang }, 60000);
+      if (!p.httpOk || !p.json || !p.json.ok || !p.json.result) { logAiAccess(user.id, "activity/plan", false, "edge"); return res.status(502).json({ error: "Gagal membuat plan. Coba lagi." }); }
+      analysis = p.json.result;
+    } catch (e) { logAiAccess(user.id, "activity/plan", false, "timeout"); return res.status(504).json({ error: "AI nggak merespons saat buat plan." }); }
+    logAiAccess(user.id, "activity/upload-analyze", true);
+
+    // 4) simpan best-effort (tabel migration 025). Supabase balikin {error} bukan throw kalau
+    //    tabel belum ada -> uploadId null -> tetap balikin hasil (degradasi mulus).
+    const tp = (analysis && analysis.today_plan) || {};
+    const gaps = (analysis && analysis.yesterday_gaps) || null;
+    const says = (analysis && analysis.coach_says) || null;
+    const uploadType = String((extracted && extracted.type) || "other").slice(0, 40);
+    const src = String((extracted && extracted.source) || "other").slice(0, 40);
+    let uploadId = null;
+    try {
+      const { data: up } = await admin.from("my20fit_activity_uploads").insert({
+        auth_user_id: user.id, upload_type: uploadType, extracted_data: extracted,
+        yesterday_gaps: gaps, today_plan: tp, coach_says: says, coach_id: coachId, source: src,
+      }).select("id").single();
+      uploadId = up && up.id;
+      if (uploadId) {
+        await admin.from("my20fit_today_plans").upsert({
+          auth_user_id: user.id, plan_date: ymd(new Date()),
+          workout_plan: tp.workout || null, food_plan: tp.food || null, sleep_plan: tp.sleep || null, hydration_plan: tp.hydration || null,
+          yesterday_gaps: gaps, coach_id: coachId, coach_says: says, source_upload_id: uploadId, updated_at: new Date().toISOString(),
+        }, { onConflict: "auth_user_id,plan_date" });
+      }
+    } catch (e) { /* tabel 025 belum dijalankan -> lanjut tanpa simpan */ }
+
+    return res.json({ ok: true, extracted: extracted, analysis: analysis, saved: !!uploadId });
+  } catch (e) {
+    console.error("activity/upload-analyze:", e.message);
+    return res.status(500).json({ error: "Gagal memproses upload." });
+  }
+});
+
+// GET /api/activity/today-plan -> plan gabungan hari ini (kalau sudah ada).
+app.get("/api/activity/today-plan", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, plan: null });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data } = await admin.from("my20fit_today_plans").select("*").eq("auth_user_id", user.id).eq("plan_date", ymd(new Date())).limit(1);
+    return res.json({ ok: true, plan: (data && data[0]) || null });
+  } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, plan: null, setup_required: true }); return res.json({ ok: true, plan: null }); }
+});
+
+// GET /api/activity/upload-history?limit -> riwayat upload + ringkasan gaps.
+app.get("/api/activity/upload-history", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, uploads: [] });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const { data } = await admin.from("my20fit_activity_uploads")
+      .select("id,upload_type,upload_date,extracted_data,yesterday_gaps,coach_says,source,created_at")
+      .eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(limit);
+    return res.json({ ok: true, uploads: data || [] });
+  } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, uploads: [], setup_required: true }); return res.json({ ok: true, uploads: [] }); }
 });
 // ================= END AI COACH =================
 
