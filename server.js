@@ -3232,6 +3232,69 @@ app.get("/api/home-tiles", async (req, res) => {
   } catch (e) { return res.json({ ok: true, tiles: [] }); }
 });
 
+// ---------- THE FEED: artikel media.20fit.id (WordPress REST) untuk home ----------
+// Proxy server-side ke media.20fit.id/wp-json/wp/v2/posts. Kenapa server, bukan browser:
+// (a) hindari masalah CORS, (b) satu cache dipakai semua user. GAGAL-LUNAK: kalau WP REST
+// tak aktif / tak bisa dijangkau / balas non-array -> kembalikan posts:[] (feed kosong),
+// JANGAN error & JANGAN karang artikel. read_min dihitung dari jumlah kata konten (~200 wpm).
+function feedStripHtml(s) {
+  return String(s || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&#8217;|&#8216;|&#039;|&#39;/g, "'")
+    .replace(/&#8220;|&#8221;|&quot;/g, '"')
+    .replace(/&#8211;|&#8212;/g, "–")
+    .replace(/&#8230;|&hellip;/g, "…")
+    .replace(/&amp;/g, "&").replace(/&nbsp;/g, " ")
+    .replace(/&#[0-9]+;/g, "")
+    .replace(/\s+/g, " ").trim();
+}
+function feedMapPost(p) {
+  if (!p || !p.link) return null;
+  let img = "";
+  try {
+    const m = p._embedded && p._embedded["wp:featuredmedia"] && p._embedded["wp:featuredmedia"][0];
+    if (m) {
+      const sz = (m.media_details && m.media_details.sizes) || {};
+      img = (sz.medium_large || sz.large || sz.medium || {}).source_url || m.source_url || "";
+    }
+  } catch (e) { /* no featured image */ }
+  const content = feedStripHtml(p.content && p.content.rendered);
+  const words = content ? content.split(" ").filter(Boolean).length : 0;
+  return {
+    title: feedStripHtml(p.title && p.title.rendered),
+    excerpt: feedStripHtml(p.excerpt && p.excerpt.rendered).slice(0, 160),
+    link: String(p.link),
+    image: img,
+    date: p.date || null,
+    read_min: words ? Math.max(1, Math.round(words / 200)) : null,
+  };
+}
+const MEDIA_FEED_ORIGIN = process.env.MEDIA_FEED_ORIGIN || "https://media.20fit.id";
+let _mediaFeedCache = { at: 0, posts: null };
+app.get("/api/media/feed", async (req, res) => {
+  try {
+    const ttlMs = 10 * 60 * 1000;
+    if (_mediaFeedCache.posts && (Date.now() - _mediaFeedCache.at) < ttlMs)
+      return res.json({ ok: true, posts: _mediaFeedCache.posts, cached: true });
+    let posts = [];
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      const url = MEDIA_FEED_ORIGIN + "/wp-json/wp/v2/posts?per_page=8&_embed=1";
+      const r = await fetch(url, { signal: ctrl.signal, headers: { "User-Agent": "my20fit-web/1.0", "Accept": "application/json" } });
+      if (r.ok) {
+        const arr = await r.json().catch(() => null);
+        if (Array.isArray(arr)) posts = arr.map(feedMapPost).filter(Boolean);
+      }
+    } catch (e) { /* unreachable / timeout -> feed kosong */ }
+    finally { clearTimeout(timer); }
+    if (posts.length) _mediaFeedCache = { at: Date.now(), posts };
+    return res.json({ ok: true, posts });
+  } catch (e) {
+    return res.json({ ok: true, posts: [] });
+  }
+});
+
 // Daftar coach untuk Book Coach + carousel home. Sumber = roster CMS my20fit_coaches.
 // Filter venue lewat KOLOM coaches.venue (arena/gym/both), bukan cocok teks. Dibaca server
 // (service key); tabel deny-public. Kosong sampai admin mengisi roster.
