@@ -669,6 +669,21 @@
       }catch(e){}
     })();
 
+    // Tampilkan error kalau redirect OAuth/magic-link BALIK dengan gagal (mis. redirect URL
+    // belum di-allowlist di Supabase Dashboard -> Authentication -> URL Configuration). Ini
+    // DIAGNOSTIK biar penyebabnya kelihatan; perbaikannya di dashboard, bukan di kode ini.
+    (function(){
+      try{
+        var qs=new URLSearchParams(location.search);
+        var hs=new URLSearchParams(String(location.hash||"").replace(/^#/,""));
+        var err=qs.get("error_description")||qs.get("error")||hs.get("error_description")||hs.get("error");
+        if(err){
+          msg((lang==="id"?"Login gagal: ":"Sign-in failed: ")+decodeURIComponent(String(err).replace(/\+/g," ")),"err");
+          try{ history.replaceState(null,"",location.pathname); }catch(e){}
+        }
+      }catch(e){}
+    })();
+
     // ---- Login Google — Supabase OAuth redirect ----
     // Kenapa BUKAN GIS: Google Identity Services mewajibkan SETIAP origin didaftarkan di
     // Google Cloud; kalau tidak → "Access blocked: no registered origin / Error 401:
