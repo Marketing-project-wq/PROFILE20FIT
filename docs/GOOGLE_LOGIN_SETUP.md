@@ -1,8 +1,12 @@
 # Panduan Setup Login Google — my.20fit.id
 
-> **Untuk:** pemilik repo (zidni@20fit.id) · **Dibuat:** 2026-09-17
+> **Untuk:** pemilik repo (zidni@20fit.id) · **Dibuat:** 2026-09-17 · **Diperbarui:** 2026-09-28
 > Panduan klik-per-klik. Tidak perlu paham teknis — ikuti saja urutannya.
 > Nilai yang harus di-copy sudah ditulis PERSIS di sini, bukan contoh/placeholder.
+>
+> **Update 2026-09-28:** dari error `redirect_uri_mismatch` yang live, ketahuan client
+> yang dipakai Supabase ada di project **`883349921349`** (bukan `26509397037` seperti
+> panduan awal). Bagian nilai + A0/A1/A3/A5 sudah dikoreksi ke client itu.
 
 ---
 
@@ -20,6 +24,13 @@ Google menerima permintaannya, tapi **alamat balik (redirect URI) milik Supabase
 belum didaftarkan** di OAuth client Google. Itu satu kolom yang harus diisi.
 Bagian A menyelesaikannya.
 
+> **Kenapa app mobile bisa login Google tapi web tidak?** App mobile pakai Google
+> Sign-In **native** (tukar **ID token** langsung) — jalur itu **tidak memakai**
+> alamat `/auth/callback`, jadi redirect URI itu memang **belum pernah** didaftarkan.
+> Web pakai **OAuth redirect**, konsumen PERTAMA dari `.../auth/v1/callback`. Makanya
+> error ini baru muncul di web. Kode web-nya sendiri sudah benar; yang kurang cuma
+> pendaftaran redirect URI di Google (Bagian A).
+
 **Urutan wajib: A → B → D.** Bagian C opsional (hanya untuk app mobile).
 
 ---
@@ -34,19 +45,46 @@ Bagian A menyelesaikannya.
 | Redirect balik ke app (produksi) | `https://my.20fit.id/login` |
 | Redirect balik ke app (staging) | `https://profile20fit-staging.up.railway.app/login` |
 | Project Supabase | `20FIT ALL DATA` (ref `cpvzwqptzcxnwzfzgrmt`) |
-| Project Google Cloud | nomor `26509397037` |
+| **Client ID yang Supabase pakai** (dari error LIVE Google, 2026-09-28) | `883349921349-4efr3u915dstlheqqgouhvd15mrqmkn9.apps.googleusercontent.com` |
+| **Project Google Cloud yang BENAR** | nomor **`883349921349`** (angka sebelum `-` di Client ID = nomor project) |
 
 > **Cek dulu alamat staging.** Nilai staging di atas diambil dari alamat yang
 > terlihat di browser kamu. Kalau di Railway alamatnya beda, pakai yang di Railway.
 > Cara cek: Railway → service `profile20fit` → tab **Settings** → bagian
 > **Domains**. Salin persis, **tanpa garis miring di ujung**.
 
+> 🚨 **PENYEBAB PALING SERING "sudah didaftarkan tapi tetap mismatch": salah project.**
+> Panduan versi lama menyebut project `26509397037`. TAPI error `redirect_uri_mismatch`
+> yang LIVE (28 Sep 2026) menunjukkan Supabase sebenarnya memakai client
+> `883349921349-4efr3u915...` — yaitu project **`883349921349`**, bukan `26509397037`.
+> Redirect URI di **A5 harus didaftarkan di client itu** (di project `883349921349`),
+> bukan di client/project lain. Kalau salah client, Google tetap menolak walau URI
+> sudah ditambahkan. Lihat **A0** untuk memastikan client yang benar dulu.
+
 ---
 
 # BAGIAN A — Google Cloud Console
 
-Tujuan: bikin OAuth client bertipe **Web application**, lalu daftarkan alamat
-balik milik Supabase.
+Tujuan: **temukan OAuth client yang BENAR-BENAR dipakai Supabase**, lalu daftarkan
+alamat balik milik Supabase di client itu. Client-nya bertipe **Web application**.
+
+### A0. PASTIKAN CLIENT YANG BENAR DULU (langkah baru — ini kunci)
+
+Kita sudah tahu client-nya dari error live: `883349921349-4efr3u915...` (project
+`883349921349`). Kalau kamu mau memverifikasi sendiri agar 100% yakin sebelum
+mengedit, pakai salah satu cara ini:
+
+- **Cara cepat (dari halaman error Google):** di layar "Access blocked", klik
+  **"error details"**. Di situ Google menampilkan `client_id` (berakhiran
+  `.apps.googleusercontent.com`) dan `redirect_uri`. Angka **sebelum tanda `-`**
+  pada `client_id` = **nomor project** tempat client itu berada.
+- **Cara dari Supabase:** Authentication → **Providers → Google** → lihat isian
+  **Client IDs**. Client ID Web yang tercantum di situ = client yang dipakai alur
+  web. (Nomor sebelum `-` = project-nya.)
+
+Hasil per 28 Sep 2026: client = `883349921349-4efr3u915dstlheqqgouhvd15mrqmkn9.apps.googleusercontent.com`
+→ **project `883349921349`**. Jadi di A1 pilih project **`883349921349`**, dan di A3/A5
+edit **client itu**. (Kalau verifikasimu menunjukkan angka lain, pakai angka itu.)
 
 ### A1. Masuk
 
@@ -54,9 +92,11 @@ balik milik Supabase.
 2. Login pakai akun Google yang punya akses project 20FIT.
 3. Di **kiri atas**, di sebelah tulisan "Google Cloud", ada **kotak pemilih
    project**. Klik kotak itu.
-4. Pilih project dengan nomor **`26509397037`**.
+4. Pilih project dengan nomor **`883349921349`** (sesuai A0 — INI yang dipakai
+   Supabase; **bukan** `26509397037` yang disebut panduan versi lama).
    (Nomor project kelihatan di kolom "ID" pada daftar. Kalau tidak ketemu,
-   ketik nomornya di kotak pencarian di jendela itu.)
+   ketik nomornya di kotak pencarian di jendela itu. Link cepat:
+   `https://console.cloud.google.com/apis/credentials?project=883349921349`)
 5. Pastikan nama project yang terpilih sudah berubah di kiri atas.
 
 ### A2. Buka halaman Credentials
@@ -69,11 +109,16 @@ Kamu sekarang di halaman berisi daftar "OAuth 2.0 Client IDs".
 
 ### A3. Lihat dulu: apa sudah ada client Web?
 
-Di tabel **OAuth 2.0 Client IDs**, perhatikan kolom **Type**.
+Di tabel **OAuth 2.0 Client IDs**, cari baris yang **Client ID-nya diawali**
+`883349921349-4efr3u915...` (client yang dipakai Supabase, sesuai A0).
 
-- Kalau **sudah ada** baris bertipe **Web application** → **lewati A4**,
-  langsung ke **A5** dan klik baris itu untuk mengeditnya.
-- Kalau **belum ada** (yang ada hanya `iOS` / `Android`) → lanjut **A4**.
+- Kalau baris itu **ada** dan bertipe **Web application** → **lewati A4**,
+  klik baris itu untuk mengeditnya, lalu ke **A5**. ⬅️ kemungkinan besar ini kasusmu.
+- Kalau baris `883349921349-4efr3u915...` itu bertipe **iOS/Android** (bukan Web) →
+  redirect URI tak bisa didaftarkan di client jenis itu. Berarti alur web butuh
+  **client Web**: buat di **A4**, lalu ganti Client ID/Secret di Supabase (B2) ke
+  client Web yang baru itu.
+- Kalau tak ada client Web sama sekali → lanjut **A4**.
 
 > Baris bertipe **iOS** JANGAN dihapus dan JANGAN diubah — itu dipakai app mobile.
 
@@ -248,7 +293,7 @@ Kabari saya kalau A dan B sudah selesai. Saya akan:
 
 | Pesan di layar | Artinya | Perbaikannya |
 |---|---|---|
-| `Error 400: redirect_uri_mismatch` | Redirect URI Supabase belum terdaftar di Google | Ulangi **A5** — cek ada tidaknya garis miring di ujung |
+| `Error 400: redirect_uri_mismatch` | Redirect URI Supabase belum terdaftar **di client yang dipakai Supabase** | **A0 → A5.** Penyebab tersering: didaftarkan di project salah (`26509397037`) padahal Supabase pakai client di project `883349921349`. Pastikan client `883349921349-4efr3u915...`, cek juga tidak ada garis miring di ujung |
 | `Error 401: invalid_client` | Client ID/secret di Supabase salah atau tertukar | Ulangi **B2** — copy ulang dari A7 |
 | `Access blocked: no registered origin` | Client-nya bertipe iOS, bukan Web | Ulangi **A4** — pastikan **Web application** |
 | Login sukses tapi balik ke halaman aneh | Redirect URL belum diizinkan Supabase | Ulangi **B3** |
@@ -305,7 +350,7 @@ jadi tidak ada risiko kehilangan akses total.
 ## Catatan teknis (tidak perlu kamu kerjakan)
 
 - **Jalur web:** `login.html` → `Auth.googleOAuth()` → `supabase.auth.signInWithOAuth`
-  dengan `redirectTo = <origin>/login` (`js/auth.js` ~baris 213).
+  dengan `redirectTo = <origin>/auth/callback` (`js/auth.js` ~baris 224–232).
   Tidak ada GIS, tidak ada `GOOGLE_CLIENT_ID` di jalur ini.
 - **Jalur mobile:** app kirim ID token → `POST /api/fitco-google-login` →
   `verifyGoogleIdToken` mencocokkan `aud` dengan `GOOGLE_CLIENT_ID` +
@@ -314,13 +359,9 @@ jadi tidak ada risiko kehilangan akses total.
   Google, bukan lewat Client ID, jadi ganti client seharusnya tidak membuat baris
   `auth.users` baru. **Ini belum saya uji langsung** — karena itu ada langkah
   pengukuran di Bagian D, bukan sekadar janji.
-- **Token di URL:** supabase-js yang kita pakai (2.108.2) memakai *implicit flow*,
-  jadi Google mengembalikan token di **fragment** URL (`#access_token=...`).
-  Fragment **tidak pernah dikirim ke server**, jadi tidak masuk log Railway/Google.
-  Setelah sesi terpasang, supabase-js langsung mengosongkan fragment itu
-  (`window.location.hash = ""`). Jadi token tidak tertinggal di address bar.
-  Alternatif yang lebih ketat (*PKCE flow*, token tidak pernah muncul di URL sama
-  sekali) **belum** dipakai karena halaman callback lain di ekosistem 20FIT
-  (photo, calorietracker, menu) masih bergantung pada fragment implicit —
-  menggantinya berisiko memutus alur yang sudah jalan. **TANYA PEMILIK REPO**
-  kalau ingin ditempuh; itu pekerjaan terpisah.
+- **Token di URL:** klien Supabase kita kini di-set **`flowType:"pkce"`**
+  (`js/auth.js` baris 41), jadi Google memulangkan hanya `?code=` berumur pendek —
+  **bukan** token di fragment. `detectSessionInUrl:true` menukar `code` itu jadi
+  sesi lewat POST (setara `exchangeCodeForSession`), lalu URL dibersihkan. Token
+  **tidak pernah** muncul di address bar maupun history. (Catatan lama di sini yang
+  menyebut *implicit flow* sudah TIDAK berlaku sejak perubahan 21 Sep 2026.)
