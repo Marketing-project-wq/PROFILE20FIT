@@ -619,7 +619,7 @@
   }
 
   function renderChat() {
-    var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Consultation — chat with your coach", id: "Konsultasi — chat sama coach kamu" });
+    var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Chat with your coach", id: "Chat sama coach kamu" });
     if (!CHAT_COACH) { renderCoachPicker(); return; }
     renderChatRoom();
     if (!CHAT_INIT) initChatConversation(); else paintMsgs();
