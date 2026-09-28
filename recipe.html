@@ -43,6 +43,13 @@
   .chip.on{background:var(--red);color:#fff;border-color:var(--red)}
   .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   @media(min-width:700px){ .rgrid{grid-template-columns:1fr 1fr 1fr} }
+  /* Saved recipes = carousel horizontal (scroll-snap) supaya rapi walau banyak. */
+  .rcar{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;padding:2px 2px 8px;margin:0 -2px 4px;scrollbar-width:thin}
+  .rcar::-webkit-scrollbar{height:6px}
+  .rcar::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+  .rcar>.rcard{flex:0 0 210px;width:210px;scroll-snap-align:start}
+  .rcar>.empty{flex:0 0 100%;min-width:100%}
+  @media(max-width:520px){ .rcar>.rcard{flex-basis:66vw;width:66vw;max-width:250px} }
   .rcard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);text-align:left;padding:0;font-family:inherit}
   .rthumb{aspect-ratio:4/3;display:grid;place-items:center;font-size:40px;background-size:cover;background-position:center;background-repeat:no-repeat;background-color:var(--inp)}
   .rbody{padding:10px 12px}
@@ -161,7 +168,7 @@
          halaman yang membacanya kembali. Disembunyikan kalau user belum menyimpan apa pun. -->
     <section id="savedSec" hidden>
       <div class="sec-h2" data-i18n="rec_saved_h">Saved recipes</div>
-      <div class="rgrid" id="savedGrid"></div>
+      <div class="rcar" id="savedGrid"></div>
       <div class="rdisc" id="savedGone" hidden></div>
     </section>
 
@@ -382,6 +389,9 @@
           if(it.rec && !it.photo){ _apply(document.getElementById("th_"+it.key), it.rec); }
         });
       }
+      // Sinkronkan opsi filter "Tersimpan" di dropdown kategori (muncul saat ada simpanan).
+      renderFilterControls();
+      if(FILT.cat==="__saved") renderRecipes();   // jaga daftar browse konsisten saat filter aktif
     }
     function titleOf(it){ return it.source==="20fit" ? LL(it.nm) : (it.title||""); }
     function ingOf(it){ return it.source==="20fit" ? LL(it.ingO) : (it.ing||""); }
@@ -442,7 +452,11 @@
     }
     function renderFilterControls(){
       var qEl=$("rq"); if(qEl){ qEl.value=FILT.q; qEl.classList.toggle("on", !!FILT.q.trim()); }
-      fillSelect($("rcat"), categoriesOf().map(function(c){ return {v:c, nm:c}; }), FILT.cat, T("rec_all_cat"));
+      // Opsi kategori dari data + opsi khusus "Tersimpan" (muncul kalau user punya simpanan)
+      // supaya daftar browse bisa disaring ke menu yang sudah disimpan.
+      var catOpts=categoriesOf().map(function(c){ return {v:c, nm:c}; });
+      if(SAVED && SAVED.length){ catOpts.unshift({v:"__saved", nm:"★ "+T("rec_saved_h")}); }
+      fillSelect($("rcat"), catOpts, FILT.cat, T("rec_all_cat"));
       fillSelect($("rkcal"), KCAL_RANGES.map(function(r){ return {v:r.v, nm:LLx(r.nm)}; }), FILT.kcal, T("rec_all_kcal"));
       fillSelect($("rsort"), SORT_OPTIONS.map(function(o){ return {v:o.v, nm:LLx(o.nm)}; }), FILT.sort, T("rec_sort_default"));
     }
@@ -468,7 +482,9 @@
           var hay=(titleOf(it)+" "+ingOf(it)).toLowerCase();
           if(hay.indexOf(q)<0) return false;
         }
-        if(FILT.cat && it.cat!==FILT.cat) return false;
+        if(FILT.cat==="__saved"){
+          if(!(SAVED && midOf(it) && SAVED.indexOf(savedKeyOf(it))>=0)) return false;
+        } else if(FILT.cat && it.cat!==FILT.cat){ return false; }
         if(curType!=="all" && it.types.indexOf(curType)<0) return false;
         if(kr){ if(it.kcal==null) return false; if(it.kcal<kr.min||it.kcal>kr.max) return false; }
         return true;
