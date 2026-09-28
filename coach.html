@@ -161,7 +161,9 @@
   .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .ccard{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 10px;border:1px solid var(--a-line);border-radius:16px;background:var(--a-surface);cursor:pointer;font-family:inherit;color:var(--a-txt)}
   .ccard:hover{border-color:var(--accent)}
-  .cav{border-radius:99px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex:none;line-height:1}
+  .cav{position:relative;border-radius:99px;overflow:hidden;flex:none;line-height:1;background:transparent}
+  .cav img{width:100%;height:100%;object-fit:cover;display:block}
+  .cav-i{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
   .ccard .cn{font-size:14.5px;font-weight:800}
   .ccard .ct{font-size:11.5px;text-align:center;line-height:1.35}
   .croom{display:flex;flex-direction:column;height:calc(100vh - 200px);min-height:420px;border:1px solid var(--a-line);border-radius:16px;background:var(--a-surface);overflow:hidden}

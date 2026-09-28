@@ -82,6 +82,7 @@
     ["elsen",   { en: "Detail-oriented",       id: "Detail & teknis" },     "#16A34A"],
   ];
   var COACH_NAME = { nando: "Nando", calysta: "Calysta", rheza: "Rheza", elsen: "Elsen" };
+  var COACH_PHOTO = {};              // slug -> photo_url (diisi dari /api/coaches, cocokkan "Coach <slug>")
   var QUICKS = [
     [{ en: "Make a plan", id: "Buat plan" }, { en: "Buatkan workout plan untuk minggu ini", id: "Buatkan workout plan untuk minggu ini" }],
     [{ en: "Health score", id: "Health score" }, { en: "Berapa health score aku sekarang?", id: "Berapa health score aku sekarang?" }],
@@ -101,6 +102,19 @@
     try { var qr = await apiFetch("/api/coach/quiz"); var qj = await qr.json().catch(function () { return {}; }); QUIZ = qj && qj.quiz ? qj.quiz : null; } catch (e) {}
     try { var cr = await fetch("/api/coach/config"); CFG = await cr.json().catch(function () { return {}; }); } catch (e) { CFG = {}; }
     if (PLAN && PLAN.plan) { await loadToday(); }
+    // Foto persona = foto coach asli dari roster CMS (satu sumber kebenaran, CLAUDE.md §2).
+    // Cocokkan slug persona -> baris "Coach <nama>" di /api/coaches; gagal -> fallback inisial.
+    try {
+      var cres = await fetch("/api/coaches");
+      var cjs = await cres.json().catch(function () { return {}; });
+      var clist = (cjs && cjs.coaches) || [];
+      COACH_LIST.forEach(function (cc) {
+        var target = "coach " + cc[0];
+        for (var i = 0; i < clist.length; i++) {
+          if (String(clist[i].name || "").trim().toLowerCase() === target && clist[i].photo_url) { COACH_PHOTO[cc[0]] = clist[i].photo_url; break; }
+        }
+      });
+    } catch (e) {}
     try { var cpk = localStorage.getItem("my20fit_coach_pick"); if (cpk && COACH_NAME[cpk]) CHAT_COACH = cpk; } catch (e) {}
     render();
   }
@@ -565,7 +579,10 @@
   function coachInitial(slug) { return (COACH_NAME[slug] || "?").charAt(0).toUpperCase(); }
   function coachAvatar(slug, size) {
     size = size || 40;
-    return '<span class="cav" style="width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.42) + 'px;background:' + coachColor(slug) + '">' + esc(coachInitial(slug)) + '</span>';
+    var fs = Math.round(size * 0.42), photo = COACH_PHOTO[slug] || "", color = coachColor(slug);
+    var ini = '<span class="cav-i" style="font-size:' + fs + 'px;background:' + color + (photo ? ';display:none' : '') + '">' + esc(coachInitial(slug)) + '</span>';
+    var img = photo ? '<img src="' + esc(photo) + '" alt="' + esc(COACH_NAME[slug] || "") + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' : '';
+    return '<span class="cav" style="width:' + size + 'px;height:' + size + 'px">' + img + ini + '</span>';
   }
   function greetOf(slug) {
     var g = {
