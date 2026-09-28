@@ -80,6 +80,32 @@ browser** akan menuntut pelonggaran RLS yang dipakai bareng recipe.20fit.id — 
 **Riwayat bolak-balik (supaya tidak terulang ketiga kalinya):**
 - `f087920` (2026-09-08) — "rename Diet → Recipe + jadikan menu/resep in-app (bukan SSO keluar)". Tile → `/recipe`.
 - PR #423 / `94b4a68` (2026-09-15, **di-merge langsung ke `main` tanpa lewat staging**) — tile diubah jadi SSO keluar ke `recepie.20fit.id`.
+- **AKAR "Workout 0%" di Health Score: MIGRATION 017 BELUM DIJALANKAN (28 Sep 2026).**
+  Dicek langsung ke DB live, bukan disimpulkan: `my20fit_workout` punya **8 kolom**
+  (`id, auth_user_id, workout_date, type, duration_min, note, created_at, updated_at`) dan
+  **0 baris**. Ke-13 kolom yang ditambahkan migration 017 (`source, title, distance_km,
+  calories_burned, avg_heart_rate, max_heart_rate, hr_zone_data, pace_data,
+  elevation_gain_m, raw_data, uploaded_file_url, external_id, steps`) **tidak ada**.
+  Akibatnya `POST /api/activity/workout` — satu-satunya jalur simpan workout, manual
+  MAUPUN hasil upload — selalu gagal (PG 42703 → 500), tabelnya tetap 0 baris, dan
+  kategori workout di Health Score selalu 0%. **Tidak ada perubahan kode yang bisa
+  memperbaiki ini; migration 017 harus dijalankan pemilik.**
+- **Upload workout sekarang MENAIKKAN Health Score (28 Sep 2026).** Sebelumnya
+  `/api/activity/upload-analyze` hanya menulis ke `my20fit_activity_uploads`
+  (migration 025, juga belum dijalankan) sehingga hasil upload **tidak pernah**
+  menyentuh skor. Sekarang workout hasil upload disimpan ke `my20fit_workout` —
+  tabel workout **kanonik** yang sama dengan input manual dan yang memang sudah dibaca
+  `/api/activity/health-score`, jadi tidak ada jalur data kedua (CLAUDE.md §2).
+  Ada anti-ganda (user+tanggal+tipe+durasi) supaya screenshot yang dianalisa dua kali
+  tidak dihitung dua kali, dan bonus +5 kalau ada `avg_heart_rate` terbaca.
+  Query health-score punya **fallback**: kalau kolom 017 belum ada, PostgREST menolak
+  SELURUH query (42703) — tanpa fallback kategori workout hilang total, bukan cuma
+  bonusnya. Responsnya membawa `workout_schema_required: true` supaya halaman bisa
+  menjelaskan sebabnya, bukan memajang 0% tanpa alasan.
+- **Migration yang MENUNGGU dijalankan pemilik (28 Sep 2026):** **017** (kolom workout —
+  paling menghambat), **018** (member goals), **020** (sleep + hydration), **025**
+  (activity uploads + today plans). Keempatnya dicek ke DB live: tabel/kolomnya belum ada.
+
 - **2026-09-16** — tile dikembalikan ke `/recipe`; blok handoff `openRecipeGo` + `MENU_ORIGIN` di `dashboard.html` dihapus karena jadi dead code.
 
 **JANGAN hapus `Auth.menuSso()` di `js/auth.js`** — itu bukan sisa PR #423. Masih terpakai untuk
