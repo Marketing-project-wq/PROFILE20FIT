@@ -36,6 +36,7 @@
   // (diukur: 1–2,6 MB per berkas, path vektornya cuma 231–353 karakter untuk bingkai).
   // Sepuluh di antaranya = ~15 MB untuk tile 28px, dan tak bisa ikut warna/tema.
   var P = {
+    arena   : '<ellipse cx="12" cy="12" rx="9" ry="6.2"/><ellipse cx="12" cy="12" rx="4" ry="2.4"/>',   // arena.20fit.id :: lintasan arena
     home    : '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',   // dashboard.html :: home
     my20fit : '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',   // js/nav.js :: profile
     recipe  : '<path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/>',   // dashboard.html :: food
@@ -83,6 +84,7 @@
     { id: "my20fit", group: "main", label: "My 20FIT",        desc: "Member Portal",               icon: "my20fit", url: "https://my.20fit.id",             color: "#6366F1", path: "/dashboard" },
     { id: "recipe",  group: "main", label: "Recipe",          desc: "Menu & Resep Sehat",          icon: "recipe",  url: "https://recepie.20fit.id",        color: "#16A34A", path: "/recipe" },
     { id: "shop",    group: "main", label: "Shop",            desc: "Alat Gym & Fitness",          icon: "shop",    url: "https://shop.20fit.id",           color: "#e4002b" },
+    { id: "arena",   group: "main", label: "Arena",           desc: "HYROX Training Club",         icon: "arena",   url: "https://arena.20fit.id",          color: "#b94a3e" },
     // Health
     { id: "calorie", group: "health", label: "Calorie Tracker", desc: "Hitung Kalori Harian",      icon: "calorie", url: "https://calorietracker.20fit.id", color: "#F97316", path: "/calories" },
     { id: "mcu",     group: "health", label: "MCU Scanner",     desc: "Baca Hasil Medical Check-Up", icon: "mcu",    url: "https://medicalscanner.20fit.id", color: "#0EA5E9", path: "/medical" },
@@ -133,7 +135,7 @@
   // di /img/products/<id>.png). 14 dari 17 produk punya artwork; Body Scan, Talent & Shop
   // belum ada → tetap pakai ikon garis inline (P[icon], ikut warna/tema). Artwork raster full-color
   // (tidak ikut tema) — makanya diberi chip putih di CSS supaya rapi di light & dark.
-  var NO_ART = { bodyscan: 1, talent: 1, shop: 1 };
+  var NO_ART = { bodyscan: 1, talent: 1, shop: 1, arena: 1 };
   ITEMS.forEach(function (it) { if (!NO_ART[it.id]) it.img = "/img/products/" + it.id + ".png"; });
   // Base URL ikon: di my.20fit/staging = same-origin (""), di subdomain lain = absolut ke
   // my.20fit.id (tempat berkasnya) supaya bar universal tetap dapat ikon di mana pun dipasang.
@@ -152,7 +154,8 @@
     "photo.20fit.id": "photo",
     "ticket.20fit.id": "ticket",
     "talent.20fit.id": "talent",
-    "shop.20fit.id": "shop"
+    "shop.20fit.id": "shop",
+    "arena.20fit.id": "arena"
   };
   function currentId() {
     var h = location.hostname;
