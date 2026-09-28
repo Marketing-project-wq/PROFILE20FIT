@@ -393,6 +393,31 @@
   .consult .cface-av img{width:100%;height:100%;object-fit:cover;display:block}
   .consult .cface-i{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:22px}
   .consult .cface-n{font-size:12px;font-weight:700}
+  /* Today's Full Plan (upload-analyze) */
+  .tpl-hd{display:flex;align-items:center;gap:8px}
+  .tpl-hd .t{font-size:16px;font-weight:800;letter-spacing:-.2px}
+  .tpl-sub{font-size:12px;color:var(--a-mut);margin-top:2px;line-height:1.45}
+  .tpl-empty{text-align:center;padding:6px 4px 4px}
+  .tpl-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;border-radius:12px;background:var(--fit-red,#E4002B);color:#fff;font-weight:800;font-size:14px;border:0;cursor:pointer;font-family:inherit}
+  .tpl-gaps{display:flex;flex-direction:column;gap:7px;margin:12px 0 2px}
+  .tpl-gap{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;line-height:1.45;padding:10px 12px;border-radius:11px;border:1px solid var(--a-line)}
+  .tpl-gap .ic{flex:none}
+  .tpl-gap.kurang{background:color-mix(in srgb,var(--red,#E4002B) 9%,transparent);border-color:color-mix(in srgb,var(--red,#E4002B) 28%,var(--a-line))}
+  .tpl-gap.cukup{background:color-mix(in srgb,var(--green,#1C8A4B) 9%,transparent);border-color:color-mix(in srgb,var(--green,#1C8A4B) 28%,var(--a-line))}
+  .tpl-sec{border:1px solid var(--a-line);border-radius:14px;padding:13px 14px;margin-top:10px;background:color-mix(in srgb,var(--a-txt) 2.5%,transparent)}
+  .tpl-sec .h{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:800;margin-bottom:7px}
+  .tpl-sec .h .ic{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent);flex:none}
+  .tpl-sec .bd{font-size:12.5px;line-height:1.55}
+  .tpl-sec .bd .mut{color:var(--a-mut)}
+  .tpl-meal{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--a-line)}
+  .tpl-meal:first-child{border-top:0}
+  .tpl-meal .cal{font-family:var(--mono);color:var(--a-mut);white-space:nowrap;font-weight:700}
+  .tpl-says{margin-top:12px;padding:13px 14px;border-radius:14px;border:1px solid color-mix(in srgb,var(--fit-red,#E4002B) 26%,var(--a-line));background:color-mix(in srgb,var(--fit-red,#E4002B) 8%,var(--a-surface))}
+  .tpl-says .who{font-size:11px;font-weight:800;color:var(--fit-red,#E4002B);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+  .tpl-says .txt{font-size:13px;line-height:1.5}
+  .tpl-cta{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .tpl-cta a{display:flex;align-items:center;gap:9px;padding:12px 14px;border-radius:12px;border:1px solid var(--a-line);text-decoration:none;color:var(--a-txt);font-size:13px;font-weight:700;background:var(--a-surface)}
+  .tpl-disc{font-size:10.5px;color:var(--a-mut);margin-top:12px}
 
 </style>
 <!-- Dimuat SESUDAH <style> halaman, sama seperti dashboard/calories/recipe: skin kaca
@@ -439,6 +464,10 @@
     </div>
     <div class="consult-faces" id="consultFaces"><div class="skel" style="height:82px;border-radius:12px"></div></div>
   </div>
+
+  <!-- Today's Full Plan — hasil upload-analyze (workout/food/sleep/hydration + coach says) -->
+  <div id="todayPlanBox"></div>
+  <input type="file" id="tplFile" accept="image/*,.heic,.heif" style="display:none">
 
   <div class="dgrid">
   <!-- 3. UPLOAD -->
@@ -1391,6 +1420,100 @@
       return '<a class="cface" href="/coach?coach='+p[0]+'" style="--cc:'+p[2]+'"><span class="cface-av"><span class="cface-in">'+img+iniSpan+'</span></span><span class="cface-n">'+esc(p[1])+'</span></a>';
     }).join("");
   }
+  // ---- Today's Full Plan (Fase 2): render + upload->analyze (self-contained) ----
+  var TPL_BUSY=false, TPL_COACH="nando";
+  try{ var _cp=localStorage.getItem("my20fit_coach_pick"); if(_cp) TPL_COACH=_cp; }catch(e){}
+  var COACH_NAME_TPL={nando:"Nando",calysta:"Calysta",rheza:"Rheza",elsen:"Elsen"};
+  var TPL_ICON={
+    workout:'<path d="M3.5 9.5v5M6.5 8v8M17.5 8v8M20.5 9.5v5M6.5 12h11"/>',
+    food:'<path d="M6 3v6.5a2 2 0 0 0 4 0V3M8 9.5V21M16.5 3c-1.4 0-2.3 1.6-2.3 4s.9 4 2.3 4 2.3-1.6 2.3-4-.9-4-2.3-4zM16.5 11v10"/>',
+    sleep:'<path d="M20 13.5A8 8 0 1 1 10.5 4a6.3 6.3 0 0 0 9.5 9.5z"/>',
+    hydration:'<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>'
+  };
+  function tplHost(){ return document.getElementById("todayPlanBox"); }
+  function tplCat(c){ return Lx({workout:{en:"Workout",id:"Workout"},nutrition:{en:"Nutrition",id:"Nutrisi"},sleep:{en:"Sleep",id:"Tidur"},hydration:{en:"Hydration",id:"Hidrasi"}}[c]||{en:String(c||""),id:String(c||"")}); }
+  function tplSec(name,titleObj,inner){ return '<div class="tpl-sec"><div class="h"><span class="ic">'+hscIcon(TPL_ICON[name]||"",18)+'</span>'+esc(Lx(titleObj))+'</div><div class="bd">'+inner+'</div></div>'; }
+  function tplUpBtn(){ var b=document.getElementById("tplUp"); if(b) b.onclick=function(){ var f=document.getElementById("tplFile"); if(f) f.click(); }; }
+  function renderTodayPlanEmpty(){
+    var h=tplHost(); if(!h) return;
+    h.innerHTML='<div class="card"><div class="tpl-hd"><span class="t">'+esc(Lx({en:"Today's Plan",id:"Plan Hari Ini"}))+'</span></div>'+
+      '<div class="tpl-empty"><div class="tpl-sub">'+esc(Lx({en:"Upload a health/workout screenshot and I will build a full plan for today (workout, food, sleep, hydration) from your real data.",id:"Upload screenshot kesehatan/olahraga, nanti aku buatkan full plan hari ini (workout, makan, tidur, hidrasi) dari data kamu."}))+'</div>'+
+      '<button type="button" class="tpl-btn" id="tplUp" style="margin-top:12px">'+esc(Lx({en:"Upload & analyze",id:"Upload & analisa"}))+'</button></div></div>';
+    tplUpBtn();
+  }
+  function renderTodayPlan(p){
+    var h=tplHost(); if(!h) return; p=p||{};
+    var gaps=Array.isArray(p.gaps)?p.gaps:[];
+    var gapsHtml=gaps.length?('<div class="tpl-gaps">'+gaps.map(function(g){
+      var st=String((g&&g.status)||"").toLowerCase(); var cls=st==="kurang"?"kurang":(st==="cukup"?"cukup":"");
+      var ic=cls==="kurang"?"⚠️":(cls==="cukup"?"✅":"•");
+      return '<div class="tpl-gap '+cls+'"><span class="ic">'+ic+'</span><span><b>'+esc(tplCat(g&&g.category))+'</b> — '+esc((g&&g.detail)||"")+'</span></div>';
+    }).join("")+'</div>'):"";
+    var secs="";
+    var w=p.workout; if(w&&typeof w==="object") secs+=tplSec("workout",{en:"Workout",id:"Workout"},
+      '<b>'+esc(w.recommendation||w.type||"")+'</b>'+((w.intensity)?' <span class="mut">· '+esc(w.intensity)+(w.duration_min?" · "+esc(String(w.duration_min))+" min":"")+'</span>':'')+
+      (w.reason?'<div class="mut" style="margin-top:4px">'+esc(w.reason)+'</div>':''));
+    var f=p.food; if(f&&typeof f==="object"){ var meals=Array.isArray(f.meals)?f.meals:[];
+      secs+=tplSec("food",{en:"Food",id:"Makan"},
+        (f.calorie_target?'<b>'+esc(String(f.calorie_target))+' kcal</b>'+(f.priority_macro?' <span class="mut">· '+esc(Lx({en:"priority",id:"prioritas"}))+' '+esc(f.priority_macro)+'</span>':''):'')+
+        (meals.length?'<div style="margin-top:6px">'+meals.map(function(m){return '<div class="tpl-meal"><span>'+esc(m.meal||"")+(m.suggestion?': '+esc(m.suggestion):'')+'</span><span class="cal">'+(m.calories?esc(String(m.calories))+' kcal':'')+'</span></div>';}).join("")+'</div>':'')+
+        (f.note?'<div class="mut" style="margin-top:6px">'+esc(f.note)+'</div>':'')); }
+    var sl=p.sleep; if(sl&&typeof sl==="object"){ var tips=Array.isArray(sl.tips)?sl.tips:[];
+      secs+=tplSec("sleep",{en:"Sleep",id:"Tidur"},
+        (sl.target_hours?'<b>'+esc(String(sl.target_hours))+' '+esc(Lx({en:"hours",id:"jam"}))+'</b>':'')+(sl.target_bedtime?' <span class="mut">· '+esc(Lx({en:"bed by",id:"tidur sebelum"}))+' '+esc(sl.target_bedtime)+'</span>':'')+
+        (sl.reason?'<div class="mut" style="margin-top:4px">'+esc(sl.reason)+'</div>':'')+
+        (tips.length?'<ul style="margin:6px 0 0;padding-left:18px">'+tips.map(function(t){return '<li>'+esc(t)+'</li>';}).join("")+'</ul>':'')); }
+    var hy=p.hydration; if(hy&&typeof hy==="object"){ var sch=Array.isArray(hy.schedule)?hy.schedule:[];
+      secs+=tplSec("hydration",{en:"Hydration",id:"Hidrasi"},
+        (hy.target_ml?'<b>'+esc(String(hy.target_ml))+' ml</b>':'')+(hy.reason?' <span class="mut">· '+esc(hy.reason)+'</span>':'')+
+        (sch.length?'<div class="mut" style="margin-top:6px">'+sch.map(function(x){return esc(x);}).join(" · ")+'</div>':'')); }
+    var says=p.coach_says?('<div class="tpl-says"><div class="who">'+esc((COACH_NAME_TPL[p.coach_id]||"Coach")+" says")+'</div><div class="txt">'+esc(p.coach_says)+'</div></div>'):"";
+    var cta='<div class="tpl-cta"><a href="/classes">📅 '+esc(Lx({en:"Book a class",id:"Book kelas"}))+'</a>'+
+      '<a href="/coach?coach='+esc(TPL_COACH)+'">💬 '+esc(Lx({en:"Discuss with your coach",id:"Bahas sama coach kamu"}))+'</a></div>';
+    h.innerHTML='<div class="card"><div class="tpl-hd"><span class="t">'+esc(Lx({en:"Today's Full Plan",id:"Full Plan Hari Ini"}))+'</span></div>'+
+      '<div class="tpl-sub">'+esc(Lx({en:"Built from your uploaded data — not a medical diagnosis.",id:"Dibuat dari data upload kamu — bukan diagnosis medis."}))+'</div>'+
+      gapsHtml+secs+says+cta+
+      '<button type="button" class="tpl-btn" id="tplUp" style="margin-top:14px;background:transparent;color:var(--fit-red,#E4002B);border:1px solid color-mix(in srgb,var(--fit-red,#E4002B) 40%,var(--a-line))">'+esc(Lx({en:"Upload new data",id:"Upload data baru"}))+'</button></div>';
+    tplUpBtn();
+  }
+  async function loadTodayPlan(){
+    var h=tplHost(); if(!h) return;
+    h.innerHTML='<div class="card"><div class="skel" style="height:90px"></div></div>';
+    try{
+      var r=await apiFetch("/api/activity/today-plan"); var j=await r.json().catch(function(){return {};});
+      if(r.status===401){ renderTodayPlanEmpty(); return; }
+      var row=j&&j.plan;
+      if(row&&(row.workout_plan||row.food_plan||row.sleep_plan||row.hydration_plan))
+        renderTodayPlan({ workout:row.workout_plan, food:row.food_plan, sleep:row.sleep_plan, hydration:row.hydration_plan, gaps:row.yesterday_gaps, coach_says:row.coach_says, coach_id:row.coach_id });
+      else renderTodayPlanEmpty();
+    }catch(e){ renderTodayPlanEmpty(); }
+  }
+  function wirePlanUpload(){
+    var f=document.getElementById("tplFile"); if(!f) return;
+    f.onchange=function(){ var file=f.files&&f.files[0]; f.value=""; if(file) analyzeUpload(file); };
+  }
+  async function analyzeUpload(file){
+    if(TPL_BUSY) return; clearErr();
+    if(file.size>8*1024*1024){ showErr(Lx({en:"Image too big (max ~8MB).",id:"Gambar terlalu besar (maks ~8MB)."}),false); return; }
+    TPL_BUSY=true;
+    var h=tplHost();
+    if(h) h.innerHTML='<div class="card"><div class="tpl-hd"><span class="t">'+esc(Lx({en:"Analyzing your data…",id:"Menganalisa data kamu…"}))+'</span></div><div class="skel" style="height:80px;margin-top:10px"></div></div>';
+    try{
+      var sup=await toSupported(file);
+      if(!sup.ok){ TPL_BUSY=false; showErr(Lx({en:"Can't read that file. Use PNG/JPG/WebP.",id:"Berkas tak terbaca. Pakai PNG/JPG/WebP."}),false); loadTodayPlan(); return; }
+      var small=await shrink(sup.dataUrl);
+      var r=await apiFetch("/api/activity/upload-analyze",{method:"POST",body:JSON.stringify({ image:small, coach_id:TPL_COACH, lang:(window.I18N&&I18N.lang)||"id" })});
+      var j=await r.json().catch(function(){return {};});
+      if(r.status===401){ location.href="/login"; return; }
+      TPL_BUSY=false;
+      if(r.ok&&j.ok&&j.analysis){
+        var a=j.analysis, tp=a.today_plan||{};
+        renderTodayPlan({ workout:tp.workout, food:tp.food, sleep:tp.sleep, hydration:tp.hydration, gaps:a.yesterday_gaps, coach_says:a.coach_says, coach_id:TPL_COACH });
+        try{ loadHealthScore(); }catch(e){}
+      } else { showErr((j&&j.error)||Lx({en:"Couldn't analyze. Try again.",id:"Gagal analisa. Coba lagi."}),false); loadTodayPlan(); }
+    }catch(e){ TPL_BUSY=false; showErr(Lx({en:"Upload failed. Try again.",id:"Upload gagal. Coba lagi."}),false); loadTodayPlan(); }
+  }
+
   async function loadHealthScore(){
     var host=document.getElementById("healthScoreBox"); if(!host) return;
     host.innerHTML='<div class="card"><div class="skel" style="height:120px"></div></div>';
@@ -1444,6 +1567,7 @@
     await load(SEL);
     loadHealthScore();   // komposit weekly — fire-and-forget, tak menahan render harian
     renderConsult();     // muka coach di kartu Consultation — fire-and-forget
+    wirePlanUpload(); loadTodayPlan();   // Today's Full Plan (upload-analyze) — fire-and-forget
     // Isi Activity lama menyatu di halaman yang sama. Dijalankan SETELAH bagian harian
     // supaya yang di layar pertama tampil duluan; skripnya berat (pencapaian, siklus,
     // riwayat arena). Gagal di sini TIDAK boleh merusak bagian harian di atasnya.
