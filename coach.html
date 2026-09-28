@@ -155,35 +155,79 @@
   .badge2.off{opacity:.55}
   @media(max-width:400px){ .badges{grid-template-columns:1fr} }
 
-  /* ---- Chatbot (persona) ---- */
-  .cpick-h{font-size:16px;font-weight:800}
-  .cpick-s{font-size:12.5px;margin:4px 0 14px;line-height:1.5}
-  .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .ccard{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 10px;border:1px solid var(--a-line);border-radius:16px;background:var(--a-surface);cursor:pointer;font-family:inherit;color:var(--a-txt)}
-  .ccard:hover{border-color:var(--accent)}
-  .cav{position:relative;border-radius:99px;overflow:hidden;flex:none;line-height:1;background:transparent}
+  /* ---- AI Coach chatbot (persona) — premium, token 20FIT (aksen merah brand) ---- */
+  :root{ --ai:var(--fit-red,#E4002B); --ai2:var(--fit-blue,#0068C9); }
+
+  /* Hero picker + orb AI */
+  .cq-hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:14px 12px 4px}
+  .cq-orb{position:relative;width:96px;height:96px;border-radius:99px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;flex:none;
+    background:conic-gradient(from 210deg,var(--ai),var(--ai2),var(--ai));
+    box-shadow:0 0 0 1px color-mix(in srgb,var(--ai) 30%,transparent),0 14px 46px color-mix(in srgb,var(--ai) 32%,transparent);
+    animation:orbpulse 3.8s ease-in-out infinite}
+  .cq-orb::after{content:"";position:absolute;inset:5px;border-radius:99px;background:var(--a-surface)}
+  .cq-orb svg{position:relative;z-index:1;color:var(--ai)}
+  @keyframes orbpulse{0%,100%{box-shadow:0 0 0 1px color-mix(in srgb,var(--ai) 28%,transparent),0 14px 44px color-mix(in srgb,var(--ai) 26%,transparent)}50%{box-shadow:0 0 0 1px color-mix(in srgb,var(--ai) 46%,transparent),0 18px 60px color-mix(in srgb,var(--ai) 44%,transparent)}}
+  .cq-h{font-family:var(--fit-font-display,inherit);font-weight:800;font-size:27px;letter-spacing:.6px;text-transform:uppercase;margin:0;line-height:1}
+  .cq-s{font-size:13px;color:var(--a-mut);margin:8px 0 0;line-height:1.55;max-width:330px}
+
+  /* Kartu persona */
+  .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+  .ccard{position:relative;display:flex;flex-direction:column;align-items:center;gap:9px;padding:18px 12px 15px;border:1px solid var(--a-line);border-radius:20px;
+    background:var(--a-surface);cursor:pointer;font-family:inherit;color:var(--a-txt);transition:transform .15s,border-color .15s,box-shadow .15s}
+  .ccard:hover,.ccard:active{transform:translateY(-2px);border-color:color-mix(in srgb,var(--cc,var(--ai)) 55%,var(--a-line));box-shadow:0 12px 30px color-mix(in srgb,var(--cc,var(--ai)) 22%,transparent)}
+  .ccard .cn{font-size:15px;font-weight:800}
+  .ccard .ct{font-size:11.5px;text-align:center;line-height:1.35;color:var(--a-mut)}
+
+  /* Avatar + cincin glow (warna per-persona via --cc) */
+  .cav{position:relative;display:block;border-radius:99px;flex:none;line-height:1}
+  .cav.ring{padding:3px;background:conic-gradient(from 140deg,var(--cc,var(--ai)),color-mix(in srgb,var(--cc,var(--ai)) 25%,transparent),var(--cc,var(--ai)));
+    box-shadow:0 0 16px color-mix(in srgb,var(--cc,var(--ai)) 45%,transparent)}
+  .cav .cav-in{position:relative;display:block;width:100%;height:100%;border-radius:99px;overflow:hidden;background:var(--a-surface)}
   .cav img{width:100%;height:100%;object-fit:cover;display:block}
   .cav-i{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
-  .ccard .cn{font-size:14.5px;font-weight:800}
-  .ccard .ct{font-size:11.5px;text-align:center;line-height:1.35}
-  .croom{display:flex;flex-direction:column;height:calc(100vh - 200px);min-height:420px;border:1px solid var(--a-line);border-radius:16px;background:var(--a-surface);overflow:hidden}
-  .croom-h{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--a-line)}
-  .croom-h .crn{font-weight:800;font-size:14.5px;flex:1;min-width:0}
-  .croom-h .crsw{border:1px solid var(--a-line);background:transparent;color:var(--a-txt);font-size:12px;font-weight:700;border-radius:99px;padding:6px 12px;cursor:pointer;font-family:inherit}
-  .cmsgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:9px}
-  .cmsg{max-width:82%;padding:10px 13px;border-radius:15px;font-size:13.5px;line-height:1.5;word-wrap:break-word;overflow-wrap:anywhere}
+
+  /* Chat room */
+  .croom{display:flex;flex-direction:column;height:calc(100dvh - 188px);min-height:440px;border:1px solid var(--a-line);border-radius:22px;background:var(--a-surface);overflow:hidden;box-shadow:var(--fit-shadow,0 8px 30px rgba(0,0,0,.08))}
+  .croom-h{display:flex;align-items:center;gap:11px;padding:12px 14px;border-bottom:1px solid var(--a-line);
+    background:linear-gradient(180deg,color-mix(in srgb,var(--cc,var(--ai)) 12%,var(--a-surface)),var(--a-surface))}
+  .croom-h .crn{font-weight:800;font-size:15px;flex:1;min-width:0;line-height:1.15}
+  .croom-h .crn small{display:block;font-size:10.5px;font-weight:600;color:var(--a-mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .croom-h .crsw{border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-size:12px;font-weight:700;border-radius:99px;padding:7px 13px;cursor:pointer;font-family:inherit;flex:none}
+  .cmsgs{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:10px}
+
+  /* Empty state: sapaan + chip data asli + kartu prompt */
+  .cintro{display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;margin:auto 0;padding:6px 2px}
+  .cintro-h{font-size:18px;font-weight:800;margin-top:2px}
+  .cintro-s{font-size:12.5px;color:var(--a-mut);line-height:1.55;max-width:300px}
+  .cchip-data{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;color:var(--ai);background:color-mix(in srgb,var(--ai) 12%,transparent);border:1px solid color-mix(in srgb,var(--ai) 26%,transparent);border-radius:99px;padding:5px 11px}
+  .qcards{display:grid;grid-template-columns:1fr 1fr;gap:9px;width:100%;margin-top:8px}
+  .qcard{display:flex;flex-direction:column;gap:9px;text-align:left;padding:13px;border:1px solid var(--a-line);border-radius:16px;background:var(--a-bg);cursor:pointer;font-family:inherit;color:var(--a-txt);transition:border-color .15s,transform .15s}
+  .qcard:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--ai) 45%,var(--a-line))}
+  .qcard .qi{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--ai) 13%,transparent);color:var(--ai);flex:none}
+  .qcard .ql{font-size:12.5px;font-weight:700;line-height:1.3}
+
+  /* Bubble */
+  .cmsg{max-width:84%;padding:11px 14px;border-radius:16px;font-size:14px;line-height:1.5;word-wrap:break-word;overflow-wrap:anywhere}
   .cmsg.ai{align-self:flex-start;background:color-mix(in srgb,var(--a-txt) 6%,transparent);border-bottom-left-radius:5px}
-  .cmsg.me{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:5px}
+  .cmsg.me{align-self:flex-end;color:#fff;border-bottom-right-radius:5px;background:linear-gradient(135deg,var(--ai),color-mix(in srgb,var(--ai) 68%,var(--ai2)))}
   .cmsg.typing{display:flex;gap:4px;align-items:center}
   .cmsg.typing span{width:6px;height:6px;border-radius:99px;background:var(--a-mut);display:inline-block;animation:ctyp 1s infinite}
   .cmsg.typing span:nth-child(2){animation-delay:.15s} .cmsg.typing span:nth-child(3){animation-delay:.3s}
   @keyframes ctyp{0%,60%,100%{opacity:.3}30%{opacity:1}}
-  .cquick{display:flex;gap:7px;overflow-x:auto;padding:8px 12px;border-top:1px solid var(--a-line)}
+
+  /* Chip cepat (saat sudah ada percakapan) */
+  .cquick{display:flex;gap:7px;overflow-x:auto;padding:9px 12px;border-top:1px solid var(--a-line)}
   .cquick::-webkit-scrollbar{height:0}
-  .cqbtn{flex:none;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-size:12px;font-weight:700;border-radius:99px;padding:7px 12px;cursor:pointer;font-family:inherit;white-space:nowrap}
-  .cinput{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--a-line);align-items:flex-end}
-  .cinput textarea{flex:1;resize:none;max-height:120px;padding:10px 12px;border-radius:12px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px;line-height:1.4}
-  .cinput .csend{width:42px;height:42px;flex:none;border:0;border-radius:12px;background:var(--accent);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .cqbtn{flex:none;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-size:12px;font-weight:700;border-radius:99px;padding:7px 13px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .cqbtn:hover{border-color:color-mix(in srgb,var(--ai) 45%,var(--a-line))}
+
+  /* Composer */
+  .cinput{display:flex;gap:9px;padding:11px 12px;border-top:1px solid var(--a-line);align-items:flex-end;background:var(--a-surface)}
+  .cinput .spark{flex:none;color:var(--ai);padding-bottom:10px}
+  .cinput textarea{flex:1;resize:none;max-height:120px;padding:11px 14px;border-radius:14px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px;line-height:1.4}
+  .cinput .csend{width:44px;height:44px;flex:none;border:0;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;
+    background:linear-gradient(135deg,var(--ai),color-mix(in srgb,var(--ai) 65%,var(--ai2)));box-shadow:0 6px 18px color-mix(in srgb,var(--ai) 40%,transparent)}
+  .cinput .csend:active{transform:scale(.95)}
 </style>
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/glass-app.css">
