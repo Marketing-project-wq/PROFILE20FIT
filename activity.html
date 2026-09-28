@@ -373,12 +373,7 @@
   .hsc .hsc-stat .lbl{font-size:10px;color:var(--a-mut);font-weight:700;text-align:center}
   .hsc .hsc-note{font-size:10.5px;color:var(--a-mut);margin-top:13px}
   /* Kartu Consultation (muka coach di depan -> klik langsung chat coach itu) */
-  .consult .consult-hd{display:flex;align-items:center;gap:13px;position:relative}
-  .consult .consult-orb{width:46px;height:46px;border-radius:99px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;background:conic-gradient(from 210deg,var(--fit-red,#E4002B),var(--fit-blue,#0068C9),var(--fit-red,#E4002B));box-shadow:0 6px 18px color-mix(in srgb,var(--fit-red,#E4002B) 35%,transparent)}
-  .consult .consult-orb .fic{color:#fff}
-  .consult .consult-badge{display:inline-block;font-size:9px;font-weight:800;letter-spacing:1.2px;color:var(--fit-red,#E4002B);background:color-mix(in srgb,var(--fit-red,#E4002B) 14%,transparent);padding:2px 8px;border-radius:99px}
-  .consult .consult-t{display:block;font-size:16px;font-weight:800;margin-top:5px;letter-spacing:-.2px}
-  .consult .consult-s{display:block;font-size:12px;color:var(--a-mut);margin-top:2px;line-height:1.4}
+  /* Kartu Coach kini pakai .acard-hd (redesign grid); gaya consult-hd/orb/badge lama dihapus. */
   .consult .consult-faces{display:flex;gap:10px;margin-top:16px;position:relative;overflow-x:auto;padding-bottom:2px}
   .consult .consult-faces::-webkit-scrollbar{height:0}
   .consult .cface{flex:1;min-width:64px;display:flex;flex-direction:column;align-items:center;gap:8px;text-decoration:none;color:var(--a-txt)}
@@ -388,6 +383,42 @@
   .consult .cface-av img{width:100%;height:100%;object-fit:cover;display:block}
   .consult .cface-i{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:22px}
   .consult .cface-n{font-size:12px;font-weight:700}
+  /* ===== Redesign card-grid: PLAN (atas) / RECAP (bawah) ===== */
+  .asec-h{font-size:12px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--a-mut);margin:20px 2px 10px;display:flex;align-items:center;gap:8px}
+  .agrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(min-width:768px){ .agrid{gap:14px} }
+  @media(min-width:1024px){ .agrid{grid-template-columns:repeat(3,1fr)} }
+  .agrid .afull{grid-column:1/-1}
+  .acard{background:var(--a-surface);border:1px solid var(--a-line);border-radius:16px;padding:14px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+  @media(max-width:767px){ .acard{padding:12px;border-radius:13px} }
+  .acard-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+  .acard-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--a-mut);display:flex;align-items:center;gap:6px;min-width:0}
+  @media(max-width:767px){ .acard-title{font-size:11px} }
+  .acard-act{font-size:11.5px;font-weight:700;color:var(--fit-red,#E4002B);background:none;border:0;cursor:pointer;text-decoration:none;white-space:nowrap;font-family:inherit;flex:none}
+  .cc-qa{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .cc-qa button{flex:1;min-width:0;padding:8px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cc-qa button:hover{border-color:var(--fit-red,#E4002B);color:var(--fit-red,#E4002B)}
+  /* What You Need (di dalam kartu Health Score) */
+  .wyn{margin-top:14px;padding-top:13px;border-top:1px solid var(--a-line);text-align:left}
+  .wyn-t{font-size:12px;font-weight:800;color:var(--a-txt);margin:0 0 9px;text-transform:uppercase;letter-spacing:.4px}
+  .wyn-it{display:flex;gap:9px;margin-bottom:9px;font-size:12px;color:var(--a-mut);line-height:1.45}
+  .wyn-it b{color:var(--a-txt);display:block;font-size:12.5px}
+  .wyn-it .ic{flex:none;font-size:15px;line-height:1.2}
+  .wyn-cta{display:block;margin-top:4px;padding:9px 12px;border-radius:9px;background:var(--fit-red,#E4002B);color:#fff;border:0;font-size:12px;font-weight:800;cursor:pointer;text-decoration:none;text-align:center}
+  /* Workout Plan card */
+  .wp-by{font-size:11.5px;color:var(--a-mut);margin-bottom:9px;font-weight:600}
+  .wp-days{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+  .wp-day{display:flex;align-items:center;gap:9px;font-size:12px;padding:7px 9px;border:1px solid var(--a-line);border-radius:9px}
+  .wp-day .nm{font-weight:800;width:36px;flex:none;color:var(--a-mut);text-transform:uppercase;font-size:11px}
+  .wp-day .lb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .wp-empty{font-size:12px;color:var(--a-mut);line-height:1.5;margin-bottom:10px}
+  .wp-cta{display:inline-block;align-self:flex-start;padding:9px 13px;border-radius:9px;background:var(--fit-red,#E4002B);color:#fff;border:0;font-size:12px;font-weight:800;cursor:pointer;text-decoration:none}
+  /* Weekly Recap card */
+  .wr-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  @media(min-width:560px){ .wr-stats{grid-template-columns:repeat(4,1fr)} }
+  .wr-stat{text-align:center;padding:9px 5px;border:1px solid var(--a-line);border-radius:11px;background:color-mix(in srgb,var(--a-txt) 2.5%,transparent)}
+  .wr-stat .v{font-size:14px;font-weight:800;font-family:var(--mono);display:block;line-height:1.2}
+  .wr-stat .l{font-size:10px;color:var(--a-mut);font-weight:700;margin-top:3px;display:block}
   /* Today's Full Plan (upload-analyze) */
   .tpl-hd{display:flex;align-items:center;gap:8px}
   .tpl-hd .t{font-size:16px;font-weight:800;letter-spacing:-.2px}
@@ -453,41 +484,55 @@
 
   <div id="errBox"></div>
 
-  <!-- Kartu skor dinaikkan ke atas (gaya mockup); diisi renderScore() saat ada rencana -->
+  <!-- Kartu skor (renderScore) — hanya muncul kalau ada rencana harian -->
   <div id="scoreTop"></div>
-  <!-- Health Score komposit (6 kategori) — dihitung on-the-fly dari data live -->
-  <div id="healthScoreBox"></div>
 
-  <!-- Upload workout — LANGSUNG di bawah Health Score (permintaan pemilik). Hanya upload
-       langsung; tombol "hubungkan tracker" (Strava/Garmin/Apple/Google) dihapus karena
-       integrasi live belum ada — jangan pura-pura bisa connect. -->
-  <div class="card">
-    <div class="drop" id="drop" tabindex="0" role="button">
-      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <div class="t" data-i18n="act_up_t">Upload hasil workout</div>
-      <div class="s" data-i18n="act_up_s">Screenshot, foto, atau file dari tracker kamu — bisa 5 sekaligus</div>
+  <!-- ================= PLAN — minggu ini / besok (forward-looking) ================= -->
+  <div class="asec-h">🎯 <span data-en="Plan — this week & tomorrow" data-id="Plan — minggu ini & besok">Plan — minggu ini &amp; besok</span></div>
+  <div class="agrid">
+
+    <!-- CARD: Coach Consultation — muka coach (klik = chat) + aksi cepat (auto-message ke chat) -->
+    <div class="acard consult afull" id="coachCard">
+      <div class="acard-hd"><span class="acard-title">💬 <span data-en="Coach" data-id="Coach">Coach</span></span>
+        <a class="acard-act" href="/coach" data-en="Open Chat →" data-id="Buka Chat →">Buka Chat →</a></div>
+      <div class="consult-faces" id="consultFaces"><div class="skel" style="height:64px;border-radius:12px;flex:1"></div></div>
+      <div class="cc-qa" id="coachQa"></div>
     </div>
-    <input type="file" id="file" accept="image/*,.heic,.heif" multiple style="display:none">
+
+    <!-- CARD: Health Score + What You Need (ring + rencana ke depan, satu kartu) -->
+    <div id="healthScoreBox" class="afull"></div>
+
+    <!-- CARD: Upload — upload langsung; sumber Today's Plan -->
+    <div class="acard" id="uploadCard">
+      <div class="acard-hd"><span class="acard-title">📤 <span data-en="Upload" data-id="Upload">Upload</span></span></div>
+      <div class="drop" id="drop" tabindex="0" role="button">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <div class="t" data-i18n="act_up_t">Upload hasil workout</div>
+        <div class="s" data-i18n="act_up_s">Screenshot, foto, atau file dari tracker kamu — bisa 5 sekaligus</div>
+      </div>
+      <input type="file" id="file" accept="image/*,.heic,.heif" multiple style="display:none">
+    </div>
+
+    <!-- CARD: Active Workout Plan — dari /api/coach/plan (butuh migrasi 021 aktif) -->
+    <div class="acard" id="workoutPlanCard">
+      <div class="acard-hd"><span class="acard-title">🏋️ <span data-en="Workout Plan" data-id="Workout Plan">Workout Plan</span></span>
+        <a class="acard-act" href="/coach" data-en="Detail →" data-id="Detail →">Detail →</a></div>
+      <div id="workoutPlanBox"><div class="skel" style="height:56px;border-radius:10px"></div></div>
+    </div>
+
+    <!-- CARD: Today's Plan (full) — hasil upload-analyze (workout/food/sleep/hydration + coach says) -->
+    <div id="todayPlanBox" class="afull"></div>
+    <input type="file" id="tplFile" accept="image/*,.heic,.heif" style="display:none">
+
   </div>
 
-  <!-- AI Coach entry: headline penuh-lebar (di atas grid) supaya jadi hal pertama yang
-       terlihat di desktop & mobile — bukan terkubur di kolom kanan. Link internal same-tab (§G). -->
-  <div class="card consult" style="position:relative;overflow:hidden;margin:0 0 12px;border:1px solid color-mix(in srgb,var(--fit-red,#E4002B) 26%,var(--a-line));background:linear-gradient(135deg,color-mix(in srgb,var(--fit-red,#E4002B) 11%,var(--a-surface)),var(--a-surface))">
-    <span aria-hidden="true" style="position:absolute;top:-45px;right:-35px;width:150px;height:150px;border-radius:99px;background:radial-gradient(circle,color-mix(in srgb,var(--fit-red,#E4002B) 24%,transparent),transparent 70%);pointer-events:none"></span>
-    <div class="consult-hd">
-      <span class="consult-orb"><span class="fic" data-ic="ai" aria-hidden="true"></span></span>
-      <span style="flex:1;min-width:0">
-        <span class="consult-badge">CONSULTATION</span>
-        <span class="consult-t" data-i18n="act_coach_cta">Consult your coach</span>
-        <span class="consult-s" data-i18n="act_coach_sub">Tap a coach to chat — powered by your real data</span>
-      </span>
-    </div>
-    <div class="consult-faces" id="consultFaces"><div class="skel" style="height:82px;border-radius:12px"></div></div>
+  <!-- ================= RECAP — minggu ini (backward-looking) ================= -->
+  <div class="asec-h">📅 <span data-en="Recap — this week" data-id="Recap — minggu ini">Recap — minggu ini</span></div>
+  <div class="acard" id="weeklyRecapCard" style="margin-bottom:12px">
+    <div class="acard-hd"><span class="acard-title">📅 <span data-en="Weekly Recap" data-id="Ringkasan Minggu">Weekly Recap</span></span>
+      <a class="acard-act" href="/activity/history" data-en="Detail →" data-id="Detail →">Detail →</a></div>
+    <div id="weeklyRecapBox"><div class="skel" style="height:48px;border-radius:10px"></div></div>
   </div>
-
-  <!-- Today's Full Plan — hasil upload-analyze (workout/food/sleep/hydration + coach says) -->
-  <div id="todayPlanBox"></div>
-  <input type="file" id="tplFile" accept="image/*,.heic,.heif" style="display:none">
 
   <div class="dgrid">
   <!-- 4. WORKOUT -->
@@ -1517,9 +1562,10 @@
     try{
       var r=await apiFetch("/api/activity/health-score");
       var j=await r.json().catch(function(){return {};});
-      if(!r.ok||!j.ok){ HS=null; host.innerHTML=""; return; }
+      if(!r.ok||!j.ok){ HS=null; host.innerHTML=""; renderWeeklyRecap(); return; }
       HS=j; renderHealthScore();
     }catch(e){ HS=null; host.innerHTML=""; }
+    renderWeeklyRecap();
   }
   function renderHealthScore(){
     var host=document.getElementById("healthScoreBox"); if(!host) return;
@@ -1542,6 +1588,7 @@
       return '<div class="hsc-stat"><span class="i" style="color:'+scoreCol(pct)+'">'+hscIcon(c[2],20)+'</span>'+
         '<span class="val">'+pct+'%</span><span class="lbl">'+esc(Lx(c[1]))+'</span></div>';
     }).join("");
+    var wynHtml=whatYouNeedHtml(bd);
     host.innerHTML='<div class="card hsc">'+
       '<div class="hsc-top"><span class="t">'+esc(Lx({en:"Health Score",id:"Health Score"}))+'</span>'+
         '<span class="s">'+esc(Lx({en:"Synthesised from your own data",id:"Disintesis dari data kamu"}))+'</span></div>'+
@@ -1552,8 +1599,87 @@
         '<div class="hsc-ctr"><b>'+esc(String(HS.total))+'</b><span class="u">/ 100</span><span class="st" style="color:'+col+'">'+esc(st)+'</span></div>'+
       '</div>'+
       '<div class="hsc-stats">'+stats+'</div>'+
+      wynHtml+
       '<div class="hsc-note">'+esc(Lx({en:"Indicative, from your own data — not a medical diagnosis.",id:"Indikatif dari datamu — bukan diagnosis medis."}))+'</div>'+
     '</div>';
+  }
+
+  // ---- What You Need: rencana ke depan dari Health Score. Angka ASLI dari /api/activity/
+  // health-score (bukan karangan) + target yang sama dengan server (workout 4x, tidur 7,5j,
+  // air 8 gelas). Hanya munculkan kategori yang datanya ada & skornya kurang. ----
+  function whatYouNeedHtml(bd){
+    bd=bd||{}; var items=[];
+    var w=bd.workout;
+    if(w&&w.score<100){ var m=String(w.detail||"").match(/(\d+)\s*\/\s*(\d+)/);
+      if(m){ var have=+m[1],tgt=+m[2],left=Math.max(0,tgt-have);
+        if(left>0) items.push(["🏋️",Lx({en:"Work out "+left+"x more this week",id:"Workout "+left+"x lagi minggu ini"}),Lx({en:"You're at "+have+"/"+tgt+" this week.",id:"Baru "+have+"/"+tgt+" minggu ini."})]); } }
+    var sl=bd.sleep;
+    if(sl&&sl.score<80) items.push(["😴",Lx({en:"Sleep a little earlier",id:"Tidur lebih awal"}),Lx({en:"Avg "+(sl.detail||"")+" — aim for 7.5h.",id:"Rata-rata "+(sl.detail||"")+" — target 7,5 jam."})]);
+    var hy=bd.hydration;
+    if(hy&&hy.score<80) items.push(["💧",Lx({en:"Drink more water",id:"Minum lebih banyak"}),Lx({en:"Avg "+(hy.detail||"")+" — aim for 8 glasses.",id:"Rata-rata "+(hy.detail||"")+" — target 8 gelas."})]);
+    var nu=bd.nutrition;
+    if(nu&&nu.score<80) items.push(["🍽️",Lx({en:"Keep nutrition steady",id:"Jaga nutrisi"}),Lx({en:(nu.detail||"")+" — aim for a balanced intake.",id:(nu.detail||"")+" — usahakan seimbang."})]);
+    if(!items.length) return "";
+    return '<div class="wyn"><div class="wyn-t">'+esc(Lx({en:"What You Need",id:"Yang Kamu Butuhkan"}))+'</div>'+
+      items.map(function(x){ return '<div class="wyn-it"><span class="ic">'+x[0]+'</span><span><b>'+esc(x[1])+'</b>'+esc(x[2])+'</span></div>'; }).join("")+
+      '<a class="wyn-cta" href="/coach?coach='+encodeURIComponent(TPL_COACH||"nando")+'">💬 '+esc(Lx({en:"Chat coach for a detailed plan →",id:"Chat coach untuk plan detail →"}))+'</a></div>';
+  }
+
+  // ---- Coach card: aksi cepat auto-message ke chat (mekanisme chat_context sudah ada di coach.js) ----
+  function coachAskGo(msg){
+    try{ sessionStorage.setItem("chat_context", JSON.stringify({ auto_message:String(msg||"") })); }catch(e){}
+    location.href="/coach?coach="+encodeURIComponent(TPL_COACH||"nando");
+  }
+  function renderCoachQa(){
+    var host=document.getElementById("coachQa"); if(!host) return;
+    host.innerHTML='<button type="button" data-ask="plan">📋 '+esc(Lx({en:"Make a plan",id:"Buat Plan"}))+'</button>'+
+      '<button type="button" data-ask="score">📊 '+esc(Lx({en:"Health Score",id:"Health Score"}))+'</button>';
+    Array.prototype.forEach.call(host.querySelectorAll("button"),function(b){
+      b.onclick=function(){ var k=b.getAttribute("data-ask");
+        coachAskGo(k==="plan"?Lx({en:"Make me a workout plan for this week",id:"Buatkan workout plan minggu ini"}):Lx({en:"Analyze my health score",id:"Analisa health score aku"})); };
+    });
+  }
+
+  // ---- Weekly Recap: angka ASLI dari Health Score mingguan (detail per kategori). ----
+  function renderWeeklyRecap(){
+    var host=document.getElementById("weeklyRecapBox"); if(!host) return;
+    var bd=HS&&HS.breakdown;
+    if(!bd){ host.innerHTML='<div class="wp-empty">'+esc(Lx({en:"Not enough data this week yet — log workouts, sleep & water.",id:"Data minggu ini belum cukup — log workout, tidur & air."}))+'</div>'; return; }
+    var tiles=[["workout",{en:"Workout",id:"Workout"}],["sleep",{en:"Sleep",id:"Tidur"}],["hydration",{en:"Hydration",id:"Hidrasi"}],["nutrition",{en:"Nutrition",id:"Nutrisi"}]]
+      .filter(function(t){ return bd[t[0]]; })
+      .map(function(t){ var s=bd[t[0]]; return '<div class="wr-stat"><span class="v">'+esc(String(s.detail||(Math.round(s.score)+"%")))+'</span><span class="l">'+esc(Lx(t[1]))+'</span></div>'; }).join("");
+    host.innerHTML=tiles?('<div class="wr-stats">'+tiles+'</div>'):('<div class="wp-empty">'+esc(Lx({en:"No weekly data yet.",id:"Belum ada data mingguan."}))+'</div>');
+  }
+
+  // ---- Active Workout Plan: /api/coach/plan (butuh migrasi 021). Ringkas + link ke /coach. ----
+  async function loadWorkoutPlan(){
+    var host=document.getElementById("workoutPlanBox"); if(!host) return;
+    try{
+      var r=await apiFetch("/api/coach/plan"); var j=await r.json().catch(function(){return {};});
+      if(r.status===401){ renderWorkoutPlanEmpty(); return; }
+      if(j&&j.plan&&j.plan.plan) renderWorkoutPlan(j.plan);
+      else renderWorkoutPlanEmpty();
+    }catch(e){ renderWorkoutPlanEmpty(); }
+  }
+  function renderWorkoutPlanEmpty(){
+    var host=document.getElementById("workoutPlanBox"); if(!host) return;
+    host.innerHTML='<div class="wp-empty">'+esc(Lx({en:"No active plan yet. Build a weekly workout plan with your AI coach.",id:"Belum ada plan aktif. Buat rencana latihan mingguan bareng coach AI."}))+'</div>'+
+      '<a class="wp-cta" href="/coach">📋 '+esc(Lx({en:"Generate Plan →",id:"Buat Plan →"}))+'</a>';
+  }
+  function renderWorkoutPlan(row){
+    var host=document.getElementById("workoutPlanBox"); if(!host) return;
+    var p=(row&&row.plan)||{};
+    var meta=[String(row.goal||p.goal||""),String(row.level||p.level||"")].filter(Boolean).join(" · ");
+    var arr=Array.isArray(p.days)?p.days:(Array.isArray(p.week)?p.week:(Array.isArray(p.schedule)?p.schedule:[]));
+    var rows=arr.map(function(d){
+      if(!d||typeof d!=="object") return "";
+      var nm=String(d.day||d.name||d.title||"").slice(0,3);
+      var lb=String(d.focus||d.name||d.title||d.label||(Array.isArray(d.exercises)?(d.exercises.length+" ex"):"")||"");
+      if(!nm&&!lb) return "";
+      return '<div class="wp-day"><span class="nm">'+esc(nm||"•")+'</span><span class="lb">'+esc(lb)+'</span></div>';
+    }).filter(Boolean).slice(0,7).join("");
+    host.innerHTML=(meta?'<div class="wp-by">'+esc(meta)+'</div>':'')+(rows?'<div class="wp-days">'+rows+'</div>':'')+
+      '<a class="wp-cta" href="/coach" style="background:transparent;color:var(--fit-red,#E4002B);border:1px solid color-mix(in srgb,var(--fit-red,#E4002B) 40%,var(--a-line))">'+esc(Lx({en:"Open full plan →",id:"Buka plan lengkap →"}))+'</a>';
   }
 
   (async function(){
@@ -1563,7 +1689,8 @@
     renderHead(); renderDnav(); wireUpload(); wireDlg(); wireSleepDlg();
     await load(SEL);
     loadHealthScore();   // komposit weekly — fire-and-forget, tak menahan render harian
-    renderConsult();     // muka coach di kartu Consultation — fire-and-forget
+    renderConsult(); renderCoachQa();   // muka coach + aksi cepat (auto-message ke chat) — fire-and-forget
+    loadWorkoutPlan();   // kartu Workout Plan (dari /api/coach/plan) — fire-and-forget
     wirePlanUpload(); loadTodayPlan();   // Today's Full Plan (upload-analyze) — fire-and-forget
     wireTabs();          // tab bar Dashboard/Chat/Plan/History
     // Isi Activity lama menyatu di halaman yang sama. Dijalankan SETELAH bagian harian
@@ -1578,7 +1705,7 @@
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
     renderHead(); renderDnav();
     if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek(); }
-    renderSleep(); renderHydra(); renderHealthScore();
+    renderSleep(); renderHydra(); renderHealthScore(); renderCoachQa(); renderWeeklyRecap();
   });
 
 </script>
