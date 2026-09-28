@@ -359,15 +359,40 @@
   .hsc .hsc-hd .t{font-size:14.5px;font-weight:800}
   .hsc .hsc-hd .n{font-size:15px;font-weight:800;font-family:var(--mono);color:var(--a-mut)}
   .hsc .hsc-hd .n b{font-size:26px;color:var(--a-txt)}
-  .hsc .hsc-bar{height:9px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden;margin-top:8px}
-  .hsc .hsc-bar>i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--green),var(--accent))}
-  .hsc .hsc-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px 16px;margin-top:15px}
-  .hsc .hsc-cl{display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;gap:8px}
-  .hsc .hsc-cl .v{color:var(--a-mut);font-family:var(--mono);font-weight:800;white-space:nowrap}
-  .hsc .hsc-cb{height:6px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden;margin-top:4px}
-  .hsc .hsc-cb>i{display:block;height:100%;border-radius:99px;background:var(--green)}
-  .hsc .hsc-det{font-size:10px;color:var(--a-mut);font-weight:600;margin-top:2px}
+  /* Ring "Bio-Readiness" style — skor komposit sbg lingkaran + kolom metrik (data asli) */
+  .hsc .hsc-top .t{font-size:16px;font-weight:800;letter-spacing:-.2px;display:block}
+  .hsc .hsc-top .s{font-size:11.5px;color:var(--a-mut);margin-top:1px;display:block}
+  .hsc .hsc-ringwrap{position:relative;display:flex;align-items:center;justify-content:center;padding:12px 0 2px}
+  .hsc .hsc-ringwrap::before{content:"";position:absolute;width:150px;height:150px;border-radius:99px;background:radial-gradient(circle,color-mix(in srgb,var(--a-txt) 5%,transparent),transparent 70%);pointer-events:none}
+  .hsc .hsc-ring{width:186px;height:186px;transform:rotate(-90deg);position:relative}
+  .hsc .hsc-ring .trk{fill:none;stroke:color-mix(in srgb,var(--a-txt) 9%,transparent);stroke-width:9}
+  .hsc .hsc-ring .prg{fill:none;stroke-width:9;stroke-linecap:round;transition:stroke-dashoffset .7s ease}
+  .hsc .hsc-ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+  .hsc .hsc-ctr b{font-size:46px;font-weight:800;font-family:var(--mono);letter-spacing:-1px}
+  .hsc .hsc-ctr .u{font-size:12px;color:var(--a-mut);font-weight:700;margin-top:4px}
+  .hsc .hsc-ctr .st{font-size:10.5px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-top:8px}
+  .hsc .hsc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px}
+  .hsc .hsc-stat{display:flex;flex-direction:column;align-items:center;gap:4px;padding:11px 5px;border:1px solid var(--a-line);border-radius:13px;background:color-mix(in srgb,var(--a-txt) 2.5%,transparent)}
+  .hsc .hsc-stat .i{display:flex;align-items:center;justify-content:center}
+  .hsc .hsc-stat .val{font-size:16px;font-weight:800;font-family:var(--mono)}
+  .hsc .hsc-stat .lbl{font-size:10px;color:var(--a-mut);font-weight:700;text-align:center}
   .hsc .hsc-note{font-size:10.5px;color:var(--a-mut);margin-top:13px}
+  /* Kartu Consultation (muka coach di depan -> klik langsung chat coach itu) */
+  .consult .consult-hd{display:flex;align-items:center;gap:13px;position:relative}
+  .consult .consult-orb{width:46px;height:46px;border-radius:99px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;background:conic-gradient(from 210deg,var(--fit-red,#E4002B),var(--fit-blue,#0068C9),var(--fit-red,#E4002B));box-shadow:0 6px 18px color-mix(in srgb,var(--fit-red,#E4002B) 35%,transparent)}
+  .consult .consult-orb .fic{color:#fff}
+  .consult .consult-badge{display:inline-block;font-size:9px;font-weight:800;letter-spacing:1.2px;color:var(--fit-red,#E4002B);background:color-mix(in srgb,var(--fit-red,#E4002B) 14%,transparent);padding:2px 8px;border-radius:99px}
+  .consult .consult-t{display:block;font-size:16px;font-weight:800;margin-top:5px;letter-spacing:-.2px}
+  .consult .consult-s{display:block;font-size:12px;color:var(--a-mut);margin-top:2px;line-height:1.4}
+  .consult .consult-faces{display:flex;gap:10px;margin-top:16px;position:relative;overflow-x:auto;padding-bottom:2px}
+  .consult .consult-faces::-webkit-scrollbar{height:0}
+  .consult .cface{flex:1;min-width:64px;display:flex;flex-direction:column;align-items:center;gap:8px;text-decoration:none;color:var(--a-txt)}
+  .consult .cface-av{position:relative;display:block;width:58px;height:58px;border-radius:99px;padding:3px;background:conic-gradient(from 140deg,var(--cc,var(--fit-red,#E4002B)),color-mix(in srgb,var(--cc,var(--fit-red,#E4002B)) 25%,transparent),var(--cc,var(--fit-red,#E4002B)));box-shadow:0 0 14px color-mix(in srgb,var(--cc,var(--fit-red,#E4002B)) 40%,transparent);transition:transform .15s}
+  .consult .cface:hover .cface-av,.consult .cface:active .cface-av{transform:translateY(-2px)}
+  .consult .cface-in{position:relative;display:block;width:100%;height:100%;border-radius:99px;overflow:hidden;background:var(--a-surface)}
+  .consult .cface-av img{width:100%;height:100%;object-fit:cover;display:block}
+  .consult .cface-i{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:22px}
+  .consult .cface-n{font-size:12px;font-weight:700}
 
 </style>
 <!-- Dimuat SESUDAH <style> halaman, sama seperti dashboard/calories/recipe: skin kaca
@@ -402,23 +427,18 @@
 
   <!-- AI Coach entry: headline penuh-lebar (di atas grid) supaya jadi hal pertama yang
        terlihat di desktop & mobile — bukan terkubur di kolom kanan. Link internal same-tab (§G). -->
-  <a class="card" href="/coach" style="display:block;position:relative;overflow:hidden;text-decoration:none;color:var(--a-txt);margin:0 0 12px;border:1px solid color-mix(in srgb,var(--fit-red,#E4002B) 30%,var(--a-line));background:linear-gradient(135deg,color-mix(in srgb,var(--fit-red,#E4002B) 13%,var(--a-surface)),var(--a-surface))">
-    <span aria-hidden="true" style="position:absolute;top:-45px;right:-35px;width:160px;height:160px;border-radius:99px;background:radial-gradient(circle,color-mix(in srgb,var(--fit-red,#E4002B) 28%,transparent),transparent 70%);pointer-events:none"></span>
-    <span style="display:flex;align-items:center;gap:14px;position:relative">
-      <span style="width:54px;height:54px;border-radius:99px;flex:none;display:flex;align-items:center;justify-content:center;background:conic-gradient(from 210deg,var(--fit-red,#E4002B),var(--fit-blue,#0068C9),var(--fit-red,#E4002B));box-shadow:0 8px 22px color-mix(in srgb,var(--fit-red,#E4002B) 38%,transparent)">
-        <span style="width:44px;height:44px;border-radius:99px;background:var(--a-surface);display:flex;align-items:center;justify-content:center;color:var(--fit-red,#E4002B);font-size:20px"><span class="fic" data-ic="ai" aria-hidden="true"></span></span>
-      </span>
+  <div class="card consult" style="position:relative;overflow:hidden;margin:0 0 12px;border:1px solid color-mix(in srgb,var(--fit-red,#E4002B) 26%,var(--a-line));background:linear-gradient(135deg,color-mix(in srgb,var(--fit-red,#E4002B) 11%,var(--a-surface)),var(--a-surface))">
+    <span aria-hidden="true" style="position:absolute;top:-45px;right:-35px;width:150px;height:150px;border-radius:99px;background:radial-gradient(circle,color-mix(in srgb,var(--fit-red,#E4002B) 24%,transparent),transparent 70%);pointer-events:none"></span>
+    <div class="consult-hd">
+      <span class="consult-orb"><span class="fic" data-ic="ai" aria-hidden="true"></span></span>
       <span style="flex:1;min-width:0">
-        <span style="display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:1.2px;color:var(--fit-red,#E4002B);background:color-mix(in srgb,var(--fit-red,#E4002B) 14%,transparent);padding:3px 9px;border-radius:99px" data-i18n="act_coach_badge">AI COACH</span>
-        <span style="display:block;font-size:17px;font-weight:800;margin-top:6px;letter-spacing:-.2px" data-i18n="act_coach_cta">Your personal AI coach</span>
-        <span style="display:block;font-size:12.5px;color:var(--a-mut);margin-top:3px;line-height:1.45" data-i18n="act_coach_sub">Chat about workouts, nutrition &amp; recovery — powered by your real data</span>
+        <span class="consult-badge">CONSULTATION</span>
+        <span class="consult-t" data-i18n="act_coach_cta">Consult your coach</span>
+        <span class="consult-s" data-i18n="act_coach_sub">Tap a coach to chat — powered by your real data</span>
       </span>
-    </span>
-    <span style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;padding:12px;border-radius:12px;background:var(--fit-red,#E4002B);color:#fff;font-weight:800;font-size:14px;position:relative">
-      <span data-i18n="act_coach_btn">Start chatting</span>
-      <span aria-hidden="true" style="font-size:16px">→</span>
-    </span>
-  </a>
+    </div>
+    <div class="consult-faces" id="consultFaces"><div class="skel" style="height:82px;border-radius:12px"></div></div>
+  </div>
 
   <div class="dgrid">
   <!-- 3. UPLOAD -->
@@ -1346,13 +1366,31 @@
   // hanya render. Weekly/7-hari -> tak perlu re-fetch tiap ganti tanggal.
   var HS=null;
   var HS_CATS=[
-    ["workout",{en:"Workout",id:"Workout"}],
-    ["nutrition",{en:"Nutrition",id:"Nutrisi"}],
-    ["sleep",{en:"Sleep",id:"Tidur"}],
-    ["hydration",{en:"Hydration",id:"Hidrasi"}],
-    ["body",{en:"Body",id:"Tubuh"}],
-    ["lab",{en:"Lab",id:"Lab"}]
+    ["workout",{en:"Workout",id:"Workout"},'<path d="M3.5 9.5v5M6.5 8v8M17.5 8v8M20.5 9.5v5M6.5 12h11"/>'],
+    ["nutrition",{en:"Nutrition",id:"Nutrisi"},'<path d="M6 3v6.5a2 2 0 0 0 4 0V3M8 9.5V21M16.5 3c-1.4 0-2.3 1.6-2.3 4s.9 4 2.3 4 2.3-1.6 2.3-4-.9-4-2.3-4zM16.5 11v10"/>'],
+    ["sleep",{en:"Sleep",id:"Tidur"},'<path d="M20 13.5A8 8 0 1 1 10.5 4a6.3 6.3 0 0 0 9.5 9.5z"/>'],
+    ["hydration",{en:"Hydration",id:"Hidrasi"},'<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>'],
+    ["body",{en:"Body",id:"Tubuh"},'<circle cx="12" cy="5" r="2.4"/><path d="M12 8v7M12 15l-3.2 5M12 15l3.2 5M7.5 10.5h9"/>'],
+    ["lab",{en:"Lab",id:"Lab"},'<path d="M9 3h6M10 3v6l-5.2 8.2A2 2 0 0 0 6.5 20h11a2 2 0 0 0 1.7-2.8L14 9V3"/>']
   ];
+  function hscIcon(p,sz){ sz=sz||20; return '<svg viewBox="0 0 24 24" width="'+sz+'" height="'+sz+'" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>'; }
+  // Consultation: muka 4 persona coach di depan (Activity). Klik -> /coach?coach=<slug>
+  // (deep-link) langsung buka chat coach itu. Foto dari roster CMS /api/coaches (data asli).
+  var CONSULT=[["nando","Nando","#2F6BFF"],["calysta","Calysta","#EC4899"],["rheza","Rheza","#F59E0B"],["elsen","Elsen","#16A34A"]];
+  async function renderConsult(){
+    var host=document.getElementById("consultFaces"); if(!host) return;
+    var photos={};
+    try{
+      var r=await apiFetch("/api/coaches"); var j=await r.json().catch(function(){return {};});
+      ((j&&j.coaches)||[]).forEach(function(c){ var nm=String(c.name||"").trim().toLowerCase(); CONSULT.forEach(function(p){ if(nm==="coach "+p[0]&&c.photo_url) photos[p[0]]=c.photo_url; }); });
+    }catch(e){}
+    host.innerHTML=CONSULT.map(function(p){
+      var ph=photos[p[0]]||"";
+      var img=ph?'<img src="'+esc(ph)+'" alt="'+esc(p[1])+'" loading="lazy" decoding="async" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">':'';
+      var iniSpan='<span class="cface-i" style="background:'+p[2]+(ph?';display:none':'')+'">'+esc(p[1].charAt(0))+'</span>';
+      return '<a class="cface" href="/coach?coach='+p[0]+'" style="--cc:'+p[2]+'"><span class="cface-av"><span class="cface-in">'+img+iniSpan+'</span></span><span class="cface-n">'+esc(p[1])+'</span></a>';
+    }).join("");
+  }
   async function loadHealthScore(){
     var host=document.getElementById("healthScoreBox"); if(!host) return;
     host.innerHTML='<div class="card"><div class="skel" style="height:120px"></div></div>';
@@ -1374,18 +1412,26 @@
       return;
     }
     var bd=HS.breakdown||{};
-    var cats=HS_CATS.filter(function(c){ return bd[c[0]]; }).map(function(c){
-      var s=bd[c[0]], pct=Math.max(0,Math.min(100,Math.round(s.score)));
-      return '<div class="hsc-cat"><div class="hsc-cl"><span>'+esc(Lx(c[1]))+'</span><span class="v">'+pct+'%</span></div>'+
-        '<div class="hsc-cb"><i style="width:'+pct+'%"></i></div>'+
-        (s.detail?'<div class="hsc-det">'+esc(s.detail)+'</div>':'')+'</div>';
-    }).join("");
     var tot=Math.max(0,Math.min(100,HS.total||0));
+    var C=326.7, off=(C*(1-tot/100));
+    function scoreCol(v){ return v>=70?'var(--fit-green,#1C8A4B)':v>=40?'var(--fit-amber,#C77A00)':'var(--fit-red,#E4002B)'; }
+    var col=scoreCol(tot);
+    var st=tot>=70?Lx({en:"Optimal",id:"Optimal"}):tot>=40?Lx({en:"Fair",id:"Cukup"}):Lx({en:"Needs work",id:"Perlu kerja"});
+    var stats=HS_CATS.filter(function(c){ return bd[c[0]]; }).map(function(c){
+      var s=bd[c[0]], pct=Math.max(0,Math.min(100,Math.round(s.score)));
+      return '<div class="hsc-stat"><span class="i" style="color:'+scoreCol(pct)+'">'+hscIcon(c[2],20)+'</span>'+
+        '<span class="val">'+pct+'%</span><span class="lbl">'+esc(Lx(c[1]))+'</span></div>';
+    }).join("");
     host.innerHTML='<div class="card hsc">'+
-      '<div class="hsc-hd"><span class="t">'+esc(Lx({en:"Health Score",id:"Health Score"}))+'</span>'+
-        '<span class="n"><b>'+esc(String(HS.total))+'</b> / 100</span></div>'+
-      '<div class="hsc-bar"><i style="width:'+tot+'%"></i></div>'+
-      '<div class="hsc-grid">'+cats+'</div>'+
+      '<div class="hsc-top"><span class="t">'+esc(Lx({en:"Health Score",id:"Health Score"}))+'</span>'+
+        '<span class="s">'+esc(Lx({en:"Synthesised from your own data",id:"Disintesis dari data kamu"}))+'</span></div>'+
+      '<div class="hsc-ringwrap"><svg class="hsc-ring" viewBox="0 0 120 120">'+
+        '<circle class="trk" cx="60" cy="60" r="52"/>'+
+        '<circle class="prg" cx="60" cy="60" r="52" style="stroke:'+col+';stroke-dasharray:'+C+';stroke-dashoffset:'+off.toFixed(1)+';filter:drop-shadow(0 0 5px '+col+')"/>'+
+        '</svg>'+
+        '<div class="hsc-ctr"><b>'+esc(String(HS.total))+'</b><span class="u">/ 100</span><span class="st" style="color:'+col+'">'+esc(st)+'</span></div>'+
+      '</div>'+
+      '<div class="hsc-stats">'+stats+'</div>'+
       '<div class="hsc-note">'+esc(Lx({en:"Indicative, from your own data — not a medical diagnosis.",id:"Indikatif dari datamu — bukan diagnosis medis."}))+'</div>'+
     '</div>';
   }
@@ -1397,6 +1443,7 @@
     renderHead(); renderDnav(); renderTrk(); wireUpload(); wireDlg(); wireSleepDlg();
     await load(SEL);
     loadHealthScore();   // komposit weekly — fire-and-forget, tak menahan render harian
+    renderConsult();     // muka coach di kartu Consultation — fire-and-forget
     // Isi Activity lama menyatu di halaman yang sama. Dijalankan SETELAH bagian harian
     // supaya yang di layar pertama tampil duluan; skripnya berat (pencapaian, siklus,
     // riwayat arena). Gagal di sini TIDAK boleh merusak bagian harian di atasnya.
