@@ -9219,7 +9219,6 @@ app.post("/api/activity/scan", async (req, res) => {
   try {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
-    if (!AI_EDGE_SECRET) return res.status(503).json({ error: "AI belum dikonfigurasi di server. Hubungi admin." });
 
     const raw = (req.body || {}).images;
     const images = Array.isArray(raw) ? raw.filter((x) => typeof x === "string" && x) : [];
@@ -10027,7 +10026,6 @@ function coachChatSystem(coachId, ctx, lang) {
 app.post("/api/coach/chat", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
-    if (!AI_EDGE_SECRET) return res.status(503).json({ error: "AI belum dikonfigurasi di server. Hubungi admin." });
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
     const b = req.body || {};
@@ -10092,7 +10090,6 @@ app.get("/api/coach/chat/history", async (req, res) => {
 app.post("/api/activity/quick-analysis", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
-    if (!AI_EDGE_SECRET) return res.status(503).json({ error: "AI belum dikonfigurasi." });
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
     const b = req.body || {};
@@ -10136,7 +10133,6 @@ const ACTIVITY_PLAN_RULES =
 app.post("/api/activity/upload-analyze", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
-    if (!AI_EDGE_SECRET) return res.status(503).json({ error: "AI belum dikonfigurasi di server. Hubungi admin." });
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
     const b = req.body || {};
