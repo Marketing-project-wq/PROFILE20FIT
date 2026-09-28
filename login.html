@@ -676,7 +676,7 @@
       try{
         var qs=new URLSearchParams(location.search);
         var hs=new URLSearchParams(String(location.hash||"").replace(/^#/,""));
-        var err=qs.get("error_description")||qs.get("error")||hs.get("error_description")||hs.get("error");
+        var err=qs.get("error_description")||qs.get("error")||qs.get("authError")||hs.get("error_description")||hs.get("error");
         if(err){
           msg((lang==="id"?"Login gagal: ":"Sign-in failed: ")+decodeURIComponent(String(err).replace(/\+/g," ")),"err");
           try{ history.replaceState(null,"",location.pathname); }catch(e){}
@@ -705,7 +705,7 @@
         // panggil Supabase langsung (metode stabil dari vendor-supabase.js).
         var supa=Auth.supabase;
         if(!supa||!supa.auth||typeof supa.auth.signInWithOAuth!=="function"){ msg(offMsg,"err"); return; }
-        var r=await supa.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+"/login"}});
+        var r=await supa.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+"/auth/callback"}});
         if(r&&r.error){ msg(offMsg,"err"); }
       }catch(e){ msg((e&&e.message)?terjemah(e.message):((lang==="id")?"Gagal login dengan Google.":"Google sign-in failed."),"err"); }
     };
