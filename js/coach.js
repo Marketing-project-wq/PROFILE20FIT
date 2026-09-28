@@ -72,6 +72,24 @@
   }
   var S = newState();
 
+  // ---- Chatbot state (tampilan UTAMA /coach; program terstruktur lama tetap ada) ----
+  var MODE = "chat";                 // 'chat' | 'program'
+  var CHAT_COACH = null, CHAT_INIT = false, CHAT_MSGS = [], CHAT_BUSY = false;
+  var COACH_LIST = [
+    ["nando",   { en: "Strict & ambitious",    id: "Tegas & ambisius" },    "#2F6BFF"],
+    ["calysta", { en: "Cheerful & friendly",   id: "Ceria & suportif" },    "#EC4899"],
+    ["rheza",   { en: "Playful & competitive", id: "Playful & kompetitif" },"#F59E0B"],
+    ["elsen",   { en: "Detail-oriented",       id: "Detail & teknis" },     "#16A34A"],
+  ];
+  var COACH_NAME = { nando: "Nando", calysta: "Calysta", rheza: "Rheza", elsen: "Elsen" };
+  var QUICKS = [
+    [{ en: "Make a plan", id: "Buat plan" }, { en: "Buatkan workout plan untuk minggu ini", id: "Buatkan workout plan untuk minggu ini" }],
+    [{ en: "Health score", id: "Health score" }, { en: "Berapa health score aku sekarang?", id: "Berapa health score aku sekarang?" }],
+    [{ en: "Meal plan", id: "Meal plan" }, { en: "Suggest meal plan hari ini sesuai target kalori", id: "Suggest meal plan hari ini sesuai target kalori" }],
+    [{ en: "Book class", id: "Book class" }, { en: "Ada kelas apa yang cocok buat aku minggu ini?", id: "Ada kelas apa yang cocok buat aku minggu ini?" }],
+    [{ en: "Analyse Visbody", id: "Analisa Visbody" }, { en: "Analisa hasil Visbody terakhir aku", id: "Analisa hasil Visbody terakhir aku" }],
+  ];
+
   // ---- Muat awal ----
   async function boot() {
     try { user = await Auth.requireAuth(); } catch (e) { location.href = "/login"; return; }
@@ -83,6 +101,7 @@
     try { var qr = await apiFetch("/api/coach/quiz"); var qj = await qr.json().catch(function () { return {}; }); QUIZ = qj && qj.quiz ? qj.quiz : null; } catch (e) {}
     try { var cr = await fetch("/api/coach/config"); CFG = await cr.json().catch(function () { return {}; }); } catch (e) { CFG = {}; }
     if (PLAN && PLAN.plan) { await loadToday(); }
+    try { var cpk = localStorage.getItem("my20fit_coach_pick"); if (cpk && COACH_NAME[cpk]) CHAT_COACH = cpk; } catch (e) {}
     render();
   }
   // Status sesi latihan HARI INI (Fase 2) — untuk kartu "Latihan hari ini" di halaman plan.
@@ -93,6 +112,8 @@
 
   function render() {
     clearErr();
+    if (MODE === "chat") { renderChat(); return; }
+    var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Personal workout plan", id: "Rencana latihan personal" });
     if (PLAN && PLAN.plan) renderPlan();
     else renderIntro();
   }
@@ -100,7 +121,7 @@
   // ---- Intro ----
   function renderIntro() {
     var done = !!QUIZ;
-    root().innerHTML =
+    root().innerHTML = backBar() +
       '<div class="card hero"><div class="big">' + esc(Lx({ en: "Your AI training coach", id: "Pelatih AI kamu" })) + '</div>' +
       '<p>' + esc(Lx({ en: "Answer a few questions and get a weekly workout plan built around your goal, ability and schedule — no need to work out first.", id: "Jawab beberapa pertanyaan, dan dapat rencana latihan mingguan sesuai goal, kemampuan & jadwalmu — tanpa harus olahraga dulu." })) + '</p>' +
       '<ul><li>' + esc(Lx({ en: "Plan you can adjust anytime", id: "Plan bisa kamu adjust kapan saja" })) + '</li>' +
@@ -108,6 +129,7 @@
       '<li>' + esc(Lx({ en: "Option to consult a specialist or train with a coach", id: "Opsi konsultasi specialist atau latihan bareng coach" })) + '</li></ul>' +
       '<button class="btn" id="startQuiz">' + esc(done ? Lx({ en: "Retake quiz", id: "Ulang quiz" }) : Lx({ en: "Start quiz", id: "Mulai quiz" })) + '</button></div>';
     el("startQuiz").onclick = function () { if (QUIZ && QUIZ.answers) prefill(QUIZ); renderQuiz(); };
+    wireBackToChat();
   }
 
   function prefill(q) {
@@ -268,7 +290,7 @@
       '<div class="card" id="progBox"><div class="skel" style="height:90px"></div></div>' +
       '<div class="sechd">' + esc(Lx({ en: "History", id: "Riwayat" })) + '</div>' +
       '<div class="card"><div id="histBox" class="hist"><div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "Loading…", id: "Memuat…" })) + '</div></div></div>';
-    root().innerHTML = html;
+    root().innerHTML = backBar() + html;
 
     var tgo = el("todayGo"); if (tgo) tgo.onclick = openSession;
     loadHistory(); loadProgress();
@@ -283,6 +305,7 @@
     el("adjHarder").onclick = function () { adjust({ op: "level", dir: "harder" }); };
     el("adjRedo").onclick = function () { if (QUIZ) prefill(QUIZ); renderQuiz(); };
     Array.prototype.forEach.call(root().querySelectorAll("[data-cta]"), function (b) { b.onclick = function () { onCta(b.getAttribute("data-cta")); }; });
+    wireBackToChat();
   }
   function ctaBtn(type, icon, title, sub, primary) {
     return '<button type="button" class="cta-b' + (primary ? " primary" : "") + '" data-cta="' + type + '">' +
@@ -528,6 +551,132 @@
     box.innerHTML = html;
   }
 
-  if (window.I18N && I18N.onChange) I18N.onChange(function () { if (!BUSY && !INSESSION) render(); });
+  // ============================ CHATBOT AI COACH ============================
+  // Tampilan UTAMA /coach: pilih persona -> chat room. Balasan & riwayat lewat
+  // /api/coach/chat (+ /history). Program terstruktur lama tetap ada (MODE 'program').
+  function backBar() {
+    if (MODE !== "program") return "";
+    return '<button type="button" class="btn ghost" id="backToChat" style="width:auto;padding:9px 14px;margin-bottom:10px">‹ ' +
+      esc(Lx({ en: "Back to coach chat", id: "Kembali ke chat coach" })) + '</button>';
+  }
+  function wireBackToChat() { var b = el("backToChat"); if (b) b.onclick = function () { MODE = "chat"; render(); }; }
+
+  function coachColor(slug) { for (var i = 0; i < COACH_LIST.length; i++) if (COACH_LIST[i][0] === slug) return COACH_LIST[i][2]; return "var(--accent)"; }
+  function coachInitial(slug) { return (COACH_NAME[slug] || "?").charAt(0).toUpperCase(); }
+  function coachAvatar(slug, size) {
+    size = size || 40;
+    return '<span class="cav" style="width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.42) + 'px;background:' + coachColor(slug) + '">' + esc(coachInitial(slug)) + '</span>';
+  }
+  function greetOf(slug) {
+    var g = {
+      nando: { en: "Yo! Coach Nando here. Ready to level up? Tell me your goal or tap a shortcut below. 💪", id: "Yo! Coach Nando di sini. Siap naik level? Cerita goal kamu atau ketuk pintasan di bawah. 💪" },
+      calysta: { en: "Hiii! I'm Coach Calysta ✨ So glad you're here. What are we working on today?", id: "Hiii! Aku Coach Calysta ✨ Seneng kamu di sini. Mau kita kerjain apa hari ini?" },
+      rheza: { en: "Hey! Coach Rheza here 😎 Let's make this fun. Got a challenge in mind, or should I pick one?", id: "Hey! Coach Rheza di sini 😎 Bikin seru yuk. Udah ada tantangan, atau aku yang pilihin?" },
+      elsen: { en: "Hi, I'm Coach Elsen. I'll keep it clear and data-driven. What would you like to review?", id: "Hai, aku Coach Elsen. Aku bantu jelasin jelas & berbasis data. Mau bahas apa?" },
+    };
+    return g[slug] || { en: "Hi! How can I help with your training today?", id: "Hai! Ada yang bisa dibantu soal latihanmu hari ini?" };
+  }
+
+  function renderChat() {
+    var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Chat with your AI coach", id: "Ngobrol sama AI coach kamu" });
+    if (!CHAT_COACH) { renderCoachPicker(); return; }
+    renderChatRoom();
+    if (!CHAT_INIT) initChatConversation(); else paintMsgs();
+  }
+
+  function renderCoachPicker() {
+    root().innerHTML =
+      '<div class="card"><div class="cpick-h">' + esc(Lx({ en: "Choose your AI coach", id: "Pilih AI coach kamu" })) + '</div>' +
+      '<div class="cpick-s muted">' + esc(Lx({ en: "Each coach has their own style. You can switch anytime.", id: "Tiap coach punya gaya sendiri. Bisa ganti kapan saja." })) + '</div>' +
+      '<div class="cgrid">' + COACH_LIST.map(function (c) {
+        return '<button type="button" class="ccard" data-pick="' + esc(c[0]) + '">' + coachAvatar(c[0], 58) +
+          '<span class="cn">' + esc(COACH_NAME[c[0]]) + '</span><span class="ct muted">' + esc(Lx(c[1])) + '</span></button>';
+      }).join("") + '</div></div>' +
+      '<div class="card"><button type="button" class="cta-b" id="toProgram">' +
+      '<span class="ic" style="background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)">' + svgIcon("run") + '</span>' +
+      '<span style="flex:1;min-width:0"><span class="ct">' + esc(Lx({ en: "Structured workout program", id: "Program latihan terstruktur" })) + '</span>' +
+      '<span class="cs">' + esc(Lx({ en: "A weekly plan from a quick quiz", id: "Rencana mingguan dari quiz singkat" })) + '</span></span></button></div>';
+    Array.prototype.forEach.call(root().querySelectorAll("[data-pick]"), function (b) { b.onclick = function () { pickCoach(b.getAttribute("data-pick")); }; });
+    var tp = el("toProgram"); if (tp) tp.onclick = function () { MODE = "program"; render(); };
+  }
+
+  function pickCoach(slug) {
+    if (!COACH_NAME[slug]) return;
+    CHAT_COACH = slug; CHAT_INIT = false; CHAT_MSGS = [];
+    try { localStorage.setItem("my20fit_coach_pick", slug); } catch (e) {}
+    renderChat();
+  }
+
+  function renderChatRoom() {
+    root().innerHTML = '<div class="croom">' +
+      '<div class="croom-h">' + coachAvatar(CHAT_COACH, 34) +
+      '<div class="crn">' + esc(COACH_NAME[CHAT_COACH] || "Coach") +
+      '<div class="muted" style="font-size:11px;font-weight:600">' + esc(Lx({ en: "AI coach · not medical advice", id: "AI coach · bukan nasihat medis" })) + '</div></div>' +
+      '<button type="button" class="crsw" id="crSwitch">' + esc(Lx({ en: "Switch", id: "Ganti" })) + '</button></div>' +
+      '<div class="cmsgs" id="cMsgs"></div>' +
+      '<div class="cquick">' + QUICKS.map(function (q, i) { return '<button type="button" class="cqbtn" data-q="' + i + '">' + esc(Lx(q[0])) + '</button>'; }).join("") + '</div>' +
+      '<div class="cinput"><textarea id="cText" rows="1" placeholder="' + esc(Lx({ en: "Message your coach…", id: "Tulis pesan ke coach…" })) + '"></textarea>' +
+      '<button type="button" class="csend" id="cSend" aria-label="Send">' + svgIcon("solo", 20) + '</button></div></div>';
+    el("crSwitch").onclick = function () { CHAT_COACH = null; CHAT_INIT = false; CHAT_MSGS = []; try { localStorage.removeItem("my20fit_coach_pick"); } catch (e) {} renderChat(); };
+    Array.prototype.forEach.call(root().querySelectorAll("[data-q]"), function (b) { b.onclick = function () { var q = QUICKS[+b.getAttribute("data-q")]; if (q) sendChat(Lx(q[1])); }; });
+    var ta = el("cText"), send = el("cSend");
+    function autin() { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; }
+    function doSend() { var v = ta.value.trim(); if (!v) return; ta.value = ""; autin(); sendChat(v); }
+    ta.addEventListener("input", autin);
+    ta.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); } });
+    send.onclick = doSend;
+  }
+
+  function paintMsgs() {
+    var box = el("cMsgs"); if (!box) return;
+    var html = CHAT_MSGS.map(function (m) {
+      return '<div class="cmsg ' + (m.role === "user" ? "me" : "ai") + '">' + esc(m.content).replace(/\n/g, "<br>") + '</div>';
+    }).join("");
+    if (CHAT_BUSY) html += '<div class="cmsg ai typing"><span></span><span></span><span></span></div>';
+    box.innerHTML = html; box.scrollTop = box.scrollHeight;
+  }
+
+  async function initChatConversation() {
+    CHAT_INIT = true;
+    var auto = null;
+    try {
+      var raw = sessionStorage.getItem("chat_context");
+      if (raw) { sessionStorage.removeItem("chat_context"); var cx = JSON.parse(raw); if (cx && cx.auto_message) auto = String(cx.auto_message); }
+    } catch (e) {}
+    await loadChatHistory();
+    if (auto) { sendChat(auto); return; }
+    if (!CHAT_MSGS.length) CHAT_MSGS.push({ role: "assistant", content: Lx(greetOf(CHAT_COACH)) });
+    paintMsgs();
+  }
+
+  async function loadChatHistory() {
+    try {
+      var r = await apiFetch("/api/coach/chat/history?coach_id=" + encodeURIComponent(CHAT_COACH));
+      if (r.status === 401) { location.href = "/login"; return; }
+      var j = await r.json().catch(function () { return {}; });
+      CHAT_MSGS = ((j && j.messages) || []).map(function (m) { return { role: m.role === "user" ? "user" : "assistant", content: m.content }; });
+    } catch (e) { if (!Array.isArray(CHAT_MSGS)) CHAT_MSGS = []; }
+  }
+
+  async function sendChat(text) {
+    text = String(text || "").trim();
+    if (!text || CHAT_BUSY) return;
+    CHAT_MSGS.push({ role: "user", content: text });
+    CHAT_BUSY = true; paintMsgs();
+    try {
+      var r = await apiFetch("/api/coach/chat", { method: "POST", body: JSON.stringify({ coach_id: CHAT_COACH, message: text, lang: (window.I18N && I18N.lang) || "id" }) });
+      if (r.status === 401) { location.href = "/login"; return; }
+      var j = await r.json().catch(function () { return {}; });
+      CHAT_BUSY = false;
+      CHAT_MSGS.push({ role: "assistant", content: (r.ok && j && j.reply) ? j.reply : ((j && j.error) || Lx({ en: "Sorry, I couldn't reply right now. Please try again.", id: "Maaf, aku lagi nggak bisa jawab. Coba lagi ya." })) });
+      paintMsgs();
+    } catch (e) {
+      CHAT_BUSY = false;
+      CHAT_MSGS.push({ role: "assistant", content: Lx({ en: "Network error. Please try again.", id: "Koneksi bermasalah. Coba lagi." }) });
+      paintMsgs();
+    }
+  }
+
+  if (window.I18N && I18N.onChange) I18N.onChange(function () { if (!BUSY && !INSESSION && !CHAT_BUSY) render(); });
   boot();
 })();
