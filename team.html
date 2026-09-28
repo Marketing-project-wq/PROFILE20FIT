@@ -4,53 +4,47 @@
 <link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Our Team · 20FIT</title>
+<title>Book a personal session · 20FIT</title>
 <link rel="preconnect" href="https://media.20fit.id">
 <style>
   :root{--red:#C41101;--bg:#F3F2F0;--card:#FFFFFF;--line:#E8E2DB;--txt:#1A1714;--ink:#16170F;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#16170F;--green:#2A7A4F;--amber:#C87000;--shadow:0 2px 12px rgba(0,0,0,.10)}
   html:not(.theme-light){ --bg:#0C0D10;--card:#17191F;--line:#25272E;--txt:#F4F5F7;--ink:#F4F5F7;--muted:#8E9198;--inp:#23262E;--pagetx:#F4F5F7 }
   *{box-sizing:border-box} a{text-decoration:none;color:inherit}
   body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 96px}
-  .wrap{max-width:760px;margin:0 auto}
+  .wrap{max-width:900px;margin:0 auto}
   .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:16px;display:flex;align-items:center}
   .logobar img{height:34px}
   .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:10px}
-  h1{font-size:24px;font-weight:900;margin:0 0 6px;text-transform:uppercase;letter-spacing:-.01em}
-  .lead{color:var(--muted);font-size:14px;margin:0 0 14px;line-height:1.5}
-  .filters{display:flex;gap:8px;margin:0 0 6px;flex-wrap:wrap}
-  .filters button{border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 15px;font-weight:800;font-size:13px;cursor:pointer}
-  .filters button[aria-pressed="true"]{border-color:var(--red);color:var(--red)}
-  .venuefilt{display:flex;gap:8px;align-items:center;margin:2px 0 16px;flex-wrap:wrap}
-  .venuefilt .vlbl{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
-  .venuefilt button{border:1.2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 13px;font-weight:800;font-size:12.5px;cursor:pointer}
-  .venuefilt button[aria-pressed="true"]{border-color:var(--red);color:var(--red)}
-  .grpTitle{font-size:16px;font-weight:900;margin:20px 2px 12px;color:var(--pagetx)}
-  /* Kartu coach: seragam 170px, di-center. align-items:start supaya kartu setinggi konten (foto+nama)
-     — TIDAK meregang mengikuti kartu tertinggi (itu yang dulu bikin ruang kosong di bawah nama). */
-  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
-  @media(min-width:520px){ .grid{grid-template-columns:repeat(auto-fill,170px);justify-content:center} }
-  .cc{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;cursor:pointer}
-  .cc .av{width:100%;aspect-ratio:1;position:relative;overflow:hidden;background:var(--inp)}
-  /* img HARUS absolute (inset:0) supaya tinggi frame murni dari aspect-ratio — bukan dari tinggi
-     asli foto. Kalau img ikut normal-flow dgn height:100%, aspect-ratio box gagal & foto tampil
-     mengikuti rasio aslinya (foto tinggi jadi kepanjangan, foto lebar jadi pendek). */
-  .cc .av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;display:block}
-  .cc .ini{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:30px;letter-spacing:.02em}
-  .cc .tag{position:absolute;top:6px;left:6px;font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:rgba(0,0,0,.45);border-radius:5px;padding:2px 6px}
-  /* Area nama COMPACT — tinggi = konten + padding kecil, tanpa min-height. */
-  .cc .bd{padding:8px 10px}
-  .cc .nm{font-weight:700;font-size:13px;line-height:1.25;color:var(--ink);overflow-wrap:anywhere}
-  .cc .sp{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .cc .bio{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-  .cc .nophoto{font-size:10px;color:var(--muted);margin-top:5px;opacity:.85}
+  h1{font-size:26px;font-weight:900;margin:0 0 4px;letter-spacing:-.01em}
+  .lead{color:var(--muted);font-size:14px;margin:0 0 16px;line-height:1.5}
+  /* Filter chips (gaya mockup: All aktif = gelap; lain = putih + titik warna + jumlah) */
+  .tfilters{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+  .tchip{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 15px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+  .tchip[aria-pressed="true"]{background:var(--dark);border-color:var(--dark);color:#fff}
+  .tchip .dot{width:8px;height:8px;border-radius:99px;flex:none}
+  /* Carousel kartu coach/dokter */
+  .tcar{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 12px;margin:0 -2px;-webkit-overflow-scrolling:touch}
+  .tcar::-webkit-scrollbar{height:6px}
+  .tcar::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+  .tcard{flex:0 0 212px;width:212px;scroll-snap-align:start;background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:16px 14px 15px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative}
+  @media(max-width:520px){ .tcard{flex-basis:70vw;width:70vw;max-width:260px} }
+  .tbadge{position:absolute;top:12px;left:12px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#fff;border-radius:6px;padding:3px 8px}
+  .tbadge.coach{background:var(--red)}
+  .tbadge.doctor{background:#2F6BFF}
+  .tbadge.physiotherapist{background:#0EA5A5}
+  .tav{width:96px;height:96px;border-radius:99px;overflow:hidden;background:var(--inp);margin:16px 0 12px;position:relative}
+  .tav img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+  .tav .ini{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:30px}
+  .tnm{font-weight:800;font-size:17px;color:var(--ink);line-height:1.2;overflow-wrap:anywhere}
+  .tsp{font-size:13px;color:var(--muted);margin-top:3px;min-height:17px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .tbook{margin-top:14px;width:100%;background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);border-radius:12px;padding:11px;font-weight:800;font-size:14px;cursor:pointer;text-align:center}
+  .tbook:hover{background:color-mix(in srgb,var(--red) 20%,transparent)}
   .state{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 20px;text-align:center;color:var(--muted);font-size:13px}
   .retry{margin-top:12px;border:1px solid var(--red);color:var(--red);background:transparent;border-radius:10px;padding:9px 16px;font-weight:800;font-size:13px;cursor:pointer}
-  .skg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-  @media(min-width:560px){ .skg{grid-template-columns:repeat(3,1fr)} }
-  .skel{aspect-ratio:.82;border-radius:16px;background:linear-gradient(90deg,var(--inp),color-mix(in srgb,var(--inp) 55%,#fff),var(--inp));background-size:200% 100%;animation:sh 1.2s infinite}
+  .skel{background:linear-gradient(90deg,var(--inp),color-mix(in srgb,var(--inp) 55%,#fff),var(--inp));background-size:200% 100%;animation:sh 1.2s infinite}
   @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
-  /* ── Upcoming Classes (di bawah grid coach) ── */
-  .upcoming{margin-top:34px;padding-top:24px;border-top:1px solid var(--line)}
+  /* ── Upcoming Classes (di bawah carousel) ── */
+  .upcoming{margin-top:30px;padding-top:22px;border-top:1px solid var(--line)}
   .uc-h{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 14px}
   .uc-card{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:var(--card)}
   .uc-main{min-width:0}
@@ -71,20 +65,9 @@
   <div class="wrap">
     <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" /></div>
     <a class="back" href="/dashboard">← <span data-en="Home" data-id="Beranda">Home</span></a>
-    <h1 id="pgTitle">Meet Our Doctors &amp; Coaches</h1>
+    <h1 id="pgTitle">Book a personal session</h1>
     <p class="lead" id="pgLead"></p>
-    <div class="filters" id="roleFilters" hidden>
-      <button data-role="" aria-pressed="true">All</button>
-      <button data-role="doctor" aria-pressed="false">Doctors</button>
-      <button data-role="coach" aria-pressed="false">Coaches</button>
-      <button data-role="physiotherapist" aria-pressed="false">Physiotherapists</button>
-    </div>
-    <div class="venuefilt" id="venueFilters" hidden>
-      <span class="vlbl" data-en="Coach venue" data-id="Venue coach">Coach venue</span>
-      <button data-venue="" aria-pressed="true" data-en="All" data-id="Semua">All</button>
-      <button data-venue="arena" aria-pressed="false">Arena</button>
-      <button data-venue="gym" aria-pressed="false">Gym</button>
-    </div>
+    <div class="tfilters" id="roleFilters" hidden></div>
     <div id="root"></div>
     <div id="upcoming" class="upcoming" hidden></div>
   </div>
@@ -98,18 +81,18 @@
   (function(){
     "use strict";
     var TXT={
-      title:{en:"Meet Our Doctors & Coaches",id:"Tim Dokter & Coach Kami"},
-      lead:{en:"Our doctors, coaches, and physiotherapists — the team behind your 20FIT journey.",
-            id:"Dokter, coach, dan fisioterapis kami — tim di balik perjalanan 20FIT-mu."},
+      title:{en:"Book a personal session",id:"Book sesi personal"},
+      lead:{en:"With our coaches & doctors — tap a card to book.",id:"Bareng coach & dokter kami — ketuk kartu untuk booking."},
       loadErr:{en:"Couldn't load the team.",id:"Gagal memuat tim."},
       retry:{en:"Try again",id:"Coba lagi"},
       empty:{en:"No team members available right now.",id:"Belum ada anggota tim saat ini."},
-      all:{en:"All",id:"Semua"},
-      nophoto:{en:"Photo not available",id:"Foto belum ada"}
+      book:{en:"Book session",id:"Book sesi"}
     };
-    var ROLE_F={ "":{en:"All",id:"Semua"}, doctor:{en:"Doctors",id:"Dokter"}, coach:{en:"Coaches",id:"Coach"}, physiotherapist:{en:"Physiotherapists",id:"Fisioterapis"} };
-    var GRP_TITLE={ doctor:{en:"Doctors",id:"Dokter"}, coach:{en:"Coaches",id:"Coach"}, physiotherapist:{en:"Physiotherapists",id:"Fisioterapis"} };
-    var GRP_ORDER=["doctor","coach","physiotherapist"];
+    // Label chip (singular, gaya mockup). Physio dipertahankan kalau ada datanya.
+    var CHIP_LBL={ "":{en:"All",id:"Semua"}, coach:{en:"Coach",id:"Coach"}, doctor:{en:"Doctor",id:"Dokter"}, physiotherapist:{en:"Physio",id:"Fisio"} };
+    var BADGE_LBL={ coach:{en:"Coach",id:"Coach"}, doctor:{en:"Doctor",id:"Dokter"}, physiotherapist:{en:"Physio",id:"Fisio"} };
+    var DOT={ coach:"var(--red)", doctor:"#2F6BFF", physiotherapist:"#0EA5A5" };
+    var GRP_ORDER=["coach","doctor","physiotherapist"];
     function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
     function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]; }); }
     var $=function(id){return document.getElementById(id);};
@@ -118,69 +101,49 @@
     function colorFor(n){ var s=String(n||""),h=0; for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0; return PAL[h%PAL.length]; }
     function hrefFor(p){ if(p.role==="coach")return "/book-coach?coach="+encodeURIComponent(p.id); if(p.role==="doctor")return "/book-doctor"; if(p.role==="physiotherapist")return "/classes?venue=clinic"; return "#"; }
 
-    var TEAM=null, STATE="loading", ROLE="", VENUE="";
+    var TEAM=null, STATE="loading", ROLE="";
 
     function applyStatic(){
-      $("pgTitle").innerHTML = esc(LL(TXT.title));
+      $("pgTitle").textContent = LL(TXT.title);
       $("pgLead").textContent = LL(TXT.lead);
-      // Label chip peran
-      $("roleFilters").querySelectorAll("button").forEach(function(b){ var r=b.getAttribute("data-role")||""; b.textContent=LL(ROLE_F[r]); });
-      // data-en/id statik lain (venue label, All) di-handle i18n.js; teks 'All' venue via LL:
-      var va=$("venueFilters").querySelector('button[data-venue=""]'); if(va) va.textContent=LL(TXT.all);
     }
 
     function avatarInner(name, photo){
       var color=colorFor(name);
-      if(photo) return '<img src="'+esc(photo)+'" alt="'+esc(name)+'" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var n=this.nextElementSibling;if(n)n.style.display=\'grid\';var b=this.closest(\'.cc\');var m=b&&b.querySelector(\'.nophoto\');if(m)m.hidden=false"><span class="ini" style="display:none;background:'+color+'">'+esc(initials(name))+'</span>';
+      if(photo) return '<img src="'+esc(photo)+'" alt="'+esc(name)+'" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var n=this.nextElementSibling;if(n)n.style.display=\'grid\'"><span class="ini" style="display:none;background:'+color+'">'+esc(initials(name))+'</span>';
       return '<span class="ini" style="background:'+color+'">'+esc(initials(name))+'</span>';
     }
     function card(p){
-      var tag = p.role==="coach" ? (p.venue==="gym"?"Gym":(p.venue==="arena"?"Arena":"Arena · Gym")) : LL(GRP_TITLE[p.role]||{en:p.role,id:p.role});
-      var nophoto='<div class="nophoto" data-en="'+esc(TXT.nophoto.en)+'" data-id="'+esc(TXT.nophoto.id)+'"'+(p.photo_url?' hidden':'')+'>'+esc(LL(TXT.nophoto))+'</div>';
-      var inner='<div class="av">'+avatarInner(p.name,p.photo_url)+'<span class="tag">'+esc(tag)+'</span></div>'+
-        '<div class="bd"><div class="nm">'+esc(p.name)+'</div>'+
-        (p.speciality?'<div class="sp">'+esc(p.speciality)+'</div>':'')+
-        (p.bio?'<div class="bio">'+esc(p.bio)+'</div>':'')+ nophoto +'</div>';
-      return '<a class="cc" href="'+esc(hrefFor(p))+'">'+inner+'</a>';
+      var badge='<span class="tbadge '+esc(p.role)+'">'+esc(LL(BADGE_LBL[p.role]||{en:p.role,id:p.role}))+'</span>';
+      return '<div class="tcard">'+badge+
+        '<div class="tav">'+avatarInner(p.name,p.photo_url)+'</div>'+
+        '<div class="tnm">'+esc(p.name)+'</div>'+
+        '<div class="tsp">'+esc(p.speciality||"")+'</div>'+
+        '<a class="tbook" href="'+esc(hrefFor(p))+'">'+esc(LL(TXT.book))+'</a></div>';
+    }
+
+    function buildChips(){
+      if(!TEAM||!TEAM.length){ $("roleFilters").hidden=true; return; }
+      var counts={ "":TEAM.length };
+      GRP_ORDER.forEach(function(r){ counts[r]=TEAM.filter(function(p){return p.role===r;}).length; });
+      var order=[""].concat(GRP_ORDER.filter(function(r){ return counts[r]>0; }));
+      $("roleFilters").hidden=false;
+      $("roleFilters").innerHTML=order.map(function(r){
+        var d=(r&&DOT[r])?'<span class="dot" style="background:'+DOT[r]+'"></span>':'';
+        return '<button class="tchip" data-role="'+r+'" aria-pressed="'+(r===ROLE)+'">'+d+esc(LL(CHIP_LBL[r]||{en:r,id:r}))+' · '+counts[r]+'</button>';
+      }).join("");
+      $("roleFilters").querySelectorAll("button").forEach(function(b){
+        b.onclick=function(){ ROLE=b.getAttribute("data-role")||""; buildChips(); render(); };
+      });
     }
 
     function render(){
       var root=$("root");
-      if(STATE==="loading"){ root.innerHTML='<div class="skg">'+Array(8).join(0).split("0").map(function(){return '<div class="skel"></div>';}).join("")+'</div>'; return; }
+      if(STATE==="loading"){ root.innerHTML='<div class="tcar">'+[0,0,0,0].map(function(){return '<div class="tcard" style="border:0;box-shadow:none;background:transparent"><div class="tav skel"></div><div class="skel" style="height:16px;width:70%;border-radius:6px;margin-top:6px"></div><div class="skel" style="height:38px;width:100%;border-radius:12px;margin-top:14px"></div></div>';}).join("")+'</div>'; return; }
       if(STATE==="error"){ root.innerHTML='<div class="state">'+esc(LL(TXT.loadErr))+'<br><button class="retry" id="rtry">'+esc(LL(TXT.retry))+'</button></div>'; var rb=$("rtry"); if(rb)rb.onclick=load; return; }
-      var list=TEAM||[];
+      var list=(TEAM||[]).filter(function(p){ return !ROLE || p.role===ROLE; });
       if(!list.length){ root.innerHTML='<div class="state">'+esc(LL(TXT.empty))+'</div>'; return; }
-      // filter venue hanya berlaku utk coach
-      function coachVenueOk(p){ if(!VENUE)return true; if(VENUE==="arena")return p.venue==="arena"||p.venue==="both"; if(VENUE==="gym")return p.venue==="gym"||p.venue==="both"; return true; }
-      var html="";
-      GRP_ORDER.forEach(function(role){
-        if(ROLE && ROLE!==role) return;               // filter peran
-        var items=list.filter(function(p){ return p.role===role && (role!=="coach" || coachVenueOk(p)); });
-        if(!items.length) return;                       // grup kosong -> jangan tampil
-        html+='<div class="grpTitle">'+esc(LL(GRP_TITLE[role]))+' <span style="color:var(--muted);font-weight:700">('+items.length+')</span></div>'+
-          '<div class="grid">'+items.map(card).join("")+'</div>';
-      });
-      root.innerHTML = html || '<div class="state">'+esc(LL(TXT.empty))+'</div>';
-      // Venue filter hanya relevan kalau coach ikut ditampilkan.
-      $("venueFilters").hidden = !(ROLE==="" || ROLE==="coach");
-    }
-
-    function bindFilters(){
-      $("roleFilters").hidden=false;
-      $("roleFilters").querySelectorAll("button").forEach(function(b){
-        b.addEventListener("click",function(){
-          ROLE=b.getAttribute("data-role")||"";
-          $("roleFilters").querySelectorAll("button").forEach(function(x){ x.setAttribute("aria-pressed", String(x===b)); });
-          render();
-        });
-      });
-      $("venueFilters").querySelectorAll("button").forEach(function(b){
-        b.addEventListener("click",function(){
-          VENUE=b.getAttribute("data-venue")||"";
-          $("venueFilters").querySelectorAll("button").forEach(function(x){ x.setAttribute("aria-pressed", String(x===b)); });
-          render();
-        });
-      });
+      root.innerHTML='<div class="tcar">'+list.map(card).join("")+'</div>';
     }
 
     async function load(){
@@ -190,8 +153,7 @@
         var j=await r.json().catch(function(){return null;});
         if(!j||!j.ok){ STATE="error"; render(); return; }
         TEAM=j.team||[]; STATE="ready";
-        if(TEAM.length) bindFilters();
-        render();
+        buildChips(); render();
       }catch(e){ STATE="error"; render(); }
     }
 
@@ -216,7 +178,7 @@
       }
       var action=c.selectable
         ? '<a class="uc-book" href="'+esc(c.book_url)+'">'+esc(LL({en:"Book",id:"Book"}))+'</a>'
-        : (c.reason==="full" ? "" : '<span class="uc-reason">'+esc(reasonLbl(c.reason))+'</span>');  // "full" sudah tampil di badge slots
+        : (c.reason==="full" ? "" : '<span class="uc-reason">'+esc(reasonLbl(c.reason))+'</span>');
       return '<div class="uc-card"><div class="uc-main">'+
         '<div class="uc-nm"><span class="uc-dot" style="background:'+esc(c.color||"#C41101")+'"></span>'+esc(c.name||"Kelas")+'</div>'+
         '<div class="uc-meta">'+meta+'</div>'+
@@ -239,7 +201,7 @@
     }
 
     applyStatic(); load(); loadUpcoming();
-    if(window.I18N && I18N.onChange) I18N.onChange(function(){ applyStatic(); render(); renderUpcoming(); });
+    if(window.I18N && I18N.onChange) I18N.onChange(function(){ applyStatic(); buildChips(); render(); renderUpcoming(); });
   })();
   </script>
 </body>
