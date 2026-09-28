@@ -137,6 +137,8 @@
       if (hj && hj.ok && hj.have_any && typeof hj.total === "number") HEALTH = hj.total;
     } catch (e) {}
     try { var cpk = localStorage.getItem("my20fit_coach_pick"); if (cpk && COACH_NAME[cpk]) CHAT_COACH = cpk; } catch (e) {}
+    // Deep-link dari muka coach di Activity: /coach?coach=<slug> -> langsung buka chat coach itu.
+    try { var qp = (new URLSearchParams(location.search)).get("coach"); if (qp) { qp = String(qp).toLowerCase(); if (COACH_NAME[qp]) { CHAT_COACH = qp; try { localStorage.setItem("my20fit_coach_pick", qp); } catch (e) {} } } } catch (e) {}
     render();
   }
   // Status sesi latihan HARI INI (Fase 2) — untuk kartu "Latihan hari ini" di halaman plan.
@@ -617,7 +619,7 @@
   }
 
   function renderChat() {
-    var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Chat with your AI coach", id: "Ngobrol sama AI coach kamu" });
+    var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Consultation — chat with your coach", id: "Konsultasi — chat sama coach kamu" });
     if (!CHAT_COACH) { renderCoachPicker(); return; }
     renderChatRoom();
     if (!CHAT_INIT) initChatConversation(); else paintMsgs();
@@ -627,8 +629,8 @@
     root().innerHTML =
       '<div class="card" style="padding:8px 12px 18px">' +
         '<div class="cq-hero"><div class="cq-orb">' + svgIcon("spark", 36) + '</div>' +
-        '<h2 class="cq-h">AI Coach</h2>' +
-        '<p class="cq-s">' + esc(Lx({ en: "Pick your coach — each has their own style, and they answer using your real 20FIT data.", id: "Pilih coach kamu — tiap coach punya gaya sendiri, dan menjawab pakai data 20FIT kamu yang asli." })) + '</p></div>' +
+        '<h2 class="cq-h">' + esc(Lx({ en: "Consultation", id: "Konsultasi" })) + '</h2>' +
+        '<p class="cq-s">' + esc(Lx({ en: "Pick a coach to consult — each has their own style, and they answer using your real 20FIT data.", id: "Pilih coach untuk konsultasi — tiap coach punya gaya sendiri, dan menjawab pakai data 20FIT kamu yang asli." })) + '</p></div>' +
         '<div class="cgrid">' + COACH_LIST.map(function (c) {
           return '<button type="button" class="ccard" data-pick="' + esc(c[0]) + '" style="--cc:' + c[2] + '">' + coachAvatar(c[0], 72) +
             '<span class="cn">' + esc(COACH_NAME[c[0]]) + '</span><span class="ct">' + esc(Lx(c[1])) + '</span></button>';
