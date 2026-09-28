@@ -418,6 +418,11 @@
   .tpl-cta{display:flex;flex-direction:column;gap:8px;margin-top:12px}
   .tpl-cta a{display:flex;align-items:center;gap:9px;padding:12px 14px;border-radius:12px;border:1px solid var(--a-line);text-decoration:none;color:var(--a-txt);font-size:13px;font-weight:700;background:var(--a-surface)}
   .tpl-disc{font-size:10.5px;color:var(--a-mut);margin-top:12px}
+  /* Tab bar: Dashboard | Chat | Plan | History */
+  .atabs{display:flex;gap:6px;background:color-mix(in srgb,var(--a-txt) 5%,transparent);border:1px solid var(--a-line);border-radius:14px;padding:5px;margin:0 0 14px;overflow-x:auto}
+  .atabs::-webkit-scrollbar{height:0}
+  .atab{flex:1;min-width:78px;text-align:center;padding:9px 12px;border-radius:10px;font-size:13px;font-weight:800;color:var(--a-mut);text-decoration:none;white-space:nowrap}
+  .atab.on{background:var(--a-surface);color:var(--a-txt);box-shadow:0 1px 5px rgba(0,0,0,.06)}
 
 </style>
 <!-- Dimuat SESUDAH <style> halaman, sama seperti dashboard/calories/recipe: skin kaca
@@ -442,6 +447,14 @@
 
   <!-- 2. DATE NAVIGATOR -->
   <div class="dnav" id="dnav"></div>
+
+  <!-- Tabs: Dashboard (top) | Chat (/coach) | Plan (scroll) | History (/activity/history) -->
+  <div class="atabs" id="atabs">
+    <a class="atab on" href="#top" data-scroll="top" data-en="Dashboard" data-id="Dashboard">Dashboard</a>
+    <a class="atab" href="/coach" data-en="Chat" data-id="Chat">Chat</a>
+    <a class="atab" href="#plan" data-scroll="todayPlanBox" data-en="Plan" data-id="Plan">Plan</a>
+    <a class="atab" href="/activity/history" data-en="History" data-id="Riwayat">Riwayat</a>
+  </div>
 
   <div id="errBox"></div>
 
@@ -1492,6 +1505,13 @@
     var f=document.getElementById("tplFile"); if(!f) return;
     f.onchange=function(){ var file=f.files&&f.files[0]; f.value=""; if(file) analyzeUpload(file); };
   }
+  function wireTabs(){
+    var tabs=document.getElementById("atabs"); if(!tabs) return;
+    Array.prototype.forEach.call(tabs.querySelectorAll(".atab[data-scroll]"),function(a){
+      a.onclick=function(e){ e.preventDefault(); var t=a.getAttribute("data-scroll");
+        if(t==="top"){ window.scrollTo({top:0,behavior:"smooth"}); } else { var x=document.getElementById(t); if(x) x.scrollIntoView({behavior:"smooth",block:"start"}); } };
+    });
+  }
   async function analyzeUpload(file){
     if(TPL_BUSY) return; clearErr();
     if(file.size>8*1024*1024){ showErr(Lx({en:"Image too big (max ~8MB).",id:"Gambar terlalu besar (maks ~8MB)."}),false); return; }
@@ -1568,6 +1588,7 @@
     loadHealthScore();   // komposit weekly — fire-and-forget, tak menahan render harian
     renderConsult();     // muka coach di kartu Consultation — fire-and-forget
     wirePlanUpload(); loadTodayPlan();   // Today's Full Plan (upload-analyze) — fire-and-forget
+    wireTabs();          // tab bar Dashboard/Chat/Plan/History
     // Isi Activity lama menyatu di halaman yang sama. Dijalankan SETELAH bagian harian
     // supaya yang di layar pertama tampil duluan; skripnya berat (pencapaian, siklus,
     // riwayat arena). Gagal di sini TIDAK boleh merusak bagian harian di atasnya.

@@ -10170,6 +10170,10 @@ app.get("/api/activity/upload-history", async (req, res) => {
 app.get(["/payment/pending", "/payment/success"], (req, res) => {
   res.sendFile(path.join(__dirname, "payment-pending.html"));
 });
+// Riwayat upload activity (path bertingkat) -> activity-history.html. Eksplisit di atas static.
+app.get(["/activity/history", "/activity/history.html"], (req, res) => {
+  res.sendFile(path.join(__dirname, "activity-history.html"));
+});
 app.get("/payment/failed", (req, res) => {
   res.sendFile(path.join(__dirname, "payment-failed.html"));
 });
