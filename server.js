@@ -4686,6 +4686,7 @@ var USER_DATA_TABLES = [
   "my20fit_daily_plan", "my20fit_sleep", "my20fit_hydration",
   "my20fit_coach_quiz", "my20fit_workout_plan", "my20fit_coach_cta_event",
   "my20fit_coach_session", "my20fit_coach_set_log", "my20fit_coach_achievement",
+  "my20fit_coach_chat_session", "my20fit_coach_chat_message",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
   "my20fit_scan_orders", "my20fit_scan_ledger", "my20fit_voucher_usages"
@@ -9888,6 +9889,164 @@ app.get("/api/coach/achievements", async (req, res) => {
     if (isMissingSchema(e)) return res.json({ ok: true, badges: [], setup_required: true });
     return res.status(500).json({ error: "Gagal memuat achievement." });
   }
+});
+
+// ---------- AI COACH CHATBOT (persona) — Fase B ----------
+// Chatbot percakapan 4 persona. REUSE data-layer coach lama (plan/session/achievement) + data
+// user (workout/daily_log/visbody/mcu). AI lewat edge fn action "chat" (model AI_MODEL_CHAT).
+// Persona & aturan di CODE (bukan DB). Riwayat -> my20fit_coach_chat_session/_message (RLS).
+const COACH_PERSONAS = {
+  nando: { name: "Nando", persona:
+    "Kamu Coach Nando, personal trainer 20FIT Arena Jakarta. Gaya: motivational, tegas, ambisius, detail. " +
+    "Bahasa campur Indonesia-English, direct, tanpa sugarcoating, seperti abang yang tegas tapi genuinely care. " +
+    "Contoh: \"Bro, 1x gym minggu ini? That's not a plan, that's a hobby. Let's fix this.\" Emoji 💪🔥⚡ secukupnya. " +
+    "User skip latihan: tegas tapi supportive. User achieve sesuatu: genuinely proud, rayakan." },
+  calysta: { name: "Calysta", persona:
+    "Kamu Coach Calysta, personal trainer 20FIT Arena Jakarta. Gaya: inspiring, playful, ceria, suportif, ramah. " +
+    "Bahasa hangat, pakai \"kita\" bukan \"kamu harus\", selalu encouraging, kayak teman dekat. " +
+    "Contoh: \"Hiii! Gimana progress-nya? Gak apa slip dikit, yang penting kita mulai lagi yaa ✨\" Emoji ✨💕🌟😊 agak sering. " +
+    "User skip: encouraging tanpa guilt. User achieve: excited, rayakan besar." },
+  rheza: { name: "Rheza", persona:
+    "Kamu Coach Rheza, personal trainer 20FIT Arena Jakarta. Gaya: playful tapi serius, ambisius, motivational. " +
+    "Bahasa santai, bisa jokes tapi langsung ke point, kayak teman gym yang kompetitif tapi fun. " +
+    "Contoh: \"Body fat 22% ya. Not bad, tapi kita bisa lebih. Challenge: 4x latihan minggu ini. Deal?\" Emoji 😂💯🎯 sedang. " +
+    "User skip: jokes dulu lalu serius. User achieve: pujian kompetitif." },
+  elsen: { name: "Elsen", persona:
+    "Kamu Coach Elsen, personal trainer 20FIT Arena Jakarta. Gaya: detail-oriented, profesional, bikin klien jadi teman. " +
+    "Bahasa teknis tapi mudah dipahami, breakdown jelas, knowledgeable tapi humble. " +
+    "Contoh: \"Dari Visbody kamu, muscle mass 32kg bagus. Yang perlu di-improve visceral fat grade-nya. Aku breakdown ya...\" Emoji minimal. " +
+    "User skip: understanding, kasih alternatif. User achieve: pujian analitis pakai data." },
+};
+function coachPersonaOk(id) { return Object.prototype.hasOwnProperty.call(COACH_PERSONAS, String(id || "")); }
+const COACH_CHAT_RULES =
+  "Kamu AI chatbot fitness 20FIT — BUKAN dokter / ahli gizi berlisensi. " +
+  "BOLEH: saran workout & nutrisi umum, baca & jelaskan data user (Visbody, kalori, workout, tidur), motivasi sesuai persona, " +
+  "sarankan Book Class / Visbody scan / dokter, jawab pertanyaan fitness umum (form, stretching, recovery). " +
+  "DILARANG: diagnosa medis, resep obat/suplemen (dosis/brand), klaim hasil pasti, body shaming, menyuruh latihan saat cedera/sakit, " +
+  "topik non-fitness, diet ekstrem (<1200 kkal / puasa >24 jam), override hasil MCU/lab, membocorkan data user lain. " +
+  "CEDERA/SAKIT: jangan kasih saran medis; arahkan konsultasi dokter di 20FIT Sports Clinic (/book-doctor). " +
+  "MCU/lab: komentari umum & SELALU rujuk dokter. Ingatkan ini bukan diagnosis medis kalau relevan. " +
+  "Ikuti bahasa user (Indonesia/English/campur). Jawab RINGKAS & actionable, jangan mengarang angka yang tak ada di data.";
+// Konteks user ringkas untuk chatbot (reuse tabel yang ada; supabase balikin {error} bukan throw,
+// jadi tabel hilang -> data null -> field kosong, aman).
+async function loadCoachContext(uid) {
+  const today = ymd(new Date());
+  const from7 = new Date(today + "T00:00:00"); from7.setDate(from7.getDate() - 6); const from7s = ymd(from7);
+  const [wk, dl, vb, mcu, plan, goals, prof] = await Promise.all([
+    admin.from("my20fit_workout").select("workout_date,type,title,duration_min,distance_km,calories_burned,avg_heart_rate").eq("auth_user_id", uid).order("workout_date", { ascending: false }).limit(10),
+    admin.from("my20fit_daily_log").select("log_date,sleep_hours,water_glasses,steps,cal_items").eq("auth_user_id", uid).gte("log_date", from7s).lte("log_date", today),
+    admin.from("my20fit_visbody_body").select("body_fat_percentage,body_mass_index,muscle_mass,basal_metabolic_rate,visceral_fat_grade,scanned_at").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(1),
+    admin.from("my20fit_mcu_result").select("result,created_at").eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(1),
+    admin.from("my20fit_workout_plan").select("plan,goal,level").eq("auth_user_id", uid).eq("is_active", true).order("created_at", { ascending: false }).limit(1),
+    admin.from("my20fit_member_goals").select("fitness_goal,activity_level,diet,water_target").eq("auth_user_id", uid).limit(1),
+    admin.from("my20fit_profile").select("age,gender,height_cm,weight_kg,main_goal").eq("auth_user_id", uid).limit(1),
+  ]);
+  const m = (mcu.data && mcu.data[0]) || null;
+  const abn = (m && m.result && Array.isArray(m.result.abnormal_findings)) ? m.result.abnormal_findings.length : null;
+  const pl = (plan.data && plan.data[0]) || null;
+  return {
+    profile: (prof.data && prof.data[0]) || null,
+    goals: (goals.data && goals.data[0]) || null,
+    recent_workouts: (wk.data || []).map(function (w) { return { date: w.workout_date, type: w.type, title: w.title, min: w.duration_min, km: w.distance_km, kcal: w.calories_burned, hr: w.avg_heart_rate }; }),
+    daily_last7: (dl.data || []).map(function (d) { var t = sumCalItems(d.cal_items); return { date: d.log_date, sleep_h: d.sleep_hours, water_glasses: d.water_glasses, steps: d.steps, kcal: t.kcal }; }),
+    visbody: (vb.data && vb.data[0]) || null,
+    mcu_abnormal_count: abn,
+    active_plan: pl ? { goal: pl.goal, level: pl.level, name: (pl.plan && pl.plan.plan_name) || null, days: (pl.plan && Array.isArray(pl.plan.days)) ? pl.plan.days.length : null } : null,
+  };
+}
+function coachChatSystem(coachId, ctx, lang) {
+  return COACH_PERSONAS[coachId].persona + "\n\n" + COACH_CHAT_RULES +
+    "\n\nDATA USER (JSON):\n" + JSON.stringify(ctx).slice(0, 6000) +
+    "\n\nBahasa jawaban: " + (lang === "en" ? "English." : "Bahasa Indonesia (atau ikuti bahasa user).");
+}
+// POST /api/coach/chat — {coach_id, message} -> balasan persona. Simpan riwayat kalau tabel ada.
+app.post("/api/coach/chat", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    if (!AI_EDGE_SECRET) return res.status(503).json({ error: "AI belum dikonfigurasi di server. Hubungi admin." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {};
+    const coachId = String(b.coach_id || "").toLowerCase();
+    if (!coachPersonaOk(coachId)) return res.status(400).json({ error: "Coach tidak dikenal." });
+    const message = String(b.message || "").trim();
+    if (!message) return res.status(400).json({ error: "Pesan kosong." });
+    if (message.length > 4000) return res.status(400).json({ error: "Pesan terlalu panjang." });
+    const lang = (String(b.lang || "id") === "en") ? "en" : "id";
+    // session + riwayat (best-effort; tabel chat belum ada -> chat tetap jalan tanpa simpan).
+    let sessionId = null, history = [];
+    try {
+      const { data: s } = await admin.from("my20fit_coach_chat_session")
+        .upsert({ auth_user_id: user.id, coach_id: coachId, last_message_at: new Date().toISOString() }, { onConflict: "auth_user_id,coach_id" })
+        .select().single();
+      sessionId = s && s.id;
+      if (sessionId) {
+        const { data: h } = await admin.from("my20fit_coach_chat_message")
+          .select("role,content").eq("session_id", sessionId).order("created_at", { ascending: false }).limit(20);
+        history = (h || []).reverse().map(function (x) { return { role: x.role, content: x.content }; });
+      }
+    } catch (e) { /* tabel chat belum ada -> lanjut tanpa riwayat */ }
+    const ctx = await loadCoachContext(user.id);
+    const messages = [{ role: "system", content: coachChatSystem(coachId, ctx, lang) }].concat(history).concat([{ role: "user", content: message }]);
+    let reply = "";
+    try {
+      const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: 1024, lang: lang }, 45000);
+      if (!ai.httpOk || !ai.json || !ai.json.ok || !ai.json.reply) { logAiAccess(user.id, "coach/chat", false, "edge"); return res.status(502).json({ error: "Coach lagi nggak bisa jawab. Coba lagi." }); }
+      reply = String(ai.json.reply);
+    } catch (e) { logAiAccess(user.id, "coach/chat", false, "timeout"); return res.status(504).json({ error: "Coach nggak merespons. Coba lagi." }); }
+    logAiAccess(user.id, "coach/chat", true);
+    if (sessionId) {
+      try {
+        await admin.from("my20fit_coach_chat_message").insert([
+          { session_id: sessionId, auth_user_id: user.id, role: "user", content: message },
+          { session_id: sessionId, auth_user_id: user.id, role: "assistant", content: reply, model_used: null },
+        ]);
+      } catch (e) { /* simpan best-effort */ }
+    }
+    return res.json({ ok: true, reply: reply, coach_id: coachId });
+  } catch (e) {
+    console.error("coach/chat:", e.message);
+    return res.status(500).json({ error: "Gagal memproses chat." });
+  }
+});
+// GET /api/coach/chat/history?coach_id -> riwayat pesan sesi (untuk buka chat room).
+app.get("/api/coach/chat/history", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, messages: [] });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const coachId = String(req.query.coach_id || "").toLowerCase();
+    if (!coachPersonaOk(coachId)) return res.status(400).json({ error: "Coach tidak dikenal." });
+    const { data: s } = await admin.from("my20fit_coach_chat_session").select("id").eq("auth_user_id", user.id).eq("coach_id", coachId).limit(1);
+    const sid = (s && s[0] && s[0].id) || null;
+    if (!sid) return res.json({ ok: true, messages: [] });
+    const { data: h } = await admin.from("my20fit_coach_chat_message").select("role,content,created_at").eq("session_id", sid).order("created_at", { ascending: true }).limit(100);
+    return res.json({ ok: true, messages: (h || []).map(function (x) { return { role: x.role, content: x.content, at: x.created_at }; }) });
+  } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, messages: [], setup_required: true }); return res.status(500).json({ error: "Gagal memuat riwayat." }); }
+});
+// POST /api/activity/quick-analysis — {coach_id, data} -> "Coach Says" 2-3 kalimat (one-shot, tak disimpan).
+app.post("/api/activity/quick-analysis", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    if (!AI_EDGE_SECRET) return res.status(503).json({ error: "AI belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {};
+    const coachId = String(b.coach_id || "").toLowerCase();
+    if (!coachPersonaOk(coachId)) return res.status(400).json({ error: "Coach tidak dikenal." });
+    const lang = (String(b.lang || "id") === "en") ? "en" : "id";
+    const sys = COACH_PERSONAS[coachId].persona + "\n\n" + COACH_CHAT_RULES +
+      "\n\nTUGAS: beri analisa SINGKAT (2-3 kalimat) dari data activity user di bawah — apa yang bagus, apa yang perlu diperbaiki, dan apakah user siap workout besok. Casual sesuai persona. JANGAN diagnosa medis.";
+    const messages = [{ role: "system", content: sys }, { role: "user", content: "Data activity: " + JSON.stringify(b.data || {}).slice(0, 3000) }];
+    let reply = "";
+    try {
+      const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: 256, lang: lang }, 30000);
+      if (!ai.httpOk || !ai.json || !ai.json.ok || !ai.json.reply) { logAiAccess(user.id, "coach/quick", false, "edge"); return res.status(502).json({ error: "Analisa gagal. Coba lagi." }); }
+      reply = String(ai.json.reply);
+    } catch (e) { logAiAccess(user.id, "coach/quick", false, "timeout"); return res.status(504).json({ error: "AI nggak merespons." }); }
+    logAiAccess(user.id, "coach/quick", true);
+    return res.json({ ok: true, reply: reply, coach_id: coachId });
+  } catch (e) { console.error("quick-analysis:", e.message); return res.status(500).json({ error: "Gagal analisa." }); }
 });
 // ================= END AI COACH =================
 
