@@ -27,34 +27,16 @@
   var SELF = document.currentScript;
   var NO_BAR = !!(SELF && SELF.hasAttribute("data-no-bar"));
 
-  // IKON: SEMUANYA diambil VERBATIM dari ikon vektor yang SUDAH dipakai app ini
-  // (dashboard.html TICON & js/nav.js ICON) — bukan ditulis ulang, bukan emoji.
-  // Komentar tiap baris menyebut asal & nama kuncinya supaya mudah dilacak.
+  // IKON KONTROL (bar, menu profil, tombol tutup) — VERBATIM dari ikon vektor yang SUDAH
+  // dipakai app ini (dashboard.html TICON & js/nav.js ICON). Ikon PRODUK = artwork PNG
+  // (lihat ITEMS / img/products). Komentar tiap baris menyebut asal & nama kuncinya.
   //
   // CATATAN: berkas *.svg di root repo (Menu Food.svg, Footer Home.svg, dst) SENGAJA
   // TIDAK dipakai. Isinya bukan vektor — gambar raster base64 dibungkus <svg>
   // (diukur: 1–2,6 MB per berkas, path vektornya cuma 231–353 karakter untuk bingkai).
   // Sepuluh di antaranya = ~15 MB untuk tile 28px, dan tak bisa ikut warna/tema.
   var P = {
-    arena   : '<ellipse cx="12" cy="12" rx="9" ry="6.2"/><ellipse cx="12" cy="12" rx="4" ry="2.4"/>',   // arena.20fit.id :: lintasan arena
-    home    : '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',   // dashboard.html :: home
     my20fit : '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',   // js/nav.js :: profile
-    recipe  : '<path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M21 15V2a5 5 0 0 0-3 9v11"/>',   // dashboard.html :: food
-    shop    : '<path d="M5 8h14l-1.1 11.2a1.8 1.8 0 0 1-1.8 1.6H7.9a1.8 1.8 0 0 1-1.8-1.6z"/><path d="M9 10V6.5a3 3 0 0 1 6 0V10"/>',   // shop.20fit.id :: tas belanja
-    clinic  : '<rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="M12 8.2v7.6M8.2 12h7.6"/>',   // clinic.20fit.id :: palang medis
-    calorie : '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',   // js/nav.js :: calories
-    mcu     : '<path d="M11 2a2 2 0 0 0-2 2v1a2 2 0 0 0-2 2v3a6 6 0 0 0 12 0V7a2 2 0 0 0-2-2V4a2 2 0 0 0-2-2"/><circle cx="20" cy="10" r="2"/>',   // js/tour.js :: medical (stetoskop)
-    media   : '<path d="M4 4h13a1 1 0 0 1 1 1v14a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1h-2"/><path d="M4 4a1 1 0 0 0-1 1v13a2 2 0 0 0 2 2h11a1 1 0 0 0 1-1V4z"/><path d="M7 8h7M7 12h7M7 16h4"/>',   // dashboard.html :: news
-    workout : '<path d="M6.5 6.5 17.5 17.5"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/>',   // dashboard.html :: dumbbell
-    photo   : '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/>',   // dashboard.html :: camera
-    ticket  : '<path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4z"/><line x1="13" y1="7" x2="13" y2="17"/>',   // dashboard.html :: ticket
-    talent  : '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',   // dashboard.html :: coach
-    bodyscan: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/>',   // js/nav.js :: scan
-    progress: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',   // js/nav.js :: progress (tren naik)
-    bookclass: '<path d="M6.5 6.5 17.5 17.5M4 9l1-1M20 15l-1 1M8 4l-2 2 3 3M16 20l2-2-3-3M3 12l2 2M19 10l2 2"/>',   // dashboard.html :: dumbbell
-    bookcoach: '<circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/>',   // dashboard.html :: coach
-    bookdoctor: '<path d="M12 3v4M8 4h8"/><path d="M6 7v5a6 6 0 0 0 12 0V7"/><circle cx="18" cy="17" r="3"/>',   // dashboard.html :: doctor (stetoskop)
-    bookrecovery: '<path d="M19 14c1.5-1.5 3-3.3 3-5.5A4.5 4.5 0 0 0 12 5 4.5 4.5 0 0 0 2 8.5c0 4.5 7 9.5 10 11.5 1.5-1 4-2.8 6-5"/>',   // dashboard.html :: heart
     grid    : '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',   // dashboard.html :: grid
     receipt : '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',   // dashboard.html :: card
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',   // dashboard.html :: gear
@@ -78,32 +60,30 @@
   // `path`   : alamat INTERNAL di my.20fit. Kalau ADA dan user SEDANG di my.20fit, klik
   //            tetap di dalam my.20fit (navigasi biasa, tanpa SSO) — mis. Calorie/Recipe/MCU
   //            memang sengaja in-app di my.20fit (keputusan pemilik), bukan dilempar ke subdomain.
-  //            Item tanpa `path` (Home/Workout/Media/Photo/Ticket/Talent) selalu ke subdomain.
+  //            Item tanpa `path` (Home/Shop/Arena/Clinic/Media/Photo/Ticket/Talent) selalu ke web-nya.
   var ITEMS = [
     // Utama
-    { id: "home",    group: "main", label: "Home",            desc: "Direktori Olahraga",          icon: "home",    url: "https://20fit.id",                color: "#1a1a1a" },
-    { id: "my20fit", group: "main", label: "My 20FIT",        desc: "Member Portal",               icon: "my20fit", url: "https://my.20fit.id",             color: "#6366F1", path: "/dashboard" },
-    { id: "recipe",  group: "main", label: "Recipe",          desc: "Menu & Resep Sehat",          icon: "recipe",  url: "https://recepie.20fit.id",        color: "#16A34A", path: "/recipe" },
-    { id: "shop",    group: "main", label: "Shop",            desc: "Alat Gym & Fitness",          icon: "shop",    url: "https://shop.20fit.id",           color: "#e4002b" },
-    { id: "arena",   group: "main", label: "Arena",           desc: "HYROX Training Club",         icon: "arena",   url: "https://arena.20fit.id",          color: "#b94a3e" },
-    { id: "clinic",  group: "main", label: "Sports Clinic",   desc: "Fisioterapi & Sports Clinic", icon: "clinic",  url: "https://clinic.20fit.id",         color: "#C00000" },
+    { id: "home",    group: "main", label: "Home",            desc: "Direktori Olahraga",          url: "https://20fit.id",                color: "#1a1a1a" },
+    { id: "my20fit", group: "main", label: "My 20FIT",        desc: "Member Portal",               url: "https://my.20fit.id",             color: "#6366F1", path: "/dashboard" },
+    { id: "recipe",  group: "main", label: "Recipe",          desc: "Menu & Resep Sehat",          url: "https://recepie.20fit.id",        color: "#16A34A", path: "/recipe" },
+    { id: "shop",    group: "main", label: "Shop",            desc: "Alat Gym & Fitness",          url: "https://shop.20fit.id",           color: "#e4002b" },
+    { id: "arena",   group: "main", label: "Arena",           desc: "HYROX Training Club",         url: "https://arena.20fit.id",          color: "#b94a3e" },
+    { id: "clinic",  group: "main", label: "Sports Clinic",   desc: "Fisioterapi & Sports Clinic", url: "https://clinic.20fit.id",         color: "#C00000" },
     // Health
-    { id: "calorie", group: "health", label: "Calorie Tracker", desc: "Hitung Kalori Harian",      icon: "calorie", url: "https://calorietracker.20fit.id", color: "#F97316", path: "/calories" },
-    { id: "mcu",     group: "health", label: "MCU Scanner",     desc: "Baca Hasil Medical Check-Up", icon: "mcu",    url: "https://medicalscanner.20fit.id", color: "#0EA5E9", path: "/medical" },
-    { id: "bodyscan",group: "health", label: "Body Scan",       desc: "Komposisi Tubuh (Visbody)", icon: "bodyscan",url: "https://my.20fit.id/body-scan",   color: "#EC4899", path: "/body-scan" },
+    { id: "calorie", group: "health", label: "Calorie Tracker", desc: "Hitung Kalori Harian",      url: "https://calorietracker.20fit.id", color: "#F97316", path: "/calories" },
+    { id: "mcu",     group: "health", label: "MCU Scanner",     desc: "Baca Hasil Medical Check-Up", url: "https://medicalscanner.20fit.id", color: "#0EA5E9", path: "/medical" },
     // Activity
-    { id: "workout", group: "activity", label: "Workout",       desc: "Streaming Latihan",         icon: "workout", url: "https://workout.20fit.id",        color: "#EF4444" },
-    { id: "progress",group: "activity", label: "Progress",      desc: "Tracking Progres",          icon: "progress",url: "https://my.20fit.id/activity",    color: "#F43F5E", path: "/activity" },
-    { id: "media",   group: "activity", label: "Media",         desc: "Blog & Artikel",            icon: "media",   url: "https://media.20fit.id",          color: "#8B5CF6" },
+    { id: "progress",group: "activity", label: "Progress",      desc: "Tracking Progres",          url: "https://my.20fit.id/activity",    color: "#F43F5E", path: "/activity" },
+    { id: "media",   group: "activity", label: "Media",         desc: "Blog & Artikel",            url: "https://media.20fit.id",          color: "#8B5CF6" },
     // Event
-    { id: "photo",   group: "event", label: "Photo",           desc: "Foto Event",                  icon: "photo",   url: "https://photo.20fit.id",          color: "#EC4899" },
-    { id: "ticket",  group: "event", label: "Ticket",          desc: "Tiket & Event",               icon: "ticket",  url: "https://ticket.20fit.id",         color: "#14B8A6" },
-    { id: "talent",  group: "event", label: "Talent",          desc: "Talent & Event Organizer",    icon: "talent",  url: "https://talent.20fit.id",         color: "#3B82F6" },
+    { id: "photo",   group: "event", label: "Photo",           desc: "Foto Event",                  url: "https://photo.20fit.id",          color: "#EC4899" },
+    { id: "ticket",  group: "event", label: "Ticket",          desc: "Tiket & Event",               url: "https://ticket.20fit.id",         color: "#14B8A6" },
+    { id: "talent",  group: "event", label: "Talent",          desc: "Talent & Event Organizer",    url: "https://talent.20fit.id",         color: "#3B82F6" },
     // Booking (semua diproses di my.20fit → booking.20fit.id)
-    { id: "book-class",   group: "booking", label: "Book Class",    desc: "Arena & Gym",            icon: "bookclass",    url: "https://my.20fit.id/book-class",           color: "#F59E0B", path: "/book-class" },
-    { id: "book-coach",   group: "booking", label: "Book Coach",    desc: "Personal Training",      icon: "bookcoach",    url: "https://my.20fit.id/book-coach",           color: "#F59E0B", path: "/book-coach" },
-    { id: "book-doctor",  group: "booking", label: "Book Doctor",   desc: "Konsultasi Dokter",      icon: "bookdoctor",   url: "https://my.20fit.id/book-doctor",          color: "#0EA5E9", path: "/book-doctor" },
-    { id: "book-recovery",group: "booking", label: "Book Recovery", desc: "Fisioterapi & Recovery", icon: "bookrecovery", url: "https://my.20fit.id/classes?venue=clinic", color: "#EF4444", path: "/classes?venue=clinic" }
+    { id: "book-class",   group: "booking", label: "Book Class",    desc: "Arena & Gym",            url: "https://my.20fit.id/book-class",           color: "#F59E0B", path: "/book-class" },
+    { id: "book-coach",   group: "booking", label: "Book Coach",    desc: "Personal Training",      url: "https://my.20fit.id/book-coach",           color: "#F59E0B", path: "/book-coach" },
+    { id: "book-doctor",  group: "booking", label: "Book Doctor",   desc: "Konsultasi Dokter",      url: "https://my.20fit.id/book-doctor",          color: "#0EA5E9", path: "/book-doctor" },
+    { id: "book-recovery",group: "booking", label: "Book Recovery", desc: "Fisioterapi & Recovery", url: "https://my.20fit.id/classes?venue=clinic", color: "#EF4444", path: "/classes?venue=clinic" }
   ];
 
   // Urutan + judul kelompok. Kelompok "main" tanpa judul (baris teratas).
@@ -125,7 +105,6 @@
   // keduanya dipetakan. /classes ditangani khusus (venue=clinic → book-recovery).
   var PATHS = [
     ["/book-class", "book-class"], ["/book-coach", "book-coach"], ["/book-doctor", "book-doctor"],
-    ["/body-scan", "bodyscan"],
     ["/activity", "progress"], ["/progress", "progress"],
     ["/calories", "calorie"],
     ["/medical", "mcu"], ["/mcu", "mcu"],
@@ -133,12 +112,9 @@
     ["/dashboard", "my20fit"]
   ];
 
-  // Ikon produk = artwork branded 20FIT (hasil kecilkan berkas .svg repo jadi PNG kecil
-  // di /img/products/<id>.png). 14 dari 17 produk punya artwork; Body Scan, Talent & Shop
-  // belum ada → tetap pakai ikon garis inline (P[icon], ikut warna/tema). Artwork raster full-color
-  // (tidak ikut tema) — makanya diberi chip putih di CSS supaya rapi di light & dark.
-  var NO_ART = { bodyscan: 1, talent: 1, shop: 1, arena: 1, clinic: 1 };
-  ITEMS.forEach(function (it) { if (!NO_ART[it.id]) it.img = "/img/products/" + it.id + ".png"; });
+  // Ikon produk = artwork branded 20FIT (PNG 128px transparan di /img/products/<id>.png).
+  // SEMUA produk wajib punya artwork — menambah produk = menambah PNG-nya juga.
+  ITEMS.forEach(function (it) { it.img = "/img/products/" + it.id + ".png"; });
   // Base URL ikon: di my.20fit/staging = same-origin (""), di subdomain lain = absolut ke
   // my.20fit.id (tempat berkasnya) supaya bar universal tetap dapat ikon di mana pun dipasang.
   var ICON_BASE = MY_HOSTS[location.hostname] ? "" : "https://my.20fit.id";
@@ -152,7 +128,6 @@
     "calorietracker.20fit.id": "calorie",
     "medicalscanner.20fit.id": "mcu",
     "media.20fit.id": "media",
-    "workout.20fit.id": "workout",
     "photo.20fit.id": "photo",
     "ticket.20fit.id": "ticket",
     "talent.20fit.id": "talent",
@@ -186,23 +161,18 @@
   function itemById(id) { for (var i = 0; i < ITEMS.length; i++) { if (ITEMS[i].id === id) return ITEMS[i]; } return null; }
 
   // Render satu kartu produk + baris grup berlabel. Dipakai dua varian (bar & tertanam).
-  function appCell(it, size, embed, cur) {
+  function appCell(it, embed, cur) {
     var on = it.id === cur;
-    // Semua ikon duduk di "chip" putih membulat → tampil konsisten seperti app-tile, dan
-    // rapi baik di menu terang maupun gelap. Chip berisi artwork branded (img) atau, untuk
-    // 2 produk tanpa artwork, ikon garis berwarna merah 20FIT.
-    var inner = it.img
-      ? '<img class="un-img" src="' + esc(ICON_BASE + it.img + "?v=2") + '" alt="" loading="lazy">'
-      : svg(it.icon, size);
+    var inner = '<img class="un-img" src="' + esc(ICON_BASE + it.img + "?v=2") + '" alt="" loading="lazy">';
     return '<a class="un-app" role="menuitem" href="' + esc(it.url) + '" data-id="' + esc(it.id) + '"' +
       (on ? ' aria-current="page"' : '') + '>' +
-      '<span class="un-ic' + (it.img ? '' : ' un-line') + '">' + inner + '</span>' +
+      '<span class="un-ic">' + inner + '</span>' +
       '<span class="un-l">' + esc(it.label) + '</span>' +
       (embed ? '' : '<span class="un-d">' + esc(it.desc) + '</span>') +
       (on ? '<span class="un-here">Kamu di sini</span>' : '') +
       '</a>';
   }
-  function groupsHtml(size, embed) {
+  function groupsHtml(embed) {
     var cur = currentId();
     return GROUPS.map(function (g) {
       var list = ITEMS.filter(function (it) { return it.group === g.id; });
@@ -211,7 +181,7 @@
       // Selalu 3 kolom per baris (semua breakpoint) — keputusan pemilik. Booking (4 item)
       // otomatis jadi 3 + 1.
       return '<div class="un-group">' + lab + '<div class="un-grow">' +
-        list.map(function (it) { return appCell(it, size, embed, cur); }).join("") + '</div></div>';
+        list.map(function (it) { return appCell(it, embed, cur); }).join("") + '</div></div>';
     }).join("");
   }
   function bindApps(scope) {
@@ -262,8 +232,6 @@
     '.un-app .un-ic{display:flex;align-items:center;justify-content:center;line-height:0}',
     '.un-ic .un-img{height:62px;width:auto;max-width:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 8px rgba(0,0,0,.22))}',
     '.un-embed .un-ic .un-img{height:58px}',
-    '.un-ic.un-line{color:#C41101}',
-    '.un-ic.un-line svg{width:54px;height:54px}',
     '.un-app .un-l{font-size:12px;font-weight:600;line-height:1.2}',
     '.un-app .un-d{font-size:10px;color:#888;line-height:1.2}',
     '.un-here{display:inline-block;margin-top:3px;padding:2px 7px;border-radius:99px;background:#16A34A;color:#fff;font-size:8.5px;font-weight:700;letter-spacing:.03em;line-height:1.6}',
@@ -316,7 +284,7 @@
     if (!el) return;
     injectCss();
     el.classList.add("un-embed");
-    el.innerHTML = groupsHtml(24, true);
+    el.innerHTML = groupsHtml(true);
     bindApps(el);
     return el;
   }
@@ -361,7 +329,7 @@
     function appsHtml() {
       return '<div class="un-pop un-apps" role="menu" aria-label="Aplikasi 20FIT">' +
         '<button class="un-x" id="unClose" aria-label="Tutup">' + svg("close", 20) + '</button>' +
-        groupsHtml(28, false) + '</div>';
+        groupsHtml(false) + '</div>';
     }
 
     function initial(u) {
