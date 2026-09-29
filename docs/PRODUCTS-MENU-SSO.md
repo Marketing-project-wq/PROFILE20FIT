@@ -52,6 +52,10 @@
 >   dan keduanya harus sama. Produk yang tidak terdaftar ditolak dua arah: 403 di
 >   cek origin, 400 sebagai tujuan. Saat dokumen ini ditulis ulang,
 >   `clinic.20fit.id` dan `arena.20fit.id` belum terdaftar.
+> - **§2 sempat tertinggal dari kodenya.** `js/universal-nav.js` sudah memuat Shop,
+>   Arena dan Sports Clinic, sementara daftar di §2 masih 16 produk asli. Produk yang
+>   menyalin dokumen ini apa adanya jadi kehilangan tiga produk. Daftar §2 dan §5 kini
+>   disamakan dengan kode kanonik — **kalau menambah produk, ubah keduanya.**
 > - **Anon key:** literal `SUPABASE_ANON_KEY` di §4 adalah key **publik** (role=anon,
 >   dilindungi RLS) — aman di client dan memang sudah di-commit di repo ini
 >   (`js/auth.js`, `server.js`) serta di-allowlist di `.gitleaks.toml`. Yang **tidak
@@ -130,6 +134,8 @@ const MENU_ITEMS = [
   { id: 'home', label: 'Home', description: 'Direktori Olahraga', icon: 'home', url: 'https://20fit.id', color: '#1a1a1a' },
   { id: 'my20fit', label: 'My 20FIT', description: 'Member Portal', icon: 'my20fit', url: 'https://my.20fit.id', color: '#6366F1' },
   { id: 'recipe', label: 'Recipe', description: 'Menu & Resep Sehat', icon: 'recipe', url: 'https://recipe.20fit.id', color: '#16A34A' },
+  { id: 'shop', label: 'Shop', description: 'Alat Gym & Fitness', icon: 'shop', url: 'https://shop.20fit.id', color: '#e4002b' },
+  { id: 'arena', label: 'Arena', description: 'HYROX Training Club', icon: 'arena', url: 'https://arena.20fit.id', color: '#b94a3e' },
   { id: 'clinic', label: 'Sports Clinic', description: 'Fisioterapi & Sports Clinic', icon: 'clinic', url: 'https://clinic.20fit.id', color: '#C00000' },
 
   // === Health ===
@@ -155,7 +161,7 @@ const MENU_ITEMS = [
 ];
 
 const MENU_GROUPS = [
-  { label: null, items: ['home', 'my20fit', 'recipe', 'clinic'] },
+  { label: null, items: ['home', 'my20fit', 'recipe', 'shop', 'arena', 'clinic'] },
   { label: 'Health', items: ['calorie', 'mcu', 'bodyscan'] },
   { label: 'Activity', items: ['workout', 'progress', 'media'] },
   { label: 'Event', items: ['photo', 'ticket', 'talent'] },
@@ -317,6 +323,8 @@ function getCurrentAppId() {
     'photo.20fit.id': 'photo',
     'ticket.20fit.id': 'ticket',
     'talent.20fit.id': 'talent',
+    'shop.20fit.id': 'shop',
+    'arena.20fit.id': 'arena',
     'clinic.20fit.id': 'clinic',
   };
 
