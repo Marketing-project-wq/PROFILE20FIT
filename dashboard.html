@@ -1160,6 +1160,7 @@
         { key: "book-doctor",   ic: "doctor",   lbl: { en: "Book Doctor", id: "Book Dokter" },   sub: { en: "Konsultasi · Klinik", id: "Konsultasi · Klinik" }, href: "/book-doctor" },
         { key: "book-coach",    ic: "coach",    lbl: { en: "Book Coach", id: "Book Coach" },     sub: { en: "Arena · Gym", id: "Arena · Gym" }, href: "/book-coach" },
         { key: "book-recovery", ic: "heart",    lbl: { en: "Book Recovery", id: "Book Recovery" }, sub: { en: "Physio · Massage", id: "Fisio · Massage" }, href: "/classes?venue=clinic" },
+        { key: "shop",          ic: "cart",     lbl: { en: "Shop", id: "Shop" },                 sub: { en: "Gym & fitness gear", id: "Alat gym & fitness" }, href: "https://shop.20fit.id" },
         { key: "rewards",       ic: "gift",     lbl: { en: "Rewards", id: "Rewards" },           sub: { en: "Voucher · Member perks", id: "Voucher · Member perks" }, href: "/rewards" },
         { key: "news",          ic: "news",     lbl: { en: "News", id: "Berita" },               sub: { en: "media.20fit.id", id: "media.20fit.id" }, href: "https://media.20fit.id" }
       ];
@@ -1223,7 +1224,7 @@
       };
       // Ikon 3D transparan (di-bake dari SVG Canva: layer warna + mask di-un-premultiply -> PNG
       // transparan, tanpa kotak putih). Ada di /img/tiles/<key>.png. Tile tanpa aset -> vektor.
-      var TILE_IMG3D = { medical:1, membership:1, diet:1, "book-class":1, "book-doctor":1, "book-coach":1, "book-recovery":1, rewards:1, news:1 };
+      var TILE_IMG3D = { medical:1, membership:1, diet:1, "book-class":1, "book-doctor":1, "book-coach":1, "book-recovery":1, shop:1, rewards:1, news:1 };
       function svcTile(o) {
         var art = IC3D[o.key] || (IC[o.ic] || "");        // ikon VEKTOR (fallback)
         var vec = '<svg viewBox="0 0 24 24" aria-hidden="true">' + art + '</svg>';
