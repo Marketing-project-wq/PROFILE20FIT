@@ -544,9 +544,10 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 
 - **Menu Products (2026-09-29, permintaan pemilik):** Shop/Arena/Sports Clinic/Talent kini pakai artwork 3D
   (`img/products/{shop,arena,clinic,talent}.png`, 128px transparan, dikecilkan dari `Menu Shop.png`,
-  `Vector 20FIT Arena.png`, `Vector 20FIT Clinic.png`, `Vector Talent.svg`). Body Scan masih ikon garis
-  (belum ada artwork). **Workout disembunyikan** (produk belum siap) — item, ikon, `ECO.workout` dibuang;
-  pasang lagi di `js/universal-nav.js` + `docs/PRODUCTS-MENU-SSO.md` saat siap. Semua item diuji klik
+  `Vector 20FIT Arena.png`, `Vector 20FIT Clinic.png`, `Vector Talent.svg`). **Workout & Body Scan
+  disembunyikan** dari menu (belum siap) — item, ikon, `ECO.workout` dibuang; kini SEMUA item wajib punya
+  artwork (fallback ikon garis dihapus). Halaman `/body-scan` tetap ada (QR Visbody + kartu /activity).
+  Pasang lagi di `js/universal-nav.js` + `docs/PRODUCTS-MENU-SSO.md` saat siap. Semua item diuji klik
   (Chromium): item ber-`path` tetap in-app, sisanya langsung ke web tujuan, same-tab.
 - **Tile Rewards di dashboard disembunyikan** (2026-09-29) lewat CMS: `my20fit_home_tiles.hidden=true`
   untuk `key='rewards'` (pola sama dgn `book-coach`). Tampilkan lagi dari admin-v2 → Home tiles. Halaman
