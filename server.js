@@ -9029,7 +9029,7 @@ app.get("/api/activity/health-score", async (req, res) => {
 
     // Query paralel; tabel yang belum ada / kosong -> data null -> kategori dilewati (graceful).
     const [wkRes, dlRes, vbRes, mcuRes] = await Promise.all([
-      admin.from("my20fit_workout").select("workout_date").eq("auth_user_id", user.id).gte("workout_date", mondayStr).lte("workout_date", today),
+      admin.from("my20fit_workout").select("workout_date,avg_heart_rate,source").eq("auth_user_id", user.id).gte("workout_date", mondayStr).lte("workout_date", today),
       admin.from("my20fit_daily_log").select("log_date,sleep_hours,water_glasses,cal_items").eq("auth_user_id", user.id).gte("log_date", from7Str).lte("log_date", today),
       admin.from("my20fit_visbody_body").select("body_fat_percentage,body_mass_index,muscle_mass,scanned_at").eq("auth_user_id", user.id).order("scanned_at", { ascending: false }).limit(1),
       admin.from("my20fit_mcu_result").select("result,created_at").eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(1),
@@ -9038,11 +9038,33 @@ app.get("/api/activity/health-score", async (req, res) => {
     const scores = {}; let totalWeight = 0;
     const clamp100 = (n) => Math.max(0, Math.min(100, Math.round(n)));
 
+    // Kolom avg_heart_rate/source baru ada SETELAH migration 017. Kalau belum dijalankan,
+    // PostgREST menolak SELURUH query (42703) — bukan cuma kolomnya. Tanpa fallback ini
+    // kategori workout hilang sama sekali, jadi diulang tanpa kolom itu.
+    let wkRows = wkRes.data || [];
+    let workoutSchemaOk = !wkRes.error;
+    if (wkRes.error) {
+      const retry = await admin.from("my20fit_workout").select("workout_date")
+        .eq("auth_user_id", user.id).gte("workout_date", mondayStr).lte("workout_date", today);
+      wkRows = retry.data || [];
+    }
+
     // Workout consistency (25%) — target default 4x/minggu (hari unik yg ada workout).
+    // Workout hasil UPLOAD screenshot ikut dihitung di sini: /api/activity/upload-analyze
+    // menyimpannya ke my20fit_workout (tabel workout kanonik) — bukan ke jalur data kedua,
+    // supaya tidak ada dua sumber angka yang bisa berbeda (CLAUDE.md §2).
     {
-      const days = new Set((wkRes.data || []).map((w) => w.workout_date));
+      const days = new Set(wkRows.map((w) => w.workout_date));
       const target = 4;
-      scores.workout = { score: clamp100((days.size / target) * 100), weight: 25, detail: days.size + "/" + target + " hari" };
+      const base = clamp100((days.size / target) * 100);
+      // Bonus kecil kalau user melacak lebih detail (ada HR terbaca dari tracker/upload).
+      const hasHr = wkRows.some((w) => w.avg_heart_rate != null && +w.avg_heart_rate > 0);
+      const fromUpload = wkRows.filter((w) => w.source === "upload").length;
+      const det = days.size + "/" + target + " hari" + (fromUpload ? " (" + fromUpload + " dari upload)" : "");
+      scores.workout = {
+        score: clamp100(base + (hasHr ? 5 : 0)), weight: 25, detail: det,
+        from_upload: fromUpload, hr_bonus: hasHr ? 5 : 0,
+      };
       totalWeight += 25;
     }
     const dl = dlRes.data || [];
@@ -9103,7 +9125,13 @@ app.get("/api/activity/health-score", async (req, res) => {
 
     let total = 0;
     if (totalWeight > 0) for (const k in scores) total += scores[k].score * (scores[k].weight / totalWeight);
-    return res.json({ ok: true, total: Math.round(total), have_any: totalWeight > 0, breakdown: scores });
+    // workout_schema_required = migration 017 belum dijalankan, jadi workout (manual MAUPUN
+    // hasil upload) TIDAK BISA disimpan sama sekali dan skornya akan selalu 0. Dikirim apa
+    // adanya supaya halaman bisa menjelaskan sebabnya, bukan menampilkan 0% tanpa alasan.
+    return res.json({
+      ok: true, total: Math.round(total), have_any: totalWeight > 0, breakdown: scores,
+      workout_schema_required: !workoutSchemaOk,
+    });
   } catch (e) {
     console.error("activity/health-score:", e.message);
     return res.status(500).json({ error: "Gagal menghitung health score." });
@@ -10130,6 +10158,47 @@ const ACTIVITY_PLAN_RULES =
   "\"coach_says\":\"2-3 kalimat sesuai persona, ringkas & personal\"," +
   "\"cta\":{\"book_class\":{\"show\":true,\"text\":\"...\"},\"visbody\":{\"show\":false,\"text\":\"...\"},\"doctor\":{\"show\":false,\"text\":\"...\"}}}";
 
+// Simpan workout hasil UPLOAD ke my20fit_workout — TABEL WORKOUT KANONIK yang sama dengan
+// input manual. Ini yang membuat upload benar-benar menaikkan Health Score: /api/activity/
+// health-score membaca tabel itu, jadi tidak perlu jalur data kedua yang bisa berbeda
+// angkanya (CLAUDE.md §2).
+//
+// Balikannya { saved, reason } — best-effort, TIDAK PERNAH menggagalkan respons upload.
+async function saveUploadedWorkout(userId, ex) {
+  try {
+    if (!ex || typeof ex !== "object") return { saved: false, reason: "no_data" };
+    const dur = Number(ex.duration_min);
+    // Tanpa durasi, baris workout tak bisa dibuat (duration_min NOT NULL) dan "konsistensi
+    // workout" pun tak bermakna. Jadi dilewati, bukan diisi angka karangan.
+    if (!isFinite(dur) || dur <= 0) return { saved: false, reason: "no_duration" };
+    const date = isYmd(ex.workout_date) ? String(ex.workout_date) : ymd(new Date());
+    const type = String(ex.type || "other").slice(0, 40);
+
+    // Anti-ganda: screenshot yang sama dianalisa dua kali tidak boleh dihitung dua kali.
+    const dup = await admin.from("my20fit_workout").select("id")
+      .eq("auth_user_id", userId).eq("workout_date", date).eq("type", type).eq("duration_min", dur).limit(1);
+    if (dup.error) return { saved: false, reason: "schema" };
+    if (dup.data && dup.data.length) return { saved: false, reason: "duplicate" };
+
+    const num = (v) => (v != null && isFinite(+v)) ? +v : null;
+    const int = (v) => (v != null && isFinite(+v)) ? Math.round(+v) : null;
+    const ins = await admin.from("my20fit_workout").insert({
+      auth_user_id: userId, workout_date: date, type: type, duration_min: dur,
+      source: "upload",
+      title: ex.title ? String(ex.title).slice(0, 160) : null,
+      distance_km: num(ex.distance_km),
+      calories_burned: int(ex.calories_burned),
+      avg_heart_rate: int(ex.avg_heart_rate),
+      max_heart_rate: int(ex.max_heart_rate),
+      raw_data: ex,
+      updated_at: new Date().toISOString(),
+    }).select("id").single();
+    // 42703 = kolom hasil migration 017 belum ada -> workout memang belum bisa disimpan.
+    if (ins.error) return { saved: false, reason: isMissingSchema(ins.error) ? "schema" : "error" };
+    return { saved: true, id: ins.data && ins.data.id };
+  } catch (e) { return { saved: false, reason: "error" }; }
+}
+
 app.post("/api/activity/upload-analyze", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
@@ -10167,7 +10236,11 @@ app.post("/api/activity/upload-analyze", async (req, res) => {
     } catch (e) { logAiAccess(user.id, "activity/plan", false, "timeout"); return res.status(504).json({ error: "AI nggak merespons saat buat plan." }); }
     logAiAccess(user.id, "activity/upload-analyze", true);
 
-    // 4) simpan best-effort (tabel migration 025). Supabase balikin {error} bukan throw kalau
+    // 4a) Workout hasil upload -> my20fit_workout (tabel kanonik). Inilah yang membuat
+    //     Health Score ikut naik; tanpa ini upload hanya jadi teks analisa.
+    const wsave = await saveUploadedWorkout(user.id, extracted);
+
+    // 4b) simpan best-effort (tabel migration 025). Supabase balikin {error} bukan throw kalau
     //    tabel belum ada -> uploadId null -> tetap balikin hasil (degradasi mulus).
     const tp = (analysis && analysis.today_plan) || {};
     const gaps = (analysis && analysis.yesterday_gaps) || null;
@@ -10190,7 +10263,12 @@ app.post("/api/activity/upload-analyze", async (req, res) => {
       }
     } catch (e) { /* tabel 025 belum dijalankan -> lanjut tanpa simpan */ }
 
-    return res.json({ ok: true, extracted: extracted, analysis: analysis, saved: !!uploadId });
+    return res.json({
+      ok: true, extracted: extracted, analysis: analysis, saved: !!uploadId,
+      // workout_saved=true -> Health Score sudah ikut berubah. reason="schema" -> migration
+      // 017 belum dijalankan, jadi workout belum bisa disimpan sama sekali.
+      workout_saved: wsave.saved, workout_reason: wsave.reason || null,
+    });
   } catch (e) {
     console.error("activity/upload-analyze:", e.message);
     return res.status(500).json({ error: "Gagal memproses upload." });
