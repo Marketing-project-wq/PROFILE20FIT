@@ -236,7 +236,6 @@
     recipe:  { origin: "https://recepie.20fit.id",         path: "/" },
     mcu:     { origin: "https://medicalscanner.20fit.id",  path: "/" },
     media:   { origin: "https://media.20fit.id",           path: "/" },
-    workout: { origin: "https://workout.20fit.id",         path: "/" },
     ticket:  { origin: "https://ticket.20fit.id",          path: "/" },
     // CATATAN: talent.20fit.id SENGAJA TIDAK di sini. Talent pakai auth sendiri (cookie
     // HMAC, BUKAN Supabase) → bukan tujuan SSO; token Supabase tak berguna di sana. Lihat
