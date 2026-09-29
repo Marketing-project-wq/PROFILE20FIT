@@ -254,7 +254,7 @@
   // pakai TOKEN RELAY yang aman (edge fn sso-generate/consume). Host fit lain yang BELUM adopsi
   // tetap pakai jalur fragment lama (ssoTo) → TIDAK ada regresi. Tambah host ke sini begitu
   // auth-sso.js terpasang & live di sana.
-  const SSO_TOKEN_HOSTS = { "my.20fit.id": 1 };
+  const SSO_TOKEN_HOSTS = { "my.20fit.id": 1, "workout.20fit.id": 1 };
 
   // SSO MASUK: seat sesi dari ?sso_token= (tukar token sekali-pakai lewat edge fn sso-consume →
   // setSession). Dipanggil sekali saat bootstrap; no-op kalau tak ada token. Additive — tidak
