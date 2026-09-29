@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-29 · **Commit staging:** `c21afa4` · **Production:** `6fb7dc7`
+> **Pembaruan terakhir:** 2026-09-29 · **Commit staging:** `9e8da40` · **Production:** `8a81154`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -154,6 +154,22 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Health Score ikut data upload + dashboard `/activity` versi ringkas (2026-09-29, staging dulu).**
+  - `GET /api/activity/health-score` kini membaca juga `my20fit_activity_uploads` (screenshot
+    jam/app kesehatan), `my20fit_sleep`, `my20fit_hydration` selain workout/daily_log/Visbody/MCU.
+    Prioritas tidur per tanggal: `my20fit_sleep` > upload > daily_log. Hidrasi per tanggal =
+    max(gelas×250, total ml). Respons membawa `gaps` (What You Need: tidur/RHR naik, nutrisi,
+    hidrasi, workout kurang/berlebih) + `week` (Sen–Min, sesi/menit/kcal). Target sementara:
+    4 hari workout, 7,5 jam tidur, 2 L air, 2000 kcal — **TANYA PEMILIK** kalau mau per-user.
+  - `upload-analyze` memakai tanggal dari hasil analisa (≤30 hari, tidak di masa depan) sebagai
+    `upload_date`, jadi skor minggu itu ikut terhitung ulang.
+  - `/api/coach/plan/adjust` op baru `done` (`day_key`, `done`) → centang hari di Active Plan
+    (disimpan di `plan.days[i].done`, jsonb yang sama; tanpa migration).
+  - `activity.html`: coach bar ringkas, Health Score (angka + bar + label GOOD/NEEDS WORK/CRITICAL,
+    breakdown 2 kolom + N/A, pills What You Need), kartu ganda Upload Progress + Weekly Recap
+    (2 kolom juga di mobile), Today's Plan 4 kartu mini (Book Class/Track/+250ml/Balas),
+    Active Plan satu baris bisa dicentang. Teks `data-en/data-id` kini ikut toggle bahasa.
+    Tombol "Track →" ke `/calories` in-app. **Belum dites di perangkat nyata/staging.**
 - **Tabrakan nama "Activity" SELESAI (2026-09-21).** Item nav berlabel "Activity"/"Aktivitas"
   (`nav_progress`) dulu menunjuk `/progress`, sehingga pemilik mengklik "Activity" dan mendarat
   di halaman LAMA — bagian baru tak pernah terlihat. Sekarang: item nav menunjuk `activity.html`,
