@@ -60,7 +60,7 @@
     try {
       var r = await fetch(FN + "/sso-consume", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY },
         body: JSON.stringify({ token: token }),
       });
       if (!r.ok) return null;
@@ -126,7 +126,7 @@
     try {
       var r = await fetch(FN + "/sso-generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + s.access_token },
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + s.access_token, "apikey": SUPABASE_ANON_KEY },
         body: JSON.stringify({ redirect_to: targetHost, refresh_token: s.refresh_token }),
       });
       if (!r.ok) throw new Error("generate failed");
