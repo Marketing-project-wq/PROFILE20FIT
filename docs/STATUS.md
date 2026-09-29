@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-29 · **Commit staging:** `4dcd9a4` · **Production:** `6fb7dc7`
+> **Pembaruan terakhir:** 2026-09-29 · **Commit staging:** `c21afa4` · **Production:** `6fb7dc7`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -472,10 +472,11 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   masing-masing, `my20fit_workout` kini 20 kolom, `my20fit_daily_log.steps` ada.
   (Catatan lama: per 21 Sep 017 & 018 dipastikan belum jalan — sudah tidak berlaku.)
 
-  - **TUGAS PEMILIK sebelum fitur ini utuh:** (1) ~~jalankan migration 017~~ selesai 2026-09-29; (2) buat bucket
-    Storage **`workout-uploads`** (PRIVAT); (3) deploy ulang edge fn `my20fit-ai` supaya aksi
-    `plan` **dan `workout`** aktif — tanpa ini `/api/activity/scan` membalas 503 dengan pesan
-    yang menyebut langkah ini; (4) Strava OAuth (Client ID/Secret di Railway + redirect URI di
+  - **TUGAS PEMILIK sebelum fitur ini utuh:** (1) ~~jalankan migration 017~~ selesai 2026-09-29; (2) ~~buat bucket
+    Storage `workout-uploads` (PRIVAT)~~ **selesai 2026-09-29** (privat, maks 5 MB, png/jpeg/webp —
+    sama dengan validasi `/api/activity/upload`); (3) ~~deploy ulang edge fn `my20fit-ai`~~ **tidak
+    perlu** — versi 55 yang live (deploy 2026-09-28) sudah memuat aksi `plan`/`workout`/`chat`/`activity`
+    dari repo; diuji langsung 2026-09-29: `chat` membalas normal; (4) Strava OAuth (Client ID/Secret di Railway + redirect URI di
     dashboard Strava) — tombol tracker sekarang jujur bilang "belum tersambung".
   - **TANYA PEMILIK REPO — tabrakan nama:** item nav `nav_progress` berlabel **"Activity"/"Aktivitas"**
     tapi menuju `/progress`. Sekarang ada dua hal bernama Activity. Nav SENGAJA tidak diubah
@@ -508,6 +509,19 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   - **Tidak ada webhook pembelian sama sekali.** `sync-ticket-events` hanya menarik `/events` dan menyimpan `sold_count` **agregat**, tak pernah identitas pembeli. Terukur 2026-09-08: Sports Summit live `sold`=**1233** vs `my20fit_ticket_events.sold_count`=**1162** (sync 2026-09-07 21:00) → **+71 terjual sejak sync**, sementara di DB kami **nol baris hari itu**. Pembayaran berhasil dan tercatat di ticket.20fit.id, tapi kami tak punya cara tahu siapa pembelinya — **tidak ada baris yang bisa "diperbaiki" di sisi kami.**
   - **TANYA PEMILIK ticket.20fit.id:** permintaan teknisnya sudah ditulis lengkap di **`docs/TICKET-API-REQUEST.md`** — intinya minta **webhook pembelian** atau **endpoint partner baca pesanan per email**. Sampai salah satunya ada, pembeli yang emailnya belum dikenal penerbit hanya bisa melihat pembeliannya dari **arsip, tanpa QR**.
   - **Arsip `event_transaction` bukan data hidup** — impor batch invoice, `paid_at` terbaru 2026-08-11, impor terakhir 2026-08-18. Tetap disajikan (isinya pembelian nyata; 242 dari 1374 user app punya email di sana) tapi ditandai `source:"archive"`. Pembelian baru tak akan pernah muncul di sana.
+- **Login Google — diagnosis dari log Supabase (2026-09-29).** Login Google terakhir yang BERHASIL di
+  `auth.identities` = **2026-08-18**; sejak itu nol. Log auth 24 jam terakhir: ±15 kali `/authorize`
+  (user dikirim ke Google) tapi hanya 1 `/callback` (gagal "OAuth state parameter missing") → user
+  **tidak pernah dikembalikan Google**. Dugaan kuat (belum bisa dilihat langsung — `accounts.google.com`
+  diblokir dari container agent): redirect URI `https://cpvzwqptzcxnwzfzgrmt.supabase.co/auth/v1/callback`
+  belum terdaftar di OAuth client **`883349921349-4efr…`** (client yang kini dipakai Supabase).
+  - **Redirect URLs Supabase (terukur dari field `referer` di log `/authorize`):** `https://profile.20fit.id/auth/callback`
+    **diizinkan**; `https://my.20fit.id/auth/callback` dan `https://my.20fit.id/login` **DITOLAK** → jatuh ke
+    **Site URL = `https://profile.20fit.id` (domain STAGING)**. Artinya user PRODUKSI yang login Google akan
+    dipulangkan ke staging. **TUGAS PEMILIK sebelum rilis production:** (a) Google Cloud → client
+    `883349921349-4efr…` → Authorized redirect URIs tambah URL callback Supabase di atas; (b) Supabase →
+    Authentication → URL Configuration: Site URL = `https://my.20fit.id`, Redirect URLs tambah
+    `https://my.20fit.id/**` (dan pertahankan `https://profile.20fit.id/**`).
 - **Login Google web MATI — sebabnya di Google Cloud Console + Supabase, bukan di kode.** Gejala TERBARU (2026-09-17, screenshot pemilik): **`Error 400: redirect_uri_mismatch`**. Gejala lama (sebelum jalur GIS dibuang): `Access blocked: Authorisation error` · `no registered origin` · `Error 401: invalid_client`. **Panduan klik-per-klik untuk pemilik ada di `docs/GOOGLE_LOGIN_SETUP.md`.**
   - **Sebab terukur:** `server.js` memakai default hardcoded `26509397037-8d1s0c39hb31738fcl816b8jrv7fdt6i` yang komentarnya menyebut "Client ID web app 20FIT". Client ID yang **sama persis** terdaftar di repo app mobile sebagai reversed-client-id **iOS** (`20FIT_MOBILEAPP/ios/Runner/Info.plist` → `CFBundleURLTypes`/`CFBundleURLSchemes`). Client bertipe iOS **tidak punya kolom "Authorized JavaScript origins"**, jadi GIS di web selalu ditolak — menambah origin tidak akan menolong.
   - **Data:** `auth.identities` provider `google` = 287 (Jun 122, Jul 118, Ags 47, **Sep 0**); terakhir dibuat & terakhir login sama-sama **2026-08-18 05:22 UTC**. Provider `email` masih aktif harian. Tombol Google di web sendiri **baru masuk `main` hari ini** lewat `d041061` — sebelum itu tag SDK `accounts.google.com/gsi/client` tak pernah ada di `main` (`git log --full-history -S`). Dugaan (**BELUM TERVERIFIKASI**): 287 identitas itu dari app mobile, yang memang memakai `google_sign_in` v7 + `serverClientId`.
