@@ -10066,6 +10066,16 @@ app.use(express.static(path.join(__dirname), {
     // hard-refresh. Tidak menyentuh localStorage/sesi login -> tidak ada risiko user ke-logout.
     if (/\.(html|js|css)$/i.test(filePath)) res.setHeader("Cache-Control", "no-cache");
 
+    // Aset yang di-EMBED LINTAS SUBDOMAIN 20FIT (universal-nav.js + auth-sso.js + artwork produk
+    // di /img/products/). helmet() default memasang Cross-Origin-Resource-Policy: same-origin,
+    // yang MEMBLOKIR <script>/<img> cross-origin dari subdomain lain (mis. talent.20fit.id load
+    // universal-nav.js dari sini) — makanya bar-nya tak muncul. Longgarkan KHUSUS aset publik
+    // yang memang sengaja dibagikan, tanpa menyentuh header halaman/aset lain.
+    if (/(^|[\\/])(universal-nav|auth-sso)\.js$/i.test(filePath) ||
+        /(^|[\\/])img[\\/]products[\\/][^\\/]+\.(png|svg|webp|jpg|jpeg)$/i.test(filePath)) {
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    }
+
     // Izinkan calories.html di-iframe HANYA dari calorietracker.20fit.id (fitur tracker lengkap
     // ditampilkan di sana lewat iframe, bukan duplikasi kode — lihat Calories.20fit InsightPage).
     // helmet() di atas sudah pasang X-Frame-Options: SAMEORIGIN secara global untuk SEMUA
