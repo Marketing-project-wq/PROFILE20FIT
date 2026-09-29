@@ -1,12 +1,17 @@
 # Panduan Setup Login Google — my.20fit.id
 
-> **Untuk:** pemilik repo (zidni@20fit.id) · **Dibuat:** 2026-09-17 · **Diperbarui:** 2026-09-28
+> **Untuk:** pemilik repo (zidni@20fit.id) · **Dibuat:** 2026-09-17 · **Diperbarui:** 2026-09-29
 > Panduan klik-per-klik. Tidak perlu paham teknis — ikuti saja urutannya.
 > Nilai yang harus di-copy sudah ditulis PERSIS di sini, bukan contoh/placeholder.
 >
 > **Update 2026-09-28:** dari error `redirect_uri_mismatch` yang live, ketahuan client
 > yang dipakai Supabase ada di project **`883349921349`** (bukan `26509397037` seperti
 > panduan awal). Bagian nilai + A0/A1/A3/A5 sudah dikoreksi ke client itu.
+>
+> **Update 2026-09-29:** `redirect_uri_mismatch` sudah HILANG (fix Google Cloud berhasil).
+> Ditambahkan domain kustom staging **`profile.20fit.id`** ke daftar nilai + Redirect URLs
+> (B3). Untuk `profile.20fit.id` perlu 2 hal: allowlist di Supabase (B3) + attach domain di
+> Railway service staging.
 
 ---
 
@@ -41,9 +46,11 @@ Bagian A menyelesaikannya.
 |---|---|
 | **Redirect URI Supabase** (paling penting) | `https://cpvzwqptzcxnwzfzgrmt.supabase.co/auth/v1/callback` |
 | Origin produksi | `https://my.20fit.id` |
-| Origin staging | `https://profile20fit-staging.up.railway.app` |
+| Origin staging (Railway) | `https://profile20fit-staging.up.railway.app` |
+| Origin staging (domain kustom) | `https://profile.20fit.id` |
 | Redirect balik ke app (produksi) | `https://my.20fit.id/login` |
-| Redirect balik ke app (staging) | `https://profile20fit-staging.up.railway.app/login` |
+| Redirect balik ke app (staging Railway) | `https://profile20fit-staging.up.railway.app/login` |
+| Redirect balik ke app (staging kustom) | `https://profile.20fit.id/login` |
 | Project Supabase | `20FIT ALL DATA` (ref `cpvzwqptzcxnwzfzgrmt`) |
 | **Client ID yang Supabase pakai** (dari error LIVE Google, 2026-09-28) | `883349921349-4efr3u915dstlheqqgouhvd15mrqmkn9.apps.googleusercontent.com` |
 | **Project Google Cloud yang BENAR** | nomor **`883349921349`** (angka sebelum `-` di Client ID = nomor project) |
@@ -228,9 +235,24 @@ https://my.20fit.id/login
 https://my.20fit.id/**
 https://profile20fit-staging.up.railway.app/login
 https://profile20fit-staging.up.railway.app/**
+https://profile.20fit.id/login
+https://profile.20fit.id/**
 ```
 
 4. Klik **Save**.
+
+> **`profile.20fit.id` = domain kustom untuk STAGING.** Kalau kamu tes login Google
+> di `profile.20fit.id`, DUA hal ini WAJIB:
+> 1. **Di sini (B3):** pastikan `https://profile.20fit.id/**` sudah ada di Redirect URLs
+>    (kalau belum, Supabase tak akan memulangkan user ke `profile.20fit.id` setelah Google
+>    — login "berhasil" tapi mendarat di halaman salah / error).
+> 2. **Di Railway:** domain `profile.20fit.id` harus ter-attach ke **service staging** dan
+>    ter-provision. Kalau `profile.20fit.id` menampilkan halaman **Railway "Not Found"
+>    (train has not arrived)**, domainnya belum ter-provision — perbaiki di Railway →
+>    service staging → Settings → Domains.
+>
+> Redirect URI Google (Bagian A5) TIDAK berubah — tetap callback Supabase yang sama untuk
+> semua domain.
 
 ---
 
