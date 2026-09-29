@@ -78,7 +78,9 @@
     // Event
     { id: "photo",   group: "event", label: "Photo",           desc: "Foto Event",                  url: "https://photo.20fit.id",          color: "#EC4899" },
     { id: "ticket",  group: "event", label: "Ticket",          desc: "Tiket & Event",               url: "https://ticket.20fit.id",         color: "#14B8A6" },
-    { id: "talent",  group: "event", label: "Talent",          desc: "Talent & Event Organizer",    url: "https://talent.20fit.id",         color: "#3B82F6" },
+    // Talent DIKECUALIKAN dari SSO (noSso): auth-nya beda (cookie sendiri, BUKAN Supabase) —
+    // token Supabase tak berguna di sana & tak boleh nyangkut di history-nya. Klik = redirect biasa.
+    { id: "talent",  group: "event", label: "Talent",          desc: "Talent & Event Organizer",    url: "https://talent.20fit.id",         color: "#3B82F6", noSso: true },
     // Booking (semua diproses di my.20fit → booking.20fit.id)
     { id: "book-class",   group: "booking", label: "Book Class",    desc: "Arena & Gym",            url: "https://my.20fit.id/book-class",           color: "#F59E0B", path: "/book-class" },
     { id: "book-coach",   group: "booking", label: "Book Coach",    desc: "Personal Training",      url: "https://my.20fit.id/book-coach",           color: "#F59E0B", path: "/book-coach" },
@@ -155,6 +157,11 @@
   function navTo(it) {
     if (!it) return;
     if (it.path && MY_HOSTS[location.hostname]) { location.href = it.path; return; }
+    // Item ber-noSso (mis. Talent) TIDAK lewat SSO — redirect biasa, user login di tujuan.
+    if (it.noSso) { location.href = it.url; return; }
+    // Bawa sesi lewat SSO: navigateWithSSO (token relay aman) kalau ada, fallback ssoTo (fragment).
+    if (window.Auth && typeof Auth.navigateWithSSO === "function") { Auth.navigateWithSSO(it.url); return; }
+    if (window.SSO20fit && typeof SSO20fit.navigateWithSSO === "function") { SSO20fit.navigateWithSSO(it.url); return; }
     if (window.Auth && typeof Auth.ssoTo === "function") { Auth.ssoTo(it.url); return; }
     location.href = it.url;
   }
@@ -322,6 +329,8 @@
 
     // Navigasi: bawa sesi lewat Auth.ssoTo kalau tersedia; kalau tidak, navigasi biasa.
     function go(url) {
+      if (window.Auth && typeof Auth.navigateWithSSO === "function") { Auth.navigateWithSSO(url); return; }
+      if (window.SSO20fit && typeof SSO20fit.navigateWithSSO === "function") { SSO20fit.navigateWithSSO(url); return; }
       if (window.Auth && typeof Auth.ssoTo === "function") { Auth.ssoTo(url); return; }
       location.href = url;
     }
@@ -381,6 +390,8 @@
           Promise.resolve(Auth.signOut()).catch(function () {}).then(function () {
             location.href = "https://my.20fit.id/login";
           });
+        } else if (window.SSO20fit && typeof SSO20fit.logoutEverywhere === "function") {
+          SSO20fit.logoutEverywhere();
         } else { location.href = "https://my.20fit.id/login"; }
       };
       // Kartu produk (grid apps) pakai data-id → smart routing navTo().
@@ -418,6 +429,14 @@
         return Auth.supabase.auth.getSession();
       }).then(function (r) {
         USER = (r && r.data && r.data.session && r.data.session.user) || null;
+        renderAcct();
+      }).catch(function () {});
+    } else if (window.SSO20fit && typeof SSO20fit.getSessionSilent === "function") {
+      // Subdomain drop-in (pasang auth-sso.js, bukan Auth my.20fit): ambil user dari sesi SSO.
+      Promise.resolve(SSO20fit.ready).then(function () {
+        return SSO20fit.getSessionSilent();
+      }).then(function (s) {
+        USER = (s && s.user) || null;
         renderAcct();
       }).catch(function () {});
     }

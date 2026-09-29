@@ -10322,6 +10322,16 @@ app.get("/b/:id", async (req, res) => {
   }
 });
 
+// universal-nav.js — bar navigasi ekosistem 20FIT (shared script, di-load subdomain lain).
+// Sumber TUNGGAL = js/universal-nav.js (dipakai juga internal). Route ini alias URL bersih
+// (https://my.20fit.id/universal-nav.js) + header supaya aman di-embed cross-origin.
+app.get("/universal-nav.js", (req, res) => {
+  res.set("Content-Type", "application/javascript; charset=utf-8");
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Cache-Control", "no-cache");
+  res.sendFile(path.join(__dirname, "js", "universal-nav.js"));
+});
+
 // /halaman dari halaman.html lewat opsi extensions. Jadi URL nggak ada ".html" lagi.
 app.get(/\.html$/, (req, res) => {
   const clean = req.path.replace(/\.html$/, "");

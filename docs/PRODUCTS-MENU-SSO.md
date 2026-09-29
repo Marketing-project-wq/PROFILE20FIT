@@ -18,13 +18,22 @@
 > - **Menu:** di my.20fit dipasang lewat `js/universal-nav.js` (grid embedded di
 >   dropdown "Products" pada `dashboard.html`), bukan komponen React `ProductsMenu`.
 >   16 produk, 5 grup, ikon dari SVG repo — sudah sesuai spec §1–§2.
-> - **SSO:** my.20fit saat ini pakai `Auth.ssoTo(key, subPath)` (relay token lewat
->   URL fragment, peta tujuan "ECO" di `js/auth.js`), **belum** pakai edge function
->   `sso-generate` / `sso-consume` seperti di §4. Model edge-function di §4 adalah
->   desain yang diusulkan spec ini; **konfirmasi ke pemilik apakah kedua edge
->   function itu sudah di-deploy** sebelum tim lain menggantungkan diri padanya
->   (FAQ di bawah sendiri menyebut ada fallback kalau belum deploy). BELUM
->   TERVERIFIKASI apakah `sso-generate`/`sso-consume` sudah live.
+> - **SSO — UPDATE (kini live & ter-wire):** edge function `sso-generate` + `sso-consume`
+>   (§4) SUDAH ter-deploy di project `cpvzwqptzcxnwzfzgrmt` dan memakai tabel bersama
+>   `public.sso_tokens` (NAMA TABEL sengaja tanpa prefix — infra bersama; jangan bikin
+>   `my20fit_sso_tokens` lagi). Client drop-in = `js/auth-sso.js`. my.20fit sudah di-wire:
+>   `Auth.navigateWithSSO()` (token relay AMAN, `?sso_token=`) dipakai universal nav, dengan
+>   `SSO_TOKEN_HOSTS` (di `js/auth.js`) sebagai allowlist host yang sudah pasang consume —
+>   host fit yang BELUM adopsi tetap jatuh ke `Auth.ssoTo()` (fragment lama) supaya **tidak
+>   ada regresi**. my.20fit juga consume `?sso_token=` di bootstrap + hub login menerima
+>   `/login?redirect=`. Cara rollout ke produk lain: pasang `auth-sso.js`, lalu tambahkan
+>   host itu ke `SSO_TOKEN_HOSTS`. Fragment relay lama dihapus HANYA setelah semua target adopsi.
+> - **Talent DIKECUALIKAN dari SSO:** `talent.20fit.id` pakai auth sendiri (cookie HMAC,
+>   BUKAN Supabase) → BUKAN tujuan SSO. `js/universal-nav.js` menandai item Talent
+>   `noSso:true` (klik = redirect biasa) dan `js/auth.js` menghapus talent dari peta `ECO`
+>   + menambah `NO_SSO_HOSTS` (guard di `ssoTo`) supaya token Supabase tak pernah dioper ke
+>   Talent. Produk lain yang memasang menu ini sebaiknya juga memperlakukan Talent sebagai
+>   redirect biasa, bukan tujuan token relay.
 > - **Host recipe:** produksi live = `recepie.20fit.id` (ejaan ini memang dipakai;
 >   `menu.20fit.id` belum ada DNS — lihat `js/auth.js`). MENU_ITEMS §2 menulis
 >   `recipe.20fit.id`; `getCurrentAppId()` §5 sudah memetakan kedua ejaan
