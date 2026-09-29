@@ -92,7 +92,9 @@
     // Event
     { id: "photo",   group: "event", label: "Photo",           desc: "Foto Event",                  icon: "photo",   url: "https://photo.20fit.id",          color: "#EC4899" },
     { id: "ticket",  group: "event", label: "Ticket",          desc: "Tiket & Event",               icon: "ticket",  url: "https://ticket.20fit.id",         color: "#14B8A6" },
-    { id: "talent",  group: "event", label: "Talent",          desc: "Talent & Event Organizer",    icon: "talent",  url: "https://talent.20fit.id",         color: "#3B82F6" },
+    // Talent DIKECUALIKAN dari SSO (noSso): auth-nya beda (cookie sendiri, BUKAN Supabase) —
+    // token Supabase tak berguna di sana & tak boleh nyangkut di history-nya. Klik = redirect biasa.
+    { id: "talent",  group: "event", label: "Talent",          desc: "Talent & Event Organizer",    icon: "talent",  url: "https://talent.20fit.id",         color: "#3B82F6", noSso: true },
     // Booking (semua diproses di my.20fit → booking.20fit.id)
     { id: "book-class",   group: "booking", label: "Book Class",    desc: "Arena & Gym",            icon: "bookclass",    url: "https://my.20fit.id/book-class",           color: "#F59E0B", path: "/book-class" },
     { id: "book-coach",   group: "booking", label: "Book Coach",    desc: "Personal Training",      icon: "bookcoach",    url: "https://my.20fit.id/book-coach",           color: "#F59E0B", path: "/book-coach" },
@@ -171,6 +173,8 @@
   function navTo(it) {
     if (!it) return;
     if (it.path && MY_HOSTS[location.hostname]) { location.href = it.path; return; }
+    // Item ber-noSso (mis. Talent) TIDAK lewat SSO — redirect biasa, user login di tujuan.
+    if (it.noSso) { location.href = it.url; return; }
     if (window.Auth && typeof Auth.ssoTo === "function") { Auth.ssoTo(it.url); return; }
     location.href = it.url;
   }

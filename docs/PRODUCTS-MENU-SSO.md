@@ -25,6 +25,12 @@
 >   function itu sudah di-deploy** sebelum tim lain menggantungkan diri padanya
 >   (FAQ di bawah sendiri menyebut ada fallback kalau belum deploy). BELUM
 >   TERVERIFIKASI apakah `sso-generate`/`sso-consume` sudah live.
+> - **Talent DIKECUALIKAN dari SSO:** `talent.20fit.id` pakai auth sendiri (cookie HMAC,
+>   BUKAN Supabase) → BUKAN tujuan SSO. `js/universal-nav.js` menandai item Talent
+>   `noSso:true` (klik = redirect biasa) dan `js/auth.js` menghapus talent dari peta `ECO`
+>   + menambah `NO_SSO_HOSTS` (guard di `ssoTo`) supaya token Supabase tak pernah dioper ke
+>   Talent. Produk lain yang memasang menu ini sebaiknya juga memperlakukan Talent sebagai
+>   redirect biasa, bukan tujuan token relay.
 > - **Host recipe:** produksi live = `recepie.20fit.id` (ejaan ini memang dipakai;
 >   `menu.20fit.id` belum ada DNS — lihat `js/auth.js`). MENU_ITEMS §2 menulis
 >   `recipe.20fit.id`; `getCurrentAppId()` §5 sudah memetakan kedua ejaan

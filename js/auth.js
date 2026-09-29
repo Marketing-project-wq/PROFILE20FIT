@@ -235,10 +235,17 @@
     media:   { origin: "https://media.20fit.id",           path: "/" },
     workout: { origin: "https://workout.20fit.id",         path: "/" },
     ticket:  { origin: "https://ticket.20fit.id",          path: "/" },
-    talent:  { origin: "https://talent.20fit.id",          path: "/" },
+    // CATATAN: talent.20fit.id SENGAJA TIDAK di sini. Talent pakai auth sendiri (cookie
+    // HMAC, BUKAN Supabase) → bukan tujuan SSO; token Supabase tak berguna di sana. Lihat
+    // NO_SSO_HOSTS di bawah — ssoTo memaksa redirect biasa untuk host itu (defense-in-depth).
     my20fit: { origin: "https://my.20fit.id",              path: "/" },
     home:    { origin: "https://20fit.id",                 path: "/" }
   };
+
+  // Host yang TIDAK boleh menerima relay token — auth-nya inkompatibel dengan Supabase
+  // (talent.20fit.id pakai cookie sendiri). Klik ke sini = redirect biasa (user login di
+  // tujuan). Jaring pengaman walau pemanggil mengoper URL penuh (mis. universal-nav ITEMS.url).
+  const NO_SSO_HOSTS = { "talent.20fit.id": 1 };
 
   function ssoFragment(s) {
     const exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
@@ -261,6 +268,8 @@
       if (u.protocol !== "https:" || !/^([a-z0-9-]+\.)*20fit\.id$/i.test(u.hostname)) return;
       origin = u.origin; path = subPath || (u.pathname + u.search);
     }
+    // Host dikecualikan dari SSO (mis. talent) → JANGAN oper token; redirect biasa.
+    try { if (NO_SSO_HOSTS[new URL(origin).hostname]) { location.href = origin + path; return; } } catch (e) {}
     let s = null;
     try { const { data } = await supabase.auth.getSession(); s = data && data.session; } catch (e) {}
     if (s && s.access_token && s.refresh_token) { location.href = origin + path + ssoFragment(s); return; }
