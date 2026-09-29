@@ -36,6 +36,29 @@
 >   `book-doctor.html`, dan `classes.html`. **Tidak ada `book-recovery.html`** — di
 >   my.20fit "Book Recovery" dilayani via `/classes?venue=clinic`. Spec §2 menulis
 >   `/book-recovery`; sesuaikan target ke rute yang benar-benar ada di produk kamu.
+> - **§4 pernah tidak bisa jalan sama sekali (diperbaiki 2026-09-29).** Contoh
+>   `navigateWithSSO()` hanya mengirim `redirect_to`, sedangkan edge function
+>   `sso-generate` yang ter-deploy menolak request tanpa `refresh_token` dengan
+>   400. Klien menangkap error itu lalu diam-diam jatuh ke redirect biasa, jadi
+>   gejalanya hanya "kok diminta login lagi" tanpa error apa pun. Terverifikasi di
+>   database: `sso_tokens` punya `n_tup_ins = 0` — belum pernah ada satu token pun
+>   berhasil dibuat. Penyebab akarnya: contoh edge function di §2 mengambil refresh
+>   token lewat `supabaseUser.auth.getSession()` di sisi server, padahal di edge
+>   function tidak ada sesi yang dipersistensi; versi yang ter-deploy benar saat
+>   mengambilnya dari body, dan hanya separuh kliennya yang tertinggal.
+>   `shop/public/js/20fit-nav.js` sudah menemukan hal ini lebih dulu dan menambal
+>   sendiri, tapi tidak pernah kembali ke dokumen ini.
+> - **Whitelist domain.** `ALLOWED_HOSTS` ada di `sso-generate` DAN `sso-consume`
+>   dan keduanya harus sama. Produk yang tidak terdaftar ditolak dua arah: 403 di
+>   cek origin, 400 sebagai tujuan. Saat dokumen ini ditulis ulang,
+>   `clinic.20fit.id` dan `arena.20fit.id` belum terdaftar.
+> - **Workout disembunyikan dulu (2026-09-29, keputusan pemilik: produknya belum siap).**
+>   Item, ikon, dan pemetaan host `workout.20fit.id` dibuang dari §2/§5 dan dari
+>   `js/universal-nav.js`. Pasang lagi di KEDUANYA saat produknya siap.
+> - **§2 sempat tertinggal dari kodenya.** `js/universal-nav.js` sudah memuat Shop,
+>   Arena dan Sports Clinic, sementara daftar di §2 masih 16 produk asli. Produk yang
+>   menyalin dokumen ini apa adanya jadi kehilangan tiga produk. Daftar §2 dan §5 kini
+>   disamakan dengan kode kanonik — **kalau menambah produk, ubah keduanya.**
 > - **Anon key:** literal `SUPABASE_ANON_KEY` di §4 adalah key **publik** (role=anon,
 >   dilindungi RLS) — aman di client dan memang sudah di-commit di repo ini
 >   (`js/auth.js`, `server.js`) serta di-allowlist di `.gitleaks.toml`. Yang **tidak
@@ -80,9 +103,9 @@ HEALTH
   └──────────┘  └──────────┘  └──────────┘
 
 ACTIVITY
-  ┌──────────┐  ┌──────────┐  ┌──────────┐
-  │ Workout  │  │ Progress │  │ Media    │
-  └──────────┘  └──────────┘  └──────────┘
+  ┌──────────┐  ┌──────────┐
+  │ Progress │  │ Media    │
+  └──────────┘  └──────────┘
 
 EVENT
   ┌──────────┐  ┌──────────┐  ┌──────────┐
@@ -114,6 +137,9 @@ const MENU_ITEMS = [
   { id: 'home', label: 'Home', description: 'Direktori Olahraga', icon: 'home', url: 'https://20fit.id', color: '#1a1a1a' },
   { id: 'my20fit', label: 'My 20FIT', description: 'Member Portal', icon: 'my20fit', url: 'https://my.20fit.id', color: '#6366F1' },
   { id: 'recipe', label: 'Recipe', description: 'Menu & Resep Sehat', icon: 'recipe', url: 'https://recipe.20fit.id', color: '#16A34A' },
+  { id: 'shop', label: 'Shop', description: 'Alat Gym & Fitness', icon: 'shop', url: 'https://shop.20fit.id', color: '#e4002b' },
+  { id: 'arena', label: 'Arena', description: 'HYROX Training Club', icon: 'arena', url: 'https://arena.20fit.id', color: '#b94a3e' },
+  { id: 'clinic', label: 'Sports Clinic', description: 'Fisioterapi & Sports Clinic', icon: 'clinic', url: 'https://clinic.20fit.id', color: '#C00000' },
 
   // === Health ===
   { id: 'calorie', label: 'Calorie Tracker', description: 'Hitung Kalori Harian', icon: 'calorie', url: 'https://calorietracker.20fit.id', color: '#F97316' },
@@ -121,7 +147,6 @@ const MENU_ITEMS = [
   { id: 'bodyscan', label: 'Body Scan', description: 'Visbody Body Composition', icon: 'bodyscan', url: 'https://my.20fit.id/body-scan', color: '#EC4899' },
 
   // === Activity ===
-  { id: 'workout', label: 'Workout', description: 'Streaming Latihan', icon: 'workout', url: 'https://workout.20fit.id', color: '#EF4444' },
   { id: 'progress', label: 'Progress', description: 'Tracking Progres Fitness', icon: 'progress', url: 'https://my.20fit.id/progress', color: '#F43F5E' },
   { id: 'media', label: 'Media', description: 'Blog & Artikel', icon: 'media', url: 'https://media.20fit.id', color: '#8B5CF6' },
 
@@ -138,9 +163,9 @@ const MENU_ITEMS = [
 ];
 
 const MENU_GROUPS = [
-  { label: null, items: ['home', 'my20fit', 'recipe'] },
+  { label: null, items: ['home', 'my20fit', 'recipe', 'shop', 'arena', 'clinic'] },
   { label: 'Health', items: ['calorie', 'mcu', 'bodyscan'] },
-  { label: 'Activity', items: ['workout', 'progress', 'media'] },
+  { label: 'Activity', items: ['progress', 'media'] },
   { label: 'Event', items: ['photo', 'ticket', 'talent'] },
   { label: 'Booking', items: ['book-class', 'book-coach', 'book-doctor', 'book-recovery'] },
 ];
@@ -242,9 +267,12 @@ export async function navigateWithSSO(targetUrl) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
         'Authorization': `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ redirect_to: targetHost }),
+      // refresh_token WAJIB. Edge function sso-generate yang ter-deploy menolak
+      // request tanpanya: 400 "redirect_to and refresh_token are required".
+      body: JSON.stringify({ redirect_to: targetHost, refresh_token: session.refresh_token }),
     });
     if (!res.ok) throw new Error('Token generation failed');
     const { token } = await res.json();
@@ -260,7 +288,7 @@ async function consumeSSOToken(token) {
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/sso-consume`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
       body: JSON.stringify({ token }),
     });
     if (!res.ok) return null;
@@ -293,10 +321,12 @@ function getCurrentAppId() {
     'calorietracker.20fit.id': 'calorie',
     'medicalscanner.20fit.id': 'mcu',
     'media.20fit.id': 'media',
-    'workout.20fit.id': 'workout',
     'photo.20fit.id': 'photo',
     'ticket.20fit.id': 'ticket',
     'talent.20fit.id': 'talent',
+    'shop.20fit.id': 'shop',
+    'arena.20fit.id': 'arena',
+    'clinic.20fit.id': 'clinic',
   };
 
   // Halaman di dalam my.20fit.id → cek path

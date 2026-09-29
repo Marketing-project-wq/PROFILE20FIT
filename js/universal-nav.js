@@ -42,10 +42,8 @@
     calorie : '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',   // js/nav.js :: calories
     mcu     : '<path d="M11 2a2 2 0 0 0-2 2v1a2 2 0 0 0-2 2v3a6 6 0 0 0 12 0V7a2 2 0 0 0-2-2V4a2 2 0 0 0-2-2"/><circle cx="20" cy="10" r="2"/>',   // js/tour.js :: medical (stetoskop)
     media   : '<path d="M4 4h13a1 1 0 0 1 1 1v14a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1h-2"/><path d="M4 4a1 1 0 0 0-1 1v13a2 2 0 0 0 2 2h11a1 1 0 0 0 1-1V4z"/><path d="M7 8h7M7 12h7M7 16h4"/>',   // dashboard.html :: news
-    workout : '<path d="M6.5 6.5 17.5 17.5"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/>',   // dashboard.html :: dumbbell
     photo   : '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/>',   // dashboard.html :: camera
     ticket  : '<path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a2 2 0 0 0 0 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1a2 2 0 0 0 0-4z"/><line x1="13" y1="7" x2="13" y2="17"/>',   // dashboard.html :: ticket
-    talent  : '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',   // dashboard.html :: coach
     bodyscan: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/>',   // js/nav.js :: scan
     progress: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',   // js/nav.js :: progress (tren naik)
     bookclass: '<path d="M6.5 6.5 17.5 17.5M4 9l1-1M20 15l-1 1M8 4l-2 2 3 3M16 20l2-2-3-3M3 12l2 2M19 10l2 2"/>',   // dashboard.html :: dumbbell
@@ -75,18 +73,20 @@
   // `path`   : alamat INTERNAL di my.20fit. Kalau ADA dan user SEDANG di my.20fit, klik
   //            tetap di dalam my.20fit (navigasi biasa, tanpa SSO) — mis. Calorie/Recipe/MCU
   //            memang sengaja in-app di my.20fit (keputusan pemilik), bukan dilempar ke subdomain.
-  //            Item tanpa `path` (Home/Workout/Media/Photo/Ticket/Talent) selalu ke subdomain.
+  //            Item tanpa `path` (Home/Shop/Arena/Clinic/Media/Photo/Ticket/Talent) selalu ke web-nya.
   var ITEMS = [
     // Utama
     { id: "home",    group: "main", label: "Home",            desc: "Direktori Olahraga",          icon: "home",    url: "https://20fit.id",                color: "#1a1a1a" },
     { id: "my20fit", group: "main", label: "My 20FIT",        desc: "Member Portal",               icon: "my20fit", url: "https://my.20fit.id",             color: "#6366F1", path: "/dashboard" },
     { id: "recipe",  group: "main", label: "Recipe",          desc: "Menu & Resep Sehat",          icon: "recipe",  url: "https://recepie.20fit.id",        color: "#16A34A", path: "/recipe" },
+    { id: "shop",    group: "main", label: "Shop",            desc: "Alat Gym & Fitness",          icon: "shop",    url: "https://shop.20fit.id",           color: "#e4002b" },
+    { id: "arena",   group: "main", label: "Arena",           desc: "HYROX Training Club",         icon: "arena",   url: "https://arena.20fit.id",          color: "#b94a3e" },
+    { id: "clinic",  group: "main", label: "Sports Clinic",   desc: "Fisioterapi & Sports Clinic", icon: "clinic",  url: "https://clinic.20fit.id",         color: "#C00000" },
     // Health
     { id: "calorie", group: "health", label: "Calorie Tracker", desc: "Hitung Kalori Harian",      icon: "calorie", url: "https://calorietracker.20fit.id", color: "#F97316", path: "/calories" },
     { id: "mcu",     group: "health", label: "MCU Scanner",     desc: "Baca Hasil Medical Check-Up", icon: "mcu",    url: "https://medicalscanner.20fit.id", color: "#0EA5E9", path: "/medical" },
     { id: "bodyscan",group: "health", label: "Body Scan",       desc: "Komposisi Tubuh (Visbody)", icon: "bodyscan",url: "https://my.20fit.id/body-scan",   color: "#EC4899", path: "/body-scan" },
     // Activity
-    { id: "workout", group: "activity", label: "Workout",       desc: "Streaming Latihan",         icon: "workout", url: "https://workout.20fit.id",        color: "#EF4444" },
     { id: "progress",group: "activity", label: "Progress",      desc: "Tracking Progres",          icon: "progress",url: "https://my.20fit.id/activity",    color: "#F43F5E", path: "/activity" },
     { id: "media",   group: "activity", label: "Media",         desc: "Blog & Artikel",            icon: "media",   url: "https://media.20fit.id",          color: "#8B5CF6" },
     // Event
@@ -127,11 +127,10 @@
     ["/dashboard", "my20fit"]
   ];
 
-  // Ikon produk = artwork branded 20FIT (hasil kecilkan berkas .svg repo jadi PNG kecil
-  // di /img/products/<id>.png). 14 dari 16 produk punya artwork; Body Scan & Talent belum
-  // ada → tetap pakai ikon garis inline (P[icon], ikut warna/tema). Artwork raster full-color
-  // (tidak ikut tema) — makanya diberi chip putih di CSS supaya rapi di light & dark.
-  var NO_ART = { bodyscan: 1, talent: 1 };
+  // Ikon produk = artwork branded 20FIT (hasil kecilkan berkas gambar repo jadi PNG 128px
+  // transparan di /img/products/<id>.png). Semua produk punya artwork KECUALI Body Scan →
+  // tetap pakai ikon garis inline (P[icon], ikut warna/tema).
+  var NO_ART = { bodyscan: 1 };
   ITEMS.forEach(function (it) { if (!NO_ART[it.id]) it.img = "/img/products/" + it.id + ".png"; });
   // Base URL ikon: di my.20fit/staging = same-origin (""), di subdomain lain = absolut ke
   // my.20fit.id (tempat berkasnya) supaya bar universal tetap dapat ikon di mana pun dipasang.
@@ -146,10 +145,12 @@
     "calorietracker.20fit.id": "calorie",
     "medicalscanner.20fit.id": "mcu",
     "media.20fit.id": "media",
-    "workout.20fit.id": "workout",
     "photo.20fit.id": "photo",
     "ticket.20fit.id": "ticket",
-    "talent.20fit.id": "talent"
+    "talent.20fit.id": "talent",
+    "shop.20fit.id": "shop",
+    "arena.20fit.id": "arena",
+    "clinic.20fit.id": "clinic"
   };
   function currentId() {
     var h = location.hostname;
@@ -190,7 +191,7 @@
       '<span class="un-ic' + (it.img ? '' : ' un-line') + '">' + inner + '</span>' +
       '<span class="un-l">' + esc(it.label) + '</span>' +
       (embed ? '' : '<span class="un-d">' + esc(it.desc) + '</span>') +
-      (on ? '<span class="un-here">● Kamu di sini</span>' : '') +
+      (on ? '<span class="un-here">Kamu di sini</span>' : '') +
       '</a>';
   }
   function groupsHtml(size, embed) {
@@ -246,7 +247,7 @@
     '.un-app{display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px;padding:13px 6px;border-radius:12px;',
     'text-decoration:none;color:#1a1a1a;border:2px solid transparent;background:transparent;cursor:pointer;font-family:inherit}',
     '.un-app:hover{background:#f5f5f5}',
-    '.un-app[aria-current="page"]{background:#f0f0f0;border-color:#111;cursor:default}',
+    '.un-app[aria-current="page"]{background:rgba(22,163,74,.08);border-color:#16A34A;cursor:default}',
     // Ikon TANPA latar, besar & "melayang" (drop-shadow) — meniru grid produk di home
     // (.svc2 .s2-img: height 64px, transparan, tanpa kotak). Tinggi tetap = ukuran optik
     // seragam; width auto + max-width supaya ikon lebar (mis. dumbbell) tak meluber.
@@ -257,7 +258,7 @@
     '.un-ic.un-line svg{width:54px;height:54px}',
     '.un-app .un-l{font-size:12px;font-weight:600;line-height:1.2}',
     '.un-app .un-d{font-size:10px;color:#888;line-height:1.2}',
-    '.un-here{font-size:9px;color:#16A34A;font-weight:700}',
+    '.un-here{display:inline-block;margin-top:3px;padding:2px 7px;border-radius:99px;background:#16A34A;color:#fff;font-size:8.5px;font-weight:700;letter-spacing:.03em;line-height:1.6}',
     /* profil */
     '.un-prof{width:min(300px,95vw)}',
     '.un-head{display:flex;gap:12px;align-items:center;margin-bottom:6px}',

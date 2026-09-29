@@ -233,7 +233,6 @@
     recipe:  { origin: "https://recepie.20fit.id",         path: "/" },
     mcu:     { origin: "https://medicalscanner.20fit.id",  path: "/" },
     media:   { origin: "https://media.20fit.id",           path: "/" },
-    workout: { origin: "https://workout.20fit.id",         path: "/" },
     ticket:  { origin: "https://ticket.20fit.id",          path: "/" },
     talent:  { origin: "https://talent.20fit.id",          path: "/" },
     my20fit: { origin: "https://my.20fit.id",              path: "/" },
