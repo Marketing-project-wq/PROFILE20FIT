@@ -567,6 +567,9 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 - **Tile Rewards di dashboard disembunyikan** (2026-09-29) lewat CMS: `my20fit_home_tiles.hidden=true`
   untuk `key='rewards'` (pola sama dgn `book-coach`). Tampilkan lagi dari admin-v2 → Home tiles. Halaman
   `/rewards` & widget Rewards di Customize tetap ada.
+- **Tile Shop di grid layanan dashboard** (2026-09-29, permintaan pemilik): key `shop` → `https://shop.20fit.id`
+  (same-tab), ikon 3D `img/tiles/shop.png` (dari `Menu Shop.png`), baris CMS `my20fit_home_tiles`
+  `key='shop', sort_order=7` (slot Rewards) → bisa dinyala/matikan dari admin-v2 → Home tiles.
 - **Pembayaran: Xendit via API FITCO/20FIT, bukan Xendit langsung.** Akun Xendit dipakai bersama app lain; webhook invoice account-global → callback "paid" selalu ke backend 20FIT, tak pernah ke my.20fit.id. Maka **tak ada webhook di sisi kita**; kredit lewat polling + `/api/scan/reconcile` (idempoten via RPC `my20fit_credit_scan`). Lihat CLAUDE.md "Konteks penting".
 - **Email consent dihapus** (PR #291, migration 013): kirim langsung, model opt-out (unsubscribe + suppression + frequency cap).
 - **Admin swap staging-first** (PR #290): staging pakai `admin-v2` via deteksi host; produksi digating flag `admin_v2` (reversible). **Flag di-ON-kan di produksi 2026-09-25** (permintaan pemilik, untuk editor foto coach) — admin lama tetap via `?legacy=1`.
