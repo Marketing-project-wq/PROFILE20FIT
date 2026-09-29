@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-29 · **Commit staging:** `4489d26` · **Production:** `6fb7dc7`
+> **Pembaruan terakhir:** 2026-09-29 · **Commit staging:** `4dcd9a4` · **Production:** `6fb7dc7`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -466,12 +466,13 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     "Tabel goal belum ada di database (migration 018). Hubungi admin.", quiz tetap
     terbuka, tombol bisa dicoba lagi. Diuji headless.
 
-- **Migration 017 & 018 DIPASTIKAN BELUM DIJALANKAN (dicek ke DB live 21 Sep 2026).**
-  Buktinya: `my20fit_workout` masih 8 kolom (017 menambah 12 → seharusnya 20), tabel
-  `my20fit_daily_plan` (017) dan `my20fit_member_goals` (018) tidak ada di DB. Selama ini
-  belum dijalankan, tombol "Buat rencana" di /activity dan simpan GoalQuiz akan gagal.
+- **Migration 017, 018, 020–025 SUDAH DIJALANKAN (2026-09-29).** Dijalankan agent lewat
+  koneksi Supabase atas izin eksplisit pemilik, berurutan 017→025 (semuanya aditif, hanya
+  tabel `my20fit_*`). Terverifikasi ke DB live: 14 tabel baru ada + RLS aktif + 1 policy
+  masing-masing, `my20fit_workout` kini 20 kolom, `my20fit_daily_log.steps` ada.
+  (Catatan lama: per 21 Sep 017 & 018 dipastikan belum jalan — sudah tidak berlaku.)
 
-  - **TUGAS PEMILIK sebelum fitur ini utuh:** (1) jalankan migration 017 manual; (2) buat bucket
+  - **TUGAS PEMILIK sebelum fitur ini utuh:** (1) ~~jalankan migration 017~~ selesai 2026-09-29; (2) buat bucket
     Storage **`workout-uploads`** (PRIVAT); (3) deploy ulang edge fn `my20fit-ai` supaya aksi
     `plan` **dan `workout`** aktif — tanpa ini `/api/activity/scan` membalas 503 dengan pesan
     yang menyebut langkah ini; (4) Strava OAuth (Client ID/Secret di Railway + redirect URI di
