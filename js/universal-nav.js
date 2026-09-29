@@ -175,6 +175,8 @@
     if (it.path && MY_HOSTS[location.hostname]) { location.href = it.path; return; }
     // Item ber-noSso (mis. Talent) TIDAK lewat SSO — redirect biasa, user login di tujuan.
     if (it.noSso) { location.href = it.url; return; }
+    // Bawa sesi lewat SSO: navigateWithSSO (token relay aman) kalau ada, fallback ssoTo (fragment).
+    if (window.Auth && typeof Auth.navigateWithSSO === "function") { Auth.navigateWithSSO(it.url); return; }
     if (window.Auth && typeof Auth.ssoTo === "function") { Auth.ssoTo(it.url); return; }
     location.href = it.url;
   }
@@ -349,6 +351,7 @@
 
     // Navigasi: bawa sesi lewat Auth.ssoTo kalau tersedia; kalau tidak, navigasi biasa.
     function go(url) {
+      if (window.Auth && typeof Auth.navigateWithSSO === "function") { Auth.navigateWithSSO(url); return; }
       if (window.Auth && typeof Auth.ssoTo === "function") { Auth.ssoTo(url); return; }
       location.href = url;
     }

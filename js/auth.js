@@ -40,6 +40,9 @@
       // (diperiksa: supabase-js 2.108.2 punya code_verifier/code_challenge/exchangeCodeForSession).
       auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
     });
+    // SSO MASUK: kalau halaman dibuka dgn ?sso_token= (relay dari produk lain), seat sesinya
+    // dulu sebelum kode halaman cek sesi. No-op kalau tak ada token.
+    await consumeIncomingSso();
     return supabase;
   })();
 
@@ -246,6 +249,74 @@
   // (talent.20fit.id pakai cookie sendiri). Klik ke sini = redirect biasa (user login di
   // tujuan). Jaring pengaman walau pemanggil mengoper URL penuh (mis. universal-nav ITEMS.url).
   const NO_SSO_HOSTS = { "talent.20fit.id": 1 };
+
+  // Host yang SUDAH memasang auth-sso.js (bisa consume ?sso_token=). Untuk host ini, navigasi
+  // pakai TOKEN RELAY yang aman (edge fn sso-generate/consume). Host fit lain yang BELUM adopsi
+  // tetap pakai jalur fragment lama (ssoTo) → TIDAK ada regresi. Tambah host ke sini begitu
+  // auth-sso.js terpasang & live di sana.
+  const SSO_TOKEN_HOSTS = { "my.20fit.id": 1 };
+
+  // SSO MASUK: seat sesi dari ?sso_token= (tukar token sekali-pakai lewat edge fn sso-consume →
+  // setSession). Dipanggil sekali saat bootstrap; no-op kalau tak ada token. Additive — tidak
+  // mengubah jalur login mana pun. Token dibersihkan dari URL apa pun hasilnya.
+  async function consumeIncomingSso() {
+    let tok = null;
+    try { tok = new URLSearchParams(location.search).get("sso_token"); } catch (e) {}
+    if (!tok) return;
+    let to = null;
+    try {
+      const ctrl = new AbortController();
+      to = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 8000); // jgn blok load selamanya
+      const r = await fetch(cfgUrl + "/functions/v1/sso-consume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": cfgKey },
+        body: JSON.stringify({ token: tok }),
+        signal: ctrl.signal,
+      });
+      if (r.ok) {
+        const j = await r.json().catch(() => null);
+        if (j && j.access_token && j.refresh_token) {
+          await supabase.auth.setSession({ access_token: j.access_token, refresh_token: j.refresh_token });
+        }
+      }
+    } catch (e) { /* biarkan; user tetap bisa login normal */ }
+    finally { if (to) clearTimeout(to); }
+    try {
+      const u = new URL(location.href); u.searchParams.delete("sso_token");
+      history.replaceState({}, "", u.pathname + (u.search || "") + u.hash);
+    } catch (e) {}
+  }
+
+  // SSO KELUAR (token relay AMAN): pindah ke produk 20FIT lain sambil membawa sesi lewat token
+  // sekali-pakai (bukan fragment). talent → redirect biasa; host fit yang belum adopsi → jalur
+  // fragment lama (ssoTo); gagal generate → fallback ssoTo. Dipakai universal nav.
+  async function navigateWithSSO(targetUrl) {
+    await ready;
+    let u = null;
+    try { u = new URL(targetUrl); } catch (e) { location.href = targetUrl; return; }
+    const host = u.hostname.toLowerCase();
+    const isFit = u.protocol === "https:" && /^([a-z0-9-]+\.)*20fit\.id$/i.test(host);
+    if (!isFit || NO_SSO_HOSTS[host]) { location.href = targetUrl; return; }
+    if (host === location.hostname) { location.href = targetUrl; return; }
+    if (!SSO_TOKEN_HOSTS[host]) { return ssoTo(targetUrl); } // belum adopsi → fragment lama
+    let s = null;
+    try { const { data } = await supabase.auth.getSession(); s = data && data.session; } catch (e) {}
+    if (!s || !s.access_token || !s.refresh_token) { location.href = targetUrl; return; }
+    try {
+      const r = await fetch(cfgUrl + "/functions/v1/sso-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + s.access_token, "apikey": cfgKey },
+        body: JSON.stringify({ redirect_to: host, refresh_token: s.refresh_token }),
+      });
+      if (!r.ok) throw new Error("gen");
+      const j = await r.json().catch(() => null);
+      if (!j || !j.token) throw new Error("no token");
+      const sep = targetUrl.indexOf("?") >= 0 ? "&" : "?";
+      location.href = targetUrl + sep + "sso_token=" + encodeURIComponent(j.token);
+    } catch (e) {
+      return ssoTo(targetUrl); // fallback aman ke fragment relay
+    }
+  }
 
   function ssoFragment(s) {
     const exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
@@ -687,6 +758,12 @@
     if (profile.fitco_email_verified === false) return go("verify.html");
     if (!profileComplete(profile)) return go("onboarding.html");
     if (!hasWebPassword(user)) return go("setpassword.html");
+    // Datang dari subdomain lain via hub login (my.20fit.id/login?redirect=<url>): setelah login
+    // penuh, bawa balik sesi ke sana lewat SSO. Diset di entry login.html/code-login.html.
+    try {
+      const rd = sessionStorage.getItem("post_auth_redirect");
+      if (rd) { sessionStorage.removeItem("post_auth_redirect"); return navigateWithSSO(rd); }
+    } catch (e) {}
     // Tujuan lanjutan setelah login penuh, mis. balik ke calorietracker.20fit.id kalau
     // orang datang dari sana (Sign In di calorietracker -> login.html?next=calories).
     // Diset ke sessionStorage sekali di entry (login.html/code-login.html) karena URL
@@ -718,7 +795,8 @@
     photoSso,
     caloriesSso,
     menuSso,
-    ssoTo,        // jalur SSO umum ke produk 20FIT mana pun (dipakai universal nav)
+    ssoTo,        // jalur SSO fragment (legacy; fallback utk host yg belum adopsi token relay)
+    navigateWithSSO, // jalur SSO token relay AMAN (dipakai universal nav)
     ECO,          // daftar tujuan — satu sumber kebenaran
     fitcoVerifyEmail,
     fitcoResendVerifyEmail,
