@@ -9010,10 +9010,14 @@ app.get("/api/activity/day", async (req, res) => {
   }
 });
 
-// GET /api/activity/health-score — skor kesehatan komposit, DIHITUNG on-the-fly dari data
-// yang SUDAH ADA (tanpa tabel baru): konsistensi workout, nutrisi, tidur, hidrasi, komposisi
-// tubuh (Visbody), dan lab (MCU). Bobot didistribusi ulang ke kategori yang datanya tersedia.
-// BUKAN diagnosis medis — angka indikatif dari data user sendiri.
+// GET /api/activity/health-score — skor kesehatan komposit, DIHITUNG on-the-fly dari SEMUA
+// sumber data user: log internal my.20fit (workout manual, daily log, tracker tidur/hidrasi),
+// HASIL UPLOAD screenshot health app / jam tangan (my20fit_activity_uploads), komposisi tubuh
+// (Visbody), dan lab (MCU). Bobot didistribusi ulang ke kategori yang datanya tersedia.
+// Juga mengembalikan `gaps` (What You Need: apa yang kurang + aksi), rekap minggu ini (`week`),
+// dan target yang dipakai. BUKAN diagnosis medis — angka indikatif dari data user sendiri.
+const HS_TARGET = { workout_days: 4, sleep_hours: 7.5, water_ml: 2000, kcal: 2000 };
+function hsNum(v) { const n = +v; return (v != null && v !== "" && isFinite(n)) ? n : null; }
 app.get("/api/activity/health-score", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
@@ -9025,57 +9029,91 @@ app.get("/api/activity/health-score", async (req, res) => {
     const dow = (now.getDay() + 6) % 7;                 // Senin = 0
     const monday = new Date(now); monday.setDate(now.getDate() - dow);
     const from7 = new Date(now); from7.setDate(now.getDate() - 6);
-    const mondayStr = ymd(monday), from7Str = ymd(from7);
+    const yday = new Date(now); yday.setDate(now.getDate() - 1);
+    const mondayStr = ymd(monday), from7Str = ymd(from7), ydayStr = ymd(yday);
+    const fromAll = mondayStr < from7Str ? mondayStr : from7Str;
 
     // Query paralel; tabel yang belum ada / kosong -> data null -> kategori dilewati (graceful).
-    const [wkRes, dlRes, vbRes, mcuRes] = await Promise.all([
-      admin.from("my20fit_workout").select("workout_date").eq("auth_user_id", user.id).gte("workout_date", mondayStr).lte("workout_date", today),
-      admin.from("my20fit_daily_log").select("log_date,sleep_hours,water_glasses,cal_items").eq("auth_user_id", user.id).gte("log_date", from7Str).lte("log_date", today),
-      admin.from("my20fit_visbody_body").select("body_fat_percentage,body_mass_index,muscle_mass,scanned_at").eq("auth_user_id", user.id).order("scanned_at", { ascending: false }).limit(1),
-      admin.from("my20fit_mcu_result").select("result,created_at").eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(1),
+    const uid = user.id;
+    const [wkRes, dlRes, vbRes, mcuRes, upRes, slRes, hyRes] = await Promise.all([
+      admin.from("my20fit_workout").select("workout_date,duration_min,calories_burned,avg_heart_rate").eq("auth_user_id", uid).gte("workout_date", mondayStr).lte("workout_date", today),
+      admin.from("my20fit_daily_log").select("log_date,sleep_hours,water_glasses,cal_items").eq("auth_user_id", uid).gte("log_date", from7Str).lte("log_date", today),
+      admin.from("my20fit_visbody_body").select("body_fat_percentage,body_mass_index,muscle_mass,scanned_at").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(1),
+      admin.from("my20fit_mcu_result").select("result,created_at").eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(1),
+      admin.from("my20fit_activity_uploads").select("upload_type,upload_date,extracted_data,created_at").eq("auth_user_id", uid).gte("upload_date", fromAll).lte("upload_date", today).order("created_at", { ascending: false }).limit(100),
+      admin.from("my20fit_sleep").select("sleep_date,duration_hours").eq("auth_user_id", uid).gte("sleep_date", from7Str).lte("sleep_date", today),
+      admin.from("my20fit_hydration").select("log_date,amount_ml").eq("auth_user_id", uid).gte("log_date", from7Str).lte("log_date", today),
     ]);
 
     const scores = {}; let totalWeight = 0;
     const clamp100 = (n) => Math.max(0, Math.min(100, Math.round(n)));
+    const dl = dlRes.data || [];
+    const uploads = upRes.data || [];
+    const upOf = (type) => uploads.filter((u) => String(u.upload_type || "") === type);
 
-    // Workout consistency (25%) — target default 4x/minggu (hari unik yg ada workout).
+    // ── WORKOUT (25%) — log manual/tracker (my20fit_workout) + UPLOAD workout. Hari unik minggu ini.
+    const sessions = [];
+    (wkRes.data || []).forEach((w) => sessions.push({ date: w.workout_date, min: hsNum(w.duration_min), kcal: hsNum(w.calories_burned), hr: hsNum(w.avg_heart_rate), src: "log" }));
+    upOf("workout").forEach((u) => {
+      if (u.upload_date < mondayStr) return;
+      const e = u.extracted_data || {};
+      sessions.push({ date: u.upload_date, min: hsNum(e.duration_minutes), kcal: hsNum(e.calories_burned), hr: hsNum(e.avg_heart_rate), src: "upload" });
+    });
+    const workoutDays = new Set(sessions.map((s) => s.date));
+    const hasHR = sessions.some((s) => s.hr != null && s.hr > 0);
     {
-      const days = new Set((wkRes.data || []).map((w) => w.workout_date));
-      const target = 4;
-      scores.workout = { score: clamp100((days.size / target) * 100), weight: 25, detail: days.size + "/" + target + " hari" };
+      const T = HS_TARGET.workout_days;
+      const base = (workoutDays.size / T) * 100;
+      // Bonus kecil kalau ada data detak jantung dari tracker (user melacak lebih detail).
+      scores.workout = { score: clamp100(base + (hasHR && workoutDays.size ? 5 : 0)), weight: 25,
+        detail: workoutDays.size + "/" + T + " hari", have: workoutDays.size, target: T,
+        from_upload: sessions.filter((s) => s.src === "upload").length };
       totalWeight += 25;
     }
-    const dl = dlRes.data || [];
-    // Nutrition (20%) — rata-rata kalori vs target default 2000; skor puncak di rentang wajar.
+
+    // ── NUTRITION (20%) — rata-rata kalori (Calorie Tracker) vs target; skor puncak di rentang wajar.
+    const kcalByDate = {};
+    dl.forEach((d) => { if (Array.isArray(d.cal_items) && d.cal_items.length) kcalByDate[d.log_date] = sumCalItems(d.cal_items).kcal; });
     {
-      const withCal = dl.filter((d) => Array.isArray(d.cal_items) && d.cal_items.length);
-      if (withCal.length) {
-        const avg = withCal.reduce((s, d) => s + sumCalItems(d.cal_items).kcal, 0) / withCal.length;
-        const ratio = avg / 2000;
+      const vals = Object.values(kcalByDate);
+      if (vals.length) {
+        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const ratio = avg / HS_TARGET.kcal;
         const sc = (ratio >= 0.8 && ratio <= 1.2) ? 90 : (ratio >= 0.6 && ratio <= 1.4) ? 70 : 40;
         scores.nutrition = { score: sc, weight: 20, detail: Math.round(avg) + " kkal/hari" };
         totalWeight += 20;
       }
     }
-    // Sleep (15%) — target 7.5 jam/malam.
-    {
-      const arr = dl.filter((d) => d.sleep_hours != null).map((d) => +d.sleep_hours).filter((n) => isFinite(n) && n > 0);
-      if (arr.length) {
-        const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
-        scores.sleep = { score: clamp100((avg / 7.5) * 100), weight: 15, detail: avg.toFixed(1) + " jam" };
-        totalWeight += 15;
-      }
+
+    // ── SLEEP (15%) — tracker tidur + UPLOAD sleep + daily log. Satu nilai per tanggal
+    //    (prioritas: tracker tidur > upload > daily log) supaya satu malam tak dihitung dobel.
+    const sleepByDate = {};
+    dl.forEach((d) => { const h = hsNum(d.sleep_hours); if (h != null && h > 0) sleepByDate[d.log_date] = h; });
+    upOf("sleep").forEach((u) => { if (u.upload_date < from7Str) return; const h = hsNum((u.extracted_data || {}).sleep_duration_hours); if (h != null && h > 0) sleepByDate[u.upload_date] = h; });
+    (slRes.data || []).forEach((s) => { const h = hsNum(s.duration_hours); if (h != null && h > 0) sleepByDate[s.sleep_date] = h; });
+    const sleepDates = Object.keys(sleepByDate).sort();
+    if (sleepDates.length) {
+      const avg = sleepDates.reduce((a, k) => a + sleepByDate[k], 0) / sleepDates.length;
+      scores.sleep = { score: clamp100((avg / HS_TARGET.sleep_hours) * 100), weight: 15, detail: avg.toFixed(1) + " jam" };
+      totalWeight += 15;
     }
-    // Hydration (10%) — target 8 gelas/hari.
+
+    // ── HYDRATION (10%) — tracker hidrasi (ml) vs gelas di daily log; ambil yang lebih besar per hari.
+    const waterByDate = {};
+    dl.forEach((d) => { const g = hsNum(d.water_glasses); if (g != null && g >= 0) waterByDate[d.log_date] = g * 250; });
+    const hySum = {};
+    (hyRes.data || []).forEach((h) => { const ml = hsNum(h.amount_ml); if (ml != null) hySum[h.log_date] = (hySum[h.log_date] || 0) + ml; });
+    Object.keys(hySum).forEach((k) => { waterByDate[k] = Math.max(waterByDate[k] || 0, hySum[k]); });
     {
-      const arr = dl.filter((d) => d.water_glasses != null).map((d) => +d.water_glasses).filter((n) => isFinite(n) && n >= 0);
-      if (arr.length) {
-        const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
-        scores.hydration = { score: clamp100((avg / 8) * 100), weight: 10, detail: avg.toFixed(1) + " gelas" };
+      const vals = Object.values(waterByDate);
+      if (vals.length) {
+        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+        scores.hydration = { score: clamp100((avg / HS_TARGET.water_ml) * 100), weight: 10, detail: (avg / 1000).toFixed(1) + " L/hari" };
         totalWeight += 10;
       }
     }
-    // Body composition (20%) — dari Visbody terbaru (BMI + body fat), simplified.
+
+    // ── BODY COMPOSITION (20%) — Visbody terbaru (BMI + body fat), simplified.
     {
       const b = (vbRes.data && vbRes.data[0]) || null;
       if (b) {
@@ -9090,7 +9128,7 @@ app.get("/api/activity/health-score", async (req, res) => {
         }
       }
     }
-    // Lab / MCU (10%) — dari abnormal_findings hasil AI (bukan ambang medis karangan).
+    // ── LAB / MCU (10%) — dari abnormal_findings hasil AI (bukan ambang medis karangan).
     {
       const m = (mcuRes.data && mcuRes.data[0]) || null;
       if (m) {
@@ -9101,9 +9139,57 @@ app.get("/api/activity/health-score", async (req, res) => {
       }
     }
 
+    // ── WHAT YOU NEED — analisa kekurangan dari data di atas (termasuk upload). Hanya dari angka
+    //    yang ADA; kategori tanpa data tak dikarang. Teks dwibahasa, dipilih di client.
+    const gaps = [];
+    const lastSleep = sleepDates.length ? sleepByDate[sleepDates[sleepDates.length - 1]] : null;
+    const rhr = upOf("daily_activity").concat(upOf("workout"), upOf("sleep"))
+      .map((u) => ({ at: u.created_at, v: hsNum((u.extracted_data || {}).resting_heart_rate) }))
+      .filter((x) => x.v != null && x.v > 0).sort((a, b) => (a.at < b.at ? 1 : -1));
+    if (rhr.length >= 2) {
+      const latest = rhr[0].v, prev = rhr.slice(1), avgPrev = Math.round(prev.reduce((a, x) => a + x.v, 0) / prev.length);
+      if (latest > avgPrev + 5) gaps.push({ category: "sleep", icon: "😴",
+        action: { en: "Sleep earlier tonight", id: "Tidur lebih awal malam ini" },
+        detail: { en: "Resting HR is up (" + latest + " vs avg " + avgPrev + "). Recovery isn't optimal yet.", id: "Resting HR naik (" + latest + " vs rata-rata " + avgPrev + "). Recovery belum optimal." },
+        target: { en: "Aim for 8h, in bed before 22:00", id: "Target 8 jam, tidur sebelum 22:00" } });
+    }
+    if (lastSleep != null && lastSleep < 7 && !gaps.some((g) => g.category === "sleep")) gaps.push({ category: "sleep", icon: "😴",
+      action: { en: "Sleep earlier", id: "Tidur lebih awal" },
+      detail: { en: "Last night was only " + lastSleep + "h (target " + HS_TARGET.sleep_hours + ").", id: "Semalam cuma " + lastSleep + " jam (target " + HS_TARGET.sleep_hours + ")." },
+      target: { en: "Aim for 8h tonight", id: "Malam ini target 8 jam" } });
+    const ydayKcal = kcalByDate[ydayStr];
+    if (ydayKcal != null && ydayKcal > 0 && ydayKcal < HS_TARGET.kcal * 0.75) gaps.push({ category: "nutrition", icon: "🍽️",
+      action: { en: "Eat ~" + HS_TARGET.kcal + " kcal today", id: "Makan ~" + HS_TARGET.kcal + " kcal hari ini" },
+      detail: { en: "Yesterday was only " + ydayKcal + " kcal (target " + HS_TARGET.kcal + "). The deficit is too big.", id: "Kemarin cuma " + ydayKcal + " kcal (target " + HS_TARGET.kcal + "). Defisit terlalu besar." },
+      target: { en: "Prioritise protein for recovery", id: "Prioritas protein untuk recovery" } });
+    const ydayWater = waterByDate[ydayStr];
+    if (ydayWater == null || ydayWater < HS_TARGET.water_ml * 0.75) gaps.push({ category: "hydration", icon: "💧",
+      action: { en: "Drink " + (HS_TARGET.water_ml / 1000).toFixed(1) + " L today", id: "Minum " + (HS_TARGET.water_ml / 1000).toFixed(1) + " L hari ini" },
+      detail: ydayWater == null
+        ? { en: "No water logged yesterday.", id: "Belum ada catatan minum kemarin." }
+        : { en: "Yesterday only " + Math.round(ydayWater) + " ml. Dehydration hurts performance.", id: "Kemarin cuma " + Math.round(ydayWater) + " ml. Dehidrasi memengaruhi performa." },
+      target: { en: "Log every glass today", id: "Catat tiap gelas hari ini" } });
+    {
+      const n = workoutDays.size, T = HS_TARGET.workout_days;
+      if (n >= T + 1) gaps.push({ category: "workout", icon: "🏋️",
+        action: { en: "Recovery day today", id: "Recovery day hari ini" },
+        detail: { en: n + " workout days this week already — rest is part of training.", id: "Sudah " + n + " hari workout minggu ini — istirahat juga bagian latihan." },
+        target: { en: "Light stretching / yoga", id: "Stretching / yoga ringan" } });
+      else if (n < T) gaps.push({ category: "workout", icon: "🏋️",
+        action: { en: "Work out " + (T - n) + "x more this week", id: "Workout " + (T - n) + "x lagi minggu ini" },
+        detail: { en: "You're at " + n + "/" + T + " this week.", id: "Baru " + n + "/" + T + " minggu ini." },
+        target: { en: "Book a class for tomorrow", id: "Book kelas untuk besok" } });
+    }
+
+    // ── REKAP MINGGU INI (Sen–Min) — hari ber-workout + total sesi/menit/kalori (log + upload).
+    const week = { days: [], sessions: sessions.length, minutes: 0, kcal: 0 };
+    sessions.forEach((s) => { if (s.min) week.minutes += s.min; if (s.kcal) week.kcal += s.kcal; });
+    week.minutes = Math.round(week.minutes); week.kcal = Math.round(week.kcal);
+    for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); const s = ymd(d); week.days.push({ date: s, workout: workoutDays.has(s), future: s > today }); }
+
     let total = 0;
     if (totalWeight > 0) for (const k in scores) total += scores[k].score * (scores[k].weight / totalWeight);
-    return res.json({ ok: true, total: Math.round(total), have_any: totalWeight > 0, breakdown: scores });
+    return res.json({ ok: true, total: Math.round(total), have_any: totalWeight > 0, breakdown: scores, gaps: gaps, week: week, targets: HS_TARGET });
   } catch (e) {
     console.error("activity/health-score:", e.message);
     return res.status(500).json({ error: "Gagal menghitung health score." });
@@ -9666,7 +9752,7 @@ app.get("/api/coach/plan", async (req, res) => {
     return res.json({ ok: true, plan: (data && data[0]) || null });
   } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, plan: null, setup_required: true }); return res.status(500).json({ error: "Gagal memuat plan." }); }
 });
-// POST /api/coach/plan/adjust — {op:"level",dir} | {op:"swap",day_key,ex_key}. Ubah plan aktif.
+// POST /api/coach/plan/adjust — {op:"level",dir} | {op:"swap",day_key,ex_key} | {op:"done",day_key,done}. Ubah plan aktif.
 app.post("/api/coach/plan/adjust", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
@@ -9677,6 +9763,17 @@ app.post("/api/coach/plan/adjust", async (req, res) => {
     const active = (cur && cur[0]) || null;
     if (!active) return res.status(400).json({ error: "Belum ada plan aktif." });
     let plan = active.plan;
+    // op "done": centang/lepas satu hari plan (checklist di Activity). Hanya menandai progres —
+    // isi plan & sumbernya (ai/rule/adjusted) tidak berubah.
+    if (op === "done") {
+      const days = (plan && Array.isArray(plan.days)) ? plan.days : null;
+      const idx = days ? days.findIndex((d) => d && String(d.key || "") === String(b.day_key || "")) : -1;
+      if (idx < 0) return res.status(400).json({ error: "Hari plan tidak ditemukan." });
+      const next = Object.assign({}, plan, { days: days.map((d, i) => (i === idx ? Object.assign({}, d, { done: !!b.done }) : d)) });
+      const { data, error } = await admin.from("my20fit_workout_plan").update({ plan: next, updated_at: new Date().toISOString() }).eq("id", active.id).select().single();
+      if (error) throw error;
+      return res.json({ ok: true, plan: data });
+    }
     if (op === "level") plan = coachAdjustLevel(plan, b.dir === "harder" ? "harder" : "easier");
     else if (op === "swap") plan = coachSwapExercise(plan, String(b.day_key || ""), String(b.ex_key || ""));
     else return res.status(400).json({ error: "Operasi tidak dikenal." });
@@ -10174,10 +10271,16 @@ app.post("/api/activity/upload-analyze", async (req, res) => {
     const says = (analysis && analysis.coach_says) || null;
     const uploadType = String((extracted && extracted.type) || "other").slice(0, 40);
     const src = String((extracted && extracted.source) || "other").slice(0, 40);
+    // Tanggal aktivitas = tanggal yang terbaca di screenshot (mis. lari kemarin di-upload hari ini),
+    // asal formatnya valid, tidak di masa depan, dan tak lebih dari 30 hari lalu. Selain itu = hari ini.
+    const todayStr = ymd(new Date());
+    const d30 = new Date(); d30.setDate(d30.getDate() - 30);
+    const exDate = String((extracted && extracted.date) || "").slice(0, 10);
+    const uploadDate = (/^\d{4}-\d{2}-\d{2}$/.test(exDate) && exDate <= todayStr && exDate >= ymd(d30)) ? exDate : todayStr;
     let uploadId = null;
     try {
       const { data: up } = await admin.from("my20fit_activity_uploads").insert({
-        auth_user_id: user.id, upload_type: uploadType, extracted_data: extracted,
+        auth_user_id: user.id, upload_type: uploadType, upload_date: uploadDate, extracted_data: extracted,
         yesterday_gaps: gaps, today_plan: tp, coach_says: says, coach_id: coachId, source: src,
       }).select("id").single();
       uploadId = up && up.id;
