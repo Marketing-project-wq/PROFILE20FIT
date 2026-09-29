@@ -52,9 +52,10 @@
 >   dan keduanya harus sama. Produk yang tidak terdaftar ditolak dua arah: 403 di
 >   cek origin, 400 sebagai tujuan. Saat dokumen ini ditulis ulang,
 >   `clinic.20fit.id` dan `arena.20fit.id` belum terdaftar.
-> - **Workout disembunyikan dulu (2026-09-29, keputusan pemilik: produknya belum siap).**
->   Item, ikon, dan pemetaan host `workout.20fit.id` dibuang dari §2/§5 dan dari
->   `js/universal-nav.js`. Pasang lagi di KEDUANYA saat produknya siap.
+> - **Workout & Body Scan disembunyikan dulu (2026-09-29, keputusan pemilik: belum siap).**
+>   Item, ikon, dan pemetaan host/path-nya dibuang dari §2/§5 dan dari
+>   `js/universal-nav.js`. Halaman `/body-scan` TETAP ada (alur klaim QR Visbody &
+>   kartu di /activity). Pasang lagi di KEDUANYA saat siap.
 > - **§2 sempat tertinggal dari kodenya.** `js/universal-nav.js` sudah memuat Shop,
 >   Arena dan Sports Clinic, sementara daftar di §2 masih 16 produk asli. Produk yang
 >   menyalin dokumen ini apa adanya jadi kehilangan tiga produk. Daftar §2 dan §5 kini
@@ -97,10 +98,10 @@ ALL 20FIT PRODUCTS
   └──────────┘  └──────────┘  └──────────┘
 
 HEALTH
-  ┌──────────┐  ┌──────────┐  ┌──────────┐
-  │ Calorie  │  │ MCU      │  │ Body     │
-  │ Tracker  │  │ Scanner  │  │ Scan     │
-  └──────────┘  └──────────┘  └──────────┘
+  ┌──────────┐  ┌──────────┐
+  │ Calorie  │  │ MCU      │
+  │ Tracker  │  │ Scanner  │
+  └──────────┘  └──────────┘
 
 ACTIVITY
   ┌──────────┐  ┌──────────┐
@@ -144,7 +145,6 @@ const MENU_ITEMS = [
   // === Health ===
   { id: 'calorie', label: 'Calorie Tracker', description: 'Hitung Kalori Harian', icon: 'calorie', url: 'https://calorietracker.20fit.id', color: '#F97316' },
   { id: 'mcu', label: 'MCU Scanner', description: 'Baca Hasil Medical Check-Up', icon: 'mcu', url: 'https://medicalscanner.20fit.id', color: '#0EA5E9' },
-  { id: 'bodyscan', label: 'Body Scan', description: 'Visbody Body Composition', icon: 'bodyscan', url: 'https://my.20fit.id/body-scan', color: '#EC4899' },
 
   // === Activity ===
   { id: 'progress', label: 'Progress', description: 'Tracking Progres Fitness', icon: 'progress', url: 'https://my.20fit.id/progress', color: '#F43F5E' },
@@ -164,7 +164,7 @@ const MENU_ITEMS = [
 
 const MENU_GROUPS = [
   { label: null, items: ['home', 'my20fit', 'recipe', 'shop', 'arena', 'clinic'] },
-  { label: 'Health', items: ['calorie', 'mcu', 'bodyscan'] },
+  { label: 'Health', items: ['calorie', 'mcu'] },
   { label: 'Activity', items: ['progress', 'media'] },
   { label: 'Event', items: ['photo', 'ticket', 'talent'] },
   { label: 'Booking', items: ['book-class', 'book-coach', 'book-doctor', 'book-recovery'] },
@@ -332,7 +332,6 @@ function getCurrentAppId() {
   // Halaman di dalam my.20fit.id → cek path
   if (host === 'my.20fit.id' || host.includes('profile20fit')) {
     const pathMap = {
-      '/body-scan': 'bodyscan',
       '/progress': 'progress',
       '/book-class': 'book-class',
       '/book-coach': 'book-coach',
