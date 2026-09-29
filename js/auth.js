@@ -167,52 +167,9 @@
     return data;
   }
 
-  // ---------- LOGIN PAKAI GOOGLE (via API 20FIT /auth/login/google) ----------
-  // credential = ID token dari Google Identity Services. Server yang meneruskan
-  // ke API 20FIT (dokumentasi developer) lalu mengembalikan OTP untuk sesi.
-  async function fitcoGoogleLogin(credential) {
-    await ready;
-    const r = await fetch("/api/fitco-google-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ credential: credential }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.email_otp) throw new Error(j.error || _t("Google sign-in failed.","Gagal login dengan Google."));
-    // Simpan user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
-    try {
-      if (j.fitco_user_id) localStorage.setItem("fitco_uid", String(j.fitco_user_id));
-      if (j.fitco_token) localStorage.setItem("fitco_token", j.fitco_token);
-    } catch (e) {}
-    const { data, error } = await supabase.auth.verifyOtp({ email: j.email, token: j.email_otp, type: "email" });
-    if (error) throw error;
-    return data;
-  }
-
-  // ---------- LOGIN GOOGLE HYBRID (pemulihan user Google) ----------
-  // Satu credential (ID token dari Google Identity Services) dipakai dua jalur BERURUTAN:
-  //   1) Jalur 20FIT (fitcoGoogleLogin): member 20FIT diverifikasi ke API 20FIT, sesi dibuat
-  //      via OTP, DAN dapat FITCO token untuk order/pembayaran shop 20FIT.
-  //   2) Kalau 20FIT menolak (email bukan akun 20FIT) atau tak tersambung -> FALLBACK ke
-  //      supabase.auth.signInWithIdToken (Google NATIVE Supabase). Semua akun Google lama
-  //      punya google identity di Supabase (auth.identities), jadi ini mendaratkan user ke
-  //      baris auth.users yang SAMA — dicocokkan via google sub — BUKAN akun baru.
-  // Hasil: tak ada user Google yang terkunci, dan member 20FIT tetap mendapat tokennya.
-  async function googleSignIn(credential) {
-    await ready;
-    try {
-      return await fitcoGoogleLogin(credential); // jalur utama: 20FIT (+ FITCO token)
-    } catch (e) {
-      // Jalur 20FIT gagal — jangan menyerah; coba sesi Google native Supabase.
-    }
-    const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token: credential });
-    if (error) throw new Error(_t("Google sign-in failed.", "Gagal login dengan Google."));
-    return data;
-  }
-
   // ---------- LOGIN GOOGLE via OAuth redirect Supabase (TANPA GOOGLE_CLIENT_ID) ----------
-  // Dipakai sebagai jalur tombol Google kalau GIS tak tersedia (GOOGLE_CLIENT_ID belum
-  // di-set / origin ditolak). Ini memakai Google provider milik SUPABASE (client-nya
+  // Satu-satunya jalur tombol Google di web (jalur GIS/ID token sudah dihapus; endpoint
+  // /api/fitco-google-login tetap ada untuk app mobile). Memakai Google provider milik SUPABASE (client-nya
   // dikonfigurasi di dashboard Supabase, bukan env kita), jadi tombol tetap jalan tanpa
   // konfigurasi env di sisi kita. Alur redirect: browser → Google → balik ke /login;
   // sesi di-seat otomatis (detectSessionInUrl) lalu login.html memanggil routeAfterAuth.
@@ -745,8 +702,6 @@
     loginSend,
     verifyLoginCode,
     fitcoLogin,
-    fitcoGoogleLogin,
-    googleSignIn,
     googleOAuth,
     googleClientId: function () { return cfgGoogleClientId; },
     fitcoRegister,
