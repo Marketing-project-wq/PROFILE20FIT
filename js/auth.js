@@ -467,9 +467,18 @@
     return user;
   }
 
+  // Path internal yang aman dijadikan tujuan setelah login (bukan URL eksternal / halaman auth).
+  function safeNextPath(p) {
+    p = String(p || "");
+    if (!/^\/(?![\/\\])[^\s]*$/.test(p) || p.length > 300) return false;
+    return !/^\/(login|code-login|verify|onboarding|setpassword|reset-password|auth\/callback|visbody-claim)?(\.html)?(\?|$)/i.test(p);
+  }
+
   async function requireAuth() {
     const user = await getUser();
     if (!user) {
+      // Ingat halaman yang diminta (mis. /medical dari link) -> dikembalikan setelah login.
+      try { const here = location.pathname + location.search; if (safeNextPath(here)) sessionStorage.setItem("post_auth_path", here); } catch (e) {}
       go("login.html");
       throw new Error("not-authenticated");
     }
@@ -785,6 +794,22 @@
         return menuSso();
       }
     } catch (e) {}
+    // Tujuan internal yang diminta (link spesifik: pembayaran, MCU, dll) SELALU dihormati —
+    // tidak dipaksa ke /activity.
+    try {
+      const np = sessionStorage.getItem("post_auth_path");
+      if (np) { sessionStorage.removeItem("post_auth_path"); if (safeNextPath(np)) return go(np); }
+    } catch (e) {}
+    // Landing: user dengan scan Visbody ter-claim -> /activity (aturan di lib/journey-config.js,
+    // dihitung server). Gagal/lambat -> dashboard seperti biasa.
+    try {
+      const at = await token();
+      const ctl = new AbortController(); const tm = setTimeout(function () { ctl.abort(); }, 2500);
+      const r = await fetch("/api/journey/state", { headers: { Authorization: "Bearer " + at }, signal: ctl.signal });
+      clearTimeout(tm);
+      const j = r.ok ? await r.json() : null;
+      if (j && j.landing && safeNextPath(j.landing)) return go(j.landing);
+    } catch (e) {}
     return go("dashboard.html");
   }
 
@@ -827,6 +852,7 @@
     getPrefs,
     savePrefs,
     routeAfterAuth,
+    safeNextPath,
     claimAnon,
     token,
     go,
