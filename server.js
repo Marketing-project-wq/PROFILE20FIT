@@ -10207,7 +10207,11 @@ const COACH_CHAT_RULES =
   "topik non-fitness, diet ekstrem (<1200 kkal / puasa >24 jam), override hasil MCU/lab, membocorkan data user lain. " +
   "CEDERA/SAKIT: jangan kasih saran medis; arahkan konsultasi dokter di 20FIT Sports Clinic (/book-doctor). " +
   "MCU/lab: komentari umum & SELALU rujuk dokter. Ingatkan ini bukan diagnosis medis kalau relevan. " +
-  "Ikuti bahasa user (Indonesia/English/campur). Jawab RINGKAS & actionable, jangan mengarang angka yang tak ada di data. " +
+  "Ikuti bahasa user (Indonesia/English/campur). Jangan mengarang angka yang tak ada di data. " +
+  "GAYA JAWABAN (WAJIB): singkat & to the point seperti chat WhatsApp. Default MAKS 3-4 kalimat pendek (±60 kata). " +
+  "Langsung jawab intinya — tanpa pembukaan panjang, tanpa mengulang pertanyaan user, tanpa merangkum ulang semua data. " +
+  "Satu fokus per balasan: pilih 1-2 hal paling penting untuk user SEKARANG. Kalau perlu daftar: maks 3 poin, tiap poin 1 baris. " +
+  "Akhiri dengan maks 1 pertanyaan singkat bila memang perlu. Jawaban lebih panjang HANYA kalau user minta detail/penjelasan lengkap. " +
   "TOMBOL AKSI: tulis token berikut PERSIS (frontend mengubahnya jadi tombol) di baris sendiri, hanya kalau relevan: " +
   "[[BOOK_CLASS]] (booking kelas), [[BOOK_DOCTOR]] (konsultasi dokter 20FIT Sports Clinic — WAJIB untuk cedera/sakit/nyeri dada/MCU), " +
   "[[ARENA_MAPS]] (lokasi 20FIT Arena, Menteng Prada), [[VISBODY]] (hasil Visbody user). Jangan menulis URL sendiri. " +
@@ -10217,7 +10221,7 @@ const COACH_CHAT_RULES =
   "\"notes\":\"...\"} — hari istirahat cukup tidak dicantumkan. Plan otomatis tersimpan jadi plan aktif user. " +
   "VISBODY: kalau data visbody null dan user minta plan / analisa tubuh, tetap bantu dengan data yang ada, lalu ajak Visbody scan di 20FIT Arena " +
   "(Menteng Prada, ±5 menit: body fat, muscle mass, BMR, dll) + [[ARENA_MAPS]] [[BOOK_CLASS]]. Kalau user tak mau/tak bisa, minta berat, tinggi, umur & goal saja. " +
-  "KELAS: kalau user tanya kelas, rekomendasikan dulu kelas milik KAMU dari daftar coach_classes (nama, hari, jam) lalu [[BOOK_CLASS]]; kalau kosong, bilang jadwalmu belum ada dan tetap kasih [[BOOK_CLASS]].";
+  "KELAS: kalau user tanya kelas, rekomendasikan maks 2 kelas milik KAMU dari coach_classes, format \"Nama — waktu\" pakai field when (JANGAN tulis tanggal format 2026-09-30), lalu [[BOOK_CLASS]]; kalau kosong, bilang jadwalmu belum ada dan tetap kasih [[BOOK_CLASS]].";
 // Konteks user ringkas untuk chatbot (reuse tabel yang ada; supabase balikin {error} bukan throw,
 // jadi tabel hilang -> data null -> field kosong, aman).
 async function loadCoachContext(uid) {
@@ -10245,6 +10249,14 @@ async function loadCoachContext(uid) {
     active_plan: pl ? { goal: pl.goal, level: pl.level, name: (pl.plan && pl.plan.plan_name) || null, days: (pl.plan && Array.isArray(pl.plan.days)) ? pl.plan.days.length : null } : null,
   };
 }
+// "2026-09-30" + "18:30" -> "Rab 30 Sep, 18:30" (label yang enak dibaca untuk chatbot; tanpa tanggal ISO).
+function classWhenLabel(date, start) {
+  const d = new Date(String(date) + "T00:00:00Z");
+  if (isNaN(d)) return String(date || "") + (start ? ", " + start : "");
+  const hari = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"][d.getUTCDay()];
+  const bln = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"][d.getUTCMonth()];
+  return hari + " " + d.getUTCDate() + " " + bln + (start ? ", " + start : "");
+}
 // Kelas mendatang (≤14 hari, masih bisa dibooking) milik coach persona. Persona -> baris
 // my20fit_coaches "Coach <Nama>" -> coachUpcomingClasses(). Gagal/kosong -> [] (chat tetap jalan).
 const _personaClassCache = {};
@@ -10258,7 +10270,7 @@ async function personaUpcomingClasses(slug) {
     const r = id ? await coachUpcomingClasses(id) : null;
     const limit = new Date(); limit.setDate(limit.getDate() + 14); const lim = ymd(limit);
     list = ((r && r.classes) || []).filter(function (c) { return c.selectable && c.date <= lim; }).slice(0, 5)
-      .map(function (c) { return { name: c.name, date: c.date, start: c.start, end: c.end, remaining: c.remaining, quota: c.quota }; });
+      .map(function (c) { return { name: c.name, when: classWhenLabel(c.date, c.start), remaining: c.remaining, quota: c.quota }; });
   } catch (e) { list = []; }
   _personaClassCache[slug] = { at: Date.now(), list: list };
   return list;
@@ -10328,7 +10340,7 @@ app.post("/api/coach/chat", async (req, res) => {
     const complex = COACH_COMPLEX_RE.test(message);
     let reply = "", modelUsed = null;
     try {
-      const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: complex ? 2048 : 1024, tier: complex ? "complex" : "simple", lang: lang }, 60000);
+      const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: complex ? 2048 : 600, tier: complex ? "complex" : "simple", lang: lang }, 60000);
       if (!ai.httpOk || !ai.json || !ai.json.ok || !ai.json.reply) { logAiAccess(user.id, "coach/chat", false, "edge"); return res.status(502).json({ error: "Coach lagi nggak bisa jawab. Coba lagi." }); }
       reply = String(ai.json.reply);
       modelUsed = ai.json.model ? String(ai.json.model).slice(0, 80) : null;

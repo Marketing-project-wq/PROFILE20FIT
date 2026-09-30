@@ -788,7 +788,8 @@
       '<a href="/activity">' + esc(Lx({ en: "Dashboard →", id: "Dashboard →" })) + '</a></span></span>';
   }
   function renderReply(text) {
-    var h = esc(text).replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+    var h = esc(text).replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+      .replace(/(^|\n)[ \t]*[*-][ \t]+/g, "$1• ");   // daftar markdown "* " / "- " -> bullet
     h = h.replace(/\[\[PLAN_SAVED\]\]/g, planCard());
     h = h.replace(/\[\[([A-Z_]+)\]\]/g, function (m, k) {
       var a = ACTIONS[k]; if (!a) return "";
