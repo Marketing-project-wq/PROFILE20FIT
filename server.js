@@ -3374,70 +3374,76 @@ app.get("/api/coaches/aliases", async (req, res) => {
 // (bukan tebak-teks): tiap alias = kecocokan TEPAT teks instructor di jadwal. Tampilkan jadwal
 // mendatang & tidak dibatalkan; hitung sisa kuota; kelas penuh / lewat cutoff / sudah lewat tetap
 // ditampilkan tapi tidak bisa dipilih, dengan alasannya.
+// Jadwal mendatang satu coach (arena + gym lewat alias instruktur). Dipakai endpoint di bawah
+// dan konteks chatbot AI Coach (kelas milik coach yang sedang diajak chat). null = coach tak ada.
+async function coachUpcomingClasses(id) {
+  const { data: crows } = await admin.from("my20fit_coaches")
+    .select("id,display_name,venue,speciality,photo_url").eq("id", id).limit(1);
+  const coach = crows && crows[0];
+  if (!coach) return null;
+  const { data: aliases } = await admin.from("my20fit_coach_instructor_aliases")
+    .select("instructor_text,source").eq("coach_id", id);
+  const textsBy = { arena: [], gym: [] };
+  (aliases || []).forEach(a => { if (textsBy[a.source]) textsBy[a.source].push(a.instructor_text); });
+  const p2 = (n) => (n < 10 ? "0" + n : "" + n);
+  const now = new Date();
+  const today = now.getFullYear() + "-" + p2(now.getMonth() + 1) + "-" + p2(now.getDate());
+  const clean = (nm) => String(nm || "").replace(/^20FIT\s+Arena\s+/i, "").replace(/^20FIT\s+/i, "").trim();
+  const out = [];
+  async function collect(source) {
+    const texts = textsBy[source]; if (!texts.length) return;
+    const cfg = CLASS_VENUES[source];
+    const sel = "id,schedule_date,start_time,end_time,instructor,quota" +
+      (source === "arena" ? ",cutoff_minutes" : "") + "," + cfg.types + "(name,color)";
+    const { data, error } = await admin.from(cfg.table)
+      .select(sel).in("instructor", texts)
+      .gte("schedule_date", today).eq("is_cancelled", false)
+      .order("schedule_date", { ascending: true }).order("start_time", { ascending: true }).limit(400);
+    if (error) throw error;
+    const rows = data || [];
+    const ids = rows.map(r => r.id);
+    const booked = {};
+    if (ids.length) {
+      const bt = source === "arena" ? "arena_class_bookings" : "gym_class_bookings";
+      const { data: bks } = await admin.from(bt).select("schedule_id,status").in("schedule_id", ids).limit(5000);
+      (bks || []).forEach(b => {
+        const s = String(b.status || "").toLowerCase();
+        if (/cancel|fail|expire|refund/.test(s)) return;   // kursi cuma terpakai kalau booking hidup
+        booked[b.schedule_id] = (booked[b.schedule_id] || 0) + 1;
+      });
+    }
+    rows.forEach(r => {
+      const t = r[cfg.types] || {};
+      const start = String(r.start_time || "").slice(0, 5), end = String(r.end_time || "").slice(0, 5);
+      const startDt = new Date(r.schedule_date + "T" + (r.start_time || "00:00:00") + "+07:00"); // WIB
+      const quota = (r.quota == null) ? null : +r.quota;
+      const remaining = (quota == null) ? null : Math.max(0, quota - (booked[r.id] || 0));
+      const cutoffMin = source === "arena" ? (r.cutoff_minutes == null ? 0 : +r.cutoff_minutes) : 0;
+      const cutoffDt = new Date(startDt.getTime() - cutoffMin * 60000);
+      let selectable = true, reason = null;
+      if (now.getTime() >= startDt.getTime()) { selectable = false; reason = "passed"; }
+      else if (now.getTime() >= cutoffDt.getTime()) { selectable = false; reason = "closed"; }
+      else if (remaining != null && remaining <= 0) { selectable = false; reason = "full"; }
+      out.push({
+        source, id: r.id, date: r.schedule_date, start, end,
+        name: clean(t.name) || "Kelas", color: t.color || "#C41101",
+        instructor: r.instructor || "", quota, remaining, selectable, reason,
+        book_url: cfg.book,
+      });
+    });
+  }
+  await collect("arena"); await collect("gym");
+  out.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+  return { coach: {
+    id: coach.id, name: coach.display_name, venue: coach.venue,
+    speciality: coach.speciality || null, photo_url: coach.photo_url || null }, classes: out };
+}
 app.get("/api/coaches/:id/classes", async (req, res) => {
   try {
     if (!admin) return res.status(503).json({ ok: false, error: "service unavailable" });
-    const id = String(req.params.id || "");
-    const { data: crows } = await admin.from("my20fit_coaches")
-      .select("id,display_name,venue,speciality,photo_url").eq("id", id).limit(1);
-    const coach = crows && crows[0];
-    if (!coach) return res.status(404).json({ ok: false, error: "coach tidak ditemukan" });
-    const { data: aliases } = await admin.from("my20fit_coach_instructor_aliases")
-      .select("instructor_text,source").eq("coach_id", id);
-    const textsBy = { arena: [], gym: [] };
-    (aliases || []).forEach(a => { if (textsBy[a.source]) textsBy[a.source].push(a.instructor_text); });
-    const p2 = (n) => (n < 10 ? "0" + n : "" + n);
-    const now = new Date();
-    const today = now.getFullYear() + "-" + p2(now.getMonth() + 1) + "-" + p2(now.getDate());
-    const clean = (nm) => String(nm || "").replace(/^20FIT\s+Arena\s+/i, "").replace(/^20FIT\s+/i, "").trim();
-    const out = [];
-    async function collect(source) {
-      const texts = textsBy[source]; if (!texts.length) return;
-      const cfg = CLASS_VENUES[source];
-      const sel = "id,schedule_date,start_time,end_time,instructor,quota" +
-        (source === "arena" ? ",cutoff_minutes" : "") + "," + cfg.types + "(name,color)";
-      const { data, error } = await admin.from(cfg.table)
-        .select(sel).in("instructor", texts)
-        .gte("schedule_date", today).eq("is_cancelled", false)
-        .order("schedule_date", { ascending: true }).order("start_time", { ascending: true }).limit(400);
-      if (error) throw error;
-      const rows = data || [];
-      const ids = rows.map(r => r.id);
-      const booked = {};
-      if (ids.length) {
-        const bt = source === "arena" ? "arena_class_bookings" : "gym_class_bookings";
-        const { data: bks } = await admin.from(bt).select("schedule_id,status").in("schedule_id", ids).limit(5000);
-        (bks || []).forEach(b => {
-          const s = String(b.status || "").toLowerCase();
-          if (/cancel|fail|expire|refund/.test(s)) return;   // kursi cuma terpakai kalau booking hidup
-          booked[b.schedule_id] = (booked[b.schedule_id] || 0) + 1;
-        });
-      }
-      rows.forEach(r => {
-        const t = r[cfg.types] || {};
-        const start = String(r.start_time || "").slice(0, 5), end = String(r.end_time || "").slice(0, 5);
-        const startDt = new Date(r.schedule_date + "T" + (r.start_time || "00:00:00") + "+07:00"); // WIB
-        const quota = (r.quota == null) ? null : +r.quota;
-        const remaining = (quota == null) ? null : Math.max(0, quota - (booked[r.id] || 0));
-        const cutoffMin = source === "arena" ? (r.cutoff_minutes == null ? 0 : +r.cutoff_minutes) : 0;
-        const cutoffDt = new Date(startDt.getTime() - cutoffMin * 60000);
-        let selectable = true, reason = null;
-        if (now.getTime() >= startDt.getTime()) { selectable = false; reason = "passed"; }
-        else if (now.getTime() >= cutoffDt.getTime()) { selectable = false; reason = "closed"; }
-        else if (remaining != null && remaining <= 0) { selectable = false; reason = "full"; }
-        out.push({
-          source, id: r.id, date: r.schedule_date, start, end,
-          name: clean(t.name) || "Kelas", color: t.color || "#C41101",
-          instructor: r.instructor || "", quota, remaining, selectable, reason,
-          book_url: cfg.book,
-        });
-      });
-    }
-    await collect("arena"); await collect("gym");
-    out.sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
-    return res.json({ ok: true, coach: {
-      id: coach.id, name: coach.display_name, venue: coach.venue,
-      speciality: coach.speciality || null, photo_url: coach.photo_url || null }, classes: out });
+    const r = await coachUpcomingClasses(String(req.params.id || ""));
+    if (!r) return res.status(404).json({ ok: false, error: "coach tidak ditemukan" });
+    return res.json(Object.assign({ ok: true }, r));
   } catch (e) { return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" }); }
 });
 
@@ -9018,178 +9024,180 @@ app.get("/api/activity/day", async (req, res) => {
 // dan target yang dipakai. BUKAN diagnosis medis — angka indikatif dari data user sendiri.
 const HS_TARGET = { workout_days: 4, sleep_hours: 7.5, water_ml: 2000, kcal: 2000 };
 function hsNum(v) { const n = +v; return (v != null && v !== "" && isFinite(n)) ? n : null; }
+// Hitung Health Score user (dipakai endpoint di bawah + badge "Health Pro" di achievements).
+async function hsCompute(uid) {
+  const today = ymd(new Date());
+  const now = new Date(today + "T00:00:00");
+  const dow = (now.getDay() + 6) % 7;                 // Senin = 0
+  const monday = new Date(now); monday.setDate(now.getDate() - dow);
+  const from7 = new Date(now); from7.setDate(now.getDate() - 6);
+  const yday = new Date(now); yday.setDate(now.getDate() - 1);
+  const mondayStr = ymd(monday), from7Str = ymd(from7), ydayStr = ymd(yday);
+  const fromAll = mondayStr < from7Str ? mondayStr : from7Str;
+
+  // Query paralel; tabel yang belum ada / kosong -> data null -> kategori dilewati (graceful).
+    const [wkRes, dlRes, vbRes, mcuRes, upRes, slRes, hyRes] = await Promise.all([
+    admin.from("my20fit_workout").select("workout_date,duration_min,calories_burned,avg_heart_rate").eq("auth_user_id", uid).gte("workout_date", mondayStr).lte("workout_date", today),
+    admin.from("my20fit_daily_log").select("log_date,sleep_hours,water_glasses,cal_items").eq("auth_user_id", uid).gte("log_date", from7Str).lte("log_date", today),
+    admin.from("my20fit_visbody_body").select("body_fat_percentage,body_mass_index,muscle_mass,scanned_at").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(1),
+    admin.from("my20fit_mcu_result").select("result,created_at").eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(1),
+    admin.from("my20fit_activity_uploads").select("upload_type,upload_date,extracted_data,created_at").eq("auth_user_id", uid).gte("upload_date", fromAll).lte("upload_date", today).order("created_at", { ascending: false }).limit(100),
+    admin.from("my20fit_sleep").select("sleep_date,duration_hours").eq("auth_user_id", uid).gte("sleep_date", from7Str).lte("sleep_date", today),
+    admin.from("my20fit_hydration").select("log_date,amount_ml").eq("auth_user_id", uid).gte("log_date", from7Str).lte("log_date", today),
+  ]);
+
+  const scores = {}; let totalWeight = 0;
+  const clamp100 = (n) => Math.max(0, Math.min(100, Math.round(n)));
+  const dl = dlRes.data || [];
+  const uploads = upRes.data || [];
+  const upOf = (type) => uploads.filter((u) => String(u.upload_type || "") === type);
+
+  // ── WORKOUT (25%) — log manual/tracker (my20fit_workout) + UPLOAD workout. Hari unik minggu ini.
+  const sessions = [];
+  (wkRes.data || []).forEach((w) => sessions.push({ date: w.workout_date, min: hsNum(w.duration_min), kcal: hsNum(w.calories_burned), hr: hsNum(w.avg_heart_rate), src: "log" }));
+  upOf("workout").forEach((u) => {
+    if (u.upload_date < mondayStr) return;
+    const e = u.extracted_data || {};
+    sessions.push({ date: u.upload_date, min: hsNum(e.duration_minutes), kcal: hsNum(e.calories_burned), hr: hsNum(e.avg_heart_rate), src: "upload" });
+  });
+  const workoutDays = new Set(sessions.map((s) => s.date));
+  const hasHR = sessions.some((s) => s.hr != null && s.hr > 0);
+  {
+    const T = HS_TARGET.workout_days;
+    const base = (workoutDays.size / T) * 100;
+    // Bonus kecil kalau ada data detak jantung dari tracker (user melacak lebih detail).
+    scores.workout = { score: clamp100(base + (hasHR && workoutDays.size ? 5 : 0)), weight: 25,
+      detail: workoutDays.size + "/" + T + " hari", have: workoutDays.size, target: T,
+      from_upload: sessions.filter((s) => s.src === "upload").length };
+    totalWeight += 25;
+  }
+
+  // ── NUTRITION (20%) — rata-rata kalori (Calorie Tracker) vs target; skor puncak di rentang wajar.
+  const kcalByDate = {};
+  dl.forEach((d) => { if (Array.isArray(d.cal_items) && d.cal_items.length) kcalByDate[d.log_date] = sumCalItems(d.cal_items).kcal; });
+  {
+    const vals = Object.values(kcalByDate);
+    if (vals.length) {
+      const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+      const ratio = avg / HS_TARGET.kcal;
+      const sc = (ratio >= 0.8 && ratio <= 1.2) ? 90 : (ratio >= 0.6 && ratio <= 1.4) ? 70 : 40;
+      scores.nutrition = { score: sc, weight: 20, detail: Math.round(avg) + " kkal/hari" };
+      totalWeight += 20;
+    }
+  }
+
+  // ── SLEEP (15%) — tracker tidur + UPLOAD sleep + daily log. Satu nilai per tanggal
+  //    (prioritas: tracker tidur > upload > daily log) supaya satu malam tak dihitung dobel.
+  const sleepByDate = {};
+  dl.forEach((d) => { const h = hsNum(d.sleep_hours); if (h != null && h > 0) sleepByDate[d.log_date] = h; });
+  upOf("sleep").forEach((u) => { if (u.upload_date < from7Str) return; const h = hsNum((u.extracted_data || {}).sleep_duration_hours); if (h != null && h > 0) sleepByDate[u.upload_date] = h; });
+  (slRes.data || []).forEach((s) => { const h = hsNum(s.duration_hours); if (h != null && h > 0) sleepByDate[s.sleep_date] = h; });
+  const sleepDates = Object.keys(sleepByDate).sort();
+  if (sleepDates.length) {
+    const avg = sleepDates.reduce((a, k) => a + sleepByDate[k], 0) / sleepDates.length;
+    scores.sleep = { score: clamp100((avg / HS_TARGET.sleep_hours) * 100), weight: 15, detail: avg.toFixed(1) + " jam" };
+    totalWeight += 15;
+  }
+
+  // ── HYDRATION (10%) — tracker hidrasi (ml) vs gelas di daily log; ambil yang lebih besar per hari.
+  const waterByDate = {};
+  dl.forEach((d) => { const g = hsNum(d.water_glasses); if (g != null && g >= 0) waterByDate[d.log_date] = g * 250; });
+  const hySum = {};
+  (hyRes.data || []).forEach((h) => { const ml = hsNum(h.amount_ml); if (ml != null) hySum[h.log_date] = (hySum[h.log_date] || 0) + ml; });
+  Object.keys(hySum).forEach((k) => { waterByDate[k] = Math.max(waterByDate[k] || 0, hySum[k]); });
+  {
+    const vals = Object.values(waterByDate);
+    if (vals.length) {
+      const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+      scores.hydration = { score: clamp100((avg / HS_TARGET.water_ml) * 100), weight: 10, detail: (avg / 1000).toFixed(1) + " L/hari" };
+      totalWeight += 10;
+    }
+  }
+
+  // ── BODY COMPOSITION (20%) — Visbody terbaru (BMI + body fat), simplified.
+  {
+    const b = (vbRes.data && vbRes.data[0]) || null;
+    if (b) {
+      const bmi = +b.body_mass_index, bf = +b.body_fat_percentage;
+      const parts = [];
+      if (isFinite(bmi) && bmi > 0) parts.push(bmi >= 18.5 && bmi <= 24.9 ? 95 : (bmi >= 25 && bmi <= 29.9) ? 70 : 40);
+      if (isFinite(bf) && bf > 0) parts.push(bf <= 25 ? 90 : bf <= 30 ? 70 : 50);
+      if (parts.length) {
+        const det = [isFinite(bmi) && bmi > 0 ? "BMI " + bmi : "", isFinite(bf) && bf > 0 ? "BF " + bf + "%" : ""].filter(Boolean).join(" · ");
+        scores.body = { score: clamp100(parts.reduce((a, c) => a + c, 0) / parts.length), weight: 20, detail: det };
+        totalWeight += 20;
+      }
+    }
+  }
+  // ── LAB / MCU (10%) — dari abnormal_findings hasil AI (bukan ambang medis karangan).
+  {
+    const m = (mcuRes.data && mcuRes.data[0]) || null;
+    if (m) {
+      const abn = (m.result && Array.isArray(m.result.abnormal_findings)) ? m.result.abnormal_findings.length : 0;
+      const sc = abn === 0 ? 95 : abn <= 2 ? 75 : 55;
+      scores.lab = { score: sc, weight: 10, detail: abn + " temuan perlu perhatian" };
+      totalWeight += 10;
+    }
+  }
+
+  // ── WHAT YOU NEED — analisa kekurangan dari data di atas (termasuk upload). Hanya dari angka
+  //    yang ADA; kategori tanpa data tak dikarang. Teks dwibahasa, dipilih di client.
+  const gaps = [];
+  const lastSleep = sleepDates.length ? sleepByDate[sleepDates[sleepDates.length - 1]] : null;
+  const rhr = upOf("daily_activity").concat(upOf("workout"), upOf("sleep"))
+    .map((u) => ({ at: u.created_at, v: hsNum((u.extracted_data || {}).resting_heart_rate) }))
+    .filter((x) => x.v != null && x.v > 0).sort((a, b) => (a.at < b.at ? 1 : -1));
+  if (rhr.length >= 2) {
+    const latest = rhr[0].v, prev = rhr.slice(1), avgPrev = Math.round(prev.reduce((a, x) => a + x.v, 0) / prev.length);
+    if (latest > avgPrev + 5) gaps.push({ category: "sleep", icon: "😴",
+      action: { en: "Sleep earlier tonight", id: "Tidur lebih awal malam ini" },
+      detail: { en: "Resting HR is up (" + latest + " vs avg " + avgPrev + "). Recovery isn't optimal yet.", id: "Resting HR naik (" + latest + " vs rata-rata " + avgPrev + "). Recovery belum optimal." },
+      target: { en: "Aim for 8h, in bed before 22:00", id: "Target 8 jam, tidur sebelum 22:00" } });
+  }
+  if (lastSleep != null && lastSleep < 7 && !gaps.some((g) => g.category === "sleep")) gaps.push({ category: "sleep", icon: "😴",
+    action: { en: "Sleep earlier", id: "Tidur lebih awal" },
+    detail: { en: "Last night was only " + lastSleep + "h (target " + HS_TARGET.sleep_hours + ").", id: "Semalam cuma " + lastSleep + " jam (target " + HS_TARGET.sleep_hours + ")." },
+    target: { en: "Aim for 8h tonight", id: "Malam ini target 8 jam" } });
+  const ydayKcal = kcalByDate[ydayStr];
+  if (ydayKcal != null && ydayKcal > 0 && ydayKcal < HS_TARGET.kcal * 0.75) gaps.push({ category: "nutrition", icon: "🍽️",
+    action: { en: "Eat ~" + HS_TARGET.kcal + " kcal today", id: "Makan ~" + HS_TARGET.kcal + " kcal hari ini" },
+    detail: { en: "Yesterday was only " + ydayKcal + " kcal (target " + HS_TARGET.kcal + "). The deficit is too big.", id: "Kemarin cuma " + ydayKcal + " kcal (target " + HS_TARGET.kcal + "). Defisit terlalu besar." },
+    target: { en: "Prioritise protein for recovery", id: "Prioritas protein untuk recovery" } });
+  const ydayWater = waterByDate[ydayStr];
+  if (ydayWater == null || ydayWater < HS_TARGET.water_ml * 0.75) gaps.push({ category: "hydration", icon: "💧",
+    action: { en: "Drink " + (HS_TARGET.water_ml / 1000).toFixed(1) + " L today", id: "Minum " + (HS_TARGET.water_ml / 1000).toFixed(1) + " L hari ini" },
+    detail: ydayWater == null
+      ? { en: "No water logged yesterday.", id: "Belum ada catatan minum kemarin." }
+      : { en: "Yesterday only " + Math.round(ydayWater) + " ml. Dehydration hurts performance.", id: "Kemarin cuma " + Math.round(ydayWater) + " ml. Dehidrasi memengaruhi performa." },
+    target: { en: "Log every glass today", id: "Catat tiap gelas hari ini" } });
+  {
+    const n = workoutDays.size, T = HS_TARGET.workout_days;
+    if (n >= T + 1) gaps.push({ category: "workout", icon: "🏋️",
+      action: { en: "Recovery day today", id: "Recovery day hari ini" },
+      detail: { en: n + " workout days this week already — rest is part of training.", id: "Sudah " + n + " hari workout minggu ini — istirahat juga bagian latihan." },
+      target: { en: "Light stretching / yoga", id: "Stretching / yoga ringan" } });
+    else if (n < T) gaps.push({ category: "workout", icon: "🏋️",
+      action: { en: "Work out " + (T - n) + "x more this week", id: "Workout " + (T - n) + "x lagi minggu ini" },
+      detail: { en: "You're at " + n + "/" + T + " this week.", id: "Baru " + n + "/" + T + " minggu ini." },
+      target: { en: "Book a class for tomorrow", id: "Book kelas untuk besok" } });
+  }
+
+  // ── REKAP MINGGU INI (Sen–Min) — hari ber-workout + total sesi/menit/kalori (log + upload).
+  const week = { days: [], sessions: sessions.length, minutes: 0, kcal: 0 };
+  sessions.forEach((s) => { if (s.min) week.minutes += s.min; if (s.kcal) week.kcal += s.kcal; });
+  week.minutes = Math.round(week.minutes); week.kcal = Math.round(week.kcal);
+  for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); const s = ymd(d); week.days.push({ date: s, workout: workoutDays.has(s), future: s > today }); }
+
+  let total = 0;
+  if (totalWeight > 0) for (const k in scores) total += scores[k].score * (scores[k].weight / totalWeight);
+  return { total: Math.round(total), have_any: totalWeight > 0, breakdown: scores, gaps: gaps, week: week, targets: HS_TARGET };
+}
 app.get("/api/activity/health-score", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
-
-    const today = ymd(new Date());
-    const now = new Date(today + "T00:00:00");
-    const dow = (now.getDay() + 6) % 7;                 // Senin = 0
-    const monday = new Date(now); monday.setDate(now.getDate() - dow);
-    const from7 = new Date(now); from7.setDate(now.getDate() - 6);
-    const yday = new Date(now); yday.setDate(now.getDate() - 1);
-    const mondayStr = ymd(monday), from7Str = ymd(from7), ydayStr = ymd(yday);
-    const fromAll = mondayStr < from7Str ? mondayStr : from7Str;
-
-    // Query paralel; tabel yang belum ada / kosong -> data null -> kategori dilewati (graceful).
-    const uid = user.id;
-    const [wkRes, dlRes, vbRes, mcuRes, upRes, slRes, hyRes] = await Promise.all([
-      admin.from("my20fit_workout").select("workout_date,duration_min,calories_burned,avg_heart_rate").eq("auth_user_id", uid).gte("workout_date", mondayStr).lte("workout_date", today),
-      admin.from("my20fit_daily_log").select("log_date,sleep_hours,water_glasses,cal_items").eq("auth_user_id", uid).gte("log_date", from7Str).lte("log_date", today),
-      admin.from("my20fit_visbody_body").select("body_fat_percentage,body_mass_index,muscle_mass,scanned_at").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(1),
-      admin.from("my20fit_mcu_result").select("result,created_at").eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(1),
-      admin.from("my20fit_activity_uploads").select("upload_type,upload_date,extracted_data,created_at").eq("auth_user_id", uid).gte("upload_date", fromAll).lte("upload_date", today).order("created_at", { ascending: false }).limit(100),
-      admin.from("my20fit_sleep").select("sleep_date,duration_hours").eq("auth_user_id", uid).gte("sleep_date", from7Str).lte("sleep_date", today),
-      admin.from("my20fit_hydration").select("log_date,amount_ml").eq("auth_user_id", uid).gte("log_date", from7Str).lte("log_date", today),
-    ]);
-
-    const scores = {}; let totalWeight = 0;
-    const clamp100 = (n) => Math.max(0, Math.min(100, Math.round(n)));
-    const dl = dlRes.data || [];
-    const uploads = upRes.data || [];
-    const upOf = (type) => uploads.filter((u) => String(u.upload_type || "") === type);
-
-    // ── WORKOUT (25%) — log manual/tracker (my20fit_workout) + UPLOAD workout. Hari unik minggu ini.
-    const sessions = [];
-    (wkRes.data || []).forEach((w) => sessions.push({ date: w.workout_date, min: hsNum(w.duration_min), kcal: hsNum(w.calories_burned), hr: hsNum(w.avg_heart_rate), src: "log" }));
-    upOf("workout").forEach((u) => {
-      if (u.upload_date < mondayStr) return;
-      const e = u.extracted_data || {};
-      sessions.push({ date: u.upload_date, min: hsNum(e.duration_minutes), kcal: hsNum(e.calories_burned), hr: hsNum(e.avg_heart_rate), src: "upload" });
-    });
-    const workoutDays = new Set(sessions.map((s) => s.date));
-    const hasHR = sessions.some((s) => s.hr != null && s.hr > 0);
-    {
-      const T = HS_TARGET.workout_days;
-      const base = (workoutDays.size / T) * 100;
-      // Bonus kecil kalau ada data detak jantung dari tracker (user melacak lebih detail).
-      scores.workout = { score: clamp100(base + (hasHR && workoutDays.size ? 5 : 0)), weight: 25,
-        detail: workoutDays.size + "/" + T + " hari", have: workoutDays.size, target: T,
-        from_upload: sessions.filter((s) => s.src === "upload").length };
-      totalWeight += 25;
-    }
-
-    // ── NUTRITION (20%) — rata-rata kalori (Calorie Tracker) vs target; skor puncak di rentang wajar.
-    const kcalByDate = {};
-    dl.forEach((d) => { if (Array.isArray(d.cal_items) && d.cal_items.length) kcalByDate[d.log_date] = sumCalItems(d.cal_items).kcal; });
-    {
-      const vals = Object.values(kcalByDate);
-      if (vals.length) {
-        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-        const ratio = avg / HS_TARGET.kcal;
-        const sc = (ratio >= 0.8 && ratio <= 1.2) ? 90 : (ratio >= 0.6 && ratio <= 1.4) ? 70 : 40;
-        scores.nutrition = { score: sc, weight: 20, detail: Math.round(avg) + " kkal/hari" };
-        totalWeight += 20;
-      }
-    }
-
-    // ── SLEEP (15%) — tracker tidur + UPLOAD sleep + daily log. Satu nilai per tanggal
-    //    (prioritas: tracker tidur > upload > daily log) supaya satu malam tak dihitung dobel.
-    const sleepByDate = {};
-    dl.forEach((d) => { const h = hsNum(d.sleep_hours); if (h != null && h > 0) sleepByDate[d.log_date] = h; });
-    upOf("sleep").forEach((u) => { if (u.upload_date < from7Str) return; const h = hsNum((u.extracted_data || {}).sleep_duration_hours); if (h != null && h > 0) sleepByDate[u.upload_date] = h; });
-    (slRes.data || []).forEach((s) => { const h = hsNum(s.duration_hours); if (h != null && h > 0) sleepByDate[s.sleep_date] = h; });
-    const sleepDates = Object.keys(sleepByDate).sort();
-    if (sleepDates.length) {
-      const avg = sleepDates.reduce((a, k) => a + sleepByDate[k], 0) / sleepDates.length;
-      scores.sleep = { score: clamp100((avg / HS_TARGET.sleep_hours) * 100), weight: 15, detail: avg.toFixed(1) + " jam" };
-      totalWeight += 15;
-    }
-
-    // ── HYDRATION (10%) — tracker hidrasi (ml) vs gelas di daily log; ambil yang lebih besar per hari.
-    const waterByDate = {};
-    dl.forEach((d) => { const g = hsNum(d.water_glasses); if (g != null && g >= 0) waterByDate[d.log_date] = g * 250; });
-    const hySum = {};
-    (hyRes.data || []).forEach((h) => { const ml = hsNum(h.amount_ml); if (ml != null) hySum[h.log_date] = (hySum[h.log_date] || 0) + ml; });
-    Object.keys(hySum).forEach((k) => { waterByDate[k] = Math.max(waterByDate[k] || 0, hySum[k]); });
-    {
-      const vals = Object.values(waterByDate);
-      if (vals.length) {
-        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-        scores.hydration = { score: clamp100((avg / HS_TARGET.water_ml) * 100), weight: 10, detail: (avg / 1000).toFixed(1) + " L/hari" };
-        totalWeight += 10;
-      }
-    }
-
-    // ── BODY COMPOSITION (20%) — Visbody terbaru (BMI + body fat), simplified.
-    {
-      const b = (vbRes.data && vbRes.data[0]) || null;
-      if (b) {
-        const bmi = +b.body_mass_index, bf = +b.body_fat_percentage;
-        const parts = [];
-        if (isFinite(bmi) && bmi > 0) parts.push(bmi >= 18.5 && bmi <= 24.9 ? 95 : (bmi >= 25 && bmi <= 29.9) ? 70 : 40);
-        if (isFinite(bf) && bf > 0) parts.push(bf <= 25 ? 90 : bf <= 30 ? 70 : 50);
-        if (parts.length) {
-          const det = [isFinite(bmi) && bmi > 0 ? "BMI " + bmi : "", isFinite(bf) && bf > 0 ? "BF " + bf + "%" : ""].filter(Boolean).join(" · ");
-          scores.body = { score: clamp100(parts.reduce((a, c) => a + c, 0) / parts.length), weight: 20, detail: det };
-          totalWeight += 20;
-        }
-      }
-    }
-    // ── LAB / MCU (10%) — dari abnormal_findings hasil AI (bukan ambang medis karangan).
-    {
-      const m = (mcuRes.data && mcuRes.data[0]) || null;
-      if (m) {
-        const abn = (m.result && Array.isArray(m.result.abnormal_findings)) ? m.result.abnormal_findings.length : 0;
-        const sc = abn === 0 ? 95 : abn <= 2 ? 75 : 55;
-        scores.lab = { score: sc, weight: 10, detail: abn + " temuan perlu perhatian" };
-        totalWeight += 10;
-      }
-    }
-
-    // ── WHAT YOU NEED — analisa kekurangan dari data di atas (termasuk upload). Hanya dari angka
-    //    yang ADA; kategori tanpa data tak dikarang. Teks dwibahasa, dipilih di client.
-    const gaps = [];
-    const lastSleep = sleepDates.length ? sleepByDate[sleepDates[sleepDates.length - 1]] : null;
-    const rhr = upOf("daily_activity").concat(upOf("workout"), upOf("sleep"))
-      .map((u) => ({ at: u.created_at, v: hsNum((u.extracted_data || {}).resting_heart_rate) }))
-      .filter((x) => x.v != null && x.v > 0).sort((a, b) => (a.at < b.at ? 1 : -1));
-    if (rhr.length >= 2) {
-      const latest = rhr[0].v, prev = rhr.slice(1), avgPrev = Math.round(prev.reduce((a, x) => a + x.v, 0) / prev.length);
-      if (latest > avgPrev + 5) gaps.push({ category: "sleep", icon: "😴",
-        action: { en: "Sleep earlier tonight", id: "Tidur lebih awal malam ini" },
-        detail: { en: "Resting HR is up (" + latest + " vs avg " + avgPrev + "). Recovery isn't optimal yet.", id: "Resting HR naik (" + latest + " vs rata-rata " + avgPrev + "). Recovery belum optimal." },
-        target: { en: "Aim for 8h, in bed before 22:00", id: "Target 8 jam, tidur sebelum 22:00" } });
-    }
-    if (lastSleep != null && lastSleep < 7 && !gaps.some((g) => g.category === "sleep")) gaps.push({ category: "sleep", icon: "😴",
-      action: { en: "Sleep earlier", id: "Tidur lebih awal" },
-      detail: { en: "Last night was only " + lastSleep + "h (target " + HS_TARGET.sleep_hours + ").", id: "Semalam cuma " + lastSleep + " jam (target " + HS_TARGET.sleep_hours + ")." },
-      target: { en: "Aim for 8h tonight", id: "Malam ini target 8 jam" } });
-    const ydayKcal = kcalByDate[ydayStr];
-    if (ydayKcal != null && ydayKcal > 0 && ydayKcal < HS_TARGET.kcal * 0.75) gaps.push({ category: "nutrition", icon: "🍽️",
-      action: { en: "Eat ~" + HS_TARGET.kcal + " kcal today", id: "Makan ~" + HS_TARGET.kcal + " kcal hari ini" },
-      detail: { en: "Yesterday was only " + ydayKcal + " kcal (target " + HS_TARGET.kcal + "). The deficit is too big.", id: "Kemarin cuma " + ydayKcal + " kcal (target " + HS_TARGET.kcal + "). Defisit terlalu besar." },
-      target: { en: "Prioritise protein for recovery", id: "Prioritas protein untuk recovery" } });
-    const ydayWater = waterByDate[ydayStr];
-    if (ydayWater == null || ydayWater < HS_TARGET.water_ml * 0.75) gaps.push({ category: "hydration", icon: "💧",
-      action: { en: "Drink " + (HS_TARGET.water_ml / 1000).toFixed(1) + " L today", id: "Minum " + (HS_TARGET.water_ml / 1000).toFixed(1) + " L hari ini" },
-      detail: ydayWater == null
-        ? { en: "No water logged yesterday.", id: "Belum ada catatan minum kemarin." }
-        : { en: "Yesterday only " + Math.round(ydayWater) + " ml. Dehydration hurts performance.", id: "Kemarin cuma " + Math.round(ydayWater) + " ml. Dehidrasi memengaruhi performa." },
-      target: { en: "Log every glass today", id: "Catat tiap gelas hari ini" } });
-    {
-      const n = workoutDays.size, T = HS_TARGET.workout_days;
-      if (n >= T + 1) gaps.push({ category: "workout", icon: "🏋️",
-        action: { en: "Recovery day today", id: "Recovery day hari ini" },
-        detail: { en: n + " workout days this week already — rest is part of training.", id: "Sudah " + n + " hari workout minggu ini — istirahat juga bagian latihan." },
-        target: { en: "Light stretching / yoga", id: "Stretching / yoga ringan" } });
-      else if (n < T) gaps.push({ category: "workout", icon: "🏋️",
-        action: { en: "Work out " + (T - n) + "x more this week", id: "Workout " + (T - n) + "x lagi minggu ini" },
-        detail: { en: "You're at " + n + "/" + T + " this week.", id: "Baru " + n + "/" + T + " minggu ini." },
-        target: { en: "Book a class for tomorrow", id: "Book kelas untuk besok" } });
-    }
-
-    // ── REKAP MINGGU INI (Sen–Min) — hari ber-workout + total sesi/menit/kalori (log + upload).
-    const week = { days: [], sessions: sessions.length, minutes: 0, kcal: 0 };
-    sessions.forEach((s) => { if (s.min) week.minutes += s.min; if (s.kcal) week.kcal += s.kcal; });
-    week.minutes = Math.round(week.minutes); week.kcal = Math.round(week.kcal);
-    for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); const s = ymd(d); week.days.push({ date: s, workout: workoutDays.has(s), future: s > today }); }
-
-    let total = 0;
-    if (totalWeight > 0) for (const k in scores) total += scores[k].score * (scores[k].weight / totalWeight);
-    return res.json({ ok: true, total: Math.round(total), have_any: totalWeight > 0, breakdown: scores, gaps: gaps, week: week, targets: HS_TARGET });
+    return res.json(Object.assign({ ok: true }, await hsCompute(user.id)));
   } catch (e) {
     console.error("activity/health-score:", e.message);
     return res.status(500).json({ error: "Gagal menghitung health score." });
@@ -9981,8 +9989,73 @@ var COACH_ACH_DEFS = [
   { key: "streak_3",      icon: "fire",      name: { en: "3-day streak", id: "Streak 3 hari" },    desc: { en: "Train 3 days in a row", id: "Latihan 3 hari berturut" },  test: function (g) { return g.stats.streak >= 3; } },
   { key: "month_8",       icon: "spark",     name: { en: "Consistent month", id: "Bulan konsisten" }, desc: { en: "8 sessions in a month", id: "8 sesi dalam sebulan" },  test: function (g) { return g.stats.this_month >= 8; } },
   { key: "personal_record", icon: "lightning", name: { en: "Personal record", id: "Rekor pribadi" }, desc: { en: "Beat your reps on an exercise", id: "Lampaui rep di satu gerakan" }, test: function (g) { return !!g.has_pr; } },
-  { key: "allrounder",    icon: "target",    name: { en: "All-rounder", id: "Serba bisa" },        desc: { en: "Log 6 different exercises", id: "Catat 6 gerakan berbeda" }, test: function (g) { return g.stats.distinct_ex >= 6; } }
+  { key: "allrounder",    icon: "target",    name: { en: "All-rounder", id: "Serba bisa" },        desc: { en: "Log 6 different exercises", id: "Catat 6 gerakan berbeda" }, test: function (g) { return g.stats.distinct_ex >= 6; } },
+  // Engagement AI Coach — dihitung dari coachEngagement() (g.eng).
+  { key: "first_chat",    icon: "spark",     name: { en: "First Chat", id: "Chat pertama" },       desc: { en: "Chat with a coach for the first time", id: "Pertama kali chat dengan coach" }, test: function (g) { return g.eng.chats >= 1; } },
+  { key: "first_plan",    icon: "dumbbell",  name: { en: "Plan Maker", id: "Plan Maker" },         desc: { en: "Generate your first workout plan", id: "Pertama kali membuat workout plan" }, test: function (g) { return g.eng.plans >= 1; } },
+  { key: "streak_7",      icon: "fire",      name: { en: "7-Day Warrior", id: "7-Day Warrior" },   desc: { en: "Active 7 days in a row", id: "Aktif 7 hari berturut-turut" }, test: function (g) { return g.eng.longest_streak >= 7; } },
+  { key: "streak_30",     icon: "medal",     name: { en: "Monthly Machine", id: "Monthly Machine" }, desc: { en: "Active 30 days in a row", id: "Aktif 30 hari berturut-turut" }, test: function (g) { return g.eng.longest_streak >= 30; } },
+  { key: "visbody_first", icon: "chart",     name: { en: "Data Driven", id: "Data Driven" },       desc: { en: "First Visbody scan", id: "Pertama kali scan Visbody" }, test: function (g) { return g.eng.visbody >= 1; } },
+  { key: "health_80",     icon: "heart",     name: { en: "Health Pro", id: "Health Pro" },         desc: { en: "Health score 80 or more", id: "Health score ≥ 80" }, test: function (g) { return g.eng.health >= 80; } },
+  { key: "all_coaches",   icon: "target",    name: { en: "Social Butterfly", id: "Social Butterfly" }, desc: { en: "Chat with all 4 coaches", id: "Chat dengan ke-4 coach" }, test: function (g) { return g.eng.coaches >= 4; } }
 ];
+// Gamifikasi: XP & level dihitung dari data yang sudah ada (tanpa tabel counter baru, jadi
+// tak bisa melenceng dari data aslinya). Hari aktif = chat / workout / upload / log tidur /
+// log minum / sesi latihan selesai.
+const GAME_LEVELS = [0, 100, 300, 600, 1000, 1500, 2500, 4000, 6000, 10000];
+const GAME_XP = { chat: 5, workout_logged: 20, plan_day_completed: 15, plan_completed: 100, visbody_scan: 50, streak_7: 50, streak_30: 200 };
+function gameStreaks(dates) {
+  const days = Array.from(new Set(dates.filter(Boolean).map(function (d) { return String(d).slice(0, 10); }))).sort();
+  let longest = 0, run = 0, prev = null;
+  days.forEach(function (d) {
+    const t = new Date(d + "T00:00:00").getTime();
+    run = (prev != null && Math.round((t - prev) / 86400000) === 1) ? run + 1 : 1;
+    if (run > longest) longest = run; prev = t;
+  });
+  // Streak berjalan: hari ini aktif, atau kemarin aktif (hari ini belum) — lebih lama = putus.
+  const today = ymd(new Date()); const y = new Date(today + "T00:00:00"); y.setDate(y.getDate() - 1);
+  const last = days[days.length - 1];
+  const current = (last === today || last === ymd(y)) ? run : 0;
+  return { current: current, longest: longest };
+}
+async function coachEngagement(uid) {
+  const [msg, sess, wk, up, sl, hy, cs, vb, pl, hs] = await Promise.all([
+    admin.from("my20fit_coach_chat_message").select("created_at").eq("auth_user_id", uid).eq("role", "user").order("created_at", { ascending: false }).limit(2000),
+    admin.from("my20fit_coach_chat_session").select("coach_id").eq("auth_user_id", uid),
+    admin.from("my20fit_workout").select("workout_date").eq("auth_user_id", uid).limit(2000),
+    admin.from("my20fit_activity_uploads").select("upload_date,upload_type").eq("auth_user_id", uid).limit(2000),
+    admin.from("my20fit_sleep").select("sleep_date").eq("auth_user_id", uid).limit(2000),
+    admin.from("my20fit_hydration").select("log_date").eq("auth_user_id", uid).limit(4000),
+    admin.from("my20fit_coach_session").select("session_date,status").eq("auth_user_id", uid).eq("status", "done").limit(2000),
+    admin.from("my20fit_visbody_body").select("scanned_at").eq("auth_user_id", uid).limit(500),
+    admin.from("my20fit_workout_plan").select("plan,is_active").eq("auth_user_id", uid).limit(500),
+    hsCompute(uid).catch(function () { return null; }),
+  ]);
+  const chats = msg.data || [], uploads = up.data || [], plans = pl.data || [];
+  const workouts = (wk.data || []).length + uploads.filter(function (u) { return u.upload_type === "workout"; }).length;
+  const active = plans.find(function (p) { return p.is_active; });
+  const pdays = (active && active.plan && Array.isArray(active.plan.days)) ? active.plan.days : [];
+  const daysDone = pdays.filter(function (d) { return d && d.done; }).length;
+  const planComplete = pdays.length > 0 && daysDone === pdays.length;
+  const st = gameStreaks([].concat(
+    chats.map(function (m) { return ymd(new Date(m.created_at)); }),
+    (wk.data || []).map(function (w) { return w.workout_date; }),
+    uploads.map(function (u) { return u.upload_date; }),
+    (sl.data || []).map(function (x) { return x.sleep_date; }),
+    (hy.data || []).map(function (x) { return x.log_date; }),
+    (cs.data || []).map(function (x) { return x.session_date; })));
+  const visbody = (vb.data || []).length;
+  const xp = chats.length * GAME_XP.chat + workouts * GAME_XP.workout_logged + daysDone * GAME_XP.plan_day_completed +
+    (planComplete ? GAME_XP.plan_completed : 0) + visbody * GAME_XP.visbody_scan +
+    (st.longest >= 7 ? GAME_XP.streak_7 : 0) + (st.longest >= 30 ? GAME_XP.streak_30 : 0);
+  let level = 1; GAME_LEVELS.forEach(function (t, i) { if (xp >= t) level = i + 1; });
+  return {
+    chats: chats.length, coaches: new Set((sess.data || []).map(function (x) { return x.coach_id; })).size,
+    plans: plans.length, visbody: visbody, health: (hs && hs.have_any) ? hs.total : null,
+    current_streak: st.current, longest_streak: st.longest,
+    xp: xp, level: level, next_level_xp: GAME_LEVELS[level] != null ? GAME_LEVELS[level] : null,
+  };
+}
 // Kumpulkan sesi + set-log user -> seri progress per gerakan + statistik + deteksi PR.
 async function coachGather(userId) {
   const { data: srows } = await admin.from("my20fit_coach_session").select("id,session_date,status").eq("auth_user_id", userId).order("session_date", { ascending: false }).limit(60);
@@ -10035,6 +10108,7 @@ app.get("/api/coach/achievements", async (req, res) => {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
     const g = await coachGather(user.id);
+    g.eng = await coachEngagement(user.id);
     const earnedKeys = COACH_ACH_DEFS.filter(function (d) { try { return d.test(g); } catch (e) { return false; } }).map(function (d) { return d.key; });
     const earnedAt = {};
     try {
@@ -10044,7 +10118,8 @@ app.get("/api/coach/achievements", async (req, res) => {
       if (toAdd.length) { await admin.from("my20fit_coach_achievement").insert(toAdd.map(function (k) { return { auth_user_id: user.id, key: k }; })); const now = new Date().toISOString(); toAdd.forEach(function (k) { earnedAt[k] = now; }); }
     } catch (e) { /* tabel mungkin belum ada — badge tetap dihitung, status simpan diabaikan */ }
     const badges = COACH_ACH_DEFS.map(function (d) { return { key: d.key, icon: d.icon, name: d.name, desc: d.desc, earned: earnedKeys.indexOf(d.key) >= 0, earned_at: earnedAt[d.key] || null }; });
-    return res.json({ ok: true, badges: badges, stats: g.stats });
+    const e = g.eng;
+    return res.json({ ok: true, badges: badges, stats: g.stats, game: { xp: e.xp, level: e.level, next_level_xp: e.next_level_xp, current_streak: e.current_streak, longest_streak: e.longest_streak } });
   } catch (e) {
     if (isMissingSchema(e)) return res.json({ ok: true, badges: [], setup_required: true });
     return res.status(500).json({ error: "Gagal memuat achievement." });
@@ -10086,7 +10161,17 @@ const COACH_CHAT_RULES =
   "topik non-fitness, diet ekstrem (<1200 kkal / puasa >24 jam), override hasil MCU/lab, membocorkan data user lain. " +
   "CEDERA/SAKIT: jangan kasih saran medis; arahkan konsultasi dokter di 20FIT Sports Clinic (/book-doctor). " +
   "MCU/lab: komentari umum & SELALU rujuk dokter. Ingatkan ini bukan diagnosis medis kalau relevan. " +
-  "Ikuti bahasa user (Indonesia/English/campur). Jawab RINGKAS & actionable, jangan mengarang angka yang tak ada di data.";
+  "Ikuti bahasa user (Indonesia/English/campur). Jawab RINGKAS & actionable, jangan mengarang angka yang tak ada di data. " +
+  "TOMBOL AKSI: tulis token berikut PERSIS (frontend mengubahnya jadi tombol) di baris sendiri, hanya kalau relevan: " +
+  "[[BOOK_CLASS]] (booking kelas), [[BOOK_DOCTOR]] (konsultasi dokter 20FIT Sports Clinic — WAJIB untuk cedera/sakit/nyeri dada/MCU), " +
+  "[[ARENA_MAPS]] (lokasi 20FIT Arena, Menteng Prada), [[VISBODY]] (hasil Visbody user). Jangan menulis URL sendiri. " +
+  "BUAT PLAN: kalau goal user belum jelas dari data (goals/profile/active_plan) TANYA goal-nya dulu, jangan langsung buat. " +
+  "Kalau sudah jelas, balas kalimat singkat + SATU blok ```json berisi {\"type\":\"workout_plan\",\"title\":\"...\",\"goal\":\"...\"," +
+  "\"days\":[{\"day\":\"Senin\",\"name\":\"HIIT Circuit\",\"duration_min\":45,\"exercises\":[{\"name\":\"Squat\",\"sets\":3,\"reps\":\"12\",\"rest_sec\":60}]}]," +
+  "\"notes\":\"...\"} — hari istirahat cukup tidak dicantumkan. Plan otomatis tersimpan jadi plan aktif user. " +
+  "VISBODY: kalau data visbody null dan user minta plan / analisa tubuh, tetap bantu dengan data yang ada, lalu ajak Visbody scan di 20FIT Arena " +
+  "(Menteng Prada, ±5 menit: body fat, muscle mass, BMR, dll) + [[ARENA_MAPS]] [[BOOK_CLASS]]. Kalau user tak mau/tak bisa, minta berat, tinggi, umur & goal saja. " +
+  "KELAS: kalau user tanya kelas, rekomendasikan dulu kelas milik KAMU dari daftar coach_classes (nama, hari, jam) lalu [[BOOK_CLASS]]; kalau kosong, bilang jadwalmu belum ada dan tetap kasih [[BOOK_CLASS]].";
 // Konteks user ringkas untuk chatbot (reuse tabel yang ada; supabase balikin {error} bukan throw,
 // jadi tabel hilang -> data null -> field kosong, aman).
 async function loadCoachContext(uid) {
@@ -10114,11 +10199,54 @@ async function loadCoachContext(uid) {
     active_plan: pl ? { goal: pl.goal, level: pl.level, name: (pl.plan && pl.plan.plan_name) || null, days: (pl.plan && Array.isArray(pl.plan.days)) ? pl.plan.days.length : null } : null,
   };
 }
-function coachChatSystem(coachId, ctx, lang) {
+// Kelas mendatang (≤14 hari, masih bisa dibooking) milik coach persona. Persona -> baris
+// my20fit_coaches "Coach <Nama>" -> coachUpcomingClasses(). Gagal/kosong -> [] (chat tetap jalan).
+const _personaClassCache = {};
+async function personaUpcomingClasses(slug) {
+  const hit = _personaClassCache[slug];
+  if (hit && Date.now() - hit.at < 600000) return hit.list;
+  let list = [];
+  try {
+    const { data } = await admin.from("my20fit_coaches").select("id").eq("display_name", "Coach " + COACH_PERSONAS[slug].name).limit(1);
+    const id = data && data[0] && data[0].id;
+    const r = id ? await coachUpcomingClasses(id) : null;
+    const limit = new Date(); limit.setDate(limit.getDate() + 14); const lim = ymd(limit);
+    list = ((r && r.classes) || []).filter(function (c) { return c.selectable && c.date <= lim; }).slice(0, 5)
+      .map(function (c) { return { name: c.name, date: c.date, start: c.start, end: c.end, remaining: c.remaining, quota: c.quota }; });
+  } catch (e) { list = []; }
+  _personaClassCache[slug] = { at: Date.now(), list: list };
+  return list;
+}
+function coachChatSystem(coachId, ctx, lang, classes) {
   return COACH_PERSONAS[coachId].persona + "\n\n" + COACH_CHAT_RULES +
     "\n\nDATA USER (JSON):\n" + JSON.stringify(ctx).slice(0, 6000) +
+    "\n\ncoach_classes (kelas upcoming milik " + COACH_PERSONAS[coachId].name + "):\n" + JSON.stringify(classes || []) +
     "\n\nBahasa jawaban: " + (lang === "en" ? "English." : "Bahasa Indonesia (atau ikuti bahasa user).");
 }
+// Blok ```json {"type":"workout_plan"} di balasan chat -> plan aktif (my20fit_workout_plan, source "chat").
+// Dinormalisasi lewat coachValidateProgram (bentuk sama dgn plan dari quiz). Blok diganti token
+// [[PLAN_SAVED]] (frontend -> kartu plan). Gagal parse/validasi -> blok dibuang, teks lain tetap.
+const COACH_PLAN_BLOCK = /```(?:json)?\s*(\{[\s\S]*?"type"\s*:\s*"workout_plan"[\s\S]*?\})\s*```/;
+function coachChatPlanToProgram(j, coachId) {
+  if (!j || j.type !== "workout_plan" || !Array.isArray(j.days)) return null;
+  const train = j.days.filter(function (d) { return d && Array.isArray(d.exercises) && d.exercises.length; });
+  const mins = train.map(function (d) { return parseInt(d.duration_min, 10) || 0; }).filter(function (n) { return n > 0; });
+  const v = coachValidateProgram({
+    plan_name: j.title, goal: j.goal, level: j.level || "custom", weekly_note: j.notes,
+    days_per_week: train.length, minutes_per_session: mins.length ? Math.round(mins.reduce(function (a, b) { return a + b; }, 0) / mins.length) : 30,
+    days: train.map(function (d, i) { return { key: "d" + (i + 1), label: d.day, focus: d.name, exercises: d.exercises }; }),
+  });
+  if (v) v.coach = coachId;
+  return v;
+}
+async function coachSaveChatPlan(uid, planObj) {
+  await admin.from("my20fit_workout_plan").update({ is_active: false, updated_at: new Date().toISOString() }).eq("auth_user_id", uid).eq("is_active", true);
+  const { data, error } = await admin.from("my20fit_workout_plan").insert({ auth_user_id: uid, goal: planObj.goal || null, level: planObj.level || null, plan: planObj, version: 1, is_active: true, source: "chat", updated_at: new Date().toISOString() }).select().single();
+  if (error) throw error;
+  return data;
+}
+// Pesan yang butuh model lebih kuat (plan / analisa) -> tier "complex" (edge fn memilih model).
+const COACH_COMPLEX_RE = /plan|buatkan|generate|analisa|analyze|breakdown|health score/i;
 // POST /api/coach/chat — {coach_id, message} -> balasan persona. Simpan riwayat kalau tabel ada.
 app.post("/api/coach/chat", async (req, res) => {
   try {
@@ -10145,24 +10273,34 @@ app.post("/api/coach/chat", async (req, res) => {
         history = (h || []).reverse().map(function (x) { return { role: x.role, content: x.content }; });
       }
     } catch (e) { /* tabel chat belum ada -> lanjut tanpa riwayat */ }
-    const ctx = await loadCoachContext(user.id);
-    const messages = [{ role: "system", content: coachChatSystem(coachId, ctx, lang) }].concat(history).concat([{ role: "user", content: message }]);
-    let reply = "";
+    const [ctx, classes] = await Promise.all([loadCoachContext(user.id), personaUpcomingClasses(coachId)]);
+    const messages = [{ role: "system", content: coachChatSystem(coachId, ctx, lang, classes) }].concat(history).concat([{ role: "user", content: message }]);
+    const complex = COACH_COMPLEX_RE.test(message);
+    let reply = "", modelUsed = null;
     try {
-      const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: 1024, lang: lang }, 45000);
+      const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: complex ? 2048 : 1024, tier: complex ? "complex" : "simple", lang: lang }, 60000);
       if (!ai.httpOk || !ai.json || !ai.json.ok || !ai.json.reply) { logAiAccess(user.id, "coach/chat", false, "edge"); return res.status(502).json({ error: "Coach lagi nggak bisa jawab. Coba lagi." }); }
       reply = String(ai.json.reply);
+      modelUsed = ai.json.model ? String(ai.json.model).slice(0, 80) : null;
     } catch (e) { logAiAccess(user.id, "coach/chat", false, "timeout"); return res.status(504).json({ error: "Coach nggak merespons. Coba lagi." }); }
     logAiAccess(user.id, "coach/chat", true);
+    let savedPlan = null;
+    const pm = reply.match(COACH_PLAN_BLOCK);
+    if (pm) {
+      let prog = null;
+      try { prog = coachChatPlanToProgram(JSON.parse(pm[1]), coachId); } catch (e) { prog = null; }
+      if (prog) { try { savedPlan = await coachSaveChatPlan(user.id, prog); } catch (e) { console.error("coach/chat plan:", e.message); } }
+      reply = reply.replace(COACH_PLAN_BLOCK, savedPlan ? "[[PLAN_SAVED]]" : "").trim();
+    }
     if (sessionId) {
       try {
         await admin.from("my20fit_coach_chat_message").insert([
           { session_id: sessionId, auth_user_id: user.id, role: "user", content: message },
-          { session_id: sessionId, auth_user_id: user.id, role: "assistant", content: reply, model_used: null },
+          { session_id: sessionId, auth_user_id: user.id, role: "assistant", content: reply, model_used: modelUsed },
         ]);
       } catch (e) { /* simpan best-effort */ }
     }
-    return res.json({ ok: true, reply: reply, coach_id: coachId });
+    return res.json({ ok: true, reply: reply, coach_id: coachId, plan: savedPlan, model_used: modelUsed });
   } catch (e) {
     console.error("coach/chat:", e.message);
     return res.status(500).json({ error: "Gagal memproses chat." });
