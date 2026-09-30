@@ -9760,6 +9760,52 @@ app.get("/api/coach/plan", async (req, res) => {
     return res.json({ ok: true, plan: (data && data[0]) || null });
   } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, plan: null, setup_required: true }); return res.status(500).json({ error: "Gagal memuat plan." }); }
 });
+// GET /api/coach/plans — semua plan user (terbaru dulu): ringkasan untuk /activity/plan.
+function coachPlanSummary(r) {
+  const p = r.plan || {}; const days = Array.isArray(p.days) ? p.days : [];
+  return { id: r.id, name: p.plan_name || "Workout plan", goal: r.goal || p.goal || null, level: r.level || p.level || null,
+    source: r.source || null, coach: p.coach || null, is_active: !!r.is_active, created_at: r.created_at,
+    days_total: days.length, days_done: days.filter(function (d) { return d && d.done; }).length };
+}
+app.get("/api/coach/plans", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, plans: [] });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data, error } = await admin.from("my20fit_workout_plan").select("id,goal,level,plan,is_active,source,created_at").eq("auth_user_id", user.id).order("created_at", { ascending: false }).limit(30);
+    if (error) throw error;
+    return res.json({ ok: true, plans: (data || []).map(coachPlanSummary) });
+  } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, plans: [], setup_required: true }); return res.status(500).json({ error: "Gagal memuat daftar plan." }); }
+});
+// GET /api/coach/plans/:id — satu plan milik user (untuk /activity/plan/:id).
+app.get("/api/coach/plans/:id", async (req, res) => {
+  try {
+    if (!admin) return res.status(404).json({ error: "Plan tidak ditemukan." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data, error } = await admin.from("my20fit_workout_plan").select("*").eq("auth_user_id", user.id).eq("id", String(req.params.id || "")).limit(1);
+    if (error) throw error;
+    const row = data && data[0];
+    if (!row) return res.status(404).json({ error: "Plan tidak ditemukan." });
+    return res.json({ ok: true, plan: row });
+  } catch (e) { return res.status(404).json({ error: "Plan tidak ditemukan." }); }
+});
+// POST /api/coach/plan/activate — {id}: jadikan plan lama milik user sebagai plan aktif lagi.
+app.post("/api/coach/plan/activate", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const id = String((req.body || {}).id || "");
+    const { data: own } = await admin.from("my20fit_workout_plan").select("id").eq("auth_user_id", user.id).eq("id", id).limit(1);
+    if (!own || !own[0]) return res.status(404).json({ error: "Plan tidak ditemukan." });
+    const now = new Date().toISOString();
+    await admin.from("my20fit_workout_plan").update({ is_active: false, updated_at: now }).eq("auth_user_id", user.id).eq("is_active", true);
+    const { data, error } = await admin.from("my20fit_workout_plan").update({ is_active: true, updated_at: now }).eq("auth_user_id", user.id).eq("id", id).select().single();
+    if (error) throw error;
+    return res.json({ ok: true, plan: data });
+  } catch (e) { console.error("coach/plan/activate:", e.message); return res.status(500).json({ error: "Gagal mengaktifkan plan." }); }
+});
 // POST /api/coach/plan/adjust — {op:"level",dir} | {op:"swap",day_key,ex_key} | {op:"done",day_key,done}. Ubah plan aktif.
 app.post("/api/coach/plan/adjust", async (req, res) => {
   try {
@@ -10236,7 +10282,11 @@ function coachChatPlanToProgram(j, coachId) {
     days_per_week: train.length, minutes_per_session: mins.length ? Math.round(mins.reduce(function (a, b) { return a + b; }, 0) / mins.length) : 30,
     days: train.map(function (d, i) { return { key: "d" + (i + 1), label: d.day, focus: d.name, exercises: d.exercises }; }),
   });
-  if (v) v.coach = coachId;
+  if (v) {
+    v.coach = coachId;
+    // durasi per hari dari coach (validator tak menyimpannya) — dipakai kartu Active Plan.
+    v.days.forEach(function (d, i) { const m = parseInt(train[i] && train[i].duration_min, 10); if (m > 0) d.duration_min = Math.min(240, m); });
+  }
   return v;
 }
 async function coachSaveChatPlan(uid, planObj) {

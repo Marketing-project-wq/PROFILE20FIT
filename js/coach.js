@@ -95,6 +95,7 @@
   // ?ask=<teks> (link dari Calories / Medical) -> HANYA mengisi kotak pesan, tidak dikirim otomatis
   // (link dari luar tak boleh mengirim chat atas nama user tanpa ia menekan Kirim).
   var PREFILL = "";
+  var VIEW_PLAN_ID = null;           // /activity/plan/<id> -> lihat plan tertentu (bisa plan lama)
   var USER_NAME = "";                // nama depan user (buat sapaan personal)
   // [label, pesan, ikon] — label & ikon utk kartu prompt; pesan = yang benar-benar dikirim ke coach.
   var QUICKS = [
@@ -150,6 +151,8 @@
       var qp = pm ? pm[1] : (new URLSearchParams(location.search)).get("coach");
       if (qp) { qp = String(qp).toLowerCase(); if (COACH_NAME[qp]) { CHAT_COACH = qp; try { localStorage.setItem("my20fit_coach_pick", qp); } catch (e) {} } }
       if (/^\/activity\/plan(\/|$)/i.test(location.pathname)) MODE = "program";
+      var pid = location.pathname.match(/^\/activity\/plan\/([0-9a-f-]{8,})\/?$/i);
+      if (pid) VIEW_PLAN_ID = pid[1];
       var ask = (new URLSearchParams(location.search)).get("ask");
       if (ask) { PREFILL = String(ask).slice(0, 300); history.replaceState(null, "", location.pathname); }
     } catch (e) {}
@@ -165,6 +168,7 @@
     clearErr();
     if (MODE === "chat") { renderChat(); return; }
     var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Personal workout plan", id: "Rencana latihan personal" });
+    if (VIEW_PLAN_ID && !(PLAN && PLAN.id === VIEW_PLAN_ID)) { renderPlanById(VIEW_PLAN_ID); return; }
     if (PLAN && PLAN.plan) renderPlan();
     else renderIntro();
   }
@@ -178,8 +182,11 @@
       '<ul><li>' + esc(Lx({ en: "Plan you can adjust anytime", id: "Plan bisa kamu adjust kapan saja" })) + '</li>' +
       '<li>' + esc(Lx({ en: "Safety screening first", id: "Skrining keamanan dulu" })) + '</li>' +
       '<li>' + esc(Lx({ en: "Option to consult a specialist or train with a coach", id: "Opsi konsultasi specialist atau latihan bareng coach" })) + '</li></ul>' +
-      '<button class="btn" id="startQuiz">' + esc(done ? Lx({ en: "Retake quiz", id: "Ulang quiz" }) : Lx({ en: "Start quiz", id: "Mulai quiz" })) + '</button></div>';
+      '<button class="btn" id="startQuiz">' + esc(done ? Lx({ en: "Retake quiz", id: "Ulang quiz" }) : Lx({ en: "Start quiz", id: "Mulai quiz" })) + '</button>' +
+      '<a class="btn ghost" href="' + esc(chatPlanHref()) + '" style="margin-top:8px">💬 ' + esc(Lx({ en: "Or ask a coach to build it in chat", id: "Atau minta coach buatkan lewat chat" })) + '</a></div>' +
+      planListShell();
     el("startQuiz").onclick = function () { if (QUIZ && QUIZ.answers) prefill(QUIZ); renderQuiz(); };
+    loadPlanList();
     wireBackToChat();
   }
 
@@ -307,14 +314,16 @@
   function renderPlan() {
     var row = PLAN, p = row.plan || {};
     var days = Array.isArray(p.days) ? p.days : [];
-    var srcLbl = row.source === "ai" ? "AI COACH" : (row.source === "adjusted" ? Lx({ en: "Adjusted", id: "Disesuaikan" }) : Lx({ en: "Auto plan", id: "Plan otomatis" }));
+    var srcLbl = planSrcLabel(row);
     var html = todayCardHtml() +
       '<div class="card"><div class="planhead"><div class="pn">' + esc(p.plan_name || "Workout plan") + '</div>' +
       '<div class="wn">' + esc(p.weekly_note || "") + '</div>' +
       '<span class="badge src">' + esc(srcLbl) + '</span></div>' +
       (p.needs_specialist ? '<div class="needspec"><span style="color:var(--amber)">' + svgIcon("warn", 16) + '</span> ' + esc(Lx({ en: "Because of your safety screening, this is a conservative plan. Please consult a 20FIT specialist before starting.", id: "Karena hasil skrining keamananmu, ini plan versi konservatif. Sebaiknya konsultasi ke specialist 20FIT sebelum mulai." })) + '</div>' : '') +
       days.map(function (d, di) {
-        return '<div class="day"><div class="day-h" data-day="' + di + '"><span class="dl">' + esc(d.label || ("Hari " + (di + 1))) + '</span>' +
+        return '<div class="day' + (d.done ? ' done' : '') + '"><div class="day-h" data-day="' + di + '">' +
+          '<button type="button" class="dchk" data-done="' + esc(d.key) + '" aria-pressed="' + (d.done ? 'true' : 'false') + '" title="' + esc(Lx({ en: "Mark day done", id: "Tandai hari selesai" })) + '">' + (d.done ? '✅' : '⬜') + '</button>' +
+          '<span class="dl">' + esc(d.label || ("Hari " + (di + 1))) + '</span>' +
           '<span class="df">' + esc(d.focus || "") + '</span></div>' +
           '<div class="day-b"' + (di === 0 ? '' : ' style="display:none"') + '>' +
           (Array.isArray(d.exercises) ? d.exercises : []).map(function (e) {
@@ -327,7 +336,8 @@
       }).join("") +
       '<div class="adjrow"><button class="btn ghost" id="adjEasier">– ' + esc(Lx({ en: "Easier", id: "Ringankan" })) + '</button>' +
       '<button class="btn ghost" id="adjHarder">+ ' + esc(Lx({ en: "Harder", id: "Beratkan" })) + '</button>' +
-      '<button class="btn ghost" id="adjRedo">' + esc(Lx({ en: "Retake quiz", id: "Ulang quiz" })) + '</button></div>' +
+      '<button class="btn ghost" id="adjRedo">' + esc(Lx({ en: "Retake quiz", id: "Ulang quiz" })) + '</button>' +
+      '<a class="btn ghost" href="' + esc(chatPlanHref()) + '">💬 ' + esc(Lx({ en: "New plan via coach", id: "Plan baru via coach" })) + '</a></div>' +
       '<div class="disc">' + esc(p.disclaimer || "") + '</div></div>';
 
     // CTA
@@ -340,14 +350,23 @@
     html += '<div class="sechd">' + esc(Lx({ en: "Progress", id: "Progress" })) + '</div>' +
       '<div class="card" id="progBox"><div class="skel" style="height:90px"></div></div>' +
       '<div class="sechd">' + esc(Lx({ en: "History", id: "Riwayat" })) + '</div>' +
-      '<div class="card"><div id="histBox" class="hist"><div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "Loading…", id: "Memuat…" })) + '</div></div></div>';
+      '<div class="card"><div id="histBox" class="hist"><div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "Loading…", id: "Memuat…" })) + '</div></div></div>' +
+      planListShell();
     root().innerHTML = backBar() + html;
+    loadPlanList();
 
     var tgo = el("todayGo"); if (tgo) tgo.onclick = openSession;
     loadHistory(); loadProgress();
 
     Array.prototype.forEach.call(root().querySelectorAll(".day-h"), function (h) {
       h.onclick = function () { var b = h.nextElementSibling; if (b) b.style.display = (b.style.display === "none") ? "" : "none"; };
+    });
+    Array.prototype.forEach.call(root().querySelectorAll("[data-done]"), function (b) {
+      b.onclick = function (ev) {
+        ev.stopPropagation();
+        var k = b.getAttribute("data-done"), d = days.filter(function (x) { return x.key === k; })[0];
+        adjust({ op: "done", day_key: k, done: !(d && d.done) });
+      };
     });
     Array.prototype.forEach.call(root().querySelectorAll("[data-swap]"), function (b) {
       b.onclick = function () { var parts = b.getAttribute("data-swap").split("|"); adjust({ op: "swap", day_key: parts[0], ex_key: parts[1] }); };
@@ -357,6 +376,72 @@
     el("adjRedo").onclick = function () { if (QUIZ) prefill(QUIZ); renderQuiz(); };
     Array.prototype.forEach.call(root().querySelectorAll("[data-cta]"), function (b) { b.onclick = function () { onCta(b.getAttribute("data-cta")); }; });
     wireBackToChat();
+  }
+  function planSrcLabel(row) {
+    var p = (row && row.plan) || {};
+    if (row && row.source === "chat") return "AI COACH" + (p.coach && COACH_NAME[p.coach] ? " · " + COACH_NAME[p.coach] : "");
+    if (row && row.source === "ai") return "AI COACH";
+    if (row && row.source === "adjusted") return Lx({ en: "Adjusted", id: "Disesuaikan" });
+    return Lx({ en: "Auto plan", id: "Plan otomatis" });
+  }
+  function chatPlanHref() {
+    return "/activity/chat" + (CHAT_COACH ? "/" + CHAT_COACH : "") + "?ask=" + encodeURIComponent(Lx({ en: "Build me a new workout plan for this week", id: "Buatkan workout plan baru untuk minggu ini" }));
+  }
+  // Semua plan user (/api/coach/plans) — link ke /activity/plan/<id>.
+  function planListShell() {
+    return '<div class="sechd">' + esc(Lx({ en: "All plans", id: "Semua plan" })) + '</div><div class="card" id="planListBox"><div class="skel" style="height:60px"></div></div>';
+  }
+  async function loadPlanList() {
+    var box = el("planListBox"); if (!box) return;
+    try {
+      var r = await apiFetch("/api/coach/plans"); var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) throw new Error(j.error || "plans");
+      var list = (j && j.plans) || [];
+      if (!list.length) { box.innerHTML = '<div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "No plans yet.", id: "Belum ada plan." })) + '</div>'; return; }
+      box.innerHTML = '<div class="plist">' + list.map(function (pl) {
+        var dt = ""; try { dt = new Date(pl.created_at).toLocaleDateString((window.I18N && I18N.lang === "en") ? "en-GB" : "id-ID", { day: "numeric", month: "short", year: "numeric" }); } catch (e) {}
+        return '<a class="pli' + (pl.is_active ? ' on' : '') + '" href="/activity/plan/' + encodeURIComponent(pl.id) + '">' +
+          '<span class="pln">' + esc(pl.name) + (pl.is_active ? ' <span class="badge src">' + esc(Lx({ en: "Active", id: "Aktif" })) + '</span>' : '') + '</span>' +
+          '<span class="pls">' + esc(dt) + (pl.coach && COACH_NAME[pl.coach] ? " · Coach " + esc(COACH_NAME[pl.coach]) : "") + " · " + pl.days_done + "/" + pl.days_total + " " + esc(Lx({ en: "done", id: "selesai" })) + '</span></a>';
+      }).join("") + '</div>';
+    } catch (e) {
+      box.innerHTML = '<div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "Couldn't load plans.", id: "Gagal memuat daftar plan." })) + ' <button type="button" class="btn ghost" id="plRetry" style="width:auto;padding:6px 12px">' + esc(Lx({ en: "Retry", id: "Coba lagi" })) + '</button></div>';
+      var rt = el("plRetry"); if (rt) rt.onclick = loadPlanList;
+    }
+  }
+  // Detail plan lama (bukan plan aktif): baca saja + tombol jadikan aktif.
+  async function renderPlanById(id) {
+    root().innerHTML = '<div class="card"><div class="skel" style="height:140px"></div></div>';
+    var row = null;
+    try { var r = await apiFetch("/api/coach/plans/" + encodeURIComponent(id)); var j = await r.json().catch(function () { return {}; }); row = r.ok ? j.plan : null; } catch (e) { row = null; }
+    if (!row) {
+      root().innerHTML = '<div class="card"><div class="muted">' + esc(Lx({ en: "Plan not found.", id: "Plan tidak ditemukan." })) + '</div><a class="btn ghost" href="/activity/plan" style="margin-top:10px">' + esc(Lx({ en: "All plans", id: "Semua plan" })) + '</a></div>';
+      return;
+    }
+    var p = row.plan || {}, days = Array.isArray(p.days) ? p.days : [];
+    root().innerHTML = '<div class="card"><div class="planhead"><div class="pn">' + esc(p.plan_name || "Workout plan") + '</div>' +
+      '<div class="wn">' + esc(p.weekly_note || "") + '</div><span class="badge src">' + esc(planSrcLabel(row)) + '</span></div>' +
+      days.map(function (d, di) {
+        return '<div class="day' + (d.done ? ' done' : '') + '"><div class="day-h"><span class="dchk">' + (d.done ? '✅' : '⬜') + '</span><span class="dl">' + esc(d.label || ("Hari " + (di + 1))) + '</span><span class="df">' + esc(d.focus || "") + '</span></div>' +
+          '<div class="day-b">' + (Array.isArray(d.exercises) ? d.exercises : []).map(function (e) {
+            return '<div class="ex"><div style="flex:1;min-width:0"><div class="en">' + esc(e.name || "") + '</div></div><span class="em">' + (e.sets || 1) + ' × ' + esc(String(e.reps || "")) + '</span></div>';
+          }).join("") + '</div></div>';
+      }).join("") +
+      '<div class="adjrow"><button class="btn" id="plActivate">' + esc(Lx({ en: "Make this my active plan", id: "Jadikan plan aktif" })) + '</button>' +
+      '<a class="btn ghost" href="/activity/plan">' + esc(Lx({ en: "All plans", id: "Semua plan" })) + '</a></div>' +
+      '<div class="disc">' + esc(p.disclaimer || "") + '</div></div>';
+    el("plActivate").onclick = async function () {
+      if (BUSY) return; BUSY = true; clearErr();
+      try {
+        var r2 = await apiFetch("/api/coach/plan/activate", { method: "POST", body: JSON.stringify({ id: row.id }) });
+        var j2 = await r2.json().catch(function () { return {}; });
+        if (!r2.ok) throw new Error(j2.error || "activate");
+        PLAN = j2.plan; VIEW_PLAN_ID = null;
+        try { history.replaceState(null, "", "/activity/plan"); } catch (e) {}
+        BUSY = false; render(); return;
+      } catch (e) { showErr((e && e.message) || Lx({ en: "Couldn't activate the plan.", id: "Gagal mengaktifkan plan." })); }
+      BUSY = false;
+    };
   }
   function ctaBtn(type, icon, title, sub, primary) {
     return '<button type="button" class="cta-b' + (primary ? " primary" : "") + '" data-cta="' + type + '">' +
@@ -644,7 +729,8 @@
       '<div class="card" style="padding:8px 12px 18px">' +
         '<div class="cq-hero"><div class="cq-orb">' + svgIcon("spark", 36) + '</div>' +
         '<h2 class="cq-h">' + esc(Lx({ en: "Consultation", id: "Konsultasi" })) + '</h2>' +
-        '<p class="cq-s">' + esc(Lx({ en: "Pick a coach to consult — each has their own style, and they answer using your real 20FIT data.", id: "Pilih coach untuk konsultasi — tiap coach punya gaya sendiri, dan menjawab pakai data 20FIT kamu yang asli." })) + '</p></div>' +
+        '<p class="cq-s">' + esc(Lx({ en: "Pick a coach to consult — each has their own style, and they answer using your real 20FIT data.", id: "Pilih coach untuk konsultasi — tiap coach punya gaya sendiri, dan menjawab pakai data 20FIT kamu yang asli." })) + '</p>' +
+        '<p class="cq-s" style="margin-top:4px">' + esc(Lx({ en: "Pick the style that suits you — you can switch anytime.", id: "Pilih yang paling cocok dengan kamu — bisa ganti kapan aja." })) + '</p></div>' +
         '<div class="cgrid">' + COACH_LIST.map(function (c) {
           return '<button type="button" class="ccard" data-pick="' + esc(c[0]) + '" style="--cc:' + c[2] + '">' + coachAvatar(c[0], 72) +
             '<span class="cn">' + esc(COACH_NAME[c[0]]) + '</span><span class="ct">' + esc(Lx(c[1])) + '</span></button>';

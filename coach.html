@@ -87,7 +87,15 @@
   .ex .sw{background:none;border:0;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:2px 4px;flex:none}
   .ex .prog{font-size:11.5px;color:var(--a-mut);margin-top:2px}
   .adjrow{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
-  .adjrow .btn{width:auto;flex:1;min-width:130px;padding:11px}
+  a.btn{display:block;box-sizing:border-box;text-align:center;text-decoration:none}
+  .dchk{border:0;background:transparent;font-size:16px;line-height:1;padding:0;cursor:pointer;flex:none}
+  .day.done .dl{text-decoration:line-through;opacity:.7}
+  .plist{display:flex;flex-direction:column;gap:8px}
+  .pli{display:flex;flex-direction:column;gap:3px;padding:11px 12px;border:1px solid var(--a-line);border-radius:12px;text-decoration:none;color:var(--a-txt)}
+  .pli.on{border-color:color-mix(in srgb,var(--accent) 50%,var(--a-line))}
+  .pli .pln{font-weight:800;font-size:13.5px}
+  .pli .pls{font-size:11.5px;color:var(--a-mut)}
+  .adjrow .btn{width:auto;flex:1;min-width:130px;padding:11px;margin-top:0}
 
   /* cta — JANGAN pakai class "cta" utk kontainer: glass-app.css memakai .cta sbg tombol
      PRIMER merah (!important), warnanya bakal nembus sela tombol. Pakai .ctawrap. */
@@ -259,6 +267,6 @@
 <script src="js/auth.js"></script>
 <script src="js/i18n.js?v=20260928d"></script>
 <script src="js/nav.js"></script>
-<script src="js/coach.js?v=20260930a"></script>
+<script src="js/coach.js?v=20260930b"></script>
 </body>
 </html>
