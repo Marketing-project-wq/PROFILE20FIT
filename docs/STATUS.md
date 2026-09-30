@@ -167,6 +167,10 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     `[[ARENA_MAPS]]` `[[VISBODY]]` `[[PLAN_SAVED]]`. Header chat: streak + level.
   - Gamifikasi (XP, level, streak aktivitas, 7 badge baru) **dihitung dari data yang ada** di
     `/api/coach/achievements` — tabel `user_gamification`/`health_scores` dari spec SENGAJA tidak dibuat.
+  - **Kotak profil coach (carousel)** — satu modul `js/coach-profiles.js` + `css/coach-profiles.css`, dipakai
+    `/activity` (menggantikan baris 4 avatar kecil) dan picker `/activity/chat`: foto, tagline, sifat, gaya ngobrol,
+    contoh ucapan, "cocok kalau", lokasi & kelas terdekat (data asli), tombol "Chat dengan <coach>". Isi persona dari
+    deskripsi pemilik; kolom `speciality` roster masih kosong → tidak ditampilkan.
   - `/activity`: alert "Hasil Visbody kamu sudah masuk!" (scan ≤30 hari, tanda "dilihat" per user di
     localStorage — di perangkat lain bisa muncul sekali lagi), Quick Actions, Today's Summary.
     `/dashboard` mengarahkan ke `/activity` SEKALI per scan baru. Calories & Medical punya tombol

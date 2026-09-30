@@ -359,12 +359,8 @@
   .acard-act{font-size:11.5px;font-weight:700;color:var(--fit-red,#E4002B);background:none;border:0;cursor:pointer;text-decoration:none;white-space:nowrap;font-family:inherit;flex:none;padding:0}
   .acard-link{margin-top:auto;padding-top:8px;font-size:11.5px;font-weight:700;color:var(--fit-red,#E4002B);text-decoration:none}
   /* Coach bar */
-  .coach-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px}
-  .coach-avatars{display:flex;flex:none}
-  .coach-avatar-mini{position:relative;width:36px;height:36px;border-radius:50%;overflow:hidden;border:2px solid var(--a-surface);margin-left:-8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;text-decoration:none;flex:none}
-  .coach-avatar-mini:first-child{margin-left:0}
-  .coach-avatar-mini img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
-  .coach-avatar-mini.active{border-color:var(--fit-red,#E4002B);z-index:1}
+  .coach-bar{padding:12px 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px}
+  .coach-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
   .coach-info{flex:1;min-width:120px}
   .coach-active-name{font-size:13px;font-weight:800;color:var(--a-txt)}
   .coach-active-name span{font-weight:600;color:var(--a-mut)}
@@ -479,6 +475,7 @@
      yang sama dengan seluruh app. activity.html tadinya satu-satunya halaman yang
      tidak memuat keduanya — itu sebabnya tampilannya beda sendiri. -->
 <link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/coach-profiles.css">
 <link rel="stylesheet" href="css/glass-app.css">
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 </head>
@@ -518,14 +515,17 @@
     <!-- ALERT hasil Visbody baru (belum dilihat) — diisi loadVisbodyAlert() -->
     <div id="vbAlertBox"></div>
 
-    <!-- COACH — bar horizontal: 4 muka overlapping (aktif = border merah) + aksi cepat -->
+    <!-- COACH — coach aktif + aksi cepat, lalu kotak profil 4 coach yang bisa digeser
+         (js/coach-profiles.js, sama dengan picker /activity/chat) -->
     <div class="coach-bar" id="coachCard">
-      <div class="coach-avatars" id="consultFaces"><div class="skel" style="width:120px;height:36px;border-radius:99px"></div></div>
-      <div class="coach-info">
-        <div class="coach-active-name" id="coachActiveName">Coach</div>
-        <div class="coach-active-label" data-en="Tap a face to chat" data-id="Ketuk muka untuk chat">Ketuk muka untuk chat</div>
+      <div class="coach-row">
+        <div class="coach-info">
+          <div class="coach-active-name" id="coachActiveName">Coach</div>
+          <div class="coach-active-label" data-en="Swipe to meet each coach, then start a chat" data-id="Geser untuk kenalan tiap coach, lalu mulai chat">Geser untuk kenalan tiap coach, lalu mulai chat</div>
+        </div>
+        <div class="coach-acts" id="coachQa"></div>
       </div>
-      <div class="coach-acts" id="coachQa"></div>
+      <div id="coachProfiles"><div class="skel" style="height:220px;border-radius:16px"></div></div>
     </div>
 
     <!-- HEALTH SCORE — angka + bar + breakdown 2 kolom + What You Need (pill) -->
@@ -666,6 +666,7 @@
 <script src="js/i18n.js"></script>
 <script src="js/goal-quiz.js"></script>
 <script src="js/body-scan.js"></script>
+<script src="js/coach-profiles.js"></script>
 <script src="js/nav.js"></script>
 <!-- Dipakai tampilan Progres (halaman Activity lama): pencapaian, siklus, puasa, gizi. -->
 <script src="js/achievements.js"></script>
@@ -1498,27 +1499,25 @@
   // ---- COACH (bar horizontal) ----
   // 4 persona; muka aktif = pilihan terakhir user (my20fit_coach_pick) dengan border merah.
   // Klik muka -> chat coach itu. Foto dari roster CMS /api/coaches (data asli).
-  var CONSULT=[["nando","Nando","#2F6BFF"],["calysta","Calysta","#EC4899"],["rheza","Rheza","#F59E0B"],["elsen","Elsen","#16A34A"]];
   var TPL_BUSY=false, TPL_COACH="nando";
-  try{ var _cp=localStorage.getItem("my20fit_coach_pick"); if(_cp) TPL_COACH=_cp; }catch(e){}
-  var COACH_NAME_TPL={nando:"Nando",calysta:"Calysta",rheza:"Rheza",elsen:"Elsen"};
+  try{ var _cp=localStorage.getItem("my20fit_coach_pick"); if(_cp&&window.CoachProfiles&&CoachProfiles.NAME[_cp]) TPL_COACH=_cp; }catch(e){}
+  var COACH_NAME_TPL=window.CoachProfiles?CoachProfiles.NAME:{nando:"Nando",calysta:"Calysta",rheza:"Rheza",elsen:"Elsen"};
   function coachName(){ return COACH_NAME_TPL[TPL_COACH]||"Nando"; }
-  async function renderConsult(){
-    var host=document.getElementById("consultFaces"); if(!host) return;
-    var photos={};
-    try{
-      var r=await apiFetch("/api/coaches"); var j=await r.json().catch(function(){return {};});
-      ((j&&j.coaches)||[]).forEach(function(c){ var nm=String(c.name||"").trim().toLowerCase(); CONSULT.forEach(function(p){ if(nm==="coach "+p[0]&&c.photo_url) photos[p[0]]=c.photo_url; }); });
-    }catch(e){}
-    host.innerHTML=CONSULT.map(function(p){
-      var ph=photos[p[0]]||"", on=p[0]===TPL_COACH;
-      var inner=ph?'<img src="'+esc(ph)+'" alt="" loading="lazy" decoding="async" onerror="this.remove()">':'';
-      return '<a class="coach-avatar-mini'+(on?' active':'')+'" href="/activity/chat/'+p[0]+'" title="'+esc(p[1])+'" aria-label="'+esc(Lx({en:"Chat with "+p[1],id:"Chat dengan "+p[1]}))+'" style="background:'+p[2]+'">'+
-        '<span class="ini">'+esc(p[1].charAt(0))+'</span>'+inner+'</a>';
-    }).join("");
-    Array.prototype.forEach.call(host.querySelectorAll("a"),function(a){
-      a.addEventListener("click",function(){ try{ localStorage.setItem("my20fit_coach_pick",(a.getAttribute("href").split("coach=")[1]||"nando")); }catch(e){} });
+  // Kotak profil coach (carousel) — coach aktif ditaruh pertama & ditandai. "Chat dengan X" =
+  // simpan pilihan lalu buka /activity/chat/<slug>.
+  function renderCoachProfiles(){
+    var host=document.getElementById("coachProfiles"); if(!host||!window.CoachProfiles) return;
+    host.innerHTML=CoachProfiles.box({ active:TPL_COACH, title:Lx({en:"Meet the coaches",id:"Kenalan sama coach-nya"}) });
+    CoachProfiles.wire(host,function(slug){
+      try{ localStorage.setItem("my20fit_coach_pick",slug); }catch(e){}
+      location.href="/activity/chat/"+encodeURIComponent(slug);
     });
+  }
+  async function loadCoachProfiles(){
+    renderCoachProfiles();
+    if(!window.CoachProfiles) return;
+    await CoachProfiles.loadRoster(); renderCoachProfiles();   // foto & lokasi dari roster CMS
+    CoachProfiles.loadNext();                                    // kelas terdekat (jadwal asli)
   }
   // Aksi cepat auto-message ke chat (mekanisme chat_context sudah ada di coach.js).
   // TODAY'S SUMMARY — dari data hari terpilih (DAY/SLEEP/HYDRA), bukan target. Klik = loncat ke bagiannya.
@@ -1832,7 +1831,7 @@
     await load(SEL);
     loadVisbodyAlert();  // alert hasil Visbody baru (kalau ada & belum dilihat)
     loadHealthScore();   // skor komposit + What You Need + weekly recap — fire-and-forget
-    renderConsult(); renderCoachQa();   // bar coach + aksi cepat (auto-message ke chat) — fire-and-forget
+    loadCoachProfiles(); renderCoachQa();   // kotak profil coach + aksi cepat (auto-message ke chat) — fire-and-forget
     loadWorkoutPlan();   // Active Plan (dari /api/coach/plan) — fire-and-forget
     wirePlanUpload(); loadTodayPlan(); loadLastUpload();   // Upload Progress + Today's Plan — fire-and-forget
     wireTabs();          // tab bar Dashboard/Chat/Plan/History
@@ -1848,7 +1847,7 @@
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
     applyStaticLang(); renderHead(); renderDnav();
     if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek(); }
-    renderSleep(); renderHydra(); loadVisbodyAlert(); renderHealthScore(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadLastUpload();
+    renderSleep(); renderHydra(); loadVisbodyAlert(); renderHealthScore(); renderCoachProfiles(); if(window.CoachProfiles) CoachProfiles.loadNext(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadLastUpload();
   });
 
 </script>
