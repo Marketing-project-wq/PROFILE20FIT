@@ -74,14 +74,6 @@
     return _roster;
   }
 
-  function avatar(slug, size) {
-    size = size || 72;
-    var ph = photo(slug), fs = Math.round(size * 0.4);
-    return '<span class="cpa" style="width:' + size + 'px;height:' + size + 'px;--cc:' + color(slug) + '">' +
-      '<span class="cpa-i" style="font-size:' + fs + 'px">' + esc((NAME[slug] || "?").charAt(0)) + '</span>' +
-      (ph ? '<img src="' + esc(ph) + '" alt="' + esc(NAME[slug] || "") + '" loading="lazy" decoding="async" onerror="this.remove()">' : '') + '</span>';
-  }
-
   function nextHtml(slug) {
     var n = NEXT[slug];
     if (n === undefined) return '<span class="cprof-mut">' + esc(Lx({ en: "Checking schedule…", id: "Cek jadwal…" })) + '</span>';
@@ -112,19 +104,24 @@
   function card(c, active) {
     var slug = c[0], pf = PROFILE[slug] || {}, row = ROSTER[slug] || {};
     var venue = row.venue === "gym" ? "20FIT Gym" : (row.venue === "both" ? "20FIT Arena & Gym" : "20FIT Arena");
+    var ph = photo(slug);
+    // Foto besar di atas kartu (muka jelas, dipotong dari atas seperti /team) + nama di atas foto.
     return '<div class="cprof' + (active ? ' on' : '') + '" style="--cc:' + c[2] + '">' +
-      (active ? '<span class="cprof-badge">' + esc(Lx({ en: "Your coach", id: "Coach kamu" })) + '</span>' : '') +
-      '<div class="cprof-top">' + avatar(slug, 76) +
-        '<div class="cprof-n">Coach ' + esc(NAME[slug]) + '</div>' +
-        '<div class="cprof-tag">' + esc(Lx(c[1])) + '</div>' +
-        '<div class="cprof-v">📍 ' + esc(venue) + '</div></div>' +
+      '<div class="cprof-photo">' +
+        '<span class="cprof-ini">' + esc((NAME[slug] || "?").charAt(0)) + '</span>' +
+        (ph ? '<img src="' + esc(ph) + '" alt="Coach ' + esc(NAME[slug]) + '" loading="lazy" decoding="async" onerror="this.remove()">' : '') +
+        (active ? '<span class="cprof-badge">' + esc(Lx({ en: "Your coach", id: "Coach kamu" })) + '</span>' : '') +
+        '<div class="cprof-ov"><div class="cprof-n">Coach ' + esc(NAME[slug]) + '</div>' +
+        '<div class="cprof-tag">' + esc(Lx(c[1])) + '</div></div></div>' +
+      '<div class="cprof-body">' +
+      '<div class="cprof-v">📍 ' + esc(venue) + '</div>' +
       '<div class="cprof-traits">' + (pf.traits || []).map(function (t) { return '<span>' + esc(Lx(t)) + '</span>'; }).join("") + '</div>' +
       '<div class="cprof-sec"><b>' + esc(Lx({ en: "Coaching style", id: "Gaya ngobrol" })) + '</b>' + esc(Lx(pf.style)) + '</div>' +
       '<div class="cprof-quote">“' + esc(pf.quote || "") + '”</div>' +
       '<div class="cprof-sec"><b>' + esc(Lx({ en: "Great if", id: "Cocok kalau" })) + '</b>' + esc(Lx(pf.fit)) + '</div>' +
       '<div class="cprof-next" data-cp-next="' + esc(slug) + '">' + nextHtml(slug) + '</div>' +
       '<button type="button" class="cprof-go" data-pick="' + esc(slug) + '">💬 ' + esc(Lx({ en: "Chat with ", id: "Chat dengan " }) + NAME[slug]) + '</button>' +
-    '</div>';
+    '</div></div>';
   }
 
   // opts.active = slug coach aktif (ditandai & ditaruh pertama), opts.title = judul kotak.
@@ -162,5 +159,5 @@
     });
   }
 
-  window.CoachProfiles = { LIST: LIST, NAME: NAME, color: color, photo: photo, loadRoster: loadRoster, loadNext: loadNext, avatar: avatar, box: box, wire: wire };
+  window.CoachProfiles = { LIST: LIST, NAME: NAME, color: color, photo: photo, loadRoster: loadRoster, loadNext: loadNext, box: box, wire: wire };
 })();
