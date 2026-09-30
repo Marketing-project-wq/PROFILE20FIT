@@ -10477,6 +10477,15 @@ app.get(["/payment/pending", "/payment/success"], (req, res) => {
 app.get(["/activity/history", "/activity/history.html"], (req, res) => {
   res.sendFile(path.join(__dirname, "activity-history.html"));
 });
+// Ekosistem Activity: chat coach, plan & Visbody di bawah /activity. Halamannya TIDAK
+// diduplikasi — /activity/chat & /activity/plan = coach.html (coach.js membaca path),
+// /activity/visbody = body-scan.html. /coach & /body-scan tetap hidup sebagai nama lama.
+app.get(["/activity/chat", "/activity/chat/:coach", "/activity/plan", "/activity/plan/:id"], (req, res) => {
+  res.sendFile(path.join(__dirname, "coach.html"));
+});
+app.get("/activity/visbody", (req, res) => {
+  res.sendFile(path.join(__dirname, "body-scan.html"));
+});
 // Callback OAuth Google (Supabase redirect balik ke sini) -> auth-callback.html menyeat sesi.
 // Path bertingkat, jadi harus eksplisit sebelum static. Daftarkan URL ini di Supabase
 // -> Authentication -> URL Configuration (Redirect URLs) utk tiap origin.
@@ -10585,7 +10594,7 @@ app.get(/\.html$/, (req, res) => {
 // Blokir berkas/direktori non-publik supaya kode backend & skema DB tidak bisa di-fetch.
 app.use((req, res, next) => {
   const p = req.path;
-  if (/^\/(server\.js|package\.json|package-lock\.json|railway\.toml|README\.md|CLAUDE\.md)$/i.test(p) ||
+  if (/^\/(server\.js|package\.json|package-lock\.json|railway\.toml|README\.md|CLAUDE\.md|RULES\.md)$/i.test(p) ||
       /^\/(db|supabase|docs|archive|node_modules|lib|\.git)(\/|$)/i.test(p)) {
     return res.status(404).sendFile(path.join(__dirname, "index.html"));
   }
