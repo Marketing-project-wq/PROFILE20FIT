@@ -1677,7 +1677,7 @@ app.get("/api/admin/email/automations/:id/dryrun", async (req, res) => {
 // DIPINDAH ke ATAS route pertama (blok "Core middleware") supaya semua route dapat req.body.
 
 // Polling status pembayaran itu MEMANG sering: js/deals.js poll tiap 5 detik selama menunggu
-// (12 req/menit). Dengan limit umum 50/10 menit, user kena limit sendiri setelah ~4 menit
+// (12 req/menit). Dengan limit umum (dulu 50/10 menit), user kena limit sendiri setelah ~4 menit
 // menunggu — padahal invoice Xendit hidup berjam-jam & transfer bank sering >5 menit. Setelah
 // itu 429 dijawab, klien menelannya dan order dianggap BELUM LUNAS selamanya: user sudah bayar
 // tapi kredit tak pernah muncul. Jadi endpoint status (terautentikasi, read-only, idempoten)
@@ -1685,24 +1685,47 @@ app.get("/api/admin/email/automations/:id/dryrun", async (req, res) => {
 const PAYMENT_POLL_PATHS = new Set(["/api/scan/order-status", "/api/scan/reconcile", "/api/photo/scan-status"]);
 const isPollPath = (req) => PAYMENT_POLL_PATHS.has((req.originalUrl || "").split("?")[0]);
 // Proxy gambar preview foto (/api/photo/thumb/:id) = satu request per thumbnail. Satu carousel
-// bisa memuat belasan gambar sekaligus -> jangan dihitung ke ember 50/10mnt (nanti user kehabisan
+// bisa memuat belasan gambar sekaligus -> jangan dihitung ke ember apiLimiter (nanti user kehabisan
 // limit hanya karena membuka dashboard). Punya limiter sendiri yang longgar + cache browser.
 const isImgPath = (req) => { const _p = (req.originalUrl || "").split("?")[0]; return _p.startsWith("/api/photo/thumb/") || _p.startsWith("/api/menu/photo"); };
 // Unggah foto resep (submit resep multi-langkah bisa mengirim belasan gambar beruntun) ->
-// jangan dihitung ke ember 50/10mnt; ada uploadLimiter sendiri di bawah.
+// jangan dihitung ke ember apiLimiter; ada uploadLimiter sendiri di bawah.
 const isMenuUploadPath = (req) => (req.originalUrl || "").split("?")[0].startsWith("/api/menu/upload");
 
 // message berupa OBJEK -> express-rate-limit membalas JSON. Kalau string (default), body-nya
 // text/html dan res.json() di klien meledak -> error ditelan diam-diam (persis bug di atas).
 const limitMsg = { error: "Terlalu banyak permintaan. Coba lagi sebentar lagi.", rate_limited: true };
 
+// Kunci limiter umum = USER yang login (hash token Bearer), bukan IP. Dulu 50/10mnt per IP untuk
+// SEMUA /api/*: satu putaran dashboard (±15 panggilan) + activity (±8) + chat (±8) sudah ±30, dan
+// member sering berbagi satu IP (Wi-Fi kantor/gym, NAT operator seluler) -> chat coach membalas
+// "Terlalu banyak permintaan" padahal user baru mengirim satu pesan. Token TIDAK diverifikasi di
+// sini (mahal); token palsu tetap ditolak di route, dan ipGuard di bawah membatasi total per IP.
+function bearerKey(req) {
+  const h = String(req.headers.authorization || "");
+  const t = h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  return t ? "u:" + crypto.createHash("sha256").update(t).digest("hex").slice(0, 32) : null;
+}
+const userOrIpKey = (req) => bearerKey(req) || "ip:" + req.ip;
+const skipOwnLimiter = (req) => isPollPath(req) || isImgPath(req) || isMenuUploadPath(req); // ditangani pollLimiter/imgLimiter/uploadLimiter di bawah
 const apiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 menit
-  max: 50,
+  max: (req) => (bearerKey(req) ? 400 : 100),   // login: per user · tanpa login: per IP
+  keyGenerator: userOrIpKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: limitMsg,
-  skip: (req) => isPollPath(req) || isImgPath(req) || isMenuUploadPath(req), // ditangani pollLimiter/imgLimiter/uploadLimiter di bawah
+  skip: skipOwnLimiter,
+});
+// Pagar per IP (banjir request / rotasi token palsu). Longgar karena satu IP bisa berisi
+// puluhan member (kantor, gym, NAT seluler).
+const ipGuard = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 3000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limitMsg,
+  skip: skipOwnLimiter,
 });
 const pollLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -1720,17 +1743,22 @@ const imgLimiter = rateLimit({
   legacyHeaders: false,
   message: limitMsg,
 });
+app.use("/api/", ipGuard);
 app.use("/api/", apiLimiter);
+// Endpoint AI berbiaya (chat coach, baca screenshot, rencana) — kuota sendiri per user, supaya
+// longgarnya limiter umum tidak jadi celah biaya AI.
+const aiUserLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 40, keyGenerator: userOrIpKey, skip: (req) => req.method !== "POST", standardHeaders: true, legacyHeaders: false, message: limitMsg });   // GET (mis. /api/coach/chat/history) tidak dihitung
+app.use(["/api/coach/chat", "/api/activity/upload-analyze", "/api/activity/scan", "/api/activity/quick-analysis", "/api/activity/plan"], aiUserLimiter);
 app.use("/api/scan/order-status", pollLimiter);
 app.use("/api/scan/reconcile", pollLimiter);
 app.use("/api/photo/scan-status", pollLimiter);
 app.use("/api/photo/thumb/", imgLimiter);
-app.use("/api/menu/photo", imgLimiter); // foto katalog menu.20fit.id (publik) — kuota longgar, exempt dari apiLimiter 50/10mnt via isImgPath
+app.use("/api/menu/photo", imgLimiter); // foto katalog menu.20fit.id (publik) — kuota longgar, exempt dari apiLimiter via isImgPath
 // Unggah foto resep (submit/revisi, butuh login): longgar utk foto per-langkah beruntun, tetap terbatas.
 const uploadLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: limitMsg });
 app.use("/api/menu/upload", uploadLimiter);
 
-// Limiter KETAT untuk endpoint kredensial — 50/10mnt global terlalu longgar buat
+// Limiter KETAT untuk endpoint kredensial — limiter umum terlalu longgar buat
 // tebak-password / OTP. 12 percobaan / 15 menit / IP masih longgar utk user sah.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -7026,7 +7054,7 @@ app.get("/api/admin/banners/tracking", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Publik: banner aktif utk placement (schedule + active + priority). Rate-limited.
-app.get("/api/banners/active", apiLimiter, async (req, res) => {
+app.get("/api/banners/active", async (req, res) => {
   if (!admin) return res.json({ ok: true, banners: [] });
   try {
     const place = String(req.query.placement || "below_aqi");
@@ -7039,7 +7067,7 @@ app.get("/api/banners/active", apiLimiter, async (req, res) => {
   } catch (e) { return res.json({ ok: true, banners: [] }); }
 });
 // Publik: catat impression/click (balas cepat, proses async, kecualikan bot). Rate-limited.
-app.post("/api/banners/event", apiLimiter, async (req, res) => {
+app.post("/api/banners/event", async (req, res) => {
   res.json({ ok: true });
   try {
     if (!admin) return;
