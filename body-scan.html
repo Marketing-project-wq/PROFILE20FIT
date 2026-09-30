@@ -62,9 +62,10 @@
   .acq ul{margin:8px 0 0;padding-left:18px;font-size:13.5px;line-height:1.6}
   .sample{position:relative;opacity:.92}
   .sample .tag{position:absolute;top:-9px;right:12px;background:var(--amber,#C87000);color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:3px 9px;border-radius:99px}
-  .loc{padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
-  .loc:last-child{border-bottom:0}
-  .loc a{color:var(--red);font-weight:700;text-decoration:none}
+  .loc-cta{margin-top:14px;padding:13px;border-radius:14px;border:1px solid color-mix(in srgb,var(--red) 35%,var(--line));background:color-mix(in srgb,var(--red) 6%,var(--card))}
+  .loc-t{font-weight:800;font-size:14.5px}
+  .loc-a{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .loc-a .btn.ghost{color:var(--txt);border-style:solid}
 </style>
 </head>
 <body>
@@ -313,13 +314,22 @@
   function vi(){ return (JS&&JS.visbody_info)||{}; }
   function scheduleHtml(){
     var v=vi(), href=v.booking_url||(v.whatsapp?"https://api.whatsapp.com/send?phone="+encodeURIComponent(String(v.whatsapp).replace(/[^\d]/g,""))+"&text="+encodeURIComponent(L({en:"Hi 20FIT, I'd like to book a Visbody scan.",id:"Halo 20FIT, saya mau jadwalkan scan Visbody."})):null);
+    var loc=locations()[0];
     return href?'<a class="btn" id="schedBtn" href="'+esc(href)+'">'+esc(L({en:"Schedule a scan",id:"Jadwalkan scan"}))+'</a>':
-      '<p class="muted" style="font-size:13px;margin:0">'+esc(L({en:"Ask the 20FIT team at the location to schedule your scan.",id:"Tanyakan ke tim 20FIT di lokasi untuk jadwal scan."}))+'</p>';
+      '<p class="muted" style="font-size:13px;margin:0">'+esc(loc?L({en:"Come to "+loc.name+" and ask the team for a Visbody scan.",id:"Datang ke "+loc.name+" dan minta scan Visbody ke tim di lokasi."}):L({en:"Ask the 20FIT team at the location to schedule your scan.",id:"Tanyakan ke tim 20FIT di lokasi untuk jadwal scan."}))+'</p>';
+  }
+  // Ajakan scan di unit yang punya alat (config visbody_info.locations) + CTA lokasi & halaman unit.
+  function locations(){ var v=vi(); return Array.isArray(v.locations)?v.locations:[]; }
+  function locHtml(){
+    return locations().map(function(l){
+      return '<div class="loc-cta"><div class="loc-t">'+esc(L({en:"Try the Visbody scan at ",id:"Coba scan Visbody di "})+l.name)+'</div>'+
+        (l.address?'<div class="muted" style="font-size:12.5px;margin-top:2px">'+esc(l.address)+'</div>':'')+
+        '<div class="loc-a">'+(l.maps_url?'<a class="btn" data-vbev="location_maps" href="'+esc(l.maps_url)+'">'+esc(L({en:"Open location (Maps)",id:"Lihat lokasi (Maps)"}))+'</a>':'')+
+        (l.info_url?'<a class="btn ghost" data-vbev="location_site" href="'+esc(l.info_url)+'">'+esc(L({en:"Visit ",id:"Kunjungi "})+l.name)+' →</a>':'')+'</div></div>';
+    }).join("");
   }
   function infoBlocks(){
     var v=vi(), h="";
-    if(Array.isArray(v.locations)&&v.locations.length) h+='<div class="sec">'+esc(L({en:"Where to scan",id:"Lokasi alat"}))+'</div><div class="card">'+v.locations.map(function(l){
-      return '<div class="loc"><b>'+esc(l.name)+'</b>'+(l.address?'<div class="muted" style="font-size:12.5px">'+esc(l.address)+'</div>':'')+(l.maps_url?'<a href="'+esc(l.maps_url)+'">Google Maps →</a>':'')+'</div>'; }).join("")+'</div>';
     if(v.price_note) h+='<div class="sec">'+esc(L({en:"Cost",id:"Biaya"}))+'</div><div class="card" style="font-size:13.5px">'+esc(L(v.price_note))+'</div>';
     if(Array.isArray(v.prep)&&v.prep.length) h+='<div class="sec">'+esc(L({en:"Before your scan",id:"Sebelum scan"}))+'</div><div class="card"><ul style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.6">'+v.prep.map(function(p){ return '<li>'+esc(L(p))+'</li>'; }).join("")+'</ul></div>';
     return h;
@@ -331,7 +341,8 @@
       '<ul><li>'+esc(L({en:"Body fat, muscle mass, skeletal muscle, BMR, BMI, visceral fat and more",id:"Lemak tubuh, massa otot, otot rangka, BMR, BMI, lemak viseral, dan lainnya"}))+'</li>'+
       '<li>'+esc(L({en:"Unlocks your Health Score",id:"Membuka Health Score kamu"}))+'</li>'+
       '<li>'+esc(L({en:"Makes your coach's plan and your calorie target more accurate",id:"Membuat plan dari coach & target kalorimu lebih tepat"}))+'</li></ul>'+
-      '<div style="margin-top:14px">'+scheduleHtml()+'</div>'+
+      locHtml()+
+      '<div style="margin-top:12px">'+scheduleHtml()+'</div>'+
       '<p class="muted" style="font-size:12px;margin:10px 0 0">'+esc(L({en:"After the scan, scan the QR on the scale's screen to save the result to your account.",id:"Setelah scan, pindai QR di layar timbangan untuk menyimpan hasilnya ke akunmu."}))+'</p></div>'+
       '<div class="sec">'+esc(L({en:"What your result looks like",id:"Contoh tampilan hasil"}))+'</div>'+
       '<div class="big sample"><span class="tag">'+esc(L({en:"Example",id:"Contoh"}))+'</span>'+sample.map(function(x){ return '<div class="kv"><div class="k">'+esc(L(x[1]))+'</div><div class="v">'+esc(x[0])+'</div></div>'; }).join("")+'</div>'+
@@ -343,10 +354,14 @@
     if(!has){ box.innerHTML=""; wireSched(); return; }
     box.innerHTML='<div class="sec">'+esc(L({en:"Next scan",id:"Scan berikutnya"}))+'</div><div class="card">'+
       (JS&&JS.rescan_due?'<p class="muted" style="font-size:13px;margin:0 0 10px">'+esc(L({en:"Suggested rescan: ",id:"Saran rescan: "}))+esc(new Date(JS.rescan_due+"T00:00:00").toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{day:"numeric",month:"long",year:"numeric"}))+'</p>':'')+
-      scheduleHtml()+'</div>'+infoBlocks();
+      locHtml()+'<div style="margin-top:10px">'+scheduleHtml()+'</div></div>'+infoBlocks();
     wireSched();
   }
   function wireSched(){
+    Array.prototype.forEach.call(document.querySelectorAll("[data-vbev]"),function(a){
+      a.onclick=function(e){ e.preventDefault(); var href=a.getAttribute("href");
+        authFetch("/api/journey/event",{method:"POST",body:JSON.stringify({event:"visbody_booking_clicked",props:{from:a.getAttribute("data-vbev")}})}).catch(function(){}).then(function(){ location.href=href; }); };
+    });
     var b=$("schedBtn"); if(!b) return;
     b.onclick=function(e){ e.preventDefault(); var href=b.getAttribute("href");
       authFetch("/api/journey/event",{method:"POST",body:JSON.stringify({event:"visbody_booking_clicked",props:{from:"visbody_page"}})}).catch(function(){}).then(function(){ location.href=href; }); };

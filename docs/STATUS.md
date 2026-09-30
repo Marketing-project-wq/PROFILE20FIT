@@ -170,8 +170,10 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     **Pengingat rescan** = nudge di /activity (belum ada email/WA — TANYA PEMILIK kalau mau kanal lain).
   - **/activity/visbody:** penjelasan awam per parameter (tanpa diagnosis; rentang normal hanya dari data Visbody),
     perbandingan dgn scan sebelumnya (sudah ada), unduh PDF kalau Visbody memberi `pdf_url`. Belum pernah scan →
-    halaman ajakan: manfaat, contoh hasil berlabel "Contoh", lokasi/biaya/persiapan/tombol jadwal dari config —
-    **semua masih null (belum diberikan pemilik) sehingga TIDAK tampil**; tombol jadwal diganti teks "tanyakan ke tim".
+    halaman ajakan: manfaat, contoh hasil berlabel "Contoh", **ajakan scan di 20FIT Arena** (tombol Maps = link pemilik,
+    tombol Kunjungi 20FIT Arena = arena.20fit.id — asumsi agent), biaya/persiapan/tombol jadwal dari config — **masih null
+    sehingga TIDAK tampil**; tanpa tombol jadwal teksnya "datang ke 20FIT Arena dan minta scan ke tim". Klik CTA lokasi
+    tercatat sebagai `visbody_booking_clicked` (from: location_maps / location_site).
   - **Nudge** (batas frekuensi per user di `my20fit_health_journey.nudges`): belum scan + ≥3 workout → ajakan Visbody;
     scan terakhir > 30 hari → ajakan rescan. AI Coach: ajakan Visbody maks 1x per sesi (server menambah pengingat).
     **Belum dibuat:** pengingat "sekalian scan setelah kelas" — tidak ada data booking kelas per user di my.20fit

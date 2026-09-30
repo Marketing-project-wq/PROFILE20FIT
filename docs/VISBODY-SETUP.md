@@ -172,10 +172,11 @@ bisa meminta ulang).
 
 ## Bagian 4b — Info alat untuk member (halaman /activity/visbody)
 
-Isi `visbody_info` di `lib/journey-config.js` — **semuanya masih null**, jadi halaman ajakan belum menampilkan
-lokasi, biaya, persiapan, maupun tombol "Jadwalkan scan" (tidak dikarang):
-`locations` (unit 20FIT yang punya alat), `price_note` (biaya/promo scan), `booking_url` ATAU `whatsapp`
-(cara menjadwalkan), `prep` (persiapan sebelum scan — divalidasi tim klinik).
+Isi `visbody_info` di `lib/journey-config.js`. **Sudah terisi (2026-09-30):** `locations` = 20FIT Arena
+(Menteng Prada; link Maps dari pemilik; halaman unit `https://arena.20fit.id` — asumsi agent, koreksi kalau keliru)
+→ kartu "Coba scan Visbody di 20FIT Arena" + tombol Maps & Kunjungi 20FIT Arena di /activity/visbody.
+**Masih null (tidak ditampilkan, tidak dikarang):** `price_note` (biaya/promo), `booking_url` ATAU `whatsapp`
+(cara menjadwalkan — tanpa ini teksnya "datang ke 20FIT Arena dan minta scan ke tim"), `prep` (persiapan — tim klinik).
 
 ---
 
