@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-29 · **Commit staging:** `9e8da40` · **Production:** `8a81154`
+> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `5f30f1c` · **Production:** `5966889`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -154,6 +154,28 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Ekosistem Activity: AI Coach chat + alur Visbody (2026-09-30, staging dulu).** Aturan chatbot: `RULES.md`.
+  - Route baru (tanpa halaman duplikat): `/activity/chat`, `/activity/chat/:coach`, `/activity/plan[/:id]` →
+    `coach.html`; `/activity/visbody` → `body-scan.html`. `/coach` & `/body-scan` tetap hidup.
+    `/activity/plan/:id` saat ini selalu menampilkan **plan aktif** (belum ada daftar riwayat plan).
+  - Chat: balasan berisi blok JSON `workout_plan` → otomatis jadi plan aktif (`my20fit_workout_plan`,
+    `source="chat"`); kelas upcoming milik coach persona masuk konteks (rekomendasi kelas coach sendiri);
+    ajakan Visbody scan kalau user belum punya data; token tombol `[[BOOK_CLASS]]` `[[BOOK_DOCTOR]]`
+    `[[ARENA_MAPS]]` `[[VISBODY]]` `[[PLAN_SAVED]]`. Header chat: streak + level.
+  - Gamifikasi (XP, level, streak aktivitas, 7 badge baru) **dihitung dari data yang ada** di
+    `/api/coach/achievements` — tabel `user_gamification`/`health_scores` dari spec SENGAJA tidak dibuat.
+  - `/activity`: alert "Hasil Visbody kamu sudah masuk!" (scan ≤30 hari, tanda "dilihat" per user di
+    localStorage — di perangkat lain bisa muncul sekali lagi), Quick Actions, Today's Summary.
+    `/dashboard` mengarahkan ke `/activity` SEKALI per scan baru. Calories & Medical punya tombol
+    "tanya coach" (`?ask=` hanya mengisi kotak pesan, tidak auto-kirim).
+  - Model chat: server kirim `tier:"complex"` untuk plan/analisa; edge `my20fit-ai` memakai env
+    `AI_MODEL_CHAT_COMPLEX` (default = `AI_MODEL_CHAT`). **Perubahan edge fn BELUM di-deploy** dan env
+    belum di-set — **TANYA PEMILIK** model apa yang mau dipakai (biaya OpenRouter).
+  - **TANYA PEMILIK:** URL "Book Visit" untuk Visbody scan (sekarang chatbot memakai Google Maps Arena + Book Class).
+- **Hotfix (2026-09-30, sudah di production):** halaman di path bertingkat (`/auth/callback`,
+  `/activity/history`, `/payment/*`) memuat `js/*.js` relatif → diminta di `/auth/js/...` → catch-all
+  `index.html` → skrip tak jalan (login Google via `/auth/callback` ikut rusak). Semua halaman path
+  bertingkat kini WAJIB `<base href="/">` (catatan di `server.js`).
 - **Health Score ikut data upload + dashboard `/activity` versi ringkas (2026-09-29, staging dulu).**
   - `GET /api/activity/health-score` kini membaca juga `my20fit_activity_uploads` (screenshot
     jam/app kesehatan), `my20fit_sleep`, `my20fit_hydration` selain workout/daily_log/Visbody/MCU.
