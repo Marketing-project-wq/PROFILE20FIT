@@ -74,17 +74,6 @@
   .dpill3.on .d3d{color:rgba(255,255,255,.85)}
   .dpill3:disabled{opacity:.4;cursor:default}
 
-  /* 3. Upload */
-  .drop{border:1.5px dashed var(--glass-brd,var(--a-line));border-radius:var(--radius,14px);padding:26px 16px;
-    text-align:center;cursor:pointer;background:var(--glass-2,transparent)}
-  .drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
-  /* Sorotan sesaat saat pemandu "Tambahkan workout dulu" melempar ke sini. */
-  .drop.hl{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 22%,transparent)}
-  .needl{margin:10px 0 14px;padding-left:20px;font-size:13px;line-height:1.7;color:var(--a-mut)}
-  .drop svg{width:26px;height:26px;stroke:var(--a-mut);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-  .drop .t{font-weight:700;font-size:14.5px;margin-top:8px}
-  .drop .s{font-size:12.5px;color:var(--a-mut);margin-top:3px}
-
   /* 4. Workout card */
   .wo-h{display:flex;align-items:center;gap:11px}
   .wo-ic{width:40px;height:40px;border-radius:11px;background:color-mix(in srgb,var(--strava) 16%,transparent);
@@ -109,66 +98,6 @@
   .hrz-l i{width:8px;height:8px;border-radius:99px;display:inline-block}
   .hrz-cap{margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--a-mut)}
 
-  /* 5. AI analysis */
-  /* Skin kaca menyetel .card{background:...!important}, jadi gradient biasa akan kalah.
-     Pola tint ini menyalin cara repo melakukannya untuk .card.up — semburat di ATAS kaca. */
-  .card.ai{background:color-mix(in srgb,var(--accent) 7%,var(--glass,var(--a-surface))) !important;position:relative;overflow:hidden}
-  /* Radial-glow sudut (adopsi mockup) — pakai token --accent, halus di light & dark */
-  .card.ai::before{content:"";position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:99px;
-    background:radial-gradient(circle,color-mix(in srgb,var(--accent) 22%,transparent),transparent 70%);pointer-events:none;z-index:0}
-  .card.ai>*{position:relative;z-index:1}
-  .ai-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-  .ai-h svg{width:17px;height:17px;fill:var(--accent)}
-  .ai-h .t{font-weight:800;font-size:14px}
-  .ai-h .b{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:.5px;padding:3px 8px;border-radius:99px;
-    background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
-  .ai p{margin:0;font-size:13.5px;line-height:1.65}
-  .hl{display:inline;padding:1px 7px;border-radius:99px;font-weight:700;font-size:12.5px;white-space:nowrap}
-  .hl.good{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
-  .hl.warning{background:color-mix(in srgb,var(--amber) 18%,transparent);color:var(--amber)}
-  .hl.critical{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
-
-  /* 6. Score card (dinaikkan ke atas, gaya mockup) + gaps */
-  .scoretop{margin-bottom:12px}
-  .stpwrap{display:flex;align-items:center;gap:16px}
-  .stpinfo{flex:1;min-width:0}
-  .stpt{font-size:16px;font-weight:700}
-  .stpmsg{font-size:13.5px;line-height:1.5;margin-top:4px}
-  .ringw{position:relative;width:118px;height:118px;flex:none}
-  .ringw svg{transform:rotate(-90deg)}
-  .ringw .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-  .ringw .n b{font-size:29px;font-family:var(--mono);font-weight:700;line-height:1}
-  .ringw .n s{font-size:10px;color:var(--a-mut);text-decoration:none;letter-spacing:.6px;text-transform:uppercase;margin-top:3px;font-weight:700}
-  /* Badge status skor + selisih vs kemarin (adopsi mockup) */
-  .sbadge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:11.5px;font-weight:800;align-self:flex-start}
-  .sbadge i{width:8px;height:8px;border-radius:99px;flex:none}
-  .gaps{display:flex;flex-direction:column;gap:7px}
-  .gap{display:flex;align-items:center;gap:8px;font-size:12.5px}
-  .gap i{width:7px;height:7px;border-radius:99px;flex:none}
-  .gap .v{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--a-mut)}
-
-  /* 7. Goals */
-  .gh{display:flex;align-items:center;gap:8px;margin:-16px -16px 12px;padding:14px 16px;border-radius:13px 13px 0 0;
-    background:linear-gradient(100deg,color-mix(in srgb,var(--accent) 14%,transparent),color-mix(in srgb,var(--purple) 14%,transparent))}
-  .gh svg{width:16px;height:16px;fill:var(--accent)}
-  .gh .t{font-weight:800;font-size:13.5px}
-  .gh .c{margin-left:auto;font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--a-mut)}
-  .goal{display:flex;gap:11px;padding:10px 0;border-top:1px solid var(--a-line);cursor:pointer}
-  .goal:first-of-type{border-top:0}
-  .cb{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--a-line);flex:none;margin-top:1px;
-    display:flex;align-items:center;justify-content:center}
-  .cb svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0}
-  .goal.done .cb{background:var(--green);border-color:var(--green)}
-  .goal.done .cb svg{opacity:1}
-  .goal.done .gt{text-decoration:line-through;color:var(--a-mut)}
-  .gt{font-size:13.5px;font-weight:600;line-height:1.35}
-  .gd{font-size:12px;color:var(--a-mut);margin-top:2px;line-height:1.45}
-  .gtime{font-size:11px;font-family:var(--mono);color:var(--a-mut);margin-top:3px}
-  .cat{font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;flex:none;align-self:flex-start;margin-left:auto;white-space:nowrap}
-  .cat.exercise{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
-  .cat.nutrition{background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green)}
-  .cat.habit{background:color-mix(in srgb,var(--purple) 16%,transparent);color:var(--purple)}
-  .cat.recovery{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber)}
 
   /* 9. Habits */
   .chips{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
@@ -330,18 +259,53 @@
   .shh .r{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--a-mut)}
   .hbar{height:12px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden;margin:10px 0 6px}
   .hbar i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .4s cubic-bezier(.2,.8,.2,1)}
-  .hyq{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-  .hyq button{display:inline-flex;align-items:center;gap:6px;padding:9px 12px;border-radius:10px;border:1px solid var(--glass-hair,var(--a-line));
-    background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));box-shadow:var(--glass-sh,none);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
-  .hyc{display:flex;gap:8px;margin-top:10px}
-  .hyc input{flex:1;min-width:0;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px}
-  .hyc button{flex:0 0 auto;padding:0 16px;border-radius:9px;border:0;background:var(--accent);color:#fff;font-weight:800;cursor:pointer;font-family:inherit}
   .hlog{margin-top:12px}
   .hlog .row{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--a-line);font-size:13px}
   .hlog .row:first-child{border-top:0}
   .hlog .row .tm{font-family:var(--mono);font-size:12px;color:var(--a-mut);width:44px;flex:none}
   .hlog .row .amt{margin-left:auto;font-family:var(--mono);font-weight:700}
   .hlog .row .del{background:none;border:0;color:var(--a-mut);cursor:pointer;font-size:14px;padding:0 2px;font-family:inherit}
+  /* Hidrasi — 8 gelas yang bisa diketuk; level air = --lv (0..1), naik/turun lewat transition */
+  .hy{--hy-w:color-mix(in srgb,var(--accent) 78%,var(--cyan));position:relative;overflow:hidden}
+  .hy::before{content:"";position:absolute;left:-40px;bottom:-70px;width:200px;height:160px;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle,color-mix(in srgb,var(--cyan) 16%,transparent),transparent 70%)}
+  .hy>*{position:relative}
+  .hy-top{display:flex;align-items:center;gap:10px}
+  .hy-num{display:flex;align-items:baseline;gap:6px}
+  .hy-num b{font-size:30px;font-weight:800;font-family:var(--mono);line-height:1;color:var(--hy-w)}
+  .hy-num span{font-size:13px;color:var(--a-mut);font-weight:700}
+  .hy-add{margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:8px 12px;border-radius:99px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;
+    border:1px solid color-mix(in srgb,var(--hy-w) 40%,transparent);background:color-mix(in srgb,var(--hy-w) 12%,transparent);color:var(--a-txt);transition:transform .12s}
+  .hy-add:active{transform:scale(.95)}
+  .hy-sub{font-size:12.5px;color:var(--a-mut);margin-top:5px;min-height:18px}
+  .hy-ok{color:var(--fit-green,#16A34A);font-weight:800;display:inline-flex;align-items:center;gap:4px}
+  .hy-row{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;margin-top:12px}
+  .hy-g{position:relative;padding:0;border:0;background:none;cursor:pointer;aspect-ratio:40/52;-webkit-tap-highlight-color:transparent;border-radius:10px}
+  .hy-g:focus-visible{outline:2px solid var(--hy-w);outline-offset:2px}
+  .hy-g svg{width:100%;height:100%;display:block;overflow:visible}
+  .hy-cup{fill:color-mix(in srgb,var(--a-txt) 4%,transparent);stroke:color-mix(in srgb,var(--a-txt) 28%,transparent);stroke-width:1.8;stroke-linejoin:round;transition:stroke .3s}
+  .hy-g.on .hy-cup{stroke:var(--hy-w);fill:none}
+  .hy-shine{stroke:#fff;stroke-width:2;stroke-linecap:round;opacity:.0;transition:opacity .3s}
+  .hy-g.on .hy-shine{opacity:.45}
+  .hy-plus{stroke:color-mix(in srgb,var(--a-txt) 35%,transparent);stroke-width:2;stroke-linecap:round;opacity:0;transition:opacity .2s}
+  .hy-g.next .hy-plus{opacity:1}
+  .hy-lvl{transform:translateY(calc((1 - var(--lv,0)) * 44px));transition:transform .75s cubic-bezier(.3,1.35,.5,1) var(--dl,0ms)}
+  .hy-wave{fill:var(--hy-w)}
+  .hy-g.on .hy-wave{animation:hywave 2.4s linear infinite}
+  @keyframes hywave{from{transform:translateX(0)}to{transform:translateX(20px)}}
+  .hy-g.pop{animation:hypop .42s cubic-bezier(.3,1.6,.5,1)}
+  @keyframes hypop{0%{transform:scale(1)}35%{transform:scale(.86)}100%{transform:scale(1)}}
+  .hy.done .hy-g.on .hy-cup{stroke:var(--fit-green,#16A34A)}
+  .hy-hint{font-size:11.5px;color:var(--a-mut);margin-top:8px;text-align:center}
+  .hy-log{margin-top:10px;border-top:1px solid var(--a-line);padding-top:8px}
+  .hy-log summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--a-mut);list-style:none}
+  .hy-log summary::-webkit-details-marker{display:none}
+  .hy-log summary::after{content:" ▾"}
+  .hy-log[open] summary::after{content:" ▴"}
+  .hy-log .hlog{margin-top:4px}
+  @media(prefers-reduced-motion:reduce){
+    .hy-lvl{transition:none} .hy-g.on .hy-wave,.hy-g.pop,.upx-spin{animation:none}
+  }
   .qz{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:4px}
   .qz button{padding:8px 3px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;text-align:center;line-height:1.5}
   .qz button.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -357,7 +321,6 @@
   .acard-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--a-mut);display:flex;align-items:center;gap:6px;min-width:0}
   @media(max-width:767px){ .acard-title{font-size:11px} }
   .acard-act{font-size:11.5px;font-weight:700;color:var(--fit-red,#E4002B);background:none;border:0;cursor:pointer;text-decoration:none;white-space:nowrap;font-family:inherit;flex:none;padding:0}
-  .acard-link{margin-top:auto;padding-top:8px;font-size:11.5px;font-weight:700;color:var(--fit-red,#E4002B);text-decoration:none}
   /* Coach bar */
   .coach-bar{padding:12px 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px}
   .coach-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
@@ -471,14 +434,45 @@
   .ts-v{font-size:16px;font-weight:800;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ts-s{font-size:11.5px;color:var(--a-mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ts-s.ok{color:var(--fit-green);font-weight:700} .ts-s.low{color:var(--fit-amber);font-weight:700}
-  .dual-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-  @media(max-width:767px){ .dual-cards{gap:8px} }
-  .up-s{font-size:12px;color:var(--a-mut);line-height:1.4}
-  .up-btns{display:flex;gap:6px;margin:10px 0 8px;flex-wrap:wrap}
-  .up-btns button{flex:1;min-width:0;padding:8px 6px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
-  .up-btns button:first-child{background:var(--fit-red,#E4002B);border-color:var(--fit-red,#E4002B);color:#fff}
-  .up-last{font-size:11.5px;color:var(--a-txt);line-height:1.4;margin-top:auto}
-  .up-last span{color:var(--a-mut)}
+  /* Upload progress — satu kartu: zona drop + 3 tombol + status + "Terakhir:" */
+  .upx{position:relative;overflow:hidden;border-radius:18px;padding:14px;border:1px solid var(--a-line);
+    background:linear-gradient(135deg,color-mix(in srgb,var(--fit-red,#E4002B) 9%,var(--a-surface)),var(--a-surface) 55%,color-mix(in srgb,var(--accent) 8%,var(--a-surface)));
+    transition:box-shadow .25s,border-color .25s}
+  .upx::after{content:"";position:absolute;right:-50px;top:-60px;width:170px;height:170px;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle,color-mix(in srgb,var(--fit-red,#E4002B) 16%,transparent),transparent 70%)}
+  .upx>*{position:relative;z-index:1}
+  .upx.over,.upx.hl{border-color:var(--fit-red,#E4002B);box-shadow:0 0 0 4px color-mix(in srgb,var(--fit-red,#E4002B) 18%,transparent)}
+  .upx-drop{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;cursor:pointer;
+    border:1.5px dashed color-mix(in srgb,var(--a-txt) 18%,transparent);background:color-mix(in srgb,var(--a-surface) 60%,transparent);transition:border-color .2s,background .2s}
+  .upx-drop:hover,.upx-drop:focus-visible,.upx.over .upx-drop{border-color:var(--fit-red,#E4002B);background:color-mix(in srgb,var(--fit-red,#E4002B) 6%,var(--a-surface));outline:none}
+  .upx-ic{width:46px;height:46px;border-radius:14px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;
+    background:linear-gradient(145deg,var(--fit-red,#E4002B),color-mix(in srgb,var(--fit-red,#E4002B) 70%,#ff8a3d));
+    box-shadow:0 8px 18px color-mix(in srgb,var(--fit-red,#E4002B) 30%,transparent)}
+  .upx-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .upx-t{font-weight:800;font-size:15px;letter-spacing:-.1px}
+  .upx-s{font-size:12px;color:var(--a-mut);line-height:1.45}
+  .upx-btns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+  .upx-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:10px 6px;border-radius:11px;
+    border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;
+    transition:transform .12s,background .2s}
+  .upx-b span:last-child{overflow:hidden;text-overflow:ellipsis}
+  .upx-b:active{transform:scale(.97)}
+  .upx-b.pri{background:var(--fit-red,#E4002B);border-color:var(--fit-red,#E4002B);color:#fff}
+  .upx-b:disabled{opacity:.5;cursor:default}
+  .upx-prog{display:flex;align-items:center;gap:9px;margin-top:10px;padding:9px 11px;border-radius:11px;font-size:12.5px;font-weight:700;
+    background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--a-txt)}
+  .upx-prog[hidden]{display:none}
+  .upx-prog.ok{background:color-mix(in srgb,var(--fit-green,#16A34A) 14%,transparent)}
+  .upx-spin{width:15px;height:15px;border-radius:50%;flex:none;border:2px solid color-mix(in srgb,var(--accent) 30%,transparent);border-top-color:var(--accent);animation:upxspin .8s linear infinite}
+  .upx-prog.ok .upx-spin{animation:none;border:0;background:var(--fit-green,#16A34A);
+    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4L19 6.5'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4L19 6.5'/%3E%3C/svg%3E") center/contain no-repeat}
+  .upx.busy .upx-drop{pointer-events:none;opacity:.6}
+  @keyframes upxspin{to{transform:rotate(360deg)}}
+  .upx-last{font-size:11.5px;color:var(--a-txt);line-height:1.4;margin-top:9px}
+  .upx-last:empty{display:none}
+  .upx-last span{color:var(--a-mut)}
+  @media(max-width:420px){ .upx-b{font-size:11.5px;gap:4px;padding:10px 4px} .upx-b .fic{display:none} }
   .wr-days{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;margin-bottom:8px}
   .wr-day{display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--a-mut);font-weight:700;padding:3px 0;border-radius:7px}
   .wr-day .m{font-size:12px;min-height:16px;line-height:16px}
@@ -557,9 +551,6 @@
 
   <div id="errBox"></div>
 
-  <!-- Kartu skor (renderScore) — hanya muncul kalau ada rencana harian -->
-  <div id="scoreTop"></div>
-
   <!-- ================= DASHBOARD: Coach → Health Score → Upload/Recap → Today's Plan → Active Plan =================
        Susunan compact (redesign): skor = bar horizontal (bukan ring besar), breakdown 2 kolom,
        What You Need = pill, Upload & Weekly Recap berdampingan (tetap 2 kolom di mobile). -->
@@ -597,24 +588,32 @@
     <!-- TODAY'S SUMMARY — angka nyata hari terpilih (workout / tidur / air) -->
     <div class="ts-grid" id="todaySumBox"></div>
 
-    <!-- 2 kartu berdampingan (juga di mobile) -->
-    <div class="dual-cards">
-      <div class="acard" id="uploadCard">
-        <div class="acard-hd"><span class="acard-title"><span class="fic" data-ic="upload" data-ic-size="14"></span> <span data-en="Upload Progress" data-id="Upload Progress">Upload Progress</span></span></div>
-        <div class="up-s" data-en="Upload a workout, sleep or daily-activity screenshot" data-id="Upload screenshot workout, sleep, atau daily activity">Upload screenshot workout, sleep, atau daily activity</div>
-        <div class="up-btns">
-          <button type="button" id="upCam"><span class="fic" data-ic="camera" data-ic-size="16"></span> <span data-en="Photo" data-id="Foto">Foto</span></button>
-          <button type="button" id="upFile"><span class="fic" data-ic="folder" data-ic-size="16"></span> <span data-en="File" data-id="File">File</span></button>
-        </div>
-        <div class="up-last" id="upLast"></div>
-        <input type="file" id="tplCam" accept="image/*" capture="environment" style="display:none">
-        <input type="file" id="tplFile" accept="image/*,.heic,.heif" style="display:none">
+    <!-- UPLOAD PROGRESS — SATU pintu upload (dulu dua: kartu "Upload Progress" + "Upload your workout").
+         Gambar dibaca AI -> jenisnya dikenali (workout / tidur / aktivitas harian / berat):
+         selalu memperbarui Today's Plan + Health Score; kalau workout, dialog pencatatan workout terbuka. -->
+    <div class="upx" id="uploadCard">
+      <div class="upx-drop" id="upDrop" tabindex="0" role="button" aria-describedby="upHint">
+        <span class="upx-ic"><span class="fic" data-ic="upload" data-ic-size="22"></span></span>
+        <span class="upx-txt">
+          <span class="upx-t" data-en="Upload your progress" data-id="Upload progress kamu">Upload progress kamu</span>
+          <span class="upx-s" id="upHint" data-en="Workout, sleep, steps or weight screenshot — up to 5 at once. AI reads the numbers and updates today's plan." data-id="Screenshot workout, tidur, langkah, atau berat — bisa 5 sekaligus. AI membaca angkanya & memperbarui plan hari ini.">Screenshot workout, tidur, langkah, atau berat — bisa 5 sekaligus. AI membaca angkanya &amp; memperbarui plan hari ini.</span>
+        </span>
       </div>
-      <div class="acard" id="weeklyRecapCard">
-        <div class="acard-hd"><span class="acard-title"><span class="fic" data-ic="calendar" data-ic-size="14"></span> <span data-en="Weekly Recap" data-id="Weekly Recap">Weekly Recap</span></span></div>
-        <div id="weeklyRecapBox"><div class="skel" style="height:64px;border-radius:10px"></div></div>
-        <a class="acard-link" href="/activity/history" data-en="See details →" data-id="Lihat Detail →">Lihat Detail →</a>
+      <div class="upx-prog" id="upProg" hidden><span class="upx-spin" aria-hidden="true"></span><span id="upProgTxt"></span></div>
+      <div class="upx-btns">
+        <button type="button" class="upx-b pri" id="upCam"><span class="fic" data-ic="camera" data-ic-size="16"></span> <span data-en="Camera" data-id="Kamera">Kamera</span></button>
+        <button type="button" class="upx-b" id="upFile"><span class="fic" data-ic="folder" data-ic-size="16"></span> <span data-en="Gallery / file" data-id="Galeri / file">Galeri / file</span></button>
+        <button type="button" class="upx-b" id="upManual"><span class="fic" data-ic="dumbbell" data-ic-size="16"></span> <span data-en="Log workout" data-id="Isi workout">Isi workout</span></button>
       </div>
+      <div class="upx-last" id="upLast"></div>
+      <input type="file" id="upCamIn" accept="image/*" capture="environment" hidden>
+      <input type="file" id="upFileIn" accept="image/*,.heic,.heif" multiple hidden>
+    </div>
+
+    <div class="acard" id="weeklyRecapCard">
+      <div class="acard-hd"><span class="acard-title"><span class="fic" data-ic="calendar" data-ic-size="14"></span> <span data-en="Weekly Recap" data-id="Weekly Recap">Weekly Recap</span></span>
+        <a class="acard-act" href="/activity/history" data-en="See details →" data-id="Lihat Detail →">Lihat Detail →</a></div>
+      <div id="weeklyRecapBox"><div class="skel" style="height:64px;border-radius:10px"></div></div>
     </div>
 
     <!-- TODAY'S PLAN — 4 mini kartu (workout/makan/tidur/hidrasi) + coach says -->
@@ -628,13 +627,7 @@
   <div class="dgrid">
   <!-- 4. WORKOUT -->
   <div class="sechd" data-i18n="act_sec_workout">Workout</div>
-  <!-- Log workout dari 1–5 screenshot tracker (dibaca jadi SATU sesi, lalu disimpan ke log). -->
-  <div class="drop" id="drop" tabindex="0" role="button">
-    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    <div class="t" data-i18n="act_up_t">Upload hasil workout</div>
-    <div class="s" data-i18n="act_up_s">Screenshot, foto, atau file dari tracker kamu — bisa 5 sekaligus</div>
-  </div>
-  <input type="file" id="file" accept="image/*,.heic,.heif" multiple style="display:none">
+  <!-- Daftar workout hari terpilih. Upload-nya lewat kartu "Upload progress" di atas (#uploadCard). -->
   <div id="woBox"></div>
   <!-- Post-workout meal (S3): saran isi ulang setelah ada workout di hari terpilih -->
   <div id="pwMealBox"></div>
@@ -649,13 +642,6 @@
   <div id="sleepBox"></div>
   <div id="hydraBox"></div>
 
-
-  <!-- 5. AI ANALYSIS (analisis harian) + 6. SCORE -->
-  <div class="sechd" data-i18n="act_sec_ai">AI Coach</div>
-  <div id="aiBox"></div>
-
-  <!-- 7. GOALS -->
-  <div id="goalBox"></div>
 
   <!-- Kartu "Nutrisi 2x2" SENGAJA TIDAK ADA di sini: kartu "Overall - Hari Ini" milik
        halaman lama (di bawah) sudah menampilkan Kalori/Protein/Karbo/Lemak/Air/Tidur
@@ -722,7 +708,6 @@
 <script src="js/vendor-supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/i18n.js"></script>
-<script src="js/goal-quiz.js"></script>
 <script src="js/body-scan.js"></script>
 <script src="js/coach-profiles.js"></script>
 <script src="js/nav.js"></script>
@@ -793,16 +778,47 @@
     });
   }
 
-  // ---- 3. Upload (langsung saja; tombol sync tracker dihapus atas permintaan pemilik) ----
+  // ---- 3. Upload progress — SATU pintu upload (kartu #uploadCard) ----
+  // Dulu ada dua kartu: "Upload Progress" (1 gambar -> upload-analyze -> Today's Plan) dan
+  // "Upload your workout" (1–5 gambar -> scan -> dialog workout). Sekarang satu alur:
+  // gambar pertama ke /api/activity/upload-analyze (kenali jenis + Today's Plan + riwayat upload
+  // untuk Health Score) dan SEMUA gambar ke /api/activity/scan (pembaca workout) — paralel supaya
+  // user tidak menunggu dua kali. Dialog pencatatan workout HANYA dibuka kalau hasilnya workout.
+  var UP_BUSY=false, UP_FLASH=null;
+  function upPick(){ if(UP_BUSY) return; var f=document.getElementById("upFileIn"); if(f) f.click(); }
   function wireUpload(){
-    var drop=document.getElementById("drop"), file=document.getElementById("file");
-    drop.onclick=function(){ file.click(); };
-    drop.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); file.click(); } };
-    ["dragenter","dragover"].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.add("over"); }); });
-    ["dragleave","drop"].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.remove("over"); }); });
-    drop.addEventListener("drop",function(e){ handleFiles(e.dataTransfer&&e.dataTransfer.files); });
-    file.onchange=function(){ handleFiles(file.files); file.value=""; };
+    var card=document.getElementById("uploadCard"), drop=document.getElementById("upDrop");
+    drop.onclick=upPick;
+    drop.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); upPick(); } };
+    ["dragenter","dragover"].forEach(function(ev){ card.addEventListener(ev,function(e){ e.preventDefault(); card.classList.add("over"); }); });
+    card.addEventListener("dragleave",function(e){ if(!card.contains(e.relatedTarget)) card.classList.remove("over"); });
+    card.addEventListener("drop",function(e){ e.preventDefault(); card.classList.remove("over"); handleFiles(e.dataTransfer&&e.dataTransfer.files); });
+    document.getElementById("upCam").onclick=function(){ if(!UP_BUSY) document.getElementById("upCamIn").click(); };
+    document.getElementById("upFile").onclick=upPick;
+    document.getElementById("upManual").onclick=function(){ PENDING_URLS=[]; PENDING_AI=null; openDlg(); };
+    ["upCamIn","upFileIn"].forEach(function(id){
+      var f=document.getElementById(id);
+      f.onchange=function(){ var l=Array.prototype.slice.call(f.files||[]); f.value=""; handleFiles(l); };
+    });
   }
+  // Status di dalam kartu: txt = sedang proses (spinner); ok = selesai (centang, hilang sendiri).
+  function upProg(txt,ok){
+    var card=document.getElementById("uploadCard"), box=document.getElementById("upProg"); if(!card||!box) return;
+    clearTimeout(UP_FLASH);
+    card.classList.toggle("busy",!!txt&&!ok);
+    box.classList.toggle("ok",!!ok); box.hidden=!txt;
+    document.getElementById("upProgTxt").textContent=txt||"";
+    Array.prototype.forEach.call(card.querySelectorAll(".upx-b"),function(b){ b.disabled=!!txt&&!ok; });
+    if(ok) UP_FLASH=setTimeout(function(){ upProg(""); },5000);
+  }
+  async function upPost(url,body){
+    try{
+      var r=await apiFetch(url,{method:"POST",body:JSON.stringify(body)});
+      var j=await r.json().catch(function(){return {};});
+      return {ok:r.ok,status:r.status,j:j||{}};
+    }catch(e){ return {ok:false,status:0,j:{}}; }
+  }
+  var UP_KIND={sleep:{en:"sleep",id:"tidur"},daily_activity:{en:"daily activity",id:"aktivitas harian"},weight:{en:"weight",id:"berat badan"},food_log:{en:"food log",id:"log makan"}};
 
   // Satu sesi latihan sering tersebar di beberapa layar tracker (ringkasan, zona HR,
   // split), jadi upload menerima BEBERAPA gambar dan semuanya dibaca sebagai SATU workout.
@@ -869,53 +885,73 @@
 
   async function handleFiles(list){
     var files=Array.prototype.slice.call(list||[]);
-    if(!files.length) return;
+    if(!files.length||UP_BUSY) return;
     if(files.length>MAX_IMG){
       showErr(Lx({en:"Up to "+MAX_IMG+" images at once.",id:"Maksimal "+MAX_IMG+" gambar sekaligus."}),false); return;
     }
     for(var i=0;i<files.length;i++){ if(files[i].size>5*1024*1024){ showErr(T("act_too_big"),false); return; } }
 
-    clearErr();
-    var drop=document.getElementById("drop"), old=drop.innerHTML;
-    var urls=[], smalls=[], storeFailed=false;
+    clearErr(); UP_BUSY=true;
+    var originals=[], smalls=[], ditolak=[], converted=0;
     try{
-      var ditolak=[], storeMsg=null, converted=0;
       for(var k=0;k<files.length;k++){
-        drop.innerHTML='<div class="s">'+esc(Lx({en:"Uploading "+(k+1)+"/"+files.length+"\u2026",id:"Mengunggah "+(k+1)+"/"+files.length+"\u2026"}))+'</div>';
+        upProg(Lx({en:"Preparing "+(k+1)+"/"+files.length+"\u2026",id:"Menyiapkan "+(k+1)+"/"+files.length+"\u2026"}));
         var sup=await toSupported(files[k]);
         if(!sup.ok){ ditolak.push(sup.name+" ("+sup.type+")"); continue; }
         if(sup.converted) converted++;
-        smalls.push(await shrink(sup.dataUrl));
-        // Penyimpanan gagal TIDAK menghentikan pembacaan: angkanya masih bisa dibaca dari
-        // gambar yang ada di memori. Alasan dari server DISIMPAN supaya bisa ditampilkan
-        // apa adanya — dulu kegagalan ini cuma jadi catatan samar di dialog.
-        try{
-          var r=await apiFetch("/api/activity/upload",{method:"POST",body:JSON.stringify({data_url:sup.dataUrl})});
-          var j=await r.json().catch(function(){return {};});
-          if(r.ok&&j.url) urls.push(j.url); else { storeFailed=true; if(!storeMsg) storeMsg=j.error||null; }
-        }catch(e){ storeFailed=true; }
+        originals.push(sup.dataUrl); smalls.push(await shrink(sup.dataUrl));
       }
       if(ditolak.length){
         showErr(Lx({en:"These files can't be read: "+ditolak.join(", ")+". Use a PNG, JPG, or WebP screenshot.",
                     id:"Berkas ini tidak bisa dibaca: "+ditolak.join(", ")+". Pakai screenshot PNG, JPG, atau WebP."}),false);
       }
-      if(!smalls.length){ drop.innerHTML=old; return; }
+      if(!smalls.length) return;
 
-      drop.innerHTML='<div class="s">'+esc(Lx({en:"Reading your tracker\u2026",id:"Membaca tracker kamu\u2026"}))+'</div>';
-      var ai=null, aiErr=null;
-      try{
-        var sr=await apiFetch("/api/activity/scan",{method:"POST",body:JSON.stringify({images:smalls,lang:I18N.lang})});
-        var sj=await sr.json().catch(function(){return {};});
-        if(sr.ok&&sj.ok&&sj.readable) ai=sj.result; else aiErr=sj.error||null;
-      }catch(e){ aiErr=null; }
+      upProg(Lx({en:"AI is reading your screenshot\u2026",id:"AI sedang membaca screenshot kamu\u2026"}));
+      var tp=tplHost(); if(tp) tp.innerHTML='<div class="acard"><div class="skel" style="height:96px"></div></div>';
+      var res=await Promise.all([
+        upPost("/api/activity/upload-analyze",{ image:smalls[0], coach_id:TPL_COACH, lang:I18N.lang }),
+        upPost("/api/activity/scan",{ images:smalls, lang:I18N.lang })
+      ]);
+      var an=res[0], sc=res[1];
+      if(an.status===401||sc.status===401){ location.href="/login"; return; }
+      var aOk=!!(an.ok&&an.j.ok&&an.j.analysis);
+      if(aOk){
+        var a=an.j.analysis, t=a.today_plan||{};
+        renderTodayPlan({ workout:t.workout, food:t.food, sleep:t.sleep, hydration:t.hydration, coach_says:a.coach_says, coach_id:TPL_COACH });
+      } else loadTodayPlan();
+      var kind=aOk?String((an.j.extracted&&an.j.extracted.type)||""):"";
+      var ai=(sc.ok&&sc.j.ok&&sc.j.readable)?sc.j.result:null;
+      // Jenis dari upload-analyze yang menentukan. Pembaca workout hanya jadi penentu kalau
+      // jenisnya tak dikenali — supaya screenshot tidur tidak tercatat sebagai "workout 7 jam".
+      var isWo=kind==="workout"||(!!ai&&(kind===""||kind==="other"));
 
-      PENDING_URLS=urls; PENDING_AI=ai;
-      drop.innerHTML=old;
-      if(storeFailed&&storeMsg) showErr(storeMsg,false);
-      openDlg(smalls.length,ai,aiErr,storeFailed,converted);
+      if(isWo){
+        // Foto asli disimpan (lampiran workout). Gagal simpan TIDAK menghentikan pencatatan.
+        upProg(Lx({en:"Saving your photos\u2026",id:"Menyimpan foto\u2026"}));
+        var urls=[], storeFailed=false, storeMsg=null;
+        for(var m=0;m<originals.length;m++){
+          var u=await upPost("/api/activity/upload",{data_url:originals[m]});
+          if(u.ok&&u.j.url) urls.push(u.j.url); else { storeFailed=true; if(!storeMsg) storeMsg=u.j.error||null; }
+        }
+        PENDING_URLS=urls; PENDING_AI=ai;
+        upProg("");
+        if(storeFailed&&storeMsg) showErr(storeMsg,false);
+        openDlg(smalls.length,ai,ai?null:(sc.j.error||null),storeFailed,converted);
+      } else if(aOk){
+        var kl=UP_KIND[kind]?Lx(UP_KIND[kind]):Lx({en:"your data",id:"data kamu"});
+        upProg(Lx({en:"Read as "+kl+" \u2014 today's plan is updated.",id:"Terbaca sebagai "+kl+" \u2014 plan hari ini diperbarui."}),true);
+      } else {
+        upProg("");
+        showErr(an.j.error||Lx({en:"Couldn't read that screenshot. Try again, or log the workout by hand.",id:"Screenshot belum terbaca. Coba lagi, atau isi workout manual."}),false);
+      }
     }catch(e){
-      drop.innerHTML=old; showErr(T("act_up_fail"),false);
+      upProg(""); showErr(T("act_up_fail"),false); loadTodayPlan();
+    }finally{
+      UP_BUSY=false;
+      if(!document.getElementById("upProg").classList.contains("ok")) upProg("");   // status "selesai" dibiarkan tampil
     }
+    loadHealthScore(); loadLastUpload();   // upload baru -> skor dihitung ulang + "Terakhir:" diperbarui
   }
 
   // ---- Dialog workout manual ----
@@ -984,7 +1020,7 @@
         ["fTitle","fDur","fDist","fKcal","fHr"].forEach(function(id){ document.getElementById(id).value=""; });
         PENDING_URLS=[]; PENDING_AI=null;
         await load(SEL);
-        genPlan(true);   // workout baru -> rencana disegarkan
+        loadHealthScore();   // workout baru -> Health Score dihitung ulang
       }catch(e){ document.getElementById("dlgErr").textContent=T("act_save_fail"); }
       btn.disabled=false;
     };
@@ -1097,182 +1133,6 @@
     }
   }
 
-  // ---- 5. AI analysis + 6. score & gaps ----
-  // Sorot inline: kata di dalam <<good|teks>> dibungkus pill. Dibangun dari `gaps`,
-  // bukan dari menebak-nebak kata di kalimat AI.
-  function hlText(txt,gaps){
-    var out=esc(txt||"");
-    (gaps||[]).forEach(function(g){
-      if(!g||!g.value||!g.area) return;
-      var st=["good","warning","critical"].indexOf(String(g.status))>=0?g.status:"warning";
-      var needle=esc(String(g.value));
-      if(needle&&out.indexOf(needle)>=0){
-        out=out.replace(needle,'<span class="hl '+st+'">'+needle+'</span>');
-      }
-    });
-    return out;
-  }
-  function renderAi(){
-    renderScore();   // kartu skor di atas (#scoreTop) selalu ikut ter-render bareng AI Coach
-    var host=document.getElementById("aiBox"), p=DAY&&DAY.plan;
-    if(!p){
-      host.innerHTML='<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span></div>'+
-        '<p class="muted">'+esc(T("act_ai_none"))+'</p>'+
-        '<button class="btn" id="genBtn" style="margin-top:12px">'+esc(T("act_ai_gen"))+'</button>'+
-        '<button class="btn ghost" id="goalBtn" style="margin-top:8px">'+esc(T("act_goal_cta"))+'</button></div>';
-      document.getElementById("genBtn").onclick=function(){ hasWorkout()?genPlan(false):renderNeedWorkout(); };
-      document.getElementById("goalBtn").onclick=renderGoalQuiz;
-      return;
-    }
-    var gaps=Array.isArray(p.gaps)?p.gaps:[];
-    // Kartu skor (ring + badge) pindah ke ATAS lewat renderScore(). Di sini tinggal
-    // analisa AI + daftar gap + tombol regenerate.
-    host.innerHTML=
-      '<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span>'+
-        '<span class="b">'+esc(p.source==="fallback"?T("act_ai_nofb"):"AI COACH")+'</span></div>'+
-        '<p>'+hlText(p.analysis_text,gaps)+'</p></div>'+
-      '<div class="card">'+
-        (gaps.length?('<div class="gaps">'+gaps.map(function(g){
-          var st=["good","warning","critical"].indexOf(String(g.status))>=0?g.status:"warning";
-          var col=st==="good"?"var(--green)":(st==="warning"?"var(--amber)":"var(--red)");
-          return '<div class="gap"><i style="background:'+col+'"></i>'+esc(g.area||"")+'<span class="v">'+esc(g.value||"—")+'</span></div>';
-        }).join("")+'</div>'):'<div class="muted" style="font-size:12.5px">'+esc(T("act_no_gap"))+'</div>')+
-        '<button class="btn ghost" id="regenBtn" style="margin-top:12px">'+esc(T("act_ai_regen"))+'</button>'+
-      '</div>';
-    document.getElementById("regenBtn").onclick=function(){ genPlan(false); };
-  }
-
-  // Kartu "Skor hari ini" dinaikkan ke paling atas (#scoreTop), gaya mockup: ring + status
-  // + selisih vs kemarin. Hanya tampil kalau ada rencana; tanpa rencana -> kosong (CTA
-  // "Buat rencana" tetap di kartu AI Coach di kolom kanan).
-  function renderScore(){
-    var host=document.getElementById("scoreTop"); if(!host) return;
-    var p=DAY&&DAY.plan;
-    if(!p){ host.innerHTML=""; return; }
-    var score=(p.overall_score!=null)?p.overall_score:0;
-    var C=2*Math.PI*46, off=C-(C*Math.max(0,Math.min(100,score))/100);
-    var sc=score>=75?"var(--green)":(score>=45?"var(--amber)":"var(--red)");
-    var stKey=score>=75?"good":(score>=45?"warning":"critical");
-    var stCol=stKey==="good"?"var(--green)":(stKey==="warning"?"var(--amber)":"var(--red)");
-    var stBg="color-mix(in srgb,"+stCol+" 16%,transparent)";
-    var stLbl=stKey==="good"?Lx({en:"On track",id:"On track"}):(stKey==="warning"?Lx({en:"On the way",id:"Menuju target"}):Lx({en:"Needs attention",id:"Perlu perhatian"}));
-    var msg=stKey==="good"?Lx({en:"You're on track.",id:"Kamu on track."}):(stKey==="warning"?Lx({en:"Getting there.",id:"Terus jalan, hampir sampai."}):Lx({en:"Needs attention today.",id:"Perlu perhatian hari ini."}));
-    if(PREV_SCORE!=null){ var dd=score-PREV_SCORE;
-      msg+= dd>0?Lx({en:" Up +"+dd+" from yesterday.",id:" Naik +"+dd+" dari kemarin."})
-           :(dd<0?Lx({en:" Down "+(-dd)+" from yesterday.",id:" Turun "+(-dd)+" dari kemarin."})
-                 :Lx({en:" Same as yesterday.",id:" Sama seperti kemarin."})); }
-    var ttl=isToday(SEL)?Lx({en:"Today’s score",id:"Skor hari ini"}):Lx({en:"Score",id:"Skor"});
-    host.innerHTML='<div class="card scoretop"><div class="stpwrap">'+
-      '<div class="ringw"><svg width="118" height="118" viewBox="0 0 118 118">'+
-        '<circle cx="59" cy="59" r="46" fill="none" stroke="var(--a-line)" stroke-width="9"/>'+
-        '<circle cx="59" cy="59" r="46" fill="none" stroke="'+sc+'" stroke-width="9" stroke-linecap="round" '+
-          'stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
-        '<div class="n"><b>'+score+'</b><s>/ 100</s></div></div>'+
-      '<div class="stpinfo"><div class="stpt">'+esc(ttl)+'</div>'+
-        '<div class="stpmsg muted">'+esc(msg)+'</div>'+
-        '<span class="sbadge" style="background:'+stBg+';color:'+stCol+';margin-top:10px"><i style="background:'+stCol+'"></i>'+esc(stLbl)+'</span>'+
-      '</div></div></div>';
-  }
-  function starSvg(){ return '<svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg>'; }
-
-  async function genPlan(silent){
-    if(BUSY) return; BUSY=true;
-    var b=document.getElementById("genBtn")||document.getElementById("regenBtn");
-    var lbl=b?b.textContent:null;
-    if(b){ b.disabled=true; b.textContent=T("act_ai_working"); }
-    try{
-      var r=await apiFetch("/api/activity/plan",{method:"POST",body:JSON.stringify({date:SEL,lang:I18N.lang})});
-      var j=await r.json().catch(function(){return {};});
-      if(!r.ok){ if(!silent) showErr(j.error||T("act_ai_fail"),false); }
-      else { DAY.plan=j.plan; if(j.source) DAY.plan.source=j.source; renderAi(); renderGoals(); }
-    }catch(e){ if(!silent) showErr(T("act_ai_fail"),false); }
-    finally{
-      // Kalau gagal, renderAi() tidak dipanggil sehingga tombolnya tetap ada di DOM.
-      // Tanpa pemulihan ini tombolnya tersangkut "Sedang diproses..." dan mati selamanya.
-      // Saat berhasil, b sudah dilepas renderAi() -> menulis ke node lepas itu tidak apa-apa.
-      if(b&&b.isConnected){ b.disabled=false; if(lbl!=null) b.textContent=lbl; }
-      BUSY=false;
-    }
-  }
-
-  // Rencana AI dibangun dari data workout. Tanpa satu pun workout, memanggil API cuma
-  // menghasilkan kegagalan yang tak memberi tahu apa-apa ke user. Jadi tombolnya
-  // memunculkan pemandu, bukan memanggil API.
-  function hasWorkout(){ return (((DAY&&DAY.workouts)||[]).length>0); }
-  function hasDaily(){
-    var d=(DAY&&DAY.daily)||{}, ck=d.checklist||{};
-    return d.sleep_hours!=null||d.water_glasses!=null||d.steps!=null||d.weight_kg!=null||
-           !!ck.breathing||!!d.breathing_done||(+((d.totals&&d.totals.kcal)||0)>0)||(+(d.cal_count||0)>0);
-  }
-  function gotoUpload(){
-    var el=document.getElementById("drop"); if(!el) return;
-    el.scrollIntoView({behavior:"smooth",block:"center"});
-    el.classList.add("hl"); el.focus({preventScroll:true});
-    setTimeout(function(){ el.classList.remove("hl"); },2400);
-  }
-  // Quiz "Set Your Goal" (js/goal-quiz.js) dipasang DI DALAM kartu analisis, bukan di
-  // halaman terpisah: jawabannya cuma dipakai untuk rencana, dan CTA-nya memang
-  // "Buat rencana saya". Komponennya sendiri HANYA menyimpan + memanggil onComplete;
-  // pembuatan rencana tetap milik genPlan() di sini, lengkap dengan gerbang hasWorkout().
-  function renderGoalQuiz(){
-    var host=document.getElementById("aiBox");
-    if(!window.GoalQuiz){ showErr(T("act_ai_fail"),false); return; }
-    host.innerHTML='<div id="gqHost"></div>'+
-      '<button class="btn ghost" id="gqBack" style="margin-top:8px">'+esc(T("act_need_back"))+'</button>';
-    document.getElementById("gqBack").onclick=function(){ renderAi(); };
-    GoalQuiz.mount(document.getElementById("gqHost"),{ onComplete:function(){
-      renderAi();
-      // Rencananya dibuat lewat jalur yang sudah ada, termasuk pemandu kalau belum ada workout.
-      hasWorkout()?genPlan(false):renderNeedWorkout();
-    }});
-  }
-  function renderNeedWorkout(){
-    var host=document.getElementById("aiBox");
-    host.innerHTML='<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_need_t"))+'</span></div>'+
-      '<p class="muted">'+esc(T("act_need_b"))+'</p>'+
-      '<ol class="needl"><li>'+esc(T("act_need_1"))+'</li><li>'+esc(T("act_need_2"))+'</li><li>'+esc(T("act_need_3"))+'</li></ol>'+
-      '<button class="btn" id="needGo">'+esc(T("act_need_cta"))+'</button>'+
-      (hasDaily()?'<button class="btn ghost" id="needAny" style="margin-top:8px">'+esc(T("act_need_any"))+'</button>':'')+
-      '<button class="btn ghost" id="needBack" style="margin-top:8px">'+esc(T("act_need_back"))+'</button></div>';
-    document.getElementById("needGo").onclick=gotoUpload;
-    document.getElementById("needBack").onclick=function(){ renderAi(); };
-    var any=document.getElementById("needAny");
-    // Data harian (tidur/air/langkah/nutrisi) tetap cukup untuk sebuah rencana, jadi
-    // jalan itu TIDAK ditutup - cuma tidak lagi jadi satu-satunya tombol yang buntu.
-    if(any) any.onclick=function(){ renderAi(); genPlan(false); };
-  }
-
-  // ---- 7. Goals ----
-  function renderGoals(){
-    var host=document.getElementById("goalBox"), p=DAY&&DAY.plan;
-    if(!p||!Array.isArray(p.goals)||!p.goals.length){ host.innerHTML=""; return; }
-    var gs=p.goals, done=gs.filter(function(g){return g.done;}).length;
-    host.innerHTML='<div class="card" style="margin-top:12px"><div class="gh">'+starSvg()+
-      '<span class="t">'+esc(T("act_goal_t"))+'</span><span class="c">'+done+'/'+gs.length+'</span></div>'+
-      gs.map(function(g){
-        var cat=["exercise","nutrition","habit","recovery"].indexOf(String(g.category))>=0?g.category:"habit";
-        return '<div class="goal'+(g.done?" done":"")+'" data-g="'+esc(g.id)+'">'+
-          '<span class="cb"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>'+
-          '<div style="flex:1;min-width:0"><div class="gt">'+esc(g.title||"")+'</div>'+
-          (g.desc?'<div class="gd">'+esc(g.desc)+'</div>':'')+
-          (g.time?'<div class="gtime">'+esc(g.time)+'</div>':'')+'</div>'+
-          '<span class="cat '+cat+'">'+esc(T("act_cat_"+cat))+'</span></div>';
-      }).join("")+'</div>';
-    Array.prototype.forEach.call(host.querySelectorAll(".goal"),function(el){
-      el.onclick=async function(){
-        var gid=el.getAttribute("data-g");
-        var g=(DAY.plan.goals||[]).filter(function(x){return String(x.id)===gid;})[0];
-        if(!g) return;
-        var next=!g.done;
-        g.done=next; renderGoals();                      // optimistis: terasa instan
-        try{
-          var r=await apiFetch("/api/activity/goal",{method:"PATCH",body:JSON.stringify({date:SEL,goal_id:gid,done:next})});
-          if(!r.ok) throw new Error();
-        }catch(e){ g.done=!next; renderGoals(); showErr(T("act_goal_fail"),false); }  // gagal -> kembalikan
-      };
-    });
-  }
-
   // Kartu Nutrisi 2x2 dibuang saat penggabungan: 'Overall - Hari Ini' (halaman lama)
   // sudah menampilkan angka yang sama dengan target dari profil. Fungsi renderNutri,
   // pct dan barCol ikut dihapus — tak ada pemanggil tersisa (CLAUDE.md §8).
@@ -1329,7 +1189,6 @@
   var SLP_TARGET=8;      // jam — sama dgn chart tidur & kartu Overall lama
   var HYD_TARGET=2000;   // ml = 8 gelas x 250; sengaja disamakan dgn target air 8 gelas app
   var SLEEP=null, SLEEP7=[], HYDRA=[], AUTH_UID=null, SH_BUSY=false, SH_LOADED={}, SLP_Q=null;
-  var PREV_SCORE=null;   // skor rencana kemarin (untuk selisih di kartu skor) — diisi loadPrevScore()
 
   function ymdOf(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function addDays(s,n){ var d=dObj(s); d.setDate(d.getDate()+n); return ymdOf(d); }
@@ -1343,16 +1202,6 @@
   function calcCross(bed,wake){ if(!bed||!wake) return false; var b=bed.split(":"),w=wake.split(":"); return ((+w[0])*60+(+w[1]))<=((+b[0])*60+(+b[1])); }
   function mkTs(dateStr,hhmm,shift){ if(!hhmm) return null; var p=hhmm.split(":"); var d=dObj(dateStr); d.setDate(d.getDate()+(shift||0)); d.setHours(+p[0]||0,+p[1]||0,0,0); return d.toISOString(); }
   async function ensureUid(){ if(AUTH_UID) return AUTH_UID; try{ var au=await Auth.supabase.auth.getUser(); AUTH_UID=(au&&au.data&&au.data.user)?au.data.user.id:null; }catch(e){} return AUTH_UID; }
-
-  async function loadPrevScore(date){
-    try{
-      var uid=await ensureUid(); if(!uid){ PREV_SCORE=null; return; }
-      var prev=addDays(date,-1);
-      var r=await Auth.supabase.from("my20fit_daily_plan").select("overall_score").eq("auth_user_id",uid).eq("plan_date",prev).limit(1);
-      PREV_SCORE=(r&&r.data&&r.data[0]&&r.data[0].overall_score!=null)?+r.data[0].overall_score:null;
-    }catch(e){ PREV_SCORE=null; }
-    if(DAY&&DAY.plan) renderAi();
-  }
 
   async function loadSleepHydra(date){
     var sb=document.getElementById("sleepBox"), hb=document.getElementById("hydraBox");
@@ -1409,29 +1258,89 @@
     var b=document.getElementById("slpEdit"); if(b) b.onclick=openSleepDlg;
   }
 
+  // ---- Hidrasi: 8 gelas yang bisa diketuk (8 x 250 ml = HYD_TARGET) ----
+  // Ketuk gelas ke-n -> total hari itu jadi n gelas; ketuk gelas terisi terakhir -> berkurang satu.
+  // Tetap disimpan di my20fit_hydration (baris per minum) + disinkron ke daily_log.water_glasses.
+  // Minuman lain dari catatan lama (kopi/teh) ikut dihitung di total. Animasi air hanya lewat
+  // perubahan --lv (CSS transition) pada node yang SAMA — render ulang tidak mengulang animasi.
+  var HY_GLASS=250, HY_N=Math.round(HYD_TARGET/HY_GLASS), HY_SHOWN=null, HY_DATE=null;
+  function hyTotal(){ return HYDRA.reduce(function(a,r){ return a+(+r.amount_ml||0); },0); }
+  function hyLevel(total,i){ return Math.max(0,Math.min(1,(total-i*HY_GLASS)/HY_GLASS)); }
+  function hyL(ml){ return (ml/1000).toFixed(2).replace(/\.?0+$/,"").replace(".",I18N.lang==="en"?".":",")+" L"; }
+  function hyGlass(i,lv){
+    return '<button type="button" class="hy-g" data-i="'+i+'" style="--lv:'+lv.toFixed(3)+'" aria-label="'+esc(Lx({en:"Glass "+(i+1),id:"Gelas "+(i+1)}))+'">'+
+      '<svg viewBox="0 0 40 52" aria-hidden="true"><defs><clipPath id="hyc'+i+'"><path d="M7.4 6.5h25.2l-3.1 38.4a3 3 0 0 1-3 2.8H13.5a3 3 0 0 1-3-2.8z"/></clipPath></defs>'+
+      '<g clip-path="url(#hyc'+i+')"><g class="hy-lvl"><path class="hy-wave" d="M-40 9q5-3 10 0t10 0t10 0t10 0t10 0t10 0t10 0t10 0t10 0t10 0V60H-40z"/></g></g>'+
+      '<path class="hy-cup" d="M6 5h28l-3.3 40.1a4.5 4.5 0 0 1-4.5 4.1H13.8a4.5 4.5 0 0 1-4.5-4.1z"/>'+
+      '<path class="hy-shine" d="M11.5 11l1.6 30"/><path class="hy-plus" d="M20 21.5v9M15.5 26h9"/></svg></button>';
+  }
+  function hyLogHtml(){
+    if(!HYDRA.length) return "";
+    return '<details class="hy-log"><summary>'+esc(Lx({en:"Drink log",id:"Catatan minum"}))+' ('+HYDRA.length+')</summary><div class="hlog">'+
+      HYDRA.slice().reverse().map(function(r){
+        return '<div class="row"><span class="tm">'+esc(fmtTime(r.logged_at))+'</span>'+drinkEmoji(r.drink_type)+' '+esc(drinkLabel(r.drink_type))+
+          '<span class="amt">'+(+r.amount_ml||0)+' ml</span><button type="button" class="del" data-del="'+esc(r.id)+'" title="'+esc(Lx({en:"Delete",id:"Hapus"}))+'">✕</button></div>';
+      }).join("")+'</div></details>';
+  }
+  // Isi gelas (dan teks) ke total `total`. Gelas berurutan diberi jeda kecil supaya terasa mengisi satu-satu.
+  function hyPaint(host,total){
+    var prev=HY_SHOWN==null?0:HY_SHOWN, pf=Math.floor(prev/HY_GLASS), up=total>=prev;
+    var full=Math.floor(total/HY_GLASS), next=-1;
+    Array.prototype.forEach.call(host.querySelectorAll(".hy-g"),function(b,i){
+      var lv=hyLevel(total,i);
+      if(next<0&&lv===0) next=i;
+      var d=up?Math.max(0,i-pf):Math.max(0,pf-1-i);
+      b.style.setProperty("--dl",Math.min(d,7)*70+"ms");
+      b.style.setProperty("--lv",lv.toFixed(3));
+      b.classList.toggle("on",lv>0);
+      b.classList.toggle("next",i===next);
+      b.setAttribute("aria-pressed",lv>=1?"true":"false");
+    });
+    var cnt=host.querySelector(".hy-cnt"); if(cnt) cnt.textContent=String(full);
+    var sub=host.querySelector(".hy-sub"), left=Math.max(0,HY_N-full), extra=Math.max(0,full-HY_N);
+    if(sub) sub.innerHTML=total>=HYD_TARGET
+      ? '<span class="hy-ok">'+FIC("check",13)+' '+esc(Lx({en:"Target reached",id:"Target tercapai"}))+'</span> · '+esc(hyL(total))+(extra?esc(Lx({en:" · +"+extra+" extra",id:" · +"+extra+" ekstra"})):"")
+      : esc(hyL(total)+Lx({en:" of "+hyL(HYD_TARGET)+" · "+left+" glass"+(left!==1?"es":"")+" to go",id:" dari "+hyL(HYD_TARGET)+" · sisa "+left+" gelas"}));
+    host.querySelector(".hy").classList.toggle("done",total>=HYD_TARGET);
+    HY_SHOWN=total;
+  }
+  function wireHyLog(host){
+    Array.prototype.forEach.call(host.querySelectorAll("[data-del]"),function(b){ b.onclick=function(){ delDrink(b.getAttribute("data-del")); }; });
+  }
   function renderHydra(){
     renderTodaySum();
     var host=document.getElementById("hydraBox"); if(!host) return;
-    var total=HYDRA.reduce(function(a,r){return a+(+r.amount_ml||0);},0);
-    var pct=Math.max(0,Math.min(100,Math.round(total/HYD_TARGET*100)));
-    var remain=Math.max(0,HYD_TARGET-total), glasses=Math.round(remain/250);
-    var quicks=[{ml:250,e:FIC("water"),lbl:"250ml",t:"water"},{ml:500,e:FIC("water"),lbl:"500ml",t:"water"},{ml:200,e:FIC("coffee"),lbl:Lx({en:"Coffee",id:"Kopi"}),t:"coffee"},{ml:200,e:FIC("tea"),lbl:Lx({en:"Tea",id:"Teh"}),t:"tea"}];
-    var hd='<div class="sechd">'+esc(Lx({en:"Hydration",id:"Hidrasi"}))+'</div>';
-    var qbtns=quicks.map(function(q,i){ return '<button type="button" data-q="'+i+'">'+q.e+' '+esc(q.lbl)+'</button>'; }).join("");
-    var logs=HYDRA.length?('<div class="hlog">'+HYDRA.slice().reverse().map(function(r){
-        return '<div class="row"><span class="tm">'+esc(fmtTime(r.logged_at))+'</span>'+drinkEmoji(r.drink_type)+' '+esc(drinkLabel(r.drink_type))+
-          '<span class="amt">'+(+r.amount_ml||0)+' ml</span><button class="del" data-del="'+esc(r.id)+'" title="'+esc(Lx({en:"Delete",id:"Hapus"}))+'">✕</button></div>';
-      }).join("")+'</div>'):'';
-    host.innerHTML=hd+'<div class="card">'+
-      '<div class="shh"><span class="e">'+FIC("water")+'</span><span class="t">'+esc(Lx({en:"Hydration",id:"Hidrasi"}))+'</span><span class="r">'+total+' / '+HYD_TARGET+' ml</span></div>'+
-      '<div class="hbar"><i style="width:'+pct+'%"></i></div>'+
-      '<div class="muted" style="font-size:12px">'+esc(remain>0?Lx({en:remain+" ml to go ("+glasses+" glass"+(glasses!==1?"es":"")+")",id:"Sisa "+remain+" ml ("+glasses+" gelas)"}):Lx({en:"Target reached",id:"Target tercapai"}))+'</div>'+
-      '<div class="hyq" id="hyq">'+qbtns+'</div>'+
-      '<div class="hyc"><input id="hyCustom" type="number" inputmode="numeric" min="1" placeholder="'+esc(Lx({en:"Custom ml",id:"ml lain"}))+'"><button type="button" id="hyAdd">'+esc(Lx({en:"Add",id:"Tambah"}))+'</button></div>'+
-      logs+'</div>';
-    Array.prototype.forEach.call(host.querySelectorAll("#hyq button"),function(b){ b.onclick=function(){ var q=quicks[+b.getAttribute("data-q")]; if(q) addDrink(q.ml,q.t); }; });
-    var add=document.getElementById("hyAdd"); if(add) add.onclick=function(){ var v=parseInt(document.getElementById("hyCustom").value,10); if(isFinite(v)&&v>0) addDrink(v,"water"); };
-    Array.prototype.forEach.call(host.querySelectorAll("[data-del]"),function(b){ b.onclick=function(){ delDrink(b.getAttribute("data-del")); }; });
+    var total=hyTotal();
+    // Hari yang sama & kartu sudah ada -> cukup perbarui (animasi berjalan dari posisi sekarang).
+    if(HY_DATE===SEL&&host.querySelector(".hy-row")){
+      var lg=host.querySelector(".hy-logw"); if(lg){ var open=!!lg.querySelector("details[open]"); lg.innerHTML=hyLogHtml(); if(open&&lg.firstChild) lg.firstChild.open=true; }
+      hyPaint(host,total); wireHyLog(host); return;
+    }
+    if(HY_DATE!==SEL) HY_SHOWN=0;   // hari lain -> gelas terisi dari kosong
+    HY_DATE=SEL;
+    var gl=""; for(var i=0;i<HY_N;i++) gl+=hyGlass(i,hyLevel(HY_SHOWN||0,i));
+    host.innerHTML='<div class="sechd">'+esc(Lx({en:"Hydration",id:"Hidrasi"}))+'</div>'+
+      '<div class="card hy"><div class="hy-top">'+
+        '<div class="hy-num"><b class="hy-cnt">0</b><span>/ '+HY_N+' '+esc(Lx({en:"glasses",id:"gelas"}))+'</span></div>'+
+        '<button type="button" class="hy-add" id="hyAdd">'+FIC("water",15)+' +1 '+esc(Lx({en:"glass",id:"gelas"}))+'</button></div>'+
+        '<div class="hy-sub"></div>'+
+        '<div class="hy-row" role="group" aria-label="'+esc(Lx({en:"Glasses of water today",id:"Gelas air hari ini"}))+'">'+gl+'</div>'+
+        '<div class="hy-hint">'+esc(Lx({en:"Tap a glass to log it · 1 glass = "+HY_GLASS+" ml",id:"Ketuk gelas untuk mencatat · 1 gelas = "+HY_GLASS+" ml"}))+'</div>'+
+        '<div class="hy-logw">'+hyLogHtml()+'</div></div>';
+    void host.offsetWidth;   // posisi awal dirender dulu, baru level baru -> transisi jalan
+    hyPaint(host,total);
+    Array.prototype.forEach.call(host.querySelectorAll(".hy-g"),function(b){
+      b.onclick=function(){
+        if(SH_BUSY) return;
+        var i=+b.getAttribute("data-i")+1, full=Math.floor(hyTotal()/HY_GLASS);
+        var n=(i===full)?i-1:i;
+        b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop");
+        hyPaint(host,n*HY_GLASS);   // langsung terasa; kalau gagal simpan, renderHydra() mengembalikan
+        setGlasses(n);
+      };
+    });
+    document.getElementById("hyAdd").onclick=function(){ addDrink(HY_GLASS,"water"); };
+    wireHyLog(host);
   }
 
   async function syncWater(){
@@ -1458,6 +1367,34 @@
   async function delDrink(id){
     try{ var uid=await ensureUid(); await Auth.supabase.from("my20fit_hydration").delete().eq("id",id).eq("auth_user_id",uid); }catch(e){}
     HYDRA=HYDRA.filter(function(r){return String(r.id)!==String(id);});
+    renderHydra(); await syncWater();
+  }
+
+  // Jadikan total hari terpilih tepat n gelas. Naik -> satu baris air untuk selisihnya.
+  // Turun -> hapus catatan terbaru sampai total <= target, lalu tambahkan sisa selisihnya
+  // (mis. catatan 500 ml dihapus saat turun 1 gelas -> ditambah lagi 250 ml).
+  async function setGlasses(n){
+    var target=Math.max(0,n)*HY_GLASS, total=hyTotal();
+    if(target===total){ renderHydra(); return; }
+    if(target>total){ await addDrink(target-total,"water"); return; }
+    if(SH_BUSY) return; SH_BUSY=true;
+    try{
+      var uid=await ensureUid(); if(!uid) throw new Error("uid");
+      var rows=HYDRA.slice().sort(function(a,b){ return String(b.logged_at||"")<String(a.logged_at||"")?-1:1; });
+      var cur=total, del=[];
+      for(var i=0;i<rows.length&&cur>target;i++){ del.push(rows[i].id); cur-=(+rows[i].amount_ml||0); }
+      if(del.length){
+        var dr=await Auth.supabase.from("my20fit_hydration").delete().in("id",del).eq("auth_user_id",uid);
+        if(dr&&dr.error) throw dr.error;
+        HYDRA=HYDRA.filter(function(r){ return del.indexOf(r.id)<0; });
+      }
+      if(cur<target){
+        var ins=await Auth.supabase.from("my20fit_hydration").insert({auth_user_id:uid, log_date:SEL, amount_ml:Math.round(target-cur), drink_type:"water"}).select().single();
+        if(ins.error) throw ins.error;
+        HYDRA.push(ins.data);
+      }
+    }catch(e){ showErr(Lx({en:"Couldn't update your glasses. Try again.",id:"Gagal memperbarui gelas. Coba lagi."}),false); }
+    SH_BUSY=false;
     renderHydra(); await syncWater();
   }
 
@@ -1533,8 +1470,8 @@
       var j=await r.json().catch(function(){return {};});
       if(!r.ok||!j.ok){ showErr(j.error||T("act_load_fail"),true); document.getElementById("woBox").innerHTML=""; BUSY=false; return; }
       DAY=j;
-      renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek();
-      loadSleepHydra(date); loadPrevScore(date);
+      renderWorkouts(); renderHabits(); renderWeek();
+      loadSleepHydra(date);
     }catch(e){
       showErr(T("act_load_fail"),true); document.getElementById("woBox").innerHTML="";
     }
@@ -1559,7 +1496,7 @@
   // ---- COACH (bar horizontal) ----
   // 4 persona; muka aktif = pilihan terakhir user (my20fit_coach_pick) dengan border merah.
   // Klik muka -> chat coach itu. Foto dari roster CMS /api/coaches (data asli).
-  var TPL_BUSY=false, TPL_COACH="nando";
+  var TPL_COACH="nando";
   try{ var _cp=localStorage.getItem("my20fit_coach_pick"); if(_cp&&window.CoachProfiles&&CoachProfiles.NAME[_cp]) TPL_COACH=_cp; }catch(e){}
   var COACH_NAME_TPL=window.CoachProfiles?CoachProfiles.NAME:{nando:"Nando",calysta:"Calysta",rheza:"Rheza",elsen:"Elsen"};
   function coachName(){ return COACH_NAME_TPL[TPL_COACH]||"Nando"; }
@@ -1785,7 +1722,13 @@
     return null;
   }
   // Komponen tanpa data -> CTA untuk mengisinya. [label, aksi]
-  function uploadWorkoutGo(){ var d=document.getElementById("drop"); if(!d) return; d.scrollIntoView({behavior:"smooth",block:"center"}); try{ d.click(); }catch(e){} }
+  // Semua jalan pintas "upload" (Health Score, Today's Plan, #upload-workout) menuju kartu yang sama.
+  function uploadWorkoutGo(){
+    var c=document.getElementById("uploadCard"); if(!c) return;
+    c.scrollIntoView({behavior:"smooth",block:"center"});
+    c.classList.add("hl"); setTimeout(function(){ c.classList.remove("hl"); },2400);
+    upPick();
+  }
   var HS_FILL={
     workout:[{en:"Upload workout",id:"Upload workout"},uploadWorkoutGo],
     nutrition:[{en:"Log meals",id:"Catat makan"},function(){ location.href="/calories"; }],
@@ -1904,18 +1847,10 @@
     try{
       var r=await apiFetch("/api/activity/upload-history?limit=1"); var j=await r.json().catch(function(){return {};});
       var u=j&&Array.isArray(j.uploads)&&j.uploads[0];
-      host.innerHTML=u?('<b>'+esc(Lx({en:"Last:",id:"Terakhir:"}))+'</b> '+esc(uploadSummary(u))+'<br><span>'+esc(timeAgo(u.created_at))+'</span>')
+      host.innerHTML=u?('<b>'+esc(Lx({en:"Last:",id:"Terakhir:"}))+'</b> '+esc(uploadSummary(u))+' <span>· '+esc(timeAgo(u.created_at))+'</span>')
                       :'<span>'+esc(Lx({en:"No uploads yet.",id:"Belum ada upload."}))+'</span>';
     }catch(e){ host.innerHTML=""; }
   }
-  function wirePlanUpload(){
-    [["upCam","tplCam"],["upFile","tplFile"]].forEach(function(p){
-      var b=document.getElementById(p[0]), f=document.getElementById(p[1]); if(!b||!f) return;
-      b.onclick=function(){ f.click(); };
-      f.onchange=function(){ var file=f.files&&f.files[0]; f.value=""; if(file) analyzeUpload(file); };
-    });
-  }
-
   // ---- TODAY'S PLAN — 4 mini kartu + coach says (dari upload-analyze / my20fit_today_plans) ----
   function tplHost(){ return document.getElementById("todayPlanBox"); }
   function planDateLabel(){ try{ return new Date().toLocaleDateString((window.I18N&&I18N.lang==="en")?"en-GB":"id-ID",{day:"numeric",month:"short"}); }catch(e){ return ""; } }
@@ -1924,7 +1859,7 @@
     h.innerHTML='<div class="plan-slim"><span>'+FIC("clipboard",14)+' <b>'+esc(Lx({en:"Today's Plan",id:"Plan Hari Ini"}))+'</b> · '+
       esc(Lx({en:"upload a screenshot and I'll plan your workout, food, sleep & water.",id:"upload screenshot, nanti aku susun workout, makan, tidur & minum."}))+'</span>'+
       '<button type="button" id="tplUpGo">'+esc(Lx({en:"Upload →",id:"Upload →"}))+'</button></div>';
-    var b=document.getElementById("tplUpGo"); if(b) b.onclick=function(){ var f=document.getElementById("tplFile"); if(f) f.click(); };
+    var b=document.getElementById("tplUpGo"); if(b) b.onclick=uploadWorkoutGo;
   }
   function renderTodayPlan(p){
     var h=tplHost(); if(!h) return; p=p||{};
@@ -1952,7 +1887,7 @@
       b.onclick=async function(){
         if(a==="book") location.href="/book-class";
         else if(a==="track") location.href="/calories";
-        else if(a==="upload"){ var fi=document.getElementById("tplFile"); if(fi) fi.click(); }
+        else if(a==="upload") uploadWorkoutGo();
         else if(a==="reply") coachAskGo(Lx({en:"About today's plan you gave me: \""+(p.coach_says||"")+"\" — ",id:"Soal plan hari ini: \""+(p.coach_says||"")+"\" — "}));
         else if(a==="water"){ b.disabled=true; var ok=await addDrink(250,"water",todayYmd()); b.disabled=false;
           if(ok){ b.textContent="✓ +250ml"; setTimeout(function(){ b.textContent="+250ml"; },1600); loadHealthScore(); } }
@@ -1977,30 +1912,6 @@
         if(t==="top"){ window.scrollTo({top:0,behavior:"smooth"}); } else { var x=document.getElementById(t); if(x) x.scrollIntoView({behavior:"smooth",block:"start"}); } };
     });
   }
-  async function analyzeUpload(file){
-    if(TPL_BUSY) return; clearErr();
-    if(file.size>8*1024*1024){ showErr(Lx({en:"Image too big (max ~8MB).",id:"Gambar terlalu besar (maks ~8MB)."}),false); return; }
-    TPL_BUSY=true;
-    var h=tplHost(), last=document.getElementById("upLast");
-    if(last) last.innerHTML='<span>'+esc(Lx({en:"Analyzing your data…",id:"Menganalisa data kamu…"}))+'</span>';
-    if(h) h.innerHTML='<div class="acard"><div class="skel" style="height:96px"></div></div>';
-    try{
-      var sup=await toSupported(file);
-      if(!sup.ok){ TPL_BUSY=false; showErr(Lx({en:"Can't read that file. Use PNG/JPG/WebP.",id:"Berkas tak terbaca. Pakai PNG/JPG/WebP."}),false); loadTodayPlan(); loadLastUpload(); return; }
-      var small=await shrink(sup.dataUrl);
-      var r=await apiFetch("/api/activity/upload-analyze",{method:"POST",body:JSON.stringify({ image:small, coach_id:TPL_COACH, lang:(window.I18N&&I18N.lang)||"id" })});
-      var j=await r.json().catch(function(){return {};});
-      if(r.status===401){ location.href="/login"; return; }
-      TPL_BUSY=false;
-      if(r.ok&&j.ok&&j.analysis){
-        var a=j.analysis, tp=a.today_plan||{};
-        renderTodayPlan({ workout:tp.workout, food:tp.food, sleep:tp.sleep, hydration:tp.hydration, coach_says:a.coach_says, coach_id:TPL_COACH });
-      } else { showErr((j&&j.error)||Lx({en:"Couldn't analyze. Try again.",id:"Gagal analisa. Coba lagi."}),false); loadTodayPlan(); }
-    }catch(e){ TPL_BUSY=false; showErr(Lx({en:"Upload failed. Try again.",id:"Upload gagal. Coba lagi."}),false); loadTodayPlan(); }
-    // Upload baru -> skor dihitung ulang (termasuk data upload) + "Last:" diperbarui.
-    loadHealthScore(); loadLastUpload();
-  }
-
   // ---- ACTIVE PLAN — /api/coach/plan; satu baris hari, centang = /api/coach/plan/adjust op "done". ----
   var WPLAN=null;
   async function loadWorkoutPlan(){
@@ -2060,7 +1971,7 @@
     loadHealthScore();   // skor komposit + What You Need + weekly recap — fire-and-forget
     loadCoachProfiles(); renderCoachQa();   // kotak profil coach + aksi cepat (auto-message ke chat) — fire-and-forget
     loadWorkoutPlan();   // Active Plan (dari /api/coach/plan) — fire-and-forget
-    wirePlanUpload(); loadTodayPlan(); loadLastUpload();   // Upload Progress + Today's Plan — fire-and-forget
+    loadTodayPlan(); loadLastUpload();   // Today's Plan + "Terakhir:" di kartu upload — fire-and-forget
     wireTabs();          // tab bar Dashboard/Chat/Plan/History
     // Tombol "Tur fitur" (putar ulang kapan saja) + link "Upload workout pertamaku" dari tur Home.
     document.getElementById("tourHelp").onclick=function(){ if(window.Tour) Tour.start(JN&&JN.has_claimed_scan?"activity":"activity_intro",{vars:tourVars(),onCta:tourCta}); };
@@ -2076,7 +1987,7 @@
 
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
     applyStaticLang(); renderHead(); renderDnav();
-    if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek(); }
+    if(DAY){ renderWorkouts(); renderHabits(); renderWeek(); }
     renderSleep(); renderHydra(); renderJourney(); renderHealthScore(); renderCoachProfiles(); if(window.CoachProfiles) CoachProfiles.loadNext(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadLastUpload();
   });
 

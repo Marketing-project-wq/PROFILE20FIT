@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `3e56eca` · **Production:** `d263b13`
+> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `6a7d4b0` · **Production:** `d263b13`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -154,6 +154,25 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **/activity dirapikan (2026-09-30, staging dulu).**
+  - **Kartu "AI Coach — Analisis keseluruhan" DIHAPUS** (Buat rencana / Tentukan targetmu), beserta turunannya di
+    halaman: kartu skor harian `#scoreTop`, checklist "Rencana AI Coach" (`#goalBox`), quiz `js/goal-quiz.js` (file
+    dihapus), dan refresh rencana otomatis setelah simpan workout (diganti hitung ulang Health Score). Skor utama
+    halaman = **Health Score**.
+  - **Satu kartu upload** (`#uploadCard`) menggantikan kartu "Upload Progress" + "Upload hasil workout". 1–5 gambar:
+    gambar pertama → `/api/activity/upload-analyze` (jenis + Today's Plan + riwayat upload untuk Health Score), semua
+    gambar → `/api/activity/scan` (pembaca workout) — **paralel**. Dialog catat workout hanya terbuka kalau jenisnya
+    workout (atau jenis tak dikenali tapi pembaca workout berhasil); foto asli disimpan ke Storage hanya untuk workout.
+    Tombol: Kamera / Galeri-file / Isi workout manual. Konsekuensi: tiap upload non-workout tetap memanggil pembaca
+    workout sekali (biaya AI ekstra, demi user tidak menunggu dua kali).
+  - **Hidrasi = 8 gelas yang bisa diketuk** (8 × 250 ml = target 2 L), animasi air naik/turun (mati kalau
+    `prefers-reduced-motion`). Ketuk gelas ke-n = total n gelas; ketuk gelas terisi terakhir = kurang satu (catatan
+    terbaru dihapus, selisihnya ditambah lagi). Tombol "+1 gelas" untuk lewat target. Tetap `my20fit_hydration` +
+    sinkron `daily_log.water_glasses`. Tombol cepat kopi/teh/ml-bebas dihapus; catatan lama tetap tampil di
+    "Catatan minum".
+  - **Belum diputuskan (TANYA PEMILIK):** `POST /api/activity/plan`, `PATCH /api/activity/goal`, dan field `plan` di
+    `/api/activity/day` (tabel `my20fit_daily_plan`) kini **tak dipanggil halaman web mana pun**. Tidak dihapus karena
+    BELUM TERVERIFIKASI apakah app mobile memakainya — hapus kalau pemilik memastikan tidak.
 - **Visbody Journey — Fase 2 & 3: landing, Health Journey, hasil lengkap, tur fitur, nudge, funnel (2026-09-30,
   staging dulu).** Migration 029. Config di `lib/journey-config.js` (landing, rescan, nudge, info alat, min grup corporate).
   - **Landing setelah login** (`Auth.routeAfterAuth`): link claim tertunda → tujuan internal yang diminta (`?next=/path`
@@ -571,7 +590,7 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   - Ikut diperbaiki: `toggleLike`/`toggleSave` dulu meninggalkan tombol `disabled` selamanya
     kalau request-nya gagal (pola bug yang sama dengan `genPlan` di /activity).
 
-- **Quiz "Set Your Goal" SEKARANG TERPASANG di `/activity` (21 Sep 2026).** Sebelumnya
+- **[DIGANTI 2026-09-30 — quiz & kartu analisis dihapus dari /activity, lihat §2]** **Quiz "Set Your Goal" SEKARANG TERPASANG di `/activity` (21 Sep 2026).** Sebelumnya
   `js/goal-quiz.js` sudah ada tapi tak dipanggil dari mana pun (dead code menurut
   CLAUDE.md §8). Sekarang: tombol **"Tentukan targetmu"** di kartu "Belum ada rencana"
   membuka quiz di dalam `#aiBox`; `onComplete` mengembalikan kartu analisis lalu lanjut
