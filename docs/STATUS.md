@@ -689,6 +689,13 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 - Bangun + sambungkan API Event (`/api/events`) ke `event.html`.
 
 ## 4. Bug / utang teknis diketahui
+- **Chat coach membalas "Terlalu banyak permintaan" — DIPERBAIKI 2026-09-30.** Penyebab: limiter umum `apiLimiter`
+  50 request/10 menit **per IP** untuk SEMUA `/api/*` (satu putaran dashboard ±15 + activity ±8 + chat ±8 panggilan),
+  apalagi member berbagi IP (Wi-Fi kantor/gym, NAT seluler); `/api/banners/*` juga terhitung dua kali. Sekarang:
+  kunci = user login (hash token Bearer; tanpa login = IP) 400/10mnt (tanpa login 100), pagar per IP `ipGuard`
+  3000/10mnt, dan `aiUserLimiter` 40 POST/10mnt per user untuk endpoint AI (chat, upload-analyze, scan,
+  quick-analysis, plan). Di chat, gagal kirim tampil sebagai catatan + tombol "Coba lagi" (bukan bubble coach), 429
+  menyebut perkiraan menit dari `Retry-After`. Angka limit = default agent, **PERLU DIVALIDASI** dengan trafik nyata.
 - **Jadwal Arena keliru: instruktur kelas HYROX Youngstar (12-15) tercatat "Nando"** (semua jadwal Rabu 16:00, 3 Sep–29 Okt
   2026, tabel `arena_class_schedules` milik sistem Arena — bukan my.20fit, tidak boleh diubah dari sini). Pemilik
   mengonfirmasi Coach Nando TIDAK mengajar Youngstar (2026-09-30). **Perbaikan sebenarnya: tim Arena mengganti instruktur
