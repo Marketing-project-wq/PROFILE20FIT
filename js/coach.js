@@ -746,7 +746,6 @@
     root().innerHTML = '<div class="croom" style="--cc:' + color + '">' +
       '<div class="croom-h">' + coachAvatar(CHAT_COACH, 42) +
       '<div class="crn">' + esc(COACH_NAME[CHAT_COACH] || "Coach") +
-      '<small>' + esc(Lx({ en: "Your AI fitness coach · not medical advice", id: "AI fitness coach kamu · bukan nasihat medis" })) + '</small>' +
       '<small class="crgame" id="crGame">' + gameLine() + '</small></div>' +
       '<button type="button" class="crsw" id="crSwitch">' + esc(Lx({ en: "Switch", id: "Ganti" })) + '</button></div>' +
       '<div class="cmsgs" id="cMsgs"></div>' +
