@@ -168,8 +168,8 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   - Gamifikasi (XP, level, streak aktivitas, 7 badge baru) **dihitung dari data yang ada** di
     `/api/coach/achievements` — tabel `user_gamification`/`health_scores` dari spec SENGAJA tidak dibuat.
   - **Kotak profil coach (carousel)** — satu modul `js/coach-profiles.js` + `css/coach-profiles.css`, dipakai
-    `/activity` (menggantikan baris 4 avatar kecil) dan picker `/activity/chat`: foto bulat, tagline, sifat, contoh
-    ucapan, lokasi & kelas terdekat (data asli), tombol "Chat dengan <coach>" ("Gaya ngobrol" & "Cocok kalau" dihapus
+    `/activity` (menggantikan baris 4 avatar kecil) dan picker `/activity/chat`: foto bulat, tagline, sifat, lokasi &
+    kelas terdekat (data asli), tombol "Chat dengan <coach>" ("Gaya ngobrol", "Cocok kalau" & contoh ucapan dihapus
     atas permintaan pemilik). Isi persona dari deskripsi pemilik; kolom `speciality` roster masih kosong → tidak ditampilkan.
   - **Tanpa emoji di UI Activity/Chat** — semua ikon = `js/fiticons.js` (ditambah: chat, clipboard, calendar, pin,
     camera, folder, scan, clinic, star, box, boxcheck, scale). Ikon "What You Need" dari server kini NAMA ikon

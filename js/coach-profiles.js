@@ -33,19 +33,15 @@
   var PROFILE = {
     nando: {
       traits: [{ en: "Motivational", id: "Motivational" }, { en: "Strict", id: "Tegas" }, { en: "Ambitious", id: "Ambisius" }, { en: "Detailed", id: "Detail" }],
-      quote: "Bro, 1x gym minggu ini? That's not a plan, that's a hobby. Let's fix this.",
     },
     calysta: {
       traits: [{ en: "Inspiring", id: "Inspiring" }, { en: "Playful", id: "Playful" }, { en: "Cheerful", id: "Ceria" }, { en: "Friendly", id: "Ramah" }],
-      quote: "Hiii! Gak apa-apa kalau slip dikit, yang penting kita mulai lagi yaa",
     },
     rheza: {
       traits: [{ en: "Playful", id: "Playful" }, { en: "Serious", id: "Serius" }, { en: "Ambitious", id: "Ambisius" }, { en: "Competitive", id: "Kompetitif" }],
-      quote: "Challenge: 4x latihan minggu ini. Deal? Kalau gak deal, aku unfollow kamu.",
     },
     elsen: {
       traits: [{ en: "Detail-oriented", id: "Detail" }, { en: "Professional", id: "Profesional" }, { en: "Friendly", id: "Bersahabat" }],
-      quote: "Dari Visbody kamu, muscle mass 32kg itu bagus. Yang perlu kita improve itu visceral fat-nya — aku breakdown ya.",
     },
   };
 
@@ -113,7 +109,6 @@
         '<div class="cprof-tag">' + esc(Lx(c[1])) + '</div>' +
         '<div class="cprof-v">' + ic("pin", 13) + ' ' + esc(venue) + '</div></div>' +
       '<div class="cprof-traits">' + (pf.traits || []).map(function (t) { return '<span>' + esc(Lx(t)) + '</span>'; }).join("") + '</div>' +
-      '<div class="cprof-quote">“' + esc(pf.quote || "") + '”</div>' +
       '<div class="cprof-next" data-cp-next="' + esc(slug) + '">' + nextHtml(slug) + '</div>' +
       '<button type="button" class="cprof-go" data-pick="' + esc(slug) + '">' + ic("chat", 16) + ' ' + esc(Lx({ en: "Chat with ", id: "Chat dengan " }) + NAME[slug]) + '</button>' +
     '</div>';
