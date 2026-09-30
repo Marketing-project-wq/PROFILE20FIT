@@ -423,6 +423,43 @@
   .vb-alert-a button{border:0;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:800;font-family:inherit;cursor:pointer}
   .vb-alert-a .pri{background:var(--fit-red,#E4002B);color:#fff}
   .vb-alert-a .sec{background:var(--a-bg);color:var(--a-txt);border:1px solid var(--a-line)}
+  .vb-alert-nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px}
+  .vb-alert-nums div{background:var(--a-surface);border:1px solid var(--a-line);border-radius:10px;padding:7px 8px;min-width:0}
+  .vb-alert-nums b{display:block;font-size:15px;font-weight:800;color:var(--a-txt);white-space:nowrap}
+  .vb-alert-nums span{display:block;font-size:10.5px;color:var(--a-mut);font-weight:700;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @media(max-width:420px){ .vb-alert-nums{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  .vb-alert-a a{display:inline-flex;align-items:center;gap:6px;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:800;text-decoration:none}
+  .vb-alert-a a.pri{background:var(--fit-red,#E4002B);color:#fff}
+  .tour-help{margin-left:auto;width:36px;height:36px;border-radius:99px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);display:grid;place-items:center;cursor:pointer}
+  .ahead .tour-help + .av{margin-left:0}
+  /* Health Journey */
+  .jn{border:1px solid var(--a-line);border-radius:16px;padding:14px;background:var(--a-surface)}
+  .jn-h{display:flex;align-items:center;gap:8px}
+  .jn-t{font-size:14px;font-weight:800;color:var(--a-txt);flex:1}
+  .jn-n{font-size:12px;font-weight:800;color:var(--a-mut)}
+  .jn-bar{height:6px;border-radius:4px;background:color-mix(in srgb,var(--a-txt) 9%,transparent);overflow:hidden;margin:8px 0 12px}
+  .jn-bar i{display:block;height:100%;background:var(--fit-green,#16A34A);border-radius:4px}
+  .jn-next{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:12px;background:color-mix(in srgb,var(--fit-red,#E4002B) 6%,var(--a-surface));border:1px solid color-mix(in srgb,var(--fit-red,#E4002B) 30%,var(--a-line))}
+  .jn-next .ic{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--a-surface);color:var(--fit-red,#E4002B)}
+  .jn-next b{display:block;font-size:14px;color:var(--a-txt)}
+  .jn-next p{margin:3px 0 9px;font-size:12.5px;line-height:1.45;color:var(--a-mut)}
+  .jn-btn{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:800;font-family:inherit;cursor:pointer;background:var(--fit-red,#E4002B);color:#fff;text-decoration:none}
+  .jn-btn.sec{background:var(--a-bg);color:var(--a-txt);border:1px solid var(--a-line)}
+  .jn details{margin-top:10px}
+  .jn summary{font-size:12px;font-weight:800;color:var(--a-mut);cursor:pointer}
+  .jn-list{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .jn-list li{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--a-txt)}
+  .jn-list li.done{color:var(--a-mut)}
+  .jn-list li .dot{flex:none;width:20px;height:20px;border-radius:99px;display:grid;place-items:center;border:1.5px solid var(--a-line);color:#fff}
+  .jn-list li.done .dot{background:var(--fit-green,#16A34A);border-color:var(--fit-green,#16A34A)}
+  .jn-done{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--a-mut)}
+  .nudge{position:relative;display:flex;gap:10px;align-items:flex-start;border:1px dashed color-mix(in srgb,var(--fit-red,#E4002B) 40%,var(--a-line));border-radius:14px;padding:12px 36px 12px 12px;background:var(--a-surface)}
+  .nudge b{display:block;font-size:13.5px;color:var(--a-txt)}
+  .nudge p{margin:3px 0 8px;font-size:12.5px;color:var(--a-mut);line-height:1.45}
+  .nudge .ic{flex:none;color:var(--fit-red,#E4002B);margin-top:1px}
+  .jn-dlg-t{font-weight:800;font-size:15px}
+  .jn-dlg-p{font-size:13px;line-height:1.5;color:var(--a-mut);margin:6px 0 0}
+  .jn-dlg-big{font-size:26px;font-weight:800;color:var(--a-txt);margin:10px 0 2px}
   .vb-alert-x{position:absolute;top:8px;right:8px;width:26px;height:26px;border:0;border-radius:99px;background:transparent;color:var(--a-mut);font-size:15px;cursor:pointer}
   .qa-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
   .qa-tile{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 6px;border:1px solid var(--a-line);border-radius:14px;background:var(--a-surface);
@@ -494,7 +531,7 @@
 <link rel="stylesheet" href="css/glass-app.css">
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 </head>
-<body>
+<body data-tour-manual>
 <div class="wrap">
 
   <!-- 1. HEADER -->
@@ -503,6 +540,7 @@
       <h1 data-i18n="act_title">Activity</h1>
       <div class="date" id="hdDate">—</div>
     </div>
+    <button type="button" class="tour-help" id="tourHelp" aria-label="Tur fitur" title="Tur fitur"><span class="fic" data-ic="help" data-ic-size="18"></span></button>
     <div class="av" id="hdAv">·</div>
   </div>
 
@@ -527,8 +565,10 @@
        What You Need = pill, Upload & Weekly Recap berdampingan (tetap 2 kolom di mobile). -->
   <div class="astack">
 
-    <!-- ALERT hasil Visbody baru (belum dilihat) — diisi loadVisbodyAlert() -->
+    <!-- Hasil Visbody baru (belum dibuka) + checklist Health Journey + nudge — diisi loadJourney() -->
     <div id="vbAlertBox"></div>
+    <div id="journeyBox"></div>
+    <div id="nudgeBox"></div>
 
     <!-- COACH — coach aktif + aksi cepat, lalu kotak profil 4 coach yang bisa digeser
          (js/coach-profiles.js, sama dengan picker /activity/chat) -->
@@ -659,6 +699,9 @@
   </div>
 </dialog>
 
+<!-- Dialog Health Journey (target kalori dari BMR / jadwal rescan) — isi dari JS -->
+<dialog id="jnDlg" aria-labelledby="jnDlgT"></dialog>
+
 <dialog id="slpDlg">
   <div style="font-weight:800;font-size:15px" id="slpDlgT">Catat tidur</div>
   <div class="muted" style="font-size:12px;margin-top:3px" id="slpDlgS">Durasi dihitung otomatis dari jam tidur &amp; bangun.</div>
@@ -688,6 +731,8 @@
 <script src="js/cycle.js"></script>
 <script src="js/fasting.js"></script>
 <script src="js/nutrition.js"></script>
+<script src="js/tours-config.js"></script>
+<script src="js/tour.js"></script>
 <script>
   // ---- Halaman Activity ----
   // Data: /api/activity/day (workout + harian + rencana + 7 hari) — satu panggilan.
@@ -1553,27 +1598,155 @@
   // ALERT hasil Visbody baru: scan ≤30 hari yang belum ditandai "dilihat" di perangkat ini
   // (tanda per user di localStorage — tanpa kolom DB baru; di perangkat lain alert bisa muncul
   // sekali lagi, itu aman). Dua aksi = auto-message ke chat coach.
-  var VB_NEW_DAYS=30;
-  function vbSeenKey(){ return "my20fit_vb_seen_"+(AUTH_UID||"anon"); }
-  function vbMarkSeen(id){ try{ localStorage.setItem(vbSeenKey(), String(id)); }catch(e){} }
-  async function loadVisbodyAlert(){
-    var host=document.getElementById("vbAlertBox"); if(!host||!window.BodyScan) return;
-    var s=null; try{ s=await BodyScan.latest(); }catch(e){ s=null; }
-    var seen=null; try{ seen=localStorage.getItem(vbSeenKey()); }catch(e){}
-    var fresh=s&&s.scanned_at&&(Date.now()-new Date(s.scanned_at).getTime())<=VB_NEW_DAYS*86400000;
-    if(!s||!fresh||String(seen)===String(s.scan_id)){ host.innerHTML=""; return; }
-    var m=[];
-    if(s.body_fat_percentage!=null) m.push("Body Fat: "+(+s.body_fat_percentage).toFixed(1)+"%");
-    if(s.body_mass_index!=null) m.push("BMI: "+(+s.body_mass_index).toFixed(1));
-    if(s.muscle_mass!=null) m.push(Lx({en:"Muscle: ",id:"Otot: "})+(+s.muscle_mass).toFixed(1)+"kg");
-    host.innerHTML='<div class="vb-alert"><button type="button" class="vb-alert-x" id="vbX" aria-label="'+esc(Lx({en:"Dismiss",id:"Tutup"}))+'">✕</button>'+
+  // ---- HEALTH JOURNEY (Visbody) — status dari server (/api/journey/state) ----
+  // Banner hasil baru, checklist 6 langkah, nudge. "Dilihat" ditandai server saat HASIL LENGKAP
+  // dibuka (/activity/visbody), bukan saat banner tampil. Tur F1 (js/tour.js) menunggu event
+  // "journey:ready" supaya dimulai SETELAH banner tampil.
+  var JN=null, JN_WELCOME=/[?&]welcome=visbody\b/.test(location.search), JN_NUDGE_SHOWN={};
+  if(JN_WELCOME){ try{ history.replaceState(null,"",location.pathname+location.hash); }catch(e){} }
+  function jnEvent(ev,props){ apiFetch("/api/journey/event",{method:"POST",body:JSON.stringify({event:ev,props:props||{}})}).catch(function(){}); }
+  async function loadJourney(){
+    try{ var r=await apiFetch("/api/journey/state"); var j=await r.json().catch(function(){return null;}); JN=(r.ok&&j&&j.ok)?j:null; }catch(e){ JN=null; }
+    renderJourney();
+    if(JN_WELCOME&&JN&&JN.has_claimed_scan){ jnEvent("activity_landing_after_claim"); JN_WELCOME=false; }
+    tourReady("jn");
+  }
+  // ---- Tur fitur (js/tour.js + js/tours-config.js) ----
+  // F1 (sudah scan) / tur mini (belum) dimulai SETELAH banner Visbody, skor & plan termuat,
+  // supaya tur menyorot elemen yang sudah jadi & memakai angka asli user (bukan contoh).
+  var TOUR_PARTS={};
+  function tourVars(){ return { score:(HS&&typeof HS.total==="number")?HS.total:null, filled:(HS&&HS.filled)?HS.filled.length:null,
+    has_plan:!!(WPLAN&&WPLAN.plan&&Array.isArray(WPLAN.plan.days)&&WPLAN.plan.days.length) }; }
+  function tourCta(action){
+    if(action==="upload_workout"){ uploadWorkoutGo(); return; }
+    if(action==="journey_next"){ var n=JN&&JN.checklist&&JN.checklist.filter(function(c){ return !c.done&&(c.key!=="calorie_target"||c.available); })[0]; if(n) jnDo(n.key); }
+  }
+  function tourReady(part){
+    TOUR_PARTS[part]=1;
+    if(TOUR_PARTS.jn&&TOUR_PARTS.hs&&TOUR_PARTS.wp&&!TOUR_PARTS.started&&window.Tour){ TOUR_PARTS.started=1; Tour.auto({vars:tourVars(),onCta:tourCta,state:JN}); }
+  }
+  function renderJourney(){ renderVbBanner(); renderChecklist(); renderNudges(); }
+  function vbNum(v,d){ return (v==null||v==="")?"—":(+v).toFixed(d==null?1:d).replace(/\.0$/,""); }
+  function renderVbBanner(){
+    var host=document.getElementById("vbAlertBox"); if(!host) return;
+    var s=JN&&JN.latest_scan;
+    if(!s){ host.innerHTML=""; return; }
+    // Baru di-claim, data ukur masih diproses timbangan.
+    if(!s.data_ready){
+      host.innerHTML=JN.has_claimed_scan&&Date.now()-new Date(s.scanned_at).getTime()<2*86400000?'<div class="vb-alert" id="vbBanner"><div class="vb-alert-t">'+FIC("scan",16)+' '+esc(Lx({en:"Your Visbody scan is saved",id:"Scan Visbody kamu tersimpan"}))+'</div>'+
+        '<div class="vb-alert-m">'+esc(Lx({en:"The scale is still processing the result — it will show up here shortly.",id:"Hasilnya masih diproses timbangan — sebentar lagi muncul di sini."}))+'</div></div>':"";
+      return;
+    }
+    var hideKey="my20fit_vb_hide_"+s.scan_id, hidden=false; try{ hidden=sessionStorage.getItem(hideKey)==="1"; }catch(e){}
+    if(!JN.unviewed||hidden){ host.innerHTML=""; return; }
+    var m=s.metrics||{};
+    var nums=[[vbNum(m.weight)+" kg",{en:"Weight",id:"Berat"}],[vbNum(m.body_fat)+"%",{en:"Body fat",id:"Lemak tubuh"}],[vbNum(m.muscle)+" kg",{en:"Muscle",id:"Massa otot"}],[vbNum(m.bmi),{en:"BMI",id:"BMI"}]]
+      .map(function(x){ return '<div><b>'+esc(x[0])+'</b><span>'+esc(Lx(x[1]))+'</span></div>'; }).join("");
+    host.innerHTML='<div class="vb-alert" id="vbBanner"><button type="button" class="vb-alert-x" id="vbX" aria-label="'+esc(Lx({en:"Hide for now",id:"Sembunyikan dulu"}))+'">✕</button>'+
       '<div class="vb-alert-t">'+FIC("target",16)+' '+esc(Lx({en:"Your Visbody result is in!",id:"Hasil Visbody kamu sudah masuk!"}))+'</div>'+
-      (m.length?'<div class="vb-alert-m">'+esc(m.join(" · "))+'</div>':'')+
-      '<div class="vb-alert-a"><button type="button" class="pri" id="vbAsk">'+FIC("chat",15)+' '+esc(Lx({en:"Analyse with Coach",id:"Analisa dengan Coach"}))+'</button>'+
-      '<button type="button" class="sec" id="vbPlan">'+FIC("clipboard",15)+' '+esc(Lx({en:"Build a plan now",id:"Langsung Buat Plan"}))+'</button></div></div>';
-    document.getElementById("vbX").onclick=function(){ vbMarkSeen(s.scan_id); host.innerHTML=""; };
-    document.getElementById("vbAsk").onclick=function(){ vbMarkSeen(s.scan_id); coachAskGo(Lx({en:"My new Visbody result just came in — analyse it for me",id:"Hasil Visbody aku baru masuk — tolong analisa"})); };
-    document.getElementById("vbPlan").onclick=function(){ vbMarkSeen(s.scan_id); coachAskGo(Lx({en:"Build me a workout plan based on my Visbody result",id:"Buatkan workout plan berdasarkan hasil Visbody aku"})); };
+      '<div class="vb-alert-nums">'+nums+'</div>'+
+      '<div class="vb-alert-a"><a class="pri" id="vbFull" href="/activity/visbody">'+FIC("chart",15)+' '+esc(Lx({en:"See full result",id:"Lihat hasil lengkap"}))+'</a>'+
+      '<button type="button" class="sec" id="vbAsk">'+FIC("chat",15)+' '+esc(Lx({en:"Analyse with Coach",id:"Analisa dengan Coach"}))+'</button></div></div>';
+    document.getElementById("vbX").onclick=function(){ try{ sessionStorage.setItem(hideKey,"1"); }catch(e){} host.innerHTML=""; };
+    document.getElementById("vbAsk").onclick=function(){ coachAskGo(Lx({en:"My new Visbody result just came in — analyse it for me",id:"Hasil Visbody aku baru masuk — tolong analisa"})); };
+  }
+  // Langkah checklist: [judul, penjelasan, label tombol, ikon]
+  var JN_STEPS={
+    view_result:[{en:"See your Visbody result",id:"Lihat hasil Visbody"},{en:"Your full body composition, explained in plain words.",id:"Komposisi tubuh lengkapmu, dijelaskan dengan bahasa sederhana."},{en:"Open result",id:"Buka hasil"},"chart"],
+    coach_analysis:[{en:"Analyse with an AI Coach",id:"Analisa dengan AI Coach"},{en:"Ask a coach what your numbers mean and what to do next. AI coach — not a doctor.",id:"Tanya coach arti angkamu & langkah berikutnya. AI coach — bukan dokter."},{en:"Chat with coach",id:"Chat dengan coach"},"chat"],
+    workout_plan:[{en:"Create a workout plan",id:"Buat workout plan"},{en:"A weekly plan built around your result and goal.",id:"Rencana mingguan sesuai hasil scan & tujuanmu."},{en:"Build my plan",id:"Buat plan"},"clipboard"],
+    calorie_target:[{en:"Use your BMR as calorie target",id:"Pakai BMR sebagai target kalori"},{en:"Set your Calorie Tracker target from your measured BMR — you confirm before anything changes.",id:"Atur target Calorie Tracker dari BMR terukur — kamu konfirmasi dulu sebelum ada yang berubah."},{en:"Review target",id:"Lihat target"},"meal"],
+    book_class:[{en:"Book a class with a coach",id:"Book kelas dengan coach"},{en:"Train in person at 20FIT.",id:"Latihan langsung di 20FIT."},{en:"Book class",id:"Book kelas"},"calendar"],
+    rescan:[{en:"Schedule your rescan",id:"Jadwalkan rescan"},{en:"Scan again to see your progress.",id:"Scan lagi untuk melihat progresmu."},{en:"Pick a date",id:"Pilih tanggal"},"scan"]
+  };
+  function jnDate(d){ try{ return new Date(d+(String(d).length===10?"T00:00:00":"")).toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{day:"numeric",month:"short",year:"numeric"}); }catch(e){ return d; } }
+  function renderChecklist(){
+    var host=document.getElementById("journeyBox"); if(!host) return;
+    var cl=JN&&JN.checklist; if(!cl){ host.innerHTML=""; return; }
+    var actionable=cl.filter(function(c){ return c.key!=="calorie_target"||c.available||c.done; });
+    var done=actionable.filter(function(c){ return c.done; }).length, total=actionable.length;
+    var next=actionable.filter(function(c){ return !c.done; })[0];
+    var list='<details'+(done?'':' open')+'><summary>'+esc(Lx({en:"All steps",id:"Semua langkah"}))+'</summary><ul class="jn-list">'+actionable.map(function(c){
+      var t=Lx(JN_STEPS[c.key][0])+(c.key==="rescan"&&c.done&&JN.rescan_due?" · "+jnDate(JN.rescan_due):"");
+      return '<li class="'+(c.done?"done":"")+'"><span class="dot">'+(c.done?FIC("check",12):"")+'</span>'+esc(t)+'</li>';
+    }).join("")+'</ul></details>';
+    var head='<div class="jn-h"><span class="jn-t">'+FIC("target",15)+' Health Journey</span><span class="jn-n">'+done+'/'+total+'</span></div>'+
+      '<div class="jn-bar"><i style="width:'+Math.round(done/Math.max(1,total)*100)+'%"></i></div>';
+    if(!next){
+      host.innerHTML='<div class="jn" id="journeyCard">'+head+'<div class="jn-done">'+FIC("check",15)+' '+esc(Lx({en:"All steps done. Next rescan: ",id:"Semua langkah selesai. Rescan berikutnya: "})+(JN.rescan_due?jnDate(JN.rescan_due):"—"))+'</div>'+list+'</div>';
+      return;
+    }
+    var st=JN_STEPS[next.key];
+    host.innerHTML='<div class="jn" id="journeyCard">'+head+
+      '<div class="jn-next"><span class="ic">'+FIC(st[3],18)+'</span><div style="flex:1;min-width:0"><b>'+esc(Lx({en:"Next step: ",id:"Langkah berikutnya: "})+Lx(st[0]))+'</b><p>'+esc(Lx(st[1]))+'</p>'+
+      '<button type="button" class="jn-btn" id="jnGo" data-k="'+next.key+'">'+esc(Lx(st[2]))+' →</button></div></div>'+list+'</div>';
+    document.getElementById("jnGo").onclick=function(){ jnDo(next.key); };
+  }
+  function jnDo(key){
+    if(key==="view_result"){ location.href="/activity/visbody"; return; }
+    if(key==="coach_analysis"){ coachAskGo(Lx({en:"Analyse my latest Visbody result and tell me what to focus on",id:"Analisa hasil Visbody terakhirku dan bilang aku harus fokus ke mana"})); return; }
+    if(key==="workout_plan"){ coachAskGo(Lx({en:"Build me a workout plan based on my Visbody result",id:"Buatkan workout plan berdasarkan hasil Visbody aku"})); return; }
+    if(key==="calorie_target"){ openCalorieDlg(); return; }
+    if(key==="book_class"){ apiFetch("/api/journey/step",{method:"POST",body:JSON.stringify({key:"book_class",from:"checklist"})}).catch(function(){}).then(function(){ location.href="/book-class"; }); return; }
+    if(key==="rescan"){ openRescanDlg(); return; }
+  }
+  function jnDlg(html){ var d=document.getElementById("jnDlg"); d.innerHTML=html; if(!d.open) d.showModal(); return d; }
+  async function jnPost(path,body){ var r=await apiFetch(path,{method:"POST",body:JSON.stringify(body)}); var j=await r.json().catch(function(){return {};}); if(!r.ok||!j.ok) throw new Error(j.error||"fail"); JN=j; renderJourney(); return j; }
+  // Target kalori dari BMR Visbody: angka dihitung rumus yang SAMA dgn target otomatis
+  // (Nutrition.goalFromBmr), baru disimpan setelah user menekan "Pakai target ini".
+  function openCalorieDlg(){
+    var bmr=JN&&JN.latest_scan&&JN.latest_scan.metrics&&JN.latest_scan.metrics.bmr;
+    if(!bmr||!window.Nutrition||!Nutrition.goalFromBmr) return;
+    var target=Nutrition.goalFromBmr(user,bmr), cur=Nutrition.goalFor(user), fromVb=JN.calorie_target&&JN.calorie_target.source==="visbody_bmr";
+    var d=jnDlg('<div class="jn-dlg-t" id="jnDlgT">'+esc(Lx({en:"Calorie target from your BMR",id:"Target kalori dari BMR kamu"}))+'</div>'+
+      '<p class="jn-dlg-p">'+esc(Lx({en:"Visbody measured your BMR (energy at rest) at "+bmr+" kcal. With your activity level and goal, your daily target would be:",id:"Visbody mengukur BMR (energi saat istirahat) kamu "+bmr+" kkal. Dengan tingkat aktivitas & tujuanmu, target harianmu jadi:"}))+'</p>'+
+      '<div class="jn-dlg-big">'+esc(target)+' '+esc(Lx({en:"kcal/day",id:"kkal/hari"}))+'</div>'+
+      '<p class="jn-dlg-p">'+esc(Lx({en:"Current target: "+cur+" kcal. Never below "+((JN.calorie_target&&JN.calorie_target.min)||1200)+" kcal. General guidance, not a medical diet.",id:"Target sekarang: "+cur+" kkal. Tidak pernah di bawah "+((JN.calorie_target&&JN.calorie_target.min)||1200)+" kkal. Panduan umum, bukan diet medis."}))+'</p>'+
+      '<div id="jnDlgErr" class="err" style="margin-top:8px"></div>'+
+      '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn ghost" type="button" id="jnNo">'+esc(Lx({en:"Cancel",id:"Batal"}))+'</button>'+
+      (fromVb?'<button class="btn ghost" type="button" id="jnReset">'+esc(Lx({en:"Back to automatic",id:"Kembali ke otomatis"}))+'</button>':'')+
+      '<button class="btn" type="button" id="jnYes">'+esc(Lx({en:"Use this target",id:"Pakai target ini"}))+'</button></div>');
+    document.getElementById("jnNo").onclick=function(){ d.close(); };
+    document.getElementById("jnYes").onclick=async function(){ this.disabled=true;
+      try{ await jnPost("/api/journey/calorie-target",{confirm:true,kcal:target}); user.calorie_target_kcal=target; d.close(); }
+      catch(e){ document.getElementById("jnDlgErr").textContent=Lx({en:"Couldn't save. Try again.",id:"Gagal menyimpan. Coba lagi."}); this.disabled=false; } };
+    var rs=document.getElementById("jnReset"); if(rs) rs.onclick=async function(){ this.disabled=true;
+      try{ await jnPost("/api/journey/calorie-target",{reset:true}); user.calorie_target_kcal=null; d.close(); }catch(e){ this.disabled=false; } };
+  }
+  function openRescanDlg(){
+    var days=(JN&&JN.rescan_interval_days)||30, dt=new Date(Date.now()+days*86400000), today=ymdOf(new Date());
+    var d=jnDlg('<div class="jn-dlg-t" id="jnDlgT">'+esc(Lx({en:"Schedule your rescan",id:"Jadwalkan rescan"}))+'</div>'+
+      '<p class="jn-dlg-p">'+esc(Lx({en:"We suggest scanning again in about "+days+" days to see your progress. You'll get a reminder on this page.",id:"Saran kami scan lagi sekitar "+days+" hari lagi untuk melihat progres. Pengingatnya muncul di halaman ini."}))+'</p>'+
+      '<label for="jnDate">'+esc(Lx({en:"Rescan date",id:"Tanggal rescan"}))+'</label><input id="jnDate" type="date" min="'+today+'" value="'+ymdOf(dt)+'">'+
+      '<div id="jnDlgErr" class="err" style="margin-top:8px"></div>'+
+      '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn ghost" type="button" id="jnNo">'+esc(Lx({en:"Cancel",id:"Batal"}))+'</button>'+
+      '<button class="btn" type="button" id="jnYes">'+esc(Lx({en:"Save date",id:"Simpan tanggal"}))+'</button></div>');
+    document.getElementById("jnNo").onclick=function(){ d.close(); };
+    document.getElementById("jnYes").onclick=async function(){ this.disabled=true;
+      try{ await jnPost("/api/journey/step",{key:"rescan",date:document.getElementById("jnDate").value}); d.close(); }
+      catch(e){ document.getElementById("jnDlgErr").textContent=Lx({en:"Pick a date from today onward.",id:"Pilih tanggal mulai hari ini."}); this.disabled=false; } };
+  }
+  // Nudge kontekstual (aturan & batas frekuensi di server / lib/journey-config.js).
+  var JN_NUDGES={
+    visbody_after_workouts:function(n){ return [{en:"Complete your Health Score with Visbody",id:"Lengkapi Health Score dengan Visbody"},
+      {en:"You've logged "+n.workouts+" workouts. A Visbody scan at 20FIT adds your body composition — your score and plan get more accurate.",id:"Kamu sudah mencatat "+n.workouts+" workout. Scan Visbody di 20FIT menambah data komposisi tubuh — skor & plan-mu jadi lebih tepat."},
+      {en:"How to scan",id:"Lihat cara scan"},"/activity/visbody"]; },
+    rescan_due:function(n){ return [{en:"Time for a rescan",id:"Saatnya scan ulang"},
+      {en:"It's been "+n.days+" days since your last Visbody scan. Scan again to see your progress.",id:"Sudah "+n.days+" hari sejak scan Visbody terakhir. Scan lagi untuk melihat progresmu."},
+      {en:"See how",id:"Lihat caranya"},"/activity/visbody"]; }
+  };
+  function jnNudgeAct(key,action){ return apiFetch("/api/journey/nudge",{method:"POST",body:JSON.stringify({key:key,action:action})}).catch(function(){}); }
+  function renderNudges(){
+    var host=document.getElementById("nudgeBox"); if(!host) return;
+    var list=((JN&&JN.nudges)||[]).filter(function(n){ return JN_NUDGES[n.key]; });
+    host.innerHTML=list.map(function(n){ var t=JN_NUDGES[n.key](n);
+      return '<div class="nudge" data-nk="'+n.key+'"><span class="ic">'+FIC("scan",18)+'</span><div style="flex:1;min-width:0"><b>'+esc(Lx(t[0]))+'</b><p>'+esc(Lx(t[1]))+'</p>'+
+        '<a class="jn-btn sec" href="'+t[3]+'" data-nclick="'+n.key+'">'+esc(Lx(t[2]))+' →</a></div>'+
+        '<button type="button" class="vb-alert-x" data-nx="'+n.key+'" aria-label="'+esc(Lx({en:"Dismiss",id:"Tutup"}))+'">✕</button></div>';
+    }).join("");
+    list.forEach(function(n){ if(!JN_NUDGE_SHOWN[n.key]){ JN_NUDGE_SHOWN[n.key]=1; jnNudgeAct(n.key,"shown"); } });
+    Array.prototype.forEach.call(host.querySelectorAll("[data-nx]"),function(b){ b.onclick=function(){ var k=b.getAttribute("data-nx"); jnNudgeAct(k,"dismissed"); JN.nudges=JN.nudges.filter(function(n){ return n.key!==k; }); renderNudges(); }; });
+    Array.prototype.forEach.call(host.querySelectorAll("[data-nclick]"),function(a){ a.onclick=function(e){ e.preventDefault(); var href=a.getAttribute("href"); jnNudgeAct(a.getAttribute("data-nclick"),"clicked").then(function(){ location.href=href; }); }; });
   }
   function coachAskGo(msg){
     try{ sessionStorage.setItem("chat_context", JSON.stringify({ auto_message:String(msg||"") })); }catch(e){}
@@ -1601,7 +1774,7 @@
       var j=await r.json().catch(function(){return {};});
       HS=(r.ok&&j.ok)?j:null;
     }catch(e){ HS=null; }
-    renderHealthScore(); renderWeeklyRecap();
+    renderHealthScore(); renderWeeklyRecap(); tourReady("hs");
   }
   // Pill What You Need -> aksi nyata per kategori.
   function gapAction(cat){
@@ -1627,7 +1800,9 @@
   }
   // TERKUNCI (belum ada scan Visbody ter-claim & belum pernah workout): tanpa angka, dua jalur buka,
   // plus komponen yang sudah terisi supaya user tahu dia sudah dekat.
+  var HS_LOCK_LOGGED=false;
   function renderHsLocked(host){
+    if(!HS_LOCK_LOGGED){ HS_LOCK_LOGGED=true; jnEvent("health_score_locked_shown"); }
     var filled=(HS.filled||[]);
     var done=HS_CATS.filter(function(c){ return filled.indexOf(c[0])>=0; });
     host.innerHTML='<div class="card health-score-card hs-locked">'+
@@ -1833,7 +2008,7 @@
       var r=await apiFetch("/api/coach/plan"); var j=await r.json().catch(function(){return {};});
       WPLAN=(r.ok&&j&&j.plan&&j.plan.plan)?j.plan:null;
     }catch(e){ WPLAN=null; }
-    renderWorkoutPlan();
+    renderWorkoutPlan(); tourReady("wp");
   }
   function renderWorkoutPlan(){
     var host=document.getElementById("workoutPlanBox"); if(!host) return;
@@ -1881,12 +2056,15 @@
     try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
     applyStaticLang(); renderHead(); renderDnav(); wireUpload(); wireDlg(); wireSleepDlg();
     await load(SEL);
-    loadVisbodyAlert();  // alert hasil Visbody baru (kalau ada & belum dilihat)
+    loadJourney();       // hasil Visbody baru + checklist Health Journey + nudge (server) — fire-and-forget
     loadHealthScore();   // skor komposit + What You Need + weekly recap — fire-and-forget
     loadCoachProfiles(); renderCoachQa();   // kotak profil coach + aksi cepat (auto-message ke chat) — fire-and-forget
     loadWorkoutPlan();   // Active Plan (dari /api/coach/plan) — fire-and-forget
     wirePlanUpload(); loadTodayPlan(); loadLastUpload();   // Upload Progress + Today's Plan — fire-and-forget
     wireTabs();          // tab bar Dashboard/Chat/Plan/History
+    // Tombol "Tur fitur" (putar ulang kapan saja) + link "Upload workout pertamaku" dari tur Home.
+    document.getElementById("tourHelp").onclick=function(){ if(window.Tour) Tour.start(JN&&JN.has_claimed_scan?"activity":"activity_intro",{vars:tourVars(),onCta:tourCta}); };
+    if(location.hash==="#upload-workout"){ try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} setTimeout(uploadWorkoutGo,600); }
     // Isi Activity lama menyatu di halaman yang sama. Dijalankan SETELAH bagian harian
     // supaya yang di layar pertama tampil duluan; skripnya berat (pencapaian, siklus,
     // riwayat arena). Gagal di sini TIDAK boleh merusak bagian harian di atasnya.
@@ -1899,7 +2077,7 @@
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
     applyStaticLang(); renderHead(); renderDnav();
     if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek(); }
-    renderSleep(); renderHydra(); loadVisbodyAlert(); renderHealthScore(); renderCoachProfiles(); if(window.CoachProfiles) CoachProfiles.loadNext(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadLastUpload();
+    renderSleep(); renderHydra(); renderJourney(); renderHealthScore(); renderCoachProfiles(); if(window.CoachProfiles) CoachProfiles.loadNext(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadLastUpload();
   });
 
 </script>
