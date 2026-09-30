@@ -864,12 +864,22 @@
     }
     if (quick) quick.style.display = "";
     MEAL_CARDS = [];
-    var html = CHAT_MSGS.map(function (m) {
+    var html = CHAT_MSGS.map(function (m, i) {
+      // Gagal kirim = catatan sistem (bukan jawaban coach) + tombol kirim ulang.
+      if (m.role === "error") return '<div class="cmsg err">' + svgIcon("warn", 14) + ' <span>' + esc(m.content) + '</span>' +
+        '<button type="button" class="cretry" data-retry-i="' + i + '">' + esc(Lx({ en: "Try again", id: "Coba lagi" })) + '</button></div>';
       return '<div class="cmsg ' + (m.role === "user" ? "me" : "ai") + '">' + (m.role === "user" ? esc(m.content).replace(/\n/g, "<br>") : renderReply(m.content)) + '</div>';
     }).join("");
     if (CHAT_BUSY) html += '<div class="cmsg ai typing"><span></span><span></span><span></span></div>';
     box.innerHTML = html; box.scrollTop = box.scrollHeight;
     Array.prototype.forEach.call(box.querySelectorAll(".cmeal-go[data-meal-i]"), function (b) { b.onclick = function () { applyMeal(b); }; });
+    Array.prototype.forEach.call(box.querySelectorAll(".cretry[data-retry-i]"), function (b) {
+      b.onclick = function () {
+        var i = +b.getAttribute("data-retry-i"), m = CHAT_MSGS[i]; if (!m || CHAT_BUSY) return;
+        CHAT_MSGS.splice(i - 1, 2);   // pesan user yang gagal + catatan errornya; sendChat menambahkan ulang
+        sendChat(m.retry);
+      };
+    });
   }
   // Empty state ala referensi: sapaan personal + chip data ASLI (health score) + kartu prompt.
   function emptyStateHTML() {
@@ -915,6 +925,16 @@
     } catch (e) { if (!Array.isArray(CHAT_MSGS)) CHAT_MSGS = []; }
   }
 
+  // Pesan gagal kirim. 429 = batas permintaan server: sebut kapan bisa dicoba lagi (header Retry-After).
+  function chatErrText(r, j) {
+    if (r.status === 429) {
+      var sec = parseInt(r.headers.get("Retry-After"), 10), min = isFinite(sec) && sec > 0 ? Math.max(1, Math.ceil(sec / 60)) : null;
+      return min ? Lx({ en: "Too many requests right now — try again in about " + min + " min.", id: "Lagi terlalu banyak permintaan — coba lagi sekitar " + min + " menit lagi." })
+                 : Lx({ en: "Too many requests right now — try again in a moment.", id: "Lagi terlalu banyak permintaan — coba lagi sebentar lagi." });
+    }
+    return (j && j.error) || Lx({ en: "Sorry, I couldn't reply right now.", id: "Maaf, aku lagi nggak bisa jawab." });
+  }
+
   async function sendChat(text) {
     text = String(text || "").trim();
     if (!text || CHAT_BUSY) return;
@@ -925,13 +945,14 @@
       if (r.status === 401) { location.href = "/login"; return; }
       var j = await r.json().catch(function () { return {}; });
       CHAT_BUSY = false;
-      CHAT_MSGS.push({ role: "assistant", content: (r.ok && j && j.reply) ? j.reply : ((j && j.error) || Lx({ en: "Sorry, I couldn't reply right now. Please try again.", id: "Maaf, aku lagi nggak bisa jawab. Coba lagi ya." })) });
+      if (r.ok && j && j.reply) CHAT_MSGS.push({ role: "assistant", content: j.reply });
+      else CHAT_MSGS.push({ role: "error", retry: text, content: chatErrText(r, j) });
       if (r.ok && j && j.plan) PLAN = j.plan;
       paintMsgs();
       if (r.ok) loadGame();
     } catch (e) {
       CHAT_BUSY = false;
-      CHAT_MSGS.push({ role: "assistant", content: Lx({ en: "Network error. Please try again.", id: "Koneksi bermasalah. Coba lagi." }) });
+      CHAT_MSGS.push({ role: "error", retry: text, content: Lx({ en: "Network error — your message wasn't sent.", id: "Koneksi bermasalah — pesanmu belum terkirim." }) });
       paintMsgs();
     }
   }
