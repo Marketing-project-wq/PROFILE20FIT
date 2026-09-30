@@ -9149,22 +9149,22 @@ async function hsCompute(uid) {
     .filter((x) => x.v != null && x.v > 0).sort((a, b) => (a.at < b.at ? 1 : -1));
   if (rhr.length >= 2) {
     const latest = rhr[0].v, prev = rhr.slice(1), avgPrev = Math.round(prev.reduce((a, x) => a + x.v, 0) / prev.length);
-    if (latest > avgPrev + 5) gaps.push({ category: "sleep", icon: "😴",
+    if (latest > avgPrev + 5) gaps.push({ category: "sleep", icon: "moon",
       action: { en: "Sleep earlier tonight", id: "Tidur lebih awal malam ini" },
       detail: { en: "Resting HR is up (" + latest + " vs avg " + avgPrev + "). Recovery isn't optimal yet.", id: "Resting HR naik (" + latest + " vs rata-rata " + avgPrev + "). Recovery belum optimal." },
       target: { en: "Aim for 8h, in bed before 22:00", id: "Target 8 jam, tidur sebelum 22:00" } });
   }
-  if (lastSleep != null && lastSleep < 7 && !gaps.some((g) => g.category === "sleep")) gaps.push({ category: "sleep", icon: "😴",
+  if (lastSleep != null && lastSleep < 7 && !gaps.some((g) => g.category === "sleep")) gaps.push({ category: "sleep", icon: "moon",
     action: { en: "Sleep earlier", id: "Tidur lebih awal" },
     detail: { en: "Last night was only " + lastSleep + "h (target " + HS_TARGET.sleep_hours + ").", id: "Semalam cuma " + lastSleep + " jam (target " + HS_TARGET.sleep_hours + ")." },
     target: { en: "Aim for 8h tonight", id: "Malam ini target 8 jam" } });
   const ydayKcal = kcalByDate[ydayStr];
-  if (ydayKcal != null && ydayKcal > 0 && ydayKcal < HS_TARGET.kcal * 0.75) gaps.push({ category: "nutrition", icon: "🍽️",
+  if (ydayKcal != null && ydayKcal > 0 && ydayKcal < HS_TARGET.kcal * 0.75) gaps.push({ category: "nutrition", icon: "meal",
     action: { en: "Eat ~" + HS_TARGET.kcal + " kcal today", id: "Makan ~" + HS_TARGET.kcal + " kcal hari ini" },
     detail: { en: "Yesterday was only " + ydayKcal + " kcal (target " + HS_TARGET.kcal + "). The deficit is too big.", id: "Kemarin cuma " + ydayKcal + " kcal (target " + HS_TARGET.kcal + "). Defisit terlalu besar." },
     target: { en: "Prioritise protein for recovery", id: "Prioritas protein untuk recovery" } });
   const ydayWater = waterByDate[ydayStr];
-  if (ydayWater == null || ydayWater < HS_TARGET.water_ml * 0.75) gaps.push({ category: "hydration", icon: "💧",
+  if (ydayWater == null || ydayWater < HS_TARGET.water_ml * 0.75) gaps.push({ category: "hydration", icon: "water",
     action: { en: "Drink " + (HS_TARGET.water_ml / 1000).toFixed(1) + " L today", id: "Minum " + (HS_TARGET.water_ml / 1000).toFixed(1) + " L hari ini" },
     detail: ydayWater == null
       ? { en: "No water logged yesterday.", id: "Belum ada catatan minum kemarin." }
@@ -9172,11 +9172,11 @@ async function hsCompute(uid) {
     target: { en: "Log every glass today", id: "Catat tiap gelas hari ini" } });
   {
     const n = workoutDays.size, T = HS_TARGET.workout_days;
-    if (n >= T + 1) gaps.push({ category: "workout", icon: "🏋️",
+    if (n >= T + 1) gaps.push({ category: "workout", icon: "rest",
       action: { en: "Recovery day today", id: "Recovery day hari ini" },
       detail: { en: n + " workout days this week already — rest is part of training.", id: "Sudah " + n + " hari workout minggu ini — istirahat juga bagian latihan." },
       target: { en: "Light stretching / yoga", id: "Stretching / yoga ringan" } });
-    else if (n < T) gaps.push({ category: "workout", icon: "🏋️",
+    else if (n < T) gaps.push({ category: "workout", icon: "dumbbell",
       action: { en: "Work out " + (T - n) + "x more this week", id: "Workout " + (T - n) + "x lagi minggu ini" },
       detail: { en: "You're at " + n + "/" + T + " this week.", id: "Baru " + n + "/" + T + " minggu ini." },
       target: { en: "Book a class for tomorrow", id: "Book kelas untuk besok" } });
