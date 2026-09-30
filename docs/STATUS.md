@@ -670,6 +670,12 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 - Bangun + sambungkan API Event (`/api/events`) ke `event.html`.
 
 ## 4. Bug / utang teknis diketahui
+- **Jadwal Arena keliru: instruktur kelas HYROX Youngstar (12-15) tercatat "Nando"** (semua jadwal Rabu 16:00, 3 Sep–29 Okt
+  2026, tabel `arena_class_schedules` milik sistem Arena — bukan my.20fit, tidak boleh diubah dari sini). Pemilik
+  mengonfirmasi Coach Nando TIDAK mengajar Youngstar (2026-09-30). **Perbaikan sebenarnya: tim Arena mengganti instruktur
+  di sistem Arena/booking.** Sementara itu `lib/class-overrides.js` + `classInstructor()` di server.js membuat my.20fit tidak
+  menampilkan/menghubungkan "Nando" ke Youngstar (profil coach, Book Coach, Upcoming Classes, filter coach Book Class,
+  jadwal, rekomendasi AI Coach). **Hapus aturan itu setelah jadwal Arena diperbaiki.**
 
 - **admin-v2 auth: sebagian #293 sudah ada.** admin-v2 kini baca master key dari `?key=` / `sessionStorage.admin_master_key` + pesan panduan "Buka dengan ?key=ADMIN_KEY atau login admin" per-seksi. Autentikasi: `Authorization: Bearer <JWT>` (login app/admin password) atau `?key=ADMIN_KEY`. **Flag `admin_v2` ON di produksi (2026-09-25).** Yang mungkin masih kurang dari branch `claude/admin-v2-fix-auth`: **banner login penuh** saat belum terautentikasi — kalau login UX dirasa kurang mulus, pertimbangkan merge branch itu.
 - **`getAdminContext` menelan error infra jadi 401.** Kalau Supabase `getUser` timeout/mati (status 503 dari `getUserFromReq`), `getAdminContext` menangkap dan balas `null` → `requireAdmin` balas **401** (seolah sesi habis), bukan 503. Menyesatkan saat debug. (`server.js`.) Prioritas rendah.

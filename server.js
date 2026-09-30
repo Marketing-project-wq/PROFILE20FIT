@@ -20,6 +20,7 @@ const campaigns = require("./lib/campaigns"); // engine meal reminder + onboardi
 const segments = require("./lib/segments"); // segment engine untuk blast email admin
 const visbody = require("./lib/visbody"); // SATU-SATUNYA jalur ke Visbody WellnessHub (timbangan S20)
 const journeyConfig = require("./lib/journey-config"); // angka alur Visbody + Health Score
+const classOverrides = require("./lib/class-overrides"); // koreksi sementara instruktur jadwal Arena/Gym
 const qrcode = require("./js/qrcode-generator");
 const blast = require("./lib/blast"); // send queue blast email (batching, kill switch, auto-abort)
 const emailConfig = require("./lib/email-config"); // angka guardrail anti-spam (cap, kill switch, backlog, circuit breaker)
@@ -3776,9 +3777,9 @@ app.get("/api/coaches", async (req, res) => {
       async function upcomingInstructors(source) {
         const cfg = CLASS_VENUES[source];
         const { data: rows } = await admin.from(cfg.table)
-          .select("instructor").gte("schedule_date", today).eq("is_cancelled", false).limit(3000);
+          .select("instructor," + cfg.types + "(name)").gte("schedule_date", today).eq("is_cancelled", false).limit(3000);
         const set = {};
-        (rows || []).forEach(r => { if (r.instructor) set[r.instructor] = 1; });
+        (rows || []).forEach(r => { const ins = classInstructor(source, r.instructor, (r[cfg.types] || {}).name); if (ins) set[ins] = 1; });
         return set;
       }
       const [arenaSet, gymSet] = await Promise.all([upcomingInstructors("arena"), upcomingInstructors("gym")]);
@@ -3827,6 +3828,13 @@ app.get("/api/coaches/aliases", async (req, res) => {
 // ditampilkan tapi tidak bisa dipilih, dengan alasannya.
 // Jadwal mendatang satu coach (arena + gym lewat alias instruktur). Dipakai endpoint di bawah
 // dan konteks chatbot AI Coach (kelas milik coach yang sedang diajak chat). null = coach tak ada.
+// Instruktur yang DITAMPILKAN my.20fit untuk satu kelas jadwal: "" kalau ada koreksi di
+// lib/class-overrides.js (jadwal sumber keliru). SATU titik — dipakai semua endpoint kelas.
+function classInstructor(source, instructor, typeName) {
+  const ins = String(instructor || "");
+  const hit = classOverrides.some(function (o) { return o.source === source && o.instructor === ins && o.class_name.test(String(typeName || "")); });
+  return hit ? "" : ins;
+}
 async function coachUpcomingClasses(id) {
   const { data: crows } = await admin.from("my20fit_coaches")
     .select("id,display_name,venue,speciality,photo_url").eq("id", id).limit(1);
@@ -3865,6 +3873,7 @@ async function coachUpcomingClasses(id) {
     }
     rows.forEach(r => {
       const t = r[cfg.types] || {};
+      if (!classInstructor(source, r.instructor, t.name)) return;   // instruktur di jadwal keliru (koreksi)
       const start = String(r.start_time || "").slice(0, 5), end = String(r.end_time || "").slice(0, 5);
       const startDt = new Date(r.schedule_date + "T" + (r.start_time || "00:00:00") + "+07:00"); // WIB
       const quota = (r.quota == null) ? null : +r.quota;
@@ -7888,7 +7897,7 @@ app.get("/api/classes/schedule", async (req, res) => {
         end: String(s.end_time || "").slice(0, 5),
         name: clean(t.name) || "Kelas", full_name: t.name || "",
         color: t.color || "#C41101",
-        instructor: s.instructor || "",
+        instructor: classInstructor(venue, s.instructor, t.name),
         duration_min: t[cfg.dur] || null,
         price: (t[cfg.price] != null ? +t[cfg.price] : null),
       });
@@ -7957,8 +7966,8 @@ app.get("/api/classes/upcoming", async (req, res) => {
           source, id: r.id, date: r.schedule_date, start, end: endt,
           name: clean(t.name) || "Kelas", color: t.color || "#C41101",
           duration_min: t[cfg.dur] || null,
-          instructor: r.instructor || "",
-          coach: aliasMap[source][r.instructor] || null,
+          instructor: classInstructor(source, r.instructor, t.name),
+          coach: aliasMap[source][classInstructor(source, r.instructor, t.name)] || null,
           quota, remaining, selectable, reason,
           book_url: "/book-class?source=" + source + "&schedule=" + encodeURIComponent(r.id),
         });

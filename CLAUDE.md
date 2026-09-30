@@ -23,6 +23,7 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 - **`docs/DATABASE.md`** — tabel `my20fit_*`, migration, cara jalan DB.
 - **`docs/CODEBASE-MAP.md`** — peta arsitektur/route/API detail (⚠️ **sebagian STALE** — lihat `docs/STATUS.md` §4; verifikasi ke kode).
 - **`lib/journey-config.js`** — angka alur Visbody + Health Score + Health Journey (TTL link claim, retensi, landing, rescan, nudge, info alat Visbody, jendela workout, kesegaran scan, min grup corporate). Nilai default agent ditandai PERLU DIPUTUSKAN/DIVALIDASI; info alat yang null disembunyikan di UI.
+- **`lib/class-overrides.js`** — koreksi SEMENTARA instruktur jadwal Arena/Gym yang keliru di sistem sumber (mis. Youngstar ≠ Nando); dipakai `classInstructor()` di semua endpoint kelas. Hapus aturannya setelah jadwal sumber diperbaiki.
 - **`js/tours-config.js`** — isi SEMUA tur fitur (ID/EN, target, urutan, versi); logikanya satu mesin `js/tour.js`, status di `my20fit_tour_state`.
 - **`docs/VISBODY-SETUP.md`** — daftar kerja pemilik untuk menyambungkan timbangan Visbody S20 (kredensial yang diminta ke Visbody, variabel Railway, URL yang didaftarkan, cara uji tanpa/dengan timbangan).
 - **`docs/TICKET-API-REQUEST.md`** — permintaan teknis ke tim ticket.20fit.id (webhook pembelian / baca pesanan per email) + peta endpoint embed API hasil pengukuran.
@@ -259,6 +260,7 @@ fisioterapis (belum ada seksinya di `/admin-v2` — baru bisa lewat SQL).
 6. **Verifikasi migration 013** sudah dijalankan di staging & produksi.
 7. **Refresh `docs/CODEBASE-MAP.md`** yang stale (email consent, ref baris server.js).
 8. (Opsional) promo-banner `_blank` → same-tab bila pemilik mau.
+9. **Tim Arena: perbaiki instruktur kelas HYROX Youngstar** di jadwal Arena (tercatat "Nando", keliru) → lalu hapus aturan di `lib/class-overrides.js`.
 
 ## K. Cara merawat dokumen ini
 > **Untuk sesi Claude Code berikutnya:** Baca file ini di awal sesi. **Setelah**
