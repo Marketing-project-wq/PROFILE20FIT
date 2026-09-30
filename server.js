@@ -19,6 +19,7 @@ const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerb
 const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
 const segments = require("./lib/segments"); // segment engine untuk blast email admin
 const visbody = require("./lib/visbody"); // SATU-SATUNYA jalur ke Visbody WellnessHub (timbangan S20)
+const journeyConfig = require("./lib/journey-config"); // angka alur Visbody + Health Score
 const qrcode = require("./js/qrcode-generator");
 const blast = require("./lib/blast"); // send queue blast email (batching, kill switch, auto-abort)
 const emailConfig = require("./lib/email-config"); // angka guardrail anti-spam (cap, kill switch, backlog, circuit breaker)
@@ -358,20 +359,54 @@ function verifyResendSignature(req) {
 // ============================================================
 // VISBODY S20 — timbangan body composition di lokasi
 // ============================================================
-// Alur: member naik timbangan -> Visbody Cloud kirim webhook ke sini -> kita simpan
-// scannya. Scan BELUM punya pemilik sampai member memindai QR di layar timbangan dan
-// mengklaimnya lewat /api/visbody/bind-user. Setelah diklaim barulah data ukurannya
-// diambil dan disimpan atas nama member itu.
+// Alur: member naik timbangan -> Visbody Cloud kirim webhook ke sini -> scan disimpan
+// TANPA pemilik (unclaimed). Timbangan meminta QR ke /api/visbody/qrcode -> kita buat
+// TOKEN CLAIM acak sekali pakai (hash di my20fit_visbody_claim_token) -> QR berisi
+// /visbody-claim?t=<token>. Member membuka link, login/daftar, menyetujui pemrosesan data,
+// lalu POST /api/visbody/claim. Setelah itu data ukurnya diambil & disimpan atas namanya.
+// Cadangan: staf membuat link claim baru / mengikat scan ke member dari admin-v2.
 //
-// KENAPA TIDAK LANGSUNG DICOCOKKAN LEWAT EMAIL/NAMA DARI TIMBANGAN: identitas yang
-// diketik di layar timbangan tidak terverifikasi. Mencocokkannya otomatis = menyerahkan
-// data komposisi tubuh seseorang ke akun yang belum tentu dia (aturan pemilik: hanya
-// cocokkan lewat identitas yang PASTI & TERVERIFIKASI).
+// KENAPA TIDAK LANGSUNG DICOCOKKAN LEWAT EMAIL/NAMA/HP DARI TIMBANGAN: identitas yang
+// diketik di layar timbangan tidak terverifikasi (dan di data asli kosong). Mencocokkannya
+// otomatis = menyerahkan data komposisi tubuh ke akun yang belum tentu pemiliknya.
+//
+// Angka (TTL token, versi teks persetujuan) ada di lib/journey-config.js.
 
-const VISBODY_CLAIM_WINDOW_MS = 30 * 60 * 1000; // scan hanya bisa diklaim 30 menit pertama
+const VB_CFG = journeyConfig.visbody;
+// Limiter sendiri (limiter umum didefinisikan lebih bawah di file ini). Token 256-bit tak bisa
+// ditebak; ini sekadar rem untuk pemanggilan berulang dari satu IP.
+const vbInfoLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 
-// Ambil data ukur dari Visbody lalu simpan atas nama user. Dipakai DUA jalur:
-// webhook (kalau scan sudah punya third_uid) dan bind-user (klaim lewat QR).
+function vbHashToken(t) { return crypto.createHash("sha256").update(String(t || "")).digest("hex"); }
+// Token 32 byte acak (base64url, 43 karakter) -> hanya hash-nya yang disimpan.
+async function vbCreateClaimToken(scanId, source, adminUserId) {
+  const token = crypto.randomBytes(32).toString("base64url");
+  const { error } = await admin.from("my20fit_visbody_claim_token").insert({
+    token_hash: vbHashToken(token), scan_id: scanId, source: source, created_by: adminUserId || null,
+    expires_at: new Date(Date.now() + VB_CFG.claim_token_ttl_hours * 3600 * 1000).toISOString(),
+  });
+  if (error) throw error;
+  return { token: token, url: APP_BASE_URL + "/visbody-claim?t=" + token };
+}
+function vbAudit(scanId, action, row) {
+  return admin.from("my20fit_visbody_claim_audit").insert(Object.assign({ scan_id: scanId, action: action }, row || {}))
+    .then(function () {}, function () {});
+}
+async function vbHasConsent(uid) {
+  const { data } = await admin.from("my20fit_data_consent").select("id")
+    .eq("auth_user_id", uid).eq("purpose", VB_CFG.consent_purpose).eq("version", VB_CFG.consent_version).is("revoked_at", null).limit(1);
+  return !!(data && data.length);
+}
+async function vbGrantConsent(uid, source, grantedBy) {
+  const { error } = await admin.from("my20fit_data_consent").upsert({
+    auth_user_id: uid, purpose: VB_CFG.consent_purpose, version: VB_CFG.consent_version,
+    source: source, granted_by: grantedBy || null, granted_at: new Date().toISOString(), revoked_at: null,
+  }, { onConflict: "auth_user_id,purpose,version" });
+  if (error) throw error;
+}
+
+// Ambil data ukur dari Visbody lalu simpan atas nama user. Dipakai webhook (scan sudah
+// punya pemilik & body_composition selesai) dan jalur claim (member / staf).
 async function visbodyFetchAndStore(scanRow, userId) {
   try {
     const data = await visbody.getScanData(scanRow.scan_id);
@@ -388,7 +423,7 @@ async function visbodyFetchAndStore(scanRow, userId) {
       raw_data: data,
       scanned_at: scanRow.scan_time,
     });
-    // onConflict scan_id: webhook + klaim QR bisa sama-sama sampai di sini; satu scan
+    // onConflict scan_id: webhook + claim bisa sama-sama sampai di sini; satu scan
     // tetap satu baris hasil, tidak menggandakan titik di chart tren.
     const up = await admin.from("my20fit_visbody_body").upsert(row, { onConflict: "scan_id" });
     if (up.error) throw up.error;
@@ -396,7 +431,6 @@ async function visbodyFetchAndStore(scanRow, userId) {
     const pdf = await visbody.getPdfUrl(scanRow.scan_id);
     await admin.from("my20fit_visbody_scan").update({
       status: "data_fetched",
-      auth_user_id: userId,
       pdf_url: pdf || scanRow.pdf_url || null,
       last_error: null,
       updated_at: new Date().toISOString(),
@@ -412,8 +446,50 @@ async function visbodyFetchAndStore(scanRow, userId) {
     return false;
   }
 }
+// body_composition belum "completed" (masih processing) -> jangan ambil dulu; webhook
+// "completed" berikutnya yang mengambil. Status tak dikenal -> coba ambil.
+function vbDataReady(scanRow) {
+  const mi = (scanRow && scanRow.measured_items) || {};
+  return !mi.body_composition || mi.body_composition === "completed";
+}
 
-// WEBHOOK — dipanggil Visbody Cloud tiap selesai scan.
+// Ikat scan ke user (dipakai claim member & bind staf). Menang HANYA kalau scan masih tanpa
+// pemilik (.is null) -> dua orang yang mengklaim bersamaan: satu saja yang dapat.
+async function vbBindScan(scan, user, via) {
+  const upd = await admin.from("my20fit_visbody_scan")
+    .update({ auth_user_id: user.id, status: "bound", claimed_at: new Date().toISOString(), claimed_via: via, updated_at: new Date().toISOString() })
+    .eq("scan_id", scan.scan_id).is("auth_user_id", null).select();
+  if (upd.error) throw upd.error;
+  if (!upd.data || !upd.data.length) return { ok: false };
+  // Kirim identitas kita ke Visbody supaya scan berikutnya sudah ber-third_uid.
+  // Gagal di sini TIDAK membatalkan claim: kepemilikan di DB kita yang menentukan.
+  let bindWarn = null;
+  try {
+    const { data: prof } = await admin.from("my20fit_profile")
+      .select("full_name,gender,height_cm,age").eq("auth_user_id", user.id).limit(1);
+    const p = (prof && prof[0]) || {};
+    // Visbody mewajibkan `birthday` (YYYY-MM-DD), profil kita cuma menyimpan `age`. Urutan
+    // sumber: (1) tanggal yang diketik member di layar timbangan; (2) turunan `age`, sengaja
+    // dipatok 1 Januari (perkiraan, bukan tanggal lahir yang dikarang seolah pasti).
+    let birthday = scan.visbody_birthday || null;
+    if (!birthday && +p.age > 0 && +p.age < 120) birthday = (new Date().getFullYear() - Math.round(+p.age)) + "-01-01";
+    await visbody.bindUser(scan.scan_id, scan.device_sn, {
+      id: user.id,
+      email: user.email,
+      name: p.full_name || String(user.email || "").split("@")[0],
+      sex: p.gender === "female" ? 2 : (p.gender === "male" ? 1 : (scan.visbody_sex || 1)),
+      height: +p.height_cm || +scan.visbody_height || 170,
+      birthday: birthday || "1990-01-01",
+    });
+  } catch (e) {
+    bindWarn = String((e && e.message) || e).slice(0, 300);
+    console.error("visbody bind:", bindWarn);
+  }
+  const stored = vbDataReady(scan) ? await visbodyFetchAndStore(scan, user.id) : false;
+  return { ok: true, data_ready: stored, bind_warning: bindWarn };
+}
+
+// WEBHOOK — dipanggil Visbody Cloud tiap event scan (bisa >1 per scan: processing -> completed).
 app.post("/api/visbody/webhook", async (req, res) => {
   const ok = visbody.verifyWebhook(
     req.get("x-visbody-timestamp"),
@@ -432,34 +508,49 @@ app.post("/api/visbody/webhook", async (req, res) => {
     // third_uid HANYA dipercaya kalau berbentuk UUID — itu yang kita kirim saat bind.
     const boundUid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(ui.third_uid || ""))
       ? String(ui.third_uid) : null;
-
-    const row = {
-      scan_id: scanId,
-      device_sn: String(b.device_sn || b.device_id || "").slice(0, 120),
-      scan_time: b.scan_time || new Date().toISOString(),
+    const nowIso = new Date().toISOString();
+    const mutable = {
       event_id: b.event_id ? String(b.event_id).slice(0, 200) : null,
-      visbody_name: ui.name ? String(ui.name).slice(0, 120) : null,
-      visbody_sex: (+ui.sex === 1 || +ui.sex === 2) ? +ui.sex : null,
-      visbody_age: (+ui.age > 0) ? Math.round(+ui.age) : null,
-      visbody_height: (+ui.height > 0) ? +ui.height : null,
-      visbody_birthday: ui.birthday ? String(ui.birthday).slice(0, 20) : null,
-      auth_user_id: boundUid,
-      status: boundUid ? "bound" : "received",
       measured_items: b.measured_items || null,
       raw_webhook: b,
-      updated_at: new Date().toISOString(),
+      updated_at: nowIso,
     };
-    // Idempoten lewat UNIQUE(scan_id): kiriman ulang memperbarui baris yang sama,
-    // bukan membuat baris kedua.
-    const up = await admin.from("my20fit_visbody_scan").upsert(row, { onConflict: "scan_id" }).select().single();
-    if (up.error) throw up.error;
+    const owner = boundUid ? { auth_user_id: boundUid, status: "bound", claimed_at: nowIso, claimed_via: "third_uid" } : {};
 
+    // Idempoten lewat UNIQUE(scan_id). Kiriman berikutnya untuk scan yang sama HANYA
+    // memperbarui kolom event — pemilik & status claim TIDAK PERNAH ditimpa (dulu upsert
+    // penuh bisa mengosongkan pemilik saat event "completed" datang setelah claim).
+    const sel = () => admin.from("my20fit_visbody_scan").select("*").eq("scan_id", scanId).limit(1);
+    let { data: ex } = await sel();
+    let row = ex && ex[0], inserted = false;
+    if (!row) {
+      const ins = await admin.from("my20fit_visbody_scan").insert(Object.assign({
+        scan_id: scanId,
+        device_sn: String(b.device_sn || b.device_id || "").slice(0, 120),
+        scan_time: b.scan_time || nowIso,
+        visbody_name: ui.name ? String(ui.name).slice(0, 120) : null,
+        visbody_sex: (+ui.sex === 1 || +ui.sex === 2) ? +ui.sex : null,
+        visbody_age: (+ui.age > 0) ? Math.round(+ui.age) : null,
+        visbody_height: (+ui.height > 0) ? +ui.height : null,
+        visbody_birthday: ui.birthday ? String(ui.birthday).slice(0, 20) : null,
+        status: "received",
+      }, mutable, owner)).select().single();
+      if (!ins.error) { row = ins.data; inserted = true; }
+      else if (ins.error.code === "23505") { ({ data: ex } = await sel()); row = ex && ex[0]; }   // kiriman paralel scan sama
+      else throw ins.error;
+    }
+    if (row && !inserted) {
+      const patch = Object.assign({}, mutable, (!row.auth_user_id && boundUid) ? owner : {});
+      const up = await admin.from("my20fit_visbody_scan").update(patch).eq("scan_id", scanId).select().single();
+      if (up.error) throw up.error;
+      row = up.data;
+    }
     // Balas cepat; Visbody tidak perlu menunggu kita mengambil data ukurnya.
     res.json({ code: 0 });
 
     const mi = b.measured_items || {};
-    if (boundUid && mi.body_composition === "completed") {
-      visbodyFetchAndStore(up.data, boundUid).catch(function () {});
+    if (row && row.auth_user_id && mi.body_composition === "completed" && row.status !== "data_fetched") {
+      visbodyFetchAndStore(row, row.auth_user_id).catch(function () {});
     }
   } catch (e) {
     console.error("visbody webhook:", (e && e.message) || e);
@@ -483,22 +574,24 @@ app.get("/api/visbody/token", (req, res) => {
   res.json({ code: 0, data: { token: token, expires_in: 7200 } });
 });
 
-// QR — dipanggil timbangan setelah scan; kita balas gambar QR berisi tautan klaim.
-// QR dibuat DI SINI dengan js/qrcode-generator.js yang sudah ada di repo, bukan dikirim
-// ke layanan QR pihak ketiga: scan_id tidak perlu bocor ke luar 20FIT.
-app.get("/api/visbody/qrcode", (req, res) => {
+// QR — dipanggil timbangan setelah scan; kita balas gambar QR berisi link claim bertoken.
+// QR dibuat DI SINI (js/qrcode-generator.js), bukan layanan QR pihak ketiga: token claim
+// tidak boleh bocor ke luar 20FIT. Tiap permintaan = token baru (token lama tetap berlaku
+// sampai kedaluwarsa; begitu scan di-claim, semua token scan itu otomatis tak berguna).
+app.get("/api/visbody/qrcode", async (req, res) => {
   const token = String(req.query.token || "");
   visbodySweepTokens();
   if (!visbodyDeviceTokens.has(token)) return res.json({ code: 30001, error_msg: "Invalid token" });
   const scanId = String(req.query.scan_id || "").slice(0, 120);
-  const deviceId = String(req.query.device_id || "").slice(0, 120);
   if (!scanId) return res.json({ code: 30002, error_msg: "scan_id wajib" });
+  if (!admin) return res.json({ code: 30003, error_msg: "server belum dikonfigurasi" });
   try {
-    const url = (APP_BASE_URL || "https://my.20fit.id").replace(/\/$/, "") +
-      "/body-scan?claim=" + encodeURIComponent(scanId) +
-      (deviceId ? "&device=" + encodeURIComponent(deviceId) : "");
+    const { data: rows } = await admin.from("my20fit_visbody_scan").select("scan_id,auth_user_id").eq("scan_id", scanId).limit(1);
+    // Webhook biasanya datang lebih dulu; kalau belum, QR ditolak -> timbangan bisa meminta ulang.
+    if (!rows || !rows[0]) return res.json({ code: 30004, error_msg: "scan belum diterima" });
+    const link = await vbCreateClaimToken(scanId, "device", null);
     const qr = qrcode(0, "M");
-    qr.addData(url);
+    qr.addData(link.url);
     qr.make();
     const svg = qr.createSvgTag({ cellSize: 6, margin: 4 });
     res.json({ code: 0, data: { url: "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64") } });
@@ -508,73 +601,133 @@ app.get("/api/visbody/qrcode", (req, res) => {
   }
 });
 
-// KLAIM — member memindai QR lalu halaman /body-scan memanggil ini dengan token miliknya.
-app.post("/api/visbody/bind-user", async (req, res) => {
+// Cek token claim (halaman /visbody-claim, sebelum & sesudah login). Tanpa login cukup
+// status token; dengan login + consent_needed. Tidak membuka data ukur apa pun.
+async function vbLookupToken(raw) {
+  if (!raw || String(raw).length < 20 || String(raw).length > 100) return null;
+  const { data } = await admin.from("my20fit_visbody_claim_token").select("*").eq("token_hash", vbHashToken(raw)).limit(1);
+  return (data && data[0]) || null;
+}
+app.get("/api/visbody/claim/info", vbInfoLimiter, async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "server belum dikonfigurasi" });
+    const tok = await vbLookupToken(String(req.query.t || ""));
+    if (!tok) return res.json({ ok: true, state: "invalid" });
+    const { data: rows } = await admin.from("my20fit_visbody_scan").select("scan_time,auth_user_id").eq("scan_id", tok.scan_id).limit(1);
+    const scan = rows && rows[0];
+    if (!scan) return res.json({ ok: true, state: "invalid" });
+    const user = await getUserFromReq(req);
+    let state = "claimable";
+    if (scan.auth_user_id) state = (user && scan.auth_user_id === user.id) ? "mine" : "claimed";
+    else if (tok.used_at) state = "used";
+    else if (new Date(tok.expires_at).getTime() < Date.now()) state = "expired";
+    const out = { ok: true, state: state, scan_time: scan.scan_time, consent_version: VB_CFG.consent_version };
+    if (user && state === "claimable") out.consent_needed = !(await vbHasConsent(user.id));
+    return res.json(out);
+  } catch (e) { console.error("visbody claim/info:", (e && e.message) || e); return res.status(500).json({ error: "Gagal." }); }
+});
+
+// CLAIM — member (login) + token + persetujuan -> scan jadi miliknya.
+app.post("/api/visbody/claim", async (req, res) => {
   try {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     if (!admin) return res.status(500).json({ error: "server belum dikonfigurasi" });
-    const scanId = String((req.body || {}).scan_id || "").slice(0, 120);
-    if (!scanId) return res.status(400).json({ error: "scan_id wajib" });
-
-    const { data: rows } = await admin.from("my20fit_visbody_scan")
-      .select("*").eq("scan_id", scanId).limit(1);
+    const b = req.body || {};
+    const tok = await vbLookupToken(String(b.token || ""));
+    const reject = function (code, err, scanId) {
+      if (scanId) vbAudit(scanId, "claim_rejected", { actor_user: user.id, detail: { reason: err } });
+      return res.status(code).json({ error: err });
+    };
+    if (!tok) return reject(404, "invalid_token");
+    const { data: rows } = await admin.from("my20fit_visbody_scan").select("*").eq("scan_id", tok.scan_id).limit(1);
     const scan = rows && rows[0];
-    if (!scan) return res.status(404).json({ error: "scan_not_found" });
-
+    if (!scan) return reject(404, "invalid_token");
     // Sudah milik orang lain -> TIDAK dipindahkan. Data komposisi tubuh bukan barang
     // yang boleh berpindah akun hanya karena tautannya dibuka orang lain.
-    if (scan.auth_user_id && scan.auth_user_id !== user.id) {
-      return res.status(409).json({ error: "already_claimed" });
-    }
-    if (scan.auth_user_id === user.id) {
-      return res.json({ ok: true, already: true, scan_id: scanId });
-    }
-    // Jendela klaim: tautan QR tidak memuat rahasia apa pun, jadi umurnya dibatasi.
-    if (Date.now() - new Date(scan.scan_time).getTime() > VISBODY_CLAIM_WINDOW_MS) {
-      return res.status(410).json({ error: "claim_expired" });
-    }
+    if (scan.auth_user_id && scan.auth_user_id !== user.id) return reject(409, "already_claimed", scan.scan_id);
+    if (scan.auth_user_id === user.id) return res.json({ ok: true, already: true, redirect: "/activity?welcome=visbody" });
+    if (tok.used_at) return reject(410, "token_used", scan.scan_id);
+    if (new Date(tok.expires_at).getTime() < Date.now()) return reject(410, "claim_expired", scan.scan_id);
 
-    // Kirim identitas kita ke Visbody supaya scan berikutnya sudah ber-third_uid.
-    // Gagal di sini TIDAK membatalkan klaim: kepemilikan di DB kita yang menentukan.
-    let bindWarn = null;
-    try {
-      const { data: prof } = await admin.from("my20fit_profile")
-        .select("full_name,gender,height_cm,age").eq("auth_user_id", user.id).limit(1);
-      const p = (prof && prof[0]) || {};
-      // Visbody mewajibkan `birthday` (YYYY-MM-DD), sementara profil kita cuma menyimpan
-      // `age`. Urutan sumbernya: (1) tanggal yang DIKETIK MEMBER di layar timbangan —
-      // itu data sungguhan; (2) turunan dari `age`, sengaja dipatok 1 Januari dan
-      // ditandai sebagai perkiraan, bukan tanggal lahir yang dikarang seolah pasti.
-      let birthday = scan.visbody_birthday || null;
-      if (!birthday && +p.age > 0 && +p.age < 120) birthday = (new Date().getFullYear() - Math.round(+p.age)) + "-01-01";
-      await visbody.bindUser(scanId, scan.device_sn, {
-        id: user.id,
-        email: user.email,
-        name: p.full_name || String(user.email || "").split("@")[0],
-        sex: p.gender === "female" ? 2 : (p.gender === "male" ? 1 : (scan.visbody_sex || 1)),
-        height: +p.height_cm || +scan.visbody_height || 170,
-        birthday: birthday || "1990-01-01",
-      });
-    } catch (e) {
-      bindWarn = String((e && e.message) || e).slice(0, 300);
-      console.error("visbody bind:", bindWarn);
+    // Persetujuan pemrosesan data (UU PDP) SEBELUM data diikat ke akun.
+    if (!(await vbHasConsent(user.id))) {
+      if (b.consent !== true) return res.status(400).json({ error: "consent_required", consent_version: VB_CFG.consent_version });
+      await vbGrantConsent(user.id, "self", null);
     }
+    // Pakai token (sekali pakai; .is null = hanya satu permintaan yang menang).
+    const used = await admin.from("my20fit_visbody_claim_token")
+      .update({ used_at: new Date().toISOString(), used_by: user.id })
+      .eq("id", tok.id).is("used_at", null).select();
+    if (used.error) throw used.error;
+    if (!used.data || !used.data.length) return reject(410, "token_used", scan.scan_id);
 
-    const upd = await admin.from("my20fit_visbody_scan")
-      .update({ auth_user_id: user.id, status: "bound", updated_at: new Date().toISOString() })
-      .eq("scan_id", scanId).is("auth_user_id", null).select();
-    // .is(null) = klaim hanya menang kalau saat itu memang masih kosong (dua orang
-    // memindai QR yang sama secara bersamaan -> hanya satu yang dapat).
-    if (upd.error) throw upd.error;
-    if (!upd.data || !upd.data.length) return res.status(409).json({ error: "already_claimed" });
-
-    const stored = await visbodyFetchAndStore(scan, user.id);
-    return res.json({ ok: true, scan_id: scanId, data_ready: stored, bind_warning: bindWarn });
+    const r = await vbBindScan(scan, user, "qr");
+    if (!r.ok) return reject(409, "already_claimed", scan.scan_id);
+    vbAudit(scan.scan_id, "claim", { actor_user: user.id, detail: { via: "qr", token_source: tok.source, data_ready: r.data_ready, bind_warning: r.bind_warning } });
+    return res.json({ ok: true, data_ready: r.data_ready, redirect: "/activity?welcome=visbody" });
   } catch (e) {
-    console.error("visbody bind-user:", (e && e.message) || e);
-    return res.status(500).json({ error: (e && e.message) || "Gagal." });
+    console.error("visbody claim:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal meng-claim scan." });
   }
+});
+
+// ---- ADMIN: scan yang belum di-claim (admin-v2 -> Visbody) ----
+// Hanya waktu, timbangan, identitas yang diketik di timbangan & status — TANPA angka ukur.
+// Role marketing dilarang (data kesehatan), viewer boleh lihat, aksi butuh staff.
+app.get("/api/admin/visbody/unclaimed", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!adminCanSeeHealth(ctx)) return res.status(403).json({ error: "Role marketing tidak boleh mengakses data Visbody." });
+  try {
+    const { data: scans, error } = await admin.from("my20fit_visbody_scan")
+      .select("scan_id,device_sn,scan_time,visbody_name,visbody_sex,visbody_age,status,measured_items")
+      .is("auth_user_id", null).order("scan_time", { ascending: false }).limit(300);
+    if (error) throw error;
+    const { data: audit } = await admin.from("my20fit_visbody_claim_audit")
+      .select("scan_id,action,actor_admin,detail,created_at").order("created_at", { ascending: false }).limit(30);
+    return res.json({ ok: true, scans: scans || [], recent: audit || [], retention_days: VB_CFG.unclaimed_retention_days });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+// Buat link claim baru (mis. member tak sempat memindai QR) -> staf kirim sendiri (salin / WhatsApp).
+app.post("/api/admin/visbody/claim-link", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  try {
+    const scanId = String((req.body || {}).scan_id || "").slice(0, 120);
+    const { data: rows } = await admin.from("my20fit_visbody_scan").select("scan_id,auth_user_id").eq("scan_id", scanId).limit(1);
+    if (!rows || !rows[0]) return res.status(404).json({ error: "Scan tidak ditemukan." });
+    if (rows[0].auth_user_id) return res.status(409).json({ error: "Scan sudah di-claim." });
+    const link = await vbCreateClaimToken(scanId, "admin", ctx.user_id || null);
+    const who = ctx.email || (ctx.via === "key" ? "master-key" : null);
+    vbAudit(scanId, "link_created", { actor_admin: who });
+    adminAudit(ctx, "visbody_claim_link", scanId, null);
+    return res.json({ ok: true, url: link.url, expires_hours: VB_CFG.claim_token_ttl_hours });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+// Staf mengikat scan ke member (member hadir di lokasi). WAJIB centang bahwa member sudah
+// menyetujui pemrosesan data di depan staf -> dicatat sebagai consent source='staff'.
+app.post("/api/admin/visbody/bind", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const scanId = String(b.scan_id || "").slice(0, 120);
+    const email = String(b.email || "").trim().toLowerCase();
+    if (b.consent_witnessed !== true) return res.status(400).json({ error: "Konfirmasi persetujuan member wajib dicentang." });
+    if (!email) return res.status(400).json({ error: "Email member wajib diisi." });
+    const { data: profs } = await admin.from("my20fit_profile").select("auth_user_id,email,full_name").ilike("email", email).limit(2);
+    const prof = (profs || []).filter(function (p) { return String(p.email || "").toLowerCase() === email; })[0];
+    if (!prof) return res.status(404).json({ error: "Member dengan email itu tidak ditemukan." });
+    const { data: rows } = await admin.from("my20fit_visbody_scan").select("*").eq("scan_id", scanId).limit(1);
+    const scan = rows && rows[0];
+    if (!scan) return res.status(404).json({ error: "Scan tidak ditemukan." });
+    if (scan.auth_user_id) return res.status(409).json({ error: "Scan sudah di-claim." });
+    const who = ctx.email || (ctx.via === "key" ? "master-key" : null);
+    if (!(await vbHasConsent(prof.auth_user_id))) await vbGrantConsent(prof.auth_user_id, "staff", who);
+    const r = await vbBindScan(scan, { id: prof.auth_user_id, email: prof.email }, "staff");
+    if (!r.ok) return res.status(409).json({ error: "Scan sudah di-claim." });
+    vbAudit(scanId, "staff_bind", { actor_user: prof.auth_user_id, actor_admin: who, detail: { data_ready: r.data_ready, bind_warning: r.bind_warning } });
+    adminAudit(ctx, "visbody_bind", scanId, { member: prof.auth_user_id });
+    return res.json({ ok: true, member: { name: prof.full_name || null, email: prof.email }, data_ready: r.data_ready });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
 });
 
 app.post("/api/webhooks/resend", async (req, res) => {
@@ -4756,6 +4909,7 @@ var USER_DATA_TABLES = [
   "my20fit_coach_quiz", "my20fit_workout_plan", "my20fit_coach_cta_event",
   "my20fit_coach_session", "my20fit_coach_set_log", "my20fit_coach_achievement",
   "my20fit_coach_chat_session", "my20fit_coach_chat_message", "my20fit_coach_meal_plan",
+  "my20fit_visbody_body", "my20fit_visbody_scan", "my20fit_data_consent",
   "my20fit_activity_uploads", "my20fit_today_plans",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
@@ -9022,9 +9176,15 @@ app.get("/api/activity/day", async (req, res) => {
 // (Visbody), dan lab (MCU). Bobot didistribusi ulang ke kategori yang datanya tersedia.
 // Juga mengembalikan `gaps` (What You Need: apa yang kurang + aksi), rekap minggu ini (`week`),
 // dan target yang dipakai. BUKAN diagnosis medis — angka indikatif dari data user sendiri.
-const HS_TARGET = { workout_days: 4, sleep_hours: 7.5, water_ml: 2000, kcal: 2000 };
+const HS_CFG = journeyConfig.health_score;
+const HS_TARGET = { workout_days: HS_CFG.workout_target_days, sleep_hours: 7.5, water_ml: 2000, kcal: 2000 };
+const HS_COMPONENTS = ["workout", "nutrition", "body", "sleep", "hydration", "lab"];
 function hsNum(v) { const n = +v; return (v != null && v !== "" && isFinite(n)) ? n : null; }
-// Hitung Health Score user (dipakai endpoint di bawah + badge "Health Pro" di achievements).
+// GATING: skor HANYA terbuka kalau user punya minimal 1 scan Visbody yang sudah di-claim ATAU
+// minimal 1 workout (log/upload). Tidur/hidrasi/kalori/MCU tetap dihitung sebagai komponen tapi
+// tidak cukup sendirian. Terkunci -> total null (tak pernah angka 0 palsu) + daftar komponen
+// yang sudah terisi. Komponen tanpa data tak ikut dihitung (bobot didistribusi ulang).
+// SATU sumber: dipakai /api/activity/health-score, konteks AI Coach, dan badge achievements.
 async function hsCompute(uid) {
   const today = ymd(new Date());
   const now = new Date(today + "T00:00:00");
@@ -9033,18 +9193,26 @@ async function hsCompute(uid) {
   const from7 = new Date(now); from7.setDate(now.getDate() - 6);
   const yday = new Date(now); yday.setDate(now.getDate() - 1);
   const mondayStr = ymd(monday), from7Str = ymd(from7), ydayStr = ymd(yday);
-  const fromAll = mondayStr < from7Str ? mondayStr : from7Str;
+  const winStart = new Date(now); winStart.setDate(now.getDate() - (HS_CFG.workout_window_days - 1));
+  const winStr = ymd(winStart);
+  const fromAll = [mondayStr, from7Str, winStr].sort()[0];
 
   // Query paralel; tabel yang belum ada / kosong -> data null -> kategori dilewati (graceful).
-    const [wkRes, dlRes, vbRes, mcuRes, upRes, slRes, hyRes] = await Promise.all([
-    admin.from("my20fit_workout").select("workout_date,duration_min,calories_burned,avg_heart_rate").eq("auth_user_id", uid).gte("workout_date", mondayStr).lte("workout_date", today),
+  const [wkRes, dlRes, vbRes, mcuRes, upRes, slRes, hyRes, wkEver, upEver, vbClaim] = await Promise.all([
+    admin.from("my20fit_workout").select("workout_date,duration_min,calories_burned,avg_heart_rate").eq("auth_user_id", uid).gte("workout_date", fromAll).lte("workout_date", today),
     admin.from("my20fit_daily_log").select("log_date,sleep_hours,water_glasses,cal_items").eq("auth_user_id", uid).gte("log_date", from7Str).lte("log_date", today),
     admin.from("my20fit_visbody_body").select("body_fat_percentage,body_mass_index,muscle_mass,scanned_at").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(1),
     admin.from("my20fit_mcu_result").select("result,created_at").eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(1),
     admin.from("my20fit_activity_uploads").select("upload_type,upload_date,extracted_data,created_at").eq("auth_user_id", uid).gte("upload_date", fromAll).lte("upload_date", today).order("created_at", { ascending: false }).limit(100),
     admin.from("my20fit_sleep").select("sleep_date,duration_hours").eq("auth_user_id", uid).gte("sleep_date", from7Str).lte("sleep_date", today),
     admin.from("my20fit_hydration").select("log_date,amount_ml").eq("auth_user_id", uid).gte("log_date", from7Str).lte("log_date", today),
+    // Syarat buka (sepanjang waktu, bukan cuma minggu ini).
+    admin.from("my20fit_workout").select("id").eq("auth_user_id", uid).limit(1),
+    admin.from("my20fit_activity_uploads").select("id").eq("auth_user_id", uid).eq("upload_type", "workout").limit(1),
+    admin.from("my20fit_visbody_scan").select("scan_id").eq("auth_user_id", uid).limit(1),
   ]);
+  const hasWorkoutEver = !!((wkEver.data && wkEver.data.length) || (upEver.data && upEver.data.length));
+  const hasVisbody = !!(vbClaim.data && vbClaim.data.length);
 
   const scores = {}; let totalWeight = 0;
   const clamp100 = (n) => Math.max(0, Math.min(100, Math.round(n)));
@@ -9056,19 +9224,24 @@ async function hsCompute(uid) {
   const sessions = [];
   (wkRes.data || []).forEach((w) => sessions.push({ date: w.workout_date, min: hsNum(w.duration_min), kcal: hsNum(w.calories_burned), hr: hsNum(w.avg_heart_rate), src: "log" }));
   upOf("workout").forEach((u) => {
-    if (u.upload_date < mondayStr) return;
     const e = u.extracted_data || {};
     sessions.push({ date: u.upload_date, min: hsNum(e.duration_minutes), kcal: hsNum(e.calories_burned), hr: hsNum(e.avg_heart_rate), src: "upload" });
   });
-  const workoutDays = new Set(sessions.map((s) => s.date));
-  const hasHR = sessions.some((s) => s.hr != null && s.hr > 0);
-  {
+  // Skor workout: hari unik dalam jendela bergulir (config). Rekap "minggu ini" di bawah tetap Sen–Min.
+  const winSessions = sessions.filter((s) => s.date >= winStr);
+  const workoutDays = new Set(winSessions.map((s) => s.date));
+  const weekSessions = sessions.filter((s) => s.date >= mondayStr);
+  const weekDays = new Set(weekSessions.map((s) => s.date));
+  const hasHR = winSessions.some((s) => s.hr != null && s.hr > 0);
+  // Belum pernah workout sama sekali -> "belum ada data" (bukan skor 0). Pernah tapi absen di
+  // jendela ini -> 0 itu data sungguhan.
+  if (hasWorkoutEver) {
     const T = HS_TARGET.workout_days;
     const base = (workoutDays.size / T) * 100;
     // Bonus kecil kalau ada data detak jantung dari tracker (user melacak lebih detail).
     scores.workout = { score: clamp100(base + (hasHR && workoutDays.size ? 5 : 0)), weight: 25,
-      detail: workoutDays.size + "/" + T + " hari", have: workoutDays.size, target: T,
-      from_upload: sessions.filter((s) => s.src === "upload").length };
+      detail: workoutDays.size + "/" + T + " hari (" + HS_CFG.workout_window_days + " hari terakhir)", have: workoutDays.size, target: T,
+      from_upload: winSessions.filter((s) => s.src === "upload").length };
     totalWeight += 25;
   }
 
@@ -9115,17 +9288,22 @@ async function hsCompute(uid) {
   }
 
   // ── BODY COMPOSITION (20%) — Visbody terbaru (BMI + body fat), simplified.
+  //    Ambang BMI/BF di bawah PERLU DIVALIDASI tim klinik. Scan lebih tua dari body_fresh_days
+  //    -> ditandai stale & bobotnya dikali body_stale_weight_factor (config).
   {
     const b = (vbRes.data && vbRes.data[0]) || null;
     if (b) {
+      const ageDays = b.scanned_at ? Math.floor((Date.now() - new Date(b.scanned_at).getTime()) / 86400000) : null;
+      const stale = ageDays != null && ageDays > HS_CFG.body_fresh_days;
+      const w = stale ? 20 * HS_CFG.body_stale_weight_factor : 20;
       const bmi = +b.body_mass_index, bf = +b.body_fat_percentage;
       const parts = [];
       if (isFinite(bmi) && bmi > 0) parts.push(bmi >= 18.5 && bmi <= 24.9 ? 95 : (bmi >= 25 && bmi <= 29.9) ? 70 : 40);
       if (isFinite(bf) && bf > 0) parts.push(bf <= 25 ? 90 : bf <= 30 ? 70 : 50);
       if (parts.length) {
         const det = [isFinite(bmi) && bmi > 0 ? "BMI " + bmi : "", isFinite(bf) && bf > 0 ? "BF " + bf + "%" : ""].filter(Boolean).join(" · ");
-        scores.body = { score: clamp100(parts.reduce((a, c) => a + c, 0) / parts.length), weight: 20, detail: det };
-        totalWeight += 20;
+        scores.body = { score: clamp100(parts.reduce((a, c) => a + c, 0) / parts.length), weight: w, detail: det, stale: stale, age_days: ageDays };
+        totalWeight += w;
       }
     }
   }
@@ -9172,25 +9350,35 @@ async function hsCompute(uid) {
     target: { en: "Log every glass today", id: "Catat tiap gelas hari ini" } });
   {
     const n = workoutDays.size, T = HS_TARGET.workout_days;
-    if (n >= T + 1) gaps.push({ category: "workout", icon: "rest",
+    if (!hasWorkoutEver) { /* belum pernah workout -> ajakan ada di kartu Health Score, bukan gap */ }
+    else if (n >= T + 1) gaps.push({ category: "workout", icon: "rest",
       action: { en: "Recovery day today", id: "Recovery day hari ini" },
       detail: { en: n + " workout days this week already — rest is part of training.", id: "Sudah " + n + " hari workout minggu ini — istirahat juga bagian latihan." },
       target: { en: "Light stretching / yoga", id: "Stretching / yoga ringan" } });
     else if (n < T) gaps.push({ category: "workout", icon: "dumbbell",
       action: { en: "Work out " + (T - n) + "x more this week", id: "Workout " + (T - n) + "x lagi minggu ini" },
-      detail: { en: "You're at " + n + "/" + T + " this week.", id: "Baru " + n + "/" + T + " minggu ini." },
+      detail: { en: "You're at " + n + "/" + T + " in the last " + HS_CFG.workout_window_days + " days.", id: "Baru " + n + "/" + T + " dalam " + HS_CFG.workout_window_days + " hari terakhir." },
       target: { en: "Book a class for tomorrow", id: "Book kelas untuk besok" } });
   }
 
   // ── REKAP MINGGU INI (Sen–Min) — hari ber-workout + total sesi/menit/kalori (log + upload).
-  const week = { days: [], sessions: sessions.length, minutes: 0, kcal: 0 };
-  sessions.forEach((s) => { if (s.min) week.minutes += s.min; if (s.kcal) week.kcal += s.kcal; });
+  const week = { days: [], sessions: weekSessions.length, minutes: 0, kcal: 0 };
+  weekSessions.forEach((s) => { if (s.min) week.minutes += s.min; if (s.kcal) week.kcal += s.kcal; });
   week.minutes = Math.round(week.minutes); week.kcal = Math.round(week.kcal);
-  for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); const s = ymd(d); week.days.push({ date: s, workout: workoutDays.has(s), future: s > today }); }
+  for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); const s = ymd(d); week.days.push({ date: s, workout: weekDays.has(s), future: s > today }); }
 
+  const filled = HS_COMPONENTS.filter((k) => !!scores[k]);
+  const unlocked = hasVisbody || hasWorkoutEver;
+  const base = { unlocked: unlocked, unlock_source: hasVisbody ? "visbody" : (hasWorkoutEver ? "workout" : null),
+    filled: filled, components_total: HS_COMPONENTS.length, week: week, targets: HS_TARGET };
+  // Terkunci: tanpa skor & tanpa angka per komponen — cuma komponen mana yang sudah terisi.
+  if (!unlocked) return Object.assign(base, { total: null, breakdown: {}, gaps: [] });
+  // Terbuka tapi belum ada komponen terhitung (mis. scan baru di-claim, data ukur masih diproses)
+  // -> tetap tanpa angka, bukan 0.
+  if (!filled.length) return Object.assign(base, { total: null, breakdown: {}, gaps: gaps });
   let total = 0;
-  if (totalWeight > 0) for (const k in scores) total += scores[k].score * (scores[k].weight / totalWeight);
-  return { total: Math.round(total), have_any: totalWeight > 0, breakdown: scores, gaps: gaps, week: week, targets: HS_TARGET };
+  for (const k in scores) total += scores[k].score * (scores[k].weight / totalWeight);
+  return Object.assign(base, { total: Math.round(total), breakdown: scores, gaps: gaps });
 }
 app.get("/api/activity/health-score", async (req, res) => {
   try {
@@ -10097,7 +10285,7 @@ async function coachEngagement(uid) {
   let level = 1; GAME_LEVELS.forEach(function (t, i) { if (xp >= t) level = i + 1; });
   return {
     chats: chats.length, coaches: new Set((sess.data || []).map(function (x) { return x.coach_id; })).size,
-    plans: plans.length, visbody: visbody, health: (hs && hs.have_any) ? hs.total : null,
+    plans: plans.length, visbody: visbody, health: (hs && typeof hs.total === "number") ? hs.total : null,
     current_streak: st.current, longest_streak: st.longest,
     xp: xp, level: level, next_level_xp: GAME_LEVELS[level] != null ? GAME_LEVELS[level] : null,
   };
@@ -10230,6 +10418,8 @@ const COACH_CHAT_RULES =
   "(slot: breakfast|lunch|dinner|snack, 1 menu per waktu makan tanpa alternatif, maks 6 item, calorie_target = total kkal sehari >=1200, " +
   "menu Indonesia yang mudah didapat, angka perkiraan wajar). Tanya 1 waktu makan saja (mis. sarapan) -> jawab teks singkat + [[TRACK_MEAL]], tanpa blok. " +
   "User bisa klik 'Terapkan meal plan' dan plan itu masuk ke Calorie Tracker. " +
+  "HEALTH SCORE: pakai health_score di DATA USER apa adanya. total null = terkunci/belum ada data -> JANGAN mengarang skor; " +
+  "jelaskan cara membukanya: Visbody scan di 20FIT ([[VISBODY]]) atau upload workout pertama. " +
   "KELAS: kalau user tanya kelas, rekomendasikan maks 2 kelas milik KAMU dari coach_classes, format \"Nama — waktu\" pakai field when (JANGAN tulis tanggal format 2026-09-30), lalu [[BOOK_CLASS]]; kalau kosong, bilang jadwalmu belum ada dan tetap kasih [[BOOK_CLASS]].";
 // Konteks user ringkas untuk chatbot (reuse tabel yang ada; supabase balikin {error} bukan throw,
 // jadi tabel hilang -> data null -> field kosong, aman).
@@ -10372,7 +10562,10 @@ app.post("/api/coach/chat", async (req, res) => {
         history = (h || []).reverse().map(function (x) { return { role: x.role, content: coachHistoryForAi(x.content) }; });
       }
     } catch (e) { /* tabel chat belum ada -> lanjut tanpa riwayat */ }
-    const [ctx, classes] = await Promise.all([loadCoachContext(user.id), personaUpcomingClasses(coachId)]);
+    const [ctx, classes, hs] = await Promise.all([loadCoachContext(user.id), personaUpcomingClasses(coachId), hsCompute(user.id).catch(function () { return null; })]);
+    // Health Score dari SATU fungsi (hsCompute) — sama dengan yang dilihat user di /activity.
+    if (hs) ctx.health_score = { unlocked: hs.unlocked, total: hs.total, components: hs.filled.length + "/" + hs.components_total,
+      parts: Object.keys(hs.breakdown || {}).reduce(function (o, k) { o[k] = hs.breakdown[k].score; return o; }, {}) };
     const messages = [{ role: "system", content: coachChatSystem(coachId, ctx, lang, classes) }].concat(history)
       .concat([{ role: "system", content: COACH_CHAT_REMINDER }, { role: "user", content: message }]);
     const complex = COACH_COMPLEX_RE.test(message);

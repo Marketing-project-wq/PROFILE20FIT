@@ -127,7 +127,7 @@
     try {
       var hr = await apiFetch("/api/activity/health-score");
       var hj = await hr.json().catch(function () { return {}; });
-      if (hj && hj.ok && hj.have_any && typeof hj.total === "number") HEALTH = hj.total;
+      if (hj && hj.ok && typeof hj.total === "number") HEALTH = hj.total;   // terkunci -> total null -> chip tak tampil
       if (hj && hj.ok) HS_DATA = hj;
     } catch (e) {}
     try { var cpk = localStorage.getItem("my20fit_coach_pick"); if (cpk && COACH_NAME[cpk]) CHAT_COACH = cpk; } catch (e) {}
