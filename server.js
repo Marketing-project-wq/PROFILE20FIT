@@ -4755,7 +4755,7 @@ var USER_DATA_TABLES = [
   "my20fit_daily_plan", "my20fit_sleep", "my20fit_hydration",
   "my20fit_coach_quiz", "my20fit_workout_plan", "my20fit_coach_cta_event",
   "my20fit_coach_session", "my20fit_coach_set_log", "my20fit_coach_achievement",
-  "my20fit_coach_chat_session", "my20fit_coach_chat_message",
+  "my20fit_coach_chat_session", "my20fit_coach_chat_message", "my20fit_coach_meal_plan",
   "my20fit_activity_uploads", "my20fit_today_plans",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
@@ -10212,15 +10212,24 @@ const COACH_CHAT_RULES =
   "Langsung jawab intinya — tanpa pembukaan panjang, tanpa mengulang pertanyaan user, tanpa merangkum ulang semua data. " +
   "Satu fokus per balasan: pilih 1-2 hal paling penting untuk user SEKARANG. Kalau perlu daftar: maks 3 poin, tiap poin 1 baris. " +
   "Akhiri dengan maks 1 pertanyaan singkat bila memang perlu. Jawaban lebih panjang HANYA kalau user minta detail/penjelasan lengkap. " +
+  "JANGAN membuka balasan dengan sapaan (Hi/Hii/Hai/Halo/Hey/Yo) atau nama user — aplikasi sudah menampilkan sapaan coach; " +
+  "langsung ke inti. Sapa balik singkat HANYA kalau pesan user memang cuma sapaan. " +
   "TOMBOL AKSI: tulis token berikut PERSIS (frontend mengubahnya jadi tombol) di baris sendiri, hanya kalau relevan: " +
   "[[BOOK_CLASS]] (booking kelas), [[BOOK_DOCTOR]] (konsultasi dokter 20FIT Sports Clinic — WAJIB untuk cedera/sakit/nyeri dada/MCU), " +
-  "[[ARENA_MAPS]] (lokasi 20FIT Arena, Menteng Prada), [[VISBODY]] (hasil Visbody user). Jangan menulis URL sendiri. " +
+  "[[ARENA_MAPS]] (lokasi 20FIT Arena, Menteng Prada), [[VISBODY]] (hasil Visbody user), " +
+  "[[TRACK_MEAL]] (catat makan di Calorie Tracker my.20fit — sertakan tiap kali membahas makanan/kalori/nutrisi). Jangan menulis URL sendiri. " +
   "BUAT PLAN: kalau goal user belum jelas dari data (goals/profile/active_plan) TANYA goal-nya dulu, jangan langsung buat. " +
   "Kalau sudah jelas, balas kalimat singkat + SATU blok ```json berisi {\"type\":\"workout_plan\",\"title\":\"...\",\"goal\":\"...\"," +
   "\"days\":[{\"day\":\"Senin\",\"name\":\"HIIT Circuit\",\"duration_min\":45,\"exercises\":[{\"name\":\"Squat\",\"sets\":3,\"reps\":\"12\",\"rest_sec\":60}]}]," +
   "\"notes\":\"...\"} — hari istirahat cukup tidak dicantumkan. Plan otomatis tersimpan jadi plan aktif user. " +
   "VISBODY: kalau data visbody null dan user minta plan / analisa tubuh, tetap bantu dengan data yang ada, lalu ajak Visbody scan di 20FIT Arena " +
   "(Menteng Prada, ±5 menit: body fat, muscle mass, BMR, dll) + [[ARENA_MAPS]] [[BOOK_CLASS]]. Kalau user tak mau/tak bisa, minta berat, tinggi, umur & goal saja. " +
+  "MEAL PLAN: HANYA kalau user minta meal plan / menu makan SEHARI (goal/target belum jelas dari data -> tanya singkat dulu), " +
+  "balas 1-2 kalimat + SATU blok ```json berisi {\"type\":\"meal_plan\",\"title\":\"...\",\"calorie_target\":1800," +
+  "\"meals\":[{\"slot\":\"breakfast\",\"menu\":\"Oatmeal + 2 telur rebus\",\"kcal\":400,\"protein_g\":25}],\"notes\":\"...\"} " +
+  "(slot: breakfast|lunch|dinner|snack, 1 menu per waktu makan tanpa alternatif, maks 6 item, calorie_target = total kkal sehari >=1200, " +
+  "menu Indonesia yang mudah didapat, angka perkiraan wajar). Tanya 1 waktu makan saja (mis. sarapan) -> jawab teks singkat + [[TRACK_MEAL]], tanpa blok. " +
+  "User bisa klik 'Terapkan meal plan' dan plan itu masuk ke Calorie Tracker. " +
   "KELAS: kalau user tanya kelas, rekomendasikan maks 2 kelas milik KAMU dari coach_classes, format \"Nama — waktu\" pakai field when (JANGAN tulis tanggal format 2026-09-30), lalu [[BOOK_CLASS]]; kalau kosong, bilang jadwalmu belum ada dan tetap kasih [[BOOK_CLASS]].";
 // Konteks user ringkas untuk chatbot (reuse tabel yang ada; supabase balikin {error} bukan throw,
 // jadi tabel hilang -> data null -> field kosong, aman).
@@ -10307,8 +10316,36 @@ async function coachSaveChatPlan(uid, planObj) {
   if (error) throw error;
   return data;
 }
-// Pesan yang butuh model lebih kuat (plan / analisa) -> tier "complex" (edge fn memilih model).
-const COACH_COMPLEX_RE = /plan|buatkan|generate|analisa|analyze|breakdown|health score/i;
+// Blok ```json {"type":"meal_plan"} -> dinormalisasi & disimpan di pesan sebagai
+// [[MEAL_PLAN]]{json}[[/MEAL_PLAN]] (frontend -> kartu + tombol "Terapkan meal plan").
+const COACH_MEAL_BLOCK = /```(?:json)?\s*(\{[\s\S]*?"type"\s*:\s*"meal_plan"[\s\S]*?\})\s*```/;
+const COACH_MEAL_TOKEN = /\[\[MEAL_PLAN\]\]([\s\S]*?)\[\[\/MEAL_PLAN\]\]/g;
+const MEAL_SLOTS = ["breakfast", "lunch", "dinner", "snack"];
+// Validasi SATU sumber (dipakai balasan chat & POST apply). Target <1200 kkal ditolak (aturan
+// diet ekstrem). Teks dibersihkan dari "[" "]" supaya tak bisa memalsukan token.
+function coachNormMealPlan(j) {
+  if (!j || j.type !== "meal_plan" || !Array.isArray(j.meals)) return null;
+  const num = function (v, max) { const n = Math.round(Number(v)); return n > 0 ? Math.min(max, n) : null; };
+  const str = function (v, max) { return String(v == null ? "" : v).replace(/[\[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, max); };
+  const meals = j.meals.slice(0, 6).map(function (m) {
+    const slot = String((m && m.slot) || "").toLowerCase();
+    return { slot: MEAL_SLOTS.indexOf(slot) >= 0 ? slot : "snack", menu: str(m && m.menu, 120), kcal: num(m && m.kcal, 2500), protein_g: num(m && m.protein_g, 250) };
+  }).filter(function (m) { return m.menu; });
+  if (!meals.length) return null;
+  const sum = meals.reduce(function (a, m) { return a + (m.kcal || 0); }, 0);
+  const target = num(j.calorie_target, 6000) || sum || null;
+  if (target && target < 1200) return null;
+  return { type: "meal_plan", title: str(j.title, 80) || "Meal plan", calorie_target: target, meals: meals, notes: str(j.notes, 300) || null };
+}
+// Riwayat untuk AI: token kartu dikembalikan ke bentuk blok ```json (format yang diminta aturan).
+function coachHistoryForAi(content) {
+  return String(content || "").replace(COACH_MEAL_TOKEN, function (m, js) { return "```json\n" + js + "\n```"; });
+}
+// Pengingat gaya di akhir (setelah riwayat) — riwayat panjang cenderung menyeret model ke gaya lama.
+const COACH_CHAT_REMINDER = "PENGINGAT: tanpa sapaan pembuka, langsung ke inti, maks 3-4 kalimat pendek kecuali user minta detail. " +
+  "Bahas makanan/kalori -> sertakan [[TRACK_MEAL]].";
+// Pesan yang butuh model lebih kuat (plan / analisa / meal plan) -> tier "complex" (edge fn memilih model).
+const COACH_COMPLEX_RE = /plan|buatkan|generate|analisa|analyze|breakdown|health score|menu|meal|diet/i;
 // POST /api/coach/chat — {coach_id, message} -> balasan persona. Simpan riwayat kalau tabel ada.
 app.post("/api/coach/chat", async (req, res) => {
   try {
@@ -10332,11 +10369,12 @@ app.post("/api/coach/chat", async (req, res) => {
       if (sessionId) {
         const { data: h } = await admin.from("my20fit_coach_chat_message")
           .select("role,content").eq("session_id", sessionId).order("created_at", { ascending: false }).limit(20);
-        history = (h || []).reverse().map(function (x) { return { role: x.role, content: x.content }; });
+        history = (h || []).reverse().map(function (x) { return { role: x.role, content: coachHistoryForAi(x.content) }; });
       }
     } catch (e) { /* tabel chat belum ada -> lanjut tanpa riwayat */ }
     const [ctx, classes] = await Promise.all([loadCoachContext(user.id), personaUpcomingClasses(coachId)]);
-    const messages = [{ role: "system", content: coachChatSystem(coachId, ctx, lang, classes) }].concat(history).concat([{ role: "user", content: message }]);
+    const messages = [{ role: "system", content: coachChatSystem(coachId, ctx, lang, classes) }].concat(history)
+      .concat([{ role: "system", content: COACH_CHAT_REMINDER }, { role: "user", content: message }]);
     const complex = COACH_COMPLEX_RE.test(message);
     let reply = "", modelUsed = null;
     try {
@@ -10353,6 +10391,14 @@ app.post("/api/coach/chat", async (req, res) => {
       try { prog = coachChatPlanToProgram(JSON.parse(pm[1]), coachId); } catch (e) { prog = null; }
       if (prog) { try { savedPlan = await coachSaveChatPlan(user.id, prog); } catch (e) { console.error("coach/chat plan:", e.message); } }
       reply = reply.replace(COACH_PLAN_BLOCK, savedPlan ? "[[PLAN_SAVED]]" : "").trim();
+    }
+    const mm = reply.match(COACH_MEAL_BLOCK);
+    if (mm) {
+      let meal = null;
+      try { meal = coachNormMealPlan(JSON.parse(mm[1])); } catch (e) { meal = null; }
+      // Kartu meal plan sudah memuat CTA Calorie Tracker -> token TRACK_MEAL terpisah dibuang (tak dobel).
+      if (meal) reply = reply.replace(/\[\[TRACK_MEAL\]\]/g, "");
+      reply = reply.replace(COACH_MEAL_BLOCK, function () { return meal ? "[[MEAL_PLAN]]" + JSON.stringify(meal) + "[[/MEAL_PLAN]]" : ""; }).replace(/\n{3,}/g, "\n\n").trim();
     }
     if (sessionId) {
       try {
@@ -10382,6 +10428,49 @@ app.get("/api/coach/chat/history", async (req, res) => {
     const { data: h } = await admin.from("my20fit_coach_chat_message").select("role,content,created_at").eq("session_id", sid).order("created_at", { ascending: true }).limit(100);
     return res.json({ ok: true, messages: (h || []).map(function (x) { return { role: x.role, content: x.content, at: x.created_at }; }) });
   } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, messages: [], setup_required: true }); return res.status(500).json({ error: "Gagal memuat riwayat." }); }
+});
+// Meal plan coach yang DITERAPKAN user (1 baris/user, migration 027) -> tampil di /calories.
+// GET -> {meal_plan: {coach_id, coach_name, plan, applied_at} | null}
+app.get("/api/coach/meal-plan", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, meal_plan: null });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data, error } = await admin.from("my20fit_coach_meal_plan").select("coach_id,plan,applied_at").eq("auth_user_id", user.id).limit(1);
+    if (error) return res.json({ ok: true, meal_plan: null, setup_required: true });
+    const r = data && data[0];
+    if (!r) return res.json({ ok: true, meal_plan: null });
+    return res.json({ ok: true, meal_plan: { coach_id: r.coach_id, coach_name: coachPersonaOk(r.coach_id) ? COACH_PERSONAS[r.coach_id].name : null, plan: r.plan, applied_at: r.applied_at } });
+  } catch (e) { return res.status(500).json({ error: "Gagal memuat meal plan." }); }
+});
+// POST {coach_id, plan} -> terapkan (divalidasi ulang di server; isi dari klien tak dipercaya).
+app.post("/api/coach/meal-plan/apply", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {};
+    const coachId = String(b.coach_id || "").toLowerCase();
+    if (!coachPersonaOk(coachId)) return res.status(400).json({ error: "Coach tidak dikenal." });
+    const plan = coachNormMealPlan(Object.assign({}, b.plan, { type: "meal_plan" }));
+    if (!plan) return res.status(400).json({ error: "Meal plan tidak valid." });
+    const now = new Date().toISOString();
+    const { error } = await admin.from("my20fit_coach_meal_plan")
+      .upsert({ auth_user_id: user.id, coach_id: coachId, plan: plan, applied_at: now, updated_at: now }, { onConflict: "auth_user_id" });
+    if (error) { console.error("coach/meal-plan/apply:", error.message); return res.status(503).json({ error: "Meal plan belum bisa disimpan." }); }
+    return res.json({ ok: true, meal_plan: { coach_id: coachId, coach_name: COACH_PERSONAS[coachId].name, plan: plan, applied_at: now } });
+  } catch (e) { return res.status(500).json({ error: "Gagal menerapkan meal plan." }); }
+});
+// POST -> hapus meal plan coach (kembali ke rekomendasi katalog di /calories).
+app.post("/api/coach/meal-plan/clear", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { error } = await admin.from("my20fit_coach_meal_plan").delete().eq("auth_user_id", user.id);
+    if (error) return res.status(503).json({ error: "Gagal menghapus meal plan." });
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: "Gagal menghapus meal plan." }); }
 });
 // POST /api/activity/quick-analysis — {coach_id, data} -> "Coach Says" 2-3 kalimat (one-shot, tak disimpan).
 app.post("/api/activity/quick-analysis", async (req, res) => {

@@ -337,6 +337,8 @@
   .mp-cta{flex:0 0 auto;background:var(--red,#C41101);color:#fff;text-decoration:none;
     border-radius:999px;padding:9px 16px;font-size:12.5px;font-weight:800;white-space:nowrap}
   .mp-cta:hover{filter:brightness(1.07)}
+  button.mp-cta{border:0;font-family:inherit;cursor:pointer}
+  button.mp-cta:disabled{opacity:.6;cursor:default}
   @media(max-width:420px){
     .mp-item{flex-wrap:wrap}
     .mp-cta{width:100%;text-align:center;margin-top:2px}
@@ -1397,8 +1399,21 @@
       try{ if(Fasting.get())return; const {data}=await Auth.supabase.from("my20fit_fasting").select("style,start_time").eq("auth_user_id",profileRef.auth_user_id).limit(1); const r=data&&data[0]; if(r&&r.style){ Fasting.set({id:r.style,start:String(r.start_time||"12:00").slice(0,5)}); recompute(); renderIF(); } }catch(e){}
     }
 
-    var _mealPlan=null;
-    function mountMealPlan(){
+    var _mealPlan=null, _coachMeal=null;
+    // Meal plan yang user TERAPKAN dari chat coach (/api/coach/meal-plan, migration 027) menggantikan
+    // rekomendasi katalog; tanpa itu (atau gagal dimuat) -> rekomendasi katalog (js/meal-plan.js).
+    async function mountMealPlan(){
+      var el=document.getElementById("mealPlan");
+      if(!el) return;
+      try{
+        var tk=await Auth.token();
+        var r=await fetch("/api/coach/meal-plan",{headers:{"Authorization":"Bearer "+(tk||"")}});
+        var j=await r.json().catch(function(){return {};});
+        _coachMeal=(r.ok&&j&&j.meal_plan&&j.meal_plan.plan&&Array.isArray(j.meal_plan.plan.meals))?j.meal_plan:null;
+      }catch(e){ _coachMeal=null; }
+      if(_coachMeal) renderCoachMeal(); else mountCatalogMeal();
+    }
+    function mountCatalogMeal(){
       var sec=document.getElementById("mealPlanSec"), el=document.getElementById("mealPlan");
       if(!el||!window.MealPlan) return;
       if(sec) sec.textContent=L({en:"Meal plan recommendation",id:"Rekomendasi rencana makan"});
@@ -1407,6 +1422,44 @@
         en:"A sample daily meal layout from the 20FIT recipe catalog, tuned to your calorie target.",
         id:"Contoh susunan makan sehari dari katalog resep 20FIT, disesuaikan dengan target kalorimu."});
       _mealPlan=MealPlan.mount(el,{target:goal});
+    }
+    function renderCoachMeal(){
+      var sec=document.getElementById("mealPlanSec"), el=document.getElementById("mealPlan"), lead=document.getElementById("mealPlanLead");
+      var cm=_coachMeal, p=cm.plan, coach=cm.coach_name?("Coach "+cm.coach_name):"Coach";
+      _mealPlan=null;
+      if(sec) sec.textContent=L({en:"Meal plan from ",id:"Meal plan dari "})+coach;
+      if(lead) lead.textContent=L({
+        en:"Applied from your coach chat. Tap “Log” when you eat it — only what you log is counted.",
+        id:"Diterapkan dari chat coach. Ketuk “Catat” saat kamu memakannya — hanya yang dicatat yang dihitung."});
+      var kc=L({en:"kcal",id:"kkal"}), sum=0;
+      el.innerHTML='<div class="mp-hd"><span class="mp-hd-l"><span class="mp-lbl">'+escA(p.title||"Meal plan")+'</span>'+
+          (p.calorie_target?'<span class="mp-tg"><b>'+escA(p.calorie_target)+'</b> <s>'+escA(kc)+'</s></span>':'')+'</span>'+
+          '<a class="mp-re" href="/activity/chat/'+encodeURIComponent(cm.coach_id)+'" target="_top">'+FIC("chat",14)+' '+escA(L({en:"Ask coach",id:"Tanya coach"}))+'</a></div>'+
+        p.meals.map(function(m,i){
+          sum+=(+m.kcal||0);
+          return '<div class="mp-card"><div class="mp-mh"><span class="mp-mn">'+escA(L(MEAL_TX[m.slot]||MEAL_TX.snack))+'</span>'+
+            (m.kcal?'<span class="mp-mk">~'+escA(m.kcal)+' '+escA(kc)+'</span>':'')+'</div>'+
+            '<div class="mp-item"><span class="mp-ph" aria-hidden="true">'+FIC("meal",20)+'</span>'+
+            '<span class="mp-it"><span class="mp-nm">'+escA(m.menu)+'</span>'+
+            '<span class="mp-sub">'+(m.kcal?escA(m.kcal)+' '+escA(kc):'')+(m.protein_g?' · P '+escA(m.protein_g)+'g':'')+'</span></span>'+
+            '<button type="button" class="mp-cta" data-cm-log="'+i+'">'+escA(L({en:"Log",id:"Catat"}))+'</button></div></div>';
+        }).join("")+
+        '<div class="mp-total"><span class="mp-tl">'+escA(L({en:"Plan total",id:"Total plan"}))+'</span><span class="mp-tr"><b>'+escA(sum)+' '+escA(kc)+'</b></span></div>'+
+        (p.notes?'<div class="mp-note">'+escA(p.notes)+'</div>':'')+
+        '<button type="button" class="mp-re" id="cmClear" style="margin:10px 0 0">'+FIC("refresh",14)+' '+escA(L({en:"Back to automatic recommendation",id:"Kembali ke rekomendasi otomatis"}))+'</button>';
+      Array.prototype.forEach.call(el.querySelectorAll("[data-cm-log]"),function(b){
+        b.onclick=function(){
+          var m=p.meals[+b.getAttribute("data-cm-log")]; if(!m) return;
+          // Hanya kkal & protein yang diberi coach; karbo/lemak 0 (bisa diubah lewat edit item).
+          addToLog(m.menu,+m.kcal||0,+m.protein_g||0,0,0,m.slot);
+          b.textContent=L({en:"Logged ✓",id:"Tercatat ✓"}); b.disabled=true;
+        };
+      });
+      document.getElementById("cmClear").onclick=async function(){
+        this.disabled=true;
+        try{ var tk=await Auth.token(); await fetch("/api/coach/meal-plan/clear",{method:"POST",headers:{"Authorization":"Bearer "+(tk||"")}}); }catch(e){}
+        _coachMeal=null; mountCatalogMeal();
+      };
     }
     (async function(){
       const p=await Auth.getProfile();
@@ -1433,7 +1486,7 @@
       // Ini jaring pengaman utamanya: satu-satunya jalur yang tetap bekerja walau user
       // tak pernah kembali ke tab ini, ganti device, atau localStorage-nya hilang.
       try{ if(window.Deals && Deals.sweep) Deals.sweep(refreshQuota); }catch(e){}
-          try{ mountMealPlan(); }catch(e){}
+          mountMealPlan().catch(function(){});
     })();
     // Deteksi kepulangan dari Xendit lewat query URL.
     // CATATAN (diperbaiki 2026-07-16): jalur ini pada praktiknya TIDAK PERNAH terpicu.
@@ -1566,7 +1619,7 @@
         : '');
     }
 
-    I18N.onChange(()=>{render();renderIF();refreshQuota();syncCamLabels();renderWeek();renderHist();});
+    I18N.onChange(()=>{render();renderIF();refreshQuota();syncCamLabels();renderWeek();renderHist();if(_coachMeal)renderCoachMeal();});
   </script>
 <script>
   // Tombol "tanya coach": pertanyaan awal ikut bahasa aktif (?ask= hanya mengisi kotak pesan di chat).

@@ -87,6 +87,8 @@
   var COACH_NAME = CP.NAME;
   var HEALTH = null;                 // skor kesehatan asli (0-100) dari /api/activity/health-score
   var HS_DATA = null;                // respons health-score lengkap (chip data di sapaan chat)
+  var MEAL_CARDS = [];               // meal plan per kartu di chat (indeks = data-meal-i)
+  var MEAL_APPLIED = "";             // signature meal plan yang sedang diterapkan (/api/coach/meal-plan)
   var GAME = null;                   // {xp, level, current_streak, ...} dari /api/coach/achievements
   // ?ask=<teks> (link dari Calories / Medical) -> HANYA mengisi kotak pesan, tidak dikirim otomatis
   // (link dari luar tak boleh mengirim chat atas nama user tanpa ia menekan Kirim).
@@ -781,13 +783,67 @@
     BOOK_DOCTOR: ["/book-doctor", { en: "Book Doctor →", id: "Book Doctor →" }, "clinic"],
     ARENA_MAPS: ["https://www.google.com/maps/search/?api=1&query=20FIT+Arena+Menteng+Prada", { en: "20FIT Arena — Google Maps", id: "20FIT Arena — Google Maps" }, "pin"],
     VISBODY: ["/activity/visbody", { en: "My Visbody results", id: "Hasil Visbody aku" }, "chart"],
+    TRACK_MEAL: ["/calories", { en: "Track meals in Calorie Tracker →", id: "Catat makan di Calorie Tracker →" }, "meal"],
   };
+  var SLOT_LBL = { breakfast: { en: "Breakfast", id: "Sarapan" }, lunch: { en: "Lunch", id: "Makan siang" }, dinner: { en: "Dinner", id: "Makan malam" }, snack: { en: "Snack", id: "Snack" } };
+  // Signature isi plan (jsonb di DB bisa mengubah urutan key -> jangan bandingkan JSON mentah).
+  function mealSig(p) {
+    return p ? [p.title, p.calorie_target].concat((p.meals || []).map(function (m) { return m.slot + ":" + m.menu; })).join("|") : "";
+  }
+  function mealApplyBtn(p) {
+    return MEAL_APPLIED && MEAL_APPLIED === mealSig(p)
+      ? svgIcon("check", 15) + ' ' + esc(Lx({ en: "Applied", id: "Sudah diterapkan" }))
+      : svgIcon("meal", 15) + ' ' + esc(Lx({ en: "Apply meal plan", id: "Terapkan meal plan" }));
+  }
+  // Kartu meal plan: [[MEAL_PLAN]]{json}[[/MEAL_PLAN]] (json dinormalisasi server).
+  function mealCard(js) {
+    var p; try { p = JSON.parse(js); } catch (e) { return ""; }
+    if (!p || !Array.isArray(p.meals) || !p.meals.length) return "";
+    var i = MEAL_CARDS.push(p) - 1;
+    return '<div class="cmeal"><b class="cmeal-t">' + svgIcon("clipboard", 15) + ' ' + esc(p.title || "Meal plan") + '</b>' +
+      (p.calorie_target ? '<span class="cmeal-k">± ' + esc(p.calorie_target) + ' ' + esc(Lx({ en: "kcal/day", id: "kkal/hari" })) + '</span>' : '') +
+      '<ul class="cmeal-l">' + p.meals.map(function (m) {
+        return '<li><span class="cmeal-s">' + esc(Lx(SLOT_LBL[m.slot] || SLOT_LBL.snack)) + '</span><span class="cmeal-m">' + esc(m.menu) + '</span>' +
+          '<span class="cmeal-n">' + (m.kcal ? esc(m.kcal) + ' ' + esc(Lx({ en: "kcal", id: "kkal" })) : '') + (m.protein_g ? ' · ' + esc(m.protein_g) + 'g P' : '') + '</span></li>';
+      }).join("") + '</ul>' +
+      (p.notes ? '<span class="cmeal-x">' + esc(p.notes) + '</span>' : '') +
+      '<span class="cmeal-a"><button type="button" class="cmeal-go" data-meal-i="' + i + '">' + mealApplyBtn(p) + '</button>' +
+      '<a class="cact" href="' + esc(ACTIONS.TRACK_MEAL[0]) + '">' + svgIcon("meal", 14) + ' ' + esc(Lx(ACTIONS.TRACK_MEAL[1])) + '</a></span></div>';
+  }
+  async function applyMeal(btn) {
+    var p = MEAL_CARDS[+btn.getAttribute("data-meal-i")]; if (!p || btn.disabled) return;
+    btn.disabled = true;
+    try {
+      var r = await apiFetch("/api/coach/meal-plan/apply", { method: "POST", body: JSON.stringify({ coach_id: CHAT_COACH, plan: p }) });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok || !j.ok) throw new Error((j && j.error) || "fail");
+      MEAL_APPLIED = mealSig(j.meal_plan && j.meal_plan.plan);
+    } catch (e) {
+      btn.disabled = false;
+      btn.innerHTML = svgIcon("warn", 15) + ' ' + esc(Lx({ en: "Failed — tap to retry", id: "Gagal — ketuk untuk coba lagi" }));
+      return;
+    }
+    btn.disabled = false;
+    Array.prototype.forEach.call(document.querySelectorAll(".cmeal-go[data-meal-i]"), function (b) { b.innerHTML = mealApplyBtn(MEAL_CARDS[+b.getAttribute("data-meal-i")]); });
+  }
+  async function loadAppliedMeal() {
+    try {
+      var r = await apiFetch("/api/coach/meal-plan"); var j = await r.json().catch(function () { return {}; });
+      MEAL_APPLIED = (j && j.meal_plan) ? mealSig(j.meal_plan.plan) : "";
+    } catch (e) {}
+  }
   function planCard() {
     return '<span class="cplan"><b>' + svgIcon("clipboard", 15) + ' ' + esc(Lx({ en: "Plan saved as your active plan", id: "Plan tersimpan jadi plan aktif kamu" })) + '</b>' +
       '<span class="cplan-a"><a href="/activity/plan">' + esc(Lx({ en: "View plan →", id: "Lihat plan →" })) + '</a>' +
       '<a href="/activity">' + esc(Lx({ en: "Dashboard →", id: "Dashboard →" })) + '</a></span></span>';
   }
+  // Blok meal plan dipisah dulu (JSON-nya tak boleh ikut di-escape/diformat), sisanya teks biasa.
   function renderReply(text) {
+    return String(text || "").split(/\[\[MEAL_PLAN\]\]([\s\S]*?)\[\[\/MEAL_PLAN\]\]/).map(function (part, k) {
+      return k % 2 ? mealCard(part) : renderText(part);
+    }).join("");
+  }
+  function renderText(text) {
     var h = esc(text).replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
       .replace(/(^|\n)[ \t]*[*-][ \t]+/g, "$1• ");   // daftar markdown "* " / "- " -> bullet
     h = h.replace(/\[\[PLAN_SAVED\]\]/g, planCard());
@@ -808,11 +864,13 @@
       return;
     }
     if (quick) quick.style.display = "";
+    MEAL_CARDS = [];
     var html = CHAT_MSGS.map(function (m) {
       return '<div class="cmsg ' + (m.role === "user" ? "me" : "ai") + '">' + (m.role === "user" ? esc(m.content).replace(/\n/g, "<br>") : renderReply(m.content)) + '</div>';
     }).join("");
     if (CHAT_BUSY) html += '<div class="cmsg ai typing"><span></span><span></span><span></span></div>';
     box.innerHTML = html; box.scrollTop = box.scrollHeight;
+    Array.prototype.forEach.call(box.querySelectorAll(".cmeal-go[data-meal-i]"), function (b) { b.onclick = function () { applyMeal(b); }; });
   }
   // Empty state ala referensi: sapaan personal + chip data ASLI (health score) + kartu prompt.
   function emptyStateHTML() {
@@ -844,7 +902,7 @@
       var raw = sessionStorage.getItem("chat_context");
       if (raw) { sessionStorage.removeItem("chat_context"); var cx = JSON.parse(raw); if (cx && cx.auto_message) auto = String(cx.auto_message); }
     } catch (e) {}
-    await loadChatHistory();
+    await Promise.all([loadChatHistory(), loadAppliedMeal()]);
     if (auto) { sendChat(auto); return; }
     paintMsgs();   // kosong -> empty state (sapaan + kartu prompt); ada riwayat -> bubble
   }
