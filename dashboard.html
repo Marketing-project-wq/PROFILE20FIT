@@ -560,34 +560,68 @@
 
     </div><!-- /extraTrackers -->
 
-    <!-- ===== Team carousel (coach + dokter + fisio jadi satu) — paling bawah home ===== -->
+    <!-- ===== "Book a personal session" (coach + dokter + fisio) — gaya kartu mockup ===== -->
     <style>
+      #rosterSection .roster-sub,#feedSection .roster-sub{font-size:12.5px;color:var(--pagemut,var(--muted));margin:-4px 2px 12px}
+      #rosterSection .roster-filt{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}
+      #rosterSection .rchip{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 14px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit}
+      #rosterSection .rchip[aria-pressed="true"]{background:var(--dark,#000);border-color:var(--dark,#000);color:#fff}
+      #rosterSection .rchip .dot{width:8px;height:8px;border-radius:99px;flex:none}
       #rosterSection .teamwrap{position:relative}
-      #rosterSection .percard{flex:0 0 auto;width:118px;scroll-snap-align:start;text-align:center;text-decoration:none;color:inherit}
-      #rosterSection .perav{width:96px;height:96px;border-radius:50%;margin:0 auto;position:relative;overflow:hidden;background:var(--inp);border:1px solid var(--line)}
+      /* Kartu Book-session gaya mockup: bordered, foto bulat, badge peran, tombol Book session. */
+      #rosterSection .percard{flex:0 0 172px;width:172px;scroll-snap-align:start;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:14px 12px 13px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative}
+      #rosterSection .perbadge{position:absolute;top:10px;left:10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#fff;border-radius:6px;padding:3px 7px}
+      #rosterSection .perav{width:92px;height:92px;border-radius:50%;margin:16px auto 10px;position:relative;overflow:hidden;background:var(--inp);border:1px solid var(--line)}
       #rosterSection .perav img{width:100%;height:100%;object-fit:cover;object-position:center 28%;display:block}
       #rosterSection .perini{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:30px;letter-spacing:.02em}
-      #rosterSection .pernm{font-weight:800;font-size:13px;margin-top:8px;color:var(--txt);line-height:1.2;overflow-wrap:anywhere}
-      #rosterSection .perrole{font-size:10px;font-weight:800;margin-top:3px;color:var(--red);text-transform:uppercase;letter-spacing:.04em}
-      #rosterSection .persp{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
+      #rosterSection .pernm{font-weight:800;font-size:15px;margin-top:2px;color:var(--txt);line-height:1.2;overflow-wrap:anywhere}
+      #rosterSection .persp{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.3;min-height:15px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
       #rosterSection .pernophoto{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.25;opacity:.8}
+      #rosterSection .perbook{margin-top:12px;width:100%;background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);border-radius:11px;padding:9px;font-weight:800;font-size:12.5px;text-align:center}
       /* Panah hanya tampil saat overflow (class has-arrows) & di desktop. */
-      #rosterSection .teamarrow{position:absolute;top:30px;z-index:3;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;display:none;place-items:center;box-shadow:0 6px 16px rgba(0,0,0,.16)}
+      #rosterSection .teamarrow{position:absolute;top:64px;z-index:3;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;display:none;place-items:center;box-shadow:0 6px 16px rgba(0,0,0,.16)}
       #rosterSection .teamarrow svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
       #rosterSection .teamarrow.left{left:-8px} #rosterSection .teamarrow.right{right:-8px}
       #rosterSection.has-arrows .teamarrow{display:grid}
       @media(max-width:899px){ #rosterSection .teamarrow{display:none!important} }
+      /* ── The Feed (artikel media.20fit.id) ── */
+      #feedSection .feed-rail{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 10px;margin:0 -2px;-webkit-overflow-scrolling:touch}
+      #feedSection .feed-rail::-webkit-scrollbar{height:6px}
+      #feedSection .feed-rail::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+      #feedSection .fcard{flex:0 0 280px;width:280px;scroll-snap-align:start;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);text-decoration:none;color:inherit;display:flex;flex-direction:column}
+      @media(max-width:520px){ #feedSection .fcard{flex-basis:86vw;width:86vw;max-width:320px} }
+      #feedSection .fthumb{position:relative;width:100%;aspect-ratio:16/9;background:var(--inp);overflow:hidden}
+      #feedSection .fthumb img{width:100%;height:100%;object-fit:cover;display:block}
+      #feedSection .fread{position:absolute;left:10px;bottom:10px;background:var(--card);color:var(--txt);font-size:11px;font-weight:700;border-radius:999px;padding:4px 10px;box-shadow:0 2px 6px rgba(0,0,0,.14)}
+      #feedSection .fbody{padding:14px;display:flex;flex-direction:column;flex:1}
+      #feedSection .ftitle{font-weight:800;font-size:15px;line-height:1.35;color:var(--txt);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+      #feedSection .fmeta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding-top:12px}
+      #feedSection .fdate{font-size:12px;color:var(--muted)}
+      #feedSection .fmore{font-size:13px;font-weight:800;color:var(--red);white-space:nowrap}
     </style>
     <div id="rosterSection" hidden>
       <div class="trk-head" style="margin-top:22px">
-        <a class="sec gsec" id="teamTitle" href="/team" data-en="Meet Our Doctors &amp; Coaches" data-id="Tim Dokter &amp; Coach Kami" style="margin:0;text-decoration:none">Meet Our Doctors &amp; Coaches</a>
+        <a class="sec gsec" id="teamTitle" href="/team" data-en="Book a personal session" data-id="Book sesi personal" style="margin:0;text-decoration:none">Book a personal session</a>
         <a class="trk-all" href="/team" data-en="View more" data-id="Lihat semua">View more</a>
       </div>
+      <div class="roster-sub" data-en="With our coaches &amp; doctors" data-id="Bareng coach &amp; dokter kami">With our coaches &amp; doctors</div>
+      <div class="roster-filt" id="rosterFilt"></div>
       <div class="teamwrap">
         <button class="teamarrow left" type="button" aria-label="Previous" onclick="teamScroll(-1)"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
         <div class="hscroll" id="teamRail"></div>
         <button class="teamarrow right" type="button" aria-label="Next" onclick="teamScroll(1)"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
       </div>
+    </div>
+
+    <!-- ===== THE FEED — artikel terbaru media.20fit.id (WP REST via /api/media/feed) ===== -->
+    <!-- Kosong / sumber tak terjangkau -> section disembunyikan (bukan mock). -->
+    <div id="feedSection" hidden>
+      <div class="trk-head" style="margin-top:26px">
+        <div class="sec gsec" style="margin:0" data-en="The Feed" data-id="The Feed">The Feed</div>
+        <a class="trk-all" href="https://media.20fit.id" data-en="All" data-id="Semua">All</a>
+      </div>
+      <div class="roster-sub" data-en="Latest from 20FIT Media" data-id="Terbaru dari 20FIT Media">Latest from 20FIT Media</div>
+      <div class="feed-rail" id="feedRail"></div>
     </div>
   </div>
 
@@ -1409,17 +1443,35 @@
           if (photo) return '<div class="perav"><img src="' + esc(photo) + '" alt="' + esc(name) + '" loading="lazy" onerror="rosterPhotoFail(this)">' + ini + '</div>';
           return '<div class="perav">' + ini + '</div>';
         }
+        var ROSTER_FILT = "";
+        function badgeBg(role) { return role === "doctor" ? "#2F6BFF" : (role === "physiotherapist" ? "#0EA5A5" : "var(--red)"); }
+        function buildRosterChips(list) {
+          var el = document.getElementById("rosterFilt"); if (!el) return;
+          var order = ["coach", "doctor", "physiotherapist"], counts = { "": list.length };
+          order.forEach(function (r) { counts[r] = list.filter(function (p) { return p.role === r; }).length; });
+          var show = [""].concat(order.filter(function (r) { return counts[r] > 0; }));
+          var LBL = { "": { en: "All", id: "Semua" }, coach: { en: "Coach", id: "Coach" }, doctor: { en: "Doctor", id: "Dokter" }, physiotherapist: { en: "Physio", id: "Fisio" } };
+          var DOT = { coach: "var(--red)", doctor: "#2F6BFF", physiotherapist: "#0EA5A5" };
+          el.innerHTML = show.map(function (r) {
+            var d = (r && DOT[r]) ? '<span class="dot" style="background:' + DOT[r] + '"></span>' : '';
+            return '<button class="rchip" data-role="' + r + '" aria-pressed="' + (r === ROSTER_FILT) + '">' + d + esc(Lx(LBL[r] || { en: r, id: r })) + ' · ' + counts[r] + '</button>';
+          }).join("");
+          el.querySelectorAll("button").forEach(function (b) { b.onclick = function () { ROSTER_FILT = b.getAttribute("data-role") || ""; render(list); }; });
+        }
         function render(list) {
           var rail = document.getElementById("teamRail"); if (!rail) return;
           if (!list.length) { sec.hidden = true; return; }   // kosong -> sembunyikan seluruh section (tanpa judul menggantung)
-          rail.innerHTML = list.map(function (p) {
+          buildRosterChips(list);
+          var flt = list.filter(function (p) { return !ROSTER_FILT || p.role === ROSTER_FILT; });
+          rail.innerHTML = flt.map(function (p) {
             var role = ROLE_LBL[p.role] ? Lx(ROLE_LBL[p.role]) : "";
+            var badge = '<span class="perbadge" style="background:' + badgeBg(p.role) + '">' + esc(role) + '</span>';
             // Tanda "foto belum ada": tampil saat photo_url kosong; dibuka rosterPhotoFail() bila URL 404.
-            var inner = avatar(p.name, p.photo_url) + '<div class="pernm">' + esc(p.name) + '</div>'
-              + '<div class="perrole">' + esc(role) + '</div>'
-              + (p.speciality ? '<div class="persp">' + esc(p.speciality) + '</div>' : '')
+            var inner = badge + avatar(p.name, p.photo_url) + '<div class="pernm">' + esc(p.name) + '</div>'
+              + '<div class="persp">' + esc(p.speciality || "") + '</div>'
               + '<div class="pernophoto" data-en="' + esc(NOPHOTO.en) + '" data-id="' + esc(NOPHOTO.id) + '"'
-              + (p.photo_url ? " hidden" : "") + '>' + esc(Lx(NOPHOTO)) + '</div>';
+              + (p.photo_url ? " hidden" : "") + '>' + esc(Lx(NOPHOTO)) + '</div>'
+              + '<span class="perbook">' + esc(Lx({ en: "Book session", id: "Book sesi" })) + '</span>';
             var href = teamHref(p);
             return href ? '<a class="percard" href="' + esc(href) + '">' + inner + '</a>' : '<div class="percard">' + inner + '</div>';
           }).join("");
@@ -1558,38 +1610,51 @@
 
     // Upcoming Classes di home (di bawah AQI) — scroll horizontal, foto coach bulat.
     // Self-contained: esc lokal + window.L. Endpoint tak butuh auth (service key di server).
-    async function loadHomeUpcoming(){
+    // Cache-first: render instan dari cache sesi supaya balik ke home TIDAK memunculkan
+    // "loading" lambat tiap kali. Data tetap disegarkan diam-diam di belakang layar.
+    var HOME_UPC_CK="my20fit_home_upc_v1";
+    function paintHomeUpcoming(list){
       var wrap=document.getElementById("homeUpc"); if(!wrap) return;
       var esc=function(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); };
       var tr=function(o){ return window.L?window.L(o):(o.id||o.en); };
       var ini=function(n){ n=String(n||"").replace(/^Coach\s+/i,"").trim(); return (n[0]||"?").toUpperCase(); };
       var col=function(n){ var h=0;n=String(n||"");for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))>>>0;return "hsl("+(h%360)+" 45% 42%)"; };
+      if(!Array.isArray(list)||!list.length){ wrap.hidden=true; return; }
+      var items=list.map(function(c){
+        var d=new Date(c.date+"T"+(c.start||"00:00")+":00+07:00");
+        var dl=d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+        var nm=c.coach?c.coach.name:(c.instructor||"");
+        var shortNm=String(nm).replace(/^Coach\s+/i,"");
+        var ph=(c.coach&&c.coach.photo_url)
+          ? '<img class="home-upc-ph" src="'+esc(c.coach.photo_url)+'" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var s=this.nextElementSibling;if(s)s.style.display=\'grid\'"><span class="home-upc-ini" style="display:none;background:'+col(nm)+'">'+esc(ini(nm))+'</span>'
+          : '<span class="home-upc-ini" style="background:'+col(nm)+'">'+esc(ini(nm))+'</span>';
+        return '<a class="home-upc-item" href="'+esc(c.book_url)+'">'+
+          '<span class="home-upc-date"><span class="d">●</span> '+esc(dl)+'</span>'+
+          ph+
+          '<span class="home-upc-nm">'+esc(shortNm)+'</span>'+
+          '<span class="home-upc-cls">'+esc(c.name||"")+'</span>'+
+          '<span class="home-upc-tm">'+esc(c.start||"")+'</span>'+
+        '</a>';
+      }).join("");
+      wrap.innerHTML='<div class="home-upc-hd"><h3>'+esc(tr({en:"Upcoming Classes",id:"Kelas Mendatang"}))+
+        '</h3><a class="home-upc-all" href="/classes?period=this_week">'+esc(tr({en:"See All",id:"Lihat Semua"}))+' ›</a></div>'+
+        '<div class="home-upc-scroll">'+items+'</div>';
+      wrap.hidden=false;
+    }
+    async function loadHomeUpcoming(){
+      var wrap=document.getElementById("homeUpc"); if(!wrap) return;
+      // 1) Paint dari cache sesi lebih dulu (instan, tanpa flicker) kalau ada.
+      var hadCache=false;
+      try{ var cached=JSON.parse(sessionStorage.getItem(HOME_UPC_CK)||"null");
+        if(Array.isArray(cached)&&cached.length){ paintHomeUpcoming(cached); hadCache=true; } }catch(e){}
+      // 2) Segarkan diam-diam & simpan ke cache.
       try{
         var r=await fetch("/api/classes/upcoming?days=14&limit=20");
         var j=await r.json().catch(function(){return null;});
         var list=(j&&j.ok&&Array.isArray(j.classes))?j.classes:[];
-        if(!list.length){ wrap.hidden=true; return; }
-        var items=list.map(function(c){
-          var d=new Date(c.date+"T"+(c.start||"00:00")+":00+07:00");
-          var dl=d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
-          var nm=c.coach?c.coach.name:(c.instructor||"");
-          var shortNm=String(nm).replace(/^Coach\s+/i,"");
-          var ph=(c.coach&&c.coach.photo_url)
-            ? '<img class="home-upc-ph" src="'+esc(c.coach.photo_url)+'" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\';var s=this.nextElementSibling;if(s)s.style.display=\'grid\'"><span class="home-upc-ini" style="display:none;background:'+col(nm)+'">'+esc(ini(nm))+'</span>'
-            : '<span class="home-upc-ini" style="background:'+col(nm)+'">'+esc(ini(nm))+'</span>';
-          return '<a class="home-upc-item" href="'+esc(c.book_url)+'">'+
-            '<span class="home-upc-date"><span class="d">●</span> '+esc(dl)+'</span>'+
-            ph+
-            '<span class="home-upc-nm">'+esc(shortNm)+'</span>'+
-            '<span class="home-upc-cls">'+esc(c.name||"")+'</span>'+
-            '<span class="home-upc-tm">'+esc(c.start||"")+'</span>'+
-          '</a>';
-        }).join("");
-        wrap.innerHTML='<div class="home-upc-hd"><h3>'+esc(tr({en:"Upcoming Classes",id:"Kelas Mendatang"}))+
-          '</h3><a class="home-upc-all" href="/classes?period=this_week">'+esc(tr({en:"See All",id:"Lihat Semua"}))+' ›</a></div>'+
-          '<div class="home-upc-scroll">'+items+'</div>';
-        wrap.hidden=false;
-      }catch(e){ wrap.hidden=true; }
+        paintHomeUpcoming(list);
+        try{ sessionStorage.setItem(HOME_UPC_CK, JSON.stringify(list)); }catch(e){}
+      }catch(e){ if(!hadCache) wrap.hidden=true; }   // gagal refresh: cache lama tetap tampil
     }
 
     (async function init(){
@@ -2278,6 +2343,37 @@
 
       // ikut ganti bahasa
       if(window.I18N && I18N.onChange) I18N.onChange(function(){ renderProd(); renderProf(); });
+    });
+  })();
+  </script>
+
+  <script>
+  // THE FEED — artikel media.20fit.id via /api/media/feed (public, tanpa auth).
+  // Kosong / sumber tak terjangkau -> section disembunyikan (bukan mock). Link same-tab (§G).
+  (function loadFeed(){
+    var sec=document.getElementById("feedSection"), rail=document.getElementById("feedRail");
+    if(!sec||!rail) return;
+    function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+    function tr(o){ return window.L?window.L(o):(o.id||o.en); }
+    function fmtDate(s){ if(!s) return ""; try{ var d=new Date(s); if(isNaN(d)) return ""; return d.toLocaleDateString((window.I18N&&I18N.lang==="en")?"en-US":"id-ID",{weekday:"short",day:"numeric",month:"short"}); }catch(e){ return ""; } }
+    function render(posts){
+      if(!posts||!posts.length){ sec.hidden=true; return; }
+      rail.innerHTML=posts.map(function(p){
+        var thumb=p.image?'<img src="'+esc(p.image)+'" alt="" loading="lazy" decoding="async" onerror="this.style.display=\'none\'">':'';
+        var read=p.read_min?'<span class="fread">'+p.read_min+' '+esc(tr({en:"min read",id:"mnt baca"}))+'</span>':'';
+        return '<a class="fcard" href="'+esc(p.link)+'">'+
+          '<span class="fthumb">'+thumb+read+'</span>'+
+          '<span class="fbody"><span class="ftitle">'+esc(p.title||"")+'</span>'+
+          '<span class="fmeta"><span class="fdate">'+esc(fmtDate(p.date))+'</span><span class="fmore">'+esc(tr({en:"Read article →",id:"Baca artikel →"}))+'</span></span></span></a>';
+      }).join("");
+      sec.hidden=false;
+    }
+    fetch("/api/media/feed").then(function(r){ return r.ok?r.json():null; }).then(function(j){
+      render((j&&j.ok&&Array.isArray(j.posts))?j.posts:[]);
+    }).catch(function(){ sec.hidden=true; });
+    if(window.I18N && I18N.onChange) I18N.onChange(function(){
+      // Re-render label (tanggal & "Baca artikel") saat ganti bahasa, tanpa fetch ulang.
+      if(!sec.hidden){ fetch("/api/media/feed").then(function(r){return r.ok?r.json():null;}).then(function(j){ render((j&&j.ok&&Array.isArray(j.posts))?j.posts:[]); }).catch(function(){}); }
     });
   })();
   </script>

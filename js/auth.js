@@ -40,6 +40,9 @@
       // (diperiksa: supabase-js 2.108.2 punya code_verifier/code_challenge/exchangeCodeForSession).
       auth: { flowType: "pkce", persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
     });
+    // SSO MASUK: kalau halaman dibuka dgn ?sso_token= (relay dari produk lain), seat sesinya
+    // dulu sebelum kode halaman cek sesi. No-op kalau tak ada token.
+    await consumeIncomingSso();
     return supabase;
   })();
 
@@ -167,52 +170,9 @@
     return data;
   }
 
-  // ---------- LOGIN PAKAI GOOGLE (via API 20FIT /auth/login/google) ----------
-  // credential = ID token dari Google Identity Services. Server yang meneruskan
-  // ke API 20FIT (dokumentasi developer) lalu mengembalikan OTP untuk sesi.
-  async function fitcoGoogleLogin(credential) {
-    await ready;
-    const r = await fetch("/api/fitco-google-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ credential: credential }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.email_otp) throw new Error(j.error || _t("Google sign-in failed.","Gagal login dengan Google."));
-    // Simpan user_id + token 20FIT (dipakai untuk order/pembayaran shop 20FIT).
-    try {
-      if (j.fitco_user_id) localStorage.setItem("fitco_uid", String(j.fitco_user_id));
-      if (j.fitco_token) localStorage.setItem("fitco_token", j.fitco_token);
-    } catch (e) {}
-    const { data, error } = await supabase.auth.verifyOtp({ email: j.email, token: j.email_otp, type: "email" });
-    if (error) throw error;
-    return data;
-  }
-
-  // ---------- LOGIN GOOGLE HYBRID (pemulihan user Google) ----------
-  // Satu credential (ID token dari Google Identity Services) dipakai dua jalur BERURUTAN:
-  //   1) Jalur 20FIT (fitcoGoogleLogin): member 20FIT diverifikasi ke API 20FIT, sesi dibuat
-  //      via OTP, DAN dapat FITCO token untuk order/pembayaran shop 20FIT.
-  //   2) Kalau 20FIT menolak (email bukan akun 20FIT) atau tak tersambung -> FALLBACK ke
-  //      supabase.auth.signInWithIdToken (Google NATIVE Supabase). Semua akun Google lama
-  //      punya google identity di Supabase (auth.identities), jadi ini mendaratkan user ke
-  //      baris auth.users yang SAMA — dicocokkan via google sub — BUKAN akun baru.
-  // Hasil: tak ada user Google yang terkunci, dan member 20FIT tetap mendapat tokennya.
-  async function googleSignIn(credential) {
-    await ready;
-    try {
-      return await fitcoGoogleLogin(credential); // jalur utama: 20FIT (+ FITCO token)
-    } catch (e) {
-      // Jalur 20FIT gagal — jangan menyerah; coba sesi Google native Supabase.
-    }
-    const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token: credential });
-    if (error) throw new Error(_t("Google sign-in failed.", "Gagal login dengan Google."));
-    return data;
-  }
-
   // ---------- LOGIN GOOGLE via OAuth redirect Supabase (TANPA GOOGLE_CLIENT_ID) ----------
-  // Dipakai sebagai jalur tombol Google kalau GIS tak tersedia (GOOGLE_CLIENT_ID belum
-  // di-set / origin ditolak). Ini memakai Google provider milik SUPABASE (client-nya
+  // Satu-satunya jalur tombol Google di web (jalur GIS/ID token sudah dihapus; endpoint
+  // /api/fitco-google-login tetap ada untuk app mobile). Memakai Google provider milik SUPABASE (client-nya
   // dikonfigurasi di dashboard Supabase, bukan env kita), jadi tombol tetap jalan tanpa
   // konfigurasi env di sisi kita. Alur redirect: browser → Google → balik ke /login;
   // sesi di-seat otomatis (detectSessionInUrl) lalu login.html memanggil routeAfterAuth.
@@ -224,11 +184,12 @@
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        // redirectTo SENGAJA tetap /login, bukan /auth/callback. Tujuan redirect WAJIB
-        // terdaftar di Supabase -> Authentication -> URL Configuration; memindahkannya
-        // sebelum pemilik menambahkan URL baru di sana justru membuat login gagal
-        // (GoTrue jatuh ke Site URL). Pindah kalau URL barunya sudah terdaftar.
-        redirectTo: location.origin + "/login",
+        // redirectTo = /auth/callback (mengikuti LOGIN_GOOGLE_my20fit_untuk_web.md). WAJIB
+        // didaftarkan di Supabase -> Authentication -> URL Configuration (Redirect URLs):
+        // https://my.20fit.id/auth/callback + URL staging /auth/callback (atau pola /**).
+        // Kalau belum terdaftar, GoTrue jatuh ke Site URL & login gagal. Halaman
+        // /auth/callback menukar ?code= jadi sesi (detectSessionInUrl) lalu routeAfterAuth.
+        redirectTo: location.origin + "/auth/callback",
         // Perangkat dipakai bergantian -> jangan diam-diam memakai akun Google terakhir.
         queryParams: { prompt: "select_account" },
       },
@@ -276,10 +237,85 @@
     mcu:     { origin: "https://medicalscanner.20fit.id",  path: "/" },
     media:   { origin: "https://media.20fit.id",           path: "/" },
     ticket:  { origin: "https://ticket.20fit.id",          path: "/" },
-    talent:  { origin: "https://talent.20fit.id",          path: "/" },
+    // CATATAN: talent.20fit.id SENGAJA TIDAK di sini. Talent pakai auth sendiri (cookie
+    // HMAC, BUKAN Supabase) → bukan tujuan SSO; token Supabase tak berguna di sana. Lihat
+    // NO_SSO_HOSTS di bawah — ssoTo memaksa redirect biasa untuk host itu (defense-in-depth).
     my20fit: { origin: "https://my.20fit.id",              path: "/" },
     home:    { origin: "https://20fit.id",                 path: "/" }
   };
+
+  // Host yang TIDAK boleh menerima relay token — auth-nya inkompatibel dengan Supabase
+  // (talent.20fit.id pakai cookie sendiri). Klik ke sini = redirect biasa (user login di
+  // tujuan). Jaring pengaman walau pemanggil mengoper URL penuh (mis. universal-nav ITEMS.url).
+  const NO_SSO_HOSTS = { "talent.20fit.id": 1 };
+
+  // Host yang SUDAH memasang auth-sso.js (bisa consume ?sso_token=). Untuk host ini, navigasi
+  // pakai TOKEN RELAY yang aman (edge fn sso-generate/consume). Host fit lain yang BELUM adopsi
+  // tetap pakai jalur fragment lama (ssoTo) → TIDAK ada regresi. Tambah host ke sini begitu
+  // auth-sso.js terpasang & live di sana.
+  const SSO_TOKEN_HOSTS = { "my.20fit.id": 1, "calorietracker.20fit.id": 1 };
+
+  // SSO MASUK: seat sesi dari ?sso_token= (tukar token sekali-pakai lewat edge fn sso-consume →
+  // setSession). Dipanggil sekali saat bootstrap; no-op kalau tak ada token. Additive — tidak
+  // mengubah jalur login mana pun. Token dibersihkan dari URL apa pun hasilnya.
+  async function consumeIncomingSso() {
+    let tok = null;
+    try { tok = new URLSearchParams(location.search).get("sso_token"); } catch (e) {}
+    if (!tok) return;
+    let to = null;
+    try {
+      const ctrl = new AbortController();
+      to = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, 8000); // jgn blok load selamanya
+      const r = await fetch(cfgUrl + "/functions/v1/sso-consume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": cfgKey },
+        body: JSON.stringify({ token: tok }),
+        signal: ctrl.signal,
+      });
+      if (r.ok) {
+        const j = await r.json().catch(() => null);
+        if (j && j.access_token && j.refresh_token) {
+          await supabase.auth.setSession({ access_token: j.access_token, refresh_token: j.refresh_token });
+        }
+      }
+    } catch (e) { /* biarkan; user tetap bisa login normal */ }
+    finally { if (to) clearTimeout(to); }
+    try {
+      const u = new URL(location.href); u.searchParams.delete("sso_token");
+      history.replaceState({}, "", u.pathname + (u.search || "") + u.hash);
+    } catch (e) {}
+  }
+
+  // SSO KELUAR (token relay AMAN): pindah ke produk 20FIT lain sambil membawa sesi lewat token
+  // sekali-pakai (bukan fragment). talent → redirect biasa; host fit yang belum adopsi → jalur
+  // fragment lama (ssoTo); gagal generate → fallback ssoTo. Dipakai universal nav.
+  async function navigateWithSSO(targetUrl) {
+    await ready;
+    let u = null;
+    try { u = new URL(targetUrl); } catch (e) { location.href = targetUrl; return; }
+    const host = u.hostname.toLowerCase();
+    const isFit = u.protocol === "https:" && /^([a-z0-9-]+\.)*20fit\.id$/i.test(host);
+    if (!isFit || NO_SSO_HOSTS[host]) { location.href = targetUrl; return; }
+    if (host === location.hostname) { location.href = targetUrl; return; }
+    if (!SSO_TOKEN_HOSTS[host]) { return ssoTo(targetUrl); } // belum adopsi → fragment lama
+    let s = null;
+    try { const { data } = await supabase.auth.getSession(); s = data && data.session; } catch (e) {}
+    if (!s || !s.access_token || !s.refresh_token) { location.href = targetUrl; return; }
+    try {
+      const r = await fetch(cfgUrl + "/functions/v1/sso-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + s.access_token, "apikey": cfgKey },
+        body: JSON.stringify({ redirect_to: host, refresh_token: s.refresh_token }),
+      });
+      if (!r.ok) throw new Error("gen");
+      const j = await r.json().catch(() => null);
+      if (!j || !j.token) throw new Error("no token");
+      const sep = targetUrl.indexOf("?") >= 0 ? "&" : "?";
+      location.href = targetUrl + sep + "sso_token=" + encodeURIComponent(j.token);
+    } catch (e) {
+      return ssoTo(targetUrl); // fallback aman ke fragment relay
+    }
+  }
 
   function ssoFragment(s) {
     const exp = s.expires_in || (s.expires_at ? Math.max(60, s.expires_at - Math.floor(Date.now() / 1000)) : 3600);
@@ -302,6 +338,8 @@
       if (u.protocol !== "https:" || !/^([a-z0-9-]+\.)*20fit\.id$/i.test(u.hostname)) return;
       origin = u.origin; path = subPath || (u.pathname + u.search);
     }
+    // Host dikecualikan dari SSO (mis. talent) → JANGAN oper token; redirect biasa.
+    try { if (NO_SSO_HOSTS[new URL(origin).hostname]) { location.href = origin + path; return; } } catch (e) {}
     let s = null;
     try { const { data } = await supabase.auth.getSession(); s = data && data.session; } catch (e) {}
     if (s && s.access_token && s.refresh_token) { location.href = origin + path + ssoFragment(s); return; }
@@ -719,6 +757,12 @@
     if (profile.fitco_email_verified === false) return go("verify.html");
     if (!profileComplete(profile)) return go("onboarding.html");
     if (!hasWebPassword(user)) return go("setpassword.html");
+    // Datang dari subdomain lain via hub login (my.20fit.id/login?redirect=<url>): setelah login
+    // penuh, bawa balik sesi ke sana lewat SSO. Diset di entry login.html/code-login.html.
+    try {
+      const rd = sessionStorage.getItem("post_auth_redirect");
+      if (rd) { sessionStorage.removeItem("post_auth_redirect"); return navigateWithSSO(rd); }
+    } catch (e) {}
     // Tujuan lanjutan setelah login penuh, mis. balik ke calorietracker.20fit.id kalau
     // orang datang dari sana (Sign In di calorietracker -> login.html?next=calories).
     // Diset ke sessionStorage sekali di entry (login.html/code-login.html) karena URL
@@ -743,8 +787,6 @@
     loginSend,
     verifyLoginCode,
     fitcoLogin,
-    fitcoGoogleLogin,
-    googleSignIn,
     googleOAuth,
     googleClientId: function () { return cfgGoogleClientId; },
     fitcoRegister,
@@ -752,7 +794,8 @@
     photoSso,
     caloriesSso,
     menuSso,
-    ssoTo,        // jalur SSO umum ke produk 20FIT mana pun (dipakai universal nav)
+    ssoTo,        // jalur SSO fragment (legacy; fallback utk host yg belum adopsi token relay)
+    navigateWithSSO, // jalur SSO token relay AMAN (dipakai universal nav)
     ECO,          // daftar tujuan — satu sumber kebenaran
     fitcoVerifyEmail,
     fitcoResendVerifyEmail,

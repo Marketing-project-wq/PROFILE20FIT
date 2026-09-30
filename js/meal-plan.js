@@ -22,10 +22,10 @@
   // bukan menyalin ikon calorietracker — supaya satu halaman tidak memakai dua set ikon
   // untuk hal yang sama.
   var MEAL_TX = {
-    breakfast: { en: "Breakfast", id: "Sarapan",     e: FIC("sunrise") },
-    lunch:     { en: "Lunch",     id: "Makan siang", e: FIC("sun") },
-    dinner:    { en: "Dinner",    id: "Makan malam", e: FIC("moon") },
-    snack:     { en: "Snack",     id: "Camilan",     e: FIC("cookie") }
+    breakfast: { en: "Breakfast", id: "Sarapan" },
+    lunch:     { en: "Lunch",     id: "Makan siang" },
+    dinner:    { en: "Dinner",    id: "Makan malam" },
+    snack:     { en: "Snack",     id: "Camilan" }
   };
 
   function L(o) { return (window.L ? window.L(o) : (o && (o.id || o.en))) || ""; }
@@ -117,7 +117,6 @@
     var href = "/recipe?q=" + encodeURIComponent(it.name);
     return '<div class="mp-card">' +
       '<div class="mp-mh">' +
-        '<span class="mp-mi" aria-hidden="true">' + MEAL_TX[m.meal].e + '</span>' +
         '<span class="mp-mn">' + esc(L(MEAL_TX[m.meal])) + '</span>' +
         '<span class="mp-mk">~' + fmt(it.kcal) + ' ' + esc(kcLbl()) + '</span>' +
       '</div>' +

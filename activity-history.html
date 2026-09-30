@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Upload History · 20FIT</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --a-bg:var(--bg,#F1F1F4); --a-surface:var(--card,#FFFFFF);
+    --a-line:var(--glass-hair,var(--line,#EBEBEF)); --a-txt:var(--txt,#15171C); --a-mut:var(--muted,#8A8D94);
+    --accent:var(--blue,#2F6BFF); --ai:var(--fit-red,#E4002B);
+    --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--a-bg);color:var(--a-txt);font-family:var(--sans);padding:20px 16px 100px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:720px;margin:0 auto}
+  .muted{color:var(--a-mut)}
+  .card{background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius,16px);padding:16px}
+  .card+.card{margin-top:12px}
+  .chead{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .chead .bk{width:38px;height:38px;border-radius:99px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);display:flex;align-items:center;justify-content:center;text-decoration:none;flex:none;font-size:18px}
+  .chead h1{font-size:22px;font-weight:800;margin:0;letter-spacing:-.3px}
+  .chead .sub{font-size:13px;color:var(--a-mut);margin-top:2px}
+  .skel{background:color-mix(in srgb,var(--a-txt) 7%,transparent);border-radius:10px;animation:pul 1.3s ease-in-out infinite}
+  @keyframes pul{0%,100%{opacity:1}50%{opacity:.45}}
+  .hrow{display:flex;gap:12px;align-items:flex-start}
+  .hrow .ic{width:40px;height:40px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;font-size:20px;background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent)}
+  .hrow .bd{flex:1;min-width:0}
+  .hrow .dt{font-size:11px;color:var(--a-mut);font-family:var(--mono);font-weight:700}
+  .hrow .tt{font-size:14.5px;font-weight:800;margin-top:1px}
+  .hrow .gp{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+  .chip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;border:1px solid var(--a-line)}
+  .chip.kurang{background:color-mix(in srgb,var(--red,#E4002B) 10%,transparent);border-color:color-mix(in srgb,var(--red,#E4002B) 28%,var(--a-line))}
+  .chip.cukup{background:color-mix(in srgb,var(--green,#1C8A4B) 10%,transparent);border-color:color-mix(in srgb,var(--green,#1C8A4B) 28%,var(--a-line))}
+  .hrow .say{font-size:12px;color:var(--a-mut);margin-top:7px;line-height:1.5;font-style:italic}
+  .empty{text-align:center;color:var(--a-mut);font-size:13px;padding:26px 10px;line-height:1.6}
+  .empty a{color:var(--ai);font-weight:800;text-decoration:none}
+</style>
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/glass-app.css">
+<script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+</head>
+<body>
+<div class="wrap">
+  <div class="chead">
+    <a class="bk" href="/activity" aria-label="Kembali" title="Kembali">‹</a>
+    <div>
+      <h1 data-en="Upload History" data-id="Riwayat Upload">Riwayat Upload</h1>
+      <div class="sub" data-en="Your uploaded data & the plans it generated" data-id="Data upload kamu & plan yang dihasilkan">Data upload kamu & plan yang dihasilkan</div>
+    </div>
+  </div>
+  <div id="root"><div class="card"><div class="skel" style="height:80px"></div></div><div class="card"><div class="skel" style="height:80px"></div></div></div>
+</div>
+
+<script src="js/vendor-supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script>
+(function(){
+  function L(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+  function el(id){ return document.getElementById(id); }
+  async function apiFetch(path){ var o={headers:{"Content-Type":"application/json"}}; try{var tk=await Auth.token(); if(tk)o.headers.Authorization="Bearer "+tk;}catch(e){} return fetch(path,o); }
+  var ICONS={ workout:"🏃", sleep:"😴", daily_activity:"👟", weight:"⚖️", food_log:"🍽️", other:"📊" };
+  function fmtDate(s){ if(!s) return ""; try{ var d=new Date(String(s).slice(0,10)+"T00:00:00"); if(isNaN(d)) return String(s).slice(0,10);
+    var mo=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"]; return d.getDate()+" "+mo[d.getMonth()]+" "+d.getFullYear(); }catch(e){ return String(s).slice(0,10); } }
+  function summaryOf(ex){ if(!ex||typeof ex!=="object") return ""; if(ex.summary) return String(ex.summary);
+    if(ex.activity_type&&ex.distance_km) return ex.activity_type+" "+ex.distance_km+"km";
+    if(ex.activity_type) return ex.activity_type; if(ex.sleep_duration_hours) return "Sleep "+ex.sleep_duration_hours+"h";
+    if(ex.steps) return ex.steps+" steps"; if(ex.weight_kg) return ex.weight_kg+" kg"; return ""; }
+  function catLbl(c){ return L({workout:{en:"Workout",id:"Workout"},nutrition:{en:"Nutrition",id:"Nutrisi"},sleep:{en:"Sleep",id:"Tidur"},hydration:{en:"Hydration",id:"Hidrasi"}}[c]||{en:String(c||""),id:String(c||"")}); }
+  function render(list){
+    var root=el("root");
+    if(!list.length){ root.innerHTML='<div class="card"><div class="empty">'+esc(L({en:"No uploads yet. Upload a health/workout screenshot on the Activity page to get your first plan.",id:"Belum ada upload. Upload screenshot kesehatan/olahraga di halaman Activity untuk plan pertamamu."}))+'<br><a href="/activity">'+esc(L({en:"Go to Activity",id:"Ke Activity"}))+' →</a></div></div>'; return; }
+    root.innerHTML=list.map(function(u){
+      var ex=u.extracted_data||{}, type=u.upload_type||ex.type||"other";
+      var gaps=Array.isArray(u.yesterday_gaps)?u.yesterday_gaps:[];
+      var chips=gaps.slice(0,4).map(function(g){ var st=String((g&&g.status)||"").toLowerCase(); var cls=st==="kurang"?"kurang":(st==="cukup"?"cukup":""); return '<span class="chip '+cls+'">'+esc(catLbl(g&&g.category))+(g&&g.status?" · "+esc(g.status):"")+'</span>'; }).join("");
+      return '<div class="card"><div class="hrow"><span class="ic">'+(ICONS[type]||ICONS.other)+'</span>'+
+        '<div class="bd"><div class="dt">'+esc(fmtDate(u.upload_date||u.created_at))+(u.source&&u.source!=="other"?" · "+esc(u.source):"")+'</div>'+
+        '<div class="tt">'+esc(summaryOf(ex)||catLbl(type))+'</div>'+
+        (chips?'<div class="gp">'+chips+'</div>':'')+
+        (u.coach_says?'<div class="say">“'+esc(u.coach_says)+'”</div>':'')+
+        '</div></div></div>';
+    }).join("");
+  }
+  (async function(){
+    try{ await Auth.requireAuth(); }catch(e){ location.href="/login"; return; }
+    try{
+      var r=await apiFetch("/api/activity/upload-history?limit=30"); var j=await r.json().catch(function(){return {};});
+      if(r.status===401){ location.href="/login"; return; }
+      render((j&&j.uploads)||[]);
+    }catch(e){ el("root").innerHTML='<div class="card"><div class="empty">'+esc(L({en:"Couldn't load history.",id:"Gagal memuat riwayat."}))+'</div></div>'; }
+  })();
+})();
+</script>
+</body>
+</html>

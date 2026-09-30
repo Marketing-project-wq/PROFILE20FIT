@@ -645,6 +645,9 @@
       try{
         const q=new URLSearchParams(location.search);
         { const n=q.get("next"); if(n==="calories"||n==="menu") sessionStorage.setItem("post_auth_next",n); }
+        // Universal nav: my.20fit.id/login?redirect=<url tujuan> — simpan tujuan 20fit yang valid,
+        // dibawa balik lewat SSO setelah login penuh (Auth.routeAfterAuth).
+        { const rd=q.get("redirect"); if(rd){ try{ const ru=new URL(rd); if(ru.protocol==="https:"&&/(^|\.)20fit\.id$/i.test(ru.hostname)) sessionStorage.setItem("post_auth_redirect",ru.href); }catch(e){} } }
       }catch(e){}
     })();
 
@@ -669,6 +672,21 @@
       }catch(e){}
     })();
 
+    // Tampilkan error kalau redirect OAuth/magic-link BALIK dengan gagal (mis. redirect URL
+    // belum di-allowlist di Supabase Dashboard -> Authentication -> URL Configuration). Ini
+    // DIAGNOSTIK biar penyebabnya kelihatan; perbaikannya di dashboard, bukan di kode ini.
+    (function(){
+      try{
+        var qs=new URLSearchParams(location.search);
+        var hs=new URLSearchParams(String(location.hash||"").replace(/^#/,""));
+        var err=qs.get("error_description")||qs.get("error")||qs.get("authError")||hs.get("error_description")||hs.get("error");
+        if(err){
+          msg((lang==="id"?"Login gagal: ":"Sign-in failed: ")+decodeURIComponent(String(err).replace(/\+/g," ")),"err");
+          try{ history.replaceState(null,"",location.pathname); }catch(e){}
+        }
+      }catch(e){}
+    })();
+
     // ---- Login Google — Supabase OAuth redirect ----
     // Kenapa BUKAN GIS: Google Identity Services mewajibkan SETIAP origin didaftarkan di
     // Google Cloud; kalau tidak → "Access blocked: no registered origin / Error 401:
@@ -690,7 +708,7 @@
         // panggil Supabase langsung (metode stabil dari vendor-supabase.js).
         var supa=Auth.supabase;
         if(!supa||!supa.auth||typeof supa.auth.signInWithOAuth!=="function"){ msg(offMsg,"err"); return; }
-        var r=await supa.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+"/login"}});
+        var r=await supa.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+"/auth/callback"}});
         if(r&&r.error){ msg(offMsg,"err"); }
       }catch(e){ msg((e&&e.message)?terjemah(e.message):((lang==="id")?"Gagal login dengan Google.":"Google sign-in failed."),"err"); }
     };

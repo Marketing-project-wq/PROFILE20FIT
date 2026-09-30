@@ -4,8 +4,10 @@
 //
 // KEAMANAN: TIDAK ADA API key di-hardcode. Wajib env OPENROUTER_API_KEY.
 // (Key lama yang pernah hardcode HARUS di-revoke di OpenRouter.)
-// GERBANG SERVER-ONLY (LANGKAH 5): wajib header x-ai-edge-secret == env AI_EDGE_SECRET (fail-closed).
-// Menolak browser/pihak luar. Set AI_EDGE_SECRET di Supabase edge secrets SEBELUM deploy versi ini.
+// GERBANG SERVER-ONLY: header x-ai-edge-secret == env AI_EDGE_SECRET. OPSIONAL & maju-kompatibel:
+// selama AI_EDGE_SECRET BELUM di-set di edge, gerbang dilewati (edge terbuka, paritas versi lama)
+// supaya food-scan + chat jalan tanpa config tambahan. Begitu AI_EDGE_SECRET di-set di edge + Railway,
+// gerbang otomatis mengunci (TANPA perlu redeploy).
 //
 // Sumber kebenaran versi function ini = file ini (ver-control). Deploy manual/approval.
 
@@ -25,6 +27,10 @@ function pj(t: string) {
 
 const MODEL_FOOD = Deno.env.get("AI_MODEL_FOOD") || "google/gemini-2.5-flash";
 const MODEL_MCU = Deno.env.get("AI_MODEL_MCU") || "google/gemini-3-flash-preview";
+// Chatbot AI Coach (percakapan persona + quick-analysis). Default Gemini (konsisten dgn AI
+// lain, tanpa config tambahan). Ganti via env AI_MODEL_CHAT kalau mau model lain
+// (mis. anthropic/claude-haiku-4.5) — asal akun OpenRouter punya aksesnya.
+const MODEL_CHAT = Deno.env.get("AI_MODEL_CHAT") || "google/gemini-2.5-flash";
 
 // ---- Prompt food scan (FOTO). Fokus akurasi: porsi, cara masak, kalori tersembunyi, confidence. ----
 const FOOD_SYS =
@@ -83,14 +89,34 @@ function safeEq(a: string, b: string): boolean {
   return d === 0;
 }
 
+// Scan screenshot health/fitness (Garmin/Strava/Apple/Samsung/timbangan/food log) -> JSON.
+const ACTIVITY_SCAN_SYS =
+  'You read a health/fitness screenshot for the 20fit app and extract ONLY the data that is visibly present. ' +
+  'It may be a workout summary, sleep data, daily activity, a body-weight scale, or a food log. ' +
+  'Respond ONLY with a valid JSON object (no markdown, no code fences) with these keys: ' +
+  'type ("workout"|"sleep"|"daily_activity"|"weight"|"food_log"|"other"), ' +
+  'activity_type (string or null), duration_minutes (number or null), distance_km (number or null), ' +
+  'calories_burned (number or null), avg_heart_rate (number or null), max_heart_rate (number or null), ' +
+  'avg_pace (string or null), hr_zones (object {zone1..zone5} minutes or null), ' +
+  'sleep_duration_hours (number or null), deep_sleep_hours (number or null), rem_sleep_hours (number or null), ' +
+  'sleep_quality (string or null), bedtime (string or null), wake_time (string or null), ' +
+  'steps (number or null), resting_heart_rate (number or null), active_minutes (number or null), total_calories (number or null), ' +
+  'weight_kg (number or null), total_calories_eaten (number or null), meals (array or null), ' +
+  'date (YYYY-MM-DD or null), source ("garmin"|"apple"|"strava"|"samsung"|"other"), ' +
+  'summary (one short sentence describing what the screenshot shows). ' +
+  'Use null for anything not visible. Never invent numbers. If it is not a health/fitness screenshot, set type "other" and say so in summary.';
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  // GERBANG: hanya server yang tahu AI_EDGE_SECRET boleh memanggil. GAGAL-TERTUTUP:
-  // secret belum di-set di edge -> tolak SEMUA. Header hilang/salah -> tolak. 401 generik.
+  // GERBANG OPSIONAL: kunci HANYA kalau AI_EDGE_SECRET sudah di-set di edge secrets. Selama
+  // belum di-set -> edge terbuka (paritas versi lama) supaya food-scan & chat jalan tanpa config
+  // tambahan. Set AI_EDGE_SECRET di edge + Railway kapan saja utk mengunci — tanpa redeploy.
   {
     const want = Deno.env.get("AI_EDGE_SECRET") || "";
-    const got = req.headers.get("x-ai-edge-secret") || "";
-    if (!want || !got || !safeEq(want, got)) return json({ error: "unauthorized" }, 401);
+    if (want) {
+      const got = req.headers.get("x-ai-edge-secret") || "";
+      if (!safeEq(want, got)) return json({ error: "unauthorized" }, 401);
+    }
   }
   try {
     const key = Deno.env.get("OPENROUTER_API_KEY");
@@ -193,12 +219,43 @@ Deno.serve(async (req) => {
       maxTok = 3000;
       messages = [{ role: "system", content: PROGRAM_SYS }, langMsg,
         { role: "user", content: "Member quiz answers + safety_flags + profile. Build the weekly workout plan JSON:\n" + JSON.stringify(b.data).slice(0, 6000) }];
+    } else if (b.action === "chat") {
+      // Percakapan AI Coach (persona) + quick-analysis "Coach Says". Server (server.js) yang
+      // menyusun `messages`: system (persona + aturan + data user + kelas coach) + riwayat +
+      // pesan user. Edge fn cuma RELAY ke OpenRouter sebagai TEKS BEBAS (bukan JSON). Persona &
+      // data TIDAK dibangun di sini (server yang punya akses DB). Fail-closed kalau kosong.
+      const msgs = Array.isArray(b.messages)
+        ? b.messages.filter((m: { role?: unknown; content?: unknown }) =>
+            m && typeof m.role === "string" && typeof m.content === "string" && m.content)
+        : [];
+      if (!msgs.length) return json({ error: "messages wajib diisi" }, 400);
+      maxTok = Math.min(2048, Math.max(256, Number(b.max_tokens) || 1024));
+      messages = msgs;
+    } else if (b.action === "activity") {
+      // Upload analysis: (a) b.image -> scan screenshot jadi JSON; ATAU (b) b.messages (disusun
+      // server, berisi data user) -> full plan JSON. Dua-duanya keluar JSON terstruktur.
+      if (b.image) {
+        maxTok = 1500;
+        messages = [{ role: "system", content: ACTIVITY_SCAN_SYS }, langMsg,
+          { role: "user", content: [
+            { type: "text", text: "Extract semua data health/fitness yang TERLIHAT di screenshot ini sebagai JSON. Null untuk yang tidak ada." },
+            { type: "image_url", image_url: { url: b.image } },
+          ] }];
+      } else if (Array.isArray(b.messages) && b.messages.length) {
+        maxTok = Math.min(3000, Math.max(512, Number(b.max_tokens) || 2000));
+        messages = b.messages.filter((m: { role?: unknown; content?: unknown }) =>
+          m && typeof m.role === "string" && typeof m.content === "string" && m.content);
+        if (!(messages as unknown[]).length) return json({ error: "messages wajib diisi" }, 400);
+      } else return json({ error: "image atau messages wajib diisi" }, 400);
     } else return json({ error: "action tidak dikenal" }, 400);
 
-    const model = (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout" || b.action === "program") ? MODEL_MCU : MODEL_FOOD;
-    const payload: Record<string, unknown> = { model, messages, max_tokens: maxTok, temperature: 0.2, reasoning: { enabled: false } };
+    const model = b.action === "chat" ? MODEL_CHAT
+      : (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout" || b.action === "program") ? MODEL_MCU
+      : MODEL_FOOD;
+    // Chat sedikit lebih "hidup" (persona) -> temperature naik; analisa/ekstraksi tetap 0.2.
+    const payload: Record<string, unknown> = { model, messages, max_tokens: maxTok, temperature: b.action === "chat" ? 0.6 : 0.2, reasoning: { enabled: false } };
     if (plugins) payload.plugins = plugins;
-    if (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout" || b.action === "program") payload.response_format = { type: "json_object" };
+    if (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout" || b.action === "program" || b.action === "activity") payload.response_format = { type: "json_object" };
     const callOR = (p: unknown) => fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json", "HTTP-Referer": "https://my.20fit.id", "X-Title": "20fit Health Profile" },
@@ -209,6 +266,11 @@ Deno.serve(async (req) => {
     if (!r.ok) { const t = await r.text(); return json({ error: "AI error " + r.status, detail: t.slice(0, 400) }, 500); }
     const data = await r.json();
     const content = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || "";
+    // Chat = teks bebas (persona), bukan JSON -> balikan apa adanya.
+    if (b.action === "chat") {
+      if (!content) return json({ error: "Balasan kosong dari AI." }, 502);
+      return json({ ok: true, reply: content });
+    }
     const parsed = pj(content);
     if (!parsed) return json({ error: "Gagal membaca hasil AI.", raw: String(content).slice(0, 500) }, 502);
     return json({ ok: true, result: parsed });

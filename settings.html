@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Settings · 20FIT</title>
+<style>
+  :root{--red:#C41101;--bg:#F3F2F0;--card:#FFFFFF;--line:#E8E2DB;--txt:#1A1714;--ink:#16170F;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#16170F;--green:#2A7A4F;--amber:#C87000;--shadow:0 2px 12px rgba(0,0,0,.10)}
+  html:not(.theme-light){ --bg:#0C0D10;--card:#17191F;--line:#25272E;--txt:#F4F5F7;--ink:#F4F5F7;--muted:#8E9198;--inp:#23262E;--pagetx:#F4F5F7 }
+  *{box-sizing:border-box} a{text-decoration:none;color:inherit}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 96px}
+  .wrap{max-width:560px;margin:0 auto}
+  .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:16px;display:flex;align-items:center}
+  .logobar img{height:34px}
+  h1{font-size:24px;font-weight:900;margin:0 0 6px;text-transform:uppercase}
+  .lead{color:var(--muted);font-size:14px;margin:0 0 16px;line-height:1.5}
+  .sec{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+  .sec h2{font-size:14px;font-weight:900;margin:0 0 4px;color:var(--ink);text-transform:uppercase;letter-spacing:.03em}
+  .hint{color:var(--muted);font-size:12.5px;line-height:1.5;margin:0 0 12px}
+  .ro{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .ro:last-of-type{border-bottom:0}
+  .ro .rl{color:var(--muted);font-size:13px;font-weight:700;flex:0 0 auto}
+  .ro .rv{color:var(--ink);font-size:14px;font-weight:800;overflow-wrap:anywhere;text-align:right;min-width:0}
+  .field{margin:0 0 12px}
+  .field label{display:block;font-size:12.5px;font-weight:800;color:var(--ink);margin:0 0 6px}
+  .field input{width:100%;min-height:44px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:var(--inp);color:var(--pagetx);font-size:15px;font-family:inherit;outline:none}
+  .field input:focus{border-color:var(--red)}
+  .msg{font-size:13px;font-weight:700;margin:0 0 10px;line-height:1.4}
+  .msg:empty{display:none}
+  .msg.ok{color:var(--green)}
+  .msg.err{color:var(--red)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:12px;background:var(--red);color:#fff;font-weight:800;font-size:14px;padding:12px 18px;cursor:pointer;font-family:inherit}
+  .btn:disabled{opacity:.6;cursor:default}
+  .btn.out{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  .btn.full{width:100%;margin-top:10px}
+  .linkrow{display:flex;align-items:center;gap:12px;padding:6px 0 12px}
+  .linkrow .bd{flex:1;min-width:0}
+  .linkrow .nm{display:block;font-weight:800;font-size:14px;color:var(--ink)}
+  .linkrow .mt{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+  .linkrow .chev{color:var(--muted);font-size:24px;line-height:1;flex:0 0 auto}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" /></div>
+    <h1 id="pgTitle">Settings</h1>
+    <p class="lead" id="pgLead"></p>
+
+    <!-- Akun (email + nama, read-only) -->
+    <section class="sec">
+      <h2 id="accH">Account</h2>
+      <div class="ro"><span class="rl" id="lblEmail">Email</span><span class="rv" id="acEmail">—</span></div>
+      <div class="ro"><span class="rl" id="lblName">Name</span><span class="rv" id="acName">—</span></div>
+      <p class="hint" id="emailNote" style="margin-top:12px;margin-bottom:0"></p>
+    </section>
+
+    <!-- Password (buat / ganti) -->
+    <section class="sec">
+      <h2 id="pwH">Password</h2>
+      <p class="hint" id="pwHint"></p>
+      <div class="field"><label id="lblPwNew" for="pw">New password</label>
+        <input id="pw" type="password" autocomplete="new-password" /></div>
+      <div class="field"><label id="lblPwConfirm" for="pw2">Confirm password</label>
+        <input id="pw2" type="password" autocomplete="new-password" /></div>
+      <div class="msg" id="pwMsg"></div>
+      <button class="btn" id="pwBtn">Save password</button>
+    </section>
+
+    <!-- Keamanan -->
+    <section class="sec">
+      <h2 id="secH">Security</h2>
+      <a class="linkrow" href="/profile">
+        <span class="bd"><span class="nm" id="mdT">Profile &amp; data</span><span class="mt" id="mdS"></span></span>
+        <span class="chev" aria-hidden="true">›</span>
+      </a>
+      <button class="btn out full" id="outBtn">Sign out</button>
+    </section>
+  </div>
+
+  <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/pw-toggle.js"></script>
+  <script>
+  (function(){
+    "use strict";
+    var TXT={
+      title:{en:"Account Settings",id:"Pengaturan Akun"},
+      lead:{en:"Manage your password, email, and account security.",
+            id:"Kelola password, email, dan keamanan akunmu."},
+      accH:{en:"Account",id:"Akun"},
+      email:{en:"Email",id:"Email"},
+      name:{en:"Name",id:"Nama"},
+      emailNote:{en:"Your email is tied to your 20FIT account and can't be changed here.",
+                 id:"Email terhubung ke akun 20FIT-mu dan tidak bisa diubah di sini."},
+      pwSetH:{en:"Create a password",id:"Buat password"},
+      pwChangeH:{en:"Change password",id:"Ganti password"},
+      pwSetHint:{en:"You sign in with Google or an email code. Add a password so you can sign in with it too.",
+                 id:"Kamu login pakai Google atau kode email. Tambahkan password supaya bisa login pakai password juga."},
+      pwChangeHint:{en:"Enter a new password (min. 8 characters).",
+                    id:"Masukkan password baru (min. 8 karakter)."},
+      pwNew:{en:"New password",id:"Password baru"},
+      pwConfirm:{en:"Confirm password",id:"Ulangi password"},
+      pwPh:{en:"min. 8 characters",id:"min. 8 karakter"},
+      pwPh2:{en:"re-type password",id:"ketik ulang password"},
+      save:{en:"Save password",id:"Simpan password"},
+      saving:{en:"Saving…",id:"Menyimpan…"},
+      pwOk:{en:"Password saved.",id:"Password tersimpan."},
+      pwMismatch:{en:"Passwords don't match.",id:"Password tidak sama."},
+      pwShort:{en:"Password must be at least 8 characters.",id:"Password minimal 8 karakter."},
+      secH:{en:"Security",id:"Keamanan"},
+      mdT:{en:"Profile & data",id:"Profil & data"},
+      mdS:{en:"Edit profile, corporate program, delete account",
+           id:"Edit profil, corporate program, hapus akun"},
+      signout:{en:"Sign out",id:"Keluar"}
+    };
+    function LL(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+    var $=function(id){return document.getElementById(id);};
+    var hasPw=false;
+
+    function applyPwMode(){
+      $("pwH").textContent = LL(hasPw?TXT.pwChangeH:TXT.pwSetH);
+      $("pwHint").textContent = LL(hasPw?TXT.pwChangeHint:TXT.pwSetHint);
+    }
+    function applyStatic(){
+      document.title = LL(TXT.title)+" · 20FIT";
+      $("pgTitle").textContent = LL(TXT.title);
+      $("pgLead").textContent = LL(TXT.lead);
+      $("accH").textContent = LL(TXT.accH);
+      $("lblEmail").textContent = LL(TXT.email);
+      $("lblName").textContent = LL(TXT.name);
+      $("emailNote").textContent = LL(TXT.emailNote);
+      $("lblPwNew").textContent = LL(TXT.pwNew);
+      $("lblPwConfirm").textContent = LL(TXT.pwConfirm);
+      $("pw").setAttribute("placeholder", LL(TXT.pwPh));
+      $("pw2").setAttribute("placeholder", LL(TXT.pwPh2));
+      $("pwBtn").textContent = LL(TXT.save);
+      $("secH").textContent = LL(TXT.secH);
+      $("mdT").textContent = LL(TXT.mdT);
+      $("mdS").textContent = LL(TXT.mdS);
+      $("outBtn").textContent = LL(TXT.signout);
+      applyPwMode();
+    }
+
+    async function fillAccount(){
+      try{
+        var u = await Auth.getUser();
+        if(u){
+          $("acEmail").textContent = u.email || "—";
+          var nm = (u.user_metadata && u.user_metadata.full_name) || "";
+          if(nm) $("acName").textContent = nm;
+          try{ hasPw = !!(Auth.hasWebPassword && Auth.hasWebPassword(u)); }catch(e){}
+          applyPwMode();
+        }
+        // Nama fallback dari profil kalau metadata kosong.
+        if(!$("acName").textContent || $("acName").textContent==="—"){
+          try{ var p = await Auth.getProfile(); if(p && p.full_name) $("acName").textContent = p.full_name; }catch(e){}
+        }
+      }catch(e){}
+    }
+
+    async function savePw(){
+      var m=$("pwMsg"); m.className="msg"; m.textContent="";
+      var pw=$("pw").value||"", pw2=$("pw2").value||"";
+      if(pw.length<8){ m.className="msg err"; m.textContent=LL(TXT.pwShort); return; }
+      if(pw!==pw2){ m.className="msg err"; m.textContent=LL(TXT.pwMismatch); return; }
+      var btn=$("pwBtn"); btn.disabled=true; btn.textContent=LL(TXT.saving);
+      try{
+        await Auth.setWebPassword(pw);
+        m.className="msg ok"; m.textContent=LL(TXT.pwOk);
+        $("pw").value=""; $("pw2").value=""; hasPw=true; applyPwMode();
+      }catch(e){
+        m.className="msg err"; m.textContent=(e && e.message) || LL(TXT.pwShort);
+      }finally{
+        btn.disabled=false; btn.textContent=LL(TXT.save);
+      }
+    }
+
+    (async function(){
+      // Wajib login — requireAuth mengarahkan ke login kalau belum & melempar.
+      try{ if(window.Auth && Auth.requireAuth) await Auth.requireAuth(); }catch(e){ return; }
+      applyStatic();
+      if(window.I18N && I18N.onChange) I18N.onChange(applyStatic);
+      $("pwBtn").onclick = savePw;
+      $("outBtn").onclick = function(){ try{ Auth.signOut(); }catch(e){ location.href="/login"; } };
+      fillAccount();
+    })();
+  })();
+  </script>
+</body>
+</html>
