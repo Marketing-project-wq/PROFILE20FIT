@@ -37,6 +37,7 @@
       food: '<path d="M6 3v6.5a2 2 0 0 0 4 0V3M8 9.5V21M16.5 3c-1.4 0-2.3 1.6-2.3 4s.9 4 2.3 4 2.3-1.6 2.3-4-.9-4-2.3-4zM16.5 11v10"/>',
       scan: '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M4 12h16"/>'
     };
+    if (!P[n] && window.FIC && FIC.has(n)) return FIC(n, sz);   // ikon lain dari set bersama js/fiticons.js
     return '<svg viewBox="0 0 24 24" width="' + sz + '" height="' + sz + '" fill="none" stroke="currentColor" ' +
       'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle" aria-hidden="true">' + (P[n] || "") + '</svg>';
   }
@@ -81,15 +82,16 @@
   // ---- Chatbot state (tampilan UTAMA /coach; program terstruktur lama tetap ada) ----
   var MODE = "chat";                 // 'chat' | 'program'
   var CHAT_COACH = null, CHAT_INIT = false, CHAT_MSGS = [], CHAT_BUSY = false;
-  var COACH_LIST = [
-    ["nando",   { en: "Strict & ambitious",    id: "Tegas & ambisius" },    "#2F6BFF"],
-    ["calysta", { en: "Cheerful & friendly",   id: "Ceria & suportif" },    "#EC4899"],
-    ["rheza",   { en: "Playful & competitive", id: "Playful & kompetitif" },"#F59E0B"],
-    ["elsen",   { en: "Detail-oriented",       id: "Detail & teknis" },     "#16A34A"],
-  ];
-  var COACH_NAME = { nando: "Nando", calysta: "Calysta", rheza: "Rheza", elsen: "Elsen" };
-  var COACH_PHOTO = {};              // slug -> photo_url (diisi dari /api/coaches, cocokkan "Coach <slug>")
+  // Data persona (nama, warna, profil, roster/foto) = js/coach-profiles.js (satu sumber, dipakai /activity juga).
+  var CP = window.CoachProfiles;
+  var COACH_NAME = CP.NAME;
   var HEALTH = null;                 // skor kesehatan asli (0-100) dari /api/activity/health-score
+  var HS_DATA = null;                // respons health-score lengkap (chip data di sapaan chat)
+  var GAME = null;                   // {xp, level, current_streak, ...} dari /api/coach/achievements
+  // ?ask=<teks> (link dari Calories / Medical) -> HANYA mengisi kotak pesan, tidak dikirim otomatis
+  // (link dari luar tak boleh mengirim chat atas nama user tanpa ia menekan Kirim).
+  var PREFILL = "";
+  var VIEW_PLAN_ID = null;           // /activity/plan/<id> -> lihat plan tertentu (bisa plan lama)
   var USER_NAME = "";                // nama depan user (buat sapaan personal)
   // [label, pesan, ikon] — label & ikon utk kartu prompt; pesan = yang benar-benar dikirim ke coach.
   var QUICKS = [
@@ -111,19 +113,8 @@
     try { var qr = await apiFetch("/api/coach/quiz"); var qj = await qr.json().catch(function () { return {}; }); QUIZ = qj && qj.quiz ? qj.quiz : null; } catch (e) {}
     try { var cr = await fetch("/api/coach/config"); CFG = await cr.json().catch(function () { return {}; }); } catch (e) { CFG = {}; }
     if (PLAN && PLAN.plan) { await loadToday(); }
-    // Foto persona = foto coach asli dari roster CMS (satu sumber kebenaran, CLAUDE.md §2).
-    // Cocokkan slug persona -> baris "Coach <nama>" di /api/coaches; gagal -> fallback inisial.
-    try {
-      var cres = await fetch("/api/coaches");
-      var cjs = await cres.json().catch(function () { return {}; });
-      var clist = (cjs && cjs.coaches) || [];
-      COACH_LIST.forEach(function (cc) {
-        var target = "coach " + cc[0];
-        for (var i = 0; i < clist.length; i++) {
-          if (String(clist[i].name || "").trim().toLowerCase() === target && clist[i].photo_url) { COACH_PHOTO[cc[0]] = clist[i].photo_url; break; }
-        }
-      });
-    } catch (e) {}
+    // Foto persona = foto coach asli dari roster CMS (lewat js/coach-profiles.js); gagal -> inisial.
+    await CP.loadRoster();
     // Nama depan user buat sapaan (best-effort; kalau tak ada, sapaan tanpa nama).
     try {
       var nm = (user && (user.name || (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)))) || "";
@@ -135,10 +126,21 @@
       var hr = await apiFetch("/api/activity/health-score");
       var hj = await hr.json().catch(function () { return {}; });
       if (hj && hj.ok && hj.have_any && typeof hj.total === "number") HEALTH = hj.total;
+      if (hj && hj.ok) HS_DATA = hj;
     } catch (e) {}
     try { var cpk = localStorage.getItem("my20fit_coach_pick"); if (cpk && COACH_NAME[cpk]) CHAT_COACH = cpk; } catch (e) {}
-    // Deep-link dari muka coach di Activity: /coach?coach=<slug> -> langsung buka chat coach itu.
-    try { var qp = (new URLSearchParams(location.search)).get("coach"); if (qp) { qp = String(qp).toLowerCase(); if (COACH_NAME[qp]) { CHAT_COACH = qp; try { localStorage.setItem("my20fit_coach_pick", qp); } catch (e) {} } } } catch (e) {}
+    // /activity/chat/<slug> (dan /coach?coach=<slug> lama) -> langsung buka chat coach itu.
+    // /activity/plan[/<id>] -> tampilan plan (plan aktif).
+    try {
+      var pm = location.pathname.match(/^\/activity\/chat\/([a-z]+)\/?$/i);
+      var qp = pm ? pm[1] : (new URLSearchParams(location.search)).get("coach");
+      if (qp) { qp = String(qp).toLowerCase(); if (COACH_NAME[qp]) { CHAT_COACH = qp; try { localStorage.setItem("my20fit_coach_pick", qp); } catch (e) {} } }
+      if (/^\/activity\/plan(\/|$)/i.test(location.pathname)) MODE = "program";
+      var pid = location.pathname.match(/^\/activity\/plan\/([0-9a-f-]{8,})\/?$/i);
+      if (pid) VIEW_PLAN_ID = pid[1];
+      var ask = (new URLSearchParams(location.search)).get("ask");
+      if (ask) { PREFILL = String(ask).slice(0, 300); history.replaceState(null, "", location.pathname); }
+    } catch (e) {}
     render();
   }
   // Status sesi latihan HARI INI (Fase 2) — untuk kartu "Latihan hari ini" di halaman plan.
@@ -151,6 +153,7 @@
     clearErr();
     if (MODE === "chat") { renderChat(); return; }
     var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Personal workout plan", id: "Rencana latihan personal" });
+    if (VIEW_PLAN_ID && !(PLAN && PLAN.id === VIEW_PLAN_ID)) { renderPlanById(VIEW_PLAN_ID); return; }
     if (PLAN && PLAN.plan) renderPlan();
     else renderIntro();
   }
@@ -164,8 +167,11 @@
       '<ul><li>' + esc(Lx({ en: "Plan you can adjust anytime", id: "Plan bisa kamu adjust kapan saja" })) + '</li>' +
       '<li>' + esc(Lx({ en: "Safety screening first", id: "Skrining keamanan dulu" })) + '</li>' +
       '<li>' + esc(Lx({ en: "Option to consult a specialist or train with a coach", id: "Opsi konsultasi specialist atau latihan bareng coach" })) + '</li></ul>' +
-      '<button class="btn" id="startQuiz">' + esc(done ? Lx({ en: "Retake quiz", id: "Ulang quiz" }) : Lx({ en: "Start quiz", id: "Mulai quiz" })) + '</button></div>';
+      '<button class="btn" id="startQuiz">' + esc(done ? Lx({ en: "Retake quiz", id: "Ulang quiz" }) : Lx({ en: "Start quiz", id: "Mulai quiz" })) + '</button>' +
+      '<a class="btn ghost" href="' + esc(chatPlanHref()) + '" style="margin-top:8px">' + svgIcon("chat", 16) + ' ' + esc(Lx({ en: "Or ask a coach to build it in chat", id: "Atau minta coach buatkan lewat chat" })) + '</a></div>' +
+      planListShell();
     el("startQuiz").onclick = function () { if (QUIZ && QUIZ.answers) prefill(QUIZ); renderQuiz(); };
+    loadPlanList();
     wireBackToChat();
   }
 
@@ -293,14 +299,16 @@
   function renderPlan() {
     var row = PLAN, p = row.plan || {};
     var days = Array.isArray(p.days) ? p.days : [];
-    var srcLbl = row.source === "ai" ? "AI COACH" : (row.source === "adjusted" ? Lx({ en: "Adjusted", id: "Disesuaikan" }) : Lx({ en: "Auto plan", id: "Plan otomatis" }));
+    var srcLbl = planSrcLabel(row);
     var html = todayCardHtml() +
       '<div class="card"><div class="planhead"><div class="pn">' + esc(p.plan_name || "Workout plan") + '</div>' +
       '<div class="wn">' + esc(p.weekly_note || "") + '</div>' +
       '<span class="badge src">' + esc(srcLbl) + '</span></div>' +
       (p.needs_specialist ? '<div class="needspec"><span style="color:var(--amber)">' + svgIcon("warn", 16) + '</span> ' + esc(Lx({ en: "Because of your safety screening, this is a conservative plan. Please consult a 20FIT specialist before starting.", id: "Karena hasil skrining keamananmu, ini plan versi konservatif. Sebaiknya konsultasi ke specialist 20FIT sebelum mulai." })) + '</div>' : '') +
       days.map(function (d, di) {
-        return '<div class="day"><div class="day-h" data-day="' + di + '"><span class="dl">' + esc(d.label || ("Hari " + (di + 1))) + '</span>' +
+        return '<div class="day' + (d.done ? ' done' : '') + '"><div class="day-h" data-day="' + di + '">' +
+          '<button type="button" class="dchk" data-done="' + esc(d.key) + '" aria-pressed="' + (d.done ? 'true' : 'false') + '" title="' + esc(Lx({ en: "Mark day done", id: "Tandai hari selesai" })) + '">' + svgIcon(d.done ? "boxcheck" : "box", 18) + '</button>' +
+          '<span class="dl">' + esc(d.label || ("Hari " + (di + 1))) + '</span>' +
           '<span class="df">' + esc(d.focus || "") + '</span></div>' +
           '<div class="day-b"' + (di === 0 ? '' : ' style="display:none"') + '>' +
           (Array.isArray(d.exercises) ? d.exercises : []).map(function (e) {
@@ -313,7 +321,8 @@
       }).join("") +
       '<div class="adjrow"><button class="btn ghost" id="adjEasier">– ' + esc(Lx({ en: "Easier", id: "Ringankan" })) + '</button>' +
       '<button class="btn ghost" id="adjHarder">+ ' + esc(Lx({ en: "Harder", id: "Beratkan" })) + '</button>' +
-      '<button class="btn ghost" id="adjRedo">' + esc(Lx({ en: "Retake quiz", id: "Ulang quiz" })) + '</button></div>' +
+      '<button class="btn ghost" id="adjRedo">' + esc(Lx({ en: "Retake quiz", id: "Ulang quiz" })) + '</button>' +
+      '<a class="btn ghost" href="' + esc(chatPlanHref()) + '">' + svgIcon("chat", 16) + ' ' + esc(Lx({ en: "New plan via coach", id: "Plan baru via coach" })) + '</a></div>' +
       '<div class="disc">' + esc(p.disclaimer || "") + '</div></div>';
 
     // CTA
@@ -326,14 +335,23 @@
     html += '<div class="sechd">' + esc(Lx({ en: "Progress", id: "Progress" })) + '</div>' +
       '<div class="card" id="progBox"><div class="skel" style="height:90px"></div></div>' +
       '<div class="sechd">' + esc(Lx({ en: "History", id: "Riwayat" })) + '</div>' +
-      '<div class="card"><div id="histBox" class="hist"><div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "Loading…", id: "Memuat…" })) + '</div></div></div>';
+      '<div class="card"><div id="histBox" class="hist"><div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "Loading…", id: "Memuat…" })) + '</div></div></div>' +
+      planListShell();
     root().innerHTML = backBar() + html;
+    loadPlanList();
 
     var tgo = el("todayGo"); if (tgo) tgo.onclick = openSession;
     loadHistory(); loadProgress();
 
     Array.prototype.forEach.call(root().querySelectorAll(".day-h"), function (h) {
       h.onclick = function () { var b = h.nextElementSibling; if (b) b.style.display = (b.style.display === "none") ? "" : "none"; };
+    });
+    Array.prototype.forEach.call(root().querySelectorAll("[data-done]"), function (b) {
+      b.onclick = function (ev) {
+        ev.stopPropagation();
+        var k = b.getAttribute("data-done"), d = days.filter(function (x) { return x.key === k; })[0];
+        adjust({ op: "done", day_key: k, done: !(d && d.done) });
+      };
     });
     Array.prototype.forEach.call(root().querySelectorAll("[data-swap]"), function (b) {
       b.onclick = function () { var parts = b.getAttribute("data-swap").split("|"); adjust({ op: "swap", day_key: parts[0], ex_key: parts[1] }); };
@@ -343,6 +361,72 @@
     el("adjRedo").onclick = function () { if (QUIZ) prefill(QUIZ); renderQuiz(); };
     Array.prototype.forEach.call(root().querySelectorAll("[data-cta]"), function (b) { b.onclick = function () { onCta(b.getAttribute("data-cta")); }; });
     wireBackToChat();
+  }
+  function planSrcLabel(row) {
+    var p = (row && row.plan) || {};
+    if (row && row.source === "chat") return "AI COACH" + (p.coach && COACH_NAME[p.coach] ? " · " + COACH_NAME[p.coach] : "");
+    if (row && row.source === "ai") return "AI COACH";
+    if (row && row.source === "adjusted") return Lx({ en: "Adjusted", id: "Disesuaikan" });
+    return Lx({ en: "Auto plan", id: "Plan otomatis" });
+  }
+  function chatPlanHref() {
+    return "/activity/chat" + (CHAT_COACH ? "/" + CHAT_COACH : "") + "?ask=" + encodeURIComponent(Lx({ en: "Build me a new workout plan for this week", id: "Buatkan workout plan baru untuk minggu ini" }));
+  }
+  // Semua plan user (/api/coach/plans) — link ke /activity/plan/<id>.
+  function planListShell() {
+    return '<div class="sechd">' + esc(Lx({ en: "All plans", id: "Semua plan" })) + '</div><div class="card" id="planListBox"><div class="skel" style="height:60px"></div></div>';
+  }
+  async function loadPlanList() {
+    var box = el("planListBox"); if (!box) return;
+    try {
+      var r = await apiFetch("/api/coach/plans"); var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) throw new Error(j.error || "plans");
+      var list = (j && j.plans) || [];
+      if (!list.length) { box.innerHTML = '<div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "No plans yet.", id: "Belum ada plan." })) + '</div>'; return; }
+      box.innerHTML = '<div class="plist">' + list.map(function (pl) {
+        var dt = ""; try { dt = new Date(pl.created_at).toLocaleDateString((window.I18N && I18N.lang === "en") ? "en-GB" : "id-ID", { day: "numeric", month: "short", year: "numeric" }); } catch (e) {}
+        return '<a class="pli' + (pl.is_active ? ' on' : '') + '" href="/activity/plan/' + encodeURIComponent(pl.id) + '">' +
+          '<span class="pln">' + esc(pl.name) + (pl.is_active ? ' <span class="badge src">' + esc(Lx({ en: "Active", id: "Aktif" })) + '</span>' : '') + '</span>' +
+          '<span class="pls">' + esc(dt) + (pl.coach && COACH_NAME[pl.coach] ? " · Coach " + esc(COACH_NAME[pl.coach]) : "") + " · " + pl.days_done + "/" + pl.days_total + " " + esc(Lx({ en: "done", id: "selesai" })) + '</span></a>';
+      }).join("") + '</div>';
+    } catch (e) {
+      box.innerHTML = '<div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "Couldn't load plans.", id: "Gagal memuat daftar plan." })) + ' <button type="button" class="btn ghost" id="plRetry" style="width:auto;padding:6px 12px">' + esc(Lx({ en: "Retry", id: "Coba lagi" })) + '</button></div>';
+      var rt = el("plRetry"); if (rt) rt.onclick = loadPlanList;
+    }
+  }
+  // Detail plan lama (bukan plan aktif): baca saja + tombol jadikan aktif.
+  async function renderPlanById(id) {
+    root().innerHTML = '<div class="card"><div class="skel" style="height:140px"></div></div>';
+    var row = null;
+    try { var r = await apiFetch("/api/coach/plans/" + encodeURIComponent(id)); var j = await r.json().catch(function () { return {}; }); row = r.ok ? j.plan : null; } catch (e) { row = null; }
+    if (!row) {
+      root().innerHTML = '<div class="card"><div class="muted">' + esc(Lx({ en: "Plan not found.", id: "Plan tidak ditemukan." })) + '</div><a class="btn ghost" href="/activity/plan" style="margin-top:10px">' + esc(Lx({ en: "All plans", id: "Semua plan" })) + '</a></div>';
+      return;
+    }
+    var p = row.plan || {}, days = Array.isArray(p.days) ? p.days : [];
+    root().innerHTML = '<div class="card"><div class="planhead"><div class="pn">' + esc(p.plan_name || "Workout plan") + '</div>' +
+      '<div class="wn">' + esc(p.weekly_note || "") + '</div><span class="badge src">' + esc(planSrcLabel(row)) + '</span></div>' +
+      days.map(function (d, di) {
+        return '<div class="day' + (d.done ? ' done' : '') + '"><div class="day-h"><span class="dchk">' + svgIcon(d.done ? "boxcheck" : "box", 18) + '</span><span class="dl">' + esc(d.label || ("Hari " + (di + 1))) + '</span><span class="df">' + esc(d.focus || "") + '</span></div>' +
+          '<div class="day-b">' + (Array.isArray(d.exercises) ? d.exercises : []).map(function (e) {
+            return '<div class="ex"><div style="flex:1;min-width:0"><div class="en">' + esc(e.name || "") + '</div></div><span class="em">' + (e.sets || 1) + ' × ' + esc(String(e.reps || "")) + '</span></div>';
+          }).join("") + '</div></div>';
+      }).join("") +
+      '<div class="adjrow"><button class="btn" id="plActivate">' + esc(Lx({ en: "Make this my active plan", id: "Jadikan plan aktif" })) + '</button>' +
+      '<a class="btn ghost" href="/activity/plan">' + esc(Lx({ en: "All plans", id: "Semua plan" })) + '</a></div>' +
+      '<div class="disc">' + esc(p.disclaimer || "") + '</div></div>';
+    el("plActivate").onclick = async function () {
+      if (BUSY) return; BUSY = true; clearErr();
+      try {
+        var r2 = await apiFetch("/api/coach/plan/activate", { method: "POST", body: JSON.stringify({ id: row.id }) });
+        var j2 = await r2.json().catch(function () { return {}; });
+        if (!r2.ok) throw new Error(j2.error || "activate");
+        PLAN = j2.plan; VIEW_PLAN_ID = null;
+        try { history.replaceState(null, "", "/activity/plan"); } catch (e) {}
+        BUSY = false; render(); return;
+      } catch (e) { showErr((e && e.message) || Lx({ en: "Couldn't activate the plan.", id: "Gagal mengaktifkan plan." })); }
+      BUSY = false;
+    };
   }
   function ctaBtn(type, icon, title, sub, primary) {
     return '<button type="button" class="cta-b' + (primary ? " primary" : "") + '" data-cta="' + type + '">' +
@@ -598,11 +682,11 @@
   }
   function wireBackToChat() { var b = el("backToChat"); if (b) b.onclick = function () { MODE = "chat"; render(); }; }
 
-  function coachColor(slug) { for (var i = 0; i < COACH_LIST.length; i++) if (COACH_LIST[i][0] === slug) return COACH_LIST[i][2]; return "var(--accent)"; }
+  function coachColor(slug) { return CP.color(slug); }
   function coachInitial(slug) { return (COACH_NAME[slug] || "?").charAt(0).toUpperCase(); }
   function coachAvatar(slug, size) {
     size = size || 40;
-    var fs = Math.round(size * 0.4), photo = COACH_PHOTO[slug] || "", color = coachColor(slug);
+    var fs = Math.round(size * 0.4), photo = CP.photo(slug), color = coachColor(slug);
     var ini = '<span class="cav-i" style="font-size:' + fs + 'px;background:' + color + (photo ? ';display:none' : '') + '">' + esc(coachInitial(slug)) + '</span>';
     var img = photo ? '<img src="' + esc(photo) + '" alt="' + esc(COACH_NAME[slug] || "") + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' : '';
     return '<span class="cav ring" style="width:' + size + 'px;height:' + size + 'px;--cc:' + color + '"><span class="cav-in">' + img + ini + '</span></span>';
@@ -610,9 +694,9 @@
   function greetOf(slug) {
     var n = USER_NAME ? (" " + USER_NAME) : "";
     var g = {
-      nando: { en: "Yo" + n + "! Coach Nando here 💪 What's the target today?", id: "Yo" + n + "! Coach Nando di sini 💪 Apa target kamu hari ini?" },
-      calysta: { en: "Hii" + n + "! I'm Coach Calysta ✨ What are we working on today?", id: "Hai" + n + "! Aku Coach Calysta ✨ Mau kita kerjain apa hari ini?" },
-      rheza: { en: "Hey" + n + "! Coach Rheza here 😎 Ready for a challenge?", id: "Hey" + n + "! Coach Rheza di sini 😎 Siap ditantang?" },
+      nando: { en: "Yo" + n + "! Coach Nando here. What's the target today?", id: "Yo" + n + "! Coach Nando di sini. Apa target kamu hari ini?" },
+      calysta: { en: "Hii" + n + "! I'm Coach Calysta! What are we working on today?", id: "Hai" + n + "! Aku Coach Calysta! Mau kita kerjain apa hari ini?" },
+      rheza: { en: "Hey" + n + "! Coach Rheza here. Ready for a challenge?", id: "Hey" + n + "! Coach Rheza di sini. Siap ditantang?" },
       elsen: { en: "Hi" + n + ", I'm Coach Elsen. Let's look at your numbers — what would you like to review?", id: "Hai" + n + ", aku Coach Elsen. Kita lihat angka kamu — mau bahas apa?" },
     };
     return g[slug] || { en: "Hi" + n + "! How can I help with your training today?", id: "Hai" + n + "! Ada yang bisa dibantu soal latihanmu hari ini?" };
@@ -631,22 +715,27 @@
         '<div class="cq-hero"><div class="cq-orb">' + svgIcon("spark", 36) + '</div>' +
         '<h2 class="cq-h">' + esc(Lx({ en: "Consultation", id: "Konsultasi" })) + '</h2>' +
         '<p class="cq-s">' + esc(Lx({ en: "Pick a coach to consult — each has their own style, and they answer using your real 20FIT data.", id: "Pilih coach untuk konsultasi — tiap coach punya gaya sendiri, dan menjawab pakai data 20FIT kamu yang asli." })) + '</p></div>' +
-        '<div class="cgrid">' + COACH_LIST.map(function (c) {
-          return '<button type="button" class="ccard" data-pick="' + esc(c[0]) + '" style="--cc:' + c[2] + '">' + coachAvatar(c[0], 72) +
-            '<span class="cn">' + esc(COACH_NAME[c[0]]) + '</span><span class="ct">' + esc(Lx(c[1])) + '</span></button>';
-        }).join("") + '</div></div>' +
+        CP.box({ active: null }) + '</div>' +
       '<div class="card"><button type="button" class="cta-b" id="toProgram">' +
       '<span class="ic" style="background:color-mix(in srgb,var(--ai) 14%,transparent);color:var(--ai)">' + svgIcon("dumbbell") + '</span>' +
       '<span style="flex:1;min-width:0"><span class="ct">' + esc(Lx({ en: "Structured workout program", id: "Program latihan terstruktur" })) + '</span>' +
       '<span class="cs">' + esc(Lx({ en: "A weekly plan from a quick quiz", id: "Rencana mingguan dari quiz singkat" })) + '</span></span></button></div>';
-    Array.prototype.forEach.call(root().querySelectorAll("[data-pick]"), function (b) { b.onclick = function () { pickCoach(b.getAttribute("data-pick")); }; });
     var tp = el("toProgram"); if (tp) tp.onclick = function () { MODE = "program"; render(); };
+    CP.wire(root(), pickCoach);
+    CP.loadNext();
   }
-
+  // Di bawah /activity/chat, URL mengikuti coach yang aktif (reload/bagikan link = coach sama).
+  function syncChatUrl() {
+    try {
+      if (!/^\/activity\/chat(\/|$)/i.test(location.pathname)) return;
+      history.replaceState(null, "", "/activity/chat" + (CHAT_COACH ? "/" + CHAT_COACH : ""));
+    } catch (e) {}
+  }
   function pickCoach(slug) {
     if (!COACH_NAME[slug]) return;
     CHAT_COACH = slug; CHAT_INIT = false; CHAT_MSGS = [];
     try { localStorage.setItem("my20fit_coach_pick", slug); } catch (e) {}
+    syncChatUrl();
     renderChat();
   }
 
@@ -655,14 +744,15 @@
     root().innerHTML = '<div class="croom" style="--cc:' + color + '">' +
       '<div class="croom-h">' + coachAvatar(CHAT_COACH, 42) +
       '<div class="crn">' + esc(COACH_NAME[CHAT_COACH] || "Coach") +
-      '<small>' + esc(Lx({ en: "Your AI fitness coach · not medical advice", id: "AI fitness coach kamu · bukan nasihat medis" })) + '</small></div>' +
+      '<small>' + esc(Lx({ en: "Your AI fitness coach · not medical advice", id: "AI fitness coach kamu · bukan nasihat medis" })) + '</small>' +
+      '<small class="crgame" id="crGame">' + gameLine() + '</small></div>' +
       '<button type="button" class="crsw" id="crSwitch">' + esc(Lx({ en: "Switch", id: "Ganti" })) + '</button></div>' +
       '<div class="cmsgs" id="cMsgs"></div>' +
       '<div class="cquick" id="cQuick" style="display:none">' + QUICKS.map(function (q, i) { return '<button type="button" class="cqbtn" data-q="' + i + '">' + esc(Lx(q[0])) + '</button>'; }).join("") + '</div>' +
       '<div class="cinput"><span class="spark">' + svgIcon("spark", 18) + '</span>' +
       '<textarea id="cText" rows="1" placeholder="' + esc(Lx({ en: "Message your coach…", id: "Tulis pesan ke coach…" })) + '"></textarea>' +
       '<button type="button" class="csend" id="cSend" aria-label="Send">' + svgIcon("send", 20) + '</button></div></div>';
-    el("crSwitch").onclick = function () { CHAT_COACH = null; CHAT_INIT = false; CHAT_MSGS = []; try { localStorage.removeItem("my20fit_coach_pick"); } catch (e) {} renderChat(); };
+    el("crSwitch").onclick = function () { CHAT_COACH = null; CHAT_INIT = false; CHAT_MSGS = []; try { localStorage.removeItem("my20fit_coach_pick"); } catch (e) {} syncChatUrl(); renderChat(); };
     Array.prototype.forEach.call(root().querySelectorAll("#cQuick [data-q]"), function (b) { b.onclick = function () { var q = QUICKS[+b.getAttribute("data-q")]; if (q) sendChat(Lx(q[1])); }; });
     var ta = el("cText"), send = el("cSend");
     function autin() { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; }
@@ -670,6 +760,41 @@
     ta.addEventListener("input", autin);
     ta.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); } });
     send.onclick = doSend;
+    if (PREFILL) { ta.value = PREFILL; PREFILL = ""; autin(); try { ta.focus(); } catch (e) {} }
+    loadGame();
+  }
+  // Streak & level (gamifikasi) — dihitung server dari data asli; gagal = baris kosong.
+  function gameLine() {
+    if (!GAME) return "";
+    return svgIcon("fire", 13) + " " + esc((GAME.current_streak || 0) + Lx({ en: "-day streak", id: " hari streak" })) + " · " + svgIcon("star", 13) + " " + esc("Lv." + (GAME.level || 1));
+  }
+  async function loadGame() {
+    try {
+      var r = await apiFetch("/api/coach/achievements"); var j = await r.json().catch(function () { return {}; });
+      if (j && j.ok && j.game) { GAME = j.game; var g = el("crGame"); if (g) g.innerHTML = gameLine(); }
+    } catch (e) {}
+  }
+  // Token aksi dari balasan coach -> tombol (URL ditentukan di sini, bukan oleh AI). [url, label, ikon]
+  // Navigasi same-tab (CLAUDE.md: tanpa target=_blank).
+  var ACTIONS = {
+    BOOK_CLASS: ["/book-class", { en: "Book Class →", id: "Book Class →" }, "cal"],
+    BOOK_DOCTOR: ["/book-doctor", { en: "Book Doctor →", id: "Book Doctor →" }, "clinic"],
+    ARENA_MAPS: ["https://www.google.com/maps/search/?api=1&query=20FIT+Arena+Menteng+Prada", { en: "20FIT Arena — Google Maps", id: "20FIT Arena — Google Maps" }, "pin"],
+    VISBODY: ["/activity/visbody", { en: "My Visbody results", id: "Hasil Visbody aku" }, "chart"],
+  };
+  function planCard() {
+    return '<span class="cplan"><b>' + svgIcon("clipboard", 15) + ' ' + esc(Lx({ en: "Plan saved as your active plan", id: "Plan tersimpan jadi plan aktif kamu" })) + '</b>' +
+      '<span class="cplan-a"><a href="/activity/plan">' + esc(Lx({ en: "View plan →", id: "Lihat plan →" })) + '</a>' +
+      '<a href="/activity">' + esc(Lx({ en: "Dashboard →", id: "Dashboard →" })) + '</a></span></span>';
+  }
+  function renderReply(text) {
+    var h = esc(text).replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+    h = h.replace(/\[\[PLAN_SAVED\]\]/g, planCard());
+    h = h.replace(/\[\[([A-Z_]+)\]\]/g, function (m, k) {
+      var a = ACTIONS[k]; if (!a) return "";
+      return '<a class="cact" href="' + esc(a[0]) + '">' + svgIcon(a[2], 14) + ' ' + esc(Lx(a[1])) + '</a>';
+    });
+    return h.replace(/\n/g, "<br>");
   }
 
   function paintMsgs() {
@@ -683,14 +808,20 @@
     }
     if (quick) quick.style.display = "";
     var html = CHAT_MSGS.map(function (m) {
-      return '<div class="cmsg ' + (m.role === "user" ? "me" : "ai") + '">' + esc(m.content).replace(/\n/g, "<br>") + '</div>';
+      return '<div class="cmsg ' + (m.role === "user" ? "me" : "ai") + '">' + (m.role === "user" ? esc(m.content).replace(/\n/g, "<br>") : renderReply(m.content)) + '</div>';
     }).join("");
     if (CHAT_BUSY) html += '<div class="cmsg ai typing"><span></span><span></span><span></span></div>';
     box.innerHTML = html; box.scrollTop = box.scrollHeight;
   }
   // Empty state ala referensi: sapaan personal + chip data ASLI (health score) + kartu prompt.
   function emptyStateHTML() {
-    var chip = (HEALTH != null) ? '<span class="cchip-data">' + svgIcon("heart", 13) + ' ' + esc(Lx({ en: "Health score", id: "Health score" })) + ' ' + HEALTH + '/100</span>' : '';
+    var chips = [];
+    if (HEALTH != null) chips.push(svgIcon("heart", 13) + ' ' + esc(Lx({ en: "Health score", id: "Health score" })) + ' ' + HEALTH + '/100');
+    var bd = (HS_DATA && HS_DATA.breakdown) || {};
+    if (HS_DATA && HS_DATA.week) chips.push(svgIcon("dumbbell", 13) + ' ' + esc(Lx({ en: "This week: ", id: "Minggu ini: " }) + HS_DATA.week.sessions + "x workout"));
+    if (bd.body && bd.body.detail) chips.push(svgIcon("chart", 13) + ' Visbody: ' + esc(bd.body.detail));
+    if (bd.nutrition && bd.nutrition.detail) chips.push(svgIcon("meal", 13) + ' ' + esc(bd.nutrition.detail));
+    var chip = chips.length ? '<span class="cchips">' + chips.map(function (c) { return '<span class="cchip-data">' + c + '</span>'; }).join("") + '</span>' : '';
     var cards = QUICKS.slice(0, 4).map(function (q, i) {
       return '<button type="button" class="qcard" data-q="' + i + '"><span class="qi">' + svgIcon(q[2] || "spark", 18) + '</span><span class="ql">' + esc(Lx(q[0])) + '</span></button>';
     }).join("");
@@ -737,7 +868,9 @@
       var j = await r.json().catch(function () { return {}; });
       CHAT_BUSY = false;
       CHAT_MSGS.push({ role: "assistant", content: (r.ok && j && j.reply) ? j.reply : ((j && j.error) || Lx({ en: "Sorry, I couldn't reply right now. Please try again.", id: "Maaf, aku lagi nggak bisa jawab. Coba lagi ya." })) });
+      if (r.ok && j && j.plan) PLAN = j.plan;
       paintMsgs();
+      if (r.ok) loadGame();
     } catch (e) {
       CHAT_BUSY = false;
       CHAT_MSGS.push({ role: "assistant", content: Lx({ en: "Network error. Please try again.", id: "Koneksi bermasalah. Coba lagi." }) });

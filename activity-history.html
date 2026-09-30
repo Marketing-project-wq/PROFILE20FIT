@@ -57,6 +57,7 @@
 
 <script src="js/vendor-supabase.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/fiticons.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/nav.js"></script>
 <script>
@@ -65,7 +66,7 @@
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function el(id){ return document.getElementById(id); }
   async function apiFetch(path){ var o={headers:{"Content-Type":"application/json"}}; try{var tk=await Auth.token(); if(tk)o.headers.Authorization="Bearer "+tk;}catch(e){} return fetch(path,o); }
-  var ICONS={ workout:"🏃", sleep:"😴", daily_activity:"👟", weight:"⚖️", food_log:"🍽️", other:"📊" };
+  var ICONS={ workout:"run", sleep:"moon", daily_activity:"steps", weight:"scale", food_log:"meal", other:"chart" };   // nama ikon js/fiticons.js
   function fmtDate(s){ if(!s) return ""; try{ var d=new Date(String(s).slice(0,10)+"T00:00:00"); if(isNaN(d)) return String(s).slice(0,10);
     var mo=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"]; return d.getDate()+" "+mo[d.getMonth()]+" "+d.getFullYear(); }catch(e){ return String(s).slice(0,10); } }
   function summaryOf(ex){ if(!ex||typeof ex!=="object") return ""; if(ex.summary) return String(ex.summary);
@@ -80,7 +81,7 @@
       var ex=u.extracted_data||{}, type=u.upload_type||ex.type||"other";
       var gaps=Array.isArray(u.yesterday_gaps)?u.yesterday_gaps:[];
       var chips=gaps.slice(0,4).map(function(g){ var st=String((g&&g.status)||"").toLowerCase(); var cls=st==="kurang"?"kurang":(st==="cukup"?"cukup":""); return '<span class="chip '+cls+'">'+esc(catLbl(g&&g.category))+(g&&g.status?" · "+esc(g.status):"")+'</span>'; }).join("");
-      return '<div class="card"><div class="hrow"><span class="ic">'+(ICONS[type]||ICONS.other)+'</span>'+
+      return '<div class="card"><div class="hrow"><span class="ic">'+FIC(ICONS[type]||ICONS.other,20)+'</span>'+
         '<div class="bd"><div class="dt">'+esc(fmtDate(u.upload_date||u.created_at))+(u.source&&u.source!=="other"?" · "+esc(u.source):"")+'</div>'+
         '<div class="tt">'+esc(summaryOf(ex)||catLbl(type))+'</div>'+
         (chips?'<div class="gp">'+chips+'</div>':'')+

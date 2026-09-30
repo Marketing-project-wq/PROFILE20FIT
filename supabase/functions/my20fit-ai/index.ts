@@ -31,6 +31,9 @@ const MODEL_MCU = Deno.env.get("AI_MODEL_MCU") || "google/gemini-3-flash-preview
 // lain, tanpa config tambahan). Ganti via env AI_MODEL_CHAT kalau mau model lain
 // (mis. anthropic/claude-haiku-4.5) — asal akun OpenRouter punya aksesnya.
 const MODEL_CHAT = Deno.env.get("AI_MODEL_CHAT") || "google/gemini-2.5-flash";
+// Pesan chat "berat" (buat plan / analisa — server kirim tier:"complex") boleh pakai model lain
+// (mis. anthropic/claude-sonnet-4) lewat AI_MODEL_CHAT_COMPLEX. Tak di-set = sama dgn MODEL_CHAT.
+const MODEL_CHAT_COMPLEX = Deno.env.get("AI_MODEL_CHAT_COMPLEX") || MODEL_CHAT;
 
 // ---- Prompt food scan (FOTO). Fokus akurasi: porsi, cara masak, kalori tersembunyi, confidence. ----
 const FOOD_SYS =
@@ -249,7 +252,7 @@ Deno.serve(async (req) => {
       } else return json({ error: "image atau messages wajib diisi" }, 400);
     } else return json({ error: "action tidak dikenal" }, 400);
 
-    const model = b.action === "chat" ? MODEL_CHAT
+    const model = b.action === "chat" ? (b.tier === "complex" ? MODEL_CHAT_COMPLEX : MODEL_CHAT)
       : (b.action === "mcu" || b.action === "translate" || b.action === "plan" || b.action === "workout" || b.action === "program") ? MODEL_MCU
       : MODEL_FOOD;
     // Chat sedikit lebih "hidup" (persona) -> temperature naik; analisa/ekstraksi tetap 0.2.
@@ -269,7 +272,7 @@ Deno.serve(async (req) => {
     // Chat = teks bebas (persona), bukan JSON -> balikan apa adanya.
     if (b.action === "chat") {
       if (!content) return json({ error: "Balasan kosong dari AI." }, 502);
-      return json({ ok: true, reply: content });
+      return json({ ok: true, reply: content, model });
     }
     const parsed = pj(content);
     if (!parsed) return json({ error: "Gagal membaca hasil AI.", raw: String(content).slice(0, 500) }, 502);

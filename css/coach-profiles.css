@@ -1,0 +1,31 @@
+/* coach-profiles.css — kotak profil coach yang bisa digeser (js/coach-profiles.js).
+   Dipakai /activity dan picker /activity/chat. Token adaptif dari glass-app.css (--a-*). */
+.cprof-box{margin-top:4px}
+.cprof-hd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.cprof-t{flex:1;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--a-mut)}
+.cprof-nav{display:flex;gap:6px}
+.cprof-nav button{width:32px;height:32px;border-radius:99px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:18px;line-height:1;cursor:pointer;font-family:inherit}
+.cprof-track{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
+.cprof-track::-webkit-scrollbar{height:0}
+.cprof{position:relative;flex:0 0 272px;scroll-snap-align:start;display:flex;flex-direction:column;gap:10px;padding:16px 14px 14px;border:1px solid var(--a-line);border-radius:20px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--cc) 14%,var(--a-surface)) 0,var(--a-surface) 150px)}
+.cprof.on{border-color:color-mix(in srgb,var(--cc) 60%,var(--a-line));box-shadow:0 8px 24px color-mix(in srgb,var(--cc) 18%,transparent)}
+.cprof-badge{position:absolute;top:10px;right:10px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;color:#fff;background:var(--cc)}
+.cprof-top{display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px}
+.cprof-n{font-size:17px;font-weight:800;margin-top:4px;color:var(--a-txt)}
+.cprof-tag{font-size:12px;font-weight:800;color:var(--cc)}
+.cprof-v{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--a-mut)}
+.cprof-traits{display:flex;flex-wrap:wrap;justify-content:center;gap:5px}
+.cprof-traits span{font-size:10.5px;font-weight:800;padding:4px 9px;border-radius:99px;color:var(--cc);background:color-mix(in srgb,var(--cc) 12%,transparent)}
+.cprof-next{font-size:11.5px;line-height:1.4;color:var(--a-txt);padding-top:8px;border-top:1px solid var(--a-line);min-height:32px}
+.cprof-mut{color:var(--a-mut)}
+.cprof-go{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:auto;border:0;border-radius:12px;padding:11px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;color:#fff;background:var(--cc)}
+.cprof-dots{display:flex;justify-content:center;gap:6px;margin-top:4px}
+.cprof-dots span{width:7px;height:7px;border-radius:99px;background:var(--a-line);cursor:pointer}
+.cprof-dots span.on{background:var(--fit-red,#E4002B);width:18px}
+.cprof-note{font-size:11.5px;color:var(--a-mut);text-align:center;margin:8px 0 0}
+/* Avatar: foto roster; inisial berwarna kalau foto tak ada / gagal dimuat */
+.cpa{position:relative;display:block;flex:none;border-radius:99px;overflow:hidden;background:var(--cc);box-shadow:0 0 0 3px color-mix(in srgb,var(--cc) 35%,transparent)}
+.cpa-i{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+.cpa img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
+@media(max-width:560px){ .cprof{flex-basis:82%} .cprof-nav{display:none} }
