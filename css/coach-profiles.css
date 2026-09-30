@@ -7,15 +7,19 @@
 .cprof-nav button{width:32px;height:32px;border-radius:99px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:18px;line-height:1;cursor:pointer;font-family:inherit}
 .cprof-track{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
 .cprof-track::-webkit-scrollbar{height:0}
-.cprof{position:relative;flex:0 0 272px;scroll-snap-align:start;display:flex;flex-direction:column;gap:10px;padding:16px 14px 14px;border:1px solid var(--a-line);border-radius:20px;
-  background:linear-gradient(180deg,color-mix(in srgb,var(--cc) 14%,var(--a-surface)) 0,var(--a-surface) 150px)}
+.cprof{position:relative;flex:0 0 272px;scroll-snap-align:start;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--a-line);border-radius:20px;background:var(--a-surface)}
+/* Foto besar: frame dari aspect-ratio (img absolute, sama pola team.html), muka = object-position top */
+.cprof-photo{position:relative;width:100%;aspect-ratio:1/1;overflow:hidden;background:linear-gradient(160deg,var(--cc),color-mix(in srgb,var(--cc) 55%,#000))}
+.cprof-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+.cprof-ini{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:84px;font-weight:800;color:rgba(255,255,255,.9)}
+.cprof-ov{position:absolute;left:0;right:0;bottom:0;padding:40px 14px 12px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.72))}
+.cprof-body{display:flex;flex-direction:column;gap:10px;padding:12px 14px 14px;flex:1}
 .cprof.on{border-color:color-mix(in srgb,var(--cc) 60%,var(--a-line));box-shadow:0 8px 24px color-mix(in srgb,var(--cc) 18%,transparent)}
-.cprof-badge{position:absolute;top:10px;right:10px;font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;color:#fff;background:var(--cc)}
-.cprof-top{display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px}
-.cprof-n{font-size:17px;font-weight:800;margin-top:4px;color:var(--a-txt)}
-.cprof-tag{font-size:12px;font-weight:800;color:var(--cc)}
-.cprof-v{font-size:11px;color:var(--a-mut)}
-.cprof-traits{display:flex;flex-wrap:wrap;justify-content:center;gap:5px}
+.cprof-badge{position:absolute;top:10px;right:10px;font-size:10.5px;font-weight:800;padding:4px 9px;border-radius:99px;color:#fff;background:var(--cc);box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.cprof-n{font-size:22px;font-weight:800;line-height:1.15;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.4)}
+.cprof-tag{display:inline-block;margin-top:5px;font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:99px;color:#fff;background:var(--cc)}
+.cprof-v{font-size:11.5px;color:var(--a-mut)}
+.cprof-traits{display:flex;flex-wrap:wrap;gap:5px}
 .cprof-traits span{font-size:10.5px;font-weight:800;padding:4px 9px;border-radius:99px;color:var(--cc);background:color-mix(in srgb,var(--cc) 12%,transparent)}
 .cprof-sec{font-size:12px;line-height:1.5;color:var(--a-txt)}
 .cprof-sec b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--a-mut);margin-bottom:2px}
@@ -27,8 +31,4 @@
 .cprof-dots span{width:7px;height:7px;border-radius:99px;background:var(--a-line);cursor:pointer}
 .cprof-dots span.on{background:var(--fit-red,#E4002B);width:18px}
 .cprof-note{font-size:11.5px;color:var(--a-mut);text-align:center;margin:8px 0 0}
-/* Avatar: foto roster; inisial berwarna kalau foto tak ada / gagal dimuat */
-.cpa{position:relative;display:block;flex:none;border-radius:99px;overflow:hidden;background:var(--cc);box-shadow:0 0 0 3px color-mix(in srgb,var(--cc) 35%,transparent)}
-.cpa-i{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
-.cpa img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
 @media(max-width:560px){ .cprof{flex-basis:82%} .cprof-nav{display:none} }
