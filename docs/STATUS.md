@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `f69eba5` · **Production:** `d263b13`
+> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `bc008a5` · **Production:** `d263b13`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -154,6 +154,34 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Visbody Journey — Fase 1: claim scan + gating Health Score (2026-09-30, staging dulu).**
+  Angka/kebijakan di `lib/journey-config.js` (default agent, ditandai PERLU DIPUTUSKAN/DIVALIDASI).
+  - **Kondisi data asli saat audit:** 7 scan (1 timbangan, 27–28 Sep) semua unclaimed, `measured_items`
+    masih `processing` (event "completed" tak pernah tercatat — BELUM TERVERIFIKASI penyebabnya),
+    identitas dari timbangan kosong; `my20fit_visbody_body` = 0 baris.
+  - **Claim:** QR timbangan / link staf = `/visbody-claim?t=<token>` (token acak, hash di
+    `my20fit_visbody_claim_token`, sekali pakai, TTL config). Belum login → token disimpan
+    (`my20fit_pending_claim`) dan `Auth.routeAfterAuth` mengembalikan member ke claim setelah
+    login/daftar. Persetujuan data (UU PDP) wajib → `my20fit_data_consent`. Sukses →
+    `/activity?welcome=visbody` (tampilan welcome = Fase 2). Endpoint: `GET /api/visbody/claim/info`,
+    `POST /api/visbody/claim`. Semua claim/penolakan/link/bind tercatat di `my20fit_visbody_claim_audit`.
+  - **Webhook:** event berikutnya untuk scan yang sama tak lagi menimpa pemilik/status (bug lama: upsert
+    penuh bisa mengosongkan pemilik saat event "completed" datang setelah claim); scan ber-pemilik +
+    "completed" → data ukur diambil.
+  - **Admin-v2 → Claim Visbody** (staff; marketing diblokir): daftar scan unclaimed tanpa angka ukur, buat
+    link claim baru (salin / WhatsApp `api.whatsapp.com/send`), ikat ke member by email (wajib centang
+    persetujuan disaksikan staf → consent `source=staff`). Endpoint `/api/admin/visbody/unclaimed|claim-link|bind`.
+  - **Health Score gating (`hsCompute`, satu fungsi — juga dipakai chat coach & achievements):** terbuka
+    hanya kalau ada ≥1 scan Visbody ter-claim ATAU ≥1 workout (log/upload) sepanjang waktu; terkunci →
+    `total:null` + `filled` (komponen terisi) tanpa angka. Workout: jendela bergulir 7 hari (config);
+    belum pernah workout → komponen "belum ada data" (dulu selalu dihitung → user kosong melihat
+    "0/100 Kritis"). Body: scan > 60 hari → ditandai "lama" & bobot ×0.5 (config). Ambang BMI/body fat
+    komponen Body masih angka lama — PERLU DIVALIDASI tim klinik. UI `/activity`: kartu terkunci
+    (2 jalur: Scan Visbody / Upload workout + komponen terisi ✓), kartu terbuka ("Berdasarkan n dari 6
+    komponen", CTA per komponen kosong, label "bukan penilaian medis").
+  - Diuji: 14 skenario server (kode asli server.js + DB tiruan in-memory — npm registry diblokir di
+    container, server utuh tak bisa dijalankan) + Chromium (halaman claim 7 state, kartu HS, admin).
+    **Belum diuji ke timbangan/API Visbody asli.**
 - **Ekosistem Activity: AI Coach chat + alur Visbody (2026-09-30, staging dulu).** Aturan chatbot: `RULES.md`.
   - Route baru (tanpa halaman duplikat): `/activity/chat`, `/activity/chat/:coach`, `/activity/plan[/:id]` →
     `coach.html`; `/activity/visbody` → `body-scan.html`. `/coach` & `/body-scan` tetap hidup.
@@ -389,8 +417,8 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     belum ada tabel apa pun berawalan `visbody` maupun `my20fit_visbody`.
   - **Scan TIDAK dicocokkan otomatis ke akun.** Identitas yang diketik di layar timbangan
     tidak terverifikasi, jadi mencocokkannya otomatis = menyerahkan data komposisi tubuh
-    seseorang ke akun yang belum tentu dia. Kepemilikan hanya lewat member memindai QR →
-    `POST /api/visbody/bind-user`, dengan jendela klaim **30 menit** dan klaim atomik
+    seseorang ke akun yang belum tentu dia. **(2026-09-30: alur claim diganti — lihat "Visbody
+    Journey Fase 1" di §2. `bind-user` + jendela 30 menit sudah DIHAPUS.)** Klaim tetap atomik
     (`.is("auth_user_id", null)`) supaya dua orang yang memindai QR sama tidak sama-sama dapat.
   - **QR dibuat di server** pakai `js/qrcode-generator.js` yang sudah ada di repo, BUKAN
     dikirim ke `api.qrserver.com` seperti contoh spesifikasi — scan_id tidak perlu bocor

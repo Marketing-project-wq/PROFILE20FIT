@@ -757,6 +757,13 @@
     if (profile.fitco_email_verified === false) return go("verify.html");
     if (!profileComplete(profile)) return go("onboarding.html");
     if (!hasWebPassword(user)) return go("setpassword.html");
+    // Link claim Visbody yang dibuka SEBELUM login (visbody-claim.html menyimpannya) -> kembali
+    // ke proses claim setelah login/daftar, walau lewat rantai verify/onboarding di atas.
+    try {
+      const pc = JSON.parse(localStorage.getItem("my20fit_pending_claim") || "null");
+      if (pc && pc.t && pc.exp > Date.now()) return go("/visbody-claim?t=" + encodeURIComponent(pc.t));
+      if (pc) localStorage.removeItem("my20fit_pending_claim");
+    } catch (e) {}
     // Datang dari subdomain lain via hub login (my.20fit.id/login?redirect=<url>): setelah login
     // penuh, bawa balik sesi ke sana lewat SSO. Diset di entry login.html/code-login.html.
     try {

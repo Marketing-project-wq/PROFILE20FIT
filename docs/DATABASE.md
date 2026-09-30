@@ -1,6 +1,6 @@
 # DATABASE — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `f69eba5` · **Production:** `d263b13`
+> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `bc008a5` · **Production:** `d263b13`
 > Sumber: `db/*.sql`, `supabase/`, dan pemakaian di `server.js`. Nama tabel & migration
 > terverifikasi dari file. **Detail kolom: buka file migration terkait** (di bawah tak
 > diisi kolom tebakan). Relasi umum lihat catatan.
@@ -73,6 +73,12 @@
   `plan` jsonb, `applied_at`, `updated_at`; RLS `auth.uid()=auth_user_id`). Meal plan dari chat coach yang diterapkan
   user → tampil di `/calories`. **Dijalankan 2026-09-30** (agent via koneksi Supabase, atas persetujuan eksplisit
   pemilik; aditif). Masuk `USER_DATA_TABLES` (ekspor/hapus data pribadi).
+- **`db/supabase-migration-028-visbody-claim.sql`** — kolom `claimed_at`/`claimed_via`/`viewed_at` di
+  `my20fit_visbody_scan`; tabel `my20fit_visbody_claim_token` (hash token claim, sekali pakai, RLS tanpa policy =
+  server saja), `my20fit_visbody_claim_audit` (jejak claim, tanpa FK supaya tetap ada walau scan dihapus),
+  `my20fit_data_consent` (persetujuan per user/tujuan/versi; user hanya bisa SELECT miliknya). **Dijalankan
+  2026-09-30** (agent via koneksi Supabase setelah pemilik memerintahkan "mulai fase"; aditif). `my20fit_visbody_scan`,
+  `my20fit_visbody_body`, `my20fit_data_consent` kini masuk `USER_DATA_TABLES`.
 - `supabase/functions/` — Edge Functions: `my20fit-ai`, `my20fit-foodimg`, `sync-ticket-events`, `ticket-embed` (TypeScript, di-deploy terpisah via Supabase). `ticket-embed` memegang secret `TICKET_EMBED_KEY` dan jadi **satu-satunya** jalur ke `ticket.20fit.id/api/embed/v1`; `server.js` tak punya env tiket sama sekali.
 
 ## Cara menjalankan migration

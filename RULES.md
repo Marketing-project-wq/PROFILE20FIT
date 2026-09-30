@@ -18,6 +18,8 @@ Elsen (detail & teknis). Teks persona: `COACH_PERSONAS` di `server.js`.
 - Satu fokus per balasan (1-2 hal terpenting); daftar maks 3 poin, 1 baris per poin; maks 1 pertanyaan penutup.
 - Lebih panjang HANYA kalau user minta detail. Saat buat plan: pengantar 1-2 kalimat, detail di blok JSON.
 - Jadwal kelas ditulis "Nama — Rab 30 Sep, 18:30" (bukan tanggal ISO), maks 2 kelas.
+- Health Score dibaca dari `health_score` (fungsi server `hsCompute`, sama dengan yang dilihat user). `total` null =
+  terkunci / belum ada data → jangan mengarang skor; jelaskan cara membuka: Visbody scan atau upload workout pertama.
 - **Tanpa sapaan pembuka** (Hi/Hai/Halo/Hey/Yo) — aplikasi sudah menampilkan sapaan coach di layar awal chat.
   Sapa balik singkat hanya kalau pesan user memang cuma sapaan. Server menaruh pengingat gaya singkat
   (`COACH_CHAT_REMINDER`) setelah riwayat, karena riwayat panjang cenderung menyeret model ke gaya lama.

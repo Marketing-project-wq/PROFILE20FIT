@@ -45,6 +45,7 @@
       <button class="adm-navitem" data-nav="events"><span data-i18n="Events">Event</span></button>
       <button class="adm-navitem" data-nav="rewards"><span data-i18n="Rewards">Rewards</span></button>
       <button class="adm-navitem" data-nav="coaches"><span data-i18n="Coaches">Coach</span></button>
+      <button class="adm-navitem" data-nav="visbody"><span data-i18n="Visbody claims">Claim Visbody</span></button>
       <button class="adm-navitem" data-nav="hometiles"><span data-i18n="Home grid">Grid Home</span></button>
 
       <div class="adm-navgroup" data-i18n="System">Sistem</div>
@@ -713,6 +714,13 @@
           </div>
         </div>
         <div id="dcList" style="margin-top:14px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+      </section>
+      <section data-section="visbody" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Claim Visbody" data-title-en="Visbody claims" data-question="Scan Visbody mana yang belum masuk ke akun member, dan bagaimana menyelesaikannya?" data-question-en="Which Visbody scans haven't reached a member account yet, and how do we resolve them?">
+        <div class="adm-note" data-i18n="Scans from the scale that nobody has claimed yet. No body measurements are shown here. Create a new claim link for the member (valid for a limited time, single use), or bind the scan to a member who is present and has agreed to data processing.">Scan dari timbangan yang belum di-claim siapa pun. Angka ukur tidak ditampilkan di sini. Buat link claim baru untuk member (berlaku terbatas, sekali pakai), atau ikat scan ke member yang hadir dan sudah menyetujui pemrosesan data.</div>
+        <div id="vsbOut" style="margin-top:12px"></div>
+        <div id="vsbList" style="margin-top:12px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+        <div class="adm-sec-title" data-i18n="Recent claim activity">Aktivitas claim terbaru</div>
+        <div id="vsbAudit"></div>
       </section>
       <section data-section="hometiles" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Grid Home" data-title-en="Home grid" data-question="Nyalakan/matikan kotak menu di homepage. Jumlah data ditampilkan supaya tak menyalakan kotak kosong." data-question-en="Turn homepage menu tiles on/off. Data counts shown so you don't enable an empty tile.">
         <div class="adm-note" data-i18n="Toggle each homepage tile. A tile backed by data shows its active count — don't switch one on while it reads 0.">Nyalakan/matikan tiap kotak homepage. Kotak berbasis data menampilkan jumlah aktifnya — jangan nyalakan kalau masih 0.</div>
@@ -1448,7 +1456,7 @@
   var ALLOWED={ superadmin:null, viewer:null,
     marketing:["overview","users","voucher","marketing","reports","settings","traffic","menustats","coaches","hometiles"],
     finance:["revenue","voucher","corporate","reports"],
-    staff:["users","scan","menu","menustats","coaches","hometiles"] };
+    staff:["users","scan","menu","menustats","coaches","hometiles","visbody"] };
   function roleDesc(role){
     var m={ superadmin:["Full access.","Akses penuh."], viewer:["Read only.","Baca saja."],
       marketing:["Voucher, campaign, segments, reports. No price/credit edits or health data.","Voucher, campaign, segmen, laporan. Tanpa ubah harga/kredit & data kesehatan."],
@@ -2501,12 +2509,76 @@
     if(id==="events") return loadEvents();
     if(id==="rewards") return loadRewards();
     if(id==="coaches") return loadCoaches();
+    if(id==="visbody") return loadVisbody();
     if(id==="hometiles") return loadHomeTiles();
     if(id==="traffic") return loadTraffic();
     if(id==="menustats") return loadMenuStats();
     if(id==="reports") return loadReports();
     if(id==="delivery") return loadDelivery();
     if(id==="articles") return loadArticles();
+  }
+
+  // ---------- Visbody: scan yang belum di-claim (/api/admin/visbody/*) ----------
+  var VSB_SCANS=[];
+  function vsbWhen(iso){ try{ return new Date(iso).toLocaleString("id-ID",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}); }catch(e){ return iso||""; } }
+  async function loadVisbody(){
+    var list=document.getElementById("vsbList"), aud=document.getElementById("vsbAudit"); if(!list) return;
+    try{
+      var res=await adminFetch("/api/admin/visbody/unclaimed");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ list.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; return; }
+      VSB_SCANS=j.scans||[];
+      var ret=j.retention_days?L("Kept for "+j.retention_days+" days.","Disimpan "+j.retention_days+" hari."):L("Retention not decided yet — unclaimed scans are kept.","Retensi belum diputuskan — scan unclaimed tetap disimpan.");
+      if(!VSB_SCANS.length){ list.innerHTML='<div class="adm-note">'+L("No unclaimed scans.","Tidak ada scan yang belum di-claim.")+' '+evEsc(ret)+'</div>'; }
+      else list.innerHTML='<div class="adm-note">'+VSB_SCANS.length+' '+L("unclaimed","belum di-claim")+' · '+evEsc(ret)+'</div>'+
+        '<table class="adm-table"><thead><tr><th>'+L("Scan time","Waktu scan")+'</th><th class="adm-right">'+L("Age","Umur")+'</th><th>'+L("Scale","Timbangan")+'</th><th>'+L("Typed on scale","Diketik di timbangan")+'</th><th>'+L("Data","Data")+'</th><th></th></tr></thead><tbody>'+
+        VSB_SCANS.map(function(s,i){
+          var age=Math.floor((Date.now()-new Date(s.scan_time).getTime())/864e5);
+          var who=[s.visbody_name, s.visbody_sex===1?"L":s.visbody_sex===2?"P":"", s.visbody_age?s.visbody_age+" th":""].filter(Boolean).join(" · ")||"—";
+          var bc=(s.measured_items&&s.measured_items.body_composition)||"—";
+          return '<tr><td>'+evEsc(vsbWhen(s.scan_time))+'</td><td class="adm-right">'+age+' '+L("d","hr")+'</td><td class="adm-mono">'+evEsc(s.device_sn)+'</td><td>'+evEsc(who)+'</td>'+
+            '<td><span class="adm-tag '+(bc==="completed"?"adm-tag--paid":"adm-tag--mute")+'">'+evEsc(bc)+'</span></td>'+
+            '<td class="adm-right"><button class="adm-btn adm-btn--sm vsbAct" data-a="link" data-i="'+i+'">'+L("Claim link","Link claim")+'</button> '+
+            '<button class="adm-btn adm-btn--sm vsbAct" data-a="bind" data-i="'+i+'">'+L("Bind to member","Ikat ke member")+'</button></td></tr>';
+        }).join("")+'</tbody></table>';
+      Array.prototype.forEach.call(list.querySelectorAll(".vsbAct"),function(b){ b.onclick=function(){ var s=VSB_SCANS[+b.dataset.i]; if(s) (b.dataset.a==="link"?vsbLink:vsbBindForm)(s); }; });
+      var A={claim:L("claimed by member","di-claim member"),claim_rejected:L("claim rejected","claim ditolak"),staff_bind:L("bound by staff","diikat staf"),link_created:L("link created","link dibuat")};
+      aud.innerHTML=(j.recent||[]).length?'<table class="adm-table"><tbody>'+(j.recent||[]).map(function(a){
+        var why=a.detail&&a.detail.reason?' ('+evEsc(a.detail.reason)+')':'';
+        return '<tr><td>'+evEsc(vsbWhen(a.created_at))+'</td><td>'+evEsc(A[a.action]||a.action)+why+'</td><td class="adm-mono">'+evEsc(String(a.scan_id).slice(0,12))+'…</td><td>'+evEsc(a.actor_admin||"")+'</td></tr>';
+      }).join("")+'</tbody></table>':'<div class="adm-note">'+L("No activity yet.","Belum ada aktivitas.")+'</div>';
+    }catch(e){ list.innerHTML='<div class="adm-note">'+L("Error loading.","Error memuat.")+'</div>'; }
+  }
+  async function vsbLink(s){
+    var out=document.getElementById("vsbOut");
+    var res=await adminPost("/api/admin/visbody/claim-link",{scan_id:s.scan_id});
+    var j=await res.json().catch(function(){return null;});
+    if(!j||!j.ok){ out.innerHTML='<div class="adm-note">'+L("Failed","Gagal")+': '+evEsc(await admErr(res,j))+'</div>'; return; }
+    var msg=L("Your Visbody result from 20FIT — tap to save it to your my.20fit.id account: ","Hasil Visbody kamu dari 20FIT — ketuk untuk menyimpan ke akun my.20fit.id: ")+j.url;
+    out.innerHTML='<div class="adm-callout" style="grid-template-columns:1fr"><b>'+L("Claim link (single use, valid ","Link claim (sekali pakai, berlaku ")+j.expires_hours+L(" h)"," jam)")+'</b>'+
+      '<input class="adm-input" id="vsbUrl" readonly value="'+evEsc(j.url)+'">'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="adm-btn adm-btn--sm" id="vsbCopy">'+L("Copy","Salin")+'</button>'+
+      '<a class="adm-btn adm-btn--sm" href="https://api.whatsapp.com/send?text='+encodeURIComponent(msg)+'">'+L("Share via WhatsApp","Kirim via WhatsApp")+'</a></div>'+
+      '<div class="adm-note">'+L("Send it only to the person who did this scan.","Kirim hanya ke orang yang melakukan scan ini.")+'</div></div>';
+    document.getElementById("vsbCopy").onclick=function(){ var i=document.getElementById("vsbUrl"); i.select(); try{ navigator.clipboard.writeText(i.value); }catch(e){ document.execCommand("copy"); } if(window.admToast) admToast(L("Copied","Tersalin")); };
+    loadVisbody();
+  }
+  function vsbBindForm(s){
+    var out=document.getElementById("vsbOut");
+    out.innerHTML='<div class="adm-callout" style="grid-template-columns:1fr"><b>'+L("Bind scan of ","Ikat scan ")+evEsc(vsbWhen(s.scan_time))+L(" to a member"," ke member")+'</b>'+
+      '<input class="adm-input" id="vsbEmail" type="email" placeholder="'+L("Member email (my.20fit.id account)","Email member (akun my.20fit.id)")+'">'+
+      '<label class="adm-note" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" id="vsbOk"> <span>'+L("The member is present, confirmed this is their scan, and agreed in front of me to 20FIT processing their body composition data (recorded as consent witnessed by staff).","Member hadir, memastikan ini scan miliknya, dan di depan saya menyetujui 20FIT memproses data komposisi tubuhnya (dicatat sebagai persetujuan yang disaksikan staf).")+'</span></label>'+
+      '<div style="display:flex;gap:8px"><button class="adm-btn adm-btn--primary adm-btn--sm" id="vsbDo">'+L("Bind","Ikat")+'</button><button class="adm-btn adm-btn--sm" id="vsbCancel">'+L("Cancel","Batal")+'</button></div><div class="adm-note" id="vsbMsg"></div></div>';
+    document.getElementById("vsbCancel").onclick=function(){ out.innerHTML=""; };
+    document.getElementById("vsbDo").onclick=async function(){
+      var m=document.getElementById("vsbMsg"), btn=this; btn.disabled=true;
+      var res=await adminPost("/api/admin/visbody/bind",{scan_id:s.scan_id,email:document.getElementById("vsbEmail").value,consent_witnessed:document.getElementById("vsbOk").checked});
+      var j=await res.json().catch(function(){return null;});
+      btn.disabled=false;
+      if(!j||!j.ok){ m.textContent=L("Failed: ","Gagal: ")+await admErr(res,j); return; }
+      out.innerHTML='<div class="adm-note">'+L("Bound to ","Terikat ke ")+evEsc(j.member.name||j.member.email)+(j.data_ready?"":L(" — measurements still processing."," — data ukur masih diproses."))+'</div>';
+      loadVisbody();
+    };
   }
 
   // ---------- CMS: Eat Now / pesan-antar (my20fit_menu_delivery_links) ----------

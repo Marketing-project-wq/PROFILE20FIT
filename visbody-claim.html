@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Simpan hasil Visbody · 20FIT</title>
+<style>
+  :root{--red:#C41101;--bg:#F3F2F0;--card:#FFFFFF;--line:#E8E2DB;--txt:#1A1714;--ink:#16170F;--muted:#8A7C68;--inp:#F0EDE5;--dark:#000;--pagetx:#16170F;--green:#2A7A4F;--amber:#C87000;--shadow:0 2px 12px rgba(0,0,0,.10)}
+  html:not(.theme-light){ --bg:#0C0D10;--card:#17191F;--line:#25272E;--txt:#F4F5F7;--ink:#F4F5F7;--muted:#8E9198;--inp:#23262E;--pagetx:#F4F5F7 }
+  *{box-sizing:border-box} a{color:inherit}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--pagetx);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:22px 18px 60px}
+  .wrap{max-width:520px;margin:0 auto}
+  .logobar{background:var(--dark);border-radius:16px;padding:13px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+  .logobar img{height:34px}
+  .lang{display:flex;gap:4px}
+  .lang button{border:1px solid #333;background:transparent;color:#bbb;border-radius:8px;padding:4px 9px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit}
+  .lang button.on{background:#fff;color:#000}
+  .sec{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+  .ic{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);margin-bottom:12px}
+  .ic svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .ic.ok{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}
+  .ic.warn{background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--amber)}
+  h1{font-size:20px;font-weight:900;margin:0 0 6px;color:var(--ink)}
+  p{margin:0 0 12px;font-size:14px;line-height:1.55;color:var(--muted)}
+  .who{font-size:13px;padding:10px 12px;border-radius:12px;background:var(--inp);margin:0 0 12px;color:var(--pagetx);overflow-wrap:anywhere}
+  .who b{color:var(--ink)}
+  .consent{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:12px;margin:0 0 12px;font-size:13px;line-height:1.55;color:var(--pagetx)}
+  .consent input{width:20px;height:20px;flex:0 0 auto;margin-top:1px;accent-color:var(--red)}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:46px;border:0;border-radius:12px;background:var(--red);color:#fff;font-weight:800;font-size:15px;padding:12px 18px;cursor:pointer;font-family:inherit;text-decoration:none;margin-top:8px}
+  .btn:disabled{opacity:.55;cursor:default}
+  .btn.out{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  .err{color:var(--red);font-size:13px;font-weight:700;margin:8px 0 0}
+  .err:empty{display:none}
+  .small{font-size:12px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logobar"><img src="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" alt="20FIT" />
+      <div class="lang"><button type="button" data-lang-btn="id" onclick="I18N.setLang('id')">ID</button><button type="button" data-lang-btn="en" onclick="I18N.setLang('en')">EN</button></div></div>
+    <div class="sec" id="box" aria-live="polite"><p>…</p></div>
+  </div>
+  <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+  <script src="js/vendor-supabase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/i18n.js"></script>
+  <script>
+  // Claim hasil scan Visbody lewat link bertoken (QR timbangan / link dari staf).
+  // Belum login -> token disimpan (my20fit_pending_claim) lalu ke /login; Auth.routeAfterAuth
+  // mengembalikan member ke sini setelah login/daftar. Persetujuan data WAJIB sebelum claim.
+  (function(){
+    var TOKEN=new URLSearchParams(location.search).get("t")||"";
+    var PENDING="my20fit_pending_claim";
+    var ICON={
+      scan:'<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/>',
+      ok:'<path d="M20 6 9 17l-5-5"/>',
+      warn:'<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>'
+    };
+    var INFO=null, USER=null;
+    function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+    function T(o){return window.L?L(o):o.id;}
+    function el(id){return document.getElementById(id);}
+    function card(kind,title,body,extra){
+      el("box").innerHTML='<div class="ic '+(kind==="ok"?"ok":kind==="warn"?"warn":"")+'"><svg viewBox="0 0 24 24">'+ICON[kind==="ok"?"ok":kind==="warn"?"warn":"scan"]+'</svg></div>'+
+        '<h1>'+esc(title)+'</h1><p>'+esc(body)+'</p>'+(extra||"");
+    }
+    function clearPending(){ try{ localStorage.removeItem(PENDING); }catch(e){} }
+    function when(iso){ try{ return new Date(iso).toLocaleString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}); }catch(e){ return ""; } }
+    var HELP={en:"Ask 20FIT staff for a new link.",id:"Minta link baru ke staf 20FIT."};
+    var CONSENT={
+      en:"I agree that 20FIT processes my body composition data from Visbody (weight, body fat, muscle mass, BMR, etc.) to show it in my my.20fit.id account, calculate my Health Score and tailor workout & nutrition suggestions. This is health data (specific personal data under Indonesia's PDP Law No. 27/2022). I can download or delete my data anytime from my Profile.",
+      id:"Saya setuju 20FIT memproses data komposisi tubuh saya dari Visbody (berat, lemak tubuh, massa otot, BMR, dll.) untuk ditampilkan di akun my.20fit.id saya, menghitung Health Score, dan menyesuaikan saran latihan & nutrisi. Data ini termasuk data kesehatan (data pribadi spesifik, UU PDP No. 27/2022). Saya bisa mengunduh atau menghapus data saya kapan saja di Profil."
+    };
+    var ERR={
+      already_claimed:{en:"This scan already belongs to another account. If that's wrong, contact 20FIT staff.",id:"Scan ini sudah jadi milik akun lain. Kalau itu keliru, hubungi staf 20FIT."},
+      token_used:{en:"This link has already been used.",id:"Link ini sudah pernah dipakai."},
+      claim_expired:{en:"This link has expired.",id:"Link ini sudah kedaluwarsa."},
+      invalid_token:{en:"This link isn't valid.",id:"Link ini tidak valid."},
+      consent_required:{en:"Please tick the consent box first.",id:"Centang persetujuan dulu ya."}
+    };
+
+    function render(){
+      var s=INFO&&INFO.state;
+      if(!TOKEN||!INFO||s==="invalid"){ clearPending(); return card("warn",T({en:"Link not valid",id:"Link tidak valid"}),T(ERR.invalid_token)+" "+T(HELP)); }
+      if(s==="mine"){ clearPending(); return card("ok",T({en:"Already in your account",id:"Sudah ada di akunmu"}),T({en:"This scan is already linked to your account.",id:"Scan ini sudah terhubung ke akunmu."}),
+        '<a class="btn" href="/activity?welcome=visbody">'+esc(T({en:"See my results →",id:"Lihat hasilku →"}))+'</a>'); }
+      if(s==="claimed"){ clearPending(); return card("warn",T({en:"Scan already claimed",id:"Scan sudah di-claim"}),T(ERR.already_claimed)); }
+      if(s==="used"){ clearPending(); return card("warn",T({en:"Link already used",id:"Link sudah dipakai"}),T(ERR.token_used)+" "+T(HELP)); }
+      if(s==="expired"){ clearPending(); return card("warn",T({en:"Link expired",id:"Link kedaluwarsa"}),T(ERR.claim_expired)+" "+T(HELP)); }
+      var title=T({en:"Save your Visbody result",id:"Simpan hasil Visbody kamu"});
+      var body=T({en:"Scan from ",id:"Scan tanggal "})+when(INFO.scan_time)+". "+T({en:"Link it to your my.20fit.id account to see the full result, unlock your Health Score and get a more accurate plan.",id:"Hubungkan ke akun my.20fit.id untuk melihat hasil lengkap, membuka Health Score, dan dapat plan yang lebih tepat."});
+      if(!USER){
+        return card("scan",title,body,
+          '<button type="button" class="btn" id="goLogin">'+esc(T({en:"Log in / Sign up to save",id:"Masuk / Daftar untuk menyimpan"}))+'</button>'+
+          '<p class="small" style="margin-top:10px">'+esc(T({en:"You'll come back here right after logging in.",id:"Setelah masuk, kamu langsung kembali ke halaman ini."}))+'</p>');
+      }
+      card("scan",title,body,
+        '<div class="who">'+esc(T({en:"Will be saved to: ",id:"Akan disimpan ke akun: "}))+'<b>'+esc(USER.email||"")+'</b></div>'+
+        (INFO.consent_needed?'<label class="consent"><input type="checkbox" id="cs"> <span>'+esc(T(CONSENT))+' <a href="/privacy">'+esc(T({en:"Privacy policy",id:"Kebijakan privasi"}))+'</a></span></label>':'')+
+        '<button type="button" class="btn" id="doClaim"'+(INFO.consent_needed?' disabled':'')+'>'+esc(T({en:"Save to my account",id:"Simpan ke akunku"}))+'</button>'+
+        '<button type="button" class="btn out" id="swAcc">'+esc(T({en:"Not you? Switch account",id:"Bukan kamu? Ganti akun"}))+'</button>'+
+        '<div class="err" id="err" role="alert"></div>');
+      var cs=el("cs"); if(cs) cs.onchange=function(){ el("doClaim").disabled=!cs.checked; };
+      el("doClaim").onclick=doClaim;
+      el("swAcc").onclick=async function(){ savePending(); try{ await Auth.signOut(); }catch(e){} location.href="/login"; };
+    }
+    function savePending(){ try{ localStorage.setItem(PENDING,JSON.stringify({t:TOKEN,exp:Date.now()+24*3600*1000})); }catch(e){} }
+    document.addEventListener("click",function(e){
+      if(e.target&&e.target.id==="goLogin"){ savePending(); location.href="/login"; }
+    });
+
+    async function doClaim(){
+      var b=el("doClaim"), er=el("err"); b.disabled=true; er.textContent="";
+      try{
+        var tk=await Auth.token();
+        var r=await fetch("/api/visbody/claim",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
+          body:JSON.stringify({token:TOKEN,consent:!!(el("cs")&&el("cs").checked)})});
+        var j=await r.json().catch(function(){return {};});
+        if(r.ok&&j.ok){
+          clearPending();
+          card("ok",T({en:"Saved to your account!",id:"Tersimpan di akunmu!"}),
+            j.data_ready||j.already?T({en:"Taking you to your results…",id:"Mengarahkan ke hasilmu…"}):T({en:"Your result is still being processed by the scale — it will appear in Activity shortly.",id:"Hasilnya masih diproses timbangan — sebentar lagi muncul di Activity."}));
+          setTimeout(function(){ location.replace(j.redirect||"/activity?welcome=visbody"); },1200);
+          return;
+        }
+        if(r.status===401){ savePending(); location.href="/login"; return; }
+        var m=ERR[j.error];
+        if(j.error==="already_claimed"||j.error==="token_used"||j.error==="claim_expired"||j.error==="invalid_token"){ await load(); return; }
+        er.textContent=m?T(m):T({en:"Couldn't save. Please try again.",id:"Gagal menyimpan. Coba lagi."});
+      }catch(e){ er.textContent=T({en:"Network problem — try again.",id:"Masalah jaringan — coba lagi."}); }
+      b.disabled=!!(el("cs")&&!el("cs").checked);
+    }
+
+    async function load(){
+      try{ USER=await Auth.getUser(); }catch(e){ USER=null; }
+      if(!TOKEN){ INFO=null; return render(); }
+      try{
+        var h={}; if(USER){ var tk=await Auth.token(); if(tk) h.Authorization="Bearer "+tk; }
+        var r=await fetch("/api/visbody/claim/info?t="+encodeURIComponent(TOKEN),{headers:h});
+        var j=await r.json().catch(function(){return null;});
+        if(!r.ok||!j||!j.ok){ el("box").innerHTML='<p>'+esc(T({en:"Couldn't check this link right now.",id:"Link belum bisa dicek sekarang."}))+'</p><button type="button" class="btn" id="retry">'+esc(T({en:"Try again",id:"Coba lagi"}))+'</button>'; el("retry").onclick=load; return; }
+        INFO=j;
+      }catch(e){ INFO=null; }
+      render();
+    }
+    if(window.I18N&&I18N.onChange) I18N.onChange(function(){ if(INFO) render(); });
+    load();
+  })();
+  </script>
+</body>
+</html>
