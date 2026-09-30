@@ -157,7 +157,10 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 - **Ekosistem Activity: AI Coach chat + alur Visbody (2026-09-30, staging dulu).** Aturan chatbot: `RULES.md`.
   - Route baru (tanpa halaman duplikat): `/activity/chat`, `/activity/chat/:coach`, `/activity/plan[/:id]` →
     `coach.html`; `/activity/visbody` → `body-scan.html`. `/coach` & `/body-scan` tetap hidup.
-    `/activity/plan/:id` saat ini selalu menampilkan **plan aktif** (belum ada daftar riwayat plan).
+    `/activity/plan` = plan aktif (checklist per hari) + **Semua plan**; `/activity/plan/:id` = detail plan
+    lama + tombol "Jadikan plan aktif" (`GET /api/coach/plans`, `GET /api/coach/plans/:id`,
+    `POST /api/coach/plan/activate`). Kartu Active Plan di `/activity`: "oleh Coach X", durasi per hari
+    (plan dari chat), penanda "← hari ini" kalau label hari = nama hari.
   - Chat: balasan berisi blok JSON `workout_plan` → otomatis jadi plan aktif (`my20fit_workout_plan`,
     `source="chat"`); kelas upcoming milik coach persona masuk konteks (rekomendasi kelas coach sendiri);
     ajakan Visbody scan kalau user belum punya data; token tombol `[[BOOK_CLASS]]` `[[BOOK_DOCTOR]]`
@@ -169,8 +172,9 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     `/dashboard` mengarahkan ke `/activity` SEKALI per scan baru. Calories & Medical punya tombol
     "tanya coach" (`?ask=` hanya mengisi kotak pesan, tidak auto-kirim).
   - Model chat: server kirim `tier:"complex"` untuk plan/analisa; edge `my20fit-ai` memakai env
-    `AI_MODEL_CHAT_COMPLEX` (default = `AI_MODEL_CHAT`). **Perubahan edge fn BELUM di-deploy** dan env
-    belum di-set — **TANYA PEMILIK** model apa yang mau dipakai (biaya OpenRouter).
+    `AI_MODEL_CHAT_COMPLEX` (default = `AI_MODEL_CHAT`). **Perubahan edge fn BELUM di-deploy** (v55 live =
+    versi repo sebelum perubahan ini, sudah dicek 2026-09-30) dan env belum di-set — **TANYA PEMILIK** model apa
+    yang mau dipakai (biaya OpenRouter); deploy bareng pengisian env. Sampai itu, `model_used` tersimpan null.
   - **TANYA PEMILIK:** URL "Book Visit" untuk Visbody scan (sekarang chatbot memakai Google Maps Arena + Book Class).
 - **Hotfix (2026-09-30, sudah di production):** halaman di path bertingkat (`/auth/callback`,
   `/activity/history`, `/payment/*`) memuat `js/*.js` relatif → diminta di `/auth/js/...` → catch-all

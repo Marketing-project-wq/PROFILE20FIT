@@ -464,6 +464,9 @@
   .plan-active-day b{color:var(--a-txt)}
   .plan-active-day.done{border-color:color-mix(in srgb,#16A34A 45%,var(--a-line));background:color-mix(in srgb,#16A34A 8%,transparent)}
   .plan-active-day:disabled{opacity:.5}
+  .plan-active-day.today{border-color:color-mix(in srgb,var(--fit-red,#E4002B) 55%,var(--a-line))}
+  .plan-active-day .pad-min{color:var(--a-mut)}
+  .plan-active-day .pad-today{color:var(--fit-red,#E4002B);font-weight:800}
   /* Tab bar: Dashboard | Chat | Plan | History */
   .atabs{display:flex;gap:6px;background:color-mix(in srgb,var(--a-txt) 5%,transparent);border:1px solid var(--a-line);border-radius:14px;padding:5px;margin:0 0 14px;overflow-x:auto}
   .atabs::-webkit-scrollbar{height:0}
@@ -1791,13 +1794,20 @@
       return;
     }
     var done=days.filter(function(d){ return d&&d.done; }).length;
-    var meta=[p.plan_name||"", WPLAN.level||p.level||""].filter(Boolean).join(" · ");
+    var by=(p.coach&&COACH_NAME_TPL[p.coach])?Lx({en:"by Coach ",id:"oleh Coach "})+COACH_NAME_TPL[p.coach]:"";
+    var meta=[p.plan_name||"", by||WPLAN.level||p.level||""].filter(Boolean).join(" · ");
+    // Label hari = nama hari (plan dari chat: "Senin"/"Monday") -> tandai hari ini.
+    var wd=new Date().getDay(), tdy=[["min","sun"],["sen","mon"],["sel","tue"],["rab","wed"],["kam","thu"],["jum","fri"],["sab","sat"]][wd];
+    function isToday(d){ var l=String(d.label||"").trim().toLowerCase().slice(0,3); return tdy.indexOf(l)>=0; }
     host.innerHTML='<div class="plan-active"><div class="plan-active-hd"><span>🏋️ <b>Plan</b>'+(meta?' · '+esc(meta):'')+'</span>'+
       '<span class="plan-active-cnt">'+done+'/'+days.length+' '+esc(Lx({en:"done",id:"selesai"}))+'</span>'+
       '<a class="acard-act" href="/activity/plan">'+esc(Lx({en:"Detail →",id:"Detail →"}))+'</a></div>'+
       '<div class="plan-active-bar">'+days.map(function(d){
-        return '<button type="button" class="plan-active-day'+(d.done?" done":"")+'" data-k="'+esc(d.key||"")+'" aria-pressed="'+(d.done?"true":"false")+'">'+
-          (d.done?"✅":"⬜")+' <b>'+esc(String(d.label||""))+'</b>'+(d.focus?' '+esc(String(d.focus)):'')+'</button>';
+        var now=isToday(d);
+        return '<button type="button" class="plan-active-day'+(d.done?" done":"")+(now?" today":"")+'" data-k="'+esc(d.key||"")+'" aria-pressed="'+(d.done?"true":"false")+'">'+
+          (d.done?"✅":"⬜")+' <b>'+esc(String(d.label||""))+'</b>'+(d.focus?' '+esc(String(d.focus)):'')+
+          (d.duration_min?' <span class="pad-min">('+(+d.duration_min)+' min)</span>':'')+
+          (now?' <span class="pad-today">← '+esc(Lx({en:"today",id:"hari ini"}))+'</span>':'')+'</button>';
       }).join("")+'</div></div>';
     Array.prototype.forEach.call(host.querySelectorAll(".plan-active-day"),function(b){
       b.onclick=async function(){
