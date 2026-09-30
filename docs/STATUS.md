@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `5f30f1c` · **Production:** `5966889`
+> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `f69eba5` · **Production:** `d263b13`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -164,7 +164,13 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   - Chat: balasan berisi blok JSON `workout_plan` → otomatis jadi plan aktif (`my20fit_workout_plan`,
     `source="chat"`); kelas upcoming milik coach persona masuk konteks (rekomendasi kelas coach sendiri);
     ajakan Visbody scan kalau user belum punya data; token tombol `[[BOOK_CLASS]]` `[[BOOK_DOCTOR]]`
-    `[[ARENA_MAPS]]` `[[VISBODY]]` `[[PLAN_SAVED]]`. Header chat: streak + level.
+    `[[ARENA_MAPS]]` `[[VISBODY]]` `[[TRACK_MEAL]]` `[[PLAN_SAVED]]`. Header chat: streak + level.
+    Balasan singkat & **tanpa sapaan pembuka** (pengingat gaya ditaruh setelah riwayat).
+  - **Meal plan dari coach (migration 027, dijalankan 2026-09-30):** blok JSON `meal_plan` di balasan →
+    kartu di chat + tombol **"Terapkan meal plan"** (`POST /api/coach/meal-plan/apply`, divalidasi ulang di server)
+    → tersimpan di `my20fit_coach_meal_plan` (1 baris/user) → bagian Meal Plan di `/calories` berganti jadi
+    "Meal plan dari Coach X" (tombol "Catat" per menu → masuk log hari ini; karbo/lemak 0 karena coach hanya memberi
+    kkal & protein) + tombol "Kembali ke rekomendasi otomatis" (`POST /api/coach/meal-plan/clear`).
   - Gamifikasi (XP, level, streak aktivitas, 7 badge baru) **dihitung dari data yang ada** di
     `/api/coach/achievements` — tabel `user_gamification`/`health_scores` dari spec SENGAJA tidak dibuat.
   - **Kotak profil coach (carousel)** — satu modul `js/coach-profiles.js` + `css/coach-profiles.css`, dipakai
