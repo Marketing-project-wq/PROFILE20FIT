@@ -32,6 +32,7 @@
       <button class="adm-navitem" data-nav="scan"><span data-i18n="Scan activity">Aktivitas scan</span></button>
       <button class="adm-navitem" data-nav="revenue"><span data-i18n="Revenue">Revenue</span><span class="adm-tag adm-tag--pending" id="navRevBadge" hidden></span></button>
       <button class="adm-navitem" data-nav="traffic"><span data-i18n="Traffic sources">Sumber trafik</span></button>
+      <button class="adm-navitem" data-nav="journey"><span data-i18n="Visbody funnel">Funnel Visbody</span></button>
 
       <div class="adm-navgroup" data-i18n="Manage">Kelola</div>
       <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
@@ -714,6 +715,12 @@
           </div>
         </div>
         <div id="dcList" style="margin-top:14px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+      </section>
+      <section data-section="journey" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Funnel Visbody" data-title-en="Visbody funnel" data-question="Di tahap mana user berhenti: ajakan → scan → claim → hasil dilihat → coach → plan → kelas → rescan?" data-question-en="Where do users drop off: nudge → scan → claim → result viewed → coach → plan → class → rescan?">
+        <div class="adm-note" data-i18n="Unique users per event per week (Mon–Sun, UTC). 'Scan received' counts scans (no user yet). Class booked = user opened booking from the checklist; the booking itself happens on booking.20fit.id and isn't verified here.">User unik per event per minggu (Sen–Min, UTC). "Scan masuk" menghitung scan (belum ada user). Book kelas = user membuka booking dari checklist; booking-nya sendiri di booking.20fit.id dan tidak terverifikasi di sini.</div>
+        <div id="jfTable" style="margin-top:12px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+        <div class="adm-sec-title" data-i18n="Feature tours — where users stop">Tur fitur — di mana user berhenti</div>
+        <div id="jfTours"></div>
       </section>
       <section data-section="visbody" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Claim Visbody" data-title-en="Visbody claims" data-question="Scan Visbody mana yang belum masuk ke akun member, dan bagaimana menyelesaikannya?" data-question-en="Which Visbody scans haven't reached a member account yet, and how do we resolve them?">
         <div class="adm-note" data-i18n="Scans from the scale that nobody has claimed yet. No body measurements are shown here. Create a new claim link for the member (valid for a limited time, single use), or bind the scan to a member who is present and has agreed to data processing.">Scan dari timbangan yang belum di-claim siapa pun. Angka ukur tidak ditampilkan di sini. Buat link claim baru untuk member (berlaku terbatas, sekali pakai), atau ikat scan ke member yang hadir dan sudah menyetujui pemrosesan data.</div>
@@ -1454,9 +1461,9 @@
 
   // ---- ROLE-BASED NAV (Langkah 6) ----
   var ALLOWED={ superadmin:null, viewer:null,
-    marketing:["overview","users","voucher","marketing","reports","settings","traffic","menustats","coaches","hometiles"],
+    marketing:["overview","users","voucher","marketing","reports","settings","traffic","menustats","coaches","hometiles","journey"],
     finance:["revenue","voucher","corporate","reports"],
-    staff:["users","scan","menu","menustats","coaches","hometiles","visbody"] };
+    staff:["users","scan","menu","menustats","coaches","hometiles","visbody","journey"] };
   function roleDesc(role){
     var m={ superadmin:["Full access.","Akses penuh."], viewer:["Read only.","Baca saja."],
       marketing:["Voucher, campaign, segments, reports. No price/credit edits or health data.","Voucher, campaign, segmen, laporan. Tanpa ubah harga/kredit & data kesehatan."],
@@ -2510,12 +2517,39 @@
     if(id==="rewards") return loadRewards();
     if(id==="coaches") return loadCoaches();
     if(id==="visbody") return loadVisbody();
+    if(id==="journey") return loadJourneyFunnel();
     if(id==="hometiles") return loadHomeTiles();
     if(id==="traffic") return loadTraffic();
     if(id==="menustats") return loadMenuStats();
     if(id==="reports") return loadReports();
     if(id==="delivery") return loadDelivery();
     if(id==="articles") return loadArticles();
+  }
+
+  // ---------- Funnel Visbody + tur (/api/admin/journey/funnel) ----------
+  var JF_LABEL={
+    nudge_visbody_shown:["Nudge Visbody shown","Ajakan Visbody tampil"], nudge_visbody_clicked:["Nudge Visbody clicked","Ajakan Visbody diklik"],
+    visbody_booking_clicked:["Schedule-scan clicked","Klik jadwalkan scan"], visbody_scan_received:["Scan received (scans)","Scan masuk (jumlah scan)"],
+    visbody_scan_claimed:["Scan claimed","Scan di-claim"], activity_landing_after_claim:["Landed on Activity after claim","Mendarat di Activity setelah claim"],
+    visbody_result_viewed:["Full result viewed","Hasil lengkap dilihat"], coach_chat_started:["Coach chat started","Chat coach dimulai"],
+    workout_plan_created:["Workout plan created","Workout plan dibuat"], class_booked:["Opened class booking","Buka booking kelas"],
+    rescan_reminder_sent:["Rescan reminder shown","Pengingat rescan tampil"], rescan_completed:["Rescan done","Rescan selesai"],
+    health_score_locked_shown:["Health Score locked shown","Health Score terkunci tampil"], health_score_unlocked:["Health Score unlocked","Health Score terbuka"]
+  };
+  async function loadJourneyFunnel(){
+    var box=document.getElementById("jfTable"), tb=document.getElementById("jfTours"); if(!box) return;
+    try{
+      var res=await adminFetch("/api/admin/journey/funnel?weeks=8");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ box.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; return; }
+      box.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Stage","Tahap")+'</th>'+j.weeks.map(function(w){ return '<th class="adm-right">'+evEsc(w.slice(5))+'</th>'; }).join("")+'</tr></thead><tbody>'+
+        j.rows.map(function(r){ var lb=JF_LABEL[r.event]||[r.event,r.event];
+          return '<tr><td>'+evEsc(L(lb[0],lb[1]))+'</td>'+r.weeks.map(function(n){ return '<td class="adm-right adm-mono">'+(n||'<span class="adm-note" style="margin:0">0</span>')+'</td>'; }).join("")+'</tr>'; }).join("")+'</tbody></table>';
+      var keys=Object.keys(j.tours||{}).sort();
+      tb.innerHTML=keys.length?'<table class="adm-table"><thead><tr><th>'+L("Tour · event","Tur · event")+'</th><th class="adm-right">'+L("Count (8 wk)","Jumlah (8 mgg)")+'</th></tr></thead><tbody>'+
+        keys.map(function(k){ return '<tr><td class="adm-mono">'+evEsc(k.replace("|"," · "))+'</td><td class="adm-right adm-mono">'+j.tours[k]+'</td></tr>'; }).join("")+'</tbody></table>':
+        '<div class="adm-note">'+L("No tour activity yet.","Belum ada aktivitas tur.")+'</div>';
+    }catch(e){ box.innerHTML='<div class="adm-note">'+L("Error loading.","Error memuat.")+'</div>'; }
   }
 
   // ---------- Visbody: scan yang belum di-claim (/api/admin/visbody/*) ----------
