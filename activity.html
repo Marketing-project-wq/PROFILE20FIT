@@ -413,12 +413,13 @@
   .qa-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
   .qa-tile{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 6px;border:1px solid var(--a-line);border-radius:14px;background:var(--a-surface);
     text-decoration:none;color:var(--a-txt);font-size:12px;font-weight:700;text-align:center;line-height:1.25;min-width:0}
-  .qa-tile .qa-i{font-size:20px;line-height:1}
+  .qa-tile .qa-i{line-height:1;color:var(--fit-red,#E4002B)}
   .ts-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   .ts-card{padding:11px 10px;border:1px solid var(--a-line);border-radius:14px;background:var(--a-surface);min-width:0;cursor:pointer;text-align:left;font-family:inherit;color:var(--a-txt)}
   .ts-l{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--a-mut)}
   .ts-v{font-size:16px;font-weight:800;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ts-s{font-size:11.5px;color:var(--a-mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ts-s.ok{color:var(--fit-green);font-weight:700} .ts-s.low{color:var(--fit-amber);font-weight:700}
   .dual-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
   @media(max-width:767px){ .dual-cards{gap:8px} }
   .up-s{font-size:12px;color:var(--a-mut);line-height:1.4}
@@ -438,7 +439,7 @@
   .plan-today-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
   @media(max-width:767px){ .plan-today-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
   .plan-mini{padding:10px 8px;border:1px solid var(--a-line);border-radius:10px;text-align:center;display:flex;flex-direction:column;align-items:center;min-width:0}
-  .plan-mini-icon{font-size:20px;line-height:1;margin-bottom:4px}
+  .plan-mini-icon{line-height:1;margin-bottom:4px;color:var(--fit-red,#E4002B)}
   .plan-mini-value{font-size:15px;font-weight:800;color:var(--a-txt);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .plan-mini-label{font-size:10.5px;color:var(--a-mut);margin-top:2px;line-height:1.3}
   .plan-mini button{margin-top:6px;padding:3px 8px;border-radius:6px;border:1px solid var(--a-line);background:none;font-size:10.5px;font-weight:700;cursor:pointer;color:var(--a-txt);font-family:inherit}
@@ -533,10 +534,10 @@
 
     <!-- QUICK ACTIONS -->
     <div class="qa-grid">
-      <a class="qa-tile" href="/activity/chat"><span class="qa-i">💬</span><span data-en="Chat Coach" data-id="Chat Coach">Chat Coach</span></a>
-      <a class="qa-tile" href="/activity/plan"><span class="qa-i">📋</span><span data-en="Workout Plan" data-id="Workout Plan">Workout Plan</span></a>
-      <a class="qa-tile" href="/activity/visbody"><span class="qa-i">📊</span><span data-en="Visbody Results" data-id="Hasil Visbody">Hasil Visbody</span></a>
-      <a class="qa-tile" href="/book-class"><span class="qa-i">📅</span><span data-en="Book Class" data-id="Book Class">Book Class</span></a>
+      <a class="qa-tile" href="/activity/chat"><span class="qa-i"><span class="fic" data-ic="chat" data-ic-size="22"></span></span><span data-en="Chat Coach" data-id="Chat Coach">Chat Coach</span></a>
+      <a class="qa-tile" href="/activity/plan"><span class="qa-i"><span class="fic" data-ic="clipboard" data-ic-size="22"></span></span><span data-en="Workout Plan" data-id="Workout Plan">Workout Plan</span></a>
+      <a class="qa-tile" href="/activity/visbody"><span class="qa-i"><span class="fic" data-ic="scan" data-ic-size="22"></span></span><span data-en="Visbody Results" data-id="Hasil Visbody">Hasil Visbody</span></a>
+      <a class="qa-tile" href="/book-class"><span class="qa-i"><span class="fic" data-ic="calendar" data-ic-size="22"></span></span><span data-en="Book Class" data-id="Book Class">Book Class</span></a>
     </div>
 
     <!-- TODAY'S SUMMARY — angka nyata hari terpilih (workout / tidur / air) -->
@@ -545,18 +546,18 @@
     <!-- 2 kartu berdampingan (juga di mobile) -->
     <div class="dual-cards">
       <div class="acard" id="uploadCard">
-        <div class="acard-hd"><span class="acard-title">📤 <span data-en="Upload Progress" data-id="Upload Progress">Upload Progress</span></span></div>
+        <div class="acard-hd"><span class="acard-title"><span class="fic" data-ic="upload" data-ic-size="14"></span> <span data-en="Upload Progress" data-id="Upload Progress">Upload Progress</span></span></div>
         <div class="up-s" data-en="Upload a workout, sleep or daily-activity screenshot" data-id="Upload screenshot workout, sleep, atau daily activity">Upload screenshot workout, sleep, atau daily activity</div>
         <div class="up-btns">
-          <button type="button" id="upCam">📷 <span data-en="Photo" data-id="Foto">Foto</span></button>
-          <button type="button" id="upFile">📁 <span data-en="File" data-id="File">File</span></button>
+          <button type="button" id="upCam"><span class="fic" data-ic="camera" data-ic-size="16"></span> <span data-en="Photo" data-id="Foto">Foto</span></button>
+          <button type="button" id="upFile"><span class="fic" data-ic="folder" data-ic-size="16"></span> <span data-en="File" data-id="File">File</span></button>
         </div>
         <div class="up-last" id="upLast"></div>
         <input type="file" id="tplCam" accept="image/*" capture="environment" style="display:none">
         <input type="file" id="tplFile" accept="image/*,.heic,.heif" style="display:none">
       </div>
       <div class="acard" id="weeklyRecapCard">
-        <div class="acard-hd"><span class="acard-title">📅 <span data-en="Weekly Recap" data-id="Weekly Recap">Weekly Recap</span></span></div>
+        <div class="acard-hd"><span class="acard-title"><span class="fic" data-ic="calendar" data-ic-size="14"></span> <span data-en="Weekly Recap" data-id="Weekly Recap">Weekly Recap</span></span></div>
         <div id="weeklyRecapBox"><div class="skel" style="height:64px;border-radius:10px"></div></div>
         <a class="acard-link" href="/activity/history" data-en="See details →" data-id="Lihat Detail →">Lihat Detail →</a>
       </div>
@@ -1016,7 +1017,7 @@
       }).join("")+'</div>';
     }
     host.innerHTML='<div class="card pwm">'+
-      '<div class="pwm-h"><span class="pwm-emo">🍽️</span><span>'+esc(Lx({en:"Post-workout: what to eat",id:"Post-Workout: apa yang dimakan"}))+'</span></div>'+
+      '<div class="pwm-h"><span class="pwm-emo">'+FIC("meal",18)+'</span><span>'+esc(Lx({en:"Post-workout: what to eat",id:"Post-Workout: apa yang dimakan"}))+'</span></div>'+
       '<div class="pwm-sub">'+esc(burnLine)+'</div>'+
       '<ul class="pwm-tips">'+
         '<li>'+esc(Lx({en:"Protein 25–30 g (eggs, chicken, fish, whey)",id:"Protein 25–30 g (telur, ayam, ikan, whey)"}))+'</li>'+
@@ -1528,11 +1529,11 @@
     var sh=(SLEEP&&SLEEP.duration_hours!=null)?+SLEEP.duration_hours:null;
     var ml=(HYDRA||[]).reduce(function(a,r){return a+(+r.amount_ml||0);},0), pct=Math.round(ml/HYD_TARGET*100);
     var lbl=SEL===todayStr()?Lx({en:"Today",id:"Hari ini"}):SEL;
-    function card(go,ic,l,v,sub){ return '<button type="button" class="ts-card" data-go="'+go+'"><div class="ts-l">'+ic+' '+esc(l)+'</div><div class="ts-v">'+esc(v)+'</div><div class="ts-s">'+esc(sub)+'</div></button>'; }
+    function card(go,ic,l,v,sub,ok){ return '<button type="button" class="ts-card" data-go="'+go+'"><div class="ts-l">'+ic+' '+esc(l)+'</div><div class="ts-v">'+esc(v)+'</div><div class="ts-s'+(ok===true?" ok":ok===false?" low":"")+'">'+esc(sub)+'</div></button>'; }
     host.innerHTML=
-      card("woBox","🏃",Lx({en:"Workout",id:"Workout"})+" · "+lbl, ws.length?(min+" min"):"—", ws.length?(kcal?kcal+" kcal":ws.length+"x"):Lx({en:"Not logged yet",id:"Belum dicatat"}))+
-      card("sleepBox","😴",Lx({en:"Sleep",id:"Tidur"}), sh!=null?durLabel(sh):"—", sh==null?Lx({en:"Not logged yet",id:"Belum dicatat"}):(sh>=7?Lx({en:"Good ✅",id:"Cukup ✅"}):Lx({en:"Short ⚠️",id:"Kurang ⚠️"})))+
-      card("hydraBox","💧",Lx({en:"Water",id:"Air"}), (ml/1000).toFixed(2).replace(/0$/,"")+" L", pct+"%"+(pct>=100?" ✅":" ⚠️"));
+      card("woBox",FIC("run",14),Lx({en:"Workout",id:"Workout"})+" · "+lbl, ws.length?(min+" min"):"—", ws.length?(kcal?kcal+" kcal":ws.length+"x"):Lx({en:"Not logged yet",id:"Belum dicatat"}))+
+      card("sleepBox",FIC("moon",14),Lx({en:"Sleep",id:"Tidur"}), sh!=null?durLabel(sh):"—", sh==null?Lx({en:"Not logged yet",id:"Belum dicatat"}):(sh>=7?Lx({en:"Good",id:"Cukup"}):Lx({en:"Short",id:"Kurang"})), sh==null?null:sh>=7)+
+      card("hydraBox",FIC("water",14),Lx({en:"Water",id:"Air"}), (ml/1000).toFixed(2).replace(/0$/,"")+" L", pct+"% "+(pct>=100?Lx({en:"done",id:"tercapai"}):Lx({en:"of target",id:"dari target"})), pct>=100);
     Array.prototype.forEach.call(host.querySelectorAll("[data-go]"),function(b){ b.onclick=function(){ var t=document.getElementById(b.getAttribute("data-go")); if(t) t.scrollIntoView({behavior:"smooth",block:"start"}); }; });
   }
   // ALERT hasil Visbody baru: scan ≤30 hari yang belum ditandai "dilihat" di perangkat ini
@@ -1552,10 +1553,10 @@
     if(s.body_mass_index!=null) m.push("BMI: "+(+s.body_mass_index).toFixed(1));
     if(s.muscle_mass!=null) m.push(Lx({en:"Muscle: ",id:"Otot: "})+(+s.muscle_mass).toFixed(1)+"kg");
     host.innerHTML='<div class="vb-alert"><button type="button" class="vb-alert-x" id="vbX" aria-label="'+esc(Lx({en:"Dismiss",id:"Tutup"}))+'">✕</button>'+
-      '<div class="vb-alert-t">🎯 '+esc(Lx({en:"Your Visbody result is in!",id:"Hasil Visbody kamu sudah masuk!"}))+'</div>'+
+      '<div class="vb-alert-t">'+FIC("target",16)+' '+esc(Lx({en:"Your Visbody result is in!",id:"Hasil Visbody kamu sudah masuk!"}))+'</div>'+
       (m.length?'<div class="vb-alert-m">'+esc(m.join(" · "))+'</div>':'')+
-      '<div class="vb-alert-a"><button type="button" class="pri" id="vbAsk">💬 '+esc(Lx({en:"Analyse with Coach",id:"Analisa dengan Coach"}))+'</button>'+
-      '<button type="button" class="sec" id="vbPlan">📋 '+esc(Lx({en:"Build a plan now",id:"Langsung Buat Plan"}))+'</button></div></div>';
+      '<div class="vb-alert-a"><button type="button" class="pri" id="vbAsk">'+FIC("chat",15)+' '+esc(Lx({en:"Analyse with Coach",id:"Analisa dengan Coach"}))+'</button>'+
+      '<button type="button" class="sec" id="vbPlan">'+FIC("clipboard",15)+' '+esc(Lx({en:"Build a plan now",id:"Langsung Buat Plan"}))+'</button></div></div>';
     document.getElementById("vbX").onclick=function(){ vbMarkSeen(s.scan_id); host.innerHTML=""; };
     document.getElementById("vbAsk").onclick=function(){ vbMarkSeen(s.scan_id); coachAskGo(Lx({en:"My new Visbody result just came in — analyse it for me",id:"Hasil Visbody aku baru masuk — tolong analisa"})); };
     document.getElementById("vbPlan").onclick=function(){ vbMarkSeen(s.scan_id); coachAskGo(Lx({en:"Build me a workout plan based on my Visbody result",id:"Buatkan workout plan berdasarkan hasil Visbody aku"})); };
@@ -1566,10 +1567,10 @@
   }
   function renderCoachQa(){
     var nm=document.getElementById("coachActiveName");
-    if(nm) nm.innerHTML='💬 Coach · <span>'+esc(Lx({en:"Active: ",id:"Aktif: "}))+esc(coachName())+'</span>';
+    if(nm) nm.innerHTML=FIC("chat",15)+' Coach · <span>'+esc(Lx({en:"Active: ",id:"Aktif: "}))+esc(coachName())+'</span>';
     var host=document.getElementById("coachQa"); if(!host) return;
-    host.innerHTML='<button type="button" data-ask="plan">📋 Plan</button>'+
-      '<button type="button" data-ask="score">📊 Score</button>'+
+    host.innerHTML='<button type="button" data-ask="plan">'+FIC("clipboard",14)+' Plan</button>'+
+      '<button type="button" data-ask="score">'+FIC("chart",14)+' Score</button>'+
       '<a class="coach-open" href="/activity/chat/'+encodeURIComponent(TPL_COACH)+'">'+esc(Lx({en:"Open Chat →",id:"Buka Chat →"}))+'</a>';
     Array.prototype.forEach.call(host.querySelectorAll("button"),function(b){
       b.onclick=function(){
@@ -1614,7 +1615,7 @@
     var gaps=Array.isArray(HS.gaps)?HS.gaps:[];
     var pills=gaps.map(function(g,i){
       var tip=Lx(g.detail||{})+(g.target?" · "+Lx(g.target):"");
-      return '<button type="button" class="wyn-pill" data-g="'+i+'" title="'+esc(tip)+'">'+esc(g.icon||"•")+' '+esc(Lx(g.action||{}))+'</button>';
+      return '<button type="button" class="wyn-pill" data-g="'+i+'" title="'+esc(tip)+'">'+((window.FIC&&FIC.has(g.icon))?FIC(g.icon,14):esc(g.icon||"•"))+' '+esc(Lx(g.action||{}))+'</button>';
     }).join("");
     var first=gaps[0];
     host.innerHTML='<div class="card health-score-card">'+
@@ -1626,7 +1627,7 @@
       (gaps.length?('<div class="wyn-t">'+esc(Lx({en:"What You Need",id:"Yang Kamu Butuhkan"}))+'</div>'+
         '<div class="wyn-pills">'+pills+'</div>'+
         '<div class="wyn-why" id="wynWhy">'+esc(Lx(first.detail||{}))+'</div>'):'')+
-      '<div class="hs-foot"><a class="hs-cta" href="/activity/chat/'+encodeURIComponent(TPL_COACH)+'">💬 '+esc(Lx({en:"Chat Coach →",id:"Chat Coach →"}))+'</a>'+
+      '<div class="hs-foot"><a class="hs-cta" href="/activity/chat/'+encodeURIComponent(TPL_COACH)+'">'+FIC("chat",14)+' '+esc(Lx({en:"Chat Coach →",id:"Chat Coach →"}))+'</a>'+
         '<span class="hs-note">'+esc(Lx({en:"Indicative · not a medical diagnosis",id:"Indikatif · bukan diagnosis medis"}))+'</span></div>'+
     '</div>';
     Array.prototype.forEach.call(host.querySelectorAll(".wyn-pill"),function(b){
@@ -1645,7 +1646,7 @@
     var loc=(window.I18N&&I18N.lang==="en")?"en-GB":"id-ID", td=todayYmd();
     var cells=wk.days.map(function(d){
       var lb=dObj(d.date).toLocaleDateString(loc,{weekday:"narrow"});
-      var mark=d.workout?"✅":(d.future?"":"·");
+      var mark=d.workout?FIC("check",14):(d.future?"":"·");
       return '<div class="wr-day'+(d.date===td?" today":"")+(d.future?" fut":"")+'"><span class="l">'+esc(lb)+'</span><span class="m">'+mark+'</span></div>';
     }).join("");
     var n=wk.sessions||0;
@@ -1654,7 +1655,7 @@
     host.innerHTML='<div class="wr-days">'+cells+'</div><div class="wr-sum">'+esc(line1)+'</div>'+(line2?'<div class="wr-sub">'+esc(line2)+'</div>':'');
   }
 
-  // ---- UPLOAD PROGRESS — 📷 Foto (kamera) / 📁 File -> upload-analyze; "Last:" dari riwayat. ----
+  // ---- UPLOAD PROGRESS — Foto (kamera) / File -> upload-analyze; "Last:" dari riwayat. ----
   function timeAgo(ts){
     var t=new Date(ts).getTime(); if(!isFinite(t)) return "";
     var m=Math.max(0,Math.round((Date.now()-t)/60000));
@@ -1694,7 +1695,7 @@
   function planDateLabel(){ try{ return new Date().toLocaleDateString((window.I18N&&I18N.lang==="en")?"en-GB":"id-ID",{day:"numeric",month:"short"}); }catch(e){ return ""; } }
   function renderTodayPlanEmpty(){
     var h=tplHost(); if(!h) return;
-    h.innerHTML='<div class="plan-slim"><span>📋 <b>'+esc(Lx({en:"Today's Plan",id:"Plan Hari Ini"}))+'</b> · '+
+    h.innerHTML='<div class="plan-slim"><span>'+FIC("clipboard",14)+' <b>'+esc(Lx({en:"Today's Plan",id:"Plan Hari Ini"}))+'</b> · '+
       esc(Lx({en:"upload a screenshot and I'll plan your workout, food, sleep & water.",id:"upload screenshot, nanti aku susun workout, makan, tidur & minum."}))+'</span>'+
       '<button type="button" id="tplUpGo">'+esc(Lx({en:"Upload →",id:"Upload →"}))+'</button></div>';
     var b=document.getElementById("tplUpGo"); if(b) b.onclick=function(){ var f=document.getElementById("tplFile"); if(f) f.click(); };
@@ -1710,14 +1711,14 @@
     var sVal=sl.target_bedtime||"";
     var sLbl=[Lx({en:"bedtime",id:"jam tidur"}), sl.target_hours?(sl.target_hours+Lx({en:"h sleep",id:" jam tidur"})):""].filter(Boolean).join(" · ");
     var hVal=hy.target_ml?((hy.target_ml/1000).toFixed(1).replace(/\.0$/,"")+" L"):"";
-    var cards=mini("🏋️",wVal,wLbl,'<button type="button" data-a="book">'+esc(Lx({en:"Book Class →",id:"Book Class →"}))+'</button>')+
-      mini("🍽️",fVal,fLbl,'<button type="button" data-a="track">'+esc(Lx({en:"Track →",id:"Track →"}))+'</button>')+
-      mini("😴",sVal,sLbl,'')+
-      mini("💧",hVal,Lx({en:"target",id:"target"}),'<button type="button" data-a="water">+250ml</button>');
+    var cards=mini(FIC("dumbbell",22),wVal,wLbl,'<button type="button" data-a="book">'+esc(Lx({en:"Book Class →",id:"Book Class →"}))+'</button>')+
+      mini(FIC("meal",22),fVal,fLbl,'<button type="button" data-a="track">'+esc(Lx({en:"Track →",id:"Track →"}))+'</button>')+
+      mini(FIC("moon",22),sVal,sLbl,'')+
+      mini(FIC("water",22),hVal,Lx({en:"target",id:"target"}),'<button type="button" data-a="water">+250ml</button>');
     var who=COACH_NAME_TPL[p.coach_id]||coachName();
     var says=p.coach_says?('<div class="plan-says"><span><b>Coach '+esc(who)+':</b> “'+esc(p.coach_says)+'”</span>'+
-      '<button type="button" data-a="reply">💬 '+esc(Lx({en:"Reply →",id:"Balas →"}))+'</button></div>'):'';
-    h.innerHTML='<div class="acard plan-today"><div class="acard-hd"><span class="acard-title">📋 '+esc(Lx({en:"Today's Plan",id:"Plan Hari Ini"}))+' · '+esc(planDateLabel())+'</span>'+
+      '<button type="button" data-a="reply">'+FIC("chat",14)+' '+esc(Lx({en:"Reply →",id:"Balas →"}))+'</button></div>'):'';
+    h.innerHTML='<div class="acard plan-today"><div class="acard-hd"><span class="acard-title">'+FIC("clipboard",14)+' '+esc(Lx({en:"Today's Plan",id:"Plan Hari Ini"}))+' · '+esc(planDateLabel())+'</span>'+
       '<button type="button" class="acard-act" data-a="upload">'+esc(Lx({en:"New upload",id:"Upload baru"}))+'</button></div>'+
       '<div class="plan-today-grid">'+cards+'</div>'+says+'</div>';
     Array.prototype.forEach.call(h.querySelectorAll("[data-a]"),function(b){
@@ -1787,7 +1788,7 @@
     var host=document.getElementById("workoutPlanBox"); if(!host) return;
     var p=WPLAN&&WPLAN.plan, days=(p&&Array.isArray(p.days))?p.days:[];
     if(!days.length){
-      host.innerHTML='<div class="plan-slim"><span>🏋️ <b>'+esc(Lx({en:"Workout Plan",id:"Workout Plan"}))+'</b> · '+esc(Lx({en:"no active plan yet.",id:"belum ada plan aktif."}))+'</span>'+
+      host.innerHTML='<div class="plan-slim"><span>'+FIC("dumbbell",14)+' <b>'+esc(Lx({en:"Workout Plan",id:"Workout Plan"}))+'</b> · '+esc(Lx({en:"no active plan yet.",id:"belum ada plan aktif."}))+'</span>'+
         '<button type="button" id="wpMake">'+esc(Lx({en:"Make Plan →",id:"Buat Plan →"}))+'</button></div>';
       var mk=document.getElementById("wpMake"); if(mk) mk.onclick=function(){ coachAskGo(Lx({en:"Make me a workout plan for this week",id:"Buatkan workout plan minggu ini"})); };
       return;
@@ -1798,13 +1799,13 @@
     // Label hari = nama hari (plan dari chat: "Senin"/"Monday") -> tandai hari ini.
     var wd=new Date().getDay(), tdy=[["min","sun"],["sen","mon"],["sel","tue"],["rab","wed"],["kam","thu"],["jum","fri"],["sab","sat"]][wd];
     function isToday(d){ var l=String(d.label||"").trim().toLowerCase().slice(0,3); return tdy.indexOf(l)>=0; }
-    host.innerHTML='<div class="plan-active"><div class="plan-active-hd"><span>🏋️ <b>Plan</b>'+(meta?' · '+esc(meta):'')+'</span>'+
+    host.innerHTML='<div class="plan-active"><div class="plan-active-hd"><span>'+FIC("dumbbell",14)+' <b>Plan</b>'+(meta?' · '+esc(meta):'')+'</span>'+
       '<span class="plan-active-cnt">'+done+'/'+days.length+' '+esc(Lx({en:"done",id:"selesai"}))+'</span>'+
       '<a class="acard-act" href="/activity/plan">'+esc(Lx({en:"Detail →",id:"Detail →"}))+'</a></div>'+
       '<div class="plan-active-bar">'+days.map(function(d){
         var now=isToday(d);
         return '<button type="button" class="plan-active-day'+(d.done?" done":"")+(now?" today":"")+'" data-k="'+esc(d.key||"")+'" aria-pressed="'+(d.done?"true":"false")+'">'+
-          (d.done?"✅":"⬜")+' <b>'+esc(String(d.label||""))+'</b>'+(d.focus?' '+esc(String(d.focus)):'')+
+          FIC(d.done?"boxcheck":"box",15)+' <b>'+esc(String(d.label||""))+'</b>'+(d.focus?' '+esc(String(d.focus)):'')+
           (d.duration_min?' <span class="pad-min">('+(+d.duration_min)+' min)</span>':'')+
           (now?' <span class="pad-today">← '+esc(Lx({en:"today",id:"hari ini"}))+'</span>':'')+'</button>';
       }).join("")+'</div></div>';

@@ -37,6 +37,7 @@
       food: '<path d="M6 3v6.5a2 2 0 0 0 4 0V3M8 9.5V21M16.5 3c-1.4 0-2.3 1.6-2.3 4s.9 4 2.3 4 2.3-1.6 2.3-4-.9-4-2.3-4zM16.5 11v10"/>',
       scan: '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M4 12h16"/>'
     };
+    if (!P[n] && window.FIC && FIC.has(n)) return FIC(n, sz);   // ikon lain dari set bersama js/fiticons.js
     return '<svg viewBox="0 0 24 24" width="' + sz + '" height="' + sz + '" fill="none" stroke="currentColor" ' +
       'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle" aria-hidden="true">' + (P[n] || "") + '</svg>';
   }
@@ -167,7 +168,7 @@
       '<li>' + esc(Lx({ en: "Safety screening first", id: "Skrining keamanan dulu" })) + '</li>' +
       '<li>' + esc(Lx({ en: "Option to consult a specialist or train with a coach", id: "Opsi konsultasi specialist atau latihan bareng coach" })) + '</li></ul>' +
       '<button class="btn" id="startQuiz">' + esc(done ? Lx({ en: "Retake quiz", id: "Ulang quiz" }) : Lx({ en: "Start quiz", id: "Mulai quiz" })) + '</button>' +
-      '<a class="btn ghost" href="' + esc(chatPlanHref()) + '" style="margin-top:8px">💬 ' + esc(Lx({ en: "Or ask a coach to build it in chat", id: "Atau minta coach buatkan lewat chat" })) + '</a></div>' +
+      '<a class="btn ghost" href="' + esc(chatPlanHref()) + '" style="margin-top:8px">' + svgIcon("chat", 16) + ' ' + esc(Lx({ en: "Or ask a coach to build it in chat", id: "Atau minta coach buatkan lewat chat" })) + '</a></div>' +
       planListShell();
     el("startQuiz").onclick = function () { if (QUIZ && QUIZ.answers) prefill(QUIZ); renderQuiz(); };
     loadPlanList();
@@ -306,7 +307,7 @@
       (p.needs_specialist ? '<div class="needspec"><span style="color:var(--amber)">' + svgIcon("warn", 16) + '</span> ' + esc(Lx({ en: "Because of your safety screening, this is a conservative plan. Please consult a 20FIT specialist before starting.", id: "Karena hasil skrining keamananmu, ini plan versi konservatif. Sebaiknya konsultasi ke specialist 20FIT sebelum mulai." })) + '</div>' : '') +
       days.map(function (d, di) {
         return '<div class="day' + (d.done ? ' done' : '') + '"><div class="day-h" data-day="' + di + '">' +
-          '<button type="button" class="dchk" data-done="' + esc(d.key) + '" aria-pressed="' + (d.done ? 'true' : 'false') + '" title="' + esc(Lx({ en: "Mark day done", id: "Tandai hari selesai" })) + '">' + (d.done ? '✅' : '⬜') + '</button>' +
+          '<button type="button" class="dchk" data-done="' + esc(d.key) + '" aria-pressed="' + (d.done ? 'true' : 'false') + '" title="' + esc(Lx({ en: "Mark day done", id: "Tandai hari selesai" })) + '">' + svgIcon(d.done ? "boxcheck" : "box", 18) + '</button>' +
           '<span class="dl">' + esc(d.label || ("Hari " + (di + 1))) + '</span>' +
           '<span class="df">' + esc(d.focus || "") + '</span></div>' +
           '<div class="day-b"' + (di === 0 ? '' : ' style="display:none"') + '>' +
@@ -321,7 +322,7 @@
       '<div class="adjrow"><button class="btn ghost" id="adjEasier">– ' + esc(Lx({ en: "Easier", id: "Ringankan" })) + '</button>' +
       '<button class="btn ghost" id="adjHarder">+ ' + esc(Lx({ en: "Harder", id: "Beratkan" })) + '</button>' +
       '<button class="btn ghost" id="adjRedo">' + esc(Lx({ en: "Retake quiz", id: "Ulang quiz" })) + '</button>' +
-      '<a class="btn ghost" href="' + esc(chatPlanHref()) + '">💬 ' + esc(Lx({ en: "New plan via coach", id: "Plan baru via coach" })) + '</a></div>' +
+      '<a class="btn ghost" href="' + esc(chatPlanHref()) + '">' + svgIcon("chat", 16) + ' ' + esc(Lx({ en: "New plan via coach", id: "Plan baru via coach" })) + '</a></div>' +
       '<div class="disc">' + esc(p.disclaimer || "") + '</div></div>';
 
     // CTA
@@ -406,7 +407,7 @@
     root().innerHTML = '<div class="card"><div class="planhead"><div class="pn">' + esc(p.plan_name || "Workout plan") + '</div>' +
       '<div class="wn">' + esc(p.weekly_note || "") + '</div><span class="badge src">' + esc(planSrcLabel(row)) + '</span></div>' +
       days.map(function (d, di) {
-        return '<div class="day' + (d.done ? ' done' : '') + '"><div class="day-h"><span class="dchk">' + (d.done ? '✅' : '⬜') + '</span><span class="dl">' + esc(d.label || ("Hari " + (di + 1))) + '</span><span class="df">' + esc(d.focus || "") + '</span></div>' +
+        return '<div class="day' + (d.done ? ' done' : '') + '"><div class="day-h"><span class="dchk">' + svgIcon(d.done ? "boxcheck" : "box", 18) + '</span><span class="dl">' + esc(d.label || ("Hari " + (di + 1))) + '</span><span class="df">' + esc(d.focus || "") + '</span></div>' +
           '<div class="day-b">' + (Array.isArray(d.exercises) ? d.exercises : []).map(function (e) {
             return '<div class="ex"><div style="flex:1;min-width:0"><div class="en">' + esc(e.name || "") + '</div></div><span class="em">' + (e.sets || 1) + ' × ' + esc(String(e.reps || "")) + '</span></div>';
           }).join("") + '</div></div>';
@@ -693,9 +694,9 @@
   function greetOf(slug) {
     var n = USER_NAME ? (" " + USER_NAME) : "";
     var g = {
-      nando: { en: "Yo" + n + "! Coach Nando here 💪 What's the target today?", id: "Yo" + n + "! Coach Nando di sini 💪 Apa target kamu hari ini?" },
-      calysta: { en: "Hii" + n + "! I'm Coach Calysta ✨ What are we working on today?", id: "Hai" + n + "! Aku Coach Calysta ✨ Mau kita kerjain apa hari ini?" },
-      rheza: { en: "Hey" + n + "! Coach Rheza here 😎 Ready for a challenge?", id: "Hey" + n + "! Coach Rheza di sini 😎 Siap ditantang?" },
+      nando: { en: "Yo" + n + "! Coach Nando here. What's the target today?", id: "Yo" + n + "! Coach Nando di sini. Apa target kamu hari ini?" },
+      calysta: { en: "Hii" + n + "! I'm Coach Calysta! What are we working on today?", id: "Hai" + n + "! Aku Coach Calysta! Mau kita kerjain apa hari ini?" },
+      rheza: { en: "Hey" + n + "! Coach Rheza here. Ready for a challenge?", id: "Hey" + n + "! Coach Rheza di sini. Siap ditantang?" },
       elsen: { en: "Hi" + n + ", I'm Coach Elsen. Let's look at your numbers — what would you like to review?", id: "Hai" + n + ", aku Coach Elsen. Kita lihat angka kamu — mau bahas apa?" },
     };
     return g[slug] || { en: "Hi" + n + "! How can I help with your training today?", id: "Hai" + n + "! Ada yang bisa dibantu soal latihanmu hari ini?" };
@@ -765,7 +766,7 @@
   // Streak & level (gamifikasi) — dihitung server dari data asli; gagal = baris kosong.
   function gameLine() {
     if (!GAME) return "";
-    return esc("🔥 " + (GAME.current_streak || 0) + Lx({ en: "-day streak", id: " hari streak" }) + " · ⭐ Lv." + (GAME.level || 1));
+    return svgIcon("fire", 13) + " " + esc((GAME.current_streak || 0) + Lx({ en: "-day streak", id: " hari streak" })) + " · " + svgIcon("star", 13) + " " + esc("Lv." + (GAME.level || 1));
   }
   async function loadGame() {
     try {
@@ -773,16 +774,16 @@
       if (j && j.ok && j.game) { GAME = j.game; var g = el("crGame"); if (g) g.innerHTML = gameLine(); }
     } catch (e) {}
   }
-  // Token aksi dari balasan coach -> tombol (URL ditentukan di sini, bukan oleh AI).
+  // Token aksi dari balasan coach -> tombol (URL ditentukan di sini, bukan oleh AI). [url, label, ikon]
   // Navigasi same-tab (CLAUDE.md: tanpa target=_blank).
   var ACTIONS = {
-    BOOK_CLASS: ["/book-class", { en: "📅 Book Class →", id: "📅 Book Class →" }],
-    BOOK_DOCTOR: ["/book-doctor", { en: "🩺 Book Doctor →", id: "🩺 Book Doctor →" }],
-    ARENA_MAPS: ["https://www.google.com/maps/search/?api=1&query=20FIT+Arena+Menteng+Prada", { en: "📍 20FIT Arena — Google Maps", id: "📍 20FIT Arena — Google Maps" }],
-    VISBODY: ["/activity/visbody", { en: "📊 My Visbody results", id: "📊 Hasil Visbody aku" }],
+    BOOK_CLASS: ["/book-class", { en: "Book Class →", id: "Book Class →" }, "cal"],
+    BOOK_DOCTOR: ["/book-doctor", { en: "Book Doctor →", id: "Book Doctor →" }, "clinic"],
+    ARENA_MAPS: ["https://www.google.com/maps/search/?api=1&query=20FIT+Arena+Menteng+Prada", { en: "20FIT Arena — Google Maps", id: "20FIT Arena — Google Maps" }, "pin"],
+    VISBODY: ["/activity/visbody", { en: "My Visbody results", id: "Hasil Visbody aku" }, "chart"],
   };
   function planCard() {
-    return '<span class="cplan"><b>📋 ' + esc(Lx({ en: "Plan saved as your active plan", id: "Plan tersimpan jadi plan aktif kamu" })) + '</b>' +
+    return '<span class="cplan"><b>' + svgIcon("clipboard", 15) + ' ' + esc(Lx({ en: "Plan saved as your active plan", id: "Plan tersimpan jadi plan aktif kamu" })) + '</b>' +
       '<span class="cplan-a"><a href="/activity/plan">' + esc(Lx({ en: "View plan →", id: "Lihat plan →" })) + '</a>' +
       '<a href="/activity">' + esc(Lx({ en: "Dashboard →", id: "Dashboard →" })) + '</a></span></span>';
   }
@@ -791,7 +792,7 @@
     h = h.replace(/\[\[PLAN_SAVED\]\]/g, planCard());
     h = h.replace(/\[\[([A-Z_]+)\]\]/g, function (m, k) {
       var a = ACTIONS[k]; if (!a) return "";
-      return '<a class="cact" href="' + esc(a[0]) + '">' + esc(Lx(a[1])) + '</a>';
+      return '<a class="cact" href="' + esc(a[0]) + '">' + svgIcon(a[2], 14) + ' ' + esc(Lx(a[1])) + '</a>';
     });
     return h.replace(/\n/g, "<br>");
   }
