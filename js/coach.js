@@ -90,6 +90,11 @@
   var COACH_NAME = { nando: "Nando", calysta: "Calysta", rheza: "Rheza", elsen: "Elsen" };
   var COACH_PHOTO = {};              // slug -> photo_url (diisi dari /api/coaches, cocokkan "Coach <slug>")
   var HEALTH = null;                 // skor kesehatan asli (0-100) dari /api/activity/health-score
+  var HS_DATA = null;                // respons health-score lengkap (chip data di sapaan chat)
+  var GAME = null;                   // {xp, level, current_streak, ...} dari /api/coach/achievements
+  // ?ask=<teks> (link dari Calories / Medical) -> HANYA mengisi kotak pesan, tidak dikirim otomatis
+  // (link dari luar tak boleh mengirim chat atas nama user tanpa ia menekan Kirim).
+  var PREFILL = "";
   var USER_NAME = "";                // nama depan user (buat sapaan personal)
   // [label, pesan, ikon] — label & ikon utk kartu prompt; pesan = yang benar-benar dikirim ke coach.
   var QUICKS = [
@@ -135,10 +140,19 @@
       var hr = await apiFetch("/api/activity/health-score");
       var hj = await hr.json().catch(function () { return {}; });
       if (hj && hj.ok && hj.have_any && typeof hj.total === "number") HEALTH = hj.total;
+      if (hj && hj.ok) HS_DATA = hj;
     } catch (e) {}
     try { var cpk = localStorage.getItem("my20fit_coach_pick"); if (cpk && COACH_NAME[cpk]) CHAT_COACH = cpk; } catch (e) {}
-    // Deep-link dari muka coach di Activity: /coach?coach=<slug> -> langsung buka chat coach itu.
-    try { var qp = (new URLSearchParams(location.search)).get("coach"); if (qp) { qp = String(qp).toLowerCase(); if (COACH_NAME[qp]) { CHAT_COACH = qp; try { localStorage.setItem("my20fit_coach_pick", qp); } catch (e) {} } } } catch (e) {}
+    // /activity/chat/<slug> (dan /coach?coach=<slug> lama) -> langsung buka chat coach itu.
+    // /activity/plan[/<id>] -> tampilan plan (plan aktif).
+    try {
+      var pm = location.pathname.match(/^\/activity\/chat\/([a-z]+)\/?$/i);
+      var qp = pm ? pm[1] : (new URLSearchParams(location.search)).get("coach");
+      if (qp) { qp = String(qp).toLowerCase(); if (COACH_NAME[qp]) { CHAT_COACH = qp; try { localStorage.setItem("my20fit_coach_pick", qp); } catch (e) {} } }
+      if (/^\/activity\/plan(\/|$)/i.test(location.pathname)) MODE = "program";
+      var ask = (new URLSearchParams(location.search)).get("ask");
+      if (ask) { PREFILL = String(ask).slice(0, 300); history.replaceState(null, "", location.pathname); }
+    } catch (e) {}
     render();
   }
   // Status sesi latihan HARI INI (Fase 2) — untuk kartu "Latihan hari ini" di halaman plan.
@@ -643,10 +657,18 @@
     var tp = el("toProgram"); if (tp) tp.onclick = function () { MODE = "program"; render(); };
   }
 
+  // Di bawah /activity/chat, URL mengikuti coach yang aktif (reload/bagikan link = coach sama).
+  function syncChatUrl() {
+    try {
+      if (!/^\/activity\/chat(\/|$)/i.test(location.pathname)) return;
+      history.replaceState(null, "", "/activity/chat" + (CHAT_COACH ? "/" + CHAT_COACH : ""));
+    } catch (e) {}
+  }
   function pickCoach(slug) {
     if (!COACH_NAME[slug]) return;
     CHAT_COACH = slug; CHAT_INIT = false; CHAT_MSGS = [];
     try { localStorage.setItem("my20fit_coach_pick", slug); } catch (e) {}
+    syncChatUrl();
     renderChat();
   }
 
@@ -655,14 +677,15 @@
     root().innerHTML = '<div class="croom" style="--cc:' + color + '">' +
       '<div class="croom-h">' + coachAvatar(CHAT_COACH, 42) +
       '<div class="crn">' + esc(COACH_NAME[CHAT_COACH] || "Coach") +
-      '<small>' + esc(Lx({ en: "Your AI fitness coach · not medical advice", id: "AI fitness coach kamu · bukan nasihat medis" })) + '</small></div>' +
+      '<small>' + esc(Lx({ en: "Your AI fitness coach · not medical advice", id: "AI fitness coach kamu · bukan nasihat medis" })) + '</small>' +
+      '<small class="crgame" id="crGame">' + gameLine() + '</small></div>' +
       '<button type="button" class="crsw" id="crSwitch">' + esc(Lx({ en: "Switch", id: "Ganti" })) + '</button></div>' +
       '<div class="cmsgs" id="cMsgs"></div>' +
       '<div class="cquick" id="cQuick" style="display:none">' + QUICKS.map(function (q, i) { return '<button type="button" class="cqbtn" data-q="' + i + '">' + esc(Lx(q[0])) + '</button>'; }).join("") + '</div>' +
       '<div class="cinput"><span class="spark">' + svgIcon("spark", 18) + '</span>' +
       '<textarea id="cText" rows="1" placeholder="' + esc(Lx({ en: "Message your coach…", id: "Tulis pesan ke coach…" })) + '"></textarea>' +
       '<button type="button" class="csend" id="cSend" aria-label="Send">' + svgIcon("send", 20) + '</button></div></div>';
-    el("crSwitch").onclick = function () { CHAT_COACH = null; CHAT_INIT = false; CHAT_MSGS = []; try { localStorage.removeItem("my20fit_coach_pick"); } catch (e) {} renderChat(); };
+    el("crSwitch").onclick = function () { CHAT_COACH = null; CHAT_INIT = false; CHAT_MSGS = []; try { localStorage.removeItem("my20fit_coach_pick"); } catch (e) {} syncChatUrl(); renderChat(); };
     Array.prototype.forEach.call(root().querySelectorAll("#cQuick [data-q]"), function (b) { b.onclick = function () { var q = QUICKS[+b.getAttribute("data-q")]; if (q) sendChat(Lx(q[1])); }; });
     var ta = el("cText"), send = el("cSend");
     function autin() { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; }
@@ -670,6 +693,41 @@
     ta.addEventListener("input", autin);
     ta.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); } });
     send.onclick = doSend;
+    if (PREFILL) { ta.value = PREFILL; PREFILL = ""; autin(); try { ta.focus(); } catch (e) {} }
+    loadGame();
+  }
+  // Streak & level (gamifikasi) — dihitung server dari data asli; gagal = baris kosong.
+  function gameLine() {
+    if (!GAME) return "";
+    return esc("🔥 " + (GAME.current_streak || 0) + Lx({ en: "-day streak", id: " hari streak" }) + " · ⭐ Lv." + (GAME.level || 1));
+  }
+  async function loadGame() {
+    try {
+      var r = await apiFetch("/api/coach/achievements"); var j = await r.json().catch(function () { return {}; });
+      if (j && j.ok && j.game) { GAME = j.game; var g = el("crGame"); if (g) g.innerHTML = gameLine(); }
+    } catch (e) {}
+  }
+  // Token aksi dari balasan coach -> tombol (URL ditentukan di sini, bukan oleh AI).
+  // Navigasi same-tab (CLAUDE.md: tanpa target=_blank).
+  var ACTIONS = {
+    BOOK_CLASS: ["/book-class", { en: "📅 Book Class →", id: "📅 Book Class →" }],
+    BOOK_DOCTOR: ["/book-doctor", { en: "🩺 Book Doctor →", id: "🩺 Book Doctor →" }],
+    ARENA_MAPS: ["https://www.google.com/maps/search/?api=1&query=20FIT+Arena+Menteng+Prada", { en: "📍 20FIT Arena — Google Maps", id: "📍 20FIT Arena — Google Maps" }],
+    VISBODY: ["/activity/visbody", { en: "📊 My Visbody results", id: "📊 Hasil Visbody aku" }],
+  };
+  function planCard() {
+    return '<span class="cplan"><b>📋 ' + esc(Lx({ en: "Plan saved as your active plan", id: "Plan tersimpan jadi plan aktif kamu" })) + '</b>' +
+      '<span class="cplan-a"><a href="/activity/plan">' + esc(Lx({ en: "View plan →", id: "Lihat plan →" })) + '</a>' +
+      '<a href="/activity">' + esc(Lx({ en: "Dashboard →", id: "Dashboard →" })) + '</a></span></span>';
+  }
+  function renderReply(text) {
+    var h = esc(text).replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+    h = h.replace(/\[\[PLAN_SAVED\]\]/g, planCard());
+    h = h.replace(/\[\[([A-Z_]+)\]\]/g, function (m, k) {
+      var a = ACTIONS[k]; if (!a) return "";
+      return '<a class="cact" href="' + esc(a[0]) + '">' + esc(Lx(a[1])) + '</a>';
+    });
+    return h.replace(/\n/g, "<br>");
   }
 
   function paintMsgs() {
@@ -683,14 +741,20 @@
     }
     if (quick) quick.style.display = "";
     var html = CHAT_MSGS.map(function (m) {
-      return '<div class="cmsg ' + (m.role === "user" ? "me" : "ai") + '">' + esc(m.content).replace(/\n/g, "<br>") + '</div>';
+      return '<div class="cmsg ' + (m.role === "user" ? "me" : "ai") + '">' + (m.role === "user" ? esc(m.content).replace(/\n/g, "<br>") : renderReply(m.content)) + '</div>';
     }).join("");
     if (CHAT_BUSY) html += '<div class="cmsg ai typing"><span></span><span></span><span></span></div>';
     box.innerHTML = html; box.scrollTop = box.scrollHeight;
   }
   // Empty state ala referensi: sapaan personal + chip data ASLI (health score) + kartu prompt.
   function emptyStateHTML() {
-    var chip = (HEALTH != null) ? '<span class="cchip-data">' + svgIcon("heart", 13) + ' ' + esc(Lx({ en: "Health score", id: "Health score" })) + ' ' + HEALTH + '/100</span>' : '';
+    var chips = [];
+    if (HEALTH != null) chips.push(svgIcon("heart", 13) + ' ' + esc(Lx({ en: "Health score", id: "Health score" })) + ' ' + HEALTH + '/100');
+    var bd = (HS_DATA && HS_DATA.breakdown) || {};
+    if (HS_DATA && HS_DATA.week) chips.push(svgIcon("dumbbell", 13) + ' ' + esc(Lx({ en: "This week: ", id: "Minggu ini: " }) + HS_DATA.week.sessions + "x workout"));
+    if (bd.body && bd.body.detail) chips.push(svgIcon("chart", 13) + ' Visbody: ' + esc(bd.body.detail));
+    if (bd.nutrition && bd.nutrition.detail) chips.push(svgIcon("meal", 13) + ' ' + esc(bd.nutrition.detail));
+    var chip = chips.length ? '<span class="cchips">' + chips.map(function (c) { return '<span class="cchip-data">' + c + '</span>'; }).join("") + '</span>' : '';
     var cards = QUICKS.slice(0, 4).map(function (q, i) {
       return '<button type="button" class="qcard" data-q="' + i + '"><span class="qi">' + svgIcon(q[2] || "spark", 18) + '</span><span class="ql">' + esc(Lx(q[0])) + '</span></button>';
     }).join("");
@@ -737,7 +801,9 @@
       var j = await r.json().catch(function () { return {}; });
       CHAT_BUSY = false;
       CHAT_MSGS.push({ role: "assistant", content: (r.ok && j && j.reply) ? j.reply : ((j && j.error) || Lx({ en: "Sorry, I couldn't reply right now. Please try again.", id: "Maaf, aku lagi nggak bisa jawab. Coba lagi ya." })) });
+      if (r.ok && j && j.plan) PLAN = j.plan;
       paintMsgs();
+      if (r.ok) loadGame();
     } catch (e) {
       CHAT_BUSY = false;
       CHAT_MSGS.push({ role: "assistant", content: Lx({ en: "Network error. Please try again.", id: "Koneksi bermasalah. Coba lagi." }) });

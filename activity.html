@@ -404,6 +404,25 @@
   .hs-cta{padding:7px 12px;border-radius:9px;background:var(--fit-red,#E4002B);color:#fff;font-size:12px;font-weight:800;text-decoration:none}
   .hs-note{font-size:10.5px;color:var(--a-mut)}
   /* 2 kartu berdampingan — tetap 2 kolom di mobile */
+  /* Alert hasil Visbody baru + Quick Actions + Today's Summary */
+  .vb-alert{position:relative;border:1px solid color-mix(in srgb,var(--fit-red,#E4002B) 35%,var(--a-line));border-radius:16px;padding:14px 38px 14px 14px;
+    background:linear-gradient(135deg,color-mix(in srgb,var(--fit-red,#E4002B) 10%,var(--a-surface)),var(--a-surface))}
+  .vb-alert-t{font-size:15px;font-weight:800;color:var(--a-txt)}
+  .vb-alert-m{font-size:13px;color:var(--a-mut);margin-top:3px}
+  .vb-alert-a{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px}
+  .vb-alert-a button{border:0;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:800;font-family:inherit;cursor:pointer}
+  .vb-alert-a .pri{background:var(--fit-red,#E4002B);color:#fff}
+  .vb-alert-a .sec{background:var(--a-bg);color:var(--a-txt);border:1px solid var(--a-line)}
+  .vb-alert-x{position:absolute;top:8px;right:8px;width:26px;height:26px;border:0;border-radius:99px;background:transparent;color:var(--a-mut);font-size:15px;cursor:pointer}
+  .qa-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  .qa-tile{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 6px;border:1px solid var(--a-line);border-radius:14px;background:var(--a-surface);
+    text-decoration:none;color:var(--a-txt);font-size:12px;font-weight:700;text-align:center;line-height:1.25;min-width:0}
+  .qa-tile .qa-i{font-size:20px;line-height:1}
+  .ts-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .ts-card{padding:11px 10px;border:1px solid var(--a-line);border-radius:14px;background:var(--a-surface);min-width:0;cursor:pointer;text-align:left;font-family:inherit;color:var(--a-txt)}
+  .ts-l{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--a-mut)}
+  .ts-v{font-size:16px;font-weight:800;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ts-s{font-size:11.5px;color:var(--a-mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .dual-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
   @media(max-width:767px){ .dual-cards{gap:8px} }
   .up-s{font-size:12px;color:var(--a-mut);line-height:1.4}
@@ -478,8 +497,8 @@
   <!-- Tabs: Dashboard (top) | Chat (/coach) | Plan (scroll) | History (/activity/history) -->
   <div class="atabs" id="atabs">
     <a class="atab on" href="#top" data-scroll="top" data-en="Dashboard" data-id="Dashboard">Dashboard</a>
-    <a class="atab" href="/coach" data-en="Chat" data-id="Chat">Chat</a>
-    <a class="atab" href="#plan" data-scroll="todayPlanBox" data-en="Plan" data-id="Plan">Plan</a>
+    <a class="atab" href="/activity/chat" data-en="Chat" data-id="Chat">Chat</a>
+    <a class="atab" href="/activity/plan" data-en="Plan" data-id="Plan">Plan</a>
     <a class="atab" href="/activity/history" data-en="History" data-id="Riwayat">Riwayat</a>
   </div>
 
@@ -493,6 +512,9 @@
        What You Need = pill, Upload & Weekly Recap berdampingan (tetap 2 kolom di mobile). -->
   <div class="astack">
 
+    <!-- ALERT hasil Visbody baru (belum dilihat) — diisi loadVisbodyAlert() -->
+    <div id="vbAlertBox"></div>
+
     <!-- COACH — bar horizontal: 4 muka overlapping (aktif = border merah) + aksi cepat -->
     <div class="coach-bar" id="coachCard">
       <div class="coach-avatars" id="consultFaces"><div class="skel" style="width:120px;height:36px;border-radius:99px"></div></div>
@@ -505,6 +527,17 @@
 
     <!-- HEALTH SCORE — angka + bar + breakdown 2 kolom + What You Need (pill) -->
     <div id="healthScoreBox"><div class="card"><div class="skel" style="height:150px"></div></div></div>
+
+    <!-- QUICK ACTIONS -->
+    <div class="qa-grid">
+      <a class="qa-tile" href="/activity/chat"><span class="qa-i">💬</span><span data-en="Chat Coach" data-id="Chat Coach">Chat Coach</span></a>
+      <a class="qa-tile" href="/activity/plan"><span class="qa-i">📋</span><span data-en="Workout Plan" data-id="Workout Plan">Workout Plan</span></a>
+      <a class="qa-tile" href="/activity/visbody"><span class="qa-i">📊</span><span data-en="Visbody Results" data-id="Hasil Visbody">Hasil Visbody</span></a>
+      <a class="qa-tile" href="/book-class"><span class="qa-i">📅</span><span data-en="Book Class" data-id="Book Class">Book Class</span></a>
+    </div>
+
+    <!-- TODAY'S SUMMARY — angka nyata hari terpilih (workout / tidur / air) -->
+    <div class="ts-grid" id="todaySumBox"></div>
 
     <!-- 2 kartu berdampingan (juga di mobile) -->
     <div class="dual-cards">
@@ -897,7 +930,7 @@
   var ZC={z1:"var(--accent)",z2:"var(--green)",z3:"var(--zone3)",z4:"var(--zone4)",z5:"var(--red)"};
   function hms(sec){ var m=Math.round(sec/60); return m>=60?(Math.floor(m/60)+"j "+(m%60)+"m"):(m+"m"); }
   function renderWorkouts(){
-    renderPostWorkoutMeal();
+    renderPostWorkoutMeal(); renderTodaySum();
     var host=document.getElementById("woBox"), ws=(DAY&&DAY.workouts)||[];
     if(!ws.length){
       host.innerHTML='<div class="card"><div class="muted" style="font-size:13px;text-align:center;padding:6px 0">'+
@@ -1287,6 +1320,7 @@
   }
 
   function renderSleep(){
+    renderTodaySum();
     var host=document.getElementById("sleepBox"); if(!host) return;
     var hd='<div class="sechd">'+esc(Lx({en:"Sleep",id:"Tidur"}))+'</div>';
     var s=SLEEP, dur=(s&&s.duration_hours!=null)?+s.duration_hours:null;
@@ -1312,6 +1346,7 @@
   }
 
   function renderHydra(){
+    renderTodaySum();
     var host=document.getElementById("hydraBox"); if(!host) return;
     var total=HYDRA.reduce(function(a,r){return a+(+r.amount_ml||0);},0);
     var pct=Math.max(0,Math.min(100,Math.round(total/HYD_TARGET*100)));
@@ -1475,7 +1510,7 @@
     host.innerHTML=CONSULT.map(function(p){
       var ph=photos[p[0]]||"", on=p[0]===TPL_COACH;
       var inner=ph?'<img src="'+esc(ph)+'" alt="" loading="lazy" decoding="async" onerror="this.remove()">':'';
-      return '<a class="coach-avatar-mini'+(on?' active':'')+'" href="/coach?coach='+p[0]+'" title="'+esc(p[1])+'" aria-label="'+esc(Lx({en:"Chat with "+p[1],id:"Chat dengan "+p[1]}))+'" style="background:'+p[2]+'">'+
+      return '<a class="coach-avatar-mini'+(on?' active':'')+'" href="/activity/chat/'+p[0]+'" title="'+esc(p[1])+'" aria-label="'+esc(Lx({en:"Chat with "+p[1],id:"Chat dengan "+p[1]}))+'" style="background:'+p[2]+'">'+
         '<span class="ini">'+esc(p[1].charAt(0))+'</span>'+inner+'</a>';
     }).join("");
     Array.prototype.forEach.call(host.querySelectorAll("a"),function(a){
@@ -1483,9 +1518,49 @@
     });
   }
   // Aksi cepat auto-message ke chat (mekanisme chat_context sudah ada di coach.js).
+  // TODAY'S SUMMARY — dari data hari terpilih (DAY/SLEEP/HYDRA), bukan target. Klik = loncat ke bagiannya.
+  function renderTodaySum(){
+    var host=document.getElementById("todaySumBox"); if(!host) return;
+    var ws=(DAY&&DAY.workouts)||[], min=0, kcal=0;
+    ws.forEach(function(w){ min+=(+w.duration_min||0); kcal+=(+w.calories_burned||0); });
+    var sh=(SLEEP&&SLEEP.duration_hours!=null)?+SLEEP.duration_hours:null;
+    var ml=(HYDRA||[]).reduce(function(a,r){return a+(+r.amount_ml||0);},0), pct=Math.round(ml/HYD_TARGET*100);
+    var lbl=SEL===todayStr()?Lx({en:"Today",id:"Hari ini"}):SEL;
+    function card(go,ic,l,v,sub){ return '<button type="button" class="ts-card" data-go="'+go+'"><div class="ts-l">'+ic+' '+esc(l)+'</div><div class="ts-v">'+esc(v)+'</div><div class="ts-s">'+esc(sub)+'</div></button>'; }
+    host.innerHTML=
+      card("woBox","🏃",Lx({en:"Workout",id:"Workout"})+" · "+lbl, ws.length?(min+" min"):"—", ws.length?(kcal?kcal+" kcal":ws.length+"x"):Lx({en:"Not logged yet",id:"Belum dicatat"}))+
+      card("sleepBox","😴",Lx({en:"Sleep",id:"Tidur"}), sh!=null?durLabel(sh):"—", sh==null?Lx({en:"Not logged yet",id:"Belum dicatat"}):(sh>=7?Lx({en:"Good ✅",id:"Cukup ✅"}):Lx({en:"Short ⚠️",id:"Kurang ⚠️"})))+
+      card("hydraBox","💧",Lx({en:"Water",id:"Air"}), (ml/1000).toFixed(2).replace(/0$/,"")+" L", pct+"%"+(pct>=100?" ✅":" ⚠️"));
+    Array.prototype.forEach.call(host.querySelectorAll("[data-go]"),function(b){ b.onclick=function(){ var t=document.getElementById(b.getAttribute("data-go")); if(t) t.scrollIntoView({behavior:"smooth",block:"start"}); }; });
+  }
+  // ALERT hasil Visbody baru: scan ≤30 hari yang belum ditandai "dilihat" di perangkat ini
+  // (tanda per user di localStorage — tanpa kolom DB baru; di perangkat lain alert bisa muncul
+  // sekali lagi, itu aman). Dua aksi = auto-message ke chat coach.
+  var VB_NEW_DAYS=30;
+  function vbSeenKey(){ return "my20fit_vb_seen_"+(AUTH_UID||"anon"); }
+  function vbMarkSeen(id){ try{ localStorage.setItem(vbSeenKey(), String(id)); }catch(e){} }
+  async function loadVisbodyAlert(){
+    var host=document.getElementById("vbAlertBox"); if(!host||!window.BodyScan) return;
+    var s=null; try{ s=await BodyScan.latest(); }catch(e){ s=null; }
+    var seen=null; try{ seen=localStorage.getItem(vbSeenKey()); }catch(e){}
+    var fresh=s&&s.scanned_at&&(Date.now()-new Date(s.scanned_at).getTime())<=VB_NEW_DAYS*86400000;
+    if(!s||!fresh||String(seen)===String(s.scan_id)){ host.innerHTML=""; return; }
+    var m=[];
+    if(s.body_fat_percentage!=null) m.push("Body Fat: "+(+s.body_fat_percentage).toFixed(1)+"%");
+    if(s.body_mass_index!=null) m.push("BMI: "+(+s.body_mass_index).toFixed(1));
+    if(s.muscle_mass!=null) m.push(Lx({en:"Muscle: ",id:"Otot: "})+(+s.muscle_mass).toFixed(1)+"kg");
+    host.innerHTML='<div class="vb-alert"><button type="button" class="vb-alert-x" id="vbX" aria-label="'+esc(Lx({en:"Dismiss",id:"Tutup"}))+'">✕</button>'+
+      '<div class="vb-alert-t">🎯 '+esc(Lx({en:"Your Visbody result is in!",id:"Hasil Visbody kamu sudah masuk!"}))+'</div>'+
+      (m.length?'<div class="vb-alert-m">'+esc(m.join(" · "))+'</div>':'')+
+      '<div class="vb-alert-a"><button type="button" class="pri" id="vbAsk">💬 '+esc(Lx({en:"Analyse with Coach",id:"Analisa dengan Coach"}))+'</button>'+
+      '<button type="button" class="sec" id="vbPlan">📋 '+esc(Lx({en:"Build a plan now",id:"Langsung Buat Plan"}))+'</button></div></div>';
+    document.getElementById("vbX").onclick=function(){ vbMarkSeen(s.scan_id); host.innerHTML=""; };
+    document.getElementById("vbAsk").onclick=function(){ vbMarkSeen(s.scan_id); coachAskGo(Lx({en:"My new Visbody result just came in — analyse it for me",id:"Hasil Visbody aku baru masuk — tolong analisa"})); };
+    document.getElementById("vbPlan").onclick=function(){ vbMarkSeen(s.scan_id); coachAskGo(Lx({en:"Build me a workout plan based on my Visbody result",id:"Buatkan workout plan berdasarkan hasil Visbody aku"})); };
+  }
   function coachAskGo(msg){
     try{ sessionStorage.setItem("chat_context", JSON.stringify({ auto_message:String(msg||"") })); }catch(e){}
-    location.href="/coach?coach="+encodeURIComponent(TPL_COACH||"nando");
+    location.href="/activity/chat/"+encodeURIComponent(TPL_COACH||"nando");
   }
   function renderCoachQa(){
     var nm=document.getElementById("coachActiveName");
@@ -1493,7 +1568,7 @@
     var host=document.getElementById("coachQa"); if(!host) return;
     host.innerHTML='<button type="button" data-ask="plan">📋 Plan</button>'+
       '<button type="button" data-ask="score">📊 Score</button>'+
-      '<a class="coach-open" href="/coach?coach='+encodeURIComponent(TPL_COACH)+'">'+esc(Lx({en:"Open Chat →",id:"Buka Chat →"}))+'</a>';
+      '<a class="coach-open" href="/activity/chat/'+encodeURIComponent(TPL_COACH)+'">'+esc(Lx({en:"Open Chat →",id:"Buka Chat →"}))+'</a>';
     Array.prototype.forEach.call(host.querySelectorAll("button"),function(b){
       b.onclick=function(){
         if(b.getAttribute("data-ask")==="plan"){ coachAskGo(Lx({en:"Make me a workout plan for this week",id:"Buatkan workout plan minggu ini"})); return; }
@@ -1549,7 +1624,7 @@
       (gaps.length?('<div class="wyn-t">'+esc(Lx({en:"What You Need",id:"Yang Kamu Butuhkan"}))+'</div>'+
         '<div class="wyn-pills">'+pills+'</div>'+
         '<div class="wyn-why" id="wynWhy">'+esc(Lx(first.detail||{}))+'</div>'):'')+
-      '<div class="hs-foot"><a class="hs-cta" href="/coach?coach='+encodeURIComponent(TPL_COACH)+'">💬 '+esc(Lx({en:"Chat Coach →",id:"Chat Coach →"}))+'</a>'+
+      '<div class="hs-foot"><a class="hs-cta" href="/activity/chat/'+encodeURIComponent(TPL_COACH)+'">💬 '+esc(Lx({en:"Chat Coach →",id:"Chat Coach →"}))+'</a>'+
         '<span class="hs-note">'+esc(Lx({en:"Indicative · not a medical diagnosis",id:"Indikatif · bukan diagnosis medis"}))+'</span></div>'+
     '</div>';
     Array.prototype.forEach.call(host.querySelectorAll(".wyn-pill"),function(b){
@@ -1719,7 +1794,7 @@
     var meta=[p.plan_name||"", WPLAN.level||p.level||""].filter(Boolean).join(" · ");
     host.innerHTML='<div class="plan-active"><div class="plan-active-hd"><span>🏋️ <b>Plan</b>'+(meta?' · '+esc(meta):'')+'</span>'+
       '<span class="plan-active-cnt">'+done+'/'+days.length+' '+esc(Lx({en:"done",id:"selesai"}))+'</span>'+
-      '<a class="acard-act" href="/coach">'+esc(Lx({en:"Detail →",id:"Detail →"}))+'</a></div>'+
+      '<a class="acard-act" href="/activity/plan">'+esc(Lx({en:"Detail →",id:"Detail →"}))+'</a></div>'+
       '<div class="plan-active-bar">'+days.map(function(d){
         return '<button type="button" class="plan-active-day'+(d.done?" done":"")+'" data-k="'+esc(d.key||"")+'" aria-pressed="'+(d.done?"true":"false")+'">'+
           (d.done?"✅":"⬜")+' <b>'+esc(String(d.label||""))+'</b>'+(d.focus?' '+esc(String(d.focus)):'')+'</button>';
@@ -1745,6 +1820,7 @@
     try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
     applyStaticLang(); renderHead(); renderDnav(); wireUpload(); wireDlg(); wireSleepDlg();
     await load(SEL);
+    loadVisbodyAlert();  // alert hasil Visbody baru (kalau ada & belum dilihat)
     loadHealthScore();   // skor komposit + What You Need + weekly recap — fire-and-forget
     renderConsult(); renderCoachQa();   // bar coach + aksi cepat (auto-message ke chat) — fire-and-forget
     loadWorkoutPlan();   // Active Plan (dari /api/coach/plan) — fire-and-forget
@@ -1762,7 +1838,7 @@
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
     applyStaticLang(); renderHead(); renderDnav();
     if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek(); }
-    renderSleep(); renderHydra(); renderHealthScore(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadLastUpload();
+    renderSleep(); renderHydra(); loadVisbodyAlert(); renderHealthScore(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadLastUpload();
   });
 
 </script>
