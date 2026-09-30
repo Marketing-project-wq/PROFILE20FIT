@@ -461,6 +461,7 @@ async function vbBindScan(scan, user, via) {
     .eq("scan_id", scan.scan_id).is("auth_user_id", null).select();
   if (upd.error) throw upd.error;
   if (!upd.data || !upd.data.length) return { ok: false };
+  jnOnScanClaimed(user.id, scan.scan_id, via);
   // Kirim identitas kita ke Visbody supaya scan berikutnya sudah ber-third_uid.
   // Gagal di sini TIDAK membatalkan claim: kepemilikan di DB kita yang menentukan.
   let bindWarn = null;
@@ -535,11 +536,13 @@ app.post("/api/visbody/webhook", async (req, res) => {
         visbody_birthday: ui.birthday ? String(ui.birthday).slice(0, 20) : null,
         status: "received",
       }, mutable, owner)).select().single();
-      if (!ins.error) { row = ins.data; inserted = true; }
+      if (!ins.error) { row = ins.data; inserted = true; jnLog(null, "visbody_scan_received", { scan_id: scanId }); }
       else if (ins.error.code === "23505") { ({ data: ex } = await sel()); row = ex && ex[0]; }   // kiriman paralel scan sama
       else throw ins.error;
     }
+    if (inserted && boundUid) jnOnScanClaimed(boundUid, scanId, "third_uid");
     if (row && !inserted) {
+      if (!row.auth_user_id && boundUid) jnOnScanClaimed(boundUid, scanId, "third_uid");
       const patch = Object.assign({}, mutable, (!row.auth_user_id && boundUid) ? owner : {});
       const up = await admin.from("my20fit_visbody_scan").update(patch).eq("scan_id", scanId).select().single();
       if (up.error) throw up.error;
@@ -727,6 +730,301 @@ app.post("/api/admin/visbody/bind", async (req, res) => {
     vbAudit(scanId, "staff_bind", { actor_user: prof.auth_user_id, actor_admin: who, detail: { data_ready: r.data_ready, bind_warning: r.bind_warning } });
     adminAudit(ctx, "visbody_bind", scanId, { member: prof.auth_user_id });
     return res.json({ ok: true, member: { name: prof.full_name || null, email: prof.email }, data_ready: r.data_ready });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+
+// ============================================================
+// HEALTH JOURNEY — landing, checklist, nudge, tur, event funnel (Visbody Fase 2–3)
+// ============================================================
+// Angka & kebijakan: lib/journey-config.js. Checklist sebisa mungkin DIBACA dari data yang
+// sudah ada (scan dilihat, chat coach, plan); my20fit_health_journey hanya menyimpan langkah
+// yang tak punya sumber lain (klik booking kelas, jadwal rescan, target kalori, nudge).
+
+// Event yang boleh dicatat. Klien hanya boleh mengirim yang ada di JN_CLIENT_EVENTS.
+const JN_EVENTS = new Set([
+  "nudge_visbody_shown", "nudge_visbody_clicked", "visbody_booking_clicked", "visbody_scan_received",
+  "visbody_scan_claimed", "activity_landing_after_claim", "visbody_result_viewed", "coach_chat_started",
+  "workout_plan_created", "class_booked", "rescan_reminder_sent", "rescan_completed",
+  "health_score_locked_shown", "health_score_unlocked",
+  "tour_started", "tour_step_viewed", "tour_skipped", "tour_completed", "tour_replayed", "tour_cta_clicked",
+]);
+const JN_CLIENT_EVENTS = new Set([
+  "visbody_booking_clicked", "activity_landing_after_claim", "health_score_locked_shown",
+  "tour_started", "tour_step_viewed", "tour_skipped", "tour_completed", "tour_replayed", "tour_cta_clicked",
+]);
+// Nudge -> event saat tampil / diklik (funnel Bagian E).
+const JN_NUDGE_EVENTS = {
+  visbody_after_workouts: { shown: "nudge_visbody_shown", clicked: "nudge_visbody_clicked" },
+  rescan_due: { shown: "rescan_reminder_sent", clicked: null },
+};
+function jnLog(uid, event, props) {
+  if (!admin || !JN_EVENTS.has(event)) return Promise.resolve();
+  return admin.from("my20fit_event_log").insert({ auth_user_id: uid || null, event: event, props: props || null })
+    .then(function () {}, function () {});
+}
+async function jnGet(uid) {
+  const { data } = await admin.from("my20fit_health_journey").select("*").eq("auth_user_id", uid).limit(1);
+  const r = (data && data[0]) || {};
+  return { steps: r.steps || {}, nudges: r.nudges || {}, rescan_due: r.rescan_due || null, hs_unlocked_at: r.hs_unlocked_at || null };
+}
+// Upsert HANYA kolom yang dikirim (PostgREST: kolom lain tak tersentuh saat update).
+async function jnSave(uid, patch) {
+  const { error } = await admin.from("my20fit_health_journey")
+    .upsert(Object.assign({ auth_user_id: uid, updated_at: new Date().toISOString() }, patch), { onConflict: "auth_user_id" });
+  if (error) throw error;
+}
+async function jnMarkHsUnlocked(uid, source) {
+  try {
+    const j = await jnGet(uid);
+    if (j.hs_unlocked_at) return;
+    await jnSave(uid, { hs_unlocked_at: new Date().toISOString(), hs_unlock_source: source });
+    jnLog(uid, "health_score_unlocked", { source: source });
+  } catch (e) { /* best-effort */ }
+}
+// Scan baru jadi milik user. Punya scan lain sebelumnya -> itu rescan.
+async function jnOnScanClaimed(uid, scanId, via) {
+  jnLog(uid, "visbody_scan_claimed", { scan_id: scanId, via: via });
+  try {
+    const { data } = await admin.from("my20fit_visbody_scan").select("scan_id").eq("auth_user_id", uid).limit(5);
+    if ((data || []).some(function (r) { return r.scan_id !== scanId; })) jnLog(uid, "rescan_completed", { scan_id: scanId });
+  } catch (e) { /* best-effort */ }
+}
+function jnDaysSince(iso) { return iso ? (Date.now() - new Date(iso).getTime()) / 86400000 : Infinity; }
+function jnYmd(d) { return d.toISOString().slice(0, 10); }
+
+// Satu pembaca status perjalanan user — dipakai /activity, landing setelah login, tur.
+async function jnState(uid) {
+  const N = journeyConfig.nudges, J = journeyConfig.journey;
+  const [scansR, bodyR, j, profR, planR, wkR, upR, tourR] = await Promise.all([
+    admin.from("my20fit_visbody_scan").select("scan_id,scan_time,claimed_at,viewed_at,pdf_url,status").eq("auth_user_id", uid).order("scan_time", { ascending: false }).limit(20),
+    admin.from("my20fit_visbody_body").select("scan_id,scanned_at,body_weight,body_fat_percentage,muscle_mass,body_mass_index,basal_metabolic_rate,visceral_fat_grade").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(2),
+    jnGet(uid),
+    admin.from("my20fit_profile").select("calorie_target_kcal,calorie_target_source,calorie_target_set_at").eq("auth_user_id", uid).limit(1),
+    admin.from("my20fit_workout_plan").select("id").eq("auth_user_id", uid).limit(1),
+    admin.from("my20fit_workout").select("id").eq("auth_user_id", uid).limit(N.visbody_after_workouts.min_workouts),
+    admin.from("my20fit_activity_uploads").select("id").eq("auth_user_id", uid).eq("upload_type", "workout").limit(N.visbody_after_workouts.min_workouts),
+    admin.from("my20fit_tour_state").select("tour_key,version,status,last_step,seen_steps,updated_at").eq("auth_user_id", uid),
+  ]);
+  const scans = scansR.data || [], bodies = bodyR.data || [];
+  const latestScan = scans[0] || null, body = bodies[0] || null, prevBody = bodies[1] || null;
+  const prof = (profR.data && profR.data[0]) || {};
+  const hasScan = scans.length > 0;
+  const bodyScan = body ? (scans.filter(function (s) { return s.scan_id === body.scan_id; })[0] || null) : null;
+  const unviewed = !!(body && bodyScan && !bodyScan.viewed_at);
+
+  // Checklist Health Journey — hanya untuk user yang sudah punya scan ter-claim.
+  let checklist = null;
+  if (hasScan) {
+    const claimedAt = (latestScan && latestScan.claimed_at) || (latestScan && latestScan.scan_time);
+    let chatAt = null;
+    try {
+      const { data: cm } = await admin.from("my20fit_coach_chat_message").select("created_at").eq("auth_user_id", uid).eq("role", "user")
+        .gte("created_at", claimedAt).order("created_at", { ascending: true }).limit(1);
+      chatAt = (cm && cm[0] && cm[0].created_at) || null;
+    } catch (e) { chatAt = null; }
+    const viewedAt = scans.map(function (s) { return s.viewed_at; }).filter(Boolean).sort().pop() || null;
+    const calAt = (prof.calorie_target_source === "visbody_bmr" && prof.calorie_target_set_at) || null;
+    checklist = [
+      { key: "view_result", done: !!viewedAt, at: viewedAt },
+      { key: "coach_analysis", done: !!chatAt, at: chatAt },
+      { key: "workout_plan", done: !!(planR.data && planR.data.length), at: null },
+      { key: "calorie_target", done: !!calAt, at: calAt, available: !!(body && body.basal_metabolic_rate) },
+      { key: "book_class", done: !!j.steps.class_booked, at: j.steps.class_booked || null },
+      { key: "rescan", done: !!j.rescan_due, at: j.rescan_due },
+    ];
+  }
+
+  // Nudge aktif — disembunyikan cap_days setelah diklik/ditutup.
+  const nudges = [];
+  const capped = function (key, days) { const n = j.nudges[key] || {}; return jnDaysSince(n.dismissed_at) < days || jnDaysSince(n.clicked_at) < days; };
+  const workouts = (wkR.data || []).length + (upR.data || []).length;
+  if (N.visbody_after_workouts.enabled && !hasScan && workouts >= N.visbody_after_workouts.min_workouts && !capped("visbody_after_workouts", N.visbody_after_workouts.cap_days)) {
+    nudges.push({ key: "visbody_after_workouts", workouts: workouts });
+  }
+  const lastScanAt = (body && body.scanned_at) || (latestScan && latestScan.scan_time) || null;
+  const rescanDue = j.rescan_due || (lastScanAt ? jnYmd(new Date(new Date(lastScanAt).getTime() + J.rescan_interval_days * 86400000)) : null);
+  if (N.rescan_due.enabled && hasScan && rescanDue && rescanDue <= jnYmd(new Date()) && !capped("rescan_due", N.rescan_due.cap_days)) {
+    nudges.push({ key: "rescan_due", last_scan_at: lastScanAt, days: Math.floor(jnDaysSince(lastScanAt)) });
+  }
+
+  const landing = J.landing === "always" ? (hasScan ? "/activity" : null) : (J.landing === "new_scan" ? (unviewed ? "/activity" : null) : null);
+  const tours = {};
+  (tourR.data || []).forEach(function (t) { tours[t.tour_key] = { version: t.version, status: t.status, last_step: t.last_step, seen_steps: t.seen_steps || [] }; });
+  const pick = function (b) { return b ? { weight: b.body_weight, body_fat: b.body_fat_percentage, muscle: b.muscle_mass, bmi: b.body_mass_index, bmr: b.basal_metabolic_rate, visceral: b.visceral_fat_grade } : null; };
+  return {
+    has_claimed_scan: hasScan,
+    latest_scan: latestScan ? {
+      scan_id: (body && body.scan_id) || latestScan.scan_id, scanned_at: (body && body.scanned_at) || latestScan.scan_time,
+      viewed_at: bodyScan ? bodyScan.viewed_at : latestScan.viewed_at, pdf_url: (bodyScan && bodyScan.pdf_url) || null,
+      data_ready: !!body, metrics: pick(body), prev_metrics: pick(prevBody),
+    } : null,
+    unviewed: unviewed,
+    landing: landing,
+    checklist: checklist,
+    rescan_due: rescanDue,
+    rescan_interval_days: J.rescan_interval_days,
+    calorie_target: { kcal: prof.calorie_target_kcal || null, source: prof.calorie_target_source || null, min: journeyConfig.calorie_min },
+    nudges: nudges,
+    tours: tours,
+    visbody_info: journeyConfig.visbody_info,
+  };
+}
+app.get("/api/journey/state", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    return res.json(Object.assign({ ok: true }, await jnState(user.id)));
+  } catch (e) { console.error("journey/state:", (e && e.message) || e); return res.status(500).json({ error: "Gagal memuat status." }); }
+});
+// Tandai langkah yang tak punya sumber data lain.
+//   {key:"book_class"}                -> user membuka booking kelas dari checklist (booking-nya
+//                                        sendiri di booking.20fit.id, tidak bisa kita verifikasi)
+//   {key:"rescan", date:"YYYY-MM-DD"} -> jadwal rescan (default: hari ini + rescan_interval_days)
+app.post("/api/journey/step", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {}, j = await jnGet(user.id), now = new Date();
+    if (b.key === "book_class") {
+      j.steps.class_booked = now.toISOString();
+      await jnSave(user.id, { steps: j.steps });
+      jnLog(user.id, "class_booked", { from: String(b.from || "checklist").slice(0, 30) });
+    } else if (b.key === "rescan") {
+      let d = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date || "")) ? String(b.date) : jnYmd(new Date(now.getTime() + journeyConfig.journey.rescan_interval_days * 86400000));
+      if (d < jnYmd(now)) return res.status(400).json({ error: "Tanggal rescan tidak boleh di masa lalu." });
+      j.steps.rescan_scheduled = now.toISOString();
+      await jnSave(user.id, { steps: j.steps, rescan_due: d });
+    } else return res.status(400).json({ error: "Langkah tidak dikenal." });
+    return res.json(Object.assign({ ok: true }, await jnState(user.id)));
+  } catch (e) { return res.status(500).json({ error: "Gagal menyimpan." }); }
+});
+// Target kalori dari BMR Visbody — HANYA setelah user konfirmasi. Angka dihitung di klien
+// (js/nutrition.js goalFromBmr, satu rumus dgn target otomatis); server memastikan user memang
+// punya BMR terukur & angkanya dalam batas wajar. {reset:true} -> kembali ke hitungan otomatis.
+app.post("/api/journey/calorie-target", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    let patch;
+    if (b.reset === true) patch = { calorie_target_kcal: null, calorie_target_source: null, calorie_target_set_at: null };
+    else {
+      if (b.confirm !== true) return res.status(400).json({ error: "Konfirmasi dulu." });
+      const { data: bd } = await admin.from("my20fit_visbody_body").select("basal_metabolic_rate").eq("auth_user_id", user.id).order("scanned_at", { ascending: false }).limit(1);
+      const bmr = bd && bd[0] && +bd[0].basal_metabolic_rate;
+      if (!bmr) return res.status(400).json({ error: "Belum ada BMR dari Visbody." });
+      const kcal = Math.round(+b.kcal);
+      if (!(kcal >= journeyConfig.calorie_min && kcal <= 6000)) return res.status(400).json({ error: "Target kalori minimal " + journeyConfig.calorie_min + " kkal." });
+      patch = { calorie_target_kcal: kcal, calorie_target_source: "visbody_bmr", calorie_target_set_at: new Date().toISOString() };
+    }
+    const { error } = await admin.from("my20fit_profile").update(patch).eq("auth_user_id", user.id);
+    if (error) throw error;
+    return res.json(Object.assign({ ok: true }, await jnState(user.id)));
+  } catch (e) { return res.status(500).json({ error: "Gagal menyimpan target." }); }
+});
+// Hasil lengkap scan DIBUKA (bukan sekadar banner tampil) -> viewed_at.
+app.post("/api/visbody/viewed", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const scanId = String((req.body || {}).scan_id || "").slice(0, 120);
+    const { data } = await admin.from("my20fit_visbody_scan").update({ viewed_at: new Date().toISOString() })
+      .eq("scan_id", scanId).eq("auth_user_id", user.id).is("viewed_at", null).select("scan_id");
+    if (data && data.length) jnLog(user.id, "visbody_result_viewed", { scan_id: scanId });
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: "Gagal." }); }
+});
+// Nudge: tampil / diklik / ditutup (batas frekuensi dihitung di jnState).
+app.post("/api/journey/nudge", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {}, key = String(b.key || ""), act = String(b.action || "");
+    if (!JN_NUDGE_EVENTS[key] || ["shown", "clicked", "dismissed"].indexOf(act) < 0) return res.status(400).json({ error: "Nudge tidak dikenal." });
+    const j = await jnGet(user.id), n = j.nudges[key] || {};
+    // "shown" dicatat sekali per jendela cap supaya funnel tak menggelembung tiap reload.
+    const cap = (journeyConfig.nudges[key] || {}).cap_days || 7;
+    if (act === "shown" && jnDaysSince(n.shown_at) < cap) return res.json({ ok: true });
+    n[act + "_at"] = new Date().toISOString();
+    j.nudges[key] = n;
+    await jnSave(user.id, { nudges: j.nudges });
+    const ev = JN_NUDGE_EVENTS[key][act];
+    if (ev) jnLog(user.id, ev, { key: key });
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: "Gagal." }); }
+});
+// Status tur (per user, lintas device). Event tur dikirim terpisah lewat /api/journey/event.
+const JN_TOUR_KEYS = ["welcome", "activity", "activity_intro", "home", "calories", "medical"];
+app.post("/api/journey/tour", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    if (JN_TOUR_KEYS.indexOf(b.tour_key) < 0) return res.status(400).json({ error: "Tur tidak dikenal." });
+    const st = ["not_started", "in_progress", "completed", "skipped"].indexOf(b.status) >= 0 ? b.status : "in_progress";
+    const seen = Array.isArray(b.seen_steps) ? b.seen_steps.map(function (x) { return String(x).slice(0, 40); }).slice(0, 40) : [];
+    const { error } = await admin.from("my20fit_tour_state").upsert({
+      auth_user_id: user.id, tour_key: b.tour_key, version: Math.max(1, Math.min(999, parseInt(b.version, 10) || 1)),
+      status: st, last_step: Math.max(0, Math.min(99, parseInt(b.last_step, 10) || 0)), seen_steps: seen, updated_at: new Date().toISOString(),
+    }, { onConflict: "auth_user_id,tour_key" });
+    if (error) throw error;
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: "Gagal menyimpan status tur." }); }
+});
+app.post("/api/journey/event", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {}, ev = String(b.event || "");
+    if (!JN_CLIENT_EVENTS.has(ev)) return res.status(400).json({ error: "Event tidak dikenal." });
+    // Props: hanya kunci yang dikenal & nilai primitif pendek (bukan tempat sampah data).
+    const props = {};
+    ["tour", "step", "total", "cta", "from", "version"].forEach(function (k) {
+      const v = b.props && b.props[k];
+      if (typeof v === "string") props[k] = v.slice(0, 40); else if (typeof v === "number" && isFinite(v)) props[k] = v;
+    });
+    // Kartu terkunci bisa tampil tiap reload -> dicatat maks sekali per hari per user.
+    if (ev === "health_score_locked_shown") {
+      const since = new Date(Date.now() - 86400000).toISOString();
+      const { data } = await admin.from("my20fit_event_log").select("id").eq("auth_user_id", user.id).eq("event", ev).gte("created_at", since).limit(1);
+      if (data && data.length) return res.json({ ok: true });
+    }
+    await jnLog(user.id, ev, props);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: "Gagal." }); }
+});
+// ADMIN — funnel mingguan (user unik per event per minggu, Senin–Minggu, UTC).
+const JN_FUNNEL = ["nudge_visbody_shown", "nudge_visbody_clicked", "visbody_booking_clicked", "visbody_scan_received",
+  "visbody_scan_claimed", "activity_landing_after_claim", "visbody_result_viewed", "coach_chat_started",
+  "workout_plan_created", "class_booked", "rescan_reminder_sent", "rescan_completed",
+  "health_score_locked_shown", "health_score_unlocked"];
+app.get("/api/admin/journey/funnel", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const weeks = Math.max(1, Math.min(26, parseInt(req.query.weeks, 10) || 8));
+    const now = new Date(), mon = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    mon.setUTCDate(mon.getUTCDate() - ((mon.getUTCDay() + 6) % 7) - (weeks - 1) * 7);
+    const { data, error } = await admin.from("my20fit_event_log").select("auth_user_id,event,props,created_at")
+      .gte("created_at", mon.toISOString()).order("created_at", { ascending: true }).limit(50000);
+    if (error) throw error;
+    const wk = function (iso) { const d = new Date(iso); const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); m.setUTCDate(m.getUTCDate() - ((m.getUTCDay() + 6) % 7)); return m.toISOString().slice(0, 10); };
+    const cols = [];
+    for (let i = 0; i < weeks; i++) { const d = new Date(mon); d.setUTCDate(mon.getUTCDate() + i * 7); cols.push(d.toISOString().slice(0, 10)); }
+    const sets = {}, tours = {};
+    (data || []).forEach(function (r) {
+      const w = wk(r.created_at);
+      if (JN_FUNNEL.indexOf(r.event) >= 0) {
+        const k = r.event + "|" + w; sets[k] = sets[k] || new Set();
+        sets[k].add(r.auth_user_id || ("anon:" + ((r.props && r.props.scan_id) || r.created_at)));
+      }
+      if (/^tour_/.test(r.event)) {   // tur: per jenis & langkah (di mana user berhenti)
+        const t = (r.props && r.props.tour) || "?", tk = t + "|" + r.event + (r.event === "tour_skipped" ? "@" + ((r.props && r.props.step) || 0) : "");
+        tours[tk] = (tours[tk] || 0) + 1;
+      }
+    });
+    const rows = JN_FUNNEL.map(function (ev) { return { event: ev, weeks: cols.map(function (w) { const s = sets[ev + "|" + w]; return s ? s.size : 0; }) }; });
+    return res.json({ ok: true, weeks: cols, rows: rows, tours: tours });
   } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
 });
 
@@ -4779,6 +5077,31 @@ app.get("/api/corp/summary", async (req, res) => {
     return res.json({ ok: true, corporate_name: ctx.corporate_name, kpis: k, members: roster });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
+// Visbody karyawan — AGREGAT & ANONIM saja (jumlah peserta + rata-rata scan terakhir tiap
+// peserta). Peserta < journeyConfig.corporate_min_group -> angka rata-rata tidak dikirim
+// (kelompok kecil bisa menebak individu). TIDAK ada baris per karyawan di sini.
+app.get("/api/corp/visbody-summary", async (req, res) => {
+  var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return;
+  try {
+    var { data: mem } = await admin.from("my20fit_corporate_member").select("auth_user_id").eq("corporate_id", ctx.corporate_id).eq("status", "active");
+    var ids = (mem || []).map(function (m) { return m.auth_user_id; });
+    var latest = {};
+    for (var i = 0; i < ids.length; i += 200) {
+      var { data: rows } = await admin.from("my20fit_visbody_body").select("auth_user_id,scanned_at,body_fat_percentage,muscle_mass,body_mass_index")
+        .in("auth_user_id", ids.slice(i, i + 200)).order("scanned_at", { ascending: false });
+      (rows || []).forEach(function (r) { if (!latest[r.auth_user_id]) latest[r.auth_user_id] = r; });
+    }
+    var list = Object.keys(latest).map(function (k) { return latest[k]; });
+    var minN = journeyConfig.corporate_min_group, out = { ok: true, employees: ids.length, participants: list.length, min_group: minN };
+    if (list.length >= minN) {
+      var avg = function (f) { var v = list.map(function (r) { return +r[f]; }).filter(function (n) { return isFinite(n) && n > 0; }); return v.length ? Math.round(v.reduce(function (a, b) { return a + b; }, 0) / v.length * 10) / 10 : null; };
+      out.avg = { body_fat: avg("body_fat_percentage"), muscle: avg("muscle_mass"), bmi: avg("body_mass_index") };
+    } else out.suppressed = true;
+    await corpAudit(ctx, null, "visbody.aggregate", { participants: list.length });
+    return res.json(out);
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
 // Detail satu karyawan (WAJIB anggota corporate ini). Akses individual dicatat audit.
 app.get("/api/corp/member/:uid", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
@@ -4910,6 +5233,7 @@ var USER_DATA_TABLES = [
   "my20fit_coach_session", "my20fit_coach_set_log", "my20fit_coach_achievement",
   "my20fit_coach_chat_session", "my20fit_coach_chat_message", "my20fit_coach_meal_plan",
   "my20fit_visbody_body", "my20fit_visbody_scan", "my20fit_data_consent",
+  "my20fit_health_journey", "my20fit_tour_state", "my20fit_event_log",
   "my20fit_activity_uploads", "my20fit_today_plans",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
@@ -9385,7 +9709,9 @@ app.get("/api/activity/health-score", async (req, res) => {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
-    return res.json(Object.assign({ ok: true }, await hsCompute(user.id)));
+    const hs = await hsCompute(user.id);
+    if (hs.unlocked) jnMarkHsUnlocked(user.id, hs.unlock_source);
+    return res.json(Object.assign({ ok: true }, hs));
   } catch (e) {
     console.error("activity/health-score:", e.message);
     return res.status(500).json({ error: "Gagal menghitung health score." });
@@ -9929,6 +10255,7 @@ app.post("/api/coach/plan", async (req, res) => {
     const row = { auth_user_id: user.id, goal: planObj.goal || null, level: planObj.level || null, plan: planObj, version: 1, is_active: true, source: source, updated_at: new Date().toISOString() };
     const { data, error } = await admin.from("my20fit_workout_plan").insert(row).select().single();
     if (error) throw error;
+    jnLog(user.id, "workout_plan_created", { source: "quiz" });
     logAiAccess(user.id, "coach/program", source === "ai", source === "ai" ? null : "fallback");
     return res.json({ ok: true, plan: data, source: source });
   } catch (e) {
@@ -10504,6 +10831,7 @@ async function coachSaveChatPlan(uid, planObj) {
   await admin.from("my20fit_workout_plan").update({ is_active: false, updated_at: new Date().toISOString() }).eq("auth_user_id", uid).eq("is_active", true);
   const { data, error } = await admin.from("my20fit_workout_plan").insert({ auth_user_id: uid, goal: planObj.goal || null, level: planObj.level || null, plan: planObj, version: 1, is_active: true, source: "chat", updated_at: new Date().toISOString() }).select().single();
   if (error) throw error;
+  jnLog(uid, "workout_plan_created", { source: "chat" });
   return data;
 }
 // Blok ```json {"type":"meal_plan"} -> dinormalisasi & disimpan di pesan sebagai
@@ -10568,6 +10896,11 @@ app.post("/api/coach/chat", async (req, res) => {
       parts: Object.keys(hs.breakdown || {}).reduce(function (o, k) { o[k] = hs.breakdown[k].score; return o; }, {}) };
     const messages = [{ role: "system", content: coachChatSystem(coachId, ctx, lang, classes) }].concat(history)
       .concat([{ role: "system", content: COACH_CHAT_REMINDER }, { role: "user", content: message }]);
+    if (sessionId && !history.length) jnLog(user.id, "coach_chat_started", { coach: coachId });
+    // Ajakan Visbody maks 1x per sesi (RULES.md): sudah pernah diberi -> ingatkan model agar tak mengulang.
+    if (history.some(function (h) { return h.role === "assistant" && /\[\[VISBODY\]\]|visbody scan/i.test(h.content); })) {
+      messages.splice(messages.length - 1, 0, { role: "system", content: "Ajakan Visbody scan sudah diberikan di sesi ini — JANGAN ulangi kecuali user bertanya soal Visbody." });
+    }
     const complex = COACH_COMPLEX_RE.test(message);
     let reply = "", modelUsed = null;
     try {

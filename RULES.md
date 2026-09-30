@@ -31,7 +31,8 @@ Elsen (detail & teknis). Teks persona: `COACH_PERSONAS` di `server.js`.
   "Terapkan meal plan" (masuk ke bagian Meal Plan di Calorie Tracker `/calories`). Pertanyaan satu waktu makan
   (mis. sarapan) dijawab teks singkat, tanpa kartu.
 - Membaca data Visbody, kalori, workout, tidur, hidrasi milik user sendiri
-- Menyarankan Book Class (kelas coach itu sendiri lebih dulu), Visbody scan, dokter
+- Menyarankan Book Class (kelas coach itu sendiri lebih dulu), Visbody scan (maks 1x per sesi — server mengingatkan model
+  kalau ajakan sudah diberikan), dokter
 - Motivasi sesuai persona coach
 
 ## Dilarang

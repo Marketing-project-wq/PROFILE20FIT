@@ -644,7 +644,7 @@
     (function(){
       try{
         const q=new URLSearchParams(location.search);
-        { const n=q.get("next"); if(n==="calories"||n==="menu") sessionStorage.setItem("post_auth_next",n); }
+        { const n=q.get("next"); if(n==="calories"||n==="menu") sessionStorage.setItem("post_auth_next",n); else if(Auth.safeNextPath(n)) sessionStorage.setItem("post_auth_path",n); }
         // Universal nav: my.20fit.id/login?redirect=<url tujuan> — simpan tujuan 20fit yang valid,
         // dibawa balik lewat SSO setelah login penuh (Auth.routeAfterAuth).
         { const rd=q.get("redirect"); if(rd){ try{ const ru=new URL(rd); if(ru.protocol==="https:"&&/(^|\.)20fit\.id$/i.test(ru.hostname)) sessionStorage.setItem("post_auth_redirect",ru.href); }catch(e){} } }

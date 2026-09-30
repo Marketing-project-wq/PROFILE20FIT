@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `bc008a5` · **Production:** `d263b13`
+> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `3e56eca` · **Production:** `d263b13`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -154,6 +154,42 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Visbody Journey — Fase 2 & 3: landing, Health Journey, hasil lengkap, tur fitur, nudge, funnel (2026-09-30,
+  staging dulu).** Migration 029. Config di `lib/journey-config.js` (landing, rescan, nudge, info alat, min grup corporate).
+  - **Landing setelah login** (`Auth.routeAfterAuth`): link claim tertunda → tujuan internal yang diminta (`?next=/path`
+    di login, atau halaman yang dibuka sebelum login via `requireAuth`) → **/activity untuk user dengan scan ter-claim**
+    (mode `always`/`new_scan`/`off`, dihitung server di `/api/journey/state`) → dashboard. Redirect lama di dashboard
+    (`goActivityIfNewVisbody`, localStorage) DIHAPUS.
+  - **/activity:** banner "Hasil Visbody kamu sudah masuk!" (4 angka + Lihat hasil lengkap) selama hasil belum DIBUKA
+    (`viewed_at` di DB, ditandai saat /activity/visbody dibuka — bukan saat banner tampil); checklist **Health Journey**
+    6 langkah (lihat hasil, analisa coach, buat plan, target kalori dari BMR, book kelas, jadwalkan rescan) — langkah
+    yang bisa dibaca dari data (viewed, chat, plan) tidak disimpan ulang; kartu "Langkah berikutnya" + daftar ringkas.
+    Target kalori dari BMR = rumus yang sama dgn target otomatis (`Nutrition.goalFromBmr`), baru disimpan setelah user
+    menekan "Pakai target ini" (`my20fit_profile.calorie_target_kcal`, min 1200); bisa kembali ke otomatis.
+    **Book kelas** hanya tercatat sebagai "user membuka booking" (booking.20fit.id tak bisa diverifikasi dari sini).
+    **Pengingat rescan** = nudge di /activity (belum ada email/WA — TANYA PEMILIK kalau mau kanal lain).
+  - **/activity/visbody:** penjelasan awam per parameter (tanpa diagnosis; rentang normal hanya dari data Visbody),
+    perbandingan dgn scan sebelumnya (sudah ada), unduh PDF kalau Visbody memberi `pdf_url`. Belum pernah scan →
+    halaman ajakan: manfaat, contoh hasil berlabel "Contoh", lokasi/biaya/persiapan/tombol jadwal dari config —
+    **semua masih null (belum diberikan pemilik) sehingga TIDAK tampil**; tombol jadwal diganti teks "tanyakan ke tim".
+  - **Nudge** (batas frekuensi per user di `my20fit_health_journey.nudges`): belum scan + ≥3 workout → ajakan Visbody;
+    scan terakhir > 30 hari → ajakan rescan. AI Coach: ajakan Visbody maks 1x per sesi (server menambah pengingat).
+    **Belum dibuat:** pengingat "sekalian scan setelah kelas" — tidak ada data booking kelas per user di my.20fit
+    (booking di booking.20fit.id).
+  - **Tur fitur — satu mesin `js/tour.js` + isi di `js/tours-config.js`** (menggantikan tour.js lama yang, karena mencocokkan
+    `*.html`, tak pernah jalan otomatis di URL bersih). Tur: `welcome` (F2: semua menu + fitur unggulan, user tanpa scan,
+    di /dashboard), `activity` (F1: user ber-scan, pakai skor asli), `activity_intro` (tur mini /activity tanpa data),
+    `home`/`calories`/`medical` (F3, pindahan tur lama; tanda localStorage lama dihormati). Status per user di
+    `my20fit_tour_state` (lintas device, lanjut dari langkah terakhir, versi naik → hanya langkah baru). Ulang: tombol "?"
+    di /activity, "Tur fitur" di Profil (`/dashboard?tour=welcome`). Menunggu modal lain tertutup; Esc/←/→, fokus terkunci
+    di tooltip, reduced-motion. **Teks tur = draf agent, PERLU DITINJAU; daftar fitur unggulan PERLU DIPUTUSKAN.**
+  - **Funnel:** `my20fit_event_log` (event di-whitelist server; event server: scan masuk/claim/rescan/plan/chat/HS terbuka).
+    Admin-v2 → **Funnel Visbody**: user unik per event per minggu (8 minggu) + event tur per langkah.
+  - **Corporate:** `/api/corp/visbody-summary` + kartu di /corp-dashboard — hanya jumlah peserta & rata-rata; rata-rata
+    disembunyikan kalau peserta < 5 (config). TIDAK ada data Visbody per karyawan untuk HR.
+  - Diuji: 15 skenario server journey + 14 skenario claim (kode asli server.js + DB tiruan) + Chromium (tur F2 12 langkah
+    di HP tanpa menutupi sorotan, lewati/ulang/lanjut/antre modal, F1 skor asli & versi "belum punya plan", dialog
+    kalori, halaman ajakan & hasil lengkap).
 - **Visbody Journey — Fase 1: claim scan + gating Health Score (2026-09-30, staging dulu).**
   Angka/kebijakan di `lib/journey-config.js` (default agent, ditandai PERLU DIPUTUSKAN/DIVALIDASI).
   - **Kondisi data asli saat audit:** 7 scan (1 timbangan, 27–28 Sep) semua unclaimed, `measured_items`

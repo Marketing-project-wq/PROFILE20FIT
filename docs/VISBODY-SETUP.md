@@ -170,6 +170,15 @@ bisa meminta ulang).
 
 ---
 
+## Bagian 4b — Info alat untuk member (halaman /activity/visbody)
+
+Isi `visbody_info` di `lib/journey-config.js` — **semuanya masih null**, jadi halaman ajakan belum menampilkan
+lokasi, biaya, persiapan, maupun tombol "Jadwalkan scan" (tidak dikarang):
+`locations` (unit 20FIT yang punya alat), `price_note` (biaya/promo scan), `booking_url` ATAU `whatsapp`
+(cara menjadwalkan), `prep` (persiapan sebelum scan — divalidasi tim klinik).
+
+---
+
 ## Bagian 5 — Uji TANPA timbangan
 
 Ini membuktikan `VISBODY_WEBHOOK_SECRET` sudah benar dan route-nya hidup, sebelum
