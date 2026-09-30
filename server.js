@@ -10329,6 +10329,9 @@ app.get("/api/activity/upload-history", async (req, res) => {
 // ---------- Halaman balik-dari-pembayaran (landing redirect dari Xendit) ----------
 // /payment/pending (+ alias /payment/success) & /payment/failed. Dilayani eksplisit supaya
 // path bertingkat tetap ketemu file-nya (di atas static + catch-all).
+// SEMUA halaman yang disajikan di path bertingkat (/payment/*, /activity/*, /auth/*) WAJIB
+// punya <base href="/"> di <head>. Tanpa itu "js/auth.js" diminta sebagai /auth/js/auth.js,
+// jatuh ke catch-all (index.html) dan skrip halaman tidak jalan sama sekali.
 app.get(["/payment/pending", "/payment/success"], (req, res) => {
   res.sendFile(path.join(__dirname, "payment-pending.html"));
 });
