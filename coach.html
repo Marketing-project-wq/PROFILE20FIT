@@ -179,32 +179,7 @@
   .cq-h{font-family:var(--fit-font-display,inherit);font-weight:800;font-size:27px;letter-spacing:.6px;text-transform:uppercase;margin:0;line-height:1}
   .cq-s{font-size:13px;color:var(--a-mut);margin:8px 0 0;line-height:1.55;max-width:330px}
 
-  /* Kotak profil coach — carousel geser (scroll-snap) sebelum memilih coach */
-  .cprof-box{margin-top:14px}
-  .cprof-hd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-  .cprof-t{flex:1;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--a-mut)}
-  .cprof-nav{display:flex;gap:6px}
-  .cprof-nav button{width:32px;height:32px;border-radius:99px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:18px;line-height:1;cursor:pointer;font-family:inherit}
-  .cprof-track{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
-  .cprof-track::-webkit-scrollbar{height:0}
-  .cprof{flex:0 0 280px;scroll-snap-align:start;display:flex;flex-direction:column;gap:10px;padding:16px 14px 14px;border:1px solid var(--a-line);border-radius:20px;
-    background:linear-gradient(180deg,color-mix(in srgb,var(--cc,var(--ai)) 14%,var(--a-surface)) 0,var(--a-surface) 150px)}
-  .cprof-top{display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px}
-  .cprof-n{font-size:17px;font-weight:800;margin-top:4px}
-  .cprof-tag{font-size:12px;font-weight:800;color:var(--cc,var(--ai))}
-  .cprof-v{font-size:11px;color:var(--a-mut)}
-  .cprof-traits{display:flex;flex-wrap:wrap;justify-content:center;gap:5px}
-  .cprof-traits span{font-size:10.5px;font-weight:800;padding:4px 9px;border-radius:99px;color:var(--cc,var(--ai));background:color-mix(in srgb,var(--cc,var(--ai)) 12%,transparent)}
-  .cprof-sec{font-size:12px;line-height:1.5;color:var(--a-txt)}
-  .cprof-sec b{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--a-mut);margin-bottom:2px}
-  .cprof-quote{font-size:12.5px;line-height:1.5;font-style:italic;padding:10px 12px;border-radius:14px 14px 14px 4px;background:color-mix(in srgb,var(--a-txt) 6%,transparent)}
-  .cprof-next{font-size:11.5px;line-height:1.4;padding-top:8px;border-top:1px solid var(--a-line);min-height:32px}
-  .cprof-go{margin-top:auto;border:0;border-radius:12px;padding:11px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;color:#fff;background:var(--cc,var(--ai))}
-  .cprof-dots{display:flex;justify-content:center;gap:6px;margin-top:4px}
-  .cprof-dots span{width:7px;height:7px;border-radius:99px;background:var(--a-line);cursor:pointer}
-  .cprof-dots span.on{background:var(--ai);width:18px}
-  .cprof-note{font-size:11.5px;color:var(--a-mut);text-align:center;margin:8px 0 0}
-  @media(max-width:560px){ .cprof{flex-basis:82%} .cprof-nav{display:none} .cq-orb{width:60px;height:60px;margin-bottom:8px} .cq-orb svg{width:24px;height:24px} .cq-h{font-size:21px} }
+  @media(max-width:560px){ .cq-orb{width:60px;height:60px;margin-bottom:8px} .cq-orb svg{width:24px;height:24px} .cq-h{font-size:21px} }
 
   /* Avatar + cincin glow (warna per-persona via --cc) */
   .cav{position:relative;display:block;border-radius:99px;flex:none;line-height:1}
@@ -265,6 +240,7 @@
   .cinput .csend:active{transform:scale(.95)}
 </style>
 <link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/coach-profiles.css">
 <link rel="stylesheet" href="css/glass-app.css">
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 </head>
@@ -286,6 +262,7 @@
 <script src="js/auth.js"></script>
 <script src="js/i18n.js?v=20260928d"></script>
 <script src="js/nav.js"></script>
-<script src="js/coach.js?v=20260930c"></script>
+<script src="js/coach-profiles.js"></script>
+<script src="js/coach.js?v=20260930d"></script>
 </body>
 </html>

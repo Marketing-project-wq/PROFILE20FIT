@@ -81,44 +81,9 @@
   // ---- Chatbot state (tampilan UTAMA /coach; program terstruktur lama tetap ada) ----
   var MODE = "chat";                 // 'chat' | 'program'
   var CHAT_COACH = null, CHAT_INIT = false, CHAT_MSGS = [], CHAT_BUSY = false;
-  var COACH_LIST = [
-    ["nando",   { en: "Strict & ambitious",    id: "Tegas & ambisius" },    "#2F6BFF"],
-    ["calysta", { en: "Cheerful & friendly",   id: "Ceria & suportif" },    "#EC4899"],
-    ["rheza",   { en: "Playful & competitive", id: "Playful & kompetitif" },"#F59E0B"],
-    ["elsen",   { en: "Detail-oriented",       id: "Detail & teknis" },     "#16A34A"],
-  ];
-  var COACH_NAME = { nando: "Nando", calysta: "Calysta", rheza: "Rheza", elsen: "Elsen" };
-  var COACH_PHOTO = {};              // slug -> photo_url (diisi dari /api/coaches, cocokkan "Coach <slug>")
-  var COACH_ROW = {};                // slug -> {id, venue} dari roster CMS (untuk kelas terdekat)
-  var COACH_NEXT = {};               // slug -> kelas terdekat | null (dari /api/coaches/:id/classes)
-  // Profil persona untuk kartu "Kenalan dulu" di picker. Sumber isi: deskripsi persona dari pemilik
-  // (spec AI Coach); gaya bicara AI-nya sendiri ada di COACH_PERSONAS (server.js).
-  var COACH_PROFILE = {
-    nando: {
-      traits: [{ en: "Motivational", id: "Motivational" }, { en: "Strict", id: "Tegas" }, { en: "Ambitious", id: "Ambisius" }, { en: "Detailed", id: "Detail" }],
-      style: { en: "Direct, no sugarcoating — like a tough big brother who genuinely cares.", id: "Direct, tanpa basa-basi — kayak abang yang tegas tapi beneran peduli." },
-      quote: "Bro, 1x gym minggu ini? That's not a plan, that's a hobby. Let's fix this. 💪",
-      fit: { en: "You need a push and clear targets.", id: "Kamu butuh didorong keras & target yang jelas." },
-    },
-    calysta: {
-      traits: [{ en: "Inspiring", id: "Inspiring" }, { en: "Playful", id: "Playful" }, { en: "Cheerful", id: "Ceria" }, { en: "Friendly", id: "Ramah" }],
-      style: { en: "Warm and encouraging — says “we”, never “you must”, like a close friend.", id: "Hangat & suportif — pakai “kita”, bukan “kamu harus”, kayak teman dekat." },
-      quote: "Hiii! Gak apa-apa kalau slip dikit, yang penting kita mulai lagi yaa ✨",
-      fit: { en: "You're starting out or want support without pressure.", id: "Kamu baru mulai atau butuh semangat tanpa tekanan." },
-    },
-    rheza: {
-      traits: [{ en: "Playful", id: "Playful" }, { en: "Serious", id: "Serius" }, { en: "Ambitious", id: "Ambisius" }, { en: "Competitive", id: "Kompetitif" }],
-      style: { en: "Casual with jokes, but straight to the point — a competitive gym buddy.", id: "Santai & suka bercanda, tapi langsung ke point — teman gym yang kompetitif." },
-      quote: "Challenge: 4x latihan minggu ini. Deal? Kalau gak deal, aku unfollow kamu 😂",
-      fit: { en: "You love challenges and a bit of competition.", id: "Kamu suka tantangan & sedikit kompetisi." },
-    },
-    elsen: {
-      traits: [{ en: "Detail-oriented", id: "Detail" }, { en: "Professional", id: "Profesional" }, { en: "Friendly", id: "Bersahabat" }],
-      style: { en: "Technical but easy to follow — clear breakdowns, knowledgeable yet humble.", id: "Teknis tapi mudah dipahami — breakdown jelas, paham banget tapi humble." },
-      quote: "Dari Visbody kamu, muscle mass 32kg itu bagus. Yang perlu kita improve itu visceral fat-nya — aku breakdown ya.",
-      fit: { en: "You like data and detailed explanations.", id: "Kamu suka data & penjelasan detail." },
-    },
-  };
+  // Data persona (nama, warna, profil, roster/foto) = js/coach-profiles.js (satu sumber, dipakai /activity juga).
+  var CP = window.CoachProfiles;
+  var COACH_NAME = CP.NAME;
   var HEALTH = null;                 // skor kesehatan asli (0-100) dari /api/activity/health-score
   var HS_DATA = null;                // respons health-score lengkap (chip data di sapaan chat)
   var GAME = null;                   // {xp, level, current_streak, ...} dari /api/coach/achievements
@@ -147,23 +112,8 @@
     try { var qr = await apiFetch("/api/coach/quiz"); var qj = await qr.json().catch(function () { return {}; }); QUIZ = qj && qj.quiz ? qj.quiz : null; } catch (e) {}
     try { var cr = await fetch("/api/coach/config"); CFG = await cr.json().catch(function () { return {}; }); } catch (e) { CFG = {}; }
     if (PLAN && PLAN.plan) { await loadToday(); }
-    // Foto persona = foto coach asli dari roster CMS (satu sumber kebenaran, CLAUDE.md §2).
-    // Cocokkan slug persona -> baris "Coach <nama>" di /api/coaches; gagal -> fallback inisial.
-    try {
-      var cres = await fetch("/api/coaches");
-      var cjs = await cres.json().catch(function () { return {}; });
-      var clist = (cjs && cjs.coaches) || [];
-      COACH_LIST.forEach(function (cc) {
-        var target = "coach " + cc[0];
-        for (var i = 0; i < clist.length; i++) {
-          if (String(clist[i].name || "").trim().toLowerCase() === target) {
-            COACH_ROW[cc[0]] = { id: clist[i].id, venue: clist[i].venue };
-            if (clist[i].photo_url) COACH_PHOTO[cc[0]] = clist[i].photo_url;
-            break;
-          }
-        }
-      });
-    } catch (e) {}
+    // Foto persona = foto coach asli dari roster CMS (lewat js/coach-profiles.js); gagal -> inisial.
+    await CP.loadRoster();
     // Nama depan user buat sapaan (best-effort; kalau tak ada, sapaan tanpa nama).
     try {
       var nm = (user && (user.name || (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)))) || "";
@@ -731,11 +681,11 @@
   }
   function wireBackToChat() { var b = el("backToChat"); if (b) b.onclick = function () { MODE = "chat"; render(); }; }
 
-  function coachColor(slug) { for (var i = 0; i < COACH_LIST.length; i++) if (COACH_LIST[i][0] === slug) return COACH_LIST[i][2]; return "var(--accent)"; }
+  function coachColor(slug) { return CP.color(slug); }
   function coachInitial(slug) { return (COACH_NAME[slug] || "?").charAt(0).toUpperCase(); }
   function coachAvatar(slug, size) {
     size = size || 40;
-    var fs = Math.round(size * 0.4), photo = COACH_PHOTO[slug] || "", color = coachColor(slug);
+    var fs = Math.round(size * 0.4), photo = CP.photo(slug), color = coachColor(slug);
     var ini = '<span class="cav-i" style="font-size:' + fs + 'px;background:' + color + (photo ? ';display:none' : '') + '">' + esc(coachInitial(slug)) + '</span>';
     var img = photo ? '<img src="' + esc(photo) + '" alt="' + esc(COACH_NAME[slug] || "") + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' : '';
     return '<span class="cav ring" style="width:' + size + 'px;height:' + size + 'px;--cc:' + color + '"><span class="cav-in">' + img + ini + '</span></span>';
@@ -764,76 +714,15 @@
         '<div class="cq-hero"><div class="cq-orb">' + svgIcon("spark", 36) + '</div>' +
         '<h2 class="cq-h">' + esc(Lx({ en: "Consultation", id: "Konsultasi" })) + '</h2>' +
         '<p class="cq-s">' + esc(Lx({ en: "Pick a coach to consult — each has their own style, and they answer using your real 20FIT data.", id: "Pilih coach untuk konsultasi — tiap coach punya gaya sendiri, dan menjawab pakai data 20FIT kamu yang asli." })) + '</p></div>' +
-        // Kotak profil coach — geser ke samping untuk kenalan dulu sebelum memilih.
-        '<div class="cprof-box">' +
-          '<div class="cprof-hd"><span class="cprof-t">' + esc(Lx({ en: "Meet the coaches", id: "Kenalan dulu sama coach-nya" })) + '</span>' +
-          '<span class="cprof-nav"><button type="button" id="cpPrev" aria-label="Prev">‹</button><button type="button" id="cpNext" aria-label="Next">›</button></span></div>' +
-          '<div class="cprof-track" id="cpTrack">' + COACH_LIST.map(profileCard).join("") + '</div>' +
-          '<div class="cprof-dots" id="cpDots">' + COACH_LIST.map(function (c, i) { return '<span data-i="' + i + '"' + (i === 0 ? ' class="on"' : '') + '></span>'; }).join("") + '</div>' +
-          '<p class="cprof-note">' + esc(Lx({ en: "Pick the style that suits you — you can switch anytime.", id: "Pilih yang paling cocok dengan kamu — bisa ganti kapan aja." })) + '</p>' +
-        '</div></div>' +
+        CP.box({ active: null }) + '</div>' +
       '<div class="card"><button type="button" class="cta-b" id="toProgram">' +
       '<span class="ic" style="background:color-mix(in srgb,var(--ai) 14%,transparent);color:var(--ai)">' + svgIcon("dumbbell") + '</span>' +
       '<span style="flex:1;min-width:0"><span class="ct">' + esc(Lx({ en: "Structured workout program", id: "Program latihan terstruktur" })) + '</span>' +
       '<span class="cs">' + esc(Lx({ en: "A weekly plan from a quick quiz", id: "Rencana mingguan dari quiz singkat" })) + '</span></span></button></div>';
-    Array.prototype.forEach.call(root().querySelectorAll("[data-pick]"), function (b) { b.onclick = function () { pickCoach(b.getAttribute("data-pick")); }; });
     var tp = el("toProgram"); if (tp) tp.onclick = function () { MODE = "program"; render(); };
-    wireProfileTrack();
-    loadNextClasses();
+    CP.wire(root(), pickCoach);
+    CP.loadNext();
   }
-  function profileCard(c) {
-    var slug = c[0], pf = COACH_PROFILE[slug] || {}, row = COACH_ROW[slug] || {};
-    var venue = row.venue === "gym" ? "20FIT Gym" : (row.venue === "both" ? "20FIT Arena & Gym" : "20FIT Arena");
-    return '<div class="cprof" style="--cc:' + c[2] + '">' +
-      '<div class="cprof-top">' + coachAvatar(slug, 84) +
-        '<div class="cprof-n">Coach ' + esc(COACH_NAME[slug]) + '</div>' +
-        '<div class="cprof-tag">' + esc(Lx(c[1])) + '</div>' +
-        '<div class="cprof-v">📍 ' + esc(venue) + '</div></div>' +
-      '<div class="cprof-traits">' + (pf.traits || []).map(function (t) { return '<span>' + esc(Lx(t)) + '</span>'; }).join("") + '</div>' +
-      '<div class="cprof-sec"><b>' + esc(Lx({ en: "Coaching style", id: "Gaya ngobrol" })) + '</b>' + esc(Lx(pf.style || { en: "", id: "" })) + '</div>' +
-      '<div class="cprof-quote">“' + esc(pf.quote || "") + '”</div>' +
-      '<div class="cprof-sec"><b>' + esc(Lx({ en: "Great if", id: "Cocok kalau" })) + '</b>' + esc(Lx(pf.fit || { en: "", id: "" })) + '</div>' +
-      '<div class="cprof-next" id="cpNext_' + slug + '">' + nextClassHtml(slug) + '</div>' +
-      '<button type="button" class="cprof-go" data-pick="' + esc(slug) + '">💬 ' + esc(Lx({ en: "Chat with ", id: "Chat dengan " }) + COACH_NAME[slug]) + '</button>' +
-    '</div>';
-  }
-  // Kelas terdekat coach (jadwal asli). undefined = belum dimuat, null = tidak ada jadwal.
-  function nextClassHtml(slug) {
-    var n = COACH_NEXT[slug];
-    if (n === undefined) return '<span class="muted">' + esc(Lx({ en: "Checking schedule…", id: "Cek jadwal…" })) + '</span>';
-    if (!n) return '<span class="muted">' + esc(Lx({ en: "No upcoming class yet", id: "Belum ada jadwal kelas" })) + '</span>';
-    var dt = ""; try { dt = new Date(n.date + "T00:00:00").toLocaleDateString((window.I18N && I18N.lang === "en") ? "en-GB" : "id-ID", { weekday: "short", day: "numeric", month: "short" }); } catch (e) { dt = n.date; }
-    return '📅 ' + esc(Lx({ en: "Next class: ", id: "Kelas terdekat: " })) + '<b>' + esc(n.name) + '</b> · ' + esc(dt + " " + n.start);
-  }
-  async function loadNextClasses() {
-    await Promise.all(COACH_LIST.map(async function (c) {
-      var slug = c[0];
-      if (COACH_NEXT[slug] !== undefined) return;
-      var row = COACH_ROW[slug];
-      if (!row || !row.id) { COACH_NEXT[slug] = null; }
-      else {
-        try {
-          var r = await fetch("/api/coaches/" + encodeURIComponent(row.id) + "/classes");
-          var j = await r.json().catch(function () { return {}; });
-          COACH_NEXT[slug] = ((j && j.classes) || []).filter(function (k) { return k.selectable; })[0] || null;
-        } catch (e) { COACH_NEXT[slug] = null; }
-      }
-      var box = el("cpNext_" + slug); if (box) box.innerHTML = nextClassHtml(slug);
-    }));
-  }
-  // Geser kartu: tombol ‹ › (desktop) + titik indikator; scroll-snap untuk swipe di HP.
-  function wireProfileTrack() {
-    var tr = el("cpTrack"), dots = el("cpDots"); if (!tr) return;
-    function step() { var c = tr.querySelector(".cprof"); return c ? c.getBoundingClientRect().width + 12 : 280; }
-    function idx() { return Math.round(tr.scrollLeft / step()); }
-    el("cpPrev").onclick = function () { tr.scrollBy({ left: -step(), behavior: "smooth" }); };
-    el("cpNext").onclick = function () { tr.scrollBy({ left: step(), behavior: "smooth" }); };
-    tr.addEventListener("scroll", function () {
-      var i = idx(); Array.prototype.forEach.call(dots.children, function (d, k) { d.className = k === i ? "on" : ""; });
-    }, { passive: true });
-    Array.prototype.forEach.call(dots.children, function (d) { d.onclick = function () { tr.scrollTo({ left: step() * (+d.getAttribute("data-i")), behavior: "smooth" }); }; });
-  }
-
   // Di bawah /activity/chat, URL mengikuti coach yang aktif (reload/bagikan link = coach sama).
   function syncChatUrl() {
     try {
