@@ -97,11 +97,11 @@
   var USER_NAME = "";                // nama depan user (buat sapaan personal)
   // [label, pesan, ikon] — label & ikon utk kartu prompt; pesan = yang benar-benar dikirim ke coach.
   var QUICKS = [
-    [{ en: "Make a plan", id: "Buat plan" }, { en: "Buatkan workout plan untuk minggu ini", id: "Buatkan workout plan untuk minggu ini" }, "dumbbell"],
-    [{ en: "My health score", id: "Health score-ku" }, { en: "Berapa health score aku sekarang dan gimana cara naikinnya?", id: "Berapa health score aku sekarang dan gimana cara naikinnya?" }, "heart"],
-    [{ en: "Meal ideas", id: "Ide makan" }, { en: "Suggest meal plan hari ini sesuai target kalori aku", id: "Suggest meal plan hari ini sesuai target kalori aku" }, "food"],
-    [{ en: "Book a class", id: "Book kelas" }, { en: "Ada kelas apa yang cocok buat aku minggu ini?", id: "Ada kelas apa yang cocok buat aku minggu ini?" }, "cal"],
-    [{ en: "Read my Visbody", id: "Baca Visbody" }, { en: "Analisa hasil Visbody terakhir aku", id: "Analisa hasil Visbody terakhir aku" }, "scan"],
+    [{ en: "Make a plan", id: "Buat plan" }, { en: "Make me a workout plan for this week", id: "Buatkan workout plan untuk minggu ini" }, "dumbbell"],
+    [{ en: "My health score", id: "Health score-ku" }, { en: "What's my health score right now and how do I raise it?", id: "Berapa health score aku sekarang dan gimana cara naikinnya?" }, "heart"],
+    [{ en: "Meal ideas", id: "Ide makan" }, { en: "Suggest a meal plan for today that fits my calorie target", id: "Suggest meal plan hari ini sesuai target kalori aku" }, "food"],
+    [{ en: "Book a class", id: "Book kelas" }, { en: "Which classes suit me this week?", id: "Ada kelas apa yang cocok buat aku minggu ini?" }, "cal"],
+    [{ en: "Read my Visbody", id: "Baca Visbody" }, { en: "Analyse my latest Visbody result", id: "Analisa hasil Visbody terakhir aku" }, "scan"],
   ];
 
   // ---- Muat awal ----

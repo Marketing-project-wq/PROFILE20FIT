@@ -23,6 +23,11 @@ Elsen (detail & teknis). Teks persona: `COACH_PERSONAS` di `server.js`.
 - **Tanpa sapaan pembuka** (Hi/Hai/Halo/Hey/Yo) — aplikasi sudah menampilkan sapaan coach di layar awal chat.
   Sapa balik singkat hanya kalau pesan user memang cuma sapaan. Server menaruh pengingat gaya singkat
   (`COACH_CHAT_REMINDER`) setelah riwayat, karena riwayat panjang cenderung menyeret model ke gaya lama.
+- **Bahasa balasan = bahasa yang DIKETIK user**, bukan tombol EN/ID di layar: pesan berbahasa Inggris → balasan
+  sepenuhnya Inggris (termasuk isi plan/meal plan & nama hari); pesan berbahasa Indonesia → Bahasa Indonesia (gaya
+  santai persona & istilah fitness Inggris umum boleh). Dideteksi server (`coachDetectLang`, kata penanda); pesan
+  ambigu ("ok", "plan?") ikut bahasa pesan user sebelumnya, lalu bahasa UI. Pengingat bahasa (`coachLangReminder`)
+  ditaruh tepat sebelum pesan user.
 
 ## Boleh
 - Saran workout, nutrisi, recovery (umum)

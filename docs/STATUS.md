@@ -689,6 +689,11 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 - Bangun + sambungkan API Event (`/api/events`) ke `event.html`.
 
 ## 4. Bug / utang teknis diketahui
+- **Coach membalas dalam bahasa tombol EN/ID, bukan bahasa yang diketik user — DIPERBAIKI 2026-10-01.** Sekarang server
+  mendeteksi bahasa pesan (`coachDetectLang`, kata penanda ID/EN; istilah dua bahasa seperti plan/workout tak dihitung),
+  fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
+  chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
+  (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
 - **Workout plan dari chat TIDAK PERNAH tersimpan — DIPERBAIKI 2026-10-01.** Plan dari chat disimpan dengan
   `source="chat"`, padahal CHECK `my20fit_workout_plan_src_chk` (migration 021) hanya mengizinkan `ai|rule|adjusted`
   → insert selalu ditolak, blok JSON dibuang, user melihat ruang kosong di balasan (dan plan aktif lama sudah lebih dulu

@@ -10870,7 +10870,37 @@ function coachChatSystem(coachId, ctx, lang, classes) {
   return COACH_PERSONAS[coachId].persona + "\n\n" + COACH_CHAT_RULES +
     "\n\nDATA USER (JSON):\n" + JSON.stringify(ctx).slice(0, 6000) +
     "\n\ncoach_classes (kelas upcoming milik " + COACH_PERSONAS[coachId].name + "):\n" + JSON.stringify(classes || []) +
-    "\n\nBahasa jawaban: " + (lang === "en" ? "English." : "Bahasa Indonesia (atau ikuti bahasa user).");
+    "\n\nBahasa jawaban: SELALU ikuti bahasa pesan TERAKHIR user (" + (lang === "en" ? "saat ini: English" : "saat ini: Bahasa Indonesia") + ").";
+}
+// Bahasa balasan = bahasa yang DIKETIK user, bukan tombol EN/ID di layar. Deteksi sederhana dari
+// kata-kata penanda (istilah yang dipakai dua bahasa — plan, workout, meal, score — sengaja tak
+// dihitung). Hasil null = tak bisa dipastikan (mis. "ok", "plan?") -> pakai bahasa pesan user
+// sebelumnya, lalu bahasa UI.
+const COACH_LANG_ID = new Set(("yang dan aku saya gue gw kamu kak untuk buat buatkan bikin minggu ini itu gimana bagaimana apa apakah berapa " +
+  "tolong dong deh sih ya yaa nggak ngga gak ga tidak enggak bisa mau ingin pengen dengan di ke dari sudah udah belum makan latihan " +
+  "hari sekarang kalau kalo karena tapi juga lagi ada cara banget sama aja saja hasil terakhir berat badan turun naik kelas cocok " +
+  "sesuai besok kemarin pagi malam siang olahraga otot lemak perut jadwal harus boleh terima kasih makasih selamat jam menit " +
+  "analisa tolongin coba kenapa mana siapa kapan baru lama sedikit banyak lebih kurang").split(" "));
+const COACH_LANG_EN = new Set(("the and i i'm im my me you your for this that week today what what's how can could please is are am to of " +
+  "with make give want need should help about does did have has it its an on in at why which suit lose gain weight muscle eat " +
+  "class classes tomorrow morning night thanks thank hello hey latest result results analyse analyze build new right now raise " +
+  "more less much many when where who will would just get going").split(" "));
+function coachDetectLang(text) {
+  const words = String(text || "").toLowerCase().match(/[a-z']+/g) || [];
+  let id = 0, en = 0;
+  words.forEach(function (w) { if (COACH_LANG_ID.has(w)) id++; if (COACH_LANG_EN.has(w)) en++; });
+  if (id > en) return "id";
+  if (en > id) return "en";
+  return null;
+}
+// Pengingat bahasa ditaruh PALING AKHIR (tepat sebelum pesan user) — riwayat & persona campur
+// Indonesia-Inggris cenderung menyeret model ke bahasa lain.
+function coachLangReminder(replyLang) {
+  return replyLang === "en"
+    ? "LANGUAGE: the user's latest message is in English. Reply ENTIRELY in natural English — keep your persona's tone and emojis, " +
+      "but no Indonesian words or slang. Any plan / meal-plan JSON text and day names must be in English too (Monday, Tuesday…)."
+    : "BAHASA: pesan terakhir user berbahasa Indonesia. Balas dalam Bahasa Indonesia (gaya santai persona & istilah fitness " +
+      "umum dalam bahasa Inggris boleh). Teks JSON plan / meal plan & nama hari pakai Bahasa Indonesia (Senin, Selasa…).";
 }
 // Blok ```json {"type":"workout_plan"} di balasan chat -> plan aktif (my20fit_workout_plan).
 // Dinormalisasi lewat coachValidateProgram (bentuk sama dgn plan dari quiz). Blok diganti token
@@ -10984,8 +11014,12 @@ app.post("/api/coach/chat", async (req, res) => {
     // Health Score dari SATU fungsi (hsCompute) — sama dengan yang dilihat user di /activity.
     if (hs) ctx.health_score = { unlocked: hs.unlocked, total: hs.total, components: hs.filled.length + "/" + hs.components_total,
       parts: Object.keys(hs.breakdown || {}).reduce(function (o, k) { o[k] = hs.breakdown[k].score; return o; }, {}) };
-    const messages = [{ role: "system", content: coachChatSystem(coachId, ctx, lang, classes) }].concat(history)
-      .concat([{ role: "system", content: COACH_CHAT_REMINDER }, { role: "user", content: message }]);
+    // Bahasa balasan: bahasa pesan ini -> bahasa pesan user sebelumnya -> bahasa UI.
+    let replyLang = coachDetectLang(message);
+    for (let i = history.length - 1; !replyLang && i >= 0; i--) if (history[i].role === "user") replyLang = coachDetectLang(history[i].content);
+    replyLang = replyLang || lang;
+    const messages = [{ role: "system", content: coachChatSystem(coachId, ctx, replyLang, classes) }].concat(history)
+      .concat([{ role: "system", content: COACH_CHAT_REMINDER + " " + coachLangReminder(replyLang) }, { role: "user", content: message }]);
     if (sessionId && !history.length) jnLog(user.id, "coach_chat_started", { coach: coachId });
     // Ajakan Visbody maks 1x per sesi (RULES.md): sudah pernah diberi -> ingatkan model agar tak mengulang.
     if (history.some(function (h) { return h.role === "assistant" && /\[\[VISBODY\]\]|visbody scan/i.test(h.content); })) {
@@ -10994,7 +11028,7 @@ app.post("/api/coach/chat", async (req, res) => {
     const complex = COACH_COMPLEX_RE.test(message);
     let reply = "", modelUsed = null;
     try {
-      const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: complex ? 2048 : 600, tier: complex ? "complex" : "simple", lang: lang }, 60000);
+      const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: complex ? 2048 : 600, tier: complex ? "complex" : "simple", lang: replyLang }, 60000);
       if (!ai.httpOk || !ai.json || !ai.json.ok || !ai.json.reply) { logAiAccess(user.id, "coach/chat", false, "edge"); return res.status(502).json({ error: "Coach lagi nggak bisa jawab. Coba lagi." }); }
       reply = String(ai.json.reply);
       modelUsed = ai.json.model ? String(ai.json.model).slice(0, 80) : null;
@@ -11009,12 +11043,12 @@ app.post("/api/coach/chat", async (req, res) => {
       if (!prog) console.error("coach/chat plan: blok workout_plan tidak valid");
       reply = reply.replace(COACH_PLAN_BLOCK, function () {
         return prog ? "[[WORKOUT_PLAN]]" + JSON.stringify(coachPlanCard(savedPlan, prog)) + "[[/WORKOUT_PLAN]]"
-          : (lang === "en" ? "(The plan couldn't be read — ask me to make it again.)" : "(Plan-nya gagal terbaca — minta aku buatkan ulang ya.)");
+          : (replyLang === "en" ? "(The plan couldn't be read — ask me to make it again.)" : "(Plan-nya gagal terbaca — minta aku buatkan ulang ya.)");
       }).replace(/\n{3,}/g, "\n\n").trim();
     } else if (COACH_PLAN_CUT.test(reply)) {
       // Balasan terpotong di tengah JSON -> buang JSON mentahnya, beri tahu user.
       reply = reply.replace(COACH_PLAN_CUT, "").trim() + "\n\n" +
-        (lang === "en" ? "(The plan got cut off — ask me again, e.g. \"make it 4 days\".)" : "(Plan-nya kepotong — minta ulang ya, mis. \"buat 4 hari saja\".)");
+        (replyLang === "en" ? "(The plan got cut off — ask me again, e.g. \"make it 4 days\".)" : "(Plan-nya kepotong — minta ulang ya, mis. \"buat 4 hari saja\".)");
     }
     const mm = reply.match(COACH_MEAL_BLOCK);
     if (mm) {
