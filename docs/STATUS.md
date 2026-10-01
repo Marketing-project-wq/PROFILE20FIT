@@ -392,6 +392,13 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
       tidak tersimpan — supaya fitur bisa diuji sebelum bucket dibuat.
     - **BELUM TERVERIFIKASI:** akurasi bacaan pada screenshot tracker ASLI. Diuji dengan
       respons AI tiruan; ketepatan OCR baru bisa dinilai setelah edge fn di-deploy ulang.
+- **Layout desktop `/calories` diseimbangkan (1 Okt 2026, permintaan pemilik: "jarak kejauhan").**
+  Desktop (≥900px): kolom kiri = target + fasting + **rencana makan** (coach/otomatis), kanan =
+  ringkasan + Today's Food + Minggu Ini. Sebelumnya rencana makan ada di kanan sehingga kolom kiri
+  kosong ±1.200px. Mobile tetap satu kolom dengan urutan lama lewat `order` (`.cg-a/.cg-food/.cg-plan/.cg-week`,
+  `.calcol{display:contents}`). Kartu "Menu recommendations" kini berjarak 14px dari blok atasnya
+  (sebelumnya menempel). Diuji Playwright dengan data tiruan (1000/1280/1440/390, EN/ID, terang/gelap);
+  **belum dicek dengan data akun asli** — tinggi kolom tetap bergantung isi (mis. panjang log hari itu).
 - **"Today's Food" di `/calories`: seret makanan antar waktu makan (1 Okt 2026).**
   Item bisa diseret ke Breakfast/Lunch/Dinner/Snack (Pointer Events di `calories.html`,
   `moveItemMeal()`): mouse dari seluruh baris, sentuh hanya dari pegangan titik-titik di
