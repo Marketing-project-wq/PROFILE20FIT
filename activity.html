@@ -466,31 +466,45 @@
   .ts-v{font-size:16px;font-weight:800;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ts-s{font-size:11.5px;color:var(--a-mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ts-s.ok{color:var(--fit-green);font-weight:700} .ts-s.low{color:var(--fit-amber);font-weight:700}
-  /* Upload progress — satu kartu: zona drop + 3 tombol + status + "Terakhir:" */
-  .upx{position:relative;overflow:hidden;border-radius:18px;padding:14px;border:1px solid var(--a-line);
+  /* Upload progress — satu kartu: zona drop (judul + jenis yang dibaca) + 3 tombol + status + tips + "Terakhir:" */
+  .upx{position:relative;overflow:hidden;border-radius:20px;padding:14px;border:1px solid var(--a-line);
     background:linear-gradient(135deg,color-mix(in srgb,var(--fit-red,#E4002B) 9%,var(--a-surface)),var(--a-surface) 55%,color-mix(in srgb,var(--accent) 8%,var(--a-surface)));
-    transition:box-shadow .25s,border-color .25s}
-  .upx::after{content:"";position:absolute;right:-50px;top:-60px;width:170px;height:170px;border-radius:50%;pointer-events:none;
-    background:radial-gradient(circle,color-mix(in srgb,var(--fit-red,#E4002B) 16%,transparent),transparent 70%)}
+    box-shadow:0 10px 28px color-mix(in srgb,var(--a-txt) 6%,transparent);transition:box-shadow .25s,border-color .25s}
+  .upx::before,.upx::after{content:"";position:absolute;border-radius:50%;pointer-events:none}
+  .upx::after{right:-60px;top:-70px;width:190px;height:190px;background:radial-gradient(circle,color-mix(in srgb,var(--fit-red,#E4002B) 18%,transparent),transparent 70%)}
+  .upx::before{left:-50px;bottom:-80px;width:170px;height:170px;background:radial-gradient(circle,color-mix(in srgb,var(--accent) 14%,transparent),transparent 70%)}
   .upx>*{position:relative;z-index:1}
   .upx.over,.upx.hl{border-color:var(--fit-red,#E4002B);box-shadow:0 0 0 4px color-mix(in srgb,var(--fit-red,#E4002B) 18%,transparent)}
-  .upx-drop{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;cursor:pointer;
-    border:1.5px dashed color-mix(in srgb,var(--a-txt) 18%,transparent);background:color-mix(in srgb,var(--a-surface) 60%,transparent);transition:border-color .2s,background .2s}
+  .upx-drop{display:block;padding:14px;border-radius:16px;cursor:pointer;
+    border:1.5px dashed color-mix(in srgb,var(--a-txt) 18%,transparent);background:color-mix(in srgb,var(--a-surface) 65%,transparent);transition:border-color .2s,background .2s}
   .upx-drop:hover,.upx-drop:focus-visible,.upx.over .upx-drop{border-color:var(--fit-red,#E4002B);background:color-mix(in srgb,var(--fit-red,#E4002B) 6%,var(--a-surface));outline:none}
-  .upx-ic{width:46px;height:46px;border-radius:14px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;
+  .upx-top{display:flex;align-items:center;gap:12px}
+  .upx-ic{width:48px;height:48px;border-radius:15px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;
     background:linear-gradient(145deg,var(--fit-red,#E4002B),color-mix(in srgb,var(--fit-red,#E4002B) 70%,#ff8a3d));
-    box-shadow:0 8px 18px color-mix(in srgb,var(--fit-red,#E4002B) 30%,transparent)}
-  .upx-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
-  .upx-t{font-weight:800;font-size:15px;letter-spacing:-.1px}
+    box-shadow:0 8px 18px color-mix(in srgb,var(--fit-red,#E4002B) 30%,transparent);transition:transform .25s}
+  .upx-drop:hover .upx-ic,.upx.over .upx-ic{transform:translateY(-2px)}
+  .upx-txt{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+  .upx-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .upx-t{font-weight:800;font-size:16px;letter-spacing:-.2px}
+  .upx-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:99px;font-size:10.5px;font-weight:800;letter-spacing:.2px;
+    color:var(--fit-red,#E4002B);background:color-mix(in srgb,var(--fit-red,#E4002B) 11%,transparent)}
   .upx-s{font-size:12px;color:var(--a-mut);line-height:1.45}
-  .upx-tip{display:block;margin-top:4px;font-size:11.5px;color:var(--a-mut);line-height:1.4;font-style:italic}
+  .upx-types{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 0;padding:0;list-style:none}
+  .upx-types li{display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 7px;border-radius:99px;font-size:11.5px;font-weight:700;
+    color:var(--a-txt);background:var(--a-surface);border:1px solid var(--a-line)}
+  .upx-types .fic{color:var(--fit-red,#E4002B)}
   .upx-btns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
-  .upx-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:10px 6px;border-radius:11px;
-    border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;
-    transition:transform .12s,background .2s}
-  .upx-b span:last-child{overflow:hidden;text-overflow:ellipsis}
+  .upx-b{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;padding:11px 6px;border-radius:14px;
+    border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;
+    transition:transform .12s,background .2s,border-color .2s}
+  .upx-b-ic{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    color:var(--fit-red,#E4002B);background:color-mix(in srgb,var(--fit-red,#E4002B) 10%,transparent)}
+  .upx-b-l{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .upx-b:hover{border-color:color-mix(in srgb,var(--fit-red,#E4002B) 45%,var(--a-line))}
   .upx-b:active{transform:scale(.97)}
-  .upx-b.pri{background:var(--fit-red,#E4002B);border-color:var(--fit-red,#E4002B);color:#fff}
+  .upx-b.pri{background:linear-gradient(145deg,var(--fit-red,#E4002B),color-mix(in srgb,var(--fit-red,#E4002B) 78%,#ff8a3d));border-color:transparent;color:#fff;
+    box-shadow:0 8px 18px color-mix(in srgb,var(--fit-red,#E4002B) 28%,transparent)}
+  .upx-b.pri .upx-b-ic{color:#fff;background:rgba(255,255,255,.2)}
   .upx-b:disabled{opacity:.5;cursor:default}
   .upx-prog{display:flex;align-items:center;gap:9px;margin-top:10px;padding:9px 11px;border-radius:11px;font-size:12.5px;font-weight:700;
     background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--a-txt)}
@@ -502,7 +516,11 @@
     mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4L19 6.5'/%3E%3C/svg%3E") center/contain no-repeat}
   .upx.busy .upx-drop{pointer-events:none;opacity:.6}
   @keyframes upxspin{to{transform:rotate(360deg)}}
-  .upx-last{font-size:11.5px;color:var(--a-txt);line-height:1.4;margin-top:9px}
+  .upx-tip{display:flex;gap:8px;align-items:flex-start;margin-top:10px;padding:9px 11px;border-radius:12px;font-size:11.5px;color:var(--a-mut);line-height:1.45;
+    background:color-mix(in srgb,var(--accent) 7%,transparent)}
+  .upx-tip .fic{flex:none;margin-top:1px;color:var(--accent)}
+  .upx-tip b{color:var(--a-txt)}
+  .upx-last{font-size:11.5px;color:var(--a-txt);line-height:1.4;margin-top:10px;padding:9px 11px;border-radius:12px;border:1px solid var(--a-line);background:color-mix(in srgb,var(--a-surface) 75%,transparent)}
   .upx-last:empty{display:none}
   .upx-last span{color:var(--a-mut)}
   /* Log upload hari ini */
@@ -520,7 +538,10 @@
   .ulog-a a{font-size:12px;font-weight:800;color:var(--fit-red,#E4002B);text-decoration:none}
   .ulog-a button{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:8px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:11.5px;font-weight:800;cursor:pointer}
   .ulog-a button:disabled{opacity:.7}
-  @media(max-width:420px){ .upx-b{font-size:11.5px;gap:4px;padding:10px 4px} .upx-b .fic{display:none} }
+  @media(min-width:700px){ .upx-b{flex-direction:row;gap:10px;padding:10px 12px} }
+  @media(max-width:480px){ .upx-types{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+    .upx-types li{flex-direction:column;gap:3px;padding:7px 2px;border-radius:12px;font-size:11px;justify-content:center;text-align:center} }
+  @media(max-width:420px){ .upx{padding:12px} .upx-drop{padding:12px} .upx-b{font-size:11.5px;padding:10px 4px} .upx-b-ic{width:28px;height:28px} }
   .wr-days{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;margin-bottom:8px}
   .wr-day{display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--a-mut);font-weight:700;padding:3px 0;border-radius:7px}
   .wr-day .m{font-size:12px;min-height:16px;line-height:16px}
@@ -728,19 +749,30 @@
          selalu memperbarui Today's Plan + Health Score; kalau workout, dialog pencatatan workout terbuka. -->
     <div class="upx" id="uploadCard">
       <div class="upx-drop" id="upDrop" tabindex="0" role="button" aria-describedby="upHint">
-        <span class="upx-ic"><span class="fic" data-ic="upload" data-ic-size="22"></span></span>
-        <span class="upx-txt">
-          <span class="upx-t" data-en="Upload your progress" data-id="Upload progress kamu">Upload progress kamu</span>
-          <span class="upx-s" id="upHint" data-en="Workout, sleep, steps or weight screenshot — up to 5 at once. AI reads the numbers and updates today's plan." data-id="Screenshot workout, tidur, langkah, atau berat — bisa 5 sekaligus. AI membaca angkanya & memperbarui plan hari ini.">Screenshot workout, tidur, langkah, atau berat — bisa 5 sekaligus. AI membaca angkanya &amp; memperbarui plan hari ini.</span>
-          <span class="upx-tip" data-en="For a deeper workout analysis, add the Splits/Laps screen (with heart rate per km) and the Heart Rate zones screen of the same workout." data-id="Untuk analisa workout yang lebih akurat, sertakan juga layar Splits/Laps (dengan heart rate per km) dan layar zona Heart Rate dari workout yang sama.">Untuk analisa workout yang lebih akurat, sertakan juga layar Splits/Laps (dengan heart rate per km) dan layar zona Heart Rate dari workout yang sama.</span>
+        <span class="upx-top">
+          <span class="upx-ic"><span class="fic" data-ic="upload" data-ic-size="22"></span></span>
+          <span class="upx-txt">
+            <span class="upx-hd">
+              <span class="upx-t" data-en="Upload your progress" data-id="Upload progress kamu">Upload progress kamu</span>
+              <span class="upx-badge"><span class="fic" data-ic="spark" data-ic-size="11"></span> <span data-en="AI · up to 5" data-id="AI · maks 5">AI · maks 5</span></span>
+            </span>
+            <span class="upx-s" id="upHint" data-en="Tap or drop screenshots from your watch or health app — AI reads the numbers and updates today's plan." data-id="Ketuk atau tarik screenshot dari jam/aplikasi kesehatan — AI membaca angkanya & memperbarui plan hari ini.">Ketuk atau tarik screenshot dari jam/aplikasi kesehatan — AI membaca angkanya &amp; memperbarui plan hari ini.</span>
+          </span>
         </span>
+        <ul class="upx-types">
+          <li><span class="fic" data-ic="run" data-ic-size="13"></span> <span>Workout</span></li>
+          <li><span class="fic" data-ic="moon" data-ic-size="13"></span> <span data-en="Sleep" data-id="Tidur">Tidur</span></li>
+          <li><span class="fic" data-ic="steps" data-ic-size="13"></span> <span data-en="Steps" data-id="Langkah">Langkah</span></li>
+          <li><span class="fic" data-ic="scale" data-ic-size="13"></span> <span data-en="Weight" data-id="Berat">Berat</span></li>
+        </ul>
       </div>
       <div class="upx-prog" id="upProg" hidden><span class="upx-spin" aria-hidden="true"></span><span id="upProgTxt"></span></div>
       <div class="upx-btns">
-        <button type="button" class="upx-b pri" id="upCam"><span class="fic" data-ic="camera" data-ic-size="16"></span> <span data-en="Camera" data-id="Kamera">Kamera</span></button>
-        <button type="button" class="upx-b" id="upFile"><span class="fic" data-ic="folder" data-ic-size="16"></span> <span data-en="Gallery / file" data-id="Galeri / file">Galeri / file</span></button>
-        <button type="button" class="upx-b" id="upManual"><span class="fic" data-ic="dumbbell" data-ic-size="16"></span> <span data-en="Log workout" data-id="Isi workout">Isi workout</span></button>
+        <button type="button" class="upx-b pri" id="upCam"><span class="upx-b-ic"><span class="fic" data-ic="camera" data-ic-size="17"></span></span><span class="upx-b-l" data-en="Camera" data-id="Kamera">Kamera</span></button>
+        <button type="button" class="upx-b" id="upFile"><span class="upx-b-ic"><span class="fic" data-ic="image" data-ic-size="17"></span></span><span class="upx-b-l" data-en="Gallery / file" data-id="Galeri / file">Galeri / file</span></button>
+        <button type="button" class="upx-b" id="upManual"><span class="upx-b-ic"><span class="fic" data-ic="dumbbell" data-ic-size="17"></span></span><span class="upx-b-l" data-en="Log workout" data-id="Isi workout">Isi workout</span></button>
       </div>
+      <div class="upx-tip"><span class="fic" data-ic="info" data-ic-size="14"></span><span><b data-en="Tip:" data-id="Tips:">Tips:</b> <span data-en="for a deeper workout analysis, also add the Splits/Laps screen (heart rate per km) and the Heart Rate zones screen of the same workout." data-id="untuk analisa workout yang lebih akurat, sertakan juga layar Splits/Laps (heart rate per km) dan layar zona Heart Rate dari workout yang sama.">untuk analisa workout yang lebih akurat, sertakan juga layar Splits/Laps (heart rate per km) dan layar zona Heart Rate dari workout yang sama.</span></span></div>
       <div class="upx-last" id="upLast"></div>
       <input type="file" id="upCamIn" accept="image/*" capture="environment" hidden>
       <input type="file" id="upFileIn" accept="image/*,.heic,.heif" multiple hidden>
