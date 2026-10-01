@@ -94,6 +94,38 @@
   .nxc .nx-t{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;color:var(--a-txt)}
   .nxc .nx-t svg{color:var(--ai)}
   .nxc .nx-r{font-size:13px;color:var(--a-mut);line-height:1.5;margin:6px 0 10px}
+  .lvl{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;border:1px solid var(--a-line);color:var(--a-mut);margin-top:10px}
+  .lvl.detailed,.lvl.full{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 35%,var(--a-line))}
+  .spc{width:100%;height:150px;display:block;margin-top:12px;overflow:visible}
+  .spc .pace{fill:none;stroke:var(--accent);stroke-width:2.2}
+  .spc .hr{fill:none;stroke:var(--ai);stroke-width:2.2}
+  .spc .hl{fill:color-mix(in srgb,var(--warn) 16%,transparent)}
+  .spc text{font-size:10px;fill:var(--a-mut);font-family:var(--mono)}
+  .lg{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--a-mut);margin-top:6px}
+  .lg i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+  .sgl{display:flex;flex-direction:column;gap:10px}
+  .sg{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.5}
+  .sg .ic{width:30px;height:30px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn)}
+  .sg.ok .ic{background:color-mix(in srgb,var(--ok) 12%,transparent);color:var(--ok)}
+  .sg b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.3px;color:var(--a-mut)}
+  .need{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .need span{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;border:1px dashed var(--a-line);color:var(--a-mut)}
+  .cz{display:flex;flex-direction:column;gap:8px}
+  .cz-h{display:flex;align-items:center;gap:8px}
+  .cz-h b{flex:1;font-size:14px}
+  .cf{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;white-space:nowrap}
+  .cf.tinggi{background:color-mix(in srgb,var(--bad) 12%,transparent);color:var(--bad)}
+  .cf.sedang{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn)}
+  .cf.rendah{background:color-mix(in srgb,var(--a-txt) 7%,transparent);color:var(--a-mut)}
+  .cz p{margin:0;font-size:13px;line-height:1.5}
+  .ck label.q{display:block;font-size:12.5px;font-weight:800;margin:12px 0 6px}
+  .opts{display:flex;flex-wrap:wrap;gap:6px}
+  .opts button{padding:7px 11px;border-radius:99px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .opts button.on{background:var(--ai);border-color:var(--ai);color:#fff}
+  .ck input[type=number]{width:120px;padding:8px 10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:13.5px}
+  details.how summary{cursor:pointer;font-weight:800;font-size:13.5px}
+  details.how p{font-size:13px;line-height:1.55;margin:8px 0 0;color:var(--a-txt)}
+  .co .cant{font-size:13px;color:var(--a-mut);font-style:italic}
   .safe{background:color-mix(in srgb,var(--bad) 8%,var(--a-surface));border-color:color-mix(in srgb,var(--bad) 40%,var(--a-line))}
   .safe h2{margin:0 0 8px;font-size:16px;color:var(--bad)}
   .safe p{margin:0 0 8px;font-size:13.5px;line-height:1.55}
@@ -152,6 +184,21 @@
   function today(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   try{ var cp=localStorage.getItem("my20fit_coach_pick"); if(cp&&window.CoachProfiles&&CoachProfiles.NAME[cp]) S.coach=cp; }catch(e){}
 
+  // Sinyal HR & pace (lib/workout-signals.js) + kandidat penyebab — label tampilan.
+  var SIG={ efficiency_drop:[{en:"Aerobic efficiency",id:"Efisiensi aerobik"},"heart"], cardiac_drift:[{en:"Cardiac drift",id:"Cardiac drift"},"chart"],
+    late_fade:[{en:"Pace at the end",id:"Pace di akhir"},"run"], late_fade_short:[{en:"Pace at the end",id:"Pace di akhir"},"run"],
+    hr_suppressed:[{en:"Heart rate didn't rise",id:"HR sulit naik"},"heart"], zones_high:[{en:"Heart-rate zones",id:"Zona heart rate"},"target"], readiness_low:[{en:"Recovery",id:"Pemulihan"},"moon"] };
+  var NEED={ no_hr:{en:"average heart rate",id:"HR rata-rata"}, no_pace:{en:"pace/distance",id:"pace/jarak"}, baseline:{en:"3+ similar workouts",id:"minimal 3 workout sejenis"},
+    no_splits:{en:"Splits screen",id:"layar Splits"}, no_split_hr:{en:"heart rate per split",id:"HR per split"}, few_splits:{en:"4+ splits",id:"minimal 4 split"},
+    too_short:{en:"a session of 30+ min",id:"sesi minimal 30 menit"}, no_max_hr:{en:"max heart rate",id:"HR maksimal"}, no_zones:{en:"HR zones screen",id:"layar zona HR"},
+    no_readiness:{en:"recovery screen (resting HR/HRV)",id:"layar pemulihan (resting HR/HRV)"}, not_applicable:null };
+  var CAUSE={ short_sleep:[{en:"Short sleep",id:"Kurang tidur"},"moon"], low_fuel:[{en:"Low fuel before training",id:"Kurang bahan bakar sebelum latihan"},"meal"],
+    dehydration:[{en:"Not drinking enough",id:"Kurang minum"},"water"], heat:[{en:"Heat & humidity",id:"Panas & lembap"},"sun"], high_load:[{en:"Accumulated training load",id:"Beban latihan menumpuk"},"dumbbell"],
+    unwell:[{en:"Not feeling well",id:"Badan kurang fit"},"heart"], pacing:[{en:"Starting too fast",id:"Pacing awal terlalu cepat"},"run"] };
+  var CONF={ tinggi:{en:"High confidence",id:"Keyakinan tinggi"}, sedang:{en:"Medium confidence",id:"Keyakinan sedang"}, rendah:{en:"Low confidence",id:"Keyakinan rendah"} };
+  var LVL={ basic:{en:"Data: Basic (summary)",id:"Data: Basic (ringkasan)"}, detailed:{en:"Data: Detailed (splits + HR)",id:"Data: Detailed (splits + HR)"}, full:{en:"Data: Full",id:"Data: Full"} };
+  var MISS={ splits:{en:"Splits screen",id:"layar Splits"}, split_hr:{en:"heart rate per split",id:"HR per split"}, zones:{en:"HR zones screen",id:"layar zona HR"}, readiness:{en:"recovery screen",id:"layar pemulihan"} };
+  var CK={ sleep:null, meal_gap:null, conditions:null, feeling:null };
   var FACTOR={ sleep:[{en:"Sleep",id:"Tidur"},"moon"], nutrition:[{en:"Nutrition (day before)",id:"Nutrisi kemarin"},"meal"],
     pre_meal:[{en:"Pre-workout meal",id:"Makan sebelum latihan"},"clock"], hydration:[{en:"Hydration",id:"Hidrasi"},"water"],
     load:[{en:"Training load",id:"Beban latihan"},"dumbbell"], body:[{en:"Body condition",id:"Kondisi tubuh"},"scale"] };
@@ -174,6 +221,8 @@
     return '<div class="card"><div class="acts">'+
       (w.screenshots.length?'<button type="button" class="b" id="bShots">'+FIC("image",15)+' '+esc(L({en:"Original screenshot",id:"Screenshot asli"}))+(w.screenshots.length>1?" ("+w.screenshots.length+")":"")+'</button>':'')+
       '<button type="button" class="b" id="bEdit">'+FIC("edit",15)+' '+esc(L({en:"Edit data",id:"Edit data"}))+'</button></div>'+dcNote+
+      (w.data_level?'<span class="lvl '+esc(w.data_level.level)+'">'+FIC(w.data_level.level==="basic"?"info":"check",12)+' '+esc(L(LVL[w.data_level.level]))+'</span>'+
+        (w.data_level.level!=="full"?'<div class="note">'+esc(L({en:"For a more accurate analysis, upload: ",id:"Supaya analisa lebih akurat, upload: "})+w.data_level.missing.map(function(k){ return L(MISS[k]); }).join(", ")+".")+'</div>':''):'')+
       (w.note?'<div class="note">'+FIC("chat",13)+' '+esc(w.note)+'</div>':'')+'</div>';
   }
   function metrics(){
@@ -197,8 +246,9 @@
     }
     var sp="";
     if(w.splits&&w.splits.length){
-      sp='<table class="sp"><thead><tr><th>km</th><th>'+esc(L({en:"Split",id:"Split"}))+'</th></tr></thead><tbody>'+w.splits.map(function(x){
-        return '<tr><td>'+esc(x.km)+'</td><td>'+esc(x.sec?WM.fmtPace(+x.sec).replace("/km",""):"—")+'</td></tr>'; }).join("")+'</tbody></table>';
+      var hasHr=w.splits.some(function(x){ return x.hr; });
+      sp=splitChart(w.splits)+'<table class="sp"><thead><tr><th>km</th><th>'+esc(L({en:"Pace",id:"Pace"}))+'</th>'+(hasHr?'<th>HR</th>':'')+'</tr></thead><tbody>'+w.splits.map(function(x){
+        return '<tr><td>'+esc(x.km)+'</td><td>'+esc(x.sec?WM.fmtPace(+x.sec).replace("/km",""):"—")+'</td>'+(hasHr?'<td>'+esc(x.hr||"—")+'</td>':'')+'</tr>'; }).join("")+'</tbody></table>';
     }
     return '<div class="sec">'+esc(L({en:"Main metrics",id:"Metrik utama"}))+'</div><div class="card"><div class="mx">'+t.join("")+'</div>'+zh+sp+'</div>';
   }
@@ -217,6 +267,85 @@
       '<text x="'+P+'" y="'+(H+12)+'">'+esc(fmtDay(pts[0].date,{day:"numeric",month:"short"}))+'</text><text x="'+(W-P)+'" y="'+(H+12)+'" text-anchor="end">'+esc(fmtDay(pts[pts.length-1].date,{day:"numeric",month:"short"}))+'</text></svg>'+
       '<div class="chart-cap">'+esc(L({en:"Last "+pts.length+" similar sessions · higher = better · dashed line = your usual",id:pts.length+" sesi sejenis terakhir · makin atas makin baik · garis putus = rata-rata biasamu"}))+'</div>';
   }
+  // Grafik pace & HR per split (dua garis, skala masing-masing). Paruh kedua disorot kalau ada drift,
+  // split terakhir disorot kalau pace turun di akhir.
+  function sig(id){ return (S.a.signals||[]).filter(function(x){ return x.id===id||(id==="late_fade"&&x.id==="late_fade_short"); })[0]||null; }
+  function splitChart(sp){
+    if(sp.length<2) return "";
+    var W=600,H=120,P=16, n=sp.length;
+    function x(i){ return P+(W-2*P)*(i/(n-1)); }
+    function scale(vals,inv){ var v=vals.filter(function(a){ return a!=null; }), mn=Math.min.apply(null,v), mx=Math.max.apply(null,v), r=(mx-mn)||1;
+      return function(a){ var t=(a-mn)/r; if(inv) t=1-t; return H-P-(H-2*P)*t; }; }
+    var yp=scale(sp.map(function(a){ return a.sec; }),true), hrs=sp.map(function(a){ return a.hr; }), hasHr=hrs.filter(Boolean).length>=2, yh=hasHr?scale(hrs,false):null;
+    var line=function(vals,y){ var d="",st=false; vals.forEach(function(v,i){ if(v==null) return; d+=(st?"L":"M")+x(i).toFixed(1)+" "+y(v).toFixed(1)+" "; st=true; }); return d; };
+    var hl="", dr=sig("cardiac_drift"), fd=sig("late_fade");
+    if(dr&&dr.detected===true) hl+='<rect class="hl" x="'+x(Math.floor(n/2)).toFixed(1)+'" y="0" width="'+(x(n-1)-x(Math.floor(n/2))).toFixed(1)+'" height="'+H+'"/>';
+    if(fd&&fd.detected===true) hl+='<rect class="hl" x="'+x(n-2).toFixed(1)+'" y="0" width="'+(x(n-1)-x(n-2)).toFixed(1)+'" height="'+H+'"/>';
+    return '<svg class="spc" viewBox="0 0 '+W+' '+(H+14)+'" preserveAspectRatio="none" role="img" aria-label="'+esc(L({en:"Pace and heart rate per split",id:"Pace dan heart rate per split"}))+'">'+hl+
+      '<path class="pace" d="'+line(sp.map(function(a){ return a.sec; }),yp)+'"/>'+(hasHr?'<path class="hr" d="'+line(hrs,yh)+'"/>':'')+
+      '<text x="'+P+'" y="'+(H+12)+'">km '+esc(sp[0].km)+'</text><text x="'+(W-P)+'" y="'+(H+12)+'" text-anchor="end">km '+esc(sp[n-1].km)+'</text></svg>'+
+      '<div class="lg"><span><i style="background:var(--accent)"></i>'+esc(L({en:"Pace (higher = faster)",id:"Pace (makin atas makin cepat)"}))+'</span>'+
+      (hasHr?'<span><i style="background:var(--ai)"></i>'+esc(L({en:"Heart rate",id:"Heart rate"}))+'</span>':'')+
+      (hl?'<span><i style="background:color-mix(in srgb,var(--warn) 45%,transparent)"></i>'+esc(L({en:"Where the signal shows",id:"Bagian yang memunculkan sinyal"}))+'</span>':'')+'</div>';
+  }
+  // Apa yang terlihat — sinyal dari HR & pace (deterministik, dibanding kebiasaanmu).
+  function signalsCard(){
+    var all=S.a.signals||[], det=all.filter(function(x){ return x.detected===true; }), ok=all.filter(function(x){ return x.detected===false; });
+    var need=[]; all.forEach(function(x){ if(x.detected==="insufficient_data"&&NEED[x.reason]){ var t=L(NEED[x.reason]); if(need.indexOf(t)<0) need.push(t); } });
+    var row=function(x,good){ var m=SIG[x.id]||[{en:x.id,id:x.id},"chart"]; return '<div class="sg'+(good?" ok":"")+'"><span class="ic">'+FIC(m[1],16)+'</span><div><b>'+esc(L(m[0]))+'</b>'+esc(x.sentence||"")+'</div></div>'; };
+    var body=(det.length?det.map(function(x){ return row(x,false); }).join(""):'<div class="sg ok"><span class="ic">'+FIC("check",16)+'</span><div>'+esc(L(ok.length?{en:"No signs of fatigue from heart rate & pace.",id:"Tidak ada tanda kelelahan dari heart rate & pace."}:{en:"Heart-rate & pace signals can't be read from this data yet.",id:"Sinyal heart rate & pace belum bisa dibaca dari data ini."}))+'</div></div>')+
+      (det.length?ok.map(function(x){ return row(x,true); }).join(""):ok.slice(0,3).map(function(x){ return row(x,true); }).join(""));
+    return '<div class="sec">'+esc(L({en:"What we saw",id:"Apa yang terlihat"}))+'</div><div class="card"><div class="sgl">'+body+'</div>'+
+      (need.length?'<div class="need">'+need.map(function(t){ return '<span>'+esc(L({en:"Needs ",id:"Butuh "})+t)+'</span>'; }).join("")+'</div>':'')+'</div>';
+  }
+  // Kemungkinan penyebab — kartu per kandidat + keyakinan + bukti dari log / check-in.
+  function causesCard(){
+    var cs=S.a.causes||[];
+    if(!cs.length) return "";
+    var ruled=(S.a.ruled_out||[]).map(function(c){ return L((CAUSE[c.key]||[{en:c.key,id:c.key}])[0]).toLowerCase(); });
+    return '<div class="sec">'+esc(L({en:"Likely causes",id:"Kemungkinan penyebab"}))+'</div><div class="fx">'+cs.map(function(c){
+      var m=CAUSE[c.key]||[{en:c.key,id:c.key},"info"], act="";
+      if(c.support==="unknown"||c.support==="weak"){
+        if(c.factor==="sleep"&&!S.a.checkin) act='<button type="button" class="b" data-act="ckgo">'+esc(L({en:"Answer the check-in",id:"Isi check-in"}))+'</button>';
+        else if(c.factor==="hydration") act='<div class="fform"><input type="number" step="50" min="50" max="5000" inputmode="numeric" id="fHydMl" placeholder="ml"><button type="button" class="b pri" data-act="hyd">'+esc(L({en:"Log water (day before)",id:"Catat minum kemarin"}))+'</button></div>';
+        else if(!S.a.checkin) act='<button type="button" class="b" data-act="ckgo">'+esc(L({en:"Answer the check-in",id:"Isi check-in"}))+'</button>';
+      }
+      return '<div class="card cz"><div class="cz-h"><span class="fc-ic">'+FIC(m[1],18)+'</span><b>'+esc(L(m[0]))+'</b><span class="cf '+esc(c.confidence)+'">'+esc(L(CONF[c.confidence]))+'</span></div><p>'+esc(c.sentence||"")+'</p>'+act+'</div>';
+    }).join("")+'</div>'+(ruled.length?'<div class="note">'+esc(L({en:"Checked and not supported by your data: ",id:"Sudah dicek & tidak didukung datamu: "})+ruled.join(", ")+".")+'</div>':'');
+  }
+  // Quick check-in (opsional, maks 4 pertanyaan) — muncul kalau ada sinyal tapi data pendukung belum ada.
+  function checkinCard(){
+    var a=S.a, ci=a.checkin, show=a.needs_checkin||S.ckOpen;
+    if(!show&&!ci) return "";
+    if(ci&&!S.ckOpen){
+      var parts=[];
+      if(ci.sleep_hours!=null) parts.push(L({en:"slept ",id:"tidur "})+dec(ci.sleep_hours)+L({en:" h",id:" jam"}));
+      if(ci.meal_gap) parts.push(L({en:"last meal: ",id:"makan terakhir: "})+L(mealOpts()[ci.meal_gap]));
+      if(ci.conditions) parts.push(L(COND[ci.conditions]));
+      if(ci.feeling) parts.push(L(FEEL[ci.feeling]));
+      return '<div class="card" style="margin-top:12px"><div class="note" style="margin:0">'+FIC("check",13)+' '+esc(L({en:"Check-in: ",id:"Check-in: "})+parts.join(" · "))+
+        ' <button type="button" class="b" data-act="ckedit" style="margin-left:6px;padding:5px 10px">'+esc(L({en:"Edit",id:"Ubah"}))+'</button></div></div>';
+    }
+    var sleepF=a.factors.filter(function(f){ return f.key==="sleep"; })[0], askSleep=!sleepF||sleepF.status==="tidak_ada_data"||(sleepF.value&&sleepF.value.src==="checkin");
+    var opt=function(k,map){ return '<div class="opts" data-ck="'+k+'">'+Object.keys(map).map(function(v){ return '<button type="button" data-v="'+v+'" class="'+(CK[k]===v?"on":"")+'">'+esc(L(map[v]))+'</button>'; }).join("")+'</div>'; };
+    return '<div class="sec" id="ckSec">'+esc(L({en:"Quick check-in (optional)",id:"Check-in singkat (opsional)"}))+'</div><div class="card ck">'+
+      '<div class="note" style="margin-top:0">'+esc(L({en:"We saw signs of fatigue but can't check every possible cause from your logs. A few answers make the analysis more precise.",id:"Ada tanda kelelahan, tapi tidak semua kemungkinan penyebab bisa dicek dari catatanmu. Beberapa jawaban membuat analisanya lebih tepat."}))+'</div>'+
+      (askSleep?'<label class="q">'+esc(L({en:"How many hours did you sleep the night before?",id:"Semalam sebelum latihan tidur berapa jam?"}))+'</label><input type="number" id="ckSleep" step="0.5" min="0.5" max="16" inputmode="decimal" placeholder="'+esc(L({en:"hours",id:"jam"}))+'" value="'+(CK.sleep!=null?CK.sleep:"")+'">':'')+
+      '<label class="q">'+esc(L({en:"When was your last meal before training?",id:"Makan terakhir sebelum latihan kapan?"}))+'</label>'+opt("meal_gap",mealOpts())+
+      '<label class="q">'+esc(L({en:"Where did you train?",id:"Latihan di mana?"}))+'</label>'+opt("conditions",COND)+
+      '<label class="q">'+esc(L({en:"How did your body feel?",id:"Badan terasa?"}))+'</label>'+opt("feeling",FEEL)+
+      '<div class="err" id="ckErr"></div><div class="acts" style="margin-top:6px"><button type="button" class="b pri" data-act="cksave">'+esc(L({en:"Save & update analysis",id:"Simpan & perbarui analisa"}))+'</button></div></div>';
+  }
+  function mealOpts(){ var c=S.a.pre_meal_cfg||{too_close_min:45,ideal_max_min:240,long_gap_min:360};
+    return { close:{en:"< "+c.too_close_min+" min",id:"< "+c.too_close_min+" menit"}, ok:{en:c.too_close_min+" min – "+(c.ideal_max_min/60)+" h",id:c.too_close_min+" menit – "+(c.ideal_max_min/60)+" jam"},
+      mid:{en:(c.ideal_max_min/60)+"–"+(c.long_gap_min/60)+" h",id:(c.ideal_max_min/60)+"–"+(c.long_gap_min/60)+" jam"}, long:{en:"> "+(c.long_gap_min/60)+" h",id:"> "+(c.long_gap_min/60)+" jam"}, none:{en:"Nothing since waking up",id:"Belum makan sejak bangun"} }; }
+  var COND={ indoor:{en:"Indoor",id:"Indoor"}, outdoor_morning:{en:"Outdoor, morning",id:"Outdoor pagi"}, outdoor_midday:{en:"Outdoor, midday",id:"Outdoor siang"}, outdoor_evening:{en:"Outdoor, evening",id:"Outdoor sore/malam"} };
+  var FEEL={ fresh:{en:"Fresh",id:"Segar"}, normal:{en:"Normal",id:"Biasa"}, tired:{en:"Tired",id:"Capek"}, unwell:{en:"Not well",id:"Kurang enak badan"} };
+  function howCard(){
+    return '<div class="card" style="margin-top:12px"><details class="how"><summary>'+esc(L({en:"How is this analysis made?",id:"Bagaimana analisa ini dibuat?"}))+'</summary>'+
+      '<p>'+esc(L({en:"We compare your heart rate and pace in this workout with your own similar workouts (efficiency, drift between the first and second half, pace at the end, max heart rate, zones). Signals are then cross-checked with your sleep, meal, water and training logs and your check-in answers.",id:"Heart rate dan pace workout ini dibandingkan dengan workout sejenis milikmu sendiri (efisiensi, drift antara paruh pertama & kedua, pace di akhir, HR maksimal, zona). Sinyalnya lalu dicek silang dengan catatan tidur, makan, minum, beban latihan, dan jawaban check-in."}))+'</p>'+
+      '<p>'+esc(L({en:"Signals are general signs: one workout can't prove a cause, so causes come with a confidence level. Thresholds are defaults still being validated by 20FIT coaches. This is not a medical diagnosis and it never infers specific nutrient deficiencies — for that, use the MCU Scanner or see a doctor.",id:"Sinyal adalah tanda umum: satu workout tidak bisa membuktikan penyebab, jadi penyebab diberi tingkat keyakinan. Ambangnya masih default yang sedang divalidasi coach 20FIT. Ini bukan diagnosis medis dan tidak pernah menyimpulkan kekurangan zat gizi tertentu — untuk itu pakai MCU Scanner atau konsultasi dokter."}))+'</p></details></div>';
+  }
   function perf(){
     var b=S.a.baseline, body;
     if(b.status==="insufficient"){
@@ -233,6 +362,7 @@
         '<span class="delta '+cls+'">'+(cls==="down"?"↓":cls==="up"?"↑":"=")+' '+esc(dTxt)+'</span></div>'+
         (b.hr!=null&&b.base_hr!=null?'<div class="note">'+esc(L({en:"Avg heart rate ",id:"HR rata-rata "})+b.hr+" bpm · "+L({en:"usual ",id:"biasanya "})+b.base_hr+" bpm ("+(b.hr_delta>0?"+":"")+b.hr_delta+")")+
           (b.efficiency?esc(" · "+L({en:"beats per km ",id:"detak per km "})+b.efficiency.beats_per_km+" vs "+b.efficiency.base_beats_per_km):"")+'</div>':'')+chart(b);
+      var ef=sig("efficiency_drop"); if(ef&&ef.evidence&&ef.detected!=="insufficient_data") body+='<div class="note">'+esc(L({en:"Efficiency: ",id:"Efisiensi: "})+dec(ef.evidence.ef,2)+L({en:" m per heartbeat · usual ",id:" m per detak · biasanya "})+dec(ef.evidence.base_ef,2)+" ("+(ef.evidence.delta_pct>0?"+":"")+dec(ef.evidence.delta_pct)+"%)")+'</div>';
     }
     return '<div class="sec">'+esc(L({en:"Performance vs your usual",id:"Performa vs biasanya"}))+'</div><div class="card">'+body+'</div>';
   }
@@ -248,9 +378,9 @@
   }
   function factors(){
     var fs=S.a.factors;
-    return '<div class="sec">'+esc(L({en:"What affected your performance",id:"Apa yang memengaruhi performamu"}))+'</div><div class="fx">'+fs.map(function(f){
+    return '<div class="sec">'+esc(L({en:"Cross-check with your logs",id:"Cek silang dengan catatanmu"}))+'</div><div class="fx">'+fs.map(function(f){
       var m=FACTOR[f.key]||[{en:f.key,id:f.key},"chart"], infl="";
-      if(f.role==="possible_cause") infl='<div class="infl">'+esc(L({en:"Possible influence: ",id:"Kemungkinan pengaruh: "}))+'<b>'+esc(L({tinggi:{en:"high",id:"tinggi"},sedang:{en:"medium",id:"sedang"},rendah:{en:"low",id:"rendah"}}[f.influence]||{en:"",id:""}))+'</b></div>';
+      if(f.role==="possible_cause") infl='<div class="infl">'+esc(L({en:"Supports a likely cause · ",id:"Mendukung kemungkinan penyebab · "}))+'<b>'+esc(L(CONF[f.influence]||{en:"",id:""}))+'</b></div>';
       else if(f.role==="watch") infl='<div class="infl"><b>'+esc(L({en:"Worth watching",id:"Perlu diperhatikan"}))+'</b></div>';
       return '<div class="card fc '+esc(f.status)+'"><div class="fc-h"><span class="fc-ic">'+FIC(m[1],18)+'</span><span class="fc-n">'+esc(L(m[0]))+'</span><span class="fchip '+esc(f.status)+'">'+esc(stLabel(f))+'</span></div>'+
         '<p>'+esc(f.sentence)+'</p>'+infl+factorAction(f)+'</div>';
@@ -262,7 +392,8 @@
       :L({en:"Automatic summary from your data.",id:"Ringkasan otomatis dari datamu."});
     return '<div class="sec">'+esc(L({en:"Coach says",id:"Kata Coach"}))+'</div><div class="card co" id="coBox"><div class="co-h">'+
       (window.CoachProfiles?CoachProfiles.avatar(S.coach,46):'')+'<div><b>Coach '+esc(nm)+'</b><span>'+esc(L({en:"AI coach · not a doctor",id:"AI coach · bukan dokter"}))+'</span></div></div>'+
-      (n.headline?'<p><b>'+esc(n.headline)+'</b></p>':'')+(n.analysis||[]).map(function(p){ return '<p>'+esc(p)+'</p>'; }).join("")+
+      (n.headline?'<p><b>'+esc(n.headline)+'</b></p>':'')+(n.what_we_saw||[]).concat(n.likely_why||[]).map(function(p){ return '<p>'+esc(p)+'</p>'; }).join("")+
+      (n.what_we_cant_tell?'<p class="cant">'+esc(n.what_we_cant_tell)+'</p>':'')+
       '<div class="src">'+(S.pending?esc(L({en:"Coach is writing a personal analysis",id:"Coach sedang menulis analisa personal"}))+'<span class="typing"><i></i><i></i><i></i></span>':FIC("check",13)+' '+esc(src))+'</div>'+
       '<div class="acts" style="margin-top:12px"><button type="button" class="b pri" id="bReply">'+FIC("chat",15)+' '+esc(L({en:"Reply to coach",id:"Balas Coach"}))+'</button></div></div>';
   }
@@ -286,13 +417,13 @@
     var n=S.n||{}, em=S.a.safety.level==="emergency";
     var call=em?(S.emergency?'<a class="b pri" href="tel:'+esc(S.emergency)+'">'+esc(L({en:"Call ",id:"Hubungi "})+S.emergency)+'</a>'
       :'<span class="note" style="margin:0">'+esc(L({en:"Contact your local emergency service or go to the nearest emergency room.",id:"Hubungi layanan darurat setempat atau datang ke IGD terdekat."}))+'</span>'):'';
-    return '<div class="card safe"><h2>'+esc(n.headline||"")+'</h2>'+(n.analysis||[]).map(function(p){ return '<p>'+esc(p)+'</p>'; }).join("")+
+    return '<div class="card safe"><h2>'+esc(n.headline||"")+'</h2>'+(n.what_we_saw||[]).map(function(p){ return '<p>'+esc(p)+'</p>'; }).join("")+
       '<div class="acts">'+call+'<a class="b'+(em?"":" pri")+'" href="/book-doctor">'+FIC("clinic",15)+' '+esc(L({en:"Book a doctor",id:"Book dokter"}))+'</a></div></div>';
   }
   function render(){
     var root=el("root"), html=head();
     if(S.a.safety) html+=safetyCard()+metrics();
-    else html+=metrics()+perf()+factors()+coachCard()+nextCard()+ctaCard();
+    else html+=metrics()+perf()+signalsCard()+causesCard()+checkinCard()+factors()+coachCard()+nextCard()+howCard()+ctaCard();
     html+='<div class="acts" style="margin-top:22px"><button type="button" class="b dng" id="bDel">'+FIC("trash",15)+' '+esc(L({en:"Delete this upload",id:"Hapus upload ini"}))+'</button></div>';
     root.innerHTML=html;
     wire();
@@ -310,7 +441,15 @@
       location.href="/activity/chat/"+encodeURIComponent(S.coach)+"?ask="+encodeURIComponent(msg);
     };
     Array.prototype.forEach.call(document.querySelectorAll("[data-act]"),function(b){
-      b.onclick=function(){ var a=b.getAttribute("data-act"); if(a==="start") openEdit("eStart"); else if(a==="sleep") logSleep(b); else if(a==="hyd") logHyd(b); };
+      b.onclick=function(){ var a=b.getAttribute("data-act");
+        if(a==="start") openEdit("eStart"); else if(a==="sleep") logSleep(b); else if(a==="hyd") logHyd(b);
+        else if(a==="ckgo"){ S.ckOpen=true; render(); var c=el("ckSec"); if(c) c.scrollIntoView({behavior:"smooth",block:"start"}); }
+        else if(a==="ckedit"){ var ci=S.a.checkin||{}; CK={sleep:ci.sleep_hours!=null?ci.sleep_hours:null,meal_gap:ci.meal_gap||null,conditions:ci.conditions||null,feeling:ci.feeling||null}; S.ckOpen=true; render(); }
+        else if(a==="cksave") saveCheckin(b); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-ck] button"),function(b){
+      b.onclick=function(){ var k=b.parentNode.getAttribute("data-ck"), v=b.getAttribute("data-v"); var s0=el("ckSleep"); if(s0) CK.sleep=s0.value;
+        CK[k]=(CK[k]===v)?null:v; render(); var c=el("ckSec"); if(c) c.scrollIntoView({block:"start"}); };
     });
   }
   async function uid(){ try{ var au=await Auth.supabase.auth.getUser(); return (au&&au.data&&au.data.user)?au.data.user.id:null; }catch(e){ return null; } }
@@ -382,6 +521,18 @@
   }
 
   // ---------- data ----------
+  async function saveCheckin(btn){
+    var s0=el("ckSleep"), body={meal_gap:CK.meal_gap,conditions:CK.conditions,feeling:CK.feeling};
+    if(s0&&s0.value!==""){ var h=parseFloat(s0.value); if(!(h>0&&h<=16)){ el("ckErr").textContent=L({en:"Enter hours between 0.5 and 16.",id:"Isi jam tidur antara 0,5 dan 16."}); return; } body.sleep_hours=h; }
+    if(body.sleep_hours==null&&!body.meal_gap&&!body.conditions&&!body.feeling){ el("ckErr").textContent=L({en:"Answer at least one question.",id:"Jawab minimal satu pertanyaan."}); return; }
+    btn.disabled=true;
+    try{
+      var r=await api("/api/activity/workouts/"+encodeURIComponent(ID)+"/checkin",{method:"POST",body:JSON.stringify(body)});
+      if(!r.ok) throw new Error((r.j&&r.j.error)||"");
+      S.ckOpen=false; CK={sleep:null,meal_gap:null,conditions:null,feeling:null};
+      await load();
+    }catch(e){ btn.disabled=false; el("ckErr").textContent=(e&&e.message&&e.message!=="401")?e.message:L({en:"Couldn't save. Try again.",id:"Gagal menyimpan. Coba lagi."}); }
+  }
   async function implementPlan(){
     var b=el("bImpl"), er=el("implErr"); b.disabled=true; er.textContent="";
     try{
@@ -409,7 +560,9 @@
       S.w=r.j.workout; S.a=r.j.analysis; S.n=r.j.narrative; S.next=r.j.next||null; S.emergency=r.j.emergency_number||null;
       if(r.j.coach_id&&window.CoachProfiles&&CoachProfiles.NAME[r.j.coach_id]) S.coach=r.j.coach_id;
       S.pending=!!r.j.narrative_pending;
+      if(location.hash==="#checkin"){ S.ckOpen=true; try{ history.replaceState(null,"",location.pathname); }catch(e){} }
       render();
+      if(S.ckOpen){ var ck=el("ckSec"); if(ck) ck.scrollIntoView({block:"start"}); }
       if(S.pending) narrative();
     }catch(e){
       if(String(e&&e.message)==="401") return;
