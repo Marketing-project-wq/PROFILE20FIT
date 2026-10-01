@@ -758,7 +758,7 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   (`GET /api/admin/class-performance?days=`, role viewer/marketing/staff/superadmin): KPI (ulasan, rata-rata, % puas
   4–5★, member), tabel per kelas & per coach (rata-rata, sebaran 5★…1★, masukan teratas, kelas terakhir), frekuensi
   tag, 100 ulasan terbaru (nama member = nama depan saja). Periode = tanggal kelas. Tanpa migration 030 → admin
-  menampilkan "Belum aktif: jalankan migration 030". **Migration 030 BELUM DIJALANKAN (pemilik).**
+  menampilkan "Belum aktif: jalankan migration 030". **Migration 030 DIJALANKAN 2026-10-01** (agent, atas persetujuan user sesi).
 - **Bon dikunci (hardcode) — 1 Okt 2026, permintaan pemilik.** Tampilan bon + PDF jadi SATU modul `js/receipt.js`
   (`Receipt.open/close/download/build`, menggantikan `js/receipt-pdf.js` & CSS `.gr*`/modal `#odBg` di profile.html):
   palet/font/jarak di-hardcode di file itu, tampilan di Shadow DOM (`:host{all:initial}`) sehingga CSS global,
@@ -771,7 +771,7 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   profile.html = satu sumber untuk layar & PDF); unduh lewat `<a download>` di tab yang sama. (3) **Rating & ulasan
   kelas**: klik baris kelas → sheet bintang 1–5 + ulasan (opsional, ≤1000 karakter); hanya booking `confirmed` yang
   jadwalnya sudah lewat & punya `booking_code`. Server `GET/POST /api/class-reviews` (cek kepemilikan ke arena-api).
-  Butuh **migration 030 (BELUM DIJALANKAN — pemilik)**; sebelum itu UI menulis "Fitur rating belum aktif".
+  Butuh migration 030 — **dijalankan 2026-10-01** (lihat DATABASE.md); sebelum itu UI menulis "Fitur rating belum aktif".
   Terverifikasi dari screenshot pemilik di staging: arena-api MENGIRIM `booking_code` & `created_at` per booking kelas.
   Belum ada tampilan rating untuk admin/coach (kandidat langkah berikutnya — TANYA PEMILIK).
 - **Riwayat & Transaksi di /profile — gabungan Riwayat 20FIT + Riwayat Pembelian (1 Okt 2026, permintaan pemilik).**
