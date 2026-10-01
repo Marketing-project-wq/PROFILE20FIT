@@ -5276,7 +5276,7 @@ var USER_DATA_TABLES = [
   "my20fit_coach_chat_session", "my20fit_coach_chat_message", "my20fit_coach_meal_plan",
   "my20fit_visbody_body", "my20fit_visbody_scan", "my20fit_data_consent",
   "my20fit_health_journey", "my20fit_tour_state", "my20fit_event_log",
-  "my20fit_activity_uploads", "my20fit_today_plans",
+  "my20fit_activity_uploads", "my20fit_today_plans", "my20fit_class_reviews",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
   "my20fit_scan_orders", "my20fit_scan_ledger", "my20fit_voucher_usages"
@@ -7843,6 +7843,58 @@ app.get("/api/arena/history", async (req, res) => {
   } catch (e) {
     console.error("arena/history:", e.message);
     return res.status(e.status || 500).json({ error: e.message || "Gagal ambil riwayat." });
+  }
+});
+
+// ---------- Rating & ulasan kelas (Riwayat & Transaksi di /profile) — tabel my20fit_class_reviews (migration 030) ----------
+// Hanya booking milik user (cek ulang ke arena-api by nomor HP profil), status confirmed, dan jadwalnya sudah lewat.
+// Nama kelas / tanggal / instruktur diambil dari arena-api di server — client hanya kirim booking_code + rating + komentar.
+app.get("/api/class-reviews", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const { data, error } = await admin.from("my20fit_class_reviews")
+      .select("booking_code,rating,comment,updated_at").eq("auth_user_id", user.id).limit(500);
+    if (error) return res.status(503).json({ error: "not_ready" });   // tabel belum dibuat (migration 030)
+    return res.json({ ok: true, reviews: data || [] });
+  } catch (e) {
+    return res.status(500).json({ error: "Gagal memuat ulasan." });
+  }
+});
+app.post("/api/class-reviews", async (req, res) => {
+  try {
+    if (!ARENA_API_KEY) return res.status(500).json({ error: "ARENA_API_KEY belum di-set di server." });
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi (service key)." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    const code = String(b.booking_code || "").trim().slice(0, 80);
+    const rating = parseInt(b.rating, 10);
+    const comment = String(b.comment || "").trim().slice(0, 1000) || null;
+    if (!code) return res.status(400).json({ error: "booking_code wajib." });
+    if (!(rating >= 1 && rating <= 5)) return res.status(400).json({ error: "Rating harus 1–5." });
+    const { data: rows } = await admin.from("my20fit_profile").select("phone").eq("auth_user_id", user.id).limit(1);
+    const phone = rows && rows[0] && rows[0].phone;
+    if (!phone) return res.status(400).json({ error: "no_phone" });
+    const bk = await arenaGet("/member/bookings", phone, { limit: 100 });
+    const found = (bk.data || []).find(x => String(x.booking_code || "") === code);
+    if (!found) return res.status(404).json({ error: "Booking tidak ditemukan di akunmu." });
+    if (found.status !== "confirmed") return res.status(400).json({ error: "Hanya kelas yang terkonfirmasi yang bisa dinilai." });
+    const sc = found.arena_class_schedules || {};
+    if (!sc.schedule_date || String(sc.schedule_date).slice(0, 10) > woToday()) return res.status(400).json({ error: "Rating bisa diberikan setelah kelas berlangsung." });
+    const row = {
+      auth_user_id: user.id, booking_code: code, rating, comment,
+      class_name: (sc.arena_class_types && sc.arena_class_types.name) || null,
+      schedule_date: String(sc.schedule_date).slice(0, 10), start_time: sc.start_time || null, instructor: sc.instructor || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await admin.from("my20fit_class_reviews").upsert(row, { onConflict: "auth_user_id,booking_code" });
+    if (error) return res.status(503).json({ error: "not_ready" });
+    return res.json({ ok: true, review: { booking_code: code, rating, comment, updated_at: row.updated_at } });
+  } catch (e) {
+    console.error("class-reviews:", e.message);
+    return res.status(e.status || 500).json({ error: "Gagal menyimpan ulasan." });
   }
 });
 

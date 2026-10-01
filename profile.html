@@ -126,43 +126,54 @@
   .pm h2{margin:0 0 6px;font-size:19px;font-weight:800}
   @media(min-width:620px){ .pm-bg{align-items:center;padding:24px} .pm{border-radius:22px} .pm .grab{display:none} }
 
-  /* ===== Struk / bon detail pembayaran ===== */
+  /* ===== Bon (e-receipt gaya Grab): pita merek + total + rincian + detail; sama dengan PDF (js/receipt-pdf.js) ===== */
   .pm-rcpt{max-width:430px;background:transparent;box-shadow:none;padding:6px 14px calc(env(safe-area-inset-bottom) + 22px)}
-  .rcpt{position:relative;background:var(--card);color:var(--txt);border-radius:16px;padding:26px 24px 24px;
-        box-shadow:0 10px 40px rgba(16,18,22,.16);
-        -webkit-mask:radial-gradient(7px at 12px 0,#0000 98%,#000) 0 0/24px 51% repeat-x,
-                     radial-gradient(7px at 12px 100%,#0000 98%,#000) 0 100%/24px 51% repeat-x;
-                mask:radial-gradient(7px at 12px 0,#0000 98%,#000) 0 0/24px 51% repeat-x,
-                     radial-gradient(7px at 12px 100%,#0000 98%,#000) 0 100%/24px 51% repeat-x}
-  .rc-head{text-align:center;margin-bottom:14px}
-  .rc-brand{font-size:24px;font-weight:900;letter-spacing:1px;line-height:1}
-  .rc-brand span{color:var(--red,#C41101)}
-  .rc-sub{margin-top:5px;font-size:10.5px;font-weight:800;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase}
-  .rc-stamp{position:absolute;top:20px;left:18px;transform:rotate(-9deg);font-size:12px;font-weight:900;letter-spacing:1px;padding:4px 10px;border-radius:6px;border:2px solid currentColor;text-transform:uppercase;opacity:.92}
-  .rc-stamp.paid{color:var(--green-ink,#1B7A4D)}
-  .rc-stamp.pending{color:var(--amber-ink,#9A5D12)}
-  .rc-stamp.cancelled,.rc-stamp.expired{color:var(--muted)}
-  .rc-rule{border-top:1px dashed var(--faint,#CBC2B4);margin:14px 0}
-  .rc-rule.solid{border-top-style:solid;border-color:var(--line)}
-  .rc-item{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
-  .rc-item-name{font-size:15px;font-weight:800}
-  .rc-item-desc{font-size:12.5px;color:var(--muted);margin-top:3px}
-  .rc-item-amt{font-size:15px;font-weight:800;white-space:nowrap}
-  .rc-line{display:flex;align-items:baseline;gap:6px;font-size:14px;margin:9px 0}
-  .rc-line .k{color:var(--muted)}
-  .rc-line .lead{flex:1;border-bottom:1.5px dotted var(--faint,#CBC2B4);transform:translateY(-4px)}
-  .rc-line .v{font-weight:700;white-space:nowrap}
-  .rc-line.disc .k,.rc-line.disc .v{color:var(--green-ink,#1B7A4D)}
-  .rc-total{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-  .rc-total .k{font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
-  .rc-total .v{font-size:24px;font-weight:900;line-height:1}
-  .rc-meta{display:flex;flex-direction:column;gap:8px}
-  .rc-meta .r{display:flex;justify-content:space-between;gap:12px;font-size:12.5px}
-  .rc-meta .mk{color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-size:11px;font-weight:700}
-  .rc-meta .mv{font-weight:700;text-align:right}
-  .rc-meta .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;letter-spacing:.3px}
-  .rc-foot{text-align:center;margin-top:16px;font-size:12px;color:var(--muted);line-height:1.7}
-  .rc-foot b{color:var(--txt);font-weight:800}
+  .gr{background:var(--card);color:var(--txt);border-radius:18px;overflow:hidden;box-shadow:0 10px 40px rgba(16,18,22,.18)}
+  .gr-hd{position:relative;overflow:hidden;padding:18px 20px 20px;color:#fff;background:linear-gradient(135deg,var(--red,#E4002B),color-mix(in srgb,var(--red,#E4002B) 78%,#000))}
+  .gr-hd::before,.gr-hd::after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.13);pointer-events:none}
+  .gr-hd::before{width:160px;height:160px;right:-46px;bottom:-70px}
+  .gr-hd::after{width:64px;height:64px;right:96px;bottom:-26px}
+  .gr-top{position:relative;display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;font-weight:800;letter-spacing:.3px}
+  .gr-logo{font-size:21px;font-weight:900;letter-spacing:.5px;line-height:1}
+  .gr-h{position:relative;font-size:21px;font-weight:900;line-height:1.22;margin:16px 0 8px;max-width:80%}
+  .gr-sub{position:relative;font-size:12px;line-height:1.6;opacity:.92}
+  .gr-sub .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.3px}
+  .gr-bd{padding:18px 20px 20px}
+  .gr-total{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding-bottom:10px;border-bottom:2px solid var(--red,#E4002B)}
+  .gr-total .k{font-size:13px;font-weight:800;color:var(--muted)}
+  .gr-total .v{font-size:26px;font-weight:900;line-height:1}
+  .gr-bd>.badge{margin-top:10px}
+  .gr-sec{margin-top:18px;font-size:13.5px;font-weight:900}
+  .gr-item{display:flex;justify-content:space-between;gap:12px;margin-top:10px}
+  .gr-item .n{font-size:14px;font-weight:800}
+  .gr-item .d{font-size:12px;color:var(--muted);margin-top:2px}
+  .gr-item .a{font-size:14px;font-weight:800;white-space:nowrap}
+  .gr-ln{display:flex;justify-content:space-between;gap:12px;font-size:13px;margin-top:8px;color:var(--muted)}
+  .gr-ln .v{color:var(--txt);font-weight:700;white-space:nowrap}
+  .gr-ln.disc,.gr-ln.disc .v{color:var(--green-ink,#1B7A4D)}
+  .gr-ln.tot{color:var(--txt);font-size:14.5px;font-weight:900;border-top:1px dashed var(--line);padding-top:10px;margin-top:10px}
+  .gr-meta .r{display:flex;justify-content:space-between;gap:14px;font-size:12.5px;margin-top:8px}
+  .gr-meta .mk{color:var(--muted)}
+  .gr-meta .mv{font-weight:700;text-align:right}
+  .gr-meta .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;letter-spacing:.3px}
+  .gr-foot{text-align:center;font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:18px;padding-top:14px;border-top:1px dashed var(--line)}
+  .gr-foot b{color:var(--red,#E4002B);font-weight:900}
+  .gr-acts{display:flex;gap:8px;margin-top:12px}
+  .gr-btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--txt);font-family:inherit;font-weight:800;font-size:13.5px;cursor:pointer}
+  .gr-btn.pri{background:var(--red,#E4002B);border-color:var(--red,#E4002B);color:#fff}
+  /* Rating & ulasan kelas */
+  .rv-k{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--red,#E4002B)}
+  .rv-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .rv-stars{display:flex;gap:8px;justify-content:center;margin:18px 0 6px}
+  .rv-star{width:46px;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--inp);color:var(--faint,#B7B9BF);font-size:24px;line-height:1;cursor:pointer;font-family:inherit}
+  .rv-star.on{color:var(--amber,#E8912A);background:var(--amber-soft,rgba(232,145,42,.14));border-color:color-mix(in srgb,var(--amber,#E8912A) 45%,transparent)}
+  .rv-lbl{text-align:center;font-size:13px;font-weight:800;min-height:18px;margin-bottom:12px}
+  .rv-cnt{text-align:right;font-size:11px;color:var(--muted);margin-top:4px}
+  .rv-note{display:flex;gap:8px;align-items:flex-start;margin-top:16px;padding:12px;border-radius:12px;background:var(--inp);font-size:13px;color:var(--muted);line-height:1.5}
+  .tx-rv{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:12px;min-width:0}
+  .tx-rv .st{color:var(--amber,#E8912A);letter-spacing:1px;flex:none}
+  .tx-rv .c{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .txr.click{cursor:pointer}
 </style>
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 <link rel="stylesheet" href="css/20fit-design-system.css">
@@ -316,6 +327,15 @@
     </div>
   </div>
 
+  <!-- Rating & ulasan kelas (dari Riwayat & Transaksi) -->
+  <div class="pm-bg" id="rvBg">
+    <div class="pm">
+      <div class="grab"></div>
+      <button class="x-close x-abs" onclick="closeReview()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      <div id="rvBody"></div>
+    </div>
+  </div>
+
   <!-- Modal hapus akun (konfirmasi ketik) -->
   <div class="pm-bg" id="delBg">
     <div class="pm">
@@ -363,6 +383,7 @@
   <script src="js/deals.js"></script>
   <script src="js/achievements.js"></script>
   <script src="js/arena-history.js"></script>
+  <script src="js/receipt-pdf.js"></script>
   <script>
     let gender=null, user=null, PROFILE=null;
     function pickGender(g){gender=g;document.querySelectorAll('.gender button').forEach(b=>b.classList.toggle("active",b.dataset.g===g))}
@@ -377,7 +398,7 @@
       document.getElementById("pname").textContent=nm;
       document.getElementById("pemail").textContent=p.email||"";
       fillForm(p); renderSummary(p); refreshQuota(); loadCorpMembership(); loadMenus();
-      loadAchievements(); loadArenaHistory();
+      loadAchievements(); loadArenaHistory(); loadReviews();
     })();
 
     // ---- Pencapaian (minggu berjalan, aturan lencana dari js/achievements.js) ----
@@ -571,11 +592,11 @@
       var out=[];
       (window.Orders?Orders.all():[]).forEach(function(o){
         var total=orderTotal(o), st=o.status||"paid";
-        out.push({k:"scan",ts:tsOf(o.paid_ts||o.ts),st:st,amount:total,order:o,
+        out.push({k:"scan",ts:tsOf(o.paid_ts||o.ts),st:st,amount:total,order:o,ref:o.order_no||"",refLabel:L({en:"Order no",id:"No. order"}),
           title:(o.credits||0)+"× "+L({en:"calorie scans",id:"scan kalori"}),
           sub:(o.order_no?"Order "+o.order_no:"")+(o.discount>0?(o.order_no?" · ":"")+L({en:"voucher",id:"voucher"}):""),
           rc:{name:(o.credits||0)+"× "+L({en:"calorie scans",id:"scan kalori"}),desc:L({en:(o.credits||0)+" extra scan credits added",id:(o.credits||0)+" kredit scan tambahan masuk ke akun"}),
-            price:+o.price||0,disc:+o.discount||0,total:total,totalLabel:L({en:"Total paid",id:"Total bayar"}),
+            price:+o.price||0,disc:+o.discount||0,total:total,totalLabel:st==="paid"?L({en:"Total paid",id:"Total bayar"}):"Total",
             meta:[o.order_no?[L({en:"Order no",id:"No. order"}),o.order_no,1]:null,[L({en:"Date",id:"Tanggal"}),fmtDate(o.paid_ts||o.ts)],[L({en:"Method",id:"Metode"}),methodLabel(o)]]}});
       });
       var A=ARENA&&!ARENA.error?ARENA:{};
@@ -583,6 +604,7 @@
         var sc=b.arena_class_schedules||{}, ct=sc.arena_class_types||{}, nm=ct.name||L({en:"Class",id:"Kelas"});
         var when=dOnly(sc.schedule_date)+(sc.start_time?" · "+ArenaHistory.time(sc.start_time)+(sc.end_time?"–"+ArenaHistory.time(sc.end_time):""):"");
         out.push({k:"class",ts:tsOf(b.created_at)||tsOf(sc.schedule_date),st:b.status,amount:+b.price||0,title:nm,
+          code:b.booking_code||"",ref:b.booking_code||"",refLabel:L({en:"Booking code",id:"Kode booking"}),date:String(sc.schedule_date||"").slice(0,10),when:when,instructor:sc.instructor||"",
           sub:L({en:"Class: ",id:"Kelas: "})+when+(sc.instructor?" · "+sc.instructor:""),
           rc:{name:nm,desc:when+(sc.instructor?" · "+sc.instructor:""),price:+b.price||0,total:+b.price||0,totalLabel:"Total",
             meta:[b.booking_code?[L({en:"Booking code",id:"Kode booking"}),b.booking_code,1]:null,[L({en:"Class date",id:"Jadwal kelas"}),when],
@@ -592,7 +614,7 @@
       (A.packages||[]).forEach(function(p){
         var v=(p.arena_package_vouchers||[])[0]||null, tot=v?v.total_sessions:p.sessions, nm=p.package_name||L({en:"Package",id:"Paket"});
         var use=v?L({en:"used",id:"terpakai"})+" "+(v.used_sessions||0)+"/"+tot+(v.is_active?"":" · "+L({en:"inactive",id:"nonaktif"})):(tot?tot+" "+L({en:"sessions",id:"sesi"}):"");
-        out.push({k:"package",ts:tsOf(p.created_at),st:p.status,amount:+p.price||0,title:nm,sub:use,
+        out.push({k:"package",ts:tsOf(p.created_at),st:p.status,amount:+p.price||0,title:nm,sub:use,ref:"",
           rc:{name:nm,desc:use,price:+p.price||0,total:+p.price||0,totalLabel:"Total",
             meta:[p.created_at?[L({en:"Date",id:"Tanggal"}),fmtDate(p.created_at)]:null],
             foot:L({en:"Package from 20FIT Arena",id:"Paket dari 20FIT Arena"})}});
@@ -601,6 +623,7 @@
         var when=dOnly(b.booking_date)+(b.start_time?" · "+ArenaHistory.time(b.start_time)+(b.end_time?"–"+ArenaHistory.time(b.end_time):""):"");
         var who=b.customer_type==="corporation"?L({en:"Corporate",id:"Korporasi"}):L({en:"Individual",id:"Individu"});
         out.push({k:"venue",ts:tsOf(b.created_at)||tsOf(b.booking_date),st:b.status,amount:+b.price||0,title:L({en:"Arena venue",id:"Venue Arena"})+" · "+who,
+          ref:b.booking_code||"",refLabel:L({en:"Booking code",id:"Kode booking"}),
           sub:L({en:"Use: ",id:"Pakai: "})+when,
           rc:{name:L({en:"Arena venue",id:"Venue Arena"}),desc:when+" · "+who,price:+b.price||0,total:+b.price||0,totalLabel:"Total",
             meta:[[L({en:"Use date",id:"Tanggal pakai"}),when],b.created_at?[L({en:"Booked on",id:"Dipesan"}),fmtDate(b.created_at)]:null],
@@ -649,9 +672,12 @@
             acts+='<button type="button" class="oa-again" onclick="buyAgain()">'+L({en:"Buy again",id:"Beli lagi"})+'</button>';
           }
         }
-        h+='<div class="txr k-'+t.k+'"><span class="tx-ic">'+FIC(K.ic,18)+'</span>'+
+        var rv=t.k==="class"&&REVIEWS&&REVIEWS!=="off"?REVIEWS[t.code]:null;
+        if(canRate(t)&&REVIEWS!=="off") acts+='<button type="button" class="oa-again" data-rv="'+i+'">'+FIC("star",13)+' '+escapeHtml(rv?L({en:"Edit rating",id:"Ubah rating"}):L({en:"Rate class",id:"Beri rating"}))+'</button>';
+        h+='<div class="txr k-'+t.k+(t.k==="class"?' click':'')+'"'+(t.k==="class"?' data-rv="'+i+'"':' data-rc="'+i+'"')+'><span class="tx-ic">'+FIC(K.ic,18)+'</span>'+
           '<div class="tx-b"><div class="tx-hd"><div class="tx-k">'+escapeHtml(L(K))+'</div><div class="tx-a">'+rupiah(t.amount)+'</div></div>'+
             '<div class="tx-t">'+escapeHtml(t.title)+'</div>'+(t.sub?'<div class="tx-s">'+escapeHtml(t.sub)+'</div>':'')+
+            (rv?'<div class="tx-rv"><span class="st" aria-label="'+rv.rating+'/5">'+stars(rv.rating)+'</span>'+(rv.comment?'<span class="c">“'+escapeHtml(rv.comment)+'”</span>':'')+'</div>':'')+
             '<div class="tx-ft"><span class="badge '+S.cls+'">'+escapeHtml(S.label)+'</span><div class="ord-acts">'+acts+'</div></div></div></div>';
       });
       if(TX_ITEMS.length>TX_SHOWN) h+='<button type="button" class="loadmore" id="txMore">'+L({en:"Load more ("+(TX_ITEMS.length-TX_SHOWN)+" more)",id:"Muat lebih ("+(TX_ITEMS.length-TX_SHOWN)+" lagi)"})+'</button>';
@@ -661,8 +687,11 @@
       var bar=document.getElementById("txBar"), list=document.getElementById("txList");
       if(bar) bar.addEventListener("click",function(e){ var b=e.target.closest("[data-f]"); if(!b) return; TX_FILTER=b.getAttribute("data-f"); TX_SHOWN=8; renderTx(); });
       if(list) list.addEventListener("click",function(e){
-        var r=e.target.closest("[data-rc]"); if(r){ showReceipt(TX_ITEMS[+r.getAttribute("data-rc")]); return; }
-        if(e.target.closest("#txMore")){ TX_SHOWN+=8; renderTx(); }
+        if(e.target.closest("#txMore")){ TX_SHOWN+=8; renderTx(); return; }
+        if(e.target.closest(".oa-pay,.oa-cancel,.oa-again:not([data-rv])")) return;   // punya onclick sendiri
+        // Elemen terdalam menang: tombol "Lihat bon" (data-rc) di dalam baris kelas (data-rv = buka rating).
+        var el=e.target.closest("[data-rc],[data-rv]"); if(!el) return;
+        if(el.hasAttribute("data-rc")) showReceipt(TX_ITEMS[+el.getAttribute("data-rc")]); else openReview(TX_ITEMS[+el.getAttribute("data-rv")]);
       });
     })();
     function methodLabel(o){
@@ -672,35 +701,127 @@
       if(p==="singapay") return "SingaPay"; // order historis sebelum migrasi ke Xendit
       return p ? (p.charAt(0).toUpperCase()+p.slice(1)) : "—";
     }
-    // Bon (struk) — format sama untuk semua jenis transaksi.
+    // Bon (e-receipt gaya Grab) — SATU data (receiptData) untuk tampilan di layar dan file PDF (js/receipt-pdf.js).
+    function receiptHeadline(t,cls){
+      if(cls==="cancelled") return L({en:"This transaction was cancelled.",id:"Transaksi ini dibatalkan."});
+      if(cls==="expired") return L({en:"This order has expired.",id:"Order ini sudah kedaluwarsa."});
+      if(cls==="pending") return L({en:"Waiting for your payment.",id:"Menunggu pembayaranmu."});
+      return L({class:{en:"Enjoy your workout — see you in class!",id:"Selamat berlatih — sampai jumpa di kelas!"},
+        package:{en:"Your session package is ready to use!",id:"Paket sesimu siap dipakai!"},
+        venue:{en:"Your venue is booked. Have a great session!",id:"Venue siap dipakai. Selamat berlatih!"},
+        scan:{en:"Scan credits added. Happy healthy eating!",id:"Kredit scan sudah masuk. Selamat makan sehat!"}}[t.k]);
+    }
+    function receiptData(t){
+      var r=t.rc, S=txStatus(t.st), K=TX_KINDS[t.k], sub=[];
+      if(t.ref) sub.push(t.refLabel+": "+t.ref);
+      if(t.ts!=null) sub.push((t.k==="scan"&&S.cls==="paid"?L({en:"Paid on ",id:"Dibayar "}):L({en:"Ordered on ",id:"Dipesan "}))+fmtDate(t.ts));
+      var lines=[{k:L({en:"Subtotal",id:"Subtotal"}),v:rupiah(r.price)}];
+      if(r.disc>0) lines.push({k:L({en:"Voucher discount",id:"Potongan voucher"}),v:"− "+rupiah(r.disc),disc:true});
+      lines.push({k:r.totalLabel,v:rupiah(r.total),bold:true});
+      var meta=[[L({en:"Type",id:"Jenis"}),L(K)]].concat(r.meta.filter(Boolean).map(function(m){ return [m[0],m[1],m[2]]; }));
+      meta.push(["Status",S.label]);
+      return {kind:L(K),headline:receiptHeadline(t,S.cls),sub:sub,status:S.label,statusCls:S.cls,
+        statusColor:{paid:"#1B7A4D",pending:"#9A5D12"}[S.cls]||"#7A7D85",
+        totalHd:"Total",total:rupiah(r.total),items:[{name:r.name,desc:r.desc,amt:rupiah(r.price)}],lines:lines,meta:meta,
+        sections:{rincian:L({en:"Breakdown",id:"Rincian"}),detail:L({en:"Details",id:"Detail"})},
+        foot:[r.foot||L({en:"Thank you for your purchase.",id:"Terima kasih atas pembelianmu."}),
+          L({en:"This receipt is generated from your transaction data on my.20fit.id — not a tax invoice.",id:"Bon ini dibuat otomatis dari data transaksimu di my.20fit.id — bukan faktur pajak."})]};
+    }
     function showReceipt(t){
       if(!t) return;
-      var r=t.rc, S=txStatus(t.st), K=TX_KINDS[t.k];
-      var h='<div class="rcpt">';
-      h+='<div class="rc-stamp '+S.cls+'">'+escapeHtml(S.label)+'</div>';
-      h+='<div class="rc-head"><div class="rc-brand">20<span>FIT</span></div>'
-        +'<div class="rc-sub">'+L({en:"Receipt",id:"Bon"})+' · '+escapeHtml(L(K))+'</div></div>';
-      h+='<div class="rc-rule"></div>';
-      h+='<div class="rc-item"><div><div class="rc-item-name">'+escapeHtml(r.name)+'</div>'
-        +(r.desc?'<div class="rc-item-desc">'+escapeHtml(r.desc)+'</div>':'')+'</div>'
-        +'<div class="rc-item-amt">'+rupiah(r.price)+'</div></div>';
-      h+='<div class="rc-rule dash"></div>';
-      h+='<div class="rc-line"><span class="k">'+L({en:"Subtotal",id:"Subtotal"})+'</span><span class="lead"></span><span class="v">'+rupiah(r.price)+'</span></div>';
-      if(r.disc>0) h+='<div class="rc-line disc"><span class="k">'+L({en:"Voucher discount",id:"Potongan voucher"})+'</span><span class="lead"></span><span class="v">− '+rupiah(r.disc)+'</span></div>';
-      h+='<div class="rc-rule"></div>';
-      h+='<div class="rc-total"><span class="k">'+escapeHtml(r.totalLabel)+'</span><span class="v">'+rupiah(r.total)+'</span></div>';
-      h+='<div class="rc-rule dash"></div>';
-      h+='<div class="rc-meta">';
-      h+='<div class="r"><span class="mk">'+L({en:"Type",id:"Jenis"})+'</span><span class="mv">'+escapeHtml(L(K))+'</span></div>';
-      r.meta.filter(Boolean).forEach(function(m){ h+='<div class="r"><span class="mk">'+escapeHtml(m[0])+'</span><span class="mv'+(m[2]?' mono':'')+'">'+escapeHtml(m[1])+'</span></div>'; });
-      h+='<div class="r"><span class="mk">Status</span><span class="mv">'+escapeHtml(S.label)+'</span></div>';
-      h+='</div>';
-      h+='<div class="rc-rule dash"></div>';
-      h+='<div class="rc-foot">'+(r.foot?escapeHtml(r.foot):L({en:"Thank you for your purchase ",id:"Terima kasih atas pembelianmu "})+FIC("heart",16))+'<br><b>my.20fit.id</b></div>';
-      h+='</div>';
+      var d=receiptData(t);
+      var h='<div class="gr"><div class="gr-hd"><div class="gr-top"><span>'+escapeHtml(d.kind)+'</span><span class="gr-logo">20FIT</span></div>'+
+        '<div class="gr-h">'+escapeHtml(d.headline)+'</div><div class="gr-sub">'+d.sub.map(function(l){ return '<div>'+escapeHtml(l)+'</div>'; }).join("")+'</div></div>';
+      h+='<div class="gr-bd"><div class="gr-total"><span class="k">'+escapeHtml(d.totalHd)+'</span><span class="v">'+escapeHtml(d.total)+'</span></div>';
+      h+='<span class="badge '+d.statusCls+'">'+escapeHtml(d.status)+'</span>';
+      h+='<div class="gr-sec">'+escapeHtml(d.sections.rincian)+'</div>';
+      d.items.forEach(function(it){ h+='<div class="gr-item"><div><div class="n">'+escapeHtml(it.name)+'</div>'+(it.desc?'<div class="d">'+escapeHtml(it.desc)+'</div>':'')+'</div><div class="a">'+escapeHtml(it.amt)+'</div></div>'; });
+      d.lines.forEach(function(l){ h+='<div class="gr-ln'+(l.disc?' disc':'')+(l.bold?' tot':'')+'"><span>'+escapeHtml(l.k)+'</span><span class="v">'+escapeHtml(l.v)+'</span></div>'; });
+      h+='<div class="gr-sec">'+escapeHtml(d.sections.detail)+'</div><div class="gr-meta">';
+      d.meta.forEach(function(m){ h+='<div class="r"><span class="mk">'+escapeHtml(m[0])+'</span><span class="mv'+(m[2]?' mono':'')+'">'+escapeHtml(m[1])+'</span></div>'; });
+      h+='</div><div class="gr-foot">'+d.foot.map(escapeHtml).join('<br>')+'<br><b>my.20fit.id</b></div></div></div>';
+      h+='<div class="gr-acts"><button type="button" class="gr-btn pri" id="rcPdf">'+FIC("download",15)+' '+escapeHtml(L({en:"Download PDF",id:"Download PDF"}))+'</button>'+
+        (canRate(t)&&REVIEWS!=="off"?'<button type="button" class="gr-btn" id="rcRate">'+FIC("star",15)+' '+escapeHtml(L({en:"Rate class",id:"Beri rating"}))+'</button>':'')+'</div>';
       document.getElementById("odBody").innerHTML=h;
+      document.getElementById("rcPdf").onclick=function(){ downloadReceipt(t); };
+      var rb=document.getElementById("rcRate"); if(rb) rb.onclick=function(){ closeOrderDetail(); openReview(t); };
       document.getElementById("odBg").classList.add("open");
     }
+    function downloadReceipt(t){
+      var d=receiptData(t), day=t.ts!=null?new Date(t.ts):new Date();
+      var ymd=day.getFullYear()+String(day.getMonth()+1).padStart(2,"0")+String(day.getDate()).padStart(2,"0");
+      ReceiptPDF.download(d,"bon-20fit-"+String(t.ref||t.k+"-"+ymd).replace(/[^A-Za-z0-9_-]+/g,"-")+".pdf");
+    }
+
+    // ---- Rating & ulasan kelas: /api/class-reviews (tabel my20fit_class_reviews, migration 030) ----
+    // REVIEWS: undefined = memuat · "off" = belum aktif / gagal · {booking_code: {rating, comment}}
+    var REVIEWS=undefined, RV_T=null, RV_VAL=0;
+    var RV_LBL=[null,{en:"Poor",id:"Kurang"},{en:"Fair",id:"Cukup"},{en:"Good",id:"Bagus"},{en:"Great",id:"Sangat bagus"},{en:"Excellent",id:"Luar biasa"}];
+    function stars(n){ var s=""; for(var i=1;i<=5;i++) s+=i<=n?"★":"☆"; return s; }
+    function todayYmdLocal(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+    function canRate(t){ return !!(t&&t.k==="class"&&t.code&&t.st==="confirmed"&&t.date&&t.date<=todayYmdLocal()); }
+    async function loadReviews(){
+      try{
+        var r=await corpFetch("/api/class-reviews"); var j=await r.json().catch(function(){return{};});
+        if(!r.ok){ REVIEWS="off"; renderTx(); return; }
+        var m={}; (j.reviews||[]).forEach(function(x){ m[x.booking_code]=x; }); REVIEWS=m;
+      }catch(e){ REVIEWS="off"; }
+      renderTx();
+    }
+    function openReview(t){
+      if(!t) return; RV_T=t;
+      var rv=REVIEWS&&REVIEWS!=="off"?REVIEWS[t.code]:null; RV_VAL=rv?rv.rating:0;
+      var h='<div class="rv-k">'+escapeHtml(L(TX_KINDS.class))+'</div><h2>'+escapeHtml(t.title)+'</h2>'+
+        '<div class="rv-sub">'+escapeHtml(t.when+(t.instructor?" · "+t.instructor:""))+'</div>';
+      var why=null;
+      if(t.st!=="confirmed") why=L({en:"This booking isn't confirmed, so it can't be rated.",id:"Booking ini tidak terkonfirmasi, jadi belum bisa dinilai."});
+      else if(!t.code) why=L({en:"This booking has no booking code yet, so it can't be rated.",id:"Booking ini belum punya kode booking, jadi belum bisa dinilai."});
+      else if(!(t.date&&t.date<=todayYmdLocal())) why=L({en:"You can rate this class after it takes place ("+dOnly(t.date)+").",id:"Rating bisa diberikan setelah kelas berlangsung ("+dOnly(t.date)+")."});
+      else if(REVIEWS==="off") why=L({en:"Class ratings aren't available yet. Please try again later.",id:"Fitur rating kelas belum aktif. Coba lagi nanti."});
+      else if(REVIEWS===undefined) why=L({en:"Loading your reviews…",id:"Memuat ulasanmu…"});
+      if(why) h+='<div class="rv-note">'+FIC("info",16)+'<span>'+escapeHtml(why)+'</span></div>';
+      else{
+        h+='<div class="rv-stars" role="radiogroup" aria-label="Rating">'+[1,2,3,4,5].map(function(n){ return '<button type="button" class="rv-star" role="radio" data-n="'+n+'" aria-label="'+n+'/5">★</button>'; }).join("")+'</div>'+
+          '<div class="rv-lbl" id="rvLbl"></div>'+
+          '<label for="rvText">'+escapeHtml(L({en:"Tell us about the class (optional)",id:"Ceritakan pengalamanmu di kelas ini (opsional)"}))+'</label>'+
+          '<textarea id="rvText" maxlength="1000" placeholder="'+escapeHtml(L({en:"Coach, intensity, music, crowd…",id:"Coach, intensitas, musik, keramaian kelas…"}))+'">'+escapeHtml(rv&&rv.comment||"")+'</textarea>'+
+          '<div class="rv-cnt" id="rvCnt"></div>'+
+          '<button class="btn" id="rvSave">'+escapeHtml(rv?L({en:"Update review",id:"Perbarui ulasan"}):L({en:"Send review",id:"Kirim ulasan"}))+'</button><div class="msg" id="rvMsg"></div>';
+      }
+      h+='<div class="gr-acts"><button type="button" class="gr-btn" id="rvBon">'+FIC("clipboard",15)+' '+escapeHtml(L({en:"View receipt",id:"Lihat bon"}))+'</button></div>';
+      var body=document.getElementById("rvBody"); body.innerHTML=h;
+      document.getElementById("rvBon").onclick=function(){ closeReview(); showReceipt(t); };
+      if(!why){
+        Array.prototype.forEach.call(body.querySelectorAll(".rv-star"),function(b){ b.onclick=function(){ RV_VAL=+b.getAttribute("data-n"); paintStars(); }; });
+        var ta=document.getElementById("rvText"); ta.oninput=function(){ document.getElementById("rvCnt").textContent=ta.value.length+"/1000"; }; ta.oninput();
+        document.getElementById("rvSave").onclick=saveReview;
+        paintStars();
+      }
+      document.getElementById("rvBg").classList.add("open");
+    }
+    function paintStars(){
+      Array.prototype.forEach.call(document.querySelectorAll("#rvBody .rv-star"),function(b){ var on=+b.getAttribute("data-n")<=RV_VAL; b.classList.toggle("on",on); b.setAttribute("aria-checked",String(+b.getAttribute("data-n")===RV_VAL)); });
+      var lb=document.getElementById("rvLbl"); if(lb) lb.textContent=RV_VAL?L(RV_LBL[RV_VAL]):L({en:"Tap a star to rate",id:"Ketuk bintang untuk menilai"});
+    }
+    async function saveReview(){
+      var m=document.getElementById("rvMsg"), btn=document.getElementById("rvSave");
+      if(!RV_VAL){ m.textContent=L({en:"Pick 1–5 stars first.",id:"Pilih 1–5 bintang dulu."}); m.className="msg err"; return; }
+      btn.disabled=true; m.textContent=L({en:"Saving…",id:"Menyimpan…"}); m.className="msg";
+      try{
+        var r=await corpFetch("/api/class-reviews",{method:"POST",body:JSON.stringify({booking_code:RV_T.code,rating:RV_VAL,comment:document.getElementById("rvText").value})});
+        var j=await r.json().catch(function(){return{};});
+        if(!r.ok||!j.ok) throw new Error(j.error||"");
+        if(REVIEWS&&REVIEWS!=="off") REVIEWS[RV_T.code]=j.review;
+        m.textContent=L({en:"Thanks! Your review is saved.",id:"Terima kasih! Ulasanmu tersimpan."}); m.className="msg ok";
+        renderTx(); setTimeout(closeReview,900);
+      }catch(e){
+        m.textContent=String(e.message)==="not_ready"?L({en:"Class ratings aren't available yet. Please try again later.",id:"Fitur rating kelas belum aktif. Coba lagi nanti."})
+          :L({en:"Couldn't save your review. Please try again.",id:"Gagal menyimpan ulasan. Coba lagi."});
+        m.className="msg err"; btn.disabled=false;
+      }
+    }
+    function closeReview(){ document.getElementById("rvBg").classList.remove("open"); }
+    (function(){ var bg=document.getElementById("rvBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeReview(); }); })();
     function closeOrderDetail(){ document.getElementById("odBg").classList.remove("open"); }
     (function(){ var bg=document.getElementById("odBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeOrderDetail(); }); })();
     // Bayar / ganti metode: buka kembali invoice Xendit (di sana bisa pilih VA/e-wallet/QRIS/kartu).
