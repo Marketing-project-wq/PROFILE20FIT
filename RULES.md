@@ -58,7 +58,14 @@ Elsen (detail & teknis). Teks persona: `COACH_PERSONAS` di `server.js`.
 - **Hasil MCU** → komentari secara umum, selalu rujuk ke dokter.
 
 ## Analisa performa workout (halaman `/activity/history/:id`)
-Bukan chat, tapi memakai persona coach yang sama. Yang ditegakkan kode ada di `lib/workout-narrative.js`:
+Bukan chat, tapi memakai persona coach yang sama. **v2 (2026-10-01):** sinyal dari heart rate & pace
+(`lib/workout-signals.js`: efisiensi vs biasanya, cardiac drift, pace turun di akhir, HR sulit naik, zona, kesiapan)
+→ kandidat penyebab dicek silang dengan log tidur/makan/minum/beban + check-in → keyakinan tinggi/sedang/rendah.
+Narasi JSON: `headline`, `what_we_saw`, `likely_why`, `what_we_cant_tell`, `next_session_tips`, `cta`.
+- Sinyal = tanda UMUM; satu workout tidak bisa membuktikan penyebab. Keyakinan narasi tidak boleh melebihi hasil server.
+- **Dilarang menyimpulkan kekurangan zat gizi spesifik** (zat besi, vitamin, dll) — server menolak narasi yang
+  memuatnya; arahkan ke MCU Scanner / dokter. "Kurang bahan bakar" hanya dari log makan / jawaban check-in.
+Yang ditegakkan kode ada di `lib/workout-narrative.js`:
 - Angka **hanya** dari hasil hitungan server (`lib/workout-analysis.js`); server memeriksa setiap angka di narasi AI
   — ada angka di luar data → generate ulang 1x → narasi template tanpa AI.
 - Bahasa keterkaitan, bukan sebab ("kemungkinan ikut memengaruhi"). Performa normal/bagus → faktor yang kurang =
@@ -72,6 +79,8 @@ Bukan chat, tapi memakai persona coach yang sama. Yang ditegakkan kode ada di `l
 - AI (persona coach) hanya menyusun plan workout/makan/tidur/minum + "Coach says" dari angka itu
   (`ACTIVITY_PLAN_RULES`). Target kalori/minum/tidur **ditimpa server** dengan angka app; AI gagal → plan template.
 - Status "tidak_ada_data" = belum dicatat, bukan kurang. Poin Health Score = batas maksimal, bukan janji.
+- "Latihan berikutnya" per workout & tombol **Implement plan** = aturan deterministik (`nextSession()` di
+  `lib/workout-narrative.js`), bukan AI. Workout dengan tanda keamanan → istirahat & dokter, tidak bisa diterapkan.
 
 ## Tombol aksi
 Chatbot tidak menulis URL sendiri. Ia menulis token, dan frontend (`js/coach.js`) mengubahnya

@@ -366,32 +366,43 @@
   .health-score-card{padding:16px 18px}
   .hs-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
   .hs-title{font-size:14px;font-weight:800;color:var(--a-txt)}
-  .hs-score-inline{display:flex;align-items:baseline;gap:6px}
-  .hs-number{font-size:28px;font-weight:800;font-family:var(--mono);line-height:1;color:var(--a-txt)}
-  .hs-max{font-size:13px;color:var(--a-mut);font-weight:700}
   .hs-label{align-self:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;padding:3px 8px;border-radius:5px;white-space:nowrap}
   .hs-label.good{background:#DCFCE7;color:#15803D}
   .hs-label.needs-work{background:#FEF3C7;color:#B45309}
   .hs-label.critical{background:#FEE2E2;color:#B91C1C}
-  .hs-bar{height:8px;background:color-mix(in srgb,var(--a-txt) 9%,transparent);border-radius:4px;overflow:hidden;margin-bottom:14px}
-  .hs-bar-fill{height:100%;border-radius:4px;transition:width .6s ease}
-  .hs-bar-fill.good{background:#16A34A}.hs-bar-fill.needs-work{background:#F59E0B}.hs-bar-fill.critical{background:#DC2626}
-  .hs-breakdown{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px;margin-bottom:12px}
-  .hs-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--a-mut);min-width:0}
-  .hs-item-name{width:76px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
-  .hs-item-bar{flex:1;height:5px;background:color-mix(in srgb,var(--a-txt) 9%,transparent);border-radius:3px;overflow:hidden;min-width:20px}
-  .hs-item-fill{display:block;height:100%;border-radius:3px;background:#16A34A}
-  .hs-item-fill.low{background:#F59E0B}.hs-item-fill.critical{background:#DC2626}
-  .hs-item-value{font-weight:800;min-width:34px;text-align:right;color:var(--a-txt);font-family:var(--mono);font-size:11.5px}
-  .hs-item-na{color:var(--a-mut);font-style:italic;font-weight:600}
+  /* Kartu Health Score bergaya kartu target kalori: lingkaran progres (penuh di 100) + angka besar + bar komponen */
+  .hs-tlbl{text-align:center;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--a-mut);font-weight:700}
+  .hs-main{display:flex;align-items:center;justify-content:center;gap:22px;margin:12px 0 6px}
+  .hs-ring{position:relative;width:124px;height:124px;flex:none}
+  .hs-ring>svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .hs-ring>svg circle{fill:none;stroke-width:12}
+  .hs-ring>svg .trk{stroke:color-mix(in srgb,var(--a-txt) 9%,transparent)}
+  .hs-ring>svg .val{stroke-linecap:round;transition:stroke-dashoffset .7s cubic-bezier(.2,.8,.2,1)}
+  .hs-ring>svg .val.good{stroke:#16A34A}.hs-ring>svg .val.needs-work{stroke:#F59E0B}.hs-ring>svg .val.critical{stroke:#DC2626}
+  .hs-ring-c{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .hs-ring-c.good{color:#16A34A}.hs-ring-c.needs-work{color:#F59E0B}.hs-ring-c.critical{color:#DC2626}
+  .hs-nums{min-width:0}
+  .hs-big{font-size:52px;font-weight:900;line-height:1;font-family:var(--mono)}
+  .hs-big small{font-size:16px;font-weight:700;color:var(--a-mut);margin-left:4px}
+  .hs-big.good{color:#16A34A}.hs-big.needs-work{color:#D97706}.hs-big.critical{color:#DC2626}
+  .hs-sub{font-size:13px;color:var(--a-mut);margin-top:6px;line-height:1.4}
+  .hs-togo{margin-top:8px;font-size:13px;color:var(--a-mut)}
+  .hs-togo b{font-size:24px;color:var(--a-txt);font-family:var(--mono);margin-right:4px}
+  .hs-st{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:8px;font-size:13px;color:var(--a-txt);font-weight:600;white-space:nowrap}
+  .hs-rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 22px;margin:14px 0 12px}
+  @media(max-width:767px){ .hs-rows{grid-template-columns:1fr} .hs-main{gap:16px} .hs-ring{width:104px;height:104px} .hs-big{font-size:44px} }
+  .hs-rtop{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;font-weight:700;color:var(--a-txt);margin-bottom:4px}
+  .hs-rv{color:var(--a-mut);font-weight:700;font-family:var(--mono);font-size:12px;white-space:nowrap}
+  .hs-rbar{height:8px;background:color-mix(in srgb,var(--a-txt) 9%,transparent);border-radius:6px;overflow:hidden}
+  .hs-rbar>i{display:block;height:100%;border-radius:6px;transition:width .5s}
+  .hs-rbar>i.good{background:#16A34A}.hs-rbar>i.needs-work{background:#F59E0B}.hs-rbar>i.critical{background:#DC2626}
   .wyn-t{font-size:11px;font-weight:800;color:var(--a-mut);text-transform:uppercase;letter-spacing:.5px;margin:2px 0 7px;padding-top:10px;border-top:1px solid var(--a-line)}
   .wyn-pills{display:flex;flex-wrap:wrap;gap:6px}
   .wyn-pill{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:20px;border:1px solid var(--a-line);background:color-mix(in srgb,var(--a-txt) 4%,transparent);font-size:11.5px;font-weight:700;color:var(--a-txt);cursor:pointer;font-family:inherit}
   .wyn-pill:hover,.wyn-pill:focus-visible{border-color:var(--fit-red,#E4002B);color:var(--fit-red,#E4002B)}
   .wyn-why{font-size:11.5px;color:var(--a-mut);margin-top:7px;line-height:1.4}
   .hs-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
-  .hs-complete{font-size:11.5px;color:var(--a-mut);margin:-6px 0 12px}
-  .hs-fill{flex:1;min-width:0;text-align:left;border:1px dashed var(--a-line);background:transparent;border-radius:7px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--a-mut);cursor:pointer;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hs-fill{flex:none;max-width:60%;min-width:0;text-align:left;border:1px dashed var(--a-line);background:transparent;border-radius:7px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--a-mut);cursor:pointer;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .hs-fill:hover,.hs-fill:focus-visible{border-color:var(--fit-red,#E4002B);color:var(--fit-red,#E4002B)}
   .hs-stale{font-size:9.5px;font-weight:800;text-transform:uppercase;color:var(--fit-amber,#B45309)}
   .hs-lock-tag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;padding:3px 8px;border-radius:5px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);color:var(--a-mut)}
@@ -403,7 +414,7 @@
   .hs-path small{display:block;font-size:11px;color:var(--a-mut);margin-top:2px}
   .hs-have{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11.5px;color:var(--a-mut);margin-top:12px}
   .hs-have span{display:inline-flex;align-items:center;gap:3px;font-weight:800;color:var(--fit-green,#16A34A)}
-  @media(max-width:520px){ .hs-paths{grid-template-columns:1fr} .hs-breakdown{grid-template-columns:1fr} }
+  @media(max-width:520px){ .hs-paths{grid-template-columns:1fr} }
   .hs-cta{padding:7px 12px;border-radius:9px;background:var(--fit-red,#E4002B);color:#fff;font-size:12px;font-weight:800;text-decoration:none}
   .hs-note{font-size:10.5px;color:var(--a-mut)}
   /* 2 kartu berdampingan — tetap 2 kolom di mobile */
@@ -481,6 +492,7 @@
   .upx-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
   .upx-t{font-weight:800;font-size:15px;letter-spacing:-.1px}
   .upx-s{font-size:12px;color:var(--a-mut);line-height:1.45}
+  .upx-tip{display:block;margin-top:4px;font-size:11.5px;color:var(--a-mut);line-height:1.4;font-style:italic}
   .upx-btns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
   .upx-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:10px 6px;border-radius:11px;
     border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;
@@ -502,6 +514,22 @@
   .upx-last{font-size:11.5px;color:var(--a-txt);line-height:1.4;margin-top:9px}
   .upx-last:empty{display:none}
   .upx-last span{color:var(--a-mut)}
+  /* Log upload hari ini */
+  .ulog{display:flex;flex-direction:column;gap:2px}
+  .ulog-hd{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--a-mut);margin-bottom:4px}
+  .ulog-hd a{margin-left:auto;text-transform:none;letter-spacing:0;color:var(--fit-red,#E4002B);text-decoration:none;font-size:11.5px}
+  .ulog-i{display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-top:1px dashed var(--a-line)}
+  .ulog-ic{flex:none;width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--fit-red,#E4002B);background:color-mix(in srgb,var(--fit-red,#E4002B) 9%,transparent)}
+  .ulog-b{flex:1;min-width:0}
+  .ulog-t{font-size:12.5px;font-weight:800;color:var(--a-txt)}
+  .ulog-t span{font-weight:600}
+  .ulog-h{font-size:12px;color:var(--a-txt);margin-top:3px;line-height:1.45}
+  .ulog-n{font-size:12px;font-weight:700;color:var(--fit-red,#E4002B);margin-top:3px}
+  .ulog-ck{display:block;font-size:12px;font-weight:800;color:var(--fit-amber,#B45309);text-decoration:none;margin-top:4px}
+  .ulog-a{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:6px}
+  .ulog-a a{font-size:12px;font-weight:800;color:var(--fit-red,#E4002B);text-decoration:none}
+  .ulog-a button{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:8px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:11.5px;font-weight:800;cursor:pointer}
+  .ulog-a button:disabled{opacity:.7}
   @media(max-width:420px){ .upx-b{font-size:11.5px;gap:4px;padding:10px 4px} .upx-b .fic{display:none} }
   .wr-days{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;margin-bottom:8px}
   .wr-day{display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--a-mut);font-weight:700;padding:3px 0;border-radius:7px}
@@ -570,6 +598,9 @@
   .tb-plan-h{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--a-mut);margin-bottom:8px}
   .tb-plan-h span{text-transform:none;letter-spacing:0;font-weight:600}
   .tb-why{margin-top:8px;font-size:12.5px;color:var(--a-mut);line-height:1.45}
+  .tb-from{margin-top:6px;font-size:12px;line-height:1.45;color:var(--a-mut)}
+  .tb-from svg{vertical-align:-2px}
+  .tb-from a{color:var(--fit-red,#E4002B);font-weight:800;text-decoration:none}
   /* Active Plan — satu baris horizontal, centang langsung */
   /* Workout plan aktif — tabel per hari + aksi ubah/ganti */
   .wp{padding:14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:16px}
@@ -711,6 +742,7 @@
         <span class="upx-txt">
           <span class="upx-t" data-en="Upload your progress" data-id="Upload progress kamu">Upload progress kamu</span>
           <span class="upx-s" id="upHint" data-en="Workout, sleep, steps or weight screenshot — up to 5 at once. AI reads the numbers and updates today's plan." data-id="Screenshot workout, tidur, langkah, atau berat — bisa 5 sekaligus. AI membaca angkanya & memperbarui plan hari ini.">Screenshot workout, tidur, langkah, atau berat — bisa 5 sekaligus. AI membaca angkanya &amp; memperbarui plan hari ini.</span>
+          <span class="upx-tip" data-en="For a deeper workout analysis, add the Splits/Laps screen (with heart rate per km) and the Heart Rate zones screen of the same workout." data-id="Untuk analisa workout yang lebih akurat, sertakan juga layar Splits/Laps (dengan heart rate per km) dan layar zona Heart Rate dari workout yang sama.">Untuk analisa workout yang lebih akurat, sertakan juga layar Splits/Laps (dengan heart rate per km) dan layar zona Heart Rate dari workout yang sama.</span>
         </span>
       </div>
       <div class="upx-prog" id="upProg" hidden><span class="upx-spin" aria-hidden="true"></span><span id="upProgTxt"></span></div>
@@ -1084,7 +1116,7 @@
       UP_BUSY=false;
       if(!document.getElementById("upProg").classList.contains("ok")) upProg("");   // status "selesai" dibiarkan tampil
     }
-    refreshDerived(); loadLastUpload();   // upload baru -> skor & analisa dihitung ulang + "Terakhir:" diperbarui
+    refreshDerived(); loadUploadLog();   // upload baru -> skor & analisa dihitung ulang + log upload hari ini
   }
 
   // ---- Dialog workout manual ----
@@ -1123,6 +1155,9 @@
         }))+'<div class="dlgsub">'+esc(Lx({
           en:"Blank fields were not readable \u2014 they are not guessed.",
           id:"Kolom yang kosong tidak terbaca \u2014 tidak ditebak."}))+'</div></div>';
+      // Kelengkapan data (WorkoutMetrics.dataLevel) -> apa yang bisa ditambah supaya analisa lebih akurat.
+      var dl=WorkoutMetrics.dataLevel({pace_data:ai.pace_data,hr_zone_data:ai.hr_zone_data,raw_data:{readiness:ai.readiness}});
+      box.innerHTML+='<div class="dlgnote">'+esc(Lx(DL_TXT[dl.level]))+(dl.level!=="full"?' '+esc(Lx({en:"To read heart-rate & pace signals, add: ",id:"Supaya sinyal heart rate & pace terbaca, tambahkan: "})+dl.missing.map(function(k){ return Lx(DL_MISS[k]); }).join(", ")+"."):"")+'</div>';
     } else if(nImg){
       box.innerHTML='<div class="dlgnote warn">'+esc(aiErr||Lx({
         en:"Couldn't read the numbers from those images. Fill them in yourself.",
@@ -1159,7 +1194,7 @@
         raw_data:{
           file_paths:PENDING.paths, upload_id:PENDING.uploadId, started_at:document.getElementById("fStart").value||null,
           ai_scan:ai?{confidence:ai.confidence,fields_read:ai.fields_read,source_guess:ai.source_guess,note:ai.note}:null,
-          field_confidence:ai?ai.field_confidence:null, metrics:ai?{avg_speed_kmh:ai.avg_speed_kmh,cadence:ai.cadence}:null,
+          field_confidence:ai?ai.field_confidence:null, metrics:ai?{avg_speed_kmh:ai.avg_speed_kmh,cadence:ai.cadence}:null, readiness:ai?ai.readiness:null,
           date_check:PENDING.dc?{read:PENDING.dc.read,text:PENDING.dc.text,reason:PENDING.dc.reason}:null
         },
         hr_zone_data:ai?ai.hr_zone_data:null, pace_data:ai?ai.pace_data:null, elevation_gain_m:ai?ai.elevation_gain_m:null,
@@ -1178,9 +1213,7 @@
         if(!r.ok){ err.textContent=j.error||T("act_save_fail"); btn.disabled=false; return; }
         document.getElementById("woDlg").close();
         clearPending();
-        // Analisa performa ada di halaman detail riwayat.
-        var last=document.getElementById("upLast");
-        if(last&&j.workout&&j.workout.id) last.innerHTML='<a class="upx-go" href="/activity/history/'+encodeURIComponent(j.workout.id)+'">'+esc(Lx({en:"Saved — see the performance analysis →",id:"Tersimpan — lihat analisa performanya →"}))+'</a>';
+        loadUploadLog();   // workout baru muncul di log hari ini (analisa + latihan berikutnya)
         await load(SEL);
         refreshDerived();   // workout baru -> Health Score & analisa Plan Hari Ini dihitung ulang
       }catch(e){ document.getElementById("dlgErr").textContent=T("act_save_fail"); }
@@ -1188,6 +1221,9 @@
     };
   }
 
+  // Label level kelengkapan data workout (dipakai dialog upload).
+  var DL_TXT={basic:{en:"Data: Basic (summary only).",id:"Data: Basic (ringkasan saja)."},detailed:{en:"Data: Detailed (splits with heart rate).",id:"Data: Detailed (splits dengan heart rate)."},full:{en:"Data: Full.",id:"Data: Full."}};
+  var DL_MISS={splits:{en:"the Splits/Laps screen",id:"layar Splits/Laps"},split_hr:{en:"splits that show heart rate per km",id:"splits yang menampilkan heart rate per km"},zones:{en:"the Heart Rate zones screen",id:"layar zona Heart Rate"},readiness:{en:"a recovery screen (resting HR / HRV)",id:"layar pemulihan (resting HR / HRV)"}};
   // ---- 4. Workout + HR zones ----
   var ZC={z1:"var(--accent)",z2:"var(--green)",z3:"var(--zone3)",z4:"var(--zone4)",z5:"var(--red)"};
   function hms(sec){ var m=Math.round(sec/60); return m>=60?(Math.floor(m/60)+"j "+(m%60)+"m"):(m+"m"); }
@@ -1968,16 +2004,21 @@
     var lv=hsLevel(tot);
     var lbl={good:{en:"Good",id:"Bagus"},"needs-work":{en:"Needs work",id:"Perlu ditingkatkan"},critical:{en:"Critical",id:"Kritis"}}[lv];
     var nFill=(HS.filled||[]).length, nAll=HS.components_total||HS_CATS.length;
+    // Baris per komponen (gaya makro di Calorie Tracker): nama + skor/100 + bar; tanpa data -> tombol isi.
     var rows=HS_CATS.map(function(c){
       var s=bd[c[0]];
-      if(!s) return '<div class="hs-item"><span class="hs-item-name">'+esc(Lx(c[1]))+'</span>'+
-        '<button type="button" class="hs-fill" data-hs-fill="'+c[0]+'" title="'+esc(Lx({en:"No data yet",id:"Belum ada data"}))+'">+ '+esc(Lx(HS_FILL[c[0]][0]))+'</button></div>';
+      if(!s) return '<div class="hs-row"><div class="hs-rtop"><span>'+esc(Lx(c[1]))+'</span>'+
+        '<button type="button" class="hs-fill" data-hs-fill="'+c[0]+'" title="'+esc(Lx({en:"No data yet",id:"Belum ada data"}))+'">+ '+esc(Lx(HS_FILL[c[0]][0]))+'</button></div></div>';
       var v=Math.max(0,Math.min(100,Math.round(s.score))), l2=hsLevel(v);
       var tip=String(s.detail||"")+(s.stale?" · "+Lx({en:"scan is "+s.age_days+" days old — rescan to update",id:"scan sudah "+s.age_days+" hari — perlu diperbarui"}):"");
-      return '<div class="hs-item" title="'+esc(tip)+'"><span class="hs-item-name">'+esc(Lx(c[1]))+(s.stale?' <span class="hs-stale">'+esc(Lx({en:"old",id:"lama"}))+'</span>':'')+'</span>'+
-        '<span class="hs-item-bar"><span class="hs-item-fill'+(l2==="good"?"":l2==="needs-work"?" low":" critical")+'" style="width:'+v+'%"></span></span>'+
-        '<span class="hs-item-value">'+v+'%</span></div>';
+      return '<div class="hs-row" title="'+esc(tip)+'"><div class="hs-rtop"><span>'+esc(Lx(c[1]))+(s.stale?' <span class="hs-stale">'+esc(Lx({en:"old",id:"lama"}))+'</span>':'')+'</span>'+
+        '<span class="hs-rv">'+v+' / 100</span></div><div class="hs-rbar"><i class="'+l2+'" style="width:'+v+'%"></i></div></div>';
     }).join("");
+    // Lingkaran progres: penuh saat skor 100.
+    var R=52, C=2*Math.PI*R, off=C*(1-(has?tot:0)/100);
+    var ring='<div class="hs-ring"><svg viewBox="0 0 124 124" aria-hidden="true"><circle class="trk" cx="62" cy="62" r="'+R+'"/>'+
+      '<circle class="val '+lv+'" cx="62" cy="62" r="'+R+'" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
+      '<span class="hs-ring-c '+lv+'">'+FIC("heart",26)+'</span></div>';
     var gaps=Array.isArray(HS.gaps)?HS.gaps:[];
     var pills=gaps.map(function(g,i){
       var tip=Lx(g.detail||{})+(g.target?" · "+Lx(g.target):"");
@@ -1985,14 +2026,17 @@
     }).join("");
     var first=gaps[0];
     host.innerHTML='<div class="card health-score-card">'+
-      '<div class="hs-header"><span class="hs-title">Health Score</span>'+
-        '<span class="hs-score-inline"><span class="hs-number">'+(has?tot:"—")+'</span><span class="hs-max">/100</span>'+
-        (has?'<span class="hs-label '+lv+'">'+esc(Lx(lbl))+'</span>':'')+'</span></div>'+
-      '<div class="hs-bar"><div class="hs-bar-fill '+lv+'" style="width:'+(has?tot:0)+'%"></div></div>'+
-      '<div class="hs-complete">'+esc(has
-        ?Lx({en:"Based on "+nFill+" of "+nAll+" components — more data, more accurate.",id:"Berdasarkan "+nFill+" dari "+nAll+" komponen — makin lengkap datamu, makin akurat."})
-        :Lx({en:"Your score appears once your first data is processed.",id:"Skor muncul setelah data pertamamu selesai diproses."}))+'</div>'+
-      '<div class="hs-breakdown">'+rows+'</div>'+
+      '<div class="hs-tlbl">'+esc(Lx({en:"Your Health Score",id:"Health Score kamu"}))+'</div>'+
+      '<div class="hs-main">'+ring+'<div class="hs-nums">'+
+        '<div class="hs-big '+lv+'">'+(has?tot:"—")+'<small>/100</small></div>'+
+        '<div class="hs-sub">'+esc(has
+          ?Lx({en:"from "+nFill+" of "+nAll+" components — more data, more accurate",id:"dari "+nFill+" dari "+nAll+" komponen — makin lengkap datamu, makin akurat"})
+          :Lx({en:"Your score appears once your first data is processed.",id:"Skor muncul setelah data pertamamu selesai diproses."}))+'</div>'+
+        (has?(tot>=100?'<div class="hs-togo"><b>100</b> '+esc(Lx({en:"full score!",id:"skor penuh!"}))+'</div>'
+          :'<div class="hs-togo"><b>'+(100-tot)+'</b> '+esc(Lx({en:"points to a full circle",id:"poin lagi sampai lingkaran penuh"}))+'</div>'):'')+
+        (has?'<div class="hs-st">Status <span class="hs-label '+lv+'">'+esc(Lx(lbl))+'</span></div>':'')+
+      '</div></div>'+
+      '<div class="hs-rows">'+rows+'</div>'+
       (gaps.length?('<div class="wyn-t">'+esc(Lx({en:"What You Need",id:"Yang Kamu Butuhkan"}))+'</div>'+
         '<div class="wyn-pills">'+pills+'</div>'+
         '<div class="wyn-why" id="wynWhy">'+esc(Lx(first.detail||{}))+'</div>'):'')+
@@ -2033,23 +2077,52 @@
     var h=Math.round(m/60); if(h<24) return Lx({en:h+" hour"+(h===1?"":"s")+" ago",id:h+" jam lalu"});
     var d=Math.round(h/24); return Lx({en:d+" day"+(d===1?"":"s")+" ago",id:d+" hari lalu"});
   }
-  function uploadSummary(u){
-    var e=(u&&u.extracted_data)||{}, t=String(u.upload_type||e.type||"");
-    if(t==="sleep"&&e.sleep_duration_hours) return Lx({en:"Sleep ",id:"Tidur "})+e.sleep_duration_hours+Lx({en:"h",id:" jam"});
-    if(t==="workout"){ var nm=e.activity_type||Lx({en:"Workout",id:"Workout"}); return nm+(e.distance_km?" "+e.distance_km+"km":(e.duration_minutes?" "+e.duration_minutes+" min":"")); }
-    if(t==="daily_activity") return e.steps?(e.steps+" "+Lx({en:"steps",id:"langkah"})):Lx({en:"Daily activity",id:"Aktivitas harian"});
-    if(t==="weight"&&e.weight_kg) return e.weight_kg+" kg";
-    if(t==="food_log") return Lx({en:"Food log",id:"Log makan"});
-    return e.summary?String(e.summary).slice(0,40):Lx({en:"Screenshot",id:"Screenshot"});
+  // Log upload HARI INI di bawah kartu upload (dari /api/activity/history — sumber yang sama dengan halaman
+  // Riwayat). Workout: headline analisa + latihan berikutnya + "Lihat selengkapnya" (analisa lengkap) +
+  // "Implement plan" (masuk ke Plan Hari Ini). Belum ada upload hari ini -> satu baris "Terakhir:".
+  var LOG_IC={ run:"run", walk:"walk", cycling:"cycle", swimming:"swim", gym:"dumbbell", hiit:"dumbbell", hyrox:"run", other:"run",
+    sleep:"moon", daily_activity:"steps", weight:"scale", food_log:"meal" };
+  function logItem(it){
+    var ic=FIC(LOG_IC[it.type]||"chart",16), ago=it.created_at?timeAgo(it.created_at):"";
+    if(it.kind!=="workout") return '<div class="ulog-i"><span class="ulog-ic">'+ic+'</span><div class="ulog-b"><div class="ulog-t">'+esc(it.title)+' <span>· '+esc(ago)+'</span></div></div></div>';
+    return '<div class="ulog-i"><span class="ulog-ic">'+ic+'</span><div class="ulog-b"><div class="ulog-t">'+esc(it.title)+' <span>· '+esc(ago)+'</span></div>'+
+      (it.headline?'<div class="ulog-h">'+esc(it.headline)+'</div>':'')+
+      (it.next&&it.next.title?'<div class="ulog-n">'+esc(Lx({en:"Next: ",id:"Berikutnya: "}))+esc(it.next.title)+'</div>':'')+
+      (it.needs_checkin?'<a class="ulog-ck" href="/activity/history/'+encodeURIComponent(it.id)+'#checkin">'+esc(Lx({en:"Signs of fatigue — answer 4 quick questions →",id:"Ada tanda kelelahan — jawab 4 pertanyaan singkat →"}))+'</a>':'')+
+      '<div class="ulog-a"><a href="/activity/history/'+encodeURIComponent(it.id)+'">'+esc(Lx({en:"See more →",id:"Lihat selengkapnya →"}))+'</a>'+
+      (it.next&&it.next.implementable?'<button type="button" data-impl="'+esc(it.id)+'">'+FIC("check",13)+' '+esc(Lx({en:"Implement plan",id:"Terapkan ke Activity"}))+'</button>':'')+'</div></div></div>';
   }
-  async function loadLastUpload(){
+  async function loadUploadLog(){
     var host=document.getElementById("upLast"); if(!host) return;
     try{
-      var r=await apiFetch("/api/activity/upload-history?limit=1"); var j=await r.json().catch(function(){return {};});
-      var u=j&&Array.isArray(j.uploads)&&j.uploads[0];
-      host.innerHTML=u?('<b>'+esc(Lx({en:"Last:",id:"Terakhir:"}))+'</b> '+esc(uploadSummary(u))+' <span>· '+esc(timeAgo(u.created_at))+'</span>')
-                      :'<span>'+esc(Lx({en:"No uploads yet.",id:"Belum ada upload."}))+'</span>';
+      var r=await apiFetch("/api/activity/history?limit=12&lang="+encodeURIComponent(I18N.lang)); var j=await r.json().catch(function(){return {};});
+      if(!r.ok) throw new Error();
+      var items=(j&&j.items)||[], td=todayYmd();
+      var today=items.filter(function(it){ return it.created_at&&ymdOf(new Date(it.created_at))===td; })
+        .sort(function(a,b){ return String(a.created_at)<String(b.created_at)?1:-1; });
+      if(!today.length){
+        var last=items.slice().sort(function(a,b){ return String(a.created_at||"")<String(b.created_at||"")?1:-1; })[0];
+        host.innerHTML=last?('<b>'+esc(Lx({en:"Last:",id:"Terakhir:"}))+'</b> '+(last.kind==="workout"?'<a class="upx-go" href="/activity/history/'+encodeURIComponent(last.id)+'">'+esc(last.title)+'</a>':esc(last.title))+
+          (last.created_at?' <span>· '+esc(timeAgo(last.created_at))+'</span>':''))
+          :'<span>'+esc(Lx({en:"No uploads yet.",id:"Belum ada upload."}))+'</span>';
+        return;
+      }
+      host.innerHTML='<div class="ulog"><div class="ulog-hd">'+FIC("clock",13)+' '+esc(Lx({en:"Today's uploads",id:"Upload hari ini"}))+
+        '<a href="/activity/history">'+esc(Lx({en:"All history →",id:"Semua riwayat →"}))+'</a></div>'+today.slice(0,5).map(logItem).join("")+'</div>';
+      Array.prototype.forEach.call(host.querySelectorAll("[data-impl]"),function(b){ b.onclick=function(){ implementFromWorkout(b.getAttribute("data-impl"),b); }; });
     }catch(e){ host.innerHTML=""; }
+  }
+  // "Implement plan": rekomendasi latihan berikutnya dari analisa workout -> Plan Hari Ini (server), lalu tampil.
+  async function implementFromWorkout(id,btn){
+    if(btn) btn.disabled=true;
+    try{
+      var r=await apiFetch("/api/activity/workouts/"+encodeURIComponent(id)+"/implement",{method:"POST",body:JSON.stringify({lang:I18N.lang})});
+      var j=await r.json().catch(function(){return {};});
+      if(!r.ok||!j.ok) throw new Error(j.error||"");
+      showTodayPlanRow(j.plan,j.brief);
+      var t=tplHost(); if(t) t.scrollIntoView({behavior:"smooth",block:"start"});
+      if(btn){ btn.innerHTML=FIC("check",13)+' '+esc(Lx({en:"Added to today's plan",id:"Masuk ke Plan Hari Ini"})); }
+    }catch(e){ showErr((e&&e.message)||Lx({en:"Couldn't add it to Activity. Try again.",id:"Gagal menerapkan ke Activity. Coba lagi."}),false); if(btn) btn.disabled=false; }
   }
   // ---- TODAY'S PLAN — 4 mini kartu + coach says (dari upload-analyze / my20fit_today_plans) ----
   function tplHost(){ return document.getElementById("todayPlanBox"); }
@@ -2140,6 +2213,8 @@
       mini(FIC("moon",22),sVal,sLbl,'')+
       mini(FIC("water",22),hVal,Lx({en:"target",id:"target"}),'<button type="button" data-a="water">+250ml</button>');
     var why=[w.recommendation&&w.recommendation!==wVal?w.recommendation:"", w.reason||""].filter(Boolean).join(" — ");
+    var src=w.from_workout&&w.from_workout.id?'<div class="tb-from">'+FIC("run",13)+' '+esc(Lx({en:"From your workout analysis: ",id:"Dari analisa workout: "}))+
+      '<a href="/activity/history/'+encodeURIComponent(w.from_workout.id)+'">'+esc(w.from_workout.title||"")+'</a></div>':'';
     var who=COACH_NAME_TPL[p.coach_id]||coachName();
     var says=p.coach_says?('<div class="plan-says"><span><b>Coach '+esc(who)+':</b> “'+esc(p.coach_says)+'”</span>'+
       '<button type="button" data-a="reply">'+FIC("chat",14)+' '+esc(Lx({en:"Reply →",id:"Balas →"}))+'</button></div>'):'';
@@ -2149,7 +2224,7 @@
       '<button type="button" class="acard-act" data-a="upload">'+esc(Lx({en:"New upload",id:"Upload baru"}))+'</button></span></div>'+
       briefHtml(brief)+
       '<div class="tb-sec tb-plan"><div class="tb-plan-h">'+FIC("clipboard",14)+' '+esc(Lx({en:"Your plan for today",id:"Plan kamu hari ini"}))+(at?' <span>· '+esc(Lx({en:"made ",id:"dibuat "})+at)+'</span>':'')+'</div>'+
-      '<div class="plan-today-grid">'+cards+'</div>'+(why?'<div class="tb-why">'+esc(why)+'</div>':'')+says+'</div></div>';
+      '<div class="plan-today-grid">'+cards+'</div>'+(why?'<div class="tb-why">'+esc(why)+'</div>':'')+src+says+'</div></div>';
     Array.prototype.forEach.call(h.querySelectorAll("[data-a]"),function(b){
       var a=b.getAttribute("data-a");
       b.onclick=async function(){
@@ -2179,6 +2254,7 @@
       var r=await apiFetch("/api/activity/today-plan?lang="+encodeURIComponent(I18N.lang)); var j=await r.json().catch(function(){return {};});
       if(r.status===401){ renderTodayPlanEmpty(); return; }
       showTodayPlanRow(j&&j.plan, j&&j.brief);
+      if(location.hash==="#today-plan"){ try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} h.scrollIntoView({behavior:"smooth",block:"start"}); }
     }catch(e){ renderTodayPlanEmpty(); }
   }
   // Data berubah (tidur/minum/workout/upload) -> Health Score + analisa Plan Hari Ini dihitung ulang.
@@ -2353,7 +2429,7 @@
     // "Ubah di Activity" dari tabel plan di chat -> buka editor setelah plan termuat.
     if(location.hash==="#edit-plan"){ try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} WP_OPEN_EDITOR=true; }
     loadWorkoutPlan();   // Workout plan aktif (dari /api/coach/plan) — fire-and-forget
-    loadTodayPlan(); loadLastUpload();   // Today's Plan + "Terakhir:" di kartu upload — fire-and-forget
+    loadTodayPlan(); loadUploadLog();   // Today's Plan + log upload hari ini di kartu upload — fire-and-forget
     wireTabs();          // tab bar Dashboard/Chat/Plan/History
     // Tombol "Tur fitur" (putar ulang kapan saja) + link "Upload workout pertamaku" dari tur Home.
     document.getElementById("tourHelp").onclick=function(){ if(window.Tour) Tour.start(JN&&JN.has_claimed_scan?"activity":"activity_intro",{vars:tourVars(),onCta:tourCta}); };
@@ -2370,7 +2446,7 @@
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
     applyStaticLang(); renderHead(); renderDnav();
     if(DAY){ renderWorkouts(); renderHabits(); renderWeek(); }
-    renderSleep(); renderHydra(); renderJourney(); renderHealthScore(); renderCoachProfiles(); if(window.CoachProfiles) CoachProfiles.loadNext(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadLastUpload();
+    renderSleep(); renderHydra(); renderJourney(); renderHealthScore(); renderCoachProfiles(); if(window.CoachProfiles) CoachProfiles.loadNext(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadUploadLog();
   });
 
 </script>

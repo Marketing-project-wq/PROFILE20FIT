@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `2dab934` · **Production:** `d263b13`
+> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `4545822` · **Production:** `58b89ba`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -390,6 +390,26 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
       tidak tersimpan — supaya fitur bisa diuji sebelum bucket dibuat.
     - **BELUM TERVERIFIKASI:** akurasi bacaan pada screenshot tracker ASLI. Diuji dengan
       respons AI tiruan; ketepatan OCR baru bisa dinilai setelah edge fn di-deploy ulang.
+- **"Today's Food" di `/calories`: seret makanan antar waktu makan (1 Okt 2026).**
+  Item bisa diseret ke Breakfast/Lunch/Dinner/Snack (Pointer Events di `calories.html`,
+  `moveItemMeal()`): mouse dari seluruh baris, sentuh hanya dari pegangan titik-titik di
+  kiri supaya gulir halaman tetap normal. Yang berubah cuma field `m` item (sama dengan
+  pilihan "Waktu makan" di dialog Ubah), lalu disimpan lewat `save()` → `cal_items`.
+  Ikon di judul waktu makan & tombol tambah cepat dihapus (properti `e` di `MEAL_TX`
+  ikut dihapus). **BELUM TERVERIFIKASI:** apakah app calorietracker native membaca `m`
+  saat mengelompokkan (kalau tidak, item yang dipindah tampil di grup jam-nya di sana).
+- **"Today's Food": ketuk makanan = buka analisanya (1 Okt 2026).**
+  Hasil scan foto sebelumnya TIDAK pernah disimpan (hanya di memori sampai popup ditutup).
+  Sekarang `addScanned()` menyimpan ringkasan analisa ke `cal_items` (aditif, tanpa
+  migration): semua item satu batch dapat `sid` sama, ringkasannya (`sa`, dipangkas ±1KB:
+  kalori+rentang, keyakinan, makro, skor kenyang/sehat, tag, analisa, rekomendasi, insight,
+  porsi per item) cukup di SATU item; `del()` memindahkan `sa` ke saudaranya kalau item
+  pembawanya dihapus. Ketuk baris → `openItemAnalysis()` memakai `renderScanDetail()` yang
+  sama dengan popup scan (mode baca saja, tanpa tombol koreksi/tambah) + tombol "Ubah makanan
+  ini". Item TANPA `sa` (ketik manual, scan sebelum fitur ini, dari app lain) menampilkan
+  penilaian dari kalori & makronya + catatan jujur bahwa analisa foto tidak tersimpan.
+  **BELUM TERVERIFIKASI:** apakah app calorietracker native mempertahankan kunci `sid`/`sa`
+  saat ia menulis ulang `cal_items` (kalau tidak, analisanya hilang untuk hari itu).
 - **`/calories` disamakan dengan home calorietracker.20fit.id (21 Sep 2026).**
   Hasil pembandingan repo `Marketing-project-wq/Calories.20fit` terhadap `calories.html`:
   - **API-nya SUDAH tersambung sejak awal.** `constants.ts` di calorietracker menyetel
@@ -719,6 +739,41 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Analisa workout v2 — sinyal heart rate & pace ala coach — 2026-10-01 (semua fase, default agent).** Audit &
+  keputusan: PR terkait. (1) **Data:** `pace_data.splits` kini {km, sec, hr, elev} + `raw_data.readiness`; level data
+  Basic/Detailed/Full (`WorkoutMetrics.dataLevel`) tampil di dialog upload, riwayat, detail + ajakan upload layar
+  Splits/zona/pemulihan. (2) **Sinyal** (`lib/workout-signals.js`): efisiensi (m per detak) vs workout sejenis, cardiac
+  drift paruh 1 vs 2, pace turun di akhir (HR tidak turun), HR maks sulit naik, % zona 4–5, kesiapan (resting HR/HRV/
+  sleep score) — tiap sinyal `detected` true/false/insufficient_data + alasan data yang kurang. (3) **Penyebab:** tabel
+  sinyal→kandidat di config, dicek silang dengan faktor log & check-in → keyakinan tinggi/sedang/rendah, yang dibantah
+  data dikeluarkan; verdict `signals_explained|signals_unclear|better|normal|limited|safety`. (4) **Check-in** opsional
+  4 pertanyaan (`POST /api/activity/workouts/:id/checkin`) muncul kalau ada sinyal tapi data pendukung kurang.
+  (5) **Narasi** v2 + cek angka + tolak klaim zat gizi spesifik. (6) **Halaman detail:** grafik pace & HR per split
+  (bagian drift/fade disorot), Apa yang terlihat, Kemungkinan penyebab, check-in, cek silang log, Kata Coach, latihan
+  berikutnya, "Bagaimana analisa ini dibuat?". (7) **Insight lintas workout** kini berbasis sesi dengan tanda kelelahan.
+  **BELUM AKTIF PENUH:** splits ber-HR & metrik kesiapan baru terbaca setelah **edge fn `my20fit-ai` di-deploy** (v55 live
+  belum membaca splits) — TANYA PEMILIK; sebelum itu sebagian besar workout = Basic (sinyal B2/B3/B4/B5 =
+  insufficient_data). Staging baru punya 2 workout tanpa splits, jadi contoh skenario a–f memakai DATA UJI berlabel.
+  **TANYA PEMILIK / PERLU DIVALIDASI:** semua ambang `signals` & `causes` (mis. decoupling 5%, fade 8%, jam panas
+  10–16); `pre_meal.long_gap_min` = 6 jam sedangkan contoh prompt memakai "> 5 jam"; `/api/weather` **mengembalikan suhu
+  palsu** (dihitung dari jam) — tidak dipakai analisa, perlu diperbaiki/dihapus terpisah; contoh gambar per aplikasi
+  belum ada (pakai teks petunjuk, tanpa logo merek). **Fase 4 integrasi Strava/Garmin/.FIT TIDAK dikerjakan:** butuh
+  akses API resmi (pendaftaran aplikasi Strava; program developer Garmin dengan persetujuan — syarat BELUM TERVERIFIKASI).
+- **Kartu Health Score bergaya kartu target kalori — 2026-10-01.** Judul tengah, **lingkaran progres** (SVG, penuh
+  saat skor 100, warna per level), angka besar, "N poin lagi sampai lingkaran penuh", status; komponen jadi bar gaya
+  makro (nama + skor/100, 2 kolom di desktop, 1 di HP). What You Need, tombol isi komponen, dan Chat Coach tetap.
+  Hanya tampilan (`activity.html`), data dari `/api/activity/health-score` tidak berubah.
+- **Log upload hari ini + "Latihan berikutnya" + "Implement plan" — BARU 2026-10-01.** (1) Di bawah kartu Upload di
+  /activity: daftar upload HARI INI (dari `/api/activity/history`, kini ada `created_at` + `next`): workout menampilkan
+  headline analisa, latihan berikutnya, "Lihat selengkapnya" (→ `/activity/history/:id`) dan "Implement plan"; belum ada
+  upload hari ini → satu baris "Terakhir:". (2) Riwayat & halaman detail menampilkan **latihan berikutnya** per workout
+  — deterministik `woNarrative.nextSession()` (keamanan → istirahat & dokter, tidak bisa diterapkan; tidur kurang /
+  beban tinggi → recovery `today.template_minutes.recovery`; performa turun → sesi santai durasi sama; lebih baik →
+  durasi +`next.progress_pct`% (config, PERLU DIVALIDASI); selain itu → ulangi). (3) **Implement plan** =
+  `POST /api/activity/workouts/:id/implement`: rekomendasi itu jadi `workout_plan` di Plan Hari Ini (dengan
+  `from_workout`), bagian makan/tidur/minum yang sudah ada dipertahankan, lalu tampil otomatis di /activity
+  (`/activity#today-plan`). Tanpa AI, tanpa migration. **TANYA PEMILIK:** `GET /api/activity/upload-history` kini tidak
+  dipakai halaman web mana pun — hapus kalau app mobile juga tidak memakainya.
 - **Plan & Rekomendasi Hari Ini + tombol "Generate plan" — BARU 2026-10-01.** Sebelumnya Today's Plan hanya terbentuk
   setelah upload screenshot. Sekarang `POST /api/activity/today-plan/generate` (aiUserLimiter) membuat plan tanpa upload.
   Isi kartu (analisa DETERMINISTIK `lib/today-brief.js`, dihitung ulang tiap GET `/api/activity/today-plan?lang=` jadi

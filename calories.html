@@ -77,6 +77,19 @@
     padding:7px 11px;color:var(--muted);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
   .mealadd:hover{border-color:var(--red);color:var(--red)}
   .mealquick{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+  /* Seret makanan antar waktu makan: pegangan untuk sentuh, seluruh baris untuk mouse */
+  .mealgrp{border-radius:10px;outline:2px solid transparent;outline-offset:5px;transition:outline-color .15s}
+  .mealgrp.drop-on{outline-color:var(--red)}
+  .fitem{align-items:center;gap:8px;-webkit-user-select:none;user-select:none}
+  .fitem .fnm{display:flex;align-items:center;gap:6px;min-width:0}
+  .fitem .kc{white-space:nowrap}
+  .drag-h{flex:0 0 auto;display:grid;place-items:center;width:22px;height:30px;margin-left:-4px;color:var(--muted);cursor:grab;touch-action:none;border-radius:6px}
+  .drag-h svg{width:12px;height:16px;fill:currentColor}
+  @media (hover:hover){ .fitem{cursor:grab} .drag-h:hover{color:var(--txt)} }
+  .fitem.dragging{opacity:.35}
+  .drag-ghost{position:fixed;z-index:9999;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.18);padding:8px 12px;font-size:13px;font-weight:700;max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .draghint{font-size:12px;margin:0 0 8px}
   .mealhint{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);margin:8px 0 0}
   .mealhint:empty{margin:0}
   .mealhint-x{background:none;border:0;color:var(--red);font:inherit;font-size:12px;font-weight:800;cursor:pointer;padding:0}
@@ -575,15 +588,18 @@
       if(!items.length){ log.innerHTML='<div class="muted">'+I18N.t("cal_empty")+'</div>'+mealAddRow(); return; }
       var buckets={breakfast:[],lunch:[],dinner:[],snack:[]};
       items.forEach(function(it,idx){ buckets[itemMeal(it)].push({it:it,idx:idx}); });
-      log.innerHTML=MEAL_TYPES.map(function(m){
+      log.innerHTML='<div class="muted draghint">'+escA(L({en:"Tap a food to see its analysis · drag to move it to another meal.",id:"Ketuk makanan untuk lihat analisanya · seret untuk pindah waktu makan."}))+'</div>'+
+        MEAL_TYPES.map(function(m){
         var rows=buckets[m], tot=rows.reduce(function(a,r){ return a+(+r.it.kcal||0); },0);
-        return '<div class="mealgrp">'+
-          '<div class="mealhd"><span class="mealnm">'+MEAL_TX[m].e+' '+escA(L(MEAL_TX[m]))+'</span>'+
+        return '<div class="mealgrp" data-meal="'+m+'">'+
+          '<div class="mealhd"><span class="mealnm">'+escA(L(MEAL_TX[m]))+'</span>'+
             '<span class="mealkc">'+tot+' '+escA(kc())+'</span></div>'+
           (rows.length
             ? rows.map(function(r){
                 var i=r.it;
-                return '<div class="item"><span>'+escA(i.name)+(i.t?'<span class="mtime">'+escA(i.t)+'</span>':'')+'</span>'+
+                return '<div class="item fitem" data-idx="'+r.idx+'"><span class="fnm">'+
+                  '<span class="drag-h" title="'+escA(L({en:"Drag to move",id:"Seret untuk pindah"}))+'"><svg viewBox="0 0 12 16"><circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="9" cy="8" r="1.5"/><circle cx="3" cy="13" r="1.5"/><circle cx="9" cy="13" r="1.5"/></svg></span>'+
+                  '<span>'+escA(i.name)+(i.t?'<span class="mtime">'+escA(i.t)+'</span>':'')+'</span></span>'+
                   '<span class="kc">'+(+i.kcal||0)+' '+escA(kc())+
                   ' <button class="x-close x-ghost x-sm" onclick="openEdit('+r.idx+')" aria-label="'+escA(L({en:"Edit",id:"Ubah"}))+'" title="'+escA(L({en:"Edit",id:"Ubah"}))+'">'+
                     '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>'+
@@ -596,7 +612,7 @@
     }
     function mealAddRow(){
       return '<div class="mealquick">'+MEAL_TYPES.map(function(m){
-        return '<button type="button" class="mealadd" onclick="setAddMeal(\''+m+'\')">'+MEAL_TX[m].e+' '+escA(L(MEAL_TX[m]))+'</button>';
+        return '<button type="button" class="mealadd" onclick="setAddMeal(\''+m+'\')">'+escA(L(MEAL_TX[m]))+'</button>';
       }).join("")+'</div>';
     }
     // ---- Rekomendasi menu berdasar SISA makro hari ini (Bagian 3) ----
@@ -851,10 +867,10 @@
     // ember yang sama di kedua app.
     var MEAL_TYPES=["breakfast","lunch","dinner","snack"];
     var MEAL_TX={
-      breakfast:{en:"Breakfast",id:"Sarapan",e:FIC("sunrise")},
-      lunch:{en:"Lunch",id:"Makan siang",e:FIC("sun")},
-      dinner:{en:"Dinner",id:"Makan malam",e:FIC("moon")},
-      snack:{en:"Snack",id:"Cemilan",e:FIC("cookie")}
+      breakfast:{en:"Breakfast",id:"Sarapan"},
+      lunch:{en:"Lunch",id:"Makan siang"},
+      dinner:{en:"Dinner",id:"Makan malam"},
+      snack:{en:"Snack",id:"Cemilan"}
     };
     function inferMeal(t){
       var h=parseInt(String(t||"").slice(0,2),10);
@@ -893,7 +909,125 @@
       clearAddMeal();
       save();_fsumGapFlash=true;render();/* flash nutrient-gap on new log/scan */
     }
-    function del(i){items.splice(i,1);save();render()}
+    function del(i){
+      var gone=items[i]; if(!gone) return;
+      items.splice(i,1);
+      // Ringkasan scan menumpang di satu item; kalau item itu dihapus, pindahkan ke saudaranya.
+      if(gone.sa&&gone.sid){ var heir=items.find(function(x){ return x&&x.sid===gone.sid; }); if(heir) heir.sa=gone.sa; }
+      save();render();
+    }
+
+    // ---- Analisa satu makanan di Today's Food ----
+    // Scan foto: ringkasan analisanya disimpan bersama item (`sa`, ditemukan lewat `sid`).
+    // Item tanpa ringkasan (ketik manual, scan sebelum fitur ini, atau dari app lain) hanya
+    // punya angka kalori/makro — yang ditampilkan dihitung dari angka itu, bukan dikarang.
+    function scanSnap(res,list){
+      function cut(x,n){ x=String(x==null?"":x); return x.length>n?x.slice(0,n):x; }
+      function strs(a,n){ return Array.isArray(a)?a.slice(0,n).map(function(x){ return cut(x,300); }):[]; }
+      function num(x){ return Math.round((+x||0)*10)/10; }
+      return {
+        total_kcal:num(res.total_kcal), kcal_min:num(res.kcal_min), kcal_max:num(res.kcal_max), confidence:num(res.confidence),
+        protein_g:num(res.protein_g), carbs_g:num(res.carbs_g), fat_g:num(res.fat_g), fiber_g:num(res.fiber_g),
+        satiety_score:num(res.satiety_score), satiety_note:cut(res.satiety_note,300), health_score:num(res.health_score),
+        description:cut(res.description,600), overall:cut(res.overall,800), recommendation:cut(res.recommendation,600),
+        needs_more:strs(res.needs_more,6), insights:strs(res.insights,6), assumptions:strs(res.assumptions,6), note:cut(res.note,300),
+        tags:Array.isArray(res.tags)?res.tags.slice(0,8).map(function(t){ return (t&&typeof t==="object")?{label:cut(t.label,60),positive:t.positive!==false}:cut(t,60); }):[],
+        items:(list||[]).slice(0,12).map(function(i){ return {name:cut(i.name,120),portion:cut(i.portion,60),kcal:num(i.kcal),protein_g:num(i.protein_g),carbs_g:num(i.carbs_g),fat_g:num(i.fat_g),fiber_g:num(i.fiber_g),_source:i._source||undefined}; })
+      };
+    }
+    function scanOf(it){
+      if(!it) return null;
+      if(it.sa) return it.sa;
+      if(!it.sid) return null;
+      var c=items.find(function(x){ return x&&x.sid===it.sid&&x.sa; });
+      return c?c.sa:null;
+    }
+    function openItemAnalysis(i){
+      var it=items[i]; if(!it) return;
+      var sa=scanOf(it), h;
+      var edit='<button type="button" class="hopt-ghost" style="margin-top:12px" onclick="closeScanModal();openEdit('+i+')">'+escA(L({en:"Edit this food",id:"Ubah makanan ini"}))+'</button>';
+      if(sa){
+        h='<div class="scd-note" style="margin:0 0 10px">'+escA(L({en:"Analysis from your photo scan",id:"Analisa dari scan foto kamu"}))+(it.t?' · '+escA(it.t):'')+'</div>'+
+          renderScanDetail(sa,{items:sa.items||[],readonly:true})+healthyOptionsHTML(sa.total_kcal||0,true)+edit;
+      } else {
+        var v=fsumItemVerdict(it);
+        h='<div class="scd"><div class="scd-top"><div class="scd-name">'+escA(it.name)+'</div><div class="scd-kcal">'+(+it.kcal||0)+' '+escA(kc())+'</div></div>'+
+          '<div class="scd-est" style="font-size:11.5px;color:var(--muted);margin:2px 0 8px">'+escA(L({en:"No photo analysis was saved for this food (typed in, scanned before this feature, or added from another app). Below is based on its calories & macros.",id:"Tidak ada analisa foto yang tersimpan untuk makanan ini (diketik manual, di-scan sebelum fitur ini ada, atau dari app lain). Di bawah ini dihitung dari kalori & makronya."}))+'</div>'+
+          '<div class="scd-macros">'+macroBox(L({en:"Protein",id:"Protein"}),it.p)+macroBox(L({en:"Carbs",id:"Karbo"}),it.c)+macroBox(L({en:"Fat",id:"Lemak"}),it.f)+'</div>'+
+          '<div class="scd-sec"><div class="scd-por"><div class="scd-por-nm">'+escA(L({en:"Verdict",id:"Penilaian"}))+
+            '<div class="scd-por-sub">'+v.reason+(v.swap?' · '+L({en:"try",id:"coba"})+' <b>'+L(v.swap.to)+'</b>':'')+'</div></div>'+
+            '<div class="scd-por-r"><span class="fsum-hm-badge '+v.cls+'">'+v.label+'</span></div></div></div></div>'+
+          healthyOptionsHTML(it.kcal||0,true)+edit;
+      }
+      document.getElementById("scanModalBody").innerHTML=h;
+      document.getElementById("scanModalTitle").textContent=L({en:"Food analysis",id:"Analisa makanan"});
+      document.getElementById("scanModalDone").textContent=L({en:"Close",id:"Tutup"});
+      document.getElementById("scanBg").classList.add("open");
+    }
+
+    // ---- Seret makanan antar waktu makan ----
+    // Pointer Events (mouse + sentuh dalam satu jalur). Sentuh hanya dari pegangan
+    // supaya menggulir halaman tetap normal; mouse boleh dari seluruh baris.
+    // Yang diubah cuma `m` item (sama dgn pilihan "Waktu makan" di dialog Ubah).
+    function moveItemMeal(it,m){
+      var i=items.indexOf(it);
+      if(i<0||MEAL_TYPES.indexOf(m)<0||itemMeal(it)===m) return false;
+      items[i]=Object.assign({},it,{m:m});
+      save(); render(); return true;
+    }
+    (function(){
+      var log=document.getElementById("log"); if(!log) return;
+      var drag=null, justDragged=false;
+      // Klik baris (bukan tombol/pegangan) = buka analisa. Klik yang menyusul seretan diabaikan.
+      log.addEventListener("click",function(e){
+        if(justDragged) return;
+        var row=e.target.closest(".fitem"); if(!row||e.target.closest("button,.drag-h")) return;
+        openItemAnalysis(+row.getAttribute("data-idx"));
+      });
+      function grpAt(x,y){ var el=document.elementFromPoint(x,y); return el&&el.closest?el.closest("#log .mealgrp"):null; }
+      function setOver(g){
+        if(drag.over===g) return;
+        if(drag.over) drag.over.classList.remove("drop-on");
+        drag.over=g; if(g) g.classList.add("drop-on");
+      }
+      function place(x,y){ drag.ghost.style.left=(x+12)+"px"; drag.ghost.style.top=(y-18)+"px"; }
+      function begin(){
+        drag.on=true; drag.row.classList.add("dragging");
+        var g=document.createElement("div"); g.className="drag-ghost"; g.textContent=drag.it.name||"";
+        document.body.appendChild(g); drag.ghost=g; place(drag.x0,drag.y0);
+      }
+      function end(drop){
+        var d=drag; drag=null; if(!d) return;
+        if(d.ghost) d.ghost.remove();
+        if(d.over) d.over.classList.remove("drop-on");
+        if(d.row) d.row.classList.remove("dragging");
+        if(d.on){ justDragged=true; setTimeout(function(){ justDragged=false; },0); }
+        if(d.on&&drop&&d.over) moveItemMeal(d.it,d.over.getAttribute("data-meal"));
+      }
+      log.addEventListener("pointerdown",function(e){
+        if(drag||e.button>0) return;
+        var row=e.target.closest(".fitem"); if(!row||e.target.closest("button")) return;
+        var onHandle=!!e.target.closest(".drag-h");
+        if(e.pointerType!=="mouse"&&!onHandle) return;
+        var it=items[+row.getAttribute("data-idx")]; if(!it) return;
+        drag={row:row,it:it,id:e.pointerId,x0:e.clientX,y0:e.clientY,on:false,over:null,ghost:null};
+        if(onHandle){ e.preventDefault(); begin(); }
+      });
+      // move/up di document (bukan #log): seretan tetap terlacak walau kursor keluar daftar,
+      // tanpa setPointerCapture — capture membuat klik biasa jatuh ke #log, bukan ke barisnya.
+      document.addEventListener("pointermove",function(e){
+        if(!drag||e.pointerId!==drag.id) return;
+        if(!drag.on){ if(Math.abs(e.clientX-drag.x0)+Math.abs(e.clientY-drag.y0)<6) return; begin(); }
+        e.preventDefault();
+        place(e.clientX,e.clientY);
+        setOver(grpAt(e.clientX,e.clientY));
+        // gulir otomatis saat ditarik ke tepi layar (daftar bisa lebih panjang dari layar)
+        var edge=60; if(e.clientY<edge) window.scrollBy(0,-12); else if(e.clientY>innerHeight-edge) window.scrollBy(0,12);
+      });
+      document.addEventListener("pointerup",function(e){ if(drag&&e.pointerId===drag.id) end(true); });
+      document.addEventListener("pointercancel",function(e){ if(drag&&e.pointerId===drag.id) end(false); });
+      document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&drag) end(false); });
+    })();
 
     // ---- Ubah satu item ----
     // Kunci yang TIDAK dikenal halaman ini (mid/cid dari scan native calorietracker)
@@ -1068,35 +1202,43 @@
       document.getElementById("scanBg").classList.add("open");
     }
     function closeScanModal(){ var m=document.getElementById("scanBg"); if(m) m.classList.remove("open"); }
-    function healthyOptionsHTML(scanKcal){
+    // logged=true: makanannya SUDAH ada di catatan (dibuka ulang dari Today's Food), jadi
+    // kalorinya sudah termasuk di `items` — jangan dihitung dua kali.
+    function healthyOptionsHTML(scanKcal,logged){
       scanKcal=Math.round(+scanKcal||0);
       if(!window.Nutrition||scanKcal<60) return "";
       var sugg=Nutrition.mealFor(scanKcal,4); if(!sugg.length) return "";
       var eaten=items.reduce((s,i)=>s+(+i.kcal||0),0);
-      var afterLeft=Math.max(0,goal-eaten-scanKcal);
+      var afterLeft=Math.max(0,goal-eaten-(logged?0:scanKcal));
       var leaf='<svg viewBox="0 0 24 24"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.85-5.4 5.08-6"/></svg>';
       var h='<div class="scd-sec"><div class="scd-lbl">'+L({en:"Healthier options — same calories",id:"Pilihan lebih sehat — kalori sama"})+'</div>';
       h+=sugg.map(function(f){return '<div class="hopt-row"><div class="d">'+leaf+'</div><div class="nm">'+Nutrition.name(f)+'</div><div class="kc">'+f.kcal+' '+kc()+'</div></div>';}).join('');
       h+='<div class="hopt-sum"><span>'+L({en:"Healthy total",id:"Total sehat"})+'</span><span>~'+Nutrition.totalKcal(sugg)+' '+kc()+'</span></div>';
-      if(afterLeft>0) h+='<div class="need" style="margin-top:8px">'+L({en:"After this you'd still need ~"+afterLeft+" "+kc()+" to reach today's goal.",id:"Setelah ini kamu masih butuh ~"+afterLeft+" "+kc()+" lagi untuk capai target."})+'</div>';
+      if(afterLeft>0) h+='<div class="need" style="margin-top:8px">'+(logged
+        ? L({en:"You still need ~"+afterLeft+" "+kc()+" to reach today's goal.",id:"Kamu masih butuh ~"+afterLeft+" "+kc()+" lagi untuk capai target hari ini."})
+        : L({en:"After this you'd still need ~"+afterLeft+" "+kc()+" to reach today's goal.",id:"Setelah ini kamu masih butuh ~"+afterLeft+" "+kc()+" lagi untuk capai target."}))+'</div>';
       h+='</div>';
       return h;
     }
 
     // ---- Kartu hasil scan DETAIL (makro, satiety, health, porsi, insights) ----
     function nRound(x){ return Math.round(+x||0); }
-    function sumItems(k){ return (lastScan||[]).reduce((s,i)=>s+(+i[k]||0),0); }
+    function sumItems(list,k){ return (list||[]).reduce((s,i)=>s+(+i[k]||0),0); }
     function scoreDiamonds(score){ score=Math.max(0,Math.min(10,Math.round(+score||0))); return "◆".repeat(score)+"◇".repeat(10-score); }
     function macroBox(label,val){ return '<div class="mcx"><div class="mcv">'+nRound(val)+'g</div><div class="mcl">'+label+'</div></div>'; }
-    function renderScanDetail(res){
+    // opts.items = daftar makanan hasil scan (default: scan yang sedang dibuka).
+    // opts.readonly = dibuka ulang dari Today's Food: tanpa tombol koreksi & "Tambah ke catatan".
+    function renderScanDetail(res,opts){
+      opts=opts||{};
+      var list=opts.items||lastScan||[], ro=!!opts.readonly;
       function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
       var kcal=nRound(res.total_kcal);
-      var p=res.protein_g!=null?res.protein_g:sumItems("protein_g");
-      var c=res.carbs_g!=null?res.carbs_g:sumItems("carbs_g");
-      var f=res.fat_g!=null?res.fat_g:sumItems("fat_g");
-      var fib=res.fiber_g!=null?res.fiber_g:sumItems("fiber_g");
+      var p=res.protein_g!=null?res.protein_g:sumItems(list,"protein_g");
+      var c=res.carbs_g!=null?res.carbs_g:sumItems(list,"carbs_g");
+      var f=res.fat_g!=null?res.fat_g:sumItems(list,"fat_g");
+      var fib=res.fiber_g!=null?res.fiber_g:sumItems(list,"fiber_g");
       var sat=Math.round(+res.satiety_score||0), health=Math.round(+res.health_score||0);
-      var title=(lastScan||[]).map(i=>i.name).join(", ");
+      var title=list.map(i=>i.name).join(", ");
       var h='<div class="scd">';
       var conf=Math.round(+res.confidence||0);
       var confLab=conf>0?(conf>=75?L({en:"high confidence",id:"keyakinan tinggi"}):conf>=55?L({en:"medium confidence",id:"keyakinan sedang"}):L({en:"low confidence",id:"keyakinan rendah"})):"";
@@ -1141,7 +1283,7 @@
         h+='<div class="scd-sec scd-rec"><div class="scd-lbl">'+L({en:"Better intake — what to add",id:"Asupan lebih baik — perlu ditambah"})+'</div><div class="scd-rectext">'+esc(res.recommendation)+'</div>'+nm+'</div>';
       }
       h+='<div class="scd-sec"><div class="scd-lbl">'+L({en:"Portions",id:"Porsi"})+'</div>'+
-         (lastScan||[]).map(function(i,idx){
+         list.map(function(i,idx){
            var src=(i._source==="user"||i._source==="20fit_ref")?' <span class="mut" title="'+L({en:"from 20FIT corrected data",id:"dari data koreksi 20FIT"})+'">✓</span>':'';
            var v=fsumItemVerdict({name:i.name,kcal:i.kcal,p:i.protein_g,c:i.carbs_g,f:i.fat_g});   // verdict + swap per item (samakan gaya Food Summary)
            var sub=v.reason+(v.swap?' · '+L({en:"try",id:"coba"})+' <b>'+L(v.swap.to)+'</b>':'');
@@ -1149,7 +1291,7 @@
              '<div class="scd-por-nm">'+esc(i.name)+(i.portion?' <span class="mut">('+esc(i.portion)+')</span>':'')+src+
                '<div class="scd-por-sub">'+sub+'</div></div>'+
              '<div class="scd-por-r"><span class="fsum-hm-badge '+v.cls+'">'+v.label+'</span>'+
-               '<span class="scd-por-ke"><span class="mut">'+nRound(i.kcal)+' '+kc()+'</span><button type="button" class="scd-edit" onclick="editItem('+idx+')">'+L({en:"Edit",id:"Edit"})+'</button></span></div>'+
+               '<span class="scd-por-ke"><span class="mut">'+nRound(i.kcal)+' '+kc()+'</span>'+(ro?'':'<button type="button" class="scd-edit" onclick="editItem('+idx+')">'+L({en:"Edit",id:"Edit"})+'</button>')+'</span></div>'+
              '</div>';
          }).join('')+'</div>';
       if(res.insights && res.insights.length){
@@ -1157,8 +1299,8 @@
            res.insights.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>';
       }
       if(res.note) h+='<div class="scd-note" style="margin-top:10px">'+esc(res.note)+'</div>';
-      h+='<button class="scanbtn" style="margin-top:12px" onclick="addScanned()">'+I18N.t("cal_addlog")+'</button></div>';
-      return h;
+      if(!ro) h+='<button class="scanbtn" style="margin-top:12px" onclick="addScanned()">'+I18N.t("cal_addlog")+'</button>';
+      return h+'</div>';
     }
 
     // ---- Koreksi item hasil scan: update log lokal + kontribusi ANONIM ke kamus makanan (Cara A) ----
@@ -1267,7 +1409,13 @@
     (function(){ var sbg=document.getElementById("scanBg"); if(sbg)sbg.addEventListener("click",function(e){ if(e.target===sbg)closeScanModal(); }); })();
     function addScanned(){
       var m=addMeal;                                   // kunci ember untuk SELURUH batch
-      lastScan.forEach(function(i){ pushItem(i.name,i.kcal,i.protein_g,i.carbs_g,i.fat_g,m); });
+      // Analisa scan ikut disimpan supaya bisa dibuka lagi dari Today's Food: semua item
+      // satu batch dapat `sid` yang sama, ringkasannya (`sa`) cukup di SATU item (tak diduplikasi).
+      var sid="s"+Date.now().toString(36), snap=lastRes?scanSnap(lastRes,lastScan):null;
+      lastScan.forEach(function(i,k){
+        var it=pushItem(i.name,i.kcal,i.protein_g,i.carbs_g,i.fat_g,m);
+        if(snap){ it.sid=sid; if(k===0) it.sa=snap; }
+      });
       clearAddMeal();
       save();_fsumGapFlash=true;render();              // sekali simpan, sekali render
       closeScanModal();

@@ -100,7 +100,41 @@
     return nearestPast(td.getUTCFullYear() + "-" + pad(mon + 1) + "-" + pad(day), today);
   }
 
-  var api = { TYPES: TYPES, parseDateText: parseDateText, typeLabel: typeLabel, fmtDuration: fmtDuration, paceSec: paceSec, fmtPace: fmtPace,
+  // ---- Splits per km/lap (pace_data.splits) & metrik kesiapan (raw_data.readiness) ----
+  // Split = {km, sec (pace detik/km), hr (bpm, opsional), elev (m, opsional)}; nilai tak wajar dibuang.
+  function splitsOf(w) {
+    var raw = w && w.pace_data && Array.isArray(w.pace_data.splits) ? w.pace_data.splits : [];
+    var out = [];
+    for (var i = 0; i < raw.length && out.length < 80; i++) {
+      var x = raw[i] || {}, sec = num(x.sec), km = num(x.km);
+      if (!sec || sec < 60 || sec > 3600) continue;
+      var hr = num(x.hr), el = num(x.elev);
+      out.push({ km: km != null && km < 1000 ? Math.round(km * 100) / 100 : out.length + 1, sec: Math.round(sec),
+        hr: hr && hr >= 25 && hr <= 250 ? Math.round(hr) : null, elev: el != null && Math.abs(el) < 3000 ? Math.round(el) : null });
+    }
+    return out;
+  }
+  var READY = { resting_hr: [25, 150], hrv_ms: [5, 300], sleep_score: [0, 100], body_battery: [0, 100], readiness_score: [0, 100] };
+  function readinessOf(o) {
+    if (!o || typeof o !== "object") return null;
+    var r = {}, any = false;
+    Object.keys(READY).forEach(function (k) { var v = num(o[k]); if (v != null && v >= READY[k][0] && v <= READY[k][1]) { r[k] = Math.round(v); any = true; } });
+    return any ? r : null;
+  }
+  // Kelengkapan data workout: basic = ringkasan saja; detailed = >= 3 split ber-HR; full = detailed + zona HR
+  // atau metrik kesiapan. missing = yang bisa di-upload supaya analisa lebih akurat.
+  function dataLevel(w) {
+    var sp = splitsOf(w), spHr = sp.filter(function (x) { return x.hr; }).length;
+    var z = w && w.hr_zone_data, zones = !!(z && ["z1", "z2", "z3", "z4", "z5"].some(function (k) { return num(z[k]) > 0; }));
+    var ready = !!readinessOf(w && w.raw_data && w.raw_data.readiness);
+    var detailed = spHr >= 3, level = detailed ? ((zones || ready) ? "full" : "detailed") : "basic", missing = [];
+    if (!detailed) missing.push(sp.length >= 3 ? "split_hr" : "splits");
+    if (!zones) missing.push("zones");
+    if (!ready) missing.push("readiness");
+    return { level: level, splits: sp.length, split_hr: spHr, zones: zones, readiness: ready, missing: missing };
+  }
+
+  var api = { TYPES: TYPES, parseDateText: parseDateText, splitsOf: splitsOf, readinessOf: readinessOf, dataLevel: dataLevel, typeLabel: typeLabel, fmtDuration: fmtDuration, paceSec: paceSec, fmtPace: fmtPace,
     speedKmh: speedKmh, title: title, resolveDate: resolveDate, daysBetween: daysBetween, dec: dec };
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.WorkoutMetrics = api;
