@@ -7847,6 +7847,19 @@ app.get("/api/arena/history", async (req, res) => {
 });
 
 // ---------- Rating & ulasan kelas (Riwayat & Transaksi di /profile) — tabel my20fit_class_reviews (migration 030) ----------
+// Masukan cepat (chip) — SATU sumber: dikirim ke /profile (GET /api/class-reviews) dan /admin-v2 (class-performance).
+// tone: "up" = pujian, "down" = keluhan. Kunci disimpan di DB; label boleh diubah tanpa migrasi.
+const CLASS_REVIEW_TAGS = [
+  { key: "coach_great", tone: "up", en: "Great coach", id: "Coach seru" },
+  { key: "right_intensity", tone: "up", en: "Intensity just right", id: "Intensitas pas" },
+  { key: "good_music", tone: "up", en: "Great music", id: "Musik mantap" },
+  { key: "clean_facility", tone: "up", en: "Clean facility", id: "Fasilitas bersih" },
+  { key: "too_hard", tone: "down", en: "Too hard", id: "Terlalu berat" },
+  { key: "too_easy", tone: "down", en: "Too easy", id: "Terlalu ringan" },
+  { key: "too_crowded", tone: "down", en: "Too crowded", id: "Terlalu ramai" },
+  { key: "started_late", tone: "down", en: "Started late", id: "Mulai telat" },
+];
+const CLASS_REVIEW_TAG_KEYS = new Set(CLASS_REVIEW_TAGS.map(t => t.key));
 // Hanya booking milik user (cek ulang ke arena-api by nomor HP profil), status confirmed, dan jadwalnya sudah lewat.
 // Nama kelas / tanggal / instruktur diambil dari arena-api di server — client hanya kirim booking_code + rating + komentar.
 app.get("/api/class-reviews", async (req, res) => {
@@ -7855,9 +7868,9 @@ app.get("/api/class-reviews", async (req, res) => {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     const { data, error } = await admin.from("my20fit_class_reviews")
-      .select("booking_code,rating,comment,updated_at").eq("auth_user_id", user.id).limit(500);
+      .select("booking_code,rating,comment,tags,updated_at").eq("auth_user_id", user.id).limit(500);
     if (error) return res.status(503).json({ error: "not_ready" });   // tabel belum dibuat (migration 030)
-    return res.json({ ok: true, reviews: data || [] });
+    return res.json({ ok: true, reviews: data || [], tags: CLASS_REVIEW_TAGS });
   } catch (e) {
     return res.status(500).json({ error: "Gagal memuat ulasan." });
   }
@@ -7872,6 +7885,7 @@ app.post("/api/class-reviews", async (req, res) => {
     const code = String(b.booking_code || "").trim().slice(0, 80);
     const rating = parseInt(b.rating, 10);
     const comment = String(b.comment || "").trim().slice(0, 1000) || null;
+    const tags = Array.from(new Set((Array.isArray(b.tags) ? b.tags : []).map(String).filter(t => CLASS_REVIEW_TAG_KEYS.has(t)))).slice(0, 8);
     if (!code) return res.status(400).json({ error: "booking_code wajib." });
     if (!(rating >= 1 && rating <= 5)) return res.status(400).json({ error: "Rating harus 1–5." });
     const { data: rows } = await admin.from("my20fit_profile").select("phone").eq("auth_user_id", user.id).limit(1);
@@ -7884,18 +7898,68 @@ app.post("/api/class-reviews", async (req, res) => {
     const sc = found.arena_class_schedules || {};
     if (!sc.schedule_date || String(sc.schedule_date).slice(0, 10) > woToday()) return res.status(400).json({ error: "Rating bisa diberikan setelah kelas berlangsung." });
     const row = {
-      auth_user_id: user.id, booking_code: code, rating, comment,
+      auth_user_id: user.id, booking_code: code, rating, comment, tags,
       class_name: (sc.arena_class_types && sc.arena_class_types.name) || null,
       schedule_date: String(sc.schedule_date).slice(0, 10), start_time: sc.start_time || null, instructor: sc.instructor || null,
       updated_at: new Date().toISOString(),
     };
     const { error } = await admin.from("my20fit_class_reviews").upsert(row, { onConflict: "auth_user_id,booking_code" });
     if (error) return res.status(503).json({ error: "not_ready" });
-    return res.json({ ok: true, review: { booking_code: code, rating, comment, updated_at: row.updated_at } });
+    return res.json({ ok: true, review: { booking_code: code, rating, comment, tags, updated_at: row.updated_at } });
   } catch (e) {
     console.error("class-reviews:", e.message);
     return res.status(e.status || 500).json({ error: "Gagal menyimpan ulasan." });
   }
+});
+
+// ADMIN — Class Performance: rekap rating & masukan member per kelas, per coach, per tag + ulasan terbaru.
+// Periode = tanggal KELAS (schedule_date) dalam N hari terakhir. Nama member hanya nama depan (privasi).
+app.get("/api/admin/class-performance", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const days = Math.max(1, Math.min(730, parseInt(req.query.days, 10) || 30));
+    const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+    const { data, error } = await admin.from("my20fit_class_reviews")
+      .select("auth_user_id,booking_code,class_name,schedule_date,start_time,instructor,rating,comment,tags,updated_at")
+      .gte("schedule_date", since).order("schedule_date", { ascending: false }).limit(5000);
+    if (error) return res.status(503).json({ error: "not_ready", message: "Tabel my20fit_class_reviews belum ada (migration 030)." });
+    const rows = data || [];
+    const agg = function (keyFn) {
+      const m = {};
+      rows.forEach(function (r) {
+        const k = keyFn(r) || "—"; const a = m[k] || (m[k] = { name: k, n: 0, sum: 0, dist: [0, 0, 0, 0, 0], tags: {}, last: null });
+        a.n++; a.sum += r.rating; a.dist[r.rating - 1]++;
+        (r.tags || []).forEach(function (t) { a.tags[t] = (a.tags[t] || 0) + 1; });
+        if (!a.last || r.schedule_date > a.last) a.last = r.schedule_date;
+      });
+      return Object.keys(m).map(function (k) { const a = m[k];
+        return { name: a.name, n: a.n, avg: Math.round(a.sum / a.n * 100) / 100, dist: a.dist, last: a.last,
+          tags: Object.keys(a.tags).map(function (t) { return { key: t, n: a.tags[t] }; }).sort(function (x, y) { return y.n - x.n; }).slice(0, 4) };
+      }).sort(function (x, y) { return y.n - x.n || y.avg - x.avg; });
+    };
+    const tagCount = {};
+    rows.forEach(function (r) { (r.tags || []).forEach(function (t) { tagCount[t] = (tagCount[t] || 0) + 1; }); });
+    const recent = rows.slice().sort(function (a, b) { return String(b.updated_at).localeCompare(String(a.updated_at)); }).slice(0, 100);
+    const ids = Array.from(new Set(recent.map(function (r) { return r.auth_user_id; })));
+    const names = {};
+    if (ids.length) {
+      const { data: pr } = await admin.from("my20fit_profile").select("auth_user_id,full_name").in("auth_user_id", ids);
+      (pr || []).forEach(function (p) { names[p.auth_user_id] = String(p.full_name || "").trim().split(/\s+/)[0] || ""; });
+    }
+    const sum = rows.reduce(function (a, r) { return a + r.rating; }, 0);
+    return res.json({
+      ok: true, days: days, since: since, tag_defs: CLASS_REVIEW_TAGS,
+      totals: { reviews: rows.length, avg: rows.length ? Math.round(sum / rows.length * 100) / 100 : null,
+        good_pct: rows.length ? Math.round(rows.filter(function (r) { return r.rating >= 4; }).length / rows.length * 100) : null,
+        members: new Set(rows.map(function (r) { return r.auth_user_id; })).size,
+        classes: new Set(rows.map(function (r) { return r.class_name; })).size, with_comment: rows.filter(function (r) { return r.comment; }).length },
+      by_class: agg(function (r) { return r.class_name; }),
+      by_instructor: agg(function (r) { return r.instructor; }),
+      tags: Object.keys(tagCount).map(function (t) { return { key: t, n: tagCount[t] }; }).sort(function (x, y) { return y.n - x.n; }),
+      recent: recent.map(function (r) { return { member: names[r.auth_user_id] || "", class_name: r.class_name, schedule_date: r.schedule_date,
+        start_time: r.start_time, instructor: r.instructor, rating: r.rating, tags: r.tags || [], comment: r.comment, updated_at: r.updated_at }; }),
+    });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
 });
 
 // Catatan: /api/membership/packages (proxy arena-api) DIHAPUS — halaman Membership kini baca
