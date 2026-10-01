@@ -77,8 +77,6 @@
   .fc.baik .fc-ic{color:var(--ok)} .fc.kurang .fc-ic{color:var(--bad)} .fc.berlebih .fc-ic{color:var(--warn)} .fc.tidak_ada_data{border-style:dashed}
   .infl{font-size:11.5px;font-weight:700;color:var(--a-mut)}
   .infl b{color:var(--a-txt)}
-  .fform{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-  .fform input{width:110px;padding:8px 10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:13.5px}
   /* coach */
   .co-h{display:flex;align-items:center;gap:12px;margin-bottom:10px}
   .co-h b{display:block;font-size:15px}
@@ -180,7 +178,6 @@
   }
   function dec(n,d){ return WM.dec(+n,d==null?1:d,lang()); }
   function fmtDay(ymd,opt){ try{ return new Date(ymd+"T00:00:00").toLocaleDateString(lang()==="en"?"en-GB":"id-ID",opt||{weekday:"long",day:"numeric",month:"long",year:"numeric"}); }catch(e){ return ymd; } }
-  function addDays(ymd,n){ var d=new Date(ymd+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
   function today(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   try{ var cp=localStorage.getItem("my20fit_coach_pick"); if(cp&&window.CoachProfiles&&CoachProfiles.NAME[cp]) S.coach=cp; }catch(e){}
 
@@ -298,20 +295,19 @@
     return '<div class="sec">'+esc(L({en:"What we saw",id:"Apa yang terlihat"}))+'</div><div class="card"><div class="sgl">'+body+'</div>'+
       (need.length?'<div class="need">'+need.map(function(t){ return '<span>'+esc(L({en:"Needs ",id:"Butuh "})+t)+'</span>'; }).join("")+'</div>':'')+'</div>';
   }
-  // Kemungkinan penyebab — kartu per kandidat + keyakinan + bukti dari log / check-in.
-  function causesCard(){
-    var cs=S.a.causes||[];
-    if(!cs.length) return "";
+  // Bacaan coach — kandidat penyebab dari POLA heart rate & pace (log dipakai hanya untuk konfirmasi/membantah);
+  // kalau tidak ada tanda kelelahan: bacaan satu sesi (intensitas, tidur & pemulihan, bahan bakar).
+  function readCard(){
+    var cs=S.a.causes||[], rs=S.a.reads||[];
+    if(!cs.length&&!rs.length) return "";
     var ruled=(S.a.ruled_out||[]).map(function(c){ return L((CAUSE[c.key]||[{en:c.key,id:c.key}])[0]).toLowerCase(); });
-    return '<div class="sec">'+esc(L({en:"Likely causes",id:"Kemungkinan penyebab"}))+'</div><div class="fx">'+cs.map(function(c){
-      var m=CAUSE[c.key]||[{en:c.key,id:c.key},"info"], act="";
-      if(c.support==="unknown"||c.support==="weak"){
-        if(c.factor==="sleep"&&!S.a.checkin) act='<button type="button" class="b" data-act="ckgo">'+esc(L({en:"Answer the check-in",id:"Isi check-in"}))+'</button>';
-        else if(c.factor==="hydration") act='<div class="fform"><input type="number" step="50" min="50" max="5000" inputmode="numeric" id="fHydMl" placeholder="ml"><button type="button" class="b pri" data-act="hyd">'+esc(L({en:"Log water (day before)",id:"Catat minum kemarin"}))+'</button></div>';
-        else if(!S.a.checkin) act='<button type="button" class="b" data-act="ckgo">'+esc(L({en:"Answer the check-in",id:"Isi check-in"}))+'</button>';
-      }
-      return '<div class="card cz"><div class="cz-h"><span class="fc-ic">'+FIC(m[1],18)+'</span><b>'+esc(L(m[0]))+'</b><span class="cf '+esc(c.confidence)+'">'+esc(L(CONF[c.confidence]))+'</span></div><p>'+esc(c.sentence||"")+'</p>'+act+'</div>';
-    }).join("")+'</div>'+(ruled.length?'<div class="note">'+esc(L({en:"Checked and not supported by your data: ",id:"Sudah dicek & tidak didukung datamu: "})+ruled.join(", ")+".")+'</div>':'');
+    var body=cs.length?cs.map(function(c){
+      var m=CAUSE[c.key]||[{en:c.key,id:c.key},"info"];
+      return '<div class="card cz"><div class="cz-h"><span class="fc-ic">'+FIC(m[1],18)+'</span><b>'+esc(L(m[0]))+'</b><span class="cf '+esc(c.confidence)+'">'+esc(L(CONF[c.confidence]))+'</span></div><p>'+esc(c.sentence||"")+'</p></div>';
+    }).join(""):rs.map(function(t){ return '<div class="card cz"><p>'+esc(t)+'</p></div>'; }).join("");
+    return '<div class="sec">'+esc(L({en:"Coach's read",id:"Bacaan coach"}))+'</div>'+
+      '<div class="note" style="margin:0 0 8px">'+esc(L({en:"Read from your heart rate & pace, the way a coach reads your session. Logs aren't required — when they exist, they confirm or rule out a cause.",id:"Dibaca dari heart rate & pace-mu, seperti coach membaca sesimu. Log tidak wajib — kalau ada, dipakai untuk mengonfirmasi atau mengeluarkan dugaan."}))+'</div>'+
+      '<div class="fx">'+body+'</div>'+(ruled.length?'<div class="note">'+esc(L({en:"Ruled out by your data: ",id:"Dikeluarkan oleh datamu: "})+ruled.join(", ")+".")+'</div>':'');
   }
   // Quick check-in (opsional, maks 4 pertanyaan) — muncul kalau ada sinyal tapi data pendukung belum ada.
   function checkinCard(){
@@ -328,13 +324,12 @@
     }
     var sleepF=a.factors.filter(function(f){ return f.key==="sleep"; })[0], askSleep=!sleepF||sleepF.status==="tidak_ada_data"||(sleepF.value&&sleepF.value.src==="checkin");
     var opt=function(k,map){ return '<div class="opts" data-ck="'+k+'">'+Object.keys(map).map(function(v){ return '<button type="button" data-v="'+v+'" class="'+(CK[k]===v?"on":"")+'">'+esc(L(map[v]))+'</button>'; }).join("")+'</div>'; };
-    return '<div class="sec" id="ckSec">'+esc(L({en:"Quick check-in (optional)",id:"Check-in singkat (opsional)"}))+'</div><div class="card ck">'+
-      '<div class="note" style="margin-top:0">'+esc(L({en:"We saw signs of fatigue but can't check every possible cause from your logs. A few answers make the analysis more precise.",id:"Ada tanda kelelahan, tapi tidak semua kemungkinan penyebab bisa dicek dari catatanmu. Beberapa jawaban membuat analisanya lebih tepat."}))+'</div>'+
+    return '<div class="card ck" id="ckSec" style="margin-top:12px"><details class="how"'+(S.ckOpen?" open":"")+'><summary>'+esc(L({en:"Want a sharper read? 4 quick questions (optional)",id:"Mau bacaan lebih tajam? 4 pertanyaan singkat (opsional)"}))+'</summary>'+
       (askSleep?'<label class="q">'+esc(L({en:"How many hours did you sleep the night before?",id:"Semalam sebelum latihan tidur berapa jam?"}))+'</label><input type="number" id="ckSleep" step="0.5" min="0.5" max="16" inputmode="decimal" placeholder="'+esc(L({en:"hours",id:"jam"}))+'" value="'+(CK.sleep!=null?CK.sleep:"")+'">':'')+
       '<label class="q">'+esc(L({en:"When was your last meal before training?",id:"Makan terakhir sebelum latihan kapan?"}))+'</label>'+opt("meal_gap",mealOpts())+
       '<label class="q">'+esc(L({en:"Where did you train?",id:"Latihan di mana?"}))+'</label>'+opt("conditions",COND)+
       '<label class="q">'+esc(L({en:"How did your body feel?",id:"Badan terasa?"}))+'</label>'+opt("feeling",FEEL)+
-      '<div class="err" id="ckErr"></div><div class="acts" style="margin-top:6px"><button type="button" class="b pri" data-act="cksave">'+esc(L({en:"Save & update analysis",id:"Simpan & perbarui analisa"}))+'</button></div></div>';
+      '<div class="err" id="ckErr"></div><div class="acts" style="margin-top:6px"><button type="button" class="b pri" data-act="cksave">'+esc(L({en:"Save & update analysis",id:"Simpan & perbarui analisa"}))+'</button></div></details></div>';
   }
   function mealOpts(){ var c=S.a.pre_meal_cfg||{too_close_min:45,ideal_max_min:240,long_gap_min:360};
     return { close:{en:"< "+c.too_close_min+" min",id:"< "+c.too_close_min+" menit"}, ok:{en:c.too_close_min+" min – "+(c.ideal_max_min/60)+" h",id:c.too_close_min+" menit – "+(c.ideal_max_min/60)+" jam"},
@@ -343,13 +338,13 @@
   var FEEL={ fresh:{en:"Fresh",id:"Segar"}, normal:{en:"Normal",id:"Biasa"}, tired:{en:"Tired",id:"Capek"}, unwell:{en:"Not well",id:"Kurang enak badan"} };
   function howCard(){
     return '<div class="card" style="margin-top:12px"><details class="how"><summary>'+esc(L({en:"How is this analysis made?",id:"Bagaimana analisa ini dibuat?"}))+'</summary>'+
-      '<p>'+esc(L({en:"We compare your heart rate and pace in this workout with your own similar workouts (efficiency, drift between the first and second half, pace at the end, max heart rate, zones). Signals are then cross-checked with your sleep, meal, water and training logs and your check-in answers.",id:"Heart rate dan pace workout ini dibandingkan dengan workout sejenis milikmu sendiri (efisiensi, drift antara paruh pertama & kedua, pace di akhir, HR maksimal, zona). Sinyalnya lalu dicek silang dengan catatan tidur, makan, minum, beban latihan, dan jawaban check-in."}))+'</p>'+
+      '<p>'+esc(L({en:"Like a coach, we read your heart rate and pace: against your own similar workouts (efficiency, drift between the first and second half, pace at the end, max heart rate, zones) and within this session (effort vs your max heart rate, session length). Each pattern points to likely causes — short sleep or poor recovery, low fuel (carbohydrate), not enough fluid, training load. Logs and check-in answers, if any, confirm or rule them out.",id:"Seperti coach, kami membaca heart rate dan pace-mu: dibanding workout sejenis milikmu sendiri (efisiensi, drift paruh pertama & kedua, pace di akhir, HR maksimal, zona) dan di dalam sesi ini (intensitas vs HR maks, lama sesi). Tiap pola mengarah ke kemungkinan penyebab — kurang tidur/belum pulih, kurang bahan bakar (karbohidrat), kurang cairan, beban latihan. Log dan jawaban check-in, kalau ada, mengonfirmasi atau mengeluarkannya."}))+'</p>'+
       '<p>'+esc(L({en:"Signals are general signs: one workout can't prove a cause, so causes come with a confidence level. Thresholds are defaults still being validated by 20FIT coaches. This is not a medical diagnosis and it never infers specific nutrient deficiencies — for that, use the MCU Scanner or see a doctor.",id:"Sinyal adalah tanda umum: satu workout tidak bisa membuktikan penyebab, jadi penyebab diberi tingkat keyakinan. Ambangnya masih default yang sedang divalidasi coach 20FIT. Ini bukan diagnosis medis dan tidak pernah menyimpulkan kekurangan zat gizi tertentu — untuk itu pakai MCU Scanner atau konsultasi dokter."}))+'</p></details></div>';
   }
   function perf(){
     var b=S.a.baseline, body;
     if(b.status==="insufficient"){
-      body='<p style="margin:0;font-size:13.5px;line-height:1.55">'+esc(L({en:"Not enough similar sessions yet ("+b.n+" of "+b.needed+"). Once you log "+b.needed+", we'll compare this workout with your usual — no faster/slower claims until then.",id:"Baseline belum cukup ("+b.n+" dari "+b.needed+" sesi sejenis). Setelah ada "+b.needed+", workout ini dibandingkan dengan performa biasanya — sebelum itu tidak ada klaim lebih cepat/lambat."}))+'</p>'+chart(b);
+      body='<p style="margin:0;font-size:13.5px;line-height:1.55">'+esc(L({en:"Not enough similar sessions yet ("+b.n+" of "+b.needed+"). Once you have "+b.needed+", we'll compare this workout with your usual — no faster/slower claims until then.",id:"Baseline belum cukup ("+b.n+" dari "+b.needed+" sesi sejenis). Setelah ada "+b.needed+", workout ini dibandingkan dengan performa biasanya — sebelum itu tidak ada klaim lebih cepat/lambat."}))+'</p>'+chart(b);
     } else if(b.status!=="ok"){
       body='<p style="margin:0;font-size:13.5px">'+esc(L({en:"This workout type has no pace or speed to compare.",id:"Jenis workout ini tidak punya pace/kecepatan untuk dibandingkan."}))+'</p>';
     } else {
@@ -366,24 +361,15 @@
     }
     return '<div class="sec">'+esc(L({en:"Performance vs your usual",id:"Performa vs biasanya"}))+'</div><div class="card">'+body+'</div>';
   }
-  function factorAction(f){
-    if(f.status!=="tidak_ada_data") return "";
-    if(f.key==="sleep") return '<div class="fform"><input type="number" step="0.1" min="0" max="16" inputmode="decimal" id="fSleepH" placeholder="'+esc(L({en:"hours",id:"jam"}))+'"><button type="button" class="b pri" data-act="sleep">'+esc(L({en:"Log last night's sleep",id:"Catat tidur semalam"}))+'</button></div>';
-    if(f.key==="hydration") return '<div class="fform"><input type="number" step="50" min="50" max="5000" inputmode="numeric" id="fHydMl" placeholder="ml"><button type="button" class="b pri" data-act="hyd">'+esc(L({en:"Log water (day before)",id:"Catat minum kemarin"}))+'</button></div>';
-    if(f.key==="pre_meal"&&f.reason==="no_start_time") return '<button type="button" class="b" data-act="start">'+FIC("clock",14)+' '+esc(L({en:"Add start time",id:"Isi jam mulai"}))+'</button>';
-    if(f.key==="nutrition"||f.key==="pre_meal") return '<a class="b" href="/calories">'+FIC("meal",14)+' '+esc(L({en:"Open Calorie Tracker",id:"Buka Calorie Tracker"}))+'</a>';
-    if(f.key==="load") return '<a class="b" href="/activity#upload-workout">'+esc(L({en:"Log other workouts",id:"Catat workout lain"}))+'</a>';
-    if(f.key==="body") return '<a class="b" href="/activity/visbody">'+esc(L({en:"About Visbody scan",id:"Tentang scan Visbody"}))+'</a>';
-    return "";
-  }
   function factors(){
-    var fs=S.a.factors;
-    return '<div class="sec">'+esc(L({en:"Cross-check with your logs",id:"Cek silang dengan catatanmu"}))+'</div><div class="fx">'+fs.map(function(f){
+    var fs=S.a.factors.filter(function(f){ return f.status!=="tidak_ada_data"; });
+    if(!fs.length) return "";
+    return '<div class="sec">'+esc(L({en:"From your logs",id:"Dari catatanmu"}))+'</div><div class="fx">'+fs.map(function(f){
       var m=FACTOR[f.key]||[{en:f.key,id:f.key},"chart"], infl="";
       if(f.role==="possible_cause") infl='<div class="infl">'+esc(L({en:"Supports a likely cause · ",id:"Mendukung kemungkinan penyebab · "}))+'<b>'+esc(L(CONF[f.influence]||{en:"",id:""}))+'</b></div>';
       else if(f.role==="watch") infl='<div class="infl"><b>'+esc(L({en:"Worth watching",id:"Perlu diperhatikan"}))+'</b></div>';
       return '<div class="card fc '+esc(f.status)+'"><div class="fc-h"><span class="fc-ic">'+FIC(m[1],18)+'</span><span class="fc-n">'+esc(L(m[0]))+'</span><span class="fchip '+esc(f.status)+'">'+esc(stLabel(f))+'</span></div>'+
-        '<p>'+esc(f.sentence)+'</p>'+infl+factorAction(f)+'</div>';
+        '<p>'+esc(f.sentence)+'</p>'+infl+'</div>';
     }).join("")+'</div>';
   }
   function coachCard(){
@@ -392,7 +378,8 @@
       :L({en:"Automatic summary from your data.",id:"Ringkasan otomatis dari datamu."});
     return '<div class="sec">'+esc(L({en:"Coach says",id:"Kata Coach"}))+'</div><div class="card co" id="coBox"><div class="co-h">'+
       (window.CoachProfiles?CoachProfiles.avatar(S.coach,46):'')+'<div><b>Coach '+esc(nm)+'</b><span>'+esc(L({en:"AI coach · not a doctor",id:"AI coach · bukan dokter"}))+'</span></div></div>'+
-      (n.headline?'<p><b>'+esc(n.headline)+'</b></p>':'')+(n.what_we_saw||[]).concat(n.likely_why||[]).map(function(p){ return '<p>'+esc(p)+'</p>'; }).join("")+
+      // Ringkasan otomatis (template) memakai kalimat yang sama dengan kartu di atas -> cukup headline + batasnya.
+      (n.headline?'<p><b>'+esc(n.headline)+'</b></p>':'')+(n.source==="ai"?(n.what_we_saw||[]).concat(n.likely_why||[]).map(function(p){ return '<p>'+esc(p)+'</p>'; }).join(""):"")+
       (n.what_we_cant_tell?'<p class="cant">'+esc(n.what_we_cant_tell)+'</p>':'')+
       '<div class="src">'+(S.pending?esc(L({en:"Coach is writing a personal analysis",id:"Coach sedang menulis analisa personal"}))+'<span class="typing"><i></i><i></i><i></i></span>':FIC("check",13)+' '+esc(src))+'</div>'+
       '<div class="acts" style="margin-top:12px"><button type="button" class="b pri" id="bReply">'+FIC("chat",15)+' '+esc(L({en:"Reply to coach",id:"Balas Coach"}))+'</button></div></div>';
@@ -423,7 +410,7 @@
   function render(){
     var root=el("root"), html=head();
     if(S.a.safety) html+=safetyCard()+metrics();
-    else html+=metrics()+perf()+signalsCard()+causesCard()+checkinCard()+factors()+coachCard()+nextCard()+howCard()+ctaCard();
+    else html+=metrics()+perf()+signalsCard()+readCard()+checkinCard()+factors()+coachCard()+nextCard()+howCard()+ctaCard();
     html+='<div class="acts" style="margin-top:22px"><button type="button" class="b dng" id="bDel">'+FIC("trash",15)+' '+esc(L({en:"Delete this upload",id:"Hapus upload ini"}))+'</button></div>';
     root.innerHTML=html;
     wire();
@@ -442,39 +429,13 @@
     };
     Array.prototype.forEach.call(document.querySelectorAll("[data-act]"),function(b){
       b.onclick=function(){ var a=b.getAttribute("data-act");
-        if(a==="start") openEdit("eStart"); else if(a==="sleep") logSleep(b); else if(a==="hyd") logHyd(b);
-        else if(a==="ckgo"){ S.ckOpen=true; render(); var c=el("ckSec"); if(c) c.scrollIntoView({behavior:"smooth",block:"start"}); }
-        else if(a==="ckedit"){ var ci=S.a.checkin||{}; CK={sleep:ci.sleep_hours!=null?ci.sleep_hours:null,meal_gap:ci.meal_gap||null,conditions:ci.conditions||null,feeling:ci.feeling||null}; S.ckOpen=true; render(); }
+        if(a==="ckedit"){ var ci=S.a.checkin||{}; CK={sleep:ci.sleep_hours!=null?ci.sleep_hours:null,meal_gap:ci.meal_gap||null,conditions:ci.conditions||null,feeling:ci.feeling||null}; S.ckOpen=true; render(); }
         else if(a==="cksave") saveCheckin(b); };
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-ck] button"),function(b){
       b.onclick=function(){ var k=b.parentNode.getAttribute("data-ck"), v=b.getAttribute("data-v"); var s0=el("ckSleep"); if(s0) CK.sleep=s0.value;
-        CK[k]=(CK[k]===v)?null:v; render(); var c=el("ckSec"); if(c) c.scrollIntoView({block:"start"}); };
+        CK[k]=(CK[k]===v)?null:v; S.ckOpen=true; render(); var c=el("ckSec"); if(c) c.scrollIntoView({block:"start"}); };
     });
-  }
-  async function uid(){ try{ var au=await Auth.supabase.auth.getUser(); return (au&&au.data&&au.data.user)?au.data.user.id:null; }catch(e){ return null; } }
-  // Isi data yang kosong langsung dari sini -> analisa dihitung ulang (hash input berubah).
-  async function logSleep(btn){
-    var h=parseFloat(el("fSleepH").value); if(!(h>0&&h<=16)) { el("fSleepH").focus(); return; }
-    btn.disabled=true;
-    try{
-      var u=await uid(); if(!u) throw new Error();
-      var r=await Auth.supabase.from("my20fit_sleep").upsert({auth_user_id:u,sleep_date:S.w.date,duration_hours:h,source:"manual",updated_at:new Date().toISOString()},{onConflict:"auth_user_id,sleep_date"});
-      if(r.error) throw r.error;
-      try{ await Auth.saveDaily({sleep_hours:h},S.w.date); }catch(e){}
-      await load();
-    }catch(e){ btn.disabled=false; alert(L({en:"Couldn't save. Try again.",id:"Gagal menyimpan. Coba lagi."})); }
-  }
-  async function logHyd(btn){
-    var ml=parseInt(el("fHydMl").value,10); if(!(ml>0&&ml<=5000)) { el("fHydMl").focus(); return; }
-    btn.disabled=true;
-    try{
-      var u=await uid(); if(!u) throw new Error(); var d1=addDays(S.w.date,-1);
-      var r=await Auth.supabase.from("my20fit_hydration").insert({auth_user_id:u,log_date:d1,amount_ml:ml,drink_type:"water"});
-      if(r.error) throw r.error;
-      try{ await Auth.saveDaily({water_glasses:Math.round(ml/250)},d1); }catch(e){}
-      await load();
-    }catch(e){ btn.disabled=false; alert(L({en:"Couldn't save. Try again.",id:"Gagal menyimpan. Coba lagi."})); }
   }
   function openShots(){
     var d=el("shotDlg");
@@ -483,7 +444,7 @@
     el("shClose").onclick=function(){ d.close(); };
     d.showModal();
   }
-  function openEdit(focusId){
+  function openEdit(){
     var w=S.w, d=el("edDlg");
     var types=Object.keys(WM.TYPES).map(function(k){ return '<option value="'+k+'"'+(k===w.type?" selected":"")+'>'+esc(WM.typeLabel(k,lang()))+'</option>'; }).join("");
     function v(x){ return x==null?"":esc(x); }
@@ -512,7 +473,6 @@
       d.close(); load();
     };
     d.showModal();
-    if(focusId&&el(focusId)) el(focusId).focus();
   }
   async function delWorkout(){
     if(!confirm(L({en:"Delete this workout, its screenshot and analysis? This can't be undone.",id:"Hapus workout ini beserta screenshot & analisanya? Tidak bisa dibatalkan."}))) return;
@@ -560,9 +520,7 @@
       S.w=r.j.workout; S.a=r.j.analysis; S.n=r.j.narrative; S.next=r.j.next||null; S.emergency=r.j.emergency_number||null;
       if(r.j.coach_id&&window.CoachProfiles&&CoachProfiles.NAME[r.j.coach_id]) S.coach=r.j.coach_id;
       S.pending=!!r.j.narrative_pending;
-      if(location.hash==="#checkin"){ S.ckOpen=true; try{ history.replaceState(null,"",location.pathname); }catch(e){} }
       render();
-      if(S.ckOpen){ var ck=el("ckSec"); if(ck) ck.scrollIntoView({block:"start"}); }
       if(S.pending) narrative();
     }catch(e){
       if(String(e&&e.message)==="401") return;

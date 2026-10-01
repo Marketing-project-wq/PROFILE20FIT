@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `4545822` · **Production:** `58b89ba`
+> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `e298aa2` · **Production:** `cb621dc`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -750,6 +750,24 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Analisa workout v3 — "bacaan coach" tanpa wajib log + bahasa EN/ID konsisten — 2026-10-01.** Permintaan
+  pemilik: coach membaca HR & pace langsung (kurang tidur? kurang nutrisi?) tanpa reminder "log semuanya".
+  (1) `lib/workout-signals.js` `causes()`: skor pola sinyal per kandidat (`config.causes.signature`, mengganti tabel
+  `causes.map`); dari performa saja maks "sedang" (`perf_medium_score`), log/check-in mendukung → naik satu tingkat,
+  membantah → dikeluarkan. Contoh: HR lebih tinggi di pace yang sama → "kurang tidur/belum pulih" (sedang); pace jatuh
+  di akhir sesi panjang → "kurang bahan bakar/karbohidrat"; HR terus naik di pace stabil → "kurang cairan".
+  (2) `lib/workout-analysis.js` `sessionRead()`: intensitas (HR rata-rata ÷ HR maks; HR maks = tertinggi antara 220−umur
+  dan HR maks tercatat; ambang `config.intensity`) & relevansi bahan bakar dari durasi (`config.fuel.relevant_min` 60).
+  Hash input naik ke v3 → narasi AI lama yang berisi ajakan mencatat otomatis dibuat ulang.
+  (3) Narasi (`lib/workout-narrative.js`): `readSentences()` (intensitas, tidur & pemulihan, bahan bakar), kalimat
+  "belum ada data" netral (tanpa perintah), tips & `nextSession` tanpa ajakan log, prompt AI + `NAG_RE` menolak narasi
+  yang menyuruh mencatat. **Tidak pernah** zat gizi mikro (zat besi/vitamin) — tetap ditolak `BANNED_RE`.
+  (4) UI: detail → kartu "Bacaan coach" (tanpa tombol catat/check-in), check-in jadi `<details>` opsional, "Dari
+  catatanmu" hanya faktor yang ADA datanya (form catat tidur/minum di halaman ini dihapus); Riwayat & log upload →
+  chip intensitas + dugaan coach, chip "belum dicatat" & ajakan check-in dihapus (`woCard`: `reads`, `effort`,
+  `needs_checkin` dihapus). (5) **i18n:** `js/i18n.js` kini menerapkan `data-en`/`data-id` di SEMUA halaman (dulu hanya
+  /activity & /dashboard punya kode sendiri — dihapus); judul "Riwayat Upload" dll. ikut bahasa. **Ambang & bobot =
+  DEFAULT AGENT, PERLU DIVALIDASI COACH 20FIT.**
 - **Analisa workout v2 — sinyal heart rate & pace ala coach — 2026-10-01 (semua fase, default agent).** Audit &
   keputusan: PR terkait. (1) **Data:** `pace_data.splits` kini {km, sec, hr, elev} + `raw_data.readiness`; level data
   Basic/Detailed/Full (`WorkoutMetrics.dataLevel`) tampil di dialog upload, riwayat, detail + ajakan upload layar
