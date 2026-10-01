@@ -799,6 +799,11 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   saat skor 100, warna per level), angka besar, "N poin lagi sampai lingkaran penuh", status; komponen jadi bar gaya
   makro (nama + skor/100, 2 kolom di desktop, 1 di HP). What You Need, tombol isi komponen, dan Chat Coach tetap.
   Hanya tampilan (`activity.html`), data dari `/api/activity/health-score` tidak berubah.
+- **Kartu Upload progress dirapikan — 2026-10-01.** Hanya tampilan (`activity.html`): header ikon gradien + judul +
+  badge "AI · maks 5", chip jenis yang dibaca (Workout/Tidur/Langkah/Berat; di HP jadi 4 kotak kecil), 3 tombol berikon
+  (Kamera utama bergradien; ikon di atas label di HP, di samping label di desktop), tips analisa jadi baris info, dan
+  baris "Terakhir:"/log hari ini dalam kotak lembut. ID & alur JS (`#upDrop`, `#upCam`, `#upFile`, `#upManual`, `#upProg`,
+  `#upLast`, `.busy`/`.over`) tidak berubah.
 - **Log upload hari ini + "Latihan berikutnya" + "Implement plan" — BARU 2026-10-01.** (1) Di bawah kartu Upload di
   /activity: daftar upload HARI INI (dari `/api/activity/history`, kini ada `created_at` + `next`): workout menampilkan
   headline analisa, latihan berikutnya, "Lihat selengkapnya" (→ `/activity/history/:id`) dan "Implement plan"; belum ada
