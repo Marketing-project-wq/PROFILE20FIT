@@ -1,6 +1,7 @@
 // =============================================================
 //  achievements.js — definisi lencana + popup "Congratulations"
-//  Dipakai di dashboard (popup) & progress (grid lencana).
+//  Dipakai di dashboard & activity (popup), profile (grid lencana) & progress lama.
+//  Minggu berjalan (weekDates/weekDays) juga sumber tunggal untuk kartu mingguan /activity.
 //  Sumber tunggal biar konsisten. Butuh i18n.js (window.L) lebih dulu.
 // =============================================================
 (function () {
@@ -30,6 +31,29 @@
     return Object.assign(base, extra||{});
   }
   function earned(stats){ return DEFS.filter(x=>{ try{ return x.cond(stats); }catch(e){ return false; } }).map(x=>x.id); }
+
+  // Minggu berjalan Senin..Minggu (YYYY-MM-DD, waktu lokal device).
+  function ymd(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function weekDates(){
+    const base=new Date(); base.setHours(0,0,0,0);
+    const dow=base.getDay(), mon=new Date(base); mon.setDate(base.getDate()-(dow===0?6:dow-1));
+    const out=[]; for(let i=0;i<7;i++){ const d=new Date(mon); d.setDate(mon.getDate()+i); out.push(ymd(d)); }
+    return out;
+  }
+  // rows = baris my20fit_daily_log minggu ini -> [{date, log, cal}]. Kalori dari cal_items akun;
+  // hari tanpa baris memakai cache Calorie Tracker di device (my20fit_cal_<tgl>).
+  function readCal(d){ try{ const it=JSON.parse(localStorage.getItem("my20fit_cal_"+d)||"[]"); return it.reduce((s,i)=>s+(+i.kcal||0),0); }catch(e){ return 0; } }
+  function weekDays(rows){
+    const m={}; (rows||[]).forEach(r=>{ m[r.log_date]=r; });
+    return weekDates().map(d=>{ const r=m[d]||null; return { date:d, log:r, cal:(r&&Array.isArray(r.cal_items))?r.cal_items.reduce((s,i)=>s+(+i.kcal||0),0):readCal(d) }; });
+  }
+  // Grid lencana (CSS kelas .achg/.ach disediakan halaman pemakai).
+  const LOCK='<svg class="emi" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+  function gridHTML(stats){
+    const ids=earned(stats);
+    return '<div class="achg">'+DEFS.map(a=>{ const on=ids.indexOf(a.id)>-1;
+      return '<div class="ach '+(on?"on":"off")+'"><div class="em">'+(on?a.em:LOCK)+'</div><div><div class="t">'+L(a.t)+'</div><div class="s">'+L(a.s)+'</div></div></div>'; }).join("")+'</div>';
+  }
 
   // ---------- Popup "Congratulations" ----------
   let cssDone=false;
@@ -100,5 +124,5 @@
     return fresh;
   }
 
-  window.Ach = { DEFS, buildStats, earned, check, celebrate };
+  window.Ach = { DEFS, buildStats, earned, check, celebrate, weekDates, weekDays, gridHTML };
 })();
