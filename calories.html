@@ -118,6 +118,7 @@
   .hst-k s{text-decoration:none;color:var(--muted);font-weight:600}
   .hst-b{padding:0 0 10px 10px;border-left:2px solid var(--line);margin:0 0 8px 2px}
   .hst-b .item{padding:7px 0;font-size:13px}
+  .hitem{cursor:pointer}
   /* intermittent fasting */
   .ifopt{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
   .ifopt:last-child{border-bottom:0}
@@ -852,7 +853,11 @@
         const it=(j.result.items&&j.result.items[0])||{};
         const kcal=Math.round(j.result.total_kcal||it.kcal||0);
         if(!kcal)throw new Error(j.result.note||L({en:"Couldn't estimate that.",id:"Tidak bisa menghitung itu."}));
-        addToLog(name+" ("+gram+"g)",kcal,it.protein_g,it.carbs_g,it.fat_g);
+        // Hasil AI teks sudah berisi analisa lengkap -> simpan bersama item (seperti scan foto).
+        // Hasil dari kamus koreksi 20FIT hanya angka, jadi tidak disimpan sebagai analisa.
+        var sa=null;
+        if(j.result.overall||j.result.description){ sa=scanSnap(j.result,j.result.items||[it]); sa.basis="text"; }
+        addToLog(name+" ("+gram+"g)",kcal,it.protein_g,it.carbs_g,it.fat_g,null,sa?{sa:sa}:null);
         out.style.color="var(--green)";out.textContent="+"+kcal+" "+kc()+" · "+name+" ("+gram+"g)";
         document.getElementById("fname").value="";document.getElementById("fgram").value="";
       }catch(e){out.style.color="var(--red)";out.textContent=e.message;}
@@ -904,8 +909,9 @@
       return it;
     }
     function clearAddMeal(){ addMeal=null; renderAddMealHint(); }
-    function addToLog(name,kcal,p,c,f,meal){
-      pushItem(name,kcal,p,c,f,meal||addMeal);
+    function addToLog(name,kcal,p,c,f,meal,extra){
+      var it=pushItem(name,kcal,p,c,f,meal||addMeal);
+      if(extra) Object.assign(it,extra);
       clearAddMeal();
       save();_fsumGapFlash=true;render();/* flash nutrient-gap on new log/scan */
     }
@@ -935,34 +941,71 @@
         items:(list||[]).slice(0,12).map(function(i){ return {name:cut(i.name,120),portion:cut(i.portion,60),kcal:num(i.kcal),protein_g:num(i.protein_g),carbs_g:num(i.carbs_g),fat_g:num(i.fat_g),fiber_g:num(i.fiber_g),_source:i._source||undefined}; })
       };
     }
-    function scanOf(it){
+    function scanOf(it,list){
       if(!it) return null;
       if(it.sa) return it.sa;
       if(!it.sid) return null;
-      var c=items.find(function(x){ return x&&x.sid===it.sid&&x.sa; });
+      var c=(list||items).find(function(x){ return x&&x.sid===it.sid&&x.sa; });
       return c?c.sa:null;
     }
-    function openItemAnalysis(i){
-      var it=items[i]; if(!it) return;
-      var sa=scanOf(it), h;
-      var edit='<button type="button" class="hopt-ghost" style="margin-top:12px" onclick="closeScanModal();openEdit('+i+')">'+escA(L({en:"Edit this food",id:"Ubah makanan ini"}))+'</button>';
-      if(sa){
-        h='<div class="scd-note" style="margin:0 0 10px">'+escA(L({en:"Analysis from your photo scan",id:"Analisa dari scan foto kamu"}))+(it.t?' · '+escA(it.t):'')+'</div>'+
-          renderScanDetail(sa,{items:sa.items||[],readonly:true})+healthyOptionsHTML(sa.total_kcal||0,true)+edit;
-      } else {
-        var v=fsumItemVerdict(it);
-        h='<div class="scd"><div class="scd-top"><div class="scd-name">'+escA(it.name)+'</div><div class="scd-kcal">'+(+it.kcal||0)+' '+escA(kc())+'</div></div>'+
-          '<div class="scd-est" style="font-size:11.5px;color:var(--muted);margin:2px 0 8px">'+escA(L({en:"No photo analysis was saved for this food (typed in, scanned before this feature, or added from another app). Below is based on its calories & macros.",id:"Tidak ada analisa foto yang tersimpan untuk makanan ini (diketik manual, di-scan sebelum fitur ini ada, atau dari app lain). Di bawah ini dihitung dari kalori & makronya."}))+'</div>'+
-          '<div class="scd-macros">'+macroBox(L({en:"Protein",id:"Protein"}),it.p)+macroBox(L({en:"Carbs",id:"Karbo"}),it.c)+macroBox(L({en:"Fat",id:"Lemak"}),it.f)+'</div>'+
-          '<div class="scd-sec"><div class="scd-por"><div class="scd-por-nm">'+escA(L({en:"Verdict",id:"Penilaian"}))+
-            '<div class="scd-por-sub">'+v.reason+(v.swap?' · '+L({en:"try",id:"coba"})+' <b>'+L(v.swap.to)+'</b>':'')+'</div></div>'+
-            '<div class="scd-por-r"><span class="fsum-hm-badge '+v.cls+'">'+v.label+'</span></div></div></div></div>'+
-          healthyOptionsHTML(it.kcal||0,true)+edit;
-      }
+    // Item tanpa analisa: dianalisa SEKALI dari nama + angka tercatatnya (/api/scan/food-analyze,
+    // gratis), lalu hasilnya disimpan bersama item supaya berikutnya langsung tampil.
+    var _ana=null, _anaReq=0;
+    function openItemAnalysis(i){ var it=items[i]; if(it) openFoodAnalysis(it,{list:items,persist:save,editIdx:i}); }
+    function openHistAnalysis(ds,k){
+      var its=dayItems(ds), it=its&&its[k]; if(!it) return;
+      var isToday=(ds===dstr(new Date()));
+      openFoodAnalysis(it,{list:its, editIdx:isToday?items.indexOf(it):-1,
+        persist:isToday?save:function(){ try{ if(window.Auth&&Auth.saveDaily) Auth.saveDaily({cal_items:its},ds); }catch(e){} }});
+    }
+    function showAna(h,closeLabel){
       document.getElementById("scanModalBody").innerHTML=h;
       document.getElementById("scanModalTitle").textContent=L({en:"Food analysis",id:"Analisa makanan"});
-      document.getElementById("scanModalDone").textContent=L({en:"Close",id:"Tutup"});
+      document.getElementById("scanModalDone").textContent=closeLabel||L({en:"Close",id:"Tutup"});
       document.getElementById("scanBg").classList.add("open");
+    }
+    function anaHTML(it,sa){
+      var src=sa.basis==="logged"?L({en:"Analysis of the logged food & numbers (not from a photo)",id:"Analisa dari nama & angka makanan yang tercatat (bukan dari foto)"})
+             :sa.basis==="text"?L({en:"Analysis from the food & grams you typed",id:"Analisa dari makanan & gram yang kamu ketik"})
+             :L({en:"Analysis from your photo scan",id:"Analisa dari scan foto kamu"});
+      return '<div class="scd-note" style="margin:0 0 10px">'+escA(src)+(it.t?' · '+escA(it.t):'')+'</div>'+
+        renderScanDetail(sa,{items:sa.items||[],readonly:true})+healthyOptionsHTML(sa.total_kcal||0,true);
+    }
+    function anaHead(it){ return '<div class="scd-top"><div class="scd-name">'+escA(it.name)+'</div><div class="scd-kcal">'+(+it.kcal||0)+' '+escA(kc())+'</div></div>'; }
+    function openFoodAnalysis(it,ctx){
+      _ana={it:it,ctx:ctx};
+      var edit=(ctx.editIdx>=0)?'<button type="button" class="hopt-ghost" style="margin-top:12px" onclick="closeScanModal();openEdit('+ctx.editIdx+')">'+escA(L({en:"Edit this food",id:"Ubah makanan ini"}))+'</button>':'';
+      var sa=scanOf(it,ctx.list);
+      if(sa){ showAna(anaHTML(it,sa)+edit); return; }
+      showAna('<div class="scd">'+anaHead(it)+'<div class="muted" style="padding:16px 0">'+escA(L({en:"Analysing this food…",id:"Menganalisa makanan ini…"}))+'</div></div>');
+      var req=++_anaReq;
+      (async function(){
+        try{
+          var tk=await Auth.token();
+          var r=await fetch("/api/scan/food-analyze",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
+            body:JSON.stringify({name:it.name,kcal:it.kcal,p:it.p,c:it.c,f:it.f,lang:I18N.lang})});
+          var j=await r.json().catch(function(){return{};});
+          if(req!==_anaReq) return;                      // user sudah membuka makanan lain
+          if(!r.ok||!j.result) throw new Error(j.error||L({en:"Analysis failed",id:"Gagal menganalisa"}));
+          var snap=scanSnap(j.result,j.result.items); snap.basis="logged";
+          if(ctx.list.indexOf(it)>=0){ it.sa=snap; ctx.persist(); }
+          showAna(anaHTML(it,snap)+edit);
+        }catch(err){
+          if(req!==_anaReq) return;
+          showAna(basicHTML(it)+'<div style="color:var(--red);font-size:12.5px;margin-top:10px">'+escA(err.message)+
+            ' <button type="button" class="mealadd" style="margin-top:6px" onclick="retryAnalysis()">'+escA(L({en:"Retry",id:"Coba lagi"}))+'</button></div>'+edit);
+        }
+      })();
+    }
+    function retryAnalysis(){ if(_ana) openFoodAnalysis(_ana.it,_ana.ctx); }
+    // Cadangan saat AI gagal: penilaian dari angka item saja.
+    function basicHTML(it){
+      var v=fsumItemVerdict(it);
+      return '<div class="scd">'+anaHead(it)+
+        '<div class="scd-macros">'+macroBox(L({en:"Protein",id:"Protein"}),it.p)+macroBox(L({en:"Carbs",id:"Karbo"}),it.c)+macroBox(L({en:"Fat",id:"Lemak"}),it.f)+'</div>'+
+        '<div class="scd-sec"><div class="scd-por"><div class="scd-por-nm">'+escA(L({en:"Verdict",id:"Penilaian"}))+
+          '<div class="scd-por-sub">'+v.reason+(v.swap?' · '+L({en:"try",id:"coba"})+' <b>'+L(v.swap.to)+'</b>':'')+'</div></div>'+
+          '<div class="scd-por-r"><span class="fsum-hm-badge '+v.cls+'">'+v.label+'</span></div></div></div></div>';
     }
 
     // ---- Seret makanan antar waktu makan ----
@@ -1073,6 +1116,9 @@
       next.c=Math.round(+document.getElementById("edC").value||0);
       next.f=Math.round(+document.getElementById("edF").value||0);
       next.m=document.getElementById("edMeal").value;
+      // Analisa dari nama/angka tercatat jadi basi kalau nama/angkanya diubah -> buang, dibuat
+      // ulang saat dibuka. Analisa scan FOTO tetap disimpan (itu catatan apa yang difoto).
+      if(next.sa && next.sa.basis && (next.name!==cur.name||next.kcal!==cur.kcal||next.p!==cur.p||next.c!==cur.c||next.f!==cur.f)) delete next.sa;
       items[idx]=next;
       closeEdit(); save(); render();
     }
@@ -1245,10 +1291,10 @@
       var kmin=Math.round(+res.kcal_min||0), kmax=Math.round(+res.kcal_max||0);
       // Headline = SATU angka pas (titik estimasi AI = total_kcal). Rentang dipindah ke sub-teks kecil
       // sebagai konteks, supaya user dapat 1 angka jelas tapi tetap paham ini perkiraan.
-      var kcalTop='~'+kcal+' '+kc();
+      var kcalTop=(res.basis==="logged"?'':'~')+kcal+' '+kc();
       var estMid=(kmin>0&&kmax>kmin)?(' · '+kmin+'–'+kmax+' '+kc()):'';
       h+='<div class="scd-top"><div class="scd-name">'+esc(title)+'</div><div class="scd-kcal">'+kcalTop+'</div></div>';
-      h+='<div class="scd-est" style="font-size:11.5px;color:var(--muted,#8A7C68);margin:2px 0 8px">'+L({en:"Estimate from photo",id:"Perkiraan dari foto"})+estMid+(confLab?' · '+confLab:'')+'</div>';
+      h+='<div class="scd-est" style="font-size:11.5px;color:var(--muted,#8A7C68);margin:2px 0 8px">'+(res.basis==="logged"?L({en:"Calories & macros as logged",id:"Kalori & makro sesuai catatan"}):res.basis==="text"?L({en:"Estimate from what you typed",id:"Perkiraan dari yang kamu ketik"}):L({en:"Estimate from photo",id:"Perkiraan dari foto"}))+estMid+(confLab?' · '+confLab:'')+'</div>';
       // Konfirmasi porsi = cara paling ngangkat akurasi. Dorong lebih kuat kalau AI kurang yakin.
       if(conf>0 && conf<60){
         h+='<div style="background:#FDECEC;border:1px solid #f3c2bd;border-radius:10px;padding:9px 11px;margin:0 0 10px;font-size:12.5px;color:#8a2b22">'+
@@ -1757,8 +1803,8 @@
             '<span class="hst-d">'+escA(dl)+(r.ds===today?' <i>'+escA(L({en:"today",id:"hari ini"}))+'</i>':'')+'</span>'+
             '<span class="hst-k"><b>'+tot+'</b> '+escA(kc())+(note?' <s>('+escA(note)+')</s>':'')+'</span>'+
           '</button>'+
-          (open? '<div class="hst-b">'+r.its.map(function(i){
-              return '<div class="item"><span>'+escA(i.name)+(i.t?'<span class="mtime">'+escA(i.t)+'</span>':'')+'</span>'+
+          (open? '<div class="hst-b">'+r.its.map(function(i,k){
+              return '<div class="item hitem" role="button" tabindex="0" data-ds="'+r.ds+'" data-k="'+k+'"><span>'+escA(i.name)+(i.t?'<span class="mtime">'+escA(i.t)+'</span>':'')+'</span>'+
                 '<span class="kc">'+(+i.kcal||0)+' '+escA(kc())+'</span></div>';
             }).join("")+'</div>' : '')+
         '</div>';
@@ -1768,6 +1814,13 @@
         : '');
     }
 
+    // Ketuk makanan di Riwayat = buka analisanya (sama dengan Today's Food).
+    (function(){
+      var hc=document.getElementById("histCard"); if(!hc) return;
+      function go(e){ var row=e.target.closest(".hitem"); if(row) openHistAnalysis(row.getAttribute("data-ds"),+row.getAttribute("data-k")); }
+      hc.addEventListener("click",go);
+      hc.addEventListener("keydown",function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(e); } });
+    })();
     I18N.onChange(()=>{render();renderIF();refreshQuota();syncCamLabels();renderWeek();renderHist();if(_coachMeal)renderCoachMeal();});
   </script>
 <script>
