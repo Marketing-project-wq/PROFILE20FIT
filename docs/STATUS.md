@@ -750,6 +750,10 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Tombol "Nilai kelas" di setiap baris kelas — 1 Okt 2026, permintaan pemilik.** Di samping "Lihat bon", tiap
+  pembelian kelas punya tombol "Nilai kelas" (sudah dinilai: "★n · Ubah rating"). Sheet-nya menampilkan detail kelas
+  (jadwal, coach, kode booking, status, harga, tanggal pesan) lalu form rating; kelas dibatalkan / belum terkonfirmasi /
+  belum berlangsung menampilkan alasannya di sheet (tombol tetap ada).
 - **Rating kelas: kartu "Nilai kelasmu" + masukan cepat + admin "Class performance" — 1 Okt 2026, permintaan pemilik.**
   (1) /profile → Riwayat & Transaksi: kartu "Nilai kelasmu" di atas daftar (filter Semua/Kelas) berisi kelas yang
   sudah lewat & belum dinilai (maks 3 + "Lihat semua kelas"); bintang bisa langsung diketuk → sheet terisi. Sheet kini
