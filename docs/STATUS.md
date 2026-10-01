@@ -406,8 +406,17 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   porsi per item) cukup di SATU item; `del()` memindahkan `sa` ke saudaranya kalau item
   pembawanya dihapus. Ketuk baris → `openItemAnalysis()` memakai `renderScanDetail()` yang
   sama dengan popup scan (mode baca saja, tanpa tombol koreksi/tambah) + tombol "Ubah makanan
-  ini". Item TANPA `sa` (ketik manual, scan sebelum fitur ini, dari app lain) menampilkan
-  penilaian dari kalori & makronya + catatan jujur bahwa analisa foto tidak tersimpan.
+  ini". **Item TANPA `sa`** (scan sebelum fitur ini, dari app lain) dianalisa SEKALI saat
+  dibuka lewat `POST /api/scan/food-analyze` (aksi AI "food" mode teks yang sama dengan
+  `/api/scan/food-text`, gratis, kena `aiUserLimiter`): kalori & makro TETAP angka tercatat
+  (hasil AI ditimpa server), rentang/keyakinan foto dibuang, label "Analisa dari nama & angka
+  makanan yang tercatat (bukan dari foto)"; hasilnya disimpan sebagai `sa` (`basis:"logged"`).
+  Makanan yang **diketik manual** (`estimateFood`) kini juga menyimpan analisa AI-nya
+  (`basis:"text"`; hasil dari kamus koreksi 20FIT hanya angka, jadi tidak). Mengubah
+  nama/angka item lewat dialog Ubah membuang `sa` ber-`basis` (dibuat ulang saat dibuka);
+  analisa scan foto tetap. **Riwayat** (14 hari) juga bisa diketuk: analisa hari lampau
+  disimpan ke baris tanggal itu via `Auth.saveDaily({cal_items}, tanggal)`. Kalau AI gagal:
+  penilaian dari angka + tombol Coba lagi.
   **BELUM TERVERIFIKASI:** apakah app calorietracker native mempertahankan kunci `sid`/`sa`
   saat ia menulis ulang `cal_items` (kalau tidak, analisanya hilang untuk hari itu).
 - **`/calories` disamakan dengan home calorietracker.20fit.id (21 Sep 2026).**
