@@ -719,6 +719,17 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Log upload hari ini + "Latihan berikutnya" + "Implement plan" — BARU 2026-10-01.** (1) Di bawah kartu Upload di
+  /activity: daftar upload HARI INI (dari `/api/activity/history`, kini ada `created_at` + `next`): workout menampilkan
+  headline analisa, latihan berikutnya, "Lihat selengkapnya" (→ `/activity/history/:id`) dan "Implement plan"; belum ada
+  upload hari ini → satu baris "Terakhir:". (2) Riwayat & halaman detail menampilkan **latihan berikutnya** per workout
+  — deterministik `woNarrative.nextSession()` (keamanan → istirahat & dokter, tidak bisa diterapkan; tidur kurang /
+  beban tinggi → recovery `today.template_minutes.recovery`; performa turun → sesi santai durasi sama; lebih baik →
+  durasi +`next.progress_pct`% (config, PERLU DIVALIDASI); selain itu → ulangi). (3) **Implement plan** =
+  `POST /api/activity/workouts/:id/implement`: rekomendasi itu jadi `workout_plan` di Plan Hari Ini (dengan
+  `from_workout`), bagian makan/tidur/minum yang sudah ada dipertahankan, lalu tampil otomatis di /activity
+  (`/activity#today-plan`). Tanpa AI, tanpa migration. **TANYA PEMILIK:** `GET /api/activity/upload-history` kini tidak
+  dipakai halaman web mana pun — hapus kalau app mobile juga tidak memakainya.
 - **Plan & Rekomendasi Hari Ini + tombol "Generate plan" — BARU 2026-10-01.** Sebelumnya Today's Plan hanya terbentuk
   setelah upload screenshot. Sekarang `POST /api/activity/today-plan/generate` (aiUserLimiter) membuat plan tanpa upload.
   Isi kartu (analisa DETERMINISTIK `lib/today-brief.js`, dihitung ulang tiap GET `/api/activity/today-plan?lang=` jadi

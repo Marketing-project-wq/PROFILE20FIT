@@ -72,6 +72,8 @@ Bukan chat, tapi memakai persona coach yang sama. Yang ditegakkan kode ada di `l
 - AI (persona coach) hanya menyusun plan workout/makan/tidur/minum + "Coach says" dari angka itu
   (`ACTIVITY_PLAN_RULES`). Target kalori/minum/tidur **ditimpa server** dengan angka app; AI gagal → plan template.
 - Status "tidak_ada_data" = belum dicatat, bukan kurang. Poin Health Score = batas maksimal, bukan janji.
+- "Latihan berikutnya" per workout & tombol **Implement plan** = aturan deterministik (`nextSession()` di
+  `lib/workout-narrative.js`), bukan AI. Workout dengan tanda keamanan → istirahat & dokter, tidak bisa diterapkan.
 
 ## Tombol aksi
 Chatbot tidak menulis URL sendiri. Ia menulis token, dan frontend (`js/coach.js`) mengubahnya

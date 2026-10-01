@@ -36,6 +36,8 @@
   .hcard .dt{font-size:11px;color:var(--a-mut);font-family:var(--mono);font-weight:700}
   .hcard .tt{font-size:15px;font-weight:800;margin-top:2px;line-height:1.3}
   .hcard .hl{font-size:12.5px;color:var(--a-txt);margin-top:7px;line-height:1.5}
+  .hcard .nx{display:flex;gap:6px;align-items:flex-start;font-size:12.5px;font-weight:700;color:var(--ai);margin-top:7px;line-height:1.45}
+  .hcard .nx b{color:var(--a-mut);font-weight:700;white-space:nowrap}
   .hcard .go{flex:none;color:var(--a-mut);font-size:20px;align-self:center}
   .gp{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
   .fchip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;border:1px solid var(--a-line);white-space:nowrap}
@@ -101,7 +103,8 @@
     return '<a class="card hcard" href="/activity/history/'+encodeURIComponent(it.id)+'"><span class="ic">'+FIC(WO_ICON[it.type]||"run",20)+'</span><div class="bd">'+
       '<div class="dt">'+esc(fmtDate(it.date,it.started_at))+(it.source_app?" · "+esc(it.source_app):"")+'</div>'+
       '<div class="tt">'+esc(it.title)+'</div>'+(chips?'<div class="gp">'+chips+'</div>':'')+
-      (it.headline?'<div class="hl">'+esc(it.headline)+'</div>':'')+'</div><span class="go" aria-hidden="true">›</span></a>';
+      (it.headline?'<div class="hl">'+esc(it.headline)+'</div>':'')+
+      (it.next&&it.next.title?'<div class="nx"><b>'+esc(L({en:"Next:",id:"Berikutnya:"}))+'</b><span>'+esc(it.next.title)+'</span></div>':'')+'</div><span class="go" aria-hidden="true">›</span></a>';
   }
   function render(j){
     var root=el("root"), items=(j&&j.items)||[];

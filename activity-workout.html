@@ -91,6 +91,9 @@
   ul.tips{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
   ul.tips li{display:flex;gap:10px;font-size:13.5px;line-height:1.5}
   ul.tips li:before{content:"";flex:none;width:7px;height:7px;border-radius:99px;background:var(--ai);margin-top:7px}
+  .nxc .nx-t{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;color:var(--a-txt)}
+  .nxc .nx-t svg{color:var(--ai)}
+  .nxc .nx-r{font-size:13px;color:var(--a-mut);line-height:1.5;margin:6px 0 10px}
   .safe{background:color-mix(in srgb,var(--bad) 8%,var(--a-surface));border-color:color-mix(in srgb,var(--bad) 40%,var(--a-line))}
   .safe h2{margin:0 0 8px;font-size:16px;color:var(--bad)}
   .safe p{margin:0 0 8px;font-size:13.5px;line-height:1.55}
@@ -263,10 +266,15 @@
       '<div class="src">'+(S.pending?esc(L({en:"Coach is writing a personal analysis",id:"Coach sedang menulis analisa personal"}))+'<span class="typing"><i></i><i></i><i></i></span>':FIC("check",13)+' '+esc(src))+'</div>'+
       '<div class="acts" style="margin-top:12px"><button type="button" class="b pri" id="bReply">'+FIC("chat",15)+' '+esc(L({en:"Reply to coach",id:"Balas Coach"}))+'</button></div></div>';
   }
-  function tipsCard(){
-    var t=(S.n&&S.n.next_session_tips)||[];
-    if(!t.length) return "";
-    return '<div class="sec">'+esc(L({en:"For your next session",id:"Untuk sesi berikutnya"}))+'</div><div class="card"><ul class="tips">'+t.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join("")+'</ul></div>';
+  // Latihan berikutnya (dari analisa, deterministik) + tips + "Implement plan" -> masuk ke Plan Hari Ini di /activity.
+  function nextCard(){
+    var nx=S.next, t=(S.n&&S.n.next_session_tips)||[];
+    if(!nx&&!t.length) return "";
+    return '<div class="sec">'+esc(L({en:"Your next workout",id:"Latihan berikutnya"}))+'</div><div class="card nxc">'+
+      (nx?'<div class="nx-t">'+FIC("target",16)+' '+esc(nx.title)+'</div><p class="nx-r">'+esc(nx.reason||"")+'</p>':'')+
+      (t.length?'<ul class="tips">'+t.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join("")+'</ul>':'')+
+      (nx&&nx.implementable?'<div class="acts" style="margin-top:12px"><button type="button" class="b pri" id="bImpl">'+FIC("check",15)+' '+esc(L({en:"Implement plan",id:"Terapkan ke Activity"}))+'</button></div>'+
+        '<div class="note" style="margin-top:8px">'+esc(L({en:"Adds this workout to today's plan on your Activity page.",id:"Latihan ini masuk ke Plan Hari Ini di halaman Activity."}))+'</div><div class="err" id="implErr"></div>':'')+'</div>';
   }
   function ctaCard(){
     var c=S.n&&S.n.cta;
@@ -284,7 +292,7 @@
   function render(){
     var root=el("root"), html=head();
     if(S.a.safety) html+=safetyCard()+metrics();
-    else html+=metrics()+perf()+factors()+coachCard()+tipsCard()+ctaCard();
+    else html+=metrics()+perf()+factors()+coachCard()+nextCard()+ctaCard();
     html+='<div class="acts" style="margin-top:22px"><button type="button" class="b dng" id="bDel">'+FIC("trash",15)+' '+esc(L({en:"Delete this upload",id:"Hapus upload ini"}))+'</button></div>';
     root.innerHTML=html;
     wire();
@@ -296,6 +304,7 @@
     var bs=el("bShots"); if(bs) bs.onclick=openShots;
     el("bEdit").onclick=function(){ openEdit(); };
     el("bDel").onclick=delWorkout;
+    var bi=el("bImpl"); if(bi) bi.onclick=implementPlan;
     var br=el("bReply"); if(br) br.onclick=function(){
       var w=S.w, msg=L({en:"About my "+w.title+" on "+fmtDay(w.date,{day:"numeric",month:"short"})+": ",id:"Soal "+w.title+" tanggal "+fmtDay(w.date,{day:"numeric",month:"short"})+": "});
       location.href="/activity/chat/"+encodeURIComponent(S.coach)+"?ask="+encodeURIComponent(msg);
@@ -373,6 +382,14 @@
   }
 
   // ---------- data ----------
+  async function implementPlan(){
+    var b=el("bImpl"), er=el("implErr"); b.disabled=true; er.textContent="";
+    try{
+      var r=await api("/api/activity/workouts/"+encodeURIComponent(ID)+"/implement",{method:"POST",body:JSON.stringify({lang:lang()})});
+      if(!r.ok) throw new Error((r.j&&r.j.error)||"");
+      location.href="/activity#today-plan";   // plan langsung terlihat di kartu Plan Hari Ini
+    }catch(e){ er.textContent=(e&&e.message&&e.message!=="401")?e.message:L({en:"Couldn't add it to Activity. Try again.",id:"Gagal menerapkan ke Activity. Coba lagi."}); b.disabled=false; }
+  }
   async function narrative(){
     S.pending=true;
     try{
@@ -389,7 +406,7 @@
       var r=await api("/api/activity/workouts/"+encodeURIComponent(ID)+"?lang="+lang());
       if(r.status===404){ root.innerHTML='<div class="card"><div class="empty">'+esc(L({en:"Workout not found.",id:"Workout tidak ditemukan."}))+'<br><a href="/activity/history">'+esc(L({en:"Back to history",id:"Kembali ke riwayat"}))+'</a></div></div>'; return; }
       if(!r.ok) throw new Error();
-      S.w=r.j.workout; S.a=r.j.analysis; S.n=r.j.narrative; S.emergency=r.j.emergency_number||null;
+      S.w=r.j.workout; S.a=r.j.analysis; S.n=r.j.narrative; S.next=r.j.next||null; S.emergency=r.j.emergency_number||null;
       if(r.j.coach_id&&window.CoachProfiles&&CoachProfiles.NAME[r.j.coach_id]) S.coach=r.j.coach_id;
       S.pending=!!r.j.narrative_pending;
       render();
