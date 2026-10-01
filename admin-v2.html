@@ -33,6 +33,7 @@
       <button class="adm-navitem" data-nav="revenue"><span data-i18n="Revenue">Revenue</span><span class="adm-tag adm-tag--pending" id="navRevBadge" hidden></span></button>
       <button class="adm-navitem" data-nav="traffic"><span data-i18n="Traffic sources">Sumber trafik</span></button>
       <button class="adm-navitem" data-nav="journey"><span data-i18n="Visbody funnel">Funnel Visbody</span></button>
+      <button class="adm-navitem" data-nav="classperf"><span data-i18n="Class performance">Class performance</span></button>
 
       <div class="adm-navgroup" data-i18n="Manage">Kelola</div>
       <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
@@ -721,6 +722,18 @@
         <div id="jfTable" style="margin-top:12px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
         <div class="adm-sec-title" data-i18n="Feature tours — where users stop">Tur fitur — di mana user berhenti</div>
         <div id="jfTours"></div>
+      </section>
+      <section data-section="classperf" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Class performance" data-title-en="Class performance" data-question="Kelas & coach mana yang paling disukai member, dan apa keluhan mereka?" data-question-en="Which classes & coaches do members like most, and what do they complain about?">
+        <div class="adm-note" data-i18n="Ratings (1–5★), quick feedback and comments members give from Profile → History & Transactions, only for confirmed classes that already took place. Period follows the selector above and is based on the class date.">Rating (1–5★), masukan cepat, dan komentar yang diberikan member dari Profil → Riwayat &amp; Transaksi, hanya untuk kelas terkonfirmasi yang sudah berlangsung. Periode mengikuti pilihan di atas dan dihitung dari tanggal kelas.</div>
+        <div class="adm-grid adm-grid--4" id="cpKpis" style="margin-top:12px"><div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div></div>
+        <div class="adm-sec-title" data-i18n="Per class">Per kelas</div>
+        <div id="cpClass"></div>
+        <div class="adm-sec-title" data-i18n="Per coach">Per coach</div>
+        <div id="cpCoach"></div>
+        <div class="adm-sec-title" data-i18n="Quick feedback">Masukan cepat</div>
+        <div id="cpTags"></div>
+        <div class="adm-sec-title" data-i18n="Latest reviews">Ulasan terbaru</div>
+        <div id="cpRecent"></div>
       </section>
       <section data-section="visbody" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Claim Visbody" data-title-en="Visbody claims" data-question="Scan Visbody mana yang belum masuk ke akun member, dan bagaimana menyelesaikannya?" data-question-en="Which Visbody scans haven't reached a member account yet, and how do we resolve them?">
         <div class="adm-note" data-i18n="Scans from the scale that nobody has claimed yet. No body measurements are shown here. Create a new claim link for the member (valid for a limited time, single use), or bind the scan to a member who is present and has agreed to data processing.">Scan dari timbangan yang belum di-claim siapa pun. Angka ukur tidak ditampilkan di sini. Buat link claim baru untuk member (berlaku terbatas, sekali pakai), atau ikat scan ke member yang hadir dan sudah menyetujui pemrosesan data.</div>
@@ -1461,9 +1474,9 @@
 
   // ---- ROLE-BASED NAV (Langkah 6) ----
   var ALLOWED={ superadmin:null, viewer:null,
-    marketing:["overview","users","voucher","marketing","reports","settings","traffic","menustats","coaches","hometiles","journey"],
+    marketing:["overview","users","voucher","marketing","reports","settings","traffic","menustats","coaches","hometiles","journey","classperf"],
     finance:["revenue","voucher","corporate","reports"],
-    staff:["users","scan","menu","menustats","coaches","hometiles","visbody","journey"] };
+    staff:["users","scan","menu","menustats","coaches","hometiles","visbody","journey","classperf"] };
   function roleDesc(role){
     var m={ superadmin:["Full access.","Akses penuh."], viewer:["Read only.","Baca saja."],
       marketing:["Voucher, campaign, segments, reports. No price/credit edits or health data.","Voucher, campaign, segmen, laporan. Tanpa ubah harga/kredit & data kesehatan."],
@@ -2518,6 +2531,7 @@
     if(id==="coaches") return loadCoaches();
     if(id==="visbody") return loadVisbody();
     if(id==="journey") return loadJourneyFunnel();
+    if(id==="classperf") return loadClassPerf();
     if(id==="hometiles") return loadHomeTiles();
     if(id==="traffic") return loadTraffic();
     if(id==="menustats") return loadMenuStats();
@@ -2550,6 +2564,42 @@
         keys.map(function(k){ return '<tr><td class="adm-mono">'+evEsc(k.replace("|"," · "))+'</td><td class="adm-right adm-mono">'+j.tours[k]+'</td></tr>'; }).join("")+'</tbody></table>':
         '<div class="adm-note">'+L("No tour activity yet.","Belum ada aktivitas tur.")+'</div>';
     }catch(e){ box.innerHTML='<div class="adm-note">'+L("Error loading.","Error memuat.")+'</div>'; }
+  }
+
+  // ---------- Class performance: rating & masukan member per kelas / coach (/api/admin/class-performance) ----------
+  function cpStars(avg){ var n=Math.round(avg||0), s=""; for(var i=1;i<=5;i++) s+=i<=n?"★":"☆"; return s; }
+  function cpDist(d,n){ return '<div style="display:flex;gap:2px;align-items:flex-end;height:22px">'+[4,3,2,1,0].map(function(i){ var h=n?Math.max(2,Math.round(d[i]/n*22)):2;
+      return '<i title="'+(i+1)+'★: '+d[i]+'" style="display:block;width:7px;height:'+h+'px;border-radius:2px;background:'+(i>=3?"#1B7A4D":i===2?"#C9A227":"#C41101")+';opacity:'+(d[i]?1:.25)+'"></i>'; }).join("")+'</div>'; }
+  async function loadClassPerf(){
+    var kp=document.getElementById("cpKpis"); if(!kp) return;
+    var ids=["cpClass","cpCoach","cpTags","cpRecent"];
+    try{
+      var res=await adminFetch("/api/admin/class-performance?days="+periodDays());
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){
+        var nr=j&&j.error==="not_ready";
+        kp.innerHTML='<div class="adm-cell" style="grid-column:1/-1"><div class="adm-note">'+(nr?L("Not active yet: run db/supabase-migration-030-class-reviews.sql in the Supabase SQL Editor.","Belum aktif: jalankan db/supabase-migration-030-class-reviews.sql di Supabase SQL Editor."):L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span>')+'</div></div>';
+        ids.forEach(function(x){ document.getElementById(x).innerHTML=""; }); return;
+      }
+      var T={}; (j.tag_defs||[]).forEach(function(g){ T[g.key]=g; });
+      var tagLbl=function(k){ var g=T[k]; return g?L(g.en,g.id):k; };
+      var tagChip=function(t){ var g=T[t.key]; return '<span class="adm-tag '+(g&&g.tone==="down"?"adm-tag--pending":"adm-tag--paid")+'">'+evEsc(tagLbl(t.key))+(t.n!=null?' · '+t.n:'')+'</span>'; };
+      var t=j.totals||{};
+      // Label sesuai bahasa aktif (cell() menulis teks ID + data-i18n EN; applyLang hanya jalan saat toggle).
+      kp.innerHTML=cell(t.reviews||0,L("Reviews","Ulasan"),"Reviews",L("Classes rated: ","Kelas dinilai: ")+(t.classes||0))+
+        cell(t.avg!=null?(t.avg.toFixed(2)+" ★"):"—",L("Average rating","Rata-rata rating"),"Average rating",t.avg!=null?cpStars(t.avg):"")+
+        cell(t.good_pct!=null?(t.good_pct+"%"):"—",L("Satisfied (4–5★)","Puas (4–5★)"),"Satisfied (4–5★)","")+
+        cell(t.members||0,L("Members who rated","Member memberi rating"),"Members who rated",L("With comment: ","Dengan komentar: ")+(t.with_comment||0));
+      if(!t.reviews){ ids.forEach(function(x){ document.getElementById(x).innerHTML='<div class="adm-note">'+L("No reviews in this period yet.","Belum ada ulasan di periode ini.")+'</div>'; }); return; }
+      var table=function(rows,head){ return '<table class="adm-table"><thead><tr><th>'+head+'</th><th class="adm-right">'+L("Reviews","Ulasan")+'</th><th>'+L("Average","Rata-rata")+'</th><th>5★…1★</th><th>'+L("Top feedback","Masukan teratas")+'</th><th>'+L("Last class","Kelas terakhir")+'</th></tr></thead><tbody>'+
+        rows.map(function(r){ return '<tr><td>'+evEsc(r.name)+'</td><td class="adm-right adm-num">'+r.n+'</td><td class="adm-num" style="white-space:nowrap">'+r.avg.toFixed(2)+' <span style="color:#C9A227">'+cpStars(r.avg)+'</span></td><td>'+cpDist(r.dist,r.n)+'</td><td>'+(r.tags.map(tagChip).join(" ")||'<span class="adm-note" style="margin:0">—</span>')+'</td><td class="adm-mono">'+evEsc(r.last||"")+'</td></tr>'; }).join("")+'</tbody></table>'; };
+      document.getElementById("cpClass").innerHTML=table(j.by_class||[],L("Class","Kelas"));
+      document.getElementById("cpCoach").innerHTML=table(j.by_instructor||[],"Coach");
+      document.getElementById("cpTags").innerHTML=(j.tags||[]).length?'<div style="display:flex;flex-wrap:wrap;gap:6px">'+j.tags.map(tagChip).join("")+'</div>':'<div class="adm-note">'+L("No quick feedback chosen yet.","Belum ada masukan cepat dipilih.")+'</div>';
+      document.getElementById("cpRecent").innerHTML='<table class="adm-table"><thead><tr><th>'+L("Class date","Tanggal kelas")+'</th><th>'+L("Class","Kelas")+'</th><th>Coach</th><th>'+L("Rating","Rating")+'</th><th>'+L("Feedback","Masukan")+'</th><th>'+L("Member","Member")+'</th></tr></thead><tbody>'+
+        (j.recent||[]).map(function(r){ return '<tr><td class="adm-mono" style="white-space:nowrap">'+evEsc(r.schedule_date||"")+(r.start_time?' '+evEsc(String(r.start_time).slice(0,5)):'')+'</td><td>'+evEsc(r.class_name||"—")+'</td><td>'+evEsc(r.instructor||"—")+'</td>'+
+          '<td style="white-space:nowrap;color:#C9A227">'+cpStars(r.rating)+'</td><td>'+(r.tags||[]).map(function(k){ return tagChip({key:k}); }).join(" ")+(r.comment?'<div style="margin-top:4px">“'+evEsc(r.comment)+'”</div>':'')+'</td><td>'+evEsc(r.member||"—")+'</td></tr>'; }).join("")+'</tbody></table>';
+    }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Error loading.","Error memuat.")+'</div></div>'; }
   }
 
   // ---------- Visbody: scan yang belum di-claim (/api/admin/visbody/*) ----------

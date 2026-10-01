@@ -102,10 +102,12 @@
   `my20fit_profile.calorie_target_kcal/_source/_set_at` (target kalori yang DIKONFIRMASI user, mis. dari BMR Visbody).
   **Dijalankan 2026-09-30** (agent via koneksi Supabase, atas perintah pemilik "lanjut kerjakan semua fase"; aditif).
   Ketiga tabel masuk `USER_DATA_TABLES`.
-- **`db/supabase-migration-030-class-reviews.sql`** — `my20fit_class_reviews` (rating 1–5 + ulasan kelas per
+- **`db/supabase-migration-030-class-reviews.sql`** — `my20fit_class_reviews` (rating 1–5 + `tags` masukan cepat (kunci dari
+  `CLASS_REVIEW_TAGS` server.js, ≤8) + ulasan kelas per
   `auth_user_id` + `booking_code`, unik per pasangan; nama kelas / tanggal / instruktur disalin server dari arena-api).
   Ditulis HANYA lewat `POST /api/class-reviews` setelah server cek booking milik user (arena-api by nomor HP profil),
-  status `confirmed`, jadwal sudah lewat. RLS: user baca miliknya. Masuk `USER_DATA_TABLES`.
+  status `confirmed`, jadwal sudah lewat. RLS: user baca miliknya. Masuk `USER_DATA_TABLES`. Dibaca rekap admin
+  `GET /api/admin/class-performance`. File idempoten (ada `add column if not exists tags` bila tabel sudah terlanjur dibuat).
   **BELUM DIJALANKAN — TANYA PEMILIK** (jalankan manual di SQL Editor staging & produksi). Selama belum ada,
   `/api/class-reviews` membalas 503 `not_ready` dan UI menampilkan "Fitur rating kelas belum aktif".
 - `supabase/functions/` — Edge Functions: `my20fit-ai`, `my20fit-foodimg`, `sync-ticket-events`, `ticket-embed` (TypeScript, di-deploy terpisah via Supabase). `ticket-embed` memegang secret `TICKET_EMBED_KEY` dan jadi **satu-satunya** jalur ke `ticket.20fit.id/api/embed/v1`; `server.js` tak punya env tiket sama sekali.
