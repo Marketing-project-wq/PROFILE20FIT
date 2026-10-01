@@ -316,6 +316,29 @@
   .qz{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:4px}
   .qz button{padding:8px 3px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;text-align:center;line-height:1.5}
   .qz button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  /* Pemilih jam tidur/bangun: tombol ▲▼ + AM/PM + pilihan cepat (tanpa ketik manual) */
+  .tpk{margin-top:12px;padding:12px;border:1px solid var(--a-line);border-radius:12px;background:var(--a-bg)}
+  .tpk-h{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--a-mut)}
+  .tpk-h .tpk-ic{color:var(--accent);display:inline-flex}
+  .tpk-row{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}
+  .tpk-col{display:flex;flex-direction:column;align-items:center}
+  .tpk-col button{width:52px;height:30px;border:0;border-radius:8px;background:none;color:var(--a-mut);cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .tpk-col button:hover,.tpk-col button:active{background:var(--a-line);color:var(--a-txt)}
+  .tpk-v{font-family:var(--mono);font-size:30px;font-weight:800;line-height:1.15;min-width:52px;text-align:center;color:var(--a-txt)}
+  .tpk-sep{font-family:var(--mono);font-size:28px;font-weight:800;color:var(--a-mut);margin-bottom:3px}
+  .tpk-ap{display:flex;flex-direction:column;gap:5px;margin-left:10px}
+  .tpk-ap button{width:54px;padding:7px 0;border-radius:8px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer}
+  .tpk-ap button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tpk-pre{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px}
+  .tpk-pre button{padding:5px 11px;border-radius:999px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .tpk-pre button.on{border-color:var(--accent);color:var(--accent)}
+  .slp-sum{margin:12px 0 2px;padding:10px 12px;border-radius:10px;background:var(--a-bg);font-size:13px;font-weight:700;text-align:center}
+  .slp-sum b{font-size:17px}
+  .slp-sum .ok{color:var(--green)} .slp-sum .low{color:var(--accent)}
+  .slp-sum .warn{display:block;margin-top:4px;font-size:12px;font-weight:600;color:var(--amber)}
+  .stp{display:flex;align-items:center;gap:12px}
+  .stp button{width:40px;height:40px;border-radius:10px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:20px;font-weight:700;cursor:pointer}
+  .stp span{font-family:var(--mono);font-size:20px;font-weight:800;min-width:28px;text-align:center}
   .slpmeta{display:flex;gap:16px;align-items:center;margin-top:2px}
   .slpmeta .b{font-size:22px;font-weight:800;font-family:var(--mono);line-height:1}
   .slpmeta .l{font-size:11px;color:var(--a-mut);margin-top:3px}
@@ -744,13 +767,14 @@
 
 <dialog id="slpDlg">
   <div style="font-weight:800;font-size:15px" id="slpDlgT">Catat tidur</div>
-  <div class="muted" style="font-size:12px;margin-top:3px" id="slpDlgS">Durasi dihitung otomatis dari jam tidur &amp; bangun.</div>
-  <label id="slpLbBed">Jam tidur</label><input id="slpBed" type="time">
-  <label id="slpLbWake">Jam bangun</label><input id="slpWake" type="time">
-  <div class="muted" id="slpDur" style="font-size:12.5px;margin:8px 0 2px">—</div>
+  <div class="muted" style="font-size:12px;margin-top:3px" id="slpDlgS">Atur jam dengan tombol ▲▼ atau pilih cepat di bawahnya.</div>
+  <div class="tpk" id="tpBed"></div>
+  <div class="tpk" id="tpWake"></div>
+  <div class="slp-sum" id="slpDur">—</div>
   <label id="slpLbQual">Kualitas tidur</label>
   <div class="qz" id="slpQual"></div>
-  <label id="slpLbAwake">Berapa kali terbangun</label><input id="slpAwake" type="number" min="0" inputmode="numeric" placeholder="0">
+  <label id="slpLbAwake">Berapa kali terbangun</label>
+  <div class="stp"><button type="button" id="slpAwMinus" aria-label="-">−</button><span id="slpAwakeV">0</span><button type="button" id="slpAwPlus" aria-label="+">+</button></div>
   <div id="slpErr" class="err" style="margin-top:10px"></div>
   <div style="display:flex;gap:8px;margin-top:14px">
     <button class="btn ghost" id="slpCancel" type="button">Batal</button>
@@ -1336,7 +1360,7 @@
     var body;
     if(s){
       var q=s.quality?('<span class="qbadge">'+esc(qualLabel(s.quality))+'</span>'):'';
-      var times=(s.bedtime&&s.wake_time)?(esc(fmtTime(s.bedtime))+" → "+esc(fmtTime(s.wake_time))):esc(Lx({en:"logged",id:"tercatat"}));
+      var times=(s.bedtime&&s.wake_time)?(esc(fmt12(fmtTimeInput(s.bedtime)))+" → "+esc(fmt12(fmtTimeInput(s.wake_time)))):esc(Lx({en:"logged",id:"tercatat"}));
       body=head+'<div class="slpmeta"><div><div class="b">'+esc(durLabel(dur))+'</div><div class="l">'+times+'</div></div>'+
         (q?('<div style="margin-left:auto">'+q+'</div>'):'')+'</div>'+
         '<div class="hbar"><i style="width:'+pct+'%;background:'+((dur!=null&&dur>=7)?"var(--green)":"var(--accent)")+'"></i></div>'+
@@ -1442,6 +1466,7 @@
     var glasses=Math.round(total/250);
     try{ await Auth.saveDaily({water_glasses:glasses}, SEL); }catch(e){}
     if(DAY&&DAY.daily){ DAY.daily.water_glasses=glasses; renderHabits(); }
+    loadHealthScore();   // air berubah -> komponen Hydration di Health Score dihitung ulang
   }
   // date opsional (default = hari terpilih). Tombol "+250ml" di Today's Plan selalu mencatat HARI INI
   // walau user sedang melihat tanggal lain — daftar di layar hanya ikut kalau tanggalnya sama.
@@ -1453,7 +1478,7 @@
       var res=await Auth.supabase.from("my20fit_hydration").insert({auth_user_id:uid, log_date:day, amount_ml:Math.round(ml), drink_type:type||"water"}).select().single();
       if(res.error) throw res.error;
       ok=true;
-      if(day===SEL){ HYDRA.push(res.data); renderHydra(); await syncWater(); }
+      if(day===SEL){ HYDRA.push(res.data); renderHydra(); await syncWater(); } else loadHealthScore();
     }catch(e){ showErr(Lx({en:"Couldn't save your drink. The hydration table may not be set up yet.",id:"Gagal menyimpan minuman. Tabel hidrasi mungkin belum disiapkan."}),false); }
     SH_BUSY=false;
     return ok;
@@ -1499,42 +1524,77 @@
     host.innerHTML=qs.map(function(q){ return '<button type="button" data-q="'+q[0]+'" class="'+(SLP_Q===q[0]?"on":"")+'">'+q[1]+'<br>'+esc(qualLabel(q[0]))+'</button>'; }).join("");
     Array.prototype.forEach.call(host.querySelectorAll("button"),function(b){ b.onclick=function(){ SLP_Q=b.getAttribute("data-q"); renderQual(); }; });
   }
+  // Jam tidur/bangun disimpan sebagai "HH:MM" 24 jam (dipakai calcDur/calcCross/mkTs); tampilan 12 jam AM/PM.
+  var SLP_T={bed:"22:00",wake:"06:00"}, SLP_AW=0;
+  var SLP_PRE={bed:["21:00","22:00","23:00","00:00"], wake:["05:00","06:00","07:00","08:00"]};
+  function pad2(n){ return (n<10?"0":"")+n; }
+  function hm(v){ var p=String(v||"").split(":"); return {h:(+p[0])||0, m:(+p[1])||0}; }
+  function fmt12(v){ var t=hm(v); return (t.h%12||12)+":"+pad2(t.m)+" "+(t.h>=12?"PM":"AM"); }
+  function tpHtml(key){
+    var t=hm(SLP_T[key]), pm=t.h>=12;
+    function col(f,val){ return '<div class="tpk-col"><button type="button" data-k="'+key+'" data-f="'+f+'" data-d="1" aria-label="+">'+FIC("chevup",18)+'</button>'+
+      '<div class="tpk-v">'+val+'</div><button type="button" data-k="'+key+'" data-f="'+f+'" data-d="-1" aria-label="-">'+FIC("chevdown",18)+'</button></div>'; }
+    return '<div class="tpk-h"><span class="tpk-ic">'+FIC(key==="bed"?"moon":"sunrise",16)+'</span>'+
+      esc(key==="bed"?Lx({en:"Bedtime",id:"Jam tidur"}):Lx({en:"Wake time",id:"Jam bangun"}))+'</div>'+
+      '<div class="tpk-row">'+col("h",pad2(t.h%12||12))+'<span class="tpk-sep">:</span>'+col("m",pad2(t.m))+
+      '<div class="tpk-ap"><button type="button" data-k="'+key+'" data-ap="am" class="'+(pm?"":"on")+'">AM</button>'+
+      '<button type="button" data-k="'+key+'" data-ap="pm" class="'+(pm?"on":"")+'">PM</button></div></div>'+
+      '<div class="tpk-pre">'+SLP_PRE[key].map(function(v){ return '<button type="button" data-k="'+key+'" data-pre="'+v+'" class="'+(v===SLP_T[key]?"on":"")+'">'+esc(fmt12(v))+'</button>'; }).join("")+'</div>';
+  }
+  function tpStep(key,f,d){
+    var t=hm(SLP_T[key]);
+    if(f==="h") t.h=(t.h+d+24)%24;
+    else t.m=((d>0?Math.floor(t.m/5)*5+5:Math.ceil(t.m/5)*5-5)+60)%60;   // kelipatan 5 menit
+    SLP_T[key]=pad2(t.h)+":"+pad2(t.m);
+  }
+  function renderSlpPick(){
+    ["bed","wake"].forEach(function(k){ var host=document.getElementById(k==="bed"?"tpBed":"tpWake"); if(host) host.innerHTML=tpHtml(k); });
+    document.getElementById("slpAwakeV").textContent=SLP_AW;
+    updateSlpDur();
+  }
   function updateSlpDur(){
-    var d=calcDur(document.getElementById("slpBed").value,document.getElementById("slpWake").value);
-    document.getElementById("slpDur").textContent = d!=null?(Lx({en:"Duration",id:"Durasi"})+": "+durLabel(d)):"—";
+    var d=calcDur(SLP_T.bed,SLP_T.wake), host=document.getElementById("slpDur");
+    if(d==null){ host.textContent="—"; return; }
+    host.innerHTML=esc(Lx({en:"Sleep duration",id:"Durasi tidur"}))+': <b class="'+(d>=7?"ok":"low")+'">'+esc(durLabel(d))+'</b>'+
+      // Durasi tak wajar biasanya salah AM/PM (mis. tidur "12:00 PM" = siang) -> ingatkan, tidak memblokir.
+      (d>14?'<span class="warn">'+esc(Lx({en:"Over 14 hours — check AM/PM.",id:"Lebih dari 14 jam — cek lagi AM/PM-nya."}))+'</span>':'');
   }
   function setSlpLabels(){
     document.getElementById("slpDlgT").textContent=Lx({en:"Log sleep",id:"Catat tidur"});
-    document.getElementById("slpDlgS").textContent=Lx({en:"Duration is calculated from bedtime & wake time.",id:"Durasi dihitung otomatis dari jam tidur & bangun."});
-    document.getElementById("slpLbBed").textContent=Lx({en:"Bedtime",id:"Jam tidur"});
-    document.getElementById("slpLbWake").textContent=Lx({en:"Wake time",id:"Jam bangun"});
+    document.getElementById("slpDlgS").textContent=Lx({en:"Set the time with ▲▼ or tap a quick pick below it.",id:"Atur jam dengan tombol ▲▼ atau pilih cepat di bawahnya."});
     document.getElementById("slpLbQual").textContent=Lx({en:"Sleep quality",id:"Kualitas tidur"});
     document.getElementById("slpLbAwake").textContent=Lx({en:"Times woken up",id:"Berapa kali terbangun"});
     document.getElementById("slpCancel").textContent=Lx({en:"Cancel",id:"Batal"});
     document.getElementById("slpSave").textContent=Lx({en:"Save",id:"Simpan"});
   }
   function openSleepDlg(){
-    var s=SLEEP||{};
-    document.getElementById("slpBed").value=s.bedtime?fmtTimeInput(s.bedtime):"";
-    document.getElementById("slpWake").value=s.wake_time?fmtTimeInput(s.wake_time):"";
-    document.getElementById("slpAwake").value=(s.awake_times!=null?s.awake_times:"");
-    SLP_Q=s.quality||null;
+    // Isi awal: catatan hari ini; kalau belum ada, jam dari catatan terakhir user; kalau belum pernah, 10 PM → 6 AM.
+    var s=SLEEP, last=SLEEP7.filter(function(r){ return r.bedtime&&r.wake_time; }).slice(-1)[0], src=(s&&s.bedtime&&s.wake_time)?s:last;
+    SLP_T={ bed:src?fmtTimeInput(src.bedtime):"22:00", wake:src?fmtTimeInput(src.wake_time):"06:00" };
+    SLP_AW=(s&&s.awake_times!=null)?(+s.awake_times||0):0;
+    SLP_Q=(s&&s.quality)||null;
     document.getElementById("slpErr").textContent="";
-    setSlpLabels(); renderQual(); updateSlpDur();
+    setSlpLabels(); renderQual(); renderSlpPick();
     document.getElementById("slpDlg").showModal();
   }
   function wireSleepDlg(){
-    var bed=document.getElementById("slpBed"), wake=document.getElementById("slpWake");
-    if(bed){ bed.onchange=updateSlpDur; bed.oninput=updateSlpDur; }
-    if(wake){ wake.onchange=updateSlpDur; wake.oninput=updateSlpDur; }
-    var cancel=document.getElementById("slpCancel"); if(cancel) cancel.onclick=function(){ document.getElementById("slpDlg").close(); };
-    var save=document.getElementById("slpSave"); if(save) save.onclick=saveSleep;
+    var dlg=document.getElementById("slpDlg"); if(!dlg) return;
+    dlg.addEventListener("click",function(ev){
+      var b=ev.target.closest("button[data-k]"); if(!b) return;
+      var k=b.getAttribute("data-k");
+      if(b.hasAttribute("data-pre")) SLP_T[k]=b.getAttribute("data-pre");
+      else if(b.hasAttribute("data-ap")){ var t=hm(SLP_T[k]); t.h=t.h%12+(b.getAttribute("data-ap")==="pm"?12:0); SLP_T[k]=pad2(t.h)+":"+pad2(t.m); }
+      else tpStep(k,b.getAttribute("data-f"),+b.getAttribute("data-d"));
+      renderSlpPick();
+    });
+    document.getElementById("slpAwMinus").onclick=function(){ SLP_AW=Math.max(0,SLP_AW-1); renderSlpPick(); };
+    document.getElementById("slpAwPlus").onclick=function(){ SLP_AW=Math.min(20,SLP_AW+1); renderSlpPick(); };
+    document.getElementById("slpCancel").onclick=function(){ dlg.close(); };
+    document.getElementById("slpSave").onclick=saveSleep;
   }
   async function saveSleep(){
-    var bed=document.getElementById("slpBed").value, wake=document.getElementById("slpWake").value;
-    var dur=calcDur(bed,wake);
-    if(dur==null){ document.getElementById("slpErr").textContent=Lx({en:"Enter bedtime and wake time.",id:"Isi jam tidur dan jam bangun."}); return; }
-    var awake=parseInt(document.getElementById("slpAwake").value,10); if(!isFinite(awake)||awake<0) awake=null;
+    var bed=SLP_T.bed, wake=SLP_T.wake, dur=calcDur(bed,wake), awake=SLP_AW;
+    if(dur==null){ document.getElementById("slpErr").textContent=Lx({en:"Set bedtime and wake time.",id:"Atur jam tidur dan jam bangun."}); return; }
     var btn=document.getElementById("slpSave"); btn.disabled=true;
     try{
       var uid=await ensureUid(); if(!uid) throw new Error("uid");
@@ -1550,6 +1610,7 @@
       renderSleep();
       try{ await Auth.saveDaily({sleep_hours:dur}, SEL); }catch(e){}
       if(DAY&&DAY.daily){ DAY.daily.sleep_hours=dur; renderHabits(); }
+      loadHealthScore();   // tidur baru -> komponen Sleep di Health Score dihitung ulang
     }catch(e){ document.getElementById("slpErr").textContent=Lx({en:"Couldn't save. The sleep table may not be set up yet.",id:"Gagal menyimpan. Tabel tidur mungkin belum disiapkan."}); }
     btn.disabled=false;
   }
@@ -1984,7 +2045,7 @@
         else if(a==="upload") uploadWorkoutGo();
         else if(a==="reply") coachAskGo(Lx({en:"About today's plan you gave me: \""+(p.coach_says||"")+"\" — ",id:"Soal plan hari ini: \""+(p.coach_says||"")+"\" — "}));
         else if(a==="water"){ b.disabled=true; var ok=await addDrink(250,"water",todayYmd()); b.disabled=false;
-          if(ok){ b.textContent="✓ +250ml"; setTimeout(function(){ b.textContent="+250ml"; },1600); loadHealthScore(); } }
+          if(ok){ b.textContent="✓ +250ml"; setTimeout(function(){ b.textContent="+250ml"; },1600); } }
       };
     });
   }

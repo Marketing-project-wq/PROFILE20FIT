@@ -719,6 +719,13 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Catat tidur di /activity — Health Score tidak ikut berubah — DIPERBAIKI 2026-10-01.** Data tidur sebenarnya
+  tersimpan (`my20fit_sleep`, dicek di DB), tapi Health Score tidak di-fetch ulang setelah simpan, jadi baris "Sleep"
+  tetap "+ Log sleep" sampai halaman dimuat ulang. Sama untuk gelas air. Sekarang simpan tidur & ubah air memanggil
+  `loadHealthScore()`. **Dialog dirombak:** tanpa ketik manual — jam/menit pakai tombol ▲▼ (menit kelipatan 5),
+  toggle **AM/PM**, pilihan cepat (9 PM–12 AM / 5–8 AM), stepper "berapa kali terbangun", ringkasan durasi; durasi
+  > 14 jam memunculkan peringatan "cek AM/PM" (tidak memblokir). Isi awal = catatan hari itu → catatan terakhir →
+  10 PM–6 AM. Kartu tidur menampilkan jam 12-jam. Penyimpanan (kolom & format) tidak berubah.
 - **`/activity/plan` untuk plan dari chat coach — dirapikan 2026-10-01.** Halaman ini sudah membaca plan aktif
   (`GET /api/coach/plan`) + daftar (`/api/coach/plans`), jadi plan hasil chat (setelah fix di bawah) tampil di sini.
   Yang diperbaiki: reps teks dari coach ("20 menit", "AMRAP") tidak lagi ditempeli satuan ("20 menit rep") dan tidak
