@@ -750,6 +750,10 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Pencapaian di /profile berjejer ke samping — 1 Okt 2026, permintaan pemilik.** Lencana tidak lagi menumpuk ke bawah
+  (dulu 1 kolom di HP, ±560px): strip horizontal yang bisa digeser (kartu 92px, scroll-snap), lencana terbuka di depan
+  (CSS `order`), ringkasan "n dari 7 terbuka minggu ini · Geser →". Hanya CSS/markup di profile.html; `Ach.gridHTML`
+  (dipakai juga progress.html legacy) tidak diubah.
 - **Tur fitur: tombol di Profil dihapus, tur otomatis untuk SEMUA user baru — 1 Okt 2026, permintaan pemilik.**
   Tombol "Tur fitur" + key i18n `prof_tour` dihapus dari /profile. Tur `welcome` (dashboard: menu + fitur unggulan)
   tidak lagi dibatasi `auto_if: "no_scan"` → user baru yang masuk lewat claim Visbody juga mendapatkannya. Properti

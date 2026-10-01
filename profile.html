@@ -38,15 +38,18 @@
   .ok{color:#2A7A4F}.err{color:var(--red)}
   .sec{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);font-weight:700;margin:8px 2px 8px}
   /* Pencapaian (grid dari js/achievements.js) */
-  .achg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .ach{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--inp)}
-  .ach.on{background:rgba(42,122,79,.10);border-color:rgba(42,122,79,.35)}
+  /* Lencana berjejer ke samping (geser di HP) — tidak menumpuk ke bawah */
+  .ach-sum{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12px;color:var(--muted);margin:0 2px 10px}
+  .ach-sum b{color:var(--txt);font-size:14px}
+  .achg{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:0 -4px;padding:2px 4px 4px}
+  .achg::-webkit-scrollbar{display:none}
+  .ach{flex:0 0 92px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;padding:10px 6px;border:1px solid var(--line);border-radius:14px;background:var(--inp)}
+  .ach.on{order:-1;background:rgba(42,122,79,.10);border-color:rgba(42,122,79,.35)}   /* yang terbuka di depan */
   .ach.off{opacity:.5}
   .ach .em{flex:0 0 auto;display:grid;place-items:center}
   .ach .emi{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .ach .t{font-size:12px;font-weight:800;line-height:1.25}
-  .ach .s{font-size:10px;color:var(--muted)}
-  @media(max-width:560px){ .achg{grid-template-columns:1fr} }
+  .ach .t{font-size:11.5px;font-weight:800;line-height:1.2}
+  .ach .s{font-size:10px;color:var(--muted);margin-top:2px}
   /* Riwayat & Transaksi — bar filter, penanda tanggal, baris transaksi (warna per jenis) */
   .txc{padding-top:14px}
   .tx-bar{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -4px;padding:2px 4px 10px;border-bottom:1px solid var(--line)}
@@ -383,7 +386,12 @@
 
     // ---- Pencapaian (minggu berjalan, aturan lencana dari js/achievements.js) ----
     var ACH_STATS=null;
-    function renderAchievements(){ var el=document.getElementById("achCard"); if(el&&ACH_STATS) el.innerHTML=Ach.gridHTML(ACH_STATS); }
+    function renderAchievements(){
+      var el=document.getElementById("achCard"); if(!el||!ACH_STATS) return;
+      var n=Ach.earned(ACH_STATS).length, tot=Ach.DEFS.length;
+      el.innerHTML='<div class="ach-sum"><span><b>'+n+'</b> '+escapeHtml(L({en:"of "+tot+" unlocked this week",id:"dari "+tot+" terbuka minggu ini"}))+'</span>'+
+        '<span>'+escapeHtml(L({en:"Swipe →",id:"Geser →"}))+'</span></div>'+Ach.gridHTML(ACH_STATS);
+    }
     async function loadAchievements(){
       var rows=[], hasMcu=false;
       try{ var r=await Auth.supabase.from("my20fit_daily_log").select("log_date,water_glasses,sleep_hours,cal_items").eq("auth_user_id",user.id).gte("log_date",Ach.weekDates()[0]).order("log_date"); rows=r.data||[]; }catch(e){}
