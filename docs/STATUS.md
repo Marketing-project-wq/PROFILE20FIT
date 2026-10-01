@@ -247,9 +247,9 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     `POST /api/coach/plan/activate`). Kartu Active Plan di `/activity`: "oleh Coach X", durasi per hari
     (plan dari chat), penanda "← hari ini" kalau label hari = nama hari.
   - Chat: balasan berisi blok JSON `workout_plan` → otomatis jadi plan aktif (`my20fit_workout_plan`,
-    `source="chat"`); kelas upcoming milik coach persona masuk konteks (rekomendasi kelas coach sendiri);
+    `source="ai"` + `plan.origin="chat"` — lihat catatan 2026-10-01 di §4); kelas upcoming milik coach persona masuk konteks (rekomendasi kelas coach sendiri);
     ajakan Visbody scan kalau user belum punya data; token tombol `[[BOOK_CLASS]]` `[[BOOK_DOCTOR]]`
-    `[[ARENA_MAPS]]` `[[VISBODY]]` `[[TRACK_MEAL]]` `[[PLAN_SAVED]]`. Header chat: streak + level.
+    `[[ARENA_MAPS]]` `[[VISBODY]]` `[[TRACK_MEAL]]`, kartu `[[WORKOUT_PLAN]]` (tabel). Header chat: streak + level.
     Balasan singkat & **tanpa sapaan pembuka** (pengingat gaya ditaruh setelah riwayat).
   - **Meal plan dari coach (migration 027, dijalankan 2026-09-30):** blok JSON `meal_plan` di balasan →
     kartu di chat + tombol **"Terapkan meal plan"** (`POST /api/coach/meal-plan/apply`, divalidasi ulang di server)
@@ -689,6 +689,17 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 - Bangun + sambungkan API Event (`/api/events`) ke `event.html`.
 
 ## 4. Bug / utang teknis diketahui
+- **Workout plan dari chat TIDAK PERNAH tersimpan — DIPERBAIKI 2026-10-01.** Plan dari chat disimpan dengan
+  `source="chat"`, padahal CHECK `my20fit_workout_plan_src_chk` (migration 021) hanya mengizinkan `ai|rule|adjusted`
+  → insert selalu ditolak, blok JSON dibuang, user melihat ruang kosong di balasan (dan plan aktif lama sudah lebih dulu
+  dinonaktifkan). Dicek di DB 2026-10-01: tabel masih kosong, jadi tak ada data user yang terdampak. Sekarang: disimpan
+  `source="ai"` + `plan.origin="chat"` (tanpa migration), plan baru disimpan DULU baru plan lama dinonaktifkan; balasan
+  memuat `[[WORKOUT_PLAN]]{json}` → **tabel** di chat (hari · fokus · latihan set×rep · menit) + "Ubah di Activity";
+  balasan yang terpotong di tengah JSON diganti catatan "minta ulang". **/activity:** kartu Workout Plan kini tabel per
+  hari (centang selesai) + **editor** (`POST /api/coach/plan/adjust` op `edit`: nama plan, hari, fokus, durasi, latihan,
+  set/rep/satuan, tambah/hapus; dinormalisasi ulang server lewat `coachValidateProgram`) + "Plan baru via coach" +
+  "Semua plan". Batas token balasan chat tetap 2048 (edge fn) — plan sangat panjang bisa terpotong; prompt membatasi
+  maks 6 latihan/hari.
 - **Chat coach membalas "Terlalu banyak permintaan" — DIPERBAIKI 2026-09-30.** Penyebab: limiter umum `apiLimiter`
   50 request/10 menit **per IP** untuk SEMUA `/api/*` (satu putaran dashboard ±15 + activity ±8 + chat ±8 panggilan),
   apalagi member berbagi IP (Wi-Fi kantor/gym, NAT seluler); `/api/banners/*` juga terhitung dua kali. Sekarang:

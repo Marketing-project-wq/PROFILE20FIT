@@ -10358,7 +10358,8 @@ app.post("/api/coach/plan/activate", async (req, res) => {
     return res.json({ ok: true, plan: data });
   } catch (e) { console.error("coach/plan/activate:", e.message); return res.status(500).json({ error: "Gagal mengaktifkan plan." }); }
 });
-// POST /api/coach/plan/adjust — {op:"level",dir} | {op:"swap",day_key,ex_key} | {op:"done",day_key,done}. Ubah plan aktif.
+// POST /api/coach/plan/adjust — {op:"level",dir} | {op:"swap",day_key,ex_key} | {op:"done",day_key,done}
+// | {op:"edit",plan_name,days}. Ubah plan aktif.
 app.post("/api/coach/plan/adjust", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
@@ -10377,6 +10378,31 @@ app.post("/api/coach/plan/adjust", async (req, res) => {
       if (idx < 0) return res.status(400).json({ error: "Hari plan tidak ditemukan." });
       const next = Object.assign({}, plan, { days: days.map((d, i) => (i === idx ? Object.assign({}, d, { done: !!b.done }) : d)) });
       const { data, error } = await admin.from("my20fit_workout_plan").update({ plan: next, updated_at: new Date().toISOString() }).eq("id", active.id).select().single();
+      if (error) throw error;
+      return res.json({ ok: true, plan: data });
+    }
+    // op "edit": user mengubah plan sendiri di Activity (nama, hari, fokus, durasi, latihan, set/rep).
+    // Isi dari klien TIDAK dipercaya: dinormalisasi ulang lewat coachValidateProgram (batas yang sama
+    // dgn plan dari quiz/chat). done & durasi per hari dibawa ulang karena validator tak menyimpannya.
+    if (op === "edit") {
+      const inDays = (Array.isArray(b.days) ? b.days.slice(0, 7) : []).filter(function (d) { return d && typeof d === "object"; }).map(function (d) {
+        return Object.assign({}, d, { exercises: (Array.isArray(d.exercises) ? d.exercises : []).filter(function (e) { return e && typeof e === "object"; })
+          .map(function (e) { return Object.assign({}, e, { name: String(e.name || "").trim() }); }) });
+      });
+      const kept = inDays.filter(function (d) { return d.exercises.some(function (e) { return e.name; }); });   // = hari yang lolos validator
+      const v = coachValidateProgram(Object.assign({}, plan, {
+        plan_name: String(b.plan_name || "").trim() || (plan && plan.plan_name),
+        days: kept.map(function (d, i) { return Object.assign({}, d, { key: "d" + (i + 1) }); }),
+        days_per_week: null,
+      }));
+      if (!v) return res.status(400).json({ error: "Plan minimal punya 1 hari dengan 1 latihan." });
+      v.days.forEach(function (d, i) {
+        const src = kept[i] || {};
+        const m = parseInt(src.duration_min, 10); if (m > 0) d.duration_min = Math.min(240, m);
+        if (src.done === true) d.done = true;
+      });
+      ["coach", "origin"].forEach(function (k) { if (plan && plan[k]) v[k] = plan[k]; });
+      const { data, error } = await admin.from("my20fit_workout_plan").update({ plan: v, source: "adjusted", updated_at: new Date().toISOString() }).eq("id", active.id).select().single();
       if (error) throw error;
       return res.json({ ok: true, plan: data });
     }
@@ -10773,7 +10799,9 @@ const COACH_CHAT_RULES =
   "BUAT PLAN: kalau goal user belum jelas dari data (goals/profile/active_plan) TANYA goal-nya dulu, jangan langsung buat. " +
   "Kalau sudah jelas, balas kalimat singkat + SATU blok ```json berisi {\"type\":\"workout_plan\",\"title\":\"...\",\"goal\":\"...\"," +
   "\"days\":[{\"day\":\"Senin\",\"name\":\"HIIT Circuit\",\"duration_min\":45,\"exercises\":[{\"name\":\"Squat\",\"sets\":3,\"reps\":\"12\",\"rest_sec\":60}]}]," +
-  "\"notes\":\"...\"} — hari istirahat cukup tidak dicantumkan. Plan otomatis tersimpan jadi plan aktif user. " +
+  "\"notes\":\"...\"} — hari istirahat cukup tidak dicantumkan; maks 6 latihan per hari, JSON ringkas tanpa field lain. " +
+  "Plan otomatis tersimpan jadi plan aktif user dan aplikasi menampilkannya sebagai TABEL — JANGAN tulis ulang isi plan di teks; " +
+  "cukup 1-2 kalimat (fokus plan + hari istirahat). User bisa mengubah plan itu sendiri di halaman Activity. " +
   "VISBODY: kalau data visbody null dan user minta plan / analisa tubuh, tetap bantu dengan data yang ada, lalu ajak Visbody scan di 20FIT Arena " +
   "(Menteng Prada, ±5 menit: body fat, muscle mass, BMR, dll) + [[ARENA_MAPS]] [[BOOK_CLASS]]. Kalau user tak mau/tak bisa, minta berat, tinggi, umur & goal saja. " +
   "MEAL PLAN: HANYA kalau user minta meal plan / menu makan SEHARI (goal/target belum jelas dari data -> tanya singkat dulu), " +
@@ -10844,10 +10872,25 @@ function coachChatSystem(coachId, ctx, lang, classes) {
     "\n\ncoach_classes (kelas upcoming milik " + COACH_PERSONAS[coachId].name + "):\n" + JSON.stringify(classes || []) +
     "\n\nBahasa jawaban: " + (lang === "en" ? "English." : "Bahasa Indonesia (atau ikuti bahasa user).");
 }
-// Blok ```json {"type":"workout_plan"} di balasan chat -> plan aktif (my20fit_workout_plan, source "chat").
+// Blok ```json {"type":"workout_plan"} di balasan chat -> plan aktif (my20fit_workout_plan).
 // Dinormalisasi lewat coachValidateProgram (bentuk sama dgn plan dari quiz). Blok diganti token
-// [[PLAN_SAVED]] (frontend -> kartu plan). Gagal parse/validasi -> blok dibuang, teks lain tetap.
+// [[WORKOUT_PLAN]]{json}[[/WORKOUT_PLAN]] (frontend -> TABEL plan + link ubah di Activity).
+// Gagal parse/validasi -> blok dibuang, teks lain tetap.
 const COACH_PLAN_BLOCK = /```(?:json)?\s*(\{[\s\S]*?"type"\s*:\s*"workout_plan"[\s\S]*?\})\s*```/;
+// Blok plan yang TERPOTONG (batas token habis sebelum ``` penutup) -> jangan tampilkan JSON mentah.
+const COACH_PLAN_CUT = /```(?:json)?\s*\{[\s\S]*?"workout_plan"[\s\S]*$/;
+const COACH_PLAN_TOKEN = /\[\[WORKOUT_PLAN\]\]([\s\S]*?)\[\[\/WORKOUT_PLAN\]\]/g;
+// Isi token = ringkasan untuk tabel di chat (bukan sumber kebenaran; plan aslinya di DB).
+function coachPlanCard(row, prog) {
+  const str = function (v, max) { return String(v == null ? "" : v).replace(/[\[\]]/g, "").slice(0, max); };
+  return {
+    id: row ? row.id : null, saved: !!row, title: str(prog.plan_name, 80), note: str(prog.weekly_note, 300),
+    days: prog.days.map(function (d) {
+      return { label: str(d.label, 40), focus: str(d.focus, 40), duration_min: d.duration_min || null,
+        exercises: d.exercises.map(function (e) { return { name: str(e.name, 80), sets: e.sets, reps: str(e.reps, 20), unit: e.unit }; }) };
+    }),
+  };
+}
 function coachChatPlanToProgram(j, coachId) {
   if (!j || j.type !== "workout_plan" || !Array.isArray(j.days)) return null;
   const train = j.days.filter(function (d) { return d && Array.isArray(d.exercises) && d.exercises.length; });
@@ -10864,10 +10907,15 @@ function coachChatPlanToProgram(j, coachId) {
   }
   return v;
 }
+// source "ai" (CHECK my20fit_workout_plan_src_chk hanya ai/rule/adjusted — "chat" dulu SELALU ditolak,
+// plan dari chat tak pernah tersimpan). Asal chat ditandai di plan.origin. Simpan DULU baru
+// nonaktifkan plan lama, supaya gagal simpan tidak membuat user kehilangan plan aktifnya.
 async function coachSaveChatPlan(uid, planObj) {
-  await admin.from("my20fit_workout_plan").update({ is_active: false, updated_at: new Date().toISOString() }).eq("auth_user_id", uid).eq("is_active", true);
-  const { data, error } = await admin.from("my20fit_workout_plan").insert({ auth_user_id: uid, goal: planObj.goal || null, level: planObj.level || null, plan: planObj, version: 1, is_active: true, source: "chat", updated_at: new Date().toISOString() }).select().single();
+  const now = new Date().toISOString();
+  planObj.origin = "chat";
+  const { data, error } = await admin.from("my20fit_workout_plan").insert({ auth_user_id: uid, goal: planObj.goal || null, level: planObj.level || null, plan: planObj, version: 1, is_active: true, source: "ai", updated_at: now }).select().single();
   if (error) throw error;
+  await admin.from("my20fit_workout_plan").update({ is_active: false, updated_at: now }).eq("auth_user_id", uid).eq("is_active", true).neq("id", data.id);
   jnLog(uid, "workout_plan_created", { source: "chat" });
   return data;
 }
@@ -10893,8 +10941,13 @@ function coachNormMealPlan(j) {
   return { type: "meal_plan", title: str(j.title, 80) || "Meal plan", calorie_target: target, meals: meals, notes: str(j.notes, 300) || null };
 }
 // Riwayat untuk AI: token kartu dikembalikan ke bentuk blok ```json (format yang diminta aturan).
+// Tabel workout plan cukup diringkas (isi lengkapnya sudah ada di active_plan DATA USER).
 function coachHistoryForAi(content) {
-  return String(content || "").replace(COACH_MEAL_TOKEN, function (m, js) { return "```json\n" + js + "\n```"; });
+  return String(content || "").replace(COACH_MEAL_TOKEN, function (m, js) { return "```json\n" + js + "\n```"; })
+    .replace(COACH_PLAN_TOKEN, function (m, js) {
+      let t = ""; try { t = JSON.parse(js).title || ""; } catch (e) {}
+      return "(Workout plan \"" + t + "\" sudah dikirim ke user sebagai tabel & tersimpan jadi plan aktif.)";
+    });
 }
 // Pengingat gaya di akhir (setelah riwayat) — riwayat panjang cenderung menyeret model ke gaya lama.
 const COACH_CHAT_REMINDER = "PENGINGAT: tanpa sapaan pembuka, langsung ke inti, maks 3-4 kalimat pendek kecuali user minta detail. " +
@@ -10953,7 +11006,15 @@ app.post("/api/coach/chat", async (req, res) => {
       let prog = null;
       try { prog = coachChatPlanToProgram(JSON.parse(pm[1]), coachId); } catch (e) { prog = null; }
       if (prog) { try { savedPlan = await coachSaveChatPlan(user.id, prog); } catch (e) { console.error("coach/chat plan:", e.message); } }
-      reply = reply.replace(COACH_PLAN_BLOCK, savedPlan ? "[[PLAN_SAVED]]" : "").trim();
+      if (!prog) console.error("coach/chat plan: blok workout_plan tidak valid");
+      reply = reply.replace(COACH_PLAN_BLOCK, function () {
+        return prog ? "[[WORKOUT_PLAN]]" + JSON.stringify(coachPlanCard(savedPlan, prog)) + "[[/WORKOUT_PLAN]]"
+          : (lang === "en" ? "(The plan couldn't be read — ask me to make it again.)" : "(Plan-nya gagal terbaca — minta aku buatkan ulang ya.)");
+      }).replace(/\n{3,}/g, "\n\n").trim();
+    } else if (COACH_PLAN_CUT.test(reply)) {
+      // Balasan terpotong di tengah JSON -> buang JSON mentahnya, beri tahu user.
+      reply = reply.replace(COACH_PLAN_CUT, "").trim() + "\n\n" +
+        (lang === "en" ? "(The plan got cut off — ask me again, e.g. \"make it 4 days\".)" : "(Plan-nya kepotong — minta ulang ya, mis. \"buat 4 hari saja\".)");
     }
     const mm = reply.match(COACH_MEAL_BLOCK);
     if (mm) {
