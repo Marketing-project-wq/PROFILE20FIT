@@ -137,6 +137,23 @@
   .rv-lbl{text-align:center;font-size:13px;font-weight:800;min-height:18px;margin-bottom:12px}
   .rv-cnt{text-align:right;font-size:11px;color:var(--muted);margin-top:4px}
   .rv-note{display:flex;gap:8px;align-items:flex-start;margin-top:16px;padding:12px;border-radius:12px;background:var(--inp);font-size:13px;color:var(--muted);line-height:1.5}
+  .rv-tags{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 14px}
+  .rv-tag{padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:var(--inp);color:var(--txt);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .rv-tag[aria-pressed="true"]{background:var(--red,#E4002B);border-color:var(--red,#E4002B);color:#fff}
+  /* Kartu "Nilai kelasmu" di atas riwayat: kelas yang sudah lewat & belum dinilai */
+  .rt-card{margin:12px 0 4px;padding:14px;border-radius:14px;border:1px solid color-mix(in srgb,var(--amber,#E8912A) 40%,var(--line));background:var(--amber-soft,rgba(232,145,42,.10))}
+  .rt-hd{display:flex;gap:10px;align-items:flex-start}
+  .rt-ic{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:18px;color:#fff;background:var(--amber,#E8912A)}
+  .rt-t{font-weight:800;font-size:14.5px}
+  .rt-s{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4}
+  .rt-row{display:flex;align-items:center;gap:10px;padding:10px 0 0;margin-top:10px;border-top:1px dashed color-mix(in srgb,var(--amber,#E8912A) 35%,var(--line))}
+  .rt-b{flex:1;min-width:0}
+  .rt-n{font-weight:800;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rt-m{font-size:11.5px;color:var(--muted);margin-top:1px}
+  .rt-stars{flex:none;display:flex;gap:2px}
+  .rt-stars button{border:0;background:none;padding:2px;font-size:21px;line-height:1;color:var(--faint,#B7B9BF);cursor:pointer;font-family:inherit}
+  .rt-stars button:hover,.rt-stars button:focus-visible{color:var(--amber,#E8912A)}
+  .rt-more{margin-top:10px;border:0;background:none;color:var(--red,#E4002B);font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;padding:0}
   .tx-rv{display:flex;align-items:center;gap:6px;margin-top:5px;font-size:12px;min-width:0}
   .tx-rv .st{color:var(--amber,#E8912A);letter-spacing:1px;flex:none}
   .tx-rv .c{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -614,7 +631,8 @@
       else if(ARENA&&ARENA.error) note='<div class="tx-note">'+FIC("info",14)+' '+escapeHtml(ARENA.error==="no_phone"
         ?L({en:"Add your phone number in your profile to see your class, package & venue history.",id:"Isi nomor HP di profil untuk melihat riwayat kelas, paket & venue kamu."})
         :L({en:"Couldn't load your 20FIT Arena history right now.",id:"Belum bisa memuat riwayat 20FIT Arena kamu sekarang."}))+'</div>';
-      if(!TX_ITEMS.length){ list.innerHTML=note+(ARENA===undefined?'':'<div class="muted tx-empty">'+escapeHtml(L({en:"No transactions yet. Book a class at booking.20fit.id or top up calorie scans — they'll appear here.",id:"Belum ada transaksi. Booking kelas di booking.20fit.id atau top up scan kalori — riwayatnya muncul di sini."}))+'</div>'); return; }
+      var rate=rateCardHTML(all);
+      if(!TX_ITEMS.length){ list.innerHTML=note+rate+(ARENA===undefined?'':'<div class="muted tx-empty">'+escapeHtml(L({en:"No transactions yet. Book a class at booking.20fit.id or top up calorie scans — they'll appear here.",id:"Belum ada transaksi. Booking kelas di booking.20fit.id atau top up scan kalori — riwayatnya muncul di sini."}))+'</div>'); return; }
       var h="", last=null;
       TX_ITEMS.slice(0,TX_SHOWN).forEach(function(t,i){
         var dk=dayKey(t.ts);
@@ -639,13 +657,15 @@
             '<div class="tx-ft"><span class="badge '+S.cls+'">'+escapeHtml(S.label)+'</span><div class="ord-acts">'+acts+'</div></div></div></div>';
       });
       if(TX_ITEMS.length>TX_SHOWN) h+='<button type="button" class="loadmore" id="txMore">'+L({en:"Load more ("+(TX_ITEMS.length-TX_SHOWN)+" more)",id:"Muat lebih ("+(TX_ITEMS.length-TX_SHOWN)+" lagi)"})+'</button>';
-      list.innerHTML=note+h;
+      list.innerHTML=note+rate+h;
     }
     (function(){
       var bar=document.getElementById("txBar"), list=document.getElementById("txList");
       if(bar) bar.addEventListener("click",function(e){ var b=e.target.closest("[data-f]"); if(!b) return; TX_FILTER=b.getAttribute("data-f"); TX_SHOWN=8; renderTx(); });
       if(list) list.addEventListener("click",function(e){
         if(e.target.closest("#txMore")){ TX_SHOWN+=8; renderTx(); return; }
+        var rq=e.target.closest("[data-rq]"); if(rq){ openReview(RATE_ITEMS[+rq.getAttribute("data-rq")],+rq.getAttribute("data-n")||0); return; }
+        if(e.target.closest("#rtMore")){ TX_FILTER="class"; TX_SHOWN=8; renderTx(); return; }
         if(e.target.closest(".oa-pay,.oa-cancel,.oa-again:not([data-rv])")) return;   // punya onclick sendiri
         // Elemen terdalam menang: tombol "Lihat bon" (data-rc) di dalam baris kelas (data-rv = buka rating).
         var el=e.target.closest("[data-rc],[data-rv]"); if(!el) return;
@@ -697,7 +717,7 @@
 
     // ---- Rating & ulasan kelas: /api/class-reviews (tabel my20fit_class_reviews, migration 030) ----
     // REVIEWS: undefined = memuat · "off" = belum aktif / gagal · {booking_code: {rating, comment}}
-    var REVIEWS=undefined, RV_T=null, RV_VAL=0;
+    var REVIEWS=undefined, RV_T=null, RV_VAL=0, RV_TAGDEFS=[], RV_SEL=[], RATE_ITEMS=[];
     var RV_LBL=[null,{en:"Poor",id:"Kurang"},{en:"Fair",id:"Cukup"},{en:"Good",id:"Bagus"},{en:"Great",id:"Sangat bagus"},{en:"Excellent",id:"Luar biasa"}];
     function stars(n){ var s=""; for(var i=1;i<=5;i++) s+=i<=n?"★":"☆"; return s; }
     function todayYmdLocal(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
@@ -706,13 +726,28 @@
       try{
         var r=await corpFetch("/api/class-reviews"); var j=await r.json().catch(function(){return{};});
         if(!r.ok){ REVIEWS="off"; renderTx(); return; }
-        var m={}; (j.reviews||[]).forEach(function(x){ m[x.booking_code]=x; }); REVIEWS=m;
+        var m={}; (j.reviews||[]).forEach(function(x){ m[x.booking_code]=x; }); REVIEWS=m; RV_TAGDEFS=j.tags||[];
       }catch(e){ REVIEWS="off"; }
       renderTx();
     }
-    function openReview(t){
+    // Kelas yang sudah lewat & belum dinilai -> kartu "Nilai kelasmu" (maks 3 baris, bintang langsung bisa diketuk).
+    function rateCardHTML(all){
+      RATE_ITEMS=[];
+      if(!REVIEWS||REVIEWS==="off"||(TX_FILTER!=="all"&&TX_FILTER!=="class")) return "";
+      RATE_ITEMS=all.filter(function(t){ return canRate(t)&&!REVIEWS[t.code]; });
+      if(!RATE_ITEMS.length) return "";
+      var n=RATE_ITEMS.length;
+      return '<div class="rt-card"><div class="rt-hd"><span class="rt-ic" aria-hidden="true">★</span><div><div class="rt-t">'+escapeHtml(L({en:"Rate your classes",id:"Nilai kelasmu"}))+'</div>'+
+        '<div class="rt-s">'+escapeHtml(L({en:n+" class"+(n>1?"es":"")+" waiting for your rating — your feedback helps our coaches & 20FIT improve.",id:n+" kelas menunggu rating — masukanmu membantu coach & 20FIT jadi lebih baik."}))+'</div></div></div>'+
+        RATE_ITEMS.slice(0,3).map(function(t,i){
+          return '<div class="rt-row"><div class="rt-b"><div class="rt-n">'+escapeHtml(t.title)+'</div><div class="rt-m">'+escapeHtml(dOnly(t.date)+(t.instructor?" · "+t.instructor:""))+'</div></div>'+
+            '<div class="rt-stars">'+[1,2,3,4,5].map(function(s){ return '<button type="button" data-rq="'+i+'" data-n="'+s+'" aria-label="'+escapeHtml(t.title)+' '+s+'/5">★</button>'; }).join("")+'</div></div>';
+        }).join("")+
+        (n>3&&TX_FILTER!=="class"?'<button type="button" class="rt-more" id="rtMore">'+escapeHtml(L({en:"See all classes ("+n+") →",id:"Lihat semua kelas ("+n+") →"}))+'</button>':'')+'</div>';
+    }
+    function openReview(t,preset){
       if(!t) return; RV_T=t;
-      var rv=REVIEWS&&REVIEWS!=="off"?REVIEWS[t.code]:null; RV_VAL=rv?rv.rating:0;
+      var rv=REVIEWS&&REVIEWS!=="off"?REVIEWS[t.code]:null; RV_VAL=preset||(rv?rv.rating:0); RV_SEL=(rv&&rv.tags||[]).slice();
       var h='<div class="rv-k">'+escapeHtml(L(TX_KINDS.class))+'</div><h2>'+escapeHtml(t.title)+'</h2>'+
         '<div class="rv-sub">'+escapeHtml(t.when+(t.instructor?" · "+t.instructor:""))+'</div>';
       var why=null;
@@ -725,6 +760,8 @@
       else{
         h+='<div class="rv-stars" role="radiogroup" aria-label="Rating">'+[1,2,3,4,5].map(function(n){ return '<button type="button" class="rv-star" role="radio" data-n="'+n+'" aria-label="'+n+'/5">★</button>'; }).join("")+'</div>'+
           '<div class="rv-lbl" id="rvLbl"></div>'+
+          (RV_TAGDEFS.length?'<label>'+escapeHtml(L({en:"Quick feedback (optional)",id:"Masukan cepat (opsional)"}))+'</label><div class="rv-tags">'+
+            RV_TAGDEFS.map(function(g){ return '<button type="button" class="rv-tag" data-tag="'+escapeHtml(g.key)+'" aria-pressed="'+(RV_SEL.indexOf(g.key)>=0)+'">'+escapeHtml(L(g))+'</button>'; }).join("")+'</div>':'')+
           '<label for="rvText">'+escapeHtml(L({en:"Tell us about the class (optional)",id:"Ceritakan pengalamanmu di kelas ini (opsional)"}))+'</label>'+
           '<textarea id="rvText" maxlength="1000" placeholder="'+escapeHtml(L({en:"Coach, intensity, music, crowd…",id:"Coach, intensitas, musik, keramaian kelas…"}))+'">'+escapeHtml(rv&&rv.comment||"")+'</textarea>'+
           '<div class="rv-cnt" id="rvCnt"></div>'+
@@ -735,6 +772,9 @@
       document.getElementById("rvBon").onclick=function(){ closeReview(); showReceipt(t); };
       if(!why){
         Array.prototype.forEach.call(body.querySelectorAll(".rv-star"),function(b){ b.onclick=function(){ RV_VAL=+b.getAttribute("data-n"); paintStars(); }; });
+        Array.prototype.forEach.call(body.querySelectorAll(".rv-tag"),function(b){ b.onclick=function(){
+          var k=b.getAttribute("data-tag"), i=RV_SEL.indexOf(k); if(i>=0) RV_SEL.splice(i,1); else RV_SEL.push(k);
+          b.setAttribute("aria-pressed",String(i<0)); }; });
         var ta=document.getElementById("rvText"); ta.oninput=function(){ document.getElementById("rvCnt").textContent=ta.value.length+"/1000"; }; ta.oninput();
         document.getElementById("rvSave").onclick=saveReview;
         paintStars();
@@ -750,7 +790,7 @@
       if(!RV_VAL){ m.textContent=L({en:"Pick 1–5 stars first.",id:"Pilih 1–5 bintang dulu."}); m.className="msg err"; return; }
       btn.disabled=true; m.textContent=L({en:"Saving…",id:"Menyimpan…"}); m.className="msg";
       try{
-        var r=await corpFetch("/api/class-reviews",{method:"POST",body:JSON.stringify({booking_code:RV_T.code,rating:RV_VAL,comment:document.getElementById("rvText").value})});
+        var r=await corpFetch("/api/class-reviews",{method:"POST",body:JSON.stringify({booking_code:RV_T.code,rating:RV_VAL,tags:RV_SEL,comment:document.getElementById("rvText").value})});
         var j=await r.json().catch(function(){return{};});
         if(!r.ok||!j.ok) throw new Error(j.error||"");
         if(REVIEWS&&REVIEWS!=="off") REVIEWS[RV_T.code]=j.review;
