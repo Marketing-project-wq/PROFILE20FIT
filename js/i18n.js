@@ -1,6 +1,7 @@
 // =============================================================
 //  i18n.js — Bahasa global (English default + toggle EN/ID)
 //  - Terjemahkan teks statis: <tag data-i18n="key"> & placeholder data-i18n-ph="key"
+//    atau langsung dua bahasa: <tag data-en="..." data-id="...">
 //  - Untuk teks dinamis (di-generate JS) pakai helper global L({en:"..",id:".."})
 //  - Toggle EN/ID otomatis muncul di tiap halaman (kecuali yang sudah punya .lang)
 //  - Simpan pilihan di localStorage "lang" (dibagi dgn login.html)
@@ -369,6 +370,8 @@
     document.querySelectorAll("[data-i18n]").forEach(el=>{ const k=el.getAttribute("data-i18n"); const v=t(k); if(v!=null) el.textContent=v; });
     document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ const k=el.getAttribute("data-i18n-ph"); const v=t(k); if(v!=null) el.placeholder=v; });
     document.querySelectorAll("[data-i18n-aria]").forEach(el=>{ const k=el.getAttribute("data-i18n-aria"); const v=t(k); if(v!=null) el.setAttribute("aria-label",v); });
+    // Teks statis dua bahasa langsung di atribut: <tag data-en="..." data-id="...">
+    document.querySelectorAll("[data-en][data-id]").forEach(el=>{ el.textContent=el.getAttribute(lang==="en"?"data-en":"data-id"); });
     document.querySelectorAll("[data-lang-btn]").forEach(b=>b.classList.toggle("on", b.getAttribute("data-lang-btn")===lang));
     if(typeof renderThemeBtn==="function") renderThemeBtn();
   }
