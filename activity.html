@@ -525,7 +525,6 @@
   .ulog-t span{font-weight:600}
   .ulog-h{font-size:12px;color:var(--a-txt);margin-top:3px;line-height:1.45}
   .ulog-n{font-size:12px;font-weight:700;color:var(--fit-red,#E4002B);margin-top:3px}
-  .ulog-ck{display:block;font-size:12px;font-weight:800;color:var(--fit-amber,#B45309);text-decoration:none;margin-top:4px}
   .ulog-a{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:6px}
   .ulog-a a{font-size:12px;font-weight:800;color:var(--fit-red,#E4002B);text-decoration:none}
   .ulog-a button{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:8px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:11.5px;font-weight:800;cursor:pointer}
@@ -883,11 +882,6 @@
 
   function T(k){ return (window.I18N&&I18N.t)?I18N.t(k):k; }
   function Lx(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
-  // Teks statis ber-atribut data-en/data-id (js/i18n.js hanya menangani data-i18n).
-  function applyStaticLang(){
-    var en=!!(window.I18N&&I18N.lang==="en");
-    document.querySelectorAll("[data-en][data-id]").forEach(function(e){ e.textContent=e.getAttribute(en?"data-en":"data-id"); });
-  }
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function dObj(s){ return new Date(s+"T00:00:00"); }
@@ -2088,7 +2082,6 @@
     return '<div class="ulog-i"><span class="ulog-ic">'+ic+'</span><div class="ulog-b"><div class="ulog-t">'+esc(it.title)+' <span>· '+esc(ago)+'</span></div>'+
       (it.headline?'<div class="ulog-h">'+esc(it.headline)+'</div>':'')+
       (it.next&&it.next.title?'<div class="ulog-n">'+esc(Lx({en:"Next: ",id:"Berikutnya: "}))+esc(it.next.title)+'</div>':'')+
-      (it.needs_checkin?'<a class="ulog-ck" href="/activity/history/'+encodeURIComponent(it.id)+'#checkin">'+esc(Lx({en:"Signs of fatigue — answer 4 quick questions →",id:"Ada tanda kelelahan — jawab 4 pertanyaan singkat →"}))+'</a>':'')+
       '<div class="ulog-a"><a href="/activity/history/'+encodeURIComponent(it.id)+'">'+esc(Lx({en:"See more →",id:"Lihat selengkapnya →"}))+'</a>'+
       (it.next&&it.next.implementable?'<button type="button" data-impl="'+esc(it.id)+'">'+FIC("check",13)+' '+esc(Lx({en:"Implement plan",id:"Terapkan ke Activity"}))+'</button>':'')+'</div></div></div>';
   }
@@ -2421,7 +2414,7 @@
     user=await Auth.requireAuth();
     AUTH_UID=(user&&user.id)||null;   // tangkap id auth SEBELUM profil digabung (profil bisa punya kolom id sendiri)
     try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
-    applyStaticLang(); renderHead(); renderDnav(); wireUpload(); wireDlg(); wireSleepDlg();
+    renderHead(); renderDnav(); wireUpload(); wireDlg(); wireSleepDlg();
     await load(SEL);
     loadJourney();       // hasil Visbody baru + checklist Health Journey + nudge (server) — fire-and-forget
     loadHealthScore();   // skor komposit + What You Need + weekly recap — fire-and-forget
@@ -2444,7 +2437,7 @@
   })();
 
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
-    applyStaticLang(); renderHead(); renderDnav();
+    renderHead(); renderDnav();
     if(DAY){ renderWorkouts(); renderHabits(); renderWeek(); }
     renderSleep(); renderHydra(); renderJourney(); renderHealthScore(); renderCoachProfiles(); if(window.CoachProfiles) CoachProfiles.loadNext(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadUploadLog();
   });

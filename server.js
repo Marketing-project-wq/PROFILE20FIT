@@ -11494,8 +11494,11 @@ function woCard(w, a, lang) {
   const rd = w.raw_data || {};
   return { kind: "workout", id: w.id, date: w.workout_date, type: w.type, title: WorkoutMetrics.title(w, lang), started_at: rd.started_at || null,
     source: w.source, source_app: (rd.ai_scan && rd.ai_scan.source_guess) || null, verdict: a.verdict, safety: a.safety ? a.safety.level : null,
-    chips: a.factors.filter((f) => f.key !== "body" || f.status !== "tidak_ada_data").map((f) => ({ key: f.key, status: f.status, role: f.role })), headline: n.headline,
-    level: a.data_level.level, needs_checkin: a.needs_checkin, created_at: w.created_at || null, next: (({ kind, title, implementable }) => ({ kind, title, implementable }))(woNarrative.nextSession(a, w, woConfig, lang)) };
+    // Chip = bacaan coach (dugaan penyebab dari pola HR & pace) + intensitas + faktor yang ADA datanya saja
+    // (faktor "belum dicatat" tidak dipajang — coach membaca performa, bukan menagih log).
+    reads: a.causes.slice(0, 2).map((c) => ({ key: c.key, confidence: c.confidence })), effort: a.read && a.read.intensity ? a.read.intensity.band : null,
+    chips: a.factors.filter((f) => f.status !== "tidak_ada_data").map((f) => ({ key: f.key, status: f.status, role: f.role })), headline: n.headline,
+    level: a.data_level.level, created_at: w.created_at || null, next: (({ kind, title, implementable }) => ({ kind, title, implementable }))(woNarrative.nextSession(a, w, woConfig, lang)) };
 }
 // Ringkasan upload NON-workout dari angka hasil baca (bukan kalimat deskripsi AI).
 function woUploadTitle(u, lang) {
@@ -11595,6 +11598,7 @@ app.get("/api/activity/workouts/:id", async (req, res) => {
         factors: a.factors.map((f) => Object.assign({}, f, { sentence: woNarrative.factorSentence(f, lang) })),
         signals: a.signals.map((x) => Object.assign({}, x, { sentence: x.detected === "insufficient_data" ? null : woNarrative.signalSentence(x, lang) })),
         causes: a.causes.map((c) => Object.assign({}, c, { sentence: woNarrative.causeSentence(c, a, lang) })), ruled_out: a.ruled_out,
+        read: a.read, reads: a.causes.length ? [] : woNarrative.readSentences(a, w, lang),
         checkin: a.checkin, needs_checkin: a.needs_checkin, pre_meal_cfg: woConfig.pre_meal },
       narrative: cached || woNarrative.templateNarrative(a, w, lang), next: woNarrative.nextSession(a, w, woConfig, lang),
       narrative_pending: !cached && !a.safety, coach_id: coach,
