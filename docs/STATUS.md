@@ -227,7 +227,7 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     di /dashboard), `activity` (F1: user ber-scan, pakai skor asli), `activity_intro` (tur mini /activity tanpa data),
     `home`/`calories`/`medical` (F3, pindahan tur lama; tanda localStorage lama dihormati). Status per user di
     `my20fit_tour_state` (lintas device, lanjut dari langkah terakhir, versi naik → hanya langkah baru). Ulang: tombol "?"
-    di /activity, "Tur fitur" di Profil (`/dashboard?tour=welcome`). Menunggu modal lain tertutup; Esc/←/→, fokus terkunci
+    di /activity (tombol "Tur fitur" di Profil DIHAPUS 2026-10-01; `?tour=<key>` tetap jalan untuk link luar). Menunggu modal lain tertutup; Esc/←/→, fokus terkunci
     di tooltip, reduced-motion. **Teks tur = draf agent, PERLU DITINJAU; daftar fitur unggulan PERLU DIPUTUSKAN.**
   - **Funnel:** `my20fit_event_log` (event di-whitelist server; event server: scan masuk/claim/rescan/plan/chat/HS terbuka).
     Admin-v2 → **Funnel Visbody**: user unik per event per minggu (8 minggu) + event tur per langkah.
@@ -750,6 +750,13 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Tur fitur: tombol di Profil dihapus, tur otomatis untuk SEMUA user baru — 1 Okt 2026, permintaan pemilik.**
+  Tombol "Tur fitur" + key i18n `prof_tour` dihapus dari /profile. Tur `welcome` (dashboard: menu + fitur unggulan)
+  tidak lagi dibatasi `auto_if: "no_scan"` → user baru yang masuk lewat claim Visbody juga mendapatkannya. Properti
+  baru `only: "no_scan" | "has_scan"` per langkah/CTA (js/tour.js `onlyOk`): ajakan scan Visbody, CTA "Jadwalkan scan",
+  dan langkah "Health Score terkunci" disembunyikan untuk yang sudah scan. User yang baru scan Visbody tetap dapat tur
+  `activity` (has_scan) seperti sebelumnya. Efek samping: user LAMA yang sudah scan tapi belum pernah menyelesaikan tur
+  welcome akan melihatnya sekali di dashboard (lalu tur `home`).
 - **Tombol "Nilai kelas" di setiap baris kelas — 1 Okt 2026, permintaan pemilik.** Di samping "Lihat bon", tiap
   pembelian kelas punya tombol "Nilai kelas" (sudah dinilai: "★n · Ubah rating"). Sheet-nya menampilkan detail kelas
   (jadwal, coach, kode booking, status, harga, tanggal pesan) lalu form rating; kelas dibatalkan / belum terkonfirmasi /
