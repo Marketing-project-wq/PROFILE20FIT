@@ -414,9 +414,9 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   Makanan yang **diketik manual** (`estimateFood`) kini juga menyimpan analisa AI-nya
   (`basis:"text"`; hasil dari kamus koreksi 20FIT hanya angka, jadi tidak). Mengubah
   nama/angka item lewat dialog Ubah membuang `sa` ber-`basis` (dibuat ulang saat dibuka);
-  analisa scan foto tetap. **Riwayat** (14 hari) juga bisa diketuk: analisa hari lampau
-  disimpan ke baris tanggal itu via `Auth.saveDaily({cal_items}, tanggal)`. Kalau AI gagal:
-  penilaian dari angka + tombol Coba lagi.
+  analisa scan foto tetap. Kalau AI gagal: penilaian dari angka + tombol Coba lagi.
+- **Bagian "Riwayat" di `/calories` dihapus (1 Okt 2026, permintaan pemilik).** Yang tersisa
+  kartu "Minggu Ini" (chart 7 hari); `loadWeek()` kini hanya mengambil 7 hari, bukan 14.
   **BELUM TERVERIFIKASI:** apakah app calorietracker native mempertahankan kunci `sid`/`sa`
   saat ia menulis ulang `cal_items` (kalau tidak, analisanya hilang untuk hari itu).
 - **`/calories` disamakan dengan home calorietracker.20fit.id (21 Sep 2026).**
@@ -458,7 +458,7 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   - **Ubah item**: nama/kalori/P/C/F/waktu makan. `saveEdit()` MENYALIN item lalu menimpa
     field yang diedit saja — kunci `mid`/`cid` milik calorietracker (tautan ke `ct_meal`
     untuk breakdown kaya di History-nya) TIDAK ikut terhapus. Diuji.
-  - **Chart mingguan & riwayat 14 hari**: `Auth.getDailyRange()` (baru di `js/auth.js`),
+  - **Chart mingguan & riwayat 14 hari** (riwayat dihapus 1 Okt 2026, lihat di atas): `Auth.getDailyRange()` (baru di `js/auth.js`),
     query-nya sengaja sebentuk dengan `src/lib/memberHistory.ts` milik calorietracker
     (select `log_date,cal_items` dari `my20fit_daily_log`, filter `auth_user_id`, urut
     turun), jadi angkanya pasti sama di kedua app. Hari ini dibaca dari state di layar,
