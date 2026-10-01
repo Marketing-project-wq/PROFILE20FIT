@@ -750,9 +750,19 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Riwayat & Transaksi di /profile — gabungan Riwayat 20FIT + Riwayat Pembelian (1 Okt 2026, permintaan pemilik).**
+  Satu kartu (`profile.html` `renderTx`): booking kelas, paket sesi, booking venue (`/api/arena/history`) + paket scan
+  kalori (`js/orders.js`, per-device). Bar filter jenis (Semua/Kelas/Paket/Venue/Scan kalori + jumlah), ringkasan
+  "N transaksi · Lunas/terkonfirmasi Rp …", **penanda tanggal** per hari (Hari ini/Kemarin/tanggal), tiap baris
+  berlabel jenis ("Pembelian kelas", "Paket sesi", "Booking venue", "Paket scan kalori"), status, dan tombol
+  **Lihat bon** — bon format sama untuk semua jenis (`showReceipt`). Aksi Bayar/Batalkan/Beli lagi untuk order scan
+  tetap. `ArenaHistory.html` dihapus (render pindah ke profile); key i18n `prof_hist_sec/prof_hist_empty` dihapus.
+  **BELUM TERVERIFIKASI:** apakah arena-api mengirim `created_at` / `booking_code` per booking & paket — kalau
+  tidak ada, tanggal penanda memakai tanggal jadwal (kelas) / tanggal pakai (venue), paket masuk grup "Tanggal tidak
+  tercatat", dan kode booking tidak tampil di bon. Belum diuji dengan akun asli.
 - **Pencapaian & Riwayat 20FIT pindah dari /activity ke /profile (1 Okt 2026, permintaan pemilik).**
-  Dua modul bersama baru/diperluas supaya satu sumber: `js/arena-history.js` (`ArenaHistory.load/html/badge/time`
-  — fetch `/api/arena/history` sekali per halaman + render booking kelas/paket/venue) dan `js/achievements.js`
+  Dua modul bersama baru/diperluas supaya satu sumber: `js/arena-history.js` (`ArenaHistory.load/badge/time`
+  — fetch `/api/arena/history` sekali per halaman) dan `js/achievements.js`
   (`Ach.weekDates/weekDays/gridHTML` — minggu berjalan + grid lencana). `/profile` menampilkan section
   "Pencapaian" + "Riwayat 20FIT" (di atas Kontribusi Menu). `/activity` tidak lagi merender keduanya; popup lencana
   (`Ach.check`) tetap jalan di sana, dan `/api/arena/history` hanya dipanggil kalau flag `SHOW_UPCOMING_BOOKINGS`
