@@ -750,6 +750,13 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Pencapaian & Riwayat 20FIT pindah dari /activity ke /profile (1 Okt 2026, permintaan pemilik).**
+  Dua modul bersama baru/diperluas supaya satu sumber: `js/arena-history.js` (`ArenaHistory.load/html/badge/time`
+  — fetch `/api/arena/history` sekali per halaman + render booking kelas/paket/venue) dan `js/achievements.js`
+  (`Ach.weekDates/weekDays/gridHTML` — minggu berjalan + grid lencana). `/profile` menampilkan section
+  "Pencapaian" + "Riwayat 20FIT" (di atas Kontribusi Menu). `/activity` tidak lagi merender keduanya; popup lencana
+  (`Ach.check`) tetap jalan di sana, dan `/api/arena/history` hanya dipanggil kalau flag `SHOW_UPCOMING_BOOKINGS`
+  (kartu Booking Terdekat) dinyalakan. `progress.html` (legacy, `/progress?legacy=1`) tidak diubah.
 - **Analisa workout v3 — "bacaan coach" tanpa wajib log + bahasa EN/ID konsisten — 2026-10-01.** Permintaan
   pemilik: coach membaca HR & pace langsung (kurang tidur? kurang nutrisi?) tanpa reminder "log semuanya".
   (1) `lib/workout-signals.js` `causes()`: skor pola sinyal per kandidat (`config.causes.signature`, mengganti tabel
