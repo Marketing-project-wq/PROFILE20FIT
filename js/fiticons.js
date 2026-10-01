@@ -37,6 +37,8 @@
     clinic: '<circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/>',
     star: '<path d="M12 3.8l2.5 5.1 5.6.8-4 4 1 5.6-5.1-2.7-5 2.7 1-5.6-4.1-4 5.6-.8z"/>',
     box: '<rect x="4.5" y="4.5" width="15" height="15" rx="3"/>',
+    image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="9.5" r="1.6"/><path d="M20.5 15.5l-5-5L5 19.5"/>',
+    trash: '<path d="M4.5 7h15M9.5 7V5h5v2M6.5 7l1 12.5h9l1-12.5M10.5 11v5M13.5 11v5"/>',
     boxcheck: '<rect x="4.5" y="4.5" width="15" height="15" rx="3"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>',
     scale: '<path d="M12 4v16M7 20h10M5 7h14"/><path d="M5 7l-2.5 6a2.5 2.5 0 0 0 5 0zM19 7l-2.5 6a2.5 2.5 0 0 0 5 0z"/>',
     mail: '<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4.2 7l7.8 6 7.8-6"/>',

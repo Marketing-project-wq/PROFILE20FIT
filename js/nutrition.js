@@ -60,7 +60,7 @@
 
   // Localised name using window.L if present (falls back to EN).
   function name(f) {
-    if (window.L) return window.L({ en: f.en, id: f.id });
+    if (typeof window !== "undefined" && window.L) return window.L({ en: f.en, id: f.id });
     return f.en;
   }
 
@@ -97,5 +97,8 @@
     return { p: proteinG, c: carbsG, f: fatG };
   }
 
-  window.Nutrition = { foods: FOODS, mealFor: mealFor, totalKcal: totalKcal, name: name, goalFor: goalFor, goalFromBmr: goalFromBmr, macrosFor: macrosFor, MIN_KCAL: MIN_KCAL };
+  var api = { foods: FOODS, mealFor: mealFor, totalKcal: totalKcal, name: name, goalFor: goalFor, goalFromBmr: goalFromBmr, macrosFor: macrosFor, MIN_KCAL: MIN_KCAL };
+  // Juga di-require server (analisa workout) supaya target kalori/makro tetap SATU rumus.
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else window.Nutrition = api;
 })();
