@@ -21,6 +21,10 @@ const segments = require("./lib/segments"); // segment engine untuk blast email 
 const visbody = require("./lib/visbody"); // SATU-SATUNYA jalur ke Visbody WellnessHub (timbangan S20)
 const journeyConfig = require("./lib/journey-config"); // angka alur Visbody + Health Score
 const classOverrides = require("./lib/class-overrides"); // koreksi sementara instruktur jadwal Arena/Gym
+const woAnalysis = require("./lib/workout-analysis"); // analisa performa workout (deterministik)
+const woNarrative = require("./lib/workout-narrative"); // narasi analisa workout (template + AI tervalidasi)
+const woConfig = require("./lib/workout-analysis-config"); // ambang analisa workout (PERLU DIVALIDASI)
+const WorkoutMetrics = require("./js/workout-metrics.js"); // format & validasi tanggal workout (dipakai browser juga)
 const qrcode = require("./js/qrcode-generator");
 const blast = require("./lib/blast"); // send queue blast email (batching, kill switch, auto-abort)
 const emailConfig = require("./lib/email-config"); // angka guardrail anti-spam (cap, kill switch, backlog, circuit breaker)
@@ -1748,7 +1752,7 @@ app.use("/api/", apiLimiter);
 // Endpoint AI berbiaya (chat coach, baca screenshot, rencana) — kuota sendiri per user, supaya
 // longgarnya limiter umum tidak jadi celah biaya AI.
 const aiUserLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 40, keyGenerator: userOrIpKey, skip: (req) => req.method !== "POST", standardHeaders: true, legacyHeaders: false, message: limitMsg });   // GET (mis. /api/coach/chat/history) tidak dihitung
-app.use(["/api/coach/chat", "/api/activity/upload-analyze", "/api/activity/scan", "/api/activity/quick-analysis", "/api/activity/plan"], aiUserLimiter);
+app.use(["/api/coach/chat", "/api/activity/upload-analyze", "/api/activity/scan", "/api/activity/quick-analysis", "/api/activity/plan", "/api/activity/workouts"], aiUserLimiter);
 app.use("/api/scan/order-status", pollLimiter);
 app.use("/api/scan/reconcile", pollLimiter);
 app.use("/api/photo/scan-status", pollLimiter);
@@ -9762,36 +9766,14 @@ app.post("/api/activity/workout", async (req, res) => {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
     const b = req.body || {};
-    const date = isYmd(b.workout_date) ? String(b.workout_date) : ymd(new Date());
-    const dur = Number(b.duration_min);
-    // duration_min NOT NULL di skema — tolak di sini supaya errornya jelas, bukan 500 dari PG.
-    if (!isFinite(dur) || dur <= 0) return res.status(400).json({ error: "Durasi (menit) wajib diisi dan harus lebih dari 0." });
+    const v = woRowFromBody(b, null, user.id);
+    if (v.error) return res.status(400).json({ error: v.error });
     const SRC = ["strava", "garmin", "apple_health", "google_fit", "manual", "upload"];
-    const source = SRC.indexOf(String(b.source || "manual")) >= 0 ? String(b.source) : "manual";
-
-    const row = {
+    const row = Object.assign(v.row, {
       auth_user_id: user.id,
-      workout_date: date,
-      type: String(b.type || "other").slice(0, 40),
-      duration_min: dur,
-      source: source,
-      title: b.title ? String(b.title).slice(0, 160) : null,
-      note: b.note ? String(b.note).slice(0, 500) : null,
-      distance_km: (b.distance_km != null && isFinite(+b.distance_km)) ? +b.distance_km : null,
-      calories_burned: (b.calories_burned != null && isFinite(+b.calories_burned)) ? Math.round(+b.calories_burned) : null,
-      avg_heart_rate: (b.avg_heart_rate != null && isFinite(+b.avg_heart_rate)) ? Math.round(+b.avg_heart_rate) : null,
-      max_heart_rate: (b.max_heart_rate != null && isFinite(+b.max_heart_rate)) ? Math.round(+b.max_heart_rate) : null,
-      hr_zone_data: b.hr_zone_data || null,
-      pace_data: b.pace_data || null,
-      elevation_gain_m: (b.elevation_gain_m != null && isFinite(+b.elevation_gain_m)) ? +b.elevation_gain_m : null,
-      uploaded_file_url: b.uploaded_file_url ? String(b.uploaded_file_url).slice(0, 500) : null,
-      // Satu sesi bisa diunggah dari BEBERAPA gambar (ringkasan + zona HR + split).
-      // Kolom uploaded_file_url cuma muat satu, jadi daftar lengkapnya + jejak hasil
-      // bacaan AI disimpan di raw_data (jsonb, sudah ada di migration 017).
-      raw_data: (b.raw_data && typeof b.raw_data === "object") ? b.raw_data : null,
+      source: SRC.indexOf(String(b.source || "manual")) >= 0 ? String(b.source) : "manual",
       external_id: b.external_id ? String(b.external_id).slice(0, 120) : null,
-      updated_at: new Date().toISOString(),
-    };
+    });
     const { data, error } = await admin.from("my20fit_workout").insert(row).select().single();
     if (error) throw error;
     return res.json({ ok: true, workout: data });
@@ -9807,9 +9789,16 @@ app.delete("/api/activity/workout/:id", async (req, res) => {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
-    const { error } = await admin.from("my20fit_workout").delete()
-      .eq("id", String(req.params.id)).eq("auth_user_id", user.id);
+    const { data: rows } = await admin.from("my20fit_workout").select("id,raw_data").eq("id", String(req.params.id)).eq("auth_user_id", user.id).limit(1);
+    const w = rows && rows[0];
+    if (!w) return res.status(404).json({ error: "Workout tidak ditemukan." });
+    const { error } = await admin.from("my20fit_workout").delete().eq("id", w.id).eq("auth_user_id", user.id);
     if (error) throw error;
+    // Screenshot asli + baris upload yang tertaut ikut dihapus (best-effort; workout-nya sudah terhapus).
+    const rd = w.raw_data || {};
+    const paths = (Array.isArray(rd.file_paths) ? rd.file_paths : []).filter((x) => typeof x === "string" && x.indexOf(user.id + "/") === 0);
+    if (paths.length) { try { await admin.storage.from("workout-uploads").remove(paths); } catch (e) {} }
+    if (rd.upload_id) { try { await admin.from("my20fit_activity_uploads").delete().eq("id", String(rd.upload_id)).eq("auth_user_id", user.id); } catch (e) {} }
     return res.json({ ok: true });
   } catch (e) {
     console.error("activity/workout delete:", e.message);
@@ -9819,7 +9808,8 @@ app.delete("/api/activity/workout/:id", async (req, res) => {
 
 // POST /api/activity/upload — simpan screenshot/foto workout ke Storage (bucket PRIVAT).
 // Pola sama dengan /api/admin/upload-photo: data URL base64, batas ukuran di server.
-// Bucket privat -> balikan signed URL berumur pendek, BUKAN public URL.
+// Bucket privat -> yang disimpan PATH berkas (bukan signed URL yang kedaluwarsa 7 hari);
+// halaman detail workout membuat signed URL baru tiap kali dibuka.
 app.post("/api/activity/upload", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
@@ -9842,8 +9832,7 @@ app.post("/api/activity/upload", async (req, res) => {
       }
       throw up.error;
     }
-    const sg = await admin.storage.from("workout-uploads").createSignedUrl(name, 60 * 60 * 24 * 7);
-    return res.json({ ok: true, path: name, url: (sg.data && sg.data.signedUrl) || null });
+    return res.json({ ok: true, path: name });
   } catch (e) {
     console.error("activity/upload:", e.message);
     return res.status(500).json({ error: "Gagal mengunggah berkas." });
@@ -9911,10 +9900,13 @@ app.post("/api/activity/scan", async (req, res) => {
     };
     // Sama persis dengan pilihan di <select id="fType"> pada activity.html — supaya hasil
     // AI bisa langsung dipilihkan di dialog tanpa lapisan pemetaan yang bisa melenceng.
-    const TYPES = ["run", "cycling", "gym", "hyrox", "swimming", "other"];
+    const TYPES = Object.keys(WorkoutMetrics.TYPES);
+    const fc = (r.field_confidence && typeof r.field_confidence === "object") ? Object.keys(r.field_confidence).slice(0, 30).reduce(function (o, k) {
+      const c = num(r.field_confidence[k], 0, 100); if (c != null) o[String(k).slice(0, 40)] = Math.round(c); return o; }, {}) : null;
     return res.json({
       ok: true,
       readable: r.readable !== false,
+      date_confirm_after_days: woConfig.date_confirm_after_days,
       result: {
         title: r.title ? String(r.title).slice(0, 160) : null,
         type: TYPES.indexOf(String(r.type)) >= 0 ? String(r.type) : null,
@@ -9930,6 +9922,14 @@ app.post("/api/activity/scan", async (req, res) => {
         confidence: num(r.confidence, 0, 100),
         fields_read: Array.isArray(r.fields_read) ? r.fields_read.slice(0, 20).map((x) => String(x).slice(0, 40)) : [],
         note: r.note ? String(r.note).slice(0, 300) : null,
+        // Field baru (edge my20fit-ai versi Fase 1). Edge lama tidak mengirimnya -> null.
+        workout_date: isYmd(r.workout_date) ? String(r.workout_date) : null,
+        date_text: r.date_text ? String(r.date_text).slice(0, 40) : null,
+        year_visible: r.year_visible === true ? true : (r.year_visible === false ? false : null),
+        start_time: /^\d{1,2}:\d{2}$/.test(String(r.start_time || "")) ? String(r.start_time).padStart(5, "0") : null,
+        avg_speed_kmh: num(r.avg_speed_kmh, 0.5, 120),
+        cadence: num(r.cadence, 10, 250),
+        field_confidence: fc,
       },
     });
   } catch (e) {
@@ -11164,8 +11164,9 @@ const ACTIVITY_PLAN_RULES =
   "Analisa dulu apa yang KURANG kemarin/beberapa hari terakhir (tidur, makan/kalori, hidrasi, overtraining/kurang latihan), " +
   "lalu susun plan yang MENYESUAIKAN kekurangan itu (mis. tidur kurang + workout berat -> hari ini recovery). " +
   "DILARANG: diagnosa medis, resep obat/dosis, klaim hasil pasti, body shaming. JANGAN mengarang angka yang tak ada di data. " +
+  "Kalau data suatu kategori TIDAK ADA di data historis, status-nya \"tidak_ada_data\" (BUKAN kurang) dan jangan menilai kategori itu. " +
   "Balas HANYA JSON (tanpa markdown, tanpa code fence) bentuk persis: " +
-  "{\"yesterday_gaps\":[{\"category\":\"sleep|nutrition|hydration|workout\",\"status\":\"kurang|cukup|berlebih\",\"detail\":\"...\"}]," +
+  "{\"yesterday_gaps\":[{\"category\":\"sleep|nutrition|hydration|workout\",\"status\":\"kurang|cukup|berlebih|tidak_ada_data\",\"detail\":\"...\"}]," +
   "\"today_plan\":{" +
   "\"workout\":{\"recommendation\":\"...\",\"type\":\"...\",\"intensity\":\"low|moderate|high|rest\",\"duration_min\":0,\"reason\":\"...\"}," +
   "\"food\":{\"calorie_target\":0,\"priority_macro\":\"protein|carbs|balanced\",\"meals\":[{\"meal\":\"...\",\"suggestion\":\"...\",\"calories\":0}],\"note\":\"...\"}," +
@@ -11240,7 +11241,7 @@ app.post("/api/activity/upload-analyze", async (req, res) => {
       }
     } catch (e) { /* tabel 025 belum dijalankan -> lanjut tanpa simpan */ }
 
-    return res.json({ ok: true, extracted: extracted, analysis: analysis, saved: !!uploadId });
+    return res.json({ ok: true, extracted: extracted, analysis: analysis, saved: !!uploadId, upload_id: uploadId || null });
   } catch (e) {
     console.error("activity/upload-analyze:", e.message);
     return res.status(500).json({ error: "Gagal memproses upload." });
@@ -11271,6 +11272,276 @@ app.get("/api/activity/upload-history", async (req, res) => {
     return res.json({ ok: true, uploads: data || [] });
   } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, uploads: [], setup_required: true }); return res.json({ ok: true, uploads: [] }); }
 });
+
+// ================= ANALISA PERFORMA WORKOUT =================
+// Satu sumber data workout: my20fit_workout (metrik terstruktur). Tambahan tanpa migration di
+// raw_data (jsonb): started_at, file_paths, upload_id, date_check, field_confidence, metrics,
+// analysis {hash, narrative:{id,en}}. Faktor & baseline dihitung DETERMINISTIK
+// (lib/workout-analysis.js, ambang di lib/workout-analysis-config.js); AI hanya menulis narasi
+// dari angka itu (lib/workout-narrative.js) dan diperiksa ulang di server.
+const WO_TZ = woConfig.timezone;
+function woToday() { return new Intl.DateTimeFormat("en-CA", { timeZone: WO_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
+function woLocalTime(ts) {
+  const d = new Date(ts); if (isNaN(d)) return null;
+  return new Intl.DateTimeFormat("en-GB", { timeZone: WO_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+}
+function woLang(v) { return String(v || "") === "en" ? "en" : "id"; }
+
+// Isi workout dari klien (simpan baru / edit) -> baris my20fit_workout tervalidasi.
+// existing = baris lama (edit) atau null (baru). raw_data hanya menerima kunci yang dikenal.
+function woRowFromBody(b, existing, uid) {
+  const today = woToday(), now = new Date().toISOString(), row = {};
+  const has = (k) => Object.prototype.hasOwnProperty.call(b, k);
+  if (!existing || has("workout_date")) {
+    const d = isYmd(b.workout_date) ? String(b.workout_date) : (existing ? null : today);
+    if (!d) return { error: "Tanggal workout tidak valid." };
+    if (d > today) return { error: "Tanggal workout tidak boleh di masa depan." };
+    row.workout_date = d;
+  }
+  if (!existing || has("type")) row.type = WorkoutMetrics.TYPES[b.type] ? String(b.type) : "other";
+  if (!existing || has("duration_min")) {
+    const dur = Number(b.duration_min);
+    // duration_min NOT NULL di skema — tolak di sini supaya errornya jelas, bukan 500 dari PG.
+    if (!isFinite(dur) || dur <= 0 || dur > 1440) return { error: "Durasi (menit) wajib diisi dan harus lebih dari 0." };
+    row.duration_min = dur;
+  }
+  if (!existing || has("title")) row.title = b.title ? String(b.title).slice(0, 160) : null;
+  if (!existing || has("note")) row.note = b.note ? String(b.note).slice(0, 500) : null;
+  const NUMS = [["distance_km", 0.01, 1000, false], ["calories_burned", 1, 20000, true], ["avg_heart_rate", 25, 250, true], ["max_heart_rate", 25, 260, true], ["elevation_gain_m", 0, 10000, false]];
+  for (const [k, mn, mx, rd] of NUMS) {
+    if (existing && !has(k)) continue;
+    const v = b[k];
+    if (v == null || v === "") { row[k] = null; continue; }
+    const n = Number(v);
+    if (!isFinite(n) || n < mn || n > mx) return { error: "Nilai " + k + " tidak masuk akal." };
+    row[k] = rd ? Math.round(n) : n;
+  }
+  if (!existing || has("hr_zone_data")) row.hr_zone_data = (b.hr_zone_data && typeof b.hr_zone_data === "object") ? b.hr_zone_data : null;
+  if (!existing || has("pace_data")) row.pace_data = (b.pace_data && typeof b.pace_data === "object") ? b.pace_data : null;
+  const rd = Object.assign({}, (existing && existing.raw_data) || {});
+  const inRd = (b.raw_data && typeof b.raw_data === "object") ? b.raw_data : {};
+  const hhmm = (t) => (/^\d{2}:\d{2}$/.test(String(t || "")) && +String(t).slice(0, 2) < 24 && +String(t).slice(3) < 60) ? String(t) : null;
+  if (!existing) {
+    // Hanya saat simpan pertama (hasil upload). Path HARUS milik user ini.
+    rd.file_paths = (Array.isArray(inRd.file_paths) ? inRd.file_paths : []).filter((x) => typeof x === "string" && x.indexOf(String(uid) + "/") === 0 && /^[\w-]+\/[\w.-]+$/.test(x)).slice(0, 5);
+    if (UUID_RE.test(String(inRd.upload_id || ""))) rd.upload_id = String(inRd.upload_id);
+    const sc = inRd.ai_scan;
+    if (sc && typeof sc === "object") rd.ai_scan = { confidence: isFinite(+sc.confidence) ? Math.round(+sc.confidence) : null, source_guess: sc.source_guess ? String(sc.source_guess).slice(0, 40) : null,
+      fields_read: Array.isArray(sc.fields_read) ? sc.fields_read.slice(0, 20).map((x) => String(x).slice(0, 40)) : [], note: sc.note ? String(sc.note).slice(0, 300) : null };
+    if (inRd.field_confidence && typeof inRd.field_confidence === "object") rd.field_confidence = Object.keys(inRd.field_confidence).slice(0, 30).reduce((o, k) => { const c = +inRd.field_confidence[k]; if (isFinite(c)) o[String(k).slice(0, 40)] = Math.max(0, Math.min(100, Math.round(c))); return o; }, {});
+    const mt = inRd.metrics;
+    if (mt && typeof mt === "object") rd.metrics = { avg_speed_kmh: (isFinite(+mt.avg_speed_kmh) && +mt.avg_speed_kmh > 0 && +mt.avg_speed_kmh < 120) ? +mt.avg_speed_kmh : null, cadence: (isFinite(+mt.cadence) && +mt.cadence > 0 && +mt.cadence < 260) ? Math.round(+mt.cadence) : null };
+    const dc = inRd.date_check;
+    if (dc && typeof dc === "object") rd.date_check = { read: isYmd(dc.read) ? String(dc.read) : null, text: dc.text ? String(dc.text).slice(0, 40) : null, reason: ["unread", "future", "old", "year_guess"].indexOf(dc.reason) >= 0 ? dc.reason : null };
+    rd.started_at = hhmm(inRd.started_at);
+  }
+  if (has("started_at")) rd.started_at = hhmm(b.started_at);
+  if (row.workout_date) rd.date_confirmed = true;   // dialog/editor tidak menyimpan sebelum user memastikan tanggal
+  if (existing) rd.edited_at = now;
+  row.raw_data = rd;
+  if (!existing) row.uploaded_file_url = rd.file_paths[0] || null;   // path (bukan signed URL yang kedaluwarsa)
+  row.updated_at = now;
+  return { row: row };
+}
+
+// Semua data pembanding untuk workout di rentang [from, to] — SATU kali muat per request.
+async function woDataset(uid, from, to) {
+  const C = woConfig, add = woAnalysis.addDays;
+  const wFrom = add(from, -(C.baseline.lookback_days + C.load.window_days * (C.load.typical_weeks + 1)));
+  const [wk, sl, hy, dl, vb, pr] = await Promise.all([
+    admin.from("my20fit_workout").select("*").eq("auth_user_id", uid).gte("workout_date", wFrom).lte("workout_date", to).order("workout_date", { ascending: false }).limit(1000),
+    admin.from("my20fit_sleep").select("sleep_date,duration_hours,quality").eq("auth_user_id", uid).gte("sleep_date", add(from, -(C.sleep.avg_days + 1))).lte("sleep_date", to),
+    admin.from("my20fit_hydration").select("log_date,amount_ml,logged_at").eq("auth_user_id", uid).gte("log_date", add(from, -1)).lte("log_date", to),
+    admin.from("my20fit_daily_log").select("log_date,cal_items,sleep_hours,water_glasses").eq("auth_user_id", uid).gte("log_date", add(from, -(C.sleep.avg_days + 1))).lte("log_date", to),
+    admin.from("my20fit_visbody_body").select("body_weight,muscle_mass,scanned_at").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(20),
+    admin.from("my20fit_profile").select("*").eq("auth_user_id", uid).limit(1),
+  ]);
+  return { workouts: wk.data || [], sleep: sl.data || [], hydration: hy.data || [], dailyLogs: dl.data || [], visbody: vb.data || [],
+    profile: (pr.data && pr.data[0]) || null, localTime: woLocalTime };
+}
+function woHash(a) { return crypto.createHash("sha256").update(JSON.stringify(a.inputs)).digest("hex").slice(0, 20); }
+// Narasi tersimpan dipakai hanya kalau hash input sama (data berubah -> narasi kedaluwarsa).
+function woCachedNarrative(w, a, lang) {
+  const c = w.raw_data && w.raw_data.analysis;
+  return (c && c.hash === woHash(a) && c.narrative && c.narrative[lang]) ? c.narrative[lang] : null;
+}
+function woCard(w, a, lang) {
+  const n = woCachedNarrative(w, a, lang) || woNarrative.templateNarrative(a, w, lang);
+  const rd = w.raw_data || {};
+  return { kind: "workout", id: w.id, date: w.workout_date, type: w.type, title: WorkoutMetrics.title(w, lang), started_at: rd.started_at || null,
+    source: w.source, source_app: (rd.ai_scan && rd.ai_scan.source_guess) || null, verdict: a.verdict, safety: a.safety ? a.safety.level : null,
+    chips: a.factors.filter((f) => f.key !== "body" || f.status !== "tidak_ada_data").map((f) => ({ key: f.key, status: f.status, role: f.role })), headline: n.headline };
+}
+// Ringkasan upload NON-workout dari angka hasil baca (bukan kalimat deskripsi AI).
+function woUploadTitle(u, lang) {
+  const e = u.extracted_data || {}, t = String(u.upload_type || e.type || "other"), L = (o) => (lang === "en" ? o.en : o.id), dec = (n) => WorkoutMetrics.dec(+n, 1, lang);
+  if (t === "sleep" && +e.sleep_duration_hours > 0) return L({ en: "Sleep ", id: "Tidur " }) + dec(e.sleep_duration_hours) + L({ en: " h", id: " jam" });
+  if (t === "daily_activity" && +e.steps > 0) return Math.round(+e.steps).toLocaleString(lang === "en" ? "en-US" : "id-ID") + L({ en: " steps", id: " langkah" });
+  if (t === "weight" && +e.weight_kg > 0) return L({ en: "Weight ", id: "Berat " }) + dec(e.weight_kg) + " kg";
+  if (t === "food_log") return L({ en: "Food log", id: "Log makan" }) + (+e.total_calories_eaten > 0 ? " · " + Math.round(+e.total_calories_eaten) + L({ en: " kcal", id: " kkal" }) : "");
+  return L({ en: "Screenshot", id: "Screenshot" });
+}
+
+// D3 — pola pribadi lintas workout. Hanya kalau datanya cukup (ambang di config.insights) dan
+// selalu menyebut jumlah datanya. Faktor dihitung sama persis dengan analisa per workout.
+function woInsight(analyses, list, lang) {
+  const C = woConfig.insights;
+  const comparable = analyses.filter((a) => a.baseline.status === "ok");
+  if (comparable.length < C.min_workouts) return null;
+  const slow = comparable.filter((a) => a.baseline.perf === "down");
+  let best = null;
+  ["sleep", "nutrition", "hydration"].forEach((k) => {
+    const paired = slow.map((a) => a.factors.find((f) => f.key === k)).filter((f) => f && f.status !== "tidak_ada_data");
+    if (paired.length < C.min_paired) return;
+    const hit = paired.filter((f) => f.status === "kurang").length;
+    if (hit / paired.length >= C.slow_share_min && (!best || hit / paired.length > best.share)) best = { key: k, hit: hit, n: paired.length, share: hit / paired.length };
+  });
+  if (!best) return null;
+  const L = (o) => (lang === "en" ? o.en : o.id);
+  const what = { sleep: { en: "your sleep the night before was short", id: "tidurmu malam sebelumnya kurang" },
+    nutrition: { en: "you ate too little the day before", id: "asupanmu sehari sebelumnya kurang" }, hydration: { en: "you drank too little", id: "minummu kurang" } }[best.key];
+  return { key: best.key, hit: best.hit, n: best.n, comparable: comparable.length,
+    text: L({ en: "In " + best.hit + " of " + best.n + " sessions where you were slower than usual (with " + best.key + " data), " + L(what) + ". Based on " + comparable.length + " comparable workouts.",
+      id: "Di " + best.hit + " dari " + best.n + " sesi saat kamu lebih lambat dari biasanya (yang punya data " + L(woNarrative.FNAME[best.key]) + "), " + L(what) + ". Berdasarkan " + comparable.length + " workout yang bisa dibandingkan." }) };
+}
+
+// GET /api/activity/history?lang=&limit= -> kartu workout (+ analisa ringkas) & upload non-workout.
+app.get("/api/activity/history", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, items: [] });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const lang = woLang(req.query.lang), limit = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 30));
+    const { data: list, error } = await admin.from("my20fit_workout").select("*").eq("auth_user_id", user.id)
+      .order("workout_date", { ascending: false }).order("created_at", { ascending: false }).limit(limit);
+    if (error) throw error;
+    const items = [];
+    let insight = null;
+    if (list && list.length) {
+      const ds = await woDataset(user.id, list[list.length - 1].workout_date, list[0].workout_date);
+      const analyses = list.map((w) => woAnalysis.analyze(w, ds, woConfig));
+      list.forEach((w, i) => items.push(woCard(w, analyses[i], lang)));
+      insight = woInsight(analyses, list, lang);
+    }
+    const { data: ups } = await admin.from("my20fit_activity_uploads").select("id,upload_type,upload_date,extracted_data,source,created_at")
+      .eq("auth_user_id", user.id).neq("upload_type", "workout").order("created_at", { ascending: false }).limit(limit);
+    (ups || []).forEach((u) => items.push({ kind: "upload", id: u.id, date: u.upload_date, type: u.upload_type, title: woUploadTitle(u, lang), source_app: u.source && u.source !== "other" ? u.source : null }));
+    items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    return res.json({ ok: true, items: items.slice(0, limit), insight: insight });
+  } catch (e) {
+    console.error("activity/history:", e.message);
+    if (isMissingSchema(e)) return res.json({ ok: true, items: [], setup_required: true });
+    return res.status(500).json({ error: "Gagal memuat riwayat." });
+  }
+});
+
+// GET /api/activity/workouts/:id?lang= -> detail workout + analisa (faktor, baseline) + narasi.
+// Narasi AI TIDAK dibuat di sini (hemat biaya & cepat): kalau belum ada untuk hash/bahasa ini,
+// balikan template + narrative_pending=true; halaman lalu memanggil POST .../narrative.
+app.get("/api/activity/workouts/:id", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const lang = woLang(req.query.lang);
+    const { data: rows } = await admin.from("my20fit_workout").select("*").eq("id", String(req.params.id)).eq("auth_user_id", user.id).limit(1);
+    const w = rows && rows[0];
+    if (!w) return res.status(404).json({ error: "Workout tidak ditemukan." });
+    const ds = await woDataset(user.id, w.workout_date, w.workout_date);
+    const a = woAnalysis.analyze(w, ds, woConfig);
+    const cached = woCachedNarrative(w, a, lang);
+    const rd = w.raw_data || {};
+    const shots = [];
+    for (const p of (Array.isArray(rd.file_paths) ? rd.file_paths : []).slice(0, 5)) {
+      try { const sg = await admin.storage.from("workout-uploads").createSignedUrl(p, 60 * 60); if (sg.data && sg.data.signedUrl) shots.push(sg.data.signedUrl); } catch (e) {}
+    }
+    const coach = (rd.analysis && coachPersonaOk(rd.analysis.coach_id)) ? rd.analysis.coach_id : null;
+    return res.json({ ok: true,
+      workout: { id: w.id, date: w.workout_date, type: w.type, title: WorkoutMetrics.title(w, lang), started_at: rd.started_at || null, source: w.source,
+        source_app: (rd.ai_scan && rd.ai_scan.source_guess) || null, note: w.note, duration_min: w.duration_min, distance_km: w.distance_km,
+        pace_sec: WorkoutMetrics.paceSec(w), speed_kmh: WorkoutMetrics.speedKmh(w), avg_heart_rate: w.avg_heart_rate, max_heart_rate: w.max_heart_rate,
+        calories_burned: w.calories_burned, elevation_gain_m: w.elevation_gain_m, cadence: rd.metrics ? rd.metrics.cadence : null,
+        hr_zone_data: w.hr_zone_data, splits: (w.pace_data && Array.isArray(w.pace_data.splits)) ? w.pace_data.splits.slice(0, 50) : null,
+        date_check: rd.date_check || null, field_confidence: rd.field_confidence || null, screenshots: shots },
+      analysis: { verdict: a.verdict, safety: a.safety, baseline: a.baseline,
+        factors: a.factors.map((f) => Object.assign({}, f, { sentence: woNarrative.factorSentence(f, lang) })) },
+      narrative: cached || woNarrative.templateNarrative(a, w, lang),
+      narrative_pending: !cached && !a.safety, coach_id: coach,
+      emergency_number: woConfig.safety.emergency_number,
+    });
+  } catch (e) {
+    console.error("activity/workouts/:id:", e.message);
+    return res.status(500).json({ error: "Gagal memuat workout." });
+  }
+});
+
+// PATCH /api/activity/workout/:id — koreksi hasil ekstraksi (tanggal, jenis, jarak, durasi, HR, jam mulai, catatan).
+app.patch("/api/activity/workout/:id", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: rows } = await admin.from("my20fit_workout").select("*").eq("id", String(req.params.id)).eq("auth_user_id", user.id).limit(1);
+    const w = rows && rows[0];
+    if (!w) return res.status(404).json({ error: "Workout tidak ditemukan." });
+    const b = Object.assign({}, req.body || {}); delete b.raw_data;
+    const v = woRowFromBody(b, w, user.id);
+    if (v.error) return res.status(400).json({ error: v.error });
+    const { data, error } = await admin.from("my20fit_workout").update(v.row).eq("id", w.id).eq("auth_user_id", user.id).select().single();
+    if (error) throw error;
+    return res.json({ ok: true, workout: data });
+  } catch (e) {
+    console.error("activity/workout patch:", e.message);
+    return res.status(500).json({ error: "Gagal menyimpan perubahan." });
+  }
+});
+
+// POST /api/activity/workouts/:id/narrative {lang, coach_id} — narasi coach (AI) dari hasil analisa.
+// Sekali per (hash input, bahasa); angka di narasi diperiksa -> gagal: ulang 1x -> template.
+app.post("/api/activity/workouts/:id/narrative", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {}, lang = woLang(b.lang);
+    const { data: rows } = await admin.from("my20fit_workout").select("*").eq("id", String(req.params.id)).eq("auth_user_id", user.id).limit(1);
+    const w = rows && rows[0];
+    if (!w) return res.status(404).json({ error: "Workout tidak ditemukan." });
+    const ds = await woDataset(user.id, w.workout_date, w.workout_date);
+    const a = woAnalysis.analyze(w, ds, woConfig);
+    const cached = woCachedNarrative(w, a, lang);
+    if (cached) return res.json({ ok: true, narrative: cached });
+    const template = woNarrative.templateNarrative(a, w, lang);
+    if (a.safety) return res.json({ ok: true, narrative: template });   // keamanan: tidak ada narasi performa dari AI
+    const prev = (w.raw_data && w.raw_data.analysis) || {};
+    const coachId = coachPersonaOk(b.coach_id) ? String(b.coach_id) : (coachPersonaOk(prev.coach_id) ? prev.coach_id : "nando");
+    const pm = woNarrative.aiMessages(a, w, lang, COACH_PERSONAS[coachId].persona, template);
+    let narrative = null, tries = 0;
+    while (!narrative && tries < 2) {
+      tries++;
+      try {
+        const ai = await callAiEdge({ action: "chat", messages: pm.messages, max_tokens: 900, tier: "simple", lang: lang }, 45000);
+        const n = (ai.httpOk && ai.json && ai.json.ok) ? woNarrative.parseAi(ai.json.reply) : null;
+        if (n && woNarrative.validShape(n)) {
+          const bad = woNarrative.checkNarrative(n, pm.allowed);
+          if (!bad.length) narrative = { headline: n.headline.trim(), analysis: n.analysis.map((x) => x.trim()), next_session_tips: n.next_session_tips.map((x) => String(x).trim()).filter(Boolean), cta: n.cta, source: "ai", coach_id: coachId };
+          else console.error("workout narrative: angka di luar data", bad.slice(0, 5).join(","));
+        }
+      } catch (e) { /* timeout -> coba lagi / template */ }
+    }
+    logAiAccess(user.id, "workout/narrative", !!narrative, narrative ? null : "fallback");
+    const out = narrative || Object.assign({}, template, { coach_id: coachId });
+    // Simpan: narasi lama untuk hash berbeda dibuang (data berubah).
+    const hash = woHash(a), keep = (prev.hash === hash && prev.narrative) ? prev.narrative : {};
+    keep[lang] = out;
+    const rd = Object.assign({}, w.raw_data || {}, { analysis: { hash: hash, coach_id: coachId, narrative: keep, updated_at: new Date().toISOString() } });
+    await admin.from("my20fit_workout").update({ raw_data: rd }).eq("id", w.id).eq("auth_user_id", user.id);
+    return res.json({ ok: true, narrative: out });
+  } catch (e) {
+    console.error("workout narrative:", e.message);
+    return res.status(500).json({ error: "Gagal membuat analisa." });
+  }
+});
 // ================= END AI COACH =================
 
 // ---------- Halaman balik-dari-pembayaran (landing redirect dari Xendit) ----------
@@ -11285,6 +11556,10 @@ app.get(["/payment/pending", "/payment/success"], (req, res) => {
 // Riwayat upload activity (path bertingkat) -> activity-history.html. Eksplisit di atas static.
 app.get(["/activity/history", "/activity/history.html"], (req, res) => {
   res.sendFile(path.join(__dirname, "activity-history.html"));
+});
+// Detail analisa satu workout (path bertingkat) -> activity-workout.html (id dibaca dari path).
+app.get("/activity/history/:id", (req, res) => {
+  res.sendFile(path.join(__dirname, "activity-workout.html"));
 });
 // Ekosistem Activity: chat coach, plan & Visbody di bawah /activity. Halamannya TIDAK
 // diduplikasi — /activity/chat & /activity/plan = coach.html (coach.js membaca path),
