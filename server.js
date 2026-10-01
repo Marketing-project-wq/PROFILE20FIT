@@ -1753,7 +1753,7 @@ app.use("/api/", apiLimiter);
 // Endpoint AI berbiaya (chat coach, baca screenshot, rencana) — kuota sendiri per user, supaya
 // longgarnya limiter umum tidak jadi celah biaya AI.
 const aiUserLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 40, keyGenerator: userOrIpKey, skip: (req) => req.method !== "POST", standardHeaders: true, legacyHeaders: false, message: limitMsg });   // GET (mis. /api/coach/chat/history) tidak dihitung
-app.use(["/api/coach/chat", "/api/activity/upload-analyze", "/api/activity/scan", "/api/activity/quick-analysis", "/api/activity/plan", "/api/activity/workouts", "/api/activity/today-plan/generate"], aiUserLimiter);
+app.use(["/api/coach/chat", "/api/activity/upload-analyze", "/api/activity/scan", "/api/activity/quick-analysis", "/api/activity/plan", "/api/activity/workouts", "/api/activity/today-plan/generate", "/api/scan/food-analyze"], aiUserLimiter);
 app.use("/api/scan/order-status", pollLimiter);
 app.use("/api/scan/reconcile", pollLimiter);
 app.use("/api/photo/scan-status", pollLimiter);
@@ -8656,6 +8656,41 @@ app.post("/api/scan/food-text", async (req, res) => {
       return res.status(502).json({ error: "Gagal menghubungi mesin AI. Coba lagi." });
     }
   } catch (e) { console.error("food-text:", e && e.message); return res.status(500).json({ error: "Gagal memproses." }); }
+});
+
+// ---------- Analisa SATU makanan yang SUDAH tercatat (Today's Food / Riwayat) ----------
+// POST /api/scan/food-analyze { name, kcal, p, c, f, lang } -> { ok, result }
+// Untuk item tanpa analisa tersimpan (diketik manual, scan lama, dari app lain). Memakai
+// aksi AI "food" mode teks yang sama dengan /api/scan/food-text (gratis, tanpa potong
+// kuota), tapi ANGKA YANG TERCATAT tetap sumber kebenaran: kalori & makro hasil AI
+// ditimpa angka user, dan rentang/keyakinan foto dibuang karena ini bukan dari foto.
+app.post("/api/scan/food-analyze", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Sesi kamu sudah habis. Silakan login lagi.", session_expired: true });
+    const b = req.body || {};
+    const name = String(b.name || "").trim().slice(0, 100);
+    const n = (v) => Math.max(0, Math.round(+v || 0));
+    const kcal = n(b.kcal), p = n(b.p), c = n(b.c), f = n(b.f);
+    if (!name) return res.status(400).json({ error: "Nama makanan wajib diisi." });
+    const lang = (String(b.lang || "").toLowerCase() === "en") ? "en" : "id";
+    const text = name + " (logged: " + kcal + " kcal, protein " + p + " g, carbs " + c + " g, fat " + f + " g)";
+    let ai;
+    try { ai = await callAiEdge({ action: "food", text: text, lang: lang }, 60000); }
+    catch (e) {
+      if (e && e.name === "AbortError") return res.status(504).json({ error: "Analisa memakan waktu lebih lama dari biasanya. Coba lagi ya." });
+      return res.status(502).json({ error: "Gagal menghubungi mesin AI. Coba lagi." });
+    }
+    if (!ai.httpOk || !ai.json || !ai.json.result) return res.status(502).json({ error: "Gagal menganalisa. Coba lagi." });
+    const r = Object.assign({}, ai.json.result);
+    const first = (Array.isArray(r.items) && r.items[0]) || {};
+    r.items = [{ name: name, portion: first.portion || "", kcal: kcal, protein_g: p, carbs_g: c, fat_g: f, fiber_g: +first.fiber_g || 0 }];
+    r.total_kcal = kcal; r.protein_g = p; r.carbs_g = c; r.fat_g = f; r.fiber_g = +first.fiber_g || +r.fiber_g || 0;
+    delete r.kcal_min; delete r.kcal_max; delete r.confidence; delete r.assumptions;
+    r.basis = "logged";
+    return res.json({ ok: true, result: r });
+  } catch (e) { console.error("food-analyze:", e && e.message); return res.status(500).json({ error: "Gagal memproses." }); }
 });
 
 // ---------- Preview voucher sebelum bayar (untuk halaman checkout) ----------
