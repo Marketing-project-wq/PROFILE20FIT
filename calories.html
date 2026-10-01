@@ -136,10 +136,20 @@
   .ifgroups{margin-top:4px}
   .iflvl{font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;font-size:12px;color:var(--red);margin:16px 0 0}
   .ifquick{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--inp);margin-top:4px}
-  .calgrid{display:grid;grid-template-columns:1fr;gap:14px}
-  .calcol{display:flex;flex-direction:column;gap:0;min-width:0}
+  /* Mobile: satu kolom, urutan blok lewat `order` (target+fasting, makanan hari ini, rencana makan, minggu ini).
+     Desktop: kolom kiri = target + fasting + rencana makan, kanan = makanan hari ini + minggu ini,
+     supaya tinggi dua kolom seimbang (rencana makan coach panjang). */
+  .calgrid{display:flex;flex-direction:column}
+  .calcol{display:contents}
+  .cg-a{order:1}.cg-food{order:2;margin-top:14px}.cg-plan{order:3}.cg-week{order:4}
   .card{max-width:100%}
-  @media(min-width:900px){ .wrap{max-width:920px} .calgrid{grid-template-columns:1fr 1fr;align-items:start} }
+  #menuRecCard{margin-top:14px}
+  @media(min-width:900px){
+    .wrap{max-width:920px}
+    .calgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+    .calcol{display:flex;flex-direction:column;min-width:0}
+    .cg-food{margin-top:0}
+  }
   .emi{width:1.05em;height:1.05em;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;flex:0 0 auto}
   .hopt-ic .emi{width:26px;height:26px}
   .deal-hd .emi{width:22px;height:22px}
@@ -213,6 +223,7 @@
 
     <div class="calgrid">
      <div class="calcol">
+     <div class="cg-a">
     <div class="card ring">
       <div class="tlbl" data-i18n="cal_targetlbl">Your daily calorie target</div>
       <div class="thermowrap">
@@ -274,20 +285,26 @@
     </div>
     <div id="ifSection"></div>
      </div>
+     <div class="cg-plan">
+    <div class="sec" id="mealPlanSec">Rencana Makan</div>
+    <div class="mp-lead" id="mealPlanLead"></div>
+    <div id="mealPlan"></div>
+     </div>
+     </div>
      <div class="calcol">
+     <div class="cg-food">
     <div class="sec" id="foodSummarySec" style="margin-top:0">Today's Food Summary</div>
     <div class="card" id="foodSummary"></div>
     <div class="sec" data-i18n="cal_today_sec">Today's Food</div>
     <div class="card"><div id="log"></div></div>
-    <div class="sec" id="mealPlanSec">Rencana Makan</div>
-    <div class="mp-lead" id="mealPlanLead"></div>
-    <div id="mealPlan"></div>
+     </div>
+     <div class="cg-week">
     <!-- Chart mingguan. Sumbernya my20fit_daily_log (log_date, cal_items) —
          query yang SAMA bentuknya dengan calorietracker.20fit.id (src/lib/memberHistory.ts),
          jadi angkanya pasti sama di kedua app. Tanpa tabel baru. -->
     <div class="sec" id="weekSec">Minggu Ini</div>
     <div class="card" id="weekCard"></div>
-
+     </div>
      </div>
     </div>
 
