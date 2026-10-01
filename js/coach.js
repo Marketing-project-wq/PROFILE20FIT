@@ -366,8 +366,7 @@
   }
   function planSrcLabel(row) {
     var p = (row && row.plan) || {};
-    if (row && row.source === "chat") return "AI COACH" + (p.coach && COACH_NAME[p.coach] ? " · " + COACH_NAME[p.coach] : "");
-    if (row && row.source === "ai") return "AI COACH";
+    if (row && row.source === "ai") return "AI COACH" + (p.origin === "chat" && p.coach && COACH_NAME[p.coach] ? " · " + COACH_NAME[p.coach] : "");
     if (row && row.source === "adjusted") return Lx({ en: "Adjusted", id: "Disesuaikan" });
     return Lx({ en: "Auto plan", id: "Plan otomatis" });
   }
@@ -831,21 +830,39 @@
       MEAL_APPLIED = (j && j.meal_plan) ? mealSig(j.meal_plan.plan) : "";
     } catch (e) {}
   }
-  function planCard() {
-    return '<span class="cplan"><b>' + svgIcon("clipboard", 15) + ' ' + esc(Lx({ en: "Plan saved as your active plan", id: "Plan tersimpan jadi plan aktif kamu" })) + '</b>' +
-      '<span class="cplan-a"><a href="/activity/plan">' + esc(Lx({ en: "View plan →", id: "Lihat plan →" })) + '</a>' +
-      '<a href="/activity">' + esc(Lx({ en: "Dashboard →", id: "Dashboard →" })) + '</a></span></span>';
+  // Workout plan dari chat = TABEL (hari · fokus · latihan · menit). Plan aslinya tersimpan di DB
+  // (plan aktif) dan bisa diubah user di /activity — tombol "Ubah" membuka editor di sana.
+  function workoutCard(js) {
+    var p; try { p = JSON.parse(js); } catch (e) { return ""; }
+    if (!p || !Array.isArray(p.days) || !p.days.length) return "";
+    var unitLbl = { sec: Lx({ en: "sec", id: "dtk" }), min: Lx({ en: "min", id: "mnt" }) };
+    var rows = p.days.map(function (d) {
+      var ex = (d.exercises || []).map(function (e) {
+        return '<li>' + esc(e.name) + ' <span>' + esc((e.sets || 1) + '×' + (e.reps || "") + (unitLbl[e.unit] ? " " + unitLbl[e.unit] : "")) + '</span></li>';
+      }).join("");
+      return '<tr><th scope="row">' + esc(d.label || "") + (d.focus ? '<small>' + esc(d.focus) + '</small>' : '') + '</th>' +
+        '<td><ul>' + ex + '</ul></td><td class="cwp-m">' + (d.duration_min ? esc(d.duration_min) + "'" : "—") + '</td></tr>';
+    }).join("");
+    return '<div class="cwp"><div class="cwp-h"><b>' + svgIcon("dumbbell", 15) + ' ' + esc(p.title || "Workout plan") + '</b>' +
+      (p.saved ? '<span class="cwp-ok">' + svgIcon("check", 13) + ' ' + esc(Lx({ en: "Saved to Activity", id: "Tersimpan di Activity" })) + '</span>'
+               : '<span class="cwp-no">' + esc(Lx({ en: "Not saved yet — ask me again", id: "Belum tersimpan — minta ulang ya" })) + '</span>') + '</div>' +
+      '<div class="cwp-t"><table><thead><tr><th>' + esc(Lx({ en: "Day", id: "Hari" })) + '</th><th>' + esc(Lx({ en: "Exercises", id: "Latihan" })) +
+      '</th><th>' + esc(Lx({ en: "Min", id: "Mnt" })) + '</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      (p.note ? '<span class="cwp-x">' + esc(p.note) + '</span>' : '') +
+      (p.saved ? '<span class="cwp-a"><a href="/activity#edit-plan">' + svgIcon("clipboard", 14) + ' ' + esc(Lx({ en: "Edit in Activity", id: "Ubah di Activity" })) + '</a>' +
+        '<a href="/activity/plan">' + esc(Lx({ en: "Plan detail →", id: "Detail plan →" })) + '</a></span>' : '') + '</div>';
   }
-  // Blok meal plan dipisah dulu (JSON-nya tak boleh ikut di-escape/diformat), sisanya teks biasa.
+  // Blok kartu (meal plan / workout plan) dipisah dulu — JSON-nya tak boleh ikut di-escape/diformat.
   function renderReply(text) {
-    return String(text || "").split(/\[\[MEAL_PLAN\]\]([\s\S]*?)\[\[\/MEAL_PLAN\]\]/).map(function (part, k) {
-      return k % 2 ? mealCard(part) : renderText(part);
+    return String(text || "").split(/\[\[(MEAL_PLAN|WORKOUT_PLAN)\]\]([\s\S]*?)\[\[\/\1\]\]/).map(function (part, k, arr) {
+      if (k % 3 === 1) return "";                       // nama token (ditangani di elemen berikutnya)
+      if (k % 3 === 2) return arr[k - 1] === "MEAL_PLAN" ? mealCard(part) : workoutCard(part);
+      return renderText(part);
     }).join("");
   }
   function renderText(text) {
     var h = esc(text).replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
       .replace(/(^|\n)[ \t]*[*-][ \t]+/g, "$1• ");   // daftar markdown "* " / "- " -> bullet
-    h = h.replace(/\[\[PLAN_SAVED\]\]/g, planCard());
     h = h.replace(/\[\[([A-Z_]+)\]\]/g, function (m, k) {
       var a = ACTIONS[k]; if (!a) return "";
       return '<a class="cact" href="' + esc(a[0]) + '">' + svgIcon(a[2], 14) + ' ' + esc(Lx(a[1])) + '</a>';

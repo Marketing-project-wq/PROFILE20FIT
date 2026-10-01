@@ -496,19 +496,58 @@
   .plan-slim b{color:var(--a-txt)}
   .plan-slim button{flex:none;padding:6px 11px;border-radius:8px;border:0;background:var(--fit-red,#E4002B);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
   /* Active Plan — satu baris horizontal, centang langsung */
-  .plan-active{padding:12px 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px}
-  .plan-active-hd{display:flex;align-items:center;gap:10px;font-size:12.5px;margin-bottom:8px}
-  .plan-active-hd span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .plan-active-cnt{font-family:var(--mono);font-size:11.5px;font-weight:800;color:var(--a-mut)}
-  .plan-active-bar{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
-  .plan-active-bar::-webkit-scrollbar{height:0}
-  .plan-active-day{flex:none;padding:6px 10px;border-radius:9px;border:1px solid var(--a-line);background:none;font-size:11.5px;color:var(--a-mut);cursor:pointer;font-family:inherit;white-space:nowrap}
-  .plan-active-day b{color:var(--a-txt)}
-  .plan-active-day.done{border-color:color-mix(in srgb,#16A34A 45%,var(--a-line));background:color-mix(in srgb,#16A34A 8%,transparent)}
-  .plan-active-day:disabled{opacity:.5}
-  .plan-active-day.today{border-color:color-mix(in srgb,var(--fit-red,#E4002B) 55%,var(--a-line))}
-  .plan-active-day .pad-min{color:var(--a-mut)}
-  .plan-active-day .pad-today{color:var(--fit-red,#E4002B);font-weight:800}
+  /* Workout plan aktif — tabel per hari + aksi ubah/ganti */
+  .wp{padding:14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:16px}
+  .wp-hd{display:flex;align-items:center;gap:10px}
+  .wp-ic{width:38px;height:38px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;
+    background:linear-gradient(145deg,var(--fit-red,#E4002B),color-mix(in srgb,var(--fit-red,#E4002B) 70%,#ff8a3d))}
+  .wp-ti{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .wp-ti b{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wp-ti span{font-size:11.5px;color:var(--a-mut)}
+  .wp-cnt{font-family:var(--mono);font-size:13px;font-weight:800;color:var(--a-mut)}
+  .wp-bar{height:6px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden;margin:10px 0 4px}
+  .wp-bar i{display:block;height:100%;border-radius:99px;background:var(--fit-green,#16A34A);transition:width .4s}
+  .wp-days{display:flex;flex-direction:column}
+  .wp-day{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid var(--a-line)}
+  .wp-day:first-child{border-top:0}
+  .wp-chk{flex:none;padding:0;border:0;background:none;color:var(--a-mut);cursor:pointer;margin-top:1px}
+  .wp-day.done .wp-chk{color:var(--fit-green,#16A34A)}
+  .wp-chk:disabled{opacity:.5}
+  .wp-dt{flex:1;min-width:0}
+  .wp-dl{font-size:13px;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px}
+  .wp-dl span{color:var(--a-mut);font-weight:600}
+  .wp-dl em{font-style:normal;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--fit-red,#E4002B)}
+  .wp-day.done .wp-dl b{text-decoration:line-through;color:var(--a-mut)}
+  .wp-ex{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+  .wp-ex span{font-size:11.5px;padding:3px 8px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 6%,transparent)}
+  .wp-ex i{font-style:normal;font-family:var(--mono);color:var(--a-mut)}
+  .wp-min{flex:none;font-family:var(--mono);font-size:12px;color:var(--a-mut);margin-top:1px}
+  .wp-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .wp-b{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);
+    font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;text-decoration:none}
+  .wp-b.pri{background:var(--fit-red,#E4002B);border-color:var(--fit-red,#E4002B);color:#fff}
+  /* Editor plan */
+  dialog.wp-dlg{max-width:560px;width:94%;max-height:88vh;padding:0;overflow:auto}
+  .wp-f{padding:16px}
+  .wp-f-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .wp-f-hd b{font-size:15.5px}
+  .wp-lb{display:block;font-size:12px;font-weight:700;color:var(--a-mut);margin-bottom:10px}
+  .wp-lb input{margin-top:4px}
+  .wp-fd{border:1px solid var(--a-line);border-radius:12px;padding:10px;margin:0 0 10px;display:flex;flex-direction:column;gap:6px}
+  .wp-fd-hd,.wp-er{display:flex;gap:6px;align-items:center}
+  .wp-fd-hd input:first-child{flex:0 0 30%;font-weight:700}
+  .wp-fd-hd input:nth-child(2),.wp-er input:first-child{flex:1;min-width:0}
+  dialog.wp-dlg input,dialog.wp-dlg select{padding:8px;font-size:13.5px;min-width:0}
+  dialog.wp-dlg .wp-n{flex:0 0 58px;width:58px;text-align:center}
+  dialog.wp-dlg select{flex:0 0 74px;width:74px}
+  .wp-xs{color:var(--a-mut);font-weight:700}
+  .wp-x{flex:none;border:0;background:none;color:var(--a-mut);cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;padding:4px 6px;white-space:nowrap}
+  .wp-add{align-self:flex-start;border:1px dashed var(--a-line);background:none;color:var(--a-txt);border-radius:9px;padding:6px 10px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .wp-add.day{align-self:stretch;width:100%;padding:10px}
+  .wp-f-err{color:var(--fit-red,#E4002B);font-size:12.5px;min-height:16px;margin-top:8px}
+  .wp-f-ft{display:flex;gap:8px;margin-top:6px;position:sticky;bottom:-16px;background:var(--a-surface);padding:10px 0 2px}
+  @media(max-width:480px){ .wp-fd-hd{flex-wrap:wrap} .wp-fd-hd input:first-child{flex:1 1 40%} .wp-fd-hd input:nth-child(2){flex:1 1 100%;order:5}
+    .wp-er{flex-wrap:wrap} .wp-er input:first-child{flex:1 1 100%} }
   /* Tab bar: Dashboard | Chat | Plan | History */
   .atabs{display:flex;gap:6px;background:color-mix(in srgb,var(--a-txt) 5%,transparent);border:1px solid var(--a-line);border-radius:14px;padding:5px;margin:0 0 14px;overflow-x:auto}
   .atabs::-webkit-scrollbar{height:0}
@@ -1912,53 +1951,150 @@
         if(t==="top"){ window.scrollTo({top:0,behavior:"smooth"}); } else { var x=document.getElementById(t); if(x) x.scrollIntoView({behavior:"smooth",block:"start"}); } };
     });
   }
-  // ---- ACTIVE PLAN — /api/coach/plan; satu baris hari, centang = /api/coach/plan/adjust op "done". ----
-  var WPLAN=null;
+  // ---- WORKOUT PLAN AKTIF — /api/coach/plan. Tabel per hari (centang = op "done") + editor
+  //      (op "edit"): user boleh mengubah plan dari coach — hari, fokus, durasi, latihan, set/rep.
+  //      Ganti plan: minta plan baru ke coach, atau pilih plan lain di /activity/plan. ----
+  var WPLAN=null, WP_EDIT=null, WP_OPEN_EDITOR=false;
+  var WP_UNITS=[["reps",{en:"reps",id:"rep"}],["sec",{en:"sec",id:"dtk"}],["min",{en:"min",id:"mnt"}]];
   async function loadWorkoutPlan(){
     try{
       var r=await apiFetch("/api/coach/plan"); var j=await r.json().catch(function(){return {};});
       WPLAN=(r.ok&&j&&j.plan&&j.plan.plan)?j.plan:null;
     }catch(e){ WPLAN=null; }
     renderWorkoutPlan(); tourReady("wp");
+    if(WP_OPEN_EDITOR){ WP_OPEN_EDITOR=false; var box=document.getElementById("workoutPlanBox"); if(box) box.scrollIntoView({behavior:"smooth",block:"start"}); if(WPLAN) openPlanEditor(); }
   }
+  function wpExLabel(e){ var u=WP_UNITS.filter(function(x){ return x[0]===e.unit; })[0]; return (e.sets||1)+"×"+(e.reps||"")+(u&&e.unit!=="reps"?" "+Lx(u[1]):""); }
+  function wpNewPlan(){ coachAskGo(Lx({en:"Make me a new workout plan for this week",id:"Buatkan workout plan baru untuk minggu ini"})); }
   function renderWorkoutPlan(){
     var host=document.getElementById("workoutPlanBox"); if(!host) return;
     var p=WPLAN&&WPLAN.plan, days=(p&&Array.isArray(p.days))?p.days:[];
     if(!days.length){
       host.innerHTML='<div class="plan-slim"><span>'+FIC("dumbbell",14)+' <b>'+esc(Lx({en:"Workout Plan",id:"Workout Plan"}))+'</b> · '+esc(Lx({en:"no active plan yet.",id:"belum ada plan aktif."}))+'</span>'+
         '<button type="button" id="wpMake">'+esc(Lx({en:"Make Plan →",id:"Buat Plan →"}))+'</button></div>';
-      var mk=document.getElementById("wpMake"); if(mk) mk.onclick=function(){ coachAskGo(Lx({en:"Make me a workout plan for this week",id:"Buatkan workout plan minggu ini"})); };
+      document.getElementById("wpMake").onclick=wpNewPlan;
       return;
     }
     var done=days.filter(function(d){ return d&&d.done; }).length;
     var by=(p.coach&&COACH_NAME_TPL[p.coach])?Lx({en:"by Coach ",id:"oleh Coach "})+COACH_NAME_TPL[p.coach]:"";
-    var meta=[p.plan_name||"", by||WPLAN.level||p.level||""].filter(Boolean).join(" · ");
+    var edited=WPLAN.source==="adjusted"?Lx({en:"edited",id:"diubah"}):"";
     // Label hari = nama hari (plan dari chat: "Senin"/"Monday") -> tandai hari ini.
     var wd=new Date().getDay(), tdy=[["min","sun"],["sen","mon"],["sel","tue"],["rab","wed"],["kam","thu"],["jum","fri"],["sab","sat"]][wd];
     function isToday(d){ var l=String(d.label||"").trim().toLowerCase().slice(0,3); return tdy.indexOf(l)>=0; }
-    host.innerHTML='<div class="plan-active"><div class="plan-active-hd"><span>'+FIC("dumbbell",14)+' <b>Plan</b>'+(meta?' · '+esc(meta):'')+'</span>'+
-      '<span class="plan-active-cnt">'+done+'/'+days.length+' '+esc(Lx({en:"done",id:"selesai"}))+'</span>'+
-      '<a class="acard-act" href="/activity/plan">'+esc(Lx({en:"Detail →",id:"Detail →"}))+'</a></div>'+
-      '<div class="plan-active-bar">'+days.map(function(d){
-        var now=isToday(d);
-        return '<button type="button" class="plan-active-day'+(d.done?" done":"")+(now?" today":"")+'" data-k="'+esc(d.key||"")+'" aria-pressed="'+(d.done?"true":"false")+'">'+
-          FIC(d.done?"boxcheck":"box",15)+' <b>'+esc(String(d.label||""))+'</b>'+(d.focus?' '+esc(String(d.focus)):'')+
-          (d.duration_min?' <span class="pad-min">('+(+d.duration_min)+' min)</span>':'')+
-          (now?' <span class="pad-today">← '+esc(Lx({en:"today",id:"hari ini"}))+'</span>':'')+'</button>';
-      }).join("")+'</div></div>';
-    Array.prototype.forEach.call(host.querySelectorAll(".plan-active-day"),function(b){
+    host.innerHTML='<div class="wp"><div class="wp-hd"><span class="wp-ic">'+FIC("dumbbell",18)+'</span>'+
+        '<div class="wp-ti"><b>'+esc(p.plan_name||"Workout plan")+'</b><span>'+esc([by,edited].filter(Boolean).join(" · ")||Lx({en:"Your active plan",id:"Plan aktif kamu"}))+'</span></div>'+
+        '<span class="wp-cnt">'+done+'/'+days.length+'</span></div>'+
+      '<div class="wp-bar"><i style="width:'+Math.round(done/days.length*100)+'%"></i></div>'+
+      '<div class="wp-days">'+days.map(function(d){
+        var now=isToday(d), ex=Array.isArray(d.exercises)?d.exercises:[];
+        return '<div class="wp-day'+(d.done?" done":"")+(now?" today":"")+'">'+
+          '<button type="button" class="wp-chk" data-k="'+esc(d.key||"")+'" aria-pressed="'+(d.done?"true":"false")+'" aria-label="'+esc(Lx({en:"Mark done: ",id:"Tandai selesai: "})+(d.label||""))+'">'+FIC(d.done?"boxcheck":"box",20)+'</button>'+
+          '<div class="wp-dt"><div class="wp-dl"><b>'+esc(String(d.label||""))+'</b>'+(d.focus?' <span>'+esc(String(d.focus))+'</span>':'')+
+            (now?' <em>'+esc(Lx({en:"today",id:"hari ini"}))+'</em>':'')+'</div>'+
+            '<div class="wp-ex">'+ex.map(function(e){ return '<span>'+esc(e.name)+' <i>'+esc(wpExLabel(e))+'</i></span>'; }).join("")+'</div></div>'+
+          '<span class="wp-min">'+(d.duration_min?(+d.duration_min)+"'":"")+'</span></div>';
+      }).join("")+'</div>'+
+      '<div class="wp-acts"><button type="button" class="wp-b pri" id="wpEdit">'+FIC("clipboard",15)+' '+esc(Lx({en:"Edit plan",id:"Ubah plan"}))+'</button>'+
+        '<button type="button" class="wp-b" id="wpNew">'+FIC("chat",15)+' '+esc(Lx({en:"New plan via coach",id:"Plan baru via coach"}))+'</button>'+
+        '<a class="wp-b" href="/activity/plan">'+esc(Lx({en:"All plans →",id:"Semua plan →"}))+'</a></div></div>';
+    document.getElementById("wpEdit").onclick=openPlanEditor;
+    document.getElementById("wpNew").onclick=wpNewPlan;
+    Array.prototype.forEach.call(host.querySelectorAll(".wp-chk"),function(b){
       b.onclick=async function(){
         var k=b.getAttribute("data-k"), day=days.filter(function(d){ return String(d.key)===k; })[0]; if(!day) return;
         b.disabled=true;
-        try{
-          var r=await apiFetch("/api/coach/plan/adjust",{method:"POST",body:JSON.stringify({op:"done",day_key:k,done:!day.done})});
-          var j=await r.json().catch(function(){return {};});
-          if(r.ok&&j.ok&&j.plan){ WPLAN=j.plan; renderWorkoutPlan(); return; }
-          showErr((j&&j.error)||Lx({en:"Couldn't update the plan.",id:"Gagal memperbarui plan."}),false);
-        }catch(e){ showErr(Lx({en:"Couldn't update the plan.",id:"Gagal memperbarui plan."}),false); }
-        b.disabled=false;
+        var j=await wpAdjust({op:"done",day_key:k,done:!day.done});
+        if(j){ WPLAN=j.plan; renderWorkoutPlan(); } else b.disabled=false;
       };
     });
+  }
+  async function wpAdjust(body){
+    try{
+      var r=await apiFetch("/api/coach/plan/adjust",{method:"POST",body:JSON.stringify(body)});
+      var j=await r.json().catch(function(){return {};});
+      if(r.ok&&j.ok&&j.plan) return j;
+      showErr((j&&j.error)||Lx({en:"Couldn't update the plan.",id:"Gagal memperbarui plan."}),false);
+    }catch(e){ showErr(Lx({en:"Couldn't update the plan.",id:"Gagal memperbarui plan."}),false); }
+    return null;
+  }
+
+  // ---- Editor plan (dialog). State = salinan hari (WP_EDIT); input dibaca ke state sebelum
+  //      tambah/hapus supaya ketikan tidak hilang. Server menormalisasi ulang semuanya. ----
+  var WP_DAYNAMES=null;
+  function wpDayNames(){ return I18N.lang==="en"?["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]:["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"]; }
+  function openPlanEditor(){
+    var p=WPLAN&&WPLAN.plan; if(!p) return;
+    WP_EDIT={ name:p.plan_name||"", days:(p.days||[]).map(function(d){
+      return { label:d.label||"", focus:d.focus||"", duration_min:d.duration_min||"", done:!!d.done,
+        exercises:(d.exercises||[]).map(function(e){ return { key:e.key, name:e.name||"", sets:e.sets||3, reps:e.reps||"", unit:e.unit||"reps", rest_sec:e.rest_sec, note:e.note, progression:e.progression }; }) };
+    }) };
+    var dlg=document.getElementById("wpDlg");
+    if(!dlg){ dlg=document.createElement("dialog"); dlg.id="wpDlg"; dlg.className="wp-dlg"; document.body.appendChild(dlg); }
+    wpPaint(); dlg.showModal();
+  }
+  function wpRead(){
+    var dlg=document.getElementById("wpDlg"); if(!dlg||!WP_EDIT) return;
+    var nm=dlg.querySelector("#wpName"); if(nm) WP_EDIT.name=nm.value;
+    Array.prototype.forEach.call(dlg.querySelectorAll("[data-f]"),function(el){
+      var f=el.getAttribute("data-f"), di=+el.getAttribute("data-d"), ei=el.getAttribute("data-e"), day=WP_EDIT.days[di]; if(!day) return;
+      if(ei==null) day[f]=el.value; else if(day.exercises[+ei]) day.exercises[+ei][f]=el.value;
+    });
+  }
+  function wpPaint(){
+    var dlg=document.getElementById("wpDlg"); if(!dlg||!WP_EDIT) return;
+    WP_DAYNAMES=wpDayNames();
+    var unitOpts=function(v){ return WP_UNITS.map(function(u){ return '<option value="'+u[0]+'"'+(u[0]===v?" selected":"")+'>'+esc(Lx(u[1]))+'</option>'; }).join(""); };
+    dlg.innerHTML='<form method="dialog" class="wp-f" novalidate>'+
+      '<div class="wp-f-hd"><b>'+esc(Lx({en:"Edit workout plan",id:"Ubah workout plan"}))+'</b><button type="button" class="wp-x" id="wpClose" aria-label="'+esc(Lx({en:"Close",id:"Tutup"}))+'">✕</button></div>'+
+      '<label class="wp-lb">'+esc(Lx({en:"Plan name",id:"Nama plan"}))+'<input id="wpName" maxlength="80" value="'+esc(WP_EDIT.name)+'"></label>'+
+      '<datalist id="wpDayList">'+WP_DAYNAMES.map(function(n){ return '<option value="'+esc(n)+'">'; }).join("")+'</datalist>'+
+      WP_EDIT.days.map(function(d,di){
+        return '<fieldset class="wp-fd"><div class="wp-fd-hd">'+
+            '<input data-f="label" data-d="'+di+'" list="wpDayList" maxlength="40" placeholder="'+esc(Lx({en:"Day",id:"Hari"}))+'" value="'+esc(d.label)+'" aria-label="'+esc(Lx({en:"Day",id:"Hari"}))+'">'+
+            '<input data-f="focus" data-d="'+di+'" maxlength="40" placeholder="'+esc(Lx({en:"Focus (e.g. Upper body)",id:"Fokus (mis. Upper body)"}))+'" value="'+esc(d.focus)+'" aria-label="'+esc(Lx({en:"Focus",id:"Fokus"}))+'">'+
+            '<input data-f="duration_min" data-d="'+di+'" type="number" min="5" max="240" inputmode="numeric" placeholder="'+esc(Lx({en:"min",id:"mnt"}))+'" value="'+esc(d.duration_min)+'" aria-label="'+esc(Lx({en:"Minutes",id:"Menit"}))+'" class="wp-n">'+
+            '<button type="button" class="wp-x" data-delday="'+di+'" >'+esc(Lx({en:"Remove day",id:"Hapus hari"}))+'</button></div>'+
+          d.exercises.map(function(e,ei){
+            return '<div class="wp-er"><input data-f="name" data-d="'+di+'" data-e="'+ei+'" maxlength="80" placeholder="'+esc(Lx({en:"Exercise",id:"Latihan"}))+'" value="'+esc(e.name)+'" aria-label="'+esc(Lx({en:"Exercise",id:"Latihan"}))+'">'+
+              '<input data-f="sets" data-d="'+di+'" data-e="'+ei+'" type="number" min="1" max="10" inputmode="numeric" value="'+esc(e.sets)+'" aria-label="Sets" class="wp-n">'+
+              '<span class="wp-xs">×</span><input data-f="reps" data-d="'+di+'" data-e="'+ei+'" maxlength="20" value="'+esc(e.reps)+'" aria-label="Reps" class="wp-n">'+
+              '<select data-f="unit" data-d="'+di+'" data-e="'+ei+'" aria-label="'+esc(Lx({en:"Unit",id:"Satuan"}))+'">'+unitOpts(e.unit)+'</select>'+
+              '<button type="button" class="wp-x" data-delex="'+di+'.'+ei+'" title="'+esc(Lx({en:"Remove",id:"Hapus"}))+'">✕</button></div>';
+          }).join("")+
+          '<button type="button" class="wp-add" data-addex="'+di+'">+ '+esc(Lx({en:"Exercise",id:"Latihan"}))+'</button></fieldset>';
+      }).join("")+
+      (WP_EDIT.days.length<7?'<button type="button" class="wp-add day" id="wpAddDay">+ '+esc(Lx({en:"Add day",id:"Tambah hari"}))+'</button>':'')+
+      '<div class="wp-f-err" id="wpErr"></div>'+
+      '<div class="wp-f-ft"><button type="button" class="btn ghost" id="wpCancel">'+esc(Lx({en:"Cancel",id:"Batal"}))+'</button>'+
+        '<button type="button" class="btn" id="wpSave">'+esc(Lx({en:"Save plan",id:"Simpan plan"}))+'</button></div></form>';
+    var close=function(){ dlg.close(); };
+    dlg.querySelector("#wpClose").onclick=close; dlg.querySelector("#wpCancel").onclick=close;
+    Array.prototype.forEach.call(dlg.querySelectorAll("[data-delday]"),function(b){ b.onclick=function(){ wpRead(); WP_EDIT.days.splice(+b.getAttribute("data-delday"),1); wpPaint(); }; });
+    Array.prototype.forEach.call(dlg.querySelectorAll("[data-delex]"),function(b){ b.onclick=function(){ wpRead(); var x=b.getAttribute("data-delex").split("."); WP_EDIT.days[+x[0]].exercises.splice(+x[1],1); wpPaint(); }; });
+    Array.prototype.forEach.call(dlg.querySelectorAll("[data-addex]"),function(b){ b.onclick=function(){
+      wpRead(); var di=+b.getAttribute("data-addex"); WP_EDIT.days[di].exercises.push({name:"",sets:3,reps:"10",unit:"reps"}); wpPaint();
+      var ins=dlg.querySelectorAll('[data-f="name"][data-d="'+di+'"]'); if(ins.length) ins[ins.length-1].focus();
+    }; });
+    var ad=dlg.querySelector("#wpAddDay"); if(ad) ad.onclick=function(){
+      wpRead(); var used=WP_EDIT.days.map(function(d){ return String(d.label).toLowerCase(); });
+      var free=WP_DAYNAMES.filter(function(n){ return used.indexOf(n.toLowerCase())<0; })[0]||"";
+      WP_EDIT.days.push({label:free,focus:"",duration_min:"",done:false,exercises:[{name:"",sets:3,reps:"10",unit:"reps"}]}); wpPaint();
+    };
+    dlg.querySelector("#wpSave").onclick=wpSave;
+  }
+  async function wpSave(){
+    wpRead();
+    var dlg=document.getElementById("wpDlg"), err=dlg.querySelector("#wpErr"), btn=dlg.querySelector("#wpSave");
+    var days=WP_EDIT.days.map(function(d){
+      return { label:String(d.label).trim(), focus:String(d.focus).trim(), duration_min:parseInt(d.duration_min,10)||null, done:!!d.done,
+        exercises:d.exercises.filter(function(e){ return String(e.name).trim(); }).map(function(e){ return Object.assign({},e,{ name:String(e.name).trim(), sets:parseInt(e.sets,10)||1, reps:String(e.reps).trim() }); }) };
+    }).filter(function(d){ return d.exercises.length; });
+    if(!days.length){ err.textContent=Lx({en:"Add at least one day with one exercise.",id:"Isi minimal 1 hari dengan 1 latihan."}); return; }
+    err.textContent=""; btn.disabled=true;
+    var j=await wpAdjust({op:"edit",plan_name:String(WP_EDIT.name).trim(),days:days});
+    btn.disabled=false;
+    if(j){ WPLAN=j.plan; renderWorkoutPlan(); dlg.close(); }
+    else err.textContent=Lx({en:"Couldn't save. Check your connection and try again.",id:"Gagal menyimpan. Cek koneksi lalu coba lagi."});
   }
 
   (async function(){
@@ -1970,7 +2106,9 @@
     loadJourney();       // hasil Visbody baru + checklist Health Journey + nudge (server) — fire-and-forget
     loadHealthScore();   // skor komposit + What You Need + weekly recap — fire-and-forget
     loadCoachProfiles(); renderCoachQa();   // kotak profil coach + aksi cepat (auto-message ke chat) — fire-and-forget
-    loadWorkoutPlan();   // Active Plan (dari /api/coach/plan) — fire-and-forget
+    // "Ubah di Activity" dari tabel plan di chat -> buka editor setelah plan termuat.
+    if(location.hash==="#edit-plan"){ try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} WP_OPEN_EDITOR=true; }
+    loadWorkoutPlan();   // Workout plan aktif (dari /api/coach/plan) — fire-and-forget
     loadTodayPlan(); loadLastUpload();   // Today's Plan + "Terakhir:" di kartu upload — fire-and-forget
     wireTabs();          // tab bar Dashboard/Chat/Plan/History
     // Tombol "Tur fitur" (putar ulang kapan saja) + link "Upload workout pertamaku" dari tur Home.
