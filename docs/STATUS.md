@@ -750,6 +750,16 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Bon gaya e-receipt + Download PDF + rating kelas — 1 Okt 2026, permintaan pemilik.** (1) Bon di Riwayat & Transaksi
+  kini bergaya e-receipt (contoh pemilik: Grab): pita merah (jenis transaksi, logo 20FIT, judul sesuai status, kode &
+  tanggal), Total besar, Rincian, Detail, catatan "bukan faktur pajak". (2) Tombol **Download PDF**: `js/receipt-pdf.js`
+  membuat PDF di browser tanpa library (Helvetica standar, WinAnsi) dengan isi & tata letak yang sama (`receiptData()` di
+  profile.html = satu sumber untuk layar & PDF); unduh lewat `<a download>` di tab yang sama. (3) **Rating & ulasan
+  kelas**: klik baris kelas → sheet bintang 1–5 + ulasan (opsional, ≤1000 karakter); hanya booking `confirmed` yang
+  jadwalnya sudah lewat & punya `booking_code`. Server `GET/POST /api/class-reviews` (cek kepemilikan ke arena-api).
+  Butuh **migration 030 (BELUM DIJALANKAN — pemilik)**; sebelum itu UI menulis "Fitur rating belum aktif".
+  Terverifikasi dari screenshot pemilik di staging: arena-api MENGIRIM `booking_code` & `created_at` per booking kelas.
+  Belum ada tampilan rating untuk admin/coach (kandidat langkah berikutnya — TANYA PEMILIK).
 - **Riwayat & Transaksi di /profile — gabungan Riwayat 20FIT + Riwayat Pembelian (1 Okt 2026, permintaan pemilik).**
   Satu kartu (`profile.html` `renderTx`): booking kelas, paket sesi, booking venue (`/api/arena/history`) + paket scan
   kalori (`js/orders.js`, per-device). Bar filter jenis (Semua/Kelas/Paket/Venue/Scan kalori + jumlah), ringkasan
@@ -757,9 +767,8 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   berlabel jenis ("Pembelian kelas", "Paket sesi", "Booking venue", "Paket scan kalori"), status, dan tombol
   **Lihat bon** — bon format sama untuk semua jenis (`showReceipt`). Aksi Bayar/Batalkan/Beli lagi untuk order scan
   tetap. `ArenaHistory.html` dihapus (render pindah ke profile); key i18n `prof_hist_sec/prof_hist_empty` dihapus.
-  **BELUM TERVERIFIKASI:** apakah arena-api mengirim `created_at` / `booking_code` per booking & paket — kalau
-  tidak ada, tanggal penanda memakai tanggal jadwal (kelas) / tanggal pakai (venue), paket masuk grup "Tanggal tidak
-  tercatat", dan kode booking tidak tampil di bon. Belum diuji dengan akun asli.
+  Booking kelas: `created_at` & `booking_code` TERKONFIRMASI ada (screenshot staging pemilik). Paket & venue: **BELUM
+  TERVERIFIKASI** — kalau tak ada, penanda pakai tanggal pakai (venue) / grup "Tanggal tidak tercatat" (paket).
 - **Pencapaian & Riwayat 20FIT pindah dari /activity ke /profile (1 Okt 2026, permintaan pemilik).**
   Dua modul bersama baru/diperluas supaya satu sumber: `js/arena-history.js` (`ArenaHistory.load/badge/time`
   — fetch `/api/arena/history` sekali per halaman) dan `js/achievements.js`
