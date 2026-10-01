@@ -47,6 +47,7 @@
 
   // Cache lokal status (kalau server sesaat tak terjangkau, tur yang sudah selesai tetap tak muncul).
   var UID = "";
+  var HAS_SCAN = null;   // dari /api/journey/state (auto); null = belum tahu -> langkah ber-`only` tetap tampil
   function lcKey(k) { return "my20fit_tour_" + (UID || "anon") + "_" + k; }
   function lcGet(k) { try { return JSON.parse(localStorage.getItem(lcKey(k)) || "null"); } catch (e) { return null; } }
   function save(key, version, status, last, seen) {
@@ -85,7 +86,8 @@
     if (s.sel && !el) return null;
     var title = fill(s.title, vars), body = fill(s.body, vars);
     if (title == null || body == null) return null;
-    return { id: step.id, el: el, sel: s.sel, title: title, body: body, featured: !!s.featured, ctas: s.ctas || null };
+    var ctas = (s.ctas || []).filter(onlyOk);
+    return { id: step.id, el: el, sel: s.sel, title: title, body: body, featured: !!s.featured, ctas: ctas.length ? ctas : null };
   }
 
   // Modal lain terbuka -> tunggu (tur tak boleh bertumpuk dengan persetujuan/pembayaran/claim).
@@ -236,12 +238,15 @@
     try { if (r.prevFocus && r.prevFocus.focus) r.prevFocus.focus({ preventScroll: true }); } catch (e) {}
   }
 
+  // `only: "no_scan" | "has_scan"` di langkah / CTA -> hanya untuk user tanpa / dengan scan Visbody.
+  function onlyOk(x) { return !x || !x.only || HAS_SCAN === null || (x.only === "has_scan") === HAS_SCAN; }
+
   // opts: {replay, resumeAt, onlyNew:[id...], prevSeen, vars, onCta}
   async function start(key, opts) {
     opts = opts || {};
     var cfg = CFG[key]; if (!cfg || RUN) return false;
     var vars = opts.vars || {};
-    var steps = cfg.steps.filter(function (s) { return !opts.onlyNew || opts.onlyNew.indexOf(s.id) < 0; })
+    var steps = cfg.steps.filter(function (s) { return onlyOk(s) && (!opts.onlyNew || opts.onlyNew.indexOf(s.id) < 0); })
       .map(function (s) { return resolve(s, vars); }).filter(Boolean);
     if (!steps.length) { if (opts.onlyNew) save(key, cfg.version, "completed", 0, opts.prevSeen || []); return false; }
     if (!(await waitNoModal())) return false;
@@ -265,7 +270,8 @@
       try { var r = await authFetch("/api/journey/state"); st = r.ok ? await r.json() : null; } catch (e) { st = null; }
     }
     var tours = (st && st.tours) || {}, hasScan = !!(st && st.has_claimed_scan);
-    // ?tour=<key> -> putar ulang manual (mis. dari Profil).
+    if (st) HAS_SCAN = hasScan;
+    // ?tour=<key> -> putar ulang manual lewat link (tombol di Profil sudah dihapus; dibiarkan untuk link luar).
     var want = null; try { want = new URLSearchParams(location.search).get("tour"); } catch (e) {}
     if (want && CFG[want] && CFG[want].page === page) {
       try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) {}

@@ -130,7 +130,14 @@
   .rv-acts{display:flex;gap:8px;margin-top:12px}
   .rv-btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--txt);font-family:inherit;font-weight:800;font-size:13.5px;cursor:pointer}
   .rv-k{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--red,#E4002B)}
-  .rv-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .rv-sub{font-size:12.5px;color:var(--muted);margin-top:8px}
+  .rv-info{margin-top:12px;padding:4px 12px;border:1px solid var(--line);border-radius:12px;background:var(--inp)}
+  .rv-info .r{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-top:1px dashed var(--line);font-size:13px}
+  .rv-info .r:first-child{border-top:0}
+  .rv-info .k{color:var(--muted)}
+  .rv-info .v{font-weight:700;text-align:right}
+  .rv-info .badge{margin-top:0}
+  .rv-info .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
   .rv-stars{display:flex;gap:8px;justify-content:center;margin:18px 0 6px}
   .rv-star{width:46px;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--inp);color:var(--faint,#B7B9BF);font-size:24px;line-height:1;cursor:pointer;font-family:inherit}
   .rv-star.on{color:var(--amber,#E8912A);background:var(--amber-soft,rgba(232,145,42,.14));border-color:color-mix(in srgb,var(--amber,#E8912A) 45%,transparent)}
@@ -222,8 +229,6 @@
       <div id="menuList"><div class="muted">…</div></div>
     </div>
 
-    <!-- Putar ulang tur fitur (js/tour.js) — tur menu utama ada di Home -->
-    <a class="btn out" href="/dashboard?tour=welcome" style="display:block;text-align:center;text-decoration:none;margin-bottom:12px" data-i18n="prof_tour">Tur fitur</a>
 
     <!-- Danger zone (hak penghapusan akun) -->
     <div class="card">
@@ -649,7 +654,8 @@
           }
         }
         var rv=t.k==="class"&&REVIEWS&&REVIEWS!=="off"?REVIEWS[t.code]:null;
-        if(canRate(t)&&REVIEWS!=="off") acts+='<button type="button" class="oa-again" data-rv="'+i+'">'+FIC("star",13)+' '+escapeHtml(rv?L({en:"Edit rating",id:"Ubah rating"}):L({en:"Rate class",id:"Beri rating"}))+'</button>';
+        // Setiap baris kelas punya tombol rating; bisa/tidaknya dinilai dijelaskan di sheet (openReview).
+        if(t.k==="class") acts+='<button type="button" class="oa-again" data-rv="'+i+'">'+FIC("star",13)+' '+escapeHtml(rv?("★"+rv.rating+" · "+L({en:"Edit rating",id:"Ubah rating"})):L({en:"Rate your class",id:"Nilai kelas"}))+'</button>';
         h+='<div class="txr k-'+t.k+(t.k==="class"?' click':'')+'"'+(t.k==="class"?' data-rv="'+i+'"':' data-rc="'+i+'"')+'><span class="tx-ic">'+FIC(K.ic,18)+'</span>'+
           '<div class="tx-b"><div class="tx-hd"><div class="tx-k">'+escapeHtml(L(K))+'</div><div class="tx-a">'+rupiah(t.amount)+'</div></div>'+
             '<div class="tx-t">'+escapeHtml(t.title)+'</div>'+(t.sub?'<div class="tx-s">'+escapeHtml(t.sub)+'</div>':'')+
@@ -748,10 +754,20 @@
     function openReview(t,preset){
       if(!t) return; RV_T=t;
       var rv=REVIEWS&&REVIEWS!=="off"?REVIEWS[t.code]:null; RV_VAL=preset||(rv?rv.rating:0); RV_SEL=(rv&&rv.tags||[]).slice();
-      var h='<div class="rv-k">'+escapeHtml(L(TX_KINDS.class))+'</div><h2>'+escapeHtml(t.title)+'</h2>'+
-        '<div class="rv-sub">'+escapeHtml(t.when+(t.instructor?" · "+t.instructor:""))+'</div>';
+      var S=txStatus(t.st), info=[
+        [L({en:"Schedule",id:"Jadwal"}),t.when],
+        t.instructor?["Coach",t.instructor]:null,
+        t.code?[L({en:"Booking code",id:"Kode booking"}),'<span class="mono">'+escapeHtml(t.code)+'</span>',1]:null,
+        ["Status",'<span class="badge '+S.cls+'">'+escapeHtml(S.label)+'</span>',1],
+        [L({en:"Price",id:"Harga"}),rupiah(t.amount)],
+        t.ts!=null?[L({en:"Booked on",id:"Dipesan"}),fmtDate(t.ts)]:null
+      ].filter(Boolean);
+      var h='<div class="rv-k">'+escapeHtml(L({en:"Rate your class",id:"Nilai kelas"}))+'</div><h2>'+escapeHtml(t.title)+'</h2>'+
+        '<div class="rv-info">'+info.map(function(r){ return '<div class="r"><span class="k">'+escapeHtml(r[0])+'</span><span class="v">'+(r[2]?r[1]:escapeHtml(r[1]))+'</span></div>'; }).join("")+'</div>'+
+        (rv?'<div class="rv-sub">'+escapeHtml(L({en:"You rated this class "+rv.rating+"/5 — you can change it below.",id:"Kamu sudah menilai kelas ini "+rv.rating+"/5 — bisa diubah di bawah."}))+'</div>':'');
       var why=null;
-      if(t.st!=="confirmed") why=L({en:"This booking isn't confirmed, so it can't be rated.",id:"Booking ini tidak terkonfirmasi, jadi belum bisa dinilai."});
+      if(S.cls==="cancelled") why=L({en:"This class was cancelled, so it can't be rated.",id:"Kelas ini dibatalkan, jadi tidak bisa dinilai."});
+      else if(t.st!=="confirmed") why=L({en:"This booking isn't confirmed yet (waiting for payment), so it can't be rated.",id:"Booking ini belum terkonfirmasi (menunggu pembayaran), jadi belum bisa dinilai."});
       else if(!t.code) why=L({en:"This booking has no booking code yet, so it can't be rated.",id:"Booking ini belum punya kode booking, jadi belum bisa dinilai."});
       else if(!(t.date&&t.date<=todayYmdLocal())) why=L({en:"You can rate this class after it takes place ("+dOnly(t.date)+").",id:"Rating bisa diberikan setelah kelas berlangsung ("+dOnly(t.date)+")."});
       else if(REVIEWS==="off") why=L({en:"Class ratings aren't available yet. Please try again later.",id:"Fitur rating kelas belum aktif. Coba lagi nanti."});

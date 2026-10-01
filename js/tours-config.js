@@ -11,6 +11,8 @@
  *  - {nama} di teks diganti variabel dari halaman (mis. {score}); `need` = variabel wajib, kalau
  *    kosong dipakai `alt` (supaya tak pernah menampilkan angka contoh sebagai data user).
  *  - featured:true = langkah fitur unggulan (badge "Unggulan").
+ *  - only: "no_scan" / "has_scan" di langkah atau CTA = hanya ditampilkan untuk user tanpa / dengan
+ *    scan Visbody (mis. ajakan scan tidak muncul untuk yang sudah scan).
  *  - auto_if: "no_scan" / "has_scan" = tur hanya otomatis untuk user tanpa / dengan scan Visbody
  *    ter-claim; `after` = tur halaman (F3) baru muncul setelah tur itu selesai/dilewati.
  *  - ctas di langkah terakhir: {id, label, href} atau {id, label, action} (action ditangani halaman).
@@ -23,9 +25,10 @@
   var NAV = function (href) { return [".bnav a[href='" + href + "']", ".navside a[href='" + href + "']"]; };
 
   window.TOURS_CONFIG = {
-    // ---------------- F2 — user baru / belum pernah scan: semua menu + fitur unggulan ----------------
+    // ---------------- F2 — SEMUA user baru (dengan / tanpa scan): semua menu + fitur unggulan ----------------
+    // Tidak ada tombol putar ulang di Profil lagi (permintaan pemilik 2026-10-01); tur otomatis sekali per user.
     welcome: {
-      version: 1, page: "dashboard", auto_if: "no_scan",
+      version: 1, page: "dashboard",
       steps: [
         { id: "hello", title: { en: "Welcome to my.20fit.id", id: "Selamat datang di my.20fit.id" },
           body: { en: "Your hub for your health journey at 20FIT: track workouts & meals, see your Health Score, chat with an AI coach and book classes. Here's a quick tour.", id: "Pusat perjalanan sehatmu di 20FIT: catat latihan & makan, lihat Health Score, chat dengan AI coach, dan booking kelas. Yuk kenalan sebentar." } },
@@ -38,22 +41,22 @@
         { id: "nav_activity", sel: NAV("activity.html"), title: { en: "Activity", id: "Activity" },
           body: { en: "Workouts, sleep, hydration, Health Score and your AI coach — the centre of your progress.", id: "Latihan, tidur, hidrasi, Health Score, dan AI coach — pusat progresmu." } },
         { id: "nav_profile", sel: NAV("profile.html"), title: { en: "Profile", id: "Profil" },
-          body: { en: "Your data, corporate program, purchases — and this tour, whenever you want it again.", id: "Data dirimu, program corporate, riwayat pembelian — dan tur ini, kapan pun mau diulang." } },
+          body: { en: "Your data, achievements, history & transactions, receipts and class ratings.", id: "Data dirimu, pencapaian, riwayat & transaksi, bon, dan rating kelas." } },
         { id: "nav_products", sel: ["#hpxProdBtn", "#unApps"], title: { en: "All 20FIT products", id: "Semua produk 20FIT" },
           body: { en: "MCU Scanner, Book Class / Coach / Doctor, Recipe and more — one tap away.", id: "MCU Scanner, Book Class / Coach / Doctor, Recipe, dan lainnya — satu ketukan." } },
-        { id: "feat_visbody", featured: true, title: { en: "Visbody scan at 20FIT", id: "Scan Visbody di 20FIT" },
+        { id: "feat_visbody", featured: true, only: "no_scan", title: { en: "Visbody scan at 20FIT", id: "Scan Visbody di 20FIT" },
           body: { en: "A ±5-minute body composition scan: body fat, muscle, BMR and more. It unlocks your Health Score and makes your plan more accurate.", id: "Scan komposisi tubuh ±5 menit: lemak tubuh, otot, BMR, dan lainnya. Membuka Health Score dan membuat plan-mu lebih tepat." },
           ctas: [{ id: "visbody_how", label: { en: "See how to scan", id: "Lihat cara scan" }, href: "/activity/visbody" }] },
         { id: "feat_coach", featured: true, sel: NAV("activity.html"), title: { en: "AI Coach", id: "AI Coach" },
           body: { en: "Consult and build a workout plan in the style of a 20FIT coach. It's an AI coach — not a doctor.", id: "Konsultasi dan buat workout plan dengan gaya coach 20FIT. Ini AI coach — bukan dokter." } },
-        { id: "feat_score", featured: true, sel: NAV("activity.html"), title: { en: "Health Score", id: "Health Score" },
+        { id: "feat_score", featured: true, only: "no_scan", sel: NAV("activity.html"), title: { en: "Health Score", id: "Health Score" },
           body: { en: "One number for your overall fitness. It's locked until you do a Visbody scan or upload your first workout.", id: "Satu angka untuk kebugaranmu. Terkunci sampai kamu scan Visbody atau upload workout pertama." } },
         { id: "feat_foodscan", featured: true, sel: [".scanfab", ".navside .sscan"], title: { en: "Food scan", id: "Scan makanan" },
           body: { en: "Snap your meal and get a calorie estimate in seconds.", id: "Foto makananmu dan dapat perkiraan kalori dalam hitungan detik." } },
         { id: "done", title: { en: "You're all set!", id: "Siap mulai!" },
           body: { en: "Pick your first step:", id: "Pilih langkah pertamamu:" },
           ctas: [
-            { id: "schedule_visbody", label: { en: "Schedule a Visbody scan", id: "Jadwalkan scan Visbody" }, href: "/activity/visbody" },
+            { id: "schedule_visbody", only: "no_scan", label: { en: "Schedule a Visbody scan", id: "Jadwalkan scan Visbody" }, href: "/activity/visbody" },
             { id: "first_workout", label: { en: "Upload my first workout", id: "Upload workout pertamaku" }, href: "/activity#upload-workout" },
           ] },
       ],
