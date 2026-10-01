@@ -162,7 +162,21 @@ Tiga endpoint di sisi kita. Ganti `<BASE>` dengan URL lingkungan yang sedang dis
 
 Berikan ke Visbody: **ketiga URL + `VISBODY_DEVICE_KEY` + `VISBODY_DEVICE_SECRET`**.
 
-QR-nya berisi: `<APP_BASE_URL>/body-scan?claim=<scan_id>&device=<device_id>`.
+QR-nya berisi: `<APP_BASE_URL>/visbody-claim?t=<token>` — token acak 256-bit, **sekali pakai**,
+berlaku `claim_token_ttl_hours` (lib/journey-config.js, default 7 hari — PERLU DIPUTUSKAN).
+Hanya hash token yang disimpan (`my20fit_visbody_claim_token`). `scan_id` tidak ada di QR.
+QR hanya dibuat kalau webhook scan itu sudah kita terima (kalau belum: `code 30004`, timbangan
+bisa meminta ulang).
+
+---
+
+## Bagian 4b — Info alat untuk member (halaman /activity/visbody)
+
+Isi `visbody_info` di `lib/journey-config.js`. **Sudah terisi (2026-09-30):** `locations` = 20FIT Arena
+(Menteng Prada; link Maps dari pemilik; halaman unit `https://arena.20fit.id` — asumsi agent, koreksi kalau keliru)
+→ kartu "Coba scan Visbody di 20FIT Arena" + tombol Maps & Kunjungi 20FIT Arena di /activity/visbody.
+**Masih null (tidak ditampilkan, tidak dikarang):** `price_note` (biaya/promo), `booking_url` ATAU `whatsapp`
+(cara menjadwalkan — tanpa ini teksnya "datang ke 20FIT Arena dan minta scan ke tim"), `prep` (persiapan — tim klinik).
 
 ---
 
@@ -203,7 +217,8 @@ delete from public.my20fit_visbody_scan where scan_id like 'TEST-%';
    Harus ada baris baru `status = 'received'`, `auth_user_id` NULL. **Kalau tidak ada
    baris sama sekali → webhook tidak sampai** (balik ke Bagian 4/5, jangan lanjut).
 3. Orang itu memindai **QR di layar timbangan** dengan ponselnya → terbuka
-   `/body-scan?claim=…` → tekan tombol klaim.
+   `/visbody-claim?t=…` → (login/daftar kalau belum; token disimpan & dia kembali ke sini) →
+   centang persetujuan data → **Simpan ke akunku** → diarahkan ke `/activity?welcome=visbody`.
 4. Cek lagi:
    ```sql
    select s.scan_id, s.status, s.last_error, b.body_weight, b.body_fat_percentage
@@ -215,9 +230,14 @@ delete from public.my20fit_visbody_scan where scan_id like 'TEST-%';
 5. Buka `/body-scan` dan `/activity` sebagai orang itu. Kartu "Status Tubuh" di `/activity`
    harus berganti dari BMI perkiraan menjadi angka terukur.
 
-**Jendela klaim 30 menit.** Lewat itu, QR-nya menolak dengan `claim_expired` — disengaja,
-karena tautan QR tidak memuat rahasia apa pun. Kalau 30 menit terasa terlalu pendek di
-lapangan, itu satu angka di `server.js` (`VISBODY_CLAIM_WINDOW_MS`) — bilang saja.
+**Link claim kedaluwarsa / hilang / member tak sempat memindai QR** → admin-v2 → **Claim Visbody**:
+buat link claim baru (salin / kirim via WhatsApp), atau **ikat ke member** yang hadir (wajib
+centang bahwa member menyetujui pemrosesan data di depan staf). Semua tercatat di
+`my20fit_visbody_claim_audit`.
+
+**Webhook ganda aman:** event kedua ("completed") untuk scan yang sama hanya memperbarui kolom
+event; pemilik & status claim tidak pernah ditimpa. Kalau scan sudah di-claim saat event
+"completed" datang, data ukurnya diambil saat itu.
 
 ---
 
@@ -234,7 +254,8 @@ where status = 'failed' order by updated_at desc limit 10;
 | Gejala | Kemungkinan besar |
 |---|---|
 | tidak ada baris masuk sama sekali | webhook belum didaftarkan, atau signature ditolak (401) |
-| `status` mentok di `received` | tidak ada yang memindai QR / klaim belum ditekan |
+| `status` mentok di `received` | belum ada yang meng-claim — lihat admin-v2 → Claim Visbody |
+| `status` `bound` lama, `measured_items` masih `processing` | event "completed" dari Visbody belum sampai (per 2026-09-30 ketujuh scan asli hanya punya event "processing" — BELUM TERVERIFIKASI apakah Visbody memang mengirim event kedua) |
 | `status` `failed`, `last_error` menyebut token | `VISBODY_ACCOUNT_KEY`/`SECRET` salah |
 | `status` `failed`, "balasan Visbody tanpa body_composition" | scan belum selesai diproses di sisi Visbody, atau bentuk balasannya beda dari dugaan |
 | klaim balas `409 already_claimed` | scan itu sudah diklaim akun lain — **disengaja, tidak dipindahkan** |
@@ -245,9 +266,13 @@ where status = 'failed' order by updated_at desc limit 10;
 
 - **Scan TIDAK dicocokkan otomatis ke akun lewat nama/email yang diketik di timbangan.**
   Identitas itu tidak terverifikasi; mencocokkannya otomatis = menyerahkan data komposisi
-  tubuh seseorang ke akun yang belum tentu dia. Kepemilikan **hanya** lewat member memindai
-  QR sendiri. Ini mengikuti aturan pemilik: cocokkan hanya lewat identitas yang PASTI &
-  TERVERIFIKASI.
+  tubuh seseorang ke akun yang belum tentu dia. Kepemilikan **hanya** lewat link claim bertoken
+  (QR timbangan / link dari staf) atau diikat staf ke member yang hadir. Ini mengikuti aturan
+  pemilik: cocokkan hanya lewat identitas yang PASTI & TERVERIFIKASI. (Di data asli per
+  2026-09-30, nama/email/HP dari timbangan juga kosong.)
+- **Persetujuan pemrosesan data (UU PDP 27/2022) wajib sebelum claim** — `my20fit_data_consent`
+  (tujuan `visbody_body_composition`, versi di lib/journey-config.js). Teks v1 = draf, PERLU
+  DITINJAU tim legal.
 - **Nama tabel pakai prefix `my20fit_visbody_*`**, bukan `visbody_scans` seperti di
   spesifikasi — project Supabase dipakai bersama app lain (CLAUDE.md §4).
 - **Nilai yang hilang disimpan NULL, bukan 0.** Berat badan 0 kg itu angka palsu yang akan
@@ -260,11 +285,10 @@ where status = 'failed' order by updated_at desc limit 10;
 |---|---|---|
 | `timingSafeEqual` tanpa cek panjang | panjang dicek dulu | `timingSafeEqual` **melempar** kalau panjang beda → signature palsu berbuah 500, bukan 401 |
 | HMAC atas `JSON.stringify(req.body)` | `req.rawBody` | serialisasi ulang ≠ byte yang ditandatangani Visbody → verifikasi selalu gagal |
-| Idempotency: `select….single()` per `event_id` | `upsert` on `scan_id` + unique index parsial `event_id` | `.single()` **error** saat barisnya belum ada — jalur "belum pernah diproses" justru melempar |
-| QR lewat `api.qrserver.com` | dibuat di server kita (`js/qrcode-generator.js`) | `scan_id` tidak perlu bocor ke pihak ketiga |
+| Idempotency: `select….single()` per `event_id` | cari by `scan_id` (`.limit(1)`): belum ada → insert; sudah ada → update kolom event saja (unique `scan_id` + index parsial `event_id`) | `.single()` **error** saat barisnya belum ada; upsert penuh dulu sempat bisa menimpa pemilik scan |
+| QR lewat `api.qrserver.com` | dibuat di server kita (`js/qrcode-generator.js`) | token claim tidak perlu bocor ke pihak ketiga |
 
-Dua beda kecil lagi: tautan di QR memakai `/body-scan?claim=<scan_id>` (bukan
-`/body-scan/bind?…`) supaya tidak perlu route tambahan; dan nama env service key di repo
+Satu beda kecil lagi: nama env service key di repo
 ini **`SUPABASE_SERVICE_KEY`**, bukan `SUPABASE_SERVICE_ROLE_KEY` seperti di spesifikasi —
 jangan bikin variabel baru, yang lama sudah terisi.
 

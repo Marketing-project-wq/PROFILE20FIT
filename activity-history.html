@@ -26,18 +26,30 @@
   .chead .sub{font-size:13px;color:var(--a-mut);margin-top:2px}
   .skel{background:color-mix(in srgb,var(--a-txt) 7%,transparent);border-radius:10px;animation:pul 1.3s ease-in-out infinite}
   @keyframes pul{0%,100%{opacity:1}50%{opacity:.45}}
-  .hrow{display:flex;gap:12px;align-items:flex-start}
-  .hrow .ic{width:40px;height:40px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;font-size:20px;background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent)}
-  .hrow .bd{flex:1;min-width:0}
-  .hrow .dt{font-size:11px;color:var(--a-mut);font-family:var(--mono);font-weight:700}
-  .hrow .tt{font-size:14.5px;font-weight:800;margin-top:1px}
-  .hrow .gp{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
-  .chip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;border:1px solid var(--a-line)}
-  .chip.kurang{background:color-mix(in srgb,var(--red,#E4002B) 10%,transparent);border-color:color-mix(in srgb,var(--red,#E4002B) 28%,var(--a-line))}
-  .chip.cukup{background:color-mix(in srgb,var(--green,#1C8A4B) 10%,transparent);border-color:color-mix(in srgb,var(--green,#1C8A4B) 28%,var(--a-line))}
-  .hrow .say{font-size:12px;color:var(--a-mut);margin-top:7px;line-height:1.5;font-style:italic}
+  /* Kartu riwayat: seluruh kartu = tautan ke detail analisa */
+  .hcard{display:flex;gap:12px;align-items:flex-start;text-decoration:none;color:inherit;transition:border-color .2s,transform .12s}
+  a.hcard:hover{border-color:color-mix(in srgb,var(--ai) 40%,var(--a-line))}
+  a.hcard:active{transform:scale(.995)}
+  .hcard .ic{width:42px;height:42px;border-radius:13px;flex:none;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--ai) 12%,transparent);color:var(--ai)}
+  .hcard.up .ic{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent)}
+  .hcard .bd{flex:1;min-width:0}
+  .hcard .dt{font-size:11px;color:var(--a-mut);font-family:var(--mono);font-weight:700}
+  .hcard .tt{font-size:15px;font-weight:800;margin-top:2px;line-height:1.3}
+  .hcard .hl{font-size:12.5px;color:var(--a-txt);margin-top:7px;line-height:1.5}
+  .hcard .go{flex:none;color:var(--a-mut);font-size:20px;align-self:center}
+  .gp{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .fchip{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;border:1px solid var(--a-line);white-space:nowrap}
+  .fchip.baik{background:color-mix(in srgb,var(--green,#1C8A4B) 11%,transparent);border-color:color-mix(in srgb,var(--green,#1C8A4B) 30%,var(--a-line));color:var(--green,#1C8A4B)}
+  .fchip.kurang{background:color-mix(in srgb,var(--red,#E4002B) 10%,transparent);border-color:color-mix(in srgb,var(--red,#E4002B) 30%,var(--a-line));color:var(--red,#E4002B)}
+  .fchip.berlebih{background:color-mix(in srgb,var(--amber,#D97706) 12%,transparent);border-color:color-mix(in srgb,var(--amber,#D97706) 34%,var(--a-line));color:var(--amber,#B45309)}
+  .fchip.tidak_ada_data{background:transparent;border-style:dashed;color:var(--a-mut)}
+  .fchip.safety{background:var(--red,#E4002B);border-color:var(--red,#E4002B);color:#fff}
+  .ins{display:flex;gap:10px;align-items:flex-start;background:color-mix(in srgb,var(--accent) 8%,var(--a-surface));border-color:color-mix(in srgb,var(--accent) 25%,var(--a-line));margin-bottom:12px}
+  .ins b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--accent);margin-bottom:3px}
+  .ins p{margin:0;font-size:13px;line-height:1.5}
   .empty{text-align:center;color:var(--a-mut);font-size:13px;padding:26px 10px;line-height:1.6}
   .empty a{color:var(--ai);font-weight:800;text-decoration:none}
+  .empty button{margin-top:10px;padding:8px 16px;border-radius:99px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-weight:700;cursor:pointer;font-family:inherit}
 </style>
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/glass-app.css">
@@ -49,7 +61,7 @@
     <a class="bk" href="/activity" aria-label="Kembali" title="Kembali">‹</a>
     <div>
       <h1 data-en="Upload History" data-id="Riwayat Upload">Riwayat Upload</h1>
-      <div class="sub" data-en="Your uploaded data & the plans it generated" data-id="Data upload kamu & plan yang dihasilkan">Data upload kamu & plan yang dihasilkan</div>
+      <div class="sub" data-en="Your workouts & what affected your performance" data-id="Workout kamu & apa yang memengaruhi performamu">Workout kamu & apa yang memengaruhi performamu</div>
     </div>
   </div>
   <div id="root"><div class="card"><div class="skel" style="height:80px"></div></div><div class="card"><div class="skel" style="height:80px"></div></div></div>
@@ -63,39 +75,56 @@
 <script>
 (function(){
   function L(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+  function lang(){ return (window.I18N&&I18N.lang==="en")?"en":"id"; }
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function el(id){ return document.getElementById(id); }
   async function apiFetch(path){ var o={headers:{"Content-Type":"application/json"}}; try{var tk=await Auth.token(); if(tk)o.headers.Authorization="Bearer "+tk;}catch(e){} return fetch(path,o); }
-  var ICONS={ workout:"run", sleep:"moon", daily_activity:"steps", weight:"scale", food_log:"meal", other:"chart" };   // nama ikon js/fiticons.js
-  function fmtDate(s){ if(!s) return ""; try{ var d=new Date(String(s).slice(0,10)+"T00:00:00"); if(isNaN(d)) return String(s).slice(0,10);
-    var mo=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"]; return d.getDate()+" "+mo[d.getMonth()]+" "+d.getFullYear(); }catch(e){ return String(s).slice(0,10); } }
-  function summaryOf(ex){ if(!ex||typeof ex!=="object") return ""; if(ex.summary) return String(ex.summary);
-    if(ex.activity_type&&ex.distance_km) return ex.activity_type+" "+ex.distance_km+"km";
-    if(ex.activity_type) return ex.activity_type; if(ex.sleep_duration_hours) return "Sleep "+ex.sleep_duration_hours+"h";
-    if(ex.steps) return ex.steps+" steps"; if(ex.weight_kg) return ex.weight_kg+" kg"; return ""; }
-  function catLbl(c){ return L({workout:{en:"Workout",id:"Workout"},nutrition:{en:"Nutrition",id:"Nutrisi"},sleep:{en:"Sleep",id:"Tidur"},hydration:{en:"Hydration",id:"Hidrasi"}}[c]||{en:String(c||""),id:String(c||"")}); }
-  function render(list){
+  var WO_ICON={ run:"run", walk:"run", cycling:"cycle", swimming:"swim", gym:"dumbbell", hiit:"dumbbell", hyrox:"run", other:"run" };
+  var UP_ICON={ sleep:"moon", daily_activity:"steps", weight:"scale", food_log:"meal", other:"chart" };   // ikon js/fiticons.js
+  var FACTOR={ sleep:{en:"Sleep",id:"Tidur"}, nutrition:{en:"Nutrition",id:"Nutrisi"}, pre_meal:{en:"Pre-workout meal",id:"Makan sebelum"},
+    hydration:{en:"Hydration",id:"Hidrasi"}, load:{en:"Training load",id:"Beban latihan"}, body:{en:"Body",id:"Tubuh"} };
+  // 4 kondisi visual. "tidak_ada_data" = BELUM DICATAT, bukan kurang.
+  function stLabel(c){
+    if(c.status==="tidak_ada_data") return L({en:"not logged",id:"belum dicatat"});
+    if(c.status==="berlebih") return c.key==="pre_meal"?L({en:"too close",id:"terlalu dekat"}):c.key==="load"?L({en:"high",id:"tinggi"}):L({en:"too much",id:"berlebih"});
+    return c.status==="baik"?L({en:"good",id:"baik"}):L({en:"low",id:"kurang"});
+  }
+  function fmtDate(s,time){ if(!s) return ""; try{ var d=new Date(String(s).slice(0,10)+"T00:00:00"); if(isNaN(d)) return String(s).slice(0,10);
+    return d.toLocaleDateString(lang()==="en"?"en-GB":"id-ID",{weekday:"short",day:"numeric",month:"short",year:"numeric"})+(time?" · "+time:""); }catch(e){ return String(s).slice(0,10); } }
+  function card(it){
+    if(it.kind==="upload"){
+      return '<div class="card hcard up"><span class="ic">'+FIC(UP_ICON[it.type]||UP_ICON.other,20)+'</span><div class="bd">'+
+        '<div class="dt">'+esc(fmtDate(it.date))+(it.source_app?" · "+esc(it.source_app):"")+'</div><div class="tt">'+esc(it.title)+'</div></div></div>';
+    }
+    var chips=it.safety?'<span class="fchip safety">'+esc(it.safety==="emergency"?L({en:"Seek medical help",id:"Cari pertolongan medis"}):L({en:"See a doctor",id:"Cek ke dokter"}))+'</span>':
+      it.chips.map(function(c){ return '<span class="fchip '+esc(c.status)+'">'+esc(L(FACTOR[c.key]||{en:c.key,id:c.key}))+' · '+esc(stLabel(c))+'</span>'; }).join("");
+    return '<a class="card hcard" href="/activity/history/'+encodeURIComponent(it.id)+'"><span class="ic">'+FIC(WO_ICON[it.type]||"run",20)+'</span><div class="bd">'+
+      '<div class="dt">'+esc(fmtDate(it.date,it.started_at))+(it.source_app?" · "+esc(it.source_app):"")+'</div>'+
+      '<div class="tt">'+esc(it.title)+'</div>'+(chips?'<div class="gp">'+chips+'</div>':'')+
+      (it.headline?'<div class="hl">'+esc(it.headline)+'</div>':'')+'</div><span class="go" aria-hidden="true">›</span></a>';
+  }
+  function render(j){
+    var root=el("root"), items=(j&&j.items)||[];
+    if(!items.length){ root.innerHTML='<div class="card"><div class="empty">'+esc(L({en:"No uploads yet. Upload a workout screenshot on the Activity page to get your first analysis.",id:"Belum ada upload. Upload screenshot workout di halaman Activity untuk dapat analisa pertamamu."}))+'<br><a href="/activity#upload-workout">'+esc(L({en:"Upload now →",id:"Upload sekarang →"}))+'</a></div></div>'; return; }
+    var ins=j.insight?'<div class="card ins">'+FIC("chart",20)+'<div><b>'+esc(L({en:"Your pattern",id:"Pola kamu"}))+'</b><p>'+esc(j.insight.text)+'</p></div></div>':'';
+    root.innerHTML=ins+items.map(card).join("");
+  }
+  async function load(){
     var root=el("root");
-    if(!list.length){ root.innerHTML='<div class="card"><div class="empty">'+esc(L({en:"No uploads yet. Upload a health/workout screenshot on the Activity page to get your first plan.",id:"Belum ada upload. Upload screenshot kesehatan/olahraga di halaman Activity untuk plan pertamamu."}))+'<br><a href="/activity">'+esc(L({en:"Go to Activity",id:"Ke Activity"}))+' →</a></div></div>'; return; }
-    root.innerHTML=list.map(function(u){
-      var ex=u.extracted_data||{}, type=u.upload_type||ex.type||"other";
-      var gaps=Array.isArray(u.yesterday_gaps)?u.yesterday_gaps:[];
-      var chips=gaps.slice(0,4).map(function(g){ var st=String((g&&g.status)||"").toLowerCase(); var cls=st==="kurang"?"kurang":(st==="cukup"?"cukup":""); return '<span class="chip '+cls+'">'+esc(catLbl(g&&g.category))+(g&&g.status?" · "+esc(g.status):"")+'</span>'; }).join("");
-      return '<div class="card"><div class="hrow"><span class="ic">'+FIC(ICONS[type]||ICONS.other,20)+'</span>'+
-        '<div class="bd"><div class="dt">'+esc(fmtDate(u.upload_date||u.created_at))+(u.source&&u.source!=="other"?" · "+esc(u.source):"")+'</div>'+
-        '<div class="tt">'+esc(summaryOf(ex)||catLbl(type))+'</div>'+
-        (chips?'<div class="gp">'+chips+'</div>':'')+
-        (u.coach_says?'<div class="say">“'+esc(u.coach_says)+'”</div>':'')+
-        '</div></div></div>';
-    }).join("");
+    try{
+      var r=await apiFetch("/api/activity/history?limit=30&lang="+lang()); var j=await r.json().catch(function(){return {};});
+      if(r.status===401){ location.href="/login"; return; }
+      if(!r.ok) throw new Error();
+      render(j);
+    }catch(e){
+      root.innerHTML='<div class="card"><div class="empty">'+esc(L({en:"Couldn't load history.",id:"Gagal memuat riwayat."}))+'<br><button type="button" id="retry">'+esc(L({en:"Try again",id:"Coba lagi"}))+'</button></div></div>';
+      el("retry").onclick=function(){ root.innerHTML='<div class="card"><div class="skel" style="height:80px"></div></div>'; load(); };
+    }
   }
   (async function(){
     try{ await Auth.requireAuth(); }catch(e){ location.href="/login"; return; }
-    try{
-      var r=await apiFetch("/api/activity/upload-history?limit=30"); var j=await r.json().catch(function(){return {};});
-      if(r.status===401){ location.href="/login"; return; }
-      render((j&&j.uploads)||[]);
-    }catch(e){ el("root").innerHTML='<div class="card"><div class="empty">'+esc(L({en:"Couldn't load history.",id:"Gagal memuat riwayat."}))+'</div></div>'; }
+    load();
+    if(window.I18N&&I18N.onChange) I18N.onChange(load);   // ganti bahasa -> judul & headline ikut
   })();
 })();
 </script>

@@ -467,9 +467,18 @@
     return user;
   }
 
+  // Path internal yang aman dijadikan tujuan setelah login (bukan URL eksternal / halaman auth).
+  function safeNextPath(p) {
+    p = String(p || "");
+    if (!/^\/(?![\/\\])[^\s]*$/.test(p) || p.length > 300) return false;
+    return !/^\/(login|code-login|verify|onboarding|setpassword|reset-password|auth\/callback|visbody-claim)?(\.html)?(\?|$)/i.test(p);
+  }
+
   async function requireAuth() {
     const user = await getUser();
     if (!user) {
+      // Ingat halaman yang diminta (mis. /medical dari link) -> dikembalikan setelah login.
+      try { const here = location.pathname + location.search; if (safeNextPath(here)) sessionStorage.setItem("post_auth_path", here); } catch (e) {}
       go("login.html");
       throw new Error("not-authenticated");
     }
@@ -757,6 +766,13 @@
     if (profile.fitco_email_verified === false) return go("verify.html");
     if (!profileComplete(profile)) return go("onboarding.html");
     if (!hasWebPassword(user)) return go("setpassword.html");
+    // Link claim Visbody yang dibuka SEBELUM login (visbody-claim.html menyimpannya) -> kembali
+    // ke proses claim setelah login/daftar, walau lewat rantai verify/onboarding di atas.
+    try {
+      const pc = JSON.parse(localStorage.getItem("my20fit_pending_claim") || "null");
+      if (pc && pc.t && pc.exp > Date.now()) return go("/visbody-claim?t=" + encodeURIComponent(pc.t));
+      if (pc) localStorage.removeItem("my20fit_pending_claim");
+    } catch (e) {}
     // Datang dari subdomain lain via hub login (my.20fit.id/login?redirect=<url>): setelah login
     // penuh, bawa balik sesi ke sana lewat SSO. Diset di entry login.html/code-login.html.
     try {
@@ -777,6 +793,22 @@
         sessionStorage.removeItem("post_auth_next");
         return menuSso();
       }
+    } catch (e) {}
+    // Tujuan internal yang diminta (link spesifik: pembayaran, MCU, dll) SELALU dihormati —
+    // tidak dipaksa ke /activity.
+    try {
+      const np = sessionStorage.getItem("post_auth_path");
+      if (np) { sessionStorage.removeItem("post_auth_path"); if (safeNextPath(np)) return go(np); }
+    } catch (e) {}
+    // Landing: user dengan scan Visbody ter-claim -> /activity (aturan di lib/journey-config.js,
+    // dihitung server). Gagal/lambat -> dashboard seperti biasa.
+    try {
+      const at = await token();
+      const ctl = new AbortController(); const tm = setTimeout(function () { ctl.abort(); }, 2500);
+      const r = await fetch("/api/journey/state", { headers: { Authorization: "Bearer " + at }, signal: ctl.signal });
+      clearTimeout(tm);
+      const j = r.ok ? await r.json() : null;
+      if (j && j.landing && safeNextPath(j.landing)) return go(j.landing);
     } catch (e) {}
     return go("dashboard.html");
   }
@@ -820,6 +852,7 @@
     getPrefs,
     savePrefs,
     routeAfterAuth,
+    safeNextPath,
     claimAnon,
     token,
     go,

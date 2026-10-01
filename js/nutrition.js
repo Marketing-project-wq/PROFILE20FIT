@@ -60,23 +60,31 @@
 
   // Localised name using window.L if present (falls back to EN).
   function name(f) {
-    if (window.L) return window.L({ en: f.en, id: f.id });
+    if (typeof window !== "undefined" && window.L) return window.L({ en: f.en, id: f.id });
     return f.en;
   }
 
-  // ---- SATU SUMBER rumus kalori & makro (dipakai Home, Calorie Scan, Progress) ----
-  // Goal kalori dasar: Mifflin-St Jeor BMR × faktor aktivitas + penyesuaian tujuan.
+  // ---- SATU SUMBER rumus kalori & makro (dipakai Home, Calorie Scan, Progress, Activity) ----
+  // Goal kalori = BMR × faktor aktivitas + penyesuaian tujuan, minimal MIN_KCAL.
+  // BMR: hasil ukur Visbody (goalFromBmr, dipakai saat user MENGKONFIRMASI target dari scan)
+  // atau perkiraan Mifflin-St Jeor. Target yang sudah dikonfirmasi user tersimpan di
+  // profil (calorie_target_kcal) dan dipakai apa adanya.
   // (Penyesuaian puasa TERPISAH: pakai Fasting.adjustGoal(goalFor(p)) untuk nilai tampil.)
+  var MIN_KCAL = 1200;   // sama dengan journey-config health.calorie_min di server
+  function goalFromBmr(p, bmr) {
+    var af = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725 }[p && p.activity_level] || 1.375;
+    var tdee = (+bmr || 0) * af;
+    var g = p && p.main_goal;
+    tdee += (g === "lose" ? -400 : g === "muscle" ? 300 : g === "fit" ? 100 : 0);
+    return Math.max(MIN_KCAL, Math.round(tdee / 10) * 10);
+  }
   function goalFor(p) {
     if (!p) return 2000;
+    var t = +p.calorie_target_kcal;
+    if (t >= MIN_KCAL) return Math.round(t);
     var w = +p.weight_kg, h = +p.height_cm, age = +p.age || 25;
     if (!w || !h) return 2000;
-    var bmr = 10 * w + 6.25 * h - 5 * age + (p.gender === "female" ? -161 : 5);
-    var af = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725 }[p.activity_level] || 1.375;
-    var tdee = bmr * af;
-    var g = p.main_goal;
-    tdee += (g === "lose" ? -400 : g === "muscle" ? 300 : g === "fit" ? 100 : 0);
-    return Math.max(1200, Math.round(tdee / 10) * 10);
+    return goalFromBmr(p, 10 * w + 6.25 * h - 5 * age + (p.gender === "female" ? -161 : 5));
   }
   // Target makro dari goal (kalori final, boleh sudah disesuaikan puasa) + berat + tujuan.
   function macrosFor(p, goal) {
@@ -89,5 +97,8 @@
     return { p: proteinG, c: carbsG, f: fatG };
   }
 
-  window.Nutrition = { foods: FOODS, mealFor: mealFor, totalKcal: totalKcal, name: name, goalFor: goalFor, macrosFor: macrosFor };
+  var api = { foods: FOODS, mealFor: mealFor, totalKcal: totalKcal, name: name, goalFor: goalFor, goalFromBmr: goalFromBmr, macrosFor: macrosFor, MIN_KCAL: MIN_KCAL };
+  // Juga di-require server (analisa workout) supaya target kalori/makro tetap SATU rumus.
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else window.Nutrition = api;
 })();

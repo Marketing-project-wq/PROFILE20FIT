@@ -117,6 +117,11 @@
         <div class="card"><h3>Frekuensi pakai produk 20FIT</h3><div class="chartrow"><div id="usageDonut"></div><div class="legend" id="usageLegend"></div></div></div>
       </div>
 
+      <div class="card" id="vbCorp">
+        <h3>Visbody (agregat anonim)</h3>
+        <div class="placeholder">Memuat…</div>
+      </div>
+
       <div class="card">
         <h3>Daftar karyawan</h3>
         <div class="filters">
@@ -251,9 +256,24 @@
       if(!r.ok){ $("listMsg").textContent=(j.error||"Gagal memuat."); $("listMsg").className="msg err"; return; }
       $("coName").textContent=j.corporate_name||$("coName").textContent;
       ROSTER=j.members||[];
+      loadVisbodyAgg();
       renderKpis(j.kpis||{});
       renderCharts(j.kpis||{});
       applyFilters();
+    }
+    // Visbody karyawan: hanya jumlah peserta + rata-rata. Kelompok kecil disembunyikan (anonimitas).
+    async function loadVisbodyAgg(){
+      var box=$("vbCorp"); if(!box) return;
+      try{
+        var r=await corpFetch("/api/corp/visbody-summary"); var j=await r.json().catch(function(){return{};});
+        if(!r.ok){ box.innerHTML='<h3>Visbody (agregat anonim)</h3><div class="msg err">'+esc(j.error||"Gagal memuat.")+'</div>'; return; }
+        var h='<h3>Visbody (agregat anonim)</h3><div class="kpis"><div class="kpi"><div class="n">'+esc(j.participants)+'</div><div class="l">Peserta scan (dari '+esc(j.employees)+' karyawan)</div></div>';
+        if(j.avg) h+='<div class="kpi"><div class="n">'+(j.avg.body_fat==null?"—":esc(j.avg.body_fat)+"%")+'</div><div class="l">Rata-rata body fat</div></div>'+
+          '<div class="kpi"><div class="n">'+(j.avg.muscle==null?"—":esc(j.avg.muscle)+" kg")+'</div><div class="l">Rata-rata massa otot</div></div>'+
+          '<div class="kpi"><div class="n">'+(j.avg.bmi==null?"—":esc(j.avg.bmi))+'</div><div class="l">Rata-rata BMI</div></div>';
+        h+='</div><div class="placeholder" style="margin-top:8px">'+(j.suppressed?"Rata-rata ditampilkan setelah minimal "+esc(j.min_group)+" peserta, supaya tidak ada individu yang bisa dikenali.":"Scan terakhir tiap peserta. Tanpa data per karyawan.")+'</div>';
+        box.innerHTML=h;
+      }catch(e){ box.innerHTML='<h3>Visbody (agregat anonim)</h3><div class="msg err">Gagal memuat.</div>'; }
     }
     function renderKpis(k){
       var items=[

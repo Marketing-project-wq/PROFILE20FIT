@@ -661,11 +661,11 @@
   <script src="js/nutrition.js"></script>
   <script src="js/cycle.js"></script>
   <script src="js/nav.js"></script>
-  <script src="js/body-scan.js"></script>
   <!-- Grid produk ekosistem 20FIT. data-no-bar = JANGAN pasang bar hitam sendiri:
        halaman ini SUDAH punya menu produk di samping toggle EN/ID, dan dua menu produk
        melanggar CLAUDE.md §2. Grid-nya ditempel ke menu itu lewat renderAppsInto(). -->
   <script src="js/universal-nav.js?v=2" data-no-bar defer></script>
+  <script src="js/tours-config.js"></script>
   <script src="js/tour.js"></script>
   <script src="js/meta-pixel.js"></script>
   <script>
@@ -1658,23 +1658,7 @@
       }catch(e){ if(!hadCache) wrap.hidden=true; }   // gagal refresh: cache lama tetap tampil
     }
 
-    // Hasil Visbody baru (scan Arena / program corporate) -> arahkan ke /activity SEKALI per scan.
-    // Kunci "seen" sama dgn alert di activity.html; "redirected" mencegah home terkunci ke Activity.
-    async function goActivityIfNewVisbody(){
-      try{
-        if(!window.BodyScan) return false;
-        const s=await BodyScan.latest(); if(!s||!s.scan_id||!s.scanned_at) return false;
-        if(Date.now()-new Date(s.scanned_at).getTime()>30*864e5) return false;
-        const au=await Auth.supabase.auth.getUser(); const uid=au&&au.data&&au.data.user&&au.data.user.id; if(!uid) return false;
-        const id=String(s.scan_id);
-        if(localStorage.getItem("my20fit_vb_seen_"+uid)===id||localStorage.getItem("my20fit_vb_redirected_"+uid)===id) return false;
-        localStorage.setItem("my20fit_vb_redirected_"+uid,id);
-        location.replace("/activity");
-        return true;
-      }catch(e){ return false; }
-    }
     (async function init(){
-      if(await goActivityIfNewVisbody()) return;
       profile = await Auth.getProfile();
       const nm = profile.full_name || (profile.email?profile.email.split("@")[0]:"");
       document.getElementById("greet").textContent = greetWord();

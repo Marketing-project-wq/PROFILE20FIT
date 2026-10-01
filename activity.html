@@ -74,17 +74,6 @@
   .dpill3.on .d3d{color:rgba(255,255,255,.85)}
   .dpill3:disabled{opacity:.4;cursor:default}
 
-  /* 3. Upload */
-  .drop{border:1.5px dashed var(--glass-brd,var(--a-line));border-radius:var(--radius,14px);padding:26px 16px;
-    text-align:center;cursor:pointer;background:var(--glass-2,transparent)}
-  .drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
-  /* Sorotan sesaat saat pemandu "Tambahkan workout dulu" melempar ke sini. */
-  .drop.hl{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 22%,transparent)}
-  .needl{margin:10px 0 14px;padding-left:20px;font-size:13px;line-height:1.7;color:var(--a-mut)}
-  .drop svg{width:26px;height:26px;stroke:var(--a-mut);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-  .drop .t{font-weight:700;font-size:14.5px;margin-top:8px}
-  .drop .s{font-size:12.5px;color:var(--a-mut);margin-top:3px}
-
   /* 4. Workout card */
   .wo-h{display:flex;align-items:center;gap:11px}
   .wo-ic{width:40px;height:40px;border-radius:11px;background:color-mix(in srgb,var(--strava) 16%,transparent);
@@ -109,66 +98,6 @@
   .hrz-l i{width:8px;height:8px;border-radius:99px;display:inline-block}
   .hrz-cap{margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--a-mut)}
 
-  /* 5. AI analysis */
-  /* Skin kaca menyetel .card{background:...!important}, jadi gradient biasa akan kalah.
-     Pola tint ini menyalin cara repo melakukannya untuk .card.up — semburat di ATAS kaca. */
-  .card.ai{background:color-mix(in srgb,var(--accent) 7%,var(--glass,var(--a-surface))) !important;position:relative;overflow:hidden}
-  /* Radial-glow sudut (adopsi mockup) — pakai token --accent, halus di light & dark */
-  .card.ai::before{content:"";position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:99px;
-    background:radial-gradient(circle,color-mix(in srgb,var(--accent) 22%,transparent),transparent 70%);pointer-events:none;z-index:0}
-  .card.ai>*{position:relative;z-index:1}
-  .ai-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-  .ai-h svg{width:17px;height:17px;fill:var(--accent)}
-  .ai-h .t{font-weight:800;font-size:14px}
-  .ai-h .b{margin-left:auto;font-size:10px;font-weight:800;letter-spacing:.5px;padding:3px 8px;border-radius:99px;
-    background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
-  .ai p{margin:0;font-size:13.5px;line-height:1.65}
-  .hl{display:inline;padding:1px 7px;border-radius:99px;font-weight:700;font-size:12.5px;white-space:nowrap}
-  .hl.good{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green)}
-  .hl.warning{background:color-mix(in srgb,var(--amber) 18%,transparent);color:var(--amber)}
-  .hl.critical{background:color-mix(in srgb,var(--red) 18%,transparent);color:var(--red)}
-
-  /* 6. Score card (dinaikkan ke atas, gaya mockup) + gaps */
-  .scoretop{margin-bottom:12px}
-  .stpwrap{display:flex;align-items:center;gap:16px}
-  .stpinfo{flex:1;min-width:0}
-  .stpt{font-size:16px;font-weight:700}
-  .stpmsg{font-size:13.5px;line-height:1.5;margin-top:4px}
-  .ringw{position:relative;width:118px;height:118px;flex:none}
-  .ringw svg{transform:rotate(-90deg)}
-  .ringw .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-  .ringw .n b{font-size:29px;font-family:var(--mono);font-weight:700;line-height:1}
-  .ringw .n s{font-size:10px;color:var(--a-mut);text-decoration:none;letter-spacing:.6px;text-transform:uppercase;margin-top:3px;font-weight:700}
-  /* Badge status skor + selisih vs kemarin (adopsi mockup) */
-  .sbadge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font-size:11.5px;font-weight:800;align-self:flex-start}
-  .sbadge i{width:8px;height:8px;border-radius:99px;flex:none}
-  .gaps{display:flex;flex-direction:column;gap:7px}
-  .gap{display:flex;align-items:center;gap:8px;font-size:12.5px}
-  .gap i{width:7px;height:7px;border-radius:99px;flex:none}
-  .gap .v{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--a-mut)}
-
-  /* 7. Goals */
-  .gh{display:flex;align-items:center;gap:8px;margin:-16px -16px 12px;padding:14px 16px;border-radius:13px 13px 0 0;
-    background:linear-gradient(100deg,color-mix(in srgb,var(--accent) 14%,transparent),color-mix(in srgb,var(--purple) 14%,transparent))}
-  .gh svg{width:16px;height:16px;fill:var(--accent)}
-  .gh .t{font-weight:800;font-size:13.5px}
-  .gh .c{margin-left:auto;font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--a-mut)}
-  .goal{display:flex;gap:11px;padding:10px 0;border-top:1px solid var(--a-line);cursor:pointer}
-  .goal:first-of-type{border-top:0}
-  .cb{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--a-line);flex:none;margin-top:1px;
-    display:flex;align-items:center;justify-content:center}
-  .cb svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0}
-  .goal.done .cb{background:var(--green);border-color:var(--green)}
-  .goal.done .cb svg{opacity:1}
-  .goal.done .gt{text-decoration:line-through;color:var(--a-mut)}
-  .gt{font-size:13.5px;font-weight:600;line-height:1.35}
-  .gd{font-size:12px;color:var(--a-mut);margin-top:2px;line-height:1.45}
-  .gtime{font-size:11px;font-family:var(--mono);color:var(--a-mut);margin-top:3px}
-  .cat{font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;flex:none;align-self:flex-start;margin-left:auto;white-space:nowrap}
-  .cat.exercise{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
-  .cat.nutrition{background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green)}
-  .cat.habit{background:color-mix(in srgb,var(--purple) 16%,transparent);color:var(--purple)}
-  .cat.recovery{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber)}
 
   /* 9. Habits */
   .chips{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
@@ -220,6 +149,13 @@
   .dlgnote{border-radius:var(--radius-sm,10px);padding:10px 12px;font-size:12.5px;line-height:1.5;margin:10px 0 2px}
   .dlgnote.ok{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--a-txt)}
   .dlgnote.warn{background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--a-txt)}
+  #woDlg{max-height:90vh;overflow:auto}
+  .dlg2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+  dialog textarea{width:100%;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px;resize:vertical}
+  .dlgchk{display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:700;color:var(--a-txt);font-size:12.5px}
+  .dlgchk input{width:auto;margin:0}
+  .upx-go{color:var(--fit-red,#E4002B);font-weight:800;text-decoration:none}
+  .wo-an{display:inline-block;margin-top:12px;font-size:12.5px}
   .dlgnote .dlgsub{color:var(--a-mut);font-size:11.5px;margin-top:4px}
   .btn:disabled{opacity:.55;cursor:default}
   .err{color:var(--red);font-size:12.5px}
@@ -330,21 +266,79 @@
   .shh .r{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--a-mut)}
   .hbar{height:12px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden;margin:10px 0 6px}
   .hbar i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .4s cubic-bezier(.2,.8,.2,1)}
-  .hyq{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-  .hyq button{display:inline-flex;align-items:center;gap:6px;padding:9px 12px;border-radius:10px;border:1px solid var(--glass-hair,var(--a-line));
-    background:linear-gradient(155deg,var(--glass,#fff),var(--glass-2,#fff));box-shadow:var(--glass-sh,none);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
-  .hyc{display:flex;gap:8px;margin-top:10px}
-  .hyc input{flex:1;min-width:0;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px}
-  .hyc button{flex:0 0 auto;padding:0 16px;border-radius:9px;border:0;background:var(--accent);color:#fff;font-weight:800;cursor:pointer;font-family:inherit}
   .hlog{margin-top:12px}
   .hlog .row{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px solid var(--a-line);font-size:13px}
   .hlog .row:first-child{border-top:0}
   .hlog .row .tm{font-family:var(--mono);font-size:12px;color:var(--a-mut);width:44px;flex:none}
   .hlog .row .amt{margin-left:auto;font-family:var(--mono);font-weight:700}
   .hlog .row .del{background:none;border:0;color:var(--a-mut);cursor:pointer;font-size:14px;padding:0 2px;font-family:inherit}
+  /* Hidrasi — 8 gelas yang bisa diketuk; level air = --lv (0..1), naik/turun lewat transition */
+  .hy{--hy-w:color-mix(in srgb,var(--accent) 78%,var(--cyan));position:relative;overflow:hidden}
+  .hy::before{content:"";position:absolute;left:-40px;bottom:-70px;width:200px;height:160px;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle,color-mix(in srgb,var(--cyan) 16%,transparent),transparent 70%)}
+  .hy>*{position:relative}
+  .hy-top{display:flex;align-items:center;gap:10px}
+  .hy-num{display:flex;align-items:baseline;gap:6px}
+  .hy-num b{font-size:30px;font-weight:800;font-family:var(--mono);line-height:1;color:var(--hy-w)}
+  .hy-num span{font-size:13px;color:var(--a-mut);font-weight:700}
+  .hy-add{margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:8px 12px;border-radius:99px;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;
+    border:1px solid color-mix(in srgb,var(--hy-w) 40%,transparent);background:color-mix(in srgb,var(--hy-w) 12%,transparent);color:var(--a-txt);transition:transform .12s}
+  .hy-add:active{transform:scale(.95)}
+  .hy-sub{font-size:12.5px;color:var(--a-mut);margin-top:5px;min-height:18px}
+  .hy-ok{color:var(--fit-green,#16A34A);font-weight:800;display:inline-flex;align-items:center;gap:4px}
+  .hy-row{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;margin-top:12px}
+  .hy-g{position:relative;padding:0;border:0;background:none;cursor:pointer;aspect-ratio:40/52;-webkit-tap-highlight-color:transparent;border-radius:10px}
+  .hy-g:focus-visible{outline:2px solid var(--hy-w);outline-offset:2px}
+  .hy-g svg{width:100%;height:100%;display:block;overflow:visible}
+  .hy-cup{fill:color-mix(in srgb,var(--a-txt) 4%,transparent);stroke:color-mix(in srgb,var(--a-txt) 28%,transparent);stroke-width:1.8;stroke-linejoin:round;transition:stroke .3s}
+  .hy-g.on .hy-cup{stroke:var(--hy-w);fill:none}
+  .hy-shine{stroke:#fff;stroke-width:2;stroke-linecap:round;opacity:.0;transition:opacity .3s}
+  .hy-g.on .hy-shine{opacity:.45}
+  .hy-plus{stroke:color-mix(in srgb,var(--a-txt) 35%,transparent);stroke-width:2;stroke-linecap:round;opacity:0;transition:opacity .2s}
+  .hy-g.next .hy-plus{opacity:1}
+  .hy-lvl{transform:translateY(calc((1 - var(--lv,0)) * 44px));transition:transform .75s cubic-bezier(.3,1.35,.5,1) var(--dl,0ms)}
+  .hy-wave{fill:var(--hy-w)}
+  .hy-g.on .hy-wave{animation:hywave 2.4s linear infinite}
+  @keyframes hywave{from{transform:translateX(0)}to{transform:translateX(20px)}}
+  .hy-g.pop{animation:hypop .42s cubic-bezier(.3,1.6,.5,1)}
+  @keyframes hypop{0%{transform:scale(1)}35%{transform:scale(.86)}100%{transform:scale(1)}}
+  .hy.done .hy-g.on .hy-cup{stroke:var(--fit-green,#16A34A)}
+  .hy-hint{font-size:11.5px;color:var(--a-mut);margin-top:8px;text-align:center}
+  .hy-log{margin-top:10px;border-top:1px solid var(--a-line);padding-top:8px}
+  .hy-log summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--a-mut);list-style:none}
+  .hy-log summary::-webkit-details-marker{display:none}
+  .hy-log summary::after{content:" ▾"}
+  .hy-log[open] summary::after{content:" ▴"}
+  .hy-log .hlog{margin-top:4px}
+  @media(prefers-reduced-motion:reduce){
+    .hy-lvl{transition:none} .hy-g.on .hy-wave,.hy-g.pop,.upx-spin{animation:none}
+  }
   .qz{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:4px}
   .qz button{padding:8px 3px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;text-align:center;line-height:1.5}
   .qz button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  /* Pemilih jam tidur/bangun: tombol ▲▼ + AM/PM + pilihan cepat (tanpa ketik manual) */
+  .tpk{margin-top:12px;padding:12px;border:1px solid var(--a-line);border-radius:12px;background:var(--a-bg)}
+  .tpk-h{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--a-mut)}
+  .tpk-h .tpk-ic{color:var(--accent);display:inline-flex}
+  .tpk-row{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}
+  .tpk-col{display:flex;flex-direction:column;align-items:center}
+  .tpk-col button{width:52px;height:30px;border:0;border-radius:8px;background:none;color:var(--a-mut);cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .tpk-col button:hover,.tpk-col button:active{background:var(--a-line);color:var(--a-txt)}
+  .tpk-v{font-family:var(--mono);font-size:30px;font-weight:800;line-height:1.15;min-width:52px;text-align:center;color:var(--a-txt)}
+  .tpk-sep{font-family:var(--mono);font-size:28px;font-weight:800;color:var(--a-mut);margin-bottom:3px}
+  .tpk-ap{display:flex;flex-direction:column;gap:5px;margin-left:10px}
+  .tpk-ap button{width:54px;padding:7px 0;border-radius:8px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer}
+  .tpk-ap button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tpk-pre{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px}
+  .tpk-pre button{padding:5px 11px;border-radius:999px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .tpk-pre button.on{border-color:var(--accent);color:var(--accent)}
+  .slp-sum{margin:12px 0 2px;padding:10px 12px;border-radius:10px;background:var(--a-bg);font-size:13px;font-weight:700;text-align:center}
+  .slp-sum b{font-size:17px}
+  .slp-sum .ok{color:var(--green)} .slp-sum .low{color:var(--accent)}
+  .slp-sum .warn{display:block;margin-top:4px;font-size:12px;font-weight:600;color:var(--amber)}
+  .stp{display:flex;align-items:center;gap:12px}
+  .stp button{width:40px;height:40px;border-radius:10px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:20px;font-weight:700;cursor:pointer}
+  .stp span{font-family:var(--mono);font-size:20px;font-weight:800;min-width:28px;text-align:center}
   .slpmeta{display:flex;gap:16px;align-items:center;margin-top:2px}
   .slpmeta .b{font-size:22px;font-weight:800;font-family:var(--mono);line-height:1}
   .slpmeta .l{font-size:11px;color:var(--a-mut);margin-top:3px}
@@ -357,7 +351,6 @@
   .acard-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--a-mut);display:flex;align-items:center;gap:6px;min-width:0}
   @media(max-width:767px){ .acard-title{font-size:11px} }
   .acard-act{font-size:11.5px;font-weight:700;color:var(--fit-red,#E4002B);background:none;border:0;cursor:pointer;text-decoration:none;white-space:nowrap;font-family:inherit;flex:none;padding:0}
-  .acard-link{margin-top:auto;padding-top:8px;font-size:11.5px;font-weight:700;color:var(--fit-red,#E4002B);text-decoration:none}
   /* Coach bar */
   .coach-bar{padding:12px 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px}
   .coach-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
@@ -397,6 +390,20 @@
   .wyn-pill:hover,.wyn-pill:focus-visible{border-color:var(--fit-red,#E4002B);color:var(--fit-red,#E4002B)}
   .wyn-why{font-size:11.5px;color:var(--a-mut);margin-top:7px;line-height:1.4}
   .hs-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .hs-complete{font-size:11.5px;color:var(--a-mut);margin:-6px 0 12px}
+  .hs-fill{flex:1;min-width:0;text-align:left;border:1px dashed var(--a-line);background:transparent;border-radius:7px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--a-mut);cursor:pointer;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hs-fill:hover,.hs-fill:focus-visible{border-color:var(--fit-red,#E4002B);color:var(--fit-red,#E4002B)}
+  .hs-stale{font-size:9.5px;font-weight:800;text-transform:uppercase;color:var(--fit-amber,#B45309)}
+  .hs-lock-tag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;padding:3px 8px;border-radius:5px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);color:var(--a-mut)}
+  .hs-lock-p{font-size:13px;line-height:1.5;color:var(--a-mut);margin:0 0 12px}
+  .hs-paths{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .hs-path{display:flex;align-items:center;gap:10px;text-align:left;padding:12px;border-radius:12px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);text-decoration:none;cursor:pointer;font-family:inherit}
+  .hs-path.pri{border-color:color-mix(in srgb,var(--fit-red,#E4002B) 45%,var(--a-line));background:color-mix(in srgb,var(--fit-red,#E4002B) 7%,var(--a-surface))}
+  .hs-path b{display:block;font-size:13px}
+  .hs-path small{display:block;font-size:11px;color:var(--a-mut);margin-top:2px}
+  .hs-have{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11.5px;color:var(--a-mut);margin-top:12px}
+  .hs-have span{display:inline-flex;align-items:center;gap:3px;font-weight:800;color:var(--fit-green,#16A34A)}
+  @media(max-width:520px){ .hs-paths{grid-template-columns:1fr} .hs-breakdown{grid-template-columns:1fr} }
   .hs-cta{padding:7px 12px;border-radius:9px;background:var(--fit-red,#E4002B);color:#fff;font-size:12px;font-weight:800;text-decoration:none}
   .hs-note{font-size:10.5px;color:var(--a-mut)}
   /* 2 kartu berdampingan — tetap 2 kolom di mobile */
@@ -409,6 +416,43 @@
   .vb-alert-a button{border:0;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:800;font-family:inherit;cursor:pointer}
   .vb-alert-a .pri{background:var(--fit-red,#E4002B);color:#fff}
   .vb-alert-a .sec{background:var(--a-bg);color:var(--a-txt);border:1px solid var(--a-line)}
+  .vb-alert-nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px}
+  .vb-alert-nums div{background:var(--a-surface);border:1px solid var(--a-line);border-radius:10px;padding:7px 8px;min-width:0}
+  .vb-alert-nums b{display:block;font-size:15px;font-weight:800;color:var(--a-txt);white-space:nowrap}
+  .vb-alert-nums span{display:block;font-size:10.5px;color:var(--a-mut);font-weight:700;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @media(max-width:420px){ .vb-alert-nums{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  .vb-alert-a a{display:inline-flex;align-items:center;gap:6px;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:800;text-decoration:none}
+  .vb-alert-a a.pri{background:var(--fit-red,#E4002B);color:#fff}
+  .tour-help{margin-left:auto;width:36px;height:36px;border-radius:99px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);display:grid;place-items:center;cursor:pointer}
+  .ahead .tour-help + .av{margin-left:0}
+  /* Health Journey */
+  .jn{border:1px solid var(--a-line);border-radius:16px;padding:14px;background:var(--a-surface)}
+  .jn-h{display:flex;align-items:center;gap:8px}
+  .jn-t{font-size:14px;font-weight:800;color:var(--a-txt);flex:1}
+  .jn-n{font-size:12px;font-weight:800;color:var(--a-mut)}
+  .jn-bar{height:6px;border-radius:4px;background:color-mix(in srgb,var(--a-txt) 9%,transparent);overflow:hidden;margin:8px 0 12px}
+  .jn-bar i{display:block;height:100%;background:var(--fit-green,#16A34A);border-radius:4px}
+  .jn-next{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:12px;background:color-mix(in srgb,var(--fit-red,#E4002B) 6%,var(--a-surface));border:1px solid color-mix(in srgb,var(--fit-red,#E4002B) 30%,var(--a-line))}
+  .jn-next .ic{flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--a-surface);color:var(--fit-red,#E4002B)}
+  .jn-next b{display:block;font-size:14px;color:var(--a-txt)}
+  .jn-next p{margin:3px 0 9px;font-size:12.5px;line-height:1.45;color:var(--a-mut)}
+  .jn-btn{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:800;font-family:inherit;cursor:pointer;background:var(--fit-red,#E4002B);color:#fff;text-decoration:none}
+  .jn-btn.sec{background:var(--a-bg);color:var(--a-txt);border:1px solid var(--a-line)}
+  .jn details{margin-top:10px}
+  .jn summary{font-size:12px;font-weight:800;color:var(--a-mut);cursor:pointer}
+  .jn-list{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .jn-list li{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--a-txt)}
+  .jn-list li.done{color:var(--a-mut)}
+  .jn-list li .dot{flex:none;width:20px;height:20px;border-radius:99px;display:grid;place-items:center;border:1.5px solid var(--a-line);color:#fff}
+  .jn-list li.done .dot{background:var(--fit-green,#16A34A);border-color:var(--fit-green,#16A34A)}
+  .jn-done{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--a-mut)}
+  .nudge{position:relative;display:flex;gap:10px;align-items:flex-start;border:1px dashed color-mix(in srgb,var(--fit-red,#E4002B) 40%,var(--a-line));border-radius:14px;padding:12px 36px 12px 12px;background:var(--a-surface)}
+  .nudge b{display:block;font-size:13.5px;color:var(--a-txt)}
+  .nudge p{margin:3px 0 8px;font-size:12.5px;color:var(--a-mut);line-height:1.45}
+  .nudge .ic{flex:none;color:var(--fit-red,#E4002B);margin-top:1px}
+  .jn-dlg-t{font-weight:800;font-size:15px}
+  .jn-dlg-p{font-size:13px;line-height:1.5;color:var(--a-mut);margin:6px 0 0}
+  .jn-dlg-big{font-size:26px;font-weight:800;color:var(--a-txt);margin:10px 0 2px}
   .vb-alert-x{position:absolute;top:8px;right:8px;width:26px;height:26px;border:0;border-radius:99px;background:transparent;color:var(--a-mut);font-size:15px;cursor:pointer}
   .qa-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
   .qa-tile{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 6px;border:1px solid var(--a-line);border-radius:14px;background:var(--a-surface);
@@ -420,14 +464,45 @@
   .ts-v{font-size:16px;font-weight:800;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ts-s{font-size:11.5px;color:var(--a-mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ts-s.ok{color:var(--fit-green);font-weight:700} .ts-s.low{color:var(--fit-amber);font-weight:700}
-  .dual-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-  @media(max-width:767px){ .dual-cards{gap:8px} }
-  .up-s{font-size:12px;color:var(--a-mut);line-height:1.4}
-  .up-btns{display:flex;gap:6px;margin:10px 0 8px;flex-wrap:wrap}
-  .up-btns button{flex:1;min-width:0;padding:8px 6px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
-  .up-btns button:first-child{background:var(--fit-red,#E4002B);border-color:var(--fit-red,#E4002B);color:#fff}
-  .up-last{font-size:11.5px;color:var(--a-txt);line-height:1.4;margin-top:auto}
-  .up-last span{color:var(--a-mut)}
+  /* Upload progress — satu kartu: zona drop + 3 tombol + status + "Terakhir:" */
+  .upx{position:relative;overflow:hidden;border-radius:18px;padding:14px;border:1px solid var(--a-line);
+    background:linear-gradient(135deg,color-mix(in srgb,var(--fit-red,#E4002B) 9%,var(--a-surface)),var(--a-surface) 55%,color-mix(in srgb,var(--accent) 8%,var(--a-surface)));
+    transition:box-shadow .25s,border-color .25s}
+  .upx::after{content:"";position:absolute;right:-50px;top:-60px;width:170px;height:170px;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle,color-mix(in srgb,var(--fit-red,#E4002B) 16%,transparent),transparent 70%)}
+  .upx>*{position:relative;z-index:1}
+  .upx.over,.upx.hl{border-color:var(--fit-red,#E4002B);box-shadow:0 0 0 4px color-mix(in srgb,var(--fit-red,#E4002B) 18%,transparent)}
+  .upx-drop{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;cursor:pointer;
+    border:1.5px dashed color-mix(in srgb,var(--a-txt) 18%,transparent);background:color-mix(in srgb,var(--a-surface) 60%,transparent);transition:border-color .2s,background .2s}
+  .upx-drop:hover,.upx-drop:focus-visible,.upx.over .upx-drop{border-color:var(--fit-red,#E4002B);background:color-mix(in srgb,var(--fit-red,#E4002B) 6%,var(--a-surface));outline:none}
+  .upx-ic{width:46px;height:46px;border-radius:14px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;
+    background:linear-gradient(145deg,var(--fit-red,#E4002B),color-mix(in srgb,var(--fit-red,#E4002B) 70%,#ff8a3d));
+    box-shadow:0 8px 18px color-mix(in srgb,var(--fit-red,#E4002B) 30%,transparent)}
+  .upx-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .upx-t{font-weight:800;font-size:15px;letter-spacing:-.1px}
+  .upx-s{font-size:12px;color:var(--a-mut);line-height:1.45}
+  .upx-btns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+  .upx-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:10px 6px;border-radius:11px;
+    border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;
+    transition:transform .12s,background .2s}
+  .upx-b span:last-child{overflow:hidden;text-overflow:ellipsis}
+  .upx-b:active{transform:scale(.97)}
+  .upx-b.pri{background:var(--fit-red,#E4002B);border-color:var(--fit-red,#E4002B);color:#fff}
+  .upx-b:disabled{opacity:.5;cursor:default}
+  .upx-prog{display:flex;align-items:center;gap:9px;margin-top:10px;padding:9px 11px;border-radius:11px;font-size:12.5px;font-weight:700;
+    background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--a-txt)}
+  .upx-prog[hidden]{display:none}
+  .upx-prog.ok{background:color-mix(in srgb,var(--fit-green,#16A34A) 14%,transparent)}
+  .upx-spin{width:15px;height:15px;border-radius:50%;flex:none;border:2px solid color-mix(in srgb,var(--accent) 30%,transparent);border-top-color:var(--accent);animation:upxspin .8s linear infinite}
+  .upx-prog.ok .upx-spin{animation:none;border:0;background:var(--fit-green,#16A34A);
+    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4L19 6.5'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4L19 6.5'/%3E%3C/svg%3E") center/contain no-repeat}
+  .upx.busy .upx-drop{pointer-events:none;opacity:.6}
+  @keyframes upxspin{to{transform:rotate(360deg)}}
+  .upx-last{font-size:11.5px;color:var(--a-txt);line-height:1.4;margin-top:9px}
+  .upx-last:empty{display:none}
+  .upx-last span{color:var(--a-mut)}
+  @media(max-width:420px){ .upx-b{font-size:11.5px;gap:4px;padding:10px 4px} .upx-b .fic{display:none} }
   .wr-days{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;margin-bottom:8px}
   .wr-day{display:flex;flex-direction:column;gap:3px;font-size:10px;color:var(--a-mut);font-weight:700;padding:3px 0;border-radius:7px}
   .wr-day .m{font-size:12px;min-height:16px;line-height:16px}
@@ -450,20 +525,104 @@
   .plan-slim{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px;font-size:12.5px;color:var(--a-mut)}
   .plan-slim b{color:var(--a-txt)}
   .plan-slim button{flex:none;padding:6px 11px;border-radius:8px;border:0;background:var(--fit-red,#E4002B);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
+  .plan-slim button.ghost{background:none;border:1px solid var(--a-line);color:var(--a-txt)}
+  .tpl-acts{display:flex;gap:6px;flex:none}
+  .tpl-acts button{display:inline-flex;align-items:center;gap:5px}
+  .tpl-err{display:block;margin-top:4px;color:var(--fit-red,#E4002B);font-weight:700}
+  @media(max-width:767px){ .tpl-empty{flex-direction:column;align-items:stretch} .tpl-acts button{flex:1;justify-content:center;padding:9px 11px} }
+  .tpl-busy{display:flex;align-items:center;gap:10px;padding:8px 2px;font-size:13px;color:var(--a-mut)}
+  .tpl-hd-acts{display:flex;gap:12px;flex:none}
+  .tpl-hd-acts .acard-act{display:inline-flex;align-items:center;gap:4px}
+  /* Analisa Plan Hari Ini */
+  .tb-head{font-size:14.5px;font-weight:800;color:var(--a-txt);line-height:1.4;margin-bottom:4px}
+  .tb-sec{border-top:1px solid var(--a-line);padding-top:10px;margin-top:10px}
+  .tb-sec>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--a-mut)}
+  .tb-sec>summary::-webkit-details-marker{display:none}
+  .tb-sec>summary::after{content:"▾";margin-left:auto;font-size:12px}
+  .tb-sec:not([open])>summary::after{content:"▸"}
+  .tb-score{font-family:var(--mono);color:var(--a-txt);text-transform:none;letter-spacing:0}
+  .tb-row{display:flex;align-items:flex-start;gap:9px;padding:8px 0;font-size:13px;line-height:1.45;color:var(--a-txt)}
+  .tb-row+.tb-row{border-top:1px dashed var(--a-line)}
+  .tb-ic{flex:none;color:var(--fit-red,#E4002B);margin-top:1px;display:inline-flex}
+  .tb-tx{flex:1;min-width:0}
+  .tb-tx small{display:block;color:var(--a-mut);font-size:12px;margin-top:2px}
+  .tb-cause{color:var(--amber)!important;font-weight:700}
+  .tb-chip{flex:none;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;border:1px solid var(--a-line);color:var(--a-mut);white-space:nowrap}
+  .tb-chip.baik{color:var(--green);border-color:color-mix(in srgb,var(--green) 40%,transparent)}
+  .tb-chip.kurang{color:var(--fit-red,#E4002B);border-color:color-mix(in srgb,var(--fit-red,#E4002B) 40%,transparent);background:color-mix(in srgb,var(--fit-red,#E4002B) 8%,transparent)}
+  .tb-chip.berlebih{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,transparent);background:color-mix(in srgb,var(--amber) 8%,transparent)}
+  .tb-prog{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--a-mut)}
+  .tb-act{display:flex;align-items:center;gap:10px;padding:9px 0;font-size:13px}
+  .tb-act+.tb-act{border-top:1px dashed var(--a-line)}
+  .tb-pts{flex:none;min-width:62px;text-align:center;font-family:var(--mono);font-size:12px;font-weight:800;padding:5px 6px;border-radius:9px;color:var(--green);background:color-mix(in srgb,var(--green) 10%,transparent)}
+  .tb-pts.miss{color:var(--a-mut);background:var(--a-bg);font-family:inherit;font-size:10.5px;width:62px;min-width:0;white-space:normal;line-height:1.2}
+  .tb-go{flex:none;padding:6px 10px;border-radius:8px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:11.5px;font-weight:800;cursor:pointer}
+  .tb-note{font-size:11.5px;color:var(--a-mut);margin-top:6px;line-height:1.4}
+  @media(max-width:767px){ .tb-act{flex-wrap:wrap;row-gap:6px} .tb-act .tb-tx{flex:1 1 calc(100% - 82px)} .tb-go{margin-left:72px} }
+  .tb-wo{margin-top:6px}
+  .tb-wo-t{font-size:13px;font-weight:800;color:var(--a-txt)}
+  .tb-wo-t span{font-weight:600;color:var(--a-mut)}
+  .tb-wo-h{margin-top:6px;padding:9px 11px;border-radius:10px;background:var(--a-bg);font-size:13px;font-weight:700;line-height:1.4}
+  .tb-wo-h.safe{color:var(--fit-red,#E4002B)}
+  .tb-wo-p{font-size:12.5px;color:var(--a-mut);margin:6px 0 2px;line-height:1.45}
+  .tb-tips{margin:6px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5;color:var(--a-txt)}
+  .tb-link{display:inline-block;margin-top:8px;font-size:12.5px;font-weight:800;color:var(--fit-red,#E4002B);text-decoration:none}
+  .tb-plan-h{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--a-mut);margin-bottom:8px}
+  .tb-plan-h span{text-transform:none;letter-spacing:0;font-weight:600}
+  .tb-why{margin-top:8px;font-size:12.5px;color:var(--a-mut);line-height:1.45}
   /* Active Plan — satu baris horizontal, centang langsung */
-  .plan-active{padding:12px 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px}
-  .plan-active-hd{display:flex;align-items:center;gap:10px;font-size:12.5px;margin-bottom:8px}
-  .plan-active-hd span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .plan-active-cnt{font-family:var(--mono);font-size:11.5px;font-weight:800;color:var(--a-mut)}
-  .plan-active-bar{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
-  .plan-active-bar::-webkit-scrollbar{height:0}
-  .plan-active-day{flex:none;padding:6px 10px;border-radius:9px;border:1px solid var(--a-line);background:none;font-size:11.5px;color:var(--a-mut);cursor:pointer;font-family:inherit;white-space:nowrap}
-  .plan-active-day b{color:var(--a-txt)}
-  .plan-active-day.done{border-color:color-mix(in srgb,#16A34A 45%,var(--a-line));background:color-mix(in srgb,#16A34A 8%,transparent)}
-  .plan-active-day:disabled{opacity:.5}
-  .plan-active-day.today{border-color:color-mix(in srgb,var(--fit-red,#E4002B) 55%,var(--a-line))}
-  .plan-active-day .pad-min{color:var(--a-mut)}
-  .plan-active-day .pad-today{color:var(--fit-red,#E4002B);font-weight:800}
+  /* Workout plan aktif — tabel per hari + aksi ubah/ganti */
+  .wp{padding:14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:16px}
+  .wp-hd{display:flex;align-items:center;gap:10px}
+  .wp-ic{width:38px;height:38px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;
+    background:linear-gradient(145deg,var(--fit-red,#E4002B),color-mix(in srgb,var(--fit-red,#E4002B) 70%,#ff8a3d))}
+  .wp-ti{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .wp-ti b{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wp-ti span{font-size:11.5px;color:var(--a-mut)}
+  .wp-cnt{font-family:var(--mono);font-size:13px;font-weight:800;color:var(--a-mut)}
+  .wp-bar{height:6px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);overflow:hidden;margin:10px 0 4px}
+  .wp-bar i{display:block;height:100%;border-radius:99px;background:var(--fit-green,#16A34A);transition:width .4s}
+  .wp-days{display:flex;flex-direction:column}
+  .wp-day{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid var(--a-line)}
+  .wp-day:first-child{border-top:0}
+  .wp-chk{flex:none;padding:0;border:0;background:none;color:var(--a-mut);cursor:pointer;margin-top:1px}
+  .wp-day.done .wp-chk{color:var(--fit-green,#16A34A)}
+  .wp-chk:disabled{opacity:.5}
+  .wp-dt{flex:1;min-width:0}
+  .wp-dl{font-size:13px;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px}
+  .wp-dl span{color:var(--a-mut);font-weight:600}
+  .wp-dl em{font-style:normal;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--fit-red,#E4002B)}
+  .wp-day.done .wp-dl b{text-decoration:line-through;color:var(--a-mut)}
+  .wp-ex{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+  .wp-ex span{font-size:11.5px;padding:3px 8px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 6%,transparent)}
+  .wp-ex i{font-style:normal;font-family:var(--mono);color:var(--a-mut)}
+  .wp-min{flex:none;font-family:var(--mono);font-size:12px;color:var(--a-mut);margin-top:1px}
+  .wp-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .wp-b{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);
+    font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;text-decoration:none}
+  .wp-b.pri{background:var(--fit-red,#E4002B);border-color:var(--fit-red,#E4002B);color:#fff}
+  /* Editor plan */
+  dialog.wp-dlg{max-width:560px;width:94%;max-height:88vh;padding:0;overflow:auto}
+  .wp-f{padding:16px}
+  .wp-f-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .wp-f-hd b{font-size:15.5px}
+  .wp-lb{display:block;font-size:12px;font-weight:700;color:var(--a-mut);margin-bottom:10px}
+  .wp-lb input{margin-top:4px}
+  .wp-fd{border:1px solid var(--a-line);border-radius:12px;padding:10px;margin:0 0 10px;display:flex;flex-direction:column;gap:6px}
+  .wp-fd-hd,.wp-er{display:flex;gap:6px;align-items:center}
+  .wp-fd-hd input:first-child{flex:0 0 30%;font-weight:700}
+  .wp-fd-hd input:nth-child(2),.wp-er input:first-child{flex:1;min-width:0}
+  dialog.wp-dlg input,dialog.wp-dlg select{padding:8px;font-size:13.5px;min-width:0}
+  dialog.wp-dlg .wp-n{flex:0 0 58px;width:58px;text-align:center}
+  dialog.wp-dlg select{flex:0 0 74px;width:74px}
+  .wp-xs{color:var(--a-mut);font-weight:700}
+  .wp-x{flex:none;border:0;background:none;color:var(--a-mut);cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;padding:4px 6px;white-space:nowrap}
+  .wp-add{align-self:flex-start;border:1px dashed var(--a-line);background:none;color:var(--a-txt);border-radius:9px;padding:6px 10px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .wp-add.day{align-self:stretch;width:100%;padding:10px}
+  .wp-f-err{color:var(--fit-red,#E4002B);font-size:12.5px;min-height:16px;margin-top:8px}
+  .wp-f-ft{display:flex;gap:8px;margin-top:6px;position:sticky;bottom:-16px;background:var(--a-surface);padding:10px 0 2px}
+  @media(max-width:480px){ .wp-fd-hd{flex-wrap:wrap} .wp-fd-hd input:first-child{flex:1 1 40%} .wp-fd-hd input:nth-child(2){flex:1 1 100%;order:5}
+    .wp-er{flex-wrap:wrap} .wp-er input:first-child{flex:1 1 100%} }
   /* Tab bar: Dashboard | Chat | Plan | History */
   .atabs{display:flex;gap:6px;background:color-mix(in srgb,var(--a-txt) 5%,transparent);border:1px solid var(--a-line);border-radius:14px;padding:5px;margin:0 0 14px;overflow-x:auto}
   .atabs::-webkit-scrollbar{height:0}
@@ -480,7 +639,7 @@
 <link rel="stylesheet" href="css/glass-app.css">
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 </head>
-<body>
+<body data-tour-manual>
 <div class="wrap">
 
   <!-- 1. HEADER -->
@@ -489,6 +648,7 @@
       <h1 data-i18n="act_title">Activity</h1>
       <div class="date" id="hdDate">—</div>
     </div>
+    <button type="button" class="tour-help" id="tourHelp" aria-label="Tur fitur" title="Tur fitur"><span class="fic" data-ic="help" data-ic-size="18"></span></button>
     <div class="av" id="hdAv">·</div>
   </div>
 
@@ -505,16 +665,15 @@
 
   <div id="errBox"></div>
 
-  <!-- Kartu skor (renderScore) — hanya muncul kalau ada rencana harian -->
-  <div id="scoreTop"></div>
-
   <!-- ================= DASHBOARD: Coach → Health Score → Upload/Recap → Today's Plan → Active Plan =================
        Susunan compact (redesign): skor = bar horizontal (bukan ring besar), breakdown 2 kolom,
        What You Need = pill, Upload & Weekly Recap berdampingan (tetap 2 kolom di mobile). -->
   <div class="astack">
 
-    <!-- ALERT hasil Visbody baru (belum dilihat) — diisi loadVisbodyAlert() -->
+    <!-- Hasil Visbody baru (belum dibuka) + checklist Health Journey + nudge — diisi loadJourney() -->
     <div id="vbAlertBox"></div>
+    <div id="journeyBox"></div>
+    <div id="nudgeBox"></div>
 
     <!-- COACH — coach aktif + aksi cepat, lalu kotak profil 4 coach yang bisa digeser
          (js/coach-profiles.js, sama dengan picker /activity/chat) -->
@@ -543,24 +702,32 @@
     <!-- TODAY'S SUMMARY — angka nyata hari terpilih (workout / tidur / air) -->
     <div class="ts-grid" id="todaySumBox"></div>
 
-    <!-- 2 kartu berdampingan (juga di mobile) -->
-    <div class="dual-cards">
-      <div class="acard" id="uploadCard">
-        <div class="acard-hd"><span class="acard-title"><span class="fic" data-ic="upload" data-ic-size="14"></span> <span data-en="Upload Progress" data-id="Upload Progress">Upload Progress</span></span></div>
-        <div class="up-s" data-en="Upload a workout, sleep or daily-activity screenshot" data-id="Upload screenshot workout, sleep, atau daily activity">Upload screenshot workout, sleep, atau daily activity</div>
-        <div class="up-btns">
-          <button type="button" id="upCam"><span class="fic" data-ic="camera" data-ic-size="16"></span> <span data-en="Photo" data-id="Foto">Foto</span></button>
-          <button type="button" id="upFile"><span class="fic" data-ic="folder" data-ic-size="16"></span> <span data-en="File" data-id="File">File</span></button>
-        </div>
-        <div class="up-last" id="upLast"></div>
-        <input type="file" id="tplCam" accept="image/*" capture="environment" style="display:none">
-        <input type="file" id="tplFile" accept="image/*,.heic,.heif" style="display:none">
+    <!-- UPLOAD PROGRESS — SATU pintu upload (dulu dua: kartu "Upload Progress" + "Upload your workout").
+         Gambar dibaca AI -> jenisnya dikenali (workout / tidur / aktivitas harian / berat):
+         selalu memperbarui Today's Plan + Health Score; kalau workout, dialog pencatatan workout terbuka. -->
+    <div class="upx" id="uploadCard">
+      <div class="upx-drop" id="upDrop" tabindex="0" role="button" aria-describedby="upHint">
+        <span class="upx-ic"><span class="fic" data-ic="upload" data-ic-size="22"></span></span>
+        <span class="upx-txt">
+          <span class="upx-t" data-en="Upload your progress" data-id="Upload progress kamu">Upload progress kamu</span>
+          <span class="upx-s" id="upHint" data-en="Workout, sleep, steps or weight screenshot — up to 5 at once. AI reads the numbers and updates today's plan." data-id="Screenshot workout, tidur, langkah, atau berat — bisa 5 sekaligus. AI membaca angkanya & memperbarui plan hari ini.">Screenshot workout, tidur, langkah, atau berat — bisa 5 sekaligus. AI membaca angkanya &amp; memperbarui plan hari ini.</span>
+        </span>
       </div>
-      <div class="acard" id="weeklyRecapCard">
-        <div class="acard-hd"><span class="acard-title"><span class="fic" data-ic="calendar" data-ic-size="14"></span> <span data-en="Weekly Recap" data-id="Weekly Recap">Weekly Recap</span></span></div>
-        <div id="weeklyRecapBox"><div class="skel" style="height:64px;border-radius:10px"></div></div>
-        <a class="acard-link" href="/activity/history" data-en="See details →" data-id="Lihat Detail →">Lihat Detail →</a>
+      <div class="upx-prog" id="upProg" hidden><span class="upx-spin" aria-hidden="true"></span><span id="upProgTxt"></span></div>
+      <div class="upx-btns">
+        <button type="button" class="upx-b pri" id="upCam"><span class="fic" data-ic="camera" data-ic-size="16"></span> <span data-en="Camera" data-id="Kamera">Kamera</span></button>
+        <button type="button" class="upx-b" id="upFile"><span class="fic" data-ic="folder" data-ic-size="16"></span> <span data-en="Gallery / file" data-id="Galeri / file">Galeri / file</span></button>
+        <button type="button" class="upx-b" id="upManual"><span class="fic" data-ic="dumbbell" data-ic-size="16"></span> <span data-en="Log workout" data-id="Isi workout">Isi workout</span></button>
       </div>
+      <div class="upx-last" id="upLast"></div>
+      <input type="file" id="upCamIn" accept="image/*" capture="environment" hidden>
+      <input type="file" id="upFileIn" accept="image/*,.heic,.heif" multiple hidden>
+    </div>
+
+    <div class="acard" id="weeklyRecapCard">
+      <div class="acard-hd"><span class="acard-title"><span class="fic" data-ic="calendar" data-ic-size="14"></span> <span data-en="Weekly Recap" data-id="Weekly Recap">Weekly Recap</span></span>
+        <a class="acard-act" href="/activity/history" data-en="See details →" data-id="Lihat Detail →">Lihat Detail →</a></div>
+      <div id="weeklyRecapBox"><div class="skel" style="height:64px;border-radius:10px"></div></div>
     </div>
 
     <!-- TODAY'S PLAN — 4 mini kartu (workout/makan/tidur/hidrasi) + coach says -->
@@ -574,13 +741,7 @@
   <div class="dgrid">
   <!-- 4. WORKOUT -->
   <div class="sechd" data-i18n="act_sec_workout">Workout</div>
-  <!-- Log workout dari 1–5 screenshot tracker (dibaca jadi SATU sesi, lalu disimpan ke log). -->
-  <div class="drop" id="drop" tabindex="0" role="button">
-    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    <div class="t" data-i18n="act_up_t">Upload hasil workout</div>
-    <div class="s" data-i18n="act_up_s">Screenshot, foto, atau file dari tracker kamu — bisa 5 sekaligus</div>
-  </div>
-  <input type="file" id="file" accept="image/*,.heic,.heif" multiple style="display:none">
+  <!-- Daftar workout hari terpilih. Upload-nya lewat kartu "Upload progress" di atas (#uploadCard). -->
   <div id="woBox"></div>
   <!-- Post-workout meal (S3): saran isi ulang setelah ada workout di hari terpilih -->
   <div id="pwMealBox"></div>
@@ -595,13 +756,6 @@
   <div id="sleepBox"></div>
   <div id="hydraBox"></div>
 
-
-  <!-- 5. AI ANALYSIS (analisis harian) + 6. SCORE -->
-  <div class="sechd" data-i18n="act_sec_ai">AI Coach</div>
-  <div id="aiBox"></div>
-
-  <!-- 7. GOALS -->
-  <div id="goalBox"></div>
 
   <!-- Kartu "Nutrisi 2x2" SENGAJA TIDAK ADA di sini: kartu "Overall - Hari Ini" milik
        halaman lama (di bawah) sudah menampilkan Kalori/Protein/Karbo/Lemak/Air/Tidur
@@ -628,16 +782,24 @@
   <div style="font-weight:800;font-size:15px" data-i18n="act_dlg_t">Detail workout</div>
   <div class="muted" style="font-size:12px;margin-top:3px" data-i18n="act_dlg_s">Isi yang kamu tahu saja. Yang kosong tidak akan ditebak.</div>
   <div id="dlgAi"></div>
+  <!-- Tanggal hasil baca screenshot yang meragukan (tahun tak terlihat / masa depan / lama) WAJIB dikonfirmasi -->
+  <div id="dlgDate"></div>
+  <div class="dlg2">
+    <div><label data-en="Date *" data-id="Tanggal *">Tanggal *</label><input id="fDate" type="date"></div>
+    <div><label data-en="Start time" data-id="Jam mulai">Jam mulai</label><input id="fStart" type="time"></div>
+  </div>
   <label data-i18n="act_f_title">Nama workout</label><input id="fTitle" placeholder="Morning Run">
   <label data-i18n="act_f_type">Jenis</label>
-  <select id="fType">
-    <option value="run">Run</option><option value="cycling">Cycling</option><option value="gym">Gym</option>
-    <option value="hyrox">Hyrox</option><option value="swimming">Swimming</option><option value="other">Lainnya</option>
-  </select>
+  <select id="fType"></select>
   <label data-i18n="act_f_dur">Durasi (menit) *</label><input id="fDur" type="number" min="1" inputmode="numeric" placeholder="45">
   <label data-i18n="act_f_dist">Jarak (km)</label><input id="fDist" type="number" step="0.01" inputmode="decimal" placeholder="5.2">
   <label data-i18n="act_f_kcal">Kalori terbakar</label><input id="fKcal" type="number" inputmode="numeric" placeholder="380">
-  <label data-i18n="act_f_hr">Rata-rata BPM</label><input id="fHr" type="number" inputmode="numeric" placeholder="142">
+  <div class="dlg2">
+    <div><label data-i18n="act_f_hr">Rata-rata BPM</label><input id="fHr" type="number" inputmode="numeric" placeholder="142"></div>
+    <div><label data-en="Max BPM" data-id="BPM maks">BPM maks</label><input id="fMaxHr" type="number" inputmode="numeric" placeholder="171"></div>
+  </div>
+  <label data-en="Note (optional) — e.g. pain, dizziness, how it felt" data-id="Catatan (opsional) — mis. nyeri, pusing, rasanya gimana">Catatan (opsional) — mis. nyeri, pusing, rasanya gimana</label>
+  <textarea id="fNote" rows="2" maxlength="500"></textarea>
   <div id="dlgErr" class="err" style="margin-top:10px"></div>
   <div style="display:flex;gap:8px;margin-top:14px">
     <button class="btn ghost" id="dlgCancel" type="button" data-i18n="act_cancel">Batal</button>
@@ -645,15 +807,19 @@
   </div>
 </dialog>
 
+<!-- Dialog Health Journey (target kalori dari BMR / jadwal rescan) — isi dari JS -->
+<dialog id="jnDlg" aria-labelledby="jnDlgT"></dialog>
+
 <dialog id="slpDlg">
   <div style="font-weight:800;font-size:15px" id="slpDlgT">Catat tidur</div>
-  <div class="muted" style="font-size:12px;margin-top:3px" id="slpDlgS">Durasi dihitung otomatis dari jam tidur &amp; bangun.</div>
-  <label id="slpLbBed">Jam tidur</label><input id="slpBed" type="time">
-  <label id="slpLbWake">Jam bangun</label><input id="slpWake" type="time">
-  <div class="muted" id="slpDur" style="font-size:12.5px;margin:8px 0 2px">—</div>
+  <div class="muted" style="font-size:12px;margin-top:3px" id="slpDlgS">Atur jam dengan tombol ▲▼ atau pilih cepat di bawahnya.</div>
+  <div class="tpk" id="tpBed"></div>
+  <div class="tpk" id="tpWake"></div>
+  <div class="slp-sum" id="slpDur">—</div>
   <label id="slpLbQual">Kualitas tidur</label>
   <div class="qz" id="slpQual"></div>
-  <label id="slpLbAwake">Berapa kali terbangun</label><input id="slpAwake" type="number" min="0" inputmode="numeric" placeholder="0">
+  <label id="slpLbAwake">Berapa kali terbangun</label>
+  <div class="stp"><button type="button" id="slpAwMinus" aria-label="-">−</button><span id="slpAwakeV">0</span><button type="button" id="slpAwPlus" aria-label="+">+</button></div>
   <div id="slpErr" class="err" style="margin-top:10px"></div>
   <div style="display:flex;gap:8px;margin-top:14px">
     <button class="btn ghost" id="slpCancel" type="button">Batal</button>
@@ -665,7 +831,6 @@
 <script src="js/vendor-supabase.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/i18n.js"></script>
-<script src="js/goal-quiz.js"></script>
 <script src="js/body-scan.js"></script>
 <script src="js/coach-profiles.js"></script>
 <script src="js/nav.js"></script>
@@ -674,6 +839,9 @@
 <script src="js/cycle.js"></script>
 <script src="js/fasting.js"></script>
 <script src="js/nutrition.js"></script>
+<script src="js/workout-metrics.js"></script>
+<script src="js/tours-config.js"></script>
+<script src="js/tour.js"></script>
 <script>
   // ---- Halaman Activity ----
   // Data: /api/activity/day (workout + harian + rencana + 7 hari) — satu panggilan.
@@ -734,21 +902,54 @@
     });
   }
 
-  // ---- 3. Upload (langsung saja; tombol sync tracker dihapus atas permintaan pemilik) ----
+  // ---- 3. Upload progress — SATU pintu upload (kartu #uploadCard) ----
+  // Dulu ada dua kartu: "Upload Progress" (1 gambar -> upload-analyze -> Today's Plan) dan
+  // "Upload your workout" (1–5 gambar -> scan -> dialog workout). Sekarang satu alur:
+  // gambar pertama ke /api/activity/upload-analyze (kenali jenis + Today's Plan + riwayat upload
+  // untuk Health Score) dan SEMUA gambar ke /api/activity/scan (pembaca workout) — paralel supaya
+  // user tidak menunggu dua kali. Dialog pencatatan workout HANYA dibuka kalau hasilnya workout.
+  var UP_BUSY=false, UP_FLASH=null;
+  function upPick(){ if(UP_BUSY) return; var f=document.getElementById("upFileIn"); if(f) f.click(); }
   function wireUpload(){
-    var drop=document.getElementById("drop"), file=document.getElementById("file");
-    drop.onclick=function(){ file.click(); };
-    drop.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); file.click(); } };
-    ["dragenter","dragover"].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.add("over"); }); });
-    ["dragleave","drop"].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.remove("over"); }); });
-    drop.addEventListener("drop",function(e){ handleFiles(e.dataTransfer&&e.dataTransfer.files); });
-    file.onchange=function(){ handleFiles(file.files); file.value=""; };
+    var card=document.getElementById("uploadCard"), drop=document.getElementById("upDrop");
+    drop.onclick=upPick;
+    drop.onkeydown=function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); upPick(); } };
+    ["dragenter","dragover"].forEach(function(ev){ card.addEventListener(ev,function(e){ e.preventDefault(); card.classList.add("over"); }); });
+    card.addEventListener("dragleave",function(e){ if(!card.contains(e.relatedTarget)) card.classList.remove("over"); });
+    card.addEventListener("drop",function(e){ e.preventDefault(); card.classList.remove("over"); handleFiles(e.dataTransfer&&e.dataTransfer.files); });
+    document.getElementById("upCam").onclick=function(){ if(!UP_BUSY) document.getElementById("upCamIn").click(); };
+    document.getElementById("upFile").onclick=upPick;
+    document.getElementById("upManual").onclick=function(){ clearPending(); openDlg(); };
+    ["upCamIn","upFileIn"].forEach(function(id){
+      var f=document.getElementById(id);
+      f.onchange=function(){ var l=Array.prototype.slice.call(f.files||[]); f.value=""; handleFiles(l); };
+    });
   }
+  // Status di dalam kartu: txt = sedang proses (spinner); ok = selesai (centang, hilang sendiri).
+  function upProg(txt,ok){
+    var card=document.getElementById("uploadCard"), box=document.getElementById("upProg"); if(!card||!box) return;
+    clearTimeout(UP_FLASH);
+    card.classList.toggle("busy",!!txt&&!ok);
+    box.classList.toggle("ok",!!ok); box.hidden=!txt;
+    document.getElementById("upProgTxt").textContent=txt||"";
+    Array.prototype.forEach.call(card.querySelectorAll(".upx-b"),function(b){ b.disabled=!!txt&&!ok; });
+    if(ok) UP_FLASH=setTimeout(function(){ upProg(""); },5000);
+  }
+  async function upPost(url,body){
+    try{
+      var r=await apiFetch(url,{method:"POST",body:JSON.stringify(body)});
+      var j=await r.json().catch(function(){return {};});
+      return {ok:r.ok,status:r.status,j:j||{}};
+    }catch(e){ return {ok:false,status:0,j:{}}; }
+  }
+  var UP_KIND={sleep:{en:"sleep",id:"tidur"},daily_activity:{en:"daily activity",id:"aktivitas harian"},weight:{en:"weight",id:"berat badan"},food_log:{en:"food log",id:"log makan"}};
 
   // Satu sesi latihan sering tersebar di beberapa layar tracker (ringkasan, zona HR,
   // split), jadi upload menerima BEBERAPA gambar dan semuanya dibaca sebagai SATU workout.
   var MAX_IMG=5;
-  var PENDING_URLS=[], PENDING_AI=null;
+  // Hasil upload yang menunggu dikonfirmasi di dialog: path screenshot, bacaan AI, id upload, cek tanggal.
+  var PENDING={paths:[],ai:null,uploadId:null,dc:null};
+  function clearPending(){ PENDING={paths:[],ai:null,uploadId:null,dc:null}; }
 
   function readAsDataUrl(f){
     return new Promise(function(res,rej){
@@ -810,65 +1011,109 @@
 
   async function handleFiles(list){
     var files=Array.prototype.slice.call(list||[]);
-    if(!files.length) return;
+    if(!files.length||UP_BUSY) return;
     if(files.length>MAX_IMG){
       showErr(Lx({en:"Up to "+MAX_IMG+" images at once.",id:"Maksimal "+MAX_IMG+" gambar sekaligus."}),false); return;
     }
     for(var i=0;i<files.length;i++){ if(files[i].size>5*1024*1024){ showErr(T("act_too_big"),false); return; } }
 
-    clearErr();
-    var drop=document.getElementById("drop"), old=drop.innerHTML;
-    var urls=[], smalls=[], storeFailed=false;
+    clearErr(); UP_BUSY=true;
+    var originals=[], smalls=[], ditolak=[], converted=0;
     try{
-      var ditolak=[], storeMsg=null, converted=0;
       for(var k=0;k<files.length;k++){
-        drop.innerHTML='<div class="s">'+esc(Lx({en:"Uploading "+(k+1)+"/"+files.length+"\u2026",id:"Mengunggah "+(k+1)+"/"+files.length+"\u2026"}))+'</div>';
+        upProg(Lx({en:"Preparing "+(k+1)+"/"+files.length+"\u2026",id:"Menyiapkan "+(k+1)+"/"+files.length+"\u2026"}));
         var sup=await toSupported(files[k]);
         if(!sup.ok){ ditolak.push(sup.name+" ("+sup.type+")"); continue; }
         if(sup.converted) converted++;
-        smalls.push(await shrink(sup.dataUrl));
-        // Penyimpanan gagal TIDAK menghentikan pembacaan: angkanya masih bisa dibaca dari
-        // gambar yang ada di memori. Alasan dari server DISIMPAN supaya bisa ditampilkan
-        // apa adanya — dulu kegagalan ini cuma jadi catatan samar di dialog.
-        try{
-          var r=await apiFetch("/api/activity/upload",{method:"POST",body:JSON.stringify({data_url:sup.dataUrl})});
-          var j=await r.json().catch(function(){return {};});
-          if(r.ok&&j.url) urls.push(j.url); else { storeFailed=true; if(!storeMsg) storeMsg=j.error||null; }
-        }catch(e){ storeFailed=true; }
+        originals.push(sup.dataUrl); smalls.push(await shrink(sup.dataUrl));
       }
       if(ditolak.length){
         showErr(Lx({en:"These files can't be read: "+ditolak.join(", ")+". Use a PNG, JPG, or WebP screenshot.",
                     id:"Berkas ini tidak bisa dibaca: "+ditolak.join(", ")+". Pakai screenshot PNG, JPG, atau WebP."}),false);
       }
-      if(!smalls.length){ drop.innerHTML=old; return; }
+      if(!smalls.length) return;
 
-      drop.innerHTML='<div class="s">'+esc(Lx({en:"Reading your tracker\u2026",id:"Membaca tracker kamu\u2026"}))+'</div>';
-      var ai=null, aiErr=null;
-      try{
-        var sr=await apiFetch("/api/activity/scan",{method:"POST",body:JSON.stringify({images:smalls,lang:I18N.lang})});
-        var sj=await sr.json().catch(function(){return {};});
-        if(sr.ok&&sj.ok&&sj.readable) ai=sj.result; else aiErr=sj.error||null;
-      }catch(e){ aiErr=null; }
+      upProg(Lx({en:"AI is reading your screenshot\u2026",id:"AI sedang membaca screenshot kamu\u2026"}));
+      var tp=tplHost(); if(tp) tp.innerHTML='<div class="acard"><div class="skel" style="height:96px"></div></div>';
+      var res=await Promise.all([
+        upPost("/api/activity/upload-analyze",{ image:smalls[0], coach_id:TPL_COACH, lang:I18N.lang }),
+        upPost("/api/activity/scan",{ images:smalls, lang:I18N.lang })
+      ]);
+      var an=res[0], sc=res[1];
+      if(an.status===401||sc.status===401){ location.href="/login"; return; }
+      var aOk=!!(an.ok&&an.j.ok&&an.j.analysis);
+      if(aOk){
+        var a=an.j.analysis, t=a.today_plan||{};
+        renderTodayPlan({ workout:t.workout, food:t.food, sleep:t.sleep, hydration:t.hydration, coach_says:a.coach_says, coach_id:TPL_COACH });
+      } else loadTodayPlan();
+      var kind=aOk?String((an.j.extracted&&an.j.extracted.type)||""):"";
+      var ai=(sc.ok&&sc.j.ok&&sc.j.readable)?sc.j.result:null;
+      // Jenis dari upload-analyze yang menentukan. Pembaca workout hanya jadi penentu kalau
+      // jenisnya tak dikenali — supaya screenshot tidur tidak tercatat sebagai "workout 7 jam".
+      var isWo=kind==="workout"||(!!ai&&(kind===""||kind==="other"));
 
-      PENDING_URLS=urls; PENDING_AI=ai;
-      drop.innerHTML=old;
-      if(storeFailed&&storeMsg) showErr(storeMsg,false);
-      openDlg(smalls.length,ai,aiErr,storeFailed,converted);
+      if(isWo){
+        // Foto asli disimpan (lampiran workout). Gagal simpan TIDAK menghentikan pencatatan.
+        upProg(Lx({en:"Saving your photos\u2026",id:"Menyimpan foto\u2026"}));
+        var paths=[], storeFailed=false, storeMsg=null;
+        for(var m=0;m<originals.length;m++){
+          var u=await upPost("/api/activity/upload",{data_url:originals[m]});
+          if(u.ok&&u.j.path) paths.push(u.j.path); else { storeFailed=true; if(!storeMsg) storeMsg=u.j.error||null; }
+        }
+        // Tanggal: dari pembaca workout (tahun tercetak), lalu teks tanggal tanpa tahun, lalu bacaan
+        // upload-analyze (tahunnya bisa ditebak AI). Yang meragukan -> user wajib konfirmasi di dialog.
+        var exDate=aOk&&an.j.extracted?an.j.extracted.date:null;
+        var read=(ai&&ai.workout_date)||(ai&&ai.date_text?WorkoutMetrics.parseDateText(ai.date_text,todayYmd()):null)||exDate||null;
+        var yv=(ai&&ai.workout_date)?(ai.year_visible!==false):(ai&&ai.date_text&&read?false:null);
+        var dc=WorkoutMetrics.resolveDate({read:read,yearVisible:yv,today:todayYmd(),maxDays:sc.j.date_confirm_after_days,fallback:SEL});
+        dc.text=(ai&&ai.date_text)||null;
+        PENDING={paths:paths,ai:ai,uploadId:aOk?(an.j.upload_id||null):null,dc:dc};
+        upProg("");
+        if(storeFailed&&storeMsg) showErr(storeMsg,false);
+        openDlg(smalls.length,ai,ai?null:(sc.j.error||null),storeFailed,converted);
+      } else if(aOk){
+        var kl=UP_KIND[kind]?Lx(UP_KIND[kind]):Lx({en:"your data",id:"data kamu"});
+        upProg(Lx({en:"Read as "+kl+" \u2014 today's plan is updated.",id:"Terbaca sebagai "+kl+" \u2014 plan hari ini diperbarui."}),true);
+      } else {
+        upProg("");
+        showErr(an.j.error||Lx({en:"Couldn't read that screenshot. Try again, or log the workout by hand.",id:"Screenshot belum terbaca. Coba lagi, atau isi workout manual."}),false);
+      }
     }catch(e){
-      drop.innerHTML=old; showErr(T("act_up_fail"),false);
+      upProg(""); showErr(T("act_up_fail"),false); loadTodayPlan();
+    }finally{
+      UP_BUSY=false;
+      if(!document.getElementById("upProg").classList.contains("ok")) upProg("");   // status "selesai" dibiarkan tampil
     }
+    refreshDerived(); loadLastUpload();   // upload baru -> skor & analisa dihitung ulang + "Terakhir:" diperbarui
   }
 
   // ---- Dialog workout manual ----
   function setV(id,v){ document.getElementById(id).value=(v==null?"":String(v)); }
+  function fmtDay(ymd){ try{ return new Date(ymd+"T00:00:00").toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{day:"numeric",month:"short",year:"numeric"}); }catch(e){ return ymd; } }
   function openDlg(nImg,ai,aiErr,storeFailed,converted){
     document.getElementById("dlgErr").textContent="";
     var box=document.getElementById("dlgAi"); box.innerHTML="";
+    ["fTitle","fDur","fDist","fKcal","fHr","fMaxHr","fNote","fStart"].forEach(function(id){ setV(id,null); });
+    var fd=document.getElementById("fDate"); fd.max=todayYmd();
+    var dc=PENDING.dc; setV("fDate",dc?dc.date:SEL);
+    var dbox=document.getElementById("dlgDate"); dbox.innerHTML="";
+    if(dc&&dc.needs_confirm){
+      var seen=dc.text||(dc.read?fmtDay(dc.read):null);
+      var msg={
+        unread:{en:"The workout date couldn't be read from the screenshot.",id:"Tanggal latihan tidak terbaca dari screenshot."},
+        future:{en:"The date read ("+seen+") is in the future.",id:"Tanggal yang terbaca ("+seen+") ada di masa depan."},
+        year_guess:{en:"The year isn't visible on the screenshot (read: "+seen+"). We filled in "+fmtDay(dc.date)+".",id:"Tahun tidak terlihat di screenshot (terbaca: "+seen+"). Kami isi "+fmtDay(dc.date)+"."},
+        old:{en:"The date read is "+seen+", several days ago.",id:"Tanggal yang terbaca "+seen+", beberapa hari lalu."}
+      }[dc.reason]||{en:"",id:""};
+      dbox.innerHTML='<div class="dlgnote warn">'+esc(Lx(msg))+' '+esc(Lx({en:"Pick the correct workout date before saving.",id:"Pilih tanggal latihan yang benar sebelum menyimpan."}))+
+        '<label class="dlgchk"><input type="checkbox" id="fDateOk"> '+esc(Lx({en:"The date below is correct",id:"Tanggal di bawah sudah benar"}))+'</label></div>';
+      fd.onchange=function(){ var c=document.getElementById("fDateOk"); if(c) c.checked=true; };
+    } else fd.onchange=null;
     if(ai){
       // Prefill HANYA field yang benar-benar dibaca. Yang null dibiarkan kosong —
       // dialog ini tidak boleh memunculkan angka yang tidak ada di gambar.
       setV("fTitle",ai.title); setV("fDur",ai.duration_min); setV("fDist",ai.distance_km);
-      setV("fKcal",ai.calories_burned); setV("fHr",ai.avg_heart_rate);
+      setV("fKcal",ai.calories_burned); setV("fHr",ai.avg_heart_rate); setV("fMaxHr",ai.max_heart_rate); setV("fStart",ai.start_time);
       if(ai.type){ var sel=document.getElementById("fType");
         for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===ai.type){ sel.selectedIndex=i; break; } } }
       var conf=(ai.confidence!=null)?(" \u00b7 "+Math.round(ai.confidence)+"%"):"";
@@ -896,36 +1141,48 @@
     document.getElementById("woDlg").showModal();
   }
   function wireDlg(){
-    document.getElementById("dlgCancel").onclick=function(){ PENDING_URLS=[]; PENDING_AI=null; document.getElementById("woDlg").close(); };
+    var sel=document.getElementById("fType");
+    sel.innerHTML=Object.keys(WorkoutMetrics.TYPES).map(function(k){ return '<option value="'+k+'">'+esc(WorkoutMetrics.typeLabel(k,I18N.lang))+'</option>'; }).join("");
+    document.getElementById("dlgCancel").onclick=function(){ clearPending(); document.getElementById("woDlg").close(); };
     document.getElementById("dlgSave").onclick=async function(){
+      var err=document.getElementById("dlgErr");
       var dur=parseFloat(document.getElementById("fDur").value);
-      if(!isFinite(dur)||dur<=0){ document.getElementById("dlgErr").textContent=T("act_need_dur"); return; }
+      if(!isFinite(dur)||dur<=0){ err.textContent=T("act_need_dur"); return; }
+      var date=document.getElementById("fDate").value;
+      if(!date||date>todayYmd()){ err.textContent=Lx({en:"Pick a workout date (not in the future).",id:"Pilih tanggal latihan (tidak boleh di masa depan)."}); return; }
+      var ok=document.getElementById("fDateOk");
+      if(PENDING.dc&&PENDING.dc.needs_confirm&&ok&&!ok.checked){ err.textContent=Lx({en:"Confirm the workout date first.",id:"Pastikan tanggal latihan dulu."}); return; }
+      var ai=PENDING.ai, sc=PENDING.paths.length||ai;
       var body={
-        workout_date:SEL, source:PENDING_URLS.length?"upload":"manual",
-        uploaded_file_url:PENDING_URLS[0]||null,
-        // Kolom uploaded_file_url cuma muat SATU url; daftar lengkap + jejak bacaan AI
-        // (seberapa yakin, kolom apa yang dibaca) disimpan di raw_data supaya bisa diaudit.
-        raw_data:(PENDING_URLS.length||PENDING_AI)?{
-          uploaded_file_urls:PENDING_URLS,
-          ai_scan:PENDING_AI?{confidence:PENDING_AI.confidence,fields_read:PENDING_AI.fields_read,
-                              source_guess:PENDING_AI.source_guess,note:PENDING_AI.note}:null
-        }:null,
+        workout_date:date, source:sc?"upload":"manual",
+        // Path screenshot + jejak bacaan AI (yakin berapa, kolom apa) + cek tanggal -> raw_data (diaudit server).
+        raw_data:{
+          file_paths:PENDING.paths, upload_id:PENDING.uploadId, started_at:document.getElementById("fStart").value||null,
+          ai_scan:ai?{confidence:ai.confidence,fields_read:ai.fields_read,source_guess:ai.source_guess,note:ai.note}:null,
+          field_confidence:ai?ai.field_confidence:null, metrics:ai?{avg_speed_kmh:ai.avg_speed_kmh,cadence:ai.cadence}:null,
+          date_check:PENDING.dc?{read:PENDING.dc.read,text:PENDING.dc.text,reason:PENDING.dc.reason}:null
+        },
+        hr_zone_data:ai?ai.hr_zone_data:null, pace_data:ai?ai.pace_data:null, elevation_gain_m:ai?ai.elevation_gain_m:null,
         title:document.getElementById("fTitle").value||null,
         type:document.getElementById("fType").value, duration_min:dur,
         distance_km:parseFloat(document.getElementById("fDist").value)||null,
         calories_burned:parseInt(document.getElementById("fKcal").value,10)||null,
-        avg_heart_rate:parseInt(document.getElementById("fHr").value,10)||null
+        avg_heart_rate:parseInt(document.getElementById("fHr").value,10)||null,
+        max_heart_rate:parseInt(document.getElementById("fMaxHr").value,10)||null,
+        note:document.getElementById("fNote").value.trim()||null
       };
       var btn=this; btn.disabled=true;
       try{
         var r=await apiFetch("/api/activity/workout",{method:"POST",body:JSON.stringify(body)});
         var j=await r.json().catch(function(){return {};});
-        if(!r.ok){ document.getElementById("dlgErr").textContent=j.error||T("act_save_fail"); btn.disabled=false; return; }
+        if(!r.ok){ err.textContent=j.error||T("act_save_fail"); btn.disabled=false; return; }
         document.getElementById("woDlg").close();
-        ["fTitle","fDur","fDist","fKcal","fHr"].forEach(function(id){ document.getElementById(id).value=""; });
-        PENDING_URLS=[]; PENDING_AI=null;
+        clearPending();
+        // Analisa performa ada di halaman detail riwayat.
+        var last=document.getElementById("upLast");
+        if(last&&j.workout&&j.workout.id) last.innerHTML='<a class="upx-go" href="/activity/history/'+encodeURIComponent(j.workout.id)+'">'+esc(Lx({en:"Saved — see the performance analysis →",id:"Tersimpan — lihat analisa performanya →"}))+'</a>';
         await load(SEL);
-        genPlan(true);   // workout baru -> rencana disegarkan
+        refreshDerived();   // workout baru -> Health Score & analisa Plan Hari Ini dihitung ulang
       }catch(e){ document.getElementById("dlgErr").textContent=T("act_save_fail"); }
       btn.disabled=false;
     };
@@ -940,7 +1197,7 @@
     if(!ws.length){
       host.innerHTML='<div class="card"><div class="muted" style="font-size:13px;text-align:center;padding:6px 0">'+
         esc(T("act_no_workout"))+'</div><button class="btn ghost" id="addManual" style="margin-top:10px">'+esc(T("act_add_manual"))+'</button></div>';
-      document.getElementById("addManual").onclick=function(){ PENDING_URLS=[]; PENDING_AI=null; openDlg(); };
+      document.getElementById("addManual").onclick=function(){ clearPending(); openDlg(); };
       return;
     }
     host.innerHTML=ws.map(function(w){
@@ -979,6 +1236,7 @@
           return '<div><div class="k">'+esc(T(s[0]))+'</div><div class="v">'+esc(s[1])+'</div></div>';
         }).join("")+'</div>'+zh+
         (w.uploaded_file_url?'<div class="muted" style="font-size:11.5px;margin-top:10px">'+FIC("attach",14)+' '+esc(T("act_has_file"))+'</div>':'')+
+        '<a class="upx-go wo-an" href="/activity/history/'+encodeURIComponent(w.id)+'">'+esc(Lx({en:"Performance analysis →",id:"Analisa performa →"}))+'</a>'+
         '</div>';
     }).join("");
     Array.prototype.forEach.call(host.querySelectorAll("[data-del]"),function(b){
@@ -1038,182 +1296,6 @@
     }
   }
 
-  // ---- 5. AI analysis + 6. score & gaps ----
-  // Sorot inline: kata di dalam <<good|teks>> dibungkus pill. Dibangun dari `gaps`,
-  // bukan dari menebak-nebak kata di kalimat AI.
-  function hlText(txt,gaps){
-    var out=esc(txt||"");
-    (gaps||[]).forEach(function(g){
-      if(!g||!g.value||!g.area) return;
-      var st=["good","warning","critical"].indexOf(String(g.status))>=0?g.status:"warning";
-      var needle=esc(String(g.value));
-      if(needle&&out.indexOf(needle)>=0){
-        out=out.replace(needle,'<span class="hl '+st+'">'+needle+'</span>');
-      }
-    });
-    return out;
-  }
-  function renderAi(){
-    renderScore();   // kartu skor di atas (#scoreTop) selalu ikut ter-render bareng AI Coach
-    var host=document.getElementById("aiBox"), p=DAY&&DAY.plan;
-    if(!p){
-      host.innerHTML='<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span></div>'+
-        '<p class="muted">'+esc(T("act_ai_none"))+'</p>'+
-        '<button class="btn" id="genBtn" style="margin-top:12px">'+esc(T("act_ai_gen"))+'</button>'+
-        '<button class="btn ghost" id="goalBtn" style="margin-top:8px">'+esc(T("act_goal_cta"))+'</button></div>';
-      document.getElementById("genBtn").onclick=function(){ hasWorkout()?genPlan(false):renderNeedWorkout(); };
-      document.getElementById("goalBtn").onclick=renderGoalQuiz;
-      return;
-    }
-    var gaps=Array.isArray(p.gaps)?p.gaps:[];
-    // Kartu skor (ring + badge) pindah ke ATAS lewat renderScore(). Di sini tinggal
-    // analisa AI + daftar gap + tombol regenerate.
-    host.innerHTML=
-      '<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_ai_t"))+'</span>'+
-        '<span class="b">'+esc(p.source==="fallback"?T("act_ai_nofb"):"AI COACH")+'</span></div>'+
-        '<p>'+hlText(p.analysis_text,gaps)+'</p></div>'+
-      '<div class="card">'+
-        (gaps.length?('<div class="gaps">'+gaps.map(function(g){
-          var st=["good","warning","critical"].indexOf(String(g.status))>=0?g.status:"warning";
-          var col=st==="good"?"var(--green)":(st==="warning"?"var(--amber)":"var(--red)");
-          return '<div class="gap"><i style="background:'+col+'"></i>'+esc(g.area||"")+'<span class="v">'+esc(g.value||"—")+'</span></div>';
-        }).join("")+'</div>'):'<div class="muted" style="font-size:12.5px">'+esc(T("act_no_gap"))+'</div>')+
-        '<button class="btn ghost" id="regenBtn" style="margin-top:12px">'+esc(T("act_ai_regen"))+'</button>'+
-      '</div>';
-    document.getElementById("regenBtn").onclick=function(){ genPlan(false); };
-  }
-
-  // Kartu "Skor hari ini" dinaikkan ke paling atas (#scoreTop), gaya mockup: ring + status
-  // + selisih vs kemarin. Hanya tampil kalau ada rencana; tanpa rencana -> kosong (CTA
-  // "Buat rencana" tetap di kartu AI Coach di kolom kanan).
-  function renderScore(){
-    var host=document.getElementById("scoreTop"); if(!host) return;
-    var p=DAY&&DAY.plan;
-    if(!p){ host.innerHTML=""; return; }
-    var score=(p.overall_score!=null)?p.overall_score:0;
-    var C=2*Math.PI*46, off=C-(C*Math.max(0,Math.min(100,score))/100);
-    var sc=score>=75?"var(--green)":(score>=45?"var(--amber)":"var(--red)");
-    var stKey=score>=75?"good":(score>=45?"warning":"critical");
-    var stCol=stKey==="good"?"var(--green)":(stKey==="warning"?"var(--amber)":"var(--red)");
-    var stBg="color-mix(in srgb,"+stCol+" 16%,transparent)";
-    var stLbl=stKey==="good"?Lx({en:"On track",id:"On track"}):(stKey==="warning"?Lx({en:"On the way",id:"Menuju target"}):Lx({en:"Needs attention",id:"Perlu perhatian"}));
-    var msg=stKey==="good"?Lx({en:"You're on track.",id:"Kamu on track."}):(stKey==="warning"?Lx({en:"Getting there.",id:"Terus jalan, hampir sampai."}):Lx({en:"Needs attention today.",id:"Perlu perhatian hari ini."}));
-    if(PREV_SCORE!=null){ var dd=score-PREV_SCORE;
-      msg+= dd>0?Lx({en:" Up +"+dd+" from yesterday.",id:" Naik +"+dd+" dari kemarin."})
-           :(dd<0?Lx({en:" Down "+(-dd)+" from yesterday.",id:" Turun "+(-dd)+" dari kemarin."})
-                 :Lx({en:" Same as yesterday.",id:" Sama seperti kemarin."})); }
-    var ttl=isToday(SEL)?Lx({en:"Today’s score",id:"Skor hari ini"}):Lx({en:"Score",id:"Skor"});
-    host.innerHTML='<div class="card scoretop"><div class="stpwrap">'+
-      '<div class="ringw"><svg width="118" height="118" viewBox="0 0 118 118">'+
-        '<circle cx="59" cy="59" r="46" fill="none" stroke="var(--a-line)" stroke-width="9"/>'+
-        '<circle cx="59" cy="59" r="46" fill="none" stroke="'+sc+'" stroke-width="9" stroke-linecap="round" '+
-          'stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
-        '<div class="n"><b>'+score+'</b><s>/ 100</s></div></div>'+
-      '<div class="stpinfo"><div class="stpt">'+esc(ttl)+'</div>'+
-        '<div class="stpmsg muted">'+esc(msg)+'</div>'+
-        '<span class="sbadge" style="background:'+stBg+';color:'+stCol+';margin-top:10px"><i style="background:'+stCol+'"></i>'+esc(stLbl)+'</span>'+
-      '</div></div></div>';
-  }
-  function starSvg(){ return '<svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 11l-6.6 2.1L12 20l-2.4-6.9L3 11l6.6-2.1z"/></svg>'; }
-
-  async function genPlan(silent){
-    if(BUSY) return; BUSY=true;
-    var b=document.getElementById("genBtn")||document.getElementById("regenBtn");
-    var lbl=b?b.textContent:null;
-    if(b){ b.disabled=true; b.textContent=T("act_ai_working"); }
-    try{
-      var r=await apiFetch("/api/activity/plan",{method:"POST",body:JSON.stringify({date:SEL,lang:I18N.lang})});
-      var j=await r.json().catch(function(){return {};});
-      if(!r.ok){ if(!silent) showErr(j.error||T("act_ai_fail"),false); }
-      else { DAY.plan=j.plan; if(j.source) DAY.plan.source=j.source; renderAi(); renderGoals(); }
-    }catch(e){ if(!silent) showErr(T("act_ai_fail"),false); }
-    finally{
-      // Kalau gagal, renderAi() tidak dipanggil sehingga tombolnya tetap ada di DOM.
-      // Tanpa pemulihan ini tombolnya tersangkut "Sedang diproses..." dan mati selamanya.
-      // Saat berhasil, b sudah dilepas renderAi() -> menulis ke node lepas itu tidak apa-apa.
-      if(b&&b.isConnected){ b.disabled=false; if(lbl!=null) b.textContent=lbl; }
-      BUSY=false;
-    }
-  }
-
-  // Rencana AI dibangun dari data workout. Tanpa satu pun workout, memanggil API cuma
-  // menghasilkan kegagalan yang tak memberi tahu apa-apa ke user. Jadi tombolnya
-  // memunculkan pemandu, bukan memanggil API.
-  function hasWorkout(){ return (((DAY&&DAY.workouts)||[]).length>0); }
-  function hasDaily(){
-    var d=(DAY&&DAY.daily)||{}, ck=d.checklist||{};
-    return d.sleep_hours!=null||d.water_glasses!=null||d.steps!=null||d.weight_kg!=null||
-           !!ck.breathing||!!d.breathing_done||(+((d.totals&&d.totals.kcal)||0)>0)||(+(d.cal_count||0)>0);
-  }
-  function gotoUpload(){
-    var el=document.getElementById("drop"); if(!el) return;
-    el.scrollIntoView({behavior:"smooth",block:"center"});
-    el.classList.add("hl"); el.focus({preventScroll:true});
-    setTimeout(function(){ el.classList.remove("hl"); },2400);
-  }
-  // Quiz "Set Your Goal" (js/goal-quiz.js) dipasang DI DALAM kartu analisis, bukan di
-  // halaman terpisah: jawabannya cuma dipakai untuk rencana, dan CTA-nya memang
-  // "Buat rencana saya". Komponennya sendiri HANYA menyimpan + memanggil onComplete;
-  // pembuatan rencana tetap milik genPlan() di sini, lengkap dengan gerbang hasWorkout().
-  function renderGoalQuiz(){
-    var host=document.getElementById("aiBox");
-    if(!window.GoalQuiz){ showErr(T("act_ai_fail"),false); return; }
-    host.innerHTML='<div id="gqHost"></div>'+
-      '<button class="btn ghost" id="gqBack" style="margin-top:8px">'+esc(T("act_need_back"))+'</button>';
-    document.getElementById("gqBack").onclick=function(){ renderAi(); };
-    GoalQuiz.mount(document.getElementById("gqHost"),{ onComplete:function(){
-      renderAi();
-      // Rencananya dibuat lewat jalur yang sudah ada, termasuk pemandu kalau belum ada workout.
-      hasWorkout()?genPlan(false):renderNeedWorkout();
-    }});
-  }
-  function renderNeedWorkout(){
-    var host=document.getElementById("aiBox");
-    host.innerHTML='<div class="card ai"><div class="ai-h">'+starSvg()+'<span class="t">'+esc(T("act_need_t"))+'</span></div>'+
-      '<p class="muted">'+esc(T("act_need_b"))+'</p>'+
-      '<ol class="needl"><li>'+esc(T("act_need_1"))+'</li><li>'+esc(T("act_need_2"))+'</li><li>'+esc(T("act_need_3"))+'</li></ol>'+
-      '<button class="btn" id="needGo">'+esc(T("act_need_cta"))+'</button>'+
-      (hasDaily()?'<button class="btn ghost" id="needAny" style="margin-top:8px">'+esc(T("act_need_any"))+'</button>':'')+
-      '<button class="btn ghost" id="needBack" style="margin-top:8px">'+esc(T("act_need_back"))+'</button></div>';
-    document.getElementById("needGo").onclick=gotoUpload;
-    document.getElementById("needBack").onclick=function(){ renderAi(); };
-    var any=document.getElementById("needAny");
-    // Data harian (tidur/air/langkah/nutrisi) tetap cukup untuk sebuah rencana, jadi
-    // jalan itu TIDAK ditutup - cuma tidak lagi jadi satu-satunya tombol yang buntu.
-    if(any) any.onclick=function(){ renderAi(); genPlan(false); };
-  }
-
-  // ---- 7. Goals ----
-  function renderGoals(){
-    var host=document.getElementById("goalBox"), p=DAY&&DAY.plan;
-    if(!p||!Array.isArray(p.goals)||!p.goals.length){ host.innerHTML=""; return; }
-    var gs=p.goals, done=gs.filter(function(g){return g.done;}).length;
-    host.innerHTML='<div class="card" style="margin-top:12px"><div class="gh">'+starSvg()+
-      '<span class="t">'+esc(T("act_goal_t"))+'</span><span class="c">'+done+'/'+gs.length+'</span></div>'+
-      gs.map(function(g){
-        var cat=["exercise","nutrition","habit","recovery"].indexOf(String(g.category))>=0?g.category:"habit";
-        return '<div class="goal'+(g.done?" done":"")+'" data-g="'+esc(g.id)+'">'+
-          '<span class="cb"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>'+
-          '<div style="flex:1;min-width:0"><div class="gt">'+esc(g.title||"")+'</div>'+
-          (g.desc?'<div class="gd">'+esc(g.desc)+'</div>':'')+
-          (g.time?'<div class="gtime">'+esc(g.time)+'</div>':'')+'</div>'+
-          '<span class="cat '+cat+'">'+esc(T("act_cat_"+cat))+'</span></div>';
-      }).join("")+'</div>';
-    Array.prototype.forEach.call(host.querySelectorAll(".goal"),function(el){
-      el.onclick=async function(){
-        var gid=el.getAttribute("data-g");
-        var g=(DAY.plan.goals||[]).filter(function(x){return String(x.id)===gid;})[0];
-        if(!g) return;
-        var next=!g.done;
-        g.done=next; renderGoals();                      // optimistis: terasa instan
-        try{
-          var r=await apiFetch("/api/activity/goal",{method:"PATCH",body:JSON.stringify({date:SEL,goal_id:gid,done:next})});
-          if(!r.ok) throw new Error();
-        }catch(e){ g.done=!next; renderGoals(); showErr(T("act_goal_fail"),false); }  // gagal -> kembalikan
-      };
-    });
-  }
-
   // Kartu Nutrisi 2x2 dibuang saat penggabungan: 'Overall - Hari Ini' (halaman lama)
   // sudah menampilkan angka yang sama dengan target dari profil. Fungsi renderNutri,
   // pct dan barCol ikut dihapus — tak ada pemanggil tersisa (CLAUDE.md §8).
@@ -1270,7 +1352,6 @@
   var SLP_TARGET=8;      // jam — sama dgn chart tidur & kartu Overall lama
   var HYD_TARGET=2000;   // ml = 8 gelas x 250; sengaja disamakan dgn target air 8 gelas app
   var SLEEP=null, SLEEP7=[], HYDRA=[], AUTH_UID=null, SH_BUSY=false, SH_LOADED={}, SLP_Q=null;
-  var PREV_SCORE=null;   // skor rencana kemarin (untuk selisih di kartu skor) — diisi loadPrevScore()
 
   function ymdOf(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function addDays(s,n){ var d=dObj(s); d.setDate(d.getDate()+n); return ymdOf(d); }
@@ -1284,16 +1365,6 @@
   function calcCross(bed,wake){ if(!bed||!wake) return false; var b=bed.split(":"),w=wake.split(":"); return ((+w[0])*60+(+w[1]))<=((+b[0])*60+(+b[1])); }
   function mkTs(dateStr,hhmm,shift){ if(!hhmm) return null; var p=hhmm.split(":"); var d=dObj(dateStr); d.setDate(d.getDate()+(shift||0)); d.setHours(+p[0]||0,+p[1]||0,0,0); return d.toISOString(); }
   async function ensureUid(){ if(AUTH_UID) return AUTH_UID; try{ var au=await Auth.supabase.auth.getUser(); AUTH_UID=(au&&au.data&&au.data.user)?au.data.user.id:null; }catch(e){} return AUTH_UID; }
-
-  async function loadPrevScore(date){
-    try{
-      var uid=await ensureUid(); if(!uid){ PREV_SCORE=null; return; }
-      var prev=addDays(date,-1);
-      var r=await Auth.supabase.from("my20fit_daily_plan").select("overall_score").eq("auth_user_id",uid).eq("plan_date",prev).limit(1);
-      PREV_SCORE=(r&&r.data&&r.data[0]&&r.data[0].overall_score!=null)?+r.data[0].overall_score:null;
-    }catch(e){ PREV_SCORE=null; }
-    if(DAY&&DAY.plan) renderAi();
-  }
 
   async function loadSleepHydra(date){
     var sb=document.getElementById("sleepBox"), hb=document.getElementById("hydraBox");
@@ -1334,7 +1405,7 @@
     var body;
     if(s){
       var q=s.quality?('<span class="qbadge">'+esc(qualLabel(s.quality))+'</span>'):'';
-      var times=(s.bedtime&&s.wake_time)?(esc(fmtTime(s.bedtime))+" → "+esc(fmtTime(s.wake_time))):esc(Lx({en:"logged",id:"tercatat"}));
+      var times=(s.bedtime&&s.wake_time)?(esc(fmt12(fmtTimeInput(s.bedtime)))+" → "+esc(fmt12(fmtTimeInput(s.wake_time)))):esc(Lx({en:"logged",id:"tercatat"}));
       body=head+'<div class="slpmeta"><div><div class="b">'+esc(durLabel(dur))+'</div><div class="l">'+times+'</div></div>'+
         (q?('<div style="margin-left:auto">'+q+'</div>'):'')+'</div>'+
         '<div class="hbar"><i style="width:'+pct+'%;background:'+((dur!=null&&dur>=7)?"var(--green)":"var(--accent)")+'"></i></div>'+
@@ -1350,29 +1421,89 @@
     var b=document.getElementById("slpEdit"); if(b) b.onclick=openSleepDlg;
   }
 
+  // ---- Hidrasi: 8 gelas yang bisa diketuk (8 x 250 ml = HYD_TARGET) ----
+  // Ketuk gelas ke-n -> total hari itu jadi n gelas; ketuk gelas terisi terakhir -> berkurang satu.
+  // Tetap disimpan di my20fit_hydration (baris per minum) + disinkron ke daily_log.water_glasses.
+  // Minuman lain dari catatan lama (kopi/teh) ikut dihitung di total. Animasi air hanya lewat
+  // perubahan --lv (CSS transition) pada node yang SAMA — render ulang tidak mengulang animasi.
+  var HY_GLASS=250, HY_N=Math.round(HYD_TARGET/HY_GLASS), HY_SHOWN=null, HY_DATE=null;
+  function hyTotal(){ return HYDRA.reduce(function(a,r){ return a+(+r.amount_ml||0); },0); }
+  function hyLevel(total,i){ return Math.max(0,Math.min(1,(total-i*HY_GLASS)/HY_GLASS)); }
+  function hyL(ml){ return (ml/1000).toFixed(2).replace(/\.?0+$/,"").replace(".",I18N.lang==="en"?".":",")+" L"; }
+  function hyGlass(i,lv){
+    return '<button type="button" class="hy-g" data-i="'+i+'" style="--lv:'+lv.toFixed(3)+'" aria-label="'+esc(Lx({en:"Glass "+(i+1),id:"Gelas "+(i+1)}))+'">'+
+      '<svg viewBox="0 0 40 52" aria-hidden="true"><defs><clipPath id="hyc'+i+'"><path d="M7.4 6.5h25.2l-3.1 38.4a3 3 0 0 1-3 2.8H13.5a3 3 0 0 1-3-2.8z"/></clipPath></defs>'+
+      '<g clip-path="url(#hyc'+i+')"><g class="hy-lvl"><path class="hy-wave" d="M-40 9q5-3 10 0t10 0t10 0t10 0t10 0t10 0t10 0t10 0t10 0t10 0V60H-40z"/></g></g>'+
+      '<path class="hy-cup" d="M6 5h28l-3.3 40.1a4.5 4.5 0 0 1-4.5 4.1H13.8a4.5 4.5 0 0 1-4.5-4.1z"/>'+
+      '<path class="hy-shine" d="M11.5 11l1.6 30"/><path class="hy-plus" d="M20 21.5v9M15.5 26h9"/></svg></button>';
+  }
+  function hyLogHtml(){
+    if(!HYDRA.length) return "";
+    return '<details class="hy-log"><summary>'+esc(Lx({en:"Drink log",id:"Catatan minum"}))+' ('+HYDRA.length+')</summary><div class="hlog">'+
+      HYDRA.slice().reverse().map(function(r){
+        return '<div class="row"><span class="tm">'+esc(fmtTime(r.logged_at))+'</span>'+drinkEmoji(r.drink_type)+' '+esc(drinkLabel(r.drink_type))+
+          '<span class="amt">'+(+r.amount_ml||0)+' ml</span><button type="button" class="del" data-del="'+esc(r.id)+'" title="'+esc(Lx({en:"Delete",id:"Hapus"}))+'">✕</button></div>';
+      }).join("")+'</div></details>';
+  }
+  // Isi gelas (dan teks) ke total `total`. Gelas berurutan diberi jeda kecil supaya terasa mengisi satu-satu.
+  function hyPaint(host,total){
+    var prev=HY_SHOWN==null?0:HY_SHOWN, pf=Math.floor(prev/HY_GLASS), up=total>=prev;
+    var full=Math.floor(total/HY_GLASS), next=-1;
+    Array.prototype.forEach.call(host.querySelectorAll(".hy-g"),function(b,i){
+      var lv=hyLevel(total,i);
+      if(next<0&&lv===0) next=i;
+      var d=up?Math.max(0,i-pf):Math.max(0,pf-1-i);
+      b.style.setProperty("--dl",Math.min(d,7)*70+"ms");
+      b.style.setProperty("--lv",lv.toFixed(3));
+      b.classList.toggle("on",lv>0);
+      b.classList.toggle("next",i===next);
+      b.setAttribute("aria-pressed",lv>=1?"true":"false");
+    });
+    var cnt=host.querySelector(".hy-cnt"); if(cnt) cnt.textContent=String(full);
+    var sub=host.querySelector(".hy-sub"), left=Math.max(0,HY_N-full), extra=Math.max(0,full-HY_N);
+    if(sub) sub.innerHTML=total>=HYD_TARGET
+      ? '<span class="hy-ok">'+FIC("check",13)+' '+esc(Lx({en:"Target reached",id:"Target tercapai"}))+'</span> · '+esc(hyL(total))+(extra?esc(Lx({en:" · +"+extra+" extra",id:" · +"+extra+" ekstra"})):"")
+      : esc(hyL(total)+Lx({en:" of "+hyL(HYD_TARGET)+" · "+left+" glass"+(left!==1?"es":"")+" to go",id:" dari "+hyL(HYD_TARGET)+" · sisa "+left+" gelas"}));
+    host.querySelector(".hy").classList.toggle("done",total>=HYD_TARGET);
+    HY_SHOWN=total;
+  }
+  function wireHyLog(host){
+    Array.prototype.forEach.call(host.querySelectorAll("[data-del]"),function(b){ b.onclick=function(){ delDrink(b.getAttribute("data-del")); }; });
+  }
   function renderHydra(){
     renderTodaySum();
     var host=document.getElementById("hydraBox"); if(!host) return;
-    var total=HYDRA.reduce(function(a,r){return a+(+r.amount_ml||0);},0);
-    var pct=Math.max(0,Math.min(100,Math.round(total/HYD_TARGET*100)));
-    var remain=Math.max(0,HYD_TARGET-total), glasses=Math.round(remain/250);
-    var quicks=[{ml:250,e:FIC("water"),lbl:"250ml",t:"water"},{ml:500,e:FIC("water"),lbl:"500ml",t:"water"},{ml:200,e:FIC("coffee"),lbl:Lx({en:"Coffee",id:"Kopi"}),t:"coffee"},{ml:200,e:FIC("tea"),lbl:Lx({en:"Tea",id:"Teh"}),t:"tea"}];
-    var hd='<div class="sechd">'+esc(Lx({en:"Hydration",id:"Hidrasi"}))+'</div>';
-    var qbtns=quicks.map(function(q,i){ return '<button type="button" data-q="'+i+'">'+q.e+' '+esc(q.lbl)+'</button>'; }).join("");
-    var logs=HYDRA.length?('<div class="hlog">'+HYDRA.slice().reverse().map(function(r){
-        return '<div class="row"><span class="tm">'+esc(fmtTime(r.logged_at))+'</span>'+drinkEmoji(r.drink_type)+' '+esc(drinkLabel(r.drink_type))+
-          '<span class="amt">'+(+r.amount_ml||0)+' ml</span><button class="del" data-del="'+esc(r.id)+'" title="'+esc(Lx({en:"Delete",id:"Hapus"}))+'">✕</button></div>';
-      }).join("")+'</div>'):'';
-    host.innerHTML=hd+'<div class="card">'+
-      '<div class="shh"><span class="e">'+FIC("water")+'</span><span class="t">'+esc(Lx({en:"Hydration",id:"Hidrasi"}))+'</span><span class="r">'+total+' / '+HYD_TARGET+' ml</span></div>'+
-      '<div class="hbar"><i style="width:'+pct+'%"></i></div>'+
-      '<div class="muted" style="font-size:12px">'+esc(remain>0?Lx({en:remain+" ml to go ("+glasses+" glass"+(glasses!==1?"es":"")+")",id:"Sisa "+remain+" ml ("+glasses+" gelas)"}):Lx({en:"Target reached",id:"Target tercapai"}))+'</div>'+
-      '<div class="hyq" id="hyq">'+qbtns+'</div>'+
-      '<div class="hyc"><input id="hyCustom" type="number" inputmode="numeric" min="1" placeholder="'+esc(Lx({en:"Custom ml",id:"ml lain"}))+'"><button type="button" id="hyAdd">'+esc(Lx({en:"Add",id:"Tambah"}))+'</button></div>'+
-      logs+'</div>';
-    Array.prototype.forEach.call(host.querySelectorAll("#hyq button"),function(b){ b.onclick=function(){ var q=quicks[+b.getAttribute("data-q")]; if(q) addDrink(q.ml,q.t); }; });
-    var add=document.getElementById("hyAdd"); if(add) add.onclick=function(){ var v=parseInt(document.getElementById("hyCustom").value,10); if(isFinite(v)&&v>0) addDrink(v,"water"); };
-    Array.prototype.forEach.call(host.querySelectorAll("[data-del]"),function(b){ b.onclick=function(){ delDrink(b.getAttribute("data-del")); }; });
+    var total=hyTotal();
+    // Hari yang sama & kartu sudah ada -> cukup perbarui (animasi berjalan dari posisi sekarang).
+    if(HY_DATE===SEL&&host.querySelector(".hy-row")){
+      var lg=host.querySelector(".hy-logw"); if(lg){ var open=!!lg.querySelector("details[open]"); lg.innerHTML=hyLogHtml(); if(open&&lg.firstChild) lg.firstChild.open=true; }
+      hyPaint(host,total); wireHyLog(host); return;
+    }
+    if(HY_DATE!==SEL) HY_SHOWN=0;   // hari lain -> gelas terisi dari kosong
+    HY_DATE=SEL;
+    var gl=""; for(var i=0;i<HY_N;i++) gl+=hyGlass(i,hyLevel(HY_SHOWN||0,i));
+    host.innerHTML='<div class="sechd">'+esc(Lx({en:"Hydration",id:"Hidrasi"}))+'</div>'+
+      '<div class="card hy"><div class="hy-top">'+
+        '<div class="hy-num"><b class="hy-cnt">0</b><span>/ '+HY_N+' '+esc(Lx({en:"glasses",id:"gelas"}))+'</span></div>'+
+        '<button type="button" class="hy-add" id="hyAdd">'+FIC("water",15)+' +1 '+esc(Lx({en:"glass",id:"gelas"}))+'</button></div>'+
+        '<div class="hy-sub"></div>'+
+        '<div class="hy-row" role="group" aria-label="'+esc(Lx({en:"Glasses of water today",id:"Gelas air hari ini"}))+'">'+gl+'</div>'+
+        '<div class="hy-hint">'+esc(Lx({en:"Tap a glass to log it · 1 glass = "+HY_GLASS+" ml",id:"Ketuk gelas untuk mencatat · 1 gelas = "+HY_GLASS+" ml"}))+'</div>'+
+        '<div class="hy-logw">'+hyLogHtml()+'</div></div>';
+    void host.offsetWidth;   // posisi awal dirender dulu, baru level baru -> transisi jalan
+    hyPaint(host,total);
+    Array.prototype.forEach.call(host.querySelectorAll(".hy-g"),function(b){
+      b.onclick=function(){
+        if(SH_BUSY) return;
+        var i=+b.getAttribute("data-i")+1, full=Math.floor(hyTotal()/HY_GLASS);
+        var n=(i===full)?i-1:i;
+        b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop");
+        hyPaint(host,n*HY_GLASS);   // langsung terasa; kalau gagal simpan, renderHydra() mengembalikan
+        setGlasses(n);
+      };
+    });
+    document.getElementById("hyAdd").onclick=function(){ addDrink(HY_GLASS,"water"); };
+    wireHyLog(host);
   }
 
   async function syncWater(){
@@ -1380,6 +1511,7 @@
     var glasses=Math.round(total/250);
     try{ await Auth.saveDaily({water_glasses:glasses}, SEL); }catch(e){}
     if(DAY&&DAY.daily){ DAY.daily.water_glasses=glasses; renderHabits(); }
+    refreshDerived();   // air berubah -> Hydration di Health Score & Plan Hari Ini dihitung ulang
   }
   // date opsional (default = hari terpilih). Tombol "+250ml" di Today's Plan selalu mencatat HARI INI
   // walau user sedang melihat tanggal lain — daftar di layar hanya ikut kalau tanggalnya sama.
@@ -1391,7 +1523,7 @@
       var res=await Auth.supabase.from("my20fit_hydration").insert({auth_user_id:uid, log_date:day, amount_ml:Math.round(ml), drink_type:type||"water"}).select().single();
       if(res.error) throw res.error;
       ok=true;
-      if(day===SEL){ HYDRA.push(res.data); renderHydra(); await syncWater(); }
+      if(day===SEL){ HYDRA.push(res.data); renderHydra(); await syncWater(); } else refreshDerived();
     }catch(e){ showErr(Lx({en:"Couldn't save your drink. The hydration table may not be set up yet.",id:"Gagal menyimpan minuman. Tabel hidrasi mungkin belum disiapkan."}),false); }
     SH_BUSY=false;
     return ok;
@@ -1402,6 +1534,34 @@
     renderHydra(); await syncWater();
   }
 
+  // Jadikan total hari terpilih tepat n gelas. Naik -> satu baris air untuk selisihnya.
+  // Turun -> hapus catatan terbaru sampai total <= target, lalu tambahkan sisa selisihnya
+  // (mis. catatan 500 ml dihapus saat turun 1 gelas -> ditambah lagi 250 ml).
+  async function setGlasses(n){
+    var target=Math.max(0,n)*HY_GLASS, total=hyTotal();
+    if(target===total){ renderHydra(); return; }
+    if(target>total){ await addDrink(target-total,"water"); return; }
+    if(SH_BUSY) return; SH_BUSY=true;
+    try{
+      var uid=await ensureUid(); if(!uid) throw new Error("uid");
+      var rows=HYDRA.slice().sort(function(a,b){ return String(b.logged_at||"")<String(a.logged_at||"")?-1:1; });
+      var cur=total, del=[];
+      for(var i=0;i<rows.length&&cur>target;i++){ del.push(rows[i].id); cur-=(+rows[i].amount_ml||0); }
+      if(del.length){
+        var dr=await Auth.supabase.from("my20fit_hydration").delete().in("id",del).eq("auth_user_id",uid);
+        if(dr&&dr.error) throw dr.error;
+        HYDRA=HYDRA.filter(function(r){ return del.indexOf(r.id)<0; });
+      }
+      if(cur<target){
+        var ins=await Auth.supabase.from("my20fit_hydration").insert({auth_user_id:uid, log_date:SEL, amount_ml:Math.round(target-cur), drink_type:"water"}).select().single();
+        if(ins.error) throw ins.error;
+        HYDRA.push(ins.data);
+      }
+    }catch(e){ showErr(Lx({en:"Couldn't update your glasses. Try again.",id:"Gagal memperbarui gelas. Coba lagi."}),false); }
+    SH_BUSY=false;
+    renderHydra(); await syncWater();
+  }
+
   // ---- Dialog tidur ----
   function renderQual(){
     var host=document.getElementById("slpQual"); if(!host) return;
@@ -1409,42 +1569,77 @@
     host.innerHTML=qs.map(function(q){ return '<button type="button" data-q="'+q[0]+'" class="'+(SLP_Q===q[0]?"on":"")+'">'+q[1]+'<br>'+esc(qualLabel(q[0]))+'</button>'; }).join("");
     Array.prototype.forEach.call(host.querySelectorAll("button"),function(b){ b.onclick=function(){ SLP_Q=b.getAttribute("data-q"); renderQual(); }; });
   }
+  // Jam tidur/bangun disimpan sebagai "HH:MM" 24 jam (dipakai calcDur/calcCross/mkTs); tampilan 12 jam AM/PM.
+  var SLP_T={bed:"22:00",wake:"06:00"}, SLP_AW=0;
+  var SLP_PRE={bed:["21:00","22:00","23:00","00:00"], wake:["05:00","06:00","07:00","08:00"]};
+  function pad2(n){ return (n<10?"0":"")+n; }
+  function hm(v){ var p=String(v||"").split(":"); return {h:(+p[0])||0, m:(+p[1])||0}; }
+  function fmt12(v){ var t=hm(v); return (t.h%12||12)+":"+pad2(t.m)+" "+(t.h>=12?"PM":"AM"); }
+  function tpHtml(key){
+    var t=hm(SLP_T[key]), pm=t.h>=12;
+    function col(f,val){ return '<div class="tpk-col"><button type="button" data-k="'+key+'" data-f="'+f+'" data-d="1" aria-label="+">'+FIC("chevup",18)+'</button>'+
+      '<div class="tpk-v">'+val+'</div><button type="button" data-k="'+key+'" data-f="'+f+'" data-d="-1" aria-label="-">'+FIC("chevdown",18)+'</button></div>'; }
+    return '<div class="tpk-h"><span class="tpk-ic">'+FIC(key==="bed"?"moon":"sunrise",16)+'</span>'+
+      esc(key==="bed"?Lx({en:"Bedtime",id:"Jam tidur"}):Lx({en:"Wake time",id:"Jam bangun"}))+'</div>'+
+      '<div class="tpk-row">'+col("h",pad2(t.h%12||12))+'<span class="tpk-sep">:</span>'+col("m",pad2(t.m))+
+      '<div class="tpk-ap"><button type="button" data-k="'+key+'" data-ap="am" class="'+(pm?"":"on")+'">AM</button>'+
+      '<button type="button" data-k="'+key+'" data-ap="pm" class="'+(pm?"on":"")+'">PM</button></div></div>'+
+      '<div class="tpk-pre">'+SLP_PRE[key].map(function(v){ return '<button type="button" data-k="'+key+'" data-pre="'+v+'" class="'+(v===SLP_T[key]?"on":"")+'">'+esc(fmt12(v))+'</button>'; }).join("")+'</div>';
+  }
+  function tpStep(key,f,d){
+    var t=hm(SLP_T[key]);
+    if(f==="h") t.h=(t.h+d+24)%24;
+    else t.m=((d>0?Math.floor(t.m/5)*5+5:Math.ceil(t.m/5)*5-5)+60)%60;   // kelipatan 5 menit
+    SLP_T[key]=pad2(t.h)+":"+pad2(t.m);
+  }
+  function renderSlpPick(){
+    ["bed","wake"].forEach(function(k){ var host=document.getElementById(k==="bed"?"tpBed":"tpWake"); if(host) host.innerHTML=tpHtml(k); });
+    document.getElementById("slpAwakeV").textContent=SLP_AW;
+    updateSlpDur();
+  }
   function updateSlpDur(){
-    var d=calcDur(document.getElementById("slpBed").value,document.getElementById("slpWake").value);
-    document.getElementById("slpDur").textContent = d!=null?(Lx({en:"Duration",id:"Durasi"})+": "+durLabel(d)):"—";
+    var d=calcDur(SLP_T.bed,SLP_T.wake), host=document.getElementById("slpDur");
+    if(d==null){ host.textContent="—"; return; }
+    host.innerHTML=esc(Lx({en:"Sleep duration",id:"Durasi tidur"}))+': <b class="'+(d>=7?"ok":"low")+'">'+esc(durLabel(d))+'</b>'+
+      // Durasi tak wajar biasanya salah AM/PM (mis. tidur "12:00 PM" = siang) -> ingatkan, tidak memblokir.
+      (d>14?'<span class="warn">'+esc(Lx({en:"Over 14 hours — check AM/PM.",id:"Lebih dari 14 jam — cek lagi AM/PM-nya."}))+'</span>':'');
   }
   function setSlpLabels(){
     document.getElementById("slpDlgT").textContent=Lx({en:"Log sleep",id:"Catat tidur"});
-    document.getElementById("slpDlgS").textContent=Lx({en:"Duration is calculated from bedtime & wake time.",id:"Durasi dihitung otomatis dari jam tidur & bangun."});
-    document.getElementById("slpLbBed").textContent=Lx({en:"Bedtime",id:"Jam tidur"});
-    document.getElementById("slpLbWake").textContent=Lx({en:"Wake time",id:"Jam bangun"});
+    document.getElementById("slpDlgS").textContent=Lx({en:"Set the time with ▲▼ or tap a quick pick below it.",id:"Atur jam dengan tombol ▲▼ atau pilih cepat di bawahnya."});
     document.getElementById("slpLbQual").textContent=Lx({en:"Sleep quality",id:"Kualitas tidur"});
     document.getElementById("slpLbAwake").textContent=Lx({en:"Times woken up",id:"Berapa kali terbangun"});
     document.getElementById("slpCancel").textContent=Lx({en:"Cancel",id:"Batal"});
     document.getElementById("slpSave").textContent=Lx({en:"Save",id:"Simpan"});
   }
   function openSleepDlg(){
-    var s=SLEEP||{};
-    document.getElementById("slpBed").value=s.bedtime?fmtTimeInput(s.bedtime):"";
-    document.getElementById("slpWake").value=s.wake_time?fmtTimeInput(s.wake_time):"";
-    document.getElementById("slpAwake").value=(s.awake_times!=null?s.awake_times:"");
-    SLP_Q=s.quality||null;
+    // Isi awal: catatan hari ini; kalau belum ada, jam dari catatan terakhir user; kalau belum pernah, 10 PM → 6 AM.
+    var s=SLEEP, last=SLEEP7.filter(function(r){ return r.bedtime&&r.wake_time; }).slice(-1)[0], src=(s&&s.bedtime&&s.wake_time)?s:last;
+    SLP_T={ bed:src?fmtTimeInput(src.bedtime):"22:00", wake:src?fmtTimeInput(src.wake_time):"06:00" };
+    SLP_AW=(s&&s.awake_times!=null)?(+s.awake_times||0):0;
+    SLP_Q=(s&&s.quality)||null;
     document.getElementById("slpErr").textContent="";
-    setSlpLabels(); renderQual(); updateSlpDur();
+    setSlpLabels(); renderQual(); renderSlpPick();
     document.getElementById("slpDlg").showModal();
   }
   function wireSleepDlg(){
-    var bed=document.getElementById("slpBed"), wake=document.getElementById("slpWake");
-    if(bed){ bed.onchange=updateSlpDur; bed.oninput=updateSlpDur; }
-    if(wake){ wake.onchange=updateSlpDur; wake.oninput=updateSlpDur; }
-    var cancel=document.getElementById("slpCancel"); if(cancel) cancel.onclick=function(){ document.getElementById("slpDlg").close(); };
-    var save=document.getElementById("slpSave"); if(save) save.onclick=saveSleep;
+    var dlg=document.getElementById("slpDlg"); if(!dlg) return;
+    dlg.addEventListener("click",function(ev){
+      var b=ev.target.closest("button[data-k]"); if(!b) return;
+      var k=b.getAttribute("data-k");
+      if(b.hasAttribute("data-pre")) SLP_T[k]=b.getAttribute("data-pre");
+      else if(b.hasAttribute("data-ap")){ var t=hm(SLP_T[k]); t.h=t.h%12+(b.getAttribute("data-ap")==="pm"?12:0); SLP_T[k]=pad2(t.h)+":"+pad2(t.m); }
+      else tpStep(k,b.getAttribute("data-f"),+b.getAttribute("data-d"));
+      renderSlpPick();
+    });
+    document.getElementById("slpAwMinus").onclick=function(){ SLP_AW=Math.max(0,SLP_AW-1); renderSlpPick(); };
+    document.getElementById("slpAwPlus").onclick=function(){ SLP_AW=Math.min(20,SLP_AW+1); renderSlpPick(); };
+    document.getElementById("slpCancel").onclick=function(){ dlg.close(); };
+    document.getElementById("slpSave").onclick=saveSleep;
   }
   async function saveSleep(){
-    var bed=document.getElementById("slpBed").value, wake=document.getElementById("slpWake").value;
-    var dur=calcDur(bed,wake);
-    if(dur==null){ document.getElementById("slpErr").textContent=Lx({en:"Enter bedtime and wake time.",id:"Isi jam tidur dan jam bangun."}); return; }
-    var awake=parseInt(document.getElementById("slpAwake").value,10); if(!isFinite(awake)||awake<0) awake=null;
+    var bed=SLP_T.bed, wake=SLP_T.wake, dur=calcDur(bed,wake), awake=SLP_AW;
+    if(dur==null){ document.getElementById("slpErr").textContent=Lx({en:"Set bedtime and wake time.",id:"Atur jam tidur dan jam bangun."}); return; }
     var btn=document.getElementById("slpSave"); btn.disabled=true;
     try{
       var uid=await ensureUid(); if(!uid) throw new Error("uid");
@@ -1460,6 +1655,7 @@
       renderSleep();
       try{ await Auth.saveDaily({sleep_hours:dur}, SEL); }catch(e){}
       if(DAY&&DAY.daily){ DAY.daily.sleep_hours=dur; renderHabits(); }
+      refreshDerived();   // tidur baru -> Sleep di Health Score & Plan Hari Ini dihitung ulang
     }catch(e){ document.getElementById("slpErr").textContent=Lx({en:"Couldn't save. The sleep table may not be set up yet.",id:"Gagal menyimpan. Tabel tidur mungkin belum disiapkan."}); }
     btn.disabled=false;
   }
@@ -1474,8 +1670,8 @@
       var j=await r.json().catch(function(){return {};});
       if(!r.ok||!j.ok){ showErr(j.error||T("act_load_fail"),true); document.getElementById("woBox").innerHTML=""; BUSY=false; return; }
       DAY=j;
-      renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek();
-      loadSleepHydra(date); loadPrevScore(date);
+      renderWorkouts(); renderHabits(); renderWeek();
+      loadSleepHydra(date);
     }catch(e){
       showErr(T("act_load_fail"),true); document.getElementById("woBox").innerHTML="";
     }
@@ -1500,7 +1696,7 @@
   // ---- COACH (bar horizontal) ----
   // 4 persona; muka aktif = pilihan terakhir user (my20fit_coach_pick) dengan border merah.
   // Klik muka -> chat coach itu. Foto dari roster CMS /api/coaches (data asli).
-  var TPL_BUSY=false, TPL_COACH="nando";
+  var TPL_COACH="nando";
   try{ var _cp=localStorage.getItem("my20fit_coach_pick"); if(_cp&&window.CoachProfiles&&CoachProfiles.NAME[_cp]) TPL_COACH=_cp; }catch(e){}
   var COACH_NAME_TPL=window.CoachProfiles?CoachProfiles.NAME:{nando:"Nando",calysta:"Calysta",rheza:"Rheza",elsen:"Elsen"};
   function coachName(){ return COACH_NAME_TPL[TPL_COACH]||"Nando"; }
@@ -1539,27 +1735,155 @@
   // ALERT hasil Visbody baru: scan ≤30 hari yang belum ditandai "dilihat" di perangkat ini
   // (tanda per user di localStorage — tanpa kolom DB baru; di perangkat lain alert bisa muncul
   // sekali lagi, itu aman). Dua aksi = auto-message ke chat coach.
-  var VB_NEW_DAYS=30;
-  function vbSeenKey(){ return "my20fit_vb_seen_"+(AUTH_UID||"anon"); }
-  function vbMarkSeen(id){ try{ localStorage.setItem(vbSeenKey(), String(id)); }catch(e){} }
-  async function loadVisbodyAlert(){
-    var host=document.getElementById("vbAlertBox"); if(!host||!window.BodyScan) return;
-    var s=null; try{ s=await BodyScan.latest(); }catch(e){ s=null; }
-    var seen=null; try{ seen=localStorage.getItem(vbSeenKey()); }catch(e){}
-    var fresh=s&&s.scanned_at&&(Date.now()-new Date(s.scanned_at).getTime())<=VB_NEW_DAYS*86400000;
-    if(!s||!fresh||String(seen)===String(s.scan_id)){ host.innerHTML=""; return; }
-    var m=[];
-    if(s.body_fat_percentage!=null) m.push("Body Fat: "+(+s.body_fat_percentage).toFixed(1)+"%");
-    if(s.body_mass_index!=null) m.push("BMI: "+(+s.body_mass_index).toFixed(1));
-    if(s.muscle_mass!=null) m.push(Lx({en:"Muscle: ",id:"Otot: "})+(+s.muscle_mass).toFixed(1)+"kg");
-    host.innerHTML='<div class="vb-alert"><button type="button" class="vb-alert-x" id="vbX" aria-label="'+esc(Lx({en:"Dismiss",id:"Tutup"}))+'">✕</button>'+
+  // ---- HEALTH JOURNEY (Visbody) — status dari server (/api/journey/state) ----
+  // Banner hasil baru, checklist 6 langkah, nudge. "Dilihat" ditandai server saat HASIL LENGKAP
+  // dibuka (/activity/visbody), bukan saat banner tampil. Tur F1 (js/tour.js) menunggu event
+  // "journey:ready" supaya dimulai SETELAH banner tampil.
+  var JN=null, JN_WELCOME=/[?&]welcome=visbody\b/.test(location.search), JN_NUDGE_SHOWN={};
+  if(JN_WELCOME){ try{ history.replaceState(null,"",location.pathname+location.hash); }catch(e){} }
+  function jnEvent(ev,props){ apiFetch("/api/journey/event",{method:"POST",body:JSON.stringify({event:ev,props:props||{}})}).catch(function(){}); }
+  async function loadJourney(){
+    try{ var r=await apiFetch("/api/journey/state"); var j=await r.json().catch(function(){return null;}); JN=(r.ok&&j&&j.ok)?j:null; }catch(e){ JN=null; }
+    renderJourney();
+    if(JN_WELCOME&&JN&&JN.has_claimed_scan){ jnEvent("activity_landing_after_claim"); JN_WELCOME=false; }
+    tourReady("jn");
+  }
+  // ---- Tur fitur (js/tour.js + js/tours-config.js) ----
+  // F1 (sudah scan) / tur mini (belum) dimulai SETELAH banner Visbody, skor & plan termuat,
+  // supaya tur menyorot elemen yang sudah jadi & memakai angka asli user (bukan contoh).
+  var TOUR_PARTS={};
+  function tourVars(){ return { score:(HS&&typeof HS.total==="number")?HS.total:null, filled:(HS&&HS.filled)?HS.filled.length:null,
+    has_plan:!!(WPLAN&&WPLAN.plan&&Array.isArray(WPLAN.plan.days)&&WPLAN.plan.days.length) }; }
+  function tourCta(action){
+    if(action==="upload_workout"){ uploadWorkoutGo(); return; }
+    if(action==="journey_next"){ var n=JN&&JN.checklist&&JN.checklist.filter(function(c){ return !c.done&&(c.key!=="calorie_target"||c.available); })[0]; if(n) jnDo(n.key); }
+  }
+  function tourReady(part){
+    TOUR_PARTS[part]=1;
+    if(TOUR_PARTS.jn&&TOUR_PARTS.hs&&TOUR_PARTS.wp&&!TOUR_PARTS.started&&window.Tour){ TOUR_PARTS.started=1; Tour.auto({vars:tourVars(),onCta:tourCta,state:JN}); }
+  }
+  function renderJourney(){ renderVbBanner(); renderChecklist(); renderNudges(); }
+  function vbNum(v,d){ return (v==null||v==="")?"—":(+v).toFixed(d==null?1:d).replace(/\.0$/,""); }
+  function renderVbBanner(){
+    var host=document.getElementById("vbAlertBox"); if(!host) return;
+    var s=JN&&JN.latest_scan;
+    if(!s){ host.innerHTML=""; return; }
+    // Baru di-claim, data ukur masih diproses timbangan.
+    if(!s.data_ready){
+      host.innerHTML=JN.has_claimed_scan&&Date.now()-new Date(s.scanned_at).getTime()<2*86400000?'<div class="vb-alert" id="vbBanner"><div class="vb-alert-t">'+FIC("scan",16)+' '+esc(Lx({en:"Your Visbody scan is saved",id:"Scan Visbody kamu tersimpan"}))+'</div>'+
+        '<div class="vb-alert-m">'+esc(Lx({en:"The scale is still processing the result — it will show up here shortly.",id:"Hasilnya masih diproses timbangan — sebentar lagi muncul di sini."}))+'</div></div>':"";
+      return;
+    }
+    var hideKey="my20fit_vb_hide_"+s.scan_id, hidden=false; try{ hidden=sessionStorage.getItem(hideKey)==="1"; }catch(e){}
+    if(!JN.unviewed||hidden){ host.innerHTML=""; return; }
+    var m=s.metrics||{};
+    var nums=[[vbNum(m.weight)+" kg",{en:"Weight",id:"Berat"}],[vbNum(m.body_fat)+"%",{en:"Body fat",id:"Lemak tubuh"}],[vbNum(m.muscle)+" kg",{en:"Muscle",id:"Massa otot"}],[vbNum(m.bmi),{en:"BMI",id:"BMI"}]]
+      .map(function(x){ return '<div><b>'+esc(x[0])+'</b><span>'+esc(Lx(x[1]))+'</span></div>'; }).join("");
+    host.innerHTML='<div class="vb-alert" id="vbBanner"><button type="button" class="vb-alert-x" id="vbX" aria-label="'+esc(Lx({en:"Hide for now",id:"Sembunyikan dulu"}))+'">✕</button>'+
       '<div class="vb-alert-t">'+FIC("target",16)+' '+esc(Lx({en:"Your Visbody result is in!",id:"Hasil Visbody kamu sudah masuk!"}))+'</div>'+
-      (m.length?'<div class="vb-alert-m">'+esc(m.join(" · "))+'</div>':'')+
-      '<div class="vb-alert-a"><button type="button" class="pri" id="vbAsk">'+FIC("chat",15)+' '+esc(Lx({en:"Analyse with Coach",id:"Analisa dengan Coach"}))+'</button>'+
-      '<button type="button" class="sec" id="vbPlan">'+FIC("clipboard",15)+' '+esc(Lx({en:"Build a plan now",id:"Langsung Buat Plan"}))+'</button></div></div>';
-    document.getElementById("vbX").onclick=function(){ vbMarkSeen(s.scan_id); host.innerHTML=""; };
-    document.getElementById("vbAsk").onclick=function(){ vbMarkSeen(s.scan_id); coachAskGo(Lx({en:"My new Visbody result just came in — analyse it for me",id:"Hasil Visbody aku baru masuk — tolong analisa"})); };
-    document.getElementById("vbPlan").onclick=function(){ vbMarkSeen(s.scan_id); coachAskGo(Lx({en:"Build me a workout plan based on my Visbody result",id:"Buatkan workout plan berdasarkan hasil Visbody aku"})); };
+      '<div class="vb-alert-nums">'+nums+'</div>'+
+      '<div class="vb-alert-a"><a class="pri" id="vbFull" href="/activity/visbody">'+FIC("chart",15)+' '+esc(Lx({en:"See full result",id:"Lihat hasil lengkap"}))+'</a>'+
+      '<button type="button" class="sec" id="vbAsk">'+FIC("chat",15)+' '+esc(Lx({en:"Analyse with Coach",id:"Analisa dengan Coach"}))+'</button></div></div>';
+    document.getElementById("vbX").onclick=function(){ try{ sessionStorage.setItem(hideKey,"1"); }catch(e){} host.innerHTML=""; };
+    document.getElementById("vbAsk").onclick=function(){ coachAskGo(Lx({en:"My new Visbody result just came in — analyse it for me",id:"Hasil Visbody aku baru masuk — tolong analisa"})); };
+  }
+  // Langkah checklist: [judul, penjelasan, label tombol, ikon]
+  var JN_STEPS={
+    view_result:[{en:"See your Visbody result",id:"Lihat hasil Visbody"},{en:"Your full body composition, explained in plain words.",id:"Komposisi tubuh lengkapmu, dijelaskan dengan bahasa sederhana."},{en:"Open result",id:"Buka hasil"},"chart"],
+    coach_analysis:[{en:"Analyse with an AI Coach",id:"Analisa dengan AI Coach"},{en:"Ask a coach what your numbers mean and what to do next. AI coach — not a doctor.",id:"Tanya coach arti angkamu & langkah berikutnya. AI coach — bukan dokter."},{en:"Chat with coach",id:"Chat dengan coach"},"chat"],
+    workout_plan:[{en:"Create a workout plan",id:"Buat workout plan"},{en:"A weekly plan built around your result and goal.",id:"Rencana mingguan sesuai hasil scan & tujuanmu."},{en:"Build my plan",id:"Buat plan"},"clipboard"],
+    calorie_target:[{en:"Use your BMR as calorie target",id:"Pakai BMR sebagai target kalori"},{en:"Set your Calorie Tracker target from your measured BMR — you confirm before anything changes.",id:"Atur target Calorie Tracker dari BMR terukur — kamu konfirmasi dulu sebelum ada yang berubah."},{en:"Review target",id:"Lihat target"},"meal"],
+    book_class:[{en:"Book a class with a coach",id:"Book kelas dengan coach"},{en:"Train in person at 20FIT.",id:"Latihan langsung di 20FIT."},{en:"Book class",id:"Book kelas"},"calendar"],
+    rescan:[{en:"Schedule your rescan",id:"Jadwalkan rescan"},{en:"Scan again to see your progress.",id:"Scan lagi untuk melihat progresmu."},{en:"Pick a date",id:"Pilih tanggal"},"scan"]
+  };
+  function jnDate(d){ try{ return new Date(d+(String(d).length===10?"T00:00:00":"")).toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{day:"numeric",month:"short",year:"numeric"}); }catch(e){ return d; } }
+  function renderChecklist(){
+    var host=document.getElementById("journeyBox"); if(!host) return;
+    var cl=JN&&JN.checklist; if(!cl){ host.innerHTML=""; return; }
+    var actionable=cl.filter(function(c){ return c.key!=="calorie_target"||c.available||c.done; });
+    var done=actionable.filter(function(c){ return c.done; }).length, total=actionable.length;
+    var next=actionable.filter(function(c){ return !c.done; })[0];
+    var list='<details'+(done?'':' open')+'><summary>'+esc(Lx({en:"All steps",id:"Semua langkah"}))+'</summary><ul class="jn-list">'+actionable.map(function(c){
+      var t=Lx(JN_STEPS[c.key][0])+(c.key==="rescan"&&c.done&&JN.rescan_due?" · "+jnDate(JN.rescan_due):"");
+      return '<li class="'+(c.done?"done":"")+'"><span class="dot">'+(c.done?FIC("check",12):"")+'</span>'+esc(t)+'</li>';
+    }).join("")+'</ul></details>';
+    var head='<div class="jn-h"><span class="jn-t">'+FIC("target",15)+' Health Journey</span><span class="jn-n">'+done+'/'+total+'</span></div>'+
+      '<div class="jn-bar"><i style="width:'+Math.round(done/Math.max(1,total)*100)+'%"></i></div>';
+    if(!next){
+      host.innerHTML='<div class="jn" id="journeyCard">'+head+'<div class="jn-done">'+FIC("check",15)+' '+esc(Lx({en:"All steps done. Next rescan: ",id:"Semua langkah selesai. Rescan berikutnya: "})+(JN.rescan_due?jnDate(JN.rescan_due):"—"))+'</div>'+list+'</div>';
+      return;
+    }
+    var st=JN_STEPS[next.key];
+    host.innerHTML='<div class="jn" id="journeyCard">'+head+
+      '<div class="jn-next"><span class="ic">'+FIC(st[3],18)+'</span><div style="flex:1;min-width:0"><b>'+esc(Lx({en:"Next step: ",id:"Langkah berikutnya: "})+Lx(st[0]))+'</b><p>'+esc(Lx(st[1]))+'</p>'+
+      '<button type="button" class="jn-btn" id="jnGo" data-k="'+next.key+'">'+esc(Lx(st[2]))+' →</button></div></div>'+list+'</div>';
+    document.getElementById("jnGo").onclick=function(){ jnDo(next.key); };
+  }
+  function jnDo(key){
+    if(key==="view_result"){ location.href="/activity/visbody"; return; }
+    if(key==="coach_analysis"){ coachAskGo(Lx({en:"Analyse my latest Visbody result and tell me what to focus on",id:"Analisa hasil Visbody terakhirku dan bilang aku harus fokus ke mana"})); return; }
+    if(key==="workout_plan"){ coachAskGo(Lx({en:"Build me a workout plan based on my Visbody result",id:"Buatkan workout plan berdasarkan hasil Visbody aku"})); return; }
+    if(key==="calorie_target"){ openCalorieDlg(); return; }
+    if(key==="book_class"){ apiFetch("/api/journey/step",{method:"POST",body:JSON.stringify({key:"book_class",from:"checklist"})}).catch(function(){}).then(function(){ location.href="/book-class"; }); return; }
+    if(key==="rescan"){ openRescanDlg(); return; }
+  }
+  function jnDlg(html){ var d=document.getElementById("jnDlg"); d.innerHTML=html; if(!d.open) d.showModal(); return d; }
+  async function jnPost(path,body){ var r=await apiFetch(path,{method:"POST",body:JSON.stringify(body)}); var j=await r.json().catch(function(){return {};}); if(!r.ok||!j.ok) throw new Error(j.error||"fail"); JN=j; renderJourney(); return j; }
+  // Target kalori dari BMR Visbody: angka dihitung rumus yang SAMA dgn target otomatis
+  // (Nutrition.goalFromBmr), baru disimpan setelah user menekan "Pakai target ini".
+  function openCalorieDlg(){
+    var bmr=JN&&JN.latest_scan&&JN.latest_scan.metrics&&JN.latest_scan.metrics.bmr;
+    if(!bmr||!window.Nutrition||!Nutrition.goalFromBmr) return;
+    var target=Nutrition.goalFromBmr(user,bmr), cur=Nutrition.goalFor(user), fromVb=JN.calorie_target&&JN.calorie_target.source==="visbody_bmr";
+    var d=jnDlg('<div class="jn-dlg-t" id="jnDlgT">'+esc(Lx({en:"Calorie target from your BMR",id:"Target kalori dari BMR kamu"}))+'</div>'+
+      '<p class="jn-dlg-p">'+esc(Lx({en:"Visbody measured your BMR (energy at rest) at "+bmr+" kcal. With your activity level and goal, your daily target would be:",id:"Visbody mengukur BMR (energi saat istirahat) kamu "+bmr+" kkal. Dengan tingkat aktivitas & tujuanmu, target harianmu jadi:"}))+'</p>'+
+      '<div class="jn-dlg-big">'+esc(target)+' '+esc(Lx({en:"kcal/day",id:"kkal/hari"}))+'</div>'+
+      '<p class="jn-dlg-p">'+esc(Lx({en:"Current target: "+cur+" kcal. Never below "+((JN.calorie_target&&JN.calorie_target.min)||1200)+" kcal. General guidance, not a medical diet.",id:"Target sekarang: "+cur+" kkal. Tidak pernah di bawah "+((JN.calorie_target&&JN.calorie_target.min)||1200)+" kkal. Panduan umum, bukan diet medis."}))+'</p>'+
+      '<div id="jnDlgErr" class="err" style="margin-top:8px"></div>'+
+      '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn ghost" type="button" id="jnNo">'+esc(Lx({en:"Cancel",id:"Batal"}))+'</button>'+
+      (fromVb?'<button class="btn ghost" type="button" id="jnReset">'+esc(Lx({en:"Back to automatic",id:"Kembali ke otomatis"}))+'</button>':'')+
+      '<button class="btn" type="button" id="jnYes">'+esc(Lx({en:"Use this target",id:"Pakai target ini"}))+'</button></div>');
+    document.getElementById("jnNo").onclick=function(){ d.close(); };
+    document.getElementById("jnYes").onclick=async function(){ this.disabled=true;
+      try{ await jnPost("/api/journey/calorie-target",{confirm:true,kcal:target}); user.calorie_target_kcal=target; d.close(); }
+      catch(e){ document.getElementById("jnDlgErr").textContent=Lx({en:"Couldn't save. Try again.",id:"Gagal menyimpan. Coba lagi."}); this.disabled=false; } };
+    var rs=document.getElementById("jnReset"); if(rs) rs.onclick=async function(){ this.disabled=true;
+      try{ await jnPost("/api/journey/calorie-target",{reset:true}); user.calorie_target_kcal=null; d.close(); }catch(e){ this.disabled=false; } };
+  }
+  function openRescanDlg(){
+    var days=(JN&&JN.rescan_interval_days)||30, dt=new Date(Date.now()+days*86400000), today=ymdOf(new Date());
+    var d=jnDlg('<div class="jn-dlg-t" id="jnDlgT">'+esc(Lx({en:"Schedule your rescan",id:"Jadwalkan rescan"}))+'</div>'+
+      '<p class="jn-dlg-p">'+esc(Lx({en:"We suggest scanning again in about "+days+" days to see your progress. You'll get a reminder on this page.",id:"Saran kami scan lagi sekitar "+days+" hari lagi untuk melihat progres. Pengingatnya muncul di halaman ini."}))+'</p>'+
+      '<label for="jnDate">'+esc(Lx({en:"Rescan date",id:"Tanggal rescan"}))+'</label><input id="jnDate" type="date" min="'+today+'" value="'+ymdOf(dt)+'">'+
+      '<div id="jnDlgErr" class="err" style="margin-top:8px"></div>'+
+      '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn ghost" type="button" id="jnNo">'+esc(Lx({en:"Cancel",id:"Batal"}))+'</button>'+
+      '<button class="btn" type="button" id="jnYes">'+esc(Lx({en:"Save date",id:"Simpan tanggal"}))+'</button></div>');
+    document.getElementById("jnNo").onclick=function(){ d.close(); };
+    document.getElementById("jnYes").onclick=async function(){ this.disabled=true;
+      try{ await jnPost("/api/journey/step",{key:"rescan",date:document.getElementById("jnDate").value}); d.close(); }
+      catch(e){ document.getElementById("jnDlgErr").textContent=Lx({en:"Pick a date from today onward.",id:"Pilih tanggal mulai hari ini."}); this.disabled=false; } };
+  }
+  // Nudge kontekstual (aturan & batas frekuensi di server / lib/journey-config.js).
+  var JN_NUDGES={
+    visbody_after_workouts:function(n){ return [{en:"Complete your Health Score with Visbody",id:"Lengkapi Health Score dengan Visbody"},
+      {en:"You've logged "+n.workouts+" workouts. A Visbody scan at 20FIT adds your body composition — your score and plan get more accurate.",id:"Kamu sudah mencatat "+n.workouts+" workout. Scan Visbody di 20FIT menambah data komposisi tubuh — skor & plan-mu jadi lebih tepat."},
+      {en:"How to scan",id:"Lihat cara scan"},"/activity/visbody"]; },
+    rescan_due:function(n){ return [{en:"Time for a rescan",id:"Saatnya scan ulang"},
+      {en:"It's been "+n.days+" days since your last Visbody scan. Scan again to see your progress.",id:"Sudah "+n.days+" hari sejak scan Visbody terakhir. Scan lagi untuk melihat progresmu."},
+      {en:"See how",id:"Lihat caranya"},"/activity/visbody"]; }
+  };
+  function jnNudgeAct(key,action){ return apiFetch("/api/journey/nudge",{method:"POST",body:JSON.stringify({key:key,action:action})}).catch(function(){}); }
+  function renderNudges(){
+    var host=document.getElementById("nudgeBox"); if(!host) return;
+    var list=((JN&&JN.nudges)||[]).filter(function(n){ return JN_NUDGES[n.key]; });
+    host.innerHTML=list.map(function(n){ var t=JN_NUDGES[n.key](n);
+      return '<div class="nudge" data-nk="'+n.key+'"><span class="ic">'+FIC("scan",18)+'</span><div style="flex:1;min-width:0"><b>'+esc(Lx(t[0]))+'</b><p>'+esc(Lx(t[1]))+'</p>'+
+        '<a class="jn-btn sec" href="'+t[3]+'" data-nclick="'+n.key+'">'+esc(Lx(t[2]))+' →</a></div>'+
+        '<button type="button" class="vb-alert-x" data-nx="'+n.key+'" aria-label="'+esc(Lx({en:"Dismiss",id:"Tutup"}))+'">✕</button></div>';
+    }).join("");
+    list.forEach(function(n){ if(!JN_NUDGE_SHOWN[n.key]){ JN_NUDGE_SHOWN[n.key]=1; jnNudgeAct(n.key,"shown"); } });
+    Array.prototype.forEach.call(host.querySelectorAll("[data-nx]"),function(b){ b.onclick=function(){ var k=b.getAttribute("data-nx"); jnNudgeAct(k,"dismissed"); JN.nudges=JN.nudges.filter(function(n){ return n.key!==k; }); renderNudges(); }; });
+    Array.prototype.forEach.call(host.querySelectorAll("[data-nclick]"),function(a){ a.onclick=function(e){ e.preventDefault(); var href=a.getAttribute("href"); jnNudgeAct(a.getAttribute("data-nclick"),"clicked").then(function(){ location.href=href; }); }; });
   }
   function coachAskGo(msg){
     try{ sessionStorage.setItem("chat_context", JSON.stringify({ auto_message:String(msg||"") })); }catch(e){}
@@ -1587,7 +1911,7 @@
       var j=await r.json().catch(function(){return {};});
       HS=(r.ok&&j.ok)?j:null;
     }catch(e){ HS=null; }
-    renderHealthScore(); renderWeeklyRecap();
+    renderHealthScore(); renderWeeklyRecap(); tourReady("hs");
   }
   // Pill What You Need -> aksi nyata per kategori.
   function gapAction(cat){
@@ -1597,18 +1921,60 @@
     if(cat==="sleep") return function(){ if(SEL!==todayYmd()){ SEL=todayYmd(); renderDnav(); renderHead(); load(SEL); } openSleepDlg(); };
     return null;
   }
+  // Komponen tanpa data -> CTA untuk mengisinya. [label, aksi]
+  // Semua jalan pintas "upload" (Health Score, Today's Plan, #upload-workout) menuju kartu yang sama.
+  function uploadWorkoutGo(){
+    var c=document.getElementById("uploadCard"); if(!c) return;
+    c.scrollIntoView({behavior:"smooth",block:"center"});
+    c.classList.add("hl"); setTimeout(function(){ c.classList.remove("hl"); },2400);
+    upPick();
+  }
+  var HS_FILL={
+    workout:[{en:"Upload workout",id:"Upload workout"},uploadWorkoutGo],
+    nutrition:[{en:"Log meals",id:"Catat makan"},function(){ location.href="/calories"; }],
+    body:[{en:"Visbody scan",id:"Scan Visbody"},function(){ location.href="/activity/visbody"; }],
+    sleep:[{en:"Log sleep",id:"Catat tidur"},function(){ var g=gapAction("sleep"); if(g) g(); }],
+    hydration:[{en:"Log water",id:"Catat minum"},function(){ var g=gapAction("hydration"); if(g) g(); }],
+    lab:[{en:"Upload MCU",id:"Upload MCU"},function(){ location.href="/medical"; }]
+  };
+  function hsNote(){ return '<span class="hs-note">'+esc(Lx({en:"A general fitness indicator — not a medical assessment",id:"Indikator kebugaran umum — bukan penilaian medis"}))+'</span>'; }
+  function wireHsFill(host){
+    Array.prototype.forEach.call(host.querySelectorAll("[data-hs-fill]"),function(b){ var f=HS_FILL[b.getAttribute("data-hs-fill")]; if(f) b.onclick=f[1]; });
+  }
+  // TERKUNCI (belum ada scan Visbody ter-claim & belum pernah workout): tanpa angka, dua jalur buka,
+  // plus komponen yang sudah terisi supaya user tahu dia sudah dekat.
+  var HS_LOCK_LOGGED=false;
+  function renderHsLocked(host){
+    if(!HS_LOCK_LOGGED){ HS_LOCK_LOGGED=true; jnEvent("health_score_locked_shown"); }
+    var filled=(HS.filled||[]);
+    var done=HS_CATS.filter(function(c){ return filled.indexOf(c[0])>=0; });
+    host.innerHTML='<div class="card health-score-card hs-locked">'+
+      '<div class="hs-header"><span class="hs-title">'+FIC("lock",15)+' Health Score</span><span class="hs-lock-tag">'+esc(Lx({en:"Locked",id:"Terkunci"}))+'</span></div>'+
+      '<p class="hs-lock-p">'+esc(Lx({en:"Your Health Score sums up workout, nutrition, body composition, sleep, hydration and lab data into one number. To unlock it, add one of these:",id:"Health Score merangkum latihan, nutrisi, komposisi tubuh, tidur, hidrasi, dan lab jadi satu angka. Untuk membukanya, tambahkan salah satu:"}))+'</p>'+
+      '<div class="hs-paths">'+
+        '<a class="hs-path pri" href="/activity/visbody">'+FIC("scan",18)+'<span><b>'+esc(Lx({en:"Visbody scan at 20FIT",id:"Scan Visbody di 20FIT"}))+'</b><small>'+esc(Lx({en:"Recommended — the most complete data",id:"Direkomendasikan — data paling lengkap"}))+'</small></span></a>'+
+        '<button type="button" class="hs-path" data-hs-fill="workout">'+FIC("upload",18)+'<span><b>'+esc(Lx({en:"Upload your first workout",id:"Upload workout pertamamu"}))+'</b><small>'+esc(Lx({en:"Quick — no need to visit",id:"Jalur cepat tanpa datang ke lokasi"}))+'</small></span></button>'+
+      '</div>'+
+      (done.length?'<div class="hs-have">'+esc(Lx({en:"Already filled: ",id:"Sudah terisi: "}))+done.map(function(c){ return '<span>'+FIC("check",12)+' '+esc(Lx(c[1]))+'</span>'; }).join("")+'</div>':'')+
+      '<div class="hs-foot">'+hsNote()+'</div></div>';
+    wireHsFill(host);
+  }
   function renderHealthScore(){
     var host=document.getElementById("healthScoreBox"); if(!host) return;
     if(!HS){ host.innerHTML='<div class="card health-score-card"><div class="hs-header"><span class="hs-title">Health Score</span></div>'+
       '<div class="hs-note" style="margin-top:6px">'+esc(Lx({en:"Couldn't load your score right now.",id:"Skor belum bisa dimuat sekarang."}))+'</div></div>'; return; }
-    var bd=HS.breakdown||{}, tot=Math.max(0,Math.min(100,Math.round(HS.total||0)));
+    if(!HS.unlocked){ renderHsLocked(host); return; }
+    var bd=HS.breakdown||{}, has=typeof HS.total==="number", tot=has?Math.max(0,Math.min(100,Math.round(HS.total))):0;
     var lv=hsLevel(tot);
     var lbl={good:{en:"Good",id:"Bagus"},"needs-work":{en:"Needs work",id:"Perlu ditingkatkan"},critical:{en:"Critical",id:"Kritis"}}[lv];
+    var nFill=(HS.filled||[]).length, nAll=HS.components_total||HS_CATS.length;
     var rows=HS_CATS.map(function(c){
       var s=bd[c[0]];
-      if(!s) return '<div class="hs-item"><span class="hs-item-name">'+esc(Lx(c[1]))+'</span><span class="hs-item-bar"></span><span class="hs-item-value hs-item-na">N/A</span></div>';
+      if(!s) return '<div class="hs-item"><span class="hs-item-name">'+esc(Lx(c[1]))+'</span>'+
+        '<button type="button" class="hs-fill" data-hs-fill="'+c[0]+'" title="'+esc(Lx({en:"No data yet",id:"Belum ada data"}))+'">+ '+esc(Lx(HS_FILL[c[0]][0]))+'</button></div>';
       var v=Math.max(0,Math.min(100,Math.round(s.score))), l2=hsLevel(v);
-      return '<div class="hs-item" title="'+esc(String(s.detail||""))+'"><span class="hs-item-name">'+esc(Lx(c[1]))+'</span>'+
+      var tip=String(s.detail||"")+(s.stale?" · "+Lx({en:"scan is "+s.age_days+" days old — rescan to update",id:"scan sudah "+s.age_days+" hari — perlu diperbarui"}):"");
+      return '<div class="hs-item" title="'+esc(tip)+'"><span class="hs-item-name">'+esc(Lx(c[1]))+(s.stale?' <span class="hs-stale">'+esc(Lx({en:"old",id:"lama"}))+'</span>':'')+'</span>'+
         '<span class="hs-item-bar"><span class="hs-item-fill'+(l2==="good"?"":l2==="needs-work"?" low":" critical")+'" style="width:'+v+'%"></span></span>'+
         '<span class="hs-item-value">'+v+'%</span></div>';
     }).join("");
@@ -1620,16 +1986,19 @@
     var first=gaps[0];
     host.innerHTML='<div class="card health-score-card">'+
       '<div class="hs-header"><span class="hs-title">Health Score</span>'+
-        '<span class="hs-score-inline"><span class="hs-number">'+(HS.have_any?tot:"—")+'</span><span class="hs-max">/100</span>'+
-        (HS.have_any?'<span class="hs-label '+lv+'">'+esc(Lx(lbl))+'</span>':'')+'</span></div>'+
-      '<div class="hs-bar"><div class="hs-bar-fill '+lv+'" style="width:'+(HS.have_any?tot:0)+'%"></div></div>'+
+        '<span class="hs-score-inline"><span class="hs-number">'+(has?tot:"—")+'</span><span class="hs-max">/100</span>'+
+        (has?'<span class="hs-label '+lv+'">'+esc(Lx(lbl))+'</span>':'')+'</span></div>'+
+      '<div class="hs-bar"><div class="hs-bar-fill '+lv+'" style="width:'+(has?tot:0)+'%"></div></div>'+
+      '<div class="hs-complete">'+esc(has
+        ?Lx({en:"Based on "+nFill+" of "+nAll+" components — more data, more accurate.",id:"Berdasarkan "+nFill+" dari "+nAll+" komponen — makin lengkap datamu, makin akurat."})
+        :Lx({en:"Your score appears once your first data is processed.",id:"Skor muncul setelah data pertamamu selesai diproses."}))+'</div>'+
       '<div class="hs-breakdown">'+rows+'</div>'+
       (gaps.length?('<div class="wyn-t">'+esc(Lx({en:"What You Need",id:"Yang Kamu Butuhkan"}))+'</div>'+
         '<div class="wyn-pills">'+pills+'</div>'+
         '<div class="wyn-why" id="wynWhy">'+esc(Lx(first.detail||{}))+'</div>'):'')+
-      '<div class="hs-foot"><a class="hs-cta" href="/activity/chat/'+encodeURIComponent(TPL_COACH)+'">'+FIC("chat",14)+' '+esc(Lx({en:"Chat Coach →",id:"Chat Coach →"}))+'</a>'+
-        '<span class="hs-note">'+esc(Lx({en:"Indicative · not a medical diagnosis",id:"Indikatif · bukan diagnosis medis"}))+'</span></div>'+
+      '<div class="hs-foot"><a class="hs-cta" href="/activity/chat/'+encodeURIComponent(TPL_COACH)+'">'+FIC("chat",14)+' '+esc(Lx({en:"Chat Coach →",id:"Chat Coach →"}))+'</a>'+hsNote()+'</div>'+
     '</div>';
+    wireHsFill(host);
     Array.prototype.forEach.call(host.querySelectorAll(".wyn-pill"),function(b){
       var g=gaps[+b.getAttribute("data-g")]; if(!g) return;
       var go=gapAction(g.category);
@@ -1678,71 +2047,146 @@
     try{
       var r=await apiFetch("/api/activity/upload-history?limit=1"); var j=await r.json().catch(function(){return {};});
       var u=j&&Array.isArray(j.uploads)&&j.uploads[0];
-      host.innerHTML=u?('<b>'+esc(Lx({en:"Last:",id:"Terakhir:"}))+'</b> '+esc(uploadSummary(u))+'<br><span>'+esc(timeAgo(u.created_at))+'</span>')
+      host.innerHTML=u?('<b>'+esc(Lx({en:"Last:",id:"Terakhir:"}))+'</b> '+esc(uploadSummary(u))+' <span>· '+esc(timeAgo(u.created_at))+'</span>')
                       :'<span>'+esc(Lx({en:"No uploads yet.",id:"Belum ada upload."}))+'</span>';
     }catch(e){ host.innerHTML=""; }
   }
-  function wirePlanUpload(){
-    [["upCam","tplCam"],["upFile","tplFile"]].forEach(function(p){
-      var b=document.getElementById(p[0]), f=document.getElementById(p[1]); if(!b||!f) return;
-      b.onclick=function(){ f.click(); };
-      f.onchange=function(){ var file=f.files&&f.files[0]; f.value=""; if(file) analyzeUpload(file); };
-    });
-  }
-
   // ---- TODAY'S PLAN — 4 mini kartu + coach says (dari upload-analyze / my20fit_today_plans) ----
   function tplHost(){ return document.getElementById("todayPlanBox"); }
   function planDateLabel(){ try{ return new Date().toLocaleDateString((window.I18N&&I18N.lang==="en")?"en-GB":"id-ID",{day:"numeric",month:"short"}); }catch(e){ return ""; } }
-  function renderTodayPlanEmpty(){
-    var h=tplHost(); if(!h) return;
-    h.innerHTML='<div class="plan-slim"><span>'+FIC("clipboard",14)+' <b>'+esc(Lx({en:"Today's Plan",id:"Plan Hari Ini"}))+'</b> · '+
-      esc(Lx({en:"upload a screenshot and I'll plan your workout, food, sleep & water.",id:"upload screenshot, nanti aku susun workout, makan, tidur & minum."}))+'</span>'+
-      '<button type="button" id="tplUpGo">'+esc(Lx({en:"Upload →",id:"Upload →"}))+'</button></div>';
-    var b=document.getElementById("tplUpGo"); if(b) b.onclick=function(){ var f=document.getElementById("tplFile"); if(f) f.click(); };
+  // Belum ada plan hari ini -> tombol "Generate plan" (analisa kondisi + plan tanpa upload) atau upload screenshot.
+  var TPL_HAS=false, TPL_BUSY=false;
+  function renderTodayPlanEmpty(err){
+    var h=tplHost(); if(!h) return; TPL_HAS=false;
+    h.innerHTML='<div class="plan-slim tpl-empty"><span>'+FIC("clipboard",14)+' <b>'+esc(Lx({en:"Today's Plan & Recommendations",id:"Plan & Rekomendasi Hari Ini"}))+'</b> · '+
+      esc(Lx({en:"see how you're doing today, what raises your Health Score, and a plan built from your sleep, food, water & last workout.",id:"lihat kondisimu hari ini, cara menaikkan Health Score, dan plan dari tidur, makan, minum & workout terakhirmu."}))+
+      (err?'<span class="tpl-err">'+esc(err)+'</span>':'')+'</span>'+
+      '<span class="tpl-acts"><button type="button" id="tplGen">'+FIC("spark",14)+' '+esc(Lx({en:"Generate plan",id:"Generate plan"}))+'</button>'+
+      '<button type="button" class="ghost" id="tplUpGo">'+esc(Lx({en:"Upload",id:"Upload"}))+'</button></span></div>';
+    document.getElementById("tplGen").onclick=generateTodayPlan;
+    document.getElementById("tplUpGo").onclick=uploadWorkoutGo;
   }
-  function renderTodayPlan(p){
-    var h=tplHost(); if(!h) return; p=p||{};
+  async function generateTodayPlan(){
+    if(TPL_BUSY) return; TPL_BUSY=true;
+    var h=tplHost();
+    if(h) h.innerHTML='<div class="acard plan-today"><div class="tpl-busy"><span class="upx-spin" aria-hidden="true"></span><span>'+
+      esc(Lx({en:"Reading your sleep, food, water & workouts and building today's plan\u2026 (up to 1 minute)",id:"Membaca tidur, makan, minum & workout kamu lalu menyusun plan hari ini\u2026 (bisa sampai 1 menit)"}))+'</span></div></div>';
+    try{
+      var r=await apiFetch("/api/activity/today-plan/generate",{method:"POST",body:JSON.stringify({lang:I18N.lang,coach_id:TPL_COACH})});
+      var j=await r.json().catch(function(){return {};});
+      if(r.status===401){ location.href="/login"; return; }
+      if(!r.ok||!j.ok) throw new Error(j.error||"");
+      showTodayPlanRow(j.plan,j.brief);
+    }catch(e){
+      renderTodayPlanEmpty((e&&e.message)||Lx({en:"Couldn't build the plan. Try again.",id:"Gagal membuat plan. Coba lagi."}));
+    }
+    TPL_BUSY=false;
+  }
+  function showTodayPlanRow(row,brief){
+    if(row&&(row.workout_plan||row.food_plan||row.sleep_plan||row.hydration_plan))
+      renderTodayPlan({ workout:row.workout_plan, food:row.food_plan, sleep:row.sleep_plan, hydration:row.hydration_plan, coach_says:row.coach_says, coach_id:row.coach_id, updated_at:row.updated_at }, brief);
+    else renderTodayPlanEmpty();
+  }
+  var TB_ST={baik:{en:"Good",id:"Baik"},kurang:{en:"Low",id:"Kurang"},berlebih:{en:"High",id:"Berlebih"},tidak_ada_data:{en:"Not logged",id:"Belum dicatat"}};
+  var TB_IC={sleep:"moon",nutrition:"meal",hydration:"water",load:"dumbbell",body:"scale",pre_meal:"cookie",workout:"run"};
+  function tbChip(st){ return '<span class="tb-chip '+esc(st)+'">'+esc(Lx(TB_ST[st]||TB_ST.tidak_ada_data))+'</span>'; }
+  function tbAgo(n){ return n===0?Lx({en:"today",id:"hari ini"}):n===1?Lx({en:"yesterday",id:"kemarin"}):Lx({en:n+" days ago",id:n+" hari lalu"}); }
+  // Analisa (dari server, deterministik): kondisi hari ini, naikkan Health Score, workout terakhir.
+  function briefHtml(b){
+    if(!b) return "";
+    var t=b.today||{}, sc=b.score||{}, w=b.workout;
+    var prog=[Lx({en:"water ",id:"minum "})+WorkoutMetrics.dec((t.water_ml||0)/1000,1,I18N.lang)+"/"+WorkoutMetrics.dec((t.water_target_ml||0)/1000,1,I18N.lang)+" L",
+      t.kcal_target?(Lx({en:"food ",id:"makan "})+(t.kcal||0)+"/"+t.kcal_target+" "+Lx({en:"kcal",id:"kkal"})):"",
+      t.workouts?(Lx({en:"workout ",id:"workout "})+t.workout_min+" "+Lx({en:"min",id:"menit"})):Lx({en:"no workout yet",id:"belum workout"})].filter(Boolean).join(" · ");
+    var html='<div class="tb-head">'+esc(b.headline||"")+'</div>';
+    html+='<details class="tb-sec" open><summary>'+FIC("heart",14)+' '+esc(Lx({en:"How you're doing today",id:"Kondisi kamu hari ini"}))+'</summary>'+
+      (b.status||[]).map(function(x){ return '<div class="tb-row"><span class="tb-ic">'+FIC(TB_IC[x.key]||"info",16)+'</span><span class="tb-tx">'+esc(x.text)+'</span>'+tbChip(x.status)+'</div>'; }).join("")+
+      '<div class="tb-prog">'+FIC("clock",13)+' '+esc(Lx({en:"So far today: ",id:"Sejauh ini hari ini: "})+prog)+'</div></details>';
+    html+='<details class="tb-sec" open><summary>'+FIC("target",14)+' '+esc(Lx({en:"Raise your Health Score today",id:"Naikkan Health Score hari ini"}))+
+      (sc.total!=null?' <span class="tb-score">'+sc.total+'/100</span>':'')+'</summary>'+
+      (sc.items&&sc.items.length?sc.items.map(function(a){
+        return '<div class="tb-act"><span class="tb-pts'+(a.kind==="missing"?" miss":"")+'">'+(a.kind==="missing"?esc(Lx({en:"not counted",id:"belum dihitung"})):("+"+a.points+" "+esc(Lx({en:"pts",id:"poin"}))))+'</span>'+
+          '<span class="tb-tx"><b>'+esc(a.title)+'</b><small>'+esc(a.detail)+(a.target?" → "+esc(a.target):"")+'</small></span>'+
+          (a.cta&&a.cta!=="rest"?'<button type="button" class="tb-go" data-cta="'+esc(a.cta)+'">'+esc(Lx(TB_CTA[a.cta]||{en:"Go",id:"Buka"}))+'</button>':'')+'</div>';
+      }).join(""):'')+
+      '<div class="tb-note">'+esc(sc.note||"")+'</div></details>';
+    if(w){
+      html+='<details class="tb-sec" open><summary>'+FIC("run",14)+' '+esc(Lx({en:"From your last workout",id:"Dari workout terakhirmu"}))+'</summary>'+
+        '<div class="tb-wo"><div class="tb-wo-t">'+esc(w.title)+' <span>· '+esc(tbAgo(w.days_ago))+'</span></div>'+
+        '<div class="tb-wo-h'+(w.safety?" safe":"")+'">'+esc(w.headline||"")+'</div>'+(w.perf&&!w.safety?'<div class="tb-wo-p">'+esc(w.perf)+'</div>':'')+
+        (w.safety?'':(w.factors||[]).slice().sort(function(a,c){ var o={kurang:0,berlebih:0,tidak_ada_data:2,baik:1}; return o[a.status]-o[c.status]; }).map(function(f){
+          return '<div class="tb-row"><span class="tb-ic">'+FIC(TB_IC[f.key]||"info",16)+'</span><span class="tb-tx"><b>'+esc(f.name.charAt(0).toUpperCase()+f.name.slice(1))+'</b> — '+esc(f.text)+
+            (f.role==="possible_cause"?'<small class="tb-cause">'+esc(Lx({en:"may have affected this workout",id:"kemungkinan ikut memengaruhi workout ini"}))+'</small>':'')+'</span>'+tbChip(f.status)+'</div>';
+        }).join(""))+
+        (w.tips&&w.tips.length&&!w.safety?'<ul class="tb-tips">'+w.tips.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join("")+'</ul>':'')+
+        '<a class="tb-link" href="/activity/history/'+encodeURIComponent(w.id)+'">'+esc(Lx({en:"See full analysis →",id:"Lihat analisa lengkap →"}))+'</a></div></details>';
+    }
+    return html;
+  }
+  var TB_CTA={sleep:{en:"Log sleep",id:"Catat tidur"},water:{en:"+250ml",id:"+250ml"},meals:{en:"Log meals",id:"Catat makan"},book:{en:"Book class",id:"Book kelas"},upload:{en:"Upload",id:"Upload"}};
+  function renderTodayPlan(p,brief){
+    var h=tplHost(); if(!h) return; p=p||{}; TPL_HAS=true;
     var w=p.workout||{}, f=p.food||{}, sl=p.sleep||{}, hy=p.hydration||{};
     function mini(icon,val,lbl,btn){ return '<div class="plan-mini"><div class="plan-mini-icon">'+icon+'</div><div class="plan-mini-value">'+esc(val||"—")+'</div><div class="plan-mini-label">'+esc(lbl||"")+'</div>'+(btn||"")+'</div>'; }
     var wVal=w.intensity==="rest"?Lx({en:"Rest day",id:"Rest day"}):(w.type||w.recommendation||"");
     var wLbl=[w.intensity&&w.intensity!=="rest"?w.intensity:"", w.duration_min?(w.duration_min+" min"):""].filter(Boolean).join(" · ");
     var fVal=f.calorie_target?(f.calorie_target+" kcal"):"";
     var fLbl=f.priority_macro?Lx({en:"focus: ",id:"fokus: "})+f.priority_macro:"";
-    var sVal=sl.target_bedtime||"";
-    var sLbl=[Lx({en:"bedtime",id:"jam tidur"}), sl.target_hours?(sl.target_hours+Lx({en:"h sleep",id:" jam tidur"})):""].filter(Boolean).join(" · ");
+    var sVal=sl.target_bedtime||(sl.target_hours?(WorkoutMetrics.dec(sl.target_hours,1,I18N.lang)+Lx({en:" h",id:" jam"})):"");
+    var sLbl=sl.target_bedtime?[Lx({en:"bedtime",id:"jam tidur"}), sl.target_hours?(sl.target_hours+Lx({en:"h sleep",id:" jam tidur"})):""].filter(Boolean).join(" · "):Lx({en:"sleep target",id:"target tidur"});
     var hVal=hy.target_ml?((hy.target_ml/1000).toFixed(1).replace(/\.0$/,"")+" L"):"";
     var cards=mini(FIC("dumbbell",22),wVal,wLbl,'<button type="button" data-a="book">'+esc(Lx({en:"Book Class →",id:"Book Class →"}))+'</button>')+
       mini(FIC("meal",22),fVal,fLbl,'<button type="button" data-a="track">'+esc(Lx({en:"Track →",id:"Track →"}))+'</button>')+
       mini(FIC("moon",22),sVal,sLbl,'')+
       mini(FIC("water",22),hVal,Lx({en:"target",id:"target"}),'<button type="button" data-a="water">+250ml</button>');
+    var why=[w.recommendation&&w.recommendation!==wVal?w.recommendation:"", w.reason||""].filter(Boolean).join(" — ");
     var who=COACH_NAME_TPL[p.coach_id]||coachName();
     var says=p.coach_says?('<div class="plan-says"><span><b>Coach '+esc(who)+':</b> “'+esc(p.coach_says)+'”</span>'+
       '<button type="button" data-a="reply">'+FIC("chat",14)+' '+esc(Lx({en:"Reply →",id:"Balas →"}))+'</button></div>'):'';
+    var at=""; try{ if(p.updated_at) at=new Date(p.updated_at).toLocaleTimeString((I18N.lang==="en")?"en-GB":"id-ID",{hour:"2-digit",minute:"2-digit"}); }catch(e){}
     h.innerHTML='<div class="acard plan-today"><div class="acard-hd"><span class="acard-title">'+FIC("clipboard",14)+' '+esc(Lx({en:"Today's Plan",id:"Plan Hari Ini"}))+' · '+esc(planDateLabel())+'</span>'+
-      '<button type="button" class="acard-act" data-a="upload">'+esc(Lx({en:"New upload",id:"Upload baru"}))+'</button></div>'+
-      '<div class="plan-today-grid">'+cards+'</div>'+says+'</div>';
+      '<span class="tpl-hd-acts"><button type="button" class="acard-act" data-a="regen">'+FIC("refresh",13)+' '+esc(Lx({en:"Regenerate",id:"Generate ulang"}))+'</button>'+
+      '<button type="button" class="acard-act" data-a="upload">'+esc(Lx({en:"New upload",id:"Upload baru"}))+'</button></span></div>'+
+      briefHtml(brief)+
+      '<div class="tb-sec tb-plan"><div class="tb-plan-h">'+FIC("clipboard",14)+' '+esc(Lx({en:"Your plan for today",id:"Plan kamu hari ini"}))+(at?' <span>· '+esc(Lx({en:"made ",id:"dibuat "})+at)+'</span>':'')+'</div>'+
+      '<div class="plan-today-grid">'+cards+'</div>'+(why?'<div class="tb-why">'+esc(why)+'</div>':'')+says+'</div></div>';
     Array.prototype.forEach.call(h.querySelectorAll("[data-a]"),function(b){
       var a=b.getAttribute("data-a");
       b.onclick=async function(){
         if(a==="book") location.href="/book-class";
         else if(a==="track") location.href="/calories";
-        else if(a==="upload"){ var fi=document.getElementById("tplFile"); if(fi) fi.click(); }
+        else if(a==="upload") uploadWorkoutGo();
+        else if(a==="regen") generateTodayPlan();
         else if(a==="reply") coachAskGo(Lx({en:"About today's plan you gave me: \""+(p.coach_says||"")+"\" — ",id:"Soal plan hari ini: \""+(p.coach_says||"")+"\" — "}));
         else if(a==="water"){ b.disabled=true; var ok=await addDrink(250,"water",todayYmd()); b.disabled=false;
-          if(ok){ b.textContent="✓ +250ml"; setTimeout(function(){ b.textContent="+250ml"; },1600); loadHealthScore(); } }
+          if(ok){ b.textContent="✓ +250ml"; setTimeout(function(){ b.textContent="+250ml"; },1600); } }
+      };
+    });
+    Array.prototype.forEach.call(h.querySelectorAll("[data-cta]"),function(b){
+      var c=b.getAttribute("data-cta");
+      b.onclick=async function(){
+        if(c==="sleep"){ var g=gapAction("sleep"); if(g) g(); }
+        else if(c==="water"){ b.disabled=true; var ok=await addDrink(250,"water",todayYmd()); b.disabled=false; if(ok){ b.textContent="✓"; setTimeout(function(){ b.textContent="+250ml"; },1600); } }
+        else if(c==="meals") location.href="/calories";
+        else if(c==="book") location.href="/book-class";
+        else if(c==="upload") uploadWorkoutGo();
       };
     });
   }
   async function loadTodayPlan(){
     var h=tplHost(); if(!h) return;
     try{
-      var r=await apiFetch("/api/activity/today-plan"); var j=await r.json().catch(function(){return {};});
+      var r=await apiFetch("/api/activity/today-plan?lang="+encodeURIComponent(I18N.lang)); var j=await r.json().catch(function(){return {};});
       if(r.status===401){ renderTodayPlanEmpty(); return; }
-      var row=j&&j.plan;
-      if(row&&(row.workout_plan||row.food_plan||row.sleep_plan||row.hydration_plan))
-        renderTodayPlan({ workout:row.workout_plan, food:row.food_plan, sleep:row.sleep_plan, hydration:row.hydration_plan, coach_says:row.coach_says, coach_id:row.coach_id });
-      else renderTodayPlanEmpty();
+      showTodayPlanRow(j&&j.plan, j&&j.brief);
     }catch(e){ renderTodayPlanEmpty(); }
+  }
+  // Data berubah (tidur/minum/workout/upload) -> Health Score + analisa Plan Hari Ini dihitung ulang.
+  // Ditunda sebentar supaya ketukan gelas beruntun cukup satu kali muat.
+  var REFRESH_T=null;
+  function refreshDerived(){
+    clearTimeout(REFRESH_T);
+    REFRESH_T=setTimeout(function(){ loadHealthScore(); if(TPL_HAS&&!TPL_BUSY) loadTodayPlan(); },500);
   }
   function wireTabs(){
     var tabs=document.getElementById("atabs"); if(!tabs) return;
@@ -1751,77 +2195,150 @@
         if(t==="top"){ window.scrollTo({top:0,behavior:"smooth"}); } else { var x=document.getElementById(t); if(x) x.scrollIntoView({behavior:"smooth",block:"start"}); } };
     });
   }
-  async function analyzeUpload(file){
-    if(TPL_BUSY) return; clearErr();
-    if(file.size>8*1024*1024){ showErr(Lx({en:"Image too big (max ~8MB).",id:"Gambar terlalu besar (maks ~8MB)."}),false); return; }
-    TPL_BUSY=true;
-    var h=tplHost(), last=document.getElementById("upLast");
-    if(last) last.innerHTML='<span>'+esc(Lx({en:"Analyzing your data…",id:"Menganalisa data kamu…"}))+'</span>';
-    if(h) h.innerHTML='<div class="acard"><div class="skel" style="height:96px"></div></div>';
-    try{
-      var sup=await toSupported(file);
-      if(!sup.ok){ TPL_BUSY=false; showErr(Lx({en:"Can't read that file. Use PNG/JPG/WebP.",id:"Berkas tak terbaca. Pakai PNG/JPG/WebP."}),false); loadTodayPlan(); loadLastUpload(); return; }
-      var small=await shrink(sup.dataUrl);
-      var r=await apiFetch("/api/activity/upload-analyze",{method:"POST",body:JSON.stringify({ image:small, coach_id:TPL_COACH, lang:(window.I18N&&I18N.lang)||"id" })});
-      var j=await r.json().catch(function(){return {};});
-      if(r.status===401){ location.href="/login"; return; }
-      TPL_BUSY=false;
-      if(r.ok&&j.ok&&j.analysis){
-        var a=j.analysis, tp=a.today_plan||{};
-        renderTodayPlan({ workout:tp.workout, food:tp.food, sleep:tp.sleep, hydration:tp.hydration, coach_says:a.coach_says, coach_id:TPL_COACH });
-      } else { showErr((j&&j.error)||Lx({en:"Couldn't analyze. Try again.",id:"Gagal analisa. Coba lagi."}),false); loadTodayPlan(); }
-    }catch(e){ TPL_BUSY=false; showErr(Lx({en:"Upload failed. Try again.",id:"Upload gagal. Coba lagi."}),false); loadTodayPlan(); }
-    // Upload baru -> skor dihitung ulang (termasuk data upload) + "Last:" diperbarui.
-    loadHealthScore(); loadLastUpload();
-  }
-
-  // ---- ACTIVE PLAN — /api/coach/plan; satu baris hari, centang = /api/coach/plan/adjust op "done". ----
-  var WPLAN=null;
+  // ---- WORKOUT PLAN AKTIF — /api/coach/plan. Tabel per hari (centang = op "done") + editor
+  //      (op "edit"): user boleh mengubah plan dari coach — hari, fokus, durasi, latihan, set/rep.
+  //      Ganti plan: minta plan baru ke coach, atau pilih plan lain di /activity/plan. ----
+  var WPLAN=null, WP_EDIT=null, WP_OPEN_EDITOR=false;
+  var WP_UNITS=[["reps",{en:"reps",id:"rep"}],["sec",{en:"sec",id:"dtk"}],["min",{en:"min",id:"mnt"}]];
   async function loadWorkoutPlan(){
     try{
       var r=await apiFetch("/api/coach/plan"); var j=await r.json().catch(function(){return {};});
       WPLAN=(r.ok&&j&&j.plan&&j.plan.plan)?j.plan:null;
     }catch(e){ WPLAN=null; }
-    renderWorkoutPlan();
+    renderWorkoutPlan(); tourReady("wp");
+    if(WP_OPEN_EDITOR){ WP_OPEN_EDITOR=false; var box=document.getElementById("workoutPlanBox"); if(box) box.scrollIntoView({behavior:"smooth",block:"start"}); if(WPLAN) openPlanEditor(); }
   }
+  function wpExLabel(e){ var u=WP_UNITS.filter(function(x){ return x[0]===e.unit; })[0]; return (e.sets||1)+"×"+(e.reps||"")+(u&&e.unit!=="reps"?" "+Lx(u[1]):""); }
+  function wpNewPlan(){ coachAskGo(Lx({en:"Make me a new workout plan for this week",id:"Buatkan workout plan baru untuk minggu ini"})); }
   function renderWorkoutPlan(){
     var host=document.getElementById("workoutPlanBox"); if(!host) return;
     var p=WPLAN&&WPLAN.plan, days=(p&&Array.isArray(p.days))?p.days:[];
     if(!days.length){
       host.innerHTML='<div class="plan-slim"><span>'+FIC("dumbbell",14)+' <b>'+esc(Lx({en:"Workout Plan",id:"Workout Plan"}))+'</b> · '+esc(Lx({en:"no active plan yet.",id:"belum ada plan aktif."}))+'</span>'+
         '<button type="button" id="wpMake">'+esc(Lx({en:"Make Plan →",id:"Buat Plan →"}))+'</button></div>';
-      var mk=document.getElementById("wpMake"); if(mk) mk.onclick=function(){ coachAskGo(Lx({en:"Make me a workout plan for this week",id:"Buatkan workout plan minggu ini"})); };
+      document.getElementById("wpMake").onclick=wpNewPlan;
       return;
     }
     var done=days.filter(function(d){ return d&&d.done; }).length;
     var by=(p.coach&&COACH_NAME_TPL[p.coach])?Lx({en:"by Coach ",id:"oleh Coach "})+COACH_NAME_TPL[p.coach]:"";
-    var meta=[p.plan_name||"", by||WPLAN.level||p.level||""].filter(Boolean).join(" · ");
+    var edited=WPLAN.source==="adjusted"?Lx({en:"edited",id:"diubah"}):"";
     // Label hari = nama hari (plan dari chat: "Senin"/"Monday") -> tandai hari ini.
     var wd=new Date().getDay(), tdy=[["min","sun"],["sen","mon"],["sel","tue"],["rab","wed"],["kam","thu"],["jum","fri"],["sab","sat"]][wd];
     function isToday(d){ var l=String(d.label||"").trim().toLowerCase().slice(0,3); return tdy.indexOf(l)>=0; }
-    host.innerHTML='<div class="plan-active"><div class="plan-active-hd"><span>'+FIC("dumbbell",14)+' <b>Plan</b>'+(meta?' · '+esc(meta):'')+'</span>'+
-      '<span class="plan-active-cnt">'+done+'/'+days.length+' '+esc(Lx({en:"done",id:"selesai"}))+'</span>'+
-      '<a class="acard-act" href="/activity/plan">'+esc(Lx({en:"Detail →",id:"Detail →"}))+'</a></div>'+
-      '<div class="plan-active-bar">'+days.map(function(d){
-        var now=isToday(d);
-        return '<button type="button" class="plan-active-day'+(d.done?" done":"")+(now?" today":"")+'" data-k="'+esc(d.key||"")+'" aria-pressed="'+(d.done?"true":"false")+'">'+
-          FIC(d.done?"boxcheck":"box",15)+' <b>'+esc(String(d.label||""))+'</b>'+(d.focus?' '+esc(String(d.focus)):'')+
-          (d.duration_min?' <span class="pad-min">('+(+d.duration_min)+' min)</span>':'')+
-          (now?' <span class="pad-today">← '+esc(Lx({en:"today",id:"hari ini"}))+'</span>':'')+'</button>';
-      }).join("")+'</div></div>';
-    Array.prototype.forEach.call(host.querySelectorAll(".plan-active-day"),function(b){
+    host.innerHTML='<div class="wp"><div class="wp-hd"><span class="wp-ic">'+FIC("dumbbell",18)+'</span>'+
+        '<div class="wp-ti"><b>'+esc(p.plan_name||"Workout plan")+'</b><span>'+esc([by,edited].filter(Boolean).join(" · ")||Lx({en:"Your active plan",id:"Plan aktif kamu"}))+'</span></div>'+
+        '<span class="wp-cnt">'+done+'/'+days.length+'</span></div>'+
+      '<div class="wp-bar"><i style="width:'+Math.round(done/days.length*100)+'%"></i></div>'+
+      '<div class="wp-days">'+days.map(function(d){
+        var now=isToday(d), ex=Array.isArray(d.exercises)?d.exercises:[];
+        return '<div class="wp-day'+(d.done?" done":"")+(now?" today":"")+'">'+
+          '<button type="button" class="wp-chk" data-k="'+esc(d.key||"")+'" aria-pressed="'+(d.done?"true":"false")+'" aria-label="'+esc(Lx({en:"Mark done: ",id:"Tandai selesai: "})+(d.label||""))+'">'+FIC(d.done?"boxcheck":"box",20)+'</button>'+
+          '<div class="wp-dt"><div class="wp-dl"><b>'+esc(String(d.label||""))+'</b>'+(d.focus?' <span>'+esc(String(d.focus))+'</span>':'')+
+            (now?' <em>'+esc(Lx({en:"today",id:"hari ini"}))+'</em>':'')+'</div>'+
+            '<div class="wp-ex">'+ex.map(function(e){ return '<span>'+esc(e.name)+' <i>'+esc(wpExLabel(e))+'</i></span>'; }).join("")+'</div></div>'+
+          '<span class="wp-min">'+(d.duration_min?(+d.duration_min)+"'":"")+'</span></div>';
+      }).join("")+'</div>'+
+      '<div class="wp-acts"><button type="button" class="wp-b pri" id="wpEdit">'+FIC("clipboard",15)+' '+esc(Lx({en:"Edit plan",id:"Ubah plan"}))+'</button>'+
+        '<button type="button" class="wp-b" id="wpNew">'+FIC("chat",15)+' '+esc(Lx({en:"New plan via coach",id:"Plan baru via coach"}))+'</button>'+
+        '<a class="wp-b" href="/activity/plan">'+esc(Lx({en:"All plans →",id:"Semua plan →"}))+'</a></div></div>';
+    document.getElementById("wpEdit").onclick=openPlanEditor;
+    document.getElementById("wpNew").onclick=wpNewPlan;
+    Array.prototype.forEach.call(host.querySelectorAll(".wp-chk"),function(b){
       b.onclick=async function(){
         var k=b.getAttribute("data-k"), day=days.filter(function(d){ return String(d.key)===k; })[0]; if(!day) return;
         b.disabled=true;
-        try{
-          var r=await apiFetch("/api/coach/plan/adjust",{method:"POST",body:JSON.stringify({op:"done",day_key:k,done:!day.done})});
-          var j=await r.json().catch(function(){return {};});
-          if(r.ok&&j.ok&&j.plan){ WPLAN=j.plan; renderWorkoutPlan(); return; }
-          showErr((j&&j.error)||Lx({en:"Couldn't update the plan.",id:"Gagal memperbarui plan."}),false);
-        }catch(e){ showErr(Lx({en:"Couldn't update the plan.",id:"Gagal memperbarui plan."}),false); }
-        b.disabled=false;
+        var j=await wpAdjust({op:"done",day_key:k,done:!day.done});
+        if(j){ WPLAN=j.plan; renderWorkoutPlan(); } else b.disabled=false;
       };
     });
+  }
+  async function wpAdjust(body){
+    try{
+      var r=await apiFetch("/api/coach/plan/adjust",{method:"POST",body:JSON.stringify(body)});
+      var j=await r.json().catch(function(){return {};});
+      if(r.ok&&j.ok&&j.plan) return j;
+      showErr((j&&j.error)||Lx({en:"Couldn't update the plan.",id:"Gagal memperbarui plan."}),false);
+    }catch(e){ showErr(Lx({en:"Couldn't update the plan.",id:"Gagal memperbarui plan."}),false); }
+    return null;
+  }
+
+  // ---- Editor plan (dialog). State = salinan hari (WP_EDIT); input dibaca ke state sebelum
+  //      tambah/hapus supaya ketikan tidak hilang. Server menormalisasi ulang semuanya. ----
+  var WP_DAYNAMES=null;
+  function wpDayNames(){ return I18N.lang==="en"?["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]:["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"]; }
+  function openPlanEditor(){
+    var p=WPLAN&&WPLAN.plan; if(!p) return;
+    WP_EDIT={ name:p.plan_name||"", days:(p.days||[]).map(function(d){
+      return { label:d.label||"", focus:d.focus||"", duration_min:d.duration_min||"", done:!!d.done,
+        exercises:(d.exercises||[]).map(function(e){ return { key:e.key, name:e.name||"", sets:e.sets||3, reps:e.reps||"", unit:e.unit||"reps", rest_sec:e.rest_sec, note:e.note, progression:e.progression }; }) };
+    }) };
+    var dlg=document.getElementById("wpDlg");
+    if(!dlg){ dlg=document.createElement("dialog"); dlg.id="wpDlg"; dlg.className="wp-dlg"; document.body.appendChild(dlg); }
+    wpPaint(); dlg.showModal();
+  }
+  function wpRead(){
+    var dlg=document.getElementById("wpDlg"); if(!dlg||!WP_EDIT) return;
+    var nm=dlg.querySelector("#wpName"); if(nm) WP_EDIT.name=nm.value;
+    Array.prototype.forEach.call(dlg.querySelectorAll("[data-f]"),function(el){
+      var f=el.getAttribute("data-f"), di=+el.getAttribute("data-d"), ei=el.getAttribute("data-e"), day=WP_EDIT.days[di]; if(!day) return;
+      if(ei==null) day[f]=el.value; else if(day.exercises[+ei]) day.exercises[+ei][f]=el.value;
+    });
+  }
+  function wpPaint(){
+    var dlg=document.getElementById("wpDlg"); if(!dlg||!WP_EDIT) return;
+    WP_DAYNAMES=wpDayNames();
+    var unitOpts=function(v){ return WP_UNITS.map(function(u){ return '<option value="'+u[0]+'"'+(u[0]===v?" selected":"")+'>'+esc(Lx(u[1]))+'</option>'; }).join(""); };
+    dlg.innerHTML='<form method="dialog" class="wp-f" novalidate>'+
+      '<div class="wp-f-hd"><b>'+esc(Lx({en:"Edit workout plan",id:"Ubah workout plan"}))+'</b><button type="button" class="wp-x" id="wpClose" aria-label="'+esc(Lx({en:"Close",id:"Tutup"}))+'">✕</button></div>'+
+      '<label class="wp-lb">'+esc(Lx({en:"Plan name",id:"Nama plan"}))+'<input id="wpName" maxlength="80" value="'+esc(WP_EDIT.name)+'"></label>'+
+      '<datalist id="wpDayList">'+WP_DAYNAMES.map(function(n){ return '<option value="'+esc(n)+'">'; }).join("")+'</datalist>'+
+      WP_EDIT.days.map(function(d,di){
+        return '<fieldset class="wp-fd"><div class="wp-fd-hd">'+
+            '<input data-f="label" data-d="'+di+'" list="wpDayList" maxlength="40" placeholder="'+esc(Lx({en:"Day",id:"Hari"}))+'" value="'+esc(d.label)+'" aria-label="'+esc(Lx({en:"Day",id:"Hari"}))+'">'+
+            '<input data-f="focus" data-d="'+di+'" maxlength="40" placeholder="'+esc(Lx({en:"Focus (e.g. Upper body)",id:"Fokus (mis. Upper body)"}))+'" value="'+esc(d.focus)+'" aria-label="'+esc(Lx({en:"Focus",id:"Fokus"}))+'">'+
+            '<input data-f="duration_min" data-d="'+di+'" type="number" min="5" max="240" inputmode="numeric" placeholder="'+esc(Lx({en:"min",id:"mnt"}))+'" value="'+esc(d.duration_min)+'" aria-label="'+esc(Lx({en:"Minutes",id:"Menit"}))+'" class="wp-n">'+
+            '<button type="button" class="wp-x" data-delday="'+di+'" >'+esc(Lx({en:"Remove day",id:"Hapus hari"}))+'</button></div>'+
+          d.exercises.map(function(e,ei){
+            return '<div class="wp-er"><input data-f="name" data-d="'+di+'" data-e="'+ei+'" maxlength="80" placeholder="'+esc(Lx({en:"Exercise",id:"Latihan"}))+'" value="'+esc(e.name)+'" aria-label="'+esc(Lx({en:"Exercise",id:"Latihan"}))+'">'+
+              '<input data-f="sets" data-d="'+di+'" data-e="'+ei+'" type="number" min="1" max="10" inputmode="numeric" value="'+esc(e.sets)+'" aria-label="Sets" class="wp-n">'+
+              '<span class="wp-xs">×</span><input data-f="reps" data-d="'+di+'" data-e="'+ei+'" maxlength="20" value="'+esc(e.reps)+'" aria-label="Reps" class="wp-n">'+
+              '<select data-f="unit" data-d="'+di+'" data-e="'+ei+'" aria-label="'+esc(Lx({en:"Unit",id:"Satuan"}))+'">'+unitOpts(e.unit)+'</select>'+
+              '<button type="button" class="wp-x" data-delex="'+di+'.'+ei+'" title="'+esc(Lx({en:"Remove",id:"Hapus"}))+'">✕</button></div>';
+          }).join("")+
+          '<button type="button" class="wp-add" data-addex="'+di+'">+ '+esc(Lx({en:"Exercise",id:"Latihan"}))+'</button></fieldset>';
+      }).join("")+
+      (WP_EDIT.days.length<7?'<button type="button" class="wp-add day" id="wpAddDay">+ '+esc(Lx({en:"Add day",id:"Tambah hari"}))+'</button>':'')+
+      '<div class="wp-f-err" id="wpErr"></div>'+
+      '<div class="wp-f-ft"><button type="button" class="btn ghost" id="wpCancel">'+esc(Lx({en:"Cancel",id:"Batal"}))+'</button>'+
+        '<button type="button" class="btn" id="wpSave">'+esc(Lx({en:"Save plan",id:"Simpan plan"}))+'</button></div></form>';
+    var close=function(){ dlg.close(); };
+    dlg.querySelector("#wpClose").onclick=close; dlg.querySelector("#wpCancel").onclick=close;
+    Array.prototype.forEach.call(dlg.querySelectorAll("[data-delday]"),function(b){ b.onclick=function(){ wpRead(); WP_EDIT.days.splice(+b.getAttribute("data-delday"),1); wpPaint(); }; });
+    Array.prototype.forEach.call(dlg.querySelectorAll("[data-delex]"),function(b){ b.onclick=function(){ wpRead(); var x=b.getAttribute("data-delex").split("."); WP_EDIT.days[+x[0]].exercises.splice(+x[1],1); wpPaint(); }; });
+    Array.prototype.forEach.call(dlg.querySelectorAll("[data-addex]"),function(b){ b.onclick=function(){
+      wpRead(); var di=+b.getAttribute("data-addex"); WP_EDIT.days[di].exercises.push({name:"",sets:3,reps:"10",unit:"reps"}); wpPaint();
+      var ins=dlg.querySelectorAll('[data-f="name"][data-d="'+di+'"]'); if(ins.length) ins[ins.length-1].focus();
+    }; });
+    var ad=dlg.querySelector("#wpAddDay"); if(ad) ad.onclick=function(){
+      wpRead(); var used=WP_EDIT.days.map(function(d){ return String(d.label).toLowerCase(); });
+      var free=WP_DAYNAMES.filter(function(n){ return used.indexOf(n.toLowerCase())<0; })[0]||"";
+      WP_EDIT.days.push({label:free,focus:"",duration_min:"",done:false,exercises:[{name:"",sets:3,reps:"10",unit:"reps"}]}); wpPaint();
+    };
+    dlg.querySelector("#wpSave").onclick=wpSave;
+  }
+  async function wpSave(){
+    wpRead();
+    var dlg=document.getElementById("wpDlg"), err=dlg.querySelector("#wpErr"), btn=dlg.querySelector("#wpSave");
+    var days=WP_EDIT.days.map(function(d){
+      return { label:String(d.label).trim(), focus:String(d.focus).trim(), duration_min:parseInt(d.duration_min,10)||null, done:!!d.done,
+        exercises:d.exercises.filter(function(e){ return String(e.name).trim(); }).map(function(e){ return Object.assign({},e,{ name:String(e.name).trim(), sets:parseInt(e.sets,10)||1, reps:String(e.reps).trim() }); }) };
+    }).filter(function(d){ return d.exercises.length; });
+    if(!days.length){ err.textContent=Lx({en:"Add at least one day with one exercise.",id:"Isi minimal 1 hari dengan 1 latihan."}); return; }
+    err.textContent=""; btn.disabled=true;
+    var j=await wpAdjust({op:"edit",plan_name:String(WP_EDIT.name).trim(),days:days});
+    btn.disabled=false;
+    if(j){ WPLAN=j.plan; renderWorkoutPlan(); dlg.close(); }
+    else err.textContent=Lx({en:"Couldn't save. Check your connection and try again.",id:"Gagal menyimpan. Cek koneksi lalu coba lagi."});
   }
 
   (async function(){
@@ -1830,12 +2347,17 @@
     try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
     applyStaticLang(); renderHead(); renderDnav(); wireUpload(); wireDlg(); wireSleepDlg();
     await load(SEL);
-    loadVisbodyAlert();  // alert hasil Visbody baru (kalau ada & belum dilihat)
+    loadJourney();       // hasil Visbody baru + checklist Health Journey + nudge (server) — fire-and-forget
     loadHealthScore();   // skor komposit + What You Need + weekly recap — fire-and-forget
     loadCoachProfiles(); renderCoachQa();   // kotak profil coach + aksi cepat (auto-message ke chat) — fire-and-forget
-    loadWorkoutPlan();   // Active Plan (dari /api/coach/plan) — fire-and-forget
-    wirePlanUpload(); loadTodayPlan(); loadLastUpload();   // Upload Progress + Today's Plan — fire-and-forget
+    // "Ubah di Activity" dari tabel plan di chat -> buka editor setelah plan termuat.
+    if(location.hash==="#edit-plan"){ try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} WP_OPEN_EDITOR=true; }
+    loadWorkoutPlan();   // Workout plan aktif (dari /api/coach/plan) — fire-and-forget
+    loadTodayPlan(); loadLastUpload();   // Today's Plan + "Terakhir:" di kartu upload — fire-and-forget
     wireTabs();          // tab bar Dashboard/Chat/Plan/History
+    // Tombol "Tur fitur" (putar ulang kapan saja) + link "Upload workout pertamaku" dari tur Home.
+    document.getElementById("tourHelp").onclick=function(){ if(window.Tour) Tour.start(JN&&JN.has_claimed_scan?"activity":"activity_intro",{vars:tourVars(),onCta:tourCta}); };
+    if(location.hash==="#upload-workout"){ try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} setTimeout(uploadWorkoutGo,600); }
     // Isi Activity lama menyatu di halaman yang sama. Dijalankan SETELAH bagian harian
     // supaya yang di layar pertama tampil duluan; skripnya berat (pencapaian, siklus,
     // riwayat arena). Gagal di sini TIDAK boleh merusak bagian harian di atasnya.
@@ -1847,8 +2369,8 @@
 
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
     applyStaticLang(); renderHead(); renderDnav();
-    if(DAY){ renderWorkouts(); renderAi(); renderGoals(); renderHabits(); renderWeek(); }
-    renderSleep(); renderHydra(); loadVisbodyAlert(); renderHealthScore(); renderCoachProfiles(); if(window.CoachProfiles) CoachProfiles.loadNext(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadLastUpload();
+    if(DAY){ renderWorkouts(); renderHabits(); renderWeek(); }
+    renderSleep(); renderHydra(); renderJourney(); renderHealthScore(); renderCoachProfiles(); if(window.CoachProfiles) CoachProfiles.loadNext(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadLastUpload();
   });
 
 </script>

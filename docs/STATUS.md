@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `5f30f1c` · **Production:** `5966889`
+> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `2dab934` · **Production:** `d263b13`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -154,6 +154,116 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Analisa performa per workout + halaman detail riwayat (2026-10-01, Fase 1–4, staging dulu, TANPA migration).**
+  - **Fase 1 — ekstraksi:** `my20fit_workout` jadi satu sumber data workout (riwayat tak lagi membaca kalimat deskripsi
+    AI). Judul kartu dari angka (`js/workout-metrics.js`, dipakai browser & server), mis. "Lari 5 km · 33:45 · 6:45/km".
+    Tanggal hasil baca divalidasi: tahun tak tercetak / masa depan / > N hari dari upload → dialog **wajib** konfirmasi
+    tanggal (temuan nyata: "Oct 5" dibaca AI jadi `2023-10-05`). Dialog: tanggal, jam mulai, HR maks, catatan (nyeri dll.),
+    jenis walk/hiit. Edit setelah simpan: `PATCH /api/activity/workout/:id`. Screenshot disimpan sebagai path (dulu signed
+    URL 7 hari). Hapus = workout + screenshot + baris upload tertaut. Prompt `WORKOUT_SYS` di edge `my20fit-ai` diperluas
+    (tanggal hanya kalau tahun tercetak, jam mulai, kecepatan, cadence, split, confidence per field) — **edge belum
+    di-deploy (TANYA PEMILIK)**; tanpa deploy, tanggal diambil dari bacaan upload-analyze dan jam mulai diisi manual.
+  - **Fase 2 — mesin faktor** (`lib/workout-analysis.js`, ambang `lib/workout-analysis-config.js` PERLU DIVALIDASI):
+    baseline = ≤5 workout sejenis (jarak ±30%) dlm 120 hari, < 3 → "baseline belum cukup"; faktor tidur (malam sebelum,
+    vs rata-rata 7 hari & target), nutrisi kemarin (vs target `js/nutrition.js`, kini juga di-require server), jeda makan
+    terakhir → jam mulai (`cal_items.t`), hidrasi kemarin & sebelum mulai, beban 7 hari vs 4 minggu, Visbody. Status
+    baik/kurang/berlebih/**tidak_ada_data**; pengaruh tinggi/sedang/rendah hanya kalau performa turun. Halaman
+    `/activity/history/:id` (`activity-workout.html`): metrik, zona HR, split, performa vs biasanya + grafik, kartu faktor
+    + isi data langsung (tidur semalam, minum kemarin, jam mulai) → dihitung ulang.
+  - **Fase 3 — narasi coach:** `POST /api/activity/workouts/:id/narrative` — AI hanya menerima hasil hitungan + daftar
+    angka yang boleh; angka lain → ulang 1x → template. Disimpan per (hash input, bahasa) di `raw_data.analysis`
+    (hemat biaya; data berubah → dibuat ulang). Keamanan (HR maks tak wajar / catatan nyeri) → tanpa analisa performa
+    & tanpa AI, CTA Book Doctor; nomor darurat `safety.emergency_number` = null (TANYA PEMILIK, tidak dikarang).
+    "Balas Coach" → chat coach dengan isian awal soal workout ini.
+  - **Fase 4 — insight lintas workout:** muncul di riwayat hanya kalau ≥ 8 workout bisa dibandingkan & ≥ 5 sesi lambat
+    berdata faktor itu, dengan jumlah datanya disebut.
+  - **Belum:** diuji dengan AI asli & data nyata (DB baru punya 1 workout; tabel tidur & hidrasi kosong). Contoh analisa di
+    laporan memakai DATA UJI.
+- **/activity dirapikan (2026-09-30, staging dulu).**
+  - **Kartu "AI Coach — Analisis keseluruhan" DIHAPUS** (Buat rencana / Tentukan targetmu), beserta turunannya di
+    halaman: kartu skor harian `#scoreTop`, checklist "Rencana AI Coach" (`#goalBox`), quiz `js/goal-quiz.js` (file
+    dihapus), dan refresh rencana otomatis setelah simpan workout (diganti hitung ulang Health Score). Skor utama
+    halaman = **Health Score**.
+  - **Satu kartu upload** (`#uploadCard`) menggantikan kartu "Upload Progress" + "Upload hasil workout". 1–5 gambar:
+    gambar pertama → `/api/activity/upload-analyze` (jenis + Today's Plan + riwayat upload untuk Health Score), semua
+    gambar → `/api/activity/scan` (pembaca workout) — **paralel**. Dialog catat workout hanya terbuka kalau jenisnya
+    workout (atau jenis tak dikenali tapi pembaca workout berhasil); foto asli disimpan ke Storage hanya untuk workout.
+    Tombol: Kamera / Galeri-file / Isi workout manual. Konsekuensi: tiap upload non-workout tetap memanggil pembaca
+    workout sekali (biaya AI ekstra, demi user tidak menunggu dua kali).
+  - **Hidrasi = 8 gelas yang bisa diketuk** (8 × 250 ml = target 2 L), animasi air naik/turun (mati kalau
+    `prefers-reduced-motion`). Ketuk gelas ke-n = total n gelas; ketuk gelas terisi terakhir = kurang satu (catatan
+    terbaru dihapus, selisihnya ditambah lagi). Tombol "+1 gelas" untuk lewat target. Tetap `my20fit_hydration` +
+    sinkron `daily_log.water_glasses`. Tombol cepat kopi/teh/ml-bebas dihapus; catatan lama tetap tampil di
+    "Catatan minum".
+  - **Belum diputuskan (TANYA PEMILIK):** `POST /api/activity/plan`, `PATCH /api/activity/goal`, dan field `plan` di
+    `/api/activity/day` (tabel `my20fit_daily_plan`) kini **tak dipanggil halaman web mana pun**. Tidak dihapus karena
+    BELUM TERVERIFIKASI apakah app mobile memakainya — hapus kalau pemilik memastikan tidak.
+- **Visbody Journey — Fase 2 & 3: landing, Health Journey, hasil lengkap, tur fitur, nudge, funnel (2026-09-30,
+  staging dulu).** Migration 029. Config di `lib/journey-config.js` (landing, rescan, nudge, info alat, min grup corporate).
+  - **Landing setelah login** (`Auth.routeAfterAuth`): link claim tertunda → tujuan internal yang diminta (`?next=/path`
+    di login, atau halaman yang dibuka sebelum login via `requireAuth`) → **/activity untuk user dengan scan ter-claim**
+    (mode `always`/`new_scan`/`off`, dihitung server di `/api/journey/state`) → dashboard. Redirect lama di dashboard
+    (`goActivityIfNewVisbody`, localStorage) DIHAPUS.
+  - **/activity:** banner "Hasil Visbody kamu sudah masuk!" (4 angka + Lihat hasil lengkap) selama hasil belum DIBUKA
+    (`viewed_at` di DB, ditandai saat /activity/visbody dibuka — bukan saat banner tampil); checklist **Health Journey**
+    6 langkah (lihat hasil, analisa coach, buat plan, target kalori dari BMR, book kelas, jadwalkan rescan) — langkah
+    yang bisa dibaca dari data (viewed, chat, plan) tidak disimpan ulang; kartu "Langkah berikutnya" + daftar ringkas.
+    Target kalori dari BMR = rumus yang sama dgn target otomatis (`Nutrition.goalFromBmr`), baru disimpan setelah user
+    menekan "Pakai target ini" (`my20fit_profile.calorie_target_kcal`, min 1200); bisa kembali ke otomatis.
+    **Book kelas** hanya tercatat sebagai "user membuka booking" (booking.20fit.id tak bisa diverifikasi dari sini).
+    **Pengingat rescan** = nudge di /activity (belum ada email/WA — TANYA PEMILIK kalau mau kanal lain).
+  - **/activity/visbody:** penjelasan awam per parameter (tanpa diagnosis; rentang normal hanya dari data Visbody),
+    perbandingan dgn scan sebelumnya (sudah ada), unduh PDF kalau Visbody memberi `pdf_url`. Belum pernah scan →
+    halaman ajakan: manfaat, contoh hasil berlabel "Contoh", **ajakan scan di 20FIT Arena** (tombol Maps = link pemilik,
+    tombol Kunjungi 20FIT Arena = arena.20fit.id — asumsi agent), biaya/persiapan/tombol jadwal dari config — **masih null
+    sehingga TIDAK tampil**; tanpa tombol jadwal teksnya "datang ke 20FIT Arena dan minta scan ke tim". Klik CTA lokasi
+    tercatat sebagai `visbody_booking_clicked` (from: location_maps / location_site).
+  - **Nudge** (batas frekuensi per user di `my20fit_health_journey.nudges`): belum scan + ≥3 workout → ajakan Visbody;
+    scan terakhir > 30 hari → ajakan rescan. AI Coach: ajakan Visbody maks 1x per sesi (server menambah pengingat).
+    **Belum dibuat:** pengingat "sekalian scan setelah kelas" — tidak ada data booking kelas per user di my.20fit
+    (booking di booking.20fit.id).
+  - **Tur fitur — satu mesin `js/tour.js` + isi di `js/tours-config.js`** (menggantikan tour.js lama yang, karena mencocokkan
+    `*.html`, tak pernah jalan otomatis di URL bersih). Tur: `welcome` (F2: semua menu + fitur unggulan, user tanpa scan,
+    di /dashboard), `activity` (F1: user ber-scan, pakai skor asli), `activity_intro` (tur mini /activity tanpa data),
+    `home`/`calories`/`medical` (F3, pindahan tur lama; tanda localStorage lama dihormati). Status per user di
+    `my20fit_tour_state` (lintas device, lanjut dari langkah terakhir, versi naik → hanya langkah baru). Ulang: tombol "?"
+    di /activity, "Tur fitur" di Profil (`/dashboard?tour=welcome`). Menunggu modal lain tertutup; Esc/←/→, fokus terkunci
+    di tooltip, reduced-motion. **Teks tur = draf agent, PERLU DITINJAU; daftar fitur unggulan PERLU DIPUTUSKAN.**
+  - **Funnel:** `my20fit_event_log` (event di-whitelist server; event server: scan masuk/claim/rescan/plan/chat/HS terbuka).
+    Admin-v2 → **Funnel Visbody**: user unik per event per minggu (8 minggu) + event tur per langkah.
+  - **Corporate:** `/api/corp/visbody-summary` + kartu di /corp-dashboard — hanya jumlah peserta & rata-rata; rata-rata
+    disembunyikan kalau peserta < 5 (config). TIDAK ada data Visbody per karyawan untuk HR.
+  - Diuji: 15 skenario server journey + 14 skenario claim (kode asli server.js + DB tiruan) + Chromium (tur F2 12 langkah
+    di HP tanpa menutupi sorotan, lewati/ulang/lanjut/antre modal, F1 skor asli & versi "belum punya plan", dialog
+    kalori, halaman ajakan & hasil lengkap).
+- **Visbody Journey — Fase 1: claim scan + gating Health Score (2026-09-30, staging dulu).**
+  Angka/kebijakan di `lib/journey-config.js` (default agent, ditandai PERLU DIPUTUSKAN/DIVALIDASI).
+  - **Kondisi data asli saat audit:** 7 scan (1 timbangan, 27–28 Sep) semua unclaimed, `measured_items`
+    masih `processing` (event "completed" tak pernah tercatat — BELUM TERVERIFIKASI penyebabnya),
+    identitas dari timbangan kosong; `my20fit_visbody_body` = 0 baris.
+  - **Claim:** QR timbangan / link staf = `/visbody-claim?t=<token>` (token acak, hash di
+    `my20fit_visbody_claim_token`, sekali pakai, TTL config). Belum login → token disimpan
+    (`my20fit_pending_claim`) dan `Auth.routeAfterAuth` mengembalikan member ke claim setelah
+    login/daftar. Persetujuan data (UU PDP) wajib → `my20fit_data_consent`. Sukses →
+    `/activity?welcome=visbody` (tampilan welcome = Fase 2). Endpoint: `GET /api/visbody/claim/info`,
+    `POST /api/visbody/claim`. Semua claim/penolakan/link/bind tercatat di `my20fit_visbody_claim_audit`.
+  - **Webhook:** event berikutnya untuk scan yang sama tak lagi menimpa pemilik/status (bug lama: upsert
+    penuh bisa mengosongkan pemilik saat event "completed" datang setelah claim); scan ber-pemilik +
+    "completed" → data ukur diambil.
+  - **Admin-v2 → Claim Visbody** (staff; marketing diblokir): daftar scan unclaimed tanpa angka ukur, buat
+    link claim baru (salin / WhatsApp `api.whatsapp.com/send`), ikat ke member by email (wajib centang
+    persetujuan disaksikan staf → consent `source=staff`). Endpoint `/api/admin/visbody/unclaimed|claim-link|bind`.
+  - **Health Score gating (`hsCompute`, satu fungsi — juga dipakai chat coach & achievements):** terbuka
+    hanya kalau ada ≥1 scan Visbody ter-claim ATAU ≥1 workout (log/upload) sepanjang waktu; terkunci →
+    `total:null` + `filled` (komponen terisi) tanpa angka. Workout: jendela bergulir 7 hari (config);
+    belum pernah workout → komponen "belum ada data" (dulu selalu dihitung → user kosong melihat
+    "0/100 Kritis"). Body: scan > 60 hari → ditandai "lama" & bobot ×0.5 (config). Ambang BMI/body fat
+    komponen Body masih angka lama — PERLU DIVALIDASI tim klinik. UI `/activity`: kartu terkunci
+    (2 jalur: Scan Visbody / Upload workout + komponen terisi ✓), kartu terbuka ("Berdasarkan n dari 6
+    komponen", CTA per komponen kosong, label "bukan penilaian medis").
+  - Diuji: 14 skenario server (kode asli server.js + DB tiruan in-memory — npm registry diblokir di
+    container, server utuh tak bisa dijalankan) + Chromium (halaman claim 7 state, kartu HS, admin).
+    **Belum diuji ke timbangan/API Visbody asli.**
 - **Ekosistem Activity: AI Coach chat + alur Visbody (2026-09-30, staging dulu).** Aturan chatbot: `RULES.md`.
   - Route baru (tanpa halaman duplikat): `/activity/chat`, `/activity/chat/:coach`, `/activity/plan[/:id]` →
     `coach.html`; `/activity/visbody` → `body-scan.html`. `/coach` & `/body-scan` tetap hidup.
@@ -162,9 +272,15 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     `POST /api/coach/plan/activate`). Kartu Active Plan di `/activity`: "oleh Coach X", durasi per hari
     (plan dari chat), penanda "← hari ini" kalau label hari = nama hari.
   - Chat: balasan berisi blok JSON `workout_plan` → otomatis jadi plan aktif (`my20fit_workout_plan`,
-    `source="chat"`); kelas upcoming milik coach persona masuk konteks (rekomendasi kelas coach sendiri);
+    `source="ai"` + `plan.origin="chat"` — lihat catatan 2026-10-01 di §4); kelas upcoming milik coach persona masuk konteks (rekomendasi kelas coach sendiri);
     ajakan Visbody scan kalau user belum punya data; token tombol `[[BOOK_CLASS]]` `[[BOOK_DOCTOR]]`
-    `[[ARENA_MAPS]]` `[[VISBODY]]` `[[PLAN_SAVED]]`. Header chat: streak + level.
+    `[[ARENA_MAPS]]` `[[VISBODY]]` `[[TRACK_MEAL]]`, kartu `[[WORKOUT_PLAN]]` (tabel). Header chat: streak + level.
+    Balasan singkat & **tanpa sapaan pembuka** (pengingat gaya ditaruh setelah riwayat).
+  - **Meal plan dari coach (migration 027, dijalankan 2026-09-30):** blok JSON `meal_plan` di balasan →
+    kartu di chat + tombol **"Terapkan meal plan"** (`POST /api/coach/meal-plan/apply`, divalidasi ulang di server)
+    → tersimpan di `my20fit_coach_meal_plan` (1 baris/user) → bagian Meal Plan di `/calories` berganti jadi
+    "Meal plan dari Coach X" (tombol "Catat" per menu → masuk log hari ini; karbo/lemak 0 karena coach hanya memberi
+    kkal & protein) + tombol "Kembali ke rekomendasi otomatis" (`POST /api/coach/meal-plan/clear`).
   - Gamifikasi (XP, level, streak aktivitas, 7 badge baru) **dihitung dari data yang ada** di
     `/api/coach/achievements` — tabel `user_gamification`/`health_scores` dari spec SENGAJA tidak dibuat.
   - **Kotak profil coach (carousel)** — satu modul `js/coach-profiles.js` + `css/coach-profiles.css`, dipakai
@@ -383,8 +499,8 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     belum ada tabel apa pun berawalan `visbody` maupun `my20fit_visbody`.
   - **Scan TIDAK dicocokkan otomatis ke akun.** Identitas yang diketik di layar timbangan
     tidak terverifikasi, jadi mencocokkannya otomatis = menyerahkan data komposisi tubuh
-    seseorang ke akun yang belum tentu dia. Kepemilikan hanya lewat member memindai QR →
-    `POST /api/visbody/bind-user`, dengan jendela klaim **30 menit** dan klaim atomik
+    seseorang ke akun yang belum tentu dia. **(2026-09-30: alur claim diganti — lihat "Visbody
+    Journey Fase 1" di §2. `bind-user` + jendela 30 menit sudah DIHAPUS.)** Klaim tetap atomik
     (`.is("auth_user_id", null)`) supaya dua orang yang memindai QR sama tidak sama-sama dapat.
   - **QR dibuat di server** pakai `js/qrcode-generator.js` yang sudah ada di repo, BUKAN
     dikirim ke `api.qrserver.com` seperti contoh spesifikasi — scan_id tidak perlu bocor
@@ -499,7 +615,7 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   - Ikut diperbaiki: `toggleLike`/`toggleSave` dulu meninggalkan tombol `disabled` selamanya
     kalau request-nya gagal (pola bug yang sama dengan `genPlan` di /activity).
 
-- **Quiz "Set Your Goal" SEKARANG TERPASANG di `/activity` (21 Sep 2026).** Sebelumnya
+- **[DIGANTI 2026-09-30 — quiz & kartu analisis dihapus dari /activity, lihat §2]** **Quiz "Set Your Goal" SEKARANG TERPASANG di `/activity` (21 Sep 2026).** Sebelumnya
   `js/goal-quiz.js` sudah ada tapi tak dipanggil dari mana pun (dead code menurut
   CLAUDE.md §8). Sekarang: tombol **"Tentukan targetmu"** di kartu "Belum ada rencana"
   membuka quiz di dalam `#aiBox`; `onComplete` mengembalikan kartu analisis lalu lanjut
@@ -598,6 +714,63 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 - Bangun + sambungkan API Event (`/api/events`) ke `event.html`.
 
 ## 4. Bug / utang teknis diketahui
+- **Coach membalas dalam bahasa tombol EN/ID, bukan bahasa yang diketik user — DIPERBAIKI 2026-10-01.** Sekarang server
+  mendeteksi bahasa pesan (`coachDetectLang`, kata penanda ID/EN; istilah dua bahasa seperti plan/workout tak dihitung),
+  fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
+  chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
+  (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Plan & Rekomendasi Hari Ini + tombol "Generate plan" — BARU 2026-10-01.** Sebelumnya Today's Plan hanya terbentuk
+  setelah upload screenshot. Sekarang `POST /api/activity/today-plan/generate` (aiUserLimiter) membuat plan tanpa upload.
+  Isi kartu (analisa DETERMINISTIK `lib/today-brief.js`, dihitung ulang tiap GET `/api/activity/today-plan?lang=` jadi
+  ikut berubah saat user mencatat tidur/minum/makan): (1) **Kondisi hari ini** — tidur semalam, makan & minum kemarin,
+  beban 7 hari, tubuh (faktor sama persis dengan analisa workout, `woAnalysis.readiness()`), + progres hari ini;
+  (2) **Naikkan Health Score hari ini** — per komponen: poin maksimal = (100 − skor) × bobot / total bobot (Health Score
+  rata-rata 7 hari, jadi dijelaskan naiknya bertahap); komponen tanpa data = "belum dihitung"; (3) **Dari workout
+  terakhir** (≤ 14 hari) — performa vs biasanya + faktor kurang/berlebih + tips + link analisa lengkap; (4) plan
+  workout/makan/tidur/minum + Coach says dari AI (persona coach pilihan) dengan **target angka dikunci server**
+  (kalori = rumus Calorie Tracker, minum 2 L & tidur 7,5 jam dari config). AI gagal → plan template sederhana
+  (durasi di config `today.template_minutes`, PERLU DIVALIDASI coach). Disimpan di `my20fit_today_plans` (tanpa
+  migration; generate menimpa plan hari itu). Catatan: `plan_date` memakai jam server (`ymd(new Date())`) seperti
+  sebelumnya, sedangkan analisa memakai Asia/Jakarta — di luar scope, BELUM TERVERIFIKASI zona waktu server Railway.
+- **Catat tidur di /activity — Health Score tidak ikut berubah — DIPERBAIKI 2026-10-01.** Data tidur sebenarnya
+  tersimpan (`my20fit_sleep`, dicek di DB), tapi Health Score tidak di-fetch ulang setelah simpan, jadi baris "Sleep"
+  tetap "+ Log sleep" sampai halaman dimuat ulang. Sama untuk gelas air. Sekarang simpan tidur & ubah air memanggil
+  `loadHealthScore()`. **Dialog dirombak:** tanpa ketik manual — jam/menit pakai tombol ▲▼ (menit kelipatan 5),
+  toggle **AM/PM**, pilihan cepat (9 PM–12 AM / 5–8 AM), stepper "berapa kali terbangun", ringkasan durasi; durasi
+  > 14 jam memunculkan peringatan "cek AM/PM" (tidak memblokir). Isi awal = catatan hari itu → catatan terakhir →
+  10 PM–6 AM. Kartu tidur menampilkan jam 12-jam. Penyimpanan (kolom & format) tidak berubah.
+- **`/activity/plan` untuk plan dari chat coach — dirapikan 2026-10-01.** Halaman ini sudah membaca plan aktif
+  (`GET /api/coach/plan`) + daftar (`/api/coach/plans`), jadi plan hasil chat (setelah fix di bawah) tampil di sini.
+  Yang diperbaiki: reps teks dari coach ("20 menit", "AMRAP") tidak lagi ditempeli satuan ("20 menit rep") dan tidak
+  menjepit nama latihan di layar HP; tombol "ganti" disembunyikan untuk plan `origin="chat"` (latihannya bukan dari
+  library quiz, jadi swap selalu no-op) dan diganti "Ubah plan" → editor `/activity#edit-plan`; daftar kosong kini
+  menjelaskan bahwa plan dari chat tersimpan otomatis di sini + tombol "Minta coach buatkan plan". **Catatan data:**
+  permintaan plan yang dikirim SEBELUM fix (mis. 1 akun member, 30 Sep & 1 Okt pagi) tidak tersimpan dan balasan
+  chat-nya tidak memuat JSON plan → tidak bisa dipulihkan; user perlu minta ulang ke coach.
+- **Workout plan dari chat TIDAK PERNAH tersimpan — DIPERBAIKI 2026-10-01.** Plan dari chat disimpan dengan
+  `source="chat"`, padahal CHECK `my20fit_workout_plan_src_chk` (migration 021) hanya mengizinkan `ai|rule|adjusted`
+  → insert selalu ditolak, blok JSON dibuang, user melihat ruang kosong di balasan (dan plan aktif lama sudah lebih dulu
+  dinonaktifkan). Dicek di DB 2026-10-01: tabel masih kosong — artinya SEMUA permintaan plan lewat chat sebelum fix hilang (lihat entri di atas). Sekarang: disimpan
+  `source="ai"` + `plan.origin="chat"` (tanpa migration), plan baru disimpan DULU baru plan lama dinonaktifkan; balasan
+  memuat `[[WORKOUT_PLAN]]{json}` → **tabel** di chat (hari · fokus · latihan set×rep · menit) + "Ubah di Activity";
+  balasan yang terpotong di tengah JSON diganti catatan "minta ulang". **/activity:** kartu Workout Plan kini tabel per
+  hari (centang selesai) + **editor** (`POST /api/coach/plan/adjust` op `edit`: nama plan, hari, fokus, durasi, latihan,
+  set/rep/satuan, tambah/hapus; dinormalisasi ulang server lewat `coachValidateProgram`) + "Plan baru via coach" +
+  "Semua plan". Batas token balasan chat tetap 2048 (edge fn) — plan sangat panjang bisa terpotong; prompt membatasi
+  maks 6 latihan/hari.
+- **Chat coach membalas "Terlalu banyak permintaan" — DIPERBAIKI 2026-09-30.** Penyebab: limiter umum `apiLimiter`
+  50 request/10 menit **per IP** untuk SEMUA `/api/*` (satu putaran dashboard ±15 + activity ±8 + chat ±8 panggilan),
+  apalagi member berbagi IP (Wi-Fi kantor/gym, NAT seluler); `/api/banners/*` juga terhitung dua kali. Sekarang:
+  kunci = user login (hash token Bearer; tanpa login = IP) 400/10mnt (tanpa login 100), pagar per IP `ipGuard`
+  3000/10mnt, dan `aiUserLimiter` 40 POST/10mnt per user untuk endpoint AI (chat, upload-analyze, scan,
+  quick-analysis, plan). Di chat, gagal kirim tampil sebagai catatan + tombol "Coba lagi" (bukan bubble coach), 429
+  menyebut perkiraan menit dari `Retry-After`. Angka limit = default agent, **PERLU DIVALIDASI** dengan trafik nyata.
+- **Jadwal Arena keliru: instruktur kelas HYROX Youngstar (12-15) tercatat "Nando"** (semua jadwal Rabu 16:00, 3 Sep–29 Okt
+  2026, tabel `arena_class_schedules` milik sistem Arena — bukan my.20fit, tidak boleh diubah dari sini). Pemilik
+  mengonfirmasi Coach Nando TIDAK mengajar Youngstar (2026-09-30). **Perbaikan sebenarnya: tim Arena mengganti instruktur
+  di sistem Arena/booking.** Sementara itu `lib/class-overrides.js` + `classInstructor()` di server.js membuat my.20fit tidak
+  menampilkan/menghubungkan "Nando" ke Youngstar (profil coach, Book Coach, Upcoming Classes, filter coach Book Class,
+  jadwal, rekomendasi AI Coach). **Hapus aturan itu setelah jadwal Arena diperbaiki.**
 
 - **admin-v2 auth: sebagian #293 sudah ada.** admin-v2 kini baca master key dari `?key=` / `sessionStorage.admin_master_key` + pesan panduan "Buka dengan ?key=ADMIN_KEY atau login admin" per-seksi. Autentikasi: `Authorization: Bearer <JWT>` (login app/admin password) atau `?key=ADMIN_KEY`. **Flag `admin_v2` ON di produksi (2026-09-25).** Yang mungkin masih kurang dari branch `claude/admin-v2-fix-auth`: **banner login penuh** saat belum terautentikasi — kalau login UX dirasa kurang mulus, pertimbangkan merge branch itu.
 - **`getAdminContext` menelan error infra jadi 401.** Kalau Supabase `getUser` timeout/mati (status 503 dari `getUserFromReq`), `getAdminContext` menangkap dan balas `null` → `requireAdmin` balas **401** (seolah sesi habis), bukan 503. Menyesatkan saat debug. (`server.js`.) Prioritas rendah.

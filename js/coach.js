@@ -87,6 +87,8 @@
   var COACH_NAME = CP.NAME;
   var HEALTH = null;                 // skor kesehatan asli (0-100) dari /api/activity/health-score
   var HS_DATA = null;                // respons health-score lengkap (chip data di sapaan chat)
+  var MEAL_CARDS = [];               // meal plan per kartu di chat (indeks = data-meal-i)
+  var MEAL_APPLIED = "";             // signature meal plan yang sedang diterapkan (/api/coach/meal-plan)
   var GAME = null;                   // {xp, level, current_streak, ...} dari /api/coach/achievements
   // ?ask=<teks> (link dari Calories / Medical) -> HANYA mengisi kotak pesan, tidak dikirim otomatis
   // (link dari luar tak boleh mengirim chat atas nama user tanpa ia menekan Kirim).
@@ -95,11 +97,11 @@
   var USER_NAME = "";                // nama depan user (buat sapaan personal)
   // [label, pesan, ikon] — label & ikon utk kartu prompt; pesan = yang benar-benar dikirim ke coach.
   var QUICKS = [
-    [{ en: "Make a plan", id: "Buat plan" }, { en: "Buatkan workout plan untuk minggu ini", id: "Buatkan workout plan untuk minggu ini" }, "dumbbell"],
-    [{ en: "My health score", id: "Health score-ku" }, { en: "Berapa health score aku sekarang dan gimana cara naikinnya?", id: "Berapa health score aku sekarang dan gimana cara naikinnya?" }, "heart"],
-    [{ en: "Meal ideas", id: "Ide makan" }, { en: "Suggest meal plan hari ini sesuai target kalori aku", id: "Suggest meal plan hari ini sesuai target kalori aku" }, "food"],
-    [{ en: "Book a class", id: "Book kelas" }, { en: "Ada kelas apa yang cocok buat aku minggu ini?", id: "Ada kelas apa yang cocok buat aku minggu ini?" }, "cal"],
-    [{ en: "Read my Visbody", id: "Baca Visbody" }, { en: "Analisa hasil Visbody terakhir aku", id: "Analisa hasil Visbody terakhir aku" }, "scan"],
+    [{ en: "Make a plan", id: "Buat plan" }, { en: "Make me a workout plan for this week", id: "Buatkan workout plan untuk minggu ini" }, "dumbbell"],
+    [{ en: "My health score", id: "Health score-ku" }, { en: "What's my health score right now and how do I raise it?", id: "Berapa health score aku sekarang dan gimana cara naikinnya?" }, "heart"],
+    [{ en: "Meal ideas", id: "Ide makan" }, { en: "Suggest a meal plan for today that fits my calorie target", id: "Suggest meal plan hari ini sesuai target kalori aku" }, "food"],
+    [{ en: "Book a class", id: "Book kelas" }, { en: "Which classes suit me this week?", id: "Ada kelas apa yang cocok buat aku minggu ini?" }, "cal"],
+    [{ en: "Read my Visbody", id: "Baca Visbody" }, { en: "Analyse my latest Visbody result", id: "Analisa hasil Visbody terakhir aku" }, "scan"],
   ];
 
   // ---- Muat awal ----
@@ -125,7 +127,7 @@
     try {
       var hr = await apiFetch("/api/activity/health-score");
       var hj = await hr.json().catch(function () { return {}; });
-      if (hj && hj.ok && hj.have_any && typeof hj.total === "number") HEALTH = hj.total;
+      if (hj && hj.ok && typeof hj.total === "number") HEALTH = hj.total;   // terkunci -> total null -> chip tak tampil
       if (hj && hj.ok) HS_DATA = hj;
     } catch (e) {}
     try { var cpk = localStorage.getItem("my20fit_coach_pick"); if (cpk && COACH_NAME[cpk]) CHAT_COACH = cpk; } catch (e) {}
@@ -300,6 +302,9 @@
     var row = PLAN, p = row.plan || {};
     var days = Array.isArray(p.days) ? p.days : [];
     var srcLbl = planSrcLabel(row);
+    // Plan dari chat coach: latihannya bebas (bukan dari library quiz) -> tombol "ganti" tidak punya
+    // pengganti; ubahnya lewat editor di /activity (#edit-plan).
+    var fromChat = p.origin === "chat";
     var html = todayCardHtml() +
       '<div class="card"><div class="planhead"><div class="pn">' + esc(p.plan_name || "Workout plan") + '</div>' +
       '<div class="wn">' + esc(p.weekly_note || "") + '</div>' +
@@ -312,15 +317,15 @@
           '<span class="df">' + esc(d.focus || "") + '</span></div>' +
           '<div class="day-b"' + (di === 0 ? '' : ' style="display:none"') + '>' +
           (Array.isArray(d.exercises) ? d.exercises : []).map(function (e) {
-            var unit = e.unit === "sec" ? Lx({ en: "sec", id: "detik" }) : (e.unit === "min" ? Lx({ en: "min", id: "menit" }) : Lx({ en: "reps", id: "rep" }));
             return '<div class="ex"><div style="flex:1;min-width:0"><div class="en">' + esc(e.name || "") + '</div>' +
               (e.progression ? '<div class="prog">↗ ' + esc(e.progression) + '</div>' : '') + '</div>' +
-              '<span class="em">' + (e.sets || 1) + ' × ' + esc(String(e.reps || "")) + ' ' + esc(unit) + '</span>' +
-              '<button class="sw" data-swap="' + esc(d.key) + '|' + esc(e.key) + '">' + esc(Lx({ en: "swap", id: "ganti" })) + '</button></div>';
+              '<span class="em">' + esc(exDose(e)) + '</span>' +
+              (fromChat ? '' : '<button class="sw" data-swap="' + esc(d.key) + '|' + esc(e.key) + '">' + esc(Lx({ en: "swap", id: "ganti" })) + '</button>') + '</div>';
           }).join("") + '</div></div>';
       }).join("") +
       '<div class="adjrow"><button class="btn ghost" id="adjEasier">– ' + esc(Lx({ en: "Easier", id: "Ringankan" })) + '</button>' +
       '<button class="btn ghost" id="adjHarder">+ ' + esc(Lx({ en: "Harder", id: "Beratkan" })) + '</button>' +
+      (fromChat ? '<a class="btn ghost" href="/activity#edit-plan">' + esc(Lx({ en: "Edit plan", id: "Ubah plan" })) + '</a>' : '') +
       '<button class="btn ghost" id="adjRedo">' + esc(Lx({ en: "Retake quiz", id: "Ulang quiz" })) + '</button>' +
       '<a class="btn ghost" href="' + esc(chatPlanHref()) + '">' + svgIcon("chat", 16) + ' ' + esc(Lx({ en: "New plan via coach", id: "Plan baru via coach" })) + '</a></div>' +
       '<div class="disc">' + esc(p.disclaimer || "") + '</div></div>';
@@ -362,10 +367,15 @@
     Array.prototype.forEach.call(root().querySelectorAll("[data-cta]"), function (b) { b.onclick = function () { onCta(b.getAttribute("data-cta")); }; });
     wireBackToChat();
   }
+  // "3 × 10 rep" — satuan hanya ditempel kalau reps berupa angka/rentang; reps teks dari coach
+  // ("20 menit", "AMRAP") ditampilkan apa adanya (tidak jadi "20 menit rep").
+  function exDose(e) {
+    var reps = String(e.reps == null ? "" : e.reps).trim();
+    return (e.sets || 1) + " × " + reps + (/^\d+(\s*[-–]\s*\d+)?$/.test(reps) ? " " + unitLbl(e.unit) : "");
+  }
   function planSrcLabel(row) {
     var p = (row && row.plan) || {};
-    if (row && row.source === "chat") return "AI COACH" + (p.coach && COACH_NAME[p.coach] ? " · " + COACH_NAME[p.coach] : "");
-    if (row && row.source === "ai") return "AI COACH";
+    if (row && row.source === "ai") return "AI COACH" + (p.origin === "chat" && p.coach && COACH_NAME[p.coach] ? " · " + COACH_NAME[p.coach] : "");
     if (row && row.source === "adjusted") return Lx({ en: "Adjusted", id: "Disesuaikan" });
     return Lx({ en: "Auto plan", id: "Plan otomatis" });
   }
@@ -382,7 +392,11 @@
       var r = await apiFetch("/api/coach/plans"); var j = await r.json().catch(function () { return {}; });
       if (!r.ok) throw new Error(j.error || "plans");
       var list = (j && j.plans) || [];
-      if (!list.length) { box.innerHTML = '<div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "No plans yet.", id: "Belum ada plan." })) + '</div>'; return; }
+      if (!list.length) {
+        box.innerHTML = '<div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "No plans yet. A plan you ask a coach for in chat is saved here automatically — or take the quiz above.", id: "Belum ada plan. Plan yang kamu minta ke coach lewat chat otomatis tersimpan di sini — atau isi quiz di atas." })) + '</div>' +
+          '<a class="btn ghost" href="' + esc(chatPlanHref()) + '" style="margin-top:10px">' + svgIcon("chat", 16) + ' ' + esc(Lx({ en: "Ask a coach for a plan", id: "Minta coach buatkan plan" })) + '</a>';
+        return;
+      }
       box.innerHTML = '<div class="plist">' + list.map(function (pl) {
         var dt = ""; try { dt = new Date(pl.created_at).toLocaleDateString((window.I18N && I18N.lang === "en") ? "en-GB" : "id-ID", { day: "numeric", month: "short", year: "numeric" }); } catch (e) {}
         return '<a class="pli' + (pl.is_active ? ' on' : '') + '" href="/activity/plan/' + encodeURIComponent(pl.id) + '">' +
@@ -409,7 +423,7 @@
       days.map(function (d, di) {
         return '<div class="day' + (d.done ? ' done' : '') + '"><div class="day-h"><span class="dchk">' + svgIcon(d.done ? "boxcheck" : "box", 18) + '</span><span class="dl">' + esc(d.label || ("Hari " + (di + 1))) + '</span><span class="df">' + esc(d.focus || "") + '</span></div>' +
           '<div class="day-b">' + (Array.isArray(d.exercises) ? d.exercises : []).map(function (e) {
-            return '<div class="ex"><div style="flex:1;min-width:0"><div class="en">' + esc(e.name || "") + '</div></div><span class="em">' + (e.sets || 1) + ' × ' + esc(String(e.reps || "")) + '</span></div>';
+            return '<div class="ex"><div style="flex:1;min-width:0"><div class="en">' + esc(e.name || "") + '</div></div><span class="em">' + esc(exDose(e)) + '</span></div>';
           }).join("") + '</div></div>';
       }).join("") +
       '<div class="adjrow"><button class="btn" id="plActivate">' + esc(Lx({ en: "Make this my active plan", id: "Jadikan plan aktif" })) + '</button>' +
@@ -744,7 +758,6 @@
     root().innerHTML = '<div class="croom" style="--cc:' + color + '">' +
       '<div class="croom-h">' + coachAvatar(CHAT_COACH, 42) +
       '<div class="crn">' + esc(COACH_NAME[CHAT_COACH] || "Coach") +
-      '<small>' + esc(Lx({ en: "Your AI fitness coach · not medical advice", id: "AI fitness coach kamu · bukan nasihat medis" })) + '</small>' +
       '<small class="crgame" id="crGame">' + gameLine() + '</small></div>' +
       '<button type="button" class="crsw" id="crSwitch">' + esc(Lx({ en: "Switch", id: "Ganti" })) + '</button></div>' +
       '<div class="cmsgs" id="cMsgs"></div>' +
@@ -781,15 +794,88 @@
     BOOK_DOCTOR: ["/book-doctor", { en: "Book Doctor →", id: "Book Doctor →" }, "clinic"],
     ARENA_MAPS: ["https://www.google.com/maps/search/?api=1&query=20FIT+Arena+Menteng+Prada", { en: "20FIT Arena — Google Maps", id: "20FIT Arena — Google Maps" }, "pin"],
     VISBODY: ["/activity/visbody", { en: "My Visbody results", id: "Hasil Visbody aku" }, "chart"],
+    TRACK_MEAL: ["/calories", { en: "Track meals in Calorie Tracker →", id: "Catat makan di Calorie Tracker →" }, "meal"],
   };
-  function planCard() {
-    return '<span class="cplan"><b>' + svgIcon("clipboard", 15) + ' ' + esc(Lx({ en: "Plan saved as your active plan", id: "Plan tersimpan jadi plan aktif kamu" })) + '</b>' +
-      '<span class="cplan-a"><a href="/activity/plan">' + esc(Lx({ en: "View plan →", id: "Lihat plan →" })) + '</a>' +
-      '<a href="/activity">' + esc(Lx({ en: "Dashboard →", id: "Dashboard →" })) + '</a></span></span>';
+  var SLOT_LBL = { breakfast: { en: "Breakfast", id: "Sarapan" }, lunch: { en: "Lunch", id: "Makan siang" }, dinner: { en: "Dinner", id: "Makan malam" }, snack: { en: "Snack", id: "Snack" } };
+  // Signature isi plan (jsonb di DB bisa mengubah urutan key -> jangan bandingkan JSON mentah).
+  function mealSig(p) {
+    return p ? [p.title, p.calorie_target].concat((p.meals || []).map(function (m) { return m.slot + ":" + m.menu; })).join("|") : "";
   }
+  function mealApplyBtn(p) {
+    return MEAL_APPLIED && MEAL_APPLIED === mealSig(p)
+      ? svgIcon("check", 15) + ' ' + esc(Lx({ en: "Applied", id: "Sudah diterapkan" }))
+      : svgIcon("meal", 15) + ' ' + esc(Lx({ en: "Apply meal plan", id: "Terapkan meal plan" }));
+  }
+  // Kartu meal plan: [[MEAL_PLAN]]{json}[[/MEAL_PLAN]] (json dinormalisasi server).
+  function mealCard(js) {
+    var p; try { p = JSON.parse(js); } catch (e) { return ""; }
+    if (!p || !Array.isArray(p.meals) || !p.meals.length) return "";
+    var i = MEAL_CARDS.push(p) - 1;
+    return '<div class="cmeal"><b class="cmeal-t">' + svgIcon("clipboard", 15) + ' ' + esc(p.title || "Meal plan") + '</b>' +
+      (p.calorie_target ? '<span class="cmeal-k">± ' + esc(p.calorie_target) + ' ' + esc(Lx({ en: "kcal/day", id: "kkal/hari" })) + '</span>' : '') +
+      '<ul class="cmeal-l">' + p.meals.map(function (m) {
+        return '<li><span class="cmeal-s">' + esc(Lx(SLOT_LBL[m.slot] || SLOT_LBL.snack)) + '</span><span class="cmeal-m">' + esc(m.menu) + '</span>' +
+          '<span class="cmeal-n">' + (m.kcal ? esc(m.kcal) + ' ' + esc(Lx({ en: "kcal", id: "kkal" })) : '') + (m.protein_g ? ' · ' + esc(m.protein_g) + 'g P' : '') + '</span></li>';
+      }).join("") + '</ul>' +
+      (p.notes ? '<span class="cmeal-x">' + esc(p.notes) + '</span>' : '') +
+      '<span class="cmeal-a"><button type="button" class="cmeal-go" data-meal-i="' + i + '">' + mealApplyBtn(p) + '</button>' +
+      '<a class="cact" href="' + esc(ACTIONS.TRACK_MEAL[0]) + '">' + svgIcon("meal", 14) + ' ' + esc(Lx(ACTIONS.TRACK_MEAL[1])) + '</a></span></div>';
+  }
+  async function applyMeal(btn) {
+    var p = MEAL_CARDS[+btn.getAttribute("data-meal-i")]; if (!p || btn.disabled) return;
+    btn.disabled = true;
+    try {
+      var r = await apiFetch("/api/coach/meal-plan/apply", { method: "POST", body: JSON.stringify({ coach_id: CHAT_COACH, plan: p }) });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok || !j.ok) throw new Error((j && j.error) || "fail");
+      MEAL_APPLIED = mealSig(j.meal_plan && j.meal_plan.plan);
+    } catch (e) {
+      btn.disabled = false;
+      btn.innerHTML = svgIcon("warn", 15) + ' ' + esc(Lx({ en: "Failed — tap to retry", id: "Gagal — ketuk untuk coba lagi" }));
+      return;
+    }
+    btn.disabled = false;
+    Array.prototype.forEach.call(document.querySelectorAll(".cmeal-go[data-meal-i]"), function (b) { b.innerHTML = mealApplyBtn(MEAL_CARDS[+b.getAttribute("data-meal-i")]); });
+  }
+  async function loadAppliedMeal() {
+    try {
+      var r = await apiFetch("/api/coach/meal-plan"); var j = await r.json().catch(function () { return {}; });
+      MEAL_APPLIED = (j && j.meal_plan) ? mealSig(j.meal_plan.plan) : "";
+    } catch (e) {}
+  }
+  // Workout plan dari chat = TABEL (hari · fokus · latihan · menit). Plan aslinya tersimpan di DB
+  // (plan aktif) dan bisa diubah user di /activity — tombol "Ubah" membuka editor di sana.
+  function workoutCard(js) {
+    var p; try { p = JSON.parse(js); } catch (e) { return ""; }
+    if (!p || !Array.isArray(p.days) || !p.days.length) return "";
+    var unitLbl = { sec: Lx({ en: "sec", id: "dtk" }), min: Lx({ en: "min", id: "mnt" }) };
+    var rows = p.days.map(function (d) {
+      var ex = (d.exercises || []).map(function (e) {
+        return '<li>' + esc(e.name) + ' <span>' + esc((e.sets || 1) + '×' + (e.reps || "") + (unitLbl[e.unit] ? " " + unitLbl[e.unit] : "")) + '</span></li>';
+      }).join("");
+      return '<tr><th scope="row">' + esc(d.label || "") + (d.focus ? '<small>' + esc(d.focus) + '</small>' : '') + '</th>' +
+        '<td><ul>' + ex + '</ul></td><td class="cwp-m">' + (d.duration_min ? esc(d.duration_min) + "'" : "—") + '</td></tr>';
+    }).join("");
+    return '<div class="cwp"><div class="cwp-h"><b>' + svgIcon("dumbbell", 15) + ' ' + esc(p.title || "Workout plan") + '</b>' +
+      (p.saved ? '<span class="cwp-ok">' + svgIcon("check", 13) + ' ' + esc(Lx({ en: "Saved to Activity", id: "Tersimpan di Activity" })) + '</span>'
+               : '<span class="cwp-no">' + esc(Lx({ en: "Not saved yet — ask me again", id: "Belum tersimpan — minta ulang ya" })) + '</span>') + '</div>' +
+      '<div class="cwp-t"><table><thead><tr><th>' + esc(Lx({ en: "Day", id: "Hari" })) + '</th><th>' + esc(Lx({ en: "Exercises", id: "Latihan" })) +
+      '</th><th>' + esc(Lx({ en: "Min", id: "Mnt" })) + '</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      (p.note ? '<span class="cwp-x">' + esc(p.note) + '</span>' : '') +
+      (p.saved ? '<span class="cwp-a"><a href="/activity#edit-plan">' + svgIcon("clipboard", 14) + ' ' + esc(Lx({ en: "Edit in Activity", id: "Ubah di Activity" })) + '</a>' +
+        '<a href="/activity/plan">' + esc(Lx({ en: "Plan detail →", id: "Detail plan →" })) + '</a></span>' : '') + '</div>';
+  }
+  // Blok kartu (meal plan / workout plan) dipisah dulu — JSON-nya tak boleh ikut di-escape/diformat.
   function renderReply(text) {
-    var h = esc(text).replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
-    h = h.replace(/\[\[PLAN_SAVED\]\]/g, planCard());
+    return String(text || "").split(/\[\[(MEAL_PLAN|WORKOUT_PLAN)\]\]([\s\S]*?)\[\[\/\1\]\]/).map(function (part, k, arr) {
+      if (k % 3 === 1) return "";                       // nama token (ditangani di elemen berikutnya)
+      if (k % 3 === 2) return arr[k - 1] === "MEAL_PLAN" ? mealCard(part) : workoutCard(part);
+      return renderText(part);
+    }).join("");
+  }
+  function renderText(text) {
+    var h = esc(text).replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+      .replace(/(^|\n)[ \t]*[*-][ \t]+/g, "$1• ");   // daftar markdown "* " / "- " -> bullet
     h = h.replace(/\[\[([A-Z_]+)\]\]/g, function (m, k) {
       var a = ACTIONS[k]; if (!a) return "";
       return '<a class="cact" href="' + esc(a[0]) + '">' + svgIcon(a[2], 14) + ' ' + esc(Lx(a[1])) + '</a>';
@@ -807,11 +893,23 @@
       return;
     }
     if (quick) quick.style.display = "";
-    var html = CHAT_MSGS.map(function (m) {
+    MEAL_CARDS = [];
+    var html = CHAT_MSGS.map(function (m, i) {
+      // Gagal kirim = catatan sistem (bukan jawaban coach) + tombol kirim ulang.
+      if (m.role === "error") return '<div class="cmsg err">' + svgIcon("warn", 14) + ' <span>' + esc(m.content) + '</span>' +
+        '<button type="button" class="cretry" data-retry-i="' + i + '">' + esc(Lx({ en: "Try again", id: "Coba lagi" })) + '</button></div>';
       return '<div class="cmsg ' + (m.role === "user" ? "me" : "ai") + '">' + (m.role === "user" ? esc(m.content).replace(/\n/g, "<br>") : renderReply(m.content)) + '</div>';
     }).join("");
     if (CHAT_BUSY) html += '<div class="cmsg ai typing"><span></span><span></span><span></span></div>';
     box.innerHTML = html; box.scrollTop = box.scrollHeight;
+    Array.prototype.forEach.call(box.querySelectorAll(".cmeal-go[data-meal-i]"), function (b) { b.onclick = function () { applyMeal(b); }; });
+    Array.prototype.forEach.call(box.querySelectorAll(".cretry[data-retry-i]"), function (b) {
+      b.onclick = function () {
+        var i = +b.getAttribute("data-retry-i"), m = CHAT_MSGS[i]; if (!m || CHAT_BUSY) return;
+        CHAT_MSGS.splice(i - 1, 2);   // pesan user yang gagal + catatan errornya; sendChat menambahkan ulang
+        sendChat(m.retry);
+      };
+    });
   }
   // Empty state ala referensi: sapaan personal + chip data ASLI (health score) + kartu prompt.
   function emptyStateHTML() {
@@ -843,7 +941,7 @@
       var raw = sessionStorage.getItem("chat_context");
       if (raw) { sessionStorage.removeItem("chat_context"); var cx = JSON.parse(raw); if (cx && cx.auto_message) auto = String(cx.auto_message); }
     } catch (e) {}
-    await loadChatHistory();
+    await Promise.all([loadChatHistory(), loadAppliedMeal()]);
     if (auto) { sendChat(auto); return; }
     paintMsgs();   // kosong -> empty state (sapaan + kartu prompt); ada riwayat -> bubble
   }
@@ -857,6 +955,16 @@
     } catch (e) { if (!Array.isArray(CHAT_MSGS)) CHAT_MSGS = []; }
   }
 
+  // Pesan gagal kirim. 429 = batas permintaan server: sebut kapan bisa dicoba lagi (header Retry-After).
+  function chatErrText(r, j) {
+    if (r.status === 429) {
+      var sec = parseInt(r.headers.get("Retry-After"), 10), min = isFinite(sec) && sec > 0 ? Math.max(1, Math.ceil(sec / 60)) : null;
+      return min ? Lx({ en: "Too many requests right now — try again in about " + min + " min.", id: "Lagi terlalu banyak permintaan — coba lagi sekitar " + min + " menit lagi." })
+                 : Lx({ en: "Too many requests right now — try again in a moment.", id: "Lagi terlalu banyak permintaan — coba lagi sebentar lagi." });
+    }
+    return (j && j.error) || Lx({ en: "Sorry, I couldn't reply right now.", id: "Maaf, aku lagi nggak bisa jawab." });
+  }
+
   async function sendChat(text) {
     text = String(text || "").trim();
     if (!text || CHAT_BUSY) return;
@@ -867,13 +975,14 @@
       if (r.status === 401) { location.href = "/login"; return; }
       var j = await r.json().catch(function () { return {}; });
       CHAT_BUSY = false;
-      CHAT_MSGS.push({ role: "assistant", content: (r.ok && j && j.reply) ? j.reply : ((j && j.error) || Lx({ en: "Sorry, I couldn't reply right now. Please try again.", id: "Maaf, aku lagi nggak bisa jawab. Coba lagi ya." })) });
+      if (r.ok && j && j.reply) CHAT_MSGS.push({ role: "assistant", content: j.reply });
+      else CHAT_MSGS.push({ role: "error", retry: text, content: chatErrText(r, j) });
       if (r.ok && j && j.plan) PLAN = j.plan;
       paintMsgs();
       if (r.ok) loadGame();
     } catch (e) {
       CHAT_BUSY = false;
-      CHAT_MSGS.push({ role: "assistant", content: Lx({ en: "Network error. Please try again.", id: "Koneksi bermasalah. Coba lagi." }) });
+      CHAT_MSGS.push({ role: "error", retry: text, content: Lx({ en: "Network error — your message wasn't sent.", id: "Koneksi bermasalah — pesanmu belum terkirim." }) });
       paintMsgs();
     }
   }

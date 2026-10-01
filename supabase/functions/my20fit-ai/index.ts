@@ -156,11 +156,14 @@ Deno.serve(async (req) => {
       '(3) If two images disagree on the same field, use the one from the summary/detail screen and lower confidence. '+
       '(4) If the images are clearly NOT a workout (a meal, a document, a selfie), set readable=false and leave every field null. '+
       '(5) duration_min is total moving/elapsed time in MINUTES (may be fractional). hr_zone_data is SECONDS per zone. pace_data.avg_sec_per_km is seconds per kilometre. '+
-      '(6) type must be EXACTLY one of these app values: run, cycling, gym, hyrox, swimming, other. '+
-      'Map what you see onto them: cycling covers bike/ride/spin, gym covers strength/weights/HIIT/rowing/elliptical, swimming covers pool and open water, other covers walking, yoga, and anything else. '+
+      '(6) type must be EXACTLY one of these app values: run, cycling, walk, swimming, gym, hyrox, hiit, other. '+
+      'Map what you see onto them: cycling covers bike/ride/spin, walk covers walking/hiking, gym covers strength/weights, hiit covers HIIT/circuit/bootcamp, swimming covers pool and open water, other covers yoga, rowing, elliptical and anything else. '+
+      '(9) DATE: workout_date = YYYY-MM-DD ONLY when the full date including the YEAR is printed; if the year is not printed set workout_date null, year_visible false, and copy the printed date exactly into date_text (e.g. "Oct 5", "Today", "Yesterday"). Never assume a year. '+
+      '(10) start_time = 24h HH:MM only if a start time is printed. avg_speed_kmh only if a speed is printed (convert mph). cadence = steps/min or rpm only if printed. pace_data.splits = [{km, sec}] only from a splits screen. '+
+      '(11) field_confidence = object {field_name: 0-100} for every field you filled. '+
       '(7) confidence is 0-100 and must be honest — lower it for blurry, cropped, or partly hidden numbers. '+
       '(8) fields_read lists ONLY the field names you actually read off the images. '+
-      'Respond ONLY with a valid JSON object (no markdown, no code fences) with keys: readable (boolean), title, type, duration_min, distance_km, calories_burned, avg_heart_rate, max_heart_rate, elevation_gain_m, hr_zone_data (object z1..z5 in seconds or null), pace_data (object with avg_sec_per_km or null), source_guess (tracker name or null), confidence, fields_read (array of strings), note (one short sentence, or null).';
+      'Respond ONLY with a valid JSON object (no markdown, no code fences) with keys: readable (boolean), title, type, duration_min, distance_km, calories_burned, avg_heart_rate, max_heart_rate, elevation_gain_m, hr_zone_data (object z1..z5 in seconds or null), pace_data (object with avg_sec_per_km and optional splits, or null), workout_date, year_visible (boolean or null), date_text, start_time, avg_speed_kmh, cadence, source_guess (tracker name or null), confidence, field_confidence (object), fields_read (array of strings), note (one short sentence, or null).';
 
     // AI Coach: susun WORKOUT PLAN mingguan terstruktur dari jawaban quiz. Output JSON KETAT
     // supaya server bisa memvalidasi & menyimpannya ke my20fit_workout_plan tanpa menebak.

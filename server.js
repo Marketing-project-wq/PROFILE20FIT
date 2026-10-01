@@ -19,6 +19,13 @@ const comms = require("./lib/comms"); // consent, suppression, unsubscribe, gerb
 const campaigns = require("./lib/campaigns"); // engine meal reminder + onboarding drip
 const segments = require("./lib/segments"); // segment engine untuk blast email admin
 const visbody = require("./lib/visbody"); // SATU-SATUNYA jalur ke Visbody WellnessHub (timbangan S20)
+const journeyConfig = require("./lib/journey-config"); // angka alur Visbody + Health Score
+const classOverrides = require("./lib/class-overrides"); // koreksi sementara instruktur jadwal Arena/Gym
+const woAnalysis = require("./lib/workout-analysis"); // analisa performa workout (deterministik)
+const woNarrative = require("./lib/workout-narrative"); // narasi analisa workout (template + AI tervalidasi)
+const woConfig = require("./lib/workout-analysis-config"); // ambang analisa workout (PERLU DIVALIDASI)
+const todayBrief = require("./lib/today-brief"); // analisa "Plan Hari Ini": kondisi, naikkan Health Score, workout terakhir
+const WorkoutMetrics = require("./js/workout-metrics.js"); // format & validasi tanggal workout (dipakai browser juga)
 const qrcode = require("./js/qrcode-generator");
 const blast = require("./lib/blast"); // send queue blast email (batching, kill switch, auto-abort)
 const emailConfig = require("./lib/email-config"); // angka guardrail anti-spam (cap, kill switch, backlog, circuit breaker)
@@ -358,20 +365,54 @@ function verifyResendSignature(req) {
 // ============================================================
 // VISBODY S20 — timbangan body composition di lokasi
 // ============================================================
-// Alur: member naik timbangan -> Visbody Cloud kirim webhook ke sini -> kita simpan
-// scannya. Scan BELUM punya pemilik sampai member memindai QR di layar timbangan dan
-// mengklaimnya lewat /api/visbody/bind-user. Setelah diklaim barulah data ukurannya
-// diambil dan disimpan atas nama member itu.
+// Alur: member naik timbangan -> Visbody Cloud kirim webhook ke sini -> scan disimpan
+// TANPA pemilik (unclaimed). Timbangan meminta QR ke /api/visbody/qrcode -> kita buat
+// TOKEN CLAIM acak sekali pakai (hash di my20fit_visbody_claim_token) -> QR berisi
+// /visbody-claim?t=<token>. Member membuka link, login/daftar, menyetujui pemrosesan data,
+// lalu POST /api/visbody/claim. Setelah itu data ukurnya diambil & disimpan atas namanya.
+// Cadangan: staf membuat link claim baru / mengikat scan ke member dari admin-v2.
 //
-// KENAPA TIDAK LANGSUNG DICOCOKKAN LEWAT EMAIL/NAMA DARI TIMBANGAN: identitas yang
-// diketik di layar timbangan tidak terverifikasi. Mencocokkannya otomatis = menyerahkan
-// data komposisi tubuh seseorang ke akun yang belum tentu dia (aturan pemilik: hanya
-// cocokkan lewat identitas yang PASTI & TERVERIFIKASI).
+// KENAPA TIDAK LANGSUNG DICOCOKKAN LEWAT EMAIL/NAMA/HP DARI TIMBANGAN: identitas yang
+// diketik di layar timbangan tidak terverifikasi (dan di data asli kosong). Mencocokkannya
+// otomatis = menyerahkan data komposisi tubuh ke akun yang belum tentu pemiliknya.
+//
+// Angka (TTL token, versi teks persetujuan) ada di lib/journey-config.js.
 
-const VISBODY_CLAIM_WINDOW_MS = 30 * 60 * 1000; // scan hanya bisa diklaim 30 menit pertama
+const VB_CFG = journeyConfig.visbody;
+// Limiter sendiri (limiter umum didefinisikan lebih bawah di file ini). Token 256-bit tak bisa
+// ditebak; ini sekadar rem untuk pemanggilan berulang dari satu IP.
+const vbInfoLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
 
-// Ambil data ukur dari Visbody lalu simpan atas nama user. Dipakai DUA jalur:
-// webhook (kalau scan sudah punya third_uid) dan bind-user (klaim lewat QR).
+function vbHashToken(t) { return crypto.createHash("sha256").update(String(t || "")).digest("hex"); }
+// Token 32 byte acak (base64url, 43 karakter) -> hanya hash-nya yang disimpan.
+async function vbCreateClaimToken(scanId, source, adminUserId) {
+  const token = crypto.randomBytes(32).toString("base64url");
+  const { error } = await admin.from("my20fit_visbody_claim_token").insert({
+    token_hash: vbHashToken(token), scan_id: scanId, source: source, created_by: adminUserId || null,
+    expires_at: new Date(Date.now() + VB_CFG.claim_token_ttl_hours * 3600 * 1000).toISOString(),
+  });
+  if (error) throw error;
+  return { token: token, url: APP_BASE_URL + "/visbody-claim?t=" + token };
+}
+function vbAudit(scanId, action, row) {
+  return admin.from("my20fit_visbody_claim_audit").insert(Object.assign({ scan_id: scanId, action: action }, row || {}))
+    .then(function () {}, function () {});
+}
+async function vbHasConsent(uid) {
+  const { data } = await admin.from("my20fit_data_consent").select("id")
+    .eq("auth_user_id", uid).eq("purpose", VB_CFG.consent_purpose).eq("version", VB_CFG.consent_version).is("revoked_at", null).limit(1);
+  return !!(data && data.length);
+}
+async function vbGrantConsent(uid, source, grantedBy) {
+  const { error } = await admin.from("my20fit_data_consent").upsert({
+    auth_user_id: uid, purpose: VB_CFG.consent_purpose, version: VB_CFG.consent_version,
+    source: source, granted_by: grantedBy || null, granted_at: new Date().toISOString(), revoked_at: null,
+  }, { onConflict: "auth_user_id,purpose,version" });
+  if (error) throw error;
+}
+
+// Ambil data ukur dari Visbody lalu simpan atas nama user. Dipakai webhook (scan sudah
+// punya pemilik & body_composition selesai) dan jalur claim (member / staf).
 async function visbodyFetchAndStore(scanRow, userId) {
   try {
     const data = await visbody.getScanData(scanRow.scan_id);
@@ -388,7 +429,7 @@ async function visbodyFetchAndStore(scanRow, userId) {
       raw_data: data,
       scanned_at: scanRow.scan_time,
     });
-    // onConflict scan_id: webhook + klaim QR bisa sama-sama sampai di sini; satu scan
+    // onConflict scan_id: webhook + claim bisa sama-sama sampai di sini; satu scan
     // tetap satu baris hasil, tidak menggandakan titik di chart tren.
     const up = await admin.from("my20fit_visbody_body").upsert(row, { onConflict: "scan_id" });
     if (up.error) throw up.error;
@@ -396,7 +437,6 @@ async function visbodyFetchAndStore(scanRow, userId) {
     const pdf = await visbody.getPdfUrl(scanRow.scan_id);
     await admin.from("my20fit_visbody_scan").update({
       status: "data_fetched",
-      auth_user_id: userId,
       pdf_url: pdf || scanRow.pdf_url || null,
       last_error: null,
       updated_at: new Date().toISOString(),
@@ -412,8 +452,51 @@ async function visbodyFetchAndStore(scanRow, userId) {
     return false;
   }
 }
+// body_composition belum "completed" (masih processing) -> jangan ambil dulu; webhook
+// "completed" berikutnya yang mengambil. Status tak dikenal -> coba ambil.
+function vbDataReady(scanRow) {
+  const mi = (scanRow && scanRow.measured_items) || {};
+  return !mi.body_composition || mi.body_composition === "completed";
+}
 
-// WEBHOOK — dipanggil Visbody Cloud tiap selesai scan.
+// Ikat scan ke user (dipakai claim member & bind staf). Menang HANYA kalau scan masih tanpa
+// pemilik (.is null) -> dua orang yang mengklaim bersamaan: satu saja yang dapat.
+async function vbBindScan(scan, user, via) {
+  const upd = await admin.from("my20fit_visbody_scan")
+    .update({ auth_user_id: user.id, status: "bound", claimed_at: new Date().toISOString(), claimed_via: via, updated_at: new Date().toISOString() })
+    .eq("scan_id", scan.scan_id).is("auth_user_id", null).select();
+  if (upd.error) throw upd.error;
+  if (!upd.data || !upd.data.length) return { ok: false };
+  jnOnScanClaimed(user.id, scan.scan_id, via);
+  // Kirim identitas kita ke Visbody supaya scan berikutnya sudah ber-third_uid.
+  // Gagal di sini TIDAK membatalkan claim: kepemilikan di DB kita yang menentukan.
+  let bindWarn = null;
+  try {
+    const { data: prof } = await admin.from("my20fit_profile")
+      .select("full_name,gender,height_cm,age").eq("auth_user_id", user.id).limit(1);
+    const p = (prof && prof[0]) || {};
+    // Visbody mewajibkan `birthday` (YYYY-MM-DD), profil kita cuma menyimpan `age`. Urutan
+    // sumber: (1) tanggal yang diketik member di layar timbangan; (2) turunan `age`, sengaja
+    // dipatok 1 Januari (perkiraan, bukan tanggal lahir yang dikarang seolah pasti).
+    let birthday = scan.visbody_birthday || null;
+    if (!birthday && +p.age > 0 && +p.age < 120) birthday = (new Date().getFullYear() - Math.round(+p.age)) + "-01-01";
+    await visbody.bindUser(scan.scan_id, scan.device_sn, {
+      id: user.id,
+      email: user.email,
+      name: p.full_name || String(user.email || "").split("@")[0],
+      sex: p.gender === "female" ? 2 : (p.gender === "male" ? 1 : (scan.visbody_sex || 1)),
+      height: +p.height_cm || +scan.visbody_height || 170,
+      birthday: birthday || "1990-01-01",
+    });
+  } catch (e) {
+    bindWarn = String((e && e.message) || e).slice(0, 300);
+    console.error("visbody bind:", bindWarn);
+  }
+  const stored = vbDataReady(scan) ? await visbodyFetchAndStore(scan, user.id) : false;
+  return { ok: true, data_ready: stored, bind_warning: bindWarn };
+}
+
+// WEBHOOK — dipanggil Visbody Cloud tiap event scan (bisa >1 per scan: processing -> completed).
 app.post("/api/visbody/webhook", async (req, res) => {
   const ok = visbody.verifyWebhook(
     req.get("x-visbody-timestamp"),
@@ -432,34 +515,51 @@ app.post("/api/visbody/webhook", async (req, res) => {
     // third_uid HANYA dipercaya kalau berbentuk UUID — itu yang kita kirim saat bind.
     const boundUid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(ui.third_uid || ""))
       ? String(ui.third_uid) : null;
-
-    const row = {
-      scan_id: scanId,
-      device_sn: String(b.device_sn || b.device_id || "").slice(0, 120),
-      scan_time: b.scan_time || new Date().toISOString(),
+    const nowIso = new Date().toISOString();
+    const mutable = {
       event_id: b.event_id ? String(b.event_id).slice(0, 200) : null,
-      visbody_name: ui.name ? String(ui.name).slice(0, 120) : null,
-      visbody_sex: (+ui.sex === 1 || +ui.sex === 2) ? +ui.sex : null,
-      visbody_age: (+ui.age > 0) ? Math.round(+ui.age) : null,
-      visbody_height: (+ui.height > 0) ? +ui.height : null,
-      visbody_birthday: ui.birthday ? String(ui.birthday).slice(0, 20) : null,
-      auth_user_id: boundUid,
-      status: boundUid ? "bound" : "received",
       measured_items: b.measured_items || null,
       raw_webhook: b,
-      updated_at: new Date().toISOString(),
+      updated_at: nowIso,
     };
-    // Idempoten lewat UNIQUE(scan_id): kiriman ulang memperbarui baris yang sama,
-    // bukan membuat baris kedua.
-    const up = await admin.from("my20fit_visbody_scan").upsert(row, { onConflict: "scan_id" }).select().single();
-    if (up.error) throw up.error;
+    const owner = boundUid ? { auth_user_id: boundUid, status: "bound", claimed_at: nowIso, claimed_via: "third_uid" } : {};
 
+    // Idempoten lewat UNIQUE(scan_id). Kiriman berikutnya untuk scan yang sama HANYA
+    // memperbarui kolom event — pemilik & status claim TIDAK PERNAH ditimpa (dulu upsert
+    // penuh bisa mengosongkan pemilik saat event "completed" datang setelah claim).
+    const sel = () => admin.from("my20fit_visbody_scan").select("*").eq("scan_id", scanId).limit(1);
+    let { data: ex } = await sel();
+    let row = ex && ex[0], inserted = false;
+    if (!row) {
+      const ins = await admin.from("my20fit_visbody_scan").insert(Object.assign({
+        scan_id: scanId,
+        device_sn: String(b.device_sn || b.device_id || "").slice(0, 120),
+        scan_time: b.scan_time || nowIso,
+        visbody_name: ui.name ? String(ui.name).slice(0, 120) : null,
+        visbody_sex: (+ui.sex === 1 || +ui.sex === 2) ? +ui.sex : null,
+        visbody_age: (+ui.age > 0) ? Math.round(+ui.age) : null,
+        visbody_height: (+ui.height > 0) ? +ui.height : null,
+        visbody_birthday: ui.birthday ? String(ui.birthday).slice(0, 20) : null,
+        status: "received",
+      }, mutable, owner)).select().single();
+      if (!ins.error) { row = ins.data; inserted = true; jnLog(null, "visbody_scan_received", { scan_id: scanId }); }
+      else if (ins.error.code === "23505") { ({ data: ex } = await sel()); row = ex && ex[0]; }   // kiriman paralel scan sama
+      else throw ins.error;
+    }
+    if (inserted && boundUid) jnOnScanClaimed(boundUid, scanId, "third_uid");
+    if (row && !inserted) {
+      if (!row.auth_user_id && boundUid) jnOnScanClaimed(boundUid, scanId, "third_uid");
+      const patch = Object.assign({}, mutable, (!row.auth_user_id && boundUid) ? owner : {});
+      const up = await admin.from("my20fit_visbody_scan").update(patch).eq("scan_id", scanId).select().single();
+      if (up.error) throw up.error;
+      row = up.data;
+    }
     // Balas cepat; Visbody tidak perlu menunggu kita mengambil data ukurnya.
     res.json({ code: 0 });
 
     const mi = b.measured_items || {};
-    if (boundUid && mi.body_composition === "completed") {
-      visbodyFetchAndStore(up.data, boundUid).catch(function () {});
+    if (row && row.auth_user_id && mi.body_composition === "completed" && row.status !== "data_fetched") {
+      visbodyFetchAndStore(row, row.auth_user_id).catch(function () {});
     }
   } catch (e) {
     console.error("visbody webhook:", (e && e.message) || e);
@@ -483,22 +583,24 @@ app.get("/api/visbody/token", (req, res) => {
   res.json({ code: 0, data: { token: token, expires_in: 7200 } });
 });
 
-// QR — dipanggil timbangan setelah scan; kita balas gambar QR berisi tautan klaim.
-// QR dibuat DI SINI dengan js/qrcode-generator.js yang sudah ada di repo, bukan dikirim
-// ke layanan QR pihak ketiga: scan_id tidak perlu bocor ke luar 20FIT.
-app.get("/api/visbody/qrcode", (req, res) => {
+// QR — dipanggil timbangan setelah scan; kita balas gambar QR berisi link claim bertoken.
+// QR dibuat DI SINI (js/qrcode-generator.js), bukan layanan QR pihak ketiga: token claim
+// tidak boleh bocor ke luar 20FIT. Tiap permintaan = token baru (token lama tetap berlaku
+// sampai kedaluwarsa; begitu scan di-claim, semua token scan itu otomatis tak berguna).
+app.get("/api/visbody/qrcode", async (req, res) => {
   const token = String(req.query.token || "");
   visbodySweepTokens();
   if (!visbodyDeviceTokens.has(token)) return res.json({ code: 30001, error_msg: "Invalid token" });
   const scanId = String(req.query.scan_id || "").slice(0, 120);
-  const deviceId = String(req.query.device_id || "").slice(0, 120);
   if (!scanId) return res.json({ code: 30002, error_msg: "scan_id wajib" });
+  if (!admin) return res.json({ code: 30003, error_msg: "server belum dikonfigurasi" });
   try {
-    const url = (APP_BASE_URL || "https://my.20fit.id").replace(/\/$/, "") +
-      "/body-scan?claim=" + encodeURIComponent(scanId) +
-      (deviceId ? "&device=" + encodeURIComponent(deviceId) : "");
+    const { data: rows } = await admin.from("my20fit_visbody_scan").select("scan_id,auth_user_id").eq("scan_id", scanId).limit(1);
+    // Webhook biasanya datang lebih dulu; kalau belum, QR ditolak -> timbangan bisa meminta ulang.
+    if (!rows || !rows[0]) return res.json({ code: 30004, error_msg: "scan belum diterima" });
+    const link = await vbCreateClaimToken(scanId, "device", null);
     const qr = qrcode(0, "M");
-    qr.addData(url);
+    qr.addData(link.url);
     qr.make();
     const svg = qr.createSvgTag({ cellSize: 6, margin: 4 });
     res.json({ code: 0, data: { url: "data:image/svg+xml;base64," + Buffer.from(svg).toString("base64") } });
@@ -508,73 +610,428 @@ app.get("/api/visbody/qrcode", (req, res) => {
   }
 });
 
-// KLAIM — member memindai QR lalu halaman /body-scan memanggil ini dengan token miliknya.
-app.post("/api/visbody/bind-user", async (req, res) => {
+// Cek token claim (halaman /visbody-claim, sebelum & sesudah login). Tanpa login cukup
+// status token; dengan login + consent_needed. Tidak membuka data ukur apa pun.
+async function vbLookupToken(raw) {
+  if (!raw || String(raw).length < 20 || String(raw).length > 100) return null;
+  const { data } = await admin.from("my20fit_visbody_claim_token").select("*").eq("token_hash", vbHashToken(raw)).limit(1);
+  return (data && data[0]) || null;
+}
+app.get("/api/visbody/claim/info", vbInfoLimiter, async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "server belum dikonfigurasi" });
+    const tok = await vbLookupToken(String(req.query.t || ""));
+    if (!tok) return res.json({ ok: true, state: "invalid" });
+    const { data: rows } = await admin.from("my20fit_visbody_scan").select("scan_time,auth_user_id").eq("scan_id", tok.scan_id).limit(1);
+    const scan = rows && rows[0];
+    if (!scan) return res.json({ ok: true, state: "invalid" });
+    const user = await getUserFromReq(req);
+    let state = "claimable";
+    if (scan.auth_user_id) state = (user && scan.auth_user_id === user.id) ? "mine" : "claimed";
+    else if (tok.used_at) state = "used";
+    else if (new Date(tok.expires_at).getTime() < Date.now()) state = "expired";
+    const out = { ok: true, state: state, scan_time: scan.scan_time, consent_version: VB_CFG.consent_version };
+    if (user && state === "claimable") out.consent_needed = !(await vbHasConsent(user.id));
+    return res.json(out);
+  } catch (e) { console.error("visbody claim/info:", (e && e.message) || e); return res.status(500).json({ error: "Gagal." }); }
+});
+
+// CLAIM — member (login) + token + persetujuan -> scan jadi miliknya.
+app.post("/api/visbody/claim", async (req, res) => {
   try {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     if (!admin) return res.status(500).json({ error: "server belum dikonfigurasi" });
-    const scanId = String((req.body || {}).scan_id || "").slice(0, 120);
-    if (!scanId) return res.status(400).json({ error: "scan_id wajib" });
-
-    const { data: rows } = await admin.from("my20fit_visbody_scan")
-      .select("*").eq("scan_id", scanId).limit(1);
+    const b = req.body || {};
+    const tok = await vbLookupToken(String(b.token || ""));
+    const reject = function (code, err, scanId) {
+      if (scanId) vbAudit(scanId, "claim_rejected", { actor_user: user.id, detail: { reason: err } });
+      return res.status(code).json({ error: err });
+    };
+    if (!tok) return reject(404, "invalid_token");
+    const { data: rows } = await admin.from("my20fit_visbody_scan").select("*").eq("scan_id", tok.scan_id).limit(1);
     const scan = rows && rows[0];
-    if (!scan) return res.status(404).json({ error: "scan_not_found" });
-
+    if (!scan) return reject(404, "invalid_token");
     // Sudah milik orang lain -> TIDAK dipindahkan. Data komposisi tubuh bukan barang
     // yang boleh berpindah akun hanya karena tautannya dibuka orang lain.
-    if (scan.auth_user_id && scan.auth_user_id !== user.id) {
-      return res.status(409).json({ error: "already_claimed" });
-    }
-    if (scan.auth_user_id === user.id) {
-      return res.json({ ok: true, already: true, scan_id: scanId });
-    }
-    // Jendela klaim: tautan QR tidak memuat rahasia apa pun, jadi umurnya dibatasi.
-    if (Date.now() - new Date(scan.scan_time).getTime() > VISBODY_CLAIM_WINDOW_MS) {
-      return res.status(410).json({ error: "claim_expired" });
-    }
+    if (scan.auth_user_id && scan.auth_user_id !== user.id) return reject(409, "already_claimed", scan.scan_id);
+    if (scan.auth_user_id === user.id) return res.json({ ok: true, already: true, redirect: "/activity?welcome=visbody" });
+    if (tok.used_at) return reject(410, "token_used", scan.scan_id);
+    if (new Date(tok.expires_at).getTime() < Date.now()) return reject(410, "claim_expired", scan.scan_id);
 
-    // Kirim identitas kita ke Visbody supaya scan berikutnya sudah ber-third_uid.
-    // Gagal di sini TIDAK membatalkan klaim: kepemilikan di DB kita yang menentukan.
-    let bindWarn = null;
-    try {
-      const { data: prof } = await admin.from("my20fit_profile")
-        .select("full_name,gender,height_cm,age").eq("auth_user_id", user.id).limit(1);
-      const p = (prof && prof[0]) || {};
-      // Visbody mewajibkan `birthday` (YYYY-MM-DD), sementara profil kita cuma menyimpan
-      // `age`. Urutan sumbernya: (1) tanggal yang DIKETIK MEMBER di layar timbangan —
-      // itu data sungguhan; (2) turunan dari `age`, sengaja dipatok 1 Januari dan
-      // ditandai sebagai perkiraan, bukan tanggal lahir yang dikarang seolah pasti.
-      let birthday = scan.visbody_birthday || null;
-      if (!birthday && +p.age > 0 && +p.age < 120) birthday = (new Date().getFullYear() - Math.round(+p.age)) + "-01-01";
-      await visbody.bindUser(scanId, scan.device_sn, {
-        id: user.id,
-        email: user.email,
-        name: p.full_name || String(user.email || "").split("@")[0],
-        sex: p.gender === "female" ? 2 : (p.gender === "male" ? 1 : (scan.visbody_sex || 1)),
-        height: +p.height_cm || +scan.visbody_height || 170,
-        birthday: birthday || "1990-01-01",
-      });
-    } catch (e) {
-      bindWarn = String((e && e.message) || e).slice(0, 300);
-      console.error("visbody bind:", bindWarn);
+    // Persetujuan pemrosesan data (UU PDP) SEBELUM data diikat ke akun.
+    if (!(await vbHasConsent(user.id))) {
+      if (b.consent !== true) return res.status(400).json({ error: "consent_required", consent_version: VB_CFG.consent_version });
+      await vbGrantConsent(user.id, "self", null);
     }
+    // Pakai token (sekali pakai; .is null = hanya satu permintaan yang menang).
+    const used = await admin.from("my20fit_visbody_claim_token")
+      .update({ used_at: new Date().toISOString(), used_by: user.id })
+      .eq("id", tok.id).is("used_at", null).select();
+    if (used.error) throw used.error;
+    if (!used.data || !used.data.length) return reject(410, "token_used", scan.scan_id);
 
-    const upd = await admin.from("my20fit_visbody_scan")
-      .update({ auth_user_id: user.id, status: "bound", updated_at: new Date().toISOString() })
-      .eq("scan_id", scanId).is("auth_user_id", null).select();
-    // .is(null) = klaim hanya menang kalau saat itu memang masih kosong (dua orang
-    // memindai QR yang sama secara bersamaan -> hanya satu yang dapat).
-    if (upd.error) throw upd.error;
-    if (!upd.data || !upd.data.length) return res.status(409).json({ error: "already_claimed" });
-
-    const stored = await visbodyFetchAndStore(scan, user.id);
-    return res.json({ ok: true, scan_id: scanId, data_ready: stored, bind_warning: bindWarn });
+    const r = await vbBindScan(scan, user, "qr");
+    if (!r.ok) return reject(409, "already_claimed", scan.scan_id);
+    vbAudit(scan.scan_id, "claim", { actor_user: user.id, detail: { via: "qr", token_source: tok.source, data_ready: r.data_ready, bind_warning: r.bind_warning } });
+    return res.json({ ok: true, data_ready: r.data_ready, redirect: "/activity?welcome=visbody" });
   } catch (e) {
-    console.error("visbody bind-user:", (e && e.message) || e);
-    return res.status(500).json({ error: (e && e.message) || "Gagal." });
+    console.error("visbody claim:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal meng-claim scan." });
   }
+});
+
+// ---- ADMIN: scan yang belum di-claim (admin-v2 -> Visbody) ----
+// Hanya waktu, timbangan, identitas yang diketik di timbangan & status — TANPA angka ukur.
+// Role marketing dilarang (data kesehatan), viewer boleh lihat, aksi butuh staff.
+app.get("/api/admin/visbody/unclaimed", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!adminCanSeeHealth(ctx)) return res.status(403).json({ error: "Role marketing tidak boleh mengakses data Visbody." });
+  try {
+    const { data: scans, error } = await admin.from("my20fit_visbody_scan")
+      .select("scan_id,device_sn,scan_time,visbody_name,visbody_sex,visbody_age,status,measured_items")
+      .is("auth_user_id", null).order("scan_time", { ascending: false }).limit(300);
+    if (error) throw error;
+    const { data: audit } = await admin.from("my20fit_visbody_claim_audit")
+      .select("scan_id,action,actor_admin,detail,created_at").order("created_at", { ascending: false }).limit(30);
+    return res.json({ ok: true, scans: scans || [], recent: audit || [], retention_days: VB_CFG.unclaimed_retention_days });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+// Buat link claim baru (mis. member tak sempat memindai QR) -> staf kirim sendiri (salin / WhatsApp).
+app.post("/api/admin/visbody/claim-link", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  try {
+    const scanId = String((req.body || {}).scan_id || "").slice(0, 120);
+    const { data: rows } = await admin.from("my20fit_visbody_scan").select("scan_id,auth_user_id").eq("scan_id", scanId).limit(1);
+    if (!rows || !rows[0]) return res.status(404).json({ error: "Scan tidak ditemukan." });
+    if (rows[0].auth_user_id) return res.status(409).json({ error: "Scan sudah di-claim." });
+    const link = await vbCreateClaimToken(scanId, "admin", ctx.user_id || null);
+    const who = ctx.email || (ctx.via === "key" ? "master-key" : null);
+    vbAudit(scanId, "link_created", { actor_admin: who });
+    adminAudit(ctx, "visbody_claim_link", scanId, null);
+    return res.json({ ok: true, url: link.url, expires_hours: VB_CFG.claim_token_ttl_hours });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+// Staf mengikat scan ke member (member hadir di lokasi). WAJIB centang bahwa member sudah
+// menyetujui pemrosesan data di depan staf -> dicatat sebagai consent source='staff'.
+app.post("/api/admin/visbody/bind", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  try {
+    const b = req.body || {};
+    const scanId = String(b.scan_id || "").slice(0, 120);
+    const email = String(b.email || "").trim().toLowerCase();
+    if (b.consent_witnessed !== true) return res.status(400).json({ error: "Konfirmasi persetujuan member wajib dicentang." });
+    if (!email) return res.status(400).json({ error: "Email member wajib diisi." });
+    const { data: profs } = await admin.from("my20fit_profile").select("auth_user_id,email,full_name").ilike("email", email).limit(2);
+    const prof = (profs || []).filter(function (p) { return String(p.email || "").toLowerCase() === email; })[0];
+    if (!prof) return res.status(404).json({ error: "Member dengan email itu tidak ditemukan." });
+    const { data: rows } = await admin.from("my20fit_visbody_scan").select("*").eq("scan_id", scanId).limit(1);
+    const scan = rows && rows[0];
+    if (!scan) return res.status(404).json({ error: "Scan tidak ditemukan." });
+    if (scan.auth_user_id) return res.status(409).json({ error: "Scan sudah di-claim." });
+    const who = ctx.email || (ctx.via === "key" ? "master-key" : null);
+    if (!(await vbHasConsent(prof.auth_user_id))) await vbGrantConsent(prof.auth_user_id, "staff", who);
+    const r = await vbBindScan(scan, { id: prof.auth_user_id, email: prof.email }, "staff");
+    if (!r.ok) return res.status(409).json({ error: "Scan sudah di-claim." });
+    vbAudit(scanId, "staff_bind", { actor_user: prof.auth_user_id, actor_admin: who, detail: { data_ready: r.data_ready, bind_warning: r.bind_warning } });
+    adminAudit(ctx, "visbody_bind", scanId, { member: prof.auth_user_id });
+    return res.json({ ok: true, member: { name: prof.full_name || null, email: prof.email }, data_ready: r.data_ready });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
+});
+
+// ============================================================
+// HEALTH JOURNEY — landing, checklist, nudge, tur, event funnel (Visbody Fase 2–3)
+// ============================================================
+// Angka & kebijakan: lib/journey-config.js. Checklist sebisa mungkin DIBACA dari data yang
+// sudah ada (scan dilihat, chat coach, plan); my20fit_health_journey hanya menyimpan langkah
+// yang tak punya sumber lain (klik booking kelas, jadwal rescan, target kalori, nudge).
+
+// Event yang boleh dicatat. Klien hanya boleh mengirim yang ada di JN_CLIENT_EVENTS.
+const JN_EVENTS = new Set([
+  "nudge_visbody_shown", "nudge_visbody_clicked", "visbody_booking_clicked", "visbody_scan_received",
+  "visbody_scan_claimed", "activity_landing_after_claim", "visbody_result_viewed", "coach_chat_started",
+  "workout_plan_created", "class_booked", "rescan_reminder_sent", "rescan_completed",
+  "health_score_locked_shown", "health_score_unlocked",
+  "tour_started", "tour_step_viewed", "tour_skipped", "tour_completed", "tour_replayed", "tour_cta_clicked",
+]);
+const JN_CLIENT_EVENTS = new Set([
+  "visbody_booking_clicked", "activity_landing_after_claim", "health_score_locked_shown",
+  "tour_started", "tour_step_viewed", "tour_skipped", "tour_completed", "tour_replayed", "tour_cta_clicked",
+]);
+// Nudge -> event saat tampil / diklik (funnel Bagian E).
+const JN_NUDGE_EVENTS = {
+  visbody_after_workouts: { shown: "nudge_visbody_shown", clicked: "nudge_visbody_clicked" },
+  rescan_due: { shown: "rescan_reminder_sent", clicked: null },
+};
+function jnLog(uid, event, props) {
+  if (!admin || !JN_EVENTS.has(event)) return Promise.resolve();
+  return admin.from("my20fit_event_log").insert({ auth_user_id: uid || null, event: event, props: props || null })
+    .then(function () {}, function () {});
+}
+async function jnGet(uid) {
+  const { data } = await admin.from("my20fit_health_journey").select("*").eq("auth_user_id", uid).limit(1);
+  const r = (data && data[0]) || {};
+  return { steps: r.steps || {}, nudges: r.nudges || {}, rescan_due: r.rescan_due || null, hs_unlocked_at: r.hs_unlocked_at || null };
+}
+// Upsert HANYA kolom yang dikirim (PostgREST: kolom lain tak tersentuh saat update).
+async function jnSave(uid, patch) {
+  const { error } = await admin.from("my20fit_health_journey")
+    .upsert(Object.assign({ auth_user_id: uid, updated_at: new Date().toISOString() }, patch), { onConflict: "auth_user_id" });
+  if (error) throw error;
+}
+async function jnMarkHsUnlocked(uid, source) {
+  try {
+    const j = await jnGet(uid);
+    if (j.hs_unlocked_at) return;
+    await jnSave(uid, { hs_unlocked_at: new Date().toISOString(), hs_unlock_source: source });
+    jnLog(uid, "health_score_unlocked", { source: source });
+  } catch (e) { /* best-effort */ }
+}
+// Scan baru jadi milik user. Punya scan lain sebelumnya -> itu rescan.
+async function jnOnScanClaimed(uid, scanId, via) {
+  jnLog(uid, "visbody_scan_claimed", { scan_id: scanId, via: via });
+  try {
+    const { data } = await admin.from("my20fit_visbody_scan").select("scan_id").eq("auth_user_id", uid).limit(5);
+    if ((data || []).some(function (r) { return r.scan_id !== scanId; })) jnLog(uid, "rescan_completed", { scan_id: scanId });
+  } catch (e) { /* best-effort */ }
+}
+function jnDaysSince(iso) { return iso ? (Date.now() - new Date(iso).getTime()) / 86400000 : Infinity; }
+function jnYmd(d) { return d.toISOString().slice(0, 10); }
+
+// Satu pembaca status perjalanan user — dipakai /activity, landing setelah login, tur.
+async function jnState(uid) {
+  const N = journeyConfig.nudges, J = journeyConfig.journey;
+  const [scansR, bodyR, j, profR, planR, wkR, upR, tourR] = await Promise.all([
+    admin.from("my20fit_visbody_scan").select("scan_id,scan_time,claimed_at,viewed_at,pdf_url,status").eq("auth_user_id", uid).order("scan_time", { ascending: false }).limit(20),
+    admin.from("my20fit_visbody_body").select("scan_id,scanned_at,body_weight,body_fat_percentage,muscle_mass,body_mass_index,basal_metabolic_rate,visceral_fat_grade").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(2),
+    jnGet(uid),
+    admin.from("my20fit_profile").select("calorie_target_kcal,calorie_target_source,calorie_target_set_at").eq("auth_user_id", uid).limit(1),
+    admin.from("my20fit_workout_plan").select("id").eq("auth_user_id", uid).limit(1),
+    admin.from("my20fit_workout").select("id").eq("auth_user_id", uid).limit(N.visbody_after_workouts.min_workouts),
+    admin.from("my20fit_activity_uploads").select("id").eq("auth_user_id", uid).eq("upload_type", "workout").limit(N.visbody_after_workouts.min_workouts),
+    admin.from("my20fit_tour_state").select("tour_key,version,status,last_step,seen_steps,updated_at").eq("auth_user_id", uid),
+  ]);
+  const scans = scansR.data || [], bodies = bodyR.data || [];
+  const latestScan = scans[0] || null, body = bodies[0] || null, prevBody = bodies[1] || null;
+  const prof = (profR.data && profR.data[0]) || {};
+  const hasScan = scans.length > 0;
+  const bodyScan = body ? (scans.filter(function (s) { return s.scan_id === body.scan_id; })[0] || null) : null;
+  const unviewed = !!(body && bodyScan && !bodyScan.viewed_at);
+
+  // Checklist Health Journey — hanya untuk user yang sudah punya scan ter-claim.
+  let checklist = null;
+  if (hasScan) {
+    const claimedAt = (latestScan && latestScan.claimed_at) || (latestScan && latestScan.scan_time);
+    let chatAt = null;
+    try {
+      const { data: cm } = await admin.from("my20fit_coach_chat_message").select("created_at").eq("auth_user_id", uid).eq("role", "user")
+        .gte("created_at", claimedAt).order("created_at", { ascending: true }).limit(1);
+      chatAt = (cm && cm[0] && cm[0].created_at) || null;
+    } catch (e) { chatAt = null; }
+    const viewedAt = scans.map(function (s) { return s.viewed_at; }).filter(Boolean).sort().pop() || null;
+    const calAt = (prof.calorie_target_source === "visbody_bmr" && prof.calorie_target_set_at) || null;
+    checklist = [
+      { key: "view_result", done: !!viewedAt, at: viewedAt },
+      { key: "coach_analysis", done: !!chatAt, at: chatAt },
+      { key: "workout_plan", done: !!(planR.data && planR.data.length), at: null },
+      { key: "calorie_target", done: !!calAt, at: calAt, available: !!(body && body.basal_metabolic_rate) },
+      { key: "book_class", done: !!j.steps.class_booked, at: j.steps.class_booked || null },
+      { key: "rescan", done: !!j.rescan_due, at: j.rescan_due },
+    ];
+  }
+
+  // Nudge aktif — disembunyikan cap_days setelah diklik/ditutup.
+  const nudges = [];
+  const capped = function (key, days) { const n = j.nudges[key] || {}; return jnDaysSince(n.dismissed_at) < days || jnDaysSince(n.clicked_at) < days; };
+  const workouts = (wkR.data || []).length + (upR.data || []).length;
+  if (N.visbody_after_workouts.enabled && !hasScan && workouts >= N.visbody_after_workouts.min_workouts && !capped("visbody_after_workouts", N.visbody_after_workouts.cap_days)) {
+    nudges.push({ key: "visbody_after_workouts", workouts: workouts });
+  }
+  const lastScanAt = (body && body.scanned_at) || (latestScan && latestScan.scan_time) || null;
+  const rescanDue = j.rescan_due || (lastScanAt ? jnYmd(new Date(new Date(lastScanAt).getTime() + J.rescan_interval_days * 86400000)) : null);
+  if (N.rescan_due.enabled && hasScan && rescanDue && rescanDue <= jnYmd(new Date()) && !capped("rescan_due", N.rescan_due.cap_days)) {
+    nudges.push({ key: "rescan_due", last_scan_at: lastScanAt, days: Math.floor(jnDaysSince(lastScanAt)) });
+  }
+
+  const landing = J.landing === "always" ? (hasScan ? "/activity" : null) : (J.landing === "new_scan" ? (unviewed ? "/activity" : null) : null);
+  const tours = {};
+  (tourR.data || []).forEach(function (t) { tours[t.tour_key] = { version: t.version, status: t.status, last_step: t.last_step, seen_steps: t.seen_steps || [] }; });
+  const pick = function (b) { return b ? { weight: b.body_weight, body_fat: b.body_fat_percentage, muscle: b.muscle_mass, bmi: b.body_mass_index, bmr: b.basal_metabolic_rate, visceral: b.visceral_fat_grade } : null; };
+  return {
+    has_claimed_scan: hasScan,
+    latest_scan: latestScan ? {
+      scan_id: (body && body.scan_id) || latestScan.scan_id, scanned_at: (body && body.scanned_at) || latestScan.scan_time,
+      viewed_at: bodyScan ? bodyScan.viewed_at : latestScan.viewed_at, pdf_url: (bodyScan && bodyScan.pdf_url) || null,
+      data_ready: !!body, metrics: pick(body), prev_metrics: pick(prevBody),
+    } : null,
+    unviewed: unviewed,
+    landing: landing,
+    checklist: checklist,
+    rescan_due: rescanDue,
+    rescan_interval_days: J.rescan_interval_days,
+    calorie_target: { kcal: prof.calorie_target_kcal || null, source: prof.calorie_target_source || null, min: journeyConfig.calorie_min },
+    nudges: nudges,
+    tours: tours,
+    visbody_info: journeyConfig.visbody_info,
+  };
+}
+app.get("/api/journey/state", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    return res.json(Object.assign({ ok: true }, await jnState(user.id)));
+  } catch (e) { console.error("journey/state:", (e && e.message) || e); return res.status(500).json({ error: "Gagal memuat status." }); }
+});
+// Tandai langkah yang tak punya sumber data lain.
+//   {key:"book_class"}                -> user membuka booking kelas dari checklist (booking-nya
+//                                        sendiri di booking.20fit.id, tidak bisa kita verifikasi)
+//   {key:"rescan", date:"YYYY-MM-DD"} -> jadwal rescan (default: hari ini + rescan_interval_days)
+app.post("/api/journey/step", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {}, j = await jnGet(user.id), now = new Date();
+    if (b.key === "book_class") {
+      j.steps.class_booked = now.toISOString();
+      await jnSave(user.id, { steps: j.steps });
+      jnLog(user.id, "class_booked", { from: String(b.from || "checklist").slice(0, 30) });
+    } else if (b.key === "rescan") {
+      let d = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date || "")) ? String(b.date) : jnYmd(new Date(now.getTime() + journeyConfig.journey.rescan_interval_days * 86400000));
+      if (d < jnYmd(now)) return res.status(400).json({ error: "Tanggal rescan tidak boleh di masa lalu." });
+      j.steps.rescan_scheduled = now.toISOString();
+      await jnSave(user.id, { steps: j.steps, rescan_due: d });
+    } else return res.status(400).json({ error: "Langkah tidak dikenal." });
+    return res.json(Object.assign({ ok: true }, await jnState(user.id)));
+  } catch (e) { return res.status(500).json({ error: "Gagal menyimpan." }); }
+});
+// Target kalori dari BMR Visbody — HANYA setelah user konfirmasi. Angka dihitung di klien
+// (js/nutrition.js goalFromBmr, satu rumus dgn target otomatis); server memastikan user memang
+// punya BMR terukur & angkanya dalam batas wajar. {reset:true} -> kembali ke hitungan otomatis.
+app.post("/api/journey/calorie-target", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    let patch;
+    if (b.reset === true) patch = { calorie_target_kcal: null, calorie_target_source: null, calorie_target_set_at: null };
+    else {
+      if (b.confirm !== true) return res.status(400).json({ error: "Konfirmasi dulu." });
+      const { data: bd } = await admin.from("my20fit_visbody_body").select("basal_metabolic_rate").eq("auth_user_id", user.id).order("scanned_at", { ascending: false }).limit(1);
+      const bmr = bd && bd[0] && +bd[0].basal_metabolic_rate;
+      if (!bmr) return res.status(400).json({ error: "Belum ada BMR dari Visbody." });
+      const kcal = Math.round(+b.kcal);
+      if (!(kcal >= journeyConfig.calorie_min && kcal <= 6000)) return res.status(400).json({ error: "Target kalori minimal " + journeyConfig.calorie_min + " kkal." });
+      patch = { calorie_target_kcal: kcal, calorie_target_source: "visbody_bmr", calorie_target_set_at: new Date().toISOString() };
+    }
+    const { error } = await admin.from("my20fit_profile").update(patch).eq("auth_user_id", user.id);
+    if (error) throw error;
+    return res.json(Object.assign({ ok: true }, await jnState(user.id)));
+  } catch (e) { return res.status(500).json({ error: "Gagal menyimpan target." }); }
+});
+// Hasil lengkap scan DIBUKA (bukan sekadar banner tampil) -> viewed_at.
+app.post("/api/visbody/viewed", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const scanId = String((req.body || {}).scan_id || "").slice(0, 120);
+    const { data } = await admin.from("my20fit_visbody_scan").update({ viewed_at: new Date().toISOString() })
+      .eq("scan_id", scanId).eq("auth_user_id", user.id).is("viewed_at", null).select("scan_id");
+    if (data && data.length) jnLog(user.id, "visbody_result_viewed", { scan_id: scanId });
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: "Gagal." }); }
+});
+// Nudge: tampil / diklik / ditutup (batas frekuensi dihitung di jnState).
+app.post("/api/journey/nudge", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {}, key = String(b.key || ""), act = String(b.action || "");
+    if (!JN_NUDGE_EVENTS[key] || ["shown", "clicked", "dismissed"].indexOf(act) < 0) return res.status(400).json({ error: "Nudge tidak dikenal." });
+    const j = await jnGet(user.id), n = j.nudges[key] || {};
+    // "shown" dicatat sekali per jendela cap supaya funnel tak menggelembung tiap reload.
+    const cap = (journeyConfig.nudges[key] || {}).cap_days || 7;
+    if (act === "shown" && jnDaysSince(n.shown_at) < cap) return res.json({ ok: true });
+    n[act + "_at"] = new Date().toISOString();
+    j.nudges[key] = n;
+    await jnSave(user.id, { nudges: j.nudges });
+    const ev = JN_NUDGE_EVENTS[key][act];
+    if (ev) jnLog(user.id, ev, { key: key });
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: "Gagal." }); }
+});
+// Status tur (per user, lintas device). Event tur dikirim terpisah lewat /api/journey/event.
+const JN_TOUR_KEYS = ["welcome", "activity", "activity_intro", "home", "calories", "medical"];
+app.post("/api/journey/tour", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {};
+    if (JN_TOUR_KEYS.indexOf(b.tour_key) < 0) return res.status(400).json({ error: "Tur tidak dikenal." });
+    const st = ["not_started", "in_progress", "completed", "skipped"].indexOf(b.status) >= 0 ? b.status : "in_progress";
+    const seen = Array.isArray(b.seen_steps) ? b.seen_steps.map(function (x) { return String(x).slice(0, 40); }).slice(0, 40) : [];
+    const { error } = await admin.from("my20fit_tour_state").upsert({
+      auth_user_id: user.id, tour_key: b.tour_key, version: Math.max(1, Math.min(999, parseInt(b.version, 10) || 1)),
+      status: st, last_step: Math.max(0, Math.min(99, parseInt(b.last_step, 10) || 0)), seen_steps: seen, updated_at: new Date().toISOString(),
+    }, { onConflict: "auth_user_id,tour_key" });
+    if (error) throw error;
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: "Gagal menyimpan status tur." }); }
+});
+app.post("/api/journey/event", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const b = req.body || {}, ev = String(b.event || "");
+    if (!JN_CLIENT_EVENTS.has(ev)) return res.status(400).json({ error: "Event tidak dikenal." });
+    // Props: hanya kunci yang dikenal & nilai primitif pendek (bukan tempat sampah data).
+    const props = {};
+    ["tour", "step", "total", "cta", "from", "version"].forEach(function (k) {
+      const v = b.props && b.props[k];
+      if (typeof v === "string") props[k] = v.slice(0, 40); else if (typeof v === "number" && isFinite(v)) props[k] = v;
+    });
+    // Kartu terkunci bisa tampil tiap reload -> dicatat maks sekali per hari per user.
+    if (ev === "health_score_locked_shown") {
+      const since = new Date(Date.now() - 86400000).toISOString();
+      const { data } = await admin.from("my20fit_event_log").select("id").eq("auth_user_id", user.id).eq("event", ev).gte("created_at", since).limit(1);
+      if (data && data.length) return res.json({ ok: true });
+    }
+    await jnLog(user.id, ev, props);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: "Gagal." }); }
+});
+// ADMIN — funnel mingguan (user unik per event per minggu, Senin–Minggu, UTC).
+const JN_FUNNEL = ["nudge_visbody_shown", "nudge_visbody_clicked", "visbody_booking_clicked", "visbody_scan_received",
+  "visbody_scan_claimed", "activity_landing_after_claim", "visbody_result_viewed", "coach_chat_started",
+  "workout_plan_created", "class_booked", "rescan_reminder_sent", "rescan_completed",
+  "health_score_locked_shown", "health_score_unlocked"];
+app.get("/api/admin/journey/funnel", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const weeks = Math.max(1, Math.min(26, parseInt(req.query.weeks, 10) || 8));
+    const now = new Date(), mon = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    mon.setUTCDate(mon.getUTCDate() - ((mon.getUTCDay() + 6) % 7) - (weeks - 1) * 7);
+    const { data, error } = await admin.from("my20fit_event_log").select("auth_user_id,event,props,created_at")
+      .gte("created_at", mon.toISOString()).order("created_at", { ascending: true }).limit(50000);
+    if (error) throw error;
+    const wk = function (iso) { const d = new Date(iso); const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); m.setUTCDate(m.getUTCDate() - ((m.getUTCDay() + 6) % 7)); return m.toISOString().slice(0, 10); };
+    const cols = [];
+    for (let i = 0; i < weeks; i++) { const d = new Date(mon); d.setUTCDate(mon.getUTCDate() + i * 7); cols.push(d.toISOString().slice(0, 10)); }
+    const sets = {}, tours = {};
+    (data || []).forEach(function (r) {
+      const w = wk(r.created_at);
+      if (JN_FUNNEL.indexOf(r.event) >= 0) {
+        const k = r.event + "|" + w; sets[k] = sets[k] || new Set();
+        sets[k].add(r.auth_user_id || ("anon:" + ((r.props && r.props.scan_id) || r.created_at)));
+      }
+      if (/^tour_/.test(r.event)) {   // tur: per jenis & langkah (di mana user berhenti)
+        const t = (r.props && r.props.tour) || "?", tk = t + "|" + r.event + (r.event === "tour_skipped" ? "@" + ((r.props && r.props.step) || 0) : "");
+        tours[tk] = (tours[tk] || 0) + 1;
+      }
+    });
+    const rows = JN_FUNNEL.map(function (ev) { return { event: ev, weeks: cols.map(function (w) { const s = sets[ev + "|" + w]; return s ? s.size : 0; }) }; });
+    return res.json({ ok: true, weeks: cols, rows: rows, tours: tours });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal." }); }
 });
 
 app.post("/api/webhooks/resend", async (req, res) => {
@@ -1225,7 +1682,7 @@ app.get("/api/admin/email/automations/:id/dryrun", async (req, res) => {
 // DIPINDAH ke ATAS route pertama (blok "Core middleware") supaya semua route dapat req.body.
 
 // Polling status pembayaran itu MEMANG sering: js/deals.js poll tiap 5 detik selama menunggu
-// (12 req/menit). Dengan limit umum 50/10 menit, user kena limit sendiri setelah ~4 menit
+// (12 req/menit). Dengan limit umum (dulu 50/10 menit), user kena limit sendiri setelah ~4 menit
 // menunggu — padahal invoice Xendit hidup berjam-jam & transfer bank sering >5 menit. Setelah
 // itu 429 dijawab, klien menelannya dan order dianggap BELUM LUNAS selamanya: user sudah bayar
 // tapi kredit tak pernah muncul. Jadi endpoint status (terautentikasi, read-only, idempoten)
@@ -1233,24 +1690,47 @@ app.get("/api/admin/email/automations/:id/dryrun", async (req, res) => {
 const PAYMENT_POLL_PATHS = new Set(["/api/scan/order-status", "/api/scan/reconcile", "/api/photo/scan-status"]);
 const isPollPath = (req) => PAYMENT_POLL_PATHS.has((req.originalUrl || "").split("?")[0]);
 // Proxy gambar preview foto (/api/photo/thumb/:id) = satu request per thumbnail. Satu carousel
-// bisa memuat belasan gambar sekaligus -> jangan dihitung ke ember 50/10mnt (nanti user kehabisan
+// bisa memuat belasan gambar sekaligus -> jangan dihitung ke ember apiLimiter (nanti user kehabisan
 // limit hanya karena membuka dashboard). Punya limiter sendiri yang longgar + cache browser.
 const isImgPath = (req) => { const _p = (req.originalUrl || "").split("?")[0]; return _p.startsWith("/api/photo/thumb/") || _p.startsWith("/api/menu/photo"); };
 // Unggah foto resep (submit resep multi-langkah bisa mengirim belasan gambar beruntun) ->
-// jangan dihitung ke ember 50/10mnt; ada uploadLimiter sendiri di bawah.
+// jangan dihitung ke ember apiLimiter; ada uploadLimiter sendiri di bawah.
 const isMenuUploadPath = (req) => (req.originalUrl || "").split("?")[0].startsWith("/api/menu/upload");
 
 // message berupa OBJEK -> express-rate-limit membalas JSON. Kalau string (default), body-nya
 // text/html dan res.json() di klien meledak -> error ditelan diam-diam (persis bug di atas).
 const limitMsg = { error: "Terlalu banyak permintaan. Coba lagi sebentar lagi.", rate_limited: true };
 
+// Kunci limiter umum = USER yang login (hash token Bearer), bukan IP. Dulu 50/10mnt per IP untuk
+// SEMUA /api/*: satu putaran dashboard (±15 panggilan) + activity (±8) + chat (±8) sudah ±30, dan
+// member sering berbagi satu IP (Wi-Fi kantor/gym, NAT operator seluler) -> chat coach membalas
+// "Terlalu banyak permintaan" padahal user baru mengirim satu pesan. Token TIDAK diverifikasi di
+// sini (mahal); token palsu tetap ditolak di route, dan ipGuard di bawah membatasi total per IP.
+function bearerKey(req) {
+  const h = String(req.headers.authorization || "");
+  const t = h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  return t ? "u:" + crypto.createHash("sha256").update(t).digest("hex").slice(0, 32) : null;
+}
+const userOrIpKey = (req) => bearerKey(req) || "ip:" + req.ip;
+const skipOwnLimiter = (req) => isPollPath(req) || isImgPath(req) || isMenuUploadPath(req); // ditangani pollLimiter/imgLimiter/uploadLimiter di bawah
 const apiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 menit
-  max: 50,
+  max: (req) => (bearerKey(req) ? 400 : 100),   // login: per user · tanpa login: per IP
+  keyGenerator: userOrIpKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: limitMsg,
-  skip: (req) => isPollPath(req) || isImgPath(req) || isMenuUploadPath(req), // ditangani pollLimiter/imgLimiter/uploadLimiter di bawah
+  skip: skipOwnLimiter,
+});
+// Pagar per IP (banjir request / rotasi token palsu). Longgar karena satu IP bisa berisi
+// puluhan member (kantor, gym, NAT seluler).
+const ipGuard = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 3000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limitMsg,
+  skip: skipOwnLimiter,
 });
 const pollLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -1268,17 +1748,22 @@ const imgLimiter = rateLimit({
   legacyHeaders: false,
   message: limitMsg,
 });
+app.use("/api/", ipGuard);
 app.use("/api/", apiLimiter);
+// Endpoint AI berbiaya (chat coach, baca screenshot, rencana) — kuota sendiri per user, supaya
+// longgarnya limiter umum tidak jadi celah biaya AI.
+const aiUserLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 40, keyGenerator: userOrIpKey, skip: (req) => req.method !== "POST", standardHeaders: true, legacyHeaders: false, message: limitMsg });   // GET (mis. /api/coach/chat/history) tidak dihitung
+app.use(["/api/coach/chat", "/api/activity/upload-analyze", "/api/activity/scan", "/api/activity/quick-analysis", "/api/activity/plan", "/api/activity/workouts", "/api/activity/today-plan/generate"], aiUserLimiter);
 app.use("/api/scan/order-status", pollLimiter);
 app.use("/api/scan/reconcile", pollLimiter);
 app.use("/api/photo/scan-status", pollLimiter);
 app.use("/api/photo/thumb/", imgLimiter);
-app.use("/api/menu/photo", imgLimiter); // foto katalog menu.20fit.id (publik) — kuota longgar, exempt dari apiLimiter 50/10mnt via isImgPath
+app.use("/api/menu/photo", imgLimiter); // foto katalog menu.20fit.id (publik) — kuota longgar, exempt dari apiLimiter via isImgPath
 // Unggah foto resep (submit/revisi, butuh login): longgar utk foto per-langkah beruntun, tetap terbatas.
 const uploadLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: limitMsg });
 app.use("/api/menu/upload", uploadLimiter);
 
-// Limiter KETAT untuk endpoint kredensial — 50/10mnt global terlalu longgar buat
+// Limiter KETAT untuk endpoint kredensial — limiter umum terlalu longgar buat
 // tebak-password / OTP. 12 percobaan / 15 menit / IP masih longgar utk user sah.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -3325,9 +3810,9 @@ app.get("/api/coaches", async (req, res) => {
       async function upcomingInstructors(source) {
         const cfg = CLASS_VENUES[source];
         const { data: rows } = await admin.from(cfg.table)
-          .select("instructor").gte("schedule_date", today).eq("is_cancelled", false).limit(3000);
+          .select("instructor," + cfg.types + "(name)").gte("schedule_date", today).eq("is_cancelled", false).limit(3000);
         const set = {};
-        (rows || []).forEach(r => { if (r.instructor) set[r.instructor] = 1; });
+        (rows || []).forEach(r => { const ins = classInstructor(source, r.instructor, (r[cfg.types] || {}).name); if (ins) set[ins] = 1; });
         return set;
       }
       const [arenaSet, gymSet] = await Promise.all([upcomingInstructors("arena"), upcomingInstructors("gym")]);
@@ -3376,6 +3861,13 @@ app.get("/api/coaches/aliases", async (req, res) => {
 // ditampilkan tapi tidak bisa dipilih, dengan alasannya.
 // Jadwal mendatang satu coach (arena + gym lewat alias instruktur). Dipakai endpoint di bawah
 // dan konteks chatbot AI Coach (kelas milik coach yang sedang diajak chat). null = coach tak ada.
+// Instruktur yang DITAMPILKAN my.20fit untuk satu kelas jadwal: "" kalau ada koreksi di
+// lib/class-overrides.js (jadwal sumber keliru). SATU titik — dipakai semua endpoint kelas.
+function classInstructor(source, instructor, typeName) {
+  const ins = String(instructor || "");
+  const hit = classOverrides.some(function (o) { return o.source === source && o.instructor === ins && o.class_name.test(String(typeName || "")); });
+  return hit ? "" : ins;
+}
 async function coachUpcomingClasses(id) {
   const { data: crows } = await admin.from("my20fit_coaches")
     .select("id,display_name,venue,speciality,photo_url").eq("id", id).limit(1);
@@ -3414,6 +3906,7 @@ async function coachUpcomingClasses(id) {
     }
     rows.forEach(r => {
       const t = r[cfg.types] || {};
+      if (!classInstructor(source, r.instructor, t.name)) return;   // instruktur di jadwal keliru (koreksi)
       const start = String(r.start_time || "").slice(0, 5), end = String(r.end_time || "").slice(0, 5);
       const startDt = new Date(r.schedule_date + "T" + (r.start_time || "00:00:00") + "+07:00"); // WIB
       const quota = (r.quota == null) ? null : +r.quota;
@@ -4626,6 +5119,31 @@ app.get("/api/corp/summary", async (req, res) => {
     return res.json({ ok: true, corporate_name: ctx.corporate_name, kpis: k, members: roster });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
+// Visbody karyawan — AGREGAT & ANONIM saja (jumlah peserta + rata-rata scan terakhir tiap
+// peserta). Peserta < journeyConfig.corporate_min_group -> angka rata-rata tidak dikirim
+// (kelompok kecil bisa menebak individu). TIDAK ada baris per karyawan di sini.
+app.get("/api/corp/visbody-summary", async (req, res) => {
+  var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
+  if (denyCorpHealthToSuperadmin(ctx, res)) return;
+  try {
+    var { data: mem } = await admin.from("my20fit_corporate_member").select("auth_user_id").eq("corporate_id", ctx.corporate_id).eq("status", "active");
+    var ids = (mem || []).map(function (m) { return m.auth_user_id; });
+    var latest = {};
+    for (var i = 0; i < ids.length; i += 200) {
+      var { data: rows } = await admin.from("my20fit_visbody_body").select("auth_user_id,scanned_at,body_fat_percentage,muscle_mass,body_mass_index")
+        .in("auth_user_id", ids.slice(i, i + 200)).order("scanned_at", { ascending: false });
+      (rows || []).forEach(function (r) { if (!latest[r.auth_user_id]) latest[r.auth_user_id] = r; });
+    }
+    var list = Object.keys(latest).map(function (k) { return latest[k]; });
+    var minN = journeyConfig.corporate_min_group, out = { ok: true, employees: ids.length, participants: list.length, min_group: minN };
+    if (list.length >= minN) {
+      var avg = function (f) { var v = list.map(function (r) { return +r[f]; }).filter(function (n) { return isFinite(n) && n > 0; }); return v.length ? Math.round(v.reduce(function (a, b) { return a + b; }, 0) / v.length * 10) / 10 : null; };
+      out.avg = { body_fat: avg("body_fat_percentage"), muscle: avg("muscle_mass"), bmi: avg("body_mass_index") };
+    } else out.suppressed = true;
+    await corpAudit(ctx, null, "visbody.aggregate", { participants: list.length });
+    return res.json(out);
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
 // Detail satu karyawan (WAJIB anggota corporate ini). Akses individual dicatat audit.
 app.get("/api/corp/member/:uid", async (req, res) => {
   var ctx = await requireCorpAdmin(req, res); if (!ctx) return;
@@ -4755,7 +5273,9 @@ var USER_DATA_TABLES = [
   "my20fit_daily_plan", "my20fit_sleep", "my20fit_hydration",
   "my20fit_coach_quiz", "my20fit_workout_plan", "my20fit_coach_cta_event",
   "my20fit_coach_session", "my20fit_coach_set_log", "my20fit_coach_achievement",
-  "my20fit_coach_chat_session", "my20fit_coach_chat_message",
+  "my20fit_coach_chat_session", "my20fit_coach_chat_message", "my20fit_coach_meal_plan",
+  "my20fit_visbody_body", "my20fit_visbody_scan", "my20fit_data_consent",
+  "my20fit_health_journey", "my20fit_tour_state", "my20fit_event_log",
   "my20fit_activity_uploads", "my20fit_today_plans",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
@@ -6539,7 +7059,7 @@ app.get("/api/admin/banners/tracking", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 // Publik: banner aktif utk placement (schedule + active + priority). Rate-limited.
-app.get("/api/banners/active", apiLimiter, async (req, res) => {
+app.get("/api/banners/active", async (req, res) => {
   if (!admin) return res.json({ ok: true, banners: [] });
   try {
     const place = String(req.query.placement || "below_aqi");
@@ -6552,7 +7072,7 @@ app.get("/api/banners/active", apiLimiter, async (req, res) => {
   } catch (e) { return res.json({ ok: true, banners: [] }); }
 });
 // Publik: catat impression/click (balas cepat, proses async, kecualikan bot). Rate-limited.
-app.post("/api/banners/event", apiLimiter, async (req, res) => {
+app.post("/api/banners/event", async (req, res) => {
   res.json({ ok: true });
   try {
     if (!admin) return;
@@ -7410,7 +7930,7 @@ app.get("/api/classes/schedule", async (req, res) => {
         end: String(s.end_time || "").slice(0, 5),
         name: clean(t.name) || "Kelas", full_name: t.name || "",
         color: t.color || "#C41101",
-        instructor: s.instructor || "",
+        instructor: classInstructor(venue, s.instructor, t.name),
         duration_min: t[cfg.dur] || null,
         price: (t[cfg.price] != null ? +t[cfg.price] : null),
       });
@@ -7479,8 +7999,8 @@ app.get("/api/classes/upcoming", async (req, res) => {
           source, id: r.id, date: r.schedule_date, start, end: endt,
           name: clean(t.name) || "Kelas", color: t.color || "#C41101",
           duration_min: t[cfg.dur] || null,
-          instructor: r.instructor || "",
-          coach: aliasMap[source][r.instructor] || null,
+          instructor: classInstructor(source, r.instructor, t.name),
+          coach: aliasMap[source][classInstructor(source, r.instructor, t.name)] || null,
           quota, remaining, selectable, reason,
           book_url: "/book-class?source=" + source + "&schedule=" + encodeURIComponent(r.id),
         });
@@ -9022,9 +9542,15 @@ app.get("/api/activity/day", async (req, res) => {
 // (Visbody), dan lab (MCU). Bobot didistribusi ulang ke kategori yang datanya tersedia.
 // Juga mengembalikan `gaps` (What You Need: apa yang kurang + aksi), rekap minggu ini (`week`),
 // dan target yang dipakai. BUKAN diagnosis medis — angka indikatif dari data user sendiri.
-const HS_TARGET = { workout_days: 4, sleep_hours: 7.5, water_ml: 2000, kcal: 2000 };
+const HS_CFG = journeyConfig.health_score;
+const HS_TARGET = { workout_days: HS_CFG.workout_target_days, sleep_hours: 7.5, water_ml: 2000, kcal: 2000 };
+const HS_COMPONENTS = ["workout", "nutrition", "body", "sleep", "hydration", "lab"];
 function hsNum(v) { const n = +v; return (v != null && v !== "" && isFinite(n)) ? n : null; }
-// Hitung Health Score user (dipakai endpoint di bawah + badge "Health Pro" di achievements).
+// GATING: skor HANYA terbuka kalau user punya minimal 1 scan Visbody yang sudah di-claim ATAU
+// minimal 1 workout (log/upload). Tidur/hidrasi/kalori/MCU tetap dihitung sebagai komponen tapi
+// tidak cukup sendirian. Terkunci -> total null (tak pernah angka 0 palsu) + daftar komponen
+// yang sudah terisi. Komponen tanpa data tak ikut dihitung (bobot didistribusi ulang).
+// SATU sumber: dipakai /api/activity/health-score, konteks AI Coach, dan badge achievements.
 async function hsCompute(uid) {
   const today = ymd(new Date());
   const now = new Date(today + "T00:00:00");
@@ -9033,18 +9559,26 @@ async function hsCompute(uid) {
   const from7 = new Date(now); from7.setDate(now.getDate() - 6);
   const yday = new Date(now); yday.setDate(now.getDate() - 1);
   const mondayStr = ymd(monday), from7Str = ymd(from7), ydayStr = ymd(yday);
-  const fromAll = mondayStr < from7Str ? mondayStr : from7Str;
+  const winStart = new Date(now); winStart.setDate(now.getDate() - (HS_CFG.workout_window_days - 1));
+  const winStr = ymd(winStart);
+  const fromAll = [mondayStr, from7Str, winStr].sort()[0];
 
   // Query paralel; tabel yang belum ada / kosong -> data null -> kategori dilewati (graceful).
-    const [wkRes, dlRes, vbRes, mcuRes, upRes, slRes, hyRes] = await Promise.all([
-    admin.from("my20fit_workout").select("workout_date,duration_min,calories_burned,avg_heart_rate").eq("auth_user_id", uid).gte("workout_date", mondayStr).lte("workout_date", today),
+  const [wkRes, dlRes, vbRes, mcuRes, upRes, slRes, hyRes, wkEver, upEver, vbClaim] = await Promise.all([
+    admin.from("my20fit_workout").select("workout_date,duration_min,calories_burned,avg_heart_rate").eq("auth_user_id", uid).gte("workout_date", fromAll).lte("workout_date", today),
     admin.from("my20fit_daily_log").select("log_date,sleep_hours,water_glasses,cal_items").eq("auth_user_id", uid).gte("log_date", from7Str).lte("log_date", today),
     admin.from("my20fit_visbody_body").select("body_fat_percentage,body_mass_index,muscle_mass,scanned_at").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(1),
     admin.from("my20fit_mcu_result").select("result,created_at").eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(1),
     admin.from("my20fit_activity_uploads").select("upload_type,upload_date,extracted_data,created_at").eq("auth_user_id", uid).gte("upload_date", fromAll).lte("upload_date", today).order("created_at", { ascending: false }).limit(100),
     admin.from("my20fit_sleep").select("sleep_date,duration_hours").eq("auth_user_id", uid).gte("sleep_date", from7Str).lte("sleep_date", today),
     admin.from("my20fit_hydration").select("log_date,amount_ml").eq("auth_user_id", uid).gte("log_date", from7Str).lte("log_date", today),
+    // Syarat buka (sepanjang waktu, bukan cuma minggu ini).
+    admin.from("my20fit_workout").select("id").eq("auth_user_id", uid).limit(1),
+    admin.from("my20fit_activity_uploads").select("id").eq("auth_user_id", uid).eq("upload_type", "workout").limit(1),
+    admin.from("my20fit_visbody_scan").select("scan_id").eq("auth_user_id", uid).limit(1),
   ]);
+  const hasWorkoutEver = !!((wkEver.data && wkEver.data.length) || (upEver.data && upEver.data.length));
+  const hasVisbody = !!(vbClaim.data && vbClaim.data.length);
 
   const scores = {}; let totalWeight = 0;
   const clamp100 = (n) => Math.max(0, Math.min(100, Math.round(n)));
@@ -9056,19 +9590,24 @@ async function hsCompute(uid) {
   const sessions = [];
   (wkRes.data || []).forEach((w) => sessions.push({ date: w.workout_date, min: hsNum(w.duration_min), kcal: hsNum(w.calories_burned), hr: hsNum(w.avg_heart_rate), src: "log" }));
   upOf("workout").forEach((u) => {
-    if (u.upload_date < mondayStr) return;
     const e = u.extracted_data || {};
     sessions.push({ date: u.upload_date, min: hsNum(e.duration_minutes), kcal: hsNum(e.calories_burned), hr: hsNum(e.avg_heart_rate), src: "upload" });
   });
-  const workoutDays = new Set(sessions.map((s) => s.date));
-  const hasHR = sessions.some((s) => s.hr != null && s.hr > 0);
-  {
+  // Skor workout: hari unik dalam jendela bergulir (config). Rekap "minggu ini" di bawah tetap Sen–Min.
+  const winSessions = sessions.filter((s) => s.date >= winStr);
+  const workoutDays = new Set(winSessions.map((s) => s.date));
+  const weekSessions = sessions.filter((s) => s.date >= mondayStr);
+  const weekDays = new Set(weekSessions.map((s) => s.date));
+  const hasHR = winSessions.some((s) => s.hr != null && s.hr > 0);
+  // Belum pernah workout sama sekali -> "belum ada data" (bukan skor 0). Pernah tapi absen di
+  // jendela ini -> 0 itu data sungguhan.
+  if (hasWorkoutEver) {
     const T = HS_TARGET.workout_days;
     const base = (workoutDays.size / T) * 100;
     // Bonus kecil kalau ada data detak jantung dari tracker (user melacak lebih detail).
     scores.workout = { score: clamp100(base + (hasHR && workoutDays.size ? 5 : 0)), weight: 25,
-      detail: workoutDays.size + "/" + T + " hari", have: workoutDays.size, target: T,
-      from_upload: sessions.filter((s) => s.src === "upload").length };
+      detail: workoutDays.size + "/" + T + " hari (" + HS_CFG.workout_window_days + " hari terakhir)", have: workoutDays.size, target: T,
+      from_upload: winSessions.filter((s) => s.src === "upload").length };
     totalWeight += 25;
   }
 
@@ -9115,17 +9654,22 @@ async function hsCompute(uid) {
   }
 
   // ── BODY COMPOSITION (20%) — Visbody terbaru (BMI + body fat), simplified.
+  //    Ambang BMI/BF di bawah PERLU DIVALIDASI tim klinik. Scan lebih tua dari body_fresh_days
+  //    -> ditandai stale & bobotnya dikali body_stale_weight_factor (config).
   {
     const b = (vbRes.data && vbRes.data[0]) || null;
     if (b) {
+      const ageDays = b.scanned_at ? Math.floor((Date.now() - new Date(b.scanned_at).getTime()) / 86400000) : null;
+      const stale = ageDays != null && ageDays > HS_CFG.body_fresh_days;
+      const w = stale ? 20 * HS_CFG.body_stale_weight_factor : 20;
       const bmi = +b.body_mass_index, bf = +b.body_fat_percentage;
       const parts = [];
       if (isFinite(bmi) && bmi > 0) parts.push(bmi >= 18.5 && bmi <= 24.9 ? 95 : (bmi >= 25 && bmi <= 29.9) ? 70 : 40);
       if (isFinite(bf) && bf > 0) parts.push(bf <= 25 ? 90 : bf <= 30 ? 70 : 50);
       if (parts.length) {
         const det = [isFinite(bmi) && bmi > 0 ? "BMI " + bmi : "", isFinite(bf) && bf > 0 ? "BF " + bf + "%" : ""].filter(Boolean).join(" · ");
-        scores.body = { score: clamp100(parts.reduce((a, c) => a + c, 0) / parts.length), weight: 20, detail: det };
-        totalWeight += 20;
+        scores.body = { score: clamp100(parts.reduce((a, c) => a + c, 0) / parts.length), weight: w, detail: det, stale: stale, age_days: ageDays };
+        totalWeight += w;
       }
     }
   }
@@ -9172,32 +9716,44 @@ async function hsCompute(uid) {
     target: { en: "Log every glass today", id: "Catat tiap gelas hari ini" } });
   {
     const n = workoutDays.size, T = HS_TARGET.workout_days;
-    if (n >= T + 1) gaps.push({ category: "workout", icon: "rest",
+    if (!hasWorkoutEver) { /* belum pernah workout -> ajakan ada di kartu Health Score, bukan gap */ }
+    else if (n >= T + 1) gaps.push({ category: "workout", icon: "rest",
       action: { en: "Recovery day today", id: "Recovery day hari ini" },
       detail: { en: n + " workout days this week already — rest is part of training.", id: "Sudah " + n + " hari workout minggu ini — istirahat juga bagian latihan." },
       target: { en: "Light stretching / yoga", id: "Stretching / yoga ringan" } });
     else if (n < T) gaps.push({ category: "workout", icon: "dumbbell",
       action: { en: "Work out " + (T - n) + "x more this week", id: "Workout " + (T - n) + "x lagi minggu ini" },
-      detail: { en: "You're at " + n + "/" + T + " this week.", id: "Baru " + n + "/" + T + " minggu ini." },
+      detail: { en: "You're at " + n + "/" + T + " in the last " + HS_CFG.workout_window_days + " days.", id: "Baru " + n + "/" + T + " dalam " + HS_CFG.workout_window_days + " hari terakhir." },
       target: { en: "Book a class for tomorrow", id: "Book kelas untuk besok" } });
   }
 
   // ── REKAP MINGGU INI (Sen–Min) — hari ber-workout + total sesi/menit/kalori (log + upload).
-  const week = { days: [], sessions: sessions.length, minutes: 0, kcal: 0 };
-  sessions.forEach((s) => { if (s.min) week.minutes += s.min; if (s.kcal) week.kcal += s.kcal; });
+  const week = { days: [], sessions: weekSessions.length, minutes: 0, kcal: 0 };
+  weekSessions.forEach((s) => { if (s.min) week.minutes += s.min; if (s.kcal) week.kcal += s.kcal; });
   week.minutes = Math.round(week.minutes); week.kcal = Math.round(week.kcal);
-  for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); const s = ymd(d); week.days.push({ date: s, workout: workoutDays.has(s), future: s > today }); }
+  for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); const s = ymd(d); week.days.push({ date: s, workout: weekDays.has(s), future: s > today }); }
 
+  const filled = HS_COMPONENTS.filter((k) => !!scores[k]);
+  const unlocked = hasVisbody || hasWorkoutEver;
+  const base = { unlocked: unlocked, unlock_source: hasVisbody ? "visbody" : (hasWorkoutEver ? "workout" : null),
+    filled: filled, components_total: HS_COMPONENTS.length, week: week, targets: HS_TARGET };
+  // Terkunci: tanpa skor & tanpa angka per komponen — cuma komponen mana yang sudah terisi.
+  if (!unlocked) return Object.assign(base, { total: null, breakdown: {}, gaps: [] });
+  // Terbuka tapi belum ada komponen terhitung (mis. scan baru di-claim, data ukur masih diproses)
+  // -> tetap tanpa angka, bukan 0.
+  if (!filled.length) return Object.assign(base, { total: null, breakdown: {}, gaps: gaps });
   let total = 0;
-  if (totalWeight > 0) for (const k in scores) total += scores[k].score * (scores[k].weight / totalWeight);
-  return { total: Math.round(total), have_any: totalWeight > 0, breakdown: scores, gaps: gaps, week: week, targets: HS_TARGET };
+  for (const k in scores) total += scores[k].score * (scores[k].weight / totalWeight);
+  return Object.assign(base, { total: Math.round(total), breakdown: scores, gaps: gaps });
 }
 app.get("/api/activity/health-score", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
-    return res.json(Object.assign({ ok: true }, await hsCompute(user.id)));
+    const hs = await hsCompute(user.id);
+    if (hs.unlocked) jnMarkHsUnlocked(user.id, hs.unlock_source);
+    return res.json(Object.assign({ ok: true }, hs));
   } catch (e) {
     console.error("activity/health-score:", e.message);
     return res.status(500).json({ error: "Gagal menghitung health score." });
@@ -9211,36 +9767,14 @@ app.post("/api/activity/workout", async (req, res) => {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
     const b = req.body || {};
-    const date = isYmd(b.workout_date) ? String(b.workout_date) : ymd(new Date());
-    const dur = Number(b.duration_min);
-    // duration_min NOT NULL di skema — tolak di sini supaya errornya jelas, bukan 500 dari PG.
-    if (!isFinite(dur) || dur <= 0) return res.status(400).json({ error: "Durasi (menit) wajib diisi dan harus lebih dari 0." });
+    const v = woRowFromBody(b, null, user.id);
+    if (v.error) return res.status(400).json({ error: v.error });
     const SRC = ["strava", "garmin", "apple_health", "google_fit", "manual", "upload"];
-    const source = SRC.indexOf(String(b.source || "manual")) >= 0 ? String(b.source) : "manual";
-
-    const row = {
+    const row = Object.assign(v.row, {
       auth_user_id: user.id,
-      workout_date: date,
-      type: String(b.type || "other").slice(0, 40),
-      duration_min: dur,
-      source: source,
-      title: b.title ? String(b.title).slice(0, 160) : null,
-      note: b.note ? String(b.note).slice(0, 500) : null,
-      distance_km: (b.distance_km != null && isFinite(+b.distance_km)) ? +b.distance_km : null,
-      calories_burned: (b.calories_burned != null && isFinite(+b.calories_burned)) ? Math.round(+b.calories_burned) : null,
-      avg_heart_rate: (b.avg_heart_rate != null && isFinite(+b.avg_heart_rate)) ? Math.round(+b.avg_heart_rate) : null,
-      max_heart_rate: (b.max_heart_rate != null && isFinite(+b.max_heart_rate)) ? Math.round(+b.max_heart_rate) : null,
-      hr_zone_data: b.hr_zone_data || null,
-      pace_data: b.pace_data || null,
-      elevation_gain_m: (b.elevation_gain_m != null && isFinite(+b.elevation_gain_m)) ? +b.elevation_gain_m : null,
-      uploaded_file_url: b.uploaded_file_url ? String(b.uploaded_file_url).slice(0, 500) : null,
-      // Satu sesi bisa diunggah dari BEBERAPA gambar (ringkasan + zona HR + split).
-      // Kolom uploaded_file_url cuma muat satu, jadi daftar lengkapnya + jejak hasil
-      // bacaan AI disimpan di raw_data (jsonb, sudah ada di migration 017).
-      raw_data: (b.raw_data && typeof b.raw_data === "object") ? b.raw_data : null,
+      source: SRC.indexOf(String(b.source || "manual")) >= 0 ? String(b.source) : "manual",
       external_id: b.external_id ? String(b.external_id).slice(0, 120) : null,
-      updated_at: new Date().toISOString(),
-    };
+    });
     const { data, error } = await admin.from("my20fit_workout").insert(row).select().single();
     if (error) throw error;
     return res.json({ ok: true, workout: data });
@@ -9256,9 +9790,16 @@ app.delete("/api/activity/workout/:id", async (req, res) => {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
-    const { error } = await admin.from("my20fit_workout").delete()
-      .eq("id", String(req.params.id)).eq("auth_user_id", user.id);
+    const { data: rows } = await admin.from("my20fit_workout").select("id,raw_data").eq("id", String(req.params.id)).eq("auth_user_id", user.id).limit(1);
+    const w = rows && rows[0];
+    if (!w) return res.status(404).json({ error: "Workout tidak ditemukan." });
+    const { error } = await admin.from("my20fit_workout").delete().eq("id", w.id).eq("auth_user_id", user.id);
     if (error) throw error;
+    // Screenshot asli + baris upload yang tertaut ikut dihapus (best-effort; workout-nya sudah terhapus).
+    const rd = w.raw_data || {};
+    const paths = (Array.isArray(rd.file_paths) ? rd.file_paths : []).filter((x) => typeof x === "string" && x.indexOf(user.id + "/") === 0);
+    if (paths.length) { try { await admin.storage.from("workout-uploads").remove(paths); } catch (e) {} }
+    if (rd.upload_id) { try { await admin.from("my20fit_activity_uploads").delete().eq("id", String(rd.upload_id)).eq("auth_user_id", user.id); } catch (e) {} }
     return res.json({ ok: true });
   } catch (e) {
     console.error("activity/workout delete:", e.message);
@@ -9268,7 +9809,8 @@ app.delete("/api/activity/workout/:id", async (req, res) => {
 
 // POST /api/activity/upload — simpan screenshot/foto workout ke Storage (bucket PRIVAT).
 // Pola sama dengan /api/admin/upload-photo: data URL base64, batas ukuran di server.
-// Bucket privat -> balikan signed URL berumur pendek, BUKAN public URL.
+// Bucket privat -> yang disimpan PATH berkas (bukan signed URL yang kedaluwarsa 7 hari);
+// halaman detail workout membuat signed URL baru tiap kali dibuka.
 app.post("/api/activity/upload", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
@@ -9291,8 +9833,7 @@ app.post("/api/activity/upload", async (req, res) => {
       }
       throw up.error;
     }
-    const sg = await admin.storage.from("workout-uploads").createSignedUrl(name, 60 * 60 * 24 * 7);
-    return res.json({ ok: true, path: name, url: (sg.data && sg.data.signedUrl) || null });
+    return res.json({ ok: true, path: name });
   } catch (e) {
     console.error("activity/upload:", e.message);
     return res.status(500).json({ error: "Gagal mengunggah berkas." });
@@ -9360,10 +9901,13 @@ app.post("/api/activity/scan", async (req, res) => {
     };
     // Sama persis dengan pilihan di <select id="fType"> pada activity.html — supaya hasil
     // AI bisa langsung dipilihkan di dialog tanpa lapisan pemetaan yang bisa melenceng.
-    const TYPES = ["run", "cycling", "gym", "hyrox", "swimming", "other"];
+    const TYPES = Object.keys(WorkoutMetrics.TYPES);
+    const fc = (r.field_confidence && typeof r.field_confidence === "object") ? Object.keys(r.field_confidence).slice(0, 30).reduce(function (o, k) {
+      const c = num(r.field_confidence[k], 0, 100); if (c != null) o[String(k).slice(0, 40)] = Math.round(c); return o; }, {}) : null;
     return res.json({
       ok: true,
       readable: r.readable !== false,
+      date_confirm_after_days: woConfig.date_confirm_after_days,
       result: {
         title: r.title ? String(r.title).slice(0, 160) : null,
         type: TYPES.indexOf(String(r.type)) >= 0 ? String(r.type) : null,
@@ -9379,6 +9923,14 @@ app.post("/api/activity/scan", async (req, res) => {
         confidence: num(r.confidence, 0, 100),
         fields_read: Array.isArray(r.fields_read) ? r.fields_read.slice(0, 20).map((x) => String(x).slice(0, 40)) : [],
         note: r.note ? String(r.note).slice(0, 300) : null,
+        // Field baru (edge my20fit-ai versi Fase 1). Edge lama tidak mengirimnya -> null.
+        workout_date: isYmd(r.workout_date) ? String(r.workout_date) : null,
+        date_text: r.date_text ? String(r.date_text).slice(0, 40) : null,
+        year_visible: r.year_visible === true ? true : (r.year_visible === false ? false : null),
+        start_time: /^\d{1,2}:\d{2}$/.test(String(r.start_time || "")) ? String(r.start_time).padStart(5, "0") : null,
+        avg_speed_kmh: num(r.avg_speed_kmh, 0.5, 120),
+        cadence: num(r.cadence, 10, 250),
+        field_confidence: fc,
       },
     });
   } catch (e) {
@@ -9741,6 +10293,7 @@ app.post("/api/coach/plan", async (req, res) => {
     const row = { auth_user_id: user.id, goal: planObj.goal || null, level: planObj.level || null, plan: planObj, version: 1, is_active: true, source: source, updated_at: new Date().toISOString() };
     const { data, error } = await admin.from("my20fit_workout_plan").insert(row).select().single();
     if (error) throw error;
+    jnLog(user.id, "workout_plan_created", { source: "quiz" });
     logAiAccess(user.id, "coach/program", source === "ai", source === "ai" ? null : "fallback");
     return res.json({ ok: true, plan: data, source: source });
   } catch (e) {
@@ -9806,7 +10359,8 @@ app.post("/api/coach/plan/activate", async (req, res) => {
     return res.json({ ok: true, plan: data });
   } catch (e) { console.error("coach/plan/activate:", e.message); return res.status(500).json({ error: "Gagal mengaktifkan plan." }); }
 });
-// POST /api/coach/plan/adjust — {op:"level",dir} | {op:"swap",day_key,ex_key} | {op:"done",day_key,done}. Ubah plan aktif.
+// POST /api/coach/plan/adjust — {op:"level",dir} | {op:"swap",day_key,ex_key} | {op:"done",day_key,done}
+// | {op:"edit",plan_name,days}. Ubah plan aktif.
 app.post("/api/coach/plan/adjust", async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
@@ -9825,6 +10379,31 @@ app.post("/api/coach/plan/adjust", async (req, res) => {
       if (idx < 0) return res.status(400).json({ error: "Hari plan tidak ditemukan." });
       const next = Object.assign({}, plan, { days: days.map((d, i) => (i === idx ? Object.assign({}, d, { done: !!b.done }) : d)) });
       const { data, error } = await admin.from("my20fit_workout_plan").update({ plan: next, updated_at: new Date().toISOString() }).eq("id", active.id).select().single();
+      if (error) throw error;
+      return res.json({ ok: true, plan: data });
+    }
+    // op "edit": user mengubah plan sendiri di Activity (nama, hari, fokus, durasi, latihan, set/rep).
+    // Isi dari klien TIDAK dipercaya: dinormalisasi ulang lewat coachValidateProgram (batas yang sama
+    // dgn plan dari quiz/chat). done & durasi per hari dibawa ulang karena validator tak menyimpannya.
+    if (op === "edit") {
+      const inDays = (Array.isArray(b.days) ? b.days.slice(0, 7) : []).filter(function (d) { return d && typeof d === "object"; }).map(function (d) {
+        return Object.assign({}, d, { exercises: (Array.isArray(d.exercises) ? d.exercises : []).filter(function (e) { return e && typeof e === "object"; })
+          .map(function (e) { return Object.assign({}, e, { name: String(e.name || "").trim() }); }) });
+      });
+      const kept = inDays.filter(function (d) { return d.exercises.some(function (e) { return e.name; }); });   // = hari yang lolos validator
+      const v = coachValidateProgram(Object.assign({}, plan, {
+        plan_name: String(b.plan_name || "").trim() || (plan && plan.plan_name),
+        days: kept.map(function (d, i) { return Object.assign({}, d, { key: "d" + (i + 1) }); }),
+        days_per_week: null,
+      }));
+      if (!v) return res.status(400).json({ error: "Plan minimal punya 1 hari dengan 1 latihan." });
+      v.days.forEach(function (d, i) {
+        const src = kept[i] || {};
+        const m = parseInt(src.duration_min, 10); if (m > 0) d.duration_min = Math.min(240, m);
+        if (src.done === true) d.done = true;
+      });
+      ["coach", "origin"].forEach(function (k) { if (plan && plan[k]) v[k] = plan[k]; });
+      const { data, error } = await admin.from("my20fit_workout_plan").update({ plan: v, source: "adjusted", updated_at: new Date().toISOString() }).eq("id", active.id).select().single();
       if (error) throw error;
       return res.json({ ok: true, plan: data });
     }
@@ -10097,7 +10676,7 @@ async function coachEngagement(uid) {
   let level = 1; GAME_LEVELS.forEach(function (t, i) { if (xp >= t) level = i + 1; });
   return {
     chats: chats.length, coaches: new Set((sess.data || []).map(function (x) { return x.coach_id; })).size,
-    plans: plans.length, visbody: visbody, health: (hs && hs.have_any) ? hs.total : null,
+    plans: plans.length, visbody: visbody, health: (hs && typeof hs.total === "number") ? hs.total : null,
     current_streak: st.current, longest_streak: st.longest,
     xp: xp, level: level, next_level_xp: GAME_LEVELS[level] != null ? GAME_LEVELS[level] : null,
   };
@@ -10207,17 +10786,34 @@ const COACH_CHAT_RULES =
   "topik non-fitness, diet ekstrem (<1200 kkal / puasa >24 jam), override hasil MCU/lab, membocorkan data user lain. " +
   "CEDERA/SAKIT: jangan kasih saran medis; arahkan konsultasi dokter di 20FIT Sports Clinic (/book-doctor). " +
   "MCU/lab: komentari umum & SELALU rujuk dokter. Ingatkan ini bukan diagnosis medis kalau relevan. " +
-  "Ikuti bahasa user (Indonesia/English/campur). Jawab RINGKAS & actionable, jangan mengarang angka yang tak ada di data. " +
+  "Ikuti bahasa user (Indonesia/English/campur). Jangan mengarang angka yang tak ada di data. " +
+  "GAYA JAWABAN (WAJIB): singkat & to the point seperti chat WhatsApp. Default MAKS 3-4 kalimat pendek (±60 kata). " +
+  "Langsung jawab intinya — tanpa pembukaan panjang, tanpa mengulang pertanyaan user, tanpa merangkum ulang semua data. " +
+  "Satu fokus per balasan: pilih 1-2 hal paling penting untuk user SEKARANG. Kalau perlu daftar: maks 3 poin, tiap poin 1 baris. " +
+  "Akhiri dengan maks 1 pertanyaan singkat bila memang perlu. Jawaban lebih panjang HANYA kalau user minta detail/penjelasan lengkap. " +
+  "JANGAN membuka balasan dengan sapaan (Hi/Hii/Hai/Halo/Hey/Yo) atau nama user — aplikasi sudah menampilkan sapaan coach; " +
+  "langsung ke inti. Sapa balik singkat HANYA kalau pesan user memang cuma sapaan. " +
   "TOMBOL AKSI: tulis token berikut PERSIS (frontend mengubahnya jadi tombol) di baris sendiri, hanya kalau relevan: " +
   "[[BOOK_CLASS]] (booking kelas), [[BOOK_DOCTOR]] (konsultasi dokter 20FIT Sports Clinic — WAJIB untuk cedera/sakit/nyeri dada/MCU), " +
-  "[[ARENA_MAPS]] (lokasi 20FIT Arena, Menteng Prada), [[VISBODY]] (hasil Visbody user). Jangan menulis URL sendiri. " +
+  "[[ARENA_MAPS]] (lokasi 20FIT Arena, Menteng Prada), [[VISBODY]] (hasil Visbody user), " +
+  "[[TRACK_MEAL]] (catat makan di Calorie Tracker my.20fit — sertakan tiap kali membahas makanan/kalori/nutrisi). Jangan menulis URL sendiri. " +
   "BUAT PLAN: kalau goal user belum jelas dari data (goals/profile/active_plan) TANYA goal-nya dulu, jangan langsung buat. " +
   "Kalau sudah jelas, balas kalimat singkat + SATU blok ```json berisi {\"type\":\"workout_plan\",\"title\":\"...\",\"goal\":\"...\"," +
   "\"days\":[{\"day\":\"Senin\",\"name\":\"HIIT Circuit\",\"duration_min\":45,\"exercises\":[{\"name\":\"Squat\",\"sets\":3,\"reps\":\"12\",\"rest_sec\":60}]}]," +
-  "\"notes\":\"...\"} — hari istirahat cukup tidak dicantumkan. Plan otomatis tersimpan jadi plan aktif user. " +
+  "\"notes\":\"...\"} — hari istirahat cukup tidak dicantumkan; maks 6 latihan per hari, JSON ringkas tanpa field lain. " +
+  "Plan otomatis tersimpan jadi plan aktif user dan aplikasi menampilkannya sebagai TABEL — JANGAN tulis ulang isi plan di teks; " +
+  "cukup 1-2 kalimat (fokus plan + hari istirahat). User bisa mengubah plan itu sendiri di halaman Activity. " +
   "VISBODY: kalau data visbody null dan user minta plan / analisa tubuh, tetap bantu dengan data yang ada, lalu ajak Visbody scan di 20FIT Arena " +
   "(Menteng Prada, ±5 menit: body fat, muscle mass, BMR, dll) + [[ARENA_MAPS]] [[BOOK_CLASS]]. Kalau user tak mau/tak bisa, minta berat, tinggi, umur & goal saja. " +
-  "KELAS: kalau user tanya kelas, rekomendasikan dulu kelas milik KAMU dari daftar coach_classes (nama, hari, jam) lalu [[BOOK_CLASS]]; kalau kosong, bilang jadwalmu belum ada dan tetap kasih [[BOOK_CLASS]].";
+  "MEAL PLAN: HANYA kalau user minta meal plan / menu makan SEHARI (goal/target belum jelas dari data -> tanya singkat dulu), " +
+  "balas 1-2 kalimat + SATU blok ```json berisi {\"type\":\"meal_plan\",\"title\":\"...\",\"calorie_target\":1800," +
+  "\"meals\":[{\"slot\":\"breakfast\",\"menu\":\"Oatmeal + 2 telur rebus\",\"kcal\":400,\"protein_g\":25}],\"notes\":\"...\"} " +
+  "(slot: breakfast|lunch|dinner|snack, 1 menu per waktu makan tanpa alternatif, maks 6 item, calorie_target = total kkal sehari >=1200, " +
+  "menu Indonesia yang mudah didapat, angka perkiraan wajar). Tanya 1 waktu makan saja (mis. sarapan) -> jawab teks singkat + [[TRACK_MEAL]], tanpa blok. " +
+  "User bisa klik 'Terapkan meal plan' dan plan itu masuk ke Calorie Tracker. " +
+  "HEALTH SCORE: pakai health_score di DATA USER apa adanya. total null = terkunci/belum ada data -> JANGAN mengarang skor; " +
+  "jelaskan cara membukanya: Visbody scan di 20FIT ([[VISBODY]]) atau upload workout pertama. " +
+  "KELAS: kalau user tanya kelas, rekomendasikan maks 2 kelas milik KAMU dari coach_classes, format \"Nama — waktu\" pakai field when (JANGAN tulis tanggal format 2026-09-30), lalu [[BOOK_CLASS]]; kalau kosong, bilang jadwalmu belum ada dan tetap kasih [[BOOK_CLASS]].";
 // Konteks user ringkas untuk chatbot (reuse tabel yang ada; supabase balikin {error} bukan throw,
 // jadi tabel hilang -> data null -> field kosong, aman).
 async function loadCoachContext(uid) {
@@ -10245,6 +10841,14 @@ async function loadCoachContext(uid) {
     active_plan: pl ? { goal: pl.goal, level: pl.level, name: (pl.plan && pl.plan.plan_name) || null, days: (pl.plan && Array.isArray(pl.plan.days)) ? pl.plan.days.length : null } : null,
   };
 }
+// "2026-09-30" + "18:30" -> "Rab 30 Sep, 18:30" (label yang enak dibaca untuk chatbot; tanpa tanggal ISO).
+function classWhenLabel(date, start) {
+  const d = new Date(String(date) + "T00:00:00Z");
+  if (isNaN(d)) return String(date || "") + (start ? ", " + start : "");
+  const hari = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"][d.getUTCDay()];
+  const bln = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"][d.getUTCMonth()];
+  return hari + " " + d.getUTCDate() + " " + bln + (start ? ", " + start : "");
+}
 // Kelas mendatang (≤14 hari, masih bisa dibooking) milik coach persona. Persona -> baris
 // my20fit_coaches "Coach <Nama>" -> coachUpcomingClasses(). Gagal/kosong -> [] (chat tetap jalan).
 const _personaClassCache = {};
@@ -10258,7 +10862,7 @@ async function personaUpcomingClasses(slug) {
     const r = id ? await coachUpcomingClasses(id) : null;
     const limit = new Date(); limit.setDate(limit.getDate() + 14); const lim = ymd(limit);
     list = ((r && r.classes) || []).filter(function (c) { return c.selectable && c.date <= lim; }).slice(0, 5)
-      .map(function (c) { return { name: c.name, date: c.date, start: c.start, end: c.end, remaining: c.remaining, quota: c.quota }; });
+      .map(function (c) { return { name: c.name, when: classWhenLabel(c.date, c.start), remaining: c.remaining, quota: c.quota }; });
   } catch (e) { list = []; }
   _personaClassCache[slug] = { at: Date.now(), list: list };
   return list;
@@ -10267,12 +10871,57 @@ function coachChatSystem(coachId, ctx, lang, classes) {
   return COACH_PERSONAS[coachId].persona + "\n\n" + COACH_CHAT_RULES +
     "\n\nDATA USER (JSON):\n" + JSON.stringify(ctx).slice(0, 6000) +
     "\n\ncoach_classes (kelas upcoming milik " + COACH_PERSONAS[coachId].name + "):\n" + JSON.stringify(classes || []) +
-    "\n\nBahasa jawaban: " + (lang === "en" ? "English." : "Bahasa Indonesia (atau ikuti bahasa user).");
+    "\n\nBahasa jawaban: SELALU ikuti bahasa pesan TERAKHIR user (" + (lang === "en" ? "saat ini: English" : "saat ini: Bahasa Indonesia") + ").";
 }
-// Blok ```json {"type":"workout_plan"} di balasan chat -> plan aktif (my20fit_workout_plan, source "chat").
+// Bahasa balasan = bahasa yang DIKETIK user, bukan tombol EN/ID di layar. Deteksi sederhana dari
+// kata-kata penanda (istilah yang dipakai dua bahasa — plan, workout, meal, score — sengaja tak
+// dihitung). Hasil null = tak bisa dipastikan (mis. "ok", "plan?") -> pakai bahasa pesan user
+// sebelumnya, lalu bahasa UI.
+const COACH_LANG_ID = new Set(("yang dan aku saya gue gw kamu kak untuk buat buatkan bikin minggu ini itu gimana bagaimana apa apakah berapa " +
+  "tolong dong deh sih ya yaa nggak ngga gak ga tidak enggak bisa mau ingin pengen dengan di ke dari sudah udah belum makan latihan " +
+  "hari sekarang kalau kalo karena tapi juga lagi ada cara banget sama aja saja hasil terakhir berat badan turun naik kelas cocok " +
+  "sesuai besok kemarin pagi malam siang olahraga otot lemak perut jadwal harus boleh terima kasih makasih selamat jam menit " +
+  "analisa tolongin coba kenapa mana siapa kapan baru lama sedikit banyak lebih kurang").split(" "));
+const COACH_LANG_EN = new Set(("the and i i'm im my me you your for this that week today what what's how can could please is are am to of " +
+  "with make give want need should help about does did have has it its an on in at why which suit lose gain weight muscle eat " +
+  "class classes tomorrow morning night thanks thank hello hey latest result results analyse analyze build new right now raise " +
+  "more less much many when where who will would just get going").split(" "));
+function coachDetectLang(text) {
+  const words = String(text || "").toLowerCase().match(/[a-z']+/g) || [];
+  let id = 0, en = 0;
+  words.forEach(function (w) { if (COACH_LANG_ID.has(w)) id++; if (COACH_LANG_EN.has(w)) en++; });
+  if (id > en) return "id";
+  if (en > id) return "en";
+  return null;
+}
+// Pengingat bahasa ditaruh PALING AKHIR (tepat sebelum pesan user) — riwayat & persona campur
+// Indonesia-Inggris cenderung menyeret model ke bahasa lain.
+function coachLangReminder(replyLang) {
+  return replyLang === "en"
+    ? "LANGUAGE: the user's latest message is in English. Reply ENTIRELY in natural English — keep your persona's tone and emojis, " +
+      "but no Indonesian words or slang. Any plan / meal-plan JSON text and day names must be in English too (Monday, Tuesday…)."
+    : "BAHASA: pesan terakhir user berbahasa Indonesia. Balas dalam Bahasa Indonesia (gaya santai persona & istilah fitness " +
+      "umum dalam bahasa Inggris boleh). Teks JSON plan / meal plan & nama hari pakai Bahasa Indonesia (Senin, Selasa…).";
+}
+// Blok ```json {"type":"workout_plan"} di balasan chat -> plan aktif (my20fit_workout_plan).
 // Dinormalisasi lewat coachValidateProgram (bentuk sama dgn plan dari quiz). Blok diganti token
-// [[PLAN_SAVED]] (frontend -> kartu plan). Gagal parse/validasi -> blok dibuang, teks lain tetap.
+// [[WORKOUT_PLAN]]{json}[[/WORKOUT_PLAN]] (frontend -> TABEL plan + link ubah di Activity).
+// Gagal parse/validasi -> blok dibuang, teks lain tetap.
 const COACH_PLAN_BLOCK = /```(?:json)?\s*(\{[\s\S]*?"type"\s*:\s*"workout_plan"[\s\S]*?\})\s*```/;
+// Blok plan yang TERPOTONG (batas token habis sebelum ``` penutup) -> jangan tampilkan JSON mentah.
+const COACH_PLAN_CUT = /```(?:json)?\s*\{[\s\S]*?"workout_plan"[\s\S]*$/;
+const COACH_PLAN_TOKEN = /\[\[WORKOUT_PLAN\]\]([\s\S]*?)\[\[\/WORKOUT_PLAN\]\]/g;
+// Isi token = ringkasan untuk tabel di chat (bukan sumber kebenaran; plan aslinya di DB).
+function coachPlanCard(row, prog) {
+  const str = function (v, max) { return String(v == null ? "" : v).replace(/[\[\]]/g, "").slice(0, max); };
+  return {
+    id: row ? row.id : null, saved: !!row, title: str(prog.plan_name, 80), note: str(prog.weekly_note, 300),
+    days: prog.days.map(function (d) {
+      return { label: str(d.label, 40), focus: str(d.focus, 40), duration_min: d.duration_min || null,
+        exercises: d.exercises.map(function (e) { return { name: str(e.name, 80), sets: e.sets, reps: str(e.reps, 20), unit: e.unit }; }) };
+    }),
+  };
+}
 function coachChatPlanToProgram(j, coachId) {
   if (!j || j.type !== "workout_plan" || !Array.isArray(j.days)) return null;
   const train = j.days.filter(function (d) { return d && Array.isArray(d.exercises) && d.exercises.length; });
@@ -10289,14 +10938,53 @@ function coachChatPlanToProgram(j, coachId) {
   }
   return v;
 }
+// source "ai" (CHECK my20fit_workout_plan_src_chk hanya ai/rule/adjusted — "chat" dulu SELALU ditolak,
+// plan dari chat tak pernah tersimpan). Asal chat ditandai di plan.origin. Simpan DULU baru
+// nonaktifkan plan lama, supaya gagal simpan tidak membuat user kehilangan plan aktifnya.
 async function coachSaveChatPlan(uid, planObj) {
-  await admin.from("my20fit_workout_plan").update({ is_active: false, updated_at: new Date().toISOString() }).eq("auth_user_id", uid).eq("is_active", true);
-  const { data, error } = await admin.from("my20fit_workout_plan").insert({ auth_user_id: uid, goal: planObj.goal || null, level: planObj.level || null, plan: planObj, version: 1, is_active: true, source: "chat", updated_at: new Date().toISOString() }).select().single();
+  const now = new Date().toISOString();
+  planObj.origin = "chat";
+  const { data, error } = await admin.from("my20fit_workout_plan").insert({ auth_user_id: uid, goal: planObj.goal || null, level: planObj.level || null, plan: planObj, version: 1, is_active: true, source: "ai", updated_at: now }).select().single();
   if (error) throw error;
+  await admin.from("my20fit_workout_plan").update({ is_active: false, updated_at: now }).eq("auth_user_id", uid).eq("is_active", true).neq("id", data.id);
+  jnLog(uid, "workout_plan_created", { source: "chat" });
   return data;
 }
-// Pesan yang butuh model lebih kuat (plan / analisa) -> tier "complex" (edge fn memilih model).
-const COACH_COMPLEX_RE = /plan|buatkan|generate|analisa|analyze|breakdown|health score/i;
+// Blok ```json {"type":"meal_plan"} -> dinormalisasi & disimpan di pesan sebagai
+// [[MEAL_PLAN]]{json}[[/MEAL_PLAN]] (frontend -> kartu + tombol "Terapkan meal plan").
+const COACH_MEAL_BLOCK = /```(?:json)?\s*(\{[\s\S]*?"type"\s*:\s*"meal_plan"[\s\S]*?\})\s*```/;
+const COACH_MEAL_TOKEN = /\[\[MEAL_PLAN\]\]([\s\S]*?)\[\[\/MEAL_PLAN\]\]/g;
+const MEAL_SLOTS = ["breakfast", "lunch", "dinner", "snack"];
+// Validasi SATU sumber (dipakai balasan chat & POST apply). Target <1200 kkal ditolak (aturan
+// diet ekstrem). Teks dibersihkan dari "[" "]" supaya tak bisa memalsukan token.
+function coachNormMealPlan(j) {
+  if (!j || j.type !== "meal_plan" || !Array.isArray(j.meals)) return null;
+  const num = function (v, max) { const n = Math.round(Number(v)); return n > 0 ? Math.min(max, n) : null; };
+  const str = function (v, max) { return String(v == null ? "" : v).replace(/[\[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, max); };
+  const meals = j.meals.slice(0, 6).map(function (m) {
+    const slot = String((m && m.slot) || "").toLowerCase();
+    return { slot: MEAL_SLOTS.indexOf(slot) >= 0 ? slot : "snack", menu: str(m && m.menu, 120), kcal: num(m && m.kcal, 2500), protein_g: num(m && m.protein_g, 250) };
+  }).filter(function (m) { return m.menu; });
+  if (!meals.length) return null;
+  const sum = meals.reduce(function (a, m) { return a + (m.kcal || 0); }, 0);
+  const target = num(j.calorie_target, 6000) || sum || null;
+  if (target && target < 1200) return null;
+  return { type: "meal_plan", title: str(j.title, 80) || "Meal plan", calorie_target: target, meals: meals, notes: str(j.notes, 300) || null };
+}
+// Riwayat untuk AI: token kartu dikembalikan ke bentuk blok ```json (format yang diminta aturan).
+// Tabel workout plan cukup diringkas (isi lengkapnya sudah ada di active_plan DATA USER).
+function coachHistoryForAi(content) {
+  return String(content || "").replace(COACH_MEAL_TOKEN, function (m, js) { return "```json\n" + js + "\n```"; })
+    .replace(COACH_PLAN_TOKEN, function (m, js) {
+      let t = ""; try { t = JSON.parse(js).title || ""; } catch (e) {}
+      return "(Workout plan \"" + t + "\" sudah dikirim ke user sebagai tabel & tersimpan jadi plan aktif.)";
+    });
+}
+// Pengingat gaya di akhir (setelah riwayat) — riwayat panjang cenderung menyeret model ke gaya lama.
+const COACH_CHAT_REMINDER = "PENGINGAT: tanpa sapaan pembuka, langsung ke inti, maks 3-4 kalimat pendek kecuali user minta detail. " +
+  "Bahas makanan/kalori -> sertakan [[TRACK_MEAL]].";
+// Pesan yang butuh model lebih kuat (plan / analisa / meal plan) -> tier "complex" (edge fn memilih model).
+const COACH_COMPLEX_RE = /plan|buatkan|generate|analisa|analyze|breakdown|health score|menu|meal|diet/i;
 // POST /api/coach/chat — {coach_id, message} -> balasan persona. Simpan riwayat kalau tabel ada.
 app.post("/api/coach/chat", async (req, res) => {
   try {
@@ -10320,15 +11008,28 @@ app.post("/api/coach/chat", async (req, res) => {
       if (sessionId) {
         const { data: h } = await admin.from("my20fit_coach_chat_message")
           .select("role,content").eq("session_id", sessionId).order("created_at", { ascending: false }).limit(20);
-        history = (h || []).reverse().map(function (x) { return { role: x.role, content: x.content }; });
+        history = (h || []).reverse().map(function (x) { return { role: x.role, content: coachHistoryForAi(x.content) }; });
       }
     } catch (e) { /* tabel chat belum ada -> lanjut tanpa riwayat */ }
-    const [ctx, classes] = await Promise.all([loadCoachContext(user.id), personaUpcomingClasses(coachId)]);
-    const messages = [{ role: "system", content: coachChatSystem(coachId, ctx, lang, classes) }].concat(history).concat([{ role: "user", content: message }]);
+    const [ctx, classes, hs] = await Promise.all([loadCoachContext(user.id), personaUpcomingClasses(coachId), hsCompute(user.id).catch(function () { return null; })]);
+    // Health Score dari SATU fungsi (hsCompute) — sama dengan yang dilihat user di /activity.
+    if (hs) ctx.health_score = { unlocked: hs.unlocked, total: hs.total, components: hs.filled.length + "/" + hs.components_total,
+      parts: Object.keys(hs.breakdown || {}).reduce(function (o, k) { o[k] = hs.breakdown[k].score; return o; }, {}) };
+    // Bahasa balasan: bahasa pesan ini -> bahasa pesan user sebelumnya -> bahasa UI.
+    let replyLang = coachDetectLang(message);
+    for (let i = history.length - 1; !replyLang && i >= 0; i--) if (history[i].role === "user") replyLang = coachDetectLang(history[i].content);
+    replyLang = replyLang || lang;
+    const messages = [{ role: "system", content: coachChatSystem(coachId, ctx, replyLang, classes) }].concat(history)
+      .concat([{ role: "system", content: COACH_CHAT_REMINDER + " " + coachLangReminder(replyLang) }, { role: "user", content: message }]);
+    if (sessionId && !history.length) jnLog(user.id, "coach_chat_started", { coach: coachId });
+    // Ajakan Visbody maks 1x per sesi (RULES.md): sudah pernah diberi -> ingatkan model agar tak mengulang.
+    if (history.some(function (h) { return h.role === "assistant" && /\[\[VISBODY\]\]|visbody scan/i.test(h.content); })) {
+      messages.splice(messages.length - 1, 0, { role: "system", content: "Ajakan Visbody scan sudah diberikan di sesi ini — JANGAN ulangi kecuali user bertanya soal Visbody." });
+    }
     const complex = COACH_COMPLEX_RE.test(message);
     let reply = "", modelUsed = null;
     try {
-      const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: complex ? 2048 : 1024, tier: complex ? "complex" : "simple", lang: lang }, 60000);
+      const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: complex ? 2048 : 600, tier: complex ? "complex" : "simple", lang: replyLang }, 60000);
       if (!ai.httpOk || !ai.json || !ai.json.ok || !ai.json.reply) { logAiAccess(user.id, "coach/chat", false, "edge"); return res.status(502).json({ error: "Coach lagi nggak bisa jawab. Coba lagi." }); }
       reply = String(ai.json.reply);
       modelUsed = ai.json.model ? String(ai.json.model).slice(0, 80) : null;
@@ -10340,7 +11041,23 @@ app.post("/api/coach/chat", async (req, res) => {
       let prog = null;
       try { prog = coachChatPlanToProgram(JSON.parse(pm[1]), coachId); } catch (e) { prog = null; }
       if (prog) { try { savedPlan = await coachSaveChatPlan(user.id, prog); } catch (e) { console.error("coach/chat plan:", e.message); } }
-      reply = reply.replace(COACH_PLAN_BLOCK, savedPlan ? "[[PLAN_SAVED]]" : "").trim();
+      if (!prog) console.error("coach/chat plan: blok workout_plan tidak valid");
+      reply = reply.replace(COACH_PLAN_BLOCK, function () {
+        return prog ? "[[WORKOUT_PLAN]]" + JSON.stringify(coachPlanCard(savedPlan, prog)) + "[[/WORKOUT_PLAN]]"
+          : (replyLang === "en" ? "(The plan couldn't be read — ask me to make it again.)" : "(Plan-nya gagal terbaca — minta aku buatkan ulang ya.)");
+      }).replace(/\n{3,}/g, "\n\n").trim();
+    } else if (COACH_PLAN_CUT.test(reply)) {
+      // Balasan terpotong di tengah JSON -> buang JSON mentahnya, beri tahu user.
+      reply = reply.replace(COACH_PLAN_CUT, "").trim() + "\n\n" +
+        (replyLang === "en" ? "(The plan got cut off — ask me again, e.g. \"make it 4 days\".)" : "(Plan-nya kepotong — minta ulang ya, mis. \"buat 4 hari saja\".)");
+    }
+    const mm = reply.match(COACH_MEAL_BLOCK);
+    if (mm) {
+      let meal = null;
+      try { meal = coachNormMealPlan(JSON.parse(mm[1])); } catch (e) { meal = null; }
+      // Kartu meal plan sudah memuat CTA Calorie Tracker -> token TRACK_MEAL terpisah dibuang (tak dobel).
+      if (meal) reply = reply.replace(/\[\[TRACK_MEAL\]\]/g, "");
+      reply = reply.replace(COACH_MEAL_BLOCK, function () { return meal ? "[[MEAL_PLAN]]" + JSON.stringify(meal) + "[[/MEAL_PLAN]]" : ""; }).replace(/\n{3,}/g, "\n\n").trim();
     }
     if (sessionId) {
       try {
@@ -10370,6 +11087,49 @@ app.get("/api/coach/chat/history", async (req, res) => {
     const { data: h } = await admin.from("my20fit_coach_chat_message").select("role,content,created_at").eq("session_id", sid).order("created_at", { ascending: true }).limit(100);
     return res.json({ ok: true, messages: (h || []).map(function (x) { return { role: x.role, content: x.content, at: x.created_at }; }) });
   } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, messages: [], setup_required: true }); return res.status(500).json({ error: "Gagal memuat riwayat." }); }
+});
+// Meal plan coach yang DITERAPKAN user (1 baris/user, migration 027) -> tampil di /calories.
+// GET -> {meal_plan: {coach_id, coach_name, plan, applied_at} | null}
+app.get("/api/coach/meal-plan", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, meal_plan: null });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data, error } = await admin.from("my20fit_coach_meal_plan").select("coach_id,plan,applied_at").eq("auth_user_id", user.id).limit(1);
+    if (error) return res.json({ ok: true, meal_plan: null, setup_required: true });
+    const r = data && data[0];
+    if (!r) return res.json({ ok: true, meal_plan: null });
+    return res.json({ ok: true, meal_plan: { coach_id: r.coach_id, coach_name: coachPersonaOk(r.coach_id) ? COACH_PERSONAS[r.coach_id].name : null, plan: r.plan, applied_at: r.applied_at } });
+  } catch (e) { return res.status(500).json({ error: "Gagal memuat meal plan." }); }
+});
+// POST {coach_id, plan} -> terapkan (divalidasi ulang di server; isi dari klien tak dipercaya).
+app.post("/api/coach/meal-plan/apply", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {};
+    const coachId = String(b.coach_id || "").toLowerCase();
+    if (!coachPersonaOk(coachId)) return res.status(400).json({ error: "Coach tidak dikenal." });
+    const plan = coachNormMealPlan(Object.assign({}, b.plan, { type: "meal_plan" }));
+    if (!plan) return res.status(400).json({ error: "Meal plan tidak valid." });
+    const now = new Date().toISOString();
+    const { error } = await admin.from("my20fit_coach_meal_plan")
+      .upsert({ auth_user_id: user.id, coach_id: coachId, plan: plan, applied_at: now, updated_at: now }, { onConflict: "auth_user_id" });
+    if (error) { console.error("coach/meal-plan/apply:", error.message); return res.status(503).json({ error: "Meal plan belum bisa disimpan." }); }
+    return res.json({ ok: true, meal_plan: { coach_id: coachId, coach_name: COACH_PERSONAS[coachId].name, plan: plan, applied_at: now } });
+  } catch (e) { return res.status(500).json({ error: "Gagal menerapkan meal plan." }); }
+});
+// POST -> hapus meal plan coach (kembali ke rekomendasi katalog di /calories).
+app.post("/api/coach/meal-plan/clear", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { error } = await admin.from("my20fit_coach_meal_plan").delete().eq("auth_user_id", user.id);
+    if (error) return res.status(503).json({ error: "Gagal menghapus meal plan." });
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: "Gagal menghapus meal plan." }); }
 });
 // POST /api/activity/quick-analysis — {coach_id, data} -> "Coach Says" 2-3 kalimat (one-shot, tak disimpan).
 app.post("/api/activity/quick-analysis", async (req, res) => {
@@ -10401,12 +11161,13 @@ app.post("/api/activity/quick-analysis", async (req, res) => {
 // "activity" (vision scan + JSON plan) + loadCoachContext + persona. Simpan best-effort ke
 // my20fit_activity_uploads / my20fit_today_plans (migration 025). Bukan diagnosis medis.
 const ACTIVITY_PLAN_RULES =
-  "Kamu fitness advisor 20FIT. Dari DATA UPLOAD TERBARU + DATA HISTORIS user, buat FULL PLAN hari ini. " +
+  "Kamu fitness advisor 20FIT. Dari DATA TERBARU (upload screenshot ATAU kondisi hari ini) + DATA HISTORIS user, buat FULL PLAN hari ini. " +
   "Analisa dulu apa yang KURANG kemarin/beberapa hari terakhir (tidur, makan/kalori, hidrasi, overtraining/kurang latihan), " +
   "lalu susun plan yang MENYESUAIKAN kekurangan itu (mis. tidur kurang + workout berat -> hari ini recovery). " +
   "DILARANG: diagnosa medis, resep obat/dosis, klaim hasil pasti, body shaming. JANGAN mengarang angka yang tak ada di data. " +
+  "Kalau data suatu kategori TIDAK ADA di data historis, status-nya \"tidak_ada_data\" (BUKAN kurang) dan jangan menilai kategori itu. " +
   "Balas HANYA JSON (tanpa markdown, tanpa code fence) bentuk persis: " +
-  "{\"yesterday_gaps\":[{\"category\":\"sleep|nutrition|hydration|workout\",\"status\":\"kurang|cukup|berlebih\",\"detail\":\"...\"}]," +
+  "{\"yesterday_gaps\":[{\"category\":\"sleep|nutrition|hydration|workout\",\"status\":\"kurang|cukup|berlebih|tidak_ada_data\",\"detail\":\"...\"}]," +
   "\"today_plan\":{" +
   "\"workout\":{\"recommendation\":\"...\",\"type\":\"...\",\"intensity\":\"low|moderate|high|rest\",\"duration_min\":0,\"reason\":\"...\"}," +
   "\"food\":{\"calorie_target\":0,\"priority_macro\":\"protein|carbs|balanced\",\"meals\":[{\"meal\":\"...\",\"suggestion\":\"...\",\"calories\":0}],\"note\":\"...\"}," +
@@ -10481,22 +11242,98 @@ app.post("/api/activity/upload-analyze", async (req, res) => {
       }
     } catch (e) { /* tabel 025 belum dijalankan -> lanjut tanpa simpan */ }
 
-    return res.json({ ok: true, extracted: extracted, analysis: analysis, saved: !!uploadId });
+    return res.json({ ok: true, extracted: extracted, analysis: analysis, saved: !!uploadId, upload_id: uploadId || null });
   } catch (e) {
     console.error("activity/upload-analyze:", e.message);
     return res.status(500).json({ error: "Gagal memproses upload." });
   }
 });
 
-// GET /api/activity/today-plan -> plan gabungan hari ini (kalau sudah ada).
+// Analisa "Plan Hari Ini" (deterministik, lib/today-brief.js) — selalu dari data TERKINI, jadi ikut
+// berubah begitu user mencatat tidur/minum/makan. Dipakai GET today-plan & generate.
+async function tpBrief(uid, lang) {
+  const today = woToday();
+  const [hs, ds] = await Promise.all([hsCompute(uid), woDataset(uid, woAnalysis.addDays(today, -woConfig.today.last_workout_days), today)]);
+  return todayBrief.build({ hs: hs, ds: ds, today: today, cfg: woConfig, lang: lang, narrativeFor: (w, a) => woCachedNarrative(w, a, lang) });
+}
+
+// GET /api/activity/today-plan?lang= -> plan gabungan hari ini (kalau sudah ada) + analisanya.
 app.get("/api/activity/today-plan", async (req, res) => {
   try {
     if (!admin) return res.json({ ok: true, plan: null });
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
     const { data } = await admin.from("my20fit_today_plans").select("*").eq("auth_user_id", user.id).eq("plan_date", ymd(new Date())).limit(1);
-    return res.json({ ok: true, plan: (data && data[0]) || null });
+    const plan = (data && data[0]) || null;
+    let brief = null;
+    if (plan) { try { brief = await tpBrief(user.id, woLang(req.query.lang)); } catch (e) { console.error("activity/today-plan brief:", e.message); } }
+    return res.json({ ok: true, plan: plan, brief: brief });
   } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, plan: null, setup_required: true }); return res.json({ ok: true, plan: null }); }
+});
+
+// Plan cadangan kalau AI gagal — aturan sederhana dari analisa (bukan angka karangan: durasi di config).
+function tpTemplatePlan(brief, lang) {
+  const L = (o) => (lang === "en" ? o.en : o.id), f = (k) => brief.facts.find((x) => x.key === k) || {}, M = woConfig.today.template_minutes;
+  const shortSleep = f("sleep").status === "kurang", heavy = f("load").status === "berlebih";
+  let workout;
+  if (brief.today.workouts > 0) workout = { recommendation: L({ en: "You've trained today — keep the rest of the day light.", id: "Kamu sudah latihan hari ini — sisa hari dibuat ringan." }), type: "Recovery", intensity: "rest", duration_min: 0, reason: L({ en: "Workout already logged today.", id: "Workout hari ini sudah tercatat." }) };
+  else if (shortSleep || heavy) workout = { recommendation: L({ en: "Easy walk or mobility work", id: "Jalan santai atau latihan mobilitas" }), type: "Recovery", intensity: "low", duration_min: M.recovery,
+    reason: shortSleep ? L({ en: "You slept too little last night — go easy today.", id: "Tidur semalam kurang — latihan ringan dulu hari ini." }) : L({ en: "Your training load this week is high — give your body time to recover.", id: "Beban latihanmu minggu ini tinggi — beri tubuh waktu pulih." }) };
+  else workout = { recommendation: L({ en: "A moderate session — join a class or train on your own", id: "Sesi sedang — ikut kelas atau latihan sendiri" }), type: "Workout", intensity: "moderate", duration_min: M.moderate, reason: L({ en: "No sign of short sleep or heavy load in your data.", id: "Tidak ada tanda kurang tidur atau beban berlebih di datamu." }) };
+  const nf = f("nutrition").flags || [];
+  return { workout: workout,
+    food: { calorie_target: null, priority_macro: nf.indexOf("low_protein") >= 0 ? "protein" : nf.indexOf("low_carb") >= 0 ? "carbs" : "balanced", meals: [], note: "" },
+    sleep: { target_bedtime: null, target_hours: null, reason: "", tips: [] },
+    hydration: { target_ml: null, reason: "", schedule: [] } };
+}
+// Target angka SELALU dari sumber app (bukan tebakan AI): kalori = rumus Calorie Tracker (js/nutrition.js),
+// minum & tidur = config analisa (sama dengan Health Score).
+function tpLockTargets(tp, brief) {
+  ["workout", "food", "sleep", "hydration"].forEach((k) => { if (!tp[k] || typeof tp[k] !== "object") tp[k] = {}; });
+  if (brief.today.kcal_target) tp.food.calorie_target = brief.today.kcal_target;
+  tp.hydration.target_ml = woConfig.hydration.target_ml;
+  tp.sleep.target_hours = woConfig.sleep.target_hours;
+  return tp;
+}
+
+// POST /api/activity/today-plan/generate {lang, coach_id} — tombol "Generate plan" di /activity (tanpa upload).
+// Analisa kondisi = tpBrief (deterministik). Plan workout/makan/tidur/minum + coach says = AI persona coach,
+// target angkanya dikunci server; AI gagal -> plan template. Disimpan ke my20fit_today_plans (menimpa plan hari ini).
+app.post("/api/activity/today-plan/generate", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {}, lang = woLang(b.lang);
+    const coachId = coachPersonaOk(b.coach_id) ? String(b.coach_id).toLowerCase() : "nando";
+    const [brief, ctx] = await Promise.all([tpBrief(user.id, lang), loadCoachContext(user.id)]);
+    const tgt = { calorie_target_kcal: brief.today.kcal_target, water_target_ml: woConfig.hydration.target_ml, sleep_target_hours: woConfig.sleep.target_hours };
+    const cond = { facts: brief.facts, today_so_far: brief.today, targets: tgt,
+      health_score: { total: brief.score.total, to_raise: brief.score.items.map((i) => ({ key: i.key, kind: i.kind, points: i.points })) },
+      last_workout: brief.workout ? { title: brief.workout.title, days_ago: brief.workout.days_ago, verdict: brief.workout.verdict, factors: brief.workout.factors.map((f) => ({ key: f.key, status: f.status, role: f.role })) } : null };
+    const sys = COACH_PERSONAS[coachId].persona + "\n\n" + ACTIVITY_PLAN_RULES +
+      "\n\nKONDISI HARI INI (dihitung server, angka PASTI — jangan diubah; status tidak_ada_data = belum dicatat):\n" + JSON.stringify(cond).slice(0, 4500) +
+      "\n\nTARGET WAJIB dipakai persis: kalori " + (tgt.calorie_target_kcal || "-") + " kkal, minum " + tgt.water_target_ml + " ml, tidur " + tgt.sleep_target_hours + " jam." +
+      "\n\nDATA HISTORIS USER (JSON):\n" + JSON.stringify(ctx).slice(0, 5000) +
+      "\n\nBahasa jawaban: " + (lang === "en" ? "English." : "Bahasa Indonesia.");
+    let analysis = null;
+    try {
+      const p = await callAiEdge({ action: "activity", messages: [{ role: "system", content: sys }, { role: "user", content: "Buat full plan hari ini dari KONDISI HARI INI sesuai aturan. JSON only." }], max_tokens: 2000, lang: lang }, 60000);
+      if (p.httpOk && p.json && p.json.ok && p.json.result && p.json.result.today_plan && typeof p.json.result.today_plan === "object") analysis = p.json.result;
+    } catch (e) { /* timeout -> plan template */ }
+    logAiAccess(user.id, "activity/today-plan", !!analysis, analysis ? null : "edge");
+    const tp = tpLockTargets(analysis ? analysis.today_plan : tpTemplatePlan(brief, lang), brief);
+    const row = { auth_user_id: user.id, plan_date: ymd(new Date()),
+      workout_plan: tp.workout, food_plan: tp.food, sleep_plan: tp.sleep, hydration_plan: tp.hydration,
+      yesterday_gaps: analysis && Array.isArray(analysis.yesterday_gaps) ? analysis.yesterday_gaps : null, coach_id: coachId,
+      coach_says: analysis && analysis.coach_says ? String(analysis.coach_says).slice(0, 600) : null, source_upload_id: null, updated_at: new Date().toISOString() };
+    const { data, error } = await admin.from("my20fit_today_plans").upsert(row, { onConflict: "auth_user_id,plan_date" }).select().single();
+    if (error) { if (isMissingSchema(error)) return res.json({ ok: true, plan: row, brief: brief, generated_by: analysis ? "ai" : "template", saved: false }); throw error; }
+    return res.json({ ok: true, plan: data, brief: brief, generated_by: analysis ? "ai" : "template", saved: true });
+  } catch (e) {
+    console.error("activity/today-plan/generate:", e.message);
+    return res.status(500).json({ error: "Gagal membuat plan. Coba lagi." });
+  }
 });
 
 // GET /api/activity/upload-history?limit -> riwayat upload + ringkasan gaps.
@@ -10512,6 +11349,276 @@ app.get("/api/activity/upload-history", async (req, res) => {
     return res.json({ ok: true, uploads: data || [] });
   } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, uploads: [], setup_required: true }); return res.json({ ok: true, uploads: [] }); }
 });
+
+// ================= ANALISA PERFORMA WORKOUT =================
+// Satu sumber data workout: my20fit_workout (metrik terstruktur). Tambahan tanpa migration di
+// raw_data (jsonb): started_at, file_paths, upload_id, date_check, field_confidence, metrics,
+// analysis {hash, narrative:{id,en}}. Faktor & baseline dihitung DETERMINISTIK
+// (lib/workout-analysis.js, ambang di lib/workout-analysis-config.js); AI hanya menulis narasi
+// dari angka itu (lib/workout-narrative.js) dan diperiksa ulang di server.
+const WO_TZ = woConfig.timezone;
+function woToday() { return new Intl.DateTimeFormat("en-CA", { timeZone: WO_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
+function woLocalTime(ts) {
+  const d = new Date(ts); if (isNaN(d)) return null;
+  return new Intl.DateTimeFormat("en-GB", { timeZone: WO_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+}
+function woLang(v) { return String(v || "") === "en" ? "en" : "id"; }
+
+// Isi workout dari klien (simpan baru / edit) -> baris my20fit_workout tervalidasi.
+// existing = baris lama (edit) atau null (baru). raw_data hanya menerima kunci yang dikenal.
+function woRowFromBody(b, existing, uid) {
+  const today = woToday(), now = new Date().toISOString(), row = {};
+  const has = (k) => Object.prototype.hasOwnProperty.call(b, k);
+  if (!existing || has("workout_date")) {
+    const d = isYmd(b.workout_date) ? String(b.workout_date) : (existing ? null : today);
+    if (!d) return { error: "Tanggal workout tidak valid." };
+    if (d > today) return { error: "Tanggal workout tidak boleh di masa depan." };
+    row.workout_date = d;
+  }
+  if (!existing || has("type")) row.type = WorkoutMetrics.TYPES[b.type] ? String(b.type) : "other";
+  if (!existing || has("duration_min")) {
+    const dur = Number(b.duration_min);
+    // duration_min NOT NULL di skema — tolak di sini supaya errornya jelas, bukan 500 dari PG.
+    if (!isFinite(dur) || dur <= 0 || dur > 1440) return { error: "Durasi (menit) wajib diisi dan harus lebih dari 0." };
+    row.duration_min = dur;
+  }
+  if (!existing || has("title")) row.title = b.title ? String(b.title).slice(0, 160) : null;
+  if (!existing || has("note")) row.note = b.note ? String(b.note).slice(0, 500) : null;
+  const NUMS = [["distance_km", 0.01, 1000, false], ["calories_burned", 1, 20000, true], ["avg_heart_rate", 25, 250, true], ["max_heart_rate", 25, 260, true], ["elevation_gain_m", 0, 10000, false]];
+  for (const [k, mn, mx, rd] of NUMS) {
+    if (existing && !has(k)) continue;
+    const v = b[k];
+    if (v == null || v === "") { row[k] = null; continue; }
+    const n = Number(v);
+    if (!isFinite(n) || n < mn || n > mx) return { error: "Nilai " + k + " tidak masuk akal." };
+    row[k] = rd ? Math.round(n) : n;
+  }
+  if (!existing || has("hr_zone_data")) row.hr_zone_data = (b.hr_zone_data && typeof b.hr_zone_data === "object") ? b.hr_zone_data : null;
+  if (!existing || has("pace_data")) row.pace_data = (b.pace_data && typeof b.pace_data === "object") ? b.pace_data : null;
+  const rd = Object.assign({}, (existing && existing.raw_data) || {});
+  const inRd = (b.raw_data && typeof b.raw_data === "object") ? b.raw_data : {};
+  const hhmm = (t) => (/^\d{2}:\d{2}$/.test(String(t || "")) && +String(t).slice(0, 2) < 24 && +String(t).slice(3) < 60) ? String(t) : null;
+  if (!existing) {
+    // Hanya saat simpan pertama (hasil upload). Path HARUS milik user ini.
+    rd.file_paths = (Array.isArray(inRd.file_paths) ? inRd.file_paths : []).filter((x) => typeof x === "string" && x.indexOf(String(uid) + "/") === 0 && /^[\w-]+\/[\w.-]+$/.test(x)).slice(0, 5);
+    if (UUID_RE.test(String(inRd.upload_id || ""))) rd.upload_id = String(inRd.upload_id);
+    const sc = inRd.ai_scan;
+    if (sc && typeof sc === "object") rd.ai_scan = { confidence: isFinite(+sc.confidence) ? Math.round(+sc.confidence) : null, source_guess: sc.source_guess ? String(sc.source_guess).slice(0, 40) : null,
+      fields_read: Array.isArray(sc.fields_read) ? sc.fields_read.slice(0, 20).map((x) => String(x).slice(0, 40)) : [], note: sc.note ? String(sc.note).slice(0, 300) : null };
+    if (inRd.field_confidence && typeof inRd.field_confidence === "object") rd.field_confidence = Object.keys(inRd.field_confidence).slice(0, 30).reduce((o, k) => { const c = +inRd.field_confidence[k]; if (isFinite(c)) o[String(k).slice(0, 40)] = Math.max(0, Math.min(100, Math.round(c))); return o; }, {});
+    const mt = inRd.metrics;
+    if (mt && typeof mt === "object") rd.metrics = { avg_speed_kmh: (isFinite(+mt.avg_speed_kmh) && +mt.avg_speed_kmh > 0 && +mt.avg_speed_kmh < 120) ? +mt.avg_speed_kmh : null, cadence: (isFinite(+mt.cadence) && +mt.cadence > 0 && +mt.cadence < 260) ? Math.round(+mt.cadence) : null };
+    const dc = inRd.date_check;
+    if (dc && typeof dc === "object") rd.date_check = { read: isYmd(dc.read) ? String(dc.read) : null, text: dc.text ? String(dc.text).slice(0, 40) : null, reason: ["unread", "future", "old", "year_guess"].indexOf(dc.reason) >= 0 ? dc.reason : null };
+    rd.started_at = hhmm(inRd.started_at);
+  }
+  if (has("started_at")) rd.started_at = hhmm(b.started_at);
+  if (row.workout_date) rd.date_confirmed = true;   // dialog/editor tidak menyimpan sebelum user memastikan tanggal
+  if (existing) rd.edited_at = now;
+  row.raw_data = rd;
+  if (!existing) row.uploaded_file_url = rd.file_paths[0] || null;   // path (bukan signed URL yang kedaluwarsa)
+  row.updated_at = now;
+  return { row: row };
+}
+
+// Semua data pembanding untuk workout di rentang [from, to] — SATU kali muat per request.
+async function woDataset(uid, from, to) {
+  const C = woConfig, add = woAnalysis.addDays;
+  const wFrom = add(from, -(C.baseline.lookback_days + C.load.window_days * (C.load.typical_weeks + 1)));
+  const [wk, sl, hy, dl, vb, pr] = await Promise.all([
+    admin.from("my20fit_workout").select("*").eq("auth_user_id", uid).gte("workout_date", wFrom).lte("workout_date", to).order("workout_date", { ascending: false }).limit(1000),
+    admin.from("my20fit_sleep").select("sleep_date,duration_hours,quality").eq("auth_user_id", uid).gte("sleep_date", add(from, -(C.sleep.avg_days + 1))).lte("sleep_date", to),
+    admin.from("my20fit_hydration").select("log_date,amount_ml,logged_at").eq("auth_user_id", uid).gte("log_date", add(from, -1)).lte("log_date", to),
+    admin.from("my20fit_daily_log").select("log_date,cal_items,sleep_hours,water_glasses").eq("auth_user_id", uid).gte("log_date", add(from, -(C.sleep.avg_days + 1))).lte("log_date", to),
+    admin.from("my20fit_visbody_body").select("body_weight,muscle_mass,scanned_at").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(20),
+    admin.from("my20fit_profile").select("*").eq("auth_user_id", uid).limit(1),
+  ]);
+  return { workouts: wk.data || [], sleep: sl.data || [], hydration: hy.data || [], dailyLogs: dl.data || [], visbody: vb.data || [],
+    profile: (pr.data && pr.data[0]) || null, localTime: woLocalTime };
+}
+function woHash(a) { return crypto.createHash("sha256").update(JSON.stringify(a.inputs)).digest("hex").slice(0, 20); }
+// Narasi tersimpan dipakai hanya kalau hash input sama (data berubah -> narasi kedaluwarsa).
+function woCachedNarrative(w, a, lang) {
+  const c = w.raw_data && w.raw_data.analysis;
+  return (c && c.hash === woHash(a) && c.narrative && c.narrative[lang]) ? c.narrative[lang] : null;
+}
+function woCard(w, a, lang) {
+  const n = woCachedNarrative(w, a, lang) || woNarrative.templateNarrative(a, w, lang);
+  const rd = w.raw_data || {};
+  return { kind: "workout", id: w.id, date: w.workout_date, type: w.type, title: WorkoutMetrics.title(w, lang), started_at: rd.started_at || null,
+    source: w.source, source_app: (rd.ai_scan && rd.ai_scan.source_guess) || null, verdict: a.verdict, safety: a.safety ? a.safety.level : null,
+    chips: a.factors.filter((f) => f.key !== "body" || f.status !== "tidak_ada_data").map((f) => ({ key: f.key, status: f.status, role: f.role })), headline: n.headline };
+}
+// Ringkasan upload NON-workout dari angka hasil baca (bukan kalimat deskripsi AI).
+function woUploadTitle(u, lang) {
+  const e = u.extracted_data || {}, t = String(u.upload_type || e.type || "other"), L = (o) => (lang === "en" ? o.en : o.id), dec = (n) => WorkoutMetrics.dec(+n, 1, lang);
+  if (t === "sleep" && +e.sleep_duration_hours > 0) return L({ en: "Sleep ", id: "Tidur " }) + dec(e.sleep_duration_hours) + L({ en: " h", id: " jam" });
+  if (t === "daily_activity" && +e.steps > 0) return Math.round(+e.steps).toLocaleString(lang === "en" ? "en-US" : "id-ID") + L({ en: " steps", id: " langkah" });
+  if (t === "weight" && +e.weight_kg > 0) return L({ en: "Weight ", id: "Berat " }) + dec(e.weight_kg) + " kg";
+  if (t === "food_log") return L({ en: "Food log", id: "Log makan" }) + (+e.total_calories_eaten > 0 ? " · " + Math.round(+e.total_calories_eaten) + L({ en: " kcal", id: " kkal" }) : "");
+  return L({ en: "Screenshot", id: "Screenshot" });
+}
+
+// D3 — pola pribadi lintas workout. Hanya kalau datanya cukup (ambang di config.insights) dan
+// selalu menyebut jumlah datanya. Faktor dihitung sama persis dengan analisa per workout.
+function woInsight(analyses, list, lang) {
+  const C = woConfig.insights;
+  const comparable = analyses.filter((a) => a.baseline.status === "ok");
+  if (comparable.length < C.min_workouts) return null;
+  const slow = comparable.filter((a) => a.baseline.perf === "down");
+  let best = null;
+  ["sleep", "nutrition", "hydration"].forEach((k) => {
+    const paired = slow.map((a) => a.factors.find((f) => f.key === k)).filter((f) => f && f.status !== "tidak_ada_data");
+    if (paired.length < C.min_paired) return;
+    const hit = paired.filter((f) => f.status === "kurang").length;
+    if (hit / paired.length >= C.slow_share_min && (!best || hit / paired.length > best.share)) best = { key: k, hit: hit, n: paired.length, share: hit / paired.length };
+  });
+  if (!best) return null;
+  const L = (o) => (lang === "en" ? o.en : o.id);
+  const what = { sleep: { en: "your sleep the night before was short", id: "tidurmu malam sebelumnya kurang" },
+    nutrition: { en: "you ate too little the day before", id: "asupanmu sehari sebelumnya kurang" }, hydration: { en: "you drank too little", id: "minummu kurang" } }[best.key];
+  return { key: best.key, hit: best.hit, n: best.n, comparable: comparable.length,
+    text: L({ en: "In " + best.hit + " of " + best.n + " sessions where you were slower than usual (with " + best.key + " data), " + L(what) + ". Based on " + comparable.length + " comparable workouts.",
+      id: "Di " + best.hit + " dari " + best.n + " sesi saat kamu lebih lambat dari biasanya (yang punya data " + L(woNarrative.FNAME[best.key]) + "), " + L(what) + ". Berdasarkan " + comparable.length + " workout yang bisa dibandingkan." }) };
+}
+
+// GET /api/activity/history?lang=&limit= -> kartu workout (+ analisa ringkas) & upload non-workout.
+app.get("/api/activity/history", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, items: [] });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const lang = woLang(req.query.lang), limit = Math.min(60, Math.max(1, parseInt(req.query.limit, 10) || 30));
+    const { data: list, error } = await admin.from("my20fit_workout").select("*").eq("auth_user_id", user.id)
+      .order("workout_date", { ascending: false }).order("created_at", { ascending: false }).limit(limit);
+    if (error) throw error;
+    const items = [];
+    let insight = null;
+    if (list && list.length) {
+      const ds = await woDataset(user.id, list[list.length - 1].workout_date, list[0].workout_date);
+      const analyses = list.map((w) => woAnalysis.analyze(w, ds, woConfig));
+      list.forEach((w, i) => items.push(woCard(w, analyses[i], lang)));
+      insight = woInsight(analyses, list, lang);
+    }
+    const { data: ups } = await admin.from("my20fit_activity_uploads").select("id,upload_type,upload_date,extracted_data,source,created_at")
+      .eq("auth_user_id", user.id).neq("upload_type", "workout").order("created_at", { ascending: false }).limit(limit);
+    (ups || []).forEach((u) => items.push({ kind: "upload", id: u.id, date: u.upload_date, type: u.upload_type, title: woUploadTitle(u, lang), source_app: u.source && u.source !== "other" ? u.source : null }));
+    items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    return res.json({ ok: true, items: items.slice(0, limit), insight: insight });
+  } catch (e) {
+    console.error("activity/history:", e.message);
+    if (isMissingSchema(e)) return res.json({ ok: true, items: [], setup_required: true });
+    return res.status(500).json({ error: "Gagal memuat riwayat." });
+  }
+});
+
+// GET /api/activity/workouts/:id?lang= -> detail workout + analisa (faktor, baseline) + narasi.
+// Narasi AI TIDAK dibuat di sini (hemat biaya & cepat): kalau belum ada untuk hash/bahasa ini,
+// balikan template + narrative_pending=true; halaman lalu memanggil POST .../narrative.
+app.get("/api/activity/workouts/:id", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const lang = woLang(req.query.lang);
+    const { data: rows } = await admin.from("my20fit_workout").select("*").eq("id", String(req.params.id)).eq("auth_user_id", user.id).limit(1);
+    const w = rows && rows[0];
+    if (!w) return res.status(404).json({ error: "Workout tidak ditemukan." });
+    const ds = await woDataset(user.id, w.workout_date, w.workout_date);
+    const a = woAnalysis.analyze(w, ds, woConfig);
+    const cached = woCachedNarrative(w, a, lang);
+    const rd = w.raw_data || {};
+    const shots = [];
+    for (const p of (Array.isArray(rd.file_paths) ? rd.file_paths : []).slice(0, 5)) {
+      try { const sg = await admin.storage.from("workout-uploads").createSignedUrl(p, 60 * 60); if (sg.data && sg.data.signedUrl) shots.push(sg.data.signedUrl); } catch (e) {}
+    }
+    const coach = (rd.analysis && coachPersonaOk(rd.analysis.coach_id)) ? rd.analysis.coach_id : null;
+    return res.json({ ok: true,
+      workout: { id: w.id, date: w.workout_date, type: w.type, title: WorkoutMetrics.title(w, lang), started_at: rd.started_at || null, source: w.source,
+        source_app: (rd.ai_scan && rd.ai_scan.source_guess) || null, note: w.note, duration_min: w.duration_min, distance_km: w.distance_km,
+        pace_sec: WorkoutMetrics.paceSec(w), speed_kmh: WorkoutMetrics.speedKmh(w), avg_heart_rate: w.avg_heart_rate, max_heart_rate: w.max_heart_rate,
+        calories_burned: w.calories_burned, elevation_gain_m: w.elevation_gain_m, cadence: rd.metrics ? rd.metrics.cadence : null,
+        hr_zone_data: w.hr_zone_data, splits: (w.pace_data && Array.isArray(w.pace_data.splits)) ? w.pace_data.splits.slice(0, 50) : null,
+        date_check: rd.date_check || null, field_confidence: rd.field_confidence || null, screenshots: shots },
+      analysis: { verdict: a.verdict, safety: a.safety, baseline: a.baseline,
+        factors: a.factors.map((f) => Object.assign({}, f, { sentence: woNarrative.factorSentence(f, lang) })) },
+      narrative: cached || woNarrative.templateNarrative(a, w, lang),
+      narrative_pending: !cached && !a.safety, coach_id: coach,
+      emergency_number: woConfig.safety.emergency_number,
+    });
+  } catch (e) {
+    console.error("activity/workouts/:id:", e.message);
+    return res.status(500).json({ error: "Gagal memuat workout." });
+  }
+});
+
+// PATCH /api/activity/workout/:id — koreksi hasil ekstraksi (tanggal, jenis, jarak, durasi, HR, jam mulai, catatan).
+app.patch("/api/activity/workout/:id", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: rows } = await admin.from("my20fit_workout").select("*").eq("id", String(req.params.id)).eq("auth_user_id", user.id).limit(1);
+    const w = rows && rows[0];
+    if (!w) return res.status(404).json({ error: "Workout tidak ditemukan." });
+    const b = Object.assign({}, req.body || {}); delete b.raw_data;
+    const v = woRowFromBody(b, w, user.id);
+    if (v.error) return res.status(400).json({ error: v.error });
+    const { data, error } = await admin.from("my20fit_workout").update(v.row).eq("id", w.id).eq("auth_user_id", user.id).select().single();
+    if (error) throw error;
+    return res.json({ ok: true, workout: data });
+  } catch (e) {
+    console.error("activity/workout patch:", e.message);
+    return res.status(500).json({ error: "Gagal menyimpan perubahan." });
+  }
+});
+
+// POST /api/activity/workouts/:id/narrative {lang, coach_id} — narasi coach (AI) dari hasil analisa.
+// Sekali per (hash input, bahasa); angka di narasi diperiksa -> gagal: ulang 1x -> template.
+app.post("/api/activity/workouts/:id/narrative", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {}, lang = woLang(b.lang);
+    const { data: rows } = await admin.from("my20fit_workout").select("*").eq("id", String(req.params.id)).eq("auth_user_id", user.id).limit(1);
+    const w = rows && rows[0];
+    if (!w) return res.status(404).json({ error: "Workout tidak ditemukan." });
+    const ds = await woDataset(user.id, w.workout_date, w.workout_date);
+    const a = woAnalysis.analyze(w, ds, woConfig);
+    const cached = woCachedNarrative(w, a, lang);
+    if (cached) return res.json({ ok: true, narrative: cached });
+    const template = woNarrative.templateNarrative(a, w, lang);
+    if (a.safety) return res.json({ ok: true, narrative: template });   // keamanan: tidak ada narasi performa dari AI
+    const prev = (w.raw_data && w.raw_data.analysis) || {};
+    const coachId = coachPersonaOk(b.coach_id) ? String(b.coach_id) : (coachPersonaOk(prev.coach_id) ? prev.coach_id : "nando");
+    const pm = woNarrative.aiMessages(a, w, lang, COACH_PERSONAS[coachId].persona, template);
+    let narrative = null, tries = 0;
+    while (!narrative && tries < 2) {
+      tries++;
+      try {
+        const ai = await callAiEdge({ action: "chat", messages: pm.messages, max_tokens: 900, tier: "simple", lang: lang }, 45000);
+        const n = (ai.httpOk && ai.json && ai.json.ok) ? woNarrative.parseAi(ai.json.reply) : null;
+        if (n && woNarrative.validShape(n)) {
+          const bad = woNarrative.checkNarrative(n, pm.allowed);
+          if (!bad.length) narrative = { headline: n.headline.trim(), analysis: n.analysis.map((x) => x.trim()), next_session_tips: n.next_session_tips.map((x) => String(x).trim()).filter(Boolean), cta: n.cta, source: "ai", coach_id: coachId };
+          else console.error("workout narrative: angka di luar data", bad.slice(0, 5).join(","));
+        }
+      } catch (e) { /* timeout -> coba lagi / template */ }
+    }
+    logAiAccess(user.id, "workout/narrative", !!narrative, narrative ? null : "fallback");
+    const out = narrative || Object.assign({}, template, { coach_id: coachId });
+    // Simpan: narasi lama untuk hash berbeda dibuang (data berubah).
+    const hash = woHash(a), keep = (prev.hash === hash && prev.narrative) ? prev.narrative : {};
+    keep[lang] = out;
+    const rd = Object.assign({}, w.raw_data || {}, { analysis: { hash: hash, coach_id: coachId, narrative: keep, updated_at: new Date().toISOString() } });
+    await admin.from("my20fit_workout").update({ raw_data: rd }).eq("id", w.id).eq("auth_user_id", user.id);
+    return res.json({ ok: true, narrative: out });
+  } catch (e) {
+    console.error("workout narrative:", e.message);
+    return res.status(500).json({ error: "Gagal membuat analisa." });
+  }
+});
 // ================= END AI COACH =================
 
 // ---------- Halaman balik-dari-pembayaran (landing redirect dari Xendit) ----------
@@ -10526,6 +11633,10 @@ app.get(["/payment/pending", "/payment/success"], (req, res) => {
 // Riwayat upload activity (path bertingkat) -> activity-history.html. Eksplisit di atas static.
 app.get(["/activity/history", "/activity/history.html"], (req, res) => {
   res.sendFile(path.join(__dirname, "activity-history.html"));
+});
+// Detail analisa satu workout (path bertingkat) -> activity-workout.html (id dibaca dari path).
+app.get("/activity/history/:id", (req, res) => {
+  res.sendFile(path.join(__dirname, "activity-workout.html"));
 });
 // Ekosistem Activity: chat coach, plan & Visbody di bawah /activity. Halamannya TIDAK
 // diduplikasi — /activity/chat & /activity/plan = coach.html (coach.js membaca path),

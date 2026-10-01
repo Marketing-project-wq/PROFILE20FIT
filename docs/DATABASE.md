@@ -1,6 +1,6 @@
 # DATABASE — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-29 · **Commit staging:** `4dcd9a4` · **Production:** `6fb7dc7`
+> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `2dab934` · **Production:** `d263b13`
 > Sumber: `db/*.sql`, `supabase/`, dan pemakaian di `server.js`. Nama tabel & migration
 > terverifikasi dari file. **Detail kolom: buka file migration terkait** (di bawah tak
 > diisi kolom tebakan). Relasi umum lihat catatan.
@@ -69,6 +69,33 @@
 - `supabase/migrations/20260907000000_physiotherapists_roster.sql` — roster fisioterapis (`my20fit_physiotherapists`). **Sudah dijalankan** di project `cpvzwqptzcxnwzfzgrmt` (aditif; rollback: `drop table my20fit_physiotherapists;`).
 - `supabase/migrations/20260908000000_ticket_user_tokens.sql` — `my20fit_ticket_tokens` (PK `auth_user_id`, RLS deny-public). Dibuat untuk menyimpan `userToken` penerbit hasil OTP. **SUDAH TIDAK DIPAKAI:** commit `d1c2a38` (2026-09-09, kini di production) membuang seluruh jalur OTP beserta `getTicketToken`, jadi tak ada kode yang membaca/menulis tabel ini lagi. Tabelnya sengaja **dibiarkan** (tidak di-drop) — keputusan drop ada di pemilik; migration-nya tetap dicatat di sini supaya riwayatnya jelas. Catatan terukur yang masih berlaku: penerbit memberi umur token **900 detik (15 menit)** dan benar-benar menegakkannya (token 16 jam → `401 user_unauthorized`). Karena token tak lagi disimpan, `/api/tickets/mine` mint ulang lewat `/partner/user-token` tiap permintaan.
 - **`db/supabase-migration-017` s/d `025` — status per 2026-09-29:** 015, 016, 019 sudah ada sebelumnya; 017, 018, 020, 021, 022, 023, 024, 025 **dijalankan 2026-09-29** (agent via koneksi Supabase, atas izin eksplisit pemilik; aditif, hanya `my20fit_*`). Tabel baru: `my20fit_daily_plan`, `my20fit_member_goals`, `my20fit_sleep`, `my20fit_hydration`, `my20fit_coach_quiz`, `my20fit_workout_plan`, `my20fit_coach_cta_event`, `my20fit_coach_session`, `my20fit_coach_set_log`, `my20fit_coach_achievement`, `my20fit_coach_chat_session`, `my20fit_coach_chat_message`, `my20fit_activity_uploads`, `my20fit_today_plans`. Bucket Storage `workout-uploads` (butuh 017) **dibuat 2026-09-29** (privat, maks 5 MB, png/jpeg/webp).
+  - **`my20fit_workout.raw_data` (jsonb, TANPA migration) — kunci yang dipakai sejak 2026-10-01:** `file_paths` (path
+    screenshot di bucket `workout-uploads`, prefix `<auth_user_id>/`; signed URL dibuat saat dibuka), `upload_id`
+    (baris `my20fit_activity_uploads` tertaut), `started_at` ("HH:MM" WIB), `date_check` {read, text, reason},
+    `date_confirmed`, `field_confidence`, `metrics` {avg_speed_kmh, cadence}, `ai_scan`, `edited_at`, dan cache
+    `analysis` {hash, coach_id, narrative:{id,en}}. Server hanya menerima kunci yang dikenal (`woRowFromBody`).
+    `uploaded_file_url` kini berisi PATH (dulu signed URL 7 hari yang kedaluwarsa). Jenis workout: run, cycling, walk,
+    swimming, gym, hyrox, hiit, other (`js/workout-metrics.js`; kolom `type` tanpa CHECK).
+  - **Catatan 2026-09-30:** setelah kartu analisis AI & quiz dihapus dari `/activity`, web **tidak lagi menulis**
+    `my20fit_daily_plan` (via `/api/activity/plan`/`goal`) maupun `my20fit_member_goals` (dulu `js/goal-quiz.js`).
+    Tabel & datanya TIDAK diubah; `my20fit_member_goals` masih DIBACA konteks AI Coach (`server.js`). Nasib endpoint &
+    tabel = TANYA PEMILIK (lihat `docs/STATUS.md` §2).
+- **`db/supabase-migration-027-coach-meal-plan.sql`** — `my20fit_coach_meal_plan` (PK `auth_user_id`, `coach_id`,
+  `plan` jsonb, `applied_at`, `updated_at`; RLS `auth.uid()=auth_user_id`). Meal plan dari chat coach yang diterapkan
+  user → tampil di `/calories`. **Dijalankan 2026-09-30** (agent via koneksi Supabase, atas persetujuan eksplisit
+  pemilik; aditif). Masuk `USER_DATA_TABLES` (ekspor/hapus data pribadi).
+- **`db/supabase-migration-028-visbody-claim.sql`** — kolom `claimed_at`/`claimed_via`/`viewed_at` di
+  `my20fit_visbody_scan`; tabel `my20fit_visbody_claim_token` (hash token claim, sekali pakai, RLS tanpa policy =
+  server saja), `my20fit_visbody_claim_audit` (jejak claim, tanpa FK supaya tetap ada walau scan dihapus),
+  `my20fit_data_consent` (persetujuan per user/tujuan/versi; user hanya bisa SELECT miliknya). **Dijalankan
+  2026-09-30** (agent via koneksi Supabase setelah pemilik memerintahkan "mulai fase"; aditif). `my20fit_visbody_scan`,
+  `my20fit_visbody_body`, `my20fit_data_consent` kini masuk `USER_DATA_TABLES`.
+- **`db/supabase-migration-029-health-journey.sql`** — `my20fit_health_journey` (1 baris/user: langkah checklist yang tak
+  punya sumber lain, `rescan_due`, `hs_unlocked_at`, state nudge), `my20fit_tour_state` (status tur per user per tur +
+  versi + langkah terakhir), `my20fit_event_log` (funnel & tur; RLS tanpa policy = server saja), kolom
+  `my20fit_profile.calorie_target_kcal/_source/_set_at` (target kalori yang DIKONFIRMASI user, mis. dari BMR Visbody).
+  **Dijalankan 2026-09-30** (agent via koneksi Supabase, atas perintah pemilik "lanjut kerjakan semua fase"; aditif).
+  Ketiga tabel masuk `USER_DATA_TABLES`.
 - `supabase/functions/` — Edge Functions: `my20fit-ai`, `my20fit-foodimg`, `sync-ticket-events`, `ticket-embed` (TypeScript, di-deploy terpisah via Supabase). `ticket-embed` memegang secret `TICKET_EMBED_KEY` dan jadi **satu-satunya** jalur ke `ticket.20fit.id/api/embed/v1`; `server.js` tak punya env tiket sama sekali.
 
 ## Cara menjalankan migration
