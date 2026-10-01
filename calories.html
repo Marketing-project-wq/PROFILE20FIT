@@ -77,6 +77,19 @@
     padding:7px 11px;color:var(--muted);font:inherit;font-size:12px;font-weight:700;cursor:pointer}
   .mealadd:hover{border-color:var(--red);color:var(--red)}
   .mealquick{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+  /* Seret makanan antar waktu makan: pegangan untuk sentuh, seluruh baris untuk mouse */
+  .mealgrp{border-radius:10px;outline:2px solid transparent;outline-offset:5px;transition:outline-color .15s}
+  .mealgrp.drop-on{outline-color:var(--red)}
+  .fitem{align-items:center;gap:8px;-webkit-user-select:none;user-select:none}
+  .fitem .fnm{display:flex;align-items:center;gap:6px;min-width:0}
+  .fitem .kc{white-space:nowrap}
+  .drag-h{flex:0 0 auto;display:grid;place-items:center;width:22px;height:30px;margin-left:-4px;color:var(--muted);cursor:grab;touch-action:none;border-radius:6px}
+  .drag-h svg{width:12px;height:16px;fill:currentColor}
+  @media (hover:hover){ .fitem{cursor:grab} .drag-h:hover{color:var(--txt)} }
+  .fitem.dragging{opacity:.35}
+  .drag-ghost{position:fixed;z-index:9999;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.18);padding:8px 12px;font-size:13px;font-weight:700;max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .draghint{font-size:12px;margin:0 0 8px}
   .mealhint{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);margin:8px 0 0}
   .mealhint:empty{margin:0}
   .mealhint-x{background:none;border:0;color:var(--red);font:inherit;font-size:12px;font-weight:800;cursor:pointer;padding:0}
@@ -575,15 +588,18 @@
       if(!items.length){ log.innerHTML='<div class="muted">'+I18N.t("cal_empty")+'</div>'+mealAddRow(); return; }
       var buckets={breakfast:[],lunch:[],dinner:[],snack:[]};
       items.forEach(function(it,idx){ buckets[itemMeal(it)].push({it:it,idx:idx}); });
-      log.innerHTML=MEAL_TYPES.map(function(m){
+      log.innerHTML='<div class="muted draghint">'+escA(L({en:"Drag a food to move it to another meal.",id:"Seret makanan untuk memindahkannya ke waktu makan lain."}))+'</div>'+
+        MEAL_TYPES.map(function(m){
         var rows=buckets[m], tot=rows.reduce(function(a,r){ return a+(+r.it.kcal||0); },0);
-        return '<div class="mealgrp">'+
-          '<div class="mealhd"><span class="mealnm">'+MEAL_TX[m].e+' '+escA(L(MEAL_TX[m]))+'</span>'+
+        return '<div class="mealgrp" data-meal="'+m+'">'+
+          '<div class="mealhd"><span class="mealnm">'+escA(L(MEAL_TX[m]))+'</span>'+
             '<span class="mealkc">'+tot+' '+escA(kc())+'</span></div>'+
           (rows.length
             ? rows.map(function(r){
                 var i=r.it;
-                return '<div class="item"><span>'+escA(i.name)+(i.t?'<span class="mtime">'+escA(i.t)+'</span>':'')+'</span>'+
+                return '<div class="item fitem" data-idx="'+r.idx+'"><span class="fnm">'+
+                  '<span class="drag-h" title="'+escA(L({en:"Drag to move",id:"Seret untuk pindah"}))+'"><svg viewBox="0 0 12 16"><circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="9" cy="8" r="1.5"/><circle cx="3" cy="13" r="1.5"/><circle cx="9" cy="13" r="1.5"/></svg></span>'+
+                  '<span>'+escA(i.name)+(i.t?'<span class="mtime">'+escA(i.t)+'</span>':'')+'</span></span>'+
                   '<span class="kc">'+(+i.kcal||0)+' '+escA(kc())+
                   ' <button class="x-close x-ghost x-sm" onclick="openEdit('+r.idx+')" aria-label="'+escA(L({en:"Edit",id:"Ubah"}))+'" title="'+escA(L({en:"Edit",id:"Ubah"}))+'">'+
                     '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>'+
@@ -596,7 +612,7 @@
     }
     function mealAddRow(){
       return '<div class="mealquick">'+MEAL_TYPES.map(function(m){
-        return '<button type="button" class="mealadd" onclick="setAddMeal(\''+m+'\')">'+MEAL_TX[m].e+' '+escA(L(MEAL_TX[m]))+'</button>';
+        return '<button type="button" class="mealadd" onclick="setAddMeal(\''+m+'\')">'+escA(L(MEAL_TX[m]))+'</button>';
       }).join("")+'</div>';
     }
     // ---- Rekomendasi menu berdasar SISA makro hari ini (Bagian 3) ----
@@ -851,10 +867,10 @@
     // ember yang sama di kedua app.
     var MEAL_TYPES=["breakfast","lunch","dinner","snack"];
     var MEAL_TX={
-      breakfast:{en:"Breakfast",id:"Sarapan",e:FIC("sunrise")},
-      lunch:{en:"Lunch",id:"Makan siang",e:FIC("sun")},
-      dinner:{en:"Dinner",id:"Makan malam",e:FIC("moon")},
-      snack:{en:"Snack",id:"Cemilan",e:FIC("cookie")}
+      breakfast:{en:"Breakfast",id:"Sarapan"},
+      lunch:{en:"Lunch",id:"Makan siang"},
+      dinner:{en:"Dinner",id:"Makan malam"},
+      snack:{en:"Snack",id:"Cemilan"}
     };
     function inferMeal(t){
       var h=parseInt(String(t||"").slice(0,2),10);
@@ -894,6 +910,62 @@
       save();_fsumGapFlash=true;render();/* flash nutrient-gap on new log/scan */
     }
     function del(i){items.splice(i,1);save();render()}
+
+    // ---- Seret makanan antar waktu makan ----
+    // Pointer Events (mouse + sentuh dalam satu jalur). Sentuh hanya dari pegangan
+    // supaya menggulir halaman tetap normal; mouse boleh dari seluruh baris.
+    // Yang diubah cuma `m` item (sama dgn pilihan "Waktu makan" di dialog Ubah).
+    function moveItemMeal(it,m){
+      var i=items.indexOf(it);
+      if(i<0||MEAL_TYPES.indexOf(m)<0||itemMeal(it)===m) return false;
+      items[i]=Object.assign({},it,{m:m});
+      save(); render(); return true;
+    }
+    (function(){
+      var log=document.getElementById("log"); if(!log) return;
+      var drag=null;
+      function grpAt(x,y){ var el=document.elementFromPoint(x,y); return el&&el.closest?el.closest("#log .mealgrp"):null; }
+      function setOver(g){
+        if(drag.over===g) return;
+        if(drag.over) drag.over.classList.remove("drop-on");
+        drag.over=g; if(g) g.classList.add("drop-on");
+      }
+      function place(x,y){ drag.ghost.style.left=(x+12)+"px"; drag.ghost.style.top=(y-18)+"px"; }
+      function begin(){
+        drag.on=true; drag.row.classList.add("dragging");
+        var g=document.createElement("div"); g.className="drag-ghost"; g.textContent=drag.it.name||"";
+        document.body.appendChild(g); drag.ghost=g; place(drag.x0,drag.y0);
+      }
+      function end(drop){
+        var d=drag; drag=null; if(!d) return;
+        if(d.ghost) d.ghost.remove();
+        if(d.over) d.over.classList.remove("drop-on");
+        if(d.row) d.row.classList.remove("dragging");
+        if(d.on&&drop&&d.over) moveItemMeal(d.it,d.over.getAttribute("data-meal"));
+      }
+      log.addEventListener("pointerdown",function(e){
+        if(drag||e.button>0) return;
+        var row=e.target.closest(".fitem"); if(!row||e.target.closest("button")) return;
+        var onHandle=!!e.target.closest(".drag-h");
+        if(e.pointerType!=="mouse"&&!onHandle) return;
+        var it=items[+row.getAttribute("data-idx")]; if(!it) return;
+        drag={row:row,it:it,id:e.pointerId,x0:e.clientX,y0:e.clientY,on:false,over:null,ghost:null};
+        if(onHandle){ e.preventDefault(); begin(); }
+        try{ log.setPointerCapture(e.pointerId); }catch(_){}
+      });
+      log.addEventListener("pointermove",function(e){
+        if(!drag||e.pointerId!==drag.id) return;
+        if(!drag.on){ if(Math.abs(e.clientX-drag.x0)+Math.abs(e.clientY-drag.y0)<6) return; begin(); }
+        e.preventDefault();
+        place(e.clientX,e.clientY);
+        setOver(grpAt(e.clientX,e.clientY));
+        // gulir otomatis saat ditarik ke tepi layar (daftar bisa lebih panjang dari layar)
+        var edge=60; if(e.clientY<edge) window.scrollBy(0,-12); else if(e.clientY>innerHeight-edge) window.scrollBy(0,12);
+      });
+      log.addEventListener("pointerup",function(e){ if(drag&&e.pointerId===drag.id) end(true); });
+      log.addEventListener("pointercancel",function(e){ if(drag&&e.pointerId===drag.id) end(false); });
+      document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&drag) end(false); });
+    })();
 
     // ---- Ubah satu item ----
     // Kunci yang TIDAK dikenal halaman ini (mid/cid dari scan native calorietracker)

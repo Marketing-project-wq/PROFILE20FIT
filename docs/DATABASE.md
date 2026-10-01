@@ -1,6 +1,6 @@
 # DATABASE — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `2dab934` · **Production:** `d263b13`
+> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `4545822` · **Production:** `58b89ba`
 > Sumber: `db/*.sql`, `supabase/`, dan pemakaian di `server.js`. Nama tabel & migration
 > terverifikasi dari file. **Detail kolom: buka file migration terkait** (di bawah tak
 > diisi kolom tebakan). Relasi umum lihat catatan.
