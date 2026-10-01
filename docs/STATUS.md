@@ -719,10 +719,18 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **`/activity/plan` untuk plan dari chat coach — dirapikan 2026-10-01.** Halaman ini sudah membaca plan aktif
+  (`GET /api/coach/plan`) + daftar (`/api/coach/plans`), jadi plan hasil chat (setelah fix di bawah) tampil di sini.
+  Yang diperbaiki: reps teks dari coach ("20 menit", "AMRAP") tidak lagi ditempeli satuan ("20 menit rep") dan tidak
+  menjepit nama latihan di layar HP; tombol "ganti" disembunyikan untuk plan `origin="chat"` (latihannya bukan dari
+  library quiz, jadi swap selalu no-op) dan diganti "Ubah plan" → editor `/activity#edit-plan`; daftar kosong kini
+  menjelaskan bahwa plan dari chat tersimpan otomatis di sini + tombol "Minta coach buatkan plan". **Catatan data:**
+  permintaan plan yang dikirim SEBELUM fix (mis. 1 akun member, 30 Sep & 1 Okt pagi) tidak tersimpan dan balasan
+  chat-nya tidak memuat JSON plan → tidak bisa dipulihkan; user perlu minta ulang ke coach.
 - **Workout plan dari chat TIDAK PERNAH tersimpan — DIPERBAIKI 2026-10-01.** Plan dari chat disimpan dengan
   `source="chat"`, padahal CHECK `my20fit_workout_plan_src_chk` (migration 021) hanya mengizinkan `ai|rule|adjusted`
   → insert selalu ditolak, blok JSON dibuang, user melihat ruang kosong di balasan (dan plan aktif lama sudah lebih dulu
-  dinonaktifkan). Dicek di DB 2026-10-01: tabel masih kosong, jadi tak ada data user yang terdampak. Sekarang: disimpan
+  dinonaktifkan). Dicek di DB 2026-10-01: tabel masih kosong — artinya SEMUA permintaan plan lewat chat sebelum fix hilang (lihat entri di atas). Sekarang: disimpan
   `source="ai"` + `plan.origin="chat"` (tanpa migration), plan baru disimpan DULU baru plan lama dinonaktifkan; balasan
   memuat `[[WORKOUT_PLAN]]{json}` → **tabel** di chat (hari · fokus · latihan set×rep · menit) + "Ubah di Activity";
   balasan yang terpotong di tengah JSON diganti catatan "minta ulang". **/activity:** kartu Workout Plan kini tabel per

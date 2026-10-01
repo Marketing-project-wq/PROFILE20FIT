@@ -302,6 +302,9 @@
     var row = PLAN, p = row.plan || {};
     var days = Array.isArray(p.days) ? p.days : [];
     var srcLbl = planSrcLabel(row);
+    // Plan dari chat coach: latihannya bebas (bukan dari library quiz) -> tombol "ganti" tidak punya
+    // pengganti; ubahnya lewat editor di /activity (#edit-plan).
+    var fromChat = p.origin === "chat";
     var html = todayCardHtml() +
       '<div class="card"><div class="planhead"><div class="pn">' + esc(p.plan_name || "Workout plan") + '</div>' +
       '<div class="wn">' + esc(p.weekly_note || "") + '</div>' +
@@ -314,15 +317,15 @@
           '<span class="df">' + esc(d.focus || "") + '</span></div>' +
           '<div class="day-b"' + (di === 0 ? '' : ' style="display:none"') + '>' +
           (Array.isArray(d.exercises) ? d.exercises : []).map(function (e) {
-            var unit = e.unit === "sec" ? Lx({ en: "sec", id: "detik" }) : (e.unit === "min" ? Lx({ en: "min", id: "menit" }) : Lx({ en: "reps", id: "rep" }));
             return '<div class="ex"><div style="flex:1;min-width:0"><div class="en">' + esc(e.name || "") + '</div>' +
               (e.progression ? '<div class="prog">↗ ' + esc(e.progression) + '</div>' : '') + '</div>' +
-              '<span class="em">' + (e.sets || 1) + ' × ' + esc(String(e.reps || "")) + ' ' + esc(unit) + '</span>' +
-              '<button class="sw" data-swap="' + esc(d.key) + '|' + esc(e.key) + '">' + esc(Lx({ en: "swap", id: "ganti" })) + '</button></div>';
+              '<span class="em">' + esc(exDose(e)) + '</span>' +
+              (fromChat ? '' : '<button class="sw" data-swap="' + esc(d.key) + '|' + esc(e.key) + '">' + esc(Lx({ en: "swap", id: "ganti" })) + '</button>') + '</div>';
           }).join("") + '</div></div>';
       }).join("") +
       '<div class="adjrow"><button class="btn ghost" id="adjEasier">– ' + esc(Lx({ en: "Easier", id: "Ringankan" })) + '</button>' +
       '<button class="btn ghost" id="adjHarder">+ ' + esc(Lx({ en: "Harder", id: "Beratkan" })) + '</button>' +
+      (fromChat ? '<a class="btn ghost" href="/activity#edit-plan">' + esc(Lx({ en: "Edit plan", id: "Ubah plan" })) + '</a>' : '') +
       '<button class="btn ghost" id="adjRedo">' + esc(Lx({ en: "Retake quiz", id: "Ulang quiz" })) + '</button>' +
       '<a class="btn ghost" href="' + esc(chatPlanHref()) + '">' + svgIcon("chat", 16) + ' ' + esc(Lx({ en: "New plan via coach", id: "Plan baru via coach" })) + '</a></div>' +
       '<div class="disc">' + esc(p.disclaimer || "") + '</div></div>';
@@ -364,6 +367,12 @@
     Array.prototype.forEach.call(root().querySelectorAll("[data-cta]"), function (b) { b.onclick = function () { onCta(b.getAttribute("data-cta")); }; });
     wireBackToChat();
   }
+  // "3 × 10 rep" — satuan hanya ditempel kalau reps berupa angka/rentang; reps teks dari coach
+  // ("20 menit", "AMRAP") ditampilkan apa adanya (tidak jadi "20 menit rep").
+  function exDose(e) {
+    var reps = String(e.reps == null ? "" : e.reps).trim();
+    return (e.sets || 1) + " × " + reps + (/^\d+(\s*[-–]\s*\d+)?$/.test(reps) ? " " + unitLbl(e.unit) : "");
+  }
   function planSrcLabel(row) {
     var p = (row && row.plan) || {};
     if (row && row.source === "ai") return "AI COACH" + (p.origin === "chat" && p.coach && COACH_NAME[p.coach] ? " · " + COACH_NAME[p.coach] : "");
@@ -383,7 +392,11 @@
       var r = await apiFetch("/api/coach/plans"); var j = await r.json().catch(function () { return {}; });
       if (!r.ok) throw new Error(j.error || "plans");
       var list = (j && j.plans) || [];
-      if (!list.length) { box.innerHTML = '<div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "No plans yet.", id: "Belum ada plan." })) + '</div>'; return; }
+      if (!list.length) {
+        box.innerHTML = '<div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "No plans yet. A plan you ask a coach for in chat is saved here automatically — or take the quiz above.", id: "Belum ada plan. Plan yang kamu minta ke coach lewat chat otomatis tersimpan di sini — atau isi quiz di atas." })) + '</div>' +
+          '<a class="btn ghost" href="' + esc(chatPlanHref()) + '" style="margin-top:10px">' + svgIcon("chat", 16) + ' ' + esc(Lx({ en: "Ask a coach for a plan", id: "Minta coach buatkan plan" })) + '</a>';
+        return;
+      }
       box.innerHTML = '<div class="plist">' + list.map(function (pl) {
         var dt = ""; try { dt = new Date(pl.created_at).toLocaleDateString((window.I18N && I18N.lang === "en") ? "en-GB" : "id-ID", { day: "numeric", month: "short", year: "numeric" }); } catch (e) {}
         return '<a class="pli' + (pl.is_active ? ' on' : '') + '" href="/activity/plan/' + encodeURIComponent(pl.id) + '">' +
@@ -410,7 +423,7 @@
       days.map(function (d, di) {
         return '<div class="day' + (d.done ? ' done' : '') + '"><div class="day-h"><span class="dchk">' + svgIcon(d.done ? "boxcheck" : "box", 18) + '</span><span class="dl">' + esc(d.label || ("Hari " + (di + 1))) + '</span><span class="df">' + esc(d.focus || "") + '</span></div>' +
           '<div class="day-b">' + (Array.isArray(d.exercises) ? d.exercises : []).map(function (e) {
-            return '<div class="ex"><div style="flex:1;min-width:0"><div class="en">' + esc(e.name || "") + '</div></div><span class="em">' + (e.sets || 1) + ' × ' + esc(String(e.reps || "")) + '</span></div>';
+            return '<div class="ex"><div style="flex:1;min-width:0"><div class="en">' + esc(e.name || "") + '</div></div><span class="em">' + esc(exDose(e)) + '</span></div>';
           }).join("") + '</div></div>';
       }).join("") +
       '<div class="adjrow"><button class="btn" id="plActivate">' + esc(Lx({ en: "Make this my active plan", id: "Jadikan plan aktif" })) + '</button>' +
