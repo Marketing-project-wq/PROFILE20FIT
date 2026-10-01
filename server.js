@@ -11447,7 +11447,8 @@ function woCard(w, a, lang) {
   const rd = w.raw_data || {};
   return { kind: "workout", id: w.id, date: w.workout_date, type: w.type, title: WorkoutMetrics.title(w, lang), started_at: rd.started_at || null,
     source: w.source, source_app: (rd.ai_scan && rd.ai_scan.source_guess) || null, verdict: a.verdict, safety: a.safety ? a.safety.level : null,
-    chips: a.factors.filter((f) => f.key !== "body" || f.status !== "tidak_ada_data").map((f) => ({ key: f.key, status: f.status, role: f.role })), headline: n.headline };
+    chips: a.factors.filter((f) => f.key !== "body" || f.status !== "tidak_ada_data").map((f) => ({ key: f.key, status: f.status, role: f.role })), headline: n.headline,
+    created_at: w.created_at || null, next: (({ kind, title, implementable }) => ({ kind, title, implementable }))(woNarrative.nextSession(a, w, woConfig, lang)) };
 }
 // Ringkasan upload NON-workout dari angka hasil baca (bukan kalimat deskripsi AI).
 function woUploadTitle(u, lang) {
@@ -11502,7 +11503,7 @@ app.get("/api/activity/history", async (req, res) => {
     }
     const { data: ups } = await admin.from("my20fit_activity_uploads").select("id,upload_type,upload_date,extracted_data,source,created_at")
       .eq("auth_user_id", user.id).neq("upload_type", "workout").order("created_at", { ascending: false }).limit(limit);
-    (ups || []).forEach((u) => items.push({ kind: "upload", id: u.id, date: u.upload_date, type: u.upload_type, title: woUploadTitle(u, lang), source_app: u.source && u.source !== "other" ? u.source : null }));
+    (ups || []).forEach((u) => items.push({ kind: "upload", id: u.id, date: u.upload_date, type: u.upload_type, title: woUploadTitle(u, lang), source_app: u.source && u.source !== "other" ? u.source : null, created_at: u.created_at || null }));
     items.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     return res.json({ ok: true, items: items.slice(0, limit), insight: insight });
   } catch (e) {
@@ -11542,13 +11543,49 @@ app.get("/api/activity/workouts/:id", async (req, res) => {
         date_check: rd.date_check || null, field_confidence: rd.field_confidence || null, screenshots: shots },
       analysis: { verdict: a.verdict, safety: a.safety, baseline: a.baseline,
         factors: a.factors.map((f) => Object.assign({}, f, { sentence: woNarrative.factorSentence(f, lang) })) },
-      narrative: cached || woNarrative.templateNarrative(a, w, lang),
+      narrative: cached || woNarrative.templateNarrative(a, w, lang), next: woNarrative.nextSession(a, w, woConfig, lang),
       narrative_pending: !cached && !a.safety, coach_id: coach,
       emergency_number: woConfig.safety.emergency_number,
     });
   } catch (e) {
     console.error("activity/workouts/:id:", e.message);
     return res.status(500).json({ error: "Gagal memuat workout." });
+  }
+});
+
+// POST /api/activity/workouts/:id/implement {lang} — "Implement plan": rekomendasi sesi berikutnya dari analisa
+// workout ini masuk ke Plan Hari Ini (my20fit_today_plans) -> tampil otomatis di /activity. Bagian makan/tidur/minum
+// plan yang sudah ada dipertahankan; kalau belum ada, diisi target app (sama dengan Generate plan). Tanpa AI.
+app.post("/api/activity/workouts/:id/implement", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const lang = woLang((req.body || {}).lang);
+    const { data: rows } = await admin.from("my20fit_workout").select("*").eq("id", String(req.params.id)).eq("auth_user_id", user.id).limit(1);
+    const w = rows && rows[0];
+    if (!w) return res.status(404).json({ error: "Workout tidak ditemukan." });
+    const ds = await woDataset(user.id, w.workout_date, w.workout_date);
+    const a = woAnalysis.analyze(w, ds, woConfig);
+    const nx = woNarrative.nextSession(a, w, woConfig, lang);
+    if (!nx.implementable) return res.status(400).json({ error: lang === "en" ? "This workout has a safety flag — see a doctor before planning training." : "Workout ini punya tanda keamanan — periksa ke dokter dulu sebelum menyusun latihan." });
+    const brief = await tpBrief(user.id, lang);
+    const planDate = ymd(new Date());
+    const { data: cur } = await admin.from("my20fit_today_plans").select("*").eq("auth_user_id", user.id).eq("plan_date", planDate).limit(1);
+    const old = (cur && cur[0]) || null, base = tpLockTargets(tpTemplatePlan(brief, lang), brief);
+    const row = { auth_user_id: user.id, plan_date: planDate,
+      workout_plan: { recommendation: nx.title, type: nx.type, intensity: nx.intensity, duration_min: nx.duration_min, reason: nx.reason, kind: nx.kind,
+        from_workout: { id: w.id, title: WorkoutMetrics.title(w, lang), date: w.workout_date } },
+      food_plan: (old && old.food_plan) || base.food, sleep_plan: (old && old.sleep_plan) || base.sleep, hydration_plan: (old && old.hydration_plan) || base.hydration,
+      yesterday_gaps: old ? old.yesterday_gaps : null, coach_id: (old && old.coach_id) || null, coach_says: old ? old.coach_says : null,
+      source_upload_id: old ? old.source_upload_id : null, updated_at: new Date().toISOString() };
+    const { data, error } = await admin.from("my20fit_today_plans").upsert(row, { onConflict: "auth_user_id,plan_date" }).select().single();
+    if (error) throw error;
+    return res.json({ ok: true, plan: data, brief: brief });
+  } catch (e) {
+    console.error("activity/workouts/:id/implement:", e.message);
+    if (isMissingSchema(e)) return res.status(503).json({ error: "Tabel plan hari ini belum disiapkan." });
+    return res.status(500).json({ error: "Gagal menerapkan plan." });
   }
 });
 
