@@ -23,7 +23,7 @@
 | Voucher | `my20fit_vouchers`, `my20fit_voucher_usages`, `my20fit_voucher_attempts` |
 | Banner / promo | `my20fit_banner`, `my20fit_banner_event` |
 | Corporate | `my20fit_corporate`, `my20fit_corporate_admin`, `my20fit_corporate_member`, `my20fit_corporate_message_log`, `my20fit_corporate_access_log` |
-| Ulasan kelas | `my20fit_class_reviews` (migration 030, **belum dijalankan**) |
+| Ulasan kelas | `my20fit_class_reviews` (migration 030, dijalankan 2026-10-01) |
 | Roster tampilan (coach/dokter/fisioterapis) | `my20fit_coaches`, `my20fit_coach_instructor_aliases`, `my20fit_doctors`, `my20fit_physiotherapists` |
 | Tiket event | `my20fit_ticket_events` (katalog + `sold_count` agregat, disinkron `sync-ticket-events`). `my20fit_ticket_tokens` masih ada di DB tapi **sudah tidak dipakai kode mana pun** sejak jalur OTP dibuang (`d1c2a38`). Arsip pembelian dibaca **read-only** dari `event_transaction` — tabel **milik app lain**, tanpa prefix: jangan ditulis. |
 
@@ -108,8 +108,9 @@
   Ditulis HANYA lewat `POST /api/class-reviews` setelah server cek booking milik user (arena-api by nomor HP profil),
   status `confirmed`, jadwal sudah lewat. RLS: user baca miliknya. Masuk `USER_DATA_TABLES`. Dibaca rekap admin
   `GET /api/admin/class-performance`. File idempoten (ada `add column if not exists tags` bila tabel sudah terlanjur dibuat).
-  **BELUM DIJALANKAN — TANYA PEMILIK** (jalankan manual di SQL Editor staging & produksi). Selama belum ada,
-  `/api/class-reviews` membalas 503 `not_ready` dan UI menampilkan "Fitur rating kelas belum aktif".
+  **Dijalankan 2026-10-01** (agent via koneksi Supabase, setelah user sesi — Marketing@20fit.id — menyetujui
+  eksplisit; aditif). Terverifikasi: 12 kolom termasuk `tags`, RLS on, 1 policy, 4 index. Project Supabase dipakai
+  bersama staging & produksi, jadi tabel berlaku di keduanya.
 - `supabase/functions/` — Edge Functions: `my20fit-ai`, `my20fit-foodimg`, `sync-ticket-events`, `ticket-embed` (TypeScript, di-deploy terpisah via Supabase). `ticket-embed` memegang secret `TICKET_EMBED_KEY` dan jadi **satu-satunya** jalur ke `ticket.20fit.id/api/embed/v1`; `server.js` tak punya env tiket sama sekali.
 
 ## Cara menjalankan migration
