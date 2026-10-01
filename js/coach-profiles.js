@@ -78,7 +78,10 @@
     if (!n) return '<span class="cprof-mut">' + esc(Lx({ en: "No upcoming class yet", id: "Belum ada jadwal kelas" })) + '</span>';
     var dt = n.date;
     try { dt = new Date(n.date + "T00:00:00").toLocaleDateString((window.I18N && I18N.lang === "en") ? "en-GB" : "id-ID", { weekday: "short", day: "numeric", month: "short" }); } catch (e) {}
-    return ic("calendar") + ' ' + esc(Lx({ en: "Next class: ", id: "Kelas terdekat: " })) + '<b>' + esc(n.name) + '</b> · ' + esc(dt + " " + n.start);
+    // Book = alur booking in-app yang sama dengan /book-coach (/book-class), tab yang sama.
+    var book = (n.source && n.id) ? '<a class="cprof-book" href="/book-class?source=' + encodeURIComponent(n.source) + '&schedule=' + encodeURIComponent(n.id) + '">' +
+      esc(Lx({ en: "Book class", id: "Book kelas" })) + ' →</a>' : '';
+    return '<div>' + ic("calendar") + ' ' + esc(Lx({ en: "Next class: ", id: "Kelas terdekat: " })) + '<b>' + esc(n.name) + '</b> · ' + esc(dt + " " + n.start) + '</div>' + book;
   }
   function paintNext() {
     Array.prototype.forEach.call(document.querySelectorAll("[data-cp-next]"), function (el) { el.innerHTML = nextHtml(el.getAttribute("data-cp-next")); });
