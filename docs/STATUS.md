@@ -719,6 +719,26 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Analisa workout v2 — sinyal heart rate & pace ala coach — 2026-10-01 (semua fase, default agent).** Audit &
+  keputusan: PR terkait. (1) **Data:** `pace_data.splits` kini {km, sec, hr, elev} + `raw_data.readiness`; level data
+  Basic/Detailed/Full (`WorkoutMetrics.dataLevel`) tampil di dialog upload, riwayat, detail + ajakan upload layar
+  Splits/zona/pemulihan. (2) **Sinyal** (`lib/workout-signals.js`): efisiensi (m per detak) vs workout sejenis, cardiac
+  drift paruh 1 vs 2, pace turun di akhir (HR tidak turun), HR maks sulit naik, % zona 4–5, kesiapan (resting HR/HRV/
+  sleep score) — tiap sinyal `detected` true/false/insufficient_data + alasan data yang kurang. (3) **Penyebab:** tabel
+  sinyal→kandidat di config, dicek silang dengan faktor log & check-in → keyakinan tinggi/sedang/rendah, yang dibantah
+  data dikeluarkan; verdict `signals_explained|signals_unclear|better|normal|limited|safety`. (4) **Check-in** opsional
+  4 pertanyaan (`POST /api/activity/workouts/:id/checkin`) muncul kalau ada sinyal tapi data pendukung kurang.
+  (5) **Narasi** v2 + cek angka + tolak klaim zat gizi spesifik. (6) **Halaman detail:** grafik pace & HR per split
+  (bagian drift/fade disorot), Apa yang terlihat, Kemungkinan penyebab, check-in, cek silang log, Kata Coach, latihan
+  berikutnya, "Bagaimana analisa ini dibuat?". (7) **Insight lintas workout** kini berbasis sesi dengan tanda kelelahan.
+  **BELUM AKTIF PENUH:** splits ber-HR & metrik kesiapan baru terbaca setelah **edge fn `my20fit-ai` di-deploy** (v55 live
+  belum membaca splits) — TANYA PEMILIK; sebelum itu sebagian besar workout = Basic (sinyal B2/B3/B4/B5 =
+  insufficient_data). Staging baru punya 2 workout tanpa splits, jadi contoh skenario a–f memakai DATA UJI berlabel.
+  **TANYA PEMILIK / PERLU DIVALIDASI:** semua ambang `signals` & `causes` (mis. decoupling 5%, fade 8%, jam panas
+  10–16); `pre_meal.long_gap_min` = 6 jam sedangkan contoh prompt memakai "> 5 jam"; `/api/weather` **mengembalikan suhu
+  palsu** (dihitung dari jam) — tidak dipakai analisa, perlu diperbaiki/dihapus terpisah; contoh gambar per aplikasi
+  belum ada (pakai teks petunjuk, tanpa logo merek). **Fase 4 integrasi Strava/Garmin/.FIT TIDAK dikerjakan:** butuh
+  akses API resmi (pendaftaran aplikasi Strava; program developer Garmin dengan persetujuan — syarat BELUM TERVERIFIKASI).
 - **Kartu Health Score bergaya kartu target kalori — 2026-10-01.** Judul tengah, **lingkaran progres** (SVG, penuh
   saat skor 100, warna per level), angka besar, "N poin lagi sampai lingkaran penuh", status; komponen jadi bar gaya
   makro (nama + skor/100, 2 kolom di desktop, 1 di HP). What You Need, tombol isi komponen, dan Chat Coach tetap.

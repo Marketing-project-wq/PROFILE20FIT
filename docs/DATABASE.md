@@ -73,7 +73,12 @@
     screenshot di bucket `workout-uploads`, prefix `<auth_user_id>/`; signed URL dibuat saat dibuka), `upload_id`
     (baris `my20fit_activity_uploads` tertaut), `started_at` ("HH:MM" WIB), `date_check` {read, text, reason},
     `date_confirmed`, `field_confidence`, `metrics` {avg_speed_kmh, cadence}, `ai_scan`, `edited_at`, dan cache
-    `analysis` {hash, coach_id, narrative:{id,en}}. Server hanya menerima kunci yang dikenal (`woRowFromBody`).
+    `analysis` {hash, coach_id, narrative:{id,en}}. **Sejak analisa v2 (2026-10-01):** `readiness` {resting_hr, hrv_ms,
+    sleep_score, body_battery, readiness_score} (hanya yang terbaca dari layar pemulihan) dan `checkin` {at, sleep_hours,
+    meal_gap close|ok|mid|long|none, conditions indoor|outdoor_morning|outdoor_midday|outdoor_evening,
+    feeling fresh|normal|tired|unwell}. Kolom `pace_data` = {avg_sec_per_km, splits:[{km, sec (pace dtk/km), hr, elev}]}
+    tervalidasi (`woPaceData` / `WorkoutMetrics.splitsOf`). Jawaban tidur check-in ditulis ke `my20fit_sleep`
+    (source `manual`) HANYA kalau malam itu belum ada catatan; jeda makan check-in TIDAK ditulis ke Calorie Tracker. Server hanya menerima kunci yang dikenal (`woRowFromBody`).
     `uploaded_file_url` kini berisi PATH (dulu signed URL 7 hari yang kedaluwarsa). Jenis workout: run, cycling, walk,
     swimming, gym, hyrox, hiit, other (`js/workout-metrics.js`; kolom `type` tanpa CHECK).
   - **Catatan 2026-09-30:** setelah kartu analisis AI & quiz dihapus dari `/activity`, web **tidak lagi menulis**
