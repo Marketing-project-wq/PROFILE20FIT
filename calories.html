@@ -108,17 +108,6 @@
   .wk-x{display:grid;grid-template-columns:repeat(7,1fr);margin-top:5px;font-size:11px;color:var(--muted);font-weight:700;text-align:center}
   .wk-avg{margin-top:11px;font-size:12.5px;font-weight:700}
   .wk-avg s{text-decoration:none;color:var(--muted);font-weight:600}
-  /* --- Riwayat --- */
-  .hst+.hst{border-top:1px solid var(--line)}
-  .hst-hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;width:100%;
-    background:none;border:0;padding:11px 0;color:var(--txt);font:inherit;text-align:left;cursor:pointer}
-  .hst-d{font-weight:700;font-size:13.5px}
-  .hst-d i{font-style:normal;font-size:11px;color:var(--muted);font-weight:700}
-  .hst-k{font-size:12.5px;white-space:nowrap}
-  .hst-k s{text-decoration:none;color:var(--muted);font-weight:600}
-  .hst-b{padding:0 0 10px 10px;border-left:2px solid var(--line);margin:0 0 8px 2px}
-  .hst-b .item{padding:7px 0;font-size:13px}
-  .hitem{cursor:pointer}
   /* intermittent fasting */
   .ifopt{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
   .ifopt:last-child{border-bottom:0}
@@ -293,13 +282,11 @@
     <div class="sec" id="mealPlanSec">Rencana Makan</div>
     <div class="mp-lead" id="mealPlanLead"></div>
     <div id="mealPlan"></div>
-    <!-- Chart mingguan + riwayat. Sumbernya my20fit_daily_log (log_date, cal_items) —
+    <!-- Chart mingguan. Sumbernya my20fit_daily_log (log_date, cal_items) —
          query yang SAMA bentuknya dengan calorietracker.20fit.id (src/lib/memberHistory.ts),
          jadi angkanya pasti sama di kedua app. Tanpa tabel baru. -->
     <div class="sec" id="weekSec">Minggu Ini</div>
     <div class="card" id="weekCard"></div>
-    <div class="sec" id="histSec">Riwayat</div>
-    <div class="card" id="histCard"></div>
 
      </div>
     </div>
@@ -578,7 +565,7 @@
       renderAddMealHint();
       // Chart & riwayat memakai `items` untuk HARI INI, jadi ikut digambar ulang di sini —
       // tanpa fetch ulang (data hari lain sudah ada di HIST).
-      try{ if(HIST){ renderWeek(); renderHist(); } }catch(e){}
+      try{ if(HIST) renderWeek(); }catch(e){}
     }
 
     // ---- Makanan Hari Ini, dikelompokkan per waktu makan ----
@@ -952,16 +939,10 @@
     // gratis), lalu hasilnya disimpan bersama item supaya berikutnya langsung tampil.
     var _ana=null, _anaReq=0;
     function openItemAnalysis(i){ var it=items[i]; if(it) openFoodAnalysis(it,{list:items,persist:save,editIdx:i}); }
-    function openHistAnalysis(ds,k){
-      var its=dayItems(ds), it=its&&its[k]; if(!it) return;
-      var isToday=(ds===dstr(new Date()));
-      openFoodAnalysis(it,{list:its, editIdx:isToday?items.indexOf(it):-1,
-        persist:isToday?save:function(){ try{ if(window.Auth&&Auth.saveDaily) Auth.saveDaily({cal_items:its},ds); }catch(e){} }});
-    }
-    function showAna(h,closeLabel){
+    function showAna(h){
       document.getElementById("scanModalBody").innerHTML=h;
       document.getElementById("scanModalTitle").textContent=L({en:"Food analysis",id:"Analisa makanan"});
-      document.getElementById("scanModalDone").textContent=closeLabel||L({en:"Close",id:"Tutup"});
+      document.getElementById("scanModalDone").textContent=L({en:"Close",id:"Tutup"});
       document.getElementById("scanBg").classList.add("open");
     }
     function anaHTML(it,sa){
@@ -1664,7 +1645,7 @@
       refreshQuota();       // tampilkan sisa kuota scan + link paket
       loadCalFromCloud();   // sinkron kalori dari akun
       loadIFFromCloud();    // sinkron gaya puasa dari akun
-      loadHistory();        // chart mingguan + riwayat (my20fit_daily_log 14 hari)
+      loadWeek();           // chart mingguan (my20fit_daily_log 7 hari)
       if(location.hash==="#scan"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});}
       if(location.hash==="#camera"){document.getElementById("scanbox").scrollIntoView({behavior:"smooth"});setTimeout(function(){try{openCamera();}catch(e){}},400);}
       // Foto dari tombol "Scan" global (halaman lain) -> langsung analisa di sini
@@ -1710,35 +1691,33 @@
     // Satu kali ambil data (14 hari terakhir) dipakai keduanya: chart memotong 7 hari
     // terakhir, riwayat memakai seluruhnya. Hari INI diambil dari `items` di memori,
     // bukan dari baris DB, supaya angkanya tidak tertinggal saat baru saja mencatat.
-    var HIST=null, HIST_ERR=false, HIST_OPEN={}, HIST_SHOWN=7;
+    var HIST=null, HIST_ERR=false;
     function dstr(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
     function sumKcal(arr){ return (arr||[]).reduce(function(a,i){ return a+(+((i&&i.kcal))||0); },0); }
-    async function loadHistory(){
-      var wc=document.getElementById("weekCard"), hc=document.getElementById("histCard");
-      if(!wc||!hc) return;
+    async function loadWeek(){
+      var wc=document.getElementById("weekCard"); if(!wc) return;
       HIST_ERR=false;
-      var msg='<div class="muted" style="font-size:12.5px">'+escA(L({en:"Loading…",id:"Memuat…"}))+'</div>';
-      wc.innerHTML=msg; hc.innerHTML=msg;
+      wc.innerHTML='<div class="muted" style="font-size:12.5px">'+escA(L({en:"Loading…",id:"Memuat…"}))+'</div>';
       try{
-        var since=new Date(); since.setDate(since.getDate()-13);
+        var since=new Date(); since.setDate(since.getDate()-6);
         var rows=await Auth.getDailyRange(dstr(since));
         HIST={};
         (rows||[]).forEach(function(r){ HIST[r.log_date]=Array.isArray(r.cal_items)?r.cal_items.filter(Boolean):[]; });
       }catch(e){ HIST=null; HIST_ERR=true; }
-      renderWeek(); renderHist();
+      renderWeek();
     }
     function dayItems(ds){
       if(ds===dstr(new Date())) return items;          // hari ini = keadaan di layar
       return (HIST&&HIST[ds])||null;                    // null = tidak ada baris untuk hari itu
     }
     function errBox(retryFn){
-      return '<div class="muted" style="font-size:12.5px">'+escA(L({en:"Couldn't load your history.",id:"Gagal memuat riwayat."}))+
+      return '<div class="muted" style="font-size:12.5px">'+escA(L({en:"Couldn't load this week's data.",id:"Gagal memuat data minggu ini."}))+
         ' <button type="button" class="mealadd" style="margin-top:6px" onclick="'+retryFn+'">'+escA(L({en:"Retry",id:"Coba lagi"}))+'</button></div>';
     }
     function renderWeek(){
       var el=document.getElementById("weekCard"); if(!el) return;
       var sec=document.getElementById("weekSec"); if(sec) sec.textContent=L({en:"This week",id:"Minggu Ini"});
-      if(HIST_ERR){ el.innerHTML=errBox("loadHistory()"); return; }
+      if(HIST_ERR){ el.innerHTML=errBox("loadWeek()"); return; }
       if(!HIST) return;
       var DOW=[{en:"Sun",id:"Min"},{en:"Mon",id:"Sen"},{en:"Tue",id:"Sel"},{en:"Wed",id:"Rab"},{en:"Thu",id:"Kam"},{en:"Fri",id:"Jum"},{en:"Sat",id:"Sab"}];
       var days=[];
@@ -1772,56 +1751,9 @@
           escA(L({en:"Calories over the last 7 days",id:"Kalori 7 hari terakhir"}))+'">'+tline+bars+'</svg>'+
         '<div class="wk-x">'+days.map(function(x){ return '<span>'+escA(x.dow)+'</span>'; }).join("")+'</div>'+
         '<div class="wk-avg">'+escA(L({en:"Average",id:"Rata-rata"}))+': <b>'+avg+'</b> '+escA(kc())+'/'+escA(L({en:"day",id:"hari"}))+
-          ' <s>('+logged.length+' '+escA(L({en:"days logged",id:"hari tercatat"}))+')</s></div>';
+          ' <s>('+logged.length+' '+escA(L({en:logged.length===1?"day logged":"days logged",id:"hari tercatat"}))+')</s></div>';
     }
-    function toggleHist(ds){ HIST_OPEN[ds]=!HIST_OPEN[ds]; renderHist(); }
-    function moreHist(){ HIST_SHOWN+=7; renderHist(); }
-    function renderHist(){
-      var el=document.getElementById("histCard"); if(!el) return;
-      var sec=document.getElementById("histSec"); if(sec) sec.textContent=L({en:"History",id:"Riwayat"});
-      if(HIST_ERR){ el.innerHTML=errBox("loadHistory()"); return; }
-      if(!HIST) return;
-      var today=dstr(new Date()), rows=[];
-      for(var k=0;k<14;k++){
-        var d=new Date(); d.setDate(d.getDate()-k);
-        var ds=dstr(d), its=dayItems(ds);
-        if(ds!==today && !its) continue;              // hari tanpa baris dilewati
-        if(!its||!its.length) continue;                // hari tanpa makanan dilewati (sama dgn calorietracker)
-        rows.push({ ds:ds, d:d, its:its });
-      }
-      if(!rows.length){
-        el.innerHTML='<div class="muted" style="font-size:12.5px">'+escA(L({en:"Nothing logged in the last 14 days.",id:"Belum ada catatan 14 hari terakhir."}))+'</div>';
-        return;
-      }
-      var page=rows.slice(0,HIST_SHOWN);
-      el.innerHTML=page.map(function(r){
-        var tot=sumKcal(r.its), diff=(goal||0)-tot, open=!!HIST_OPEN[r.ds];
-        var dl=r.d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"short",day:"numeric",month:"short"});
-        var note=(goal? (diff>=0 ? (L({en:"left",id:"sisa"})+" "+diff) : (L({en:"over",id:"lebih"})+" "+Math.abs(diff))) : "");
-        return '<div class="hst">'+
-          '<button type="button" class="hst-hd" onclick="toggleHist(\''+r.ds+'\')" aria-expanded="'+(open?"true":"false")+'">'+
-            '<span class="hst-d">'+escA(dl)+(r.ds===today?' <i>'+escA(L({en:"today",id:"hari ini"}))+'</i>':'')+'</span>'+
-            '<span class="hst-k"><b>'+tot+'</b> '+escA(kc())+(note?' <s>('+escA(note)+')</s>':'')+'</span>'+
-          '</button>'+
-          (open? '<div class="hst-b">'+r.its.map(function(i,k){
-              return '<div class="item hitem" role="button" tabindex="0" data-ds="'+r.ds+'" data-k="'+k+'"><span>'+escA(i.name)+(i.t?'<span class="mtime">'+escA(i.t)+'</span>':'')+'</span>'+
-                '<span class="kc">'+(+i.kcal||0)+' '+escA(kc())+'</span></div>';
-            }).join("")+'</div>' : '')+
-        '</div>';
-      }).join("")+
-      (rows.length>HIST_SHOWN
-        ? '<button type="button" class="mealadd" style="margin-top:12px" onclick="moreHist()">'+escA(L({en:"Load more",id:"Muat lebih banyak"}))+'</button>'
-        : '');
-    }
-
-    // Ketuk makanan di Riwayat = buka analisanya (sama dengan Today's Food).
-    (function(){
-      var hc=document.getElementById("histCard"); if(!hc) return;
-      function go(e){ var row=e.target.closest(".hitem"); if(row) openHistAnalysis(row.getAttribute("data-ds"),+row.getAttribute("data-k")); }
-      hc.addEventListener("click",go);
-      hc.addEventListener("keydown",function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(e); } });
-    })();
-    I18N.onChange(()=>{render();renderIF();refreshQuota();syncCamLabels();renderWeek();renderHist();if(_coachMeal)renderCoachMeal();});
+    I18N.onChange(()=>{render();renderIF();refreshQuota();syncCamLabels();renderWeek();if(_coachMeal)renderCoachMeal();});
   </script>
 <script>
   // Tombol "tanya coach": pertanyaan awal ikut bahasa aktif (?ask= hanya mengisi kotak pesan di chat).
