@@ -57,6 +57,16 @@ Elsen (detail & teknis). Teks persona: `COACH_PERSONAS` di `server.js`.
 - **Suplemen** → boleh sebut nama umum (whey protein, creatine), tanpa dosis/brand.
 - **Hasil MCU** → komentari secara umum, selalu rujuk ke dokter.
 
+## Analisa performa workout (halaman `/activity/history/:id`)
+Bukan chat, tapi memakai persona coach yang sama. Yang ditegakkan kode ada di `lib/workout-narrative.js`:
+- Angka **hanya** dari hasil hitungan server (`lib/workout-analysis.js`); server memeriksa setiap angka di narasi AI
+  — ada angka di luar data → generate ulang 1x → narasi template tanpa AI.
+- Bahasa keterkaitan, bukan sebab ("kemungkinan ikut memengaruhi"). Performa normal/bagus → faktor yang kurang =
+  "perlu diperhatikan". Performa turun tanpa faktor jelas → katakan jujur; cuaca/rute/stres disebut sebagai hal di luar data.
+- "Belum dicatat" ≠ "kurang". Baseline < 3 workout sejenis → tidak ada klaim lebih cepat/lambat.
+- HR maks tidak wajar atau catatan nyeri/pusing/sesak → tidak ada analisa performa; anjuran berhenti + Book Doctor
+  (catatan nyeri dada/pingsan → anjuran cari pertolongan medis segera). Tanpa AI untuk kasus ini.
+
 ## Tombol aksi
 Chatbot tidak menulis URL sendiri. Ia menulis token, dan frontend (`js/coach.js`) mengubahnya
 jadi tombol dengan URL yang ditentukan kode:
