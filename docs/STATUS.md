@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-09-30 · **Commit staging:** `6a7d4b0` · **Production:** `d263b13`
+> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `a632f36` · **Production:** `d263b13`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -154,6 +154,31 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Analisa performa per workout + halaman detail riwayat (2026-10-01, Fase 1–4, staging dulu, TANPA migration).**
+  - **Fase 1 — ekstraksi:** `my20fit_workout` jadi satu sumber data workout (riwayat tak lagi membaca kalimat deskripsi
+    AI). Judul kartu dari angka (`js/workout-metrics.js`, dipakai browser & server), mis. "Lari 5 km · 33:45 · 6:45/km".
+    Tanggal hasil baca divalidasi: tahun tak tercetak / masa depan / > N hari dari upload → dialog **wajib** konfirmasi
+    tanggal (temuan nyata: "Oct 5" dibaca AI jadi `2023-10-05`). Dialog: tanggal, jam mulai, HR maks, catatan (nyeri dll.),
+    jenis walk/hiit. Edit setelah simpan: `PATCH /api/activity/workout/:id`. Screenshot disimpan sebagai path (dulu signed
+    URL 7 hari). Hapus = workout + screenshot + baris upload tertaut. Prompt `WORKOUT_SYS` di edge `my20fit-ai` diperluas
+    (tanggal hanya kalau tahun tercetak, jam mulai, kecepatan, cadence, split, confidence per field) — **edge belum
+    di-deploy (TANYA PEMILIK)**; tanpa deploy, tanggal diambil dari bacaan upload-analyze dan jam mulai diisi manual.
+  - **Fase 2 — mesin faktor** (`lib/workout-analysis.js`, ambang `lib/workout-analysis-config.js` PERLU DIVALIDASI):
+    baseline = ≤5 workout sejenis (jarak ±30%) dlm 120 hari, < 3 → "baseline belum cukup"; faktor tidur (malam sebelum,
+    vs rata-rata 7 hari & target), nutrisi kemarin (vs target `js/nutrition.js`, kini juga di-require server), jeda makan
+    terakhir → jam mulai (`cal_items.t`), hidrasi kemarin & sebelum mulai, beban 7 hari vs 4 minggu, Visbody. Status
+    baik/kurang/berlebih/**tidak_ada_data**; pengaruh tinggi/sedang/rendah hanya kalau performa turun. Halaman
+    `/activity/history/:id` (`activity-workout.html`): metrik, zona HR, split, performa vs biasanya + grafik, kartu faktor
+    + isi data langsung (tidur semalam, minum kemarin, jam mulai) → dihitung ulang.
+  - **Fase 3 — narasi coach:** `POST /api/activity/workouts/:id/narrative` — AI hanya menerima hasil hitungan + daftar
+    angka yang boleh; angka lain → ulang 1x → template. Disimpan per (hash input, bahasa) di `raw_data.analysis`
+    (hemat biaya; data berubah → dibuat ulang). Keamanan (HR maks tak wajar / catatan nyeri) → tanpa analisa performa
+    & tanpa AI, CTA Book Doctor; nomor darurat `safety.emergency_number` = null (TANYA PEMILIK, tidak dikarang).
+    "Balas Coach" → chat coach dengan isian awal soal workout ini.
+  - **Fase 4 — insight lintas workout:** muncul di riwayat hanya kalau ≥ 8 workout bisa dibandingkan & ≥ 5 sesi lambat
+    berdata faktor itu, dengan jumlah datanya disebut.
+  - **Belum:** diuji dengan AI asli & data nyata (DB baru punya 1 workout; tabel tidur & hidrasi kosong). Contoh analisa di
+    laporan memakai DATA UJI.
 - **/activity dirapikan (2026-09-30, staging dulu).**
   - **Kartu "AI Coach — Analisis keseluruhan" DIHAPUS** (Buat rencana / Tentukan targetmu), beserta turunannya di
     halaman: kartu skor harian `#scoreTop`, checklist "Rencana AI Coach" (`#goalBox`), quiz `js/goal-quiz.js` (file

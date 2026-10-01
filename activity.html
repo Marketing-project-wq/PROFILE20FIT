@@ -149,6 +149,13 @@
   .dlgnote{border-radius:var(--radius-sm,10px);padding:10px 12px;font-size:12.5px;line-height:1.5;margin:10px 0 2px}
   .dlgnote.ok{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--a-txt)}
   .dlgnote.warn{background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--a-txt)}
+  #woDlg{max-height:90vh;overflow:auto}
+  .dlg2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+  dialog textarea{width:100%;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px;resize:vertical}
+  .dlgchk{display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:700;color:var(--a-txt);font-size:12.5px}
+  .dlgchk input{width:auto;margin:0}
+  .upx-go{color:var(--fit-red,#E4002B);font-weight:800;text-decoration:none}
+  .wo-an{display:inline-block;margin-top:12px;font-size:12.5px}
   .dlgnote .dlgsub{color:var(--a-mut);font-size:11.5px;margin-top:4px}
   .btn:disabled{opacity:.55;cursor:default}
   .err{color:var(--red);font-size:12.5px}
@@ -707,16 +714,24 @@
   <div style="font-weight:800;font-size:15px" data-i18n="act_dlg_t">Detail workout</div>
   <div class="muted" style="font-size:12px;margin-top:3px" data-i18n="act_dlg_s">Isi yang kamu tahu saja. Yang kosong tidak akan ditebak.</div>
   <div id="dlgAi"></div>
+  <!-- Tanggal hasil baca screenshot yang meragukan (tahun tak terlihat / masa depan / lama) WAJIB dikonfirmasi -->
+  <div id="dlgDate"></div>
+  <div class="dlg2">
+    <div><label data-en="Date *" data-id="Tanggal *">Tanggal *</label><input id="fDate" type="date"></div>
+    <div><label data-en="Start time" data-id="Jam mulai">Jam mulai</label><input id="fStart" type="time"></div>
+  </div>
   <label data-i18n="act_f_title">Nama workout</label><input id="fTitle" placeholder="Morning Run">
   <label data-i18n="act_f_type">Jenis</label>
-  <select id="fType">
-    <option value="run">Run</option><option value="cycling">Cycling</option><option value="gym">Gym</option>
-    <option value="hyrox">Hyrox</option><option value="swimming">Swimming</option><option value="other">Lainnya</option>
-  </select>
+  <select id="fType"></select>
   <label data-i18n="act_f_dur">Durasi (menit) *</label><input id="fDur" type="number" min="1" inputmode="numeric" placeholder="45">
   <label data-i18n="act_f_dist">Jarak (km)</label><input id="fDist" type="number" step="0.01" inputmode="decimal" placeholder="5.2">
   <label data-i18n="act_f_kcal">Kalori terbakar</label><input id="fKcal" type="number" inputmode="numeric" placeholder="380">
-  <label data-i18n="act_f_hr">Rata-rata BPM</label><input id="fHr" type="number" inputmode="numeric" placeholder="142">
+  <div class="dlg2">
+    <div><label data-i18n="act_f_hr">Rata-rata BPM</label><input id="fHr" type="number" inputmode="numeric" placeholder="142"></div>
+    <div><label data-en="Max BPM" data-id="BPM maks">BPM maks</label><input id="fMaxHr" type="number" inputmode="numeric" placeholder="171"></div>
+  </div>
+  <label data-en="Note (optional) — e.g. pain, dizziness, how it felt" data-id="Catatan (opsional) — mis. nyeri, pusing, rasanya gimana">Catatan (opsional) — mis. nyeri, pusing, rasanya gimana</label>
+  <textarea id="fNote" rows="2" maxlength="500"></textarea>
   <div id="dlgErr" class="err" style="margin-top:10px"></div>
   <div style="display:flex;gap:8px;margin-top:14px">
     <button class="btn ghost" id="dlgCancel" type="button" data-i18n="act_cancel">Batal</button>
@@ -755,6 +770,7 @@
 <script src="js/cycle.js"></script>
 <script src="js/fasting.js"></script>
 <script src="js/nutrition.js"></script>
+<script src="js/workout-metrics.js"></script>
 <script src="js/tours-config.js"></script>
 <script src="js/tour.js"></script>
 <script>
@@ -834,7 +850,7 @@
     card.addEventListener("drop",function(e){ e.preventDefault(); card.classList.remove("over"); handleFiles(e.dataTransfer&&e.dataTransfer.files); });
     document.getElementById("upCam").onclick=function(){ if(!UP_BUSY) document.getElementById("upCamIn").click(); };
     document.getElementById("upFile").onclick=upPick;
-    document.getElementById("upManual").onclick=function(){ PENDING_URLS=[]; PENDING_AI=null; openDlg(); };
+    document.getElementById("upManual").onclick=function(){ clearPending(); openDlg(); };
     ["upCamIn","upFileIn"].forEach(function(id){
       var f=document.getElementById(id);
       f.onchange=function(){ var l=Array.prototype.slice.call(f.files||[]); f.value=""; handleFiles(l); };
@@ -862,7 +878,9 @@
   // Satu sesi latihan sering tersebar di beberapa layar tracker (ringkasan, zona HR,
   // split), jadi upload menerima BEBERAPA gambar dan semuanya dibaca sebagai SATU workout.
   var MAX_IMG=5;
-  var PENDING_URLS=[], PENDING_AI=null;
+  // Hasil upload yang menunggu dikonfirmasi di dialog: path screenshot, bacaan AI, id upload, cek tanggal.
+  var PENDING={paths:[],ai:null,uploadId:null,dc:null};
+  function clearPending(){ PENDING={paths:[],ai:null,uploadId:null,dc:null}; }
 
   function readAsDataUrl(f){
     return new Promise(function(res,rej){
@@ -968,12 +986,19 @@
       if(isWo){
         // Foto asli disimpan (lampiran workout). Gagal simpan TIDAK menghentikan pencatatan.
         upProg(Lx({en:"Saving your photos\u2026",id:"Menyimpan foto\u2026"}));
-        var urls=[], storeFailed=false, storeMsg=null;
+        var paths=[], storeFailed=false, storeMsg=null;
         for(var m=0;m<originals.length;m++){
           var u=await upPost("/api/activity/upload",{data_url:originals[m]});
-          if(u.ok&&u.j.url) urls.push(u.j.url); else { storeFailed=true; if(!storeMsg) storeMsg=u.j.error||null; }
+          if(u.ok&&u.j.path) paths.push(u.j.path); else { storeFailed=true; if(!storeMsg) storeMsg=u.j.error||null; }
         }
-        PENDING_URLS=urls; PENDING_AI=ai;
+        // Tanggal: dari pembaca workout (tahun tercetak), lalu teks tanggal tanpa tahun, lalu bacaan
+        // upload-analyze (tahunnya bisa ditebak AI). Yang meragukan -> user wajib konfirmasi di dialog.
+        var exDate=aOk&&an.j.extracted?an.j.extracted.date:null;
+        var read=(ai&&ai.workout_date)||(ai&&ai.date_text?WorkoutMetrics.parseDateText(ai.date_text,todayYmd()):null)||exDate||null;
+        var yv=(ai&&ai.workout_date)?(ai.year_visible!==false):(ai&&ai.date_text&&read?false:null);
+        var dc=WorkoutMetrics.resolveDate({read:read,yearVisible:yv,today:todayYmd(),maxDays:sc.j.date_confirm_after_days,fallback:SEL});
+        dc.text=(ai&&ai.date_text)||null;
+        PENDING={paths:paths,ai:ai,uploadId:aOk?(an.j.upload_id||null):null,dc:dc};
         upProg("");
         if(storeFailed&&storeMsg) showErr(storeMsg,false);
         openDlg(smalls.length,ai,ai?null:(sc.j.error||null),storeFailed,converted);
@@ -995,14 +1020,31 @@
 
   // ---- Dialog workout manual ----
   function setV(id,v){ document.getElementById(id).value=(v==null?"":String(v)); }
+  function fmtDay(ymd){ try{ return new Date(ymd+"T00:00:00").toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{day:"numeric",month:"short",year:"numeric"}); }catch(e){ return ymd; } }
   function openDlg(nImg,ai,aiErr,storeFailed,converted){
     document.getElementById("dlgErr").textContent="";
     var box=document.getElementById("dlgAi"); box.innerHTML="";
+    ["fTitle","fDur","fDist","fKcal","fHr","fMaxHr","fNote","fStart"].forEach(function(id){ setV(id,null); });
+    var fd=document.getElementById("fDate"); fd.max=todayYmd();
+    var dc=PENDING.dc; setV("fDate",dc?dc.date:SEL);
+    var dbox=document.getElementById("dlgDate"); dbox.innerHTML="";
+    if(dc&&dc.needs_confirm){
+      var seen=dc.text||(dc.read?fmtDay(dc.read):null);
+      var msg={
+        unread:{en:"The workout date couldn't be read from the screenshot.",id:"Tanggal latihan tidak terbaca dari screenshot."},
+        future:{en:"The date read ("+seen+") is in the future.",id:"Tanggal yang terbaca ("+seen+") ada di masa depan."},
+        year_guess:{en:"The year isn't visible on the screenshot (read: "+seen+"). We filled in "+fmtDay(dc.date)+".",id:"Tahun tidak terlihat di screenshot (terbaca: "+seen+"). Kami isi "+fmtDay(dc.date)+"."},
+        old:{en:"The date read is "+seen+", several days ago.",id:"Tanggal yang terbaca "+seen+", beberapa hari lalu."}
+      }[dc.reason]||{en:"",id:""};
+      dbox.innerHTML='<div class="dlgnote warn">'+esc(Lx(msg))+' '+esc(Lx({en:"Pick the correct workout date before saving.",id:"Pilih tanggal latihan yang benar sebelum menyimpan."}))+
+        '<label class="dlgchk"><input type="checkbox" id="fDateOk"> '+esc(Lx({en:"The date below is correct",id:"Tanggal di bawah sudah benar"}))+'</label></div>';
+      fd.onchange=function(){ var c=document.getElementById("fDateOk"); if(c) c.checked=true; };
+    } else fd.onchange=null;
     if(ai){
       // Prefill HANYA field yang benar-benar dibaca. Yang null dibiarkan kosong —
       // dialog ini tidak boleh memunculkan angka yang tidak ada di gambar.
       setV("fTitle",ai.title); setV("fDur",ai.duration_min); setV("fDist",ai.distance_km);
-      setV("fKcal",ai.calories_burned); setV("fHr",ai.avg_heart_rate);
+      setV("fKcal",ai.calories_burned); setV("fHr",ai.avg_heart_rate); setV("fMaxHr",ai.max_heart_rate); setV("fStart",ai.start_time);
       if(ai.type){ var sel=document.getElementById("fType");
         for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===ai.type){ sel.selectedIndex=i; break; } } }
       var conf=(ai.confidence!=null)?(" \u00b7 "+Math.round(ai.confidence)+"%"):"";
@@ -1030,34 +1072,46 @@
     document.getElementById("woDlg").showModal();
   }
   function wireDlg(){
-    document.getElementById("dlgCancel").onclick=function(){ PENDING_URLS=[]; PENDING_AI=null; document.getElementById("woDlg").close(); };
+    var sel=document.getElementById("fType");
+    sel.innerHTML=Object.keys(WorkoutMetrics.TYPES).map(function(k){ return '<option value="'+k+'">'+esc(WorkoutMetrics.typeLabel(k,I18N.lang))+'</option>'; }).join("");
+    document.getElementById("dlgCancel").onclick=function(){ clearPending(); document.getElementById("woDlg").close(); };
     document.getElementById("dlgSave").onclick=async function(){
+      var err=document.getElementById("dlgErr");
       var dur=parseFloat(document.getElementById("fDur").value);
-      if(!isFinite(dur)||dur<=0){ document.getElementById("dlgErr").textContent=T("act_need_dur"); return; }
+      if(!isFinite(dur)||dur<=0){ err.textContent=T("act_need_dur"); return; }
+      var date=document.getElementById("fDate").value;
+      if(!date||date>todayYmd()){ err.textContent=Lx({en:"Pick a workout date (not in the future).",id:"Pilih tanggal latihan (tidak boleh di masa depan)."}); return; }
+      var ok=document.getElementById("fDateOk");
+      if(PENDING.dc&&PENDING.dc.needs_confirm&&ok&&!ok.checked){ err.textContent=Lx({en:"Confirm the workout date first.",id:"Pastikan tanggal latihan dulu."}); return; }
+      var ai=PENDING.ai, sc=PENDING.paths.length||ai;
       var body={
-        workout_date:SEL, source:PENDING_URLS.length?"upload":"manual",
-        uploaded_file_url:PENDING_URLS[0]||null,
-        // Kolom uploaded_file_url cuma muat SATU url; daftar lengkap + jejak bacaan AI
-        // (seberapa yakin, kolom apa yang dibaca) disimpan di raw_data supaya bisa diaudit.
-        raw_data:(PENDING_URLS.length||PENDING_AI)?{
-          uploaded_file_urls:PENDING_URLS,
-          ai_scan:PENDING_AI?{confidence:PENDING_AI.confidence,fields_read:PENDING_AI.fields_read,
-                              source_guess:PENDING_AI.source_guess,note:PENDING_AI.note}:null
-        }:null,
+        workout_date:date, source:sc?"upload":"manual",
+        // Path screenshot + jejak bacaan AI (yakin berapa, kolom apa) + cek tanggal -> raw_data (diaudit server).
+        raw_data:{
+          file_paths:PENDING.paths, upload_id:PENDING.uploadId, started_at:document.getElementById("fStart").value||null,
+          ai_scan:ai?{confidence:ai.confidence,fields_read:ai.fields_read,source_guess:ai.source_guess,note:ai.note}:null,
+          field_confidence:ai?ai.field_confidence:null, metrics:ai?{avg_speed_kmh:ai.avg_speed_kmh,cadence:ai.cadence}:null,
+          date_check:PENDING.dc?{read:PENDING.dc.read,text:PENDING.dc.text,reason:PENDING.dc.reason}:null
+        },
+        hr_zone_data:ai?ai.hr_zone_data:null, pace_data:ai?ai.pace_data:null, elevation_gain_m:ai?ai.elevation_gain_m:null,
         title:document.getElementById("fTitle").value||null,
         type:document.getElementById("fType").value, duration_min:dur,
         distance_km:parseFloat(document.getElementById("fDist").value)||null,
         calories_burned:parseInt(document.getElementById("fKcal").value,10)||null,
-        avg_heart_rate:parseInt(document.getElementById("fHr").value,10)||null
+        avg_heart_rate:parseInt(document.getElementById("fHr").value,10)||null,
+        max_heart_rate:parseInt(document.getElementById("fMaxHr").value,10)||null,
+        note:document.getElementById("fNote").value.trim()||null
       };
       var btn=this; btn.disabled=true;
       try{
         var r=await apiFetch("/api/activity/workout",{method:"POST",body:JSON.stringify(body)});
         var j=await r.json().catch(function(){return {};});
-        if(!r.ok){ document.getElementById("dlgErr").textContent=j.error||T("act_save_fail"); btn.disabled=false; return; }
+        if(!r.ok){ err.textContent=j.error||T("act_save_fail"); btn.disabled=false; return; }
         document.getElementById("woDlg").close();
-        ["fTitle","fDur","fDist","fKcal","fHr"].forEach(function(id){ document.getElementById(id).value=""; });
-        PENDING_URLS=[]; PENDING_AI=null;
+        clearPending();
+        // Analisa performa ada di halaman detail riwayat.
+        var last=document.getElementById("upLast");
+        if(last&&j.workout&&j.workout.id) last.innerHTML='<a class="upx-go" href="/activity/history/'+encodeURIComponent(j.workout.id)+'">'+esc(Lx({en:"Saved — see the performance analysis →",id:"Tersimpan — lihat analisa performanya →"}))+'</a>';
         await load(SEL);
         loadHealthScore();   // workout baru -> Health Score dihitung ulang
       }catch(e){ document.getElementById("dlgErr").textContent=T("act_save_fail"); }
@@ -1074,7 +1128,7 @@
     if(!ws.length){
       host.innerHTML='<div class="card"><div class="muted" style="font-size:13px;text-align:center;padding:6px 0">'+
         esc(T("act_no_workout"))+'</div><button class="btn ghost" id="addManual" style="margin-top:10px">'+esc(T("act_add_manual"))+'</button></div>';
-      document.getElementById("addManual").onclick=function(){ PENDING_URLS=[]; PENDING_AI=null; openDlg(); };
+      document.getElementById("addManual").onclick=function(){ clearPending(); openDlg(); };
       return;
     }
     host.innerHTML=ws.map(function(w){
@@ -1113,6 +1167,7 @@
           return '<div><div class="k">'+esc(T(s[0]))+'</div><div class="v">'+esc(s[1])+'</div></div>';
         }).join("")+'</div>'+zh+
         (w.uploaded_file_url?'<div class="muted" style="font-size:11.5px;margin-top:10px">'+FIC("attach",14)+' '+esc(T("act_has_file"))+'</div>':'')+
+        '<a class="upx-go wo-an" href="/activity/history/'+encodeURIComponent(w.id)+'">'+esc(Lx({en:"Performance analysis →",id:"Analisa performa →"}))+'</a>'+
         '</div>';
     }).join("");
     Array.prototype.forEach.call(host.querySelectorAll("[data-del]"),function(b){
