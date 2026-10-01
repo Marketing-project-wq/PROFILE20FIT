@@ -525,6 +525,51 @@
   .plan-slim{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px;font-size:12.5px;color:var(--a-mut)}
   .plan-slim b{color:var(--a-txt)}
   .plan-slim button{flex:none;padding:6px 11px;border-radius:8px;border:0;background:var(--fit-red,#E4002B);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit}
+  .plan-slim button.ghost{background:none;border:1px solid var(--a-line);color:var(--a-txt)}
+  .tpl-acts{display:flex;gap:6px;flex:none}
+  .tpl-acts button{display:inline-flex;align-items:center;gap:5px}
+  .tpl-err{display:block;margin-top:4px;color:var(--fit-red,#E4002B);font-weight:700}
+  @media(max-width:767px){ .tpl-empty{flex-direction:column;align-items:stretch} .tpl-acts button{flex:1;justify-content:center;padding:9px 11px} }
+  .tpl-busy{display:flex;align-items:center;gap:10px;padding:8px 2px;font-size:13px;color:var(--a-mut)}
+  .tpl-hd-acts{display:flex;gap:12px;flex:none}
+  .tpl-hd-acts .acard-act{display:inline-flex;align-items:center;gap:4px}
+  /* Analisa Plan Hari Ini */
+  .tb-head{font-size:14.5px;font-weight:800;color:var(--a-txt);line-height:1.4;margin-bottom:4px}
+  .tb-sec{border-top:1px solid var(--a-line);padding-top:10px;margin-top:10px}
+  .tb-sec>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--a-mut)}
+  .tb-sec>summary::-webkit-details-marker{display:none}
+  .tb-sec>summary::after{content:"▾";margin-left:auto;font-size:12px}
+  .tb-sec:not([open])>summary::after{content:"▸"}
+  .tb-score{font-family:var(--mono);color:var(--a-txt);text-transform:none;letter-spacing:0}
+  .tb-row{display:flex;align-items:flex-start;gap:9px;padding:8px 0;font-size:13px;line-height:1.45;color:var(--a-txt)}
+  .tb-row+.tb-row{border-top:1px dashed var(--a-line)}
+  .tb-ic{flex:none;color:var(--fit-red,#E4002B);margin-top:1px;display:inline-flex}
+  .tb-tx{flex:1;min-width:0}
+  .tb-tx small{display:block;color:var(--a-mut);font-size:12px;margin-top:2px}
+  .tb-cause{color:var(--amber)!important;font-weight:700}
+  .tb-chip{flex:none;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;border:1px solid var(--a-line);color:var(--a-mut);white-space:nowrap}
+  .tb-chip.baik{color:var(--green);border-color:color-mix(in srgb,var(--green) 40%,transparent)}
+  .tb-chip.kurang{color:var(--fit-red,#E4002B);border-color:color-mix(in srgb,var(--fit-red,#E4002B) 40%,transparent);background:color-mix(in srgb,var(--fit-red,#E4002B) 8%,transparent)}
+  .tb-chip.berlebih{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,transparent);background:color-mix(in srgb,var(--amber) 8%,transparent)}
+  .tb-prog{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--a-mut)}
+  .tb-act{display:flex;align-items:center;gap:10px;padding:9px 0;font-size:13px}
+  .tb-act+.tb-act{border-top:1px dashed var(--a-line)}
+  .tb-pts{flex:none;min-width:62px;text-align:center;font-family:var(--mono);font-size:12px;font-weight:800;padding:5px 6px;border-radius:9px;color:var(--green);background:color-mix(in srgb,var(--green) 10%,transparent)}
+  .tb-pts.miss{color:var(--a-mut);background:var(--a-bg);font-family:inherit;font-size:10.5px;width:62px;min-width:0;white-space:normal;line-height:1.2}
+  .tb-go{flex:none;padding:6px 10px;border-radius:8px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:11.5px;font-weight:800;cursor:pointer}
+  .tb-note{font-size:11.5px;color:var(--a-mut);margin-top:6px;line-height:1.4}
+  @media(max-width:767px){ .tb-act{flex-wrap:wrap;row-gap:6px} .tb-act .tb-tx{flex:1 1 calc(100% - 82px)} .tb-go{margin-left:72px} }
+  .tb-wo{margin-top:6px}
+  .tb-wo-t{font-size:13px;font-weight:800;color:var(--a-txt)}
+  .tb-wo-t span{font-weight:600;color:var(--a-mut)}
+  .tb-wo-h{margin-top:6px;padding:9px 11px;border-radius:10px;background:var(--a-bg);font-size:13px;font-weight:700;line-height:1.4}
+  .tb-wo-h.safe{color:var(--fit-red,#E4002B)}
+  .tb-wo-p{font-size:12.5px;color:var(--a-mut);margin:6px 0 2px;line-height:1.45}
+  .tb-tips{margin:6px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5;color:var(--a-txt)}
+  .tb-link{display:inline-block;margin-top:8px;font-size:12.5px;font-weight:800;color:var(--fit-red,#E4002B);text-decoration:none}
+  .tb-plan-h{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--a-mut);margin-bottom:8px}
+  .tb-plan-h span{text-transform:none;letter-spacing:0;font-weight:600}
+  .tb-why{margin-top:8px;font-size:12.5px;color:var(--a-mut);line-height:1.45}
   /* Active Plan — satu baris horizontal, centang langsung */
   /* Workout plan aktif — tabel per hari + aksi ubah/ganti */
   .wp{padding:14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:16px}
@@ -1039,7 +1084,7 @@
       UP_BUSY=false;
       if(!document.getElementById("upProg").classList.contains("ok")) upProg("");   // status "selesai" dibiarkan tampil
     }
-    loadHealthScore(); loadLastUpload();   // upload baru -> skor dihitung ulang + "Terakhir:" diperbarui
+    refreshDerived(); loadLastUpload();   // upload baru -> skor & analisa dihitung ulang + "Terakhir:" diperbarui
   }
 
   // ---- Dialog workout manual ----
@@ -1137,7 +1182,7 @@
         var last=document.getElementById("upLast");
         if(last&&j.workout&&j.workout.id) last.innerHTML='<a class="upx-go" href="/activity/history/'+encodeURIComponent(j.workout.id)+'">'+esc(Lx({en:"Saved — see the performance analysis →",id:"Tersimpan — lihat analisa performanya →"}))+'</a>';
         await load(SEL);
-        loadHealthScore();   // workout baru -> Health Score dihitung ulang
+        refreshDerived();   // workout baru -> Health Score & analisa Plan Hari Ini dihitung ulang
       }catch(e){ document.getElementById("dlgErr").textContent=T("act_save_fail"); }
       btn.disabled=false;
     };
@@ -1466,7 +1511,7 @@
     var glasses=Math.round(total/250);
     try{ await Auth.saveDaily({water_glasses:glasses}, SEL); }catch(e){}
     if(DAY&&DAY.daily){ DAY.daily.water_glasses=glasses; renderHabits(); }
-    loadHealthScore();   // air berubah -> komponen Hydration di Health Score dihitung ulang
+    refreshDerived();   // air berubah -> Hydration di Health Score & Plan Hari Ini dihitung ulang
   }
   // date opsional (default = hari terpilih). Tombol "+250ml" di Today's Plan selalu mencatat HARI INI
   // walau user sedang melihat tanggal lain — daftar di layar hanya ikut kalau tanggalnya sama.
@@ -1478,7 +1523,7 @@
       var res=await Auth.supabase.from("my20fit_hydration").insert({auth_user_id:uid, log_date:day, amount_ml:Math.round(ml), drink_type:type||"water"}).select().single();
       if(res.error) throw res.error;
       ok=true;
-      if(day===SEL){ HYDRA.push(res.data); renderHydra(); await syncWater(); } else loadHealthScore();
+      if(day===SEL){ HYDRA.push(res.data); renderHydra(); await syncWater(); } else refreshDerived();
     }catch(e){ showErr(Lx({en:"Couldn't save your drink. The hydration table may not be set up yet.",id:"Gagal menyimpan minuman. Tabel hidrasi mungkin belum disiapkan."}),false); }
     SH_BUSY=false;
     return ok;
@@ -1610,7 +1655,7 @@
       renderSleep();
       try{ await Auth.saveDaily({sleep_hours:dur}, SEL); }catch(e){}
       if(DAY&&DAY.daily){ DAY.daily.sleep_hours=dur; renderHabits(); }
-      loadHealthScore();   // tidur baru -> komponen Sleep di Health Score dihitung ulang
+      refreshDerived();   // tidur baru -> Sleep di Health Score & Plan Hari Ini dihitung ulang
     }catch(e){ document.getElementById("slpErr").textContent=Lx({en:"Couldn't save. The sleep table may not be set up yet.",id:"Gagal menyimpan. Tabel tidur mungkin belum disiapkan."}); }
     btn.disabled=false;
   }
@@ -2009,56 +2054,139 @@
   // ---- TODAY'S PLAN — 4 mini kartu + coach says (dari upload-analyze / my20fit_today_plans) ----
   function tplHost(){ return document.getElementById("todayPlanBox"); }
   function planDateLabel(){ try{ return new Date().toLocaleDateString((window.I18N&&I18N.lang==="en")?"en-GB":"id-ID",{day:"numeric",month:"short"}); }catch(e){ return ""; } }
-  function renderTodayPlanEmpty(){
-    var h=tplHost(); if(!h) return;
-    h.innerHTML='<div class="plan-slim"><span>'+FIC("clipboard",14)+' <b>'+esc(Lx({en:"Today's Plan",id:"Plan Hari Ini"}))+'</b> · '+
-      esc(Lx({en:"upload a screenshot and I'll plan your workout, food, sleep & water.",id:"upload screenshot, nanti aku susun workout, makan, tidur & minum."}))+'</span>'+
-      '<button type="button" id="tplUpGo">'+esc(Lx({en:"Upload →",id:"Upload →"}))+'</button></div>';
-    var b=document.getElementById("tplUpGo"); if(b) b.onclick=uploadWorkoutGo;
+  // Belum ada plan hari ini -> tombol "Generate plan" (analisa kondisi + plan tanpa upload) atau upload screenshot.
+  var TPL_HAS=false, TPL_BUSY=false;
+  function renderTodayPlanEmpty(err){
+    var h=tplHost(); if(!h) return; TPL_HAS=false;
+    h.innerHTML='<div class="plan-slim tpl-empty"><span>'+FIC("clipboard",14)+' <b>'+esc(Lx({en:"Today's Plan & Recommendations",id:"Plan & Rekomendasi Hari Ini"}))+'</b> · '+
+      esc(Lx({en:"see how you're doing today, what raises your Health Score, and a plan built from your sleep, food, water & last workout.",id:"lihat kondisimu hari ini, cara menaikkan Health Score, dan plan dari tidur, makan, minum & workout terakhirmu."}))+
+      (err?'<span class="tpl-err">'+esc(err)+'</span>':'')+'</span>'+
+      '<span class="tpl-acts"><button type="button" id="tplGen">'+FIC("spark",14)+' '+esc(Lx({en:"Generate plan",id:"Generate plan"}))+'</button>'+
+      '<button type="button" class="ghost" id="tplUpGo">'+esc(Lx({en:"Upload",id:"Upload"}))+'</button></span></div>';
+    document.getElementById("tplGen").onclick=generateTodayPlan;
+    document.getElementById("tplUpGo").onclick=uploadWorkoutGo;
   }
-  function renderTodayPlan(p){
-    var h=tplHost(); if(!h) return; p=p||{};
+  async function generateTodayPlan(){
+    if(TPL_BUSY) return; TPL_BUSY=true;
+    var h=tplHost();
+    if(h) h.innerHTML='<div class="acard plan-today"><div class="tpl-busy"><span class="upx-spin" aria-hidden="true"></span><span>'+
+      esc(Lx({en:"Reading your sleep, food, water & workouts and building today's plan\u2026 (up to 1 minute)",id:"Membaca tidur, makan, minum & workout kamu lalu menyusun plan hari ini\u2026 (bisa sampai 1 menit)"}))+'</span></div></div>';
+    try{
+      var r=await apiFetch("/api/activity/today-plan/generate",{method:"POST",body:JSON.stringify({lang:I18N.lang,coach_id:TPL_COACH})});
+      var j=await r.json().catch(function(){return {};});
+      if(r.status===401){ location.href="/login"; return; }
+      if(!r.ok||!j.ok) throw new Error(j.error||"");
+      showTodayPlanRow(j.plan,j.brief);
+    }catch(e){
+      renderTodayPlanEmpty((e&&e.message)||Lx({en:"Couldn't build the plan. Try again.",id:"Gagal membuat plan. Coba lagi."}));
+    }
+    TPL_BUSY=false;
+  }
+  function showTodayPlanRow(row,brief){
+    if(row&&(row.workout_plan||row.food_plan||row.sleep_plan||row.hydration_plan))
+      renderTodayPlan({ workout:row.workout_plan, food:row.food_plan, sleep:row.sleep_plan, hydration:row.hydration_plan, coach_says:row.coach_says, coach_id:row.coach_id, updated_at:row.updated_at }, brief);
+    else renderTodayPlanEmpty();
+  }
+  var TB_ST={baik:{en:"Good",id:"Baik"},kurang:{en:"Low",id:"Kurang"},berlebih:{en:"High",id:"Berlebih"},tidak_ada_data:{en:"Not logged",id:"Belum dicatat"}};
+  var TB_IC={sleep:"moon",nutrition:"meal",hydration:"water",load:"dumbbell",body:"scale",pre_meal:"cookie",workout:"run"};
+  function tbChip(st){ return '<span class="tb-chip '+esc(st)+'">'+esc(Lx(TB_ST[st]||TB_ST.tidak_ada_data))+'</span>'; }
+  function tbAgo(n){ return n===0?Lx({en:"today",id:"hari ini"}):n===1?Lx({en:"yesterday",id:"kemarin"}):Lx({en:n+" days ago",id:n+" hari lalu"}); }
+  // Analisa (dari server, deterministik): kondisi hari ini, naikkan Health Score, workout terakhir.
+  function briefHtml(b){
+    if(!b) return "";
+    var t=b.today||{}, sc=b.score||{}, w=b.workout;
+    var prog=[Lx({en:"water ",id:"minum "})+WorkoutMetrics.dec((t.water_ml||0)/1000,1,I18N.lang)+"/"+WorkoutMetrics.dec((t.water_target_ml||0)/1000,1,I18N.lang)+" L",
+      t.kcal_target?(Lx({en:"food ",id:"makan "})+(t.kcal||0)+"/"+t.kcal_target+" "+Lx({en:"kcal",id:"kkal"})):"",
+      t.workouts?(Lx({en:"workout ",id:"workout "})+t.workout_min+" "+Lx({en:"min",id:"menit"})):Lx({en:"no workout yet",id:"belum workout"})].filter(Boolean).join(" · ");
+    var html='<div class="tb-head">'+esc(b.headline||"")+'</div>';
+    html+='<details class="tb-sec" open><summary>'+FIC("heart",14)+' '+esc(Lx({en:"How you're doing today",id:"Kondisi kamu hari ini"}))+'</summary>'+
+      (b.status||[]).map(function(x){ return '<div class="tb-row"><span class="tb-ic">'+FIC(TB_IC[x.key]||"info",16)+'</span><span class="tb-tx">'+esc(x.text)+'</span>'+tbChip(x.status)+'</div>'; }).join("")+
+      '<div class="tb-prog">'+FIC("clock",13)+' '+esc(Lx({en:"So far today: ",id:"Sejauh ini hari ini: "})+prog)+'</div></details>';
+    html+='<details class="tb-sec" open><summary>'+FIC("target",14)+' '+esc(Lx({en:"Raise your Health Score today",id:"Naikkan Health Score hari ini"}))+
+      (sc.total!=null?' <span class="tb-score">'+sc.total+'/100</span>':'')+'</summary>'+
+      (sc.items&&sc.items.length?sc.items.map(function(a){
+        return '<div class="tb-act"><span class="tb-pts'+(a.kind==="missing"?" miss":"")+'">'+(a.kind==="missing"?esc(Lx({en:"not counted",id:"belum dihitung"})):("+"+a.points+" "+esc(Lx({en:"pts",id:"poin"}))))+'</span>'+
+          '<span class="tb-tx"><b>'+esc(a.title)+'</b><small>'+esc(a.detail)+(a.target?" → "+esc(a.target):"")+'</small></span>'+
+          (a.cta&&a.cta!=="rest"?'<button type="button" class="tb-go" data-cta="'+esc(a.cta)+'">'+esc(Lx(TB_CTA[a.cta]||{en:"Go",id:"Buka"}))+'</button>':'')+'</div>';
+      }).join(""):'')+
+      '<div class="tb-note">'+esc(sc.note||"")+'</div></details>';
+    if(w){
+      html+='<details class="tb-sec" open><summary>'+FIC("run",14)+' '+esc(Lx({en:"From your last workout",id:"Dari workout terakhirmu"}))+'</summary>'+
+        '<div class="tb-wo"><div class="tb-wo-t">'+esc(w.title)+' <span>· '+esc(tbAgo(w.days_ago))+'</span></div>'+
+        '<div class="tb-wo-h'+(w.safety?" safe":"")+'">'+esc(w.headline||"")+'</div>'+(w.perf&&!w.safety?'<div class="tb-wo-p">'+esc(w.perf)+'</div>':'')+
+        (w.safety?'':(w.factors||[]).slice().sort(function(a,c){ var o={kurang:0,berlebih:0,tidak_ada_data:2,baik:1}; return o[a.status]-o[c.status]; }).map(function(f){
+          return '<div class="tb-row"><span class="tb-ic">'+FIC(TB_IC[f.key]||"info",16)+'</span><span class="tb-tx"><b>'+esc(f.name.charAt(0).toUpperCase()+f.name.slice(1))+'</b> — '+esc(f.text)+
+            (f.role==="possible_cause"?'<small class="tb-cause">'+esc(Lx({en:"may have affected this workout",id:"kemungkinan ikut memengaruhi workout ini"}))+'</small>':'')+'</span>'+tbChip(f.status)+'</div>';
+        }).join(""))+
+        (w.tips&&w.tips.length&&!w.safety?'<ul class="tb-tips">'+w.tips.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join("")+'</ul>':'')+
+        '<a class="tb-link" href="/activity/history/'+encodeURIComponent(w.id)+'">'+esc(Lx({en:"See full analysis →",id:"Lihat analisa lengkap →"}))+'</a></div></details>';
+    }
+    return html;
+  }
+  var TB_CTA={sleep:{en:"Log sleep",id:"Catat tidur"},water:{en:"+250ml",id:"+250ml"},meals:{en:"Log meals",id:"Catat makan"},book:{en:"Book class",id:"Book kelas"},upload:{en:"Upload",id:"Upload"}};
+  function renderTodayPlan(p,brief){
+    var h=tplHost(); if(!h) return; p=p||{}; TPL_HAS=true;
     var w=p.workout||{}, f=p.food||{}, sl=p.sleep||{}, hy=p.hydration||{};
     function mini(icon,val,lbl,btn){ return '<div class="plan-mini"><div class="plan-mini-icon">'+icon+'</div><div class="plan-mini-value">'+esc(val||"—")+'</div><div class="plan-mini-label">'+esc(lbl||"")+'</div>'+(btn||"")+'</div>'; }
     var wVal=w.intensity==="rest"?Lx({en:"Rest day",id:"Rest day"}):(w.type||w.recommendation||"");
     var wLbl=[w.intensity&&w.intensity!=="rest"?w.intensity:"", w.duration_min?(w.duration_min+" min"):""].filter(Boolean).join(" · ");
     var fVal=f.calorie_target?(f.calorie_target+" kcal"):"";
     var fLbl=f.priority_macro?Lx({en:"focus: ",id:"fokus: "})+f.priority_macro:"";
-    var sVal=sl.target_bedtime||"";
-    var sLbl=[Lx({en:"bedtime",id:"jam tidur"}), sl.target_hours?(sl.target_hours+Lx({en:"h sleep",id:" jam tidur"})):""].filter(Boolean).join(" · ");
+    var sVal=sl.target_bedtime||(sl.target_hours?(WorkoutMetrics.dec(sl.target_hours,1,I18N.lang)+Lx({en:" h",id:" jam"})):"");
+    var sLbl=sl.target_bedtime?[Lx({en:"bedtime",id:"jam tidur"}), sl.target_hours?(sl.target_hours+Lx({en:"h sleep",id:" jam tidur"})):""].filter(Boolean).join(" · "):Lx({en:"sleep target",id:"target tidur"});
     var hVal=hy.target_ml?((hy.target_ml/1000).toFixed(1).replace(/\.0$/,"")+" L"):"";
     var cards=mini(FIC("dumbbell",22),wVal,wLbl,'<button type="button" data-a="book">'+esc(Lx({en:"Book Class →",id:"Book Class →"}))+'</button>')+
       mini(FIC("meal",22),fVal,fLbl,'<button type="button" data-a="track">'+esc(Lx({en:"Track →",id:"Track →"}))+'</button>')+
       mini(FIC("moon",22),sVal,sLbl,'')+
       mini(FIC("water",22),hVal,Lx({en:"target",id:"target"}),'<button type="button" data-a="water">+250ml</button>');
+    var why=[w.recommendation&&w.recommendation!==wVal?w.recommendation:"", w.reason||""].filter(Boolean).join(" — ");
     var who=COACH_NAME_TPL[p.coach_id]||coachName();
     var says=p.coach_says?('<div class="plan-says"><span><b>Coach '+esc(who)+':</b> “'+esc(p.coach_says)+'”</span>'+
       '<button type="button" data-a="reply">'+FIC("chat",14)+' '+esc(Lx({en:"Reply →",id:"Balas →"}))+'</button></div>'):'';
+    var at=""; try{ if(p.updated_at) at=new Date(p.updated_at).toLocaleTimeString((I18N.lang==="en")?"en-GB":"id-ID",{hour:"2-digit",minute:"2-digit"}); }catch(e){}
     h.innerHTML='<div class="acard plan-today"><div class="acard-hd"><span class="acard-title">'+FIC("clipboard",14)+' '+esc(Lx({en:"Today's Plan",id:"Plan Hari Ini"}))+' · '+esc(planDateLabel())+'</span>'+
-      '<button type="button" class="acard-act" data-a="upload">'+esc(Lx({en:"New upload",id:"Upload baru"}))+'</button></div>'+
-      '<div class="plan-today-grid">'+cards+'</div>'+says+'</div>';
+      '<span class="tpl-hd-acts"><button type="button" class="acard-act" data-a="regen">'+FIC("refresh",13)+' '+esc(Lx({en:"Regenerate",id:"Generate ulang"}))+'</button>'+
+      '<button type="button" class="acard-act" data-a="upload">'+esc(Lx({en:"New upload",id:"Upload baru"}))+'</button></span></div>'+
+      briefHtml(brief)+
+      '<div class="tb-sec tb-plan"><div class="tb-plan-h">'+FIC("clipboard",14)+' '+esc(Lx({en:"Your plan for today",id:"Plan kamu hari ini"}))+(at?' <span>· '+esc(Lx({en:"made ",id:"dibuat "})+at)+'</span>':'')+'</div>'+
+      '<div class="plan-today-grid">'+cards+'</div>'+(why?'<div class="tb-why">'+esc(why)+'</div>':'')+says+'</div></div>';
     Array.prototype.forEach.call(h.querySelectorAll("[data-a]"),function(b){
       var a=b.getAttribute("data-a");
       b.onclick=async function(){
         if(a==="book") location.href="/book-class";
         else if(a==="track") location.href="/calories";
         else if(a==="upload") uploadWorkoutGo();
+        else if(a==="regen") generateTodayPlan();
         else if(a==="reply") coachAskGo(Lx({en:"About today's plan you gave me: \""+(p.coach_says||"")+"\" — ",id:"Soal plan hari ini: \""+(p.coach_says||"")+"\" — "}));
         else if(a==="water"){ b.disabled=true; var ok=await addDrink(250,"water",todayYmd()); b.disabled=false;
           if(ok){ b.textContent="✓ +250ml"; setTimeout(function(){ b.textContent="+250ml"; },1600); } }
+      };
+    });
+    Array.prototype.forEach.call(h.querySelectorAll("[data-cta]"),function(b){
+      var c=b.getAttribute("data-cta");
+      b.onclick=async function(){
+        if(c==="sleep"){ var g=gapAction("sleep"); if(g) g(); }
+        else if(c==="water"){ b.disabled=true; var ok=await addDrink(250,"water",todayYmd()); b.disabled=false; if(ok){ b.textContent="✓"; setTimeout(function(){ b.textContent="+250ml"; },1600); } }
+        else if(c==="meals") location.href="/calories";
+        else if(c==="book") location.href="/book-class";
+        else if(c==="upload") uploadWorkoutGo();
       };
     });
   }
   async function loadTodayPlan(){
     var h=tplHost(); if(!h) return;
     try{
-      var r=await apiFetch("/api/activity/today-plan"); var j=await r.json().catch(function(){return {};});
+      var r=await apiFetch("/api/activity/today-plan?lang="+encodeURIComponent(I18N.lang)); var j=await r.json().catch(function(){return {};});
       if(r.status===401){ renderTodayPlanEmpty(); return; }
-      var row=j&&j.plan;
-      if(row&&(row.workout_plan||row.food_plan||row.sleep_plan||row.hydration_plan))
-        renderTodayPlan({ workout:row.workout_plan, food:row.food_plan, sleep:row.sleep_plan, hydration:row.hydration_plan, coach_says:row.coach_says, coach_id:row.coach_id });
-      else renderTodayPlanEmpty();
+      showTodayPlanRow(j&&j.plan, j&&j.brief);
     }catch(e){ renderTodayPlanEmpty(); }
+  }
+  // Data berubah (tidur/minum/workout/upload) -> Health Score + analisa Plan Hari Ini dihitung ulang.
+  // Ditunda sebentar supaya ketukan gelas beruntun cukup satu kali muat.
+  var REFRESH_T=null;
+  function refreshDerived(){
+    clearTimeout(REFRESH_T);
+    REFRESH_T=setTimeout(function(){ loadHealthScore(); if(TPL_HAS&&!TPL_BUSY) loadTodayPlan(); },500);
   }
   function wireTabs(){
     var tabs=document.getElementById("atabs"); if(!tabs) return;

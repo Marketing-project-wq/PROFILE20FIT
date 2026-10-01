@@ -719,6 +719,19 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Plan & Rekomendasi Hari Ini + tombol "Generate plan" — BARU 2026-10-01.** Sebelumnya Today's Plan hanya terbentuk
+  setelah upload screenshot. Sekarang `POST /api/activity/today-plan/generate` (aiUserLimiter) membuat plan tanpa upload.
+  Isi kartu (analisa DETERMINISTIK `lib/today-brief.js`, dihitung ulang tiap GET `/api/activity/today-plan?lang=` jadi
+  ikut berubah saat user mencatat tidur/minum/makan): (1) **Kondisi hari ini** — tidur semalam, makan & minum kemarin,
+  beban 7 hari, tubuh (faktor sama persis dengan analisa workout, `woAnalysis.readiness()`), + progres hari ini;
+  (2) **Naikkan Health Score hari ini** — per komponen: poin maksimal = (100 − skor) × bobot / total bobot (Health Score
+  rata-rata 7 hari, jadi dijelaskan naiknya bertahap); komponen tanpa data = "belum dihitung"; (3) **Dari workout
+  terakhir** (≤ 14 hari) — performa vs biasanya + faktor kurang/berlebih + tips + link analisa lengkap; (4) plan
+  workout/makan/tidur/minum + Coach says dari AI (persona coach pilihan) dengan **target angka dikunci server**
+  (kalori = rumus Calorie Tracker, minum 2 L & tidur 7,5 jam dari config). AI gagal → plan template sederhana
+  (durasi di config `today.template_minutes`, PERLU DIVALIDASI coach). Disimpan di `my20fit_today_plans` (tanpa
+  migration; generate menimpa plan hari itu). Catatan: `plan_date` memakai jam server (`ymd(new Date())`) seperti
+  sebelumnya, sedangkan analisa memakai Asia/Jakarta — di luar scope, BELUM TERVERIFIKASI zona waktu server Railway.
 - **Catat tidur di /activity — Health Score tidak ikut berubah — DIPERBAIKI 2026-10-01.** Data tidur sebenarnya
   tersimpan (`my20fit_sleep`, dicek di DB), tapi Health Score tidak di-fetch ulang setelah simpan, jadi baris "Sleep"
   tetap "+ Log sleep" sampai halaman dimuat ulang. Sama untuk gelas air. Sekarang simpan tidur & ubah air memanggil
