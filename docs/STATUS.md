@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `2dab934` · **Production:** `d263b13`
+> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `4545822` · **Production:** `58b89ba`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -390,6 +390,14 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
       tidak tersimpan — supaya fitur bisa diuji sebelum bucket dibuat.
     - **BELUM TERVERIFIKASI:** akurasi bacaan pada screenshot tracker ASLI. Diuji dengan
       respons AI tiruan; ketepatan OCR baru bisa dinilai setelah edge fn di-deploy ulang.
+- **"Today's Food" di `/calories`: seret makanan antar waktu makan (1 Okt 2026).**
+  Item bisa diseret ke Breakfast/Lunch/Dinner/Snack (Pointer Events di `calories.html`,
+  `moveItemMeal()`): mouse dari seluruh baris, sentuh hanya dari pegangan titik-titik di
+  kiri supaya gulir halaman tetap normal. Yang berubah cuma field `m` item (sama dengan
+  pilihan "Waktu makan" di dialog Ubah), lalu disimpan lewat `save()` → `cal_items`.
+  Ikon di judul waktu makan & tombol tambah cepat dihapus (properti `e` di `MEAL_TX`
+  ikut dihapus). **BELUM TERVERIFIKASI:** apakah app calorietracker native membaca `m`
+  saat mengelompokkan (kalau tidak, item yang dipindah tampil di grup jam-nya di sana).
 - **`/calories` disamakan dengan home calorietracker.20fit.id (21 Sep 2026).**
   Hasil pembandingan repo `Marketing-project-wq/Calories.20fit` terhadap `calories.html`:
   - **API-nya SUDAH tersambung sejak awal.** `constants.ts` di calorietracker menyetel
