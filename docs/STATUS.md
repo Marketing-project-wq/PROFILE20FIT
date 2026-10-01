@@ -287,6 +287,8 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     `/activity` (menggantikan baris 4 avatar kecil) dan picker `/activity/chat`: foto bulat, tagline, sifat, lokasi &
     kelas terdekat (data asli), tombol "Chat dengan <coach>" ("Gaya ngobrol", "Cocok kalau" & contoh ucapan dihapus
     atas permintaan pemilik). Isi persona dari deskripsi pemilik; kolom `speciality` roster masih kosong → tidak ditampilkan.
+    Baris "Kelas terdekat" punya tombol **Book kelas** (1 Okt 2026) → `/book-class?source=&schedule=` (alur in-app yang
+    sama dengan `/book-coach`, tab yang sama); hanya muncul untuk kelas yang `selectable`.
   - **Tanpa emoji di UI Activity/Chat** — semua ikon = `js/fiticons.js` (ditambah: chat, clipboard, calendar, pin,
     camera, folder, scan, clinic, star, box, boxcheck, scale). Ikon "What You Need" dari server kini NAMA ikon
     (`moon`/`meal`/`water`/`dumbbell`/`rest`); frontend tetap menampilkan emoji lama kalau server belum versi baru.
