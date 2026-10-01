@@ -67,6 +67,12 @@ Bukan chat, tapi memakai persona coach yang sama. Yang ditegakkan kode ada di `l
 - HR maks tidak wajar atau catatan nyeri/pusing/sesak → tidak ada analisa performa; anjuran berhenti + Book Doctor
   (catatan nyeri dada/pingsan → anjuran cari pertolongan medis segera). Tanpa AI untuk kasus ini.
 
+## Plan & Rekomendasi Hari Ini (`/activity`, tombol "Generate plan")
+- Analisa kondisi, poin Health Score, dan workout terakhir **tidak** ditulis AI — dihitung `lib/today-brief.js`.
+- AI (persona coach) hanya menyusun plan workout/makan/tidur/minum + "Coach says" dari angka itu
+  (`ACTIVITY_PLAN_RULES`). Target kalori/minum/tidur **ditimpa server** dengan angka app; AI gagal → plan template.
+- Status "tidak_ada_data" = belum dicatat, bukan kurang. Poin Health Score = batas maksimal, bukan janji.
+
 ## Tombol aksi
 Chatbot tidak menulis URL sendiri. Ia menulis token, dan frontend (`js/coach.js`) mengubahnya
 jadi tombol dengan URL yang ditentukan kode:

@@ -24,6 +24,7 @@ const classOverrides = require("./lib/class-overrides"); // koreksi sementara in
 const woAnalysis = require("./lib/workout-analysis"); // analisa performa workout (deterministik)
 const woNarrative = require("./lib/workout-narrative"); // narasi analisa workout (template + AI tervalidasi)
 const woConfig = require("./lib/workout-analysis-config"); // ambang analisa workout (PERLU DIVALIDASI)
+const todayBrief = require("./lib/today-brief"); // analisa "Plan Hari Ini": kondisi, naikkan Health Score, workout terakhir
 const WorkoutMetrics = require("./js/workout-metrics.js"); // format & validasi tanggal workout (dipakai browser juga)
 const qrcode = require("./js/qrcode-generator");
 const blast = require("./lib/blast"); // send queue blast email (batching, kill switch, auto-abort)
@@ -1752,7 +1753,7 @@ app.use("/api/", apiLimiter);
 // Endpoint AI berbiaya (chat coach, baca screenshot, rencana) — kuota sendiri per user, supaya
 // longgarnya limiter umum tidak jadi celah biaya AI.
 const aiUserLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 40, keyGenerator: userOrIpKey, skip: (req) => req.method !== "POST", standardHeaders: true, legacyHeaders: false, message: limitMsg });   // GET (mis. /api/coach/chat/history) tidak dihitung
-app.use(["/api/coach/chat", "/api/activity/upload-analyze", "/api/activity/scan", "/api/activity/quick-analysis", "/api/activity/plan", "/api/activity/workouts"], aiUserLimiter);
+app.use(["/api/coach/chat", "/api/activity/upload-analyze", "/api/activity/scan", "/api/activity/quick-analysis", "/api/activity/plan", "/api/activity/workouts", "/api/activity/today-plan/generate"], aiUserLimiter);
 app.use("/api/scan/order-status", pollLimiter);
 app.use("/api/scan/reconcile", pollLimiter);
 app.use("/api/photo/scan-status", pollLimiter);
@@ -11160,7 +11161,7 @@ app.post("/api/activity/quick-analysis", async (req, res) => {
 // "activity" (vision scan + JSON plan) + loadCoachContext + persona. Simpan best-effort ke
 // my20fit_activity_uploads / my20fit_today_plans (migration 025). Bukan diagnosis medis.
 const ACTIVITY_PLAN_RULES =
-  "Kamu fitness advisor 20FIT. Dari DATA UPLOAD TERBARU + DATA HISTORIS user, buat FULL PLAN hari ini. " +
+  "Kamu fitness advisor 20FIT. Dari DATA TERBARU (upload screenshot ATAU kondisi hari ini) + DATA HISTORIS user, buat FULL PLAN hari ini. " +
   "Analisa dulu apa yang KURANG kemarin/beberapa hari terakhir (tidur, makan/kalori, hidrasi, overtraining/kurang latihan), " +
   "lalu susun plan yang MENYESUAIKAN kekurangan itu (mis. tidur kurang + workout berat -> hari ini recovery). " +
   "DILARANG: diagnosa medis, resep obat/dosis, klaim hasil pasti, body shaming. JANGAN mengarang angka yang tak ada di data. " +
@@ -11248,15 +11249,91 @@ app.post("/api/activity/upload-analyze", async (req, res) => {
   }
 });
 
-// GET /api/activity/today-plan -> plan gabungan hari ini (kalau sudah ada).
+// Analisa "Plan Hari Ini" (deterministik, lib/today-brief.js) — selalu dari data TERKINI, jadi ikut
+// berubah begitu user mencatat tidur/minum/makan. Dipakai GET today-plan & generate.
+async function tpBrief(uid, lang) {
+  const today = woToday();
+  const [hs, ds] = await Promise.all([hsCompute(uid), woDataset(uid, woAnalysis.addDays(today, -woConfig.today.last_workout_days), today)]);
+  return todayBrief.build({ hs: hs, ds: ds, today: today, cfg: woConfig, lang: lang, narrativeFor: (w, a) => woCachedNarrative(w, a, lang) });
+}
+
+// GET /api/activity/today-plan?lang= -> plan gabungan hari ini (kalau sudah ada) + analisanya.
 app.get("/api/activity/today-plan", async (req, res) => {
   try {
     if (!admin) return res.json({ ok: true, plan: null });
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
     const { data } = await admin.from("my20fit_today_plans").select("*").eq("auth_user_id", user.id).eq("plan_date", ymd(new Date())).limit(1);
-    return res.json({ ok: true, plan: (data && data[0]) || null });
+    const plan = (data && data[0]) || null;
+    let brief = null;
+    if (plan) { try { brief = await tpBrief(user.id, woLang(req.query.lang)); } catch (e) { console.error("activity/today-plan brief:", e.message); } }
+    return res.json({ ok: true, plan: plan, brief: brief });
   } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, plan: null, setup_required: true }); return res.json({ ok: true, plan: null }); }
+});
+
+// Plan cadangan kalau AI gagal — aturan sederhana dari analisa (bukan angka karangan: durasi di config).
+function tpTemplatePlan(brief, lang) {
+  const L = (o) => (lang === "en" ? o.en : o.id), f = (k) => brief.facts.find((x) => x.key === k) || {}, M = woConfig.today.template_minutes;
+  const shortSleep = f("sleep").status === "kurang", heavy = f("load").status === "berlebih";
+  let workout;
+  if (brief.today.workouts > 0) workout = { recommendation: L({ en: "You've trained today — keep the rest of the day light.", id: "Kamu sudah latihan hari ini — sisa hari dibuat ringan." }), type: "Recovery", intensity: "rest", duration_min: 0, reason: L({ en: "Workout already logged today.", id: "Workout hari ini sudah tercatat." }) };
+  else if (shortSleep || heavy) workout = { recommendation: L({ en: "Easy walk or mobility work", id: "Jalan santai atau latihan mobilitas" }), type: "Recovery", intensity: "low", duration_min: M.recovery,
+    reason: shortSleep ? L({ en: "You slept too little last night — go easy today.", id: "Tidur semalam kurang — latihan ringan dulu hari ini." }) : L({ en: "Your training load this week is high — give your body time to recover.", id: "Beban latihanmu minggu ini tinggi — beri tubuh waktu pulih." }) };
+  else workout = { recommendation: L({ en: "A moderate session — join a class or train on your own", id: "Sesi sedang — ikut kelas atau latihan sendiri" }), type: "Workout", intensity: "moderate", duration_min: M.moderate, reason: L({ en: "No sign of short sleep or heavy load in your data.", id: "Tidak ada tanda kurang tidur atau beban berlebih di datamu." }) };
+  const nf = f("nutrition").flags || [];
+  return { workout: workout,
+    food: { calorie_target: null, priority_macro: nf.indexOf("low_protein") >= 0 ? "protein" : nf.indexOf("low_carb") >= 0 ? "carbs" : "balanced", meals: [], note: "" },
+    sleep: { target_bedtime: null, target_hours: null, reason: "", tips: [] },
+    hydration: { target_ml: null, reason: "", schedule: [] } };
+}
+// Target angka SELALU dari sumber app (bukan tebakan AI): kalori = rumus Calorie Tracker (js/nutrition.js),
+// minum & tidur = config analisa (sama dengan Health Score).
+function tpLockTargets(tp, brief) {
+  ["workout", "food", "sleep", "hydration"].forEach((k) => { if (!tp[k] || typeof tp[k] !== "object") tp[k] = {}; });
+  if (brief.today.kcal_target) tp.food.calorie_target = brief.today.kcal_target;
+  tp.hydration.target_ml = woConfig.hydration.target_ml;
+  tp.sleep.target_hours = woConfig.sleep.target_hours;
+  return tp;
+}
+
+// POST /api/activity/today-plan/generate {lang, coach_id} — tombol "Generate plan" di /activity (tanpa upload).
+// Analisa kondisi = tpBrief (deterministik). Plan workout/makan/tidur/minum + coach says = AI persona coach,
+// target angkanya dikunci server; AI gagal -> plan template. Disimpan ke my20fit_today_plans (menimpa plan hari ini).
+app.post("/api/activity/today-plan/generate", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {}, lang = woLang(b.lang);
+    const coachId = coachPersonaOk(b.coach_id) ? String(b.coach_id).toLowerCase() : "nando";
+    const [brief, ctx] = await Promise.all([tpBrief(user.id, lang), loadCoachContext(user.id)]);
+    const tgt = { calorie_target_kcal: brief.today.kcal_target, water_target_ml: woConfig.hydration.target_ml, sleep_target_hours: woConfig.sleep.target_hours };
+    const cond = { facts: brief.facts, today_so_far: brief.today, targets: tgt,
+      health_score: { total: brief.score.total, to_raise: brief.score.items.map((i) => ({ key: i.key, kind: i.kind, points: i.points })) },
+      last_workout: brief.workout ? { title: brief.workout.title, days_ago: brief.workout.days_ago, verdict: brief.workout.verdict, factors: brief.workout.factors.map((f) => ({ key: f.key, status: f.status, role: f.role })) } : null };
+    const sys = COACH_PERSONAS[coachId].persona + "\n\n" + ACTIVITY_PLAN_RULES +
+      "\n\nKONDISI HARI INI (dihitung server, angka PASTI — jangan diubah; status tidak_ada_data = belum dicatat):\n" + JSON.stringify(cond).slice(0, 4500) +
+      "\n\nTARGET WAJIB dipakai persis: kalori " + (tgt.calorie_target_kcal || "-") + " kkal, minum " + tgt.water_target_ml + " ml, tidur " + tgt.sleep_target_hours + " jam." +
+      "\n\nDATA HISTORIS USER (JSON):\n" + JSON.stringify(ctx).slice(0, 5000) +
+      "\n\nBahasa jawaban: " + (lang === "en" ? "English." : "Bahasa Indonesia.");
+    let analysis = null;
+    try {
+      const p = await callAiEdge({ action: "activity", messages: [{ role: "system", content: sys }, { role: "user", content: "Buat full plan hari ini dari KONDISI HARI INI sesuai aturan. JSON only." }], max_tokens: 2000, lang: lang }, 60000);
+      if (p.httpOk && p.json && p.json.ok && p.json.result && p.json.result.today_plan && typeof p.json.result.today_plan === "object") analysis = p.json.result;
+    } catch (e) { /* timeout -> plan template */ }
+    logAiAccess(user.id, "activity/today-plan", !!analysis, analysis ? null : "edge");
+    const tp = tpLockTargets(analysis ? analysis.today_plan : tpTemplatePlan(brief, lang), brief);
+    const row = { auth_user_id: user.id, plan_date: ymd(new Date()),
+      workout_plan: tp.workout, food_plan: tp.food, sleep_plan: tp.sleep, hydration_plan: tp.hydration,
+      yesterday_gaps: analysis && Array.isArray(analysis.yesterday_gaps) ? analysis.yesterday_gaps : null, coach_id: coachId,
+      coach_says: analysis && analysis.coach_says ? String(analysis.coach_says).slice(0, 600) : null, source_upload_id: null, updated_at: new Date().toISOString() };
+    const { data, error } = await admin.from("my20fit_today_plans").upsert(row, { onConflict: "auth_user_id,plan_date" }).select().single();
+    if (error) { if (isMissingSchema(error)) return res.json({ ok: true, plan: row, brief: brief, generated_by: analysis ? "ai" : "template", saved: false }); throw error; }
+    return res.json({ ok: true, plan: data, brief: brief, generated_by: analysis ? "ai" : "template", saved: true });
+  } catch (e) {
+    console.error("activity/today-plan/generate:", e.message);
+    return res.status(500).json({ error: "Gagal membuat plan. Coba lagi." });
+  }
 });
 
 // GET /api/activity/upload-history?limit -> riwayat upload + ringkasan gaps.
