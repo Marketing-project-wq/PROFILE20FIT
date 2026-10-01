@@ -398,6 +398,18 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   Ikon di judul waktu makan & tombol tambah cepat dihapus (properti `e` di `MEAL_TX`
   ikut dihapus). **BELUM TERVERIFIKASI:** apakah app calorietracker native membaca `m`
   saat mengelompokkan (kalau tidak, item yang dipindah tampil di grup jam-nya di sana).
+- **"Today's Food": ketuk makanan = buka analisanya (1 Okt 2026).**
+  Hasil scan foto sebelumnya TIDAK pernah disimpan (hanya di memori sampai popup ditutup).
+  Sekarang `addScanned()` menyimpan ringkasan analisa ke `cal_items` (aditif, tanpa
+  migration): semua item satu batch dapat `sid` sama, ringkasannya (`sa`, dipangkas ±1KB:
+  kalori+rentang, keyakinan, makro, skor kenyang/sehat, tag, analisa, rekomendasi, insight,
+  porsi per item) cukup di SATU item; `del()` memindahkan `sa` ke saudaranya kalau item
+  pembawanya dihapus. Ketuk baris → `openItemAnalysis()` memakai `renderScanDetail()` yang
+  sama dengan popup scan (mode baca saja, tanpa tombol koreksi/tambah) + tombol "Ubah makanan
+  ini". Item TANPA `sa` (ketik manual, scan sebelum fitur ini, dari app lain) menampilkan
+  penilaian dari kalori & makronya + catatan jujur bahwa analisa foto tidak tersimpan.
+  **BELUM TERVERIFIKASI:** apakah app calorietracker native mempertahankan kunci `sid`/`sa`
+  saat ia menulis ulang `cal_items` (kalau tidak, analisanya hilang untuk hari itu).
 - **`/calories` disamakan dengan home calorietracker.20fit.id (21 Sep 2026).**
   Hasil pembandingan repo `Marketing-project-wq/Calories.20fit` terhadap `calories.html`:
   - **API-nya SUDAH tersambung sejak awal.** `constants.ts` di calorietracker menyetel
