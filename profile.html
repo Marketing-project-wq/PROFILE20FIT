@@ -126,42 +126,9 @@
   .pm h2{margin:0 0 6px;font-size:19px;font-weight:800}
   @media(min-width:620px){ .pm-bg{align-items:center;padding:24px} .pm{border-radius:22px} .pm .grab{display:none} }
 
-  /* ===== Bon (e-receipt gaya Grab): pita merek + total + rincian + detail; sama dengan PDF (js/receipt-pdf.js) ===== */
-  .pm-rcpt{max-width:430px;background:transparent;box-shadow:none;padding:6px 14px calc(env(safe-area-inset-bottom) + 22px)}
-  .gr{background:var(--card);color:var(--txt);border-radius:18px;overflow:hidden;box-shadow:0 10px 40px rgba(16,18,22,.18)}
-  .gr-hd{position:relative;overflow:hidden;padding:18px 20px 20px;color:#fff;background:linear-gradient(135deg,var(--red,#E4002B),color-mix(in srgb,var(--red,#E4002B) 78%,#000))}
-  .gr-hd::before,.gr-hd::after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.13);pointer-events:none}
-  .gr-hd::before{width:160px;height:160px;right:-46px;bottom:-70px}
-  .gr-hd::after{width:64px;height:64px;right:96px;bottom:-26px}
-  .gr-top{position:relative;display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;font-weight:800;letter-spacing:.3px}
-  .gr-logo{font-size:21px;font-weight:900;letter-spacing:.5px;line-height:1}
-  .gr-h{position:relative;font-size:21px;font-weight:900;line-height:1.22;margin:16px 0 8px;max-width:80%}
-  .gr-sub{position:relative;font-size:12px;line-height:1.6;opacity:.92}
-  .gr-sub .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.3px}
-  .gr-bd{padding:18px 20px 20px}
-  .gr-total{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding-bottom:10px;border-bottom:2px solid var(--red,#E4002B)}
-  .gr-total .k{font-size:13px;font-weight:800;color:var(--muted)}
-  .gr-total .v{font-size:26px;font-weight:900;line-height:1}
-  .gr-bd>.badge{margin-top:10px}
-  .gr-sec{margin-top:18px;font-size:13.5px;font-weight:900}
-  .gr-item{display:flex;justify-content:space-between;gap:12px;margin-top:10px}
-  .gr-item .n{font-size:14px;font-weight:800}
-  .gr-item .d{font-size:12px;color:var(--muted);margin-top:2px}
-  .gr-item .a{font-size:14px;font-weight:800;white-space:nowrap}
-  .gr-ln{display:flex;justify-content:space-between;gap:12px;font-size:13px;margin-top:8px;color:var(--muted)}
-  .gr-ln .v{color:var(--txt);font-weight:700;white-space:nowrap}
-  .gr-ln.disc,.gr-ln.disc .v{color:var(--green-ink,#1B7A4D)}
-  .gr-ln.tot{color:var(--txt);font-size:14.5px;font-weight:900;border-top:1px dashed var(--line);padding-top:10px;margin-top:10px}
-  .gr-meta .r{display:flex;justify-content:space-between;gap:14px;font-size:12.5px;margin-top:8px}
-  .gr-meta .mk{color:var(--muted)}
-  .gr-meta .mv{font-weight:700;text-align:right}
-  .gr-meta .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;letter-spacing:.3px}
-  .gr-foot{text-align:center;font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:18px;padding-top:14px;border-top:1px dashed var(--line)}
-  .gr-foot b{color:var(--red,#E4002B);font-weight:900}
-  .gr-acts{display:flex;gap:8px;margin-top:12px}
-  .gr-btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--txt);font-family:inherit;font-weight:800;font-size:13.5px;cursor:pointer}
-  .gr-btn.pri{background:var(--red,#E4002B);border-color:var(--red,#E4002B);color:#fff}
-  /* Rating & ulasan kelas */
+  /* Rating & ulasan kelas (bon sendiri ada di js/receipt.js — gaya terkunci, tidak di sini) */
+  .rv-acts{display:flex;gap:8px;margin-top:12px}
+  .rv-btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--txt);font-family:inherit;font-weight:800;font-size:13.5px;cursor:pointer}
   .rv-k{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--red,#E4002B)}
   .rv-sub{font-size:12.5px;color:var(--muted);margin-top:3px}
   .rv-stars{display:flex;gap:8px;justify-content:center;margin:18px 0 6px}
@@ -318,15 +285,6 @@
     </div>
   </div>
 
-  <!-- Pop-up detail pembayaran (bentuk struk/bon) -->
-  <div class="pm-bg" id="odBg">
-    <div class="pm pm-rcpt">
-      <div class="grab"></div>
-      <button class="x-close x-abs" onclick="closeOrderDetail()" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-      <div id="odBody"></div>
-    </div>
-  </div>
-
   <!-- Rating & ulasan kelas (dari Riwayat & Transaksi) -->
   <div class="pm-bg" id="rvBg">
     <div class="pm">
@@ -383,7 +341,7 @@
   <script src="js/deals.js"></script>
   <script src="js/achievements.js"></script>
   <script src="js/arena-history.js"></script>
-  <script src="js/receipt-pdf.js"></script>
+  <script src="js/receipt.js"></script>
   <script>
     let gender=null, user=null, PROFILE=null;
     function pickGender(g){gender=g;document.querySelectorAll('.gender button').forEach(b=>b.classList.toggle("active",b.dataset.g===g))}
@@ -701,7 +659,8 @@
       if(p==="singapay") return "SingaPay"; // order historis sebelum migrasi ke Xendit
       return p ? (p.charAt(0).toUpperCase()+p.slice(1)) : "—";
     }
-    // Bon (e-receipt gaya Grab) — SATU data (receiptData) untuk tampilan di layar dan file PDF (js/receipt-pdf.js).
+    // Bon (e-receipt gaya Grab): profile HANYA menyiapkan data (receiptData); tampilan + PDF ada di js/receipt.js
+    // (gaya di-hardcode & terisolasi Shadow DOM — permintaan pemilik agar bon tidak ikut berubah).
     function receiptHeadline(t,cls){
       if(cls==="cancelled") return L({en:"This transaction was cancelled.",id:"Transaksi ini dibatalkan."});
       if(cls==="expired") return L({en:"This order has expired.",id:"Order ini sudah kedaluwarsa."});
@@ -721,7 +680,6 @@
       var meta=[[L({en:"Type",id:"Jenis"}),L(K)]].concat(r.meta.filter(Boolean).map(function(m){ return [m[0],m[1],m[2]]; }));
       meta.push(["Status",S.label]);
       return {kind:L(K),headline:receiptHeadline(t,S.cls),sub:sub,status:S.label,statusCls:S.cls,
-        statusColor:{paid:"#1B7A4D",pending:"#9A5D12"}[S.cls]||"#7A7D85",
         totalHd:"Total",total:rupiah(r.total),items:[{name:r.name,desc:r.desc,amt:rupiah(r.price)}],lines:lines,meta:meta,
         sections:{rincian:L({en:"Breakdown",id:"Rincian"}),detail:L({en:"Details",id:"Detail"})},
         foot:[r.foot||L({en:"Thank you for your purchase.",id:"Terima kasih atas pembelianmu."}),
@@ -729,28 +687,12 @@
     }
     function showReceipt(t){
       if(!t) return;
-      var d=receiptData(t);
-      var h='<div class="gr"><div class="gr-hd"><div class="gr-top"><span>'+escapeHtml(d.kind)+'</span><span class="gr-logo">20FIT</span></div>'+
-        '<div class="gr-h">'+escapeHtml(d.headline)+'</div><div class="gr-sub">'+d.sub.map(function(l){ return '<div>'+escapeHtml(l)+'</div>'; }).join("")+'</div></div>';
-      h+='<div class="gr-bd"><div class="gr-total"><span class="k">'+escapeHtml(d.totalHd)+'</span><span class="v">'+escapeHtml(d.total)+'</span></div>';
-      h+='<span class="badge '+d.statusCls+'">'+escapeHtml(d.status)+'</span>';
-      h+='<div class="gr-sec">'+escapeHtml(d.sections.rincian)+'</div>';
-      d.items.forEach(function(it){ h+='<div class="gr-item"><div><div class="n">'+escapeHtml(it.name)+'</div>'+(it.desc?'<div class="d">'+escapeHtml(it.desc)+'</div>':'')+'</div><div class="a">'+escapeHtml(it.amt)+'</div></div>'; });
-      d.lines.forEach(function(l){ h+='<div class="gr-ln'+(l.disc?' disc':'')+(l.bold?' tot':'')+'"><span>'+escapeHtml(l.k)+'</span><span class="v">'+escapeHtml(l.v)+'</span></div>'; });
-      h+='<div class="gr-sec">'+escapeHtml(d.sections.detail)+'</div><div class="gr-meta">';
-      d.meta.forEach(function(m){ h+='<div class="r"><span class="mk">'+escapeHtml(m[0])+'</span><span class="mv'+(m[2]?' mono':'')+'">'+escapeHtml(m[1])+'</span></div>'; });
-      h+='</div><div class="gr-foot">'+d.foot.map(escapeHtml).join('<br>')+'<br><b>my.20fit.id</b></div></div></div>';
-      h+='<div class="gr-acts"><button type="button" class="gr-btn pri" id="rcPdf">'+FIC("download",15)+' '+escapeHtml(L({en:"Download PDF",id:"Download PDF"}))+'</button>'+
-        (canRate(t)&&REVIEWS!=="off"?'<button type="button" class="gr-btn" id="rcRate">'+FIC("star",15)+' '+escapeHtml(L({en:"Rate class",id:"Beri rating"}))+'</button>':'')+'</div>';
-      document.getElementById("odBody").innerHTML=h;
-      document.getElementById("rcPdf").onclick=function(){ downloadReceipt(t); };
-      var rb=document.getElementById("rcRate"); if(rb) rb.onclick=function(){ closeOrderDetail(); openReview(t); };
-      document.getElementById("odBg").classList.add("open");
-    }
-    function downloadReceipt(t){
-      var d=receiptData(t), day=t.ts!=null?new Date(t.ts):new Date();
-      var ymd=day.getFullYear()+String(day.getMonth()+1).padStart(2,"0")+String(day.getDate()).padStart(2,"0");
-      ReceiptPDF.download(d,"bon-20fit-"+String(t.ref||t.k+"-"+ymd).replace(/[^A-Za-z0-9_-]+/g,"-")+".pdf");
+      var day=t.ts!=null?new Date(t.ts):new Date(), ymd=day.getFullYear()+String(day.getMonth()+1).padStart(2,"0")+String(day.getDate()).padStart(2,"0");
+      Receipt.open(receiptData(t),{
+        filename:"bon-20fit-"+String(t.ref||t.k+"-"+ymd).replace(/[^A-Za-z0-9_-]+/g,"-")+".pdf",
+        labels:{pdf:L({en:"Download PDF",id:"Download PDF"}),rate:L({en:"Rate class",id:"Beri rating"}),close:L({en:"Close",id:"Tutup"})},
+        onRate:canRate(t)&&REVIEWS!=="off"?function(){ openReview(t); }:null
+      });
     }
 
     // ---- Rating & ulasan kelas: /api/class-reviews (tabel my20fit_class_reviews, migration 030) ----
@@ -788,7 +730,7 @@
           '<div class="rv-cnt" id="rvCnt"></div>'+
           '<button class="btn" id="rvSave">'+escapeHtml(rv?L({en:"Update review",id:"Perbarui ulasan"}):L({en:"Send review",id:"Kirim ulasan"}))+'</button><div class="msg" id="rvMsg"></div>';
       }
-      h+='<div class="gr-acts"><button type="button" class="gr-btn" id="rvBon">'+FIC("clipboard",15)+' '+escapeHtml(L({en:"View receipt",id:"Lihat bon"}))+'</button></div>';
+      h+='<div class="rv-acts"><button type="button" class="rv-btn" id="rvBon">'+FIC("clipboard",15)+' '+escapeHtml(L({en:"View receipt",id:"Lihat bon"}))+'</button></div>';
       var body=document.getElementById("rvBody"); body.innerHTML=h;
       document.getElementById("rvBon").onclick=function(){ closeReview(); showReceipt(t); };
       if(!why){
@@ -822,8 +764,6 @@
     }
     function closeReview(){ document.getElementById("rvBg").classList.remove("open"); }
     (function(){ var bg=document.getElementById("rvBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeReview(); }); })();
-    function closeOrderDetail(){ document.getElementById("odBg").classList.remove("open"); }
-    (function(){ var bg=document.getElementById("odBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeOrderDetail(); }); })();
     // Bayar / ganti metode: buka kembali invoice Xendit (di sana bisa pilih VA/e-wallet/QRIS/kartu).
     function payOrder(id){ var o=Orders.get(id); if(o&&o.link){ window.open(o.link,"_blank"); } }
     // Batalkan: tandai lokal + best-effort batalkan di 20FIT.
