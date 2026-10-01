@@ -750,9 +750,14 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Bon dikunci (hardcode) — 1 Okt 2026, permintaan pemilik.** Tampilan bon + PDF jadi SATU modul `js/receipt.js`
+  (`Receipt.open/close/download/build`, menggantikan `js/receipt-pdf.js` & CSS `.gr*`/modal `#odBg` di profile.html):
+  palet/font/jarak di-hardcode di file itu, tampilan di Shadow DOM (`:host{all:initial}`) sehingga CSS global,
+  token, dark mode, dan kelas bersama tidak bisa mengubahnya; bon selalu "kertas putih" seperti PDF-nya. Diuji:
+  dengan CSS perusak global (warna/font/`display:none` pada kelas bon) bon tetap identik. Lihat juga CLAUDE.md §I.
 - **Bon gaya e-receipt + Download PDF + rating kelas — 1 Okt 2026, permintaan pemilik.** (1) Bon di Riwayat & Transaksi
   kini bergaya e-receipt (contoh pemilik: Grab): pita merah (jenis transaksi, logo 20FIT, judul sesuai status, kode &
-  tanggal), Total besar, Rincian, Detail, catatan "bukan faktur pajak". (2) Tombol **Download PDF**: `js/receipt-pdf.js`
+  tanggal), Total besar, Rincian, Detail, catatan "bukan faktur pajak". (2) Tombol **Download PDF**: (kini `js/receipt.js`)
   membuat PDF di browser tanpa library (Helvetica standar, WinAnsi) dengan isi & tata letak yang sama (`receiptData()` di
   profile.html = satu sumber untuk layar & PDF); unduh lewat `<a download>` di tab yang sama. (3) **Rating & ulasan
   kelas**: klik baris kelas → sheet bintang 1–5 + ulasan (opsional, ≤1000 karakter); hanya booking `confirmed` yang
