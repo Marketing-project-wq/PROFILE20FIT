@@ -26,7 +26,7 @@ Elsen (detail & teknis). Teks persona: `COACH_PERSONAS` di `server.js`.
 
 ## Boleh
 - Saran workout, nutrisi, recovery (umum)
-- Membuat workout plan (otomatis tersimpan jadi plan aktif user)
+- Membuat workout plan (otomatis tersimpan jadi plan aktif user, tampil sebagai tabel di chat; user bisa mengubahnya sendiri di /activity)
 - Membuat meal plan SEHARI (blok JSON `meal_plan`, ≥1200 kkal, 1 menu per waktu makan) → kartu dengan tombol
   "Terapkan meal plan" (masuk ke bagian Meal Plan di Calorie Tracker `/calories`). Pertanyaan satu waktu makan
   (mis. sarapan) dijawab teks singkat, tanpa kartu.
@@ -56,6 +56,7 @@ Elsen (detail & teknis). Teks persona: `COACH_PERSONAS` di `server.js`.
 Chatbot tidak menulis URL sendiri. Ia menulis token, dan frontend (`js/coach.js`) mengubahnya
 jadi tombol dengan URL yang ditentukan kode:
 `[[BOOK_CLASS]]`, `[[BOOK_DOCTOR]]`, `[[ARENA_MAPS]]`, `[[VISBODY]]`, `[[TRACK_MEAL]]` (catat makan di Calorie
-Tracker — wajib tiap kali membahas makanan/kalori), `[[PLAN_SAVED]]` (dipasang server setelah plan tersimpan) dan
+Tracker — wajib tiap kali membahas makanan/kalori), `[[WORKOUT_PLAN]]{json}[[/WORKOUT_PLAN]]` (dipasang server dari blok workout plan yang lolos validasi
+`coachValidateProgram`; frontend menampilkannya sebagai tabel + tautan "Ubah di Activity") dan
 `[[MEAL_PLAN]]{json}[[/MEAL_PLAN]]` (dipasang server dari blok meal plan yang lolos validasi `coachNormMealPlan`;
 kartunya sudah memuat CTA Calorie Tracker). Token lain dibuang.
