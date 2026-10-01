@@ -719,6 +719,10 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   fallback ke pesan user sebelumnya lalu bahasa UI, dan menaruh pengingat bahasa tepat sebelum pesan user. Tombol cepat
   chat versi EN dulu mengirim kalimat Indonesia — sekarang kalimat Inggris. Deteksi berbasis daftar kata → pesan campur
   (Indo-English) diputuskan oleh mayoritas kata penanda; **belum diuji dengan AI asli**.
+- **Kartu Health Score bergaya kartu target kalori — 2026-10-01.** Judul tengah, **lingkaran progres** (SVG, penuh
+  saat skor 100, warna per level), angka besar, "N poin lagi sampai lingkaran penuh", status; komponen jadi bar gaya
+  makro (nama + skor/100, 2 kolom di desktop, 1 di HP). What You Need, tombol isi komponen, dan Chat Coach tetap.
+  Hanya tampilan (`activity.html`), data dari `/api/activity/health-score` tidak berubah.
 - **Log upload hari ini + "Latihan berikutnya" + "Implement plan" — BARU 2026-10-01.** (1) Di bawah kartu Upload di
   /activity: daftar upload HARI INI (dari `/api/activity/history`, kini ada `created_at` + `next`): workout menampilkan
   headline analisa, latihan berikutnya, "Lihat selengkapnya" (→ `/activity/history/:id`) dan "Implement plan"; belum ada
