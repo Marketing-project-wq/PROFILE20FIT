@@ -36,6 +36,8 @@
   .hcard .dt{font-size:11px;color:var(--a-mut);font-family:var(--mono);font-weight:700}
   .hcard .tt{font-size:15px;font-weight:800;margin-top:2px;line-height:1.3}
   .hcard .hl{font-size:12.5px;color:var(--a-txt);margin-top:7px;line-height:1.5}
+  .hcard .lv{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;border:1px solid var(--a-line);color:var(--a-mut);margin-left:6px;font-family:var(--sans);text-transform:uppercase;letter-spacing:.3px}
+  .hcard .ckh{font-size:12px;font-weight:800;color:var(--fit-amber,#D97706);margin-top:6px}
   .hcard .nx{display:flex;gap:6px;align-items:flex-start;font-size:12.5px;font-weight:700;color:var(--ai);margin-top:7px;line-height:1.45}
   .hcard .nx b{color:var(--a-mut);font-weight:700;white-space:nowrap}
   .hcard .go{flex:none;color:var(--a-mut);font-size:20px;align-self:center}
@@ -101,9 +103,10 @@
     var chips=it.safety?'<span class="fchip safety">'+esc(it.safety==="emergency"?L({en:"Seek medical help",id:"Cari pertolongan medis"}):L({en:"See a doctor",id:"Cek ke dokter"}))+'</span>':
       it.chips.map(function(c){ return '<span class="fchip '+esc(c.status)+'">'+esc(L(FACTOR[c.key]||{en:c.key,id:c.key}))+' · '+esc(stLabel(c))+'</span>'; }).join("");
     return '<a class="card hcard" href="/activity/history/'+encodeURIComponent(it.id)+'"><span class="ic">'+FIC(WO_ICON[it.type]||"run",20)+'</span><div class="bd">'+
-      '<div class="dt">'+esc(fmtDate(it.date,it.started_at))+(it.source_app?" · "+esc(it.source_app):"")+'</div>'+
+      '<div class="dt">'+esc(fmtDate(it.date,it.started_at))+(it.source_app?" · "+esc(it.source_app):"")+(it.level?'<span class="lv">'+esc(it.level)+'</span>':'')+'</div>'+
       '<div class="tt">'+esc(it.title)+'</div>'+(chips?'<div class="gp">'+chips+'</div>':'')+
       (it.headline?'<div class="hl">'+esc(it.headline)+'</div>':'')+
+      (it.needs_checkin?'<div class="ckh">'+esc(L({en:"Answer a quick check-in to pin down the cause →",id:"Isi check-in singkat supaya penyebabnya lebih jelas →"}))+'</div>':'')+
       (it.next&&it.next.title?'<div class="nx"><b>'+esc(L({en:"Next:",id:"Berikutnya:"}))+'</b><span>'+esc(it.next.title)+'</span></div>':'')+'</div><span class="go" aria-hidden="true">›</span></a>';
   }
   function render(j){

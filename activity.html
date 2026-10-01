@@ -492,6 +492,7 @@
   .upx-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
   .upx-t{font-weight:800;font-size:15px;letter-spacing:-.1px}
   .upx-s{font-size:12px;color:var(--a-mut);line-height:1.45}
+  .upx-tip{display:block;margin-top:4px;font-size:11.5px;color:var(--a-mut);line-height:1.4;font-style:italic}
   .upx-btns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
   .upx-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:10px 6px;border-radius:11px;
     border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;
@@ -524,6 +525,7 @@
   .ulog-t span{font-weight:600}
   .ulog-h{font-size:12px;color:var(--a-txt);margin-top:3px;line-height:1.45}
   .ulog-n{font-size:12px;font-weight:700;color:var(--fit-red,#E4002B);margin-top:3px}
+  .ulog-ck{display:block;font-size:12px;font-weight:800;color:var(--fit-amber,#B45309);text-decoration:none;margin-top:4px}
   .ulog-a{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:6px}
   .ulog-a a{font-size:12px;font-weight:800;color:var(--fit-red,#E4002B);text-decoration:none}
   .ulog-a button{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:8px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:11.5px;font-weight:800;cursor:pointer}
@@ -740,6 +742,7 @@
         <span class="upx-txt">
           <span class="upx-t" data-en="Upload your progress" data-id="Upload progress kamu">Upload progress kamu</span>
           <span class="upx-s" id="upHint" data-en="Workout, sleep, steps or weight screenshot — up to 5 at once. AI reads the numbers and updates today's plan." data-id="Screenshot workout, tidur, langkah, atau berat — bisa 5 sekaligus. AI membaca angkanya & memperbarui plan hari ini.">Screenshot workout, tidur, langkah, atau berat — bisa 5 sekaligus. AI membaca angkanya &amp; memperbarui plan hari ini.</span>
+          <span class="upx-tip" data-en="For a deeper workout analysis, add the Splits/Laps screen (with heart rate per km) and the Heart Rate zones screen of the same workout." data-id="Untuk analisa workout yang lebih akurat, sertakan juga layar Splits/Laps (dengan heart rate per km) dan layar zona Heart Rate dari workout yang sama.">Untuk analisa workout yang lebih akurat, sertakan juga layar Splits/Laps (dengan heart rate per km) dan layar zona Heart Rate dari workout yang sama.</span>
         </span>
       </div>
       <div class="upx-prog" id="upProg" hidden><span class="upx-spin" aria-hidden="true"></span><span id="upProgTxt"></span></div>
@@ -1152,6 +1155,9 @@
         }))+'<div class="dlgsub">'+esc(Lx({
           en:"Blank fields were not readable \u2014 they are not guessed.",
           id:"Kolom yang kosong tidak terbaca \u2014 tidak ditebak."}))+'</div></div>';
+      // Kelengkapan data (WorkoutMetrics.dataLevel) -> apa yang bisa ditambah supaya analisa lebih akurat.
+      var dl=WorkoutMetrics.dataLevel({pace_data:ai.pace_data,hr_zone_data:ai.hr_zone_data,raw_data:{readiness:ai.readiness}});
+      box.innerHTML+='<div class="dlgnote">'+esc(Lx(DL_TXT[dl.level]))+(dl.level!=="full"?' '+esc(Lx({en:"To read heart-rate & pace signals, add: ",id:"Supaya sinyal heart rate & pace terbaca, tambahkan: "})+dl.missing.map(function(k){ return Lx(DL_MISS[k]); }).join(", ")+"."):"")+'</div>';
     } else if(nImg){
       box.innerHTML='<div class="dlgnote warn">'+esc(aiErr||Lx({
         en:"Couldn't read the numbers from those images. Fill them in yourself.",
@@ -1188,7 +1194,7 @@
         raw_data:{
           file_paths:PENDING.paths, upload_id:PENDING.uploadId, started_at:document.getElementById("fStart").value||null,
           ai_scan:ai?{confidence:ai.confidence,fields_read:ai.fields_read,source_guess:ai.source_guess,note:ai.note}:null,
-          field_confidence:ai?ai.field_confidence:null, metrics:ai?{avg_speed_kmh:ai.avg_speed_kmh,cadence:ai.cadence}:null,
+          field_confidence:ai?ai.field_confidence:null, metrics:ai?{avg_speed_kmh:ai.avg_speed_kmh,cadence:ai.cadence}:null, readiness:ai?ai.readiness:null,
           date_check:PENDING.dc?{read:PENDING.dc.read,text:PENDING.dc.text,reason:PENDING.dc.reason}:null
         },
         hr_zone_data:ai?ai.hr_zone_data:null, pace_data:ai?ai.pace_data:null, elevation_gain_m:ai?ai.elevation_gain_m:null,
@@ -1215,6 +1221,9 @@
     };
   }
 
+  // Label level kelengkapan data workout (dipakai dialog upload).
+  var DL_TXT={basic:{en:"Data: Basic (summary only).",id:"Data: Basic (ringkasan saja)."},detailed:{en:"Data: Detailed (splits with heart rate).",id:"Data: Detailed (splits dengan heart rate)."},full:{en:"Data: Full.",id:"Data: Full."}};
+  var DL_MISS={splits:{en:"the Splits/Laps screen",id:"layar Splits/Laps"},split_hr:{en:"splits that show heart rate per km",id:"splits yang menampilkan heart rate per km"},zones:{en:"the Heart Rate zones screen",id:"layar zona Heart Rate"},readiness:{en:"a recovery screen (resting HR / HRV)",id:"layar pemulihan (resting HR / HRV)"}};
   // ---- 4. Workout + HR zones ----
   var ZC={z1:"var(--accent)",z2:"var(--green)",z3:"var(--zone3)",z4:"var(--zone4)",z5:"var(--red)"};
   function hms(sec){ var m=Math.round(sec/60); return m>=60?(Math.floor(m/60)+"j "+(m%60)+"m"):(m+"m"); }
@@ -2079,6 +2088,7 @@
     return '<div class="ulog-i"><span class="ulog-ic">'+ic+'</span><div class="ulog-b"><div class="ulog-t">'+esc(it.title)+' <span>· '+esc(ago)+'</span></div>'+
       (it.headline?'<div class="ulog-h">'+esc(it.headline)+'</div>':'')+
       (it.next&&it.next.title?'<div class="ulog-n">'+esc(Lx({en:"Next: ",id:"Berikutnya: "}))+esc(it.next.title)+'</div>':'')+
+      (it.needs_checkin?'<a class="ulog-ck" href="/activity/history/'+encodeURIComponent(it.id)+'#checkin">'+esc(Lx({en:"Signs of fatigue — answer 4 quick questions →",id:"Ada tanda kelelahan — jawab 4 pertanyaan singkat →"}))+'</a>':'')+
       '<div class="ulog-a"><a href="/activity/history/'+encodeURIComponent(it.id)+'">'+esc(Lx({en:"See more →",id:"Lihat selengkapnya →"}))+'</a>'+
       (it.next&&it.next.implementable?'<button type="button" data-impl="'+esc(it.id)+'">'+FIC("check",13)+' '+esc(Lx({en:"Implement plan",id:"Terapkan ke Activity"}))+'</button>':'')+'</div></div></div>';
   }
