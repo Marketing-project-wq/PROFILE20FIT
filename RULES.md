@@ -60,11 +60,16 @@ Elsen (detail & teknis). Teks persona: `COACH_PERSONAS` di `server.js`.
 ## Analisa performa workout (halaman `/activity/history/:id`)
 Bukan chat, tapi memakai persona coach yang sama. **v2 (2026-10-01):** sinyal dari heart rate & pace
 (`lib/workout-signals.js`: efisiensi vs biasanya, cardiac drift, pace turun di akhir, HR sulit naik, zona, kesiapan)
-→ kandidat penyebab dicek silang dengan log tidur/makan/minum/beban + check-in → keyakinan tinggi/sedang/rendah.
+→ **bacaan coach** (v3, 2026-10-01): kandidat penyebab dibaca dari POLA sinyal (bobot `causes.signature` di config) —
+dari performa saja keyakinan maks "sedang"; log tidur/makan/minum/beban + check-in yang ada menaikkan satu tingkat atau
+mengeluarkan kandidat. Plus bacaan satu sesi: intensitas (HR rata-rata vs HR maks) & relevansi bahan bakar dari durasi.
 Narasi JSON: `headline`, `what_we_saw`, `likely_why`, `what_we_cant_tell`, `next_session_tips`, `cta`.
 - Sinyal = tanda UMUM; satu workout tidak bisa membuktikan penyebab. Keyakinan narasi tidak boleh melebihi hasil server.
 - **Dilarang menyimpulkan kekurangan zat gizi spesifik** (zat besi, vitamin, dll) — server menolak narasi yang
-  memuatnya; arahkan ke MCU Scanner / dokter. "Kurang bahan bakar" hanya dari log makan / jawaban check-in.
+  memuatnya; arahkan ke MCU Scanner / dokter. Nutrisi yang boleh dibaca dari performa hanya level latihan:
+  bahan bakar (karbohidrat) & cairan, selalu sebagai "kemungkinan".
+- **Coach membaca, tidak menagih log:** narasi DILARANG menyuruh/mengingatkan user mencatat tidur/makan/minum atau
+  mengisi check-in (server menolak lewat `NAG_RE` → fallback template). Check-in hanya kartu opsional yang terlipat.
 Yang ditegakkan kode ada di `lib/workout-narrative.js`:
 - Angka **hanya** dari hasil hitungan server (`lib/workout-analysis.js`); server memeriksa setiap angka di narasi AI
   — ada angka di luar data → generate ulang 1x → narasi template tanpa AI.

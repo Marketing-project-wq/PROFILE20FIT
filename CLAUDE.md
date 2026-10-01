@@ -3,7 +3,7 @@
 Aturan tetap di bawah ini WAJIB diikuti setiap sesi. Ditulis dari instruksi
 pemilik proyek (zidni@20fit.id). Kalau ragu, ikuti file ini.
 
-> **Pembaruan dokumen terakhir:** 2026-10-01 · **Commit staging:** `4545822` · **Production:** `58b89ba`
+> **Pembaruan dokumen terakhir:** 2026-10-01 · **Commit staging:** `e298aa2` · **Production:** `cb621dc`
 > (Hash di atas = kondisi SEBELUM rilis yang membawa baris ini; merge commit rilisnya sendiri
 > otomatis lebih baru. Jangan kejar selisih satu merge commit itu.)
 > Claude Code memuat file ini otomatis di awal sesi. Baca ini dulu, lalu buka
@@ -24,7 +24,7 @@ alat diagnosis medis.** Stack: vanilla HTML/CSS/JS + Node/Express + Supabase, de
 - **`docs/CODEBASE-MAP.md`** — peta arsitektur/route/API detail (⚠️ **sebagian STALE** — lihat `docs/STATUS.md` §4; verifikasi ke kode).
 - **`lib/journey-config.js`** — angka alur Visbody + Health Score + Health Journey (TTL link claim, retensi, landing, rescan, nudge, info alat Visbody, jendela workout, kesegaran scan, min grup corporate). Nilai default agent ditandai PERLU DIPUTUSKAN/DIVALIDASI; info alat yang null disembunyikan di UI.
 - **`lib/workout-analysis-config.js`** — SEMUA ambang analisa performa workout (baseline, tidur, nutrisi, jeda makan, hidrasi, beban latihan, pengaruh, keamanan HR/catatan, insight). Default agent, **PERLU DIVALIDASI coach/ahli gizi**. Mesinnya `lib/workout-analysis.js` (deterministik), narasi `lib/workout-narrative.js` (template + AI tervalidasi angka).
-- **`lib/workout-signals.js`** — analisa v2: sinyal dari heart rate & pace (efisiensi, cardiac drift, pace turun di akhir, HR sulit naik, zona, kesiapan) + kandidat penyebab dengan keyakinan; ambang di `lib/workout-analysis-config.js` (`signals`, `causes`), **PERLU DIVALIDASI COACH 20FIT**.
+- **`lib/workout-signals.js`** — analisa v2/v3: sinyal dari heart rate & pace (efisiensi, cardiac drift, pace turun di akhir, HR sulit naik, zona, kesiapan) + "bacaan coach": kandidat penyebab dari POLA sinyal (`causes.signature`, tanpa wajib log; log/check-in hanya konfirmasi/membantah); ambang di `lib/workout-analysis-config.js` (`signals`, `causes`, `intensity`, `fuel`), **PERLU DIVALIDASI COACH 20FIT**. Narasi dilarang menagih log (`NAG_RE`).
 - **`lib/today-brief.js`** — analisa "Plan Hari Ini" (kondisi hari ini, naikkan Health Score, workout terakhir); memakai faktor yang sama dengan analisa workout (`readiness()`), ambang di `lib/workout-analysis-config.js` (`today`).
 - **`lib/class-overrides.js`** — koreksi SEMENTARA instruktur jadwal Arena/Gym yang keliru di sistem sumber (mis. Youngstar ≠ Nando); dipakai `classInstructor()` di semua endpoint kelas. Hapus aturannya setelah jadwal sumber diperbaiki.
 - **`js/tours-config.js`** — isi SEMUA tur fitur (ID/EN, target, urutan, versi); logikanya satu mesin `js/tour.js`, status di `my20fit_tour_state`.
@@ -229,7 +229,7 @@ Daftar lengkap nama ada di `.env.example` (contoh, tanpa nilai asli).
 - **Routing bersih:** file `<nama>.html` → route `/<nama>`; `/<nama>.html` redirect 302 ke `/<nama>`.
 - **Design system:** pakai token `--fit-*` / var CSS dari `css/*.css`. **Jangan hardcode warna/spacing baru** satu per satu.
 - **Dark mode:** class `theme-light` di `<html>` (light default; hapus class = dark). Tiap halaman punya script inline theme-init yang baca `localStorage 'theme'`. Pakai token adaptif, bukan hex tetap.
-- **i18n EN/ID:** `js/i18n.js` (`window.I18N`, `window.L`; toggle EN/ID auto). Teks dinamis: `L({en,id})`/`Lx`; teks statis: `data-i18n` atau `data-en`/`data-id`. Default bahasa `id`.
+- **i18n EN/ID:** `js/i18n.js` (`window.I18N`, `window.L`; toggle EN/ID auto). Teks dinamis: `L({en,id})`/`Lx`; teks statis: `data-i18n` atau `data-en`/`data-id` (keduanya diterapkan `i18n.js` di semua halaman — jangan bikin applier per halaman). Default bahasa `id`.
 - **NAVIGASI — dilarang tab baru:** JANGAN `target="_blank"` & JANGAN `window.open()` untuk navigasi tile/halaman, **termasuk** link eksternal `media.20fit.id` & `booking.20fit.id`. Pakai `<a href>` biasa (route internal / eksternal same-tab). **Grep `target="_blank"`/`window.open` setelah kerja.** (Pengecualian tercatat: promo-banner admin — lihat STATUS §4.)
 - **State data:** tiap fetch API tangani **loading + empty + error (+retry)**, bukan happy-path saja. Contoh pola: `classes.html`, `membership.html`, `event.html`.
 - **Auth fetch:** lampirkan `Authorization: Bearer <await Auth.token()>` (pola `apiFetch`). Admin: `x-admin-key` (master) atau Bearer JWT.

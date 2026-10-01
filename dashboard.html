@@ -2103,11 +2103,10 @@
 
   </script>
   <script>
-    // Isi label grup (data-en/data-id) + tanggal sapaan — ikut ganti bahasa
+    // Tanggal sapaan — ikut ganti bahasa (label data-en/data-id diurus js/i18n.js)
     (function(){
       function fillG(){
         var id=(window.I18N&&I18N.lang==="id");
-        document.querySelectorAll("[data-en]").forEach(function(e){var t=id?e.getAttribute("data-id"):e.getAttribute("data-en");if(t!=null)e.textContent=t;});
         var gd=document.getElementById("greetDate");
         if(gd){try{gd.textContent=new Date().toLocaleDateString(id?"id-ID":"en-US",{weekday:"long",day:"numeric",month:"long"});}catch(e){}}
       }
