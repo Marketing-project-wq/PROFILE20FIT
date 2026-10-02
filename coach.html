@@ -42,16 +42,8 @@
   .btn:disabled{opacity:.55;cursor:default}
   .btn+.btn{margin-top:8px}
 
-  /* hero */
-  .hero{position:relative;overflow:hidden;background:color-mix(in srgb,var(--accent) 8%,var(--glass,var(--a-surface))) !important}
-  .hero::before{content:"";position:absolute;top:-50px;right:-50px;width:180px;height:180px;border-radius:99px;
-    background:radial-gradient(circle,color-mix(in srgb,var(--accent) 24%,transparent),transparent 70%);pointer-events:none}
-  .hero>*{position:relative}
-  .hero .big{font-size:22px;font-weight:800;letter-spacing:-.3px;margin:2px 0 6px}
-  .hero p{margin:0 0 14px;font-size:13.5px;line-height:1.6;color:var(--a-mut)}
-  .hero ul{margin:0 0 16px;padding-left:18px;font-size:13px;line-height:1.8;color:var(--a-txt)}
 
-  /* quiz */
+  /* pilihan (sesi: hari & tidur) */
   .qsec{margin-top:14px}
   .qlabel{font-size:14px;font-weight:700;margin-bottom:3px}
   .qhint{font-size:12px;color:var(--a-mut);margin-bottom:9px}
@@ -59,14 +51,6 @@
   .qopt{border:1px solid var(--a-line);border-radius:12px;padding:10px 13px;font-size:13px;font-weight:600;cursor:pointer;
     background:linear-gradient(155deg,var(--glass,transparent),var(--glass-2,transparent));color:var(--a-txt);font-family:inherit}
   .qopt.on{background:var(--accent);border-color:var(--accent);color:#fff}
-  .qnums{display:flex;gap:8px;flex-wrap:wrap}
-  .qnum{flex:1;min-width:120px}
-  .qnum label{display:block;font-size:11.5px;font-weight:700;color:var(--a-mut);margin:0 0 4px}
-  .qnum input,.qnum select{width:100%;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px}
-  .qchk{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:12px;border:1px solid var(--a-line);background:color-mix(in srgb,var(--a-txt) 3%,transparent);margin-top:6px}
-  .qchk input{margin-top:2px;width:18px;height:18px;flex:none}
-  .qchk .t{font-size:12.5px;line-height:1.55}
-  .qnote{width:100%;margin-top:8px;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:13px}
 
   /* plan */
   .planhead .pn{font-size:18px;font-weight:800;letter-spacing:-.2px}
@@ -86,6 +70,10 @@
   .ex .em{font-family:var(--mono);font-size:12.5px;color:var(--a-mut);max-width:48%;text-align:right;overflow-wrap:anywhere}
   .ex .sw{background:none;border:0;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;padding:2px 4px;flex:none}
   .ex .prog{font-size:11.5px;color:var(--a-mut);margin-top:2px}
+  .ex .logd{font-size:11.5px;color:var(--green);font-weight:700;margin-top:3px;display:flex;align-items:center;gap:4px}
+  .logrep{margin-top:10px}
+  .wkprog{font-size:12.5px;color:var(--a-mut);margin:12px 2px 2px}
+  .wkprog b{color:var(--a-txt)}
   .adjrow{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
   a.btn{display:block;box-sizing:border-box;text-align:center;text-decoration:none}
   .dchk{border:0;background:transparent;line-height:0;padding:0;cursor:pointer;flex:none;color:var(--accent)}

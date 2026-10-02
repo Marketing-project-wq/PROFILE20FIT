@@ -10935,10 +10935,51 @@ app.post("/api/coach/session/finish", async (req, res) => {
       .eq("id", b.session_id).eq("auth_user_id", user.id).select().single();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: "Sesi tidak ditemukan." });
+    // Sesi selesai -> hari itu ikut tercentang di plan mingguan (satu sumber: plan.days[].done).
+    if (status === "done" && data.plan_id && data.day_key) await coachMarkPlanDay(user.id, data.plan_id, data.day_key).catch(function () {});
     return res.json({ ok: true, session: data });
   } catch (e) {
     if (isMissingSchema(e)) return res.status(503).json({ error: "migration 022 belum dijalankan.", setup_required: true });
     return res.status(500).json({ error: "Gagal menyelesaikan sesi." });
+  }
+});
+async function coachMarkPlanDay(uid, planId, dayKey) {
+  const { data: rows } = await admin.from("my20fit_workout_plan").select("id,plan").eq("id", planId).eq("auth_user_id", uid).limit(1);
+  const row = rows && rows[0], days = row && row.plan && Array.isArray(row.plan.days) ? row.plan.days : null;
+  if (!days || !days.some(function (d) { return d && d.key === dayKey && !d.done; })) return;
+  const next = Object.assign({}, row.plan, { days: days.map(function (d) { return d && d.key === dayKey ? Object.assign({}, d, { done: true }) : d; }) });
+  await admin.from("my20fit_workout_plan").update({ plan: next, updated_at: new Date().toISOString() }).eq("id", row.id);
+}
+// GET /api/coach/plan/log — rep yang sudah dicatat per hari plan AKTIF (sesi terakhir tiap day_key):
+// {days: {<day_key>: {date, status, exercises: {<ex_key>: [{set, reps, target, unit, done}]}}}}.
+app.get("/api/coach/plan/log", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, days: {} });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: prows } = await admin.from("my20fit_workout_plan").select("id").eq("auth_user_id", user.id).eq("is_active", true).order("created_at", { ascending: false }).limit(1);
+    const planId = prows && prows[0] && prows[0].id;
+    if (!planId) return res.json({ ok: true, days: {} });
+    const { data: sess } = await admin.from("my20fit_coach_session").select("id,session_date,day_key,status")
+      .eq("auth_user_id", user.id).eq("plan_id", planId).order("session_date", { ascending: false }).limit(60);
+    const latest = {};
+    (sess || []).forEach(function (x) { if (x.day_key && !latest[x.day_key]) latest[x.day_key] = x; });
+    const ids = Object.keys(latest).map(function (k) { return latest[k].id; });
+    const out = {};
+    Object.keys(latest).forEach(function (k) { out[k] = { date: latest[k].session_date, status: latest[k].status, exercises: {} }; });
+    if (ids.length) {
+      const { data: logs } = await admin.from("my20fit_coach_set_log").select("session_id,ex_key,set_index,done,done_reps,target_reps,unit")
+        .in("session_id", ids).order("set_index", { ascending: true });
+      const byId = {}; Object.keys(latest).forEach(function (k) { byId[latest[k].id] = k; });
+      (logs || []).forEach(function (l) {
+        const d = out[byId[l.session_id]]; if (!d) return;
+        (d.exercises[l.ex_key] = d.exercises[l.ex_key] || []).push({ set: l.set_index, reps: l.done_reps, target: l.target_reps, unit: l.unit, done: !!l.done });
+      });
+    }
+    return res.json({ ok: true, plan_id: planId, days: out });
+  } catch (e) {
+    if (isMissingSchema(e)) return res.json({ ok: true, days: {}, setup_required: true });
+    return res.status(500).json({ error: "Gagal memuat catatan rep." });
   }
 });
 // GET /api/coach/sessions?limit= — riwayat sesi (progress ringkas).
