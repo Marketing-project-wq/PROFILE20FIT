@@ -376,10 +376,10 @@
   }
   function coachCard(){
     var n=S.n||{}, nm=(window.CoachProfiles&&CoachProfiles.NAME[S.coach])||"Coach";
-    var src=n.source==="ai"?L({en:"Written by your AI coach from your own data — every number checked.",id:"Ditulis AI coach dari datamu sendiri — semua angka sudah dicek."})
+    var src=n.source==="ai"?L({en:"Written by Coach Intelligence from your own data — every number checked.",id:"Ditulis Coach Intelligence dari datamu sendiri — semua angka sudah dicek."})
       :L({en:"Automatic summary from your data.",id:"Ringkasan otomatis dari datamu."});
     return '<div class="sec">'+esc(L({en:"Coach says",id:"Kata Coach"}))+'</div><div class="card co" id="coBox"><div class="co-h">'+
-      (window.CoachProfiles?CoachProfiles.avatar(S.coach,46):'')+'<div><b>Coach '+esc(nm)+'</b><span>'+esc(L({en:"AI coach · not a doctor",id:"AI coach · bukan dokter"}))+'</span></div></div>'+
+      (window.CoachProfiles?CoachProfiles.avatar(S.coach,46):'')+'<div><b>Coach '+esc(nm)+'</b><span>'+esc(L({en:"Coach Intelligence · not a doctor",id:"Coach Intelligence · bukan dokter"}))+'</span></div></div>'+
       // Ringkasan otomatis (template) memakai kalimat yang sama dengan kartu di atas -> cukup headline + batasnya.
       (n.headline?'<p><b>'+esc(n.headline)+'</b></p>':'')+(n.source==="ai"?(n.what_we_saw||[]).concat(n.likely_why||[]).map(function(p){ return '<p>'+esc(p)+'</p>'; }).join(""):"")+
       (n.what_we_cant_tell?'<p class="cant">'+esc(n.what_we_cant_tell)+'</p>':'')+

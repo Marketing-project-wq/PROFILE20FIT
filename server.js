@@ -11563,7 +11563,7 @@ app.post("/api/activity/quick-analysis", async (req, res) => {
       const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: 256, lang: lang }, 30000);
       if (!ai.httpOk || !ai.json || !ai.json.ok || !ai.json.reply) { logAiAccess(user.id, "coach/quick", false, "edge"); return res.status(502).json({ error: "Analisa gagal. Coba lagi." }); }
       reply = String(ai.json.reply);
-    } catch (e) { logAiAccess(user.id, "coach/quick", false, "timeout"); return res.status(504).json({ error: "AI nggak merespons." }); }
+    } catch (e) { logAiAccess(user.id, "coach/quick", false, "timeout"); return res.status(504).json({ error: "Coach Intelligence nggak merespons. Coba lagi." }); }
     logAiAccess(user.id, "coach/quick", true);
     return res.json({ ok: true, reply: reply, coach_id: coachId });
   } catch (e) { console.error("quick-analysis:", e.message); return res.status(500).json({ error: "Gagal analisa." }); }
