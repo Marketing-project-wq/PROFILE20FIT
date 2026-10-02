@@ -417,15 +417,17 @@ async function vbGrantConsent(uid, source, grantedBy) {
   if (error) throw error;
 }
 
-// Ambil data ukur dari Visbody lalu simpan atas nama user. Dipakai webhook (scan sudah
-// punya pemilik & body_composition selesai) dan jalur claim (member / staf).
+// Ambil data ukur dari Visbody lalu simpan atas nama user. Dipakai webhook ("completed"),
+// jalur claim (member / staf) dan pengambilan ulang vbRetryPending.
 async function visbodyFetchAndStore(scanRow, userId) {
   try {
     const data = await visbody.getScanData(scanRow.scan_id);
     const mapped = visbody.mapBodyComposition(data && data.body_composition);
     if (!mapped) {
+      // Belum ada hasil (Visbody masih memproses) -> BUKAN gagal: status tetap "bound",
+      // vbRetryPending mencoba lagi nanti.
       await admin.from("my20fit_visbody_scan")
-        .update({ status: "failed", last_error: "balasan Visbody tanpa body_composition", updated_at: new Date().toISOString() })
+        .update({ last_error: "hasil belum tersedia dari Visbody", updated_at: new Date().toISOString() })
         .eq("scan_id", scanRow.scan_id);
       return false;
     }
@@ -458,11 +460,22 @@ async function visbodyFetchAndStore(scanRow, userId) {
     return false;
   }
 }
-// body_composition belum "completed" (masih processing) -> jangan ambil dulu; webhook
-// "completed" berikutnya yang mengambil. Status tak dikenal -> coba ambil.
-function vbDataReady(scanRow) {
-  const mi = (scanRow && scanRow.measured_items) || {};
-  return !mi.body_composition || mi.body_composition === "completed";
+// Scan milik user yang hasilnya belum tersimpan -> ambil ulang. Webhook "completed" dari Visbody
+// TIDAK bisa diandalkan (data asli 27–28 Sep: semua scan berhenti di "processing"), jadi tiap
+// kali user membuka Activity / halaman Visbody (jnState) scan yang tertunda dicoba lagi.
+// Rem: tiap scan paling cepat sekali per fetch_retry_minutes, berhenti setelah fetch_retry_days.
+async function vbRetryPending(uid) {
+  if (!visbody.configured()) return false;
+  const C = VB_CFG, now = Date.now();
+  const { data } = await admin.from("my20fit_visbody_scan").select("scan_id,scan_time,pdf_url,updated_at")
+    .eq("auth_user_id", uid).in("status", ["bound", "failed"]).order("scan_time", { ascending: false }).limit(5);
+  const due = (data || []).filter(function (s) {
+    return now - new Date(s.scan_time).getTime() < C.fetch_retry_days * 86400000 &&
+      now - new Date(s.updated_at).getTime() >= C.fetch_retry_minutes * 60000;
+  }).slice(0, 2);
+  let stored = false;
+  for (const s of due) { if (await visbodyFetchAndStore(s, uid)) stored = true; }
+  return stored;
 }
 
 // Ikat scan ke user (dipakai claim member & bind staf). Menang HANYA kalau scan masih tanpa
@@ -498,7 +511,9 @@ async function vbBindScan(scan, user, via) {
     bindWarn = String((e && e.message) || e).slice(0, 300);
     console.error("visbody bind:", bindWarn);
   }
-  const stored = vbDataReady(scan) ? await visbodyFetchAndStore(scan, user.id) : false;
+  // Selalu coba ambil, walau event terakhir masih "processing" (BELUM TERVERIFIKASI kapan hasil tersedia
+  // di API Visbody); belum ada -> status tetap "bound" dan vbRetryPending mencoba lagi.
+  const stored = await visbodyFetchAndStore(scan, user.id);
   return { ok: true, data_ready: stored, bind_warning: bindWarn };
 }
 
@@ -810,6 +825,7 @@ function jnYmd(d) { return d.toISOString().slice(0, 10); }
 // Satu pembaca status perjalanan user — dipakai /activity, landing setelah login, tur.
 async function jnState(uid) {
   const N = journeyConfig.nudges, J = journeyConfig.journey;
+  await vbRetryPending(uid).catch(function (e) { console.error("visbody retry:", (e && e.message) || e); });
   const [scansR, bodyR, j, profR, planR, wkR, upR, tourR, sportR] = await Promise.all([
     admin.from("my20fit_visbody_scan").select("scan_id,scan_time,claimed_at,viewed_at,pdf_url,status").eq("auth_user_id", uid).order("scan_time", { ascending: false }).limit(20),
     admin.from("my20fit_visbody_body").select("scan_id,scanned_at,body_weight,body_fat_percentage,muscle_mass,body_mass_index,basal_metabolic_rate,visceral_fat_grade").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(2),
@@ -10919,10 +10935,51 @@ app.post("/api/coach/session/finish", async (req, res) => {
       .eq("id", b.session_id).eq("auth_user_id", user.id).select().single();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: "Sesi tidak ditemukan." });
+    // Sesi selesai -> hari itu ikut tercentang di plan mingguan (satu sumber: plan.days[].done).
+    if (status === "done" && data.plan_id && data.day_key) await coachMarkPlanDay(user.id, data.plan_id, data.day_key).catch(function () {});
     return res.json({ ok: true, session: data });
   } catch (e) {
     if (isMissingSchema(e)) return res.status(503).json({ error: "migration 022 belum dijalankan.", setup_required: true });
     return res.status(500).json({ error: "Gagal menyelesaikan sesi." });
+  }
+});
+async function coachMarkPlanDay(uid, planId, dayKey) {
+  const { data: rows } = await admin.from("my20fit_workout_plan").select("id,plan").eq("id", planId).eq("auth_user_id", uid).limit(1);
+  const row = rows && rows[0], days = row && row.plan && Array.isArray(row.plan.days) ? row.plan.days : null;
+  if (!days || !days.some(function (d) { return d && d.key === dayKey && !d.done; })) return;
+  const next = Object.assign({}, row.plan, { days: days.map(function (d) { return d && d.key === dayKey ? Object.assign({}, d, { done: true }) : d; }) });
+  await admin.from("my20fit_workout_plan").update({ plan: next, updated_at: new Date().toISOString() }).eq("id", row.id);
+}
+// GET /api/coach/plan/log — rep yang sudah dicatat per hari plan AKTIF (sesi terakhir tiap day_key):
+// {days: {<day_key>: {date, status, exercises: {<ex_key>: [{set, reps, target, unit, done}]}}}}.
+app.get("/api/coach/plan/log", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, days: {} });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: prows } = await admin.from("my20fit_workout_plan").select("id").eq("auth_user_id", user.id).eq("is_active", true).order("created_at", { ascending: false }).limit(1);
+    const planId = prows && prows[0] && prows[0].id;
+    if (!planId) return res.json({ ok: true, days: {} });
+    const { data: sess } = await admin.from("my20fit_coach_session").select("id,session_date,day_key,status")
+      .eq("auth_user_id", user.id).eq("plan_id", planId).order("session_date", { ascending: false }).limit(60);
+    const latest = {};
+    (sess || []).forEach(function (x) { if (x.day_key && !latest[x.day_key]) latest[x.day_key] = x; });
+    const ids = Object.keys(latest).map(function (k) { return latest[k].id; });
+    const out = {};
+    Object.keys(latest).forEach(function (k) { out[k] = { date: latest[k].session_date, status: latest[k].status, exercises: {} }; });
+    if (ids.length) {
+      const { data: logs } = await admin.from("my20fit_coach_set_log").select("session_id,ex_key,set_index,done,done_reps,target_reps,unit")
+        .in("session_id", ids).order("set_index", { ascending: true });
+      const byId = {}; Object.keys(latest).forEach(function (k) { byId[latest[k].id] = k; });
+      (logs || []).forEach(function (l) {
+        const d = out[byId[l.session_id]]; if (!d) return;
+        (d.exercises[l.ex_key] = d.exercises[l.ex_key] || []).push({ set: l.set_index, reps: l.done_reps, target: l.target_reps, unit: l.unit, done: !!l.done });
+      });
+    }
+    return res.json({ ok: true, plan_id: planId, days: out });
+  } catch (e) {
+    if (isMissingSchema(e)) return res.json({ ok: true, days: {}, setup_required: true });
+    return res.status(500).json({ error: "Gagal memuat catatan rep." });
   }
 });
 // GET /api/coach/sessions?limit= — riwayat sesi (progress ringkas).
@@ -11506,7 +11563,7 @@ app.post("/api/activity/quick-analysis", async (req, res) => {
       const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: 256, lang: lang }, 30000);
       if (!ai.httpOk || !ai.json || !ai.json.ok || !ai.json.reply) { logAiAccess(user.id, "coach/quick", false, "edge"); return res.status(502).json({ error: "Analisa gagal. Coba lagi." }); }
       reply = String(ai.json.reply);
-    } catch (e) { logAiAccess(user.id, "coach/quick", false, "timeout"); return res.status(504).json({ error: "AI nggak merespons." }); }
+    } catch (e) { logAiAccess(user.id, "coach/quick", false, "timeout"); return res.status(504).json({ error: "Coach Intelligence nggak merespons. Coba lagi." }); }
     logAiAccess(user.id, "coach/quick", true);
     return res.json({ ok: true, reply: reply, coach_id: coachId });
   } catch (e) { console.error("quick-analysis:", e.message); return res.status(500).json({ error: "Gagal analisa." }); }

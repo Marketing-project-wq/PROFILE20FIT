@@ -239,6 +239,19 @@ centang bahwa member menyetujui pemrosesan data di depan staf). Semua tercatat d
 event; pemilik & status claim tidak pernah ditimpa. Kalau scan sudah di-claim saat event
 "completed" datang, data ukurnya diambil saat itu.
 
+**Pengambilan hasil TIDAK lagi menunggu event "completed" (2026-10-02).** Data asli 27–28 Sep:
+ketujuh scan berhenti di "processing", event kedua tak pernah datang, jadi hasil tak pernah
+diambil. Sekarang: (1) saat claim / bind staf, hasil SELALU dicoba diambil; (2) kalau Visbody
+belum punya hasilnya, status tetap `bound` (bukan `failed`) dan `vbRetryPending` mencoba lagi
+setiap kali pemilik scan membuka `/activity` atau `/activity/visbody` (lewat `/api/journey/state`) —
+paling cepat sekali per `visbody.fetch_retry_minutes` per scan, berhenti setelah
+`visbody.fetch_retry_days` (lib/journey-config.js). Scan `failed` (mis. timeout) juga dicoba ulang.
+
+**Email yang diketik di layar timbangan TIDAK dipakai untuk mencocokkan akun.** Payload webhook
+Visbody yang masuk tidak membawa email (dicek di data asli), dan identitas yang diketik di alat
+tidak terverifikasi. Jalur kepemilikan: QR claim (member login), `third_uid` pada scan berikutnya,
+atau ikat oleh staf.
+
 ---
 
 ## Bagian 7 — Kalau gagal, di mana bacanya
@@ -255,9 +268,8 @@ where status = 'failed' order by updated_at desc limit 10;
 |---|---|
 | tidak ada baris masuk sama sekali | webhook belum didaftarkan, atau signature ditolak (401) |
 | `status` mentok di `received` | belum ada yang meng-claim — lihat admin-v2 → Claim Visbody |
-| `status` `bound` lama, `measured_items` masih `processing` | event "completed" dari Visbody belum sampai (per 2026-09-30 ketujuh scan asli hanya punya event "processing" — BELUM TERVERIFIKASI apakah Visbody memang mengirim event kedua) |
+| `status` `bound` lama, `last_error` "hasil belum tersedia dari Visbody" | Visbody belum mengeluarkan hasil untuk scan itu; dicoba ulang otomatis saat member membuka Activity. Kalau bertahan berhari-hari → cek `VISBODY_ACCOUNT_KEY`/`SECRET` & tanya Visbody (BELUM TERVERIFIKASI bentuk balasan API untuk scan yang masih "processing") |
 | `status` `failed`, `last_error` menyebut token | `VISBODY_ACCOUNT_KEY`/`SECRET` salah |
-| `status` `failed`, "balasan Visbody tanpa body_composition" | scan belum selesai diproses di sisi Visbody, atau bentuk balasannya beda dari dugaan |
 | klaim balas `409 already_claimed` | scan itu sudah diklaim akun lain — **disengaja, tidak dipindahkan** |
 
 ---

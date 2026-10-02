@@ -154,6 +154,27 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Perbaikan 2026-10-02 (permintaan pemilik, staging dulu):**
+  - **Book Class dari Activity:** tile & tombol yang dulu ke `/book-class` (tanpa parameter → "Gagal memuat kelas ini")
+    kini ke `/classes`; menu produk (`js/universal-nav.js`) & chip coach juga. `/book-class` tanpa `source`+`schedule`
+    yang valid dialihkan ke `/classes` (`?venue=gym` untuk gym). Deep-link berparameter tetap.
+  - **Workout plan = konsultasi coach, BUKAN quiz.** `/activity/plan` tanpa plan aktif menampilkan pilihan coach;
+    memilih coach membuka chat dan langsung mengirim "Buatkan workout plan untuk minggu ini" (mekanisme `chat_context`).
+    UI quiz di `js/coach.js` + CSS-nya di `coach.html` DIHAPUS. **Endpoint `GET/POST /api/coach/quiz` & `POST /api/coach/plan`
+    (plan dari quiz) MASIH ADA di server** — tak dipanggil lagi dari web; tidak dihapus karena belum pasti tak dipakai
+    klien lain (app mobile?) — **TANYA PEMILIK** sebelum dihapus.
+  - **Plan mingguan + catat rep:** plan dari chat = plan aktif minggu ini: progres "Minggu ini: x/y hari selesai", hari ini
+    terbuka otomatis, tiap hari punya tombol "Mulai & catat rep" (alur sesi lama: `/api/coach/session/*`, rep per set di
+    `my20fit_coach_set_log.done_reps`; rep yang diubah setelah dicentang ikut tersimpan). Rep tercatat tampil di bawah
+    latihan (`GET /api/coach/plan/log` — sesi terakhir per hari plan aktif). Sesi "Selesai" otomatis mencentang hari itu
+    di plan (`coachMarkPlanDay`). Batasan: satu sesi per tanggal — kalau hari ini sudah ada sesi, tombol hari lain membuka
+    sesi hari ini (BELUM diubah).
+  - **Nama "Coach Intelligence"** menggantikan "AI Coach/AI coach/AI COACH" di semua label coach (tur, badge plan, kartu
+    analisa workout, Activity, pesan error chat cepat, instruksi batas keahlian). Fitur AI non-coach (scan makanan, baca
+    screenshot, terjemahan MCU, cari foto) TIDAK diubah. Teks "bukan dokter" tetap. `COACH_CHAT_RULES` ("Kamu AI chatbot
+    fitness 20FIT") & `RULES.md` BELUM diubah — perubahan aturan perlu persetujuan pemilik (usulan teks ada di laporan sesi).
+  - **Visbody:** hasil scan diambil saat claim walau status Visbody masih "processing", + pengambilan ulang otomatis
+    (`vbRetryPending`, lihat `docs/VISBODY-SETUP.md` Bagian 6). Belum terverifikasi dengan scan asli end-to-end.
 - **Activity multi-sport (mulai 2026-10-02, bertahap Fase 1–4, staging dulu).** Spesifikasi dari pemilik: user pilih maks
   2 olahraga → plan dibangun di sekitar jadwal olahraganya, analisa per olahraga, CTA terpusat, batas keahlian AI Coach.
   Audit Langkah 0 (1 Okt): belum ada data olahraga member sama sekali (2 upload workout total); proxy tiket event

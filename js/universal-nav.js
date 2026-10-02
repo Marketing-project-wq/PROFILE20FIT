@@ -82,7 +82,7 @@
     // token Supabase tak berguna di sana & tak boleh nyangkut di history-nya. Klik = redirect biasa.
     { id: "talent",  group: "event", label: "Talent",          desc: "Talent & Event Organizer",    url: "https://talent.20fit.id",         color: "#3B82F6", noSso: true },
     // Booking (semua diproses di my.20fit → booking.20fit.id)
-    { id: "book-class",   group: "booking", label: "Book Class",    desc: "Arena & Gym",            url: "https://my.20fit.id/book-class",           color: "#F59E0B", path: "/book-class" },
+    { id: "book-class",   group: "booking", label: "Book Class",    desc: "Arena & Gym",            url: "https://my.20fit.id/classes",              color: "#F59E0B", path: "/classes" },
     { id: "book-coach",   group: "booking", label: "Book Coach",    desc: "Personal Training",      url: "https://my.20fit.id/book-coach",           color: "#F59E0B", path: "/book-coach" },
     { id: "book-doctor",  group: "booking", label: "Book Doctor",   desc: "Konsultasi Dokter",      url: "https://my.20fit.id/book-doctor",          color: "#0EA5E9", path: "/book-doctor" },
     { id: "book-recovery",group: "booking", label: "Book Recovery", desc: "Fisioterapi & Recovery", url: "https://my.20fit.id/classes?venue=clinic", color: "#EF4444", path: "/classes?venue=clinic" }
