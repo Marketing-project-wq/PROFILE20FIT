@@ -1821,6 +1821,16 @@
   function vbNum(v,d){ return (v==null||v==="")?"—":(+v).toFixed(d==null?1:d).replace(/\.0$/,""); }
   function renderVbBanner(){
     var host=document.getElementById("vbAlertBox"); if(!host) return;
+    // Scan tanpa pemilik yang email ketikan di timbangan = email akun ini -> konfirmasi dulu di /visbody-claim.
+    var es=JN&&JN.email_scans&&JN.email_scans[0];
+    if(es){
+      var wh=""; try{ wh=new Date(es.scan_time).toLocaleString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}); }catch(e){}
+      host.innerHTML='<div class="vb-alert" id="vbBanner"><div class="vb-alert-t">'+FIC("scan",16)+' '+esc(Lx({en:"A Visbody result with your email",id:"Ada hasil Visbody dengan emailmu"}))+'</div>'+
+        '<div class="vb-alert-m">'+esc(Lx({en:"Scan on "+wh+". Confirm it's yours to see the result here.",id:"Scan "+wh+". Konfirmasi bahwa ini scan kamu untuk melihat hasilnya di sini."}))+'</div>'+
+        '<div class="vb-alert-a"><button type="button" class="pri" id="vbEmailGo">'+esc(Lx({en:"Check & save",id:"Cek & simpan"}))+'</button></div></div>';
+      document.getElementById("vbEmailGo").onclick=function(){ location.href="/visbody-claim?scan="+encodeURIComponent(es.scan_id); };
+      return;
+    }
     var s=JN&&JN.latest_scan;
     if(!s){ host.innerHTML=""; return; }
     // Baru di-claim, data ukur masih diproses timbangan.

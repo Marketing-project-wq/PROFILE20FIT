@@ -50,8 +50,10 @@
   // Claim hasil scan Visbody lewat link bertoken (QR timbangan / link dari staf).
   // Belum login -> token disimpan (my20fit_pending_claim) lalu ke /login; Auth.routeAfterAuth
   // mengembalikan member ke sini setelah login/daftar. Persetujuan data WAJIB sebelum claim.
+  // ?scan=<id> = scan yang email ketikan di timbangan-nya sama dengan email akun (banner Activity):
+  // wajib login, server mencocokkan ulang emailnya; ada tombol "Bukan saya".
   (function(){
-    var TOKEN=new URLSearchParams(location.search).get("t")||"";
+    var QS=new URLSearchParams(location.search), TOKEN=QS.get("t")||"", SCAN=QS.get("scan")||"";
     var PENDING="my20fit_pending_claim";
     var ICON={
       scan:'<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/>',
@@ -83,14 +85,14 @@
 
     function render(){
       var s=INFO&&INFO.state;
-      if(!TOKEN||!INFO||s==="invalid"){ clearPending(); return card("warn",T({en:"Link not valid",id:"Link tidak valid"}),T(ERR.invalid_token)+" "+T(HELP)); }
+      if((!TOKEN&&!SCAN)||!INFO||s==="invalid"){ clearPending(); return card("warn",T({en:"Link not valid",id:"Link tidak valid"}),T(ERR.invalid_token)+" "+T(HELP)); }
       if(s==="mine"){ clearPending(); return card("ok",T({en:"Already in your account",id:"Sudah ada di akunmu"}),T({en:"This scan is already linked to your account.",id:"Scan ini sudah terhubung ke akunmu."}),
         '<a class="btn" href="/activity?welcome=visbody">'+esc(T({en:"See my results →",id:"Lihat hasilku →"}))+'</a>'); }
       if(s==="claimed"){ clearPending(); return card("warn",T({en:"Scan already claimed",id:"Scan sudah di-claim"}),T(ERR.already_claimed)); }
       if(s==="used"){ clearPending(); return card("warn",T({en:"Link already used",id:"Link sudah dipakai"}),T(ERR.token_used)+" "+T(HELP)); }
       if(s==="expired"){ clearPending(); return card("warn",T({en:"Link expired",id:"Link kedaluwarsa"}),T(ERR.claim_expired)+" "+T(HELP)); }
       var title=T({en:"Save your Visbody result",id:"Simpan hasil Visbody kamu"});
-      var body=T({en:"Scan from ",id:"Scan tanggal "})+when(INFO.scan_time)+". "+T({en:"Link it to your my.20fit.id account to see the full result, unlock your Health Score and get a more accurate plan.",id:"Hubungkan ke akun my.20fit.id untuk melihat hasil lengkap, membuka Health Score, dan dapat plan yang lebih tepat."});
+      var body=T({en:"Scan from ",id:"Scan tanggal "})+when(INFO.scan_time)+". "+(SCAN?T({en:"The email typed on the scale matches your account. ",id:"Email yang diketik di timbangan sama dengan email akunmu. "}):"")+T({en:"Link it to your my.20fit.id account to see the full result, unlock your Health Score and get a more accurate plan.",id:"Hubungkan ke akun my.20fit.id untuk melihat hasil lengkap, membuka Health Score, dan dapat plan yang lebih tepat."});
       if(!USER){
         return card("scan",title,body,
           '<button type="button" class="btn" id="goLogin">'+esc(T({en:"Log in / Sign up to save",id:"Masuk / Daftar untuk menyimpan"}))+'</button>'+
@@ -100,11 +102,13 @@
         '<div class="who">'+esc(T({en:"Will be saved to: ",id:"Akan disimpan ke akun: "}))+'<b>'+esc(USER.email||"")+'</b></div>'+
         (INFO.consent_needed?'<label class="consent"><input type="checkbox" id="cs"> <span>'+esc(T(CONSENT))+' <a href="/privacy">'+esc(T({en:"Privacy policy",id:"Kebijakan privasi"}))+'</a></span></label>':'')+
         '<button type="button" class="btn" id="doClaim"'+(INFO.consent_needed?' disabled':'')+'>'+esc(T({en:"Save to my account",id:"Simpan ke akunku"}))+'</button>'+
-        '<button type="button" class="btn out" id="swAcc">'+esc(T({en:"Not you? Switch account",id:"Bukan kamu? Ganti akun"}))+'</button>'+
+        (SCAN?'<button type="button" class="btn out" id="notMine">'+esc(T({en:"This isn't my scan",id:"Ini bukan scan saya"}))+'</button>'
+          :'<button type="button" class="btn out" id="swAcc">'+esc(T({en:"Not you? Switch account",id:"Bukan kamu? Ganti akun"}))+'</button>')+
         '<div class="err" id="err" role="alert"></div>');
       var cs=el("cs"); if(cs) cs.onchange=function(){ el("doClaim").disabled=!cs.checked; };
       el("doClaim").onclick=doClaim;
-      el("swAcc").onclick=async function(){ savePending(); try{ await Auth.signOut(); }catch(e){} location.href="/login"; };
+      if(el("swAcc")) el("swAcc").onclick=async function(){ savePending(); try{ await Auth.signOut(); }catch(e){} location.href="/login"; };
+      if(el("notMine")) el("notMine").onclick=notMine;
     }
     function savePending(){ try{ localStorage.setItem(PENDING,JSON.stringify({t:TOKEN,exp:Date.now()+24*3600*1000})); }catch(e){} }
     document.addEventListener("click",function(e){
@@ -115,8 +119,9 @@
       var b=el("doClaim"), er=el("err"); b.disabled=true; er.textContent="";
       try{
         var tk=await Auth.token();
-        var r=await fetch("/api/visbody/claim",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
-          body:JSON.stringify({token:TOKEN,consent:!!(el("cs")&&el("cs").checked)})});
+        var cons=!!(el("cs")&&el("cs").checked);
+        var r=await fetch(SCAN?"/api/visbody/claim-email":"/api/visbody/claim",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},
+          body:JSON.stringify(SCAN?{scan_id:SCAN,consent:cons}:{token:TOKEN,consent:cons})});
         var j=await r.json().catch(function(){return {};});
         if(r.ok&&j.ok){
           clearPending();
@@ -125,20 +130,34 @@
           setTimeout(function(){ location.replace(j.redirect||"/activity?welcome=visbody"); },1200);
           return;
         }
-        if(r.status===401){ savePending(); location.href="/login"; return; }
+        if(r.status===401){ if(!SCAN) savePending(); location.href="/login"; return; }
         var m=ERR[j.error];
-        if(j.error==="already_claimed"||j.error==="token_used"||j.error==="claim_expired"||j.error==="invalid_token"){ await load(); return; }
-        er.textContent=m?T(m):T({en:"Couldn't save. Please try again.",id:"Gagal menyimpan. Coba lagi."});
+        if(j.error==="already_claimed"||j.error==="token_used"||j.error==="claim_expired"||j.error==="invalid_token"||j.error==="not_found"){ await load(); return; }
+        er.textContent=m?T(m):(j.error&&r.status===503?j.error:T({en:"Couldn't save. Please try again.",id:"Gagal menyimpan. Coba lagi."}));
       }catch(e){ er.textContent=T({en:"Network problem — try again.",id:"Masalah jaringan — coba lagi."}); }
       b.disabled=!!(el("cs")&&!el("cs").checked);
     }
 
+    async function notMine(){
+      var b=el("notMine"), er=el("err"); b.disabled=true; er.textContent="";
+      try{
+        var tk=await Auth.token();
+        var r=await fetch("/api/visbody/not-mine",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(tk||"")},body:JSON.stringify({scan_id:SCAN})});
+        if(r.ok){ card("ok",T({en:"Got it — not saved",id:"Oke, tidak disimpan"}),T({en:"This scan won't be linked to your account or shown to you again.",id:"Scan ini tidak dihubungkan ke akunmu dan tidak ditawarkan lagi."}),
+          '<a class="btn" href="/activity">'+esc(T({en:"Back to Activity",id:"Kembali ke Activity"}))+'</a>'); return; }
+        if(r.status===401){ location.href="/login"; return; }
+        if(r.status===404){ await load(); return; }
+        er.textContent=T({en:"Couldn't save. Please try again.",id:"Gagal menyimpan. Coba lagi."});
+      }catch(e){ er.textContent=T({en:"Network problem — try again.",id:"Masalah jaringan — coba lagi."}); }
+      b.disabled=false;
+    }
     async function load(){
       try{ USER=await Auth.getUser(); }catch(e){ USER=null; }
-      if(!TOKEN){ INFO=null; return render(); }
+      if(!TOKEN&&!SCAN){ INFO=null; return render(); }
+      if(SCAN&&!USER){ location.href="/login"; return; }   // mode email: login lalu banner di Activity membawa ke sini lagi
       try{
         var h={}; if(USER){ var tk=await Auth.token(); if(tk) h.Authorization="Bearer "+tk; }
-        var r=await fetch("/api/visbody/claim/info?t="+encodeURIComponent(TOKEN),{headers:h});
+        var r=await fetch("/api/visbody/claim/info?"+(SCAN?"scan="+encodeURIComponent(SCAN):"t="+encodeURIComponent(TOKEN)),{headers:h});
         var j=await r.json().catch(function(){return null;});
         if(!r.ok||!j||!j.ok){ el("box").innerHTML='<p>'+esc(T({en:"Couldn't check this link right now.",id:"Link belum bisa dicek sekarang."}))+'</p><button type="button" class="btn" id="retry">'+esc(T({en:"Try again",id:"Coba lagi"}))+'</button>'; el("retry").onclick=load; return; }
         INFO=j;

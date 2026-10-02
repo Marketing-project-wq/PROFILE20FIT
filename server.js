@@ -641,6 +641,18 @@ async function vbLookupToken(raw) {
 app.get("/api/visbody/claim/info", vbInfoLimiter, async (req, res) => {
   try {
     if (!admin) return res.status(500).json({ error: "server belum dikonfigurasi" });
+    // ?scan=<id> (mode email): hanya untuk akun yang email terverifikasinya sama dgn email ketikan di timbangan.
+    if (req.query.scan) {
+      const user = await getUserFromReq(req);
+      if (!user) return res.status(401).json({ error: "Unauthorized" });
+      const scanId = String(req.query.scan).slice(0, 120);
+      const hit = (await vbEmailScans(user, await jnGet(user.id))).filter(function (r) { return r.scan_id === scanId; })[0];
+      if (!hit) {
+        const { data: own } = await admin.from("my20fit_visbody_scan").select("scan_id").eq("scan_id", scanId).eq("auth_user_id", user.id).limit(1);
+        return res.json({ ok: true, state: own && own.length ? "mine" : "invalid" });
+      }
+      return res.json({ ok: true, state: "claimable", scan_time: hit.scan_time, consent_version: VB_CFG.consent_version, consent_needed: !(await vbHasConsent(user.id)) });
+    }
     const tok = await vbLookupToken(String(req.query.t || ""));
     if (!tok) return res.json({ ok: true, state: "invalid" });
     const { data: rows } = await admin.from("my20fit_visbody_scan").select("scan_time,auth_user_id").eq("scan_id", tok.scan_id).limit(1);
@@ -700,6 +712,69 @@ app.post("/api/visbody/claim", async (req, res) => {
     console.error("visbody claim:", (e && e.message) || e);
     return res.status(500).json({ error: "Gagal meng-claim scan." });
   }
+});
+
+// ---- CLAIM LEWAT EMAIL yang diketik member di timbangan ----
+// Webhook Visbody membawa user_info.email (diketik di layar alat; tersimpan di raw_webhook). Scan tanpa
+// pemilik yang emailnya SAMA PERSIS (tanpa beda huruf besar/kecil) dengan email akun yang sudah
+// TERVERIFIKASI ditawarkan HANYA ke akun itu. Data ukur tidak dibuka sebelum member mengetuk "Ini scan
+// saya" (+ persetujuan data bila belum): email ketikan bisa salah ketik / dipakai orang lain, jadi
+// kepemilikan dikonfirmasi pemilik email, bukan diasumsikan.
+function vbLikeExact(s) { return String(s).replace(/[\\%_]/g, function (c) { return "\\" + c; }); }
+async function vbEmailScans(user, j) {
+  const email = String((user && user.email) || "").trim().toLowerCase();
+  // "*" = wildcard di filter PostgREST -> email ber-"*" (langka) tidak dicocokkan, supaya tetap persis sama.
+  if (!email || email.indexOf("*") >= 0 || !(user.email_confirmed_at || user.confirmed_at)) return [];
+  const since = new Date(Date.now() - VB_CFG.email_match_days * 86400000).toISOString();
+  const { data, error } = await admin.from("my20fit_visbody_scan").select("scan_id,scan_time")
+    .is("auth_user_id", null).gte("scan_time", since)
+    .ilike("raw_webhook->user_info->>email", vbLikeExact(email))
+    .order("scan_time", { ascending: false }).limit(5);
+  if (error) throw error;
+  const notMine = ((j && j.nudges && j.nudges.vb_not_mine) || {}).scan_ids || [];
+  return (data || []).filter(function (r) { return notMine.indexOf(r.scan_id) < 0; });
+}
+async function vbEmailScanFor(user, scanId) {
+  const list = await vbEmailScans(user, await jnGet(user.id));
+  return list.some(function (r) { return r.scan_id === scanId; });
+}
+// "Ini scan saya" -> sama dengan claim QR: persetujuan data dulu, lalu ikat + ambil hasil.
+app.post("/api/visbody/claim-email", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    if (!admin) return res.status(500).json({ error: "server belum dikonfigurasi" });
+    const b = req.body || {}, scanId = String(b.scan_id || "").slice(0, 120);
+    if (!(await vbEmailScanFor(user, scanId))) return res.status(404).json({ error: "not_found" });
+    if (!(await vbHasConsent(user.id))) {
+      if (b.consent !== true) return res.status(400).json({ error: "consent_required", consent_version: VB_CFG.consent_version });
+      await vbGrantConsent(user.id, "self", null);
+    }
+    const { data: rows } = await admin.from("my20fit_visbody_scan").select("*").eq("scan_id", scanId).limit(1);
+    const r = await vbBindScan(rows[0], user, "email");
+    if (!r.ok) return res.status(409).json({ error: "already_claimed" });
+    vbAudit(scanId, "email_claim", { actor_user: user.id, detail: { data_ready: r.data_ready, bind_warning: r.bind_warning } });
+    return res.json(Object.assign({ ok: true, data_ready: r.data_ready }, await jnState(user.id, user)));
+  } catch (e) {
+    console.error("visbody claim-email:", (e && e.message) || e);
+    if (e && e.code === "23514") return res.status(503).json({ error: "Fitur ini butuh migration 033 dijalankan dulu." });
+    return res.status(500).json({ error: "Gagal menyimpan scan." });
+  }
+});
+// "Bukan saya" -> tidak ditawarkan lagi ke akun ini; scan tetap tanpa pemilik (staf bisa mengikatnya).
+app.post("/api/visbody/not-mine", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const scanId = String((req.body || {}).scan_id || "").slice(0, 120);
+    if (!(await vbEmailScanFor(user, scanId))) return res.status(404).json({ error: "not_found" });
+    const j = await jnGet(user.id);
+    const nm = (j.nudges.vb_not_mine && j.nudges.vb_not_mine.scan_ids) || [];
+    j.nudges.vb_not_mine = { scan_ids: nm.concat([scanId]).slice(-50) };
+    await jnSave(user.id, { nudges: j.nudges });
+    vbAudit(scanId, "email_rejected", { actor_user: user.id });
+    return res.json(Object.assign({ ok: true }, await jnState(user.id, user)));
+  } catch (e) { return res.status(500).json({ error: "Gagal menyimpan." }); }
 });
 
 // ---- ADMIN: scan yang belum di-claim (admin-v2 -> Visbody) ----
@@ -823,7 +898,7 @@ function jnDaysSince(iso) { return iso ? (Date.now() - new Date(iso).getTime()) 
 function jnYmd(d) { return d.toISOString().slice(0, 10); }
 
 // Satu pembaca status perjalanan user — dipakai /activity, landing setelah login, tur.
-async function jnState(uid) {
+async function jnState(uid, user) {
   const N = journeyConfig.nudges, J = journeyConfig.journey;
   await vbRetryPending(uid).catch(function (e) { console.error("visbody retry:", (e && e.message) || e); });
   const [scansR, bodyR, j, profR, planR, wkR, upR, tourR, sportR] = await Promise.all([
@@ -887,6 +962,8 @@ async function jnState(uid) {
     nudges.push({ key: "sport_pick" });
   }
 
+  const emailScans = user ? await vbEmailScans(user, j).catch(function () { return []; }) : [];
+
   const landing = J.landing === "always" ? (hasScan ? "/activity" : null) : (J.landing === "new_scan" ? (unviewed ? "/activity" : null) : null);
   const tours = {};
   (tourR.data || []).forEach(function (t) { tours[t.tour_key] = { version: t.version, status: t.status, last_step: t.last_step, seen_steps: t.seen_steps || [] }; });
@@ -899,6 +976,7 @@ async function jnState(uid) {
       data_ready: !!body, metrics: pick(body), prev_metrics: pick(prevBody),
     } : null,
     unviewed: unviewed,
+    email_scans: emailScans,
     landing: landing,
     checklist: checklist,
     rescan_due: rescanDue,
@@ -914,7 +992,7 @@ app.get("/api/journey/state", async (req, res) => {
     if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
-    return res.json(Object.assign({ ok: true }, await jnState(user.id)));
+    return res.json(Object.assign({ ok: true }, await jnState(user.id, user)));
   } catch (e) { console.error("journey/state:", (e && e.message) || e); return res.status(500).json({ error: "Gagal memuat status." }); }
 });
 // Tandai langkah yang tak punya sumber data lain.
@@ -936,7 +1014,7 @@ app.post("/api/journey/step", async (req, res) => {
       j.steps.rescan_scheduled = now.toISOString();
       await jnSave(user.id, { steps: j.steps, rescan_due: d });
     } else return res.status(400).json({ error: "Langkah tidak dikenal." });
-    return res.json(Object.assign({ ok: true }, await jnState(user.id)));
+    return res.json(Object.assign({ ok: true }, await jnState(user.id, user)));
   } catch (e) { return res.status(500).json({ error: "Gagal menyimpan." }); }
 });
 // Target kalori dari BMR Visbody — HANYA setelah user konfirmasi. Angka dihitung di klien
@@ -960,7 +1038,7 @@ app.post("/api/journey/calorie-target", async (req, res) => {
     }
     const { error } = await admin.from("my20fit_profile").update(patch).eq("auth_user_id", user.id);
     if (error) throw error;
-    return res.json(Object.assign({ ok: true }, await jnState(user.id)));
+    return res.json(Object.assign({ ok: true }, await jnState(user.id, user)));
   } catch (e) { return res.status(500).json({ error: "Gagal menyimpan target." }); }
 });
 // Hasil lengkap scan DIBUKA (bukan sekadar banner tampil) -> viewed_at.
