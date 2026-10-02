@@ -45,7 +45,7 @@
     },
   };
 
-  var ROSTER = {};   // slug -> {id, venue, photo} dari roster CMS (baris "Coach <Nama>")
+  var ROSTER = {};   // slug -> {id, venue, photo, speciality} dari roster CMS (baris "Coach <Nama>")
   var NEXT = {};     // slug -> kelas terdekat | null (undefined = belum dimuat)
   var _roster = null, _next = null;
 
@@ -57,7 +57,7 @@
     _roster = fetch("/api/coaches").then(function (r) { return r.json(); }).then(function (j) {
       ((j && j.coaches) || []).forEach(function (c) {
         var nm = String(c.name || "").trim().toLowerCase();
-        LIST.forEach(function (p) { if (nm === "coach " + p[0]) ROSTER[p[0]] = { id: c.id, venue: c.venue, photo: c.photo_url || "" }; });
+        LIST.forEach(function (p) { if (nm === "coach " + p[0]) ROSTER[p[0]] = { id: c.id, venue: c.venue, photo: c.photo_url || "", speciality: c.speciality || "" }; });
       });
       return ROSTER;
     }).catch(function () { return ROSTER; });
@@ -110,6 +110,8 @@
       '<div class="cprof-top">' + avatar(slug, 76) +
         '<div class="cprof-n">Coach ' + esc(NAME[slug]) + '</div>' +
         '<div class="cprof-tag">' + esc(Lx(c[1])) + '</div>' +
+        // Spesialisasi = isian tim di admin-v2 → Coaches (tidak ditebak); kosong -> tidak tampil.
+        (row.speciality ? '<div class="cprof-v">' + ic("medal", 13) + ' ' + esc(Lx({ en: "Specialty: ", id: "Spesialisasi: " }) + row.speciality) + '</div>' : '') +
         '<div class="cprof-v">' + ic("pin", 13) + ' ' + esc(venue) + '</div></div>' +
       '<div class="cprof-traits">' + (pf.traits || []).map(function (t) { return '<span>' + esc(Lx(t)) + '</span>'; }).join("") + '</div>' +
       '<div class="cprof-next" data-cp-next="' + esc(slug) + '">' + nextHtml(slug) + '</div>' +

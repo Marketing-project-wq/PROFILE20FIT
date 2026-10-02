@@ -200,6 +200,17 @@
       '<button class="btn" id="sportPlanGo" style="margin-top:10px">' + esc(Lx({ en: "Build weekly plan", id: "Susun plan mingguan" })) + '</button></div>';
   }
   function wireSportPlanCard() { var b = el("sportPlanGo"); if (b) b.onclick = renderSportBuilder; }
+  // Komunitas olahraga user (paket olahraga; hanya tautan yang URL-nya sudah terverifikasi). Same-tab (CLAUDE.md §G).
+  function communityHtml() {
+    var seen = {}, links = [];
+    MY_SPORTS.forEach(function (s) {
+      var pk = (SPORT_PACKS || []).filter(function (x) { return x.key === s.sport_key; })[0];
+      ((pk && pk.community) || []).forEach(function (c) { if (!seen[c.key]) { seen[c.key] = 1; links.push(c); } });
+    });
+    if (!links.length) return "";
+    return '<div class="sechd">' + esc(Lx({ en: "Your sport community", id: "Komunitas olahragamu" })) + '</div><div class="card">' +
+      links.map(function (c) { return '<a class="btn ghost" href="' + esc(c.url) + '" style="margin-top:6px">' + esc(Lx(c.label)) + ' →</a>'; }).join("") + '</div>';
+  }
   function renderSportBuilder() {
     var p = PLAN && PLAN.plan && PLAN.plan.kind === "sport_week" ? PLAN.plan : null, sc = (p && p.sport_context) || {};
     root().innerHTML = '<div class="card"><div class="planhead"><div class="pn">' + esc(Lx({ en: "Plan around your sport", id: "Plan sesuai olahragamu" })) + '</div>' +
@@ -393,7 +404,7 @@
       ctaBtn("start_solo", svgIcon("solo"), { en: "Start on my own now", id: "Mulai sendiri sekarang" }, { en: "Follow the plan yourself", id: "Ikuti plan ini sendiri" }, false) +
       '</div></div>';
     html += '<div class="sechd">' + esc(Lx({ en: "Progress", id: "Progress" })) + '</div>' +
-      '<div class="card" id="progBox"><div class="skel" style="height:90px"></div></div>' +
+      '<div class="card" id="progBox"><div class="skel" style="height:90px"></div></div>' + communityHtml() +
       '<div class="sechd">' + esc(Lx({ en: "History", id: "Riwayat" })) + '</div>' +
       '<div class="card"><div id="histBox" class="hist"><div class="muted" style="font-size:12.5px">' + esc(Lx({ en: "Loading…", id: "Memuat…" })) + '</div></div></div>' +
       planListShell();
@@ -945,6 +956,11 @@
       var a = ACTIONS[k]; if (!a) return "";
       return '<a class="cact" href="' + esc(a[0]) + '">' + svgIcon(a[2], 14) + ' ' + esc(Lx(a[1])) + '</a>';
     });
+    // Tombol batas keahlian (server lib/coach-boundary.js): [[CTA:<kunci>]] -> tujuan dari inventaris CTA.
+    h = h.replace(/\[\[CTA:([a-z_]+)\]\]/g, function (m, k) {
+      var c = CFG && CFG.cta && CFG.cta[k]; if (!c) return "";
+      return '<a class="cact" href="' + esc(c.route) + '" data-cta-k="' + esc(k) + '">' + esc(Lx(c.label)) + ' →</a>';
+    });
     return h.replace(/\n/g, "<br>");
   }
 
@@ -1044,6 +1060,7 @@
       else CHAT_MSGS.push({ role: "error", retry: text, content: chatErrText(r, j) });
       if (r.ok && j && j.plan) PLAN = j.plan;
       paintMsgs();
+      if (r.ok && j && j.cta) [j.cta.primary, j.cta.secondary].forEach(function (c) { if (c) ctaLog("cta_shown", c.key); });
       if (r.ok) loadGame();
     } catch (e) {
       CHAT_BUSY = false;
@@ -1051,6 +1068,11 @@
       paintMsgs();
     }
   }
+
+  function ctaLog(ev, key) {
+    apiFetch("/api/journey/event", { method: "POST", body: JSON.stringify({ event: ev, props: { cta: key, from: "chat" } }) }).catch(function () {});
+  }
+  document.addEventListener("click", function (e) { var a = e.target.closest && e.target.closest("a[data-cta-k]"); if (a) ctaLog("cta_clicked", a.getAttribute("data-cta-k")); });
 
   if (window.I18N && I18N.onChange) I18N.onChange(function () { if (!BUSY && !INSESSION && !CHAT_BUSY) render(); });
   boot();

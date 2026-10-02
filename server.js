@@ -24,6 +24,8 @@ const sportPacks = require("./lib/sport-packs"); // paket olahraga (Activity mul
 const sportWeek = require("./lib/sport-week"); // plan mingguan di sekitar jadwal olahraga (deterministik)
 const sportWeekCfg = require("./lib/sport-week-config");
 const ctaResolver = require("./lib/cta-resolver"); // CTA terpusat (hanya dari lib/cta-inventory.js)
+const coachBoundary = require("./lib/coach-boundary"); // batas keahlian AI Coach: topik teknis/medis -> jawaban singkat + CTA
+const ctaInventory = require("./lib/cta-inventory");
 const classOverrides = require("./lib/class-overrides"); // koreksi sementara instruktur jadwal Arena/Gym
 const woAnalysis = require("./lib/workout-analysis"); // analisa performa workout (deterministik)
 const woNarrative = require("./lib/workout-narrative"); // narasi analisa workout (template + AI tervalidasi)
@@ -10627,7 +10629,8 @@ app.post("/api/coach/plan/adjust", async (req, res) => {
   }
 });
 // GET /api/coach/config — URL CTA (dari env; frontend render tombol).
-app.get("/api/coach/config", (req, res) => res.json({ ok: true, clinic_url: COACH_CTA_CLINIC_URL, membership_url: COACH_CTA_MEMBERSHIP_URL }));
+app.get("/api/coach/config", (req, res) => res.json({ ok: true, clinic_url: COACH_CTA_CLINIC_URL, membership_url: COACH_CTA_MEMBERSHIP_URL,
+  cta: Object.keys(ctaInventory).reduce(function (o, k) { o[k] = { route: ctaInventory[k].route, label: ctaInventory[k].label }; return o; }, {}) }));
 // POST /api/coach/cta — catat klik CTA (konversi) + balikin URL tujuan.
 app.post("/api/coach/cta", async (req, res) => {
   try {
@@ -11310,8 +11313,11 @@ function coachHistoryForAi(content) {
     .replace(COACH_PLAN_TOKEN, function (m, js) {
       let t = ""; try { t = JSON.parse(js).title || ""; } catch (e) {}
       return "(Workout plan \"" + t + "\" sudah dikirim ke user sebagai tabel & tersimpan jadi plan aktif.)";
-    });
+    })
+    .replace(COACH_CTA_TOKEN, function (m, k) { return "(Tombol " + k + " sudah ditampilkan ke user.)"; });
 }
+// Tombol CTA di balasan chat (batas keahlian, Fase 4): [[CTA:<kunci lib/cta-inventory.js>]].
+const COACH_CTA_TOKEN = /\[\[CTA:([a-z_]+)\]\]/g;
 // Pengingat gaya di akhir (setelah riwayat) — riwayat panjang cenderung menyeret model ke gaya lama.
 const COACH_CHAT_REMINDER = "PENGINGAT: tanpa sapaan pembuka, langsung ke inti, maks 3-4 kalimat pendek kecuali user minta detail. " +
   "Bahas makanan/kalori -> sertakan [[TRACK_MEAL]].";
@@ -11358,7 +11364,23 @@ app.post("/api/coach/chat", async (req, res) => {
     if (history.some(function (h) { return h.role === "assistant" && /\[\[VISBODY\]\]|visbody scan/i.test(h.content); })) {
       messages.splice(messages.length - 1, 0, { role: "system", content: "Ajakan Visbody scan sudah diberikan di sesi ini — JANGAN ulangi kecuali user bertanya soal Visbody." });
     }
-    const complex = COACH_COMPLEX_RE.test(message);
+    // Batas keahlian (lib/coach-boundary.js): topik teknis per olahraga / cedera-medis -> jawaban singkat & jujur + CTA.
+    let bound = null, boundCta = { primary: null, secondary: null };
+    try {
+      const since = new Date(Date.now() - ctaResolver.RULES.repeat.window_days * 864e5).toISOString();
+      const [spR, coR, evR] = await Promise.all([
+        admin.from("my20fit_user_sports").select("rank,sport_key").eq("auth_user_id", user.id).order("rank"),
+        admin.from("my20fit_coaches").select("speciality").ilike("display_name", "Coach " + coachId).limit(1),
+        admin.from("my20fit_event_log").select("event,props").eq("auth_user_id", user.id).in("event", ["cta_shown", "cta_clicked"]).gte("created_at", since).limit(500),
+      ]);
+      bound = coachBoundary.classify(message, spR.error ? [] : spR.data);
+      if (bound) {
+        boundCta = coachBoundary.cta(bound, ctaResolver.summarizeRecent(evR.data));
+        const spec = (coR.data && coR.data[0] && coR.data[0].speciality) || null;
+        messages.splice(messages.length - 1, 0, { role: "system", content: coachBoundary.hint(bound, replyLang, spec, boundCta.primary) });
+      }
+    } catch (e) { bound = null; }
+    const complex = COACH_COMPLEX_RE.test(message) && !bound;
     let reply = "", modelUsed = null;
     try {
       const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: complex ? 2048 : 600, tier: complex ? "complex" : "simple", lang: replyLang }, 60000);
@@ -11391,6 +11413,8 @@ app.post("/api/coach/chat", async (req, res) => {
       if (meal) reply = reply.replace(/\[\[TRACK_MEAL\]\]/g, "");
       reply = reply.replace(COACH_MEAL_BLOCK, function () { return meal ? "[[MEAL_PLAN]]" + JSON.stringify(meal) + "[[/MEAL_PLAN]]" : ""; }).replace(/\n{3,}/g, "\n\n").trim();
     }
+    // Tombol CTA (batas keahlian) ikut tersimpan sebagai token -> tetap tampil saat riwayat dibuka lagi.
+    [boundCta.primary, boundCta.secondary].forEach(function (c) { if (c) reply += "\n[[CTA:" + c.key + "]]"; });
     if (sessionId) {
       try {
         await admin.from("my20fit_coach_chat_message").insert([
@@ -11399,7 +11423,8 @@ app.post("/api/coach/chat", async (req, res) => {
         ]);
       } catch (e) { /* simpan best-effort */ }
     }
-    return res.json({ ok: true, reply: reply, coach_id: coachId, plan: savedPlan, model_used: modelUsed });
+    return res.json({ ok: true, reply: reply, coach_id: coachId, plan: savedPlan, model_used: modelUsed,
+      boundary: bound ? bound.kind : null, cta: boundCta.primary ? boundCta : null });
   } catch (e) {
     console.error("coach/chat:", e.message);
     return res.status(500).json({ error: "Gagal memproses chat." });
