@@ -1924,14 +1924,18 @@
       {en:"How to scan",id:"Lihat cara scan"},"/activity/visbody"]; },
     rescan_due:function(n){ return [{en:"Time for a rescan",id:"Saatnya scan ulang"},
       {en:"It's been "+n.days+" days since your last Visbody scan. Scan again to see your progress.",id:"Sudah "+n.days+" hari sejak scan Visbody terakhir. Scan lagi untuk melihat progresmu."},
-      {en:"See how",id:"Lihat caranya"},"/activity/visbody"]; }
+      {en:"See how",id:"Lihat caranya"},"/activity/visbody"]; },
+    // Ajakan SATU KALI memilih olahraga (user yang belum punya profil olahraga; aturan di server).
+    sport_pick:function(){ return [{en:"Pick your sport",id:"Pilih olahragamu"},
+      {en:"Pick your sport so your plan and analysis fit you better.",id:"Pilih olahragamu agar plan & analisa lebih relevan."},
+      {en:"Pick sport",id:"Pilih olahraga"},"/profile#sports","target"]; }
   };
   function jnNudgeAct(key,action){ return apiFetch("/api/journey/nudge",{method:"POST",body:JSON.stringify({key:key,action:action})}).catch(function(){}); }
   function renderNudges(){
     var host=document.getElementById("nudgeBox"); if(!host) return;
     var list=((JN&&JN.nudges)||[]).filter(function(n){ return JN_NUDGES[n.key]; });
     host.innerHTML=list.map(function(n){ var t=JN_NUDGES[n.key](n);
-      return '<div class="nudge" data-nk="'+n.key+'"><span class="ic">'+FIC("scan",18)+'</span><div style="flex:1;min-width:0"><b>'+esc(Lx(t[0]))+'</b><p>'+esc(Lx(t[1]))+'</p>'+
+      return '<div class="nudge" data-nk="'+n.key+'"><span class="ic">'+FIC(t[4]||"scan",18)+'</span><div style="flex:1;min-width:0"><b>'+esc(Lx(t[0]))+'</b><p>'+esc(Lx(t[1]))+'</p>'+
         '<a class="jn-btn sec" href="'+t[3]+'" data-nclick="'+n.key+'">'+esc(Lx(t[2]))+' →</a></div>'+
         '<button type="button" class="vb-alert-x" data-nx="'+n.key+'" aria-label="'+esc(Lx({en:"Dismiss",id:"Tutup"}))+'">✕</button></div>';
     }).join("");

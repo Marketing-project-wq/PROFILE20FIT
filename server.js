@@ -20,6 +20,7 @@ const campaigns = require("./lib/campaigns"); // engine meal reminder + onboardi
 const segments = require("./lib/segments"); // segment engine untuk blast email admin
 const visbody = require("./lib/visbody"); // SATU-SATUNYA jalur ke Visbody WellnessHub (timbangan S20)
 const journeyConfig = require("./lib/journey-config"); // angka alur Visbody + Health Score
+const sportPacks = require("./lib/sport-packs"); // paket olahraga (Activity multi-sport) — DRAFT, perlu validasi coach
 const classOverrides = require("./lib/class-overrides"); // koreksi sementara instruktur jadwal Arena/Gym
 const woAnalysis = require("./lib/workout-analysis"); // analisa performa workout (deterministik)
 const woNarrative = require("./lib/workout-narrative"); // narasi analisa workout (template + AI tervalidasi)
@@ -753,6 +754,7 @@ const JN_EVENTS = new Set([
   "workout_plan_created", "class_booked", "rescan_reminder_sent", "rescan_completed",
   "health_score_locked_shown", "health_score_unlocked",
   "tour_started", "tour_step_viewed", "tour_skipped", "tour_completed", "tour_replayed", "tour_cta_clicked",
+  "nudge_sport_shown", "nudge_sport_clicked", "sports_updated",
 ]);
 const JN_CLIENT_EVENTS = new Set([
   "visbody_booking_clicked", "activity_landing_after_claim", "health_score_locked_shown",
@@ -762,6 +764,7 @@ const JN_CLIENT_EVENTS = new Set([
 const JN_NUDGE_EVENTS = {
   visbody_after_workouts: { shown: "nudge_visbody_shown", clicked: "nudge_visbody_clicked" },
   rescan_due: { shown: "rescan_reminder_sent", clicked: null },
+  sport_pick: { shown: "nudge_sport_shown", clicked: "nudge_sport_clicked" },
 };
 function jnLog(uid, event, props) {
   if (!admin || !JN_EVENTS.has(event)) return Promise.resolve();
@@ -801,15 +804,16 @@ function jnYmd(d) { return d.toISOString().slice(0, 10); }
 // Satu pembaca status perjalanan user — dipakai /activity, landing setelah login, tur.
 async function jnState(uid) {
   const N = journeyConfig.nudges, J = journeyConfig.journey;
-  const [scansR, bodyR, j, profR, planR, wkR, upR, tourR] = await Promise.all([
+  const [scansR, bodyR, j, profR, planR, wkR, upR, tourR, sportR] = await Promise.all([
     admin.from("my20fit_visbody_scan").select("scan_id,scan_time,claimed_at,viewed_at,pdf_url,status").eq("auth_user_id", uid).order("scan_time", { ascending: false }).limit(20),
     admin.from("my20fit_visbody_body").select("scan_id,scanned_at,body_weight,body_fat_percentage,muscle_mass,body_mass_index,basal_metabolic_rate,visceral_fat_grade").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(2),
     jnGet(uid),
-    admin.from("my20fit_profile").select("calorie_target_kcal,calorie_target_source,calorie_target_set_at").eq("auth_user_id", uid).limit(1),
+    admin.from("my20fit_profile").select("calorie_target_kcal,calorie_target_source,calorie_target_set_at,onboarding_completed").eq("auth_user_id", uid).limit(1),
     admin.from("my20fit_workout_plan").select("id").eq("auth_user_id", uid).limit(1),
     admin.from("my20fit_workout").select("id").eq("auth_user_id", uid).limit(N.visbody_after_workouts.min_workouts),
     admin.from("my20fit_activity_uploads").select("id").eq("auth_user_id", uid).eq("upload_type", "workout").limit(N.visbody_after_workouts.min_workouts),
     admin.from("my20fit_tour_state").select("tour_key,version,status,last_step,seen_steps,updated_at").eq("auth_user_id", uid),
+    admin.from("my20fit_user_sports").select("rank").eq("auth_user_id", uid).limit(1),
   ]);
   const scans = scansR.data || [], bodies = bodyR.data || [];
   const latestScan = scans[0] || null, body = bodies[0] || null, prevBody = bodies[1] || null;
@@ -851,6 +855,14 @@ async function jnState(uid) {
   const rescanDue = j.rescan_due || (lastScanAt ? jnYmd(new Date(new Date(lastScanAt).getTime() + J.rescan_interval_days * 86400000)) : null);
   if (N.rescan_due.enabled && hasScan && rescanDue && rescanDue <= jnYmd(new Date()) && !capped("rescan_due", N.rescan_due.cap_days)) {
     nudges.push({ key: "rescan_due", last_scan_at: lastScanAt, days: Math.floor(jnDaysSince(lastScanAt)) });
+  }
+  // Ajakan memilih olahraga — untuk user yang BELUM punya profil olahraga (mis. user lama yang
+  // onboarding-nya sebelum pertanyaan olahraga ada) dan sudah mendapat nilai pertama. Tabel
+  // belum ada (migration 031 belum jalan) -> sportR.error -> nudge tidak tampil.
+  const hasSports = !sportR.error && !!(sportR.data && sportR.data.length);
+  const gotValue = hasScan || !!j.hs_unlocked_at || workouts > 0 || !!prof.onboarding_completed;
+  if (N.sport_pick.enabled && !sportR.error && !hasSports && gotValue && !capped("sport_pick", N.sport_pick.cap_days)) {
+    nudges.push({ key: "sport_pick" });
   }
 
   const landing = J.landing === "always" ? (hasScan ? "/activity" : null) : (J.landing === "new_scan" ? (unviewed ? "/activity" : null) : null);
@@ -999,6 +1011,44 @@ app.post("/api/journey/event", async (req, res) => {
     await jnLog(user.id, ev, props);
     return res.json({ ok: true });
   } catch (e) { return res.status(500).json({ error: "Gagal." }); }
+});
+
+// ============================================================
+// PROFIL OLAHRAGA (Activity multi-sport, Fase 1) — maks 2 olahraga per user.
+// ============================================================
+// Isi paket & validasi: lib/sport-packs (DRAFT, perlu validasi coach). Tabel: my20fit_user_sports
+// (migration 031). Batas 2 ditegakkan di klien (js/sport-picker.js), di sini, DAN di DB.
+// Daftar olahraga untuk pemilih (publik: tidak ada data user).
+app.get("/api/sports", function (req, res) {
+  res.set("Cache-Control", "public, max-age=300");
+  return res.json(Object.assign({ ok: true }, sportPacks.publicList()));
+});
+const SPORT_COLS = "rank,sport_key,other_label,play_days,level,goal,updated_at";
+app.get("/api/me/sports", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data, error } = await admin.from("my20fit_user_sports").select(SPORT_COLS).eq("auth_user_id", user.id).order("rank");
+    if (error) throw error;
+    return res.json({ ok: true, sports: data || [] });
+  } catch (e) { console.error("me/sports:", (e && e.message) || e); return res.status(500).json({ error: "Gagal memuat olahraga." }); }
+});
+// Ganti seluruh pilihan (urut prioritas). Riwayat workout/analisa TIDAK disentuh; plan berikutnya
+// yang menyesuaikan (Fase 2).
+app.put("/api/me/sports", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {}, v = sportPacks.validateSelection(b.sports);
+    if (v.error) return res.status(400).json({ error: v.error.id, error_i18n: v.error });
+    const { error } = await admin.rpc("my20fit_set_user_sports", { p_uid: user.id, p_rows: v.rows });
+    if (error) throw error;
+    jnLog(user.id, "sports_updated", { from: String(b.from || "profile").slice(0, 30), sports: v.rows.map(function (r) { return r.sport_key; }) });
+    const { data } = await admin.from("my20fit_user_sports").select(SPORT_COLS).eq("auth_user_id", user.id).order("rank");
+    return res.json({ ok: true, sports: data || [] });
+  } catch (e) { console.error("me/sports put:", (e && e.message) || e); return res.status(500).json({ error: "Gagal menyimpan olahraga." }); }
 });
 // ADMIN — funnel mingguan (user unik per event per minggu, Senin–Minggu, UTC).
 const JN_FUNNEL = ["nudge_visbody_shown", "nudge_visbody_clicked", "visbody_booking_clicked", "visbody_scan_received",
@@ -5276,7 +5326,7 @@ var USER_DATA_TABLES = [
   "my20fit_coach_chat_session", "my20fit_coach_chat_message", "my20fit_coach_meal_plan",
   "my20fit_visbody_body", "my20fit_visbody_scan", "my20fit_data_consent",
   "my20fit_health_journey", "my20fit_tour_state", "my20fit_event_log",
-  "my20fit_activity_uploads", "my20fit_today_plans", "my20fit_class_reviews",
+  "my20fit_activity_uploads", "my20fit_today_plans", "my20fit_class_reviews", "my20fit_user_sports",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
   "my20fit_scan_orders", "my20fit_scan_ledger", "my20fit_voucher_usages"
