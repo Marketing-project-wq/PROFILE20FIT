@@ -738,7 +738,7 @@
       <a class="qa-tile" href="/activity/chat"><span class="qa-i"><span class="fic" data-ic="chat" data-ic-size="22"></span></span><span data-en="Chat Coach" data-id="Chat Coach">Chat Coach</span></a>
       <a class="qa-tile" href="/activity/plan"><span class="qa-i"><span class="fic" data-ic="clipboard" data-ic-size="22"></span></span><span data-en="Workout Plan" data-id="Workout Plan">Workout Plan</span></a>
       <a class="qa-tile" href="/activity/visbody"><span class="qa-i"><span class="fic" data-ic="scan" data-ic-size="22"></span></span><span data-en="Visbody Results" data-id="Hasil Visbody">Hasil Visbody</span></a>
-      <a class="qa-tile" href="/book-class"><span class="qa-i"><span class="fic" data-ic="calendar" data-ic-size="22"></span></span><span data-en="Book Class" data-id="Book Class">Book Class</span></a>
+      <a class="qa-tile" href="/classes"><span class="qa-i"><span class="fic" data-ic="calendar" data-ic-size="22"></span></span><span data-en="Book Class" data-id="Book Class">Book Class</span></a>
     </div>
 
     <!-- TODAY'S SUMMARY — angka nyata hari terpilih (workout / tidur / air) -->
@@ -895,6 +895,7 @@
 <script src="js/fasting.js"></script>
 <script src="js/nutrition.js"></script>
 <script src="js/workout-metrics.js"></script>
+<script src="js/sport-week-ui.js"></script>
 <script src="js/tours-config.js"></script>
 <script src="js/tour.js"></script>
 <script>
@@ -1844,7 +1845,7 @@
   // Langkah checklist: [judul, penjelasan, label tombol, ikon]
   var JN_STEPS={
     view_result:[{en:"See your Visbody result",id:"Lihat hasil Visbody"},{en:"Your full body composition, explained in plain words.",id:"Komposisi tubuh lengkapmu, dijelaskan dengan bahasa sederhana."},{en:"Open result",id:"Buka hasil"},"chart"],
-    coach_analysis:[{en:"Analyse with an AI Coach",id:"Analisa dengan AI Coach"},{en:"Ask a coach what your numbers mean and what to do next. AI coach — not a doctor.",id:"Tanya coach arti angkamu & langkah berikutnya. AI coach — bukan dokter."},{en:"Chat with coach",id:"Chat dengan coach"},"chat"],
+    coach_analysis:[{en:"Analyse with Coach Intelligence",id:"Analisa dengan Coach Intelligence"},{en:"Ask a coach what your numbers mean and what to do next. Coach Intelligence — not a doctor.",id:"Tanya coach arti angkamu & langkah berikutnya. Coach Intelligence — bukan dokter."},{en:"Chat with coach",id:"Chat dengan coach"},"chat"],
     workout_plan:[{en:"Create a workout plan",id:"Buat workout plan"},{en:"A weekly plan built around your result and goal.",id:"Rencana mingguan sesuai hasil scan & tujuanmu."},{en:"Build my plan",id:"Buat plan"},"clipboard"],
     calorie_target:[{en:"Use your BMR as calorie target",id:"Pakai BMR sebagai target kalori"},{en:"Set your Calorie Tracker target from your measured BMR — you confirm before anything changes.",id:"Atur target Calorie Tracker dari BMR terukur — kamu konfirmasi dulu sebelum ada yang berubah."},{en:"Review target",id:"Lihat target"},"meal"],
     book_class:[{en:"Book a class with a coach",id:"Book kelas dengan coach"},{en:"Train in person at 20FIT.",id:"Latihan langsung di 20FIT."},{en:"Book class",id:"Book kelas"},"calendar"],
@@ -1878,7 +1879,7 @@
     if(key==="coach_analysis"){ coachAskGo(Lx({en:"Analyse my latest Visbody result and tell me what to focus on",id:"Analisa hasil Visbody terakhirku dan bilang aku harus fokus ke mana"})); return; }
     if(key==="workout_plan"){ coachAskGo(Lx({en:"Build me a workout plan based on my Visbody result",id:"Buatkan workout plan berdasarkan hasil Visbody aku"})); return; }
     if(key==="calorie_target"){ openCalorieDlg(); return; }
-    if(key==="book_class"){ apiFetch("/api/journey/step",{method:"POST",body:JSON.stringify({key:"book_class",from:"checklist"})}).catch(function(){}).then(function(){ location.href="/book-class"; }); return; }
+    if(key==="book_class"){ apiFetch("/api/journey/step",{method:"POST",body:JSON.stringify({key:"book_class",from:"checklist"})}).catch(function(){}).then(function(){ location.href="/classes"; }); return; }
     if(key==="rescan"){ openRescanDlg(); return; }
   }
   function jnDlg(html){ var d=document.getElementById("jnDlg"); d.innerHTML=html; if(!d.open) d.showModal(); return d; }
@@ -1924,14 +1925,18 @@
       {en:"How to scan",id:"Lihat cara scan"},"/activity/visbody"]; },
     rescan_due:function(n){ return [{en:"Time for a rescan",id:"Saatnya scan ulang"},
       {en:"It's been "+n.days+" days since your last Visbody scan. Scan again to see your progress.",id:"Sudah "+n.days+" hari sejak scan Visbody terakhir. Scan lagi untuk melihat progresmu."},
-      {en:"See how",id:"Lihat caranya"},"/activity/visbody"]; }
+      {en:"See how",id:"Lihat caranya"},"/activity/visbody"]; },
+    // Ajakan SATU KALI memilih olahraga (user yang belum punya profil olahraga; aturan di server).
+    sport_pick:function(){ return [{en:"Pick your sport",id:"Pilih olahragamu"},
+      {en:"Pick your sport so your plan and analysis fit you better.",id:"Pilih olahragamu agar plan & analisa lebih relevan."},
+      {en:"Pick sport",id:"Pilih olahraga"},"/profile#sports","target"]; }
   };
   function jnNudgeAct(key,action){ return apiFetch("/api/journey/nudge",{method:"POST",body:JSON.stringify({key:key,action:action})}).catch(function(){}); }
   function renderNudges(){
     var host=document.getElementById("nudgeBox"); if(!host) return;
     var list=((JN&&JN.nudges)||[]).filter(function(n){ return JN_NUDGES[n.key]; });
     host.innerHTML=list.map(function(n){ var t=JN_NUDGES[n.key](n);
-      return '<div class="nudge" data-nk="'+n.key+'"><span class="ic">'+FIC("scan",18)+'</span><div style="flex:1;min-width:0"><b>'+esc(Lx(t[0]))+'</b><p>'+esc(Lx(t[1]))+'</p>'+
+      return '<div class="nudge" data-nk="'+n.key+'"><span class="ic">'+FIC(t[4]||"scan",18)+'</span><div style="flex:1;min-width:0"><b>'+esc(Lx(t[0]))+'</b><p>'+esc(Lx(t[1]))+'</p>'+
         '<a class="jn-btn sec" href="'+t[3]+'" data-nclick="'+n.key+'">'+esc(Lx(t[2]))+' →</a></div>'+
         '<button type="button" class="vb-alert-x" data-nx="'+n.key+'" aria-label="'+esc(Lx({en:"Dismiss",id:"Tutup"}))+'">✕</button></div>';
     }).join("");
@@ -1969,7 +1974,7 @@
   }
   // Pill What You Need -> aksi nyata per kategori.
   function gapAction(cat){
-    if(cat==="workout") return function(){ location.href="/book-class"; };
+    if(cat==="workout") return function(){ location.href="/classes"; };
     if(cat==="nutrition") return function(){ location.href="/calories"; };
     if(cat==="hydration") return function(){ var x=document.getElementById("hydraBox"); if(x) x.scrollIntoView({behavior:"smooth",block:"center"}); };
     if(cat==="sleep") return function(){ if(SEL!==todayYmd()){ SEL=todayYmd(); renderDnav(); renderHead(); load(SEL); } openSleepDlg(); };
@@ -2098,7 +2103,7 @@
   // Log upload HARI INI di bawah kartu upload (dari /api/activity/history — sumber yang sama dengan halaman
   // Riwayat). Workout: headline analisa + latihan berikutnya + "Lihat selengkapnya" (analisa lengkap) +
   // "Implement plan" (masuk ke Plan Hari Ini). Belum ada upload hari ini -> satu baris "Terakhir:".
-  var LOG_IC={ run:"run", walk:"walk", cycling:"cycle", swimming:"swim", gym:"dumbbell", hiit:"dumbbell", hyrox:"run", other:"run",
+  var LOG_IC={ run:"run", walk:"walk", cycling:"cycle", swimming:"swim", gym:"dumbbell", hiit:"dumbbell", hyrox:"run", padel:"racket", tennis:"racket", other:"run",
     sleep:"moon", daily_activity:"steps", weight:"scale", food_log:"meal" };
   function logItem(it){
     var ic=FIC(LOG_IC[it.type]||"chart",16), ago=it.created_at?timeAgo(it.created_at):"";
@@ -2245,7 +2250,7 @@
     Array.prototype.forEach.call(h.querySelectorAll("[data-a]"),function(b){
       var a=b.getAttribute("data-a");
       b.onclick=async function(){
-        if(a==="book") location.href="/book-class";
+        if(a==="book") location.href="/classes";
         else if(a==="track") location.href="/calories";
         else if(a==="upload") uploadWorkoutGo();
         else if(a==="regen") generateTodayPlan();
@@ -2260,7 +2265,7 @@
         if(c==="sleep"){ var g=gapAction("sleep"); if(g) g(); }
         else if(c==="water"){ b.disabled=true; var ok=await addDrink(250,"water",todayYmd()); b.disabled=false; if(ok){ b.textContent="✓"; setTimeout(function(){ b.textContent="+250ml"; },1600); } }
         else if(c==="meals") location.href="/calories";
-        else if(c==="book") location.href="/book-class";
+        else if(c==="book") location.href="/classes";
         else if(c==="upload") uploadWorkoutGo();
       };
     });
@@ -2303,9 +2308,25 @@
   }
   function wpExLabel(e){ var u=WP_UNITS.filter(function(x){ return x[0]===e.unit; })[0]; return (e.sets||1)+"×"+(e.reps||"")+(u&&e.unit!=="reps"?" "+Lx(u[1]):""); }
   function wpNewPlan(){ coachAskGo(Lx({en:"Make me a new workout plan for this week",id:"Buatkan workout plan baru untuk minggu ini"})); }
+  // Plan mingguan di sekitar jadwal olahraga (js/sport-week-ui.js): SATU kartu — hitung mundur event,
+  // sesi hari ini dengan SATU tombol utama, strip Sen–Min, link ke halaman plan. Diubah lewat /activity/plan
+  // (pindah hari / susun ulang), bukan editor plan biasa (editor itu tak menyimpan layout mingguan).
+  function renderSportWeekCard(host,p){
+    var t=SportWeekUI.todayInfo(p);
+    host.innerHTML='<div class="wp"><div class="wp-hd"><span class="wp-ic">'+FIC("calendar",18)+'</span>'+
+        '<div class="wp-ti"><b>'+esc(p.plan_name||"")+'</b><span>'+esc(Lx({en:"Built around your sport",id:"Disusun di sekitar olahragamu"}))+'</span></div></div>'+
+      SportWeekUI.countdownHtml(p)+
+      (t?'<div class="swk-today"><b>'+esc(t.title)+'</b><p>'+esc(t.sub)+'</p>'+(t.href?'<a class="wp-b pri" href="'+esc(t.href)+'">'+esc(t.btn)+'</a>':'')+'</div>':'')+
+      SportWeekUI.stripHtml(p)+
+      '<div class="wp-acts"><a class="wp-b" href="/activity/plan">'+esc(Lx({en:"Weekly plan →",id:"Plan mingguan →"}))+'</a></div></div>';
+    // Upload ada di halaman ini -> buka alurnya langsung (link #hash ke halaman yang sama tak memicu apa-apa).
+    var up=host.querySelector('.swk-today a[href="/activity#upload-workout"]');
+    if(up) up.onclick=function(e){ e.preventDefault(); uploadWorkoutGo(); };
+  }
   function renderWorkoutPlan(){
     var host=document.getElementById("workoutPlanBox"); if(!host) return;
     var p=WPLAN&&WPLAN.plan, days=(p&&Array.isArray(p.days))?p.days:[];
+    if(p&&p.kind==="sport_week"){ renderSportWeekCard(host,p); return; }
     if(!days.length){
       host.innerHTML='<div class="plan-slim"><span>'+FIC("dumbbell",14)+' <b>'+esc(Lx({en:"Workout Plan",id:"Workout Plan"}))+'</b> · '+esc(Lx({en:"no active plan yet.",id:"belum ada plan aktif."}))+'</span>'+
         '<button type="button" id="wpMake">'+esc(Lx({en:"Make Plan →",id:"Buat Plan →"}))+'</button></div>';

@@ -28,10 +28,10 @@
     // ---------------- F2 — SEMUA user baru (dengan / tanpa scan): semua menu + fitur unggulan ----------------
     // Tidak ada tombol putar ulang di Profil lagi (permintaan pemilik 2026-10-01); tur otomatis sekali per user.
     welcome: {
-      version: 1, page: "dashboard",
+      version: 2, page: "dashboard",
       steps: [
         { id: "hello", title: { en: "Welcome to my.20fit.id", id: "Selamat datang di my.20fit.id" },
-          body: { en: "Your hub for your health journey at 20FIT: track workouts & meals, see your Health Score, chat with an AI coach and book classes. Here's a quick tour.", id: "Pusat perjalanan sehatmu di 20FIT: catat latihan & makan, lihat Health Score, chat dengan AI coach, dan booking kelas. Yuk kenalan sebentar." } },
+          body: { en: "Your hub for your health journey at 20FIT: track workouts & meals, see your Health Score, chat with Coach Intelligence and book classes. Here's a quick tour.", id: "Pusat perjalanan sehatmu di 20FIT: catat latihan & makan, lihat Health Score, chat dengan Coach Intelligence, dan booking kelas. Yuk kenalan sebentar." } },
         { id: "nav_home", sel: NAV("dashboard.html"), title: { en: "Home", id: "Home" },
           body: { en: "Your daily summary: body stats, water, sleep and quick links to everything.", id: "Ringkasan harianmu: kondisi tubuh, minum, tidur, dan akses cepat ke semua fitur." } },
         { id: "nav_event", sel: NAV("event.html"), title: { en: "Event", id: "Event" },
@@ -39,7 +39,7 @@
         { id: "nav_calories", sel: NAV("calories.html"), title: { en: "Calories", id: "Calories" },
           body: { en: "Calorie Tracker: log meals and see your daily target and macros.", id: "Calorie Tracker: catat makan dan lihat target kalori & makro harianmu." } },
         { id: "nav_activity", sel: NAV("activity.html"), title: { en: "Activity", id: "Activity" },
-          body: { en: "Workouts, sleep, hydration, Health Score and your AI coach — the centre of your progress.", id: "Latihan, tidur, hidrasi, Health Score, dan AI coach — pusat progresmu." } },
+          body: { en: "Workouts, sleep, hydration, Health Score and Coach Intelligence — the centre of your progress.", id: "Latihan, tidur, hidrasi, Health Score, dan Coach Intelligence — pusat progresmu." } },
         { id: "nav_profile", sel: NAV("profile.html"), title: { en: "Profile", id: "Profil" },
           body: { en: "Your data, achievements, history & transactions, receipts and class ratings.", id: "Data dirimu, pencapaian, riwayat & transaksi, bon, dan rating kelas." } },
         { id: "nav_products", sel: ["#hpxProdBtn", "#unApps"], title: { en: "All 20FIT products", id: "Semua produk 20FIT" },
@@ -47,8 +47,11 @@
         { id: "feat_visbody", featured: true, only: "no_scan", title: { en: "Visbody scan at 20FIT", id: "Scan Visbody di 20FIT" },
           body: { en: "A ±5-minute body composition scan: body fat, muscle, BMR and more. It unlocks your Health Score and makes your plan more accurate.", id: "Scan komposisi tubuh ±5 menit: lemak tubuh, otot, BMR, dan lainnya. Membuka Health Score dan membuat plan-mu lebih tepat." },
           ctas: [{ id: "visbody_how", label: { en: "See how to scan", id: "Lihat cara scan" }, href: "/activity/visbody" }] },
-        { id: "feat_coach", featured: true, sel: NAV("activity.html"), title: { en: "AI Coach", id: "AI Coach" },
-          body: { en: "Consult and build a workout plan in the style of a 20FIT coach. It's an AI coach — not a doctor.", id: "Konsultasi dan buat workout plan dengan gaya coach 20FIT. Ini AI coach — bukan dokter." } },
+        { id: "feat_coach", featured: true, sel: NAV("activity.html"), title: { en: "Coach Intelligence", id: "Coach Intelligence" },
+          body: { en: "Consult and build a workout plan in the style of a 20FIT coach. It's Coach Intelligence — not a doctor.", id: "Konsultasi dan buat workout plan dengan gaya coach 20FIT. Ini Coach Intelligence — bukan dokter." } },
+        // v2 (Activity multi-sport): olahraga user.
+        { id: "feat_sport", featured: true, sel: NAV("profile.html"), title: { en: "Your sport", id: "Olahragamu" },
+          body: { en: "Pick up to 2 sports (padel, running, HYROX, gym…) in your profile — your weekly plan and workout analysis follow them.", id: "Pilih maks 2 olahraga (padel, lari, HYROX, gym…) di profil — plan mingguan & analisa latihanmu menyesuaikan." } },
         { id: "feat_score", featured: true, only: "no_scan", sel: NAV("activity.html"), title: { en: "Health Score", id: "Health Score" },
           body: { en: "One number for your overall fitness. It's locked until you do a Visbody scan or upload your first workout.", id: "Satu angka untuk kebugaranmu. Terkunci sampai kamu scan Visbody atau upload workout pertama." } },
         { id: "feat_foodscan", featured: true, sel: [".scanfab", ".navside .sscan"], title: { en: "Food scan", id: "Scan makanan" },
@@ -64,7 +67,7 @@
 
     // ---------------- F1 — sudah scan & claim Visbody: tur /activity dengan data sendiri ----------------
     activity: {
-      version: 1, page: "activity", auto_if: "has_scan",
+      version: 2, page: "activity", auto_if: "has_scan",
       steps: [
         { id: "vb_result", sel: ["#vbBanner"], title: { en: "Your Visbody result", id: "Hasil Visbody kamu" },
           body: { en: "This is your body composition summary from your scan at 20FIT. Tap “See full result” for every number, explained.", id: "Ini ringkasan komposisi tubuhmu dari scan di 20FIT. Ketuk “Lihat hasil lengkap” untuk semua angka beserta penjelasannya." },
@@ -74,8 +77,8 @@
           body: { en: "Your fitness score right now: {score}. It combines body composition, workouts, nutrition, sleep, hydration and lab — based on {filled} of 6 components. More data, more accurate.", id: "Skor kebugaranmu saat ini: {score}. Dihitung dari komposisi tubuh, latihan, nutrisi, tidur, hidrasi, dan lab — berdasarkan {filled} dari 6 komponen. Makin lengkap datamu, makin akurat." },
           alt: { title: { en: "Health Score", id: "Health Score" },
             body: { en: "Your score appears here once your scan data is processed. It combines body composition, workouts, nutrition, sleep, hydration and lab.", id: "Skormu muncul di sini setelah data scan selesai diproses. Dihitung dari komposisi tubuh, latihan, nutrisi, tidur, hidrasi, dan lab." } } },
-        { id: "coach", sel: ["#coachCard"], title: { en: "Consult an AI Coach", id: "Konsultasi AI Coach" },
-          body: { en: "Ask a coach about your scan and what to do next — pick the style that suits you. It's an AI coach, not a doctor.", id: "Tanya coach soal hasil scan-mu dan langkah berikutnya — pilih gaya yang paling cocok. Ini AI coach, bukan dokter." } },
+        { id: "coach", sel: ["#coachCard"], title: { en: "Consult Coach Intelligence", id: "Konsultasi Coach Intelligence" },
+          body: { en: "Ask a coach about your scan and what to do next — pick the style that suits you. It's Coach Intelligence, not a doctor.", id: "Tanya coach soal hasil scan-mu dan langkah berikutnya — pilih gaya yang paling cocok. Ini Coach Intelligence, bukan dokter." } },
         { id: "upload", sel: ["#uploadCard"], title: { en: "Upload Health Progress", id: "Upload Health Progress" },
           body: { en: "Upload workout screenshots from Garmin, Apple Watch, Strava or the treadmill, and log sleep & water. It sharpens your score and plan.", id: "Upload screenshot workout dari Garmin/Apple Watch/Strava atau treadmill, catat tidur & minum. Skor dan plan-mu jadi lebih tepat." } },
         { id: "today_plan", sel: ["#todayPlanBox"], title: { en: "Today's Full Plan", id: "Rencana Hari Ini" },
@@ -84,9 +87,14 @@
           body: { en: "Your weekly plan. Tick each session when it's done.", id: "Plan latihan mingguanmu. Centang tiap sesi yang selesai." },
           alt: { if_not: "has_plan", title: { en: "Your first workout plan", id: "Workout plan pertamamu" },
             body: { en: "No plan yet — build your first one together with a coach.", id: "Belum ada plan — buat plan pertamamu bersama coach." } } },
+        // v2 (Activity multi-sport): layout plan mingguan di sekitar jadwal olahraga.
+        { id: "week_plan", sel: [".swk-strip"], title: { en: "Your week, around your sport", id: "Minggumu, di sekitar olahragamu" },
+          body: { en: "Your play days stay; your coach fills in supporting training, recovery and rest around them. Tap Weekly plan to move days.", id: "Hari main tetap; coach mengisi latihan pendukung, pemulihan, dan istirahat di sekitarnya. Ketuk Plan mingguan untuk memindah hari." },
+          alt: { sel: ["#workoutPlanBox"], title: { en: "A plan around your sport", id: "Plan sesuai olahragamu" },
+            body: { en: "In Plan you can build a weekly plan around the days you play — supporting training, recovery and rest included.", id: "Di Plan kamu bisa menyusun plan mingguan di sekitar hari kamu main — lengkap dengan latihan pendukung, pemulihan, dan istirahat." } } },
         { id: "journey", sel: ["#journeyCard"], title: { en: "Health Journey", id: "Health Journey" },
           body: { en: "Your next steps: analyse with a coach → build a plan → set your calorie target → book a class → schedule a rescan.", id: "Langkah berikutnya untukmu: analisa dengan coach → buat plan → atur target kalori → book kelas → jadwalkan rescan." } },
-        { id: "book", sel: [".qa-tile[href='/book-class']"], title: { en: "Book a class", id: "Book kelas" },
+        { id: "book", sel: [".qa-tile[href='/classes']"], title: { en: "Book a class", id: "Book kelas" },
           body: { en: "Train in person with a 20FIT coach.", id: "Latihan langsung dengan coach 20FIT." } },
         { id: "done", title: { en: "That's it!", id: "Selesai!" },
           body: { en: "Start with the first step on your checklist.", id: "Mulai dari langkah pertama di checklist." },
@@ -96,18 +104,23 @@
 
     // ---------------- F2 langkah 4 — tur mini /activity untuk yang belum punya data ----------------
     activity_intro: {
-      version: 1, page: "activity", auto_if: "no_scan",
+      version: 2, page: "activity", auto_if: "no_scan",
       steps: [
         { id: "score_locked", sel: ["#healthScoreBox"], title: { en: "Health Score", id: "Health Score" },
           body: { en: "Your Health Score unlocks once you do a Visbody scan or upload your first workout.", id: "Health Score terbuka setelah kamu scan Visbody atau upload workout pertama." } },
-        { id: "coach", sel: ["#coachCard"], title: { en: "AI Coach", id: "AI Coach" },
-          body: { en: "Pick a coach to consult and build a plan. AI coach — not a doctor.", id: "Pilih coach untuk konsultasi & buat plan. AI coach — bukan dokter." } },
+        { id: "coach", sel: ["#coachCard"], title: { en: "Coach Intelligence", id: "Coach Intelligence" },
+          body: { en: "Pick a coach to consult and build a plan. Coach Intelligence — not a doctor.", id: "Pilih coach untuk konsultasi & buat plan. Coach Intelligence — bukan dokter." } },
         { id: "upload", sel: ["#uploadCard"], title: { en: "Upload progress", id: "Upload progress" },
           body: { en: "Empty for now — upload a workout, sleep or daily-activity screenshot and it fills in here.", id: "Masih kosong — upload screenshot workout, tidur, atau aktivitas harian dan datanya muncul di sini." } },
         { id: "today_plan", sel: ["#todayPlanBox"], title: { en: "Today's plan", id: "Rencana hari ini" },
           body: { en: "After your first upload you get a daily plan for workout, food, sleep and water.", id: "Setelah upload pertama, kamu dapat rencana harian untuk latihan, makan, tidur, dan minum." } },
         { id: "workout_plan", sel: ["#workoutPlanBox"], title: { en: "Workout plan", id: "Workout plan" },
           body: { en: "No plan yet — build one with a coach in a few questions.", id: "Belum ada plan — buat bersama coach lewat beberapa pertanyaan." } },
+        // v2 (Activity multi-sport): layout plan mingguan di sekitar jadwal olahraga.
+        { id: "week_plan", sel: [".swk-strip"], title: { en: "Your week, around your sport", id: "Minggumu, di sekitar olahragamu" },
+          body: { en: "Your play days stay; your coach fills in supporting training, recovery and rest around them. Tap Weekly plan to move days.", id: "Hari main tetap; coach mengisi latihan pendukung, pemulihan, dan istirahat di sekitarnya. Ketuk Plan mingguan untuk memindah hari." },
+          alt: { sel: ["#workoutPlanBox"], title: { en: "A plan around your sport", id: "Plan sesuai olahragamu" },
+            body: { en: "In Plan you can build a weekly plan around the days you play — supporting training, recovery and rest included.", id: "Di Plan kamu bisa menyusun plan mingguan di sekitar hari kamu main — lengkap dengan latihan pendukung, pemulihan, dan istirahat." } } },
         { id: "done", title: { en: "Where to start?", id: "Mulai dari mana?" },
           body: { en: "Choose one to unlock your Health Score:", id: "Pilih salah satu untuk membuka Health Score:" },
           ctas: [

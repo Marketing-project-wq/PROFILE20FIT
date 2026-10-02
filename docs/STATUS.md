@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `e298aa2` · **Production:** `cb621dc`
+> **Pembaruan terakhir:** 2026-10-02 · **Commit staging:** `4727bfd` · **Production:** `a27ff79`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -154,6 +154,113 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Perbaikan 2026-10-02 (permintaan pemilik, staging dulu):**
+  - **Book Class dari Activity:** tile & tombol yang dulu ke `/book-class` (tanpa parameter → "Gagal memuat kelas ini")
+    kini ke `/classes`; menu produk (`js/universal-nav.js`) & chip coach juga. `/book-class` tanpa `source`+`schedule`
+    yang valid dialihkan ke `/classes` (`?venue=gym` untuk gym). Deep-link berparameter tetap.
+  - **Workout plan = konsultasi coach, BUKAN quiz.** `/activity/plan` tanpa plan aktif menampilkan pilihan coach;
+    memilih coach membuka chat dan langsung mengirim "Buatkan workout plan untuk minggu ini" (mekanisme `chat_context`).
+    UI quiz di `js/coach.js` + CSS-nya di `coach.html` DIHAPUS. **Endpoint `GET/POST /api/coach/quiz` & `POST /api/coach/plan`
+    (plan dari quiz) MASIH ADA di server** — tak dipanggil lagi dari web; tidak dihapus karena belum pasti tak dipakai
+    klien lain (app mobile?) — **TANYA PEMILIK** sebelum dihapus.
+  - **Plan mingguan + catat rep:** plan dari chat = plan aktif minggu ini: progres "Minggu ini: x/y hari selesai", hari ini
+    terbuka otomatis, tiap hari punya tombol "Mulai & catat rep" (alur sesi lama: `/api/coach/session/*`, rep per set di
+    `my20fit_coach_set_log.done_reps`; rep yang diubah setelah dicentang ikut tersimpan). Rep tercatat tampil di bawah
+    latihan (`GET /api/coach/plan/log` — sesi terakhir per hari plan aktif). Sesi "Selesai" otomatis mencentang hari itu
+    di plan (`coachMarkPlanDay`). Batasan: satu sesi per tanggal — kalau hari ini sudah ada sesi, tombol hari lain membuka
+    sesi hari ini (BELUM diubah).
+  - **Nama "Coach Intelligence"** menggantikan "AI Coach/AI coach/AI COACH" di semua label coach (tur, badge plan, kartu
+    analisa workout, Activity, pesan error chat cepat, instruksi batas keahlian). Fitur AI non-coach (scan makanan, baca
+    screenshot, terjemahan MCU, cari foto) TIDAK diubah. Teks "bukan dokter" tetap. `COACH_CHAT_RULES` ("Kamu AI chatbot
+    fitness 20FIT") & `RULES.md` BELUM diubah — perubahan aturan perlu persetujuan pemilik (usulan teks ada di laporan sesi).
+  - **Visbody:** hasil scan diambil saat claim walau status Visbody masih "processing", + pengambilan ulang otomatis
+    (`vbRetryPending`, lihat `docs/VISBODY-SETUP.md` Bagian 6). Belum terverifikasi dengan scan asli end-to-end.
+- **Activity multi-sport (mulai 2026-10-02, bertahap Fase 1–4, staging dulu).** Spesifikasi dari pemilik: user pilih maks
+  2 olahraga → plan dibangun di sekitar jadwal olahraganya, analisa per olahraga, CTA terpusat, batas keahlian AI Coach.
+  Audit Langkah 0 (1 Okt): belum ada data olahraga member sama sekali (2 upload workout total); proxy tiket event
+  → hybrid race/HYROX & lari paling banyak; padel/tennis tak punya data & Padel Rebel tidak ditemukan di codebase.
+  - **Fase 1 — profil olahraga + paket draf.**
+    - Paket config `lib/sport-packs/` (hyrox, running, gym, padel, general="Lainnya" + nama bebas): metrics, goals,
+      supporting_training, injury_watch, technical_topics (+kata kunci), events, cta_map, community.
+      **SEMUA ISI DRAFT agent — PERLU DIVALIDASI COACH & FISIOTERAPIS 20FIT.** Padel dimasukkan atas permintaan pemilik,
+      bukan dari data.
+    - `lib/cta-inventory.js` = daftar tujuan CTA yang terverifikasi ada (paket hanya boleh menunjuk ke sini; kunci
+      salah dibuang + log). `/book-class` tanpa parameter, workout.20fit.id, Padel Rebel, booking scan Visbody
+      sengaja TIDAK masuk (lihat komentar PENDING di file).
+    - API: `GET /api/sports` (publik, isi aman untuk pemilih), `GET/PUT /api/me/sports` (validasi `validateSelection`,
+      event `sports_updated`). Batas 2 di klien + server + DB (migration 031, **BELUM dijalankan**).
+    - UI `js/sport-picker.js` (satu komponen): onboarding = olahraga utama **wajib** + kedua opsional (tanpa detail,
+      supaya onboarding tetap singkat; gangguan server tidak mengunci onboarding); profil = kartu "Olahragamu" + sheet
+      dengan 3 pertanyaan per olahraga (hari biasa main, level, tujuan). `/profile#sports` membuka sheet langsung.
+    - Ajakan SATU KALI untuk user tanpa profil olahraga yang sudah dapat nilai pertama (onboarding selesai / scan /
+      Health Score / workout) = nudge `sport_pick` di kotak nudge Activity yang sudah ada (bukan tombol baru);
+      hilang setelah ditutup/diklik/punya olahraga (`lib/journey-config.js`).
+    - Ikon baru `racket` di `js/fiticons.js`.
+  - **Fase 2 — plan mingguan di sekitar jadwal olahraga + mode event (TANPA migration).**
+    - Mesin deterministik `lib/sport-week.js` (tanpa AI), ambang `lib/sport-week-config.js` (**PERLU DIVALIDASI COACH**):
+      hari main = sesi utama (tak diganti); sehari setelah sesi berat = pemulihan (mobilitas 15') bila hari itu
+      tersedia; latihan pendukung (kategori dari paket, latihan dari `COACH_EXLIB`) di hari tersedia lain, sehari
+      sebelum sesi berat dibuat ringan; batas sesi berat/total/pendukung per level; minimal 1 hari istirahat penuh;
+      olahraga kedua tanpa hari tetap -> 1 sesi santai (lari/engine/beban ringan; padel tidak). Peringatan bila main
+      berat beruntun / terlalu sering / tanpa hari main.
+    - Event: dari katalog `my20fit_ticket_events` (yang cocok kata kunci olahraga user ditandai) atau isian sendiri;
+      fase dasar → meningkat (6 minggu) → menjelang event (taper per olahraga) + "X hari lagi menuju {event}".
+    - Disimpan sebagai plan aktif biasa (`my20fit_workout_plan`, `plan.kind = "sport_week"`, `week[7]`,
+      `sport_context`, `event` di dalam JSON). `days[]` = sesi latihan/pemulihan (key `w1..w7`, label nama hari)
+      supaya sesi harian, centang selesai, dan kartu plan lama tetap jalan.
+    - API: `GET /api/sport-plan/events`, `POST /api/sport-plan`, `POST /api/sport-plan/move` (tukar 2 hari lalu susun
+      ulang dgn aturan sama; centang selesai ikut). Ganti olahraga (`PUT /api/me/sports`) -> plan mingguan aktif
+      disusun ulang & berlaku **Senin depan** (`plan.next`, dipromosikan saat `GET /api/coach/plan`); minggu ini &
+      riwayat tetap.
+    - UI satu modul `js/sport-week-ui.js`: halaman Plan (`/activity/plan`) = kartu "Plan sesuai olahragamu" + form
+      (hari tersedia, durasi, lokasi, event) + layout Sen–Min (ikon/warna per jenis, ketuk = detail, tombol Pindah,
+      Mulai sesi hari ini); kartu plan di `/activity` untuk plan mingguan = hitung mundur + sesi hari ini (SATU tombol:
+      upload di hari main / mulai sesi di hari latihan / tanpa tombol di hari istirahat) + strip Sen–Min.
+    - **Belum:** sesi terpandu dari workout.20fit.id (masih disembunyikan pemilik, "belum siap"); pilihan variasi
+      latihan oleh AI (sengaja belum — mesin deterministik dulu); library latihan masih 16 gerakan umum (drill
+      kelincahan/rotasi spesifik belum ada, perlu coach). Drag-and-drop belum ada (pakai tombol Pindah).
+  - **Fase 3 — analisa per olahraga + langkah berikutnya + ctaResolver (TANPA migration).**
+    - Jenis workout baru `padel`, `tennis` (`js/workout-metrics.js` = satu sumber; select & validasi ikut). Hasil scan
+      AI berjudul padel/tennis dikenali server (`woTypeFromScan`) walau edge `my20fit-ai` lama mengirim "other";
+      prompt edge sudah diperbarui di repo tapi **edge function BELUM di-deploy ulang**.
+    - **RPE 1–10** (rasa berat, 1 ketukan di halaman analisa) -> `POST /api/activity/workouts/:id/rpe`, disimpan di
+      `raw_data.rpe` (terpisah dari check-in supaya tak menimpa jawabannya).
+    - Sinyal baru untuk olahraga TANPA pace (`lib/workout-signals.js`): `hr_high_effort` (HR rata-rata > biasanya untuk
+      RPE/durasi serupa), `hr_low_effort` (HR sulit naik padahal RPE tinggi), `rpe_high` (RPE >= 2 di atas sesi serupa,
+      semua jenis). Bobot penyebab di `causes.signature`; ambang `signals.effort_*`/`rpe_*` — **PERLU DIVALIDASI COACH**.
+      `hr_suppressed` (berbasis pace) tidak berlaku untuk jenis tanpa pace. Kalimat narasi & template untuk padel/tennis/gym
+      tidak menyebut pace (diuji ID/EN).
+    - **Langkah berikutnya** (`nextSteps`): 1–3 aksi konkret di setiap analisa (tidur sebelum jam X, karbo N jam sebelum
+      "Padel hari Kamis" dari plan mingguan, minum N ml, hari ringan, …; angka di `next_steps` config, PERLU DIVALIDASI).
+      Ajakan mencatat makan HANYA bila bahan bakar jadi dugaan yang belum bisa dicek.
+    - **Plan menyesuaikan otomatis**: analisa workout 0–1 hari lalu yang menyarankan pemulihan/sesi ringan meringankan
+      latihan pendukung besok/lusa di plan mingguan aktif SEKALI per workout (`plan.analysis_adjust`) + 1 kalimat.
+    - **`lib/cta-resolver.js`**: CTA analisa dipilih server dari inventaris + `cta_map` paket (maks 1+1); keamanan ->
+      dokter; CTA yang tampil >= 3x/14 hari tanpa diklik ditahan. Tracking `cta_shown`/`cta_clicked` di
+      `my20fit_event_log` (props cta, from, sport). Field `cta` lama di narasi DIHAPUS (template selalu `BOOK_CLASS` ->
+      `/book-class` yang error tanpa parameter). **Belum:** aturan lokasi (luar Jakarta) karena profil belum punya kota
+      (TANYA PEMILIK); resolver belum dipakai kartu Hari ini & CTA halaman Plan (masih 3 tombol lama, tabel
+      `my20fit_coach_cta_event`).
+  - **Fase 4 — batas keahlian AI Coach + tur + struktur challenge.**
+    - `lib/coach-boundary.js`: pesan chat diklasifikasi (kata kunci, deterministik, PERLU DIVALIDASI): **teknis** (dari
+      `technical_topics` paket, mis. bandeja/smash, wall ball, deadlift, form lari) atau **medis/cedera** (nyeri/cedera +
+      area tubuh; negasi "tidak sakit" diabaikan). Untuk keduanya server menyisipkan instruksi per pesan: jawab maks 2
+      kalimat umum & aman, jujur bahwa butuh ahli yang melihat langsung, jangan mengaku ahli olahraga itu (+ spesialisasi
+      coach dari `my20fit_coaches.speciality` bila diisi). CTA dari `ctaResolver`: medis -> dokter (+ fisioterapi);
+      teknis -> layanan per topik (`technical_topics[].cta`: HYROX -> kelas Arena, gym -> kelas Gym / coach); topik
+      tanpa layanan 20FIT (padel, form lari) -> TANPA CTA dan AI diminta jujur "20FIT belum punya layanannya".
+      Tombol disimpan sebagai token `[[CTA:<kunci>]]` di balasan (tetap tampil saat riwayat dibuka; riwayat ke AI
+      diganti catatan). `GET /api/coach/config` kini juga mengirim rute & label inventaris CTA.
+      **Teks aturan baru untuk RULES.md ("Batas keahlian per olahraga") BELUM di-commit — menunggu persetujuan pemilik.**
+    - Spesialisasi coach tampil di kartu persona (`js/coach-profiles.js`) bila diisi di admin-v2 → Coaches (saat ini
+      kosong untuk ke-24 coach aktif — TANYA PEMILIK / tim yang mengisi; tidak ditebak).
+    - Tur: `welcome` v2 + langkah `feat_sport` (olahragamu); `activity` & `activity_intro` v2 + langkah `week_plan`
+      (layout plan mingguan, alt bila belum punya plan mingguan). User yang sudah selesai versi lama hanya melihat
+      langkah baru.
+    - Komunitas: kartu "Komunitas olahragamu" di halaman Plan dari `community` paket (saat ini hanya direktori
+      20fit.id; Padel Rebel tersembunyi sampai URL-nya dikonfirmasi).
+    - Challenge: migration 032 (`my20fit_challenge`, `my20fit_challenge_member`, poin berbasis konsistensi) =
+      **STRUKTUR SAJA, BELUM dijalankan, belum dipakai kode** — menunggu challenge percontohan.
 - **Analisa performa per workout + halaman detail riwayat (2026-10-01, Fase 1–4, staging dulu, TANPA migration).**
   - **Fase 1 — ekstraksi:** `my20fit_workout` jadi satu sumber data workout (riwayat tak lagi membaca kalimat deskripsi
     AI). Judul kartu dari angka (`js/workout-metrics.js`, dipakai browser & server), mis. "Lari 5 km · 33:45 · 6:45/km".

@@ -90,6 +90,9 @@
     function fmtDay(s,st,en){ if(!s)return""; var d=new Date(s+"T00:00:00"); var day=s; try{ day=new Intl.DateTimeFormat(LL({en:"x",id:"y"})==="y"?"id-ID":"en-GB",{weekday:"long",day:"numeric",month:"short",timeZone:"Asia/Jakarta"}).format(d); }catch(e){} return day+" · "+st+(en?("–"+en):""); }
 
     var SOURCE=qp("source"), SCHED=qp("schedule")||qp("schedule_id"), INFO=null, PROFILE=null;
+    // Halaman ini konfirmasi SATU kelas (dibuka dari jadwal dengan ?source=&schedule=). Dibuka tanpa kelas
+    // (bookmark / link lama "Book Class") -> ke jadwal kelas, bukan pesan "Gagal memuat kelas ini".
+    if(["arena","gym"].indexOf(SOURCE)<0||!SCHED){ location.replace("/classes"+(SOURCE==="gym"?"?venue=gym":"")); return; }
 
     function reasonMsg(r){ return LL(r==="full"?TXT.full:r==="closed"?TXT.closed:r==="passed"?TXT.passed:r==="cancelled"?TXT.cancelled:TXT.closed); }
 
@@ -137,7 +140,6 @@
     function applyStatic(){ $("pgTitle").textContent=LL(TXT.title); $("backTxt").textContent=LL(TXT.back); document.title=LL(TXT.title)+" · 20FIT"; }
     async function load(){
       var root=$("root"); root.innerHTML='<div class="state">…</div>';
-      if(["arena","gym"].indexOf(SOURCE)<0||!SCHED){ root.innerHTML='<div class="state">'+LL(TXT.loadErr)+'</div>'; return; }
       try{
         var r=await apiGet("/api/book/class-info?source="+encodeURIComponent(SOURCE)+"&schedule_id="+encodeURIComponent(SCHED));
         var j=await r.json().catch(function(){return null;});

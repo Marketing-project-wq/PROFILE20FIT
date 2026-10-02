@@ -164,7 +164,7 @@
 (function(){
   var WM=window.WorkoutMetrics;
   var ID=decodeURIComponent((location.pathname.match(/\/activity\/history\/([^\/?#]+)/)||[])[1]||"");
-  var S={ w:null, a:null, n:null, pending:false, coach:"nando", emergency:null };
+  var S={ w:null, a:null, n:null, pending:false, coach:"nando", emergency:null, steps:[], cta:null, adjusted:null, sport:null, ctaLogged:false };
   function L(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
   function lang(){ return (window.I18N&&I18N.lang==="en")?"en":"id"; }
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
@@ -184,11 +184,13 @@
   // Sinyal HR & pace (lib/workout-signals.js) + kandidat penyebab — label tampilan.
   var SIG={ efficiency_drop:[{en:"Aerobic efficiency",id:"Efisiensi aerobik"},"heart"], cardiac_drift:[{en:"Cardiac drift",id:"Cardiac drift"},"chart"],
     late_fade:[{en:"Pace at the end",id:"Pace di akhir"},"run"], late_fade_short:[{en:"Pace at the end",id:"Pace di akhir"},"run"],
-    hr_suppressed:[{en:"Heart rate didn't rise",id:"HR sulit naik"},"heart"], zones_high:[{en:"Heart-rate zones",id:"Zona heart rate"},"target"], readiness_low:[{en:"Recovery",id:"Pemulihan"},"moon"] };
+    hr_suppressed:[{en:"Heart rate didn't rise",id:"HR sulit naik"},"heart"], zones_high:[{en:"Heart-rate zones",id:"Zona heart rate"},"target"], readiness_low:[{en:"Recovery",id:"Pemulihan"},"moon"],
+    hr_high_effort:[{en:"Heart rate vs effort",id:"HR vs rasa berat"},"heart"], hr_low_effort:[{en:"Heart rate didn't rise",id:"HR sulit naik"},"heart"], rpe_high:[{en:"How hard it felt",id:"Rasa berat (RPE)"},"fire"] };
   var NEED={ no_hr:{en:"average heart rate",id:"HR rata-rata"}, no_pace:{en:"pace/distance",id:"pace/jarak"}, baseline:{en:"3+ similar workouts",id:"minimal 3 workout sejenis"},
     no_splits:{en:"Splits screen",id:"layar Splits"}, no_split_hr:{en:"heart rate per split",id:"HR per split"}, few_splits:{en:"4+ splits",id:"minimal 4 split"},
     too_short:{en:"a session of 30+ min",id:"sesi minimal 30 menit"}, no_max_hr:{en:"max heart rate",id:"HR maksimal"}, no_zones:{en:"HR zones screen",id:"layar zona HR"},
-    no_readiness:{en:"recovery screen (resting HR/HRV)",id:"layar pemulihan (resting HR/HRV)"}, not_applicable:null };
+    no_readiness:{en:"recovery screen (resting HR/HRV)",id:"layar pemulihan (resting HR/HRV)"}, no_rpe:{en:"your effort rating (RPE)",id:"rasa berat (RPE)"},
+    baseline_rpe:{en:"RPE on 3+ similar sessions",id:"RPE di minimal 3 sesi serupa"}, not_applicable:null };
   var CAUSE={ short_sleep:[{en:"Short sleep",id:"Kurang tidur"},"moon"], low_fuel:[{en:"Low fuel before training",id:"Kurang bahan bakar sebelum latihan"},"meal"],
     dehydration:[{en:"Not drinking enough",id:"Kurang minum"},"water"], heat:[{en:"Heat & humidity",id:"Panas & lembap"},"sun"], high_load:[{en:"Accumulated training load",id:"Beban latihan menumpuk"},"dumbbell"],
     unwell:[{en:"Not feeling well",id:"Badan kurang fit"},"heart"], pacing:[{en:"Starting too fast",id:"Pacing awal terlalu cepat"},"run"] };
@@ -374,15 +376,30 @@
   }
   function coachCard(){
     var n=S.n||{}, nm=(window.CoachProfiles&&CoachProfiles.NAME[S.coach])||"Coach";
-    var src=n.source==="ai"?L({en:"Written by your AI coach from your own data — every number checked.",id:"Ditulis AI coach dari datamu sendiri — semua angka sudah dicek."})
+    var src=n.source==="ai"?L({en:"Written by Coach Intelligence from your own data — every number checked.",id:"Ditulis Coach Intelligence dari datamu sendiri — semua angka sudah dicek."})
       :L({en:"Automatic summary from your data.",id:"Ringkasan otomatis dari datamu."});
     return '<div class="sec">'+esc(L({en:"Coach says",id:"Kata Coach"}))+'</div><div class="card co" id="coBox"><div class="co-h">'+
-      (window.CoachProfiles?CoachProfiles.avatar(S.coach,46):'')+'<div><b>Coach '+esc(nm)+'</b><span>'+esc(L({en:"AI coach · not a doctor",id:"AI coach · bukan dokter"}))+'</span></div></div>'+
+      (window.CoachProfiles?CoachProfiles.avatar(S.coach,46):'')+'<div><b>Coach '+esc(nm)+'</b><span>'+esc(L({en:"Coach Intelligence · not a doctor",id:"Coach Intelligence · bukan dokter"}))+'</span></div></div>'+
       // Ringkasan otomatis (template) memakai kalimat yang sama dengan kartu di atas -> cukup headline + batasnya.
       (n.headline?'<p><b>'+esc(n.headline)+'</b></p>':'')+(n.source==="ai"?(n.what_we_saw||[]).concat(n.likely_why||[]).map(function(p){ return '<p>'+esc(p)+'</p>'; }).join(""):"")+
       (n.what_we_cant_tell?'<p class="cant">'+esc(n.what_we_cant_tell)+'</p>':'')+
       '<div class="src">'+(S.pending?esc(L({en:"Coach is writing a personal analysis",id:"Coach sedang menulis analisa personal"}))+'<span class="typing"><i></i><i></i><i></i></span>':FIC("check",13)+' '+esc(src))+'</div>'+
       '<div class="acts" style="margin-top:12px"><button type="button" class="b pri" id="bReply">'+FIC("chat",15)+' '+esc(L({en:"Reply to coach",id:"Balas Coach"}))+'</button></div></div>';
+  }
+  // RPE — rasa berat sesi 1–10, SATU ketukan (dipakai membandingkan sesi tanpa pace: padel, tennis, gym, …).
+  function rpeCard(){
+    var v=S.a.rpe;
+    if(v!=null&&!S.rpeEdit) return '<div class="card" style="margin-top:12px;display:flex;align-items:center;gap:10px"><span style="flex:1;font-size:13.5px">'+FIC("fire",15)+' '+
+      esc(L({en:"Effort (RPE): ",id:"Rasa berat (RPE): "}))+'<b>'+v+'/10</b></span><button type="button" class="b" data-act="rpeedit">'+esc(L({en:"Change",id:"Ubah"}))+'</button></div>';
+    return '<div class="card ck" style="margin-top:12px"><label class="q" style="margin-top:0">'+esc(L({en:"How hard did this session feel? (RPE 1 = very easy, 10 = max)",id:"Seberapa berat sesi ini? (RPE 1 = sangat ringan, 10 = maksimal)"}))+'</label>'+
+      '<div class="opts" id="rpeOpts">'+[1,2,3,4,5,6,7,8,9,10].map(function(n){ return '<button type="button" data-rpe="'+n+'" class="'+(v===n?"on":"")+'" aria-label="RPE '+n+'">'+n+'</button>'; }).join("")+'</div>'+
+      '<div class="note" style="margin-top:6px">'+esc(L({en:"One tap. Lets us compare sessions without pace (padel, tennis, gym).",id:"Satu ketukan. Dipakai membandingkan sesi tanpa pace (padel, tennis, gym)."}))+'</div><div class="err" id="rpeErr"></div></div>';
+  }
+  // Langkah berikutnya: 1–3 aksi konkret dari analisa (server, deterministik) + catatan plan yang sudah disesuaikan.
+  function stepsCard(){
+    if(!S.steps.length) return "";
+    return '<div class="sec">'+esc(L({en:"Next steps",id:"Langkah berikutnya"}))+'</div><div class="card nxc"><ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.5">'+
+      S.steps.map(function(x){ return '<li>'+esc(x.text)+'</li>'; }).join("")+'</ol></div>';
   }
   // Latihan berikutnya (dari analisa, deterministik) + tips + "Implement plan" -> masuk ke Plan Hari Ini di /activity.
   function nextCard(){
@@ -394,12 +411,13 @@
       (nx&&nx.implementable?'<div class="acts" style="margin-top:12px"><button type="button" class="b pri" id="bImpl">'+FIC("check",15)+' '+esc(L({en:"Implement plan",id:"Terapkan ke Activity"}))+'</button></div>'+
         '<div class="note" style="margin-top:8px">'+esc(L({en:"Adds this workout to today's plan on your Activity page.",id:"Latihan ini masuk ke Plan Hari Ini di halaman Activity."}))+'</div><div class="err" id="implErr"></div>':'')+'</div>';
   }
+  // CTA ke produk 20FIT — dipilih server (lib/cta-resolver.js, hanya dari inventaris); maks 1 utama + 1 sekunder.
   function ctaCard(){
-    var c=S.n&&S.n.cta;
-    if(c==="BOOK_CLASS") return '<div class="card" style="margin-top:12px"><div class="acts"><a class="b pri" href="/book-class">'+FIC("calendar",15)+' '+esc(L({en:"Book a class with a 20FIT coach",id:"Book kelas dengan coach 20FIT"}))+'</a></div></div>';
-    if(c==="BOOK_DOCTOR") return '<div class="card" style="margin-top:12px"><div class="acts"><a class="b pri" href="/book-doctor">'+FIC("clinic",15)+' '+esc(L({en:"Book a doctor (20FIT Sports Clinic)",id:"Book dokter (20FIT Sports Clinic)"}))+'</a></div></div>';
-    return "";
+    var c=S.cta; if(!c||!c.primary) return "";
+    var a=function(x,pri){ return '<a class="b'+(pri?" pri":"")+'" href="'+esc(x.route)+'" data-cta="'+esc(x.key)+'">'+esc(L(x.label))+' →</a>'; };
+    return '<div class="card" style="margin-top:12px"><div class="note" style="margin:0 0 8px">'+esc(L(c.primary.reason||{en:"",id:""}))+'</div><div class="acts">'+a(c.primary,true)+(c.secondary?a(c.secondary,false):"")+'</div></div>';
   }
+  function ctaLog(ev,key){ api("/api/journey/event",{method:"POST",body:JSON.stringify({event:ev,props:{cta:key,from:"analysis",sport:S.sport||""}})}).catch(function(){}); }
   function safetyCard(){
     var n=S.n||{}, em=S.a.safety.level==="emergency";
     var call=em?(S.emergency?'<a class="b pri" href="tel:'+esc(S.emergency)+'">'+esc(L({en:"Call ",id:"Hubungi "})+S.emergency)+'</a>'
@@ -410,7 +428,7 @@
   function render(){
     var root=el("root"), html=head();
     if(S.a.safety) html+=safetyCard()+metrics();
-    else html+=metrics()+perf()+signalsCard()+readCard()+checkinCard()+factors()+coachCard()+nextCard()+howCard()+ctaCard();
+    else html+=metrics()+rpeCard()+perf()+signalsCard()+readCard()+checkinCard()+factors()+coachCard()+stepsCard()+nextCard()+howCard()+ctaCard();
     html+='<div class="acts" style="margin-top:22px"><button type="button" class="b dng" id="bDel">'+FIC("trash",15)+' '+esc(L({en:"Delete this upload",id:"Hapus upload ini"}))+'</button></div>';
     root.innerHTML=html;
     wire();
@@ -423,12 +441,16 @@
     el("bEdit").onclick=function(){ openEdit(); };
     el("bDel").onclick=delWorkout;
     var bi=el("bImpl"); if(bi) bi.onclick=implementPlan;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-rpe]"),function(b){ b.onclick=function(){ saveRpe(+b.getAttribute("data-rpe")); }; });
+    Array.prototype.forEach.call(document.querySelectorAll("a[data-cta]"),function(a){ a.onclick=function(){ ctaLog("cta_clicked",a.getAttribute("data-cta")); }; });
+    if(S.cta&&!S.ctaLogged&&!S.a.safety){ S.ctaLogged=true; [S.cta.primary,S.cta.secondary].forEach(function(x){ if(x) ctaLog("cta_shown",x.key); }); }
     var br=el("bReply"); if(br) br.onclick=function(){
       var w=S.w, msg=L({en:"About my "+w.title+" on "+fmtDay(w.date,{day:"numeric",month:"short"})+": ",id:"Soal "+w.title+" tanggal "+fmtDay(w.date,{day:"numeric",month:"short"})+": "});
       location.href="/activity/chat/"+encodeURIComponent(S.coach)+"?ask="+encodeURIComponent(msg);
     };
     Array.prototype.forEach.call(document.querySelectorAll("[data-act]"),function(b){
       b.onclick=function(){ var a=b.getAttribute("data-act");
+        if(a==="rpeedit"){ S.rpeEdit=true; render(); return; }
         if(a==="ckedit"){ var ci=S.a.checkin||{}; CK={sleep:ci.sleep_hours!=null?ci.sleep_hours:null,meal_gap:ci.meal_gap||null,conditions:ci.conditions||null,feeling:ci.feeling||null}; S.ckOpen=true; render(); }
         else if(a==="cksave") saveCheckin(b); };
     });
@@ -493,6 +515,15 @@
       await load();
     }catch(e){ btn.disabled=false; el("ckErr").textContent=(e&&e.message&&e.message!=="401")?e.message:L({en:"Couldn't save. Try again.",id:"Gagal menyimpan. Coba lagi."}); }
   }
+  async function saveRpe(n){
+    Array.prototype.forEach.call(document.querySelectorAll("[data-rpe]"),function(b){ b.disabled=true; });
+    try{
+      var r=await api("/api/activity/workouts/"+encodeURIComponent(ID)+"/rpe",{method:"POST",body:JSON.stringify({rpe:n})});
+      if(!r.ok) throw new Error((r.j&&r.j.error)||"");
+      S.rpeEdit=false; await load();
+    }catch(e){ var er=el("rpeErr"); if(er) er.textContent=(e&&e.message&&e.message!=="401")?e.message:L({en:"Couldn't save. Try again.",id:"Gagal menyimpan. Coba lagi."});
+      Array.prototype.forEach.call(document.querySelectorAll("[data-rpe]"),function(b){ b.disabled=false; }); }
+  }
   async function implementPlan(){
     var b=el("bImpl"), er=el("implErr"); b.disabled=true; er.textContent="";
     try{
@@ -518,6 +549,7 @@
       if(r.status===404){ root.innerHTML='<div class="card"><div class="empty">'+esc(L({en:"Workout not found.",id:"Workout tidak ditemukan."}))+'<br><a href="/activity/history">'+esc(L({en:"Back to history",id:"Kembali ke riwayat"}))+'</a></div></div>'; return; }
       if(!r.ok) throw new Error();
       S.w=r.j.workout; S.a=r.j.analysis; S.n=r.j.narrative; S.next=r.j.next||null; S.emergency=r.j.emergency_number||null;
+      S.steps=r.j.next_steps||[]; S.cta=r.j.cta||null; S.sport=r.j.sport_key||null;
       if(r.j.coach_id&&window.CoachProfiles&&CoachProfiles.NAME[r.j.coach_id]) S.coach=r.j.coach_id;
       S.pending=!!r.j.narrative_pending;
       render();

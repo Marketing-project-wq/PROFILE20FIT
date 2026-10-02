@@ -1,6 +1,6 @@
 # DATABASE — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `e298aa2` · **Production:** `cb621dc`
+> **Pembaruan terakhir:** 2026-10-02 · **Commit staging:** `4727bfd` · **Production:** `a27ff79`
 > Sumber: `db/*.sql`, `supabase/`, dan pemakaian di `server.js`. Nama tabel & migration
 > terverifikasi dari file. **Detail kolom: buka file migration terkait** (di bawah tak
 > diisi kolom tebakan). Relasi umum lihat catatan.
@@ -24,6 +24,8 @@
 | Banner / promo | `my20fit_banner`, `my20fit_banner_event` |
 | Corporate | `my20fit_corporate`, `my20fit_corporate_admin`, `my20fit_corporate_member`, `my20fit_corporate_message_log`, `my20fit_corporate_access_log` |
 | Ulasan kelas | `my20fit_class_reviews` (migration 030, dijalankan 2026-10-01) |
+| Profil olahraga (maks 2) | `my20fit_user_sports` (migration 031, **BELUM dijalankan**) |
+| Challenge komunitas (struktur) | `my20fit_challenge`, `my20fit_challenge_member` (migration 032, **BELUM dijalankan**, belum dipakai kode) |
 | Roster tampilan (coach/dokter/fisioterapis) | `my20fit_coaches`, `my20fit_coach_instructor_aliases`, `my20fit_doctors`, `my20fit_physiotherapists` |
 | Tiket event | `my20fit_ticket_events` (katalog + `sold_count` agregat, disinkron `sync-ticket-events`). `my20fit_ticket_tokens` masih ada di DB tapi **sudah tidak dipakai kode mana pun** sejak jalur OTP dibuang (`d1c2a38`). Arsip pembelian dibaca **read-only** dari `event_transaction` — tabel **milik app lain**, tanpa prefix: jangan ditulis. |
 
@@ -44,7 +46,7 @@
 - Kolom lain: **buka file migration** yang sesuai (di bawah). Tidak diisi tebakan di sini.
 
 ### RPC / function Postgres (dipanggil server via `admin.rpc(...)`)
-`my20fit_credit_scan`, `my20fit_consume_scan`, `my20fit_add_credits`, `my20fit_grant_menu_reward`, `my20fit_revoke_menu_reward`.
+`my20fit_credit_scan`, `my20fit_consume_scan`, `my20fit_add_credits`, `my20fit_grant_menu_reward`, `my20fit_revoke_menu_reward`, `my20fit_set_user_sports` (031).
 
 ## Migration (di `db/`, dijalankan berurutan)
 | File | Isi (dari judul/komentar) |
@@ -111,6 +113,20 @@
   **Dijalankan 2026-10-01** (agent via koneksi Supabase, setelah user sesi — Marketing@20fit.id — menyetujui
   eksplisit; aditif). Terverifikasi: 12 kolom termasuk `tags`, RLS on, 1 policy, 4 index. Project Supabase dipakai
   bersama staging & produksi, jadi tabel berlaku di keduanya.
+- **`db/supabase-migration-031-user-sports.sql`** — `my20fit_user_sports` (Activity multi-sport, Fase 1): olahraga user,
+  **maks 2** ditegakkan DB (PK `auth_user_id, rank` + `rank in (1,2)`), unik per olahraga (untuk "Lainnya" dibedakan dari
+  `other_label`), `play_days` ISO 1–7, `level` beginner|regular|competitive, `goal` (kunci dari paket). Daftar olahraga
+  valid ada di `lib/sport-packs/` (config), DB hanya cek format key. RPC `my20fit_set_user_sports(p_uid, p_rows)`
+  (security definer, hanya service_role) mengganti pilihan dalam satu transaksi. RLS: user baca miliknya. Masuk
+  `USER_DATA_TABLES`. **BELUM dijalankan** — sebelum dijalankan, `/api/me/sports` membalas 500, ajakan di Activity
+  tidak tampil, dan onboarding tetap bisa lanjut. Diuji di Postgres 16 lokal: idempoten, rank 3 & duplikat ditolak,
+  tukar urutan aman, gagal = tidak ada data setengah tersimpan.
+- **`db/supabase-migration-032-challenges.sql`** — struktur challenge per olahraga / lintas olahraga (Activity multi-sport
+  Fase 4, Bagian G): `my20fit_challenge` (slug, title/description jsonb, `sport_key` NULL = lintas, `scoring` hanya
+  'consistency', `rules` jsonb, tanggal, status draft|active|ended, community_url) + `my20fit_challenge_member`
+  (poin & sesi per user). RLS: member login baca challenge aktif/selesai; baris keikutsertaan hanya miliknya.
+  **HANYA STRUKTUR — BELUM dijalankan & belum ada kode yang memakainya** (menunggu challenge percontohan). Diuji di
+  Postgres 16 lokal: idempoten, tanggal terbalik & scoring selain consistency ditolak.
 - `supabase/functions/` — Edge Functions: `my20fit-ai`, `my20fit-foodimg`, `sync-ticket-events`, `ticket-embed` (TypeScript, di-deploy terpisah via Supabase). `ticket-embed` memegang secret `TICKET_EMBED_KEY` dan jadi **satu-satunya** jalur ke `ticket.20fit.id/api/embed/v1`; `server.js` tak punya env tiket sama sekali.
 
 ## Cara menjalankan migration

@@ -20,6 +20,12 @@ const campaigns = require("./lib/campaigns"); // engine meal reminder + onboardi
 const segments = require("./lib/segments"); // segment engine untuk blast email admin
 const visbody = require("./lib/visbody"); // SATU-SATUNYA jalur ke Visbody WellnessHub (timbangan S20)
 const journeyConfig = require("./lib/journey-config"); // angka alur Visbody + Health Score
+const sportPacks = require("./lib/sport-packs"); // paket olahraga (Activity multi-sport) — DRAFT, perlu validasi coach
+const sportWeek = require("./lib/sport-week"); // plan mingguan di sekitar jadwal olahraga (deterministik)
+const sportWeekCfg = require("./lib/sport-week-config");
+const ctaResolver = require("./lib/cta-resolver"); // CTA terpusat (hanya dari lib/cta-inventory.js)
+const coachBoundary = require("./lib/coach-boundary"); // batas keahlian AI Coach: topik teknis/medis -> jawaban singkat + CTA
+const ctaInventory = require("./lib/cta-inventory");
 const classOverrides = require("./lib/class-overrides"); // koreksi sementara instruktur jadwal Arena/Gym
 const woAnalysis = require("./lib/workout-analysis"); // analisa performa workout (deterministik)
 const woNarrative = require("./lib/workout-narrative"); // narasi analisa workout (template + AI tervalidasi)
@@ -411,15 +417,17 @@ async function vbGrantConsent(uid, source, grantedBy) {
   if (error) throw error;
 }
 
-// Ambil data ukur dari Visbody lalu simpan atas nama user. Dipakai webhook (scan sudah
-// punya pemilik & body_composition selesai) dan jalur claim (member / staf).
+// Ambil data ukur dari Visbody lalu simpan atas nama user. Dipakai webhook ("completed"),
+// jalur claim (member / staf) dan pengambilan ulang vbRetryPending.
 async function visbodyFetchAndStore(scanRow, userId) {
   try {
     const data = await visbody.getScanData(scanRow.scan_id);
     const mapped = visbody.mapBodyComposition(data && data.body_composition);
     if (!mapped) {
+      // Belum ada hasil (Visbody masih memproses) -> BUKAN gagal: status tetap "bound",
+      // vbRetryPending mencoba lagi nanti.
       await admin.from("my20fit_visbody_scan")
-        .update({ status: "failed", last_error: "balasan Visbody tanpa body_composition", updated_at: new Date().toISOString() })
+        .update({ last_error: "hasil belum tersedia dari Visbody", updated_at: new Date().toISOString() })
         .eq("scan_id", scanRow.scan_id);
       return false;
     }
@@ -452,11 +460,22 @@ async function visbodyFetchAndStore(scanRow, userId) {
     return false;
   }
 }
-// body_composition belum "completed" (masih processing) -> jangan ambil dulu; webhook
-// "completed" berikutnya yang mengambil. Status tak dikenal -> coba ambil.
-function vbDataReady(scanRow) {
-  const mi = (scanRow && scanRow.measured_items) || {};
-  return !mi.body_composition || mi.body_composition === "completed";
+// Scan milik user yang hasilnya belum tersimpan -> ambil ulang. Webhook "completed" dari Visbody
+// TIDAK bisa diandalkan (data asli 27–28 Sep: semua scan berhenti di "processing"), jadi tiap
+// kali user membuka Activity / halaman Visbody (jnState) scan yang tertunda dicoba lagi.
+// Rem: tiap scan paling cepat sekali per fetch_retry_minutes, berhenti setelah fetch_retry_days.
+async function vbRetryPending(uid) {
+  if (!visbody.configured()) return false;
+  const C = VB_CFG, now = Date.now();
+  const { data } = await admin.from("my20fit_visbody_scan").select("scan_id,scan_time,pdf_url,updated_at")
+    .eq("auth_user_id", uid).in("status", ["bound", "failed"]).order("scan_time", { ascending: false }).limit(5);
+  const due = (data || []).filter(function (s) {
+    return now - new Date(s.scan_time).getTime() < C.fetch_retry_days * 86400000 &&
+      now - new Date(s.updated_at).getTime() >= C.fetch_retry_minutes * 60000;
+  }).slice(0, 2);
+  let stored = false;
+  for (const s of due) { if (await visbodyFetchAndStore(s, uid)) stored = true; }
+  return stored;
 }
 
 // Ikat scan ke user (dipakai claim member & bind staf). Menang HANYA kalau scan masih tanpa
@@ -492,7 +511,9 @@ async function vbBindScan(scan, user, via) {
     bindWarn = String((e && e.message) || e).slice(0, 300);
     console.error("visbody bind:", bindWarn);
   }
-  const stored = vbDataReady(scan) ? await visbodyFetchAndStore(scan, user.id) : false;
+  // Selalu coba ambil, walau event terakhir masih "processing" (BELUM TERVERIFIKASI kapan hasil tersedia
+  // di API Visbody); belum ada -> status tetap "bound" dan vbRetryPending mencoba lagi.
+  const stored = await visbodyFetchAndStore(scan, user.id);
   return { ok: true, data_ready: stored, bind_warning: bindWarn };
 }
 
@@ -753,15 +774,18 @@ const JN_EVENTS = new Set([
   "workout_plan_created", "class_booked", "rescan_reminder_sent", "rescan_completed",
   "health_score_locked_shown", "health_score_unlocked",
   "tour_started", "tour_step_viewed", "tour_skipped", "tour_completed", "tour_replayed", "tour_cta_clicked",
+  "nudge_sport_shown", "nudge_sport_clicked", "sports_updated", "cta_shown", "cta_clicked",
 ]);
 const JN_CLIENT_EVENTS = new Set([
   "visbody_booking_clicked", "activity_landing_after_claim", "health_score_locked_shown",
   "tour_started", "tour_step_viewed", "tour_skipped", "tour_completed", "tour_replayed", "tour_cta_clicked",
+  "cta_shown", "cta_clicked",
 ]);
 // Nudge -> event saat tampil / diklik (funnel Bagian E).
 const JN_NUDGE_EVENTS = {
   visbody_after_workouts: { shown: "nudge_visbody_shown", clicked: "nudge_visbody_clicked" },
   rescan_due: { shown: "rescan_reminder_sent", clicked: null },
+  sport_pick: { shown: "nudge_sport_shown", clicked: "nudge_sport_clicked" },
 };
 function jnLog(uid, event, props) {
   if (!admin || !JN_EVENTS.has(event)) return Promise.resolve();
@@ -801,15 +825,17 @@ function jnYmd(d) { return d.toISOString().slice(0, 10); }
 // Satu pembaca status perjalanan user — dipakai /activity, landing setelah login, tur.
 async function jnState(uid) {
   const N = journeyConfig.nudges, J = journeyConfig.journey;
-  const [scansR, bodyR, j, profR, planR, wkR, upR, tourR] = await Promise.all([
+  await vbRetryPending(uid).catch(function (e) { console.error("visbody retry:", (e && e.message) || e); });
+  const [scansR, bodyR, j, profR, planR, wkR, upR, tourR, sportR] = await Promise.all([
     admin.from("my20fit_visbody_scan").select("scan_id,scan_time,claimed_at,viewed_at,pdf_url,status").eq("auth_user_id", uid).order("scan_time", { ascending: false }).limit(20),
     admin.from("my20fit_visbody_body").select("scan_id,scanned_at,body_weight,body_fat_percentage,muscle_mass,body_mass_index,basal_metabolic_rate,visceral_fat_grade").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(2),
     jnGet(uid),
-    admin.from("my20fit_profile").select("calorie_target_kcal,calorie_target_source,calorie_target_set_at").eq("auth_user_id", uid).limit(1),
+    admin.from("my20fit_profile").select("calorie_target_kcal,calorie_target_source,calorie_target_set_at,onboarding_completed").eq("auth_user_id", uid).limit(1),
     admin.from("my20fit_workout_plan").select("id").eq("auth_user_id", uid).limit(1),
     admin.from("my20fit_workout").select("id").eq("auth_user_id", uid).limit(N.visbody_after_workouts.min_workouts),
     admin.from("my20fit_activity_uploads").select("id").eq("auth_user_id", uid).eq("upload_type", "workout").limit(N.visbody_after_workouts.min_workouts),
     admin.from("my20fit_tour_state").select("tour_key,version,status,last_step,seen_steps,updated_at").eq("auth_user_id", uid),
+    admin.from("my20fit_user_sports").select("rank").eq("auth_user_id", uid).limit(1),
   ]);
   const scans = scansR.data || [], bodies = bodyR.data || [];
   const latestScan = scans[0] || null, body = bodies[0] || null, prevBody = bodies[1] || null;
@@ -851,6 +877,14 @@ async function jnState(uid) {
   const rescanDue = j.rescan_due || (lastScanAt ? jnYmd(new Date(new Date(lastScanAt).getTime() + J.rescan_interval_days * 86400000)) : null);
   if (N.rescan_due.enabled && hasScan && rescanDue && rescanDue <= jnYmd(new Date()) && !capped("rescan_due", N.rescan_due.cap_days)) {
     nudges.push({ key: "rescan_due", last_scan_at: lastScanAt, days: Math.floor(jnDaysSince(lastScanAt)) });
+  }
+  // Ajakan memilih olahraga — untuk user yang BELUM punya profil olahraga (mis. user lama yang
+  // onboarding-nya sebelum pertanyaan olahraga ada) dan sudah mendapat nilai pertama. Tabel
+  // belum ada (migration 031 belum jalan) -> sportR.error -> nudge tidak tampil.
+  const hasSports = !sportR.error && !!(sportR.data && sportR.data.length);
+  const gotValue = hasScan || !!j.hs_unlocked_at || workouts > 0 || !!prof.onboarding_completed;
+  if (N.sport_pick.enabled && !sportR.error && !hasSports && gotValue && !capped("sport_pick", N.sport_pick.cap_days)) {
+    nudges.push({ key: "sport_pick" });
   }
 
   const landing = J.landing === "always" ? (hasScan ? "/activity" : null) : (J.landing === "new_scan" ? (unviewed ? "/activity" : null) : null);
@@ -986,7 +1020,7 @@ app.post("/api/journey/event", async (req, res) => {
     if (!JN_CLIENT_EVENTS.has(ev)) return res.status(400).json({ error: "Event tidak dikenal." });
     // Props: hanya kunci yang dikenal & nilai primitif pendek (bukan tempat sampah data).
     const props = {};
-    ["tour", "step", "total", "cta", "from", "version"].forEach(function (k) {
+    ["tour", "step", "total", "cta", "from", "version", "sport"].forEach(function (k) {
       const v = b.props && b.props[k];
       if (typeof v === "string") props[k] = v.slice(0, 40); else if (typeof v === "number" && isFinite(v)) props[k] = v;
     });
@@ -999,6 +1033,45 @@ app.post("/api/journey/event", async (req, res) => {
     await jnLog(user.id, ev, props);
     return res.json({ ok: true });
   } catch (e) { return res.status(500).json({ error: "Gagal." }); }
+});
+
+// ============================================================
+// PROFIL OLAHRAGA (Activity multi-sport, Fase 1) — maks 2 olahraga per user.
+// ============================================================
+// Isi paket & validasi: lib/sport-packs (DRAFT, perlu validasi coach). Tabel: my20fit_user_sports
+// (migration 031). Batas 2 ditegakkan di klien (js/sport-picker.js), di sini, DAN di DB.
+// Daftar olahraga untuk pemilih (publik: tidak ada data user).
+app.get("/api/sports", function (req, res) {
+  res.set("Cache-Control", "public, max-age=300");
+  return res.json(Object.assign({ ok: true }, sportPacks.publicList()));
+});
+const SPORT_COLS = "rank,sport_key,other_label,play_days,level,goal,updated_at";
+app.get("/api/me/sports", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data, error } = await admin.from("my20fit_user_sports").select(SPORT_COLS).eq("auth_user_id", user.id).order("rank");
+    if (error) throw error;
+    return res.json({ ok: true, sports: data || [] });
+  } catch (e) { console.error("me/sports:", (e && e.message) || e); return res.status(500).json({ error: "Gagal memuat olahraga." }); }
+});
+// Ganti seluruh pilihan (urut prioritas). Riwayat workout/analisa TIDAK disentuh; plan berikutnya
+// yang menyesuaikan (Fase 2).
+app.put("/api/me/sports", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {}, v = sportPacks.validateSelection(b.sports);
+    if (v.error) return res.status(400).json({ error: v.error.id, error_i18n: v.error });
+    const { error } = await admin.rpc("my20fit_set_user_sports", { p_uid: user.id, p_rows: v.rows });
+    if (error) throw error;
+    jnLog(user.id, "sports_updated", { from: String(b.from || "profile").slice(0, 30), sports: v.rows.map(function (r) { return r.sport_key; }) });
+    try { await sportPlanQueueNext(user.id); } catch (e) { console.error("sport-plan next:", (e && e.message) || e); }
+    const { data } = await admin.from("my20fit_user_sports").select(SPORT_COLS).eq("auth_user_id", user.id).order("rank");
+    return res.json({ ok: true, sports: data || [] });
+  } catch (e) { console.error("me/sports put:", (e && e.message) || e); return res.status(500).json({ error: "Gagal menyimpan olahraga." }); }
 });
 // ADMIN — funnel mingguan (user unik per event per minggu, Senin–Minggu, UTC).
 const JN_FUNNEL = ["nudge_visbody_shown", "nudge_visbody_clicked", "visbody_booking_clicked", "visbody_scan_received",
@@ -5276,7 +5349,7 @@ var USER_DATA_TABLES = [
   "my20fit_coach_chat_session", "my20fit_coach_chat_message", "my20fit_coach_meal_plan",
   "my20fit_visbody_body", "my20fit_visbody_scan", "my20fit_data_consent",
   "my20fit_health_journey", "my20fit_tour_state", "my20fit_event_log",
-  "my20fit_activity_uploads", "my20fit_today_plans", "my20fit_class_reviews",
+  "my20fit_activity_uploads", "my20fit_today_plans", "my20fit_class_reviews", "my20fit_user_sports",
   "my20fit_mcu_result", "my20fit_fasting", "my20fit_user_activity",
   "my20fit_menu_contribution", "my20fit_menu_reward_log", "my20fit_corporate_member",
   "my20fit_scan_orders", "my20fit_scan_ledger", "my20fit_voucher_usages"
@@ -10061,7 +10134,7 @@ app.post("/api/activity/scan", async (req, res) => {
       date_confirm_after_days: woConfig.date_confirm_after_days,
       result: {
         title: r.title ? String(r.title).slice(0, 160) : null,
-        type: TYPES.indexOf(String(r.type)) >= 0 ? String(r.type) : null,
+        type: woTypeFromScan(r, TYPES),
         duration_min: num(r.duration_min, 0.1, 1440),
         distance_km: num(r.distance_km, 0.01, 1000),
         calories_burned: num(r.calories_burned, 1, 20000),
@@ -10462,7 +10535,7 @@ app.get("/api/coach/plan", async (req, res) => {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
     const { data } = await admin.from("my20fit_workout_plan").select("*").eq("auth_user_id", user.id).eq("is_active", true).order("created_at", { ascending: false }).limit(1);
-    return res.json({ ok: true, plan: (data && data[0]) || null });
+    return res.json({ ok: true, plan: await sportPlanPromote((data && data[0]) || null) });
   } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, plan: null, setup_required: true }); return res.status(500).json({ error: "Gagal memuat plan." }); }
 });
 // GET /api/coach/plans — semua plan user (terbaru dulu): ringkasan untuk /activity/plan.
@@ -10572,7 +10645,8 @@ app.post("/api/coach/plan/adjust", async (req, res) => {
   }
 });
 // GET /api/coach/config — URL CTA (dari env; frontend render tombol).
-app.get("/api/coach/config", (req, res) => res.json({ ok: true, clinic_url: COACH_CTA_CLINIC_URL, membership_url: COACH_CTA_MEMBERSHIP_URL }));
+app.get("/api/coach/config", (req, res) => res.json({ ok: true, clinic_url: COACH_CTA_CLINIC_URL, membership_url: COACH_CTA_MEMBERSHIP_URL,
+  cta: Object.keys(ctaInventory).reduce(function (o, k) { o[k] = { route: ctaInventory[k].route, label: ctaInventory[k].label }; return o; }, {}) }));
 // POST /api/coach/cta — catat klik CTA (konversi) + balikin URL tujuan.
 app.post("/api/coach/cta", async (req, res) => {
   try {
@@ -10585,6 +10659,131 @@ app.post("/api/coach/cta", async (req, res) => {
     return res.json({ ok: true, url: url });
   } catch (e) { return res.status(500).json({ error: "Gagal mencatat CTA." }); }
 });
+// ---------- PLAN MINGGUAN DI SEKITAR JADWAL OLAHRAGA (Activity multi-sport, Fase 2) ----------
+// Mesin deterministik lib/sport-week.js (ambang lib/sport-week-config.js, PERLU DIVALIDASI COACH).
+// Disimpan sebagai plan aktif biasa (my20fit_workout_plan, source "rule", plan.kind "sport_week");
+// sport_context & event ikut di dalam plan JSON -> TANPA migration. Satu plan aktif mencakup kedua olahraga.
+async function sportPlanInputs(uid, body) {
+  const [sR, qR] = await Promise.all([
+    admin.from("my20fit_user_sports").select("rank,sport_key,other_label,play_days,level,goal,updated_at").eq("auth_user_id", uid).order("rank"),
+    admin.from("my20fit_coach_quiz").select("safety_flags").eq("auth_user_id", uid).limit(1),
+  ]);
+  if (sR.error) throw sR.error;
+  const sports = sR.data || [];
+  const sf = (qR.data && qR.data[0] && qR.data[0].safety_flags) || {};
+  const upd = sports.map(function (x) { return x.updated_at; }).sort().pop() || null;
+  return { sports: sports, conservative: !!(sf.injury || sf.pain_now || sf.medical), sports_updated_at: upd };
+}
+function sportPlanCtx(lang, location, conservative) {
+  return { exlib: COACH_EXLIB, vol: COACH_VOL, lang: lang === "en" ? "en" : "id", location: location, conservative: conservative };
+}
+// Event: dari katalog tiket 20FIT (slug) atau isian sendiri (nama + tanggal). Mengembalikan null / {error}.
+async function sportPlanEvent(e) {
+  if (!e || typeof e !== "object") return null;
+  const today = coachToday(), maxDay = new Date(Date.now() + sportWeekCfg.event.max_days_ahead * 86400000).toISOString().slice(0, 10);
+  if (e.source === "ticket") {
+    const { data } = await admin.from("my20fit_ticket_events").select("slug,name,starts_at,city").eq("slug", String(e.slug || "")).limit(1);
+    const t = data && data[0];
+    if (!t || !t.starts_at) return { error: "Event tidak ditemukan." };
+    return { source: "ticket", slug: t.slug, name: t.name, date: String(t.starts_at).slice(0, 10), city: t.city || null };
+  }
+  const name = String(e.name || "").trim().replace(/\s+/g, " ").slice(0, 80), date = String(e.date || "");
+  if (name.length < 3 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Isi nama event & tanggalnya." };
+  if (date < today || date > maxDay) return { error: "Tanggal event harus antara hari ini dan 1 tahun ke depan." };
+  return { source: "custom", name: name, date: date };
+}
+function nextMondayYmd(today) { const d = sportWeek.dowOf(today), t = new Date(today + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() + (8 - d)); return t.toISOString().slice(0, 10); }
+// Plan berikutnya (setelah olahraga diganti) mulai berlaku Senin depan; dipromosikan saat dibaca.
+async function sportPlanPromote(row) {
+  const p = row && row.plan;
+  if (!p || p.kind !== "sport_week" || !p.next || !p.next.from || p.next.from > coachToday()) return row;
+  const { data } = await admin.from("my20fit_workout_plan").update({ plan: p.next.plan, updated_at: new Date().toISOString() }).eq("id", row.id).select().single();
+  return data || row;
+}
+// Daftar event 20FIT mendatang untuk mode hitung mundur; yang cocok dengan olahraga user ditandai.
+app.get("/api/sport-plan/events", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, events: [] });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: sp } = await admin.from("my20fit_user_sports").select("sport_key").eq("auth_user_id", user.id);
+    const kw = [];
+    (sp || []).forEach(function (x) { const p = sportPacks.get(x.sport_key); ((p && p.events.keywords) || []).forEach(function (k) { kw.push(k); }); });
+    const { data, error } = await admin.from("my20fit_ticket_events").select("slug,name,starts_at,city")
+      .eq("status", "on_sale").not("published_at", "is", null).gte("starts_at", new Date().toISOString()).order("starts_at", { ascending: true }).limit(30);
+    if (error) throw error;
+    const events = (data || []).filter(function (e) { return e.slug && e.starts_at; }).map(function (e) {
+      const nm = String(e.name || "").toLowerCase();
+      return { slug: e.slug, name: e.name, date: String(e.starts_at).slice(0, 10), city: e.city || null, match: kw.some(function (k) { return nm.indexOf(k) >= 0; }) };
+    }).sort(function (a, b) { return (b.match - a.match) || (a.date < b.date ? -1 : 1); });
+    return res.json({ ok: true, events: events });
+  } catch (e) { console.error("sport-plan/events:", (e && e.message) || e); return res.status(500).json({ error: "Gagal memuat event." }); }
+});
+// Susun plan mingguan & jadikan plan aktif. body {avail_days:[1..7], minutes, location, event?, lang}
+app.post("/api/sport-plan", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {}, lang = b.lang === "en" ? "en" : "id";
+    const inp = await sportPlanInputs(user.id);
+    if (!inp.sports.length) return res.status(400).json({ error: "Pilih olahragamu dulu di profil.", need_sports: true });
+    const avail = (Array.isArray(b.avail_days) ? b.avail_days : []).map(Number).filter(function (d) { return d >= 1 && d <= 7; });
+    const loc = ["home", "gym", "arena"].indexOf(b.location) >= 0 ? b.location : "home";
+    const ev = await sportPlanEvent(b.event);
+    if (ev && ev.error) return res.status(400).json({ error: ev.error });
+    const plan = sportWeek.build({ sports: inp.sports, avail_days: avail, minutes: b.minutes, event: ev, today: coachToday(), sports_updated_at: inp.sports_updated_at },
+      sportPlanCtx(lang, loc, inp.conservative));
+    await admin.from("my20fit_workout_plan").update({ is_active: false, updated_at: new Date().toISOString() }).eq("auth_user_id", user.id).eq("is_active", true);
+    const { data, error } = await admin.from("my20fit_workout_plan").insert({ auth_user_id: user.id, goal: plan.goal, level: plan.level, plan: plan,
+      version: 1, is_active: true, source: "rule", updated_at: new Date().toISOString() }).select().single();
+    if (error) throw error;
+    jnLog(user.id, "workout_plan_created", { source: "sport_week" });
+    return res.json({ ok: true, plan: data });
+  } catch (e) {
+    console.error("sport-plan:", (e && e.message) || e);
+    if (isMissingSchema(e)) return res.status(503).json({ error: "Belum bisa: migration 031 belum dijalankan di database.", setup_required: true });
+    return res.status(500).json({ error: "Gagal menyusun plan." });
+  }
+});
+// Pindah hari di plan mingguan aktif: {from, to} (1=Sen … 7=Min) -> tukar & susun ulang dgn aturan sama.
+app.post("/api/sport-plan/move", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {}, from = parseInt(b.from, 10), to = parseInt(b.to, 10);
+    if (!(from >= 1 && from <= 7 && to >= 1 && to <= 7) || from === to) return res.status(400).json({ error: "Hari tidak valid." });
+    const { data: cur } = await admin.from("my20fit_workout_plan").select("*").eq("auth_user_id", user.id).eq("is_active", true).order("created_at", { ascending: false }).limit(1);
+    const row = cur && cur[0], p = row && row.plan;
+    if (!p || p.kind !== "sport_week") return res.status(400).json({ error: "Plan aktif bukan plan mingguan olahraga." });
+    const sc = p.sport_context || {};
+    const moved = sportWeek.move(p, from, to, { sports: sc.sports || [], avail_days: sc.avail_days || [], minutes: sc.minutes, event: p.event || null,
+      today: coachToday(), sports_updated_at: sc.sports_updated_at }, sportPlanCtx(b.lang, sc.location || "home", false));
+    if (!moved) return res.status(400).json({ error: "Hari tidak valid." });
+    // Centang "selesai" ikut hari yang sama (latihan yang sudah dilakukan tetap tercatat).
+    const done = {}; (p.days || []).forEach(function (d) { if (d.done) done[d.key] = true; });
+    moved.days.forEach(function (d) { if (done[d.key]) d.done = true; });
+    if (p.next) moved.next = p.next;
+    const { data, error } = await admin.from("my20fit_workout_plan").update({ plan: moved, source: "adjusted", updated_at: new Date().toISOString() }).eq("id", row.id).select().single();
+    if (error) throw error;
+    return res.json({ ok: true, plan: data });
+  } catch (e) { console.error("sport-plan/move:", (e && e.message) || e); return res.status(500).json({ error: "Gagal memindah hari." }); }
+});
+// Dipanggil setelah olahraga user diganti: plan mingguan aktif disusun ulang dgn olahraga baru dan
+// berlaku mulai Senin depan (minggu ini & riwayat tidak diubah).
+async function sportPlanQueueNext(uid) {
+  const { data: cur } = await admin.from("my20fit_workout_plan").select("*").eq("auth_user_id", uid).eq("is_active", true).order("created_at", { ascending: false }).limit(1);
+  const row = cur && cur[0], p = row && row.plan;
+  if (!p || p.kind !== "sport_week") return;
+  const inp = await sportPlanInputs(uid), sc = p.sport_context || {};
+  if (!inp.sports.length) return;
+  const lang = /^Weekly plan/.test(p.plan_name || "") ? "en" : "id";
+  const nextPlan = sportWeek.build({ sports: inp.sports, avail_days: sc.avail_days || [], minutes: sc.minutes, event: p.event || null, today: nextMondayYmd(coachToday()),
+    sports_updated_at: inp.sports_updated_at }, sportPlanCtx(lang, sc.location || "home", inp.conservative));
+  const plan = Object.assign({}, p, { next: { from: nextMondayYmd(coachToday()), plan: nextPlan } });
+  await admin.from("my20fit_workout_plan").update({ plan: plan, updated_at: new Date().toISOString() }).eq("id", row.id);
+}
 // ---------- FASE 2: sesi latihan harian (sleep-check + check-in per set + progress) ----------
 // AMBANG TIDUR -> penyesuaian beban sesi. PENTING: ANGKA INI PERLU DIVALIDASI COACH/PROFESIONAL.
 // Bukan standar medis; default konservatif: makin kurang tidur, makin diturunkan volumenya.
@@ -10736,10 +10935,51 @@ app.post("/api/coach/session/finish", async (req, res) => {
       .eq("id", b.session_id).eq("auth_user_id", user.id).select().single();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: "Sesi tidak ditemukan." });
+    // Sesi selesai -> hari itu ikut tercentang di plan mingguan (satu sumber: plan.days[].done).
+    if (status === "done" && data.plan_id && data.day_key) await coachMarkPlanDay(user.id, data.plan_id, data.day_key).catch(function () {});
     return res.json({ ok: true, session: data });
   } catch (e) {
     if (isMissingSchema(e)) return res.status(503).json({ error: "migration 022 belum dijalankan.", setup_required: true });
     return res.status(500).json({ error: "Gagal menyelesaikan sesi." });
+  }
+});
+async function coachMarkPlanDay(uid, planId, dayKey) {
+  const { data: rows } = await admin.from("my20fit_workout_plan").select("id,plan").eq("id", planId).eq("auth_user_id", uid).limit(1);
+  const row = rows && rows[0], days = row && row.plan && Array.isArray(row.plan.days) ? row.plan.days : null;
+  if (!days || !days.some(function (d) { return d && d.key === dayKey && !d.done; })) return;
+  const next = Object.assign({}, row.plan, { days: days.map(function (d) { return d && d.key === dayKey ? Object.assign({}, d, { done: true }) : d; }) });
+  await admin.from("my20fit_workout_plan").update({ plan: next, updated_at: new Date().toISOString() }).eq("id", row.id);
+}
+// GET /api/coach/plan/log — rep yang sudah dicatat per hari plan AKTIF (sesi terakhir tiap day_key):
+// {days: {<day_key>: {date, status, exercises: {<ex_key>: [{set, reps, target, unit, done}]}}}}.
+app.get("/api/coach/plan/log", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, days: {} });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: prows } = await admin.from("my20fit_workout_plan").select("id").eq("auth_user_id", user.id).eq("is_active", true).order("created_at", { ascending: false }).limit(1);
+    const planId = prows && prows[0] && prows[0].id;
+    if (!planId) return res.json({ ok: true, days: {} });
+    const { data: sess } = await admin.from("my20fit_coach_session").select("id,session_date,day_key,status")
+      .eq("auth_user_id", user.id).eq("plan_id", planId).order("session_date", { ascending: false }).limit(60);
+    const latest = {};
+    (sess || []).forEach(function (x) { if (x.day_key && !latest[x.day_key]) latest[x.day_key] = x; });
+    const ids = Object.keys(latest).map(function (k) { return latest[k].id; });
+    const out = {};
+    Object.keys(latest).forEach(function (k) { out[k] = { date: latest[k].session_date, status: latest[k].status, exercises: {} }; });
+    if (ids.length) {
+      const { data: logs } = await admin.from("my20fit_coach_set_log").select("session_id,ex_key,set_index,done,done_reps,target_reps,unit")
+        .in("session_id", ids).order("set_index", { ascending: true });
+      const byId = {}; Object.keys(latest).forEach(function (k) { byId[latest[k].id] = k; });
+      (logs || []).forEach(function (l) {
+        const d = out[byId[l.session_id]]; if (!d) return;
+        (d.exercises[l.ex_key] = d.exercises[l.ex_key] || []).push({ set: l.set_index, reps: l.done_reps, target: l.target_reps, unit: l.unit, done: !!l.done });
+      });
+    }
+    return res.json({ ok: true, plan_id: planId, days: out });
+  } catch (e) {
+    if (isMissingSchema(e)) return res.json({ ok: true, days: {}, setup_required: true });
+    return res.status(500).json({ error: "Gagal memuat catatan rep." });
   }
 });
 // GET /api/coach/sessions?limit= — riwayat sesi (progress ringkas).
@@ -11130,8 +11370,11 @@ function coachHistoryForAi(content) {
     .replace(COACH_PLAN_TOKEN, function (m, js) {
       let t = ""; try { t = JSON.parse(js).title || ""; } catch (e) {}
       return "(Workout plan \"" + t + "\" sudah dikirim ke user sebagai tabel & tersimpan jadi plan aktif.)";
-    });
+    })
+    .replace(COACH_CTA_TOKEN, function (m, k) { return "(Tombol " + k + " sudah ditampilkan ke user.)"; });
 }
+// Tombol CTA di balasan chat (batas keahlian, Fase 4): [[CTA:<kunci lib/cta-inventory.js>]].
+const COACH_CTA_TOKEN = /\[\[CTA:([a-z_]+)\]\]/g;
 // Pengingat gaya di akhir (setelah riwayat) — riwayat panjang cenderung menyeret model ke gaya lama.
 const COACH_CHAT_REMINDER = "PENGINGAT: tanpa sapaan pembuka, langsung ke inti, maks 3-4 kalimat pendek kecuali user minta detail. " +
   "Bahas makanan/kalori -> sertakan [[TRACK_MEAL]].";
@@ -11178,7 +11421,23 @@ app.post("/api/coach/chat", async (req, res) => {
     if (history.some(function (h) { return h.role === "assistant" && /\[\[VISBODY\]\]|visbody scan/i.test(h.content); })) {
       messages.splice(messages.length - 1, 0, { role: "system", content: "Ajakan Visbody scan sudah diberikan di sesi ini — JANGAN ulangi kecuali user bertanya soal Visbody." });
     }
-    const complex = COACH_COMPLEX_RE.test(message);
+    // Batas keahlian (lib/coach-boundary.js): topik teknis per olahraga / cedera-medis -> jawaban singkat & jujur + CTA.
+    let bound = null, boundCta = { primary: null, secondary: null };
+    try {
+      const since = new Date(Date.now() - ctaResolver.RULES.repeat.window_days * 864e5).toISOString();
+      const [spR, coR, evR] = await Promise.all([
+        admin.from("my20fit_user_sports").select("rank,sport_key").eq("auth_user_id", user.id).order("rank"),
+        admin.from("my20fit_coaches").select("speciality").ilike("display_name", "Coach " + coachId).limit(1),
+        admin.from("my20fit_event_log").select("event,props").eq("auth_user_id", user.id).in("event", ["cta_shown", "cta_clicked"]).gte("created_at", since).limit(500),
+      ]);
+      bound = coachBoundary.classify(message, spR.error ? [] : spR.data);
+      if (bound) {
+        boundCta = coachBoundary.cta(bound, ctaResolver.summarizeRecent(evR.data));
+        const spec = (coR.data && coR.data[0] && coR.data[0].speciality) || null;
+        messages.splice(messages.length - 1, 0, { role: "system", content: coachBoundary.hint(bound, replyLang, spec, boundCta.primary) });
+      }
+    } catch (e) { bound = null; }
+    const complex = COACH_COMPLEX_RE.test(message) && !bound;
     let reply = "", modelUsed = null;
     try {
       const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: complex ? 2048 : 600, tier: complex ? "complex" : "simple", lang: replyLang }, 60000);
@@ -11211,6 +11470,8 @@ app.post("/api/coach/chat", async (req, res) => {
       if (meal) reply = reply.replace(/\[\[TRACK_MEAL\]\]/g, "");
       reply = reply.replace(COACH_MEAL_BLOCK, function () { return meal ? "[[MEAL_PLAN]]" + JSON.stringify(meal) + "[[/MEAL_PLAN]]" : ""; }).replace(/\n{3,}/g, "\n\n").trim();
     }
+    // Tombol CTA (batas keahlian) ikut tersimpan sebagai token -> tetap tampil saat riwayat dibuka lagi.
+    [boundCta.primary, boundCta.secondary].forEach(function (c) { if (c) reply += "\n[[CTA:" + c.key + "]]"; });
     if (sessionId) {
       try {
         await admin.from("my20fit_coach_chat_message").insert([
@@ -11219,7 +11480,8 @@ app.post("/api/coach/chat", async (req, res) => {
         ]);
       } catch (e) { /* simpan best-effort */ }
     }
-    return res.json({ ok: true, reply: reply, coach_id: coachId, plan: savedPlan, model_used: modelUsed });
+    return res.json({ ok: true, reply: reply, coach_id: coachId, plan: savedPlan, model_used: modelUsed,
+      boundary: bound ? bound.kind : null, cta: boundCta.primary ? boundCta : null });
   } catch (e) {
     console.error("coach/chat:", e.message);
     return res.status(500).json({ error: "Gagal memproses chat." });
@@ -11301,7 +11563,7 @@ app.post("/api/activity/quick-analysis", async (req, res) => {
       const ai = await callAiEdge({ action: "chat", messages: messages, max_tokens: 256, lang: lang }, 30000);
       if (!ai.httpOk || !ai.json || !ai.json.ok || !ai.json.reply) { logAiAccess(user.id, "coach/quick", false, "edge"); return res.status(502).json({ error: "Analisa gagal. Coba lagi." }); }
       reply = String(ai.json.reply);
-    } catch (e) { logAiAccess(user.id, "coach/quick", false, "timeout"); return res.status(504).json({ error: "AI nggak merespons." }); }
+    } catch (e) { logAiAccess(user.id, "coach/quick", false, "timeout"); return res.status(504).json({ error: "Coach Intelligence nggak merespons. Coba lagi." }); }
     logAiAccess(user.id, "coach/quick", true);
     return res.json({ ok: true, reply: reply, coach_id: coachId });
   } catch (e) { console.error("quick-analysis:", e.message); return res.status(500).json({ error: "Gagal analisa." }); }
@@ -11681,6 +11943,94 @@ app.get("/api/activity/history", async (req, res) => {
   }
 });
 
+// ---------- Analisa per olahraga (Activity multi-sport Fase 3): langkah berikutnya + CTA + penyesuaian plan ----------
+// Olahraga user yang cocok dengan jenis workout (lewat workout_types paket); tidak cocok -> paket "general".
+function woSportOf(w, sports) {
+  const hit = (sports || []).find(function (x) { const p = sportPacks.get(x.sport_key); return p && p.workout_types.indexOf(w.type) >= 0; });
+  return hit ? hit.sport_key : "general";
+}
+// Plan mingguan aktif: sesi latihan pendukung terdekat (besok/lusa) diringankan SEKALI per workout kalau analisa
+// menyarankan pemulihan / sesi ringan. Hanya untuk workout 0–1 hari lalu. Mengembalikan kalimat {en,id} atau null.
+async function woEasePlan(uid, w, nx, planRow) {
+  const p = planRow && planRow.plan;
+  if (!p || p.kind !== "sport_week" || ["recovery", "easy"].indexOf(nx.kind) < 0) return null;
+  const today = coachToday(), age = Math.round((new Date(today + "T00:00:00Z") - new Date(w.workout_date + "T00:00:00Z")) / 864e5);
+  const say = (dow) => ({ en: "Your " + sportWeek.DAY_LONG[dow].en + " training is already eased by your coach.", id: "Sesi latihan " + sportWeek.DAY_LONG[dow].id + " sudah coach ringankan." });
+  if (p.analysis_adjust && p.analysis_adjust.workout_id === w.id) return say(p.analysis_adjust.dow);
+  if (age < 0 || age > 1) return null;
+  const td = sportWeek.dowOf(today), cand = [td % 7 + 1, (td + 1) % 7 + 1];
+  const e = (p.week || []).find(function (x) { return cand.indexOf(x.dow) >= 0 && x.kind === "support" && x.intensity !== "easy"; });
+  if (!e) return null;
+  e.intensity = "easy"; e.minutes = Math.max(10, Math.round(e.minutes * 0.7 / 5) * 5);
+  e.note = { en: "Eased by your coach after your last session.", id: "Diringankan coach setelah sesi terakhirmu." };
+  (p.days || []).forEach(function (d) {
+    if (d.key !== e.day_key) return;
+    d.duration_min = e.minutes; (d.exercises || []).forEach(function (x) { x.sets = Math.max(1, (parseInt(x.sets, 10) || 2) - 1); });
+  });
+  p.analysis_adjust = { workout_id: w.id, dow: e.dow, at: new Date().toISOString() };
+  const { error } = await admin.from("my20fit_workout_plan").update({ plan: p, updated_at: new Date().toISOString() }).eq("id", planRow.id);
+  return error ? null : say(e.dow);
+}
+// "main padel Kamis" — sesi olahraga terdekat setelah hari ini di plan mingguan aktif.
+function woNextSport(planRow) {
+  const p = planRow && planRow.plan;
+  if (!p || p.kind !== "sport_week") return null;
+  const td = sportWeek.dowOf(coachToday());
+  for (let i = 1; i <= 7; i++) {
+    const dow = (td + i - 1) % 7 + 1, e = (p.week || []).find(function (x) { return x.dow === dow && x.kind === "sport" && x.intensity !== "easy"; });
+    if (e) return { en: e.title.en + " on " + sportWeek.DAY_LONG[dow].en, id: e.title.id + " hari " + sportWeek.DAY_LONG[dow].id };
+  }
+  return null;
+}
+async function woActionContext(uid, w, a, ds, lang) {
+  const since = new Date(Date.now() - ctaResolver.RULES.repeat.window_days * 864e5).toISOString();
+  const [spR, plR, evR] = await Promise.all([
+    admin.from("my20fit_user_sports").select("rank,sport_key,goal").eq("auth_user_id", uid).order("rank"),
+    admin.from("my20fit_workout_plan").select("*").eq("auth_user_id", uid).eq("is_active", true).order("created_at", { ascending: false }).limit(1),
+    admin.from("my20fit_event_log").select("event,props").eq("auth_user_id", uid).in("event", ["cta_shown", "cta_clicked"]).gte("created_at", since).limit(500),
+  ]);
+  const sports = spR.error ? [] : (spR.data || []), planRow = (plR.data && plR.data[0]) || null;
+  const sportKey = woSportOf(w, sports), nx = woNarrative.nextSession(a, w, woConfig, lang);
+  const adjusted = a.safety ? null : await woEasePlan(uid, w, nx, planRow);
+  const nextSport = woNextSport(planRow);
+  const steps = woNarrative.nextSteps(a, w, woConfig, lang, { next_sport: nextSport, adjusted: adjusted });
+  const goal = (sports.find(function (x) { return x.sport_key === sportKey; }) || {}).goal || "";
+  const cta = ctaResolver.resolve({ sport_key: sportKey, risk: a.safety ? a.safety.level : null,
+    causes: a.causes.filter(function (c) { return c.confidence !== "rendah"; }).map(function (c) { return c.key; }),
+    low_food: a.factors.some(function (f) { return f.key === "nutrition" && f.status === "kurang"; }),
+    goal_event: /prep/.test(goal), has_event: !!(planRow && planRow.plan && planRow.plan.event),
+    no_body_scan: !(ds.visbody || []).length, stagnant: a.verdict === "normal",
+    recent: ctaResolver.summarizeRecent(evR.data) });
+  return { sport_key: sportKey, next_steps: steps, cta: cta, plan_adjusted: adjusted };
+}
+// POST /api/activity/workouts/:id/rpe {rpe:1..10} — rasa berat sesi (1 ketukan). Disimpan di raw_data.rpe
+// (tanpa migration), TERPISAH dari check-in supaya tak menimpa jawaban check-in.
+app.post("/api/activity/workouts/:id/rpe", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const v = Number((req.body || {}).rpe);
+    if (!(v >= 1 && v <= 10 && Math.floor(v) === v)) return res.status(400).json({ error: "RPE harus 1–10." });
+    const { data: rows } = await admin.from("my20fit_workout").select("id,raw_data").eq("id", String(req.params.id)).eq("auth_user_id", user.id).limit(1);
+    const w = rows && rows[0];
+    if (!w) return res.status(404).json({ error: "Workout tidak ditemukan." });
+    const rd = Object.assign({}, w.raw_data || {}, { rpe: { value: v, at: new Date().toISOString() } });
+    const { error } = await admin.from("my20fit_workout").update({ raw_data: rd }).eq("id", w.id).eq("auth_user_id", user.id);
+    if (error) throw error;
+    return res.json({ ok: true, rpe: v });
+  } catch (e) { console.error("workouts/:id/rpe:", (e && e.message) || e); return res.status(500).json({ error: "Gagal menyimpan RPE." }); }
+});
+// Edge AI lama belum mengenal padel/tennis (perlu deploy ulang my20fit-ai) -> jenis "other"/kosong
+// dikenali dari judul yang terbaca. Tipe yang sudah valid tidak diubah.
+function woTypeFromScan(r, types) {
+  const t = String(r.type || "");
+  if (types.indexOf(t) >= 0 && t !== "other") return t;
+  const title = String(r.title || "").toLowerCase();
+  if (/\bpadel\b/.test(title)) return "padel";
+  if (/\bten+is\b/.test(title) && !/table|meja|ping ?pong/.test(title)) return "tennis";
+  return types.indexOf(t) >= 0 ? t : null;
+}
 // GET /api/activity/workouts/:id?lang= -> detail workout + analisa (faktor, baseline) + narasi.
 // Narasi AI TIDAK dibuat di sini (hemat biaya & cepat): kalau belum ada untuk hash/bahasa ini,
 // balikan template + narrative_pending=true; halaman lalu memanggil POST .../narrative.
@@ -11702,6 +12052,7 @@ app.get("/api/activity/workouts/:id", async (req, res) => {
       try { const sg = await admin.storage.from("workout-uploads").createSignedUrl(p, 60 * 60); if (sg.data && sg.data.signedUrl) shots.push(sg.data.signedUrl); } catch (e) {}
     }
     const coach = (rd.analysis && coachPersonaOk(rd.analysis.coach_id)) ? rd.analysis.coach_id : null;
+    const act = await woActionContext(user.id, w, a, ds, lang);
     return res.json({ ok: true,
       workout: { id: w.id, date: w.workout_date, type: w.type, title: WorkoutMetrics.title(w, lang), started_at: rd.started_at || null, source: w.source,
         source_app: (rd.ai_scan && rd.ai_scan.source_guess) || null, note: w.note, duration_min: w.duration_min, distance_km: w.distance_km,
@@ -11715,7 +12066,8 @@ app.get("/api/activity/workouts/:id", async (req, res) => {
         signals: a.signals.map((x) => Object.assign({}, x, { sentence: x.detected === "insufficient_data" ? null : woNarrative.signalSentence(x, lang) })),
         causes: a.causes.map((c) => Object.assign({}, c, { sentence: woNarrative.causeSentence(c, a, lang) })), ruled_out: a.ruled_out,
         read: a.read, reads: a.causes.length ? [] : woNarrative.readSentences(a, w, lang),
-        checkin: a.checkin, needs_checkin: a.needs_checkin, pre_meal_cfg: woConfig.pre_meal },
+        checkin: a.checkin, needs_checkin: a.needs_checkin, pre_meal_cfg: woConfig.pre_meal, rpe: a.rpe },
+      sport_key: act.sport_key, next_steps: act.next_steps, cta: act.cta, plan_adjusted: act.plan_adjusted,
       narrative: cached || woNarrative.templateNarrative(a, w, lang), next: woNarrative.nextSession(a, w, woConfig, lang),
       narrative_pending: !cached && !a.safety, coach_id: coach,
       emergency_number: woConfig.safety.emergency_number,
@@ -11853,7 +12205,7 @@ app.post("/api/activity/workouts/:id/narrative", async (req, res) => {
           const bad = woNarrative.checkNarrative(n, pm.allowed);
           if (!bad.length) narrative = { headline: n.headline.trim(), what_we_saw: n.what_we_saw.map((x) => x.trim()), likely_why: (n.likely_why || []).map((x) => x.trim()),
             what_we_cant_tell: n.what_we_cant_tell ? String(n.what_we_cant_tell).trim() : null, next_session_tips: (n.next_session_tips || []).map((x) => String(x).trim()).filter(Boolean),
-            cta: n.cta, source: "ai", coach_id: coachId };
+            source: "ai", coach_id: coachId };
           else console.error("workout narrative: angka/klaim di luar data", bad.slice(0, 5).join(","));
         }
       } catch (e) { /* timeout -> coba lagi / template */ }
