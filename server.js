@@ -417,15 +417,17 @@ async function vbGrantConsent(uid, source, grantedBy) {
   if (error) throw error;
 }
 
-// Ambil data ukur dari Visbody lalu simpan atas nama user. Dipakai webhook (scan sudah
-// punya pemilik & body_composition selesai) dan jalur claim (member / staf).
+// Ambil data ukur dari Visbody lalu simpan atas nama user. Dipakai webhook ("completed"),
+// jalur claim (member / staf) dan pengambilan ulang vbRetryPending.
 async function visbodyFetchAndStore(scanRow, userId) {
   try {
     const data = await visbody.getScanData(scanRow.scan_id);
     const mapped = visbody.mapBodyComposition(data && data.body_composition);
     if (!mapped) {
+      // Belum ada hasil (Visbody masih memproses) -> BUKAN gagal: status tetap "bound",
+      // vbRetryPending mencoba lagi nanti.
       await admin.from("my20fit_visbody_scan")
-        .update({ status: "failed", last_error: "balasan Visbody tanpa body_composition", updated_at: new Date().toISOString() })
+        .update({ last_error: "hasil belum tersedia dari Visbody", updated_at: new Date().toISOString() })
         .eq("scan_id", scanRow.scan_id);
       return false;
     }
@@ -458,11 +460,22 @@ async function visbodyFetchAndStore(scanRow, userId) {
     return false;
   }
 }
-// body_composition belum "completed" (masih processing) -> jangan ambil dulu; webhook
-// "completed" berikutnya yang mengambil. Status tak dikenal -> coba ambil.
-function vbDataReady(scanRow) {
-  const mi = (scanRow && scanRow.measured_items) || {};
-  return !mi.body_composition || mi.body_composition === "completed";
+// Scan milik user yang hasilnya belum tersimpan -> ambil ulang. Webhook "completed" dari Visbody
+// TIDAK bisa diandalkan (data asli 27–28 Sep: semua scan berhenti di "processing"), jadi tiap
+// kali user membuka Activity / halaman Visbody (jnState) scan yang tertunda dicoba lagi.
+// Rem: tiap scan paling cepat sekali per fetch_retry_minutes, berhenti setelah fetch_retry_days.
+async function vbRetryPending(uid) {
+  if (!visbody.configured()) return false;
+  const C = VB_CFG, now = Date.now();
+  const { data } = await admin.from("my20fit_visbody_scan").select("scan_id,scan_time,pdf_url,updated_at")
+    .eq("auth_user_id", uid).in("status", ["bound", "failed"]).order("scan_time", { ascending: false }).limit(5);
+  const due = (data || []).filter(function (s) {
+    return now - new Date(s.scan_time).getTime() < C.fetch_retry_days * 86400000 &&
+      now - new Date(s.updated_at).getTime() >= C.fetch_retry_minutes * 60000;
+  }).slice(0, 2);
+  let stored = false;
+  for (const s of due) { if (await visbodyFetchAndStore(s, uid)) stored = true; }
+  return stored;
 }
 
 // Ikat scan ke user (dipakai claim member & bind staf). Menang HANYA kalau scan masih tanpa
@@ -498,7 +511,9 @@ async function vbBindScan(scan, user, via) {
     bindWarn = String((e && e.message) || e).slice(0, 300);
     console.error("visbody bind:", bindWarn);
   }
-  const stored = vbDataReady(scan) ? await visbodyFetchAndStore(scan, user.id) : false;
+  // Selalu coba ambil, walau event terakhir masih "processing" (BELUM TERVERIFIKASI kapan hasil tersedia
+  // di API Visbody); belum ada -> status tetap "bound" dan vbRetryPending mencoba lagi.
+  const stored = await visbodyFetchAndStore(scan, user.id);
   return { ok: true, data_ready: stored, bind_warning: bindWarn };
 }
 
@@ -810,6 +825,7 @@ function jnYmd(d) { return d.toISOString().slice(0, 10); }
 // Satu pembaca status perjalanan user — dipakai /activity, landing setelah login, tur.
 async function jnState(uid) {
   const N = journeyConfig.nudges, J = journeyConfig.journey;
+  await vbRetryPending(uid).catch(function (e) { console.error("visbody retry:", (e && e.message) || e); });
   const [scansR, bodyR, j, profR, planR, wkR, upR, tourR, sportR] = await Promise.all([
     admin.from("my20fit_visbody_scan").select("scan_id,scan_time,claimed_at,viewed_at,pdf_url,status").eq("auth_user_id", uid).order("scan_time", { ascending: false }).limit(20),
     admin.from("my20fit_visbody_body").select("scan_id,scanned_at,body_weight,body_fat_percentage,muscle_mass,body_mass_index,basal_metabolic_rate,visceral_fat_grade").eq("auth_user_id", uid).order("scanned_at", { ascending: false }).limit(2),
