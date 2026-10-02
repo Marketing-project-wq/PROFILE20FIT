@@ -24,7 +24,7 @@
 | Banner / promo | `my20fit_banner`, `my20fit_banner_event` |
 | Corporate | `my20fit_corporate`, `my20fit_corporate_admin`, `my20fit_corporate_member`, `my20fit_corporate_message_log`, `my20fit_corporate_access_log` |
 | Ulasan kelas | `my20fit_class_reviews` (migration 030, dijalankan 2026-10-01) |
-| Profil olahraga (maks 2) | `my20fit_user_sports` (migration 031, **BELUM dijalankan**) |
+| Profil olahraga (maks 2) | `my20fit_user_sports` (migration 031: tabel+RLS+index **sudah** dibuat 2 Okt; fungsi `my20fit_set_user_sports` **BELUM**) |
 | Challenge komunitas (struktur) | `my20fit_challenge`, `my20fit_challenge_member` (migration 032, **BELUM dijalankan**, belum dipakai kode) |
 | Roster tampilan (coach/dokter/fisioterapis) | `my20fit_coaches`, `my20fit_coach_instructor_aliases`, `my20fit_doctors`, `my20fit_physiotherapists` |
 | Tiket event | `my20fit_ticket_events` (katalog + `sold_count` agregat, disinkron `sync-ticket-events`). `my20fit_ticket_tokens` masih ada di DB tapi **sudah tidak dipakai kode mana pun** sejak jalur OTP dibuang (`d1c2a38`). Arsip pembelian dibaca **read-only** dari `event_transaction` — tabel **milik app lain**, tanpa prefix: jangan ditulis. |
@@ -127,6 +127,8 @@
   (poin & sesi per user). RLS: member login baca challenge aktif/selesai; baris keikutsertaan hanya miliknya.
   **HANYA STRUKTUR — BELUM dijalankan & belum ada kode yang memakainya** (menunggu challenge percontohan). Diuji di
   Postgres 16 lokal: idempoten, tanggal terbalik & scoring selain consistency ditolak.
+- **`db/supabase-migration-033-visbody-email-claim.sql`** — `my20fit_visbody_scan.claimed_via` boleh `'email'` (claim lewat email
+  yang diketik di timbangan, lihat `docs/VISBODY-SETUP.md` Bagian 6). Tanpa kolom baru. **BELUM dijalankan.**
 - `supabase/functions/` — Edge Functions: `my20fit-ai`, `my20fit-foodimg`, `sync-ticket-events`, `ticket-embed` (TypeScript, di-deploy terpisah via Supabase). `ticket-embed` memegang secret `TICKET_EMBED_KEY` dan jadi **satu-satunya** jalur ke `ticket.20fit.id/api/embed/v1`; `server.js` tak punya env tiket sama sekali.
 
 ## Cara menjalankan migration

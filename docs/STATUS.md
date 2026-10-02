@@ -175,6 +175,12 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     fitness 20FIT") & `RULES.md` BELUM diubah — perubahan aturan perlu persetujuan pemilik (usulan teks ada di laporan sesi).
   - **Visbody:** hasil scan diambil saat claim walau status Visbody masih "processing", + pengambilan ulang otomatis
     (`vbRetryPending`, lihat `docs/VISBODY-SETUP.md` Bagian 6). Belum terverifikasi dengan scan asli end-to-end.
+  - **Visbody claim lewat email (2026-10-02):** email yang diketik di timbangan (`user_info.email`) dicocokkan ke
+    akun ber-email terverifikasi → banner di Activity → konfirmasi + persetujuan → terikat (`claimed_via='email'`).
+    Butuh **migration 033**. Detail: `docs/VISBODY-SETUP.md` Bagian 6.
+  - **Migration 031:** tabel `my20fit_user_sports` + RLS + policy + index SUDAH dibuat di DB (2 Okt, lewat MCP);
+    fungsi `my20fit_set_user_sports` BELUM (perintah ber-DELETE/DROP selalu timeout dari sesi agent) — menunggu
+    pemilik menjalankannya di SQL Editor. Sampai itu, simpan pilihan olahraga gagal.
 - **Activity multi-sport (mulai 2026-10-02, bertahap Fase 1–4, staging dulu).** Spesifikasi dari pemilik: user pilih maks
   2 olahraga → plan dibangun di sekitar jadwal olahraganya, analisa per olahraga, CTA terpusat, batas keahlian AI Coach.
   Audit Langkah 0 (1 Okt): belum ada data olahraga member sama sekali (2 upload workout total); proxy tiket event
