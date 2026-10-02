@@ -866,7 +866,7 @@
   // Token aksi dari balasan coach -> tombol (URL ditentukan di sini, bukan oleh AI). [url, label, ikon]
   // Navigasi same-tab (CLAUDE.md: tanpa target=_blank).
   var ACTIONS = {
-    BOOK_CLASS: ["/book-class", { en: "Book Class →", id: "Book Class →" }, "cal"],
+    BOOK_CLASS: ["/classes", { en: "Book Class →", id: "Book Class →" }, "cal"],
     BOOK_DOCTOR: ["/book-doctor", { en: "Book Doctor →", id: "Book Doctor →" }, "clinic"],
     ARENA_MAPS: ["https://www.google.com/maps/search/?api=1&query=20FIT+Arena+Menteng+Prada", { en: "20FIT Arena — Google Maps", id: "20FIT Arena — Google Maps" }, "pin"],
     VISBODY: ["/activity/visbody", { en: "My Visbody results", id: "Hasil Visbody aku" }, "chart"],

@@ -94,7 +94,7 @@
             body: { en: "In Plan you can build a weekly plan around the days you play — supporting training, recovery and rest included.", id: "Di Plan kamu bisa menyusun plan mingguan di sekitar hari kamu main — lengkap dengan latihan pendukung, pemulihan, dan istirahat." } } },
         { id: "journey", sel: ["#journeyCard"], title: { en: "Health Journey", id: "Health Journey" },
           body: { en: "Your next steps: analyse with a coach → build a plan → set your calorie target → book a class → schedule a rescan.", id: "Langkah berikutnya untukmu: analisa dengan coach → buat plan → atur target kalori → book kelas → jadwalkan rescan." } },
-        { id: "book", sel: [".qa-tile[href='/book-class']"], title: { en: "Book a class", id: "Book kelas" },
+        { id: "book", sel: [".qa-tile[href='/classes']"], title: { en: "Book a class", id: "Book kelas" },
           body: { en: "Train in person with a 20FIT coach.", id: "Latihan langsung dengan coach 20FIT." } },
         { id: "done", title: { en: "That's it!", id: "Selesai!" },
           body: { en: "Start with the first step on your checklist.", id: "Mulai dari langkah pertama di checklist." },

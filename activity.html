@@ -738,7 +738,7 @@
       <a class="qa-tile" href="/activity/chat"><span class="qa-i"><span class="fic" data-ic="chat" data-ic-size="22"></span></span><span data-en="Chat Coach" data-id="Chat Coach">Chat Coach</span></a>
       <a class="qa-tile" href="/activity/plan"><span class="qa-i"><span class="fic" data-ic="clipboard" data-ic-size="22"></span></span><span data-en="Workout Plan" data-id="Workout Plan">Workout Plan</span></a>
       <a class="qa-tile" href="/activity/visbody"><span class="qa-i"><span class="fic" data-ic="scan" data-ic-size="22"></span></span><span data-en="Visbody Results" data-id="Hasil Visbody">Hasil Visbody</span></a>
-      <a class="qa-tile" href="/book-class"><span class="qa-i"><span class="fic" data-ic="calendar" data-ic-size="22"></span></span><span data-en="Book Class" data-id="Book Class">Book Class</span></a>
+      <a class="qa-tile" href="/classes"><span class="qa-i"><span class="fic" data-ic="calendar" data-ic-size="22"></span></span><span data-en="Book Class" data-id="Book Class">Book Class</span></a>
     </div>
 
     <!-- TODAY'S SUMMARY — angka nyata hari terpilih (workout / tidur / air) -->
@@ -1879,7 +1879,7 @@
     if(key==="coach_analysis"){ coachAskGo(Lx({en:"Analyse my latest Visbody result and tell me what to focus on",id:"Analisa hasil Visbody terakhirku dan bilang aku harus fokus ke mana"})); return; }
     if(key==="workout_plan"){ coachAskGo(Lx({en:"Build me a workout plan based on my Visbody result",id:"Buatkan workout plan berdasarkan hasil Visbody aku"})); return; }
     if(key==="calorie_target"){ openCalorieDlg(); return; }
-    if(key==="book_class"){ apiFetch("/api/journey/step",{method:"POST",body:JSON.stringify({key:"book_class",from:"checklist"})}).catch(function(){}).then(function(){ location.href="/book-class"; }); return; }
+    if(key==="book_class"){ apiFetch("/api/journey/step",{method:"POST",body:JSON.stringify({key:"book_class",from:"checklist"})}).catch(function(){}).then(function(){ location.href="/classes"; }); return; }
     if(key==="rescan"){ openRescanDlg(); return; }
   }
   function jnDlg(html){ var d=document.getElementById("jnDlg"); d.innerHTML=html; if(!d.open) d.showModal(); return d; }
@@ -1974,7 +1974,7 @@
   }
   // Pill What You Need -> aksi nyata per kategori.
   function gapAction(cat){
-    if(cat==="workout") return function(){ location.href="/book-class"; };
+    if(cat==="workout") return function(){ location.href="/classes"; };
     if(cat==="nutrition") return function(){ location.href="/calories"; };
     if(cat==="hydration") return function(){ var x=document.getElementById("hydraBox"); if(x) x.scrollIntoView({behavior:"smooth",block:"center"}); };
     if(cat==="sleep") return function(){ if(SEL!==todayYmd()){ SEL=todayYmd(); renderDnav(); renderHead(); load(SEL); } openSleepDlg(); };
@@ -2250,7 +2250,7 @@
     Array.prototype.forEach.call(h.querySelectorAll("[data-a]"),function(b){
       var a=b.getAttribute("data-a");
       b.onclick=async function(){
-        if(a==="book") location.href="/book-class";
+        if(a==="book") location.href="/classes";
         else if(a==="track") location.href="/calories";
         else if(a==="upload") uploadWorkoutGo();
         else if(a==="regen") generateTodayPlan();
@@ -2265,7 +2265,7 @@
         if(c==="sleep"){ var g=gapAction("sleep"); if(g) g(); }
         else if(c==="water"){ b.disabled=true; var ok=await addDrink(250,"water",todayYmd()); b.disabled=false; if(ok){ b.textContent="✓"; setTimeout(function(){ b.textContent="+250ml"; },1600); } }
         else if(c==="meals") location.href="/calories";
-        else if(c==="book") location.href="/book-class";
+        else if(c==="book") location.href="/classes";
         else if(c==="upload") uploadWorkoutGo();
       };
     });
