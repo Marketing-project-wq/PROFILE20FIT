@@ -247,10 +247,20 @@ setiap kali pemilik scan membuka `/activity` atau `/activity/visbody` (lewat `/a
 paling cepat sekali per `visbody.fetch_retry_minutes` per scan, berhenti setelah
 `visbody.fetch_retry_days` (lib/journey-config.js). Scan `failed` (mis. timeout) juga dicoba ulang.
 
-**Email yang diketik di layar timbangan TIDAK dipakai untuk mencocokkan akun.** Payload webhook
-Visbody yang masuk tidak membawa email (dicek di data asli), dan identitas yang diketik di alat
-tidak terverifikasi. Jalur kepemilikan: QR claim (member login), `third_uid` pada scan berikutnya,
-atau ikat oleh staf.
+**Claim lewat email yang diketik di timbangan (2026-10-02, permintaan pemilik).** Webhook membawa
+`user_info.email` (dan `mobile`); di 7 scan uji 27–28 Sep kolom itu KOSONG (tak ada yang mengetik).
+Alurnya:
+1. Member mengetik email akun my.20fit di layar timbangan, lalu menimbang. QR bawaan Visbody tetap
+   untuk melihat hasil di Visbody.
+2. Saat member membuka `/activity`, server mencari scan TANPA pemilik ≤ `visbody.email_match_days`
+   hari yang email ketikannya SAMA PERSIS (huruf besar/kecil diabaikan) dengan email akun yang
+   **sudah terverifikasi** (`email_confirmed_at`). Hanya akun itu yang melihatnya.
+3. Banner "Ada hasil Visbody dengan emailmu" → `/visbody-claim?scan=<id>` → persetujuan data (UU PDP)
+   + **Simpan ke akunku** (`POST /api/visbody/claim-email`, `claimed_via='email'`) → hasil diambil.
+   "Ini bukan scan saya" (`POST /api/visbody/not-mine`) → tidak ditawarkan lagi, scan tetap tanpa pemilik.
+Kenapa ada satu ketukan konfirmasi, bukan langsung masuk: email ketikan bisa salah ketik / dipakai orang
+lain; tanpa konfirmasi, data tubuh seseorang bisa muncul di akun orang lain. Butuh **migration 033**
+(`claimed_via` boleh `'email'`). Jalur lain tetap: QR claim kita, `third_uid`, ikat oleh staf.
 
 ---
 
