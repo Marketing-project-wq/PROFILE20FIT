@@ -81,6 +81,11 @@
       <div class="opt" data-goal="fit" onclick="pickGoal('fit')" data-i18n="ob_goal_fit">Improve Fitness</div>
     </div>
 
+    <!-- Olahraga utama (wajib 1) + kedua (opsional) — js/sport-picker.js. Detail (hari/level/tujuan)
+         ditanyakan nanti di profil, supaya onboarding tetap singkat. -->
+    <div class="sec" data-en="Your Sport" data-id="Olahragamu">Olahragamu</div>
+    <div id="sportPick"><div class="sub" style="margin:8px 0 0">…</div></div>
+
     <div class="sec" data-i18n="ob_health">Health Conditions</div>
     <label style="margin-top:8px" data-i18n="ob_health_sub">Anything we should know? (choose any / leave empty)</label>
     <div class="grid2" id="conditions">
@@ -102,12 +107,16 @@
   <script src="js/vendor-supabase.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/i18n.js"></script>
+  <script src="js/sport-picker.js"></script>
   <script>
     let gender=null, goal=null, knownIdentity=false;
+    const SPORTS=SportPicker.mount(document.getElementById("sportPick"),{detail:false});
+    SPORTS.ready.catch(function(){ document.getElementById("sportPick").innerHTML=""; });
     (async function(){
       try{ var _bd=document.getElementById("birthdate"); if(_bd) _bd.max=new Date().toISOString().slice(0,10); }catch(e){}
       await Auth.requireAuth();
       try{ const p=await Auth.getProfile(); if(p){ prefill(p); showObStatus(p); } }catch(e){}
+      try{ await SPORTS.ready; const mine=await SportPicker.mine(); if(mine.length) SPORTS.set(mine); }catch(e){}
     })();
     // Keterangan status onboarding user (sudah / belum) di halaman ini juga.
     function showObStatus(p){
@@ -166,6 +175,9 @@
       if(!weight)return msg.textContent=L({en:"Enter your weight.",id:"Isi berat badan."});
       if(!height)return msg.textContent=L({en:"Enter your height.",id:"Isi tinggi badan."});
       if(!goal)return msg.textContent=L({en:"Choose your main goal.",id:"Pilih tujuan utama kamu."});
+      // Olahraga utama wajib — kecuali daftar olahraga gagal dimuat (jangan kunci onboarding).
+      let sportsOn=false; try{ await SPORTS.ready; sportsOn=true; }catch(e){}
+      if(sportsOn){ const se=SPORTS.validate(); if(se){ msg.textContent=se; document.getElementById("sportPick").scrollIntoView({block:"center"}); return; } }
       // kumpulkan kondisi kesehatan
       const conds=[...document.querySelectorAll('#conditions input:checked')].map(i=>i.value);
       const other=document.getElementById("condOther").value.trim();
@@ -173,6 +185,9 @@
       const btn=document.getElementById("save");btn.disabled=true;
       try{
         await Auth.saveOnboarding({gender,birthdate,weight_kg:weight,height_cm:height,main_goal:goal,health_conditions:conds});
+        // Simpan olahraga. Pilihan tak valid (400) -> berhenti & tampilkan; gangguan server -> lanjut
+        // (bisa diisi lagi dari profil / ajakan di Activity), supaya user tak terkunci di onboarding.
+        if(sportsOn){ try{ await SPORTS.save("onboarding"); }catch(e){ if(e.status===400){ msg.textContent=e.message; btn.disabled=false; return; } } }
         // Simpan bahasa email pilihan user (best-effort). Consent dihapus — email dikirim
         // langsung; user bisa opt-out lewat unsubscribe kapan saja.
         try{

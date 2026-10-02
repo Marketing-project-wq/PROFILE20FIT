@@ -206,6 +206,15 @@
       <div class="msg" id="msg"></div>
     </div>
 
+    <!-- Olahragamu (maks 2) — js/sport-picker.js; /profile#sports membuka editornya langsung -->
+    <div class="card" id="sports">
+      <div class="card-hd">
+        <h2 data-en="Your sports" data-id="Olahragamu">Olahragamu</h2>
+        <button class="edit-btn" id="sportEditBtn" onclick="openSports()"><span class="fic" data-ic="edit" data-ic-size="16" aria-hidden="true"></span> <span data-en="Change" data-id="Ubah">Ubah</span></button>
+      </div>
+      <div id="sportSummary"><div class="muted">…</div></div>
+    </div>
+
     <!-- Corporate Health Program (opt-in, dengan persetujuan) -->
     <div class="card" id="corpCard">
       <div class="card-hd"><h2><span class="fic" data-ic="building" aria-hidden="true"></span> <span data-i18n="corp_title">Corporate Program</span></h2></div>
@@ -274,6 +283,18 @@
       <button class="btn" id="save" onclick="save()" data-i18n="prof_save">Save Changes</button>
       <button class="btn out" onclick="closeEdit()" data-i18n="prof_cancel">Cancel</button>
       <div class="msg" id="editMsg"></div>
+    </div>
+  </div>
+
+  <!-- Modal Olahragamu -->
+  <div class="pm-bg" id="sportBg">
+    <div class="pm">
+      <div class="grab"></div>
+      <h2 data-en="Your sports" data-id="Olahragamu">Olahragamu</h2>
+      <p class="muted" style="margin:4px 0 0" data-en="Your plan and analysis follow these sports." data-id="Plan & analisa menyesuaikan olahraga ini.">Plan &amp; analisa menyesuaikan olahraga ini.</p>
+      <div id="sportPick"></div>
+      <button class="btn" id="sportSave" onclick="saveSports()" data-en="Save" data-id="Simpan">Simpan</button>
+      <button class="btn out" onclick="closeSports()" data-en="Cancel" data-id="Batal">Batal</button>
     </div>
   </div>
 
@@ -367,6 +388,7 @@
   <script src="js/achievements.js"></script>
   <script src="js/arena-history.js"></script>
   <script src="js/receipt.js"></script>
+  <script src="js/sport-picker.js"></script>
   <script>
     let gender=null, user=null, PROFILE=null;
     function pickGender(g){gender=g;document.querySelectorAll('.gender button').forEach(b=>b.classList.toggle("active",b.dataset.g===g))}
@@ -381,8 +403,45 @@
       document.getElementById("pname").textContent=nm;
       document.getElementById("pemail").textContent=p.email||"";
       fillForm(p); renderSummary(p); refreshQuota(); loadCorpMembership(); loadMenus();
-      loadAchievements(); loadArenaHistory(); loadReviews();
+      loadAchievements(); loadArenaHistory(); loadReviews(); loadSports();
     })();
+
+    // ---- Olahragamu (maks 2) — pemilih bersama js/sport-picker.js, simpan via PUT /api/me/sports ----
+    var SPORTS=undefined, SPORT_PICK=null;   // undefined = memuat, null = gagal, [] = belum pilih
+    async function renderSports(){
+      var el=document.getElementById("sportSummary"); if(!el) return;
+      if(SPORTS===undefined){ el.innerHTML='<div class="muted">…</div>'; return; }
+      if(SPORTS===null){ el.innerHTML='<div class="muted">'+escapeHtml(L({en:"Couldn't load your sports.",id:"Gagal memuat olahragamu."}))+' <a href="#" onclick="loadSports();return false" style="color:var(--red);font-weight:800">'+escapeHtml(L({en:"Retry",id:"Coba lagi"}))+'</a></div>'; return; }
+      if(!SPORTS.length){ el.innerHTML='<div class="muted">'+escapeHtml(L({en:"Pick your sport so your plan and analysis fit you better.",id:"Pilih olahragamu agar plan & analisa lebih relevan."}))+'</div>'; return; }
+      var rows=await Promise.all(SPORTS.map(async function(s){
+        var nm=await SportPicker.label(s).catch(function(){ return s.sport_key; });
+        var days=(s.play_days||[]).map(function(d){ return L(SportPicker.DAYS[d-1]); }).join(", ");
+        var k=s.rank===1?L({en:"Main sport",id:"Olahraga utama"}):L({en:"Second sport",id:"Olahraga kedua"});
+        return '<div class="kv"><span class="k">'+escapeHtml(k)+'</span><span class="v">'+escapeHtml(nm)+(days?'<br><span class="muted" style="font-weight:600;font-size:12.5px">'+escapeHtml(days)+'</span>':"")+'</span></div>';
+      }));
+      el.innerHTML=rows.join("");
+    }
+    async function loadSports(){
+      SPORTS=undefined; renderSports();
+      try{ SPORTS=await SportPicker.mine(); }catch(e){ SPORTS=null; }
+      renderSports();
+      if(location.hash==="#sports" && SPORTS) openSports();
+    }
+    function openSports(){
+      if(!SPORT_PICK) SPORT_PICK=SportPicker.mount(document.getElementById("sportPick"),{detail:true});
+      SPORT_PICK.ready.then(function(){ SPORT_PICK.set(SPORTS||[]); }).catch(function(){
+        document.getElementById("sportPick").innerHTML='<div class="msg err">'+escapeHtml(L({en:"Couldn't load the sport list. Try again.",id:"Gagal memuat daftar olahraga. Coba lagi."}))+'</div>'; SPORT_PICK=null; });
+      document.getElementById("sportBg").classList.add("open");
+    }
+    function closeSports(){ document.getElementById("sportBg").classList.remove("open"); if(location.hash==="#sports") history.replaceState(null,"",location.pathname); }
+    async function saveSports(){
+      if(!SPORT_PICK) return;
+      var btn=document.getElementById("sportSave"); btn.disabled=true;
+      try{ SPORTS=await SPORT_PICK.save("profile"); renderSports(); closeSports(); }catch(e){}
+      btn.disabled=false;
+    }
+    (function(){ var bg=document.getElementById("sportBg"); if(bg) bg.addEventListener("click",function(e){ if(e.target===bg) closeSports(); }); })();
+    try{ if(window.I18N&&I18N.onChange) I18N.onChange(renderSports); }catch(e){}
 
     // ---- Pencapaian (minggu berjalan, aturan lencana dari js/achievements.js) ----
     var ACH_STATS=null;

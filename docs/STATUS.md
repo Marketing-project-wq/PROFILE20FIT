@@ -1,6 +1,6 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-10-01 · **Commit staging:** `e298aa2` · **Production:** `cb621dc`
+> **Pembaruan terakhir:** 2026-10-02 · **Commit staging:** `4727bfd` · **Production:** `a27ff79`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
@@ -154,6 +154,27 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
 (sudah ada sebagian di `/recipe`, perlu dipisah) · eat-now (direktori katering).
 
 ## 2. Fitur SEDANG dikerjakan / SETENGAH JADI
+- **Activity multi-sport (mulai 2026-10-02, bertahap Fase 1–4, staging dulu).** Spesifikasi dari pemilik: user pilih maks
+  2 olahraga → plan dibangun di sekitar jadwal olahraganya, analisa per olahraga, CTA terpusat, batas keahlian AI Coach.
+  Audit Langkah 0 (1 Okt): belum ada data olahraga member sama sekali (2 upload workout total); proxy tiket event
+  → hybrid race/HYROX & lari paling banyak; padel/tennis tak punya data & Padel Rebel tidak ditemukan di codebase.
+  - **Fase 1 — profil olahraga + paket draf.**
+    - Paket config `lib/sport-packs/` (hyrox, running, gym, padel, general="Lainnya" + nama bebas): metrics, goals,
+      supporting_training, injury_watch, technical_topics (+kata kunci), events, cta_map, community.
+      **SEMUA ISI DRAFT agent — PERLU DIVALIDASI COACH & FISIOTERAPIS 20FIT.** Padel dimasukkan atas permintaan pemilik,
+      bukan dari data.
+    - `lib/cta-inventory.js` = daftar tujuan CTA yang terverifikasi ada (paket hanya boleh menunjuk ke sini; kunci
+      salah dibuang + log). `/book-class` tanpa parameter, workout.20fit.id, Padel Rebel, booking scan Visbody
+      sengaja TIDAK masuk (lihat komentar PENDING di file).
+    - API: `GET /api/sports` (publik, isi aman untuk pemilih), `GET/PUT /api/me/sports` (validasi `validateSelection`,
+      event `sports_updated`). Batas 2 di klien + server + DB (migration 031, **BELUM dijalankan**).
+    - UI `js/sport-picker.js` (satu komponen): onboarding = olahraga utama **wajib** + kedua opsional (tanpa detail,
+      supaya onboarding tetap singkat; gangguan server tidak mengunci onboarding); profil = kartu "Olahragamu" + sheet
+      dengan 3 pertanyaan per olahraga (hari biasa main, level, tujuan). `/profile#sports` membuka sheet langsung.
+    - Ajakan SATU KALI untuk user tanpa profil olahraga yang sudah dapat nilai pertama (onboarding selesai / scan /
+      Health Score / workout) = nudge `sport_pick` di kotak nudge Activity yang sudah ada (bukan tombol baru);
+      hilang setelah ditutup/diklik/punya olahraga (`lib/journey-config.js`).
+    - Ikon baru `racket` di `js/fiticons.js`.
 - **Analisa performa per workout + halaman detail riwayat (2026-10-01, Fase 1–4, staging dulu, TANPA migration).**
   - **Fase 1 — ekstraksi:** `my20fit_workout` jadi satu sumber data workout (riwayat tak lagi membaca kalimat deskripsi
     AI). Judul kartu dari angka (`js/workout-metrics.js`, dipakai browser & server), mis. "Lari 5 km · 33:45 · 6:45/km".
