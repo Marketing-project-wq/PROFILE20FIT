@@ -895,6 +895,7 @@
 <script src="js/fasting.js"></script>
 <script src="js/nutrition.js"></script>
 <script src="js/workout-metrics.js"></script>
+<script src="js/sport-week-ui.js"></script>
 <script src="js/tours-config.js"></script>
 <script src="js/tour.js"></script>
 <script>
@@ -2307,9 +2308,25 @@
   }
   function wpExLabel(e){ var u=WP_UNITS.filter(function(x){ return x[0]===e.unit; })[0]; return (e.sets||1)+"×"+(e.reps||"")+(u&&e.unit!=="reps"?" "+Lx(u[1]):""); }
   function wpNewPlan(){ coachAskGo(Lx({en:"Make me a new workout plan for this week",id:"Buatkan workout plan baru untuk minggu ini"})); }
+  // Plan mingguan di sekitar jadwal olahraga (js/sport-week-ui.js): SATU kartu — hitung mundur event,
+  // sesi hari ini dengan SATU tombol utama, strip Sen–Min, link ke halaman plan. Diubah lewat /activity/plan
+  // (pindah hari / susun ulang), bukan editor plan biasa (editor itu tak menyimpan layout mingguan).
+  function renderSportWeekCard(host,p){
+    var t=SportWeekUI.todayInfo(p);
+    host.innerHTML='<div class="wp"><div class="wp-hd"><span class="wp-ic">'+FIC("calendar",18)+'</span>'+
+        '<div class="wp-ti"><b>'+esc(p.plan_name||"")+'</b><span>'+esc(Lx({en:"Built around your sport",id:"Disusun di sekitar olahragamu"}))+'</span></div></div>'+
+      SportWeekUI.countdownHtml(p)+
+      (t?'<div class="swk-today"><b>'+esc(t.title)+'</b><p>'+esc(t.sub)+'</p>'+(t.href?'<a class="wp-b pri" href="'+esc(t.href)+'">'+esc(t.btn)+'</a>':'')+'</div>':'')+
+      SportWeekUI.stripHtml(p)+
+      '<div class="wp-acts"><a class="wp-b" href="/activity/plan">'+esc(Lx({en:"Weekly plan →",id:"Plan mingguan →"}))+'</a></div></div>';
+    // Upload ada di halaman ini -> buka alurnya langsung (link #hash ke halaman yang sama tak memicu apa-apa).
+    var up=host.querySelector('.swk-today a[href="/activity#upload-workout"]');
+    if(up) up.onclick=function(e){ e.preventDefault(); uploadWorkoutGo(); };
+  }
   function renderWorkoutPlan(){
     var host=document.getElementById("workoutPlanBox"); if(!host) return;
     var p=WPLAN&&WPLAN.plan, days=(p&&Array.isArray(p.days))?p.days:[];
+    if(p&&p.kind==="sport_week"){ renderSportWeekCard(host,p); return; }
     if(!days.length){
       host.innerHTML='<div class="plan-slim"><span>'+FIC("dumbbell",14)+' <b>'+esc(Lx({en:"Workout Plan",id:"Workout Plan"}))+'</b> · '+esc(Lx({en:"no active plan yet.",id:"belum ada plan aktif."}))+'</span>'+
         '<button type="button" id="wpMake">'+esc(Lx({en:"Make Plan →",id:"Buat Plan →"}))+'</button></div>';

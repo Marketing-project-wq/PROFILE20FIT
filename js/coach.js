@@ -94,6 +94,8 @@
   // (link dari luar tak boleh mengirim chat atas nama user tanpa ia menekan Kirim).
   var PREFILL = "";
   var VIEW_PLAN_ID = null;           // /activity/plan/<id> -> lihat plan tertentu (bisa plan lama)
+  // Activity multi-sport: profil olahraga user (/api/me/sports) + paket (/api/sports) untuk plan mingguan.
+  var MY_SPORTS = [], SPORT_PACKS = null, START_DAY = null;
   var USER_NAME = "";                // nama depan user (buat sapaan personal)
   // [label, pesan, ikon] — label & ikon utk kartu prompt; pesan = yang benar-benar dikirim ke coach.
   var QUICKS = [
@@ -115,6 +117,11 @@
     try { var qr = await apiFetch("/api/coach/quiz"); var qj = await qr.json().catch(function () { return {}; }); QUIZ = qj && qj.quiz ? qj.quiz : null; } catch (e) {}
     try { var cr = await fetch("/api/coach/config"); CFG = await cr.json().catch(function () { return {}; }); } catch (e) { CFG = {}; }
     if (PLAN && PLAN.plan) { await loadToday(); }
+    try {
+      var sr = await apiFetch("/api/me/sports"); var sj = await sr.json().catch(function () { return {}; });
+      MY_SPORTS = (sr.ok && sj.sports) || [];
+      if (MY_SPORTS.length) { var pr = await fetch("/api/sports"); var pj = await pr.json().catch(function () { return {}; }); SPORT_PACKS = pj.sports || null; }
+    } catch (e) { MY_SPORTS = []; }
     // Foto persona = foto coach asli dari roster CMS (lewat js/coach-profiles.js); gagal -> inisial.
     await CP.loadRoster();
     // Nama depan user buat sapaan (best-effort; kalau tak ada, sapaan tanpa nama).
@@ -163,7 +170,7 @@
   // ---- Intro ----
   function renderIntro() {
     var done = !!QUIZ;
-    root().innerHTML = backBar() +
+    root().innerHTML = backBar() + sportPlanCardHtml() +
       '<div class="card hero"><div class="big">' + esc(Lx({ en: "Your AI training coach", id: "Pelatih AI kamu" })) + '</div>' +
       '<p>' + esc(Lx({ en: "Answer a few questions and get a weekly workout plan built around your goal, ability and schedule — no need to work out first.", id: "Jawab beberapa pertanyaan, dan dapat rencana latihan mingguan sesuai goal, kemampuan & jadwalmu — tanpa harus olahraga dulu." })) + '</p>' +
       '<ul><li>' + esc(Lx({ en: "Plan you can adjust anytime", id: "Plan bisa kamu adjust kapan saja" })) + '</li>' +
@@ -173,8 +180,54 @@
       '<a class="btn ghost" href="' + esc(chatPlanHref()) + '" style="margin-top:8px">' + svgIcon("chat", 16) + ' ' + esc(Lx({ en: "Or ask a coach to build it in chat", id: "Atau minta coach buatkan lewat chat" })) + '</a></div>' +
       planListShell();
     el("startQuiz").onclick = function () { if (QUIZ && QUIZ.answers) prefill(QUIZ); renderQuiz(); };
+    wireSportPlanCard();
     loadPlanList();
     wireBackToChat();
+  }
+  // ---- Plan mingguan di sekitar jadwal olahraga (js/sport-week-ui.js, server lib/sport-week.js) ----
+  function sportNames() {
+    return MY_SPORTS.map(function (s) {
+      var pk = (SPORT_PACKS || []).filter(function (x) { return x.key === s.sport_key; })[0];
+      return pk ? (pk.other && s.other_label ? s.other_label : Lx(pk.label)) : s.sport_key;
+    }).join(" + ");
+  }
+  function sportPlanCardHtml() {
+    if (!MY_SPORTS.length) return '<div class="card"><div class="planhead"><div class="pn">' + esc(Lx({ en: "Plan around your sport", id: "Plan sesuai olahragamu" })) + '</div>' +
+      '<div class="wn">' + esc(Lx({ en: "Pick your sport first — the plan is then built around the days you play.", id: "Pilih olahragamu dulu — plan lalu disusun di sekitar hari kamu main." })) + '</div></div>' +
+      '<a class="btn ghost" href="/profile#sports" style="margin-top:10px">' + esc(Lx({ en: "Pick sport", id: "Pilih olahraga" })) + '</a></div>';
+    return '<div class="card"><div class="planhead"><div class="pn">' + esc(Lx({ en: "Plan around your sport", id: "Plan sesuai olahragamu" })) + '</div>' +
+      '<div class="wn">' + esc(sportNames()) + ' — ' + esc(Lx({ en: "your play days stay; we add training, recovery and rest around them.", id: "hari main tetap; kami isi latihan pendukung, pemulihan & istirahat di sekitarnya." })) + '</div></div>' +
+      '<button class="btn" id="sportPlanGo" style="margin-top:10px">' + esc(Lx({ en: "Build weekly plan", id: "Susun plan mingguan" })) + '</button></div>';
+  }
+  function wireSportPlanCard() { var b = el("sportPlanGo"); if (b) b.onclick = renderSportBuilder; }
+  function renderSportBuilder() {
+    var p = PLAN && PLAN.plan && PLAN.plan.kind === "sport_week" ? PLAN.plan : null, sc = (p && p.sport_context) || {};
+    root().innerHTML = '<div class="card"><div class="planhead"><div class="pn">' + esc(Lx({ en: "Plan around your sport", id: "Plan sesuai olahragamu" })) + '</div>' +
+      '<div class="wn">' + esc(sportNames()) + ' · <a href="/profile#sports" style="color:var(--accent);font-weight:800">' + esc(Lx({ en: "change sport / days", id: "ubah olahraga / hari" })) + '</a></div></div>' +
+      '<div id="sportBuilder"></div><button class="btn ghost" id="sbBack" style="margin-top:8px">' + esc(Lx({ en: "Back", id: "Kembali" })) + '</button></div>';
+    SportWeekUI.mountBuilder(el("sportBuilder"), { sports: MY_SPORTS, apiFetch: apiFetch,
+      defaults: p ? { avail_days: sc.avail_days, minutes: sc.minutes, location: sc.location, event: p.event } : null,
+      onBuilt: function (row) { PLAN = row; START_DAY = null; loadToday().then(render); } });
+    el("sbBack").onclick = function () { render(); };
+  }
+  // Kartu hari ini untuk plan mingguan: hari main -> ajak upload setelah main; istirahat -> tanpa tombol;
+  // latihan/pemulihan -> kartu sesi biasa (status sesi harian).
+  function weekTodayHtml(p) {
+    var t = SportWeekUI.todayInfo(p);
+    if (!t || t.kind === "support" || t.kind === "recovery") return todayCardHtml();
+    return '<div class="card today"><span class="ic">' + svgIcon(t.kind === "sport" ? "run" : "cal") + '</span><span style="flex:1;min-width:0">' +
+      '<span class="tt" style="display:block">' + esc(t.title) + '</span><span class="ts" style="display:block">' + esc(t.sub) + '</span></span>' +
+      (t.href ? '<a class="go" href="' + esc(t.href) + '" style="text-decoration:none">' + esc(t.btn) + '</a>' : "") + '</div>';
+  }
+  async function sportMove(from, to) {
+    if (BUSY) return; BUSY = true; clearErr();
+    try {
+      var r = await apiFetch("/api/sport-plan/move", { method: "POST", body: JSON.stringify({ from: from, to: to, lang: (window.I18N && I18N.lang) || "id" }) });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) throw new Error(j.error || "move");
+      PLAN = j.plan || PLAN; BUSY = false; renderPlan(); return;
+    } catch (e) { showErr((e && e.message) || Lx({ en: "Couldn't move the day.", id: "Gagal memindah hari." })); }
+    BUSY = false;
   }
 
   function prefill(q) {
@@ -304,13 +357,14 @@
     var srcLbl = planSrcLabel(row);
     // Plan dari chat coach: latihannya bebas (bukan dari library quiz) -> tombol "ganti" tidak punya
     // pengganti; ubahnya lewat editor di /activity (#edit-plan).
-    var fromChat = p.origin === "chat";
-    var html = todayCardHtml() +
+    var fromChat = p.origin === "chat", isWeek = p.kind === "sport_week";
+    var html = (isWeek ? weekTodayHtml(p) : (MY_SPORTS.length ? sportPlanCardHtml() : "") + todayCardHtml()) +
       '<div class="card"><div class="planhead"><div class="pn">' + esc(p.plan_name || "Workout plan") + '</div>' +
       '<div class="wn">' + esc(p.weekly_note || "") + '</div>' +
       '<span class="badge src">' + esc(srcLbl) + '</span></div>' +
       (p.needs_specialist ? '<div class="needspec"><span style="color:var(--amber)">' + svgIcon("warn", 16) + '</span> ' + esc(Lx({ en: "Because of your safety screening, this is a conservative plan. Please consult a 20FIT specialist before starting.", id: "Karena hasil skrining keamananmu, ini plan versi konservatif. Sebaiknya konsultasi ke specialist 20FIT sebelum mulai." })) + '</div>' : '') +
-      days.map(function (d, di) {
+      (isWeek ? '<div id="weekBox">' + SportWeekUI.weekHtml(p, { movable: true, packs: SPORT_PACKS, onStart: true }) + '</div>' : "") +
+      (isWeek ? [] : days).map(function (d, di) {
         return '<div class="day' + (d.done ? ' done' : '') + '"><div class="day-h" data-day="' + di + '">' +
           '<button type="button" class="dchk" data-done="' + esc(d.key) + '" aria-pressed="' + (d.done ? 'true' : 'false') + '" title="' + esc(Lx({ en: "Mark day done", id: "Tandai hari selesai" })) + '">' + svgIcon(d.done ? "boxcheck" : "box", 18) + '</button>' +
           '<span class="dl">' + esc(d.label || ("Hari " + (di + 1))) + '</span>' +
@@ -326,7 +380,8 @@
       '<div class="adjrow"><button class="btn ghost" id="adjEasier">– ' + esc(Lx({ en: "Easier", id: "Ringankan" })) + '</button>' +
       '<button class="btn ghost" id="adjHarder">+ ' + esc(Lx({ en: "Harder", id: "Beratkan" })) + '</button>' +
       (fromChat ? '<a class="btn ghost" href="/activity#edit-plan">' + esc(Lx({ en: "Edit plan", id: "Ubah plan" })) + '</a>' : '') +
-      '<button class="btn ghost" id="adjRedo">' + esc(Lx({ en: "Retake quiz", id: "Ulang quiz" })) + '</button>' +
+      (isWeek ? '<button class="btn ghost" id="adjWeek">' + esc(Lx({ en: "Rebuild weekly plan", id: "Susun ulang plan mingguan" })) + '</button>'
+        : '<button class="btn ghost" id="adjRedo">' + esc(Lx({ en: "Retake quiz", id: "Ulang quiz" })) + '</button>') +
       '<a class="btn ghost" href="' + esc(chatPlanHref()) + '">' + svgIcon("chat", 16) + ' ' + esc(Lx({ en: "New plan via coach", id: "Plan baru via coach" })) + '</a></div>' +
       '<div class="disc">' + esc(p.disclaimer || "") + '</div></div>';
 
@@ -363,7 +418,14 @@
     });
     el("adjEasier").onclick = function () { adjust({ op: "level", dir: "easier" }); };
     el("adjHarder").onclick = function () { adjust({ op: "level", dir: "harder" }); };
-    el("adjRedo").onclick = function () { if (QUIZ) prefill(QUIZ); renderQuiz(); };
+    if (el("adjRedo")) el("adjRedo").onclick = function () { if (QUIZ) prefill(QUIZ); renderQuiz(); };
+    if (el("adjWeek")) el("adjWeek").onclick = renderSportBuilder;
+    wireSportPlanCard();
+    if (isWeek) SportWeekUI.bindWeek(el("weekBox"), p, {
+      onDone: function (k, dn) { adjust({ op: "done", day_key: k, done: dn }); },
+      onMove: sportMove,
+      onStart: function (k) { START_DAY = k; openSession(); },
+    });
     Array.prototype.forEach.call(root().querySelectorAll("[data-cta]"), function (b) { b.onclick = function () { onCta(b.getAttribute("data-cta")); }; });
     wireBackToChat();
   }
@@ -503,7 +565,10 @@
     INSESSION = true;
     var p = (PLAN && PLAN.plan) || {}, days = Array.isArray(p.days) ? p.days : [];
     var knownSleep = (data && data.sleep_hours != null) ? data.sleep_hours : null;
-    var S2 = { day: (days[0] && days[0].key) || null, sleep: (knownSleep != null ? String(knownSleep) : null) };
+    // Plan mingguan olahraga: default ke sesi hari ini (key "w<1..7>") / hari yang diketuk "Mulai sesi".
+    var gd = new Date().getDay(), wk = START_DAY || ("w" + (gd === 0 ? 7 : gd));
+    var pre = days.filter(function (d) { return d.key === wk; })[0] || days[0];
+    var S2 = { day: (pre && pre.key) || null, sleep: (knownSleep != null ? String(knownSleep) : null) };
     function draw() {
       root().innerHTML = '<div class="card">' +
         '<div class="planhead"><div class="pn">' + esc(Lx({ en: "Today's workout", id: "Latihan hari ini" })) + '</div>' +

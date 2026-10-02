@@ -21,6 +21,8 @@ const segments = require("./lib/segments"); // segment engine untuk blast email 
 const visbody = require("./lib/visbody"); // SATU-SATUNYA jalur ke Visbody WellnessHub (timbangan S20)
 const journeyConfig = require("./lib/journey-config"); // angka alur Visbody + Health Score
 const sportPacks = require("./lib/sport-packs"); // paket olahraga (Activity multi-sport) — DRAFT, perlu validasi coach
+const sportWeek = require("./lib/sport-week"); // plan mingguan di sekitar jadwal olahraga (deterministik)
+const sportWeekCfg = require("./lib/sport-week-config");
 const classOverrides = require("./lib/class-overrides"); // koreksi sementara instruktur jadwal Arena/Gym
 const woAnalysis = require("./lib/workout-analysis"); // analisa performa workout (deterministik)
 const woNarrative = require("./lib/workout-narrative"); // narasi analisa workout (template + AI tervalidasi)
@@ -1046,6 +1048,7 @@ app.put("/api/me/sports", async (req, res) => {
     const { error } = await admin.rpc("my20fit_set_user_sports", { p_uid: user.id, p_rows: v.rows });
     if (error) throw error;
     jnLog(user.id, "sports_updated", { from: String(b.from || "profile").slice(0, 30), sports: v.rows.map(function (r) { return r.sport_key; }) });
+    try { await sportPlanQueueNext(user.id); } catch (e) { console.error("sport-plan next:", (e && e.message) || e); }
     const { data } = await admin.from("my20fit_user_sports").select(SPORT_COLS).eq("auth_user_id", user.id).order("rank");
     return res.json({ ok: true, sports: data || [] });
   } catch (e) { console.error("me/sports put:", (e && e.message) || e); return res.status(500).json({ error: "Gagal menyimpan olahraga." }); }
@@ -10512,7 +10515,7 @@ app.get("/api/coach/plan", async (req, res) => {
     const user = await getUserFromReq(req);
     if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
     const { data } = await admin.from("my20fit_workout_plan").select("*").eq("auth_user_id", user.id).eq("is_active", true).order("created_at", { ascending: false }).limit(1);
-    return res.json({ ok: true, plan: (data && data[0]) || null });
+    return res.json({ ok: true, plan: await sportPlanPromote((data && data[0]) || null) });
   } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, plan: null, setup_required: true }); return res.status(500).json({ error: "Gagal memuat plan." }); }
 });
 // GET /api/coach/plans — semua plan user (terbaru dulu): ringkasan untuk /activity/plan.
@@ -10635,6 +10638,131 @@ app.post("/api/coach/cta", async (req, res) => {
     return res.json({ ok: true, url: url });
   } catch (e) { return res.status(500).json({ error: "Gagal mencatat CTA." }); }
 });
+// ---------- PLAN MINGGUAN DI SEKITAR JADWAL OLAHRAGA (Activity multi-sport, Fase 2) ----------
+// Mesin deterministik lib/sport-week.js (ambang lib/sport-week-config.js, PERLU DIVALIDASI COACH).
+// Disimpan sebagai plan aktif biasa (my20fit_workout_plan, source "rule", plan.kind "sport_week");
+// sport_context & event ikut di dalam plan JSON -> TANPA migration. Satu plan aktif mencakup kedua olahraga.
+async function sportPlanInputs(uid, body) {
+  const [sR, qR] = await Promise.all([
+    admin.from("my20fit_user_sports").select("rank,sport_key,other_label,play_days,level,goal,updated_at").eq("auth_user_id", uid).order("rank"),
+    admin.from("my20fit_coach_quiz").select("safety_flags").eq("auth_user_id", uid).limit(1),
+  ]);
+  if (sR.error) throw sR.error;
+  const sports = sR.data || [];
+  const sf = (qR.data && qR.data[0] && qR.data[0].safety_flags) || {};
+  const upd = sports.map(function (x) { return x.updated_at; }).sort().pop() || null;
+  return { sports: sports, conservative: !!(sf.injury || sf.pain_now || sf.medical), sports_updated_at: upd };
+}
+function sportPlanCtx(lang, location, conservative) {
+  return { exlib: COACH_EXLIB, vol: COACH_VOL, lang: lang === "en" ? "en" : "id", location: location, conservative: conservative };
+}
+// Event: dari katalog tiket 20FIT (slug) atau isian sendiri (nama + tanggal). Mengembalikan null / {error}.
+async function sportPlanEvent(e) {
+  if (!e || typeof e !== "object") return null;
+  const today = coachToday(), maxDay = new Date(Date.now() + sportWeekCfg.event.max_days_ahead * 86400000).toISOString().slice(0, 10);
+  if (e.source === "ticket") {
+    const { data } = await admin.from("my20fit_ticket_events").select("slug,name,starts_at,city").eq("slug", String(e.slug || "")).limit(1);
+    const t = data && data[0];
+    if (!t || !t.starts_at) return { error: "Event tidak ditemukan." };
+    return { source: "ticket", slug: t.slug, name: t.name, date: String(t.starts_at).slice(0, 10), city: t.city || null };
+  }
+  const name = String(e.name || "").trim().replace(/\s+/g, " ").slice(0, 80), date = String(e.date || "");
+  if (name.length < 3 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Isi nama event & tanggalnya." };
+  if (date < today || date > maxDay) return { error: "Tanggal event harus antara hari ini dan 1 tahun ke depan." };
+  return { source: "custom", name: name, date: date };
+}
+function nextMondayYmd(today) { const d = sportWeek.dowOf(today), t = new Date(today + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() + (8 - d)); return t.toISOString().slice(0, 10); }
+// Plan berikutnya (setelah olahraga diganti) mulai berlaku Senin depan; dipromosikan saat dibaca.
+async function sportPlanPromote(row) {
+  const p = row && row.plan;
+  if (!p || p.kind !== "sport_week" || !p.next || !p.next.from || p.next.from > coachToday()) return row;
+  const { data } = await admin.from("my20fit_workout_plan").update({ plan: p.next.plan, updated_at: new Date().toISOString() }).eq("id", row.id).select().single();
+  return data || row;
+}
+// Daftar event 20FIT mendatang untuk mode hitung mundur; yang cocok dengan olahraga user ditandai.
+app.get("/api/sport-plan/events", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, events: [] });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: sp } = await admin.from("my20fit_user_sports").select("sport_key").eq("auth_user_id", user.id);
+    const kw = [];
+    (sp || []).forEach(function (x) { const p = sportPacks.get(x.sport_key); ((p && p.events.keywords) || []).forEach(function (k) { kw.push(k); }); });
+    const { data, error } = await admin.from("my20fit_ticket_events").select("slug,name,starts_at,city")
+      .eq("status", "on_sale").not("published_at", "is", null).gte("starts_at", new Date().toISOString()).order("starts_at", { ascending: true }).limit(30);
+    if (error) throw error;
+    const events = (data || []).filter(function (e) { return e.slug && e.starts_at; }).map(function (e) {
+      const nm = String(e.name || "").toLowerCase();
+      return { slug: e.slug, name: e.name, date: String(e.starts_at).slice(0, 10), city: e.city || null, match: kw.some(function (k) { return nm.indexOf(k) >= 0; }) };
+    }).sort(function (a, b) { return (b.match - a.match) || (a.date < b.date ? -1 : 1); });
+    return res.json({ ok: true, events: events });
+  } catch (e) { console.error("sport-plan/events:", (e && e.message) || e); return res.status(500).json({ error: "Gagal memuat event." }); }
+});
+// Susun plan mingguan & jadikan plan aktif. body {avail_days:[1..7], minutes, location, event?, lang}
+app.post("/api/sport-plan", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {}, lang = b.lang === "en" ? "en" : "id";
+    const inp = await sportPlanInputs(user.id);
+    if (!inp.sports.length) return res.status(400).json({ error: "Pilih olahragamu dulu di profil.", need_sports: true });
+    const avail = (Array.isArray(b.avail_days) ? b.avail_days : []).map(Number).filter(function (d) { return d >= 1 && d <= 7; });
+    const loc = ["home", "gym", "arena"].indexOf(b.location) >= 0 ? b.location : "home";
+    const ev = await sportPlanEvent(b.event);
+    if (ev && ev.error) return res.status(400).json({ error: ev.error });
+    const plan = sportWeek.build({ sports: inp.sports, avail_days: avail, minutes: b.minutes, event: ev, today: coachToday(), sports_updated_at: inp.sports_updated_at },
+      sportPlanCtx(lang, loc, inp.conservative));
+    await admin.from("my20fit_workout_plan").update({ is_active: false, updated_at: new Date().toISOString() }).eq("auth_user_id", user.id).eq("is_active", true);
+    const { data, error } = await admin.from("my20fit_workout_plan").insert({ auth_user_id: user.id, goal: plan.goal, level: plan.level, plan: plan,
+      version: 1, is_active: true, source: "rule", updated_at: new Date().toISOString() }).select().single();
+    if (error) throw error;
+    jnLog(user.id, "workout_plan_created", { source: "sport_week" });
+    return res.json({ ok: true, plan: data });
+  } catch (e) {
+    console.error("sport-plan:", (e && e.message) || e);
+    if (isMissingSchema(e)) return res.status(503).json({ error: "Belum bisa: migration 031 belum dijalankan di database.", setup_required: true });
+    return res.status(500).json({ error: "Gagal menyusun plan." });
+  }
+});
+// Pindah hari di plan mingguan aktif: {from, to} (1=Sen … 7=Min) -> tukar & susun ulang dgn aturan sama.
+app.post("/api/sport-plan/move", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {}, from = parseInt(b.from, 10), to = parseInt(b.to, 10);
+    if (!(from >= 1 && from <= 7 && to >= 1 && to <= 7) || from === to) return res.status(400).json({ error: "Hari tidak valid." });
+    const { data: cur } = await admin.from("my20fit_workout_plan").select("*").eq("auth_user_id", user.id).eq("is_active", true).order("created_at", { ascending: false }).limit(1);
+    const row = cur && cur[0], p = row && row.plan;
+    if (!p || p.kind !== "sport_week") return res.status(400).json({ error: "Plan aktif bukan plan mingguan olahraga." });
+    const sc = p.sport_context || {};
+    const moved = sportWeek.move(p, from, to, { sports: sc.sports || [], avail_days: sc.avail_days || [], minutes: sc.minutes, event: p.event || null,
+      today: coachToday(), sports_updated_at: sc.sports_updated_at }, sportPlanCtx(b.lang, sc.location || "home", false));
+    if (!moved) return res.status(400).json({ error: "Hari tidak valid." });
+    // Centang "selesai" ikut hari yang sama (latihan yang sudah dilakukan tetap tercatat).
+    const done = {}; (p.days || []).forEach(function (d) { if (d.done) done[d.key] = true; });
+    moved.days.forEach(function (d) { if (done[d.key]) d.done = true; });
+    if (p.next) moved.next = p.next;
+    const { data, error } = await admin.from("my20fit_workout_plan").update({ plan: moved, source: "adjusted", updated_at: new Date().toISOString() }).eq("id", row.id).select().single();
+    if (error) throw error;
+    return res.json({ ok: true, plan: data });
+  } catch (e) { console.error("sport-plan/move:", (e && e.message) || e); return res.status(500).json({ error: "Gagal memindah hari." }); }
+});
+// Dipanggil setelah olahraga user diganti: plan mingguan aktif disusun ulang dgn olahraga baru dan
+// berlaku mulai Senin depan (minggu ini & riwayat tidak diubah).
+async function sportPlanQueueNext(uid) {
+  const { data: cur } = await admin.from("my20fit_workout_plan").select("*").eq("auth_user_id", uid).eq("is_active", true).order("created_at", { ascending: false }).limit(1);
+  const row = cur && cur[0], p = row && row.plan;
+  if (!p || p.kind !== "sport_week") return;
+  const inp = await sportPlanInputs(uid), sc = p.sport_context || {};
+  if (!inp.sports.length) return;
+  const lang = /^Weekly plan/.test(p.plan_name || "") ? "en" : "id";
+  const nextPlan = sportWeek.build({ sports: inp.sports, avail_days: sc.avail_days || [], minutes: sc.minutes, event: p.event || null, today: nextMondayYmd(coachToday()),
+    sports_updated_at: inp.sports_updated_at }, sportPlanCtx(lang, sc.location || "home", inp.conservative));
+  const plan = Object.assign({}, p, { next: { from: nextMondayYmd(coachToday()), plan: nextPlan } });
+  await admin.from("my20fit_workout_plan").update({ plan: plan, updated_at: new Date().toISOString() }).eq("id", row.id);
+}
 // ---------- FASE 2: sesi latihan harian (sleep-check + check-in per set + progress) ----------
 // AMBANG TIDUR -> penyesuaian beban sesi. PENTING: ANGKA INI PERLU DIVALIDASI COACH/PROFESIONAL.
 // Bukan standar medis; default konservatif: makin kurang tidur, makin diturunkan volumenya.
