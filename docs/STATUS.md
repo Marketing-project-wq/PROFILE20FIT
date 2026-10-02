@@ -175,6 +175,29 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
       Health Score / workout) = nudge `sport_pick` di kotak nudge Activity yang sudah ada (bukan tombol baru);
       hilang setelah ditutup/diklik/punya olahraga (`lib/journey-config.js`).
     - Ikon baru `racket` di `js/fiticons.js`.
+  - **Fase 2 — plan mingguan di sekitar jadwal olahraga + mode event (TANPA migration).**
+    - Mesin deterministik `lib/sport-week.js` (tanpa AI), ambang `lib/sport-week-config.js` (**PERLU DIVALIDASI COACH**):
+      hari main = sesi utama (tak diganti); sehari setelah sesi berat = pemulihan (mobilitas 15') bila hari itu
+      tersedia; latihan pendukung (kategori dari paket, latihan dari `COACH_EXLIB`) di hari tersedia lain, sehari
+      sebelum sesi berat dibuat ringan; batas sesi berat/total/pendukung per level; minimal 1 hari istirahat penuh;
+      olahraga kedua tanpa hari tetap -> 1 sesi santai (lari/engine/beban ringan; padel tidak). Peringatan bila main
+      berat beruntun / terlalu sering / tanpa hari main.
+    - Event: dari katalog `my20fit_ticket_events` (yang cocok kata kunci olahraga user ditandai) atau isian sendiri;
+      fase dasar → meningkat (6 minggu) → menjelang event (taper per olahraga) + "X hari lagi menuju {event}".
+    - Disimpan sebagai plan aktif biasa (`my20fit_workout_plan`, `plan.kind = "sport_week"`, `week[7]`,
+      `sport_context`, `event` di dalam JSON). `days[]` = sesi latihan/pemulihan (key `w1..w7`, label nama hari)
+      supaya sesi harian, centang selesai, dan kartu plan lama tetap jalan.
+    - API: `GET /api/sport-plan/events`, `POST /api/sport-plan`, `POST /api/sport-plan/move` (tukar 2 hari lalu susun
+      ulang dgn aturan sama; centang selesai ikut). Ganti olahraga (`PUT /api/me/sports`) -> plan mingguan aktif
+      disusun ulang & berlaku **Senin depan** (`plan.next`, dipromosikan saat `GET /api/coach/plan`); minggu ini &
+      riwayat tetap.
+    - UI satu modul `js/sport-week-ui.js`: halaman Plan (`/activity/plan`) = kartu "Plan sesuai olahragamu" + form
+      (hari tersedia, durasi, lokasi, event) + layout Sen–Min (ikon/warna per jenis, ketuk = detail, tombol Pindah,
+      Mulai sesi hari ini); kartu plan di `/activity` untuk plan mingguan = hitung mundur + sesi hari ini (SATU tombol:
+      upload di hari main / mulai sesi di hari latihan / tanpa tombol di hari istirahat) + strip Sen–Min.
+    - **Belum:** sesi terpandu dari workout.20fit.id (masih disembunyikan pemilik, "belum siap"); pilihan variasi
+      latihan oleh AI (sengaja belum — mesin deterministik dulu); library latihan masih 16 gerakan umum (drill
+      kelincahan/rotasi spesifik belum ada, perlu coach). Drag-and-drop belum ada (pakai tombol Pindah).
 - **Analisa performa per workout + halaman detail riwayat (2026-10-01, Fase 1–4, staging dulu, TANPA migration).**
   - **Fase 1 — ekstraksi:** `my20fit_workout` jadi satu sumber data workout (riwayat tak lagi membaca kalimat deskripsi
     AI). Judul kartu dari angka (`js/workout-metrics.js`, dipakai browser & server), mis. "Lari 5 km · 33:45 · 6:45/km".
