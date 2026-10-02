@@ -25,6 +25,7 @@
 | Corporate | `my20fit_corporate`, `my20fit_corporate_admin`, `my20fit_corporate_member`, `my20fit_corporate_message_log`, `my20fit_corporate_access_log` |
 | Ulasan kelas | `my20fit_class_reviews` (migration 030, dijalankan 2026-10-01) |
 | Profil olahraga (maks 2) | `my20fit_user_sports` (migration 031, **BELUM dijalankan**) |
+| Challenge komunitas (struktur) | `my20fit_challenge`, `my20fit_challenge_member` (migration 032, **BELUM dijalankan**, belum dipakai kode) |
 | Roster tampilan (coach/dokter/fisioterapis) | `my20fit_coaches`, `my20fit_coach_instructor_aliases`, `my20fit_doctors`, `my20fit_physiotherapists` |
 | Tiket event | `my20fit_ticket_events` (katalog + `sold_count` agregat, disinkron `sync-ticket-events`). `my20fit_ticket_tokens` masih ada di DB tapi **sudah tidak dipakai kode mana pun** sejak jalur OTP dibuang (`d1c2a38`). Arsip pembelian dibaca **read-only** dari `event_transaction` — tabel **milik app lain**, tanpa prefix: jangan ditulis. |
 
@@ -120,6 +121,12 @@
   `USER_DATA_TABLES`. **BELUM dijalankan** — sebelum dijalankan, `/api/me/sports` membalas 500, ajakan di Activity
   tidak tampil, dan onboarding tetap bisa lanjut. Diuji di Postgres 16 lokal: idempoten, rank 3 & duplikat ditolak,
   tukar urutan aman, gagal = tidak ada data setengah tersimpan.
+- **`db/supabase-migration-032-challenges.sql`** — struktur challenge per olahraga / lintas olahraga (Activity multi-sport
+  Fase 4, Bagian G): `my20fit_challenge` (slug, title/description jsonb, `sport_key` NULL = lintas, `scoring` hanya
+  'consistency', `rules` jsonb, tanggal, status draft|active|ended, community_url) + `my20fit_challenge_member`
+  (poin & sesi per user). RLS: member login baca challenge aktif/selesai; baris keikutsertaan hanya miliknya.
+  **HANYA STRUKTUR — BELUM dijalankan & belum ada kode yang memakainya** (menunggu challenge percontohan). Diuji di
+  Postgres 16 lokal: idempoten, tanggal terbalik & scoring selain consistency ditolak.
 - `supabase/functions/` — Edge Functions: `my20fit-ai`, `my20fit-foodimg`, `sync-ticket-events`, `ticket-embed` (TypeScript, di-deploy terpisah via Supabase). `ticket-embed` memegang secret `TICKET_EMBED_KEY` dan jadi **satu-satunya** jalur ke `ticket.20fit.id/api/embed/v1`; `server.js` tak punya env tiket sama sekali.
 
 ## Cara menjalankan migration

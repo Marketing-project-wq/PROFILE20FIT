@@ -220,6 +220,26 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
       `/book-class` yang error tanpa parameter). **Belum:** aturan lokasi (luar Jakarta) karena profil belum punya kota
       (TANYA PEMILIK); resolver belum dipakai kartu Hari ini & CTA halaman Plan (masih 3 tombol lama, tabel
       `my20fit_coach_cta_event`).
+  - **Fase 4 — batas keahlian AI Coach + tur + struktur challenge.**
+    - `lib/coach-boundary.js`: pesan chat diklasifikasi (kata kunci, deterministik, PERLU DIVALIDASI): **teknis** (dari
+      `technical_topics` paket, mis. bandeja/smash, wall ball, deadlift, form lari) atau **medis/cedera** (nyeri/cedera +
+      area tubuh; negasi "tidak sakit" diabaikan). Untuk keduanya server menyisipkan instruksi per pesan: jawab maks 2
+      kalimat umum & aman, jujur bahwa butuh ahli yang melihat langsung, jangan mengaku ahli olahraga itu (+ spesialisasi
+      coach dari `my20fit_coaches.speciality` bila diisi). CTA dari `ctaResolver`: medis -> dokter (+ fisioterapi);
+      teknis -> layanan per topik (`technical_topics[].cta`: HYROX -> kelas Arena, gym -> kelas Gym / coach); topik
+      tanpa layanan 20FIT (padel, form lari) -> TANPA CTA dan AI diminta jujur "20FIT belum punya layanannya".
+      Tombol disimpan sebagai token `[[CTA:<kunci>]]` di balasan (tetap tampil saat riwayat dibuka; riwayat ke AI
+      diganti catatan). `GET /api/coach/config` kini juga mengirim rute & label inventaris CTA.
+      **Teks aturan baru untuk RULES.md ("Batas keahlian per olahraga") BELUM di-commit — menunggu persetujuan pemilik.**
+    - Spesialisasi coach tampil di kartu persona (`js/coach-profiles.js`) bila diisi di admin-v2 → Coaches (saat ini
+      kosong untuk ke-24 coach aktif — TANYA PEMILIK / tim yang mengisi; tidak ditebak).
+    - Tur: `welcome` v2 + langkah `feat_sport` (olahragamu); `activity` & `activity_intro` v2 + langkah `week_plan`
+      (layout plan mingguan, alt bila belum punya plan mingguan). User yang sudah selesai versi lama hanya melihat
+      langkah baru.
+    - Komunitas: kartu "Komunitas olahragamu" di halaman Plan dari `community` paket (saat ini hanya direktori
+      20fit.id; Padel Rebel tersembunyi sampai URL-nya dikonfirmasi).
+    - Challenge: migration 032 (`my20fit_challenge`, `my20fit_challenge_member`, poin berbasis konsistensi) =
+      **STRUKTUR SAJA, BELUM dijalankan, belum dipakai kode** — menunggu challenge percontohan.
 - **Analisa performa per workout + halaman detail riwayat (2026-10-01, Fase 1–4, staging dulu, TANPA migration).**
   - **Fase 1 — ekstraksi:** `my20fit_workout` jadi satu sumber data workout (riwayat tak lagi membaca kalimat deskripsi
     AI). Judul kartu dari angka (`js/workout-metrics.js`, dipakai browser & server), mis. "Lari 5 km · 33:45 · 6:45/km".
