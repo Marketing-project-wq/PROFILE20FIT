@@ -198,6 +198,28 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
     - **Belum:** sesi terpandu dari workout.20fit.id (masih disembunyikan pemilik, "belum siap"); pilihan variasi
       latihan oleh AI (sengaja belum — mesin deterministik dulu); library latihan masih 16 gerakan umum (drill
       kelincahan/rotasi spesifik belum ada, perlu coach). Drag-and-drop belum ada (pakai tombol Pindah).
+  - **Fase 3 — analisa per olahraga + langkah berikutnya + ctaResolver (TANPA migration).**
+    - Jenis workout baru `padel`, `tennis` (`js/workout-metrics.js` = satu sumber; select & validasi ikut). Hasil scan
+      AI berjudul padel/tennis dikenali server (`woTypeFromScan`) walau edge `my20fit-ai` lama mengirim "other";
+      prompt edge sudah diperbarui di repo tapi **edge function BELUM di-deploy ulang**.
+    - **RPE 1–10** (rasa berat, 1 ketukan di halaman analisa) -> `POST /api/activity/workouts/:id/rpe`, disimpan di
+      `raw_data.rpe` (terpisah dari check-in supaya tak menimpa jawabannya).
+    - Sinyal baru untuk olahraga TANPA pace (`lib/workout-signals.js`): `hr_high_effort` (HR rata-rata > biasanya untuk
+      RPE/durasi serupa), `hr_low_effort` (HR sulit naik padahal RPE tinggi), `rpe_high` (RPE >= 2 di atas sesi serupa,
+      semua jenis). Bobot penyebab di `causes.signature`; ambang `signals.effort_*`/`rpe_*` — **PERLU DIVALIDASI COACH**.
+      `hr_suppressed` (berbasis pace) tidak berlaku untuk jenis tanpa pace. Kalimat narasi & template untuk padel/tennis/gym
+      tidak menyebut pace (diuji ID/EN).
+    - **Langkah berikutnya** (`nextSteps`): 1–3 aksi konkret di setiap analisa (tidur sebelum jam X, karbo N jam sebelum
+      "Padel hari Kamis" dari plan mingguan, minum N ml, hari ringan, …; angka di `next_steps` config, PERLU DIVALIDASI).
+      Ajakan mencatat makan HANYA bila bahan bakar jadi dugaan yang belum bisa dicek.
+    - **Plan menyesuaikan otomatis**: analisa workout 0–1 hari lalu yang menyarankan pemulihan/sesi ringan meringankan
+      latihan pendukung besok/lusa di plan mingguan aktif SEKALI per workout (`plan.analysis_adjust`) + 1 kalimat.
+    - **`lib/cta-resolver.js`**: CTA analisa dipilih server dari inventaris + `cta_map` paket (maks 1+1); keamanan ->
+      dokter; CTA yang tampil >= 3x/14 hari tanpa diklik ditahan. Tracking `cta_shown`/`cta_clicked` di
+      `my20fit_event_log` (props cta, from, sport). Field `cta` lama di narasi DIHAPUS (template selalu `BOOK_CLASS` ->
+      `/book-class` yang error tanpa parameter). **Belum:** aturan lokasi (luar Jakarta) karena profil belum punya kota
+      (TANYA PEMILIK); resolver belum dipakai kartu Hari ini & CTA halaman Plan (masih 3 tombol lama, tabel
+      `my20fit_coach_cta_event`).
 - **Analisa performa per workout + halaman detail riwayat (2026-10-01, Fase 1–4, staging dulu, TANPA migration).**
   - **Fase 1 — ekstraksi:** `my20fit_workout` jadi satu sumber data workout (riwayat tak lagi membaca kalimat deskripsi
     AI). Judul kartu dari angka (`js/workout-metrics.js`, dipakai browser & server), mis. "Lari 5 km · 33:45 · 6:45/km".

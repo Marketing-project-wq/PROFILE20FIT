@@ -23,6 +23,7 @@ const journeyConfig = require("./lib/journey-config"); // angka alur Visbody + H
 const sportPacks = require("./lib/sport-packs"); // paket olahraga (Activity multi-sport) — DRAFT, perlu validasi coach
 const sportWeek = require("./lib/sport-week"); // plan mingguan di sekitar jadwal olahraga (deterministik)
 const sportWeekCfg = require("./lib/sport-week-config");
+const ctaResolver = require("./lib/cta-resolver"); // CTA terpusat (hanya dari lib/cta-inventory.js)
 const classOverrides = require("./lib/class-overrides"); // koreksi sementara instruktur jadwal Arena/Gym
 const woAnalysis = require("./lib/workout-analysis"); // analisa performa workout (deterministik)
 const woNarrative = require("./lib/workout-narrative"); // narasi analisa workout (template + AI tervalidasi)
@@ -756,11 +757,12 @@ const JN_EVENTS = new Set([
   "workout_plan_created", "class_booked", "rescan_reminder_sent", "rescan_completed",
   "health_score_locked_shown", "health_score_unlocked",
   "tour_started", "tour_step_viewed", "tour_skipped", "tour_completed", "tour_replayed", "tour_cta_clicked",
-  "nudge_sport_shown", "nudge_sport_clicked", "sports_updated",
+  "nudge_sport_shown", "nudge_sport_clicked", "sports_updated", "cta_shown", "cta_clicked",
 ]);
 const JN_CLIENT_EVENTS = new Set([
   "visbody_booking_clicked", "activity_landing_after_claim", "health_score_locked_shown",
   "tour_started", "tour_step_viewed", "tour_skipped", "tour_completed", "tour_replayed", "tour_cta_clicked",
+  "cta_shown", "cta_clicked",
 ]);
 // Nudge -> event saat tampil / diklik (funnel Bagian E).
 const JN_NUDGE_EVENTS = {
@@ -1000,7 +1002,7 @@ app.post("/api/journey/event", async (req, res) => {
     if (!JN_CLIENT_EVENTS.has(ev)) return res.status(400).json({ error: "Event tidak dikenal." });
     // Props: hanya kunci yang dikenal & nilai primitif pendek (bukan tempat sampah data).
     const props = {};
-    ["tour", "step", "total", "cta", "from", "version"].forEach(function (k) {
+    ["tour", "step", "total", "cta", "from", "version", "sport"].forEach(function (k) {
       const v = b.props && b.props[k];
       if (typeof v === "string") props[k] = v.slice(0, 40); else if (typeof v === "number" && isFinite(v)) props[k] = v;
     });
@@ -10114,7 +10116,7 @@ app.post("/api/activity/scan", async (req, res) => {
       date_confirm_after_days: woConfig.date_confirm_after_days,
       result: {
         title: r.title ? String(r.title).slice(0, 160) : null,
-        type: TYPES.indexOf(String(r.type)) >= 0 ? String(r.type) : null,
+        type: woTypeFromScan(r, TYPES),
         duration_min: num(r.duration_min, 0.1, 1440),
         distance_km: num(r.distance_km, 0.01, 1000),
         calories_burned: num(r.calories_burned, 1, 20000),
@@ -11859,6 +11861,94 @@ app.get("/api/activity/history", async (req, res) => {
   }
 });
 
+// ---------- Analisa per olahraga (Activity multi-sport Fase 3): langkah berikutnya + CTA + penyesuaian plan ----------
+// Olahraga user yang cocok dengan jenis workout (lewat workout_types paket); tidak cocok -> paket "general".
+function woSportOf(w, sports) {
+  const hit = (sports || []).find(function (x) { const p = sportPacks.get(x.sport_key); return p && p.workout_types.indexOf(w.type) >= 0; });
+  return hit ? hit.sport_key : "general";
+}
+// Plan mingguan aktif: sesi latihan pendukung terdekat (besok/lusa) diringankan SEKALI per workout kalau analisa
+// menyarankan pemulihan / sesi ringan. Hanya untuk workout 0–1 hari lalu. Mengembalikan kalimat {en,id} atau null.
+async function woEasePlan(uid, w, nx, planRow) {
+  const p = planRow && planRow.plan;
+  if (!p || p.kind !== "sport_week" || ["recovery", "easy"].indexOf(nx.kind) < 0) return null;
+  const today = coachToday(), age = Math.round((new Date(today + "T00:00:00Z") - new Date(w.workout_date + "T00:00:00Z")) / 864e5);
+  const say = (dow) => ({ en: "Your " + sportWeek.DAY_LONG[dow].en + " training is already eased by your coach.", id: "Sesi latihan " + sportWeek.DAY_LONG[dow].id + " sudah coach ringankan." });
+  if (p.analysis_adjust && p.analysis_adjust.workout_id === w.id) return say(p.analysis_adjust.dow);
+  if (age < 0 || age > 1) return null;
+  const td = sportWeek.dowOf(today), cand = [td % 7 + 1, (td + 1) % 7 + 1];
+  const e = (p.week || []).find(function (x) { return cand.indexOf(x.dow) >= 0 && x.kind === "support" && x.intensity !== "easy"; });
+  if (!e) return null;
+  e.intensity = "easy"; e.minutes = Math.max(10, Math.round(e.minutes * 0.7 / 5) * 5);
+  e.note = { en: "Eased by your coach after your last session.", id: "Diringankan coach setelah sesi terakhirmu." };
+  (p.days || []).forEach(function (d) {
+    if (d.key !== e.day_key) return;
+    d.duration_min = e.minutes; (d.exercises || []).forEach(function (x) { x.sets = Math.max(1, (parseInt(x.sets, 10) || 2) - 1); });
+  });
+  p.analysis_adjust = { workout_id: w.id, dow: e.dow, at: new Date().toISOString() };
+  const { error } = await admin.from("my20fit_workout_plan").update({ plan: p, updated_at: new Date().toISOString() }).eq("id", planRow.id);
+  return error ? null : say(e.dow);
+}
+// "main padel Kamis" — sesi olahraga terdekat setelah hari ini di plan mingguan aktif.
+function woNextSport(planRow) {
+  const p = planRow && planRow.plan;
+  if (!p || p.kind !== "sport_week") return null;
+  const td = sportWeek.dowOf(coachToday());
+  for (let i = 1; i <= 7; i++) {
+    const dow = (td + i - 1) % 7 + 1, e = (p.week || []).find(function (x) { return x.dow === dow && x.kind === "sport" && x.intensity !== "easy"; });
+    if (e) return { en: e.title.en + " on " + sportWeek.DAY_LONG[dow].en, id: e.title.id + " hari " + sportWeek.DAY_LONG[dow].id };
+  }
+  return null;
+}
+async function woActionContext(uid, w, a, ds, lang) {
+  const since = new Date(Date.now() - ctaResolver.RULES.repeat.window_days * 864e5).toISOString();
+  const [spR, plR, evR] = await Promise.all([
+    admin.from("my20fit_user_sports").select("rank,sport_key,goal").eq("auth_user_id", uid).order("rank"),
+    admin.from("my20fit_workout_plan").select("*").eq("auth_user_id", uid).eq("is_active", true).order("created_at", { ascending: false }).limit(1),
+    admin.from("my20fit_event_log").select("event,props").eq("auth_user_id", uid).in("event", ["cta_shown", "cta_clicked"]).gte("created_at", since).limit(500),
+  ]);
+  const sports = spR.error ? [] : (spR.data || []), planRow = (plR.data && plR.data[0]) || null;
+  const sportKey = woSportOf(w, sports), nx = woNarrative.nextSession(a, w, woConfig, lang);
+  const adjusted = a.safety ? null : await woEasePlan(uid, w, nx, planRow);
+  const nextSport = woNextSport(planRow);
+  const steps = woNarrative.nextSteps(a, w, woConfig, lang, { next_sport: nextSport, adjusted: adjusted });
+  const goal = (sports.find(function (x) { return x.sport_key === sportKey; }) || {}).goal || "";
+  const cta = ctaResolver.resolve({ sport_key: sportKey, risk: a.safety ? a.safety.level : null,
+    causes: a.causes.filter(function (c) { return c.confidence !== "rendah"; }).map(function (c) { return c.key; }),
+    low_food: a.factors.some(function (f) { return f.key === "nutrition" && f.status === "kurang"; }),
+    goal_event: /prep/.test(goal), has_event: !!(planRow && planRow.plan && planRow.plan.event),
+    no_body_scan: !(ds.visbody || []).length, stagnant: a.verdict === "normal",
+    recent: ctaResolver.summarizeRecent(evR.data) });
+  return { sport_key: sportKey, next_steps: steps, cta: cta, plan_adjusted: adjusted };
+}
+// POST /api/activity/workouts/:id/rpe {rpe:1..10} — rasa berat sesi (1 ketukan). Disimpan di raw_data.rpe
+// (tanpa migration), TERPISAH dari check-in supaya tak menimpa jawaban check-in.
+app.post("/api/activity/workouts/:id/rpe", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const v = Number((req.body || {}).rpe);
+    if (!(v >= 1 && v <= 10 && Math.floor(v) === v)) return res.status(400).json({ error: "RPE harus 1–10." });
+    const { data: rows } = await admin.from("my20fit_workout").select("id,raw_data").eq("id", String(req.params.id)).eq("auth_user_id", user.id).limit(1);
+    const w = rows && rows[0];
+    if (!w) return res.status(404).json({ error: "Workout tidak ditemukan." });
+    const rd = Object.assign({}, w.raw_data || {}, { rpe: { value: v, at: new Date().toISOString() } });
+    const { error } = await admin.from("my20fit_workout").update({ raw_data: rd }).eq("id", w.id).eq("auth_user_id", user.id);
+    if (error) throw error;
+    return res.json({ ok: true, rpe: v });
+  } catch (e) { console.error("workouts/:id/rpe:", (e && e.message) || e); return res.status(500).json({ error: "Gagal menyimpan RPE." }); }
+});
+// Edge AI lama belum mengenal padel/tennis (perlu deploy ulang my20fit-ai) -> jenis "other"/kosong
+// dikenali dari judul yang terbaca. Tipe yang sudah valid tidak diubah.
+function woTypeFromScan(r, types) {
+  const t = String(r.type || "");
+  if (types.indexOf(t) >= 0 && t !== "other") return t;
+  const title = String(r.title || "").toLowerCase();
+  if (/\bpadel\b/.test(title)) return "padel";
+  if (/\bten+is\b/.test(title) && !/table|meja|ping ?pong/.test(title)) return "tennis";
+  return types.indexOf(t) >= 0 ? t : null;
+}
 // GET /api/activity/workouts/:id?lang= -> detail workout + analisa (faktor, baseline) + narasi.
 // Narasi AI TIDAK dibuat di sini (hemat biaya & cepat): kalau belum ada untuk hash/bahasa ini,
 // balikan template + narrative_pending=true; halaman lalu memanggil POST .../narrative.
@@ -11880,6 +11970,7 @@ app.get("/api/activity/workouts/:id", async (req, res) => {
       try { const sg = await admin.storage.from("workout-uploads").createSignedUrl(p, 60 * 60); if (sg.data && sg.data.signedUrl) shots.push(sg.data.signedUrl); } catch (e) {}
     }
     const coach = (rd.analysis && coachPersonaOk(rd.analysis.coach_id)) ? rd.analysis.coach_id : null;
+    const act = await woActionContext(user.id, w, a, ds, lang);
     return res.json({ ok: true,
       workout: { id: w.id, date: w.workout_date, type: w.type, title: WorkoutMetrics.title(w, lang), started_at: rd.started_at || null, source: w.source,
         source_app: (rd.ai_scan && rd.ai_scan.source_guess) || null, note: w.note, duration_min: w.duration_min, distance_km: w.distance_km,
@@ -11893,7 +11984,8 @@ app.get("/api/activity/workouts/:id", async (req, res) => {
         signals: a.signals.map((x) => Object.assign({}, x, { sentence: x.detected === "insufficient_data" ? null : woNarrative.signalSentence(x, lang) })),
         causes: a.causes.map((c) => Object.assign({}, c, { sentence: woNarrative.causeSentence(c, a, lang) })), ruled_out: a.ruled_out,
         read: a.read, reads: a.causes.length ? [] : woNarrative.readSentences(a, w, lang),
-        checkin: a.checkin, needs_checkin: a.needs_checkin, pre_meal_cfg: woConfig.pre_meal },
+        checkin: a.checkin, needs_checkin: a.needs_checkin, pre_meal_cfg: woConfig.pre_meal, rpe: a.rpe },
+      sport_key: act.sport_key, next_steps: act.next_steps, cta: act.cta, plan_adjusted: act.plan_adjusted,
       narrative: cached || woNarrative.templateNarrative(a, w, lang), next: woNarrative.nextSession(a, w, woConfig, lang),
       narrative_pending: !cached && !a.safety, coach_id: coach,
       emergency_number: woConfig.safety.emergency_number,
@@ -12031,7 +12123,7 @@ app.post("/api/activity/workouts/:id/narrative", async (req, res) => {
           const bad = woNarrative.checkNarrative(n, pm.allowed);
           if (!bad.length) narrative = { headline: n.headline.trim(), what_we_saw: n.what_we_saw.map((x) => x.trim()), likely_why: (n.likely_why || []).map((x) => x.trim()),
             what_we_cant_tell: n.what_we_cant_tell ? String(n.what_we_cant_tell).trim() : null, next_session_tips: (n.next_session_tips || []).map((x) => String(x).trim()).filter(Boolean),
-            cta: n.cta, source: "ai", coach_id: coachId };
+            source: "ai", coach_id: coachId };
           else console.error("workout narrative: angka/klaim di luar data", bad.slice(0, 5).join(","));
         }
       } catch (e) { /* timeout -> coba lagi / template */ }
