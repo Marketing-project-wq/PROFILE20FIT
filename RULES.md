@@ -63,7 +63,11 @@ Bukan chat, tapi memakai persona coach yang sama. **v2 (2026-10-01):** sinyal da
 → **bacaan coach** (v3, 2026-10-01): kandidat penyebab dibaca dari POLA sinyal (bobot `causes.signature` di config) —
 dari performa saja keyakinan maks "sedang"; log tidur/makan/minum/beban + check-in yang ada menaikkan satu tingkat atau
 mengeluarkan kandidat. Plus bacaan satu sesi: intensitas (HR rata-rata vs HR maks) & relevansi bahan bakar dari durasi.
-Narasi JSON: `headline`, `what_we_saw`, `likely_why`, `what_we_cant_tell`, `next_session_tips`, `cta`.
+Narasi JSON: `headline`, `what_we_saw`, `likely_why`, `what_we_cant_tell`, `next_session_tips`. **CTA tidak lagi dari narasi**
+(sejak Activity multi-sport Fase 3, 2026-10-02): dipilih server oleh `lib/cta-resolver.js`, hanya dari `lib/cta-inventory.js` +
+`cta_map` paket olahraga, maks 1 utama + 1 sekunder. Olahraga tanpa pace (padel, tennis, gym, …) dibaca dari HR rata-rata &
+rasa berat (RPE 1–10) vs sesi serupa — **pace tidak dipakai**. Setiap analisa punya 1–3 **langkah berikutnya** konkret
+(`nextSteps` di `lib/workout-narrative.js`).
 - Sinyal = tanda UMUM; satu workout tidak bisa membuktikan penyebab. Keyakinan narasi tidak boleh melebihi hasil server.
 - **Dilarang menyimpulkan kekurangan zat gizi spesifik** (zat besi, vitamin, dll) — server menolak narasi yang
   memuatnya; arahkan ke MCU Scanner / dokter. Nutrisi yang boleh dibaca dari performa hanya level latihan:

@@ -84,7 +84,7 @@
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function el(id){ return document.getElementById(id); }
   async function apiFetch(path){ var o={headers:{"Content-Type":"application/json"}}; try{var tk=await Auth.token(); if(tk)o.headers.Authorization="Bearer "+tk;}catch(e){} return fetch(path,o); }
-  var WO_ICON={ run:"run", walk:"run", cycling:"cycle", swimming:"swim", gym:"dumbbell", hiit:"dumbbell", hyrox:"run", other:"run" };
+  var WO_ICON={ run:"run", walk:"run", cycling:"cycle", swimming:"swim", gym:"dumbbell", hiit:"dumbbell", hyrox:"run", padel:"racket", tennis:"racket", other:"run" };
   var UP_ICON={ sleep:"moon", daily_activity:"steps", weight:"scale", food_log:"meal", other:"chart" };   // ikon js/fiticons.js
   var FACTOR={ sleep:{en:"Sleep",id:"Tidur"}, nutrition:{en:"Nutrition",id:"Nutrisi"}, pre_meal:{en:"Pre-workout meal",id:"Makan sebelum"},
     hydration:{en:"Hydration",id:"Hidrasi"}, load:{en:"Training load",id:"Beban latihan"}, body:{en:"Body",id:"Tubuh"} };

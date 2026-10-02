@@ -13,6 +13,8 @@
     gym: { en: "Strength", id: "Latihan beban" },
     hyrox: { en: "HYROX", id: "HYROX" },
     hiit: { en: "HIIT", id: "HIIT" },
+    padel: { en: "Padel", id: "Padel" },
+    tennis: { en: "Tennis", id: "Tenis" },
     other: { en: "Workout", id: "Workout" },
   };
   // Jenis yang wajar diukur pakai pace (menit/km); sepeda pakai kecepatan (km/jam).

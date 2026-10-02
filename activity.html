@@ -2103,7 +2103,7 @@
   // Log upload HARI INI di bawah kartu upload (dari /api/activity/history — sumber yang sama dengan halaman
   // Riwayat). Workout: headline analisa + latihan berikutnya + "Lihat selengkapnya" (analisa lengkap) +
   // "Implement plan" (masuk ke Plan Hari Ini). Belum ada upload hari ini -> satu baris "Terakhir:".
-  var LOG_IC={ run:"run", walk:"walk", cycling:"cycle", swimming:"swim", gym:"dumbbell", hiit:"dumbbell", hyrox:"run", other:"run",
+  var LOG_IC={ run:"run", walk:"walk", cycling:"cycle", swimming:"swim", gym:"dumbbell", hiit:"dumbbell", hyrox:"run", padel:"racket", tennis:"racket", other:"run",
     sleep:"moon", daily_activity:"steps", weight:"scale", food_log:"meal" };
   function logItem(it){
     var ic=FIC(LOG_IC[it.type]||"chart",16), ago=it.created_at?timeAgo(it.created_at):"";
