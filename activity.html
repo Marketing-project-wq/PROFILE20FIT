@@ -677,7 +677,7 @@
      yang sama dengan seluruh app. activity.html tadinya satu-satunya halaman yang
      tidak memuat keduanya — itu sebabnya tampilannya beda sendiri. -->
 <link rel="stylesheet" href="css/20fit-design-system.css">
-<link rel="stylesheet" href="css/coach-profiles.css?v=20261005b">
+<link rel="stylesheet" href="css/coach-profiles.css?v=20261005c">
 <link rel="stylesheet" href="css/glass-app.css">
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 </head>
@@ -886,7 +886,7 @@
 <script src="js/auth.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/body-scan.js"></script>
-<script src="js/coach-profiles.js?v=20261005b"></script>
+<script src="js/coach-profiles.js?v=20261005c"></script>
 <script src="js/nav.js"></script>
 <!-- Dipakai tampilan Progres (halaman Activity lama): pencapaian, siklus, puasa, gizi. -->
 <script src="js/achievements.js"></script>
@@ -1768,8 +1768,7 @@
   async function loadCoachProfiles(){
     renderCoachProfiles();
     if(!window.CoachProfiles) return;
-    await CoachProfiles.loadRoster(); renderCoachProfiles();   // foto & lokasi dari roster CMS
-    CoachProfiles.loadNext();                                    // kelas terdekat (jadwal asli)
+    await CoachProfiles.loadRoster(); renderCoachProfiles();   // foto, lokasi & spesialisasi dari roster CMS
   }
   // Aksi cepat auto-message ke chat (mekanisme chat_context sudah ada di coach.js).
   // TODAY'S SUMMARY — dari data hari terpilih (DAY/SLEEP/HYDRA), bukan target. Klik = loncat ke bagiannya.
@@ -2494,7 +2493,7 @@
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
     renderHead(); renderDnav();
     if(DAY){ renderWorkouts(); renderHabits(); renderWeek(); }
-    renderSleep(); renderHydra(); renderJourney(); renderHealthScore(); renderCoachProfiles(); if(window.CoachProfiles) CoachProfiles.loadNext(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadUploadLog();
+    renderSleep(); renderHydra(); renderJourney(); renderHealthScore(); renderCoachProfiles(); renderCoachQa(); renderWeeklyRecap(); renderWorkoutPlan(); loadTodayPlan(); loadUploadLog();
   });
 
 </script>
