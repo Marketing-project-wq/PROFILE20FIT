@@ -51,6 +51,8 @@
 
   function color(slug) { for (var i = 0; i < LIST.length; i++) if (LIST[i][0] === slug) return LIST[i][2]; return "#E4002B"; }
   function photo(slug) { return (ROSTER[slug] && ROSTER[slug].photo) || ""; }
+  function speciality(slug) { return (ROSTER[slug] && ROSTER[slug].speciality) || ""; }   // spesialisasi olahraga (CMS /api/coaches)
+  function tagline(slug) { for (var i = 0; i < LIST.length; i++) if (LIST[i][0] === slug) return Lx(LIST[i][1]); return ""; }
 
   function loadRoster() {
     if (_roster) return _roster;
@@ -154,5 +156,5 @@
     });
   }
 
-  window.CoachProfiles = { LIST: LIST, NAME: NAME, color: color, photo: photo, loadRoster: loadRoster, loadNext: loadNext, avatar: avatar, box: box, wire: wire };
+  window.CoachProfiles = { LIST: LIST, NAME: NAME, color: color, photo: photo, speciality: speciality, tagline: tagline, loadRoster: loadRoster, loadNext: loadNext, avatar: avatar, box: box, wire: wire };
 })();
