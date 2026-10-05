@@ -2,13 +2,13 @@
  *
  * SATU SUMBER (CLAUDE.md §2): dipakai /activity (kotak "Kenalan sama coach") dan picker
  * /activity/chat (coach.js). Isi persona = deskripsi coach dari pemilik (spec AI Coach);
- * gaya bicara AI-nya sendiri ada di COACH_PERSONAS (server.js). Foto, lokasi & kelas terdekat
- * diambil dari data asli (/api/coaches, /api/coaches/:id/classes) — tidak dikarang.
+ * gaya bicara AI-nya sendiri ada di COACH_PERSONAS (server.js). Foto, lokasi & spesialisasi
+ * diambil dari data asli (/api/coaches) — tidak dikarang.
  *
  * Ikon = js/fiticons.js (FIC), bukan emoji.
  * Pakai:  CoachProfiles.box({ active: "nando" })          -> HTML kotak carousel
  *         CoachProfiles.wire(rootEl, function (slug) {...}) -> geser/titik + klik "Chat dengan"
- *         await CoachProfiles.loadRoster(); CoachProfiles.loadNext();
+ *         await CoachProfiles.loadRoster();   // foto, lokasi & spesialisasi dari CMS
  * CSS: css/coach-profiles.css
  */
 (function () {
@@ -46,11 +46,12 @@
   };
 
   var ROSTER = {};   // slug -> {id, venue, photo, speciality} dari roster CMS (baris "Coach <Nama>")
-  var NEXT = {};     // slug -> kelas terdekat | null (undefined = belum dimuat)
-  var _roster = null, _next = null;
+  var _roster = null;
 
   function color(slug) { for (var i = 0; i < LIST.length; i++) if (LIST[i][0] === slug) return LIST[i][2]; return "#E4002B"; }
   function photo(slug) { return (ROSTER[slug] && ROSTER[slug].photo) || ""; }
+  function speciality(slug) { return (ROSTER[slug] && ROSTER[slug].speciality) || ""; }   // spesialisasi olahraga (CMS /api/coaches)
+  function tagline(slug) { for (var i = 0; i < LIST.length; i++) if (LIST[i][0] === slug) return Lx(LIST[i][1]); return ""; }
 
   function loadRoster() {
     if (_roster) return _roster;
@@ -72,36 +73,6 @@
       (ph ? '<img src="' + esc(ph) + '" alt="' + esc(NAME[slug] || "") + '" loading="lazy" decoding="async" onerror="this.remove()">' : '') + '</span>';
   }
 
-  function nextHtml(slug) {
-    var n = NEXT[slug];
-    if (n === undefined) return '<span class="cprof-mut">' + esc(Lx({ en: "Checking schedule…", id: "Cek jadwal…" })) + '</span>';
-    if (!n) return '<span class="cprof-mut">' + esc(Lx({ en: "No upcoming class yet", id: "Belum ada jadwal kelas" })) + '</span>';
-    var dt = n.date;
-    try { dt = new Date(n.date + "T00:00:00").toLocaleDateString((window.I18N && I18N.lang === "en") ? "en-GB" : "id-ID", { weekday: "short", day: "numeric", month: "short" }); } catch (e) {}
-    // Book = alur booking in-app yang sama dengan /book-coach (/book-class), tab yang sama.
-    var book = (n.source && n.id) ? '<a class="cprof-book" href="/book-class?source=' + encodeURIComponent(n.source) + '&schedule=' + encodeURIComponent(n.id) + '">' +
-      esc(Lx({ en: "Book class", id: "Book kelas" })) + ' →</a>' : '';
-    return '<div>' + ic("calendar") + ' ' + esc(Lx({ en: "Next class: ", id: "Kelas terdekat: " })) + '<b>' + esc(n.name) + '</b> · ' + esc(dt + " " + n.start) + '</div>' + book;
-  }
-  function paintNext() {
-    Array.prototype.forEach.call(document.querySelectorAll("[data-cp-next]"), function (el) { el.innerHTML = nextHtml(el.getAttribute("data-cp-next")); });
-  }
-  // Kelas terdekat tiap coach (jadwal asli, yang masih bisa dibooking). Sekali per halaman.
-  function loadNext() {
-    if (!_next) {
-      _next = loadRoster().then(function () {
-        return Promise.all(LIST.map(function (c) {
-          var slug = c[0], row = ROSTER[slug];
-          if (!row || !row.id) { NEXT[slug] = null; return null; }
-          return fetch("/api/coaches/" + encodeURIComponent(row.id) + "/classes").then(function (r) { return r.json(); })
-            .then(function (j) { NEXT[slug] = ((j && j.classes) || []).filter(function (k) { return k.selectable; })[0] || null; })
-            .catch(function () { NEXT[slug] = null; });
-        }));
-      });
-    }
-    return _next.then(paintNext);
-  }
-
   function card(c, active) {
     var slug = c[0], pf = PROFILE[slug] || {}, row = ROSTER[slug] || {};
     var venue = row.venue === "gym" ? "20FIT Gym" : (row.venue === "both" ? "20FIT Arena & Gym" : "20FIT Arena");
@@ -114,7 +85,6 @@
         (row.speciality ? '<div class="cprof-v">' + ic("medal", 13) + ' ' + esc(Lx({ en: "Specialty: ", id: "Spesialisasi: " }) + row.speciality) + '</div>' : '') +
         '<div class="cprof-v">' + ic("pin", 13) + ' ' + esc(venue) + '</div></div>' +
       '<div class="cprof-traits">' + (pf.traits || []).map(function (t) { return '<span>' + esc(Lx(t)) + '</span>'; }).join("") + '</div>' +
-      '<div class="cprof-next" data-cp-next="' + esc(slug) + '">' + nextHtml(slug) + '</div>' +
       '<button type="button" class="cprof-go" data-pick="' + esc(slug) + '">' + ic("chat", 16) + ' ' + esc(Lx({ en: "Chat with ", id: "Chat dengan " }) + NAME[slug]) + '</button>' +
     '</div>';
   }
@@ -154,5 +124,5 @@
     });
   }
 
-  window.CoachProfiles = { LIST: LIST, NAME: NAME, color: color, photo: photo, loadRoster: loadRoster, loadNext: loadNext, avatar: avatar, box: box, wire: wire };
+  window.CoachProfiles = { LIST: LIST, NAME: NAME, color: color, photo: photo, speciality: speciality, tagline: tagline, loadRoster: loadRoster, avatar: avatar, box: box, wire: wire };
 })();
