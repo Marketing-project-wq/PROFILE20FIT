@@ -147,7 +147,6 @@
       CP.box({ active: CHAT_COACH, title: Lx({ en: "Pick a coach", id: "Pilih coach" }) }) + '</div>' +
       sportPlanCardHtml() + planListShell();
     CP.wire(root(), consultCoach);
-    CP.loadNext();
     wireSportPlanCard();
     loadPlanList();
     wireBackToChat();
@@ -741,7 +740,6 @@
       '<span class="cs">' + esc(Lx({ en: "This week's plan — tick sessions & log reps", id: "Plan minggu ini — centang sesi & catat rep" })) + '</span></span></button></div>';
     var tp = el("toProgram"); if (tp) tp.onclick = function () { MODE = "program"; render(); };
     CP.wire(root(), pickCoach);
-    CP.loadNext();
   }
   // Di bawah /activity/chat, URL mengikuti coach yang aktif (reload/bagikan link = coach sama).
   function syncChatUrl() {
