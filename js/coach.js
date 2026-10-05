@@ -683,6 +683,26 @@
 
   function coachColor(slug) { return CP.color(slug); }
   function coachInitial(slug) { return (COACH_NAME[slug] || "?").charAt(0).toUpperCase(); }
+  function coachSpec(slug) { return (CP.speciality ? CP.speciality(slug) : "") || ""; }   // spesialisasi olahraga (CMS)
+  // Panggung ala game Episodes: potret coach sbg "karakter" + nama + spesialisasi + streak/level.
+  function stageHtml(slug) {
+    var photo = CP.photo(slug), spec = coachSpec(slug);
+    var portrait = photo
+      ? '<img src="' + esc(photo) + '" alt="' + esc(COACH_NAME[slug] || "") + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><span class="cstage-ini" style="display:none">' + esc(coachInitial(slug)) + '</span>'
+      : '<span class="cstage-ini">' + esc(coachInitial(slug)) + '</span>';
+    var sub = spec
+      ? '<div class="cstage-spec">' + svgIcon("medal", 14) + ' ' + esc(spec) + '</div>'
+      : '<div class="cstage-spec" style="color:var(--a-mut);font-weight:600">' + esc(CP.tagline ? CP.tagline(slug) : "") + '</div>';
+    return '<div class="cstage">' +
+      '<div class="cstage-portrait">' + portrait + '</div>' +
+      '<div class="cstage-info">' +
+        '<span class="cstage-name">Coach ' + esc(COACH_NAME[slug] || "") + '</span>' +
+        sub +
+        '<div class="cstage-game" id="crGame">' + gameLine() + '</div>' +
+      '</div>' +
+      '<button type="button" class="cstage-switch" id="crSwitch">' + esc(Lx({ en: "Switch coach", id: "Ganti coach" })) + '</button>' +
+    '</div>';
+  }
   function coachAvatar(slug, size) {
     size = size || 40;
     var fs = Math.round(size * 0.4), photo = CP.photo(slug), color = coachColor(slug);
@@ -741,10 +761,7 @@
   function renderChatRoom() {
     var color = coachColor(CHAT_COACH);
     root().innerHTML = '<div class="croom" style="--cc:' + color + '">' +
-      '<div class="croom-h">' + coachAvatar(CHAT_COACH, 42) +
-      '<div class="crn">' + esc(COACH_NAME[CHAT_COACH] || "Coach") +
-      '<small class="crgame" id="crGame">' + gameLine() + '</small></div>' +
-      '<button type="button" class="crsw" id="crSwitch">' + esc(Lx({ en: "Switch", id: "Ganti" })) + '</button></div>' +
+      stageHtml(CHAT_COACH) +
       '<div class="cmsgs" id="cMsgs"></div>' +
       '<div class="cquick" id="cQuick" style="display:none">' + QUICKS.map(function (q, i) { return '<button type="button" class="cqbtn" data-q="' + i + '">' + esc(Lx(q[0])) + '</button>'; }).join("") + '</div>' +
       '<div class="cinput"><span class="spark">' + svgIcon("spark", 18) + '</span>' +
@@ -884,13 +901,15 @@
     }
     if (quick) quick.style.display = "";
     MEAL_CARDS = [];
+    var av = coachAvatar(CHAT_COACH, 34);   // avatar coach di samping tiap balasannya (gaya Episodes)
     var html = CHAT_MSGS.map(function (m, i) {
       // Gagal kirim = catatan sistem (bukan jawaban coach) + tombol kirim ulang.
       if (m.role === "error") return '<div class="cmsg err">' + svgIcon("warn", 14) + ' <span>' + esc(m.content) + '</span>' +
         '<button type="button" class="cretry" data-retry-i="' + i + '">' + esc(Lx({ en: "Try again", id: "Coba lagi" })) + '</button></div>';
-      return '<div class="cmsg ' + (m.role === "user" ? "me" : "ai") + '">' + (m.role === "user" ? esc(m.content).replace(/\n/g, "<br>") : renderReply(m.content)) + '</div>';
+      if (m.role === "user") return '<div class="crow me"><div class="cmsg me">' + esc(m.content).replace(/\n/g, "<br>") + '</div></div>';
+      return '<div class="crow ai">' + av + '<div class="cmsg ai">' + renderReply(m.content) + '</div></div>';
     }).join("");
-    if (CHAT_BUSY) html += '<div class="cmsg ai typing"><span></span><span></span><span></span></div>';
+    if (CHAT_BUSY) html += '<div class="crow ai">' + av + '<div class="cmsg ai typing"><span></span><span></span><span></span></div></div>';
     box.innerHTML = html; box.scrollTop = box.scrollHeight;
     Array.prototype.forEach.call(box.querySelectorAll(".cmeal-go[data-meal-i]"), function (b) { b.onclick = function () { applyMeal(b); }; });
     Array.prototype.forEach.call(box.querySelectorAll(".cretry[data-retry-i]"), function (b) {
@@ -913,8 +932,10 @@
     var cards = QUICKS.slice(0, 4).map(function (q, i) {
       return '<button type="button" class="qcard" data-q="' + i + '"><span class="qi">' + svgIcon(q[2] || "spark", 18) + '</span><span class="ql">' + esc(Lx(q[0])) + '</span></button>';
     }).join("");
+    var spec = coachSpec(CHAT_COACH);
+    var specLine = spec ? '<div class="cintro-spec">' + svgIcon("medal", 13) + ' ' + esc(Lx({ en: "Specialty: ", id: "Spesialisasi: " }) + spec) + '</div>' : '';
     return '<div class="cintro">' + coachAvatar(CHAT_COACH, 74) +
-      '<div class="cintro-h">' + esc(Lx(greetOf(CHAT_COACH))) + '</div>' + chip +
+      '<div class="cintro-h">' + esc(Lx(greetOf(CHAT_COACH))) + '</div>' + specLine + chip +
       '<div class="cintro-s">' + esc(Lx({ en: "Ask anything about workouts, nutrition or recovery — I use your real 20FIT data.", id: "Tanya apa aja soal latihan, nutrisi, atau recovery — aku pakai data 20FIT kamu yang asli." })) + '</div>' +
       '<div class="qcards">' + cards + '</div></div>';
   }
