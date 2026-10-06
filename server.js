@@ -11763,6 +11763,36 @@ app.get("/api/activity/today-plan", async (req, res) => {
   } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, plan: null, setup_required: true }); return res.json({ ok: true, plan: null }); }
 });
 
+// GET /api/activity/exercises — katalog gerakan Playlist (my20fit_exercise, hanya is_published).
+// Filter opsional: group (focus_group), muscle (muscle_keys contains), level, q (cari nama).
+// `groups` = daftar focus_group + jumlah (untuk chip filter), dari SEMUA published (bukan hasil filter).
+app.get("/api/activity/exercises", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, exercises: [], groups: [] });
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const q = (req.query.q || "").toString().trim();
+    const group = (req.query.group || "").toString().trim();
+    const muscle = (req.query.muscle || "").toString().trim();
+    const level = (req.query.level || "").toString().trim();
+    let qb = admin.from("my20fit_exercise")
+      .select("id,seq,name,focus_group,muscle_keys,equipment,level,video_url,cue_teknik,kontraindikasi")
+      .eq("is_published", true);
+    if (group) qb = qb.eq("focus_group", group);
+    if (level) qb = qb.eq("level", level);
+    if (muscle) qb = qb.contains("muscle_keys", [muscle]);
+    if (q) qb = qb.ilike("name", "%" + q.replace(/[%_]/g, "") + "%");
+    qb = qb.order("sort_order", { ascending: true }).limit(500);
+    const { data, error } = await qb;
+    if (error) throw error;
+    const { data: gall } = await admin.from("my20fit_exercise").select("focus_group").eq("is_published", true);
+    const counts = {};
+    (gall || []).forEach((r) => { counts[r.focus_group] = (counts[r.focus_group] || 0) + 1; });
+    const groups = Object.keys(counts).map((k) => ({ group: k, n: counts[k] }));
+    return res.json({ ok: true, exercises: data || [], groups: groups });
+  } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, exercises: [], groups: [], setup_required: true }); console.error("activity/exercises:", e.message); return res.status(500).json({ error: "Gagal memuat gerakan." }); }
+});
+
 // Plan cadangan kalau AI gagal — aturan sederhana dari analisa (bukan angka karangan: durasi di config).
 function tpTemplatePlan(brief, lang) {
   const L = (o) => (lang === "en" ? o.en : o.id), f = (k) => brief.facts.find((x) => x.key === k) || {}, M = woConfig.today.template_minutes;
@@ -12328,6 +12358,11 @@ app.get(["/activity/chat", "/activity/chat/:coach", "/activity/plan", "/activity
 });
 app.get("/activity/visbody", (req, res) => {
   res.sendFile(path.join(__dirname, "body-scan.html"));
+});
+// Playlist 20FIT (library gerakan + playlist). Path bertingkat (/playlist/:id) -> playlist.html
+// (playlist.js membaca path). <base href="/"> wajib ada di head (lihat catatan di atas).
+app.get(["/playlist", "/playlist/new", "/playlist/:id"], (req, res) => {
+  res.sendFile(path.join(__dirname, "playlist.html"));
 });
 // Callback OAuth Google (Supabase redirect balik ke sini) -> auth-callback.html menyeat sesi.
 // Path bertingkat, jadi harus eksplisit sebelum static. Daftarkan URL ini di Supabase
