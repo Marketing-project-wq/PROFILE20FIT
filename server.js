@@ -2289,6 +2289,23 @@ const FITCO_LOGIN_PATH = process.env.FITCO_LOGIN_PATH || "/api/v1/auth/login";
 //   POST {api_url}/api/v1/auth/login/google  body {name,email,access_token,google_auth_id}
 const FITCO_GOOGLE_LOGIN_PATH = process.env.FITCO_GOOGLE_LOGIN_PATH || "/api/v1/auth/login/google";
 
+// Bedakan login 20FIT yang DITOLAK karena email belum diverifikasi dari password salah.
+// Kontrak terverifikasi (test call 6 Okt 2026): login akun belum verified -> HTTP 422,
+// body `errors.is_email_verified` + message "User email is not verified, please check
+// your email.". Sinyal utama = key `errors.is_email_verified`; regex pesan = fallback
+// kalau bentuk body berubah. Return "unverified" | "invalid_credentials".
+function fitcoLoginFailureKind(status, body) {
+  const b = body || {};
+  if (b.errors && typeof b.errors === "object" && "is_email_verified" in b.errors) return "unverified";
+  const txt = [b.message, b.error, b.errors && JSON.stringify(b.errors), b.data && b.data.message]
+    .filter(Boolean).map(String).join(" ").toLowerCase();
+  if (/not\s*(yet\s*)?verified|unverified|belum\s*(ter)?verifikasi/.test(txt)) {
+    if (status !== 422) console.warn("fitcoLoginFailureKind: unverified terdeteksi dari pesan saja (status " + status + ", tanpa errors.is_email_verified) — kontrak 20FIT berubah?");
+    return "unverified";
+  }
+  return "invalid_credentials";
+}
+
 // ---------- Pembayaran paket scan: Xendit via API shop order FITCO/20FIT ----------
 // POST /api/v1/third-party/shop/order (payment_type "xendit-invoices"). FITCO yang membuat
 // invoice Xendit; server kita hanya inisiasi order + poll status. Auth pakai FITCO_PARTNER_TOKEN
@@ -2408,9 +2425,21 @@ async function mirrorAndMintOtp(info) {
       if (info.fitcoEmailVerified === true || info.fitcoEmailVerified === false) {
         row.fitco_email_verified = info.fitcoEmailVerified;
       }
-      await admin.from("my20fit_profile").upsert(row, { onConflict: "auth_user_id" });
+      // fitcoEmailVerified === true hanya di-set jalur LOGIN yang sukses (password/
+      // Google/token) — di situ uid 20FIT semestinya selalu ada. Kosong = bentuk
+      // response login/profil 20FIT berubah; profil tak akan ter-link.
+      if (info.fitcoEmailVerified === true && !info.fitcoUserId) {
+        console.warn("mirrorAndMintOtp: login 20FIT sukses tapi fitco_user_id kosong — profil tidak ter-link (auth_user_id=" + uid + ")");
+      }
+      const { error: upErr } = await admin.from("my20fit_profile").upsert(row, { onConflict: "auth_user_id" });
+      if (upErr) {
+        console.error("mirrorAndMintOtp: upsert my20fit_profile GAGAL (auth_user_id=" + uid + ", fitco_user_id=" + (row.fitco_user_id || "-") + "):", upErr.message || upErr, upErr.code || "");
+      }
     }
-  } catch (e) { /* non-fatal */ }
+  } catch (e) {
+    // Non-fatal (sesi tetap dibuat), tapi JANGAN ditelan diam-diam.
+    console.error("mirrorAndMintOtp: prefill profil gagal:", e && e.message);
+  }
   return { email, email_otp: otp };
 }
 
@@ -2431,7 +2460,12 @@ app.post("/api/fitco-login", async (req, res) => {
         body: JSON.stringify({ email, password, login_source: "app" }),
       });
       fj = await fr.json().catch(() => ({}));
-      if (!fr.ok) return res.status(401).json({ error: "Email atau password akun 20FIT salah." });
+      if (!fr.ok) {
+        if (fitcoLoginFailureKind(fr.status, fj) === "unverified") {
+          return res.status(403).json({ error: "Email akun 20FIT belum diverifikasi. Masukkan kode verifikasi yang dikirim ke email kamu.", code: "email_not_verified" });
+        }
+        return res.status(401).json({ error: "Email atau password akun 20FIT salah.", code: "invalid_credentials" });
+      }
     } catch (e) {
       return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
     }
@@ -2862,6 +2896,31 @@ app.post("/api/fitco-register", async (req, res) => {
     if (gender !== "male" && gender !== "female") return res.status(400).json({ error: "Jenis kelamin wajib dipilih." });
     if (!dob) return res.status(400).json({ error: "Tanggal lahir wajib diisi." });
 
+    // 0) Cek dulu: email sudah punya akun 20FIT? 20FIT tak punya endpoint lookup email,
+    //    jadi probe pakai login dgn kredensial yang diisi user. Daftar ulang email yang
+    //    sudah ada = duplikat / user terjebak "daftar ulang" padahal cuma belum verifikasi.
+    try {
+      const pr = await fetch(FITCO_API + FITCO_LOGIN_PATH, {
+        method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ email, password, login_source: "app" }),
+      });
+      const pj = await pr.json().catch(() => ({}));
+      if (pr.ok) {
+        return res.status(409).json({ error: "Akun 20FIT dengan email ini sudah ada. Silakan Sign In.", code: "email_exists" });
+      }
+      if (fitcoLoginFailureKind(pr.status, pj) === "unverified") {
+        // Ada tapi BELUM verified -> JANGAN register lagi; kirim ulang OTP, arahkan ke verify.
+        let resent = false;
+        try { resent = (await fitcoResendVerifyOtp(email)).ok; }
+        catch (e) { console.error("fitco-register (resend OTP):", e.message); }
+        return res.status(409).json({ error: "Email ini sudah terdaftar di 20FIT tapi belum diverifikasi. " + (resent ? "Kode verifikasi baru sudah dikirim ke email kamu." : "Minta kirim ulang kode verifikasi."), code: "email_not_verified", otp_resent: resent });
+      }
+      // Selain itu (kredensial tak cocok / email belum ada) -> lanjut register; kalau email
+      // ternyata sudah ada dgn password lain, /auth/register sendiri yang menolak (409 di bawah).
+    } catch (e) {
+      return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
+    }
+
     // 1) Daftar ke 20FIT
     const body = {
       name, email, password, password_confirmation: password,
@@ -2880,18 +2939,23 @@ app.post("/api/fitco-register", async (req, res) => {
       if (!rr.ok) {
         const msg = String((rj && (rj.message || rj.error)) || "").toLowerCase();
         if (msg.includes("already") || msg.includes("terdaftar") || msg.includes("exist") || msg.includes("taken")) {
-          return res.status(409).json({ error: "Email sudah terdaftar di 20FIT. Silakan Sign In." });
+          return res.status(409).json({ error: "Email sudah terdaftar di 20FIT. Silakan Sign In.", code: "email_exists" });
         }
         return res.status(400).json({ error: (rj && (rj.message || rj.error)) || "Gagal daftar ke 20FIT." });
       }
     } catch (e) {
       return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
     }
+    // uid 20FIT dari response register (kontrak terverifikasi: `data.user_id`). Ini SATU-
+    // SATUNYA titik uid tersedia sebelum verifikasi (/auth/email/verify tidak membawanya,
+    // dan login di langkah 2 ditolak 422 selama belum verified) -> profil ter-link sejak daftar.
+    const registeredUserId = (rj && rj.data && rj.data.user_id) || null;
+    if (!registeredUserId) console.warn("fitco-register: register 20FIT sukses tapi data.user_id kosong — profil tidak ter-link");
 
     // 2) Login ke 20FIT utk ambil token + profil (best effort). Kalau butuh verifikasi
     //    OTP, langkah ini bisa gagal — tidak apa, kita tetap buat sesi dari data daftar.
     let info = { email, fullName: name, gender: (gender === "male" || gender === "female") ? gender : null, phone: phone || null, avatar: null, birthdate: dob || null };
-    let fitcoToken = null, fitcoUserId = null, fitcoRefresh = null;
+    let fitcoToken = null, fitcoUserId = registeredUserId, fitcoRefresh = null;
     try {
       const lr = await fetch(FITCO_API + FITCO_LOGIN_PATH, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -2906,7 +2970,7 @@ app.post("/api/fitco-register", async (req, res) => {
       // ini untuk menyeragamkannya, dan mengubahnya diam-diam berisiko.
       // 🔴 KREDENSIAL — jangan pernah di-log/ikut pesan error.
       fitcoRefresh = (fd.token && fd.token.refresh_token) || fd.refresh_token || null;
-      fitcoUserId = fd.user_id || fd.id || null;
+      fitcoUserId = fd.user_id || fd.id || fitcoUserId;
       if (fitcoToken) {
         try { const p = await fetch20fitProfile(fitcoToken); info = { email: p.email || email, fullName: p.fullName || name, gender: p.gender || info.gender, phone: p.phone || info.phone, avatar: p.avatar, birthdate: p.birthdate || dob }; fitcoUserId = p.fitcoUserId || fitcoUserId; } catch (e) {}
       }
@@ -2951,6 +3015,9 @@ app.post("/api/fitco-verify-email", async (req, res) => {
       // Jangan digeneric-kan — user perlu tau persis kenapa (kode salah/kedaluwarsa/dll)
       return res.status(r.status === 422 ? 400 : r.status).json({ error: (j && (j.message || j.error)) || "Verifikasi gagal." });
     }
+    // Response verify 20FIT cuma {email, otp} — TIDAK membawa user_id (terverifikasi 6 Okt
+    // 2026). Tidak perlu: fitco_user_id sudah diisi saat /api/fitco-register (data.user_id).
+    // Di sini cukup flip status verifikasi.
     try {
       await admin.from("my20fit_profile").update({ fitco_email_verified: true }).eq("email", email);
     } catch (e) {
@@ -2972,17 +3039,22 @@ app.post("/api/fitco-verify-email", async (req, res) => {
 // end-to-end kirim-ulang lalu verify pakai kode barunya. Kalau ada laporan bug
 // "tombol kirim ulang gak jalan" atau "kode dari resend tidak bisa dipakai
 // verify", MULAI INVESTIGASI DARI SINI.
+// Dipakai juga oleh /api/fitco-register (email ada tapi belum verified).
+async function fitcoResendVerifyOtp(email) {
+  const r = await fetch(FITCO_API + "/api/v1/auth/otp/resend", {
+    method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const body = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, body };
+}
 app.post("/api/fitco-resend-verify-email", async (req, res) => {
   try {
     const email = String((req.body && req.body.email) || "").trim().toLowerCase();
     if (!email) return res.status(400).json({ error: "Email wajib diisi." });
-    const r = await fetch(FITCO_API + "/api/v1/auth/otp/resend", {
-      method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const j = await r.json().catch(() => ({}));
+    const r = await fitcoResendVerifyOtp(email);
     // Teruskan response 20FIT apa adanya (sukses maupun gagal) — lihat catatan di atas.
-    return res.status(r.status).json(j);
+    return res.status(r.status).json(r.body);
   } catch (e) {
     console.error("fitco-resend-verify-email:", e.message);
     return res.status(502).json({ error: "Tidak bisa menghubungi server 20FIT. Coba lagi." });
