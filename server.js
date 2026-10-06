@@ -11937,6 +11937,84 @@ app.delete("/api/activity/playlists/:id", async (req, res) => {
   } catch (e) { console.error("playlist delete:", e.message); return res.status(500).json({ error: "Gagal menghapus playlist." }); }
 });
 
+// ---- Playlist player (Fase 5 step 3): jalankan playlist -> sesi + log set ----
+// POST /api/activity/playlists/:id/start — buat coach_session(playlist_id) + seed coach_set_log per set.
+app.post("/api/activity/playlists/:id/start", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req); if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: pl } = await admin.from("my20fit_playlist").select("id,name,goal").eq("id", req.params.id).eq("auth_user_id", user.id).limit(1);
+    const p = pl && pl[0]; if (!p) return res.status(404).json({ error: "Playlist tidak ditemukan." });
+    const { data: items } = await admin.from("my20fit_playlist_item")
+      .select("exercise_id,position,sets,reps,duration_sec,rest_sec, my20fit_exercise(name,muscle_keys)")
+      .eq("playlist_id", p.id).order("position", { ascending: true });
+    const its = (items || []);
+    if (!its.length) return res.status(400).json({ error: "Playlist belum punya gerakan." });
+    const planItems = its.map((it) => { const ex = it.my20fit_exercise || {}; const isTime = it.duration_sec != null;
+      return { ex_key: it.exercise_id, name: ex.name || "", muscle_keys: ex.muscle_keys || [], sets: it.sets || 1,
+        unit: isTime ? "sec" : "reps", target: isTime ? it.duration_sec : it.reps, rest_sec: it.rest_sec }; });
+    const { data: sIns, error: sErr } = await admin.from("my20fit_coach_session").insert({
+      auth_user_id: user.id, playlist_id: p.id, session_date: ymd(new Date()), day_label: p.name, focus: p.goal || null,
+      status: "active", sleep_adjust: "none", planned: { kind: "playlist", name: p.name, items: planItems }, started_at: new Date().toISOString()
+    }).select("id,started_at").limit(1);
+    if (sErr) throw sErr;
+    const sid = sIns[0].id;
+    const rows = [];
+    planItems.forEach((it) => { for (let s = 1; s <= it.sets; s++) rows.push({ session_id: sid, auth_user_id: user.id, ex_key: it.ex_key, ex_name: it.name, set_index: s, target_reps: String(it.target == null ? "" : it.target), unit: it.unit, done: false }); });
+    if (rows.length) { const { error: lErr } = await admin.from("my20fit_coach_set_log").insert(rows); if (lErr) { await admin.from("my20fit_coach_session").delete().eq("id", sid); throw lErr; } }
+    actAudit(user.id, "start", "session", sid, { playlist_id: p.id });
+    return res.json({ ok: true, session_id: sid, name: p.name, goal: p.goal, started_at: sIns[0].started_at, items: planItems });
+  } catch (e) { if (isMissingSchema(e)) return res.status(503).json({ error: "Fitur player butuh migration." }); console.error("playlist start:", e.message); return res.status(500).json({ error: "Gagal memulai sesi." }); }
+});
+
+// POST /api/activity/session/:sid/set — centang/ubah satu set (done, done_reps, weight_kg).
+app.post("/api/activity/session/:sid/set", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req); if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: ses } = await admin.from("my20fit_coach_session").select("id,playlist_id,status").eq("id", req.params.sid).eq("auth_user_id", user.id).limit(1);
+    const s = ses && ses[0]; if (!s || !s.playlist_id) return res.status(404).json({ error: "Sesi tidak ditemukan." });
+    const b = req.body || {}, exKey = String(b.ex_key || ""), idx = parseInt(b.set_index, 10);
+    if (!exKey || !(idx >= 1)) return res.status(400).json({ error: "Set tidak valid." });
+    const upd = { done: !!b.done, logged_at: new Date().toISOString() };
+    if (b.done_reps === null || b.done_reps === "") upd.done_reps = null; else if (b.done_reps != null) upd.done_reps = Math.max(0, parseInt(b.done_reps, 10) || 0);
+    if (b.weight_kg === null || b.weight_kg === "") upd.weight_kg = null; else if (b.weight_kg != null) { const w = parseFloat(b.weight_kg); upd.weight_kg = isFinite(w) ? Math.max(0, w) : null; }
+    const { error } = await admin.from("my20fit_coach_set_log").update(upd).eq("session_id", s.id).eq("ex_key", exKey).eq("set_index", idx);
+    if (error) throw error;
+    return res.json({ ok: true });
+  } catch (e) { console.error("session set:", e.message); return res.status(500).json({ error: "Gagal menyimpan set." }); }
+});
+
+// POST /api/activity/session/:sid/finish — selesai -> ringkasan (durasi, volume, set, rekor, otot).
+app.post("/api/activity/session/:sid/finish", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req); if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: ses } = await admin.from("my20fit_coach_session").select("id,playlist_id,started_at,planned,status").eq("id", req.params.sid).eq("auth_user_id", user.id).limit(1);
+    const s = ses && ses[0]; if (!s || !s.playlist_id) return res.status(404).json({ error: "Sesi tidak ditemukan." });
+    const now = new Date();
+    if (s.status !== "done") await admin.from("my20fit_coach_session").update({ status: "done", completed_at: now.toISOString(), updated_at: now.toISOString() }).eq("id", s.id);
+    const { data: logs } = await admin.from("my20fit_coach_set_log").select("ex_key,set_index,done,done_reps,weight_kg,unit").eq("session_id", s.id);
+    const done = (logs || []).filter((r) => r.done);
+    let volume = 0, setsDone = done.length;
+    const curBest = {};
+    done.forEach((r) => { if (r.done_reps != null && r.weight_kg != null) volume += r.done_reps * Number(r.weight_kg);
+      if (r.unit === "reps" && r.done_reps != null) curBest[r.ex_key] = Math.max(curBest[r.ex_key] || 0, r.done_reps); });
+    // Rekor: best reps this session > best reps sebelumnya (sesi lain) untuk ex_key sama.
+    let records = 0; const exKeys = Object.keys(curBest);
+    if (exKeys.length) {
+      const { data: prior } = await admin.from("my20fit_coach_set_log").select("ex_key,done_reps").eq("auth_user_id", user.id).eq("done", true).eq("unit", "reps").in("ex_key", exKeys).neq("session_id", s.id);
+      const priorBest = {}; (prior || []).forEach((r) => { if (r.done_reps != null) priorBest[r.ex_key] = Math.max(priorBest[r.ex_key] || 0, r.done_reps); });
+      exKeys.forEach((k) => { if (priorBest[k] != null && curBest[k] > priorBest[k]) records++; });
+    }
+    const planned = s.planned || {}; const mset = new Set();
+    (planned.items || []).forEach((it) => (it.muscle_keys || []).forEach((m) => mset.add(m)));
+    const started = new Date(s.started_at); let dur = Math.round((now - started) / 1000); if (!(dur >= 0)) dur = 0;
+    actAudit(user.id, "finish", "session", s.id, { sets: setsDone });
+    return res.json({ ok: true, summary: { duration_sec: dur, volume_kg: Math.round(volume), sets_done: setsDone, records: records, muscles: Array.from(mset), name: planned.name || "" } });
+  } catch (e) { console.error("session finish:", e.message); return res.status(500).json({ error: "Gagal menyelesaikan sesi." }); }
+});
+
 // Plan cadangan kalau AI gagal — aturan sederhana dari analisa (bukan angka karangan: durasi di config).
 function tpTemplatePlan(brief, lang) {
   const L = (o) => (lang === "en" ? o.en : o.id), f = (k) => brief.facts.find((x) => x.key === k) || {}, M = woConfig.today.template_minutes;

@@ -52,9 +52,11 @@
     el("viewBrowse").style.display = (v === "browse") ? "" : "none";
     el("viewMine").style.display = (v === "mine") ? "" : "none";
     el("viewBuilder").style.display = (v === "builder") ? "" : "none";
-    if (tabs) tabs.style.display = (v === "builder") ? "none" : "";
+    el("viewPlayer").style.display = (v === "player") ? "" : "none";
+    if (tabs) tabs.style.display = (v === "builder" || v === "player") ? "none" : "";
     var h1 = document.querySelector(".chead h1"), bk = document.querySelector(".chead .bk");
     if (v === "builder") { if (h1) h1.textContent = BUILD && BUILD.id ? Lx({ en: "Edit playlist", id: "Edit playlist" }) : Lx({ en: "New playlist", id: "Buat playlist" }); if (bk) bk.setAttribute("href", "/playlist"); }
+    else if (v === "player") { if (h1) h1.textContent = Lx({ en: "Workout", id: "Latihan" }); if (bk) bk.setAttribute("href", "/playlist"); }
     else { if (h1) h1.textContent = "Playlist"; if (bk) bk.setAttribute("href", "/activity"); }
   }
   function setTab(t) {
@@ -157,9 +159,11 @@
       var sub = p.items + " " + Lx({ en: "movements", id: "gerakan" }) + " · " + fmtDur(p.est_duration_sec) + (p.goal ? " · " + esc(p.goal) : "");
       return '<div class="pcard"><span class="pc-i">' + ic("dumbbell", 22) + '</span>' +
         '<span style="flex:1;min-width:0"><span class="pc-n" style="display:block">' + esc(p.name) + '</span><span class="pc-s" style="display:block">' + sub + '</span></span>' +
-        '<span class="pc-act"><button type="button" class="pc-btn" data-edit="' + esc(p.id) + '">' + esc(Lx({ en: "Edit", id: "Edit" })) + '</button>' +
+        '<span class="pc-act">' + (p.items > 0 ? '<button type="button" class="pc-btn" style="background:var(--ai);color:#fff;border-color:var(--ai)" data-run="' + esc(p.id) + '">' + esc(Lx({ en: "Start", id: "Mulai" })) + '</button>' : '') +
+        '<button type="button" class="pc-btn" data-edit="' + esc(p.id) + '">' + esc(Lx({ en: "Edit", id: "Edit" })) + '</button>' +
         '<button type="button" class="pc-btn del" data-del="' + esc(p.id) + '" data-nm="' + esc(p.name) + '">' + esc(Lx({ en: "Delete", id: "Hapus" })) + '</button></span></div>';
     }).join("") + '</div>';
+    Array.prototype.forEach.call(box.querySelectorAll("[data-run]"), function (b) { b.onclick = function () { startRun(b.getAttribute("data-run")); }; });
     Array.prototype.forEach.call(box.querySelectorAll("[data-edit]"), function (b) { b.onclick = function () { location.href = "/playlist/" + b.getAttribute("data-edit"); }; });
     Array.prototype.forEach.call(box.querySelectorAll("[data-del]"), function (b) { b.onclick = function () { delPlaylist(b.getAttribute("data-del"), b.getAttribute("data-nm")); }; });
   }
@@ -307,6 +311,109 @@
     });
   }
 
+  // ===================== PLAYER (run) =====================
+  var RUN = null, RUN_TIMER = null, REST_TIMER = null;
+  function fmtClock(sec) { sec = Math.max(0, Math.round(sec || 0)); var m = Math.floor(sec / 60), s = sec % 60; return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s; }
+  async function startRun(pid) {
+    try {
+      var r = await apiFetch("/api/activity/playlists/" + encodeURIComponent(pid) + "/start", { method: "POST" });
+      if (r.status === 401) { location.href = "/login"; return; }
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) throw new Error(j.error || "start");
+      RUN = { sid: j.session_id, name: j.name, goal: j.goal, t0: Date.now(),
+        items: (j.items || []).map(function (it) {
+          var sets = []; for (var s = 1; s <= it.sets; s++) sets.push({ i: s, done: false, done_reps: (it.unit === "reps" ? (it.target || "") : null), weight_kg: "" });
+          return { ex_key: it.ex_key, name: it.name, muscle_keys: it.muscle_keys || [], unit: it.unit, target: it.target, rest_sec: it.rest_sec, sets: sets };
+        }) };
+      showView("player"); renderRun(); startTimer();
+    } catch (e) { alert(Lx({ en: "Couldn't start the session.", id: "Gagal memulai sesi." })); }
+  }
+  function startTimer() { stopTimer(); RUN_TIMER = setInterval(function () { var t = el("runTimer"); if (t && RUN) t.textContent = fmtClock((Date.now() - RUN.t0) / 1000); }, 1000); }
+  function stopTimer() { if (RUN_TIMER) { clearInterval(RUN_TIMER); RUN_TIMER = null; } }
+  function runProgress() { var tot = 0, dn = 0; RUN.items.forEach(function (it) { it.sets.forEach(function (s) { tot++; if (s.done) dn++; }); }); return { done: dn, total: tot }; }
+  function refreshProg() {
+    var pr = runProgress(), pct = pr.total ? Math.round(pr.done / pr.total * 100) : 0;
+    var bar = el("runBar"); if (bar) bar.style.width = pct + "%";
+    var pg = el("runProg"); if (pg) pg.textContent = pr.done + " / " + pr.total + " " + Lx({ en: "sets done", id: "set selesai" });
+  }
+  function renderRun() {
+    el("runName").textContent = RUN.name || Lx({ en: "Workout", id: "Latihan" });
+    el("runSub").textContent = RUN.goal || "";
+    var box = el("runItems");
+    box.innerHTML = RUN.items.map(function (it, ii) {
+      var allDone = it.sets.every(function (s) { return s.done; });
+      var muscles = (it.muscle_keys || []).slice(0, 3).map(function (k) { return '<span>' + esc(mLabel(k)) + '</span>'; }).join("");
+      var tgt = (it.unit === "sec") ? (it.target + " " + Lx({ en: "sec", id: "detik" })) : (it.target + " " + Lx({ en: "reps/set", id: "rep/set" }));
+      var rows = it.sets.map(function (s, si) {
+        var inputs = (it.unit === "reps")
+          ? '<input class="rin" type="number" inputmode="numeric" min="0" data-f="reps" value="' + esc(s.done_reps == null ? "" : s.done_reps) + '"><span class="un">' + esc(Lx({ en: "reps", id: "rep" })) + '</span><input class="rin" type="number" inputmode="decimal" min="0" step="0.5" data-f="kg" placeholder="kg" value="' + esc(s.weight_kg == null ? "" : s.weight_kg) + '">'
+          : '<span class="tgt">' + esc(it.target + " " + Lx({ en: "seconds", id: "detik" })) + '</span>';
+        return '<div class="setrow' + (s.done ? ' done' : '') + '" data-ii="' + ii + '" data-si="' + si + '"><span class="sx">' + esc(Lx({ en: "Set", id: "Set" })) + ' ' + s.i + '</span>' + inputs +
+          '<button type="button" class="ck' + (s.done ? ' on' : '') + '" aria-label="done">' + (s.done ? '✓' : '') + '</button></div>';
+      }).join("");
+      return '<div class="rblk' + (allDone ? ' done' : '') + '"><div class="rblk-h"><div class="rblk-n">' + esc(it.name) + '</div><div class="rblk-s">' + esc(tgt) + '</div>' +
+        (muscles ? '<div class="ex-m" style="margin-top:5px">' + muscles + '</div>' : '') + '</div>' + rows + '</div>';
+    }).join("");
+    wireRun(); refreshProg();
+  }
+  function wireRun() {
+    Array.prototype.forEach.call(el("runItems").querySelectorAll(".setrow"), function (row) {
+      var ii = +row.getAttribute("data-ii"), si = +row.getAttribute("data-si"), it = RUN.items[ii], s = it.sets[si];
+      row.querySelector(".ck").onclick = function () { toggleSet(it, s, row); };
+      Array.prototype.forEach.call(row.querySelectorAll("[data-f]"), function (inp) {
+        inp.oninput = function () { var f = inp.getAttribute("data-f"); if (f === "reps") s.done_reps = inp.value === "" ? null : parseInt(inp.value, 10); else s.weight_kg = inp.value; if (s.done) saveSet(it, s); };
+      });
+    });
+  }
+  async function toggleSet(it, s, row) {
+    s.done = !s.done;
+    row.classList.toggle("done", s.done);
+    var ck = row.querySelector(".ck"); ck.classList.toggle("on", s.done); ck.textContent = s.done ? "✓" : "";
+    var blk = row.parentNode; if (blk) blk.classList.toggle("done", it.sets.every(function (x) { return x.done; }));
+    refreshProg();
+    saveSet(it, s);
+    if (s.done) startRest(it.rest_sec != null ? it.rest_sec : CFG.rest_default_detik);
+  }
+  async function saveSet(it, s) {
+    try { await apiFetch("/api/activity/session/" + encodeURIComponent(RUN.sid) + "/set", { method: "POST", body: JSON.stringify({ ex_key: it.ex_key, set_index: s.i, done: s.done, done_reps: (it.unit === "reps" ? s.done_reps : null), weight_kg: (it.unit === "reps" ? (s.weight_kg === "" ? null : s.weight_kg) : null) }) }); } catch (e) {}
+  }
+  function startRest(sec) {
+    sec = parseInt(sec, 10); if (!(sec > 0)) return;
+    stopRest(); var left = sec, bar = el("restBar"), txt = el("restTxt");
+    bar.classList.add("on"); txt.textContent = left + "s";
+    REST_TIMER = setInterval(function () { left--; if (left <= 0) { stopRest(); return; } txt.textContent = left + "s"; }, 1000);
+  }
+  function stopRest() { if (REST_TIMER) { clearInterval(REST_TIMER); REST_TIMER = null; } var bar = el("restBar"); if (bar) bar.classList.remove("on"); }
+  async function finishRun() {
+    var btn = el("runFinish"); btn.disabled = true;
+    try {
+      var r = await apiFetch("/api/activity/session/" + encodeURIComponent(RUN.sid) + "/finish", { method: "POST" });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) throw new Error(j.error || "finish");
+      stopTimer(); stopRest(); showSummary(j.summary || {});
+    } catch (e) { btn.disabled = false; alert(Lx({ en: "Couldn't finish.", id: "Gagal menyelesaikan." })); }
+  }
+  function showSummary(sm) {
+    var muscles = (sm.muscles || []).map(function (k) { return '<span>' + esc(mLabel(k)) + '</span>'; }).join("");
+    el("sumSheet").innerHTML =
+      '<div class="sum-hero"><div style="font-size:34px">🎉</div><div class="big">' + esc(Lx({ en: "Workout done!", id: "Latihan selesai!" })) + '</div>' +
+      '<div class="muted" style="font-size:13px;margin-top:4px">' + esc(sm.name || (RUN && RUN.name) || "") + '</div></div>' +
+      '<div class="sumstat"><div class="s"><b>' + fmtClock(sm.duration_sec || 0) + '</b><span>' + esc(Lx({ en: "Duration", id: "Durasi" })) + '</span></div>' +
+      '<div class="s"><b>' + (sm.sets_done || 0) + '</b><span>' + esc(Lx({ en: "Sets done", id: "Set selesai" })) + '</span></div>' +
+      '<div class="s"><b>' + (sm.volume_kg || 0) + '</b><span>' + esc(Lx({ en: "Volume (kg)", id: "Volume (kg)" })) + '</span></div>' +
+      '<div class="s"><b>' + (sm.records || 0) + '</b><span>' + esc(Lx({ en: "Records", id: "Rekor" })) + '</span></div></div>' +
+      (muscles ? '<div class="sec-lbl">' + esc(Lx({ en: "Muscles trained", id: "Otot dilatih" })) + '</div><div class="ex-m">' + muscles + '</div>' : '') +
+      '<div class="bsave" style="margin-top:16px"><button type="button" class="btn ghost" id="sumClose">' + esc(Lx({ en: "Done", id: "Selesai" })) + '</button>' +
+      '<button type="button" class="btn" id="sumStory">' + esc(Lx({ en: "Create story", id: "Buat story" })) + '</button></div>';
+    el("sumModal").classList.add("on");
+    el("sumClose").onclick = function () { location.href = "/playlist"; };
+    el("sumStory").onclick = function () { alert(Lx({ en: "Story card is coming in the next step.", id: "Story card menyusul di langkah berikutnya." })); };
+  }
+  function quitRun() {
+    if (!confirm(Lx({ en: "Quit this workout? Logged sets are kept.", id: "Keluar dari latihan? Set yang sudah dicatat tetap tersimpan." }))) return;
+    stopTimer(); stopRest(); location.href = "/playlist";
+  }
+
   // ===================== CONFIG + BOOT =====================
   async function loadConfig() {
     try { var r = await apiFetch("/api/activity/config"); var j = await r.json().catch(function () { return {}; }); if (j && j.config) Object.assign(CFG, { detik_per_rep: +j.config.detik_per_rep || CFG.detik_per_rep, transisi_antar_gerakan_detik: +j.config.transisi_antar_gerakan_detik || CFG.transisi_antar_gerakan_detik, rest_default_detik: +j.config.rest_default_detik || CFG.rest_default_detik }); } catch (e) {}
@@ -333,6 +440,11 @@
     el("bCancel").onclick = function () { location.href = "/playlist"; };
     el("pickClose").onclick = closePicker;
     el("pickModal").addEventListener("click", function (ev) { if (ev.target === el("pickModal")) closePicker(); });
+
+    // Player controls
+    el("runFinish").onclick = finishRun;
+    el("runQuit").onclick = quitRun;
+    el("restSkip").onclick = stopRest;
     var pq = el("pq"); if (pq) pq.addEventListener("input", function () { clearTimeout(PICK._t); PICK._t = setTimeout(function () { PICK.q = pq.value.trim(); loadPicker(); }, 280); });
     document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { el("exModal").classList.remove("on"); closePicker(); } });
 
