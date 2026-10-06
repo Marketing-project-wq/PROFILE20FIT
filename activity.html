@@ -120,14 +120,23 @@
   .hs-cta{padding:7px 12px;border-radius:9px;background:var(--fit-red,#E4002B);color:#fff;font-size:12px;font-weight:800;text-decoration:none}
   .hs-note{font-size:10.5px;color:var(--a-mut)}
 
-  /* ===== Menu (3 kartu tappable) ===== */
-  .qa-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  /* ===== Coach consultation — coach aktif + aksi cepat + carousel 4 coach (js/coach-profiles.js) ===== */
+  .coach-bar{padding:12px 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px}
+  .coach-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .coach-info{flex:1;min-width:120px}
+  .coach-active-name{font-size:13px;font-weight:800;color:var(--a-txt)}
+  .coach-active-name span{font-weight:600;color:var(--a-mut)}
+  .coach-active-label{font-size:11px;color:var(--a-mut)}
+  .coach-acts{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .coach-acts button{padding:6px 10px;border-radius:8px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .coach-acts button:hover{border-color:var(--fit-red,#E4002B);color:var(--fit-red,#E4002B)}
+  .coach-open{padding:6px 10px;border-radius:8px;background:var(--fit-red,#E4002B);color:#fff;font-size:11.5px;font-weight:800;text-decoration:none;white-space:nowrap}
+
+  /* ===== Menu (2 kartu tappable) ===== */
+  .qa-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .qa-tile{display:flex;flex-direction:column;align-items:center;gap:5px;padding:14px 8px;border:1px solid var(--a-line);border-radius:14px;background:var(--a-surface);
     text-decoration:none;color:var(--a-txt);font-size:12px;font-weight:700;text-align:center;line-height:1.25;min-width:0}
   .qa-tile .qa-i{line-height:1;color:var(--fit-red,#E4002B)}
-  .qa-tile.locked{cursor:default;border-style:dashed;opacity:.9}
-  .qa-tile.locked .qa-i{color:var(--a-mut)}
-  .qa-lock-hint{font-size:10px;color:var(--a-mut);font-weight:600;line-height:1.3;margin-top:1px}
 
   /* ===== Upload progress — satu kartu ===== */
   .upx{position:relative;overflow:hidden;border-radius:20px;padding:14px;border:1px solid var(--a-line);
@@ -210,6 +219,7 @@
      memakai !important untuk .card sehingga kartu di sini otomatis ikut liquid-glass
      yang sama dengan seluruh app. -->
 <link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/coach-profiles.css?v=20261006f">
 <link rel="stylesheet" href="css/glass-app.css">
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 </head>
@@ -228,6 +238,19 @@
   <div id="errBox"></div>
 
   <div class="astack">
+
+    <!-- 1. COACH — konsultasi: coach aktif + aksi cepat, lalu carousel 4 coach yang bisa digeser
+         (js/coach-profiles.js, sama dengan picker /activity/chat). "Chat dengan X" -> /activity/chat/<slug>. -->
+    <div class="coach-bar" id="coachCard">
+      <div class="coach-row">
+        <div class="coach-info">
+          <div class="coach-active-name" id="coachActiveName">Coach</div>
+          <div class="coach-active-label" data-en="Swipe to meet each coach, then start a chat" data-id="Geser untuk kenalan tiap coach, lalu mulai chat">Geser untuk kenalan tiap coach, lalu mulai chat</div>
+        </div>
+        <div class="coach-acts" id="coachQa"></div>
+      </div>
+      <div id="coachProfiles"><div class="skel" style="height:220px;border-radius:16px"></div></div>
+    </div>
 
     <!-- 2. HEALTH SCORE — angka + bar + breakdown 2 kolom + What You Need (pill) -->
     <div id="healthScoreBox"><div class="card"><div class="skel" style="height:150px"></div></div></div>
@@ -270,7 +293,6 @@
     <div class="qa-grid" id="menuBox">
       <a class="qa-tile" href="/playlist"><span class="qa-i"><span class="fic" data-ic="dumbbell" data-ic-size="22"></span></span><span data-en="Exercise Playlist" data-id="Playlist Latihan">Playlist Latihan</span></a>
       <a class="qa-tile" href="/activity/visbody"><span class="qa-i"><span class="fic" data-ic="scan" data-ic-size="22"></span></span><span data-en="Scan Visbody" data-id="Scan Visbody">Scan Visbody</span></a>
-      <a class="qa-tile" href="/activity/chat"><span class="qa-i"><span class="fic" data-ic="chat" data-ic-size="22"></span></span><span data-en="Chat Coach" data-id="Chat Coach">Chat Coach</span></a>
     </div>
 
   </div>
@@ -312,6 +334,7 @@
 <script src="js/i18n.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/workout-metrics.js"></script>
+<script src="js/coach-profiles.js?v=20261006f"></script>
 <script>
   // ---- Halaman Activity (versi ringkas) ----
   // Hanya: Health Score + Upload progress + menu (Playlist / Scan Visbody / Chat Coach).
@@ -334,7 +357,7 @@
     document.getElementById("errBox").innerHTML =
       '<div class="card" style="border-color:var(--red)"><div class="err">'+esc(msg)+'</div>'+
       (retry?'<button class="btn ghost" id="retryBtn" style="margin-top:10px">'+esc(T("act_retry"))+'</button>':'')+'</div>';
-    var r=document.getElementById("retryBtn"); if(r) r.onclick=function(){ clearErr(); loadHealthScore(); loadUploadLog(); loadGate(); };
+    var r=document.getElementById("retryBtn"); if(r) r.onclick=function(){ clearErr(); loadHealthScore(); loadUploadLog(); };
   }
   function clearErr(){ document.getElementById("errBox").innerHTML=""; }
 
@@ -629,7 +652,6 @@
         clearPending();
         loadUploadLog();   // workout baru muncul di log hari ini
         refreshDerived();  // workout baru -> Health Score dihitung ulang
-        loadGate();        // workout tersimpan bisa membuka Chat Coach
       }catch(e){ document.getElementById("dlgErr").textContent=T("act_save_fail"); }
       btn.disabled=false;
     };
@@ -643,6 +665,44 @@
   // Guard di window.CoachProfiles: tanpa coach-profiles.js, default "nando".
   var TPL_COACH="nando";
   try{ var _cp=localStorage.getItem("my20fit_coach_pick"); if(_cp&&window.CoachProfiles&&CoachProfiles.NAME[_cp]) TPL_COACH=_cp; }catch(e){}
+  var COACH_NAME_TPL=window.CoachProfiles?CoachProfiles.NAME:{nando:"Ben",calysta:"Angie",rheza:"Stella",elsen:"Tom"};
+  function coachName(){ return COACH_NAME_TPL[TPL_COACH]||COACH_NAME_TPL.nando||"Ben"; }
+
+  // ---- Coach consultation — carousel 4 coach + aksi cepat (js/coach-profiles.js) ----
+  // "Chat dengan X" / "Open Chat" -> simpan pilihan lalu /activity/chat/<slug> (di sana chat ter-gate
+  // sampai user scan Visbody / upload latihan).
+  function renderCoachProfiles(){
+    var host=document.getElementById("coachProfiles"); if(!host||!window.CoachProfiles) return;
+    host.innerHTML=CoachProfiles.box({ active:TPL_COACH, title:Lx({en:"Meet the coaches",id:"Kenalan sama coach-nya"}) });
+    CoachProfiles.wire(host,function(slug){
+      try{ localStorage.setItem("my20fit_coach_pick",slug); }catch(e){}
+      location.href="/activity/chat/"+encodeURIComponent(slug);
+    });
+  }
+  async function loadCoachProfiles(){
+    renderCoachProfiles();
+    if(!window.CoachProfiles) return;
+    await CoachProfiles.loadRoster(); renderCoachProfiles();   // foto & spesialisasi dari roster CMS
+  }
+  // Aksi cepat: Plan = auto-message plan ke chat; Score = scroll ke Health Score; Open Chat = buka chat coach aktif.
+  function coachAskGo(msg){
+    try{ sessionStorage.setItem("chat_context", JSON.stringify({ auto_message:String(msg||"") })); }catch(e){}
+    location.href="/activity/chat/"+encodeURIComponent(TPL_COACH||"nando");
+  }
+  function renderCoachQa(){
+    var nm=document.getElementById("coachActiveName");
+    if(nm) nm.innerHTML=FIC("chat",15)+' Coach · <span>'+esc(Lx({en:"Active: ",id:"Aktif: "}))+esc(coachName())+'</span>';
+    var host=document.getElementById("coachQa"); if(!host) return;
+    host.innerHTML='<button type="button" data-ask="plan">'+FIC("clipboard",14)+' Plan</button>'+
+      '<button type="button" data-ask="score">'+FIC("chart",14)+' Score</button>'+
+      '<a class="coach-open" href="/activity/chat/'+encodeURIComponent(TPL_COACH)+'">'+esc(Lx({en:"Open Chat →",id:"Buka Chat →"}))+'</a>';
+    Array.prototype.forEach.call(host.querySelectorAll("button"),function(b){
+      b.onclick=function(){
+        if(b.getAttribute("data-ask")==="plan"){ coachAskGo(Lx({en:"Make me a workout plan for this week",id:"Buatkan workout plan minggu ini"})); return; }
+        var x=document.getElementById("healthScoreBox"); if(x) x.scrollIntoView({behavior:"smooth",block:"start"});
+      };
+    });
+  }
 
   // ---- 3. HEALTH SCORE (compact) ----
   var HS=null;
@@ -803,28 +863,9 @@
     }catch(e){ host.innerHTML=""; }
   }
 
-  // ---- 4. MENU — Chat Coach ter-GATE sampai ada scan Visbody / workout ----
-  var GATE=null;
-  async function loadGate(){
-    try{
-      var r=await apiFetch("/api/activity/gate"); var j=await r.json().catch(function(){return {};});
-      GATE=r.ok?j:null;
-    }catch(e){ GATE=null; }   // fail-open: gate error -> anggap terbuka
-    renderMenu();
-  }
-  function renderMenu(){
-    var host=document.getElementById("menuBox"); if(!host) return;
-    var unlocked=!GATE||GATE.unlocked!==false;   // null/error -> terbuka
-    var chat=unlocked
-      ? '<a class="qa-tile" href="/activity/chat"><span class="qa-i"><span class="fic" data-ic="chat" data-ic-size="22"></span></span><span>'+esc(Lx({en:"Chat Coach",id:"Chat Coach"}))+'</span></a>'
-      : '<div class="qa-tile locked"><span class="qa-i"><span class="fic" data-ic="lock" data-ic-size="22"></span></span><span>'+esc(Lx({en:"Chat Coach",id:"Chat Coach"}))+'</span>'+
-        '<span class="qa-lock-hint">'+esc(Lx({en:"Scan Visbody or upload a workout first",id:"Scan Visbody atau upload latihan dulu"}))+'</span></div>';
-    host.innerHTML=
-      '<a class="qa-tile" href="/playlist"><span class="qa-i"><span class="fic" data-ic="dumbbell" data-ic-size="22"></span></span><span>'+esc(Lx({en:"Exercise Playlist",id:"Playlist Latihan"}))+'</span></a>'+
-      '<a class="qa-tile" href="/activity/visbody"><span class="qa-i"><span class="fic" data-ic="scan" data-ic-size="22"></span></span><span>'+esc(Lx({en:"Scan Visbody",id:"Scan Visbody"}))+'</span></a>'+
-      chat;
-    if(window.FIC&&FIC.hydrate) FIC.hydrate(host);
-  }
+  // ---- 4. MENU — Playlist + Scan Visbody (Chat Coach = carousel konsultasi di atas).
+  // Isi menu statis (data-en/id + data-ic) sudah di HTML; i18n & FIC meng-hidrasinya otomatis.
+  // Chat coach kini ter-gate di ruang chat (coach.js) + server, bukan di sini.
 
   // ---- Hitung ulang turunan (Health Score) setelah upload/catat ----
   var REFRESH_T=null;
@@ -838,13 +879,13 @@
     AUTH_UID=(user&&user.id)||null;   // tangkap id auth SEBELUM profil digabung
     try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
     renderHead(); wireUpload(); wireDlg();
+    renderCoachQa(); loadCoachProfiles();   // konsultasi coach (carousel + aksi cepat)
     loadHealthScore(); loadUploadLog();
-    loadGate();          // buka/kunci entri Chat Coach di menu
     if(location.hash==="#upload-workout"){ try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} setTimeout(uploadWorkoutGo,600); }
   })();
 
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
-    renderHead(); renderHealthScore(); loadUploadLog(); renderMenu();
+    renderHead(); renderHealthScore(); loadUploadLog(); renderCoachQa(); renderCoachProfiles();
   });
 
 </script>
