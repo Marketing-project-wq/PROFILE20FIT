@@ -1,6 +1,6 @@
 # DATABASE — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-10-02 · **Commit staging:** `4727bfd` · **Production:** `a27ff79`
+> **Pembaruan terakhir:** 2026-10-06 · **Commit staging:** `a8b5891` · **Production:** `65166c0`
 > Sumber: `db/*.sql`, `supabase/`, dan pemakaian di `server.js`. Nama tabel & migration
 > terverifikasi dari file. **Detail kolom: buka file migration terkait** (di bawah tak
 > diisi kolom tebakan). Relasi umum lihat catatan.
@@ -26,7 +26,8 @@
 | Ulasan kelas | `my20fit_class_reviews` (migration 030, dijalankan 2026-10-01) |
 | Profil olahraga (maks 2) | `my20fit_user_sports` (migration 031: tabel+RLS+index **sudah** dibuat 2 Okt; fungsi `my20fit_set_user_sports` **BELUM**) |
 | Challenge komunitas (struktur) | `my20fit_challenge`, `my20fit_challenge_member` (migration 032, **BELUM dijalankan**, belum dipakai kode) |
-| Roster tampilan (coach/dokter/fisioterapis) | `my20fit_coaches`, `my20fit_coach_instructor_aliases`, `my20fit_doctors`, `my20fit_physiotherapists` |
+| Roster tampilan (coach/dokter/fisioterapis) | `my20fit_coaches` (+ kolom `speciality` diisi 2026-10-06), `my20fit_coach_instructor_aliases`, `my20fit_doctors`, `my20fit_physiotherapists` |
+| Playlist / gerakan (Fase 5, migration `my20fit_activity_foundation_phase1` 2026-10-06) | `my20fit_exercise` (katalog 200 gerakan 20FIT; `is_published`, `muscle_keys[]`, `focus_group`, `video_url`/`cue_teknik`/`equipment`/`level` **diisi coach**), `my20fit_playlist`, `my20fit_playlist_item` (FK→`my20fit_exercise` RESTRICT, →`my20fit_playlist` cascade), `my20fit_activity_config` (detik_per_rep/transisi/rest_default/gap_threshold), `my20fit_activity_audit`. Player pakai `my20fit_coach_session.playlist_id` + `my20fit_coach_set_log` (ex_key=exercise_id). RLS owner-only (`auth.uid()=auth_user_id`); `my20fit_exercise`+`my20fit_activity_config` SELECT authenticated. |
 | Tiket event | `my20fit_ticket_events` (katalog + `sold_count` agregat, disinkron `sync-ticket-events`). `my20fit_ticket_tokens` masih ada di DB tapi **sudah tidak dipakai kode mana pun** sejak jalur OTP dibuang (`d1c2a38`). Arsip pembelian dibaca **read-only** dari `event_transaction` — tabel **milik app lain**, tanpa prefix: jangan ditulis. |
 
 ### Relasi & kolom kunci (terverifikasi dari `server.js`)
