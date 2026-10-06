@@ -11470,6 +11470,9 @@ app.post("/api/coach/chat", async (req, res) => {
     const message = String(b.message || "").trim();
     if (!message) return res.status(400).json({ error: "Pesan kosong." });
     if (message.length > 4000) return res.status(400).json({ error: "Pesan terlalu panjang." });
+    // Gate: wajib scan Visbody atau upload latihan dulu sebelum bisa chat coach.
+    const gate = await activityUnlocked(user.id);
+    if (gate && gate.unlocked === false) return res.status(403).json({ error: "Scan Visbody atau upload latihan dulu untuk mulai chat coach.", locked: true });
     const lang = (String(b.lang || "id") === "en") ? "en" : "id";
     // session + riwayat (best-effort; tabel chat belum ada -> chat tetap jalan tanpa simpan).
     let sessionId = null, history = [];
@@ -11844,6 +11847,30 @@ app.get("/api/activity/config", async (req, res) => {
     const cfg = await actConfig();
     return res.json({ ok: true, config: cfg });
   } catch (e) { return res.json({ ok: true, config: ACT_CFG_DEFAULT }); }
+});
+
+// Gate: chat coach hanya terbuka setelah user SCAN VISBODY atau UPLOAD latihan.
+// Fail-open (true) kalau error/tak terkonfigurasi — jangan kunci user karena hiccup server.
+async function activityUnlocked(uid) {
+  if (!admin || !uid) return true;
+  try {
+    const [vb, wo, up] = await Promise.all([
+      admin.from("my20fit_visbody_body").select("scan_id").eq("auth_user_id", uid).limit(1),
+      admin.from("my20fit_workout").select("id").eq("auth_user_id", uid).limit(1),
+      admin.from("my20fit_activity_uploads").select("id").eq("auth_user_id", uid).limit(1),
+    ]);
+    const hasVisbody = !!(vb.data && vb.data.length);
+    const hasWorkout = !!((wo.data && wo.data.length) || (up.data && up.data.length));
+    return { unlocked: hasVisbody || hasWorkout, has_visbody: hasVisbody, has_workout: hasWorkout };
+  } catch (e) { return { unlocked: true, has_visbody: false, has_workout: false, error: true }; }
+}
+app.get("/api/activity/gate", async (req, res) => {
+  try {
+    const user = await getUserFromReq(req);
+    if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const g = await activityUnlocked(user.id);
+    return res.json(Object.assign({ ok: true }, g));
+  } catch (e) { return res.json({ ok: true, unlocked: true }); }
 });
 
 app.get("/api/activity/playlists", async (req, res) => {
