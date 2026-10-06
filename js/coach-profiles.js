@@ -75,7 +75,6 @@
 
   function card(c, active) {
     var slug = c[0], pf = PROFILE[slug] || {}, row = ROSTER[slug] || {};
-    var venue = row.venue === "gym" ? "20FIT Gym" : (row.venue === "both" ? "20FIT Arena & Gym" : "20FIT Arena");
     return '<div class="cprof' + (active ? ' on' : '') + '" style="--cc:' + c[2] + '">' +
       (active ? '<span class="cprof-badge">' + esc(Lx({ en: "Your coach", id: "Coach kamu" })) + '</span>' : '') +
       '<div class="cprof-top">' + avatar(slug, 76) +
@@ -83,7 +82,7 @@
         '<div class="cprof-tag">' + esc(Lx(c[1])) + '</div>' +
         // Spesialisasi = isian tim di admin-v2 → Coaches (tidak ditebak); kosong -> tidak tampil.
         (row.speciality ? '<div class="cprof-v">' + ic("medal", 13) + ' ' + esc(Lx({ en: "Specialty: ", id: "Spesialisasi: " }) + row.speciality) + '</div>' : '') +
-        '<div class="cprof-v">' + ic("pin", 13) + ' ' + esc(venue) + '</div></div>' +
+        '</div>' +
       '<div class="cprof-traits">' + (pf.traits || []).map(function (t) { return '<span>' + esc(Lx(t)) + '</span>'; }).join("") + '</div>' +
       '<button type="button" class="cprof-go" data-pick="' + esc(slug) + '">' + ic("chat", 16) + ' ' + esc(Lx({ en: "Chat with ", id: "Chat dengan " }) + NAME[slug]) + '</button>' +
     '</div>';

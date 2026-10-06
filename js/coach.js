@@ -724,24 +724,14 @@
   }
 
   function renderChat() {
-    var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Chat with your coach", id: "Chat sama coach kamu" });
-    if (GATED) { renderLocked(); return; }
+    var sub = el("coachSub"); if (sub) sub.textContent = GATED
+      ? Lx({ en: "Unlock coach chat", id: "Buka akses chat coach" })
+      : Lx({ en: "Chat with your coach", id: "Chat sama coach kamu" });
+    // Coach tetap tampil meski terkunci — user pilih coach dulu, baru chat terbuka setelah scan/upload.
     if (!CHAT_COACH) { renderCoachPicker(); return; }
     renderChatRoom();
+    if (GATED) return;                // room menampilkan bar kunci; tak muat riwayat / auto-kirim saat terkunci
     if (!CHAT_INIT) initChatConversation(); else paintMsgs();
-  }
-
-  // Kunci chat sampai user scan Visbody atau upload latihan.
-  function renderLocked() {
-    var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Unlock coach chat", id: "Buka akses chat coach" });
-    root().innerHTML =
-      '<div class="card" style="text-align:center;padding:26px 18px">' +
-      '<div style="width:72px;height:72px;border-radius:99px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--ai) 12%,transparent);color:var(--ai)">' + svgIcon("lock", 30) + '</div>' +
-      '<div style="font-size:18px;font-weight:800;margin-bottom:6px">' + esc(Lx({ en: "Chat opens after your first step", id: "Chat terbuka setelah langkah pertamamu" })) + '</div>' +
-      '<div class="muted" style="font-size:13px;line-height:1.6;max-width:340px;margin:0 auto 16px">' + esc(Lx({ en: "Scan your body with Visbody or upload a workout first — then your coach can advise using your real data.", id: "Scan tubuh pakai Visbody atau upload latihan dulu — biar coach bisa kasih saran pakai data aslimu." })) + '</div>' +
-      '<a class="btn" href="/activity/visbody" style="display:block;text-decoration:none;margin-bottom:8px">' + svgIcon("scan", 16) + ' ' + esc(Lx({ en: "Scan Visbody", id: "Scan Visbody" })) + '</a>' +
-      '<a class="btn ghost" href="/activity" style="display:block;text-decoration:none">' + svgIcon("clipboard", 16) + ' ' + esc(Lx({ en: "Upload a workout", id: "Upload latihan" })) + '</a>' +
-      '</div>';
   }
 
   function renderCoachPicker() {
@@ -775,14 +765,24 @@
 
   function renderChatRoom() {
     var color = coachColor(CHAT_COACH);
+    // Terkunci: tampilkan coach + bar kunci (scan/upload), bukan kotak pesan.
+    var bottom = GATED
+      ? '<div class="clockbar">' + svgIcon("lock", 16) + ' <span>' + esc(Lx({ en: "Scan Visbody or upload a workout to start chatting.", id: "Scan Visbody atau upload latihan dulu untuk mulai chat." })) + '</span>' +
+        '<a class="clock-cta" href="/activity/visbody">' + svgIcon("scan", 15) + ' ' + esc(Lx({ en: "Scan", id: "Scan" })) + '</a>' +
+        '<a class="clock-cta ghost" href="/activity">' + svgIcon("clipboard", 15) + ' ' + esc(Lx({ en: "Upload", id: "Upload" })) + '</a></div>'
+      : '<div class="cinput"><span class="spark">' + svgIcon("spark", 18) + '</span>' +
+        '<textarea id="cText" rows="1" placeholder="' + esc(Lx({ en: "Message your coach…", id: "Tulis pesan ke coach…" })) + '"></textarea>' +
+        '<button type="button" class="csend" id="cSend" aria-label="Send">' + svgIcon("send", 20) + '</button></div>';
+    var msgsInner = GATED
+      ? '<div class="crow ai">' + coachAvatar(CHAT_COACH, 34) + '<div class="cmsg ai">' + esc(Lx({ en: "Hi! I'm ready to help — scan your body with Visbody or upload a workout first so I can advise using your real data.", id: "Hai! Aku siap bantu — scan tubuh pakai Visbody atau upload latihan dulu ya, biar saranku pakai data aslimu." })) + '</div></div>'
+      : '';
     root().innerHTML = '<div class="croom" style="--cc:' + color + '">' +
       stageHtml(CHAT_COACH) +
-      '<div class="cmsgs" id="cMsgs"></div>' +
-      '<div class="cquick" id="cQuick" style="display:none">' + QUICKS.map(function (q, i) { return '<button type="button" class="cqbtn" data-q="' + i + '">' + esc(Lx(q[0])) + '</button>'; }).join("") + '</div>' +
-      '<div class="cinput"><span class="spark">' + svgIcon("spark", 18) + '</span>' +
-      '<textarea id="cText" rows="1" placeholder="' + esc(Lx({ en: "Message your coach…", id: "Tulis pesan ke coach…" })) + '"></textarea>' +
-      '<button type="button" class="csend" id="cSend" aria-label="Send">' + svgIcon("send", 20) + '</button></div></div>';
+      '<div class="cmsgs" id="cMsgs">' + msgsInner + '</div>' +
+      (GATED ? '' : '<div class="cquick" id="cQuick" style="display:none">' + QUICKS.map(function (q, i) { return '<button type="button" class="cqbtn" data-q="' + i + '">' + esc(Lx(q[0])) + '</button>'; }).join("") + '</div>') +
+      bottom + '</div>';
     el("crSwitch").onclick = function () { CHAT_COACH = null; CHAT_INIT = false; CHAT_MSGS = []; try { localStorage.removeItem("my20fit_coach_pick"); } catch (e) {} syncChatUrl(); renderChat(); };
+    if (GATED) return;                 // tak ada kotak pesan/aksi cepat saat terkunci
     Array.prototype.forEach.call(root().querySelectorAll("#cQuick [data-q]"), function (b) { b.onclick = function () { var q = QUICKS[+b.getAttribute("data-q")]; if (q) sendChat(Lx(q[1])); }; });
     var ta = el("cText"), send = el("cSend");
     function autin() { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; }
