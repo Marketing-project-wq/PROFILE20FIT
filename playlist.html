@@ -164,6 +164,9 @@
   .sumstat .s{border:1px solid var(--a-line);border-radius:14px;padding:12px;text-align:center}
   .sumstat .s b{display:block;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
   .sumstat .s span{font-size:11px;color:var(--a-mut)}
+  /* Story */
+  .story-img{width:100%;max-width:300px;aspect-ratio:9/16;object-fit:contain;border-radius:16px;display:block;margin:0 auto 14px;background:#12151c}
+  .story-act{display:flex;gap:9px}.story-act .btn{flex:1}
 </style>
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/glass-app.css">
@@ -250,6 +253,14 @@
   <div class="sheet" id="sumSheet"></div>
 </div>
 
+<!-- Story card modal -->
+<div class="modal" id="storyModal">
+  <div class="sheet" id="storySheet">
+    <div class="sheet-h"><h2 data-en="Workout story" data-id="Story latihan">Story latihan</h2><button type="button" class="sheet-x" id="storyClose" aria-label="Close">×</button></div>
+    <div id="storyBody"><div class="skel" style="width:300px;max-width:100%;aspect-ratio:9/16;margin:0 auto;border-radius:16px"></div></div>
+  </div>
+</div>
+
 <!-- Add-movement picker modal -->
 <div class="modal" id="pickModal">
   <div class="sheet" id="pickSheet">
@@ -268,6 +279,7 @@
 <script src="js/auth.js"></script>
 <script src="js/i18n.js?v=20260928d"></script>
 <script src="js/nav.js"></script>
-<script src="js/playlist.js?v=20261006c"></script>
+<script src="js/bodymap.js?v=20261006a"></script>
+<script src="js/playlist.js?v=20261006d"></script>
 </body>
 </html>

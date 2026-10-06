@@ -407,7 +407,66 @@
       '<button type="button" class="btn" id="sumStory">' + esc(Lx({ en: "Create story", id: "Buat story" })) + '</button></div>';
     el("sumModal").classList.add("on");
     el("sumClose").onclick = function () { location.href = "/playlist"; };
-    el("sumStory").onclick = function () { alert(Lx({ en: "Story card is coming in the next step.", id: "Story card menyusul di langkah berikutnya." })); };
+    el("sumStory").onclick = function () { buildStory(sm); };
+  }
+
+  // ---- Story card (Fase 7): PNG 9:16 body-map + stat -> share (Web Share API) / unduh ----
+  function buildStory(sm) {
+    var modal = el("storyModal"), body = el("storyBody");
+    body.innerHTML = '<div class="skel" style="width:300px;max-width:100%;aspect-ratio:9/16;margin:0 auto;border-radius:16px"></div>';
+    modal.classList.add("on");
+    el("storyClose").onclick = function () { modal.classList.remove("on"); };
+    renderStoryCanvas(sm, function (canvas) {
+      canvas.toBlob(function (blob) {
+        if (!blob) { body.innerHTML = '<div class="err">' + esc(Lx({ en: "Couldn't render the story.", id: "Gagal membuat story." })) + '</div>'; return; }
+        var url = URL.createObjectURL(blob);
+        body.innerHTML = '<img class="story-img" src="' + url + '" alt="story">' +
+          '<div class="story-act"><button type="button" class="btn ghost" id="stDl">' + esc(Lx({ en: "Download", id: "Unduh" })) + '</button>' +
+          '<button type="button" class="btn" id="stShare">' + esc(Lx({ en: "Share", id: "Bagikan" })) + '</button></div>';
+        el("stDl").onclick = function () { dlBlob(url); };
+        el("stShare").onclick = function () { shareStory(blob, url); };
+      }, "image/png");
+    });
+  }
+  function dlBlob(url) { var a = document.createElement("a"); a.href = url; a.download = "20fit-workout.png"; document.body.appendChild(a); a.click(); a.remove(); }
+  async function shareStory(blob, url) {
+    try {
+      var file = new File([blob], "20fit-workout.png", { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "20FIT", text: Lx({ en: "My 20FIT workout 💪", id: "Workout 20FIT aku 💪" }) });
+        return;
+      }
+    } catch (e) { if (e && e.name === "AbortError") return; }
+    dlBlob(url);
+    alert(Lx({ en: "Image saved — share it to Instagram from your gallery.", id: "Gambar tersimpan — bagikan ke Instagram dari galeri." }));
+  }
+  function renderStoryCanvas(sm, cb) {
+    var W = 1080, H = 1920, c = document.createElement("canvas"); c.width = W; c.height = H; var x = c.getContext("2d");
+    var lng = (window.I18N && I18N.lang === "en") ? "en" : "id";
+    var g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#15181f"); g.addColorStop(1, "#2a0b10"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    var rg = x.createRadialGradient(W / 2, 260, 40, W / 2, 260, 560); rg.addColorStop(0, "rgba(228,0,43,0.30)"); rg.addColorStop(1, "rgba(228,0,43,0)"); x.fillStyle = rg; x.fillRect(0, 0, W, 640);
+    x.textAlign = "center";
+    x.fillStyle = "rgba(255,255,255,0.72)"; x.font = "700 34px Inter,Arial,sans-serif"; x.fillText(lng === "en" ? "TODAY'S FOCUS" : "FOKUS HARI INI", W / 2, 150);
+    var foc = (window.BodyMap ? BodyMap.focus(sm.muscles, lng) : "") || (lng === "en" ? "Full body" : "Seluruh tubuh");
+    x.fillStyle = "#fff"; x.font = "900 76px Inter,Arial,sans-serif"; x.fillText(foc, W / 2, 242);
+    function drawRest() {
+      var stats = [[fmtClock(sm.duration_sec || 0), lng === "en" ? "Duration" : "Durasi"],
+        [String(sm.sets_done || 0), lng === "en" ? "Sets" : "Set"],
+        [String(sm.volume_kg || 0), "Volume kg"], [String(sm.records || 0), lng === "en" ? "Records" : "Rekor"]];
+      var y = 1310, colW = W / 4;
+      stats.forEach(function (s, i) { var cxp = colW * i + colW / 2;
+        x.fillStyle = "#fff"; x.font = "900 60px Inter,Arial,sans-serif"; x.fillText(s[0], cxp, y);
+        x.fillStyle = "rgba(255,255,255,0.6)"; x.font = "700 27px Inter,Arial,sans-serif"; x.fillText(s[1], cxp, y + 46); });
+      if (sm.name) { x.fillStyle = "rgba(255,255,255,0.88)"; x.font = "700 40px Inter,Arial,sans-serif"; x.fillText(String(sm.name).slice(0, 28), W / 2, 1500); }
+      x.fillStyle = "#E4002B"; x.font = "900 74px Inter,Arial,sans-serif"; x.fillText("20FIT", W / 2, 1800);
+      x.fillStyle = "rgba(255,255,255,0.6)"; x.font = "600 32px Inter,Arial,sans-serif"; x.fillText("my.20fit.id", W / 2, 1848);
+    }
+    var svgStr = window.BodyMap ? BodyMap.svg(sm.muscles || [], { w: 760, h: 836, lang: lng }) : "";
+    if (!svgStr) { drawRest(); cb(c); return; }
+    var img = new Image();
+    img.onload = function () { try { x.drawImage(img, (W - 760) / 2, 300, 760, 836); } catch (e) {} drawRest(); cb(c); };
+    img.onerror = function () { drawRest(); cb(c); };
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
   }
   function quitRun() {
     if (!confirm(Lx({ en: "Quit this workout? Logged sets are kept.", id: "Keluar dari latihan? Set yang sudah dicatat tetap tersimpan." }))) return;
@@ -446,7 +505,9 @@
     el("runQuit").onclick = quitRun;
     el("restSkip").onclick = stopRest;
     var pq = el("pq"); if (pq) pq.addEventListener("input", function () { clearTimeout(PICK._t); PICK._t = setTimeout(function () { PICK.q = pq.value.trim(); loadPicker(); }, 280); });
-    document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { el("exModal").classList.remove("on"); closePicker(); } });
+    el("sumModal").addEventListener("click", function (ev) { if (ev.target === el("sumModal")) el("sumModal").classList.remove("on"); });
+    el("storyModal").addEventListener("click", function (ev) { if (ev.target === el("storyModal")) el("storyModal").classList.remove("on"); });
+    document.addEventListener("keydown", function (ev) { if (ev.key === "Escape") { el("exModal").classList.remove("on"); el("storyModal").classList.remove("on"); closePicker(); } });
 
     if (window.I18N && I18N.onChange) I18N.onChange(function () { applyPlaceholders(); if (GROUPS) { renderGroupChips(); renderMuscleChips(); } if (el("viewBrowse").style.display !== "none") renderGrid(); if (MINE) renderMine(); if (BUILD) renderItems(); });
 
