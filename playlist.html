@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<base href="/">
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Playlist · 20FIT</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --a-bg:var(--bg,#F1F1F4); --a-surface:var(--card,#FFFFFF);
+    --a-line:var(--glass-hair,var(--line,#EBEBEF)); --a-txt:var(--txt,#15171C); --a-mut:var(--muted,#8A8D94);
+    --ai:var(--fit-red,#E4002B); --ai2:var(--fit-blue,#0068C9);
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--a-bg);color:var(--a-txt);font-family:var(--sans);padding:20px 16px 110px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto}
+  .muted{color:var(--a-mut)}
+  .skel{background:color-mix(in srgb,var(--a-txt) 7%,transparent);border-radius:12px;animation:pul 1.3s ease-in-out infinite}
+  @keyframes pul{0%,100%{opacity:1}50%{opacity:.45}}
+
+  /* header */
+  .chead{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .chead .bk{width:38px;height:38px;border-radius:99px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);
+    display:flex;align-items:center;justify-content:center;text-decoration:none;flex:none;font-size:18px}
+  .chead h1{font-size:22px;font-weight:800;margin:0;letter-spacing:-.3px}
+  .chead .sub{font-size:13px;color:var(--a-mut);margin-top:2px}
+
+  /* tabs */
+  .ptabs{display:flex;gap:6px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px;padding:5px;margin-bottom:14px}
+  .ptab{flex:1;text-align:center;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;border:0;background:transparent;color:var(--a-mut);font-family:inherit}
+  .ptab.on{background:var(--ai);color:#fff}
+
+  /* search + filters */
+  .psearch{display:flex;align-items:center;gap:9px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px;padding:11px 14px;margin-bottom:10px}
+  .psearch svg{color:var(--a-mut);flex:none}
+  .psearch input{flex:1;border:0;background:transparent;color:var(--a-txt);font-family:inherit;font-size:14px;outline:none}
+  .chips{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px}
+  .chips::-webkit-scrollbar{height:0}
+  .chip{flex:none;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:12.5px;font-weight:700;border-radius:99px;padding:7px 13px;cursor:pointer;font-family:inherit;white-space:nowrap}
+  .chip.on{background:var(--ai);border-color:var(--ai);color:#fff}
+  .msel{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .msel .chip{font-size:11.5px;padding:5px 11px}
+
+  .count{font-size:12px;color:var(--a-mut);margin:2px 2px 10px}
+
+  /* exercise grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+  .ex{display:flex;flex-direction:column;gap:7px;text-align:left;background:var(--a-surface);border:1px solid var(--a-line);border-radius:16px;padding:13px 14px;cursor:pointer;font-family:inherit;color:var(--a-txt);transition:border-color .15s,transform .12s}
+  .ex:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--ai) 45%,var(--a-line))}
+  .ex-top{display:flex;align-items:flex-start;gap:9px}
+  .ex-thumb{width:42px;height:42px;border-radius:12px;flex:none;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--ai) 12%,transparent);color:var(--ai)}
+  .ex-n{font-size:14px;font-weight:800;line-height:1.25}
+  .ex-g{font-size:11px;font-weight:700;color:var(--a-mut);margin-top:2px}
+  .ex-m{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+  .ex-m span{font-size:10px;font-weight:700;color:var(--ai);background:color-mix(in srgb,var(--ai) 10%,transparent);border-radius:99px;padding:2px 8px}
+  .ex-vid{margin-left:auto;flex:none;font-size:10px;font-weight:800;color:var(--a-mut);display:flex;align-items:center;gap:3px}
+  .ex-vid.has{color:var(--fit-green,#16A34A)}
+
+  .empty{background:var(--a-surface);border:1px dashed var(--a-line);border-radius:16px;padding:28px 18px;text-align:center;color:var(--a-mut);font-size:13px}
+  .err{background:color-mix(in srgb,var(--fit-amber,#D97706) 12%,transparent);border:1px solid color-mix(in srgb,var(--fit-amber,#D97706) 35%,transparent);border-radius:14px;padding:14px;font-size:13px}
+  .retry{margin-top:8px;padding:8px 14px;border:0;border-radius:10px;background:var(--ai);color:#fff;font-weight:800;font-family:inherit;cursor:pointer}
+
+  /* my playlists placeholder */
+  .ph{background:var(--a-surface);border:1px solid var(--a-line);border-radius:16px;padding:22px 18px;text-align:center}
+  .ph h3{margin:6px 0 4px;font-size:16px}
+  .ph p{margin:0 0 14px;font-size:13px;color:var(--a-mut);line-height:1.55}
+
+  /* modal */
+  .modal{position:fixed;inset:0;z-index:60;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.5);padding:0}
+  .modal.on{display:flex}
+  .sheet{width:100%;max-width:560px;max-height:92vh;overflow-y:auto;background:var(--a-surface);border-radius:22px 22px 0 0;border:1px solid var(--a-line);padding:18px 18px 28px}
+  @media(min-width:560px){ .modal{align-items:center} .sheet{border-radius:22px} }
+  .sheet-h{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+  .sheet-h h2{font-size:19px;font-weight:800;margin:0;line-height:1.2;flex:1}
+  .sheet-x{border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);width:34px;height:34px;border-radius:99px;font-size:18px;cursor:pointer;flex:none;font-family:inherit}
+  .sheet-g{font-size:12px;font-weight:700;color:var(--a-mut);margin-bottom:10px}
+  .video-wrap{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;margin-bottom:12px}
+  .video-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .video-none{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;width:100%;aspect-ratio:16/9;border-radius:14px;background:color-mix(in srgb,var(--a-txt) 5%,transparent);color:var(--a-mut);font-size:12.5px;margin-bottom:12px;border:1px dashed var(--a-line)}
+  .sec-lbl{font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--a-mut);font-weight:800;margin:14px 0 5px}
+  .sheet p.body{font-size:13.5px;line-height:1.6;margin:0}
+  .warnbox{background:color-mix(in srgb,var(--fit-amber,#D97706) 10%,transparent);border:1px solid color-mix(in srgb,var(--fit-amber,#D97706) 32%,transparent);border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.5;margin-top:6px}
+
+  /* buttons */
+  .btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:13px;border:0;border-radius:12px;background:var(--ai);color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;text-decoration:none}
+  .btn.ghost{background:transparent;border:1px solid var(--a-line);color:var(--a-txt)}
+  .btn:disabled{opacity:.5;cursor:default}
+
+  /* My playlists list */
+  .plist{display:flex;flex-direction:column;gap:10px}
+  .pcard{display:flex;align-items:center;gap:12px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:16px;padding:14px}
+  .pcard .pc-i{width:44px;height:44px;border-radius:13px;flex:none;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--ai) 12%,transparent);color:var(--ai)}
+  .pcard .pc-n{font-size:15px;font-weight:800;line-height:1.2}
+  .pcard .pc-s{font-size:12px;color:var(--a-mut);margin-top:3px}
+  .pcard .pc-act{margin-left:auto;display:flex;gap:6px;flex:none}
+  .pc-btn{border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);border-radius:10px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .pc-btn.del{color:var(--ai)}
+  .mkbtn{margin-bottom:12px}
+
+  /* Builder form */
+  .bform{background:var(--a-surface);border:1px solid var(--a-line);border-radius:16px;padding:14px;margin-bottom:12px}
+  .fl{display:block;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--a-mut);margin:0 0 5px}
+  .fi{width:100%;padding:11px 13px;border:1px solid var(--a-line);border-radius:12px;background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px;margin-bottom:12px;outline:none}
+  .fi:last-child{margin-bottom:0}
+  .bbar{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 10px;font-size:13px}
+  .bbar .est{font-weight:800;color:var(--ai)}
+  .bitem{background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px;padding:12px;margin-bottom:9px}
+  .bitem-h{display:flex;align-items:flex-start;gap:9px;margin-bottom:9px}
+  .bitem-n{font-size:14px;font-weight:800;line-height:1.2}
+  .bitem-g{font-size:11px;color:var(--a-mut);margin-top:2px}
+  .bitem-rm{margin-left:auto;border:0;background:transparent;color:var(--ai);font-size:18px;cursor:pointer;font-family:inherit;flex:none;line-height:1}
+  .bmove{display:flex;gap:4px;flex:none}
+  .bmove button{border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);width:28px;height:28px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px}
+  .bmove button:disabled{opacity:.35;cursor:default}
+  .modetog{display:inline-flex;border:1px solid var(--a-line);border-radius:9px;overflow:hidden;margin-bottom:9px}
+  .modetog button{border:0;background:transparent;color:var(--a-mut);font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;font-family:inherit}
+  .modetog button.on{background:var(--ai);color:#fff}
+  .brow{display:flex;gap:8px;flex-wrap:wrap}
+  .bfield{flex:1;min-width:88px}
+  .bfield label{display:block;font-size:10.5px;font-weight:700;color:var(--a-mut);margin-bottom:3px}
+  .bfield input{width:100%;padding:8px 10px;border:1px solid var(--a-line);border-radius:9px;background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:13px;text-align:center;outline:none}
+  .bsave{display:flex;gap:9px;margin-top:14px}
+  .bsave .btn{flex:1}
+  .pick-ex{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--a-line)}
+  .pick-ex:first-child{border-top:0}
+  .pick-ex .pn{font-size:13.5px;font-weight:700;line-height:1.2}
+  .pick-ex .pg{font-size:11px;color:var(--a-mut);margin-top:2px}
+  .pick-add{margin-left:auto;flex:none;border:0;border-radius:9px;background:var(--ai);color:#fff;font-size:12px;font-weight:800;padding:8px 12px;cursor:pointer;font-family:inherit}
+  .pick-add.added{background:var(--fit-green,#16A34A)}
+
+  /* Player */
+  .plrun-top{display:flex;align-items:center;gap:12px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:16px;padding:14px;margin-bottom:10px}
+  .plrun-name{font-size:16px;font-weight:800;line-height:1.2}
+  .plrun-sub{font-size:12px;color:var(--a-mut);margin-top:2px}
+  .plrun-timer{margin-left:auto;flex:none;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ai)}
+  .pbar{height:8px;border-radius:99px;background:color-mix(in srgb,var(--a-txt) 10%,transparent);overflow:hidden;margin:2px 2px 4px}
+  .pbar>i{display:block;height:100%;width:0;background:var(--ai);border-radius:99px;transition:width .25s}
+  .plrun-prog{font-size:12px;color:var(--a-mut);margin:0 2px 12px}
+  .rblk{background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px;margin-bottom:10px;overflow:hidden}
+  .rblk.done{border-color:color-mix(in srgb,var(--fit-green,#16A34A) 45%,var(--a-line))}
+  .rblk-h{padding:12px 14px;background:color-mix(in srgb,var(--a-txt) 3%,transparent)}
+  .rblk-n{font-size:14px;font-weight:800}
+  .rblk-s{font-size:11.5px;color:var(--a-mut);margin-top:2px}
+  .setrow{display:flex;align-items:center;gap:9px;padding:10px 14px;border-top:1px solid var(--a-line)}
+  .setrow .sx{font-size:12px;color:var(--a-mut);width:40px;flex:none;font-weight:700}
+  .setrow .rin{width:56px;flex:none;padding:7px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:13px;text-align:center;outline:none}
+  .setrow .un{font-size:11px;color:var(--a-mut)}
+  .setrow .tgt{font-size:12.5px;color:var(--a-mut);flex:1}
+  .setrow .ck{width:34px;height:34px;flex:none;margin-left:auto;border-radius:10px;border:1.5px solid var(--a-line);background:transparent;color:var(--a-mut);font-size:17px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center}
+  .setrow .ck.on{background:var(--fit-green,#16A34A);border-color:var(--fit-green,#16A34A);color:#fff}
+  .setrow.done .tgt,.setrow.done .un{text-decoration:line-through;opacity:.6}
+  .restbar{position:fixed;left:0;right:0;bottom:0;z-index:55;display:none;align-items:center;gap:12px;max-width:560px;margin:0 auto;padding:14px 16px;background:var(--ai);color:#fff}
+  .restbar.on{display:flex}
+  .restbar .rt{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+  .restbar .rl{font-size:12.5px;opacity:.9}
+  .restbar button{margin-left:auto;border:1px solid rgba(255,255,255,.6);background:transparent;color:#fff;border-radius:99px;padding:7px 14px;font-weight:800;font-size:12.5px;font-family:inherit;cursor:pointer}
+  /* Summary */
+  .sum-hero{text-align:center;padding:6px 0 10px}
+  .sum-hero .big{font-size:26px;font-weight:900;letter-spacing:-.3px}
+  .sumstat{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0}
+  .sumstat .s{border:1px solid var(--a-line);border-radius:14px;padding:12px;text-align:center}
+  .sumstat .s b{display:block;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+  .sumstat .s span{font-size:11px;color:var(--a-mut)}
+  /* Story */
+  .story-img{width:100%;max-width:300px;aspect-ratio:9/16;object-fit:contain;border-radius:16px;display:block;margin:0 auto 14px;background:#12151c}
+  .story-act{display:flex;gap:9px}.story-act .btn{flex:1}
+</style>
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/glass-app.css">
+<script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+</head>
+<body>
+<div class="wrap">
+  <div class="chead">
+    <a class="bk" href="/activity" aria-label="Kembali" title="Kembali">‹</a>
+    <div>
+      <h1 data-en="Playlist" data-id="Playlist">Playlist</h1>
+      <div class="sub" data-en="Build your own workout from 20FIT movements" data-id="Susun workout-mu sendiri dari gerakan 20FIT">Susun workout-mu sendiri dari gerakan 20FIT</div>
+    </div>
+  </div>
+
+  <div class="ptabs">
+    <button type="button" class="ptab on" data-tab="browse" data-en="Browse" data-id="Jelajah">Jelajah</button>
+    <button type="button" class="ptab" data-tab="mine" data-en="My Playlists" data-id="Playlist Saya">Playlist Saya</button>
+  </div>
+
+  <!-- BROWSE / LIBRARY -->
+  <div id="viewBrowse">
+    <div class="psearch">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      <input id="q" type="search" placeholder="Cari gerakan…" data-en-ph="Search movements…" data-id-ph="Cari gerakan…" autocomplete="off">
+    </div>
+    <div class="chips" id="groupChips"></div>
+    <div class="msel" id="muscleChips"></div>
+    <div class="count" id="count"></div>
+    <div id="libBox"><div class="grid" id="libGrid"></div></div>
+  </div>
+
+  <!-- MY PLAYLISTS -->
+  <div id="viewMine" style="display:none">
+    <button type="button" class="btn mkbtn" id="mkNew" data-en="+ Create playlist" data-id="+ Buat playlist">+ Buat playlist</button>
+    <div id="mineBox"></div>
+  </div>
+
+  <!-- BUILDER (new / edit) -->
+  <div id="viewBuilder" style="display:none">
+    <div id="errBox"></div>
+    <div class="bform">
+      <label class="fl" data-en="Playlist name" data-id="Nama playlist">Nama playlist</label>
+      <input id="plName" class="fi" maxlength="120" placeholder="Leg day, Full body 20 menit…">
+      <label class="fl" data-en="What is it for? (goal)" data-id="Untuk apa? (goal)">Untuk apa? (goal)</label>
+      <input id="plGoal" class="fi" maxlength="120" placeholder="Fat loss, strength, HYROX prep…">
+    </div>
+    <div class="bbar"><span id="bCount" class="muted">0 gerakan</span><span class="est" id="bEst">~0 mnt</span></div>
+    <div id="bItems"></div>
+    <button type="button" class="btn ghost" id="bAdd" style="margin-top:4px" data-en="+ Add movement" data-id="+ Tambah gerakan">+ Tambah gerakan</button>
+    <div class="bsave">
+      <button type="button" class="btn ghost" id="bCancel" data-en="Cancel" data-id="Batal">Batal</button>
+      <button type="button" class="btn" id="bSave" data-en="Save" data-id="Simpan">Simpan</button>
+    </div>
+  </div>
+
+  <!-- PLAYER (run) -->
+  <div id="viewPlayer" style="display:none">
+    <div class="plrun-top">
+      <div style="flex:1;min-width:0"><div class="plrun-name" id="runName"></div><div class="plrun-sub" id="runSub"></div></div>
+      <div class="plrun-timer" id="runTimer">00:00</div>
+    </div>
+    <div class="pbar"><i id="runBar"></i></div>
+    <div class="plrun-prog" id="runProg"></div>
+    <div id="runItems"></div>
+    <button type="button" class="btn" id="runFinish" style="margin-top:12px" data-en="Finish workout" data-id="Selesai latihan">Selesai latihan</button>
+    <button type="button" class="btn ghost" id="runQuit" style="margin-top:8px" data-en="Quit" data-id="Keluar">Keluar</button>
+  </div>
+</div>
+
+<!-- Rest timer bar -->
+<div class="restbar" id="restBar">
+  <span><span class="rt" id="restTxt">0s</span> <span class="rl" data-en="rest" data-id="istirahat">istirahat</span></span>
+  <button type="button" id="restSkip" data-en="Skip" data-id="Lewati">Lewati</button>
+</div>
+
+<!-- Exercise detail modal -->
+<div class="modal" id="exModal">
+  <div class="sheet" id="exSheet"></div>
+</div>
+
+<!-- Workout summary modal -->
+<div class="modal" id="sumModal">
+  <div class="sheet" id="sumSheet"></div>
+</div>
+
+<!-- Story card modal -->
+<div class="modal" id="storyModal">
+  <div class="sheet" id="storySheet">
+    <div class="sheet-h"><h2 data-en="Workout story" data-id="Story latihan">Story latihan</h2><button type="button" class="sheet-x" id="storyClose" aria-label="Close">×</button></div>
+    <div id="storyBody"><div class="skel" style="width:300px;max-width:100%;aspect-ratio:9/16;margin:0 auto;border-radius:16px"></div></div>
+  </div>
+</div>
+
+<!-- Add-movement picker modal -->
+<div class="modal" id="pickModal">
+  <div class="sheet" id="pickSheet">
+    <div class="sheet-h"><h2 data-en="Add movement" data-id="Tambah gerakan">Tambah gerakan</h2><button type="button" class="sheet-x" id="pickClose" aria-label="Close">×</button></div>
+    <div class="psearch">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+      <input id="pq" type="search" placeholder="Cari gerakan…" autocomplete="off">
+    </div>
+    <div class="chips" id="pickChips"></div>
+    <div id="pickList"></div>
+  </div>
+</div>
+
+<script src="js/fiticons.js"></script>
+<script src="js/vendor-supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/i18n.js?v=20260928d"></script>
+<script src="js/nav.js"></script>
+<script src="js/bodymap.js?v=20261006a"></script>
+<script src="js/playlist.js?v=20261006d"></script>
+</body>
+</html>
