@@ -1,11 +1,23 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-10-02 · **Commit staging:** `4727bfd` · **Production:** `a27ff79`
+> **Pembaruan terakhir:** 2026-10-06 · **Commit staging:** `a8b5891` · **Production:** `65166c0`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
 Dokumen ini status hidup. Setelah mengubah fitur/arsitektur/route/skema, **perbarui
 bagian yang relevan + tanggal & commit di atas** sebelum sesi berakhir.
+
+---
+
+## 0a. BARU (2026-10-06): Playlist 20FIT + Coach chat gaya Episodes
+- **Playlist 20FIT** (`/playlist`, `playlist.html` + `js/playlist.js` + `js/bodymap.js`) — alur lengkap:
+  **Library** (katalog 200 gerakan `my20fit_exercise`, filter grup/otot + search, modal tutorial video/cue/kontraindikasi) →
+  **Builder** (buat/edit playlist: set + Rep/Waktu + rest, reorder, estimasi durasi live dari `my20fit_activity_config`) →
+  **Player** (timer total, checklist per set tulis `my20fit_coach_set_log`, rest countdown, ringkasan durasi/volume/rekor/otot) →
+  **Story Card** (PNG 9:16 body-map + stat, share Web Share API / unduh). API: `/api/activity/exercises`, `/config`, `/playlists*`, `/session/:sid/*`.
+  **Catatan:** `video_url`/`cue_teknik`/`equipment`/`level` tiap gerakan masih KOSONG — perlu diisi coach (editor admin belum dibuat). `muscle_keys` di-seed per grup; bisa difinetune per gerakan.
+- **Coach chat** `/activity/chat` diredesign gaya game Episodes (panggung potret coach + nama + spesialisasi + streak; avatar coach di tiap balasan). Spesialisasi coach diisi di `my20fit_coaches.speciality` (Nando=Functional & HYROX, Calysta=Fat-loss & HIIT, Rheza=Athletic Performance, Elsen=Functional & Form). Kartu coach: tombol "Book class" & baris "Next class" DIHAPUS.
+- Dokumen PRD sistem: `docs/PRD.md`.
 
 ---
 
