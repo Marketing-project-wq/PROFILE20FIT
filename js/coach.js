@@ -53,6 +53,7 @@
 
   // ---- Chatbot state (tampilan UTAMA /coach; program terstruktur lama tetap ada) ----
   var MODE = "chat";                 // 'chat' | 'program'
+  var GATED = false;                 // true = belum scan Visbody / upload latihan -> chat dikunci
   var CHAT_COACH = null, CHAT_INIT = false, CHAT_MSGS = [], CHAT_BUSY = false;
   // Data persona (nama, warna, profil, roster/foto) = js/coach-profiles.js (satu sumber, dipakai /activity juga).
   var CP = window.CoachProfiles;
@@ -81,6 +82,8 @@
   // ---- Muat awal ----
   async function boot() {
     try { user = await Auth.requireAuth(); } catch (e) { location.href = "/login"; return; }
+    // Gate: wajib scan Visbody / upload latihan dulu sebelum chat coach.
+    try { var gr = await apiFetch("/api/activity/gate"); var gj = await gr.json().catch(function () { return {}; }); if (gj && gj.ok && gj.unlocked === false) GATED = true; } catch (e) {}
     try {
       var r = await apiFetch("/api/coach/plan"); var j = await r.json().catch(function () { return {}; });
       if (r.status === 401) { location.href = "/login"; return; }
@@ -722,9 +725,23 @@
 
   function renderChat() {
     var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Chat with your coach", id: "Chat sama coach kamu" });
+    if (GATED) { renderLocked(); return; }
     if (!CHAT_COACH) { renderCoachPicker(); return; }
     renderChatRoom();
     if (!CHAT_INIT) initChatConversation(); else paintMsgs();
+  }
+
+  // Kunci chat sampai user scan Visbody atau upload latihan.
+  function renderLocked() {
+    var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Unlock coach chat", id: "Buka akses chat coach" });
+    root().innerHTML =
+      '<div class="card" style="text-align:center;padding:26px 18px">' +
+      '<div style="width:72px;height:72px;border-radius:99px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--ai) 12%,transparent);color:var(--ai)">' + svgIcon("lock", 30) + '</div>' +
+      '<div style="font-size:18px;font-weight:800;margin-bottom:6px">' + esc(Lx({ en: "Chat opens after your first step", id: "Chat terbuka setelah langkah pertamamu" })) + '</div>' +
+      '<div class="muted" style="font-size:13px;line-height:1.6;max-width:340px;margin:0 auto 16px">' + esc(Lx({ en: "Scan your body with Visbody or upload a workout first — then your coach can advise using your real data.", id: "Scan tubuh pakai Visbody atau upload latihan dulu — biar coach bisa kasih saran pakai data aslimu." })) + '</div>' +
+      '<a class="btn" href="/activity/visbody" style="display:block;text-decoration:none;margin-bottom:8px">' + svgIcon("scan", 16) + ' ' + esc(Lx({ en: "Scan Visbody", id: "Scan Visbody" })) + '</a>' +
+      '<a class="btn ghost" href="/activity" style="display:block;text-decoration:none">' + svgIcon("clipboard", 16) + ' ' + esc(Lx({ en: "Upload a workout", id: "Upload latihan" })) + '</a>' +
+      '</div>';
   }
 
   function renderCoachPicker() {
