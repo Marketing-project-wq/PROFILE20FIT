@@ -712,10 +712,10 @@
   function greetOf(slug) {
     var n = USER_NAME ? (" " + USER_NAME) : "";
     var g = {
-      nando: { en: "Yo" + n + "! Coach Nando here. What's the target today?", id: "Yo" + n + "! Coach Nando di sini. Apa target kamu hari ini?" },
-      calysta: { en: "Hii" + n + "! I'm Coach Calysta! What are we working on today?", id: "Hai" + n + "! Aku Coach Calysta! Mau kita kerjain apa hari ini?" },
-      rheza: { en: "Hey" + n + "! Coach Rheza here. Ready for a challenge?", id: "Hey" + n + "! Coach Rheza di sini. Siap ditantang?" },
-      elsen: { en: "Hi" + n + ", I'm Coach Elsen. Let's look at your numbers — what would you like to review?", id: "Hai" + n + ", aku Coach Elsen. Kita lihat angka kamu — mau bahas apa?" },
+      nando: { en: "Yo" + n + "! Coach Ben here. What's the target today?", id: "Yo" + n + "! Coach Ben di sini. Apa target kamu hari ini?" },
+      calysta: { en: "Hii" + n + "! I'm Coach Angie! What are we working on today?", id: "Hai" + n + "! Aku Coach Angie! Mau kita kerjain apa hari ini?" },
+      rheza: { en: "Hey" + n + "! Coach Stella here. Ready for a challenge?", id: "Hey" + n + "! Coach Stella di sini. Siap ditantang?" },
+      elsen: { en: "Hi" + n + ", I'm Coach Tom. Let's look at your numbers — what would you like to review?", id: "Hai" + n + ", aku Coach Tom. Kita lihat angka kamu — mau bahas apa?" },
     };
     return g[slug] || { en: "Hi" + n + "! How can I help with your training today?", id: "Hai" + n + "! Ada yang bisa dibantu soal latihanmu hari ini?" };
   }
