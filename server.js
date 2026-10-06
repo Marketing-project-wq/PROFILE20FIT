@@ -11793,6 +11793,150 @@ app.get("/api/activity/exercises", async (req, res) => {
   } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, exercises: [], groups: [], setup_required: true }); console.error("activity/exercises:", e.message); return res.status(500).json({ error: "Gagal memuat gerakan." }); }
 });
 
+// ---- Playlist builder (Fase 5 step 2): config + CRUD playlist + item ----
+// Angka kalkulasi (detik/rep, transisi, rest default) — dibaca client utk estimasi durasi live.
+const ACT_CFG_DEFAULT = { detik_per_rep: 3, transisi_antar_gerakan_detik: 15, rest_default_detik: 60 };
+async function actConfig() {
+  const c = Object.assign({}, ACT_CFG_DEFAULT);
+  try { const { data } = await admin.from("my20fit_activity_config").select("key,value");
+    (data || []).forEach((r) => { if (r.key in c) { const n = Number(r.value); if (isFinite(n)) c[r.key] = n; } }); } catch (e) {}
+  return c;
+}
+// Estimasi durasi (detik): Σ[sets × (durasi | reps×detik_per_rep) + (sets−1)×rest] + transisi×(n−1). Fokus otot = union.
+function playlistMeta(items, cfg, exMap) {
+  let est = 0; const mset = new Set();
+  items.forEach((it) => {
+    const sets = Math.max(1, parseInt(it.sets, 10) || 1);
+    const rest = (it.rest_sec == null ? cfg.rest_default_detik : parseInt(it.rest_sec, 10)) || 0;
+    const per = (it.duration_sec != null) ? (parseInt(it.duration_sec, 10) || 0) : (parseInt(it.reps, 10) || 0) * cfg.detik_per_rep;
+    est += sets * per + Math.max(0, sets - 1) * rest;
+    const ex = exMap[it.exercise_id]; if (ex) (ex.muscle_keys || []).forEach((m) => mset.add(m));
+  });
+  est += cfg.transisi_antar_gerakan_detik * Math.max(0, items.length - 1);
+  return { est: Math.round(est), focus_muscles: Array.from(mset) };
+}
+async function loadExMap(ids) {
+  const map = {}; const uniq = Array.from(new Set(ids.filter(Boolean)));
+  if (!uniq.length) return map;
+  const { data } = await admin.from("my20fit_exercise").select("id,muscle_keys,is_published").in("id", uniq);
+  (data || []).forEach((r) => { if (r.is_published) map[r.id] = r; });
+  return map;
+}
+function cleanPlaylistItems(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0, 60).map((it, i) => {
+    const o = { exercise_id: String(it.exercise_id || ""), position: i,
+      sets: Math.min(20, Math.max(1, parseInt(it.sets, 10) || 1)),
+      rest_sec: (it.rest_sec == null || it.rest_sec === "") ? null : Math.min(600, Math.max(0, parseInt(it.rest_sec, 10) || 0)),
+      note: it.note ? String(it.note).slice(0, 300) : null, reps: null, duration_sec: null };
+    if (it.duration_sec != null && it.duration_sec !== "") o.duration_sec = Math.min(3600, Math.max(1, parseInt(it.duration_sec, 10) || 1));
+    else o.reps = Math.min(1000, Math.max(1, parseInt(it.reps, 10) || 1));
+    return o;
+  }).filter((o) => o.exercise_id);
+}
+function actAudit(uid, action, entity, entityId, meta) {
+  try { admin.from("my20fit_activity_audit").insert({ auth_user_id: uid, action, entity, entity_id: entityId || null, meta: meta || null }).then(() => {}, () => {}); } catch (e) {}
+}
+
+app.get("/api/activity/config", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, config: ACT_CFG_DEFAULT });
+    const cfg = await actConfig();
+    return res.json({ ok: true, config: cfg });
+  } catch (e) { return res.json({ ok: true, config: ACT_CFG_DEFAULT }); }
+});
+
+app.get("/api/activity/playlists", async (req, res) => {
+  try {
+    if (!admin) return res.json({ ok: true, playlists: [] });
+    const user = await getUserFromReq(req); if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data, error } = await admin.from("my20fit_playlist")
+      .select("id,name,goal,focus_muscles,source,est_duration_sec,updated_at, my20fit_playlist_item(count)")
+      .eq("auth_user_id", user.id).eq("is_archived", false).order("updated_at", { ascending: false });
+    if (error) throw error;
+    const list = (data || []).map((p) => ({ id: p.id, name: p.name, goal: p.goal, focus_muscles: p.focus_muscles || [],
+      source: p.source, est_duration_sec: p.est_duration_sec, updated_at: p.updated_at,
+      items: (p.my20fit_playlist_item && p.my20fit_playlist_item[0] && p.my20fit_playlist_item[0].count) || 0 }));
+    return res.json({ ok: true, playlists: list });
+  } catch (e) { if (isMissingSchema(e)) return res.json({ ok: true, playlists: [], setup_required: true }); console.error("playlists list:", e.message); return res.status(500).json({ error: "Gagal memuat playlist." }); }
+});
+
+app.get("/api/activity/playlists/:id", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req); if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: pl } = await admin.from("my20fit_playlist").select("*").eq("id", req.params.id).eq("auth_user_id", user.id).limit(1);
+    const p = pl && pl[0]; if (!p) return res.status(404).json({ error: "Playlist tidak ditemukan." });
+    const { data: items } = await admin.from("my20fit_playlist_item")
+      .select("id,exercise_id,position,sets,reps,duration_sec,rest_sec,note, my20fit_exercise(name,focus_group,muscle_keys,video_url,cue_teknik,kontraindikasi,level)")
+      .eq("playlist_id", p.id).order("position", { ascending: true });
+    const its = (items || []).map((it) => ({ id: it.id, exercise_id: it.exercise_id, position: it.position, sets: it.sets,
+      reps: it.reps, duration_sec: it.duration_sec, rest_sec: it.rest_sec, note: it.note, exercise: it.my20fit_exercise || null }));
+    return res.json({ ok: true, playlist: { id: p.id, name: p.name, goal: p.goal, focus_muscles: p.focus_muscles || [], source: p.source, est_duration_sec: p.est_duration_sec }, items: its });
+  } catch (e) { console.error("playlist get:", e.message); return res.status(500).json({ error: "Gagal memuat playlist." }); }
+});
+
+app.post("/api/activity/playlists", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req); if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const b = req.body || {};
+    const name = String(b.name || "").trim().slice(0, 120); if (!name) return res.status(400).json({ error: "Nama playlist wajib diisi." });
+    const goal = b.goal ? String(b.goal).trim().slice(0, 120) : null;
+    const source = ["user", "coach", "recommendation", "post_workout"].indexOf(b.source) >= 0 ? b.source : "user";
+    const items = cleanPlaylistItems(b.items);
+    const cfg = await actConfig(), exMap = await loadExMap(items.map((i) => i.exercise_id));
+    const valid = items.filter((i) => exMap[i.exercise_id]);
+    const meta = playlistMeta(valid, cfg, exMap);
+    const { data: ins, error } = await admin.from("my20fit_playlist").insert({ auth_user_id: user.id, name, goal, source, focus_muscles: meta.focus_muscles, est_duration_sec: meta.est }).select("id").limit(1);
+    if (error) throw error;
+    const pid = ins[0].id;
+    if (valid.length) {
+      const rows = valid.map((it, i) => ({ playlist_id: pid, exercise_id: it.exercise_id, position: i, sets: it.sets, reps: it.reps, duration_sec: it.duration_sec, rest_sec: it.rest_sec, note: it.note }));
+      const { error: e2 } = await admin.from("my20fit_playlist_item").insert(rows);
+      if (e2) { await admin.from("my20fit_playlist").delete().eq("id", pid); throw e2; }
+    }
+    actAudit(user.id, "create", "playlist", pid, { name, items: valid.length });
+    return res.json({ ok: true, id: pid, est_duration_sec: meta.est, focus_muscles: meta.focus_muscles });
+  } catch (e) { if (isMissingSchema(e)) return res.status(503).json({ error: "Fitur playlist butuh migration." }); console.error("playlist create:", e.message); return res.status(500).json({ error: "Gagal menyimpan playlist." }); }
+});
+
+app.put("/api/activity/playlists/:id", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req); if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: own } = await admin.from("my20fit_playlist").select("id").eq("id", req.params.id).eq("auth_user_id", user.id).limit(1);
+    if (!own || !own[0]) return res.status(404).json({ error: "Playlist tidak ditemukan." });
+    const pid = own[0].id, b = req.body || {};
+    const name = String(b.name || "").trim().slice(0, 120); if (!name) return res.status(400).json({ error: "Nama playlist wajib diisi." });
+    const goal = b.goal ? String(b.goal).trim().slice(0, 120) : null;
+    const items = cleanPlaylistItems(b.items);
+    const cfg = await actConfig(), exMap = await loadExMap(items.map((i) => i.exercise_id));
+    const valid = items.filter((i) => exMap[i.exercise_id]);
+    const meta = playlistMeta(valid, cfg, exMap);
+    await admin.from("my20fit_playlist").update({ name, goal, focus_muscles: meta.focus_muscles, est_duration_sec: meta.est, updated_at: new Date().toISOString() }).eq("id", pid);
+    await admin.from("my20fit_playlist_item").delete().eq("playlist_id", pid);
+    if (valid.length) {
+      const rows = valid.map((it, i) => ({ playlist_id: pid, exercise_id: it.exercise_id, position: i, sets: it.sets, reps: it.reps, duration_sec: it.duration_sec, rest_sec: it.rest_sec, note: it.note }));
+      const { error: e2 } = await admin.from("my20fit_playlist_item").insert(rows); if (e2) throw e2;
+    }
+    actAudit(user.id, "update", "playlist", pid, { name, items: valid.length });
+    return res.json({ ok: true, id: pid, est_duration_sec: meta.est, focus_muscles: meta.focus_muscles });
+  } catch (e) { console.error("playlist update:", e.message); return res.status(500).json({ error: "Gagal menyimpan playlist." }); }
+});
+
+app.delete("/api/activity/playlists/:id", async (req, res) => {
+  try {
+    if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+    const user = await getUserFromReq(req); if (!user) return res.status(401).json({ error: "Unauthorized", session_expired: true });
+    const { data: own } = await admin.from("my20fit_playlist").select("id,name").eq("id", req.params.id).eq("auth_user_id", user.id).limit(1);
+    if (!own || !own[0]) return res.status(404).json({ error: "Playlist tidak ditemukan." });
+    await admin.from("my20fit_playlist").delete().eq("id", own[0].id);
+    actAudit(user.id, "delete", "playlist", own[0].id, { name: own[0].name });
+    return res.json({ ok: true });
+  } catch (e) { console.error("playlist delete:", e.message); return res.status(500).json({ error: "Gagal menghapus playlist." }); }
+});
+
 // Plan cadangan kalau AI gagal — aturan sederhana dari analisa (bukan angka karangan: durasi di config).
 function tpTemplatePlan(brief, lang) {
   const L = (o) => (lang === "en" ? o.en : o.id), f = (k) => brief.facts.find((x) => x.key === k) || {}, M = woConfig.today.template_minutes;
