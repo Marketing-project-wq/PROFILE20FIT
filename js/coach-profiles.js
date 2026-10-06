@@ -29,7 +29,7 @@
     ["rheza",   { en: "Playful & competitive", id: "Playful & kompetitif" }, "#F59E0B"],
     ["elsen",   { en: "Detail-oriented",       id: "Detail & teknis" },      "#16A34A"],
   ];
-  var NAME = { nando: "Nando", calysta: "Calysta", rheza: "Rheza", elsen: "Elsen" };
+  var NAME = { nando: "Ben", calysta: "Angie", rheza: "Stella", elsen: "Tom" };   // slug internal tetap; nama tampil diganti
   var PROFILE = {
     nando: {
       traits: [{ en: "Motivational", id: "Motivational" }, { en: "Strict", id: "Tegas" }, { en: "Ambitious", id: "Ambisius" }, { en: "Detailed", id: "Detail" }],
@@ -58,7 +58,7 @@
     _roster = fetch("/api/coaches").then(function (r) { return r.json(); }).then(function (j) {
       ((j && j.coaches) || []).forEach(function (c) {
         var nm = String(c.name || "").trim().toLowerCase();
-        LIST.forEach(function (p) { if (nm === "coach " + p[0]) ROSTER[p[0]] = { id: c.id, venue: c.venue, photo: c.photo_url || "", speciality: c.speciality || "" }; });
+        LIST.forEach(function (p) { if (nm === "coach " + (NAME[p[0]] || p[0]).toLowerCase()) ROSTER[p[0]] = { id: c.id, venue: c.venue, photo: c.photo_url || "", speciality: c.speciality || "" }; });
       });
       return ROSTER;
     }).catch(function () { return ROSTER; });
