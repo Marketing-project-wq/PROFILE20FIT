@@ -3931,6 +3931,15 @@ app.get("/api/media/feed", async (req, res) => {
   }
 });
 
+// 4 persona AI Coach (COACH_PERSONAS) dipetakan ke baris my20fit_coaches "Coach <Nama>" HANYA
+// untuk roster chat (foto/spesialisasi). Mereka BUKAN coach kelas nyata — tidak boleh muncul di
+// Book Coach, strip Coaches jadwal, /team, atau atribusi instruktur kelas (permintaan pemilik:
+// "mereka cuman hadir sebagai chat intelligence coach"). Satu sumber nama = COACH_PERSONAS.
+function aiPersonaCoachNames() {
+  try { return new Set(Object.keys(COACH_PERSONAS).map(function (s) { return "Coach " + COACH_PERSONAS[s].name; })); }
+  catch (e) { return new Set(["Coach Ben", "Coach Angie", "Coach Stella", "Coach Tom"]); }
+}
+
 // Daftar coach untuk Book Coach + carousel home. Sumber = roster CMS my20fit_coaches.
 // Filter venue lewat KOLOM coaches.venue (arena/gym/both), bukan cocok teks. Dibaca server
 // (service key); tabel deny-public. Kosong sampai admin mengisi roster.
@@ -3973,8 +3982,9 @@ app.get("/api/coaches", async (req, res) => {
         if (a.source === "arena" && arenaSet[a.instructor_text]) hasA[a.coach_id] = 1;
         else if (a.source === "gym" && gymSet[a.instructor_text]) hasG[a.coach_id] = 1;
       });
-      coaches = coaches.filter(c =>
-        venue === "arena" ? !!hasA[c.id] : venue === "gym" ? !!hasG[c.id] : (!!hasA[c.id] || !!hasG[c.id]));
+      const AI = aiPersonaCoachNames();   // persona AI = chat-only, tak pernah jadi coach kelas
+      coaches = coaches.filter(c => !AI.has(c.name) &&
+        (venue === "arena" ? !!hasA[c.id] : venue === "gym" ? !!hasG[c.id] : (!!hasA[c.id] || !!hasG[c.id])));
     }
     return res.json({ ok: true, coaches });
   } catch (e) { return res.status(500).json({ ok: false, error: (e && e.message) || "gagal memuat" }); }
@@ -3997,7 +4007,8 @@ app.get("/api/coaches/aliases", async (req, res) => {
     if (ae) throw ae;
     const byCoach = {};
     (al || []).forEach(a => { (byCoach[a.coach_id] || (byCoach[a.coach_id] = [])).push(a.instructor_text); });
-    const out = (coaches || []).map(c => ({
+    const AI = aiPersonaCoachNames();   // persona AI = chat-only, sembunyikan dari strip Coaches
+    const out = (coaches || []).filter(c => !AI.has(c.display_name)).map(c => ({
       id: c.id, name: c.display_name, venue: c.venue,
       speciality: c.speciality || null, photo_url: c.photo_url || null,
       instructor_texts: byCoach[c.id] || [],
@@ -4024,6 +4035,11 @@ async function coachUpcomingClasses(id) {
     .select("id,display_name,venue,speciality,photo_url").eq("id", id).limit(1);
   const coach = crows && crows[0];
   if (!coach) return null;
+  // Persona AI = chat-only: tak punya kelas nyata, apa pun alias yang masih tersimpan.
+  if (aiPersonaCoachNames().has(coach.display_name)) {
+    return { coach: { id: coach.id, name: coach.display_name, venue: coach.venue,
+      speciality: coach.speciality || null, photo_url: coach.photo_url || null }, classes: [] };
+  }
   const { data: aliases } = await admin.from("my20fit_coach_instructor_aliases")
     .select("instructor_text,source").eq("coach_id", id);
   const textsBy = { arena: [], gym: [] };
@@ -4137,7 +4153,8 @@ app.get("/api/team", async (req, res) => {
       // Homepage TIDAK mencampur peran: semua coach dulu, baru dokter, baru fisioterapis.
       .order("role", { ascending: true }).order("sort_order", { ascending: true }).order("display_name", { ascending: true });
     if (error) throw error;
-    const team = (data || []).map(p => {
+    const AI = aiPersonaCoachNames();   // persona AI chat-only tak muncul di roster Team/home
+    const team = (data || []).filter(p => !(p.role === "coach" && AI.has(p.display_name))).map(p => {
       const o = { id: p.id, role: p.role, name: p.display_name, speciality: p.speciality || null, photo_url: p.photo_url || null, venue: p.venue || null };
       if (withBio) o.bio = p.bio || null;
       return o;
@@ -8227,8 +8244,9 @@ app.get("/api/classes/upcoming", async (req, res) => {
     const coachIds = [...new Set((al || []).map(a => a.coach_id))];
     const coachById = {};
     if (coachIds.length) {
+      const AI = aiPersonaCoachNames();   // persona AI chat-only tak boleh jadi "coach" kelas di Upcoming
       const { data: cs } = await admin.from("my20fit_coaches").select("id,display_name,photo_url,venue").in("id", coachIds);
-      (cs || []).forEach(c => { coachById[c.id] = { id: c.id, name: c.display_name, photo_url: c.photo_url || null, venue: c.venue }; });
+      (cs || []).forEach(c => { if (AI.has(c.display_name)) return; coachById[c.id] = { id: c.id, name: c.display_name, photo_url: c.photo_url || null, venue: c.venue }; });
     }
     const aliasMap = { arena: {}, gym: {} };
     (al || []).forEach(a => { if (aliasMap[a.source] && coachById[a.coach_id]) aliasMap[a.source][a.instructor_text] = coachById[a.coach_id]; });
