@@ -40,8 +40,8 @@
   .ahead .av img{width:100%;height:100%;object-fit:cover}
 
   .sechd{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--a-mut);font-weight:800;margin:20px 2px 8px}
-  .btn{width:100%;padding:12px;border:0;border-radius:11px;background:var(--accent);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit}
-  .btn.ghost{background:transparent;border:1px solid var(--a-line);color:var(--a-txt)}
+  .btn{width:100%;padding:12px;border:0;border-radius:999px;background:var(--fit-red,#E4002B);color:#fff;font-weight:800;font-size:13.5px;cursor:pointer;font-family:inherit;box-shadow:0 6px 16px color-mix(in srgb,var(--fit-red,#E4002B) 26%,transparent)}
+  .btn.ghost{background:transparent;border:1px solid var(--a-line);color:var(--a-txt);box-shadow:none}
   .btn:disabled{opacity:.55;cursor:default}
   /* Catatan hasil bacaan AI di dialog workout. */
   .dlgnote{border-radius:var(--radius-sm,10px);padding:10px 12px;font-size:12.5px;line-height:1.5;margin:10px 0 2px}
@@ -61,6 +61,25 @@
   dialog{border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);border-radius:14px;padding:18px;max-width:380px;width:92%;font-family:var(--sans)}
   dialog label{display:block;font-size:12px;font-weight:700;color:var(--a-mut);margin:10px 0 4px}
   dialog input,dialog select{width:100%;padding:10px;border-radius:9px;border:1px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font-family:inherit;font-size:14px}
+  /* Wizard upload v3 (1d): header progress + langkah + skala RPE + layar selesai. */
+  .wz-top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .wz-x{flex:none;width:38px;height:38px;border-radius:999px;border:1px solid var(--a-line);background:transparent;color:var(--a-txt);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+  .wz-top-main{flex:1;display:flex;flex-direction:column;gap:7px;min-width:0}
+  .wz-top-t{font-weight:800;font-size:14px}
+  .wz-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+  .wz-bar i{height:4px;border-radius:2px;background:var(--a-line)}
+  .wz-bar i.on{background:var(--fit-red,#E4002B)}
+  .wz-h{font-size:19px;font-weight:800;letter-spacing:-.01em;margin-top:4px}
+  .wz-sub{font-size:12.5px;color:var(--a-mut);line-height:1.5;margin-top:3px}
+  .wz-nav{display:flex;gap:8px;margin-top:16px}
+  .wz-rpe{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:14px}
+  .wz-rpe button{height:52px;border-radius:14px;border:1.5px solid var(--a-line);background:var(--a-bg);color:var(--a-txt);font:inherit;font-size:16px;font-weight:800;cursor:pointer;transition:border-color .15s,background .15s}
+  .wz-rpe button[aria-pressed="true"]{border-color:var(--fit-red,#E4002B);background:color-mix(in srgb,var(--fit-red,#E4002B) 12%,transparent);color:var(--fit-red,#E4002B)}
+  .wz-rpe-sc{display:flex;justify-content:space-between;font-size:11px;color:var(--a-mut);margin-top:8px}
+  .wz-done{display:flex;flex-direction:column;align-items:center;gap:8px;padding:28px 6px 8px;text-align:center}
+  .wz-done-ic{width:60px;height:60px;border-radius:999px;background:color-mix(in srgb,var(--fit-green,#19a46a) 16%,transparent);color:var(--fit-green,#19a46a);display:inline-flex;align-items:center;justify-content:center}
+  #wzSeeAnalysis{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;margin-top:4px}
+  #wzAgain{margin-top:8px}
 
   /* Susunan vertikal kartu */
   .astack{display:flex;flex-direction:column;gap:12px;margin-bottom:6px}
@@ -249,32 +268,69 @@
 <a class="fab" href="/activity/chat" aria-label="Tanya Coach"><span class="fic" data-ic="chat" data-ic-size="18"></span><span data-en="Ask Coach" data-id="Tanya Coach">Tanya Coach</span></a>
 
 <dialog id="woDlg">
-  <div style="font-weight:800;font-size:15px" data-i18n="act_dlg_t">Detail workout</div>
-  <div class="muted" style="font-size:12px;margin-top:3px" data-i18n="act_dlg_s">Isi yang kamu tahu saja. Yang kosong tidak akan ditebak.</div>
-  <div id="dlgAi"></div>
-  <!-- Tanggal hasil baca screenshot yang meragukan (tahun tak terlihat / masa depan / lama) WAJIB dikonfirmasi -->
-  <div id="dlgDate"></div>
-  <div class="dlg2">
-    <div><label data-en="Date *" data-id="Tanggal *">Tanggal *</label><input id="fDate" type="date"></div>
-    <div><label data-en="Start time" data-id="Jam mulai">Jam mulai</label><input id="fStart" type="time"></div>
+  <!-- Wizard 3 langkah: detail (konfirmasi olahraga + angka yang dibaca) -> rasa berat (RPE) -> selesai.
+       Semua input & payload simpan SAMA seperti sebelumnya; hanya ditata berlangkah (desain v3 "1d"). -->
+  <div class="wz-top">
+    <button type="button" class="wz-x" id="wzX" aria-label="Tutup"><span class="fic" data-ic="x" data-ic-size="14"></span></button>
+    <div class="wz-top-main">
+      <span class="wz-top-t" data-en="Log workout" data-id="Catat workout">Catat workout</span>
+      <div class="wz-bar"><i id="wzb1" class="on"></i><i id="wzb2"></i><i id="wzb3"></i></div>
+    </div>
   </div>
-  <label data-i18n="act_f_title">Nama workout</label><input id="fTitle" placeholder="Morning Run">
-  <label data-i18n="act_f_type">Jenis</label>
-  <select id="fType"></select>
-  <label data-i18n="act_f_dur">Durasi (menit) *</label><input id="fDur" type="number" min="1" inputmode="numeric" placeholder="45">
-  <label data-i18n="act_f_dist">Jarak (km)</label><input id="fDist" type="number" step="0.01" inputmode="decimal" placeholder="5.2">
-  <label data-i18n="act_f_kcal">Kalori terbakar</label><input id="fKcal" type="number" inputmode="numeric" placeholder="380">
-  <div class="dlg2">
-    <div><label data-i18n="act_f_hr">Rata-rata BPM</label><input id="fHr" type="number" inputmode="numeric" placeholder="142"></div>
-    <div><label data-en="Max BPM" data-id="BPM maks">BPM maks</label><input id="fMaxHr" type="number" inputmode="numeric" placeholder="171"></div>
-  </div>
-  <label data-en="Note (optional) — e.g. pain, dizziness, how it felt" data-id="Catatan (opsional) — mis. nyeri, pusing, rasanya gimana">Catatan (opsional) — mis. nyeri, pusing, rasanya gimana</label>
-  <textarea id="fNote" rows="2" maxlength="500"></textarea>
-  <div id="dlgErr" class="err" style="margin-top:10px"></div>
-  <div style="display:flex;gap:8px;margin-top:14px">
-    <button class="btn ghost" id="dlgCancel" type="button" data-i18n="act_cancel">Batal</button>
-    <button class="btn" id="dlgSave" type="button" data-i18n="act_save">Simpan</button>
-  </div>
+
+  <!-- Langkah 1: detail -->
+  <section class="wz-step" id="wzDetail">
+    <div class="wz-h" data-en="Is the sport right?" data-id="Olahraganya benar?">Olahraganya benar?</div>
+    <div class="wz-sub" data-en="App labels aren't always correct. Fix anything that's off — blanks are never guessed." data-id="Label app tidak selalu tepat. Perbaiki yang perlu — yang kosong tidak ditebak.">Label app tidak selalu tepat. Perbaiki yang perlu — yang kosong tidak ditebak.</div>
+    <div id="dlgAi"></div>
+    <!-- Tanggal hasil baca screenshot yang meragukan (tahun tak terlihat / masa depan / lama) WAJIB dikonfirmasi -->
+    <div id="dlgDate"></div>
+    <div class="dlg2">
+      <div><label data-en="Date *" data-id="Tanggal *">Tanggal *</label><input id="fDate" type="date"></div>
+      <div><label data-en="Start time" data-id="Jam mulai">Jam mulai</label><input id="fStart" type="time"></div>
+    </div>
+    <label data-i18n="act_f_title">Nama workout</label><input id="fTitle" placeholder="Morning Run">
+    <label data-i18n="act_f_type">Jenis</label>
+    <select id="fType"></select>
+    <label data-i18n="act_f_dur">Durasi (menit) *</label><input id="fDur" type="number" min="1" inputmode="numeric" placeholder="45">
+    <label data-i18n="act_f_dist">Jarak (km)</label><input id="fDist" type="number" step="0.01" inputmode="decimal" placeholder="5.2">
+    <label data-i18n="act_f_kcal">Kalori terbakar</label><input id="fKcal" type="number" inputmode="numeric" placeholder="380">
+    <div class="dlg2">
+      <div><label data-i18n="act_f_hr">Rata-rata BPM</label><input id="fHr" type="number" inputmode="numeric" placeholder="142"></div>
+      <div><label data-en="Max BPM" data-id="BPM maks">BPM maks</label><input id="fMaxHr" type="number" inputmode="numeric" placeholder="171"></div>
+    </div>
+    <label data-en="Note (optional) — e.g. pain, dizziness, how it felt" data-id="Catatan (opsional) — mis. nyeri, pusing, rasanya gimana">Catatan (opsional) — mis. nyeri, pusing, rasanya gimana</label>
+    <textarea id="fNote" rows="2" maxlength="500"></textarea>
+    <div id="dlgErr" class="err" style="margin-top:10px"></div>
+    <div class="wz-nav">
+      <button class="btn ghost" id="dlgCancel" type="button" data-i18n="act_cancel">Batal</button>
+      <button class="btn" id="wzNext" type="button" data-en="Next" data-id="Lanjut">Lanjut</button>
+    </div>
+  </section>
+
+  <!-- Langkah 2: rasa berat (RPE) — opsional -->
+  <section class="wz-step" id="wzEffort" hidden>
+    <div class="wz-h" data-en="How hard did it feel?" data-id="Seberapa berat rasanya?">Seberapa berat rasanya?</div>
+    <div class="wz-sub" data-en="You can skip this. It helps gauge your readiness." data-id="Boleh dilewati. Membantu menilai kesiapanmu.">Boleh dilewati. Membantu menilai kesiapanmu.</div>
+    <div class="wz-rpe" id="wzRpe"></div>
+    <div class="wz-rpe-sc"><span data-en="Easy" data-id="Santai">Santai</span><span data-en="Moderate" data-id="Sedang">Sedang</span><span data-en="Max" data-id="Maksimal">Maksimal</span></div>
+    <div id="dlgErr2" class="err" style="margin-top:10px"></div>
+    <div class="wz-nav">
+      <button class="btn ghost" id="wzBack" type="button" data-en="Back" data-id="Kembali">Kembali</button>
+      <button class="btn" id="wzFinish" type="button" data-en="See analysis" data-id="Lihat analisa">Lihat analisa</button>
+    </div>
+  </section>
+
+  <!-- Selesai -->
+  <section class="wz-step" id="wzDone" hidden>
+    <div class="wz-done">
+      <span class="wz-done-ic"><span class="fic" data-ic="check" data-ic-size="26"></span></span>
+      <div class="wz-h" style="text-align:center" data-en="Analysis ready" data-id="Analisa siap">Analisa siap</div>
+      <div class="wz-sub" id="wzDoneSum" style="text-align:center"></div>
+    </div>
+    <a class="btn" id="wzSeeAnalysis" href="#" data-en="See full analysis" data-id="Lihat analisa lengkap">Lihat analisa lengkap</a>
+    <button class="btn ghost" id="wzAgain" type="button" data-en="Upload again" data-id="Upload lagi">Upload lagi</button>
+  </section>
 </dialog>
 
 <script src="js/fiticons.js"></script>
@@ -375,6 +431,16 @@
   // Hasil upload yang menunggu dikonfirmasi di dialog: path screenshot, bacaan AI, id upload, cek tanggal.
   var PENDING={paths:[],ai:null,uploadId:null,dc:null};
   function clearPending(){ PENDING={paths:[],ai:null,uploadId:null,dc:null}; }
+  // State wizard: langkah aktif, nilai RPE terpilih, id workout yang baru tersimpan.
+  var WZ={rpe:null,wid:null};
+  // Tampilkan satu langkah + perbarui bar progres (seg1 selalu "upload" = sudah lewat).
+  function wzGo(step){
+    var show="wz"+step.charAt(0).toUpperCase()+step.slice(1);   // detail -> wzDetail
+    ["wzDetail","wzEffort","wzDone"].forEach(function(id){ document.getElementById(id).hidden=(id!==show); });
+    var on={detail:2,effort:3,done:3}[step]||1;
+    [1,2,3].forEach(function(n){ document.getElementById("wzb"+n).classList.toggle("on",n<=on); });
+    try{ document.getElementById("woDlg").scrollTop=0; }catch(e){}
+  }
 
   function readAsDataUrl(f){
     return new Promise(function(res,rej){
@@ -512,6 +578,8 @@
   function fmtDay(ymd){ try{ return new Date(ymd+"T00:00:00").toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{day:"numeric",month:"short",year:"numeric"}); }catch(e){ return ymd; } }
   function openDlg(nImg,ai,aiErr,storeFailed,converted){
     document.getElementById("dlgErr").textContent="";
+    document.getElementById("dlgErr2").textContent="";
+    WZ={rpe:null,wid:null}; renderRpe(); wzGo("detail");
     var box=document.getElementById("dlgAi"); box.innerHTML="";
     ["fTitle","fDur","fDist","fKcal","fHr","fMaxHr","fNote","fStart"].forEach(function(id){ setV(id,null); });
     var fd=document.getElementById("fDate"); fd.max=todayYmd();
@@ -563,21 +631,54 @@
     }
     document.getElementById("woDlg").showModal();
   }
+  // Skala RPE 1..10 (langkah 2). Opsional; disimpan via /api/activity/workouts/:id/rpe.
+  function renderRpe(){
+    var box=document.getElementById("wzRpe"); if(!box) return;
+    box.innerHTML="";
+    for(var n=1;n<=10;n++){
+      var b=document.createElement("button");
+      b.type="button"; b.textContent=String(n); b.setAttribute("data-rpe",String(n));
+      b.setAttribute("aria-pressed", WZ.rpe===n?"true":"false");
+      b.onclick=(function(v){ return function(){
+        WZ.rpe=(WZ.rpe===v?null:v);   // ketuk lagi = batal pilih
+        Array.prototype.forEach.call(box.children,function(c){ c.setAttribute("aria-pressed", String(Number(c.getAttribute("data-rpe"))===WZ.rpe)); });
+      }; })(n);
+      box.appendChild(b);
+    }
+  }
+  // Ringkasan singkat untuk layar selesai — HANYA angka yang benar-benar diisi (jujur).
+  function doneSummary(){
+    var parts=[];
+    var ty=document.getElementById("fType").value; if(ty) parts.push(WorkoutMetrics.typeLabel(ty,I18N.lang));
+    var dur=parseFloat(document.getElementById("fDur").value); if(isFinite(dur)&&dur>0) parts.push(Math.round(dur)+" "+Lx({en:"min",id:"mnt"}));
+    var kc=parseInt(document.getElementById("fKcal").value,10); if(isFinite(kc)&&kc>0) parts.push(kc+" kkal");
+    if(WZ.rpe) parts.push("RPE "+WZ.rpe);
+    return parts.join(" · ");
+  }
   function wireDlg(){
     var sel=document.getElementById("fType");
     sel.innerHTML=Object.keys(WorkoutMetrics.TYPES).map(function(k){ return '<option value="'+k+'">'+esc(WorkoutMetrics.typeLabel(k,I18N.lang))+'</option>'; }).join("");
-    document.getElementById("dlgCancel").onclick=function(){ clearPending(); document.getElementById("woDlg").close(); };
-    document.getElementById("dlgSave").onclick=async function(){
-      var err=document.getElementById("dlgErr");
+    function closeDlg(){ clearPending(); WZ={rpe:null,wid:null}; document.getElementById("woDlg").close(); }
+    document.getElementById("dlgCancel").onclick=closeDlg;
+    document.getElementById("wzX").onclick=closeDlg;
+    document.getElementById("wzBack").onclick=function(){ wzGo("detail"); };
+    // Lanjut: validasi detail (durasi + tanggal) sebelum pindah ke langkah rasa berat.
+    document.getElementById("wzNext").onclick=function(){
+      var err=document.getElementById("dlgErr"); err.textContent="";
       var dur=parseFloat(document.getElementById("fDur").value);
       if(!isFinite(dur)||dur<=0){ err.textContent=T("act_need_dur"); return; }
       var date=document.getElementById("fDate").value;
       if(!date||date>todayYmd()){ err.textContent=Lx({en:"Pick a workout date (not in the future).",id:"Pilih tanggal latihan (tidak boleh di masa depan)."}); return; }
       var ok=document.getElementById("fDateOk");
       if(PENDING.dc&&PENDING.dc.needs_confirm&&ok&&!ok.checked){ err.textContent=Lx({en:"Confirm the workout date first.",id:"Pastikan tanggal latihan dulu."}); return; }
+      wzGo("effort");
+    };
+    // Lihat analisa: simpan workout (payload SAMA), lalu RPE (kalau dipilih), lalu layar selesai.
+    document.getElementById("wzFinish").onclick=async function(){
+      var err=document.getElementById("dlgErr2"); err.textContent="";
       var ai=PENDING.ai, sc=PENDING.paths.length||ai;
       var body={
-        workout_date:date, source:sc?"upload":"manual",
+        workout_date:document.getElementById("fDate").value, source:sc?"upload":"manual",
         // Path screenshot + jejak bacaan AI (yakin berapa, kolom apa) + cek tanggal -> raw_data (diaudit server).
         raw_data:{
           file_paths:PENDING.paths, upload_id:PENDING.uploadId, started_at:document.getElementById("fStart").value||null,
@@ -587,25 +688,33 @@
         },
         hr_zone_data:ai?ai.hr_zone_data:null, pace_data:ai?ai.pace_data:null, elevation_gain_m:ai?ai.elevation_gain_m:null,
         title:document.getElementById("fTitle").value||null,
-        type:document.getElementById("fType").value, duration_min:dur,
+        type:document.getElementById("fType").value, duration_min:parseFloat(document.getElementById("fDur").value),
         distance_km:parseFloat(document.getElementById("fDist").value)||null,
         calories_burned:parseInt(document.getElementById("fKcal").value,10)||null,
         avg_heart_rate:parseInt(document.getElementById("fHr").value,10)||null,
         max_heart_rate:parseInt(document.getElementById("fMaxHr").value,10)||null,
         note:document.getElementById("fNote").value.trim()||null
       };
-      var btn=this; btn.disabled=true;
+      var btn=this, back=document.getElementById("wzBack"); btn.disabled=true; back.disabled=true;
       try{
         var r=await apiFetch("/api/activity/workout",{method:"POST",body:JSON.stringify(body)});
         var j=await r.json().catch(function(){return {};});
-        if(!r.ok){ err.textContent=j.error||T("act_save_fail"); btn.disabled=false; return; }
-        document.getElementById("woDlg").close();
-        clearPending();
+        if(!r.ok){ err.textContent=j.error||T("act_save_fail"); btn.disabled=false; back.disabled=false; return; }
+        WZ.wid=(j.workout&&j.workout.id)||null;
+        // RPE opsional — best-effort, kegagalan tak menggagalkan pencatatan workout.
+        if(WZ.wid&&WZ.rpe){ try{ await apiFetch("/api/activity/workouts/"+encodeURIComponent(WZ.wid)+"/rpe",{method:"POST",body:JSON.stringify({rpe:WZ.rpe})}); }catch(e){} }
+        var link=document.getElementById("wzSeeAnalysis");
+        if(WZ.wid){ link.href="/activity/history/"+encodeURIComponent(WZ.wid); link.hidden=false; }
+        else link.hidden=true;   // tanpa id: sembunyikan link (tak mengarang tujuan)
+        document.getElementById("wzDoneSum").textContent=doneSummary();
+        wzGo("done");
         loadUploadLog();   // workout baru muncul di log hari ini
         refreshDerived();  // workout baru -> Health Score dihitung ulang
-      }catch(e){ document.getElementById("dlgErr").textContent=T("act_save_fail"); }
-      btn.disabled=false;
+      }catch(e){ err.textContent=T("act_save_fail"); }
+      btn.disabled=false; back.disabled=false;
     };
+    // Upload lagi: tutup, bersihkan, lalu buka pemilih berkas.
+    document.getElementById("wzAgain").onclick=function(){ closeDlg(); upPick(); };
   }
 
   // Label level kelengkapan data workout (dipakai dialog upload).
