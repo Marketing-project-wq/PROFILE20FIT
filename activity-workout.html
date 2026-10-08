@@ -159,6 +159,8 @@
 <script src="js/i18n.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/workout-metrics.js"></script>
+<script src="js/bodymap.js?v=20261008a"></script>
+<script src="js/sport-muscles.js?v=20261008a"></script>
 <script src="js/coach-profiles.js"></script>
 <script>
 (function(){
@@ -425,6 +427,23 @@
     return '<div class="card safe"><h2>'+esc(n.headline||"")+'</h2>'+(n.what_we_saw||[]).map(function(p){ return '<p>'+esc(p)+'</p>'; }).join("")+
       '<div class="acts">'+call+'<a class="b'+(em?"":" pri")+'" href="/book-doctor">'+FIC("clinic",15)+' '+esc(L({en:"Book a doctor",id:"Book dokter"}))+'</a></div></div>';
   }
+  // "Otot yang kena" — perkiraan dari pola gerak olahraga (js/sport-muscles.js, DRAFT). BUKAN EMG.
+  // Jenis "other"/tak dikenal -> kosong -> kartu tidak tampil (jujur).
+  function muscleCard(){
+    if(!window.SportMuscles||!window.BodyMap) return "";
+    var m=SportMuscles.forType(S.w.type);
+    if(!m.primary.length&&!m.secondary.length) return "";
+    var dark=!document.documentElement.classList.contains("theme-light");
+    var bm=BodyMap.svg(m.primary,{secondary:m.secondary,w:120,h:150,labels:false,lang:lang(),
+      sil:(dark?"#2b313d":"#e4e5ea"),on:"#E4002B",mid:(dark?"#7a2030":"#f0b3bc"),off:(dark?"#394150":"#d7dae0")});
+    var focus=BodyMap.focus(m.primary,lang());
+    return '<div class="sec">'+esc(L({en:"Muscles worked",id:"Otot yang kena"}))+'</div><div class="card">'+
+      '<div style="display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:center">'+
+      '<div>'+bm+'</div>'+
+      '<div><div style="font-size:15px;font-weight:800;margin-bottom:5px">'+esc(focus||L({en:"Full body",id:"Seluruh tubuh"}))+'</div>'+
+      '<p class="note" style="margin:0">'+esc(L({en:"Estimated from this sport's movement pattern — a general guide, not an EMG reading.",id:"Perkiraan dari pola gerak olahraganya — panduan umum, bukan pembacaan EMG."}))+'</p></div>'+
+      '</div></div>';
+  }
   // "Makan apa" — isi ulang energi setelah latihan. Angka pasti HANYA kalori terbakar (dari data);
   // target makro TIDAK ditebak di sini -> arahkan ke Calorie Tracker (sumber target & menu).
   function nutriCard(){
@@ -437,7 +456,7 @@
   function render(){
     var root=el("root"), html=head();
     if(S.a.safety) html+=safetyCard()+metrics();
-    else html+=metrics()+rpeCard()+perf()+signalsCard()+readCard()+checkinCard()+factors()+nutriCard()+coachCard()+stepsCard()+nextCard()+howCard()+ctaCard();
+    else html+=metrics()+rpeCard()+perf()+muscleCard()+signalsCard()+readCard()+checkinCard()+factors()+nutriCard()+coachCard()+stepsCard()+nextCard()+howCard()+ctaCard();
     html+='<div class="acts" style="margin-top:22px"><button type="button" class="b dng" id="bDel">'+FIC("trash",15)+' '+esc(L({en:"Delete this upload",id:"Hapus upload ini"}))+'</button></div>';
     root.innerHTML=html;
     wire();
