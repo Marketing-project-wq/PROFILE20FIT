@@ -16,12 +16,12 @@
     --mono:'JetBrains Mono',ui-monospace,monospace; --sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
   }
   *{box-sizing:border-box}
-  body{margin:0;min-height:100vh;background:var(--a-bg);color:var(--a-txt);font-family:var(--sans);padding:20px 16px 100px;-webkit-font-smoothing:antialiased}
+  body{margin:0;min-height:100vh;background:radial-gradient(70% 30% at 100% 0%,color-mix(in srgb,var(--ai) 8%,transparent),transparent 70%),radial-gradient(70% 30% at 0% 100%,color-mix(in srgb,var(--accent) 6%,transparent),transparent 70%),var(--a-bg);color:var(--a-txt);font-family:var(--sans);padding:20px 16px 100px;-webkit-font-smoothing:antialiased}
   .wrap{max-width:760px;margin:0 auto}
   .muted{color:var(--a-mut)}
   .card{background:var(--a-surface);border:1px solid var(--a-line);border-radius:var(--radius,16px);padding:16px}
   .card+.card,.sec+.card{margin-top:12px}
-  .sec{font-size:11.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--a-mut);margin:22px 2px 8px}
+  .sec{font-size:11.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--ai);margin:22px 2px 8px}
   .chead{display:flex;align-items:center;gap:12px;margin-bottom:14px}
   .chead .bk{width:38px;height:38px;border-radius:99px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);display:flex;align-items:center;justify-content:center;text-decoration:none;flex:none;font-size:18px}
   .chead h1{font-size:20px;font-weight:800;margin:0;letter-spacing:-.3px;line-height:1.25}
@@ -29,8 +29,8 @@
   .skel{background:color-mix(in srgb,var(--a-txt) 7%,transparent);border-radius:10px;animation:pul 1.3s ease-in-out infinite}
   @keyframes pul{0%,100%{opacity:1}50%{opacity:.45}}
   .acts{display:flex;flex-wrap:wrap;gap:8px}
-  .b{display:inline-flex;align-items:center;gap:6px;padding:9px 13px;border-radius:11px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;text-decoration:none}
-  .b.pri{background:var(--ai);border-color:var(--ai);color:#fff}
+  .b{display:inline-flex;align-items:center;gap:6px;padding:9px 15px;border-radius:999px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;text-decoration:none}
+  .b.pri{background:var(--ai);border-color:var(--ai);color:#fff;box-shadow:0 6px 16px color-mix(in srgb,var(--ai) 28%,transparent)}
   .b.dng{color:var(--bad)}
   .b:disabled{opacity:.5;cursor:default}
   .note{font-size:12px;color:var(--a-mut);margin-top:10px;line-height:1.5}
@@ -425,10 +425,19 @@
     return '<div class="card safe"><h2>'+esc(n.headline||"")+'</h2>'+(n.what_we_saw||[]).map(function(p){ return '<p>'+esc(p)+'</p>'; }).join("")+
       '<div class="acts">'+call+'<a class="b'+(em?"":" pri")+'" href="/book-doctor">'+FIC("clinic",15)+' '+esc(L({en:"Book a doctor",id:"Book dokter"}))+'</a></div></div>';
   }
+  // "Makan apa" — isi ulang energi setelah latihan. Angka pasti HANYA kalori terbakar (dari data);
+  // target makro TIDAK ditebak di sini -> arahkan ke Calorie Tracker (sumber target & menu).
+  function nutriCard(){
+    var kc=S.w.calories_burned;
+    return '<div class="sec">'+esc(L({en:"Refuel",id:"Makan apa"}))+'</div><div class="card">'+
+      (kc?'<div class="pf" style="align-items:baseline"><div><div class="lb">'+esc(L({en:"Active burn",id:"Kalori aktif"}))+'</div><div class="big">'+esc(kc)+' <small style="font-size:13px;color:var(--a-mut)">'+esc(L({en:"kcal",id:"kkal"}))+'</small></div></div></div>':'')+
+      '<p class="note" style="margin:'+(kc?"10px 0 0":"0")+'">'+esc(L({en:"Refuel with protein and carbs within ~2 hours. Your exact targets and menu are in the Calorie Tracker.",id:"Isi ulang protein & karbo dalam ~2 jam. Target & menu persismu ada di Calorie Tracker."}))+'</p>'+
+      '<div class="acts" style="margin-top:12px"><a class="b pri" href="/calories">'+FIC("meal",15)+' '+esc(L({en:"See menu in Calories",id:"Lihat menu di Calories"}))+'</a></div></div>';
+  }
   function render(){
     var root=el("root"), html=head();
     if(S.a.safety) html+=safetyCard()+metrics();
-    else html+=metrics()+rpeCard()+perf()+signalsCard()+readCard()+checkinCard()+factors()+coachCard()+stepsCard()+nextCard()+howCard()+ctaCard();
+    else html+=metrics()+rpeCard()+perf()+signalsCard()+readCard()+checkinCard()+factors()+nutriCard()+coachCard()+stepsCard()+nextCard()+howCard()+ctaCard();
     html+='<div class="acts" style="margin-top:22px"><button type="button" class="b dng" id="bDel">'+FIC("trash",15)+' '+esc(L({en:"Delete this upload",id:"Hapus upload ini"}))+'</button></div>';
     root.innerHTML=html;
     wire();
