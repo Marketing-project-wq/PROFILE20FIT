@@ -65,78 +65,40 @@
   /* Susunan vertikal kartu */
   .astack{display:flex;flex-direction:column;gap:12px;margin-bottom:6px}
 
-  /* ===== Health Score — lingkaran progres + angka besar + bar komponen ===== */
-  .health-score-card{padding:16px 18px}
-  .hs-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-  .hs-title{font-size:14px;font-weight:800;color:var(--a-txt)}
-  .hs-label{align-self:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;padding:3px 8px;border-radius:5px;white-space:nowrap}
-  .hs-label.good{background:#DCFCE7;color:#15803D}
-  .hs-label.needs-work{background:#FEF3C7;color:#B45309}
-  .hs-label.critical{background:#FEE2E2;color:#B91C1C}
-  .hs-tlbl{text-align:center;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--a-mut);font-weight:700}
-  .hs-main{display:flex;align-items:center;justify-content:center;gap:22px;margin:12px 0 6px}
-  .hs-ring{position:relative;width:124px;height:124px;flex:none}
-  .hs-ring>svg{width:100%;height:100%;transform:rotate(-90deg)}
-  .hs-ring>svg circle{fill:none;stroke-width:12}
-  .hs-ring>svg .trk{stroke:color-mix(in srgb,var(--a-txt) 9%,transparent)}
-  .hs-ring>svg .val{stroke-linecap:round;transition:stroke-dashoffset .7s cubic-bezier(.2,.8,.2,1)}
-  .hs-ring>svg .val.good{stroke:#16A34A}.hs-ring>svg .val.needs-work{stroke:#F59E0B}.hs-ring>svg .val.critical{stroke:#DC2626}
-  .hs-ring-c{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-  .hs-ring-c.good{color:#16A34A}.hs-ring-c.needs-work{color:#F59E0B}.hs-ring-c.critical{color:#DC2626}
-  .hs-nums{min-width:0}
-  .hs-big{font-size:52px;font-weight:900;line-height:1;font-family:var(--mono)}
-  .hs-big small{font-size:16px;font-weight:700;color:var(--a-mut);margin-left:4px}
-  .hs-big.good{color:#16A34A}.hs-big.needs-work{color:#D97706}.hs-big.critical{color:#DC2626}
-  .hs-sub{font-size:13px;color:var(--a-mut);margin-top:6px;line-height:1.4}
-  .hs-togo{margin-top:8px;font-size:13px;color:var(--a-mut)}
-  .hs-togo b{font-size:24px;color:var(--a-txt);font-family:var(--mono);margin-right:4px}
-  .hs-st{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:8px;font-size:13px;color:var(--a-txt);font-weight:600;white-space:nowrap}
-  .hs-rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 22px;margin:14px 0 12px}
-  @media(max-width:767px){ .hs-rows{grid-template-columns:1fr} .hs-main{gap:16px} .hs-ring{width:104px;height:104px} .hs-big{font-size:44px} }
-  .hs-rtop{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12.5px;font-weight:700;color:var(--a-txt);margin-bottom:4px}
-  .hs-rv{color:var(--a-mut);font-weight:700;font-family:var(--mono);font-size:12px;white-space:nowrap}
-  .hs-rbar{height:8px;background:color-mix(in srgb,var(--a-txt) 9%,transparent);border-radius:6px;overflow:hidden}
-  .hs-rbar>i{display:block;height:100%;border-radius:6px;transition:width .5s}
-  .hs-rbar>i.good{background:#16A34A}.hs-rbar>i.needs-work{background:#F59E0B}.hs-rbar>i.critical{background:#DC2626}
-  .wyn-t{font-size:11px;font-weight:800;color:var(--a-mut);text-transform:uppercase;letter-spacing:.5px;margin:2px 0 7px;padding-top:10px;border-top:1px solid var(--a-line)}
-  .wyn-pills{display:flex;flex-wrap:wrap;gap:6px}
-  .wyn-pill{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:20px;border:1px solid var(--a-line);background:color-mix(in srgb,var(--a-txt) 4%,transparent);font-size:11.5px;font-weight:700;color:var(--a-txt);cursor:pointer;font-family:inherit}
-  .wyn-pill:hover,.wyn-pill:focus-visible{border-color:var(--fit-red,#E4002B);color:var(--fit-red,#E4002B)}
-  .wyn-why{font-size:11.5px;color:var(--a-mut);margin-top:7px;line-height:1.4}
-  .hs-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
-  .hs-fill{flex:none;max-width:60%;min-width:0;text-align:left;border:1px dashed var(--a-line);background:transparent;border-radius:7px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--a-mut);cursor:pointer;font-family:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .hs-fill:hover,.hs-fill:focus-visible{border-color:var(--fit-red,#E4002B);color:var(--fit-red,#E4002B)}
-  .hs-stale{font-size:9.5px;font-weight:800;text-transform:uppercase;color:var(--fit-amber,#B45309)}
-  .hs-lock-tag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;padding:3px 8px;border-radius:5px;background:color-mix(in srgb,var(--a-txt) 8%,transparent);color:var(--a-mut)}
-  .hs-lock-p{font-size:13px;line-height:1.5;color:var(--a-mut);margin:0 0 12px}
-  .hs-paths{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .hs-path{display:flex;align-items:center;gap:10px;text-align:left;padding:12px;border-radius:12px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);text-decoration:none;cursor:pointer;font-family:inherit}
-  .hs-path.pri{border-color:color-mix(in srgb,var(--fit-red,#E4002B) 45%,var(--a-line));background:color-mix(in srgb,var(--fit-red,#E4002B) 7%,var(--a-surface))}
-  .hs-path b{display:block;font-size:13px}
-  .hs-path small{display:block;font-size:11px;color:var(--a-mut);margin-top:2px}
-  .hs-have{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11.5px;color:var(--a-mut);margin-top:12px}
-  .hs-have span{display:inline-flex;align-items:center;gap:3px;font-weight:800;color:var(--fit-green,#16A34A)}
-  @media(max-width:520px){ .hs-paths{grid-template-columns:1fr} }
-  .hs-cta{padding:7px 12px;border-radius:9px;background:var(--fit-red,#E4002B);color:#fff;font-size:12px;font-weight:800;text-decoration:none}
-  .hs-note{font-size:10.5px;color:var(--a-mut)}
-
-  /* ===== Coach consultation — coach aktif + aksi cepat + carousel 4 coach (js/coach-profiles.js) ===== */
-  .coach-bar{padding:12px 14px;background:var(--a-surface);border:1px solid var(--a-line);border-radius:14px}
-  .coach-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
-  .coach-info{flex:1;min-width:120px}
-  .coach-active-name{font-size:13px;font-weight:800;color:var(--a-txt)}
-  .coach-active-name span{font-weight:600;color:var(--a-mut)}
-  .coach-active-label{font-size:11px;color:var(--a-mut)}
-  .coach-acts{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  .coach-acts button{padding:6px 10px;border-radius:8px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
-  .coach-acts button:hover{border-color:var(--fit-red,#E4002B);color:var(--fit-red,#E4002B)}
-  .coach-open{padding:6px 10px;border-radius:8px;background:var(--fit-red,#E4002B);color:#fff;font-size:11.5px;font-weight:800;text-decoration:none;white-space:nowrap}
-
-  /* ===== Menu (2 kartu tappable) ===== */
-  .qa-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-  .qa-tile{display:flex;flex-direction:column;align-items:center;gap:5px;padding:14px 8px;border:1px solid var(--a-line);border-radius:14px;background:var(--a-surface);
-    text-decoration:none;color:var(--a-txt);font-size:12px;font-weight:700;text-align:center;line-height:1.25;min-width:0}
-  .qa-tile .qa-i{line-height:1;color:var(--fit-red,#E4002B)}
+  /* ===== v3 — kartu glass + readiness chip + bodymap + fab (desain Activity v3 / Nocturne) ===== */
+  .v3{display:flex;flex-direction:column;gap:12px;
+     background:linear-gradient(160deg,color-mix(in srgb,var(--a-surface) 90%,transparent),color-mix(in srgb,var(--a-surface) 62%,transparent));
+     -webkit-backdrop-filter:blur(20px) saturate(1.5);backdrop-filter:blur(20px) saturate(1.5);
+     border:1px solid var(--a-line);border-radius:22px;padding:16px;
+     box-shadow:0 10px 28px color-mix(in srgb,var(--a-txt) 7%,transparent)}
+  .v3-k{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--fit-red,#E4002B);font-weight:800}
+  .v3-h{font-size:18px;font-weight:800;letter-spacing:-.2px;line-height:1.25}
+  .v3-s{font-size:13px;color:var(--a-mut);line-height:1.5}
+  .v3-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .v3-basis{font-size:11px;color:var(--a-mut)}
+  .v3-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;height:46px;border-radius:999px;border:0;cursor:pointer;
+     font-family:inherit;font-weight:800;font-size:14px;color:#fff;text-decoration:none;
+     background:var(--fit-red,#E4002B);box-shadow:0 6px 16px color-mix(in srgb,var(--fit-red,#E4002B) 30%,transparent)}
+  .v3-btn.sec{background:color-mix(in srgb,var(--a-surface) 70%,transparent);color:var(--a-txt);border:1px solid var(--a-line);box-shadow:none}
+  .v3-next{display:flex;align-items:center;gap:10px;min-height:46px;color:var(--a-txt);text-decoration:none;font-size:13px}
+  .v3-next .dot{width:6px;height:6px;border-radius:3px;background:var(--a-mut);flex:none}
+  .v3-next .gt{color:var(--a-mut);flex:none;font-weight:800}
+  .v3-chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:999px;font-size:12px;font-weight:700}
+  .v3-chip .d{width:8px;height:8px;border-radius:4px;background:currentColor}
+  .v3-chip.ok{background:color-mix(in srgb,var(--fit-green,#16A34A) 15%,transparent);color:var(--fit-green,#16A34A)}
+  .v3-chip.warn{background:color-mix(in srgb,var(--fit-amber,#B45309) 16%,transparent);color:var(--fit-amber,#B45309)}
+  .v3-chip.rest{background:color-mix(in srgb,var(--fit-red,#E4002B) 12%,transparent);color:var(--fit-red,#E4002B)}
+  .v3-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .v3-stat .sv{font-size:18px;font-weight:800}
+  .v3-stat .sl{font-size:11px;color:var(--a-mut)}
+  .v3-stat .sd{font-size:11px;font-weight:700}
+  .v3-week{display:grid;grid-template-columns:1.05fr 1fr;gap:12px;align-items:center}
+  .v3-bodymap svg{width:100%;height:auto;display:block}
+  .v3-big{font-size:22px;font-weight:800;line-height:1}
+  .fab{position:fixed;right:16px;bottom:20px;z-index:40;display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 20px;border-radius:999px;
+     color:#fff;text-decoration:none;font-weight:800;font-size:14px;background:var(--fit-red,#E4002B);
+     box-shadow:0 10px 26px color-mix(in srgb,var(--fit-red,#E4002B) 38%,transparent)}
+  .fab .fic{color:#fff}
 
   /* ===== Upload progress — satu kartu ===== */
   .upx{position:relative;overflow:hidden;border-radius:20px;padding:14px;border:1px solid var(--a-line);
@@ -219,19 +181,19 @@
      memakai !important untuk .card sehingga kartu di sini otomatis ikut liquid-glass
      yang sama dengan seluruh app. -->
 <link rel="stylesheet" href="css/20fit-design-system.css">
-<link rel="stylesheet" href="css/coach-profiles.css?v=20261006f">
 <link rel="stylesheet" href="css/glass-app.css">
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 </head>
 <body>
 <div class="wrap">
 
-  <!-- 1. HEADER -->
+  <!-- HEADER — tanggal + "Halo, {nama}" + chip kesiapan -->
   <div class="ahead">
     <div>
-      <h1 data-i18n="act_title">Activity</h1>
       <div class="date" id="hdDate">—</div>
+      <h1 id="hdHello">Activity</h1>
     </div>
+    <span id="hdChip"></span>
     <div class="av" id="hdAv">·</div>
   </div>
 
@@ -239,21 +201,8 @@
 
   <div class="astack">
 
-    <!-- 1. COACH — konsultasi: coach aktif + aksi cepat, lalu carousel 4 coach yang bisa digeser
-         (js/coach-profiles.js, sama dengan picker /activity/chat). "Chat dengan X" -> /activity/chat/<slug>. -->
-    <div class="coach-bar" id="coachCard">
-      <div class="coach-row">
-        <div class="coach-info">
-          <div class="coach-active-name" id="coachActiveName">Coach</div>
-          <div class="coach-active-label" data-en="Swipe to meet each coach, then start a chat" data-id="Geser untuk kenalan tiap coach, lalu mulai chat">Geser untuk kenalan tiap coach, lalu mulai chat</div>
-        </div>
-        <div class="coach-acts" id="coachQa"></div>
-      </div>
-      <div id="coachProfiles"><div class="skel" style="height:220px;border-radius:16px"></div></div>
-    </div>
-
-    <!-- 2. HEALTH SCORE — angka + bar + breakdown 2 kolom + What You Need (pill) -->
-    <div id="healthScoreBox"><div class="card"><div class="skel" style="height:150px"></div></div></div>
+    <!-- Hari ini — analisa deterministik (lib/today-brief.js) via /api/activity/today-plan -->
+    <div class="v3" id="todayCard"><div class="skel" style="height:120px;border-radius:14px"></div></div>
 
     <!-- 3. UPLOAD PROGRESS — SATU pintu upload. Gambar dibaca AI -> jenisnya dikenali
          (workout / tidur / aktivitas harian / berat): kalau workout, dialog pencatatan terbuka. -->
@@ -288,16 +237,16 @@
       <input type="file" id="upFileIn" accept="image/*,.heic,.heif" multiple hidden>
     </div>
 
-    <!-- 4. MENU -->
-    <div class="sechd" data-en="More" data-id="Menu lainnya">Menu lainnya</div>
-    <div class="qa-grid" id="menuBox">
-      <a class="qa-tile" href="/playlist"><span class="qa-i"><span class="fic" data-ic="dumbbell" data-ic-size="22"></span></span><span data-en="Exercise Playlist" data-id="Playlist Latihan">Playlist Latihan</span></a>
-      <a class="qa-tile" href="/activity/visbody"><span class="qa-i"><span class="fic" data-ic="scan" data-ic-size="22"></span></span><span data-en="Scan Visbody" data-id="Scan Visbody">Scan Visbody</span></a>
-    </div>
+    <!-- Minggu ini -->
+    <div class="v3" id="weekCard"><div class="skel" style="height:150px;border-radius:14px"></div></div>
 
+    <!-- Tubuhmu (Visbody) -->
+    <div class="v3" id="bodyCard"><div class="skel" style="height:120px;border-radius:14px"></div></div>
   </div>
 
 </div>
+
+<a class="fab" href="/activity/chat" aria-label="Tanya Coach"><span class="fic" data-ic="chat" data-ic-size="18"></span><span data-en="Ask Coach" data-id="Tanya Coach">Tanya Coach</span></a>
 
 <dialog id="woDlg">
   <div style="font-weight:800;font-size:15px" data-i18n="act_dlg_t">Detail workout</div>
@@ -334,11 +283,11 @@
 <script src="js/i18n.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/workout-metrics.js"></script>
-<script src="js/coach-profiles.js?v=20261006f"></script>
+<script src="js/bodymap.js?v=20261008a"></script>
 <script>
-  // ---- Halaman Activity (versi ringkas) ----
-  // Hanya: Health Score + Upload progress + menu (Playlist / Scan Visbody / Chat Coach).
-  // Catatan jujur: kalau angkanya TIDAK ADA, tampilkan "—" atau "belum diisi". Jangan mengarang.
+  // ---- Halaman Activity (desain v3) ----
+  // Kartu: Hari ini (today-brief) · Workout (upload) · Minggu ini (bodymap) · Tubuhmu (Visbody).
+  // Catatan jujur: kalau angkanya TIDAK ADA, tampilkan "—" atau empty-state. Jangan mengarang.
   var user=null, SEL=todayStr(), AUTH_UID=null;
 
   function T(k){ return (window.I18N&&I18N.t)?I18N.t(k):k; }
@@ -357,26 +306,27 @@
     document.getElementById("errBox").innerHTML =
       '<div class="card" style="border-color:var(--red)"><div class="err">'+esc(msg)+'</div>'+
       (retry?'<button class="btn ghost" id="retryBtn" style="margin-top:10px">'+esc(T("act_retry"))+'</button>':'')+'</div>';
-    var r=document.getElementById("retryBtn"); if(r) r.onclick=function(){ clearErr(); loadHealthScore(); loadUploadLog(); };
+    var r=document.getElementById("retryBtn"); if(r) r.onclick=function(){ clearErr(); loadToday(); loadWeek(); loadBody(); loadUploadLog(); };
   }
   function clearErr(){ document.getElementById("errBox").innerHTML=""; }
 
   function ymdOf(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
   function todayYmd(){ return ymdOf(new Date()); }
 
-  // ---- 1. Header ----
+  // ---- Header: tanggal + "Halo, {nama}" + chip kesiapan ----
   function renderHead(){
     var d=dObj(SEL);
-    document.getElementById("hdDate").textContent = isToday(SEL)
-      ? Lx({en:"Your progress today",id:"Progress kamu hari ini"})
-      : d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+    var dt=document.getElementById("hdDate");
+    if(dt) dt.textContent=d.toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{weekday:"long",day:"numeric",month:"short"});
+    var hello=document.getElementById("hdHello");
+    var nm=((user&&(user.full_name||user.name))||"").trim().split(/\s+/)[0]||"";
+    if(nm) nm=nm.charAt(0).toUpperCase()+nm.slice(1);
+    if(hello) hello.textContent = nm ? (Lx({en:"Hi, ",id:"Halo, "})+nm) : "Activity";
     var av=document.getElementById("hdAv");
     if(user&&user.avatar_url){ av.innerHTML='<img src="'+esc(user.avatar_url)+'" alt="">'; }
     else { av.textContent=((user&&(user.full_name||user.email)||"2").trim()[0]||"2").toUpperCase(); }
   }
 
-  // Best-effort analitik journey (dipakai health_score_locked_shown).
-  function jnEvent(ev,props){ apiFetch("/api/journey/event",{method:"POST",body:JSON.stringify({event:ev,props:props||{}})}).catch(function(){}); }
 
   // ---- 2. Upload progress — SATU pintu upload (kartu #uploadCard) ----
   // Gambar pertama ke /api/activity/upload-analyze (kenali jenis + riwayat upload untuk Health Score)
@@ -665,163 +615,142 @@
   // Guard di window.CoachProfiles: tanpa coach-profiles.js, default "nando".
   var TPL_COACH="nando";
   try{ var _cp=localStorage.getItem("my20fit_coach_pick"); if(_cp&&window.CoachProfiles&&CoachProfiles.NAME[_cp]) TPL_COACH=_cp; }catch(e){}
-  var COACH_NAME_TPL=window.CoachProfiles?CoachProfiles.NAME:{nando:"Ben",calysta:"Angie",rheza:"Stella",elsen:"Tom"};
-  function coachName(){ return COACH_NAME_TPL[TPL_COACH]||COACH_NAME_TPL.nando||"Ben"; }
-
-  // ---- Coach consultation — carousel 4 coach + aksi cepat (js/coach-profiles.js) ----
-  // "Chat dengan X" / "Open Chat" -> simpan pilihan lalu /activity/chat/<slug> (di sana chat ter-gate
-  // sampai user scan Visbody / upload latihan).
-  function renderCoachProfiles(){
-    var host=document.getElementById("coachProfiles"); if(!host||!window.CoachProfiles) return;
-    host.innerHTML=CoachProfiles.box({ active:TPL_COACH, title:Lx({en:"Meet the coaches",id:"Kenalan sama coach-nya"}) });
-    CoachProfiles.wire(host,function(slug){
-      try{ localStorage.setItem("my20fit_coach_pick",slug); }catch(e){}
-      location.href="/activity/chat/"+encodeURIComponent(slug);
-    });
-  }
-  async function loadCoachProfiles(){
-    renderCoachProfiles();
-    if(!window.CoachProfiles) return;
-    await CoachProfiles.loadRoster(); renderCoachProfiles();   // foto & spesialisasi dari roster CMS
-  }
-  // Aksi cepat: Plan = auto-message plan ke chat; Score = scroll ke Health Score; Open Chat = buka chat coach aktif.
-  function coachAskGo(msg){
-    try{ sessionStorage.setItem("chat_context", JSON.stringify({ auto_message:String(msg||"") })); }catch(e){}
-    location.href="/activity/chat/"+encodeURIComponent(TPL_COACH||"nando");
-  }
-  function renderCoachQa(){
-    var nm=document.getElementById("coachActiveName");
-    if(nm) nm.innerHTML=FIC("chat",15)+' Coach · <span>'+esc(Lx({en:"Active: ",id:"Aktif: "}))+esc(coachName())+'</span>';
-    var host=document.getElementById("coachQa"); if(!host) return;
-    host.innerHTML='<button type="button" data-ask="plan">'+FIC("clipboard",14)+' Plan</button>'+
-      '<button type="button" data-ask="score">'+FIC("chart",14)+' Score</button>'+
-      '<a class="coach-open" href="/activity/chat/'+encodeURIComponent(TPL_COACH)+'">'+esc(Lx({en:"Open Chat →",id:"Buka Chat →"}))+'</a>';
-    Array.prototype.forEach.call(host.querySelectorAll("button"),function(b){
-      b.onclick=function(){
-        if(b.getAttribute("data-ask")==="plan"){ coachAskGo(Lx({en:"Make me a workout plan for this week",id:"Buatkan workout plan minggu ini"})); return; }
-        var x=document.getElementById("healthScoreBox"); if(x) x.scrollIntoView({behavior:"smooth",block:"start"});
-      };
-    });
-  }
-
-  // ---- 3. HEALTH SCORE (compact) ----
-  var HS=null;
-  var HS_CATS=[
-    ["workout",{en:"Workout",id:"Workout"}],
-    ["sleep",{en:"Sleep",id:"Tidur"}],
-    ["nutrition",{en:"Nutrition",id:"Nutrisi"}],
-    ["hydration",{en:"Hydration",id:"Hidrasi"}],
-    ["body",{en:"Body",id:"Tubuh"}],
-    ["lab",{en:"Lab",id:"Lab"}]
-  ];
-  function hsLevel(v){ return v>=70?"good":v>=40?"needs-work":"critical"; }
-  async function loadHealthScore(){
-    try{
-      var r=await apiFetch("/api/activity/health-score");
-      var j=await r.json().catch(function(){return {};});
-      HS=(r.ok&&j.ok)?j:null;
-    }catch(e){ HS=null; }
-    renderHealthScore();
-  }
-  // Pill What You Need -> aksi nyata per kategori.
-  function gapAction(cat){
-    if(cat==="workout") return function(){ location.href="/classes"; };
-    if(cat==="nutrition") return function(){ location.href="/calories"; };
-    return null;
-  }
-  // Semua jalan pintas "upload" (Health Score, #upload-workout) menuju kartu upload yang sama.
+  // Semua jalan pintas "upload" menuju kartu upload yang sama.
   function uploadWorkoutGo(){
     var c=document.getElementById("uploadCard"); if(!c) return;
     c.scrollIntoView({behavior:"smooth",block:"center"});
     c.classList.add("hl"); setTimeout(function(){ c.classList.remove("hl"); },2400);
     upPick();
   }
-  // Komponen tanpa data -> CTA untuk mengisinya. [label, aksi]. Tidur & langkah juga masuk
-  // lewat kartu upload (screenshot), jadi keduanya mengarah ke sana.
-  var HS_FILL={
-    workout:[{en:"Upload workout",id:"Upload workout"},uploadWorkoutGo],
-    nutrition:[{en:"Log meals",id:"Catat makan"},function(){ location.href="/calories"; }],
-    body:[{en:"Visbody scan",id:"Scan Visbody"},function(){ location.href="/activity/visbody"; }],
-    sleep:[{en:"Upload sleep",id:"Upload tidur"},uploadWorkoutGo],
-    hydration:[{en:"Upload steps",id:"Upload langkah"},uploadWorkoutGo],
-    lab:[{en:"Upload MCU",id:"Upload MCU"},function(){ location.href="/medical"; }]
-  };
-  function hsNote(){ return '<span class="hs-note">'+esc(Lx({en:"A general fitness indicator — not a medical assessment",id:"Indikator kebugaran umum — bukan penilaian medis"}))+'</span>'; }
-  function wireHsFill(host){
-    Array.prototype.forEach.call(host.querySelectorAll("[data-hs-fill]"),function(b){ var f=HS_FILL[b.getAttribute("data-hs-fill")]; if(f) b.onclick=f[1]; });
+  function chev(){ return (window.FIC&&FIC.has&&FIC.has("chevron"))?FIC("chevron",14):"\u203A"; }
+
+  // ---- Kartu "Hari ini" — /api/activity/today-plan (analisa deterministik lib/today-brief.js) ----
+  var BRIEF=null;
+  async function loadToday(){
+    try{
+      var r=await apiFetch("/api/activity/today-plan?lang="+encodeURIComponent(I18N.lang));
+      var j=await r.json().catch(function(){return {};});
+      BRIEF=(r.ok&&j.brief)?j.brief:null;
+    }catch(e){ BRIEF=null; }
+    renderToday(); renderReadiness();
   }
-  // TERKUNCI (belum ada scan Visbody ter-claim & belum pernah workout): tanpa angka, dua jalur buka,
-  // plus komponen yang sudah terisi supaya user tahu dia sudah dekat.
-  var HS_LOCK_LOGGED=false;
-  function renderHsLocked(host){
-    if(!HS_LOCK_LOGGED){ HS_LOCK_LOGGED=true; jnEvent("health_score_locked_shown"); }
-    var filled=(HS.filled||[]);
-    var done=HS_CATS.filter(function(c){ return filled.indexOf(c[0])>=0; });
-    host.innerHTML='<div class="card health-score-card hs-locked">'+
-      '<div class="hs-header"><span class="hs-title">'+FIC("lock",15)+' Health Score</span><span class="hs-lock-tag">'+esc(Lx({en:"Locked",id:"Terkunci"}))+'</span></div>'+
-      '<p class="hs-lock-p">'+esc(Lx({en:"Your Health Score sums up workout, nutrition, body composition, sleep, hydration and lab data into one number. To unlock it, add one of these:",id:"Health Score merangkum latihan, nutrisi, komposisi tubuh, tidur, hidrasi, dan lab jadi satu angka. Untuk membukanya, tambahkan salah satu:"}))+'</p>'+
-      '<div class="hs-paths">'+
-        '<a class="hs-path pri" href="/activity/visbody">'+FIC("scan",18)+'<span><b>'+esc(Lx({en:"Visbody scan at 20FIT",id:"Scan Visbody di 20FIT"}))+'</b><small>'+esc(Lx({en:"Recommended — the most complete data",id:"Direkomendasikan — data paling lengkap"}))+'</small></span></a>'+
-        '<button type="button" class="hs-path" data-hs-fill="workout">'+FIC("upload",18)+'<span><b>'+esc(Lx({en:"Upload your first workout",id:"Upload workout pertamamu"}))+'</b><small>'+esc(Lx({en:"Quick — no need to visit",id:"Jalur cepat tanpa datang ke lokasi"}))+'</small></span></button>'+
+  function briefBasis(){
+    if(!BRIEF) return "";
+    var w=BRIEF.workout;
+    if(w&&w.factors&&w.factors.length) return w.factors.slice(0,3).map(function(f){return f.name;}).join(", ");
+    var nm={sleep:{en:"sleep",id:"tidur"},nutrition:{en:"nutrition",id:"nutrisi"},hydration:{en:"hydration",id:"hidrasi"},workout:{en:"workout",id:"workout"},body:{en:"body",id:"tubuh"}};
+    return (BRIEF.status||[]).filter(function(x){return x.status!=="tidak_ada_data";}).slice(0,3).map(function(x){return Lx(nm[x.key]||{en:x.key,id:x.key});}).join(", ");
+  }
+  function renderToday(){
+    var host=document.getElementById("todayCard"); if(!host) return;
+    if(!BRIEF){
+      host.innerHTML='<span class="v3-k">'+esc(Lx({en:"Today",id:"Hari ini"}))+'</span>'+
+        '<div class="v3-h">'+esc(Lx({en:"Tell the Coach your goal",id:"Ceritakan goal-mu ke Coach"}))+'</div>'+
+        '<div class="v3-s">'+esc(Lx({en:"No plan for today yet. Build one from your data, or ask the Coach where to start.",id:"Belum ada plan hari ini. Buat dari datamu, atau tanya Coach mulai dari mana."}))+'</div>'+
+        '<a class="v3-btn" href="/activity/chat">'+FIC("chat",16)+' '+esc(Lx({en:"Chat with the Coach",id:"Ngobrol dengan Coach"}))+'</a>'+
+        '<button type="button" class="v3-btn sec" id="genToday">'+esc(Lx({en:"Build today's plan",id:"Buat plan & analisa hari ini"}))+'</button>';
+      wireGenToday();
+      return;
+    }
+    var w=BRIEF.workout, items=(BRIEF.score&&BRIEF.score.items)||[];
+    var sub=(w&&w.headline)||(items[0]&&items[0].detail)||((BRIEF.status||[])[0]&&BRIEF.status[0].text)||"";
+    var cta = w
+      ? '<a class="v3-btn" href="/activity/history/'+encodeURIComponent(w.id)+'">'+esc(Lx({en:"See full analysis",id:"Lihat analisa lengkap"}))+'</a>'
+      : '<a class="v3-btn" href="/activity/chat">'+FIC("chat",16)+' '+esc(Lx({en:"Chat with the Coach",id:"Ngobrol dengan Coach"}))+'</a>';
+    var href = w?('/activity/history/'+encodeURIComponent(w.id)):'/activity/chat';
+    var rows = items.slice(0,2).map(function(it){
+      return '<a class="v3-next" href="'+href+'"><span class="dot"></span><span style="flex:1">'+esc(it.title)+(it.points?(' · +'+it.points):'')+'</span><span class="gt">'+chev()+'</span></a>';
+    }).join("");
+    var basis=briefBasis();
+    host.innerHTML='<span class="v3-k">'+esc(Lx({en:"Today",id:"Hari ini"}))+'</span>'+
+      '<div class="v3-h">'+esc(BRIEF.headline||"")+'</div>'+
+      (sub?'<div class="v3-s">'+esc(sub)+'</div>':'')+
+      cta+
+      (basis?'<div class="v3-row"><span class="v3-basis">'+esc(Lx({en:"Based on: ",id:"Berdasarkan: "})+basis)+'</span><a class="v3-basis" style="font-weight:800;color:var(--fit-red,#E4002B);text-decoration:none" href="/activity/chat">'+esc(Lx({en:"Ask Coach",id:"Tanya Coach"}))+'</a></div>':'')+
+      (rows?'<div style="display:flex;flex-direction:column;border-top:1px solid var(--a-line);margin-top:2px">'+rows+'</div>':'');
+  }
+  // "Buat plan hari ini" — generate (AI/template, server lib/today-brief) lalu render ulang.
+  function wireGenToday(){
+    var b=document.getElementById("genToday"); if(!b) return;
+    b.onclick=async function(){
+      if(b.disabled) return; b.disabled=true; b.textContent=Lx({en:"Building…",id:"Membuat…"});
+      try{
+        var r=await apiFetch("/api/activity/today-plan/generate",{method:"POST",body:JSON.stringify({lang:I18N.lang,coach_id:TPL_COACH})});
+        var j=await r.json().catch(function(){return {};});
+        if(r.ok&&j.brief){ BRIEF=j.brief; renderToday(); renderReadiness(); return; }
+      }catch(e){}
+      b.disabled=false; b.textContent=Lx({en:"Build today's plan",id:"Buat plan & analisa hari ini"});
+    };
+  }
+  // Chip kesiapan — HANYA dari sinyal eksplisit (hindari mengarang).
+  function renderReadiness(){
+    var host=document.getElementById("hdChip"); if(!host) return;
+    host.innerHTML="";
+    if(!BRIEF) return;
+    var items=(BRIEF.score&&BRIEF.score.items)||[];
+    if(items.some(function(it){return it.cta==="rest";})){ host.innerHTML='<span class="v3-chip rest"><span class="d"></span>'+esc(Lx({en:"Needs recovery",id:"Perlu pulih"}))+'</span>'; return; }
+    if(/^(Fokus|Focus)/.test(String(BRIEF.headline||""))){ host.innerHTML='<span class="v3-chip warn"><span class="d"></span>'+esc(Lx({en:"Moderate",id:"Sedang"}))+'</span>'; return; }
+    host.innerHTML='<span class="v3-chip ok"><span class="d"></span>'+esc(Lx({en:"Good",id:"Baik"}))+'</span>';
+  }
+
+  // ---- Kartu "Minggu ini" — sesi & menit minggu berjalan (dari /api/activity/history) ----
+  function weekStart(){ var d=new Date(); var g=(d.getDay()+6)%7; d.setDate(d.getDate()-g); return ymdOf(d); } // Senin
+  async function loadWeek(){
+    var sessions=0, minutes=0;
+    try{
+      var r=await apiFetch("/api/activity/history?limit=60&lang="+encodeURIComponent(I18N.lang));
+      var j=await r.json().catch(function(){return {};});
+      var ws=weekStart();
+      ((j&&j.items)||[]).forEach(function(it){
+        if(it.kind!=="workout"||!it.date||it.date<ws) return;
+        sessions++; if(it.duration_min) minutes+=(+it.duration_min||0);
+      });
+    }catch(e){}
+    renderWeek(sessions,minutes);
+  }
+  function renderWeek(sessions,minutes){
+    var host=document.getElementById("weekCard"); if(!host) return;
+    var dark=!document.documentElement.classList.contains("theme-light");
+    var bm=window.BodyMap?BodyMap.svg([],{w:120,h:150,lang:I18N.lang,sil:(dark?"#2b313d":"#e4e5ea"),off:(dark?"#394150":"#d7dae0"),label:(dark?"#9aa3b2":"#9a9ca6")}):"";
+    var right = sessions
+      ? '<div><div class="v3-big">'+(minutes||sessions)+'</div><div class="v3-s">'+esc(minutes?Lx({en:"minutes",id:"menit"}):Lx({en:"sessions",id:"sesi"}))+' · '+sessions+' '+esc(Lx({en:"sessions",id:"sesi"}))+'</div></div>'
+      : '<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:15px;font-weight:700">'+esc(Lx({en:"No sessions yet",id:"Belum ada sesi"}))+'</span><span class="v3-s">'+esc(Lx({en:"Muscles you train this week light up here.",id:"Otot yang kamu latih minggu ini menyala di sini."}))+'</span></div>';
+    host.innerHTML='<span class="v3-k">'+esc(Lx({en:"This week",id:"Minggu ini"}))+'</span>'+
+      '<div class="v3-week"><div class="v3-bodymap">'+bm+'</div>'+right+'</div>'+
+      '<a href="/playlist" style="font-size:13px;font-weight:800;color:var(--fit-red,#E4002B);text-decoration:none">'+esc(Lx({en:"Training & playlist",id:"Latihan & playlist"}))+'</a>';
+  }
+
+  // ---- Kartu "Tubuhmu" — Visbody (dari /api/journey/state: metrics + prev_metrics) ----
+  async function loadBody(){
+    var st=null;
+    try{ var r=await apiFetch("/api/journey/state"); st=await r.json().catch(function(){return null;}); }catch(e){ st=null; }
+    renderBody(st);
+  }
+  function dlt(cur,prev){ if(cur==null||prev==null) return null; var d=cur-prev; return {d:d,s:(d>0?"+":"")+(Math.round(d*10)/10)}; }
+  function renderBody(st){
+    var host=document.getElementById("bodyCard"); if(!host) return;
+    var ls=st&&st.latest_scan, m=ls&&ls.metrics, p=ls&&ls.prev_metrics;
+    if(!st||!st.has_claimed_scan||!m){
+      host.innerHTML='<span class="v3-k">'+esc(Lx({en:"Your body",id:"Tubuhmu"}))+'</span>'+
+        '<div class="v3-h" style="font-size:15px">'+esc(Lx({en:"Scan Visbody at a 20FIT studio",id:"Scan Visbody di studio 20FIT"}))+'</div>'+
+        '<div class="v3-s">'+esc(Lx({en:"±2 min. Your calorie & protein needs get far more accurate.",id:"±2 menit. Kebutuhan kalori & protein jadi jauh lebih akurat."}))+'</div>'+
+        '<a class="v3-btn sec" href="/activity/visbody">'+esc(Lx({en:"Scan Visbody",id:"Scan Visbody"}))+'</a>';
+      return;
+    }
+    var green="var(--fit-green,#16A34A)", red="var(--fit-red,#E4002B)", mut="var(--a-mut)";
+    function stat(label,val,unit,delta,goodUp){
+      var ds="", dc=mut;
+      if(delta){ ds=delta.s+(unit?(" "+unit):""); dc=(delta.d===0||goodUp===null)?mut:(((delta.d>0)===goodUp)?green:red); }
+      return '<div class="v3-stat"><div class="sl">'+esc(label)+'</div><div class="sv">'+(val==null?"—":esc(val))+((unit&&val!=null)?('<span style="font-size:11px;color:'+mut+'"> '+esc(unit)+'</span>'):'')+'</div>'+(ds?'<div class="sd" style="color:'+dc+'">'+esc(ds)+'</div>':'')+'</div>';
+    }
+    var when=""; try{ when=ls.scanned_at?new Date(ls.scanned_at).toLocaleDateString(I18N.lang==="en"?"en-GB":"id-ID",{day:"numeric",month:"short"}):""; }catch(e){}
+    host.innerHTML='<div class="v3-row"><span class="v3-k">'+esc(Lx({en:"Your body",id:"Tubuhmu"}))+'</span><span class="v3-s">Visbody'+(when?(" · "+esc(when)):"")+'</span></div>'+
+      '<div class="v3-stats">'+
+        stat(Lx({en:"Weight",id:"Berat"}),m.weight,"kg",dlt(m.weight,p&&p.weight),null)+
+        stat(Lx({en:"Muscle",id:"Otot"}),m.muscle,"kg",dlt(m.muscle,p&&p.muscle),true)+
+        stat(Lx({en:"Body fat",id:"Lemak"}),m.body_fat,"%",dlt(m.body_fat,p&&p.body_fat),false)+
       '</div>'+
-      (done.length?'<div class="hs-have">'+esc(Lx({en:"Already filled: ",id:"Sudah terisi: "}))+done.map(function(c){ return '<span>'+FIC("check",12)+' '+esc(Lx(c[1]))+'</span>'; }).join("")+'</div>':'')+
-      '<div class="hs-foot">'+hsNote()+'</div></div>';
-    wireHsFill(host);
-  }
-  function renderHealthScore(){
-    var host=document.getElementById("healthScoreBox"); if(!host) return;
-    if(!HS){ host.innerHTML='<div class="card health-score-card"><div class="hs-header"><span class="hs-title">Health Score</span></div>'+
-      '<div class="hs-note" style="margin-top:6px">'+esc(Lx({en:"Couldn't load your score right now.",id:"Skor belum bisa dimuat sekarang."}))+'</div></div>'; return; }
-    if(!HS.unlocked){ renderHsLocked(host); return; }
-    var bd=HS.breakdown||{}, has=typeof HS.total==="number", tot=has?Math.max(0,Math.min(100,Math.round(HS.total))):0;
-    var lv=hsLevel(tot);
-    var lbl={good:{en:"Good",id:"Bagus"},"needs-work":{en:"Needs work",id:"Perlu ditingkatkan"},critical:{en:"Critical",id:"Kritis"}}[lv];
-    var nFill=(HS.filled||[]).length, nAll=HS.components_total||HS_CATS.length;
-    // Baris per komponen (gaya makro di Calorie Tracker): nama + skor/100 + bar; tanpa data -> tombol isi.
-    var rows=HS_CATS.map(function(c){
-      var s=bd[c[0]];
-      if(!s) return '<div class="hs-row"><div class="hs-rtop"><span>'+esc(Lx(c[1]))+'</span>'+
-        '<button type="button" class="hs-fill" data-hs-fill="'+c[0]+'" title="'+esc(Lx({en:"No data yet",id:"Belum ada data"}))+'">+ '+esc(Lx(HS_FILL[c[0]][0]))+'</button></div></div>';
-      var v=Math.max(0,Math.min(100,Math.round(s.score))), l2=hsLevel(v);
-      var tip=String(s.detail||"")+(s.stale?" · "+Lx({en:"scan is "+s.age_days+" days old — rescan to update",id:"scan sudah "+s.age_days+" hari — perlu diperbarui"}):"");
-      return '<div class="hs-row" title="'+esc(tip)+'"><div class="hs-rtop"><span>'+esc(Lx(c[1]))+(s.stale?' <span class="hs-stale">'+esc(Lx({en:"old",id:"lama"}))+'</span>':'')+'</span>'+
-        '<span class="hs-rv">'+v+' / 100</span></div><div class="hs-rbar"><i class="'+l2+'" style="width:'+v+'%"></i></div></div>';
-    }).join("");
-    // Lingkaran progres: penuh saat skor 100.
-    var R=52, C=2*Math.PI*R, off=C*(1-(has?tot:0)/100);
-    var ring='<div class="hs-ring"><svg viewBox="0 0 124 124" aria-hidden="true"><circle class="trk" cx="62" cy="62" r="'+R+'"/>'+
-      '<circle class="val '+lv+'" cx="62" cy="62" r="'+R+'" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'"/></svg>'+
-      '<span class="hs-ring-c '+lv+'">'+FIC("heart",26)+'</span></div>';
-    var gaps=Array.isArray(HS.gaps)?HS.gaps:[];
-    var pills=gaps.map(function(g,i){
-      var tip=Lx(g.detail||{})+(g.target?" · "+Lx(g.target):"");
-      return '<button type="button" class="wyn-pill" data-g="'+i+'" title="'+esc(tip)+'">'+((window.FIC&&FIC.has(g.icon))?FIC(g.icon,14):esc(g.icon||"•"))+' '+esc(Lx(g.action||{}))+'</button>';
-    }).join("");
-    var first=gaps[0];
-    host.innerHTML='<div class="card health-score-card">'+
-      '<div class="hs-tlbl">'+esc(Lx({en:"Your Health Score",id:"Health Score kamu"}))+'</div>'+
-      '<div class="hs-main">'+ring+'<div class="hs-nums">'+
-        '<div class="hs-big '+lv+'">'+(has?tot:"—")+'<small>/100</small></div>'+
-        '<div class="hs-sub">'+esc(has
-          ?Lx({en:"from "+nFill+" of "+nAll+" components — more data, more accurate",id:"dari "+nFill+" dari "+nAll+" komponen — makin lengkap datamu, makin akurat"})
-          :Lx({en:"Your score appears once your first data is processed.",id:"Skor muncul setelah data pertamamu selesai diproses."}))+'</div>'+
-        (has?(tot>=100?'<div class="hs-togo"><b>100</b> '+esc(Lx({en:"full score!",id:"skor penuh!"}))+'</div>'
-          :'<div class="hs-togo"><b>'+(100-tot)+'</b> '+esc(Lx({en:"points to a full circle",id:"poin lagi sampai lingkaran penuh"}))+'</div>'):'')+
-        (has?'<div class="hs-st">Status <span class="hs-label '+lv+'">'+esc(Lx(lbl))+'</span></div>':'')+
-      '</div></div>'+
-      '<div class="hs-rows">'+rows+'</div>'+
-      (gaps.length?('<div class="wyn-t">'+esc(Lx({en:"What You Need",id:"Yang Kamu Butuhkan"}))+'</div>'+
-        '<div class="wyn-pills">'+pills+'</div>'+
-        '<div class="wyn-why" id="wynWhy">'+esc(Lx(first.detail||{}))+'</div>'):'')+
-      '<div class="hs-foot"><a class="hs-cta" href="/activity/chat/'+encodeURIComponent(TPL_COACH)+'">'+FIC("chat",14)+' '+esc(Lx({en:"Chat Coach →",id:"Chat Coach →"}))+'</a>'+hsNote()+'</div>'+
-    '</div>';
-    wireHsFill(host);
-    Array.prototype.forEach.call(host.querySelectorAll(".wyn-pill"),function(b){
-      var g=gaps[+b.getAttribute("data-g")]; if(!g) return;
-      var go=gapAction(g.category);
-      b.onmouseenter=b.onfocus=function(){ var w=document.getElementById("wynWhy"); if(w) w.textContent=Lx(g.detail||{})+(g.target?" → "+Lx(g.target):""); };
-      if(go) b.onclick=go;
-    });
+      '<a href="/activity/visbody" style="font-size:13px;font-weight:800;color:var(--fit-red,#E4002B);text-decoration:none">'+esc(Lx({en:"See scan details",id:"Lihat detail scan"}))+'</a>';
   }
 
   // ---- Upload log (riwayat singkat di bawah kartu upload) ----
@@ -871,7 +800,7 @@
   var REFRESH_T=null;
   function refreshDerived(){
     clearTimeout(REFRESH_T);
-    REFRESH_T=setTimeout(function(){ loadHealthScore(); },500);
+    REFRESH_T=setTimeout(function(){ loadToday(); loadWeek(); loadBody(); },500);
   }
 
   (async function(){
@@ -879,13 +808,12 @@
     AUTH_UID=(user&&user.id)||null;   // tangkap id auth SEBELUM profil digabung
     try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
     renderHead(); wireUpload(); wireDlg();
-    renderCoachQa(); loadCoachProfiles();   // konsultasi coach (carousel + aksi cepat)
-    loadHealthScore(); loadUploadLog();
+    loadToday(); loadWeek(); loadBody(); loadUploadLog();
     if(location.hash==="#upload-workout"){ try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} setTimeout(uploadWorkoutGo,600); }
   })();
 
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
-    renderHead(); renderHealthScore(); loadUploadLog(); renderCoachQa(); renderCoachProfiles();
+    renderHead(); loadUploadLog(); loadToday(); loadWeek(); loadBody();
   });
 
 </script>
