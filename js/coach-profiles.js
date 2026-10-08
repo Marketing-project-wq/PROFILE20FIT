@@ -30,6 +30,15 @@
     ["elsen",   { en: "Detail-oriented",       id: "Detail & teknis" },      "#16A34A"],
   ];
   var NAME = { nando: "Ben", calysta: "Angie", rheza: "Stella", elsen: "Tom" };   // slug internal tetap; nama tampil diganti
+  // Spesialisasi persona AI = di KODE (chat-only). Tidak lagi dari baris my20fit_coaches: baris itu
+  // kini milik coach KELAS nyata (Coach Nando/Calysta/Rheza/Elsen) dengan foto asli, dan persona AI
+  // sengaja tanpa foto. (Sebelumnya berbagi baris → konflik foto.)
+  var SPEC = {
+    nando:   { en: "Functional & HYROX",  id: "Functional & HYROX" },
+    calysta: { en: "Fat-loss & HIIT",     id: "Fat-loss & HIIT" },
+    rheza:   { en: "Athletic Performance", id: "Athletic Performance" },
+    elsen:   { en: "Functional & Form",   id: "Functional & Form" },
+  };
   var PROFILE = {
     nando: {
       traits: [{ en: "Motivational", id: "Motivational" }, { en: "Strict", id: "Tegas" }, { en: "Ambitious", id: "Ambisius" }, { en: "Detailed", id: "Detail" }],
@@ -50,7 +59,7 @@
 
   function color(slug) { for (var i = 0; i < LIST.length; i++) if (LIST[i][0] === slug) return LIST[i][2]; return "#E4002B"; }
   function photo(slug) { return (ROSTER[slug] && ROSTER[slug].photo) || ""; }
-  function speciality(slug) { return (ROSTER[slug] && ROSTER[slug].speciality) || ""; }   // spesialisasi olahraga (CMS /api/coaches)
+  function speciality(slug) { return SPEC[slug] ? Lx(SPEC[slug]) : ((ROSTER[slug] && ROSTER[slug].speciality) || ""); }   // spesialisasi persona (KODE)
   function tagline(slug) { for (var i = 0; i < LIST.length; i++) if (LIST[i][0] === slug) return Lx(LIST[i][1]); return ""; }
 
   function loadRoster() {
@@ -74,14 +83,14 @@
   }
 
   function card(c, active) {
-    var slug = c[0], pf = PROFILE[slug] || {}, row = ROSTER[slug] || {};
+    var slug = c[0], pf = PROFILE[slug] || {}, sp = speciality(slug);
     return '<div class="cprof' + (active ? ' on' : '') + '" style="--cc:' + c[2] + '">' +
       (active ? '<span class="cprof-badge">' + esc(Lx({ en: "Your coach", id: "Coach kamu" })) + '</span>' : '') +
       '<div class="cprof-top">' + avatar(slug, 76) +
         '<div class="cprof-n">Coach ' + esc(NAME[slug]) + '</div>' +
         '<div class="cprof-tag">' + esc(Lx(c[1])) + '</div>' +
-        // Spesialisasi = isian tim di admin-v2 → Coaches (tidak ditebak); kosong -> tidak tampil.
-        (row.speciality ? '<div class="cprof-v">' + ic("medal", 13) + ' ' + esc(Lx({ en: "Specialty: ", id: "Spesialisasi: " }) + row.speciality) + '</div>' : '') +
+        // Spesialisasi persona = SPEC (kode). Kosong -> tidak tampil.
+        (sp ? '<div class="cprof-v">' + ic("medal", 13) + ' ' + esc(Lx({ en: "Specialty: ", id: "Spesialisasi: " }) + sp) + '</div>' : '') +
         '</div>' +
       '<div class="cprof-traits">' + (pf.traits || []).map(function (t) { return '<span>' + esc(Lx(t)) + '</span>'; }).join("") + '</div>' +
       '<button type="button" class="cprof-go" data-pick="' + esc(slug) + '">' + ic("chat", 16) + ' ' + esc(Lx({ en: "Chat with ", id: "Chat dengan " }) + NAME[slug]) + '</button>' +
