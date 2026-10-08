@@ -12626,6 +12626,14 @@ app.get(["/activity/chat", "/activity/chat/:coach", "/activity/plan", "/activity
 app.get("/activity/visbody", (req, res) => {
   res.sendFile(path.join(__dirname, "body-scan.html"));
 });
+// Rekap mingguan (desain Activity v3 · layar 1h) — ringkasan sepekan + BodyMap + fokus minggu depan.
+app.get("/activity/recap", (req, res) => {
+  res.sendFile(path.join(__dirname, "activity-recap.html"));
+});
+// Story card 9:16 (desain Activity v3 · layar 1i) — share workout/minggu. /:id = story 1 workout.
+app.get(["/activity/story", "/activity/story/:id"], (req, res) => {
+  res.sendFile(path.join(__dirname, "activity-story.html"));
+});
 // Playlist 20FIT (library gerakan + playlist). Path bertingkat (/playlist/:id) -> playlist.html
 // (playlist.js membaca path). <base href="/"> wajib ada di head (lihat catatan di atas).
 app.get(["/playlist", "/playlist/new", "/playlist/:id"], (req, res) => {

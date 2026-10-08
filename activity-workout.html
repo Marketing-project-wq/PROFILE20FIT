@@ -456,7 +456,8 @@
   function render(){
     var root=el("root"), html=head();
     if(S.a.safety) html+=safetyCard()+metrics();
-    else html+=metrics()+rpeCard()+perf()+muscleCard()+signalsCard()+readCard()+checkinCard()+factors()+nutriCard()+coachCard()+stepsCard()+nextCard()+howCard()+ctaCard();
+    else html+=metrics()+rpeCard()+perf()+muscleCard()+signalsCard()+readCard()+checkinCard()+factors()+nutriCard()+coachCard()+stepsCard()+nextCard()+howCard()+ctaCard()+
+      '<a class="b pri" href="/activity/story/'+encodeURIComponent(ID)+'" style="margin-top:16px;width:100%;justify-content:center;height:48px;border-radius:999px">'+FIC("upload",15)+' '+esc(L({en:"Share to story",id:"Bagikan ke story"}))+'</a>';
     html+='<div class="acts" style="margin-top:22px"><button type="button" class="b dng" id="bDel">'+FIC("trash",15)+' '+esc(L({en:"Delete this upload",id:"Hapus upload ini"}))+'</button></div>';
     root.innerHTML=html;
     wire();
