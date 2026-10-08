@@ -41,12 +41,14 @@
       '<rect x="' + (cx + 4) + '" y="202" width="27" height="188" rx="13" fill="' + sil + '"/>'
     );
   }
-  function muscles(cx, defs, active, on, off) {
+  function muscles(cx, defs, active, secondary, on, mid, off) {
     var out = "";
     defs.forEach(function (d) {
       var lit = d.k.some(function (k) { return active[k]; });
+      var sec = !lit && d.k.some(function (k) { return secondary[k]; });
+      var fill = lit ? on : (sec ? mid : off);
       d.e.forEach(function (e) {
-        out += '<ellipse cx="' + (cx + e[0]) + '" cy="' + e[1] + '" rx="' + e[2] + '" ry="' + e[3] + '" fill="' + (lit ? on : off) + '"' + (lit ? ' opacity="0.95"' : '') + '/>';
+        out += '<ellipse cx="' + (cx + e[0]) + '" cy="' + e[1] + '" rx="' + e[2] + '" ry="' + e[3] + '" fill="' + fill + '"' + (lit ? ' opacity="0.95"' : (sec ? ' opacity="0.72"' : '')) + '/>';
       });
     });
     return out;
@@ -54,17 +56,20 @@
   function label(cx, y, text, color) {
     return '<text x="' + cx + '" y="' + y + '" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="15" font-weight="800" letter-spacing="1" fill="' + color + '">' + text + '</text>';
   }
-  // opts: {w,h, sil, on, off, label, dark} — warna bisa dioverride (default tema gelap story).
+  // opts: {w,h, sil, on, mid, off, label, lang, labels, secondary} — warna bisa dioverride.
+  //   secondary = array/Set muscle_key tier pendukung (warna `mid`, lebih redup dari `on`).
+  //   labels=false -> sembunyikan teks DEPAN/BELAKANG.
   function svg(activeKeys, opts) {
     opts = opts || {};
     var active = {}; (activeKeys instanceof Set ? Array.from(activeKeys) : (activeKeys || [])).forEach(function (k) { active[k] = 1; });
-    var sil = opts.sil || "#2b313d", on = opts.on || "#E4002B", off = opts.off || "#394150", lab = opts.label || "#9aa3b2";
+    var secondary = {}; (opts.secondary instanceof Set ? Array.from(opts.secondary) : (opts.secondary || [])).forEach(function (k) { if (!active[k]) secondary[k] = 1; });
+    var sil = opts.sil || "#2b313d", on = opts.on || "#E4002B", mid = opts.mid || "#8a2230", off = opts.off || "#394150", lab = opts.label || "#9aa3b2";
     var w = opts.w || 400, h = opts.h || 440, fL = 100, fR = 300;
-    var en = (opts.lang === "en");
+    var en = (opts.lang === "en"), showLab = opts.labels !== false;
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 440" width="' + w + '" height="' + h + '">' +
-      silhouette(fL, sil) + muscles(fL, MUS_FRONT, active, on, off) +
-      silhouette(fR, sil) + muscles(fR, MUS_BACK, active, on, off) +
-      label(fL, 420, en ? "FRONT" : "DEPAN", lab) + label(fR, 420, en ? "BACK" : "BELAKANG", lab) +
+      silhouette(fL, sil) + muscles(fL, MUS_FRONT, active, secondary, on, mid, off) +
+      silhouette(fR, sil) + muscles(fR, MUS_BACK, active, secondary, on, mid, off) +
+      (showLab ? label(fL, 420, en ? "FRONT" : "DEPAN", lab) + label(fR, 420, en ? "BACK" : "BELAKANG", lab) : "") +
       '</svg>';
   }
   // Grup otot utama untuk judul story (dari muscle_key -> grup ringkas).

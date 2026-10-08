@@ -284,6 +284,7 @@
 <script src="js/nav.js"></script>
 <script src="js/workout-metrics.js"></script>
 <script src="js/bodymap.js?v=20261008a"></script>
+<script src="js/sport-muscles.js?v=20261008a"></script>
 <script>
   // ---- Halaman Activity (desain v3) ----
   // Kartu: Hari ini (today-brief) · Workout (upload) · Minggu ini (bodymap) · Tubuhmu (Visbody).
@@ -696,7 +697,7 @@
   // ---- Kartu "Minggu ini" — sesi & menit minggu berjalan (dari /api/activity/history) ----
   function weekStart(){ var d=new Date(); var g=(d.getDay()+6)%7; d.setDate(d.getDate()-g); return ymdOf(d); } // Senin
   async function loadWeek(){
-    var sessions=0, minutes=0;
+    var sessions=0, minutes=0, weekItems=[];
     try{
       var r=await apiFetch("/api/activity/history?limit=60&lang="+encodeURIComponent(I18N.lang));
       var j=await r.json().catch(function(){return {};});
@@ -704,16 +705,21 @@
       ((j&&j.items)||[]).forEach(function(it){
         if(it.kind!=="workout"||!it.date||it.date<ws) return;
         sessions++; if(it.duration_min) minutes+=(+it.duration_min||0);
+        weekItems.push({type:it.type,muscle_keys:it.muscle_keys});
       });
     }catch(e){}
-    renderWeek(sessions,minutes);
+    var mus=(window.SportMuscles)?SportMuscles.week(weekItems):{active:[],secondary:[]};
+    renderWeek(sessions,minutes,mus);
   }
-  function renderWeek(sessions,minutes){
+  function renderWeek(sessions,minutes,mus){
     var host=document.getElementById("weekCard"); if(!host) return;
+    mus=mus||{active:[],secondary:[]};
     var dark=!document.documentElement.classList.contains("theme-light");
-    var bm=window.BodyMap?BodyMap.svg([],{w:120,h:150,lang:I18N.lang,sil:(dark?"#2b313d":"#e4e5ea"),off:(dark?"#394150":"#d7dae0"),label:(dark?"#9aa3b2":"#9a9ca6")}):"";
+    var bm=window.BodyMap?BodyMap.svg(mus.active,{secondary:mus.secondary,w:120,h:150,labels:false,lang:I18N.lang,
+      sil:(dark?"#2b313d":"#e4e5ea"),on:"#E4002B",mid:(dark?"#7a2030":"#f0b3bc"),off:(dark?"#394150":"#d7dae0")}):"";
+    var focus=(sessions&&window.BodyMap&&mus.active.length)?BodyMap.focus(mus.active,I18N.lang==="en"?"en":"id"):"";
     var right = sessions
-      ? '<div><div class="v3-big">'+(minutes||sessions)+'</div><div class="v3-s">'+esc(minutes?Lx({en:"minutes",id:"menit"}):Lx({en:"sessions",id:"sesi"}))+' · '+sessions+' '+esc(Lx({en:"sessions",id:"sesi"}))+'</div></div>'
+      ? '<div style="display:flex;flex-direction:column;gap:8px"><div><div class="v3-big">'+(minutes||sessions)+'</div><div class="v3-s">'+esc(minutes?Lx({en:"minutes",id:"menit"}):Lx({en:"sessions",id:"sesi"}))+' · '+sessions+' '+esc(Lx({en:"sessions",id:"sesi"}))+'</div></div>'+(focus?'<div class="v3-s" style="color:var(--a-txt);font-weight:700">'+esc(focus)+'</div>':'')+'</div>'
       : '<div style="display:flex;flex-direction:column;gap:4px"><span style="font-size:15px;font-weight:700">'+esc(Lx({en:"No sessions yet",id:"Belum ada sesi"}))+'</span><span class="v3-s">'+esc(Lx({en:"Muscles you train this week light up here.",id:"Otot yang kamu latih minggu ini menyala di sini."}))+'</span></div>';
     host.innerHTML='<span class="v3-k">'+esc(Lx({en:"This week",id:"Minggu ini"}))+'</span>'+
       '<div class="v3-week"><div class="v3-bodymap">'+bm+'</div>'+right+'</div>'+
