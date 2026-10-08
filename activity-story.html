@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base href="/">
+<link rel="icon" type="image/png" href="https://media.20fit.id/wp-content/uploads/2026/05/Copy-of-new-logo-20fit-putih-3.png" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Story · 20FIT</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{ --a-bg:var(--bg,#F1F1F4); --a-surface:var(--card,#FFFFFF); --a-line:var(--glass-hair,var(--line,#EBEBEF));
+    --a-txt:var(--txt,#15171C); --a-mut:var(--muted,#8A8D94); --sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;font-family:var(--sans);color:var(--a-txt);padding:20px 16px 60px;-webkit-font-smoothing:antialiased;
+    background:radial-gradient(70% 30% at 100% 0%,color-mix(in srgb,var(--fit-red,#E4002B) 8%,transparent),transparent 70%),var(--a-bg)}
+  .wrap{max-width:440px;margin:0 auto}
+  .ahead{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .ahead .bk{width:38px;height:38px;border-radius:99px;border:1px solid var(--a-line);background:var(--a-surface);color:var(--a-txt);display:flex;align-items:center;justify-content:center;text-decoration:none;flex:none;font-size:18px}
+  .ahead h1{font-size:20px;font-weight:800;margin:0;letter-spacing:-.3px}
+  .story-img{width:100%;aspect-ratio:9/16;border-radius:20px;display:block;background:#1c1d22;box-shadow:0 14px 40px rgba(70,20,30,.22)}
+  .skel{background:color-mix(in srgb,var(--a-txt) 8%,transparent);border-radius:20px;animation:pul 1.3s infinite}
+  @keyframes pul{0%,100%{opacity:1}50%{opacity:.45}}
+  .acts{display:flex;gap:8px;margin-top:14px}
+  .btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;border-radius:999px;border:0;cursor:pointer;font-family:inherit;font-weight:800;font-size:14px;
+    color:#fff;background:var(--fit-red,#E4002B);box-shadow:0 6px 16px color-mix(in srgb,var(--fit-red,#E4002B) 30%,transparent);text-decoration:none}
+  .btn.sec{background:var(--a-surface);color:var(--a-txt);border:1px solid var(--a-line);box-shadow:none}
+  .hint{font-size:12px;color:var(--a-mut);text-align:center;margin-top:12px;line-height:1.5}
+  .err{color:var(--fit-red,#E4002B);font-size:13px;text-align:center}
+</style>
+<link rel="stylesheet" href="css/20fit-design-system.css">
+<link rel="stylesheet" href="css/glass-app.css">
+<script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
+</head>
+<body>
+<div class="wrap">
+  <div class="ahead">
+    <a class="bk" href="/activity" aria-label="Kembali" title="Kembali">‹</a>
+    <h1 data-en="Share to story" data-id="Bagikan ke story">Bagikan ke story</h1>
+  </div>
+  <div id="prev"><div class="skel" style="width:100%;aspect-ratio:9/16"></div></div>
+  <div class="acts">
+    <button type="button" class="btn sec" id="btnPhoto"></button>
+    <button type="button" class="btn sec" id="btnDl"></button>
+    <button type="button" class="btn" id="btnShare"></button>
+  </div>
+  <div class="hint" id="hint"></div>
+  <input type="file" id="photoIn" accept="image/*" hidden>
+</div>
+
+<script src="js/fiticons.js"></script>
+<script src="js/vendor-supabase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/bodymap.js?v=20261008a"></script>
+<script src="js/sport-muscles.js?v=20261008a"></script>
+<script>
+  // ---- Story card 9:16 (Activity v3 · 1i). /activity/story/:id = 1 workout, /activity/story = minggu.
+  // Canvas 1080x1920: foto user (opsional) + BodyMap + angka NYATA + brand 20FIT. ----
+  function Lx(o){ return (window.L?window.L(o):(o&&(o.id||o.en)))||""; }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+  function el(id){ return document.getElementById(id); }
+  function lng(){ return (window.I18N&&I18N.lang==="en")?"en":"id"; }
+  function ymdOf(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  async function apiFetch(path){ var o={headers:{}}; try{ var tk=await Auth.token(); if(tk) o.headers.Authorization="Bearer "+tk; }catch(e){} return fetch(path,o); }
+  var ID=((location.pathname.match(/\/activity\/story\/([^\/?#]+)/)||[])[1]||"");
+  var PHOTO=null, STORY=null;
+
+  function fmtDate(d){ try{ return (d?new Date(d+(String(d).length<=10?"T00:00:00":"")):new Date()).toLocaleDateString(lng()==="en"?"en-GB":"id-ID",{weekday:"short",day:"numeric",month:"short"}); }catch(e){ return ""; } }
+
+  async function build(){
+    try{
+      if(ID){
+        var r=await apiFetch("/api/activity/workouts/"+encodeURIComponent(ID)+"?lang="+lng());
+        if(r.status===401){ location.href="/login"; return; }
+        var j=await r.json().catch(function(){return {};});
+        var w=j.workout; if(!w) throw new Error();
+        var m=(window.SportMuscles)?SportMuscles.forType(w.type):{primary:[],secondary:[]};
+        STORY={ date:w.date, muscles:m.primary, secondary:m.secondary, title:w.title||"",
+          stats:[ [String(Math.round(w.duration_min||0)), Lx({en:"min",id:"mnt"})],
+                  (w.calories_burned!=null?[String(w.calories_burned), Lx({en:"kcal",id:"kkal"})]:null),
+                  (w.distance_km!=null?[String(w.distance_km), "km"]:null) ].filter(Boolean) };
+      } else {
+        var r2=await apiFetch("/api/activity/history?limit=80&lang="+lng());
+        if(r2.status===401){ location.href="/login"; return; }
+        var j2=await r2.json().catch(function(){return {};});
+        var ws=ymdOf((function(){var d=new Date();var g=(d.getDay()+6)%7;d.setDate(d.getDate()-g);return d;})());
+        var sessions=0,minutes=0,items=[],days={};
+        ((j2&&j2.items)||[]).forEach(function(it){ if(it.kind!=="workout"||!it.date||it.date<ws) return; sessions++; if(it.duration_min)minutes+=(+it.duration_min||0); days[it.date]=1; items.push({type:it.type,muscle_keys:it.muscle_keys}); });
+        var mw=(window.SportMuscles)?SportMuscles.week(items):{active:[],secondary:[]};
+        STORY={ date:null, muscles:mw.active, secondary:mw.secondary, title:Lx({en:"This week",id:"Minggu ini"}),
+          stats:[ [String(sessions), Lx({en:"sessions",id:"sesi"})], [String(minutes), Lx({en:"min",id:"mnt"})], [String(Object.keys(days).length), Lx({en:"days",id:"hari"})] ] };
+      }
+    }catch(e){ el("prev").innerHTML='<div class="err">'+esc(Lx({en:"Couldn't build the story.",id:"Gagal membuat story."}))+'</div>'; return; }
+    renderPreview();
+  }
+
+  function renderPreview(){
+    el("prev").innerHTML='<div class="skel" style="width:100%;aspect-ratio:9/16"></div>';
+    renderCanvas(function(canvas){
+      canvas.toBlob(function(blob){
+        if(!blob){ el("prev").innerHTML='<div class="err">'+esc(Lx({en:"Couldn't render.",id:"Gagal merender."}))+'</div>'; return; }
+        var url=URL.createObjectURL(blob);
+        el("prev").innerHTML='<img class="story-img" src="'+url+'" alt="story">';
+        el("prev")._blob=blob; el("prev")._url=url;
+      },"image/png");
+    });
+  }
+
+  function renderCanvas(cb){
+    var W=1080,H=1920,c=document.createElement("canvas"); c.width=W; c.height=H; var x=c.getContext("2d");
+    var L2=lng();
+    function bg(){
+      if(PHOTO){ try{ var iw=PHOTO.width,ih=PHOTO.height,s=Math.max(W/iw,H/ih),dw=iw*s,dh=ih*s; x.drawImage(PHOTO,(W-dw)/2,(H-dh)/2,dw,dh); }catch(e){} }
+      else { var g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,"#15181f"); g.addColorStop(1,"#2a0b10"); x.fillStyle=g; x.fillRect(0,0,W,H); }
+      // overlay utk keterbacaan (gelap atas & bawah)
+      var ov=x.createLinearGradient(0,0,0,H); ov.addColorStop(0,"rgba(18,19,24,0.62)"); ov.addColorStop(0.32,"rgba(18,19,24,0.12)"); ov.addColorStop(0.6,"rgba(18,19,24,0.35)"); ov.addColorStop(1,"rgba(18,19,24,0.92)");
+      x.fillStyle=ov; x.fillRect(0,0,W,H);
+      if(!PHOTO){ var rg=x.createRadialGradient(W/2,300,40,W/2,300,600); rg.addColorStop(0,"rgba(228,0,43,0.28)"); rg.addColorStop(1,"rgba(228,0,43,0)"); x.fillStyle=rg; x.fillRect(0,0,W,700); }
+    }
+    bg();
+    // header
+    x.textAlign="left"; x.fillStyle="#fff"; x.font="900 48px Inter,Arial,sans-serif"; x.fillText("20FIT",64,110);
+    x.textAlign="right"; x.fillStyle="rgba(255,255,255,0.82)"; x.font="700 34px Inter,Arial,sans-serif"; x.fillText(fmtDate(STORY.date),W-64,106);
+    function drawRest(){
+      // fokus
+      var foc=(window.BodyMap?BodyMap.focus(STORY.muscles,L2):"")||(L2==="en"?"Full body":"Seluruh tubuh");
+      x.textAlign="center";
+      x.fillStyle="rgba(255,255,255,0.72)"; x.font="700 32px Inter,Arial,sans-serif"; x.fillText(L2==="en"?"FOCUS":"FOKUS",W/2,1320);
+      x.fillStyle="#fff"; x.font="900 72px Inter,Arial,sans-serif"; x.fillText(foc,W/2,1398);
+      if(STORY.title){ x.fillStyle="rgba(255,255,255,0.85)"; x.font="700 36px Inter,Arial,sans-serif"; x.fillText(String(STORY.title).slice(0,30),W/2,1452); }
+      // stats
+      var st=STORY.stats||[], n=st.length||1, colW=W/n, y=1600;
+      st.forEach(function(s,i){ var cxp=colW*i+colW/2;
+        x.fillStyle="#fff"; x.font="900 66px Inter,Arial,sans-serif"; x.fillText(s[0],cxp,y);
+        x.fillStyle="rgba(255,255,255,0.65)"; x.font="700 28px Inter,Arial,sans-serif"; x.fillText(s[1],cxp,y+48); });
+      x.fillStyle="rgba(255,255,255,0.6)"; x.font="600 30px Inter,Arial,sans-serif"; x.fillText("my.20fit.id",W/2,1850);
+      cb(c);
+    }
+    var svgStr=window.BodyMap?BodyMap.svg(STORY.muscles||[],{secondary:STORY.secondary||[],w:560,h:616,labels:false,lang:L2,
+      sil:"rgba(255,255,255,0.14)",on:"#E4002B",mid:"#b83347",off:"rgba(255,255,255,0.10)"}):"";
+    if(!svgStr){ drawRest(); return; }
+    var img=new Image();
+    img.onload=function(){ try{ x.drawImage(img,(W-560)/2,470,560,616); }catch(e){} drawRest(); };
+    img.onerror=function(){ drawRest(); };
+    img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svgStr);
+  }
+
+  function dlBlob(){ var u=el("prev")._url; if(!u) return; var a=document.createElement("a"); a.href=u; a.download="20fit-story.png"; document.body.appendChild(a); a.click(); a.remove(); }
+  async function share(){
+    var blob=el("prev")._blob, u=el("prev")._url; if(!blob) return;
+    try{ var f=new File([blob],"20fit-story.png",{type:"image/png"});
+      if(navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:"20FIT",text:Lx({en:"My 20FIT 💪",id:"20FIT aku 💪"})}); return; }
+    }catch(e){ if(e&&e.name==="AbortError") return; }
+    dlBlob(); alert(Lx({en:"Image saved — share it to Instagram from your gallery.",id:"Gambar tersimpan — bagikan ke Instagram dari galeri."}));
+  }
+  function pickPhoto(){ el("photoIn").click(); }
+  function onPhoto(){
+    var f=el("photoIn").files&&el("photoIn").files[0]; el("photoIn").value="";
+    if(!f) return;
+    var rd=new FileReader(); rd.onload=function(){ var im=new Image(); im.onload=function(){ PHOTO=im; renderPreview(); }; im.onerror=function(){ alert(Lx({en:"Couldn't read that image.",id:"Gambar tak terbaca."})); }; im.src=rd.result; };
+    rd.readAsDataURL(f);
+  }
+  function labels(){
+    el("btnPhoto").innerHTML=(window.FIC?FIC("image",15):"")+' '+esc(Lx({en:"Photo",id:"Foto"}));
+    el("btnDl").innerHTML=(window.FIC?FIC("download",15):"")+' '+esc(Lx({en:"Save",id:"Simpan"}));
+    el("btnShare").innerHTML=(window.FIC?FIC("upload",15):"")+' '+esc(Lx({en:"Share",id:"Bagikan"}));
+    el("hint").textContent=Lx({en:"Add a photo, then Save or Share to Instagram.",id:"Tambah foto, lalu Simpan atau Bagikan ke Instagram."});
+  }
+
+  (async function(){ try{ await Auth.requireAuth(); }catch(e){ location.href="/login"; return; }
+    labels();
+    el("btnPhoto").onclick=pickPhoto; el("photoIn").onchange=onPhoto; el("btnDl").onclick=dlBlob; el("btnShare").onclick=share;
+    build();
+  })();
+  if(window.I18N&&I18N.onChange) I18N.onChange(function(){ labels(); build(); });
+</script>
+</body>
+</html>
