@@ -1,11 +1,34 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-10-06 · **Commit staging:** `a8b5891` · **Production:** `65166c0`
+> **Pembaruan terakhir:** 2026-10-08 · **Commit staging:** `d360030` · **Production:** `65166c0`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
 Dokumen ini status hidup. Setelah mengubah fitur/arsitektur/route/skema, **perbarui
 bagian yang relevan + tanggal & commit di atas** sebelum sesi berakhir.
+
+---
+
+## 0. BARU (2026-10-08): Activity v3 (redesign Nocturne) — DI STAGING
+Redesign halaman Activity ke bahasa visual v3 (Nocturne: glass, pill, kicker merah,
+BodyMap otot). Semua **sudah di `staging`**, belum promote ke produksi.
+- **`/activity`** dibangun ulang v3: header + readiness chip, kartu Hari Ini, kartu Upload
+  (drop zone glass merah), kartu Minggu Ini (BodyMap otot via `js/sport-muscles.js` +
+  `js/bodymap.js`), kartu Tubuhmu (Visbody). Coach chat (`/activity/chat`) **tetap desain lama**.
+- **Wizard upload 3 langkah** (dialog `woDlg` di `activity.html`): konfirmasi olahraga+angka →
+  RPE opsional (`POST /api/activity/workouts/:id/rpe`) → layar selesai + link `/activity/history/:id`.
+  Payload simpan workout **tidak berubah**; hanya UI berlangkah + RPE opsional.
+- **`/activity/history/:id`** (analisa workout) restyle v3 + kartu "Makan apa" (tanpa makro palsu)
+  + kartu "Otot yang kena" (BodyMap) + tombol Bagikan ke story.
+- **`/activity/recap`** (BARU, `activity-recap.html`): rekap mingguan + BodyMap + fokus (angka jujur).
+- **`/activity/story[/:id]`** (BARU, `activity-story.html`): story card 9:16 canvas (workout/mingguan).
+- **`/activity/visbody`** (`body-scan.html`): restyle v3 (kicker merah, pill). Tanpa BodyMap segmental
+  (data per-segmen Visbody tak tersimpan — tak dikarang).
+- **Fondasi otot** `js/sport-muscles.js` + perubahan `js/bodymap.js` = **DRAFT, PERLU VALIDASI
+  coach/fisioterapis**. Olahraga tak dikenal → tak ada otot menyala (jujur).
+- **Foto coach kelas** (Nando/Calysta/Rheza) dikembalikan dari storage `coach-photos`; **Elsen
+  masih kosong** (tak ada file di storage — TANYA PEMILIK: upload ulang via admin-v2 → Coaches).
+  Persona AI (Ben/Angie/Stella/Tom) dikeluarkan dari jadwal kelas nyata (hanya chat intelligence).
 
 ---
 
