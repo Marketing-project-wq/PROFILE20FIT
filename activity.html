@@ -201,6 +201,7 @@
      yang sama dengan seluruh app. -->
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/glass-app.css">
+<link rel="stylesheet" href="css/coach-profiles.css?v=20261012a">
 <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
 </head>
 <body>
@@ -222,6 +223,9 @@
 
     <!-- Hari ini — analisa deterministik (lib/today-brief.js) via /api/activity/today-plan -->
     <div class="v3" id="todayCard"><div class="skel" style="height:120px;border-radius:14px"></div></div>
+
+    <!-- Konsultasi coach: carousel 4 persona (js/coach-profiles.js). "Chat dengan X" -> /activity/chat/<slug>. -->
+    <div id="coachProfiles"><div class="skel" style="height:220px;border-radius:16px"></div></div>
 
     <!-- 3. UPLOAD PROGRESS — SATU pintu upload. Gambar dibaca AI -> jenisnya dikenali
          (workout / tidur / aktivitas harian / berat): kalau workout, dialog pencatatan terbuka. -->
@@ -341,6 +345,7 @@
 <script src="js/workout-metrics.js"></script>
 <script src="js/bodymap.js?v=20261008b"></script>
 <script src="js/sport-muscles.js?v=20261008a"></script>
+<script src="js/coach-profiles.js?v=20261012a"></script>
 <script>
   // ---- Halaman Activity (desain v3) ----
   // Kartu: Hari ini (today-brief) · Workout (upload) · Minggu ini (bodymap) · Tubuhmu (Visbody).
@@ -725,6 +730,23 @@
   // Guard di window.CoachProfiles: tanpa coach-profiles.js, default "nando".
   var TPL_COACH="nando";
   try{ var _cp=localStorage.getItem("my20fit_coach_pick"); if(_cp&&window.CoachProfiles&&CoachProfiles.NAME[_cp]) TPL_COACH=_cp; }catch(e){}
+
+  // ---- Konsultasi coach — carousel 4 persona (js/coach-profiles.js) ----
+  // "Chat dengan X" -> simpan pilihan lalu /activity/chat/<slug> (chat ter-gate di sana).
+  function renderCoachProfiles(){
+    var host=document.getElementById("coachProfiles"); if(!host||!window.CoachProfiles) return;
+    host.innerHTML=CoachProfiles.box({ active:TPL_COACH, title:Lx({en:"Meet the coaches",id:"Kenalan sama coach-nya"}) });
+    CoachProfiles.wire(host,function(slug){
+      try{ localStorage.setItem("my20fit_coach_pick",slug); }catch(e){}
+      location.href="/activity/chat/"+encodeURIComponent(slug);
+    });
+  }
+  async function loadCoachProfiles(){
+    renderCoachProfiles();
+    if(!window.CoachProfiles) return;
+    try{ await CoachProfiles.loadRoster(); }catch(e){}   // foto & spesialisasi dari roster CMS
+    renderCoachProfiles();
+  }
   // Semua jalan pintas "upload" menuju kartu upload yang sama.
   function uploadWorkoutGo(){
     var c=document.getElementById("uploadCard"); if(!c) return;
@@ -924,12 +946,12 @@
     AUTH_UID=(user&&user.id)||null;   // tangkap id auth SEBELUM profil digabung
     try{ var p=await Auth.getProfile(); if(p) user=Object.assign({},user,p); }catch(e){}
     renderHead(); wireUpload(); wireDlg();
-    loadToday(); loadWeek(); loadBody(); loadUploadLog();
+    loadToday(); loadWeek(); loadBody(); loadUploadLog(); loadCoachProfiles();
     if(location.hash==="#upload-workout"){ try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} setTimeout(uploadWorkoutGo,600); }
   })();
 
   if(window.I18N&&I18N.onChange) I18N.onChange(function(){
-    renderHead(); loadUploadLog(); loadToday(); loadWeek(); loadBody();
+    renderHead(); loadUploadLog(); loadToday(); loadWeek(); loadBody(); renderCoachProfiles();
   });
 
 </script>
