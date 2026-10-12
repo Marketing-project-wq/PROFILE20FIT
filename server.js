@@ -12592,6 +12592,18 @@ app.get(["/playlist", "/playlist/new", "/playlist/:id"], (req, res) => {
 app.get(["/auth/callback", "/auth/callback.html"], (req, res) => {
   res.sendFile(path.join(__dirname, "auth-callback.html"));
 });
+// Jaring pengaman OAuth (server): kalau redirect balik mendarat di "/" atau "/login" sambil membawa
+// ?code= / ?error= (mis. GoTrue jatuh ke Site URL), 302 ke /auth/callback dengan query UTUH supaya
+// penukaran PKCE tetap jalan di origin yang sama. Tanpa code/error -> next() (serving normal).
+// (hash "#..." tidak terkirim ke server; kasus itu ditangani jaring pengaman di index.html/login.html.)
+app.get(["/", "/login", "/login.html"], (req, res, next) => {
+  var q = req.query || {};
+  if (q.code || q.error || q.error_description) {
+    var i = req.originalUrl.indexOf("?");
+    return res.redirect(302, "/auth/callback" + (i >= 0 ? req.originalUrl.slice(i) : ""));
+  }
+  return next();
+});
 app.get("/payment/failed", (req, res) => {
   res.sendFile(path.join(__dirname, "payment-failed.html"));
 });

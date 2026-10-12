@@ -1,6 +1,6 @@
 # Panduan Setup Login Google — my.20fit.id
 
-> **Untuk:** pemilik repo (zidni@20fit.id) · **Dibuat:** 2026-09-17 · **Diperbarui:** 2026-09-29
+> **Untuk:** pemilik repo (zidni@20fit.id) · **Dibuat:** 2026-09-17 · **Diperbarui:** 2026-10-12
 > Panduan klik-per-klik. Tidak perlu paham teknis — ikuti saja urutannya.
 > Nilai yang harus di-copy sudah ditulis PERSIS di sini, bukan contoh/placeholder.
 >
@@ -12,6 +12,18 @@
 > Ditambahkan domain kustom staging **`profile.20fit.id`** ke daftar nilai + Redirect URLs
 > (B3). Untuk `profile.20fit.id` perlu 2 hal: allowlist di Supabase (B3) + attach domain di
 > Railway service staging.
+>
+> **Update 2026-10-12 (PENTING — ini yang berlaku sekarang):**
+> - **`profile.20fit.id` TIDAK AKTIF** sebagai domain app (tidak ter-serve Railway → halaman
+>   "Not Found"). JANGAN jadikan Site URL dan JANGAN arahkan member ke sana. Domain produksi =
+>   **`https://my.20fit.id`**.
+> - **Site URL Supabase = `https://my.20fit.id`.**
+> - Kode sekarang SELALU memakai `redirectTo = <origin>/auth/callback` (origin yang sama; PKCE
+>   `code_verifier` disimpan per-origin, jadi penukaran `?code=` wajib di domain tempat login
+>   dimulai). Tidak ada lagi reroute lintas-domain. Ada jaring pengaman: `?code=`/`?error=` yang
+>   mendarat di `/` atau `/login` otomatis diteruskan ke `/auth/callback`.
+> - **Redirect URLs final (B3):** lihat daftar di bawah — `my.20fit.id/**`, `affiliate.20fit.id/**`,
+>   dan URL staging railway. (affiliate.20fit.id dipakai login Google program affiliate.)
 
 ---
 
@@ -47,10 +59,10 @@ Bagian A menyelesaikannya.
 | **Redirect URI Supabase** (paling penting) | `https://cpvzwqptzcxnwzfzgrmt.supabase.co/auth/v1/callback` |
 | Origin produksi | `https://my.20fit.id` |
 | Origin staging (Railway) | `https://profile20fit-staging.up.railway.app` |
-| Origin staging (domain kustom) | `https://profile.20fit.id` |
-| Redirect balik ke app (produksi) | `https://my.20fit.id/login` |
-| Redirect balik ke app (staging Railway) | `https://profile20fit-staging.up.railway.app/login` |
-| Redirect balik ke app (staging kustom) | `https://profile.20fit.id/login` |
+| Origin affiliate | `https://affiliate.20fit.id` |
+| Redirect balik ke app (produksi) | `https://my.20fit.id/auth/callback` |
+| Redirect balik ke app (staging Railway) | `https://profile20fit-staging.up.railway.app/auth/callback` |
+| Redirect balik ke app (affiliate) | `https://affiliate.20fit.id/auth/callback` |
 | Project Supabase | `20FIT ALL DATA` (ref `cpvzwqptzcxnwzfzgrmt`) |
 | **Client ID yang Supabase pakai** (dari error LIVE Google, 2026-09-28) | `883349921349-4efr3u915dstlheqqgouhvd15mrqmkn9.apps.googleusercontent.com` |
 | **Project Google Cloud yang BENAR** | nomor **`883349921349`** (angka sebelum `-` di Client ID = nomor project) |
@@ -231,25 +243,19 @@ salah (biasanya balik ke Site URL), dan kelihatan seperti gagal.
 3. **Redirect URLs** → klik **Add URL**, tambahkan **satu per satu**:
 
 ```
-https://my.20fit.id/login
 https://my.20fit.id/**
-https://profile20fit-staging.up.railway.app/login
+https://affiliate.20fit.id/**
 https://profile20fit-staging.up.railway.app/**
-https://profile.20fit.id/login
-https://profile.20fit.id/**
 ```
 
 4. Klik **Save**.
 
-> **`profile.20fit.id` = domain kustom untuk STAGING.** Kalau kamu tes login Google
-> di `profile.20fit.id`, DUA hal ini WAJIB:
-> 1. **Di sini (B3):** pastikan `https://profile.20fit.id/**` sudah ada di Redirect URLs
->    (kalau belum, Supabase tak akan memulangkan user ke `profile.20fit.id` setelah Google
->    — login "berhasil" tapi mendarat di halaman salah / error).
-> 2. **Di Railway:** domain `profile.20fit.id` harus ter-attach ke **service staging** dan
->    ter-provision. Kalau `profile.20fit.id` menampilkan halaman **Railway "Not Found"
->    (train has not arrived)**, domainnya belum ter-provision — perbaiki di Railway →
->    service staging → Settings → Domains.
+> **`/**` sudah mencakup `/auth/callback` dan `/login`** — tak perlu daftarkan path satu-satu.
+> **`profile.20fit.id` sengaja DIHAPUS** dari daftar: domain itu tidak ter-serve Railway
+> (halaman "Not Found"), dan kode tidak lagi mengarah ke sana. Kalau nanti domain itu benar-benar
+> dipakai & sudah ter-provision di Railway, baru tambahkan `https://profile.20fit.id/**` kembali.
+> `affiliate.20fit.id/**` dibutuhkan untuk login Google di program affiliate (lihat repo
+> `AFFLIATE_20FIT`).
 >
 > Redirect URI Google (Bagian A5) TIDAK berubah — tetap callback Supabase yang sama untuk
 > semua domain.

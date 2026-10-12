@@ -359,6 +359,10 @@
   <script src="js/meta-pixel.js"></script>
   <script src="js/pw-toggle.js"></script>
   <script>
+    // Jaring pengaman OAuth: kalau redirect balik mendarat di /login (bukan /auth/callback) sambil
+    // membawa ?code= atau ?error= (mis. GoTrue jatuh ke Site URL), teruskan ke /auth/callback dengan
+    // query + hash UTUH supaya penukaran PKCE tetap jalan di origin yang sama — bukan menggantung di login.
+    (function(){try{var q=new URLSearchParams(location.search);if(q.has("code")||q.has("error")||q.has("error_description")){location.replace("/auth/callback"+location.search+location.hash);}}catch(e){}})();
     const T = {
       en: {
         heroEyebrow:"Digital Health Platform",
@@ -700,15 +704,19 @@
         try{ Meta.track("Lead", {content_name:"login_google"}); }catch(e){}
         await Auth.ready;
         var offMsg=(lang==="id")?"Login Google sedang tidak tersedia. Pakai email & password dulu ya.":"Google sign-in isn’t available right now. Please use email & password.";
+        // Tujuan setelah login (path internal dari ?next=) -> ikut ke /auth/callback.
+        var nx=""; try{ var _n=new URLSearchParams(location.search).get("next"); if(_n&&Auth.safeNextPath&&Auth.safeNextPath(_n)) nx=_n; }catch(e){}
         if(typeof Auth.googleOAuth==="function"){
-          await Auth.googleOAuth(); // redirect ke Google (via Supabase); balik ke /login
+          await Auth.googleOAuth(nx); // redirect ke Google (via Supabase); balik ke /auth/callback (origin sama)
           return;
         }
         // Pengaman kalau js/auth.js versi lama masih ter-cache (belum punya googleOAuth):
-        // panggil Supabase langsung (metode stabil dari vendor-supabase.js).
+        // panggil Supabase langsung (metode stabil dari vendor-supabase.js). redirectTo tetap
+        // /auth/callback di ORIGIN YANG SAMA (PKCE code_verifier per-origin) + next kalau ada.
         var supa=Auth.supabase;
         if(!supa||!supa.auth||typeof supa.auth.signInWithOAuth!=="function"){ msg(offMsg,"err"); return; }
-        var r=await supa.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+"/auth/callback"}});
+        var cbUrl=location.origin+"/auth/callback"+(nx?"?next="+encodeURIComponent(nx):"");
+        var r=await supa.auth.signInWithOAuth({provider:"google",options:{redirectTo:cbUrl}});
         if(r&&r.error){ msg(offMsg,"err"); }
       }catch(e){ msg((e&&e.message)?terjemah(e.message):((lang==="id")?"Gagal login dengan Google.":"Google sign-in failed."),"err"); }
     };

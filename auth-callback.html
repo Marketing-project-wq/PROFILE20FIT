@@ -36,7 +36,11 @@
   <script>
   (function(){
     var done=false;
+    var ID=true; try{ ID=((localStorage.getItem('lang')||'id')!=='en'); }catch(e){}
     function go(url){ if(done) return; done=true; location.replace(url); }
+    function hadCode(){
+      try{ return new URLSearchParams(location.search).has("code") || /(?:^|[#&])code=/.test(location.hash||""); }catch(e){ return false; }
+    }
     function errFromUrl(){
       try{
         var qs=new URLSearchParams(location.search);
@@ -44,8 +48,23 @@
         return qs.get("error_description")||qs.get("error")||hs.get("error_description")||hs.get("error")||"";
       }catch(e){ return ""; }
     }
+    // Penukaran ?code= gagal padahal ada kode = code_verifier tak ketemu (login dimulai di domain/
+    // tab lain, atau allowlist belum pas). JANGAN diam-diam ke /login: tampilkan pesan + tombol
+    // login ulang supaya user paham & bisa mengulang DARI halaman ini (origin yang sama).
+    function showRetry(){
+      if(done) return; done=true;
+      var box=document.querySelector(".box");
+      if(!box){ location.replace("/login?err=oauth"); return; }
+      box.innerHTML=
+        '<div class="t">'+(ID?"Login Google belum selesai":"Google sign-in didn’t finish")+'</div>'+
+        '<div class="s" style="max-width:300px;margin-left:auto;margin-right:auto">'+
+          (ID?"Coba lagi dari halaman login ini, di perangkat & tab yang sama. Ini terjadi kalau login dimulai di tempat yang berbeda."
+             :"Please try again from this login page, in the same device & tab. This happens when sign-in was started somewhere else.")+'</div>'+
+        '<a href="/login" style="display:inline-block;margin-top:16px;padding:11px 18px;border-radius:999px;background:var(--red);color:#fff;font-weight:800;font-size:13.5px;text-decoration:none">'+
+          (ID?"Login ulang":"Sign in again")+'</a>';
+    }
     async function finish(){
-      // Kalau URL sudah membawa error dari provider (mis. redirect_uri / access_denied), langsung balik.
+      // Error dari provider (mis. redirect_uri / access_denied) -> bawa ke /login dgn pesannya.
       var e0=errFromUrl();
       if(e0){ go("/login?authError="+encodeURIComponent(e0)); return; }
       try{
@@ -55,17 +74,21 @@
           go("/dashboard"); return;
         }
       }catch(e){}
-      // Belum ada sesi & tak ada error jelas -> kembali ke login (jangan menggantung).
+      // Belum ada sesi: kalau tadi ada ?code= -> penukaran gagal (lihat showRetry). Tanpa ?code=
+      // sama sekali -> tak ada yang bisa ditukar, balik ke login biasa.
+      if(hadCode()){ showRetry(); return; }
       go("/login?err=oauth");
     }
     (async function(){
       try{ await Auth.ready; }catch(e){}
+      // ?next= (path aman) -> dipakai routeAfterAuth sebagai tujuan setelah login.
+      try{ var nx=new URLSearchParams(location.search).get("next"); if(nx&&Auth.safeNextPath&&Auth.safeNextPath(nx)) sessionStorage.setItem("post_auth_path",nx); }catch(e){}
       // detectSessionInUrl menyeat sesi begitu client siap; tangkap juga event-nya.
       try{ Auth.supabase.auth.onAuthStateChange(function(evt,sess){
         if(evt==="SIGNED_IN" && sess && sess.user){ try{ Auth.routeAfterAuth(); done=true; }catch(e){ go("/dashboard"); } }
       }); }catch(e){}
       // Beri waktu penukaran ?code= -> sesi, lalu putuskan.
-      setTimeout(finish, 700);
+      setTimeout(finish, 900);
     })();
   })();
   </script>
