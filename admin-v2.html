@@ -1546,12 +1546,24 @@
     }catch(e){ return false; }
   }
   // ---- LOGIN (A/2) — additif: overlay hanya muncul kalau BELUM ter-auth. ----
+  // Tunggu modul Auth (js/auth.js) benar-benar siap sebelum dipakai. Kalau asetnya
+  // lambat/sempat gagal termuat (mis. tepat setelah deploy), window.Auth bisa belum
+  // ada saat user klik MASUK — beri waktu singkat, lalu pesan yang jelas & bisa
+  // ditindaklanjuti, BUKAN ReferenceError "Auth is not defined".
+  async function admEnsureAuth(){
+    for(var i=0;i<50 && !window.Auth;i++){ await new Promise(function(r){ setTimeout(r,100); }); }
+    if(!window.Auth) throw new Error(L("Login module failed to load. Please refresh the page (Ctrl/Cmd+Shift+R).","Modul login gagal dimuat. Muat ulang halaman (Ctrl/Cmd+Shift+R)."));
+    try{ if(window.Auth.ready) await window.Auth.ready; }catch(e){}
+    if(!window.Auth.supabase) throw new Error(L("Login service isn't ready yet. Please refresh.","Layanan login belum siap. Muat ulang halaman."));
+    return window.Auth;
+  }
   async function admTryAuth(email, pass){
-    try{ if(window.Auth&&Auth.ready) await Auth.ready; }catch(e){}
+    var A;
+    try{ A=await admEnsureAuth(); }catch(e){ return { ok:false, error:String((e&&e.message)||e) }; }
     try{
-      var res=await Auth.supabase.auth.signInWithPassword({ email:email, password:pass });
+      var res=await A.supabase.auth.signInWithPassword({ email:email, password:pass });
       if(!res.error) return { ok:true };
-      try{ await Auth.fitcoLogin(email, pass); return { ok:true }; }
+      try{ await A.fitcoLogin(email, pass); return { ok:true }; }
       catch(e){ return { ok:false, error:res.error.message }; }
     }catch(e){ return { ok:false, error:String((e&&e.message)||e) }; }
   }
