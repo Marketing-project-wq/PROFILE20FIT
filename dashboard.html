@@ -39,23 +39,17 @@
   .hero{position:relative;overflow:hidden;border-radius:22px;padding:18px 18px 16px;margin:2px 0 10px;color:#fff;isolation:isolate;
     background:linear-gradient(160deg,#3f8fd8,#72b0e3 50%,#b7dcf3);box-shadow:0 12px 30px rgba(20,30,60,.18);
     transition:background .6s ease}
-  /* Awan samar supaya terasa seperti foto langit, bukan gradien polos. */
-  .hero::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
-    background:radial-gradient(120px 70px at 26% 26%,rgba(255,255,255,.26),rgba(255,255,255,0) 70%),
-               radial-gradient(160px 90px at 78% 62%,rgba(255,255,255,.18),rgba(255,255,255,0) 70%)}
-  /* Scene per waktu/kondisi (di-set drawWeatherScene). */
-  .hero.wx-siang{background:linear-gradient(160deg,#3f8fd8,#72b0e3 50%,#b7dcf3)}
-  .hero.wx-sore{background:linear-gradient(160deg,#ff9a56,#ff6f6f 42%,#c25c93 74%,#5b4f94)}
-  .hero.wx-malam{background:linear-gradient(165deg,#0b1130,#1a2552 55%,#2b3b74)}
-  .hero.wx-hujan{background:linear-gradient(165deg,#3c4652,#5b6676 52%,#8894a4)}
-  /* Sorot matahari/bulan di pojok. */
-  .hero .glow{position:absolute;top:-56px;right:-24px;width:200px;height:200px;border-radius:999px;z-index:0;pointer-events:none;
-    background:radial-gradient(circle,rgba(255,221,120,.55),rgba(255,221,120,0) 66%);
-    animation:heroBreathe 6s ease-in-out infinite}
-  .hero.wx-sore .glow{background:radial-gradient(circle,rgba(255,190,120,.6),rgba(255,120,120,0) 66%)}
-  .hero.wx-malam .glow{background:radial-gradient(circle,rgba(150,180,255,.42),rgba(40,60,140,0) 66%)}
-  .hero.wx-hujan .glow{background:radial-gradient(circle,rgba(220,228,238,.3),rgba(160,170,185,0) 66%)}
-  @keyframes heroBreathe{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+  /* Scrim gelap halus DI ATAS foto langit, DI BAWAH teks — supaya teks putih
+     selalu terbaca di 4 state (siang/sore terang, malam/hujan gelap). */
+  .hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(0,0,0,.30),rgba(0,0,0,.04) 46%,rgba(0,0,0,.20))}
+  /* Scene per waktu/kondisi (di-set drawWeatherScene): FOTO LANGIT ASLI dari desain
+     (sumber: 20FIT native app = hasil export Figma; jangan ganti dgn gradien buatan).
+     Lapisan ke-2 = warna fallback kalau gambar gagal dimuat → hero tak pernah blank. */
+  .hero.wx-siang{background:url(/img/sky/home_header_day.png) center/cover no-repeat,linear-gradient(160deg,#3f8fd8,#72b0e3 50%,#b7dcf3)}
+  .hero.wx-sore{background:url(/img/sky/home_header_sunset.png) center/cover no-repeat,linear-gradient(160deg,#ff9a56,#ff6f6f 42%,#c25c93 74%,#5b4f94)}
+  .hero.wx-malam{background:url(/img/sky/home_header_night.png) center/cover no-repeat,linear-gradient(165deg,#0b1130,#1a2552 55%,#2b3b74)}
+  .hero.wx-hujan{background:url(/img/sky/home_header_rain.png) center/cover no-repeat,linear-gradient(165deg,#3c4652,#5b6676 52%,#8894a4)}
   .hero-inner{position:relative;z-index:1;min-width:0}
   .hk{color:#fff;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:800;margin:0 0 2px;opacity:.95;text-shadow:0 1px 3px rgba(0,0,0,.28)}
   /* Nama panjang WAJIB wrap ke bawah. overflow-wrap:anywhere memecah token tanpa spasi. */
@@ -186,7 +180,7 @@
   }
   @media (prefers-reduced-motion: reduce){
     *{transition:none !important}
-    .ring,.hero .glow{animation:none !important}
+    .ring{animation:none !important}
   }
 
   /* ---- Sky-bleed weather + AQI bar in hero (glass reference) ---- */
@@ -236,9 +230,8 @@
 <body>
 <!-- 20FIT-BUILD: reskin-new-design 2026-07-02 -->
   <div class="wrap">
-    <!-- Greeting hero with sky-bleed glow -->
+    <!-- Greeting hero: latar foto langit dinamis (siang/sore/malam/hujan) -->
     <header class="hero" id="wx">
-      <div class="glow"></div>
       <div class="hero-row">
         <div class="hero-inner">
           <div class="hk" id="greet">Selamat datang</div>
@@ -1927,7 +1920,20 @@
       }
       if(rb)rb.classList.remove("spin");
     }
-    // Scene cuaca beranimasi sesuai kode WMO Open-Meteo + siang/malam
+    // SATU sumber kebenaran pemilihan latar langit Home (mirror native app
+    // lib/.../home_weather.dart `headerVariantFor`). Input: kode cuaca WMO
+    // Open-Meteo (+ jam lokal). Output: state latar -> kelas .wx-<state>.
+    //  - HUJAN (WMO >=51: gerimis/hujan/salju/badai) MENGALAHKAN waktu; satu foto
+    //    hujan dipakai siang maupun malam (tak ada aset hujan-malam terpisah).
+    //  - Selain hujan, bagian hari dari JAM LOKAL: siang 05-15, sore 15-18, malam 18-05.
+    //  - Pagi ikut latar SIANG (tak ada aset pagi); teks "Selamat pagi" tetap via greetWord().
+    function skyVariant(code, now){
+      if(code>=51) return "hujan";
+      const h=(now||new Date()).getHours();
+      if(h>=5 && h<15) return "siang";
+      if(h>=15 && h<18) return "sore";
+      return "malam";
+    }
     // Ikon cuaca di hero (sky-bleed) — ganti sesuai kode WMO + siang/malam
     function drawWeatherScene(code, day){
       const el=document.getElementById("wxIcon"); if(!el)return;
@@ -1944,13 +1950,10 @@
       el.innerHTML=ic; el.style.color=col;
       el.classList.toggle("wx-sun", code<=1 && day);
       el.classList.toggle("wx-moon", code<=1 && !day);   // animasi bulan saat malam
-      // Scene kartu langit: hujan > malam > sore > siang. (CSS .wx-hujan/.wx-malam/.wx-sore/.wx-siang)
-      // code>=51 = gerimis/hujan/salju/badai (WMO). Sore = siang hari jam 15–18.
+      // Latar kartu langit = foto asli per state (lihat skyVariant: hujan > jam).
       const hero=document.getElementById("wx");
       if(hero){
-        const rain = code>=51;
-        const hr = new Date().getHours();
-        const scene = rain ? "hujan" : (!day ? "malam" : ((hr>=15 && hr<19) ? "sore" : "siang"));
+        const scene = skyVariant(code);
         hero.classList.remove("wx-siang","wx-sore","wx-malam","wx-hujan","wx-day","wx-night");
         hero.classList.add("wx-"+scene);
       }
