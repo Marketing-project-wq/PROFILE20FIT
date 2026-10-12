@@ -179,6 +179,16 @@
   // Akun dicocokkan native oleh Supabase (google sub / email) → user LAMA masuk ke baris
   // yang SAMA, bukan akun baru. Kalau provider belum aktif, Supabase balas error → tombol
   // menampilkan pesan "Google tidak tersedia" dan user tetap bisa pakai email/password.
+  // Domain tujuan redirect balik setelah Google. Normalnya = origin halaman sekarang.
+  // HOTFIX: `profile.20fit.id` (domain kustom) belum ter-serve Railway, jadi memulangkan
+  // login ke sana menampilkan halaman "Not Found" (train has not arrived). Selama domain itu
+  // belum ter-provision, pulangkan login Google ke domain produksi yang pasti hidup
+  // (`my.20fit.id`). Domain lain (my.20fit.id, URL staging railway, localhost) tetap pakai
+  // origin apa adanya. HAPUS override ini begitu `profile.20fit.id` ter-provision di Railway.
+  function oauthReturnOrigin() {
+    try { if (location.hostname === "profile.20fit.id") return "https://my.20fit.id"; } catch (e) {}
+    return location.origin;
+  }
   async function googleOAuth() {
     await ready;
     const { error } = await supabase.auth.signInWithOAuth({
@@ -189,7 +199,7 @@
         // https://my.20fit.id/auth/callback + URL staging /auth/callback (atau pola /**).
         // Kalau belum terdaftar, GoTrue jatuh ke Site URL & login gagal. Halaman
         // /auth/callback menukar ?code= jadi sesi (detectSessionInUrl) lalu routeAfterAuth.
-        redirectTo: location.origin + "/auth/callback",
+        redirectTo: oauthReturnOrigin() + "/auth/callback",
         // Perangkat dipakai bergantian -> jangan diam-diam memakai akun Google terakhir.
         queryParams: { prompt: "select_account" },
       },
