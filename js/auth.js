@@ -179,27 +179,21 @@
   // Akun dicocokkan native oleh Supabase (google sub / email) → user LAMA masuk ke baris
   // yang SAMA, bukan akun baru. Kalau provider belum aktif, Supabase balas error → tombol
   // menampilkan pesan "Google tidak tersedia" dan user tetap bisa pakai email/password.
-  // Domain tujuan redirect balik setelah Google. Normalnya = origin halaman sekarang.
-  // HOTFIX: `profile.20fit.id` (domain kustom) belum ter-serve Railway, jadi memulangkan
-  // login ke sana menampilkan halaman "Not Found" (train has not arrived). Selama domain itu
-  // belum ter-provision, pulangkan login Google ke domain produksi yang pasti hidup
-  // (`my.20fit.id`). Domain lain (my.20fit.id, URL staging railway, localhost) tetap pakai
-  // origin apa adanya. HAPUS override ini begitu `profile.20fit.id` ter-provision di Railway.
-  function oauthReturnOrigin() {
-    try { if (location.hostname === "profile.20fit.id") return "https://my.20fit.id"; } catch (e) {}
-    return location.origin;
-  }
-  async function googleOAuth() {
+  // redirectTo SELALU eksplisit & absolut ke /auth/callback di ORIGIN YANG SAMA. PKCE menyimpan
+  // code_verifier per-origin, jadi penukaran ?code= WAJIB terjadi di domain tempat login dimulai —
+  // jangan pernah mengoper ke domain lain. `next` (opsional) = path aman tujuan setelah login
+  // (divalidasi `safeNextPath`: hanya path relatif internal, bukan //host/scheme, bukan halaman auth).
+  async function googleOAuth(next) {
     await ready;
+    var nx = (next && safeNextPath(next)) ? next : "";
+    var redirectTo = location.origin + "/auth/callback" + (nx ? "?next=" + encodeURIComponent(nx) : "");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        // redirectTo = /auth/callback (mengikuti LOGIN_GOOGLE_my20fit_untuk_web.md). WAJIB
-        // didaftarkan di Supabase -> Authentication -> URL Configuration (Redirect URLs):
-        // https://my.20fit.id/auth/callback + URL staging /auth/callback (atau pola /**).
-        // Kalau belum terdaftar, GoTrue jatuh ke Site URL & login gagal. Halaman
-        // /auth/callback menukar ?code= jadi sesi (detectSessionInUrl) lalu routeAfterAuth.
-        redirectTo: oauthReturnOrigin() + "/auth/callback",
+        // WAJIB didaftarkan di Supabase -> Authentication -> URL Configuration (Redirect URLs):
+        // https://my.20fit.id/** (+ domain lain yang dipakai). Kalau belum terdaftar, GoTrue jatuh
+        // ke Site URL & login gagal. Halaman /auth/callback menukar ?code= jadi sesi lalu routeAfterAuth.
+        redirectTo: redirectTo,
         // Perangkat dipakai bergantian -> jangan diam-diam memakai akun Google terakhir.
         queryParams: { prompt: "select_account" },
       },
