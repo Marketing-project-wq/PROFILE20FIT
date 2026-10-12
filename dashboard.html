@@ -34,32 +34,38 @@
   .big{font-size:30px;font-weight:800;line-height:1;letter-spacing:-.02em}
   .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
 
-  /* ---- Hero greeting with sky-bleed glow ---- */
-  .hero{position:relative;overflow:hidden;padding:8px 6px 4px;margin:2px 0 6px}
-  .hero .glow{position:absolute;top:-70px;right:-30px;width:230px;height:230px;border-radius:999px;
-    background:radial-gradient(circle,rgba(255,190,90,.45),rgba(255,190,90,0) 66%);
-    animation:heroBreathe 5.5s ease-in-out infinite;pointer-events:none;z-index:0}
-  html:not(.theme-light) .hero .glow{background:radial-gradient(circle,rgba(255,190,90,.24),rgba(255,190,90,0) 66%)}
-  /* Bagian cuaca mengikuti waktu: PAGI/SIANG kuning-oren, MALAM biru gelap */
-  .hero.wx-day .glow{background:radial-gradient(circle,rgba(255,176,64,.5),rgba(232,145,42,0) 66%)}
-  html:not(.theme-light) .hero.wx-day .glow{background:radial-gradient(circle,rgba(255,176,64,.26),rgba(232,145,42,0) 66%)}
-  .hero.wx-night .glow{background:radial-gradient(circle,rgba(28,52,138,.55),rgba(15,28,74,0) 66%)}
-  html:not(.theme-light) .hero.wx-night .glow{background:radial-gradient(circle,rgba(64,96,210,.4),rgba(15,28,74,0) 66%)}
-  .hero.wx-night .wx-temp{color:#31427E}
-  html:not(.theme-light) .hero.wx-night .wx-temp{color:#C9D4F5}
-  @keyframes heroBreathe{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
+  /* ---- Hero greeting: kartu langit penuh (siang / sore / malam / hujan) ---- */
+  /* Background langit berubah sesuai waktu & kondisi cuaca; teks selalu putih (overlay). */
+  .hero{position:relative;overflow:hidden;border-radius:22px;padding:18px 18px 16px;margin:2px 0 10px;color:#fff;isolation:isolate;
+    background:linear-gradient(160deg,#3f8fd8,#72b0e3 50%,#b7dcf3);box-shadow:0 12px 30px rgba(20,30,60,.18);
+    transition:background .6s ease}
+  /* Awan samar supaya terasa seperti foto langit, bukan gradien polos. */
+  .hero::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(120px 70px at 26% 26%,rgba(255,255,255,.26),rgba(255,255,255,0) 70%),
+               radial-gradient(160px 90px at 78% 62%,rgba(255,255,255,.18),rgba(255,255,255,0) 70%)}
+  /* Scene per waktu/kondisi (di-set drawWeatherScene). */
+  .hero.wx-siang{background:linear-gradient(160deg,#3f8fd8,#72b0e3 50%,#b7dcf3)}
+  .hero.wx-sore{background:linear-gradient(160deg,#ff9a56,#ff6f6f 42%,#c25c93 74%,#5b4f94)}
+  .hero.wx-malam{background:linear-gradient(165deg,#0b1130,#1a2552 55%,#2b3b74)}
+  .hero.wx-hujan{background:linear-gradient(165deg,#3c4652,#5b6676 52%,#8894a4)}
+  /* Sorot matahari/bulan di pojok. */
+  .hero .glow{position:absolute;top:-56px;right:-24px;width:200px;height:200px;border-radius:999px;z-index:0;pointer-events:none;
+    background:radial-gradient(circle,rgba(255,221,120,.55),rgba(255,221,120,0) 66%);
+    animation:heroBreathe 6s ease-in-out infinite}
+  .hero.wx-sore .glow{background:radial-gradient(circle,rgba(255,190,120,.6),rgba(255,120,120,0) 66%)}
+  .hero.wx-malam .glow{background:radial-gradient(circle,rgba(150,180,255,.42),rgba(40,60,140,0) 66%)}
+  .hero.wx-hujan .glow{background:radial-gradient(circle,rgba(220,228,238,.3),rgba(160,170,185,0) 66%)}
+  @keyframes heroBreathe{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
   .hero-inner{position:relative;z-index:1;min-width:0}
-  .hk{color:var(--red);font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px 2px}
-  /* Nama panjang WAJIB wrap ke bawah (bukan kepotong oleh .hero{overflow:hidden}). Berlaku
-     di SEMUA lebar layar — overflow-wrap:anywhere memecah token panjang tanpa spasi juga
-     (mis. nama dari email.split("@")[0]). */
-  .hello{font-size:33px;font-weight:800;margin:0 2px;letter-spacing:-.03em;line-height:1.04;overflow-wrap:anywhere}
-  .greetdate{font-size:13px;color:var(--faint);font-weight:600;margin:5px 2px 0}
+  .hk{color:#fff;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:800;margin:0 0 2px;opacity:.95;text-shadow:0 1px 3px rgba(0,0,0,.28)}
+  /* Nama panjang WAJIB wrap ke bawah. overflow-wrap:anywhere memecah token tanpa spasi. */
+  .hello{font-size:33px;font-weight:800;color:#fff;margin:0;letter-spacing:-.03em;line-height:1.04;overflow-wrap:anywhere;text-shadow:0 2px 8px rgba(0,0,0,.3)}
+  .greetdate{font-size:13px;color:rgba(255,255,255,.88);font-weight:600;margin:5px 0 0;text-shadow:0 1px 3px rgba(0,0,0,.28)}
 
   /* ---- Section labels ---- */
   .sec{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--pagemut);font-weight:800;margin:24px 4px 11px}
   .sec.gsec{color:var(--pagetx);font-size:16px;letter-spacing:-.01em;text-transform:none;font-weight:800;margin:26px 2px 12px}
-  #greetDate{color:var(--faint)}
+  #greetDate{color:rgba(255,255,255,.88)}
 
   /* ---- Card ---- */
   .card{background:var(--card);color:var(--txt);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);border:0}
@@ -193,21 +199,21 @@
   /* Bulan malam: mengambang halus + cahaya lembut */
   .wx-moon{flex:0 0 auto;animation:moonfloat 3.6s ease-in-out infinite;filter:drop-shadow(0 0 5px rgba(150,180,255,.6))}
   @keyframes moonfloat{0%,100%{transform:translateY(0) rotate(0);opacity:.9}50%{transform:translateY(-2px) rotate(-6deg);opacity:1}}
-  .wx-temp{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:34px;line-height:1;letter-spacing:-.01em;text-align:right;color:var(--ink)}
-  .wx-cond{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px;text-align:right;white-space:nowrap}
-  .wxrefresh{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:2px;margin-left:2px;border-radius:6px;display:inline-flex;align-items:center;vertical-align:middle;line-height:0}
+  .wx-temp{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:34px;line-height:1;letter-spacing:-.01em;text-align:right;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.3)}
+  .wx-cond{font-size:12px;color:rgba(255,255,255,.88);font-weight:600;margin-top:2px;text-align:right;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.28)}
+  .wxrefresh{border:0;background:transparent;color:rgba(255,255,255,.8);cursor:pointer;padding:2px;margin-left:2px;border-radius:6px;display:inline-flex;align-items:center;vertical-align:middle;line-height:0}
   .wxrefresh:hover{color:var(--ink,#15171C);background:rgba(0,0,0,.06)}
   .wxrefresh svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   .wxrefresh.spin svg{animation:wxspin .8s linear infinite}
   @keyframes wxspin{to{transform:rotate(360deg)}}
   .aqi-line{position:relative;z-index:1;margin-top:18px;max-width:560px}
   .aqi-line .arow{display:flex;align-items:center;gap:6px;margin-bottom:9px}
-  .aqi-line .alab{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;text-transform:uppercase;letter-spacing:.03em;font-weight:800;font-size:12px;color:var(--muted)}
-  .aqi-line .anum{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:13px;color:var(--amber)}
-  .aqi-line .alvl{margin-left:auto;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;text-transform:uppercase;letter-spacing:.03em;font-weight:800;font-size:11.5px}
+  .aqi-line .alab{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;text-transform:uppercase;letter-spacing:.03em;font-weight:800;font-size:12px;color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.28)}
+  .aqi-line .anum{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:13px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.35)}
+  .aqi-line .alvl{margin-left:auto;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;text-transform:uppercase;letter-spacing:.03em;font-weight:800;font-size:11.5px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.35)}
   .aqi-line .atrack{height:5px;border-radius:999px;background:linear-gradient(90deg,#2BB673,#E8C23A,#E8912A,#D4283A);position:relative}
   .aqi-line .atrack i{position:absolute;top:-4px;left:2%;width:13px;height:13px;border-radius:999px;background:var(--card,#fff);border:3px solid var(--amber);transform:translateX(-50%);transition:left 1s cubic-bezier(.22,1,.36,1);box-shadow:0 1px 3px rgba(0,0,0,.15)}
-  .aqi-line .asrc{margin-top:9px;font-size:11px}
+  .aqi-line .asrc{margin-top:9px;font-size:11px;color:rgba(255,255,255,.7);text-shadow:0 1px 2px rgba(0,0,0,.25)}
   @media(max-width:560px){ .wx-temp{font-size:28px} .aqi-line .arow{flex-wrap:wrap} .aqi-line .alvl{font-size:11px} }
   /* ---- At-home exercise list + tutorial modal ---- */
   .ahlist{overflow:hidden;margin-top:4px}
@@ -1929,17 +1935,25 @@
       const moon='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
       const cloud='<path d="M17.5 19a4.5 4.5 0 0 0 .5-8.98 6 6 0 0 0-11.64 1.5A3.5 3.5 0 0 0 6.5 19z"/>';
       const rain='<path d="M17.5 15a4.5 4.5 0 0 0 .5-8.98 6 6 0 0 0-11.64 1.5A3.5 3.5 0 0 0 6.5 15"/><path d="M8 18v2M12 18v2M16 18v2"/>';
+      // Ikon di atas kartu langit (teks putih) -> warna ikon cerah.
       let ic, col;
-      if(code<=1){ ic=day?sun:moon; col=day?"#E8A93A":"#C9D4F5"; }
-      else if(code<=48){ ic=cloud; col=day?"var(--fit-ink-soft,#6E6E73)":"#AEB9E8"; }
-      else if(code<=99){ ic=rain; col="var(--fit-blue,#0068C9)"; }
-      else { ic=cloud; col="var(--fit-ink-soft,#6E6E73)"; }
+      if(code<=1){ ic=day?sun:moon; col=day?"#FFD66B":"#E6ECFF"; }
+      else if(code<=48){ ic=cloud; col="#EAF1FA"; }
+      else if(code<=99){ ic=rain; col="#DCE6F2"; }
+      else { ic=cloud; col="#EAF1FA"; }
       el.innerHTML=ic; el.style.color=col;
       el.classList.toggle("wx-sun", code<=1 && day);
       el.classList.toggle("wx-moon", code<=1 && !day);   // animasi bulan saat malam
-      // Tema bagian cuaca: pagi/siang kuning-oren, malam biru gelap (CSS .wx-day/.wx-night)
+      // Scene kartu langit: hujan > malam > sore > siang. (CSS .wx-hujan/.wx-malam/.wx-sore/.wx-siang)
+      // code>=51 = gerimis/hujan/salju/badai (WMO). Sore = siang hari jam 15–18.
       const hero=document.getElementById("wx");
-      if(hero){ hero.classList.toggle("wx-day", !!day); hero.classList.toggle("wx-night", !day); }
+      if(hero){
+        const rain = code>=51;
+        const hr = new Date().getHours();
+        const scene = rain ? "hujan" : (!day ? "malam" : ((hr>=15 && hr<19) ? "sore" : "siang"));
+        hero.classList.remove("wx-siang","wx-sore","wx-malam","wx-hujan","wx-day","wx-night");
+        hero.classList.add("wx-"+scene);
+      }
     }
     // AQI sebagai garis gradasi horizontal + penanda (ala referensi glass)
     function drawAqi(aqi){
