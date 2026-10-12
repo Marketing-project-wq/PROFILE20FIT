@@ -34,6 +34,7 @@
       <button class="adm-navitem" data-nav="traffic"><span data-i18n="Traffic sources">Sumber trafik</span></button>
       <button class="adm-navitem" data-nav="journey"><span data-i18n="Visbody funnel">Funnel Visbody</span></button>
       <button class="adm-navitem" data-nav="classperf"><span data-i18n="Class performance">Class performance</span></button>
+      <button class="adm-navitem" data-nav="affiliate"><span data-i18n="Affiliate">Affiliate</span></button>
 
       <div class="adm-navgroup" data-i18n="Manage">Kelola</div>
       <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
@@ -116,6 +117,53 @@
         <div class="adm-callout adm-scaffold">
           <span class="adm-badge" data-i18n="No data yet">BELUM ADA DATA</span>
           <div class="adm-note" data-i18n="Not yet instrumented: calorie accuracy, admin device, admin page frequency. These stay empty — no invented numbers.">Belum diinstrumentasi: akurasi kalori, device admin, frekuensi halaman admin. Sengaja dikosongkan — tanpa angka karangan.</div>
+        </div>
+      </section>
+
+      <!-- ===== AFFILIATE (ringkasan program; data READ-ONLY dari affiliate_*) ===== -->
+      <style>
+        .af-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px}
+        @media(max-width:860px){ .af-two{grid-template-columns:1fr} }
+        .af-panel{background:var(--adm-card,#fff);border:1px solid var(--adm-line,#ececf1);border-radius:16px;padding:18px}
+        .af-big{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:30px;letter-spacing:-.01em;line-height:1.05;margin:2px 0 12px}
+        .af-seg{display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--adm-line,#ececf1);margin-bottom:14px}
+        .af-seg i{display:block;height:100%}
+        .af-row{display:flex;align-items:center;gap:10px;font-size:13.5px;padding:5px 0}
+        .af-row .dot{width:9px;height:9px;border-radius:999px;flex:0 0 auto}
+        .af-row .amt{margin-left:auto;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:800;color:var(--adm-ink,#15171c)}
+        .af-bars{display:flex;align-items:flex-end;gap:10px;height:150px;margin-top:8px}
+        .af-bars .b{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+        .af-bars .bar{width:100%;max-width:34px;border-radius:7px 7px 0 0;background:var(--fit-red,#E4002B);transition:height .5s ease}
+        .af-bars .bval{font-size:10.5px;font-weight:800;color:var(--adm-mut,#6b7280);white-space:nowrap}
+        .af-bars .blab{font-size:11px;color:var(--adm-mut,#6b7280)}
+        /* Warna status komisi (sejajar desain affiliate admin). */
+        .af-c-held{background:#8a8f98} .af-c-available{background:#E4002B} .af-c-claimed{background:#f4a0ab}
+        .af-c-paid{background:#9c1020} .af-c-cancelled{background:#cfd2d9}
+      </style>
+      <section data-section="affiliate" hidden
+        data-kicker="PANTAU" data-kicker-en="MONITOR"
+        data-title="Affiliate" data-title-en="Affiliate"
+        data-question="Berapa affiliate aktif, komisi berjalan, dan klaim yang menunggu?"
+        data-question-en="How many active affiliates, running commission, and claims waiting?">
+        <div class="adm-grid adm-grid--4" id="afKpis">
+          <div class="adm-cell"><div class="adm-loading" data-i18n="Loading…">Memuat…</div></div>
+        </div>
+        <div class="af-two">
+          <div class="af-panel">
+            <div class="adm-sec-title" style="margin-top:0" data-i18n="Commission by status">Komisi per status</div>
+            <div class="af-big" id="afTotal">—</div>
+            <div class="af-seg" id="afSeg"></div>
+            <div id="afStatus"></div>
+          </div>
+          <div class="af-panel">
+            <div class="adm-sec-title" style="margin-top:0" data-i18n="Running commission per month">Komisi per bulan</div>
+            <div class="af-bars" id="afChart"></div>
+            <div class="adm-note" style="margin-top:8px" data-i18n="Held + available + claimed + paid, by source month.">Held + available + claimed + paid, per bulan sumber.</div>
+          </div>
+        </div>
+        <div class="adm-note" style="margin-top:14px">
+          <a class="adm-btn adm-btn--sm" href="https://affiliate.20fit.id/admin" data-i18n="Open affiliate admin">Buka admin affiliate</a>
+          <span style="margin-left:8px" data-i18n="Read-only summary — manage affiliates, claims & settings in the affiliate admin.">Ringkasan read-only — kelola affiliate, klaim & pengaturan di admin affiliate.</span>
         </div>
       </section>
 
@@ -2516,6 +2564,36 @@
     try{ var res=await adminPost("/api/admin/home-tiles/icon", { key:key, clear:true }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadHomeTiles(); }catch(e){}
   };
 
+  // ---- AFFILIATE (ringkasan read-only dari /api/admin/affiliate/overview) ----
+  var AF_MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Des"];
+  function afShort(n){ n=Number(n)||0; return n>=1e6?("Rp"+(Math.round(n/1e5)/10)+"jt"):(n>=1e3?("Rp"+Math.round(n/1e3)+"rb"):("Rp"+n)); }
+  async function loadAffiliate(){
+    var kp=document.getElementById("afKpis"); if(!kp) return;
+    try{
+      var res=await adminFetch("/api/admin/affiliate/overview");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></div>'; return; }
+      kp.innerHTML =
+        cell(String(j.active_affiliates||0), "Affiliate aktif", "Active affiliates", L("of "+(j.total_affiliates||0)+" · ≥1 click/30d","dari "+(j.total_affiliates||0)+" · ≥1 klik/30h")) +
+        cell(String(j.referred_users||0), "User ter-referral", "Referred users", L("unique buyers","pembeli unik")) +
+        cell(String(j.referral_transactions||0), "Transaksi referral", "Referral transactions", L("commission events","event komisi")) +
+        cell(String(j.claims_waiting||0), "Klaim menunggu", "Claims waiting", rp(j.claims_waiting_sum||0));
+      var bs=j.by_status||{};
+      var tot=document.getElementById("afTotal"); if(tot) tot.textContent=rp(j.running_total||0);
+      var order=[["held","Held"],["available","Available"],["claimed","Claimed"],["paid","Paid"],["cancelled","Cancelled"]];
+      var totalAll=order.reduce(function(s,o){return s+(bs[o[0]]||0);},0)||1;
+      var seg=document.getElementById("afSeg"); if(seg) seg.innerHTML=order.map(function(o){ var w=Math.round((bs[o[0]]||0)/totalAll*100); return w>0?'<i class="af-c-'+o[0]+'" style="width:'+w+'%"></i>':''; }).join("");
+      var st=document.getElementById("afStatus"); if(st) st.innerHTML=order.map(function(o){ return '<div class="af-row"><span class="dot af-c-'+o[0]+'"></span><span>'+o[1]+'</span><span class="amt">'+rp(bs[o[0]]||0)+'</span></div>'; }).join("");
+      var mo=j.monthly||[]; var max=Math.max.apply(null,mo.map(function(m){return m.amount||0;}).concat([1]));
+      var ch=document.getElementById("afChart");
+      if(ch) ch.innerHTML=mo.map(function(m){
+        var h=Math.max(3,Math.round((m.amount||0)/max*120));
+        var lbl=AF_MON[parseInt(m.month.slice(5,7),10)-1]||m.month.slice(5,7);
+        return '<div class="b"><div class="bval">'+((m.amount>0)?afShort(m.amount):"–")+'</div><div class="bar" style="height:'+h+'px"></div><div class="blab">'+lbl+'</div></div>';
+      }).join("");
+    }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></div>'; }
+  }
+
   function loadSection(id){
     if(id==="overview") return loadOverview();
     if(id==="revenue") return loadRevenue();
@@ -2532,6 +2610,7 @@
     if(id==="visbody") return loadVisbody();
     if(id==="journey") return loadJourneyFunnel();
     if(id==="classperf") return loadClassPerf();
+    if(id==="affiliate") return loadAffiliate();
     if(id==="hometiles") return loadHomeTiles();
     if(id==="traffic") return loadTraffic();
     if(id==="menustats") return loadMenuStats();
