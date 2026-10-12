@@ -34,15 +34,29 @@
   .big{font-size:30px;font-weight:800;line-height:1;letter-spacing:-.02em}
   .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
 
-  /* ---- Hero greeting: kartu langit penuh (siang / sore / malam / hujan) ---- */
-  /* Background langit berubah sesuai waktu & kondisi cuaca; teks selalu putih (overlay). */
-  .hero{position:relative;overflow:hidden;border-radius:22px;padding:18px 18px 16px;margin:2px 0 10px;color:#fff;isolation:isolate;
-    background:linear-gradient(160deg,#3f8fd8,#72b0e3 50%,#b7dcf3);box-shadow:0 12px 30px rgba(20,30,60,.18);
-    transition:background .6s ease}
-  /* Scrim gelap halus DI ATAS foto langit, DI BAWAH teks — supaya teks putih
-     selalu terbaca di 4 state (siang/sore terang, malam/hujan gelap). */
+  /* ---- Hero greeting: latar langit MENYATU dengan halaman (full-bleed, bukan kartu) ---- */
+  /* Langit = header halaman yang bleed ke tepi area konten lalu MEMUDAR ke warna
+     halaman (var(--bg)) — meniru home app, bukan kartu mengambang. Teks selalu putih. */
+  .hero{position:relative;overflow:hidden;padding:64px 18px 58px;color:#fff;isolation:isolate;
+    /* full-bleed SISI: batalkan padding kontainer supaya langit nempel ke tepi area konten.
+       padding-top 64px = ruang supaya greeting/cuaca turun di bawah bilah kontrol (.topfab). */
+    margin:0 -16px 10px;
+    background:linear-gradient(160deg,#3f8fd8,#72b0e3 50%,#b7dcf3)}
+  @media(max-width:560px){ .hero{ margin:0 -12px 10px } }
+  @media(min-width:900px){ .hero{ margin:0 -32px 14px } }
+  /* Header home "menyatu": langit sampai PALING ATAS, bilah kontrol (.topfab dari
+     i18n.js) dibuat transparan DI ATAS langit (bukan bar berlatar). Override di-scope
+     ke dashboard; kalahkan aturan i18n.js (padding-top body & margin-top .hero). */
+  html body{padding-top:0 !important}
+  .topfab{background:transparent !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;border-bottom:0 !important}
+  .wrap>.hero{margin-top:0 !important}
+  /* Scrim gelap (bias ke ATAS, untuk greeting/suhu) — teks putih tetap terbaca,
+     tapi bawah dibiarkan bening supaya bisa memudar ke halaman. */
   .hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
-    background:linear-gradient(180deg,rgba(0,0,0,.30),rgba(0,0,0,.04) 46%,rgba(0,0,0,.20))}
+    background:linear-gradient(180deg,rgba(0,0,0,.36),rgba(0,0,0,.06) 44%,rgba(0,0,0,.14) 78%,rgba(0,0,0,0))}
+  /* Bagian BAWAH langit memudar ke warna halaman → menyatu, tanpa tepi kartu. */
+  .hero::before{content:"";position:absolute;left:0;right:0;bottom:0;height:66px;z-index:0;pointer-events:none;
+    background:linear-gradient(to bottom,rgba(0,0,0,0),var(--bg))}
   /* Scene per waktu/kondisi (di-set drawWeatherScene): FOTO LANGIT ASLI dari desain
      (sumber: 20FIT native app = hasil export Figma; jangan ganti dgn gradien buatan).
      Lapisan ke-2 = warna fallback kalau gambar gagal dimuat → hero tak pernah blank. */
