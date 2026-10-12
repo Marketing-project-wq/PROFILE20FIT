@@ -6916,6 +6916,66 @@ function adminRange(q) {
   } else from = new Date(now.getTime() - 7 * 86400000);
   return { from: from.toISOString(), to: to.toISOString() };
 }
+// Ringkasan program Affiliate untuk admin console (viewer+). Agregat READ-ONLY dari tabel
+// `affiliate_*` (milik app affiliate.20fit.id, project Supabase yang SAMA). Dibaca saja, tak
+// pernah ditulis — pengecualian atas aturan namespace my20fit_*, disetujui pemilik untuk
+// overview admin. Angka nyata; kalau tabel belum ada / kosong -> 0, bukan karangan.
+app.get("/api/admin/affiliate/overview", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
+    // Komisi: hanya kolom ringan (status, nominal, tanggal sumber, pembeli).
+    const { data: comm, error: ce } = await admin.from("affiliate_commission")
+      .select("status,amount,paid_at_source,buyer_auth_user_id").limit(100000);
+    if (ce) throw ce;
+    // Klaim yang masih menunggu (submitted/processing).
+    const { data: claims } = await admin.from("affiliate_claim")
+      .select("amount_net,status").in("status", ["submitted", "processing"]).limit(100000);
+    // Affiliate aktif = yang link-nya dibuka >=1x dalam 30 hari (link_open -> link -> affiliate).
+    const { data: opens } = await admin.from("affiliate_link_open")
+      .select("link_id").gte("opened_at", since30).limit(100000);
+    const linkIds = Array.from(new Set((opens || []).map((o) => o.link_id).filter(Boolean)));
+    const active = new Set();
+    if (linkIds.length) {
+      const { data: links } = await admin.from("affiliate_link").select("id,affiliate_id").in("id", linkIds).limit(100000);
+      const m = {}; (links || []).forEach((l) => { m[l.id] = l.affiliate_id; });
+      (opens || []).forEach((o) => { const a = m[o.link_id]; if (a) active.add(a); });
+    }
+    const { count: totalAff } = await admin.from("affiliate").select("id", { count: "exact", head: true });
+
+    const byStatus = { held: 0, available: 0, claimed: 0, paid: 0, cancelled: 0 };
+    const buyers = new Set(); const monthly = {};
+    (comm || []).forEach((c) => {
+      const a = Number(c.amount) || 0;
+      if (byStatus[c.status] != null) byStatus[c.status] += a;
+      if (c.buyer_auth_user_id) buyers.add(c.buyer_auth_user_id);
+      const mk = c.paid_at_source ? String(c.paid_at_source).slice(0, 7) : null; // YYYY-MM
+      if (mk) monthly[mk] = (monthly[mk] || 0) + a;
+    });
+    const months = []; const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      const key = d.toISOString().slice(0, 7);
+      months.push({ month: key, amount: monthly[key] || 0 });
+    }
+    return res.json({
+      ok: true,
+      active_affiliates: active.size,
+      total_affiliates: totalAff || 0,
+      referred_users: buyers.size,
+      referral_transactions: (comm || []).length,
+      claims_waiting: (claims || []).length,
+      claims_waiting_sum: (claims || []).reduce((s, c) => s + (Number(c.amount_net) || 0), 0),
+      by_status: byStatus,
+      running_total: byStatus.held + byStatus.available + byStatus.claimed + byStatus.paid,
+      monthly: months,
+    });
+  } catch (e) {
+    console.error("admin/affiliate/overview:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat data affiliate." });
+  }
+});
 // Metrics overview (viewer+). Semua agregasi dari Supabase (real, bukan dummy).
 app.get("/api/admin/metrics", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
