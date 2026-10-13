@@ -6976,6 +6976,28 @@ app.get("/api/admin/affiliate/overview", async (req, res) => {
     return res.status(500).json({ error: "Gagal memuat data affiliate." });
   }
 });
+// Affiliate settings — READ-ONLY (viewer+). Baca setelan finansial + riwayat audit.
+// PENULISAN TIDAK lewat endpoint ini: UI admin-v2 memanggil RPC `affiliate_update_settings`
+// dengan JWT admin yang login (atomic + audit + cek role affiliate-super di DB). Service key
+// di sini hanya untuk MEMBACA (konsisten dgn overview; affiliate_* = read-only dari my.20fit).
+app.get("/api/admin/affiliate/settings", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const { data: s, error: se } = await admin.from("affiliate_settings")
+      .select("commission_rate,min_withdrawal,pending_days,tax_rate_npwp,tax_rate_no_npwp,program_status,one_purchase_per_open,updated_at,updated_by")
+      .eq("id", 1).maybeSingle();
+    if (se) throw se;
+    const FIN = ["commission_rate", "min_withdrawal", "pending_days", "tax_rate_npwp", "tax_rate_no_npwp", "program_status", "one_purchase_per_open"];
+    const { data: audit } = await admin.from("affiliate_settings_audit")
+      .select("changed_at,changed_by,field,old_value,new_value")
+      .in("field", FIN).order("changed_at", { ascending: false }).limit(12);
+    return res.json({ ok: true, settings: s || null, audit: audit || [] });
+  } catch (e) {
+    console.error("admin/affiliate/settings:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat setelan affiliate." });
+  }
+});
 // Metrics overview (viewer+). Semua agregasi dari Supabase (real, bukan dummy).
 app.get("/api/admin/metrics", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;

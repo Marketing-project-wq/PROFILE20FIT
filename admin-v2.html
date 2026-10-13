@@ -140,6 +140,12 @@
         .afsec-foot{margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ink-3)}
         /* Warna status komisi — skala merah/abu, selaras dashboard admin affiliate. */
         .afc-held{background:#8a8f98}.afc-available{background:var(--accent)}.afc-claimed{background:#ff9783}.afc-paid{background:#9c1020}.afc-cancelled{background:#cfd2d9}
+        /* Form setelan affiliate */
+        .afset-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px}
+        @media(max-width:720px){ .afset-grid{grid-template-columns:1fr} }
+        .afset-f{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--ink-2)}
+        .afset-f.afset-check{flex-direction:row;align-items:center;gap:8px}
+        .afset-check input{width:16px;height:16px;flex:0 0 auto}
       </style>
       <section data-section="affiliate" hidden
         data-kicker="PANTAU" data-kicker-en="MONITOR"
@@ -165,6 +171,29 @@
         <div class="afsec-foot">
           <a class="adm-btn adm-btn--sm" href="https://affiliate.20fit.id/admin" data-i18n="Open affiliate admin">Buka admin affiliate</a>
           <span data-i18n="Read-only summary — manage affiliates, claims & settings in the affiliate admin.">Ringkasan read-only — kelola affiliate, klaim &amp; pengaturan di admin affiliate.</span>
+        </div>
+
+        <!-- Setelan program (finansial) — TULIS lewat RPC resmi affiliate_update_settings
+             (atomic + audit + cek role affiliate-super). Baca via /api/admin/affiliate/settings. -->
+        <div class="adm-sec-title" data-i18n="Program settings (financial)">Setelan program (finansial)</div>
+        <div class="adm-panel" id="afSetPanel">
+          <div class="adm-note" id="afSetBanner" style="margin-bottom:14px">—</div>
+          <div class="afset-grid">
+            <label class="afset-f"><span data-i18n="Commission rate (%)">Rate komisi (%)</span><input class="adm-input" id="afsRate" type="number" step="0.01" min="0" inputmode="decimal"></label>
+            <label class="afset-f"><span data-i18n="Minimum claim (Rp)">Minimal klaim (Rp)</span><input class="adm-input" id="afsMin" type="number" step="1000" min="0" inputmode="numeric"></label>
+            <label class="afset-f"><span data-i18n="Hold period (days)">Masa tahan (hari)</span><input class="adm-input" id="afsPending" type="number" step="1" min="0" inputmode="numeric"></label>
+            <label class="afset-f"><span data-i18n="Program status">Status program</span><select class="adm-input" id="afsStatus"><option value="active" data-i18n="Active">Aktif</option><option value="paused" data-i18n="Paused">Dijeda</option></select></label>
+            <label class="afset-f"><span data-i18n="Income tax with NPWP (%)">PPh 21 dengan NPWP (%)</span><input class="adm-input" id="afsTaxN" type="number" step="0.01" min="0" inputmode="decimal"></label>
+            <label class="afset-f"><span data-i18n="Income tax without NPWP (%)">PPh 21 tanpa NPWP (%)</span><input class="adm-input" id="afsTaxNo" type="number" step="0.01" min="0" inputmode="decimal"></label>
+            <label class="afset-f afset-check"><input type="checkbox" id="afsOnePer"><span data-i18n="One link open = one transaction">Satu buka link = satu transaksi</span></label>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:16px;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary" id="afsSave" data-i18n="Save settings">Simpan setelan</button>
+            <span class="adm-note" id="afsMeta"></span>
+          </div>
+          <div class="adm-note" style="margin-top:12px" data-i18n="Changes are atomic + audited via the official affiliate RPC. Rate changes apply to future commission only; pausing stops the program.">Perubahan atomik + tercatat di audit lewat RPC resmi affiliate. Perubahan rate hanya berlaku untuk komisi ke depan; menjeda menghentikan program.</div>
+          <div class="adm-sec-title" style="margin:18px 0 8px" data-i18n="Recent changes">Perubahan terakhir</div>
+          <div id="afsAudit"></div>
         </div>
       </section>
 
@@ -2605,6 +2634,72 @@
         return '<div class="b"><div class="bval">'+((m.amount>0)?afShort(m.amount):"–")+'</div><div class="bar" style="height:'+h+'px"></div><div class="blab">'+lbl+'</div></div>';
       }).join("");
     }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></div>'; }
+    loadAffiliateSettings();
+  }
+
+  // ---- AFFILIATE settings (TULIS via RPC affiliate_update_settings dgn JWT admin;
+  //      atomic + audit + cek role affiliate-super di DB. Baca via /api/admin/affiliate/settings) ----
+  var AFSET=null, AFROLE=null;
+  function afsPctToFrac(p){ return Math.round(Number(p)*100)/10000; } // 2,5% -> 0.025 (match affiliate percentField)
+  function afsFracToPct(v){ return Math.round(Number(v)*10000)/100; } // 0.025 -> 2,5
+  async function loadAffiliateSettings(){
+    var panel=document.getElementById("afSetPanel"); if(!panel) return;
+    var banner=document.getElementById("afSetBanner");
+    AFROLE=null;
+    try{ if(window.Auth&&Auth.ready) await Auth.ready; if(window.Auth&&Auth.supabase){ var rr=await Auth.supabase.rpc("affiliate_admin_role"); if(!rr.error) AFROLE=rr.data||null; } }catch(e){}
+    try{
+      var j=await adminFetch("/api/admin/affiliate/settings").then(function(r){return r.json();});
+      if(!j||!j.ok||!j.settings){ if(banner){ banner.textContent=L("Failed to load settings.","Gagal memuat setelan."); } return; }
+      AFSET=j.settings;
+      var V=function(id){ return document.getElementById(id); };
+      V("afsRate").value=afsFracToPct(AFSET.commission_rate);
+      V("afsMin").value=Math.round(Number(AFSET.min_withdrawal)||0);
+      V("afsPending").value=Math.round(Number(AFSET.pending_days)||0);
+      V("afsTaxN").value=afsFracToPct(AFSET.tax_rate_npwp);
+      V("afsTaxNo").value=afsFracToPct(AFSET.tax_rate_no_npwp);
+      V("afsStatus").value=AFSET.program_status||"active";
+      V("afsOnePer").checked=!!AFSET.one_purchase_per_open;
+      var meta=V("afsMeta"); if(meta) meta.textContent=L("Last changed","Terakhir diubah")+": "+(AFSET.updated_at?new Date(AFSET.updated_at).toLocaleString():"—")+(AFSET.updated_by?(" · "+AFSET.updated_by):"");
+      var au=V("afsAudit");
+      if(au) au.innerHTML=(j.audit&&j.audit.length)?j.audit.map(function(a){
+        var ov=(a.old_value==null)?"—":(typeof a.old_value==="object"?JSON.stringify(a.old_value):String(a.old_value));
+        var nv=(a.new_value==null)?"—":(typeof a.new_value==="object"?JSON.stringify(a.new_value):String(a.new_value));
+        return '<div class="afrow"><span>'+esc(a.field)+'</span><span style="color:var(--ink-3)">'+esc(ov)+' → '+esc(nv)+'</span><span class="amt" style="font-weight:600;color:var(--ink-3)">'+(a.changed_at?new Date(a.changed_at).toLocaleDateString():"")+'</span></div>';
+      }).join(""):'<div class="adm-note">'+L("No changes recorded yet.","Belum ada perubahan tercatat.")+'</div>';
+      var can=(AFROLE==="super");
+      var save=V("afsSave"); if(save){ save.disabled=!can; save.setAttribute("aria-disabled", can?"false":"true"); save.onclick=saveAffiliateSettings; }
+      if(banner){
+        banner.textContent = can
+          ? L("You can edit financial settings (affiliate super-admin).","Kamu bisa mengubah setelan finansial (affiliate super-admin).")
+          : L("View only — saving financial settings needs an affiliate super-admin account.","Hanya lihat — menyimpan setelan finansial butuh akun affiliate super-admin.");
+        banner.style.color = can ? "var(--ink-3)" : "var(--accent-ink)";
+      }
+    }catch(e){ if(banner){ banner.textContent=L("Failed to load settings.","Gagal memuat setelan."); } }
+  }
+  async function saveAffiliateSettings(){
+    if(!AFSET) return;
+    if(!(window.Auth&&Auth.supabase)){ if(window.admToast)admToast(L("Log in with your account to save.","Login dengan akunmu untuk menyimpan.")); return; }
+    var V=function(id){ return document.getElementById(id); };
+    var patch={};
+    var rate=afsPctToFrac(V("afsRate").value); if(rate!==Number(AFSET.commission_rate)) patch.commission_rate=rate;
+    var mn=Math.round(Number(String(V("afsMin").value).replace(/[.\s]/g,""))||0); if(mn!==Number(AFSET.min_withdrawal)) patch.min_withdrawal=mn;
+    var pd=Math.round(Number(V("afsPending").value)||0); if(pd!==Number(AFSET.pending_days)) patch.pending_days=pd;
+    var tn=afsPctToFrac(V("afsTaxN").value); if(tn!==Number(AFSET.tax_rate_npwp)) patch.tax_rate_npwp=tn;
+    var tno=afsPctToFrac(V("afsTaxNo").value); if(tno!==Number(AFSET.tax_rate_no_npwp)) patch.tax_rate_no_npwp=tno;
+    var st=V("afsStatus").value; if(st!==AFSET.program_status) patch.program_status=st;
+    var op=!!V("afsOnePer").checked; if(op!==!!AFSET.one_purchase_per_open) patch.one_purchase_per_open=op;
+    if(!Object.keys(patch).length){ if(window.admToast)admToast(L("No changes.","Tidak ada perubahan.")); return; }
+    if(patch.commission_rate!=null && !(patch.commission_rate>0)){ if(window.admToast)admToast(L("Commission rate must be greater than 0%.","Rate komisi harus lebih dari 0%.")); return; }
+    var save=V("afsSave"); if(save)save.disabled=true;
+    try{
+      var res=await Auth.supabase.rpc("affiliate_update_settings", { patch: patch });
+      if(res.error) throw res.error;
+      if(window.admToast)admToast(L("Settings saved.","Setelan tersimpan."));
+      await loadAffiliateSettings();
+    }catch(e){
+      if(window.admToast)admToast(L("Save failed","Gagal menyimpan")+": "+((e&&e.message)||e));
+      if(save)save.disabled=false;
+    }
   }
 
   function loadSection(id){
