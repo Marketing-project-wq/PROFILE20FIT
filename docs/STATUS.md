@@ -1,11 +1,34 @@
 # STATUS — my.20fit.id
 
-> **Pembaruan terakhir:** 2026-10-06 · **Commit staging:** `a8b5891` · **Production:** `65166c0`
+> **Pembaruan terakhir:** 2026-10-12 · **Commit staging:** `1053a5b` · **Production:** `65166c0`
 > Sumber: baca kode + `git log` (50 commit terakhir). Bagian bertanda
 > **BELUM TERVERIFIKASI** / **TANYA PEMILIK** perlu dikonfirmasi pemilik.
 
 Dokumen ini status hidup. Setelah mengubah fitur/arsitektur/route/skema, **perbarui
 bagian yang relevan + tanggal & commit di atas** sebelum sesi berakhir.
+
+---
+
+## 0. BARU (2026-10-08): Activity v3 (redesign Nocturne) — DI STAGING
+Redesign halaman Activity ke bahasa visual v3 (Nocturne: glass, pill, kicker merah,
+BodyMap otot). Semua **sudah di `staging`**, belum promote ke produksi.
+- **`/activity`** dibangun ulang v3: header + readiness chip, kartu Hari Ini, kartu Upload
+  (drop zone glass merah), kartu Minggu Ini (BodyMap otot via `js/sport-muscles.js` +
+  `js/bodymap.js`), kartu Tubuhmu (Visbody). Coach chat (`/activity/chat`) **tetap desain lama**.
+- **Wizard upload 3 langkah** (dialog `woDlg` di `activity.html`): konfirmasi olahraga+angka →
+  RPE opsional (`POST /api/activity/workouts/:id/rpe`) → layar selesai + link `/activity/history/:id`.
+  Payload simpan workout **tidak berubah**; hanya UI berlangkah + RPE opsional.
+- **`/activity/history/:id`** (analisa workout) restyle v3 + kartu "Makan apa" (tanpa makro palsu)
+  + kartu "Otot yang kena" (BodyMap) + tombol Bagikan ke story.
+- **`/activity/recap`** (BARU, `activity-recap.html`): rekap mingguan + BodyMap + fokus (angka jujur).
+- **`/activity/story[/:id]`** (BARU, `activity-story.html`): story card 9:16 canvas (workout/mingguan).
+- **`/activity/visbody`** (`body-scan.html`): restyle v3 (kicker merah, pill). Tanpa BodyMap segmental
+  (data per-segmen Visbody tak tersimpan — tak dikarang).
+- **Fondasi otot** `js/sport-muscles.js` + perubahan `js/bodymap.js` = **DRAFT, PERLU VALIDASI
+  coach/fisioterapis**. Olahraga tak dikenal → tak ada otot menyala (jujur).
+- **Foto coach kelas** (Nando/Calysta/Rheza) dikembalikan dari storage `coach-photos`; **Elsen
+  masih kosong** (tak ada file di storage — TANYA PEMILIK: upload ulang via admin-v2 → Coaches).
+  Persona AI (Ben/Angie/Stella/Tom) dikeluarkan dari jadwal kelas nyata (hanya chat intelligence).
 
 ---
 
@@ -838,6 +861,15 @@ sementara artikel **tidak bisa dibaca dari my.20fit** sampai halaman artikel dib
   - **Tidak ada webhook pembelian sama sekali.** `sync-ticket-events` hanya menarik `/events` dan menyimpan `sold_count` **agregat**, tak pernah identitas pembeli. Terukur 2026-09-08: Sports Summit live `sold`=**1233** vs `my20fit_ticket_events.sold_count`=**1162** (sync 2026-09-07 21:00) → **+71 terjual sejak sync**, sementara di DB kami **nol baris hari itu**. Pembayaran berhasil dan tercatat di ticket.20fit.id, tapi kami tak punya cara tahu siapa pembelinya — **tidak ada baris yang bisa "diperbaiki" di sisi kami.**
   - **TANYA PEMILIK ticket.20fit.id:** permintaan teknisnya sudah ditulis lengkap di **`docs/TICKET-API-REQUEST.md`** — intinya minta **webhook pembelian** atau **endpoint partner baca pesanan per email**. Sampai salah satunya ada, pembeli yang emailnya belum dikenal penerbit hanya bisa melihat pembeliannya dari **arsip, tanpa QR**.
   - **Arsip `event_transaction` bukan data hidup** — impor batch invoice, `paid_at` terbaru 2026-08-11, impor terakhir 2026-08-18. Tetap disajikan (isinya pembelian nyata; 242 dari 1374 user app punya email di sana) tapi ditandai `source:"archive"`. Pembelian baru tak akan pernah muncul di sana.
+- **Login Google — UPDATE 2026-10-12 (dari `auth_logs` 24 jam terakhir): sisi auth SUDAH JALAN; yang rusak = domain Railway.** Banyak `/callback` hari ini berstatus **302 dengan `auth_event action:login/user_signedup, provider:google`** (member nyata berhasil login/daftar via Google). Jadi config Google Cloud + Supabase provider **sudah benar** — catatan lama "Login Google MATI" di bawah **TIDAK berlaku lagi** untuk sisi auth.
+  - **Satu-satunya yang gagal:** SEMUA request OAuth `referer = https://profile.20fit.id`. OAuth sukses, lalu user dipulangkan ke `https://profile.20fit.id/auth/callback` — tapi **`profile.20fit.id` belum ter-serve Railway** (muncul halaman Railway **"Not Found / The train has not arrived at the station"**, yaitu domain tak ter-attach ke service yang punya deployment aktif). Itu persis screenshot pemilik 2026-10-12.
+  - `400: State has already been used` di log = user me-reload halaman Not Found (kode OAuth sudah dipakai) — gejala ikutan, bukan sebab.
+  - **BUKAN bug kode:** `js/auth.js` benar (`redirectTo = <origin>/auth/callback`), route `/auth/callback` ada di `server.js`, dan tak ada kode yang mengarahkan user ke `profile.20fit.id` (hanya disebut di docs). Member datang ke `profile.20fit.id` sendiri (bookmark/marketing/redirect DNS).
+  - **TUGAS PEMILIK (keputusan pemilik: KEDUA domain harus hidup — tak bisa dari repo, perlu dashboard):**
+    1. **Railway →** service yang punya deployment aktif → Settings → Networking → Custom Domains: attach **`profile.20fit.id`** DAN **`my.20fit.id`** ke service yang sama (yang jalan). Pasang CNAME yang Railway tunjukkan di DNS, tunggu status hijau/provisioned (bukan "train not arrived"). Kalau `profile.20fit.id` tadinya menunjuk service staging tanpa deploy aktif, pindahkan ke service live (atau jalankan deploy staging).
+    2. **Supabase → Authentication → URL Configuration → Redirect URLs:** pastikan ADA `https://profile.20fit.id/**` **dan** `https://my.20fit.id/**`. Site URL = salah satu domain yang SUDAH ter-serve (langkah 1).
+    3. **Google Cloud:** tidak perlu diubah — login sudah berhasil hari ini, berarti callback Supabase `https://cpvzwqptzcxnwzfzgrmt.supabase.co/auth/v1/callback` sudah terdaftar.
+  - Begitu kedua domain ter-provision di Railway, alur di screenshot langsung tuntas (OAuth sudah jalan; tinggal domainnya menyajikan `/auth/callback`).
 - **Login Google — diagnosis dari log Supabase (2026-09-29).** Login Google terakhir yang BERHASIL di
   `auth.identities` = **2026-08-18**; sejak itu nol. Log auth 24 jam terakhir: ±15 kali `/authorize`
   (user dikirim ke Google) tapi hanya 1 `/callback` (gagal "OAuth state parameter missing") → user

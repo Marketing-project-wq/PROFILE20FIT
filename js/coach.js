@@ -53,6 +53,7 @@
 
   // ---- Chatbot state (tampilan UTAMA /coach; program terstruktur lama tetap ada) ----
   var MODE = "chat";                 // 'chat' | 'program'
+  var GATED = false;                 // true = belum scan Visbody / upload latihan -> chat dikunci
   var CHAT_COACH = null, CHAT_INIT = false, CHAT_MSGS = [], CHAT_BUSY = false;
   // Data persona (nama, warna, profil, roster/foto) = js/coach-profiles.js (satu sumber, dipakai /activity juga).
   var CP = window.CoachProfiles;
@@ -81,6 +82,8 @@
   // ---- Muat awal ----
   async function boot() {
     try { user = await Auth.requireAuth(); } catch (e) { location.href = "/login"; return; }
+    // Gate: wajib scan Visbody / upload latihan dulu sebelum chat coach.
+    try { var gr = await apiFetch("/api/activity/gate"); var gj = await gr.json().catch(function () { return {}; }); if (gj && gj.ok && gj.unlocked === false) GATED = true; } catch (e) {}
     try {
       var r = await apiFetch("/api/coach/plan"); var j = await r.json().catch(function () { return {}; });
       if (r.status === 401) { location.href = "/login"; return; }
@@ -712,18 +715,22 @@
   function greetOf(slug) {
     var n = USER_NAME ? (" " + USER_NAME) : "";
     var g = {
-      nando: { en: "Yo" + n + "! Coach Nando here. What's the target today?", id: "Yo" + n + "! Coach Nando di sini. Apa target kamu hari ini?" },
-      calysta: { en: "Hii" + n + "! I'm Coach Calysta! What are we working on today?", id: "Hai" + n + "! Aku Coach Calysta! Mau kita kerjain apa hari ini?" },
-      rheza: { en: "Hey" + n + "! Coach Rheza here. Ready for a challenge?", id: "Hey" + n + "! Coach Rheza di sini. Siap ditantang?" },
-      elsen: { en: "Hi" + n + ", I'm Coach Elsen. Let's look at your numbers — what would you like to review?", id: "Hai" + n + ", aku Coach Elsen. Kita lihat angka kamu — mau bahas apa?" },
+      nando: { en: "Yo" + n + "! Coach Ben here. What's the target today?", id: "Yo" + n + "! Coach Ben di sini. Apa target kamu hari ini?" },
+      calysta: { en: "Hii" + n + "! I'm Coach Angie! What are we working on today?", id: "Hai" + n + "! Aku Coach Angie! Mau kita kerjain apa hari ini?" },
+      rheza: { en: "Hey" + n + "! Coach Stella here. Ready for a challenge?", id: "Hey" + n + "! Coach Stella di sini. Siap ditantang?" },
+      elsen: { en: "Hi" + n + ", I'm Coach Tom. Let's look at your numbers — what would you like to review?", id: "Hai" + n + ", aku Coach Tom. Kita lihat angka kamu — mau bahas apa?" },
     };
     return g[slug] || { en: "Hi" + n + "! How can I help with your training today?", id: "Hai" + n + "! Ada yang bisa dibantu soal latihanmu hari ini?" };
   }
 
   function renderChat() {
-    var sub = el("coachSub"); if (sub) sub.textContent = Lx({ en: "Chat with your coach", id: "Chat sama coach kamu" });
+    var sub = el("coachSub"); if (sub) sub.textContent = GATED
+      ? Lx({ en: "Unlock coach chat", id: "Buka akses chat coach" })
+      : Lx({ en: "Chat with your coach", id: "Chat sama coach kamu" });
+    // Coach tetap tampil meski terkunci — user pilih coach dulu, baru chat terbuka setelah scan/upload.
     if (!CHAT_COACH) { renderCoachPicker(); return; }
     renderChatRoom();
+    if (GATED) return;                // room menampilkan bar kunci; tak muat riwayat / auto-kirim saat terkunci
     if (!CHAT_INIT) initChatConversation(); else paintMsgs();
   }
 
@@ -758,14 +765,24 @@
 
   function renderChatRoom() {
     var color = coachColor(CHAT_COACH);
+    // Terkunci: tampilkan coach + bar kunci (scan/upload), bukan kotak pesan.
+    var bottom = GATED
+      ? '<div class="clockbar">' + svgIcon("lock", 16) + ' <span>' + esc(Lx({ en: "Scan Visbody or upload a workout to start chatting.", id: "Scan Visbody atau upload latihan dulu untuk mulai chat." })) + '</span>' +
+        '<a class="clock-cta" href="/activity/visbody">' + svgIcon("scan", 15) + ' ' + esc(Lx({ en: "Scan", id: "Scan" })) + '</a>' +
+        '<a class="clock-cta ghost" href="/activity">' + svgIcon("clipboard", 15) + ' ' + esc(Lx({ en: "Upload", id: "Upload" })) + '</a></div>'
+      : '<div class="cinput"><span class="spark">' + svgIcon("spark", 18) + '</span>' +
+        '<textarea id="cText" rows="1" placeholder="' + esc(Lx({ en: "Message your coach…", id: "Tulis pesan ke coach…" })) + '"></textarea>' +
+        '<button type="button" class="csend" id="cSend" aria-label="Send">' + svgIcon("send", 20) + '</button></div>';
+    var msgsInner = GATED
+      ? '<div class="crow ai">' + coachAvatar(CHAT_COACH, 34) + '<div class="cmsg ai">' + esc(Lx({ en: "Hi! I'm ready to help — scan your body with Visbody or upload a workout first so I can advise using your real data.", id: "Hai! Aku siap bantu — scan tubuh pakai Visbody atau upload latihan dulu ya, biar saranku pakai data aslimu." })) + '</div></div>'
+      : '';
     root().innerHTML = '<div class="croom" style="--cc:' + color + '">' +
       stageHtml(CHAT_COACH) +
-      '<div class="cmsgs" id="cMsgs"></div>' +
-      '<div class="cquick" id="cQuick" style="display:none">' + QUICKS.map(function (q, i) { return '<button type="button" class="cqbtn" data-q="' + i + '">' + esc(Lx(q[0])) + '</button>'; }).join("") + '</div>' +
-      '<div class="cinput"><span class="spark">' + svgIcon("spark", 18) + '</span>' +
-      '<textarea id="cText" rows="1" placeholder="' + esc(Lx({ en: "Message your coach…", id: "Tulis pesan ke coach…" })) + '"></textarea>' +
-      '<button type="button" class="csend" id="cSend" aria-label="Send">' + svgIcon("send", 20) + '</button></div></div>';
+      '<div class="cmsgs" id="cMsgs">' + msgsInner + '</div>' +
+      (GATED ? '' : '<div class="cquick" id="cQuick" style="display:none">' + QUICKS.map(function (q, i) { return '<button type="button" class="cqbtn" data-q="' + i + '">' + esc(Lx(q[0])) + '</button>'; }).join("") + '</div>') +
+      bottom + '</div>';
     el("crSwitch").onclick = function () { CHAT_COACH = null; CHAT_INIT = false; CHAT_MSGS = []; try { localStorage.removeItem("my20fit_coach_pick"); } catch (e) {} syncChatUrl(); renderChat(); };
+    if (GATED) return;                 // tak ada kotak pesan/aksi cepat saat terkunci
     Array.prototype.forEach.call(root().querySelectorAll("#cQuick [data-q]"), function (b) { b.onclick = function () { var q = QUICKS[+b.getAttribute("data-q")]; if (q) sendChat(Lx(q[1])); }; });
     var ta = el("cText"), send = el("cSend");
     function autin() { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 120) + "px"; }

@@ -179,10 +179,16 @@
       (on ? '<span class="un-here">Kamu di sini</span>' : '') +
       '</a>';
   }
+  // Fitur yang sedang ditahan (mis. Activity di produksi) disembunyikan dari menu.
+  // window.FEATURES diisi js/auth.js dari /api/config; absen -> tampilkan semua (default aman).
+  function itemHidden(it) {
+    try { if (window.FEATURES && window.FEATURES.activity === false && (it.path === "/activity" || it.id === "progress")) return true; } catch (e) {}
+    return false;
+  }
   function groupsHtml(embed) {
     var cur = currentId();
     return GROUPS.map(function (g) {
-      var list = ITEMS.filter(function (it) { return it.group === g.id; });
+      var list = ITEMS.filter(function (it) { return it.group === g.id && !itemHidden(it); });
       if (!list.length) return "";
       var lab = g.label ? '<div class="un-glabel">' + esc(g.label) + '</div>' : '';
       // Selalu 3 kolom per baris (semua breakpoint) — keputusan pemilik. Booking (4 item)

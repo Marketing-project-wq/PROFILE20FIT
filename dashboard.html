@@ -34,32 +34,48 @@
   .big{font-size:30px;font-weight:800;line-height:1;letter-spacing:-.02em}
   .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
 
-  /* ---- Hero greeting with sky-bleed glow ---- */
-  .hero{position:relative;overflow:hidden;padding:8px 6px 4px;margin:2px 0 6px}
-  .hero .glow{position:absolute;top:-70px;right:-30px;width:230px;height:230px;border-radius:999px;
-    background:radial-gradient(circle,rgba(255,190,90,.45),rgba(255,190,90,0) 66%);
-    animation:heroBreathe 5.5s ease-in-out infinite;pointer-events:none;z-index:0}
-  html:not(.theme-light) .hero .glow{background:radial-gradient(circle,rgba(255,190,90,.24),rgba(255,190,90,0) 66%)}
-  /* Bagian cuaca mengikuti waktu: PAGI/SIANG kuning-oren, MALAM biru gelap */
-  .hero.wx-day .glow{background:radial-gradient(circle,rgba(255,176,64,.5),rgba(232,145,42,0) 66%)}
-  html:not(.theme-light) .hero.wx-day .glow{background:radial-gradient(circle,rgba(255,176,64,.26),rgba(232,145,42,0) 66%)}
-  .hero.wx-night .glow{background:radial-gradient(circle,rgba(28,52,138,.55),rgba(15,28,74,0) 66%)}
-  html:not(.theme-light) .hero.wx-night .glow{background:radial-gradient(circle,rgba(64,96,210,.4),rgba(15,28,74,0) 66%)}
-  .hero.wx-night .wx-temp{color:#31427E}
-  html:not(.theme-light) .hero.wx-night .wx-temp{color:#C9D4F5}
-  @keyframes heroBreathe{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
+  /* ---- Hero greeting: latar langit MENYATU dengan halaman (full-bleed, bukan kartu) ---- */
+  /* Langit = header halaman yang bleed ke tepi area konten lalu MEMUDAR ke warna
+     halaman (var(--bg)) — meniru home app, bukan kartu mengambang. Teks selalu putih. */
+  .hero{position:relative;overflow:hidden;padding:64px 18px 58px;color:#fff;isolation:isolate;
+    /* Header full-width (anak <body>, DI LUAR .wrap yang ber-max-width). Margin negatif
+       membatalkan padding <body> supaya langit FULL-BLEED: mobile/tablet edge-to-edge viewport;
+       desktop dari tepi sidebar (238px) sampai ujung kanan viewport. padding-top 64px = ruang
+       untuk bilah kontrol (.topfab) yang mengambang di atas langit. */
+    margin:0 -16px 10px -16px;
+    background:linear-gradient(160deg,#3f8fd8,#72b0e3 50%,#b7dcf3)}
+  @media(max-width:560px){ .hero{ margin:0 -12px 10px -12px } }
+  @media(min-width:900px){ .hero{ margin:0 -16px 10px 0 } }
+  /* Header home "menyatu": langit sampai PALING ATAS, bilah kontrol (.topfab dari
+     i18n.js) dibuat transparan DI ATAS langit (bukan bar berlatar). Override di-scope
+     ke dashboard; kalahkan aturan i18n.js (padding-top body & margin-top .hero). */
+  html body{padding-top:0 !important}
+  .topfab{background:transparent !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;border-bottom:0 !important}
+  body>.hero{margin-top:0 !important}
+  /* Scrim gelap (bias ke ATAS, untuk greeting/suhu) — teks putih tetap terbaca,
+     tapi bawah dibiarkan bening supaya bisa memudar ke halaman. */
+  .hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(0,0,0,.36),rgba(0,0,0,.06) 44%,rgba(0,0,0,.14) 78%,rgba(0,0,0,0))}
+  /* Bagian BAWAH langit memudar ke warna halaman → menyatu, tanpa tepi kartu. */
+  .hero::before{content:"";position:absolute;left:0;right:0;bottom:0;height:66px;z-index:0;pointer-events:none;
+    background:linear-gradient(to bottom,rgba(0,0,0,0),var(--bg))}
+  /* Scene per waktu/kondisi (di-set drawWeatherScene): FOTO LANGIT ASLI dari desain
+     (sumber: 20FIT native app = hasil export Figma; jangan ganti dgn gradien buatan).
+     Lapisan ke-2 = warna fallback kalau gambar gagal dimuat → hero tak pernah blank. */
+  .hero.wx-siang{background:url(/img/sky/home_header_day.png) center/cover no-repeat,linear-gradient(160deg,#3f8fd8,#72b0e3 50%,#b7dcf3)}
+  .hero.wx-sore{background:url(/img/sky/home_header_sunset.png) center/cover no-repeat,linear-gradient(160deg,#ff9a56,#ff6f6f 42%,#c25c93 74%,#5b4f94)}
+  .hero.wx-malam{background:url(/img/sky/home_header_night.png) center/cover no-repeat,linear-gradient(165deg,#0b1130,#1a2552 55%,#2b3b74)}
+  .hero.wx-hujan{background:url(/img/sky/home_header_rain.png) center/cover no-repeat,linear-gradient(165deg,#3c4652,#5b6676 52%,#8894a4)}
   .hero-inner{position:relative;z-index:1;min-width:0}
-  .hk{color:var(--red);font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:0 2px 2px}
-  /* Nama panjang WAJIB wrap ke bawah (bukan kepotong oleh .hero{overflow:hidden}). Berlaku
-     di SEMUA lebar layar — overflow-wrap:anywhere memecah token panjang tanpa spasi juga
-     (mis. nama dari email.split("@")[0]). */
-  .hello{font-size:33px;font-weight:800;margin:0 2px;letter-spacing:-.03em;line-height:1.04;overflow-wrap:anywhere}
-  .greetdate{font-size:13px;color:var(--faint);font-weight:600;margin:5px 2px 0}
+  .hk{color:#fff;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:800;margin:0 0 2px;opacity:.95;text-shadow:0 1px 3px rgba(0,0,0,.28)}
+  /* Nama panjang WAJIB wrap ke bawah. overflow-wrap:anywhere memecah token tanpa spasi. */
+  .hello{font-size:33px;font-weight:800;color:#fff;margin:0;letter-spacing:-.03em;line-height:1.04;overflow-wrap:anywhere;text-shadow:0 2px 8px rgba(0,0,0,.3)}
+  .greetdate{font-size:13px;color:rgba(255,255,255,.88);font-weight:600;margin:5px 0 0;text-shadow:0 1px 3px rgba(0,0,0,.28)}
 
   /* ---- Section labels ---- */
   .sec{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--pagemut);font-weight:800;margin:24px 4px 11px}
   .sec.gsec{color:var(--pagetx);font-size:16px;letter-spacing:-.01em;text-transform:none;font-weight:800;margin:26px 2px 12px}
-  #greetDate{color:var(--faint)}
+  #greetDate{color:rgba(255,255,255,.88)}
 
   /* ---- Card ---- */
   .card{background:var(--card);color:var(--txt);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);border:0}
@@ -180,7 +196,7 @@
   }
   @media (prefers-reduced-motion: reduce){
     *{transition:none !important}
-    .ring,.hero .glow{animation:none !important}
+    .ring{animation:none !important}
   }
 
   /* ---- Sky-bleed weather + AQI bar in hero (glass reference) ---- */
@@ -193,21 +209,21 @@
   /* Bulan malam: mengambang halus + cahaya lembut */
   .wx-moon{flex:0 0 auto;animation:moonfloat 3.6s ease-in-out infinite;filter:drop-shadow(0 0 5px rgba(150,180,255,.6))}
   @keyframes moonfloat{0%,100%{transform:translateY(0) rotate(0);opacity:.9}50%{transform:translateY(-2px) rotate(-6deg);opacity:1}}
-  .wx-temp{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:34px;line-height:1;letter-spacing:-.01em;text-align:right;color:var(--ink)}
-  .wx-cond{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px;text-align:right;white-space:nowrap}
-  .wxrefresh{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:2px;margin-left:2px;border-radius:6px;display:inline-flex;align-items:center;vertical-align:middle;line-height:0}
+  .wx-temp{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:34px;line-height:1;letter-spacing:-.01em;text-align:right;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.3)}
+  .wx-cond{font-size:12px;color:rgba(255,255,255,.88);font-weight:600;margin-top:2px;text-align:right;white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.28)}
+  .wxrefresh{border:0;background:transparent;color:rgba(255,255,255,.8);cursor:pointer;padding:2px;margin-left:2px;border-radius:6px;display:inline-flex;align-items:center;vertical-align:middle;line-height:0}
   .wxrefresh:hover{color:var(--ink,#15171C);background:rgba(0,0,0,.06)}
   .wxrefresh svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   .wxrefresh.spin svg{animation:wxspin .8s linear infinite}
   @keyframes wxspin{to{transform:rotate(360deg)}}
   .aqi-line{position:relative;z-index:1;margin-top:18px;max-width:560px}
   .aqi-line .arow{display:flex;align-items:center;gap:6px;margin-bottom:9px}
-  .aqi-line .alab{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;text-transform:uppercase;letter-spacing:.03em;font-weight:800;font-size:12px;color:var(--muted)}
-  .aqi-line .anum{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:13px;color:var(--amber)}
-  .aqi-line .alvl{margin-left:auto;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;text-transform:uppercase;letter-spacing:.03em;font-weight:800;font-size:11.5px}
+  .aqi-line .alab{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;text-transform:uppercase;letter-spacing:.03em;font-weight:800;font-size:12px;color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.28)}
+  .aqi-line .anum{font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;font-weight:900;font-size:13px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.35)}
+  .aqi-line .alvl{margin-left:auto;font-family:var(--fit-font-display,'Barlow Condensed'),sans-serif;text-transform:uppercase;letter-spacing:.03em;font-weight:800;font-size:11.5px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.35)}
   .aqi-line .atrack{height:5px;border-radius:999px;background:linear-gradient(90deg,#2BB673,#E8C23A,#E8912A,#D4283A);position:relative}
   .aqi-line .atrack i{position:absolute;top:-4px;left:2%;width:13px;height:13px;border-radius:999px;background:var(--card,#fff);border:3px solid var(--amber);transform:translateX(-50%);transition:left 1s cubic-bezier(.22,1,.36,1);box-shadow:0 1px 3px rgba(0,0,0,.15)}
-  .aqi-line .asrc{margin-top:9px;font-size:11px}
+  .aqi-line .asrc{margin-top:9px;font-size:11px;color:rgba(255,255,255,.7);text-shadow:0 1px 2px rgba(0,0,0,.25)}
   @media(max-width:560px){ .wx-temp{font-size:28px} .aqi-line .arow{flex-wrap:wrap} .aqi-line .alvl{font-size:11px} }
   /* ---- At-home exercise list + tutorial modal ---- */
   .ahlist{overflow:hidden;margin-top:4px}
@@ -229,10 +245,8 @@
 </head>
 <body>
 <!-- 20FIT-BUILD: reskin-new-design 2026-07-02 -->
-  <div class="wrap">
-    <!-- Greeting hero with sky-bleed glow -->
-    <header class="hero" id="wx">
-      <div class="glow"></div>
+  <!-- Greeting hero: full-width header (anak <body>, di luar .wrap) — langit menyatu & full-bleed -->
+  <header class="hero" id="wx">
       <div class="hero-row">
         <div class="hero-inner">
           <div class="hk" id="greet">Selamat datang</div>
@@ -252,8 +266,9 @@
         <div class="atrack"><i id="aqiMarker"></i></div>
         <div class="asrc" id="wbadge"></div>
       </div>
-    </header>
+  </header>
 
+  <div class="wrap">
     <!-- Upcoming Classes (persis di bawah AQI) — scroll horizontal; data /api/classes/upcoming.
          Kosong / gagal = section disembunyikan. Klik item -> /book-class deep-link. -->
     <style>
@@ -1921,7 +1936,20 @@
       }
       if(rb)rb.classList.remove("spin");
     }
-    // Scene cuaca beranimasi sesuai kode WMO Open-Meteo + siang/malam
+    // SATU sumber kebenaran pemilihan latar langit Home (mirror native app
+    // lib/.../home_weather.dart `headerVariantFor`). Input: kode cuaca WMO
+    // Open-Meteo (+ jam lokal). Output: state latar -> kelas .wx-<state>.
+    //  - HUJAN (WMO >=51: gerimis/hujan/salju/badai) MENGALAHKAN waktu; satu foto
+    //    hujan dipakai siang maupun malam (tak ada aset hujan-malam terpisah).
+    //  - Selain hujan, bagian hari dari JAM LOKAL: siang 05-15, sore 15-18, malam 18-05.
+    //  - Pagi ikut latar SIANG (tak ada aset pagi); teks "Selamat pagi" tetap via greetWord().
+    function skyVariant(code, now){
+      if(code>=51) return "hujan";
+      const h=(now||new Date()).getHours();
+      if(h>=5 && h<15) return "siang";
+      if(h>=15 && h<18) return "sore";
+      return "malam";
+    }
     // Ikon cuaca di hero (sky-bleed) — ganti sesuai kode WMO + siang/malam
     function drawWeatherScene(code, day){
       const el=document.getElementById("wxIcon"); if(!el)return;
@@ -1929,17 +1957,22 @@
       const moon='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
       const cloud='<path d="M17.5 19a4.5 4.5 0 0 0 .5-8.98 6 6 0 0 0-11.64 1.5A3.5 3.5 0 0 0 6.5 19z"/>';
       const rain='<path d="M17.5 15a4.5 4.5 0 0 0 .5-8.98 6 6 0 0 0-11.64 1.5A3.5 3.5 0 0 0 6.5 15"/><path d="M8 18v2M12 18v2M16 18v2"/>';
+      // Ikon di atas kartu langit (teks putih) -> warna ikon cerah.
       let ic, col;
-      if(code<=1){ ic=day?sun:moon; col=day?"#E8A93A":"#C9D4F5"; }
-      else if(code<=48){ ic=cloud; col=day?"var(--fit-ink-soft,#6E6E73)":"#AEB9E8"; }
-      else if(code<=99){ ic=rain; col="var(--fit-blue,#0068C9)"; }
-      else { ic=cloud; col="var(--fit-ink-soft,#6E6E73)"; }
+      if(code<=1){ ic=day?sun:moon; col=day?"#FFD66B":"#E6ECFF"; }
+      else if(code<=48){ ic=cloud; col="#EAF1FA"; }
+      else if(code<=99){ ic=rain; col="#DCE6F2"; }
+      else { ic=cloud; col="#EAF1FA"; }
       el.innerHTML=ic; el.style.color=col;
       el.classList.toggle("wx-sun", code<=1 && day);
       el.classList.toggle("wx-moon", code<=1 && !day);   // animasi bulan saat malam
-      // Tema bagian cuaca: pagi/siang kuning-oren, malam biru gelap (CSS .wx-day/.wx-night)
+      // Latar kartu langit = foto asli per state (lihat skyVariant: hujan > jam).
       const hero=document.getElementById("wx");
-      if(hero){ hero.classList.toggle("wx-day", !!day); hero.classList.toggle("wx-night", !day); }
+      if(hero){
+        const scene = skyVariant(code);
+        hero.classList.remove("wx-siang","wx-sore","wx-malam","wx-hujan","wx-day","wx-night");
+        hero.classList.add("wx-"+scene);
+      }
     }
     // AQI sebagai garis gradasi horizontal + penanda (ala referensi glass)
     function drawAqi(aqi){

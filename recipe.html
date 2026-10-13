@@ -75,6 +75,19 @@
   .pm-hero{aspect-ratio:4/3;max-height:56vh;border-radius:14px;display:grid;place-items:center;font-size:64px;background-size:cover;background-repeat:no-repeat;background-position:center;background-color:var(--inp);margin-bottom:12px}
   .pm-types{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
   .pm-types span{font-size:11px;font-weight:800;background:var(--inp);color:var(--txt);border-radius:99px;padding:4px 10px;text-transform:capitalize}
+  /* --- Carousel "Pesan antar" (tautan penyedia; diatur admin) --- */
+  .dlvsec{margin-top:14px}
+  .dlvsec-t{font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  .dlvcar{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+  .dlvcar::-webkit-scrollbar{height:6px}.dlvcar::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+  .dlvsingle{display:flex}
+  .dlvcard{display:flex;align-items:center;gap:10px;flex:0 0 auto;min-width:180px;scroll-snap-align:start;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-decoration:none;color:var(--txt)}
+  .dlvsingle .dlvcard{flex:1}
+  .dlvcard:hover{border-color:var(--red)}
+  .dlvcard-logo{width:34px;height:34px;flex:0 0 auto;border-radius:8px;background:var(--inp) center/cover no-repeat;display:grid;place-items:center;font-size:18px}
+  .dlvcard-txt{display:flex;flex-direction:column;min-width:0}
+  .dlvcard-prov{font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dlvcard-lbl{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* --- Detail resep: panel gizi + porsi + dua kolom Bahan/Cara buat (pola sama dgn recipe.20fit.id) --- */
   .nutri{border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px;background:var(--inp)}
   .nutri-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
@@ -728,6 +741,7 @@
         hero+
         '<h2 style="margin-top:0">'+esc(titleOf(it))+'</h2>'+badges+by+
         '<div class="rsoc" id="recSocial"></div>'+
+        '<div id="recDelivery"></div>'+
         '<div class="nutri" id="nutriBox"></div>'+
         '<div class="cols">'+
           '<section class="col" id="ingBox"></section>'+
@@ -735,6 +749,7 @@
         '</div>';
       renderNutrition(); renderIngredients();
       loadRecSocial(it); // Like/Save state (server, service key) + wiring tombol
+      loadRecDelivery(it); // Carousel "Pesan antar" (tautan penyedia, diatur admin)
       // Foto asli resep 20FIT untuk hero (emoji tetap jadi cadangan kalau gagal).
       if(window.RecipePhotos && RecipePhotos.applyThumb && it.rec && !it.photo){
         RecipePhotos.applyThumb(document.querySelector("#recBody .pm-hero"), it.rec);
@@ -744,6 +759,31 @@
       document.body.style.overflow="hidden";
     }
     function closeRecipe(){ document.getElementById("recBg").classList.remove("open"); document.body.style.overflow=""; }
+    // Carousel "Pesan antar": tautan penyedia (GrabFood/GoFood/dll) yang dipetakan admin
+    // (my20fit_menu_delivery_links). 0 link -> tak tampil; 1 link -> tombol tunggal; >1 -> carousel.
+    function recDeliveryClick(src,mid,provider){
+      try{ fetch("/api/menu/delivery-click",{method:"POST",headers:{"Content-Type":"application/json"},keepalive:true,credentials:"include",body:JSON.stringify({source:src,menu_id:mid,provider:provider})}); }catch(e){}
+    }
+    function loadRecDelivery(it){
+      var box=document.getElementById("recDelivery"); if(!box) return; box.innerHTML="";
+      var src=srcOf(it), mid=midOf(it); if(!mid) return;
+      fetch("/api/menu/"+encodeURIComponent(mid)+"/delivery?source="+encodeURIComponent(src))
+        .then(function(r){return r.json();}).then(function(j){
+          var links=(j&&j.links)||[]; if(!links.length) return;
+          var title=LL({en:"Order delivery",id:"Pesan antar"});
+          var wrap=document.createElement("div"); wrap.className="dlvsec";
+          var h=document.createElement("h3"); h.className="dlvsec-t"; h.textContent=title; wrap.appendChild(h);
+          var list=document.createElement("div"); list.className=links.length>1?"dlvcar":"dlvsingle";
+          links.forEach(function(l){
+            var a=document.createElement("a"); a.className="dlvcard"; a.href=l.url; a.rel="noopener";
+            var logo=l.logo_url?('<span class="dlvcard-logo" style="background-image:url('+JSON.stringify(l.logo_url)+')"></span>'):('<span class="dlvcard-logo dlvcard-logo--ph">🛵</span>');
+            a.innerHTML=logo+'<span class="dlvcard-txt"><span class="dlvcard-prov">'+esc(l.provider||"")+'</span><span class="dlvcard-lbl">'+esc(l.label||"")+'</span></span>';
+            a.addEventListener("click",function(){ recDeliveryClick(src,mid,l.provider); });
+            list.appendChild(a);
+          });
+          wrap.appendChild(list); box.appendChild(wrap);
+        }).catch(function(){});
+    }
     // Tutup pop-up: klik luar + Escape + swipe-down (HP)
     (function(){
       var bg=document.getElementById("recBg"); if(!bg) return;

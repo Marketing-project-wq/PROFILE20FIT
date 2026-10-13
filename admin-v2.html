@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>20FIT Admin</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;700;800&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/admin-theme.css">
 <style>
@@ -16,7 +16,29 @@
   .adm-actions h3 { font-family: var(--font-head); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 8px; }
   .adm-sec-title { font-family: var(--font-head); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); margin: 24px 0 8px; }
   .adm-loading { color: var(--ink-3); font-size: 12px; padding: 18px 0; }
-  @media (max-width: 860px){ .adm-side{ display:none } }
+
+  /* ---- Sidebar accordion (reorganisasi nav; reuse .adm-navgroup/.adm-navitem) ---- */
+  button.adm-navgroup { display:flex; align-items:center; justify-content:space-between; gap:8px;
+    width:100%; border:0; background:transparent; cursor:pointer; font-family:inherit; }
+  button.adm-navgroup:hover { color: var(--ink-2); }
+  .adm-navchev { width:11px; height:11px; flex:0 0 auto; color: var(--ink-4);
+    transition: transform .18s ease; }
+  .adm-navcat.is-collapsed .adm-navchev { transform: rotate(-90deg); }
+  .adm-navcat.is-collapsed .adm-navlist { display:none; }
+
+  /* ---- Tombol menu mobile + drawer (≤860px) ---- */
+  .adm-menubtn { display:none; align-items:center; justify-content:center; width:40px; height:40px;
+    border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--card);
+    color:var(--ink); cursor:pointer; flex:0 0 auto; }
+  .adm-scrim { position:fixed; inset:0; z-index:39; background:color-mix(in srgb, var(--ink) 48%, transparent); }
+  @media (max-width: 860px){
+    .adm-menubtn { display:inline-flex; }
+    .adm-side { position:fixed; top:0; left:0; z-index:40; height:100vh; width:264px; max-width:84vw;
+      transform:translateX(-100%); transition:transform .22s ease; box-shadow:var(--shadow);
+      overflow-y:auto; }
+    .adm-side.is-open { transform:translateX(0); }
+  }
+  @media (min-width: 861px){ .adm-scrim { display:none !important; } }
 </style>
 </head>
 <body>
@@ -27,38 +49,95 @@
       <div style="margin-top:4px"><a class="adm-note" href="/admin-dashboard?legacy=1" style="text-decoration:underline" data-i18n="← Full admin (legacy)">← Admin lama (fitur lengkap)</a></div>
     </div>
     <nav>
-      <div class="adm-navgroup" data-i18n="Monitor">Pantau</div>
-      <button class="adm-navitem" data-nav="overview"><span data-i18n="Overview">Overview</span></button>
-      <button class="adm-navitem" data-nav="scan"><span data-i18n="Scan activity">Aktivitas scan</span></button>
-      <button class="adm-navitem" data-nav="revenue"><span data-i18n="Revenue">Revenue</span><span class="adm-tag adm-tag--pending" id="navRevBadge" hidden></span></button>
-      <button class="adm-navitem" data-nav="traffic"><span data-i18n="Traffic sources">Sumber trafik</span></button>
-      <button class="adm-navitem" data-nav="journey"><span data-i18n="Visbody funnel">Funnel Visbody</span></button>
-      <button class="adm-navitem" data-nav="classperf"><span data-i18n="Class performance">Class performance</span></button>
+      <!-- Nav dikelompokkan per domain; tiap grup = accordion collapsible.
+           Hanya reorganisasi — data-nav (route/section) tetap sama persis.
+           Perilaku accordion (toggle/persist/auto-expand aktif) di js/admin-shell.js. -->
+      <div class="adm-navcat" data-cat="analytics">
+        <button type="button" class="adm-navgroup" data-navgroup="analytics" aria-expanded="true"><span data-i18n="Analytics">Analitik</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="overview"><span data-i18n="Overview">Overview</span></button>
+          <button class="adm-navitem" data-nav="scan"><span data-i18n="Scan activity">Aktivitas scan</span></button>
+          <button class="adm-navitem" data-nav="revenue"><span data-i18n="Revenue">Revenue</span><span class="adm-tag adm-tag--pending" id="navRevBadge" hidden></span></button>
+          <button class="adm-navitem" data-nav="traffic"><span data-i18n="Traffic sources">Sumber trafik</span></button>
+        </div>
+      </div>
 
-      <div class="adm-navgroup" data-i18n="Manage">Kelola</div>
-      <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
-      <button class="adm-navitem" data-nav="voucher"><span data-i18n="Voucher">Voucher</span></button>
-      <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span></button>
-      <button class="adm-navitem" data-nav="menustats"><span data-i18n="Menu interest">Minat menu</span></button>
-      <button class="adm-navitem" data-nav="delivery"><span data-i18n="Eat Now / delivery">Eat Now / pesan-antar</span></button>
-      <button class="adm-navitem" data-nav="articles"><span data-i18n="Articles">Artikel</span></button>
-      <button class="adm-navitem" data-nav="marketing"><span data-i18n="Marketing">Marketing</span></button>
-      <button class="adm-navitem" data-nav="corporate"><span data-i18n="Corporate">Corporate</span></button>
-      <button class="adm-navitem" data-nav="events"><span data-i18n="Events">Event</span></button>
-      <button class="adm-navitem" data-nav="rewards"><span data-i18n="Rewards">Rewards</span></button>
-      <button class="adm-navitem" data-nav="coaches"><span data-i18n="Coaches">Coach</span></button>
-      <button class="adm-navitem" data-nav="visbody"><span data-i18n="Visbody claims">Claim Visbody</span></button>
-      <button class="adm-navitem" data-nav="hometiles"><span data-i18n="Home grid">Grid Home</span></button>
+      <div class="adm-navcat" data-cat="visbody">
+        <button type="button" class="adm-navgroup" data-navgroup="visbody" aria-expanded="true"><span data-i18n="Visbody">Visbody</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="journey"><span data-i18n="Visbody funnel">Funnel Visbody</span></button>
+          <button class="adm-navitem" data-nav="visbody"><span data-i18n="Visbody claims">Claim Visbody</span></button>
+        </div>
+      </div>
 
-      <div class="adm-navgroup" data-i18n="System">Sistem</div>
-      <button class="adm-navitem" data-nav="reports"><span data-i18n="Reports">Laporan</span></button>
-      <button class="adm-navitem" data-nav="settings"><span data-i18n="Settings">Pengaturan</span></button>
+      <div class="adm-navcat" data-cat="classcoach">
+        <button type="button" class="adm-navgroup" data-navgroup="classcoach" aria-expanded="true"><span data-i18n="Classes & Coach">Kelas &amp; Coach</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="classperf"><span data-i18n="Class performance">Class performance</span></button>
+          <button class="adm-navitem" data-nav="coaches"><span data-i18n="Coaches">Coach</span></button>
+        </div>
+      </div>
+
+      <div class="adm-navcat" data-cat="menu">
+        <button type="button" class="adm-navgroup" data-navgroup="menu" aria-expanded="true"><span data-i18n="Menu & F&B">Menu &amp; F&amp;B</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span></button>
+          <button class="adm-navitem" data-nav="menustats"><span data-i18n="Menu interest">Minat menu</span></button>
+          <button class="adm-navitem" data-nav="delivery"><span data-i18n="Eat Now / delivery">Eat Now / pesan-antar</span></button>
+        </div>
+      </div>
+
+      <div class="adm-navcat" data-cat="affiliate">
+        <button type="button" class="adm-navgroup" data-navgroup="affiliate" aria-expanded="true"><span data-i18n="Affiliate">Affiliate</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="affiliate"><span data-i18n="Affiliate">Affiliate</span></button>
+        </div>
+      </div>
+
+      <div class="adm-navcat" data-cat="content">
+        <button type="button" class="adm-navgroup" data-navgroup="content" aria-expanded="true"><span data-i18n="Content & Marketing">Konten &amp; Marketing</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="articles"><span data-i18n="Articles">Artikel</span></button>
+          <button class="adm-navitem" data-nav="marketing"><span data-i18n="Marketing">Marketing</span></button>
+          <button class="adm-navitem" data-nav="events"><span data-i18n="Events">Event</span></button>
+          <button class="adm-navitem" data-nav="rewards"><span data-i18n="Rewards">Rewards</span></button>
+          <button class="adm-navitem" data-nav="hometiles"><span data-i18n="Home grid">Grid Home</span></button>
+        </div>
+      </div>
+
+      <div class="adm-navcat" data-cat="corporate">
+        <button type="button" class="adm-navgroup" data-navgroup="corporate" aria-expanded="true"><span data-i18n="Corporate">Corporate</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="corporate"><span data-i18n="Corporate">Corporate</span></button>
+        </div>
+      </div>
+
+      <div class="adm-navcat" data-cat="user">
+        <button type="button" class="adm-navgroup" data-navgroup="user" aria-expanded="true"><span data-i18n="Users">User</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
+          <button class="adm-navitem" data-nav="voucher"><span data-i18n="Voucher">Voucher</span></button>
+        </div>
+      </div>
+
+      <div class="adm-navcat" data-cat="system">
+        <button type="button" class="adm-navgroup" data-navgroup="system" aria-expanded="true"><span data-i18n="System">Sistem</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="reports"><span data-i18n="Reports">Laporan</span></button>
+          <button class="adm-navitem" data-nav="settings"><span data-i18n="Settings">Pengaturan</span></button>
+        </div>
+      </div>
     </nav>
   </aside>
+  <!-- Scrim untuk drawer sidebar di layar sempit (klik = tutup). -->
+  <div class="adm-scrim" data-menu-close hidden></div>
 
   <!-- ---------------- MAIN ---------------- -->
   <div class="adm-main">
     <header class="adm-head">
+      <button type="button" class="adm-menubtn" data-menu-toggle aria-label="Menu" aria-expanded="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true" width="20" height="20"><path d="M3 5h14M3 10h14M3 15h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
       <div>
         <div class="adm-kicker" data-head-kicker>PANTAU</div>
         <h1 class="adm-title" data-head-title>Overview</h1>
@@ -117,6 +196,146 @@
           <span class="adm-badge" data-i18n="No data yet">BELUM ADA DATA</span>
           <div class="adm-note" data-i18n="Not yet instrumented: calorie accuracy, admin device, admin page frequency. These stay empty — no invented numbers.">Belum diinstrumentasi: akurasi kalori, device admin, frekuensi halaman admin. Sengaja dikosongkan — tanpa angka karangan.</div>
         </div>
+      </section>
+
+      <!-- ===== AFFILIATE (ringkasan program; data READ-ONLY dari affiliate_*) =====
+           Pakai design system admin (adm-*) terang + merah; status komisi memakai
+           skala merah/abu selaras dashboard admin affiliate. -->
+      <style>
+        .afsec-two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+        @media(max-width:900px){ .afsec-two{grid-template-columns:1fr} }
+        .afseg{display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--line);margin:2px 0 12px}
+        .afseg i{display:block;height:100%}
+        .afrow{display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 0;border-bottom:1px solid var(--line)}
+        .afrow:last-child{border-bottom:0}
+        .afrow .dot{width:9px;height:9px;border-radius:999px;flex:0 0 auto}
+        .afrow .amt{margin-left:auto;font-weight:700;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+        .afbars{display:flex;align-items:flex-end;gap:10px;height:150px;margin-top:8px}
+        .afbars .b{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+        .afbars .bar{width:100%;max-width:34px;border-radius:6px 6px 0 0;background:var(--accent)}
+        .afbars .bval{font-size:10.5px;font-weight:700;color:var(--ink-3);white-space:nowrap;font-family:var(--font-mono)}
+        .afbars .blab{font-size:11px;color:var(--ink-3)}
+        .afsec-foot{margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ink-3)}
+        /* Warna status komisi — skala merah/abu, selaras dashboard admin affiliate. */
+        .afc-held{background:#8a8f98}.afc-available{background:var(--accent)}.afc-claimed{background:#ff9783}.afc-paid{background:#9c1020}.afc-cancelled{background:#cfd2d9}
+        /* Form setelan affiliate */
+        .afset-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px}
+        @media(max-width:720px){ .afset-grid{grid-template-columns:1fr} }
+        .afset-f{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--ink-2)}
+        .afset-f.afset-check{flex-direction:row;align-items:center;gap:8px}
+        .afset-check input{width:16px;height:16px;flex:0 0 auto}
+        /* Tabel daftar (affiliate / komisi / klaim) */
+        .aftbl-bar{display:flex;align-items:center;gap:10px;margin:16px 0 10px;flex-wrap:wrap}
+        .aftbl-foot{display:flex;gap:8px;margin-top:10px}
+        .afcl-act{display:flex;gap:6px;flex-wrap:wrap}
+        .afcl-act .adm-btn{padding:4px 10px;font-size:11px}
+      </style>
+      <section data-section="affiliate" hidden
+        data-kicker="PANTAU" data-kicker-en="MONITOR"
+        data-title="Affiliate" data-title-en="Affiliate"
+        data-question="Berapa affiliate aktif, komisi berjalan, dan klaim yang menunggu?"
+        data-question-en="How many active affiliates, running commission, and claims waiting?">
+        <div class="adm-tabs" data-tabgroup="aff" data-default="overview">
+          <button data-tab="aff" data-tab-id="overview" data-i18n="Summary">Ringkasan</button>
+          <button data-tab="aff" data-tab-id="list" data-i18n="Affiliates">Affiliate</button>
+          <button data-tab="aff" data-tab-id="comm" data-i18n="Commissions">Komisi</button>
+          <button data-tab="aff" data-tab-id="claims" data-i18n="Claims">Klaim</button>
+          <button data-tab="aff" data-tab-id="settings" data-i18n="Settings">Setelan</button>
+        </div>
+
+        <!-- Ringkasan (read-only overview) -->
+        <div data-tabpanel="aff" data-tab="overview">
+        <div class="adm-grid adm-grid--4" id="afKpis">
+          <div class="adm-cell"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+        </div>
+        <div class="afsec-two">
+          <div class="adm-panel">
+            <div class="adm-sec-title" style="margin:0 0 4px" data-i18n="Commission by status">Komisi per status</div>
+            <div class="adm-metric" id="afTotal" style="margin:2px 0 12px">—</div>
+            <div class="afseg" id="afSeg"></div>
+            <div id="afStatus"></div>
+          </div>
+          <div class="adm-panel">
+            <div class="adm-sec-title" style="margin:0 0 8px" data-i18n="Running commission per month">Komisi per bulan</div>
+            <div class="afbars" id="afChart"></div>
+            <div class="adm-note" style="margin-top:10px" data-i18n="Held + available + claimed + paid, by source month.">Held + available + claimed + paid, per bulan sumber.</div>
+          </div>
+        </div>
+        <div class="afsec-foot">
+          <a class="adm-btn adm-btn--sm" href="https://affiliate.20fit.id/admin" data-i18n="Open affiliate admin">Buka admin affiliate</a>
+          <span data-i18n="Read-only summary — detailed management in the tabs here or in the affiliate admin.">Ringkasan read-only — kelola lebih detail di tab di sini atau di admin affiliate.</span>
+        </div>
+        </div><!-- /tab overview -->
+
+        <!-- Daftar Affiliate (read-only) -->
+        <div data-tabpanel="aff" data-tab="list" hidden>
+          <div class="aftbl-bar">
+            <input class="adm-input" data-table-search="#affListTable" placeholder="Cari kode / status…" data-i18n-ph="Search code / status…" style="max-width:280px">
+            <span class="adm-note" data-table-info="#affListTable" style="margin-left:auto"></span>
+          </div>
+          <div class="adm-panel" style="padding:0;overflow-x:auto">
+            <table class="adm-table" id="affListTable" data-table data-page-size="20">
+              <thead><tr><th data-sort="str" data-i18n="Code">Kode</th><th data-sort="str" data-i18n="Status">Status</th><th data-sort="str" data-i18n="Joined">Bergabung</th><th class="adm-right" data-sort="num" data-i18n="Transactions">Transaksi</th><th class="adm-right" data-sort="num" data-i18n="Commission">Komisi</th></tr></thead>
+              <tbody id="affListRows"><tr><td colspan="5"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note" data-table-empty="#affListTable" hidden data-i18n="No affiliates yet.">Belum ada affiliate.</div>
+          <div class="aftbl-foot"><button class="adm-btn adm-btn--sm" data-page-step="#affListTable" data-step="-1" data-i18n="Prev">Sebelumnya</button><button class="adm-btn adm-btn--sm" data-page-step="#affListTable" data-step="1" data-i18n="Next">Berikutnya</button></div>
+        </div>
+
+        <!-- Daftar Komisi (read-only) -->
+        <div data-tabpanel="aff" data-tab="comm" hidden>
+          <div class="aftbl-bar">
+            <input class="adm-input" data-table-search="#affCommTable" placeholder="Cari kode / status…" data-i18n-ph="Search code / status…" style="max-width:280px">
+            <span class="adm-note" data-table-info="#affCommTable" style="margin-left:auto"></span>
+          </div>
+          <div class="adm-panel" style="padding:0;overflow-x:auto">
+            <table class="adm-table" id="affCommTable" data-table data-page-size="20">
+              <thead><tr><th data-sort="str" data-i18n="Code">Kode</th><th class="adm-right" data-sort="num" data-i18n="Base">Basis</th><th class="adm-right" data-sort="num" data-i18n="Rate">Rate</th><th class="adm-right" data-sort="num" data-i18n="Commission">Komisi</th><th data-sort="str" data-i18n="Status">Status</th><th data-sort="str" data-i18n="Source date">Tgl sumber</th></tr></thead>
+              <tbody id="affCommRows"><tr><td colspan="6"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note" data-table-empty="#affCommTable" hidden data-i18n="No commissions yet.">Belum ada komisi.</div>
+          <div class="aftbl-foot"><button class="adm-btn adm-btn--sm" data-page-step="#affCommTable" data-step="-1" data-i18n="Prev">Sebelumnya</button><button class="adm-btn adm-btn--sm" data-page-step="#affCommTable" data-step="1" data-i18n="Next">Berikutnya</button></div>
+          <div class="adm-note" style="margin-top:8px" data-i18n="Latest 300 commission events.">300 event komisi terbaru.</div>
+        </div>
+
+        <!-- Klaim / payout — AKSI lewat RPC resmi affiliate (role affiliate-super) -->
+        <div data-tabpanel="aff" data-tab="claims" hidden>
+          <div class="adm-note" id="afClaimBanner" style="margin-bottom:12px">—</div>
+          <div class="adm-panel" style="padding:0;overflow-x:auto">
+            <table class="adm-table" id="affClaimTable" data-table data-page-size="20">
+              <thead><tr><th data-i18n="Claim">Klaim</th><th data-i18n="Code">Kode</th><th class="adm-right" data-i18n="Gross">Bruto</th><th class="adm-right" data-i18n="Net">Neto</th><th data-i18n="Status">Status</th><th data-i18n="Date">Tanggal</th><th data-i18n="Action">Aksi</th></tr></thead>
+              <tbody id="affClaimRows"><tr><td colspan="7"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note" data-table-empty="#affClaimTable" hidden data-i18n="No claims yet.">Belum ada klaim.</div>
+          <div class="adm-note" style="margin-top:8px" data-i18n="Actions (mark processing / paid / reject) run via the official affiliate RPC — atomic, audited, affiliate super-admin only.">Aksi (tandai diproses / dibayar / tolak) lewat RPC resmi affiliate — atomik, tercatat audit, hanya affiliate super-admin.</div>
+        </div>
+
+        <!-- Setelan program (finansial) — TULIS lewat RPC resmi affiliate_update_settings
+             (atomic + audit + cek role affiliate-super). Baca via /api/admin/affiliate/settings. -->
+        <div data-tabpanel="aff" data-tab="settings" hidden>
+        <div class="adm-panel" id="afSetPanel">
+          <div class="adm-note" id="afSetBanner" style="margin-bottom:14px">—</div>
+          <div class="afset-grid">
+            <label class="afset-f"><span data-i18n="Commission rate (%)">Rate komisi (%)</span><input class="adm-input" id="afsRate" type="number" step="0.01" min="0" inputmode="decimal"></label>
+            <label class="afset-f"><span data-i18n="Minimum claim (Rp)">Minimal klaim (Rp)</span><input class="adm-input" id="afsMin" type="number" step="1000" min="0" inputmode="numeric"></label>
+            <label class="afset-f"><span data-i18n="Hold period (days)">Masa tahan (hari)</span><input class="adm-input" id="afsPending" type="number" step="1" min="0" inputmode="numeric"></label>
+            <label class="afset-f"><span data-i18n="Program status">Status program</span><select class="adm-input" id="afsStatus"><option value="active" data-i18n="Active">Aktif</option><option value="paused" data-i18n="Paused">Dijeda</option></select></label>
+            <label class="afset-f"><span data-i18n="Income tax with NPWP (%)">PPh 21 dengan NPWP (%)</span><input class="adm-input" id="afsTaxN" type="number" step="0.01" min="0" inputmode="decimal"></label>
+            <label class="afset-f"><span data-i18n="Income tax without NPWP (%)">PPh 21 tanpa NPWP (%)</span><input class="adm-input" id="afsTaxNo" type="number" step="0.01" min="0" inputmode="decimal"></label>
+            <label class="afset-f afset-check"><input type="checkbox" id="afsOnePer"><span data-i18n="One link open = one transaction">Satu buka link = satu transaksi</span></label>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:16px;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary" id="afsSave" data-i18n="Save settings">Simpan setelan</button>
+            <span class="adm-note" id="afsMeta"></span>
+          </div>
+          <div class="adm-note" style="margin-top:12px" data-i18n="Changes are atomic + audited via the official affiliate RPC. Rate changes apply to future commission only; pausing stops the program.">Perubahan atomik + tercatat di audit lewat RPC resmi affiliate. Perubahan rate hanya berlaku untuk komisi ke depan; menjeda menghentikan program.</div>
+          <div class="adm-sec-title" style="margin:18px 0 8px" data-i18n="Recent changes">Perubahan terakhir</div>
+          <div id="afsAudit"></div>
+        </div>
+        </div><!-- /tab settings -->
       </section>
 
       <!-- ===== SCAFFOLD SECTIONS (increment berikutnya) ===== -->
@@ -243,9 +462,9 @@
         </div>
       </section>
       <section data-section="voucher" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Voucher" data-title-en="Voucher" data-question="Voucher mana yang menghasilkan revenue bersih, dan berapa % pembeli baru?" data-question-en="Which voucher drives net revenue, and what % are new buyers?">
-        <div class="adm-tabs" data-tabgroup="vch" data-default="perf">
-          <button data-tab="vch" data-tab-id="perf" data-i18n="Performance">Performa</button>
+        <div class="adm-tabs" data-tabgroup="vch" data-default="create">
           <button data-tab="vch" data-tab-id="create" data-i18n="Create voucher">Buat voucher</button>
+          <button data-tab="vch" data-tab-id="perf" data-i18n="Performance">Performa</button>
           <button data-tab="vch" data-tab-id="manage" data-i18n="Manage">Kelola</button>
         </div>
         <div data-tabpanel="vch" data-tab="perf">
@@ -326,10 +545,138 @@
           </div>
         </div>
       </section>
-      <section data-section="menu" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Menu diet" data-title-en="Diet menu" data-question="Menu kontribusi mana yang menunggu review sebelum tayang untuk publik?" data-question-en="Which contributed menus await review before going public?">
+      <section data-section="menu" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Menu diet" data-title-en="Diet menu" data-question="Kelola katalog resep official dan moderasi kontribusi member." data-question-en="Manage the official recipe catalog and moderate member contributions.">
+        <style>
+          .ro-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 14px}
+          .ro-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+          @media(max-width:900px){ .ro-grid{grid-template-columns:1fr 1fr} .ro-grid2{grid-template-columns:1fr} }
+          .ro-f{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--ink-2)}
+          .ro-f textarea{resize:vertical;font-family:inherit}
+          .ro-diet{display:flex;flex-wrap:wrap;gap:6px 14px}
+          .ro-diet label{display:flex;align-items:center;gap:6px;font-weight:500;color:var(--ink);font-size:13px}
+          .ro-photo{display:flex;align-items:center;gap:12px}
+          .ro-photo-prev{width:64px;height:64px;border-radius:var(--radius-sm);background:var(--surface) center/cover no-repeat;border:1px solid var(--line);flex:0 0 auto;display:grid;place-items:center;color:var(--ink-4);font-size:22px}
+          .ro-thumb{width:40px;height:40px;border-radius:8px;background:var(--surface) center/cover no-repeat;display:inline-grid;place-items:center;color:var(--ink-4);font-size:18px}
+        </style>
+        <div class="adm-tabs" data-tabgroup="menu" data-default="official">
+          <button data-tab="menu" data-tab-id="official" data-i18n="Official recipes">Resep official</button>
+          <button data-tab="menu" data-tab-id="member" data-i18n="Member contributions">Kontribusi member</button>
+        </div>
+
+        <!-- ===== Tab: Resep OFFICIAL (CMS my20fit_recipe_official) ===== -->
+        <div data-tabpanel="menu" data-tab="official">
+          <div class="adm-note" id="roSeedWarn" hidden style="margin:12px 0;color:var(--accent-ink)"></div>
+          <div style="display:flex;gap:8px;align-items:center;margin:14px 0 10px;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary adm-btn--sm" id="roAddBtn" data-i18n="+ Add recipe">+ Tambah resep</button>
+            <input class="adm-input" id="roSearch" style="max-width:240px" placeholder="Cari resep…" data-i18n-ph="Search recipe…">
+            <span class="adm-note" id="roCount" style="margin-left:auto"></span>
+          </div>
+
+          <div class="adm-panel" id="roForm" hidden style="margin-bottom:14px">
+            <div class="adm-sec-title" id="roFormTitle" style="margin-top:0" data-i18n="New recipe">Resep baru</div>
+            <div class="ro-grid">
+              <label class="ro-f"><span data-i18n="Name (EN)">Nama (EN)</span><input class="adm-input" id="roNameEn"></label>
+              <label class="ro-f"><span data-i18n="Name (ID)">Nama (ID)</span><input class="adm-input" id="roNameId"></label>
+              <label class="ro-f"><span data-i18n="ID / slug">ID / slug</span><input class="adm-input" id="roId" placeholder="mis. rice-chicken"></label>
+              <label class="ro-f"><span data-i18n="Category">Kategori</span><input class="adm-input" id="roCat"></label>
+              <label class="ro-f"><span>kkal</span><input class="adm-input" id="roKcal" type="number" inputmode="numeric"></label>
+              <label class="ro-f"><span data-i18n="Protein (g)">Protein (g)</span><input class="adm-input" id="roP" type="number"></label>
+              <label class="ro-f"><span data-i18n="Carbs (g)">Karbo (g)</span><input class="adm-input" id="roC" type="number"></label>
+              <label class="ro-f"><span data-i18n="Fat (g)">Lemak (g)</span><input class="adm-input" id="roF" type="number"></label>
+              <label class="ro-f"><span data-i18n="Servings">Porsi</span><input class="adm-input" id="roServings" type="number"></label>
+              <label class="ro-f"><span data-i18n="Cook (min)">Masak (menit)</span><input class="adm-input" id="roCook" type="number"></label>
+              <label class="ro-f"><span data-i18n="Prep (min)">Prep (menit)</span><input class="adm-input" id="roPrep" type="number"></label>
+              <label class="ro-f"><span data-i18n="Emoji / placeholder">Emoji</span><input class="adm-input" id="roEmoji" placeholder="protein"></label>
+            </div>
+            <div class="ro-f" style="margin-top:12px"><span data-i18n="Diet types">Tipe diet</span><div id="roDiet" class="ro-diet"></div></div>
+            <div class="ro-grid2" style="margin-top:12px">
+              <label class="ro-f"><span data-i18n="Ingredients (EN)">Bahan (EN)</span><textarea class="adm-input" id="roIngEn" rows="5"></textarea></label>
+              <label class="ro-f"><span data-i18n="Ingredients (ID)">Bahan (ID)</span><textarea class="adm-input" id="roIngId" rows="5"></textarea></label>
+              <label class="ro-f"><span data-i18n="Steps (EN)">Langkah (EN)</span><textarea class="adm-input" id="roStepsEn" rows="6"></textarea></label>
+              <label class="ro-f"><span data-i18n="Steps (ID)">Langkah (ID)</span><textarea class="adm-input" id="roStepsId" rows="6"></textarea></label>
+            </div>
+            <div class="ro-grid2" style="margin-top:12px">
+              <label class="ro-f"><span data-i18n="Equipment">Peralatan</span><input class="adm-input" id="roEquip"></label>
+              <label class="ro-f"><span data-i18n="Prep note">Catatan prep</span><input class="adm-input" id="roPrepNote"></label>
+            </div>
+            <label class="ro-f" style="margin-top:12px"><span data-i18n="Common mistake">Kesalahan umum</span><input class="adm-input" id="roMistake"></label>
+            <div style="display:flex;gap:16px;align-items:center;margin-top:14px;flex-wrap:wrap">
+              <div class="ro-photo">
+                <div class="ro-photo-prev" id="roPhotoPrev">🍽️</div>
+                <div>
+                  <input type="file" id="roPhotoFile" accept="image/png,image/jpeg,image/webp" hidden>
+                  <button class="adm-btn adm-btn--sm" id="roPhotoBtn" data-i18n="Upload photo">Unggah foto</button>
+                  <button class="adm-btn adm-btn--sm" id="roPhotoClear" hidden data-i18n="Remove">Hapus</button>
+                  <div class="adm-note" data-i18n="PNG/JPG/WebP, max 5MB. Empty = auto photo.">PNG/JPG/WebP, maks 5MB. Kosong = foto otomatis.</div>
+                </div>
+              </div>
+              <label class="afset-check" style="margin-left:auto"><input type="checkbox" id="roPub" checked><span data-i18n="Published">Tayang</span></label>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap">
+              <button class="adm-btn adm-btn--primary" id="roSave" data-i18n="Save">Simpan</button>
+              <button class="adm-btn" id="roCancel" data-i18n="Cancel">Batal</button>
+              <span class="adm-note" id="roMsg"></span>
+            </div>
+          </div>
+
+          <div class="adm-panel" style="padding:0;overflow-x:auto">
+            <table class="adm-table" id="roTable">
+              <thead><tr><th data-i18n="Photo">Foto</th><th data-i18n="Name">Nama</th><th class="adm-right" data-i18n="kcal">kkal</th><th data-i18n="Diet">Diet</th><th data-i18n="Published">Tayang</th><th data-i18n="Action">Aksi</th></tr></thead>
+              <tbody id="roRows"><tr><td colspan="6"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note" id="roEmpty" hidden data-i18n="No official recipes yet.">Belum ada resep official.</div>
+        </div>
+
+        <!-- ===== Tab: Kontribusi MEMBER (moderasi, seperti sebelumnya) ===== -->
+        <div data-tabpanel="menu" data-tab="member" hidden>
         <div class="adm-callout" style="margin:16px 0">
           <span class="adm-badge" data-i18n="Reviewer guide">Pedoman reviewer</span>
           <div class="adm-note" style="line-height:1.6" data-i18n="Reject: unsafe very-low calories (below 1,200 kcal for adults without supervision), medical claims (&quot;cures diabetes&quot;), clearly wrong nutrition info (macros don't match the total), and menus pushing extreme diets or excessive fasting. This isn't a formality — a wrong menu spreading can harm its followers.">Tolak: kalori sangat rendah tak aman (di bawah 1.200 kkal untuk dewasa tanpa pengawasan), klaim medis (&quot;menyembuhkan diabetes&quot;), info gizi jelas salah (makro tak cocok totalnya), dan menu yang mendorong pola makan ekstrem/puasa berlebihan. Ini bukan formalitas — menu salah yang tersebar bisa membahayakan pengikutnya.</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin:4px 0 12px;flex-wrap:wrap">
+          <button class="adm-btn adm-btn--primary adm-btn--sm" id="meAddBtn" data-i18n="+ Add recipe">+ Tambah resep</button>
+          <span class="adm-note" data-i18n="Admin-created recipes publish immediately (no reward).">Resep buatan admin langsung tayang (tanpa reward).</span>
+        </div>
+        <div class="adm-panel" id="meForm" hidden style="margin-bottom:14px">
+          <div class="adm-sec-title" id="meFormTitle" style="margin-top:0" data-i18n="New recipe">Resep baru</div>
+          <div class="ro-grid">
+            <label class="ro-f"><span data-i18n="Name">Nama</span><input class="adm-input" id="meName"></label>
+            <label class="ro-f"><span data-i18n="Contributor label">Nama kontributor</span><input class="adm-input" id="meDisplay" placeholder="20FIT"></label>
+            <label class="ro-f"><span data-i18n="Diet type">Tipe diet</span><select class="adm-input" id="meDiet"></select></label>
+            <label class="ro-f"><span>kkal</span><input class="adm-input" id="meKcal" type="number"></label>
+            <label class="ro-f"><span data-i18n="Protein (g)">Protein (g)</span><input class="adm-input" id="meP" type="number"></label>
+            <label class="ro-f"><span data-i18n="Carbs (g)">Karbo (g)</span><input class="adm-input" id="meC" type="number"></label>
+            <label class="ro-f"><span data-i18n="Fat (g)">Lemak (g)</span><input class="adm-input" id="meF" type="number"></label>
+            <label class="ro-f"><span data-i18n="Servings">Porsi</span><input class="adm-input" id="meServings" type="number"></label>
+            <label class="ro-f"><span data-i18n="Cook (min)">Masak (menit)</span><input class="adm-input" id="meCook" type="number"></label>
+            <label class="ro-f"><span data-i18n="Prep (min)">Prep (menit)</span><input class="adm-input" id="mePrep" type="number"></label>
+          </div>
+          <div class="ro-grid2" style="margin-top:12px">
+            <label class="ro-f"><span data-i18n="Ingredients">Bahan</span><textarea class="adm-input" id="meIng" rows="5"></textarea></label>
+            <label class="ro-f"><span data-i18n="Steps">Langkah</span><textarea class="adm-input" id="meSteps" rows="5"></textarea></label>
+          </div>
+          <div class="ro-grid2" style="margin-top:12px">
+            <label class="ro-f"><span data-i18n="Equipment">Peralatan</span><input class="adm-input" id="meEquip"></label>
+            <label class="ro-f"><span data-i18n="Prep note">Catatan prep</span><input class="adm-input" id="mePrepNote"></label>
+          </div>
+          <div style="display:flex;gap:16px;align-items:center;margin-top:14px;flex-wrap:wrap">
+            <div class="ro-photo">
+              <div class="ro-photo-prev" id="mePhotoPrev">🍽️</div>
+              <div>
+                <input type="file" id="mePhotoFile" accept="image/png,image/jpeg,image/webp" hidden>
+                <button class="adm-btn adm-btn--sm" id="mePhotoBtn" data-i18n="Upload photo">Unggah foto</button>
+                <button class="adm-btn adm-btn--sm" id="mePhotoClear" hidden data-i18n="Remove">Hapus</button>
+                <div class="adm-note" data-i18n="PNG/JPG/WebP, max 5MB.">PNG/JPG/WebP, maks 5MB.</div>
+              </div>
+            </div>
+            <label class="afset-check" style="margin-left:auto"><input type="checkbox" id="mePub" checked><span data-i18n="Published">Tayang</span></label>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary" id="meSave" data-i18n="Save">Simpan</button>
+            <button class="adm-btn" id="meCancel" data-i18n="Cancel">Batal</button>
+            <span class="adm-note" id="meMsg"></span>
+          </div>
         </div>
         <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:24px">
           <div>
@@ -356,6 +703,7 @@
             <div class="adm-note" data-i18n="Select a menu from the queue to review.">Pilih menu dari antrian untuk direview.</div>
           </div>
         </div>
+        </div><!-- /tab member -->
       </section>
       <section data-section="delivery" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Eat Now / pesan-antar" data-title-en="Eat Now / delivery" data-question="Resep mana yang ditautkan ke kategori GrabFood/GoFood, dan mana yang belum dipetakan?" data-question-en="Which recipes link to a GrabFood/GoFood category, and which are still unmapped?">
         <div id="dlvBox"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
@@ -1498,12 +1846,24 @@
     }catch(e){ return false; }
   }
   // ---- LOGIN (A/2) — additif: overlay hanya muncul kalau BELUM ter-auth. ----
+  // Tunggu modul Auth (js/auth.js) benar-benar siap sebelum dipakai. Kalau asetnya
+  // lambat/sempat gagal termuat (mis. tepat setelah deploy), window.Auth bisa belum
+  // ada saat user klik MASUK — beri waktu singkat, lalu pesan yang jelas & bisa
+  // ditindaklanjuti, BUKAN ReferenceError "Auth is not defined".
+  async function admEnsureAuth(){
+    for(var i=0;i<50 && !window.Auth;i++){ await new Promise(function(r){ setTimeout(r,100); }); }
+    if(!window.Auth) throw new Error(L("Login module failed to load. Please refresh the page (Ctrl/Cmd+Shift+R).","Modul login gagal dimuat. Muat ulang halaman (Ctrl/Cmd+Shift+R)."));
+    try{ if(window.Auth.ready) await window.Auth.ready; }catch(e){}
+    if(!window.Auth.supabase) throw new Error(L("Login service isn't ready yet. Please refresh.","Layanan login belum siap. Muat ulang halaman."));
+    return window.Auth;
+  }
   async function admTryAuth(email, pass){
-    try{ if(window.Auth&&Auth.ready) await Auth.ready; }catch(e){}
+    var A;
+    try{ A=await admEnsureAuth(); }catch(e){ return { ok:false, error:String((e&&e.message)||e) }; }
     try{
-      var res=await Auth.supabase.auth.signInWithPassword({ email:email, password:pass });
+      var res=await A.supabase.auth.signInWithPassword({ email:email, password:pass });
       if(!res.error) return { ok:true };
-      try{ await Auth.fitcoLogin(email, pass); return { ok:true }; }
+      try{ await A.fitcoLogin(email, pass); return { ok:true }; }
       catch(e){ return { ok:false, error:res.error.message }; }
     }catch(e){ return { ok:false, error:String((e&&e.message)||e) }; }
   }
@@ -1612,6 +1972,7 @@
   }
   async function loadMenu(){
     var tb=document.getElementById("mnRows"); if(!tb) return;
+    if(!_meBound) meBind();
     var qs="/api/admin/menu"+(MN_FILTER!=="all"?("?status="+MN_FILTER):"");
     var q=(document.getElementById("mnSearch")||{}).value||"";
     if(q) qs+=(qs.indexOf("?")<0?"?":"&")+"q="+encodeURIComponent(q);
@@ -1659,10 +2020,16 @@
           '<button class="adm-btn" id="mnReject">'+L("Reject","Tolak")+'</button>'+
         '</div>'+
         '<input class="adm-input" id="mnReasonNote" style="margin-top:8px" placeholder="'+L("Extra note (optional)","Catatan tambahan (opsional)")+'">'+
+        '<div style="display:flex;gap:8px;margin-top:10px">'+
+          '<button class="adm-btn adm-btn--sm" id="mnEdit">'+L("Edit","Edit")+'</button>'+
+          '<button class="adm-btn adm-btn--sm" id="mnDelete">'+L("Delete","Hapus")+'</button>'+
+        '</div>'+
         '<div class="adm-note" id="mnMsg" style="margin-top:8px"></div>'+
       '</div>';
     var ap=document.getElementById("mnApprove"); if(ap) ap.onclick=function(){ mnApprove(m.id); };
     document.getElementById("mnReject").onclick=function(){ mnReject(m.id); };
+    var ed=document.getElementById("mnEdit"); if(ed) ed.onclick=function(){ meOpenForm(m); };
+    var dl=document.getElementById("mnDelete"); if(dl) dl.onclick=function(){ meDelete(m.id, m.name); };
   }
   async function mnApprove(id){
     var msg=document.getElementById("mnMsg"); if(msg) msg.textContent=L("Approving…","Menyetujui…");
@@ -1678,6 +2045,203 @@
     var r=await adminPost("/api/admin/menu/"+encodeURIComponent(id)+"/reject",{reason:reason}).then(function(x){return x.json();}).catch(function(){return{};});
     if(r&&r.ok){ if(window.admToast)admToast(L("Rejected","Ditolak")+(r.credits_clawed?(" · −"+r.credits_clawed+" "+L("credits","kredit")):"")); loadMenu(); }
     else if(msg) msg.textContent=(r&&r.error)||L("Failed","Gagal");
+  }
+
+  // ---- RESEP OFFICIAL (CMS my20fit_recipe_official via /api/admin/recipes) ----
+  var RO_DIET=["normal","vegetarian","vegan","pescatarian","keto","halal","high-protein","low-carb"];
+  var RO_LIST=[], RO_EDIT=null, RO_PHOTO=null, _roBound=false;
+  function roEl(id){ return document.getElementById(id); }
+  function roDietChips(){
+    var box=roEl("roDiet"); if(!box) return;
+    box.innerHTML=RO_DIET.map(function(d){ return '<label><input type="checkbox" class="roDietChk" value="'+d+'"><span>'+d+'</span></label>'; }).join("");
+  }
+  function roSetPhoto(url){
+    RO_PHOTO=url||null;
+    var prev=roEl("roPhotoPrev"), clr=roEl("roPhotoClear");
+    if(prev){ if(RO_PHOTO){ prev.style.backgroundImage='url("'+RO_PHOTO+'")'; prev.textContent=""; } else { prev.style.backgroundImage="none"; prev.textContent="🍽️"; } }
+    if(clr) clr.hidden=!RO_PHOTO;
+  }
+  async function loadRecipesOfficial(){
+    var tb=roEl("roRows"); if(!tb) return;
+    if(!_roBound) roBind();
+    try{
+      var q=roEl("roSearch")?roEl("roSearch").value.trim():"";
+      var res=await adminFetch("/api/admin/recipes"+(q?("?q="+encodeURIComponent(q)):""));
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      RO_LIST=j.recipes||[];
+      var warn=roEl("roSeedWarn");
+      if(warn){ if(!j.seeded){ warn.hidden=false; warn.textContent=L("Table not seeded yet — still serving the static fallback (js/recipes.js). Run db/seed-recipe-official.sql to activate DB catalog.","Tabel belum di-seed — masih memakai fallback statik (js/recipes.js). Jalankan db/seed-recipe-official.sql untuk mengaktifkan katalog DB."); } else warn.hidden=true; }
+      roRender();
+    }catch(e){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+  }
+  function roRender(){
+    var tb=roEl("roRows"), empty=roEl("roEmpty"), cnt=roEl("roCount");
+    if(cnt) cnt.textContent=RO_LIST.length+" "+L("recipes","resep");
+    if(empty) empty.hidden=RO_LIST.length>0;
+    tb.innerHTML=RO_LIST.map(function(r){
+      var ph=r.photo_url?('<span class="ro-thumb" style="background-image:url(\''+esc(r.photo_url)+'\')"></span>'):('<span class="ro-thumb">'+(r.emoji?"🍱":"🍽️")+'</span>');
+      var diet=(Array.isArray(r.diet_types)?r.diet_types:[]).slice(0,3).map(function(d){return '<span class="adm-tag adm-tag--mute">'+esc(d)+'</span>';}).join(" ");
+      var pub=r.is_published?'<span class="adm-tag adm-tag--paid">'+L("Live","Tayang")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("Hidden","Disembunyikan")+'</span>';
+      return '<tr><td>'+ph+'</td>'+
+        '<td><div style="font-weight:600">'+esc(r.name_id||r.name_en||r.id)+'</div><div class="adm-note" style="margin:0">'+esc(r.name_en||"")+' · <span class="adm-mono">'+esc(r.id)+'</span></div></td>'+
+        '<td class="adm-right adm-mono">'+(r.kcal!=null?r.kcal:"—")+'</td>'+
+        '<td>'+(diet||'<span class="adm-note" style="margin:0">—</span>')+'</td>'+
+        '<td>'+pub+'</td>'+
+        '<td><div class="afcl-act"><button class="adm-btn adm-btn--sm" onclick="roEdit(\''+esc(r.id)+'\')" data-i18n="Edit">Edit</button>'+
+          '<button class="adm-btn adm-btn--sm" onclick="roDelete(\''+esc(r.id)+'\')" data-i18n="Delete">Hapus</button></div></td></tr>';
+    }).join("");
+    if(window.applyAdmLang) window.applyAdmLang();
+  }
+  function roOpenForm(rec){
+    RO_EDIT=rec?rec.id:null;
+    var t=roEl("roFormTitle"); if(t){ t.textContent=rec?L("Edit recipe","Edit resep"):L("New recipe","Resep baru"); }
+    var set=function(id,v){ var e=roEl(id); if(e) e.value=(v==null?"":v); };
+    set("roNameEn",rec&&rec.name_en); set("roNameId",rec&&rec.name_id);
+    set("roId",rec&&rec.id); var idEl=roEl("roId"); if(idEl){ idEl.readOnly=!!rec; idEl.style.opacity=rec?"0.6":"1"; }
+    set("roCat",rec&&rec.category); set("roKcal",rec&&rec.kcal); set("roP",rec&&rec.p); set("roC",rec&&rec.c); set("roF",rec&&rec.f);
+    set("roServings",rec&&rec.servings); set("roCook",rec&&rec.cook_minutes); set("roPrep",rec&&rec.prep_minutes);
+    set("roEmoji",rec&&rec.emoji); set("roIngEn",rec&&rec.ingredients_en); set("roIngId",rec&&rec.ingredients_id);
+    set("roStepsEn",rec&&rec.steps_en); set("roStepsId",rec&&rec.steps_id);
+    set("roEquip",rec&&rec.equipment); set("roPrepNote",rec&&rec.prep_note); set("roMistake",rec&&rec.common_mistake);
+    var pub=roEl("roPub"); if(pub) pub.checked=rec?!!rec.is_published:true;
+    var dsel=(rec&&Array.isArray(rec.diet_types))?rec.diet_types:[];
+    document.querySelectorAll(".roDietChk").forEach(function(c){ c.checked=dsel.indexOf(c.value)>=0; });
+    roSetPhoto(rec&&rec.photo_url);
+    var msg=roEl("roMsg"); if(msg) msg.textContent="";
+    var f=roEl("roForm"); if(f){ f.hidden=false; f.scrollIntoView({behavior:"smooth",block:"nearest"}); }
+  }
+  window.roEdit=function(id){ var r=RO_LIST.find(function(x){return String(x.id)===String(id);}); if(r) roOpenForm(r); };
+  function roBody(){
+    var v=function(id){ var e=roEl(id); return e?e.value.trim():""; };
+    var n=function(id){ var e=roEl(id); return (e&&e.value!=="")?Math.round(+e.value):null; };
+    var diet=[]; document.querySelectorAll(".roDietChk:checked").forEach(function(c){ diet.push(c.value); });
+    return { id:v("roId"), name_en:v("roNameEn"), name_id:v("roNameId"), category:v("roCat"),
+      kcal:n("roKcal"), p:n("roP"), c:n("roC"), f:n("roF"), servings:n("roServings"),
+      cook_minutes:n("roCook"), prep_minutes:n("roPrep"), emoji:v("roEmoji"), diet_types:diet,
+      ingredients_en:v("roIngEn"), ingredients_id:v("roIngId"), steps_en:v("roStepsEn"), steps_id:v("roStepsId"),
+      equipment:v("roEquip"), prep_note:v("roPrepNote"), common_mistake:v("roMistake"),
+      photo_url:RO_PHOTO||"", is_published:!!(roEl("roPub")&&roEl("roPub").checked) };
+  }
+  async function roSave(){
+    var msg=roEl("roMsg"), body=roBody();
+    if(!body.name_en||!body.name_id){ if(msg) msg.textContent=L("Name (EN & ID) is required.","Nama (EN & ID) wajib."); return; }
+    var url=RO_EDIT?("/api/admin/recipes/"+encodeURIComponent(RO_EDIT)+"/update"):"/api/admin/recipes";
+    if(msg) msg.textContent=L("Saving…","Menyimpan…");
+    var r=await adminPost(url,body).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Saved","Tersimpan")); var f=roEl("roForm"); if(f) f.hidden=true; RO_EDIT=null; loadRecipesOfficial(); }
+    else if(msg) msg.textContent=L("Failed: ","Gagal: ")+((r&&r.error)||"error");
+  }
+  window.roDelete=async function(id, force){
+    var r=RO_LIST.find(function(x){return String(x.id)===String(id);});
+    var nm=r?(r.name_id||r.name_en||id):id;
+    if(!force && !confirm(L("Delete recipe ","Hapus resep ")+'"'+nm+'"?')) return;
+    var res=await adminPost("/api/admin/recipes/"+encodeURIComponent(id)+"/delete", force?{force:true}:{}).then(function(x){return x.json().then(function(j){return {status:x.status,j:j};});}).catch(function(){return null;});
+    if(res&&res.j&&res.j.ok){ if(window.admToast)admToast(L("Deleted","Dihapus")); loadRecipesOfficial(); return; }
+    if(res&&res.status===409&&res.j&&res.j.links_count){
+      if(confirm(L("This recipe still has ","Resep ini masih punya ")+res.j.links_count+L(" delivery link(s). Delete them too?"," tautan pesan-antar. Hapus sekalian?"))) return window.roDelete(id, true);
+      return;
+    }
+    if(window.admToast)admToast(L("Delete failed","Gagal menghapus")+": "+((res&&res.j&&res.j.error)||"error"));
+  };
+  async function roUploadPhoto(file){
+    if(!file) return;
+    var msg=roEl("roMsg"); if(msg) msg.textContent=L("Uploading photo…","Mengunggah foto…");
+    var reader=new FileReader();
+    reader.onload=async function(){
+      var r=await adminPost("/api/admin/recipes/upload-photo",{ data_url:reader.result }).then(function(x){return x.json();}).catch(function(){return null;});
+      if(r&&r.ok&&r.url){ roSetPhoto(r.url); if(msg) msg.textContent=""; }
+      else if(msg) msg.textContent=L("Photo upload failed: ","Gagal unggah foto: ")+((r&&r.error)||"error");
+    };
+    reader.readAsDataURL(file);
+  }
+  function roBind(){
+    _roBound=true; roDietChips();
+    var add=roEl("roAddBtn"); if(add) add.onclick=function(){ roOpenForm(null); };
+    var sv=roEl("roSave"); if(sv) sv.onclick=roSave;
+    var cn=roEl("roCancel"); if(cn) cn.onclick=function(){ var f=roEl("roForm"); if(f) f.hidden=true; RO_EDIT=null; };
+    var pb=roEl("roPhotoBtn"); if(pb) pb.onclick=function(){ var fi=roEl("roPhotoFile"); if(fi) fi.click(); };
+    var pf=roEl("roPhotoFile"); if(pf) pf.onchange=function(){ if(pf.files&&pf.files[0]) roUploadPhoto(pf.files[0]); pf.value=""; };
+    var pc=roEl("roPhotoClear"); if(pc) pc.onclick=function(){ roSetPhoto(null); };
+    var se=roEl("roSearch"); if(se){ var t; se.addEventListener("input",function(){ clearTimeout(t); t=setTimeout(loadRecipesOfficial,300); }); }
+  }
+
+  // ---- RESEP MEMBER: buat/edit/hapus + foto (my20fit_menu_contribution via /api/admin/menu) ----
+  var ME_EDIT=null, ME_PHOTO=null, _meBound=false;
+  function meEl(id){ return document.getElementById(id); }
+  function meSetPhoto(url){
+    ME_PHOTO=url||null;
+    var prev=meEl("mePhotoPrev"), clr=meEl("mePhotoClear");
+    if(prev){ if(ME_PHOTO){ prev.style.backgroundImage='url("'+ME_PHOTO+'")'; prev.textContent=""; } else { prev.style.backgroundImage="none"; prev.textContent="🍽️"; } }
+    if(clr) clr.hidden=!ME_PHOTO;
+  }
+  function meDietOptions(){
+    var sel=meEl("meDiet"); if(!sel||sel.options.length) return;
+    sel.innerHTML=RO_DIET.map(function(d){ return '<option value="'+d+'">'+d+'</option>'; }).join("");
+  }
+  function meOpenForm(rec){
+    if(!_meBound) meBind();
+    ME_EDIT=rec?rec.id:null;
+    var t=meEl("meFormTitle"); if(t) t.textContent=rec?L("Edit recipe","Edit resep"):L("New recipe","Resep baru");
+    var set=function(id,v){ var e=meEl(id); if(e) e.value=(v==null?"":v); };
+    set("meName",rec&&rec.name); set("meDisplay",rec&&rec.display_name); set("meKcal",rec&&rec.est_kcal);
+    var mac=(rec&&rec.macros&&typeof rec.macros==="object")?rec.macros:{};
+    set("meP",mac.p); set("meC",mac.c); set("meF",mac.f);
+    set("meServings",rec&&rec.servings); set("meCook",rec&&rec.cook_minutes); set("mePrep",rec&&rec.prep_minutes);
+    set("meIng",rec&&rec.ingredients); set("meSteps",rec&&rec.steps); set("meEquip",rec&&rec.equipment); set("mePrepNote",rec&&rec.prep_note);
+    var dsel=meEl("meDiet"); if(dsel) dsel.value=(rec&&rec.diet_type)||"normal";
+    var pub=meEl("mePub"); if(pub) pub.checked=rec?(rec.published!==false):true;
+    meSetPhoto(rec&&rec.photo_url);
+    var msg=meEl("meMsg"); if(msg) msg.textContent="";
+    var f=meEl("meForm"); if(f){ f.hidden=false; f.scrollIntoView({behavior:"smooth",block:"nearest"}); }
+  }
+  function meBody(){
+    var v=function(id){ var e=meEl(id); return e?e.value.trim():""; };
+    var n=function(id){ var e=meEl(id); return (e&&e.value!=="")?Math.round(+e.value):null; };
+    return { name:v("meName"), display_name:v("meDisplay"), diet_type:(meEl("meDiet")?meEl("meDiet").value:"normal"),
+      est_kcal:n("meKcal"), mp:n("meP"), mc:n("meC"), mf:n("meF"),
+      servings:n("meServings"), cook_minutes:n("meCook"), prep_minutes:n("mePrep"),
+      ingredients:v("meIng"), steps:v("meSteps"), equipment:v("meEquip"), prep_note:v("mePrepNote"),
+      photo_url:ME_PHOTO||"", published:!!(meEl("mePub")&&meEl("mePub").checked) };
+  }
+  async function meSave(){
+    var msg=meEl("meMsg"), body=meBody();
+    if(!body.name||!body.ingredients||!body.steps){ if(msg) msg.textContent=L("Name, ingredients and steps are required.","Nama, bahan, dan langkah wajib."); return; }
+    var url=ME_EDIT?("/api/admin/menu/"+encodeURIComponent(ME_EDIT)+"/edit"):"/api/admin/menu";
+    if(msg) msg.textContent=L("Saving…","Menyimpan…");
+    var r=await adminPost(url,body).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Saved","Tersimpan")); var f=meEl("meForm"); if(f) f.hidden=true; ME_EDIT=null; loadMenu(); }
+    else if(msg) msg.textContent=L("Failed: ","Gagal: ")+((r&&r.error)||"error");
+  }
+  window.meDelete=async function(id, name, force){
+    if(!force && !confirm(L("Delete recipe ","Hapus resep ")+'"'+(name||id)+'"?')) return;
+    var res=await adminPost("/api/admin/menu/"+encodeURIComponent(id)+"/delete", force?{force:true}:{}).then(function(x){return x.json().then(function(j){return {status:x.status,j:j};});}).catch(function(){return null;});
+    if(res&&res.j&&res.j.ok){ if(window.admToast)admToast(L("Deleted","Dihapus")); MN_SEL=null; var d=document.getElementById("mnDetail"); if(d) d.innerHTML='<div class="adm-note">'+L("Select a menu from the queue to review.","Pilih menu dari antrian untuk direview.")+'</div>'; loadMenu(); return; }
+    if(res&&res.status===409&&res.j&&res.j.links_count){
+      if(confirm(L("This recipe still has ","Resep ini masih punya ")+res.j.links_count+L(" delivery link(s). Delete them too?"," tautan pesan-antar. Hapus sekalian?"))) return window.meDelete(id, name, true);
+      return;
+    }
+    if(window.admToast)admToast(L("Delete failed","Gagal menghapus")+": "+((res&&res.j&&res.j.error)||"error"));
+  };
+  async function meUploadPhoto(file){
+    if(!file) return;
+    var msg=meEl("meMsg"); if(msg) msg.textContent=L("Uploading photo…","Mengunggah foto…");
+    var reader=new FileReader();
+    reader.onload=async function(){
+      var r=await adminPost("/api/admin/recipes/upload-photo",{ data_url:reader.result }).then(function(x){return x.json();}).catch(function(){return null;});
+      if(r&&r.ok&&r.url){ meSetPhoto(r.url); if(msg) msg.textContent=""; }
+      else if(msg) msg.textContent=L("Photo upload failed: ","Gagal unggah foto: ")+((r&&r.error)||"error");
+    };
+    reader.readAsDataURL(file);
+  }
+  function meBind(){
+    _meBound=true; meDietOptions();
+    var add=meEl("meAddBtn"); if(add) add.onclick=function(){ meOpenForm(null); };
+    var sv=meEl("meSave"); if(sv) sv.onclick=meSave;
+    var cn=meEl("meCancel"); if(cn) cn.onclick=function(){ var f=meEl("meForm"); if(f) f.hidden=true; ME_EDIT=null; };
+    var pb=meEl("mePhotoBtn"); if(pb) pb.onclick=function(){ var fi=meEl("mePhotoFile"); if(fi) fi.click(); };
+    var pf=meEl("mePhotoFile"); if(pf) pf.onchange=function(){ if(pf.files&&pf.files[0]) meUploadPhoto(pf.files[0]); pf.value=""; };
+    var pc=meEl("mePhotoClear"); if(pc) pc.onclick=function(){ meSetPhoto(null); };
   }
 
   // ---- CORPORATE (Modul 2) ----
@@ -2516,6 +3080,213 @@
     try{ var res=await adminPost("/api/admin/home-tiles/icon", { key:key, clear:true }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadHomeTiles(); }catch(e){}
   };
 
+  // ---- AFFILIATE (ringkasan read-only dari /api/admin/affiliate/overview) ----
+  var AF_MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Des"];
+  function afShort(n){ n=Number(n)||0; return n>=1e6?("Rp"+(Math.round(n/1e5)/10)+"jt"):(n>=1e3?("Rp"+Math.round(n/1e3)+"rb"):("Rp"+n)); }
+  async function loadAffiliate(){
+    var kp=document.getElementById("afKpis"); if(!kp) return;
+    try{
+      var res=await adminFetch("/api/admin/affiliate/overview");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></div>'; return; }
+      kp.innerHTML =
+        cell(String(j.active_affiliates||0), "Affiliate aktif", "Active affiliates", L("of "+(j.total_affiliates||0)+" · ≥1 click/30d","dari "+(j.total_affiliates||0)+" · ≥1 klik/30h")) +
+        cell(String(j.referred_users||0), "User ter-referral", "Referred users", L("unique buyers","pembeli unik")) +
+        cell(String(j.referral_transactions||0), "Transaksi referral", "Referral transactions", L("commission events","event komisi")) +
+        cell(String(j.claims_waiting||0), "Klaim menunggu", "Claims waiting", rp(j.claims_waiting_sum||0));
+      var bs=j.by_status||{};
+      var tot=document.getElementById("afTotal"); if(tot) tot.textContent=rp(j.running_total||0);
+      var order=[["held","Held"],["available","Available"],["claimed","Claimed"],["paid","Paid"],["cancelled","Cancelled"]];
+      var totalAll=order.reduce(function(s,o){return s+(bs[o[0]]||0);},0)||1;
+      var seg=document.getElementById("afSeg"); if(seg) seg.innerHTML=order.map(function(o){ var w=Math.round((bs[o[0]]||0)/totalAll*100); return w>0?'<i class="afc-'+o[0]+'" style="width:'+w+'%"></i>':''; }).join("");
+      var st=document.getElementById("afStatus"); if(st) st.innerHTML=order.map(function(o){ return '<div class="afrow"><span class="dot afc-'+o[0]+'"></span><span>'+o[1]+'</span><span class="amt">'+rp(bs[o[0]]||0)+'</span></div>'; }).join("");
+      var mo=j.monthly||[]; var max=Math.max.apply(null,mo.map(function(m){return m.amount||0;}).concat([1]));
+      var ch=document.getElementById("afChart");
+      if(ch) ch.innerHTML=mo.map(function(m){
+        var h=Math.max(3,Math.round((m.amount||0)/max*120));
+        var lbl=AF_MON[parseInt(m.month.slice(5,7),10)-1]||m.month.slice(5,7);
+        return '<div class="b"><div class="bval">'+((m.amount>0)?afShort(m.amount):"–")+'</div><div class="bar" style="height:'+h+'px"></div><div class="blab">'+lbl+'</div></div>';
+      }).join("");
+    }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></div>'; }
+    loadAffiliateSettings();
+    loadAffiliateList();
+    loadAffiliateCommissions();
+    loadAffiliateClaims();
+  }
+
+  // ---- AFFILIATE lists (READ-ONLY dari /api/admin/affiliate/{affiliates,commissions,claims}) ----
+  function afDate(s){ return s? new Date(s).toLocaleDateString() : "—"; }
+  function afTag(status){
+    var map={active:"paid",paused:"pending",held:"pending",available:"paid",claimed:"pending",paid:"paid",cancelled:"mute",submitted:"pending",processing:"pending",rejected:"fail"};
+    var cls=map[String(status||"").toLowerCase()]||"mute";
+    return '<span class="adm-tag adm-tag--'+cls+'">'+esc(String(status||"—"))+'</span>';
+  }
+  async function loadAffiliateList(){
+    var tb=document.getElementById("affListRows"); if(!tb) return;
+    try{
+      var res=await adminFetch("/api/admin/affiliate/affiliates");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="5"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      var rows=j.affiliates||[];
+      tb.innerHTML = rows.length? rows.map(function(a){
+        return '<tr><td><span class="adm-mono">'+esc(a.code)+'</span></td><td>'+afTag(a.status)+'</td><td>'+afDate(a.joined_at)+'</td>'+
+          '<td class="adm-right adm-mono" data-value="'+a.transactions+'">'+a.transactions+'</td>'+
+          '<td class="adm-right adm-mono" data-value="'+a.commission+'">'+rp(a.commission)+'</td></tr>';
+      }).join("") : "";
+      if(window.admRenderTable) admRenderTable("#affListTable");
+    }catch(e){ tb.innerHTML='<tr><td colspan="5"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+  }
+  async function loadAffiliateCommissions(){
+    var tb=document.getElementById("affCommRows"); if(!tb) return;
+    try{
+      var res=await adminFetch("/api/admin/affiliate/commissions");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      var rows=j.commissions||[];
+      tb.innerHTML = rows.length? rows.map(function(c){
+        var pct=(c.rate_at_time==null)?"—":(Math.round(Number(c.rate_at_time)*10000)/100)+"%";
+        return '<tr><td><span class="adm-mono">'+esc(c.code)+'</span></td>'+
+          '<td class="adm-right adm-mono" data-value="'+c.base_amount+'">'+rp(c.base_amount)+'</td>'+
+          '<td class="adm-right adm-mono" data-value="'+(c.rate_at_time||0)+'">'+pct+'</td>'+
+          '<td class="adm-right adm-mono" data-value="'+c.amount+'">'+rp(c.amount)+'</td>'+
+          '<td>'+afTag(c.status)+'</td><td>'+afDate(c.paid_at_source)+'</td></tr>';
+      }).join("") : "";
+      if(window.admRenderTable) admRenderTable("#affCommTable");
+    }catch(e){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+  }
+  var AFCLAIMS=[];
+  async function loadAffiliateClaims(){
+    var tb=document.getElementById("affClaimRows"); if(!tb) return;
+    var banner=document.getElementById("afClaimBanner");
+    // Role sudah di-set loadAffiliateSettings (AFROLE); tunggu kalau belum.
+    if(AFROLE==null){ try{ if(window.Auth&&Auth.ready) await Auth.ready; if(window.Auth&&Auth.supabase){ var rr=await Auth.supabase.rpc("affiliate_admin_role"); if(!rr.error) AFROLE=rr.data||null; } }catch(e){} }
+    var can=(AFROLE==="super");
+    if(banner){
+      banner.textContent = can
+        ? L("You can process claims (affiliate super-admin).","Kamu bisa memproses klaim (affiliate super-admin).")
+        : L("View only — processing claims needs an affiliate super-admin account.","Hanya lihat — memproses klaim butuh akun affiliate super-admin.");
+      banner.style.color = can ? "var(--ink-3)" : "var(--accent-ink)";
+    }
+    try{
+      var res=await adminFetch("/api/admin/affiliate/claims");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="7"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      AFCLAIMS=j.claims||[];
+      tb.innerHTML = AFCLAIMS.length? AFCLAIMS.map(function(c){
+        var dt=c.paid_at||c.rejected_at||c.estimated_transfer_date||c.submitted_at;
+        var st=String(c.status||"").toLowerCase();
+        var acts="";
+        if(can && (st==="submitted")) acts+='<button class="adm-btn adm-btn--sm" onclick="afClaimAction(\''+c.id+'\',\'processing\')" data-i18n="Mark processing">Tandai diproses</button>';
+        if(can && (st==="submitted"||st==="processing")){
+          acts+='<button class="adm-btn adm-btn--sm adm-btn--primary" onclick="afClaimAction(\''+c.id+'\',\'paid\')" data-i18n="Mark paid">Tandai dibayar</button>';
+          acts+='<button class="adm-btn adm-btn--sm" onclick="afClaimAction(\''+c.id+'\',\'reject\')" data-i18n="Reject">Tolak</button>';
+        }
+        if(!acts) acts='<span class="adm-note" style="margin:0">—</span>';
+        return '<tr><td class="adm-mono">#'+(c.claim_no||"—")+'</td><td><span class="adm-mono">'+esc(c.code)+'</span></td>'+
+          '<td class="adm-right adm-mono">'+rp(c.amount_gross)+'</td>'+
+          '<td class="adm-right adm-mono">'+rp(c.amount_net)+'</td>'+
+          '<td>'+afTag(c.status)+'</td><td>'+afDate(dt)+'</td>'+
+          '<td><div class="afcl-act">'+acts+'</div></td></tr>';
+      }).join("") : "";
+      if(window.admRenderTable) admRenderTable("#affClaimTable");
+    }catch(e){ tb.innerHTML='<tr><td colspan="7"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+  }
+  // Aksi klaim via RPC resmi affiliate (atomic + audit + cek role affiliate-super di DB).
+  // Kalau RPC menolak (bukan super / state salah), tampilkan pesan apa adanya — TIDAK ada
+  // fallback service-key: logika finansial hanya milik RPC resmi.
+  window.afClaimAction=async function(id, action){
+    if(!(window.Auth&&Auth.supabase)){ if(window.admToast)admToast(L("Log in with your account to act.","Login dengan akunmu untuk beraksi.")); return; }
+    var fn, args={ p_claim_id:id };
+    if(action==="processing"){
+      fn="affiliate_admin_claim_processing";
+      var d=prompt(L("Estimated transfer date (YYYY-MM-DD), optional:","Perkiraan tanggal transfer (YYYY-MM-DD), opsional:"),"");
+      if(d===null) return; args.p_estimated_transfer_date=d?d:null;
+    } else if(action==="paid"){
+      fn="affiliate_admin_claim_paid";
+      var ref=prompt(L("Transfer reference (required):","Referensi transfer (wajib):"),"");
+      if(ref===null) return; if(!String(ref).trim()){ if(window.admToast)admToast(L("Transfer reference is required.","Referensi transfer wajib diisi.")); return; }
+      args.p_transfer_ref=String(ref).trim(); args.p_proof_url=null;
+    } else if(action==="reject"){
+      fn="affiliate_admin_claim_reject";
+      var rsn=prompt(L("Rejection reason (required):","Alasan penolakan (wajib):"),"");
+      if(rsn===null) return; if(!String(rsn).trim()){ if(window.admToast)admToast(L("Reason is required.","Alasan wajib diisi.")); return; }
+      args.p_reason=String(rsn).trim();
+    } else return;
+    try{
+      var res=await Auth.supabase.rpc(fn, args);
+      if(res.error) throw res.error;
+      if(window.admToast)admToast(L("Claim updated.","Klaim diperbarui."));
+      await loadAffiliate();
+    }catch(e){
+      if(window.admToast)admToast(L("Action failed","Aksi gagal")+": "+((e&&e.message)||e));
+    }
+  };
+
+  // ---- AFFILIATE settings (TULIS via RPC affiliate_update_settings dgn JWT admin;
+  //      atomic + audit + cek role affiliate-super di DB. Baca via /api/admin/affiliate/settings) ----
+  var AFSET=null, AFROLE=null;
+  function afsPctToFrac(p){ return Math.round(Number(p)*100)/10000; } // 2,5% -> 0.025 (match affiliate percentField)
+  function afsFracToPct(v){ return Math.round(Number(v)*10000)/100; } // 0.025 -> 2,5
+  async function loadAffiliateSettings(){
+    var panel=document.getElementById("afSetPanel"); if(!panel) return;
+    var banner=document.getElementById("afSetBanner");
+    AFROLE=null;
+    try{ if(window.Auth&&Auth.ready) await Auth.ready; if(window.Auth&&Auth.supabase){ var rr=await Auth.supabase.rpc("affiliate_admin_role"); if(!rr.error) AFROLE=rr.data||null; } }catch(e){}
+    try{
+      var j=await adminFetch("/api/admin/affiliate/settings").then(function(r){return r.json();});
+      if(!j||!j.ok||!j.settings){ if(banner){ banner.textContent=L("Failed to load settings.","Gagal memuat setelan."); } return; }
+      AFSET=j.settings;
+      var V=function(id){ return document.getElementById(id); };
+      V("afsRate").value=afsFracToPct(AFSET.commission_rate);
+      V("afsMin").value=Math.round(Number(AFSET.min_withdrawal)||0);
+      V("afsPending").value=Math.round(Number(AFSET.pending_days)||0);
+      V("afsTaxN").value=afsFracToPct(AFSET.tax_rate_npwp);
+      V("afsTaxNo").value=afsFracToPct(AFSET.tax_rate_no_npwp);
+      V("afsStatus").value=AFSET.program_status||"active";
+      V("afsOnePer").checked=!!AFSET.one_purchase_per_open;
+      var meta=V("afsMeta"); if(meta) meta.textContent=L("Last changed","Terakhir diubah")+": "+(AFSET.updated_at?new Date(AFSET.updated_at).toLocaleString():"—")+(AFSET.updated_by?(" · "+AFSET.updated_by):"");
+      var au=V("afsAudit");
+      if(au) au.innerHTML=(j.audit&&j.audit.length)?j.audit.map(function(a){
+        var ov=(a.old_value==null)?"—":(typeof a.old_value==="object"?JSON.stringify(a.old_value):String(a.old_value));
+        var nv=(a.new_value==null)?"—":(typeof a.new_value==="object"?JSON.stringify(a.new_value):String(a.new_value));
+        return '<div class="afrow"><span>'+esc(a.field)+'</span><span style="color:var(--ink-3)">'+esc(ov)+' → '+esc(nv)+'</span><span class="amt" style="font-weight:600;color:var(--ink-3)">'+(a.changed_at?new Date(a.changed_at).toLocaleDateString():"")+'</span></div>';
+      }).join(""):'<div class="adm-note">'+L("No changes recorded yet.","Belum ada perubahan tercatat.")+'</div>';
+      var can=(AFROLE==="super");
+      var save=V("afsSave"); if(save){ save.disabled=!can; save.setAttribute("aria-disabled", can?"false":"true"); save.onclick=saveAffiliateSettings; }
+      if(banner){
+        banner.textContent = can
+          ? L("You can edit financial settings (affiliate super-admin).","Kamu bisa mengubah setelan finansial (affiliate super-admin).")
+          : L("View only — saving financial settings needs an affiliate super-admin account.","Hanya lihat — menyimpan setelan finansial butuh akun affiliate super-admin.");
+        banner.style.color = can ? "var(--ink-3)" : "var(--accent-ink)";
+      }
+    }catch(e){ if(banner){ banner.textContent=L("Failed to load settings.","Gagal memuat setelan."); } }
+  }
+  async function saveAffiliateSettings(){
+    if(!AFSET) return;
+    if(!(window.Auth&&Auth.supabase)){ if(window.admToast)admToast(L("Log in with your account to save.","Login dengan akunmu untuk menyimpan.")); return; }
+    var V=function(id){ return document.getElementById(id); };
+    var patch={};
+    var rate=afsPctToFrac(V("afsRate").value); if(rate!==Number(AFSET.commission_rate)) patch.commission_rate=rate;
+    var mn=Math.round(Number(String(V("afsMin").value).replace(/[.\s]/g,""))||0); if(mn!==Number(AFSET.min_withdrawal)) patch.min_withdrawal=mn;
+    var pd=Math.round(Number(V("afsPending").value)||0); if(pd!==Number(AFSET.pending_days)) patch.pending_days=pd;
+    var tn=afsPctToFrac(V("afsTaxN").value); if(tn!==Number(AFSET.tax_rate_npwp)) patch.tax_rate_npwp=tn;
+    var tno=afsPctToFrac(V("afsTaxNo").value); if(tno!==Number(AFSET.tax_rate_no_npwp)) patch.tax_rate_no_npwp=tno;
+    var st=V("afsStatus").value; if(st!==AFSET.program_status) patch.program_status=st;
+    var op=!!V("afsOnePer").checked; if(op!==!!AFSET.one_purchase_per_open) patch.one_purchase_per_open=op;
+    if(!Object.keys(patch).length){ if(window.admToast)admToast(L("No changes.","Tidak ada perubahan.")); return; }
+    if(patch.commission_rate!=null && !(patch.commission_rate>0)){ if(window.admToast)admToast(L("Commission rate must be greater than 0%.","Rate komisi harus lebih dari 0%.")); return; }
+    var save=V("afsSave"); if(save)save.disabled=true;
+    try{
+      var res=await Auth.supabase.rpc("affiliate_update_settings", { patch: patch });
+      if(res.error) throw res.error;
+      if(window.admToast)admToast(L("Settings saved.","Setelan tersimpan."));
+      await loadAffiliateSettings();
+    }catch(e){
+      if(window.admToast)admToast(L("Save failed","Gagal menyimpan")+": "+((e&&e.message)||e));
+      if(save)save.disabled=false;
+    }
+  }
+
   function loadSection(id){
     if(id==="overview") return loadOverview();
     if(id==="revenue") return loadRevenue();
@@ -2524,7 +3295,7 @@
     if(id==="scan") return loadScan();
     if(id==="settings") return loadSettings();
     if(id==="voucher") return loadVoucher();
-    if(id==="menu") return loadMenu();
+    if(id==="menu"){ loadRecipesOfficial(); return loadMenu(); }
     if(id==="corporate") return loadCorporate();
     if(id==="events") return loadEvents();
     if(id==="rewards") return loadRewards();
@@ -2532,6 +3303,7 @@
     if(id==="visbody") return loadVisbody();
     if(id==="journey") return loadJourneyFunnel();
     if(id==="classperf") return loadClassPerf();
+    if(id==="affiliate") return loadAffiliate();
     if(id==="hometiles") return loadHomeTiles();
     if(id==="traffic") return loadTraffic();
     if(id==="menustats") return loadMenuStats();
@@ -2667,36 +3439,64 @@
 
   // ---------- CMS: Eat Now / pesan-antar (my20fit_menu_delivery_links) ----------
   // Admin memetakan resep -> URL kategori publik GrabFood/GoFood (bukan scraping/API Grab).
-  var DLV_PRESETS=[], DLV_BASE="https://food.grab.com", DLV_RECIPES=[];
+  var DLV_PRESETS=[], DLV_BASE="https://food.grab.com", DLV_RECIPES=[], DLV_PROVIDERS=[];
+  function dlvRecipeOpts(filter){
+    var f=String(filter||"").toLowerCase();
+    return DLV_RECIPES.filter(function(r){ return !f||String(r.name||"").toLowerCase().indexOf(f)>=0; })
+      .map(function(r){ return '<option value="'+esc(r.source+"|"+r.menu_id)+'">'+esc(r.name)+' ('+esc(r.source)+')</option>'; }).join("");
+  }
   async function loadDelivery(){
     var box=document.getElementById("dlvBox"); if(!box) return;
     box.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
     var j=await adminFetch("/api/admin/menu-delivery").then(function(r){return r.json();}).catch(function(){return null;});
     if(!j||!j.ok){ box.innerHTML='<div class="adm-note">'+L("Failed to load. Open with ?key=ADMIN_KEY or log in as admin.","Gagal memuat. Buka dengan ?key=ADMIN_KEY atau login admin.")+'</div>'; return; }
     var pj=await adminFetch("/api/admin/menu-delivery/presets").then(function(r){return r.json();}).catch(function(){return null;});
+    var prov=await adminFetch("/api/admin/delivery-providers").then(function(r){return r.json();}).catch(function(){return null;});
     DLV_PRESETS=(pj&&pj.presets)||[]; DLV_BASE=(pj&&pj.grabfood_base)||"https://food.grab.com";
-    DLV_RECIPES=j.recipes||[];
+    DLV_RECIPES=j.recipes||[]; DLV_PROVIDERS=(prov&&prov.providers)||[];
     var links=j.links||[];
     var rmap={}; DLV_RECIPES.forEach(function(r){ rmap[r.source+":"+r.menu_id]=r.name; });
-    var recipeOpts=DLV_RECIPES.map(function(r){ return '<option value="'+esc(r.source+"|"+r.menu_id)+'">'+esc(r.name)+' ('+esc(r.source)+')</option>'; }).join("");
     var presetOpts='<option value="">'+L("— pick GrabFood category (fills URL) —","— pilih kategori GrabFood (isi URL) —")+'</option>'+DLV_PRESETS.map(function(p){ return '<option value="'+esc(DLV_BASE+p.path)+'" data-label="'+esc(p.label)+'">'+esc(p.label)+'</option>'; }).join("");
+    var activeProv=DLV_PROVIDERS.filter(function(p){return p.is_active;});
+    var providerOpts=activeProv.length?activeProv.map(function(p){ return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>'; }).join(""):('<option value="">'+L("No active provider — add one first","Belum ada penyedia aktif — tambah dulu")+'</option>');
+    var provRows=DLV_PROVIDERS.map(function(p){
+      return '<tr>'+
+        '<td>'+(p.logo_url?'<img src="'+esc(p.logo_url)+'" alt="" style="width:20px;height:20px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:6px" onerror="this.style.display=\'none\'">':'')+esc(p.name)+' <span class="adm-mono" style="opacity:.5">'+esc(p.slug)+'</span></td>'+
+        '<td class="adm-right adm-mono">'+(p.links_count||0)+'</td>'+
+        '<td>'+(p.is_active?'<span class="adm-tag adm-tag--paid">'+L("Active","Aktif")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("Off","Nonaktif")+'</span>')+'</td>'+
+        '<td style="white-space:nowrap"><button class="adm-btn adm-btn--sm" data-prov-toggle="'+esc(p.id)+'" data-active="'+(p.is_active?"1":"0")+'">'+(p.is_active?L("Disable","Nonaktif"):L("Enable","Aktifkan"))+'</button> <button class="adm-btn adm-btn--sm" data-prov-del="'+esc(p.id)+'">'+L("Delete","Hapus")+'</button></td>'+
+      '</tr>';
+    }).join("");
     var rows=links.map(function(l){
       return '<tr>'+
         '<td>'+esc(rmap[l.source+":"+l.menu_id]||l.menu_id)+' <span class="adm-mono" style="opacity:.5">'+esc(l.source)+'</span></td>'+
         '<td>'+esc(l.provider)+'</td>'+
         '<td>'+esc(l.label)+'</td>'+
         '<td><a href="'+esc(l.url)+'" target="_blank" rel="noopener noreferrer" class="adm-mono" style="font-size:11px">'+esc(l.url.slice(0,48))+'…</a></td>'+
+        '<td><input class="adm-input" type="number" value="'+(l.sort_order||0)+'" data-dlv-sort="'+esc(l.id)+'" style="width:62px;padding:4px 6px" title="'+L("Order (lower = first in carousel)","Urutan (kecil = tampil dulu di carousel)")+'"></td>'+
         '<td>'+(l.is_active?FIC("check",16):'—')+'</td>'+
         '<td style="white-space:nowrap"><button class="adm-btn adm-btn--sm" data-dlv-toggle="'+esc(l.id)+'" data-active="'+(l.is_active?"1":"0")+'">'+(l.is_active?L("Deactivate","Nonaktif"):L("Activate","Aktifkan"))+'</button> <button class="adm-btn adm-btn--sm" data-dlv-del="'+esc(l.id)+'">'+L("Delete","Hapus")+'</button></td>'+
       '</tr>';
     }).join("");
     box.innerHTML=
+      '<div class="adm-card" style="padding:14px;margin-bottom:14px;max-width:680px">'+
+        '<div class="adm-sec-title">'+L("Delivery providers (reusable)","Penyedia pesan-antar (reusable)")+'</div>'+
+        '<div style="display:flex;gap:8px;align-items:flex-end;margin:8px 0;flex-wrap:wrap">'+
+          '<label class="adm-note" style="flex:1;min-width:150px">'+L("Provider name","Nama penyedia")+'<input class="adm-input" id="provName" placeholder="'+L("e.g. ShopeeFood","mis. ShopeeFood")+'"></label>'+
+          '<label class="adm-note" style="flex:1;min-width:150px">'+L("Logo URL (optional)","URL logo (opsional)")+'<input class="adm-input" id="provLogo" placeholder="https://…"></label>'+
+          '<button class="adm-btn adm-btn--primary adm-btn--sm" id="provAdd">'+L("Add provider","Tambah penyedia")+'</button>'+
+        '</div>'+
+        '<input class="adm-input" id="provSearch" placeholder="'+L("Search provider…","Cari penyedia…")+'" style="max-width:240px;margin-bottom:8px">'+
+        '<table class="adm-table"><thead><tr><th>'+L("Provider","Penyedia")+'</th><th class="adm-right">'+L("Links","Tautan")+'</th><th>Status</th><th></th></tr></thead><tbody id="provRows">'+(provRows||('<tr><td colspan="4" class="adm-note">'+L("No providers yet.","Belum ada penyedia.")+'</td></tr>'))+'</tbody></table>'+
+        '<div class="adm-note" id="provMsg"></div>'+
+      '</div>'+
       '<div class="adm-callout" style="margin-bottom:12px"><span class="adm-badge">'+j.unmapped_count+'</span> '+L("recipes not yet mapped. Only mapped recipes show an Eat Now button on the recipe page.","resep belum dipetakan. Hanya resep yang dipetakan yang menampilkan tombol Eat Now di halaman resep.")+'</div>'+
       '<div class="adm-card" style="padding:14px;margin-bottom:14px;max-width:680px">'+
         '<div class="adm-sec-title">'+L("Add mapping","Tambah pemetaan")+'</div>'+
         '<div style="display:grid;gap:8px;margin-top:8px">'+
-          '<label class="adm-note">'+L("Recipe","Resep")+'<select class="adm-input" id="dlvRecipe">'+recipeOpts+'</select></label>'+
-          '<label class="adm-note">'+L("Provider","Penyedia")+'<select class="adm-input" id="dlvProvider"><option value="grabfood">GrabFood</option><option value="gofood">GoFood</option></select></label>'+
+          '<label class="adm-note">'+L("Search recipe","Cari resep")+'<input class="adm-input" id="dlvRecipeSearch" placeholder="'+L("type to filter…","ketik untuk menyaring…")+'"></label>'+
+          '<label class="adm-note">'+L("Recipe","Resep")+'<select class="adm-input" id="dlvRecipe">'+dlvRecipeOpts("")+'</select></label>'+
+          '<label class="adm-note">'+L("Provider","Penyedia")+'<select class="adm-input" id="dlvProvider">'+providerOpts+'</select></label>'+
           '<label class="adm-note">'+L("GrabFood category preset","Preset kategori GrabFood")+'<select class="adm-input" id="dlvPreset">'+presetOpts+'</select></label>'+
           '<label class="adm-note">Label<input class="adm-input" id="dlvLabel" placeholder="'+L("e.g. Nasi Goreng","mis. Nasi Goreng")+'"></label>'+
           '<label class="adm-note">URL<input class="adm-input" id="dlvUrl" placeholder="https://food.grab.com/id/id/cuisines/..."></label>'+
@@ -2705,17 +3505,29 @@
           '<div class="adm-note" id="dlvMsg"></div>'+
         '</div>'+
       '</div>'+
-      '<table class="adm-table"><thead><tr><th>'+L("Recipe","Resep")+'</th><th>'+L("Provider","Penyedia")+'</th><th>Label</th><th>URL</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+(rows||('<tr><td colspan="6" class="adm-note">'+L("No mappings yet.","Belum ada pemetaan.")+'</td></tr>'))+'</tbody></table>';
+      '<table class="adm-table"><thead><tr><th>'+L("Recipe","Resep")+'</th><th>'+L("Provider","Penyedia")+'</th><th>Label</th><th>URL</th><th>'+L("Order","Urutan")+'</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+(rows||('<tr><td colspan="7" class="adm-note">'+L("No mappings yet.","Belum ada pemetaan.")+'</td></tr>'))+'</tbody></table>';
     var pre=document.getElementById("dlvPreset");
     if(pre) pre.addEventListener("change",function(){ if(!pre.value) return; var o=pre.options[pre.selectedIndex]; document.getElementById("dlvUrl").value=pre.value; var lbl=document.getElementById("dlvLabel"); if(!lbl.value) lbl.value=o.getAttribute("data-label")||""; });
+    var rs=document.getElementById("dlvRecipeSearch"); if(rs) rs.addEventListener("input",function(){ var sel=document.getElementById("dlvRecipe"); if(sel) sel.innerHTML=dlvRecipeOpts(rs.value); });
     var add=document.getElementById("dlvAdd"); if(add) add.addEventListener("click", dlvAdd);
     box.querySelectorAll("[data-dlv-del]").forEach(function(b){ b.addEventListener("click",function(){ dlvDelete(b.getAttribute("data-dlv-del")); }); });
     box.querySelectorAll("[data-dlv-toggle]").forEach(function(b){ b.addEventListener("click",function(){ dlvToggle(b.getAttribute("data-dlv-toggle"), b.getAttribute("data-active")!=="1"); }); });
+    box.querySelectorAll("[data-dlv-sort]").forEach(function(inp){ inp.addEventListener("change",function(){ dlvSortSave(inp.getAttribute("data-dlv-sort"), inp.value); }); });
+    var pa=document.getElementById("provAdd"); if(pa) pa.addEventListener("click", provAdd);
+    var ps=document.getElementById("provSearch"); if(ps){ var pt; ps.addEventListener("input",function(){ clearTimeout(pt); pt=setTimeout(function(){ provFilterRows(ps.value); },200); }); }
+    box.querySelectorAll("[data-prov-del]").forEach(function(b){ b.addEventListener("click",function(){ provDelete(b.getAttribute("data-prov-del")); }); });
+    box.querySelectorAll("[data-prov-toggle]").forEach(function(b){ b.addEventListener("click",function(){ provToggle(b.getAttribute("data-prov-toggle"), b.getAttribute("data-active")!=="1"); }); });
+  }
+  function provFilterRows(q){
+    q=String(q||"").toLowerCase();
+    document.querySelectorAll("#provRows tr").forEach(function(tr){ tr.style.display=(!q||tr.textContent.toLowerCase().indexOf(q)>=0)?"":"none"; });
   }
   async function dlvAdd(){
     var rv=String(document.getElementById("dlvRecipe").value||"").split("|");
     var msg=document.getElementById("dlvMsg"); msg.textContent=L("Saving…","Menyimpan…");
-    var body={ source:rv[0], menu_id:rv[1], provider:document.getElementById("dlvProvider").value, label:document.getElementById("dlvLabel").value, url:document.getElementById("dlvUrl").value, sort_order:document.getElementById("dlvSort").value };
+    var pid=document.getElementById("dlvProvider").value;
+    if(!pid){ msg.textContent=L("Add a provider first.","Tambah penyedia dulu."); return; }
+    var body={ source:rv[0], menu_id:rv[1], provider_id:pid, label:document.getElementById("dlvLabel").value, url:document.getElementById("dlvUrl").value, sort_order:document.getElementById("dlvSort").value };
     var r=await adminPost("/api/admin/menu-delivery", body).then(function(x){return x.json();}).catch(function(){return null;});
     if(r&&r.ok){ if(window.admToast)admToast(L("Added","Ditambahkan")); loadDelivery(); } else { msg.textContent=L("Failed: ","Gagal: ")+((r&&r.error)||"error"); }
   }
@@ -2728,6 +3540,32 @@
     var r=await adminPost("/api/admin/menu-delivery/"+encodeURIComponent(id)+"/update", { is_active: active }).then(function(x){return x.json();}).catch(function(){return null;});
     if(r&&r.ok){ loadDelivery(); }
   }
+  async function dlvSortSave(id, val){
+    var r=await adminPost("/api/admin/menu-delivery/"+encodeURIComponent(id)+"/update", { sort_order: val }).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Order saved","Urutan tersimpan")); } else if(window.admToast){ admToast(L("Failed to save order","Gagal simpan urutan")); }
+  }
+  // ---- Penyedia master (my20fit_delivery_provider) ----
+  async function provAdd(){
+    var msg=document.getElementById("provMsg"); var name=document.getElementById("provName"), logo=document.getElementById("provLogo");
+    if(!name.value.trim()){ if(msg) msg.textContent=L("Provider name is required.","Nama penyedia wajib."); return; }
+    if(msg) msg.textContent=L("Saving…","Menyimpan…");
+    var r=await adminPost("/api/admin/delivery-providers", { name:name.value.trim(), logo_url:logo.value.trim() }).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Provider added","Penyedia ditambah")); loadDelivery(); } else if(msg){ msg.textContent=L("Failed: ","Gagal: ")+((r&&r.error)||"error"); }
+  }
+  async function provToggle(id, active){
+    var r=await adminPost("/api/admin/delivery-providers/"+encodeURIComponent(id)+"/update", { is_active: active }).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ loadDelivery(); }
+  }
+  window.provDelete=async function(id, force){
+    if(!force && !confirm(L("Delete this provider?","Hapus penyedia ini?"))) return;
+    var res=await adminPost("/api/admin/delivery-providers/"+encodeURIComponent(id)+"/delete", force?{force:true}:{}).then(function(x){return x.json().then(function(jj){return {status:x.status,j:jj};});}).catch(function(){return null;});
+    if(res&&res.j&&res.j.ok){ if(window.admToast)admToast(res.j.soft?L("Provider disabled (still in use)","Penyedia dinonaktifkan (masih dipakai)"):L("Deleted","Dihapus")); loadDelivery(); return; }
+    if(res&&res.status===409&&res.j&&res.j.links_count){
+      if(confirm(L("Provider is used by ","Penyedia dipakai ")+res.j.links_count+L(" link(s). Disable it instead (links keep working)?"," tautan. Nonaktifkan saja (tautan tetap jalan)?"))) return window.provDelete(id, true);
+      return;
+    }
+    if(window.admToast)admToast(L("Delete failed","Gagal menghapus")+": "+((res&&res.j&&res.j.error)||"error"));
+  };
 
   // ---------- CMS: Artikel in-house (my20fit_recipe_article) ----------
   var ART_RECIPES=[]; // {source, menu_id, name} utk picker link (reuse endpoint delivery)
