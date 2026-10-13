@@ -43,6 +43,19 @@
   .mrec-nm{font-weight:700;font-size:13px;line-height:1.25}
   .mrec-meta{font-size:11px;color:var(--muted);margin-top:4px}
   .mrec-macros{font-size:10.5px;color:var(--muted);margin-top:2px;font-weight:700}
+  /* Carousel "Pesan antar" di bawah Food of the Day */
+  .fdlv{margin-top:10px}
+  .fdlv-t{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px}
+  .fdlv-car{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+  .fdlv-car::-webkit-scrollbar{height:5px}.fdlv-car::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+  .fdlv-single{display:flex}
+  .fdlv-card{display:flex;align-items:center;gap:8px;flex:0 0 auto;min-width:150px;scroll-snap-align:start;border:1px solid var(--line);border-radius:12px;padding:8px 10px;text-decoration:none;color:var(--txt);background:var(--card)}
+  .fdlv-single .fdlv-card{flex:1}
+  .fdlv-card:hover{border-color:var(--red)}
+  .fdlv-logo{width:30px;height:30px;flex:0 0 auto;border-radius:7px;background:var(--inp) center/cover no-repeat;display:grid;place-items:center;font-size:16px}
+  .fdlv-txt{display:flex;flex-direction:column;min-width:0}
+  .fdlv-prov{font-weight:800;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fdlv-lbl{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* Desktop/tablet: manfaatin lebar layar — kartu menu jadi grid yang wrap & isi penuh (mobile tetap carousel horizontal). */
   @media(min-width:760px){
     .mrec-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));overflow:visible}
@@ -788,10 +801,33 @@
         if(!r){ el.innerHTML=""; return; }
         var nm=window.L?L(r.nm):(r.nm&&(r.nm.id||r.nm.en));
         var tint=r.tint||"#16A34A";
-        el.innerHTML='<a class="fsum-food fsum-fotd" href="https://recepie.20fit.id"><div class="em" style="background:linear-gradient(160deg,'+tint+'33,'+tint+'11)">'+FIC(r.emoji||"meal",22)+'</div><div class="fn">'+fsumEsc(nm)+'</div><div class="fk">~'+(r.kcal||0)+' '+kc()+' · P'+(r.p||0)+' C'+(r.c||0)+' F'+(r.f||0)+'</div></a>';
+        el.innerHTML='<a class="fsum-food fsum-fotd" href="https://recepie.20fit.id"><div class="em" style="background:linear-gradient(160deg,'+tint+'33,'+tint+'11)">'+FIC(r.emoji||"meal",22)+'</div><div class="fn">'+fsumEsc(nm)+'</div><div class="fk">~'+(r.kcal||0)+' '+kc()+' · P'+(r.p||0)+' C'+(r.c||0)+' F'+(r.f||0)+'</div></a><div id="fsumFotdDlv"></div>';
+        loadFsumDelivery(String(r.id||""));
       }).catch(function(){ var el=document.getElementById("fsumFotd"); if(el) el.innerHTML=""; });
       h+='</div>';
       return h;
+    }
+    // Carousel "Pesan antar" di bawah Food of the Day (official). Tautan diatur admin
+    // (my20fit_menu_delivery_links). 0 link -> tak tampil. Klik = same-tab (aturan navigasi §G).
+    function fsumDlvClick(mid,provider){
+      try{ fetch("/api/menu/delivery-click",{method:"POST",headers:{"Content-Type":"application/json"},keepalive:true,credentials:"include",body:JSON.stringify({source:"official",menu_id:mid,provider:provider})}); }catch(e){}
+    }
+    function loadFsumDelivery(mid){
+      var box=document.getElementById("fsumFotdDlv"); if(!box||!mid) return; box.innerHTML="";
+      fetch("/api/menu/"+encodeURIComponent(mid)+"/delivery?source=official").then(function(x){return x.ok?x.json():null;}).then(function(j){
+        var links=(j&&j.links)||[]; if(!links.length) return;
+        var wrap=document.createElement("div"); wrap.className="fdlv";
+        var h=document.createElement("div"); h.className="fdlv-t"; h.textContent=L({en:"Order delivery",id:"Pesan antar"}); wrap.appendChild(h);
+        var list=document.createElement("div"); list.className=links.length>1?"fdlv-car":"fdlv-single";
+        links.forEach(function(l){
+          var a=document.createElement("a"); a.className="fdlv-card"; a.href=l.url; a.rel="noopener";
+          var logo=l.logo_url?('<span class="fdlv-logo" style="background-image:url('+JSON.stringify(l.logo_url)+')"></span>'):('<span class="fdlv-logo fdlv-logo--ph">🛵</span>');
+          a.innerHTML=logo+'<span class="fdlv-txt"><span class="fdlv-prov">'+fsumEsc(l.provider||"")+'</span><span class="fdlv-lbl">'+fsumEsc(l.label||"")+'</span></span>';
+          a.addEventListener("click",function(){ fsumDlvClick(mid,l.provider); });
+          list.appendChild(a);
+        });
+        wrap.appendChild(list); box.appendChild(wrap);
+      }).catch(function(){});
     }
     // Render kartu ringkasan. Dipanggil dari render() (tiap log berubah) & I18N.onChange (via render()).
     function renderFoodSummary(){
