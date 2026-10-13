@@ -16,7 +16,29 @@
   .adm-actions h3 { font-family: var(--font-head); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 8px; }
   .adm-sec-title { font-family: var(--font-head); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); margin: 24px 0 8px; }
   .adm-loading { color: var(--ink-3); font-size: 12px; padding: 18px 0; }
-  @media (max-width: 860px){ .adm-side{ display:none } }
+
+  /* ---- Sidebar accordion (reorganisasi nav; reuse .adm-navgroup/.adm-navitem) ---- */
+  button.adm-navgroup { display:flex; align-items:center; justify-content:space-between; gap:8px;
+    width:100%; border:0; background:transparent; cursor:pointer; font-family:inherit; }
+  button.adm-navgroup:hover { color: var(--ink-2); }
+  .adm-navchev { width:11px; height:11px; flex:0 0 auto; color: var(--ink-4);
+    transition: transform .18s ease; }
+  .adm-navcat.is-collapsed .adm-navchev { transform: rotate(-90deg); }
+  .adm-navcat.is-collapsed .adm-navlist { display:none; }
+
+  /* ---- Tombol menu mobile + drawer (≤860px) ---- */
+  .adm-menubtn { display:none; align-items:center; justify-content:center; width:40px; height:40px;
+    border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--card);
+    color:var(--ink); cursor:pointer; flex:0 0 auto; }
+  .adm-scrim { position:fixed; inset:0; z-index:39; background:color-mix(in srgb, var(--ink) 48%, transparent); }
+  @media (max-width: 860px){
+    .adm-menubtn { display:inline-flex; }
+    .adm-side { position:fixed; top:0; left:0; z-index:40; height:100vh; width:264px; max-width:84vw;
+      transform:translateX(-100%); transition:transform .22s ease; box-shadow:var(--shadow);
+      overflow-y:auto; }
+    .adm-side.is-open { transform:translateX(0); }
+  }
+  @media (min-width: 861px){ .adm-scrim { display:none !important; } }
 </style>
 </head>
 <body>
@@ -27,39 +49,95 @@
       <div style="margin-top:4px"><a class="adm-note" href="/admin-dashboard?legacy=1" style="text-decoration:underline" data-i18n="← Full admin (legacy)">← Admin lama (fitur lengkap)</a></div>
     </div>
     <nav>
-      <div class="adm-navgroup" data-i18n="Monitor">Pantau</div>
-      <button class="adm-navitem" data-nav="overview"><span data-i18n="Overview">Overview</span></button>
-      <button class="adm-navitem" data-nav="scan"><span data-i18n="Scan activity">Aktivitas scan</span></button>
-      <button class="adm-navitem" data-nav="revenue"><span data-i18n="Revenue">Revenue</span><span class="adm-tag adm-tag--pending" id="navRevBadge" hidden></span></button>
-      <button class="adm-navitem" data-nav="traffic"><span data-i18n="Traffic sources">Sumber trafik</span></button>
-      <button class="adm-navitem" data-nav="journey"><span data-i18n="Visbody funnel">Funnel Visbody</span></button>
-      <button class="adm-navitem" data-nav="classperf"><span data-i18n="Class performance">Class performance</span></button>
-      <button class="adm-navitem" data-nav="affiliate"><span data-i18n="Affiliate">Affiliate</span></button>
+      <!-- Nav dikelompokkan per domain; tiap grup = accordion collapsible.
+           Hanya reorganisasi — data-nav (route/section) tetap sama persis.
+           Perilaku accordion (toggle/persist/auto-expand aktif) di js/admin-shell.js. -->
+      <div class="adm-navcat" data-cat="analytics">
+        <button type="button" class="adm-navgroup" data-navgroup="analytics" aria-expanded="true"><span data-i18n="Analytics">Analitik</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="overview"><span data-i18n="Overview">Overview</span></button>
+          <button class="adm-navitem" data-nav="scan"><span data-i18n="Scan activity">Aktivitas scan</span></button>
+          <button class="adm-navitem" data-nav="revenue"><span data-i18n="Revenue">Revenue</span><span class="adm-tag adm-tag--pending" id="navRevBadge" hidden></span></button>
+          <button class="adm-navitem" data-nav="traffic"><span data-i18n="Traffic sources">Sumber trafik</span></button>
+        </div>
+      </div>
 
-      <div class="adm-navgroup" data-i18n="Manage">Kelola</div>
-      <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
-      <button class="adm-navitem" data-nav="voucher"><span data-i18n="Voucher">Voucher</span></button>
-      <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span></button>
-      <button class="adm-navitem" data-nav="menustats"><span data-i18n="Menu interest">Minat menu</span></button>
-      <button class="adm-navitem" data-nav="delivery"><span data-i18n="Eat Now / delivery">Eat Now / pesan-antar</span></button>
-      <button class="adm-navitem" data-nav="articles"><span data-i18n="Articles">Artikel</span></button>
-      <button class="adm-navitem" data-nav="marketing"><span data-i18n="Marketing">Marketing</span></button>
-      <button class="adm-navitem" data-nav="corporate"><span data-i18n="Corporate">Corporate</span></button>
-      <button class="adm-navitem" data-nav="events"><span data-i18n="Events">Event</span></button>
-      <button class="adm-navitem" data-nav="rewards"><span data-i18n="Rewards">Rewards</span></button>
-      <button class="adm-navitem" data-nav="coaches"><span data-i18n="Coaches">Coach</span></button>
-      <button class="adm-navitem" data-nav="visbody"><span data-i18n="Visbody claims">Claim Visbody</span></button>
-      <button class="adm-navitem" data-nav="hometiles"><span data-i18n="Home grid">Grid Home</span></button>
+      <div class="adm-navcat" data-cat="visbody">
+        <button type="button" class="adm-navgroup" data-navgroup="visbody" aria-expanded="true"><span data-i18n="Visbody">Visbody</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="journey"><span data-i18n="Visbody funnel">Funnel Visbody</span></button>
+          <button class="adm-navitem" data-nav="visbody"><span data-i18n="Visbody claims">Claim Visbody</span></button>
+        </div>
+      </div>
 
-      <div class="adm-navgroup" data-i18n="System">Sistem</div>
-      <button class="adm-navitem" data-nav="reports"><span data-i18n="Reports">Laporan</span></button>
-      <button class="adm-navitem" data-nav="settings"><span data-i18n="Settings">Pengaturan</span></button>
+      <div class="adm-navcat" data-cat="classcoach">
+        <button type="button" class="adm-navgroup" data-navgroup="classcoach" aria-expanded="true"><span data-i18n="Classes & Coach">Kelas &amp; Coach</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="classperf"><span data-i18n="Class performance">Class performance</span></button>
+          <button class="adm-navitem" data-nav="coaches"><span data-i18n="Coaches">Coach</span></button>
+        </div>
+      </div>
+
+      <div class="adm-navcat" data-cat="menu">
+        <button type="button" class="adm-navgroup" data-navgroup="menu" aria-expanded="true"><span data-i18n="Menu & F&B">Menu &amp; F&amp;B</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span></button>
+          <button class="adm-navitem" data-nav="menustats"><span data-i18n="Menu interest">Minat menu</span></button>
+          <button class="adm-navitem" data-nav="delivery"><span data-i18n="Eat Now / delivery">Eat Now / pesan-antar</span></button>
+        </div>
+      </div>
+
+      <div class="adm-navcat" data-cat="affiliate">
+        <button type="button" class="adm-navgroup" data-navgroup="affiliate" aria-expanded="true"><span data-i18n="Affiliate">Affiliate</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="affiliate"><span data-i18n="Affiliate">Affiliate</span></button>
+        </div>
+      </div>
+
+      <div class="adm-navcat" data-cat="content">
+        <button type="button" class="adm-navgroup" data-navgroup="content" aria-expanded="true"><span data-i18n="Content & Marketing">Konten &amp; Marketing</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="articles"><span data-i18n="Articles">Artikel</span></button>
+          <button class="adm-navitem" data-nav="marketing"><span data-i18n="Marketing">Marketing</span></button>
+          <button class="adm-navitem" data-nav="events"><span data-i18n="Events">Event</span></button>
+          <button class="adm-navitem" data-nav="rewards"><span data-i18n="Rewards">Rewards</span></button>
+          <button class="adm-navitem" data-nav="hometiles"><span data-i18n="Home grid">Grid Home</span></button>
+        </div>
+      </div>
+
+      <div class="adm-navcat" data-cat="corporate">
+        <button type="button" class="adm-navgroup" data-navgroup="corporate" aria-expanded="true"><span data-i18n="Corporate">Corporate</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="corporate"><span data-i18n="Corporate">Corporate</span></button>
+        </div>
+      </div>
+
+      <div class="adm-navcat" data-cat="user">
+        <button type="button" class="adm-navgroup" data-navgroup="user" aria-expanded="true"><span data-i18n="Users">User</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="users"><span data-i18n="Users & segments">User &amp; segmen</span></button>
+          <button class="adm-navitem" data-nav="voucher"><span data-i18n="Voucher">Voucher</span></button>
+        </div>
+      </div>
+
+      <div class="adm-navcat" data-cat="system">
+        <button type="button" class="adm-navgroup" data-navgroup="system" aria-expanded="true"><span data-i18n="System">Sistem</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="adm-navlist">
+          <button class="adm-navitem" data-nav="reports"><span data-i18n="Reports">Laporan</span></button>
+          <button class="adm-navitem" data-nav="settings"><span data-i18n="Settings">Pengaturan</span></button>
+        </div>
+      </div>
     </nav>
   </aside>
+  <!-- Scrim untuk drawer sidebar di layar sempit (klik = tutup). -->
+  <div class="adm-scrim" data-menu-close hidden></div>
 
   <!-- ---------------- MAIN ---------------- -->
   <div class="adm-main">
     <header class="adm-head">
+      <button type="button" class="adm-menubtn" data-menu-toggle aria-label="Menu" aria-expanded="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true" width="20" height="20"><path d="M3 5h14M3 10h14M3 15h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
       <div>
         <div class="adm-kicker" data-head-kicker>PANTAU</div>
         <h1 class="adm-title" data-head-title>Overview</h1>

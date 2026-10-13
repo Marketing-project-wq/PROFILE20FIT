@@ -38,6 +38,52 @@
     localStorage.setItem(THEME_KEY, theme);
   }
 
+  /* ---------------- sidebar: accordion groups + mobile drawer ----------------
+     Nav dikelompokkan per domain (.adm-navcat > button[data-navgroup] + .adm-navlist).
+     Murni enhancement markup lama; no-op kalau grup tak ada (mis. template tanpa
+     data-navgroup). State collapse persist di localStorage; grup berisi halaman
+     aktif selalu di-expand. */
+  var NAV_KEY = 'adm.nav.collapsed';
+  function getCollapsed() { try { return JSON.parse(localStorage.getItem(NAV_KEY) || '[]') || []; } catch (e) { return []; } }
+  function setCollapsed(arr) { try { localStorage.setItem(NAV_KEY, JSON.stringify(arr)); } catch (e) {} }
+
+  function applyNavState() {
+    var collapsed = getCollapsed();
+    document.querySelectorAll('.adm-navcat').forEach(function (cat) {
+      var btn = cat.querySelector('[data-navgroup]'); if (!btn) return;
+      var isCol = collapsed.indexOf(btn.dataset.navgroup) >= 0;
+      cat.classList.toggle('is-collapsed', isCol);
+      btn.setAttribute('aria-expanded', String(!isCol));
+    });
+  }
+  function toggleNavGroup(btn) {
+    var cat = btn.closest('.adm-navcat'); if (!cat) return;
+    var willCollapse = !cat.classList.contains('is-collapsed');
+    cat.classList.toggle('is-collapsed', willCollapse);
+    btn.setAttribute('aria-expanded', String(!willCollapse));
+    var collapsed = getCollapsed(), id = btn.dataset.navgroup, i = collapsed.indexOf(id);
+    if (willCollapse) { if (i < 0) collapsed.push(id); } else if (i >= 0) collapsed.splice(i, 1);
+    setCollapsed(collapsed);
+  }
+  function expandActiveNav(sectionId) {
+    var item = document.querySelector('.adm-side [data-nav="' + sectionId + '"]'); if (!item) return;
+    var cat = item.closest('.adm-navcat'); if (!cat || !cat.classList.contains('is-collapsed')) return;
+    var btn = cat.querySelector('[data-navgroup]');
+    cat.classList.remove('is-collapsed');
+    if (btn) {
+      btn.setAttribute('aria-expanded', 'true');
+      var collapsed = getCollapsed(), i = collapsed.indexOf(btn.dataset.navgroup);
+      if (i >= 0) { collapsed.splice(i, 1); setCollapsed(collapsed); }
+    }
+  }
+  function setMobileNav(open) {
+    var side = document.querySelector('.adm-side'), scrim = document.querySelector('.adm-scrim'),
+        btn = document.querySelector('[data-menu-toggle]');
+    if (side) side.classList.toggle('is-open', open);
+    if (scrim) scrim.hidden = !open;
+    if (btn) btn.setAttribute('aria-expanded', String(open));
+  }
+
   /* ---------------- routing: sections + tabs ----------------
      Section state lives in the URL (?section=voucher&tab=access) so admins
      can share a link, same as the period filter. */
@@ -67,6 +113,8 @@
       if (q) { q.textContent = head.dataset.question || ''; q.dataset.i18n = head.dataset.questionEn || ''; }
     }
     setParam('section', id);
+    expandActiveNav(id);
+    setMobileNav(false);
     applyLang(getLang());
   }
 
@@ -157,6 +205,15 @@
     t = e.target.closest('[data-theme-btn]');
     if (t) return applyTheme(t.dataset.themeBtn);
 
+    t = e.target.closest('[data-menu-toggle]');
+    if (t) { var side = document.querySelector('.adm-side'); return setMobileNav(!(side && side.classList.contains('is-open'))); }
+
+    t = e.target.closest('[data-menu-close]');
+    if (t) return setMobileNav(false);
+
+    t = e.target.closest('[data-navgroup]');
+    if (t) return toggleNavGroup(t);
+
     t = e.target.closest('[data-nav]');
     if (t) return showSection(t.dataset.nav);
 
@@ -218,6 +275,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     applyTheme(getTheme());
     applyLang(getLang());
+    applyNavState();
     var p = params();
     showSection(p.get('section') || 'overview');
     document.querySelectorAll('[data-tabgroup]').forEach(function (g) {
