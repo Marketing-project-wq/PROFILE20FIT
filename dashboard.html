@@ -38,18 +38,20 @@
   /* Langit = header halaman yang bleed ke tepi area konten lalu MEMUDAR ke warna
      halaman (var(--bg)) — meniru home app, bukan kartu mengambang. Teks selalu putih. */
   .hero{position:relative;overflow:hidden;padding:64px 18px 58px;color:#fff;isolation:isolate;
-    /* full-bleed SISI: batalkan padding kontainer supaya langit nempel ke tepi area konten.
-       padding-top 64px = ruang supaya greeting/cuaca turun di bawah bilah kontrol (.topfab). */
-    margin:0 -16px 10px;
+    /* Header full-width (anak <body>, DI LUAR .wrap yang ber-max-width). Margin negatif
+       membatalkan padding <body> supaya langit FULL-BLEED: mobile/tablet edge-to-edge viewport;
+       desktop dari tepi sidebar (238px) sampai ujung kanan viewport. padding-top 64px = ruang
+       untuk bilah kontrol (.topfab) yang mengambang di atas langit. */
+    margin:0 -16px 10px -16px;
     background:linear-gradient(160deg,#3f8fd8,#72b0e3 50%,#b7dcf3)}
-  @media(max-width:560px){ .hero{ margin:0 -12px 10px } }
-  @media(min-width:900px){ .hero{ margin:0 -32px 14px } }
+  @media(max-width:560px){ .hero{ margin:0 -12px 10px -12px } }
+  @media(min-width:900px){ .hero{ margin:0 -16px 10px 0 } }
   /* Header home "menyatu": langit sampai PALING ATAS, bilah kontrol (.topfab dari
      i18n.js) dibuat transparan DI ATAS langit (bukan bar berlatar). Override di-scope
      ke dashboard; kalahkan aturan i18n.js (padding-top body & margin-top .hero). */
   html body{padding-top:0 !important}
   .topfab{background:transparent !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;border-bottom:0 !important}
-  .wrap>.hero{margin-top:0 !important}
+  body>.hero{margin-top:0 !important}
   /* Scrim gelap (bias ke ATAS, untuk greeting/suhu) — teks putih tetap terbaca,
      tapi bawah dibiarkan bening supaya bisa memudar ke halaman. */
   .hero::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
@@ -243,9 +245,8 @@
 </head>
 <body>
 <!-- 20FIT-BUILD: reskin-new-design 2026-07-02 -->
-  <div class="wrap">
-    <!-- Greeting hero: latar foto langit dinamis (siang/sore/malam/hujan) -->
-    <header class="hero" id="wx">
+  <!-- Greeting hero: full-width header (anak <body>, di luar .wrap) — langit menyatu & full-bleed -->
+  <header class="hero" id="wx">
       <div class="hero-row">
         <div class="hero-inner">
           <div class="hk" id="greet">Selamat datang</div>
@@ -265,8 +266,9 @@
         <div class="atrack"><i id="aqiMarker"></i></div>
         <div class="asrc" id="wbadge"></div>
       </div>
-    </header>
+  </header>
 
+  <div class="wrap">
     <!-- Upcoming Classes (persis di bawah AQI) — scroll horizontal; data /api/classes/upcoming.
          Kosong / gagal = section disembunyikan. Klik item -> /book-class deep-link. -->
     <style>
