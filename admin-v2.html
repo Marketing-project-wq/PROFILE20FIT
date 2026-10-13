@@ -146,12 +146,27 @@
         .afset-f{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--ink-2)}
         .afset-f.afset-check{flex-direction:row;align-items:center;gap:8px}
         .afset-check input{width:16px;height:16px;flex:0 0 auto}
+        /* Tabel daftar (affiliate / komisi / klaim) */
+        .aftbl-bar{display:flex;align-items:center;gap:10px;margin:16px 0 10px;flex-wrap:wrap}
+        .aftbl-foot{display:flex;gap:8px;margin-top:10px}
+        .afcl-act{display:flex;gap:6px;flex-wrap:wrap}
+        .afcl-act .adm-btn{padding:4px 10px;font-size:11px}
       </style>
       <section data-section="affiliate" hidden
         data-kicker="PANTAU" data-kicker-en="MONITOR"
         data-title="Affiliate" data-title-en="Affiliate"
         data-question="Berapa affiliate aktif, komisi berjalan, dan klaim yang menunggu?"
         data-question-en="How many active affiliates, running commission, and claims waiting?">
+        <div class="adm-tabs" data-tabgroup="aff" data-default="overview">
+          <button data-tab="aff" data-tab-id="overview" data-i18n="Summary">Ringkasan</button>
+          <button data-tab="aff" data-tab-id="list" data-i18n="Affiliates">Affiliate</button>
+          <button data-tab="aff" data-tab-id="comm" data-i18n="Commissions">Komisi</button>
+          <button data-tab="aff" data-tab-id="claims" data-i18n="Claims">Klaim</button>
+          <button data-tab="aff" data-tab-id="settings" data-i18n="Settings">Setelan</button>
+        </div>
+
+        <!-- Ringkasan (read-only overview) -->
+        <div data-tabpanel="aff" data-tab="overview">
         <div class="adm-grid adm-grid--4" id="afKpis">
           <div class="adm-cell"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
         </div>
@@ -170,12 +185,59 @@
         </div>
         <div class="afsec-foot">
           <a class="adm-btn adm-btn--sm" href="https://affiliate.20fit.id/admin" data-i18n="Open affiliate admin">Buka admin affiliate</a>
-          <span data-i18n="Read-only summary — manage affiliates, claims & settings in the affiliate admin.">Ringkasan read-only — kelola affiliate, klaim &amp; pengaturan di admin affiliate.</span>
+          <span data-i18n="Read-only summary — detailed management in the tabs here or in the affiliate admin.">Ringkasan read-only — kelola lebih detail di tab di sini atau di admin affiliate.</span>
+        </div>
+        </div><!-- /tab overview -->
+
+        <!-- Daftar Affiliate (read-only) -->
+        <div data-tabpanel="aff" data-tab="list" hidden>
+          <div class="aftbl-bar">
+            <input class="adm-input" data-table-search="#affListTable" placeholder="Cari kode / status…" data-i18n-ph="Search code / status…" style="max-width:280px">
+            <span class="adm-note" data-table-info="#affListTable" style="margin-left:auto"></span>
+          </div>
+          <div class="adm-panel" style="padding:0;overflow-x:auto">
+            <table class="adm-table" id="affListTable" data-table data-page-size="20">
+              <thead><tr><th data-sort="str" data-i18n="Code">Kode</th><th data-sort="str" data-i18n="Status">Status</th><th data-sort="str" data-i18n="Joined">Bergabung</th><th class="adm-right" data-sort="num" data-i18n="Transactions">Transaksi</th><th class="adm-right" data-sort="num" data-i18n="Commission">Komisi</th></tr></thead>
+              <tbody id="affListRows"><tr><td colspan="5"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note" data-table-empty="#affListTable" hidden data-i18n="No affiliates yet.">Belum ada affiliate.</div>
+          <div class="aftbl-foot"><button class="adm-btn adm-btn--sm" data-page-step="#affListTable" data-step="-1" data-i18n="Prev">Sebelumnya</button><button class="adm-btn adm-btn--sm" data-page-step="#affListTable" data-step="1" data-i18n="Next">Berikutnya</button></div>
+        </div>
+
+        <!-- Daftar Komisi (read-only) -->
+        <div data-tabpanel="aff" data-tab="comm" hidden>
+          <div class="aftbl-bar">
+            <input class="adm-input" data-table-search="#affCommTable" placeholder="Cari kode / status…" data-i18n-ph="Search code / status…" style="max-width:280px">
+            <span class="adm-note" data-table-info="#affCommTable" style="margin-left:auto"></span>
+          </div>
+          <div class="adm-panel" style="padding:0;overflow-x:auto">
+            <table class="adm-table" id="affCommTable" data-table data-page-size="20">
+              <thead><tr><th data-sort="str" data-i18n="Code">Kode</th><th class="adm-right" data-sort="num" data-i18n="Base">Basis</th><th class="adm-right" data-sort="num" data-i18n="Rate">Rate</th><th class="adm-right" data-sort="num" data-i18n="Commission">Komisi</th><th data-sort="str" data-i18n="Status">Status</th><th data-sort="str" data-i18n="Source date">Tgl sumber</th></tr></thead>
+              <tbody id="affCommRows"><tr><td colspan="6"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note" data-table-empty="#affCommTable" hidden data-i18n="No commissions yet.">Belum ada komisi.</div>
+          <div class="aftbl-foot"><button class="adm-btn adm-btn--sm" data-page-step="#affCommTable" data-step="-1" data-i18n="Prev">Sebelumnya</button><button class="adm-btn adm-btn--sm" data-page-step="#affCommTable" data-step="1" data-i18n="Next">Berikutnya</button></div>
+          <div class="adm-note" style="margin-top:8px" data-i18n="Latest 300 commission events.">300 event komisi terbaru.</div>
+        </div>
+
+        <!-- Klaim / payout — AKSI lewat RPC resmi affiliate (role affiliate-super) -->
+        <div data-tabpanel="aff" data-tab="claims" hidden>
+          <div class="adm-note" id="afClaimBanner" style="margin-bottom:12px">—</div>
+          <div class="adm-panel" style="padding:0;overflow-x:auto">
+            <table class="adm-table" id="affClaimTable" data-table data-page-size="20">
+              <thead><tr><th data-i18n="Claim">Klaim</th><th data-i18n="Code">Kode</th><th class="adm-right" data-i18n="Gross">Bruto</th><th class="adm-right" data-i18n="Net">Neto</th><th data-i18n="Status">Status</th><th data-i18n="Date">Tanggal</th><th data-i18n="Action">Aksi</th></tr></thead>
+              <tbody id="affClaimRows"><tr><td colspan="7"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note" data-table-empty="#affClaimTable" hidden data-i18n="No claims yet.">Belum ada klaim.</div>
+          <div class="adm-note" style="margin-top:8px" data-i18n="Actions (mark processing / paid / reject) run via the official affiliate RPC — atomic, audited, affiliate super-admin only.">Aksi (tandai diproses / dibayar / tolak) lewat RPC resmi affiliate — atomik, tercatat audit, hanya affiliate super-admin.</div>
         </div>
 
         <!-- Setelan program (finansial) — TULIS lewat RPC resmi affiliate_update_settings
              (atomic + audit + cek role affiliate-super). Baca via /api/admin/affiliate/settings. -->
-        <div class="adm-sec-title" data-i18n="Program settings (financial)">Setelan program (finansial)</div>
+        <div data-tabpanel="aff" data-tab="settings" hidden>
         <div class="adm-panel" id="afSetPanel">
           <div class="adm-note" id="afSetBanner" style="margin-bottom:14px">—</div>
           <div class="afset-grid">
@@ -195,6 +257,7 @@
           <div class="adm-sec-title" style="margin:18px 0 8px" data-i18n="Recent changes">Perubahan terakhir</div>
           <div id="afsAudit"></div>
         </div>
+        </div><!-- /tab settings -->
       </section>
 
       <!-- ===== SCAFFOLD SECTIONS (increment berikutnya) ===== -->
@@ -2635,7 +2698,118 @@
       }).join("");
     }catch(e){ kp.innerHTML='<div class="adm-cell"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></div>'; }
     loadAffiliateSettings();
+    loadAffiliateList();
+    loadAffiliateCommissions();
+    loadAffiliateClaims();
   }
+
+  // ---- AFFILIATE lists (READ-ONLY dari /api/admin/affiliate/{affiliates,commissions,claims}) ----
+  function afDate(s){ return s? new Date(s).toLocaleDateString() : "—"; }
+  function afTag(status){
+    var map={active:"paid",paused:"pending",held:"pending",available:"paid",claimed:"pending",paid:"paid",cancelled:"mute",submitted:"pending",processing:"pending",rejected:"fail"};
+    var cls=map[String(status||"").toLowerCase()]||"mute";
+    return '<span class="adm-tag adm-tag--'+cls+'">'+esc(String(status||"—"))+'</span>';
+  }
+  async function loadAffiliateList(){
+    var tb=document.getElementById("affListRows"); if(!tb) return;
+    try{
+      var res=await adminFetch("/api/admin/affiliate/affiliates");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="5"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      var rows=j.affiliates||[];
+      tb.innerHTML = rows.length? rows.map(function(a){
+        return '<tr><td><span class="adm-mono">'+esc(a.code)+'</span></td><td>'+afTag(a.status)+'</td><td>'+afDate(a.joined_at)+'</td>'+
+          '<td class="adm-right adm-mono" data-value="'+a.transactions+'">'+a.transactions+'</td>'+
+          '<td class="adm-right adm-mono" data-value="'+a.commission+'">'+rp(a.commission)+'</td></tr>';
+      }).join("") : "";
+      if(window.admRenderTable) admRenderTable("#affListTable");
+    }catch(e){ tb.innerHTML='<tr><td colspan="5"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+  }
+  async function loadAffiliateCommissions(){
+    var tb=document.getElementById("affCommRows"); if(!tb) return;
+    try{
+      var res=await adminFetch("/api/admin/affiliate/commissions");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      var rows=j.commissions||[];
+      tb.innerHTML = rows.length? rows.map(function(c){
+        var pct=(c.rate_at_time==null)?"—":(Math.round(Number(c.rate_at_time)*10000)/100)+"%";
+        return '<tr><td><span class="adm-mono">'+esc(c.code)+'</span></td>'+
+          '<td class="adm-right adm-mono" data-value="'+c.base_amount+'">'+rp(c.base_amount)+'</td>'+
+          '<td class="adm-right adm-mono" data-value="'+(c.rate_at_time||0)+'">'+pct+'</td>'+
+          '<td class="adm-right adm-mono" data-value="'+c.amount+'">'+rp(c.amount)+'</td>'+
+          '<td>'+afTag(c.status)+'</td><td>'+afDate(c.paid_at_source)+'</td></tr>';
+      }).join("") : "";
+      if(window.admRenderTable) admRenderTable("#affCommTable");
+    }catch(e){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+  }
+  var AFCLAIMS=[];
+  async function loadAffiliateClaims(){
+    var tb=document.getElementById("affClaimRows"); if(!tb) return;
+    var banner=document.getElementById("afClaimBanner");
+    // Role sudah di-set loadAffiliateSettings (AFROLE); tunggu kalau belum.
+    if(AFROLE==null){ try{ if(window.Auth&&Auth.ready) await Auth.ready; if(window.Auth&&Auth.supabase){ var rr=await Auth.supabase.rpc("affiliate_admin_role"); if(!rr.error) AFROLE=rr.data||null; } }catch(e){} }
+    var can=(AFROLE==="super");
+    if(banner){
+      banner.textContent = can
+        ? L("You can process claims (affiliate super-admin).","Kamu bisa memproses klaim (affiliate super-admin).")
+        : L("View only — processing claims needs an affiliate super-admin account.","Hanya lihat — memproses klaim butuh akun affiliate super-admin.");
+      banner.style.color = can ? "var(--ink-3)" : "var(--accent-ink)";
+    }
+    try{
+      var res=await adminFetch("/api/admin/affiliate/claims");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="7"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      AFCLAIMS=j.claims||[];
+      tb.innerHTML = AFCLAIMS.length? AFCLAIMS.map(function(c){
+        var dt=c.paid_at||c.rejected_at||c.estimated_transfer_date||c.submitted_at;
+        var st=String(c.status||"").toLowerCase();
+        var acts="";
+        if(can && (st==="submitted")) acts+='<button class="adm-btn adm-btn--sm" onclick="afClaimAction(\''+c.id+'\',\'processing\')" data-i18n="Mark processing">Tandai diproses</button>';
+        if(can && (st==="submitted"||st==="processing")){
+          acts+='<button class="adm-btn adm-btn--sm adm-btn--primary" onclick="afClaimAction(\''+c.id+'\',\'paid\')" data-i18n="Mark paid">Tandai dibayar</button>';
+          acts+='<button class="adm-btn adm-btn--sm" onclick="afClaimAction(\''+c.id+'\',\'reject\')" data-i18n="Reject">Tolak</button>';
+        }
+        if(!acts) acts='<span class="adm-note" style="margin:0">—</span>';
+        return '<tr><td class="adm-mono">#'+(c.claim_no||"—")+'</td><td><span class="adm-mono">'+esc(c.code)+'</span></td>'+
+          '<td class="adm-right adm-mono">'+rp(c.amount_gross)+'</td>'+
+          '<td class="adm-right adm-mono">'+rp(c.amount_net)+'</td>'+
+          '<td>'+afTag(c.status)+'</td><td>'+afDate(dt)+'</td>'+
+          '<td><div class="afcl-act">'+acts+'</div></td></tr>';
+      }).join("") : "";
+      if(window.admRenderTable) admRenderTable("#affClaimTable");
+    }catch(e){ tb.innerHTML='<tr><td colspan="7"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+  }
+  // Aksi klaim via RPC resmi affiliate (atomic + audit + cek role affiliate-super di DB).
+  // Kalau RPC menolak (bukan super / state salah), tampilkan pesan apa adanya — TIDAK ada
+  // fallback service-key: logika finansial hanya milik RPC resmi.
+  window.afClaimAction=async function(id, action){
+    if(!(window.Auth&&Auth.supabase)){ if(window.admToast)admToast(L("Log in with your account to act.","Login dengan akunmu untuk beraksi.")); return; }
+    var fn, args={ p_claim_id:id };
+    if(action==="processing"){
+      fn="affiliate_admin_claim_processing";
+      var d=prompt(L("Estimated transfer date (YYYY-MM-DD), optional:","Perkiraan tanggal transfer (YYYY-MM-DD), opsional:"),"");
+      if(d===null) return; args.p_estimated_transfer_date=d?d:null;
+    } else if(action==="paid"){
+      fn="affiliate_admin_claim_paid";
+      var ref=prompt(L("Transfer reference (required):","Referensi transfer (wajib):"),"");
+      if(ref===null) return; if(!String(ref).trim()){ if(window.admToast)admToast(L("Transfer reference is required.","Referensi transfer wajib diisi.")); return; }
+      args.p_transfer_ref=String(ref).trim(); args.p_proof_url=null;
+    } else if(action==="reject"){
+      fn="affiliate_admin_claim_reject";
+      var rsn=prompt(L("Rejection reason (required):","Alasan penolakan (wajib):"),"");
+      if(rsn===null) return; if(!String(rsn).trim()){ if(window.admToast)admToast(L("Reason is required.","Alasan wajib diisi.")); return; }
+      args.p_reason=String(rsn).trim();
+    } else return;
+    try{
+      var res=await Auth.supabase.rpc(fn, args);
+      if(res.error) throw res.error;
+      if(window.admToast)admToast(L("Claim updated.","Klaim diperbarui."));
+      await loadAffiliate();
+    }catch(e){
+      if(window.admToast)admToast(L("Action failed","Aksi gagal")+": "+((e&&e.message)||e));
+    }
+  };
 
   // ---- AFFILIATE settings (TULIS via RPC affiliate_update_settings dgn JWT admin;
   //      atomic + audit + cek role affiliate-super di DB. Baca via /api/admin/affiliate/settings) ----

@@ -6998,6 +6998,101 @@ app.get("/api/admin/affiliate/settings", async (req, res) => {
     return res.status(500).json({ error: "Gagal memuat setelan affiliate." });
   }
 });
+// Daftar affiliate (viewer+) — READ-ONLY. Tiap affiliate + agregat komisi (jumlah event &
+// total nominal) dari affiliate_commission. Baca saja; pengelolaan status/kode lewat admin
+// affiliate.20fit.id (RPC resmi). affiliate_* = read-only dari my.20fit (lihat overview).
+app.get("/api/admin/affiliate/affiliates", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const { data: affs, error: ae } = await admin.from("affiliate")
+      .select("id,code,status,joined_at").limit(100000);
+    if (ae) throw ae;
+    const { data: comm } = await admin.from("affiliate_commission")
+      .select("affiliate_id,amount").limit(100000);
+    const agg = {};
+    (comm || []).forEach((c) => {
+      const a = c.affiliate_id; if (!a) return;
+      const g = agg[a] || (agg[a] = { tx: 0, total: 0 });
+      g.tx += 1; g.total += Number(c.amount) || 0;
+    });
+    const rows = (affs || []).map((a) => ({
+      code: a.code || "—",
+      status: a.status || "—",
+      joined_at: a.joined_at || null,
+      transactions: (agg[a.id] && agg[a.id].tx) || 0,
+      commission: (agg[a.id] && agg[a.id].total) || 0,
+    })).sort((x, y) => y.commission - x.commission);
+    return res.json({ ok: true, affiliates: rows });
+  } catch (e) {
+    console.error("admin/affiliate/affiliates:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat daftar affiliate." });
+  }
+});
+// Daftar komisi (viewer+) — READ-ONLY. 300 event komisi terbaru + kode affiliate-nya.
+app.get("/api/admin/affiliate/commissions", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const { data: comm, error: ce } = await admin.from("affiliate_commission")
+      .select("affiliate_id,base_amount,rate_at_time,amount,status,paid_at_source,created_at")
+      .order("created_at", { ascending: false }).limit(300);
+    if (ce) throw ce;
+    const ids = Array.from(new Set((comm || []).map((c) => c.affiliate_id).filter(Boolean)));
+    const codeMap = {};
+    if (ids.length) {
+      const { data: affs } = await admin.from("affiliate").select("id,code").in("id", ids).limit(100000);
+      (affs || []).forEach((a) => { codeMap[a.id] = a.code; });
+    }
+    const rows = (comm || []).map((c) => ({
+      code: codeMap[c.affiliate_id] || "—",
+      base_amount: Number(c.base_amount) || 0,
+      rate_at_time: c.rate_at_time == null ? null : Number(c.rate_at_time),
+      amount: Number(c.amount) || 0,
+      status: c.status || "—",
+      paid_at_source: c.paid_at_source || null,
+    }));
+    return res.json({ ok: true, commissions: rows });
+  } catch (e) {
+    console.error("admin/affiliate/commissions:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat daftar komisi." });
+  }
+});
+// Daftar klaim / payout (viewer+) — READ-ONLY. Aksi (diproses/dibayar/tolak) TIDAK lewat
+// endpoint ini: UI admin-v2 memanggil RPC resmi affiliate (affiliate_admin_claim_*) dengan
+// JWT admin (atomic + audit + cek role affiliate-super di DB). Service key di sini hanya baca.
+app.get("/api/admin/affiliate/claims", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const { data: claims, error: ke } = await admin.from("affiliate_claim")
+      .select("id,affiliate_id,claim_no,amount_gross,amount_net,status,submitted_at,estimated_transfer_date,paid_at,rejected_at")
+      .order("submitted_at", { ascending: false }).limit(200);
+    if (ke) throw ke;
+    const ids = Array.from(new Set((claims || []).map((c) => c.affiliate_id).filter(Boolean)));
+    const codeMap = {};
+    if (ids.length) {
+      const { data: affs } = await admin.from("affiliate").select("id,code").in("id", ids).limit(100000);
+      (affs || []).forEach((a) => { codeMap[a.id] = a.code; });
+    }
+    const rows = (claims || []).map((c) => ({
+      id: c.id,
+      claim_no: c.claim_no || null,
+      code: codeMap[c.affiliate_id] || "—",
+      amount_gross: Number(c.amount_gross) || 0,
+      amount_net: Number(c.amount_net) || 0,
+      status: c.status || "—",
+      submitted_at: c.submitted_at || null,
+      estimated_transfer_date: c.estimated_transfer_date || null,
+      paid_at: c.paid_at || null,
+      rejected_at: c.rejected_at || null,
+    }));
+    return res.json({ ok: true, claims: rows });
+  } catch (e) {
+    console.error("admin/affiliate/claims:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat daftar klaim." });
+  }
+});
 // Metrics overview (viewer+). Semua agregasi dari Supabase (real, bukan dummy).
 app.get("/api/admin/metrics", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
