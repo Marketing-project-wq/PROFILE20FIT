@@ -5827,7 +5827,7 @@ app.get("/api/admin/menu", async (req, res) => {
   try {
     var status = String(req.query.status || "").trim(), q = String(req.query.q || "").trim();
     var query = admin.from("my20fit_menu_contribution")
-      .select("id,auth_user_id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,servings,cook_minutes,prep_minutes,equipment,prep_note,status,reject_reason,created_at,reviewed_at,published")
+      .select("id,auth_user_id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,macros,servings,cook_minutes,prep_minutes,equipment,prep_note,status,reject_reason,created_at,reviewed_at,published")
       .order("created_at", { ascending: false }).limit(200);
     if (["pending", "approved", "rejected"].indexOf(status) >= 0) query = query.eq("status", status);
     if (q) query = query.ilike("name", "%" + q + "%");
@@ -5881,6 +5881,96 @@ app.post("/api/admin/menu/:id/reject", async (req, res) => {
   if (wasApproved && m.auth_user_id) { try { var { data: rv } = await admin.rpc("my20fit_revoke_menu_reward", { p_uid: m.auth_user_id }); clawed = +rv || 0; } catch (e) {} }
   await adminAudit(ctx, wasApproved ? "menu.revoke" : "menu.reject", id, { user: m.auth_user_id, reason: reason, credits_clawed: clawed });
   return res.json({ ok: true, credits_clawed: clawed });
+});
+
+// ===== ADMIN CMS: kelola kontribusi MEMBER (my20fit_menu_contribution) =====
+// Tambahan atas moderasi (approve/reject): admin bisa BUAT / EDIT / HAPUS resep member
+// + foto. Resep buatan admin langsung approved+published (auth_user_id null = bukan dari
+// akun member, tak ada reward). Dedup pakai content_hash (sama dgn /api/menu/submit).
+function recMenuMacros(b) {
+  var p = (b.mp != null && b.mp !== "") ? Math.round(+b.mp) : null;
+  var c = (b.mc != null && b.mc !== "") ? Math.round(+b.mc) : null;
+  var f = (b.mf != null && b.mf !== "") ? Math.round(+b.mf) : null;
+  if (p == null && c == null && f == null) return null;
+  return { p: p, c: c, f: f };
+}
+// CREATE resep member (admin-authored, langsung tayang).
+app.post("/api/admin/menu", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    var b = req.body || {};
+    var name = recStr(b.name, 200), ingredients = recStr(b.ingredients, 8000), steps = recStr(b.steps, 12000);
+    if (!name || !ingredients || !steps) return res.status(400).json({ error: "Nama, bahan, dan langkah wajib diisi." });
+    var diet = String(b.diet_type || "normal").trim().toLowerCase();
+    if (MENU_DIET_TYPES.indexOf(diet) < 0) diet = "normal";
+    var row = {
+      name: name, diet_type: diet, display_name: recStr(b.display_name, 60) || "20FIT",
+      ingredients: ingredients, steps: steps, photo_url: recPhoto(b.photo_url),
+      est_kcal: recInt(b.est_kcal), macros: recMenuMacros(b),
+      servings: recInt(b.servings), cook_minutes: recInt(b.cook_minutes), prep_minutes: recInt(b.prep_minutes),
+      equipment: recStr(b.equipment, 500), prep_note: recStr(b.prep_note, 1000),
+      content_hash: menuHash(name, ingredients, steps),
+      status: "approved", published: true,
+      reviewed_by: ctx.user_id || null, reviewed_at: new Date().toISOString(),
+    };
+    var { data, error } = await admin.from("my20fit_menu_contribution").insert(row).select("id").limit(1).single();
+    if (error) {
+      if (error.code === "23505") return res.status(409).json({ error: "Resep dgn isi persis sama sudah ada." });
+      return res.status(500).json({ error: error.message });
+    }
+    await adminAudit(ctx, "menu.create", data.id, { name: name });
+    return res.json({ ok: true, id: data.id });
+  } catch (e) { return res.status(e.status || 500).json({ error: (e && e.message) || e }); }
+});
+// EDIT resep member.
+app.post("/api/admin/menu/:id/edit", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    var id = String(req.params.id || ""), b = req.body || {};
+    var { data: cur } = await admin.from("my20fit_menu_contribution").select("name,ingredients,steps").eq("id", id).limit(1).single();
+    if (!cur) return res.status(404).json({ error: "Resep tidak ditemukan." });
+    var patch = { updated_at: new Date().toISOString() };
+    if (b.name != null) { var nm = recStr(b.name, 200); if (!nm) return res.status(400).json({ error: "Nama tidak boleh kosong." }); patch.name = nm; }
+    if (b.ingredients != null) { var ig = recStr(b.ingredients, 8000); if (!ig) return res.status(400).json({ error: "Bahan tidak boleh kosong." }); patch.ingredients = ig; }
+    if (b.steps != null) { var st = recStr(b.steps, 12000); if (!st) return res.status(400).json({ error: "Langkah tidak boleh kosong." }); patch.steps = st; }
+    if (b.diet_type != null) { var d = String(b.diet_type).trim().toLowerCase(); patch.diet_type = (MENU_DIET_TYPES.indexOf(d) >= 0) ? d : "normal"; }
+    if (b.display_name != null) patch.display_name = recStr(b.display_name, 60);
+    ["est_kcal", "servings", "cook_minutes", "prep_minutes"].forEach(function (k) { if (b[k] != null) patch[k] = recInt(b[k]); });
+    if (b.equipment != null) patch.equipment = recStr(b.equipment, 500);
+    if (b.prep_note != null) patch.prep_note = recStr(b.prep_note, 1000);
+    if (b.mp != null || b.mc != null || b.mf != null) patch.macros = recMenuMacros(b);
+    if (b.photo_url != null) patch.photo_url = recPhoto(b.photo_url);
+    if (b.published != null) patch.published = !!b.published;
+    // content_hash ikut berubah kalau nama/bahan/langkah berubah (jaga konsistensi dedup).
+    if (patch.name || patch.ingredients || patch.steps) {
+      patch.content_hash = menuHash(patch.name || cur.name, patch.ingredients || cur.ingredients, patch.steps || cur.steps);
+    }
+    var { error } = await admin.from("my20fit_menu_contribution").update(patch).eq("id", id);
+    if (error) {
+      if (error.code === "23505") return res.status(409).json({ error: "Resep dgn isi persis sama sudah ada." });
+      return res.status(500).json({ error: error.message });
+    }
+    await adminAudit(ctx, "menu.edit", id, Object.keys(patch));
+    return res.json({ ok: true });
+  } catch (e) { return res.status(e.status || 500).json({ error: (e && e.message) || e }); }
+});
+// DELETE resep member (guard tautan pesan-antar source='member', sama spt official).
+app.post("/api/admin/menu/:id/delete", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    var id = String(req.params.id || ""), force = (req.body || {}).force === true;
+    var { count } = await admin.from("my20fit_menu_delivery_links")
+      .select("id", { count: "exact", head: true }).eq("source", "member").eq("menu_id", id);
+    if ((count || 0) > 0 && !force) return res.status(409).json({ error: "Masih ada " + count + " tautan pesan-antar untuk resep ini.", links_count: count });
+    if ((count || 0) > 0 && force) await admin.from("my20fit_menu_delivery_links").delete().eq("source", "member").eq("menu_id", id);
+    var { error } = await admin.from("my20fit_menu_contribution").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "menu.delete", id, { links_removed: count || 0 });
+    return res.json({ ok: true, links_removed: count || 0 });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || e }); }
 });
 
 // ============ ADMIN CMS: katalog resep OFFICIAL (my20fit_recipe_official) ============

@@ -634,6 +634,50 @@
           <span class="adm-badge" data-i18n="Reviewer guide">Pedoman reviewer</span>
           <div class="adm-note" style="line-height:1.6" data-i18n="Reject: unsafe very-low calories (below 1,200 kcal for adults without supervision), medical claims (&quot;cures diabetes&quot;), clearly wrong nutrition info (macros don't match the total), and menus pushing extreme diets or excessive fasting. This isn't a formality — a wrong menu spreading can harm its followers.">Tolak: kalori sangat rendah tak aman (di bawah 1.200 kkal untuk dewasa tanpa pengawasan), klaim medis (&quot;menyembuhkan diabetes&quot;), info gizi jelas salah (makro tak cocok totalnya), dan menu yang mendorong pola makan ekstrem/puasa berlebihan. Ini bukan formalitas — menu salah yang tersebar bisa membahayakan pengikutnya.</div>
         </div>
+        <div style="display:flex;gap:8px;align-items:center;margin:4px 0 12px;flex-wrap:wrap">
+          <button class="adm-btn adm-btn--primary adm-btn--sm" id="meAddBtn" data-i18n="+ Add recipe">+ Tambah resep</button>
+          <span class="adm-note" data-i18n="Admin-created recipes publish immediately (no reward).">Resep buatan admin langsung tayang (tanpa reward).</span>
+        </div>
+        <div class="adm-panel" id="meForm" hidden style="margin-bottom:14px">
+          <div class="adm-sec-title" id="meFormTitle" style="margin-top:0" data-i18n="New recipe">Resep baru</div>
+          <div class="ro-grid">
+            <label class="ro-f"><span data-i18n="Name">Nama</span><input class="adm-input" id="meName"></label>
+            <label class="ro-f"><span data-i18n="Contributor label">Nama kontributor</span><input class="adm-input" id="meDisplay" placeholder="20FIT"></label>
+            <label class="ro-f"><span data-i18n="Diet type">Tipe diet</span><select class="adm-input" id="meDiet"></select></label>
+            <label class="ro-f"><span>kkal</span><input class="adm-input" id="meKcal" type="number"></label>
+            <label class="ro-f"><span data-i18n="Protein (g)">Protein (g)</span><input class="adm-input" id="meP" type="number"></label>
+            <label class="ro-f"><span data-i18n="Carbs (g)">Karbo (g)</span><input class="adm-input" id="meC" type="number"></label>
+            <label class="ro-f"><span data-i18n="Fat (g)">Lemak (g)</span><input class="adm-input" id="meF" type="number"></label>
+            <label class="ro-f"><span data-i18n="Servings">Porsi</span><input class="adm-input" id="meServings" type="number"></label>
+            <label class="ro-f"><span data-i18n="Cook (min)">Masak (menit)</span><input class="adm-input" id="meCook" type="number"></label>
+            <label class="ro-f"><span data-i18n="Prep (min)">Prep (menit)</span><input class="adm-input" id="mePrep" type="number"></label>
+          </div>
+          <div class="ro-grid2" style="margin-top:12px">
+            <label class="ro-f"><span data-i18n="Ingredients">Bahan</span><textarea class="adm-input" id="meIng" rows="5"></textarea></label>
+            <label class="ro-f"><span data-i18n="Steps">Langkah</span><textarea class="adm-input" id="meSteps" rows="5"></textarea></label>
+          </div>
+          <div class="ro-grid2" style="margin-top:12px">
+            <label class="ro-f"><span data-i18n="Equipment">Peralatan</span><input class="adm-input" id="meEquip"></label>
+            <label class="ro-f"><span data-i18n="Prep note">Catatan prep</span><input class="adm-input" id="mePrepNote"></label>
+          </div>
+          <div style="display:flex;gap:16px;align-items:center;margin-top:14px;flex-wrap:wrap">
+            <div class="ro-photo">
+              <div class="ro-photo-prev" id="mePhotoPrev">🍽️</div>
+              <div>
+                <input type="file" id="mePhotoFile" accept="image/png,image/jpeg,image/webp" hidden>
+                <button class="adm-btn adm-btn--sm" id="mePhotoBtn" data-i18n="Upload photo">Unggah foto</button>
+                <button class="adm-btn adm-btn--sm" id="mePhotoClear" hidden data-i18n="Remove">Hapus</button>
+                <div class="adm-note" data-i18n="PNG/JPG/WebP, max 5MB.">PNG/JPG/WebP, maks 5MB.</div>
+              </div>
+            </div>
+            <label class="afset-check" style="margin-left:auto"><input type="checkbox" id="mePub" checked><span data-i18n="Published">Tayang</span></label>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary" id="meSave" data-i18n="Save">Simpan</button>
+            <button class="adm-btn" id="meCancel" data-i18n="Cancel">Batal</button>
+            <span class="adm-note" id="meMsg"></span>
+          </div>
+        </div>
         <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:24px">
           <div>
             <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
@@ -1928,6 +1972,7 @@
   }
   async function loadMenu(){
     var tb=document.getElementById("mnRows"); if(!tb) return;
+    if(!_meBound) meBind();
     var qs="/api/admin/menu"+(MN_FILTER!=="all"?("?status="+MN_FILTER):"");
     var q=(document.getElementById("mnSearch")||{}).value||"";
     if(q) qs+=(qs.indexOf("?")<0?"?":"&")+"q="+encodeURIComponent(q);
@@ -1975,10 +2020,16 @@
           '<button class="adm-btn" id="mnReject">'+L("Reject","Tolak")+'</button>'+
         '</div>'+
         '<input class="adm-input" id="mnReasonNote" style="margin-top:8px" placeholder="'+L("Extra note (optional)","Catatan tambahan (opsional)")+'">'+
+        '<div style="display:flex;gap:8px;margin-top:10px">'+
+          '<button class="adm-btn adm-btn--sm" id="mnEdit">'+L("Edit","Edit")+'</button>'+
+          '<button class="adm-btn adm-btn--sm" id="mnDelete">'+L("Delete","Hapus")+'</button>'+
+        '</div>'+
         '<div class="adm-note" id="mnMsg" style="margin-top:8px"></div>'+
       '</div>';
     var ap=document.getElementById("mnApprove"); if(ap) ap.onclick=function(){ mnApprove(m.id); };
     document.getElementById("mnReject").onclick=function(){ mnReject(m.id); };
+    var ed=document.getElementById("mnEdit"); if(ed) ed.onclick=function(){ meOpenForm(m); };
+    var dl=document.getElementById("mnDelete"); if(dl) dl.onclick=function(){ meDelete(m.id, m.name); };
   }
   async function mnApprove(id){
     var msg=document.getElementById("mnMsg"); if(msg) msg.textContent=L("Approving…","Menyetujui…");
@@ -2113,6 +2164,84 @@
     var pf=roEl("roPhotoFile"); if(pf) pf.onchange=function(){ if(pf.files&&pf.files[0]) roUploadPhoto(pf.files[0]); pf.value=""; };
     var pc=roEl("roPhotoClear"); if(pc) pc.onclick=function(){ roSetPhoto(null); };
     var se=roEl("roSearch"); if(se){ var t; se.addEventListener("input",function(){ clearTimeout(t); t=setTimeout(loadRecipesOfficial,300); }); }
+  }
+
+  // ---- RESEP MEMBER: buat/edit/hapus + foto (my20fit_menu_contribution via /api/admin/menu) ----
+  var ME_EDIT=null, ME_PHOTO=null, _meBound=false;
+  function meEl(id){ return document.getElementById(id); }
+  function meSetPhoto(url){
+    ME_PHOTO=url||null;
+    var prev=meEl("mePhotoPrev"), clr=meEl("mePhotoClear");
+    if(prev){ if(ME_PHOTO){ prev.style.backgroundImage='url("'+ME_PHOTO+'")'; prev.textContent=""; } else { prev.style.backgroundImage="none"; prev.textContent="🍽️"; } }
+    if(clr) clr.hidden=!ME_PHOTO;
+  }
+  function meDietOptions(){
+    var sel=meEl("meDiet"); if(!sel||sel.options.length) return;
+    sel.innerHTML=RO_DIET.map(function(d){ return '<option value="'+d+'">'+d+'</option>'; }).join("");
+  }
+  function meOpenForm(rec){
+    if(!_meBound) meBind();
+    ME_EDIT=rec?rec.id:null;
+    var t=meEl("meFormTitle"); if(t) t.textContent=rec?L("Edit recipe","Edit resep"):L("New recipe","Resep baru");
+    var set=function(id,v){ var e=meEl(id); if(e) e.value=(v==null?"":v); };
+    set("meName",rec&&rec.name); set("meDisplay",rec&&rec.display_name); set("meKcal",rec&&rec.est_kcal);
+    var mac=(rec&&rec.macros&&typeof rec.macros==="object")?rec.macros:{};
+    set("meP",mac.p); set("meC",mac.c); set("meF",mac.f);
+    set("meServings",rec&&rec.servings); set("meCook",rec&&rec.cook_minutes); set("mePrep",rec&&rec.prep_minutes);
+    set("meIng",rec&&rec.ingredients); set("meSteps",rec&&rec.steps); set("meEquip",rec&&rec.equipment); set("mePrepNote",rec&&rec.prep_note);
+    var dsel=meEl("meDiet"); if(dsel) dsel.value=(rec&&rec.diet_type)||"normal";
+    var pub=meEl("mePub"); if(pub) pub.checked=rec?(rec.published!==false):true;
+    meSetPhoto(rec&&rec.photo_url);
+    var msg=meEl("meMsg"); if(msg) msg.textContent="";
+    var f=meEl("meForm"); if(f){ f.hidden=false; f.scrollIntoView({behavior:"smooth",block:"nearest"}); }
+  }
+  function meBody(){
+    var v=function(id){ var e=meEl(id); return e?e.value.trim():""; };
+    var n=function(id){ var e=meEl(id); return (e&&e.value!=="")?Math.round(+e.value):null; };
+    return { name:v("meName"), display_name:v("meDisplay"), diet_type:(meEl("meDiet")?meEl("meDiet").value:"normal"),
+      est_kcal:n("meKcal"), mp:n("meP"), mc:n("meC"), mf:n("meF"),
+      servings:n("meServings"), cook_minutes:n("meCook"), prep_minutes:n("mePrep"),
+      ingredients:v("meIng"), steps:v("meSteps"), equipment:v("meEquip"), prep_note:v("mePrepNote"),
+      photo_url:ME_PHOTO||"", published:!!(meEl("mePub")&&meEl("mePub").checked) };
+  }
+  async function meSave(){
+    var msg=meEl("meMsg"), body=meBody();
+    if(!body.name||!body.ingredients||!body.steps){ if(msg) msg.textContent=L("Name, ingredients and steps are required.","Nama, bahan, dan langkah wajib."); return; }
+    var url=ME_EDIT?("/api/admin/menu/"+encodeURIComponent(ME_EDIT)+"/edit"):"/api/admin/menu";
+    if(msg) msg.textContent=L("Saving…","Menyimpan…");
+    var r=await adminPost(url,body).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Saved","Tersimpan")); var f=meEl("meForm"); if(f) f.hidden=true; ME_EDIT=null; loadMenu(); }
+    else if(msg) msg.textContent=L("Failed: ","Gagal: ")+((r&&r.error)||"error");
+  }
+  window.meDelete=async function(id, name, force){
+    if(!force && !confirm(L("Delete recipe ","Hapus resep ")+'"'+(name||id)+'"?')) return;
+    var res=await adminPost("/api/admin/menu/"+encodeURIComponent(id)+"/delete", force?{force:true}:{}).then(function(x){return x.json().then(function(j){return {status:x.status,j:j};});}).catch(function(){return null;});
+    if(res&&res.j&&res.j.ok){ if(window.admToast)admToast(L("Deleted","Dihapus")); MN_SEL=null; var d=document.getElementById("mnDetail"); if(d) d.innerHTML='<div class="adm-note">'+L("Select a menu from the queue to review.","Pilih menu dari antrian untuk direview.")+'</div>'; loadMenu(); return; }
+    if(res&&res.status===409&&res.j&&res.j.links_count){
+      if(confirm(L("This recipe still has ","Resep ini masih punya ")+res.j.links_count+L(" delivery link(s). Delete them too?"," tautan pesan-antar. Hapus sekalian?"))) return window.meDelete(id, name, true);
+      return;
+    }
+    if(window.admToast)admToast(L("Delete failed","Gagal menghapus")+": "+((res&&res.j&&res.j.error)||"error"));
+  };
+  async function meUploadPhoto(file){
+    if(!file) return;
+    var msg=meEl("meMsg"); if(msg) msg.textContent=L("Uploading photo…","Mengunggah foto…");
+    var reader=new FileReader();
+    reader.onload=async function(){
+      var r=await adminPost("/api/admin/recipes/upload-photo",{ data_url:reader.result }).then(function(x){return x.json();}).catch(function(){return null;});
+      if(r&&r.ok&&r.url){ meSetPhoto(r.url); if(msg) msg.textContent=""; }
+      else if(msg) msg.textContent=L("Photo upload failed: ","Gagal unggah foto: ")+((r&&r.error)||"error");
+    };
+    reader.readAsDataURL(file);
+  }
+  function meBind(){
+    _meBound=true; meDietOptions();
+    var add=meEl("meAddBtn"); if(add) add.onclick=function(){ meOpenForm(null); };
+    var sv=meEl("meSave"); if(sv) sv.onclick=meSave;
+    var cn=meEl("meCancel"); if(cn) cn.onclick=function(){ var f=meEl("meForm"); if(f) f.hidden=true; ME_EDIT=null; };
+    var pb=meEl("mePhotoBtn"); if(pb) pb.onclick=function(){ var fi=meEl("mePhotoFile"); if(fi) fi.click(); };
+    var pf=meEl("mePhotoFile"); if(pf) pf.onchange=function(){ if(pf.files&&pf.files[0]) meUploadPhoto(pf.files[0]); pf.value=""; };
+    var pc=meEl("mePhotoClear"); if(pc) pc.onclick=function(){ meSetPhoto(null); };
   }
 
   // ---- CORPORATE (Modul 2) ----
