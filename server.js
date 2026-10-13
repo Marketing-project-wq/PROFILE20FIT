@@ -7379,13 +7379,12 @@ app.get("/api/admin/affiliate/settings", async (req, res) => {
   if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
   try {
     const { data: s, error: se } = await admin.from("affiliate_settings")
-      .select("commission_rate,min_withdrawal,pending_days,tax_rate_npwp,tax_rate_no_npwp,program_status,one_purchase_per_open,updated_at,updated_by")
+      .select("commission_rate,min_withdrawal,pending_days,tax_rate_npwp,tax_rate_no_npwp,program_status,one_purchase_per_open,monthly_potential,sales_targets,calculator_products,terms_version,terms_url,terms_summary,fraud_device_accounts,fraud_device_window_hours,fraud_spike_multiplier,fraud_refund_ratio,landing_content,updated_at,updated_by")
       .eq("id", 1).maybeSingle();
     if (se) throw se;
-    const FIN = ["commission_rate", "min_withdrawal", "pending_days", "tax_rate_npwp", "tax_rate_no_npwp", "program_status", "one_purchase_per_open"];
     const { data: audit } = await admin.from("affiliate_settings_audit")
       .select("changed_at,changed_by,field,old_value,new_value")
-      .in("field", FIN).order("changed_at", { ascending: false }).limit(12);
+      .order("changed_at", { ascending: false }).limit(20);
     return res.json({ ok: true, settings: s || null, audit: audit || [] });
   } catch (e) {
     console.error("admin/affiliate/settings:", (e && e.message) || e);
@@ -7533,6 +7532,44 @@ app.get("/api/admin/affiliate/affiliate/:id", async (req, res) => {
   } catch (e) {
     console.error("admin/affiliate/detail:", (e && e.message) || e);
     return res.status(500).json({ error: "Gagal memuat detail affiliate." });
+  }
+});
+// Katalog produk affiliate (viewer+) — READ-ONLY. Toggle aktif & upsert lewat RPC resmi
+// (affiliate_admin_set_product_active / _upsert_product). rate TIDAK bisa diubah via RPC.
+app.get("/api/admin/affiliate/products", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const { data, error } = await admin.from("affiliate_product")
+      .select("id,slug,name,unit,product_ref,is_active,rate,effective_from")
+      .order("unit", { ascending: true }).order("name", { ascending: true }).limit(2000);
+    if (error) throw error;
+    return res.json({ ok: true, products: data || [] });
+  } catch (e) {
+    console.error("admin/affiliate/products:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat produk affiliate." });
+  }
+});
+// Daftar flag fraud (viewer+) — READ-ONLY, lintas affiliate + kode. Review lewat RPC resmi
+// affiliate_admin_review_flag. ?status=open|cleared|confirmed opsional.
+app.get("/api/admin/affiliate/flags", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    let q = admin.from("affiliate_flag").select("id,affiliate_id,type,status,detail,created_at,reviewed_by,reviewed_at")
+      .order("created_at", { ascending: false }).limit(500);
+    const st = String(req.query.status || "").trim().toLowerCase();
+    if (["open", "cleared", "confirmed"].indexOf(st) >= 0) q = q.eq("status", st);
+    const { data: flags, error } = await q;
+    if (error) throw error;
+    const ids = Array.from(new Set((flags || []).map((f) => f.affiliate_id).filter(Boolean)));
+    const codeMap = {};
+    if (ids.length) { const { data: affs } = await admin.from("affiliate").select("id,code").in("id", ids).limit(100000); (affs || []).forEach((a) => { codeMap[a.id] = a.code; }); }
+    const rows = (flags || []).map((f) => ({ id: f.id, code: codeMap[f.affiliate_id] || "—", affiliate_id: f.affiliate_id, type: f.type, status: f.status, created_at: f.created_at, reviewed_by: f.reviewed_by, reviewed_at: f.reviewed_at }));
+    return res.json({ ok: true, flags: rows });
+  } catch (e) {
+    console.error("admin/affiliate/flags:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat flags." });
   }
 });
 // Metrics overview (viewer+). Semua agregasi dari Supabase (real, bukan dummy).

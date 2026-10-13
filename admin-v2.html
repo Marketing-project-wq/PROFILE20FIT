@@ -240,6 +240,8 @@
           <button data-tab="aff" data-tab-id="list" data-i18n="Affiliates">Affiliate</button>
           <button data-tab="aff" data-tab-id="comm" data-i18n="Commissions">Komisi</button>
           <button data-tab="aff" data-tab-id="claims" data-i18n="Claims">Klaim</button>
+          <button data-tab="aff" data-tab-id="products" data-i18n="Products">Produk</button>
+          <button data-tab="aff" data-tab-id="flags" data-i18n="Flags">Flags</button>
           <button data-tab="aff" data-tab-id="settings" data-i18n="Settings">Setelan</button>
         </div>
 
@@ -317,6 +319,54 @@
           <div class="adm-note" style="margin-top:8px" data-i18n="Actions (mark processing / paid / reject) run via the official affiliate RPC — atomic, audited, affiliate super-admin only.">Aksi (tandai diproses / dibayar / tolak) lewat RPC resmi affiliate — atomik, tercatat audit, hanya affiliate super-admin.</div>
         </div>
 
+        <!-- Produk katalog — toggle aktif & upsert lewat RPC resmi (growth/super). rate read-only. -->
+        <div data-tabpanel="aff" data-tab="products" hidden>
+          <div id="afProdBanner" class="adm-note" style="margin-bottom:10px">—</div>
+          <div class="adm-panel" id="afProdForm" hidden style="margin-bottom:12px">
+            <div class="adm-sec-title" id="afProdFormTitle" style="margin-top:0" data-i18n="New product">Produk baru</div>
+            <div class="afset-grid">
+              <label class="afset-f"><span>Slug</span><input class="adm-input" id="apSlug" placeholder="arena-dropin"></label>
+              <label class="afset-f"><span data-i18n="Name">Nama</span><input class="adm-input" id="apName"></label>
+              <label class="afset-f"><span>Unit</span><input class="adm-input" id="apUnit" placeholder="Arena / Gym / Coach …"></label>
+              <label class="afset-f"><span data-i18n="Product ref">Ref produk</span><input class="adm-input" id="apRef" placeholder="id/ref di sistem sumber"></label>
+              <label class="afset-f afset-check"><input type="checkbox" id="apActive" checked><span data-i18n="Active">Aktif</span></label>
+            </div>
+            <div class="adm-note" style="margin-top:8px" data-i18n="Rate is set at the DB/source level — not editable here.">Rate diatur di level DB/sumber — tak bisa diubah di sini.</div>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">
+              <button class="adm-btn adm-btn--primary" id="apSave" data-i18n="Save">Simpan</button>
+              <button class="adm-btn" id="apCancel" data-i18n="Cancel">Batal</button>
+              <span class="adm-note" id="apMsg"></span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin:0 0 10px;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary adm-btn--sm" id="afProdAdd" data-i18n="+ Add product">+ Tambah produk</button>
+            <span class="adm-note" data-i18n="Only active products earn commission; changes apply to future-paid orders.">Hanya produk aktif yang menghasilkan komisi; perubahan berlaku untuk order yang dibayar ke depan.</span>
+          </div>
+          <div class="adm-panel" style="padding:0;overflow-x:auto">
+            <table class="adm-table" id="afProdTable">
+              <thead><tr><th>Unit</th><th data-i18n="Name">Nama</th><th class="adm-mono">Slug</th><th class="adm-right" data-i18n="Rate">Rate</th><th data-i18n="Active">Aktif</th><th data-i18n="Action">Aksi</th></tr></thead>
+              <tbody id="afProdRows"><tr><td colspan="6"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Flags fraud lintas affiliate — review lewat RPC resmi (growth/super). -->
+        <div data-tabpanel="aff" data-tab="flags" hidden>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+            <button class="adm-chip afFlagF" data-s="open" aria-pressed="true" data-i18n="Open">Terbuka</button>
+            <button class="adm-chip afFlagF" data-s="confirmed" data-i18n="Confirmed">Dikonfirmasi</button>
+            <button class="adm-chip afFlagF" data-s="cleared" data-i18n="Cleared">Dibersihkan</button>
+            <button class="adm-chip afFlagF" data-s="all" data-i18n="All">Semua</button>
+          </div>
+          <div class="adm-panel" style="padding:0;overflow-x:auto">
+            <table class="adm-table" id="afFlagTable">
+              <thead><tr><th data-i18n="Code">Kode</th><th data-i18n="Type">Tipe</th><th data-i18n="Status">Status</th><th data-i18n="Created">Dibuat</th><th data-i18n="Action">Aksi</th></tr></thead>
+              <tbody id="afFlagRows"><tr><td colspan="5"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note" data-i18n="No flags." id="afFlagEmpty" hidden>Tidak ada flag.</div>
+        </div>
+
         <!-- Setelan program (finansial) — TULIS lewat RPC resmi affiliate_update_settings
              (atomic + audit + cek role affiliate-super). Baca via /api/admin/affiliate/settings. -->
         <div data-tabpanel="aff" data-tab="settings" hidden>
@@ -331,6 +381,21 @@
             <label class="afset-f"><span data-i18n="Income tax without NPWP (%)">PPh 21 tanpa NPWP (%)</span><input class="adm-input" id="afsTaxNo" type="number" step="0.01" min="0" inputmode="decimal"></label>
             <label class="afset-f afset-check"><input type="checkbox" id="afsOnePer"><span data-i18n="One link open = one transaction">Satu buka link = satu transaksi</span></label>
           </div>
+
+          <div class="adm-sec-title" id="afsGenTitle" style="margin:18px 0 8px" data-i18n="General settings (growth/super)">Setelan umum (growth/super)</div>
+          <div class="afset-grid">
+            <label class="afset-f"><span data-i18n="Monthly potential (Rp)">Potensi bulanan (Rp)</span><input class="adm-input" id="afsMonthly" type="number" step="1000" min="0" inputmode="numeric"></label>
+            <label class="afset-f"><span data-i18n="Terms version">Versi S&amp;K</span><input class="adm-input" id="afsTermsV" placeholder="mis. 3"></label>
+            <label class="afset-f"><span data-i18n="Terms URL (https)">URL S&amp;K (https)</span><input class="adm-input" id="afsTermsUrl" placeholder="https://…"></label>
+            <label class="afset-f"><span data-i18n="Fraud: sign-ups per device">Fraud: sign-up / device</span><input class="adm-input" id="afsFraudAcc" type="number" step="1" min="2" inputmode="numeric"></label>
+            <label class="afset-f"><span data-i18n="Fraud: within (hours)">Fraud: dalam (jam)</span><input class="adm-input" id="afsFraudWin" type="number" step="1" min="0" inputmode="numeric"></label>
+            <label class="afset-f"><span data-i18n="Fraud: spike vs avg (×)">Fraud: lonjakan vs rata² (×)</span><input class="adm-input" id="afsFraudSpike" type="number" step="0.1" min="1" inputmode="decimal"></label>
+            <label class="afset-f"><span data-i18n="Fraud: refund ratio (%)">Fraud: rasio refund (%)</span><input class="adm-input" id="afsFraudRefund" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          </div>
+          <label class="afset-f" style="margin-top:12px"><span data-i18n="Terms summary">Ringkasan S&amp;K</span><textarea class="adm-input" id="afsTermsSum" rows="2"></textarea></label>
+          <label class="afset-f" style="margin-top:12px"><span data-i18n="Sales targets (one per line: Category=N)">Target penjualan (satu per baris: Kategori=N)</span><textarea class="adm-input" id="afsTargets" rows="3" placeholder="Arena=100&#10;Gym=50"></textarea></label>
+          <label class="afset-f" style="margin-top:12px"><span data-i18n="Calculator products (one per line: Label | table | col=val)">Produk kalkulator (satu per baris: Label | tabel | kol=nilai)</span><textarea class="adm-input" id="afsCalcProducts" rows="3" placeholder="Arena drop-in | booking_products | slug=arena-dropin"></textarea></label>
+
           <div style="display:flex;align-items:center;gap:14px;margin-top:16px;flex-wrap:wrap">
             <button class="adm-btn adm-btn--primary" id="afsSave" data-i18n="Save settings">Simpan setelan</button>
             <span class="adm-note" id="afsMeta"></span>
@@ -3116,6 +3181,8 @@
     loadAffiliateList();
     loadAffiliateCommissions();
     loadAffiliateClaims();
+    loadAffiliateProducts();
+    loadAffiliateFlags();
   }
 
   // ---- AFFILIATE lists (READ-ONLY dari /api/admin/affiliate/{affiliates,commissions,claims}) ----
@@ -3279,6 +3346,9 @@
       hact+='<button class="adm-btn adm-btn--sm" onclick="afHoldAll(true)" data-i18n="Hold all">Tahan semua</button>';
       hact+='<button class="adm-btn adm-btn--sm" onclick="afHoldAll(false)" data-i18n="Release all">Lepas semua</button>';
     }
+    if(afCanFinance()){
+      hact+='<button class="adm-btn adm-btn--sm" onclick="afAddAdjustment()" data-i18n="Adjustment">Penyesuaian</button>';
+    }
     if(!hact) hact='<span class="adm-note" style="margin:0">'+L("View only for your role.","Hanya lihat untuk peranmu.")+'</span>';
     var card=function(v,l){ return '<div class="adm-cell"><div class="adm-metric">'+v+'</div><div class="adm-label" style="margin-top:6px">'+l+'</div></div>'; };
     var statHtml='<div class="adm-grid adm-grid--4" style="margin:12px 0">'+
@@ -3340,11 +3410,16 @@
   var AFSET=null, AFROLE=null;
   function afsPctToFrac(p){ return Math.round(Number(p)*100)/10000; } // 2,5% -> 0.025 (match affiliate percentField)
   function afsFracToPct(v){ return Math.round(Number(v)*10000)/100; } // 0.025 -> 2,5
+  // Serialisasi jsonb setelan — SHAPE sama persis dgn affiliate admin (lib/admin-settings-view.js):
+  // sales_targets=[{category,target}], calculator_products=[{label,table,match:{col:val}}].
+  function afTargetsToText(list){ return (Array.isArray(list)?list:[]).map(function(t){ return (t&&t.category!=null?t.category:"")+" = "+(t&&t.target!=null?t.target:""); }).join("\n"); }
+  function afParseTargets(text){ var out=[]; String(text||"").split("\n").map(function(l){return l.trim();}).filter(Boolean).forEach(function(line,i){ var m=line.match(/^(.+?)\s*=\s*(\d+)$/); if(!m) throw new Error(L("Sales target line ","Target penjualan baris ")+(i+1)+': "Kategori = angka".'); out.push({category:m[1].trim(),target:Number(m[2])}); }); return out; }
+  function afProductsToText(list){ return (Array.isArray(list)?list:[]).map(function(p){ var match=Object.keys((p&&p.match)||{}).map(function(k){return k+"="+p.match[k];}).join(", "); return [p&&p.label,p&&p.table,match].filter(Boolean).join(" | "); }).join("\n"); }
+  function afParseProducts(text){ var tables={booking_products:1,gym_day_pass_config:1,gym_membership_plans:1,clinic_services:1}; var out=[]; String(text||"").split("\n").map(function(l){return l.trim();}).filter(Boolean).forEach(function(line,i){ var parts=line.split("|").map(function(s){return s.trim();}); var label=parts[0],table=parts[1],matchText=parts[2]||""; if(!label||!tables[table]) throw new Error(L("Calculator product line ","Produk kalkulator baris ")+(i+1)+': "Label | tabel | kolom=nilai".'); var match={}; matchText.split(",").map(function(s){return s.trim();}).filter(Boolean).forEach(function(pair){ var m=pair.match(/^([a-z_][a-z0-9_]*)\s*=\s*(.+)$/); if(!m) throw new Error(L("Calculator product line ","Produk kalkulator baris ")+(i+1)+': kolom=nilai.'); match[m[1]]=/^\d+$/.test(m[2])?Number(m[2]):m[2]; }); out.push({label:label,table:table,match:match}); }); return out; }
   async function loadAffiliateSettings(){
     var panel=document.getElementById("afSetPanel"); if(!panel) return;
     var banner=document.getElementById("afSetBanner");
-    AFROLE=null;
-    try{ if(window.Auth&&Auth.ready) await Auth.ready; if(window.Auth&&Auth.supabase){ var rr=await Auth.supabase.rpc("affiliate_admin_role"); if(!rr.error) AFROLE=rr.data||null; } }catch(e){}
+    await afEnsureRole();
     try{
       var j=await adminFetch("/api/admin/affiliate/settings").then(function(r){return r.json();});
       if(!j||!j.ok||!j.settings){ if(banner){ banner.textContent=L("Failed to load settings.","Gagal memuat setelan."); } return; }
@@ -3357,6 +3432,16 @@
       V("afsTaxNo").value=afsFracToPct(AFSET.tax_rate_no_npwp);
       V("afsStatus").value=AFSET.program_status||"active";
       V("afsOnePer").checked=!!AFSET.one_purchase_per_open;
+      V("afsMonthly").value=(AFSET.monthly_potential!=null?Math.round(Number(AFSET.monthly_potential)):"");
+      V("afsTermsV").value=AFSET.terms_version||"";
+      V("afsTermsUrl").value=AFSET.terms_url||"";
+      V("afsTermsSum").value=AFSET.terms_summary||"";
+      V("afsFraudAcc").value=(AFSET.fraud_device_accounts!=null?AFSET.fraud_device_accounts:"");
+      V("afsFraudWin").value=(AFSET.fraud_device_window_hours!=null?AFSET.fraud_device_window_hours:"");
+      V("afsFraudSpike").value=(AFSET.fraud_spike_multiplier!=null?AFSET.fraud_spike_multiplier:"");
+      V("afsFraudRefund").value=(AFSET.fraud_refund_ratio!=null?afsFracToPct(AFSET.fraud_refund_ratio):"");
+      V("afsTargets").value=afTargetsToText(AFSET.sales_targets);
+      V("afsCalcProducts").value=afProductsToText(AFSET.calculator_products);
       var meta=V("afsMeta"); if(meta) meta.textContent=L("Last changed","Terakhir diubah")+": "+(AFSET.updated_at?new Date(AFSET.updated_at).toLocaleString():"—")+(AFSET.updated_by?(" · "+AFSET.updated_by):"");
       var au=V("afsAudit");
       if(au) au.innerHTML=(j.audit&&j.audit.length)?j.audit.map(function(a){
@@ -3364,13 +3449,16 @@
         var nv=(a.new_value==null)?"—":(typeof a.new_value==="object"?JSON.stringify(a.new_value):String(a.new_value));
         return '<div class="afrow"><span>'+esc(a.field)+'</span><span style="color:var(--ink-3)">'+esc(ov)+' → '+esc(nv)+'</span><span class="amt" style="font-weight:600;color:var(--ink-3)">'+(a.changed_at?new Date(a.changed_at).toLocaleDateString():"")+'</span></div>';
       }).join(""):'<div class="adm-note">'+L("No changes recorded yet.","Belum ada perubahan tercatat.")+'</div>';
-      var can=(AFROLE==="super");
-      var save=V("afsSave"); if(save){ save.disabled=!can; save.setAttribute("aria-disabled", can?"false":"true"); save.onclick=saveAffiliateSettings; }
+      // Gating: finansial = super; umum = growth/super.
+      var canFin=(AFROLE==="super"), canGen=(AFROLE==="super"||AFROLE==="growth");
+      ["afsRate","afsMin","afsPending","afsStatus","afsTaxN","afsTaxNo","afsOnePer"].forEach(function(id){ var e=V(id); if(e) e.disabled=!canFin; });
+      ["afsMonthly","afsTermsV","afsTermsUrl","afsTermsSum","afsFraudAcc","afsFraudWin","afsFraudSpike","afsFraudRefund","afsTargets","afsCalcProducts"].forEach(function(id){ var e=V(id); if(e) e.disabled=!canGen; });
+      var save=V("afsSave"); if(save){ save.disabled=!(canFin||canGen); save.onclick=saveAffiliateSettings; }
       if(banner){
-        banner.textContent = can
-          ? L("You can edit financial settings (affiliate super-admin).","Kamu bisa mengubah setelan finansial (affiliate super-admin).")
-          : L("View only — saving financial settings needs an affiliate super-admin account.","Hanya lihat — menyimpan setelan finansial butuh akun affiliate super-admin.");
-        banner.style.color = can ? "var(--ink-3)" : "var(--accent-ink)";
+        banner.textContent = canFin? L("You can edit financial + general settings (super).","Kamu bisa ubah setelan finansial + umum (super).")
+          : (canGen? L("You can edit general settings (growth). Financial = super only.","Kamu bisa ubah setelan umum (growth). Finansial = super saja.")
+          : L("View only — editing needs an affiliate growth/super account.","Hanya lihat — mengubah butuh akun affiliate growth/super."));
+        banner.style.color = (canFin||canGen) ? "var(--ink-3)" : "var(--accent-ink)";
       }
     }catch(e){ if(banner){ banner.textContent=L("Failed to load settings.","Gagal memuat setelan."); } }
   }
@@ -3378,27 +3466,107 @@
     if(!AFSET) return;
     if(!(window.Auth&&Auth.supabase)){ if(window.admToast)admToast(L("Log in with your account to save.","Login dengan akunmu untuk menyimpan.")); return; }
     var V=function(id){ return document.getElementById(id); };
-    var patch={};
-    var rate=afsPctToFrac(V("afsRate").value); if(rate!==Number(AFSET.commission_rate)) patch.commission_rate=rate;
-    var mn=Math.round(Number(String(V("afsMin").value).replace(/[.\s]/g,""))||0); if(mn!==Number(AFSET.min_withdrawal)) patch.min_withdrawal=mn;
-    var pd=Math.round(Number(V("afsPending").value)||0); if(pd!==Number(AFSET.pending_days)) patch.pending_days=pd;
-    var tn=afsPctToFrac(V("afsTaxN").value); if(tn!==Number(AFSET.tax_rate_npwp)) patch.tax_rate_npwp=tn;
-    var tno=afsPctToFrac(V("afsTaxNo").value); if(tno!==Number(AFSET.tax_rate_no_npwp)) patch.tax_rate_no_npwp=tno;
-    var st=V("afsStatus").value; if(st!==AFSET.program_status) patch.program_status=st;
-    var op=!!V("afsOnePer").checked; if(op!==!!AFSET.one_purchase_per_open) patch.one_purchase_per_open=op;
-    if(!Object.keys(patch).length){ if(window.admToast)admToast(L("No changes.","Tidak ada perubahan.")); return; }
-    if(patch.commission_rate!=null && !(patch.commission_rate>0)){ if(window.admToast)admToast(L("Commission rate must be greater than 0%.","Rate komisi harus lebih dari 0%.")); return; }
+    var canFin=(AFROLE==="super"), canGen=(AFROLE==="super"||AFROLE==="growth");
+    var patch={}; var toast=function(m){ if(window.admToast)admToast(m); };
+    try{
+      if(canFin){
+        var rate=afsPctToFrac(V("afsRate").value); if(rate!==Number(AFSET.commission_rate)) patch.commission_rate=rate;
+        var mn=Math.round(Number(String(V("afsMin").value).replace(/[.\s]/g,""))||0); if(mn!==Number(AFSET.min_withdrawal)) patch.min_withdrawal=mn;
+        var pd=Math.round(Number(V("afsPending").value)||0); if(pd!==Number(AFSET.pending_days)) patch.pending_days=pd;
+        var tn=afsPctToFrac(V("afsTaxN").value); if(tn!==Number(AFSET.tax_rate_npwp)) patch.tax_rate_npwp=tn;
+        var tno=afsPctToFrac(V("afsTaxNo").value); if(tno!==Number(AFSET.tax_rate_no_npwp)) patch.tax_rate_no_npwp=tno;
+        var stv=V("afsStatus").value; if(stv!==AFSET.program_status) patch.program_status=stv;
+        var op=!!V("afsOnePer").checked; if(op!==!!AFSET.one_purchase_per_open) patch.one_purchase_per_open=op;
+        if(patch.commission_rate!=null && !(patch.commission_rate>0)){ toast(L("Commission rate must be greater than 0%.","Rate komisi harus lebih dari 0%.")); return; }
+      }
+      if(canGen){
+        if(V("afsMonthly").value!==""){ var mo=Math.round(Number(String(V("afsMonthly").value).replace(/[.\s]/g,""))||0); if(mo!==Number(AFSET.monthly_potential)) patch.monthly_potential=mo; }
+        var tv=String(V("afsTermsV").value).trim(); if(tv!==String(AFSET.terms_version||"")){ if(!tv){ toast(L("Terms version is required.","Versi S&K wajib.")); return; } patch.terms_version=tv; }
+        var tu=String(V("afsTermsUrl").value).trim(); if(tu!==String(AFSET.terms_url||"")){ if(tu && !/^https:\/\/\S+$/.test(tu)){ toast(L("Terms URL must be https://","URL S&K harus https://")); return; } patch.terms_url=tu||null; }
+        var tsum=String(V("afsTermsSum").value).trim(); if(tsum!==String(AFSET.terms_summary||"")) patch.terms_summary=tsum||null;
+        if(V("afsFraudAcc").value!==""){ var fa=Math.round(Number(V("afsFraudAcc").value)||0); if(fa!==Number(AFSET.fraud_device_accounts)){ if(fa<2){ toast(L("Sign-ups per device must be ≥ 2.","Sign-up per device minimal 2.")); return; } patch.fraud_device_accounts=fa; } }
+        if(V("afsFraudWin").value!==""){ var fw=Math.round(Number(V("afsFraudWin").value)||0); if(fw!==Number(AFSET.fraud_device_window_hours)) patch.fraud_device_window_hours=fw; }
+        if(V("afsFraudSpike").value!==""){ var fsp=Number(V("afsFraudSpike").value); if(fsp!==Number(AFSET.fraud_spike_multiplier)){ if(!(fsp>1)){ toast(L("Spike multiplier must be > 1.","Lonjakan harus > 1.")); return; } patch.fraud_spike_multiplier=fsp; } }
+        if(V("afsFraudRefund").value!==""){ var fr=afsPctToFrac(V("afsFraudRefund").value); if(fr!==Number(AFSET.fraud_refund_ratio)) patch.fraud_refund_ratio=fr; }
+        var tgt=afParseTargets(V("afsTargets").value); if(afTargetsToText(tgt)!==afTargetsToText(AFSET.sales_targets)) patch.sales_targets=tgt;
+        var prod=afParseProducts(V("afsCalcProducts").value); if(afProductsToText(prod)!==afProductsToText(AFSET.calculator_products)) patch.calculator_products=prod;
+      }
+    }catch(perr){ toast((perr&&perr.message)||String(perr)); return; }
+    if(!Object.keys(patch).length){ toast(L("No changes.","Tidak ada perubahan.")); return; }
     var save=V("afsSave"); if(save)save.disabled=true;
     try{
       var res=await Auth.supabase.rpc("affiliate_update_settings", { patch: patch });
       if(res.error) throw res.error;
-      if(window.admToast)admToast(L("Settings saved.","Setelan tersimpan."));
+      toast(L("Settings saved.","Setelan tersimpan."));
       await loadAffiliateSettings();
     }catch(e){
-      if(window.admToast)admToast(L("Save failed","Gagal menyimpan")+": "+((e&&e.message)||e));
+      toast(L("Save failed","Gagal menyimpan")+": "+((e&&e.message)||e));
       if(save)save.disabled=false;
     }
   }
+  // ---- AFFILIATE: produk katalog + flags global + adjustment (Fase B) ----
+  var AFPROD=[], AFPROD_EDIT=null;
+  async function loadAffiliateProducts(){
+    var tb=document.getElementById("afProdRows"); if(!tb) return;
+    await afEnsureRole();
+    if(!window._afProdBound){ window._afProdBound=true;
+      var add=document.getElementById("afProdAdd"); if(add) add.onclick=function(){ afProdForm(null); };
+      var sv=document.getElementById("apSave"); if(sv) sv.onclick=afProdSave;
+      var cn=document.getElementById("apCancel"); if(cn) cn.onclick=function(){ var f=document.getElementById("afProdForm"); if(f) f.hidden=true; AFPROD_EDIT=null; };
+    }
+    var can=afCanGrowth();
+    var bn=document.getElementById("afProdBanner"); if(bn){ bn.textContent=can?L("You can manage products (growth/super).","Kamu bisa kelola produk (growth/super)."):L("View only — managing products needs growth/super.","Hanya lihat — kelola produk butuh growth/super."); bn.style.color=can?"var(--ink-3)":"var(--accent-ink)"; }
+    var addBtn=document.getElementById("afProdAdd"); if(addBtn) addBtn.style.display=can?"":"none";
+    try{
+      var res=await adminFetch("/api/admin/affiliate/products");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      AFPROD=j.products||[];
+      tb.innerHTML = AFPROD.length? AFPROD.map(function(p){
+        var pct=(p.rate==null)?"—":(Math.round(Number(p.rate)*10000)/100)+"%";
+        var act=can?('<button class="adm-btn adm-btn--sm" onclick="afProdEdit(\''+esc(p.id)+'\')" data-i18n="Edit">Edit</button> <button class="adm-btn adm-btn--sm" onclick="afProdToggle(\''+esc(p.id)+'\','+(p.is_active?"false":"true")+')">'+(p.is_active?L("Deactivate","Nonaktif"):L("Activate","Aktifkan"))+'</button>'):'—';
+        return '<tr><td>'+esc(p.unit||"—")+'</td><td>'+esc(p.name||"—")+'</td><td class="adm-mono" style="font-size:11px">'+esc(p.slug||"")+'</td><td class="adm-right adm-mono">'+pct+'</td><td>'+(p.is_active?'<span class="adm-tag adm-tag--paid">'+L("Active","Aktif")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("Off","Nonaktif")+'</span>')+'</td><td><div class="afcl-act">'+act+'</div></td></tr>';
+      }).join("") : '<tr><td colspan="6"><div class="adm-note">'+L("No products yet.","Belum ada produk.")+'</div></td></tr>';
+    }catch(e){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+  }
+  function afProdForm(p){
+    AFPROD_EDIT=p?p.id:null;
+    var V=function(id){return document.getElementById(id);};
+    var t=V("afProdFormTitle"); if(t) t.textContent=p?L("Edit product","Edit produk"):L("New product","Produk baru");
+    V("apSlug").value=(p&&p.slug)||""; V("apSlug").readOnly=!!p; V("apSlug").style.opacity=p?"0.6":"1";
+    V("apName").value=(p&&p.name)||""; V("apUnit").value=(p&&p.unit)||""; V("apRef").value=(p&&p.product_ref)||"";
+    V("apActive").checked=p?!!p.is_active:true;
+    var msg=V("apMsg"); if(msg) msg.textContent="";
+    var f=V("afProdForm"); if(f){ f.hidden=false; f.scrollIntoView({behavior:"smooth",block:"nearest"}); }
+  }
+  window.afProdEdit=function(id){ var p=AFPROD.find(function(x){return String(x.id)===String(id);}); if(p) afProdForm(p); };
+  async function afProdSave(){
+    var V=function(id){return document.getElementById(id);}; var msg=V("apMsg");
+    var slug=String(V("apSlug").value).trim(), name=String(V("apName").value).trim(), unit=String(V("apUnit").value).trim(), ref=String(V("apRef").value).trim();
+    if(!slug||!name||!unit){ if(msg) msg.textContent=L("Slug, name and unit are required.","Slug, nama, unit wajib."); return; }
+    if(await afRpc("affiliate_admin_upsert_product",{p_slug:slug,p_name:name,p_unit:unit,p_product_ref:ref||null,p_is_active:!!V("apActive").checked},L("Product saved.","Produk tersimpan."))){ var f=V("afProdForm"); if(f) f.hidden=true; AFPROD_EDIT=null; loadAffiliateProducts(); }
+    else if(msg) msg.textContent=L("Save failed.","Gagal menyimpan.");
+  }
+  window.afProdToggle=async function(id, active){ if(await afRpc("affiliate_admin_set_product_active",{p_product_id:id,p_is_active:(active===true||active==="true")},L("Updated.","Diperbarui."))) loadAffiliateProducts(); };
+  var AFFLAG_F="open";
+  async function loadAffiliateFlags(){
+    var tb=document.getElementById("afFlagRows"); if(!tb) return;
+    await afEnsureRole();
+    if(!window._afFlagBound){ window._afFlagBound=true; document.querySelectorAll(".afFlagF").forEach(function(c){ c.addEventListener("click",function(){ AFFLAG_F=c.dataset.s; document.querySelectorAll(".afFlagF").forEach(function(x){x.setAttribute("aria-pressed",String(x===c));}); loadAffiliateFlags(); }); }); }
+    var can=afCanGrowth();
+    try{
+      var res=await adminFetch("/api/admin/affiliate/flags"+(AFFLAG_F!=="all"?("?status="+AFFLAG_F):""));
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="5"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      var rows=j.flags||[];
+      var empty=document.getElementById("afFlagEmpty"); if(empty) empty.hidden=rows.length>0;
+      tb.innerHTML=rows.map(function(f){ var open=String(f.status||"").toLowerCase()==="open"; var act=(can&&open)?('<button class="adm-btn adm-btn--sm" onclick="afReviewFlagList(\''+esc(f.id)+'\',\'cleared\')" data-i18n="Clear">Bersihkan</button> <button class="adm-btn adm-btn--sm" onclick="afReviewFlagList(\''+esc(f.id)+'\',\'confirmed\')" data-i18n="Confirm fraud">Konfirmasi fraud</button>'):'—';
+        return '<tr><td><span class="adm-mono">'+esc(f.code)+'</span></td><td>'+esc(f.type||"—")+'</td><td>'+afTag(f.status)+'</td><td>'+afDate(f.created_at)+'</td><td><div class="afcl-act">'+act+'</div></td></tr>'; }).join("");
+    }catch(e){ tb.innerHTML='<tr><td colspan="5"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+  }
+  window.afReviewFlagList=async function(id,status){ if(status==="confirmed" && !confirm(L("Confirm fraud? This cancels open commissions.","Konfirmasi fraud? Ini membatalkan komisi yang masih terbuka.")))return; if(await afRpc("affiliate_admin_review_flag",{p_flag_id:id,p_status:status},L("Flag updated.","Flag diperbarui."))) loadAffiliateFlags(); };
+  // Adjustment negatif (finance/super) — dari detail affiliate.
+  window.afAddAdjustment=async function(){ if(!AFDET)return; var amt=prompt(L("Adjustment amount (Rp, will be stored negative):","Nominal penyesuaian (Rp, disimpan negatif):"),""); if(amt===null)return; var n=Math.round(Number(String(amt).replace(/[.\s]/g,""))||0); if(!(n>0)){ if(window.admToast)admToast(L("Amount must be greater than 0.","Nominal harus lebih dari 0.")); return; } var reason=prompt(L("Reason:","Alasan:"),""); if(reason===null)return; if(!String(reason).trim()){ if(window.admToast)admToast(L("Reason required.","Alasan wajib.")); return; } if(await afRpc("affiliate_admin_add_adjustment",{p_affiliate_id:AFDET.id,p_amount:n,p_reason:String(reason).trim(),p_related_commission_id:null},L("Adjustment added.","Penyesuaian ditambahkan."))) afOpenDetail(AFDET.id); };
 
   function loadSection(id){
     if(id==="overview") return loadOverview();
