@@ -4154,9 +4154,9 @@ app.get("/api/team", async (req, res) => {
     const { data, error } = await admin.from("my20fit_team_public")
       .select(cols)
       .eq("is_active", true)
-      // Kelompok per-peran (coach -> doctor -> physiotherapist, urut alfabet role), lalu sort_order.
-      // Homepage TIDAK mencampur peran: semua coach dulu, baru dokter, baru fisioterapis.
-      .order("role", { ascending: true }).order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+      // Urutan GLOBAL tercampur (coach/dokter/fisio) — satu sumber: sort_order yang diatur
+      // admin via mockup roster (admin-v2). Tak lagi dikelompokkan per-peran.
+      .order("sort_order", { ascending: true }).order("display_name", { ascending: true });
     if (error) throw error;
     const AI = aiPersonaCoachNames();   // persona AI chat-only tak muncul di roster Team/home
     const team = (data || []).filter(p => !(p.role === "coach" && AI.has(p.display_name))).map(p => {
@@ -4457,6 +4457,101 @@ app.delete("/api/admin/doctors/:id", async (req, res) => {
     return res.json({ ok: true });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
+// Roster FISIOTERAPIS (my20fit_physiotherapists) — CRUD admin, pola sama dgn dokter.
+// Sebelumnya hanya bisa via SQL; kini bisa di admin-v2 (roster gabungan).
+app.get("/api/admin/physiotherapists", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data, error } = await admin.from("my20fit_physiotherapists")
+      .select("id,display_name,speciality,bio,photo_url,is_active,sort_order")
+      .order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+    if (error) throw error;
+    return res.json({ ok: true, physiotherapists: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/physiotherapists", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const name = String(b.display_name || "").trim();
+  if (!name) return res.status(400).json({ error: "Nama fisioterapis wajib." });
+  const row = {
+    display_name: name.slice(0, 160),
+    speciality: b.speciality ? String(b.speciality).slice(0, 200) : null,
+    bio: b.bio ? String(b.bio).slice(0, 2000) : null,
+    photo_url: b.photo_url ? String(b.photo_url).slice(0, 500) : null,
+    is_active: b.is_active === false ? false : true,
+    sort_order: Number.isFinite(+b.sort_order) ? (+b.sort_order | 0) : 0,
+    updated_at: new Date().toISOString(),
+  };
+  try {
+    let data, error;
+    if (b.id) ({ data, error } = await admin.from("my20fit_physiotherapists").update(row).eq("id", String(b.id)).select("id").limit(1));
+    else ({ data, error } = await admin.from("my20fit_physiotherapists").insert(row).select("id").limit(1));
+    if (error) throw error;
+    await adminAudit(ctx, b.id ? "physio.update" : "physio.create", (data && data[0] && data[0].id) || String(b.id || ""), { name });
+    return res.json({ ok: true, id: (data && data[0] && data[0].id) || b.id || null });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.delete("/api/admin/physiotherapists/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const id = String(req.params.id || "");
+  try {
+    const { error } = await admin.from("my20fit_physiotherapists").delete().eq("id", id);
+    if (error) throw error;
+    await adminAudit(ctx, "physio.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Roster GABUNGAN (coach + dokter + fisio) utk UI roster terpadu + mockup urutan.
+// READ-ONLY; tiap peran tetap di tabel masing-masing. Semua baris (termasuk nonaktif).
+var ROSTER_SRC = { coach: { t: "my20fit_coaches", venue: true }, doctor: { t: "my20fit_doctors", venue: false }, physiotherapist: { t: "my20fit_physiotherapists", venue: false } };
+app.get("/api/admin/roster", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const out = [];
+    for (const role of Object.keys(ROSTER_SRC)) {
+      const cfg = ROSTER_SRC[role];
+      const cols = "id,display_name,speciality,photo_url,bio,is_active,sort_order" + (cfg.venue ? ",venue" : "");
+      const { data, error } = await admin.from(cfg.t).select(cols).limit(2000);
+      if (error) throw error;
+      (data || []).forEach((r) => out.push({
+        id: r.id, role: role, display_name: r.display_name, speciality: r.speciality || null,
+        photo_url: r.photo_url || null, bio: r.bio || null, is_active: r.is_active !== false,
+        sort_order: (r.sort_order != null ? r.sort_order : 0), venue: cfg.venue ? (r.venue || "both") : null,
+      }));
+    }
+    out.sort((a, b) => (a.sort_order - b.sort_order) || String(a.display_name || "").localeCompare(String(b.display_name || "")));
+    return res.json({ ok: true, roster: out });
+  } catch (e) {
+    console.error("admin/roster:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat roster." });
+  }
+});
+// Simpan urutan GLOBAL (mixed coach+dokter+fisio) dari mockup drag. Body: {items:[{role,id,sort_order}]}.
+// Satu sumber kebenaran urutan -> ditulis ke sort_order tiap baris di tabel asalnya.
+app.post("/api/admin/roster/reorder", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
+    if (!items.length) return res.status(400).json({ error: "items kosong." });
+    let n = 0;
+    for (const it of items) {
+      const cfg = ROSTER_SRC[String(it && it.role)];
+      if (!cfg || !it.id) continue;
+      const so = Number.isFinite(+it.sort_order) ? (+it.sort_order | 0) : 0;
+      const { error } = await admin.from(cfg.t).update({ sort_order: so, updated_at: new Date().toISOString() }).eq("id", String(it.id));
+      if (error) throw error;
+      n++;
+    }
+    await adminAudit(ctx, "roster.reorder", null, { count: n });
+    return res.json({ ok: true, updated: n });
+  } catch (e) {
+    console.error("admin/roster/reorder:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal menyimpan urutan." });
+  }
+});
 // Unggah foto coach/dokter -> Supabase Storage bucket 'coach-photos' (public), balik URL publik.
 // Simpan di Storage (bukan tempel URL eksternal). Terima data URL base64 (limit body 8mb).
 app.post("/api/admin/upload-photo", async (req, res) => {
@@ -4470,7 +4565,8 @@ app.post("/api/admin/upload-photo", async (req, res) => {
     const ext = (m[2] === "jpeg") ? "jpg" : m[2];
     const buf = Buffer.from(m[3], "base64");
     if (buf.length > 5 * 1024 * 1024) return res.status(413).json({ error: "Ukuran gambar maksimal 5MB." });
-    const folder = (String(b.kind || "coach") === "doctor") ? "doctors" : "coaches";
+    const kind = String(b.kind || "coach");
+    const folder = kind === "doctor" ? "doctors" : (kind === "physiotherapist" || kind === "physio") ? "physio" : "coaches";
     const name = folder + "/" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6).toString(36) + "." + ext;
     const { error } = await admin.storage.from("coach-photos").upload(name, buf, { contentType, upsert: false });
     if (error) throw error;
