@@ -119,13 +119,20 @@
   }
 
   function showTab(group, id) {
-    document.querySelectorAll('[data-tabpanel="' + group + '"]').forEach(function (p) {
-      p.hidden = p.dataset.tab !== id;
-    });
+    // Param ?tab dibagi lintas tabgroup. Kalau id tak cocok panel mana pun di grup ini
+    // (mis. ?tab milik grup lain), jatuh ke default grup supaya tak ada grup yang kosong.
+    var panels = document.querySelectorAll('[data-tabpanel="' + group + '"]');
+    var matched = Array.prototype.some.call(panels, function (p) { return p.dataset.tab === id; });
+    if (!matched) {
+      var g = document.querySelector('[data-tabgroup="' + group + '"]');
+      id = (g && g.dataset.default) || (panels[0] && panels[0].dataset.tab) || id;
+    }
+    panels.forEach(function (p) { p.hidden = p.dataset.tab !== id; });
     document.querySelectorAll('[data-tab="' + group + '"]').forEach(function (b) {
       b.setAttribute('aria-selected', String(b.dataset.tabId === id));
     });
-    setParam('tab', id);
+    // Jangan timpa ?tab saat fallback (biar grup yang benar-benar cocok tetap pegang param).
+    if (matched) setParam('tab', id);
   }
 
   /* ---------------- tables: search, sort, paginate ----------------

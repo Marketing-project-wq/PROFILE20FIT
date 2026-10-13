@@ -545,7 +545,91 @@
           </div>
         </div>
       </section>
-      <section data-section="menu" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Menu diet" data-title-en="Diet menu" data-question="Menu kontribusi mana yang menunggu review sebelum tayang untuk publik?" data-question-en="Which contributed menus await review before going public?">
+      <section data-section="menu" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Menu diet" data-title-en="Diet menu" data-question="Kelola katalog resep official dan moderasi kontribusi member." data-question-en="Manage the official recipe catalog and moderate member contributions.">
+        <style>
+          .ro-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 14px}
+          .ro-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+          @media(max-width:900px){ .ro-grid{grid-template-columns:1fr 1fr} .ro-grid2{grid-template-columns:1fr} }
+          .ro-f{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--ink-2)}
+          .ro-f textarea{resize:vertical;font-family:inherit}
+          .ro-diet{display:flex;flex-wrap:wrap;gap:6px 14px}
+          .ro-diet label{display:flex;align-items:center;gap:6px;font-weight:500;color:var(--ink);font-size:13px}
+          .ro-photo{display:flex;align-items:center;gap:12px}
+          .ro-photo-prev{width:64px;height:64px;border-radius:var(--radius-sm);background:var(--surface) center/cover no-repeat;border:1px solid var(--line);flex:0 0 auto;display:grid;place-items:center;color:var(--ink-4);font-size:22px}
+          .ro-thumb{width:40px;height:40px;border-radius:8px;background:var(--surface) center/cover no-repeat;display:inline-grid;place-items:center;color:var(--ink-4);font-size:18px}
+        </style>
+        <div class="adm-tabs" data-tabgroup="menu" data-default="official">
+          <button data-tab="menu" data-tab-id="official" data-i18n="Official recipes">Resep official</button>
+          <button data-tab="menu" data-tab-id="member" data-i18n="Member contributions">Kontribusi member</button>
+        </div>
+
+        <!-- ===== Tab: Resep OFFICIAL (CMS my20fit_recipe_official) ===== -->
+        <div data-tabpanel="menu" data-tab="official">
+          <div class="adm-note" id="roSeedWarn" hidden style="margin:12px 0;color:var(--accent-ink)"></div>
+          <div style="display:flex;gap:8px;align-items:center;margin:14px 0 10px;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary adm-btn--sm" id="roAddBtn" data-i18n="+ Add recipe">+ Tambah resep</button>
+            <input class="adm-input" id="roSearch" style="max-width:240px" placeholder="Cari resep…" data-i18n-ph="Search recipe…">
+            <span class="adm-note" id="roCount" style="margin-left:auto"></span>
+          </div>
+
+          <div class="adm-panel" id="roForm" hidden style="margin-bottom:14px">
+            <div class="adm-sec-title" id="roFormTitle" style="margin-top:0" data-i18n="New recipe">Resep baru</div>
+            <div class="ro-grid">
+              <label class="ro-f"><span data-i18n="Name (EN)">Nama (EN)</span><input class="adm-input" id="roNameEn"></label>
+              <label class="ro-f"><span data-i18n="Name (ID)">Nama (ID)</span><input class="adm-input" id="roNameId"></label>
+              <label class="ro-f"><span data-i18n="ID / slug">ID / slug</span><input class="adm-input" id="roId" placeholder="mis. rice-chicken"></label>
+              <label class="ro-f"><span data-i18n="Category">Kategori</span><input class="adm-input" id="roCat"></label>
+              <label class="ro-f"><span>kkal</span><input class="adm-input" id="roKcal" type="number" inputmode="numeric"></label>
+              <label class="ro-f"><span data-i18n="Protein (g)">Protein (g)</span><input class="adm-input" id="roP" type="number"></label>
+              <label class="ro-f"><span data-i18n="Carbs (g)">Karbo (g)</span><input class="adm-input" id="roC" type="number"></label>
+              <label class="ro-f"><span data-i18n="Fat (g)">Lemak (g)</span><input class="adm-input" id="roF" type="number"></label>
+              <label class="ro-f"><span data-i18n="Servings">Porsi</span><input class="adm-input" id="roServings" type="number"></label>
+              <label class="ro-f"><span data-i18n="Cook (min)">Masak (menit)</span><input class="adm-input" id="roCook" type="number"></label>
+              <label class="ro-f"><span data-i18n="Prep (min)">Prep (menit)</span><input class="adm-input" id="roPrep" type="number"></label>
+              <label class="ro-f"><span data-i18n="Emoji / placeholder">Emoji</span><input class="adm-input" id="roEmoji" placeholder="protein"></label>
+            </div>
+            <div class="ro-f" style="margin-top:12px"><span data-i18n="Diet types">Tipe diet</span><div id="roDiet" class="ro-diet"></div></div>
+            <div class="ro-grid2" style="margin-top:12px">
+              <label class="ro-f"><span data-i18n="Ingredients (EN)">Bahan (EN)</span><textarea class="adm-input" id="roIngEn" rows="5"></textarea></label>
+              <label class="ro-f"><span data-i18n="Ingredients (ID)">Bahan (ID)</span><textarea class="adm-input" id="roIngId" rows="5"></textarea></label>
+              <label class="ro-f"><span data-i18n="Steps (EN)">Langkah (EN)</span><textarea class="adm-input" id="roStepsEn" rows="6"></textarea></label>
+              <label class="ro-f"><span data-i18n="Steps (ID)">Langkah (ID)</span><textarea class="adm-input" id="roStepsId" rows="6"></textarea></label>
+            </div>
+            <div class="ro-grid2" style="margin-top:12px">
+              <label class="ro-f"><span data-i18n="Equipment">Peralatan</span><input class="adm-input" id="roEquip"></label>
+              <label class="ro-f"><span data-i18n="Prep note">Catatan prep</span><input class="adm-input" id="roPrepNote"></label>
+            </div>
+            <label class="ro-f" style="margin-top:12px"><span data-i18n="Common mistake">Kesalahan umum</span><input class="adm-input" id="roMistake"></label>
+            <div style="display:flex;gap:16px;align-items:center;margin-top:14px;flex-wrap:wrap">
+              <div class="ro-photo">
+                <div class="ro-photo-prev" id="roPhotoPrev">🍽️</div>
+                <div>
+                  <input type="file" id="roPhotoFile" accept="image/png,image/jpeg,image/webp" hidden>
+                  <button class="adm-btn adm-btn--sm" id="roPhotoBtn" data-i18n="Upload photo">Unggah foto</button>
+                  <button class="adm-btn adm-btn--sm" id="roPhotoClear" hidden data-i18n="Remove">Hapus</button>
+                  <div class="adm-note" data-i18n="PNG/JPG/WebP, max 5MB. Empty = auto photo.">PNG/JPG/WebP, maks 5MB. Kosong = foto otomatis.</div>
+                </div>
+              </div>
+              <label class="afset-check" style="margin-left:auto"><input type="checkbox" id="roPub" checked><span data-i18n="Published">Tayang</span></label>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap">
+              <button class="adm-btn adm-btn--primary" id="roSave" data-i18n="Save">Simpan</button>
+              <button class="adm-btn" id="roCancel" data-i18n="Cancel">Batal</button>
+              <span class="adm-note" id="roMsg"></span>
+            </div>
+          </div>
+
+          <div class="adm-panel" style="padding:0;overflow-x:auto">
+            <table class="adm-table" id="roTable">
+              <thead><tr><th data-i18n="Photo">Foto</th><th data-i18n="Name">Nama</th><th class="adm-right" data-i18n="kcal">kkal</th><th data-i18n="Diet">Diet</th><th data-i18n="Published">Tayang</th><th data-i18n="Action">Aksi</th></tr></thead>
+              <tbody id="roRows"><tr><td colspan="6"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note" id="roEmpty" hidden data-i18n="No official recipes yet.">Belum ada resep official.</div>
+        </div>
+
+        <!-- ===== Tab: Kontribusi MEMBER (moderasi, seperti sebelumnya) ===== -->
+        <div data-tabpanel="menu" data-tab="member" hidden>
         <div class="adm-callout" style="margin:16px 0">
           <span class="adm-badge" data-i18n="Reviewer guide">Pedoman reviewer</span>
           <div class="adm-note" style="line-height:1.6" data-i18n="Reject: unsafe very-low calories (below 1,200 kcal for adults without supervision), medical claims (&quot;cures diabetes&quot;), clearly wrong nutrition info (macros don't match the total), and menus pushing extreme diets or excessive fasting. This isn't a formality — a wrong menu spreading can harm its followers.">Tolak: kalori sangat rendah tak aman (di bawah 1.200 kkal untuk dewasa tanpa pengawasan), klaim medis (&quot;menyembuhkan diabetes&quot;), info gizi jelas salah (makro tak cocok totalnya), dan menu yang mendorong pola makan ekstrem/puasa berlebihan. Ini bukan formalitas — menu salah yang tersebar bisa membahayakan pengikutnya.</div>
@@ -575,6 +659,7 @@
             <div class="adm-note" data-i18n="Select a menu from the queue to review.">Pilih menu dari antrian untuk direview.</div>
           </div>
         </div>
+        </div><!-- /tab member -->
       </section>
       <section data-section="delivery" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Eat Now / pesan-antar" data-title-en="Eat Now / delivery" data-question="Resep mana yang ditautkan ke kategori GrabFood/GoFood, dan mana yang belum dipetakan?" data-question-en="Which recipes link to a GrabFood/GoFood category, and which are still unmapped?">
         <div id="dlvBox"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
@@ -1911,6 +1996,125 @@
     else if(msg) msg.textContent=(r&&r.error)||L("Failed","Gagal");
   }
 
+  // ---- RESEP OFFICIAL (CMS my20fit_recipe_official via /api/admin/recipes) ----
+  var RO_DIET=["normal","vegetarian","vegan","pescatarian","keto","halal","high-protein","low-carb"];
+  var RO_LIST=[], RO_EDIT=null, RO_PHOTO=null, _roBound=false;
+  function roEl(id){ return document.getElementById(id); }
+  function roDietChips(){
+    var box=roEl("roDiet"); if(!box) return;
+    box.innerHTML=RO_DIET.map(function(d){ return '<label><input type="checkbox" class="roDietChk" value="'+d+'"><span>'+d+'</span></label>'; }).join("");
+  }
+  function roSetPhoto(url){
+    RO_PHOTO=url||null;
+    var prev=roEl("roPhotoPrev"), clr=roEl("roPhotoClear");
+    if(prev){ if(RO_PHOTO){ prev.style.backgroundImage='url("'+RO_PHOTO+'")'; prev.textContent=""; } else { prev.style.backgroundImage="none"; prev.textContent="🍽️"; } }
+    if(clr) clr.hidden=!RO_PHOTO;
+  }
+  async function loadRecipesOfficial(){
+    var tb=roEl("roRows"); if(!tb) return;
+    if(!_roBound) roBind();
+    try{
+      var q=roEl("roSearch")?roEl("roSearch").value.trim():"";
+      var res=await adminFetch("/api/admin/recipes"+(q?("?q="+encodeURIComponent(q)):""));
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      RO_LIST=j.recipes||[];
+      var warn=roEl("roSeedWarn");
+      if(warn){ if(!j.seeded){ warn.hidden=false; warn.textContent=L("Table not seeded yet — still serving the static fallback (js/recipes.js). Run db/seed-recipe-official.sql to activate DB catalog.","Tabel belum di-seed — masih memakai fallback statik (js/recipes.js). Jalankan db/seed-recipe-official.sql untuk mengaktifkan katalog DB."); } else warn.hidden=true; }
+      roRender();
+    }catch(e){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+  }
+  function roRender(){
+    var tb=roEl("roRows"), empty=roEl("roEmpty"), cnt=roEl("roCount");
+    if(cnt) cnt.textContent=RO_LIST.length+" "+L("recipes","resep");
+    if(empty) empty.hidden=RO_LIST.length>0;
+    tb.innerHTML=RO_LIST.map(function(r){
+      var ph=r.photo_url?('<span class="ro-thumb" style="background-image:url(\''+esc(r.photo_url)+'\')"></span>'):('<span class="ro-thumb">'+(r.emoji?"🍱":"🍽️")+'</span>');
+      var diet=(Array.isArray(r.diet_types)?r.diet_types:[]).slice(0,3).map(function(d){return '<span class="adm-tag adm-tag--mute">'+esc(d)+'</span>';}).join(" ");
+      var pub=r.is_published?'<span class="adm-tag adm-tag--paid">'+L("Live","Tayang")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("Hidden","Disembunyikan")+'</span>';
+      return '<tr><td>'+ph+'</td>'+
+        '<td><div style="font-weight:600">'+esc(r.name_id||r.name_en||r.id)+'</div><div class="adm-note" style="margin:0">'+esc(r.name_en||"")+' · <span class="adm-mono">'+esc(r.id)+'</span></div></td>'+
+        '<td class="adm-right adm-mono">'+(r.kcal!=null?r.kcal:"—")+'</td>'+
+        '<td>'+(diet||'<span class="adm-note" style="margin:0">—</span>')+'</td>'+
+        '<td>'+pub+'</td>'+
+        '<td><div class="afcl-act"><button class="adm-btn adm-btn--sm" onclick="roEdit(\''+esc(r.id)+'\')" data-i18n="Edit">Edit</button>'+
+          '<button class="adm-btn adm-btn--sm" onclick="roDelete(\''+esc(r.id)+'\')" data-i18n="Delete">Hapus</button></div></td></tr>';
+    }).join("");
+    if(window.applyAdmLang) window.applyAdmLang();
+  }
+  function roOpenForm(rec){
+    RO_EDIT=rec?rec.id:null;
+    var t=roEl("roFormTitle"); if(t){ t.textContent=rec?L("Edit recipe","Edit resep"):L("New recipe","Resep baru"); }
+    var set=function(id,v){ var e=roEl(id); if(e) e.value=(v==null?"":v); };
+    set("roNameEn",rec&&rec.name_en); set("roNameId",rec&&rec.name_id);
+    set("roId",rec&&rec.id); var idEl=roEl("roId"); if(idEl){ idEl.readOnly=!!rec; idEl.style.opacity=rec?"0.6":"1"; }
+    set("roCat",rec&&rec.category); set("roKcal",rec&&rec.kcal); set("roP",rec&&rec.p); set("roC",rec&&rec.c); set("roF",rec&&rec.f);
+    set("roServings",rec&&rec.servings); set("roCook",rec&&rec.cook_minutes); set("roPrep",rec&&rec.prep_minutes);
+    set("roEmoji",rec&&rec.emoji); set("roIngEn",rec&&rec.ingredients_en); set("roIngId",rec&&rec.ingredients_id);
+    set("roStepsEn",rec&&rec.steps_en); set("roStepsId",rec&&rec.steps_id);
+    set("roEquip",rec&&rec.equipment); set("roPrepNote",rec&&rec.prep_note); set("roMistake",rec&&rec.common_mistake);
+    var pub=roEl("roPub"); if(pub) pub.checked=rec?!!rec.is_published:true;
+    var dsel=(rec&&Array.isArray(rec.diet_types))?rec.diet_types:[];
+    document.querySelectorAll(".roDietChk").forEach(function(c){ c.checked=dsel.indexOf(c.value)>=0; });
+    roSetPhoto(rec&&rec.photo_url);
+    var msg=roEl("roMsg"); if(msg) msg.textContent="";
+    var f=roEl("roForm"); if(f){ f.hidden=false; f.scrollIntoView({behavior:"smooth",block:"nearest"}); }
+  }
+  window.roEdit=function(id){ var r=RO_LIST.find(function(x){return String(x.id)===String(id);}); if(r) roOpenForm(r); };
+  function roBody(){
+    var v=function(id){ var e=roEl(id); return e?e.value.trim():""; };
+    var n=function(id){ var e=roEl(id); return (e&&e.value!=="")?Math.round(+e.value):null; };
+    var diet=[]; document.querySelectorAll(".roDietChk:checked").forEach(function(c){ diet.push(c.value); });
+    return { id:v("roId"), name_en:v("roNameEn"), name_id:v("roNameId"), category:v("roCat"),
+      kcal:n("roKcal"), p:n("roP"), c:n("roC"), f:n("roF"), servings:n("roServings"),
+      cook_minutes:n("roCook"), prep_minutes:n("roPrep"), emoji:v("roEmoji"), diet_types:diet,
+      ingredients_en:v("roIngEn"), ingredients_id:v("roIngId"), steps_en:v("roStepsEn"), steps_id:v("roStepsId"),
+      equipment:v("roEquip"), prep_note:v("roPrepNote"), common_mistake:v("roMistake"),
+      photo_url:RO_PHOTO||"", is_published:!!(roEl("roPub")&&roEl("roPub").checked) };
+  }
+  async function roSave(){
+    var msg=roEl("roMsg"), body=roBody();
+    if(!body.name_en||!body.name_id){ if(msg) msg.textContent=L("Name (EN & ID) is required.","Nama (EN & ID) wajib."); return; }
+    var url=RO_EDIT?("/api/admin/recipes/"+encodeURIComponent(RO_EDIT)+"/update"):"/api/admin/recipes";
+    if(msg) msg.textContent=L("Saving…","Menyimpan…");
+    var r=await adminPost(url,body).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Saved","Tersimpan")); var f=roEl("roForm"); if(f) f.hidden=true; RO_EDIT=null; loadRecipesOfficial(); }
+    else if(msg) msg.textContent=L("Failed: ","Gagal: ")+((r&&r.error)||"error");
+  }
+  window.roDelete=async function(id, force){
+    var r=RO_LIST.find(function(x){return String(x.id)===String(id);});
+    var nm=r?(r.name_id||r.name_en||id):id;
+    if(!force && !confirm(L("Delete recipe ","Hapus resep ")+'"'+nm+'"?')) return;
+    var res=await adminPost("/api/admin/recipes/"+encodeURIComponent(id)+"/delete", force?{force:true}:{}).then(function(x){return x.json().then(function(j){return {status:x.status,j:j};});}).catch(function(){return null;});
+    if(res&&res.j&&res.j.ok){ if(window.admToast)admToast(L("Deleted","Dihapus")); loadRecipesOfficial(); return; }
+    if(res&&res.status===409&&res.j&&res.j.links_count){
+      if(confirm(L("This recipe still has ","Resep ini masih punya ")+res.j.links_count+L(" delivery link(s). Delete them too?"," tautan pesan-antar. Hapus sekalian?"))) return window.roDelete(id, true);
+      return;
+    }
+    if(window.admToast)admToast(L("Delete failed","Gagal menghapus")+": "+((res&&res.j&&res.j.error)||"error"));
+  };
+  async function roUploadPhoto(file){
+    if(!file) return;
+    var msg=roEl("roMsg"); if(msg) msg.textContent=L("Uploading photo…","Mengunggah foto…");
+    var reader=new FileReader();
+    reader.onload=async function(){
+      var r=await adminPost("/api/admin/recipes/upload-photo",{ data_url:reader.result }).then(function(x){return x.json();}).catch(function(){return null;});
+      if(r&&r.ok&&r.url){ roSetPhoto(r.url); if(msg) msg.textContent=""; }
+      else if(msg) msg.textContent=L("Photo upload failed: ","Gagal unggah foto: ")+((r&&r.error)||"error");
+    };
+    reader.readAsDataURL(file);
+  }
+  function roBind(){
+    _roBound=true; roDietChips();
+    var add=roEl("roAddBtn"); if(add) add.onclick=function(){ roOpenForm(null); };
+    var sv=roEl("roSave"); if(sv) sv.onclick=roSave;
+    var cn=roEl("roCancel"); if(cn) cn.onclick=function(){ var f=roEl("roForm"); if(f) f.hidden=true; RO_EDIT=null; };
+    var pb=roEl("roPhotoBtn"); if(pb) pb.onclick=function(){ var fi=roEl("roPhotoFile"); if(fi) fi.click(); };
+    var pf=roEl("roPhotoFile"); if(pf) pf.onchange=function(){ if(pf.files&&pf.files[0]) roUploadPhoto(pf.files[0]); pf.value=""; };
+    var pc=roEl("roPhotoClear"); if(pc) pc.onclick=function(){ roSetPhoto(null); };
+    var se=roEl("roSearch"); if(se){ var t; se.addEventListener("input",function(){ clearTimeout(t); t=setTimeout(loadRecipesOfficial,300); }); }
+  }
+
   // ---- CORPORATE (Modul 2) ----
   var CORP_CACHE=[];
   function cval(id){ var e=document.getElementById(id); return e?String(e.value).trim():""; }
@@ -2962,7 +3166,7 @@
     if(id==="scan") return loadScan();
     if(id==="settings") return loadSettings();
     if(id==="voucher") return loadVoucher();
-    if(id==="menu") return loadMenu();
+    if(id==="menu"){ loadRecipesOfficial(); return loadMenu(); }
     if(id==="corporate") return loadCorporate();
     if(id==="events") return loadEvents();
     if(id==="rewards") return loadRewards();

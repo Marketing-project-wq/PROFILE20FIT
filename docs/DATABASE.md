@@ -17,6 +17,8 @@
 | Profil & kesehatan | `my20fit_profile`, `my20fit_daily_log`, `my20fit_health_entry`, `my20fit_mcu_result`, `my20fit_fasting`, `my20fit_workout`, `my20fit_user_activity` |
 | Scan / kredit / commerce | `my20fit_scan_orders`, `my20fit_scan_ledger` |
 | Kontribusi menu diet | `my20fit_menu_contribution`, `my20fit_menu_event`, `my20fit_menu_reward_log` |
+| Katalog resep official | `my20fit_recipe_official` (migration 034) — katalog resep resmi pindah dari file statik `js/recipes.js` ke DB agar bisa di-CRUD + foto via admin-v2. `id`=slug lama (kompatibel Content API `official:<id>` & `my20fit_menu_delivery_links.menu_id`). Server baca DB dulu (`getOfficialCatalog`), fallback file statik saat belum di-seed. Seed sekali: `db/seed-recipe-official.sql`. |
+| Pesan-antar / Eat Now | `my20fit_menu_delivery_links` (source official/member, provider, label, url, sort_order, is_active), `my20fit_menu_delivery_clicks`; direktori katering `my20fit_caterers` + `my20fit_caterer_menus` + `my20fit_caterer_clicks` (DDL dibuat di luar `db/` repo ini) |
 | Referensi makanan (AI) | `my20fit_food_ref`, `my20fit_food_ref_learn`, `my20fit_foodimg` |
 | Email & komunikasi | `my20fit_email_otp`, `my20fit_email_templates`, `my20fit_email_sends`, `my20fit_email_send_recipients`, `my20fit_email_events`, `my20fit_email_automations`, `my20fit_email_automation_log`, `my20fit_message_log`, `my20fit_campaign_enrollments`, `my20fit_campaign_flags`, `my20fit_segments`, `my20fit_suppression_list`, `my20fit_user_comm_prefs`, `my20fit_signup_attribution` |
 | Admin | `my20fit_admin_roles`, `my20fit_admin_audit_log`, `my20fit_admin_feature_flags` |
@@ -130,6 +132,11 @@
   Postgres 16 lokal: idempoten, tanggal terbalik & scoring selain consistency ditolak.
 - **`db/supabase-migration-033-visbody-email-claim.sql`** — `my20fit_visbody_scan.claimed_via` boleh `'email'` (claim lewat email
   yang diketik di timbangan, lihat `docs/VISBODY-SETUP.md` Bagian 6). Tanpa kolom baru. **BELUM dijalankan.**
+- **`db/supabase-migration-034-recipe-official.sql`** — tabel `my20fit_recipe_official` (katalog resep OFFICIAL pindah dari
+  file statik `js/recipes.js` ke DB; CRUD + upload foto via admin-v2 → Menu diet → tab "Resep official"). `id`=slug lama.
+  RLS deny-public (service key). Seed sekali dgn **`db/seed-recipe-official.sql`** (120 resep, `ON CONFLICT DO NOTHING`;
+  di-generate `scripts/gen-recipe-official-seed.js`). Server baca DB dulu (`getOfficialCatalog`), fallback file statik saat
+  tabel kosong → `/api/menu/catalog`, `/recommend`, `/food-of-the-day`, Content API v1 semua ikut DB. **BELUM dijalankan.**
 - `supabase/functions/` — Edge Functions: `my20fit-ai`, `my20fit-foodimg`, `sync-ticket-events`, `ticket-embed` (TypeScript, di-deploy terpisah via Supabase). `ticket-embed` memegang secret `TICKET_EMBED_KEY` dan jadi **satu-satunya** jalur ke `ticket.20fit.id/api/embed/v1`; `server.js` tak punya env tiket sama sekali.
 
 ## Cara menjalankan migration
