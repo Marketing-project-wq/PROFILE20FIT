@@ -6321,6 +6321,22 @@ function normContentMemberRecipe(m) {
   };
 }
 var CONTENT_MEMBER_COLS = "id,name,diet_type,display_name,ingredients,steps,steps_json,photo_url,est_kcal,macros,servings,cook_minutes,prep_minutes,equipment,prep_note,reviewed_at";
+// Tautan pesan-antar aktif (urut) utk satu resep — dipakai Content API supaya
+// recipe.20fit.id bisa render carousel "Pesan antar". [] kalau tak ada / DB down.
+async function contentDeliveryLinks(source, menu_id) {
+  try {
+    if (!admin) return [];
+    var { data } = await admin.from("my20fit_menu_delivery_links")
+      .select("provider,label,url,sort_order,my20fit_delivery_provider(logo_url,is_active)")
+      .eq("source", source).eq("menu_id", menu_id).eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    return (data || []).map(function (l) {
+      var p = l.my20fit_delivery_provider;
+      return { provider: l.provider, label: l.label, url: l.url, sort_order: l.sort_order,
+        logo_url: (p && p.is_active !== false) ? (p.logo_url || null) : null };
+    });
+  } catch (e) { return []; }
+}
 
 // Info + cek key (consumer bisa verifikasi key-nya valid).
 app.get("/api/content/v1", requireContentKey, function (req, res) {
@@ -6426,8 +6442,10 @@ app.get("/api/content/v1/recipes/:key", requireContentKey, async function (req, 
     if (src === "official") {
       var r = (await getOfficialCatalog()).find(function (x) { return String(x.id) === String(id); });
       if (!r) return res.status(404).json({ error: "not found" });
+      var rec = normContentOfficialRecipe(r, lang);
+      rec.delivery_links = await contentDeliveryLinks("official", String(id));
       res.set("Cache-Control", "public, max-age=300");
-      return res.json({ ok: true, recipe: normContentOfficialRecipe(r, lang) });
+      return res.json({ ok: true, recipe: rec });
     }
     if (src === "member") {
       if (!admin) return res.status(404).json({ error: "not found" });
@@ -6437,8 +6455,10 @@ app.get("/api/content/v1/recipes/:key", requireContentKey, async function (req, 
       if (error) return res.status(500).json({ error: error.message });
       var mrec = data && data[0];
       if (!mrec) return res.status(404).json({ error: "not found" });
+      var mout = normContentMemberRecipe(mrec);
+      mout.delivery_links = await contentDeliveryLinks("member", String(id));
       res.set("Cache-Control", "public, max-age=120");
-      return res.json({ ok: true, recipe: normContentMemberRecipe(mrec) });
+      return res.json({ ok: true, recipe: mout });
     }
     return res.status(400).json({ error: "key harus 'official:<id>' atau 'member:<uuid>'." });
   } catch (e) { return res.status(500).json({ error: e.message }); }
@@ -6537,12 +6557,18 @@ app.get("/api/menu/:id/delivery", async (req, res) => {
     var source = String(req.query.source || "").trim().toLowerCase();
     if (!menu_id || (source !== "official" && source !== "member")) return res.json({ ok: true, links: [] });
     var { data, error } = await admin.from("my20fit_menu_delivery_links")
-      .select("id,provider,label,url,sort_order")
+      .select("id,provider,label,url,sort_order,my20fit_delivery_provider(logo_url,is_active)")
       .eq("source", source).eq("menu_id", menu_id).eq("is_active", true)
       .order("sort_order", { ascending: true });
     if (error) return res.status(500).json({ error: error.message });
+    // Ratakan logo_url penyedia (kalau ada & penyedia aktif) ke tiap link.
+    var links = (data || []).map(function (l) {
+      var p = l.my20fit_delivery_provider;
+      return { id: l.id, provider: l.provider, label: l.label, url: l.url, sort_order: l.sort_order,
+        logo_url: (p && p.is_active !== false) ? (p.logo_url || null) : null };
+    });
     res.set("Cache-Control", "public, max-age=60");
-    return res.json({ ok: true, links: data || [] });
+    return res.json({ ok: true, links: links });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
@@ -6595,7 +6621,7 @@ app.get("/api/admin/menu-delivery", async (req, res) => {
   var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
   try {
     var { data: links, error } = await admin.from("my20fit_menu_delivery_links")
-      .select("id,source,menu_id,provider,label,url,sort_order,is_active,created_at,updated_at")
+      .select("id,source,menu_id,provider,provider_id,label,url,sort_order,is_active,created_at,updated_at")
       .order("updated_at", { ascending: false }).limit(2000);
     if (error) return res.status(500).json({ error: error.message });
     var official = (await getOfficialCatalog()).map(function (r) {
@@ -6618,7 +6644,15 @@ app.post("/api/admin/menu-delivery", async (req, res) => {
     var b = req.body || {};
     var source = String(b.source || "").trim().toLowerCase();
     var menu_id = String(b.menu_id || "").slice(0, 80);
-    var provider = String(b.provider || "grabfood").trim().slice(0, 40);
+    var provider = String(b.provider || "").trim().slice(0, 40);
+    var provider_id = b.provider_id ? String(b.provider_id) : null;
+    // Penyedia dari master (provider_id) -> snapshot nama ke kolom provider (back-compat).
+    if (provider_id) {
+      var { data: pv } = await admin.from("my20fit_delivery_provider").select("name").eq("id", provider_id).maybeSingle();
+      if (!pv) return res.status(400).json({ error: "Penyedia tidak ditemukan." });
+      provider = String(pv.name).slice(0, 40);
+    }
+    if (!provider) provider = "grabfood";
     var label = String(b.label || "").trim().slice(0, 120);
     var url = String(b.url || "").trim();
     if (!menu_id || !label || !url || (source !== "official" && source !== "member"))
@@ -6627,7 +6661,7 @@ app.post("/api/admin/menu-delivery", async (req, res) => {
     var sort_order = (b.sort_order != null && b.sort_order !== "") ? (parseInt(b.sort_order, 10) || 0) : 0;
     var is_active = b.is_active === false ? false : true;
     var { data, error } = await admin.from("my20fit_menu_delivery_links")
-      .insert({ source: source, menu_id: menu_id, provider: provider, label: label, url: url, sort_order: sort_order, is_active: is_active })
+      .insert({ source: source, menu_id: menu_id, provider: provider, provider_id: provider_id, label: label, url: url, sort_order: sort_order, is_active: is_active })
       .select("id").limit(1).single();
     if (error) return res.status(500).json({ error: error.message });
     await adminAudit(ctx, "menu_delivery.create", data.id, { source: source, menu_id: menu_id, provider: provider });
@@ -6641,6 +6675,15 @@ app.post("/api/admin/menu-delivery/:id/update", async (req, res) => {
   try {
     var id = String(req.params.id || ""), b = req.body || {};
     var patch = { updated_at: new Date().toISOString() };
+    if (b.provider_id != null) {
+      var pid = b.provider_id ? String(b.provider_id) : null;
+      if (pid) {
+        var { data: pv2 } = await admin.from("my20fit_delivery_provider").select("name").eq("id", pid).maybeSingle();
+        if (!pv2) return res.status(400).json({ error: "Penyedia tidak ditemukan." });
+        patch.provider = String(pv2.name).slice(0, 40);
+      }
+      patch.provider_id = pid;
+    }
     if (b.provider != null) patch.provider = String(b.provider).trim().slice(0, 40);
     if (b.label != null) patch.label = String(b.label).trim().slice(0, 120);
     if (b.url != null) { var u = String(b.url).trim(); if (!/^https:\/\//i.test(u)) return res.status(400).json({ error: "URL harus https://" }); patch.url = u; }
@@ -6663,6 +6706,85 @@ app.post("/api/admin/menu-delivery/:id/delete", async (req, res) => {
     await adminAudit(ctx, "menu_delivery.delete", id, null);
     return res.json({ ok: true });
   } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// ===== ADMIN: MASTER penyedia pesan-antar (my20fit_delivery_provider) =====
+// Reusable + searchable. Satu penyedia dipakai di banyak link. Hapus aman: kalau masih
+// dipakai link -> soft-disable (is_active=false), bukan hard-delete, supaya link tak rusak.
+function provSlug(s) { return String(s || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60); }
+app.get("/api/admin/delivery-providers", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    var { data, error } = await admin.from("my20fit_delivery_provider")
+      .select("id,name,slug,logo_url,is_active,created_at").order("name", { ascending: true }).limit(500);
+    if (error) throw error;
+    var rows = data || [];
+    var q = String(req.query.q || "").trim().toLowerCase();
+    if (q) rows = rows.filter(function (p) { return ((p.name || "") + " " + (p.slug || "")).toLowerCase().indexOf(q) >= 0; });
+    // Hitung berapa link memakai tiap penyedia (utk guard hapus & info UI).
+    var { data: links } = await admin.from("my20fit_menu_delivery_links").select("provider_id").limit(5000);
+    var used = {}; (links || []).forEach(function (l) { if (l.provider_id) used[l.provider_id] = (used[l.provider_id] || 0) + 1; });
+    rows.forEach(function (p) { p.links_count = used[p.id] || 0; });
+    return res.json({ ok: true, providers: rows });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || e }); }
+});
+app.post("/api/admin/delivery-providers", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    var b = req.body || {};
+    var name = String(b.name || "").trim().slice(0, 80);
+    if (!name) return res.status(400).json({ error: "Nama penyedia wajib." });
+    var slug = provSlug(b.slug || name);
+    if (!slug) return res.status(400).json({ error: "Slug tidak valid." });
+    var logo_url = null;
+    if (b.logo_url) { logo_url = String(b.logo_url).trim(); if (!/^https:\/\//i.test(logo_url)) return res.status(400).json({ error: "Logo harus URL https://" }); logo_url = logo_url.slice(0, 3000); }
+    var { data, error } = await admin.from("my20fit_delivery_provider")
+      .insert({ name: name, slug: slug, logo_url: logo_url, is_active: b.is_active === false ? false : true }).select("id").limit(1).single();
+    if (error) { if (error.code === "23505") return res.status(409).json({ error: "Slug '" + slug + "' sudah dipakai." }); return res.status(500).json({ error: error.message }); }
+    await adminAudit(ctx, "delivery_provider.create", data.id, { name: name });
+    return res.json({ ok: true, id: data.id });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || e }); }
+});
+app.post("/api/admin/delivery-providers/:id/update", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    var id = String(req.params.id || ""), b = req.body || {};
+    var patch = { updated_at: new Date().toISOString() };
+    if (b.name != null) { var nm = String(b.name).trim().slice(0, 80); if (!nm) return res.status(400).json({ error: "Nama tidak boleh kosong." }); patch.name = nm; }
+    if (b.logo_url != null) { var lu = String(b.logo_url).trim(); if (lu && !/^https:\/\//i.test(lu)) return res.status(400).json({ error: "Logo harus URL https://" }); patch.logo_url = lu || null; }
+    if (b.is_active != null) patch.is_active = !!b.is_active;
+    var { error } = await admin.from("my20fit_delivery_provider").update(patch).eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    // Kalau nama berubah, segarkan snapshot nama di link yang memakainya.
+    if (patch.name) await admin.from("my20fit_menu_delivery_links").update({ provider: patch.name }).eq("provider_id", id);
+    await adminAudit(ctx, "delivery_provider.update", id, Object.keys(patch));
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || e }); }
+});
+// Hapus penyedia: kalau masih dipakai -> soft-disable (tolak 409 kecuali force -> is_active=false).
+// Hard-delete hanya kalau tak ada link yang memakainya.
+app.post("/api/admin/delivery-providers/:id/delete", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    var id = String(req.params.id || ""), force = (req.body || {}).force === true;
+    var { count } = await admin.from("my20fit_menu_delivery_links")
+      .select("id", { count: "exact", head: true }).eq("provider_id", id);
+    if ((count || 0) > 0) {
+      if (!force) return res.status(409).json({ error: "Penyedia masih dipakai " + count + " tautan.", links_count: count });
+      // Force: soft-disable (bukan hard-delete) supaya link lama tetap valid.
+      await admin.from("my20fit_delivery_provider").update({ is_active: false, updated_at: new Date().toISOString() }).eq("id", id);
+      await adminAudit(ctx, "delivery_provider.disable", id, { links_count: count });
+      return res.json({ ok: true, soft: true, links_count: count });
+    }
+    var { error } = await admin.from("my20fit_delivery_provider").delete().eq("id", id);
+    if (error) return res.status(500).json({ error: error.message });
+    await adminAudit(ctx, "delivery_provider.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: (e && e.message) || e }); }
 });
 
 // ---------- recepie.20fit.id: Artikel in-house (Tahap 6) ----------

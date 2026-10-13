@@ -3439,36 +3439,64 @@
 
   // ---------- CMS: Eat Now / pesan-antar (my20fit_menu_delivery_links) ----------
   // Admin memetakan resep -> URL kategori publik GrabFood/GoFood (bukan scraping/API Grab).
-  var DLV_PRESETS=[], DLV_BASE="https://food.grab.com", DLV_RECIPES=[];
+  var DLV_PRESETS=[], DLV_BASE="https://food.grab.com", DLV_RECIPES=[], DLV_PROVIDERS=[];
+  function dlvRecipeOpts(filter){
+    var f=String(filter||"").toLowerCase();
+    return DLV_RECIPES.filter(function(r){ return !f||String(r.name||"").toLowerCase().indexOf(f)>=0; })
+      .map(function(r){ return '<option value="'+esc(r.source+"|"+r.menu_id)+'">'+esc(r.name)+' ('+esc(r.source)+')</option>'; }).join("");
+  }
   async function loadDelivery(){
     var box=document.getElementById("dlvBox"); if(!box) return;
     box.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
     var j=await adminFetch("/api/admin/menu-delivery").then(function(r){return r.json();}).catch(function(){return null;});
     if(!j||!j.ok){ box.innerHTML='<div class="adm-note">'+L("Failed to load. Open with ?key=ADMIN_KEY or log in as admin.","Gagal memuat. Buka dengan ?key=ADMIN_KEY atau login admin.")+'</div>'; return; }
     var pj=await adminFetch("/api/admin/menu-delivery/presets").then(function(r){return r.json();}).catch(function(){return null;});
+    var prov=await adminFetch("/api/admin/delivery-providers").then(function(r){return r.json();}).catch(function(){return null;});
     DLV_PRESETS=(pj&&pj.presets)||[]; DLV_BASE=(pj&&pj.grabfood_base)||"https://food.grab.com";
-    DLV_RECIPES=j.recipes||[];
+    DLV_RECIPES=j.recipes||[]; DLV_PROVIDERS=(prov&&prov.providers)||[];
     var links=j.links||[];
     var rmap={}; DLV_RECIPES.forEach(function(r){ rmap[r.source+":"+r.menu_id]=r.name; });
-    var recipeOpts=DLV_RECIPES.map(function(r){ return '<option value="'+esc(r.source+"|"+r.menu_id)+'">'+esc(r.name)+' ('+esc(r.source)+')</option>'; }).join("");
     var presetOpts='<option value="">'+L("— pick GrabFood category (fills URL) —","— pilih kategori GrabFood (isi URL) —")+'</option>'+DLV_PRESETS.map(function(p){ return '<option value="'+esc(DLV_BASE+p.path)+'" data-label="'+esc(p.label)+'">'+esc(p.label)+'</option>'; }).join("");
+    var activeProv=DLV_PROVIDERS.filter(function(p){return p.is_active;});
+    var providerOpts=activeProv.length?activeProv.map(function(p){ return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>'; }).join(""):('<option value="">'+L("No active provider — add one first","Belum ada penyedia aktif — tambah dulu")+'</option>');
+    var provRows=DLV_PROVIDERS.map(function(p){
+      return '<tr>'+
+        '<td>'+(p.logo_url?'<img src="'+esc(p.logo_url)+'" alt="" style="width:20px;height:20px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:6px" onerror="this.style.display=\'none\'">':'')+esc(p.name)+' <span class="adm-mono" style="opacity:.5">'+esc(p.slug)+'</span></td>'+
+        '<td class="adm-right adm-mono">'+(p.links_count||0)+'</td>'+
+        '<td>'+(p.is_active?'<span class="adm-tag adm-tag--paid">'+L("Active","Aktif")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("Off","Nonaktif")+'</span>')+'</td>'+
+        '<td style="white-space:nowrap"><button class="adm-btn adm-btn--sm" data-prov-toggle="'+esc(p.id)+'" data-active="'+(p.is_active?"1":"0")+'">'+(p.is_active?L("Disable","Nonaktif"):L("Enable","Aktifkan"))+'</button> <button class="adm-btn adm-btn--sm" data-prov-del="'+esc(p.id)+'">'+L("Delete","Hapus")+'</button></td>'+
+      '</tr>';
+    }).join("");
     var rows=links.map(function(l){
       return '<tr>'+
         '<td>'+esc(rmap[l.source+":"+l.menu_id]||l.menu_id)+' <span class="adm-mono" style="opacity:.5">'+esc(l.source)+'</span></td>'+
         '<td>'+esc(l.provider)+'</td>'+
         '<td>'+esc(l.label)+'</td>'+
         '<td><a href="'+esc(l.url)+'" target="_blank" rel="noopener noreferrer" class="adm-mono" style="font-size:11px">'+esc(l.url.slice(0,48))+'…</a></td>'+
+        '<td><input class="adm-input" type="number" value="'+(l.sort_order||0)+'" data-dlv-sort="'+esc(l.id)+'" style="width:62px;padding:4px 6px" title="'+L("Order (lower = first in carousel)","Urutan (kecil = tampil dulu di carousel)")+'"></td>'+
         '<td>'+(l.is_active?FIC("check",16):'—')+'</td>'+
         '<td style="white-space:nowrap"><button class="adm-btn adm-btn--sm" data-dlv-toggle="'+esc(l.id)+'" data-active="'+(l.is_active?"1":"0")+'">'+(l.is_active?L("Deactivate","Nonaktif"):L("Activate","Aktifkan"))+'</button> <button class="adm-btn adm-btn--sm" data-dlv-del="'+esc(l.id)+'">'+L("Delete","Hapus")+'</button></td>'+
       '</tr>';
     }).join("");
     box.innerHTML=
+      '<div class="adm-card" style="padding:14px;margin-bottom:14px;max-width:680px">'+
+        '<div class="adm-sec-title">'+L("Delivery providers (reusable)","Penyedia pesan-antar (reusable)")+'</div>'+
+        '<div style="display:flex;gap:8px;align-items:flex-end;margin:8px 0;flex-wrap:wrap">'+
+          '<label class="adm-note" style="flex:1;min-width:150px">'+L("Provider name","Nama penyedia")+'<input class="adm-input" id="provName" placeholder="'+L("e.g. ShopeeFood","mis. ShopeeFood")+'"></label>'+
+          '<label class="adm-note" style="flex:1;min-width:150px">'+L("Logo URL (optional)","URL logo (opsional)")+'<input class="adm-input" id="provLogo" placeholder="https://…"></label>'+
+          '<button class="adm-btn adm-btn--primary adm-btn--sm" id="provAdd">'+L("Add provider","Tambah penyedia")+'</button>'+
+        '</div>'+
+        '<input class="adm-input" id="provSearch" placeholder="'+L("Search provider…","Cari penyedia…")+'" style="max-width:240px;margin-bottom:8px">'+
+        '<table class="adm-table"><thead><tr><th>'+L("Provider","Penyedia")+'</th><th class="adm-right">'+L("Links","Tautan")+'</th><th>Status</th><th></th></tr></thead><tbody id="provRows">'+(provRows||('<tr><td colspan="4" class="adm-note">'+L("No providers yet.","Belum ada penyedia.")+'</td></tr>'))+'</tbody></table>'+
+        '<div class="adm-note" id="provMsg"></div>'+
+      '</div>'+
       '<div class="adm-callout" style="margin-bottom:12px"><span class="adm-badge">'+j.unmapped_count+'</span> '+L("recipes not yet mapped. Only mapped recipes show an Eat Now button on the recipe page.","resep belum dipetakan. Hanya resep yang dipetakan yang menampilkan tombol Eat Now di halaman resep.")+'</div>'+
       '<div class="adm-card" style="padding:14px;margin-bottom:14px;max-width:680px">'+
         '<div class="adm-sec-title">'+L("Add mapping","Tambah pemetaan")+'</div>'+
         '<div style="display:grid;gap:8px;margin-top:8px">'+
-          '<label class="adm-note">'+L("Recipe","Resep")+'<select class="adm-input" id="dlvRecipe">'+recipeOpts+'</select></label>'+
-          '<label class="adm-note">'+L("Provider","Penyedia")+'<select class="adm-input" id="dlvProvider"><option value="grabfood">GrabFood</option><option value="gofood">GoFood</option></select></label>'+
+          '<label class="adm-note">'+L("Search recipe","Cari resep")+'<input class="adm-input" id="dlvRecipeSearch" placeholder="'+L("type to filter…","ketik untuk menyaring…")+'"></label>'+
+          '<label class="adm-note">'+L("Recipe","Resep")+'<select class="adm-input" id="dlvRecipe">'+dlvRecipeOpts("")+'</select></label>'+
+          '<label class="adm-note">'+L("Provider","Penyedia")+'<select class="adm-input" id="dlvProvider">'+providerOpts+'</select></label>'+
           '<label class="adm-note">'+L("GrabFood category preset","Preset kategori GrabFood")+'<select class="adm-input" id="dlvPreset">'+presetOpts+'</select></label>'+
           '<label class="adm-note">Label<input class="adm-input" id="dlvLabel" placeholder="'+L("e.g. Nasi Goreng","mis. Nasi Goreng")+'"></label>'+
           '<label class="adm-note">URL<input class="adm-input" id="dlvUrl" placeholder="https://food.grab.com/id/id/cuisines/..."></label>'+
@@ -3477,17 +3505,29 @@
           '<div class="adm-note" id="dlvMsg"></div>'+
         '</div>'+
       '</div>'+
-      '<table class="adm-table"><thead><tr><th>'+L("Recipe","Resep")+'</th><th>'+L("Provider","Penyedia")+'</th><th>Label</th><th>URL</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+(rows||('<tr><td colspan="6" class="adm-note">'+L("No mappings yet.","Belum ada pemetaan.")+'</td></tr>'))+'</tbody></table>';
+      '<table class="adm-table"><thead><tr><th>'+L("Recipe","Resep")+'</th><th>'+L("Provider","Penyedia")+'</th><th>Label</th><th>URL</th><th>'+L("Order","Urutan")+'</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+(rows||('<tr><td colspan="7" class="adm-note">'+L("No mappings yet.","Belum ada pemetaan.")+'</td></tr>'))+'</tbody></table>';
     var pre=document.getElementById("dlvPreset");
     if(pre) pre.addEventListener("change",function(){ if(!pre.value) return; var o=pre.options[pre.selectedIndex]; document.getElementById("dlvUrl").value=pre.value; var lbl=document.getElementById("dlvLabel"); if(!lbl.value) lbl.value=o.getAttribute("data-label")||""; });
+    var rs=document.getElementById("dlvRecipeSearch"); if(rs) rs.addEventListener("input",function(){ var sel=document.getElementById("dlvRecipe"); if(sel) sel.innerHTML=dlvRecipeOpts(rs.value); });
     var add=document.getElementById("dlvAdd"); if(add) add.addEventListener("click", dlvAdd);
     box.querySelectorAll("[data-dlv-del]").forEach(function(b){ b.addEventListener("click",function(){ dlvDelete(b.getAttribute("data-dlv-del")); }); });
     box.querySelectorAll("[data-dlv-toggle]").forEach(function(b){ b.addEventListener("click",function(){ dlvToggle(b.getAttribute("data-dlv-toggle"), b.getAttribute("data-active")!=="1"); }); });
+    box.querySelectorAll("[data-dlv-sort]").forEach(function(inp){ inp.addEventListener("change",function(){ dlvSortSave(inp.getAttribute("data-dlv-sort"), inp.value); }); });
+    var pa=document.getElementById("provAdd"); if(pa) pa.addEventListener("click", provAdd);
+    var ps=document.getElementById("provSearch"); if(ps){ var pt; ps.addEventListener("input",function(){ clearTimeout(pt); pt=setTimeout(function(){ provFilterRows(ps.value); },200); }); }
+    box.querySelectorAll("[data-prov-del]").forEach(function(b){ b.addEventListener("click",function(){ provDelete(b.getAttribute("data-prov-del")); }); });
+    box.querySelectorAll("[data-prov-toggle]").forEach(function(b){ b.addEventListener("click",function(){ provToggle(b.getAttribute("data-prov-toggle"), b.getAttribute("data-active")!=="1"); }); });
+  }
+  function provFilterRows(q){
+    q=String(q||"").toLowerCase();
+    document.querySelectorAll("#provRows tr").forEach(function(tr){ tr.style.display=(!q||tr.textContent.toLowerCase().indexOf(q)>=0)?"":"none"; });
   }
   async function dlvAdd(){
     var rv=String(document.getElementById("dlvRecipe").value||"").split("|");
     var msg=document.getElementById("dlvMsg"); msg.textContent=L("Saving…","Menyimpan…");
-    var body={ source:rv[0], menu_id:rv[1], provider:document.getElementById("dlvProvider").value, label:document.getElementById("dlvLabel").value, url:document.getElementById("dlvUrl").value, sort_order:document.getElementById("dlvSort").value };
+    var pid=document.getElementById("dlvProvider").value;
+    if(!pid){ msg.textContent=L("Add a provider first.","Tambah penyedia dulu."); return; }
+    var body={ source:rv[0], menu_id:rv[1], provider_id:pid, label:document.getElementById("dlvLabel").value, url:document.getElementById("dlvUrl").value, sort_order:document.getElementById("dlvSort").value };
     var r=await adminPost("/api/admin/menu-delivery", body).then(function(x){return x.json();}).catch(function(){return null;});
     if(r&&r.ok){ if(window.admToast)admToast(L("Added","Ditambahkan")); loadDelivery(); } else { msg.textContent=L("Failed: ","Gagal: ")+((r&&r.error)||"error"); }
   }
@@ -3500,6 +3540,32 @@
     var r=await adminPost("/api/admin/menu-delivery/"+encodeURIComponent(id)+"/update", { is_active: active }).then(function(x){return x.json();}).catch(function(){return null;});
     if(r&&r.ok){ loadDelivery(); }
   }
+  async function dlvSortSave(id, val){
+    var r=await adminPost("/api/admin/menu-delivery/"+encodeURIComponent(id)+"/update", { sort_order: val }).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Order saved","Urutan tersimpan")); } else if(window.admToast){ admToast(L("Failed to save order","Gagal simpan urutan")); }
+  }
+  // ---- Penyedia master (my20fit_delivery_provider) ----
+  async function provAdd(){
+    var msg=document.getElementById("provMsg"); var name=document.getElementById("provName"), logo=document.getElementById("provLogo");
+    if(!name.value.trim()){ if(msg) msg.textContent=L("Provider name is required.","Nama penyedia wajib."); return; }
+    if(msg) msg.textContent=L("Saving…","Menyimpan…");
+    var r=await adminPost("/api/admin/delivery-providers", { name:name.value.trim(), logo_url:logo.value.trim() }).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ if(window.admToast)admToast(L("Provider added","Penyedia ditambah")); loadDelivery(); } else if(msg){ msg.textContent=L("Failed: ","Gagal: ")+((r&&r.error)||"error"); }
+  }
+  async function provToggle(id, active){
+    var r=await adminPost("/api/admin/delivery-providers/"+encodeURIComponent(id)+"/update", { is_active: active }).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ loadDelivery(); }
+  }
+  window.provDelete=async function(id, force){
+    if(!force && !confirm(L("Delete this provider?","Hapus penyedia ini?"))) return;
+    var res=await adminPost("/api/admin/delivery-providers/"+encodeURIComponent(id)+"/delete", force?{force:true}:{}).then(function(x){return x.json().then(function(jj){return {status:x.status,j:jj};});}).catch(function(){return null;});
+    if(res&&res.j&&res.j.ok){ if(window.admToast)admToast(res.j.soft?L("Provider disabled (still in use)","Penyedia dinonaktifkan (masih dipakai)"):L("Deleted","Dihapus")); loadDelivery(); return; }
+    if(res&&res.status===409&&res.j&&res.j.links_count){
+      if(confirm(L("Provider is used by ","Penyedia dipakai ")+res.j.links_count+L(" link(s). Disable it instead (links keep working)?"," tautan. Nonaktifkan saja (tautan tetap jalan)?"))) return window.provDelete(id, true);
+      return;
+    }
+    if(window.admToast)admToast(L("Delete failed","Gagal menghapus")+": "+((res&&res.j&&res.j.error)||"error"));
+  };
 
   // ---------- CMS: Artikel in-house (my20fit_recipe_article) ----------
   var ART_RECIPES=[]; // {source, menu_id, name} utk picker link (reuse endpoint delivery)

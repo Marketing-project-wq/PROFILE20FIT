@@ -18,7 +18,7 @@
 | Scan / kredit / commerce | `my20fit_scan_orders`, `my20fit_scan_ledger` |
 | Kontribusi menu diet | `my20fit_menu_contribution`, `my20fit_menu_event`, `my20fit_menu_reward_log` |
 | Katalog resep official | `my20fit_recipe_official` (migration 034) — katalog resep resmi pindah dari file statik `js/recipes.js` ke DB agar bisa di-CRUD + foto via admin-v2. `id`=slug lama (kompatibel Content API `official:<id>` & `my20fit_menu_delivery_links.menu_id`). Server baca DB dulu (`getOfficialCatalog`), fallback file statik saat belum di-seed. Seed sekali: `db/seed-recipe-official.sql`. |
-| Pesan-antar / Eat Now | `my20fit_menu_delivery_links` (source official/member, provider, label, url, sort_order, is_active), `my20fit_menu_delivery_clicks`; direktori katering `my20fit_caterers` + `my20fit_caterer_menus` + `my20fit_caterer_clicks` (DDL dibuat di luar `db/` repo ini) |
+| Pesan-antar / Eat Now | `my20fit_menu_delivery_links` (source official/member, provider[snapshot], **`provider_id`→`my20fit_delivery_provider`** migration 035, label, url, sort_order, is_active), `my20fit_delivery_provider` (master penyedia reusable: name, slug, logo_url, is_active — migration 035), `my20fit_menu_delivery_clicks`; direktori katering `my20fit_caterers` + `my20fit_caterer_menus` + `my20fit_caterer_clicks` (DDL dibuat di luar `db/` repo ini) |
 | Referensi makanan (AI) | `my20fit_food_ref`, `my20fit_food_ref_learn`, `my20fit_foodimg` |
 | Email & komunikasi | `my20fit_email_otp`, `my20fit_email_templates`, `my20fit_email_sends`, `my20fit_email_send_recipients`, `my20fit_email_events`, `my20fit_email_automations`, `my20fit_email_automation_log`, `my20fit_message_log`, `my20fit_campaign_enrollments`, `my20fit_campaign_flags`, `my20fit_segments`, `my20fit_suppression_list`, `my20fit_user_comm_prefs`, `my20fit_signup_attribution` |
 | Admin | `my20fit_admin_roles`, `my20fit_admin_audit_log`, `my20fit_admin_feature_flags` |
@@ -137,6 +137,11 @@
   RLS deny-public (service key). Seed sekali dgn **`db/seed-recipe-official.sql`** (120 resep, `ON CONFLICT DO NOTHING`;
   di-generate `scripts/gen-recipe-official-seed.js`). Server baca DB dulu (`getOfficialCatalog`), fallback file statik saat
   tabel kosong → `/api/menu/catalog`, `/recommend`, `/food-of-the-day`, Content API v1 semua ikut DB. **BELUM dijalankan.**
+- **`db/supabase-migration-035-delivery-provider.sql`** — tabel `my20fit_delivery_provider` (master penyedia
+  pesan-antar reusable + searchable) + kolom `provider_id` di `my20fit_menu_delivery_links` (FK). Kolom `provider`
+  teks tetap sebagai snapshot nama (back-compat). RLS deny-public. Migration ini **seed + backfill** sendiri
+  (dari provider distinct yang ada + default GrabFood/GoFood). Admin kelola via admin-v2 → Eat Now; carousel user
+  di `/recipe` & `/calories` (via `/api/menu/:id/delivery`) + Content API `delivery_links`. **BELUM dijalankan.**
 - `supabase/functions/` — Edge Functions: `my20fit-ai`, `my20fit-foodimg`, `sync-ticket-events`, `ticket-embed` (TypeScript, di-deploy terpisah via Supabase). `ticket-embed` memegang secret `TICKET_EMBED_KEY` dan jadi **satu-satunya** jalur ke `ticket.20fit.id/api/embed/v1`; `server.js` tak punya env tiket sama sekali.
 
 ## Cara menjalankan migration
