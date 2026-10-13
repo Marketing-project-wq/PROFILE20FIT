@@ -7411,6 +7411,7 @@ app.get("/api/admin/affiliate/affiliates", async (req, res) => {
       g.tx += 1; g.total += Number(c.amount) || 0;
     });
     const rows = (affs || []).map((a) => ({
+      id: a.id,
       code: a.code || "—",
       status: a.status || "—",
       joined_at: a.joined_at || null,
@@ -7429,7 +7430,7 @@ app.get("/api/admin/affiliate/commissions", async (req, res) => {
   if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
   try {
     const { data: comm, error: ce } = await admin.from("affiliate_commission")
-      .select("affiliate_id,base_amount,rate_at_time,amount,status,paid_at_source,created_at")
+      .select("id,affiliate_id,base_amount,rate_at_time,amount,status,paid_at_source,created_at")
       .order("created_at", { ascending: false }).limit(300);
     if (ce) throw ce;
     const ids = Array.from(new Set((comm || []).map((c) => c.affiliate_id).filter(Boolean)));
@@ -7439,6 +7440,7 @@ app.get("/api/admin/affiliate/commissions", async (req, res) => {
       (affs || []).forEach((a) => { codeMap[a.id] = a.code; });
     }
     const rows = (comm || []).map((c) => ({
+      id: c.id,
       code: codeMap[c.affiliate_id] || "—",
       base_amount: Number(c.base_amount) || 0,
       rate_at_time: c.rate_at_time == null ? null : Number(c.rate_at_time),
@@ -7485,6 +7487,52 @@ app.get("/api/admin/affiliate/claims", async (req, res) => {
   } catch (e) {
     console.error("admin/affiliate/claims:", (e && e.message) || e);
     return res.status(500).json({ error: "Gagal memuat daftar klaim." });
+  }
+});
+// Detail satu affiliate (viewer+) — READ-ONLY. Agregat + komisi + klaim + flags + referral
+// (diturunkan dari komisi). Aksi tulis TETAP lewat RPC resmi (JWT admin) dari UI; data payout
+// terenkripsi TIDAK dibaca di sini (reveal lewat RPC affiliate_admin_payout_profile saja).
+app.get("/api/admin/affiliate/affiliate/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const id = String(req.params.id || "");
+    const { data: aff, error: ae } = await admin.from("affiliate")
+      .select("id,code,status,joined_at,notes,terms_version,terms_accepted_at").eq("id", id).maybeSingle();
+    if (ae) throw ae;
+    if (!aff) return res.status(404).json({ error: "Affiliate tidak ditemukan." });
+    const { data: comm } = await admin.from("affiliate_commission")
+      .select("id,base_amount,rate_at_time,amount,status,under_review,available_at,paid_at_source,buyer_auth_user_id,created_at")
+      .eq("affiliate_id", id).order("created_at", { ascending: false }).limit(1000);
+    const { data: claims } = await admin.from("affiliate_claim")
+      .select("id,claim_no,amount_gross,amount_net,status,submitted_at,estimated_transfer_date,paid_at,rejected_at,transfer_ref")
+      .eq("affiliate_id", id).order("submitted_at", { ascending: false }).limit(200);
+    const { data: flags } = await admin.from("affiliate_flag")
+      .select("id,type,status,detail,reviewed_by,reviewed_at,created_at")
+      .eq("affiliate_id", id).order("created_at", { ascending: false }).limit(200);
+    const { data: links } = await admin.from("affiliate_link").select("id").eq("affiliate_id", id).limit(1000);
+    let clicks = 0;
+    const linkIds = (links || []).map((l) => l.id);
+    if (linkIds.length) { const { count } = await admin.from("affiliate_link_open").select("id", { count: "exact", head: true }).in("link_id", linkIds); clicks = count || 0; }
+    const byStatus = { held: 0, available: 0, claimed: 0, paid: 0, cancelled: 0 };
+    const buyers = new Set(); const refMap = {};
+    (comm || []).forEach((c) => {
+      const a = Number(c.amount) || 0;
+      if (byStatus[c.status] != null) byStatus[c.status] += a;
+      if (c.buyer_auth_user_id) {
+        buyers.add(c.buyer_auth_user_id);
+        const r = refMap[c.buyer_auth_user_id] || (refMap[c.buyer_auth_user_id] = { buyer: c.buyer_auth_user_id, tx: 0, total: 0, first_at: c.created_at });
+        r.tx += 1; r.total += a; if (c.created_at < r.first_at) r.first_at = c.created_at;
+      }
+    });
+    return res.json({
+      ok: true, affiliate: aff,
+      stats: { clicks: clicks, buyers: buyers.size, transactions: (comm || []).length, by_status: byStatus },
+      commissions: comm || [], claims: claims || [], flags: flags || [], referrals: Object.keys(refMap).map((k) => refMap[k]),
+    });
+  } catch (e) {
+    console.error("admin/affiliate/detail:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat detail affiliate." });
   }
 });
 // Metrics overview (viewer+). Semua agregasi dari Supabase (real, bukan dummy).
