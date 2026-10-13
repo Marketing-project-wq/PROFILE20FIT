@@ -964,7 +964,9 @@ async function jnState(uid, user) {
 
   const emailScans = user ? await vbEmailScans(user, j).catch(function () { return []; }) : [];
 
-  const landing = J.landing === "always" ? (hasScan ? "/activity" : null) : (J.landing === "new_scan" ? (unviewed ? "/activity" : null) : null);
+  // Activity ditahan (produksi, flag OFF) -> jangan arahkan user ke /activity (yang digate).
+  const _actOn = await activityEnabledEnv();
+  const landing = !_actOn ? null : (J.landing === "always" ? (hasScan ? "/activity" : null) : (J.landing === "new_scan" ? (unviewed ? "/activity" : null) : null));
   const tours = {};
   (tourR.data || []).forEach(function (t) { tours[t.tour_key] = { version: t.version, status: t.status, last_step: t.last_step, seen_steps: t.seen_steps || [] }; });
   const pick = function (b) { return b ? { weight: b.body_weight, body_fat: b.body_fat_percentage, muscle: b.muscle_mass, bmi: b.body_mass_index, bmr: b.basal_metabolic_rate, visceral: b.visceral_fat_grade } : null; };
@@ -2071,10 +2073,13 @@ async function getUserFromReq(req) {
 // ---------- API ----------
 
 // Config publik untuk frontend (URL + anon key — keduanya memang publik)
-app.get("/api/config", (req, res) => {
+app.get("/api/config", async (req, res) => {
+  // Flag Activity (utk klien sembunyikan tile "Progress" saat ditahan di produksi).
+  var activityOn = true; try { activityOn = await activityEnabled(req); } catch (e) {}
   res.json({
     supabaseUrl: SUPABASE_URL || "",
     supabaseAnonKey: SUPABASE_ANON_KEY || "",
+    activityEnabled: activityOn,
     version: "xendit-live-2",
     serviceKeySet: !!SUPABASE_SERVICE_KEY,
     adminKeySet: !!ADMIN_KEY,
@@ -13175,6 +13180,19 @@ app.post("/api/activity/workouts/:id/narrative", async (req, res) => {
 app.get(["/payment/pending", "/payment/success"], (req, res) => {
   res.sendFile(path.join(__dirname, "payment-pending.html"));
 });
+// GATE halaman Activity: ditahan di PRODUKSI (flag OFF) sampai `activity` di-ON. Staging
+// selalu ON (deteksi host). OFF -> semua /activity* dialihkan ke /dashboard (tak bisa diakses).
+// Hanya menggate HALAMAN /activity*; endpoint data /api/activity/* tak disentuh (tanpa UI =
+// tak terpakai). Pintu enable nanti = flip flag, tanpa redeploy.
+app.use((req, res, next) => {
+  var p = req.path || "";
+  if (p === "/activity" || p.indexOf("/activity/") === 0) {
+    return activityEnabled(req).then(function (on) {
+      return on ? next() : res.redirect(302, "/dashboard");
+    }).catch(function () { return next(); });
+  }
+  next();
+});
 // Riwayat upload activity (path bertingkat) -> activity-history.html. Eksplisit di atas static.
 app.get(["/activity/history", "/activity/history.html"], (req, res) => {
   res.sendFile(path.join(__dirname, "activity-history.html"));
@@ -13248,7 +13266,12 @@ app.get(["/mcu", "/mcu.html"], (req, res) => res.redirect(301, "/medical"));
 // progress.html bukan file mati dan kita tidak kehilangan jalan mundur.
 app.get(["/progress", "/progress.html"], (req, res, next) => {
   if (req.query && req.query.legacy) return next();   // /progress?legacy=1 -> halaman lama
-  return res.redirect(302, "/activity");
+  // Saat Activity DITAHAN (produksi, flag OFF): /progress tetap menyajikan halaman progress
+  // LAMA (health snapshot) alih-alih redirect ke /activity yang digate -> fungsi kesehatan
+  // lama tak hilang di produksi. Activity ON (staging/flag) -> redirect seperti biasa.
+  return activityEnabled(req).then(function (on) {
+    return on ? res.redirect(302, "/activity") : next();
+  }).catch(function () { return res.redirect(302, "/activity"); });
 });
 
 // ---------- Static (URL bersih tanpa .html) + fallback ----------
@@ -13357,6 +13380,30 @@ function isStagingReq(req) {
     if (host.indexOf("staging") >= 0) return true;
   } catch (e) {}
   return String(APP_BASE_URL || "").toLowerCase().indexOf("staging") >= 0;
+}
+
+// ---------- Feature flag: halaman ACTIVITY (ditahan di produksi) ----------
+// Pola SAMA dengan admin_v2: staging OTOMATIS ON (deteksi host/APP_BASE_URL), produksi
+// default OFF sampai flag `activity` di `my20fit_admin_feature_flags` di-ON (flip di DB,
+// TANPA redeploy; cache 30 dtk). DB dipakai bareng staging+prod -> staging tak bergantung
+// flag (selalu ON via host) sehingga flip flag hanya mempengaruhi produksi.
+let _activityOn = false, _activityAt = 0;
+async function activityFlagOn() {
+  if (Date.now() - _activityAt < 30000) return _activityOn;
+  _activityAt = Date.now();
+  try {
+    if (admin) {
+      const { data } = await admin.from("my20fit_admin_feature_flags").select("enabled").eq("key", "activity").limit(1);
+      _activityOn = !!(data && data[0] && data[0].enabled);
+    }
+  } catch (e) { /* pertahankan nilai terakhir */ }
+  return _activityOn;
+}
+// Dengan req (deteksi host staging) — utk gate HTTP & /api/config.
+async function activityEnabled(req) { return isStagingReq(req) || await activityFlagOn(); }
+// Tanpa req (deteksi staging via APP_BASE_URL) — utk logika non-HTTP (mis. landing di jnState).
+async function activityEnabledEnv() {
+  return String(APP_BASE_URL || "").toLowerCase().indexOf("staging") >= 0 || await activityFlagOn();
 }
 app.get("/admin-dashboard", async (req, res, next) => {
   if (req.query && req.query.legacy) return next();          // paksa admin lama

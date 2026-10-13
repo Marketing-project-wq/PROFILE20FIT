@@ -28,6 +28,9 @@
       const c = await r.json();
       if (c && c.supabaseUrl && c.supabaseAnonKey) { url = c.supabaseUrl; key = c.supabaseAnonKey; }
       if (c && typeof c.googleClientId === "string") cfgGoogleClientId = c.googleClientId;
+      // Flag fitur utk klien (mis. sembunyikan tile Activity saat ditahan di produksi).
+      // activityEnabled absen (server lama) -> anggap true (jangan sembunyikan apa-apa).
+      try { window.FEATURES = Object.assign({ activity: true }, window.FEATURES, (c && typeof c.activityEnabled === "boolean") ? { activity: c.activityEnabled } : {}); } catch (e) {}
     } catch (e) { /* pakai fallback */ }
     cfgUrl = url; cfgKey = key;
     supabase = window.supabase.createClient(url, key, {
