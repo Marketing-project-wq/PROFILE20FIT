@@ -637,6 +637,7 @@
           <div class="adm-note" id="roSeedWarn" hidden style="margin:12px 0;color:var(--accent-ink)"></div>
           <div style="display:flex;gap:8px;align-items:center;margin:14px 0 10px;flex-wrap:wrap">
             <button class="adm-btn adm-btn--primary adm-btn--sm" id="roAddBtn" data-i18n="+ Add recipe">+ Tambah resep</button>
+            <button class="adm-btn adm-btn--sm" id="roSeedBtn" data-i18n="Import official catalog">Import katalog official</button>
             <input class="adm-input" id="roSearch" style="max-width:240px" placeholder="Cari resep…" data-i18n-ph="Search recipe…">
             <span class="adm-note" id="roCount" style="margin-left:auto"></span>
           </div>
@@ -2262,6 +2263,14 @@
   function roBind(){
     _roBound=true; roDietChips();
     var add=roEl("roAddBtn"); if(add) add.onclick=function(){ roOpenForm(null); };
+    var seed=roEl("roSeedBtn"); if(seed) seed.onclick=async function(){
+      if(!confirm(L("Import 120 resep official dari katalog + fotonya? Aman diulang (tak menimpa resep yang sudah diedit).","Import 120 official recipes from the catalog + their photos? Safe to repeat (won't overwrite edited recipes)."))) return;
+      seed.disabled=true; var old=seed.textContent; seed.textContent=L("Mengimpor…","Importing…");
+      var r=await adminPost("/api/admin/recipes/seed-static",{}).then(function(x){return x.json();}).catch(function(){return null;});
+      seed.disabled=false; seed.textContent=old;
+      if(r&&r.ok){ if(window.admToast)admToast(L("Terimpor: ","Imported: ")+r.inserted+"/"+r.catalog); loadRecipesOfficial(); }
+      else if(window.admToast)admToast(L("Gagal import","Import failed")+": "+((r&&r.error)||"error"));
+    };
     var sv=roEl("roSave"); if(sv) sv.onclick=roSave;
     var cn=roEl("roCancel"); if(cn) cn.onclick=function(){ var f=roEl("roForm"); if(f) f.hidden=true; RO_EDIT=null; };
     var pb=roEl("roPhotoBtn"); if(pb) pb.onclick=function(){ var fi=roEl("roPhotoFile"); if(fi) fi.click(); };
