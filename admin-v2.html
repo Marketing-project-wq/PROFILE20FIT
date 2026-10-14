@@ -1155,9 +1155,9 @@
           <textarea class="adm-input" id="ro_bio" placeholder="Bio (opsional)" data-i18n-ph="Bio (optional)" style="grid-column:1/-1;min-height:52px"></textarea>
           <label class="adm-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="ro_active" checked> <span data-i18n="Active (visible)">Aktif (tampil)</span></label>
           <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="adm-btn adm-btn--primary" id="roSaveBtn" onclick="roSave()" data-i18n="Save">Simpan</button>
-            <button class="adm-btn adm-btn--sm" id="roCancelBtn" onclick="roCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
-            <span class="adm-note" id="roMsg"></span>
+            <button class="adm-btn adm-btn--primary" id="roSaveBtn" onclick="rosterSave()" data-i18n="Save">Simpan</button>
+            <button class="adm-btn adm-btn--sm" id="roCancelBtn" onclick="rosterCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
+            <span class="adm-note" id="rosMsg"></span>
           </div>
         </div>
         <div id="rosList" style="margin-top:14px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
@@ -3149,8 +3149,8 @@
   function roVenueToggle(){ var w=document.getElementById("ro_venue_wrap"); if(w) w.style.display=(roKind()==="coach")?"":"none"; }
   window.roVenueToggle=roVenueToggle;
   function roEndpoint(role){ return role==="doctor"?"/api/admin/doctors":role==="physiotherapist"?"/api/admin/physiotherapists":"/api/admin/coaches"; }
-  window.roSave=async function(){
-    var msg=document.getElementById("roMsg"); var name=(coV("ro_name")||"").trim();
+  window.rosterSave=async function(){
+    var msg=document.getElementById("rosMsg"); var name=(coV("ro_name")||"").trim();
     if(!name){ if(msg)msg.textContent=L("Display name is required.","Nama tampilan wajib."); return; }
     var role=roKind(), id=coV("ro_id")||"", origRole=coV("ro_orig_role")||"";
     var existing=id?roFind(origRole||role,id):null;
@@ -3170,10 +3170,10 @@
         var res=await adminPost(roEndpoint(role), body); var j=await res.json().catch(function(){return null;});
         if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
       }
-      if(msg)msg.textContent=L("Saved.","Tersimpan."); window.roCancel(); loadCoaches();
+      if(msg)msg.textContent=L("Saved.","Tersimpan."); window.rosterCancel(); loadCoaches();
     }catch(e){ if(msg)msg.textContent=L("Error saving.","Error menyimpan."); }
   };
-  window.roEdit=function(role,id){
+  window.rosterEdit=function(role,id){
     var p=roFind(role,id); if(!p) return;
     document.getElementById("ro_id").value=p.id||""; document.getElementById("ro_orig_role").value=p.role||"";
     document.getElementById("ro_role").value=p.role||"coach"; roVenueToggle();
@@ -3186,15 +3186,15 @@
     var cb=document.getElementById("roCancelBtn"); if(cb)cb.hidden=false;
     try{ document.getElementById("ro_name").scrollIntoView({block:"center"}); }catch(_){}
   };
-  window.roCancel=function(){
+  window.rosterCancel=function(){
     ["ro_id","ro_orig_role","ro_name","ro_speciality","ro_photo","ro_bio"].forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
     var r=document.getElementById("ro_role"); if(r)r.value="coach"; roVenueToggle();
     var v=document.getElementById("ro_venue"); if(v)v.value="both"; var a=document.getElementById("ro_active"); if(a)a.checked=true;
     var pp=document.getElementById("ro_photo_prev"); if(pp)pp.style.display="none"; var pm=document.getElementById("ro_photo_msg"); if(pm)pm.textContent="";
     var t=document.getElementById("rosFormTitle"); if(t)t.textContent=L("Add to roster","Tambah ke roster");
-    var cb=document.getElementById("roCancelBtn"); if(cb)cb.hidden=true; var m=document.getElementById("roMsg"); if(m)m.textContent="";
+    var cb=document.getElementById("roCancelBtn"); if(cb)cb.hidden=true; var m=document.getElementById("rosMsg"); if(m)m.textContent="";
   };
-  window.roDelete=async function(role,id){
+  window.rosterDelete=async function(role,id){
     if(!window.confirm(L("Delete this entry?","Hapus entri ini?")+(role==="coach"?" "+L("Its instructor aliases are removed too.","Alias instruktur-nya ikut terhapus."):""))) return;
     try{ var qs=KEY?("?key="+encodeURIComponent(KEY)):""; var res=await fetch(roEndpoint(role)+"/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadCoaches(); }catch(e){}
   };
@@ -3206,7 +3206,8 @@
   window.alDel=async function(id){
     try{ var qs=KEY?("?key="+encodeURIComponent(KEY)):""; var res=await fetch("/api/admin/coach-aliases/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadCoaches(); }catch(e){}
   };
-  // Coach + Dokter + Fisio dikelola lewat roster terpadu di atas (roSave/roEdit/roDelete + mockup urutan).
+  // Coach + Dokter + Fisio dikelola lewat roster terpadu di atas (rosterSave/rosterEdit/rosterDelete + mockup urutan).
+  // Nama ro* dipakai juga oleh CMS Resep Official (roSave/roEdit/roDelete) — roster pakai prefix "roster"/"ros" agar tak bentrok.
 
   // Unggah foto coach/dokter -> /api/admin/upload-photo (Supabase Storage), isi field URL + preview.
   // Kecilkan + kompres foto di browser SEBELUM upload → file kecil permanen (hemat kuota,
@@ -4109,7 +4110,7 @@
     var rca=e.target.closest(".rcAct");
     if(rca){ window.rcFulfill(rca.dataset.id, rca.dataset.s); return; }
     var roa=e.target.closest(".roAct");
-    if(roa){ var roaA=roa.dataset.a; if(roaA==="edit")window.roEdit(roa.dataset.role,roa.dataset.id); else if(roaA==="delete")window.roDelete(roa.dataset.role,roa.dataset.id); return; }
+    if(roa){ var roaA=roa.dataset.a; if(roaA==="edit")window.rosterEdit(roa.dataset.role,roa.dataset.id); else if(roaA==="delete")window.rosterDelete(roa.dataset.role,roa.dataset.id); return; }
     var alx=e.target.closest(".alDel");
     if(alx){ e.preventDefault(); window.alDel(alx.dataset.id); return; }
     var ivm=e.target.closest(".ivMap");
