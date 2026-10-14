@@ -331,7 +331,7 @@
       }catch(e){}
       ITEMS=catalog.map(function(r){
         return { key:"r_"+r.id, nm:r.nm, kcal:r.kcal, p:r.p, c:r.c, f:r.f, types:r.types||[], ingO:r.ing, stepsO:r.steps, emoji:r.emoji, tint:r.tint,
-                 cat:r.cat||"", mins:(+r.cookMinutes||0)+(+r.prepMinutes||0), by:"20FIT", servings:(+r.servings||1), source:"20fit", rec:r };
+                 photo:r.photo_url||null, cat:r.cat||"", mins:(+r.cookMinutes||0)+(+r.prepMinutes||0), by:"20FIT", servings:(+r.servings||1), source:"20fit", rec:r };
       });
       userMenus.forEach(function(m){
         ITEMS.push({ key:"u_"+m.id, title:m.name, kcal:m.est_kcal||null, types:[m.diet_type||"normal"], ing:m.ingredients||"", steps:m.steps||"",

@@ -1263,6 +1263,9 @@
   // → placeholder rapi.
   function resolveImg(rec){
     if(!rec || !rec.id) return Promise.resolve(null);
+    // Foto tetap yang diatur admin / tersimpan di katalog DB (photo_url) -> pakai langsung,
+    // tanpa round-trip /api/foodphoto (foto tak bergantung resolve runtime/internet).
+    if(rec.photo_url) return Promise.resolve(rec.photo_url);
     var c=_imgCache();
     if(c[rec.id]) return Promise.resolve(c[rec.id]); // hanya URL sukses yang di-cache
     // PENTING: JANGAN simpan null. Foto AI di-generate on-demand (butuh beberapa detik); kalau

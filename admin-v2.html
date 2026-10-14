@@ -676,7 +676,8 @@
                   <input type="file" id="roPhotoFile" accept="image/png,image/jpeg,image/webp" hidden>
                   <button class="adm-btn adm-btn--sm" id="roPhotoBtn" data-i18n="Upload photo">Unggah foto</button>
                   <button class="adm-btn adm-btn--sm" id="roPhotoClear" hidden data-i18n="Remove">Hapus</button>
-                  <div class="adm-note" data-i18n="PNG/JPG/WebP, max 5MB. Empty = auto photo.">PNG/JPG/WebP, maks 5MB. Kosong = foto otomatis.</div>
+                  <input class="adm-input" id="roPhotoLink" type="url" style="margin-top:6px;max-width:420px" placeholder="https://… (link foto)" data-i18n-ph="https://… (photo link)">
+                  <div class="adm-note" data-i18n="Upload a file or paste a photo link. PNG/JPG/WebP, max 5MB. Empty = auto photo.">Unggah file atau tempel link foto. PNG/JPG/WebP, maks 5MB. Kosong = foto otomatis.</div>
                 </div>
               </div>
               <label class="afset-check" style="margin-left:auto"><input type="checkbox" id="roPub" checked><span data-i18n="Published">Tayang</span></label>
@@ -2157,11 +2158,12 @@
     var box=roEl("roDiet"); if(!box) return;
     box.innerHTML=RO_DIET.map(function(d){ return '<label><input type="checkbox" class="roDietChk" value="'+d+'"><span>'+d+'</span></label>'; }).join("");
   }
-  function roSetPhoto(url){
-    RO_PHOTO=url||null;
-    var prev=roEl("roPhotoPrev"), clr=roEl("roPhotoClear");
+  function roSetPhoto(url, fromInput){
+    RO_PHOTO=(url&&String(url).trim())||null;
+    var prev=roEl("roPhotoPrev"), clr=roEl("roPhotoClear"), lnk=roEl("roPhotoLink");
     if(prev){ if(RO_PHOTO){ prev.style.backgroundImage='url("'+RO_PHOTO+'")'; prev.textContent=""; } else { prev.style.backgroundImage="none"; prev.textContent="🍽️"; } }
     if(clr) clr.hidden=!RO_PHOTO;
+    if(lnk && !fromInput) lnk.value=RO_PHOTO||"";
   }
   async function loadRecipesOfficial(){
     var tb=roEl("roRows"); if(!tb) return;
@@ -2265,6 +2267,7 @@
     var pb=roEl("roPhotoBtn"); if(pb) pb.onclick=function(){ var fi=roEl("roPhotoFile"); if(fi) fi.click(); };
     var pf=roEl("roPhotoFile"); if(pf) pf.onchange=function(){ if(pf.files&&pf.files[0]) roUploadPhoto(pf.files[0]); pf.value=""; };
     var pc=roEl("roPhotoClear"); if(pc) pc.onclick=function(){ roSetPhoto(null); };
+    var pl=roEl("roPhotoLink"); if(pl) pl.oninput=function(){ roSetPhoto(pl.value, true); };
     var se=roEl("roSearch"); if(se){ var t; se.addEventListener("input",function(){ clearTimeout(t); t=setTimeout(loadRecipesOfficial,300); }); }
   }
 
