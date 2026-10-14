@@ -5,6 +5,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>20FIT Admin</title>
+<script>
+/* Pelapor error di layar: kalau ada JS error tak tertangani yang bikin halaman kosong,
+   tampilkan banner merah berisi pesan+file+baris supaya bisa di-screenshot & didiagnosa
+   (bukan blank diam). Hanya muncul saat ADA error. Dipasang paling awal agar menangkap
+   error dari semua skrip berikutnya. */
+(function(){
+  function show(msg){
+    try{
+      var b=document.getElementById("__admErrBar");
+      if(!b){
+        b=document.createElement("div"); b.id="__admErrBar";
+        b.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:999999;background:#C41101;color:#fff;font:12px/1.5 ui-monospace,monospace;padding:10px 14px;white-space:pre-wrap;max-height:45vh;overflow:auto;box-shadow:0 -2px 14px rgba(0,0,0,.35)";
+        (document.body||document.documentElement).appendChild(b);
+      }
+      b.textContent="⚠ JS error (screenshot & kirim ke Claude):\n"+msg;
+    }catch(e){}
+  }
+  window.addEventListener("error",function(e){
+    if(e&&e.target&&e.target!==window&&(e.target.src||e.target.href)){ var u=e.target.src||e.target.href; if(/\.js(\?|$)/i.test(u)) show("Gagal load skrip: "+u); return; }
+    show((e&&e.message||"error")+"\n  @ "+(e&&e.filename||"?")+":"+(e&&e.lineno||"?")+":"+(e&&e.colno||"?"));
+  },true);
+  window.addEventListener("unhandledrejection",function(e){
+    var r=e&&e.reason; show("Promise error: "+((r&&(r.stack||r.message))||String(r)));
+  });
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;700;800&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/admin-theme.css">
