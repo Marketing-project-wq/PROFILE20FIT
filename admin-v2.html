@@ -626,6 +626,17 @@
           .ro-photo{display:flex;align-items:center;gap:12px}
           .ro-photo-prev{width:64px;height:64px;border-radius:var(--radius-sm);background:var(--surface) center/cover no-repeat;border:1px solid var(--line);flex:0 0 auto;display:grid;place-items:center;color:var(--ink-4);font-size:22px}
           .ro-thumb{width:40px;height:40px;border-radius:8px;background:var(--surface) center/cover no-repeat;display:inline-grid;place-items:center;color:var(--ink-4);font-size:18px}
+          .ro-viewtog{display:inline-flex;border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden}
+          .ro-viewtog button{border:0;border-radius:0;padding:5px 9px;background:transparent;cursor:pointer;color:var(--ink-3);line-height:1}
+          .ro-viewtog button[aria-pressed="true"]{background:var(--accent,#C41101);color:#fff}
+          .ro-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+          .ro-card{border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;background:var(--surface);display:flex;flex-direction:column}
+          .ro-card-ph{aspect-ratio:4/3;background:var(--surface) center/cover no-repeat;display:grid;place-items:center;color:var(--ink-4);font-size:30px}
+          .ro-card-b{padding:10px 12px;display:flex;flex-direction:column;gap:5px;flex:1}
+          .ro-card-nm{font-weight:700;font-size:13.5px;line-height:1.3}
+          .ro-card-meta{font-size:11.5px;color:var(--ink-3)}
+          .ro-card-tags{display:flex;flex-wrap:wrap;gap:4px}
+          .ro-card-act{display:flex;gap:6px;margin-top:auto;padding-top:6px}
         </style>
         <div class="adm-tabs" data-tabgroup="menu" data-default="official">
           <button data-tab="menu" data-tab-id="official" data-i18n="Official recipes">Resep official</button>
@@ -640,6 +651,10 @@
             <button class="adm-btn adm-btn--sm" id="roSeedBtn" data-i18n="Import official catalog">Import katalog official</button>
             <input class="adm-input" id="roSearch" style="max-width:240px" placeholder="Cari resep…" data-i18n-ph="Search recipe…">
             <span class="adm-note" id="roCount" style="margin-left:auto"></span>
+            <div class="ro-viewtog" role="group" aria-label="View">
+              <button id="roViewList" aria-pressed="true" title="List">&#9776;</button>
+              <button id="roViewGrid" aria-pressed="false" title="Grid">&#9638;</button>
+            </div>
           </div>
 
           <div class="adm-panel" id="roForm" hidden style="margin-bottom:14px">
@@ -690,12 +705,13 @@
             </div>
           </div>
 
-          <div class="adm-panel" style="padding:0;overflow-x:auto">
+          <div class="adm-panel" id="roListWrap" style="padding:0;overflow-x:auto">
             <table class="adm-table" id="roTable">
               <thead><tr><th data-i18n="Photo">Foto</th><th data-i18n="Name">Nama</th><th class="adm-right" data-i18n="kcal">kkal</th><th data-i18n="Diet">Diet</th><th data-i18n="Published">Tayang</th><th data-i18n="Action">Aksi</th></tr></thead>
               <tbody id="roRows"><tr><td colspan="6"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
             </table>
           </div>
+          <div class="ro-cards" id="roGrid" hidden></div>
           <div class="adm-note" id="roEmpty" hidden data-i18n="No official recipes yet.">Belum ada resep official.</div>
         </div>
 
@@ -2154,6 +2170,7 @@
   // ---- RESEP OFFICIAL (CMS my20fit_recipe_official via /api/admin/recipes) ----
   var RO_DIET=["normal","vegetarian","vegan","pescatarian","keto","halal","high-protein","low-carb"];
   var RO_LIST=[], RO_EDIT=null, RO_PHOTO=null, _roBound=false;
+  var RO_VIEW=(function(){ try{ return localStorage.getItem("ro_view")==="grid"?"grid":"list"; }catch(e){ return "list"; } })();
   function roEl(id){ return document.getElementById(id); }
   function roDietChips(){
     var box=roEl("roDiet"); if(!box) return;
@@ -2196,8 +2213,31 @@
         '<td><div class="afcl-act"><button class="adm-btn adm-btn--sm" onclick="roEdit(\''+esc(r.id)+'\')" data-i18n="Edit">Edit</button>'+
           '<button class="adm-btn adm-btn--sm" onclick="roDelete(\''+esc(r.id)+'\')" data-i18n="Delete">Hapus</button></div></td></tr>';
     }).join("");
+    var grid=roEl("roGrid");
+    if(grid) grid.innerHTML=RO_LIST.map(function(r){
+      var ph=r.photo_url?('<div class="ro-card-ph" style="background-image:url(\''+esc(r.photo_url)+'\')"></div>'):('<div class="ro-card-ph">'+(r.emoji?"🍱":"🍽️")+'</div>');
+      var diet=(Array.isArray(r.diet_types)?r.diet_types:[]).slice(0,3).map(function(d){return '<span class="adm-tag adm-tag--mute">'+esc(d)+'</span>';}).join(" ");
+      var pub=r.is_published?'':(' · '+L("Hidden","Disembunyikan"));
+      return '<div class="ro-card">'+ph+'<div class="ro-card-b">'+
+        '<div class="ro-card-nm">'+esc(r.name_id||r.name_en||r.id)+'</div>'+
+        '<div class="ro-card-meta">'+(r.kcal!=null?(r.kcal+" kkal"):"—")+pub+'</div>'+
+        '<div class="ro-card-tags">'+diet+'</div>'+
+        '<div class="ro-card-act"><button class="adm-btn adm-btn--sm" onclick="roEdit(\''+esc(r.id)+'\')" data-i18n="Edit">Edit</button>'+
+          '<button class="adm-btn adm-btn--sm" onclick="roDelete(\''+esc(r.id)+'\')" data-i18n="Delete">Hapus</button></div></div></div>';
+    }).join("");
+    roApplyView();
     if(window.applyAdmLang) window.applyAdmLang();
   }
+  function roApplyView(){
+    var listWrap=roEl("roListWrap"), grid=roEl("roGrid");
+    var bl=roEl("roViewList"), bg=roEl("roViewGrid");
+    var isGrid=RO_VIEW==="grid";
+    if(listWrap) listWrap.hidden=isGrid;
+    if(grid) grid.hidden=!isGrid;
+    if(bl) bl.setAttribute("aria-pressed",String(!isGrid));
+    if(bg) bg.setAttribute("aria-pressed",String(isGrid));
+  }
+  function roSetView(v){ RO_VIEW=(v==="grid")?"grid":"list"; try{ localStorage.setItem("ro_view",RO_VIEW); }catch(e){} roApplyView(); }
   function roOpenForm(rec){
     RO_EDIT=rec?rec.id:null;
     var t=roEl("roFormTitle"); if(t){ t.textContent=rec?L("Edit recipe","Edit resep"):L("New recipe","Resep baru"); }
@@ -2277,6 +2317,8 @@
     var pf=roEl("roPhotoFile"); if(pf) pf.onchange=function(){ if(pf.files&&pf.files[0]) roUploadPhoto(pf.files[0]); pf.value=""; };
     var pc=roEl("roPhotoClear"); if(pc) pc.onclick=function(){ roSetPhoto(null); };
     var pl=roEl("roPhotoLink"); if(pl) pl.oninput=function(){ roSetPhoto(pl.value, true); };
+    var vl=roEl("roViewList"); if(vl) vl.onclick=function(){ roSetView("list"); };
+    var vg=roEl("roViewGrid"); if(vg) vg.onclick=function(){ roSetView("grid"); };
     var se=roEl("roSearch"); if(se){ var t; se.addEventListener("input",function(){ clearTimeout(t); t=setTimeout(loadRecipesOfficial,300); }); }
   }
 
