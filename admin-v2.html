@@ -1105,6 +1105,33 @@
         <div style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap">
           <button class="adm-btn adm-btn--primary adm-btn--sm" id="rosOrderSave" onclick="roOrderSave()" data-i18n="Save order">Simpan urutan</button>
           <span class="adm-note" id="rosOrderMsg"></span>
+          <span class="adm-note" style="margin:0" data-i18n="Tip: click a card to quickly edit its photo, speciality &amp; description.">Tip: klik kartu untuk edit cepat foto, keahlian &amp; deskripsi.</span>
+        </div>
+
+        <!-- Edit cepat dari kartu mockup (muncul saat kartu diklik) -->
+        <div id="rosQuick" hidden style="margin-top:12px;max-width:640px;border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--card);box-shadow:var(--shadow-sm)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <span id="rqAv" class="rm-av" style="width:44px;height:44px;margin:0;font-size:16px"></span>
+            <div style="min-width:0;flex:1">
+              <div style="font-weight:700;font-size:14px" id="rqName"></div>
+              <div class="adm-note" style="margin:0" id="rqMeta"></div>
+            </div>
+            <button class="adm-btn adm-btn--sm" onclick="roQuickClose()" data-i18n="Close">Tutup</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+            <label class="afset-f" style="grid-column:1/-1"><span data-i18n="Speciality (optional)">Keahlian (opsional)</span><input class="adm-input" id="rq_speciality"></label>
+            <label class="afset-f" style="grid-column:1/-1"><span data-i18n="Photo URL (file or link)">URL foto (file atau link)</span><input class="adm-input" id="rq_photo" placeholder="https://… / otomatis dari upload" data-i18n-ph="https://… / auto from upload"></label>
+            <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <input type="file" id="rq_photo_file" accept="image/png,image/jpeg,image/webp" style="font-size:12px" onchange="admPhotoPick(this,{kind:roQuickRole(),urlId:'rq_photo',prevId:'rq_photo_prev',msgId:'rq_photo_msg'})">
+              <img id="rq_photo_prev" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;display:none;border:1px solid var(--line)">
+              <span class="adm-note" id="rq_photo_msg" style="margin:0"></span>
+            </div>
+            <label class="afset-f" style="grid-column:1/-1"><span data-i18n="Description / bio">Deskripsi / bio</span><textarea class="adm-input" id="rq_bio" style="min-height:76px" placeholder="Tampil saat member klik kartunya di my.20fit." data-i18n-ph="Shown when a member taps the card on my.20fit."></textarea></label>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
+            <button class="adm-btn adm-btn--primary adm-btn--sm" onclick="roQuickSave()" data-i18n="Save changes">Simpan perubahan</button>
+            <span class="adm-note" id="rqMsg"></span>
+          </div>
         </div>
 
         <!-- Form roster terpadu: Coach / Dokter / Fisio (satu form, pembeda tipe) -->
@@ -2919,7 +2946,7 @@
     try{ var res=await adminPost("/api/admin/reward-claims/"+encodeURIComponent(id)+"/fulfill",{ status:status }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadRewardClaims(); }catch(e){}
   };
   // ---- COACH & DOCTOR ROSTER (section Coaches) — roster + alias mapping + doctor roster ----
-  var CO_CACHE=[], IV_CACHE=[], RO_CACHE=[], RO_DIRTY=false;
+  var CO_CACHE=[], IV_CACHE=[], RO_CACHE=[], RO_DIRTY=false, RO_QUICK=null;
   function coV(id){ var el=document.getElementById(id); return el?el.value:""; }
   function coTag(v){ return v==="gym"?"Gym":(v==="arena"?"Arena":"Arena + Gym"); }
   function roKey(p){ return (p.role||"")+":"+(p.id||""); }
@@ -3039,6 +3066,8 @@
         var keys=liveCards().map(function(c){ return c.dataset.key; });
         RO_CACHE.sort(function(a,b){ return keys.indexOf(roKey(a)) - keys.indexOf(roKey(b)); });
         RO_DIRTY=true; roOrderMsg();
+      } else {
+        roQuickOpen(dragEl.dataset.key);   // tap tanpa geser = buka edit cepat
       }
       dragEl=null; pid=null; moved=false;
     }
@@ -3062,6 +3091,41 @@
       RO_CACHE.forEach(function(p,i){ p.sort_order=i; }); RO_DIRTY=false;
       if(msg)msg.textContent=L("Order saved ✓","Urutan tersimpan ✓"); roRenderList();
     }catch(e){ if(msg)msg.textContent=L("Error saving order.","Error menyimpan urutan."); }
+  };
+  // Edit cepat dari kartu mockup: ubah foto / keahlian / deskripsi tanpa buka form penuh.
+  window.roQuickRole=function(){ return RO_QUICK?RO_QUICK.role:"coach"; };
+  function roQuickOpen(key){
+    var i=key.indexOf(":"); var role=key.slice(0,i), id=key.slice(i+1);
+    var p=roFind(role,id); if(!p) return;
+    RO_QUICK={ role:role, id:id };
+    var panel=document.getElementById("rosQuick"); if(!panel) return;
+    document.getElementById("rqName").textContent=p.display_name||"";
+    document.getElementById("rqMeta").textContent=roLabel(role)+(role==="coach"&&p.venue?(" · "+coTag(p.venue)):"");
+    var av=document.getElementById("rqAv");
+    if(p.photo_url){ av.innerHTML='<img src="'+evEsc(p.photo_url)+'" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">'; }
+    else { av.textContent=String(p.display_name||"?").trim().slice(0,1).toUpperCase(); }
+    document.getElementById("rq_speciality").value=p.speciality||"";
+    document.getElementById("rq_photo").value=p.photo_url||"";
+    document.getElementById("rq_bio").value=p.bio||"";
+    var pp=document.getElementById("rq_photo_prev"); if(pp){ if(p.photo_url){pp.src=p.photo_url;pp.style.display="inline-block";}else{pp.style.display="none";} }
+    var pm=document.getElementById("rq_photo_msg"); if(pm)pm.textContent=""; var m=document.getElementById("rqMsg"); if(m)m.textContent="";
+    panel.hidden=false;
+    try{ panel.scrollIntoView({block:"nearest"}); }catch(_){}
+  }
+  window.roQuickClose=function(){ RO_QUICK=null; var p=document.getElementById("rosQuick"); if(p)p.hidden=true; };
+  window.roQuickSave=async function(){
+    if(!RO_QUICK) return; var msg=document.getElementById("rqMsg");
+    var p=roFind(RO_QUICK.role, RO_QUICK.id); if(!p){ roQuickClose(); return; }
+    // Kirim baris PENUH (endpoint upsert menimpa semua kolom) — nilai lama dari RO_CACHE + 3 field yg diedit.
+    var body={ id:p.id, display_name:p.display_name, speciality:coV("rq_speciality")||null,
+      photo_url:coV("rq_photo")||null, bio:coV("rq_bio")||null,
+      sort_order:(p.sort_order!=null?p.sort_order:0), is_active:(p.is_active!==false) };
+    if(RO_QUICK.role==="coach") body.venue=p.venue||"both";
+    if(msg)msg.textContent=L("Saving…","Menyimpan…");
+    try{ var res=await adminPost(roEndpoint(RO_QUICK.role), body); var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
+      if(msg)msg.textContent=L("Saved ✓","Tersimpan ✓"); roQuickClose(); loadCoaches();
+    }catch(e){ if(msg)msg.textContent=L("Error saving.","Error menyimpan."); }
   };
   function roVenueToggle(){ var w=document.getElementById("ro_venue_wrap"); if(w) w.style.display=(roKind()==="coach")?"":"none"; }
   window.roVenueToggle=roVenueToggle;
@@ -3152,10 +3216,12 @@
       r.readAsDataURL(file);
     });
   }
-  window.admPhotoPick = async function(input){
+  window.admPhotoPick = async function(input, ctx){
     var file = input && input.files && input.files[0]; if(!file) return;
-    var kind = roKind();  // coach / doctor / physiotherapist — dari selector Tipe di form roster terpadu
-    var msg = document.getElementById("ro_photo_msg"), prev = document.getElementById("ro_photo_prev"), urlEl = document.getElementById("ro_photo");
+    // ctx opsional: {kind, urlId, prevId, msgId}. Default = form roster terpadu (ro_*).
+    ctx = ctx || { kind: roKind(), urlId:"ro_photo", prevId:"ro_photo_prev", msgId:"ro_photo_msg" };
+    var kind = ctx.kind || "coach";  // coach / doctor / physiotherapist
+    var msg = document.getElementById(ctx.msgId), prev = document.getElementById(ctx.prevId), urlEl = document.getElementById(ctx.urlId);
     if(file.size > 5*1024*1024){ if(msg) msg.textContent=L("Max 5MB.","Maks 5MB."); input.value=""; return; }
     if(msg) msg.textContent=L("Optimizing…","Mengoptimalkan…");
     try{

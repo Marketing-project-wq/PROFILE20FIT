@@ -584,7 +584,8 @@
       #rosterSection .rchip .dot{width:8px;height:8px;border-radius:99px;flex:none}
       #rosterSection .teamwrap{position:relative}
       /* Kartu Book-session gaya mockup: bordered, foto bulat, badge peran, tombol Book session. */
-      #rosterSection .percard{flex:0 0 172px;width:172px;scroll-snap-align:start;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:14px 12px 13px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative}
+      #rosterSection .percard{flex:0 0 172px;width:172px;scroll-snap-align:start;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:14px 12px 13px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;cursor:pointer}
+      #rosterSection .percard:focus-visible{outline:2px solid var(--red);outline-offset:2px}
       #rosterSection .perbadge{position:absolute;top:10px;left:10px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#fff;border-radius:6px;padding:3px 7px}
       #rosterSection .perav{width:92px;height:92px;border-radius:50%;margin:16px auto 10px;position:relative;overflow:hidden;background:var(--inp);border:1px solid var(--line)}
       #rosterSection .perav img{width:100%;height:100%;object-fit:cover;object-position:center 28%;display:block}
@@ -592,7 +593,7 @@
       #rosterSection .pernm{font-weight:800;font-size:15px;margin-top:2px;color:var(--txt);line-height:1.2;overflow-wrap:anywhere}
       #rosterSection .persp{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.3;min-height:15px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
       #rosterSection .pernophoto{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.25;opacity:.8}
-      #rosterSection .perbook{margin-top:12px;width:100%;background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);border-radius:11px;padding:9px;font-weight:800;font-size:12.5px;text-align:center}
+      #rosterSection .perbook{margin-top:12px;width:100%;background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);border-radius:11px;padding:9px;font-weight:800;font-size:12.5px;text-align:center;text-decoration:none;display:block;cursor:pointer}
       /* Panah hanya tampil saat overflow (class has-arrows) & di desktop. */
       #rosterSection .teamarrow{position:absolute;top:64px;z-index:3;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;display:none;place-items:center;box-shadow:0 6px 16px rgba(0,0,0,.16)}
       #rosterSection .teamarrow svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
@@ -1482,22 +1483,74 @@
           rail.innerHTML = flt.map(function (p) {
             var role = ROLE_LBL[p.role] ? Lx(ROLE_LBL[p.role]) : "";
             var badge = '<span class="perbadge" style="background:' + badgeBg(p.role) + '">' + esc(role) + '</span>';
+            var href = teamHref(p);
+            var bookLbl = esc(Lx({ en: "Book session", id: "Book sesi" }));
+            // Kartu = klik buka detail (deskripsi+specialty). Tombol Book langsung ke booking (stopPropagation).
+            var book = href ? '<a class="perbook" href="' + esc(href) + '" onclick="event.stopPropagation()">' + bookLbl + '</a>'
+              : '<span class="perbook">' + bookLbl + '</span>';
             // Tanda "foto belum ada": tampil saat photo_url kosong; dibuka rosterPhotoFail() bila URL 404.
             var inner = badge + avatar(p.name, p.photo_url) + '<div class="pernm">' + esc(p.name) + '</div>'
               + '<div class="persp">' + esc(p.speciality || "") + '</div>'
               + '<div class="pernophoto" data-en="' + esc(NOPHOTO.en) + '" data-id="' + esc(NOPHOTO.id) + '"'
               + (p.photo_url ? " hidden" : "") + '>' + esc(Lx(NOPHOTO)) + '</div>'
-              + '<span class="perbook">' + esc(Lx({ en: "Book session", id: "Book sesi" })) + '</span>';
-            var href = teamHref(p);
-            return href ? '<a class="percard" href="' + esc(href) + '">' + inner + '</a>' : '<div class="percard">' + inner + '</div>';
+              + book;
+            return '<div class="percard" data-id="' + esc(p.id) + '" data-role="' + esc(p.role) + '" tabindex="0" role="button">' + inner + '</div>';
           }).join("");
           sec.hidden = false;
+          if (!rail._rbound) {
+            rail._rbound = true;
+            rail.addEventListener("click", function (e) {
+              if (e.target.closest(".perbook")) return;     // tombol Book -> langsung booking
+              var c = e.target.closest(".percard"); if (!c) return;
+              openRosterModal(rosterFind(c.getAttribute("data-id"), c.getAttribute("data-role")));
+            });
+            rail.addEventListener("keydown", function (e) {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              var c = e.target.closest && e.target.closest(".percard"); if (!c) return;
+              e.preventDefault(); openRosterModal(rosterFind(c.getAttribute("data-id"), c.getAttribute("data-role")));
+            });
+          }
           // Panah hanya kalau overflow (tak muat semua).
           requestAnimationFrame(function () { sec.classList.toggle("has-arrows", rail.scrollWidth > rail.clientWidth + 4); });
         }
+        function rosterFind(id, role) { return (TEAM_CACHE || []).filter(function (x) { return String(x.id) === String(id) && x.role === role; })[0]; }
+        function rmEnsure() {
+          var ov = document.getElementById("rmodal"); if (ov) return ov;
+          ov = document.createElement("div"); ov.id = "rmodal"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true");
+          ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:1200;padding:20px";
+          ov.innerHTML = '<div style="background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:20px;max-width:380px;width:100%;max-height:88vh;overflow:auto;padding:24px 20px 22px;position:relative;box-shadow:0 18px 50px rgba(0,0,0,.4)">'
+            + '<button id="rmx" type="button" aria-label="Close" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:20px;line-height:1;cursor:pointer">×</button>'
+            + '<div id="rmav" class="perav" style="margin:2px auto 12px"></div>'
+            + '<div id="rmnm" style="font-weight:900;font-size:21px;text-align:center;color:var(--ink);line-height:1.2;overflow-wrap:anywhere"></div>'
+            + '<div id="rmbadge" style="display:flex;justify-content:center;margin-top:9px"></div>'
+            + '<div id="rmsp" style="text-align:center;color:var(--ink);font-size:14px;margin-top:10px;font-weight:700"></div>'
+            + '<div id="rmbio" style="margin-top:14px;font-size:13.5px;line-height:1.6;white-space:pre-wrap"></div>'
+            + '<a id="rmbook" style="display:block;margin-top:20px;background:var(--red);color:#fff;border-radius:12px;padding:12px;font-weight:800;font-size:14px;text-align:center;text-decoration:none"></a>'
+            + '</div>';
+          document.body.appendChild(ov);
+          ov.addEventListener("click", function (e) { if (e.target === ov) closeRosterModal(); });
+          ov.querySelector("#rmx").addEventListener("click", closeRosterModal);
+          if (!window._rmEsc) { window._rmEsc = true; document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeRosterModal(); }); }
+          return ov;
+        }
+        function closeRosterModal() { var ov = document.getElementById("rmodal"); if (ov) ov.style.display = "none"; }
+        function openRosterModal(p) {
+          if (!p) return; var ov = rmEnsure();
+          var color = colorFor(p.name);
+          var ini = '<span class="perini" style="' + (p.photo_url ? "display:none;" : "") + 'background:' + color + '">' + esc(initials(p.name)) + '</span>';
+          ov.querySelector("#rmav").innerHTML = (p.photo_url ? ('<img src="' + esc(p.photo_url) + '" alt="' + esc(p.name) + '" style="width:100%;height:100%;object-fit:cover;object-position:center 28%" onerror="rosterPhotoFail(this)">' + ini) : ini);
+          ov.querySelector("#rmnm").textContent = p.name;
+          ov.querySelector("#rmbadge").innerHTML = '<span style="background:' + badgeBg(p.role) + ';font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#fff;border-radius:6px;padding:4px 11px">' + esc(ROLE_LBL[p.role] ? Lx(ROLE_LBL[p.role]) : p.role) + '</span>';
+          var sp = ov.querySelector("#rmsp"); if (p.speciality) { sp.textContent = p.speciality; sp.style.display = ""; } else { sp.style.display = "none"; }
+          var bio = ov.querySelector("#rmbio");
+          if (p.bio) { bio.textContent = p.bio; bio.style.color = "var(--ink)"; } else { bio.textContent = Lx({ en: "No description yet.", id: "Belum ada deskripsi." }); bio.style.color = "var(--muted)"; }
+          var bk = ov.querySelector("#rmbook"); var href = teamHref(p);
+          if (href) { bk.href = href; bk.style.display = ""; bk.textContent = Lx({ en: "Book session", id: "Book sesi" }); } else { bk.style.display = "none"; }
+          ov.style.display = "flex";
+        }
         if (TEAM_CACHE) { render(TEAM_CACHE); return; }
         // Sumber tunggal: /api/team (view gabungan, peran tercampur by sort_order).
-        fetch("/api/team").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+        fetch("/api/team?include_bio=1").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
           TEAM_CACHE = (j && j.ok && j.team) || []; render(TEAM_CACHE);
         }).catch(function () {});
       };
