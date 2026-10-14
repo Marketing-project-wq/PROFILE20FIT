@@ -1549,7 +1549,7 @@
           ov.style.display = "flex";
         }
         if (TEAM_CACHE) { render(TEAM_CACHE); return; }
-        // Sumber tunggal: /api/team (view gabungan, peran tercampur by sort_order).
+        // Sumber tunggal: /api/team (view gabungan; dikelompokkan per peran, urut sort_order).
         fetch("/api/team?include_bio=1").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
           TEAM_CACHE = (j && j.ok && j.team) || []; render(TEAM_CACHE);
         }).catch(function () {});

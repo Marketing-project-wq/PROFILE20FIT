@@ -1077,12 +1077,14 @@
         <div class="adm-sec-title" style="margin-top:20px" data-i18n="Claims">Klaim member</div>
         <div id="rwClaims"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
       </section>
-      <section data-section="coaches" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Coach &amp; Dokter" data-title-en="Coaches &amp; Doctors" data-question="Satu roster coach + dokter + fisio (tampil di Meet Coaches &amp; Doctors / Book Coach &amp; home): tambah/edit/hapus, ganti tipe &amp; foto, atur urutan tampil lewat mockup seret, plus pemetaan alias instruktur ke jadwal." data-question-en="One roster of coaches + doctors + physios (shown on Meet Coaches &amp; Doctors / Book Coach &amp; home): add/edit/delete, change type &amp; photo, set display order via drag mockup, plus instructor-alias mapping to schedules.">
+      <section data-section="coaches" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Coach &amp; Dokter" data-title-en="Coaches &amp; Doctors" data-question="Satu roster coach + dokter + fisio (tampil di Meet Coaches &amp; Doctors / Book Coach &amp; home): tambah/edit/hapus, ganti tipe &amp; foto, atur urutan tampil per tipe lewat mockup seret (tersimpan otomatis), plus pemetaan alias instruktur ke jadwal." data-question-en="One roster of coaches + doctors + physios (shown on Meet Coaches &amp; Doctors / Book Coach &amp; home): add/edit/delete, change type &amp; photo, set display order per type via drag mockup (auto-saved), plus instructor-alias mapping to schedules.">
         <div class="adm-note" data-i18n="Roster shown to members. Not linked to arena_coaches/gym_coaches. Class filtering uses the alias map below, not text matching — assign every instructor value to a coach or its classes stay invisible on the coach page.">Roster yang ditampilkan ke member. Tidak terhubung ke arena_coaches/gym_coaches. Penyaringan kelas pakai pemetaan alias di bawah, BUKAN cocok teks — tugaskan tiap nilai instructor ke coach, kalau tidak kelasnya tak terlihat di halaman coach.</div>
 
         <style>
           /* Mockup urutan — meniru carousel kartu /team (meet coaches & doctors) */
           .rosmock{display:flex;gap:12px;overflow-x:auto;padding:6px 2px 12px}
+          .rosmock-grp{margin-top:10px}
+          .rosmock-h{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center;gap:8px}
           .rosmock::-webkit-scrollbar{height:7px}.rosmock::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
           .rosmock-card{flex:0 0 150px;width:150px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;transition:transform .12s ease}
           .rosmock-card.dragging{opacity:.9;cursor:grabbing;box-shadow:0 10px 26px rgba(0,0,0,.28);transform:scale(1.04);z-index:2}
@@ -1098,13 +1100,13 @@
           .ros-badge.coach{background:var(--accent);color:#fff}.ros-badge.doctor{background:#2F6BFF;color:#fff}.ros-badge.physiotherapist{background:#0EA5A5;color:#fff}
         </style>
 
-        <!-- Mockup urutan: meniru /team, seret untuk atur urutan tampil di my.20fit (satu sumber urutan) -->
+        <!-- Mockup urutan: satu baris per tipe (coach / dokter / fisio). Seret di dalam barisnya; urutan langsung tersimpan. -->
         <div class="adm-sec-title" style="margin-top:18px" data-i18n="Display order (drag to reorder)">Urutan tampil (seret untuk atur)</div>
-        <div class="adm-note" data-i18n="Mirrors the my.20fit &quot;Meet coaches &amp; doctors&quot; page. Drag cards to set the mixed order (coach/doctor/physio), then Save. This is the single source of the display order.">Meniru halaman &quot;Meet coaches &amp; doctors&quot; di my.20fit. Seret kartu untuk atur urutan campur (coach/dokter/fisio), lalu Simpan. Ini satu-satunya sumber urutan tampil.</div>
-        <div id="rosMock" class="rosmock"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+        <div class="adm-note" data-i18n="One row per type — coaches with coaches, doctors with doctors, physios with physios (same grouping on my.20fit). Drag a card within its row; the order is saved automatically and stays after refresh.">Satu baris per tipe — coach dengan coach, dokter dengan dokter, fisio dengan fisio (pengelompokan sama di my.20fit). Seret kartu di dalam barisnya; urutan tersimpan otomatis dan tetap sama setelah refresh.</div>
+        <div id="rosMock"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
         <div style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap">
-          <button class="adm-btn adm-btn--primary adm-btn--sm" id="rosOrderSave" onclick="roOrderSave()" data-i18n="Save order">Simpan urutan</button>
-          <span class="adm-note" id="rosOrderMsg"></span>
+          <span class="adm-note" id="rosOrderMsg" style="margin:0"></span>
+          <button class="adm-btn adm-btn--sm" id="rosOrderRetry" onclick="roOrderSave()" hidden data-i18n="Retry save">Coba simpan lagi</button>
           <span class="adm-note" style="margin:0" data-i18n="Tip: click a card to quickly edit its photo, speciality &amp; description.">Tip: klik kartu untuk edit cepat foto, keahlian &amp; deskripsi.</span>
         </div>
 
@@ -2946,12 +2948,14 @@
     try{ var res=await adminPost("/api/admin/reward-claims/"+encodeURIComponent(id)+"/fulfill",{ status:status }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadRewardClaims(); }catch(e){}
   };
   // ---- COACH & DOCTOR ROSTER (section Coaches) — roster + alias mapping + doctor roster ----
-  var CO_CACHE=[], IV_CACHE=[], RO_CACHE=[], RO_DIRTY=false, RO_QUICK=null;
+  var CO_CACHE=[], IV_CACHE=[], RO_CACHE=[], RO_QUICK=null;
   function coV(id){ var el=document.getElementById(id); return el?el.value:""; }
   function coTag(v){ return v==="gym"?"Gym":(v==="arena"?"Arena":"Arena + Gym"); }
   function roKey(p){ return (p.role||"")+":"+(p.id||""); }
   function roFind(role,id){ for(var i=0;i<RO_CACHE.length;i++){ if(String(RO_CACHE[i].role)===String(role)&&String(RO_CACHE[i].id)===String(id)) return RO_CACHE[i]; } return null; }
-  function roIdxByKey(k){ for(var i=0;i<RO_CACHE.length;i++){ if(roKey(RO_CACHE[i])===k) return i; } return -1; }
+  // Urutan grup tetap: coach → dokter → fisio. Di dalam grup: sort_order (sama dgn /api/team).
+  var RO_ROLES=["coach","doctor","physiotherapist"];
+  function roGroupSort(){ RO_CACHE.sort(function(a,b){ return (RO_ROLES.indexOf(a.role)-RO_ROLES.indexOf(b.role)) || ((a.sort_order||0)-(b.sort_order||0)) || String(a.display_name||"").localeCompare(String(b.display_name||"")); }); }
   function roKind(){ var el=document.getElementById("ro_role"); return el?el.value:"coach"; }
   function roLabel(role){ return role==="doctor"?L("Doctor","Dokter"):role==="physiotherapist"?L("Physio","Fisio"):L("Coach","Coach"); }
   async function loadCoaches(){
@@ -2965,9 +2969,8 @@
       var res=await adminFetch("/api/admin/roster");
       var j=await res.json().catch(function(){return null;});
       if(!j||!j.ok){ var em='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; if(list)list.innerHTML=em; if(mock)mock.innerHTML=em; return; }
-      RO_CACHE=(j.roster||[]).slice();
+      RO_CACHE=(j.roster||[]).slice(); roGroupSort();
       CO_CACHE=RO_CACHE.filter(function(p){return p.role==="coach";});
-      RO_DIRTY=false;
       roRenderList(); roRenderMock();
     }catch(e){ var ee='<div class="adm-note">'+L("Error loading roster.","Error memuat roster.")+'</div>'; if(list)list.innerHTML=ee; if(mock)mock.innerHTML=ee; }
   }
@@ -3008,18 +3011,26 @@
   function roRenderMock(){
     var box=document.getElementById("rosMock"); if(!box) return;
     if(!RO_CACHE.length){ box.innerHTML='<div class="adm-note">'+L("Roster is empty.","Roster kosong.")+'</div>'; return; }
-    box.innerHTML=RO_CACHE.map(function(p,i){
-      var av=p.photo_url?('<img class="rm-av" src="'+evEsc(p.photo_url)+'" alt="">'):('<div class="rm-av">'+evEsc(String(p.display_name||"?").trim().slice(0,1).toUpperCase())+'</div>');
-      return '<div class="rosmock-card'+(p.is_active===false?" off":"")+'" data-key="'+evEsc(roKey(p))+'">'+
-        '<span class="rm-badge '+evEsc(p.role)+'">'+evEsc(roLabel(p.role))+'</span>'+
-        '<span class="rm-pos">#'+(i+1)+'</span>'+av+
-        '<div class="rm-nm">'+evEsc(p.display_name||"")+'</div>'+
-        (p.speciality?'<div class="rm-sp">'+evEsc(p.speciality)+'</div>':'')+
-      '</div>';
+    box.innerHTML=RO_ROLES.map(function(role){
+      var grp=RO_CACHE.filter(function(p){ return p.role===role; });
+      if(!grp.length) return "";
+      return '<div class="rosmock-grp"><div class="rosmock-h"><span class="adm-tag ros-badge '+evEsc(role)+'">'+evEsc(roLabel(role))+'</span>'+grp.length+'</div>'+
+        '<div class="rosmock" data-role="'+evEsc(role)+'">'+grp.map(function(p,i){
+          var av=p.photo_url?('<img class="rm-av" src="'+evEsc(p.photo_url)+'" alt="">'):('<div class="rm-av">'+evEsc(String(p.display_name||"?").trim().slice(0,1).toUpperCase())+'</div>');
+          return '<div class="rosmock-card'+(p.is_active===false?" off":"")+'" data-key="'+evEsc(roKey(p))+'">'+
+            '<span class="rm-badge '+evEsc(p.role)+'">'+evEsc(roLabel(p.role))+'</span>'+
+            '<span class="rm-pos">#'+(i+1)+'</span>'+av+
+            '<div class="rm-nm">'+evEsc(p.display_name||"")+'</div>'+
+            (p.speciality?'<div class="rm-sp">'+evEsc(p.speciality)+'</div>':'')+
+          '</div>';
+        }).join("")+'</div></div>';
     }).join("");
-    roBindDrag(box); roOrderMsg();
+    [].slice.call(box.querySelectorAll(".rosmock")).forEach(roBindDrag);
   }
-  function roOrderMsg(){ var m=document.getElementById("rosOrderMsg"); if(m) m.textContent=RO_DIRTY?L("Unsaved order — click Save order.","Urutan belum disimpan — klik Simpan urutan."):""; }
+  function roOrderMsg(text,failed){
+    var m=document.getElementById("rosOrderMsg"); if(m) m.textContent=text||"";
+    var r=document.getElementById("rosOrderRetry"); if(r) r.hidden=!failed;
+  }
   // Drag reorder berbasis Pointer Events (bukan HTML5 DnD) supaya:
   // (1) kartu di luar layar bisa dijangkau lewat auto-scroll tepi terkendali,
   // (2) tidak bentrok dgn auto-scroll bawaan browser yang bikin rail loncat sendiri.
@@ -3063,9 +3074,9 @@
       box.removeEventListener("pointermove", onMove);
       if(moved){
         dragEl.classList.remove("dragging");
-        var keys=liveCards().map(function(c){ return c.dataset.key; });
-        RO_CACHE.sort(function(a,b){ return keys.indexOf(roKey(a)) - keys.indexOf(roKey(b)); });
-        RO_DIRTY=true; roOrderMsg();
+        // Baris ini = satu grup tipe; urutan baru grup ini → sort_order 0..n, lalu simpan otomatis.
+        liveCards().forEach(function(c,i){ var k=c.dataset.key, j=k.indexOf(":"), p=roFind(k.slice(0,j),k.slice(j+1)); if(p) p.sort_order=i; });
+        roGroupSort(); window.roOrderSave();
       } else {
         roQuickOpen(dragEl.dataset.key);   // tap tanpa geser = buka edit cepat
       }
@@ -3082,15 +3093,23 @@
       card.addEventListener("pointercancel", onUp);
     });
   }
+  // Simpan otomatis tiap selesai seret. Panggilan beruntun digabung: selama satu simpan
+  // berjalan, simpan berikutnya menunggu lalu mengirim urutan TERBARU (bukan antrean lama).
+  var RO_SAVING=null, RO_RESAVE=false;
   window.roOrderSave=async function(){
-    var msg=document.getElementById("rosOrderMsg");
-    var items=RO_CACHE.map(function(p,i){ return { role:p.role, id:p.id, sort_order:i }; });
-    if(msg)msg.textContent=L("Saving…","Menyimpan…");
-    try{ var res=await adminPost("/api/admin/roster/reorder",{ items:items }); var j=await res.json().catch(function(){return null;});
-      if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
-      RO_CACHE.forEach(function(p,i){ p.sort_order=i; }); RO_DIRTY=false;
-      if(msg)msg.textContent=L("Order saved ✓","Urutan tersimpan ✓"); roRenderList();
-    }catch(e){ if(msg)msg.textContent=L("Error saving order.","Error menyimpan urutan."); }
+    if(RO_SAVING){ RO_RESAVE=true; return RO_SAVING; }
+    RO_SAVING=(async function(){
+      do{
+        RO_RESAVE=false;
+        var items=RO_CACHE.map(function(p){ return { role:p.role, id:p.id, sort_order:p.sort_order||0 }; });
+        roOrderMsg(L("Saving order…","Menyimpan urutan…"));
+        try{ var res=await adminPost("/api/admin/roster/reorder",{ items:items }); var j=await res.json().catch(function(){return null;});
+          if(!j||!j.ok){ roOrderMsg(L("Order NOT saved: ","Urutan BELUM tersimpan: ")+(await admErr(res,j)),true); return; }
+        }catch(e){ roOrderMsg(L("Order NOT saved (network error).","Urutan BELUM tersimpan (error jaringan)."),true); return; }
+      }while(RO_RESAVE);
+      roOrderMsg(L("Order saved ✓","Urutan tersimpan ✓")); roRenderList();
+    })();
+    try{ await RO_SAVING; }finally{ RO_SAVING=null; }
   };
   // Edit cepat dari kartu mockup: ubah foto / keahlian / deskripsi tanpa buka form penuh.
   window.roQuickRole=function(){ return RO_QUICK?RO_QUICK.role:"coach"; };
@@ -3135,7 +3154,7 @@
     if(!name){ if(msg)msg.textContent=L("Display name is required.","Nama tampilan wajib."); return; }
     var role=roKind(), id=coV("ro_id")||"", origRole=coV("ro_orig_role")||"";
     var existing=id?roFind(origRole||role,id):null;
-    var sort=(existing&&existing.sort_order!=null)?existing.sort_order:(RO_CACHE.reduce(function(m,p){return Math.max(m,(p.sort_order||0));},-1)+1);
+    var sort=(existing&&existing.sort_order!=null)?existing.sort_order:(RO_CACHE.reduce(function(m,p){return p.role===role?Math.max(m,(p.sort_order||0)):m;},-1)+1);
     var base={ display_name:name, speciality:coV("ro_speciality")||null, photo_url:coV("ro_photo")||null, bio:coV("ro_bio")||null, sort_order:sort, is_active:!!(document.getElementById("ro_active")||{}).checked };
     if(role==="coach") base.venue=coV("ro_venue")||"both";
     if(msg)msg.textContent=L("Saving…","Menyimpan…");
