@@ -240,6 +240,8 @@
           <button data-tab="aff" data-tab-id="list" data-i18n="Affiliates">Affiliate</button>
           <button data-tab="aff" data-tab-id="comm" data-i18n="Commissions">Komisi</button>
           <button data-tab="aff" data-tab-id="claims" data-i18n="Claims">Klaim</button>
+          <button data-tab="aff" data-tab-id="products" data-i18n="Products">Produk</button>
+          <button data-tab="aff" data-tab-id="flags" data-i18n="Flags">Flags</button>
           <button data-tab="aff" data-tab-id="settings" data-i18n="Settings">Setelan</button>
         </div>
 
@@ -269,18 +271,22 @@
 
         <!-- Daftar Affiliate (read-only) -->
         <div data-tabpanel="aff" data-tab="list" hidden>
-          <div class="aftbl-bar">
-            <input class="adm-input" data-table-search="#affListTable" placeholder="Cari kode / status…" data-i18n-ph="Search code / status…" style="max-width:280px">
-            <span class="adm-note" data-table-info="#affListTable" style="margin-left:auto"></span>
+          <div id="affListWrap">
+            <div class="aftbl-bar">
+              <input class="adm-input" data-table-search="#affListTable" placeholder="Cari kode / status…" data-i18n-ph="Search code / status…" style="max-width:280px">
+              <span class="adm-note" data-table-info="#affListTable" style="margin-left:auto"></span>
+            </div>
+            <div class="adm-panel" style="padding:0;overflow-x:auto">
+              <table class="adm-table" id="affListTable" data-table data-page-size="20">
+                <thead><tr><th data-sort="str" data-i18n="Code">Kode</th><th data-sort="str" data-i18n="Status">Status</th><th data-sort="str" data-i18n="Joined">Bergabung</th><th class="adm-right" data-sort="num" data-i18n="Transactions">Transaksi</th><th class="adm-right" data-sort="num" data-i18n="Commission">Komisi</th><th></th></tr></thead>
+                <tbody id="affListRows"><tr><td colspan="6"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+              </table>
+            </div>
+            <div class="adm-note" data-table-empty="#affListTable" hidden data-i18n="No affiliates yet.">Belum ada affiliate.</div>
+            <div class="aftbl-foot"><button class="adm-btn adm-btn--sm" data-page-step="#affListTable" data-step="-1" data-i18n="Prev">Sebelumnya</button><button class="adm-btn adm-btn--sm" data-page-step="#affListTable" data-step="1" data-i18n="Next">Berikutnya</button></div>
           </div>
-          <div class="adm-panel" style="padding:0;overflow-x:auto">
-            <table class="adm-table" id="affListTable" data-table data-page-size="20">
-              <thead><tr><th data-sort="str" data-i18n="Code">Kode</th><th data-sort="str" data-i18n="Status">Status</th><th data-sort="str" data-i18n="Joined">Bergabung</th><th class="adm-right" data-sort="num" data-i18n="Transactions">Transaksi</th><th class="adm-right" data-sort="num" data-i18n="Commission">Komisi</th></tr></thead>
-              <tbody id="affListRows"><tr><td colspan="5"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
-            </table>
-          </div>
-          <div class="adm-note" data-table-empty="#affListTable" hidden data-i18n="No affiliates yet.">Belum ada affiliate.</div>
-          <div class="aftbl-foot"><button class="adm-btn adm-btn--sm" data-page-step="#affListTable" data-step="-1" data-i18n="Prev">Sebelumnya</button><button class="adm-btn adm-btn--sm" data-page-step="#affListTable" data-step="1" data-i18n="Next">Berikutnya</button></div>
+          <!-- Detail satu affiliate (muncul saat baris diklik) -->
+          <div id="affDetailWrap" hidden></div>
         </div>
 
         <!-- Daftar Komisi (read-only) -->
@@ -291,8 +297,8 @@
           </div>
           <div class="adm-panel" style="padding:0;overflow-x:auto">
             <table class="adm-table" id="affCommTable" data-table data-page-size="20">
-              <thead><tr><th data-sort="str" data-i18n="Code">Kode</th><th class="adm-right" data-sort="num" data-i18n="Base">Basis</th><th class="adm-right" data-sort="num" data-i18n="Rate">Rate</th><th class="adm-right" data-sort="num" data-i18n="Commission">Komisi</th><th data-sort="str" data-i18n="Status">Status</th><th data-sort="str" data-i18n="Source date">Tgl sumber</th></tr></thead>
-              <tbody id="affCommRows"><tr><td colspan="6"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+              <thead><tr><th data-sort="str" data-i18n="Code">Kode</th><th class="adm-right" data-sort="num" data-i18n="Base">Basis</th><th class="adm-right" data-sort="num" data-i18n="Rate">Rate</th><th class="adm-right" data-sort="num" data-i18n="Commission">Komisi</th><th data-sort="str" data-i18n="Status">Status</th><th data-sort="str" data-i18n="Source date">Tgl sumber</th><th data-i18n="Action">Aksi</th></tr></thead>
+              <tbody id="affCommRows"><tr><td colspan="7"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
             </table>
           </div>
           <div class="adm-note" data-table-empty="#affCommTable" hidden data-i18n="No commissions yet.">Belum ada komisi.</div>
@@ -313,6 +319,54 @@
           <div class="adm-note" style="margin-top:8px" data-i18n="Actions (mark processing / paid / reject) run via the official affiliate RPC — atomic, audited, affiliate super-admin only.">Aksi (tandai diproses / dibayar / tolak) lewat RPC resmi affiliate — atomik, tercatat audit, hanya affiliate super-admin.</div>
         </div>
 
+        <!-- Produk katalog — toggle aktif & upsert lewat RPC resmi (growth/super). rate read-only. -->
+        <div data-tabpanel="aff" data-tab="products" hidden>
+          <div id="afProdBanner" class="adm-note" style="margin-bottom:10px">—</div>
+          <div class="adm-panel" id="afProdForm" hidden style="margin-bottom:12px">
+            <div class="adm-sec-title" id="afProdFormTitle" style="margin-top:0" data-i18n="New product">Produk baru</div>
+            <div class="afset-grid">
+              <label class="afset-f"><span>Slug</span><input class="adm-input" id="apSlug" placeholder="arena-dropin"></label>
+              <label class="afset-f"><span data-i18n="Name">Nama</span><input class="adm-input" id="apName"></label>
+              <label class="afset-f"><span>Unit</span><input class="adm-input" id="apUnit" placeholder="Arena / Gym / Coach …"></label>
+              <label class="afset-f"><span data-i18n="Product ref">Ref produk</span><input class="adm-input" id="apRef" placeholder="id/ref di sistem sumber"></label>
+              <label class="afset-f afset-check"><input type="checkbox" id="apActive" checked><span data-i18n="Active">Aktif</span></label>
+            </div>
+            <div class="adm-note" style="margin-top:8px" data-i18n="Rate is set at the DB/source level — not editable here.">Rate diatur di level DB/sumber — tak bisa diubah di sini.</div>
+            <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">
+              <button class="adm-btn adm-btn--primary" id="apSave" data-i18n="Save">Simpan</button>
+              <button class="adm-btn" id="apCancel" data-i18n="Cancel">Batal</button>
+              <span class="adm-note" id="apMsg"></span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin:0 0 10px;flex-wrap:wrap">
+            <button class="adm-btn adm-btn--primary adm-btn--sm" id="afProdAdd" data-i18n="+ Add product">+ Tambah produk</button>
+            <span class="adm-note" data-i18n="Only active products earn commission; changes apply to future-paid orders.">Hanya produk aktif yang menghasilkan komisi; perubahan berlaku untuk order yang dibayar ke depan.</span>
+          </div>
+          <div class="adm-panel" style="padding:0;overflow-x:auto">
+            <table class="adm-table" id="afProdTable">
+              <thead><tr><th>Unit</th><th data-i18n="Name">Nama</th><th class="adm-mono">Slug</th><th class="adm-right" data-i18n="Rate">Rate</th><th data-i18n="Active">Aktif</th><th data-i18n="Action">Aksi</th></tr></thead>
+              <tbody id="afProdRows"><tr><td colspan="6"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Flags fraud lintas affiliate — review lewat RPC resmi (growth/super). -->
+        <div data-tabpanel="aff" data-tab="flags" hidden>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+            <button class="adm-chip afFlagF" data-s="open" aria-pressed="true" data-i18n="Open">Terbuka</button>
+            <button class="adm-chip afFlagF" data-s="confirmed" data-i18n="Confirmed">Dikonfirmasi</button>
+            <button class="adm-chip afFlagF" data-s="cleared" data-i18n="Cleared">Dibersihkan</button>
+            <button class="adm-chip afFlagF" data-s="all" data-i18n="All">Semua</button>
+          </div>
+          <div class="adm-panel" style="padding:0;overflow-x:auto">
+            <table class="adm-table" id="afFlagTable">
+              <thead><tr><th data-i18n="Code">Kode</th><th data-i18n="Type">Tipe</th><th data-i18n="Status">Status</th><th data-i18n="Created">Dibuat</th><th data-i18n="Action">Aksi</th></tr></thead>
+              <tbody id="afFlagRows"><tr><td colspan="5"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
+            </table>
+          </div>
+          <div class="adm-note" data-i18n="No flags." id="afFlagEmpty" hidden>Tidak ada flag.</div>
+        </div>
+
         <!-- Setelan program (finansial) — TULIS lewat RPC resmi affiliate_update_settings
              (atomic + audit + cek role affiliate-super). Baca via /api/admin/affiliate/settings. -->
         <div data-tabpanel="aff" data-tab="settings" hidden>
@@ -327,6 +381,21 @@
             <label class="afset-f"><span data-i18n="Income tax without NPWP (%)">PPh 21 tanpa NPWP (%)</span><input class="adm-input" id="afsTaxNo" type="number" step="0.01" min="0" inputmode="decimal"></label>
             <label class="afset-f afset-check"><input type="checkbox" id="afsOnePer"><span data-i18n="One link open = one transaction">Satu buka link = satu transaksi</span></label>
           </div>
+
+          <div class="adm-sec-title" id="afsGenTitle" style="margin:18px 0 8px" data-i18n="General settings (growth/super)">Setelan umum (growth/super)</div>
+          <div class="afset-grid">
+            <label class="afset-f"><span data-i18n="Monthly potential (Rp)">Potensi bulanan (Rp)</span><input class="adm-input" id="afsMonthly" type="number" step="1000" min="0" inputmode="numeric"></label>
+            <label class="afset-f"><span data-i18n="Terms version">Versi S&amp;K</span><input class="adm-input" id="afsTermsV" placeholder="mis. 3"></label>
+            <label class="afset-f"><span data-i18n="Terms URL (https)">URL S&amp;K (https)</span><input class="adm-input" id="afsTermsUrl" placeholder="https://…"></label>
+            <label class="afset-f"><span data-i18n="Fraud: sign-ups per device">Fraud: sign-up / device</span><input class="adm-input" id="afsFraudAcc" type="number" step="1" min="2" inputmode="numeric"></label>
+            <label class="afset-f"><span data-i18n="Fraud: within (hours)">Fraud: dalam (jam)</span><input class="adm-input" id="afsFraudWin" type="number" step="1" min="0" inputmode="numeric"></label>
+            <label class="afset-f"><span data-i18n="Fraud: spike vs avg (×)">Fraud: lonjakan vs rata² (×)</span><input class="adm-input" id="afsFraudSpike" type="number" step="0.1" min="1" inputmode="decimal"></label>
+            <label class="afset-f"><span data-i18n="Fraud: refund ratio (%)">Fraud: rasio refund (%)</span><input class="adm-input" id="afsFraudRefund" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          </div>
+          <label class="afset-f" style="margin-top:12px"><span data-i18n="Terms summary">Ringkasan S&amp;K</span><textarea class="adm-input" id="afsTermsSum" rows="2"></textarea></label>
+          <label class="afset-f" style="margin-top:12px"><span data-i18n="Sales targets (one per line: Category=N)">Target penjualan (satu per baris: Kategori=N)</span><textarea class="adm-input" id="afsTargets" rows="3" placeholder="Arena=100&#10;Gym=50"></textarea></label>
+          <label class="afset-f" style="margin-top:12px"><span data-i18n="Calculator products (one per line: Label | table | col=val)">Produk kalkulator (satu per baris: Label | tabel | kol=nilai)</span><textarea class="adm-input" id="afsCalcProducts" rows="3" placeholder="Arena drop-in | booking_products | slug=arena-dropin"></textarea></label>
+
           <div style="display:flex;align-items:center;gap:14px;margin-top:16px;flex-wrap:wrap">
             <button class="adm-btn adm-btn--primary" id="afsSave" data-i18n="Save settings">Simpan setelan</button>
             <span class="adm-note" id="afsMeta"></span>
@@ -1008,62 +1077,66 @@
         <div class="adm-sec-title" style="margin-top:20px" data-i18n="Claims">Klaim member</div>
         <div id="rwClaims"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
       </section>
-      <section data-section="coaches" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Coach &amp; Dokter" data-title-en="Coaches &amp; Doctors" data-question="Roster coach (tampil di Book Coach &amp; home) + pemetaan alias ke jadwal, plus roster dokter." data-question-en="Coach roster (shown on Book Coach &amp; home) + alias mapping to schedules, plus doctor roster.">
+      <section data-section="coaches" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Coach &amp; Dokter" data-title-en="Coaches &amp; Doctors" data-question="Satu roster coach + dokter + fisio (tampil di Meet Coaches &amp; Doctors / Book Coach &amp; home): tambah/edit/hapus, ganti tipe &amp; foto, atur urutan tampil lewat mockup seret, plus pemetaan alias instruktur ke jadwal." data-question-en="One roster of coaches + doctors + physios (shown on Meet Coaches &amp; Doctors / Book Coach &amp; home): add/edit/delete, change type &amp; photo, set display order via drag mockup, plus instructor-alias mapping to schedules.">
         <div class="adm-note" data-i18n="Roster shown to members. Not linked to arena_coaches/gym_coaches. Class filtering uses the alias map below, not text matching — assign every instructor value to a coach or its classes stay invisible on the coach page.">Roster yang ditampilkan ke member. Tidak terhubung ke arena_coaches/gym_coaches. Penyaringan kelas pakai pemetaan alias di bawah, BUKAN cocok teks — tugaskan tiap nilai instructor ke coach, kalau tidak kelasnya tak terlihat di halaman coach.</div>
 
-        <div class="adm-sec-title" style="margin-top:18px" data-i18n="Coach roster">Roster coach</div>
+        <style>
+          /* Mockup urutan — meniru carousel kartu /team (meet coaches & doctors) */
+          .rosmock{display:flex;gap:12px;overflow-x:auto;padding:6px 2px 12px;scroll-snap-type:x proximity}
+          .rosmock::-webkit-scrollbar{height:7px}.rosmock::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+          .rosmock-card{flex:0 0 150px;width:150px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;cursor:grab}
+          .rosmock-card.dragging{opacity:.45}
+          .rosmock-card.drop-left{box-shadow:-3px 0 0 var(--accent)}
+          .rosmock-card.drop-right{box-shadow:3px 0 0 var(--accent)}
+          .rosmock-card.off{opacity:.5}
+          .rm-badge{position:absolute;top:8px;left:8px;font-size:9px;font-weight:800;color:#fff;padding:2px 7px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
+          .rm-badge.coach{background:var(--accent)}.rm-badge.doctor{background:#2F6BFF}.rm-badge.physiotherapist{background:#0EA5A5}
+          .rm-pos{position:absolute;top:8px;right:8px;font-size:10px;font-weight:700;color:var(--ink-4);font-family:var(--font-mono)}
+          .rm-av{width:62px;height:62px;border-radius:50%;object-fit:cover;background:var(--surface) center/cover no-repeat;display:grid;place-items:center;color:var(--ink-4);font-weight:800;font-size:22px;margin:6px 0 8px}
+          .rm-nm{font-weight:700;font-size:13px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+          .rm-sp{font-size:11px;color:var(--ink-3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+          .ros-badge.coach{background:var(--accent);color:#fff}.ros-badge.doctor{background:#2F6BFF;color:#fff}.ros-badge.physiotherapist{background:#0EA5A5;color:#fff}
+        </style>
+
+        <!-- Mockup urutan: meniru /team, seret untuk atur urutan tampil di my.20fit (satu sumber urutan) -->
+        <div class="adm-sec-title" style="margin-top:18px" data-i18n="Display order (drag to reorder)">Urutan tampil (seret untuk atur)</div>
+        <div class="adm-note" data-i18n="Mirrors the my.20fit &quot;Meet coaches &amp; doctors&quot; page. Drag cards to set the mixed order (coach/doctor/physio), then Save. This is the single source of the display order.">Meniru halaman &quot;Meet coaches &amp; doctors&quot; di my.20fit. Seret kartu untuk atur urutan campur (coach/dokter/fisio), lalu Simpan. Ini satu-satunya sumber urutan tampil.</div>
+        <div id="rosMock" class="rosmock"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap">
+          <button class="adm-btn adm-btn--primary adm-btn--sm" id="rosOrderSave" onclick="roOrderSave()" data-i18n="Save order">Simpan urutan</button>
+          <span class="adm-note" id="rosOrderMsg"></span>
+        </div>
+
+        <!-- Form roster terpadu: Coach / Dokter / Fisio (satu form, pembeda tipe) -->
+        <div class="adm-sec-title" style="margin-top:22px" id="rosFormTitle" data-i18n="Add to roster">Tambah ke roster</div>
+        <div class="adm-note" data-i18n="For doctors/physio: fill only after they consent to be shown publicly.">Untuk dokter/fisio: isi HANYA setelah mereka setuju ditampilkan ke publik.</div>
         <div style="margin-top:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px">
-          <input type="hidden" id="co_id">
-          <input class="adm-input" id="co_name" placeholder="Nama tampilan *" data-i18n-ph="Display name *">
-          <select class="adm-input" id="co_venue">
-            <option value="both" data-i18n="both (Arena + Gym)">both (Arena + Gym)</option>
-            <option value="arena" data-i18n="arena">arena</option>
-            <option value="gym" data-i18n="gym">gym</option>
-          </select>
-          <input class="adm-input" id="co_speciality" placeholder="Keahlian (opsional)" data-i18n-ph="Speciality (optional)">
-          <input class="adm-input" id="co_photo" placeholder="URL foto (otomatis dari upload)" data-i18n-ph="Photo URL (auto from upload)">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <input type="file" id="co_photo_file" accept="image/png,image/jpeg,image/webp" style="font-size:12px" onchange="admPhotoPick(this,'coach')">
-            <img id="co_photo_prev" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;display:none;border:1px solid var(--border,#ddd)">
-            <span class="adm-note" id="co_photo_msg" style="margin:0"></span>
+          <input type="hidden" id="ro_id">
+          <input type="hidden" id="ro_orig_role">
+          <label class="afset-f"><span data-i18n="Type">Tipe</span><select class="adm-input" id="ro_role" onchange="roVenueToggle()"><option value="coach" data-i18n="Coach">Coach</option><option value="doctor" data-i18n="Doctor">Dokter</option><option value="physiotherapist" data-i18n="Physio">Fisio</option></select></label>
+          <label class="afset-f"><span data-i18n="Display name">Nama tampilan *</span><input class="adm-input" id="ro_name" placeholder="Nama tampilan *" data-i18n-ph="Display name *"></label>
+          <label class="afset-f" id="ro_venue_wrap"><span data-i18n="Venue">Venue</span><select class="adm-input" id="ro_venue"><option value="both">both (Arena + Gym)</option><option value="arena">arena</option><option value="gym">gym</option></select></label>
+          <label class="afset-f"><span data-i18n="Speciality (optional)">Keahlian (opsional)</span><input class="adm-input" id="ro_speciality"></label>
+          <label class="afset-f" style="grid-column:1/-1"><span data-i18n="Photo URL (auto from upload)">URL foto (otomatis dari upload)</span><input class="adm-input" id="ro_photo"></label>
+          <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <input type="file" id="ro_photo_file" accept="image/png,image/jpeg,image/webp" style="font-size:12px" onchange="admPhotoPick(this)">
+            <img id="ro_photo_prev" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;display:none;border:1px solid var(--line)">
+            <span class="adm-note" id="ro_photo_msg" style="margin:0"></span>
           </div>
-          <textarea class="adm-input" id="co_bio" placeholder="Bio (opsional)" data-i18n-ph="Bio (optional)" style="grid-column:1/-1;min-height:52px"></textarea>
-          <input class="adm-input" id="co_sort" type="number" placeholder="Urutan (0)" data-i18n-ph="Sort order (0)">
-          <label class="adm-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="co_active" checked> <span data-i18n="Active (visible)">Aktif (tampil)</span></label>
+          <textarea class="adm-input" id="ro_bio" placeholder="Bio (opsional)" data-i18n-ph="Bio (optional)" style="grid-column:1/-1;min-height:52px"></textarea>
+          <label class="adm-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="ro_active" checked> <span data-i18n="Active (visible)">Aktif (tampil)</span></label>
           <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="adm-btn adm-btn--primary" id="coSaveBtn" onclick="coSave()" data-i18n="Save coach">Simpan coach</button>
-            <button class="adm-btn adm-btn--sm" id="coCancelBtn" onclick="coCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
-            <span class="adm-note" id="coMsg"></span>
+            <button class="adm-btn adm-btn--primary" id="roSaveBtn" onclick="roSave()" data-i18n="Save">Simpan</button>
+            <button class="adm-btn adm-btn--sm" id="roCancelBtn" onclick="roCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
+            <span class="adm-note" id="roMsg"></span>
           </div>
         </div>
-        <div id="coList" style="margin-top:14px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+        <div id="rosList" style="margin-top:14px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
 
+        <!-- Peta alias instruktur (khusus coach) -->
         <div class="adm-sec-title" style="margin-top:24px" data-i18n="Instructor values → assign to a coach">Nilai instructor → tugaskan ke coach</div>
         <div class="adm-note" data-i18n="Every unique instructor from the class schedules. Assign each to one or more coaches. Unmapped values (their classes are invisible on the coach page) are listed first.">Semua nilai instructor unik dari jadwal kelas. Tugaskan tiap nilai ke satu atau beberapa coach. Nilai yang belum dipetakan (kelasnya tak terlihat di halaman coach) ditaruh paling atas.</div>
         <div id="ivBox" style="margin-top:10px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
-
-        <div class="adm-sec-title" style="margin-top:24px" data-i18n="Doctor roster">Roster dokter</div>
-        <div class="adm-note" data-i18n="Fill only after each doctor consents to being shown publicly. Do NOT copy from internal staff accounts. Empty = the doctor carousel on home stays hidden.">Isi HANYA setelah tiap dokter setuju ditampilkan ke publik. JANGAN menyalin dari akun staf internal. Kosong = carousel dokter di home tetap disembunyikan.</div>
-        <div style="margin-top:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:640px">
-          <input type="hidden" id="dc_id">
-          <input class="adm-input" id="dc_name" placeholder="Nama tampilan *" data-i18n-ph="Display name *">
-          <input class="adm-input" id="dc_speciality" placeholder="Keahlian (opsional)" data-i18n-ph="Speciality (optional)">
-          <input class="adm-input" id="dc_photo" placeholder="URL foto (otomatis dari upload)" data-i18n-ph="Photo URL (auto from upload)" style="grid-column:1/-1">
-          <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <input type="file" id="dc_photo_file" accept="image/png,image/jpeg,image/webp" style="font-size:12px" onchange="admPhotoPick(this,'doctor')">
-            <img id="dc_photo_prev" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;display:none;border:1px solid var(--border,#ddd)">
-            <span class="adm-note" id="dc_photo_msg" style="margin:0"></span>
-          </div>
-          <textarea class="adm-input" id="dc_bio" placeholder="Bio (opsional)" data-i18n-ph="Bio (optional)" style="grid-column:1/-1;min-height:52px"></textarea>
-          <input class="adm-input" id="dc_sort" type="number" placeholder="Urutan (0)" data-i18n-ph="Sort order (0)">
-          <label class="adm-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="dc_active" checked> <span data-i18n="Active (visible)">Aktif (tampil)</span></label>
-          <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="adm-btn adm-btn--primary" id="dcSaveBtn" onclick="dcSave()" data-i18n="Save doctor">Simpan dokter</button>
-            <button class="adm-btn adm-btn--sm" id="dcCancelBtn" onclick="dcCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
-            <span class="adm-note" id="dcMsg"></span>
-          </div>
-        </div>
-        <div id="dcList" style="margin-top:14px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
       </section>
       <section data-section="journey" hidden data-kicker="PANTAU" data-kicker-en="MONITOR" data-title="Funnel Visbody" data-title-en="Visbody funnel" data-question="Di tahap mana user berhenti: ajakan → scan → claim → hasil dilihat → coach → plan → kelas → rescan?" data-question-en="Where do users drop off: nudge → scan → claim → result viewed → coach → plan → class → rescan?">
         <div class="adm-note" data-i18n="Unique users per event per week (Mon–Sun, UTC). 'Scan received' counts scans (no user yet). Class booked = user opened booking from the checklist; the booking itself happens on booking.20fit.id and isn't verified here.">User unik per event per minggu (Sen–Min, UTC). "Scan masuk" menghitung scan (belum ada user). Book kelas = user membuka booking dari checklist; booking-nya sendiri di booking.20fit.id dan tidak terverifikasi di sini.</div>
@@ -2846,34 +2919,43 @@
     try{ var res=await adminPost("/api/admin/reward-claims/"+encodeURIComponent(id)+"/fulfill",{ status:status }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadRewardClaims(); }catch(e){}
   };
   // ---- COACH & DOCTOR ROSTER (section Coaches) — roster + alias mapping + doctor roster ----
-  var CO_CACHE=[], IV_CACHE=[];
+  var CO_CACHE=[], IV_CACHE=[], RO_CACHE=[], RO_DIRTY=false, RO_DRAG_KEY=null;
   function coV(id){ var el=document.getElementById(id); return el?el.value:""; }
   function coTag(v){ return v==="gym"?"Gym":(v==="arena"?"Arena":"Arena + Gym"); }
+  function roKey(p){ return (p.role||"")+":"+(p.id||""); }
+  function roFind(role,id){ for(var i=0;i<RO_CACHE.length;i++){ if(String(RO_CACHE[i].role)===String(role)&&String(RO_CACHE[i].id)===String(id)) return RO_CACHE[i]; } return null; }
+  function roIdxByKey(k){ for(var i=0;i<RO_CACHE.length;i++){ if(roKey(RO_CACHE[i])===k) return i; } return -1; }
+  function roKind(){ var el=document.getElementById("ro_role"); return el?el.value:"coach"; }
+  function roLabel(role){ return role==="doctor"?L("Doctor","Dokter"):role==="physiotherapist"?L("Physio","Fisio"):L("Coach","Coach"); }
   async function loadCoaches(){
-    var list=document.getElementById("coList"); if(list) list.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
-    await Promise.all([coLoadList(), coLoadDoctors()]);
-    await coLoadInstructorValues();  // butuh CO_CACHE utk dropdown
+    var list=document.getElementById("rosList"); if(list) list.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
+    await roLoad();
+    await coLoadInstructorValues();  // butuh CO_CACHE utk dropdown alias
   }
-  async function coLoadList(){
-    var list=document.getElementById("coList"); if(!list) return;
+  async function roLoad(){
+    var list=document.getElementById("rosList"), mock=document.getElementById("rosMock");
     try{
-      var res=await adminFetch("/api/admin/coaches");
+      var res=await adminFetch("/api/admin/roster");
       var j=await res.json().catch(function(){return null;});
-      if(!j||!j.ok){ list.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; return; }
-      CO_CACHE=j.coaches||[];
-      if(!CO_CACHE.length){ list.innerHTML='<div class="adm-note">'+L("No coaches yet. Add one above.","Belum ada coach. Tambah di atas.")+'</div>'; return; }
-      list.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Name","Nama")+'</th><th>'+L("Venue","Venue")+'</th><th>'+L("Aliases (mapped instructor text)","Alias (teks instructor)")+'</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+
-        CO_CACHE.map(function(c){
-          var chips=(c.aliases||[]).map(function(a){ return '<span class="adm-tag adm-tag--mute" style="margin:1px 2px">'+evEsc(a.instructor_text)+' · '+evEsc(a.source)+' <a href="#" class="alDel" data-id="'+evEsc(a.id)+'" title="'+L("Remove","Hapus")+'">'+FIC("x",16)+'</a></span>'; }).join("");
-          if(!chips) chips='<span class="adm-note" style="margin:0">'+L("none — classes won't show","belum ada — kelas tak tampil")+'</span>';
-          return '<tr><td>'+evEsc(c.display_name)+(c.speciality?'<br><span class="adm-note" style="margin:0">'+evEsc(c.speciality)+'</span>':'')+'</td>'+
-            '<td><span class="adm-tag adm-tag--mute">'+coTag(c.venue)+'</span></td>'+
-            '<td>'+chips+'</td>'+
-            '<td>'+(c.is_active?'<span class="adm-tag adm-tag--paid">'+L("yes","ya")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("no","tidak")+'</span>')+'</td>'+
-            '<td class="adm-right"><button class="adm-btn adm-btn--sm coAct" data-a="edit" data-id="'+evEsc(c.id)+'">'+L("Edit","Edit")+'</button> '+
-              '<button class="adm-btn adm-btn--sm coAct" data-a="delete" data-id="'+evEsc(c.id)+'">'+L("Delete","Hapus")+'</button></td></tr>';
-        }).join("")+'</tbody></table>';
-    }catch(e){ list.innerHTML='<div class="adm-note">'+L("Error loading coaches.","Error memuat coach.")+'</div>'; }
+      if(!j||!j.ok){ var em='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; if(list)list.innerHTML=em; if(mock)mock.innerHTML=em; return; }
+      RO_CACHE=(j.roster||[]).slice();
+      CO_CACHE=RO_CACHE.filter(function(p){return p.role==="coach";});
+      RO_DIRTY=false;
+      roRenderList(); roRenderMock();
+    }catch(e){ var ee='<div class="adm-note">'+L("Error loading roster.","Error memuat roster.")+'</div>'; if(list)list.innerHTML=ee; if(mock)mock.innerHTML=ee; }
+  }
+  function roRenderList(){
+    var list=document.getElementById("rosList"); if(!list) return;
+    if(!RO_CACHE.length){ list.innerHTML='<div class="adm-note">'+L("No one in the roster yet. Add a coach or doctor above.","Belum ada di roster. Tambah coach atau dokter di atas.")+'</div>'; return; }
+    list.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Type","Tipe")+'</th><th>'+L("Name","Nama")+'</th><th>'+L("Venue","Venue")+'</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+
+      RO_CACHE.map(function(p){
+        return '<tr><td><span class="adm-tag ros-badge '+evEsc(p.role)+'">'+evEsc(roLabel(p.role))+'</span></td>'+
+          '<td>'+evEsc(p.display_name)+(p.speciality?'<br><span class="adm-note" style="margin:0">'+evEsc(p.speciality)+'</span>':'')+'</td>'+
+          '<td>'+(p.role==="coach"?'<span class="adm-tag adm-tag--mute">'+coTag(p.venue)+'</span>':'<span class="adm-note" style="margin:0">—</span>')+'</td>'+
+          '<td>'+(p.is_active!==false?'<span class="adm-tag adm-tag--paid">'+L("yes","ya")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("no","tidak")+'</span>')+'</td>'+
+          '<td class="adm-right"><button class="adm-btn adm-btn--sm roAct" data-a="edit" data-role="'+evEsc(p.role)+'" data-id="'+evEsc(p.id)+'">'+L("Edit","Edit")+'</button> '+
+            '<button class="adm-btn adm-btn--sm roAct" data-a="delete" data-role="'+evEsc(p.role)+'" data-id="'+evEsc(p.id)+'">'+L("Delete","Hapus")+'</button></td></tr>';
+      }).join("")+'</tbody></table>';
   }
   async function coLoadInstructorValues(){
     var box=document.getElementById("ivBox"); if(!box) return;
@@ -2896,37 +2978,102 @@
         }).join("")+'</tbody></table>';
     }catch(e){ box.innerHTML='<div class="adm-note">'+L("Error loading values.","Error memuat nilai.")+'</div>'; }
   }
-  window.coSave=async function(){
-    var msg=document.getElementById("coMsg"); var name=(coV("co_name")||"").trim();
-    if(!name){ if(msg)msg.textContent=L("Display name is required.","Nama tampilan wajib."); return; }
-    var body={ id:coV("co_id")||undefined, display_name:name, venue:coV("co_venue")||"both",
-      speciality:coV("co_speciality")||null, photo_url:coV("co_photo")||null, bio:coV("co_bio")||null,
-      sort_order:parseInt(coV("co_sort"),10)||0, is_active:!!(document.getElementById("co_active")||{}).checked };
+  function roRenderMock(){
+    var box=document.getElementById("rosMock"); if(!box) return;
+    if(!RO_CACHE.length){ box.innerHTML='<div class="adm-note">'+L("Roster is empty.","Roster kosong.")+'</div>'; return; }
+    box.innerHTML=RO_CACHE.map(function(p,i){
+      var av=p.photo_url?('<img class="rm-av" src="'+evEsc(p.photo_url)+'" alt="">'):('<div class="rm-av">'+evEsc(String(p.display_name||"?").trim().slice(0,1).toUpperCase())+'</div>');
+      return '<div class="rosmock-card'+(p.is_active===false?" off":"")+'" draggable="true" data-key="'+evEsc(roKey(p))+'">'+
+        '<span class="rm-badge '+evEsc(p.role)+'">'+evEsc(roLabel(p.role))+'</span>'+
+        '<span class="rm-pos">#'+(i+1)+'</span>'+av+
+        '<div class="rm-nm">'+evEsc(p.display_name||"")+'</div>'+
+        (p.speciality?'<div class="rm-sp">'+evEsc(p.speciality)+'</div>':'')+
+      '</div>';
+    }).join("");
+    roBindDrag(box); roOrderMsg();
+  }
+  function roOrderMsg(){ var m=document.getElementById("rosOrderMsg"); if(m) m.textContent=RO_DIRTY?L("Unsaved order — click Save order.","Urutan belum disimpan — klik Simpan urutan."):""; }
+  function roBefore(card,e){ var r=card.getBoundingClientRect(); return (e.clientX-r.left) < r.width/2; }
+  function roBindDrag(box){
+    var cards=[].slice.call(box.querySelectorAll(".rosmock-card"));
+    function clear(){ cards.forEach(function(c){ c.classList.remove("drop-left","drop-right"); }); }
+    cards.forEach(function(card){
+      card.addEventListener("dragstart",function(e){ RO_DRAG_KEY=card.dataset.key; card.classList.add("dragging"); try{ e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain",RO_DRAG_KEY); }catch(_){} });
+      card.addEventListener("dragend",function(){ card.classList.remove("dragging"); clear(); });
+      card.addEventListener("dragover",function(e){ e.preventDefault(); try{ e.dataTransfer.dropEffect="move"; }catch(_){} if(card.dataset.key===RO_DRAG_KEY){ return; } var before=roBefore(card,e); card.classList.toggle("drop-left",before); card.classList.toggle("drop-right",!before); });
+      card.addEventListener("dragleave",function(){ card.classList.remove("drop-left","drop-right"); });
+      card.addEventListener("drop",function(e){ e.preventDefault(); var before=roBefore(card,e); clear(); roMove(RO_DRAG_KEY, card.dataset.key, before); });
+    });
+  }
+  function roMove(dragKey,targetKey,before){
+    if(!dragKey||dragKey===targetKey) return;
+    var from=roIdxByKey(dragKey); if(from<0) return;
+    var moved=RO_CACHE.splice(from,1)[0];
+    var to=roIdxByKey(targetKey); if(to<0){ RO_CACHE.splice(from,0,moved); return; }
+    RO_CACHE.splice(before?to:to+1, 0, moved);
+    RO_DIRTY=true; roRenderMock();
+  }
+  window.roOrderSave=async function(){
+    var msg=document.getElementById("rosOrderMsg");
+    var items=RO_CACHE.map(function(p,i){ return { role:p.role, id:p.id, sort_order:i }; });
     if(msg)msg.textContent=L("Saving…","Menyimpan…");
-    try{ var res=await adminPost("/api/admin/coaches", body); var j=await res.json().catch(function(){return null;});
+    try{ var res=await adminPost("/api/admin/roster/reorder",{ items:items }); var j=await res.json().catch(function(){return null;});
       if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
-      if(msg)msg.textContent=L("Saved.","Tersimpan."); window.coCancel(); loadCoaches();
+      RO_CACHE.forEach(function(p,i){ p.sort_order=i; }); RO_DIRTY=false;
+      if(msg)msg.textContent=L("Order saved ✓","Urutan tersimpan ✓"); roRenderList();
+    }catch(e){ if(msg)msg.textContent=L("Error saving order.","Error menyimpan urutan."); }
+  };
+  function roVenueToggle(){ var w=document.getElementById("ro_venue_wrap"); if(w) w.style.display=(roKind()==="coach")?"":"none"; }
+  window.roVenueToggle=roVenueToggle;
+  function roEndpoint(role){ return role==="doctor"?"/api/admin/doctors":role==="physiotherapist"?"/api/admin/physiotherapists":"/api/admin/coaches"; }
+  window.roSave=async function(){
+    var msg=document.getElementById("roMsg"); var name=(coV("ro_name")||"").trim();
+    if(!name){ if(msg)msg.textContent=L("Display name is required.","Nama tampilan wajib."); return; }
+    var role=roKind(), id=coV("ro_id")||"", origRole=coV("ro_orig_role")||"";
+    var existing=id?roFind(origRole||role,id):null;
+    var sort=(existing&&existing.sort_order!=null)?existing.sort_order:(RO_CACHE.reduce(function(m,p){return Math.max(m,(p.sort_order||0));},-1)+1);
+    var base={ display_name:name, speciality:coV("ro_speciality")||null, photo_url:coV("ro_photo")||null, bio:coV("ro_bio")||null, sort_order:sort, is_active:!!(document.getElementById("ro_active")||{}).checked };
+    if(role==="coach") base.venue=coV("ro_venue")||"both";
+    if(msg)msg.textContent=L("Saving…","Menyimpan…");
+    try{
+      if(id && origRole && origRole!==role){
+        // Pindah tipe: buat baris baru di tabel tujuan, lalu hapus baris lama.
+        var cres=await adminPost(roEndpoint(role), base); var cj=await cres.json().catch(function(){return null;});
+        if(!cj||!cj.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(cres,cj)); return; }
+        var qs=KEY?("?key="+encodeURIComponent(KEY)):"";
+        await fetch(roEndpoint(origRole)+"/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }).catch(function(){});
+      } else {
+        var body=Object.assign({ id:id||undefined }, base);
+        var res=await adminPost(roEndpoint(role), body); var j=await res.json().catch(function(){return null;});
+        if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
+      }
+      if(msg)msg.textContent=L("Saved.","Tersimpan."); window.roCancel(); loadCoaches();
     }catch(e){ if(msg)msg.textContent=L("Error saving.","Error menyimpan."); }
   };
-  window.coEdit=function(id){
-    var c=CO_CACHE.filter(function(x){return String(x.id)===String(id);})[0]; if(!c) return;
-    document.getElementById("co_id").value=c.id||""; document.getElementById("co_name").value=c.display_name||"";
-    document.getElementById("co_venue").value=c.venue||"both"; document.getElementById("co_speciality").value=c.speciality||"";
-    document.getElementById("co_photo").value=c.photo_url||""; document.getElementById("co_bio").value=c.bio||"";
-    var cpp=document.getElementById("co_photo_prev"); if(cpp){ if(c.photo_url){cpp.src=c.photo_url;cpp.style.display="inline-block";}else{cpp.style.display="none";} } var cpm=document.getElementById("co_photo_msg"); if(cpm)cpm.textContent="";
-    document.getElementById("co_sort").value=(c.sort_order!=null?c.sort_order:""); document.getElementById("co_active").checked=(c.is_active!==false);
-    var cb=document.getElementById("coCancelBtn"); if(cb)cb.hidden=false;
-    try{ document.getElementById("co_name").scrollIntoView({block:"center"}); }catch(_){}
+  window.roEdit=function(role,id){
+    var p=roFind(role,id); if(!p) return;
+    document.getElementById("ro_id").value=p.id||""; document.getElementById("ro_orig_role").value=p.role||"";
+    document.getElementById("ro_role").value=p.role||"coach"; roVenueToggle();
+    document.getElementById("ro_name").value=p.display_name||""; document.getElementById("ro_venue").value=p.venue||"both";
+    document.getElementById("ro_speciality").value=p.speciality||""; document.getElementById("ro_photo").value=p.photo_url||"";
+    document.getElementById("ro_bio").value=p.bio||""; document.getElementById("ro_active").checked=(p.is_active!==false);
+    var pp=document.getElementById("ro_photo_prev"); if(pp){ if(p.photo_url){pp.src=p.photo_url;pp.style.display="inline-block";}else{pp.style.display="none";} }
+    var pm=document.getElementById("ro_photo_msg"); if(pm)pm.textContent="";
+    var t=document.getElementById("rosFormTitle"); if(t)t.textContent=L("Edit roster entry","Edit entri roster");
+    var cb=document.getElementById("roCancelBtn"); if(cb)cb.hidden=false;
+    try{ document.getElementById("ro_name").scrollIntoView({block:"center"}); }catch(_){}
   };
-  window.coCancel=function(){
-    ["co_id","co_name","co_speciality","co_photo","co_bio","co_sort"].forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
-    var v=document.getElementById("co_venue"); if(v)v.value="both"; var a=document.getElementById("co_active"); if(a)a.checked=true;
-    var cpp=document.getElementById("co_photo_prev"); if(cpp)cpp.style.display="none"; var cpm=document.getElementById("co_photo_msg"); if(cpm)cpm.textContent="";
-    var cb=document.getElementById("coCancelBtn"); if(cb)cb.hidden=true; var m=document.getElementById("coMsg"); if(m)m.textContent="";
+  window.roCancel=function(){
+    ["ro_id","ro_orig_role","ro_name","ro_speciality","ro_photo","ro_bio"].forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
+    var r=document.getElementById("ro_role"); if(r)r.value="coach"; roVenueToggle();
+    var v=document.getElementById("ro_venue"); if(v)v.value="both"; var a=document.getElementById("ro_active"); if(a)a.checked=true;
+    var pp=document.getElementById("ro_photo_prev"); if(pp)pp.style.display="none"; var pm=document.getElementById("ro_photo_msg"); if(pm)pm.textContent="";
+    var t=document.getElementById("rosFormTitle"); if(t)t.textContent=L("Add to roster","Tambah ke roster");
+    var cb=document.getElementById("roCancelBtn"); if(cb)cb.hidden=true; var m=document.getElementById("roMsg"); if(m)m.textContent="";
   };
-  window.coDelete=async function(id){
-    if(!window.confirm(L("Delete this coach? Its aliases are removed too.","Hapus coach ini? Alias-nya ikut terhapus."))) return;
-    try{ var qs=KEY?("?key="+encodeURIComponent(KEY)):""; var res=await fetch("/api/admin/coaches/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadCoaches(); }catch(e){}
+  window.roDelete=async function(role,id){
+    if(!window.confirm(L("Delete this entry?","Hapus entri ini?")+(role==="coach"?" "+L("Its instructor aliases are removed too.","Alias instruktur-nya ikut terhapus."):""))) return;
+    try{ var qs=KEY?("?key="+encodeURIComponent(KEY)):""; var res=await fetch(roEndpoint(role)+"/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadCoaches(); }catch(e){}
   };
   window.ivMap=async function(btn){
     var td=btn.closest("td"); var sel=td?td.querySelector("select"):null; var coachId=sel?sel.value:"";
@@ -2936,57 +3083,7 @@
   window.alDel=async function(id){
     try{ var qs=KEY?("?key="+encodeURIComponent(KEY)):""; var res=await fetch("/api/admin/coach-aliases/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadCoaches(); }catch(e){}
   };
-  // Doctor roster
-  var DC_CACHE=[];
-  async function coLoadDoctors(){
-    var list=document.getElementById("dcList"); if(!list) return;
-    try{
-      var res=await adminFetch("/api/admin/doctors");
-      var j=await res.json().catch(function(){return null;});
-      if(!j||!j.ok){ list.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div>'; return; }
-      DC_CACHE=j.doctors||[];
-      if(!DC_CACHE.length){ list.innerHTML='<div class="adm-note">'+L("No doctors yet — doctor carousel on home stays hidden.","Belum ada dokter — carousel dokter di home tetap tersembunyi.")+'</div>'; return; }
-      list.innerHTML='<table class="adm-table"><thead><tr><th>'+L("Name","Nama")+'</th><th>'+L("Speciality","Keahlian")+'</th><th>'+L("Active","Aktif")+'</th><th></th></tr></thead><tbody>'+
-        DC_CACHE.map(function(d){
-          return '<tr><td>'+evEsc(d.display_name)+'</td><td>'+(d.speciality?evEsc(d.speciality):"—")+'</td>'+
-            '<td>'+(d.is_active?'<span class="adm-tag adm-tag--paid">'+L("yes","ya")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("no","tidak")+'</span>')+'</td>'+
-            '<td class="adm-right"><button class="adm-btn adm-btn--sm dcAct" data-a="edit" data-id="'+evEsc(d.id)+'">'+L("Edit","Edit")+'</button> '+
-              '<button class="adm-btn adm-btn--sm dcAct" data-a="delete" data-id="'+evEsc(d.id)+'">'+L("Delete","Hapus")+'</button></td></tr>';
-        }).join("")+'</tbody></table>';
-    }catch(e){ list.innerHTML='<div class="adm-note">'+L("Error loading doctors.","Error memuat dokter.")+'</div>'; }
-  }
-  window.dcSave=async function(){
-    var msg=document.getElementById("dcMsg"); var name=(coV("dc_name")||"").trim();
-    if(!name){ if(msg)msg.textContent=L("Display name is required.","Nama tampilan wajib."); return; }
-    var body={ id:coV("dc_id")||undefined, display_name:name, speciality:coV("dc_speciality")||null,
-      photo_url:coV("dc_photo")||null, bio:coV("dc_bio")||null, sort_order:parseInt(coV("dc_sort"),10)||0,
-      is_active:!!(document.getElementById("dc_active")||{}).checked };
-    if(msg)msg.textContent=L("Saving…","Menyimpan…");
-    try{ var res=await adminPost("/api/admin/doctors", body); var j=await res.json().catch(function(){return null;});
-      if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
-      if(msg)msg.textContent=L("Saved.","Tersimpan."); window.dcCancel(); coLoadDoctors();
-    }catch(e){ if(msg)msg.textContent=L("Error saving.","Error menyimpan."); }
-  };
-  window.dcEdit=function(id){
-    var d=DC_CACHE.filter(function(x){return String(x.id)===String(id);})[0]; if(!d) return;
-    document.getElementById("dc_id").value=d.id||""; document.getElementById("dc_name").value=d.display_name||"";
-    document.getElementById("dc_speciality").value=d.speciality||""; document.getElementById("dc_photo").value=d.photo_url||"";
-    document.getElementById("dc_bio").value=d.bio||""; document.getElementById("dc_sort").value=(d.sort_order!=null?d.sort_order:"");
-    var dpp=document.getElementById("dc_photo_prev"); if(dpp){ if(d.photo_url){dpp.src=d.photo_url;dpp.style.display="inline-block";}else{dpp.style.display="none";} } var dpm=document.getElementById("dc_photo_msg"); if(dpm)dpm.textContent="";
-    document.getElementById("dc_active").checked=(d.is_active!==false);
-    var cb=document.getElementById("dcCancelBtn"); if(cb)cb.hidden=false;
-    try{ document.getElementById("dc_name").scrollIntoView({block:"center"}); }catch(_){}
-  };
-  window.dcCancel=function(){
-    ["dc_id","dc_name","dc_speciality","dc_photo","dc_bio","dc_sort"].forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
-    var a=document.getElementById("dc_active"); if(a)a.checked=true;
-    var dpp=document.getElementById("dc_photo_prev"); if(dpp)dpp.style.display="none"; var dpm=document.getElementById("dc_photo_msg"); if(dpm)dpm.textContent="";
-    var cb=document.getElementById("dcCancelBtn"); if(cb)cb.hidden=true; var m=document.getElementById("dcMsg"); if(m)m.textContent="";
-  };
-  window.dcDelete=async function(id){
-    if(!window.confirm(L("Delete this doctor?","Hapus dokter ini?"))) return;
-    try{ var qs=KEY?("?key="+encodeURIComponent(KEY)):""; var res=await fetch("/api/admin/doctors/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) coLoadDoctors(); }catch(e){}
-  };
+  // Coach + Dokter + Fisio dikelola lewat roster terpadu di atas (roSave/roEdit/roDelete + mockup urutan).
 
   // Unggah foto coach/dokter -> /api/admin/upload-photo (Supabase Storage), isi field URL + preview.
   // Kecilkan + kompres foto di browser SEBELUM upload → file kecil permanen (hemat kuota,
@@ -3015,10 +3112,10 @@
       r.readAsDataURL(file);
     });
   }
-  window.admPhotoPick = async function(input, kind){
+  window.admPhotoPick = async function(input){
     var file = input && input.files && input.files[0]; if(!file) return;
-    var pre = (kind==="doctor") ? "dc" : "co";
-    var msg = document.getElementById(pre+"_photo_msg"), prev = document.getElementById(pre+"_photo_prev"), urlEl = document.getElementById(pre+"_photo");
+    var kind = roKind();  // coach / doctor / physiotherapist — dari selector Tipe di form roster terpadu
+    var msg = document.getElementById("ro_photo_msg"), prev = document.getElementById("ro_photo_prev"), urlEl = document.getElementById("ro_photo");
     if(file.size > 5*1024*1024){ if(msg) msg.textContent=L("Max 5MB.","Maks 5MB."); input.value=""; return; }
     if(msg) msg.textContent=L("Optimizing…","Mengoptimalkan…");
     try{
@@ -3112,6 +3209,8 @@
     loadAffiliateList();
     loadAffiliateCommissions();
     loadAffiliateClaims();
+    loadAffiliateProducts();
+    loadAffiliateFlags();
   }
 
   // ---- AFFILIATE lists (READ-ONLY dari /api/admin/affiliate/{affiliates,commissions,claims}) ----
@@ -3131,10 +3230,11 @@
       tb.innerHTML = rows.length? rows.map(function(a){
         return '<tr><td><span class="adm-mono">'+esc(a.code)+'</span></td><td>'+afTag(a.status)+'</td><td>'+afDate(a.joined_at)+'</td>'+
           '<td class="adm-right adm-mono" data-value="'+a.transactions+'">'+a.transactions+'</td>'+
-          '<td class="adm-right adm-mono" data-value="'+a.commission+'">'+rp(a.commission)+'</td></tr>';
+          '<td class="adm-right adm-mono" data-value="'+a.commission+'">'+rp(a.commission)+'</td>'+
+          '<td class="adm-right"><button class="adm-btn adm-btn--sm" onclick="afOpenDetail(\''+esc(a.id)+'\')" data-i18n="Detail">Detail</button></td></tr>';
       }).join("") : "";
       if(window.admRenderTable) admRenderTable("#affListTable");
-    }catch(e){ tb.innerHTML='<tr><td colspan="5"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+    }catch(e){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
   }
   async function loadAffiliateCommissions(){
     var tb=document.getElementById("affCommRows"); if(!tb) return;
@@ -3142,17 +3242,24 @@
       var res=await adminFetch("/api/admin/affiliate/commissions");
       var j=await res.json().catch(function(){return null;});
       if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      await afEnsureRole();
+      var canFin=afCanFinance();
       var rows=j.commissions||[];
       tb.innerHTML = rows.length? rows.map(function(c){
         var pct=(c.rate_at_time==null)?"—":(Math.round(Number(c.rate_at_time)*10000)/100)+"%";
+        var st=String(c.status||"").toLowerCase();
+        var act=(canFin && (st==="held"||st==="available"))
+          ? '<button class="adm-btn adm-btn--sm" onclick="afCancelCommission(\''+esc(c.id)+'\')" data-i18n="Cancel">Batalkan</button>'
+          : '<span class="adm-note" style="margin:0">—</span>';
         return '<tr><td><span class="adm-mono">'+esc(c.code)+'</span></td>'+
           '<td class="adm-right adm-mono" data-value="'+c.base_amount+'">'+rp(c.base_amount)+'</td>'+
           '<td class="adm-right adm-mono" data-value="'+(c.rate_at_time||0)+'">'+pct+'</td>'+
           '<td class="adm-right adm-mono" data-value="'+c.amount+'">'+rp(c.amount)+'</td>'+
-          '<td>'+afTag(c.status)+'</td><td>'+afDate(c.paid_at_source)+'</td></tr>';
+          '<td>'+afTag(c.status)+'</td><td>'+afDate(c.paid_at_source)+'</td>'+
+          '<td><div class="afcl-act">'+act+'</div></td></tr>';
       }).join("") : "";
       if(window.admRenderTable) admRenderTable("#affCommTable");
-    }catch(e){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+    }catch(e){ tb.innerHTML='<tr><td colspan="7"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
   }
   var AFCLAIMS=[];
   async function loadAffiliateClaims(){
@@ -3216,22 +3323,131 @@
       var res=await Auth.supabase.rpc(fn, args);
       if(res.error) throw res.error;
       if(window.admToast)admToast(L("Claim updated.","Klaim diperbarui."));
-      await loadAffiliate();
+      var dw=document.getElementById("affDetailWrap");
+      if(AFDET && dw && !dw.hidden) afOpenDetail(AFDET.id); else await loadAffiliate();
     }catch(e){
       if(window.admToast)admToast(L("Action failed","Aksi gagal")+": "+((e&&e.message)||e));
     }
   };
+
+  // ================= AFFILIATE: detail view + aksi manajemen (Fase A) =================
+  // Semua AKSI lewat RPC resmi affiliate (JWT admin) — atomic + audit + cek role di DB.
+  // UI role-gated via affiliate_admin_role (super/growth/finance). Reveal payout = dekripsi
+  // tercatat audit, hanya finance/super.
+  async function afEnsureRole(){
+    if(AFROLE!=null) return AFROLE;
+    try{ if(window.Auth&&Auth.ready) await Auth.ready; if(window.Auth&&Auth.supabase){ var rr=await Auth.supabase.rpc("affiliate_admin_role"); if(!rr.error) AFROLE=rr.data||null; } }catch(e){}
+    return AFROLE;
+  }
+  function afCanGrowth(){ return AFROLE==="super"||AFROLE==="growth"; }
+  function afCanFinance(){ return AFROLE==="super"||AFROLE==="finance"; }
+  async function afRpc(fn, args, okMsg){
+    if(!(window.Auth&&Auth.supabase)){ if(window.admToast)admToast(L("Log in with your account to act.","Login dengan akunmu untuk beraksi.")); return false; }
+    try{ var res=await Auth.supabase.rpc(fn,args); if(res.error) throw res.error; if(window.admToast)admToast(okMsg||L("Done.","Selesai.")); return true; }
+    catch(e){ if(window.admToast)admToast(L("Action failed","Aksi gagal")+": "+((e&&e.message)||e)); return false; }
+  }
+  var AFDET=null, AFDTAB="comm";
+  window.afBackToList=function(){ var w=document.getElementById("affDetailWrap"), l=document.getElementById("affListWrap"); if(w){w.hidden=true;w.innerHTML="";} if(l) l.hidden=false; AFDET=null; };
+  window.afOpenDetail=async function(id){
+    await afEnsureRole();
+    var w=document.getElementById("affDetailWrap"), l=document.getElementById("affListWrap"); if(!w) return;
+    w.hidden=false; if(l) l.hidden=true; AFDTAB="comm";
+    w.innerHTML='<div class="adm-note">'+L("Loading…","Memuat…")+'</div>';
+    try{
+      var res=await adminFetch("/api/admin/affiliate/affiliate/"+encodeURIComponent(id));
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ w.innerHTML='<div style="margin-bottom:10px"><button class="adm-btn adm-btn--sm" onclick="afBackToList()">&larr; '+L("Back","Kembali")+'</button></div><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div>'; return; }
+      j.id=id; AFDET=j; afRenderDetail();
+    }catch(e){ w.innerHTML='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div>'; }
+  };
+  window.afDetailTab=function(t){ AFDTAB=t; afRenderDetail(); };
+  function afRenderDetail(){
+    var d=AFDET; if(!d) return; var a=d.affiliate||{}, bs=(d.stats&&d.stats.by_status)||{}, st=d.stats||{};
+    var w=document.getElementById("affDetailWrap"); if(!w) return;
+    var active=(String(a.status||"").toLowerCase()==="active");
+    var hact="";
+    if(afCanGrowth()){
+      hact+='<button class="adm-btn adm-btn--sm" onclick="afChangeCode()" data-i18n="Change code">Ganti kode</button>';
+      hact+='<button class="adm-btn adm-btn--sm" onclick="afSetStatus()">'+(active?L("Deactivate","Nonaktifkan"):L("Activate","Aktifkan"))+'</button>';
+    }
+    if(afCanGrowth()||afCanFinance()){
+      hact+='<button class="adm-btn adm-btn--sm" onclick="afHoldAll(true)" data-i18n="Hold all">Tahan semua</button>';
+      hact+='<button class="adm-btn adm-btn--sm" onclick="afHoldAll(false)" data-i18n="Release all">Lepas semua</button>';
+    }
+    if(afCanFinance()){
+      hact+='<button class="adm-btn adm-btn--sm" onclick="afAddAdjustment()" data-i18n="Adjustment">Penyesuaian</button>';
+    }
+    if(!hact) hact='<span class="adm-note" style="margin:0">'+L("View only for your role.","Hanya lihat untuk peranmu.")+'</span>';
+    var card=function(v,l){ return '<div class="adm-cell"><div class="adm-metric">'+v+'</div><div class="adm-label" style="margin-top:6px">'+l+'</div></div>'; };
+    var statHtml='<div class="adm-grid adm-grid--4" style="margin:12px 0">'+
+      card(String(st.clicks||0),L("Clicks","Klik"))+card(String(st.buyers||0),L("Buyers","Pembeli"))+
+      card(String(st.transactions||0),L("Transactions","Transaksi"))+
+      card(rp((bs.held||0)+(bs.available||0)+(bs.claimed||0)+(bs.paid||0)),L("Commission","Komisi"))+'</div>';
+    var payout='<div class="adm-panel" style="margin-bottom:12px"><div class="adm-sec-title" style="margin-top:0" data-i18n="Payout data">Data payout</div>'+
+      '<div class="adm-note" id="afPayoutBox">'+L("Encrypted (NIK / bank account).","Terenkripsi (NIK / rekening).")+'</div>'+
+      (afCanFinance()?'<button class="adm-btn adm-btn--sm" style="margin-top:8px" onclick="afRevealPayout()" data-i18n="Reveal (audited)">Tampilkan (tercatat audit)</button>':'<div class="adm-note" style="margin-top:6px">'+L("Only Finance/Super can reveal.","Hanya Finance/Super yang bisa menampilkan.")+'</div>')+'</div>';
+    var tabs=[["comm",L("Commission","Komisi")],["claims",L("Claims","Klaim")],["flags",L("Flags & notes","Flags & catatan")],["ref",L("Referrals","Referral")]];
+    var tabBar='<div class="adm-tabs" style="margin-top:6px">'+tabs.map(function(t){ return '<button onclick="afDetailTab(\''+t[0]+'\')" aria-selected="'+(AFDTAB===t[0])+'">'+esc(t[1])+'</button>'; }).join("")+'</div>';
+    w.innerHTML=
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">'+
+        '<button class="adm-btn adm-btn--sm" onclick="afBackToList()">&larr; '+L("Back","Kembali")+'</button>'+
+        '<span class="adm-mono" style="font-weight:700;font-size:16px">'+esc(a.code||"—")+'</span>'+afTag(a.status)+
+        '<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">'+hact+'</span></div>'+
+      '<div class="adm-note">'+L("Joined","Bergabung")+' '+afDate(a.joined_at)+(a.terms_version?' · S&K v'+esc(a.terms_version):'')+(a.notes?' · '+esc(a.notes):'')+'</div>'+
+      statHtml+payout+tabBar+'<div id="afDetailTabBody"></div>';
+    afDetailTabBody();
+  }
+  function afDetailTabBody(){
+    var box=document.getElementById("afDetailTabBody"); if(!box||!AFDET) return;
+    var d=AFDET, canFin=afCanFinance(), canGr=afCanGrowth();
+    if(AFDTAB==="comm"){
+      var cs=d.commissions||[];
+      box.innerHTML='<div class="adm-panel" style="padding:0;overflow-x:auto;margin-top:10px"><table class="adm-table"><thead><tr><th>'+L("Base","Basis")+'</th><th>Rate</th><th>'+L("Commission","Komisi")+'</th><th>Status</th><th>'+L("Source date","Tgl sumber")+'</th><th>'+L("Action","Aksi")+'</th></tr></thead><tbody>'+
+        (cs.length?cs.map(function(c){ var s=String(c.status||"").toLowerCase(); var pct=(c.rate_at_time==null)?"—":(Math.round(Number(c.rate_at_time)*10000)/100)+"%";
+          var act=(canFin&&(s==="held"||s==="available"))?'<button class="adm-btn adm-btn--sm" onclick="afCancelCommission(\''+esc(c.id)+'\')" data-i18n="Cancel">Batalkan</button>':'—';
+          return '<tr><td class="adm-mono">'+rp(c.base_amount)+'</td><td class="adm-mono">'+pct+'</td><td class="adm-mono">'+rp(c.amount)+'</td><td>'+afTag(c.status)+(c.under_review?' <span class="adm-tag adm-tag--pending">review</span>':'')+'</td><td>'+afDate(c.paid_at_source||c.created_at)+'</td><td><div class="afcl-act">'+act+'</div></td></tr>'; }).join(""):'<tr><td colspan="6"><div class="adm-note">'+L("No commissions.","Tidak ada komisi.")+'</div></td></tr>')+'</tbody></table></div>';
+    } else if(AFDTAB==="claims"){
+      var cl=d.claims||[];
+      box.innerHTML='<div class="adm-panel" style="padding:0;overflow-x:auto;margin-top:10px"><table class="adm-table"><thead><tr><th>'+L("Claim","Klaim")+'</th><th>'+L("Gross","Bruto")+'</th><th>'+L("Net","Neto")+'</th><th>Status</th><th>'+L("Date","Tanggal")+'</th><th>'+L("Action","Aksi")+'</th></tr></thead><tbody>'+
+        (cl.length?cl.map(function(c){ var s=String(c.status||"").toLowerCase(); var dt=c.paid_at||c.rejected_at||c.estimated_transfer_date||c.submitted_at; var acts="";
+          if(canFin&&s==="submitted") acts+='<button class="adm-btn adm-btn--sm" onclick="afClaimAction(\''+c.id+'\',\'processing\')">'+L("Processing","Diproses")+'</button>';
+          if(canFin&&(s==="submitted"||s==="processing")){ acts+='<button class="adm-btn adm-btn--sm adm-btn--primary" onclick="afClaimAction(\''+c.id+'\',\'paid\')">'+L("Paid","Dibayar")+'</button>'; acts+='<button class="adm-btn adm-btn--sm" onclick="afClaimAction(\''+c.id+'\',\'reject\')">'+L("Reject","Tolak")+'</button>'; }
+          if(!acts) acts='—';
+          return '<tr><td class="adm-mono">#'+(c.claim_no||"—")+'</td><td class="adm-mono">'+rp(c.amount_gross)+'</td><td class="adm-mono">'+rp(c.amount_net)+'</td><td>'+afTag(c.status)+'</td><td>'+afDate(dt)+'</td><td><div class="afcl-act">'+acts+'</div></td></tr>'; }).join(""):'<tr><td colspan="6"><div class="adm-note">'+L("No claims.","Tidak ada klaim.")+'</div></td></tr>')+'</tbody></table></div>';
+    } else if(AFDTAB==="flags"){
+      var fl=d.flags||[];
+      box.innerHTML='<div class="adm-panel" style="padding:0;overflow-x:auto;margin-top:10px"><table class="adm-table"><thead><tr><th>'+L("Type","Tipe")+'</th><th>Status</th><th>'+L("Created","Dibuat")+'</th><th>'+L("Action","Aksi")+'</th></tr></thead><tbody>'+
+        (fl.length?fl.map(function(f){ var open=String(f.status||"").toLowerCase()==="open"; var acts=(canGr&&open)?('<button class="adm-btn adm-btn--sm" onclick="afReviewFlag(\''+esc(f.id)+'\',\'cleared\')" data-i18n="Clear">Bersihkan</button> <button class="adm-btn adm-btn--sm" onclick="afReviewFlag(\''+esc(f.id)+'\',\'confirmed\')" data-i18n="Confirm fraud">Konfirmasi fraud</button>'):'—';
+          return '<tr><td>'+esc(f.type||"—")+'</td><td>'+afTag(f.status)+'</td><td>'+afDate(f.created_at)+'</td><td><div class="afcl-act">'+acts+'</div></td></tr>'; }).join(""):'<tr><td colspan="4"><div class="adm-note">'+L("No flags.","Tidak ada flag.")+'</div></td></tr>')+'</tbody></table></div>';
+    } else {
+      var rf=d.referrals||[];
+      box.innerHTML='<div class="adm-panel" style="padding:0;overflow-x:auto;margin-top:10px"><table class="adm-table"><thead><tr><th>'+L("Buyer","Pembeli")+'</th><th>'+L("Transactions","Transaksi")+'</th><th>'+L("Commission","Komisi")+'</th><th>'+L("First","Pertama")+'</th></tr></thead><tbody>'+
+        (rf.length?rf.map(function(r){ return '<tr><td class="adm-mono" style="font-size:11px">'+esc(String(r.buyer||"").slice(0,8))+'…</td><td class="adm-mono">'+r.tx+'</td><td class="adm-mono">'+rp(r.total)+'</td><td>'+afDate(r.first_at)+'</td></tr>'; }).join(""):'<tr><td colspan="4"><div class="adm-note">'+L("No referrals yet.","Belum ada referral.")+'</div></td></tr>')+'</tbody></table></div>';
+    }
+  }
+  window.afChangeCode=async function(){ if(!AFDET)return; var code=prompt(L("New code (4–12 letters/numbers):","Kode baru (4–12 huruf/angka):"),AFDET.affiliate.code||""); if(code===null)return; code=String(code).trim().toUpperCase(); if(!/^[A-Z0-9]{4,12}$/.test(code)){ if(window.admToast)admToast(L("Code must be 4–12 letters/numbers.","Kode harus 4–12 huruf/angka.")); return; } if(await afRpc("affiliate_admin_change_code",{p_affiliate_id:AFDET.id,p_code:code},L("Code changed.","Kode diganti."))) afOpenDetail(AFDET.id); };
+  window.afSetStatus=async function(){ if(!AFDET)return; var active=String(AFDET.affiliate.status||"").toLowerCase()==="active"; var next=active?"inactive":"active"; if(!confirm((active?L("Deactivate","Nonaktifkan"):L("Activate","Aktifkan"))+' '+(AFDET.affiliate.code||"")+'?'))return; var note=prompt(L("Note (optional):","Catatan (opsional):"),"")||null; if(await afRpc("affiliate_admin_set_affiliate_status",{p_affiliate_id:AFDET.id,p_status:next,p_note:note},L("Status updated.","Status diperbarui."))) afOpenDetail(AFDET.id); };
+  window.afHoldAll=async function(hold){ if(!AFDET)return; var reason=prompt((hold?L("Hold all commissions — reason:","Tahan semua komisi — alasan:"):L("Release hold — reason:","Lepas tahanan — alasan:")),""); if(reason===null)return; if(!String(reason).trim()){ if(window.admToast)admToast(L("Reason required.","Alasan wajib.")); return; } if(await afRpc("affiliate_admin_hold_commissions",{p_affiliate_id:AFDET.id,p_hold:!!hold,p_reason:String(reason).trim()},L("Updated.","Diperbarui."))) afOpenDetail(AFDET.id); };
+  window.afRevealPayout=async function(){ if(!AFDET)return; if(!(window.Auth&&Auth.supabase))return; var box=document.getElementById("afPayoutBox"); if(box)box.textContent=L("Revealing…","Membuka…"); try{ var res=await Auth.supabase.rpc("affiliate_admin_payout_profile",{p_affiliate_id:AFDET.id}); if(res.error)throw res.error; var p=res.data; if(box) box.innerHTML=afPayoutHtml(p); }catch(e){ if(box)box.textContent=L("Reveal failed","Gagal membuka")+": "+((e&&e.message)||e); } };
+  function afPayoutHtml(p){ if(p==null) return "—"; if(typeof p!=="object") return esc(String(p)); var ks=Object.keys(p); if(!ks.length) return "—"; return ks.map(function(k){ return '<div><span class="adm-note" style="margin:0">'+esc(k)+':</span> <span class="adm-mono">'+esc(String(p[k]==null?"—":p[k]))+'</span></div>'; }).join(""); }
+  window.afCancelCommission=async function(id){ var reason=prompt(L("Cancel commission — reason:","Batalkan komisi — alasan:"),""); if(reason===null)return; if(!String(reason).trim()){ if(window.admToast)admToast(L("Reason required.","Alasan wajib.")); return; } if(await afRpc("affiliate_admin_cancel_commission",{p_commission_id:id,p_reason:String(reason).trim()},L("Commission cancelled.","Komisi dibatalkan."))){ var dw=document.getElementById("affDetailWrap"); if(AFDET&&dw&&!dw.hidden) afOpenDetail(AFDET.id); else loadAffiliateCommissions(); } };
+  window.afReviewFlag=async function(id,status){ if(status==="confirmed" && !confirm(L("Confirm fraud? This cancels open commissions.","Konfirmasi fraud? Ini membatalkan komisi yang masih terbuka.")))return; if(await afRpc("affiliate_admin_review_flag",{p_flag_id:id,p_status:status},L("Flag updated.","Flag diperbarui.")) && AFDET) afOpenDetail(AFDET.id); };
 
   // ---- AFFILIATE settings (TULIS via RPC affiliate_update_settings dgn JWT admin;
   //      atomic + audit + cek role affiliate-super di DB. Baca via /api/admin/affiliate/settings) ----
   var AFSET=null, AFROLE=null;
   function afsPctToFrac(p){ return Math.round(Number(p)*100)/10000; } // 2,5% -> 0.025 (match affiliate percentField)
   function afsFracToPct(v){ return Math.round(Number(v)*10000)/100; } // 0.025 -> 2,5
+  // Serialisasi jsonb setelan — SHAPE sama persis dgn affiliate admin (lib/admin-settings-view.js):
+  // sales_targets=[{category,target}], calculator_products=[{label,table,match:{col:val}}].
+  function afTargetsToText(list){ return (Array.isArray(list)?list:[]).map(function(t){ return (t&&t.category!=null?t.category:"")+" = "+(t&&t.target!=null?t.target:""); }).join("\n"); }
+  function afParseTargets(text){ var out=[]; String(text||"").split("\n").map(function(l){return l.trim();}).filter(Boolean).forEach(function(line,i){ var m=line.match(/^(.+?)\s*=\s*(\d+)$/); if(!m) throw new Error(L("Sales target line ","Target penjualan baris ")+(i+1)+': "Kategori = angka".'); out.push({category:m[1].trim(),target:Number(m[2])}); }); return out; }
+  function afProductsToText(list){ return (Array.isArray(list)?list:[]).map(function(p){ var match=Object.keys((p&&p.match)||{}).map(function(k){return k+"="+p.match[k];}).join(", "); return [p&&p.label,p&&p.table,match].filter(Boolean).join(" | "); }).join("\n"); }
+  function afParseProducts(text){ var tables={booking_products:1,gym_day_pass_config:1,gym_membership_plans:1,clinic_services:1}; var out=[]; String(text||"").split("\n").map(function(l){return l.trim();}).filter(Boolean).forEach(function(line,i){ var parts=line.split("|").map(function(s){return s.trim();}); var label=parts[0],table=parts[1],matchText=parts[2]||""; if(!label||!tables[table]) throw new Error(L("Calculator product line ","Produk kalkulator baris ")+(i+1)+': "Label | tabel | kolom=nilai".'); var match={}; matchText.split(",").map(function(s){return s.trim();}).filter(Boolean).forEach(function(pair){ var m=pair.match(/^([a-z_][a-z0-9_]*)\s*=\s*(.+)$/); if(!m) throw new Error(L("Calculator product line ","Produk kalkulator baris ")+(i+1)+': kolom=nilai.'); match[m[1]]=/^\d+$/.test(m[2])?Number(m[2]):m[2]; }); out.push({label:label,table:table,match:match}); }); return out; }
   async function loadAffiliateSettings(){
     var panel=document.getElementById("afSetPanel"); if(!panel) return;
     var banner=document.getElementById("afSetBanner");
-    AFROLE=null;
-    try{ if(window.Auth&&Auth.ready) await Auth.ready; if(window.Auth&&Auth.supabase){ var rr=await Auth.supabase.rpc("affiliate_admin_role"); if(!rr.error) AFROLE=rr.data||null; } }catch(e){}
+    await afEnsureRole();
     try{
       var j=await adminFetch("/api/admin/affiliate/settings").then(function(r){return r.json();});
       if(!j||!j.ok||!j.settings){ if(banner){ banner.textContent=L("Failed to load settings.","Gagal memuat setelan."); } return; }
@@ -3244,6 +3460,16 @@
       V("afsTaxNo").value=afsFracToPct(AFSET.tax_rate_no_npwp);
       V("afsStatus").value=AFSET.program_status||"active";
       V("afsOnePer").checked=!!AFSET.one_purchase_per_open;
+      V("afsMonthly").value=(AFSET.monthly_potential!=null?Math.round(Number(AFSET.monthly_potential)):"");
+      V("afsTermsV").value=AFSET.terms_version||"";
+      V("afsTermsUrl").value=AFSET.terms_url||"";
+      V("afsTermsSum").value=AFSET.terms_summary||"";
+      V("afsFraudAcc").value=(AFSET.fraud_device_accounts!=null?AFSET.fraud_device_accounts:"");
+      V("afsFraudWin").value=(AFSET.fraud_device_window_hours!=null?AFSET.fraud_device_window_hours:"");
+      V("afsFraudSpike").value=(AFSET.fraud_spike_multiplier!=null?AFSET.fraud_spike_multiplier:"");
+      V("afsFraudRefund").value=(AFSET.fraud_refund_ratio!=null?afsFracToPct(AFSET.fraud_refund_ratio):"");
+      V("afsTargets").value=afTargetsToText(AFSET.sales_targets);
+      V("afsCalcProducts").value=afProductsToText(AFSET.calculator_products);
       var meta=V("afsMeta"); if(meta) meta.textContent=L("Last changed","Terakhir diubah")+": "+(AFSET.updated_at?new Date(AFSET.updated_at).toLocaleString():"—")+(AFSET.updated_by?(" · "+AFSET.updated_by):"");
       var au=V("afsAudit");
       if(au) au.innerHTML=(j.audit&&j.audit.length)?j.audit.map(function(a){
@@ -3251,13 +3477,16 @@
         var nv=(a.new_value==null)?"—":(typeof a.new_value==="object"?JSON.stringify(a.new_value):String(a.new_value));
         return '<div class="afrow"><span>'+esc(a.field)+'</span><span style="color:var(--ink-3)">'+esc(ov)+' → '+esc(nv)+'</span><span class="amt" style="font-weight:600;color:var(--ink-3)">'+(a.changed_at?new Date(a.changed_at).toLocaleDateString():"")+'</span></div>';
       }).join(""):'<div class="adm-note">'+L("No changes recorded yet.","Belum ada perubahan tercatat.")+'</div>';
-      var can=(AFROLE==="super");
-      var save=V("afsSave"); if(save){ save.disabled=!can; save.setAttribute("aria-disabled", can?"false":"true"); save.onclick=saveAffiliateSettings; }
+      // Gating: finansial = super; umum = growth/super.
+      var canFin=(AFROLE==="super"), canGen=(AFROLE==="super"||AFROLE==="growth");
+      ["afsRate","afsMin","afsPending","afsStatus","afsTaxN","afsTaxNo","afsOnePer"].forEach(function(id){ var e=V(id); if(e) e.disabled=!canFin; });
+      ["afsMonthly","afsTermsV","afsTermsUrl","afsTermsSum","afsFraudAcc","afsFraudWin","afsFraudSpike","afsFraudRefund","afsTargets","afsCalcProducts"].forEach(function(id){ var e=V(id); if(e) e.disabled=!canGen; });
+      var save=V("afsSave"); if(save){ save.disabled=!(canFin||canGen); save.onclick=saveAffiliateSettings; }
       if(banner){
-        banner.textContent = can
-          ? L("You can edit financial settings (affiliate super-admin).","Kamu bisa mengubah setelan finansial (affiliate super-admin).")
-          : L("View only — saving financial settings needs an affiliate super-admin account.","Hanya lihat — menyimpan setelan finansial butuh akun affiliate super-admin.");
-        banner.style.color = can ? "var(--ink-3)" : "var(--accent-ink)";
+        banner.textContent = canFin? L("You can edit financial + general settings (super).","Kamu bisa ubah setelan finansial + umum (super).")
+          : (canGen? L("You can edit general settings (growth). Financial = super only.","Kamu bisa ubah setelan umum (growth). Finansial = super saja.")
+          : L("View only — editing needs an affiliate growth/super account.","Hanya lihat — mengubah butuh akun affiliate growth/super."));
+        banner.style.color = (canFin||canGen) ? "var(--ink-3)" : "var(--accent-ink)";
       }
     }catch(e){ if(banner){ banner.textContent=L("Failed to load settings.","Gagal memuat setelan."); } }
   }
@@ -3265,27 +3494,107 @@
     if(!AFSET) return;
     if(!(window.Auth&&Auth.supabase)){ if(window.admToast)admToast(L("Log in with your account to save.","Login dengan akunmu untuk menyimpan.")); return; }
     var V=function(id){ return document.getElementById(id); };
-    var patch={};
-    var rate=afsPctToFrac(V("afsRate").value); if(rate!==Number(AFSET.commission_rate)) patch.commission_rate=rate;
-    var mn=Math.round(Number(String(V("afsMin").value).replace(/[.\s]/g,""))||0); if(mn!==Number(AFSET.min_withdrawal)) patch.min_withdrawal=mn;
-    var pd=Math.round(Number(V("afsPending").value)||0); if(pd!==Number(AFSET.pending_days)) patch.pending_days=pd;
-    var tn=afsPctToFrac(V("afsTaxN").value); if(tn!==Number(AFSET.tax_rate_npwp)) patch.tax_rate_npwp=tn;
-    var tno=afsPctToFrac(V("afsTaxNo").value); if(tno!==Number(AFSET.tax_rate_no_npwp)) patch.tax_rate_no_npwp=tno;
-    var st=V("afsStatus").value; if(st!==AFSET.program_status) patch.program_status=st;
-    var op=!!V("afsOnePer").checked; if(op!==!!AFSET.one_purchase_per_open) patch.one_purchase_per_open=op;
-    if(!Object.keys(patch).length){ if(window.admToast)admToast(L("No changes.","Tidak ada perubahan.")); return; }
-    if(patch.commission_rate!=null && !(patch.commission_rate>0)){ if(window.admToast)admToast(L("Commission rate must be greater than 0%.","Rate komisi harus lebih dari 0%.")); return; }
+    var canFin=(AFROLE==="super"), canGen=(AFROLE==="super"||AFROLE==="growth");
+    var patch={}; var toast=function(m){ if(window.admToast)admToast(m); };
+    try{
+      if(canFin){
+        var rate=afsPctToFrac(V("afsRate").value); if(rate!==Number(AFSET.commission_rate)) patch.commission_rate=rate;
+        var mn=Math.round(Number(String(V("afsMin").value).replace(/[.\s]/g,""))||0); if(mn!==Number(AFSET.min_withdrawal)) patch.min_withdrawal=mn;
+        var pd=Math.round(Number(V("afsPending").value)||0); if(pd!==Number(AFSET.pending_days)) patch.pending_days=pd;
+        var tn=afsPctToFrac(V("afsTaxN").value); if(tn!==Number(AFSET.tax_rate_npwp)) patch.tax_rate_npwp=tn;
+        var tno=afsPctToFrac(V("afsTaxNo").value); if(tno!==Number(AFSET.tax_rate_no_npwp)) patch.tax_rate_no_npwp=tno;
+        var stv=V("afsStatus").value; if(stv!==AFSET.program_status) patch.program_status=stv;
+        var op=!!V("afsOnePer").checked; if(op!==!!AFSET.one_purchase_per_open) patch.one_purchase_per_open=op;
+        if(patch.commission_rate!=null && !(patch.commission_rate>0)){ toast(L("Commission rate must be greater than 0%.","Rate komisi harus lebih dari 0%.")); return; }
+      }
+      if(canGen){
+        if(V("afsMonthly").value!==""){ var mo=Math.round(Number(String(V("afsMonthly").value).replace(/[.\s]/g,""))||0); if(mo!==Number(AFSET.monthly_potential)) patch.monthly_potential=mo; }
+        var tv=String(V("afsTermsV").value).trim(); if(tv!==String(AFSET.terms_version||"")){ if(!tv){ toast(L("Terms version is required.","Versi S&K wajib.")); return; } patch.terms_version=tv; }
+        var tu=String(V("afsTermsUrl").value).trim(); if(tu!==String(AFSET.terms_url||"")){ if(tu && !/^https:\/\/\S+$/.test(tu)){ toast(L("Terms URL must be https://","URL S&K harus https://")); return; } patch.terms_url=tu||null; }
+        var tsum=String(V("afsTermsSum").value).trim(); if(tsum!==String(AFSET.terms_summary||"")) patch.terms_summary=tsum||null;
+        if(V("afsFraudAcc").value!==""){ var fa=Math.round(Number(V("afsFraudAcc").value)||0); if(fa!==Number(AFSET.fraud_device_accounts)){ if(fa<2){ toast(L("Sign-ups per device must be ≥ 2.","Sign-up per device minimal 2.")); return; } patch.fraud_device_accounts=fa; } }
+        if(V("afsFraudWin").value!==""){ var fw=Math.round(Number(V("afsFraudWin").value)||0); if(fw!==Number(AFSET.fraud_device_window_hours)) patch.fraud_device_window_hours=fw; }
+        if(V("afsFraudSpike").value!==""){ var fsp=Number(V("afsFraudSpike").value); if(fsp!==Number(AFSET.fraud_spike_multiplier)){ if(!(fsp>1)){ toast(L("Spike multiplier must be > 1.","Lonjakan harus > 1.")); return; } patch.fraud_spike_multiplier=fsp; } }
+        if(V("afsFraudRefund").value!==""){ var fr=afsPctToFrac(V("afsFraudRefund").value); if(fr!==Number(AFSET.fraud_refund_ratio)) patch.fraud_refund_ratio=fr; }
+        var tgt=afParseTargets(V("afsTargets").value); if(afTargetsToText(tgt)!==afTargetsToText(AFSET.sales_targets)) patch.sales_targets=tgt;
+        var prod=afParseProducts(V("afsCalcProducts").value); if(afProductsToText(prod)!==afProductsToText(AFSET.calculator_products)) patch.calculator_products=prod;
+      }
+    }catch(perr){ toast((perr&&perr.message)||String(perr)); return; }
+    if(!Object.keys(patch).length){ toast(L("No changes.","Tidak ada perubahan.")); return; }
     var save=V("afsSave"); if(save)save.disabled=true;
     try{
       var res=await Auth.supabase.rpc("affiliate_update_settings", { patch: patch });
       if(res.error) throw res.error;
-      if(window.admToast)admToast(L("Settings saved.","Setelan tersimpan."));
+      toast(L("Settings saved.","Setelan tersimpan."));
       await loadAffiliateSettings();
     }catch(e){
-      if(window.admToast)admToast(L("Save failed","Gagal menyimpan")+": "+((e&&e.message)||e));
+      toast(L("Save failed","Gagal menyimpan")+": "+((e&&e.message)||e));
       if(save)save.disabled=false;
     }
   }
+  // ---- AFFILIATE: produk katalog + flags global + adjustment (Fase B) ----
+  var AFPROD=[], AFPROD_EDIT=null;
+  async function loadAffiliateProducts(){
+    var tb=document.getElementById("afProdRows"); if(!tb) return;
+    await afEnsureRole();
+    if(!window._afProdBound){ window._afProdBound=true;
+      var add=document.getElementById("afProdAdd"); if(add) add.onclick=function(){ afProdForm(null); };
+      var sv=document.getElementById("apSave"); if(sv) sv.onclick=afProdSave;
+      var cn=document.getElementById("apCancel"); if(cn) cn.onclick=function(){ var f=document.getElementById("afProdForm"); if(f) f.hidden=true; AFPROD_EDIT=null; };
+    }
+    var can=afCanGrowth();
+    var bn=document.getElementById("afProdBanner"); if(bn){ bn.textContent=can?L("You can manage products (growth/super).","Kamu bisa kelola produk (growth/super)."):L("View only — managing products needs growth/super.","Hanya lihat — kelola produk butuh growth/super."); bn.style.color=can?"var(--ink-3)":"var(--accent-ink)"; }
+    var addBtn=document.getElementById("afProdAdd"); if(addBtn) addBtn.style.display=can?"":"none";
+    try{
+      var res=await adminFetch("/api/admin/affiliate/products");
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      AFPROD=j.products||[];
+      tb.innerHTML = AFPROD.length? AFPROD.map(function(p){
+        var pct=(p.rate==null)?"—":(Math.round(Number(p.rate)*10000)/100)+"%";
+        var act=can?('<button class="adm-btn adm-btn--sm" onclick="afProdEdit(\''+esc(p.id)+'\')" data-i18n="Edit">Edit</button> <button class="adm-btn adm-btn--sm" onclick="afProdToggle(\''+esc(p.id)+'\','+(p.is_active?"false":"true")+')">'+(p.is_active?L("Deactivate","Nonaktif"):L("Activate","Aktifkan"))+'</button>'):'—';
+        return '<tr><td>'+esc(p.unit||"—")+'</td><td>'+esc(p.name||"—")+'</td><td class="adm-mono" style="font-size:11px">'+esc(p.slug||"")+'</td><td class="adm-right adm-mono">'+pct+'</td><td>'+(p.is_active?'<span class="adm-tag adm-tag--paid">'+L("Active","Aktif")+'</span>':'<span class="adm-tag adm-tag--mute">'+L("Off","Nonaktif")+'</span>')+'</td><td><div class="afcl-act">'+act+'</div></td></tr>';
+      }).join("") : '<tr><td colspan="6"><div class="adm-note">'+L("No products yet.","Belum ada produk.")+'</div></td></tr>';
+    }catch(e){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+  }
+  function afProdForm(p){
+    AFPROD_EDIT=p?p.id:null;
+    var V=function(id){return document.getElementById(id);};
+    var t=V("afProdFormTitle"); if(t) t.textContent=p?L("Edit product","Edit produk"):L("New product","Produk baru");
+    V("apSlug").value=(p&&p.slug)||""; V("apSlug").readOnly=!!p; V("apSlug").style.opacity=p?"0.6":"1";
+    V("apName").value=(p&&p.name)||""; V("apUnit").value=(p&&p.unit)||""; V("apRef").value=(p&&p.product_ref)||"";
+    V("apActive").checked=p?!!p.is_active:true;
+    var msg=V("apMsg"); if(msg) msg.textContent="";
+    var f=V("afProdForm"); if(f){ f.hidden=false; f.scrollIntoView({behavior:"smooth",block:"nearest"}); }
+  }
+  window.afProdEdit=function(id){ var p=AFPROD.find(function(x){return String(x.id)===String(id);}); if(p) afProdForm(p); };
+  async function afProdSave(){
+    var V=function(id){return document.getElementById(id);}; var msg=V("apMsg");
+    var slug=String(V("apSlug").value).trim(), name=String(V("apName").value).trim(), unit=String(V("apUnit").value).trim(), ref=String(V("apRef").value).trim();
+    if(!slug||!name||!unit){ if(msg) msg.textContent=L("Slug, name and unit are required.","Slug, nama, unit wajib."); return; }
+    if(await afRpc("affiliate_admin_upsert_product",{p_slug:slug,p_name:name,p_unit:unit,p_product_ref:ref||null,p_is_active:!!V("apActive").checked},L("Product saved.","Produk tersimpan."))){ var f=V("afProdForm"); if(f) f.hidden=true; AFPROD_EDIT=null; loadAffiliateProducts(); }
+    else if(msg) msg.textContent=L("Save failed.","Gagal menyimpan.");
+  }
+  window.afProdToggle=async function(id, active){ if(await afRpc("affiliate_admin_set_product_active",{p_product_id:id,p_is_active:(active===true||active==="true")},L("Updated.","Diperbarui."))) loadAffiliateProducts(); };
+  var AFFLAG_F="open";
+  async function loadAffiliateFlags(){
+    var tb=document.getElementById("afFlagRows"); if(!tb) return;
+    await afEnsureRole();
+    if(!window._afFlagBound){ window._afFlagBound=true; document.querySelectorAll(".afFlagF").forEach(function(c){ c.addEventListener("click",function(){ AFFLAG_F=c.dataset.s; document.querySelectorAll(".afFlagF").forEach(function(x){x.setAttribute("aria-pressed",String(x===c));}); loadAffiliateFlags(); }); }); }
+    var can=afCanGrowth();
+    try{
+      var res=await adminFetch("/api/admin/affiliate/flags"+(AFFLAG_F!=="all"?("?status="+AFFLAG_F):""));
+      var j=await res.json().catch(function(){return null;});
+      if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="5"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
+      var rows=j.flags||[];
+      var empty=document.getElementById("afFlagEmpty"); if(empty) empty.hidden=rows.length>0;
+      tb.innerHTML=rows.map(function(f){ var open=String(f.status||"").toLowerCase()==="open"; var act=(can&&open)?('<button class="adm-btn adm-btn--sm" onclick="afReviewFlagList(\''+esc(f.id)+'\',\'cleared\')" data-i18n="Clear">Bersihkan</button> <button class="adm-btn adm-btn--sm" onclick="afReviewFlagList(\''+esc(f.id)+'\',\'confirmed\')" data-i18n="Confirm fraud">Konfirmasi fraud</button>'):'—';
+        return '<tr><td><span class="adm-mono">'+esc(f.code)+'</span></td><td>'+esc(f.type||"—")+'</td><td>'+afTag(f.status)+'</td><td>'+afDate(f.created_at)+'</td><td><div class="afcl-act">'+act+'</div></td></tr>'; }).join("");
+    }catch(e){ tb.innerHTML='<tr><td colspan="5"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
+  }
+  window.afReviewFlagList=async function(id,status){ if(status==="confirmed" && !confirm(L("Confirm fraud? This cancels open commissions.","Konfirmasi fraud? Ini membatalkan komisi yang masih terbuka.")))return; if(await afRpc("affiliate_admin_review_flag",{p_flag_id:id,p_status:status},L("Flag updated.","Flag diperbarui."))) loadAffiliateFlags(); };
+  // Adjustment negatif (finance/super) — dari detail affiliate.
+  window.afAddAdjustment=async function(){ if(!AFDET)return; var amt=prompt(L("Adjustment amount (Rp, will be stored negative):","Nominal penyesuaian (Rp, disimpan negatif):"),""); if(amt===null)return; var n=Math.round(Number(String(amt).replace(/[.\s]/g,""))||0); if(!(n>0)){ if(window.admToast)admToast(L("Amount must be greater than 0.","Nominal harus lebih dari 0.")); return; } var reason=prompt(L("Reason:","Alasan:"),""); if(reason===null)return; if(!String(reason).trim()){ if(window.admToast)admToast(L("Reason required.","Alasan wajib.")); return; } if(await afRpc("affiliate_admin_add_adjustment",{p_affiliate_id:AFDET.id,p_amount:n,p_reason:String(reason).trim(),p_related_commission_id:null},L("Adjustment added.","Penyesuaian ditambahkan."))) afOpenDetail(AFDET.id); };
 
   function loadSection(id){
     if(id==="overview") return loadOverview();
@@ -3674,14 +3983,12 @@
     if(rwa){ var rwaA=rwa.dataset.a,rwaId=rwa.dataset.id; if(rwaA==="edit")window.rwEdit(rwaId); else if(rwaA==="toggle")window.rwToggle(rwaId); else if(rwaA==="delete")window.rwDelete(rwaId); return; }
     var rca=e.target.closest(".rcAct");
     if(rca){ window.rcFulfill(rca.dataset.id, rca.dataset.s); return; }
-    var coa=e.target.closest(".coAct");
-    if(coa){ var coaA=coa.dataset.a,coaId=coa.dataset.id; if(coaA==="edit")window.coEdit(coaId); else if(coaA==="delete")window.coDelete(coaId); return; }
+    var roa=e.target.closest(".roAct");
+    if(roa){ var roaA=roa.dataset.a; if(roaA==="edit")window.roEdit(roa.dataset.role,roa.dataset.id); else if(roaA==="delete")window.roDelete(roa.dataset.role,roa.dataset.id); return; }
     var alx=e.target.closest(".alDel");
     if(alx){ e.preventDefault(); window.alDel(alx.dataset.id); return; }
     var ivm=e.target.closest(".ivMap");
     if(ivm){ window.ivMap(ivm); return; }
-    var dca=e.target.closest(".dcAct");
-    if(dca){ var dcaA=dca.dataset.a,dcaId=dca.dataset.id; if(dcaA==="edit")window.dcEdit(dcaId); else if(dcaA==="delete")window.dcDelete(dcaId); return; }
     var htt=e.target.closest(".htToggle");
     if(htt){ window.htToggle(htt.dataset.key, htt.dataset.on==="1"); return; }
     var htr=e.target.closest(".htIconReset");

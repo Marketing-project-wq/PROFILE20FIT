@@ -4154,9 +4154,9 @@ app.get("/api/team", async (req, res) => {
     const { data, error } = await admin.from("my20fit_team_public")
       .select(cols)
       .eq("is_active", true)
-      // Kelompok per-peran (coach -> doctor -> physiotherapist, urut alfabet role), lalu sort_order.
-      // Homepage TIDAK mencampur peran: semua coach dulu, baru dokter, baru fisioterapis.
-      .order("role", { ascending: true }).order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+      // Urutan GLOBAL tercampur (coach/dokter/fisio) — satu sumber: sort_order yang diatur
+      // admin via mockup roster (admin-v2). Tak lagi dikelompokkan per-peran.
+      .order("sort_order", { ascending: true }).order("display_name", { ascending: true });
     if (error) throw error;
     const AI = aiPersonaCoachNames();   // persona AI chat-only tak muncul di roster Team/home
     const team = (data || []).filter(p => !(p.role === "coach" && AI.has(p.display_name))).map(p => {
@@ -4457,6 +4457,101 @@ app.delete("/api/admin/doctors/:id", async (req, res) => {
     return res.json({ ok: true });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
+// Roster FISIOTERAPIS (my20fit_physiotherapists) — CRUD admin, pola sama dgn dokter.
+// Sebelumnya hanya bisa via SQL; kini bisa di admin-v2 (roster gabungan).
+app.get("/api/admin/physiotherapists", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  try {
+    const { data, error } = await admin.from("my20fit_physiotherapists")
+      .select("id,display_name,speciality,bio,photo_url,is_active,sort_order")
+      .order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+    if (error) throw error;
+    return res.json({ ok: true, physiotherapists: data || [] });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.post("/api/admin/physiotherapists", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const b = req.body || {};
+  const name = String(b.display_name || "").trim();
+  if (!name) return res.status(400).json({ error: "Nama fisioterapis wajib." });
+  const row = {
+    display_name: name.slice(0, 160),
+    speciality: b.speciality ? String(b.speciality).slice(0, 200) : null,
+    bio: b.bio ? String(b.bio).slice(0, 2000) : null,
+    photo_url: b.photo_url ? String(b.photo_url).slice(0, 500) : null,
+    is_active: b.is_active === false ? false : true,
+    sort_order: Number.isFinite(+b.sort_order) ? (+b.sort_order | 0) : 0,
+    updated_at: new Date().toISOString(),
+  };
+  try {
+    let data, error;
+    if (b.id) ({ data, error } = await admin.from("my20fit_physiotherapists").update(row).eq("id", String(b.id)).select("id").limit(1));
+    else ({ data, error } = await admin.from("my20fit_physiotherapists").insert(row).select("id").limit(1));
+    if (error) throw error;
+    await adminAudit(ctx, b.id ? "physio.update" : "physio.create", (data && data[0] && data[0].id) || String(b.id || ""), { name });
+    return res.json({ ok: true, id: (data && data[0] && data[0].id) || b.id || null });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.delete("/api/admin/physiotherapists/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  const id = String(req.params.id || "");
+  try {
+    const { error } = await admin.from("my20fit_physiotherapists").delete().eq("id", id);
+    if (error) throw error;
+    await adminAudit(ctx, "physio.delete", id, null);
+    return res.json({ ok: true });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+// Roster GABUNGAN (coach + dokter + fisio) utk UI roster terpadu + mockup urutan.
+// READ-ONLY; tiap peran tetap di tabel masing-masing. Semua baris (termasuk nonaktif).
+var ROSTER_SRC = { coach: { t: "my20fit_coaches", venue: true }, doctor: { t: "my20fit_doctors", venue: false }, physiotherapist: { t: "my20fit_physiotherapists", venue: false } };
+app.get("/api/admin/roster", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const out = [];
+    for (const role of Object.keys(ROSTER_SRC)) {
+      const cfg = ROSTER_SRC[role];
+      const cols = "id,display_name,speciality,photo_url,bio,is_active,sort_order" + (cfg.venue ? ",venue" : "");
+      const { data, error } = await admin.from(cfg.t).select(cols).limit(2000);
+      if (error) throw error;
+      (data || []).forEach((r) => out.push({
+        id: r.id, role: role, display_name: r.display_name, speciality: r.speciality || null,
+        photo_url: r.photo_url || null, bio: r.bio || null, is_active: r.is_active !== false,
+        sort_order: (r.sort_order != null ? r.sort_order : 0), venue: cfg.venue ? (r.venue || "both") : null,
+      }));
+    }
+    out.sort((a, b) => (a.sort_order - b.sort_order) || String(a.display_name || "").localeCompare(String(b.display_name || "")));
+    return res.json({ ok: true, roster: out });
+  } catch (e) {
+    console.error("admin/roster:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat roster." });
+  }
+});
+// Simpan urutan GLOBAL (mixed coach+dokter+fisio) dari mockup drag. Body: {items:[{role,id,sort_order}]}.
+// Satu sumber kebenaran urutan -> ditulis ke sort_order tiap baris di tabel asalnya.
+app.post("/api/admin/roster/reorder", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
+    if (!items.length) return res.status(400).json({ error: "items kosong." });
+    let n = 0;
+    for (const it of items) {
+      const cfg = ROSTER_SRC[String(it && it.role)];
+      if (!cfg || !it.id) continue;
+      const so = Number.isFinite(+it.sort_order) ? (+it.sort_order | 0) : 0;
+      const { error } = await admin.from(cfg.t).update({ sort_order: so, updated_at: new Date().toISOString() }).eq("id", String(it.id));
+      if (error) throw error;
+      n++;
+    }
+    await adminAudit(ctx, "roster.reorder", null, { count: n });
+    return res.json({ ok: true, updated: n });
+  } catch (e) {
+    console.error("admin/roster/reorder:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal menyimpan urutan." });
+  }
+});
 // Unggah foto coach/dokter -> Supabase Storage bucket 'coach-photos' (public), balik URL publik.
 // Simpan di Storage (bukan tempel URL eksternal). Terima data URL base64 (limit body 8mb).
 app.post("/api/admin/upload-photo", async (req, res) => {
@@ -4470,7 +4565,8 @@ app.post("/api/admin/upload-photo", async (req, res) => {
     const ext = (m[2] === "jpeg") ? "jpg" : m[2];
     const buf = Buffer.from(m[3], "base64");
     if (buf.length > 5 * 1024 * 1024) return res.status(413).json({ error: "Ukuran gambar maksimal 5MB." });
-    const folder = (String(b.kind || "coach") === "doctor") ? "doctors" : "coaches";
+    const kind = String(b.kind || "coach");
+    const folder = kind === "doctor" ? "doctors" : (kind === "physiotherapist" || kind === "physio") ? "physio" : "coaches";
     const name = folder + "/" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6).toString(36) + "." + ext;
     const { error } = await admin.storage.from("coach-photos").upload(name, buf, { contentType, upsert: false });
     if (error) throw error;
@@ -7379,13 +7475,12 @@ app.get("/api/admin/affiliate/settings", async (req, res) => {
   if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
   try {
     const { data: s, error: se } = await admin.from("affiliate_settings")
-      .select("commission_rate,min_withdrawal,pending_days,tax_rate_npwp,tax_rate_no_npwp,program_status,one_purchase_per_open,updated_at,updated_by")
+      .select("commission_rate,min_withdrawal,pending_days,tax_rate_npwp,tax_rate_no_npwp,program_status,one_purchase_per_open,monthly_potential,sales_targets,calculator_products,terms_version,terms_url,terms_summary,fraud_device_accounts,fraud_device_window_hours,fraud_spike_multiplier,fraud_refund_ratio,landing_content,updated_at,updated_by")
       .eq("id", 1).maybeSingle();
     if (se) throw se;
-    const FIN = ["commission_rate", "min_withdrawal", "pending_days", "tax_rate_npwp", "tax_rate_no_npwp", "program_status", "one_purchase_per_open"];
     const { data: audit } = await admin.from("affiliate_settings_audit")
       .select("changed_at,changed_by,field,old_value,new_value")
-      .in("field", FIN).order("changed_at", { ascending: false }).limit(12);
+      .order("changed_at", { ascending: false }).limit(20);
     return res.json({ ok: true, settings: s || null, audit: audit || [] });
   } catch (e) {
     console.error("admin/affiliate/settings:", (e && e.message) || e);
@@ -7411,6 +7506,7 @@ app.get("/api/admin/affiliate/affiliates", async (req, res) => {
       g.tx += 1; g.total += Number(c.amount) || 0;
     });
     const rows = (affs || []).map((a) => ({
+      id: a.id,
       code: a.code || "—",
       status: a.status || "—",
       joined_at: a.joined_at || null,
@@ -7429,7 +7525,7 @@ app.get("/api/admin/affiliate/commissions", async (req, res) => {
   if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
   try {
     const { data: comm, error: ce } = await admin.from("affiliate_commission")
-      .select("affiliate_id,base_amount,rate_at_time,amount,status,paid_at_source,created_at")
+      .select("id,affiliate_id,base_amount,rate_at_time,amount,status,paid_at_source,created_at")
       .order("created_at", { ascending: false }).limit(300);
     if (ce) throw ce;
     const ids = Array.from(new Set((comm || []).map((c) => c.affiliate_id).filter(Boolean)));
@@ -7439,6 +7535,7 @@ app.get("/api/admin/affiliate/commissions", async (req, res) => {
       (affs || []).forEach((a) => { codeMap[a.id] = a.code; });
     }
     const rows = (comm || []).map((c) => ({
+      id: c.id,
       code: codeMap[c.affiliate_id] || "—",
       base_amount: Number(c.base_amount) || 0,
       rate_at_time: c.rate_at_time == null ? null : Number(c.rate_at_time),
@@ -7485,6 +7582,90 @@ app.get("/api/admin/affiliate/claims", async (req, res) => {
   } catch (e) {
     console.error("admin/affiliate/claims:", (e && e.message) || e);
     return res.status(500).json({ error: "Gagal memuat daftar klaim." });
+  }
+});
+// Detail satu affiliate (viewer+) — READ-ONLY. Agregat + komisi + klaim + flags + referral
+// (diturunkan dari komisi). Aksi tulis TETAP lewat RPC resmi (JWT admin) dari UI; data payout
+// terenkripsi TIDAK dibaca di sini (reveal lewat RPC affiliate_admin_payout_profile saja).
+app.get("/api/admin/affiliate/affiliate/:id", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const id = String(req.params.id || "");
+    const { data: aff, error: ae } = await admin.from("affiliate")
+      .select("id,code,status,joined_at,notes,terms_version,terms_accepted_at").eq("id", id).maybeSingle();
+    if (ae) throw ae;
+    if (!aff) return res.status(404).json({ error: "Affiliate tidak ditemukan." });
+    const { data: comm } = await admin.from("affiliate_commission")
+      .select("id,base_amount,rate_at_time,amount,status,under_review,available_at,paid_at_source,buyer_auth_user_id,created_at")
+      .eq("affiliate_id", id).order("created_at", { ascending: false }).limit(1000);
+    const { data: claims } = await admin.from("affiliate_claim")
+      .select("id,claim_no,amount_gross,amount_net,status,submitted_at,estimated_transfer_date,paid_at,rejected_at,transfer_ref")
+      .eq("affiliate_id", id).order("submitted_at", { ascending: false }).limit(200);
+    const { data: flags } = await admin.from("affiliate_flag")
+      .select("id,type,status,detail,reviewed_by,reviewed_at,created_at")
+      .eq("affiliate_id", id).order("created_at", { ascending: false }).limit(200);
+    const { data: links } = await admin.from("affiliate_link").select("id").eq("affiliate_id", id).limit(1000);
+    let clicks = 0;
+    const linkIds = (links || []).map((l) => l.id);
+    if (linkIds.length) { const { count } = await admin.from("affiliate_link_open").select("id", { count: "exact", head: true }).in("link_id", linkIds); clicks = count || 0; }
+    const byStatus = { held: 0, available: 0, claimed: 0, paid: 0, cancelled: 0 };
+    const buyers = new Set(); const refMap = {};
+    (comm || []).forEach((c) => {
+      const a = Number(c.amount) || 0;
+      if (byStatus[c.status] != null) byStatus[c.status] += a;
+      if (c.buyer_auth_user_id) {
+        buyers.add(c.buyer_auth_user_id);
+        const r = refMap[c.buyer_auth_user_id] || (refMap[c.buyer_auth_user_id] = { buyer: c.buyer_auth_user_id, tx: 0, total: 0, first_at: c.created_at });
+        r.tx += 1; r.total += a; if (c.created_at < r.first_at) r.first_at = c.created_at;
+      }
+    });
+    return res.json({
+      ok: true, affiliate: aff,
+      stats: { clicks: clicks, buyers: buyers.size, transactions: (comm || []).length, by_status: byStatus },
+      commissions: comm || [], claims: claims || [], flags: flags || [], referrals: Object.keys(refMap).map((k) => refMap[k]),
+    });
+  } catch (e) {
+    console.error("admin/affiliate/detail:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat detail affiliate." });
+  }
+});
+// Katalog produk affiliate (viewer+) — READ-ONLY. Toggle aktif & upsert lewat RPC resmi
+// (affiliate_admin_set_product_active / _upsert_product). rate TIDAK bisa diubah via RPC.
+app.get("/api/admin/affiliate/products", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    const { data, error } = await admin.from("affiliate_product")
+      .select("id,slug,name,unit,product_ref,is_active,rate,effective_from")
+      .order("unit", { ascending: true }).order("name", { ascending: true }).limit(2000);
+    if (error) throw error;
+    return res.json({ ok: true, products: data || [] });
+  } catch (e) {
+    console.error("admin/affiliate/products:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat produk affiliate." });
+  }
+});
+// Daftar flag fraud (viewer+) — READ-ONLY, lintas affiliate + kode. Review lewat RPC resmi
+// affiliate_admin_review_flag. ?status=open|cleared|confirmed opsional.
+app.get("/api/admin/affiliate/flags", async (req, res) => {
+  const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    let q = admin.from("affiliate_flag").select("id,affiliate_id,type,status,detail,created_at,reviewed_by,reviewed_at")
+      .order("created_at", { ascending: false }).limit(500);
+    const st = String(req.query.status || "").trim().toLowerCase();
+    if (["open", "cleared", "confirmed"].indexOf(st) >= 0) q = q.eq("status", st);
+    const { data: flags, error } = await q;
+    if (error) throw error;
+    const ids = Array.from(new Set((flags || []).map((f) => f.affiliate_id).filter(Boolean)));
+    const codeMap = {};
+    if (ids.length) { const { data: affs } = await admin.from("affiliate").select("id,code").in("id", ids).limit(100000); (affs || []).forEach((a) => { codeMap[a.id] = a.code; }); }
+    const rows = (flags || []).map((f) => ({ id: f.id, code: codeMap[f.affiliate_id] || "—", affiliate_id: f.affiliate_id, type: f.type, status: f.status, created_at: f.created_at, reviewed_by: f.reviewed_by, reviewed_at: f.reviewed_at }));
+    return res.json({ ok: true, flags: rows });
+  } catch (e) {
+    console.error("admin/affiliate/flags:", (e && e.message) || e);
+    return res.status(500).json({ error: "Gagal memuat flags." });
   }
 });
 // Metrics overview (viewer+). Semua agregasi dari Supabase (real, bukan dummy).
