@@ -4145,7 +4145,7 @@ app.get("/api/physiotherapists", async (req, res) => {
 
 // Tim gabungan (coach + dokter + fisioterapis) untuk carousel & halaman "Meet the team".
 // Sumber tunggal = view my20fit_team_public (role literal, TANPA admin_user_id). Service role.
-// Urut sort_order lalu role -> peran tercampur di carousel. include_bio=1 utk halaman penuh.
+// Dikelompokkan per peran (coach → dokter → fisio), di dalam peran urut sort_order. include_bio=1 utk halaman penuh.
 app.get("/api/team", async (req, res) => {
   try {
     if (!admin) return res.json({ ok: true, team: [] });
@@ -4154,12 +4154,11 @@ app.get("/api/team", async (req, res) => {
     const { data, error } = await admin.from("my20fit_team_public")
       .select(cols)
       .eq("is_active", true)
-      // Urutan GLOBAL tercampur (coach/dokter/fisio) — satu sumber: sort_order yang diatur
-      // admin via mockup roster (admin-v2). Tak lagi dikelompokkan per-peran.
       .order("sort_order", { ascending: true }).order("display_name", { ascending: true });
     if (error) throw error;
     const AI = aiPersonaCoachNames();   // persona AI chat-only tak muncul di roster Team/home
-    const team = (data || []).filter(p => !(p.role === "coach" && AI.has(p.display_name))).map(p => {
+    // Kelompok peran = sama dgn mockup roster admin-v2 (satu baris per peran; sort_order per peran).
+    const team = (data || []).slice().sort((a, b) => rosterRoleRank(a.role) - rosterRoleRank(b.role)).filter(p => !(p.role === "coach" && AI.has(p.display_name))).map(p => {
       const o = { id: p.id, role: p.role, name: p.display_name, speciality: p.speciality || null, photo_url: p.photo_url || null, venue: p.venue || null };
       if (withBio) o.bio = p.bio || null;
       return o;
@@ -4505,6 +4504,8 @@ app.delete("/api/admin/physiotherapists/:id", async (req, res) => {
 // Roster GABUNGAN (coach + dokter + fisio) utk UI roster terpadu + mockup urutan.
 // READ-ONLY; tiap peran tetap di tabel masing-masing. Semua baris (termasuk nonaktif).
 var ROSTER_SRC = { coach: { t: "my20fit_coaches", venue: true }, doctor: { t: "my20fit_doctors", venue: false }, physiotherapist: { t: "my20fit_physiotherapists", venue: false } };
+// Urutan kelompok peran di roster (admin & /api/team): coach → dokter → fisio. Peran lain di akhir.
+function rosterRoleRank(role) { const i = Object.keys(ROSTER_SRC).indexOf(String(role)); return i < 0 ? 99 : i; }
 app.get("/api/admin/roster", async (req, res) => {
   const ctx = await requireAdmin(req, res, "viewer"); if (!ctx) return;
   if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
@@ -4521,14 +4522,14 @@ app.get("/api/admin/roster", async (req, res) => {
         sort_order: (r.sort_order != null ? r.sort_order : 0), venue: cfg.venue ? (r.venue || "both") : null,
       }));
     }
-    out.sort((a, b) => (a.sort_order - b.sort_order) || String(a.display_name || "").localeCompare(String(b.display_name || "")));
+    out.sort((a, b) => (rosterRoleRank(a.role) - rosterRoleRank(b.role)) || (a.sort_order - b.sort_order) || String(a.display_name || "").localeCompare(String(b.display_name || "")));
     return res.json({ ok: true, roster: out });
   } catch (e) {
     console.error("admin/roster:", (e && e.message) || e);
     return res.status(500).json({ error: "Gagal memuat roster." });
   }
 });
-// Simpan urutan GLOBAL (mixed coach+dokter+fisio) dari mockup drag. Body: {items:[{role,id,sort_order}]}.
+// Simpan urutan roster dari mockup drag (sort_order per peran). Body: {items:[{role,id,sort_order}]}.
 // Satu sumber kebenaran urutan -> ditulis ke sort_order tiap baris di tabel asalnya.
 app.post("/api/admin/roster/reorder", async (req, res) => {
   const ctx = await requireAdmin(req, res, "staff"); if (!ctx) return;
@@ -4536,15 +4537,15 @@ app.post("/api/admin/roster/reorder", async (req, res) => {
   try {
     const items = Array.isArray((req.body || {}).items) ? req.body.items : [];
     if (!items.length) return res.status(400).json({ error: "items kosong." });
-    let n = 0;
-    for (const it of items) {
-      const cfg = ROSTER_SRC[String(it && it.role)];
-      if (!cfg || !it.id) continue;
+    const now = new Date().toISOString();
+    const jobs = items.filter((it) => it && it.id && ROSTER_SRC[String(it.role)]).map((it) => {
       const so = Number.isFinite(+it.sort_order) ? (+it.sort_order | 0) : 0;
-      const { error } = await admin.from(cfg.t).update({ sort_order: so, updated_at: new Date().toISOString() }).eq("id", String(it.id));
-      if (error) throw error;
-      n++;
-    }
+      return admin.from(ROSTER_SRC[String(it.role)].t).update({ sort_order: so, updated_at: now }).eq("id", String(it.id));
+    });
+    const results = await Promise.all(jobs);
+    const failed = results.find((r) => r && r.error);
+    if (failed) throw failed.error;
+    const n = jobs.length;
     await adminAudit(ctx, "roster.reorder", null, { count: n });
     return res.json({ ok: true, updated: n });
   } catch (e) {
