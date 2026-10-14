@@ -1081,16 +1081,18 @@
         <div class="adm-note" data-i18n="Roster shown to members. Not linked to arena_coaches/gym_coaches. Class filtering uses the alias map below, not text matching — assign every instructor value to a coach or its classes stay invisible on the coach page.">Roster yang ditampilkan ke member. Tidak terhubung ke arena_coaches/gym_coaches. Penyaringan kelas pakai pemetaan alias di bawah, BUKAN cocok teks — tugaskan tiap nilai instructor ke coach, kalau tidak kelasnya tak terlihat di halaman coach.</div>
 
         <style>
-          /* Mockup urutan — meniru carousel kartu /team (meet coaches & doctors) */
-          .rosmock{display:flex;gap:12px;overflow-x:auto;padding:6px 2px 12px}
+          /* Mockup urutan — satu kolom per tipe (coach / dokter / fisio). Seret dalam kolom. */
+          .rosmock{display:flex;gap:16px;overflow-x:auto;padding:6px 2px 12px;align-items:flex-start}
           .rosmock::-webkit-scrollbar{height:7px}.rosmock::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
-          .rosmock-card{flex:0 0 150px;width:150px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;transition:transform .12s ease}
+          .rosmock-col{flex:0 0 auto;width:184px;display:flex;flex-direction:column}
+          .rmcol-h{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin:0 0 8px;display:flex;align-items:center;gap:6px}
+          .rmcol-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+          .rmcol-list{display:flex;flex-direction:column;gap:10px;min-height:72px;padding:9px;border:1px dashed var(--line);border-radius:14px;background:color-mix(in srgb,var(--surface) 45%,transparent)}
+          .rosmock-card{width:100%;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;transition:transform .12s ease}
           .rosmock-card.dragging{opacity:.9;cursor:grabbing;box-shadow:0 10px 26px rgba(0,0,0,.28);transform:scale(1.04);z-index:2}
           .rosmock-card.off{opacity:.5}
           .rosmock-card.off.dragging{opacity:.75}
           .rosmock-card img, .rosmock-card *{pointer-events:none}
-          .rm-badge{position:absolute;top:8px;left:8px;font-size:9px;font-weight:800;color:#fff;padding:2px 7px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
-          .rm-badge.coach{background:var(--accent)}.rm-badge.doctor{background:#2F6BFF}.rm-badge.physiotherapist{background:#0EA5A5}
           .rm-pos{position:absolute;top:8px;right:8px;font-size:10px;font-weight:700;color:var(--ink-4);font-family:var(--font-mono)}
           .rm-av{width:62px;height:62px;border-radius:50%;object-fit:cover;background:var(--surface) center/cover no-repeat;display:grid;place-items:center;color:var(--ink-4);font-weight:800;font-size:22px;margin:6px 0 8px}
           .rm-nm{font-weight:700;font-size:13px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
@@ -3005,90 +3007,90 @@
         }).join("")+'</tbody></table>';
     }catch(e){ box.innerHTML='<div class="adm-note">'+L("Error loading values.","Error memuat nilai.")+'</div>'; }
   }
+  var RO_ROLES=["coach","doctor","physiotherapist"];
+  var RO_DOT={ coach:"var(--accent)", doctor:"#2F6BFF", physiotherapist:"#0EA5A5" };
+  function roCardHtml(p,i){
+    var av=p.photo_url?('<img class="rm-av" src="'+evEsc(p.photo_url)+'" alt="">'):('<div class="rm-av">'+evEsc(String(p.display_name||"?").trim().slice(0,1).toUpperCase())+'</div>');
+    return '<div class="rosmock-card'+(p.is_active===false?" off":"")+'" data-key="'+evEsc(roKey(p))+'">'+
+      '<span class="rm-pos">#'+(i+1)+'</span>'+av+
+      '<div class="rm-nm">'+evEsc(p.display_name||"")+'</div>'+
+      (p.speciality?'<div class="rm-sp">'+evEsc(p.speciality)+'</div>':'')+
+    '</div>';
+  }
   function roRenderMock(){
     var box=document.getElementById("rosMock"); if(!box) return;
     if(!RO_CACHE.length){ box.innerHTML='<div class="adm-note">'+L("Roster is empty.","Roster kosong.")+'</div>'; return; }
-    box.innerHTML=RO_CACHE.map(function(p,i){
-      var av=p.photo_url?('<img class="rm-av" src="'+evEsc(p.photo_url)+'" alt="">'):('<div class="rm-av">'+evEsc(String(p.display_name||"?").trim().slice(0,1).toUpperCase())+'</div>');
-      return '<div class="rosmock-card'+(p.is_active===false?" off":"")+'" data-key="'+evEsc(roKey(p))+'">'+
-        '<span class="rm-badge '+evEsc(p.role)+'">'+evEsc(roLabel(p.role))+'</span>'+
-        '<span class="rm-pos">#'+(i+1)+'</span>'+av+
-        '<div class="rm-nm">'+evEsc(p.display_name||"")+'</div>'+
-        (p.speciality?'<div class="rm-sp">'+evEsc(p.speciality)+'</div>':'')+
-      '</div>';
+    box.innerHTML=RO_ROLES.map(function(role){
+      var cards=RO_CACHE.filter(function(p){return p.role===role;});
+      var inner=cards.length ? cards.map(function(p,i){return roCardHtml(p,i);}).join("")
+        : '<div class="adm-note" style="margin:0;text-align:center;padding:12px 0">'+L("None yet","Belum ada")+'</div>';
+      return '<div class="rosmock-col"><div class="rmcol-h"><span class="rmcol-dot" style="background:'+RO_DOT[role]+'"></span>'+evEsc(roLabel(role))+' ('+cards.length+')</div>'+
+        '<div class="rmcol-list" data-role="'+role+'">'+inner+'</div></div>';
     }).join("");
-    roBindDrag(box); roOrderMsg();
+    [].forEach.call(box.querySelectorAll(".rmcol-list"), roBindCol);
+    roOrderMsg();
   }
   function roOrderMsg(){ var m=document.getElementById("rosOrderMsg"); if(m) m.textContent=RO_DIRTY?L("Unsaved order — click Save order.","Urutan belum disimpan — klik Simpan urutan."):""; }
-  // Drag reorder berbasis Pointer Events (bukan HTML5 DnD) supaya:
-  // (1) kartu di luar layar bisa dijangkau lewat auto-scroll tepi terkendali,
-  // (2) tidak bentrok dgn auto-scroll bawaan browser yang bikin rail loncat sendiri.
-  // Reorder LIVE: node kartu dipindah di antara saudaranya saat pointer melewati
-  // tengah kartu lain; urutan final dibaca balik dari DOM saat dilepas.
-  function roBindDrag(box){
-    var dragEl=null, pid=null, moved=false, startX=0, startY=0, autoRaf=null, vx=0;
-    function liveCards(){ return [].slice.call(box.querySelectorAll(".rosmock-card")); }
-    function autoStep(){ if(vx){ box.scrollLeft+=vx; } autoRaf=requestAnimationFrame(autoStep); }
-    function edgeScroll(clientX){
-      var r=box.getBoundingClientRect(), edge=72;
-      if(clientX < r.left+edge && box.scrollLeft>0){ vx=-Math.max(5,Math.ceil((r.left+edge-clientX)/5)); }
-      else if(clientX > r.right-edge && box.scrollLeft < box.scrollWidth-box.clientWidth-1){ vx=Math.max(5,Math.ceil((clientX-(r.right-edge))/5)); }
-      else { vx=0; }
-      if(vx && autoRaf===null){ autoRaf=requestAnimationFrame(autoStep); }
-    }
-    function stopAuto(){ vx=0; if(autoRaf!==null){ cancelAnimationFrame(autoRaf); autoRaf=null; } }
-    function cardAtX(clientX){
-      var hit=null;
-      liveCards().forEach(function(c){ if(c===dragEl) return; var cr=c.getBoundingClientRect(); if(clientX>=cr.left && clientX<=cr.right) hit=c; });
-      return hit;
-    }
+  function roFindByKey(key){ var i=key.indexOf(":"); return roFind(key.slice(0,i), key.slice(i+1)); }
+  // Baca ulang RO_CACHE dari DOM: kelompok per-tipe (urut kolom coach/dokter/fisio), urut kartu per kolom.
+  function roSyncFromDom(){
+    var box=document.getElementById("rosMock"); if(!box) return;
+    var next=[];
+    RO_ROLES.forEach(function(role){
+      var list=box.querySelector('.rmcol-list[data-role="'+role+'"]'); if(!list) return;
+      [].forEach.call(list.querySelectorAll(".rosmock-card"), function(c){ var p=roFindByKey(c.dataset.key); if(p && next.indexOf(p)<0) next.push(p); });
+    });
+    RO_CACHE.forEach(function(p){ if(next.indexOf(p)<0) next.push(p); });  // jaga-jaga
+    RO_CACHE=next;
+  }
+  // Drag reorder DALAM satu kolom (tipe sama) berbasis Pointer Events. Vertikal + auto-scroll
+  // jendela di tepi atas/bawah. Tap tanpa geser = buka edit cepat.
+  function roBindCol(list){
+    var dragEl=null, pid=null, moved=false, sx=0, sy=0, raf=null, vy=0;
+    function liveCards(){ return [].slice.call(list.querySelectorAll(".rosmock-card")); }
+    function step(){ if(vy){ window.scrollBy(0,vy); } raf=requestAnimationFrame(step); }
+    function edge(cy){ var e=84,h=window.innerHeight; if(cy<e){ vy=-Math.max(6,Math.ceil((e-cy)/5)); } else if(cy>h-e){ vy=Math.max(6,Math.ceil((cy-(h-e))/5)); } else vy=0; if(vy&&raf===null)raf=requestAnimationFrame(step); }
+    function stopAuto(){ vy=0; if(raf!==null){ cancelAnimationFrame(raf); raf=null; } }
+    function cardAtY(cy){ var hit=null; liveCards().forEach(function(c){ if(c===dragEl)return; var r=c.getBoundingClientRect(); if(cy>=r.top&&cy<=r.bottom) hit=c; }); return hit; }
     function renumber(){ liveCards().forEach(function(c,i){ var p=c.querySelector(".rm-pos"); if(p)p.textContent="#"+(i+1); }); }
     function onMove(e){
       if(!dragEl || e.pointerId!==pid) return;
-      if(!moved){ if(Math.abs(e.clientX-startX)<5 && Math.abs(e.clientY-startY)<5) return; moved=true; dragEl.classList.add("dragging"); }
-      e.preventDefault();
-      edgeScroll(e.clientX);
-      var over=cardAtX(e.clientX);
-      if(over && over!==dragEl){
-        var cr=over.getBoundingClientRect();
-        var before=(e.clientX-cr.left) < cr.width/2;
-        box.insertBefore(dragEl, before?over:over.nextSibling);
-        renumber();
-      }
+      if(!moved){ if(Math.abs(e.clientX-sx)<5 && Math.abs(e.clientY-sy)<5) return; moved=true; dragEl.classList.add("dragging"); }
+      e.preventDefault(); edge(e.clientY);
+      var over=cardAtY(e.clientY);
+      if(over && over!==dragEl){ var r=over.getBoundingClientRect(); var before=(e.clientY-r.top)<r.height/2; list.insertBefore(dragEl, before?over:over.nextSibling); renumber(); }
     }
     function onUp(e){
       if(!dragEl || e.pointerId!==pid) return;
       stopAuto();
       try{ dragEl.releasePointerCapture&&dragEl.releasePointerCapture(pid); }catch(_){}
-      box.removeEventListener("pointermove", onMove);
-      if(moved){
-        dragEl.classList.remove("dragging");
-        var keys=liveCards().map(function(c){ return c.dataset.key; });
-        RO_CACHE.sort(function(a,b){ return keys.indexOf(roKey(a)) - keys.indexOf(roKey(b)); });
-        RO_DIRTY=true; roOrderMsg();
-      } else {
-        roQuickOpen(dragEl.dataset.key);   // tap tanpa geser = buka edit cepat
-      }
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
+      if(moved){ dragEl.classList.remove("dragging"); roSyncFromDom(); RO_DIRTY=true; roOrderMsg(); }
+      else { roQuickOpen(dragEl.dataset.key); }   // tap tanpa geser = edit cepat
       dragEl=null; pid=null; moved=false;
     }
     liveCards().forEach(function(card){
       card.addEventListener("pointerdown", function(e){
         if(e.button!=null && e.button!==0) return;
-        dragEl=card; pid=e.pointerId; moved=false; startX=e.clientX; startY=e.clientY;
+        dragEl=card; pid=e.pointerId; moved=false; sx=e.clientX; sy=e.clientY;
         try{ card.setPointerCapture&&card.setPointerCapture(e.pointerId); }catch(_){}
-        box.addEventListener("pointermove", onMove);
+        // Move/up di document (bukan card/list) supaya andal walau kursor keluar kartu saat seret.
+        document.addEventListener("pointermove", onMove);
+        document.addEventListener("pointerup", onUp);
+        document.addEventListener("pointercancel", onUp);
       });
-      card.addEventListener("pointerup", onUp);
-      card.addEventListener("pointercancel", onUp);
     });
   }
   window.roOrderSave=async function(){
     var msg=document.getElementById("rosOrderMsg");
-    var items=RO_CACHE.map(function(p,i){ return { role:p.role, id:p.id, sort_order:i }; });
+    var ctr={ coach:0, doctor:0, physiotherapist:0 };   // sort_order per-tipe (0..N di tiap kolom)
+    var items=RO_CACHE.map(function(p){ var so=(ctr[p.role]!=null)?ctr[p.role]++:0; return { role:p.role, id:p.id, sort_order:so }; });
     if(msg)msg.textContent=L("Saving…","Menyimpan…");
     try{ var res=await adminPost("/api/admin/roster/reorder",{ items:items }); var j=await res.json().catch(function(){return null;});
       if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
-      RO_CACHE.forEach(function(p,i){ p.sort_order=i; }); RO_DIRTY=false;
+      var c2={ coach:0, doctor:0, physiotherapist:0 }; RO_CACHE.forEach(function(p){ p.sort_order=(c2[p.role]!=null)?c2[p.role]++:0; }); RO_DIRTY=false;
       if(msg)msg.textContent=L("Order saved ✓","Urutan tersimpan ✓"); roRenderList();
     }catch(e){ if(msg)msg.textContent=L("Error saving order.","Error menyimpan urutan."); }
   };

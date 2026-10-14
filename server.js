@@ -4154,9 +4154,10 @@ app.get("/api/team", async (req, res) => {
     const { data, error } = await admin.from("my20fit_team_public")
       .select(cols)
       .eq("is_active", true)
-      // Urutan GLOBAL tercampur (coach/dokter/fisio) — satu sumber: sort_order yang diatur
-      // admin via mockup roster (admin-v2). Tak lagi dikelompokkan per-peran.
-      .order("sort_order", { ascending: true }).order("display_name", { ascending: true });
+      // Dikelompokkan per-peran (coach -> doctor -> physiotherapist, urut alfabet role),
+      // lalu sort_order yang diatur admin via mockup kolom per-tipe (admin-v2), lalu nama.
+      // "coach with coach, dokter with dokter" + urutan tersimpan stabil saat refresh.
+      .order("role", { ascending: true }).order("sort_order", { ascending: true }).order("display_name", { ascending: true });
     if (error) throw error;
     const AI = aiPersonaCoachNames();   // persona AI chat-only tak muncul di roster Team/home
     const team = (data || []).filter(p => !(p.role === "coach" && AI.has(p.display_name))).map(p => {
@@ -4521,7 +4522,8 @@ app.get("/api/admin/roster", async (req, res) => {
         sort_order: (r.sort_order != null ? r.sort_order : 0), venue: cfg.venue ? (r.venue || "both") : null,
       }));
     }
-    out.sort((a, b) => (a.sort_order - b.sort_order) || String(a.display_name || "").localeCompare(String(b.display_name || "")));
+    const rank = { coach: 0, doctor: 1, physiotherapist: 2 };
+    out.sort((a, b) => ((rank[a.role] || 0) - (rank[b.role] || 0)) || (a.sort_order - b.sort_order) || String(a.display_name || "").localeCompare(String(b.display_name || "")));
     return res.json({ ok: true, roster: out });
   } catch (e) {
     console.error("admin/roster:", (e && e.message) || e);
