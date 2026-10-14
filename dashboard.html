@@ -1545,7 +1545,9 @@
           var bio = ov.querySelector("#rmbio");
           if (p.bio) { bio.textContent = p.bio; bio.style.color = "var(--ink)"; } else { bio.textContent = Lx({ en: "No description yet.", id: "Belum ada deskripsi." }); bio.style.color = "var(--muted)"; }
           var bk = ov.querySelector("#rmbook"); var href = teamHref(p);
-          if (href) { bk.href = href; bk.style.display = ""; bk.textContent = Lx({ en: "Book session", id: "Book sesi" }); } else { bk.style.display = "none"; }
+          // display:"block" (BUKAN "") — "" menghapus display:block dari markup -> jatuh ke
+          // default <a> inline -> margin-top:20px diabaikan -> tombol nabrak bio. (fix overlap)
+          if (href) { bk.href = href; bk.style.display = "block"; bk.textContent = Lx({ en: "Book session", id: "Book sesi" }); } else { bk.style.display = "none"; }
           ov.style.display = "flex";
         }
         if (TEAM_CACHE) { render(TEAM_CACHE); return; }
