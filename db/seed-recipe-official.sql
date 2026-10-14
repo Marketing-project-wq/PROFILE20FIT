@@ -445,7 +445,7 @@ values ('yogurt-bowl', 'Greek Yogurt Protein Bowl', 'Bowl Protein Greek Yogurt',
 2. Taburi buah beri campur merata di atasnya.
 3. Beri biji chia & granola.
 4. Siram madu tipis merata di atas semuanya.
-5. Sajikan segera selagi dingin, atau simpan di kulkas maksimal 30 menit sebelum disantap.', 1, 0, 5, '[object Object]', '[object Object]', '[object Object]', 12)
+5. Sajikan segera selagi dingin, atau simpan di kulkas maksimal 30 menit sebelum disantap.', 1, 0, 5, NULL, NULL, NULL, 12)
 on conflict (id) do nothing;
 
 insert into public.my20fit_recipe_official (id, name_en, name_id, kcal, p, c, f, diet_types, category, q, emoji, tint, ingredients_en, ingredients_id, steps_en, steps_id, servings, cook_minutes, prep_minutes, equipment, prep_note, common_mistake, sort_order)
@@ -593,7 +593,7 @@ Minyak goreng secukupnya
 7. Encerkan bumbu kacang dengan air hangat 1 sdm demi 1 sdm sambil terus diaduk, berhenti begitu kekentalannya bisa dituang tapi tetap menempel di punggung sendok.
 8. Tata sayur blansir, telur, kentang, tahu & tempe goreng berdampingan di atas piring saji.
 9. Siram bumbu kacang merata ke seluruh permukaan sayur dan lauk.
-10. Selipkan kerupuk di sisi piring, sajikan segera selagi sayur masih hangat & renyah.', 1, 20, 10, '[object Object]', '[object Object]', '[object Object]', 16)
+10. Selipkan kerupuk di sisi piring, sajikan segera selagi sayur masih hangat & renyah.', 1, 20, 10, NULL, NULL, NULL, 16)
 on conflict (id) do nothing;
 
 insert into public.my20fit_recipe_official (id, name_en, name_id, kcal, p, c, f, diet_types, category, q, emoji, tint, ingredients_en, ingredients_id, steps_en, steps_id, servings, cook_minutes, prep_minutes, equipment, prep_note, common_mistake, sort_order)
@@ -3961,7 +3961,7 @@ Setengah sendok teh kayu manis
 6. Tutup toples rapat dan dinginkan semalaman, minimal 6 jam, sampai oat melunak dan menyerap cairan.
 7. Keesokan paginya, cek kekentalannya — tambahkan sedikit susu kalau terlalu kental.
 8. Aduk sekali lagi untuk meratakan apel dan bumbu.
-9. Nikmati dingin langsung dari toples.', 1, 0, 5, '[object Object]', '[object Object]', '[object Object]', 105)
+9. Nikmati dingin langsung dari toples.', 1, 0, 5, NULL, NULL, NULL, 105)
 on conflict (id) do nothing;
 
 insert into public.my20fit_recipe_official (id, name_en, name_id, kcal, p, c, f, diet_types, category, q, emoji, tint, ingredients_en, ingredients_id, steps_en, steps_id, servings, cook_minutes, prep_minutes, equipment, prep_note, common_mistake, sort_order)
