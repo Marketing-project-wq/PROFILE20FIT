@@ -1082,13 +1082,13 @@
 
         <style>
           /* Mockup urutan — meniru carousel kartu /team (meet coaches & doctors) */
-          .rosmock{display:flex;gap:12px;overflow-x:auto;padding:6px 2px 12px;scroll-snap-type:x proximity}
+          .rosmock{display:flex;gap:12px;overflow-x:auto;padding:6px 2px 12px}
           .rosmock::-webkit-scrollbar{height:7px}.rosmock::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
-          .rosmock-card{flex:0 0 150px;width:150px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;cursor:grab}
-          .rosmock-card.dragging{opacity:.45}
-          .rosmock-card.drop-left{box-shadow:-3px 0 0 var(--accent)}
-          .rosmock-card.drop-right{box-shadow:3px 0 0 var(--accent)}
+          .rosmock-card{flex:0 0 150px;width:150px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;transition:transform .12s ease}
+          .rosmock-card.dragging{opacity:.9;cursor:grabbing;box-shadow:0 10px 26px rgba(0,0,0,.28);transform:scale(1.04);z-index:2}
           .rosmock-card.off{opacity:.5}
+          .rosmock-card.off.dragging{opacity:.75}
+          .rosmock-card img, .rosmock-card *{pointer-events:none}
           .rm-badge{position:absolute;top:8px;left:8px;font-size:9px;font-weight:800;color:#fff;padding:2px 7px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
           .rm-badge.coach{background:var(--accent)}.rm-badge.doctor{background:#2F6BFF}.rm-badge.physiotherapist{background:#0EA5A5}
           .rm-pos{position:absolute;top:8px;right:8px;font-size:10px;font-weight:700;color:var(--ink-4);font-family:var(--font-mono)}
@@ -2919,7 +2919,7 @@
     try{ var res=await adminPost("/api/admin/reward-claims/"+encodeURIComponent(id)+"/fulfill",{ status:status }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadRewardClaims(); }catch(e){}
   };
   // ---- COACH & DOCTOR ROSTER (section Coaches) — roster + alias mapping + doctor roster ----
-  var CO_CACHE=[], IV_CACHE=[], RO_CACHE=[], RO_DIRTY=false, RO_DRAG_KEY=null;
+  var CO_CACHE=[], IV_CACHE=[], RO_CACHE=[], RO_DIRTY=false;
   function coV(id){ var el=document.getElementById(id); return el?el.value:""; }
   function coTag(v){ return v==="gym"?"Gym":(v==="arena"?"Arena":"Arena + Gym"); }
   function roKey(p){ return (p.role||"")+":"+(p.id||""); }
@@ -2983,7 +2983,7 @@
     if(!RO_CACHE.length){ box.innerHTML='<div class="adm-note">'+L("Roster is empty.","Roster kosong.")+'</div>'; return; }
     box.innerHTML=RO_CACHE.map(function(p,i){
       var av=p.photo_url?('<img class="rm-av" src="'+evEsc(p.photo_url)+'" alt="">'):('<div class="rm-av">'+evEsc(String(p.display_name||"?").trim().slice(0,1).toUpperCase())+'</div>');
-      return '<div class="rosmock-card'+(p.is_active===false?" off":"")+'" draggable="true" data-key="'+evEsc(roKey(p))+'">'+
+      return '<div class="rosmock-card'+(p.is_active===false?" off":"")+'" data-key="'+evEsc(roKey(p))+'">'+
         '<span class="rm-badge '+evEsc(p.role)+'">'+evEsc(roLabel(p.role))+'</span>'+
         '<span class="rm-pos">#'+(i+1)+'</span>'+av+
         '<div class="rm-nm">'+evEsc(p.display_name||"")+'</div>'+
@@ -2993,25 +2993,65 @@
     roBindDrag(box); roOrderMsg();
   }
   function roOrderMsg(){ var m=document.getElementById("rosOrderMsg"); if(m) m.textContent=RO_DIRTY?L("Unsaved order — click Save order.","Urutan belum disimpan — klik Simpan urutan."):""; }
-  function roBefore(card,e){ var r=card.getBoundingClientRect(); return (e.clientX-r.left) < r.width/2; }
+  // Drag reorder berbasis Pointer Events (bukan HTML5 DnD) supaya:
+  // (1) kartu di luar layar bisa dijangkau lewat auto-scroll tepi terkendali,
+  // (2) tidak bentrok dgn auto-scroll bawaan browser yang bikin rail loncat sendiri.
+  // Reorder LIVE: node kartu dipindah di antara saudaranya saat pointer melewati
+  // tengah kartu lain; urutan final dibaca balik dari DOM saat dilepas.
   function roBindDrag(box){
-    var cards=[].slice.call(box.querySelectorAll(".rosmock-card"));
-    function clear(){ cards.forEach(function(c){ c.classList.remove("drop-left","drop-right"); }); }
-    cards.forEach(function(card){
-      card.addEventListener("dragstart",function(e){ RO_DRAG_KEY=card.dataset.key; card.classList.add("dragging"); try{ e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain",RO_DRAG_KEY); }catch(_){} });
-      card.addEventListener("dragend",function(){ card.classList.remove("dragging"); clear(); });
-      card.addEventListener("dragover",function(e){ e.preventDefault(); try{ e.dataTransfer.dropEffect="move"; }catch(_){} if(card.dataset.key===RO_DRAG_KEY){ return; } var before=roBefore(card,e); card.classList.toggle("drop-left",before); card.classList.toggle("drop-right",!before); });
-      card.addEventListener("dragleave",function(){ card.classList.remove("drop-left","drop-right"); });
-      card.addEventListener("drop",function(e){ e.preventDefault(); var before=roBefore(card,e); clear(); roMove(RO_DRAG_KEY, card.dataset.key, before); });
+    var dragEl=null, pid=null, moved=false, startX=0, startY=0, autoRaf=null, vx=0;
+    function liveCards(){ return [].slice.call(box.querySelectorAll(".rosmock-card")); }
+    function autoStep(){ if(vx){ box.scrollLeft+=vx; } autoRaf=requestAnimationFrame(autoStep); }
+    function edgeScroll(clientX){
+      var r=box.getBoundingClientRect(), edge=72;
+      if(clientX < r.left+edge && box.scrollLeft>0){ vx=-Math.max(5,Math.ceil((r.left+edge-clientX)/5)); }
+      else if(clientX > r.right-edge && box.scrollLeft < box.scrollWidth-box.clientWidth-1){ vx=Math.max(5,Math.ceil((clientX-(r.right-edge))/5)); }
+      else { vx=0; }
+      if(vx && autoRaf===null){ autoRaf=requestAnimationFrame(autoStep); }
+    }
+    function stopAuto(){ vx=0; if(autoRaf!==null){ cancelAnimationFrame(autoRaf); autoRaf=null; } }
+    function cardAtX(clientX){
+      var hit=null;
+      liveCards().forEach(function(c){ if(c===dragEl) return; var cr=c.getBoundingClientRect(); if(clientX>=cr.left && clientX<=cr.right) hit=c; });
+      return hit;
+    }
+    function renumber(){ liveCards().forEach(function(c,i){ var p=c.querySelector(".rm-pos"); if(p)p.textContent="#"+(i+1); }); }
+    function onMove(e){
+      if(!dragEl || e.pointerId!==pid) return;
+      if(!moved){ if(Math.abs(e.clientX-startX)<5 && Math.abs(e.clientY-startY)<5) return; moved=true; dragEl.classList.add("dragging"); }
+      e.preventDefault();
+      edgeScroll(e.clientX);
+      var over=cardAtX(e.clientX);
+      if(over && over!==dragEl){
+        var cr=over.getBoundingClientRect();
+        var before=(e.clientX-cr.left) < cr.width/2;
+        box.insertBefore(dragEl, before?over:over.nextSibling);
+        renumber();
+      }
+    }
+    function onUp(e){
+      if(!dragEl || e.pointerId!==pid) return;
+      stopAuto();
+      try{ dragEl.releasePointerCapture&&dragEl.releasePointerCapture(pid); }catch(_){}
+      box.removeEventListener("pointermove", onMove);
+      if(moved){
+        dragEl.classList.remove("dragging");
+        var keys=liveCards().map(function(c){ return c.dataset.key; });
+        RO_CACHE.sort(function(a,b){ return keys.indexOf(roKey(a)) - keys.indexOf(roKey(b)); });
+        RO_DIRTY=true; roOrderMsg();
+      }
+      dragEl=null; pid=null; moved=false;
+    }
+    liveCards().forEach(function(card){
+      card.addEventListener("pointerdown", function(e){
+        if(e.button!=null && e.button!==0) return;
+        dragEl=card; pid=e.pointerId; moved=false; startX=e.clientX; startY=e.clientY;
+        try{ card.setPointerCapture&&card.setPointerCapture(e.pointerId); }catch(_){}
+        box.addEventListener("pointermove", onMove);
+      });
+      card.addEventListener("pointerup", onUp);
+      card.addEventListener("pointercancel", onUp);
     });
-  }
-  function roMove(dragKey,targetKey,before){
-    if(!dragKey||dragKey===targetKey) return;
-    var from=roIdxByKey(dragKey); if(from<0) return;
-    var moved=RO_CACHE.splice(from,1)[0];
-    var to=roIdxByKey(targetKey); if(to<0){ RO_CACHE.splice(from,0,moved); return; }
-    RO_CACHE.splice(before?to:to+1, 0, moved);
-    RO_DIRTY=true; roRenderMock();
   }
   window.roOrderSave=async function(){
     var msg=document.getElementById("rosOrderMsg");
