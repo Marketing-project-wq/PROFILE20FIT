@@ -6209,6 +6209,43 @@ app.post("/api/admin/recipes/upload-photo", async (req, res) => {
   } catch (e) { return res.status(500).json({ error: (e && e.message) || "Gagal unggah foto." }); }
 });
 
+// Import SEKALI-KLIK: isi my20fit_recipe_official dari katalog statik js/recipes.js (120 resep)
+// supaya admin bisa mengelola semua menu official (edit cara buat/resep/foto) & katalog aktif
+// beralih ke DB. Idempoten: ON CONFLICT (id) DO NOTHING -> tak menimpa edit admin yang sudah ada.
+// photo_url diambil dari entri katalog (foto AI yang sudah tersimpan permanen di Storage).
+// Model-free: data dibaca server-side dari file repo, bukan dikirim dari klien.
+app.post("/api/admin/recipes/seed-static", async (req, res) => {
+  var ctx = await requireAdmin(req, res, "superadmin"); if (!ctx) return;
+  if (!admin) return res.status(500).json({ error: "Server belum dikonfigurasi." });
+  try {
+    var cat = loadMenuCatalog();
+    if (!cat.length) return res.status(500).json({ error: "Katalog statik kosong." });
+    // Objek (bukan string/angka) -> null, cegah tersimpan "[object Object]".
+    var recField = function (v, n) { if (v == null || typeof v === "object") return null; return recStr(v, n); };
+    var rows = cat.map(function (r, i) {
+      var nm = r.nm || {}, ing = r.ing || {}, st = r.steps || {};
+      return {
+        id: recSlug(r.id), name_en: recField(nm.en, 200), name_id: recField(nm.id, 200),
+        kcal: recInt(r.kcal), p: recInt(r.p), c: recInt(r.c), f: recInt(r.f),
+        diet_types: recDiet(r.types), category: recField(r.cat, 80), q: recField(r.q, 120),
+        emoji: recField(r.emoji, 40), tint: recField(r.tint, 20),
+        ingredients_en: recField(ing.en, 8000), ingredients_id: recField(ing.id, 8000),
+        steps_en: recField(st.en, 12000), steps_id: recField(st.id, 12000),
+        servings: recInt(r.servings), cook_minutes: recInt(r.cookMinutes), prep_minutes: recInt(r.prepMinutes),
+        equipment: recField(r.equipment, 500), prep_note: recField(r.prepNote, 1000), common_mistake: recField(r.commonMistake, 1000),
+        photo_url: (typeof r.photo_url === "string" && /^https:\/\//i.test(r.photo_url)) ? r.photo_url.slice(0, 3000) : null,
+        is_published: true, sort_order: i, updated_by: ctx.email || ctx.user_id || null,
+      };
+    }).filter(function (r) { return r.id && r.name_en && r.name_id; });
+    var { data, error } = await admin.from("my20fit_recipe_official")
+      .upsert(rows, { onConflict: "id", ignoreDuplicates: true }).select("id");
+    if (error) return res.status(500).json({ error: error.message });
+    invalidateOfficialCache();
+    await adminAudit(ctx, "recipe.seed_static", "*", { inserted: (data || []).length, catalog: rows.length });
+    return res.json({ ok: true, inserted: (data || []).length, catalog: rows.length });
+  } catch (e) { return res.status(e.status || 500).json({ error: (e && e.message) || e }); }
+});
+
 // ============ DIET Bagian 2: endpoint PUBLIK untuk menu.20fit.id ============
 // Subdomain menu.20fit.id (frontend terpisah) menarik data dari SINI — SATU sumber,
 // tanpa duplikat katalog. Semua di bawah ini boleh diakses TANPA login (browse publik).
