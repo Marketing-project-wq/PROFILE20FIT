@@ -107,9 +107,8 @@
       <div class="adm-navcat" data-cat="menu">
         <button type="button" class="adm-navgroup" data-navgroup="menu" aria-expanded="true"><span data-i18n="Menu & F&B">Menu &amp; F&amp;B</span><svg class="adm-navchev" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <div class="adm-navlist">
-          <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu">Menu diet</span></button>
+          <button class="adm-navitem" data-nav="menu"><span data-i18n="Diet menu &amp; Eat Now">Menu Diet &amp; Eat Now</span></button>
           <button class="adm-navitem" data-nav="menustats"><span data-i18n="Menu interest">Minat menu</span></button>
-          <button class="adm-navitem" data-nav="delivery"><span data-i18n="Eat Now / delivery">Eat Now / pesan-antar</span></button>
         </div>
       </div>
 
@@ -640,7 +639,7 @@
           </div>
         </div>
       </section>
-      <section data-section="menu" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Menu diet" data-title-en="Diet menu" data-question="Kelola katalog resep official dan moderasi kontribusi member." data-question-en="Manage the official recipe catalog and moderate member contributions.">
+      <section data-section="menu" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Menu Diet &amp; Eat Now" data-title-en="Diet Menu &amp; Eat Now" data-question="Kelola katalog resep official, moderasi kontribusi member, dan tautan Eat Now (pesan-antar) per menu." data-question-en="Manage the official recipe catalog, moderate member contributions, and per-menu Eat Now (delivery) links.">
         <style>
           .ro-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 14px}
           .ro-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
@@ -667,6 +666,7 @@
         <div class="adm-tabs" data-tabgroup="menu" data-default="official">
           <button data-tab="menu" data-tab-id="official" data-i18n="Official recipes">Resep official</button>
           <button data-tab="menu" data-tab-id="member" data-i18n="Member contributions">Kontribusi member</button>
+          <button data-tab="menu" data-tab-id="delivery" data-i18n="Eat Now / delivery">Eat Now / pesan-antar</button>
         </div>
 
         <!-- ===== Tab: Resep OFFICIAL (CMS my20fit_recipe_official) ===== -->
@@ -830,9 +830,11 @@
           </div>
         </div>
         </div><!-- /tab member -->
-      </section>
-      <section data-section="delivery" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Eat Now / pesan-antar" data-title-en="Eat Now / delivery" data-question="Resep mana yang ditautkan ke kategori GrabFood/GoFood, dan mana yang belum dipetakan?" data-question-en="Which recipes link to a GrabFood/GoFood category, and which are still unmapped?">
-        <div id="dlvBox"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+
+        <!-- ===== Tab: Eat Now / pesan-antar (digabung ke dalam section Menu) ===== -->
+        <div data-tabpanel="menu" data-tab="delivery" hidden>
+          <div id="dlvBox"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+        </div>
       </section>
       <section data-section="articles" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Artikel" data-title-en="Articles" data-question="Artikel rekomendasi tempat makan yang tayang langsung di recepie.20fit.id (bukan WordPress)." data-question-en="Restaurant-recommendation articles hosted directly on recepie.20fit.id (not WordPress).">
         <div id="artBox"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
@@ -3912,7 +3914,7 @@
     if(id==="traffic") return loadTraffic();
     if(id==="menustats") return loadMenuStats();
     if(id==="reports") return loadReports();
-    if(id==="delivery") return loadDelivery();
+    if(id==="delivery"){ if(window.admShowSection) admShowSection("menu"); var _dt=document.querySelector('[data-tab="menu"][data-tab-id="delivery"]'); if(_dt) _dt.click(); return; }
     if(id==="articles") return loadArticles();
   }
 
@@ -4268,6 +4270,8 @@
     if(crow){ loadCampaignDrill(crow.dataset.cid); return; }
     var btab=e.target.closest('[data-tab="mkt"][data-tab-id="banner"]');
     if(btab){ setTimeout(loadBanner,0); return; }
+    var dtab=e.target.closest('[data-tab="menu"][data-tab-id="delivery"]');
+    if(dtab){ setTimeout(loadDelivery,0); return; }
     var vmtab=e.target.closest('[data-tab="vch"][data-tab-id="manage"]');
     if(vmtab){ setTimeout(loadVoucherManage,0); return; }
     var vma=e.target.closest(".vmAct");
