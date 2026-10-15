@@ -221,6 +221,13 @@
       <div id="corpBody"><div class="muted">…</div></div>
     </div>
 
+    <!-- Program Affiliate (self-join terbuka) — dashboard member ada di affiliate.20fit.id.
+         Kartu ini cuma pintu masuk: affiliate -> dashboard, bukan affiliate -> ajakan daftar. -->
+    <div class="card" id="affCard">
+      <div class="card-hd"><h2><span class="fic" data-ic="spark" aria-hidden="true"></span> <span data-en="20FIT Affiliate" data-id="Program Affiliate 20FIT">Program Affiliate 20FIT</span></h2></div>
+      <div id="affBody"><div class="muted">…</div></div>
+    </div>
+
 
     <!-- Pencapaian (dipindah dari /activity) -->
     <div class="sec" data-en="Achievements" data-id="Pencapaian">Pencapaian</div>
@@ -403,7 +410,7 @@
       document.getElementById("pname").textContent=nm;
       document.getElementById("pemail").textContent=p.email||"";
       fillForm(p); renderSummary(p); refreshQuota(); loadCorpMembership(); loadMenus();
-      loadAchievements(); loadArenaHistory(); loadReviews(); loadSports();
+      loadAchievements(); loadArenaHistory(); loadReviews(); loadSports(); loadAffiliate();
     })();
 
     // ---- Olahragamu (maks 2) — pemilih bersama js/sport-picker.js, simpan via PUT /api/me/sports ----
@@ -477,6 +484,42 @@
         if(!r.ok){ box.innerHTML='<div class="muted">'+L({en:"Couldn't load.",id:"Gagal memuat."})+'</div>'; return; }
         renderCorpCard(j.member);
       }catch(e){ box.innerHTML='<div class="muted">'+L({en:"Couldn't load.",id:"Gagal memuat."})+'</div>'; }
+    }
+
+    // ---- Program Affiliate (pintu masuk ke affiliate.20fit.id) ----
+    // Deteksi status affiliate lewat RLS: member hanya bisa baca baris 'affiliate' miliknya sendiri
+    // (policy "Affiliates read their own row"; auth_user_id = auth.uid()). Tak ada endpoint/DB baru.
+    var AFF_URL="https://affiliate.20fit.id";
+    function affGo(){
+      // Bawa sesi best-effort (kalau affiliate app sudah pasang SSO consumer); kalau tidak, navigasi biasa same-tab.
+      if(window.Auth && typeof Auth.navigateWithSSO==="function"){ Auth.navigateWithSSO(AFF_URL); return; }
+      if(window.SSO20fit && typeof SSO20fit.navigateWithSSO==="function"){ SSO20fit.navigateWithSSO(AFF_URL); return; }
+      if(window.Auth && typeof Auth.ssoTo==="function"){ Auth.ssoTo(AFF_URL); return; }
+      location.href=AFF_URL;
+    }
+    async function loadAffiliate(){
+      var row=null;
+      try{
+        if(window.Auth && Auth.supabase && user){
+          var r=await Auth.supabase.from("affiliate").select("code,status").eq("auth_user_id",user.id).maybeSingle();
+          if(!r.error) row=r.data||null;   // 0 baris (bukan affiliate) -> data null, tanpa error
+        }
+      }catch(e){}
+      renderAffiliate(row);
+    }
+    function renderAffiliate(a){
+      var box=document.getElementById("affBody"); if(!box) return;
+      if(a && a.code){
+        var st=(a.status==="suspended")?L({en:"suspended",id:"ditangguhkan"}):L({en:"active",id:"aktif"});
+        box.innerHTML=
+          '<div class="kv"><span class="k">'+L({en:"Your code",id:"Kodemu"})+'</span><span class="v">'+escapeHtml(a.code)+'</span></div>'+
+          '<div class="kv"><span class="k">'+L({en:"Status",id:"Status"})+'</span><span class="v">'+st+'</span></div>'+
+          '<button class="btn" style="margin-top:12px" onclick="affGo()">'+L({en:"Open affiliate dashboard",id:"Buka Dashboard Affiliate"})+'</button>';
+      } else {
+        box.innerHTML=
+          '<div class="muted" style="margin-bottom:12px">'+L({en:"Refer friends to 20FIT and earn commissions. Join the affiliate program to get your referral link.",id:"Ajak teman ke 20FIT dan dapatkan komisi. Gabung program affiliate untuk dapat link referral-mu."})+'</div>'+
+          '<button class="btn" style="margin-top:0" onclick="affGo()">'+L({en:"Learn more / Join",id:"Pelajari / Daftar"})+'</button>';
+      }
     }
     function renderCorpCard(m){
       var box=document.getElementById("corpBody");

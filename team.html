@@ -59,6 +59,20 @@
   .uc-book{padding:7px 15px;background:var(--red);color:#fff;border-radius:9px;font-size:12px;font-weight:800;white-space:nowrap}
   .uc-reason{font-size:11.5px;font-weight:700;color:var(--muted);white-space:nowrap}
   @media(max-width:520px){ .uc-card{flex-direction:column;align-items:stretch} .uc-right{justify-content:space-between} }
+  .tcard{cursor:pointer}
+  .tcard:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+  /* Popup detail coach/dokter (klik kartu) */
+  .tov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
+  .tov.open{display:flex}
+  .tdlg{background:var(--card);color:var(--pagetx);border:1px solid var(--line);border-radius:20px;max-width:380px;width:100%;max-height:88vh;overflow:auto;padding:24px 20px 22px;position:relative;box-shadow:0 18px 50px rgba(0,0,0,.4)}
+  .tdlg-x{position:absolute;top:12px;right:12px;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:20px;line-height:1;cursor:pointer;display:grid;place-items:center}
+  .tdlg .tav{margin:2px auto 12px}
+  .tdlg-nm{font-weight:900;font-size:21px;text-align:center;color:var(--ink);line-height:1.2;overflow-wrap:anywhere}
+  .tdlg-badge{display:flex;justify-content:center;margin-top:9px}
+  .tdlg-badge span{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#fff;border-radius:6px;padding:4px 11px}
+  .tdlg-sp{text-align:center;color:var(--ink);font-size:14px;margin-top:10px;font-weight:700}
+  .tdlg-bio{margin-top:14px;font-size:13.5px;line-height:1.6;color:var(--txt);white-space:pre-wrap}
+  .tdlg-book{display:block;margin-top:20px;background:var(--red);color:#fff;border-radius:12px;padding:12px;font-weight:800;font-size:14px;text-align:center}
 </style>
 </head>
 <body>
@@ -70,6 +84,18 @@
     <div class="tfilters" id="roleFilters" hidden></div>
     <div id="root"></div>
     <div id="upcoming" class="upcoming" hidden></div>
+  </div>
+
+  <div class="tov" id="tmodal" role="dialog" aria-modal="true" aria-labelledby="tdlgNm">
+    <div class="tdlg" id="tdlg">
+      <button class="tdlg-x" id="tdlgX" type="button" aria-label="Close">×</button>
+      <div class="tav" id="tdlgAv"></div>
+      <div class="tdlg-nm" id="tdlgNm"></div>
+      <div class="tdlg-badge" id="tdlgBadge"></div>
+      <div class="tdlg-sp" id="tdlgSp"></div>
+      <div class="tdlg-bio" id="tdlgBio"></div>
+      <a class="tdlg-book" id="tdlgBook"></a>
+    </div>
   </div>
 
   <script>try{var _t=localStorage.getItem('theme')||'light';var _h=document.documentElement;_h.setAttribute('data-theme',_t);if(_t!=='dark')_h.classList.add('theme-light');}catch(e){document.documentElement.setAttribute('data-theme','light');document.documentElement.classList.add('theme-light');}</script>
@@ -115,12 +141,26 @@
     }
     function card(p){
       var badge='<span class="tbadge '+esc(p.role)+'">'+esc(LL(BADGE_LBL[p.role]||{en:p.role,id:p.role}))+'</span>';
-      return '<div class="tcard">'+badge+
+      return '<div class="tcard" data-id="'+esc(p.id)+'" data-role="'+esc(p.role)+'" tabindex="0" role="button">'+badge+
         '<div class="tav">'+avatarInner(p.name,p.photo_url)+'</div>'+
         '<div class="tnm">'+esc(p.name)+'</div>'+
         '<div class="tsp">'+esc(p.speciality||"")+'</div>'+
         '<a class="tbook" href="'+esc(hrefFor(p))+'">'+esc(LL(TXT.book))+'</a></div>';
     }
+    function findPerson(id, role){ return (TEAM||[]).filter(function(x){ return String(x.id)===String(id) && x.role===role; })[0]; }
+    function openTeamModal(p){
+      if(!p) return;
+      $("tdlgAv").innerHTML=avatarInner(p.name, p.photo_url);
+      $("tdlgNm").textContent=p.name;
+      $("tdlgBadge").innerHTML='<span style="background:'+(DOT[p.role]||"var(--red)")+'">'+esc(LL(BADGE_LBL[p.role]||{en:p.role,id:p.role}))+'</span>';
+      var sp=$("tdlgSp"); if(p.speciality){ sp.textContent=p.speciality; sp.style.display=""; } else { sp.style.display="none"; }
+      var bio=$("tdlgBio");
+      if(p.bio){ bio.textContent=p.bio; bio.style.color="var(--txt)"; }
+      else { bio.textContent=LL({en:"No description yet.",id:"Belum ada deskripsi."}); bio.style.color="var(--muted)"; }
+      var bk=$("tdlgBook"); bk.href=hrefFor(p); bk.textContent=LL(TXT.book);
+      $("tmodal").classList.add("open");
+    }
+    function closeTeamModal(){ $("tmodal").classList.remove("open"); }
 
     function buildChips(){
       if(!TEAM||!TEAM.length){ $("roleFilters").hidden=true; return; }
@@ -199,6 +239,21 @@
       }catch(e){ UPC=[]; }
       renderUpcoming();
     }
+
+    // Klik kartu coach/dokter -> popup detail (deskripsi + specialty). Tombol Book tetap jalan.
+    $("root").addEventListener("click", function(e){
+      if(e.target.closest(".tbook")) return;      // biarkan link Book bekerja
+      var c=e.target.closest(".tcard"); if(!c) return;
+      openTeamModal(findPerson(c.getAttribute("data-id"), c.getAttribute("data-role")));
+    });
+    $("root").addEventListener("keydown", function(e){
+      if(e.key!=="Enter" && e.key!==" ") return;
+      var c=e.target.closest&&e.target.closest(".tcard"); if(!c) return;
+      e.preventDefault(); openTeamModal(findPerson(c.getAttribute("data-id"), c.getAttribute("data-role")));
+    });
+    $("tdlgX").addEventListener("click", closeTeamModal);
+    $("tmodal").addEventListener("click", function(e){ if(e.target===$("tmodal")) closeTeamModal(); });
+    document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeTeamModal(); });
 
     applyStatic(); load(); loadUpcoming();
     if(window.I18N && I18N.onChange) I18N.onChange(function(){ applyStatic(); buildChips(); render(); renderUpcoming(); });

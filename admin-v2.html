@@ -5,6 +5,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>20FIT Admin</title>
+<script>
+/* Pelapor error di layar: kalau ada JS error tak tertangani yang bikin halaman kosong,
+   tampilkan banner merah berisi pesan+file+baris supaya bisa di-screenshot & didiagnosa
+   (bukan blank diam). Hanya muncul saat ADA error. Dipasang paling awal agar menangkap
+   error dari semua skrip berikutnya. */
+(function(){
+  function show(msg){
+    try{
+      var b=document.getElementById("__admErrBar");
+      if(!b){
+        b=document.createElement("div"); b.id="__admErrBar";
+        b.style.cssText="position:fixed;left:0;right:0;bottom:0;z-index:999999;background:#C41101;color:#fff;font:12px/1.5 ui-monospace,monospace;padding:10px 14px;white-space:pre-wrap;max-height:45vh;overflow:auto;box-shadow:0 -2px 14px rgba(0,0,0,.35)";
+        (document.body||document.documentElement).appendChild(b);
+      }
+      b.textContent="⚠ JS error (screenshot & kirim ke Claude):\n"+msg;
+    }catch(e){}
+  }
+  window.addEventListener("error",function(e){
+    if(e&&e.target&&e.target!==window&&(e.target.src||e.target.href)){ var u=e.target.src||e.target.href; if(/\.js(\?|$)/i.test(u)) show("Gagal load skrip: "+u); return; }
+    show((e&&e.message||"error")+"\n  @ "+(e&&e.filename||"?")+":"+(e&&e.lineno||"?")+":"+(e&&e.colno||"?"));
+  },true);
+  window.addEventListener("unhandledrejection",function(e){
+    var r=e&&e.reason; show("Promise error: "+((r&&(r.stack||r.message))||String(r)));
+  });
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;700;800&family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/20fit-design-system.css">
 <link rel="stylesheet" href="css/admin-theme.css">
@@ -626,6 +652,17 @@
           .ro-photo{display:flex;align-items:center;gap:12px}
           .ro-photo-prev{width:64px;height:64px;border-radius:var(--radius-sm);background:var(--surface) center/cover no-repeat;border:1px solid var(--line);flex:0 0 auto;display:grid;place-items:center;color:var(--ink-4);font-size:22px}
           .ro-thumb{width:40px;height:40px;border-radius:8px;background:var(--surface) center/cover no-repeat;display:inline-grid;place-items:center;color:var(--ink-4);font-size:18px}
+          .ro-viewtog{display:inline-flex;border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden}
+          .ro-viewtog button{border:0;border-radius:0;padding:5px 9px;background:transparent;cursor:pointer;color:var(--ink-3);line-height:1}
+          .ro-viewtog button[aria-pressed="true"]{background:var(--accent,#C41101);color:#fff}
+          .ro-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+          .ro-card{border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;background:var(--surface);display:flex;flex-direction:column}
+          .ro-card-ph{aspect-ratio:4/3;background:var(--surface) center/cover no-repeat;display:grid;place-items:center;color:var(--ink-4);font-size:30px}
+          .ro-card-b{padding:10px 12px;display:flex;flex-direction:column;gap:5px;flex:1}
+          .ro-card-nm{font-weight:700;font-size:13.5px;line-height:1.3}
+          .ro-card-meta{font-size:11.5px;color:var(--ink-3)}
+          .ro-card-tags{display:flex;flex-wrap:wrap;gap:4px}
+          .ro-card-act{display:flex;gap:6px;margin-top:auto;padding-top:6px}
         </style>
         <div class="adm-tabs" data-tabgroup="menu" data-default="official">
           <button data-tab="menu" data-tab-id="official" data-i18n="Official recipes">Resep official</button>
@@ -637,8 +674,13 @@
           <div class="adm-note" id="roSeedWarn" hidden style="margin:12px 0;color:var(--accent-ink)"></div>
           <div style="display:flex;gap:8px;align-items:center;margin:14px 0 10px;flex-wrap:wrap">
             <button class="adm-btn adm-btn--primary adm-btn--sm" id="roAddBtn" data-i18n="+ Add recipe">+ Tambah resep</button>
+            <button class="adm-btn adm-btn--sm" id="roSeedBtn" data-i18n="Import official catalog">Import katalog official</button>
             <input class="adm-input" id="roSearch" style="max-width:240px" placeholder="Cari resep…" data-i18n-ph="Search recipe…">
             <span class="adm-note" id="roCount" style="margin-left:auto"></span>
+            <div class="ro-viewtog" role="group" aria-label="View">
+              <button id="roViewList" aria-pressed="true" title="List">&#9776;</button>
+              <button id="roViewGrid" aria-pressed="false" title="Grid">&#9638;</button>
+            </div>
           </div>
 
           <div class="adm-panel" id="roForm" hidden style="margin-bottom:14px">
@@ -676,7 +718,8 @@
                   <input type="file" id="roPhotoFile" accept="image/png,image/jpeg,image/webp" hidden>
                   <button class="adm-btn adm-btn--sm" id="roPhotoBtn" data-i18n="Upload photo">Unggah foto</button>
                   <button class="adm-btn adm-btn--sm" id="roPhotoClear" hidden data-i18n="Remove">Hapus</button>
-                  <div class="adm-note" data-i18n="PNG/JPG/WebP, max 5MB. Empty = auto photo.">PNG/JPG/WebP, maks 5MB. Kosong = foto otomatis.</div>
+                  <input class="adm-input" id="roPhotoLink" type="url" style="margin-top:6px;max-width:420px" placeholder="https://… (link foto)" data-i18n-ph="https://… (photo link)">
+                  <div class="adm-note" data-i18n="Upload a file or paste a photo link. PNG/JPG/WebP, max 5MB. Empty = auto photo.">Unggah file atau tempel link foto. PNG/JPG/WebP, maks 5MB. Kosong = foto otomatis.</div>
                 </div>
               </div>
               <label class="afset-check" style="margin-left:auto"><input type="checkbox" id="roPub" checked><span data-i18n="Published">Tayang</span></label>
@@ -688,12 +731,13 @@
             </div>
           </div>
 
-          <div class="adm-panel" style="padding:0;overflow-x:auto">
+          <div class="adm-panel" id="roListWrap" style="padding:0;overflow-x:auto">
             <table class="adm-table" id="roTable">
               <thead><tr><th data-i18n="Photo">Foto</th><th data-i18n="Name">Nama</th><th class="adm-right" data-i18n="kcal">kkal</th><th data-i18n="Diet">Diet</th><th data-i18n="Published">Tayang</th><th data-i18n="Action">Aksi</th></tr></thead>
               <tbody id="roRows"><tr><td colspan="6"><div class="adm-note" data-i18n="Loading…">Memuat…</div></td></tr></tbody>
             </table>
           </div>
+          <div class="ro-cards" id="roGrid" hidden></div>
           <div class="adm-note" id="roEmpty" hidden data-i18n="No official recipes yet.">Belum ada resep official.</div>
         </div>
 
@@ -1077,18 +1121,20 @@
         <div class="adm-sec-title" style="margin-top:20px" data-i18n="Claims">Klaim member</div>
         <div id="rwClaims"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
       </section>
-      <section data-section="coaches" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Coach &amp; Dokter" data-title-en="Coaches &amp; Doctors" data-question="Satu roster coach + dokter + fisio (tampil di Meet Coaches &amp; Doctors / Book Coach &amp; home): tambah/edit/hapus, ganti tipe &amp; foto, atur urutan tampil lewat mockup seret, plus pemetaan alias instruktur ke jadwal." data-question-en="One roster of coaches + doctors + physios (shown on Meet Coaches &amp; Doctors / Book Coach &amp; home): add/edit/delete, change type &amp; photo, set display order via drag mockup, plus instructor-alias mapping to schedules.">
+      <section data-section="coaches" hidden data-kicker="KELOLA" data-kicker-en="MANAGE" data-title="Coach &amp; Dokter" data-title-en="Coaches &amp; Doctors" data-question="Satu roster coach + dokter + fisio (tampil di Meet Coaches &amp; Doctors / Book Coach &amp; home): tambah/edit/hapus, ganti tipe &amp; foto, atur urutan tampil per tipe lewat mockup seret (tersimpan otomatis), plus pemetaan alias instruktur ke jadwal." data-question-en="One roster of coaches + doctors + physios (shown on Meet Coaches &amp; Doctors / Book Coach &amp; home): add/edit/delete, change type &amp; photo, set display order per type via drag mockup (auto-saved), plus instructor-alias mapping to schedules.">
         <div class="adm-note" data-i18n="Roster shown to members. Not linked to arena_coaches/gym_coaches. Class filtering uses the alias map below, not text matching — assign every instructor value to a coach or its classes stay invisible on the coach page.">Roster yang ditampilkan ke member. Tidak terhubung ke arena_coaches/gym_coaches. Penyaringan kelas pakai pemetaan alias di bawah, BUKAN cocok teks — tugaskan tiap nilai instructor ke coach, kalau tidak kelasnya tak terlihat di halaman coach.</div>
 
         <style>
           /* Mockup urutan — meniru carousel kartu /team (meet coaches & doctors) */
-          .rosmock{display:flex;gap:12px;overflow-x:auto;padding:6px 2px 12px;scroll-snap-type:x proximity}
+          .rosmock{display:flex;gap:12px;overflow-x:auto;padding:6px 2px 12px}
+          .rosmock-grp{margin-top:10px}
+          .rosmock-h{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center;gap:8px}
           .rosmock::-webkit-scrollbar{height:7px}.rosmock::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
-          .rosmock-card{flex:0 0 150px;width:150px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;cursor:grab}
-          .rosmock-card.dragging{opacity:.45}
-          .rosmock-card.drop-left{box-shadow:-3px 0 0 var(--accent)}
-          .rosmock-card.drop-right{box-shadow:3px 0 0 var(--accent)}
+          .rosmock-card{flex:0 0 150px;width:150px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;transition:transform .12s ease}
+          .rosmock-card.dragging{opacity:.9;cursor:grabbing;box-shadow:0 10px 26px rgba(0,0,0,.28);transform:scale(1.04);z-index:2}
           .rosmock-card.off{opacity:.5}
+          .rosmock-card.off.dragging{opacity:.75}
+          .rosmock-card img, .rosmock-card *{pointer-events:none}
           .rm-badge{position:absolute;top:8px;left:8px;font-size:9px;font-weight:800;color:#fff;padding:2px 7px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
           .rm-badge.coach{background:var(--accent)}.rm-badge.doctor{background:#2F6BFF}.rm-badge.physiotherapist{background:#0EA5A5}
           .rm-pos{position:absolute;top:8px;right:8px;font-size:10px;font-weight:700;color:var(--ink-4);font-family:var(--font-mono)}
@@ -1098,13 +1144,40 @@
           .ros-badge.coach{background:var(--accent);color:#fff}.ros-badge.doctor{background:#2F6BFF;color:#fff}.ros-badge.physiotherapist{background:#0EA5A5;color:#fff}
         </style>
 
-        <!-- Mockup urutan: meniru /team, seret untuk atur urutan tampil di my.20fit (satu sumber urutan) -->
+        <!-- Mockup urutan: satu baris per tipe (coach / dokter / fisio). Seret di dalam barisnya; urutan langsung tersimpan. -->
         <div class="adm-sec-title" style="margin-top:18px" data-i18n="Display order (drag to reorder)">Urutan tampil (seret untuk atur)</div>
-        <div class="adm-note" data-i18n="Mirrors the my.20fit &quot;Meet coaches &amp; doctors&quot; page. Drag cards to set the mixed order (coach/doctor/physio), then Save. This is the single source of the display order.">Meniru halaman &quot;Meet coaches &amp; doctors&quot; di my.20fit. Seret kartu untuk atur urutan campur (coach/dokter/fisio), lalu Simpan. Ini satu-satunya sumber urutan tampil.</div>
-        <div id="rosMock" class="rosmock"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
+        <div class="adm-note" data-i18n="One row per type — coaches with coaches, doctors with doctors, physios with physios (same grouping on my.20fit). Drag a card within its row; the order is saved automatically and stays after refresh.">Satu baris per tipe — coach dengan coach, dokter dengan dokter, fisio dengan fisio (pengelompokan sama di my.20fit). Seret kartu di dalam barisnya; urutan tersimpan otomatis dan tetap sama setelah refresh.</div>
+        <div id="rosMock"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
         <div style="display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap">
-          <button class="adm-btn adm-btn--primary adm-btn--sm" id="rosOrderSave" onclick="roOrderSave()" data-i18n="Save order">Simpan urutan</button>
-          <span class="adm-note" id="rosOrderMsg"></span>
+          <span class="adm-note" id="rosOrderMsg" style="margin:0"></span>
+          <button class="adm-btn adm-btn--sm" id="rosOrderRetry" onclick="roOrderSave()" hidden data-i18n="Retry save">Coba simpan lagi</button>
+          <span class="adm-note" style="margin:0" data-i18n="Tip: click a card to quickly edit its photo, speciality &amp; description.">Tip: klik kartu untuk edit cepat foto, keahlian &amp; deskripsi.</span>
+        </div>
+
+        <!-- Edit cepat dari kartu mockup (muncul saat kartu diklik) -->
+        <div id="rosQuick" hidden style="margin-top:12px;max-width:640px;border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--card);box-shadow:var(--shadow-sm)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <span id="rqAv" class="rm-av" style="width:44px;height:44px;margin:0;font-size:16px"></span>
+            <div style="min-width:0;flex:1">
+              <div style="font-weight:700;font-size:14px" id="rqName"></div>
+              <div class="adm-note" style="margin:0" id="rqMeta"></div>
+            </div>
+            <button class="adm-btn adm-btn--sm" onclick="roQuickClose()" data-i18n="Close">Tutup</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+            <label class="afset-f" style="grid-column:1/-1"><span data-i18n="Speciality (optional)">Keahlian (opsional)</span><input class="adm-input" id="rq_speciality"></label>
+            <label class="afset-f" style="grid-column:1/-1"><span data-i18n="Photo URL (file or link)">URL foto (file atau link)</span><input class="adm-input" id="rq_photo" placeholder="https://… / otomatis dari upload" data-i18n-ph="https://… / auto from upload"></label>
+            <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <input type="file" id="rq_photo_file" accept="image/png,image/jpeg,image/webp" style="font-size:12px" onchange="admPhotoPick(this,{kind:roQuickRole(),urlId:'rq_photo',prevId:'rq_photo_prev',msgId:'rq_photo_msg'})">
+              <img id="rq_photo_prev" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;display:none;border:1px solid var(--line)">
+              <span class="adm-note" id="rq_photo_msg" style="margin:0"></span>
+            </div>
+            <label class="afset-f" style="grid-column:1/-1"><span data-i18n="Description / bio">Deskripsi / bio</span><textarea class="adm-input" id="rq_bio" style="min-height:76px" placeholder="Tampil saat member klik kartunya di my.20fit." data-i18n-ph="Shown when a member taps the card on my.20fit."></textarea></label>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
+            <button class="adm-btn adm-btn--primary adm-btn--sm" onclick="roQuickSave()" data-i18n="Save changes">Simpan perubahan</button>
+            <span class="adm-note" id="rqMsg"></span>
+          </div>
         </div>
 
         <!-- Form roster terpadu: Coach / Dokter / Fisio (satu form, pembeda tipe) -->
@@ -1126,9 +1199,9 @@
           <textarea class="adm-input" id="ro_bio" placeholder="Bio (opsional)" data-i18n-ph="Bio (optional)" style="grid-column:1/-1;min-height:52px"></textarea>
           <label class="adm-label" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="ro_active" checked> <span data-i18n="Active (visible)">Aktif (tampil)</span></label>
           <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="adm-btn adm-btn--primary" id="roSaveBtn" onclick="roSave()" data-i18n="Save">Simpan</button>
-            <button class="adm-btn adm-btn--sm" id="roCancelBtn" onclick="roCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
-            <span class="adm-note" id="roMsg"></span>
+            <button class="adm-btn adm-btn--primary" id="roSaveBtn" onclick="rosterSave()" data-i18n="Save">Simpan</button>
+            <button class="adm-btn adm-btn--sm" id="roCancelBtn" onclick="rosterCancel()" hidden data-i18n="Cancel edit">Batal edit</button>
+            <span class="adm-note" id="rosMsg"></span>
           </div>
         </div>
         <div id="rosList" style="margin-top:14px"><div class="adm-note" data-i18n="Loading…">Memuat…</div></div>
@@ -2122,17 +2195,19 @@
 
   // ---- RESEP OFFICIAL (CMS my20fit_recipe_official via /api/admin/recipes) ----
   var RO_DIET=["normal","vegetarian","vegan","pescatarian","keto","halal","high-protein","low-carb"];
-  var RO_LIST=[], RO_EDIT=null, RO_PHOTO=null, _roBound=false;
+  var RO_LIST=[], RO_EDIT=null, RO_PHOTO=null, _roBound=false, _roSeeding=false;
+  var RO_VIEW=(function(){ try{ return localStorage.getItem("ro_view")==="grid"?"grid":"list"; }catch(e){ return "list"; } })();
   function roEl(id){ return document.getElementById(id); }
   function roDietChips(){
     var box=roEl("roDiet"); if(!box) return;
     box.innerHTML=RO_DIET.map(function(d){ return '<label><input type="checkbox" class="roDietChk" value="'+d+'"><span>'+d+'</span></label>'; }).join("");
   }
-  function roSetPhoto(url){
-    RO_PHOTO=url||null;
-    var prev=roEl("roPhotoPrev"), clr=roEl("roPhotoClear");
+  function roSetPhoto(url, fromInput){
+    RO_PHOTO=(url&&String(url).trim())||null;
+    var prev=roEl("roPhotoPrev"), clr=roEl("roPhotoClear"), lnk=roEl("roPhotoLink");
     if(prev){ if(RO_PHOTO){ prev.style.backgroundImage='url("'+RO_PHOTO+'")'; prev.textContent=""; } else { prev.style.backgroundImage="none"; prev.textContent="🍽️"; } }
     if(clr) clr.hidden=!RO_PHOTO;
+    if(lnk && !fromInput) lnk.value=RO_PHOTO||"";
   }
   async function loadRecipesOfficial(){
     var tb=roEl("roRows"); if(!tb) return;
@@ -2143,8 +2218,17 @@
       var j=await res.json().catch(function(){return null;});
       if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
       RO_LIST=j.recipes||[];
+      // Auto-import katalog SEKALI kalau tabel DB masih kosong (belum di-seed) supaya katalog
+      // langsung muncul tanpa klik manual. Idempoten (ON CONFLICT DO NOTHING), hanya saat tak ada
+      // query pencarian; _roSeeding cegah loop kalau import gagal.
+      if(j.seeded===false && !q && !_roSeeding){
+        _roSeeding=true;
+        tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Importing catalog…","Mengimpor katalog…")+'</div></td></tr>';
+        var sr=await adminPost("/api/admin/recipes/seed-static",{}).then(function(x){return x.json();}).catch(function(){return null;});
+        if(sr&&sr.ok&&sr.inserted>0){ return loadRecipesOfficial(); }
+      }
       var warn=roEl("roSeedWarn");
-      if(warn){ if(!j.seeded){ warn.hidden=false; warn.textContent=L("Table not seeded yet — still serving the static fallback (js/recipes.js). Run db/seed-recipe-official.sql to activate DB catalog.","Tabel belum di-seed — masih memakai fallback statik (js/recipes.js). Jalankan db/seed-recipe-official.sql untuk mengaktifkan katalog DB."); } else warn.hidden=true; }
+      if(warn){ if(!j.seeded){ warn.hidden=false; warn.textContent=L("Table not seeded yet — still serving the static fallback (js/recipes.js). Click “Import official catalog” to activate the DB catalog.","Tabel belum di-seed — masih memakai fallback statik (js/recipes.js). Klik “Import katalog official” untuk mengaktifkan katalog DB."); } else warn.hidden=true; }
       roRender();
     }catch(e){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
   }
@@ -2164,8 +2248,31 @@
         '<td><div class="afcl-act"><button class="adm-btn adm-btn--sm" onclick="roEdit(\''+esc(r.id)+'\')" data-i18n="Edit">Edit</button>'+
           '<button class="adm-btn adm-btn--sm" onclick="roDelete(\''+esc(r.id)+'\')" data-i18n="Delete">Hapus</button></div></td></tr>';
     }).join("");
+    var grid=roEl("roGrid");
+    if(grid) grid.innerHTML=RO_LIST.map(function(r){
+      var ph=r.photo_url?('<div class="ro-card-ph" style="background-image:url(\''+esc(r.photo_url)+'\')"></div>'):('<div class="ro-card-ph">'+(r.emoji?"🍱":"🍽️")+'</div>');
+      var diet=(Array.isArray(r.diet_types)?r.diet_types:[]).slice(0,3).map(function(d){return '<span class="adm-tag adm-tag--mute">'+esc(d)+'</span>';}).join(" ");
+      var pub=r.is_published?'':(' · '+L("Hidden","Disembunyikan"));
+      return '<div class="ro-card">'+ph+'<div class="ro-card-b">'+
+        '<div class="ro-card-nm">'+esc(r.name_id||r.name_en||r.id)+'</div>'+
+        '<div class="ro-card-meta">'+(r.kcal!=null?(r.kcal+" kkal"):"—")+pub+'</div>'+
+        '<div class="ro-card-tags">'+diet+'</div>'+
+        '<div class="ro-card-act"><button class="adm-btn adm-btn--sm" onclick="roEdit(\''+esc(r.id)+'\')" data-i18n="Edit">Edit</button>'+
+          '<button class="adm-btn adm-btn--sm" onclick="roDelete(\''+esc(r.id)+'\')" data-i18n="Delete">Hapus</button></div></div></div>';
+    }).join("");
+    roApplyView();
     if(window.applyAdmLang) window.applyAdmLang();
   }
+  function roApplyView(){
+    var listWrap=roEl("roListWrap"), grid=roEl("roGrid");
+    var bl=roEl("roViewList"), bg=roEl("roViewGrid");
+    var isGrid=RO_VIEW==="grid";
+    if(listWrap) listWrap.hidden=isGrid;
+    if(grid) grid.hidden=!isGrid;
+    if(bl) bl.setAttribute("aria-pressed",String(!isGrid));
+    if(bg) bg.setAttribute("aria-pressed",String(isGrid));
+  }
+  function roSetView(v){ RO_VIEW=(v==="grid")?"grid":"list"; try{ localStorage.setItem("ro_view",RO_VIEW); }catch(e){} roApplyView(); }
   function roOpenForm(rec){
     RO_EDIT=rec?rec.id:null;
     var t=roEl("roFormTitle"); if(t){ t.textContent=rec?L("Edit recipe","Edit resep"):L("New recipe","Resep baru"); }
@@ -2231,11 +2338,22 @@
   function roBind(){
     _roBound=true; roDietChips();
     var add=roEl("roAddBtn"); if(add) add.onclick=function(){ roOpenForm(null); };
+    var seed=roEl("roSeedBtn"); if(seed) seed.onclick=async function(){
+      if(!confirm(L("Import 120 resep official dari katalog + fotonya? Aman diulang (tak menimpa resep yang sudah diedit).","Import 120 official recipes from the catalog + their photos? Safe to repeat (won't overwrite edited recipes)."))) return;
+      seed.disabled=true; var old=seed.textContent; seed.textContent=L("Mengimpor…","Importing…");
+      var r=await adminPost("/api/admin/recipes/seed-static",{}).then(function(x){return x.json();}).catch(function(){return null;});
+      seed.disabled=false; seed.textContent=old;
+      if(r&&r.ok){ if(window.admToast)admToast(L("Terimpor: ","Imported: ")+r.inserted+"/"+r.catalog); loadRecipesOfficial(); }
+      else if(window.admToast)admToast(L("Gagal import","Import failed")+": "+((r&&r.error)||"error"));
+    };
     var sv=roEl("roSave"); if(sv) sv.onclick=roSave;
     var cn=roEl("roCancel"); if(cn) cn.onclick=function(){ var f=roEl("roForm"); if(f) f.hidden=true; RO_EDIT=null; };
     var pb=roEl("roPhotoBtn"); if(pb) pb.onclick=function(){ var fi=roEl("roPhotoFile"); if(fi) fi.click(); };
     var pf=roEl("roPhotoFile"); if(pf) pf.onchange=function(){ if(pf.files&&pf.files[0]) roUploadPhoto(pf.files[0]); pf.value=""; };
     var pc=roEl("roPhotoClear"); if(pc) pc.onclick=function(){ roSetPhoto(null); };
+    var pl=roEl("roPhotoLink"); if(pl) pl.oninput=function(){ roSetPhoto(pl.value, true); };
+    var vl=roEl("roViewList"); if(vl) vl.onclick=function(){ roSetView("list"); };
+    var vg=roEl("roViewGrid"); if(vg) vg.onclick=function(){ roSetView("grid"); };
     var se=roEl("roSearch"); if(se){ var t; se.addEventListener("input",function(){ clearTimeout(t); t=setTimeout(loadRecipesOfficial,300); }); }
   }
 
@@ -2919,12 +3037,14 @@
     try{ var res=await adminPost("/api/admin/reward-claims/"+encodeURIComponent(id)+"/fulfill",{ status:status }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadRewardClaims(); }catch(e){}
   };
   // ---- COACH & DOCTOR ROSTER (section Coaches) — roster + alias mapping + doctor roster ----
-  var CO_CACHE=[], IV_CACHE=[], RO_CACHE=[], RO_DIRTY=false, RO_DRAG_KEY=null;
+  var CO_CACHE=[], IV_CACHE=[], RO_CACHE=[], RO_QUICK=null;
   function coV(id){ var el=document.getElementById(id); return el?el.value:""; }
   function coTag(v){ return v==="gym"?"Gym":(v==="arena"?"Arena":"Arena + Gym"); }
   function roKey(p){ return (p.role||"")+":"+(p.id||""); }
   function roFind(role,id){ for(var i=0;i<RO_CACHE.length;i++){ if(String(RO_CACHE[i].role)===String(role)&&String(RO_CACHE[i].id)===String(id)) return RO_CACHE[i]; } return null; }
-  function roIdxByKey(k){ for(var i=0;i<RO_CACHE.length;i++){ if(roKey(RO_CACHE[i])===k) return i; } return -1; }
+  // Urutan grup tetap: coach → dokter → fisio. Di dalam grup: sort_order (sama dgn /api/team).
+  var RO_ROLES=["coach","doctor","physiotherapist"];
+  function roGroupSort(){ RO_CACHE.sort(function(a,b){ return (RO_ROLES.indexOf(a.role)-RO_ROLES.indexOf(b.role)) || ((a.sort_order||0)-(b.sort_order||0)) || String(a.display_name||"").localeCompare(String(b.display_name||"")); }); }
   function roKind(){ var el=document.getElementById("ro_role"); return el?el.value:"coach"; }
   function roLabel(role){ return role==="doctor"?L("Doctor","Dokter"):role==="physiotherapist"?L("Physio","Fisio"):L("Coach","Coach"); }
   async function loadCoaches(){
@@ -2938,9 +3058,8 @@
       var res=await adminFetch("/api/admin/roster");
       var j=await res.json().catch(function(){return null;});
       if(!j||!j.ok){ var em='<div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+evEsc(await admErr(res,j))+']</span></div>'; if(list)list.innerHTML=em; if(mock)mock.innerHTML=em; return; }
-      RO_CACHE=(j.roster||[]).slice();
+      RO_CACHE=(j.roster||[]).slice(); roGroupSort();
       CO_CACHE=RO_CACHE.filter(function(p){return p.role==="coach";});
-      RO_DIRTY=false;
       roRenderList(); roRenderMock();
     }catch(e){ var ee='<div class="adm-note">'+L("Error loading roster.","Error memuat roster.")+'</div>'; if(list)list.innerHTML=ee; if(mock)mock.innerHTML=ee; }
   }
@@ -2981,57 +3100,150 @@
   function roRenderMock(){
     var box=document.getElementById("rosMock"); if(!box) return;
     if(!RO_CACHE.length){ box.innerHTML='<div class="adm-note">'+L("Roster is empty.","Roster kosong.")+'</div>'; return; }
-    box.innerHTML=RO_CACHE.map(function(p,i){
-      var av=p.photo_url?('<img class="rm-av" src="'+evEsc(p.photo_url)+'" alt="">'):('<div class="rm-av">'+evEsc(String(p.display_name||"?").trim().slice(0,1).toUpperCase())+'</div>');
-      return '<div class="rosmock-card'+(p.is_active===false?" off":"")+'" draggable="true" data-key="'+evEsc(roKey(p))+'">'+
-        '<span class="rm-badge '+evEsc(p.role)+'">'+evEsc(roLabel(p.role))+'</span>'+
-        '<span class="rm-pos">#'+(i+1)+'</span>'+av+
-        '<div class="rm-nm">'+evEsc(p.display_name||"")+'</div>'+
-        (p.speciality?'<div class="rm-sp">'+evEsc(p.speciality)+'</div>':'')+
-      '</div>';
+    box.innerHTML=RO_ROLES.map(function(role){
+      var grp=RO_CACHE.filter(function(p){ return p.role===role; });
+      if(!grp.length) return "";
+      return '<div class="rosmock-grp"><div class="rosmock-h"><span class="adm-tag ros-badge '+evEsc(role)+'">'+evEsc(roLabel(role))+'</span>'+grp.length+'</div>'+
+        '<div class="rosmock" data-role="'+evEsc(role)+'">'+grp.map(function(p,i){
+          var av=p.photo_url?('<img class="rm-av" src="'+evEsc(p.photo_url)+'" alt="">'):('<div class="rm-av">'+evEsc(String(p.display_name||"?").trim().slice(0,1).toUpperCase())+'</div>');
+          return '<div class="rosmock-card'+(p.is_active===false?" off":"")+'" data-key="'+evEsc(roKey(p))+'">'+
+            '<span class="rm-badge '+evEsc(p.role)+'">'+evEsc(roLabel(p.role))+'</span>'+
+            '<span class="rm-pos">#'+(i+1)+'</span>'+av+
+            '<div class="rm-nm">'+evEsc(p.display_name||"")+'</div>'+
+            (p.speciality?'<div class="rm-sp">'+evEsc(p.speciality)+'</div>':'')+
+          '</div>';
+        }).join("")+'</div></div>';
     }).join("");
-    roBindDrag(box); roOrderMsg();
+    [].slice.call(box.querySelectorAll(".rosmock")).forEach(roBindDrag);
   }
-  function roOrderMsg(){ var m=document.getElementById("rosOrderMsg"); if(m) m.textContent=RO_DIRTY?L("Unsaved order — click Save order.","Urutan belum disimpan — klik Simpan urutan."):""; }
-  function roBefore(card,e){ var r=card.getBoundingClientRect(); return (e.clientX-r.left) < r.width/2; }
+  function roOrderMsg(text,failed){
+    var m=document.getElementById("rosOrderMsg"); if(m) m.textContent=text||"";
+    var r=document.getElementById("rosOrderRetry"); if(r) r.hidden=!failed;
+  }
+  // Drag reorder berbasis Pointer Events (bukan HTML5 DnD) supaya:
+  // (1) kartu di luar layar bisa dijangkau lewat auto-scroll tepi terkendali,
+  // (2) tidak bentrok dgn auto-scroll bawaan browser yang bikin rail loncat sendiri.
+  // Reorder LIVE: node kartu dipindah di antara saudaranya saat pointer melewati
+  // tengah kartu lain; urutan final dibaca balik dari DOM saat dilepas.
   function roBindDrag(box){
-    var cards=[].slice.call(box.querySelectorAll(".rosmock-card"));
-    function clear(){ cards.forEach(function(c){ c.classList.remove("drop-left","drop-right"); }); }
-    cards.forEach(function(card){
-      card.addEventListener("dragstart",function(e){ RO_DRAG_KEY=card.dataset.key; card.classList.add("dragging"); try{ e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain",RO_DRAG_KEY); }catch(_){} });
-      card.addEventListener("dragend",function(){ card.classList.remove("dragging"); clear(); });
-      card.addEventListener("dragover",function(e){ e.preventDefault(); try{ e.dataTransfer.dropEffect="move"; }catch(_){} if(card.dataset.key===RO_DRAG_KEY){ return; } var before=roBefore(card,e); card.classList.toggle("drop-left",before); card.classList.toggle("drop-right",!before); });
-      card.addEventListener("dragleave",function(){ card.classList.remove("drop-left","drop-right"); });
-      card.addEventListener("drop",function(e){ e.preventDefault(); var before=roBefore(card,e); clear(); roMove(RO_DRAG_KEY, card.dataset.key, before); });
+    var dragEl=null, pid=null, moved=false, startX=0, startY=0, autoRaf=null, vx=0;
+    function liveCards(){ return [].slice.call(box.querySelectorAll(".rosmock-card")); }
+    function autoStep(){ if(vx){ box.scrollLeft+=vx; } autoRaf=requestAnimationFrame(autoStep); }
+    function edgeScroll(clientX){
+      var r=box.getBoundingClientRect(), edge=72;
+      if(clientX < r.left+edge && box.scrollLeft>0){ vx=-Math.max(5,Math.ceil((r.left+edge-clientX)/5)); }
+      else if(clientX > r.right-edge && box.scrollLeft < box.scrollWidth-box.clientWidth-1){ vx=Math.max(5,Math.ceil((clientX-(r.right-edge))/5)); }
+      else { vx=0; }
+      if(vx && autoRaf===null){ autoRaf=requestAnimationFrame(autoStep); }
+    }
+    function stopAuto(){ vx=0; if(autoRaf!==null){ cancelAnimationFrame(autoRaf); autoRaf=null; } }
+    function cardAtX(clientX){
+      var hit=null;
+      liveCards().forEach(function(c){ if(c===dragEl) return; var cr=c.getBoundingClientRect(); if(clientX>=cr.left && clientX<=cr.right) hit=c; });
+      return hit;
+    }
+    function renumber(){ liveCards().forEach(function(c,i){ var p=c.querySelector(".rm-pos"); if(p)p.textContent="#"+(i+1); }); }
+    function onMove(e){
+      if(!dragEl || e.pointerId!==pid) return;
+      if(!moved){ if(Math.abs(e.clientX-startX)<5 && Math.abs(e.clientY-startY)<5) return; moved=true; dragEl.classList.add("dragging"); }
+      e.preventDefault();
+      edgeScroll(e.clientX);
+      var over=cardAtX(e.clientX);
+      if(over && over!==dragEl){
+        var cr=over.getBoundingClientRect();
+        var before=(e.clientX-cr.left) < cr.width/2;
+        box.insertBefore(dragEl, before?over:over.nextSibling);
+        renumber();
+      }
+    }
+    function onUp(e){
+      if(!dragEl || e.pointerId!==pid) return;
+      stopAuto();
+      try{ dragEl.releasePointerCapture&&dragEl.releasePointerCapture(pid); }catch(_){}
+      box.removeEventListener("pointermove", onMove);
+      if(moved){
+        dragEl.classList.remove("dragging");
+        // Baris ini = satu grup tipe; urutan baru grup ini → sort_order 0..n, lalu simpan otomatis.
+        liveCards().forEach(function(c,i){ var k=c.dataset.key, j=k.indexOf(":"), p=roFind(k.slice(0,j),k.slice(j+1)); if(p) p.sort_order=i; });
+        roGroupSort(); window.roOrderSave();
+      } else {
+        roQuickOpen(dragEl.dataset.key);   // tap tanpa geser = buka edit cepat
+      }
+      dragEl=null; pid=null; moved=false;
+    }
+    liveCards().forEach(function(card){
+      card.addEventListener("pointerdown", function(e){
+        if(e.button!=null && e.button!==0) return;
+        dragEl=card; pid=e.pointerId; moved=false; startX=e.clientX; startY=e.clientY;
+        try{ card.setPointerCapture&&card.setPointerCapture(e.pointerId); }catch(_){}
+        box.addEventListener("pointermove", onMove);
+      });
+      card.addEventListener("pointerup", onUp);
+      card.addEventListener("pointercancel", onUp);
     });
   }
-  function roMove(dragKey,targetKey,before){
-    if(!dragKey||dragKey===targetKey) return;
-    var from=roIdxByKey(dragKey); if(from<0) return;
-    var moved=RO_CACHE.splice(from,1)[0];
-    var to=roIdxByKey(targetKey); if(to<0){ RO_CACHE.splice(from,0,moved); return; }
-    RO_CACHE.splice(before?to:to+1, 0, moved);
-    RO_DIRTY=true; roRenderMock();
-  }
+  // Simpan otomatis tiap selesai seret. Panggilan beruntun digabung: selama satu simpan
+  // berjalan, simpan berikutnya menunggu lalu mengirim urutan TERBARU (bukan antrean lama).
+  var RO_SAVING=null, RO_RESAVE=false;
   window.roOrderSave=async function(){
-    var msg=document.getElementById("rosOrderMsg");
-    var items=RO_CACHE.map(function(p,i){ return { role:p.role, id:p.id, sort_order:i }; });
+    if(RO_SAVING){ RO_RESAVE=true; return RO_SAVING; }
+    RO_SAVING=(async function(){
+      do{
+        RO_RESAVE=false;
+        var items=RO_CACHE.map(function(p){ return { role:p.role, id:p.id, sort_order:p.sort_order||0 }; });
+        roOrderMsg(L("Saving order…","Menyimpan urutan…"));
+        try{ var res=await adminPost("/api/admin/roster/reorder",{ items:items }); var j=await res.json().catch(function(){return null;});
+          if(!j||!j.ok){ roOrderMsg(L("Order NOT saved: ","Urutan BELUM tersimpan: ")+(await admErr(res,j)),true); return; }
+        }catch(e){ roOrderMsg(L("Order NOT saved (network error).","Urutan BELUM tersimpan (error jaringan)."),true); return; }
+      }while(RO_RESAVE);
+      roOrderMsg(L("Order saved ✓","Urutan tersimpan ✓")); roRenderList();
+    })();
+    try{ await RO_SAVING; }finally{ RO_SAVING=null; }
+  };
+  // Edit cepat dari kartu mockup: ubah foto / keahlian / deskripsi tanpa buka form penuh.
+  window.roQuickRole=function(){ return RO_QUICK?RO_QUICK.role:"coach"; };
+  function roQuickOpen(key){
+    var i=key.indexOf(":"); var role=key.slice(0,i), id=key.slice(i+1);
+    var p=roFind(role,id); if(!p) return;
+    RO_QUICK={ role:role, id:id };
+    var panel=document.getElementById("rosQuick"); if(!panel) return;
+    document.getElementById("rqName").textContent=p.display_name||"";
+    document.getElementById("rqMeta").textContent=roLabel(role)+(role==="coach"&&p.venue?(" · "+coTag(p.venue)):"");
+    var av=document.getElementById("rqAv");
+    if(p.photo_url){ av.innerHTML='<img src="'+evEsc(p.photo_url)+'" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">'; }
+    else { av.textContent=String(p.display_name||"?").trim().slice(0,1).toUpperCase(); }
+    document.getElementById("rq_speciality").value=p.speciality||"";
+    document.getElementById("rq_photo").value=p.photo_url||"";
+    document.getElementById("rq_bio").value=p.bio||"";
+    var pp=document.getElementById("rq_photo_prev"); if(pp){ if(p.photo_url){pp.src=p.photo_url;pp.style.display="inline-block";}else{pp.style.display="none";} }
+    var pm=document.getElementById("rq_photo_msg"); if(pm)pm.textContent=""; var m=document.getElementById("rqMsg"); if(m)m.textContent="";
+    panel.hidden=false;
+    try{ panel.scrollIntoView({block:"nearest"}); }catch(_){}
+  }
+  window.roQuickClose=function(){ RO_QUICK=null; var p=document.getElementById("rosQuick"); if(p)p.hidden=true; };
+  window.roQuickSave=async function(){
+    if(!RO_QUICK) return; var msg=document.getElementById("rqMsg");
+    var p=roFind(RO_QUICK.role, RO_QUICK.id); if(!p){ roQuickClose(); return; }
+    // Kirim baris PENUH (endpoint upsert menimpa semua kolom) — nilai lama dari RO_CACHE + 3 field yg diedit.
+    var body={ id:p.id, display_name:p.display_name, speciality:coV("rq_speciality")||null,
+      photo_url:coV("rq_photo")||null, bio:coV("rq_bio")||null,
+      sort_order:(p.sort_order!=null?p.sort_order:0), is_active:(p.is_active!==false) };
+    if(RO_QUICK.role==="coach") body.venue=p.venue||"both";
     if(msg)msg.textContent=L("Saving…","Menyimpan…");
-    try{ var res=await adminPost("/api/admin/roster/reorder",{ items:items }); var j=await res.json().catch(function(){return null;});
+    try{ var res=await adminPost(roEndpoint(RO_QUICK.role), body); var j=await res.json().catch(function(){return null;});
       if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
-      RO_CACHE.forEach(function(p,i){ p.sort_order=i; }); RO_DIRTY=false;
-      if(msg)msg.textContent=L("Order saved ✓","Urutan tersimpan ✓"); roRenderList();
-    }catch(e){ if(msg)msg.textContent=L("Error saving order.","Error menyimpan urutan."); }
+      if(msg)msg.textContent=L("Saved ✓","Tersimpan ✓"); roQuickClose(); loadCoaches();
+    }catch(e){ if(msg)msg.textContent=L("Error saving.","Error menyimpan."); }
   };
   function roVenueToggle(){ var w=document.getElementById("ro_venue_wrap"); if(w) w.style.display=(roKind()==="coach")?"":"none"; }
   window.roVenueToggle=roVenueToggle;
   function roEndpoint(role){ return role==="doctor"?"/api/admin/doctors":role==="physiotherapist"?"/api/admin/physiotherapists":"/api/admin/coaches"; }
-  window.roSave=async function(){
-    var msg=document.getElementById("roMsg"); var name=(coV("ro_name")||"").trim();
+  window.rosterSave=async function(){
+    var msg=document.getElementById("rosMsg"); var name=(coV("ro_name")||"").trim();
     if(!name){ if(msg)msg.textContent=L("Display name is required.","Nama tampilan wajib."); return; }
     var role=roKind(), id=coV("ro_id")||"", origRole=coV("ro_orig_role")||"";
     var existing=id?roFind(origRole||role,id):null;
-    var sort=(existing&&existing.sort_order!=null)?existing.sort_order:(RO_CACHE.reduce(function(m,p){return Math.max(m,(p.sort_order||0));},-1)+1);
+    var sort=(existing&&existing.sort_order!=null)?existing.sort_order:(RO_CACHE.reduce(function(m,p){return p.role===role?Math.max(m,(p.sort_order||0)):m;},-1)+1);
     var base={ display_name:name, speciality:coV("ro_speciality")||null, photo_url:coV("ro_photo")||null, bio:coV("ro_bio")||null, sort_order:sort, is_active:!!(document.getElementById("ro_active")||{}).checked };
     if(role==="coach") base.venue=coV("ro_venue")||"both";
     if(msg)msg.textContent=L("Saving…","Menyimpan…");
@@ -3047,10 +3259,10 @@
         var res=await adminPost(roEndpoint(role), body); var j=await res.json().catch(function(){return null;});
         if(!j||!j.ok){ if(msg)msg.textContent=L("Failed: ","Gagal: ")+(await admErr(res,j)); return; }
       }
-      if(msg)msg.textContent=L("Saved.","Tersimpan."); window.roCancel(); loadCoaches();
+      if(msg)msg.textContent=L("Saved.","Tersimpan."); window.rosterCancel(); loadCoaches();
     }catch(e){ if(msg)msg.textContent=L("Error saving.","Error menyimpan."); }
   };
-  window.roEdit=function(role,id){
+  window.rosterEdit=function(role,id){
     var p=roFind(role,id); if(!p) return;
     document.getElementById("ro_id").value=p.id||""; document.getElementById("ro_orig_role").value=p.role||"";
     document.getElementById("ro_role").value=p.role||"coach"; roVenueToggle();
@@ -3063,15 +3275,15 @@
     var cb=document.getElementById("roCancelBtn"); if(cb)cb.hidden=false;
     try{ document.getElementById("ro_name").scrollIntoView({block:"center"}); }catch(_){}
   };
-  window.roCancel=function(){
+  window.rosterCancel=function(){
     ["ro_id","ro_orig_role","ro_name","ro_speciality","ro_photo","ro_bio"].forEach(function(id){var el=document.getElementById(id); if(el)el.value="";});
     var r=document.getElementById("ro_role"); if(r)r.value="coach"; roVenueToggle();
     var v=document.getElementById("ro_venue"); if(v)v.value="both"; var a=document.getElementById("ro_active"); if(a)a.checked=true;
     var pp=document.getElementById("ro_photo_prev"); if(pp)pp.style.display="none"; var pm=document.getElementById("ro_photo_msg"); if(pm)pm.textContent="";
     var t=document.getElementById("rosFormTitle"); if(t)t.textContent=L("Add to roster","Tambah ke roster");
-    var cb=document.getElementById("roCancelBtn"); if(cb)cb.hidden=true; var m=document.getElementById("roMsg"); if(m)m.textContent="";
+    var cb=document.getElementById("roCancelBtn"); if(cb)cb.hidden=true; var m=document.getElementById("rosMsg"); if(m)m.textContent="";
   };
-  window.roDelete=async function(role,id){
+  window.rosterDelete=async function(role,id){
     if(!window.confirm(L("Delete this entry?","Hapus entri ini?")+(role==="coach"?" "+L("Its instructor aliases are removed too.","Alias instruktur-nya ikut terhapus."):""))) return;
     try{ var qs=KEY?("?key="+encodeURIComponent(KEY)):""; var res=await fetch(roEndpoint(role)+"/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadCoaches(); }catch(e){}
   };
@@ -3083,7 +3295,8 @@
   window.alDel=async function(id){
     try{ var qs=KEY?("?key="+encodeURIComponent(KEY)):""; var res=await fetch("/api/admin/coach-aliases/"+encodeURIComponent(id)+qs,{ method:"DELETE", credentials:"include", headers: await admAuthHeaders() }); var j=await res.json().catch(function(){return null;}); if(j&&j.ok) loadCoaches(); }catch(e){}
   };
-  // Coach + Dokter + Fisio dikelola lewat roster terpadu di atas (roSave/roEdit/roDelete + mockup urutan).
+  // Coach + Dokter + Fisio dikelola lewat roster terpadu di atas (rosterSave/rosterEdit/rosterDelete + mockup urutan).
+  // Nama ro* dipakai juga oleh CMS Resep Official (roSave/roEdit/roDelete) — roster pakai prefix "roster"/"ros" agar tak bentrok.
 
   // Unggah foto coach/dokter -> /api/admin/upload-photo (Supabase Storage), isi field URL + preview.
   // Kecilkan + kompres foto di browser SEBELUM upload → file kecil permanen (hemat kuota,
@@ -3112,10 +3325,12 @@
       r.readAsDataURL(file);
     });
   }
-  window.admPhotoPick = async function(input){
+  window.admPhotoPick = async function(input, ctx){
     var file = input && input.files && input.files[0]; if(!file) return;
-    var kind = roKind();  // coach / doctor / physiotherapist — dari selector Tipe di form roster terpadu
-    var msg = document.getElementById("ro_photo_msg"), prev = document.getElementById("ro_photo_prev"), urlEl = document.getElementById("ro_photo");
+    // ctx opsional: {kind, urlId, prevId, msgId}. Default = form roster terpadu (ro_*).
+    ctx = ctx || { kind: roKind(), urlId:"ro_photo", prevId:"ro_photo_prev", msgId:"ro_photo_msg" };
+    var kind = ctx.kind || "coach";  // coach / doctor / physiotherapist
+    var msg = document.getElementById(ctx.msgId), prev = document.getElementById(ctx.prevId), urlEl = document.getElementById(ctx.urlId);
     if(file.size > 5*1024*1024){ if(msg) msg.textContent=L("Max 5MB.","Maks 5MB."); input.value=""; return; }
     if(msg) msg.textContent=L("Optimizing…","Mengoptimalkan…");
     try{
@@ -3984,7 +4199,7 @@
     var rca=e.target.closest(".rcAct");
     if(rca){ window.rcFulfill(rca.dataset.id, rca.dataset.s); return; }
     var roa=e.target.closest(".roAct");
-    if(roa){ var roaA=roa.dataset.a; if(roaA==="edit")window.roEdit(roa.dataset.role,roa.dataset.id); else if(roaA==="delete")window.roDelete(roa.dataset.role,roa.dataset.id); return; }
+    if(roa){ var roaA=roa.dataset.a; if(roaA==="edit")window.rosterEdit(roa.dataset.role,roa.dataset.id); else if(roaA==="delete")window.rosterDelete(roa.dataset.role,roa.dataset.id); return; }
     var alx=e.target.closest(".alDel");
     if(alx){ e.preventDefault(); window.alDel(alx.dataset.id); return; }
     var ivm=e.target.closest(".ivMap");

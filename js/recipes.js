@@ -1240,6 +1240,13 @@
       id: "1. Kupas pisang matang dan potong jadi beberapa bagian.\n2. Masukkan pisang dan selai kacang ke blender dulu supaya pisang membantu menghaluskan selai kacang.\n3. Tuang susu dan yogurt Yunani.\n4. Tambahkan madu, oat dan sejumput kayu manis.\n5. Blender dengan kecepatan rendah beberapa detik untuk mencampur, lalu masukkan es batu.\n6. Blender dengan kecepatan tinggi sampai benar-benar halus, sekitar 30–45 detik, berhenti sebentar untuk mengerok sisi blender kalau perlu.\n7. Cek kekentalannya — harus melapisi punggung sendok tapi masih bisa dituang; tambahkan sedikit susu kalau terlalu kental.\n8. Tuang ke gelas tinggi segera, sebelum oat mengendap.\n9. Sajikan segera selagi dingin."
     } }
   ];
+  // Foto AI (gemini via OpenRouter) untuk ke-120 resep sudah di-generate & tersimpan PERMANEN di
+  // Supabase Storage (bucket my20fit-foodimg, satu file "<id>-ai-id.png" per resep). Tempel langsung
+  // sebagai photo_url supaya katalog memakai foto dari storage — tak bergantung resolve runtime
+  // /api/foodphoto (resolveImg() memakai photo_url ini lebih dulu). Saat katalog dilayani dari DB
+  // (my20fit_recipe_official), photo_url diisi dari sumber yang SAMA lewat join ke my20fit_foodimg.
+  var _FOODIMG_BASE = "https://cpvzwqptzcxnwzfzgrmt.supabase.co/storage/v1/object/public/my20fit-foodimg/";
+  LIST.forEach(function (r) { if (r && r.id && !r.photo_url) r.photo_url = _FOODIMG_BASE + r.id + "-ai-id.png"; });
   function byType(t) { if (!t || t === "all") return LIST.slice(); return LIST.filter(function (r) { return (r.types || []).indexOf(t) >= 0; }); }
   // Rekomendasi berdasar SISA makro (gram). Isi makro yang kurang tanpa nambah yang sudah cukup.
   function recommendForMacros(rem, n) {
@@ -1263,6 +1270,9 @@
   // → placeholder rapi.
   function resolveImg(rec){
     if(!rec || !rec.id) return Promise.resolve(null);
+    // Foto tetap yang diatur admin / tersimpan di katalog DB (photo_url) -> pakai langsung,
+    // tanpa round-trip /api/foodphoto (foto tak bergantung resolve runtime/internet).
+    if(rec.photo_url) return Promise.resolve(rec.photo_url);
     var c=_imgCache();
     if(c[rec.id]) return Promise.resolve(c[rec.id]); // hanya URL sukses yang di-cache
     // PENTING: JANGAN simpan null. Foto AI di-generate on-demand (butuh beberapa detik); kalau
