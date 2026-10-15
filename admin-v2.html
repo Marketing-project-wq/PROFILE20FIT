@@ -2195,7 +2195,7 @@
 
   // ---- RESEP OFFICIAL (CMS my20fit_recipe_official via /api/admin/recipes) ----
   var RO_DIET=["normal","vegetarian","vegan","pescatarian","keto","halal","high-protein","low-carb"];
-  var RO_LIST=[], RO_EDIT=null, RO_PHOTO=null, _roBound=false;
+  var RO_LIST=[], RO_EDIT=null, RO_PHOTO=null, _roBound=false, _roSeeding=false;
   var RO_VIEW=(function(){ try{ return localStorage.getItem("ro_view")==="grid"?"grid":"list"; }catch(e){ return "list"; } })();
   function roEl(id){ return document.getElementById(id); }
   function roDietChips(){
@@ -2218,8 +2218,17 @@
       var j=await res.json().catch(function(){return null;});
       if(!j||!j.ok){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+' <span class="adm-mono">['+esc(await admErr(res,j))+']</span></div></td></tr>'; return; }
       RO_LIST=j.recipes||[];
+      // Auto-import katalog SEKALI kalau tabel DB masih kosong (belum di-seed) supaya katalog
+      // langsung muncul tanpa klik manual. Idempoten (ON CONFLICT DO NOTHING), hanya saat tak ada
+      // query pencarian; _roSeeding cegah loop kalau import gagal.
+      if(j.seeded===false && !q && !_roSeeding){
+        _roSeeding=true;
+        tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Importing catalog…","Mengimpor katalog…")+'</div></td></tr>';
+        var sr=await adminPost("/api/admin/recipes/seed-static",{}).then(function(x){return x.json();}).catch(function(){return null;});
+        if(sr&&sr.ok&&sr.inserted>0){ return loadRecipesOfficial(); }
+      }
       var warn=roEl("roSeedWarn");
-      if(warn){ if(!j.seeded){ warn.hidden=false; warn.textContent=L("Table not seeded yet — still serving the static fallback (js/recipes.js). Run db/seed-recipe-official.sql to activate DB catalog.","Tabel belum di-seed — masih memakai fallback statik (js/recipes.js). Jalankan db/seed-recipe-official.sql untuk mengaktifkan katalog DB."); } else warn.hidden=true; }
+      if(warn){ if(!j.seeded){ warn.hidden=false; warn.textContent=L("Table not seeded yet — still serving the static fallback (js/recipes.js). Click “Import official catalog” to activate the DB catalog.","Tabel belum di-seed — masih memakai fallback statik (js/recipes.js). Klik “Import katalog official” untuk mengaktifkan katalog DB."); } else warn.hidden=true; }
       roRender();
     }catch(e){ tb.innerHTML='<tr><td colspan="6"><div class="adm-note">'+L("Failed to load.","Gagal memuat.")+'</div></td></tr>'; }
   }
