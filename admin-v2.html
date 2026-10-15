@@ -724,6 +724,19 @@
               </div>
               <label class="afset-check" style="margin-left:auto"><input type="checkbox" id="roPub" checked><span data-i18n="Published">Tayang</span></label>
             </div>
+            <div id="roEatNow" hidden style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+              <div class="adm-sec-title" style="margin-top:0" data-i18n="Eat Now / delivery links">Eat Now / tautan pesan-antar</div>
+              <div class="adm-note" style="margin-top:0" data-i18n="Link this menu anywhere — order ready food (GrabFood/GoFood) or buy the groceries. Add/remove freely; shown on the member Eat Now.">Tautkan menu ini ke mana saja — pesan makanan jadi (GrabFood/GoFood) atau beli bahannya (grocery). Tambah/hapus sesukamu; tampil di Eat Now member.</div>
+              <div id="roDlvHint" class="adm-note" hidden data-i18n="Save the recipe first, then reopen it to manage its Eat Now links.">Simpan resepnya dulu, lalu buka lagi untuk mengatur tautan Eat Now-nya.</div>
+              <div id="roDlvList" style="margin:10px 0"></div>
+              <div id="roDlvAddRow" class="ro-grid" style="grid-template-columns:1fr 1fr 2fr auto;align-items:end;gap:10px">
+                <label class="ro-f"><span data-i18n="Provider (optional)">Penyedia (opsional)</span><select class="adm-input" id="roDlvProvider"></select></label>
+                <label class="ro-f"><span data-i18n="Label">Label</span><input class="adm-input" id="roDlvLabel" placeholder="GoFood / Tokopedia…"></label>
+                <label class="ro-f"><span>URL (https)</span><input class="adm-input" id="roDlvUrl" type="url" placeholder="https://…"></label>
+                <button class="adm-btn adm-btn--primary adm-btn--sm" id="roDlvAdd" data-i18n="+ Add link">+ Tambah tautan</button>
+              </div>
+              <span class="adm-note" id="roDlvMsg"></span>
+            </div>
             <div style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap">
               <button class="adm-btn adm-btn--primary" id="roSave" data-i18n="Save">Simpan</button>
               <button class="adm-btn" id="roCancel" data-i18n="Cancel">Batal</button>
@@ -2289,9 +2302,71 @@
     document.querySelectorAll(".roDietChk").forEach(function(c){ c.checked=dsel.indexOf(c.value)>=0; });
     roSetPhoto(rec&&rec.photo_url);
     var msg=roEl("roMsg"); if(msg) msg.textContent="";
+    roDlvOpen(rec?rec.id:null);
     var f=roEl("roForm"); if(f){ f.hidden=false; f.scrollIntoView({behavior:"smooth",block:"nearest"}); }
   }
   window.roEdit=function(id){ var r=RO_LIST.find(function(x){return String(x.id)===String(id);}); if(r) roOpenForm(r); };
+  // ---- Eat Now / tautan pesan-antar per resep (reuse /api/admin/menu-delivery) ----
+  var RO_DLV_PROV=null;
+  async function roDlvLoadProviders(){
+    if(RO_DLV_PROV) return RO_DLV_PROV;
+    var r=await adminFetch("/api/admin/delivery-providers").then(function(x){return x.json();}).catch(function(){return null;});
+    RO_DLV_PROV=(r&&r.providers)||[];
+    return RO_DLV_PROV;
+  }
+  async function roDlvOpen(menuId){
+    var box=roEl("roEatNow"); if(!box) return; box.hidden=false;
+    var hint=roEl("roDlvHint"), addrow=roEl("roDlvAddRow"), list=roEl("roDlvList"), msg=roEl("roDlvMsg");
+    if(msg) msg.textContent="";
+    if(!menuId){ if(hint) hint.hidden=false; if(addrow) addrow.style.display="none"; if(list) list.innerHTML=""; return; }
+    if(hint) hint.hidden=true; if(addrow) addrow.style.display="";
+    var provs=await roDlvLoadProviders();
+    var sel=roEl("roDlvProvider");
+    if(sel) sel.innerHTML='<option value="">'+L("— custom —","— custom —")+'</option>'+provs.filter(function(p){return p.is_active;}).map(function(p){ return '<option value="'+esc(p.id)+'" data-name="'+esc(p.name)+'">'+esc(p.name)+'</option>'; }).join("");
+    await roDlvReload(menuId);
+  }
+  async function roDlvReload(menuId){
+    var list=roEl("roDlvList"); if(list) list.innerHTML='<div class="adm-note" style="margin:0">'+L("Loading…","Memuat…")+'</div>';
+    var r=await adminFetch("/api/admin/menu-delivery").then(function(x){return x.json();}).catch(function(){return null;});
+    var links=(((r&&r.links)||[]).filter(function(l){ return l.source==="official" && String(l.menu_id)===String(menuId); })).sort(function(a,b){ return (a.sort_order||0)-(b.sort_order||0); });
+    roDlvRenderList(links);
+  }
+  function roDlvRenderList(links){
+    var list=roEl("roDlvList"); if(!list) return;
+    if(!links.length){ list.innerHTML='<div class="adm-note" style="margin:0">'+L("No Eat Now links yet.","Belum ada tautan Eat Now.")+'</div>'; return; }
+    list.innerHTML=links.map(function(l){
+      return '<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)">'+
+        '<span class="adm-tag adm-tag--mute">'+esc(l.provider||"—")+'</span>'+
+        '<div style="flex:1;min-width:0"><div style="font-weight:600">'+esc(l.label||"")+'</div><div class="adm-note" style="margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(l.url||"")+'</div></div>'+
+        '<label class="afset-check"><input type="checkbox" class="roDlvAct" data-id="'+esc(l.id)+'" '+(l.is_active?"checked":"")+'><span>'+L("Live","Tayang")+'</span></label>'+
+        '<button class="adm-btn adm-btn--sm roDlvDel" data-id="'+esc(l.id)+'">'+L("Delete","Hapus")+'</button></div>';
+    }).join("");
+    if(window.applyAdmLang) window.applyAdmLang();
+  }
+  async function roDlvAddClick(){
+    var menuId=RO_EDIT; if(!menuId) return;
+    var msg=roEl("roDlvMsg"), sel=roEl("roDlvProvider"), labelEl=roEl("roDlvLabel"), urlEl=roEl("roDlvUrl");
+    var provId=sel?sel.value:"";
+    var provName=(sel&&sel.selectedOptions&&sel.selectedOptions[0])?(sel.selectedOptions[0].getAttribute("data-name")||""):"";
+    var label=((labelEl&&labelEl.value.trim())||provName||"").trim();
+    var url=urlEl?urlEl.value.trim():"";
+    if(!label||!url){ if(msg) msg.textContent=L("Label & URL required.","Label & URL wajib."); return; }
+    if(!/^https:\/\//i.test(url)){ if(msg) msg.textContent=L("URL must start with https://","URL harus diawali https://"); return; }
+    if(msg) msg.textContent=L("Adding…","Menambah…");
+    var body={ source:"official", menu_id:menuId, label:label, url:url };
+    if(provId) body.provider_id=provId; else body.provider=label;
+    var r=await adminPost("/api/admin/menu-delivery", body).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ if(msg) msg.textContent=""; if(labelEl) labelEl.value=""; if(urlEl) urlEl.value=""; if(sel) sel.value=""; roDlvReload(menuId); }
+    else if(msg) msg.textContent=L("Failed: ","Gagal: ")+((r&&r.error)||"error");
+  }
+  async function roDlvDelete(id){
+    if(!confirm(L("Delete this Eat Now link?","Hapus tautan Eat Now ini?"))) return;
+    var r=await adminPost("/api/admin/menu-delivery/"+encodeURIComponent(id)+"/delete", {}).then(function(x){return x.json();}).catch(function(){return null;});
+    if(r&&r.ok){ roDlvReload(RO_EDIT); }
+  }
+  async function roDlvToggle(id, active){
+    await adminPost("/api/admin/menu-delivery/"+encodeURIComponent(id)+"/update", { is_active: active }).then(function(x){return x.json();}).catch(function(){return null;});
+  }
   function roBody(){
     var v=function(id){ var e=roEl(id); return e?e.value.trim():""; };
     var n=function(id){ var e=roEl(id); return (e&&e.value!=="")?Math.round(+e.value):null; };
@@ -2352,6 +2427,11 @@
     var pf=roEl("roPhotoFile"); if(pf) pf.onchange=function(){ if(pf.files&&pf.files[0]) roUploadPhoto(pf.files[0]); pf.value=""; };
     var pc=roEl("roPhotoClear"); if(pc) pc.onclick=function(){ roSetPhoto(null); };
     var pl=roEl("roPhotoLink"); if(pl) pl.oninput=function(){ roSetPhoto(pl.value, true); };
+    var dadd=roEl("roDlvAdd"); if(dadd) dadd.onclick=roDlvAddClick;
+    var dlist=roEl("roDlvList"); if(dlist){
+      dlist.addEventListener("click",function(e){ var b=e.target.closest(".roDlvDel"); if(b) roDlvDelete(b.getAttribute("data-id")); });
+      dlist.addEventListener("change",function(e){ var c=e.target.closest(".roDlvAct"); if(c) roDlvToggle(c.getAttribute("data-id"), c.checked); });
+    }
     var vl=roEl("roViewList"); if(vl) vl.onclick=function(){ roSetView("list"); };
     var vg=roEl("roViewGrid"); if(vg) vg.onclick=function(){ roSetView("grid"); };
     var se=roEl("roSearch"); if(se){ var t; se.addEventListener("input",function(){ clearTimeout(t); t=setTimeout(loadRecipesOfficial,300); }); }
