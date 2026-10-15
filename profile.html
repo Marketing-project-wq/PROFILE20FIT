@@ -490,13 +490,18 @@
     // Deteksi status affiliate lewat RLS: member hanya bisa baca baris 'affiliate' miliknya sendiri
     // (policy "Affiliates read their own row"; auth_user_id = auth.uid()). Tak ada endpoint/DB baru.
     var AFF_URL="https://affiliate.20fit.id";
-    function affGo(){
-      // Bawa sesi best-effort (kalau affiliate app sudah pasang SSO consumer); kalau tidak, navigasi biasa same-tab.
-      if(window.Auth && typeof Auth.navigateWithSSO==="function"){ Auth.navigateWithSSO(AFF_URL); return; }
-      if(window.SSO20fit && typeof SSO20fit.navigateWithSSO==="function"){ SSO20fit.navigateWithSSO(AFF_URL); return; }
-      if(window.Auth && typeof Auth.ssoTo==="function"){ Auth.ssoTo(AFF_URL); return; }
-      location.href=AFF_URL;
+    var AFF_JOIN_URL="https://affiliate.20fit.id/gabung"; // satu pintu join affiliate
+    // Navigasi ke app affiliate SATU PINTU: bawa sesi best-effort (kalau affiliate app sudah
+    // pasang SSO consumer) supaya join/dashboard ter-link ke akun my.20fit; kalau tidak, navigasi
+    // biasa same-tab (aturan navigasi §G: tanpa target=_blank/window.open).
+    function affNav(url){
+      if(window.Auth && typeof Auth.navigateWithSSO==="function"){ Auth.navigateWithSSO(url); return; }
+      if(window.SSO20fit && typeof SSO20fit.navigateWithSSO==="function"){ SSO20fit.navigateWithSSO(url); return; }
+      if(window.Auth && typeof Auth.ssoTo==="function"){ Auth.ssoTo(url); return; }
+      location.href=url;
     }
+    function affGo(){ affNav(AFF_URL); }        // affiliate -> dashboard
+    function affJoin(){ affNav(AFF_JOIN_URL); }  // belum affiliate -> halaman gabung
     async function loadAffiliate(){
       var row=null;
       try{
@@ -518,7 +523,7 @@
       } else {
         box.innerHTML=
           '<div class="muted" style="margin-bottom:12px">'+L({en:"Refer friends to 20FIT and earn commissions. Join the affiliate program to get your referral link.",id:"Ajak teman ke 20FIT dan dapatkan komisi. Gabung program affiliate untuk dapat link referral-mu."})+'</div>'+
-          '<button class="btn" style="margin-top:0" onclick="affGo()">'+L({en:"Learn more / Join",id:"Pelajari / Daftar"})+'</button>';
+          '<button class="btn" style="margin-top:0" onclick="affJoin()">'+L({en:"Become an affiliate",id:"Daftar jadi Affiliate"})+'</button>';
       }
     }
     function renderCorpCard(m){
