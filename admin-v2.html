@@ -2309,12 +2309,18 @@
   }
   window.roEdit=function(id){ var r=RO_LIST.find(function(x){return String(x.id)===String(id);}); if(r) roOpenForm(r); };
   // ---- Eat Now / tautan pesan-antar per resep (reuse /api/admin/menu-delivery) ----
-  var RO_DLV_PROV=null;
-  async function roDlvLoadProviders(){
-    if(RO_DLV_PROV) return RO_DLV_PROV;
-    var r=await adminFetch("/api/admin/delivery-providers").then(function(x){return x.json();}).catch(function(){return null;});
-    RO_DLV_PROV=(r&&r.providers)||[];
-    return RO_DLV_PROV;
+  // Penyedia preset siap-pakai (pesan makanan + grocery). "" = Lainnya (ketik nama sendiri).
+  var RO_DLV_PRESETS=["GrabFood","GoFood","ShopeeFood","Astro","Blibli","Tokopedia","Sayurbox","HappyFresh"];
+  function roDlvFillProviders(){
+    var sel=roEl("roDlvProvider"); if(!sel) return;
+    sel.innerHTML='<option value="">'+L("Other (type your own)","Lainnya (ketik sendiri)")+'</option>'+
+      RO_DLV_PRESETS.map(function(n){ return '<option value="'+esc(n)+'">'+esc(n)+'</option>'; }).join("");
+    // Pilih preset -> isi otomatis Label (bisa diubah). Lainnya -> fokus ke Label untuk diketik.
+    sel.onchange=function(){
+      var lab=roEl("roDlvLabel");
+      if(sel.value){ if(lab && !lab.value.trim()) lab.value=sel.value; }
+      else if(lab){ lab.focus(); }
+    };
   }
   async function roDlvOpen(menuId){
     var box=roEl("roEatNow"); if(!box) return; box.hidden=false;
@@ -2322,9 +2328,7 @@
     if(msg) msg.textContent="";
     if(!menuId){ if(hint) hint.hidden=false; if(addrow) addrow.style.display="none"; if(list) list.innerHTML=""; return; }
     if(hint) hint.hidden=true; if(addrow) addrow.style.display="";
-    var provs=await roDlvLoadProviders();
-    var sel=roEl("roDlvProvider");
-    if(sel) sel.innerHTML='<option value="">'+L("— custom —","— custom —")+'</option>'+provs.filter(function(p){return p.is_active;}).map(function(p){ return '<option value="'+esc(p.id)+'" data-name="'+esc(p.name)+'">'+esc(p.name)+'</option>'; }).join("");
+    roDlvFillProviders();
     await roDlvReload(menuId);
   }
   async function roDlvReload(menuId){
@@ -2348,15 +2352,15 @@
   async function roDlvAddClick(){
     var menuId=RO_EDIT; if(!menuId) return;
     var msg=roEl("roDlvMsg"), sel=roEl("roDlvProvider"), labelEl=roEl("roDlvLabel"), urlEl=roEl("roDlvUrl");
-    var provId=sel?sel.value:"";
-    var provName=(sel&&sel.selectedOptions&&sel.selectedOptions[0])?(sel.selectedOptions[0].getAttribute("data-name")||""):"";
+    var provName=(sel?sel.value:"").trim();                       // preset dipilih, atau "" (Lainnya)
     var label=((labelEl&&labelEl.value.trim())||provName||"").trim();
     var url=urlEl?urlEl.value.trim():"";
     if(!label||!url){ if(msg) msg.textContent=L("Label & URL required.","Label & URL wajib."); return; }
     if(!/^https:\/\//i.test(url)){ if(msg) msg.textContent=L("URL must start with https://","URL harus diawali https://"); return; }
     if(msg) msg.textContent=L("Adding…","Menambah…");
-    var body={ source:"official", menu_id:menuId, label:label, url:url };
-    if(provId) body.provider_id=provId; else body.provider=label;
+    // provider = nama channel (preset atau dari label kalau Lainnya); tanpa provider_id (master
+    // belum ada). Server simpan provider+label; member tampil pakai label.
+    var body={ source:"official", menu_id:menuId, provider:(provName||label), label:label, url:url };
     var r=await adminPost("/api/admin/menu-delivery", body).then(function(x){return x.json();}).catch(function(){return null;});
     if(r&&r.ok){ if(msg) msg.textContent=""; if(labelEl) labelEl.value=""; if(urlEl) urlEl.value=""; if(sel) sel.value=""; roDlvReload(menuId); }
     else if(msg) msg.textContent=L("Failed: ","Gagal: ")+((r&&r.error)||"error");
