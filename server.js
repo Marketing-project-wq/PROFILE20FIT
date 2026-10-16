@@ -35,6 +35,7 @@ const WorkoutMetrics = require("./js/workout-metrics.js"); // format & validasi 
 const qrcode = require("./js/qrcode-generator");
 const blast = require("./lib/blast"); // send queue blast email (batching, kill switch, auto-abort)
 const emailConfig = require("./lib/email-config"); // angka guardrail anti-spam (cap, kill switch, backlog, circuit breaker)
+const { makeInternalAuth } = require("./lib/internal-auth"); // guard /internal/* (service token)
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
@@ -213,7 +214,8 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true })); // sebagian gateway kirim webhook form-encoded
 // Railway = reverse proxy 1 hop -> req.ip benar (pakai X-Forwarded-For dari proxy tepercaya).
-app.set("trust proxy", 1);
+// Di belakang Kong (staging: Railway edge -> Kong -> app) = 2 hop -> set TRUST_PROXY_HOPS=2.
+app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS || 1));
 
 // ---------- Ekosistem sub-domain: klasifikasi host (FASE 1B foundation, DORMAN) ----------
 // Satu app melayani my.20fit.id + (nanti) calories./menu./medicalcheckup. Middleware ini HANYA
@@ -10544,6 +10546,27 @@ app.get("/api/whoami", async (req, res) => {
   const ip = await egressIp();
   return res.json({ ok: true, egress_ip: ip, note: ip ? "IP keluar server (egress)." : "Gagal ambil IP; coba lagi." });
 });
+
+// Health untuk gateway/uptime: 200 kalau Supabase Auth terjangkau. Tanpa baca tabel.
+// `ip` = req.ip (IP klien sendiri) -> cek TRUST_PROXY_HOPS benar di belakang Kong.
+app.get("/api/health", async (req, res) => {
+  try {
+    const r = await fetch(SUPABASE_URL + "/auth/v1/health", {
+      headers: { apikey: SUPABASE_ANON_KEY },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!r.ok) return res.status(503).json({ ok: false });
+    return res.json({ ok: true, ip: req.ip });
+  } catch (e) {
+    console.error("health:", (e && e.message) || e);
+    return res.status(503).json({ ok: false });
+  }
+});
+
+// /internal/* = kontrak antar-domain (spec staging-target-architecture). Hanya dari dalam project
+// Railway lewat jaringan privat + service token; Kong memblokirnya (404) dari internet.
+app.use("/internal", makeInternalAuth(process.env.INTERNAL_TOKENS));
+app.get("/internal/v1/ping", (req, res) => res.json({ ok: true, caller: req.caller }));
 
 // Self-test konfigurasi pembayaran (non-sensitif): status env, tanpa bocorkan nilai.
 app.get("/api/xendit/selftest", (req, res) => {
